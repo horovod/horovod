@@ -1,0 +1,2 @@
+recursive-include * *.h *.cc
+include README.md
