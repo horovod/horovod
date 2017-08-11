@@ -287,3 +287,8 @@ will likely cause NCCL and MPI and to fail.  In order to disable IPC in NCCL and
 memory, use:
 * `export NCCL_P2P_DISABLE=1` for NCCL.
 * `--mca btl_smcuda_use_cuda_ipc 0` flag for OpenMPI and similar flags for other vendors.
+
+### References
+
+1. Gibiansky, A. (2017). *Bringing HPC Techniques to Deep Learning*. Retrieved from
+[http://research.baidu.com/bringing-hpc-techniques-deep-learning/](http://research.baidu.com/bringing-hpc-techniques-deep-learning/)
