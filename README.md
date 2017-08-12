@@ -7,7 +7,7 @@ fast and easy to use.
 
 To install Horovod:
 
-1. Install [Open MPI](https://www.open-mpi.org/).
+1. Install [Open MPI](https://www.open-mpi.org/) or another MPI implementation.
 
 2. Install the `horovod` pip package.
 
@@ -63,7 +63,7 @@ To use Horovod, make the following additions to your program:
     processes. Alternatively, if you're not using `MonitoredTrainingSession`, you can simply execute the
     `hvd.broadcast_global_variables` op after global variables have been initialized.
 
-Example (full MNIST training example is available [here](examples/tensorflow_mnist.py)):
+Example (see [examples](examples/) directory for full training examples):
 
 ```python
 import tensorflow as tf
@@ -108,6 +108,14 @@ To run on a machine with 4 GPUs:
 $ mpirun -np 4 python train.py
 ```
 
+To run on 4 machines with 4 GPUs each using Open MPI:
+
+```bash
+$ mpirun -np 16 -H server1:4,server2:4,server3:4,server4:4 python train.py
+```
+
+Check your MPI documentation for arguments to the `mpirun` command on your system.
+
 ## <a name="gpu">Horovod on GPU</a>
 
 To use Horovod on GPU, read the options below and see which one applies to you best.
@@ -119,7 +127,7 @@ operation optimized for NVIDIA GPUs and a variety of networking devices, such as
 
 1. Install [NCCL 2](https://developer.nvidia.com/nccl).
 
-2. Install [Open MPI](https://www.open-mpi.org/).
+2. Install [Open MPI](https://www.open-mpi.org/) or another MPI implementation.
 
 3. Install the `horovod` pip package.
 
@@ -148,7 +156,7 @@ command.
 
 1. Install [NCCL 2](https://developer.nvidia.com/nccl).
 
-2. Install [Open MPI](https://www.open-mpi.org/).
+2. Install [Open MPI](https://www.open-mpi.org/) or another MPI implementation with CUDA support.
 
 3. Install the `horovod` pip package.
 
@@ -283,7 +291,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = str(hvd.local_rank())
 **Note**: Setting `CUDA_VISIBLE_DEVICES` is incompatible with `config.gpu_options.visible_device_list`.
 
 Setting `CUDA_VISIBLE_DEVICES` has additional disadvantage for GPU version - CUDA will not be able to use IPC, which
-will likely cause NCCL and MPI and to fail.  In order to disable IPC in NCCL and MPI and allow it to fallback to shared
+will likely cause NCCL and MPI to fail.  In order to disable IPC in NCCL and MPI and allow it to fallback to shared
 memory, use:
 * `export NCCL_P2P_DISABLE=1` for NCCL.
 * `--mca btl_smcuda_use_cuda_ipc 0` flag for OpenMPI and similar flags for other vendors.
