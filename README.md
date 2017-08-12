@@ -63,7 +63,7 @@ To use Horovod, make the following additions to your program:
     processes. Alternatively, if you're not using `MonitoredTrainingSession`, you can simply execute the
     `hvd.broadcast_global_variables` op after global variables have been initialized.
 
-Example (see [examples](examples/) directory for full training examples):
+Example (see the [examples](examples/) directory for full training examples):
 
 ```python
 import tensorflow as tf
