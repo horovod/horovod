@@ -268,7 +268,7 @@ class custom_build_ext(build_ext):
 
 
 setup(name='horovod',
-      version='0.9.0',
+      version='0.9.1',
       packages=find_packages(),
       description='Distributed training framework for TensorFlow.',
       author='Uber Technologies, Inc.',
@@ -276,6 +276,10 @@ setup(name='horovod',
           Horovod is a distributed training framework for TensorFlow. 
           The goal of Horovod is to make distributed Deep Learning
           fast and easy to use.'''),
+      url='https://github.com/uber/horovod',
+      classifiers=[
+          'License :: OSI Approved :: Apache Software License'
+      ],
       ext_modules=[tensorflow_mpi_lib],
       cmdclass={'build_ext': custom_build_ext},
       zip_safe=False)
