@@ -14,6 +14,8 @@
 // limitations under the License.
 // =============================================================================
 
+#include <fstream>
+#include <iostream>
 #include <queue>
 #include <thread>
 #include <unordered_map>
@@ -34,9 +36,9 @@
 #endif
 
 #define OMPI_SKIP_MPICXX
+#include "hash_vector.h"
 #include "mpi.h"
 #include "mpi_message.h"
-#include "hash_vector.h"
 
 /*
  * Allreduce, Allgather and Broadcast Ops for TensorFlow.
@@ -117,7 +119,7 @@ typedef std::unordered_map<std::string, TensorTableEntry> TensorTable;
 // when a reduction is ready to be done (when all nodes are ready to do it).
 typedef std::unordered_map<
     std::string,
-    std::tuple<std::vector<MPIRequest>, std::chrono::system_clock::time_point>>
+    std::tuple<std::vector<MPIRequest>, std::chrono::steady_clock::time_point>>
     MessageTable;
 
 // The global state required for the MPI ops.
@@ -152,7 +154,16 @@ struct HorovodGlobalState {
   std::unique_ptr<MessageTable> message_table;
 
   // Time point when coordinator last checked for stalled tensors.
-  std::chrono::system_clock::time_point last_stall_check;
+  std::chrono::steady_clock::time_point last_stall_check;
+
+  // Time point when Horovod was started.
+  std::chrono::steady_clock::time_point start_time;
+
+  // Timeline file.
+  std::ofstream timeline_file;
+
+  // A mutex that guards timeline file from concurrent access.
+  std::mutex timeline_mutex;
 
   // Whether MPI_Init has been completed on the background thread.
   bool initialization_done = false;
@@ -204,6 +215,69 @@ static HorovodGlobalState horovod_global;
 // Stall-check warning time
 #define STALL_WARNING_TIME std::chrono::seconds(60)
 
+// Write event to the Horovod Timeline file.
+void WriteTimelineEvent(const std::string& name, const std::string& category,
+                        const char phase, const char scope,
+                        const std::string& id, const int rank) {
+  auto& timeline_file = horovod_global.timeline_file;
+  if (!timeline_file.good()) {
+    return;
+  }
+
+  // Ensure only single thread writes to file to avoid mangling.
+  std::lock_guard<std::mutex> guard(horovod_global.timeline_mutex);
+
+  // Check if file is still good, as it may have errored in competing thread.
+  if (!timeline_file.good()) {
+    return;
+  }
+
+  auto ts = std::chrono::steady_clock::now() - horovod_global.start_time;
+  auto ts_micros =
+      std::chrono::duration_cast<std::chrono::microseconds>(ts).count();
+
+  timeline_file << "{";
+  timeline_file << "\"name\": \"" << name << "\"";
+  timeline_file << ", \"cat\": \"" << category << "\"";
+  timeline_file << ", \"ph\": \"" << phase << "\"";
+  timeline_file << ", \"ts\": \"" << ts_micros << "\"";
+  timeline_file << ", \"pid\": \"" << rank << "\"";
+  if (scope) {
+    timeline_file << ", \"s\": \"" << scope << "\"";
+  }
+  if (id != "") {
+    timeline_file << ", \"id\": \"" << id << "\"";
+  }
+  timeline_file << "}," << std::endl;
+  timeline_file.flush();
+
+  if (!timeline_file.good()) {
+    std::cerr << "WARNING: Error writing to the Horovod Timeline after it was "
+                 "successfully opened, will stop writing the timeline."
+              << std::endl;
+  }
+}
+
+void WriteTimelineTensorReady(const std::string& tensor_name,
+                              const MPIRequest::RequestType request_type,
+                              const int rank) {
+  auto event_category =
+      "READY_TO_" + MPIRequest::RequestType_Name(request_type);
+  WriteTimelineEvent(tensor_name, event_category, 'i', 'p', "", rank);
+}
+
+void WriteTimelineOpStart(const std::string& tensor_name,
+                          const MPIResponse::ResponseType response_type) {
+  auto event_category = MPIResponse::ResponseType_Name(response_type);
+  WriteTimelineEvent(tensor_name, event_category, 'b', 0, tensor_name, 0);
+}
+
+void WriteTimelineOpEnd(const std::string& tensor_name,
+                        const MPIResponse::ResponseType response_type) {
+  auto event_category = MPIResponse::ResponseType_Name(response_type);
+  WriteTimelineEvent(tensor_name, event_category, 'e', 0, tensor_name, 0);
+}
+
 // Store the MPIRequest for a name, and return whether the total count of
 // MPIRequests for that tensor is now equal to the MPI size (and thus we are
 // ready to reduce the tensor).
@@ -213,13 +287,15 @@ bool IncrementTensorCount(std::unique_ptr<MessageTable>& message_table,
   auto table_iter = message_table->find(name);
   if (table_iter == message_table->end()) {
     std::vector<MPIRequest> messages = {msg};
-    auto now = std::chrono::system_clock::now();
+    auto now = std::chrono::steady_clock::now();
     message_table->emplace(name, std::make_tuple(std::move(messages), now));
     table_iter = message_table->find(name);
   } else {
     std::vector<MPIRequest>& messages = std::get<0>(table_iter->second);
     messages.push_back(msg);
   }
+
+  WriteTimelineTensorReady(name, msg.request_type(), msg.request_rank());
 
   std::vector<MPIRequest>& messages = std::get<0>(table_iter->second);
   int count = (int)messages.size();
@@ -553,6 +629,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     tensor_table.erase(iter);
   }
 
+  WriteTimelineOpStart(response.tensor_name(), response.response_type());
+
 #if HAVE_CUDA
   // On GPU data readiness is signalled by ready_event.
   if (e.ready_event != nullptr) {
@@ -591,6 +669,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
     status = e.context->allocate_output(0, output_shape, &e.output);
     if (!status.ok()) {
+      WriteTimelineOpEnd(response.tensor_name(), response.response_type());
       e.callback(status);
       return;
     }
@@ -606,6 +685,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     MPI_Datatype dtype;
     status = GetMPIDataType(e.tensor, &dtype);
     if (!status.ok()) {
+      WriteTimelineOpEnd(response.tensor_name(), response.response_type());
       e.callback(status);
       return;
     }
@@ -631,6 +711,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     delete[] displcmnts;
     MPI_CHECK(e, "MPI_Allgatherv", result)
 
+    WriteTimelineOpEnd(response.tensor_name(), response.response_type());
     e.callback(Status::OK());
 
   } else if (response.response_type() == MPIResponse::ALLREDUCE) {
@@ -668,6 +749,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       ncclDataType_t dtype;
       status = GetNCCLDataType(e.tensor, &dtype);
       if (!status.ok()) {
+        WriteTimelineOpEnd(response.tensor_name(), response.response_type());
         e.callback(status);
         return;
       }
@@ -688,9 +770,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                  cudaEventRecord(event, horovod_global.streams[e.device]))
 
       // TODO: use thread pool or single thread for callbacks
-      std::thread finalizer_thread([e, event] {
+      std::thread finalizer_thread([e, event, response] {
         CUDA_CHECK(e, "cudaSetDevice", cudaSetDevice(e.device))
         CUDA_CHECK(e, "cudaEventSynchronize", cudaEventSynchronize(event))
+        WriteTimelineOpEnd(response.tensor_name(), response.response_type());
         e.callback(Status::OK());
         cudaEventDestroy(event);
       });
@@ -702,6 +785,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     MPI_Datatype dtype;
     status = GetMPIDataType(e.tensor, &dtype);
     if (!status.ok()) {
+      WriteTimelineOpEnd(response.tensor_name(), response.response_type());
       e.callback(status);
       return;
     }
@@ -712,12 +796,14 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                             (int)e.tensor.NumElements(), dtype, MPI_SUM,
                             MPI_COMM_WORLD))
 
+    WriteTimelineOpEnd(response.tensor_name(), response.response_type());
     e.callback(Status::OK());
 
   } else if (response.response_type() == MPIResponse::BROADCAST) {
     MPI_Datatype dtype;
     status = GetMPIDataType(e.tensor, &dtype);
     if (!status.ok()) {
+      WriteTimelineOpEnd(response.tensor_name(), response.response_type());
       e.callback(status);
       return;
     }
@@ -734,10 +820,12 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
               MPI_Bcast(data_ptr, (int)e.tensor.NumElements(), dtype,
                         e.root_rank, MPI_COMM_WORLD))
 
+    WriteTimelineOpEnd(response.tensor_name(), response.response_type());
     e.callback(Status::OK());
 
   } else if (response.response_type() == MPIResponse::ERROR) {
     status = errors::FailedPrecondition(response.error_message());
+    WriteTimelineOpEnd(response.tensor_name(), response.response_type());
     e.callback(status);
   }
 }
@@ -746,12 +834,12 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 // some ranks but not others and are waiting for long time to get processed.
 void CheckForStalledTensors(HorovodGlobalState& state) {
   bool preamble = false;
-  auto now = std::chrono::system_clock::now();
+  auto now = std::chrono::steady_clock::now();
   for (auto it = state.message_table->begin(); it != state.message_table->end();
        it++) {
     auto tensor_name = it->first;
     std::vector<MPIRequest>& messages = std::get<0>(it->second);
-    std::chrono::system_clock::time_point start_at = std::get<1>(it->second);
+    std::chrono::steady_clock::time_point start_at = std::get<1>(it->second);
 
     if (now - start_at > STALL_WARNING_TIME) {
       if (!preamble) {
@@ -863,7 +951,23 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.rank = rank;
   state.local_rank = local_rank;
   state.size = size;
+  state.start_time = std::chrono::steady_clock::now();
   state.initialization_done = true;
+
+  // Open the timeline file on coordinator.
+  auto horovod_timeline = std::getenv("HOROVOD_TIMELINE");
+  if (is_coordinator && horovod_timeline != nullptr) {
+    state.timeline_file.open(horovod_timeline, std::ios::out | std::ios::trunc);
+    if (state.timeline_file.good()) {
+      // Initialize the timeline.  Timeline spec is from:
+      // https://github.com/catapult-project/catapult/tree/master/tracing
+      state.timeline_file << "[" << std::endl;
+    } else {
+      std::cerr << "WARNING: Error opening the Horovod Timeline file "
+                << horovod_timeline << ", will not write a timeline."
+                << std::endl;
+    }
+  }
 
   // Initialize the tensor count table. No tensors are available yet.
   if (is_coordinator) {
@@ -991,10 +1095,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       }
 
       // Check for stalled tensors.
-      if (std::chrono::system_clock::now() - state.last_stall_check >
+      if (std::chrono::steady_clock::now() - state.last_stall_check >
           STALL_WARNING_TIME) {
         CheckForStalledTensors(state);
-        state.last_stall_check = std::chrono::system_clock::now();
+        state.last_stall_check = std::chrono::steady_clock::now();
       }
     } else {
       // Notify the coordinator that this node is done sending messages.
@@ -1035,6 +1139,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       }
     }
   } while (!should_shut_down);
+
+  // Close timeline.
+  state.timeline_file.close();
 
   // TODO: init.cu:645 WARN Cuda failure 'driver shutting down'
   //#if HAVE_NCCL
