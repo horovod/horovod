@@ -165,6 +165,10 @@ struct HorovodGlobalState {
   // A mutex that guards timeline file from concurrent access.
   std::mutex timeline_mutex;
 
+  // Mapping of tensor names to indexes. It is used to reduce size of the
+  // timeline file.
+  std::unordered_map<std::string, int> timeline_tensor_table;
+
   // Whether MPI_Init has been completed on the background thread.
   bool initialization_done = false;
 
@@ -216,9 +220,8 @@ static HorovodGlobalState horovod_global;
 #define STALL_WARNING_TIME std::chrono::seconds(60)
 
 // Write event to the Horovod Timeline file.
-void WriteTimelineEvent(const std::string& name, const std::string& category,
-                        const char phase, const char scope,
-                        const std::string& id, const int rank) {
+void WriteTimelineEvent(const std::string& tensor_name,
+                        const std::string& op_name, const char phase) {
   auto& timeline_file = horovod_global.timeline_file;
   if (!timeline_file.good()) {
     return;
@@ -236,17 +239,32 @@ void WriteTimelineEvent(const std::string& name, const std::string& category,
   auto ts_micros =
       std::chrono::duration_cast<std::chrono::microseconds>(ts).count();
 
-  timeline_file << "{";
-  timeline_file << "\"name\": \"" << name << "\"";
-  timeline_file << ", \"cat\": \"" << category << "\"";
-  timeline_file << ", \"ph\": \"" << phase << "\"";
-  timeline_file << ", \"ts\": \"" << ts_micros << "\"";
-  timeline_file << ", \"pid\": \"" << rank << "\"";
-  if (scope) {
-    timeline_file << ", \"s\": \"" << scope << "\"";
+  auto& tensor_idx = horovod_global.timeline_tensor_table[tensor_name];
+  if (tensor_idx == 0) {
+    tensor_idx = (int)horovod_global.timeline_tensor_table.size();
+
+    // Register metadata for this "pid".
+    timeline_file << "{";
+    timeline_file << "\"name\": \"process_name\"";
+    timeline_file << ", \"ph\": \"M\"";
+    timeline_file << ", \"pid\": " << tensor_idx << "";
+    timeline_file << ", \"args\": {\"name\": \"" << tensor_name << "\"}";
+    timeline_file << "}," << std::endl;
+    timeline_file << "{";
+    timeline_file << "\"name\": \"process_sort_index\"";
+    timeline_file << ", \"ph\": \"M\"";
+    timeline_file << ", \"pid\": " << tensor_idx << "";
+    timeline_file << ", \"args\": {\"sort_index\": " << tensor_idx << "}";
+    timeline_file << "}," << std::endl;
   }
-  if (id != "") {
-    timeline_file << ", \"id\": \"" << id << "\"";
+
+  timeline_file << "{";
+  timeline_file << "\"name\": \"" << op_name << "\"";
+  timeline_file << ", \"ph\": \"" << phase << "\"";
+  timeline_file << ", \"ts\": " << ts_micros << "";
+  timeline_file << ", \"pid\": " << tensor_idx << "";
+  if (phase == 'X') {
+    timeline_file << ", \"dur\": " << 0 << "";
   }
   timeline_file << "}," << std::endl;
   timeline_file.flush();
@@ -258,24 +276,34 @@ void WriteTimelineEvent(const std::string& name, const std::string& category,
   }
 }
 
-void WriteTimelineTensorReady(const std::string& tensor_name,
-                              const MPIRequest::RequestType request_type,
-                              const int rank) {
+void WriteTimelineTensorReady(const std::string& tensor_name, const int rank) {
+  WriteTimelineEvent(tensor_name, std::to_string(rank), 'X');
+}
+
+void WriteTimelineTensorReadyStart(const std::string& tensor_name,
+                                   const MPIRequest::RequestType request_type) {
   auto event_category =
       "READY_TO_" + MPIRequest::RequestType_Name(request_type);
-  WriteTimelineEvent(tensor_name, event_category, 'i', 'p', "", rank);
+  WriteTimelineEvent(tensor_name, event_category, 'B');
+}
+
+void WriteTimelineTensorReadyEnd(const std::string& tensor_name,
+                                 const MPIRequest::RequestType request_type) {
+  auto event_category =
+      "READY_TO_" + MPIRequest::RequestType_Name(request_type);
+  WriteTimelineEvent(tensor_name, event_category, 'E');
 }
 
 void WriteTimelineOpStart(const std::string& tensor_name,
                           const MPIResponse::ResponseType response_type) {
   auto event_category = MPIResponse::ResponseType_Name(response_type);
-  WriteTimelineEvent(tensor_name, event_category, 'b', 0, tensor_name, 0);
+  WriteTimelineEvent(tensor_name, event_category, 'B');
 }
 
 void WriteTimelineOpEnd(const std::string& tensor_name,
                         const MPIResponse::ResponseType response_type) {
   auto event_category = MPIResponse::ResponseType_Name(response_type);
-  WriteTimelineEvent(tensor_name, event_category, 'e', 0, tensor_name, 0);
+  WriteTimelineEvent(tensor_name, event_category, 'E');
 }
 
 // Store the MPIRequest for a name, and return whether the total count of
@@ -290,16 +318,21 @@ bool IncrementTensorCount(std::unique_ptr<MessageTable>& message_table,
     auto now = std::chrono::steady_clock::now();
     message_table->emplace(name, std::make_tuple(std::move(messages), now));
     table_iter = message_table->find(name);
+    WriteTimelineTensorReadyStart(name, msg.request_type());
   } else {
     std::vector<MPIRequest>& messages = std::get<0>(table_iter->second);
     messages.push_back(msg);
   }
 
-  WriteTimelineTensorReady(name, msg.request_type(), msg.request_rank());
+  WriteTimelineTensorReady(name, msg.request_rank());
 
   std::vector<MPIRequest>& messages = std::get<0>(table_iter->second);
   int count = (int)messages.size();
-  return count == mpi_size;
+  bool ready_to_reduce = count == mpi_size;
+  if (ready_to_reduce) {
+    WriteTimelineTensorReadyEnd(name, msg.request_type());
+  }
+  return ready_to_reduce;
 }
 
 // Once a tensor is ready to be reduced, the coordinator sends an MPIResponse
