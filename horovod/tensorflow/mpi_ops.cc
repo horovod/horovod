@@ -1173,7 +1173,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     }
   } while (!should_shut_down);
 
-  // Close timeline.
+  // Close the timeline.
   state.timeline_file.close();
 
   // TODO: init.cu:645 WARN Cuda failure 'driver shutting down'
