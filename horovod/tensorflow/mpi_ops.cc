@@ -223,7 +223,7 @@ static HorovodGlobalState horovod_global;
 void WriteTimelineEvent(const std::string& tensor_name,
                         const std::string& op_name, const char phase) {
   auto& timeline_file = horovod_global.timeline_file;
-  if (!timeline_file.good()) {
+  if (!timeline_file.is_open() || !timeline_file.good()) {
     return;
   }
 
