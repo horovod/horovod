@@ -298,11 +298,24 @@ void WriteTimelineOpStart(const std::string& tensor_name,
                           const MPIResponse::ResponseType response_type) {
   auto event_category = MPIResponse::ResponseType_Name(response_type);
   WriteTimelineEvent(tensor_name, event_category, 'B');
+  WriteTimelineEvent(tensor_name, "DATA_READY", 'B');
 }
 
+void WriteTimelineOpDataReady(const std::string& tensor_name) {
+  WriteTimelineEvent(tensor_name, "DATA_READY", 'E');
+  WriteTimelineEvent(tensor_name, "QUEUE", 'B');
+}
+
+void WriteTimelineOpProcess(const std::string& tensor_name) {
+  WriteTimelineEvent(tensor_name, "QUEUE", 'E');
+  WriteTimelineEvent(tensor_name, "PROCESS", 'B');
+}
+
+// TODO flush only here
 void WriteTimelineOpEnd(const std::string& tensor_name,
                         const MPIResponse::ResponseType response_type) {
   auto event_category = MPIResponse::ResponseType_Name(response_type);
+  WriteTimelineEvent(tensor_name, "PROCESS", 'E');
   WriteTimelineEvent(tensor_name, event_category, 'E');
 }
 
@@ -674,6 +687,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
   }
 #endif
 
+  WriteTimelineOpDataReady(response.tensor_name());
+
   Status status;
   if (response.response_type() == MPIResponse::ALLGATHER) {
     // Copy tensor sizes from the MPI response into a vector of size_t
@@ -787,6 +802,14 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         return;
       }
 
+      cudaEvent_t beforeReduceEvent;
+      // TODO: check if timeline is enabled, then make this one
+      CUDA_CHECK(e, "cudaEventCreateWithFlags",
+                 cudaEventCreateWithFlags(&beforeReduceEvent, cudaEventBlockingSync |
+                                                      cudaEventDisableTiming))
+      CUDA_CHECK(e, "cudaEventRecord",
+                 cudaEventRecord(beforeReduceEvent, horovod_global.streams[e.device]))
+
       NCCL_CHECK(e, "ncclAllReduce",
                  ncclAllReduce((const void*)e.tensor.tensor_data().data(),
                                (void*)e.output->tensor_data().data(),
@@ -803,8 +826,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                  cudaEventRecord(event, horovod_global.streams[e.device]))
 
       // TODO: use thread pool or single thread for callbacks
-      std::thread finalizer_thread([e, event, response] {
+      std::thread finalizer_thread([e, event, beforeReduceEvent, response] {
         CUDA_CHECK(e, "cudaSetDevice", cudaSetDevice(e.device))
+        CUDA_CHECK(e, "cudaEventSynchronize", cudaEventSynchronize(beforeReduceEvent))
+        WriteTimelineOpProcess(response.tensor_name());
         CUDA_CHECK(e, "cudaEventSynchronize", cudaEventSynchronize(event))
         WriteTimelineOpEnd(response.tensor_name(), response.response_type());
         e.callback(Status::OK());
