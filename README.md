@@ -7,23 +7,23 @@ fast and easy to use.
 
 # Why not traditional Distributed TensorFlow?
 
-The primary motivation for this project is to make it easy to take single GPU TensorFlow program and successfully train
+The primary motivation for this project is to make it easy to take a single GPU TensorFlow program and successfully train
 it on many GPUs faster. This has two aspects:
 
-1. How much modifications does one have to make to program to make it distributed, and how easy is it to run it.
+1. How much modifications does one have to make to a program to make it distributed, and how easy is it to run it.
 2. How much faster would it run in distributed mode?
 
-Internally at Uber we found that it's much easier for people to understand MPI model that requires minimal changes to
+Internally at Uber we found that it's much easier for people to understand an MPI model that requires minimal changes to
 source code than to understand how to set up regular Distributed TensorFlow.
 
 To give some perspective on that, [this commit](https://github.com/alsrgv/benchmarks/commit/86bf2f9269dbefb4e57a8b66ed260c8fab84d6c7) 
 into our fork of TF Benchmarks shows how much code can be removed if one doesn't need to worry about towers and manually
 averaging gradients across them, `tf.Server()`, `tf.ClusterSpec()`, `tf.train.SyncReplicasOptimizer()`, 
-`tf.train.replicas_device_setter()` and etc. If none of this things makes sense to you - don't worry, you don't have to 
+`tf.train.replicas_device_setter()` and so on. If none of these things makes sense to you - don't worry, you don't have to 
 learn them if you use Horovod.
 
 While installing MPI itself may seem like an extra hassle, it only needs to be done once and by one group of people,
-while everyone else in the company who are building the models can enjoy simplicity of training them at scale.
+while everyone else in the company who builds the models can enjoy simplicity of training them at scale.
 
 We also found performance of MPI and NCCL 2 to be very good for the task of averaging gradients. While we're working on
 large scale benchmark, we can share the numbers that we got on 16 GPUs:
@@ -91,8 +91,8 @@ To use Horovod, make the following additions to your program:
 1. Run `hvd.init()`.
 
 2. Pin a server GPU to be used by this process using `config.gpu_options.visible_device_list`.
-    With the typical setup of one GPU per process, this can be set to *local rank*. In that case, first process on the
-    server will be allocated first GPU, second process will be allocated second GPU and so forth.
+    With the typical setup of one GPU per process, this can be set to *local rank*. In that case, the first process on 
+    the server will be allocated the first GPU, second process will be allocated the second GPU and so forth.
 
 3. Wrap optimizer in `hvd.DistributedOptimizer`.  The distributed optimizer delegates gradient computation
     to the original optimizer, averages gradients using *allreduce* or *allgather*, and then applies those averaged
@@ -335,8 +335,8 @@ $ ldconfig
 
 1. Is MPI in PATH?
 
-If you see error message below, it means `mpicxx` was not found in PATH. Typically `mpicxx` is located in the same
-directory as `mpirun`. Please add directory containing `mpicxx` to PATH before installing Horovod.
+If you see the error message below, it means `mpicxx` was not found in PATH. Typically `mpicxx` is located in the same
+directory as `mpirun`. Please add a directory containing `mpicxx` to PATH before installing Horovod.
 
 ```
 error: mpicxx -show failed, is mpicxx in $PATH?
@@ -362,7 +362,7 @@ $ pip install horovod
 
 ### NCCL 2 is not found
 
-If you see error message below, it means NCCL 2 was not found in standard libraries location. If you have directory
+If you see the error message below, it means NCCL 2 was not found in standard libraries location. If you have a directory
 where you installed NCCL 2 which has both `include` and `lib` directories containing `nccl.h` and `libnccl.so` 
 respectively, you can pass it via `HOROVOD_NCCL_HOME` environment variable. Otherwise you can specify them separately
 via `HOROVOD_NCCL_INCLUDE` and `HOROVOD_NCCL_LIB` environment variables.
