@@ -221,7 +221,8 @@ def fully_define_extension(build_ext):
     MACROS = []
     INCLUDES = [tf_include]
     SOURCES = ['horovod/tensorflow/mpi_message.cc',
-               'horovod/tensorflow/mpi_ops.cc']
+               'horovod/tensorflow/mpi_ops.cc',
+               'horovod/tensorflow/timeline.cc']
     COMPILE_FLAGS = ['-std=c++11', '-fPIC', '-O2'] + shlex.split(mpi_flags)
     LINK_FLAGS = shlex.split(mpi_flags)
     LIBRARY_DIRS = []
