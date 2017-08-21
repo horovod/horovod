@@ -430,37 +430,37 @@ memory, use:
 
 ## Analyzing Horovod Performance
 
-Horovod has an ability to record the timeline of its activity, called Horovod Timeline.
+Horovod has the ability to record the timeline of its activity, called Horovod Timeline.
 
 ![Horovod Timeline](https://user-images.githubusercontent.com/16640218/29540325-a80e2140-8682-11e7-9f21-ada1613948be.png)
 
-In order to record Horovod Timeline, please set `HOROVOD_TIMELINE` environment variable to location of the timeline
+To record a Horovod Timeline, set the `HOROVOD_TIMELINE` environment variable to the location of the timeline
 file to be created.  This file is only recorded on rank 0, but it contains information about activity of all workers.
 
 ```bash
 $ HOROVOD_TIMELINE=/path/to/timeline.json mpirun -np 4 -x HOROVOD_TIMELINE python train.py
 ```
 
-You can then open timeline file using [chrome://tracing](chrome://tracing) facility of [Chrome](https://www.google.com/chrome/browser/) browser.
+You can then open the timeline file using the [chrome://tracing](chrome://tracing) facility of the [Chrome](https://www.google.com/chrome/browser/) browser.
 
-On the example above, you can see few tensors being reduced. There are two major phases for each tensor reduction:
+In the example above, you can see few tensors being reduced. There are two major phases for each tensor reduction:
 
-1. **Negotiation** - a phase when all workers send to rank 0 signal that they're ready to reduce given tensor.
+1. **Negotiation** - a phase when all workers send to rank 0 signal that they're ready to reduce the given tensor.
 
-* Each worker reporting readiness is represented by a tick under `NEGOTIATE_ALLREDUCE` bar, so you can see which workers
-were early and which were late.
+* Each worker reporting readiness is represented by a tick under the `NEGOTIATE_ALLREDUCE` bar, so you can see which
+workers were early and which were late.
 
-* Immediately after negotiation, rank 0 send all other workers signal to start reducing the tensor. 
+* Immediately after negotiation, rank 0 sends all other workers signal to start reducing the tensor. 
 
-2. **Reduction** - a phase when reduction actually happens. It is further subdivided into waiting for data, queueing and
+2. **Reduction** - a phase when reduction actually happens. It is further subdivided into waiting for data, queueing, and
  processing.
 
-* Waiting for data happens when GPU is still busy computing input to *allreduce* operation. This happens because TensorFlow
+* Waiting for data happens when GPU is still busy computing input to the *allreduce* operation. This happens because TensorFlow
 tries to smartly interleave scheduling and GPU computation.
 
-* Queueing happen when reduction is done with NCCL, and previous NCCL operation did not finish yet.
+* Queueing happens when reduction is done with NCCL, and the previous NCCL operation did not finish yet.
 
-* Processing marks segment of time where reduction is actually happening on GPU (or CPU).
+* Processing marks the segment of time where reduction is actually happening on GPU (or CPU).
 
 ### References
 
