@@ -1,13 +1,51 @@
 # Horovod
 
+[![Build Status](https://travis-ci.org/uber/horovod.svg?branch=master)](https://travis-ci.org/uber/horovod) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+
 Horovod is a distributed training framework for TensorFlow. The goal of Horovod is to make distributed Deep Learning
 fast and easy to use.
+
+# Why not traditional Distributed TensorFlow?
+
+The primary motivation for this project is to make it easy to take a single GPU TensorFlow program and successfully train
+it on many GPUs faster. This has two aspects:
+
+1. How much modifications does one have to make to a program to make it distributed, and how easy is it to run it.
+2. How much faster would it run in distributed mode?
+
+Internally at Uber we found that it's much easier for people to understand an MPI model that requires minimal changes to
+source code than to understand how to set up regular Distributed TensorFlow.
+
+To give some perspective on that, [this commit](https://github.com/alsrgv/benchmarks/commit/86bf2f9269dbefb4e57a8b66ed260c8fab84d6c7) 
+into our fork of TF Benchmarks shows how much code can be removed if one doesn't need to worry about towers and manually
+averaging gradients across them, `tf.Server()`, `tf.ClusterSpec()`, `tf.train.SyncReplicasOptimizer()`, 
+`tf.train.replicas_device_setter()` and so on. If none of these things makes sense to you - don't worry, you don't have to 
+learn them if you use Horovod.
+
+While installing MPI itself may seem like an extra hassle, it only needs to be done once and by one group of people,
+while everyone else in the company who builds the models can enjoy simplicity of training them at scale.
+
+We also found performance of MPI and NCCL 2 to be very good for the task of averaging gradients. While we're working on
+large scale benchmark, we can share the numbers that we got on 16 GPUs:
+
+| Setup                                 |   Inception V3   |   ResNet-101   |   VGG-16   |
+|---------------------------------------|:----------------:|:--------------:|:----------:|
+| Baseline single-GPU (batch size=64)   |              133 |          118.1 |      130.8 |
+|               On 16 GPUs              |                x |              x |          x |
+| Distributed TensorFlow                |             10.4 |            8.4 |        2.4 |
+| Distributed TensorFlow (vars. on CPU) |             11.9 |           10.1 |        2.3 |
+| TCP Horovod on CPU                    |             15.1 |           10.4 |        5.3 |
+| RDMA Horovod on CPU                   |         **15.6** |           13.5 |        5.7 |
+| TCP Horovod on GPU (NCCL)             |             14.4 |           12.5 |       12.5 |
+| RDMA Horovod on GPU (NCCL)            |             14.8 |       **14.0** |   **13.9** |
 
 # Install
 
 To install Horovod:
 
 1. Install [Open MPI](https://www.open-mpi.org/) or another MPI implementation.
+
+Steps to install Open MPI are listed [here](https://www.open-mpi.org/faq/?category=building#easy-build).
 
 2. Install the `horovod` pip package.
 
@@ -53,7 +91,8 @@ To use Horovod, make the following additions to your program:
 1. Run `hvd.init()`.
 
 2. Pin a server GPU to be used by this process using `config.gpu_options.visible_device_list`.
-    With the typical setup of one GPU per process, this can be set to *local rank*.
+    With the typical setup of one GPU per process, this can be set to *local rank*. In that case, the first process on 
+    the server will be allocated the first GPU, second process will be allocated the second GPU and so forth.
 
 3. Wrap optimizer in `hvd.DistributedOptimizer`.  The distributed optimizer delegates gradient computation
     to the original optimizer, averages gradients using *allreduce* or *allgather*, and then applies those averaged
@@ -111,7 +150,14 @@ $ mpirun -np 4 python train.py
 To run on 4 machines with 4 GPUs each using Open MPI:
 
 ```bash
-$ mpirun -np 16 -H server1:4,server2:4,server3:4,server4:4 python train.py
+$ mpirun -np 16 -x LD_LIBRARY_PATH -H server1:4,server2:4,server3:4,server4:4 python train.py
+```
+
+If you're using Open MPI and you have RoCE or InfiniBand, we found this custom RDMA queue configuration to help
+performance a lot:
+
+```bash
+$ mpirun -np 16 -x LD_LIBRARY_PATH -mca btl_openib_receive_queues P,128,32:P,2048,32:P,12288,32:P,131072,32 -H server1:4,server2:4,server3:4,server4:4 python train.py
 ```
 
 Check your MPI documentation for arguments to the `mpirun` command on your system.
@@ -127,12 +173,22 @@ operation optimized for NVIDIA GPUs and a variety of networking devices, such as
 
 1. Install [NCCL 2](https://developer.nvidia.com/nccl).
 
+If you aren't able to install NCCL 2 Debian package due to missing dependencies, you can use this workaround:
+
+```bash
+$ dpkg -x nccl-repo-ubuntu1604-2.0.4-ga_2.0.4-1_amd64.deb /tmp/nccl
+$ sudo dpkg -x /tmp/nccl/var/nccl-repo-2.0.4-ga/libnccl2_2.0.4-1+cuda8.0_amd64.deb /
+$ sudo dpkg -x /tmp/nccl/var/nccl-repo-2.0.4-ga/libnccl-dev_2.0.4-1+cuda8.0_amd64.deb /
+```
+
 2. Install [Open MPI](https://www.open-mpi.org/) or another MPI implementation.
+
+Steps to install Open MPI are listed [here](https://www.open-mpi.org/faq/?category=building#easy-build).
 
 3. Install the `horovod` pip package.
 
 ```bash
-$ HOROVOD_GPU_ALLREDUCE=NCCL pip install horovod
+$ HOROVOD_GPU_ALLREDUCE=NCCL pip install --no-cache-dir horovod
 ```
 
 **Note**: Some networks with a high computation to communication ratio benefit from doing allreduce on CPU, even if a
@@ -156,12 +212,27 @@ command.
 
 1. Install [NCCL 2](https://developer.nvidia.com/nccl).
 
-2. Install [Open MPI](https://www.open-mpi.org/) or another MPI implementation with CUDA support.
-
-3. Install the `horovod` pip package.
+If you aren't able to install NCCL 2 Debian package due to missing dependencies, you can use this workaround:
 
 ```bash
-$ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_ALLGATHER=MPI HOROVOD_GPU_BROADCAST=MPI pip install horovod
+$ dpkg -x nccl-repo-ubuntu1604-2.0.4-ga_2.0.4-1_amd64.deb /tmp/nccl
+$ sudo dpkg -x /tmp/nccl/var/nccl-repo-2.0.4-ga/libnccl2_2.0.4-1+cuda8.0_amd64.deb /
+$ sudo dpkg -x /tmp/nccl/var/nccl-repo-2.0.4-ga/libnccl-dev_2.0.4-1+cuda8.0_amd64.deb /
+```
+
+2. Install [nv_peer_memory](http://www.mellanox.com/page/products_dyn?product_family=116) driver.
+
+Follow instructions from that page, and make sure to do `/etc/init.d/nv_peer_mem start` in the end.
+
+3. Install [Open MPI](https://www.open-mpi.org/) or another MPI implementation with CUDA support.
+
+Steps to install Open MPI are listed [here](https://www.open-mpi.org/faq/?category=building#easy-build). You should make
+sure you build it with [CUDA support](https://www.open-mpi.org/faq/?category=building#build-cuda).
+
+4. Install the `horovod` pip package.
+
+```bash
+$ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_ALLGATHER=MPI HOROVOD_GPU_BROADCAST=MPI pip install --no-cache-dir horovod
 ```
 
 **Note**: Allgather allocates an output tensor which is proportionate to the number of processes participating in the
@@ -182,7 +253,7 @@ you can also use the pure MPI version of *allreduce*, *allgather* and *broadcast
 2. Install the `horovod` pip package.
 
 ```bash
-$ HOROVOD_GPU_ALLREDUCE=MPI HOROVOD_GPU_ALLGATHER=MPI HOROVOD_GPU_BROADCAST=MPI pip install horovod
+$ HOROVOD_GPU_ALLREDUCE=MPI HOROVOD_GPU_ALLGATHER=MPI HOROVOD_GPU_BROADCAST=MPI pip install --no-cache-dir horovod
 ```
 
 ## Inference
@@ -254,10 +325,71 @@ To use CUDA stub drivers:
 $ ldconfig /usr/local/cuda/lib64/stubs
 
 # install Horovod, add other HOROVOD_* environment variables as necessary
-$ pip install horovod
+$ pip install --no-cache-dir horovod
 
 # revert to standard libraries
 $ ldconfig
+```
+
+### MPI not found during installation
+
+1. Is MPI in PATH?
+
+If you see the error message below, it means `mpicxx` was not found in PATH. Typically `mpicxx` is located in the same
+directory as `mpirun`. Please add a directory containing `mpicxx` to PATH before installing Horovod.
+
+```
+error: mpicxx -show failed, is mpicxx in $PATH?
+
+Traceback (most recent call last):
+  File "/tmp/pip-dQ6A7a-build/setup.py", line 70, in get_mpi_flags
+    ['mpicxx', '-show'], universal_newlines=True).strip()
+  File "/usr/lib/python2.7/subprocess.py", line 566, in check_output
+    process = Popen(stdout=PIPE, *popenargs, **kwargs)
+  File "/usr/lib/python2.7/subprocess.py", line 710, in __init__
+    errread, errwrite)
+  File "/usr/lib/python2.7/subprocess.py", line 1335, in _execute_child
+    raise child_exception
+OSError: [Errno 2] No such file or directory
+```
+
+To use custom MPI directory:
+
+```bash
+$ export PATH=$PATH:/path/to/mpi/bin
+$ pip install --no-cache-dir horovod
+```
+
+### NCCL 2 is not found
+
+If you see the error message below, it means NCCL 2 was not found in standard libraries location. If you have a directory
+where you installed NCCL 2 which has both `include` and `lib` directories containing `nccl.h` and `libnccl.so` 
+respectively, you can pass it via `HOROVOD_NCCL_HOME` environment variable. Otherwise you can specify them separately
+via `HOROVOD_NCCL_INCLUDE` and `HOROVOD_NCCL_LIB` environment variables.
+
+```
+build/temp.linux-x86_64-2.7/test_compile/test_nccl.cc:1:18: fatal error: nccl.h: No such file or directory
+ #include <nccl.h>
+                  ^
+compilation terminated.
+error: NCCL 2.0 library or its later version was not found (see error above).
+Please specify correct NCCL location via HOROVOD_NCCL_HOME environment variable or combination of HOROVOD_NCCL_INCLUDE and HOROVOD_NCCL_LIB environment variables.
+
+HOROVOD_NCCL_HOME - path where NCCL include and lib directories can be found
+HOROVOD_NCCL_INCLUDE - path to NCCL include directory
+HOROVOD_NCCL_LIB - path to NCCL lib directory
+```
+
+For example:
+
+```bash
+$ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_HOME=/path/to/nccl pip install --no-cache-dir horovod
+```
+
+Or:
+
+```bash
+$ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_INCLUDE=/path/to/nccl/include HOROVOD_NCCL_LIB=/path/to/nccl/lib pip install --no-cache-dir horovod
 ```
 
 ### Running out of memory
