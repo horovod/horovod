@@ -188,7 +188,7 @@ Steps to install Open MPI are listed [here](https://www.open-mpi.org/faq/?catego
 3. Install the `horovod` pip package.
 
 ```bash
-$ HOROVOD_GPU_ALLREDUCE=NCCL pip install horovod
+$ HOROVOD_GPU_ALLREDUCE=NCCL pip install --no-cache-dir horovod
 ```
 
 **Note**: Some networks with a high computation to communication ratio benefit from doing allreduce on CPU, even if a
@@ -232,7 +232,7 @@ sure you build it with [CUDA support](https://www.open-mpi.org/faq/?category=bui
 4. Install the `horovod` pip package.
 
 ```bash
-$ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_ALLGATHER=MPI HOROVOD_GPU_BROADCAST=MPI pip install horovod
+$ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_ALLGATHER=MPI HOROVOD_GPU_BROADCAST=MPI pip install --no-cache-dir horovod
 ```
 
 **Note**: Allgather allocates an output tensor which is proportionate to the number of processes participating in the
@@ -253,7 +253,7 @@ you can also use the pure MPI version of *allreduce*, *allgather* and *broadcast
 2. Install the `horovod` pip package.
 
 ```bash
-$ HOROVOD_GPU_ALLREDUCE=MPI HOROVOD_GPU_ALLGATHER=MPI HOROVOD_GPU_BROADCAST=MPI pip install horovod
+$ HOROVOD_GPU_ALLREDUCE=MPI HOROVOD_GPU_ALLGATHER=MPI HOROVOD_GPU_BROADCAST=MPI pip install --no-cache-dir horovod
 ```
 
 ## Inference
@@ -325,7 +325,7 @@ To use CUDA stub drivers:
 $ ldconfig /usr/local/cuda/lib64/stubs
 
 # install Horovod, add other HOROVOD_* environment variables as necessary
-$ pip install horovod
+$ pip install --no-cache-dir horovod
 
 # revert to standard libraries
 $ ldconfig
@@ -357,7 +357,7 @@ To use custom MPI directory:
 
 ```bash
 $ export PATH=$PATH:/path/to/mpi/bin
-$ pip install horovod
+$ pip install --no-cache-dir horovod
 ```
 
 ### NCCL 2 is not found
@@ -383,13 +383,13 @@ HOROVOD_NCCL_LIB - path to NCCL lib directory
 For example:
 
 ```bash
-$ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_HOME=/path/to/nccl pip install horovod
+$ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_HOME=/path/to/nccl pip install --no-cache-dir horovod
 ```
 
 Or:
 
 ```bash
-$ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_INCLUDE=/path/to/nccl/include HOROVOD_NCCL_LIB=/path/to/nccl/lib pip install horovod
+$ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_INCLUDE=/path/to/nccl/include HOROVOD_NCCL_LIB=/path/to/nccl/lib pip install --no-cache-dir horovod
 ```
 
 ### Running out of memory
