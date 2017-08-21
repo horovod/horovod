@@ -283,14 +283,14 @@ void WriteTimelineTensorReady(const std::string& tensor_name, const int rank) {
 void WriteTimelineTensorReadyStart(const std::string& tensor_name,
                                    const MPIRequest::RequestType request_type) {
   auto event_category =
-      "READY_TO_" + MPIRequest::RequestType_Name(request_type);
+      "NEGOTIATE_" + MPIRequest::RequestType_Name(request_type);
   WriteTimelineEvent(tensor_name, event_category, 'B');
 }
 
 void WriteTimelineTensorReadyEnd(const std::string& tensor_name,
                                  const MPIRequest::RequestType request_type) {
   auto event_category =
-      "READY_TO_" + MPIRequest::RequestType_Name(request_type);
+      "NEGOTIATE_" + MPIRequest::RequestType_Name(request_type);
   WriteTimelineEvent(tensor_name, event_category, 'E');
 }
 
@@ -298,11 +298,11 @@ void WriteTimelineOpStart(const std::string& tensor_name,
                           const MPIResponse::ResponseType response_type) {
   auto event_category = MPIResponse::ResponseType_Name(response_type);
   WriteTimelineEvent(tensor_name, event_category, 'B');
-  WriteTimelineEvent(tensor_name, "DATA_READY", 'B');
+  WriteTimelineEvent(tensor_name, "WAIT_FOR_DATA", 'B');
 }
 
 void WriteTimelineOpDataReady(const std::string& tensor_name) {
-  WriteTimelineEvent(tensor_name, "DATA_READY", 'E');
+  WriteTimelineEvent(tensor_name, "WAIT_FOR_DATA", 'E');
   WriteTimelineEvent(tensor_name, "QUEUE", 'B');
 }
 
@@ -766,6 +766,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 #if HOROVOD_GPU_ALLREDUCE == 'N' // 'N' stands for NCCL
     bool on_gpu = e.device != CPU_DEVICE_ID;
     if (on_gpu) {
+      // TODO: add timeline piece describing this activity
       CUDA_CHECK(e, "cudaSetDevice", cudaSetDevice(e.device))
 
       // Ensure stream is in the map before executing reduction.
