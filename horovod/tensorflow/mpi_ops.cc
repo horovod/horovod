@@ -297,6 +297,7 @@ void WriteTimelineTensorReadyEnd(const std::string& tensor_name,
 void WriteTimelineOpStart(const std::string& tensor_name,
                           const MPIResponse::ResponseType response_type) {
   auto event_category = MPIResponse::ResponseType_Name(response_type);
+  // TODO show tensor shape here
   WriteTimelineEvent(tensor_name, event_category, 'B');
   WriteTimelineEvent(tensor_name, "WAIT_FOR_DATA", 'B');
 }
