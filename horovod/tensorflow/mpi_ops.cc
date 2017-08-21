@@ -14,10 +14,6 @@
 // limitations under the License.
 // =============================================================================
 
-#define HAVE_NCCL 1
-#define HAVE_CUDA 1
-#define HOROVOD_GPU_ALLREDUCE 'N'
-
 #include <queue>
 #include <thread>
 #include <unordered_map>
@@ -568,18 +564,18 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     tensor_table.erase(iter);
   }
 
-  horovod_global.timeline.Start(response.tensor_name(),
-                                response.response_type());
+  auto timeline = horovod_global.timeline;
+  timeline.Start(response.tensor_name(), response.response_type());
 
 #if HAVE_CUDA
   // On GPU data readiness is signalled by ready_event.
   if (e.ready_event != nullptr) {
-    horovod_global.timeline.WaitForDataStart(response.tensor_name());
+    timeline.WaitForDataStart(response.tensor_name());
     while (e.ready_event->PollForStatus() ==
            perftools::gputools::Event::Status::kPending) {
       std::this_thread::sleep_for(std::chrono::nanoseconds(100));
     }
-    horovod_global.timeline.WaitForDataEnd(response.tensor_name());
+    timeline.WaitForDataEnd(response.tensor_name());
   }
 #endif
 
@@ -612,19 +608,18 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     MPI_Datatype dtype;
     status = GetMPIDataType(e.tensor, &dtype);
     if (!status.ok()) {
-      horovod_global.timeline.End(response.tensor_name(),
-                                  response.response_type(), nullptr);
+      timeline.End(response.tensor_name(), response.response_type(), nullptr);
       e.callback(status);
       return;
     }
 
-    horovod_global.timeline.ProcessStart(response.tensor_name());
+    // PROCESS phase here includes both allocation & allgatherv.
+    timeline.ProcessStart(response.tensor_name());
 
     status = e.context->allocate_output(0, output_shape, &e.output);
     if (!status.ok()) {
-      horovod_global.timeline.ProcessEnd(response.tensor_name());
-      horovod_global.timeline.End(response.tensor_name(),
-                                  response.response_type(), nullptr);
+      timeline.ProcessEnd(response.tensor_name());
+      timeline.End(response.tensor_name(), response.response_type(), nullptr);
       e.callback(status);
       return;
     }
@@ -658,9 +653,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     delete[] displcmnts;
     MPI_CHECK(e, "MPI_Allgatherv", result)
 
-    horovod_global.timeline.ProcessEnd(response.tensor_name());
-    horovod_global.timeline.End(response.tensor_name(),
-                                response.response_type(), e.output);
+    timeline.ProcessEnd(response.tensor_name());
+
+    timeline.End(response.tensor_name(), response.response_type(), e.output);
     e.callback(Status::OK());
 
   } else if (response.response_type() == MPIResponse::ALLREDUCE) {
@@ -678,7 +673,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       // Ensure NCCL communicator is in the map before executing reduction.
       ncclComm_t& nccl_comm = horovod_global.nccl_comms[response.devices()];
       if (nccl_comm == nullptr) {
-        horovod_global.timeline.NcclInitStart(response.tensor_name());
+        timeline.NcclInitStart(response.tensor_name());
 
         ncclUniqueId nccl_id;
         if (horovod_global.rank == 0) {
@@ -696,26 +691,27 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         // TODO: Rohit (NVIDIA): figure out why we need this sleep
         std::this_thread::sleep_for(std::chrono::seconds(1));
 
-        horovod_global.timeline.NcclInitEnd(response.tensor_name());
+        timeline.NcclInitEnd(response.tensor_name());
       }
 
       ncclDataType_t dtype;
       status = GetNCCLDataType(e.tensor, &dtype);
       if (!status.ok()) {
-        horovod_global.timeline.End(response.tensor_name(),
-                                    response.response_type(), nullptr);
+        timeline.End(response.tensor_name(), response.response_type(), nullptr);
         e.callback(status);
         return;
       }
 
-      cudaEvent_t beforeReduceEvent = nullptr;
-      if (horovod_global.timeline.Initialized()) {
+      cudaEvent_t before_reduce_event = nullptr;
+      if (timeline.Initialized()) {
+        timeline.QueueStart(response.tensor_name());
+        // This event is only necessary for timeline purposes.
         CUDA_CHECK(e, "cudaEventCreateWithFlags",
-                   cudaEventCreateWithFlags(&beforeReduceEvent,
+                   cudaEventCreateWithFlags(&before_reduce_event,
                                             cudaEventBlockingSync |
                                                 cudaEventDisableTiming))
         CUDA_CHECK(e, "cudaEventRecord",
-                   cudaEventRecord(beforeReduceEvent, stream))
+                   cudaEventRecord(before_reduce_event, stream))
       }
 
       NCCL_CHECK(e, "ncclAllReduce",
@@ -733,19 +729,22 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       CUDA_CHECK(e, "cudaEventRecord", cudaEventRecord(event, stream))
 
       // TODO: use thread pool or single thread for callbacks
-      std::thread finalizer_thread([e, event, beforeReduceEvent, response] {
-        CUDA_CHECK(e, "cudaSetDevice", cudaSetDevice(e.device))
-        CUDA_CHECK(e, "cudaEventSynchronize",
-                   cudaEventSynchronize(beforeReduceEvent))
-        horovod_global.timeline.QueueEnd(response.tensor_name());
-        horovod_global.timeline.ProcessStart(response.tensor_name());
-        CUDA_CHECK(e, "cudaEventSynchronize", cudaEventSynchronize(event))
-        horovod_global.timeline.ProcessEnd(response.tensor_name());
-        horovod_global.timeline.End(response.tensor_name(),
-                                    response.response_type(), e.output);
-        e.callback(Status::OK());
-        cudaEventDestroy(event);
-      });
+      std::thread finalizer_thread(
+          [e, event, before_reduce_event, response, &timeline] {
+            CUDA_CHECK(e, "cudaSetDevice", cudaSetDevice(e.device))
+            if (before_reduce_event != nullptr) {
+              CUDA_CHECK(e, "cudaEventSynchronize",
+                         cudaEventSynchronize(before_reduce_event))
+              timeline.QueueEnd(response.tensor_name());
+            }
+            timeline.ProcessStart(response.tensor_name());
+            CUDA_CHECK(e, "cudaEventSynchronize", cudaEventSynchronize(event))
+            timeline.ProcessEnd(response.tensor_name());
+            timeline.End(response.tensor_name(), response.response_type(),
+                         e.output);
+            e.callback(Status::OK());
+            cudaEventDestroy(event);
+          });
       finalizer_thread.detach();
       return;
     }
@@ -754,30 +753,27 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     MPI_Datatype dtype;
     status = GetMPIDataType(e.tensor, &dtype);
     if (!status.ok()) {
-      horovod_global.timeline.End(response.tensor_name(),
-                                  response.response_type(), nullptr);
+      timeline.End(response.tensor_name(), response.response_type(), nullptr);
       e.callback(status);
       return;
     }
 
-    horovod_global.timeline.ProcessStart(response.tensor_name());
+    timeline.ProcessStart(response.tensor_name());
     MPI_CHECK(e, "MPI_Allreduce",
               MPI_Allreduce((const void*)e.tensor.tensor_data().data(),
                             (void*)e.output->tensor_data().data(),
                             (int)e.tensor.NumElements(), dtype, MPI_SUM,
                             MPI_COMM_WORLD))
-    horovod_global.timeline.ProcessEnd(response.tensor_name());
+    timeline.ProcessEnd(response.tensor_name());
 
-    horovod_global.timeline.End(response.tensor_name(),
-                                response.response_type(), e.output);
+    timeline.End(response.tensor_name(), response.response_type(), e.output);
     e.callback(Status::OK());
 
   } else if (response.response_type() == MPIResponse::BROADCAST) {
     MPI_Datatype dtype;
     status = GetMPIDataType(e.tensor, &dtype);
     if (!status.ok()) {
-      horovod_global.timeline.End(response.tensor_name(),
-                                  response.response_type(), nullptr);
+      timeline.End(response.tensor_name(), response.response_type(), nullptr);
       e.callback(status);
       return;
     }
@@ -790,20 +786,18 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       data_ptr = (void*)e.output->tensor_data().data();
     }
 
-    horovod_global.timeline.ProcessStart(response.tensor_name());
+    timeline.ProcessStart(response.tensor_name());
     MPI_CHECK(e, "MPI_Bcast",
               MPI_Bcast(data_ptr, (int)e.tensor.NumElements(), dtype,
                         e.root_rank, MPI_COMM_WORLD))
-    horovod_global.timeline.ProcessEnd(response.tensor_name());
+    timeline.ProcessEnd(response.tensor_name());
 
-    horovod_global.timeline.End(response.tensor_name(),
-                                response.response_type(), e.output);
+    timeline.End(response.tensor_name(), response.response_type(), e.output);
     e.callback(Status::OK());
 
   } else if (response.response_type() == MPIResponse::ERROR) {
     status = errors::FailedPrecondition(response.error_message());
-    horovod_global.timeline.End(response.tensor_name(),
-                                response.response_type(), nullptr);
+    timeline.End(response.tensor_name(), response.response_type(), nullptr);
     e.callback(status);
   }
 }
