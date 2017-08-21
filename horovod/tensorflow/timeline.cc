@@ -39,7 +39,7 @@ bool Timeline::Initialized() const { return initialized_; }
 // Write event to the Horovod Timeline file.
 void Timeline::WriteEvent(const std::string& tensor_name,
                           const std::string& op_name, const char phase,
-                          const std::string& args = "") {
+                          const std::string& args) {
   if (!file_.good()) {
     return;
   }
@@ -194,17 +194,54 @@ void Timeline::ProcessEnd(const std::string& tensor_name) {
   WriteEvent(tensor_name, "PROCESS", 'E');
 }
 
+namespace {
+
+// Trying to use TensorFlow's default DataType_Name leads to linking issue with
+// Protobuf library.
+std::string DataTypeName(DataType dtype) {
+  switch (dtype) {
+  case DT_UINT8:
+    static const std::string uint8("uint8");
+    return uint8;
+  case DT_INT8:
+    static const std::string int8("int8");
+    return int8;
+  case DT_UINT16:
+    static const std::string uint16("uint16");
+    return uint16;
+  case DT_INT16:
+    static const std::string int16("int16");
+    return int16;
+  case DT_INT32:
+    static const std::string int32("int32");
+    return int32;
+  case DT_INT64:
+    static const std::string int64("int64");
+    return int64;
+  case DT_FLOAT:
+    static const std::string float_("float");
+    return float_;
+  case DT_DOUBLE:
+    static const std::string double_("double");
+    return double_;
+  default:
+    static const std::string unknown("<unknown>");
+    return unknown;
+  }
+}
+
+} // namespace
+
 void Timeline::End(const std::string& tensor_name,
                    const MPIResponse::ResponseType response_type,
-                   const tensorflow::Tensor* output_tensor) {
+                   const Tensor* output_tensor) {
   if (!initialized_) {
     return;
   }
   auto event_category = MPIResponse::ResponseType_Name(response_type);
   std::stringstream args;
   if (output_tensor != nullptr) {
-    args << "\"dtype\": \"" << tensorflow::DataType_Name(output_tensor->dtype())
-         << "\"";
+    args << "\"dtype\": \"" << DataTypeName(output_tensor->dtype()) << "\"";
     args << ", \"shape\": \"" << output_tensor->shape().DebugString() << "\"";
   }
   WriteEvent(tensor_name, event_category, 'E', args.str());

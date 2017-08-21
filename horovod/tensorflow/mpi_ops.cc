@@ -564,7 +564,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     tensor_table.erase(iter);
   }
 
-  auto timeline = horovod_global.timeline;
+  auto& timeline = horovod_global.timeline;
   timeline.Start(response.tensor_name(), response.response_type());
 
 #if HAVE_CUDA

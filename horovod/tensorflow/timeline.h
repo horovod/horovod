@@ -26,6 +26,8 @@
 
 #include "mpi_message.h"
 
+using namespace tensorflow;
+
 namespace horovod {
 namespace tensorflow {
 
@@ -55,7 +57,7 @@ public:
   void ProcessEnd(const std::string& tensor_name);
   void End(const std::string& tensor_name,
            const MPIResponse::ResponseType response_type,
-           const tensorflow::Tensor* output_tensor);
+           const Tensor* output_tensor);
 
 private:
   void WriteEvent(const std::string& tensor_name, const std::string& op_name,
