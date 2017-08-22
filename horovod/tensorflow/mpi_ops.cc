@@ -214,25 +214,26 @@ static HorovodGlobalState horovod_global;
 bool IncrementTensorCount(std::unique_ptr<MessageTable>& message_table,
                           MPIRequest msg, int mpi_size) {
   auto name = msg.tensor_name();
+  auto& timeline = horovod_global.timeline;
   auto table_iter = message_table->find(name);
   if (table_iter == message_table->end()) {
     std::vector<MPIRequest> messages = {msg};
     auto now = std::chrono::steady_clock::now();
     message_table->emplace(name, std::make_tuple(std::move(messages), now));
     table_iter = message_table->find(name);
-    horovod_global.timeline.NegotiateStart(name, msg.request_type());
+    timeline.NegotiateStart(name, msg.request_type());
   } else {
     std::vector<MPIRequest>& messages = std::get<0>(table_iter->second);
     messages.push_back(msg);
   }
 
-  horovod_global.timeline.NegotiateRankReady(name, msg.request_rank());
+  timeline.NegotiateRankReady(name, msg.request_rank());
 
   std::vector<MPIRequest>& messages = std::get<0>(table_iter->second);
   int count = (int)messages.size();
   bool ready_to_reduce = count == mpi_size;
   if (ready_to_reduce) {
-    horovod_global.timeline.NegotiateEnd(name, msg.request_type());
+    timeline.NegotiateEnd(name, msg.request_type());
   }
   return ready_to_reduce;
 }
