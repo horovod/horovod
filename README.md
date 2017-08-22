@@ -428,6 +428,40 @@ memory, use:
 * `export NCCL_P2P_DISABLE=1` for NCCL.
 * `--mca btl_smcuda_use_cuda_ipc 0` flag for OpenMPI and similar flags for other vendors.
 
+## Analyzing Horovod Performance
+
+Horovod has the ability to record the timeline of its activity, called Horovod Timeline.
+
+![Horovod Timeline](https://user-images.githubusercontent.com/16640218/29540325-a80e2140-8682-11e7-9f21-ada1613948be.png)
+
+To record a Horovod Timeline, set the `HOROVOD_TIMELINE` environment variable to the location of the timeline
+file to be created.  This file is only recorded on rank 0, but it contains information about activity of all workers.
+
+```bash
+$ HOROVOD_TIMELINE=/path/to/timeline.json mpirun -np 4 -x HOROVOD_TIMELINE python train.py
+```
+
+You can then open the timeline file using the `chrome://tracing` facility of the [Chrome](https://www.google.com/chrome/browser/) browser.
+
+In the example above, you can see few tensors being reduced. There are two major phases for each tensor reduction:
+
+1. **Negotiation** - a phase when all workers send to rank 0 signal that they're ready to reduce the given tensor.
+
+* Each worker reporting readiness is represented by a tick under the `NEGOTIATE_ALLREDUCE` bar, so you can see which
+workers were early and which were late.
+
+* Immediately after negotiation, rank 0 sends all other workers signal to start reducing the tensor. 
+
+2. **Reduction** - a phase when reduction actually happens. It is further subdivided into waiting for data, queueing, and
+ processing.
+
+* Waiting for data happens when GPU is still busy computing input to the *allreduce* operation. This happens because TensorFlow
+tries to smartly interleave scheduling and GPU computation.
+
+* Queueing happens when reduction is done with NCCL, and the previous NCCL operation did not finish yet.
+
+* Processing marks the segment of time where reduction is actually happening on GPU (or CPU).
+
 ### References
 
 1. Gibiansky, A. (2017). *Bringing HPC Techniques to Deep Learning*. Retrieved from
