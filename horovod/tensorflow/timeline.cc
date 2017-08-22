@@ -198,7 +198,7 @@ namespace {
 
 // Trying to use TensorFlow's default DataType_Name leads to linking issue with
 // Protobuf library.
-std::string DataTypeName(DataType dtype) {
+std::string TFDataType_Name(DataType dtype) {
   switch (dtype) {
   case DT_UINT8:
     static const std::string uint8("uint8");
@@ -241,7 +241,7 @@ void Timeline::End(const std::string& tensor_name,
   auto event_category = MPIResponse::ResponseType_Name(response_type);
   std::stringstream args;
   if (output_tensor != nullptr) {
-    args << "\"dtype\": \"" << DataTypeName(output_tensor->dtype()) << "\"";
+    args << "\"dtype\": \"" << TFDataType_Name(output_tensor->dtype()) << "\"";
     args << ", \"shape\": \"" << output_tensor->shape().DebugString() << "\"";
   }
   WriteEvent(tensor_name, event_category, 'E', args.str());
