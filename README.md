@@ -441,7 +441,7 @@ file to be created.  This file is only recorded on rank 0, but it contains infor
 $ HOROVOD_TIMELINE=/path/to/timeline.json mpirun -np 4 -x HOROVOD_TIMELINE python train.py
 ```
 
-You can then open the timeline file using the <a href="chrome://tracing">chrome://tracing</a> facility of the [Chrome](https://www.google.com/chrome/browser/) browser.
+You can then open the timeline file using the `chrome://tracing` facility of the [Chrome](https://www.google.com/chrome/browser/) browser.
 
 In the example above, you can see few tensors being reduced. There are two major phases for each tensor reduction:
 
