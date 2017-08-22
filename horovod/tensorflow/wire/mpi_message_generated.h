@@ -239,7 +239,7 @@ inline flatbuffers::Offset<MPIRequest> CreateMPIRequestDirect(
 struct MPIResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum {
     VT_RESPONSE_TYPE = 4,
-    VT_TENSOR_NAME = 6,
+    VT_TENSOR_NAMES = 6,
     VT_ERROR_MESSAGE = 8,
     VT_DEVICES = 10,
     VT_TENSOR_SIZES = 12
@@ -247,8 +247,8 @@ struct MPIResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   MPIResponseType response_type() const {
     return static_cast<MPIResponseType>(GetField<int8_t>(VT_RESPONSE_TYPE, 0));
   }
-  const flatbuffers::String *tensor_name() const {
-    return GetPointer<const flatbuffers::String *>(VT_TENSOR_NAME);
+  const flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *tensor_names() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *>(VT_TENSOR_NAMES);
   }
   const flatbuffers::String *error_message() const {
     return GetPointer<const flatbuffers::String *>(VT_ERROR_MESSAGE);
@@ -262,8 +262,9 @@ struct MPIResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int8_t>(verifier, VT_RESPONSE_TYPE) &&
-           VerifyField<flatbuffers::uoffset_t>(verifier, VT_TENSOR_NAME) &&
-           verifier.Verify(tensor_name()) &&
+           VerifyField<flatbuffers::uoffset_t>(verifier, VT_TENSOR_NAMES) &&
+           verifier.Verify(tensor_names()) &&
+           verifier.VerifyVectorOfStrings(tensor_names()) &&
            VerifyField<flatbuffers::uoffset_t>(verifier, VT_ERROR_MESSAGE) &&
            verifier.Verify(error_message()) &&
            VerifyField<flatbuffers::uoffset_t>(verifier, VT_DEVICES) &&
@@ -280,8 +281,8 @@ struct MPIResponseBuilder {
   void add_response_type(MPIResponseType response_type) {
     fbb_.AddElement<int8_t>(MPIResponse::VT_RESPONSE_TYPE, static_cast<int8_t>(response_type), 0);
   }
-  void add_tensor_name(flatbuffers::Offset<flatbuffers::String> tensor_name) {
-    fbb_.AddOffset(MPIResponse::VT_TENSOR_NAME, tensor_name);
+  void add_tensor_names(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> tensor_names) {
+    fbb_.AddOffset(MPIResponse::VT_TENSOR_NAMES, tensor_names);
   }
   void add_error_message(flatbuffers::Offset<flatbuffers::String> error_message) {
     fbb_.AddOffset(MPIResponse::VT_ERROR_MESSAGE, error_message);
@@ -307,7 +308,7 @@ struct MPIResponseBuilder {
 inline flatbuffers::Offset<MPIResponse> CreateMPIResponse(
     flatbuffers::FlatBufferBuilder &_fbb,
     MPIResponseType response_type = MPIResponseType_ALLREDUCE,
-    flatbuffers::Offset<flatbuffers::String> tensor_name = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> tensor_names = 0,
     flatbuffers::Offset<flatbuffers::String> error_message = 0,
     flatbuffers::Offset<flatbuffers::Vector<int32_t>> devices = 0,
     flatbuffers::Offset<flatbuffers::Vector<int64_t>> tensor_sizes = 0) {
@@ -315,7 +316,7 @@ inline flatbuffers::Offset<MPIResponse> CreateMPIResponse(
   builder_.add_tensor_sizes(tensor_sizes);
   builder_.add_devices(devices);
   builder_.add_error_message(error_message);
-  builder_.add_tensor_name(tensor_name);
+  builder_.add_tensor_names(tensor_names);
   builder_.add_response_type(response_type);
   return builder_.Finish();
 }
@@ -323,14 +324,14 @@ inline flatbuffers::Offset<MPIResponse> CreateMPIResponse(
 inline flatbuffers::Offset<MPIResponse> CreateMPIResponseDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     MPIResponseType response_type = MPIResponseType_ALLREDUCE,
-    const char *tensor_name = nullptr,
+    const std::vector<flatbuffers::Offset<flatbuffers::String>> *tensor_names = nullptr,
     const char *error_message = nullptr,
     const std::vector<int32_t> *devices = nullptr,
     const std::vector<int64_t> *tensor_sizes = nullptr) {
   return horovod::tensorflow::wire::CreateMPIResponse(
       _fbb,
       response_type,
-      tensor_name ? _fbb.CreateString(tensor_name) : 0,
+      tensor_names ? _fbb.CreateVector<flatbuffers::Offset<flatbuffers::String>>(*tensor_names) : 0,
       error_message ? _fbb.CreateString(error_message) : 0,
       devices ? _fbb.CreateVector<int32_t>(*devices) : 0,
       tensor_sizes ? _fbb.CreateVector<int64_t>(*tensor_sizes) : 0);
