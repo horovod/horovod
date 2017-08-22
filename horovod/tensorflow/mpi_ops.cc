@@ -735,11 +735,16 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
             if (before_reduce_event != nullptr) {
               CUDA_CHECK(e, "cudaEventSynchronize",
                          cudaEventSynchronize(before_reduce_event))
+              // All the work scheduled on NCCL stream before this allreduce
+              // is done at this point.
               timeline.QueueEnd(response.tensor_name());
             }
+
             timeline.ProcessStart(response.tensor_name());
             CUDA_CHECK(e, "cudaEventSynchronize", cudaEventSynchronize(event))
+            // The allreduce is done after this point has been reached.
             timeline.ProcessEnd(response.tensor_name());
+
             timeline.End(response.tensor_name(), response.response_type(),
                          e.output);
             e.callback(Status::OK());
