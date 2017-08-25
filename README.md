@@ -434,7 +434,7 @@ memory, use:
 ## Tensor Fusion
 
 One of the unique things about Horovod is its ability to interleave communication and computation combined with batching
-of small *allreduce* operations. We call this batching feature Tensor Fusion.
+of small *allreduce* operations which results in improved performance. We call this batching feature Tensor Fusion.
 
 Tensor Fusion works by attempting to combine all the tensors that are ready to be reduced at given moment of time into
 one reduction operation. The algorithm of Tensor Fusion is as follows:
