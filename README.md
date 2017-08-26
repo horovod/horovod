@@ -39,6 +39,9 @@ large scale benchmark, we can share the numbers that we got on 16 Pascal GPUs:
 | TCP Horovod on GPU (NCCL)             |     1,921.6 (14.4x) |     1,475.2 (12.5x) |     1,635.2 (12.5x) |
 | RDMA Horovod on GPU (NCCL)            |     1,974.4 (14.8x) | **1,651.2 (14.0x)** | **1,824.0 (13.9x)** |
 
+**Note**: This benchmark was prepared before the Tensor Fusion release, and so current Horovod performance should be
+even better the table above suggests. We are working on updating it.
+
 # Install
 
 To install Horovod:
@@ -428,11 +431,34 @@ memory, use:
 * `export NCCL_P2P_DISABLE=1` for NCCL.
 * `--mca btl_smcuda_use_cuda_ipc 0` flag for OpenMPI and similar flags for other vendors.
 
+## Tensor Fusion
+
+One of the unique things about Horovod is its ability to interleave communication and computation with batching
+of small *allreduce* operations, which results in improved performance. We call this batching feature Tensor Fusion.
+
+Tensor Fusion works by attempting to combine all the tensors that are ready to be reduced at given moment of time into
+one reduction operation. The algorithm of Tensor Fusion is as follows:
+
+1. Determine which tensors are ready to be reduced. Select a subset of tensors that fit in `HOROVOD_FUSION_THRESHOLD` 
+ bytes and have the same data type.
+2. Allocate fusion buffer of size `HOROVOD_FUSION_THRESHOLD` if it was not allocated before. Default fusion buffer size 
+ is 64 MB.
+3. Copy data of selected tensors into the fusion buffer.
+4. Execute the *allreduce* operation on the fusion buffer.
+5. Copy data from the fusion buffer into the output tensors.
+6. Repeat if there are any tensors that did not fit into previous iteration.
+
+The fusion buffer size can be tweaked using the `HOROVOD_FUSION_THRESHOLD` environment variable:
+
+```bash
+$ HOROVOD_FUSION_THRESHOLD=33554432 mpirun -np 4 -x HOROVOD_FUSION_THRESHOLD python train.py
+```
+
 ## Analyzing Horovod Performance
 
 Horovod has the ability to record the timeline of its activity, called Horovod Timeline.
 
-![Horovod Timeline](https://user-images.githubusercontent.com/16640218/29540325-a80e2140-8682-11e7-9f21-ada1613948be.png)
+![Horovod Timeline](https://user-images.githubusercontent.com/16640218/29735271-9e148da0-89ac-11e7-9ae0-11d7a099ac89.png)
 
 To record a Horovod Timeline, set the `HOROVOD_TIMELINE` environment variable to the location of the timeline
 file to be created.  This file is only recorded on rank 0, but it contains information about activity of all workers.
@@ -447,20 +473,30 @@ In the example above, you can see few tensors being reduced. There are two major
 
 1. **Negotiation** - a phase when all workers send to rank 0 signal that they're ready to reduce the given tensor.
 
-* Each worker reporting readiness is represented by a tick under the `NEGOTIATE_ALLREDUCE` bar, so you can see which
+* Each worker reporting readiness is represented by a tick under the *NEGOTIATE_ALLREDUCE* bar, so you can see which
 workers were early and which were late.
 
 * Immediately after negotiation, rank 0 sends all other workers signal to start reducing the tensor. 
 
-2. **Reduction** - a phase when reduction actually happens. It is further subdivided into waiting for data, queueing, and
- processing.
+2. **Processing** - a phase when the operation actually happens. It is further subdivided into multiple sub-phases:
 
-* Waiting for data happens when GPU is still busy computing input to the *allreduce* operation. This happens because TensorFlow
-tries to smartly interleave scheduling and GPU computation.
+* *WAIT_FOR_DATA* indicates time taken to wait for GPU to finish computing input to the *allreduce*, *allgather*, or 
+ *broadcast* operations. This happens because TensorFlow tries to smartly interleave scheduling and GPU computation.
+ This is only applicable to situations where the Horovod operation is placed on GPU.
 
-* Queueing happens when reduction is done with NCCL, and the previous NCCL operation did not finish yet.
+* WAIT_FOR_OTHER_TENSOR_DATA* indicates time taken to wait for GPU to finish computing other inputs for other operations
+ that are part of the same fusion batch.
 
-* Processing marks the segment of time where reduction is actually happening on GPU (or CPU).
+* *SCHEDULE* indicates how much time it took to schedule memory copies into and out of the fusion buffer and the NCCL
+ operation itself.
+
+* *QUEUE* happens when reduction is done with NCCL, and the previous NCCL operation did not finish yet.
+
+* *MEMCPY_IN_FUSION_BUFFER* and *MEMCPY_OUT_FUSION_BUFFER* indicate time taken to copy data into and out of the fusion 
+ buffer.
+
+* *NCCL_ALLREDUCE*, *MPI_ALLREDUCE*, *MPI_ALLGATHER*, or *MPI_BCAST* indicate time taken to do the actual operation on GPU 
+ (or CPU) and highlights whether the operation was performed using NCCL or pure MPI.
 
 ### References
 

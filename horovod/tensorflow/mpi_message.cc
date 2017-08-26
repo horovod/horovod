@@ -177,10 +177,16 @@ void MPIResponse::set_response_type(ResponseType value) {
   response_type_ = value;
 }
 
-const std::string& MPIResponse::tensor_name() const { return tensor_name_; }
+const std::vector<std::string>& MPIResponse::tensor_names() const {
+  return tensor_names_;
+}
 
-void MPIResponse::set_tensor_name(const std::string& value) {
-  tensor_name_ = value;
+void MPIResponse::set_tensor_names(const std::vector<std::string>& value) {
+  tensor_names_ = value;
+}
+
+void MPIResponse::add_tensor_names(const std::string& value) {
+  tensor_names_.push_back(value);
 }
 
 const std::string& MPIResponse::error_message() const { return error_message_; }
@@ -213,7 +219,10 @@ void MPIResponse::ParseFromString(MPIResponse& response,
                                   const std::string& input) {
   auto obj = flatbuffers::GetRoot<wire::MPIResponse>((uint8_t*)input.c_str());
   response.set_response_type((MPIResponse::ResponseType)obj->response_type());
-  response.set_tensor_name(obj->tensor_name()->str());
+  for (auto it = obj->tensor_names()->begin(); it != obj->tensor_names()->end();
+       it++) {
+    response.add_tensor_names(it->str());
+  }
   response.set_error_message(obj->error_message()->str());
   response.set_devices(
       std::vector<int32_t>(obj->devices()->begin(), obj->devices()->end()));
@@ -227,8 +236,8 @@ void MPIResponse::SerializeToString(MPIResponse& response,
   wire::MPIResponseBuilder response_builder(builder);
   response_builder.add_response_type(
       (wire::MPIResponseType)response.response_type());
-  response_builder.add_tensor_name(
-      builder.CreateString(response.tensor_name()));
+  response_builder.add_tensor_names(
+      builder.CreateVectorOfStrings(response.tensor_names()));
   response_builder.add_error_message(
       builder.CreateString(response.error_message()));
   response_builder.add_devices(builder.CreateVector(response.devices()));

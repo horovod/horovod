@@ -34,6 +34,13 @@ namespace tensorflow {
 // How frequently Horovod Timeline should be flushed to disk.
 #define TIMELINE_FLUSH_TIME std::chrono::seconds(1)
 
+enum TimelineState {
+  UNKNOWN,
+  NEGOTIATING,
+  TOP_LEVEL,
+  ACTIVITY
+};
+
 // Writes timeline in Chrome Tracing format. Timeline spec is from:
 // https://github.com/catapult-project/catapult/tree/master/tracing
 class Timeline {
@@ -43,25 +50,17 @@ public:
   void NegotiateStart(const std::string& tensor_name,
                       const MPIRequest::RequestType request_type);
   void NegotiateRankReady(const std::string& tensor_name, const int rank);
-  void NegotiateEnd(const std::string& tensor_name,
-                    const MPIRequest::RequestType request_type);
+  void NegotiateEnd(const std::string& tensor_name);
   void Start(const std::string& tensor_name,
              const MPIResponse::ResponseType response_type);
-  void WaitForDataStart(const std::string& tensor_name);
-  void WaitForDataEnd(const std::string& tensor_name);
-  void NcclInitStart(const std::string& tensor_name);
-  void NcclInitEnd(const std::string& tensor_name);
-  void QueueStart(const std::string& tensor_name);
-  void QueueEnd(const std::string& tensor_name);
-  void ProcessStart(const std::string& tensor_name);
-  void ProcessEnd(const std::string& tensor_name);
-  void End(const std::string& tensor_name,
-           const MPIResponse::ResponseType response_type,
-           const Tensor* output_tensor);
+  void ActivityStart(const std::string& tensor_name, const std::string& activity);
+  void ActivityEnd(const std::string& tensor_name);
+  void End(const std::string& tensor_name, const Tensor* output_tensor);
 
 private:
-  void WriteEvent(const std::string& tensor_name, const std::string& op_name,
-                  const char phase, const std::string& args = "");
+  void WriteEvent(const std::string& tensor_name, const char phase,
+                  const std::string& op_name = "",
+                  const std::string& args = "");
 
   // Boolean flag indicating whether Timeline was initialized (and thus should
   // be recorded).
@@ -82,6 +81,9 @@ private:
   // Mapping of tensor names to indexes. It is used to reduce size of the
   // timeline file.
   std::unordered_map<std::string, int> tensor_table_;
+
+  // Current state of each tensor in the timeline.
+  std::unordered_map<std::string, TimelineState> tensor_states_;
 };
 
 } // namespace tensorflow

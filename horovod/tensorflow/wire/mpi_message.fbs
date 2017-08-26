@@ -74,7 +74,10 @@ enum MPIResponseType:byte {
 table MPIResponse {
     // Empty if the type is DONE or SHUTDOWN.
     response_type:MPIResponseType;
-    tensor_name:string;
+
+    // If tensor_names has more than one entry, this is a fused operation and the
+    // rest of the fields are the same.
+    tensor_names:[string];
 
     // Empty unless response_type is ERROR.
     error_message:string;

@@ -92,7 +92,8 @@ class MPITests(tf.test.TestCase):
             for dtype, dim in itertools.product(dtypes, dims):
                 with tf.device("/cpu:0"):
                     tf.set_random_seed(1234)
-                    tensor = tf.random_uniform([17] * dim, -100, 100, dtype=dtype)
+                    tensor = tf.random_uniform(
+                        [17] * dim, -100, 100, dtype=dtype)
                     summed = hvd.allreduce(tensor, average=False)
                 multiplied = tensor * size
                 max_difference = tf.reduce_max(tf.abs(summed - multiplied))
@@ -111,6 +112,40 @@ class MPITests(tf.test.TestCase):
                 diff = session.run(max_difference)
                 self.assertTrue(diff <= threshold,
                                 "hvd.allreduce produces incorrect results")
+
+    def test_horovod_allreduce_cpu_fused(self):
+        """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors
+        with Tensor Fusion."""
+        hvd.init()
+        size = hvd.size()
+        with self.test_session() as session:
+            dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]
+            dims = [1, 2, 3]
+            tests = []
+            for dtype, dim in itertools.product(dtypes, dims):
+                with tf.device("/cpu:0"):
+                    tf.set_random_seed(1234)
+                    tensor = tf.random_uniform(
+                        [17] * dim, -100, 100, dtype=dtype)
+                    summed = hvd.allreduce(tensor, average=False)
+                multiplied = tensor * size
+                max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+
+                # Threshold for floating point equality depends on number of
+                # ranks, since we're comparing against precise multiplication.
+                if size <= 3:
+                    threshold = 0
+                elif size < 10:
+                    threshold = 1e-4
+                elif size < 15:
+                    threshold = 5e-4
+                else:
+                    break
+
+                test = max_difference <= threshold
+                tests.append(test)
+            self.assertTrue(session.run(tf.reduce_all(tests)),
+                            "hvd.allreduce produces incorrect results")
 
     def test_horovod_allreduce_gpu(self):
         """Test that the allreduce works on GPUs.
@@ -155,6 +190,51 @@ class MPITests(tf.test.TestCase):
                 self.assertTrue(diff <= threshold,
                                 "hvd.allreduce on GPU produces incorrect results")
 
+    def test_horovod_allreduce_gpu_fused(self):
+        """Test that the allreduce works on GPUs with Tensor Fusion.
+
+        This test will crash badly if used with an MPI implementation that does
+        not support GPU memory transfers directly, as it will call MPI_Send on
+        a GPU data pointer."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            return
+
+        hvd.init()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        one_gpu = tf.GPUOptions(visible_device_list=str(local_rank))
+        gpu_config = tf.ConfigProto(gpu_options=one_gpu)
+        with self.test_session(config=gpu_config) as session:
+            dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]
+            dims = [1, 2, 3]
+            tests = []
+            for dtype, dim in itertools.product(dtypes, dims):
+                with tf.device("/gpu:0"):
+                    tf.set_random_seed(1234)
+                    tensor = tf.random_uniform(
+                        [17] * dim, -100, 100, dtype=dtype)
+                    summed = hvd.allreduce(tensor, average=False)
+                multiplied = tensor * size
+                max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+
+                # Threshold for floating point equality depends on number of
+                # ranks, since we're comparing against precise multiplication.
+                if size <= 3:
+                    threshold = 0
+                elif size < 10:
+                    threshold = 1e-4
+                elif size < 15:
+                    threshold = 5e-4
+                else:
+                    return
+
+                test = max_difference <= threshold
+                tests.append(test)
+            self.assertTrue(session.run(tf.reduce_all(tests)),
+                            "hvd.allreduce produces incorrect results")
+
     def test_horovod_allreduce_multi_gpu(self):
         """Test that the allreduce works on multiple GPUs.
 
@@ -170,7 +250,8 @@ class MPITests(tf.test.TestCase):
         size = hvd.size()
 
         iter = 0
-        two_gpus = tf.GPUOptions(visible_device_list=('%d,%d' % (local_rank * 2, local_rank * 2 + 1)))
+        two_gpus = tf.GPUOptions(visible_device_list=(
+            '%d,%d' % (local_rank * 2, local_rank * 2 + 1)))
         gpu_config = tf.ConfigProto(gpu_options=two_gpus)
         with self.test_session(config=gpu_config) as session:
             dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]

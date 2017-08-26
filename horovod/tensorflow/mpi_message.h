@@ -107,8 +107,9 @@ public:
   void set_response_type(ResponseType value);
 
   // Empty if the type is DONE or SHUTDOWN.
-  const std::string& tensor_name() const;
-  void set_tensor_name(const std::string& value);
+  const std::vector<std::string>& tensor_names() const;
+  void set_tensor_names(const std::vector<std::string>& value);
+  void add_tensor_names(const std::string& value);
 
   // Empty unless response_type is ERROR.
   const std::string& error_message() const;
@@ -130,7 +131,7 @@ public:
 
 private:
   ResponseType response_type_;
-  std::string tensor_name_;
+  std::vector<std::string> tensor_names_;
   std::string error_message_;
   std::vector<int32_t> devices_;
   std::vector<int64_t> tensor_sizes_;
