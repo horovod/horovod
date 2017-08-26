@@ -40,7 +40,7 @@ large scale benchmark, we can share the numbers that we got on 16 Pascal GPUs:
 | RDMA Horovod on GPU (NCCL)            |     1,974.4 (14.8x) | **1,651.2 (14.0x)** | **1,824.0 (13.9x)** |
 
 **Note**: This benchmark was prepared before the Tensor Fusion release, and so current Horovod performance should be
-even better the table above suggests. We are working on updating it.
+even better than the table above suggests. We are working on updating it.
 
 # Install
 
@@ -484,7 +484,7 @@ workers were early and which were late.
  *broadcast* operations. This happens because TensorFlow tries to smartly interleave scheduling and GPU computation.
  This is only applicable to situations where the Horovod operation is placed on GPU.
 
-* WAIT_FOR_OTHER_TENSOR_DATA* indicates time taken to wait for GPU to finish computing other inputs for other operations
+* *WAIT_FOR_OTHER_TENSOR_DATA* indicates time taken to wait for GPU to finish computing other inputs for other operations
  that are part of the same fusion batch.
 
 * *SCHEDULE* indicates how much time it took to schedule memory copies into and out of the fusion buffer and the NCCL
