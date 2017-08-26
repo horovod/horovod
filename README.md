@@ -433,8 +433,8 @@ memory, use:
 
 ## Tensor Fusion
 
-One of the unique things about Horovod is its ability to interleave communication and computation combined with batching
-of small *allreduce* operations which results in improved performance. We call this batching feature Tensor Fusion.
+One of the unique things about Horovod is its ability to interleave communication and computation with batching
+of small *allreduce* operations, which results in improved performance. We call this batching feature Tensor Fusion.
 
 Tensor Fusion works by attempting to combine all the tensors that are ready to be reduced at given moment of time into
 one reduction operation. The algorithm of Tensor Fusion is as follows:
@@ -445,15 +445,14 @@ one reduction operation. The algorithm of Tensor Fusion is as follows:
  is 64 MB.
 3. Copy data of selected tensors into the fusion buffer.
 4. Execute the *allreduce* operation on the fusion buffer.
-5. Copy data from the fusion buffer into output tensors.
+5. Copy data from the fusion buffer into the output tensors.
 6. Repeat if there are any tensors that did not fit into previous iteration.
 
-The fusion buffer size can be tweaked using `HOROVOD_FUSION_THRESHOLD` environment variable:
+The fusion buffer size can be tweaked using the `HOROVOD_FUSION_THRESHOLD` environment variable:
 
 ```bash
 $ HOROVOD_FUSION_THRESHOLD=33554432 mpirun -np 4 -x HOROVOD_FUSION_THRESHOLD python train.py
 ```
-
 
 ## Analyzing Horovod Performance
 
@@ -482,8 +481,8 @@ workers were early and which were late.
 2. **Processing** - a phase when the operation actually happens. It is further subdivided into multiple sub-phases:
 
 * *WAIT_FOR_DATA* indicates time taken to wait for GPU to finish computing input to the *allreduce*, *allgather* or 
- *broadcast* operation. This happens because TensorFlow tries to smartly interleave scheduling and GPU computation.
- This is only applicable to situations when Horovod operation is placed on GPU.
+ *broadcast* operations. This happens because TensorFlow tries to smartly interleave scheduling and GPU computation.
+ This is only applicable to situations where the Horovod operation is placed on GPU.
 
 * WAIT_FOR_OTHER_TENSOR_DATA* indicates time taken to wait for GPU to finish computing other inputs for other operations
  that are part of the same fusion batch.
@@ -496,7 +495,7 @@ workers were early and which were late.
 * *MEMCPY_IN_FUSION_BUFFER* and *MEMCPY_OUT_FUSION_BUFFER* indicate time taken to copy data into and out of the fusion 
  buffer.
 
-* *NCCL_ALLREDUCE*, *MPI_ALLREDUCE*, *MPI_ALLGATHER* or *MPI_BCAST* indicate time taken to do actual operation on GPU 
+* *NCCL_ALLREDUCE*, *MPI_ALLREDUCE*, *MPI_ALLGATHER*, or *MPI_BCAST* indicate time taken to do the actual operation on GPU 
  (or CPU) and highlights whether the operation was performed using NCCL or pure MPI.
 
 ### References

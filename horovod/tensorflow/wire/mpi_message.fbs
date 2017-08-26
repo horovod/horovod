@@ -75,7 +75,7 @@ table MPIResponse {
     // Empty if the type is DONE or SHUTDOWN.
     response_type:MPIResponseType;
 
-    // If tensor_names has more than one entry, this is fused operation and the
+    // If tensor_names has more than one entry, this is a fused operation and the
     // rest of the fields are the same.
     tensor_names:[string];
 
