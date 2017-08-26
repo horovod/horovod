@@ -439,14 +439,14 @@ of small *allreduce* operations, which results in improved performance. We call 
 Tensor Fusion works by attempting to combine all the tensors that are ready to be reduced at given moment of time into
 one reduction operation. The algorithm of Tensor Fusion is as follows:
 
-1. Determine which tensors are ready to be reduced. Select a subset of tensors that fit in `HOROVOD_FUSION_THRESHOLD` 
+1. Determine which tensors are ready to be reduced. Select first few tensors that fit in `HOROVOD_FUSION_THRESHOLD` 
  bytes and have the same data type.
 2. Allocate fusion buffer of size `HOROVOD_FUSION_THRESHOLD` if it was not allocated before. Default fusion buffer size 
  is 64 MB.
 3. Copy data of selected tensors into the fusion buffer.
 4. Execute the *allreduce* operation on the fusion buffer.
 5. Copy data from the fusion buffer into the output tensors.
-6. Repeat if there are any tensors that did not fit into previous iteration.
+6. Repeat until there are no more tensors to reduce in this cycle.
 
 The fusion buffer size can be tweaked using the `HOROVOD_FUSION_THRESHOLD` environment variable:
 
