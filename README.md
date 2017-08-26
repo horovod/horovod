@@ -480,7 +480,7 @@ workers were early and which were late.
 
 2. **Processing** - a phase when the operation actually happens. It is further subdivided into multiple sub-phases:
 
-* *WAIT_FOR_DATA* indicates time taken to wait for GPU to finish computing input to the *allreduce*, *allgather* or 
+* *WAIT_FOR_DATA* indicates time taken to wait for GPU to finish computing input to the *allreduce*, *allgather*, or 
  *broadcast* operations. This happens because TensorFlow tries to smartly interleave scheduling and GPU computation.
  This is only applicable to situations where the Horovod operation is placed on GPU.
 
