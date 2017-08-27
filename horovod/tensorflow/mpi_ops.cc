@@ -1039,9 +1039,11 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         offset += it->tensor.tensor_data().size();
       }
 #if HAVE_CUDA
-      CUDA_CHECK(
-          entries, "cudaStreamSynchronize",
-          cudaStreamSynchronize(horovod_global.streams[first_entry.device]))
+      if (on_gpu) {
+        CUDA_CHECK(
+            entries, "cudaStreamSynchronize",
+            cudaStreamSynchronize(horovod_global.streams[first_entry.device]))
+      }
 #endif
       ACTIVITY_END_ALL(entries, timeline)
 
@@ -1080,9 +1082,11 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         offset += it->tensor.tensor_data().size();
       }
 #if HAVE_CUDA
-      CUDA_CHECK(
-          entries, "cudaStreamSynchronize",
-          cudaStreamSynchronize(horovod_global.streams[first_entry.device]))
+      if (on_gpu) {
+        CUDA_CHECK(
+            entries, "cudaStreamSynchronize",
+            cudaStreamSynchronize(horovod_global.streams[first_entry.device]))
+      }
 #endif
       ACTIVITY_END_ALL(entries, timeline)
     } else {
