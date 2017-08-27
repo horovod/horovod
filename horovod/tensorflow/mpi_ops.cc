@@ -1387,8 +1387,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
           auto& entry = state.tensor_table[response.tensor_names()[0]];
           size_t tensor_size = entry.tensor.tensor_data().size();
 
-          while (it != responses.end() &&
-                 tensor_size < state.tensor_fusion_threshold) {
+          while (it != responses.end()) {
             assert(it->tensor_names().size() == 1);
             auto& new_entry = state.tensor_table[it->tensor_names()[0]];
             size_t new_tensor_size = new_entry.tensor.tensor_data().size();
@@ -1403,7 +1402,11 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
               response.add_tensor_names(it->tensor_names()[0]);
               it = responses.erase(it);
             } else {
-              it++;
+              // Don't try to fuse additional tensors since they are usually
+              // computed in order of requests and skipping tensors may mean
+              // that the batch will have to wait longer while skipped tensors
+              // could be reduced at that time.
+              break;
             }
           }
         }
