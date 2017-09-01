@@ -172,23 +172,26 @@ To use Horovod on GPU, read the options below and see which one applies to you b
 ### Have GPUs?
 
 In most situations, using NCCL 2 will significantly improve performance over the CPU version.  NCCL 2 provides the *allreduce*
-operation optimized for NVIDIA GPUs and a variety of networking devices, such as InfiniBand.
+operation optimized for NVIDIA GPUs and a variety of networking devices, such as RoCE or InfiniBand.
 
 1. Install [NCCL 2](https://developer.nvidia.com/nccl).
 
-If you aren't able to install NCCL 2 Debian package due to missing dependencies, you can use this workaround:
-
-```bash
-$ dpkg -x nccl-repo-ubuntu1604-2.0.4-ga_2.0.4-1_amd64.deb /tmp/nccl
-$ sudo dpkg -x /tmp/nccl/var/nccl-repo-2.0.4-ga/libnccl2_2.0.4-1+cuda8.0_amd64.deb /
-$ sudo dpkg -x /tmp/nccl/var/nccl-repo-2.0.4-ga/libnccl-dev_2.0.4-1+cuda8.0_amd64.deb /
-```
+Steps to install NCCL 2 are listed [here](http://docs.nvidia.com/deeplearning/sdk/nccl-install-guide/index.html).
 
 2. Install [Open MPI](https://www.open-mpi.org/) or another MPI implementation.
 
 Steps to install Open MPI are listed [here](https://www.open-mpi.org/faq/?category=building#easy-build).
 
 3. Install the `horovod` pip package.
+
+If you installed NCCL 2 using `nccl-<version>.txz` package, you should specify path to NCCL 2 using the `HOROVOD_NCCL_HOME`
+environment variable. 
+
+```bash
+$ HOROVOD_NCCL_HOME=/usr/local/nccl-<version> HOROVOD_GPU_ALLREDUCE=NCCL pip install --no-cache-dir horovod
+```
+
+If you installed NCCL 2 using Ubuntu package, you can simply run:
 
 ```bash
 $ HOROVOD_GPU_ALLREDUCE=NCCL pip install --no-cache-dir horovod
@@ -215,13 +218,7 @@ command.
 
 1. Install [NCCL 2](https://developer.nvidia.com/nccl).
 
-If you aren't able to install NCCL 2 Debian package due to missing dependencies, you can use this workaround:
-
-```bash
-$ dpkg -x nccl-repo-ubuntu1604-2.0.4-ga_2.0.4-1_amd64.deb /tmp/nccl
-$ sudo dpkg -x /tmp/nccl/var/nccl-repo-2.0.4-ga/libnccl2_2.0.4-1+cuda8.0_amd64.deb /
-$ sudo dpkg -x /tmp/nccl/var/nccl-repo-2.0.4-ga/libnccl-dev_2.0.4-1+cuda8.0_amd64.deb /
-```
+Steps to install NCCL 2 are listed [here](http://docs.nvidia.com/deeplearning/sdk/nccl-install-guide/index.html).
 
 2. Install [nv_peer_memory](http://www.mellanox.com/page/products_dyn?product_family=116) driver.
 
@@ -233,6 +230,15 @@ Steps to install Open MPI are listed [here](https://www.open-mpi.org/faq/?catego
 sure you build it with [CUDA support](https://www.open-mpi.org/faq/?category=building#build-cuda).
 
 4. Install the `horovod` pip package.
+
+If you installed NCCL 2 using `nccl-<version>.txz` package, you should specify path to NCCL 2 using the `HOROVOD_NCCL_HOME`
+environment variable. 
+
+```bash
+$ HOROVOD_NCCL_HOME=/usr/local/nccl-<version> HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_ALLGATHER=MPI HOROVOD_GPU_BROADCAST=MPI pip install --no-cache-dir horovod
+```
+
+If you installed NCCL 2 using Ubuntu package, you can simply run:
 
 ```bash
 $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_ALLGATHER=MPI HOROVOD_GPU_BROADCAST=MPI pip install --no-cache-dir horovod
