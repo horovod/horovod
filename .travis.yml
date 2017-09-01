@@ -45,4 +45,9 @@ install:
   - pip install dist/horovod-*.tar.gz
 
 script:
-  - mpirun -allow-run-as-root -np 2 python horovod/tensorflow/mpi_ops_test.py
+  - |
+    if [ $MPI == "OpenMPI" ]; then
+      mpirun -allow-run-as-root -np 2 python horovod/tensorflow/mpi_ops_test.py
+    else
+      mpirun -np 2 python horovod/tensorflow/mpi_ops_test.py
+    fi
