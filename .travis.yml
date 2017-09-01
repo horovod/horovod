@@ -20,11 +20,9 @@ matrix:
   fast_finish: true
   exclude:
     - python: 3.4
-      env: MPI=MPICH
-      env: TF_VERSION=1.1.0
+      env: TF_VERSION=1.1.0 MPI=MPICH
     - python: 3.6
-      env: MPI=MPICH
-      env: TF_VERSION=1.1.0
+      env: TF_VERSION=1.1.0 MPI=MPICH
 
 install:
   - |
