@@ -442,6 +442,32 @@ $ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/nccl-<version>/lib
 $ mpirun -np 16 -x LD_LIBRARY_PATH -H server1:4,server2:4,server3:4,server4:4 python train.py
 ```
 
+### Pip install: no such option: --no-cache-dir
+
+If you see the error message below, it means that your version of pip is out of date. You can remove the `--no-cache-dir` flag
+since your version of pip does not do caching. The `--no-cache-dir` flag is added to all examples to ensure that when you
+change Horovod compilation flags, it will be rebuilt from source and not just reinstalled from the pip cache, which is
+modern pip's [default behavior](https://pip.pypa.io/en/stable/reference/pip_install/#caching).
+
+```
+$ pip install --no-cache-dir horovod
+
+Usage:
+  pip install [options] <requirement specifier> ...
+  pip install [options] -r <requirements file> ...
+  pip install [options] [-e] <vcs project url> ...
+  pip install [options] [-e] <local project path> ...
+  pip install [options] <archive url/path> ...
+
+no such option: --no-cache-dir
+```
+
+For example:
+
+```bash
+$ pip install horovod
+```
+
 ### Running out of memory
 
 If you notice that your program is running out of GPU memory and multiple processes
