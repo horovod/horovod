@@ -178,20 +178,27 @@ operation optimized for NVIDIA GPUs and a variety of networking devices, such as
 
 Steps to install NCCL 2 are listed [here](http://docs.nvidia.com/deeplearning/sdk/nccl-install-guide/index.html).
 
+If you have installed NCCL 2 using `nccl-<version>.txz` package, you should add library path to `LD_LIBRARY_PATH`
+environment variable or register it in `/etc/ld.so.conf`.
+
+```bash
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/nccl-<version>/lib
+```
+
 2. Install [Open MPI](https://www.open-mpi.org/) or another MPI implementation.
 
 Steps to install Open MPI are listed [here](https://www.open-mpi.org/faq/?category=building#easy-build).
 
 3. Install the `horovod` pip package.
 
-If you installed NCCL 2 using `nccl-<version>.txz` package, you should specify path to NCCL 2 using the `HOROVOD_NCCL_HOME`
-environment variable. 
+If you have installed NCCL 2 using `nccl-<version>.txz` package, you should specify path to NCCL 2 using the `HOROVOD_NCCL_HOME`
+environment variable.
 
 ```bash
 $ HOROVOD_NCCL_HOME=/usr/local/nccl-<version> HOROVOD_GPU_ALLREDUCE=NCCL pip install --no-cache-dir horovod
 ```
 
-If you installed NCCL 2 using Ubuntu package, you can simply run:
+If you have installed NCCL 2 using Ubuntu package, you can simply run:
 
 ```bash
 $ HOROVOD_GPU_ALLREDUCE=NCCL pip install --no-cache-dir horovod
@@ -220,6 +227,13 @@ command.
 
 Steps to install NCCL 2 are listed [here](http://docs.nvidia.com/deeplearning/sdk/nccl-install-guide/index.html).
 
+If you have installed NCCL 2 using `nccl-<version>.txz` package, you should add library path to `LD_LIBRARY_PATH`
+environment variable or register it in `/etc/ld.so.conf`.
+
+```bash
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/nccl-<version>/lib
+```
+
 2. Install [nv_peer_memory](http://www.mellanox.com/page/products_dyn?product_family=116) driver.
 
 Follow instructions from that page, and make sure to do `/etc/init.d/nv_peer_mem start` in the end.
@@ -231,14 +245,14 @@ sure you build it with [CUDA support](https://www.open-mpi.org/faq/?category=bui
 
 4. Install the `horovod` pip package.
 
-If you installed NCCL 2 using `nccl-<version>.txz` package, you should specify path to NCCL 2 using the `HOROVOD_NCCL_HOME`
-environment variable. 
+If you have installed NCCL 2 using `nccl-<version>.txz` package, you should specify path to NCCL 2 using the `HOROVOD_NCCL_HOME`
+environment variable.
 
 ```bash
 $ HOROVOD_NCCL_HOME=/usr/local/nccl-<version> HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_ALLGATHER=MPI HOROVOD_GPU_BROADCAST=MPI pip install --no-cache-dir horovod
 ```
 
-If you installed NCCL 2 using Ubuntu package, you can simply run:
+If you have installed NCCL 2 using Ubuntu package, you can simply run:
 
 ```bash
 $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_ALLGATHER=MPI HOROVOD_GPU_BROADCAST=MPI pip install --no-cache-dir horovod
@@ -340,7 +354,7 @@ $ pip install --no-cache-dir horovod
 $ ldconfig
 ```
 
-### MPI not found during installation
+### MPI is not found during installation
 
 1. Is MPI in PATH?
 
@@ -369,7 +383,7 @@ $ export PATH=$PATH:/path/to/mpi/bin
 $ pip install --no-cache-dir horovod
 ```
 
-### NCCL 2 is not found
+### NCCL 2 is not found during installation
 
 If you see the error message below, it means NCCL 2 was not found in standard libraries location. If you have a directory
 where you installed NCCL 2 which has both `include` and `lib` directories containing `nccl.h` and `libnccl.so` 
@@ -399,6 +413,33 @@ Or:
 
 ```bash
 $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_INCLUDE=/path/to/nccl/include HOROVOD_NCCL_LIB=/path/to/nccl/lib pip install --no-cache-dir horovod
+```
+
+### NCCL 2 is not found during runtime
+
+If you see the error message below, it means NCCL 2 was not found in standard libraries location. You should add directory
+where you installed NCCL 2 libraries to `LD_LIBRARY_PATH` environment variable.
+
+```
+Traceback (most recent call last):
+  File "tf_cnn_benchmarks.py", line 46, in <module>
+    import horovod.tensorflow as hvd
+  File "/home/asergeev/mpi/venv-nccl/local/lib/python2.7/site-packages/horovod/tensorflow/__init__.py", line 34, in <module>
+    from horovod.tensorflow.mpi_ops import size
+  File "/home/asergeev/mpi/venv-nccl/local/lib/python2.7/site-packages/horovod/tensorflow/mpi_ops.py", line 74, in <module>
+    ['HorovodAllgather', 'HorovodAllreduce'])
+  File "/home/asergeev/mpi/venv-nccl/local/lib/python2.7/site-packages/horovod/tensorflow/mpi_ops.py", line 56, in _load_library
+    library = load_library.load_op_library(filename)
+  File "/home/asergeev/mpi/venv-nccl/local/lib/python2.7/site-packages/tensorflow/python/framework/load_library.py", line 64, in load_op_library
+    None, None, error_msg, error_code)
+tensorflow.python.framework.errors_impl.NotFoundError: libnccl.so.2: cannot open shared object file: No such file or directory
+```
+
+For example:
+
+```bash
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/nccl-<version>/lib
+$ mpirun -np 16 -x LD_LIBRARY_PATH -H server1:4,server2:4,server3:4,server4:4 python train.py
 ```
 
 ### Running out of memory
