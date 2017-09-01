@@ -33,7 +33,7 @@ install:
       pushd openmpi-2.1.1 && ./configure --prefix=/usr/local && make -j8 all && sudo make all install && popd && sudo ldconfig
     else
       # installs mpich version 3.0.4
-      apt-get install mpich
+      sudo apt-get install mpich
     fi
 
   # tensorflow
