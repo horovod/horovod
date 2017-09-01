@@ -21,8 +21,10 @@ matrix:
   exclude:
     - python: 3.4
       env: MPI=MPICH
+      env: TF_VERSION=1.1.0
     - python: 3.6
       env: MPI=MPICH
+      env: TF_VERSION=1.1.0
 
 install:
   - |
