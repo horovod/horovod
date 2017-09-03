@@ -26,21 +26,19 @@ While installing MPI itself may seem like an extra hassle, it only needs to be d
 while everyone else in the company who builds the models can enjoy simplicity of training them at scale.
 
 We also found performance of MPI and NCCL 2 to be very good for the task of averaging gradients. While we're working on
-large scale benchmark, we can share the numbers that we got on 16 Pascal GPUs:
+large scale benchmark, we can share the numbers that we got on 4 servers with 4 Pascal GPUs each connected by 25 Gbit/s
+RoCE-enabled network:
 
 | Setup                                 |     Inception V3    |      ResNet-101     |        VGG-16       |
 |---------------------------------------|:-------------------:|:-------------------:|:-------------------:|
-| Baseline single-GPU (batch size=64)   |                 133 |               118.1 |               130.8 |
+| Baseline single-GPU (batch size=64)   |               134.4 |               119.4 |               130.9 |
 |               On 16 GPUs              |                   x |                   x |                   x |
-| Distributed TensorFlow                |     1,378.4 (10.4x) |        996.8 (8.4x) |        310.4 (2.4x) |
-| Distributed TensorFlow (vars. on CPU) |     1,586.0 (11.9x) |     1,195.2 (10.1x) |        299.2 (2.3x) |
-| TCP Horovod on CPU                    |     2,003.2 (15.1x) |     1,232.0 (10.4x) |        696.0 (5.3x) |
-| RDMA Horovod on CPU                   | **2,068.8 (15.6x)** |     1,590.4 (13.5x) |        752.0 (5.7x) |
-| TCP Horovod on GPU (NCCL)             |     1,921.6 (14.4x) |     1,475.2 (12.5x) |     1,635.2 (12.5x) |
-| RDMA Horovod on GPU (NCCL)            |     1,974.4 (14.8x) | **1,651.2 (14.0x)** | **1,824.0 (13.9x)** |
-
-**Note**: This benchmark was prepared before the Tensor Fusion release, and so current Horovod performance should be
-even better than the table above suggests. We are working on updating it.
+| Distributed TensorFlow                |     1,345.8 (10.0x) |        959.6 (8.0x) |         74.7 (0.6x) |
+| Distributed TensorFlow (vars. on CPU) |     1,576.4 (11.7x) |      1,168.8 (9.8x) |         79.5 (0.6x) |
+| TCP Horovod on CPU                    | **2,073.3 (15.4x)** |     1,338.3 (11.2x) |        616.8 (4.7x) |
+| RDMA Horovod on CPU                   | **2,073.1 (15.4x)** |     1,446.3 (12.1x) |        618.0 (4.7x) |
+| TCP Horovod on GPU (NCCL)             |     1,990.7 (14.8x) |     1,685.1 (14.1x) |     1,308.7 (10.0x) |
+| RDMA Horovod on GPU (NCCL)            |     2,022.6 (15.0x) | **1,746.2 (14.6x)** | **1,787.4 (13.7x)** |
 
 # Install
 
