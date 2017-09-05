@@ -22,25 +22,35 @@ averaging gradients across them, `tf.Server()`, `tf.ClusterSpec()`, `tf.train.Sy
 `tf.train.replicas_device_setter()` and so on. If none of these things makes sense to you - don't worry, you don't have to 
 learn them if you use Horovod.
 
-While installing MPI itself may seem like an extra hassle, it only needs to be done once and by one group of people,
-while everyone else in the company who builds the models can enjoy simplicity of training them at scale.
+In addition to being easy to use, Horovod is fast. We have done two benchmarks which demonstrate that Horovod scales very well.
 
-We also found performance of MPI and NCCL 2 to be very good for the task of averaging gradients. While we're working on
-large scale benchmark, we can share the numbers that we got on 16 Pascal GPUs:
+The first benchmark was done on 4 servers with 4 Pascal GPUs each connected by RoCE-capable 25 Gbit/s network:
 
-| Setup                                 |     Inception V3    |      ResNet-101     |        VGG-16       |
-|---------------------------------------|:-------------------:|:-------------------:|:-------------------:|
-| Baseline single-GPU (batch size=64)   |                 133 |               118.1 |               130.8 |
-|               On 16 GPUs              |                   x |                   x |                   x |
-| Distributed TensorFlow                |     1,378.4 (10.4x) |        996.8 (8.4x) |        310.4 (2.4x) |
-| Distributed TensorFlow (vars. on CPU) |     1,586.0 (11.9x) |     1,195.2 (10.1x) |        299.2 (2.3x) |
-| TCP Horovod on CPU                    |     2,003.2 (15.1x) |     1,232.0 (10.4x) |        696.0 (5.3x) |
-| RDMA Horovod on CPU                   | **2,068.8 (15.6x)** |     1,590.4 (13.5x) |        752.0 (5.7x) |
-| TCP Horovod on GPU (NCCL)             |     1,921.6 (14.4x) |     1,475.2 (12.5x) |     1,635.2 (12.5x) |
-| RDMA Horovod on GPU (NCCL)            |     1,974.4 (14.8x) | **1,651.2 (14.0x)** | **1,824.0 (13.9x)** |
+| Setup                                     |     Inception V3    |      ResNet-101     |        VGG-16       |
+|-------------------------------------------|:-------------------:|:-------------------:|:-------------------:|
+| Baseline single-GPU (batch size=64)       |               134.4 |               119.4 |               130.9 |
+|                 On 16 GPUs                |                   x |                   x |                   x |
+| Distributed TensorFlow                    |     1,345.8 (10.0x) |        959.6 (8.0x) |         74.7 (0.6x) |
+| Distributed TensorFlow (variables on CPU) |     1,576.4 (11.7x) |      1,168.8 (9.8x) |         79.5 (0.6x) |
+| TCP Horovod (allreduce on CPU)            | **2,073.3 (15.4x)** |     1,338.3 (11.2x) |        616.8 (4.7x) |
+| RDMA Horovod (allreduce on CPU)           | **2,073.1 (15.4x)** |     1,446.3 (12.1x) |        618.0 (4.7x) |
+| TCP Horovod (allreduce on GPU with NCCL)  |     1,990.7 (14.8x) |     1,685.1 (14.1x) |     1,308.7 (10.0x) |
+| RDMA Horovod (allreduce on GPU with NCCL) |     2,022.6 (15.0x) | **1,746.2 (14.6x)** | **1,787.4 (13.7x)** |
 
-**Note**: This benchmark was prepared before the Tensor Fusion release, and so current Horovod performance should be
-even better the table above suggests. We are working on updating it.
+The second benchmark was done on 16 servers with 4 Pascal GPUs each connected by plain 40 Gbit/s network:
+
+| Setup                                     |     Inception V3    |      ResNet-101     |        VGG-16       |
+|-------------------------------------------|:-------------------:|:-------------------:|:-------------------:|
+| Baseline single-GPU (batch size=64)       |               148.8 |               136.0 |               149.6 |
+|                 On 64 GPUs                |                   x |                   x |                   x |
+| Distributed TensorFlow                    |     4,225.3 (28.4x) |     2,996.0 (22.0x) |         97.0 (0.6x) |
+| Distributed TensorFlow (variables on CPU) |     5,297.4 (35.6x) |     4,269.2 (31.4x) |        100.8 (0.7x) |
+| TCP Horovod (allreduce on CPU)            |     6,549.6 (44.0x) |     3,761.6 (27.7x) |      1,462.6 (9.8x) |
+| TCP Horovod (allreduce on GPU with NCCL)  | **7,932.1 (53.3x)** | **7,741.6 (56.9x)** | **6,084.2 (40.7x)** |
+
+While installing MPI and NCCL itself may seem like an extra hassle, it only needs to be done once by the team dealing
+with infrastructure, while everyone else in the company who builds the models can enjoy the simplicity of training them at
+scale.
 
 # Install
 
@@ -172,16 +182,17 @@ To use Horovod on GPU, read the options below and see which one applies to you b
 ### Have GPUs?
 
 In most situations, using NCCL 2 will significantly improve performance over the CPU version.  NCCL 2 provides the *allreduce*
-operation optimized for NVIDIA GPUs and a variety of networking devices, such as InfiniBand.
+operation optimized for NVIDIA GPUs and a variety of networking devices, such as RoCE or InfiniBand.
 
 1. Install [NCCL 2](https://developer.nvidia.com/nccl).
 
-If you aren't able to install NCCL 2 Debian package due to missing dependencies, you can use this workaround:
+Steps to install NCCL 2 are listed [here](http://docs.nvidia.com/deeplearning/sdk/nccl-install-guide/index.html).
+
+If you have installed NCCL 2 using the `nccl-<version>.txz` package, you should add the library path to `LD_LIBRARY_PATH`
+environment variable or register it in `/etc/ld.so.conf`.
 
 ```bash
-$ dpkg -x nccl-repo-ubuntu1604-2.0.4-ga_2.0.4-1_amd64.deb /tmp/nccl
-$ sudo dpkg -x /tmp/nccl/var/nccl-repo-2.0.4-ga/libnccl2_2.0.4-1+cuda8.0_amd64.deb /
-$ sudo dpkg -x /tmp/nccl/var/nccl-repo-2.0.4-ga/libnccl-dev_2.0.4-1+cuda8.0_amd64.deb /
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/nccl-<version>/lib
 ```
 
 2. Install [Open MPI](https://www.open-mpi.org/) or another MPI implementation.
@@ -190,13 +201,21 @@ Steps to install Open MPI are listed [here](https://www.open-mpi.org/faq/?catego
 
 3. Install the `horovod` pip package.
 
+If you have installed NCCL 2 using the `nccl-<version>.txz` package, you should specify the path to NCCL 2 using the `HOROVOD_NCCL_HOME`
+environment variable.
+
+```bash
+$ HOROVOD_NCCL_HOME=/usr/local/nccl-<version> HOROVOD_GPU_ALLREDUCE=NCCL pip install --no-cache-dir horovod
+```
+
+If you have installed NCCL 2 using the Ubuntu package, you can simply run:
+
 ```bash
 $ HOROVOD_GPU_ALLREDUCE=NCCL pip install --no-cache-dir horovod
 ```
 
-**Note**: Some networks with a high computation to communication ratio benefit from doing allreduce on CPU, even if a
-GPU version is available.  Inception V3 is an example of such network.  To force allreduce to happen on CPU, pass
-`device_dense='/cpu:0'` to `hvd.DistributedOptimizer`:
+**Note**: Some models with a high computation to communication ratio benefit from doing allreduce on CPU, even if a
+GPU version is available. To force allreduce to happen on CPU, pass `device_dense='/cpu:0'` to `hvd.DistributedOptimizer`:
 
 ```python
 opt = hvd.DistributedOptimizer(opt, device_dense='/cpu:0')
@@ -215,12 +234,13 @@ command.
 
 1. Install [NCCL 2](https://developer.nvidia.com/nccl).
 
-If you aren't able to install NCCL 2 Debian package due to missing dependencies, you can use this workaround:
+Steps to install NCCL 2 are listed [here](http://docs.nvidia.com/deeplearning/sdk/nccl-install-guide/index.html).
+
+If you have installed NCCL 2 using the `nccl-<version>.txz` package, you should add the library path to `LD_LIBRARY_PATH`
+environment variable or register it in `/etc/ld.so.conf`.
 
 ```bash
-$ dpkg -x nccl-repo-ubuntu1604-2.0.4-ga_2.0.4-1_amd64.deb /tmp/nccl
-$ sudo dpkg -x /tmp/nccl/var/nccl-repo-2.0.4-ga/libnccl2_2.0.4-1+cuda8.0_amd64.deb /
-$ sudo dpkg -x /tmp/nccl/var/nccl-repo-2.0.4-ga/libnccl-dev_2.0.4-1+cuda8.0_amd64.deb /
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/nccl-<version>/lib
 ```
 
 2. Install [nv_peer_memory](http://www.mellanox.com/page/products_dyn?product_family=116) driver.
@@ -233,6 +253,15 @@ Steps to install Open MPI are listed [here](https://www.open-mpi.org/faq/?catego
 sure you build it with [CUDA support](https://www.open-mpi.org/faq/?category=building#build-cuda).
 
 4. Install the `horovod` pip package.
+
+If you have installed NCCL 2 using the `nccl-<version>.txz` package, you should specify the path to NCCL 2 using the `HOROVOD_NCCL_HOME`
+environment variable.
+
+```bash
+$ HOROVOD_NCCL_HOME=/usr/local/nccl-<version> HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_ALLGATHER=MPI HOROVOD_GPU_BROADCAST=MPI pip install --no-cache-dir horovod
+```
+
+If you have installed NCCL 2 using the Ubuntu package, you can simply run:
 
 ```bash
 $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_ALLGATHER=MPI HOROVOD_GPU_BROADCAST=MPI pip install --no-cache-dir horovod
@@ -265,7 +294,7 @@ What about inference?  Inference may be done outside of the Python script that w
 will not have references to the Horovod library.
 
 To run inference on a checkpoint generated by the Horovod-enabled training script you should optimize the graph and only
-keep operations necessary for a forward pass through network.  The [Optimize for Inference](https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/tools/optimize_for_inference.py)
+keep operations necessary for a forward pass through model.  The [Optimize for Inference](https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/tools/optimize_for_inference.py)
 script from the TensorFlow repository will do that for you.
 
 If you want to convert your checkpoint to [Frozen Graph](https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/tools/freeze_graph.py),
@@ -334,7 +363,7 @@ $ pip install --no-cache-dir horovod
 $ ldconfig
 ```
 
-### MPI not found during installation
+### MPI is not found during installation
 
 1. Is MPI in PATH?
 
@@ -363,9 +392,9 @@ $ export PATH=$PATH:/path/to/mpi/bin
 $ pip install --no-cache-dir horovod
 ```
 
-### NCCL 2 is not found
+### NCCL 2 is not found during installation
 
-If you see the error message below, it means NCCL 2 was not found in standard libraries location. If you have a directory
+If you see the error message below, it means NCCL 2 was not found in the standard libraries location. If you have a directory
 where you installed NCCL 2 which has both `include` and `lib` directories containing `nccl.h` and `libnccl.so` 
 respectively, you can pass it via `HOROVOD_NCCL_HOME` environment variable. Otherwise you can specify them separately
 via `HOROVOD_NCCL_INCLUDE` and `HOROVOD_NCCL_LIB` environment variables.
@@ -393,6 +422,59 @@ Or:
 
 ```bash
 $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_INCLUDE=/path/to/nccl/include HOROVOD_NCCL_LIB=/path/to/nccl/lib pip install --no-cache-dir horovod
+```
+
+### NCCL 2 is not found during runtime
+
+If you see the error message below, it means NCCL 2 was not found in the standard libraries location. You should add the directory
+where you installed NCCL 2 libraries to the `LD_LIBRARY_PATH` environment variable.
+
+```
+Traceback (most recent call last):
+  File "tf_cnn_benchmarks.py", line 46, in <module>
+    import horovod.tensorflow as hvd
+  File "/home/asergeev/mpi/venv-nccl/local/lib/python2.7/site-packages/horovod/tensorflow/__init__.py", line 34, in <module>
+    from horovod.tensorflow.mpi_ops import size
+  File "/home/asergeev/mpi/venv-nccl/local/lib/python2.7/site-packages/horovod/tensorflow/mpi_ops.py", line 74, in <module>
+    ['HorovodAllgather', 'HorovodAllreduce'])
+  File "/home/asergeev/mpi/venv-nccl/local/lib/python2.7/site-packages/horovod/tensorflow/mpi_ops.py", line 56, in _load_library
+    library = load_library.load_op_library(filename)
+  File "/home/asergeev/mpi/venv-nccl/local/lib/python2.7/site-packages/tensorflow/python/framework/load_library.py", line 64, in load_op_library
+    None, None, error_msg, error_code)
+tensorflow.python.framework.errors_impl.NotFoundError: libnccl.so.2: cannot open shared object file: No such file or directory
+```
+
+For example:
+
+```bash
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/nccl-<version>/lib
+$ mpirun -np 16 -x LD_LIBRARY_PATH -H server1:4,server2:4,server3:4,server4:4 python train.py
+```
+
+### Pip install: no such option: --no-cache-dir
+
+If you see the error message below, it means that your version of pip is out of date. You can remove the `--no-cache-dir` flag
+since your version of pip does not do caching. The `--no-cache-dir` flag is added to all examples to ensure that when you
+change Horovod compilation flags, it will be rebuilt from source and not just reinstalled from the pip cache, which is
+modern pip's [default behavior](https://pip.pypa.io/en/stable/reference/pip_install/#caching).
+
+```
+$ pip install --no-cache-dir horovod
+
+Usage:
+  pip install [options] <requirement specifier> ...
+  pip install [options] -r <requirements file> ...
+  pip install [options] [-e] <vcs project url> ...
+  pip install [options] [-e] <local project path> ...
+  pip install [options] <archive url/path> ...
+
+no such option: --no-cache-dir
+```
+
+For example:
+
+```bash
+$ pip install horovod
 ```
 
 ### Running out of memory
@@ -433,8 +515,8 @@ memory, use:
 
 ## Tensor Fusion
 
-One of the unique things about Horovod is its ability to interleave communication and computation with batching
-of small *allreduce* operations, which results in improved performance. We call this batching feature Tensor Fusion.
+One of the unique things about Horovod is its ability to interleave communication and computation coupled with the ability
+to batch small *allreduce* operations, which results in improved performance. We call this batching feature Tensor Fusion.
 
 Tensor Fusion works by attempting to combine all the tensors that are ready to be reduced at given moment of time into
 one reduction operation. The algorithm of Tensor Fusion is as follows:
@@ -452,6 +534,12 @@ The fusion buffer size can be tweaked using the `HOROVOD_FUSION_THRESHOLD` envir
 
 ```bash
 $ HOROVOD_FUSION_THRESHOLD=33554432 mpirun -np 4 -x HOROVOD_FUSION_THRESHOLD python train.py
+```
+
+Setting the `HOROVOD_FUSION_THRESHOLD` environment variable to zero disables Tensor Fusion:
+
+```bash
+$ HOROVOD_FUSION_THRESHOLD=0 mpirun -np 4 -x HOROVOD_FUSION_THRESHOLD python train.py
 ```
 
 ## Analyzing Horovod Performance
@@ -484,7 +572,7 @@ workers were early and which were late.
  *broadcast* operations. This happens because TensorFlow tries to smartly interleave scheduling and GPU computation.
  This is only applicable to situations where the Horovod operation is placed on GPU.
 
-* WAIT_FOR_OTHER_TENSOR_DATA* indicates time taken to wait for GPU to finish computing other inputs for other operations
+* *WAIT_FOR_OTHER_TENSOR_DATA* indicates time taken to wait for GPU to finish computing other inputs for other operations
  that are part of the same fusion batch.
 
 * *SCHEDULE* indicates how much time it took to schedule memory copies into and out of the fusion buffer and the NCCL
