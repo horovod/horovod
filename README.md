@@ -26,30 +26,30 @@ In addition to being easy to use, Horovod is fast. We have done two benchmarks w
 
 The first benchmark was done on 4 servers with 4 Pascal GPUs each connected by RoCE-capable 25 Gbit/s network:
 
-| Setup                                 |     Inception V3    |      ResNet-101     |        VGG-16       |
-|---------------------------------------|:-------------------:|:-------------------:|:-------------------:|
-| Baseline single-GPU (batch size=64)   |               134.4 |               119.4 |               130.9 |
-|               On 16 GPUs              |                   x |                   x |                   x |
-| Distributed TensorFlow                |     1,345.8 (10.0x) |        959.6 (8.0x) |         74.7 (0.6x) |
-| Distributed TensorFlow (vars. on CPU) |     1,576.4 (11.7x) |      1,168.8 (9.8x) |         79.5 (0.6x) |
-| TCP Horovod on CPU                    | **2,073.3 (15.4x)** |     1,338.3 (11.2x) |        616.8 (4.7x) |
-| RDMA Horovod on CPU                   | **2,073.1 (15.4x)** |     1,446.3 (12.1x) |        618.0 (4.7x) |
-| TCP Horovod on GPU (NCCL)             |     1,990.7 (14.8x) |     1,685.1 (14.1x) |     1,308.7 (10.0x) |
-| RDMA Horovod on GPU (NCCL)            |     2,022.6 (15.0x) | **1,746.2 (14.6x)** | **1,787.4 (13.7x)** |
+| Setup                                     |     Inception V3    |      ResNet-101     |        VGG-16       |
+|-------------------------------------------|:-------------------:|:-------------------:|:-------------------:|
+| Baseline single-GPU (batch size=64)       |               134.4 |               119.4 |               130.9 |
+|                 On 16 GPUs                |                   x |                   x |                   x |
+| Distributed TensorFlow                    |     1,345.8 (10.0x) |        959.6 (8.0x) |         74.7 (0.6x) |
+| Distributed TensorFlow (variables on CPU) |     1,576.4 (11.7x) |      1,168.8 (9.8x) |         79.5 (0.6x) |
+| TCP Horovod (allreduce on CPU)            | **2,073.3 (15.4x)** |     1,338.3 (11.2x) |        616.8 (4.7x) |
+| RDMA Horovod (allreduce on CPU)           | **2,073.1 (15.4x)** |     1,446.3 (12.1x) |        618.0 (4.7x) |
+| TCP Horovod (allreduce on GPU with NCCL)  |     1,990.7 (14.8x) |     1,685.1 (14.1x) |     1,308.7 (10.0x) |
+| RDMA Horovod (allreduce on GPU with NCCL) |     2,022.6 (15.0x) | **1,746.2 (14.6x)** | **1,787.4 (13.7x)** |
 
 The second benchmark was done on 16 servers with 4 Pascal GPUs each connected by plain 40 Gbit/s network:
 
-| Setup                                 |     Inception V3    |      ResNet-101     |        VGG-16       |
-|---------------------------------------|:-------------------:|:-------------------:|:-------------------:|
-| Baseline single-GPU (batch size=64)   |               148.8 |               136.0 |               149.6 |
-|               On 64 GPUs              |                   x |                   x |                   x |
-| Distributed TensorFlow                |     4,225.3 (28.4x) |     2,996.0 (22.0x) |         97.0 (0.6x) |
-| Distributed TensorFlow (vars. on CPU) |     5,297.4 (35.6x) |     4,269.2 (31.4x) |        100.8 (0.7x) |
-| TCP Horovod on CPU                    |     6,549.6 (44.0x) |     3,761.6 (27.7x) |      1,462.6 (9.8x) |
-| TCP Horovod on GPU (NCCL)             | **7,932.1 (53.3x)** | **7,741.6 (56.9x)** | **6,084.2 (40.7x)** |
+| Setup                                     |     Inception V3    |      ResNet-101     |        VGG-16       |
+|-------------------------------------------|:-------------------:|:-------------------:|:-------------------:|
+| Baseline single-GPU (batch size=64)       |               148.8 |               136.0 |               149.6 |
+|                 On 64 GPUs                |                   x |                   x |                   x |
+| Distributed TensorFlow                    |     4,225.3 (28.4x) |     2,996.0 (22.0x) |         97.0 (0.6x) |
+| Distributed TensorFlow (variables on CPU) |     5,297.4 (35.6x) |     4,269.2 (31.4x) |        100.8 (0.7x) |
+| TCP Horovod (allreduce on CPU)            |     6,549.6 (44.0x) |     3,761.6 (27.7x) |      1,462.6 (9.8x) |
+| TCP Horovod (allreduce on GPU with NCCL)  | **7,932.1 (53.3x)** | **7,741.6 (56.9x)** | **6,084.2 (40.7x)** |
 
-While installing MPI and NCCL itself may seem like an extra hassle, it only needs to be done once and by team dealing
-with infrastructure, while everyone else in the company who builds the models can enjoy simplicity of training them at
+While installing MPI and NCCL itself may seem like an extra hassle, it only needs to be done once by the team dealing
+with infrastructure, while everyone else in the company who builds the models can enjoy the simplicity of training them at
 scale.
 
 # Install
@@ -188,7 +188,7 @@ operation optimized for NVIDIA GPUs and a variety of networking devices, such as
 
 Steps to install NCCL 2 are listed [here](http://docs.nvidia.com/deeplearning/sdk/nccl-install-guide/index.html).
 
-If you have installed NCCL 2 using `nccl-<version>.txz` package, you should add library path to `LD_LIBRARY_PATH`
+If you have installed NCCL 2 using the `nccl-<version>.txz` package, you should add the library path to `LD_LIBRARY_PATH`
 environment variable or register it in `/etc/ld.so.conf`.
 
 ```bash
@@ -201,14 +201,14 @@ Steps to install Open MPI are listed [here](https://www.open-mpi.org/faq/?catego
 
 3. Install the `horovod` pip package.
 
-If you have installed NCCL 2 using `nccl-<version>.txz` package, you should specify path to NCCL 2 using the `HOROVOD_NCCL_HOME`
+If you have installed NCCL 2 using the `nccl-<version>.txz` package, you should specify the path to NCCL 2 using the `HOROVOD_NCCL_HOME`
 environment variable.
 
 ```bash
 $ HOROVOD_NCCL_HOME=/usr/local/nccl-<version> HOROVOD_GPU_ALLREDUCE=NCCL pip install --no-cache-dir horovod
 ```
 
-If you have installed NCCL 2 using Ubuntu package, you can simply run:
+If you have installed NCCL 2 using the Ubuntu package, you can simply run:
 
 ```bash
 $ HOROVOD_GPU_ALLREDUCE=NCCL pip install --no-cache-dir horovod
@@ -236,7 +236,7 @@ command.
 
 Steps to install NCCL 2 are listed [here](http://docs.nvidia.com/deeplearning/sdk/nccl-install-guide/index.html).
 
-If you have installed NCCL 2 using `nccl-<version>.txz` package, you should add library path to `LD_LIBRARY_PATH`
+If you have installed NCCL 2 using the `nccl-<version>.txz` package, you should add the library path to `LD_LIBRARY_PATH`
 environment variable or register it in `/etc/ld.so.conf`.
 
 ```bash
@@ -254,14 +254,14 @@ sure you build it with [CUDA support](https://www.open-mpi.org/faq/?category=bui
 
 4. Install the `horovod` pip package.
 
-If you have installed NCCL 2 using `nccl-<version>.txz` package, you should specify path to NCCL 2 using the `HOROVOD_NCCL_HOME`
+If you have installed NCCL 2 using the `nccl-<version>.txz` package, you should specify the path to NCCL 2 using the `HOROVOD_NCCL_HOME`
 environment variable.
 
 ```bash
 $ HOROVOD_NCCL_HOME=/usr/local/nccl-<version> HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_ALLGATHER=MPI HOROVOD_GPU_BROADCAST=MPI pip install --no-cache-dir horovod
 ```
 
-If you have installed NCCL 2 using Ubuntu package, you can simply run:
+If you have installed NCCL 2 using the Ubuntu package, you can simply run:
 
 ```bash
 $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_ALLGATHER=MPI HOROVOD_GPU_BROADCAST=MPI pip install --no-cache-dir horovod
@@ -394,7 +394,7 @@ $ pip install --no-cache-dir horovod
 
 ### NCCL 2 is not found during installation
 
-If you see the error message below, it means NCCL 2 was not found in standard libraries location. If you have a directory
+If you see the error message below, it means NCCL 2 was not found in the standard libraries location. If you have a directory
 where you installed NCCL 2 which has both `include` and `lib` directories containing `nccl.h` and `libnccl.so` 
 respectively, you can pass it via `HOROVOD_NCCL_HOME` environment variable. Otherwise you can specify them separately
 via `HOROVOD_NCCL_INCLUDE` and `HOROVOD_NCCL_LIB` environment variables.
@@ -426,8 +426,8 @@ $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_INCLUDE=/path/to/nccl/include HOROVOD_
 
 ### NCCL 2 is not found during runtime
 
-If you see the error message below, it means NCCL 2 was not found in standard libraries location. You should add directory
-where you installed NCCL 2 libraries to `LD_LIBRARY_PATH` environment variable.
+If you see the error message below, it means NCCL 2 was not found in the standard libraries location. You should add the directory
+where you installed NCCL 2 libraries to the `LD_LIBRARY_PATH` environment variable.
 
 ```
 Traceback (most recent call last):
@@ -515,7 +515,7 @@ memory, use:
 
 ## Tensor Fusion
 
-One of the unique things about Horovod is its ability to interleave communication and computation coupled with ability
+One of the unique things about Horovod is its ability to interleave communication and computation coupled with the ability
 to batch small *allreduce* operations, which results in improved performance. We call this batching feature Tensor Fusion.
 
 Tensor Fusion works by attempting to combine all the tensors that are ready to be reduced at given moment of time into
