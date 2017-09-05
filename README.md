@@ -22,9 +22,6 @@ averaging gradients across them, `tf.Server()`, `tf.ClusterSpec()`, `tf.train.Sy
 `tf.train.replicas_device_setter()` and so on. If none of these things makes sense to you - don't worry, you don't have to 
 learn them if you use Horovod.
 
-While installing MPI itself may seem like an extra hassle, it only needs to be done once and by one group of people,
-while everyone else in the company who builds the models can enjoy simplicity of training them at scale.
-
 In addition to being easy to use, Horovod is fast. We have done two benchmarks which demonstrate that Horovod scales very well.
 
 The first benchmark was done on 4 servers with 4 Pascal GPUs each connected by RoCE-capable 25 Gbit/s network:
@@ -50,6 +47,10 @@ The second benchmark was done on 16 servers with 4 Pascal GPUs each connected by
 | Distributed TensorFlow (vars. on CPU) |     5,297.4 (35.6x) |     4,269.2 (31.4x) |        100.8 (0.7x) |
 | TCP Horovod on CPU                    |     6,549.6 (44.0x) |     3,761.6 (27.7x) |      1,462.6 (9.8x) |
 | TCP Horovod on GPU (NCCL)             | **7,932.1 (53.3x)** | **7,741.6 (56.9x)** | **6,084.2 (40.7x)** |
+
+While installing MPI and NCCL itself may seem like an extra hassle, it only needs to be done once and by team dealing
+with infrastructure, while everyone else in the company who builds the models can enjoy simplicity of training them at
+scale.
 
 # Install
 
@@ -533,6 +534,12 @@ The fusion buffer size can be tweaked using the `HOROVOD_FUSION_THRESHOLD` envir
 
 ```bash
 $ HOROVOD_FUSION_THRESHOLD=33554432 mpirun -np 4 -x HOROVOD_FUSION_THRESHOLD python train.py
+```
+
+Setting the `HOROVOD_FUSION_THRESHOLD` environment variable to zero disables Tensor Fusion:
+
+```bash
+$ HOROVOD_FUSION_THRESHOLD=0 mpirun -np 4 -x HOROVOD_FUSION_THRESHOLD python train.py
 ```
 
 ## Analyzing Horovod Performance
