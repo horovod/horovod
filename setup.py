@@ -219,7 +219,7 @@ def fully_define_extension(build_ext):
         nccl_include_dirs = nccl_lib_dirs = []
 
     MACROS = []
-    INCLUDES = [tf_include]
+    INCLUDES = [tf_include, '%s/external/nsync/public' % tf_include]
     SOURCES = ['horovod/tensorflow/mpi_message.cc',
                'horovod/tensorflow/mpi_ops.cc',
                'horovod/tensorflow/timeline.cc']
@@ -269,7 +269,7 @@ class custom_build_ext(build_ext):
 
 
 setup(name='horovod',
-      version='0.9.4',
+      version='0.9.5',
       packages=find_packages(),
       description='Distributed training framework for TensorFlow.',
       author='Uber Technologies, Inc.',
