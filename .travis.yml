@@ -39,6 +39,10 @@ install:
       sudo apt-get install mpich
     fi
 
+  # upgrade numpy
+  - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install -U numpy; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then pip3 install -U numpy; fi
+
   # tensorflow
   - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install $TF_PACKAGE; fi
   - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then pip3 install $TF_PACKAGE; fi
