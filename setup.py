@@ -42,7 +42,7 @@ def get_tf_abi(build_ext, tf_includes):
         try:
             lib_file = test_compile(build_ext, 'test_tensorflow_abi',
                                     macros=[(cxx11_abi_macro, cxx11_abi)],
-                                    include_dirs=tf_include, code=textwrap.dedent('''\
+                                    include_dirs=tf_includes, code=textwrap.dedent('''\
                 #include <string>
                 #include "tensorflow/core/framework/op.h"
                 #include "tensorflow/core/framework/op_kernel.h"
