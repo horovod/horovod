@@ -25,23 +25,24 @@ import traceback
 tensorflow_mpi_lib = Extension('horovod.tensorflow.mpi_lib', [])
 
 
-def get_tf_include():
+def get_tf_includes():
     try:
         import tensorflow as tf
-        return tf.sysconfig.get_include()
+        tf_inc = tf.sysconfig.get_include()
+        return [tf_inc, '%s/external/nsync/public' % tf_inc]
     except ImportError:
         raise DistutilsPlatformError(
             'import tensorflow failed, is it installed?\n\n%s' % traceback.format_exc())
 
 
-def get_tf_abi(build_ext, tf_include):
+def get_tf_abi(build_ext, tf_includes):
     last_err = None
     cxx11_abi_macro = '_GLIBCXX_USE_CXX11_ABI'
     for cxx11_abi in ['0', '1']:
         try:
             lib_file = test_compile(build_ext, 'test_tensorflow_abi',
                                     macros=[(cxx11_abi_macro, cxx11_abi)],
-                                    include_dirs=[tf_include], code=textwrap.dedent('''\
+                                    include_dirs=tf_includes, code=textwrap.dedent('''\
                 #include <string>
                 #include "tensorflow/core/framework/op.h"
                 #include "tensorflow/core/framework/op_kernel.h"
@@ -184,8 +185,8 @@ def get_nccl_dirs(build_ext, cuda_include_dirs, cuda_lib_dirs):
 
 
 def fully_define_extension(build_ext):
-    tf_include = get_tf_include()
-    tf_abi = get_tf_abi(build_ext, tf_include)
+    tf_includes = get_tf_includes()
+    tf_abi = get_tf_abi(build_ext, tf_includes)
     mpi_flags = get_mpi_flags()
 
     gpu_allreduce = os.environ.get('HOROVOD_GPU_ALLREDUCE')
@@ -219,7 +220,7 @@ def fully_define_extension(build_ext):
         nccl_include_dirs = nccl_lib_dirs = []
 
     MACROS = []
-    INCLUDES = [tf_include]
+    INCLUDES = tf_includes
     SOURCES = ['horovod/tensorflow/mpi_message.cc',
                'horovod/tensorflow/mpi_ops.cc',
                'horovod/tensorflow/timeline.cc']
@@ -269,7 +270,7 @@ class custom_build_ext(build_ext):
 
 
 setup(name='horovod',
-      version='0.9.4',
+      version='0.9.5',
       packages=find_packages(),
       description='Distributed training framework for TensorFlow.',
       author='Uber Technologies, Inc.',
