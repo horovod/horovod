@@ -7,8 +7,14 @@ python:
 
 before_install:
   - sudo apt-get -qq update
+
   - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install --upgrade pip; fi
   - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then pip3 install --upgrade pip; fi
+
+  # upgrade numpy to make sure `import tensorflow` does not cause numpy version error
+  # RuntimeError: module compiled against API version 0xb but this version of numpy is 0xa
+  - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install -U numpy; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then pip3 install -U numpy; fi
 
 env:
   matrix:
@@ -38,11 +44,6 @@ install:
       # installs mpich version 3.0.4
       sudo apt-get install mpich
     fi
-
-  # upgrade numpy to make sure `import tensorflow` does not cause numpy version error
-  # RuntimeError: module compiled against API version 0xb but this version of numpy is 0xa
-  - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install -U numpy; fi
-  - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then pip3 install -U numpy; fi
 
   # tensorflow
   - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install $TF_PACKAGE; fi
