@@ -25,7 +25,7 @@ import traceback
 tensorflow_mpi_lib = Extension('horovod.tensorflow.mpi_lib', [])
 
 
-def get_tf_includes():
+def get_tf_include_dirs():
     try:
         import tensorflow as tf
         tf_inc = tf.sysconfig.get_include()
@@ -35,14 +35,49 @@ def get_tf_includes():
             'import tensorflow failed, is it installed?\n\n%s' % traceback.format_exc())
 
 
-def get_tf_abi(build_ext, tf_includes):
+def get_tf_lib_dirs():
+    try:
+        import tensorflow as tf
+        tf_lib = tf.sysconfig.get_lib()
+        return [tf_lib]
+    except ImportError:
+        raise DistutilsPlatformError(
+            'import tensorflow failed, is it installed?\n\n%s' % traceback.format_exc())
+
+
+def get_tf_libs(build_ext, lib_dirs):
+    last_err = None
+    for tf_libs in [['tensorflow_framework'], []]:
+        try:
+            lib_file = test_compile(build_ext, 'test_tensorflow_libs',
+                                    library_dirs=lib_dirs, libraries=tf_libs,
+                                    code=textwrap.dedent('''\
+                    void test() {
+                    }
+                    '''))
+
+            from tensorflow.python.framework import load_library
+            load_library.load_op_library(lib_file)
+
+            return tf_libs
+        except (CompileError, LinkError):
+            last_err = 'Unable to determine -l link flags to use with TensorFlow (see error above).'
+        except Exception:
+            last_err = 'Unable to determine -l link flags to use with TensorFlow.  ' \
+                       'Last error:\n\n%s' % traceback.format_exc()
+
+    raise DistutilsPlatformError(last_err)
+
+
+def get_tf_abi(build_ext, include_dirs, lib_dirs, libs):
     last_err = None
     cxx11_abi_macro = '_GLIBCXX_USE_CXX11_ABI'
     for cxx11_abi in ['0', '1']:
         try:
             lib_file = test_compile(build_ext, 'test_tensorflow_abi',
                                     macros=[(cxx11_abi_macro, cxx11_abi)],
-                                    include_dirs=tf_includes, code=textwrap.dedent('''\
+                                    include_dirs=include_dirs, library_dirs=lib_dirs,
+                                    libraries=libs, code=textwrap.dedent('''\
                 #include <string>
                 #include "tensorflow/core/framework/op.h"
                 #include "tensorflow/core/framework/op_kernel.h"
@@ -185,8 +220,10 @@ def get_nccl_dirs(build_ext, cuda_include_dirs, cuda_lib_dirs):
 
 
 def fully_define_extension(build_ext):
-    tf_includes = get_tf_includes()
-    tf_abi = get_tf_abi(build_ext, tf_includes)
+    tf_include_dirs = get_tf_include_dirs()
+    tf_lib_dirs = get_tf_lib_dirs()
+    tf_libs = get_tf_libs(build_ext, tf_lib_dirs)
+    tf_abi = get_tf_abi(build_ext, tf_include_dirs, tf_lib_dirs, tf_libs)
     mpi_flags = get_mpi_flags()
 
     gpu_allreduce = os.environ.get('HOROVOD_GPU_ALLREDUCE')
@@ -220,14 +257,14 @@ def fully_define_extension(build_ext):
         nccl_include_dirs = nccl_lib_dirs = []
 
     MACROS = []
-    INCLUDES = tf_includes
+    INCLUDES = tf_include_dirs
     SOURCES = ['horovod/tensorflow/mpi_message.cc',
                'horovod/tensorflow/mpi_ops.cc',
                'horovod/tensorflow/timeline.cc']
     COMPILE_FLAGS = ['-std=c++11', '-fPIC', '-O2'] + shlex.split(mpi_flags)
     LINK_FLAGS = shlex.split(mpi_flags)
-    LIBRARY_DIRS = []
-    LIBRARIES = []
+    LIBRARY_DIRS = tf_lib_dirs
+    LIBRARIES = tf_libs
 
     if tf_abi:
         COMPILE_FLAGS += ['-D%s=%s' % tf_abi]
@@ -270,7 +307,7 @@ class custom_build_ext(build_ext):
 
 
 setup(name='horovod',
-      version='0.9.5',
+      version='0.9.6',
       packages=find_packages(),
       description='Distributed training framework for TensorFlow.',
       author='Uber Technologies, Inc.',
