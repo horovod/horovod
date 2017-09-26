@@ -156,11 +156,6 @@ Check your MPI documentation for arguments to the `mpirun` command on your syste
 
 Learn how to optimize your model for inference and remove Horovod operations from the graph [here](docs/inference.md).
 
-## Troubleshooting
-
-See the [Troubleshooting](docs/troubleshooting.md) page and please submit the [ticket](https://github.com/uber/horovod/issues/new)
-if you can't find an answer.
-
 ## Tensor Fusion
 
 One of the unique things about Horovod is its ability to interleave communication and computation coupled with the ability
@@ -175,6 +170,11 @@ Horovod has the ability to record the timeline of its activity, called Horovod T
 ![Horovod Timeline](https://user-images.githubusercontent.com/16640218/29735271-9e148da0-89ac-11e7-9ae0-11d7a099ac89.png)
 
 See [here](docs/timeline.md) for full details and usage instructions.
+
+## Troubleshooting
+
+See the [Troubleshooting](docs/troubleshooting.md) page and please submit the [ticket](https://github.com/uber/horovod/issues/new)
+if you can't find an answer.
 
 ### References
 
