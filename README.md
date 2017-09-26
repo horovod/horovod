@@ -172,6 +172,8 @@ See [here](docs/tensor-fusion.md) for full details and tweaking instructions.
 
 Horovod has the ability to record the timeline of its activity, called Horovod Timeline.
 
+![Horovod Timeline](https://user-images.githubusercontent.com/16640218/29735271-9e148da0-89ac-11e7-9ae0-11d7a099ac89.png)
+
 See [here](docs/timeline.md) for full details and usage instructions.
 
 ### References
