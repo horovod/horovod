@@ -1,2 +1,2 @@
-recursive-include * *.h *.cc
-include README.md LICENSE
+recursive-include * *.h *.cc *.md
+include LICENSE
