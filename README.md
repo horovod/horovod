@@ -154,9 +154,11 @@ Check your MPI documentation for arguments to the `mpirun` command on your syste
 
 ## Keras
 
-Horovod supports Keras in a way very similar to regular TensorFlow. One notable requirement is to use
-`keras.optimizers.TFOptimizer` instead of native Keras optimizers. See a full training example
-[here](examples/keras_mnist.py).
+Horovod supports Keras and regular TensorFlow in similar ways.
+
+**Note**: You must use `keras.optimizers.TFOptimizer` instead of native Keras optimizers.
+
+See a full training example [here](examples/keras_mnist.py).
 
 ## Inference
 
