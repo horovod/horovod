@@ -152,6 +152,14 @@ $ mpirun -np 16 -x LD_LIBRARY_PATH -mca btl_openib_receive_queues P,128,32:P,204
 
 Check your MPI documentation for arguments to the `mpirun` command on your system.
 
+## Keras
+
+Horovod supports Keras and regular TensorFlow in similar ways.
+
+**Note**: You must use `keras.optimizers.TFOptimizer` instead of native Keras optimizers.
+
+See a full training example [here](examples/keras_mnist.py).
+
 ## Inference
 
 Learn how to optimize your model for inference and remove Horovod operations from the graph [here](docs/inference.md).
