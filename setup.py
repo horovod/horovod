@@ -307,7 +307,7 @@ class custom_build_ext(build_ext):
 
 
 setup(name='horovod',
-      version='0.9.6',
+      version='0.9.7',
       packages=find_packages(),
       description='Distributed training framework for TensorFlow.',
       author='Uber Technologies, Inc.',
