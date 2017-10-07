@@ -273,13 +273,13 @@ def fully_define_extension(build_ext):
         MACROS += [('HAVE_CUDA', '1')]
         INCLUDES += cuda_include_dirs
         LIBRARY_DIRS += cuda_lib_dirs
-        LIBRARIES = ['cudart']
+        LIBRARIES += ['cudart']
 
     if have_nccl:
         MACROS += [('HAVE_NCCL', '1')]
         INCLUDES += nccl_include_dirs
         LIBRARY_DIRS += nccl_lib_dirs
-        LIBRARIES = ['nccl']
+        LIBRARIES += ['nccl']
 
     if gpu_allreduce:
         MACROS += [('HOROVOD_GPU_ALLREDUCE', "'%s'" % gpu_allreduce[0])]
