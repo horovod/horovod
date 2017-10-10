@@ -105,9 +105,13 @@ def get_mpi_flags():
     try:
         mpi_show_output = subprocess.check_output(
             shlex.split(show_command), universal_newlines=True).strip()
+        mpi_show_args = shlex.split(mpi_show_output)
+        if not mpi_show_args[0].startswith('-'):
+            # Open MPI and MPICH print compiler name as a first word, skip it
+            mpi_show_args = mpi_show_args[1:]
         # strip off compiler call portion and always escape each arg
         return ' '.join(['"' + arg.replace('"', '"\'"\'"') + '"'
-                         for arg in shlex.split(mpi_show_output)[1:]])
+                         for arg in mpi_show_args])
     except Exception:
         raise DistutilsPlatformError(
             '%s failed (see error below), is MPI in $PATH?\n'
