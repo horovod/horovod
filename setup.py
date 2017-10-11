@@ -101,15 +101,23 @@ def get_tf_abi(build_ext, include_dirs, lib_dirs, libs):
 
 
 def get_mpi_flags():
+    show_command = os.environ.get('HOROVOD_MPICXX_SHOW', 'mpicxx -show')
     try:
         mpi_show_output = subprocess.check_output(
-            ['mpicxx', '-show'], universal_newlines=True).strip()
+            shlex.split(show_command), universal_newlines=True).strip()
+        mpi_show_args = shlex.split(mpi_show_output)
+        if not mpi_show_args[0].startswith('-'):
+            # Open MPI and MPICH print compiler name as a first word, skip it
+            mpi_show_args = mpi_show_args[1:]
         # strip off compiler call portion and always escape each arg
         return ' '.join(['"' + arg.replace('"', '"\'"\'"') + '"'
-                         for arg in shlex.split(mpi_show_output)[1:]])
+                         for arg in mpi_show_args])
     except Exception:
         raise DistutilsPlatformError(
-            'mpicxx -show failed, is mpicxx in $PATH?\n\n%s' % traceback.format_exc())
+            '%s failed (see error below), is MPI in $PATH?\n'
+            'Note: If your version of MPI has custom command to show compilation flags, '
+            'please specify it via HOROVOD_MPICXX_SHOW environment variable.\n\n'
+            '%s' % (show_command, traceback.format_exc()))
 
 
 def test_compile(build_ext, name, code, libraries=None, include_dirs=None, library_dirs=None, macros=None):
@@ -307,7 +315,7 @@ class custom_build_ext(build_ext):
 
 
 setup(name='horovod',
-      version='0.9.7',
+      version='0.9.8',
       packages=find_packages(),
       description='Distributed training framework for TensorFlow.',
       author='Uber Technologies, Inc.',
