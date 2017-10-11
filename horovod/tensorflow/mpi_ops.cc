@@ -841,9 +841,11 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                   MPI_Bcast((void*)&nccl_id, sizeof(nccl_id), MPI_BYTE, 0,
                             MPI_COMM_WORLD));
 
+        ncclComm_t new_nccl_comm;
         NCCL_CHECK(entries, "ncclCommInitRank",
-                   ncclCommInitRank(&nccl_comm, horovod_global.size, nccl_id,
+                   ncclCommInitRank(&new_nccl_comm, horovod_global.size, nccl_id,
                                     horovod_global.rank))
+        nccl_comm = new_nccl_comm;
 
         // TODO: Rohit (NVIDIA): figure out why we need this sleep
         std::this_thread::sleep_for(std::chrono::seconds(1));
