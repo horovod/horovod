@@ -166,10 +166,16 @@ class DistributedOptimizer(tf.train.Optimizer):
         gradients = (super(DistributedOptimizer, self)
                      .compute_gradients(*args, **kwargs))
         if size() > 1:
+            averaged_gradients = []
             with tf.name_scope(self._name + "_Allreduce"):
-                return [(allreduce(gradient, device_dense=self._device_dense,
-                                   device_sparse=self._device_sparse), var)
-                        for (gradient, var) in gradients]
+                for grad, var in gradients:
+                    if grad is not None:
+                        avg_grad = allreduce(grad, device_dense=self._device_dense,
+                                             device_sparse=self._device_sparse)
+                        averaged_gradients.append((avg_grad, var))
+                    else:
+                        averaged_gradients.append((None, var))
+            return averaged_gradients
         else:
             return gradients
 
