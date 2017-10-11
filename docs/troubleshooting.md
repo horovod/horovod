@@ -170,6 +170,24 @@ For example:
 $ pip install horovod
 ```
 
+### ncclCommInitRank failed: unhandled cuda error
+
+If you see the error message below during the training, it means that NCCL is not able to initialize correctly. You can
+set the `NCCL_DEBUG` environment variable to `INFO` to have NCCL print debugging information which may reveal the reason.
+
+```
+UnknownError (see above for traceback): ncclCommInitRank failed: unhandled cuda error
+         [[Node: training/TFOptimizer/DistributedAdadeltaOptimizer_Allreduce/HorovodAllreduce_training_TFOptimizer_gradients_dense_2_BiasAdd_grad_tuple_control_dependency_1_0 = HorovodAllreduce[T=DT_FLOAT, _device="/job:localhost/replica:0/task:0/gpu:0"](training/TFOptimizer/gradients/dense_2/BiasAdd_grad/tuple/control_dependency_1)]]
+         [[Node: training/TFOptimizer/DistributedAdadeltaOptimizer/update/_94 = _Recv[client_terminated=false, recv_device="/job:localhost/replica:0/task:0/cpu:0", send_device="/job:localhost/replica:0/task:0/gpu:0", send_device_incarnation=1, tensor_name="edge_583_training/TFOptimizer/DistributedAdadeltaOptimizer/update", tensor_type=DT_FLOAT, _device="/job:localhost/replica:0/task:0/cpu:0"]()]]
+```
+
+For example:
+
+```bash
+$ export NCCL_DEBUG=INFO
+$ mpirun -np 16 -x NCCL_DEBUG -H server1:4,server2:4,server3:4,server4:4 python train.py
+```
+
 ### Running out of memory
 
 If you notice that your program is running out of GPU memory and multiple processes
