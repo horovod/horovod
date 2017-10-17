@@ -29,7 +29,7 @@ servers with 4 Pascal GPUs each connected by RoCE-capable 25 Gbit/s network:
   
 ![128-GPU Benchmark](https://user-images.githubusercontent.com/16640218/31681220-7453e760-b32b-11e7-9ba3-6d01f83b7748.png)
 
-Horovod achieves 90% scaling efficiency for both Inception V3 and ResNet-101 and 79% scaling efficiency for VGG-16.
+Horovod achieves 90% scaling efficiency for both Inception V3 and ResNet-101, and 79% scaling efficiency for VGG-16.
 
 While installing MPI and NCCL itself may seem like an extra hassle, it only needs to be done once by the team dealing
 with infrastructure, while everyone else in the company who builds the models can enjoy the simplicity of training them at
@@ -166,6 +166,11 @@ See [here](docs/timeline.md) for full details and usage instructions.
 
 See the [Troubleshooting](docs/troubleshooting.md) page and please submit the [ticket](https://github.com/uber/horovod/issues/new)
 if you can't find an answer.
+
+### Publications
+
+1. Sergeev, A., Del Balso, M. (2017) *Meet Horovod: Uber’s Open Source Distributed Deep Learning Framework for TensorFlow*.
+Retrieved from [https://eng.uber.com/horovod/](https://eng.uber.com/horovod/)
 
 ### References
 
