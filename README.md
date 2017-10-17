@@ -24,7 +24,7 @@ averaging gradients across them, `tf.Server()`, `tf.ClusterSpec()`, `tf.train.Sy
 `tf.train.replicas_device_setter()` and so on. If none of these things makes sense to you - don't worry, you don't have to 
 learn them if you use Horovod.
 
-In addition to being easy to use, Horovod is fast. Below is the chart representing the benchmark that was done on 32
+In addition to being easy to use, Horovod is fast. Below is a chart representing the benchmark that was done on 32
 servers with 4 Pascal GPUs each connected by RoCE-capable 25 Gbit/s network:
   
 ![128-GPU Benchmark](https://user-images.githubusercontent.com/16640218/31681220-7453e760-b32b-11e7-9ba3-6d01f83b7748.png)
