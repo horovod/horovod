@@ -2,6 +2,8 @@
 
 [![Build Status](https://travis-ci.org/uber/horovod.svg?branch=master)](https://travis-ci.org/uber/horovod) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
+<p align="center"><img src="https://user-images.githubusercontent.com/16640218/31681470-2a7968ee-b32c-11e7-88d8-3f51c1457c1a.png" alt="Logo" width="200"/></p>
+
 Horovod is a distributed training framework for TensorFlow. The goal of Horovod is to make distributed Deep Learning
 fast and easy to use.
 
@@ -22,31 +24,12 @@ averaging gradients across them, `tf.Server()`, `tf.ClusterSpec()`, `tf.train.Sy
 `tf.train.replicas_device_setter()` and so on. If none of these things makes sense to you - don't worry, you don't have to 
 learn them if you use Horovod.
 
-In addition to being easy to use, Horovod is fast. We have done two benchmarks which demonstrate that Horovod scales very well.
+In addition to being easy to use, Horovod is fast. Below is a chart representing the benchmark that was done on 32
+servers with 4 Pascal GPUs each connected by RoCE-capable 25 Gbit/s network:
+  
+![128-GPU Benchmark](https://user-images.githubusercontent.com/16640218/31681220-7453e760-b32b-11e7-9ba3-6d01f83b7748.png)
 
-The first benchmark was done on 4 servers with 4 Pascal GPUs each connected by RoCE-capable 25 Gbit/s network:
-
-| Setup                                     |     Inception V3    |      ResNet-101     |        VGG-16       |
-|-------------------------------------------|:-------------------:|:-------------------:|:-------------------:|
-| Baseline single-GPU (batch size=64)       |               134.4 |               119.4 |               130.9 |
-|                 On 16 GPUs                |                   x |                   x |                   x |
-| Distributed TensorFlow                    |     1,345.8 (10.0x) |        959.6 (8.0x) |         74.7 (0.6x) |
-| Distributed TensorFlow (variables on CPU) |     1,576.4 (11.7x) |      1,168.8 (9.8x) |         79.5 (0.6x) |
-| TCP Horovod (allreduce on CPU)            | **2,073.3 (15.4x)** |     1,338.3 (11.2x) |        616.8 (4.7x) |
-| RDMA Horovod (allreduce on CPU)           | **2,073.1 (15.4x)** |     1,446.3 (12.1x) |        618.0 (4.7x) |
-| TCP Horovod (allreduce on GPU with NCCL)  |     1,990.7 (14.8x) |     1,685.1 (14.1x) |     1,308.7 (10.0x) |
-| RDMA Horovod (allreduce on GPU with NCCL) |     2,022.6 (15.0x) | **1,746.2 (14.6x)** | **1,787.4 (13.7x)** |
-
-The second benchmark was done on 16 servers with 4 Pascal GPUs each connected by plain 40 Gbit/s network:
-
-| Setup                                     |     Inception V3    |      ResNet-101     |        VGG-16       |
-|-------------------------------------------|:-------------------:|:-------------------:|:-------------------:|
-| Baseline single-GPU (batch size=64)       |               148.8 |               136.0 |               149.6 |
-|                 On 64 GPUs                |                   x |                   x |                   x |
-| Distributed TensorFlow                    |     4,225.3 (28.4x) |     2,996.0 (22.0x) |         97.0 (0.6x) |
-| Distributed TensorFlow (variables on CPU) |     5,297.4 (35.6x) |     4,269.2 (31.4x) |        100.8 (0.7x) |
-| TCP Horovod (allreduce on CPU)            |     6,549.6 (44.0x) |     3,761.6 (27.7x) |      1,462.6 (9.8x) |
-| TCP Horovod (allreduce on GPU with NCCL)  | **7,932.1 (53.3x)** | **7,741.6 (56.9x)** | **6,084.2 (40.7x)** |
+Horovod achieves 90% scaling efficiency for both Inception V3 and ResNet-101, and 79% scaling efficiency for VGG-16.
 
 While installing MPI and NCCL itself may seem like an extra hassle, it only needs to be done once by the team dealing
 with infrastructure, while everyone else in the company who builds the models can enjoy the simplicity of training them at
@@ -183,6 +166,11 @@ See [here](docs/timeline.md) for full details and usage instructions.
 
 See the [Troubleshooting](docs/troubleshooting.md) page and please submit the [ticket](https://github.com/uber/horovod/issues/new)
 if you can't find an answer.
+
+### Publications
+
+1. Sergeev, A., Del Balso, M. (2017) *Meet Horovod: Uber’s Open Source Distributed Deep Learning Framework for TensorFlow*.
+Retrieved from [https://eng.uber.com/horovod/](https://eng.uber.com/horovod/)
 
 ### References
 
