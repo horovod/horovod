@@ -21,7 +21,7 @@ batch_size = 128
 num_classes = 10
 
 # Adjust number of epochs based on number of GPUs.
-epochs = 12 / hvd.size()
+epochs = int(12 / hvd.size())
 
 # Input image dimensions
 img_rows, img_cols = 28, 28
