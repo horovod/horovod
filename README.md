@@ -182,6 +182,8 @@ if you can't find an answer.
 
 1. Sergeev, A., Del Balso, M. (2017) *Meet Horovod: Uber’s Open Source Distributed Deep Learning Framework for TensorFlow*.
 Retrieved from [https://eng.uber.com/horovod/](https://eng.uber.com/horovod/)
+2. Sergeev, A. (2017) *Horovod - Distributed TensorFlow Made Easy*. Retrieved from
+[https://www.slideshare.net/AlexanderSergeev4/horovod-distributed-tensorflow-made-easy](https://www.slideshare.net/AlexanderSergeev4/horovod-distributed-tensorflow-made-easy)
 
 ### References
 
