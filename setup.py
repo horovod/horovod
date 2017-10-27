@@ -115,8 +115,8 @@ def get_mpi_flags():
     except Exception:
         raise DistutilsPlatformError(
             '%s failed (see error below), is MPI in $PATH?\n'
-            'Note: If your version of MPI has custom command to show compilation flags, '
-            'please specify it via HOROVOD_MPICXX_SHOW environment variable.\n\n'
+            'Note: If your version of MPI has a custom command to show compilation flags, '
+            'please specify it with the HOROVOD_MPICXX_SHOW environment variable.\n\n'
             '%s' % (show_command, traceback.format_exc()))
 
 
