@@ -96,10 +96,15 @@ def main(_):
     config.gpu_options.allow_growth = True
     config.gpu_options.visible_device_list = str(hvd.local_rank())
 
+    # Save checkpoints only on worker 0 to prevent other workers from corrupting them.
+    checkpoint_dir = './checkpoints' if hvd.rank() == 0 else None
+
     # The MonitoredTrainingSession takes care of session initialization,
     # restoring from a checkpoint, saving to a checkpoint, and closing when done
     # or an error occurs.
-    with tf.train.SingularMonitoredSession(hooks=hooks, config=config) as mon_sess:
+    with tf.train.MonitoredTrainingSession(checkpoint_dir=checkpoint_dir,
+                                           hooks=hooks,
+                                           config=config) as mon_sess:
         while not mon_sess.should_stop():
             # Run a training step synchronously.
             image_, label_ = mnist.train.next_batch(100)
