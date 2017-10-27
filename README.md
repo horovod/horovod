@@ -169,6 +169,10 @@ Horovod has the ability to record the timeline of its activity, called Horovod T
 
 See [here](docs/timeline.md) for full details and usage instructions.
 
+## Guides
+
+1. Run distributed training in Microsoft Azure using [Batch AI and Horovod](https://github.com/Azure/BatchAI/tree/master/recipes/Horovod).
+
 ## Troubleshooting
 
 See the [Troubleshooting](docs/troubleshooting.md) page and please submit the [ticket](https://github.com/uber/horovod/issues/new)
