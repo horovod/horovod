@@ -85,6 +85,45 @@ $ export PATH=$PATH:/path/to/mpi/bin
 $ pip install --no-cache-dir horovod
 ```
 
+2. Are MPI libraries added to `$LD_LIBRARY_PATH` or `ld.so.conf`?
+
+If you see the error message below, it means `mpicxx` was not able to load some of the MPI libraries. If you recently
+installed MPI, make sure that the path to MPI libraries is present the `$LD_LIBRARY_PATH` environment variable, or in the
+`/etc/ld.so.conf` file.
+
+```
+mpicxx: error while loading shared libraries: libopen-pal.so.40: cannot open shared object file: No such file or directory
+error: mpicxx -show failed (see error below), is MPI in $PATH?
+Note: If your version of MPI has a custom command to show compilation flags, please specify it with the HOROVOD_MPICXX_SHOW environment variable.
+
+Traceback (most recent call last):
+File "/tmp/pip-build-wrtVwH/horovod/setup.py", line 107, in get_mpi_flags
+shlex.split(show_command), universal_newlines=True).strip()
+File "/usr/lib/python2.7/subprocess.py", line 574, in check_output
+raise CalledProcessError(retcode, cmd, output=output)
+CalledProcessError: Command '['mpicxx', '-show']' returned non-zero exit status 127
+```
+
+If you have installed MPI in a user directory, you can add the MPI library directory to `$LD_LIBRARY_PATH`:
+
+```bash
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path/to/mpi/lib
+```
+
+If you have installed MPI in a non-standard system location (i.e. not `/usr` or `/usr/local`), you should add it to the
+`/etc/ld.so.conf` file:
+
+```bash
+$ echo /path/to/mpi/lib | sudo tee -a /etc/ld.so.conf
+```
+
+Additionally, if you have installed MPI in a system location, you should run `sudo ldconfig` after installation to
+register libraries in the cache:
+
+```bash
+$ sudo ldconfig
+```
+
 ### NCCL 2 is not found during installation
 
 If you see the error message below, it means NCCL 2 was not found in the standard libraries location. If you have a directory

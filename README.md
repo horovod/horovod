@@ -75,6 +75,10 @@ To use Horovod, make the following additions to your program:
     processes. Alternatively, if you're not using `MonitoredTrainingSession`, you can simply execute the
     `hvd.broadcast_global_variables` op after global variables have been initialized.
 
+5. Modify your code to save checkpoints only on worker 0 to prevent other workers from corrupting them.
+    This can be accomplished by passing `checkpoint_dir=None` to `tf.train.MonitoredTrainingSession` if
+    `hvd.rank() != 0`.
+
 Example (see the [examples](examples/) directory for full training examples):
 
 ```python
@@ -103,10 +107,13 @@ hooks = [hvd.BroadcastGlobalVariablesHook(0)]
 # Make training operation
 train_op = opt.minimize(loss)
 
+# Save checkpoints only on worker 0 to prevent other workers from corrupting them.
+checkpoint_dir = '/tmp/train_logs' if hvd.rank() == 0 else None
+
 # The MonitoredTrainingSession takes care of session initialization,
 # restoring from a checkpoint, saving to a checkpoint, and closing when done
 # or an error occurs.
-with tf.train.MonitoredTrainingSession(checkpoint_dir="/tmp/train_logs",
+with tf.train.MonitoredTrainingSession(checkpoint_dir=checkpoint_dir,
                                        config=config,
                                        hooks=hooks) as mon_sess:
   while not mon_sess.should_stop():
@@ -162,6 +169,10 @@ Horovod has the ability to record the timeline of its activity, called Horovod T
 
 See [here](docs/timeline.md) for full details and usage instructions.
 
+## Guides
+
+1. Run distributed training in Microsoft Azure using [Batch AI and Horovod](https://github.com/Azure/BatchAI/tree/master/recipes/Horovod).
+
 ## Troubleshooting
 
 See the [Troubleshooting](docs/troubleshooting.md) page and please submit the [ticket](https://github.com/uber/horovod/issues/new)
@@ -171,6 +182,8 @@ if you can't find an answer.
 
 1. Sergeev, A., Del Balso, M. (2017) *Meet Horovod: Uber’s Open Source Distributed Deep Learning Framework for TensorFlow*.
 Retrieved from [https://eng.uber.com/horovod/](https://eng.uber.com/horovod/)
+2. Sergeev, A. (2017) *Horovod - Distributed TensorFlow Made Easy*. Retrieved from
+[https://www.slideshare.net/AlexanderSergeev4/horovod-distributed-tensorflow-made-easy](https://www.slideshare.net/AlexanderSergeev4/horovod-distributed-tensorflow-made-easy)
 
 ### References
 

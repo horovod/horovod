@@ -5,6 +5,7 @@ from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten
 from keras.layers import Conv2D, MaxPooling2D
 from keras import backend as K
+import math
 import tensorflow as tf
 import horovod.tensorflow as hvd
 
@@ -21,7 +22,7 @@ batch_size = 128
 num_classes = 10
 
 # Adjust number of epochs based on number of GPUs.
-epochs = int(12 / hvd.size())
+epochs = int(math.ceil(12.0 / hvd.size()))
 
 # Input image dimensions
 img_rows, img_cols = 28, 28
@@ -75,8 +76,15 @@ model.compile(loss=keras.losses.categorical_crossentropy,
 # Broadcast variables from rank 0 to all other processes.
 K.get_session().run(hvd.broadcast_global_variables(0))
 
+callbacks = []
+
+# Save checkpoints only on worker 0 to prevent other workers from corrupting them.
+if hvd.rank() == 0:
+    callbacks.append(keras.callbacks.ModelCheckpoint('./checkpoint-{epoch}.h5'))
+
 model.fit(x_train, y_train,
           batch_size=batch_size,
+          callbacks=callbacks,
           epochs=epochs,
           verbose=1,
           validation_data=(x_test, y_test))

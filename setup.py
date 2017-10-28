@@ -115,8 +115,8 @@ def get_mpi_flags():
     except Exception:
         raise DistutilsPlatformError(
             '%s failed (see error below), is MPI in $PATH?\n'
-            'Note: If your version of MPI has custom command to show compilation flags, '
-            'please specify it via HOROVOD_MPICXX_SHOW environment variable.\n\n'
+            'Note: If your version of MPI has a custom command to show compilation flags, '
+            'please specify it with the HOROVOD_MPICXX_SHOW environment variable.\n\n'
             '%s' % (show_command, traceback.format_exc()))
 
 
@@ -175,7 +175,7 @@ def get_cuda_dirs(build_ext):
     except (CompileError, LinkError):
         raise DistutilsPlatformError(
             'CUDA library was not found (see error above).\n'
-            'Please specify correct CUDA location via HOROVOD_CUDA_HOME '
+            'Please specify correct CUDA location with the HOROVOD_CUDA_HOME '
             'environment variable or combination of HOROVOD_CUDA_INCLUDE and '
             'HOROVOD_CUDA_LIB environment variables.\n\n'
             'HOROVOD_CUDA_HOME - path where CUDA include and lib directories can be found\n'
@@ -217,7 +217,7 @@ def get_nccl_dirs(build_ext, cuda_include_dirs, cuda_lib_dirs):
     except (CompileError, LinkError):
         raise DistutilsPlatformError(
             'NCCL 2.0 library or its later version was not found (see error above).\n'
-            'Please specify correct NCCL location via HOROVOD_NCCL_HOME '
+            'Please specify correct NCCL location with the HOROVOD_NCCL_HOME '
             'environment variable or combination of HOROVOD_NCCL_INCLUDE and '
             'HOROVOD_NCCL_LIB environment variables.\n\n'
             'HOROVOD_NCCL_HOME - path where NCCL include and lib directories can be found\n'
