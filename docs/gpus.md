@@ -44,7 +44,12 @@ GPU version is available. To force allreduce to happen on CPU, pass `device_dens
 opt = hvd.DistributedOptimizer(opt, device_dense='/cpu:0')
 ```
 
-### Advanced: Have GPUs and networking with GPUDirect?
+### Advanced: Have GPUs and networking with RDMA and GPUDirect?
+
+This section is only relevant if you have RDMA and GPUDirect.
+
+**Note**: For GPUDirect, Horovod requires the `nv_peer_memory` driver. To prevent your program from crashing, MPI *must* be
+compiled with CUDA support.
 
 [GPUDirect](https://developer.nvidia.com/gpudirect) allows GPUs to transfer memory among each other without CPU
 involvement, which significantly reduces latency and load on CPU.  NCCL 2 is able to use GPUDirect automatically for
@@ -98,14 +103,20 @@ training.  If you find yourself running out of GPU memory, you can force allredu
 opt = hvd.DistributedOptimizer(opt, device_sparse='/cpu:0')
 ```
 
-### Advanced: Have MPI optimized for your network?
+### Advanced: Have a proprietary MPI implementation with GPU support optimized for your network?
 
-If you happen to have network hardware not supported by NCCL 2 or your MPI vendor's implementation on GPU is faster,
-you can also use the pure MPI version of *allreduce*, *allgather* and *broadcast* on GPU.
+This section is only relevant if you have a proprietary MPI implementation with GPU support, i.e. not Open MPI or MPICH.
+Most users should follow one of the sections above.
 
-1. Make sure your MPI implementation is installed.
+If your MPI vendor's implementation of *allreduce* operation on GPU is faster than NCCL 2, you can configure Horovod to
+use it instead:
 
-2. Install the `horovod` pip package.
+```bash
+$ HOROVOD_GPU_ALLREDUCE=MPI pip install --no-cache-dir horovod
+```
+
+Additionally, if your MPI vendor's implementation supports *allgather* and *broadcast* operations on GPU, you can
+configure Horovod to use them as well:
 
 ```bash
 $ HOROVOD_GPU_ALLREDUCE=MPI HOROVOD_GPU_ALLGATHER=MPI HOROVOD_GPU_BROADCAST=MPI pip install --no-cache-dir horovod
