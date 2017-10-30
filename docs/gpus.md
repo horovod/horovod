@@ -46,8 +46,10 @@ opt = hvd.DistributedOptimizer(opt, device_dense='/cpu:0')
 
 ### Advanced: Have GPUs and networking with RDMA and GPUDirect?
 
-**Note**: This section is only relevant if you have RDMA and GPUDirect. Please note that the `nv_peer_memory` driver is
-required for GPUDirect support, and MPI **must** be compiled with CUDA support - otherwise your program will crash.
+This section is only relevant if you have RDMA and GPUDirect.
+
+For GPUDirect, Horovod requires the `nv_peer_memory` driver. To prevent your program from crashing, MPI *must* be
+compiled with CUDA support.
 
 [GPUDirect](https://developer.nvidia.com/gpudirect) allows GPUs to transfer memory among each other without CPU
 involvement, which significantly reduces latency and load on CPU.  NCCL 2 is able to use GPUDirect automatically for
@@ -103,8 +105,8 @@ opt = hvd.DistributedOptimizer(opt, device_sparse='/cpu:0')
 
 ### Advanced: Have a proprietary MPI implementation with GPU support optimized for your network?
 
-**Note**: This section is only relevant if you have a proprietary MPI implementation with GPU support, i.e. not Open MPI
-or MPICH. Most users should follow one of the sections above.
+This section is only relevant if you have a proprietary MPI implementation with GPU support, i.e. not Open MPI or MPICH.
+Most users should follow one of the sections above.
 
 If your MPI vendor's implementation of *allreduce* operation on GPU is faster than NCCL 2, you can configure Horovod to
 use it instead:
