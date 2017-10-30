@@ -48,7 +48,7 @@ opt = hvd.DistributedOptimizer(opt, device_dense='/cpu:0')
 
 This section is only relevant if you have RDMA and GPUDirect.
 
-For GPUDirect, Horovod requires the `nv_peer_memory` driver. To prevent your program from crashing, MPI *must* be
+**Note**: For GPUDirect, Horovod requires the `nv_peer_memory` driver. To prevent your program from crashing, MPI *must* be
 compiled with CUDA support.
 
 [GPUDirect](https://developer.nvidia.com/gpudirect) allows GPUs to transfer memory among each other without CPU
