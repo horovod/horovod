@@ -51,7 +51,7 @@ install:
 
   # horovod
   - python setup.py sdist
-  - pip install dist/horovod-*.tar.gz
+  - pip install -v dist/horovod-*.tar.gz
 
 script:
   - |
