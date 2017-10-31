@@ -108,7 +108,7 @@ def get_tf_abi(build_ext, include_dirs, lib_dirs, libs):
     raise DistutilsPlatformError(last_err)
 
 
-def get_tf_flags():
+def get_tf_flags(build_ext):
     import tensorflow as tf
     try:
         return tf.sysconfig.get_compile_flags(), tf.sysconfig.get_link_flags()
@@ -264,7 +264,7 @@ def get_nccl_dirs(build_ext, cuda_include_dirs, cuda_lib_dirs):
 def fully_define_extension(build_ext):
     check_tf_version()
 
-    tf_compile_flags, tf_link_flags = get_tf_flags()
+    tf_compile_flags, tf_link_flags = get_tf_flags(build_ext)
     mpi_flags = get_mpi_flags()
 
     gpu_allreduce = os.environ.get('HOROVOD_GPU_ALLREDUCE')
