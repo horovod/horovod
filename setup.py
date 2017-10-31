@@ -28,13 +28,17 @@ tensorflow_mpi_lib = Extension('horovod.tensorflow.mpi_lib', [])
 def check_tf_version():
     try:
         import tensorflow as tf
-        if tf.VERSION < '1.1.0':
+        if tf.__version__ < '1.1.0':
             raise DistutilsPlatformError(
                 'Your TensorFlow version %s is outdated.  '
-                'Horovod requires tensorflow>=1.1.0' % tf.VERSION)
+                'Horovod requires tensorflow>=1.1.0' % tf.__version__)
     except ImportError:
         raise DistutilsPlatformError(
             'import tensorflow failed, is it installed?\n\n%s' % traceback.format_exc())
+    except AttributeError:
+        # This means that tf.__version__ was not exposed, which makes it *REALLY* old.
+        raise DistutilsPlatformError(
+            'Your TensorFlow version is outdated.  Horovod requires tensorflow>=1.1.0')
 
 
 def get_tf_include_dirs():
