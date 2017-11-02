@@ -71,9 +71,10 @@ To use Horovod, make the following additions to your program:
     to the original optimizer, averages gradients using *allreduce* or *allgather*, and then applies those averaged
     gradients.
 
-4. Add `hvd.BroadcastGlobalVariablesHook(0)` to broadcast initial variable states from rank 0 to all other
-    processes. Alternatively, if you're not using `MonitoredTrainingSession`, you can simply execute the
-    `hvd.broadcast_global_variables` op after global variables have been initialized.
+4. Add `hvd.BroadcastGlobalVariablesHook(0)` to broadcast initial variable states from rank 0 to all other processes.
+    This is necessary to ensure consistent initialization of all workers when training is started with random weights or
+    restored from a checkpoint. Alternatively, if you're not using `MonitoredTrainingSession`, you can simply execute
+    the `hvd.broadcast_global_variables` op after global variables have been initialized.
 
 5. Modify your code to save checkpoints only on worker 0 to prevent other workers from corrupting them.
     This can be accomplished by passing `checkpoint_dir=None` to `tf.train.MonitoredTrainingSession` if

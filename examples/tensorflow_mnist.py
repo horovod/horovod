@@ -83,8 +83,10 @@ def main(_):
     global_step = tf.contrib.framework.get_or_create_global_step()
     train_op = opt.minimize(loss, global_step=global_step)
 
-    # BroadcastGlobalVariablesHook broadcasts variables from rank 0 to all other
-    # processes during initialization.
+    # BroadcastGlobalVariablesHook broadcasts initial variable states from rank 0
+    # to all other processes. This is necessary to ensure consistent initialization
+    # of all workers when training is started with random weights or restored
+    # from a checkpoint.
     hooks = [hvd.BroadcastGlobalVariablesHook(0),
              tf.train.StopAtStepHook(last_step=100),
              tf.train.LoggingTensorHook(tensors={'step': global_step, 'loss': loss},

@@ -9,6 +9,9 @@ class BroadcastGlobalVariablesCallback(keras.callbacks.Callback):
     """
     Keras Callback that will broadcast all global variables from root rank
     to all other processes during initialization.
+
+    This is necessary to ensure consistent initialization of all workers when
+    training is started with random weights or restored from a checkpoint.
     """
 
     def __init__(self, root_rank, device=''):

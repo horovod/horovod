@@ -193,7 +193,9 @@ with graph.as_default():
     # Add variable initializer.
     init = tf.global_variables_initializer()
 
-    # Broadcast variables from rank 0 to all other processes.
+    # Broadcast initial variable states from rank 0 to all other processes.
+    # This is necessary to ensure consistent initialization of all workers when
+    # training is started with random weights or restored from a checkpoint.
     bcast = hvd.broadcast_global_variables(0)
 
 # Step 5: Begin training.

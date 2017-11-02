@@ -78,7 +78,9 @@ model.compile(loss=keras.losses.categorical_crossentropy,
               metrics=['accuracy'])
 
 callbacks = [
-    # Broadcast variables from rank 0 to all other processes.
+    # Broadcast initial variable states from rank 0 to all other processes.
+    # This is necessary to ensure consistent initialization of all workers when
+    # training is started with random weights or restored from a checkpoint.
     hvd.callbacks.BroadcastGlobalVariablesCallback(0),
 
     # Average metrics among workers at the end of every epoch.
