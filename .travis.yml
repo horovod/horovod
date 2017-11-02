@@ -64,23 +64,23 @@ script:
   # run unit tests
   - |
     if [ $MPI == "OpenMPI" ]; then
-      mpirun -allow-run-as-root -np 2 python horovod/tensorflow/mpi_ops_test.py
+      mpirun -oversubscribe -allow-run-as-root -np 2 python horovod/tensorflow/mpi_ops_test.py
     else
       mpirun -np 2 python horovod/tensorflow/mpi_ops_test.py
     fi
 
   # download MNIST dataset
-  - python -c 'from keras.datasets import mnist; mnist.load_data()'
+  - python -c "from keras.datasets import mnist; mnist.load_data()"
 
   # hack Keras MNIST advanced example to be smaller
-  - sed -i 's/epochs = .*/epochs = 4/' examples/keras_mnist_advanced.py
-  - sed -i 's/train_batches = .*/train_batches = 10/' examples/keras_mnist_advanced.py
-  - sed -i 's/test_batches = .*/test_batches = 4/' examples/keras_mnist_advanced.py
+  - sed -i "s/epochs = .*/epochs = 12/' examples/keras_mnist_advanced.py
+  - sed -i "s/model.add(Conv2D(32, kernel_size=(3, 3),/model.add(Conv2D(4, kernel_size=(3, 3),/" examples/keras_mnist_advanced.py
+  - sed -i "s/model.add(Conv2D(64, (3, 3), activation='relu'))//" examples/keras_mnist_advanced.py
 
   # run Keras MNIST advanced example
   - |
     if [ $MPI == "OpenMPI" ]; then
-      mpirun -allow-run-as-root -np 2 python examples/keras_mnist_advanced.py
+      mpirun -oversubscribe -allow-run-as-root -np 2 python examples/keras_mnist_advanced.py
     else
       mpirun -np 2 python examples/keras_mnist_advanced.py
     fi
