@@ -42,23 +42,15 @@ def check_tf_version():
 
 
 def get_tf_include_dirs():
-    try:
-        import tensorflow as tf
-        tf_inc = tf.sysconfig.get_include()
-        return [tf_inc, '%s/external/nsync/public' % tf_inc]
-    except ImportError:
-        raise DistutilsPlatformError(
-            'import tensorflow failed, is it installed?\n\n%s' % traceback.format_exc())
+    import tensorflow as tf
+    tf_inc = tf.sysconfig.get_include()
+    return [tf_inc, '%s/external/nsync/public' % tf_inc]
 
 
 def get_tf_lib_dirs():
-    try:
-        import tensorflow as tf
-        tf_lib = tf.sysconfig.get_lib()
-        return [tf_lib]
-    except ImportError:
-        raise DistutilsPlatformError(
-            'import tensorflow failed, is it installed?\n\n%s' % traceback.format_exc())
+    import tensorflow as tf
+    tf_lib = tf.sysconfig.get_lib()
+    return [tf_lib]
 
 
 def get_tf_libs(build_ext, lib_dirs):
@@ -114,6 +106,32 @@ def get_tf_abi(build_ext, include_dirs, lib_dirs, libs):
                        'Last error:\n\n%s' % traceback.format_exc()
 
     raise DistutilsPlatformError(last_err)
+
+
+def get_tf_flags(build_ext):
+    import tensorflow as tf
+    try:
+        return tf.sysconfig.get_compile_flags(), tf.sysconfig.get_link_flags()
+    except AttributeError:
+        # fallback to the previous logic
+        tf_include_dirs = get_tf_include_dirs()
+        tf_lib_dirs = get_tf_lib_dirs()
+        tf_libs = get_tf_libs(build_ext, tf_lib_dirs)
+        tf_abi = get_tf_abi(build_ext, tf_include_dirs, tf_lib_dirs, tf_libs)
+
+        compile_flags = []
+        for include_dir in tf_include_dirs:
+            compile_flags.append('-I%s' % include_dir)
+        if tf_abi:
+            compile_flags.append('-D%s=%s' % tf_abi)
+
+        link_flags = []
+        for lib_dir in tf_lib_dirs:
+            link_flags.append('-L%s' % lib_dir)
+        for lib in tf_libs:
+            link_flags.append('-l%s' % lib)
+
+        return compile_flags, link_flags
 
 
 def get_mpi_flags():
@@ -246,10 +264,7 @@ def get_nccl_dirs(build_ext, cuda_include_dirs, cuda_lib_dirs):
 def fully_define_extension(build_ext):
     check_tf_version()
 
-    tf_include_dirs = get_tf_include_dirs()
-    tf_lib_dirs = get_tf_lib_dirs()
-    tf_libs = get_tf_libs(build_ext, tf_lib_dirs)
-    tf_abi = get_tf_abi(build_ext, tf_include_dirs, tf_lib_dirs, tf_libs)
+    tf_compile_flags, tf_link_flags = get_tf_flags(build_ext)
     mpi_flags = get_mpi_flags()
 
     gpu_allreduce = os.environ.get('HOROVOD_GPU_ALLREDUCE')
@@ -283,17 +298,14 @@ def fully_define_extension(build_ext):
         nccl_include_dirs = nccl_lib_dirs = []
 
     MACROS = []
-    INCLUDES = tf_include_dirs
+    INCLUDES = []
     SOURCES = ['horovod/tensorflow/mpi_message.cc',
                'horovod/tensorflow/mpi_ops.cc',
                'horovod/tensorflow/timeline.cc']
-    COMPILE_FLAGS = ['-std=c++11', '-fPIC', '-O2'] + shlex.split(mpi_flags)
-    LINK_FLAGS = shlex.split(mpi_flags)
-    LIBRARY_DIRS = tf_lib_dirs
-    LIBRARIES = tf_libs
-
-    if tf_abi:
-        COMPILE_FLAGS += ['-D%s=%s' % tf_abi]
+    COMPILE_FLAGS = ['-std=c++11', '-fPIC', '-O2'] + shlex.split(mpi_flags) + tf_compile_flags
+    LINK_FLAGS = shlex.split(mpi_flags) + tf_link_flags
+    LIBRARY_DIRS = []
+    LIBRARIES = []
 
     if have_cuda:
         MACROS += [('HAVE_CUDA', '1')]
@@ -333,7 +345,7 @@ class custom_build_ext(build_ext):
 
 
 setup(name='horovod',
-      version='0.9.11',
+      version='0.9.12',
       packages=find_packages(),
       description='Distributed training framework for TensorFlow.',
       author='Uber Technologies, Inc.',
