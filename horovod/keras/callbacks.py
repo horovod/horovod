@@ -37,7 +37,7 @@ class MetricAverageCallback(keras.callbacks.Callback):
     end of the epoch. Useful in conjuction with ReduceLROnPlateau,
     TensorBoard and other metrics-based callbacks.
 
-    Note: this callback must be added to the callback list before the
+    Note: This callback must be added to the callback list before the
     ReduceLROnPlateau, TensorBoard or other metrics-based callbacks.
     """
 

@@ -78,7 +78,7 @@ def DistributedOptimizer(optimizer, name=None, device_dense='', device_sparse=''
         device_sparse: Device to be used for sparse tensors. Uses GPU by default
                        if Horovod was build with HOROVOD_GPU_ALLGATHER.
     """
-    # We dynamically create a new class that inherit from the optimizer that was passed in.
+    # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override get_gradients() method with an allreduce implementation.
     # This class will have the same name as the optimizer it's wrapping, so that the saved
     # model could be easily restored without Horovod.
@@ -91,7 +91,7 @@ def broadcast_global_variables(root_rank):
     """Broadcasts all global variables from root rank to all other processes.
 
     Arguments:
-        root_rank: rank of the process from which global variables will be broadcasted
+        root_rank: Rank of the process from which global variables will be broadcasted
                    to all other processes.
     """
     bcast_op = hvd.broadcast_global_variables(root_rank)
@@ -103,7 +103,7 @@ def allreduce(value, name=None, average=True):
     Perform an allreduce on a tensor-compatible value.
 
     Arguments:
-        value: a tensor-compatible value to reduce.
+        value: A tensor-compatible value to reduce.
                The shape of the input must be identical across all ranks.
         name: Optional name for the constants created by this operation.
         average: If True, computes the average over all ranks.
@@ -122,7 +122,7 @@ def allgather(value, name=None):
     dimension, which is allowed to be different.
 
     Arguments:
-        value: a tensor-compatible value to gather.
+        value: A tensor-compatible value to gather.
         name: Optional name prefix for the constants created by this operation.
     """
     allgather_op = hvd.allgather(tf.constant(value, name=name))
@@ -131,12 +131,12 @@ def allgather(value, name=None):
 
 def broadcast(value, root_rank, name=None):
     """
-    Perform an broadcast on a tensor-compatible value.
+    Perform a broadcast on a tensor-compatible value.
 
     Arguments:
-        value: a tensor-compatible value to reduce.
+        value: A tensor-compatible value to reduce.
                The shape of the input must be identical across all ranks.
-        root_rank: rank of the process from which global variables will be
+        root_rank: Rank of the process from which global variables will be
                    broadcasted to all other processes.
         name: Optional name for the constants created by this operation.
     """

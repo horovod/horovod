@@ -83,7 +83,7 @@ callbacks = [
 
     # Average metrics among workers at the end of every epoch.
     #
-    # Note: this callback must be in the list before the ReduceLROnPlateau,
+    # Note: This callback must be in the list before the ReduceLROnPlateau,
     # TensorBoard or other metrics-based callbacks.
     hvd.callbacks.MetricAverageCallback(),
 
