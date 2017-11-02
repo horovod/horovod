@@ -105,6 +105,7 @@ class BroadcastGlobalVariablesHook(tf.train.SessionRunHook):
             Device to be used for broadcasting. Uses GPU by default
             if Horovod was build with HOROVOD_GPU_BROADCAST.
         """
+        super(BroadcastGlobalVariablesHook, self).__init__()
         self.root_rank = root_rank
         self.bcast_op = None
         self.device = device

@@ -89,10 +89,10 @@ callbacks = [
 
     # Scale up learning rate during the first five epochs.
     # See https://arxiv.org/abs/1706.02677 for details.
-    hvd.callbacks.LRWarmupCallback(warmup_epochs=5),
+    hvd.callbacks.LRWarmupCallback(warmup_epochs=5, verbose=1),
 
     # Reduce the learning rate if training plateaues.
-    keras.callbacks.ReduceLROnPlateau(verbose=1, patience=3),
+    keras.callbacks.ReduceLROnPlateau(patience=3, verbose=1),
 ]
 
 # Save checkpoints only on worker 0 to prevent other workers from corrupting them.

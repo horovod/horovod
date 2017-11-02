@@ -21,6 +21,7 @@ class BroadcastGlobalVariablesCallback(keras.callbacks.Callback):
             device: Device to be used for broadcasting. Uses GPU by default
                     if Horovod was build with HOROVOD_GPU_BROADCAST.
         """
+        super(BroadcastGlobalVariablesCallback, self).__init__()
         self.root_rank = root_rank
         self.device = device
 
@@ -49,6 +50,7 @@ class MetricAverageCallback(keras.callbacks.Callback):
             device: Device to be used for allreduce. Uses GPU by default
                     if Horovod was build with HOROVOD_GPU_ALLREDUCE.
         """
+        super(MetricAverageCallback, self).__init__()
         self.variables = {}
         self.allreduce_ops = {}
         self.device = device
@@ -99,7 +101,8 @@ class LRWarmupCallback(keras.callbacks.Callback):
         lr'(epoch = warmup) = hvd.size() * lr
     """
 
-    def __init__(self, warmup_epochs=5, momentum_correction=True, steps_per_epoch=None):
+    def __init__(self, warmup_epochs=5, momentum_correction=True, steps_per_epoch=None,
+                 verbose=0):
         """
         Construct a new LRWarmupCallback that will gradually warmup learning rate.
 
@@ -110,12 +113,15 @@ class LRWarmupCallback(keras.callbacks.Callback):
             steps_per_epoch: The callback will attempt to autodetect number of batches per
                              epoch with Keras >= 2.0.7. Provide this value if you have an older
                              version of Keras.
+            verbose: verbosity mode, 0 or 1.
         """
+        super(LRWarmupCallback, self).__init__()
         self.warmup_epochs = warmup_epochs
         self.momentum_correction = momentum_correction
         self.initial_lr = None
         self.restore_momentum = None
         self.steps_per_epoch = steps_per_epoch
+        self.verbose = verbose
         self.current_epoch = None
 
     def _autodetect_steps_per_epoch(self):
@@ -139,8 +145,12 @@ class LRWarmupCallback(keras.callbacks.Callback):
         self.current_epoch = epoch
 
     def on_batch_begin(self, batch, logs=None):
-        if self.current_epoch >= self.warmup_epochs:
+        if self.current_epoch > self.warmup_epochs:
             # Outside of adjustment scope.
+            return
+
+        if self.current_epoch == self.warmup_epochs and batch > 0:
+            # Outside of adjustment scope, final adjustment is done on first batch.
             return
 
         old_lr = K.get_value(self.model.optimizer.lr)
@@ -148,6 +158,10 @@ class LRWarmupCallback(keras.callbacks.Callback):
         new_lr = self.initial_lr * \
             (epoch * (hvd.size() - 1) / self.warmup_epochs + 1)
         K.set_value(self.model.optimizer.lr, new_lr)
+
+        if self.current_epoch == self.warmup_epochs and self.verbose:
+            print('Epoch %d: finished gradual learning rate warmup to %s.' %
+                  (epoch + 1, new_lr))
 
         if hasattr(self.model.optimizer, 'momentum') and self.momentum_correction:
             # See the paper cited above for more information about momentum correction.
