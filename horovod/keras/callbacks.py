@@ -137,7 +137,7 @@ class LRWarmupCallback(keras.callbacks.Callback):
         else:
             raise ValueError('Could not autodetect the number of steps per epoch. '
                              'Please specify the steps_per_epoch parameter to the '
-                             'LRWarmupCallback() or upgrade to the latest verison of Keras.')
+                             'LRWarmupCallback() or upgrade to the latest version of Keras.')
 
     def on_train_begin(self, logs=None):
         self.initial_lr = K.get_value(self.model.optimizer.lr)
