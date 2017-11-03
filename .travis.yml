@@ -37,7 +37,7 @@ install:
   - |
     if [ $MPI == "OpenMPI" ]; then
       wget -O /tmp/openmpi-3.0.0-bin.tar.gz https://github.com/uber/horovod/files/1439728/openmpi-3.0.0-bin.tar.gz
-      pushd /usr/local && sudo tar -zxvf /tmp/openmpi-3.0.0-bin.tar.gz && popd
+      pushd /usr/local && sudo tar -zxf /tmp/openmpi-3.0.0-bin.tar.gz && popd
       export PATH=/usr/local/openmpi/bin:$PATH
     else
       # installs mpich version 3.0.4
@@ -55,6 +55,10 @@ install:
   # h5py for Keras model saving
   - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install h5py; fi
   - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then pip3 install h5py; fi
+
+  # scipy for Keras image preprocessing
+  - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install scipy; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then pip3 install scipy; fi
 
   # Horovod
   - python setup.py sdist
