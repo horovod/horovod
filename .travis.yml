@@ -88,7 +88,7 @@ script:
   # run Keras MNIST advanced example
   - |
     if [ $MPI == "OpenMPI" ]; then
-      pirun -oversubscribe -allow-run-as-root -np 2 python examples/keras_mnist_advanced.py
+      mpirun -oversubscribe -allow-run-as-root -np 2 python examples/keras_mnist_advanced.py
     else
       mpirun -np 2 python examples/keras_mnist_advanced.py
     fi
