@@ -18,45 +18,81 @@ before_install:
 
 env:
   matrix:
-    - TF_PACKAGE=tensorflow==1.1.0 MPI=OpenMPI
-    - TF_PACKAGE=tensorflow==1.3.0 MPI=OpenMPI
-    - TF_PACKAGE=tf-nightly MPI=OpenMPI
-    - TF_PACKAGE=tensorflow==1.1.0 MPI=MPICH
+    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 MPI=OpenMPI
+    - TF_PACKAGE=tensorflow==1.4.0 KERAS_PACKAGE=keras==2.0.9 MPI=OpenMPI
+    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=keras>=2 MPI=OpenMPI
+    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 MPI=MPICH
 
 matrix:
   fast_finish: true
   exclude:
     - python: "3.4"
-      env: TF_PACKAGE=tensorflow==1.1.0 MPI=MPICH
+      env: TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 MPI=MPICH
     - python: "3.6"
-      env: TF_PACKAGE=tensorflow==1.1.0 MPI=MPICH
+      env: TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 MPI=MPICH
     - python: "3.6"
-      env: TF_PACKAGE=tf-nightly MPI=OpenMPI
+      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=keras>=2 MPI=OpenMPI
 
 install:
   - |
     if [ $MPI == "OpenMPI" ]; then
-      # openmpi
-      wget https://www.open-mpi.org/software/ompi/v2.1/downloads/openmpi-2.1.1.tar.gz
-      gunzip -c openmpi-2.1.1.tar.gz | tar xf -
-      pushd openmpi-2.1.1 && ./configure --prefix=/usr/local && make -j8 all && sudo make all install && popd && sudo ldconfig
+      wget -O /tmp/openmpi-3.0.0-bin.tar.gz https://github.com/uber/horovod/files/1439728/openmpi-3.0.0-bin.tar.gz
+      pushd /usr/local && sudo tar -zxf /tmp/openmpi-3.0.0-bin.tar.gz && popd
+      export PATH=/usr/local/openmpi/bin:$PATH
     else
       # installs mpich version 3.0.4
       sudo apt-get install mpich
     fi
 
-  # tensorflow
-  - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install $TF_PACKAGE; fi
-  - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then pip3 install $TF_PACKAGE; fi
+  # TensorFlow
+  - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install "$TF_PACKAGE"; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then pip3 install "$TF_PACKAGE"; fi
 
-  # horovod
+  # Keras
+  - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install "$KERAS_PACKAGE"; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then pip3 install "$KERAS_PACKAGE"; fi
+
+  # h5py for Keras model saving
+  - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install h5py; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then pip3 install h5py; fi
+
+  # scipy for Keras image preprocessing
+  - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install scipy; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then pip3 install scipy; fi
+
+  # Horovod
   - python setup.py sdist
   - pip install -v dist/horovod-*.tar.gz
 
 script:
+  # run unit tests
   - |
     if [ $MPI == "OpenMPI" ]; then
-      mpirun -allow-run-as-root -np 2 python horovod/tensorflow/mpi_ops_test.py
+      mpirun -oversubscribe -allow-run-as-root -np 2 python horovod/tensorflow/mpi_ops_test.py
     else
       mpirun -np 2 python horovod/tensorflow/mpi_ops_test.py
+    fi
+
+  # run TensorFlow MNIST example
+  - |
+    if [ $MPI == "OpenMPI" ]; then
+      mpirun -oversubscribe -allow-run-as-root -np 2 python examples/tensorflow_mnist.py
+    else
+      mpirun -np 2 python examples/tensorflow_mnist.py
+    fi
+
+  # download Keras MNIST dataset
+  - python -c "from keras.datasets import mnist; mnist.load_data()"
+
+  # hack Keras MNIST advanced example to be smaller
+  - sed -i "s/epochs = .*/epochs = 12/" examples/keras_mnist_advanced.py
+  - sed -i "s/model.add(Conv2D(32, kernel_size=(3, 3),/model.add(Conv2D(1, kernel_size=(3, 3),/" examples/keras_mnist_advanced.py
+  - sed -i "s/model.add(Conv2D(64, (3, 3), activation='relu'))//" examples/keras_mnist_advanced.py
+
+  # run Keras MNIST advanced example
+  - |
+    if [ $MPI == "OpenMPI" ]; then
+      mpirun -oversubscribe -allow-run-as-root -np 2 python examples/keras_mnist_advanced.py
+    else
+      mpirun -np 2 python examples/keras_mnist_advanced.py
     fi
