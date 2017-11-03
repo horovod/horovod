@@ -50,7 +50,7 @@ class _DistributedOptimizer(keras.optimizers.Optimizer):
         gradients = super(self.__class__, self).get_gradients(loss, params)
         if hvd.size() > 1:
             averaged_gradients = []
-            with K.name_scope(self._name + "_Allreduce"):
+            with tf.name_scope(self._name + "_Allreduce"):
                 for grad in gradients:
                     if grad is not None:
                         avg_grad = hvd.allreduce(grad, device_dense=self._device_dense,
