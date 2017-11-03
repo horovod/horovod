@@ -114,7 +114,7 @@ class LRWarmupCallback(keras.callbacks.Callback):
             momentum_correction: Apply momentum correction to optimizers that have momentum.
                                  Defaults to True.
             steps_per_epoch: The callback will attempt to autodetect number of batches per
-                             epoch with Keras >= 2.0.7. Provide this value if you have an older
+                             epoch with Keras >= 2.0.0. Provide this value if you have an older
                              version of Keras.
             verbose: verbosity mode, 0 or 1.
         """
@@ -133,7 +133,7 @@ class LRWarmupCallback(keras.callbacks.Callback):
             return self.params['steps']
         elif self.params.get('samples') and self.params.get('batch_size'):
             # Compute the number of steps per epoch using # of samples and a batch size.
-            return self.params['samples'] // self.xxxparams['batch_size']
+            return self.params['samples'] // self.params['batch_size']
         else:
             raise ValueError('Could not autodetect the number of steps per epoch. '
                              'Please specify the steps_per_epoch parameter to the '

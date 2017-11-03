@@ -84,7 +84,7 @@ def DistributedOptimizer(optimizer, name=None, device_dense='', device_sparse=''
     # model could be easily restored without Horovod.
     cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                dict(_DistributedOptimizer.__dict__))
-    return cls(device_dense, name, device_sparse, **optimizer.get_config())
+    return cls(name, device_dense, device_sparse, **optimizer.get_config())
 
 
 def broadcast_global_variables(root_rank):

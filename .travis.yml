@@ -18,20 +18,20 @@ before_install:
 
 env:
   matrix:
-    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.7 MPI=OpenMPI
-    - TF_PACKAGE=tensorflow==1.4.0 KERAS_PACKAGE=keras==2.0.7 MPI=OpenMPI
-    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=keras MPI=OpenMPI
-    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.7 MPI=MPICH
+    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 MPI=OpenMPI
+    - TF_PACKAGE=tensorflow==1.4.0 KERAS_PACKAGE=keras==2.0.9 MPI=OpenMPI
+    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=keras>=2 MPI=OpenMPI
+    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 MPI=MPICH
 
 matrix:
   fast_finish: true
   exclude:
     - python: "3.4"
-      env: TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.7 MPI=MPICH
+      env: TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 MPI=MPICH
     - python: "3.6"
-      env: TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.7 MPI=MPICH
+      env: TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 MPI=MPICH
     - python: "3.6"
-      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=keras MPI=OpenMPI
+      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=keras>=2 MPI=OpenMPI
 
 install:
   - |
@@ -45,12 +45,12 @@ install:
     fi
 
   # TensorFlow
-  - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install $TF_PACKAGE; fi
-  - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then pip3 install $TF_PACKAGE; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install "$TF_PACKAGE"; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then pip3 install "$TF_PACKAGE"; fi
 
   # Keras
-  - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install $KERAS_PACKAGE; fi
-  - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then pip3 install $KERAS_PACKAGE; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install "$KERAS_PACKAGE"; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then pip3 install "$KERAS_PACKAGE"; fi
 
   # h5py for Keras model saving
   - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install h5py; fi
