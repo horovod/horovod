@@ -82,7 +82,7 @@ script:
 
   # hack Keras MNIST advanced example to be smaller
   - sed -i "s/epochs = .*/epochs = 12/" examples/keras_mnist_advanced.py
-  - sed -i "s/model.add(Conv2D(32, kernel_size=(3, 3),/model.add(Conv2D(2, kernel_size=(3, 3),/" examples/keras_mnist_advanced.py
+  - sed -i "s/model.add(Conv2D(32, kernel_size=(3, 3),/model.add(Conv2D(1, kernel_size=(3, 3),/" examples/keras_mnist_advanced.py
   - sed -i "s/model.add(Conv2D(64, (3, 3), activation='relu'))//" examples/keras_mnist_advanced.py
 
   # run Keras MNIST advanced example
