@@ -134,11 +134,11 @@ To run on 4 machines with 4 GPUs each using Open MPI:
 $ mpirun -np 16 -x LD_LIBRARY_PATH -H server1:4,server2:4,server3:4,server4:4 python train.py
 ```
 
-If you're using Open MPI and you have RoCE or InfiniBand, we found this custom RDMA queue configuration to help
-performance a lot:
+If you're using Open MPI and you have RoCE or InfiniBand, we found the following `pml` and `btl_openib_receive_queues`
+parameters to help performance a lot:
 
 ```bash
-$ mpirun -np 16 -x LD_LIBRARY_PATH -mca btl_openib_receive_queues P,128,32:P,2048,32:P,12288,32:P,131072,32 -H server1:4,server2:4,server3:4,server4:4 python train.py
+$ mpirun -np 16 -x LD_LIBRARY_PATH -mca pml ob1 -mca btl_openib_receive_queues P,128,32:P,2048,32:P,12288,32:P,131072,32 -H server1:4,server2:4,server3:4,server4:4 python train.py
 ```
 
 Check your MPI documentation for arguments to the `mpirun` command on your system.
