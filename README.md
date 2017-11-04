@@ -15,14 +15,8 @@ it on many GPUs faster. This has two aspects:
 1. How much modifications does one have to make to a program to make it distributed, and how easy is it to run it.
 2. How much faster would it run in distributed mode?
 
-Internally at Uber we found that it's much easier for people to understand an MPI model that requires minimal changes to
-source code than to understand how to set up regular Distributed TensorFlow.
-
-To give some perspective on that, [this commit](https://github.com/alsrgv/benchmarks/commit/86bf2f9269dbefb4e57a8b66ed260c8fab84d6c7) 
-into our fork of TF Benchmarks shows how much code can be removed if one doesn't need to worry about towers and manually
-averaging gradients across them, `tf.Server()`, `tf.ClusterSpec()`, `tf.train.SyncReplicasOptimizer()`, 
-`tf.train.replicas_device_setter()` and so on. If none of these things makes sense to you - don't worry, you don't have to 
-learn them if you use Horovod.
+Internally at Uber we found the MPI model to be much more straightforward and require far less code changes than the
+Distributed TensorFlow with parameter servers. See the [Usage](#usage) section for more details.
 
 In addition to being easy to use, Horovod is fast. Below is a chart representing the benchmark that was done on 32
 servers with 4 Pascal GPUs each connected by RoCE-capable 25 Gbit/s network:
@@ -30,6 +24,7 @@ servers with 4 Pascal GPUs each connected by RoCE-capable 25 Gbit/s network:
 ![128-GPU Benchmark](https://user-images.githubusercontent.com/16640218/31681220-7453e760-b32b-11e7-9ba3-6d01f83b7748.png)
 
 Horovod achieves 90% scaling efficiency for both Inception V3 and ResNet-101, and 79% scaling efficiency for VGG-16.
+See the [Benchmarks](docs/benchmarks.md) page to find out how to reproduce these numbers.
 
 While installing MPI and NCCL itself may seem like an extra hassle, it only needs to be done once by the team dealing
 with infrastructure, while everyone else in the company who builds the models can enjoy the simplicity of training them at
