@@ -1,15 +1,15 @@
-## Running the Horovod
+## Running Horovod
 
-Examples below are for Open MPI. Check your MPI documentation for arguments to the `mpirun` command on your system.
+The examples below are for Open MPI. Check your MPI documentation for arguments to the `mpirun` command on your system.
 
-Typically, one GPU will be allocated per process, so if a server has 4 GPUs you would run 4 processes. In Open MPI,
-number of processes is specified with `-np` flag.
+Typically one GPU will be allocated per process, so if a server has 4 GPUs, you would run 4 processes. In Open MPI,
+the number of processes is specified with the `-np` flag.
 
-Starting with the Open MPI 3, it's important to add `-bind-to none` and `-oversubscribe` arguments. `-bind-to none`
+Starting with the Open MPI 3, it's important to add the `-bind-to none` and `-oversubscribe` arguments. `-bind-to none`
 specifies Open MPI to not bind a training process to a single CPU core (which would hurt performance). `-oversubscribe`
-allows to run multiple training processes on a single core.
+enables you to to run multiple training processes on a single core.
 
-The `-x` option allows to specify (`-x NCCL_DEBUG=INFO`) or copy (`-x LD_LIBRARY_PATH`) an environment variable to all
+With the `-x` option you can specify (`-x NCCL_DEBUG=INFO`) or copy (`-x LD_LIBRARY_PATH`) an environment variable to all
 the workers.
 
 1. To run on a machine with 4 GPUs:
@@ -31,7 +31,7 @@ $ mpirun -np 16 \
     python train.py
 ```
 
-3. If you have RoCE or InfiniBand, we found the following `pml` and `btl_openib_receive_queues` parameters to help
+3. If you have RoCE or InfiniBand, we found that the `pml` and `btl_openib_receive_queues` parameters improve
 performance a lot:
 
 ```bash
@@ -47,7 +47,7 @@ $ mpirun -np 16 \
 
 Having network interfaces that are not routed can cause Open MPI to hang. An example of such interface is `docker0`.
 
-If you see non-routed interfaces (like `docker0`) in the output of `ifconfig`, you should tell Open MPI to not used them
+If you see non-routed interfaces (like `docker0`) in the output of `ifconfig`, you should tell Open MPI to not use them
 via the `-mca btl_tcp_if_exclude <interface>[,<interface>]` parameter.
 
 ```bash

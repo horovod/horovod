@@ -117,10 +117,10 @@ with tf.train.MonitoredTrainingSession(checkpoint_dir=checkpoint_dir,
     mon_sess.run(train_op)
 ```
 
-## Running the Horovod
+## Running Horovod
 
-Below are a couple of examples of commands to run the distributed training. See the [Running the Horovod](docs/running.md)
-page for more instructions, including RoCE/InfiniBand tweaks and dealing with hangs.
+The example commands below show how to run distributed training. See the [Running Horovod](docs/running.md)
+page for more instructions, including RoCE/InfiniBand tweaks and tips for dealing with hangs.
 
 1. To run on a machine with 4 GPUs:
 
