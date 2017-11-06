@@ -124,6 +124,27 @@ register libraries in the cache:
 $ sudo ldconfig
 ```
 
+### Error during installation: invalid conversion from ‘const void*’ to ‘void*’ [-fpermissive]
+
+If you see the error message below, it means that your MPI is likely outdated. We recommend installing
+[Open MPI >=3.0.0](https://www.open-mpi.org/faq/?category=building#easy-build).
+
+**Note**: Prior to installing a new version of Open MPI, don't forget to remove your existing MPI installation.
+
+```
+horovod/tensorflow/mpi_ops.cc: In function ‘void horovod::tensorflow::{anonymous}::PerformOperation(horovod::tensorflow::{anonymous}::TensorTable&, horovod::tensorflow::MPIResponse)’:
+horovod/tensorflow/mpi_ops.cc:802:79: # error: invalid conversion from ‘const void*’ to ‘void*’ [-fpermissive]
+                                  recvcounts, displcmnts, dtype, MPI_COMM_WORLD);
+                                                                               ^
+In file included from horovod/tensorflow/mpi_ops.cc:38:0:
+/usr/anaconda2/include/mpi.h:633:5: error:   initializing argument 1 of ‘int MPI_Allgatherv(void*, int, MPI_Datatype, void*, int*, int*, MPI_Datatype, MPI_Comm)’ [-fpermissive]
+ int MPI_Allgatherv(void* , int, MPI_Datatype, void*, int *, int *, MPI_Datatype, MPI_Comm);
+     ^
+horovod/tensorflow/mpi_ops.cc:1102:45: error: invalid conversion from ‘const void*’ to ‘void*’ [-fpermissive]
+                               MPI_COMM_WORLD))
+                                             ^
+```
+
 ### NCCL 2 is not found during installation
 
 If you see the error message below, it means NCCL 2 was not found in the standard libraries location. If you have a directory
