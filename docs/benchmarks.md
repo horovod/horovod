@@ -22,17 +22,78 @@ $ git checkout horovod_v2
     1. If you have a plain TCP network:
     
     ```bash
-    $ mpirun -np 16 -bind-to none -oversubscribe -x LD_LIBRARY_PATH -H server1:4,server2:4,server3:4,server4:4 python scripts/tf_cnn_benchmarks/tf_cnn_benchmarks.py --model resnet101 --batch_size 64 --variable_update horovod
+    $ mpirun -np 16 \
+        -bind-to none -oversubscribe \
+        -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+        -H server1:4,server2:4,server3:4,server4:4 \
+        \
+        python scripts/tf_cnn_benchmarks/tf_cnn_benchmarks.py \
+            --model resnet101 \
+            --batch_size 64 \
+            --variable_update horovod
     ```
 
     2. If you have a network with RoCE / InfiniBand (recommended):
     
     ```bash
-    $ mpirun -np 16 -bind-to none -oversubscribe -x LD_LIBRARY_PATH -mca pml ob1 -mca btl_openib_receive_queues P,128,32:P,2048,32:P,12288,32:P,65536,32 -H server1:4,server2:4,server3:4,server4:4 python scripts/tf_cnn_benchmarks/tf_cnn_benchmarks.py --model resnet101 --batch_size 64 --variable_update horovod
+    $ mpirun -np 16 \
+        -bind-to none -oversubscribe \
+        -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+        -mca pml ob1 -mca btl_openib_receive_queues P,128,32:P,2048,32:P,12288,32:P,65536,32 \
+        -H server1:4,server2:4,server3:4,server4:4 \
+        \
+        python scripts/tf_cnn_benchmarks/tf_cnn_benchmarks.py \
+            --model resnet101 \
+            --batch_size 64 \
+            --variable_update horovod
     ```
 
 4. At the end of the run, you will see number of images processed per second:
 
 ```
 total images/sec: 1656.82
+```
+
+### Real data benchmarks
+
+The benchmark instructions above are for the synthetic data benchmark.
+
+In order to run the benchmark on a real data, you need to download [ImageNet dataset](http://image-net.org/download-images)
+and convert it using the TFRecord [preprocessing script](https://github.com/tensorflow/models/blob/master/research/inception/inception/data/download_and_preprocess_imagenet.sh).
+
+Now, simply add `--data_dir /path/to/imagenet/tfrecords --data_name imagenet --num_batches=2000` to your training command:
+
+1. If you have a plain TCP network:
+
+```bash
+$ mpirun -np 16 \
+    -bind-to none -oversubscribe \
+    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    -H server1:4,server2:4,server3:4,server4:4 \
+    \
+    python scripts/tf_cnn_benchmarks/tf_cnn_benchmarks.py \
+        --model resnet101 \
+        --batch_size 64 \
+        --variable_update horovod \
+        --data_dir /path/to/imagenet/tfrecords \
+        --data_name imagenet \
+        --num_batches=2000
+```
+
+2. If you have a network with RoCE / InfiniBand (recommended):
+
+```bash
+$ mpirun -np 16 \
+    -bind-to none -oversubscribe \
+    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    -mca pml ob1 -mca btl_openib_receive_queues P,128,32:P,2048,32:P,12288,32:P,65536,32 \
+    -H server1:4,server2:4,server3:4,server4:4 \
+    \
+    python scripts/tf_cnn_benchmarks/tf_cnn_benchmarks.py \
+        --model resnet101 \
+        --batch_size 64 \
+        --variable_update horovod \
+        --data_dir /path/to/imagenet/tfrecords \
+        --data_name imagenet \
+        --num_batches=2000
 ```
