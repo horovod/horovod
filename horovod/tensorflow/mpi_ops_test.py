@@ -494,8 +494,8 @@ class MPITests(tf.test.TestCase):
             dims = [1, 2, 3]
             root_ranks = list(range(size))
             for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
-                tensor = tf.ones([17] * dim)
-                root_tensor = tf.ones([17] * dim)
+                tensor = tf.ones([17] * dim) * rank
+                root_tensor = tf.ones([17] * dim) * rank
                 if dtype == tf.bool:
                     tensor = tensor % 2
                     root_tensor = root_tensor % 2
