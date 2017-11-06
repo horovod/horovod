@@ -117,32 +117,39 @@ with tf.train.MonitoredTrainingSession(checkpoint_dir=checkpoint_dir,
     mon_sess.run(train_op)
 ```
 
-To run on a machine with 4 GPUs:
+## Running the Horovod
+
+Below are a couple of examples of commands to run the distributed training. See the [Running the training](docs/running.md)
+page for more instructions, including RoCE/InfiniBand tweaks and dealing with hangs.
+
+1. To run on a machine with 4 GPUs:
 
 ```bash
-$ mpirun -np 4 python train.py
+$ mpirun -np 4 \
+    -bind-to none -oversubscribe \
+    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    python train.py
 ```
 
-To run on 4 machines with 4 GPUs each using Open MPI:
+2. To run on 4 machines with 4 GPUs each:
 
 ```bash
-$ mpirun -np 16 -x LD_LIBRARY_PATH -H server1:4,server2:4,server3:4,server4:4 python train.py
+$ mpirun -np 16 \
+    -bind-to none -oversubscribe \
+    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    -H server1:4,server2:4,server3:4,server4:4 \
+    python train.py
 ```
-
-If you're using Open MPI and you have RoCE or InfiniBand, we found the following `pml` and `btl_openib_receive_queues`
-parameters to help performance a lot:
-
-```bash
-$ mpirun -np 16 -x LD_LIBRARY_PATH -mca pml ob1 -mca btl_openib_receive_queues P,128,32:P,2048,32:P,12288,32:P,131072,32 -H server1:4,server2:4,server3:4,server4:4 python train.py
-```
-
-Check your MPI documentation for arguments to the `mpirun` command on your system.
 
 ## Keras
 
 Horovod supports Keras and regular TensorFlow in similar ways.
 
 See full training [simple](examples/keras_mnist.py) and [advanced](examples/keras_mnist_advanced.py) examples.
+
+**Note**: Keras 2.0.9 has a [known issue](https://github.com/fchollet/keras/issues/8353) that makes each worker allocate
+all GPUs on the server, instead of the GPU assigned by the *local rank*. If you have multiple GPUs per server, upgrade
+to Keras 2.1.0 (when it's available), or downgrade to Keras 2.0.8.
 
 ## Inference
 

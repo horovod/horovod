@@ -17,18 +17,18 @@ $ cd benchmarks
 $ git checkout horovod_v2
 ```
 
-3. Run the benchmark.
+3. Run the benchmark. Examples below are for Open MPI.
 
     1. If you have a plain TCP network:
     
     ```bash
-    $ mpirun -np 16 -x LD_LIBRARY_PATH -H server1:4,server2:4,server3:4,server4:4 python scripts/tf_cnn_benchmarks/tf_cnn_benchmarks.py --model resnet101 --batch_size 64 --variable_update horovod
+    $ mpirun -np 16 -bind-to none -oversubscribe -x LD_LIBRARY_PATH -H server1:4,server2:4,server3:4,server4:4 python scripts/tf_cnn_benchmarks/tf_cnn_benchmarks.py --model resnet101 --batch_size 64 --variable_update horovod
     ```
 
     2. If you have a network with RoCE / InfiniBand (recommended):
     
     ```bash
-    $ mpirun -np 16 -x LD_LIBRARY_PATH -mca pml ob1 -mca btl_openib_receive_queues P,128,32:P,2048,32:P,12288,32:P,131072,32 -H server1:4,server2:4,server3:4,server4:4 python scripts/tf_cnn_benchmarks/tf_cnn_benchmarks.py --model resnet101 --batch_size 64 --variable_update horovod
+    $ mpirun -np 16 -bind-to none -oversubscribe -x LD_LIBRARY_PATH -mca pml ob1 -mca btl_openib_receive_queues P,128,32:P,2048,32:P,12288,32:P,65536,32 -H server1:4,server2:4,server3:4,server4:4 python scripts/tf_cnn_benchmarks/tf_cnn_benchmarks.py --model resnet101 --batch_size 64 --variable_update horovod
     ```
 
 4. At the end of the run, you will see number of images processed per second:
