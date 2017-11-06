@@ -494,18 +494,22 @@ class MPITests(tf.test.TestCase):
             dims = [1, 2, 3]
             root_ranks = list(range(size))
             for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
-                tensor = tf.ones([17] * dim) * rank
-                root_tensor = tf.ones([17] * dim) * rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
-                    root_tensor = root_tensor % 2
-                tensor = tf.cast(tensor, dtype=dtype)
-                root_tensor = tf.cast(root_tensor, dtype=dtype)
-                broadcasted_tensor = hvd.broadcast(tensor, root_rank)
-                self.assertTrue(
-                    session.run(tf.reduce_all(tf.equal(
-                        tf.cast(root_tensor, tf.int32), tf.cast(broadcasted_tensor, tf.int32)))),
-                    "hvd.broadcast produces incorrect broadcasted tensor")
+                try:
+                    tensor = tf.ones([17] * dim) * rank
+                    root_tensor = tf.ones([17] * dim) * root_rank
+                    if dtype == tf.bool:
+                        tensor = tensor % 2
+                        root_tensor = root_tensor % 2
+                    tensor = tf.cast(tensor, dtype=dtype)
+                    root_tensor = tf.cast(root_tensor, dtype=dtype)
+                    broadcasted_tensor = hvd.broadcast(tensor, root_rank)
+                    self.assertTrue(
+                        session.run(tf.reduce_all(tf.equal(
+                            tf.cast(root_tensor, tf.int32), tf.cast(broadcasted_tensor, tf.int32)))),
+                        "hvd.broadcast produces incorrect broadcasted tensor")
+                except Exception:
+                    import traceback
+                    traceback.print_exc()
 
     def test_horovod_broadcast_error(self):
         """Test that the broadcast returns an error if any dimension besides
