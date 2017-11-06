@@ -15,14 +15,8 @@ it on many GPUs faster. This has two aspects:
 1. How much modifications does one have to make to a program to make it distributed, and how easy is it to run it.
 2. How much faster would it run in distributed mode?
 
-Internally at Uber we found that it's much easier for people to understand an MPI model that requires minimal changes to
-source code than to understand how to set up regular Distributed TensorFlow.
-
-To give some perspective on that, [this commit](https://github.com/alsrgv/benchmarks/commit/86bf2f9269dbefb4e57a8b66ed260c8fab84d6c7) 
-into our fork of TF Benchmarks shows how much code can be removed if one doesn't need to worry about towers and manually
-averaging gradients across them, `tf.Server()`, `tf.ClusterSpec()`, `tf.train.SyncReplicasOptimizer()`, 
-`tf.train.replicas_device_setter()` and so on. If none of these things makes sense to you - don't worry, you don't have to 
-learn them if you use Horovod.
+Internally at Uber we found the MPI model to be much more straightforward and require far less code changes than the
+Distributed TensorFlow with parameter servers. See the [Usage](#usage) section for more details.
 
 In addition to being easy to use, Horovod is fast. Below is a chart representing the benchmark that was done on 32
 servers with 4 Pascal GPUs each connected by RoCE-capable 25 Gbit/s network:
@@ -30,6 +24,7 @@ servers with 4 Pascal GPUs each connected by RoCE-capable 25 Gbit/s network:
 ![128-GPU Benchmark](https://user-images.githubusercontent.com/16640218/31681220-7453e760-b32b-11e7-9ba3-6d01f83b7748.png)
 
 Horovod achieves 90% scaling efficiency for both Inception V3 and ResNet-101, and 79% scaling efficiency for VGG-16.
+See the [Benchmarks](docs/benchmarks.md) page to find out how to reproduce these numbers.
 
 While installing MPI and NCCL itself may seem like an extra hassle, it only needs to be done once by the team dealing
 with infrastructure, while everyone else in the company who builds the models can enjoy the simplicity of training them at
@@ -122,32 +117,39 @@ with tf.train.MonitoredTrainingSession(checkpoint_dir=checkpoint_dir,
     mon_sess.run(train_op)
 ```
 
-To run on a machine with 4 GPUs:
+## Running Horovod
+
+The example commands below show how to run distributed training. See the [Running Horovod](docs/running.md)
+page for more instructions, including RoCE/InfiniBand tweaks and tips for dealing with hangs.
+
+1. To run on a machine with 4 GPUs:
 
 ```bash
-$ mpirun -np 4 python train.py
+$ mpirun -np 4 \
+    -bind-to none -oversubscribe \
+    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    python train.py
 ```
 
-To run on 4 machines with 4 GPUs each using Open MPI:
+2. To run on 4 machines with 4 GPUs each:
 
 ```bash
-$ mpirun -np 16 -x LD_LIBRARY_PATH -H server1:4,server2:4,server3:4,server4:4 python train.py
+$ mpirun -np 16 \
+    -bind-to none -oversubscribe \
+    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    -H server1:4,server2:4,server3:4,server4:4 \
+    python train.py
 ```
-
-If you're using Open MPI and you have RoCE or InfiniBand, we found this custom RDMA queue configuration to help
-performance a lot:
-
-```bash
-$ mpirun -np 16 -x LD_LIBRARY_PATH -mca btl_openib_receive_queues P,128,32:P,2048,32:P,12288,32:P,131072,32 -H server1:4,server2:4,server3:4,server4:4 python train.py
-```
-
-Check your MPI documentation for arguments to the `mpirun` command on your system.
 
 ## Keras
 
 Horovod supports Keras and regular TensorFlow in similar ways.
 
 See full training [simple](examples/keras_mnist.py) and [advanced](examples/keras_mnist_advanced.py) examples.
+
+**Note**: Keras 2.0.9 has a [known issue](https://github.com/fchollet/keras/issues/8353) that makes each worker allocate
+all GPUs on the server, instead of the GPU assigned by the *local rank*. If you have multiple GPUs per server, upgrade
+to Keras 2.1.0 (when it's available), or downgrade to Keras 2.0.8.
 
 ## Inference
 

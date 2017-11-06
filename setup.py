@@ -21,6 +21,8 @@ import subprocess
 import textwrap
 import traceback
 
+from horovod import __version__
+
 
 tensorflow_mpi_lib = Extension('horovod.tensorflow.mpi_lib', [])
 
@@ -345,7 +347,7 @@ class custom_build_ext(build_ext):
 
 
 setup(name='horovod',
-      version='0.10.0',
+      version=__version__,
       packages=find_packages(),
       description='Distributed training framework for TensorFlow.',
       author='Uber Technologies, Inc.',
