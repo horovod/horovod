@@ -47,6 +47,9 @@ const std::string& MPIDataType_Name(MPIDataType value) {
   case TF_MPI_FLOAT64:
     static const std::string float64("float64");
     return float64;
+  case TF_MPI_BOOL:
+    static const std::string bool_("bool");
+    return bool_;
   default:
     static const std::string unknown("<unknown>");
     return unknown;

@@ -38,8 +38,9 @@ enum MPIDataType {
   MPIDataType_TF_MPI_INT64 = 5,
   MPIDataType_TF_MPI_FLOAT32 = 6,
   MPIDataType_TF_MPI_FLOAT64 = 7,
+  MPIDataType_TF_MPI_BOOL = 8,
   MPIDataType_MIN = MPIDataType_TF_MPI_UINT8,
-  MPIDataType_MAX = MPIDataType_TF_MPI_FLOAT64
+  MPIDataType_MAX = MPIDataType_TF_MPI_BOOL
 };
 
 inline const char **EnumNamesMPIDataType() {
@@ -52,6 +53,7 @@ inline const char **EnumNamesMPIDataType() {
     "TF_MPI_INT64",
     "TF_MPI_FLOAT32",
     "TF_MPI_FLOAT64",
+    "TF_MPI_BOOL",
     nullptr
   };
   return names;

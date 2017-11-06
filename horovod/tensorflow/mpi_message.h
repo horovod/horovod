@@ -31,7 +31,8 @@ enum MPIDataType {
   TF_MPI_INT32 = 4,
   TF_MPI_INT64 = 5,
   TF_MPI_FLOAT32 = 6,
-  TF_MPI_FLOAT64 = 7
+  TF_MPI_FLOAT64 = 7,
+  TF_MPI_BOOL = 8
 };
 
 const std::string& MPIDataType_Name(MPIDataType value);
