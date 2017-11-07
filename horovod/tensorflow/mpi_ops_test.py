@@ -363,10 +363,14 @@ class MPITests(tf.test.TestCase):
 
         with self.test_session() as session:
             dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
-                      tf.int32, tf.int64, tf.float32, tf.float64]
+                      tf.int32, tf.int64, tf.float32, tf.float64,
+                      tf.bool]
             dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
-                tensor = tf.ones([17] * dim, dtype=dtype) * rank
+                tensor = tf.ones([17] * dim) * rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                tensor = tf.cast(tensor, dtype=dtype)
                 gathered = hvd.allgather(tensor)
 
                 gathered_tensor = session.run(gathered)
@@ -380,9 +384,13 @@ class MPITests(tf.test.TestCase):
                     self.assertEqual(list(rank_tensor.shape), [17] * dim)
                     # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
                     # so need to cast rank_tensor to tf.int32.
+                    if dtype != tf.bool:
+                        value = i
+                    else:
+                        value = i % 2
                     self.assertTrue(
                         session.run(tf.reduce_all(
-                            tf.equal(tf.cast(rank_tensor, tf.int32), i))),
+                            tf.equal(tf.cast(rank_tensor, tf.int32), value))),
                         "hvd.allgather produces incorrect gathered tensor")
 
     def test_horovod_allgather_variable_size(self):
@@ -394,7 +402,8 @@ class MPITests(tf.test.TestCase):
 
         with self.test_session() as session:
             dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
-                      tf.int32, tf.int64, tf.float32, tf.float64]
+                      tf.int32, tf.int64, tf.float32, tf.float64,
+                      tf.bool]
             dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
                 # Support tests up to MPI Size of 35
@@ -404,8 +413,10 @@ class MPITests(tf.test.TestCase):
                 tensor_sizes = [17, 32, 81, 12, 15, 23, 22] * 5
                 tensor_sizes = tensor_sizes[:size]
 
-                tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1),
-                                 dtype=dtype) * rank
+                tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                tensor = tf.cast(tensor, dtype=dtype)
                 gathered = hvd.allgather(tensor)
 
                 gathered_tensor = session.run(gathered)
@@ -421,9 +432,13 @@ class MPITests(tf.test.TestCase):
                     self.assertEqual(list(rank_tensor.shape), rank_size)
                     # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
                     # so need to cast rank_tensor to tf.int32.
+                    if dtype != tf.bool:
+                        value = i
+                    else:
+                        value = i % 2
                     self.assertTrue(
                         session.run(tf.reduce_all(
-                            tf.equal(tf.cast(rank_tensor, tf.int32), i))),
+                            tf.equal(tf.cast(rank_tensor, tf.int32), value))),
                         "hvd.allgather produces incorrect gathered tensor")
 
     def test_horovod_allgather_error(self):
@@ -474,17 +489,27 @@ class MPITests(tf.test.TestCase):
 
         with self.test_session() as session:
             dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
-                      tf.int32, tf.int64, tf.float32, tf.float64]
+                      tf.int32, tf.int64, tf.float32, tf.float64,
+                      tf.bool]
             dims = [1, 2, 3]
             root_ranks = list(range(size))
             for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
-                tensor = tf.ones([17] * dim, dtype=dtype) * rank
-                root_tensor = tf.ones([17] * dim, dtype=dtype) * root_rank
-                broadcasted_tensor = hvd.broadcast(tensor, root_rank)
-                self.assertTrue(
-                    session.run(tf.reduce_all(tf.equal(
-                        tf.cast(root_tensor, tf.int32), tf.cast(broadcasted_tensor, tf.int32)))),
-                    "hvd.broadcast produces incorrect broadcasted tensor")
+                try:
+                    tensor = tf.ones([17] * dim) * rank
+                    root_tensor = tf.ones([17] * dim) * root_rank
+                    if dtype == tf.bool:
+                        tensor = tensor % 2
+                        root_tensor = root_tensor % 2
+                    tensor = tf.cast(tensor, dtype=dtype)
+                    root_tensor = tf.cast(root_tensor, dtype=dtype)
+                    broadcasted_tensor = hvd.broadcast(tensor, root_rank)
+                    self.assertTrue(
+                        session.run(tf.reduce_all(tf.equal(
+                            tf.cast(root_tensor, tf.int32), tf.cast(broadcasted_tensor, tf.int32)))),
+                        "hvd.broadcast produces incorrect broadcasted tensor")
+                except Exception:
+                    import traceback
+                    traceback.print_exc()
 
     def test_horovod_broadcast_error(self):
         """Test that the broadcast returns an error if any dimension besides

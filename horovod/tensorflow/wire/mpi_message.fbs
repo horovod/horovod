@@ -25,7 +25,8 @@ enum MPIDataType:byte {
     TF_MPI_INT32 = 4,
     TF_MPI_INT64 = 5,
     TF_MPI_FLOAT32 = 6,
-    TF_MPI_FLOAT64 = 7
+    TF_MPI_FLOAT64 = 7,
+    TF_MPI_BOOL = 8
 }
 
 // An MPIRequest is a message sent from a rank greater than zero to the
