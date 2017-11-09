@@ -61,6 +61,7 @@ class MetricAverageCallback(keras.callbacks.Callback):
     def _make_variable(self, metric, value):
         with tf.name_scope('MetricAverageCallback'):
             var = tf.Variable(value, name=metric)
+            K.get_session().run(var.initializer)
             allreduce_op = hvd.allreduce(var, device_dense=self.device)
             return var, allreduce_op
 
