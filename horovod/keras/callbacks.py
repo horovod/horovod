@@ -91,7 +91,7 @@ class LearningRateWarmupCallback(keras.callbacks.Callback):
     """
     Implements gradual learning rate warmup:
 
-        lr = initial_lr / hvd.size() ---> initial_lr
+        `lr = initial_lr / hvd.size()` ---> `lr = initial_lr`
 
     This technique was described in the paper "Accurate, Large Minibatch SGD: Training
     ImageNet in 1 Hour". See https://arxiv.org/pdf/1706.02677.pdf for details.
