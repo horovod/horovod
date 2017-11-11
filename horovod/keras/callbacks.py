@@ -89,20 +89,27 @@ class MetricAverageCallback(keras.callbacks.Callback):
 
 class LRWarmupCallback(keras.callbacks.Callback):
     """
-    Implements gradual learning rate warmup described in the paper
-    "Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour".
-    See https://arxiv.org/pdf/1706.02677.pdf for details.
+    Implements gradual learning rate warmup:
+
+        lr = initial_lr / hvd.size() ---> initial_lr
+
+    This technique was described in the paper "Accurate, Large Minibatch SGD: Training
+    ImageNet in 1 Hour". See https://arxiv.org/pdf/1706.02677.pdf for details.
 
     Math recap:
                                                  batch
         epoch               = full_epochs + ---------------
                                             steps_per_epoch
-                                    size - 1
-        lr'(epoch)          = lr * (-------- * epoch + 1)
-                                     warmup
 
-        lr'(epoch = 0)      = lr
-        lr'(epoch = warmup) = hvd.size() * lr
+                               lr     size - 1
+        lr'(epoch)          = ---- * (-------- * epoch + 1)
+                              size     warmup
+
+                               lr
+        lr'(epoch = 0)      = ----
+                              size
+
+        lr'(epoch = warmup) = lr
     """
 
     def __init__(self, warmup_epochs=5, momentum_correction=True, steps_per_epoch=None,
@@ -159,7 +166,7 @@ class LRWarmupCallback(keras.callbacks.Callback):
 
         old_lr = K.get_value(self.model.optimizer.lr)
         epoch = self.current_epoch + float(batch) / self.steps_per_epoch
-        new_lr = self.initial_lr * \
+        new_lr = self.initial_lr / hvd.size() * \
             (epoch * (hvd.size() - 1) / self.warmup_epochs + 1)
         K.set_value(self.model.optimizer.lr, new_lr)
 

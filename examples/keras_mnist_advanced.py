@@ -68,7 +68,8 @@ model.add(Dense(128, activation='relu'))
 model.add(Dropout(0.5))
 model.add(Dense(num_classes, activation='softmax'))
 
-opt = keras.optimizers.Adadelta()
+# Adjust learning rate based on number of GPUs.
+opt = keras.optimizers.Adadelta(lr=1.0 * hvd.size())
 
 # Add Horovod Distributed Optimizer.
 opt = hvd.DistributedOptimizer(opt)
@@ -89,8 +90,8 @@ callbacks = [
     # TensorBoard or other metrics-based callbacks.
     hvd.callbacks.MetricAverageCallback(),
 
-    # Scale up learning rate during the first five epochs.
-    # See https://arxiv.org/abs/1706.02677 for details.
+    # Scale the learning rate (lr = 1.0 ---> 1.0 * hvd.size()) during the first
+    # five epochs. See https://arxiv.org/abs/1706.02677 for details.
     hvd.callbacks.LRWarmupCallback(warmup_epochs=5, verbose=1),
 
     # Reduce the learning rate if training plateaues.
