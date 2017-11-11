@@ -95,7 +95,7 @@ callbacks = [
     hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=5, verbose=1),
 
     # Reduce the learning rate if training plateaues.
-    keras.callbacks.ReduceLROnPlateau(patience=3, verbose=1),
+    keras.callbacks.ReduceLROnPlateau(patience=10, verbose=1),
 ]
 
 # Save checkpoints only on worker 0 to prevent other workers from corrupting them.
