@@ -92,7 +92,7 @@ callbacks = [
 
     # Scale the learning rate (lr = 1.0 ---> 1.0 * hvd.size()) during the first
     # five epochs. See https://arxiv.org/abs/1706.02677 for details.
-    hvd.callbacks.LRWarmupCallback(warmup_epochs=5, verbose=1),
+    hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=5, verbose=1),
 
     # Reduce the learning rate if training plateaues.
     keras.callbacks.ReduceLROnPlateau(patience=3, verbose=1),
