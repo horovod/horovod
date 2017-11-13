@@ -87,28 +87,35 @@ class MetricAverageCallback(keras.callbacks.Callback):
         self._average_metrics_in_place(logs)
 
 
-class LRWarmupCallback(keras.callbacks.Callback):
+class LearningRateWarmupCallback(keras.callbacks.Callback):
     """
-    Implements gradual learning rate warmup described in the paper
-    "Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour".
-    See https://arxiv.org/pdf/1706.02677.pdf for details.
+    Implements gradual learning rate warmup:
+
+        `lr = initial_lr / hvd.size()` ---> `lr = initial_lr`
+
+    This technique was described in the paper "Accurate, Large Minibatch SGD: Training
+    ImageNet in 1 Hour". See https://arxiv.org/pdf/1706.02677.pdf for details.
 
     Math recap:
                                                  batch
         epoch               = full_epochs + ---------------
                                             steps_per_epoch
-                                    size - 1
-        lr'(epoch)          = lr * (-------- * epoch + 1)
-                                     warmup
 
-        lr'(epoch = 0)      = lr
-        lr'(epoch = warmup) = hvd.size() * lr
+                               lr     size - 1
+        lr'(epoch)          = ---- * (-------- * epoch + 1)
+                              size     warmup
+
+                               lr
+        lr'(epoch = 0)      = ----
+                              size
+
+        lr'(epoch = warmup) = lr
     """
 
     def __init__(self, warmup_epochs=5, momentum_correction=True, steps_per_epoch=None,
                  verbose=0):
         """
-        Construct a new LRWarmupCallback that will gradually warmup learning rate.
+        Construct a new LearningRateWarmupCallback that will gradually warmup learning rate.
 
         Args:
             warmup_epochs: The number of epochs of the warmup phase. Defaults to 5.
@@ -119,7 +126,7 @@ class LRWarmupCallback(keras.callbacks.Callback):
                              version of Keras.
             verbose: verbosity mode, 0 or 1.
         """
-        super(LRWarmupCallback, self).__init__()
+        super(LearningRateWarmupCallback, self).__init__()
         self.warmup_epochs = warmup_epochs
         self.momentum_correction = momentum_correction
         self.initial_lr = None
@@ -138,7 +145,8 @@ class LRWarmupCallback(keras.callbacks.Callback):
         else:
             raise ValueError('Could not autodetect the number of steps per epoch. '
                              'Please specify the steps_per_epoch parameter to the '
-                             'LRWarmupCallback() or upgrade to the latest version of Keras.')
+                             'LearningRateWarmupCallback() or upgrade to the latest '
+                             'version of Keras.')
 
     def on_train_begin(self, logs=None):
         self.initial_lr = K.get_value(self.model.optimizer.lr)
@@ -159,7 +167,7 @@ class LRWarmupCallback(keras.callbacks.Callback):
 
         old_lr = K.get_value(self.model.optimizer.lr)
         epoch = self.current_epoch + float(batch) / self.steps_per_epoch
-        new_lr = self.initial_lr * \
+        new_lr = self.initial_lr / hvd.size() * \
             (epoch * (hvd.size() - 1) / self.warmup_epochs + 1)
         K.set_value(self.model.optimizer.lr, new_lr)
 

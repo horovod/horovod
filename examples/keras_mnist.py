@@ -63,7 +63,7 @@ model.add(Dense(128, activation='relu'))
 model.add(Dropout(0.5))
 model.add(Dense(num_classes, activation='softmax'))
 
-# Adjust learning rate based on number of GPUs (naive approach).
+# Adjust learning rate based on number of GPUs.
 opt = keras.optimizers.Adadelta(1.0 * hvd.size())
 
 # Add Horovod Distributed Optimizer.
