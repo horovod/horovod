@@ -201,7 +201,11 @@ For example:
 
 ```bash
 $ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/nccl-<version>/lib
-$ mpirun -np 16 -x LD_LIBRARY_PATH -H server1:4,server2:4,server3:4,server4:4 python train.py
+$ mpirun -np 4 \
+    -H localhost:4 \
+    -bind-to none -map-by slot \
+    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    python train.py
 ```
 
 ### Pip install: no such option: --no-cache-dir
@@ -245,7 +249,11 @@ For example:
 
 ```bash
 $ export NCCL_DEBUG=INFO
-$ mpirun -np 16 -x NCCL_DEBUG -H server1:4,server2:4,server3:4,server4:4 python train.py
+$ mpirun -np 4 \
+    -H localhost:4 \
+    -bind-to none -map-by slot \
+    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    python train.py
 ```
 
 ### Running out of memory

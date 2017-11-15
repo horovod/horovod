@@ -68,7 +68,7 @@ script:
   # run unit tests
   - |
     if [ $MPI == "OpenMPI" ]; then
-      mpirun -oversubscribe -allow-run-as-root -np 2 python horovod/tensorflow/mpi_ops_test.py
+      mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot python horovod/tensorflow/mpi_ops_test.py
     else
       mpirun -np 2 python horovod/tensorflow/mpi_ops_test.py
     fi
@@ -76,7 +76,7 @@ script:
   # run TensorFlow MNIST example
   - |
     if [ $MPI == "OpenMPI" ]; then
-      mpirun -oversubscribe -allow-run-as-root -np 2 python examples/tensorflow_mnist.py
+      mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot python examples/tensorflow_mnist.py
     else
       mpirun -np 2 python examples/tensorflow_mnist.py
     fi
@@ -92,7 +92,7 @@ script:
   # run Keras MNIST advanced example
   - |
     if [ $MPI == "OpenMPI" ]; then
-      mpirun -oversubscribe -allow-run-as-root -np 2 python examples/keras_mnist_advanced.py
+      mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot python examples/keras_mnist_advanced.py
     else
       mpirun -np 2 python examples/keras_mnist_advanced.py
     fi

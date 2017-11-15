@@ -126,7 +126,8 @@ page for more instructions, including RoCE/InfiniBand tweaks and tips for dealin
 
 ```bash
 $ mpirun -np 4 \
-    -bind-to none -oversubscribe \
+    -H localhost:4 \
+    -bind-to none -map-by slot \
     -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
     python train.py
 ```
@@ -135,9 +136,9 @@ $ mpirun -np 4 \
 
 ```bash
 $ mpirun -np 16 \
-    -bind-to none -oversubscribe \
-    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
     -H server1:4,server2:4,server3:4,server4:4 \
+    -bind-to none -map-by slot \
+    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
     python train.py
 ```
 
