@@ -7,7 +7,7 @@ the number of processes is specified with the `-np` flag.
 
 Starting with the Open MPI 3, it's important to add the `-bind-to none` and `-map-by slot` arguments. `-bind-to none`
 specifies Open MPI to not bind a training process to a single CPU core (which would hurt performance). `-map-by slot`
-allows to have a mixture of different NUMA configurations since the default is to bind to the socket.
+allows you to have a mixture of different NUMA configurations because the default behavior is to bind to the socket.
 
 With the `-x` option you can specify (`-x NCCL_DEBUG=INFO`) or copy (`-x LD_LIBRARY_PATH`) an environment variable to all
 the workers.
