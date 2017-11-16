@@ -5,9 +5,9 @@ The examples below are for Open MPI. Check your MPI documentation for arguments 
 Typically one GPU will be allocated per process, so if a server has 4 GPUs, you would run 4 processes. In Open MPI,
 the number of processes is specified with the `-np` flag.
 
-Starting with the Open MPI 3, it's important to add the `-bind-to none` and `-oversubscribe` arguments. `-bind-to none`
-specifies Open MPI to not bind a training process to a single CPU core (which would hurt performance). `-oversubscribe`
-enables you to to run multiple training processes on a single core.
+Starting with the Open MPI 3, it's important to add the `-bind-to none` and `-map-by slot` arguments. `-bind-to none`
+specifies Open MPI to not bind a training process to a single CPU core (which would hurt performance). `-map-by slot`
+allows you to have a mixture of different NUMA configurations because the default behavior is to bind to the socket.
 
 With the `-x` option you can specify (`-x NCCL_DEBUG=INFO`) or copy (`-x LD_LIBRARY_PATH`) an environment variable to all
 the workers.
@@ -16,7 +16,8 @@ the workers.
 
 ```bash
 $ mpirun -np 4 \
-    -bind-to none -oversubscribe \
+    -H localhost:4 \
+    -bind-to none -map-by slot \
     -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
     python train.py
 ```
@@ -25,9 +26,9 @@ $ mpirun -np 4 \
 
 ```bash
 $ mpirun -np 16 \
-    -bind-to none -oversubscribe \
-    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
     -H server1:4,server2:4,server3:4,server4:4 \
+    -bind-to none -map-by slot \
+    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
     python train.py
 ```
 
@@ -36,10 +37,10 @@ performance a lot:
 
 ```bash
 $ mpirun -np 16 \
-    -bind-to none -oversubscribe \
+    -H server1:4,server2:4,server3:4,server4:4 \
+    -bind-to none -map-by slot \
     -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
     -mca pml ob1 -mca btl_openib_receive_queues P,128,32:P,2048,32:P,12288,32:P,65536,32 \
-    -H server1:4,server2:4,server3:4,server4:4 \
     python train.py
 ```
 
@@ -89,5 +90,10 @@ lo        Link encap:Local Loopback
 For example:
 
 ```bash
-$ mpirun -mca btl_tcp_if_exclude docker0 -np 16 -bind-to none -oversubscribe -x LD_LIBRARY_PATH -H server1:4,server2:4,server3:4,server4:4 python train.py
+$ mpirun -np 16 \
+    -H server1:4,server2:4,server3:4,server4:4 \
+    -bind-to none -map-by slot \
+    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    -mca btl_tcp_if_exclude docker0 \ 
+    python train.py
 ```

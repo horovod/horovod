@@ -23,10 +23,10 @@ $ git checkout horovod_v2
     
     ```bash
     $ mpirun -np 16 \
-        -bind-to none -oversubscribe \
+        -H server1:4,server2:4,server3:4,server4:4 \
+        -bind-to none -map-by slot \
         -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
         -mca pml ob1 -mca btl_openib_receive_queues P,128,32:P,2048,32:P,12288,32:P,65536,32 \
-        -H server1:4,server2:4,server3:4,server4:4 \
         \
         python scripts/tf_cnn_benchmarks/tf_cnn_benchmarks.py \
             --model resnet101 \
@@ -38,9 +38,9 @@ $ git checkout horovod_v2
     
     ```bash
     $ mpirun -np 16 \
-        -bind-to none -oversubscribe \
-        -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
         -H server1:4,server2:4,server3:4,server4:4 \
+        -bind-to none -map-by slot \
+        -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
         \
         python scripts/tf_cnn_benchmarks/tf_cnn_benchmarks.py \
             --model resnet101 \
@@ -67,10 +67,10 @@ Now, simply add `--data_dir /path/to/imagenet/tfrecords --data_name imagenet --n
 
 ```bash
 $ mpirun -np 16 \
-    -bind-to none -oversubscribe \
+    -H server1:4,server2:4,server3:4,server4:4 \
+    -bind-to none -map-by slot \
     -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
     -mca pml ob1 -mca btl_openib_receive_queues P,128,32:P,2048,32:P,12288,32:P,65536,32 \
-    -H server1:4,server2:4,server3:4,server4:4 \
     \
     python scripts/tf_cnn_benchmarks/tf_cnn_benchmarks.py \
         --model resnet101 \
@@ -85,9 +85,9 @@ $ mpirun -np 16 \
 
 ```bash
 $ mpirun -np 16 \
-    -bind-to none -oversubscribe \
-    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
     -H server1:4,server2:4,server3:4,server4:4 \
+    -bind-to none -map-by slot \
+    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
     \
     python scripts/tf_cnn_benchmarks/tf_cnn_benchmarks.py \
         --model resnet101 \
