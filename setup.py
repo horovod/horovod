@@ -44,7 +44,7 @@ def check_tf_version():
             'Your TensorFlow version is outdated.  Horovod requires tensorflow>=1.1.0')
 
 
-def get_cpp_flags():
+def get_cpp_flags(build_ext):
     last_err = None
     default_flags = ['-std=c++11', '-fPIC', '-O2']
     if sys.platform == 'darwin':
@@ -297,7 +297,7 @@ def get_nccl_dirs(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
 def fully_define_extension(build_ext):
     check_tf_version()
 
-    cpp_flags = get_cpp_flags()
+    cpp_flags = get_cpp_flags(build_ext)
     tf_compile_flags, tf_link_flags = get_tf_flags(build_ext, cpp_flags)
     mpi_flags = get_mpi_flags()
 
