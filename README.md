@@ -189,6 +189,6 @@ Retrieved from [https://eng.uber.com/horovod/](https://eng.uber.com/horovod/)
 
 ### References
 
-The Horovod source code was based off the Baidu's [tensorflow-allreduce](https://github.com/baidu-research/tensorflow-allreduce)
+The Horovod source code was based off the Baidu [tensorflow-allreduce](https://github.com/baidu-research/tensorflow-allreduce)
 repository written by Andrew Gibiansky and Joel Hestness. Their original work is described in the article
 [Bringing HPC Techniques to Deep Learning](http://research.baidu.com/bringing-hpc-techniques-deep-learning/).
