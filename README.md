@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/uber/horovod.svg?branch=master)](https://travis-ci.org/uber/horovod) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-<p align="center"><img src="https://user-images.githubusercontent.com/16640218/31681470-2a7968ee-b32c-11e7-88d8-3f51c1457c1a.png" alt="Logo" width="200"/></p>
+<p align="center"><img src="https://user-images.githubusercontent.com/16640218/34506318-84d0c06c-efe0-11e7-8831-0425772ed8f2.png" alt="Logo" width="200"/></p>
 
 Horovod is a distributed training framework for TensorFlow. The goal of Horovod is to make distributed Deep Learning
 fast and easy to use.
@@ -150,7 +150,7 @@ See full training [simple](examples/keras_mnist.py) and [advanced](examples/kera
 
 **Note**: Keras 2.0.9 has a [known issue](https://github.com/fchollet/keras/issues/8353) that makes each worker allocate
 all GPUs on the server, instead of the GPU assigned by the *local rank*. If you have multiple GPUs per server, upgrade
-to Keras 2.1.0 (when it's available), or downgrade to Keras 2.0.8.
+to Keras 2.1.2, or downgrade to Keras 2.0.8.
 
 ## Inference
 
@@ -189,5 +189,6 @@ Retrieved from [https://eng.uber.com/horovod/](https://eng.uber.com/horovod/)
 
 ### References
 
-1. Gibiansky, A. (2017). *Bringing HPC Techniques to Deep Learning*. Retrieved from
-[http://research.baidu.com/bringing-hpc-techniques-deep-learning/](http://research.baidu.com/bringing-hpc-techniques-deep-learning/)
+The Horovod source code was based off the Baidu [tensorflow-allreduce](https://github.com/baidu-research/tensorflow-allreduce)
+repository written by Andrew Gibiansky and Joel Hestness. Their original work is described in the article
+[Bringing HPC Techniques to Deep Learning](http://research.baidu.com/bringing-hpc-techniques-deep-learning/).
