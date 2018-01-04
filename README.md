@@ -152,6 +152,12 @@ See full training [simple](examples/keras_mnist.py) and [advanced](examples/kera
 all GPUs on the server, instead of the GPU assigned by the *local rank*. If you have multiple GPUs per server, upgrade
 to Keras 2.1.2, or downgrade to Keras 2.0.8.
 
+## Estimator API
+
+Horovod supports Estimator API in a similar way to regular TensorFlow.
+
+See full training [example](examples/tensorflow_mnist_estimator.py).
+
 ## Inference
 
 Learn how to optimize your model for inference and remove Horovod operations from the graph [here](docs/inference.md).
