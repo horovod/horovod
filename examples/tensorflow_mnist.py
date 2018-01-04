@@ -76,7 +76,7 @@ def main(_):
     predict, loss = conv_model(image, label, tf.contrib.learn.ModeKeys.TRAIN)
 
     # Horovod: adjust learning rate based on number of GPUs.
-    opt = tf.train.RMSPropOptimizer(0.01 * hvd.size())
+    opt = tf.train.RMSPropOptimizer(0.001 * hvd.size())
 
     # Horovod: add Horovod Distributed Optimizer.
     opt = hvd.DistributedOptimizer(opt)
