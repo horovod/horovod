@@ -31,7 +31,7 @@ from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 import horovod.tensorflow as hvd
 
-# Initialize Horovod.
+# Horovod: initialize Horovod.
 hvd.init()
 
 
@@ -174,10 +174,10 @@ with graph.as_default():
                        num_sampled=num_sampled,
                        num_classes=vocabulary_size))
 
-    # Construct the SGD optimizer using a learning rate of 1.0.
-    optimizer = tf.train.GradientDescentOptimizer(1.0)
+    # Horovod: adjust learning rate based on number of GPUs.
+    optimizer = tf.train.GradientDescentOptimizer(1.0 * hvd.size())
 
-    # Add Horovod Distributed Optimizer.
+    # Horovod: add Horovod Distributed Optimizer.
     optimizer = hvd.DistributedOptimizer(optimizer)
 
     train_op = optimizer.minimize(loss)
@@ -193,15 +193,17 @@ with graph.as_default():
     # Add variable initializer.
     init = tf.global_variables_initializer()
 
-    # Broadcast initial variable states from rank 0 to all other processes.
+    # Horovod: broadcast initial variable states from rank 0 to all other processes.
     # This is necessary to ensure consistent initialization of all workers when
     # training is started with random weights or restored from a checkpoint.
     bcast = hvd.broadcast_global_variables(0)
 
 # Step 5: Begin training.
-num_steps = 100001
 
-# Pin GPU to be used to process local rank (one GPU per process)
+# Horovod: adjust number of steps based on number of GPUs.
+num_steps = 100000 // hvd.size() + 1
+
+# Horovod: pin GPU to be used to process local rank (one GPU per process)
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 config.gpu_options.visible_device_list = str(hvd.local_rank())
@@ -231,17 +233,17 @@ with tf.Session(graph=graph, config=config) as session:
             # The average loss is an estimate of the loss over the last 2000 batches.
             print('Average loss at step ', step, ': ', average_loss)
             average_loss = 0
-
-        # Note that this is expensive (~20% slowdown if computed every 500 steps)
-        if step % 10000 == 0:
-            sim = similarity.eval()
-            for i in xrange(valid_size):
-                valid_word = reverse_dictionary[valid_examples[i]]
-                top_k = 8  # number of nearest neighbors
-                nearest = (-sim[i, :]).argsort()[1:top_k + 1]
-                log_str = 'Nearest to %s:' % valid_word
-                for k in xrange(top_k):
-                    close_word = reverse_dictionary[nearest[k]]
-                    log_str = '%s %s,' % (log_str, close_word)
-                print(log_str)
     final_embeddings = normalized_embeddings.eval()
+
+    # Evaluate similarity in the end on worker 0.
+    if hvd.rank() == 0:
+        sim = similarity.eval()
+        for i in xrange(valid_size):
+            valid_word = reverse_dictionary[valid_examples[i]]
+            top_k = 8  # number of nearest neighbors
+            nearest = (-sim[i, :]).argsort()[1:top_k + 1]
+            log_str = 'Nearest to %s:' % valid_word
+            for k in xrange(top_k):
+                close_word = reverse_dictionary[nearest[k]]
+                log_str = '%s %s,' % (log_str, close_word)
+            print(log_str)

@@ -9,10 +9,10 @@ from keras import backend as K
 import tensorflow as tf
 import horovod.keras as hvd
 
-# Initialize Horovod.
+# Horovod: initialize Horovod.
 hvd.init()
 
-# Pin GPU to be used to process local rank (one GPU per process)
+# Horovod: pin GPU to be used to process local rank (one GPU per process)
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 config.gpu_options.visible_device_list = str(hvd.local_rank())
@@ -68,10 +68,10 @@ model.add(Dense(128, activation='relu'))
 model.add(Dropout(0.5))
 model.add(Dense(num_classes, activation='softmax'))
 
-# Adjust learning rate based on number of GPUs.
+# Horovod: adjust learning rate based on number of GPUs.
 opt = keras.optimizers.Adadelta(lr=1.0 * hvd.size())
 
-# Add Horovod Distributed Optimizer.
+# Horovod: add Horovod Distributed Optimizer.
 opt = hvd.DistributedOptimizer(opt)
 
 model.compile(loss=keras.losses.categorical_crossentropy,
@@ -79,18 +79,18 @@ model.compile(loss=keras.losses.categorical_crossentropy,
               metrics=['accuracy'])
 
 callbacks = [
-    # Broadcast initial variable states from rank 0 to all other processes.
+    # Horovod: broadcast initial variable states from rank 0 to all other processes.
     # This is necessary to ensure consistent initialization of all workers when
     # training is started with random weights or restored from a checkpoint.
     hvd.callbacks.BroadcastGlobalVariablesCallback(0),
 
-    # Average metrics among workers at the end of every epoch.
+    # Horovod: average metrics among workers at the end of every epoch.
     #
     # Note: This callback must be in the list before the ReduceLROnPlateau,
     # TensorBoard or other metrics-based callbacks.
     hvd.callbacks.MetricAverageCallback(),
 
-    # Using `lr = 1.0 * hvd.size()` from the very beginning leads to worse final
+    # Horovod: using `lr = 1.0 * hvd.size()` from the very beginning leads to worse final
     # accuracy. Scale the learning rate `lr = 1.0` ---> `lr = 1.0 * hvd.size()` during
     # the first five epochs. See https://arxiv.org/abs/1706.02677 for details.
     hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=5, verbose=1),
@@ -99,7 +99,7 @@ callbacks = [
     keras.callbacks.ReduceLROnPlateau(patience=10, verbose=1),
 ]
 
-# Save checkpoints only on worker 0 to prevent other workers from corrupting them.
+# Horovod: save checkpoints only on worker 0 to prevent other workers from corrupting them.
 if hvd.rank() == 0:
     callbacks.append(keras.callbacks.ModelCheckpoint('./checkpoint-{epoch}.h5'))
 
@@ -108,7 +108,8 @@ train_gen = ImageDataGenerator(rotation_range=8, width_shift_range=0.08, shear_r
                                height_shift_range=0.08, zoom_range=0.08)
 test_gen = ImageDataGenerator()
 
-# Train the model. The training will randomly sample 1 / N batches of training data and
+# Train the model.
+# Horovod: the training will randomly sample 1 / N batches of training data and
 # 3 / N batches of validation data on every worker, where N is the number of workers.
 # Over-sampling of validation data helps to increase probability that every validation
 # example will be evaluated.
