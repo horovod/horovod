@@ -62,16 +62,19 @@ To use Horovod, make the following additions to your program:
     With the typical setup of one GPU per process, this can be set to *local rank*. In that case, the first process on 
     the server will be allocated the first GPU, second process will be allocated the second GPU and so forth.
 
-3. Wrap optimizer in `hvd.DistributedOptimizer`.  The distributed optimizer delegates gradient computation
+3. Scale the learning rate by number of workers. Effective batch size in synchronous distributed training is scaled by
+    the number of workers. Increase in learning rate compensates for the increased batch size.
+
+4. Wrap optimizer in `hvd.DistributedOptimizer`.  The distributed optimizer delegates gradient computation
     to the original optimizer, averages gradients using *allreduce* or *allgather*, and then applies those averaged
     gradients.
 
-4. Add `hvd.BroadcastGlobalVariablesHook(0)` to broadcast initial variable states from rank 0 to all other processes.
+5. Add `hvd.BroadcastGlobalVariablesHook(0)` to broadcast initial variable states from rank 0 to all other processes.
     This is necessary to ensure consistent initialization of all workers when training is started with random weights or
     restored from a checkpoint. Alternatively, if you're not using `MonitoredTrainingSession`, you can simply execute
     the `hvd.broadcast_global_variables` op after global variables have been initialized.
 
-5. Modify your code to save checkpoints only on worker 0 to prevent other workers from corrupting them.
+6. Modify your code to save checkpoints only on worker 0 to prevent other workers from corrupting them.
     This can be accomplished by passing `checkpoint_dir=None` to `tf.train.MonitoredTrainingSession` if
     `hvd.rank() != 0`.
 
@@ -91,7 +94,7 @@ config.gpu_options.visible_device_list = str(hvd.local_rank())
 
 # Build model...
 loss = ...
-opt = tf.train.AdagradOptimizer(0.01)
+opt = tf.train.AdagradOptimizer(0.01 * hvd.size())
 
 # Add Horovod Distributed Optimizer
 opt = hvd.DistributedOptimizer(opt)
