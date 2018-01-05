@@ -63,7 +63,7 @@ To use Horovod, make the following additions to your program:
     the server will be allocated the first GPU, second process will be allocated the second GPU and so forth.
 
 3. Scale the learning rate by number of workers. Effective batch size in synchronous distributed training is scaled by
-    the number of workers. Increase in learning rate compensates for the increased batch size.
+    the number of workers. An increase in learning rate compensates for the increased batch size.
 
 4. Wrap optimizer in `hvd.DistributedOptimizer`.  The distributed optimizer delegates gradient computation
     to the original optimizer, averages gradients using *allreduce* or *allgather*, and then applies those averaged
