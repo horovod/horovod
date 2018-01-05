@@ -154,9 +154,9 @@ to Keras 2.1.2, or downgrade to Keras 2.0.8.
 
 ## Estimator API
 
-Horovod supports Estimator API in a similar way to regular TensorFlow.
+Horovod supports Estimator API and regular TensorFlow in similar ways.
 
-See full training [example](examples/tensorflow_mnist_estimator.py).
+See a full training [example](examples/tensorflow_mnist_estimator.py).
 
 ## Inference
 
