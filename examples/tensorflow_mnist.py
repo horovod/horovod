@@ -63,7 +63,7 @@ def conv_model(feature, target, mode):
 
 
 def main(_):
-    # Initialize Horovod.
+    # Horovod: initialize Horovod.
     hvd.init()
 
     # Download and load MNIST dataset.
@@ -75,30 +75,36 @@ def main(_):
         label = tf.placeholder(tf.float32, [None], name='label')
     predict, loss = conv_model(image, label, tf.contrib.learn.ModeKeys.TRAIN)
 
-    opt = tf.train.RMSPropOptimizer(0.01)
+    # Horovod: adjust learning rate based on number of GPUs.
+    opt = tf.train.RMSPropOptimizer(0.001 * hvd.size())
 
-    # Add Horovod Distributed Optimizer.
+    # Horovod: add Horovod Distributed Optimizer.
     opt = hvd.DistributedOptimizer(opt)
 
     global_step = tf.contrib.framework.get_or_create_global_step()
     train_op = opt.minimize(loss, global_step=global_step)
 
-    # BroadcastGlobalVariablesHook broadcasts initial variable states from rank 0
-    # to all other processes. This is necessary to ensure consistent initialization
-    # of all workers when training is started with random weights or restored
-    # from a checkpoint.
-    hooks = [hvd.BroadcastGlobalVariablesHook(0),
-             tf.train.StopAtStepHook(last_step=100),
-             tf.train.LoggingTensorHook(tensors={'step': global_step, 'loss': loss},
-                                        every_n_iter=10),
-             ]
+    hooks = [
+        # Horovod: BroadcastGlobalVariablesHook broadcasts initial variable states
+        # from rank 0 to all other processes. This is necessary to ensure consistent
+        # initialization of all workers when training is started with random weights
+        # or restored from a checkpoint.
+        hvd.BroadcastGlobalVariablesHook(0),
 
-    # Pin GPU to be used to process local rank (one GPU per process)
+        # Horovod: adjust number of steps based on number of GPUs.
+        tf.train.StopAtStepHook(last_step=20000 // hvd.size()),
+
+        tf.train.LoggingTensorHook(tensors={'step': global_step, 'loss': loss},
+                                   every_n_iter=10),
+    ]
+
+    # Horovod: pin GPU to be used to process local rank (one GPU per process)
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     config.gpu_options.visible_device_list = str(hvd.local_rank())
 
-    # Save checkpoints only on worker 0 to prevent other workers from corrupting them.
+    # Horovod: save checkpoints only on worker 0 to prevent other workers from
+    # corrupting them.
     checkpoint_dir = './checkpoints' if hvd.rank() == 0 else None
 
     # The MonitoredTrainingSession takes care of session initialization,
