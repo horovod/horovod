@@ -39,7 +39,7 @@ env:
   matrix:
     - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 MPI=OpenMPI
     - TF_PACKAGE=tensorflow==1.4.0 KERAS_PACKAGE=keras==2.1.2 MPI=OpenMPI
-    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/fchollet/keras.git MPI=OpenMPI
+    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git MPI=OpenMPI
     - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 MPI=MPICH
 
 matrix:
@@ -50,7 +50,7 @@ matrix:
     - python: "3.6"
       env: TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 MPI=MPICH
     - python: "3.4"
-      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/fchollet/keras.git MPI=OpenMPI
+      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git MPI=OpenMPI
 
 install:
   - |
