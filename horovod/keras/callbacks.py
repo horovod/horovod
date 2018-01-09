@@ -253,7 +253,7 @@ class LearningRateWarmupCallback(LearningRateScheduleCallback):
     def on_epoch_end(self, epoch, logs=None):
         super(LearningRateWarmupCallback, self).on_epoch_end(epoch, logs)
 
-        if epoch == self.end_epoch - 1 and self.verbose:
+        if epoch == self.end_epoch - 1 and self.verbose > 0:
             new_lr = K.get_value(self.model.optimizer.lr)
-            print('Epoch %d: finished gradual learning rate warmup to %g.' %
+            print('\nEpoch %d: finished gradual learning rate warmup to %g.' %
                   (epoch + 1, new_lr))
