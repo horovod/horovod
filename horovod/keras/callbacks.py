@@ -179,7 +179,7 @@ class LearningRateScheduleCallback(keras.callbacks.Callback):
 
     def on_batch_begin(self, batch, logs=None):
         if (self.current_epoch < self.start_epoch or
-                self.end_epoch is not None and self.current_epoch >= self.end_epoch):
+                (self.end_epoch is not None and self.current_epoch >= self.end_epoch)):
             # Outside of the adjustment scope.
             return
 
