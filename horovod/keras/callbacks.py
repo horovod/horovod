@@ -99,10 +99,9 @@ class LearningRateScheduleCallback(keras.callbacks.Callback):
 
     If `multiplier` is a function and `staircase=False`, learning rate adjustment will
     happen at the beginning of each batch and the epoch passed to the `multiplier`
-    function will be a floating number: `epoch' = epoch + (batch + 1) / steps_per_epoch`.
+    function will be a floating number: `epoch' = epoch + batch / steps_per_epoch`.
     This functionality is useful for smooth learning rate adjustment schedulers, such
-    as `LearningRateWarmupCallback`.  `batch + 1` adjustment helps to produce round
-    numbers at the end of each epoch so that TensorBoard graphs look better.
+    as `LearningRateWarmupCallback`.
 
     `initial_lr` is the learning rate of the model optimizer at the start of the training.
     """
@@ -172,7 +171,7 @@ class LearningRateScheduleCallback(keras.callbacks.Callback):
 
     def on_train_begin(self, logs=None):
         self.initial_lr = K.get_value(self.model.optimizer.lr)
-        if not self.steps_per_epoch:
+        if not self.staircase and not self.steps_per_epoch:
             self.steps_per_epoch = self._autodetect_steps_per_epoch()
 
     def on_epoch_begin(self, epoch, logs=None):
@@ -242,6 +241,9 @@ class LearningRateWarmupCallback(LearningRateScheduleCallback):
             verbose: verbosity mode, 0 or 1.
         """
         def multiplier(epoch):
+            # Adjust epoch to produce round numbers at the end of each epoch, so that TensorBoard
+            # learning rate graphs look better.
+            epoch += 1. / self.steps_per_epoch
             return self.initial_lr / hvd.size() * (epoch * (hvd.size() - 1) / warmup_epochs + 1)
         self.verbose = verbose
         super(LearningRateWarmupCallback, self).__init__(
@@ -251,7 +253,7 @@ class LearningRateWarmupCallback(LearningRateScheduleCallback):
     def on_epoch_end(self, epoch, logs=None):
         super(LearningRateWarmupCallback, self).on_epoch_end(epoch, logs)
 
-        if epoch == self.end_epoch and self.verbose:
+        if epoch == self.end_epoch - 1 and self.verbose:
             new_lr = K.get_value(self.model.optimizer.lr)
             print('Epoch %d: finished gradual learning rate warmup to %s.' %
                   (epoch + 1, new_lr))
