@@ -187,7 +187,7 @@ class LearningRateScheduleCallback(keras.callbacks.Callback):
             # Do on first batch of every epoch.
             self._adjust_learning_rate(self.current_epoch)
         elif not self.staircase:
-            epoch = self.current_epoch + float(batch + 1) / self.steps_per_epoch
+            epoch = self.current_epoch + float(batch) / self.steps_per_epoch
             self._adjust_learning_rate(epoch)
 
     def on_batch_end(self, batch, logs=None):
@@ -244,7 +244,7 @@ class LearningRateWarmupCallback(LearningRateScheduleCallback):
             # Adjust epoch to produce round numbers at the end of each epoch, so that TensorBoard
             # learning rate graphs look better.
             epoch += 1. / self.steps_per_epoch
-            return self.initial_lr / hvd.size() * (epoch * (hvd.size() - 1) / warmup_epochs + 1)
+            return 1. / hvd.size() * (epoch * (hvd.size() - 1) / warmup_epochs + 1)
         self.verbose = verbose
         super(LearningRateWarmupCallback, self).__init__(
             multiplier, start_epoch=0, end_epoch=warmup_epochs, staircase=False,
@@ -255,5 +255,5 @@ class LearningRateWarmupCallback(LearningRateScheduleCallback):
 
         if epoch == self.end_epoch - 1 and self.verbose:
             new_lr = K.get_value(self.model.optimizer.lr)
-            print('Epoch %d: finished gradual learning rate warmup to %s.' %
+            print('Epoch %d: finished gradual learning rate warmup to %g.' %
                   (epoch + 1, new_lr))
