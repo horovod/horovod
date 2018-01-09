@@ -230,7 +230,7 @@ class LearningRateWarmupCallback(LearningRateScheduleCallback):
     def __init__(self, warmup_epochs=5, momentum_correction=True, steps_per_epoch=None,
                  verbose=0):
         """
-        Construct a new LearningRateWarmupCallback that will gradually warmup learning rate.
+        Construct a new LearningRateWarmupCallback that will gradually warm up the learning rate.
 
         Args:
             warmup_epochs: The number of epochs of the warmup phase. Defaults to 5.

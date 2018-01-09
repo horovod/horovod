@@ -1,14 +1,15 @@
 #
 # ResNet-50 model training using Keras and Horovod.
 #
-# This model is an example of computation-intensive model that achieves good accuracy on an image
+# This model is an example of a computation-intensive model that achieves good accuracy on an image
 # classification task.  It brings together distributed training concepts such as learning rate
-# schedule adjustments with a warmup, randomized data reading and checkpointing on the first worker
+# schedule adjustments with a warmup, randomized data reading, and checkpointing on the first worker
 # only.
 #
-# Note: this model uses Keras native ImageDataGenerator and not the sophisticated preprocessing
+# Note: This model uses Keras native ImageDataGenerator and not the sophisticated preprocessing
 # pipeline that is typically used to train state-of-the-art ResNet-50 model.  This results in ~0.5%
-# increase in top-1 validation error compared to https://github.com/KaimingHe/deep-residual-networks.
+# increase in the top-1 validation error compared to the single-crop top-1 validation error from
+# https://github.com/KaimingHe/deep-residual-networks.
 #
 from __future__ import print_function
 
@@ -106,7 +107,7 @@ callbacks = [
     # Horovod: average metrics among workers at the end of every epoch.
     #
     # Note: This callback must be in the list before the ReduceLROnPlateau,
-    # TensorBoard or other metrics-based callbacks.
+    # TensorBoard, or other metrics-based callbacks.
     hvd.callbacks.MetricAverageCallback(),
 
     # Horovod: using `lr = 1.0 * hvd.size()` from the very beginning leads to worse final
