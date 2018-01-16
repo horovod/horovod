@@ -29,18 +29,21 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
-
 from horovod.common import init
 from horovod.common import size
 from horovod.common import local_size
 from horovod.common import rank
 from horovod.common import local_rank
 from horovod.common import mpi_threads_supported
+from horovod.common import check_extension
+
+check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
 
 from horovod.tensorflow.mpi_ops import allgather
 from horovod.tensorflow.mpi_ops import broadcast
 from horovod.tensorflow.mpi_ops import _allreduce
+
+import tensorflow as tf
 
 
 def allreduce(tensor, average=True, device_dense='', device_sparse=''):

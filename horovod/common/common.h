@@ -25,7 +25,7 @@ namespace horovod {
 namespace common {
 
 // List of supported frameworks.
-enum Framework { TENSORFLOW };
+enum Framework { TENSORFLOW, PYTORCH };
 
 enum StatusType { OK, UNKNOWN_ERROR, PRECONDITION_ERROR, ABORTED };
 

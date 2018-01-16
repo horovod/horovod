@@ -32,6 +32,16 @@ def get_ext_suffix():
     return '.so'
 
 
+def check_extension(ext_name, ext_env_var, pkg_path, *args):
+    assert len(args) >= 1
+    dir_path = os.path.join(os.path.dirname(pkg_path), *args[:-1])
+    full_path = os.path.join(dir_path, args[-1] + get_ext_suffix())
+    if not os.path.exists(full_path):
+        raise ImportError(
+            'Extension %s has not been built.  If this is not expected, reinstall '
+            'Horovod with %s=1 to debug the build error.' % (ext_name, ext_env_var))
+
+
 MPI_COMMON_LIB_CTYPES = \
     ctypes.CDLL(os.path.join(os.path.dirname(__file__),
                              'mpi_lib' + get_ext_suffix()), mode=ctypes.RTLD_GLOBAL)

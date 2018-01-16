@@ -145,6 +145,23 @@ horovod/tensorflow/mpi_ops.cc:1102:45: error: invalid conversion from ‘const v
                                              ^
 ```
 
+### Error during installation: fatal error: pyconfig.h: No such file or directory
+
+If you see the error message below, it means that you need to install Python headers.
+
+```
+build/horovod/torch/mpi_lib/_mpi_lib.c:22:24: fatal error: pyconfig.h: No such file or directory
+ #  include <pyconfig.h>
+                        ^
+compilation terminated.
+```
+
+You can do this by installing a `python-dev` or `python3-dev` package.  For example, on Debian or Ubuntu system:
+
+```bash
+$ sudo apt-get install python-dev
+```
+
 ### NCCL 2 is not found during installation
 
 If you see the error message below, it means NCCL 2 was not found in the standard libraries location. If you have a directory
