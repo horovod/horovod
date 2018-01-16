@@ -1,5 +1,5 @@
 # Copyright 2016 The TensorFlow Authors. All Rights Reserved.
-# Modifications copyright (C) 2017 Uber Technologies, Inc.
+# Modifications copyright (C) 2018 Uber Technologies, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,67 +20,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import os.path
 import itertools
-
 import tensorflow as tf
 
 import horovod.tensorflow as hvd
-
-
-def mpi_env_rank_and_size():
-    """Get MPI rank and size from environment variables and return them as a
-    tuple of integers.
-
-    Most MPI implementations have an `mpirun` or `mpiexec` command that will
-    run an MPI executable and set up all communication necessary between the
-    different processors. As part of that set up, they will set environment
-    variables that contain the rank and size of the MPI_COMM_WORLD
-    communicator. We can read those environment variables from Python in order
-    to ensure that `hvd.rank()` and `hvd.size()` return the expected values.
-
-    Since MPI is just a standard, not an implementation, implementations
-    typically choose their own environment variable names. This function tries
-    to support several different implementation, but really it only needs to
-    support whatever implementation we want to use for the TensorFlow test
-    suite.
-
-    If this is not running under MPI, then defaults of rank zero and size one
-    are returned. (This is appropriate because when you call MPI_Init in an
-    application not started with mpirun, it will create a new independent
-    communicator with only one process in it.)
-    """
-    rank_env = "PMI_RANK OMPI_COMM_WORLD_RANK".split()
-    size_env = "PMI_SIZE OMPI_COMM_WORLD_SIZE".split()
-
-    for rank_var, size_var in zip(rank_env, size_env):
-        rank = os.environ.get(rank_var)
-        size = os.environ.get(size_var)
-        if rank is not None and size is not None:
-            return int(rank), int(size)
-
-    # Default to rank zero and size one if there are no environment variables
-    return 0, 1
 
 
 class MPITests(tf.test.TestCase):
     """
     Tests for ops in horovod.tensorflow.
     """
-
-    def test_horovod_rank(self):
-        """Test that the rank returned by hvd.rank() is correct."""
-        true_rank, _ = mpi_env_rank_and_size()
-        hvd.init()
-        rank = hvd.rank()
-        self.assertEqual(true_rank, rank)
-
-    def test_horovod_size(self):
-        """Test that the size returned by hvd.size() is correct."""
-        _, true_size = mpi_env_rank_and_size()
-        hvd.init()
-        size = hvd.size()
-        self.assertEqual(true_size, size)
 
     def test_horovod_allreduce_cpu(self):
         """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors."""
@@ -100,7 +49,7 @@ class MPITests(tf.test.TestCase):
 
                 # Threshold for floating point equality depends on number of
                 # ranks, since we're comparing against precise multiplication.
-                if size <= 3:
+                if size <= 3 or dtype in [tf.int32, tf.int64]:
                     threshold = 0
                 elif size < 10:
                     threshold = 1e-4
@@ -133,7 +82,7 @@ class MPITests(tf.test.TestCase):
 
                 # Threshold for floating point equality depends on number of
                 # ranks, since we're comparing against precise multiplication.
-                if size <= 3:
+                if size <= 3 or dtype in [tf.int32, tf.int64]:
                     threshold = 0
                 elif size < 10:
                     threshold = 1e-4
@@ -177,7 +126,7 @@ class MPITests(tf.test.TestCase):
 
                 # Threshold for floating point equality depends on number of
                 # ranks, since we're comparing against precise multiplication.
-                if size <= 3:
+                if size <= 3 or dtype in [tf.int32, tf.int64]:
                     threshold = 0
                 elif size < 10:
                     threshold = 1e-4
@@ -221,7 +170,7 @@ class MPITests(tf.test.TestCase):
 
                 # Threshold for floating point equality depends on number of
                 # ranks, since we're comparing against precise multiplication.
-                if size <= 3:
+                if size <= 3 or dtype in [tf.int32, tf.int64]:
                     threshold = 0
                 elif size < 10:
                     threshold = 1e-4
@@ -268,7 +217,7 @@ class MPITests(tf.test.TestCase):
 
                 # Threshold for floating point equality depends on number of
                 # ranks, since we're comparing against precise multiplication.
-                if size <= 3:
+                if size <= 3 or dtype in [tf.int32, tf.int64]:
                     threshold = 0
                 elif size < 10:
                     threshold = 1e-4
@@ -494,22 +443,18 @@ class MPITests(tf.test.TestCase):
             dims = [1, 2, 3]
             root_ranks = list(range(size))
             for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
-                try:
-                    tensor = tf.ones([17] * dim) * rank
-                    root_tensor = tf.ones([17] * dim) * root_rank
-                    if dtype == tf.bool:
-                        tensor = tensor % 2
-                        root_tensor = root_tensor % 2
-                    tensor = tf.cast(tensor, dtype=dtype)
-                    root_tensor = tf.cast(root_tensor, dtype=dtype)
-                    broadcasted_tensor = hvd.broadcast(tensor, root_rank)
-                    self.assertTrue(
-                        session.run(tf.reduce_all(tf.equal(
-                            tf.cast(root_tensor, tf.int32), tf.cast(broadcasted_tensor, tf.int32)))),
-                        "hvd.broadcast produces incorrect broadcasted tensor")
-                except Exception:
-                    import traceback
-                    traceback.print_exc()
+                tensor = tf.ones([17] * dim) * rank
+                root_tensor = tf.ones([17] * dim) * root_rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                    root_tensor = root_tensor % 2
+                tensor = tf.cast(tensor, dtype=dtype)
+                root_tensor = tf.cast(root_tensor, dtype=dtype)
+                broadcasted_tensor = hvd.broadcast(tensor, root_rank)
+                self.assertTrue(
+                    session.run(tf.reduce_all(tf.equal(
+                        tf.cast(root_tensor, tf.int32), tf.cast(broadcasted_tensor, tf.int32)))),
+                    "hvd.broadcast produces incorrect broadcasted tensor")
 
     def test_horovod_broadcast_error(self):
         """Test that the broadcast returns an error if any dimension besides

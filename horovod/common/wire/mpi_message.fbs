@@ -14,19 +14,19 @@
 // limitations under the License.
 // =============================================================================
 
-namespace horovod.tensorflow.wire;
+namespace horovod.common.wire;
 
 // Supported data types.
 enum MPIDataType:byte {
-    TF_MPI_UINT8 = 0,
-    TF_MPI_INT8 = 1,
-    TF_MPI_UINT16 = 2,
-    TF_MPI_INT16 = 3,
-    TF_MPI_INT32 = 4,
-    TF_MPI_INT64 = 5,
-    TF_MPI_FLOAT32 = 6,
-    TF_MPI_FLOAT64 = 7,
-    TF_MPI_BOOL = 8
+    HOROVOD_UINT8 = 0,
+    HOROVOD_INT8 = 1,
+    HOROVOD_UINT16 = 2,
+    HOROVOD_INT16 = 3,
+    HOROVOD_INT32 = 4,
+    HOROVOD_INT64 = 5,
+    HOROVOD_FLOAT32 = 6,
+    HOROVOD_FLOAT64 = 7,
+    HOROVOD_BOOL = 8
 }
 
 // An MPIRequest is a message sent from a rank greater than zero to the

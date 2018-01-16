@@ -19,25 +19,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import ctypes
 import re
-import sysconfig
 from tensorflow.python.framework import load_library
 from tensorflow.python.framework import ops
 from tensorflow.python.platform import resource_loader
 
-
-def _get_ext_suffix():
-    """Determine library extension for various versions of Python."""
-    ext_suffix = sysconfig.get_config_var('EXT_SUFFIX')
-    if ext_suffix:
-        return ext_suffix
-
-    ext_suffix = sysconfig.get_config_var('SO')
-    if ext_suffix:
-        return ext_suffix
-
-    return '.so'
+from horovod.common import get_ext_suffix
 
 
 def _load_library(name, op_list=None):
@@ -65,77 +52,8 @@ def _load_library(name, op_list=None):
     return library
 
 
-def _load_ctypes_dll(name):
-    filename = resource_loader.get_path_to_datafile(name)
-    return ctypes.CDLL(filename, mode=ctypes.RTLD_GLOBAL)
-
-
-MPI_LIB = _load_library('mpi_lib' + _get_ext_suffix(),
+MPI_LIB = _load_library('mpi_lib' + get_ext_suffix(),
                         ['HorovodAllgather', 'HorovodAllreduce'])
-
-
-MPI_LIB_CTYPES = _load_ctypes_dll('mpi_lib' + _get_ext_suffix())
-
-
-def init():
-    """A function which initializes Horovod.
-    """
-    return MPI_LIB_CTYPES.horovod_tensorflow_init()
-
-
-def size():
-    """A function which returns the number of Horovod processes.
-
-    Returns:
-      An integer scalar containing the number of Horovod processes.
-    """
-    size = MPI_LIB_CTYPES.horovod_tensorflow_size()
-    if size == -1:
-        raise ValueError(
-            'Horovod has not been initialized; use horovod.tensorflow.init().')
-    return size
-
-
-def local_size():
-    """A function which returns the number of Horovod processes within the
-    node the current process is running on.
-
-    Returns:
-      An integer scalar containing the number of local Horovod processes.
-    """
-    local_size = MPI_LIB_CTYPES.horovod_tensorflow_local_size()
-    if local_size == -1:
-        raise ValueError(
-            'Horovod has not been initialized; use horovod.tensorflow.init().')
-    return local_size
-
-
-def rank():
-    """A function which returns the Horovod rank of the calling process.
-
-    Returns:
-      An integer scalar with the Horovod rank of the calling process.
-    """
-    rank = MPI_LIB_CTYPES.horovod_tensorflow_rank()
-    if rank == -1:
-        raise ValueError(
-            'Horovod has not been initialized; use horovod.tensorflow.init().')
-    return rank
-
-
-def local_rank():
-    """A function which returns the local Horovod rank of the calling process, within the
-    node that it is running on. For example, if there are seven processes running
-    on a node, their local ranks will be zero through six, inclusive.
-
-    Returns:
-      An integer scalar with the local Horovod rank of the calling process.
-    """
-    local_rank = MPI_LIB_CTYPES.horovod_tensorflow_local_rank()
-    if local_rank == -1:
-        raise ValueError(
-            'Horovod has not been initialized; use horovod.tensorflow.init().')
-    return local_rank
 
 
 def _normalize_name(name):

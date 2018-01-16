@@ -88,7 +88,7 @@ script:
   
 
   # run unit tests
-  - docker exec $CONTAINER /bin/sh -c "$MPIRUN python /horovod/horovod/tensorflow/mpi_ops_test.py"
+  - docker exec $CONTAINER /bin/sh -c "pip install pytest && cd /horovod/test && $MPIRUN pytest"
 
   # hack TensorFlow MNIST example to be smaller
   - docker exec $CONTAINER /bin/sh -c "sed -i \"s/last_step=20000/last_step=100/\" /horovod/examples/tensorflow_mnist.py"
