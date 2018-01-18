@@ -46,6 +46,7 @@ $ pip install horovod
 
 This basic installation is good for laptops and for getting to know Horovod.
 If you're installing Horovod on a server with GPUs, read the [Horovod on GPU](docs/gpus.md) page.
+If you want to use Docker, read the [Horovod in Docker](docs/docker.md) page.
 
 ## Concepts
 
@@ -123,7 +124,8 @@ with tf.train.MonitoredTrainingSession(checkpoint_dir=checkpoint_dir,
 ## Running Horovod
 
 The example commands below show how to run distributed training. See the [Running Horovod](docs/running.md)
-page for more instructions, including RoCE/InfiniBand tweaks and tips for dealing with hangs.
+page for more instructions, including RoCE/InfiniBand tweaks and tips for dealing with hangs. See the
+[Horovod in Docker](docs/docker.md) page for details about running Horovod in Docker.
 
 1. To run on a machine with 4 GPUs:
 
