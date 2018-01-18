@@ -1,7 +1,8 @@
 ## Horovod in Docker
 
 To ease the installation process on GPU machines, we have published the reference [Dockerfile](../Dockerfile) that
-allows you to get started with Horovod in minutes.
+allows you to get started with Horovod in minutes. The container will include [Examples](../examples) in the `/examples`
+directory for a convenient quickstart.
 
 ### Building
 

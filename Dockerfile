@@ -23,8 +23,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python$PYTHON_VERSION \
         python$PYTHON_VERSION-dev
 
+RUN ln -s /usr/bin/python$PYTHON_VERSION /usr/bin/python
+
 RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
-    python$PYTHON_VERSION get-pip.py && \
+    python get-pip.py && \
     rm get-pip.py
 
 # Install TensorFlow and Keras
