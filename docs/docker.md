@@ -38,9 +38,12 @@ This message can be safely ignored.
 ### Running on multiple machines
 
 Here we describe a simple way involving a shared filesystem `/mnt/share` and using a common port number `12345` for SSH
-daemon that will be run on all the containers.  These are not hard requirements but they make the example more concise.
-A shared filesystem can be replaced by `rsync`ing SSH configuration and code across machines, and a common SSH port can
-be replaced by machine-specific ports defined in `/root/.ssh/ssh_config` file.
+daemon that will be run on all the containers. `/mnt/share/ssh` would contain typical `id_rsa` and `authorized_keys`
+pair that allows [passwordless authentication](http://www.linuxproblem.org/art_9.html).
+
+**Note**: These are not hard requirements but they make the example more concise. A shared filesystem can be replaced by
+`rsync`ing SSH configuration and code across machines, and a common SSH port can be replaced by machine-specific ports
+defined in `/root/.ssh/ssh_config` file.
 
 Primary worker:
 
