@@ -94,6 +94,6 @@ $ mpirun -np 16 \
     -H server1:4,server2:4,server3:4,server4:4 \
     -bind-to none -map-by slot \
     -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
-    -mca btl_tcp_if_exclude docker0 \ 
+    -mca btl_tcp_if_exclude lo,docker0 \ 
     python train.py
 ```
