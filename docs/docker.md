@@ -1,10 +1,12 @@
 ## Horovod in Docker
 
-To ease the installation process on GPU machines, we have published the reference [Dockerfile](../Dockerfile) that
-allows you to get started with Horovod in minutes. The container will include [Examples](../examples) in the `/examples`
-directory for a convenient quickstart.
+To streamline the installation process on GPU machines, we have published the reference [Dockerfile](../Dockerfile) so
+you can get started with Horovod in minutes. The container includes [Examples](../examples) in the `/examples`
+directory.
 
 ### Building
+
+Before building, you can modify `Dockerfile` to your liking, e.g. select a different CUDA, TensorFlow or Python version.
 
 ```bash
 $ mkdir horovod-docker
@@ -12,20 +14,18 @@ $ wget -O horovod-docker/Dockerfile https://raw.githubusercontent.com/uber/horov
 $ docker build -t horovod:latest horovod-docker
 ```
 
-Before building, you can modify `Dockerfile` to your liking, e.g. select different CUDA, TensorFlow or Python version.
-
 ### Running on a single machine
 
-After the container is built, you can run it using [nvidia-docker](https://github.com/NVIDIA/nvidia-docker).
+After the container is built, run it using [nvidia-docker](https://github.com/NVIDIA/nvidia-docker).
 
 ```bash
 $ nvidia-docker run -it horovod:latest
 root@c278c88dd552:/examples# mpirun -np 4 -H localhost:4 python keras_mnist_advances.py
 ```
 
-You may notice that this command does not have few options recommended in other parts of documentation: 
+You may notice that this command does not have a few options recommended in other parts of documentation: 
 `-bind-to none -map-by slot -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH`.  These options are already set by default in the
-docker container, and so are not required to repeated in the command.
+Docker container so you don't need to repeat them in the command..
 
 If you don't run your container in privileged mode, you may see the following message:
 
@@ -33,12 +33,12 @@ If you don't run your container in privileged mode, you may see the following me
 [a8c9914754d2:00040] Read -1, expected 131072, errno = 1
 ```
 
-This message can be safely ignored.
+You can ignore this message.
 
 ### Running on multiple machines
 
-Here we describe a simple way involving a shared filesystem `/mnt/share` and using a common port number `12345` for SSH
-daemon that will be run on all the containers. `/mnt/share/ssh` would contain typical `id_rsa` and `authorized_keys`
+Here we describe a simple example involving a shared filesystem `/mnt/share` using a common port number `12345` for the SSH
+daemon that will be run on all the containers. `/mnt/share/ssh` would contain a typical `id_rsa` and `authorized_keys`
 pair that allows [passwordless authentication](http://www.linuxproblem.org/art_9.html).
 
 **Note**: These are not hard requirements but they make the example more concise. A shared filesystem can be replaced by

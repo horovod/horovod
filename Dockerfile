@@ -3,7 +3,7 @@ FROM nvidia/cuda:8.0-cudnn6-devel-ubuntu16.04
 # TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
 ENV TENSORFLOW_VERSION=1.4.0
 
-# Python 2.7 or 3.5 are supported by Ubuntu Xenial out of the box
+# Python 2.7 or 3.5 is supported by Ubuntu Xenial out of the box
 ENV PYTHON_VERSION=2.7
 
 RUN echo "deb http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1604/x86_64 /" > /etc/apt/sources.list.d/nvidia-ml.list
@@ -69,7 +69,7 @@ RUN echo NCCL_DEBUG=INFO >> /etc/nccl.conf && \
 RUN apt-get install -y --no-install-recommends openssh-client openssh-server && \
     mkdir -p /var/run/sshd
 
-# Allow OpenSSH to talk to each other without asking for confirmation
+# Allow OpenSSH to talk to containers without asking for confirmation
 RUN cat /etc/ssh/ssh_config | grep -v StrictHostKeyChecking > /etc/ssh/ssh_config.new && \
     echo "    StrictHostKeyChecking no" >> /etc/ssh/ssh_config.new && \
     mv /etc/ssh/ssh_config.new /etc/ssh/ssh_config
