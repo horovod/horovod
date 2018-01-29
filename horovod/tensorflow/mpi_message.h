@@ -42,7 +42,7 @@ const std::string& MPIDataType_Name(MPIDataType value);
 // the rank wants to do and the tensor that it wants to apply the operation to.
 class MPIRequest {
 public:
-  enum RequestType { ALLREDUCE = 0, ALLGATHER = 1, BROADCAST = 2 };
+  enum RequestType { ALLREDUCE = 0, ALLGATHER = 1, ALLGATHERV = 2, BROADCAST = 3 };
 
   static const std::string& RequestType_Name(RequestType value);
 
@@ -96,10 +96,11 @@ public:
   enum ResponseType {
     ALLREDUCE = 0,
     ALLGATHER = 1,
-    BROADCAST = 2,
-    ERROR = 3,
-    DONE = 4,
-    SHUTDOWN = 5
+    ALLGATHERV = 2,
+    BROADCAST = 3,
+    ERROR = 4,
+    DONE = 5,
+    SHUTDOWN = 6
   };
 
   static const std::string& ResponseType_Name(ResponseType value);
@@ -120,7 +121,7 @@ public:
   void set_devices(const std::vector<int32_t>& value);
   void add_devices(int32_t value);
 
-  // Empty unless response_type is ALLGATHER.
+  // Empty unless response_type is ALLGATHER or ALLGATHERV.
   // These tensor sizes are the dimension zero sizes of all the input matrices,
   // indexed by the rank.
   const std::vector<int64_t>& tensor_sizes() const;

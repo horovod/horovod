@@ -35,7 +35,8 @@ enum MPIDataType:byte {
 enum MPIRequestType:byte {
     ALLREDUCE = 0,
     ALLGATHER = 1,
-    BROADCAST = 2
+    ALLGATHERV = 2,
+    BROADCAST = 3
 }
 table MPIRequest {
     // The request rank is necessary to create a consistent ordering of results,
@@ -67,10 +68,11 @@ table MPIRequest {
 enum MPIResponseType:byte {
     ALLREDUCE = 0,
     ALLGATHER = 1,
-    BROADCAST = 2,
-    ERROR = 3,
-    DONE = 4,
-    SHUTDOWN = 5
+    ALLGATHERV = 2,
+    BROADCAST = 3,
+    ERROR = 4,
+    DONE = 5,
+    SHUTDOWN = 6
 }
 table MPIResponse {
     // Empty if the type is DONE or SHUTDOWN.
@@ -86,7 +88,7 @@ table MPIResponse {
     // List of devices participating in this operation.
     devices:[int];
 
-    // Empty unless response_type is ALLGATHER.
+    // Empty unless response_type is ALLGATHER or ALLGATHERV.
     // These tensor sizes are the dimension zero sizes of all the input matrices,
     // indexed by the rank.
     tensor_sizes:[long];

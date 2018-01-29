@@ -339,11 +339,20 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
     }
   }
 
-  // If we are doing an allgather, make sure all but the first dimension are
-  // the same. The first dimension may be different and the output tensor is
-  // the sum of the first dimension. Collect the sizes by rank.
+  // If we are doing an allgather or allgatherv, make sure all but the first
+  // dimension are the same. The first dimension may be different and the output
+  // tensor has
+  // 1) if allgather,
+  //    maximum of tensor[i].dim_size(0) over all i in [0, MPI_Comm_size)
+  //    multiplied by number of Horovod processes as size of the first dimension
+  // 2) if allgatherv,
+  //    sum of tensor[i].dim_size(0) over all i in [0, MPI_Comm_size)
+  //    as size of the first dimension
+  // Collect the sizes by rank.
   std::vector<size_t> tensor_sizes(requests.size());
-  if (message_type == MPIRequest::ALLGATHER) {
+  size_t max_size;
+  if (message_type == MPIRequest::ALLGATHER ||
+      message_type == MPIRequest::ALLGATHERV) {
     TensorShape tensor_shape;
     for (auto it = requests[0].tensor_shape().begin();
          it != requests[0].tensor_shape().end(); it++) {
@@ -356,8 +365,8 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
                            << MPIRequest::RequestType_Name(message_type)
                            << " a rank-zero tensor.";
     } else {
-      tensor_sizes[requests[0].request_rank()] =
-          size_t(tensor_shape.dim_size(0));
+      max_size = size_t(tensor_shape.dim_size(0));
+      tensor_sizes[requests[0].request_rank()] = max_size;
     }
 
     for (unsigned int i = 1; i < requests.size(); i++) {
@@ -399,6 +408,9 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
         break;
       }
 
+      if (max_size < size_t(request_shape.dim_size(0))) {
+        max_size = size_t(request_shape.dim_size(0));
+      }
       tensor_sizes[requests[i].request_rank()] =
           size_t(request_shape.dim_size(0));
     }
@@ -454,13 +466,16 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
     std::string error_message = error_message_stream.str();
     response.set_response_type(MPIResponse::ERROR);
     response.set_error_message(error_message);
-  } else if (message_type == MPIRequest::ALLGATHER) {
-    response.set_response_type(MPIResponse::ALLGATHER);
+  } else if (message_type == MPIRequest::ALLGATHERV) {
+    response.set_response_type(MPIResponse::ALLGATHERV);
     for (auto dim : tensor_sizes) {
       response.add_tensor_sizes(dim);
     }
   } else if (message_type == MPIRequest::ALLREDUCE) {
     response.set_response_type(MPIResponse::ALLREDUCE);
+  } else if (message_type == MPIRequest::ALLGATHER) {
+    response.set_response_type(MPIResponse::ALLGATHER);
+    response.add_tensor_sizes(max_size);
   } else if (message_type == MPIRequest::BROADCAST) {
     response.set_response_type(MPIResponse::BROADCAST);
   }
@@ -651,6 +666,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
       assert(response.response_type() == MPIResponse::ALLREDUCE ||
              response.response_type() == MPIResponse::ALLGATHER ||
+             response.response_type() == MPIResponse::ALLGATHERV ||
              response.response_type() == MPIResponse::BROADCAST ||
              response.response_type() == MPIResponse::ERROR);
 
@@ -736,6 +752,252 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     assert(entries.size() == 1);
     auto e = entries[0];
 
+#if HAVE_CUDA
+    bool on_gpu = e.device != CPU_DEVICE_ID;
+    if (on_gpu) {
+      CUDA_CHECK(entries, "cudaSetDevice", cudaSetDevice(e.device))
+
+      // Ensure stream is in the map before executing reduction.
+      cudaStream_t& stream = horovod_global.streams[e.device];
+      if (stream == nullptr) {
+        CUDA_CHECK(entries, "cudaStreamCreate", cudaStreamCreate(&stream))
+      }
+    }
+#endif
+
+    size_t first_dim_size = response.tensor_sizes()[0];
+    TensorShape output_shape;
+    output_shape.AddDim((int64)first_dim_size * horovod_global.size);
+    for (int i = 1; i < e.tensor.shape().dims(); i++) {
+      output_shape.AddDim(e.tensor.dim_size(i));
+    }
+
+    ACTIVITY_START_ALL(entries, timeline, "ALLOCATE_OUTPUT")
+    status = e.context->allocate_output(0, output_shape, &e.output);
+    if (!status.ok()) {
+      timeline.End(e.tensor_name, nullptr);
+      e.callback(status);
+      return;
+    }
+
+    size_t output_size_with_padding = e.output->tensor_data().size();
+    size_t per_rank_size_with_padding = output_size_with_padding / (size_t) horovod_global.size;
+    size_t this_rank_size_without_padding = e.tensor.tensor_data().size();
+
+#if HAVE_CUDA
+    // On GPU allocation is asynchronous, we need to wait for it to complete.
+    auto device_context = e.context->op_device_context();
+    if (device_context != nullptr) {
+      device_context->stream()->BlockHostUntilDone();
+    }
+#endif
+    ACTIVITY_END_ALL(entries, timeline)
+
+
+#if HOROVOD_GPU_ALLGATHER == 'N' // 'N' stands for NCCL
+    if (on_gpu) {
+      auto stream = horovod_global.streams[e.device];
+
+      // Ensure NCCL communicator is in the map before executing reduction.
+      ncclComm_t& nccl_comm = horovod_global.nccl_comms[response.devices()];
+      if (nccl_comm == nullptr) {
+        ACTIVITY_START_ALL(entries, timeline, "INIT_NCCL")
+
+        ncclUniqueId nccl_id;
+        if (horovod_global.rank == 0) {
+          NCCL_CHECK(entries, "ncclGetUniqueId", ncclGetUniqueId(&nccl_id))
+        }
+
+        MPI_CHECK(entries, "MPI_Bcast",
+                  MPI_Bcast((void*)&nccl_id, sizeof(nccl_id), MPI_BYTE, 0,
+                            MPI_COMM_WORLD));
+
+        ncclComm_t new_nccl_comm;
+        NCCL_CHECK(entries, "ncclCommInitRank",
+                   ncclCommInitRank(&new_nccl_comm, horovod_global.size, nccl_id,
+                                    horovod_global.rank))
+        nccl_comm = new_nccl_comm;
+
+        // Barrier helps NCCL to synchronize after initialization and avoid
+        // deadlock that we've been seeing without it.
+        MPI_CHECK(entries, "MPI_Barrier", MPI_Barrier(MPI_COMM_WORLD));
+
+        ACTIVITY_END_ALL(entries, timeline)
+      }
+
+      ncclDataType_t dtype;
+      status = GetNCCLDataType(e.tensor, &dtype);
+      if (!status.ok()) {
+        for (auto it = entries.begin(); it != entries.end(); it++) {
+          timeline.End(it->tensor_name, nullptr);
+          it->callback(status);
+        }
+        return;
+      }
+
+      ACTIVITY_START_ALL(entries, timeline, "SCHEDULE")
+
+      cudaEvent_t queue_end_event = nullptr;
+      if (timeline.Initialized()) {
+        RECORD_EVENT(entries, queue_end_event, stream);
+      }
+
+      cudaEvent_t after_memcpy_in_event = nullptr;
+      cudaEvent_t after_memset_zero_event = nullptr;
+      cudaEvent_t after_allgather_event = nullptr;
+
+      CUDA_CHECK(
+          entries, "cudaMemcpyAsync",
+          cudaMemcpyAsync((void*)(e.output->tensor_data().data() + per_rank_size_with_padding * horovod_global.rank),
+                          (const void*)e.tensor.tensor_data().data(),
+                          this_rank_size_without_padding, // bytes
+                          cudaMemcpyDeviceToDevice, stream))
+      if (timeline.Initialized()) {
+        RECORD_EVENT(entries, after_memcpy_in_event, stream)
+      }
+
+      // padding
+      CUDA_CHECK(
+          entries, "cudaMemsetAsync",
+          cudaMemsetAsync((void*)(e.output->tensor_data().data() + per_rank_size_with_padding * horovod_global.rank + this_rank_size_without_padding),
+                          0,
+                          per_rank_size_with_padding - this_rank_size_without_padding, // bytes
+                          stream))
+      if (timeline.Initialized()) {
+        RECORD_EVENT(entries, after_memset_zero_event, stream)
+      }
+
+      NCCL_CHECK(entries, "ncclAllGather",
+                 ncclAllGather((const void*)(e.output->tensor_data().data() + per_rank_size_with_padding * horovod_global.rank),
+                               (void*)e.output->tensor_data().data(),
+                               (size_t)(e.output->NumElements() / horovod_global.size), dtype,
+                               nccl_comm, stream))
+      if (timeline.Initialized()) {
+        RECORD_EVENT(entries, after_allgather_event, stream)
+      }
+
+      ACTIVITY_END_ALL(entries, timeline)
+      ACTIVITY_START_ALL(entries, timeline, "QUEUE")
+
+      // Use completion marker via event because it's faster than
+      // blocking cudaStreamSynchronize() in this thread.
+      cudaEvent_t done_event;
+      RECORD_EVENT(entries, done_event, stream)
+
+      // TODO: use thread pool or single thread for callbacks
+      std::thread finalizer_thread([entries, e, done_event,
+                                    queue_end_event, after_memcpy_in_event,
+                                    after_memset_zero_event, after_allgather_event,
+                                    response, &timeline] {
+        CUDA_CHECK(entries, "cudaSetDevice", cudaSetDevice(e.device))
+        if (queue_end_event != nullptr) {
+          CUDA_CHECK(entries, "cudaEventSynchronize",
+                     cudaEventSynchronize(queue_end_event))
+          // All the work scheduled on NCCL stream before this allreduce
+          // is done at this point, end queueing activity.
+          ACTIVITY_END_ALL(entries, timeline)
+          RELEASE_EVENT(entries, queue_end_event);
+        }
+
+        if (after_memcpy_in_event != nullptr) {
+          ACTIVITY_START_ALL(entries, timeline, "MEMCPY_IN_OUTPUT_BUFFER")
+          CUDA_CHECK(entries, "cudaEventSynchronize",
+                     cudaEventSynchronize(after_memcpy_in_event))
+          // The memcpy into the output buffer is done after this point has been
+          // reached.
+          ACTIVITY_END_ALL(entries, timeline)
+          RELEASE_EVENT(entries, after_memcpy_in_event);
+        }
+
+        if (after_memset_zero_event != nullptr) {
+          ACTIVITY_START_ALL(entries, timeline, "MEMSET_ZERO_PADDING")
+          CUDA_CHECK(entries, "cudaEventSynchronize",
+                     cudaEventSynchronize(after_memset_zero_event))
+          // The memset zero of padding area is done after this point has been
+          // reached.
+          ACTIVITY_END_ALL(entries, timeline)
+          RELEASE_EVENT(entries, after_memset_zero_event);
+        }
+
+        if (after_allgather_event != nullptr) {
+          ACTIVITY_START_ALL(entries, timeline, "NCCL_ALLGATHER")
+          CUDA_CHECK(entries, "cudaEventSynchronize",
+                     cudaEventSynchronize(after_allgather_event))
+          // The allgather is done after this point has been reached.
+          ACTIVITY_END_ALL(entries, timeline)
+          RELEASE_EVENT(entries, after_allgather_event);
+        }
+
+        CUDA_CHECK(entries, "cudaEventSynchronize",
+                   cudaEventSynchronize(done_event))
+        for (auto it = entries.begin(); it != entries.end(); it++) {
+          timeline.End(it->tensor_name, it->output);
+          it->callback(Status::OK());
+        }
+        RELEASE_EVENT(entries, done_event);
+      });
+      finalizer_thread.detach();
+      return;
+    }
+#endif
+
+    MPI_Datatype dtype;
+    status = GetMPIDataType(e.tensor, &dtype);
+    if (!status.ok()) {
+      timeline.End(e.tensor_name, nullptr);
+      e.callback(status);
+      return;
+    }
+
+    ACTIVITY_START_ALL(entries, timeline, "MEMCPY_IN_OUTPUT_BUFFER")
+#if HAVE_CUDA
+    if (on_gpu) {
+      CUDA_CHECK(
+          entries, "cudaMemcpyAsync",
+          cudaMemcpyAsync((void*)(e.output->tensor_data().data() + per_rank_size_with_padding * horovod_global.rank),
+                          (const void*)e.tensor.tensor_data().data(),
+                          this_rank_size_without_padding, // bytes
+                          cudaMemcpyDeviceToDevice, horovod_global.streams[e.device]))
+      // padding
+      CUDA_CHECK(
+          entries, "cudaMemsetAsync",
+          cudaMemsetAsync((void*)(e.output->tensor_data().data() + per_rank_size_with_padding * horovod_global.rank + this_rank_size_without_padding),
+                          0,
+                          per_rank_size_with_padding - this_rank_size_without_padding, // bytes
+                          horovod_global.streams[e.device]))
+    } else {
+#endif
+      memcpy((void*)(e.output->tensor_data().data() + per_rank_size_with_padding * horovod_global.rank),
+             (const void*)e.tensor.tensor_data().data(),
+             this_rank_size_without_padding); // bytes
+      memset((void*)(e.output->tensor_data().data() + per_rank_size_with_padding * horovod_global.rank + this_rank_size_without_padding),
+             0,
+             per_rank_size_with_padding - this_rank_size_without_padding); // bytes
+#if HAVE_CUDA
+    }
+    if (on_gpu) {
+      CUDA_CHECK(
+          entries, "cudaStreamSynchronize",
+          cudaStreamSynchronize(horovod_global.streams[e.device]))
+    }
+#endif
+    ACTIVITY_END_ALL(entries, timeline)
+
+    ACTIVITY_START_ALL(entries, timeline, "MPI_ALLGATHER")
+    auto result = MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
+                                (void*)e.output->tensor_data().data(),
+                                (int)(e.output->NumElements() / horovod_global.size),
+                                dtype, MPI_COMM_WORLD);
+    MPI_CHECK(entries, "MPI_Allgather", result)
+    ACTIVITY_END_ALL(entries, timeline)
+
+    timeline.End(e.tensor_name, e.output);
+    e.callback(Status::OK());
+
+  } else if (response.response_type() == MPIResponse::ALLGATHERV) {
+    assert(entries.size() == 1);
+    auto e = entries[0];
+
     // Copy tensor sizes from the MPI response into a vector of size_t
     // and compute total size.  This is size of first dimension.
     std::vector<size_t> tensor_sizes;
@@ -746,7 +1008,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       total_dimension_size += size_t(*it);
     }
 
-    // Every tensor participating in Allgather operation may have different
+    // Every tensor participating in Allgatherv operation may have different
     // first dimension size, but the rest of dimensions are same for all
     // tensors.  Here we get shape of tensor sliced by first dimension.
     TensorShape single_slice_shape;
@@ -754,7 +1016,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       single_slice_shape.AddDim(e.tensor.dim_size(i));
     }
 
-    // Allgather output will have shape of:
+    // Allgatherv output will have shape of:
     // (sum of first dimension of every tensor) x (tensor slice shape).
     TensorShape output_shape;
     output_shape.AddDim((int64)total_dimension_size);
@@ -787,7 +1049,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
     // Tensors may have different first dimension, so we need to use
     // MPI_Allgatherv API that supports gathering arrays of different length.
-    ACTIVITY_START_ALL(entries, timeline, "MPI_ALLGATHER")
+    ACTIVITY_START_ALL(entries, timeline, "MPI_ALLGATHERV")
     int* recvcounts = new int[tensor_sizes.size()];
     int* displcmnts = new int[tensor_sizes.size()];
     for (size_t i = 0; i < tensor_sizes.size(); i++) {
@@ -1681,6 +1943,45 @@ void EnqueueTensorAllgather(OpKernelContext* context, const Tensor& tensor,
 
 // MPI must be initialized and the background thread must be running before
 // this function is called.
+void EnqueueTensorAllgatherv(OpKernelContext* context, const Tensor& tensor,
+                             GPU_EVENT_IF_CUDA ready_event,
+                             const std::string name, const int device,
+                             StatusCallback callback) {
+  MPIDataType dtype;
+  Status status = DataTypeToMPIType(tensor.dtype(), &dtype);
+  if (!status.ok()) {
+    callback(status);
+    return;
+  }
+
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  MPIRequest message;
+  message.set_request_rank(rank);
+  message.set_tensor_name(name);
+  message.set_tensor_type(dtype);
+  message.set_device(device);
+  message.set_request_type(MPIRequest::ALLGATHERV);
+  for (int i = 0; i < tensor.shape().dims(); i++) {
+    message.add_tensor_shape(tensor.shape().dim_size(i));
+  }
+
+  TensorTableEntry e;
+  e.tensor_name = name;
+  e.context = context;
+  e.tensor = tensor;
+  e.ready_event = ready_event;
+  e.device = device;
+  e.callback = callback;
+
+  std::lock_guard<std::mutex> guard(horovod_global.mutex);
+  horovod_global.tensor_table.emplace(name, std::move(e));
+  horovod_global.message_queue.push(message);
+}
+
+// MPI must be initialized and the background thread must be running before
+// this function is called.
 void EnqueueTensorBroadcast(OpKernelContext* context, const Tensor& tensor,
                             Tensor* output, int root_rank,
                             GPU_EVENT_IF_CUDA ready_event,
@@ -1811,8 +2112,6 @@ public:
     auto node_name = name();
     auto device = GetDeviceID(context);
     auto tensor = context->input(0);
-    // We cannot pre-allocate output for allgather, since shape of result
-    // is only known after all ranks make a request.
     GPU_EVENT_IF_CUDA ready_event = RecordReadyEvent(context);
     EnqueueTensorAllgather(context, tensor, ready_event, node_name, device,
                            [context, done](const Status& status) {
@@ -1842,6 +2141,58 @@ REGISTER_OP("HorovodAllgather")
     })
     .Doc(R"doc(
 Perform an MPI Allgather on a tensor. All other processes that do a gather on a
+tensor with the same name must have the same rank for that tensor, and have the
+same dimension on all but the first dimension.
+
+Arguments
+    tensor:     A tensor to gather.
+
+Output
+    gathered:    A tensor with the same shape as `tensor` except for the first dimension.
+)doc");
+
+class HorovodAllgathervOp : public AsyncOpKernel {
+public:
+  explicit HorovodAllgathervOp(OpKernelConstruction* context)
+      : AsyncOpKernel(context) {}
+
+  void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
+    OP_REQUIRES_OK(context, CheckInitialized());
+
+    auto node_name = name();
+    auto device = GetDeviceID(context);
+    auto tensor = context->input(0);
+    // We cannot pre-allocate output for allgatherv, since shape of result
+    // is only known after all ranks make a request.
+    GPU_EVENT_IF_CUDA ready_event = RecordReadyEvent(context);
+    EnqueueTensorAllgatherv(context, tensor, ready_event, node_name, device,
+                            [context, done](const Status& status) {
+                              context->SetStatus(status);
+                              done();
+                            });
+  }
+}; // namespace tensorflow
+
+REGISTER_KERNEL_BUILDER(Name("HorovodAllgatherv").Device(DEVICE_CPU),
+                        HorovodAllgathervOp);
+#if HOROVOD_GPU_ALLGATHERV
+REGISTER_KERNEL_BUILDER(Name("HorovodAllgatherv").Device(DEVICE_GPU),
+                        HorovodAllgathervOp);
+#endif
+
+REGISTER_OP("HorovodAllgatherv")
+    .Attr("T: {uint8, int8, uint16, int16, int32, int64, float32, float64, bool}")
+    .Input("tensor: T")
+    .Output("output: T")
+    .SetShapeFn([](shape_inference::InferenceContext* c) {
+      shape_inference::ShapeHandle output;
+      TF_RETURN_IF_ERROR(
+          c->ReplaceDim(c->input(0), 0, c->UnknownDim(), &output));
+      c->set_output(0, output);
+      return Status::OK();
+    })
+    .Doc(R"doc(
+Perform an MPI Allgatherv on a tensor. All other processes that do a gather on a
 tensor with the same name must have the same rank for that tensor, and have the
 same dimension on all but the first dimension.
 

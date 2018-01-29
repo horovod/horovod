@@ -64,6 +64,9 @@ const std::string& MPIRequest::RequestType_Name(RequestType value) {
   case RequestType::ALLGATHER:
     static const std::string allgather("ALLGATHER");
     return allgather;
+  case RequestType::ALLGATHERV:
+    static const std::string allgatherv("ALLGATHERV");
+    return allgatherv;
   case RequestType::BROADCAST:
     static const std::string broadcast("BROADCAST");
     return broadcast;
@@ -154,6 +157,9 @@ const std::string& MPIResponse::ResponseType_Name(ResponseType value) {
   case ResponseType::ALLGATHER:
     static const std::string allgather("ALLGATHER");
     return allgather;
+  case ResponseType::ALLGATHERV:
+    static const std::string allgatherv("ALLGATHERV");
+    return allgatherv;
   case ResponseType::BROADCAST:
     static const std::string broadcast("BROADCAST");
     return broadcast;

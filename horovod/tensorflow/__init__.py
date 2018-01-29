@@ -35,19 +35,22 @@ from horovod.tensorflow.mpi_ops import size
 from horovod.tensorflow.mpi_ops import rank
 from horovod.tensorflow.mpi_ops import local_rank
 from horovod.tensorflow.mpi_ops import allgather
+from horovod.tensorflow.mpi_ops import allgatherv
 from horovod.tensorflow.mpi_ops import broadcast
 from horovod.tensorflow.mpi_ops import _allreduce
 from horovod.tensorflow.mpi_ops import init
 
 
-def allreduce(tensor, average=True, device_dense='', device_sparse=''):
+def allreduce(tensor, average_dense=True, average_sparse=True, use_allgatherv=False, device_dense='', device_sparse=''):
     """Perform an allreduce on a tf.Tensor or tf.IndexedSlices.
 
     Arguments:
         tensor: tf.Tensor, tf.Variable, or tf.IndexedSlices to reduce.
         The shape of the input must be identical across all ranks.
-        average: If True, computes the average over all ranks.
-                 Otherwise, computes the sum over all ranks.
+        average_dense: If True, computes the average over all ranks for dense tensors.
+                       Otherwise, computes the sum over all ranks.
+        average_sparse: If True, computes the average over all ranks for sparse tensors.
+                        Otherwise, computes the sum over all ranks.
         device_dense: Device to be used for dense tensors. Uses GPU by default
                       if Horovod was build with HOROVOD_GPU_ALLREDUCE.
         device_sparse: Device to be used for sparse tensors. Uses GPU by default
@@ -61,13 +64,16 @@ def allreduce(tensor, average=True, device_dense='', device_sparse=''):
     if isinstance(tensor, tf.IndexedSlices):
         with tf.device(device_sparse):
             # For IndexedSlices, do two allgathers intead of an allreduce.
-            horovod_size = tf.cast(size(), tensor.values.dtype)
-            values = allgather(tensor.values)
-            indices = allgather(tensor.indices)
-
+            if use_allgatherv:
+                values = allgatherv(tensor.values)
+                indices = allgatherv(tensor.indices)
+            else:
+                values = allgather(tensor.values)
+                indices = allgather(tensor.indices)
             # To make this operation into an average, divide all gathered values by
             # the Horovod size.
-            new_values = tf.div(values, horovod_size) if average else values
+            horovod_size = tf.cast(size(), tensor.values.dtype)
+            new_values = tf.div(values, horovod_size) if average_sparse else values
         return tf.IndexedSlices(new_values, indices,
                                 dense_shape=tensor.dense_shape)
     else:
@@ -75,7 +81,7 @@ def allreduce(tensor, average=True, device_dense='', device_sparse=''):
             horovod_size = tf.cast(size(), tensor.dtype)
             summed_tensor = _allreduce(tensor)
             new_tensor = (tf.div(summed_tensor, horovod_size)
-                          if average else summed_tensor)
+                          if average_dense else summed_tensor)
         return new_tensor
 
 

@@ -307,9 +307,14 @@ def fully_define_extension(build_ext):
                              'values are "", "MPI", "NCCL".' % gpu_allreduce)
 
     gpu_allgather = os.environ.get('HOROVOD_GPU_ALLGATHER')
-    if gpu_allgather and gpu_allgather != 'MPI':
+    if gpu_allgather and gpu_allgather != 'MPI' and gpu_allgather != 'NCCL':
         raise DistutilsError('HOROVOD_GPU_ALLGATHER=%s is invalid, supported '
                              'values are "", "MPI".' % gpu_allgather)
+
+    gpu_allgatherv = os.environ.get('HOROVOD_GPU_ALLGATHERV')
+    if gpu_allgatherv and gpu_allgatherv != 'MPI':
+        raise DistutilsError('HOROVOD_GPU_ALLGATHERV=%s is invalid, supported '
+                             'values are "", "MPI".' % gpu_allgatherv)
 
     gpu_broadcast = os.environ.get('HOROVOD_GPU_BROADCAST')
     if gpu_broadcast and gpu_broadcast != 'MPI':
@@ -359,6 +364,9 @@ def fully_define_extension(build_ext):
     if gpu_allgather:
         MACROS += [('HOROVOD_GPU_ALLGATHER', "'%s'" % gpu_allgather[0])]
 
+    if gpu_allgatherv:
+        MACROS += [('HOROVOD_GPU_ALLGATHERV', "'%s'" % gpu_allgatherv[0])]
+
     if gpu_broadcast:
         MACROS += [('HOROVOD_GPU_BROADCAST', "'%s'" % gpu_broadcast[0])]
 
@@ -384,7 +392,7 @@ setup(name='horovod',
       description='Distributed training framework for TensorFlow.',
       author='Uber Technologies, Inc.',
       long_description=textwrap.dedent('''\
-          Horovod is a distributed training framework for TensorFlow. 
+          Horovod is a distributed training framework for TensorFlow.
           The goal of Horovod is to make distributed Deep Learning
           fast and easy to use.'''),
       url='https://github.com/uber/horovod',

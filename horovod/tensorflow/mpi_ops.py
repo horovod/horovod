@@ -71,7 +71,7 @@ def _load_ctypes_dll(name):
 
 
 MPI_LIB = _load_library('mpi_lib' + _get_ext_suffix(),
-                        ['HorovodAllgather', 'HorovodAllreduce'])
+                        ['HorovodAllgather', 'HorovodAllgatherv', 'HorovodAllreduce'])
 
 
 MPI_LIB_CTYPES = _load_ctypes_dll('mpi_lib' + _get_ext_suffix())
@@ -152,6 +152,27 @@ def allgather(tensor, name=None):
     """An op which concatenates the input tensor with the same input tensor on
     all other Horovod processes.
 
+    The concatenation is done on the first dimension, and the input tensors on
+    the different processes must have the same rank and shape.
+
+    Returns:
+      A tensor of the same type as `tensor`, concatenated on dimension zero
+      across all processes. The shape is identical to the input shape, except for
+      the first dimension, which is the multiplication of first dimension of the
+      input tensor and the number of Horovod processes.
+    """
+    if name is None:
+        name = 'HorovodAllgather_%s' % _normalize_name(tensor.name)
+    return MPI_LIB.horovod_allgather(tensor, name=name)
+
+
+ops.NotDifferentiable('HorovodAllgather')
+
+
+def allgatherv(tensor, name=None):
+    """An op which concatenates the input tensor with the same input tensor on
+    all other Horovod processes.
+
     The concatenation is done on the first dimension, so the input tensors on the
     different processes must have the same rank and shape, except for the first
     dimension, which is allowed to be different.
@@ -163,11 +184,11 @@ def allgather(tensor, name=None):
       dimensions of the tensors in different Horovod processes.
     """
     if name is None:
-        name = 'HorovodAllgather_%s' % _normalize_name(tensor.name)
-    return MPI_LIB.horovod_allgather(tensor, name=name)
+        name = 'HorovodAllgatherv_%s' % _normalize_name(tensor.name)
+    return MPI_LIB.horovod_allgatherv(tensor, name=name)
 
 
-ops.NotDifferentiable('HorovodAllgather')
+ops.NotDifferentiable('HorovodAllgatherv')
 
 
 def broadcast(tensor, root_rank, name=None):
