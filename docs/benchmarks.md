@@ -9,12 +9,11 @@ To reproduce the benchmarks:
 
 1. Install Horovod using the instructions provided on the [Horovod on GPU](gpus.md) page.
 
-2. Clone branch `horovod_v2` of [https://github.com/alsrgv/benchmarks](https://github.com/alsrgv/benchmarks):
+2. Clone [https://github.com/tensorflow/benchmarks](https://github.com/tensorflow/benchmarks):
 
 ```bash
-$ git clone https://github.com/alsrgv/benchmarks
+$ git clone https://github.com/tensorflow/benchmarks
 $ cd benchmarks
-$ git checkout horovod_v2
 ```
 
 3. Run the benchmark. Examples below are for Open MPI.
