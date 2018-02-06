@@ -48,7 +48,7 @@ defined in `/root/.ssh/ssh_config` file.
 Primary worker:
 
 ```bash
-host1$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/ssh horovod:latest
+host1$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod:latest
 root@c278c88dd552:/examples# mpirun -np 16 -H host1:4,host2:4,host3:4,host4:4 \
     -mca plm_rsh_args "-p 12345" python keras_mnist_advanced.py
 ```
@@ -56,16 +56,16 @@ root@c278c88dd552:/examples# mpirun -np 16 -H host1:4,host2:4,host3:4,host4:4 \
 Secondary workers:
 
 ```bash
-host2$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/ssh horovod:latest \
+host2$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod:latest \
     bash -c "/usr/sbin/sshd -p 12345; sleep infinity"
 ```
 
 ```bash
-host3$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/ssh horovod:latest \
+host3$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod:latest \
     bash -c "/usr/sbin/sshd -p 12345; sleep infinity"
 ```
 
 ```bash
-host4$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/ssh horovod:latest \
+host4$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod:latest \
     bash -c "/usr/sbin/sshd -p 12345; sleep infinity"
 ```
