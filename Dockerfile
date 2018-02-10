@@ -1,7 +1,7 @@
-FROM nvidia/cuda:8.0-cudnn6-devel-ubuntu16.04
+FROM nvidia/cuda:9.0-cudnn7-devel-ubuntu16.04
 
 # TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
-ENV TENSORFLOW_VERSION=1.4.0
+ENV TENSORFLOW_VERSION=1.5.0
 
 # Python 2.7 or 3.5 is supported by Ubuntu Xenial out of the box
 ENV PYTHON_VERSION=2.7
@@ -16,8 +16,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         vim \
         wget \
         ca-certificates \
-        libnccl2=2.1.2-1+cuda8.0 \
-        libnccl-dev=2.1.2-1+cuda8.0 \
+        libnccl2=2.1.4-1+cuda9.0 \
+        libnccl-dev=2.1.4-1+cuda9.0 \
         libjpeg-dev \
         libpng-dev \
         python$PYTHON_VERSION \
@@ -45,7 +45,7 @@ RUN mkdir /tmp/openmpi && \
     rm -rf /tmp/openmpi
 
 # Install Horovod, temporarily using CUDA stubs
-RUN ldconfig /usr/local/cuda-8.0/targets/x86_64-linux/lib/stubs && \
+RUN ldconfig /usr/local/cuda-9.0/targets/x86_64-linux/lib/stubs && \
     HOROVOD_GPU_ALLREDUCE=NCCL pip install --no-cache-dir horovod && \
     ldconfig
 
