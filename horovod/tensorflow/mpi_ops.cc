@@ -171,10 +171,11 @@ struct HorovodGlobalState {
   // Whether MPI_Init has been completed on the background thread.
   bool initialization_done = false;
 
-  // The MPI rank, local rank, and size.
+  // The MPI rank, local rank, size, and local size.
   int rank = 0;
   int local_rank = 0;
   int size = 1;
+  int local_size = 1;
 
 // The CUDA stream used for data transfers and within-allreduce operations.
 // A naive implementation would use the TensorFlow StreamExecutor CUDA
@@ -1263,12 +1264,14 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   MPI_Comm local_comm;
   MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
                       &local_comm);
-  int local_rank;
+  int local_rank, local_size;
   MPI_Comm_rank(local_comm, &local_rank);
+  MPI_Comm_size(local_comm, &local_size);
 
   state.rank = rank;
   state.local_rank = local_rank;
   state.size = size;
+  state.local_size = local_size;
   state.initialization_done = true;
 
   // Open the timeline file on coordinator.
@@ -1563,6 +1566,15 @@ extern "C" int horovod_tensorflow_size() {
     return -1;
   }
   return horovod_global.size;
+}
+
+// C interface to return number of Horovod processes in the node it is on..
+// Returns -1 if Horovod is not initialized.
+extern "C" int horovod_tensorflow_local_size() {
+  if (!horovod_global.initialization_done) {
+    return -1;
+  }
+  return horovod_global.local_size;
 }
 
 // Convert a TensorFlow DataType to our MPIDataType.

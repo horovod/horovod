@@ -96,6 +96,20 @@ def size():
     return size
 
 
+def local_size():
+    """A function which returns the number of Horovod processes within the
+    node the current process is running on.
+
+    Returns:
+      An integer scalar containing the number of local Horovod processes.
+    """
+    local_size = MPI_LIB_CTYPES.horovod_tensorflow_local_size()
+    if local_size == -1:
+        raise ValueError(
+            'Horovod has not been initialized; use horovod.tensorflow.init().')
+    return local_size
+
+
 def rank():
     """A function which returns the Horovod rank of the calling process.
 
