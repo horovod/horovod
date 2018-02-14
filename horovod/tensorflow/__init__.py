@@ -32,6 +32,7 @@ from __future__ import print_function
 import tensorflow as tf
 
 from horovod.tensorflow.mpi_ops import size
+from horovod.tensorflow.mpi_ops import local_size
 from horovod.tensorflow.mpi_ops import rank
 from horovod.tensorflow.mpi_ops import local_rank
 from horovod.tensorflow.mpi_ops import allgather
