@@ -191,12 +191,26 @@ See [here](docs/timeline.md) for full details and usage instructions.
 See the [Troubleshooting](docs/troubleshooting.md) page and please submit the [ticket](https://github.com/uber/horovod/issues/new)
 if you can't find an answer.
 
+### Citation
+
+Please cite Horovod in your publications if it helps your research:
+
+```
+@article{sergeev2018horovod,
+  Author = {Alexander Sergeev and Mike Del Balso},
+  Journal = {arXiv preprint arXiv:1802.05799},
+  Title = {Horovod: fast and easy distributed deep learning in {TensorFlow}},
+  Year = {2018}
+}
+```
+
 ### Publications
 
 1. Sergeev, A., Del Balso, M. (2017) *Meet Horovod: Uber’s Open Source Distributed Deep Learning Framework for TensorFlow*.
 Retrieved from [https://eng.uber.com/horovod/](https://eng.uber.com/horovod/)
 2. Sergeev, A. (2017) *Horovod - Distributed TensorFlow Made Easy*. Retrieved from
 [https://www.slideshare.net/AlexanderSergeev4/horovod-distributed-tensorflow-made-easy](https://www.slideshare.net/AlexanderSergeev4/horovod-distributed-tensorflow-made-easy)
+3. Sergeev, A., Del Balso, M. (2018) *Horovod: fast and easy distributed deep learning in TensorFlow*. arXiv:1802.05799
 
 ### References
 
