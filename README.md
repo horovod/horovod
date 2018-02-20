@@ -210,7 +210,7 @@ Please cite Horovod in your publications if it helps your research:
 Retrieved from [https://eng.uber.com/horovod/](https://eng.uber.com/horovod/)
 2. Sergeev, A. (2017) *Horovod - Distributed TensorFlow Made Easy*. Retrieved from
 [https://www.slideshare.net/AlexanderSergeev4/horovod-distributed-tensorflow-made-easy](https://www.slideshare.net/AlexanderSergeev4/horovod-distributed-tensorflow-made-easy)
-3. Sergeev, A., Del Balso, M. (2018) *Horovod: fast and easy distributed deep learning in TensorFlow*. arXiv:1802.05799
+3. Sergeev, A., Del Balso, M. (2018) *Horovod: fast and easy distributed deep learning in TensorFlow*. [arXiv:1802.05799](https://arxiv.org/abs/1802.05799)
 
 ### References
 
