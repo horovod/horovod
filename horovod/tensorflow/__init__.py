@@ -117,7 +117,7 @@ class BroadcastGlobalVariablesHook(tf.train.SessionRunHook):
         self.device = device
 
     def begin(self):
-        if not self.bcast_op:
+        if not self.bcast_op or self.bcast_op.graph != tf.get_default_graph():
             with tf.device(self.device):
                 self.bcast_op = broadcast_global_variables(self.root_rank)
 
