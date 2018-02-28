@@ -270,7 +270,7 @@ def get_nccl_dirs(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
         nccl_lib_dirs += [nccl_lib]
 
     try:
-        test_compile(build_ext, 'test_nccl', libraries=['nccl'], include_dirs=nccl_include_dirs + cuda_include_dirs,
+        test_compile(build_ext, 'test_nccl', libraries=['nccl_static'], include_dirs=nccl_include_dirs + cuda_include_dirs,
                      library_dirs=nccl_lib_dirs + cuda_lib_dirs, extra_preargs=cpp_flags, code=textwrap.dedent('''\
             #include <nccl.h>
             #if NCCL_MAJOR < 2
@@ -350,8 +350,9 @@ def fully_define_extension(build_ext):
     if have_nccl:
         MACROS += [('HAVE_NCCL', '1')]
         INCLUDES += nccl_include_dirs
+        LINK_FLAGS += ['-Wl,--version-script=hide_nccl.lds']
         LIBRARY_DIRS += nccl_lib_dirs
-        LIBRARIES += ['nccl']
+        LIBRARIES += ['nccl_static']
 
     if gpu_allreduce:
         MACROS += [('HOROVOD_GPU_ALLREDUCE', "'%s'" % gpu_allreduce[0])]

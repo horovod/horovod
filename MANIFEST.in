@@ -1,2 +1,2 @@
 recursive-include * *.h *.cc *.md
-include LICENSE
+include LICENSE *.lds
