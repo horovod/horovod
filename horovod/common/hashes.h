@@ -16,8 +16,9 @@
 #ifndef HOROVOD_HASHES_H
 #define HOROVOD_HASHES_H
 
-#include "common.h"
 #include <functional>
+
+#include "common.h"
 
 // Golden ratio from http://burtleburtle.net/bob/hash/doobs.html
 #define GOLDEN_RATIO 0x9e3779b9
