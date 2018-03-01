@@ -29,7 +29,7 @@ namespace {
 template <typename T>
 inline std::size_t hash_one(const T& element, std::size_t seed) {
   return seed ^
-         std::hash<T>()(element) + GOLDEN_RATIO + (seed << 6) + (seed >> 2);
+         (std::hash<T>()(element) + GOLDEN_RATIO + (seed << 6) + (seed >> 2));
 }
 
 } // namespace
