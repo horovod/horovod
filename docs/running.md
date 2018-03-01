@@ -43,8 +43,8 @@ $ mpirun -np 16 \
 
 Having network interfaces that are not routed can cause Open MPI to hang. An example of such interface is `docker0`.
 
-If you see non-routed interfaces (like `docker0`) in the output of `ifconfig`, you should tell Open MPI to not use them
-via the `-mca btl_tcp_if_exclude <interface>[,<interface>]` parameter.
+If you see non-routed interfaces (like `docker0`) in the output of `ifconfig`, you should tell Open MPI and NCCL to not
+use them via the `-mca btl_tcp_if_exclude <interface>[,<interface>]` and `NCCL_SOCKET_IFNAME=^<interface>` parameters.
 
 ```bash
 $ ifconfig
@@ -89,7 +89,8 @@ $ mpirun -np 16 \
     -H server1:4,server2:4,server3:4,server4:4 \
     -bind-to none -map-by slot \
     -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    -x NCCL_SOCKET_IFNAME=^docker0 \
     -mca pml ob1 -mca btl ^openib \
-    -mca btl_tcp_if_exclude lo,docker0 \ 
+    -mca btl_tcp_if_exclude lo,docker0 \
     python train.py
 ```
