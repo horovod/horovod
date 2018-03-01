@@ -24,10 +24,15 @@
 
 namespace std {
 
+namespace {
+
 template <typename T>
-inline std::size_t hash_one<T>(T& element, std::size_t seed) {
-  return seed ^ std::hash<T>()(element) + GOLDEN_RATIO + (seed << 6) + (seed >> 2);
+inline std::size_t hash_one(const T& element, std::size_t seed) {
+  return seed ^
+         std::hash<T>()(element) + GOLDEN_RATIO + (seed << 6) + (seed >> 2);
 }
+
+} // namespace
 
 template <typename T> struct hash<std::vector<T>> {
   typedef std::vector<T> argument_type;
