@@ -163,6 +163,32 @@ Horovod supports Estimator API and regular TensorFlow in similar ways.
 
 See a full training [example](examples/tensorflow_mnist_estimator.py).
 
+## mpi4py
+
+Horovod supports mixing and matching Horovod collectives with other MPI libraries, such as [mpi4py](mpi4py.scipy.org),
+provided that MPI was built with multi-threading support.
+
+You can check for MPI multi-threading support by querying `hvd.mpi_threads_supported()` function.
+
+**Note**: Make sure that MPI library will **NOT** re-initialize MPI.  For example:
+
+```python
+import horovod.tensorflow as hvd
+
+# Initialize Horovod
+hvd.init()
+
+# Verify that MPI multi-threading is supported.
+assert hvd.mpi_threads_supported()
+
+# Make sure MPI is not re-initialized.
+import mpi4py.rc
+mpi4py.rc.initialize = False
+
+from mpi4py import MPI
+assert hvd.size() == MPI.COMM_WORLD.Get_size()
+```
+
 ## Inference
 
 Learn how to optimize your model for inference and remove Horovod operations from the graph [here](docs/inference.md).

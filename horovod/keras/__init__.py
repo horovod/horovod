@@ -22,6 +22,7 @@ from horovod.common import size
 from horovod.common import local_size
 from horovod.common import rank
 from horovod.common import local_rank
+from horovod.common import mpi_threads_supported
 from horovod.keras import callbacks
 
 

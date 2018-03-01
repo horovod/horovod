@@ -96,3 +96,19 @@ def local_rank():
         raise ValueError(
             'Horovod has not been initialized; use hvd.init().')
     return local_rank
+
+
+def mpi_threads_supported():
+    """A function which returns a flag indicating whether MPI multi-threading is supported.
+
+    If MPI multi-threading is supported, users may mix and match Horovod usage with other
+    MPI libraries, such as `mpi4py`.
+
+    Returns:
+      An boolean value indicating whether MPI multi-threading is supported.
+    """
+    mpi_threads_supported = MPI_COMMON_LIB_CTYPES.mpi_threads_supported()
+    if mpi_threads_supported == -1:
+        raise ValueError(
+            'Horovod has not been initialized; use hvd.init().')
+    return bool(mpi_threads_supported)
