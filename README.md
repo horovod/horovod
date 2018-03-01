@@ -134,6 +134,7 @@ $ mpirun -np 4 \
     -H localhost:4 \
     -bind-to none -map-by slot \
     -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    -mca pml ob1 -mca btl ^openib \
     python train.py
 ```
 
@@ -144,6 +145,7 @@ $ mpirun -np 16 \
     -H server1:4,server2:4,server3:4,server4:4 \
     -bind-to none -map-by slot \
     -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    -mca pml ob1 -mca btl ^openib \
     python train.py
 ```
 

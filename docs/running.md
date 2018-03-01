@@ -9,6 +9,11 @@ Starting with the Open MPI 3, it's important to add the `-bind-to none` and `-ma
 specifies Open MPI to not bind a training process to a single CPU core (which would hurt performance). `-map-by slot`
 allows you to have a mixture of different NUMA configurations because the default behavior is to bind to the socket.
 
+`-mca pml ob1` and `-mca btl ^openib` flags force the use of TCP for MPI communication.  This avoid many multiprocessing
+issues that Open MPI has with RDMA which typically result in segmentation faults.  Using TCP for MPI does not have
+noticeable performance impact since most of the heavy communication is done by NCCL which will use RDMA via RoCE or
+InfiniBand if they're available (see [Horovod on GPU](gpus.md)).
+
 With the `-x` option you can specify (`-x NCCL_DEBUG=INFO`) or copy (`-x LD_LIBRARY_PATH`) an environment variable to all
 the workers.
 
@@ -19,6 +24,7 @@ $ mpirun -np 4 \
     -H localhost:4 \
     -bind-to none -map-by slot \
     -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    -mca pml ob1 -mca btl ^openib \
     python train.py
 ```
 
@@ -29,18 +35,7 @@ $ mpirun -np 16 \
     -H server1:4,server2:4,server3:4,server4:4 \
     -bind-to none -map-by slot \
     -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
-    python train.py
-```
-
-3. If you have RoCE or InfiniBand, we found that the `pml` and `btl_openib_receive_queues` parameters improve
-performance a lot:
-
-```bash
-$ mpirun -np 16 \
-    -H server1:4,server2:4,server3:4,server4:4 \
-    -bind-to none -map-by slot \
-    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
-    -mca pml ob1 -mca btl_openib_receive_queues P,128,32:P,2048,32:P,12288,32:P,65536,32 \
+    -mca pml ob1 -mca btl ^openib \
     python train.py
 ```
 
@@ -94,6 +89,7 @@ $ mpirun -np 16 \
     -H server1:4,server2:4,server3:4,server4:4 \
     -bind-to none -map-by slot \
     -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    -mca pml ob1 -mca btl ^openib \
     -mca btl_tcp_if_exclude lo,docker0 \ 
     python train.py
 ```
