@@ -21,7 +21,6 @@
 #include <iostream>
 #include <unordered_map>
 #include <mutex>
-#include <atomic>
 
 #include "common.h"
 #include "mpi_message.h"

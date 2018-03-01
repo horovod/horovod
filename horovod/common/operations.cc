@@ -15,6 +15,7 @@
 // =============================================================================
 
 #include <assert.h>
+#include <atomic>
 #include <cstring>
 #include <queue>
 #include <sstream>
