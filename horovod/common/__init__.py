@@ -63,7 +63,7 @@ def local_size():
     Returns:
       An integer scalar containing the number of local Horovod processes.
     """
-    local_size = MPI_LIB_CTYPES.horovod_local_size()
+    local_size = MPI_COMMON_LIB_CTYPES.horovod_local_size()
     if local_size == -1:
         raise ValueError(
             'Horovod has not been initialized; use hvd.init().')

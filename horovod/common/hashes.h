@@ -19,7 +19,15 @@
 #include "common.h"
 #include <functional>
 
+// Golden ratio from http://burtleburtle.net/bob/hash/doobs.html
+#define GOLDEN_RATIO 0x9e3779b9
+
 namespace std {
+
+template <typename T>
+inline std::size_t hash_one<T>(T& element, std::size_t seed) {
+  return seed ^ std::hash<T>()(element) + GOLDEN_RATIO + (seed << 6) + (seed >> 2);
+}
 
 template <typename T> struct hash<std::vector<T>> {
   typedef std::vector<T> argument_type;
@@ -29,7 +37,7 @@ template <typename T> struct hash<std::vector<T>> {
     size_t size = in.size();
     size_t seed = 0;
     for (size_t i = 0; i < size; i++)
-      seed ^= std::hash<T>()(in[i]) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+      seed = hash_one<T>(in[i], seed);
     return seed;
   }
 };
@@ -40,10 +48,8 @@ template <typename U, typename V> struct hash<std::tuple<U, V>> {
 
   result_type operator()(argument_type const& in) const {
     size_t seed = 0;
-    seed ^= std::hash<U>()(std::get<0>(in)) + 0x9e3779b9 + (seed << 6) +
-            (seed >> 2);
-    seed ^= std::hash<V>()(std::get<1>(in)) + 0x9e3779b9 + (seed << 6) +
-            (seed >> 2);
+    seed = hash_one<U>(std::get<0>(in), seed);
+    seed = hash_one<V>(std::get<1>(in), seed);
     return seed;
   }
 };
