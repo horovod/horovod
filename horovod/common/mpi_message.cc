@@ -113,9 +113,10 @@ void MPIRequest::add_tensor_shape(int64_t value) {
   tensor_shape_.push_back(value);
 }
 
-void MPIRequest::ParseFromString(MPIRequest& request,
-                                 const std::string& input) {
-  auto obj = flatbuffers::GetRoot<wire::MPIRequest>((uint8_t*)input.c_str());
+namespace {
+
+void MPIRequest_ParseFromWire(MPIRequest& request,
+                              const wire::MPIRequest* obj) {
   request.set_request_rank(obj->request_rank());
   request.set_request_type((MPIRequest::RequestType)obj->request_type());
   request.set_tensor_type((MPIDataType)obj->tensor_type());
@@ -126,8 +127,9 @@ void MPIRequest::ParseFromString(MPIRequest& request,
                                                 obj->tensor_shape()->end()));
 }
 
-void MPIRequest::SerializeToString(MPIRequest& request, std::string& output) {
-  flatbuffers::FlatBufferBuilder builder(1024);
+void MPIRequest_SerializeToWire(const MPIRequest& request,
+                                flatbuffers::FlatBufferBuilder& builder,
+                                flatbuffers::Offset<wire::MPIRequest>& obj) {
   wire::MPIRequestBuilder request_builder(builder);
   request_builder.add_request_rank(request.request_rank());
   request_builder.add_request_type(
@@ -138,7 +140,64 @@ void MPIRequest::SerializeToString(MPIRequest& request, std::string& output) {
   request_builder.add_device(request.device());
   request_builder.add_tensor_shape(
       builder.CreateVector(request.tensor_shape()));
-  auto obj = request_builder.Finish();
+  obj = request_builder.Finish();
+}
+
+} // namespace
+
+void MPIRequest::ParseFromString(MPIRequest& request,
+                                 const std::string& input) {
+  auto obj = flatbuffers::GetRoot<wire::MPIRequest>((uint8_t*)input.c_str());
+  MPIRequest_ParseFromWire(request, obj);
+}
+
+void MPIRequest::SerializeToString(MPIRequest& request, std::string& output) {
+  flatbuffers::FlatBufferBuilder builder(1024);
+  flatbuffers::Offset<wire::MPIRequest> obj;
+  MPIRequest_SerializeToWire(request, builder, obj);
+  builder.Finish(obj);
+
+  uint8_t* buf = builder.GetBufferPointer();
+  auto size = builder.GetSize();
+  output = std::string((char*)buf, size);
+}
+
+const std::vector<MPIRequest>& MPIRequestList::requests() const {
+  return requests_;
+}
+
+void MPIRequestList::set_requests(const std::vector<MPIRequest>& value) {
+  requests_ = value;
+}
+
+void MPIRequestList::add_requests(MPIRequest value) {
+  requests_.push_back(value);
+}
+
+void MPIRequestList::ParseFromString(MPIRequestList& request_list,
+                                     const std::string& input) {
+  auto obj =
+      flatbuffers::GetRoot<wire::MPIRequestList>((uint8_t*)input.c_str());
+  for (auto it = obj->requests()->begin(); it != obj->requests()->end(); it++) {
+    MPIRequest request;
+    MPIRequest_ParseFromWire(request, *it);
+    request_list.add_requests(std::move(request));
+  }
+}
+
+void MPIRequestList::SerializeToString(MPIRequestList& request_list,
+                                       std::string& output) {
+  flatbuffers::FlatBufferBuilder builder(1024);
+  wire::MPIRequestListBuilder request_list_builder(builder);
+  std::vector<flatbuffers::Offset<wire::MPIRequest>> requests;
+  for (auto it = request_list.requests().begin();
+       it != request_list.requests().end(); it++) {
+    flatbuffers::Offset<wire::MPIRequest> req_obj;
+    MPIRequest_SerializeToWire(*it, builder, req_obj);
+    requests.push_back(req_obj);
+  }
+  request_list_builder.add_requests(builder.CreateVector(requests));
+  auto obj = request_list_builder.Finish();
   builder.Finish(obj);
 
   uint8_t* buf = builder.GetBufferPointer();
