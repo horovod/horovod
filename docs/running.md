@@ -9,9 +9,9 @@ Starting with the Open MPI 3, it's important to add the `-bind-to none` and `-ma
 specifies Open MPI to not bind a training process to a single CPU core (which would hurt performance). `-map-by slot`
 allows you to have a mixture of different NUMA configurations because the default behavior is to bind to the socket.
 
-`-mca pml ob1` and `-mca btl ^openib` flags force the use of TCP for MPI communication.  This avoid many multiprocessing
+`-mca pml ob1` and `-mca btl ^openib` flags force the use of TCP for MPI communication.  This avoids many multiprocessing
 issues that Open MPI has with RDMA which typically result in segmentation faults.  Using TCP for MPI does not have
-noticeable performance impact since most of the heavy communication is done by NCCL which will use RDMA via RoCE or
+noticeable performance impact since most of the heavy communication is done by NCCL, which will use RDMA via RoCE or
 InfiniBand if they're available (see [Horovod on GPU](gpus.md)).
 
 With the `-x` option you can specify (`-x NCCL_DEBUG=INFO`) or copy (`-x LD_LIBRARY_PATH`) an environment variable to all

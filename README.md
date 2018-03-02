@@ -168,9 +168,9 @@ See a full training [example](examples/tensorflow_mnist_estimator.py).
 ## mpi4py
 
 Horovod supports mixing and matching Horovod collectives with other MPI libraries, such as [mpi4py](mpi4py.scipy.org),
-provided that MPI was built with multi-threading support.
+provided that the MPI was built with multi-threading support.
 
-You can check for MPI multi-threading support by querying `hvd.mpi_threads_supported()` function.
+You can check for MPI multi-threading support by querying the `hvd.mpi_threads_supported()` function.
 
 **Note**: Make sure that MPI library will **NOT** re-initialize MPI.  For example:
 
