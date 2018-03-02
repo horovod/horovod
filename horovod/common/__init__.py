@@ -38,13 +38,13 @@ MPI_COMMON_LIB_CTYPES = \
 
 
 def init():
-    """A function which initializes Horovod.
+    """A function that initializes Horovod.
     """
     return MPI_COMMON_LIB_CTYPES.horovod_init()
 
 
 def size():
-    """A function which returns the number of Horovod processes.
+    """A function that returns the number of Horovod processes.
 
     Returns:
       An integer scalar containing the number of Horovod processes.
@@ -57,7 +57,7 @@ def size():
 
 
 def local_size():
-    """A function which returns the number of Horovod processes within the
+    """A function that returns the number of Horovod processes within the
     node the current process is running on.
 
     Returns:
@@ -71,7 +71,7 @@ def local_size():
 
 
 def rank():
-    """A function which returns the Horovod rank of the calling process.
+    """A function that returns the Horovod rank of the calling process.
 
     Returns:
       An integer scalar with the Horovod rank of the calling process.
@@ -84,7 +84,7 @@ def rank():
 
 
 def local_rank():
-    """A function which returns the local Horovod rank of the calling process, within the
+    """A function that returns the local Horovod rank of the calling process, within the
     node that it is running on. For example, if there are seven processes running
     on a node, their local ranks will be zero through six, inclusive.
 
@@ -96,3 +96,19 @@ def local_rank():
         raise ValueError(
             'Horovod has not been initialized; use hvd.init().')
     return local_rank
+
+
+def mpi_threads_supported():
+    """A function that returns a flag indicating whether MPI multi-threading is supported.
+
+    If MPI multi-threading is supported, users may mix and match Horovod usage with other
+    MPI libraries, such as `mpi4py`.
+
+    Returns:
+      A boolean value indicating whether MPI multi-threading is supported.
+    """
+    mpi_threads_supported = MPI_COMMON_LIB_CTYPES.mpi_threads_supported()
+    if mpi_threads_supported == -1:
+        raise ValueError(
+            'Horovod has not been initialized; use hvd.init().')
+    return bool(mpi_threads_supported)

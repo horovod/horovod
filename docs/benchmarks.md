@@ -18,28 +18,12 @@ $ cd benchmarks
 
 3. Run the benchmark. Examples below are for Open MPI.
 
-    1. If you have a network with RoCE / InfiniBand (recommended):
-    
     ```bash
     $ mpirun -np 16 \
         -H server1:4,server2:4,server3:4,server4:4 \
         -bind-to none -map-by slot \
         -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
-        -mca pml ob1 -mca btl_openib_receive_queues P,128,32:P,2048,32:P,12288,32:P,65536,32 \
-        \
-        python scripts/tf_cnn_benchmarks/tf_cnn_benchmarks.py \
-            --model resnet101 \
-            --batch_size 64 \
-            --variable_update horovod
-    ```
-
-    2. If you have a plain TCP network:
-    
-    ```bash
-    $ mpirun -np 16 \
-        -H server1:4,server2:4,server3:4,server4:4 \
-        -bind-to none -map-by slot \
-        -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+        -mca pml ob1 -mca btl ^openib \
         \
         python scripts/tf_cnn_benchmarks/tf_cnn_benchmarks.py \
             --model resnet101 \
@@ -62,31 +46,12 @@ and convert it using the TFRecord [preprocessing script](https://github.com/tens
 
 Now, simply add `--data_dir /path/to/imagenet/tfrecords --data_name imagenet --num_batches=2000` to your training command:
 
-1. If you have a network with RoCE / InfiniBand (recommended):
-
 ```bash
 $ mpirun -np 16 \
     -H server1:4,server2:4,server3:4,server4:4 \
     -bind-to none -map-by slot \
     -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
-    -mca pml ob1 -mca btl_openib_receive_queues P,128,32:P,2048,32:P,12288,32:P,65536,32 \
-    \
-    python scripts/tf_cnn_benchmarks/tf_cnn_benchmarks.py \
-        --model resnet101 \
-        --batch_size 64 \
-        --variable_update horovod \
-        --data_dir /path/to/imagenet/tfrecords \
-        --data_name imagenet \
-        --num_batches=2000
-```
-
-2. If you have a plain TCP network:
-
-```bash
-$ mpirun -np 16 \
-    -H server1:4,server2:4,server3:4,server4:4 \
-    -bind-to none -map-by slot \
-    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    -mca pml ob1 -mca btl ^openib \
     \
     python scripts/tf_cnn_benchmarks/tf_cnn_benchmarks.py \
         --model resnet101 \

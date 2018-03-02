@@ -149,11 +149,13 @@ struct HorovodGlobalState {
   // Whether MPI_Init has been completed on the background thread.
   bool initialization_done = false;
 
-  // The MPI rank, local rank, size, and local size.
+  // The MPI rank, local rank, size, local size and flag indicating whether MPI
+  // multi-threading is supported.
   int rank = 0;
   int local_rank = 0;
   int size = 1;
   int local_size = 1;
+  bool mpi_threads_supported = false;
 
 // The CUDA stream used for data transfers and within-allreduce operations.
 // A naive implementation would use the TensorFlow StreamExecutor CUDA
@@ -1153,7 +1155,11 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
 void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Initialize MPI. This must happen on the background thread, since not all
   // MPI implementations support being called from multiple threads.
-  MPI_Init(NULL, NULL);
+  //
+  // We will ask for multiple threads, so other libraries like mpi4py can
+  // be used together with Horovod if multi-threaded MPI is installed.
+  int provided;
+  MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &provided);
 
   // Get MPI rank to determine if we are rank zero.
   int rank;
@@ -1176,6 +1182,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.local_rank = local_rank;
   state.size = size;
   state.local_size = local_size;
+  state.mpi_threads_supported = (provided == MPI_THREAD_MULTIPLE);
   state.initialization_done = true;
 
   // Open the timeline file on coordinator.
@@ -1475,6 +1482,13 @@ int horovod_local_size() {
     return -1;
   }
   return horovod_global.local_size;
+}
+
+int horovod_mpi_threads_supported() {
+  if (!horovod_global.initialization_done) {
+    return -1;
+  }
+  return horovod_global.mpi_threads_supported ? 1 : 0;
 }
 }
 

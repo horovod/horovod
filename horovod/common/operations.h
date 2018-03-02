@@ -43,7 +43,7 @@ void horovod_init();
 // Returns -1 if Horovod is not initialized.
 int horovod_rank();
 
-// C interface to get index of current Horovod process in the node it is on..
+// C interface to get index of current Horovod process in the node it is on.
 // Returns -1 if Horovod is not initialized.
 int horovod_local_rank();
 
@@ -51,9 +51,13 @@ int horovod_local_rank();
 // Returns -1 if Horovod is not initialized.
 int horovod_size();
 
-// C interface to return number of Horovod processes in the node it is on..
+// C interface to return number of Horovod processes in the node it is on.
 // Returns -1 if Horovod is not initialized.
 int horovod_local_size();
+
+// C interface to return flag indicating whether MPI multi-threading is
+// supported. Returns -1 if Horovod is not initialized.
+int horovod_mpi_threads_supported();
 }
 
 void EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
