@@ -1483,13 +1483,13 @@ int horovod_local_size() {
   }
   return horovod_global.local_size;
 }
-}
 
-extern "C" int horovod_mpi_threads_supported() {
+int horovod_mpi_threads_supported() {
   if (!horovod_global.initialization_done) {
     return -1;
   }
   return horovod_global.mpi_threads_supported ? 1 : 0;
+}
 }
 
 // MPI must be initialized and the background thread must be running before
