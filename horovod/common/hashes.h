@@ -41,7 +41,7 @@ template <typename T> struct hash<std::vector<T>> {
 
   result_type operator()(argument_type const& in) const {
     size_t size = in.size();
-    size_t seed = 0;
+    result_type seed = 0;
     for (size_t i = 0; i < size; i++)
       seed = hash_one<T>(in[i], seed);
     return seed;
@@ -53,7 +53,7 @@ template <typename U, typename V> struct hash<std::tuple<U, V>> {
   typedef std::size_t result_type;
 
   result_type operator()(argument_type const& in) const {
-    size_t seed = 0;
+    result_type seed = 0;
     seed = hash_one<U>(std::get<0>(in), seed);
     seed = hash_one<V>(std::get<1>(in), seed);
     return seed;

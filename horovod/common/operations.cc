@@ -1438,34 +1438,37 @@ Status CheckInitialized() {
   return Status::OK();
 }
 
-extern "C" void horovod_init() { InitializeHorovodOnce(); }
+extern "C" {
 
-extern "C" int horovod_rank() {
+void horovod_init() { InitializeHorovodOnce(); }
+
+int horovod_rank() {
   if (!horovod_global.initialization_done) {
     return -1;
   }
   return horovod_global.rank;
 }
 
-extern "C" int horovod_local_rank() {
+int horovod_local_rank() {
   if (!horovod_global.initialization_done) {
     return -1;
   }
   return horovod_global.local_rank;
 }
 
-extern "C" int horovod_size() {
+int horovod_size() {
   if (!horovod_global.initialization_done) {
     return -1;
   }
   return horovod_global.size;
 }
 
-extern "C" int horovod_local_size() {
+int horovod_local_size() {
   if (!horovod_global.initialization_done) {
     return -1;
   }
   return horovod_global.local_size;
+}
 }
 
 // MPI must be initialized and the background thread must be running before
