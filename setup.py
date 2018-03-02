@@ -13,9 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 import os
-from distutils.errors import CompileError, DistutilsError, DistutilsPlatformError, LinkError
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
+from distutils.errors import CompileError, DistutilsError, DistutilsPlatformError, LinkError
 import shlex
 import subprocess
 import sys
@@ -25,6 +25,7 @@ import traceback
 from horovod import __version__
 
 
+common_mpi_lib = Extension('horovod.common.mpi_lib', [])
 tensorflow_mpi_lib = Extension('horovod.tensorflow.mpi_lib', [])
 
 
@@ -294,11 +295,8 @@ def get_nccl_dirs(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
     return nccl_include_dirs, nccl_lib_dirs
 
 
-def fully_define_extension(build_ext):
-    check_tf_version()
-
+def get_common_options(build_ext):
     cpp_flags = get_cpp_flags(build_ext)
-    tf_compile_flags, tf_link_flags = get_tf_flags(build_ext, cpp_flags)
     mpi_flags = get_mpi_flags()
 
     gpu_allreduce = os.environ.get('HOROVOD_GPU_ALLREDUCE')
@@ -333,11 +331,9 @@ def fully_define_extension(build_ext):
 
     MACROS = []
     INCLUDES = []
-    SOURCES = ['horovod/tensorflow/mpi_message.cc',
-               'horovod/tensorflow/mpi_ops.cc',
-               'horovod/tensorflow/timeline.cc']
-    COMPILE_FLAGS = cpp_flags + shlex.split(mpi_flags) + tf_compile_flags
-    LINK_FLAGS = shlex.split(mpi_flags) + tf_link_flags
+    SOURCES = []
+    COMPILE_FLAGS = cpp_flags + shlex.split(mpi_flags)
+    LINK_FLAGS = shlex.split(mpi_flags)
     LIBRARY_DIRS = []
     LIBRARIES = []
 
@@ -363,20 +359,55 @@ def fully_define_extension(build_ext):
     if gpu_broadcast:
         MACROS += [('HOROVOD_GPU_BROADCAST', "'%s'" % gpu_broadcast[0])]
 
-    tensorflow_mpi_lib.define_macros = MACROS
-    tensorflow_mpi_lib.include_dirs = INCLUDES
-    tensorflow_mpi_lib.sources = SOURCES
-    tensorflow_mpi_lib.extra_compile_args = COMPILE_FLAGS
-    tensorflow_mpi_lib.extra_link_args = LINK_FLAGS
-    tensorflow_mpi_lib.library_dirs = LIBRARY_DIRS
-    tensorflow_mpi_lib.libraries = LIBRARIES
+    return dict(MACROS=MACROS,
+                INCLUDES=INCLUDES,
+                SOURCES=SOURCES,
+                COMPILE_FLAGS=COMPILE_FLAGS,
+                LINK_FLAGS=LINK_FLAGS,
+                LIBRARY_DIRS=LIBRARY_DIRS,
+                LIBRARIES=LIBRARIES)
+
+
+def build_common_extension(build_ext, options, abi_compile_flags):
+    common_mpi_lib.define_macros = options['MACROS']
+    common_mpi_lib.include_dirs = options['INCLUDES']
+    common_mpi_lib.sources = options['SOURCES'] + ['horovod/common/common.cc',
+                                                   'horovod/common/mpi_message.cc',
+                                                   'horovod/common/operations.cc',
+                                                   'horovod/common/timeline.cc']
+    common_mpi_lib.extra_compile_args = options['COMPILE_FLAGS'] + abi_compile_flags
+    common_mpi_lib.extra_link_args = options['LINK_FLAGS']
+    common_mpi_lib.library_dirs = options['LIBRARY_DIRS']
+    common_mpi_lib.libraries = options['LIBRARIES']
+
+    build_ext.build_extension(common_mpi_lib)
+
+
+def build_tf_extension(build_ext, options):
+    check_tf_version()
+    tf_compile_flags, tf_link_flags = get_tf_flags(build_ext, options['COMPILE_FLAGS'])
+
+    tensorflow_mpi_lib.define_macros = options['MACROS']
+    tensorflow_mpi_lib.include_dirs = options['INCLUDES']
+    tensorflow_mpi_lib.sources = options['SOURCES'] + ['horovod/tensorflow/mpi_ops.cc']
+    tensorflow_mpi_lib.extra_compile_args = options['COMPILE_FLAGS'] + tf_compile_flags
+    tensorflow_mpi_lib.extra_link_args = options['LINK_FLAGS'] + tf_link_flags
+    tensorflow_mpi_lib.library_dirs = options['LIBRARY_DIRS']
+    tensorflow_mpi_lib.libraries = options['LIBRARIES']
+
+    build_ext.build_extension(tensorflow_mpi_lib)
+
+    # Return ABI flags used for TensorFlow compilation.  We will use this flag
+    # to compile all the libraries.
+    return [flag for flag in tf_compile_flags if '_GLIBCXX_USE_CXX11_ABI' in flag]
 
 
 # run the customize_compiler
 class custom_build_ext(build_ext):
     def build_extensions(self):
-        fully_define_extension(self)
-        build_ext.build_extensions(self)
+        options = get_common_options(self)
+        abi_compile_flags = build_tf_extension(self, options)
+        build_common_extension(self, options, abi_compile_flags)
 
 
 setup(name='horovod',
@@ -392,6 +423,6 @@ setup(name='horovod',
       classifiers=[
           'License :: OSI Approved :: Apache Software License'
       ],
-      ext_modules=[tensorflow_mpi_lib],
+      ext_modules=[common_mpi_lib, tensorflow_mpi_lib],
       cmdclass={'build_ext': custom_build_ext},
       zip_safe=False)

@@ -1,4 +1,4 @@
-// Copyright 2017 Uber Technologies, Inc. All Rights Reserved.
+// Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,11 +14,12 @@
 // =============================================================================
 
 #include <sstream>
+#include <assert.h>
 
 #include "timeline.h"
 
 namespace horovod {
-namespace tensorflow {
+namespace common {
 
 void Timeline::Initialize(std::string file_name) {
   file_.open(file_name, std::ios::out | std::ios::trunc);
@@ -144,7 +145,8 @@ void Timeline::Start(const std::string& tensor_name,
   tensor_states_[tensor_name] = TimelineState::TOP_LEVEL;
 }
 
-void Timeline::ActivityStart(const std::string& tensor_name, const std::string& activity) {
+void Timeline::ActivityStart(const std::string& tensor_name,
+                             const std::string& activity) {
   if (!initialized_) {
     return;
   }
@@ -162,46 +164,7 @@ void Timeline::ActivityEnd(const std::string& tensor_name) {
   tensor_states_[tensor_name] = TimelineState::TOP_LEVEL;
 }
 
-namespace {
-
-// Trying to use TensorFlow's default DataType_Name leads to linking issue with
-// Protobuf library.
-std::string TFDataType_Name(DataType dtype) {
-  switch (dtype) {
-  case DT_UINT8:
-    static const std::string uint8("uint8");
-    return uint8;
-  case DT_INT8:
-    static const std::string int8("int8");
-    return int8;
-  case DT_UINT16:
-    static const std::string uint16("uint16");
-    return uint16;
-  case DT_INT16:
-    static const std::string int16("int16");
-    return int16;
-  case DT_INT32:
-    static const std::string int32("int32");
-    return int32;
-  case DT_INT64:
-    static const std::string int64("int64");
-    return int64;
-  case DT_FLOAT:
-    static const std::string float_("float");
-    return float_;
-  case DT_DOUBLE:
-    static const std::string double_("double");
-    return double_;
-  default:
-    static const std::string unknown("<unknown>");
-    return unknown;
-  }
-}
-
-} // namespace
-
-void Timeline::End(const std::string& tensor_name,
-                   const Tensor* output_tensor) {
+void Timeline::End(const std::string& tensor_name, const std::shared_ptr<Tensor> tensor) {
   if (!initialized_) {
     return;
   }
@@ -212,12 +175,12 @@ void Timeline::End(const std::string& tensor_name,
   }
 
   std::stringstream args;
-  if (output_tensor != nullptr) {
-    args << "\"dtype\": \"" << TFDataType_Name(output_tensor->dtype()) << "\"";
-    args << ", \"shape\": \"" << output_tensor->shape().DebugString() << "\"";
+  if (tensor != nullptr) {
+    args << "\"dtype\": \"" << MPIDataType_Name(tensor->dtype()) << "\"";
+    args << ", \"shape\": \"" << tensor->shape().DebugString() << "\"";
   }
   WriteEvent(tensor_name, 'E', "", args.str());
 }
 
-} // namespace tensorflow
+} // namespace common
 } // namespace horovod

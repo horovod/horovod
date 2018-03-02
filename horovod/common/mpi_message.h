@@ -1,5 +1,5 @@
 // Copyright 2016 The TensorFlow Authors. All Rights Reserved.
-// Modifications copyright (C) 2017 Uber Technologies, Inc.
+// Modifications copyright (C) 2018 Uber Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,18 +21,18 @@
 #include <vector>
 
 namespace horovod {
-namespace tensorflow {
+namespace common {
 
 enum MPIDataType {
-  TF_MPI_UINT8 = 0,
-  TF_MPI_INT8 = 1,
-  TF_MPI_UINT16 = 2,
-  TF_MPI_INT16 = 3,
-  TF_MPI_INT32 = 4,
-  TF_MPI_INT64 = 5,
-  TF_MPI_FLOAT32 = 6,
-  TF_MPI_FLOAT64 = 7,
-  TF_MPI_BOOL = 8
+  HOROVOD_UINT8 = 0,
+  HOROVOD_INT8 = 1,
+  HOROVOD_UINT16 = 2,
+  HOROVOD_INT16 = 3,
+  HOROVOD_INT32 = 4,
+  HOROVOD_INT64 = 5,
+  HOROVOD_FLOAT32 = 6,
+  HOROVOD_FLOAT64 = 7,
+  HOROVOD_BOOL = 8
 };
 
 const std::string& MPIDataType_Name(MPIDataType value);
@@ -138,7 +138,7 @@ private:
   std::vector<int64_t> tensor_sizes_;
 };
 
-} // namespace tensorflow
+} // namespace common
 } // namespace horovod
 
 #endif // HOROVOD_MPI_MESSAGE_H

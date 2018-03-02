@@ -1,5 +1,5 @@
 // Copyright 2016 The TensorFlow Authors. All Rights Reserved.
-// Modifications copyright (C) 2017 Uber Technologies, Inc.
+// Modifications copyright (C) 2018 Uber Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,35 +19,35 @@
 #include <iostream>
 
 namespace horovod {
-namespace tensorflow {
+namespace common {
 
 const std::string& MPIDataType_Name(MPIDataType value) {
   switch (value) {
-  case TF_MPI_UINT8:
+  case HOROVOD_UINT8:
     static const std::string uint8("uint8");
     return uint8;
-  case TF_MPI_INT8:
+  case HOROVOD_INT8:
     static const std::string int8("int8");
     return int8;
-  case TF_MPI_UINT16:
+  case HOROVOD_UINT16:
     static const std::string uint16("uint16");
     return uint16;
-  case TF_MPI_INT16:
+  case HOROVOD_INT16:
     static const std::string int16("int16");
     return int16;
-  case TF_MPI_INT32:
+  case HOROVOD_INT32:
     static const std::string int32("int32");
     return int32;
-  case TF_MPI_INT64:
+  case HOROVOD_INT64:
     static const std::string int64("int64");
     return int64;
-  case TF_MPI_FLOAT32:
+  case HOROVOD_FLOAT32:
     static const std::string float32("float32");
     return float32;
-  case TF_MPI_FLOAT64:
+  case HOROVOD_FLOAT64:
     static const std::string float64("float64");
     return float64;
-  case TF_MPI_BOOL:
+  case HOROVOD_BOOL:
     static const std::string bool_("bool");
     return bool_;
   default:
@@ -254,5 +254,5 @@ void MPIResponse::SerializeToString(MPIResponse& response,
   output = std::string((char*)buf, size);
 }
 
-} // namespace tensorflow
+} // namespace common
 } // namespace horovod

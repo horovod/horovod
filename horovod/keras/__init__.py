@@ -17,10 +17,11 @@ import keras.backend as K
 import tensorflow as tf
 
 import horovod.tensorflow as hvd
-from horovod.tensorflow import init
-from horovod.tensorflow import size
-from horovod.tensorflow import rank
-from horovod.tensorflow import local_rank
+from horovod.common import init
+from horovod.common import size
+from horovod.common import local_size
+from horovod.common import rank
+from horovod.common import local_rank
 from horovod.keras import callbacks
 
 
