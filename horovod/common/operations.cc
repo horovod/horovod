@@ -1218,22 +1218,27 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     // tensor count table (rank zero) or send them to rank zero to be
     // recorded (everyone else).
     std::vector<std::string> ready_to_reduce;
-    while (!message_queue.empty()) {
-      // Pop the first available message message
-      MPIRequest message = message_queue.front();
-      message_queue.pop();
+    if (is_coordinator) {
+      while (!message_queue.empty()) {
+        // Pop the first available message message
+        MPIRequest message = message_queue.front();
+        message_queue.pop();
 
-      if (is_coordinator) {
         bool reduce = IncrementTensorCount(state.message_table, message, size);
         if (reduce) {
           ready_to_reduce.push_back(message.tensor_name());
         }
-      } else {
-        std::string encoded_message;
-        MPIRequest::SerializeToString(message, encoded_message);
-        MPI_Send(encoded_message.c_str(), (int)encoded_message.length() + 1,
-                 MPI_BYTE, RANK_ZERO, TAG_NOTIFY, MPI_COMM_WORLD);
       }
+    } else {
+      std::string encoded_message;
+      MPIRequestList message_list;
+      while (!message_queue.empty()) {
+        message_list.add_requests(message_queue.front());
+        message_queue.pop();
+      }
+      MPIRequestList::SerializeToString(message_list, encoded_message);
+      MPI_Send(encoded_message.c_str(), (int)encoded_message.length() + 1,
+               MPI_BYTE, RANK_ZERO, TAG_NOTIFY, MPI_COMM_WORLD);
     }
 
     // Rank zero has put all its own tensors in the tensor count table.
@@ -1269,14 +1274,16 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
         std::string received_data(buffer, (size_t)msg_length);
         delete[] buffer;
 
-        MPIRequest received_message;
-        MPIRequest::ParseFromString(received_message, received_data);
-        auto received_name = received_message.tensor_name();
+        MPIRequestList received_message_list;
+        MPIRequestList::ParseFromString(received_message_list, received_data);
+        for (auto& received_message : received_message_list.requests()) {
+          auto received_name = received_message.tensor_name();
 
-        bool reduce =
-            IncrementTensorCount(state.message_table, received_message, size);
-        if (reduce) {
-          ready_to_reduce.push_back(received_name);
+          bool reduce =
+              IncrementTensorCount(state.message_table, received_message, size);
+          if (reduce) {
+            ready_to_reduce.push_back(received_name);
+          }
         }
       }
 

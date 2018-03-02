@@ -84,6 +84,21 @@ private:
   std::vector<int64_t> tensor_shape_;
 };
 
+class MPIRequestList {
+public:
+  const std::vector<MPIRequest>& requests() const;
+  void set_requests(const std::vector<MPIRequest>& value);
+  void add_requests(MPIRequest value);
+
+  static void ParseFromString(MPIRequestList& request_list,
+                              const std::string& input);
+  static void SerializeToString(MPIRequestList& request_list,
+                                std::string& output);
+
+private:
+  std::vector<MPIRequest> requests_;
+};
+
 // An MPIResponse is a message sent from the coordinator (rank zero) to a rank
 // greater than zero, informing the rank of an operation should be performed
 // now. If the operation requested would result in an error (for example, due

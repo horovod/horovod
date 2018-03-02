@@ -56,6 +56,9 @@ table MPIRequest {
     // to TensorFlow protos causes issues. See the comment for MPIDataType.
     tensor_shape:[long];
 }
+table MPIRequestList {
+    requests:[MPIRequest];
+}
 
 // An MPIResponse is a message sent from the coordinator (rank zero) to a rank
 // greater than zero, informing the rank of an operation should be performed

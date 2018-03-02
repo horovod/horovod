@@ -1,4 +1,4 @@
-// Copyright 2017 Uber Technologies, Inc. All Rights Reserved.
+// Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@ namespace common {
 namespace wire {
 
 struct MPIRequest;
+
+struct MPIRequestList;
 
 struct MPIResponse;
 
@@ -236,6 +238,56 @@ inline flatbuffers::Offset<MPIRequest> CreateMPIRequestDirect(
       root_rank,
       device,
       tensor_shape ? _fbb.CreateVector<int64_t>(*tensor_shape) : 0);
+}
+
+struct MPIRequestList FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  enum {
+    VT_REQUESTS = 4
+  };
+  const flatbuffers::Vector<flatbuffers::Offset<MPIRequest>> *requests() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<MPIRequest>> *>(VT_REQUESTS);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<flatbuffers::uoffset_t>(verifier, VT_REQUESTS) &&
+           verifier.Verify(requests()) &&
+           verifier.VerifyVectorOfTables(requests()) &&
+           verifier.EndTable();
+  }
+};
+
+struct MPIRequestListBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_requests(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<MPIRequest>>> requests) {
+    fbb_.AddOffset(MPIRequestList::VT_REQUESTS, requests);
+  }
+  MPIRequestListBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  MPIRequestListBuilder &operator=(const MPIRequestListBuilder &);
+  flatbuffers::Offset<MPIRequestList> Finish() {
+    const auto end = fbb_.EndTable(start_, 1);
+    auto o = flatbuffers::Offset<MPIRequestList>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<MPIRequestList> CreateMPIRequestList(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<MPIRequest>>> requests = 0) {
+  MPIRequestListBuilder builder_(_fbb);
+  builder_.add_requests(requests);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<MPIRequestList> CreateMPIRequestListDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<flatbuffers::Offset<MPIRequest>> *requests = nullptr) {
+  return horovod::common::wire::CreateMPIRequestList(
+      _fbb,
+      requests ? _fbb.CreateVector<flatbuffers::Offset<MPIRequest>>(*requests) : 0);
 }
 
 struct MPIResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
