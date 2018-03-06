@@ -20,7 +20,7 @@ After the container is built, run it using [nvidia-docker](https://github.com/NV
 
 ```bash
 $ nvidia-docker run -it horovod:latest
-root@c278c88dd552:/examples# mpirun -np 4 -H localhost:4 python keras_mnist_advances.py
+root@c278c88dd552:/examples# mpirun -np 4 -H localhost:4 python keras_mnist_advanced.py
 ```
 
 You may notice that this command does not have a few options recommended in other parts of documentation: 

@@ -50,7 +50,7 @@ To use CUDA stub drivers:
 $ ldconfig /usr/local/cuda/lib64/stubs
 
 # install Horovod, add other HOROVOD_* environment variables as necessary
-$ pip install --no-cache-dir horovod
+$ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_HOME=/path/to/nccl pip install --no-cache-dir horovod
 
 # revert to standard libraries
 $ ldconfig
@@ -82,7 +82,7 @@ To use custom MPI directory:
 
 ```bash
 $ export PATH=$PATH:/path/to/mpi/bin
-$ pip install --no-cache-dir horovod
+$ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_HOME=/path/to/nccl pip install --no-cache-dir horovod
 ```
 
 2. Are MPI libraries added to `$LD_LIBRARY_PATH` or `ld.so.conf`?
@@ -177,37 +177,6 @@ Or:
 $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_INCLUDE=/path/to/nccl/include HOROVOD_NCCL_LIB=/path/to/nccl/lib pip install --no-cache-dir horovod
 ```
 
-### NCCL 2 is not found during runtime
-
-If you see the error message below, it means NCCL 2 was not found in the standard libraries location. You should add the directory
-where you installed NCCL 2 libraries to the `LD_LIBRARY_PATH` environment variable.
-
-```
-Traceback (most recent call last):
-  File "tf_cnn_benchmarks.py", line 46, in <module>
-    import horovod.tensorflow as hvd
-  File "/home/asergeev/mpi/venv-nccl/local/lib/python2.7/site-packages/horovod/tensorflow/__init__.py", line 34, in <module>
-    from horovod.tensorflow.mpi_ops import size
-  File "/home/asergeev/mpi/venv-nccl/local/lib/python2.7/site-packages/horovod/tensorflow/mpi_ops.py", line 74, in <module>
-    ['HorovodAllgather', 'HorovodAllreduce'])
-  File "/home/asergeev/mpi/venv-nccl/local/lib/python2.7/site-packages/horovod/tensorflow/mpi_ops.py", line 56, in _load_library
-    library = load_library.load_op_library(filename)
-  File "/home/asergeev/mpi/venv-nccl/local/lib/python2.7/site-packages/tensorflow/python/framework/load_library.py", line 64, in load_op_library
-    None, None, error_msg, error_code)
-tensorflow.python.framework.errors_impl.NotFoundError: libnccl.so.2: cannot open shared object file: No such file or directory
-```
-
-For example:
-
-```bash
-$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/nccl-<version>/lib
-$ mpirun -np 4 \
-    -H localhost:4 \
-    -bind-to none -map-by slot \
-    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
-    python train.py
-```
-
 ### Pip install: no such option: --no-cache-dir
 
 If you see the error message below, it means that your version of pip is out of date. You can remove the `--no-cache-dir` flag
@@ -231,7 +200,7 @@ no such option: --no-cache-dir
 For example:
 
 ```bash
-$ pip install horovod
+$ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_HOME=/path/to/nccl pip install --no-cache-dir horovod
 ```
 
 ### ncclCommInitRank failed: unhandled cuda error
@@ -255,6 +224,39 @@ $ mpirun -np 4 \
     -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
     python train.py
 ```
+
+### ncclAllReduce failed: invalid data type
+
+If you see the error message below during the training, it means that Horovod was linked to the wrong version of NCCL
+library.
+
+```
+UnknownError (see above for traceback): ncclAllReduce failed: invalid data type
+         [[Node: DistributedMomentumOptimizer_Allreduce/HorovodAllreduce_gradients_AddN_2_0 = HorovodAllreduce[T=DT_FLOAT, _device="/job:localhost/replica:0/task:0/device:GPU:0"](gradients/AddN_2)]]
+         [[Node: train_op/_653 = _Recv[client_terminated=false, recv_device="/job:localhost/replica:0/task:0/device:CPU:0", send_device="/job:localhost/replica:0/task:0/device:GPU:0", send_device_incarnation=1, tensor_name="edge_1601_train_op", tensor_type=DT_FLOAT, _device="/job:localhost/replica:0/task:0/device:CPU:
+0"]()]]
+```
+
+If you're using Anaconda or Miniconda, you most likely have the `nccl` package installed. The solution is to remove
+the package and reinstall Horovod:
+
+```bash
+$ conda remove nccl
+$ pip uninstall -y horovod
+$ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_HOME=/path/to/nccl pip install --no-cache-dir horovod
+```
+
+### transport/p2p.cu:431 WARN failed to open CUDA IPC handle : 30 unknown error
+
+If you see the error message below during the training with `-x NCCL_DEBUG=INFO`, it likely means that multiple servers
+share the same `hostname`.
+
+```
+node1:22671:22795 [1] transport/p2p.cu:431 WARN failed to open CUDA IPC handle : 30 unknown error
+```
+
+MPI and NCCL rely on hostnames to distinguish between servers, so you should make sure that every server has a unique
+hostname.
 
 ### Running out of memory
 

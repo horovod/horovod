@@ -39,6 +39,28 @@ $ mpirun -np 16 \
     python train.py
 ```
 
+### Hangs due to SSH issues
+
+The host where `mpirun` is executed must be able to SSH to all other hosts without any prompts.
+
+If `mpirun` hangs without any output, verify that you can ssh to every other server without entering a password or
+answering questions like this:
+
+```
+The authenticity of host '<hostname> (<ip address>)' can't be established.
+RSA key fingerprint is xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx.
+Are you sure you want to continue connecting (yes/no)?
+```
+
+To learn more about setting up passwordless authentication, see [this page](http://www.linuxproblem.org/art_9.html).
+
+To avoid `The authenticity of host '<hostname> (<ip address>)' can't be established` prompts, add all the hosts to
+the `~/.ssh/known_hosts` file using `ssh-keyscan`:
+
+```bash
+$ ssh-keyscan -t rsa,dsa server1 server2 > ~/.ssh/known_hosts
+```
+
 ### Hangs due to non-routed network interfaces
 
 Having network interfaces that are not routed can cause Open MPI to hang. An example of such interface is `docker0`.
