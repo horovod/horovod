@@ -41,7 +41,7 @@ $ mpirun -np 16 \
 
 ### Hangs due to SSH issues
 
-`mpirun` requires the host where it is executed to be able to SSH to all other hosts without any prompts.
+The host where `mpirun` is executed must be able to SSH to all other hosts without any prompts.
 
 If `mpirun` hangs without any output, verify that you can ssh to every other server without entering a password or
 answering questions like this:
@@ -52,10 +52,10 @@ RSA key fingerprint is xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx.
 Are you sure you want to continue connecting (yes/no)?
 ```
 
-To learn more about setting up passwordless authentication see [this page](http://www.linuxproblem.org/art_9.html).
+To learn more about setting up passwordless authentication, see [this page](http://www.linuxproblem.org/art_9.html).
 
 To avoid `The authenticity of host '<hostname> (<ip address>)' can't be established` prompts, add all the hosts to
-the `~/.ssh/known_hosts` file, e.g. using `ssh-keyscan`:
+the `~/.ssh/known_hosts` file using `ssh-keyscan`:
 
 ```bash
 $ ssh-keyscan -t rsa,dsa server1 server2 > ~/.ssh/known_hosts

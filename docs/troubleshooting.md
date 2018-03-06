@@ -227,7 +227,7 @@ $ mpirun -np 4 \
 
 ### ncclAllReduce failed: invalid data type
 
-If you see the error message below during the training, it means that Horovod was linked to a wrong version of NCCL
+If you see the error message below during the training, it means that Horovod was linked to the wrong version of NCCL
 library.
 
 ```
@@ -237,7 +237,7 @@ UnknownError (see above for traceback): ncclAllReduce failed: invalid data type
 0"]()]]
 ```
 
-If you're using Anaconda or Miniconda, you most likely have `nccl` package installed. The solution is to remove
+If you're using Anaconda or Miniconda, you most likely have the `nccl` package installed. The solution is to remove
 the package and reinstall Horovod:
 
 ```bash
