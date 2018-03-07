@@ -1,7 +1,7 @@
 FROM nvidia/cuda:9.0-cudnn7-devel-ubuntu16.04
 
 # TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
-ENV TENSORFLOW_VERSION=1.5.0
+ENV TENSORFLOW_VERSION=1.6.0
 
 # Python 2.7 or 3.5 is supported by Ubuntu Xenial out of the box
 ENV PYTHON_VERSION=2.7
