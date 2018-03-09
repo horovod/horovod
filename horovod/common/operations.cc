@@ -1237,15 +1237,17 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
         }
       }
     } else {
-      std::string encoded_message;
-      MPIRequestList message_list;
-      while (!message_queue.empty()) {
-        message_list.add_requests(message_queue.front());
-        message_queue.pop();
+      if (!message_queue.empty()) {
+        std::string encoded_message;
+        MPIRequestList message_list;
+        while (!message_queue.empty()) {
+          message_list.add_requests(message_queue.front());
+          message_queue.pop();
+        }
+        MPIRequestList::SerializeToString(message_list, encoded_message);
+        MPI_Send(encoded_message.c_str(), (int) encoded_message.length() + 1,
+                 MPI_BYTE, RANK_ZERO, TAG_NOTIFY, MPI_COMM_WORLD);
       }
-      MPIRequestList::SerializeToString(message_list, encoded_message);
-      MPI_Send(encoded_message.c_str(), (int)encoded_message.length() + 1,
-               MPI_BYTE, RANK_ZERO, TAG_NOTIFY, MPI_COMM_WORLD);
     }
 
     // Rank zero has put all its own tensors in the tensor count table.
@@ -1291,6 +1293,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
           if (reduce) {
             ready_to_reduce.push_back(received_name);
           }
+        }
+        if (received_message_list.shutdown()) {
+          // Received SHUTDOWN request from one of the workers.
+          state.shut_down = true;
         }
       }
 
@@ -1374,6 +1380,16 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
         state.last_stall_check = std::chrono::steady_clock::now();
       }
     } else {
+      if (state.shut_down) {
+        // Send a SHUTDOWN request to the coordinator.
+        std::string encoded_message;
+        MPIRequestList shutdown_request;
+        shutdown_request.set_shutdown(true);
+        MPIRequestList::SerializeToString(shutdown_request, encoded_message);
+        MPI_Send(encoded_message.c_str(), (int) encoded_message.length() + 1,
+                 MPI_BYTE, RANK_ZERO, TAG_NOTIFY, MPI_COMM_WORLD);
+      }
+
       // Notify the coordinator that this node is done sending messages.
       // A DONE message is encoded as a zero-length message.
       MPI_Send(NULL, 0, MPI_BYTE, RANK_ZERO, TAG_NOTIFY, MPI_COMM_WORLD);
