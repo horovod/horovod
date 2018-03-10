@@ -271,14 +271,6 @@ TFReadyEvent* RecordReadyEvent(OpKernelContext* context) {
 
 } // namespace
 
-// Use custom version since the default OP_REQUIRES_OK_ASYNC emits an
-// unnecessary warning message.
-#define OP_REQUIRES_OK_ASYNC(CTX, STATUS, CALLBACK)                            \
-  {                                                                            \
-    ::tensorflow::Status _s(STATUS);                                           \
-    OP_REQUIRES_ASYNC(CTX, _s.ok(), _s, CALLBACK);                             \
-  }
-
 class HorovodAllreduceOp : public AsyncOpKernel {
 public:
   explicit HorovodAllreduceOp(OpKernelConstruction* context)

@@ -99,7 +99,7 @@ public:
 
 private:
   std::vector<MPIRequest> requests_;
-  bool shutdown_;
+  bool shutdown_ = false;
 };
 
 // An MPIResponse is a message sent from the coordinator (rank zero) to a rank
