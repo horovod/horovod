@@ -60,25 +60,25 @@ int horovod_local_size();
 int horovod_mpi_threads_supported();
 }
 
-void EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
-                            std::shared_ptr<Tensor> tensor,
-                            std::shared_ptr<Tensor> output,
-                            std::shared_ptr<ReadyEvent> ready_event,
-                            const std::string name, const int device,
-                            StatusCallback callback);
+Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
+                              std::shared_ptr<Tensor> tensor,
+                              std::shared_ptr<Tensor> output,
+                              std::shared_ptr<ReadyEvent> ready_event,
+                              const std::string name, const int device,
+                              StatusCallback callback);
 
-void EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
-                            std::shared_ptr<Tensor> tensor,
-                            std::shared_ptr<ReadyEvent> ready_event,
-                            const std::string name, const int device,
-                            StatusCallback callback);
+Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
+                              std::shared_ptr<Tensor> tensor,
+                              std::shared_ptr<ReadyEvent> ready_event,
+                              const std::string name, const int device,
+                              StatusCallback callback);
 
-void EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
-                            std::shared_ptr<Tensor> tensor,
-                            std::shared_ptr<Tensor> output, int root_rank,
-                            std::shared_ptr<ReadyEvent> ready_event,
-                            const std::string name, const int device,
-                            StatusCallback callback);
+Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
+                              std::shared_ptr<Tensor> tensor,
+                              std::shared_ptr<Tensor> output, int root_rank,
+                              std::shared_ptr<ReadyEvent> ready_event,
+                              const std::string name, const int device,
+                              StatusCallback callback);
 
 } // namespace common
 } // namespace horovod
