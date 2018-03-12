@@ -6,8 +6,6 @@ ENV TENSORFLOW_VERSION=1.6.0
 # Python 2.7 or 3.5 is supported by Ubuntu Xenial out of the box
 ENV PYTHON_VERSION=2.7
 
-RUN echo "deb http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1604/x86_64 /" > /etc/apt/sources.list.d/nvidia-ml.list
-
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         cmake \
@@ -16,8 +14,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         vim \
         wget \
         ca-certificates \
-        libnccl2=2.1.4-1+cuda9.0 \
-        libnccl-dev=2.1.4-1+cuda9.0 \
         libjpeg-dev \
         libpng-dev \
         python$PYTHON_VERSION \
