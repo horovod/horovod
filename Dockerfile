@@ -1,7 +1,9 @@
-FROM nvidia/cuda:9.0-cudnn7-devel-ubuntu16.04
+FROM nvidia/cuda:9.0-devel-ubuntu16.04
 
 # TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
 ENV TENSORFLOW_VERSION=1.6.0
+ENV CUDNN_VERSION=7.0.5.15-1+cuda9.0
+ENV NCCL_VERSION=2.1.15-1+cuda9.0
 
 # Python 2.7 or 3.5 is supported by Ubuntu Xenial out of the box
 ENV PYTHON_VERSION=2.7
@@ -16,8 +18,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         vim \
         wget \
         ca-certificates \
-        libnccl2=2.1.4-1+cuda9.0 \
-        libnccl-dev=2.1.4-1+cuda9.0 \
+        libcudnn7=$CUDNN_VERSION \
+        libnccl2=$NCCL_VERSION \
+        libnccl-dev=$NCCL_VERSION \
         libjpeg-dev \
         libpng-dev \
         python$PYTHON_VERSION \
