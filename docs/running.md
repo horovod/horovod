@@ -23,7 +23,7 @@ the workers.
 $ mpirun -np 4 \
     -H localhost:4 \
     -bind-to none -map-by slot \
-    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
     -mca pml ob1 -mca btl ^openib \
     python train.py
 ```
@@ -34,7 +34,7 @@ $ mpirun -np 4 \
 $ mpirun -np 16 \
     -H server1:4,server2:4,server3:4,server4:4 \
     -bind-to none -map-by slot \
-    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
     -mca pml ob1 -mca btl ^openib \
     python train.py
 ```
@@ -110,7 +110,7 @@ For example:
 $ mpirun -np 16 \
     -H server1:4,server2:4,server3:4,server4:4 \
     -bind-to none -map-by slot \
-    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
     -x NCCL_SOCKET_IFNAME=^docker0 \
     -mca pml ob1 -mca btl ^openib \
     -mca btl_tcp_if_exclude lo,docker0 \
