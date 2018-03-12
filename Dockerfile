@@ -23,6 +23,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python$PYTHON_VERSION \
         python$PYTHON_VERSION-dev
 
+# Pin version of cuDNN until TensorFlow >1.6.0 is released
+RUN apt-get install -y --allow-downgrades --no-install-recommends \
+        libcudnn7=7.0.5.15-1+cuda9.0 \
+        libcudnn7-dev=7.0.5.15-1+cuda9.0
+
 RUN ln -s /usr/bin/python$PYTHON_VERSION /usr/bin/python
 
 RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
