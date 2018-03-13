@@ -221,7 +221,7 @@ $ export NCCL_DEBUG=INFO
 $ mpirun -np 4 \
     -H localhost:4 \
     -bind-to none -map-by slot \
-    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \
+    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
     python train.py
 ```
 
