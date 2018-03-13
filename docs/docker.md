@@ -23,8 +23,8 @@ $ nvidia-docker run -it horovod:latest
 root@c278c88dd552:/examples# mpirun -np 4 -H localhost:4 python keras_mnist_advanced.py
 ```
 
-You may notice that this command does not have a few options recommended in other parts of documentation: 
-`-bind-to none -map-by slot -x NCCL_DEBUG=INFO`.  These options are already set by default in the Docker container so
+This command does not have options recommended in other parts of the documentation. 
+`-bind-to none -map-by slot -x NCCL_DEBUG=INFO` options are already set by default in the Docker container so
 you don't need to repeat them in the command.  Options `-x LD_LIBRARY_PATH -x PATH` are not necessary because we assume
 that all the software is installed in the default system location in this Docker image.
 
