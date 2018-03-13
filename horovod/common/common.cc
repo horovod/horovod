@@ -41,6 +41,10 @@ Status Status::PreconditionError(std::string message) {
   return Status(StatusType::PRECONDITION_ERROR, message);
 }
 
+Status Status::Aborted(std::string message) {
+  return Status(StatusType::ABORTED, message);
+}
+
 bool Status::ok() const {
   return type_ == StatusType::OK;
 }

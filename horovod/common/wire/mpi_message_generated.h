@@ -242,16 +242,21 @@ inline flatbuffers::Offset<MPIRequest> CreateMPIRequestDirect(
 
 struct MPIRequestList FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum {
-    VT_REQUESTS = 4
+    VT_REQUESTS = 4,
+    VT_SHUTDOWN = 6
   };
   const flatbuffers::Vector<flatbuffers::Offset<MPIRequest>> *requests() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<MPIRequest>> *>(VT_REQUESTS);
+  }
+  bool shutdown() const {
+    return GetField<uint8_t>(VT_SHUTDOWN, 0) != 0;
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<flatbuffers::uoffset_t>(verifier, VT_REQUESTS) &&
            verifier.Verify(requests()) &&
            verifier.VerifyVectorOfTables(requests()) &&
+           VerifyField<uint8_t>(verifier, VT_SHUTDOWN) &&
            verifier.EndTable();
   }
 };
@@ -262,13 +267,16 @@ struct MPIRequestListBuilder {
   void add_requests(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<MPIRequest>>> requests) {
     fbb_.AddOffset(MPIRequestList::VT_REQUESTS, requests);
   }
+  void add_shutdown(bool shutdown) {
+    fbb_.AddElement<uint8_t>(MPIRequestList::VT_SHUTDOWN, static_cast<uint8_t>(shutdown), 0);
+  }
   MPIRequestListBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
   MPIRequestListBuilder &operator=(const MPIRequestListBuilder &);
   flatbuffers::Offset<MPIRequestList> Finish() {
-    const auto end = fbb_.EndTable(start_, 1);
+    const auto end = fbb_.EndTable(start_, 2);
     auto o = flatbuffers::Offset<MPIRequestList>(end);
     return o;
   }
@@ -276,18 +284,22 @@ struct MPIRequestListBuilder {
 
 inline flatbuffers::Offset<MPIRequestList> CreateMPIRequestList(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<MPIRequest>>> requests = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<MPIRequest>>> requests = 0,
+    bool shutdown = false) {
   MPIRequestListBuilder builder_(_fbb);
   builder_.add_requests(requests);
+  builder_.add_shutdown(shutdown);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<MPIRequestList> CreateMPIRequestListDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<flatbuffers::Offset<MPIRequest>> *requests = nullptr) {
+    const std::vector<flatbuffers::Offset<MPIRequest>> *requests = nullptr,
+    bool shutdown = false) {
   return horovod::common::wire::CreateMPIRequestList(
       _fbb,
-      requests ? _fbb.CreateVector<flatbuffers::Offset<MPIRequest>>(*requests) : 0);
+      requests ? _fbb.CreateVector<flatbuffers::Offset<MPIRequest>>(*requests) : 0,
+      shutdown);
 }
 
 struct MPIResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {

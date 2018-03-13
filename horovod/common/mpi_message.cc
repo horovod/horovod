@@ -170,6 +170,14 @@ void MPIRequestList::set_requests(const std::vector<MPIRequest>& value) {
   requests_ = value;
 }
 
+bool MPIRequestList::shutdown() const {
+  return shutdown_;
+}
+
+void MPIRequestList::set_shutdown(bool value) {
+  shutdown_ = value;
+}
+
 void MPIRequestList::add_requests(MPIRequest value) {
   requests_.push_back(value);
 }
@@ -183,6 +191,7 @@ void MPIRequestList::ParseFromString(MPIRequestList& request_list,
     MPIRequest_ParseFromWire(request, *it);
     request_list.add_requests(std::move(request));
   }
+  request_list.set_shutdown(obj->shutdown());
 }
 
 void MPIRequestList::SerializeToString(MPIRequestList& request_list,
@@ -197,6 +206,7 @@ void MPIRequestList::SerializeToString(MPIRequestList& request_list,
     requests.push_back(req_obj);
   }
   request_list_builder.add_requests(builder.CreateVector(requests));
+  request_list_builder.add_shutdown(request_list.shutdown());
   auto obj = request_list_builder.Finish();
   builder.Finish(obj);
 

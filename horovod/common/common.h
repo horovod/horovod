@@ -27,7 +27,7 @@ namespace common {
 // List of supported frameworks.
 enum Framework { TENSORFLOW };
 
-enum StatusType { OK, UNKNOWN_ERROR, PRECONDITION_ERROR };
+enum StatusType { OK, UNKNOWN_ERROR, PRECONDITION_ERROR, ABORTED };
 
 class Status {
 public:
@@ -35,6 +35,7 @@ public:
   static Status OK();
   static Status UnknownError(std::string message);
   static Status PreconditionError(std::string message);
+  static Status Aborted(std::string message);
   bool ok() const;
   StatusType type() const;
   const std::string& reason() const;

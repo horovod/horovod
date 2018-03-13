@@ -48,6 +48,8 @@ Status ConvertStatus(common::Status status) {
     return errors::Unknown(status.reason());
   case common::PRECONDITION_ERROR:
     return errors::FailedPrecondition(status.reason());
+  case common::ABORTED:
+    return errors::Aborted(status.reason());
   default:
     return errors::Unknown("Unknown error.");
   }
@@ -61,6 +63,8 @@ common::Status ConvertStatus(Status status) {
     return common::Status::UnknownError(status.error_message());
   case error::Code::FAILED_PRECONDITION:
     return common::Status::PreconditionError(status.error_message());
+  case error::Code::ABORTED:
+    return common::Status::Aborted(status.error_message());
   default:
     return common::Status::UnknownError("Unknown error.");
   }
@@ -238,7 +242,9 @@ TFOpContext::AllocateOutput(common::TensorShape shape,
   return ConvertStatus(status);
 }
 
-common::Framework TFOpContext::framework() const { return common::Framework::TENSORFLOW; }
+common::Framework TFOpContext::framework() const {
+  return common::Framework::TENSORFLOW;
+}
 
 OpKernelContext* TFOpContext::GetKernelContext() const { return context_; }
 
@@ -271,25 +277,27 @@ public:
       : AsyncOpKernel(context) {}
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
-    OP_REQUIRES_OK(context, ConvertStatus(common::CheckInitialized()));
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(common::CheckInitialized()),
+                         done);
 
     auto node_name = name();
     auto device = GetDeviceID(context);
     auto tensor = context->input(0);
     Tensor* output;
-    OP_REQUIRES_OK(context,
-                   context->allocate_output(0, tensor.shape(), &output));
+    OP_REQUIRES_OK_ASYNC(
+        context, context->allocate_output(0, tensor.shape(), &output), done);
     // ReadyEvent makes sure input tensor is ready, and output is allocated.
     auto ready_event = std::shared_ptr<TFReadyEvent>(RecordReadyEvent(context));
     auto hvd_context = std::make_shared<TFOpContext>(context);
     auto hvd_tensor = std::make_shared<TFTensor>(tensor);
     auto hvd_output = std::make_shared<TFTensor>(*output);
-    EnqueueTensorAllreduce(hvd_context, hvd_tensor, hvd_output, ready_event,
-                           node_name, device,
-                           [context, done](const common::Status& status) {
-                             context->SetStatus(ConvertStatus(status));
-                             done();
-                           });
+    auto enqueue_result = EnqueueTensorAllreduce(
+        hvd_context, hvd_tensor, hvd_output, ready_event, node_name, device,
+        [context, done](const common::Status& status) {
+          context->SetStatus(ConvertStatus(status));
+          done();
+        });
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 };
 
@@ -327,7 +335,8 @@ public:
       : AsyncOpKernel(context) {}
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
-    OP_REQUIRES_OK(context, ConvertStatus(common::CheckInitialized()));
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(common::CheckInitialized()),
+                         done);
 
     auto node_name = name();
     auto device = GetDeviceID(context);
@@ -338,12 +347,13 @@ public:
     auto ready_event = std::shared_ptr<TFReadyEvent>(RecordReadyEvent(context));
     auto hvd_context = std::make_shared<TFOpContext>(context);
     auto hvd_tensor = std::make_shared<TFTensor>(tensor);
-    EnqueueTensorAllgather(hvd_context, hvd_tensor, ready_event, node_name,
-                           device,
-                           [context, done](const common::Status& status) {
-                             context->SetStatus(ConvertStatus(status));
-                             done();
-                           });
+    auto enqueue_result = EnqueueTensorAllgather(
+        hvd_context, hvd_tensor, ready_event, node_name, device,
+        [context, done](const common::Status& status) {
+          context->SetStatus(ConvertStatus(status));
+          done();
+        });
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 }; // namespace tensorflow
 
@@ -386,7 +396,8 @@ public:
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
-    OP_REQUIRES_OK(context, ConvertStatus(common::CheckInitialized()));
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(common::CheckInitialized()),
+                         done);
 
     auto node_name = name();
     auto device = GetDeviceID(context);
@@ -395,8 +406,8 @@ public:
     if (common::horovod_rank() == root_rank_) {
       context->set_output(0, tensor);
     } else {
-      OP_REQUIRES_OK(context,
-                     context->allocate_output(0, tensor.shape(), &output));
+      OP_REQUIRES_OK_ASYNC(
+          context, context->allocate_output(0, tensor.shape(), &output), done);
     }
     // ReadyEvent makes sure input tensor is ready, and output is allocated.
     auto ready_event = std::shared_ptr<TFReadyEvent>(RecordReadyEvent(context));
@@ -406,12 +417,13 @@ public:
     if (output != nullptr) {
       hvd_output = std::make_shared<TFTensor>(*output);
     }
-    EnqueueTensorBroadcast(hvd_context, hvd_tensor, hvd_output, root_rank_,
-                           ready_event, node_name, device,
-                           [context, done](const common::Status& status) {
-                             context->SetStatus(ConvertStatus(status));
-                             done();
-                           });
+    auto enqueue_result = EnqueueTensorBroadcast(
+        hvd_context, hvd_tensor, hvd_output, root_rank_, ready_event, node_name,
+        device, [context, done](const common::Status& status) {
+          context->SetStatus(ConvertStatus(status));
+          done();
+        });
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 
 private:

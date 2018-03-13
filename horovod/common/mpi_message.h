@@ -89,6 +89,8 @@ public:
   const std::vector<MPIRequest>& requests() const;
   void set_requests(const std::vector<MPIRequest>& value);
   void add_requests(MPIRequest value);
+  bool shutdown() const;
+  void set_shutdown(bool value);
 
   static void ParseFromString(MPIRequestList& request_list,
                               const std::string& input);
@@ -97,6 +99,7 @@ public:
 
 private:
   std::vector<MPIRequest> requests_;
+  bool shutdown_ = false;
 };
 
 // An MPIResponse is a message sent from the coordinator (rank zero) to a rank

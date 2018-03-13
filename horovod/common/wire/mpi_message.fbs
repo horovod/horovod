@@ -58,6 +58,9 @@ table MPIRequest {
 }
 table MPIRequestList {
     requests:[MPIRequest];
+
+    // Flag indicating whether worker is requesting a shutdown.
+    shutdown:bool;
 }
 
 // An MPIResponse is a message sent from the coordinator (rank zero) to a rank
