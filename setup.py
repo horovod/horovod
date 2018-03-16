@@ -552,7 +552,7 @@ class custom_build_ext(build_ext):
                 built_plugins.append(True)
             except:
                 if not os.environ.get('HOROVOD_WITH_TENSORFLOW'):
-                    print('Unable to build TensorFlow plugin, will skip it.\n\n'
+                    print('INFO: Unable to build TensorFlow plugin, will skip it.\n\n'
                           '%s' % traceback.format_exc(), file=sys.stderr)
                     built_plugins.append(False)
                 else:
@@ -563,7 +563,7 @@ class custom_build_ext(build_ext):
                 built_plugins.append(True)
             except:
                 if not os.environ.get('HOROVOD_WITH_PYTORCH'):
-                    print('Unable to build PyTorch plugin, will skip it.\n\n'
+                    print('INFO: Unable to build PyTorch plugin, will skip it.\n\n'
                           '%s' % traceback.format_exc(), file=sys.stderr)
                     built_plugins.append(False)
                 else:
