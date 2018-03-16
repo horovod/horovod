@@ -36,9 +36,6 @@ import torch
 
 # TODO (doc): add note in docs to use NCCL 2.1.15+ with PyTorch to avoid deadlock
 
-# TODO: how are sparse parameters (e.g. embedding updates) handled in pytorch?
-# TODO: find a way to specify DistOpt/broadcast_g_v on CPU for a GPU model
-
 class _DistributedOptimizer(torch.optim.Optimizer):
     # TODO (doc): make it clear that parameters are taken from optimizer,
     # TODO (doc): and named_parameters are only used for naming
@@ -157,7 +154,9 @@ def _allreduce_async(tensor, output, average, name):
 
 
 def allreduce_async(tensor, average=True, name=None):
-    output = tensor.new(tensor.shape)
+    # TODO check that tensor is contiguous
+    assert tensor.is_contiguous()
+    output = tensor.new()
     return _allreduce_async(tensor, output, average, name)
 
 
@@ -210,7 +209,7 @@ def _broadcast_async(tensor, output, root_rank, name):
 
 
 def broadcast_async(tensor, root_rank, name=None):
-    output = tensor.new(tensor.shape)
+    output = tensor.new()
     return _broadcast_async(tensor, output, root_rank, name)
 
 

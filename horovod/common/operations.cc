@@ -553,9 +553,9 @@ cudaError_t GetCudaEvent(cudaEvent_t* event) {
   }
 
   auto& mutex = horovod_global.cuda_events_mutex;
-  auto& queue = horovod_global.cuda_events[device];
   {
     std::lock_guard<std::mutex> guard(mutex);
+    auto& queue = horovod_global.cuda_events[device];
     if (!queue.empty()) {
       *event = queue.front();
       queue.pop();
@@ -575,9 +575,9 @@ cudaError_t ReleaseCudaEvent(cudaEvent_t event) {
   }
 
   auto& mutex = horovod_global.cuda_events_mutex;
-  auto& queue = horovod_global.cuda_events[device];
   {
     std::lock_guard<std::mutex> guard(mutex);
+    auto& queue = horovod_global.cuda_events[device];
     queue.push(event);
   }
 

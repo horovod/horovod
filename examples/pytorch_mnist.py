@@ -82,13 +82,12 @@ class Net(nn.Module):
 
 model = Net()
 
-# Horovod: broadcast global variables.
-# TODO: currently broadcast should be performed on CPU model
-hvd.broadcast_global_variables(model.state_dict(), root_rank=0)
-
 if args.cuda:
     # Move model to GPU.
     model.cuda()
+
+# Horovod: broadcast global variables.
+hvd.broadcast_global_variables(model.state_dict(), root_rank=0)
 
 # Horovod: scale learning rate by the number of GPUs.
 optimizer = optim.SGD(model.parameters(), lr=args.lr * hvd.size(),

@@ -165,7 +165,8 @@ def get_tf_flags(build_ext, cpp_flags):
         tf_include_dirs = get_tf_include_dirs()
         tf_lib_dirs = get_tf_lib_dirs()
         tf_libs = get_tf_libs(build_ext, tf_lib_dirs, cpp_flags)
-        tf_abi = get_tf_abi(build_ext, tf_include_dirs, tf_lib_dirs, tf_libs, cpp_flags)
+        tf_abi = get_tf_abi(build_ext, tf_include_dirs,
+                            tf_lib_dirs, tf_libs, cpp_flags)
 
         compile_flags = []
         for include_dir in tf_include_dirs:
@@ -390,7 +391,8 @@ def build_common_extension(build_ext, options, abi_compile_flags):
                                                    'horovod/common/mpi_message.cc',
                                                    'horovod/common/operations.cc',
                                                    'horovod/common/timeline.cc']
-    common_mpi_lib.extra_compile_args = options['COMPILE_FLAGS'] + abi_compile_flags
+    common_mpi_lib.extra_compile_args = options['COMPILE_FLAGS'] + \
+        abi_compile_flags
     common_mpi_lib.extra_link_args = options['LINK_FLAGS']
     common_mpi_lib.library_dirs = options['LIBRARY_DIRS']
     common_mpi_lib.libraries = options['LIBRARIES']
@@ -400,12 +402,15 @@ def build_common_extension(build_ext, options, abi_compile_flags):
 
 def build_tf_extension(build_ext, options):
     check_tf_version()
-    tf_compile_flags, tf_link_flags = get_tf_flags(build_ext, options['COMPILE_FLAGS'])
+    tf_compile_flags, tf_link_flags = get_tf_flags(
+        build_ext, options['COMPILE_FLAGS'])
 
     tensorflow_mpi_lib.define_macros = options['MACROS']
     tensorflow_mpi_lib.include_dirs = options['INCLUDES']
-    tensorflow_mpi_lib.sources = options['SOURCES'] + ['horovod/tensorflow/mpi_ops.cc']
-    tensorflow_mpi_lib.extra_compile_args = options['COMPILE_FLAGS'] + tf_compile_flags
+    tensorflow_mpi_lib.sources = options['SOURCES'] + \
+        ['horovod/tensorflow/mpi_ops.cc']
+    tensorflow_mpi_lib.extra_compile_args = options['COMPILE_FLAGS'] + \
+        tf_compile_flags
     tensorflow_mpi_lib.extra_link_args = options['LINK_FLAGS'] + tf_link_flags
     tensorflow_mpi_lib.library_dirs = options['LIBRARY_DIRS']
     tensorflow_mpi_lib.libraries = options['LIBRARIES']
@@ -432,17 +437,27 @@ def check_torch_import():
             'import torch failed, is it installed?\n\n%s' % traceback.format_exc())
 
 
-def check_torch_cuda():
-    # TODO: this does not work in container with ldconfig to stubs, run test compile
-    import torch
-    if not torch.cuda.is_available():
-        raise DistutilsPlatformError(
-            'Horovod build with GPU support was requested, but this PyTorch '
-            'installation does not support CUDA.')
+def is_torch_cuda():
+    try:
+        from torch.utils.ffi import create_extension
+        cuda_test_ext = create_extension(
+            name='horovod.torch.test_cuda',
+            headers=['horovod/torch/dummy.h'],
+            sources=[],
+            with_cuda=True)
+        cuda_test_ext.build()
+        return True
+    except:
+        print('INFO: Above error indicates that this PyTorch installation does not support CUDA.')
+        return False
 
 
-def check_macro(options, macro):
-    return any(k == macro and v for k, v in options['MACROS'])
+def check_macro(macros, key):
+    return any(k == key and v for k, v in macros)
+
+
+def set_macro(macros, key, new_value):
+    return [(k, new_value if k == key else v) for k, v in macros]
 
 
 class protect_files(object):
@@ -461,24 +476,26 @@ class protect_files(object):
 def build_torch_extension(build_ext, options, abi_compile_flags):
     check_torch_import()
 
-    have_cuda = check_macro(options, 'HAVE_CUDA')
-    have_gpu_allreduce = check_macro(options, 'HOROVOD_GPU_ALLREDUCE')
-    have_gpu_allgather = check_macro(options, 'HOROVOD_GPU_ALLGATHER')
-    have_gpu_broadcast = check_macro(options, 'HOROVOD_GPU_BROADCAST')
+    have_cuda = is_torch_cuda()
+    if not have_cuda and check_macro(options['MACROS'], 'HAVE_CUDA'):
+        raise DistutilsPlatformError(
+            'Horovod build with GPU support was requested, but this PyTorch '
+            'installation does not support CUDA.')
 
-    if have_cuda:
-        check_torch_cuda()
+    # Update HAVE_CUDA to mean that PyTorch supports CUDA. Internally, we will be checking
+    # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
+    # version of transfer tensors to CPU memory for those operations.
+    updated_macros = set_macro(
+        options['MACROS'], 'HAVE_CUDA', str(int(have_cuda)))
 
-    # create_extension overwrites these files which are customized, we need to protect them
+    # Create_extension overwrites these files which are customized, we need to protect them.
     with protect_files('horovod/torch/mpi_lib/__init__.py',
                        'horovod/torch/mpi_lib_impl/__init__.py'):
         from torch.utils.ffi import create_extension
         ffi_iface = create_extension(
             name='horovod.torch.mpi_lib',
             headers=['horovod/torch/interface.h'] +
-                (['horovod/torch/interface_cuda_allreduce.h'] if have_gpu_allreduce else []) +
-                (['horovod/torch/interface_cuda_allgather.h'] if have_gpu_allgather else []) +
-                (['horovod/torch/interface_cuda_broadcast.h'] if have_gpu_broadcast else []),
+            (['horovod/torch/interface_cuda.h'] if have_cuda else []),
             with_cuda=have_cuda,
             language='c',
             package=True,
@@ -492,9 +509,10 @@ def build_torch_extension(build_ext, options, abi_compile_flags):
             language='c++',
             package=True,
             source_extension='.cc',
-            define_macros=options['MACROS'],
+            define_macros=updated_macros,
             include_dirs=options['INCLUDES'],
-            sources=options['SOURCES'] + ['horovod/torch/mpi_ops.cc'],
+            sources=options['SOURCES'] + ['horovod/torch/mpi_ops.cc',
+                                          'horovod/torch/handle_manager.cc'],
             extra_compile_args=options['COMPILE_FLAGS'] + abi_compile_flags,
             extra_link_args=options['LINK_FLAGS'],
             library_dirs=options['LIBRARY_DIRS'],
@@ -542,9 +560,11 @@ class custom_build_ext(build_ext):
                 else:
                     raise
         if not built_plugins:
-            raise DistutilsError('Both TensorFlow and PyTorch plugins were excluded from build. Aborting.')
+            raise DistutilsError(
+                'Both TensorFlow and PyTorch plugins were excluded from build. Aborting.')
         if not any(built_plugins):
-            raise DistutilsError('Neither TensorFlow nor PyTorch plugins were built. See errors above.')
+            raise DistutilsError(
+                'Neither TensorFlow nor PyTorch plugins were built. See errors above.')
         build_common_extension(self, options, abi_compile_flags)
 
 
@@ -560,7 +580,8 @@ setup(name='horovod',
       classifiers=[
           'License :: OSI Approved :: Apache Software License'
       ],
-      ext_modules=[common_mpi_lib, tensorflow_mpi_lib, torch_mpi_lib, torch_mpi_lib_impl],
+      ext_modules=[common_mpi_lib, tensorflow_mpi_lib,
+                   torch_mpi_lib, torch_mpi_lib_impl],
       cmdclass={'build_ext': custom_build_ext},
       # cffi is required for PyTorch
       # If cffi is specified in setup_requires, it will need libffi to be installed on the machine,
