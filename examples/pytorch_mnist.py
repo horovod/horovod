@@ -40,7 +40,7 @@ if args.cuda:
 
 kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
 train_dataset = \
-    datasets.MNIST('../data-%d' % hvd.local_rank(), train=True, download=True,
+    datasets.MNIST('data-%d' % hvd.local_rank(), train=True, download=True,
                    transform=transforms.Compose([
                        transforms.ToTensor(),
                        transforms.Normalize((0.1307,), (0.3081,))
@@ -51,7 +51,7 @@ train_loader = torch.utils.data.DataLoader(
     train_dataset, batch_size=args.batch_size, sampler=train_sampler, **kwargs)
 
 test_dataset = \
-    datasets.MNIST('../data-%d' % hvd.local_rank(), train=False, transform=transforms.Compose([
+    datasets.MNIST('data-%d' % hvd.local_rank(), train=False, transform=transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
     ]))
