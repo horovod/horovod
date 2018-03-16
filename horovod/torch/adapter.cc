@@ -53,15 +53,15 @@ template <class T> const MPIDataType TorchTensor<T>::dtype() const {
 }
 
 template <class T> const TensorShape TorchTensor<T>::shape() const {
-  return TensorUtil::GetShape<T>(tensor_);
+  return TensorUtil::GetShape(tensor_);
 }
 
 template <class T> const char* TorchTensor<T>::data() const {
-  return TensorUtil::GetData<T>(tensor_);
+  return TensorUtil::GetData(tensor_);
 }
 
 template <class T> int64_t TorchTensor<T>::size() const {
-  return TensorUtil::GetSize<T>(tensor_);
+  return TensorUtil::GetSize(tensor_);
 }
 
 template <class T>
@@ -72,7 +72,7 @@ TorchTemporaryBuffer<T>::TorchTemporaryBuffer(int device)
 }
 
 template <class T> TorchTemporaryBuffer<T>::~TorchTemporaryBuffer() {
-  TensorUtil::Free<T>(this->tensor_);
+  TensorUtil::Free(this->tensor_);
 }
 
 template <class T> T* TorchTemporaryBuffer<T>::tensor() const {

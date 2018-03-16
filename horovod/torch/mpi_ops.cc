@@ -69,7 +69,7 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
   auto device = TensorUtil::GetDevice(tensor);
   auto hvd_cpu_buffer =
       std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
-  TensorUtil::AsyncCopyCudaToCPU<TC, T>(tensor, hvd_cpu_buffer->tensor());
+  TensorUtil::AsyncCopyCudaToCPU(tensor, hvd_cpu_buffer->tensor());
   auto ready_event = std::make_shared<TorchReadyEvent<TC>>(device);
 
   auto hvd_context = std::make_shared<TorchOpContext<T>>(
@@ -125,7 +125,7 @@ int DoAllgatherCudaOnCPU(TC* tensor, TC* output, char* name) {
   auto device = TensorUtil::GetDevice(tensor);
   auto hvd_cpu_tensor =
       std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
-  TensorUtil::AsyncCopyCudaToCPU<TC, T>(tensor, hvd_cpu_tensor->tensor());
+  TensorUtil::AsyncCopyCudaToCPU(tensor, hvd_cpu_tensor->tensor());
   auto ready_event = std::make_shared<TorchReadyEvent<TC>>(device);
 
   auto hvd_cpu_output =
@@ -136,7 +136,7 @@ int DoAllgatherCudaOnCPU(TC* tensor, TC* output, char* name) {
   auto enqueue_result = EnqueueTensorAllgather(
       hvd_context, hvd_cpu_tensor, ready_event, "allgather." + name_or_handle,
       CPU_DEVICE_ID, [handle, hvd_cpu_output, output](const Status& status) {
-        TensorUtil::CopyCPUToCuda<T, TC>(hvd_cpu_output->tensor(), output);
+        TensorUtil::CopyCPUToCuda(hvd_cpu_output->tensor(), output);
         handle_manager.MarkDone(handle, status);
       });
   ThrowIfError(enqueue_result);
@@ -188,7 +188,7 @@ int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
   auto device = TensorUtil::GetDevice(tensor);
   auto hvd_cpu_buffer =
       std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
-  TensorUtil::AsyncCopyCudaToCPU<TC, T>(tensor, hvd_cpu_buffer->tensor());
+  TensorUtil::AsyncCopyCudaToCPU(tensor, hvd_cpu_buffer->tensor());
   auto ready_event = std::make_shared<TorchReadyEvent<TC>>(device);
 
   auto hvd_context = std::make_shared<TorchOpContext<T>>(
@@ -198,7 +198,7 @@ int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
       hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, root_rank, ready_event,
       "broadcast." + name_or_handle, CPU_DEVICE_ID,
       [handle, hvd_cpu_buffer, output](const Status& status) {
-        TensorUtil::CopyCPUToCuda<T, TC>(hvd_cpu_buffer->tensor(), output);
+        TensorUtil::CopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
         handle_manager.MarkDone(handle, status);
       });
   ThrowIfError(enqueue_result);
@@ -210,7 +210,7 @@ int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
 #define ALLREDUCE(torch_Tensor, THTensor)                                      \
   extern "C" int horovod_torch_allreduce_async_##torch_Tensor(                 \
       THTensor* tensor, THTensor* output, int average, char* name) {           \
-    return DoAllreduce<THTensor>(tensor, output, average, name);               \
+    return DoAllreduce(tensor, output, average, name);                         \
   }
 
 ALLREDUCE(torch_IntTensor, THIntTensor)
@@ -228,7 +228,8 @@ ALLREDUCE(torch_cuda_DoubleTensor, THCudaDoubleTensor)
 #define ALLREDUCE_CUDA_ON_CPU(torch_Tensor, THCTensor, THTensor)               \
   extern "C" int horovod_torch_allreduce_async_##torch_Tensor(                 \
       THCTensor* tensor, THCTensor* output, int average, char* name) {         \
-    return DoAllreduceCudaOnCPU<THCTensor>(tensor, output, average, name);     \
+    return DoAllreduceCudaOnCPU<THCTensor, THTensor>(tensor, output, average,  \
+                                                     name);                    \
   }
 
 #if !HOROVOD_GPU_ALLREDUCE && HAVE_CUDA
@@ -242,7 +243,7 @@ ALLREDUCE_CUDA_ON_CPU(torch_cuda_DoubleTensor, THCudaDoubleTensor,
 #define ALLGATHER(torch_Tensor, THTensor)                                      \
   extern "C" int horovod_torch_allgather_async_##torch_Tensor(                 \
       THTensor* tensor, THTensor* output, char* name) {                        \
-    return DoAllgather<THTensor>(tensor, output, name);                        \
+    return DoAllgather(tensor, output, name);                                  \
   }
 
 ALLGATHER(torch_ByteTensor, THByteTensor)
@@ -283,7 +284,7 @@ ALLGATHER_CUDA_ON_CPU(torch_cuda_DoubleTensor, THCudaDoubleTensor,
 #define BROADCAST(torch_Tensor, THTensor)                                      \
   extern "C" int horovod_torch_broadcast_async_##torch_Tensor(                 \
       THTensor* tensor, THTensor* output, int root_rank, char* name) {         \
-    return DoBroadcast<THTensor>(tensor, output, root_rank, name);             \
+    return DoBroadcast(tensor, output, root_rank, name);                       \
   }
 
 BROADCAST(torch_ByteTensor, THByteTensor)
