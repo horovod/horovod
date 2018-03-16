@@ -13,34 +13,24 @@
 // limitations under the License.
 // =============================================================================
 
-#ifndef HOROVOD_TORCH_HANDLE_MANAGER_H
-#define HOROVOD_TORCH_HANDLE_MANAGER_H
-
-#include <memory>
-#include <mutex>
-#include <unordered_map>
-
-#include "../common/common.h"
+#ifndef HOROVOD_TORCH_CUDA_UTIL_H
+#define HOROVOD_TORCH_CUDA_UTIL_H
 
 namespace horovod {
 namespace torch {
 
-using namespace horovod::common;
-
-class HandleManager {
+class with_device {
 public:
-  int AllocateHandle();
-  void MarkDone(int handle, const Status& status);
-  bool PollHandle(int handle);
-  std::shared_ptr<Status> ReleaseHandle(int handle);
+  with_device(int device);
+  ~with_device();
 
 private:
-  std::atomic_int last_handle_;
-  std::unordered_map<int, std::shared_ptr<Status>> results_;
-  std::mutex mutex_;
+#if HAVE_CUDA
+  int restore_device_;
+#endif
 };
 
-} // namespace torch
-} // namespace horovod
+}
+}
 
-#endif // HOROVOD_TORCH_HANDLE_MANAGER_H
+#endif // HOROVOD_TORCH_CUDA_UTIL_H

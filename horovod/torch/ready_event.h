@@ -13,12 +13,14 @@
 // limitations under the License.
 // =============================================================================
 
-#ifndef HOROVOD_TORCH_HANDLE_MANAGER_H
-#define HOROVOD_TORCH_HANDLE_MANAGER_H
+#ifndef HOROVOD_TORCH_READY_EVENT_H
+#define HOROVOD_TORCH_READY_EVENT_H
 
-#include <memory>
+#if HAVE_CUDA
 #include <mutex>
+#include <queue>
 #include <unordered_map>
+#include "cuda_runtime.h"
 
 #include "../common/common.h"
 
@@ -27,20 +29,21 @@ namespace torch {
 
 using namespace horovod::common;
 
-class HandleManager {
+template <class T> class TorchReadyEvent : public ReadyEvent {
 public:
-  int AllocateHandle();
-  void MarkDone(int handle, const Status& status);
-  bool PollHandle(int handle);
-  std::shared_ptr<Status> ReleaseHandle(int handle);
+  TorchReadyEvent(int device);
+  ~TorchReadyEvent();
+  virtual bool Ready() const override;
 
 private:
-  std::atomic_int last_handle_;
-  std::unordered_map<int, std::shared_ptr<Status>> results_;
-  std::mutex mutex_;
+  int device_;
+  cudaEvent_t cuda_event_;
+  static std::unordered_map<int, std::queue<cudaEvent_t>> cuda_events_;
+  static std::mutex mutex_;
 };
 
 } // namespace torch
 } // namespace horovod
+#endif
 
-#endif // HOROVOD_TORCH_HANDLE_MANAGER_H
+#endif // HOROVOD_TORCH_READY_EVENT_H

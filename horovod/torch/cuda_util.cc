@@ -13,34 +13,36 @@
 // limitations under the License.
 // =============================================================================
 
-#ifndef HOROVOD_TORCH_HANDLE_MANAGER_H
-#define HOROVOD_TORCH_HANDLE_MANAGER_H
-
-#include <memory>
-#include <mutex>
-#include <unordered_map>
+#if HAVE_CUDA
+#include "cuda_runtime.h"
+#include <THC/THC.h>
+#endif
 
 #include "../common/common.h"
+#include "cuda_util.h"
 
 namespace horovod {
 namespace torch {
 
-using namespace horovod::common;
+with_device::with_device(int device) {
+  if (device == CPU_DEVICE_ID) {
+    return;
+  }
 
-class HandleManager {
-public:
-  int AllocateHandle();
-  void MarkDone(int handle, const Status& status);
-  bool PollHandle(int handle);
-  std::shared_ptr<Status> ReleaseHandle(int handle);
+#if HAVE_CUDA
+  THCudaCheck(cudaGetDevice(&restore_device_));
+  THCudaCheck(cudaSetDevice(device));
+#else
+  throw std::logic_error("Internal error. Requested device context manager "
+                         "with GPU device but not compiled with CUDA.");
+#endif
+}
 
-private:
-  std::atomic_int last_handle_;
-  std::unordered_map<int, std::shared_ptr<Status>> results_;
-  std::mutex mutex_;
-};
+with_device::~with_device() {
+#if HAVE_CUDA
+  THCudaCheck(cudaSetDevice(restore_device_));
+#endif
+}
 
 } // namespace torch
 } // namespace horovod
-
-#endif // HOROVOD_TORCH_HANDLE_MANAGER_H

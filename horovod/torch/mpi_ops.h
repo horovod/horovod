@@ -25,8 +25,10 @@
 namespace horovod {
 namespace torch {
 
+using namespace horovod::common;
+
 #define ALLREDUCE_H(torch_Tensor, THTensor)                                    \
-  extern "C" int horovod_torch_allreduce_async_##torch_Tensor(               \
+  extern "C" int horovod_torch_allreduce_async_##torch_Tensor(                 \
       THTensor* tensor, THTensor* output, int average, char* name);
 
 ALLREDUCE_H(torch_IntTensor, THIntTensor)
@@ -34,7 +36,7 @@ ALLREDUCE_H(torch_LongTensor, THLongTensor)
 ALLREDUCE_H(torch_FloatTensor, THFloatTensor)
 ALLREDUCE_H(torch_DoubleTensor, THDoubleTensor)
 
-#if HOROVOD_GPU_ALLREDUCE
+#if HAVE_CUDA
 ALLREDUCE_H(torch_cuda_IntTensor, THCudaIntTensor)
 ALLREDUCE_H(torch_cuda_LongTensor, THCudaLongTensor)
 ALLREDUCE_H(torch_cuda_FloatTensor, THCudaTensor)
@@ -42,7 +44,7 @@ ALLREDUCE_H(torch_cuda_DoubleTensor, THCudaDoubleTensor)
 #endif
 
 #define ALLGATHER_H(torch_Tensor, THTensor)                                    \
-  extern "C" int horovod_torch_allgather_async_##torch_Tensor(               \
+  extern "C" int horovod_torch_allgather_async_##torch_Tensor(                 \
       THTensor* tensor, THTensor* output, char* name);
 
 ALLGATHER_H(torch_ByteTensor, THByteTensor)
@@ -53,7 +55,7 @@ ALLGATHER_H(torch_LongTensor, THLongTensor)
 ALLGATHER_H(torch_FloatTensor, THFloatTensor)
 ALLGATHER_H(torch_DoubleTensor, THDoubleTensor)
 
-#if HOROVOD_GPU_ALLGATHER
+#if HAVE_CUDA
 ALLGATHER_H(torch_cuda_ByteTensor, THCudaByteTensor)
 ALLGATHER_H(torch_cuda_CharTensor, THCudaCharTensor)
 ALLGATHER_H(torch_cuda_ShortTensor, THCudaShortTensor)
@@ -64,7 +66,7 @@ ALLGATHER_H(torch_cuda_DoubleTensor, THCudaDoubleTensor)
 #endif
 
 #define BROADCAST_H(torch_Tensor, THTensor)                                    \
-  extern "C" int horovod_torch_broadcast_async_##torch_Tensor(               \
+  extern "C" int horovod_torch_broadcast_async_##torch_Tensor(                 \
       THTensor* tensor, THTensor* output, int root_rank, char* name);
 
 BROADCAST_H(torch_ByteTensor, THByteTensor)
@@ -75,7 +77,7 @@ BROADCAST_H(torch_LongTensor, THLongTensor)
 BROADCAST_H(torch_FloatTensor, THFloatTensor)
 BROADCAST_H(torch_DoubleTensor, THDoubleTensor)
 
-#if HOROVOD_GPU_BROADCAST
+#if HAVE_CUDA
 BROADCAST_H(torch_cuda_ByteTensor, THCudaByteTensor)
 BROADCAST_H(torch_cuda_CharTensor, THCudaCharTensor)
 BROADCAST_H(torch_cuda_ShortTensor, THCudaShortTensor)
