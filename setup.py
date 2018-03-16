@@ -444,7 +444,9 @@ def is_torch_cuda():
             name='horovod.torch.test_cuda',
             headers=['horovod/torch/dummy.h'],
             sources=[],
-            with_cuda=True)
+            with_cuda=True,
+            extra_compile_args=['-std=c11', '-fPIC', '-O2']
+        )
         cuda_test_ext.build()
         return True
     except:
