@@ -107,7 +107,7 @@ def mpi_threads_supported():
     Returns:
       A boolean value indicating whether MPI multi-threading is supported.
     """
-    mpi_threads_supported = MPI_COMMON_LIB_CTYPES.mpi_threads_supported()
+    mpi_threads_supported = MPI_COMMON_LIB_CTYPES.horovod_mpi_threads_supported()
     if mpi_threads_supported == -1:
         raise ValueError(
             'Horovod has not been initialized; use hvd.init().')
