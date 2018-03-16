@@ -24,6 +24,13 @@ extern THCState* state;
 namespace horovod {
 namespace torch {
 
+struct ReadyEventRegistry {
+  std::unordered_map<int, std::queue<cudaEvent_t>> cuda_events;
+  std::mutex mutex;
+};
+
+static ReadyEventRegistry ready_event_registry;
+
 template <class T>
 TorchReadyEvent<T>::TorchReadyEvent(int device) : device_(device) {
   assert(device_ != CPU_DEVICE_ID);
@@ -32,8 +39,8 @@ TorchReadyEvent<T>::TorchReadyEvent(int device) : device_(device) {
   THCudaCheck(cudaGetDevice(&restoreDevice));
   THCudaCheck(cudaSetDevice(device_));
   {
-    std::lock_guard<std::mutex> guard(mutex_);
-    auto& queue = cuda_events_[device_];
+    std::lock_guard<std::mutex> guard(ready_event_registry.mutex);
+    auto& queue = ready_event_registry.cuda_events[device_];
     if (!queue.empty()) {
       cuda_event_ = queue.front();
       queue.pop();
@@ -49,8 +56,8 @@ TorchReadyEvent<T>::TorchReadyEvent(int device) : device_(device) {
 
 template <class T> TorchReadyEvent<T>::~TorchReadyEvent() {
   {
-    std::lock_guard<std::mutex> guard(mutex_);
-    auto& queue = cuda_events_[device_];
+    std::lock_guard<std::mutex> guard(ready_event_registry.mutex);
+    auto& queue = ready_event_registry.cuda_events[device_];
     queue.push(cuda_event_);
   }
 }
@@ -63,6 +70,14 @@ template <class T> bool TorchReadyEvent<T>::Ready() const {
   THCudaCheck(status);
   return true;
 }
+
+READY_EVENT_DEFINE_TYPE(THCudaByteTensor)
+READY_EVENT_DEFINE_TYPE(THCudaCharTensor)
+READY_EVENT_DEFINE_TYPE(THCudaShortTensor)
+READY_EVENT_DEFINE_TYPE(THCudaIntTensor)
+READY_EVENT_DEFINE_TYPE(THCudaLongTensor)
+READY_EVENT_DEFINE_TYPE(THCudaTensor)
+READY_EVENT_DEFINE_TYPE(THCudaDoubleTensor)
 
 } // namespace torch
 } // namespace horovod

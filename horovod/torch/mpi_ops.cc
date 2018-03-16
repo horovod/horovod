@@ -13,23 +13,16 @@
 // limitations under the License.
 // =============================================================================
 
-#include <atomic>
 #include <chrono>
 #include <memory>
-#include <mutex>
-#include <queue>
 #include <thread>
-#include <unordered_map>
 
 #include "../common/operations.h"
 #include "adapter.h"
 #include "handle_manager.h"
-#include "tensor_util.h"
 #include "mpi_ops.h"
-
-#if HAVE_CUDA
-extern THCState* state;
-#endif
+#include "ready_event.h"
+#include "tensor_util.h"
 
 namespace horovod {
 namespace torch {
@@ -73,10 +66,11 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
       name != nullptr ? std::string(name) : "noname." + std::to_string(handle);
 
   // Make async copy of input tensor to CPU tensor and record completion event.
+  auto device = TensorUtil::GetDevice(tensor);
   auto hvd_cpu_buffer =
       std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
   TensorUtil::AsyncCopyCudaToCPU<TC, T>(tensor, hvd_cpu_buffer->tensor());
-  auto ready_event = std::make_shared<TorchReadyEvent<TC>>(tensor);
+  auto ready_event = std::make_shared<TorchReadyEvent<TC>>(device);
 
   auto hvd_context = std::make_shared<TorchOpContext<T>>(
       CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
@@ -84,7 +78,7 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, ready_event,
       "allreduce." + name_or_handle, CPU_DEVICE_ID,
-      [handle, average, output](const Status& status) {
+      [handle, average, hvd_cpu_buffer, output](const Status& status) {
         TensorUtil::CopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
         if (average) {
           TensorUtil::DivideTensorInPlace(output, horovod_size());
@@ -128,10 +122,11 @@ int DoAllgatherCudaOnCPU(TC* tensor, TC* output, char* name) {
       name != nullptr ? std::string(name) : "noname." + std::to_string(handle);
 
   // Make async copy of input tensor to CPU tensor and record completion event.
+  auto device = TensorUtil::GetDevice(tensor);
   auto hvd_cpu_tensor =
       std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
   TensorUtil::AsyncCopyCudaToCPU<TC, T>(tensor, hvd_cpu_tensor->tensor());
-  auto ready_event = std::make_shared<TorchReadyEvent<TC>>(tensor);
+  auto ready_event = std::make_shared<TorchReadyEvent<TC>>(device);
 
   auto hvd_cpu_output =
       std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
@@ -190,10 +185,11 @@ int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
       name != nullptr ? std::string(name) : "noname." + std::to_string(handle);
 
   // Make async copy of input tensor to CPU tensor and record completion event.
+  auto device = TensorUtil::GetDevice(tensor);
   auto hvd_cpu_buffer =
       std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
   TensorUtil::AsyncCopyCudaToCPU<TC, T>(tensor, hvd_cpu_buffer->tensor());
-  auto ready_event = std::make_shared<TorchReadyEvent<TC>>(tensor);
+  auto ready_event = std::make_shared<TorchReadyEvent<TC>>(device);
 
   auto hvd_context = std::make_shared<TorchOpContext<T>>(
       CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
@@ -269,7 +265,7 @@ ALLGATHER(torch_cuda_DoubleTensor, THCudaDoubleTensor)
 
 #define ALLGATHER_CUDA_ON_CPU(torch_Tensor, THCTensor, THTensor)               \
   extern "C" int horovod_torch_allgather_async_##torch_Tensor(                 \
-      THTensor* tensor, THTensor* output, char* name) {                        \
+      THCTensor* tensor, THCTensor* output, char* name) {                      \
     return DoAllgatherCudaOnCPU<THCTensor, THTensor>(tensor, output, name);    \
   }
 

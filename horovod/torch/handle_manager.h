@@ -16,6 +16,7 @@
 #ifndef HOROVOD_TORCH_HANDLE_MANAGER_H
 #define HOROVOD_TORCH_HANDLE_MANAGER_H
 
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <unordered_map>

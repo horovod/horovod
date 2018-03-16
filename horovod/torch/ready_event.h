@@ -17,10 +17,10 @@
 #define HOROVOD_TORCH_READY_EVENT_H
 
 #if HAVE_CUDA
+#include "cuda_runtime.h"
 #include <mutex>
 #include <queue>
 #include <unordered_map>
-#include "cuda_runtime.h"
 
 #include "../common/common.h"
 
@@ -38,9 +38,10 @@ public:
 private:
   int device_;
   cudaEvent_t cuda_event_;
-  static std::unordered_map<int, std::queue<cudaEvent_t>> cuda_events_;
-  static std::mutex mutex_;
 };
+
+#define READY_EVENT_DEFINE_TYPE(THCTensor)                                     \
+  template class TorchReadyEvent<THCTensor>;
 
 } // namespace torch
 } // namespace horovod

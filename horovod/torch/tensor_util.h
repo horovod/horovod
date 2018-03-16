@@ -24,6 +24,10 @@
 
 #include "../common/common.h"
 
+#if HAVE_CUDA
+extern THCState* state;
+#endif
+
 namespace horovod {
 namespace torch {
 
@@ -148,7 +152,7 @@ public:
   }                                                                            \
                                                                                \
   template <> const char* TensorUtil::GetData<THCTensor>(THCTensor * tensor) { \
-    return (const char*)THCTensor##_data(tensor);                              \
+    return (const char*)THCTensor##_data(state, tensor);                       \
   }                                                                            \
                                                                                \
   template <> int64_t TensorUtil::GetSize<THCTensor>(THCTensor * tensor) {     \
@@ -160,10 +164,10 @@ public:
     return THCTensor##_getDevice(state, tensor);                               \
   }                                                                            \
                                                                                \
-  template <> THCTensor* TensorUtil::New() { return THCTensor##_new(); }       \
+  template <> THCTensor* TensorUtil::New() { return THCTensor##_new(state); }  \
                                                                                \
   template <> void TensorUtil::Free<THCTensor>(THCTensor * tensor) {           \
-    THCTensor##_free(tensor);                                                  \
+    THCTensor##_free(state, tensor);                                           \
   }                                                                            \
                                                                                \
   template <>                                                                  \
@@ -198,7 +202,7 @@ public:
     THLongStorage* size = THCTensor##_newSizeOf(state, cuda);                  \
     THTensor##_resize(cpu, size, NULL);                                        \
     THLongStorage_free(size);                                                  \
-    THCTensor##_copyAsyncCuda(state, cpu, cuda);                               \
+    THTensor##_copyAsyncCuda(state, cpu, cuda);                                \
   }
 
 TENSOR_UTIL_DEFINE_TYPE_H(THByteTensor)
