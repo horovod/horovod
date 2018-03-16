@@ -144,7 +144,7 @@ def test_horovod_allreduce_async_fused():
         tests.append((dtype, multiplied, handle))
 
     for dtype, multiplied, handle in tests:
-        summed = hvd.wait_and_clear(handle)
+        summed = hvd.synchronize(handle)
         max_difference = summed.sub(multiplied).max()
 
         # Threshold for floating point equality depends on number of
@@ -165,7 +165,7 @@ def test_horovod_allreduce_async_fused():
 def test_horovod_allreduce_multi_gpu():
     """Test that the allreduce works on multiple GPUs."""
     # Only do this test if there are GPUs available.
-    if torch.cuda.is_available():
+    if not torch.cuda.is_available():
         return
 
     hvd.init()

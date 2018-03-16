@@ -156,7 +156,7 @@ def _allreduce_async(tensor, output, average, name):
 def allreduce_async(tensor, average=True, name=None):
     # TODO check that tensor is contiguous
     assert tensor.is_contiguous()
-    output = tensor.new()
+    output = tensor.new(tensor.shape)
     return _allreduce_async(tensor, output, average, name)
 
 
@@ -209,7 +209,7 @@ def _broadcast_async(tensor, output, root_rank, name):
 
 
 def broadcast_async(tensor, root_rank, name=None):
-    output = tensor.new()
+    output = tensor.new(tensor.shape)
     return _broadcast_async(tensor, output, root_rank, name)
 
 
