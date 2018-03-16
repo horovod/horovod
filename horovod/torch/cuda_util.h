@@ -25,9 +25,7 @@ public:
   ~with_device();
 
 private:
-#if HAVE_CUDA
   int restore_device_;
-#endif
 };
 
 }

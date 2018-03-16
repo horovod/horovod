@@ -26,21 +26,23 @@ namespace torch {
 
 with_device::with_device(int device) {
   if (device == CPU_DEVICE_ID) {
-    return;
-  }
-
+    restore_device_ = CPU_DEVICE_ID;
+  } else {
 #if HAVE_CUDA
-  THCudaCheck(cudaGetDevice(&restore_device_));
-  THCudaCheck(cudaSetDevice(device));
+    THCudaCheck(cudaGetDevice(&restore_device_));
+    THCudaCheck(cudaSetDevice(device));
 #else
-  throw std::logic_error("Internal error. Requested device context manager "
-                         "with GPU device but not compiled with CUDA.");
+    throw std::logic_error("Internal error. Requested device context manager "
+                           "with GPU device but not compiled with CUDA.");
 #endif
+  }
 }
 
 with_device::~with_device() {
 #if HAVE_CUDA
-  THCudaCheck(cudaSetDevice(restore_device_));
+  if (restore_device_ != CPU_DEVICE_ID) {
+    THCudaCheck(cudaSetDevice(restore_device_));
+  }
 #endif
 }
 
