@@ -457,7 +457,10 @@ def check_macro(macros, key):
 
 
 def set_macro(macros, key, new_value):
-    return [(k, new_value if k == key else v) for k, v in macros]
+    if any(k == key for k, _ in macros):
+        return [(k, new_value if k == key else v) for k, v in macros]
+    else:
+        return macros + [(key, new_value)]
 
 
 class protect_files(object):
@@ -484,7 +487,7 @@ def build_torch_extension(build_ext, options, abi_compile_flags):
 
     # Update HAVE_CUDA to mean that PyTorch supports CUDA. Internally, we will be checking
     # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
-    # version of transfer tensors to CPU memory for those operations.
+    # version or transfer tensors to CPU memory for those operations.
     updated_macros = set_macro(
         options['MACROS'], 'HAVE_CUDA', str(int(have_cuda)))
 

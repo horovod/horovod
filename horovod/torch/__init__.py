@@ -132,11 +132,6 @@ _NULL = mpi_lib._ffi.NULL
 def _check_function(function_factory, tensor):
     function = function_factory(tensor)
     if not hasattr(mpi_lib, function):
-        if tensor.is_cuda:
-            cpu_function = function_factory(tensor.new().cpu())
-            if hasattr(mpi_lib, cpu_function):
-                raise ValueError('Horovod should be rebuilt with GPU support '
-                                 'to enable support for CUDA tensors.')
         raise ValueError('Tensor type %s is not supported.' % tensor.type())
     return function
 
