@@ -297,6 +297,10 @@ def test_horovod_allgather():
 
     dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
               torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
+    if torch.cuda.is_available():
+        dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
+                   torch.cuda.IntTensor, torch.cuda.LongTensor, torch.cuda.FloatTensor,
+                   torch.cuda.DoubleTensor]
     dims = [1, 2, 3]
     for dtype, dim in itertools.product(dtypes, dims):
         tensor = torch.FloatTensor(*([17] * dim)).fill_(1).mul_(rank)
@@ -322,6 +326,10 @@ def test_horovod_allgather_variable_size():
 
     dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
               torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
+    if torch.cuda.is_available():
+        dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
+                   torch.cuda.IntTensor, torch.cuda.LongTensor, torch.cuda.FloatTensor,
+                   torch.cuda.DoubleTensor]
     dims = [1, 2, 3]
     for dtype, dim in itertools.product(dtypes, dims):
         # Support tests up to MPI Size of 35
@@ -406,6 +414,10 @@ def test_horovod_broadcast():
 
     dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
               torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
+    if torch.cuda.is_available():
+        dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
+                   torch.cuda.IntTensor, torch.cuda.LongTensor, torch.cuda.FloatTensor,
+                   torch.cuda.DoubleTensor]
     dims = [1, 2, 3]
     root_ranks = list(range(size))
     for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
@@ -433,6 +445,10 @@ def test_horovod_broadcast_inplace():
 
     dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
               torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
+    if torch.cuda.is_available():
+        dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
+                   torch.cuda.IntTensor, torch.cuda.LongTensor, torch.cuda.FloatTensor,
+                   torch.cuda.DoubleTensor]
     dims = [1, 2, 3]
     root_ranks = list(range(size))
     for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
