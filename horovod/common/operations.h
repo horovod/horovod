@@ -37,7 +37,10 @@ Status CheckInitialized();
 extern "C" {
 
 // C interface to initialize Horovod.
-void horovod_init();
+void horovod_init(bool auto_mpi_init_flag,bool auto_mpi_finalize_flag);
+
+// C interface to close Horovod.
+int horovod_close();
 
 // C interface to get index of current Horovod process.
 // Returns -1 if Horovod is not initialized.
