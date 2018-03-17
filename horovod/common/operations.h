@@ -39,7 +39,9 @@ extern "C" {
 // C interface to initialize Horovod.
 void horovod_init(bool auto_mpi_init_flag,bool auto_mpi_finalize_flag);
 
-// C interface to close Horovod.
+// Closes horovod if auto_mpi_finalize=False. This make sure horovod thread do not 
+// call MPI_Finalize while other MPI threads still running and vice versa.
+// if auto_mpi_finalize=true, this function has no effect
 int horovod_close();
 
 // C interface to get index of current Horovod process.

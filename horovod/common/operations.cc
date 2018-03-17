@@ -1171,6 +1171,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // be used together with Horovod if multi-threaded MPI is installed.
   int provided;
 
+  // Calls MPI_Init if horovod_global.auto_mpi_init is set otherwise prints warning
   if(horovod_global.auto_mpi_init){
     int is_mpi_initialized= 0;
     MPI_Initialized(&is_mpi_initialized);
@@ -1481,7 +1482,11 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     (*it)(SHUT_DOWN_ERROR);
   }
 
-  while(true){
+  // Calls MPI_Finalize if horovod_global.auto_mpi_finalize is set otherwise prints warning
+  if(!horovod_global.auto_mpi_finalize){
+    std::cerr << "WARNING: Make sure to call MPI_Finalize." << std::endl
+  }
+  while(true){ 
     if(horovod_global.auto_mpi_finalize){
       int is_mpi_finalized = 0;
       MPI_Finalized(&is_mpi_finalized);
