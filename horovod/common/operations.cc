@@ -1179,7 +1179,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &provided);
   }else{
     MPI_Query_thread(&provided);
-    std::cerr << "WARNING: Make sure to call MPI_Init before calling"
+    std::cerr << "WARNING: Make sure to call MPI_Init before calling "
                  "hvd.init otherwise horovod will crash." << std::endl;
   }
   
@@ -1483,17 +1483,22 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 
   // Calls MPI_Finalize if horovod_global.auto_mpi_finalize is set otherwise prints warning
-  if(!horovod_global.auto_mpi_finalize){
-    std::cerr << "WARNING: Make sure to call MPI_Finalize." << std::endl
-  }
-  while(true){ 
+  while(true){
     if(horovod_global.auto_mpi_finalize){
       int is_mpi_finalized = 0;
+      bool is_warning_shown = false;
       MPI_Finalized(&is_mpi_finalized);
-      if(!is_mpi_finalized)
+      if(!is_mpi_finalized){
         MPI_Finalize();
         horovod_global.initialization_done = false;
         break;
+      }
+      else if(!is_warning_shown)
+      {
+        std::cerr << "WARNING: Horovod waiting for other MPI threads to complete" << std::endl;
+        is_warning_shown=true;
+      }
+        
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
@@ -1502,12 +1507,12 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
 // Start Horovod background thread. Ensure that this is
 // only done once no matter how many times this function is called.
-void InitializeHorovodOnce(bool auto_mpi_init_flag,bool auto_mpi_finalize_flag) {
+void InitializeHorovodOnce(bool auto_mpi_init,bool auto_mpi_finalize) {
   // Ensure background thread is only started once.
   if (!horovod_global.initialize_flag.test_and_set()) {
 
-    horovod_global.auto_mpi_init = auto_mpi_init_flag;
-    horovod_global.auto_mpi_finalize = auto_mpi_finalize_flag;
+    horovod_global.auto_mpi_init = auto_mpi_init;
+    horovod_global.auto_mpi_finalize = auto_mpi_finalize;
 
     horovod_global.background_thread =
         std::thread(BackgroundThreadLoop, std::ref(horovod_global));
@@ -1530,9 +1535,9 @@ Status CheckInitialized() {
 
 extern "C" {
 
-void horovod_init(bool auto_mpi_init_flag,bool auto_mpi_finalize_flag) { 
+void horovod_init(bool auto_mpi_init,bool auto_mpi_finalize) { 
 
-  InitializeHorovodOnce(auto_mpi_init_flag,auto_mpi_finalize_flag); 
+  InitializeHorovodOnce(auto_mpi_init,auto_mpi_finalize); 
   
 }
 

@@ -37,10 +37,10 @@ MPI_COMMON_LIB_CTYPES = \
                              'mpi_lib' + get_ext_suffix()), mode=ctypes.RTLD_GLOBAL)
 
 
-def init(auto_mpi_init=True ,auto_mpi_finalize=True):
+def init(mpi_init=True ,mpi_finalize=True):
     """A function that initializes Horovod.
     """
-    return MPI_COMMON_LIB_CTYPES.horovod_init(ctypes.c_int(auto_mpi_init),ctypes.c_int(auto_mpi_finalize))
+    return MPI_COMMON_LIB_CTYPES.horovod_init(ctypes.c_bool(mpi_init),ctypes.c_bool(mpi_finalize))
 
 def close():  
     """A function that initializes Horovod.
