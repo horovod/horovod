@@ -17,6 +17,7 @@
 import ctypes
 import os
 import sysconfig
+import atexit
 
 
 def get_ext_suffix():
@@ -42,11 +43,12 @@ def init(mpi_init=True ,mpi_finalize=True):
     """
     return MPI_COMMON_LIB_CTYPES.horovod_init(ctypes.c_bool(mpi_init),ctypes.c_bool(mpi_finalize))
 
-def close():  
-    """A function that initializes Horovod.
+def _close():  
+    """A function used by horovod to close Horovod during normal interpreter termination.
     """
     return MPI_COMMON_LIB_CTYPES.horovod_close()
 
+atexit.register(close)
 
 def size():
     """A function that returns the number of Horovod processes.
