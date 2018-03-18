@@ -48,7 +48,7 @@ def _close():
     """
     return MPI_COMMON_LIB_CTYPES.horovod_close()
 
-atexit.register(close)
+atexit.register(_close)
 
 def size():
     """A function that returns the number of Horovod processes.
