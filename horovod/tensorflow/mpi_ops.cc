@@ -96,7 +96,7 @@ public:
   TFTensor(::tensorflow::Tensor& tensor);
   virtual const common::MPIDataType dtype() const override;
   virtual const common::TensorShape shape() const override;
-  virtual const char* data() const override;
+  virtual const void* data() const override;
   virtual int64_t size() const override;
 
 protected:
@@ -203,7 +203,7 @@ const common::TensorShape TFTensor::shape() const {
   return shape;
 }
 
-const char* TFTensor::data() const { return tensor_.tensor_data().data(); }
+const void* TFTensor::data() const { return (const void*)tensor_.tensor_data().data(); }
 
 int64_t TFTensor::size() const { return (int64_t)tensor_.tensor_data().size(); }
 
