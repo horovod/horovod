@@ -161,7 +161,7 @@ const void* TFPersistentBuffer::AccessData(
     std::shared_ptr<common::OpContext> context) const {
   // It's safe to cast context to TFOpContext, since only TFOpContext creates
   // TFPersistentBuffer.
-  return (void *)tensor_
+  return (const void *)tensor_
       ->AccessTensor(
           std::dynamic_pointer_cast<TFOpContext>(context)->GetKernelContext())
       ->tensor_data()
