@@ -84,7 +84,7 @@ private:
 class TFPersistentBuffer : public common::PersistentBuffer {
 public:
   TFPersistentBuffer(OpKernelContext* context, int64_t size);
-  virtual const char*
+  virtual const void*
   AccessData(std::shared_ptr<common::OpContext> context) const override;
 
 private:
@@ -157,11 +157,11 @@ TFPersistentBuffer::TFPersistentBuffer(OpKernelContext* context, int64_t size) {
 #endif
 }
 
-const char* TFPersistentBuffer::AccessData(
+const void* TFPersistentBuffer::AccessData(
     std::shared_ptr<common::OpContext> context) const {
   // It's safe to cast context to TFOpContext, since only TFOpContext creates
   // TFPersistentBuffer.
-  return tensor_
+  return (void *)tensor_
       ->AccessTensor(
           std::dynamic_pointer_cast<TFOpContext>(context)->GetKernelContext())
       ->tensor_data()

@@ -78,7 +78,7 @@ class OpContext;
 
 class PersistentBuffer {
 public:
-  virtual const char* AccessData(std::shared_ptr<OpContext> context) const = 0;
+  virtual const void* AccessData(std::shared_ptr<OpContext> context) const = 0;
   virtual ~PersistentBuffer(){};
 };
 
