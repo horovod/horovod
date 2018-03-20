@@ -153,12 +153,14 @@ struct HorovodGlobalState {
   // multi-threading is supported.
   int rank = 0;
   int local_rank = 0;
+  int inner_rank = 0;
   int cross_rank = 0;
   int size = 1;
   int local_size = 1;
+  int inner_size = 1;
   int cross_size = 1;
   bool mpi_threads_supported = false;
-  MPI_Comm local_comm;
+  MPI_Comm inner_comm;
   MPI_Comm cross_comm;
 
 // The CUDA stream used for data transfers and within-allreduce operations.
@@ -180,7 +182,7 @@ struct HorovodGlobalState {
 #endif
 #if HAVE_NCCL
   // TODO: this is simplified and supports only single GPU per rank
-  ncclComm_t local_nccl_comm = nullptr;
+  ncclComm_t inner_nccl_comm = nullptr;
   ncclComm_t cross_nccl_comm = nullptr;
 #endif
 
@@ -784,35 +786,35 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       assert(first_entry.device == 0);
 
       // Ensure NCCL communicator is in the map before executing reduction.
-      if (horovod_global.local_nccl_comm == nullptr) {
-        ACTIVITY_START_ALL(entries, timeline, "INIT_NCCL_LOCAL")
+      if (horovod_global.inner_nccl_comm == nullptr && horovod_global.inner_size > 1) {
+        ACTIVITY_START_ALL(entries, timeline, "INIT_NCCL_INNER")
 
         ncclUniqueId nccl_id;
-        if (horovod_global.local_rank == 0) {
+        if (horovod_global.inner_rank == 0) {
           NCCL_CHECK(entries, "ncclGetUniqueId", ncclGetUniqueId(&nccl_id))
         }
 
         MPI_CHECK(entries, "MPI_Bcast",
                   MPI_Bcast((void*)&nccl_id, sizeof(nccl_id), MPI_BYTE, 0,
-                            horovod_global.local_comm))
+                            horovod_global.inner_comm))
 
-        ncclComm_t new_local_nccl_comm;
+        ncclComm_t new_inner_nccl_comm;
         NCCL_CHECK(entries, "ncclCommInitRank",
-                   ncclCommInitRank(&new_local_nccl_comm,
-                                    horovod_global.local_size, nccl_id,
-                                    horovod_global.local_rank))
-        horovod_global.local_nccl_comm = new_local_nccl_comm;
+                   ncclCommInitRank(&new_inner_nccl_comm,
+                                    horovod_global.inner_size, nccl_id,
+                                    horovod_global.inner_rank))
+        horovod_global.inner_nccl_comm = new_inner_nccl_comm;
 
         // Barrier helps NCCL to synchronize after initialization and avoid
         // deadlock that we've been seeing without it.
         MPI_CHECK(entries, "MPI_Barrier",
-                  MPI_Barrier(horovod_global.local_comm));
+                  MPI_Barrier(horovod_global.inner_comm));
 
         ACTIVITY_END_ALL(entries, timeline)
       }
 
       if (horovod_global.cross_nccl_comm == nullptr &&
-          horovod_global.local_rank == 0) {
+          horovod_global.inner_rank == 0) {
         ACTIVITY_START_ALL(entries, timeline, "INIT_NCCL_CROSS")
 
         ncclUniqueId nccl_id;
@@ -874,18 +876,16 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         for (auto it = entries.begin(); it != entries.end(); it++) {
           num_elements += it->tensor->shape().num_elements();
         }
-        // TODO need to globally agree on this, since cross size may be > 1 for
-        // local_rank 0
         auto dtype = GetNCCLDataType(first_entry.tensor);
-        if (horovod_global.cross_size > 1) {
+        if (horovod_global.inner_size > 1) {
           // Reduce within host
           NCCL_CHECK(entries, "ncclReduce",
                      ncclReduce((const void*)buffer_data, (void*)buffer_data,
                                 (size_t)num_elements, dtype, ncclSum, 0,
-                                horovod_global.local_nccl_comm, stream))
+                                horovod_global.inner_nccl_comm, stream))
 
           // Allreduce among hosts
-          if (horovod_global.local_rank == 0) {
+          if (horovod_global.inner_rank == 0) {
             NCCL_CHECK(entries, "ncclAllReduce",
                        ncclAllReduce((const void*)buffer_data,
                                      (void*)buffer_data, (size_t)num_elements,
@@ -896,12 +896,12 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           // Broadcast within host
           NCCL_CHECK(entries, "ncclBcast",
                      ncclBcast((void*)buffer_data, (size_t)num_elements, dtype,
-                               0, horovod_global.local_nccl_comm, stream))
+                               0, horovod_global.inner_nccl_comm, stream))
         } else {
           NCCL_CHECK(entries, "ncclAllReduce",
                      ncclAllReduce((const void*)buffer_data, (void*)buffer_data,
                                    (size_t)num_elements, dtype, ncclSum,
-                                   horovod_global.local_nccl_comm, stream))
+                                   horovod_global.cross_nccl_comm, stream))
         }
         if (timeline.Initialized()) {
           RECORD_EVENT(entries, after_reduce_event, stream)
@@ -922,19 +922,17 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         }
       } else {
         auto e = first_entry;
-        // TODO need to globally agree on this, since cross size may be > 1 for
-        // local_rank 0
         auto dtype = GetNCCLDataType(first_entry.tensor);
-        if (horovod_global.cross_size > 1) {
+        if (horovod_global.inner_size > 1) {
           // Reduce within host
           NCCL_CHECK(
               entries, "ncclReduce",
               ncclReduce((const void*)e.tensor->data(), (void*)e.output->data(),
                          (size_t)e.tensor->shape().num_elements(), dtype,
-                         ncclSum, 0, horovod_global.local_nccl_comm, stream))
+                         ncclSum, 0, horovod_global.inner_nccl_comm, stream))
 
           // Allreduce among hosts
-          if (horovod_global.local_rank == 0) {
+          if (horovod_global.inner_rank == 0) {
             NCCL_CHECK(
                 entries, "ncclAllReduce",
                 ncclAllReduce((void*)e.output->data(), (void*)e.output->data(),
@@ -946,13 +944,13 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           NCCL_CHECK(entries, "ncclBcast",
                      ncclBcast((void*)e.output->data(),
                                (size_t)e.tensor->shape().num_elements(), dtype,
-                               0, horovod_global.local_nccl_comm, stream))
+                               0, horovod_global.inner_nccl_comm, stream))
         } else {
           NCCL_CHECK(entries, "ncclAllReduce",
                      ncclAllReduce(
                          (const void*)e.tensor->data(), (void*)e.output->data(),
                          (size_t)e.tensor->shape().num_elements(), dtype,
-                         ncclSum, horovod_global.local_nccl_comm, stream))
+                         ncclSum, horovod_global.cross_nccl_comm, stream))
         }
         if (timeline.Initialized()) {
           RECORD_EVENT(entries, after_reduce_event, stream)
@@ -1274,20 +1272,36 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   MPI_Comm_rank(local_comm, &local_rank);
   MPI_Comm_size(local_comm, &local_size);
 
+  int inner_ring_size = 1;
+  auto horovod_inner_ring_size = std::getenv("HOROVOD_INNER_RING_SIZE");
+  if (horovod_inner_ring_size != nullptr) {
+    inner_ring_size = std::atoi(horovod_inner_ring_size);
+  }
+
+  MPI_Comm inner_comm;
+  MPI_Comm_split(MPI_COMM_WORLD, rank / inner_ring_size, rank, &inner_comm);
+  int inner_rank, inner_size;
+  MPI_Comm_rank(inner_comm, &inner_rank);
+  MPI_Comm_size(inner_comm, &inner_size);
+  assert(inner_size == inner_ring_size);
+
   MPI_Comm cross_comm;
-  MPI_Comm_split(MPI_COMM_WORLD, local_rank, rank, &cross_comm);
+  MPI_Comm_split(MPI_COMM_WORLD, inner_rank, rank, &cross_comm);
   int cross_rank, cross_size;
   MPI_Comm_rank(cross_comm, &cross_rank);
   MPI_Comm_size(cross_comm, &cross_size);
 
+
   state.rank = rank;
   state.local_rank = local_rank;
+  state.inner_rank = inner_rank;
   state.cross_rank = cross_rank;
   state.size = size;
   state.local_size = local_size;
+  state.inner_size = inner_size;
   state.cross_size = cross_size;
   state.mpi_threads_supported = (provided == MPI_THREAD_MULTIPLE);
-  state.local_comm = local_comm;
+  state.inner_comm = inner_comm;
   state.cross_comm = cross_comm;
   state.initialization_done = true;
 
