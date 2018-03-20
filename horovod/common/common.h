@@ -78,7 +78,7 @@ class OpContext;
 
 class PersistentBuffer {
 public:
-  virtual const char* AccessData(std::shared_ptr<OpContext> context) const = 0;
+  virtual const void* AccessData(std::shared_ptr<OpContext> context) const = 0;
   virtual ~PersistentBuffer(){};
 };
 
@@ -86,7 +86,7 @@ class Tensor {
 public:
   virtual const MPIDataType dtype() const = 0;
   virtual const TensorShape shape() const = 0;
-  virtual const char* data() const = 0;
+  virtual const void* data() const = 0;
   virtual int64_t size() const = 0;
   virtual ~Tensor(){};
 };
