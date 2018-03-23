@@ -820,8 +820,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         // Copy memory into the fusion buffer.
         int64_t offset = 0;
         for (auto it = entries.begin(); it != entries.end(); it++) {
+          void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
           CUDA_CHECK(entries, "cudaMemcpyAsync",
-                     cudaMemcpyAsync((void*)(buffer_data + offset),
+                     cudaMemcpyAsync(buffer_data_at_offset,
                                      it->tensor->data(),
                                      (size_t)it->tensor->size(),
                                      cudaMemcpyDeviceToDevice, stream))
@@ -848,9 +849,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         // Copy memory out of the fusion buffer.
         offset = 0;
         for (auto it = entries.begin(); it != entries.end(); it++) {
+          void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
           CUDA_CHECK(entries, "cudaMemcpyAsync",
                      cudaMemcpyAsync((void*)it->output->data(),
-                                     (buffer_data + offset),
+                                     buffer_data_at_offset,
                                      (size_t)it->tensor->size(),
                                      cudaMemcpyDeviceToDevice, stream))
           offset += it->tensor->size();
@@ -946,17 +948,18 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       ACTIVITY_START_ALL(entries, timeline, "MEMCPY_IN_FUSION_BUFFER")
       int64_t offset = 0;
       for (auto it = entries.begin(); it != entries.end(); it++) {
+        void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
 #if HAVE_CUDA
         if (on_gpu) {
           CUDA_CHECK(entries, "cudaMemcpyAsync",
                      cudaMemcpyAsync(
-                         (void*)(buffer_data + offset),
+                         buffer_data_at_offset,
                          it->tensor->data(),
                          (size_t)it->tensor->size(), cudaMemcpyDeviceToDevice,
                          horovod_global.streams[first_entry.device]))
         } else {
 #endif
-          std::memcpy((void*)(buffer_data + offset),
+          std::memcpy(buffer_data_at_offset,
                       it->tensor->data(),
                       (size_t)it->tensor->size());
 #if HAVE_CUDA
@@ -989,18 +992,19 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       ACTIVITY_START_ALL(entries, timeline, "MEMCPY_OUT_FUSION_BUFFER")
       offset = 0;
       for (auto it = entries.begin(); it != entries.end(); it++) {
+        void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
 #if HAVE_CUDA
         if (on_gpu) {
           CUDA_CHECK(entries, "cudaMemcpyAsync",
                      cudaMemcpyAsync(
                          (void*)it->output->data(),
-                         (buffer_data + offset),
+                         buffer_data_at_offset,
                          (size_t)it->tensor->size(), cudaMemcpyDeviceToDevice,
                          horovod_global.streams[first_entry.device]))
         } else {
 #endif
           std::memcpy((void*)it->output->data(),
-                      (buffer_data + offset),
+                      buffer_data_at_offset,
                       (size_t)it->tensor->size());
 #if HAVE_CUDA
         }
