@@ -41,7 +41,7 @@ RUN mkdir /tmp/openmpi && \
     wget https://www.open-mpi.org/software/ompi/v3.0/downloads/openmpi-3.0.0.tar.gz && \
     tar zxf openmpi-3.0.0.tar.gz && \
     cd openmpi-3.0.0 && \
-    ./configure --enable-orterun-prefix-by-default && \
+    ./configure --enable-orterun-prefix-by-default --with-cuda && \
     make -j $(nproc) all && \
     make install && \
     ldconfig && \
