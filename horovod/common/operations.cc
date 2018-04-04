@@ -150,15 +150,13 @@ struct HorovodGlobalState {
   bool initialization_done = false;
 
   // The MPI rank, local rank, size, local size, flag indicating whether MPI
-  // multi-threading is supported and auto_mpi_finalize indicating whether to
+  // multi-threading is supported and mpi_finalize indicating whether to
   // call MPI_Finalize automatically
   int rank = 0;
   int local_rank = 0;
   int size = 1;
   int local_size = 1;
   bool mpi_threads_supported = false;
-  bool auto_mpi_init = true;
-  bool auto_mpi_finalize = true;
 
 // The CUDA stream used for data transfers and within-allreduce operations.
 // A naive implementation would use the TensorFlow StreamExecutor CUDA
@@ -1163,27 +1161,36 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
 //      response from the coordinator. At that point, the tick ends.
 //      If instead of "DONE" they receive "SHUTDOWN", they exit their background
 //      loop.
-void BackgroundThreadLoop(HorovodGlobalState& state) {
+void BackgroundThreadLoop(HorovodGlobalState& state, int mpi_init,
+                          int mpi_finalize) {
   // Initialize MPI. This must happen on the background thread, since not all
   // MPI implementations support being called from multiple threads.
   //
   // We will ask for multiple threads, so other libraries like mpi4py can
   // be used together with Horovod if multi-threaded MPI is installed.
   int provided;
+  int is_mpi_initialized = 0;
+  MPI_Initialized(&is_mpi_initialized);
 
-  // Calls MPI_Init if horovod_global.auto_mpi_init is set otherwise prints warning
-  if(horovod_global.auto_mpi_init){
-    int is_mpi_initialized= 0;
-    MPI_Initialized(&is_mpi_initialized);
-    if(!is_mpi_initialized)
+  // Calls MPI_Init if mpi_init is set otherwise prints warning
+  if (mpi_init) {
+    if (is_mpi_initialized) {
+      std::cerr << " WARNING: MPI has already been initialized, please use "
+                   "hvd.init(mpi_init=False, mpi_finalize=False) if you're "
+                   "using other "
+                   "frameworks that initialize MPI prior to Horovod."
+                << std::endl;
+    } else
       MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &provided);
-  }else{
+  } else {
     MPI_Query_thread(&provided);
-    std::cerr << "WARNING: Make sure to call MPI_Init before calling "
-                 "hvd.init otherwise horovod will crash." << std::endl;
+    if (!is_mpi_initialized || provided != MPI_THREAD_MULTIPLE) {
+      std::cerr << " WARNING: MPI has not initialized with MPI_THREAD_MULTIPLE "
+                   "Process may crash. "
+                << std::endl;
+    }
   }
-  
-  
+
   // Get MPI rank to determine if we are rank zero.
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -1200,6 +1207,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   int local_rank, local_size;
   MPI_Comm_rank(local_comm, &local_rank);
   MPI_Comm_size(local_comm, &local_size);
+  MPI_Query_thread(&provided);
 
   state.rank = rank;
   state.local_rank = local_rank;
@@ -1482,40 +1490,18 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     (*it)(SHUT_DOWN_ERROR);
   }
 
-  // Calls MPI_Finalize if horovod_global.auto_mpi_finalize is set otherwise prints warning
-  while(true){
-    if(horovod_global.auto_mpi_finalize){
-      int is_mpi_finalized = 0;
-      bool is_warning_shown = false;
-      MPI_Finalized(&is_mpi_finalized);
-      if(!is_mpi_finalized){
-        MPI_Finalize();
-        horovod_global.initialization_done = false;
-        break;
-      }
-      else if(!is_warning_shown)
-      {
-        std::cerr << "WARNING: Horovod waiting for other MPI threads to complete" << std::endl;
-        is_warning_shown=true;
-      }
-        
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  }
-  
+  if (mpi_finalize)
+    MPI_Finalize();
 }
 
 // Start Horovod background thread. Ensure that this is
 // only done once no matter how many times this function is called.
-void InitializeHorovodOnce(bool auto_mpi_init,bool auto_mpi_finalize) {
+void InitializeHorovodOnce(bool mpi_init, bool mpi_finalize) {
   // Ensure background thread is only started once.
   if (!horovod_global.initialize_flag.test_and_set()) {
 
-    horovod_global.auto_mpi_init = auto_mpi_init;
-    horovod_global.auto_mpi_finalize = auto_mpi_finalize;
-
-    horovod_global.background_thread =
-        std::thread(BackgroundThreadLoop, std::ref(horovod_global));
+    horovod_global.background_thread = std::thread(
+        BackgroundThreadLoop, std::ref(horovod_global), mpi_init, mpi_finalize);
   }
 
   // Wait to ensure that the background thread has finished initializing MPI.
@@ -1535,10 +1521,8 @@ Status CheckInitialized() {
 
 extern "C" {
 
-void horovod_init(bool auto_mpi_init,bool auto_mpi_finalize) { 
-
-  InitializeHorovodOnce(auto_mpi_init,auto_mpi_finalize); 
-  
+void horovod_init(bool mpi_init, bool mpi_finalize) {
+  InitializeHorovodOnce(mpi_init, mpi_finalize);
 }
 
 int horovod_rank() {
@@ -1576,13 +1560,17 @@ int horovod_mpi_threads_supported() {
   return horovod_global.mpi_threads_supported ? 1 : 0;
 }
 
-int horovod_close() {
+int horovod_finalize() {
   if (!horovod_global.initialization_done) {
     return -1;
   }
 
-  horovod_global.auto_mpi_finalize = true;
-  return 1;
+  // Sets the sutdown flag and wait for background thread to terminate.
+  if (horovod_global.background_thread.joinable()) {
+    horovod_global.shut_down = true;
+    horovod_global.background_thread.join();
+  }
+  return 0;
 }
 }
 

@@ -38,17 +38,20 @@ MPI_COMMON_LIB_CTYPES = \
                              'mpi_lib' + get_ext_suffix()), mode=ctypes.RTLD_GLOBAL)
 
 
-def init(mpi_init=True ,mpi_finalize=True):
+def init(mpi_init=True, mpi_finalize=True):
     """A function that initializes Horovod.
+        mpi_init : if True, Automatic MPI initialization will be done by horovod at import (default: True).
+        mpi_finalize : if True, Automatic MPI finalization will be done by horovod at exit(default: True).
     """
-    return MPI_COMMON_LIB_CTYPES.horovod_init(ctypes.c_bool(mpi_init),ctypes.c_bool(mpi_finalize))
+    atexit.register(finalize)
+    return MPI_COMMON_LIB_CTYPES.horovod_init(ctypes.c_bool(mpi_init), ctypes.c_bool(mpi_finalize))
 
-def _close():  
-    """A function used by horovod to close Horovod during normal interpreter termination.
+
+def finalize():
+    """A function that will close Horovod and .
     """
-    return MPI_COMMON_LIB_CTYPES.horovod_close()
+    return MPI_COMMON_LIB_CTYPES.horovod_finalize()
 
-atexit.register(_close)
 
 def size():
     """A function that returns the number of Horovod processes.

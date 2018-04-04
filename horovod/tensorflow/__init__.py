@@ -32,6 +32,7 @@ from __future__ import print_function
 import tensorflow as tf
 
 from horovod.common import init
+from horovod.common import finalize
 from horovod.common import size
 from horovod.common import local_size
 from horovod.common import rank
@@ -132,7 +133,7 @@ class DistributedOptimizer(tf.train.Optimizer):
     average gradient values before applying gradients to model weights."""
 
     def __init__(self, optimizer, name=None, use_locking=False, device_dense='',
-                 device_sparse=''):
+                device_sparse=''):
         """Construct a new DistributedOptimizer, which uses another optimizer
         under the hood for computing single-process gradient values and
         applying gradient updates after the gradient values have been averaged

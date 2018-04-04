@@ -37,12 +37,11 @@ Status CheckInitialized();
 extern "C" {
 
 // C interface to initialize Horovod.
-void horovod_init(bool auto_mpi_init_flag,bool auto_mpi_finalize_flag);
+void horovod_init(bool auto_mpi_init_flag, bool auto_mpi_finalize_flag);
 
-// Closes horovod if auto_mpi_finalize=False. This make sure horovod thread do not 
-// call MPI_Finalize while other MPI threads still running and vice versa.
-// if auto_mpi_finalize=true, this function has no effect
-int horovod_close();
+// Finalize horovod if auto_mpi_finalize=False. This will shutdown
+// the horovod thread after processing remaining messages
+int horovod_finalize();
 
 // C interface to get index of current Horovod process.
 // Returns -1 if Horovod is not initialized.
