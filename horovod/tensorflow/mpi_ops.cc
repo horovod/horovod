@@ -84,7 +84,7 @@ private:
 class TFPersistentBuffer : public common::PersistentBuffer {
 public:
   TFPersistentBuffer(OpKernelContext* context, int64_t size);
-  virtual const char*
+  virtual const void*
   AccessData(std::shared_ptr<common::OpContext> context) const override;
 
 private:
@@ -96,7 +96,7 @@ public:
   TFTensor(::tensorflow::Tensor& tensor);
   virtual const common::MPIDataType dtype() const override;
   virtual const common::TensorShape shape() const override;
-  virtual const char* data() const override;
+  virtual const void* data() const override;
   virtual int64_t size() const override;
 
 protected:
@@ -157,11 +157,11 @@ TFPersistentBuffer::TFPersistentBuffer(OpKernelContext* context, int64_t size) {
 #endif
 }
 
-const char* TFPersistentBuffer::AccessData(
+const void* TFPersistentBuffer::AccessData(
     std::shared_ptr<common::OpContext> context) const {
   // It's safe to cast context to TFOpContext, since only TFOpContext creates
   // TFPersistentBuffer.
-  return tensor_
+  return (const void *)tensor_
       ->AccessTensor(
           std::dynamic_pointer_cast<TFOpContext>(context)->GetKernelContext())
       ->tensor_data()
@@ -203,7 +203,7 @@ const common::TensorShape TFTensor::shape() const {
   return shape;
 }
 
-const char* TFTensor::data() const { return tensor_.tensor_data().data(); }
+const void* TFTensor::data() const { return (const void*)tensor_.tensor_data().data(); }
 
 int64_t TFTensor::size() const { return (int64_t)tensor_.tensor_data().size(); }
 

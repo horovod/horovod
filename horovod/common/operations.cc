@@ -745,7 +745,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       }
     }
     auto result = MPI_Allgatherv(
-        (const void*)e.tensor->data(), (int)e.tensor->shape().num_elements(),
+        e.tensor->data(), (int)e.tensor->shape().num_elements(),
         GetMPIDataType(e.tensor), (void*)e.output->data(), recvcounts,
         displcmnts, GetMPIDataType(e.tensor), MPI_COMM_WORLD);
     delete[] recvcounts;
@@ -821,9 +821,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         // Copy memory into the fusion buffer.
         int64_t offset = 0;
         for (auto it = entries.begin(); it != entries.end(); it++) {
+          void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
           CUDA_CHECK(entries, "cudaMemcpyAsync",
-                     cudaMemcpyAsync((void*)(buffer_data + offset),
-                                     (const void*)it->tensor->data(),
+                     cudaMemcpyAsync(buffer_data_at_offset,
+                                     it->tensor->data(),
                                      (size_t)it->tensor->size(),
                                      cudaMemcpyDeviceToDevice, stream))
           offset += it->tensor->size();
@@ -838,7 +839,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           num_elements += it->tensor->shape().num_elements();
         }
         NCCL_CHECK(entries, "ncclAllReduce",
-                   ncclAllReduce((const void*)buffer_data, (void*)buffer_data,
+                   ncclAllReduce(buffer_data, (void*)buffer_data,
                                  (size_t)num_elements,
                                  GetNCCLDataType(first_entry.tensor), ncclSum,
                                  nccl_comm, stream))
@@ -849,9 +850,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         // Copy memory out of the fusion buffer.
         offset = 0;
         for (auto it = entries.begin(); it != entries.end(); it++) {
+          void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
           CUDA_CHECK(entries, "cudaMemcpyAsync",
                      cudaMemcpyAsync((void*)it->output->data(),
-                                     (const void*)(buffer_data + offset),
+                                     buffer_data_at_offset,
                                      (size_t)it->tensor->size(),
                                      cudaMemcpyDeviceToDevice, stream))
           offset += it->tensor->size();
@@ -862,7 +864,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       } else {
         auto e = first_entry;
         NCCL_CHECK(entries, "ncclAllReduce",
-                   ncclAllReduce((const void*)e.tensor->data(),
+                   ncclAllReduce(e.tensor->data(),
                                  (void*)e.output->data(),
                                  (size_t)e.tensor->shape().num_elements(),
                                  GetNCCLDataType(first_entry.tensor), ncclSum,
@@ -947,18 +949,19 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       ACTIVITY_START_ALL(entries, timeline, "MEMCPY_IN_FUSION_BUFFER")
       int64_t offset = 0;
       for (auto it = entries.begin(); it != entries.end(); it++) {
+        void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
 #if HAVE_CUDA
         if (on_gpu) {
           CUDA_CHECK(entries, "cudaMemcpyAsync",
                      cudaMemcpyAsync(
-                         (void*)(buffer_data + offset),
-                         (const void*)it->tensor->data(),
+                         buffer_data_at_offset,
+                         it->tensor->data(),
                          (size_t)it->tensor->size(), cudaMemcpyDeviceToDevice,
                          horovod_global.streams[first_entry.device]))
         } else {
 #endif
-          std::memcpy((void*)(buffer_data + offset),
-                      (const void*)it->tensor->data(),
+          std::memcpy(buffer_data_at_offset,
+                      it->tensor->data(),
                       (size_t)it->tensor->size());
 #if HAVE_CUDA
         }
@@ -990,18 +993,19 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       ACTIVITY_START_ALL(entries, timeline, "MEMCPY_OUT_FUSION_BUFFER")
       offset = 0;
       for (auto it = entries.begin(); it != entries.end(); it++) {
+        void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
 #if HAVE_CUDA
         if (on_gpu) {
           CUDA_CHECK(entries, "cudaMemcpyAsync",
                      cudaMemcpyAsync(
                          (void*)it->output->data(),
-                         (const void*)(buffer_data + offset),
+                         buffer_data_at_offset,
                          (size_t)it->tensor->size(), cudaMemcpyDeviceToDevice,
                          horovod_global.streams[first_entry.device]))
         } else {
 #endif
           std::memcpy((void*)it->output->data(),
-                      (const void*)(buffer_data + offset),
+                      buffer_data_at_offset,
                       (size_t)it->tensor->size());
 #if HAVE_CUDA
         }
@@ -1021,7 +1025,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       ACTIVITY_START_ALL(entries, timeline, "MPI_ALLREDUCE")
       const void* sendbuf = e.tensor->data() == e.output->data()
                                 ? MPI_IN_PLACE
-                                : (const void*)e.tensor->data();
+                                : e.tensor->data();
       MPI_CHECK(entries, "MPI_Allreduce",
                 MPI_Allreduce(sendbuf, (void*)e.output->data(),
                               (int)e.tensor->shape().num_elements(),
