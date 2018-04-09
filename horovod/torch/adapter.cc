@@ -67,8 +67,7 @@ template <class T> int64_t TorchTensor<T>::size() const {
 template <class T>
 TorchTemporaryBuffer<T>::TorchTemporaryBuffer(int device)
     : TorchTensor<T>(nullptr) {
-  with_device device_context(device);
-  this->tensor_ = TensorUtil::New<T>();
+  this->tensor_ = TensorUtil::New<T>(device);
 }
 
 template <class T> TorchTemporaryBuffer<T>::~TorchTemporaryBuffer() {
@@ -98,10 +97,7 @@ Status TorchOpContext<T>::AllocateOutput(TensorShape shape,
   for (int idx = 0; idx < shape.dims(); idx++) {
     shape_array[idx] = shape.dim_size(idx);
   }
-  {
-    with_device device_context(device_);
-    TensorUtil::ResizeNd(output_, shape.dims(), shape_array, nullptr);
-  }
+  TensorUtil::ResizeNd(output_, shape.dims(), shape_array, nullptr);
   delete[] shape_array;
   *tensor = std::make_shared<TorchTensor<T>>(output_);
   return Status::OK();

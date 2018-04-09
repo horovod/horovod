@@ -22,6 +22,7 @@
 #include "handle_manager.h"
 #include "mpi_ops.h"
 #include "ready_event.h"
+#include "cuda_util.h"
 #include "tensor_util.h"
 
 namespace horovod {

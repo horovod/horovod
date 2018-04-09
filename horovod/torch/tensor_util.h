@@ -17,12 +17,14 @@
 #define HOROVOD_TORCH_TENSOR_UTIL_H
 
 #include <TH/TH.h>
+#include <cassert>
 
 #if HAVE_CUDA
 #include <THC/THC.h>
 #endif
 
 #include "../common/common.h"
+#include "cuda_util.h"
 
 #if HAVE_CUDA
 extern THCState* state;
@@ -41,7 +43,7 @@ public:
   template <class T> static int64_t GetSize(T* tensor);
   template <class T> static int GetDevice(T* tensor);
 
-  template <class T> static T* New();
+  template <class T> static T* New(int device);
   template <class T> static void Free(T* tensor);
   template <class T>
   static void ResizeNd(T* tensor, int nDimension, int64_t* size,
@@ -63,7 +65,7 @@ public:
   template <> int64_t TensorUtil::GetSize<THTensor>(THTensor * tensor);        \
   template <> int TensorUtil::GetDevice<THTensor>(THTensor * tensor);          \
                                                                                \
-  template <> THTensor* TensorUtil::New<THTensor>();                           \
+  template <> THTensor* TensorUtil::New<THTensor>(int device);                 \
   template <> void TensorUtil::Free<THTensor>(THTensor * tensor);              \
   template <>                                                                  \
   void TensorUtil::ResizeNd<THTensor>(THTensor * tensor, int nDimension,       \
@@ -111,7 +113,8 @@ public:
     return CPU_DEVICE_ID;                                                      \
   }                                                                            \
                                                                                \
-  template <> THTensor* TensorUtil::New<THTensor>() {                          \
+  template <> THTensor* TensorUtil::New<THTensor>(int device) {                \
+    assert(device == CPU_DEVICE_ID);                                           \
     return THTensor##_new();                                                   \
   }                                                                            \
                                                                                \
@@ -164,7 +167,10 @@ public:
     return THCTensor##_getDevice(state, tensor);                               \
   }                                                                            \
                                                                                \
-  template <> THCTensor* TensorUtil::New() { return THCTensor##_new(state); }  \
+  template <> THCTensor* TensorUtil::New<THCTensor>(int device) {              \
+    with_device device_context(device);                                        \
+    return THCTensor##_new(state);                                             \
+  }                                                                            \
                                                                                \
   template <> void TensorUtil::Free<THCTensor>(THCTensor * tensor) {           \
     THCTensor##_free(state, tensor);                                           \
@@ -173,25 +179,31 @@ public:
   template <>                                                                  \
   void TensorUtil::ResizeNd<THCTensor>(THCTensor * tensor, int nDimension,     \
                                        int64_t* size, int64_t* stride) {       \
+    with_device device_context(THCTensor##_getDevice(state, tensor));          \
     THCTensor##_resizeNd(state, tensor, nDimension, size, stride);             \
   }                                                                            \
                                                                                \
   template <>                                                                  \
   void TensorUtil::Copy<THCTensor>(THCTensor * output, THCTensor * tensor) {   \
+    with_device device_context(THCTensor##_getDevice(state, output));          \
     THCTensor##_copy(state, output, tensor);                                   \
   }                                                                            \
                                                                                \
   template <>                                                                  \
   void TensorUtil::DivideTensorInPlace<THCTensor>(THCTensor * tensor,          \
                                                   int value) {                 \
+    with_device device_context(THCTensor##_getDevice(state, tensor));          \
     THCTensor##_div(state, tensor, tensor, value);                             \
   }                                                                            \
                                                                                \
   template <>                                                                  \
   void TensorUtil::CopyCPUToCuda<THTensor, THCTensor>(THTensor * cpu,          \
                                                       THCTensor * cuda) {      \
+    with_device device_context(THCTensor##_getDevice(state, cuda));            \
     THLongStorage* size = THTensor##_newSizeOf(cpu);                           \
-    THCTensor##_resize(state, cuda, size, NULL);                               \
+    if (!THCTensor##_isSize(state, cuda, size)) {                              \
+      THCTensor##_resize(state, cuda, size, NULL);                             \
+    }                                                                          \
     THLongStorage_free(size);                                                  \
     THCTensor##_copyCPU(state, cuda, cpu);                                     \
   }                                                                            \
@@ -199,8 +211,11 @@ public:
   template <>                                                                  \
   void TensorUtil::AsyncCopyCudaToCPU<THCTensor, THTensor>(THCTensor * cuda,   \
                                                            THTensor * cpu) {   \
+    with_device device_context(THCTensor##_getDevice(state, cuda));            \
     THLongStorage* size = THCTensor##_newSizeOf(state, cuda);                  \
-    THTensor##_resize(cpu, size, NULL);                                        \
+    if (!THTensor##_isSize(cpu, size)) {                                       \
+      THTensor##_resize(cpu, size, NULL);                                      \
+    }                                                                          \
     THLongStorage_free(size);                                                  \
     THTensor##_copyAsyncCuda(state, cpu, cuda);                                \
   }
