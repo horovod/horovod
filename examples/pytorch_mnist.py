@@ -22,20 +22,20 @@ parser.add_argument('--momentum', type=float, default=0.5, metavar='M',
                     help='SGD momentum (default: 0.5)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
-parser.add_argument('--seed', type=int, default=1, metavar='S',
-                    help='random seed (default: 1)')
+parser.add_argument('--seed', type=int, default=42, metavar='S',
+                    help='random seed (default: 42)')
 parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='how many batches to wait before logging training status')
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 
 hvd.init()
-torch.manual_seed(args.seed + hvd.rank())
+torch.manual_seed(args.seed)
 
 if args.cuda:
     # Horovod: pin GPU to local rank.
     torch.cuda.set_device(hvd.local_rank())
-    torch.cuda.manual_seed(args.seed + hvd.rank())
+    torch.cuda.manual_seed(args.seed)
 
 
 kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
@@ -116,10 +116,16 @@ def train(epoch):
                 100. * batch_idx / len(train_loader), loss.data[0]))
 
 
+def metric_average(val, name):
+    tensor = torch.FloatTensor([val])
+    avg_tensor = hvd.allreduce(tensor, name=name)
+    return avg_tensor[0]
+
+
 def test():
     model.eval()
-    test_loss = 0
-    correct = 0
+    test_loss = 0.
+    test_accuracy = 0.
     for data, target in test_loader:
         if args.cuda:
             data, target = data.cuda(), target.cuda()
@@ -129,12 +135,17 @@ def test():
         test_loss += F.nll_loss(output, target, size_average=False).data[0]
         # get the index of the max log-probability
         pred = output.data.max(1, keepdim=True)[1]
-        correct += pred.eq(target.data.view_as(pred)).cpu().sum()
+        test_accuracy += pred.eq(target.data.view_as(pred)).cpu().sum()
 
     test_loss /= len(test_sampler)
-    print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
-        test_loss, correct, len(test_sampler),
-        100. * correct / len(test_sampler)))
+    test_accuracy /= len(test_sampler)
+
+    test_loss = metric_average(test_loss, 'avg_loss')
+    test_accuracy = metric_average(test_accuracy, 'avg_accuracy')
+
+    if hvd.rank() == 0:
+        print('\nTest set: Average loss: {:.4f}, Accuracy: {:.2f}%\n'.format(
+            test_loss, 100. * test_accuracy))
 
 
 for epoch in range(1, args.epochs + 1):
