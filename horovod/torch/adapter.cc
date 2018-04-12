@@ -53,7 +53,14 @@ template <class T> const MPIDataType TorchTensor<T>::dtype() const {
 }
 
 template <class T> const TensorShape TorchTensor<T>::shape() const {
-  return TensorUtil::GetShape(tensor_);
+  auto shape = TensorUtil::GetShape(tensor_);
+  if (shape.dims() == 0) {
+    // Tensor with empty shape is a Tensor with no values in PyTorch, unlike a
+    // constant in TensorFlow. So, we inject a dummy zero dimension to make sure
+    // that the number-of-elements calculation is correct.
+    shape.AddDim(0);
+  }
+  return shape;
 }
 
 template <class T> const char* TorchTensor<T>::data() const {
