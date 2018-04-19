@@ -24,9 +24,9 @@ fast and easy to use.
 - [Analyzing Horovod Performance](#analyzing-horovod-performance)
 - [Guides](#guides)
 - [Troubleshooting](#troubleshooting)
-  - [Citation](#citation)
-  - [Publications](#publications)
-  - [References](#references)
+- [Citation](#citation)
+- [Publications](#publications)
+- [References](#references)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -245,7 +245,7 @@ See [here](docs/timeline.md) for full details and usage instructions.
 See the [Troubleshooting](docs/troubleshooting.md) page and please submit the [ticket](https://github.com/uber/horovod/issues/new)
 if you can't find an answer.
 
-### Citation
+## Citation
 
 Please cite Horovod in your publications if it helps your research:
 
@@ -258,7 +258,7 @@ Please cite Horovod in your publications if it helps your research:
 }
 ```
 
-### Publications
+## Publications
 
 1. Sergeev, A., Del Balso, M. (2017) *Meet Horovod: Uber’s Open Source Distributed Deep Learning Framework for TensorFlow*.
 Retrieved from [https://eng.uber.com/horovod/](https://eng.uber.com/horovod/)
@@ -266,7 +266,7 @@ Retrieved from [https://eng.uber.com/horovod/](https://eng.uber.com/horovod/)
 [https://www.slideshare.net/AlexanderSergeev4/horovod-distributed-tensorflow-made-easy](https://www.slideshare.net/AlexanderSergeev4/horovod-distributed-tensorflow-made-easy)
 3. Sergeev, A., Del Balso, M. (2018) *Horovod: fast and easy distributed deep learning in TensorFlow*. [arXiv:1802.05799](https://arxiv.org/abs/1802.05799)
 
-### References
+## References
 
 The Horovod source code was based off the Baidu [tensorflow-allreduce](https://github.com/baidu-research/tensorflow-allreduce)
 repository written by Andrew Gibiansky and Joel Hestness. Their original work is described in the article
