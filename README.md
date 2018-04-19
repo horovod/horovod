@@ -1,27 +1,3 @@
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
-
-- [Horovod](#horovod)
-  - [Why not traditional Distributed TensorFlow?](#why-not-traditional-distributed-tensorflow)
-  - [Install](#install)
-  - [Concepts](#concepts)
-  - [Usage](#usage)
-  - [Running Horovod](#running-horovod)
-  - [Keras](#keras)
-  - [Estimator API](#estimator-api)
-  - [mpi4py](#mpi4py)
-  - [Inference](#inference)
-  - [Tensor Fusion](#tensor-fusion)
-  - [Analyzing Horovod Performance](#analyzing-horovod-performance)
-  - [Guides](#guides)
-  - [Troubleshooting](#troubleshooting)
-    - [Citation](#citation)
-    - [Publications](#publications)
-    - [References](#references)
-
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
-
 # Horovod
 
 [![Build Status](https://travis-ci.org/uber/horovod.svg?branch=master)](https://travis-ci.org/uber/horovod) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
@@ -30,6 +6,29 @@
 
 Horovod is a distributed training framework for TensorFlow. The goal of Horovod is to make distributed Deep Learning
 fast and easy to use.
+
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [Why not traditional Distributed TensorFlow?](#why-not-traditional-distributed-tensorflow)
+- [Install](#install)
+- [Concepts](#concepts)
+- [Usage](#usage)
+- [Running Horovod](#running-horovod)
+- [Keras](#keras)
+- [Estimator API](#estimator-api)
+- [mpi4py](#mpi4py)
+- [Inference](#inference)
+- [Tensor Fusion](#tensor-fusion)
+- [Analyzing Horovod Performance](#analyzing-horovod-performance)
+- [Guides](#guides)
+- [Troubleshooting](#troubleshooting)
+  - [Citation](#citation)
+  - [Publications](#publications)
+  - [References](#references)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 ## Why not traditional Distributed TensorFlow?
 
