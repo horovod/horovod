@@ -172,9 +172,9 @@ $ mpirun -np 16 \
     python train.py
 ```
 
-3. To run in Docker, see the [Horovod in Docker](docs/docker.md) page
+3. To run in Docker, see the [Horovod in Docker](docs/docker.md) page.
 
-4. To run in Kubernetes, see [Kubeflow](https://github.com/kubeflow/kubeflow/blob/master/kubeflow/openmpi/README.md)
+4. To run in Kubernetes, see [Kubeflow](https://github.com/kubeflow/kubeflow/blob/master/kubeflow/openmpi/README.md).
 
 ## Keras
 
