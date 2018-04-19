@@ -124,8 +124,7 @@ with tf.train.MonitoredTrainingSession(checkpoint_dir=checkpoint_dir,
 ## Running Horovod
 
 The example commands below show how to run distributed training. See the [Running Horovod](docs/running.md)
-page for more instructions, including RoCE/InfiniBand tweaks and tips for dealing with hangs. See the
-[Horovod in Docker](docs/docker.md) page for details about running Horovod in Docker.
+page for more instructions, including RoCE/InfiniBand tweaks and tips for dealing with hangs.
 
 1. To run on a machine with 4 GPUs:
 
@@ -148,6 +147,10 @@ $ mpirun -np 16 \
     -mca pml ob1 -mca btl ^openib \
     python train.py
 ```
+
+3. To run in Docker, see the [Horovod in Docker](docs/docker.md) page
+
+4. To run in Kubernetes, see [Kubeflow](https://github.com/kubeflow/kubeflow/blob/master/kubeflow/openmpi/README.md)
 
 ## Keras
 
