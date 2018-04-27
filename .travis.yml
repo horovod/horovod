@@ -25,11 +25,11 @@ before_install:
   # install Python, if it's Python 3 - add symlink for `python`
   - |
     if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then
-      docker exec $CONTAINER /bin/sh -c "apt-get install -y python$TRAVIS_PYTHON_VERSION python3-pip"
+      docker exec $CONTAINER /bin/sh -c "apt-get install -y python$TRAVIS_PYTHON_VERSION python3-pip python3-requests"
       docker exec $CONTAINER /bin/sh -c "pip3 install -U --force pip"
       docker exec $CONTAINER /bin/sh -c "ln -s /usr/bin/python3 /usr/bin/python"
     else
-      docker exec $CONTAINER /bin/sh -c "apt-get install -y python$TRAVIS_PYTHON_VERSION python-pip"
+      docker exec $CONTAINER /bin/sh -c "apt-get install -y python$TRAVIS_PYTHON_VERSION python-pip python-requests"
       docker exec $CONTAINER /bin/sh -c "pip install -U --force pip"
     fi
   # install necessary network tools
