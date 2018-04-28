@@ -26,8 +26,7 @@ void Timeline::Initialize(std::string file_name) {
   if (file_.good()) {
     // Initialize the timeline with '[' character.
     file_ << "[" << std::endl;
-    start_time_ = std::chrono::steady_clock::now();
-    last_flush_time_ = std::chrono::steady_clock::now();
+    start_time_ = last_flush_time_ = std::chrono::steady_clock::now();
     initialized_ = true;
   } else {
     std::cerr << "WARNING: Error opening the Horovod Timeline file "
