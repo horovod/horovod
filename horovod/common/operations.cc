@@ -765,7 +765,12 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       // Ensure stream is in the map before executing reduction.
       cudaStream_t& stream = horovod_global.streams[first_entry.device];
       if (stream == nullptr) {
-        CUDA_CHECK(entries, "cudaStreamCreate", cudaStreamCreate(&stream))
+        int greatest_priority;
+        CUDA_CHECK(entries, "cudaDeviceGetStreamPriorityRange",
+                   cudaDeviceGetStreamPriorityRange(NULL, &greatest_priority))
+        CUDA_CHECK(entries, "cudaStreamCreateWithPriority",
+                   cudaStreamCreateWithPriority(&stream, cudaStreamNonBlocking,
+                                                greatest_priority))
       }
     }
 #endif
