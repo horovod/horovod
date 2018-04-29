@@ -130,16 +130,19 @@ void MPIRequest_ParseFromWire(MPIRequest& request,
 void MPIRequest_SerializeToWire(const MPIRequest& request,
                                 flatbuffers::FlatBufferBuilder& builder,
                                 flatbuffers::Offset<wire::MPIRequest>& obj) {
+  // FlatBuffers must be built bottom-up.
+  auto tensor_name_wire = builder.CreateString(request.tensor_name());
+  auto tensor_shape_wire = builder.CreateVector(request.tensor_shape());
+
   wire::MPIRequestBuilder request_builder(builder);
   request_builder.add_request_rank(request.request_rank());
   request_builder.add_request_type(
       (wire::MPIRequestType)request.request_type());
   request_builder.add_tensor_type((wire::MPIDataType)request.tensor_type());
-  request_builder.add_tensor_name(builder.CreateString(request.tensor_name()));
+  request_builder.add_tensor_name(tensor_name_wire);
   request_builder.add_root_rank(request.root_rank());
   request_builder.add_device(request.device());
-  request_builder.add_tensor_shape(
-      builder.CreateVector(request.tensor_shape()));
+  request_builder.add_tensor_shape(tensor_shape_wire);
   obj = request_builder.Finish();
 }
 
@@ -170,13 +173,9 @@ void MPIRequestList::set_requests(const std::vector<MPIRequest>& value) {
   requests_ = value;
 }
 
-bool MPIRequestList::shutdown() const {
-  return shutdown_;
-}
+bool MPIRequestList::shutdown() const { return shutdown_; }
 
-void MPIRequestList::set_shutdown(bool value) {
-  shutdown_ = value;
-}
+void MPIRequestList::set_shutdown(bool value) { shutdown_ = value; }
 
 void MPIRequestList::add_requests(MPIRequest value) {
   requests_.push_back(value);
@@ -196,8 +195,8 @@ void MPIRequestList::ParseFromString(MPIRequestList& request_list,
 
 void MPIRequestList::SerializeToString(MPIRequestList& request_list,
                                        std::string& output) {
+  // FlatBuffers must be built bottom-up.
   flatbuffers::FlatBufferBuilder builder(1024);
-  wire::MPIRequestListBuilder request_list_builder(builder);
   std::vector<flatbuffers::Offset<wire::MPIRequest>> requests;
   for (auto it = request_list.requests().begin();
        it != request_list.requests().end(); it++) {
@@ -205,7 +204,10 @@ void MPIRequestList::SerializeToString(MPIRequestList& request_list,
     MPIRequest_SerializeToWire(*it, builder, req_obj);
     requests.push_back(req_obj);
   }
-  request_list_builder.add_requests(builder.CreateVector(requests));
+  auto requests_wire = builder.CreateVector(requests);
+
+  wire::MPIRequestListBuilder request_list_builder(builder);
+  request_list_builder.add_requests(requests_wire);
   request_list_builder.add_shutdown(request_list.shutdown());
   auto obj = request_list_builder.Finish();
   builder.Finish(obj);
@@ -304,17 +306,21 @@ void MPIResponse::ParseFromString(MPIResponse& response,
 
 void MPIResponse::SerializeToString(MPIResponse& response,
                                     std::string& output) {
+  // FlatBuffers must be built bottom-up.
   flatbuffers::FlatBufferBuilder builder(1024);
+  auto tensor_names_wire =
+      builder.CreateVectorOfStrings(response.tensor_names());
+  auto error_message_wire = builder.CreateString(response.error_message());
+  auto devices_wire = builder.CreateVector(response.devices());
+  auto tensor_sizes_wire = builder.CreateVector(response.tensor_sizes());
+
   wire::MPIResponseBuilder response_builder(builder);
   response_builder.add_response_type(
       (wire::MPIResponseType)response.response_type());
-  response_builder.add_tensor_names(
-      builder.CreateVectorOfStrings(response.tensor_names()));
-  response_builder.add_error_message(
-      builder.CreateString(response.error_message()));
-  response_builder.add_devices(builder.CreateVector(response.devices()));
-  response_builder.add_tensor_sizes(
-      builder.CreateVector(response.tensor_sizes()));
+  response_builder.add_tensor_names(tensor_names_wire);
+  response_builder.add_error_message(error_message_wire);
+  response_builder.add_devices(devices_wire);
+  response_builder.add_tensor_sizes(tensor_sizes_wire);
   auto obj = response_builder.Finish();
   builder.Finish(obj);
 
