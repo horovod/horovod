@@ -139,6 +139,10 @@ struct HorovodGlobalState {
   // threshold will be fused.
   int64_t tensor_fusion_threshold = 64 * 1024 * 1024;
 
+  // Background thread cycle time in milliseconds.  Fractional numbers are
+  // permitted.
+  double cycle_time = 5;
+
   // Memory buffers for Tensor Fusion.  They are keyed off device ID and
   // framework, and all are allocated tensor_fusion_threshold bytes if
   // initialized.
@@ -1208,6 +1212,12 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     state.tensor_fusion_threshold = std::atol(horovod_fusion_threshold);
   }
 
+  // Override the cycle time.
+  auto horovod_cycle_time = std::getenv("HOROVOD_CYCLE_TIME");
+  if (horovod_cycle_time != nullptr) {
+    state.cycle_time = std::atof(horovod_cycle_time);
+  }
+
   // Initialize the tensor count table. No tensors are available yet.
   if (is_coordinator) {
     state.message_table = std::unique_ptr<MessageTable>(new MessageTable());
@@ -1217,7 +1227,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   bool should_shut_down = false;
   do {
     // This delay determines thread frequency and MPI message latency
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    std::this_thread::sleep_for(
+        std::chrono::microseconds(long(state.cycle_time * 1000.)));
 
     // Copy the data structures from global state under this lock.
     // However, don't keep the lock for the rest of the loop, so that
