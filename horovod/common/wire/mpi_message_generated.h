@@ -31,6 +31,8 @@ struct MPIRequestList;
 
 struct MPIResponse;
 
+struct MPIResponseList;
+
 enum MPIDataType {
   MPIDataType_HOROVOD_UINT8 = 0,
   MPIDataType_HOROVOD_INT8 = 1,
@@ -94,10 +96,8 @@ enum MPIResponseType {
   MPIResponseType_ALLGATHER = 1,
   MPIResponseType_BROADCAST = 2,
   MPIResponseType_ERROR = 3,
-  MPIResponseType_DONE = 4,
-  MPIResponseType_SHUTDOWN = 5,
   MPIResponseType_MIN = MPIResponseType_ALLREDUCE,
-  MPIResponseType_MAX = MPIResponseType_SHUTDOWN
+  MPIResponseType_MAX = MPIResponseType_ERROR
 };
 
 inline const char **EnumNamesMPIResponseType() {
@@ -106,8 +106,6 @@ inline const char **EnumNamesMPIResponseType() {
     "ALLGATHER",
     "BROADCAST",
     "ERROR",
-    "DONE",
-    "SHUTDOWN",
     nullptr
   };
   return names;
@@ -401,6 +399,68 @@ inline flatbuffers::Offset<MPIResponse> CreateMPIResponseDirect(
       error_message ? _fbb.CreateString(error_message) : 0,
       devices ? _fbb.CreateVector<int32_t>(*devices) : 0,
       tensor_sizes ? _fbb.CreateVector<int64_t>(*tensor_sizes) : 0);
+}
+
+struct MPIResponseList FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  enum {
+    VT_RESPONSES = 4,
+    VT_SHUTDOWN = 6
+  };
+  const flatbuffers::Vector<flatbuffers::Offset<MPIResponse>> *responses() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<MPIResponse>> *>(VT_RESPONSES);
+  }
+  bool shutdown() const {
+    return GetField<uint8_t>(VT_SHUTDOWN, 0) != 0;
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<flatbuffers::uoffset_t>(verifier, VT_RESPONSES) &&
+           verifier.Verify(responses()) &&
+           verifier.VerifyVectorOfTables(responses()) &&
+           VerifyField<uint8_t>(verifier, VT_SHUTDOWN) &&
+           verifier.EndTable();
+  }
+};
+
+struct MPIResponseListBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_responses(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<MPIResponse>>> responses) {
+    fbb_.AddOffset(MPIResponseList::VT_RESPONSES, responses);
+  }
+  void add_shutdown(bool shutdown) {
+    fbb_.AddElement<uint8_t>(MPIResponseList::VT_SHUTDOWN, static_cast<uint8_t>(shutdown), 0);
+  }
+  MPIResponseListBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  MPIResponseListBuilder &operator=(const MPIResponseListBuilder &);
+  flatbuffers::Offset<MPIResponseList> Finish() {
+    const auto end = fbb_.EndTable(start_, 2);
+    auto o = flatbuffers::Offset<MPIResponseList>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<MPIResponseList> CreateMPIResponseList(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<MPIResponse>>> responses = 0,
+    bool shutdown = false) {
+  MPIResponseListBuilder builder_(_fbb);
+  builder_.add_responses(responses);
+  builder_.add_shutdown(shutdown);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<MPIResponseList> CreateMPIResponseListDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<flatbuffers::Offset<MPIResponse>> *responses = nullptr,
+    bool shutdown = false) {
+  return horovod::common::wire::CreateMPIResponseList(
+      _fbb,
+      responses ? _fbb.CreateVector<flatbuffers::Offset<MPIResponse>>(*responses) : 0,
+      shutdown);
 }
 
 }  // namespace wire

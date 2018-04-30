@@ -231,12 +231,6 @@ const std::string& MPIResponse::ResponseType_Name(ResponseType value) {
   case ResponseType::ERROR:
     static const std::string error("ERROR");
     return error;
-  case ResponseType::DONE:
-    static const std::string done("DONE");
-    return done;
-  case ResponseType::SHUTDOWN:
-    static const std::string shutdown("SHUTDOWN");
-    return shutdown;
   default:
     static const std::string unknown("<unknown>");
     return unknown;
@@ -289,9 +283,8 @@ void MPIResponse::add_tensor_sizes(int64_t value) {
   tensor_sizes_.push_back(value);
 }
 
-void MPIResponse::ParseFromString(MPIResponse& response,
-                                  const std::string& input) {
-  auto obj = flatbuffers::GetRoot<wire::MPIResponse>((uint8_t*)input.c_str());
+void MPIResponse_ParseFromWire(MPIResponse& response,
+                              const wire::MPIResponse* obj) {
   response.set_response_type((MPIResponse::ResponseType)obj->response_type());
   for (auto it = obj->tensor_names()->begin(); it != obj->tensor_names()->end();
        it++) {
@@ -304,10 +297,16 @@ void MPIResponse::ParseFromString(MPIResponse& response,
                                                  obj->tensor_sizes()->end()));
 }
 
-void MPIResponse::SerializeToString(MPIResponse& response,
-                                    std::string& output) {
+void MPIResponse::ParseFromString(MPIResponse& response,
+                                  const std::string& input) {
+  auto obj = flatbuffers::GetRoot<wire::MPIResponse>((uint8_t*)input.c_str());
+  MPIResponse_ParseFromWire(response, obj);
+}
+
+void MPIResponse_SerializeToWire(const MPIResponse& response,
+                                flatbuffers::FlatBufferBuilder& builder,
+                                flatbuffers::Offset<wire::MPIResponse>& obj) {
   // FlatBuffers must be built bottom-up.
-  flatbuffers::FlatBufferBuilder builder(1024);
   auto tensor_names_wire =
       builder.CreateVectorOfStrings(response.tensor_names());
   auto error_message_wire = builder.CreateString(response.error_message());
@@ -321,7 +320,66 @@ void MPIResponse::SerializeToString(MPIResponse& response,
   response_builder.add_error_message(error_message_wire);
   response_builder.add_devices(devices_wire);
   response_builder.add_tensor_sizes(tensor_sizes_wire);
-  auto obj = response_builder.Finish();
+  obj = response_builder.Finish();
+}
+
+void MPIResponse::SerializeToString(MPIResponse& response,
+                                    std::string& output) {
+  flatbuffers::FlatBufferBuilder builder(1024);
+  flatbuffers::Offset<wire::MPIResponse> obj;
+  MPIResponse_SerializeToWire(response, builder, obj);
+  builder.Finish(obj);
+
+  uint8_t* buf = builder.GetBufferPointer();
+  auto size = builder.GetSize();
+  output = std::string((char*)buf, size);
+}
+
+const std::vector<MPIResponse>& MPIResponseList::responses() const {
+  return responses_;
+}
+
+void MPIResponseList::set_responses(const std::vector<MPIResponse>& value) {
+  responses_ = value;
+}
+
+bool MPIResponseList::shutdown() const { return shutdown_; }
+
+void MPIResponseList::set_shutdown(bool value) { shutdown_ = value; }
+
+void MPIResponseList::add_responses(MPIResponse value) {
+  responses_.push_back(value);
+}
+
+void MPIResponseList::ParseFromString(MPIResponseList& response_list,
+                                     const std::string& input) {
+  auto obj =
+      flatbuffers::GetRoot<wire::MPIResponseList>((uint8_t*)input.c_str());
+  for (auto it = obj->responses()->begin(); it != obj->responses()->end(); it++) {
+    MPIResponse response;
+    MPIResponse_ParseFromWire(response, *it);
+    response_list.add_responses(std::move(response));
+  }
+  response_list.set_shutdown(obj->shutdown());
+}
+
+void MPIResponseList::SerializeToString(MPIResponseList& response_list,
+                                       std::string& output) {
+  // FlatBuffers must be built bottom-up.
+  flatbuffers::FlatBufferBuilder builder(1024);
+  std::vector<flatbuffers::Offset<wire::MPIResponse>> requests;
+  for (auto it = response_list.responses().begin();
+       it != response_list.responses().end(); it++) {
+    flatbuffers::Offset<wire::MPIResponse> req_obj;
+    MPIResponse_SerializeToWire(*it, builder, req_obj);
+    requests.push_back(req_obj);
+  }
+  auto responses_wire = builder.CreateVector(requests);
+
+  wire::MPIResponseListBuilder response_list_builder(builder);
+  response_list_builder.add_responses(responses_wire);
+  response_list_builder.add_shutdown(response_list.shutdown());
+  auto obj = response_list_builder.Finish();
   builder.Finish(obj);
 
   uint8_t* buf = builder.GetBufferPointer();
