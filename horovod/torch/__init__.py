@@ -97,7 +97,7 @@ def DistributedOptimizer(optimizer, named_parameters=None):
     return cls(optimizer.param_groups, named_parameters)
 
 
-def broadcast_global_variables(params, root_rank):
+def broadcast_parameters(params, root_rank):
     if isinstance(params, dict):
         params = params.items()
     else:
