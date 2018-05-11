@@ -4,6 +4,8 @@ To streamline the installation process on GPU machines, we have published the re
 you can get started with Horovod in minutes. The container includes [Examples](../examples) in the `/examples`
 directory.
 
+Pre-built docker containers with Horovod are available on [DockerHub](https://hub.docker.com/r/uber/horovod).
+
 ### Building
 
 Before building, you can modify `Dockerfile` to your liking, e.g. select a different CUDA, TensorFlow or Python version.
