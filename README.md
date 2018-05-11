@@ -41,12 +41,12 @@ it on many GPUs faster. This has two aspects:
 Internally at Uber we found the MPI model to be much more straightforward and require far less code changes than the
 Distributed TensorFlow with parameter servers. See the [Usage](#usage) section for more details.
 
-In addition to being easy to use, Horovod is fast. Below is a chart representing the benchmark that was done on 32
+In addition to being easy to use, Horovod is fast. Below is a chart representing the benchmark that was done on 128
 servers with 4 Pascal GPUs each connected by RoCE-capable 25 Gbit/s network:
   
-![128-GPU Benchmark](https://user-images.githubusercontent.com/16640218/31681220-7453e760-b32b-11e7-9ba3-6d01f83b7748.png)
+![512-GPU Benchmark](https://user-images.githubusercontent.com/16640218/38965607-bf5c46ca-4332-11e8-895a-b9c137e86013.png)
 
-Horovod achieves 90% scaling efficiency for both Inception V3 and ResNet-101, and 79% scaling efficiency for VGG-16.
+Horovod achieves 90% scaling efficiency for both Inception V3 and ResNet-101, and 68% scaling efficiency for VGG-16.
 See the [Benchmarks](docs/benchmarks.md) page to find out how to reproduce these numbers.
 
 While installing MPI and NCCL itself may seem like an extra hassle, it only needs to be done once by the team dealing

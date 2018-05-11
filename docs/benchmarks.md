@@ -1,9 +1,9 @@
 ## Benchmarks
 
-![128-GPU Benchmark](https://user-images.githubusercontent.com/16640218/31681220-7453e760-b32b-11e7-9ba3-6d01f83b7748.png)
+![512-GPU Benchmark](https://user-images.githubusercontent.com/16640218/38965607-bf5c46ca-4332-11e8-895a-b9c137e86013.png)
 
-The above benchmark was done on 32 servers with 4 Pascal GPUs each connected by RoCE-capable 25 Gbit/s network. Horovod
-achieves 90% scaling efficiency for both Inception V3 and ResNet-101, and 79% scaling efficiency for VGG-16.
+The above benchmark was done on 128 servers with 4 Pascal GPUs each connected by RoCE-capable 25 Gbit/s network. Horovod
+achieves 90% scaling efficiency for both Inception V3 and ResNet-101, and 68% scaling efficiency for VGG-16.
 
 To reproduce the benchmarks:
 
