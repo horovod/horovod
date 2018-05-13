@@ -39,7 +39,7 @@ class TensorUtil {
 public:
   template <class T> static const MPIDataType GetDType();
   template <class T> static const TensorShape GetShape(T* tensor);
-  template <class T> static const char* GetData(T* tensor);
+  template <class T> static const void* GetData(T* tensor);
   template <class T> static int64_t GetSize(T* tensor);
   template <class T> static int GetDevice(T* tensor);
 
@@ -61,7 +61,7 @@ public:
   template <> const MPIDataType TensorUtil::GetDType<THTensor>();              \
   template <>                                                                  \
   const TensorShape TensorUtil::GetShape<THTensor>(THTensor * tensor);         \
-  template <> const char* TensorUtil::GetData<THTensor>(THTensor * tensor);    \
+  template <> const void* TensorUtil::GetData<THTensor>(THTensor * tensor);    \
   template <> int64_t TensorUtil::GetSize<THTensor>(THTensor * tensor);        \
   template <> int TensorUtil::GetDevice<THTensor>(THTensor * tensor);          \
                                                                                \
@@ -100,8 +100,8 @@ public:
     return shape;                                                              \
   }                                                                            \
                                                                                \
-  template <> const char* TensorUtil::GetData<THTensor>(THTensor * tensor) {   \
-    return (const char*)THTensor##_data(tensor);                               \
+  template <> const void* TensorUtil::GetData<THTensor>(THTensor * tensor) {   \
+    return THTensor##_data(tensor);                               \
   }                                                                            \
                                                                                \
   template <> int64_t TensorUtil::GetSize<THTensor>(THTensor * tensor) {       \
@@ -154,8 +154,8 @@ public:
     return shape;                                                              \
   }                                                                            \
                                                                                \
-  template <> const char* TensorUtil::GetData<THCTensor>(THCTensor * tensor) { \
-    return (const char*)THCTensor##_data(state, tensor);                       \
+  template <> const void* TensorUtil::GetData<THCTensor>(THCTensor * tensor) { \
+    return THCTensor##_data(state, tensor);                       \
   }                                                                            \
                                                                                \
   template <> int64_t TensorUtil::GetSize<THCTensor>(THCTensor * tensor) {     \

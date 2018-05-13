@@ -26,12 +26,12 @@ using namespace horovod::common;
 class TorchPersistentBuffer : public PersistentBuffer {
 public:
   TorchPersistentBuffer(int device, int64_t size);
-  virtual const char*
+  virtual const void*
   AccessData(std::shared_ptr<OpContext> context) const override;
 
 private:
   int device_;
-  char* buffer_;
+  void* buffer_;
 };
 
 template <class T> class TorchTensor : public Tensor {
@@ -39,7 +39,7 @@ public:
   TorchTensor(T* tensor);
   virtual const MPIDataType dtype() const override;
   virtual const TensorShape shape() const override;
-  virtual const char* data() const override;
+  virtual const void* data() const override;
   virtual int64_t size() const override;
 
 protected:

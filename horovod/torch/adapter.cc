@@ -41,9 +41,9 @@ TorchPersistentBuffer::TorchPersistentBuffer(int device, int64_t size)
   }
 }
 
-const char*
+const void*
 TorchPersistentBuffer::AccessData(std::shared_ptr<OpContext> context) const {
-  return (const char*)buffer_;
+  return buffer_;
 }
 
 template <class T> TorchTensor<T>::TorchTensor(T* tensor) : tensor_(tensor) {}
@@ -63,7 +63,7 @@ template <class T> const TensorShape TorchTensor<T>::shape() const {
   return shape;
 }
 
-template <class T> const char* TorchTensor<T>::data() const {
+template <class T> const void* TorchTensor<T>::data() const {
   return TensorUtil::GetData(tensor_);
 }
 
