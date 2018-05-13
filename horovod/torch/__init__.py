@@ -34,8 +34,6 @@ from horovod.torch import mpi_lib
 import torch
 
 
-# TODO (doc): add note in docs to use NCCL 2.1.15+ with PyTorch to avoid deadlock
-
 class _DistributedOptimizer(torch.optim.Optimizer):
     # TODO (doc): make it clear that parameters are taken from optimizer,
     # TODO (doc): and named_parameters are only used for naming
