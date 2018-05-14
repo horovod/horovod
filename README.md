@@ -4,7 +4,7 @@
 
 <p align="center"><img src="https://user-images.githubusercontent.com/16640218/34506318-84d0c06c-efe0-11e7-8831-0425772ed8f2.png" alt="Logo" width="200"/></p>
 
-Horovod is a distributed training framework for TensorFlow, Keras and PyTorch. The goal of Horovod is to make
+Horovod is a distributed training framework for TensorFlow, Keras, and PyTorch. The goal of Horovod is to make
 distributed Deep Learning fast and easy to use.
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->

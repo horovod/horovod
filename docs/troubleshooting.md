@@ -156,7 +156,7 @@ build/horovod/torch/mpi_lib/_mpi_lib.c:22:24: fatal error: pyconfig.h: No such f
 compilation terminated.
 ```
 
-You can do this by installing a `python-dev` or `python3-dev` package.  For example, on Debian or Ubuntu system:
+You can do this by installing a `python-dev` or `python3-dev` package.  For example, on a Debian or Ubuntu system:
 
 ```bash
 $ sudo apt-get install python-dev

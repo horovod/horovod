@@ -580,10 +580,10 @@ class custom_build_ext(build_ext):
 setup(name='horovod',
       version=__version__,
       packages=find_packages(),
-      description='Distributed training framework for TensorFlow, Keras and PyTorch.',
+      description='Distributed training framework for TensorFlow, Keras, and PyTorch.',
       author='Uber Technologies, Inc.',
       long_description=textwrap.dedent('''\
-          Horovod is a distributed training framework for TensorFlow, Keras and PyTorch. 
+          Horovod is a distributed training framework for TensorFlow, Keras, and PyTorch. 
           The goal of Horovod is to make distributed Deep Learning fast and easy to use.'''),
       url='https://github.com/uber/horovod',
       classifiers=[
