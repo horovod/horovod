@@ -28,8 +28,10 @@ from horovod.common import check_extension
 check_extension('horovod.torch', 'HOROVOD_WITH_PYTORCH',
                 __file__, 'mpi_lib', '_mpi_lib')
 
-from horovod.torch import mpi_lib_impl
-from horovod.torch import mpi_lib
+from horovod.torch.mpi_ops import allreduce, allreduce_async, allreduce_, allreduce_async_
+from horovod.torch.mpi_ops import allgather, allgather_async
+from horovod.torch.mpi_ops import broadcast, broadcast_async, broadcast_, broadcast_async_
+from horovod.torch.mpi_ops import poll, synchronize
 
 import torch
 
@@ -113,121 +115,3 @@ def broadcast_parameters(params, root_rank):
     # Wait for completion.
     for handle in handles:
         synchronize(handle)
-
-
-# Schema: handle -> input, output
-# We keep input in order to make sure it does not get garbage collected
-# before the operation is finished.
-_handle_map = {}
-
-
-# Null pointer.
-_NULL = mpi_lib._ffi.NULL
-
-
-# TODO: split into multiple files
-# TODO: check arguments, return good errors if they're not the right type
-def _check_function(function_factory, tensor):
-    function = function_factory(tensor)
-    if not hasattr(mpi_lib, function):
-        raise ValueError('Tensor type %s is not supported.' % tensor.type())
-    return function
-
-
-def _allreduce_function_factory(tensor):
-    return 'horovod_torch_allreduce_async_' + tensor.type().replace('.', '_')
-
-
-def _allreduce_async(tensor, output, average, name):
-    function = _check_function(_allreduce_function_factory, tensor)
-    handle = getattr(mpi_lib, function)(tensor, output, average,
-                                        name.encode() if name is not None else _NULL)
-    _handle_map[handle] = (tensor, output)
-    return handle
-
-
-def allreduce_async(tensor, average=True, name=None):
-    # TODO check that tensor is contiguous
-    assert tensor.is_contiguous()
-    output = tensor.new(tensor.shape)
-    return _allreduce_async(tensor, output, average, name)
-
-
-def allreduce(tensor, average=True, name=None):
-    handle = allreduce_async(tensor, average, name)
-    return synchronize(handle)
-
-
-def allreduce_async_(tensor, average=True, name=None):
-    return _allreduce_async(tensor, tensor, average, name)
-
-
-def allreduce_(tensor, average=True, name=None):
-    handle = allreduce_async_(tensor, average, name)
-    return synchronize(handle)
-
-
-def _allgather_function_factory(tensor):
-    return 'horovod_torch_allgather_async_' + tensor.type().replace('.', '_')
-
-
-def _allgather_async(tensor, output, name):
-    function = _check_function(_allgather_function_factory, tensor)
-    handle = getattr(mpi_lib, function)(
-        tensor, output, name.encode() if name is not None else _NULL)
-    _handle_map[handle] = (tensor, output)
-    return handle
-
-
-def allgather_async(tensor, name=None):
-    output = tensor.new()
-    return _allgather_async(tensor, output, name)
-
-
-def allgather(tensor, name=None):
-    handle = allgather_async(tensor, name)
-    return synchronize(handle)
-
-
-def _broadcast_function_factory(tensor):
-    return 'horovod_torch_broadcast_async_' + tensor.type().replace('.', '_')
-
-
-def _broadcast_async(tensor, output, root_rank, name):
-    function = _check_function(_broadcast_function_factory, tensor)
-    handle = getattr(mpi_lib, function)(
-        tensor, output, root_rank, name.encode() if name is not None else _NULL)
-    _handle_map[handle] = (tensor, output)
-    return handle
-
-
-def broadcast_async(tensor, root_rank, name=None):
-    output = tensor.new(tensor.shape)
-    return _broadcast_async(tensor, output, root_rank, name)
-
-
-def broadcast(tensor, root_rank, name=None):
-    handle = broadcast_async(tensor, root_rank, name)
-    return synchronize(handle)
-
-
-def broadcast_async_(tensor, root_rank, name=None):
-    return _broadcast_async(tensor, tensor, root_rank, name)
-
-
-def broadcast_(tensor, root_rank, name=None):
-    handle = broadcast_async_(tensor, root_rank, name)
-    return synchronize(handle)
-
-
-def poll(handle):
-    return mpi_lib.horovod_torch_poll(handle)
-
-
-def synchronize(handle):
-    if handle not in _handle_map:
-        return
-    mpi_lib.horovod_torch_wait_and_clear(handle)
-    _, output = _handle_map[handle]
-    del _handle_map[handle]
-    return output
