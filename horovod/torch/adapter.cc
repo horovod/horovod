@@ -26,6 +26,15 @@
 namespace horovod {
 namespace torch {
 
+// This class intentionally does not have destructor at the moment.
+//
+// Unfortunately, by the time this destructor would be called in normal
+// circumstances (application shutdown), CUDA context would already be destroyed
+// and cudaFree() operations would print nasty errors in the log - in a pretty
+// normal termination scenario.
+//
+// If we add functionality to terminate Horovod without terminating the
+// application, we should revisit this logic.
 TorchPersistentBuffer::TorchPersistentBuffer(int device, int64_t size)
     : device_(device) {
   with_device device_context(device_);

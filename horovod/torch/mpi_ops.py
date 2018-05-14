@@ -60,7 +60,7 @@ def allreduce_async(tensor, average=True, name=None):
     A function that performs asynchronous averaging or summation of the input tensor
     over all the Horovod processes. The input tensor is not modified.
 
-    The reduction operation is keyed by the name. If name is not provided, incremented
+    The reduction operation is keyed by the name. If name is not provided, an incremented
     auto-generated name is used. The tensor type and shape must be the same on all
     Horovod processes for a given name. The reduction will not start until all processes
     are ready to send and receive the tensor.
@@ -84,7 +84,7 @@ def allreduce(tensor, average=True, name=None):
     A function that performs averaging or summation of the input tensor over all the
     Horovod processes. The input tensor is not modified.
 
-    The reduction operation is keyed by the name. If name is not provided, incremented
+    The reduction operation is keyed by the name. If name is not provided, an incremented
     auto-generated name is used. The tensor type and shape must be the same on all
     Horovod processes for a given name. The reduction will not start until all processes
     are ready to send and receive the tensor.
@@ -108,7 +108,7 @@ def allreduce_async_(tensor, average=True, name=None):
     A function that performs asynchronous in-place averaging or summation of the input
     tensor over all the Horovod processes.
 
-    The reduction operation is keyed by the name. If name is not provided, incremented
+    The reduction operation is keyed by the name. If name is not provided, an incremented
     auto-generated name is used. The tensor type and shape must be the same on all
     Horovod processes for a given name. The reduction will not start until all processes
     are ready to send and receive the tensor.
@@ -131,7 +131,7 @@ def allreduce_(tensor, average=True, name=None):
     A function that performs in-place averaging or summation of the input tensor over
     all the Horovod processes.
 
-    The reduction operation is keyed by the name. If name is not provided, incremented
+    The reduction operation is keyed by the name. If name is not provided, an incremented
     auto-generated name is used. The tensor type and shape must be the same on all
     Horovod processes for a given name. The reduction will not start until all processes
     are ready to send and receive the tensor.
@@ -164,7 +164,7 @@ def _allgather_async(tensor, output, name):
 
 def allgather_async(tensor, name=None):
     """
-    A function which asynchronously concatenates the input tensor with the same input
+    A function that asynchronously concatenates the input tensor with the same input
     tensor on all other Horovod processes. The input tensor is not modified.
 
     The concatenation is done on the first dimension, so the input tensors on the
@@ -185,7 +185,7 @@ def allgather_async(tensor, name=None):
 
 def allgather(tensor, name=None):
     """
-    A function which concatenates the input tensor with the same input tensor on
+    A function that concatenates the input tensor with the same input tensor on
     all other Horovod processes. The input tensor is not modified.
 
     The concatenation is done on the first dimension, so the input tensors on the
@@ -223,9 +223,10 @@ def broadcast_async(tensor, root_rank, name=None):
     A function that asynchronously broadcasts the input tensor on root rank to the same
     input tensor on all other Horovod processes. The input tensor is not modified.
 
-    The broadcast operation is keyed by the name. The tensor type and shape must be the
-    same on all Horovod processes for a given name. The broadcast will not start until
-    all processes are ready to send and receive the tensor.
+    The broadcast operation is keyed by the name. If name is not provided, an incremented
+    auto-generated name is used. The tensor type and shape must be the same on all
+    Horovod processes for a given name. The broadcast will not start until all processes
+    are ready to send and receive the tensor.
 
     Arguments:
         tensor: A tensor to broadcast.
@@ -245,9 +246,10 @@ def broadcast(tensor, root_rank, name=None):
     A function that broadcasts the input tensor on root rank to the same input tensor
     on all other Horovod processes. The input tensor is not modified.
 
-    The broadcast operation is keyed by the name. The tensor type and shape must be the
-    same on all Horovod processes for a given name. The broadcast will not start until
-    all processes are ready to send and receive the tensor.
+    The broadcast operation is keyed by the name. If name is not provided, an incremented
+    auto-generated name is used. The tensor type and shape must be the same on all
+    Horovod processes for a given name. The broadcast will not start until all processes
+    are ready to send and receive the tensor.
 
     Arguments:
         tensor: A tensor to broadcast.
@@ -267,9 +269,10 @@ def broadcast_async_(tensor, root_rank, name=None):
     A function that asynchronously broadcasts the input tensor on root rank to the same
     input tensor on all other Horovod processes. The operation is performed in-place.
 
-    The broadcast operation is keyed by the name. The tensor type and shape must be the
-    same on all Horovod processes for a given name. The broadcast will not start until
-    all processes are ready to send and receive the tensor.
+    The broadcast operation is keyed by the name. If name is not provided, an incremented
+    auto-generated name is used. The tensor type and shape must be the same on all
+    Horovod processes for a given name. The broadcast will not start until all processes
+    are ready to send and receive the tensor.
 
     Arguments:
         tensor: A tensor to broadcast.
@@ -288,9 +291,10 @@ def broadcast_(tensor, root_rank, name=None):
     A function that broadcasts the input tensor on root rank to the same input tensor
     on all other Horovod processes. The operation is performed in-place.
 
-    The broadcast operation is keyed by the name. The tensor type and shape must be the
-    same on all Horovod processes for a given name. The broadcast will not start until
-    all processes are ready to send and receive the tensor.
+    The broadcast operation is keyed by the name. If name is not provided, an incremented
+    auto-generated name is used. The tensor type and shape must be the same on all
+    Horovod processes for a given name. The broadcast will not start until all processes
+    are ready to send and receive the tensor.
 
     Arguments:
         tensor: A tensor to broadcast.

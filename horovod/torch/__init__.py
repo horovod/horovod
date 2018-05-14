@@ -93,10 +93,10 @@ def DistributedOptimizer(optimizer, named_parameters=None):
     average gradient values before applying gradients to model weights.
 
     Allreduce operations are executed after each gradient is computed by `loss.backward()`
-    in parallel with each other. `step()` method ensures that all allreduce operations are
+    in parallel with each other. The `step()` method ensures that all allreduce operations are
     finished before applying gradients to the model.
 
-    DistributedOptimizer exposes `synchronize()` method which forces allreduce operations
+    DistributedOptimizer exposes the `synchronize()` method, which forces allreduce operations
     to finish before continuing the execution. It's useful in conjunction with gradient
     clipping, or other operations that modify gradients in place before `step()` is executed.
 
@@ -116,7 +116,7 @@ def DistributedOptimizer(optimizer, named_parameters=None):
                           allreduce operations. Typically just `model.named_parameters()`.
     """
     # We dynamically create a new class that inherits from the optimizer that was passed in.
-    # The goal is to override `step()` method with an allreduce implementation.
+    # The goal is to override the `step()` method with an allreduce implementation.
     cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                dict(_DistributedOptimizer.__dict__))
     return cls(optimizer.param_groups, named_parameters)
@@ -126,7 +126,7 @@ def broadcast_parameters(params, root_rank):
     """
     Broadcasts the parameters from root rank to all other processes.
     Typical usage is to broadcast the `model.state_dict()`,
-    `model.named_parameters()` or `model.parameters()`.
+    `model.named_parameters()`, or `model.parameters()`.
 
     Arguments:
         params: The list of parameters to broadcast.
