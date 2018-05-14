@@ -66,10 +66,10 @@ def allreduce_async(tensor, average=True, name=None):
     are ready to send and receive the tensor.
 
     Arguments:
-        tensor: a tensor to average and sum.
-        average: a flag indicating whether to compute average or summation,
+        tensor: A tensor to average and sum.
+        average: A flag indicating whether to compute average or summation,
                  defaults to average.
-        name: a name of the reduction operation.
+        name: A name of the reduction operation.
 
     Returns:
         A handle to the allreduce operation that can be used with `poll()` or
@@ -90,10 +90,10 @@ def allreduce(tensor, average=True, name=None):
     are ready to send and receive the tensor.
 
     Arguments:
-        tensor: a tensor to average and sum.
-        average: a flag indicating whether to compute average or summation,
+        tensor: A tensor to average and sum.
+        average: A flag indicating whether to compute average or summation,
                  defaults to average.
-        name: a name of the reduction operation.
+        name: A name of the reduction operation.
 
     Returns:
         A tensor of the same shape and type as `tensor`, averaged or summed across all
@@ -114,10 +114,10 @@ def allreduce_async_(tensor, average=True, name=None):
     are ready to send and receive the tensor.
 
     Arguments:
-        tensor: a tensor to average and sum.
-        average: a flag indicating whether to compute average or summation,
+        tensor: A tensor to average and sum.
+        average: A flag indicating whether to compute average or summation,
                  defaults to average.
-        name: a name of the reduction operation.
+        name: A name of the reduction operation.
 
     Returns:
         A handle to the allreduce operation that can be used with `poll()` or
@@ -137,10 +137,10 @@ def allreduce_(tensor, average=True, name=None):
     are ready to send and receive the tensor.
 
     Arguments:
-        tensor: a tensor to average and sum.
-        average: a flag indicating whether to compute average or summation,
+        tensor: A tensor to average and sum.
+        average: A flag indicating whether to compute average or summation,
                  defaults to average.
-        name: a name of the reduction operation.
+        name: A name of the reduction operation.
 
     Returns:
         A tensor of the same shape and type as `tensor`, averaged or summed across all
@@ -172,8 +172,8 @@ def allgather_async(tensor, name=None):
     dimension, which is allowed to be different.
 
     Arguments:
-        tensor: a tensor to allgather.
-        name: a name of the allgather operation.
+        tensor: A tensor to allgather.
+        name: A name of the allgather operation.
 
     Returns:
         A handle to the allgather operation that can be used with `poll()` or
@@ -193,8 +193,8 @@ def allgather(tensor, name=None):
     dimension, which is allowed to be different.
 
     Arguments:
-        tensor: a tensor to allgather.
-        name: a name of the allgather operation.
+        tensor: A tensor to allgather.
+        name: A name of the allgather operation.
 
     Returns:
         A tensor of the same type as `tensor`, concatenated on dimension zero
@@ -228,9 +228,9 @@ def broadcast_async(tensor, root_rank, name=None):
     all processes are ready to send and receive the tensor.
 
     Arguments:
-        tensor: a tensor to broadcast.
-        root_rank: the rank to broadcast the value from.
-        name: a name of the broadcast operation.
+        tensor: A tensor to broadcast.
+        root_rank: The rank to broadcast the value from.
+        name: A name of the broadcast operation.
 
     Returns:
         A handle to the broadcast operation that can be used with `poll()` or
@@ -250,9 +250,9 @@ def broadcast(tensor, root_rank, name=None):
     all processes are ready to send and receive the tensor.
 
     Arguments:
-        tensor: a tensor to broadcast.
-        root_rank: the rank to broadcast the value from.
-        name: a name of the broadcast operation.
+        tensor: A tensor to broadcast.
+        root_rank: The rank to broadcast the value from.
+        name: A name of the broadcast operation.
 
     Returns:
         A tensor of the same shape and type as `tensor`, with the value broadcasted
@@ -272,9 +272,9 @@ def broadcast_async_(tensor, root_rank, name=None):
     all processes are ready to send and receive the tensor.
 
     Arguments:
-        tensor: a tensor to broadcast.
-        root_rank: the rank to broadcast the value from.
-        name: a name of the broadcast operation.
+        tensor: A tensor to broadcast.
+        root_rank: The rank to broadcast the value from.
+        name: A name of the broadcast operation.
 
     Returns:
         A handle to the broadcast operation that can be used with `poll()` or
@@ -293,9 +293,9 @@ def broadcast_(tensor, root_rank, name=None):
     all processes are ready to send and receive the tensor.
 
     Arguments:
-        tensor: a tensor to broadcast.
-        root_rank: the rank to broadcast the value from.
-        name: a name of the broadcast operation.
+        tensor: A tensor to broadcast.
+        root_rank: The rank to broadcast the value from.
+        name: A name of the broadcast operation.
 
     Returns:
         A tensor of the same shape and type as `tensor`, with the value broadcasted
@@ -312,7 +312,7 @@ def poll(handle):
     will return without blocking.
 
     Arguments:
-        handle: a handle returned by an allreduce, allgather or broadcast asynchronous
+        handle: A handle returned by an allreduce, allgather or broadcast asynchronous
                 operation.
 
     Returns:
@@ -327,7 +327,7 @@ def synchronize(handle):
     it's completed. Returns the result of the operation.
 
     Arguments:
-        handle: a handle returned by an allreduce, allgather or broadcast asynchronous
+        handle: A handle returned by an allreduce, allgather or broadcast asynchronous
                 operation.
 
     Returns:

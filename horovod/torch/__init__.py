@@ -37,8 +37,6 @@ import torch
 
 
 class _DistributedOptimizer(torch.optim.Optimizer):
-    # TODO (doc): make it clear that parameters are taken from optimizer,
-    # TODO (doc): and named_parameters are only used for naming
     def __init__(self, params, named_parameters=None):
         super(self.__class__, self).__init__(params)
 
@@ -72,7 +70,6 @@ class _DistributedOptimizer(torch.optim.Optimizer):
 
     def _make_hook(self, p):
         def hook(*ignore):
-            # TODO: better error messages
             assert p not in self._handles
             assert not p.grad.requires_grad
             name = self._parameter_names.get(p)
@@ -80,7 +77,6 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             self._handles[p] = handle
         return hook
 
-    # TODO (doc): required for clip_grad_norm(all_params, 5), auto-detect if missing?
     def synchronize(self):
         for handle in self._handles.values():
             synchronize(handle)
@@ -92,14 +88,53 @@ class _DistributedOptimizer(torch.optim.Optimizer):
 
 
 def DistributedOptimizer(optimizer, named_parameters=None):
+    """
+    An optimizer that wraps another torch.optim.Optimizer, using an allreduce to
+    average gradient values before applying gradients to model weights.
+
+    Allreduce operations are executed after each gradient is computed by `loss.backward()`
+    in parallel with each other. `step()` method ensures that all allreduce operations are
+    finished before applying gradients to the model.
+
+    DistributedOptimizer exposes `synchronize()` method which forces allreduce operations
+    to finish before continuing the execution. It's useful in conjunction with gradient
+    clipping, or other operations that modify gradients in place before `step()` is executed.
+
+    Example of gradient clipping:
+    ```
+    output = model(data)
+    loss = F.nll_loss(output, target)
+    loss.backward()
+    optimizer.synchronize()
+    torch.nn.utils.clip_grad_norm(model.parameters(), args.clip)
+    optimizer.step()
+    ```
+
+    Arguments:
+        optimizer: Optimizer to use for computing gradients and applying updates.
+        named_parameters: A mapping between parameter names and values. Used for naming of
+                          allreduce operations. Typically just `model.named_parameters()`.
+    """
+    # We dynamically create a new class that inherits from the optimizer that was passed in.
+    # The goal is to override `step()` method with an allreduce implementation.
     cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                dict(_DistributedOptimizer.__dict__))
     return cls(optimizer.param_groups, named_parameters)
 
 
 def broadcast_parameters(params, root_rank):
+    """
+    Broadcasts the parameters from root rank to all other processes.
+    Typical usage is to broadcast the `model.state_dict()`,
+    `model.named_parameters()` or `model.parameters()`.
+
+    Arguments:
+        params: The list of parameters to broadcast.
+        root_rank: The rank of the process from which parameters will be
+                   broadcasted to all other processes.
+    """
     if isinstance(params, dict):
-        params = params.items()
+        params = sorted(params.items())
     else:
         # support both named_parameters() and regular parameters()
         params = [p if isinstance(p, tuple) else (None, p) for p in params]
