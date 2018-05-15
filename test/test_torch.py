@@ -133,15 +133,19 @@ def test_horovod_allreduce_async_fused():
                    torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
     dims = [1, 2, 3]
     tests = []
+    is_hvd_poll_false_once = False
     for dtype, dim in itertools.product(dtypes, dims):
         torch.manual_seed(1234)
         tensor = torch.FloatTensor(*([17] * dim)).random_(-100, 100)
         tensor = tensor.type(dtype)
         handle = hvd.allreduce_async(tensor, average=False)
-        # Make sure it's an asynchronous operation.
-        assert hvd.poll(handle) == 0
+        if not hvd.poll(handle):
+            is_hvd_poll_false_once = True
         multiplied = tensor * size
         tests.append((dtype, multiplied, handle))
+
+    # Make sure it's an asynchronous operation.
+    assert is_hvd_poll_false_once, 'hvd.poll() always returns True, not an async op?'
 
     for dtype, multiplied, handle in tests:
         summed = hvd.synchronize(handle)
