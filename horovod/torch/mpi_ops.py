@@ -340,6 +340,5 @@ def synchronize(handle):
     if handle not in _handle_map:
         return
     mpi_lib.horovod_torch_wait_and_clear(handle)
-    _, output = _handle_map[handle]
-    del _handle_map[handle]
+    _, output = _handle_map.pop(handle)
     return output

@@ -19,10 +19,10 @@
 
 #include "../common/operations.h"
 #include "adapter.h"
+#include "cuda_util.h"
 #include "handle_manager.h"
 #include "mpi_ops.h"
 #include "ready_event.h"
-#include "cuda_util.h"
 #include "tensor_util.h"
 
 namespace horovod {
@@ -30,14 +30,22 @@ namespace torch {
 
 static HandleManager handle_manager;
 
+namespace {
+
+std::string GetOpName(std::string prefix, char* name, int handle) {
+  if (name != nullptr) {
+    return prefix + "." + std::string(name);
+  }
+  return prefix + ".noname." + std::to_string(handle);
+}
+
+} // namespace
+
 template <class T>
 int DoAllreduce(T* tensor, T* output, int average, char* name) {
   ThrowIfError(common::CheckInitialized());
 
   auto handle = handle_manager.AllocateHandle();
-  auto name_or_handle =
-      name != nullptr ? std::string(name) : "noname." + std::to_string(handle);
-
   auto device = TensorUtil::GetDevice(tensor);
   auto hvd_tensor = std::make_shared<TorchTensor<T>>(tensor);
   auto hvd_context = std::make_shared<TorchOpContext<T>>(device, output);
@@ -45,7 +53,7 @@ int DoAllreduce(T* tensor, T* output, int average, char* name) {
 
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_tensor, hvd_output, nullptr,
-      "allreduce." + name_or_handle, device,
+      GetOpName("allreduce", name, handle), device,
       [handle, average, output](const Status& status) {
         if (average) {
           TensorUtil::DivideTensorInPlace(output, horovod_size());
@@ -62,10 +70,6 @@ template <class TC, class T>
 int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
   ThrowIfError(common::CheckInitialized());
 
-  auto handle = handle_manager.AllocateHandle();
-  auto name_or_handle =
-      name != nullptr ? std::string(name) : "noname." + std::to_string(handle);
-
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto device = TensorUtil::GetDevice(tensor);
   auto hvd_cpu_buffer =
@@ -76,9 +80,10 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
   auto hvd_context = std::make_shared<TorchOpContext<T>>(
       CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
 
+  auto handle = handle_manager.AllocateHandle();
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, ready_event,
-      "allreduce." + name_or_handle, CPU_DEVICE_ID,
+      GetOpName("allreduce", name, handle), CPU_DEVICE_ID,
       [handle, average, hvd_cpu_buffer, output](const Status& status) {
         TensorUtil::CopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
         if (average) {
@@ -95,17 +100,14 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
 template <class T> int DoAllgather(T* tensor, T* output, char* name) {
   ThrowIfError(common::CheckInitialized());
 
-  auto handle = handle_manager.AllocateHandle();
-  auto name_or_handle =
-      name != nullptr ? std::string(name) : "noname." + std::to_string(handle);
-
   auto device = TensorUtil::GetDevice(tensor);
   auto hvd_tensor = std::make_shared<TorchTensor<T>>(tensor);
   auto hvd_context = std::make_shared<TorchOpContext<T>>(device, output);
 
+  auto handle = handle_manager.AllocateHandle();
   auto enqueue_result = EnqueueTensorAllgather(
-      hvd_context, hvd_tensor, nullptr, "allgather." + name_or_handle, device,
-      [handle](const Status& status) {
+      hvd_context, hvd_tensor, nullptr, GetOpName("allgather", name, handle),
+      device, [handle](const Status& status) {
         handle_manager.MarkDone(handle, status);
       });
   ThrowIfError(enqueue_result);
@@ -117,10 +119,6 @@ template <class T> int DoAllgather(T* tensor, T* output, char* name) {
 template <class TC, class T>
 int DoAllgatherCudaOnCPU(TC* tensor, TC* output, char* name) {
   ThrowIfError(common::CheckInitialized());
-
-  auto handle = handle_manager.AllocateHandle();
-  auto name_or_handle =
-      name != nullptr ? std::string(name) : "noname." + std::to_string(handle);
 
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto device = TensorUtil::GetDevice(tensor);
@@ -134,9 +132,11 @@ int DoAllgatherCudaOnCPU(TC* tensor, TC* output, char* name) {
   auto hvd_context = std::make_shared<TorchOpContext<T>>(
       CPU_DEVICE_ID, hvd_cpu_output->tensor());
 
+  auto handle = handle_manager.AllocateHandle();
   auto enqueue_result = EnqueueTensorAllgather(
-      hvd_context, hvd_cpu_tensor, ready_event, "allgather." + name_or_handle,
-      CPU_DEVICE_ID, [handle, hvd_cpu_output, output](const Status& status) {
+      hvd_context, hvd_cpu_tensor, ready_event,
+      GetOpName("allgather", name, handle), CPU_DEVICE_ID,
+      [handle, hvd_cpu_output, output](const Status& status) {
         TensorUtil::CopyCPUToCuda(hvd_cpu_output->tensor(), output);
         handle_manager.MarkDone(handle, status);
       });
@@ -150,10 +150,6 @@ template <class T>
 int DoBroadcast(T* tensor, T* output, int root_rank, char* name) {
   ThrowIfError(common::CheckInitialized());
 
-  auto handle = handle_manager.AllocateHandle();
-  auto name_or_handle =
-      name != nullptr ? std::string(name) : "noname." + std::to_string(handle);
-
   auto device = TensorUtil::GetDevice(tensor);
   auto hvd_tensor = std::make_shared<TorchTensor<T>>(tensor);
   auto hvd_context = std::make_shared<TorchOpContext<T>>(device, output);
@@ -166,11 +162,13 @@ int DoBroadcast(T* tensor, T* output, int root_rank, char* name) {
     hvd_output = std::make_shared<TorchTensor<T>>(output);
   }
 
-  auto enqueue_result = EnqueueTensorBroadcast(
-      hvd_context, hvd_tensor, hvd_output, root_rank, nullptr,
-      "broadcast." + name_or_handle, device, [handle](const Status& status) {
-        handle_manager.MarkDone(handle, status);
-      });
+  auto handle = handle_manager.AllocateHandle();
+  auto enqueue_result =
+      EnqueueTensorBroadcast(hvd_context, hvd_tensor, hvd_output, root_rank,
+                             nullptr, GetOpName("broadcast", name, handle),
+                             device, [handle](const Status& status) {
+                               handle_manager.MarkDone(handle, status);
+                             });
   ThrowIfError(enqueue_result);
 
   return handle;
@@ -180,10 +178,6 @@ int DoBroadcast(T* tensor, T* output, int root_rank, char* name) {
 template <class TC, class T>
 int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
   ThrowIfError(common::CheckInitialized());
-
-  auto handle = handle_manager.AllocateHandle();
-  auto name_or_handle =
-      name != nullptr ? std::string(name) : "noname." + std::to_string(handle);
 
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto device = TensorUtil::GetDevice(tensor);
@@ -195,9 +189,10 @@ int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
   auto hvd_context = std::make_shared<TorchOpContext<T>>(
       CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
 
+  auto handle = handle_manager.AllocateHandle();
   auto enqueue_result = EnqueueTensorBroadcast(
       hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, root_rank, ready_event,
-      "broadcast." + name_or_handle, CPU_DEVICE_ID,
+      GetOpName("broadcast", name, handle), CPU_DEVICE_ID,
       [handle, hvd_cpu_buffer, output](const Status& status) {
         TensorUtil::CopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
         handle_manager.MarkDone(handle, status);
