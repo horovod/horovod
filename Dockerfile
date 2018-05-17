@@ -43,7 +43,8 @@ RUN PY=$(echo ${PYTHON_VERSION} | sed s/\\.//); \
         pip install http://download.pytorch.org/whl/cu90/torch-${PYTORCH_VERSION}-cp${PY}-cp${PY}m-linux_x86_64.whl; \
     else \
         pip install http://download.pytorch.org/whl/cu90/torch-${PYTORCH_VERSION}-cp${PY}-cp${PY}mu-linux_x86_64.whl; \
-    fi
+    fi;
+    pip install torchvision
 
 # Install Open MPI
 RUN mkdir /tmp/openmpi && \
