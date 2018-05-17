@@ -24,8 +24,11 @@
 namespace horovod {
 namespace common {
 
+// Device ID used for CPU.
+#define CPU_DEVICE_ID -1
+
 // List of supported frameworks.
-enum Framework { TENSORFLOW };
+enum Framework { TENSORFLOW, PYTORCH };
 
 enum StatusType { OK, UNKNOWN_ERROR, PRECONDITION_ERROR, ABORTED };
 

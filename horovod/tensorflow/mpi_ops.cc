@@ -70,16 +70,16 @@ common::Status ConvertStatus(Status status) {
   }
 }
 
+#if HAVE_CUDA
 class TFReadyEvent : public common::ReadyEvent {
 public:
   TFReadyEvent(DeviceContext* device_context);
   bool Ready() const override;
 
 private:
-#if HAVE_CUDA
   std::shared_ptr<perftools::gputools::Event> event_;
-#endif
 };
+#endif
 
 class TFPersistentBuffer : public common::PersistentBuffer {
 public:
@@ -118,24 +118,20 @@ private:
   OpKernelContext* context_;
 };
 
-TFReadyEvent::TFReadyEvent(DeviceContext* device_context) {
 #if HAVE_CUDA
+TFReadyEvent::TFReadyEvent(DeviceContext* device_context) {
   auto executor = device_context->stream()->parent();
   auto ready_event = new perftools::gputools::Event(executor);
   ready_event->Init();
   device_context->stream()->ThenRecordEvent(ready_event);
   event_ = std::shared_ptr<perftools::gputools::Event>(ready_event);
-#endif
 }
 
 bool TFReadyEvent::Ready() const {
-#if HAVE_CUDA
   return event_->PollForStatus() !=
          perftools::gputools::Event::Status::kPending;
-#else
-  return true;
-#endif
 }
+#endif
 
 TFPersistentBuffer::TFPersistentBuffer(OpKernelContext* context, int64_t size) {
   tensor_ = std::make_shared<PersistentTensor>();
@@ -259,7 +255,7 @@ int GetDeviceID(OpKernelContext* context) {
 
 // On GPU this event will signal that data is ready, and tensors are
 // allocated.
-TFReadyEvent* RecordReadyEvent(OpKernelContext* context) {
+common::ReadyEvent* RecordReadyEvent(OpKernelContext* context) {
 #if HAVE_CUDA
   auto device_context = context->op_device_context();
   if (device_context != nullptr) {
@@ -287,7 +283,7 @@ public:
     OP_REQUIRES_OK_ASYNC(
         context, context->allocate_output(0, tensor.shape(), &output), done);
     // ReadyEvent makes sure input tensor is ready, and output is allocated.
-    auto ready_event = std::shared_ptr<TFReadyEvent>(RecordReadyEvent(context));
+    auto ready_event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context));
     auto hvd_context = std::make_shared<TFOpContext>(context);
     auto hvd_tensor = std::make_shared<TFTensor>(tensor);
     auto hvd_output = std::make_shared<TFTensor>(*output);
@@ -344,7 +340,7 @@ public:
     // ReadyEvent makes sure input tensor is ready.  We cannot pre-allocate
     // output for allgather, since shape of result is only known after all
     // ranks make a request.
-    auto ready_event = std::shared_ptr<TFReadyEvent>(RecordReadyEvent(context));
+    auto ready_event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context));
     auto hvd_context = std::make_shared<TFOpContext>(context);
     auto hvd_tensor = std::make_shared<TFTensor>(tensor);
     auto enqueue_result = EnqueueTensorAllgather(
@@ -410,7 +406,7 @@ public:
           context, context->allocate_output(0, tensor.shape(), &output), done);
     }
     // ReadyEvent makes sure input tensor is ready, and output is allocated.
-    auto ready_event = std::shared_ptr<TFReadyEvent>(RecordReadyEvent(context));
+    auto ready_event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context));
     auto hvd_context = std::make_shared<TFOpContext>(context);
     auto hvd_tensor = std::make_shared<TFTensor>(tensor);
     std::shared_ptr<TFTensor> hvd_output = nullptr;

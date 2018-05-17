@@ -4,8 +4,8 @@
 
 <p align="center"><img src="https://user-images.githubusercontent.com/16640218/34506318-84d0c06c-efe0-11e7-8831-0425772ed8f2.png" alt="Logo" width="200"/></p>
 
-Horovod is a distributed training framework for TensorFlow. The goal of Horovod is to make distributed Deep Learning
-fast and easy to use.
+Horovod is a distributed training framework for TensorFlow, Keras, and PyTorch. The goal of Horovod is to make
+distributed Deep Learning fast and easy to use.
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -18,6 +18,7 @@ fast and easy to use.
 - [Running Horovod](#running-horovod)
 - [Keras](#keras)
 - [Estimator API](#estimator-api)
+- [PyTorch](#pytorch)
 - [mpi4py](#mpi4py)
 - [Inference](#inference)
 - [Tensor Fusion](#tensor-fusion)
@@ -190,6 +191,58 @@ to Keras 2.1.2, or downgrade to Keras 2.0.8.
 Horovod supports Estimator API and regular TensorFlow in similar ways.
 
 See a full training [example](examples/tensorflow_mnist_estimator.py).
+
+## PyTorch
+
+Horovod supports PyTorch and TensorFlow in similar ways.
+
+Example (also see a full training [example](examples/pytorch_mnist.py)):
+
+```python
+import torch
+import horovod.torch as hvd
+
+# Initialize Horovod
+hvd.init()
+
+# Pin GPU to be used to process local rank (one GPU per process)
+torch.cuda.set_device(hvd.local_rank())
+
+# Define dataset...
+train_dataset = ...
+
+# Partition dataset among workers using DistributedSampler
+train_sampler = torch.utils.data.distributed.DistributedSampler(
+    train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
+
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=..., sampler=train_sampler)
+
+# Build model...
+model = ...
+model.cuda()
+
+optimizer = optim.SGD(model.parameters())
+
+# Add Horovod Distributed Optimizer
+optimizer = hvd.DistributedOptimizer(optimizer, named_parameters=model.named_parameters())
+
+# Broadcast parameters from rank 0 to all other processes.
+hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+
+for epoch in range(100):
+   for batch_idx, (data, target) in enumerate(train_loader):
+       data, target = Variable(data), Variable(target)
+       optimizer.zero_grad()
+       output = model(data)
+       loss = F.nll_loss(output, target)
+       loss.backward()
+       optimizer.step()
+       if batch_idx % args.log_interval == 0:
+           print('Train Epoch: {} [{}/{}]\tLoss: {}'.format(
+               epoch, batch_idx * len(data), len(train_sampler), loss.data[0]))
+```
+
+**Note**: PyTorch support requires NCCL 2.2 or later. It also works with NCCL 2.1.15 if you are not using RoCE or InfiniBand.
 
 ## mpi4py
 

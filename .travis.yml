@@ -2,7 +2,7 @@ dist: trusty
 language: python
 python:
   - "2.7"
-  - "3.4"
+  - "3.5"
   - "3.6"
 services:
   - docker
@@ -10,77 +10,89 @@ services:
 before_install:
   # force latest Debian for Python 3.6 and nightly TensorFlow which requires new glibc
   - |
-    if [[ $TRAVIS_PYTHON_VERSION == "3.6" || $TF_PACKAGE == "tf-nightly" ]]; then
+    if [[ ${TRAVIS_PYTHON_VERSION} == "3.6" || ${TF_PACKAGE} == "tf-nightly" ]]; then
       export DEBIAN=sid
+    elif [[ ${TRAVIS_PYTHON_VERSION} == "3.5" ]]; then
+      export DEBIAN=stretch
     else
       export DEBIAN=jessie
     fi
-  - docker pull debian:$DEBIAN
+  - docker pull debian:${DEBIAN}
   # run docker container for an hour
-  - docker run -v `pwd`:/horovod debian:$DEBIAN /bin/sh -c "sleep 3600" &
+  - docker run -v `pwd`:/horovod debian:${DEBIAN} /bin/sh -c "sleep 3600" &
   # wait for docker to start
   - sleep 5
   - export CONTAINER=$(docker ps -q | head -n 1)
-  - docker exec $CONTAINER /bin/sh -c "apt-get update -qq"
+  - docker exec ${CONTAINER} /bin/sh -c "apt-get update -qq"
   # install Python, if it's Python 3 - add symlink for `python`
   - |
-    if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then
-      docker exec $CONTAINER /bin/sh -c "apt-get install -y python$TRAVIS_PYTHON_VERSION python3-pip python3-requests"
-      docker exec $CONTAINER /bin/sh -c "pip3 install -U --force pip"
-      docker exec $CONTAINER /bin/sh -c "ln -s /usr/bin/python3 /usr/bin/python"
+    if [[ ${TRAVIS_PYTHON_VERSION} == 3* ]]; then
+      docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev python3-pip python3-requests"
+      docker exec ${CONTAINER} /bin/sh -c "pip3 install -U --force pip"
+      docker exec ${CONTAINER} /bin/sh -c "ln -s /usr/bin/python3 /usr/bin/python"
     else
-      docker exec $CONTAINER /bin/sh -c "apt-get install -y python$TRAVIS_PYTHON_VERSION python-pip python-requests"
-      docker exec $CONTAINER /bin/sh -c "pip install -U --force pip"
+      docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev python-pip python-requests"
+      docker exec ${CONTAINER} /bin/sh -c "pip install -U --force pip"
     fi
   # install necessary network tools
-  - docker exec $CONTAINER /bin/sh -c "apt-get install -y wget openssh-client git"
+  - docker exec ${CONTAINER} /bin/sh -c "apt-get install -y wget openssh-client git"
 
 env:
   matrix:
-    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 MPI=OpenMPI
-    - TF_PACKAGE=tensorflow==1.4.0 KERAS_PACKAGE=keras==2.1.2 MPI=OpenMPI
-    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git MPI=OpenMPI
-    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 MPI=MPICH
+    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_VERSION=0.3.0 MPI=OpenMPI
+    - TF_PACKAGE=tensorflow==1.4.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_VERSION=0.4.0 MPI=OpenMPI
+    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_VERSION=0.4.0 MPI=OpenMPI
+    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_VERSION=0.3.0 MPI=MPICH
 
 matrix:
   fast_finish: true
   exclude:
-    - python: "3.4"
-      env: TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 MPI=MPICH
+    - python: "3.5"
+      env: TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_VERSION=0.3.0 MPI=MPICH
     - python: "3.6"
-      env: TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 MPI=MPICH
-    - python: "3.4"
-      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git MPI=OpenMPI
+      env: TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_VERSION=0.3.0 MPI=MPICH
+    - python: "3.5"
+      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_VERSION=0.4.0 MPI=OpenMPI
 
 install:
   - |
-    if [[ $MPI == "OpenMPI" ]]; then
-      docker exec $CONTAINER /bin/sh -c "wget -O /tmp/openmpi-3.0.0-bin.tar.gz https://github.com/uber/horovod/files/1596799/openmpi-3.0.0-bin.tar.gz"
-      docker exec $CONTAINER /bin/sh -c "cd /usr/local && tar -zxf /tmp/openmpi-3.0.0-bin.tar.gz && ldconfig"
+    if [[ ${MPI} == "OpenMPI" ]]; then
+      docker exec ${CONTAINER} /bin/sh -c "wget -O /tmp/openmpi-3.0.0-bin.tar.gz https://github.com/uber/horovod/files/1596799/openmpi-3.0.0-bin.tar.gz"
+      docker exec ${CONTAINER} /bin/sh -c "cd /usr/local && tar -zxf /tmp/openmpi-3.0.0-bin.tar.gz && ldconfig"
     else
       # installs mpich version 3.0.4
-      docker exec $CONTAINER /bin/sh -c "apt-get install -y mpich"
+      docker exec ${CONTAINER} /bin/sh -c "apt-get install -y mpich"
     fi
 
   # TensorFlow
-  - docker exec $CONTAINER /bin/sh -c "pip install $TF_PACKAGE"
+  - docker exec ${CONTAINER} /bin/sh -c "pip install ${TF_PACKAGE}"
 
   # Keras
-  - docker exec $CONTAINER /bin/sh -c "pip install $KERAS_PACKAGE"
+  - docker exec ${CONTAINER} /bin/sh -c "pip install ${KERAS_PACKAGE}"
 
   # h5py for Keras model saving
-  - docker exec $CONTAINER /bin/sh -c "pip install h5py"
+  - docker exec ${CONTAINER} /bin/sh -c "pip install h5py"
 
   # scipy for Keras image preprocessing
-  - docker exec $CONTAINER /bin/sh -c "pip install scipy"
+  - docker exec ${CONTAINER} /bin/sh -c "pip install scipy"
+
+  # PyTorch
+  - |
+    PY=$(echo ${TRAVIS_PYTHON_VERSION} | sed s/\\.//)
+    if [[ ${TRAVIS_PYTHON_VERSION} == 3* ]]; then
+        docker exec ${CONTAINER} /bin/sh -c "pip install http://download.pytorch.org/whl/cu90/torch-${PYTORCH_VERSION}-cp${PY}-cp${PY}m-linux_x86_64.whl"
+    else
+        docker exec ${CONTAINER} /bin/sh -c "pip install http://download.pytorch.org/whl/cu90/torch-${PYTORCH_VERSION}-cp${PY}-cp${PY}mu-linux_x86_64.whl"
+    fi
+  - docker exec ${CONTAINER} /bin/sh -c "pip install torchvision"
 
   # Horovod
-  - docker exec $CONTAINER /bin/sh -c "cd /horovod && python setup.py sdist"
-  - docker exec $CONTAINER /bin/sh -c "pip install -v /horovod/dist/horovod-*.tar.gz"
+  - docker exec ${CONTAINER} /bin/sh -c "cd /horovod && python setup.py sdist"
+  - docker exec ${CONTAINER} /bin/sh -c "pip install -v /horovod/dist/horovod-*.tar.gz"
 
 script:
   - |
-    if [[ $MPI == "OpenMPI" ]]; then
+    if [[ ${MPI} == "OpenMPI" ]]; then
       export MPIRUN="mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot"
     else
       export MPIRUN="mpirun -np 2"
@@ -88,21 +100,24 @@ script:
   
 
   # run unit tests
-  - docker exec $CONTAINER /bin/sh -c "pip install pytest && cd /horovod/test && $MPIRUN pytest"
+  - docker exec ${CONTAINER} /bin/sh -c "pip install pytest && cd /horovod/test && ${MPIRUN} pytest -v"
 
   # hack TensorFlow MNIST example to be smaller
-  - docker exec $CONTAINER /bin/sh -c "sed -i \"s/last_step=20000/last_step=100/\" /horovod/examples/tensorflow_mnist.py"
+  - docker exec ${CONTAINER} /bin/sh -c "sed -i \"s/last_step=20000/last_step=100/\" /horovod/examples/tensorflow_mnist.py"
 
   # run TensorFlow MNIST example
-  - docker exec $CONTAINER /bin/sh -c "$MPIRUN python /horovod/examples/tensorflow_mnist.py"
+  - docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/tensorflow_mnist.py"
 
   # download Keras MNIST dataset
-  - docker exec $CONTAINER /bin/sh -c "python -c \"from keras.datasets import mnist; mnist.load_data()\""
+  - docker exec ${CONTAINER} /bin/sh -c "python -c \"from keras.datasets import mnist; mnist.load_data()\""
 
   # hack Keras MNIST advanced example to be smaller
-  - docker exec $CONTAINER /bin/sh -c "sed -i \"s/epochs = .*/epochs = 12/\" /horovod/examples/keras_mnist_advanced.py"
-  - docker exec $CONTAINER /bin/sh -c "sed -i \"s/model.add(Conv2D(32, kernel_size=(3, 3),/model.add(Conv2D(1, kernel_size=(3, 3),/\" /horovod/examples/keras_mnist_advanced.py"
-  - docker exec $CONTAINER /bin/sh -c "sed -i \"s/model.add(Conv2D(64, (3, 3), activation='relu'))//\" /horovod/examples/keras_mnist_advanced.py"
+  - docker exec ${CONTAINER} /bin/sh -c "sed -i \"s/epochs = .*/epochs = 12/\" /horovod/examples/keras_mnist_advanced.py"
+  - docker exec ${CONTAINER} /bin/sh -c "sed -i \"s/model.add(Conv2D(32, kernel_size=(3, 3),/model.add(Conv2D(1, kernel_size=(3, 3),/\" /horovod/examples/keras_mnist_advanced.py"
+  - docker exec ${CONTAINER} /bin/sh -c "sed -i \"s/model.add(Conv2D(64, (3, 3), activation='relu'))//\" /horovod/examples/keras_mnist_advanced.py"
 
   # run Keras MNIST advanced example
-  - docker exec $CONTAINER /bin/sh -c "$MPIRUN python /horovod/examples/keras_mnist_advanced.py"
+  - docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/keras_mnist_advanced.py"
+
+  # run PyTorch MNIST example
+  - docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/pytorch_mnist.py --epochs 2"

@@ -23,9 +23,6 @@
 namespace horovod {
 namespace common {
 
-// Device ID used for CPU.
-#define CPU_DEVICE_ID -1
-
 // A callback to call after the MPI communication completes. Since the
 // allreduce and allgather ops are asynchronous, this callback is what resumes
 // computation after the reduction is completed.
