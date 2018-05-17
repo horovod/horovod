@@ -40,9 +40,9 @@ RUN pip install tensorflow-gpu==${TENSORFLOW_VERSION} keras h5py
 # Install PyTorch
 RUN PY=$(echo ${PYTHON_VERSION} | sed s/\\.//); \
     if [[ ${PYTHON_VERSION} == 3* ]]; then \
-        pip install http://download.pytorch.org/whl/cu90/torch-${PYTORCH_VERSION}-cp${PY}-cp${PY}m-linux_x86_64.whl \
+        pip install http://download.pytorch.org/whl/cu90/torch-${PYTORCH_VERSION}-cp${PY}-cp${PY}m-linux_x86_64.whl; \
     else \
-        pip install http://download.pytorch.org/whl/cu90/torch-${PYTORCH_VERSION}-cp${PY}-cp${PY}mu-linux_x86_64.whl \
+        pip install http://download.pytorch.org/whl/cu90/torch-${PYTORCH_VERSION}-cp${PY}-cp${PY}mu-linux_x86_64.whl; \
     fi
 
 # Install Open MPI
