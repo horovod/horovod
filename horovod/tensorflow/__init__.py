@@ -175,8 +175,7 @@ class DistributedOptimizer(tf.train.Optimizer):
         In DistributedOptimizer, compute_gradients() is overriden to also
         allreduce the gradients before returning them.
         """
-        gradients = (super(DistributedOptimizer, self)
-                     .compute_gradients(*args, **kwargs))
+        gradients = self._optimizer.compute_gradients(*args, **kwargs)
         if size() > 1:
             averaged_gradients = []
             with tf.name_scope(self._name + "_Allreduce"):
@@ -191,42 +190,18 @@ class DistributedOptimizer(tf.train.Optimizer):
         else:
             return gradients
 
-    def _apply_dense(self, *args, **kwargs):
+    def apply_gradients(self, *args, **kwargs):
         """Calls this same method on the underlying optimizer."""
-        return self._optimizer._apply_dense(*args, **kwargs)
+        return self._optimizer.apply_gradients(*args, **kwargs)
 
-    def _resource_apply_dense(self, *args, **kwargs):
+    def get_slot(self, *args, **kwargs):
         """Calls this same method on the underlying optimizer."""
-        return self._optimizer._resource_apply_dense(*args, **kwargs)
+        return self._optimizer.get_slot(*args, **kwargs)
 
-    def _resource_apply_sparse_duplicate_indices(self, *args, **kwargs):
+    def get_slot_names(self, *args, **kwargs):
         """Calls this same method on the underlying optimizer."""
-        return self._optimizer._resource_apply_sparse_duplicate_indices(*args, **kwargs)
+        return self._optimizer.get_slot_names(*args, **kwargs)
 
-    def _resource_apply_sparse(self, *args, **kwargs):
+    def variables(self, *args, **kwargs):
         """Calls this same method on the underlying optimizer."""
-        return self._optimizer._resource_apply_sparse(*args, **kwargs)
-
-    def _apply_sparse_duplicate_indices(self, *args, **kwargs):
-        """Calls this same method on the underlying optimizer."""
-        return self._optimizer._apply_sparse_duplicate_indices(*args, **kwargs)
-
-    def _apply_sparse(self, *args, **kwargs):
-        """Calls this same method on the underlying optimizer."""
-        return self._optimizer._apply_sparse(*args, **kwargs)
-
-    def _prepare(self, *args, **kwargs):
-        """Calls this same method on the underlying optimizer."""
-        return self._optimizer._prepare(*args, **kwargs)
-
-    def _create_slots(self, *args, **kwargs):
-        """Calls this same method on the underlying optimizer."""
-        return self._optimizer._create_slots(*args, **kwargs)
-
-    def _valid_dtypes(self, *args, **kwargs):
-        """Calls this same method on the underlying optimizer."""
-        return self._optimizer._valid_dtypes(*args, **kwargs)
-
-    def _finish(self, *args, **kwargs):
-        """Calls this same method on the underlying optimizer."""
-        return self._optimizer._finish(*args, **kwargs)
+        return self._optimizer.variables(*args, **kwargs)
