@@ -193,3 +193,15 @@ class DistributedOptimizer(tf.train.Optimizer):
     def apply_gradients(self, *args, **kwargs):
         """Calls this same method on the underlying optimizer."""
         return self._optimizer.apply_gradients(*args, **kwargs)
+
+    def get_slot(self, *args, **kwargs):
+        """Calls this same method on the underlying optimizer."""
+        return self._optimizer.get_slot(*args, **kwargs)
+
+    def get_slot_names(self, *args, **kwargs):
+        """Calls this same method on the underlying optimizer."""
+        return self._optimizer.get_slot_names(*args, **kwargs)
+
+    def variables(self, *args, **kwargs):
+        """Calls this same method on the underlying optimizer."""
+        return self._optimizer.variables(*args, **kwargs)
