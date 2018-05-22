@@ -1266,7 +1266,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       // 1. Get message lengths from every rank.
       auto recvcounts = new int[size];
       recvcounts[0] = 0;
-      MPI_Gather(recvcounts, 1, MPI_INT, recvcounts, 1, MPI_INT, RANK_ZERO,
+      MPI_Gather(MPI_IN_PLACE, 1, MPI_INT, recvcounts, 1, MPI_INT, RANK_ZERO,
                  MPI_COMM_WORLD);
 
       // 2. Compute displacements.
