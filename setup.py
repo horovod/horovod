@@ -43,6 +43,9 @@ def is_build_action():
     if sys.argv[1].startswith('bdist'):
         return True
 
+    if sys.argv[1].startswith('install'):
+        return True
+
 
 def check_tf_version():
     try:
