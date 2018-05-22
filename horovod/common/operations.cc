@@ -143,6 +143,9 @@ struct HorovodGlobalState {
   // permitted.
   double cycle_time = 5;
 
+  // Time point when last cycle started.
+  std::chrono::steady_clock::time_point last_cycle_start;
+
   // Memory buffers for Tensor Fusion.  They are keyed off device ID and
   // framework, and all are allocated tensor_fusion_threshold bytes if
   // initialized.
@@ -1227,8 +1230,14 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   bool should_shut_down = false;
   do {
     // This delay determines thread frequency and MPI message latency
-    std::this_thread::sleep_for(
-        std::chrono::microseconds(long(state.cycle_time * 1000.)));
+    auto sleep_duration =
+        state.last_cycle_start +
+        std::chrono::microseconds(long(state.cycle_time * 1000.)) -
+        std::chrono::steady_clock::now();
+    if (sleep_duration > std::chrono::steady_clock::duration::zero()) {
+      std::this_thread::sleep_for(sleep_duration);
+    }
+    state.last_cycle_start = std::chrono::steady_clock::now();
 
     // Copy the data structures from global state under this lock.
     // However, don't keep the lock for the rest of the loop, so that
