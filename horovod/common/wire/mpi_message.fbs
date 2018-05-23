@@ -59,7 +59,7 @@ table MPIRequest {
 table MPIRequestList {
     requests:[MPIRequest];
 
-    // Flag indicating whether worker is requesting a shutdown.
+    // Flag indicating if worker is requesting a shutdown.
     shutdown:bool;
 }
 
@@ -95,6 +95,6 @@ table MPIResponse {
 table MPIResponseList {
     responses:[MPIResponse];
 
-    // Flag indicating whether worker is requested to shutdown.
+    // Flag indicating if worker is requested to shutdown.
     shutdown:bool;
 }
