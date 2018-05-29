@@ -135,7 +135,7 @@ def test():
         test_loss += F.nll_loss(output, target, size_average=False).data[0]
         # get the index of the max log-probability
         pred = output.data.max(1, keepdim=True)[1]
-        test_accuracy += pred.eq(target.data.view_as(pred)).cpu().sum()
+        test_accuracy += pred.eq(target.data.view_as(pred)).cpu().float().sum()
 
     test_loss /= len(test_sampler)
     test_accuracy /= len(test_sampler)
