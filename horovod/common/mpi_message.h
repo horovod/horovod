@@ -88,7 +88,7 @@ class MPIRequestList {
 public:
   const std::vector<MPIRequest>& requests() const;
   void set_requests(const std::vector<MPIRequest>& value);
-  void add_requests(MPIRequest value);
+  void add_requests(const MPIRequest& value);
   bool shutdown() const;
   void set_shutdown(bool value);
 
@@ -156,7 +156,7 @@ class MPIResponseList {
 public:
   const std::vector<MPIResponse>& responses() const;
   void set_responses(const std::vector<MPIResponse>& value);
-  void add_responses(MPIResponse value);
+  void add_responses(const MPIResponse& value);
   bool shutdown() const;
   void set_shutdown(bool value);
 

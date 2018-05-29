@@ -177,7 +177,7 @@ bool MPIRequestList::shutdown() const { return shutdown_; }
 
 void MPIRequestList::set_shutdown(bool value) { shutdown_ = value; }
 
-void MPIRequestList::add_requests(MPIRequest value) {
+void MPIRequestList::add_requests(const MPIRequest& value) {
   requests_.push_back(value);
 }
 
@@ -185,9 +185,9 @@ void MPIRequestList::ParseFromString(MPIRequestList& request_list,
                                      const std::string& input) {
   auto obj =
       flatbuffers::GetRoot<wire::MPIRequestList>((uint8_t*)input.c_str());
-  for (auto it = obj->requests()->begin(); it != obj->requests()->end(); it++) {
+  for (const auto& req_obj : *obj->requests()) {
     MPIRequest request;
-    MPIRequest_ParseFromWire(request, *it);
+    MPIRequest_ParseFromWire(request, req_obj);
     request_list.add_requests(std::move(request));
   }
   request_list.set_shutdown(obj->shutdown());
@@ -198,10 +198,9 @@ void MPIRequestList::SerializeToString(MPIRequestList& request_list,
   // FlatBuffers must be built bottom-up.
   flatbuffers::FlatBufferBuilder builder(1024);
   std::vector<flatbuffers::Offset<wire::MPIRequest>> requests;
-  for (auto it = request_list.requests().begin();
-       it != request_list.requests().end(); it++) {
+  for (const auto& req : request_list.requests()) {
     flatbuffers::Offset<wire::MPIRequest> req_obj;
-    MPIRequest_SerializeToWire(*it, builder, req_obj);
+    MPIRequest_SerializeToWire(req, builder, req_obj);
     requests.push_back(req_obj);
   }
   auto requests_wire = builder.CreateVector(requests);
@@ -286,9 +285,8 @@ void MPIResponse::add_tensor_sizes(int64_t value) {
 void MPIResponse_ParseFromWire(MPIResponse& response,
                               const wire::MPIResponse* obj) {
   response.set_response_type((MPIResponse::ResponseType)obj->response_type());
-  for (auto it = obj->tensor_names()->begin(); it != obj->tensor_names()->end();
-       it++) {
-    response.add_tensor_names(it->str());
+  for (const auto& tensor_name_obj : *obj->tensor_names()) {
+    response.add_tensor_names(tensor_name_obj->str());
   }
   response.set_error_message(obj->error_message()->str());
   response.set_devices(
@@ -347,7 +345,7 @@ bool MPIResponseList::shutdown() const { return shutdown_; }
 
 void MPIResponseList::set_shutdown(bool value) { shutdown_ = value; }
 
-void MPIResponseList::add_responses(MPIResponse value) {
+void MPIResponseList::add_responses(const MPIResponse& value) {
   responses_.push_back(value);
 }
 
@@ -355,9 +353,9 @@ void MPIResponseList::ParseFromString(MPIResponseList& response_list,
                                      const std::string& input) {
   auto obj =
       flatbuffers::GetRoot<wire::MPIResponseList>((uint8_t*)input.c_str());
-  for (auto it = obj->responses()->begin(); it != obj->responses()->end(); it++) {
+  for (const auto& resp_obj : *obj->responses()) {
     MPIResponse response;
-    MPIResponse_ParseFromWire(response, *it);
+    MPIResponse_ParseFromWire(response, resp_obj);
     response_list.add_responses(std::move(response));
   }
   response_list.set_shutdown(obj->shutdown());
@@ -367,14 +365,13 @@ void MPIResponseList::SerializeToString(MPIResponseList& response_list,
                                        std::string& output) {
   // FlatBuffers must be built bottom-up.
   flatbuffers::FlatBufferBuilder builder(1024);
-  std::vector<flatbuffers::Offset<wire::MPIResponse>> requests;
-  for (auto it = response_list.responses().begin();
-       it != response_list.responses().end(); it++) {
-    flatbuffers::Offset<wire::MPIResponse> req_obj;
-    MPIResponse_SerializeToWire(*it, builder, req_obj);
-    requests.push_back(req_obj);
+  std::vector<flatbuffers::Offset<wire::MPIResponse>> responses;
+  for (const auto& resp : response_list.responses()) {
+    flatbuffers::Offset<wire::MPIResponse> resp_obj;
+    MPIResponse_SerializeToWire(resp, builder, resp_obj);
+    responses.push_back(resp_obj);
   }
-  auto responses_wire = builder.CreateVector(requests);
+  auto responses_wire = builder.CreateVector(responses);
 
   wire::MPIResponseListBuilder response_list_builder(builder);
   response_list_builder.add_responses(responses_wire);
