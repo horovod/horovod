@@ -246,7 +246,7 @@ for epoch in range(100):
 
 ## mpi4py
 
-Horovod supports mixing and matching Horovod collectives with other MPI libraries, such as [mpi4py](mpi4py.scipy.org),
+Horovod supports mixing and matching Horovod collectives with other MPI libraries, such as [mpi4py](https://mpi4py.scipy.org),
 provided that the MPI was built with multi-threading support.
 
 You can check for MPI multi-threading support by querying the `hvd.mpi_threads_supported()` function.
