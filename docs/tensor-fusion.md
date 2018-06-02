@@ -26,3 +26,9 @@ Setting the `HOROVOD_FUSION_THRESHOLD` environment variable to zero disables Ten
 ```bash
 $ HOROVOD_FUSION_THRESHOLD=0 mpirun -np 4 -x HOROVOD_FUSION_THRESHOLD python train.py
 ```
+
+You can tweak time between cycles (defined in milliseconds) using the `HOROVOD_CYCLE_TIME` environment variable:
+
+```bash
+$ HOROVOD_CYCLE_TIME=3.5 mpirun -np 4 -x HOROVOD_FUSION_THRESHOLD python train.py
+```

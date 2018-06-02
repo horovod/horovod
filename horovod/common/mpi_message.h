@@ -88,7 +88,7 @@ class MPIRequestList {
 public:
   const std::vector<MPIRequest>& requests() const;
   void set_requests(const std::vector<MPIRequest>& value);
-  void add_requests(MPIRequest value);
+  void add_requests(const MPIRequest& value);
   bool shutdown() const;
   void set_shutdown(bool value);
 
@@ -106,18 +106,14 @@ private:
 // greater than zero, informing the rank of an operation should be performed
 // now. If the operation requested would result in an error (for example, due
 // to a type or shape mismatch), then the MPIResponse can contain an error and
-// an error message instead. Finally, an MPIResponse can be a DONE message (if
-// there are no more tensors to reduce on this tick of the background loop) or
-// SHUTDOWN if all MPI processes should shut down.
+// an error message instead.
 class MPIResponse {
 public:
   enum ResponseType {
     ALLREDUCE = 0,
     ALLGATHER = 1,
     BROADCAST = 2,
-    ERROR = 3,
-    DONE = 4,
-    SHUTDOWN = 5
+    ERROR = 3
   };
 
   static const std::string& ResponseType_Name(ResponseType value);
@@ -154,6 +150,24 @@ private:
   std::string error_message_;
   std::vector<int32_t> devices_;
   std::vector<int64_t> tensor_sizes_;
+};
+
+class MPIResponseList {
+public:
+  const std::vector<MPIResponse>& responses() const;
+  void set_responses(const std::vector<MPIResponse>& value);
+  void add_responses(const MPIResponse& value);
+  bool shutdown() const;
+  void set_shutdown(bool value);
+
+  static void ParseFromString(MPIResponseList& response_list,
+                              const std::string& input);
+  static void SerializeToString(MPIResponseList& response_list,
+                                std::string& output);
+
+private:
+  std::vector<MPIResponse> responses_;
+  bool shutdown_ = false;
 };
 
 } // namespace common
