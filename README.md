@@ -174,7 +174,7 @@ $ mpirun -np 16 \
 
 3. To run in Docker, see the [Horovod in Docker](docs/docker.md) page.
 
-4. To run in Kubernetes, see [Kubeflow](https://github.com/kubeflow/kubeflow/blob/master/kubeflow/openmpi/README.md).
+4. To run in Kubernetes, see [Kubeflow](https://github.com/kubeflow/kubeflow/blob/master/kubeflow/openmpi/README.md). Besides this, you can also try [Helm Chart](https://github.com/kubernetes/charts/tree/master/stable/horovod) solution.
 
 ## Keras
 
