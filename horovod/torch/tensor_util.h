@@ -56,8 +56,6 @@ public:
                        int64_t* stride);
   template <MPIDataType DT, DeviceType Dev, class T>
   static void Copy(T* output, T* tensor);
-  template <MPIDataType DT, DeviceType Dev, class T>
-  static void DivideTensorInPlace(T* tensor, int value);
 
 #if HAVE_CUDA
   template <MPIDataType DT, class T, class TC>
@@ -91,9 +89,6 @@ public:
   template <>                                                                  \
   void TensorUtil::Copy<HorovodType, DeviceType, THTensor>(THTensor * output,  \
                                                            THTensor * tensor); \
-  template <>                                                                  \
-  void TensorUtil::DivideTensorInPlace<HorovodType, DeviceType, THTensor>(     \
-      THTensor * tensor, int value);
 
 #define TENSOR_UTIL_DEFINE_CPU_TYPE_H(HorovodType, THTensor)                   \
   TENSOR_UTIL_DEFINE_TYPE_H(HorovodType, DeviceType::CPU, THTensor)
@@ -162,13 +157,6 @@ public:
       THTensor * output, THTensor * tensor) {                                  \
     THTensor##_copy(output, tensor);                                           \
   }                                                                            \
-                                                                               \
-  template <>                                                                  \
-  void                                                                         \
-  TensorUtil::DivideTensorInPlace<HorovodType, DeviceType::CPU, THTensor>(     \
-      THTensor * tensor, int value) {                                          \
-    THTensor##_div(tensor, tensor, value);                                     \
-  }
 
 #define TENSOR_UTIL_DEFINE_CUDA_TYPE(HorovodType, THCTensor, THTensor,         \
                                      THCStorage)                               \
@@ -227,14 +215,6 @@ public:
       THCTensor * output, THCTensor * tensor) {                                \
     with_device device_context(THCTensor##_getDevice(state, output));          \
     THCTensor##_copy(state, output, tensor);                                   \
-  }                                                                            \
-                                                                               \
-  template <>                                                                  \
-  void                                                                         \
-  TensorUtil::DivideTensorInPlace<HorovodType, DeviceType::GPU, THCTensor>(    \
-      THCTensor * tensor, int value) {                                         \
-    with_device device_context(THCTensor##_getDevice(state, tensor));          \
-    THCTensor##_div(state, tensor, tensor, value);                             \
   }                                                                            \
                                                                                \
   template <>                                                                  \

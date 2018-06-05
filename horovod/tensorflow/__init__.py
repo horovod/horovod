@@ -38,7 +38,8 @@ from horovod.common import local_rank
 from horovod.common import mpi_threads_supported
 from horovod.common import check_extension
 
-check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
+check_extension('horovod.tensorflow',
+                'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
 
 from horovod.tensorflow.mpi_ops import allgather
 from horovod.tensorflow.mpi_ops import broadcast
@@ -80,9 +81,8 @@ def allreduce(tensor, average=True, device_dense='', device_sparse=''):
     else:
         with tf.device(device_dense):
             horovod_size = tf.cast(size(), tensor.dtype)
-            summed_tensor = _allreduce(tensor)
-            new_tensor = (tf.div(summed_tensor, horovod_size)
-                          if average else summed_tensor)
+            tensor_to_sum = tf.div(tensor, horovod_size) if average else tensor
+            new_tensor = _allreduce(tensor_to_sum)
         return new_tensor
 
 
