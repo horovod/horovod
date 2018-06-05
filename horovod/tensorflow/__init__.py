@@ -31,7 +31,8 @@ from __future__ import print_function
 
 from horovod.common import check_extension
 
-check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
+check_extension('horovod.tensorflow',
+                'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
 
 from horovod.tensorflow.compression import Compression
 from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce

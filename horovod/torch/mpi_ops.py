@@ -22,6 +22,7 @@ from distutils.version import LooseVersion
 # Load all the necessary PyTorch C types.
 import torch
 
+<<<<<<< fcb95c761d556d22b8510e16e214249831a60c74
 from horovod.torch.compression import Compression
 try:
     from horovod.torch import mpi_lib_v2 as mpi_lib
@@ -43,6 +44,11 @@ local_size = _basics.local_size
 rank = _basics.rank
 local_rank = _basics.local_rank
 mpi_threads_supported = _basics.mpi_threads_supported
+=======
+from horovod.common import size
+from horovod.torch import mpi_lib_impl
+from horovod.torch import mpi_lib
+>>>>>>> Modify allreduce to divide before summing
 
 
 # Schema: handle -> input, output
@@ -67,14 +73,18 @@ def _allreduce_function_factory(tensor):
     return 'horovod_torch_allreduce_async_' + tensor.type().replace('.', '_')
 
 
+<<<<<<< fcb95c761d556d22b8510e16e214249831a60c74
 def _allreduce_async(tensor, output, average, name):
     if tensor.dtype == torch.float16 and not _fp16_supported:
         raise NotImplementedError(
             'float16 allreduce is not supported for PyTorch version {} < 1.0.0'
             .format(torch.__version__))
 
+=======
+def _allreduce_async(tensor, output, name):
+>>>>>>> Modify allreduce to divide before summing
     function = _check_function(_allreduce_function_factory, tensor)
-    handle = getattr(mpi_lib, function)(tensor, output, average,
+    handle = getattr(mpi_lib, function)(tensor, output,
                                         name.encode() if name is not None else _NULL)
     _handle_map[handle] = (tensor, output)
     return handle
@@ -100,8 +110,12 @@ def allreduce_async(tensor, average=True, name=None):
         A handle to the allreduce operation that can be used with `poll()` or
         `synchronize()`.
     """
-    output = tensor.new(tensor.shape)
-    return _allreduce_async(tensor, output, average, name)
+    if average:
+        output = tensor.div(size())
+        return _allreduce_async(output, output, name)
+    else:
+        output = tensor.new(tensor.shape)
+        return _allreduce_async(tensor, output, name)
 
 
 class HorovodAllreduce(torch.autograd.Function):
@@ -170,7 +184,9 @@ def allreduce_async_(tensor, average=True, name=None):
         A handle to the allreduce operation that can be used with `poll()` or
         `synchronize()`.
     """
-    return _allreduce_async(tensor, tensor, average, name)
+    if average:
+        tensor.div_(size())
+    return _allreduce_async(tensor, tensor, name)
 
 
 def allreduce_(tensor, average=True, name=None):
