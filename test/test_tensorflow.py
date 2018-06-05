@@ -116,7 +116,7 @@ class MPITests(tf.test.TestCase):
         size = hvd.size()
 
         with self.test_session(config=self.config) as session:
-            dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]
+            dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
             dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
                 with tf.device("/gpu:%d" % local_rank):
@@ -157,7 +157,7 @@ class MPITests(tf.test.TestCase):
         size = hvd.size()
 
         with self.test_session(config=self.config) as session:
-            dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]
+            dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
             dims = [1, 2, 3]
             tests = []
             for dtype, dim in itertools.product(dtypes, dims):
@@ -202,7 +202,7 @@ class MPITests(tf.test.TestCase):
         iter = 0
         gpu_ids = [local_rank * 2, local_rank * 2 + 1]
         with self.test_session(config=self.config) as session:
-            dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]
+            dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
             dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
                 iter += 1
@@ -309,8 +309,8 @@ class MPITests(tf.test.TestCase):
 
         with self.test_session(config=self.config) as session:
             dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
-                      tf.int32, tf.int64, tf.float32, tf.float64,
-                      tf.bool]
+                      tf.int32, tf.int64, tf.float16, tf.float32,
+                      tf.float64, tf.bool]
             dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
                 tensor = tf.ones([17] * dim) * rank
@@ -348,8 +348,8 @@ class MPITests(tf.test.TestCase):
 
         with self.test_session(config=self.config) as session:
             dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
-                      tf.int32, tf.int64, tf.float32, tf.float64,
-                      tf.bool]
+                      tf.int32, tf.int64, tf.float16, tf.float32,
+                      tf.float64, tf.bool]
             dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
                 # Support tests up to MPI Size of 35
@@ -435,8 +435,8 @@ class MPITests(tf.test.TestCase):
 
         with self.test_session(config=self.config) as session:
             dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
-                      tf.int32, tf.int64, tf.float32, tf.float64,
-                      tf.bool]
+                      tf.int32, tf.int64, tf.float16, tf.float32,
+                      tf.float64, tf.bool]
             dims = [1, 2, 3]
             root_ranks = list(range(size))
             for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):

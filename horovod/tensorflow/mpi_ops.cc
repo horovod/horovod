@@ -180,6 +180,8 @@ const common::MPIDataType TFTensor::dtype() const {
     return common::HOROVOD_INT32;
   case DT_INT64:
     return common::HOROVOD_INT64;
+  case DT_HALF:
+    return common::HOROVOD_FLOAT16;
   case DT_FLOAT:
     return common::HOROVOD_FLOAT32;
   case DT_DOUBLE:
@@ -305,7 +307,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_GPU),
 #endif
 
 REGISTER_OP("HorovodAllreduce")
-    .Attr("T: {int32, int64, float32, float64}")
+    .Attr("T: {int32, int64, float16, float32, float64}")
     .Input("tensor: T")
     .Output("sum: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
@@ -362,7 +364,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodAllgather").Device(DEVICE_GPU),
 
 REGISTER_OP("HorovodAllgather")
     .Attr(
-        "T: {uint8, int8, uint16, int16, int32, int64, float32, float64, bool}")
+        "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
     .Input("tensor: T")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
@@ -435,7 +437,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodBroadcast").Device(DEVICE_GPU),
 
 REGISTER_OP("HorovodBroadcast")
     .Attr(
-        "T: {uint8, int8, uint16, int16, int32, int64, float32, float64, bool}")
+        "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
     .Attr("root_rank: int")
     .Input("tensor: T")
     .Output("output: T")
