@@ -182,6 +182,9 @@ struct HorovodGlobalState {
   // COMM_WORLD ranks of processes running on this node.
   std::vector<int> local_comm_ranks;
 
+  // MPI custom data type for float16.
+  MPI_Datatype mpi_float16_t;
+
   // Private MPI communicator for Horovod to ensure no collisions with other
   // threads using MPI.
   MPI_Comm mpi_comm;
@@ -520,6 +523,8 @@ MPI_Datatype GetMPIDataType(const std::shared_ptr<Tensor> tensor) {
     return MPI_INT32_T;
   case HOROVOD_INT64:
     return MPI_INT64_T;
+  case HOROVOD_FLOAT16:
+    return horovod_global.mpi_float16_t;
   case HOROVOD_FLOAT32:
     return MPI_FLOAT;
   case HOROVOD_FLOAT64:
@@ -539,6 +544,8 @@ ncclDataType_t GetNCCLDataType(const std::shared_ptr<Tensor> tensor) {
     return ncclInt32;
   case HOROVOD_INT64:
     return ncclInt64;
+  case HOROVOD_FLOAT16:
+    return ncclFloat16;
   case HOROVOD_FLOAT32:
     return ncclFloat32;
   case HOROVOD_FLOAT64:
@@ -1010,7 +1017,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 #else
       if (horovod_global.hierarchical_allreduce) {
         int element_size;
-        MPI_Type_size(GetMPIDataType(first_entry.tensor), &element_size); 
+        MPI_Type_size(GetMPIDataType(first_entry.tensor), &element_size);
 
         // If cluster is homogeneous and we are using fusion buffer, include
         // dummy elements from the buffer (if necessary) to make sure the data
@@ -1110,7 +1117,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           WAIT_FOR_EVENTS(entries, timeline, event_queue)
 
           // According to https://docs.nvidia.com/cuda/cuda-runtime-api/
-          // api-sync-behavior.html#api-sync-behavior__memcpy-async, 
+          // api-sync-behavior.html#api-sync-behavior__memcpy-async,
           // cudaMemcpyAsync is synchronous with respect to the host, so we
           // memcpy (effectively) synchronously to generate an accurate timeline
           ACTIVITY_START_ALL(entries, timeline, MEMCPY_IN_HOST_BUFFER)
@@ -1508,6 +1515,11 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   MPI_Comm_rank(cross_comm, &cross_rank);
   MPI_Comm_size(cross_comm, &cross_size);
 
+  // Create custom MPI float16 data type.
+  MPI_Datatype mpi_float16_t;
+  MPI_Type_contiguous(2, MPI_BYTE, &mpi_float16_t);
+  MPI_Type_commit(&mpi_float16_t);
+
   state.rank = rank;
   state.local_rank = local_rank;
   state.cross_rank = cross_rank;
@@ -1516,6 +1528,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.cross_size = cross_size;
   state.local_comm = local_comm;
   state.cross_comm = cross_comm;
+  state.mpi_float16_t = mpi_float16_t;
   state.mpi_threads_supported = (provided == MPI_THREAD_MULTIPLE);
   state.local_comm_ranks = local_comm_ranks;
 
@@ -1558,8 +1571,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 
   // Override Tensor Fusion threshold, if it's set.
-  auto horovod_fusion_threshold = std::getenv("HOROVOD_FUSION_THRESHOLD"); 
-  int64_t proposed_fusion_threshold = (horovod_fusion_threshold != nullptr) ?  
+  auto horovod_fusion_threshold = std::getenv("HOROVOD_FUSION_THRESHOLD");
+  int64_t proposed_fusion_threshold = (horovod_fusion_threshold != nullptr) ?
         std::strtol(horovod_fusion_threshold, nullptr, 10) :
         state.tensor_fusion_threshold;
 
@@ -1922,6 +1935,10 @@ void horovod_shutdown() {
 
   if (horovod_global.cross_comm != MPI_COMM_NULL) {
     MPI_Comm_free(&horovod_global.cross_comm);
+  }
+
+  if (horovod_global.mpi_float16_t != MPI_DATATYPE_NULL) {
+    MPI_Type_free(&horovod_global.mpi_float16_t);
   }
 
   if (horovod_global.should_finalize) {

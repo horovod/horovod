@@ -79,7 +79,7 @@ def main(_):
     opt = tf.train.RMSPropOptimizer(0.001 * hvd.size())
 
     # Horovod: add Horovod Distributed Optimizer.
-    opt = hvd.DistributedOptimizer(opt)
+    opt = hvd.DistributedOptimizer(opt, compression=hvd.Compression.fp16)
 
     global_step = tf.contrib.framework.get_or_create_global_step()
     train_op = opt.minimize(loss, global_step=global_step)
