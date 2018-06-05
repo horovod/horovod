@@ -20,6 +20,7 @@ from __future__ import print_function
 # Load all the necessary PyTorch C types.
 import torch
 
+from horovod.common import size
 from horovod.torch import mpi_lib_impl
 from horovod.torch import mpi_lib
 
@@ -47,9 +48,9 @@ def _allreduce_function_factory(tensor):
     return 'horovod_torch_allreduce_async_' + tensor.type().replace('.', '_')
 
 
-def _allreduce_async(tensor, output, average, name):
+def _allreduce_async(tensor, output, name):
     function = _check_function(_allreduce_function_factory, tensor)
-    handle = getattr(mpi_lib, function)(tensor, output, average,
+    handle = getattr(mpi_lib, function)(tensor, output,
                                         name.encode() if name is not None else _NULL)
     _handle_map[handle] = (tensor, output)
     return handle
@@ -75,8 +76,12 @@ def allreduce_async(tensor, average=True, name=None):
         A handle to the allreduce operation that can be used with `poll()` or
         `synchronize()`.
     """
-    output = tensor.new(tensor.shape)
-    return _allreduce_async(tensor, output, average, name)
+    if average:
+        output = tensor.div(size())
+        return _allreduce_async(output, output, name)
+    else:
+        output = tensor.new(tensor.shape)
+        return _allreduce_async(tensor, output, name)
 
 
 def allreduce(tensor, average=True, name=None):
@@ -123,7 +128,9 @@ def allreduce_async_(tensor, average=True, name=None):
         A handle to the allreduce operation that can be used with `poll()` or
         `synchronize()`.
     """
-    return _allreduce_async(tensor, tensor, average, name)
+    if average:
+        tensor.div_(size())
+    return _allreduce_async(tensor, tensor, name)
 
 
 def allreduce_(tensor, average=True, name=None):
