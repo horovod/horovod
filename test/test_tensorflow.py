@@ -84,6 +84,38 @@ class MPITests(tf.test.TestCase):
                 self.assertTrue(diff <= threshold,
                                 "hvd.allreduce produces incorrect results")
 
+    def test_horovod_allreduce_average(self):
+        """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors."""
+        hvd.init()
+        size = hvd.size()
+        with self.test_session() as session:
+            dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]
+            dims = [1, 2, 3]
+            for dtype, dim in itertools.product(dtypes, dims):
+                with tf.device("/cpu:0"):
+                    tf.set_random_seed(1234)
+                    tensor = tf.random_uniform(
+                        [17] * dim, -100, 100, dtype=dtype)
+                    summed = hvd.allreduce(tensor, average=True)
+                max_difference = tf.reduce_max(tf.abs(summed - tensor))
+
+                # Threshold for floating point equality depends on number of
+                # ranks, since we're comparing against precise multiplication.
+                if dtype in [tf.int32, tf.int64]:
+                    threshold = hvd.size()
+                elif size <= 3:
+                    threshold = 0
+                elif size < 10:
+                    threshold = 1e-4
+                elif size < 15:
+                    threshold = 5e-4
+                else:
+                    break
+
+                diff = session.run(max_difference)
+                self.assertTrue(diff <= threshold,
+                                "hvd.allreduce produces incorrect results")
+
     def test_horovod_allreduce_cpu_fused(self):
         """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors
         with Tensor Fusion."""
