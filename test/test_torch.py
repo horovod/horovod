@@ -60,6 +60,8 @@ class TorchTests(unittest.TestCase):
         size = hvd.size()
         dtypes = [torch.IntTensor, torch.LongTensor,
                   torch.FloatTensor, torch.DoubleTensor]
+        if _fp16_supported:
+            dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -94,6 +96,8 @@ class TorchTests(unittest.TestCase):
         size = hvd.size()
         dtypes = [torch.IntTensor, torch.LongTensor,
                   torch.FloatTensor, torch.DoubleTensor]
+        if _fp16_supported:
+            dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -127,6 +131,8 @@ class TorchTests(unittest.TestCase):
         size = hvd.size()
         dtypes = [torch.IntTensor, torch.LongTensor,
                   torch.FloatTensor, torch.DoubleTensor]
+        if _fp16_supported:
+            dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -162,6 +168,8 @@ class TorchTests(unittest.TestCase):
         size = hvd.size()
         dtypes = [torch.IntTensor, torch.LongTensor,
                   torch.FloatTensor, torch.DoubleTensor]
+        if _fp16_supported:
+            dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -333,6 +341,8 @@ class TorchTests(unittest.TestCase):
         size = hvd.size()
         # Only Tensors of floating point dtype can require gradients
         dtypes = [torch.FloatTensor, torch.DoubleTensor]
+        if _fp16_supported:
+            dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
             if _fp16_supported:
@@ -359,6 +369,8 @@ class TorchTests(unittest.TestCase):
         hvd.init()
         # Only Tensors of floating point dtype can require gradients
         dtypes = [torch.FloatTensor, torch.DoubleTensor]
+        if _fp16_supported:
+            dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
             if _fp16_supported:
@@ -388,6 +400,8 @@ class TorchTests(unittest.TestCase):
 
         dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
                   torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
+        if _fp16_supported:
+            dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
                        torch.cuda.IntTensor, torch.cuda.LongTensor,
@@ -418,6 +432,8 @@ class TorchTests(unittest.TestCase):
 
         dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
                   torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
+        if _fp16_supported:
+            dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
                        torch.cuda.IntTensor, torch.cuda.LongTensor,
@@ -501,6 +517,8 @@ class TorchTests(unittest.TestCase):
 
         # Only Tensors of floating point dtype can require gradients
         dtypes = [torch.FloatTensor, torch.DoubleTensor]
+        if _fp16_supported:
+            dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
             if _fp16_supported:
@@ -548,6 +566,8 @@ class TorchTests(unittest.TestCase):
 
         dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
                   torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
+        if _fp16_supported:
+            dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
                        torch.cuda.IntTensor, torch.cuda.LongTensor,
@@ -580,6 +600,8 @@ class TorchTests(unittest.TestCase):
 
         dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
                   torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
+        if _fp16_supported:
+            dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
                        torch.cuda.IntTensor, torch.cuda.LongTensor,
@@ -674,6 +696,8 @@ class TorchTests(unittest.TestCase):
 
         # Only Tensors of floating point dtype can require gradients
         dtypes = [torch.FloatTensor, torch.DoubleTensor]
+        if _fp16_supported:
+            dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
             if _fp16_supported:
