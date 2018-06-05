@@ -75,8 +75,10 @@ def test_horovod_allreduce_average():
 
         # Threshold for floating point equality depends on number of
         # ranks, since we're comparing against precise multiplication.
-        if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
-                                  torch.cuda.IntTensor, torch.cuda.LongTensor]:
+        if dtype in [torch.IntTensor, torch.LongTensor,
+                     torch.cuda.IntTensor, torch.cuda.LongTensor]:
+            threshold = hvd.size()
+        elif size <= 3:
             threshold = 0
         elif size < 10:
             threshold = 1e-4
