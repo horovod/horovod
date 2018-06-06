@@ -31,11 +31,16 @@ class MPITests(tf.test.TestCase):
     Tests for ops in horovod.tensorflow.
     """
 
+    def __init__(self, *args, **kwargs):
+        super(MPITests, self).__init__(*args, **kwargs)
+        self.config = tf.ConfigProto()
+        self.config.gpu_options.allow_growth = True
+
     def test_horovod_allreduce_cpu(self):
         """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        with self.test_session() as session:
+        with self.test_session(config=self.config) as session:
             dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]
             dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
@@ -67,7 +72,7 @@ class MPITests(tf.test.TestCase):
         with Tensor Fusion."""
         hvd.init()
         size = hvd.size()
-        with self.test_session() as session:
+        with self.test_session(config=self.config) as session:
             dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]
             dims = [1, 2, 3]
             tests = []
@@ -110,13 +115,11 @@ class MPITests(tf.test.TestCase):
         local_rank = hvd.local_rank()
         size = hvd.size()
 
-        one_gpu = tf.GPUOptions(visible_device_list=str(local_rank))
-        gpu_config = tf.ConfigProto(gpu_options=one_gpu)
-        with self.test_session(config=gpu_config) as session:
+        with self.test_session(config=self.config) as session:
             dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]
             dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
-                with tf.device("/gpu:0"):
+                with tf.device("/gpu:%d" % local_rank):
                     tf.set_random_seed(1234)
                     tensor = tf.random_uniform(
                         [17] * dim, -100, 100, dtype=dtype)
@@ -153,14 +156,12 @@ class MPITests(tf.test.TestCase):
         local_rank = hvd.local_rank()
         size = hvd.size()
 
-        one_gpu = tf.GPUOptions(visible_device_list=str(local_rank))
-        gpu_config = tf.ConfigProto(gpu_options=one_gpu)
-        with self.test_session(config=gpu_config) as session:
+        with self.test_session(config=self.config) as session:
             dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]
             dims = [1, 2, 3]
             tests = []
             for dtype, dim in itertools.product(dtypes, dims):
-                with tf.device("/gpu:0"):
+                with tf.device("/gpu:%d" % local_rank):
                     tf.set_random_seed(1234)
                     tensor = tf.random_uniform(
                         [17] * dim, -100, 100, dtype=dtype)
@@ -199,15 +200,13 @@ class MPITests(tf.test.TestCase):
         size = hvd.size()
 
         iter = 0
-        two_gpus = tf.GPUOptions(visible_device_list=(
-            '%d,%d' % (local_rank * 2, local_rank * 2 + 1)))
-        gpu_config = tf.ConfigProto(gpu_options=two_gpus)
-        with self.test_session(config=gpu_config) as session:
+        gpu_ids = [local_rank * 2, local_rank * 2 + 1]
+        with self.test_session(config=self.config) as session:
             dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]
             dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
                 iter += 1
-                with tf.device("/gpu:%d" % ((iter + local_rank) % 2)):
+                with tf.device("/gpu:%d" % gpu_ids[(iter + local_rank) % 2]):
                     tf.set_random_seed(1234)
                     tensor = tf.random_uniform(
                         [17] * dim, -100, 100, dtype=dtype)
@@ -241,7 +240,7 @@ class MPITests(tf.test.TestCase):
         if size == 1:
             return
 
-        with self.test_session() as session:
+        with self.test_session(config=self.config) as session:
             # Same rank, different dimension
             tf.set_random_seed(1234)
             dims = [17 + rank] * 3
@@ -270,7 +269,7 @@ class MPITests(tf.test.TestCase):
         if size == 1:
             return
 
-        with self.test_session() as session:
+        with self.test_session(config=self.config) as session:
             # Same rank, different dimension
             dims = [17] * 3
             tensor = tf.ones(dims,
@@ -293,10 +292,8 @@ class MPITests(tf.test.TestCase):
         if size == 1:
             return
 
-        device = "/gpu:0" if local_rank % 2 == 0 else "/cpu:0"
-        one_gpu = tf.GPUOptions(visible_device_list=str(local_rank))
-        gpu_config = tf.ConfigProto(gpu_options=one_gpu)
-        with self.test_session(config=gpu_config) as session:
+        device = "/gpu:%d" % local_rank if local_rank % 2 == 0 else "/cpu:0"
+        with self.test_session(config=self.config) as session:
             with tf.device(device):
                 # Same rank, different dimension
                 dims = [17] * 3
@@ -310,7 +307,7 @@ class MPITests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
-        with self.test_session() as session:
+        with self.test_session(config=self.config) as session:
             dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
                       tf.int32, tf.int64, tf.float32, tf.float64,
                       tf.bool]
@@ -349,7 +346,7 @@ class MPITests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
-        with self.test_session() as session:
+        with self.test_session(config=self.config) as session:
             dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
                       tf.int32, tf.int64, tf.float32, tf.float64,
                       tf.bool]
@@ -401,7 +398,7 @@ class MPITests(tf.test.TestCase):
         if size == 1:
             return
 
-        with self.test_session() as session:
+        with self.test_session(config=self.config) as session:
             tensor_size = [17] * 3
             tensor_size[1] = 10 * (rank + 1)
             tensor = tf.ones(tensor_size, dtype=tf.float32) * rank
@@ -419,7 +416,7 @@ class MPITests(tf.test.TestCase):
         if size == 1:
             return
 
-        with self.test_session() as session:
+        with self.test_session(config=self.config) as session:
             tensor_size = [17] * 3
             dtype = tf.int32 if rank % 2 == 0 else tf.float32
             tensor = tf.ones(tensor_size, dtype=dtype) * rank
@@ -436,7 +433,7 @@ class MPITests(tf.test.TestCase):
         if size == 1:
             return
 
-        with self.test_session() as session:
+        with self.test_session(config=self.config) as session:
             dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
                       tf.int32, tf.int64, tf.float32, tf.float64,
                       tf.bool]
@@ -467,7 +464,7 @@ class MPITests(tf.test.TestCase):
         if size == 1:
             return
 
-        with self.test_session() as session:
+        with self.test_session(config=self.config) as session:
             tensor_size = [17] * 3
             tensor_size[1] = 10 * (rank + 1)
             tensor = tf.ones(tensor_size, dtype=tf.float32) * rank
@@ -485,7 +482,7 @@ class MPITests(tf.test.TestCase):
         if size == 1:
             return
 
-        with self.test_session() as session:
+        with self.test_session(config=self.config) as session:
             tensor_size = [17] * 3
             dtype = tf.int32 if rank % 2 == 0 else tf.float32
             tensor = tf.ones(tensor_size, dtype=dtype) * rank
@@ -503,7 +500,7 @@ class MPITests(tf.test.TestCase):
         if size == 1:
             return
 
-        with self.test_session() as session:
+        with self.test_session(config=self.config) as session:
             tensor = tf.ones([17] * 3, dtype=tf.float32)
             with self.assertRaises(tf.errors.FailedPreconditionError):
                 session.run(hvd.broadcast(tensor, rank))
