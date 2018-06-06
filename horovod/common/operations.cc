@@ -14,8 +14,8 @@
 // limitations under the License.
 // =============================================================================
 
-#include <assert.h>
 #include <atomic>
+#include <cassert>
 #include <cstring>
 #include <queue>
 #include <sstream>
@@ -163,6 +163,10 @@ struct HorovodGlobalState {
   int size = 1;
   int local_size = 1;
   bool mpi_threads_supported = false;
+
+  // Private MPI communicator for Horovod to ensure no collisions with other
+  // threads using MPI.
+  MPI_Comm mpi_comm;
 
 // The CUDA stream used for data transfers and within-allreduce operations.
 // A naive implementation would use the TensorFlow StreamExecutor CUDA
@@ -753,7 +757,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     auto result = MPI_Allgatherv(
         e.tensor->data(), (int)e.tensor->shape().num_elements(),
         GetMPIDataType(e.tensor), (void*)e.output->data(), recvcounts,
-        displcmnts, GetMPIDataType(e.tensor), MPI_COMM_WORLD);
+        displcmnts, GetMPIDataType(e.tensor), horovod_global.mpi_comm);
     delete[] recvcounts;
     delete[] displcmnts;
     MPI_CHECK(entries, "MPI_Allgatherv", result)
@@ -798,7 +802,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
         MPI_CHECK(entries, "MPI_Bcast",
                   MPI_Bcast((void*)&nccl_id, sizeof(nccl_id), MPI_BYTE, 0,
-                            MPI_COMM_WORLD));
+                            horovod_global.mpi_comm));
 
         ncclComm_t new_nccl_comm;
         NCCL_CHECK(entries, "ncclCommInitRank",
@@ -808,7 +812,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
         // Barrier helps NCCL to synchronize after initialization and avoid
         // deadlock that we've been seeing without it.
-        MPI_CHECK(entries, "MPI_Barrier", MPI_Barrier(MPI_COMM_WORLD));
+        MPI_CHECK(entries, "MPI_Barrier", MPI_Barrier(horovod_global.mpi_comm));
 
         ACTIVITY_END_ALL(entries, timeline)
       }
@@ -993,7 +997,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                 MPI_Allreduce(MPI_IN_PLACE, (void*)buffer_data,
                               (int)num_elements,
                               GetMPIDataType(first_entry.tensor), MPI_SUM,
-                              MPI_COMM_WORLD))
+                              horovod_global.mpi_comm))
       ACTIVITY_END_ALL(entries, timeline)
 
       // Copy memory out of the fusion buffer.
@@ -1035,7 +1039,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                 MPI_Allreduce(sendbuf, (void*)e.output->data(),
                               (int)e.tensor->shape().num_elements(),
                               GetMPIDataType(e.tensor), MPI_SUM,
-                              MPI_COMM_WORLD))
+                              horovod_global.mpi_comm))
       ACTIVITY_END_ALL(entries, timeline)
     }
 
@@ -1058,7 +1062,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     ACTIVITY_START_ALL(entries, timeline, "MPI_BCAST")
     MPI_CHECK(entries, "MPI_Bcast",
               MPI_Bcast(data_ptr, (int)e.tensor->shape().num_elements(),
-                        GetMPIDataType(e.tensor), e.root_rank, MPI_COMM_WORLD))
+                        GetMPIDataType(e.tensor), e.root_rank,
+                        horovod_global.mpi_comm))
     ACTIVITY_END_ALL(entries, timeline)
 
     timeline.End(e.tensor_name, e.output);
@@ -1179,27 +1184,34 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   int provided;
   MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &provided);
 
+  // Create a private MPI communicator for Horovod to avoid collisions with
+  // other threads using MPI.
+  MPI_Comm mpi_comm;
+  MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm);
+
   // Get MPI rank to determine if we are rank zero.
   int rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_rank(mpi_comm, &rank);
   bool is_coordinator = rank == 0;
 
   // Get MPI size to determine how many tensors to wait for before reducing.
   int size;
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  MPI_Comm_size(mpi_comm, &size);
 
   // Determine local rank by querying the local communicator.
   MPI_Comm local_comm;
-  MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
+  MPI_Comm_split_type(mpi_comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
                       &local_comm);
   int local_rank, local_size;
   MPI_Comm_rank(local_comm, &local_rank);
   MPI_Comm_size(local_comm, &local_size);
+  MPI_Comm_free(&local_comm);
 
   state.rank = rank;
   state.local_rank = local_rank;
   state.size = size;
   state.local_size = local_size;
+  state.mpi_comm = mpi_comm;
   state.mpi_threads_supported = (provided == MPI_THREAD_MULTIPLE);
   state.initialization_done = true;
 
@@ -1276,7 +1288,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       auto recvcounts = new int[size];
       recvcounts[0] = 0;
       MPI_Gather(MPI_IN_PLACE, 1, MPI_INT, recvcounts, 1, MPI_INT, RANK_ZERO,
-                 MPI_COMM_WORLD);
+                 state.mpi_comm);
 
       // 2. Compute displacements.
       auto displcmnts = new int[size];
@@ -1293,7 +1305,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       // 3. Collect messages from every rank.
       auto buffer = new char[total_size];
       MPI_Gatherv(nullptr, 0, MPI_BYTE, buffer, recvcounts, displcmnts,
-                  MPI_BYTE, RANK_ZERO, MPI_COMM_WORLD);
+                  MPI_BYTE, RANK_ZERO, state.mpi_comm);
 
       // 4. Process messages.
       for (int i = 1; i < size; i++) {
@@ -1383,9 +1395,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       MPIResponseList::SerializeToString(response_list, encoded_response);
       int encoded_response_length = (int)encoded_response.length() + 1;
       MPI_Bcast(&encoded_response_length, 1, MPI_INT, RANK_ZERO,
-                MPI_COMM_WORLD);
+                state.mpi_comm);
       MPI_Bcast((void*)encoded_response.c_str(), encoded_response_length,
-                MPI_BYTE, RANK_ZERO, MPI_COMM_WORLD);
+                MPI_BYTE, RANK_ZERO, state.mpi_comm);
 
       // Perform the collective operation. All nodes should end up performing
       // the same operation.
@@ -1410,15 +1422,15 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       MPIRequestList::SerializeToString(message_list, encoded_message);
       int encoded_message_length = (int)encoded_message.length() + 1;
       MPI_Gather(&encoded_message_length, 1, MPI_INT, nullptr, 1, MPI_INT,
-                 RANK_ZERO, MPI_COMM_WORLD);
+                 RANK_ZERO, state.mpi_comm);
       MPI_Gatherv((void*)encoded_message.c_str(), encoded_message_length,
                   MPI_BYTE, nullptr, nullptr, nullptr, MPI_BYTE, RANK_ZERO,
-                  MPI_COMM_WORLD);
+                  state.mpi_comm);
 
       int msg_length;
-      MPI_Bcast(&msg_length, 1, MPI_INT, RANK_ZERO, MPI_COMM_WORLD);
+      MPI_Bcast(&msg_length, 1, MPI_INT, RANK_ZERO, state.mpi_comm);
       auto buffer = new char[msg_length];
-      MPI_Bcast(buffer, msg_length, MPI_BYTE, RANK_ZERO, MPI_COMM_WORLD);
+      MPI_Bcast(buffer, msg_length, MPI_BYTE, RANK_ZERO, state.mpi_comm);
       std::string received_message(buffer, (size_t)msg_length);
       MPIResponseList response_list;
       MPIResponseList::ParseFromString(response_list, received_message);
@@ -1465,6 +1477,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   for (auto it = callbacks.begin(); it != callbacks.end(); it++) {
     (*it)(SHUT_DOWN_ERROR);
   }
+
+  MPI_Comm_free(&horovod_global.mpi_comm);
 
   MPI_Finalize();
 }
