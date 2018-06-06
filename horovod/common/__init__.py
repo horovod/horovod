@@ -17,6 +17,7 @@
 import ctypes
 import os
 import sysconfig
+import atexit
 
 
 def get_ext_suffix():
@@ -47,10 +48,19 @@ MPI_COMMON_LIB_CTYPES = \
                              'mpi_lib' + get_ext_suffix()), mode=ctypes.RTLD_GLOBAL)
 
 
-def init():
+def init(mpi_init=True, mpi_finalize=True):
     """A function that initializes Horovod.
+        mpi_init : if True, Automatic MPI initialization will be done by horovod at import (default: True).
+        mpi_finalize : if True, Automatic MPI finalization will be done by horovod at exit(default: True).
     """
-    return MPI_COMMON_LIB_CTYPES.horovod_init()
+    atexit.register(finalize)
+    return MPI_COMMON_LIB_CTYPES.horovod_init(ctypes.c_bool(mpi_init), ctypes.c_bool(mpi_finalize))
+
+
+def finalize():
+    """A function that will close Horovod and .
+    """
+    return MPI_COMMON_LIB_CTYPES.horovod_finalize()
 
 
 def size():
