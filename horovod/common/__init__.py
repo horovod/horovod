@@ -17,6 +17,7 @@
 import ctypes
 import os
 import sysconfig
+import atexit
 
 
 def get_ext_suffix():
@@ -47,11 +48,23 @@ MPI_COMMON_LIB_CTYPES = \
                              'mpi_lib' + get_ext_suffix()), mode=ctypes.RTLD_GLOBAL)
 
 
-def init():
+def init(ranks=None):
     """A function that initializes Horovod.
-    """
-    return MPI_COMMON_LIB_CTYPES.horovod_init()
 
+    Args:
+      ranks: List specifying ranks for the communicator, relative to the WORLD communicator.
+        If None, horovod will use WORLD Communicator.
+
+    """
+    if ranks is None:
+        ranks=[]
+    nranks = len(ranks)
+    return MPI_COMMON_LIB_CTYPES.horovod_init((ctypes.c_int * nranks)(*ranks), ctypes.c_int(nranks))
+
+def terminate(finalize=False):
+    return MPI_COMMON_LIB_CTYPES.horovod_terminate(ctypes.c_bool(finalize))
+
+atexit.register(terminate, finalize=True)
 
 def size():
     """A function that returns the number of Horovod processes.

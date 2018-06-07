@@ -52,7 +52,10 @@ Status CheckInitialized();
 extern "C" {
 
 // C interface to initialize Horovod.
-void horovod_init();
+void horovod_init(const int *ranks, int nranks);
+
+// C interface to terminate Horovod.
+void horovod_terminate(bool finalize);
 
 // C interface to get index of current Horovod process.
 // Returns -1 if Horovod is not initialized.

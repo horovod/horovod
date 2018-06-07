@@ -160,8 +160,9 @@ struct HorovodGlobalState {
   // Whether MPI_Init has been completed on the background thread.
   bool initialization_done = false;
 
-  // The MPI rank, local rank, size, local size and flag indicating whether MPI
-  // multi-threading is supported.
+  // The MPI rank, local rank, size, local size, flag indicating whether MPI
+  // multi-threading is supported, ranks from which the MPI communicator will
+  // be made and the communicator itself.
   int rank = 0;
   int local_rank = 0;
   int cross_rank = 0;
@@ -169,6 +170,8 @@ struct HorovodGlobalState {
   int local_size = 1;
   int cross_size = 1;
   bool mpi_threads_supported = false;
+  std::vector<int> ranks;
+  MPI_Comm mpi_comm = MPI_COMM_WORLD;
 
   // COMM_WORLD ranks of processes running on this node.
   std::vector<int> local_comm_ranks;
@@ -1292,8 +1295,8 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
 //      progress if we have a thread pool limit.
 bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator);
 void BackgroundThreadLoop(HorovodGlobalState& state) {
-  // Initialize MPI. This must happen on the background thread, since not all
-  // MPI implementations support being called from multiple threads.
+  // Initialize MPI if it was not initialized. This must happen on the background
+  // thread, since not all MPI implementations support being called from multiple threads.
   //
   // In some cases MPI library has multi-threading support, but it slows down
   // certain components, e.g. OpenIB BTL in OpenMPI gets disabled if
@@ -1309,25 +1312,46 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     required = MPI_THREAD_FUNNELED;
   }
   int provided;
-  MPI_Init_thread(NULL, NULL, required, &provided);
+  int is_mpi_initialized= 0;
+  MPI_Initialized(&is_mpi_initialized);
+  if (is_mpi_initialized) {
+    MPI_Query_thread(&provided);
+  } else {
+    MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &provided);
+  }
 
-  // Create a private MPI communicator for Horovod to avoid collisions with
-  // other threads using MPI.
-  MPI_Comm mpi_comm;
-  MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm);
+  // Get MPI rank in WORLD communicator.
+  int world_rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+
+  if (horovod_global.ranks.size() > 0) {
+    MPI_Group world_group;
+    MPI_Comm_group(MPI_COMM_WORLD, &world_group);
+    MPI_Group work_group;
+    MPI_Group_incl(world_group, horovod_global.ranks.size(), &(horovod_global.ranks[0]), &work_group);
+    MPI_Comm_create_group(MPI_COMM_WORLD, work_group, 0, &(state.mpi_comm));
+    if (state.mpi_comm == MPI_COMM_NULL) {
+      std::cerr << "WARNING: Unable to create Horovod communicator, using MPI_COMM_WORLD instead." << std::endl;
+      state.mpi_comm = MPI_COMM_WORLD;
+    }
+    MPI_Group_free(&world_group);
+    MPI_Group_free(&work_group);
+  } else {
+    std::cerr << "No ranks provided to horovod_init(), using MPI_COMM_WORLD." << std::endl;
+  }
 
   // Get MPI rank to determine if we are rank zero.
   int rank;
-  MPI_Comm_rank(mpi_comm, &rank);
+  MPI_Comm_rank(state.mpi_comm, &rank);
   bool is_coordinator = rank == 0;
 
   // Get MPI size to determine how many tensors to wait for before reducing.
   int size;
-  MPI_Comm_size(mpi_comm, &size);
+  MPI_Comm_size(state.mpi_comm, &size);
 
   // Determine local rank by querying the local communicator.
   MPI_Comm local_comm;
-  MPI_Comm_split_type(mpi_comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
+  MPI_Comm_split_type(state.mpi_comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
                       &local_comm);
   int local_rank, local_size;
   MPI_Comm_rank(local_comm, &local_rank);
@@ -1429,13 +1453,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   MPI_Comm_free(&state.mpi_comm);
   MPI_Comm_free(&state.local_comm);
   MPI_Comm_free(&state.cross_comm);
-
-#if HAVE_DDL
-  // ddl_finalize calls MPI_Finalize
-  ddl_finalize();
-#else
-  MPI_Finalize();
-#endif
 }
 
 // The coordinator currently follows a master-worker paradigm. Rank zero acts
@@ -1679,11 +1696,18 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 
 // Start Horovod background thread. Ensure that this is
 // only done once no matter how many times this function is called.
-void InitializeHorovodOnce() {
+void InitializeHorovodOnce(const int *ranks, int nranks) {
   // Ensure background thread is only started once.
   if (!horovod_global.initialize_flag.test_and_set()) {
+    for (int i = 0; i < nranks; i++) {
+      horovod_global.ranks.push_back(ranks[i]);
+    }
+
     horovod_global.background_thread =
         std::thread(BackgroundThreadLoop, std::ref(horovod_global));
+  } else {
+    //TODO just temporary
+    std::cerr << "WARNING: Calling horovod_init() multiple times" << std::endl;
   }
 
   // Wait to ensure that the background thread has finished initializing MPI.
@@ -1703,7 +1727,31 @@ Status CheckInitialized() {
 
 extern "C" {
 
-void horovod_init() { InitializeHorovodOnce(); }
+void horovod_init(const int *ranks, int nranks) { InitializeHorovodOnce(ranks, nranks); }
+
+void horovod_terminate(bool finalize) {
+
+  if (horovod_global.background_thread.joinable()) {
+    horovod_global.shut_down = true;
+    horovod_global.background_thread.join();
+  }
+
+  if (horovod_global.mpi_comm != MPI_COMM_WORLD) {
+    MPI_Comm_free(&horovod_global.mpi_comm);
+  }
+
+
+  if (finalize) {
+#if HAVE_DDL
+    // ddl_finalize calls MPI_Finalize
+    ddl_finalize();
+#else
+    int is_mpi_finalized = 0;
+    MPI_Finalized(&is_mpi_finalized);
+    if (!is_mpi_finalized) MPI_Finalize();
+#endif
+  }
+}
 
 int horovod_rank() {
   if (!horovod_global.initialization_done) {
