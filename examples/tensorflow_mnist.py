@@ -21,8 +21,6 @@ learn = tf.contrib.learn
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
-MNIST_URL = 'http://yann.lecun.com/exdb/mnist/'
-
 
 def conv_model(feature, target, mode):
     """2-layer convolution model."""
@@ -69,8 +67,7 @@ def main(_):
     hvd.init()
 
     # Download and load MNIST dataset.
-    mnist = learn.datasets.mnist.read_data_sets('MNIST-data-%d' % hvd.rank(),
-                                                source_url=MNIST_URL)
+    mnist = learn.datasets.mnist.read_data_sets('MNIST-data-%d' % hvd.rank())
 
     # Build model...
     with tf.name_scope('input'):

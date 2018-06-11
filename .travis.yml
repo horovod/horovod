@@ -105,6 +105,12 @@ script:
   # hack TensorFlow MNIST example to be smaller
   - docker exec ${CONTAINER} /bin/sh -c "sed -i \"s/last_step=20000/last_step=100/\" /horovod/examples/tensorflow_mnist.py"
 
+  # hack TensorFlow MNIST example to use http://yann.lecun.com/exdb/mnist/ for TensorFlow > 1.1.0
+  - |
+    if [[ ${TF_PACKAGE} != "tensorflow==1.1.0" ]]; then
+      docker exec ${CONTAINER} /bin/sh -c "sed -i \"s/mnist.read_data_sets('MNIST-data-%d' % hvd.rank())/mnist.read_data_sets('MNIST-data-%d' % hvd.rank(), source_url='http:\/\/yann.lecun.com\/exdb\/mnist\/')/\" /horovod/examples/tensorflow_mnist.py"
+    fi
+
   # run TensorFlow MNIST example
   - docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/tensorflow_mnist.py"
 

@@ -25,8 +25,6 @@ learn = tf.contrib.learn
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
-MNIST_URL = 'http://yann.lecun.com/exdb/mnist/'
-
 
 def cnn_model_fn(features, labels, mode):
     """Model function for CNN."""
@@ -133,8 +131,7 @@ def main(unused_argv):
     hvd.init()
 
     # Load training and eval data
-    mnist = learn.datasets.mnist.read_data_sets('MNIST-data-%d' % hvd.rank(),
-                                                source_url=MNIST_URL)
+    mnist = learn.datasets.mnist.read_data_sets('MNIST-data-%d' % hvd.rank())
     train_data = mnist.train.images  # Returns np.array
     train_labels = np.asarray(mnist.train.labels, dtype=np.int32)
     eval_data = mnist.test.images  # Returns np.array
