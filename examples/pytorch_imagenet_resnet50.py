@@ -104,6 +104,7 @@ val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.val_batch_
                                          sampler=val_sampler, **kwargs)
 
 
+# Set up standard ResNet-50 model.
 model = models.resnet50()
 
 if args.cuda:
@@ -134,7 +135,8 @@ def train(epoch):
     train_loss = Metric('train_loss')
     train_accuracy = Metric('train_accuracy')
 
-    with tqdm(total=len(train_loader), desc='Train Epoch {}'.format(epoch + 1),
+    with tqdm(total=len(train_loader),
+              desc='Train Epoch     #{}'.format(epoch + 1),
               disable=not verbose) as t:
         for batch_idx, (data, target) in enumerate(train_loader):
             adjust_learning_rate(epoch, batch_idx)
@@ -149,18 +151,9 @@ def train(epoch):
 
             train_loss.update(loss)
             train_accuracy.update(accuracy(output, target))
-
-            t.set_postfix({'loss': train_loss.val.item(),
-                           'accuracy': 100. * train_accuracy.val.item()})
+            t.set_postfix({'loss': train_loss.avg.item(),
+                           'accuracy': 100. * train_accuracy.avg.item()})
             t.update(1)
-
-    # Horovod: average metrics from distributed training.
-    train_loss.reduce()
-    train_accuracy.reduce()
-
-    if verbose:
-        print('Train Epoch {}: Avg. Loss: {:.4f}, Avg. Accuracy: {:.2f}%'.format(
-            epoch + 1, train_loss.avg.item(), 100. * train_accuracy.avg.item()))
 
     if log_writer:
         log_writer.add_scalar('train/loss', train_loss.avg, epoch)
@@ -172,21 +165,20 @@ def validate(epoch):
     val_loss = Metric('val_loss')
     val_accuracy = Metric('val_accuracy')
 
-    with torch.no_grad():
-        for data, target in val_loader:
-            if args.cuda:
-                data, target = data.cuda(), target.cuda()
-            output = model(data)
-            val_loss.update(F.cross_entropy(output, target))
-            val_accuracy.update(accuracy(output, target))
+    with tqdm(total=len(val_loader),
+              desc='Validate Epoch  #{}'.format(epoch + 1),
+              disable=not verbose) as t:
+        with torch.no_grad():
+            for data, target in val_loader:
+                if args.cuda:
+                    data, target = data.cuda(), target.cuda()
+                output = model(data)
 
-    # Horovod: average metrics from distributed training.
-    val_loss.reduce()
-    val_accuracy.reduce()
-
-    if verbose:
-        print('Validate Epoch {}: Avg. Loss: {:.4f}, Avg. Accuracy: {:.2f}%'.format(
-            epoch + 1, val_loss.avg.item(), 100. * val_accuracy.avg.item()))
+                val_loss.update(F.cross_entropy(output, target))
+                val_accuracy.update(accuracy(output, target))
+                t.set_postfix({'loss': val_loss.avg.item(),
+                               'accuracy': 100. * val_accuracy.avg.item()})
+                t.update(1)
 
     if log_writer:
         log_writer.add_scalar('val/loss', val_loss.avg, epoch)
@@ -224,21 +216,16 @@ def save_checkpoint(epoch):
         torch.save(model.state_dict(), args.checkpoint_format.format(epoch=epoch))
 
 
+# Horovod: average metrics from distributed training.
 class Metric(object):
     def __init__(self, name):
         self.name = name
-        self.val = torch.tensor(0.)
         self.sum = torch.tensor(0.)
         self.n = torch.tensor(0.)
 
     def update(self, val):
-        self.val = val.cpu()
-        self.sum += self.val
+        self.sum += hvd.allreduce(val.cpu(), name=self.name)
         self.n += 1
-
-    def reduce(self):
-        self.sum = hvd.allreduce(self.sum, average=False, name=self.name)
-        self.n = hvd.allreduce(self.n, average=False, name=self.name)
 
     @property
     def avg(self):
