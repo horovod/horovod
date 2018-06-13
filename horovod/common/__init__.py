@@ -47,19 +47,31 @@ MPI_COMMON_LIB_CTYPES = \
     ctypes.CDLL(os.path.join(os.path.dirname(__file__),
                              'mpi_lib' + get_ext_suffix()), mode=ctypes.RTLD_GLOBAL)
 
-
-def init(ranks=None):
+def init(comm=None):
     """A function that initializes Horovod.
 
     Args:
-      ranks: List specifying ranks for the communicator, relative to the WORLD communicator.
+      comm: List specifying ranks for the communicator, relative to the WORLD communicator OR
+        the MPI communicator to use.
         If None, horovod will use WORLD Communicator.
 
     """
-    if ranks is None:
-        ranks=[]
-    nranks = len(ranks)
-    return MPI_COMMON_LIB_CTYPES.horovod_init((ctypes.c_int * nranks)(*ranks), ctypes.c_int(nranks))
+    if comm is None:
+        comm=[]
+
+    if not isinstance(comm, list):
+        from mpi4py import MPI
+        if MPI._sizeof(MPI.Comm) == ctypes.sizeof(ctypes.c_int):
+            MPI_Comm = ctypes.c_int
+        else:
+            MPI_Comm = ctypes.c_void_p
+            MPI_COMMON_LIB_CTYPES.horovod_init_comm.argtypes = [MPI_Comm]
+
+        comm_obj = MPI_Comm.from_address(MPI._addressof(comm))
+        return MPI_COMMON_LIB_CTYPES.horovod_init_comm(comm_obj)
+    else:
+        comm_size = len(comm)
+        return MPI_COMMON_LIB_CTYPES.horovod_init((ctypes.c_int * comm_size)(*comm), ctypes.c_int(comm_size))
 
 def terminate(finalize=False):
     return MPI_COMMON_LIB_CTYPES.horovod_terminate(ctypes.c_bool(finalize))

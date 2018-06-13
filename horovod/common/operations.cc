@@ -1320,15 +1320,11 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &provided);
   }
 
-  // Get MPI rank in WORLD communicator.
-  int world_rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-
-  if (horovod_global.ranks.size() > 0) {
+  if (state.ranks.size() > 0) {
     MPI_Group world_group;
     MPI_Comm_group(MPI_COMM_WORLD, &world_group);
     MPI_Group work_group;
-    MPI_Group_incl(world_group, horovod_global.ranks.size(), &(horovod_global.ranks[0]), &work_group);
+    MPI_Group_incl(world_group, state.ranks.size(), &(state.ranks[0]), &work_group);
     MPI_Comm_create_group(MPI_COMM_WORLD, work_group, 0, &(state.mpi_comm));
     if (state.mpi_comm == MPI_COMM_NULL) {
       std::cerr << "WARNING: Unable to create Horovod communicator, using MPI_COMM_WORLD instead." << std::endl;
@@ -1336,8 +1332,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     }
     MPI_Group_free(&world_group);
     MPI_Group_free(&work_group);
-  } else {
-    std::cerr << "No ranks provided to horovod_init(), using MPI_COMM_WORLD." << std::endl;
   }
 
   // Get MPI rank to determine if we are rank zero.
@@ -1705,9 +1699,6 @@ void InitializeHorovodOnce(const int *ranks, int nranks) {
 
     horovod_global.background_thread =
         std::thread(BackgroundThreadLoop, std::ref(horovod_global));
-  } else {
-    //TODO just temporary
-    std::cerr << "WARNING: Calling horovod_init() multiple times" << std::endl;
   }
 
   // Wait to ensure that the background thread has finished initializing MPI.
@@ -1728,6 +1719,8 @@ Status CheckInitialized() {
 extern "C" {
 
 void horovod_init(const int *ranks, int nranks) { InitializeHorovodOnce(ranks, nranks); }
+
+void horovod_init_comm(MPI_Comm comm) { MPI_Comm_dup(comm, &(horovod_global.mpi_comm)); InitializeHorovodOnce(NULL, 0); }
 
 void horovod_terminate(bool finalize) {
 

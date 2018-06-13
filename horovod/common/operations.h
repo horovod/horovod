@@ -19,6 +19,8 @@
 #include <functional>
 
 #include "common.h"
+#define OMPI_SKIP_MPICXX
+#include "mpi.h"
 
 namespace horovod {
 namespace common {
@@ -53,6 +55,9 @@ extern "C" {
 
 // C interface to initialize Horovod.
 void horovod_init(const int *ranks, int nranks);
+
+// C interface to initialize Horovod with the given MPI communicator.
+void horovod_init_comm(MPI_Comm comm);
 
 // C interface to terminate Horovod.
 void horovod_terminate(bool finalize);
