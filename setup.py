@@ -272,25 +272,32 @@ def get_cuda_dirs(build_ext, cpp_flags):
     return cuda_include_dirs, cuda_lib_dirs
 
 
-def get_nccl_dirs(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
+def get_nccl_vals(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
     nccl_include_dirs = []
     nccl_lib_dirs = []
+    nccl_libs = []
 
     nccl_home = os.environ.get('HOROVOD_NCCL_HOME')
     if nccl_home:
         nccl_include_dirs += ['%s/include' % nccl_home]
         nccl_lib_dirs += ['%s/lib' % nccl_home, '%s/lib64' % nccl_home]
 
-    nccl_include = os.environ.get('HOROVOD_NCCL_INCLUDE')
-    if nccl_include:
-        nccl_include_dirs += [nccl_include]
+    nccl_include_dir = os.environ.get('HOROVOD_NCCL_INCLUDE')
+    if nccl_include_dir:
+        nccl_include_dirs += [nccl_include_dir]
 
-    nccl_lib = os.environ.get('HOROVOD_NCCL_LIB')
-    if nccl_lib:
-        nccl_lib_dirs += [nccl_lib]
+    nccl_lib_dir = os.environ.get('HOROVOD_NCCL_LIB')
+    if nccl_lib_dir:
+        nccl_lib_dirs += [nccl_lib_dir]
+
+    nccl_link_mode = os.environ.get('HOROVOD_NCCL_LINK', 'STATIC')
+    if nccl_link_mode.upper() == 'SHARED':
+        nccl_libs += ['nccl']
+    else:
+        nccl_libs += ['nccl_static']
 
     try:
-        test_compile(build_ext, 'test_nccl', libraries=['nccl_static'], include_dirs=nccl_include_dirs + cuda_include_dirs,
+        test_compile(build_ext, 'test_nccl', libraries=nccl_libs, include_dirs=nccl_include_dirs + cuda_include_dirs,
                      library_dirs=nccl_lib_dirs + cuda_lib_dirs, extra_preargs=cpp_flags, code=textwrap.dedent('''\
             #include <nccl.h>
             #if NCCL_MAJOR < 2
@@ -311,7 +318,7 @@ def get_nccl_dirs(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
             'HOROVOD_NCCL_INCLUDE - path to NCCL include directory\n'
             'HOROVOD_NCCL_LIB - path to NCCL lib directory')
 
-    return nccl_include_dirs, nccl_lib_dirs
+    return nccl_include_dirs, nccl_lib_dirs, nccl_libs
 
 
 def get_common_options(build_ext):
@@ -342,11 +349,11 @@ def get_common_options(build_ext):
 
     if gpu_allreduce == 'NCCL':
         have_nccl = True
-        nccl_include_dirs, nccl_lib_dirs = get_nccl_dirs(
+        nccl_include_dirs, nccl_lib_dirs, nccl_libs = get_nccl_vals(
             build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags)
     else:
         have_nccl = False
-        nccl_include_dirs = nccl_lib_dirs = []
+        nccl_include_dirs = nccl_lib_dirs = nccl_libs = []
 
     MACROS = []
     INCLUDES = []
@@ -367,7 +374,7 @@ def get_common_options(build_ext):
         INCLUDES += nccl_include_dirs
         LINK_FLAGS += ['-Wl,--version-script=hide_nccl.lds']
         LIBRARY_DIRS += nccl_lib_dirs
-        LIBRARIES += ['nccl_static']
+        LIBRARIES += nccl_libs
 
     if gpu_allreduce:
         MACROS += [('HOROVOD_GPU_ALLREDUCE', "'%s'" % gpu_allreduce[0])]
