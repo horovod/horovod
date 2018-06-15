@@ -128,7 +128,6 @@ optimizer = optim.SGD(model.parameters(), lr=args.base_lr * hvd.size(),
 optimizer = hvd.DistributedOptimizer(
     optimizer, named_parameters=model.named_parameters())
 
-
 def train(epoch):
     model.train()
     train_sampler.set_epoch(epoch)
@@ -213,7 +212,7 @@ def accuracy(output, target):
 
 def save_checkpoint(epoch):
     if hvd.rank() == 0:
-        torch.save(model.state_dict(), args.checkpoint_format.format(epoch=epoch))
+        torch.save(model.state_dict(), args.checkpoint_format.format(epoch=epoch + 1))
 
 
 # Horovod: average metrics from distributed training.
