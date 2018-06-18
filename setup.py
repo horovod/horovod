@@ -320,15 +320,29 @@ def get_nccl_vals(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
 
     return nccl_include_dirs, nccl_lib_dirs, nccl_libs
 
+def get_ddl_dirs():
+    # Default DDL home
+    ddl_home = '/opt/DL/ddl'
+    ddl_include_dir = '%s/include' % ddl_home
+    ddl_lib_dir = '%s/lib' % ddl_home
+
+    if not os.path.exists(ddl_lib_dir):
+        raise DistutilsPlatformError('DDL lib was not found. Please, make sure \'ddl\' package is installed.')
+    if not os.path.exists(ddl_include_dir):
+        raise DistutilsPlatformError('DDL include was not found. Please, make sure \'ddl-dev\' package is installed.')
+
+    return [ddl_include_dir], [ddl_lib_dir]
+
 
 def get_common_options(build_ext):
     cpp_flags = get_cpp_flags(build_ext)
     mpi_flags = get_mpi_flags()
 
     gpu_allreduce = os.environ.get('HOROVOD_GPU_ALLREDUCE')
-    if gpu_allreduce and gpu_allreduce != 'MPI' and gpu_allreduce != 'NCCL':
+    if gpu_allreduce and gpu_allreduce != 'MPI' and gpu_allreduce != 'NCCL' and \
+       gpu_allreduce != 'DDL':
         raise DistutilsError('HOROVOD_GPU_ALLREDUCE=%s is invalid, supported '
-                             'values are "", "MPI", "NCCL".' % gpu_allreduce)
+                             'values are "", "MPI", "NCCL", "DDL".' % gpu_allreduce)
 
     gpu_allgather = os.environ.get('HOROVOD_GPU_ALLGATHER')
     if gpu_allgather and gpu_allgather != 'MPI':
@@ -355,6 +369,13 @@ def get_common_options(build_ext):
         have_nccl = False
         nccl_include_dirs = nccl_lib_dirs = nccl_libs = []
 
+    if gpu_allreduce == 'DDL':
+        have_ddl = True
+        ddl_include_dirs, ddl_lib_dirs = get_ddl_dirs()
+    else:
+        have_ddl = False
+        ddl_include_dirs = ddl_lib_dirs = []
+
     MACROS = []
     INCLUDES = []
     SOURCES = []
@@ -375,6 +396,12 @@ def get_common_options(build_ext):
         LINK_FLAGS += ['-Wl,--version-script=hide_nccl.lds']
         LIBRARY_DIRS += nccl_lib_dirs
         LIBRARIES += nccl_libs
+
+    if have_ddl:
+        MACROS += [('HAVE_DDL', '1')]
+        INCLUDES += ddl_include_dirs
+        LIBRARY_DIRS += ddl_lib_dirs
+        LIBRARIES += ['ddl', 'ddl_pack']
 
     if gpu_allreduce:
         MACROS += [('HOROVOD_GPU_ALLREDUCE', "'%s'" % gpu_allreduce[0])]
@@ -593,7 +620,7 @@ setup(name='horovod',
       description='Distributed training framework for TensorFlow, Keras, and PyTorch.',
       author='Uber Technologies, Inc.',
       long_description=textwrap.dedent('''\
-          Horovod is a distributed training framework for TensorFlow, Keras, and PyTorch. 
+          Horovod is a distributed training framework for TensorFlow, Keras, and PyTorch.
           The goal of Horovod is to make distributed Deep Learning fast and easy to use.'''),
       url='https://github.com/uber/horovod',
       classifiers=[
