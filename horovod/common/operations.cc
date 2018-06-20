@@ -1186,11 +1186,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // By default, we will ask for multiple threads, so other libraries like mpi4py can
   // be used together with Horovod if multi-threaded MPI is installed.
   auto mpi_threads_disable = std::getenv("HOROVOD_MPI_THREADS_DISABLE");
-  int required;
-  if (mpi_threads_disable != nullptr) {
-    required = std::atoi(mpi_threads_disable) > 0 ? MPI_THREAD_FUNNELED : MPI_THREAD_MULTIPLE;
-  } else {
-    required = MPI_THREAD_MULTIPLE;
+  int required = MPI_THREAD_MULTIPLE;
+  if (mpi_threads_disable != nullptr && std::atoi(mpi_threads_disable) > 0) {
+    required = MPI_THREAD_FUNNELED;
   }
   int provided;
   MPI_Init_thread(NULL, NULL, required, &provided);
