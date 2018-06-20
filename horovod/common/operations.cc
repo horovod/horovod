@@ -1727,6 +1727,9 @@ void horovod_terminate(bool finalize) {
   if (horovod_global.background_thread.joinable()) {
     horovod_global.shut_down = true;
     horovod_global.background_thread.join();
+    // Reset the initialization flag to allow restarting with horovod_init(...)
+    horovod_global.initialize_flag.clear();
+    horovod_global.shut_down = false;
   }
 
   if (horovod_global.mpi_comm != MPI_COMM_WORLD) {
