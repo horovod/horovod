@@ -12,8 +12,8 @@ allows you to have a mixture of different NUMA configurations because the defaul
 `-mca pml ob1` and `-mca btl ^openib` flags force the use of TCP for MPI communication.  This avoids many multiprocessing
 issues that Open MPI has with RDMA which typically result in segmentation faults.  Using TCP for MPI does not have
 noticeable performance impact since most of the heavy communication is done by NCCL, which will use RDMA via RoCE or
-InfiniBand if they're available (see [Horovod on GPU](gpus.md)).  Notable exception from this rule are models that heavily
-use `hvd.broadcast()` and `hvd.allgather()` operations.  To make those operations use RDMA read [Open MPI with RDMA](#open-mpi-with-rdma)
+InfiniBand if they're available (see [Horovod on GPU](gpus.md)).  Notable exceptions from this rule are models that heavily
+use `hvd.broadcast()` and `hvd.allgather()` operations.  To make those operations use RDMA, read the [Open MPI with RDMA](#open-mpi-with-rdma)
 section below.
 
 With the `-x` option you can specify (`-x NCCL_DEBUG=INFO`) or copy (`-x LD_LIBRARY_PATH`) an environment variable to all
@@ -43,11 +43,11 @@ $ mpirun -np 16 \
 
 ### Open MPI with RDMA
 
-As noted above, using TCP for MPI communication does not have any significant affects on performance in the majority of cases.
+As noted above, using TCP for MPI communication does not have any significant effects on performance in the majority of cases.
 Models that make heavy use of `hvd.broadcast()` and `hvd.allgather()` operations are exceptions to that rule.
 
-Default Open MPI `openib` BTL that provides RDMA functionality does not work well with MPI multi-threading.  In order to use
-RDMA with `openib`, multi-threading must be disabled via `-x HOROVOD_MPI_THREADS_DISABLE=1` option.  See example below:
+Default Open MPI `openib` BTL that provides RDMA functionality does not work well with MPI multithreading.  In order to use
+RDMA with `openib`, multithreading must be disabled via `-x HOROVOD_MPI_THREADS_DISABLE=1` option.  See the example below:
 
 ```bash
 $ mpirun -np 16 \
@@ -58,7 +58,7 @@ $ mpirun -np 16 \
     python train.py
 ```
 
-Other MPI RDMA implementations may or may not benefit from disabling multi-threading, please consult vendor documentation.
+Other MPI RDMA implementations may or may not benefit from disabling multithreading, so please consult vendor documentation.
 
 ### Hangs due to SSH issues
 
