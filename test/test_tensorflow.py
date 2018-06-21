@@ -301,6 +301,30 @@ class MPITests(tf.test.TestCase):
                 with self.assertRaises(tf.errors.FailedPreconditionError):
                     session.run(hvd.allreduce(tensor))
 
+    def test_horovod_allreduce_grad(self):
+        """Test the correctness of the allreduce gradient."""
+        hvd.init()
+        with self.test_session(config=self.config) as session:
+            dtypes = [tf.float32]
+            dims = [1, 2]
+            for dtype, dim in itertools.product(dtypes, dims):
+                with tf.device("/cpu:0"):
+                    tf.set_random_seed(1234)
+                    tensor = tf.random_uniform(
+                        [5] * dim, -100, 100, dtype=dtype)
+                    summed = hvd.allreduce(tensor, average=False)
+
+                err = tf.test.compute_gradient_error(
+                    tensor,
+                    tensor.shape,
+                    summed,
+                    summed.shape,
+                )
+
+                self.assertLess(err, 0.0001,
+                                "analytical and numerical gradients differ, "
+                                "error: " + str(err))
+
     def test_horovod_allgather(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors."""
         hvd.init()
@@ -423,6 +447,33 @@ class MPITests(tf.test.TestCase):
             with self.assertRaises(tf.errors.FailedPreconditionError):
                 session.run(hvd.allgather(tensor))
 
+    def test_horovod_allgather_grad(self):
+        """Test the correctness of the allgather gradient."""
+        hvd.init()
+        rank = hvd.rank()
+
+        with self.test_session(config=self.config) as session:
+            dtypes = [tf.float32]
+            dims = [1, 2]
+            for dtype, dim in itertools.product(dtypes, dims):
+                tensor = tf.ones([5] * dim) * rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                tensor = tf.cast(tensor, dtype=dtype)
+                gathered = hvd.allgather(tensor)
+                gathered_tensor = session.run(gathered)
+
+                err = tf.test.compute_gradient_error(
+                    tensor,
+                    tensor.shape,
+                    gathered,
+                    gathered_tensor.shape,
+                )
+
+                self.assertLess(err, 0.0001,
+                                "analytical and numerical gradients differ, "
+                                "error: " + str(err))
+
     def test_horovod_broadcast(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
         hvd.init()
@@ -504,6 +555,38 @@ class MPITests(tf.test.TestCase):
             tensor = tf.ones([17] * 3, dtype=tf.float32)
             with self.assertRaises(tf.errors.FailedPreconditionError):
                 session.run(hvd.broadcast(tensor, rank))
+
+    def test_horovod_broadcast_grad(self):
+        """Test the correctness of the broadcast gradient."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        with self.test_session(config=self.config) as session:
+            dtypes = [tf.float32]
+            dims = [1, 2]
+            root_ranks = list(range(size))
+            for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
+                tensor = tf.ones([5] * dim) * rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                tensor = tf.cast(tensor, dtype=dtype)
+                broadcasted_tensor = hvd.broadcast(tensor, root_rank)
+
+                err = tf.test.compute_gradient_error(
+                    tensor,
+                    tensor.shape,
+                    broadcasted_tensor,
+                    broadcasted_tensor.shape,
+                )
+
+                self.assertLess(err, 0.0001,
+                                "analytical and numerical gradients differ, "
+                                "error: " + str(err))
 
 
 if __name__ == '__main__':

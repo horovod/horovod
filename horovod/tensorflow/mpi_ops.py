@@ -20,11 +20,12 @@ from __future__ import division
 from __future__ import print_function
 
 import re
+import tensorflow as tf
 from tensorflow.python.framework import load_library
 from tensorflow.python.framework import ops
 from tensorflow.python.platform import resource_loader
 
-from horovod.common import get_ext_suffix
+from horovod.common import get_ext_suffix, size
 
 
 def _load_library(name, op_list=None):
@@ -77,7 +78,18 @@ def _allreduce(tensor, name=None):
     return MPI_LIB.horovod_allreduce(tensor, name=name)
 
 
-ops.NotDifferentiable('HorovodAllreduce')
+@ops.RegisterGradient('HorovodAllreduce')
+def _allreduce_grad(op, grad):
+    """Gradient for allreduce op.
+
+    Args:
+      op: An operation.
+      grad: `Tensor` gradient with respect to the output of the op.
+
+    Returns:
+      The gradient with respect to the input of the op.
+    """
+    return _allreduce(grad)
 
 
 def allgather(tensor, name=None):
@@ -99,7 +111,19 @@ def allgather(tensor, name=None):
     return MPI_LIB.horovod_allgather(tensor, name=name)
 
 
-ops.NotDifferentiable('HorovodAllgather')
+@ops.RegisterGradient('HorovodAllgather')
+def allgather_grad(op, grad):
+    """Gradient for allgather op.
+
+    Args:
+      op: An operation.
+      grad: `Tensor` gradient with respect to the output of the op.
+
+    Returns:
+      The gradient with respect to the input of the op.
+    """
+    splits = tf.split(grad, num_or_size_splits=size(), axis=0)
+    return tf.add_n(splits)
 
 
 def broadcast(tensor, root_rank, name=None):
@@ -119,4 +143,15 @@ def broadcast(tensor, root_rank, name=None):
     return MPI_LIB.horovod_broadcast(tensor, name=name, root_rank=root_rank)
 
 
-ops.NotDifferentiable('HorovodBroadcast')
+@ops.RegisterGradient('HorovodBroadcast')
+def broadcast_grad(op, grad):
+    """Gradient for broadcast op.
+
+    Args:
+      op: An operation.
+      grad: `Tensor` gradient with respect to the output of the op.
+
+    Returns:
+      The gradient with respect to the input of the op.
+    """
+    return tf.identity(grad)
