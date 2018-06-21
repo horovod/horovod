@@ -1179,10 +1179,19 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Initialize MPI. This must happen on the background thread, since not all
   // MPI implementations support being called from multiple threads.
   //
-  // We will ask for multiple threads, so other libraries like mpi4py can
+  // In some cases MPI library has multi-threading support, but it slows down certain
+  // components, e.g. OpenIB BTL in OpenMPI gets disabled if MPI_THREAD_MULTIPLE is
+  // requested.
+  //
+  // By default, we will ask for multiple threads, so other libraries like mpi4py can
   // be used together with Horovod if multi-threaded MPI is installed.
+  auto mpi_threads_disable = std::getenv("HOROVOD_MPI_THREADS_DISABLE");
+  int required = MPI_THREAD_MULTIPLE;
+  if (mpi_threads_disable != nullptr && std::atoi(mpi_threads_disable) > 0) {
+    required = MPI_THREAD_FUNNELED;
+  }
   int provided;
-  MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &provided);
+  MPI_Init_thread(NULL, NULL, required, &provided);
 
   // Create a private MPI communicator for Horovod to avoid collisions with
   // other threads using MPI.
