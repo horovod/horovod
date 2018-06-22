@@ -31,9 +31,6 @@ workers were early and which were late.
 * *WAIT_FOR_OTHER_TENSOR_DATA* indicates time taken to wait for GPU to finish computing other inputs for other operations
  that are part of the same fusion batch.
 
-* *SCHEDULE* indicates how much time it took to schedule memory copies into and out of the fusion buffer and the NCCL
- operation itself.
-
 * *QUEUE* happens when reduction is done with NCCL, and the previous NCCL operation did not finish yet.
 
 * *MEMCPY_IN_FUSION_BUFFER* and *MEMCPY_OUT_FUSION_BUFFER* indicate time taken to copy data into and out of the fusion 
@@ -41,3 +38,6 @@ workers were early and which were late.
 
 * *NCCL_ALLREDUCE*, *MPI_ALLREDUCE*, *MPI_ALLGATHER*, or *MPI_BCAST* indicate time taken to do the actual operation on GPU 
  (or CPU) and highlights whether the operation was performed using NCCL or pure MPI.
+
+* In case of `HOROVOD_HIERARCHICAL_ALLREDUCE=1`, *NCCL_ALLREDUCE* will become a sequence of *NCCL_REDUCE*,
+ *MEMCPY_IN_HOST_BUFFER*, *MPI_ALLREDUCE*, *MEMCPY_OUT_HOST_BUFFER*, *NCCL_BCAST*.
