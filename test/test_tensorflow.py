@@ -21,6 +21,7 @@ from __future__ import division
 from __future__ import print_function
 
 import itertools
+import numpy as np
 import tensorflow as tf
 
 import horovod.tensorflow as hvd
@@ -304,9 +305,11 @@ class MPITests(tf.test.TestCase):
     def test_horovod_allreduce_grad(self):
         """Test the correctness of the allreduce gradient."""
         hvd.init()
+        size = hvd.size()
+
         with self.test_session(config=self.config) as session:
-            dtypes = [tf.float32]
-            dims = [1, 2]
+            dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]
+            dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
                 with tf.device("/cpu:0"):
                     tf.set_random_seed(1234)
@@ -314,16 +317,15 @@ class MPITests(tf.test.TestCase):
                         [5] * dim, -100, 100, dtype=dtype)
                     summed = hvd.allreduce(tensor, average=False)
 
-                err = tf.test.compute_gradient_error(
-                    tensor,
-                    tensor.shape,
-                    summed,
-                    summed.shape,
-                )
+                grad_ys = tf.ones([5] * dim)
+                grad = tf.gradients(summed, tensor, grad_ys)[0]
+                grad_out = session.run(grad)
 
-                self.assertLess(err, 0.0001,
-                                "analytical and numerical gradients differ, "
-                                "error: " + str(err))
+                expected = np.ones([5] * dim) * size
+                err = np.linalg.norm(expected - grad_out)
+                self.assertLess(err, 0.00000001,
+                                "gradient %s differs from expected %s, "
+                                "error: %s" % (grad_out, expected, str(err)))
 
     def test_horovod_allgather(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors."""
@@ -451,28 +453,38 @@ class MPITests(tf.test.TestCase):
         """Test the correctness of the allgather gradient."""
         hvd.init()
         rank = hvd.rank()
+        size = hvd.size()
 
         with self.test_session(config=self.config) as session:
-            dtypes = [tf.float32]
-            dims = [1, 2]
+            dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                      tf.int32, tf.int64, tf.float32, tf.float64]
+            dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
-                tensor = tf.ones([5] * dim) * rank
+                tensor_sizes = [3, 2, 7, 4, 6, 8, 10] * 5
+                tensor_sizes = tensor_sizes[:size]
+
+                tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
                 if dtype == tf.bool:
                     tensor = tensor % 2
                 tensor = tf.cast(tensor, dtype=dtype)
                 gathered = hvd.allgather(tensor)
-                gathered_tensor = session.run(gathered)
 
-                err = tf.test.compute_gradient_error(
-                    tensor,
-                    tensor.shape,
-                    gathered,
-                    gathered_tensor.shape,
-                )
+                grad_list = []
+                for r, size in enumerate(tensor_sizes):
+                    grad_list.append(tf.ones([size] + [17] * (dim - 1)) * r)
+                grad_ys = tf.concat(grad_list, axis=0)
 
-                self.assertLess(err, 0.0001,
-                                "analytical and numerical gradients differ, "
-                                "error: " + str(err))
+                grad = tf.gradients(gathered, tensor, grad_ys)[0]
+                grad_out = session.run(grad)
+
+                expected = np.ones(
+                    [tensor_sizes[rank]] + [17] * (dim - 1)
+                ) * rank * size
+                err = np.linalg.norm(expected - grad_out)
+                self.assertLess(err, 0.00000001,
+                                "gradient %s differs from expected %s, "
+                                "error: %s" %
+                                (grad_out, expected, str(err)))
 
     def test_horovod_broadcast(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
@@ -567,8 +579,9 @@ class MPITests(tf.test.TestCase):
             return
 
         with self.test_session(config=self.config) as session:
-            dtypes = [tf.float32]
-            dims = [1, 2]
+            dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                      tf.int32, tf.int64, tf.float32, tf.float64]
+            dims = [1, 2, 3]
             root_ranks = list(range(size))
             for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
                 tensor = tf.ones([5] * dim) * rank
@@ -577,16 +590,15 @@ class MPITests(tf.test.TestCase):
                 tensor = tf.cast(tensor, dtype=dtype)
                 broadcasted_tensor = hvd.broadcast(tensor, root_rank)
 
-                err = tf.test.compute_gradient_error(
-                    tensor,
-                    tensor.shape,
-                    broadcasted_tensor,
-                    broadcasted_tensor.shape,
-                )
+                grad_ys = tf.ones([5] * dim)
+                grad = tf.gradients(broadcasted_tensor, tensor, grad_ys)[0]
+                grad_out = session.run(grad)
 
-                self.assertLess(err, 0.0001,
-                                "analytical and numerical gradients differ, "
-                                "error: " + str(err))
+                expected = np.ones([5] * dim) * size
+                err = np.linalg.norm(expected - grad_out)
+                self.assertLess(err, 0.00000001,
+                                "gradient %s differs from expected %s, "
+                                "error: %s" % (grad_out, expected, str(err)))
 
 
 if __name__ == '__main__':

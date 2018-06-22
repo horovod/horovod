@@ -25,7 +25,7 @@ from tensorflow.python.framework import load_library
 from tensorflow.python.framework import ops
 from tensorflow.python.platform import resource_loader
 
-from horovod.common import get_ext_suffix, size
+from horovod.common import get_ext_suffix, rank, size
 
 
 def _load_library(name, op_list=None):
@@ -122,8 +122,14 @@ def allgather_grad(op, grad):
     Returns:
       The gradient with respect to the input of the op.
     """
-    splits = tf.split(grad, num_or_size_splits=size(), axis=0)
-    return tf.add_n(splits)
+    grad = _allreduce(grad)
+
+    x = op.inputs[0]
+    d = tf.convert_to_tensor([x.shape[0]], dtype=tf.int32)
+    d = tf.reshape(allgather(d), [size()])
+
+    splits = tf.split(grad, num_or_size_splits=d, axis=0)
+    return splits[rank()]
 
 
 def broadcast(tensor, root_rank, name=None):
@@ -154,4 +160,4 @@ def broadcast_grad(op, grad):
     Returns:
       The gradient with respect to the input of the op.
     """
-    return tf.identity(grad)
+    return _allreduce(grad)
