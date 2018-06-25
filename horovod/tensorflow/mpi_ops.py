@@ -112,7 +112,7 @@ def allgather(tensor, name=None):
 
 
 @ops.RegisterGradient('HorovodAllgather')
-def allgather_grad(op, grad):
+def _allgather_grad(op, grad):
     """Gradient for allgather op.
 
     Args:
@@ -150,7 +150,7 @@ def broadcast(tensor, root_rank, name=None):
 
 
 @ops.RegisterGradient('HorovodBroadcast')
-def broadcast_grad(op, grad):
+def _broadcast_grad(op, grad):
     """Gradient for broadcast op.
 
     Args:
