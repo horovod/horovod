@@ -29,7 +29,7 @@ parser.add_argument('--val-batch-size', type=int, default=32,
 parser.add_argument('--epochs', type=int, default=90,
                     help='number of epochs to train')
 parser.add_argument('--base-lr', type=float, default=0.0125,
-                    help='learning rate for for a single GPU')
+                    help='learning rate for a single GPU')
 parser.add_argument('--warmup-epochs', type=float, default=5,
                     help='number of warmup epochs')
 parser.add_argument('--momentum', type=float, default=0.9,
