@@ -583,7 +583,8 @@ class MPITests(tf.test.TestCase):
                       tf.int32, tf.int64, tf.float32, tf.float64]
             dims = [1, 2, 3]
             root_ranks = list(range(size))
-            for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
+            for dtype, dim, root_rank in itertools.product(
+                    dtypes, dims, root_ranks):
                 tensor = tf.ones([5] * dim) * rank
                 if dtype == tf.bool:
                     tensor = tensor % 2
@@ -594,7 +595,8 @@ class MPITests(tf.test.TestCase):
                 grad = tf.gradients(broadcasted_tensor, tensor, grad_ys)[0]
                 grad_out = session.run(grad)
 
-                expected = np.ones([5] * dim) * size
+                c = size if rank == root_rank else 0
+                expected = np.ones([5] * dim) * c
                 err = np.linalg.norm(expected - grad_out)
                 self.assertLess(err, 0.00000001,
                                 "gradient %s differs from expected %s, "
