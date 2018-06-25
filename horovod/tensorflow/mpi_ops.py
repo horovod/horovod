@@ -161,7 +161,7 @@ def _broadcast_grad(op, grad):
       The gradient with respect to the input of the op.
     """
     root_rank = op.get_attr('root_rank')
-    grad_reduced = tf.stop_gradient(_allreduce(grad))
+    grad_reduced = _allreduce(grad)
     if rank() != root_rank:
         return grad_reduced * 0
     return grad_reduced
