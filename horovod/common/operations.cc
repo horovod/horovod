@@ -1100,28 +1100,47 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
                   << " seconds. ";
         std::cerr << "This may indicate that different ranks are trying to "
                      "submit different tensors or that only subset of ranks is "
-                     "submitting tensors, which will cause deadlock. ";
-        std::cerr << "Stalled ops: ";
+                     "submitting tensors, which will cause deadlock. " << std::endl;
+        std::cerr << "Stalled ops: " << std::endl;
         preamble = true;
-      } else {
-        std::cerr << ", ";
+      }
+      std::vector<int32_t> rank_ready = {};
+      std::vector<int32_t> rank_missing = {};
+      for (auto msg_iter = messages.begin(); msg_iter != messages.end();
+           msg_iter++) {
+             rank_ready.push_back(msg_iter->request_rank());
+      }
+      std::sort(rank_ready.begin(), rank_ready.end());
+      auto iter = rank_ready.begin();
+      for (int32_t missing_rank = 0; missing_rank < state.size; missing_rank++) {
+        if (iter != rank_ready.end() && missing_rank == *iter) {
+          iter++;
+          continue;
+        } else {
+          rank_missing.push_back(missing_rank);
+        }
       }
       std::cerr << tensor_name;
       std::cerr << " [ready ranks:";
-      for (auto msg_iter = messages.begin(); msg_iter != messages.end();
-           msg_iter++) {
-        if (msg_iter == messages.begin()) {
+      for (auto iter = rank_ready.begin(); iter != rank_ready.end(); iter++) {
+        if (iter == rank_ready.begin()) {
           std::cerr << " ";
         } else {
           std::cerr << ", ";
         }
-        std::cerr << msg_iter->request_rank();
+        std::cerr << *iter;
       }
-      std::cerr << "]";
+      std::cerr << "], [missing ranks:";
+      for (auto iter = rank_missing.begin(); iter != rank_missing.end(); iter++) {
+        if (iter == rank_missing.begin()) {
+          std::cerr << " ";
+        } else {
+          std::cerr << ", ";
+        }
+        std::cerr << *iter;
+      }
+      std::cerr << "]" << std::endl;
     }
-  }
-  if (preamble) {
-    std::cerr << std::endl;
   }
 }
 
