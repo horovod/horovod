@@ -22,6 +22,7 @@ import torch
 
 from horovod.torch import mpi_lib_impl
 from horovod.torch import mpi_lib
+from horovod.torch import rank, size
 
 
 # Schema: handle -> input, output
@@ -79,6 +80,18 @@ def allreduce_async(tensor, average=True, name=None):
     return _allreduce_async(tensor, output, average, name)
 
 
+class HorovodAllreduce(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, tensor, average, name):
+        ctx.average = average
+        handle = allreduce_async(tensor, average, name)
+        return synchronize(handle)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        return allreduce(grad_output, ctx.average), None, None
+
+
 def allreduce(tensor, average=True, name=None):
     """
     A function that performs averaging or summation of the input tensor over all the
@@ -99,8 +112,7 @@ def allreduce(tensor, average=True, name=None):
         A tensor of the same shape and type as `tensor`, averaged or summed across all
         processes.
     """
-    handle = allreduce_async(tensor, average, name)
-    return synchronize(handle)
+    return HorovodAllreduce.apply(tensor, average, name)
 
 
 def allreduce_async_(tensor, average=True, name=None):
@@ -183,6 +195,25 @@ def allgather_async(tensor, name=None):
     return _allgather_async(tensor, output, name)
 
 
+class HorovodAllgather(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, tensor, name):
+        ctx.dim = tensor.shape[0]
+        handle = allgather_async(tensor, name)
+        return synchronize(handle)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        grad_reduced = allreduce(grad_output, average=False)
+
+        dim_t = torch.tensor([ctx.dim])
+        dim = allgather(dim_t).view(size())
+
+        r = rank()
+        offset = torch.sum(dim.narrow(0, 0, r)).item() if r != 0 else 0
+        return grad_reduced.narrow(0, offset, ctx.dim), None
+
+
 def allgather(tensor, name=None):
     """
     A function that concatenates the input tensor with the same input tensor on
@@ -202,8 +233,7 @@ def allgather(tensor, name=None):
         the first dimension, which may be greater and is the sum of all first
         dimensions of the tensors in different Horovod processes.
     """
-    handle = allgather_async(tensor, name)
-    return synchronize(handle)
+    return HorovodAllgather.apply(tensor, name)
 
 
 def _broadcast_function_factory(tensor):
@@ -241,6 +271,21 @@ def broadcast_async(tensor, root_rank, name=None):
     return _broadcast_async(tensor, output, root_rank, name)
 
 
+class HorovodBroadcast(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, tensor, root_rank, name):
+        ctx.root_rank = root_rank
+        handle = broadcast_async(tensor, root_rank, name)
+        return synchronize(handle)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        grad_reduced = allreduce(grad_output, average=False)
+        if rank() != ctx.root_rank:
+            grad_reduced *= 0
+        return grad_reduced, None, None
+
+
 def broadcast(tensor, root_rank, name=None):
     """
     A function that broadcasts the input tensor on root rank to the same input tensor
@@ -260,8 +305,7 @@ def broadcast(tensor, root_rank, name=None):
         A tensor of the same shape and type as `tensor`, with the value broadcasted
         from root rank.
     """
-    handle = broadcast_async(tensor, root_rank, name)
-    return synchronize(handle)
+    return HorovodBroadcast.apply(tensor, root_rank, name)
 
 
 def broadcast_async_(tensor, root_rank, name=None):
