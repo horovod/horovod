@@ -81,6 +81,8 @@ def allreduce_async(tensor, average=True, name=None):
 
 
 class HorovodAllreduce(torch.autograd.Function):
+    """An autograd function that performs allreduce on a tensor."""
+
     @staticmethod
     def forward(ctx, tensor, average, name):
         ctx.average = average
@@ -101,6 +103,10 @@ def allreduce(tensor, average=True, name=None):
     auto-generated name is used. The tensor type and shape must be the same on all
     Horovod processes for a given name. The reduction will not start until all processes
     are ready to send and receive the tensor.
+
+    This acts as a thin wrapper around an autograd function.  If your input
+    tensor requires gradients, then callings this function will allow gradients
+    to be computed and backpropagated.
 
     Arguments:
         tensor: A tensor to average and sum.
@@ -196,6 +202,8 @@ def allgather_async(tensor, name=None):
 
 
 class HorovodAllgather(torch.autograd.Function):
+    """An autograd function that performs allgather on a tensor."""
+
     @staticmethod
     def forward(ctx, tensor, name):
         ctx.dim = tensor.shape[0]
@@ -222,6 +230,10 @@ def allgather(tensor, name=None):
     The concatenation is done on the first dimension, so the input tensors on the
     different processes must have the same rank and shape, except for the first
     dimension, which is allowed to be different.
+
+    This acts as a thin wrapper around an autograd function.  If your input
+    tensor requires gradients, then callings this function will allow gradients
+    to be computed and backpropagated.
 
     Arguments:
         tensor: A tensor to allgather.
@@ -272,6 +284,8 @@ def broadcast_async(tensor, root_rank, name=None):
 
 
 class HorovodBroadcast(torch.autograd.Function):
+    """An autograd function that broadcasts a tensor."""
+
     @staticmethod
     def forward(ctx, tensor, root_rank, name):
         ctx.root_rank = root_rank
@@ -295,6 +309,10 @@ def broadcast(tensor, root_rank, name=None):
     auto-generated name is used. The tensor type and shape must be the same on all
     Horovod processes for a given name. The broadcast will not start until all processes
     are ready to send and receive the tensor.
+
+    This acts as a thin wrapper around an autograd function.  If your input
+    tensor requires gradients, then callings this function will allow gradients
+    to be computed and backpropagated.
 
     Arguments:
         tensor: A tensor to broadcast.
