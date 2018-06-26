@@ -101,11 +101,11 @@ public:
   }                                                                            \
                                                                                \
   template <> const void* TensorUtil::GetData<THTensor>(THTensor * tensor) {   \
-    return THTensor##_data(tensor);                               \
+    return THTensor##_data(tensor);                                            \
   }                                                                            \
                                                                                \
   template <> int64_t TensorUtil::GetSize<THTensor>(THTensor * tensor) {       \
-    return (int64_t)(THStorage##_size(tensor->storage) *                       \
+    return (int64_t)(THStorage##_size(THTensor##_storage(tensor)) *            \
                      THStorage##_elementSize());                               \
   }                                                                            \
                                                                                \
@@ -155,12 +155,13 @@ public:
   }                                                                            \
                                                                                \
   template <> const void* TensorUtil::GetData<THCTensor>(THCTensor * tensor) { \
-    return THCTensor##_data(state, tensor);                       \
+    return THCTensor##_data(state, tensor);                                    \
   }                                                                            \
                                                                                \
   template <> int64_t TensorUtil::GetSize<THCTensor>(THCTensor * tensor) {     \
-    return (int64_t)(THCStorage##_size(state, tensor->storage) *               \
-                     THCStorage##_elementSize(state));                         \
+    return (int64_t)(                                                          \
+        THCStorage##_size(state, THCTensor##_storage(state, tensor)) *         \
+        THCStorage##_elementSize(state));                                      \
   }                                                                            \
                                                                                \
   template <> int TensorUtil::GetDevice<THCTensor>(THCTensor * tensor) {       \
