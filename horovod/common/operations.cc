@@ -21,6 +21,7 @@
 #include <sstream>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 
 #if HAVE_CUDA
 #include <cuda_runtime.h>
@@ -1104,35 +1105,21 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
         std::cerr << "Stalled ops: " << std::endl;
         preamble = true;
       }
-      std::vector<int32_t> rank_ready = {};
-      std::vector<int32_t> rank_missing = {};
+      std::unordered_set<int32_t> ready_ranks;
+      std::vector<int32_t> missing_ranks;
       for (auto msg_iter = messages.begin(); msg_iter != messages.end();
            msg_iter++) {
-             rank_ready.push_back(msg_iter->request_rank());
+             ready_ranks.insert(msg_iter->request_rank());
       }
-      std::sort(rank_ready.begin(), rank_ready.end());
-      auto iter = rank_ready.begin();
-      for (int32_t missing_rank = 0; missing_rank < state.size; missing_rank++) {
-        if (iter != rank_ready.end() && missing_rank == *iter) {
-          iter++;
-          continue;
-        } else {
-          rank_missing.push_back(missing_rank);
+      for (int32_t rank = 0; rank < state.size; rank++) {
+        if (ready_ranks.find(rank) == ready_ranks.end()) {
+          missing_ranks.push_back(rank);
         }
       }
       std::cerr << tensor_name;
-      std::cerr << " [ready ranks:";
-      for (auto iter = rank_ready.begin(); iter != rank_ready.end(); iter++) {
-        if (iter == rank_ready.begin()) {
-          std::cerr << " ";
-        } else {
-          std::cerr << ", ";
-        }
-        std::cerr << *iter;
-      }
-      std::cerr << "], [missing ranks:";
-      for (auto iter = rank_missing.begin(); iter != rank_missing.end(); iter++) {
-        if (iter == rank_missing.begin()) {
+      std::cerr << " [missing ranks:";
+      for (auto iter = missing_ranks.begin(); iter != missing_ranks.end(); iter++) {
+        if (iter == missing_ranks.begin()) {
           std::cerr << " ";
         } else {
           std::cerr << ", ";
