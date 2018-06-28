@@ -119,7 +119,7 @@ def train(epoch):
 def metric_average(val, name):
     tensor = torch.FloatTensor([val])
     avg_tensor = hvd.allreduce(tensor, name=name)
-    return avg_tensor[0]
+    return avg_tensor.data[0]
 
 
 def test():
