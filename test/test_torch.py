@@ -46,7 +46,7 @@ class TorchTests(unittest.TestCase):
             tensor = tensor.type(dtype)
             summed = hvd.allreduce(tensor, average=False)
             multiplied = tensor * size
-            max_difference = summed.sub(multiplied).max()
+            max_difference = summed.data.sub(multiplied).max()
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
@@ -77,7 +77,7 @@ class TorchTests(unittest.TestCase):
             tensor = torch.FloatTensor(*([17] * dim)).random_(-100, 100)
             tensor = tensor.type(dtype)
             averaged = hvd.allreduce(tensor, average=True)
-            max_difference = averaged.sub(tensor).max()
+            max_difference = averaged.data.sub(tensor).max()
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
@@ -306,11 +306,11 @@ class TorchTests(unittest.TestCase):
             torch.manual_seed(1234)
             tensor = torch.FloatTensor(*([17] * dim)).random_(-100, 100)
             tensor = tensor.type(dtype)
-            tensor.requires_grad_()
+            tensor = torch.autograd.Variable(tensor, requires_grad=True)
             summed = hvd.allreduce(tensor, average=False)
 
             summed.backward(torch.ones([17] * dim))
-            grad_out = tensor.grad.numpy()
+            grad_out = tensor.grad.data.numpy()
 
             expected = np.ones([17] * dim) * size
             err = np.linalg.norm(expected - grad_out)
@@ -331,11 +331,11 @@ class TorchTests(unittest.TestCase):
             torch.manual_seed(1234)
             tensor = torch.FloatTensor(*([17] * dim)).random_(-100, 100)
             tensor = tensor.type(dtype)
-            tensor.requires_grad_()
+            tensor = torch.autograd.Variable(tensor, requires_grad=True)
             summed = hvd.allreduce(tensor, average=True)
 
             summed.backward(torch.ones([17] * dim))
-            grad_out = tensor.grad.numpy()
+            grad_out = tensor.grad.data.numpy()
 
             expected = np.ones([17] * dim)
             err = np.linalg.norm(expected - grad_out)
@@ -367,8 +367,8 @@ class TorchTests(unittest.TestCase):
                 rank_tensor = gathered[i * 17:(i + 1) * 17]
                 assert list(rank_tensor.shape) == [17] * dim, \
                     'hvd.allgather produces incorrect gathered shape'
-                assert rank_tensor.min() == i, 'hvd.allgather produces incorrect gathered tensor'
-                assert rank_tensor.max() == i, 'hvd.allgather produces incorrect gathered tensor'
+                assert rank_tensor.data.min() == i, 'hvd.allgather produces incorrect gathered tensor'
+                assert rank_tensor.data.max() == i, 'hvd.allgather produces incorrect gathered tensor'
 
     def test_horovod_allgather_variable_size(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors,
@@ -405,8 +405,8 @@ class TorchTests(unittest.TestCase):
                 rank_tensor = gathered[sum(
                     tensor_sizes[:i]):sum(tensor_sizes[:i + 1])]
                 assert list(rank_tensor.shape) == rank_size
-                assert rank_tensor.min() == i
-                assert rank_tensor.max() == i
+                assert rank_tensor.data.min() == i
+                assert rank_tensor.data.max() == i
 
     def test_horovod_allgather_error(self):
         """Test that the allgather returns an error if any dimension besides
@@ -476,7 +476,7 @@ class TorchTests(unittest.TestCase):
             tensor = torch.FloatTensor(
                 *([tensor_sizes[rank]] + [17] * (dim - 1))).fill_(1).mul_(rank)
             tensor = tensor.type(dtype)
-            tensor.requires_grad_()
+            tensor = torch.autograd.Variable(tensor, requires_grad=True)
 
             grad_list = []
             for r, size in enumerate(tensor_sizes):
@@ -485,7 +485,7 @@ class TorchTests(unittest.TestCase):
 
             gathered = hvd.allgather(tensor)
             gathered.backward(grad_ys)
-            grad_out = tensor.grad.numpy()
+            grad_out = tensor.grad.data.numpy()
 
             expected = np.ones(
                 [tensor_sizes[rank]] + [17] * (dim - 1)
@@ -522,7 +522,7 @@ class TorchTests(unittest.TestCase):
             if rank != root_rank:
                 assert (tensor == root_tensor).max() == 0, \
                     'hvd.broadcast modifies source tensor'
-            assert (broadcasted_tensor == root_tensor).min() == 1, \
+            assert (broadcasted_tensor.data == root_tensor).min() == 1, \
                 'hvd.broadcast produces incorrect broadcasted tensor'
 
     def test_horovod_broadcast_inplace(self):
@@ -638,11 +638,11 @@ class TorchTests(unittest.TestCase):
         for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
             tensor = torch.FloatTensor(*([17] * dim)).fill_(1).mul_(rank)
             tensor = tensor.type(dtype)
-            tensor.requires_grad_()
+            tensor = torch.autograd.Variable(tensor, requires_grad=True)
 
             broadcasted_tensor = hvd.broadcast(tensor, root_rank)
             broadcasted_tensor.backward(torch.ones([17] * dim))
-            grad_out = tensor.grad.numpy()
+            grad_out = tensor.grad.data.numpy()
 
             c = size if rank == root_rank else 0
             expected = np.ones([17] * dim) * c

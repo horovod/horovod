@@ -214,11 +214,11 @@ class HorovodAllgather(torch.autograd.Function):
     def backward(ctx, grad_output):
         grad_reduced = allreduce(grad_output, average=False)
 
-        dim_t = torch.tensor([ctx.dim])
+        dim_t = torch.IntTensor([ctx.dim])
         dim = allgather(dim_t).view(size())
 
         r = rank()
-        offset = torch.sum(dim.narrow(0, 0, r)).item() if r != 0 else 0
+        offset = torch.sum(dim.narrow(0, 0, r)).data[0] if r != 0 else 0
         return grad_reduced.narrow(0, offset, ctx.dim), None
 
 
