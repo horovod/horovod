@@ -125,7 +125,8 @@ def _allgather_grad(op, grad):
     grad = _allreduce(grad)
 
     x = op.inputs[0]
-    d = tf.convert_to_tensor([x.shape[0]], dtype=tf.int32)
+    d0 = x.get_shape().as_list()[0]
+    d = tf.convert_to_tensor([d0], dtype=tf.int32)
 
     s = size()
     d = tf.reshape(allgather(d), [s])
