@@ -840,15 +840,17 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       if (nccl_comm == nullptr) {
         ACTIVITY_START_ALL(entries, timeline, "INIT_NCCL")
 
-        int nccl_rank = horovod_global.hierarchical_allreduce
-                            ? horovod_global.local_rank
-                            : horovod_global.rank;
-        int nccl_size = horovod_global.hierarchical_allreduce
-                            ? horovod_global.local_size
-                            : horovod_global.size;
-        MPI_Comm nccl_id_bcast_comm = horovod_global.hierarchical_allreduce
-                                          ? horovod_global.local_comm
-                                          : horovod_global.mpi_comm;
+        int nccl_rank, nccl_size;
+        MPI_Comm nccl_id_bcast_comm;
+        if (horovod_global.hierarchical_allreduce) {
+          nccl_rank = horovod_global.local_rank;
+          nccl_size = horovod_global.local_size;
+          nccl_id_bcast_comm = horovod_global.local_comm;
+        } else {
+          nccl_rank = horovod_global.rank;
+          nccl_size = horovod_global.size;
+          nccl_id_bcast_comm = horovod_global.mpi_comm;
+        }
 
         ncclUniqueId nccl_id;
         if (nccl_rank == 0) {
