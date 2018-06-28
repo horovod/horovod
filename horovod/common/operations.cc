@@ -1223,7 +1223,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // installed.
   auto mpi_threads_disable = std::getenv("HOROVOD_MPI_THREADS_DISABLE");
   int required = MPI_THREAD_MULTIPLE;
-  if (mpi_threads_disable != nullptr && std::atoi(mpi_threads_disable) > 0) {
+  if (mpi_threads_disable != nullptr &&
+      std::strtol(mpi_threads_disable, nullptr, 10) > 0) {
     required = MPI_THREAD_FUNNELED;
   }
   int provided;
@@ -1283,13 +1284,14 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Override Tensor Fusion threshold, if it's set.
   auto horovod_fusion_threshold = std::getenv("HOROVOD_FUSION_THRESHOLD");
   if (horovod_fusion_threshold != nullptr) {
-    state.tensor_fusion_threshold = std::atol(horovod_fusion_threshold);
+    state.tensor_fusion_threshold =
+        std::strtol(horovod_fusion_threshold, nullptr, 10);
   }
 
   // Override the cycle time.
   auto horovod_cycle_time = std::getenv("HOROVOD_CYCLE_TIME");
   if (horovod_cycle_time != nullptr) {
-    state.cycle_time = std::atof(horovod_cycle_time);
+    state.cycle_time = std::strtof(horovod_cycle_time, nullptr);
   }
 
   // Set flag for hierarchical allreduce. Ignore if Horovod is running on a
@@ -1297,7 +1299,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   auto horovod_hierarchical_allreduce =
       std::getenv("HOROVOD_HIERARCHICAL_ALLREDUCE");
   if (horovod_hierarchical_allreduce != nullptr &&
-      std::atoi(horovod_hierarchical_allreduce) > 0 && cross_size > 1) {
+      std::strtol(horovod_hierarchical_allreduce, nullptr, 10) > 0 &&
+      cross_size > 1) {
     state.hierarchical_allreduce = true;
   }
 
