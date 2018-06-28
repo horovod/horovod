@@ -142,7 +142,7 @@ struct HorovodGlobalState {
 
   // Background thread cycle time in milliseconds.  Fractional numbers are
   // permitted.
-  double cycle_time = 5;
+  double cycle_time_ms = 5;
 
   // Time point when last cycle started.
   std::chrono::steady_clock::time_point last_cycle_start;
@@ -1284,7 +1284,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Override the cycle time.
   auto horovod_cycle_time = std::getenv("HOROVOD_CYCLE_TIME");
   if (horovod_cycle_time != nullptr) {
-    state.cycle_time = std::strtof(horovod_cycle_time, nullptr);
+    state.cycle_time_ms = std::strtof(horovod_cycle_time, nullptr);
   }
 
   // Set flag for hierarchical allreduce. Ignore if Horovod is running on a
@@ -1381,7 +1381,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   // This delay determines thread frequency and MPI message latency
   auto sleep_duration =
       state.last_cycle_start +
-      std::chrono::microseconds(long(state.cycle_time * 1000.)) -
+      std::chrono::microseconds(long(state.cycle_time_ms * 1000.)) -
       std::chrono::steady_clock::now();
   if (sleep_duration > std::chrono::steady_clock::duration::zero()) {
     std::this_thread::sleep_for(sleep_duration);
