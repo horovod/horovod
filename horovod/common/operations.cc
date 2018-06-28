@@ -21,6 +21,7 @@
 #include <sstream>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 
 #if HAVE_CUDA
 #include <cuda_runtime.h>
@@ -1100,28 +1101,31 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
                   << " seconds. ";
         std::cerr << "This may indicate that different ranks are trying to "
                      "submit different tensors or that only subset of ranks is "
-                     "submitting tensors, which will cause deadlock. ";
-        std::cerr << "Stalled ops: ";
+                     "submitting tensors, which will cause deadlock. " << std::endl;
+        std::cerr << "Stalled ops:" << std::endl;
         preamble = true;
-      } else {
-        std::cerr << ", ";
       }
       std::cerr << tensor_name;
-      std::cerr << " [ready ranks:";
+      std::cerr << " [missing ranks:";
+      std::unordered_set<int32_t> ready_ranks;
+      bool missing_preamble = false;
       for (auto msg_iter = messages.begin(); msg_iter != messages.end();
            msg_iter++) {
-        if (msg_iter == messages.begin()) {
-          std::cerr << " ";
-        } else {
-          std::cerr << ", ";
-        }
-        std::cerr << msg_iter->request_rank();
+             ready_ranks.insert(msg_iter->request_rank());
       }
-      std::cerr << "]";
+      for (int32_t rank = 0; rank < state.size; rank++) {
+        if (ready_ranks.find(rank) == ready_ranks.end()) {
+          if (!missing_preamble) {
+            std::cerr << " ";
+            missing_preamble = true;
+          } else {
+            std::cerr << ", ";
+          }
+          std::cerr << rank;
+        }
+      }
+      std::cerr << "]" << std::endl;
     }
-  }
-  if (preamble) {
-    std::cerr << std::endl;
   }
 }
 
