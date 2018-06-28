@@ -1115,9 +1115,9 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
       }
       for (int32_t rank = 0; rank < state.size; rank++) {
         if (ready_ranks.find(rank) == ready_ranks.end()) {
-          if (!preamble) {
+          if (!missing_preamble) {
             std::cerr << " ";
-            preamble = true;
+            missing_preamble = true;
           } else {
             std::cerr << ", ";
           }
