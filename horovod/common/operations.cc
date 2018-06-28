@@ -1102,29 +1102,27 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
         std::cerr << "This may indicate that different ranks are trying to "
                      "submit different tensors or that only subset of ranks is "
                      "submitting tensors, which will cause deadlock. " << std::endl;
-        std::cerr << "Stalled ops: " << std::endl;
+        std::cerr << "Stalled ops:" << std::endl;
         preamble = true;
       }
+      std::cerr << tensor_name;
+      std::cerr << " [missing ranks:";
       std::unordered_set<int32_t> ready_ranks;
-      std::vector<int32_t> missing_ranks;
+      bool missing_preamble = false;
       for (auto msg_iter = messages.begin(); msg_iter != messages.end();
            msg_iter++) {
              ready_ranks.insert(msg_iter->request_rank());
       }
       for (int32_t rank = 0; rank < state.size; rank++) {
         if (ready_ranks.find(rank) == ready_ranks.end()) {
-          missing_ranks.push_back(rank);
+          if (!preamble) {
+            std::cerr << " ";
+            preamble = true;
+          } else {
+            std::cerr << ", ";
+          }
+          std::cerr << rank;
         }
-      }
-      std::cerr << tensor_name;
-      std::cerr << " [missing ranks:";
-      for (auto iter = missing_ranks.begin(); iter != missing_ranks.end(); iter++) {
-        if (iter == missing_ranks.begin()) {
-          std::cerr << " ";
-        } else {
-          std::cerr << ", ";
-        }
-        std::cerr << *iter;
       }
       std::cerr << "]" << std::endl;
     }
