@@ -470,8 +470,9 @@ class MPITests(tf.test.TestCase):
                 gathered = hvd.allgather(tensor)
 
                 grad_list = []
-                for r, size in enumerate(tensor_sizes):
-                    grad_list.append(tf.ones([size] + [17] * (dim - 1)) * r)
+                for r, tensor_size in enumerate(tensor_sizes):
+                    g = tf.ones([tensor_size] + [17] * (dim - 1)) * r
+                    grad_list.append(g)
                 grad_ys = tf.concat(grad_list, axis=0)
 
                 grad = tf.gradients(gathered, tensor, grad_ys)[0]

@@ -126,7 +126,9 @@ def _allgather_grad(op, grad):
 
     x = op.inputs[0]
     d = tf.convert_to_tensor([x.shape[0]], dtype=tf.int32)
-    d = tf.reshape(allgather(d), [size()])
+
+    s = size()
+    d = tf.reshape(allgather(d), [s])
 
     splits = tf.split(grad, num_or_size_splits=d, axis=0)
     return splits[rank()]
