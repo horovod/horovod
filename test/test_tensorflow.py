@@ -21,6 +21,7 @@ from __future__ import division
 from __future__ import print_function
 
 import itertools
+import numpy as np
 import tensorflow as tf
 
 import horovod.tensorflow as hvd
@@ -301,6 +302,33 @@ class MPITests(tf.test.TestCase):
                 with self.assertRaises(tf.errors.FailedPreconditionError):
                     session.run(hvd.allreduce(tensor))
 
+    def test_horovod_allreduce_grad(self):
+        """Test the correctness of the allreduce gradient."""
+        hvd.init()
+        size = hvd.size()
+
+        with self.test_session(config=self.config) as session:
+            # As of TensorFlow v1.9, gradients are not supported on
+            # integer tensors
+            dtypes = [tf.float32, tf.float64]
+            dims = [1, 2, 3]
+            for dtype, dim in itertools.product(dtypes, dims):
+                with tf.device("/cpu:0"):
+                    tf.set_random_seed(1234)
+                    tensor = tf.random_uniform(
+                        [5] * dim, -100, 100, dtype=dtype)
+                    summed = hvd.allreduce(tensor, average=False)
+
+                grad_ys = tf.ones([5] * dim)
+                grad = tf.gradients(summed, tensor, grad_ys)[0]
+                grad_out = session.run(grad)
+
+                expected = np.ones([5] * dim) * size
+                err = np.linalg.norm(expected - grad_out)
+                self.assertLess(err, 0.00000001,
+                                "gradient %s differs from expected %s, "
+                                "error: %s" % (grad_out, expected, str(err)))
+
     def test_horovod_allgather(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors."""
         hvd.init()
@@ -423,6 +451,45 @@ class MPITests(tf.test.TestCase):
             with self.assertRaises(tf.errors.FailedPreconditionError):
                 session.run(hvd.allgather(tensor))
 
+    def test_horovod_allgather_grad(self):
+        """Test the correctness of the allgather gradient."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        with self.test_session(config=self.config) as session:
+            # As of TensorFlow v1.9, gradients are not supported on
+            # integer tensors
+            dtypes = [tf.float32, tf.float64]
+            dims = [1, 2, 3]
+            for dtype, dim in itertools.product(dtypes, dims):
+                tensor_sizes = [3, 2, 7, 4, 6, 8, 10] * 5
+                tensor_sizes = tensor_sizes[:size]
+
+                tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                tensor = tf.cast(tensor, dtype=dtype)
+                gathered = hvd.allgather(tensor)
+
+                grad_list = []
+                for r, tensor_size in enumerate(tensor_sizes):
+                    g = tf.ones([tensor_size] + [17] * (dim - 1)) * r
+                    grad_list.append(g)
+                grad_ys = tf.concat(grad_list, axis=0)
+
+                grad = tf.gradients(gathered, tensor, grad_ys)[0]
+                grad_out = session.run(grad)
+
+                expected = np.ones(
+                    [tensor_sizes[rank]] + [17] * (dim - 1)
+                ) * rank * size
+                err = np.linalg.norm(expected - grad_out)
+                self.assertLess(err, 0.00000001,
+                                "gradient %s differs from expected %s, "
+                                "error: %s" %
+                                (grad_out, expected, str(err)))
+
     def test_horovod_broadcast(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
         hvd.init()
@@ -504,6 +571,41 @@ class MPITests(tf.test.TestCase):
             tensor = tf.ones([17] * 3, dtype=tf.float32)
             with self.assertRaises(tf.errors.FailedPreconditionError):
                 session.run(hvd.broadcast(tensor, rank))
+
+    def test_horovod_broadcast_grad(self):
+        """Test the correctness of the broadcast gradient."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        with self.test_session(config=self.config) as session:
+            # As of TensorFlow v1.9, gradients are not supported on
+            # integer tensors
+            dtypes = [tf.float32, tf.float64]
+            dims = [1, 2, 3]
+            root_ranks = list(range(size))
+            for dtype, dim, root_rank in itertools.product(
+                    dtypes, dims, root_ranks):
+                tensor = tf.ones([5] * dim) * rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                tensor = tf.cast(tensor, dtype=dtype)
+                broadcasted_tensor = hvd.broadcast(tensor, root_rank)
+
+                grad_ys = tf.ones([5] * dim)
+                grad = tf.gradients(broadcasted_tensor, tensor, grad_ys)[0]
+                grad_out = session.run(grad)
+
+                c = size if rank == root_rank else 0
+                expected = np.ones([5] * dim) * c
+                err = np.linalg.norm(expected - grad_out)
+                self.assertLess(err, 0.00000001,
+                                "gradient %s differs from expected %s, "
+                                "error: %s" % (grad_out, expected, str(err)))
 
 
 if __name__ == '__main__':
