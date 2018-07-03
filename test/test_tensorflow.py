@@ -308,6 +308,8 @@ class MPITests(tf.test.TestCase):
         size = hvd.size()
 
         with self.test_session(config=self.config) as session:
+            # As of TensorFlow v1.9, gradients are not supported on
+            # integer tensors
             dtypes = [tf.float32, tf.float64]
             dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
@@ -456,6 +458,8 @@ class MPITests(tf.test.TestCase):
         size = hvd.size()
 
         with self.test_session(config=self.config) as session:
+            # As of TensorFlow v1.9, gradients are not supported on
+            # integer tensors
             dtypes = [tf.float32, tf.float64]
             dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
@@ -579,6 +583,8 @@ class MPITests(tf.test.TestCase):
             return
 
         with self.test_session(config=self.config) as session:
+            # As of TensorFlow v1.9, gradients are not supported on
+            # integer tensors
             dtypes = [tf.float32, tf.float64]
             dims = [1, 2, 3]
             root_ranks = list(range(size))
