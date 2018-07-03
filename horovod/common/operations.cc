@@ -237,7 +237,9 @@ const Status NOT_INITIALIZED_ERROR = Status::PreconditionError(
 const Status SHUT_DOWN_ERROR = Status::Aborted(
     "Horovod has been shut down. This has been caused by an exception on one "
     "of the rank or an attempt to allreduce, allgather or broadcast a tensor "
-    "after one of the ranks has finished execution.");
+    "after one of the ranks has finished execution. If the shutdown has been "
+    "caused by an exception, you should see the exception in the log before "
+    "the first shutdown message.");
 
 // Store the MPIRequest for a name, and return whether the total count of
 // MPIRequests for that tensor is now equal to the MPI size (and thus we are
