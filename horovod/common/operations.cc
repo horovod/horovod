@@ -235,9 +235,11 @@ const Status NOT_INITIALIZED_ERROR = Status::PreconditionError(
     "Horovod has not been initialized; use hvd.init().");
 
 const Status SHUT_DOWN_ERROR = Status::Aborted(
-    "Horovod has been shut down. This has been caused by an exception on one "
-    "of the rank or an attempt to allreduce, allgather or broadcast a tensor "
-    "after one of the ranks has finished execution.");
+    "Horovod has been shut down. This was caused by an exception on one of the "
+    "ranks or an attempt to allreduce, allgather or broadcast a tensor after "
+    "one of the ranks finished execution. If the shutdown was caused by an "
+    "exception, you should see the exception in the log before the first "
+    "shutdown message.");
 
 // Store the MPIRequest for a name, and return whether the total count of
 // MPIRequests for that tensor is now equal to the MPI size (and thus we are
