@@ -142,7 +142,7 @@ struct HorovodGlobalState {
 
   // Background thread cycle time in milliseconds.  Fractional numbers are
   // permitted.
-  double cycle_time = 5;
+  double cycle_time_ms = 5;
 
   // Time point when last cycle started.
   std::chrono::steady_clock::time_point last_cycle_start;
@@ -161,13 +161,27 @@ struct HorovodGlobalState {
   // multi-threading is supported.
   int rank = 0;
   int local_rank = 0;
+  int cross_rank = 0;
   int size = 1;
   int local_size = 1;
+  int cross_size = 1;
   bool mpi_threads_supported = false;
+
+  // COMM_WORLD ranks of processes running on this node.
+  std::vector<int> local_comm_ranks;
 
   // Private MPI communicator for Horovod to ensure no collisions with other
   // threads using MPI.
   MPI_Comm mpi_comm;
+
+  // Node-local communicator.
+  MPI_Comm local_comm;
+
+  // Cross-node communicator for hierarchical allreduce.
+  MPI_Comm cross_comm;
+
+  // Do hierarchical allreduce with MPI + NCCL.
+  bool hierarchical_allreduce = false;
 
 // The CUDA stream used for data transfers and within-allreduce operations.
 // A naive implementation would use the TensorFlow StreamExecutor CUDA
@@ -209,21 +223,18 @@ struct HorovodGlobalState {
 };
 
 // All the Horovod state that must be stored globally per-process.
-static HorovodGlobalState horovod_global;
+HorovodGlobalState horovod_global;
 
 // For clarify in argument lists.
 #define RANK_ZERO 0
 
-// A tag used for all coordinator messaging.
-#define TAG_NOTIFY 1
-
 // Stall-check warning time
 #define STALL_WARNING_TIME std::chrono::seconds(60)
 
-static const Status NOT_INITIALIZED_ERROR = Status::PreconditionError(
+const Status NOT_INITIALIZED_ERROR = Status::PreconditionError(
     "Horovod has not been initialized; use hvd.init().");
 
-static const Status SHUT_DOWN_ERROR = Status::Aborted(
+const Status SHUT_DOWN_ERROR = Status::Aborted(
     "Horovod has been shut down. This has been caused by an exception on one "
     "of the rank or an attempt to allreduce, allgather or broadcast a tensor "
     "after one of the ranks has finished execution.");
@@ -233,7 +244,7 @@ static const Status SHUT_DOWN_ERROR = Status::Aborted(
 // ready to reduce the tensor).
 bool IncrementTensorCount(std::unique_ptr<MessageTable>& message_table,
                           MPIRequest msg, int mpi_size) {
-  auto name = msg.tensor_name();
+  auto& name = msg.tensor_name();
   auto& timeline = horovod_global.timeline;
   auto table_iter = message_table->find(name);
   if (table_iter == message_table->end()) {
@@ -313,9 +324,8 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
   if (message_type == MPIRequest::ALLREDUCE ||
       message_type == MPIRequest::BROADCAST) {
     TensorShape tensor_shape;
-    for (auto it = requests[0].tensor_shape().begin();
-         it != requests[0].tensor_shape().end(); it++) {
-      tensor_shape.AddDim(*it);
+    for (auto dim : requests[0].tensor_shape()) {
+      tensor_shape.AddDim(dim);
     }
     for (unsigned int i = 1; i < requests.size(); i++) {
       if (error) {
@@ -323,9 +333,8 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
       }
 
       TensorShape request_shape;
-      for (auto it = requests[i].tensor_shape().begin();
-           it != requests[i].tensor_shape().end(); it++) {
-        request_shape.AddDim(*it);
+      for (auto dim : requests[i].tensor_shape()) {
+        request_shape.AddDim(dim);
       }
       if (tensor_shape != request_shape) {
         error = true;
@@ -346,9 +355,8 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
   std::vector<int64_t> tensor_sizes(requests.size());
   if (message_type == MPIRequest::ALLGATHER) {
     TensorShape tensor_shape;
-    for (auto it = requests[0].tensor_shape().begin();
-         it != requests[0].tensor_shape().end(); it++) {
-      tensor_shape.AddDim(*it);
+    for (auto dim : requests[0].tensor_shape()) {
+      tensor_shape.AddDim(dim);
     }
 
     if (tensor_shape.dims() == 0) {
@@ -366,9 +374,8 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
       }
 
       TensorShape request_shape;
-      for (auto it = requests[i].tensor_shape().begin();
-           it != requests[i].tensor_shape().end(); it++) {
-        request_shape.AddDim(*it);
+      for (auto dim : requests[i].tensor_shape()) {
+        request_shape.AddDim(dim);
       }
       if (tensor_shape.dims() != request_shape.dims()) {
         error = true;
@@ -443,8 +450,8 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
     }
   }
   std::vector<int32_t> devices(requests.size());
-  for (auto it = requests.begin(); it != requests.end(); it++) {
-    devices[it->request_rank()] = it->device();
+  for (auto& request : requests) {
+    devices[request.request_rank()] = request.device();
   }
 
   MPIResponse response;
@@ -520,9 +527,9 @@ ncclDataType_t GetNCCLDataType(const std::shared_ptr<Tensor> tensor) {
   {                                                                            \
     auto mpi_result = (op);                                                    \
     if (mpi_result != MPI_SUCCESS) {                                           \
-      for (auto it = entries.begin(); it != entries.end(); it++) {             \
-        timeline.End(it->tensor_name, nullptr);                                \
-        it->callback(Status::UnknownError(                                     \
+      for (auto& e : (entries)) {                                              \
+        timeline.End(e.tensor_name, nullptr);                                  \
+        e.callback(Status::UnknownError(                                       \
             std::string(op_name) + " failed, see MPI output for details."));   \
       }                                                                        \
       return;                                                                  \
@@ -533,10 +540,10 @@ ncclDataType_t GetNCCLDataType(const std::shared_ptr<Tensor> tensor) {
   {                                                                            \
     auto cuda_result = (op);                                                   \
     if (cuda_result != cudaSuccess) {                                          \
-      for (auto it = entries.begin(); it != entries.end(); it++) {             \
-        timeline.End(it->tensor_name, nullptr);                                \
-        it->callback(Status::UnknownError(std::string(op_name) + " failed: " + \
-                                          cudaGetErrorString(cuda_result)));   \
+      for (auto& e : (entries)) {                                              \
+        timeline.End(e.tensor_name, nullptr);                                  \
+        e.callback(Status::UnknownError(std::string(op_name) + " failed: " +   \
+                                        cudaGetErrorString(cuda_result)));     \
       }                                                                        \
       return;                                                                  \
     }                                                                          \
@@ -546,10 +553,10 @@ ncclDataType_t GetNCCLDataType(const std::shared_ptr<Tensor> tensor) {
   {                                                                            \
     auto nccl_result = (op);                                                   \
     if (nccl_result != ncclSuccess) {                                          \
-      for (auto it = entries.begin(); it != entries.end(); it++) {             \
-        timeline.End(it->tensor_name, nullptr);                                \
-        it->callback(Status::UnknownError(std::string(op_name) + " failed: " + \
-                                          ncclGetErrorString(nccl_result)));   \
+      for (auto& e : (entries)) {                                              \
+        timeline.End(e.tensor_name, nullptr);                                  \
+        e.callback(Status::UnknownError(std::string(op_name) + " failed: " +   \
+                                        ncclGetErrorString(nccl_result)));     \
       }                                                                        \
       return;                                                                  \
     }                                                                          \
@@ -596,25 +603,44 @@ cudaError_t ReleaseCudaEvent(cudaEvent_t event) {
   return cudaSuccess;
 }
 
-#define RECORD_EVENT(entries, event, stream)                                   \
-  CUDA_CHECK(entries, "GetCudaEvent", GetCudaEvent(&event))                    \
-  CUDA_CHECK(entries, "cudaEventRecord", cudaEventRecord(event, stream))
+#define RECORD_EVENT(entries, event_queue, name, stream)                       \
+  {                                                                            \
+    cudaEvent_t event;                                                         \
+    CUDA_CHECK(entries, "GetCudaEvent", GetCudaEvent(&event))                  \
+    CUDA_CHECK(entries, "cudaEventRecord", cudaEventRecord(event, stream))     \
+    (event_queue).emplace(name, event);                                        \
+  }
 
-#define RELEASE_EVENT(entries, event)                                          \
-  CUDA_CHECK(entries, "ReleaseCudaEvent", ReleaseCudaEvent(event))
+#define WAIT_FOR_EVENTS(entries, timeline, event_queue)                        \
+  {                                                                            \
+    while (!(event_queue).empty()) {                                           \
+      std::string name;                                                        \
+      cudaEvent_t event;                                                       \
+      std::tie(name, event) = (event_queue).front();                           \
+      (event_queue).pop();                                                     \
+      if (name != "") {                                                        \
+        ACTIVITY_START_ALL(entries, timeline, name)                            \
+      }                                                                        \
+      CUDA_CHECK(entries, "cudaEventSynchronize", cudaEventSynchronize(event)) \
+      if (name != "") {                                                        \
+        ACTIVITY_END_ALL(entries, timeline)                                    \
+      }                                                                        \
+      CUDA_CHECK(entries, "ReleaseCudaEvent", ReleaseCudaEvent(event))         \
+    }                                                                          \
+  }
 #endif
 
 #define ACTIVITY_START_ALL(entries, timeline, activity)                        \
   {                                                                            \
-    for (auto it = entries.begin(); it != entries.end(); it++) {               \
-      timeline.ActivityStart(it->tensor_name, activity);                       \
+    for (auto& e : (entries)) {                                                \
+      (timeline).ActivityStart(e.tensor_name, activity);                       \
     }                                                                          \
   }
 
 #define ACTIVITY_END_ALL(entries, timeline)                                    \
   {                                                                            \
-    for (auto it = entries.begin(); it != entries.end(); it++) {               \
-      timeline.ActivityEnd(it->tensor_name);                                   \
+    for (auto& e : (entries)) {                                                \
+      (timeline).ActivityEnd(e.tensor_name);                                   \
     }                                                                          \
   }
 
@@ -626,10 +652,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     // Lock on the tensor table.
     std::lock_guard<std::mutex> guard(horovod_global.mutex);
 
-    for (auto it = response.tensor_names().begin();
-         it != response.tensor_names().end(); it++) {
+    for (auto& name : response.tensor_names()) {
       // We should never fail at finding this key in the tensor table.
-      auto name = *it;
       auto iter = tensor_table.find(name);
       assert(iter != tensor_table.end());
 
@@ -647,8 +671,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
   }
 
   auto& timeline = horovod_global.timeline;
-  for (auto it = entries.begin(); it != entries.end(); it++) {
-    timeline.Start(it->tensor_name, response.response_type());
+  for (auto& e : entries) {
+    timeline.Start(e.tensor_name, response.response_type());
   }
 
   if (entries.size() > 1) {
@@ -659,16 +683,16 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     auto& buffer = horovod_global.tensor_fusion_buffers[std::make_tuple(
         first_entry.device, first_entry.context->framework())];
     if (buffer == nullptr) {
-      ACTIVITY_START_ALL(entries, timeline, "INIT_FUSION_BUFFER")
+      ACTIVITY_START_ALL(entries, timeline, INIT_FUSION_BUFFER)
 
       // Lazily allocate persistent buffer for Tensor Fusion and keep it
       // forever per device.
       Status status = first_entry.context->AllocatePersistent(
           horovod_global.tensor_fusion_threshold, &buffer);
       if (!status.ok()) {
-        for (auto it = entries.begin(); it != entries.end(); it++) {
-          timeline.End(it->tensor_name, nullptr);
-          it->callback(status);
+        for (auto& e : entries) {
+          timeline.End(e.tensor_name, nullptr);
+          e.callback(status);
         }
         return;
       }
@@ -679,27 +703,27 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
   // On GPU data readiness is signalled by ready_event.
   std::vector<TensorTableEntry> waiting_tensors;
-  for (auto it = entries.begin(); it != entries.end(); it++) {
-    if (it->ready_event != nullptr) {
-      timeline.ActivityStart(it->tensor_name, "WAIT_FOR_DATA");
-      waiting_tensors.push_back(*it);
+  for (auto& e : entries) {
+    if (e.ready_event != nullptr) {
+      timeline.ActivityStart(e.tensor_name, WAIT_FOR_DATA);
+      waiting_tensors.push_back(e);
     }
   }
   while (!waiting_tensors.empty()) {
     for (auto it = waiting_tensors.begin(); it != waiting_tensors.end();) {
       if (it->ready_event->Ready()) {
         timeline.ActivityEnd(it->tensor_name);
-        timeline.ActivityStart(it->tensor_name, "WAIT_FOR_OTHER_TENSOR_DATA");
+        timeline.ActivityStart(it->tensor_name, WAIT_FOR_OTHER_TENSOR_DATA);
         it = waiting_tensors.erase(it);
       } else {
-        it++;
+        ++it;
       }
     }
     std::this_thread::sleep_for(std::chrono::nanoseconds(100));
   }
-  for (auto it = entries.begin(); it != entries.end(); it++) {
-    if (it->ready_event != nullptr) {
-      timeline.ActivityEnd(it->tensor_name);
+  for (auto& e : entries) {
+    if (e.ready_event != nullptr) {
+      timeline.ActivityEnd(e.tensor_name);
     }
   }
 
@@ -712,17 +736,16 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     // and compute total size.  This is size of first dimension.
     std::vector<int64_t> tensor_sizes;
     int64_t total_dimension_size = 0;
-    for (auto it = response.tensor_sizes().begin();
-         it != response.tensor_sizes().end(); it++) {
-      tensor_sizes.push_back(*it);
-      total_dimension_size += *it;
+    for (auto sz : response.tensor_sizes()) {
+      tensor_sizes.push_back(sz);
+      total_dimension_size += sz;
     }
 
     // Every tensor participating in Allgather operation may have different
     // first dimension size, but the rest of dimensions are same for all
     // tensors.  Here we get shape of tensor sliced by first dimension.
     TensorShape single_slice_shape;
-    for (int i = 1; i < e.tensor->shape().dims(); i++) {
+    for (int i = 1; i < e.tensor->shape().dims(); ++i) {
       single_slice_shape.AddDim(e.tensor->shape().dim_size(i));
     }
 
@@ -732,7 +755,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     output_shape.AddDim((int64_t)total_dimension_size);
     output_shape.AppendShape(single_slice_shape);
 
-    ACTIVITY_START_ALL(entries, timeline, "ALLOCATE_OUTPUT")
+    ACTIVITY_START_ALL(entries, timeline, ALLOCATE_OUTPUT)
     status = e.context->AllocateOutput(output_shape, &e.output);
     if (!status.ok()) {
       timeline.End(e.tensor_name, nullptr);
@@ -743,9 +766,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
     // Tensors may have different first dimension, so we need to use
     // MPI_Allgatherv API that supports gathering arrays of different length.
-    ACTIVITY_START_ALL(entries, timeline, "MPI_ALLGATHER")
-    int* recvcounts = new int[tensor_sizes.size()];
-    int* displcmnts = new int[tensor_sizes.size()];
+    ACTIVITY_START_ALL(entries, timeline, MPI_ALLGATHER)
+    auto* recvcounts = new int[tensor_sizes.size()];
+    auto* displcmnts = new int[tensor_sizes.size()];
     for (unsigned int i = 0; i < tensor_sizes.size(); i++) {
       recvcounts[i] =
           (int)(single_slice_shape.num_elements() * tensor_sizes[i]);
@@ -768,7 +791,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     e.callback(Status::OK());
 
   } else if (response.response_type() == MPIResponse::ALLREDUCE) {
-    auto first_entry = entries[0];
+    auto& first_entry = entries[0];
 #if HAVE_CUDA
     bool on_gpu = first_entry.device != CPU_DEVICE_ID;
     if (on_gpu) {
@@ -790,25 +813,48 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 #if HOROVOD_GPU_ALLREDUCE == 'N' // 'N' stands for NCCL
     if (on_gpu) {
       auto stream = horovod_global.streams[first_entry.device];
+      auto event_queue = std::queue<std::pair<std::string, cudaEvent_t>>();
+
+      // Determine GPU IDs of the devices participating in this communicator.
+      std::vector<int32_t> nccl_device_map;
+      if (horovod_global.hierarchical_allreduce) {
+        for (int rank : horovod_global.local_comm_ranks) {
+          nccl_device_map.push_back(response.devices()[rank]);
+        }
+      } else {
+        nccl_device_map = response.devices();
+      }
 
       // Ensure NCCL communicator is in the map before executing reduction.
-      ncclComm_t& nccl_comm = horovod_global.nccl_comms[response.devices()];
+      ncclComm_t& nccl_comm = horovod_global.nccl_comms[nccl_device_map];
       if (nccl_comm == nullptr) {
-        ACTIVITY_START_ALL(entries, timeline, "INIT_NCCL")
+        ACTIVITY_START_ALL(entries, timeline, INIT_NCCL)
+
+        int nccl_rank, nccl_size;
+        MPI_Comm nccl_id_bcast_comm;
+        if (horovod_global.hierarchical_allreduce) {
+          nccl_rank = horovod_global.local_rank;
+          nccl_size = horovod_global.local_size;
+          nccl_id_bcast_comm = horovod_global.local_comm;
+        } else {
+          nccl_rank = horovod_global.rank;
+          nccl_size = horovod_global.size;
+          nccl_id_bcast_comm = horovod_global.mpi_comm;
+        }
 
         ncclUniqueId nccl_id;
-        if (horovod_global.rank == 0) {
+        if (nccl_rank == 0) {
           NCCL_CHECK(entries, "ncclGetUniqueId", ncclGetUniqueId(&nccl_id))
         }
 
         MPI_CHECK(entries, "MPI_Bcast",
                   MPI_Bcast((void*)&nccl_id, sizeof(nccl_id), MPI_BYTE, 0,
-                            horovod_global.mpi_comm));
+                            nccl_id_bcast_comm));
 
         ncclComm_t new_nccl_comm;
-        NCCL_CHECK(entries, "ncclCommInitRank",
-                   ncclCommInitRank(&new_nccl_comm, horovod_global.size,
-                                    nccl_id, horovod_global.rank))
+        NCCL_CHECK(
+            entries, "ncclCommInitRank",
+            ncclCommInitRank(&new_nccl_comm, nccl_size, nccl_id, nccl_rank))
         nccl_comm = new_nccl_comm;
 
         // Barrier helps NCCL to synchronize after initialization and avoid
@@ -818,135 +864,143 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         ACTIVITY_END_ALL(entries, timeline)
       }
 
-      ACTIVITY_START_ALL(entries, timeline, "SCHEDULE")
-
-      cudaEvent_t queue_end_event = nullptr;
       if (timeline.Initialized()) {
-        RECORD_EVENT(entries, queue_end_event, stream);
+        RECORD_EVENT(entries, event_queue, QUEUE, stream)
       }
 
-      cudaEvent_t after_memcpy_in_event = nullptr;
-      cudaEvent_t after_reduce_event = nullptr;
-      cudaEvent_t after_memcpy_out_event = nullptr;
+      // If entries.size() > 1, we copy tensors into fusion buffer before
+      // allreduce, and distribute results of allreduce back into target
+      // tensors after allreduce.
+
+      void* buffer_data;
+      int64_t num_elements = 0;
+      size_t buffer_len;
       if (entries.size() > 1) {
         // Access the fusion buffer.
         auto& buffer = horovod_global.tensor_fusion_buffers[std::make_tuple(
             first_entry.device, first_entry.context->framework())];
-        auto buffer_data = buffer->AccessData(first_entry.context);
+        buffer_data =
+            const_cast<void*>(buffer->AccessData(first_entry.context));
 
         // Copy memory into the fusion buffer.
         int64_t offset = 0;
-        for (auto it = entries.begin(); it != entries.end(); it++) {
+        for (auto& e : entries) {
           void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
           CUDA_CHECK(entries, "cudaMemcpyAsync",
-                     cudaMemcpyAsync(buffer_data_at_offset, it->tensor->data(),
-                                     (size_t)it->tensor->size(),
+                     cudaMemcpyAsync(buffer_data_at_offset, e.tensor->data(),
+                                     (size_t)e.tensor->size(),
                                      cudaMemcpyDeviceToDevice, stream))
-          offset += it->tensor->size();
+          offset += e.tensor->size();
         }
+        buffer_len = (size_t)offset;
         if (timeline.Initialized()) {
-          RECORD_EVENT(entries, after_memcpy_in_event, stream)
+          RECORD_EVENT(entries, event_queue, MEMCPY_IN_FUSION_BUFFER, stream)
         }
 
         // Perform the reduction on the fusion buffer.
-        int64_t num_elements = 0;
-        for (auto it = entries.begin(); it != entries.end(); it++) {
-          num_elements += it->tensor->shape().num_elements();
-        }
-        NCCL_CHECK(entries, "ncclAllReduce",
-                   ncclAllReduce(buffer_data, (void*)buffer_data,
-                                 (size_t)num_elements,
-                                 GetNCCLDataType(first_entry.tensor), ncclSum,
-                                 nccl_comm, stream))
-        if (timeline.Initialized()) {
-          RECORD_EVENT(entries, after_reduce_event, stream)
-        }
-
-        // Copy memory out of the fusion buffer.
-        offset = 0;
-        for (auto it = entries.begin(); it != entries.end(); it++) {
-          void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
-          CUDA_CHECK(entries, "cudaMemcpyAsync",
-                     cudaMemcpyAsync((void*)it->output->data(),
-                                     buffer_data_at_offset,
-                                     (size_t)it->tensor->size(),
-                                     cudaMemcpyDeviceToDevice, stream))
-          offset += it->tensor->size();
-        }
-        if (timeline.Initialized()) {
-          RECORD_EVENT(entries, after_memcpy_out_event, stream)
+        for (auto& e : entries) {
+          num_elements += e.tensor->shape().num_elements();
         }
       } else {
-        auto e = first_entry;
+        buffer_data = (void*)first_entry.output->data();
+        num_elements = first_entry.tensor->shape().num_elements();
+        buffer_len = (size_t)first_entry.output->size();
+      }
+
+      void* host_buffer = nullptr;
+      if (horovod_global.hierarchical_allreduce) {
+        NCCL_CHECK(entries, "ncclReduce",
+                   ncclReduce(buffer_data, buffer_data, (size_t)num_elements,
+                              GetNCCLDataType(first_entry.tensor), ncclSum, 0,
+                              nccl_comm, stream))
+        if (timeline.Initialized()) {
+          RECORD_EVENT(entries, event_queue, NCCL_REDUCE, stream)
+        }
+
+        if (horovod_global.local_rank == 0) {
+          // cudaHostAlloc is significantly slower than malloc.  Pre-allocating
+          // a buffer is not safe since the tensor can be arbitrarily large.
+          host_buffer = malloc(buffer_len);
+
+          CUDA_CHECK(entries, "cudaMemcpyAsync",
+                     cudaMemcpyAsync(host_buffer, buffer_data, buffer_len,
+                                     cudaMemcpyDeviceToHost, stream))
+          // This event must be recorded for the subsequent synchronize.
+          RECORD_EVENT(entries, event_queue, MEMCPY_IN_HOST_BUFFER, stream)
+
+          // Synchronize.
+          WAIT_FOR_EVENTS(entries, timeline, event_queue)
+
+          ACTIVITY_START_ALL(entries, timeline, MPI_ALLREDUCE)
+          MPI_CHECK(entries, "MPI_Allreduce",
+                    MPI_Allreduce(MPI_IN_PLACE, host_buffer, (int)num_elements,
+                                  GetMPIDataType(first_entry.tensor), MPI_SUM,
+                                  horovod_global.cross_comm))
+          ACTIVITY_END_ALL(entries, timeline)
+
+          CUDA_CHECK(entries, "cudaMemcpyAsync",
+                     cudaMemcpyAsync(buffer_data, host_buffer, buffer_len,
+                                     cudaMemcpyHostToDevice, stream))
+          if (timeline.Initialized()) {
+            RECORD_EVENT(entries, event_queue, MEMCPY_OUT_HOST_BUFFER, stream)
+          }
+        }
+
+        NCCL_CHECK(entries, "ncclBcast",
+                   ncclBcast(buffer_data, (size_t)num_elements,
+                             GetNCCLDataType(first_entry.tensor), 0, nccl_comm,
+                             stream))
+        if (timeline.Initialized()) {
+          RECORD_EVENT(entries, event_queue, NCCL_BCAST, stream)
+        }
+      } else {
         NCCL_CHECK(entries, "ncclAllReduce",
-                   ncclAllReduce(e.tensor->data(), (void*)e.output->data(),
-                                 (size_t)e.tensor->shape().num_elements(),
+                   ncclAllReduce(buffer_data, buffer_data, (size_t)num_elements,
                                  GetNCCLDataType(first_entry.tensor), ncclSum,
                                  nccl_comm, stream))
+      }
+      if (timeline.Initialized()) {
+        RECORD_EVENT(entries, event_queue, NCCL_ALLREDUCE, stream)
+      }
+
+      if (entries.size() > 1) {
+        // Copy memory out of the fusion buffer.
+        int64_t offset = 0;
+        for (auto& e : entries) {
+          void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
+          CUDA_CHECK(entries, "cudaMemcpyAsync",
+                     cudaMemcpyAsync((void*)e.output->data(),
+                                     buffer_data_at_offset,
+                                     (size_t)e.tensor->size(),
+                                     cudaMemcpyDeviceToDevice, stream))
+          offset += e.tensor->size();
+        }
         if (timeline.Initialized()) {
-          RECORD_EVENT(entries, after_reduce_event, stream)
+          RECORD_EVENT(entries, event_queue, MEMCPY_OUT_FUSION_BUFFER, stream)
         }
       }
 
-      ACTIVITY_END_ALL(entries, timeline)
-      ACTIVITY_START_ALL(entries, timeline, "QUEUE")
-
       // Use completion marker via event because it's faster than
       // blocking cudaStreamSynchronize() in this thread.
-      cudaEvent_t done_event;
-      RECORD_EVENT(entries, done_event, stream)
+      RECORD_EVENT(entries, event_queue, "", stream)
 
       // TODO: use thread pool or single thread for callbacks
-      std::thread finalizer_thread([entries, first_entry, done_event,
-                                    queue_end_event, after_memcpy_in_event,
-                                    after_reduce_event, after_memcpy_out_event,
-                                    response, &timeline] {
+      std::thread finalizer_thread([entries, first_entry, host_buffer, response,
+                                    event_queue, &timeline] {
         CUDA_CHECK(entries, "cudaSetDevice", cudaSetDevice(first_entry.device))
-        if (queue_end_event != nullptr) {
-          CUDA_CHECK(entries, "cudaEventSynchronize",
-                     cudaEventSynchronize(queue_end_event))
-          // All the work scheduled on NCCL stream before this allreduce
-          // is done at this point, end queueing activity.
-          ACTIVITY_END_ALL(entries, timeline)
-          RELEASE_EVENT(entries, queue_end_event);
+
+        auto mutable_event_queue =
+            (std::queue<std::pair<std::string, cudaEvent_t>>)event_queue;
+        WAIT_FOR_EVENTS(entries, timeline, mutable_event_queue)
+
+        if (host_buffer != nullptr) {
+          free(host_buffer);
         }
 
-        if (after_memcpy_in_event != nullptr) {
-          ACTIVITY_START_ALL(entries, timeline, "MEMCPY_IN_FUSION_BUFFER")
-          CUDA_CHECK(entries, "cudaEventSynchronize",
-                     cudaEventSynchronize(after_memcpy_in_event))
-          // The memcpy into the fusion buffer is done after this point has been
-          // reached.
-          ACTIVITY_END_ALL(entries, timeline)
-          RELEASE_EVENT(entries, after_memcpy_in_event);
+        for (auto& e : entries) {
+          timeline.End(e.tensor_name, e.output);
+          e.callback(Status::OK());
         }
-
-        if (after_reduce_event != nullptr) {
-          ACTIVITY_START_ALL(entries, timeline, "NCCL_ALLREDUCE")
-          CUDA_CHECK(entries, "cudaEventSynchronize",
-                     cudaEventSynchronize(after_reduce_event))
-          // The allreduce is done after this point has been reached.
-          ACTIVITY_END_ALL(entries, timeline)
-          RELEASE_EVENT(entries, after_reduce_event);
-        }
-
-        if (after_memcpy_out_event != nullptr) {
-          ACTIVITY_START_ALL(entries, timeline, "MEMCPY_OUT_FUSION_BUFFER")
-          CUDA_CHECK(entries, "cudaEventSynchronize",
-                     cudaEventSynchronize(after_memcpy_out_event))
-          // The memcpy out of the fusion buffer is done after this point has
-          // been reached.
-          ACTIVITY_END_ALL(entries, timeline)
-          RELEASE_EVENT(entries, after_memcpy_out_event);
-        }
-
-        CUDA_CHECK(entries, "cudaEventSynchronize",
-                   cudaEventSynchronize(done_event))
-        for (auto it = entries.begin(); it != entries.end(); it++) {
-          timeline.End(it->tensor_name, it->output);
-          it->callback(Status::OK());
-        }
-        RELEASE_EVENT(entries, done_event);
       });
       finalizer_thread.detach();
       return;
@@ -960,25 +1014,25 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       auto buffer_data = buffer->AccessData(first_entry.context);
 
       // Copy memory into the fusion buffer.
-      ACTIVITY_START_ALL(entries, timeline, "MEMCPY_IN_FUSION_BUFFER")
+      ACTIVITY_START_ALL(entries, timeline, MEMCPY_IN_FUSION_BUFFER)
       int64_t offset = 0;
-      for (auto it = entries.begin(); it != entries.end(); it++) {
+      for (auto& e : entries) {
         void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
 #if HAVE_CUDA
         if (on_gpu) {
           CUDA_CHECK(entries, "cudaMemcpyAsync",
                      cudaMemcpyAsync(
-                         buffer_data_at_offset, it->tensor->data(),
-                         (size_t)it->tensor->size(), cudaMemcpyDeviceToDevice,
+                         buffer_data_at_offset, e.tensor->data(),
+                         (size_t)e.tensor->size(), cudaMemcpyDeviceToDevice,
                          horovod_global.streams[first_entry.device]))
         } else {
 #endif
-          std::memcpy(buffer_data_at_offset, it->tensor->data(),
-                      (size_t)it->tensor->size());
+          std::memcpy(buffer_data_at_offset, e.tensor->data(),
+                      (size_t)e.tensor->size());
 #if HAVE_CUDA
         }
 #endif
-        offset += it->tensor->size();
+        offset += e.tensor->size();
       }
 #if HAVE_CUDA
       if (on_gpu) {
@@ -989,10 +1043,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 #endif
       ACTIVITY_END_ALL(entries, timeline)
 
-      ACTIVITY_START_ALL(entries, timeline, "MPI_ALLREDUCE")
+      ACTIVITY_START_ALL(entries, timeline, MPI_ALLREDUCE)
       int64_t num_elements = 0;
-      for (auto it = entries.begin(); it != entries.end(); it++) {
-        num_elements += it->tensor->shape().num_elements();
+      for (auto& e : entries) {
+        num_elements += e.tensor->shape().num_elements();
       }
       MPI_CHECK(entries, "MPI_Allreduce",
                 MPI_Allreduce(MPI_IN_PLACE, (void*)buffer_data,
@@ -1002,25 +1056,25 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       ACTIVITY_END_ALL(entries, timeline)
 
       // Copy memory out of the fusion buffer.
-      ACTIVITY_START_ALL(entries, timeline, "MEMCPY_OUT_FUSION_BUFFER")
+      ACTIVITY_START_ALL(entries, timeline, MEMCPY_OUT_FUSION_BUFFER)
       offset = 0;
-      for (auto it = entries.begin(); it != entries.end(); it++) {
+      for (auto& e : entries) {
         void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
 #if HAVE_CUDA
         if (on_gpu) {
           CUDA_CHECK(entries, "cudaMemcpyAsync",
                      cudaMemcpyAsync(
-                         (void*)it->output->data(), buffer_data_at_offset,
-                         (size_t)it->tensor->size(), cudaMemcpyDeviceToDevice,
+                         (void*)e.output->data(), buffer_data_at_offset,
+                         (size_t)e.tensor->size(), cudaMemcpyDeviceToDevice,
                          horovod_global.streams[first_entry.device]))
         } else {
 #endif
-          std::memcpy((void*)it->output->data(), buffer_data_at_offset,
-                      (size_t)it->tensor->size());
+          std::memcpy((void*)e.output->data(), buffer_data_at_offset,
+                      (size_t)e.tensor->size());
 #if HAVE_CUDA
         }
 #endif
-        offset += it->tensor->size();
+        offset += e.tensor->size();
       }
 #if HAVE_CUDA
       if (on_gpu) {
@@ -1031,8 +1085,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 #endif
       ACTIVITY_END_ALL(entries, timeline)
     } else {
-      auto e = first_entry;
-      ACTIVITY_START_ALL(entries, timeline, "MPI_ALLREDUCE")
+      auto& e = first_entry;
+      ACTIVITY_START_ALL(entries, timeline, MPI_ALLREDUCE)
       const void* sendbuf = e.tensor->data() == e.output->data()
                                 ? MPI_IN_PLACE
                                 : e.tensor->data();
@@ -1044,9 +1098,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       ACTIVITY_END_ALL(entries, timeline)
     }
 
-    for (auto it = entries.begin(); it != entries.end(); it++) {
-      timeline.End(it->tensor_name, it->output);
-      it->callback(Status::OK());
+    for (auto& e : entries) {
+      timeline.End(e.tensor_name, e.output);
+      e.callback(Status::OK());
     }
   } else if (response.response_type() == MPIResponse::BROADCAST) {
     assert(entries.size() == 1);
@@ -1060,7 +1114,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       data_ptr = (void*)e.output->data();
     }
 
-    ACTIVITY_START_ALL(entries, timeline, "MPI_BCAST")
+    ACTIVITY_START_ALL(entries, timeline, MPI_BCAST)
     MPI_CHECK(entries, "MPI_Bcast",
               MPI_Bcast(data_ptr, (int)e.tensor->shape().num_elements(),
                         GetMPIDataType(e.tensor), e.root_rank,
@@ -1084,11 +1138,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 void CheckForStalledTensors(HorovodGlobalState& state) {
   bool preamble = false;
   auto now = std::chrono::steady_clock::now();
-  for (auto it = state.message_table->begin(); it != state.message_table->end();
-       it++) {
-    auto tensor_name = it->first;
-    std::vector<MPIRequest>& messages = std::get<0>(it->second);
-    std::chrono::steady_clock::time_point start_at = std::get<1>(it->second);
+  for (auto& m : *state.message_table) {
+    auto tensor_name = m.first;
+    std::vector<MPIRequest>& messages = std::get<0>(m.second);
+    std::chrono::steady_clock::time_point start_at = std::get<1>(m.second);
 
     if (now - start_at > STALL_WARNING_TIME) {
       if (!preamble) {
@@ -1149,7 +1202,149 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
 //      in the same order, so we cannot dispatch one thread per tensor,
 //      otherwise we may end up dispatching many blocked threads and never make
 //      progress if we have a thread pool limit.
-//
+bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator);
+void BackgroundThreadLoop(HorovodGlobalState& state) {
+  // Initialize MPI. This must happen on the background thread, since not all
+  // MPI implementations support being called from multiple threads.
+  //
+  // In some cases MPI library has multi-threading support, but it slows down
+  // certain components, e.g. OpenIB BTL in OpenMPI gets disabled if
+  // MPI_THREAD_MULTIPLE is requested.
+  //
+  // By default, we will ask for multiple threads, so other libraries like
+  // mpi4py can be used together with Horovod if multi-threaded MPI is
+  // installed.
+  auto mpi_threads_disable = std::getenv("HOROVOD_MPI_THREADS_DISABLE");
+  int required = MPI_THREAD_MULTIPLE;
+  if (mpi_threads_disable != nullptr &&
+      std::strtol(mpi_threads_disable, nullptr, 10) > 0) {
+    required = MPI_THREAD_FUNNELED;
+  }
+  int provided;
+  MPI_Init_thread(NULL, NULL, required, &provided);
+
+  // Create a private MPI communicator for Horovod to avoid collisions with
+  // other threads using MPI.
+  MPI_Comm mpi_comm;
+  MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm);
+
+  // Get MPI rank to determine if we are rank zero.
+  int rank;
+  MPI_Comm_rank(mpi_comm, &rank);
+  bool is_coordinator = rank == 0;
+
+  // Get MPI size to determine how many tensors to wait for before reducing.
+  int size;
+  MPI_Comm_size(mpi_comm, &size);
+
+  // Determine local rank by querying the local communicator.
+  MPI_Comm local_comm;
+  MPI_Comm_split_type(mpi_comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
+                      &local_comm);
+  int local_rank, local_size;
+  MPI_Comm_rank(local_comm, &local_rank);
+  MPI_Comm_size(local_comm, &local_size);
+  std::vector<int> local_comm_ranks((size_t)local_size);
+  local_comm_ranks[local_rank] = rank;
+  MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, local_comm_ranks.data(), 1,
+                MPI_INT, local_comm);
+
+  // Set up cross-communicator in case of hierarchical allreduce.
+  MPI_Comm cross_comm;
+  MPI_Comm_split(mpi_comm, local_rank, rank, &cross_comm);
+  int cross_rank, cross_size;
+  MPI_Comm_rank(cross_comm, &cross_rank);
+  MPI_Comm_size(cross_comm, &cross_size);
+
+  state.rank = rank;
+  state.local_rank = local_rank;
+  state.cross_rank = cross_rank;
+  state.size = size;
+  state.local_size = local_size;
+  state.cross_size = cross_size;
+  state.mpi_comm = mpi_comm;
+  state.local_comm = local_comm;
+  state.cross_comm = cross_comm;
+  state.mpi_threads_supported = (provided == MPI_THREAD_MULTIPLE);
+  state.local_comm_ranks = local_comm_ranks;
+
+  // Open the timeline file on coordinator.
+  auto horovod_timeline = std::getenv("HOROVOD_TIMELINE");
+  if (is_coordinator && horovod_timeline != nullptr) {
+    state.timeline.Initialize(std::string(horovod_timeline));
+  }
+
+  // Override Tensor Fusion threshold, if it's set.
+  auto horovod_fusion_threshold = std::getenv("HOROVOD_FUSION_THRESHOLD");
+  if (horovod_fusion_threshold != nullptr) {
+    state.tensor_fusion_threshold =
+        std::strtol(horovod_fusion_threshold, nullptr, 10);
+  }
+
+  // Override the cycle time.
+  auto horovod_cycle_time = std::getenv("HOROVOD_CYCLE_TIME");
+  if (horovod_cycle_time != nullptr) {
+    state.cycle_time_ms = std::strtof(horovod_cycle_time, nullptr);
+  }
+
+  // Set flag for hierarchical allreduce. Ignore if Horovod is running on a
+  // single node.
+  auto horovod_hierarchical_allreduce =
+      std::getenv("HOROVOD_HIERARCHICAL_ALLREDUCE");
+  if (horovod_hierarchical_allreduce != nullptr &&
+      std::strtol(horovod_hierarchical_allreduce, nullptr, 10) > 0 &&
+      cross_size > 1) {
+    state.hierarchical_allreduce = true;
+  }
+
+  // Initialize the tensor count table. No tensors are available yet.
+  if (is_coordinator) {
+    state.message_table = std::unique_ptr<MessageTable>(new MessageTable());
+  }
+
+  // Signal that initialization is completed.
+  state.initialization_done = true;
+
+  // Iterate until shutdown.
+  while (RunLoopOnce(state, is_coordinator))
+    ;
+
+  // TODO: init.cu:645 WARN Cuda failure 'driver shutting down'
+  //#if HAVE_NCCL
+  //  for (auto it = horovod_global.streams.begin();
+  //       it != horovod_global.streams.end(); it++) {
+  //    cudaStreamSynchronize(it->second);
+  //  }
+  //  for (auto it = horovod_global.nccl_comms.begin();
+  //       it != horovod_global.nccl_comms.end(); it++) {
+  //    ncclCommDestroy(it->second);
+  //  }
+  //#endif
+
+  // Notify all outstanding operations that Horovod has been shut down
+  // and clear up the tensor table and message queue.
+  std::vector<StatusCallback> callbacks;
+  {
+    std::lock_guard<std::mutex> guard(state.mutex);
+    for (auto& e : state.tensor_table) {
+      callbacks.emplace_back(e.second.callback);
+    }
+    state.tensor_table.clear();
+    while (!state.message_queue.empty()) {
+      state.message_queue.pop();
+    }
+  }
+  for (auto& cb : callbacks) {
+    cb(SHUT_DOWN_ERROR);
+  }
+
+  MPI_Comm_free(&state.mpi_comm);
+  MPI_Comm_free(&state.local_comm);
+  MPI_Comm_free(&state.cross_comm);
+
+  MPI_Finalize();
+}
+
 // The coordinator currently follows a master-worker paradigm. Rank zero acts
 // as the master (the "coordinator"), whereas all other ranks are simply
 // workers. Each rank runs its own background thread which progresses in ticks.
@@ -1179,321 +1374,214 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
 //      response from the coordinator. At that point, the tick ends.
 //      If instead of "DONE" they receive "SHUTDOWN", they exit their background
 //      loop.
-void BackgroundThreadLoop(HorovodGlobalState& state) {
-  // Initialize MPI. This must happen on the background thread, since not all
-  // MPI implementations support being called from multiple threads.
-  //
-  // In some cases MPI library has multi-threading support, but it slows down certain
-  // components, e.g. OpenIB BTL in OpenMPI gets disabled if MPI_THREAD_MULTIPLE is
-  // requested.
-  //
-  // By default, we will ask for multiple threads, so other libraries like mpi4py can
-  // be used together with Horovod if multi-threaded MPI is installed.
-  auto mpi_threads_disable = std::getenv("HOROVOD_MPI_THREADS_DISABLE");
-  int required = MPI_THREAD_MULTIPLE;
-  if (mpi_threads_disable != nullptr && std::atoi(mpi_threads_disable) > 0) {
-    required = MPI_THREAD_FUNNELED;
-  }
-  int provided;
-  MPI_Init_thread(NULL, NULL, required, &provided);
-
-  // Create a private MPI communicator for Horovod to avoid collisions with
-  // other threads using MPI.
-  MPI_Comm mpi_comm;
-  MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm);
-
-  // Get MPI rank to determine if we are rank zero.
-  int rank;
-  MPI_Comm_rank(mpi_comm, &rank);
-  bool is_coordinator = rank == 0;
-
-  // Get MPI size to determine how many tensors to wait for before reducing.
-  int size;
-  MPI_Comm_size(mpi_comm, &size);
-
-  // Determine local rank by querying the local communicator.
-  MPI_Comm local_comm;
-  MPI_Comm_split_type(mpi_comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
-                      &local_comm);
-  int local_rank, local_size;
-  MPI_Comm_rank(local_comm, &local_rank);
-  MPI_Comm_size(local_comm, &local_size);
-  MPI_Comm_free(&local_comm);
-
-  state.rank = rank;
-  state.local_rank = local_rank;
-  state.size = size;
-  state.local_size = local_size;
-  state.mpi_comm = mpi_comm;
-  state.mpi_threads_supported = (provided == MPI_THREAD_MULTIPLE);
-  state.initialization_done = true;
-
-  // Open the timeline file on coordinator.
-  auto horovod_timeline = std::getenv("HOROVOD_TIMELINE");
-  if (is_coordinator && horovod_timeline != nullptr) {
-    state.timeline.Initialize(std::string(horovod_timeline));
-  }
-
-  // Override Tensor Fusion threshold, if it's set.
-  auto horovod_fusion_threshold = std::getenv("HOROVOD_FUSION_THRESHOLD");
-  if (horovod_fusion_threshold != nullptr) {
-    state.tensor_fusion_threshold = std::atol(horovod_fusion_threshold);
-  }
-
-  // Override the cycle time.
-  auto horovod_cycle_time = std::getenv("HOROVOD_CYCLE_TIME");
-  if (horovod_cycle_time != nullptr) {
-    state.cycle_time = std::atof(horovod_cycle_time);
-  }
-
-  // Initialize the tensor count table. No tensors are available yet.
-  if (is_coordinator) {
-    state.message_table = std::unique_ptr<MessageTable>(new MessageTable());
-  }
-
+bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   // The coordinator sends a SHUTDOWN message to trigger shutdown.
   bool should_shut_down = false;
-  do {
-    // This delay determines thread frequency and MPI message latency
-    auto sleep_duration =
-        state.last_cycle_start +
-        std::chrono::microseconds(long(state.cycle_time * 1000.)) -
-        std::chrono::steady_clock::now();
-    if (sleep_duration > std::chrono::steady_clock::duration::zero()) {
-      std::this_thread::sleep_for(sleep_duration);
-    }
-    state.last_cycle_start = std::chrono::steady_clock::now();
 
-    // Copy the data structures from global state under this lock.
-    // However, don't keep the lock for the rest of the loop, so that
-    // enqueued stream callbacks can continue.
-    std::queue<MPIRequest> message_queue;
-    {
-      std::lock_guard<std::mutex> guard(state.mutex);
-      while (!state.message_queue.empty()) {
-        MPIRequest message = state.message_queue.front();
-        state.message_queue.pop();
-        message_queue.push(message);
-      }
-    }
+  // This delay determines thread frequency and MPI message latency
+  auto sleep_duration =
+      state.last_cycle_start +
+      std::chrono::microseconds(long(state.cycle_time_ms * 1000.)) -
+      std::chrono::steady_clock::now();
+  if (sleep_duration > std::chrono::steady_clock::duration::zero()) {
+    std::this_thread::sleep_for(sleep_duration);
+  }
+  state.last_cycle_start = std::chrono::steady_clock::now();
 
-    // Collect all tensors that are ready to be reduced. Record them in the
-    // tensor count table (rank zero) or send them to rank zero to be
-    // recorded (everyone else).
-    std::vector<std::string> ready_to_reduce;
-    if (is_coordinator) {
-      while (!message_queue.empty()) {
-        // Pop the first available message message
-        MPIRequest message = message_queue.front();
-        message_queue.pop();
-
-        bool reduce = IncrementTensorCount(state.message_table, message, size);
-        if (reduce) {
-          ready_to_reduce.push_back(message.tensor_name());
-        }
-      }
-
-      // Rank zero has put all its own tensors in the tensor count table.
-      // Now, it should count all the tensors that are coming from other
-      // ranks at this tick.
-
-      // 1. Get message lengths from every rank.
-      auto recvcounts = new int[size];
-      recvcounts[0] = 0;
-      MPI_Gather(MPI_IN_PLACE, 1, MPI_INT, recvcounts, 1, MPI_INT, RANK_ZERO,
-                 state.mpi_comm);
-
-      // 2. Compute displacements.
-      auto displcmnts = new int[size];
-      size_t total_size = 0;
-      for (int i = 0; i < size; i++) {
-        if (i == 0) {
-          displcmnts[i] = 0;
-        } else {
-          displcmnts[i] = recvcounts[i - 1] + displcmnts[i - 1];
-        }
-        total_size += recvcounts[i];
-      }
-
-      // 3. Collect messages from every rank.
-      auto buffer = new char[total_size];
-      MPI_Gatherv(nullptr, 0, MPI_BYTE, buffer, recvcounts, displcmnts,
-                  MPI_BYTE, RANK_ZERO, state.mpi_comm);
-
-      // 4. Process messages.
-      for (int i = 1; i < size; i++) {
-        std::string received_data(buffer + displcmnts[i],
-                                  (size_t)recvcounts[i]);
-
-        MPIRequestList received_message_list;
-        MPIRequestList::ParseFromString(received_message_list, received_data);
-        for (auto& received_message : received_message_list.requests()) {
-          auto& received_name = received_message.tensor_name();
-
-          bool reduce =
-              IncrementTensorCount(state.message_table, received_message, size);
-          if (reduce) {
-            ready_to_reduce.push_back(received_name);
-          }
-        }
-        if (received_message_list.shutdown()) {
-          // Received SHUTDOWN request from one of the workers.
-          state.shut_down = true;
-        }
-      }
-
-      // 5. Free buffers.
-      delete[] recvcounts;
-      delete[] displcmnts;
-      delete[] buffer;
-
-      // At this point, rank zero should have a fully updated tensor count
-      // table and should know all the tensors that need to be reduced or
-      // gathered, and everyone else should have sent all their information
-      // to rank zero. We can now do reductions and gathers; rank zero will
-      // choose which ones and in what order, and will notify the other ranks
-      // before doing each reduction.
-      std::deque<MPIResponse> responses;
-      for (auto it = ready_to_reduce.begin(); it != ready_to_reduce.end();
-           it++) {
-        MPIResponse response = ConstructMPIResponse(state.message_table, *it);
-        responses.push_back(std::move(response));
-      }
-
-      MPIResponseList response_list;
-      response_list.set_shutdown(state.shut_down);
-      should_shut_down = state.shut_down;
-
-      while (!responses.empty()) {
-        auto response = responses.front();
-        assert(response.tensor_names().size() == 1);
-        responses.pop_front();
-
-        if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
-          // Attempt to add more responses to this fused response.
-          auto& entry = state.tensor_table[response.tensor_names()[0]];
-          int64_t tensor_size = entry.tensor->size();
-
-          while (!responses.empty()) {
-            auto new_response = responses.front();
-            assert(new_response.tensor_names().size() == 1);
-            auto& new_entry =
-                state.tensor_table[new_response.tensor_names()[0]];
-            int64_t new_tensor_size = new_entry.tensor->size();
-
-            if (response.response_type() == new_response.response_type() &&
-                response.devices() == new_response.devices() &&
-                entry.tensor->dtype() == new_entry.tensor->dtype() &&
-                tensor_size + new_tensor_size <=
-                    state.tensor_fusion_threshold) {
-              // These tensors will fuse together well.
-              tensor_size += new_tensor_size;
-              response.add_tensor_names(new_response.tensor_names()[0]);
-              responses.pop_front();
-            } else {
-              // Don't try to fuse additional tensors since they are usually
-              // computed in order of requests and skipping tensors may mean
-              // that the batch will have to wait longer while skipped tensors
-              // could be reduced at that time.
-              break;
-            }
-          }
-        }
-
-        response_list.add_responses(response);
-      }
-
-      // Notify all nodes which tensors we'd like to reduce at this step.
-      std::string encoded_response;
-      MPIResponseList::SerializeToString(response_list, encoded_response);
-      int encoded_response_length = (int)encoded_response.length() + 1;
-      MPI_Bcast(&encoded_response_length, 1, MPI_INT, RANK_ZERO,
-                state.mpi_comm);
-      MPI_Bcast((void*)encoded_response.c_str(), encoded_response_length,
-                MPI_BYTE, RANK_ZERO, state.mpi_comm);
-
-      // Perform the collective operation. All nodes should end up performing
-      // the same operation.
-      for (auto& response : response_list.responses()) {
-        PerformOperation(state.tensor_table, response);
-      }
-
-      // Check for stalled tensors.
-      if (std::chrono::steady_clock::now() - state.last_stall_check >
-          STALL_WARNING_TIME) {
-        CheckForStalledTensors(state);
-        state.last_stall_check = std::chrono::steady_clock::now();
-      }
-    } else {
-      std::string encoded_message;
-      MPIRequestList message_list;
-      message_list.set_shutdown(state.shut_down);
-      while (!message_queue.empty()) {
-        message_list.add_requests(message_queue.front());
-        message_queue.pop();
-      }
-      MPIRequestList::SerializeToString(message_list, encoded_message);
-      int encoded_message_length = (int)encoded_message.length() + 1;
-      MPI_Gather(&encoded_message_length, 1, MPI_INT, nullptr, 1, MPI_INT,
-                 RANK_ZERO, state.mpi_comm);
-      MPI_Gatherv((void*)encoded_message.c_str(), encoded_message_length,
-                  MPI_BYTE, nullptr, nullptr, nullptr, MPI_BYTE, RANK_ZERO,
-                  state.mpi_comm);
-
-      int msg_length;
-      MPI_Bcast(&msg_length, 1, MPI_INT, RANK_ZERO, state.mpi_comm);
-      auto buffer = new char[msg_length];
-      MPI_Bcast(buffer, msg_length, MPI_BYTE, RANK_ZERO, state.mpi_comm);
-      std::string received_message(buffer, (size_t)msg_length);
-      MPIResponseList response_list;
-      MPIResponseList::ParseFromString(response_list, received_message);
-      delete[] buffer;
-
-      // Perform the collective operation. All nodes should end up performing
-      // the same operation.
-      for (auto& response : response_list.responses()) {
-        PerformOperation(state.tensor_table, response);
-      }
-
-      if (response_list.shutdown()) {
-        should_shut_down = true;
-      }
-    }
-  } while (!should_shut_down);
-
-  // TODO: init.cu:645 WARN Cuda failure 'driver shutting down'
-  //#if HAVE_NCCL
-  //  for (auto it = horovod_global.streams.begin();
-  //       it != horovod_global.streams.end(); it++) {
-  //    cudaStreamSynchronize(it->second);
-  //  }
-  //  for (auto it = horovod_global.nccl_comms.begin();
-  //       it != horovod_global.nccl_comms.end(); it++) {
-  //    ncclCommDestroy(it->second);
-  //  }
-  //#endif
-
-  // Notify all outstanding operations that Horovod has been shut down
-  // and clear up the tensor table and message queue.
-  std::vector<StatusCallback> callbacks;
+  // Copy the data structures from global state under this lock.
+  // However, don't keep the lock for the rest of the loop, so that
+  // enqueued stream callbacks can continue.
+  std::queue<MPIRequest> message_queue;
   {
     std::lock_guard<std::mutex> guard(state.mutex);
-    for (auto it = state.tensor_table.begin(); it != state.tensor_table.end();
-         it++) {
-      callbacks.emplace_back(it->second.callback);
-    }
-    state.tensor_table.clear();
     while (!state.message_queue.empty()) {
+      MPIRequest message = state.message_queue.front();
       state.message_queue.pop();
+      message_queue.push(message);
     }
   }
-  for (auto it = callbacks.begin(); it != callbacks.end(); it++) {
-    (*it)(SHUT_DOWN_ERROR);
+
+  // Collect all tensors that are ready to be reduced. Record them in the
+  // tensor count table (rank zero) or send them to rank zero to be
+  // recorded (everyone else).
+  std::vector<std::string> ready_to_reduce;
+  if (is_coordinator) {
+    while (!message_queue.empty()) {
+      // Pop the first available message message
+      MPIRequest message = message_queue.front();
+      message_queue.pop();
+
+      bool reduce =
+          IncrementTensorCount(state.message_table, message, state.size);
+      if (reduce) {
+        ready_to_reduce.push_back(message.tensor_name());
+      }
+    }
+
+    // Rank zero has put all its own tensors in the tensor count table.
+    // Now, it should count all the tensors that are coming from other
+    // ranks at this tick.
+
+    // 1. Get message lengths from every rank.
+    auto recvcounts = new int[state.size];
+    recvcounts[0] = 0;
+    MPI_Gather(MPI_IN_PLACE, 1, MPI_INT, recvcounts, 1, MPI_INT, RANK_ZERO,
+               state.mpi_comm);
+
+    // 2. Compute displacements.
+    auto displcmnts = new int[state.size];
+    size_t total_size = 0;
+    for (int i = 0; i < state.size; i++) {
+      if (i == 0) {
+        displcmnts[i] = 0;
+      } else {
+        displcmnts[i] = recvcounts[i - 1] + displcmnts[i - 1];
+      }
+      total_size += recvcounts[i];
+    }
+
+    // 3. Collect messages from every rank.
+    auto buffer = new char[total_size];
+    MPI_Gatherv(nullptr, 0, MPI_BYTE, buffer, recvcounts, displcmnts, MPI_BYTE,
+                RANK_ZERO, state.mpi_comm);
+
+    // 4. Process messages.
+    for (int i = 1; i < state.size; i++) {
+      std::string received_data(buffer + displcmnts[i], (size_t)recvcounts[i]);
+
+      MPIRequestList received_message_list;
+      MPIRequestList::ParseFromString(received_message_list, received_data);
+      for (auto& received_message : received_message_list.requests()) {
+        auto& received_name = received_message.tensor_name();
+
+        bool reduce = IncrementTensorCount(state.message_table,
+                                           received_message, state.size);
+        if (reduce) {
+          ready_to_reduce.push_back(received_name);
+        }
+      }
+      if (received_message_list.shutdown()) {
+        // Received SHUTDOWN request from one of the workers.
+        state.shut_down = true;
+      }
+    }
+
+    // 5. Free buffers.
+    delete[] recvcounts;
+    delete[] displcmnts;
+    delete[] buffer;
+
+    // At this point, rank zero should have a fully updated tensor count
+    // table and should know all the tensors that need to be reduced or
+    // gathered, and everyone else should have sent all their information
+    // to rank zero. We can now do reductions and gathers; rank zero will
+    // choose which ones and in what order, and will notify the other ranks
+    // before doing each reduction.
+    std::deque<MPIResponse> responses;
+    for (auto& tensor_name : ready_to_reduce) {
+      MPIResponse response =
+          ConstructMPIResponse(state.message_table, tensor_name);
+      responses.push_back(std::move(response));
+    }
+
+    MPIResponseList response_list;
+    response_list.set_shutdown(state.shut_down);
+    should_shut_down = state.shut_down;
+
+    while (!responses.empty()) {
+      auto response = responses.front();
+      assert(response.tensor_names().size() == 1);
+      responses.pop_front();
+
+      if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
+        // Attempt to add more responses to this fused response.
+        auto& entry = state.tensor_table[response.tensor_names()[0]];
+        int64_t tensor_size = entry.tensor->size();
+
+        while (!responses.empty()) {
+          auto new_response = responses.front();
+          assert(new_response.tensor_names().size() == 1);
+          auto& new_entry = state.tensor_table[new_response.tensor_names()[0]];
+          int64_t new_tensor_size = new_entry.tensor->size();
+
+          if (response.response_type() == new_response.response_type() &&
+              response.devices() == new_response.devices() &&
+              entry.tensor->dtype() == new_entry.tensor->dtype() &&
+              tensor_size + new_tensor_size <= state.tensor_fusion_threshold) {
+            // These tensors will fuse together well.
+            tensor_size += new_tensor_size;
+            response.add_tensor_names(new_response.tensor_names()[0]);
+            responses.pop_front();
+          } else {
+            // Don't try to fuse additional tensors since they are usually
+            // computed in order of requests and skipping tensors may mean
+            // that the batch will have to wait longer while skipped tensors
+            // could be reduced at that time.
+            break;
+          }
+        }
+      }
+
+      response_list.add_responses(response);
+    }
+
+    // Notify all nodes which tensors we'd like to reduce at this step.
+    std::string encoded_response;
+    MPIResponseList::SerializeToString(response_list, encoded_response);
+    int encoded_response_length = (int)encoded_response.length() + 1;
+    MPI_Bcast(&encoded_response_length, 1, MPI_INT, RANK_ZERO, state.mpi_comm);
+    MPI_Bcast((void*)encoded_response.c_str(), encoded_response_length,
+              MPI_BYTE, RANK_ZERO, state.mpi_comm);
+
+    // Perform the collective operation. All nodes should end up performing
+    // the same operation.
+    for (auto& response : response_list.responses()) {
+      PerformOperation(state.tensor_table, response);
+    }
+
+    // Check for stalled tensors.
+    if (std::chrono::steady_clock::now() - state.last_stall_check >
+        STALL_WARNING_TIME) {
+      CheckForStalledTensors(state);
+      state.last_stall_check = std::chrono::steady_clock::now();
+    }
+  } else {
+    std::string encoded_message;
+    MPIRequestList message_list;
+    message_list.set_shutdown(state.shut_down);
+    while (!message_queue.empty()) {
+      message_list.add_requests(message_queue.front());
+      message_queue.pop();
+    }
+    MPIRequestList::SerializeToString(message_list, encoded_message);
+    int encoded_message_length = (int)encoded_message.length() + 1;
+    MPI_Gather(&encoded_message_length, 1, MPI_INT, nullptr, 1, MPI_INT,
+               RANK_ZERO, state.mpi_comm);
+    MPI_Gatherv((void*)encoded_message.c_str(), encoded_message_length,
+                MPI_BYTE, nullptr, nullptr, nullptr, MPI_BYTE, RANK_ZERO,
+                state.mpi_comm);
+
+    int msg_length;
+    MPI_Bcast(&msg_length, 1, MPI_INT, RANK_ZERO, state.mpi_comm);
+    auto buffer = new char[msg_length];
+    MPI_Bcast(buffer, msg_length, MPI_BYTE, RANK_ZERO, state.mpi_comm);
+    std::string received_message(buffer, (size_t)msg_length);
+    MPIResponseList response_list;
+    MPIResponseList::ParseFromString(response_list, received_message);
+    delete[] buffer;
+
+    // Perform the collective operation. All nodes should end up performing
+    // the same operation.
+    for (auto& response : response_list.responses()) {
+      PerformOperation(state.tensor_table, response);
+    }
+
+    if (response_list.shutdown()) {
+      should_shut_down = true;
+    }
   }
 
-  MPI_Comm_free(&horovod_global.mpi_comm);
-
-  MPI_Finalize();
+  return !should_shut_down;
 }
 
 // Start Horovod background thread. Ensure that this is
