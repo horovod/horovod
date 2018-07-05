@@ -140,6 +140,24 @@ struct HorovodGlobalState {
   // threshold will be fused.
   int64_t tensor_fusion_threshold = 64 * 1024 * 1024;
 
+  // Whether to use Deep Gradient Compression (DGC).
+  bool use_dgc = false;
+
+  // The number of warmup epoches for DGC.
+  // DGC communication will use a gradient sparsity, which starts from
+  // init_sparsity in the first epoch, and exponentially increases to
+  // final_sparsity after warmup epoches.
+  int warmup_epoches = 5;
+
+  // Initial gradient sparsity for DGC.
+  double init_sparsity = 0.75;
+
+  // Final gradient sparsity for DGC, after the warmup epoches.
+  double final_sparsity = 0.999;
+
+  // Sampling rate for top-k selection in DGC
+  double sampling_rate = 0.01;
+
   // Background thread cycle time in milliseconds.  Fractional numbers are
   // permitted.
   double cycle_time = 5;
