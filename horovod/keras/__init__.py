@@ -15,8 +15,6 @@
 import keras
 import keras.backend as K
 import tensorflow as tf
-from keras.optimizers import (SGD, RMSprop, Adagrad, Adadelta, Adam, Adamax,
-                              Nadam, TFOptimizer)
 
 import horovod.tensorflow as hvd
 from horovod.common import init
@@ -162,7 +160,7 @@ def load_model(filepath, custom_optimizers=None, custom_objects=None,
     `custom_objects`.
 
     # Arguments
-        filepath: one of the following:
+        filepath: One of the following:
             - string, path to the saved model, or
             - h5py.File object from which to load the model
         custom_optimizers: Optional list of Optimizer subclasses to support
@@ -175,7 +173,7 @@ def load_model(filepath, custom_optimizers=None, custom_objects=None,
         A Keras model instance.
 
     # Raises
-        ImportError: if h5py is not available.
+        ImportError: If h5py is not available.
         ValueError: In case of an invalid savefile.
     """
     def wrap_optimizer(cls):
