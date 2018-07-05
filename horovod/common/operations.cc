@@ -874,6 +874,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       // allreduce, and distribute results of allreduce back into target
       // tensors after allreduce.
 
+      const void* fused_input_data;
       void* buffer_data;
       int64_t num_elements = 0;
       size_t buffer_len;
@@ -899,11 +900,15 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           RECORD_EVENT(entries, event_queue, MEMCPY_IN_FUSION_BUFFER, stream)
         }
 
+        // Set the input data to originate from the buffer.
+        fused_input_data = const_cast<const void*>(buffer_data);
+
         // Perform the reduction on the fusion buffer.
         for (auto& e : entries) {
           num_elements += e.tensor->shape().num_elements();
         }
       } else {
+        fused_input_data = first_entry.tensor->data();
         buffer_data = (void*)first_entry.output->data();
         num_elements = first_entry.tensor->shape().num_elements();
         buffer_len = (size_t)first_entry.output->size();
@@ -912,7 +917,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       void* host_buffer = nullptr;
       if (horovod_global.hierarchical_allreduce) {
         NCCL_CHECK(entries, "ncclReduce",
-                   ncclReduce(buffer_data, buffer_data, (size_t)num_elements,
+                   ncclReduce(fused_input_data, buffer_data,
+                              (size_t)num_elements,
                               GetNCCLDataType(first_entry.tensor), ncclSum, 0,
                               nccl_comm, stream))
         if (timeline.Initialized()) {
@@ -957,7 +963,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         }
       } else {
         NCCL_CHECK(entries, "ncclAllReduce",
-                   ncclAllReduce(buffer_data, buffer_data, (size_t)num_elements,
+                   ncclAllReduce(fused_input_data, buffer_data,
+                                 (size_t)num_elements,
                                  GetNCCLDataType(first_entry.tensor), ncclSum,
                                  nccl_comm, stream))
       }
