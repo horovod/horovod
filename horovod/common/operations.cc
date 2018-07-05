@@ -871,6 +871,96 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         for (auto it = entries.begin(); it != entries.end(); it++) {
           num_elements += it->tensor->shape().num_elements();
         }
+
+        if (use_dgc) {
+          // Deep gradient compression routines
+          int64_t num_samples = 0;
+          if (sampling_rate < 1)
+          {
+            dgc_rand_init_kernel
+              <<<dgc_grid_size, dgc_block_size, 0, stream>>>(
+              dgc_rand_status);
+
+            // Init counter
+            dgc_assign_kernel
+              <<<1, 1, 0, stream>>>(
+              sample_counter, 1, (int64_t)0);
+
+            num_samples = num_elements * sampling_rate;
+            // Sampling
+            dgc_sample_kernel
+              <<<dgc_grid_size, dgc_block_size, 0, stream>>>(
+              buffer_data, num_elements,
+              sampled_data, num_samples,
+              dgc_rand_status);
+
+          } else {
+            num_samples = num_elements;
+            CUDA_CHECK(entries, "cudaMemcpyAsync",
+              cudaMemcpyAsync(sampled_data, buffer_data,
+                sizeof() * num_elements, cudaMemcpyDeviceToDevice, stream));
+          }
+
+          // Sort the samples
+          // TODO: write a cub warpper
+          CUDA_CHECK(entries, "cub::DeviceRadixSort::SortKeys",
+            cub::DeviceRadixSort::SortKeys(
+              dgc_temp_storage, dgc_temp_storage_bytes,
+              sampled_data, sampled_data,
+              num_samples, 0, sizeof(T) * 8, stream));
+
+          // Determine the threshold
+          double sparsity = 0; // TODO: calculate the sparsity value
+          int64_t target_num = num_elements * (1 - sparsity);
+          dgc_threshold_kernel
+            <<<1, 1, 0, stream>>>(
+            sampled_data, num_samples,
+            sparsity, gradient_threshold);
+
+          // Pick those larger than threshold
+          dgc_assign_kernel
+            <<<1, 1, 0, stream>>>(
+            num_selected, 1, (int64_t)0);
+          // select at most target_num elements
+          dgc_select_kernel
+            <<<dgc_grid_size, dgc_block_size, 0, stream>>>
+            (buffer_data, num_elements, gradient_threshold, target_num,
+            selected_data, selected_indices, num_selected);
+          // pad if num_slected < target_num
+          dgc_pad_kernel
+            <<<dgc_grid_size, dgc_block_size, 0, stream>>>
+            (selected_data, selected_indices, target_num, num_selected);
+
+          // Reallocate if not enough
+          global_num_selected = target_num * horovod_global.size();
+          auto temp_num_allocated = dgc_global_num_allocated;
+          CUDA_CHECK(entries, "dgc_garentee_allocation",
+            dgc_garentee_allocation(
+              global_selected_data, temp_num_allocated,
+              global_num_selected));
+          CUDA_CHECK(entries, "dgc_garentee_allocation",
+            dgc_garentee_allocation(
+              global_selected_indices, dgc_global_num_allocated,
+              global_num_selected));
+
+          // Collect selected data & indices from all peers
+          NCCL_CHECK(entries, "ncclAllGather",
+            ncclAllGather(selected_data, (void*)global_selected_data,
+              (size_t)target_num, GetNCCLDataType(first_entry.tensor),
+              nccl_comm, stream));
+          NCCL_CHECK(entries, "ncclAllGather",
+            ncclAllGather(selected_indices, (void*)global_selected_indices,
+              (size_t)target_num, GetNCCLDataType(int32_t),
+              nccl_comm, stream));
+
+          dgc_unpack_kernel
+            <<<dgc_grid_size, dgc_block_size, 0, stream>>>
+            (global_selected_data, global_selected_indices,
+            target_num, horovod_global.size(),
+            global_gradients);
+
+        } // end of if (use_dgc)
+
         NCCL_CHECK(entries, "ncclAllReduce",
                    ncclAllReduce(buffer_data, (void*)buffer_data,
                                  (size_t)num_elements,
@@ -904,7 +994,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         if (timeline.Initialized()) {
           RECORD_EVENT(entries, after_reduce_event, stream)
         }
-      }
+      } // end of if (entries.size() > 1)
 
       ACTIVITY_END_ALL(entries, timeline)
       ACTIVITY_START_ALL(entries, timeline, "QUEUE")
