@@ -28,6 +28,9 @@ from horovod.tensorflow.compression import Compression
 from horovod.tensorflow.functions import broadcast_object, broadcast_object_fn, broadcast_variables
 from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce
 from horovod.tensorflow.mpi_ops import init, shutdown
+from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank
+from horovod.tensorflow.mpi_ops import rank_op, local_rank_op, size_op, local_size_op
+from horovod.tensorflow.mpi_ops import mpi_threads_supported
 from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank, is_homogeneous
 from horovod.tensorflow.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.tensorflow.mpi_ops import gloo_enabled, gloo_built
@@ -39,7 +42,7 @@ from horovod.tensorflow.mpi_ops import join
 
 import tensorflow as tf
 
-# @DEKHTIARJonathan: Do not remove, this fixes issues: 
+# @DEKHTIARJonathan: Do not remove, this fixes issues:
 # - https://github.com/tensorflow/tensorflow/issues/38516
 # - https://github.com/tensorflow/tensorflow/issues/39894
 if tf.__version__.startswith('2.2.'):
@@ -89,7 +92,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                                       'workaround please pass sparse_as_dense=True to DistributedOptimizer')
         with tf.device(device_sparse):
             # For IndexedSlices, do two allgathers instead of an allreduce.
-            horovod_size = tf.cast(size(), dtype=tensor.values.dtype)
+            horovod_size = tf.cast(size_op(), tensor.values.dtype)
             values = allgather(tensor.values)
             indices = allgather(tensor.indices)
 
@@ -100,7 +103,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                                 dense_shape=tensor.dense_shape)
     else:
         with tf.device(device_dense):
-            horovod_size = tf.cast(size(), dtype=tensor.dtype)
+            horovod_size = tf.cast(size_op(), dtype=tensor.dtype)
             tensor_compressed, ctx = compression.compress(tensor)
             summed_tensor_compressed = _allreduce(tensor_compressed, op=true_op)
             summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
@@ -314,15 +317,15 @@ if _LegacyOptimizer is not None:
                 initializer=tf.zeros_initializer)
             self._is_first_step = tf.cast(tf.math.equal(self._step_count, 0), dtype=tf.bool)
             self._is_comm_step  = tf.cast(tf.math.equal(self._step_count % self._backward_passes_per_step, self._backward_passes_per_step - 1), dtype=tf.bool)
-        
+
         def _apply_shared(self, var, get_update_op):
             start_slot = self._get_or_make_slot(var, "delta_start")
 
             # initialize start on the first step
-            assign_op = tf.cond(self._is_first_step, 
-                lambda: start_slot.assign(var, use_locking=self.use_locking).op, 
+            assign_op = tf.cond(self._is_first_step,
+                lambda: start_slot.assign(var, use_locking=self.use_locking).op,
                 tf.no_op)
-            
+
             with tf.control_dependencies([assign_op]):
                 update_op = get_update_op()
                 with tf.control_dependencies([update_op]):
@@ -339,7 +342,7 @@ if _LegacyOptimizer is not None:
                         new_start = start_slot.assign_add(global_delta, use_locking=self.use_locking)
                         # var = start
                         return var.assign(new_start, use_locking=self.use_locking).op
-                    
+
                     # if its a communication step, then apply logic above
                     # if its not a communication step then just have the underlying
                     # optimizer update the model parameters according to its logic
