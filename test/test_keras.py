@@ -44,7 +44,7 @@ class KerasTests(unittest.TestCase):
         opt = keras.optimizers.RMSprop(lr=0.0001)
         opt = hvd.DistributedOptimizer(opt)
 
-        model = keras.Sequential()
+        model = keras.models.Sequential()
         model.add(keras.layers.Dense(2, input_shape=(3,)))
         model.add(keras.layers.RepeatVector(3))
         model.add(keras.layers.TimeDistributed(keras.layers.Dense(3)))
@@ -58,7 +58,7 @@ class KerasTests(unittest.TestCase):
         model.train_on_batch(x, y)
 
         _, fname = tempfile.mkstemp('.h5')
-        model.save(fname, include_optimizer=True)
+        model.save(fname)
 
         new_model = hvd.load_model(fname)
         new_opt = new_model.optimizer

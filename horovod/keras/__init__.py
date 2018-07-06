@@ -146,8 +146,7 @@ def broadcast(value, root_rank, name=None):
     return K.get_session().run(bcast_op)
 
 
-def load_model(filepath, custom_optimizers=None, custom_objects=None,
-               compile=True):
+def load_model(filepath, custom_optimizers=None, custom_objects=None):
     """
     Loads a saved Keras model with a Horovod DistributedOptimizer.
 
@@ -167,7 +166,6 @@ def load_model(filepath, custom_optimizers=None, custom_objects=None,
             during loading.
         custom_objects: Optional dictionary mapping names (strings) to custom
             classes or functions to be considered during deserialization.
-        compile: Boolean, whether to compile the model after loading.
 
     # Returns
         A Keras model instance.
@@ -194,5 +192,4 @@ def load_model(filepath, custom_optimizers=None, custom_objects=None,
     if custom_objects is not None:
         horovod_objects.update(custom_objects)
 
-    return keras.models.load_model(filepath, custom_objects=horovod_objects,
-                                   compile=compile)
+    return keras.models.load_model(filepath, custom_objects=horovod_objects)
