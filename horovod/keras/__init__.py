@@ -185,7 +185,7 @@ def load_model(filepath, custom_optimizers=None, custom_objects=None):
 
     if custom_optimizers is not None:
         horovod_objects.update({
-            cls.__name__.lower(): wrap_optimizer(cls)
+            cls.__name__: wrap_optimizer(cls)
             for cls in custom_optimizers
         })
 

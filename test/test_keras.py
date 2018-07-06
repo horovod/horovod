@@ -71,3 +71,84 @@ class KerasTests(unittest.TestCase):
         for weights, new_weights in zip(opt.get_weights(),
                                         new_opt.get_weights()):
             self.assertListEqual(weights.tolist(), new_weights.tolist())
+
+    def test_load_model_custom_optimizers(self):
+        hvd.init()
+
+        class TestOptimizer(keras.optimizers.RMSprop):
+            def __init__(self, **kwargs):
+                super(TestOptimizer, self).__init__(**kwargs)
+
+        opt = TestOptimizer(lr=0.0001)
+        opt = hvd.DistributedOptimizer(opt)
+
+        model = keras.models.Sequential()
+        model.add(keras.layers.Dense(2, input_shape=(3,)))
+        model.add(keras.layers.RepeatVector(3))
+        model.add(keras.layers.TimeDistributed(keras.layers.Dense(3)))
+        model.compile(loss=keras.losses.MSE,
+                      optimizer=opt,
+                      metrics=[keras.metrics.categorical_accuracy],
+                      sample_weight_mode='temporal')
+
+        x = np.random.random((1, 3))
+        y = np.random.random((1, 3, 3))
+        model.train_on_batch(x, y)
+
+        _, fname = tempfile.mkstemp('.h5')
+        model.save(fname)
+
+        custom_optimizers = [TestOptimizer]
+        new_model = hvd.load_model(fname, custom_optimizers=custom_optimizers)
+        new_opt = new_model.optimizer
+        os.remove(fname)
+
+        self.assertEqual(type(new_opt).__module__, 'horovod.keras')
+        self.assertEqual(type(new_opt).__name__, 'TestOptimizer')
+        self.assertEqual(K.get_value(opt.lr), K.get_value(new_opt.lr))
+        self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))
+        for weights, new_weights in zip(opt.get_weights(),
+                                        new_opt.get_weights()):
+            self.assertListEqual(weights.tolist(), new_weights.tolist())
+
+    def test_load_model_custom_objects(self):
+        hvd.init()
+
+        class TestOptimizer(keras.optimizers.RMSprop):
+            def __init__(self, **kwargs):
+                super(TestOptimizer, self).__init__(**kwargs)
+
+        opt = TestOptimizer(lr=0.0001)
+        opt = hvd.DistributedOptimizer(opt)
+
+        model = keras.models.Sequential()
+        model.add(keras.layers.Dense(2, input_shape=(3,)))
+        model.add(keras.layers.RepeatVector(3))
+        model.add(keras.layers.TimeDistributed(keras.layers.Dense(3)))
+        model.compile(loss=keras.losses.MSE,
+                      optimizer=opt,
+                      metrics=[keras.metrics.categorical_accuracy],
+                      sample_weight_mode='temporal')
+
+        x = np.random.random((1, 3))
+        y = np.random.random((1, 3, 3))
+        model.train_on_batch(x, y)
+
+        _, fname = tempfile.mkstemp('.h5')
+        model.save(fname)
+
+        custom_objects = {
+            'TestOptimizer': lambda **kwargs: hvd.DistributedOptimizer(
+                TestOptimizer(**kwargs))
+        }
+        new_model = hvd.load_model(fname, custom_objects=custom_objects)
+        new_opt = new_model.optimizer
+        os.remove(fname)
+
+        self.assertEqual(type(new_opt).__module__, 'horovod.keras')
+        self.assertEqual(type(new_opt).__name__, 'TestOptimizer')
+        self.assertEqual(K.get_value(opt.lr), K.get_value(new_opt.lr))
+        self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))
+        for weights, new_weights in zip(opt.get_weights(),
+                                        new_opt.get_weights()):
+            self.assertListEqual(weights.tolist(), new_weights.tolist())
