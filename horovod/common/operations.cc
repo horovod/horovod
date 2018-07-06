@@ -877,18 +877,18 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           int64_t num_samples = 0;
           if (sampling_rate < 1)
           {
-            dgc_rand_init_kernel
+            dgc::rand_init_kernel
               <<<dgc_grid_size, dgc_block_size, 0, stream>>>(
-              dgc_rand_status);
+              dgc_rand_seed, dgc_rand_states);
 
             // Init counter
-            dgc_assign_kernel
+            dgc::assign_kernel
               <<<1, 1, 0, stream>>>(
               sample_counter, 1, (int64_t)0);
 
             num_samples = num_elements * sampling_rate;
             // Sampling
-            dgc_sample_kernel
+            dgc::sample_kernel
               <<<dgc_grid_size, dgc_block_size, 0, stream>>>(
               buffer_data, num_elements,
               sampled_data, num_samples,
@@ -902,32 +902,28 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           }
 
           // Sort the samples
-          // TODO: write a cub warpper
-          CUDA_CHECK(entries, "cub::DeviceRadixSort::SortKeys",
-            cub::DeviceRadixSort::SortKeys(
-              dgc_temp_storage, dgc_temp_storage_bytes,
-              sampled_data, sampled_data,
-              num_samples, 0, sizeof(T) * 8, stream));
+          CUDA_CHECK(entries, "dgc::Sort",
+            dgc::Sort(sampled_data, num_samples));
 
           // Determine the threshold
           double sparsity = 0; // TODO: calculate the sparsity value
           int64_t target_num = num_elements * (1 - sparsity);
-          dgc_threshold_kernel
+          dgc::threshold_kernel
             <<<1, 1, 0, stream>>>(
             sampled_data, num_samples,
-            sparsity, gradient_threshold);
+            (1 - sparsity), gradient_threshold);
 
           // Pick those larger than threshold
-          dgc_assign_kernel
+          dgc::assign_kernel
             <<<1, 1, 0, stream>>>(
             num_selected, 1, (int64_t)0);
           // select at most target_num elements
-          dgc_select_kernel
+          dgc::select_kernel
             <<<dgc_grid_size, dgc_block_size, 0, stream>>>
             (buffer_data, num_elements, gradient_threshold, target_num,
             selected_data, selected_indices, num_selected);
           // pad if num_slected < target_num
-          dgc_pad_kernel
+          dgc::pad_kernel
             <<<dgc_grid_size, dgc_block_size, 0, stream>>>
             (selected_data, selected_indices, target_num, num_selected);
 
@@ -935,11 +931,11 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           global_num_selected = target_num * horovod_global.size();
           auto temp_num_allocated = dgc_global_num_allocated;
           CUDA_CHECK(entries, "dgc_garentee_allocation",
-            dgc_garentee_allocation(
+            dgc::garentee_allocation(
               global_selected_data, temp_num_allocated,
               global_num_selected));
           CUDA_CHECK(entries, "dgc_garentee_allocation",
-            dgc_garentee_allocation(
+            dgc::garentee_allocation(
               global_selected_indices, dgc_global_num_allocated,
               global_num_selected));
 
@@ -953,10 +949,11 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
               (size_t)target_num, GetNCCLDataType(int32_t),
               nccl_comm, stream));
 
-          dgc_unpack_kernel
+          // TODO: init global_gradient for accumulation
+          dgc::unpack_kernel
             <<<dgc_grid_size, dgc_block_size, 0, stream>>>
             (global_selected_data, global_selected_indices,
-            target_num, horovod_global.size(),
+            target_num * horovod_global.size(),
             global_gradients);
 
         } // end of if (use_dgc)
