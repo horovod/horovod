@@ -63,6 +63,62 @@ void sample_kernel(
     }
   }
 
+template <typename HorovodStateT, typename SizeT>
+cudaError_t Sample(
+  ncclDataType_t nccl_type,
+  HorovodStateT &horovod_global,
+  void *buffer_data,
+  SizeT num_elements,
+  void *sample_data,
+  SizeT num_samples,
+  curandState *rand_states,
+  cudaStream_t stream)
+{
+  cudaError_t retval = cudaSuccess;
+  auto grid_size = horovod_global.grid_size;
+  auto bock_size = horovod_global.block_size;
+
+  switch (nccl_type)
+  {
+  case ncclFloat32:
+    sample_kernel <float>
+      <<<grid_size, block_size, 0, stream>>>(
+        (float*)buffer_data, num_elements,
+        (float*)sample_data, num_samples,
+        rand_states);
+    break;
+
+  case ncclFloat64:
+    sample_kernel <double>
+      <<<grid_size, block_size, 0, stream>>>(
+        (double*)buffer_data, num_elements,
+        (double*)sample_data, num_samples,
+        rand_states);
+    break;
+
+  case ncclInit32:
+    sample_kernel <int32_t>
+      <<<grid_size, block_size, 0, stream>>>(
+        (int32_t*)buffer_data, num_elements,
+        (int32_t*)sample_data, num_samples,
+        rand_states);
+    break;
+
+  case ncclInt64:
+    sample_kernel <int64_t>
+      <<<grid_size, block_size, 0, stream>>>(
+      (int64_t*)buffer_data, num_elements,
+      (int64_t*)sample_data, num_samples,
+      rand_states);
+    break;
+
+  default:
+    // Unsupported data type
+  }
+
+  return retval;
+}
+
 template <typename T>
 __global__
 void threshold_kernel(
@@ -327,6 +383,13 @@ cudaError_t Sort(
   return Sort(elements, num_elements,
     __host__ __device__ [](T a, T b){ return a < b;},
     malloc_type);
+}
+
+template <typename SizeT, typename Compare>
+cudaError_t Sort(
+)
+{
+
 }
 
 } // end of namespace dgc

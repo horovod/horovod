@@ -29,6 +29,7 @@
 
 #if HAVE_NCCL
 #include <nccl.h>
+#include "dgc.cc"
 #endif
 
 #define OMPI_SKIP_MPICXX
@@ -157,6 +158,26 @@ struct HorovodGlobalState {
 
   // Sampling rate for top-k selection in DGC
   double sampling_rate = 0.01;
+
+  // dgc rand seed
+  unsigned int rand_seed = 2800;
+
+  // dgc grid and block sizes
+  int grid_size = 4;
+  int block_size = 256;
+
+  // DGC storages
+#if HOROVOID_GPU_ALLREDUCE == 'N'
+  // States for curand, one for each GPU thread
+  curandState *dgc_rand_states = NULL;
+
+  // Sample counter
+  int64_t *dgc_sample_counter = NULL;
+
+  // Sample data, raw data in chars; need to convert type before using
+  char *dgc_sample_data = NULL;
+  size_t dgc_sample_allocated = 0;
+#endif
 
   // Background thread cycle time in milliseconds.  Fractional numbers are
   // permitted.
@@ -872,38 +893,65 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           num_elements += it->tensor->shape().num_elements();
         }
 
-        if (use_dgc) {
+        if (horovod_global.use_dgc) {
           // Deep gradient compression routines
           int64_t num_samples = 0;
-          if (sampling_rate < 1)
+          size_t element_size = first_entry.output->size()
+            / first_entry.tensor->shape().num_elements();
+
+          auto & grid_size = horovod_global.grid_size;
+          auto &block_size = horovod_global.block_size;
+
+          if (horovod_global.sampling_rate < 1)
           {
-            dgc::rand_init_kernel
-              <<<dgc_grid_size, dgc_block_size, 0, stream>>>(
-              dgc_rand_seed, dgc_rand_states);
+            auto &rand_states = horovod_global.dgc_rand_states;
+            if (rand_states == NULL)
+            {
+              CUDA_CHECK(entries, "Malloc",
+                dgc::Malloc(rand_states, grid_size * block_size));
+
+              dgc::rand_init_kernel
+                <<<grid_size, block_size, 0, stream>>>(
+                horovod_global.rand_seed, rand_states);
+            }
 
             // Init counter
+            auto &sample_counter = horovod_global.dgc_sample_counter;
+            if (sample_counter == NULL)
+            {
+              CUDA_CHECK(entries, "Malloc",
+                dgc::Malloc(sample_counter, 1));
+            }
             dgc::assign_kernel
               <<<1, 1, 0, stream>>>(
               sample_counter, 1, (int64_t)0);
 
-            num_samples = num_elements * sampling_rate;
+            num_samples = num_elements * horovod_global.sampling_rate;
+            auto &sample_data = horovod_global.dgc_sample_data;
+            auto &sample_allocated = horovod_global.dgc_sample_allocated;
+
+            CUDA_CHECK(entries, "GarenteeAllocation",
+              dgc::GarenteeAllocation(sample_data, sample_allocated,
+                num_samples * element_size));
+
             // Sampling
-            dgc::sample_kernel
-              <<<dgc_grid_size, dgc_block_size, 0, stream>>>(
-              buffer_data, num_elements,
-              sampled_data, num_samples,
-              dgc_rand_status);
+            CUDA_CHECK(entries, "Sample",
+              dgc::Sample(
+                GetNCCLDataType(first_entry.tensor), horovod_global,
+                buffer_data, num_elements,
+                sample_data, num_samples,
+                rand_states, stream));
 
           } else {
             num_samples = num_elements;
             CUDA_CHECK(entries, "cudaMemcpyAsync",
-              cudaMemcpyAsync(sampled_data, buffer_data,
-                sizeof() * num_elements, cudaMemcpyDeviceToDevice, stream));
+              cudaMemcpyAsync(sample_data, buffer_data,
+                element_size * num_samples, cudaMemcpyDeviceToDevice, stream));
           }
 
           // Sort the samples
           CUDA_CHECK(entries, "dgc::Sort",
-            dgc::Sort(sampled_data, num_samples));
+            dgc::Sort(sample_data, num_samples));
 
           // Determine the threshold
           double sparsity = 0; // TODO: calculate the sparsity value
@@ -919,7 +967,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
             num_selected, 1, (int64_t)0);
           // select at most target_num elements
           dgc::select_kernel
-            <<<dgc_grid_size, dgc_block_size, 0, stream>>>
+            <<<grid_size, block_size, 0, stream>>>
             (buffer_data, num_elements, gradient_threshold, target_num,
             selected_data, selected_indices, num_selected);
           // pad if num_slected < target_num
