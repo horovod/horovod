@@ -21,6 +21,7 @@ from __future__ import print_function
 
 import keras
 from keras import backend as K
+from keras.utils.test_utils import keras_test
 
 import numpy as np
 import os
@@ -31,7 +32,7 @@ import tensorflow as tf
 import horovod.keras as hvd
 
 
-class KerasTests(unittest.TestCase):
+class KerasTests(tf.test.TestCase):
     """
     Tests for ops in horovod.keras.
     """
@@ -39,126 +40,135 @@ class KerasTests(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(KerasTests, self).__init__(*args, **kwargs)
 
+    @keras_test
     def test_load_model(self):
-        K.clear_session()
         hvd.init()
 
-        opt = keras.optimizers.RMSprop(lr=0.0001)
-        opt = hvd.DistributedOptimizer(opt)
+        with self.test_session() as sess:
+            K.set_session(sess)
 
-        model = keras.models.Sequential()
-        model.add(keras.layers.Dense(2, input_shape=(3,)))
-        model.add(keras.layers.RepeatVector(3))
-        model.add(keras.layers.TimeDistributed(keras.layers.Dense(3)))
-        model.compile(loss=keras.losses.MSE,
-                      optimizer=opt,
-                      metrics=[keras.metrics.categorical_accuracy],
-                      sample_weight_mode='temporal')
+            opt = keras.optimizers.RMSprop(lr=0.0001)
+            opt = hvd.DistributedOptimizer(opt)
 
-        x = np.random.random((1, 3))
-        y = np.random.random((1, 3, 3))
-        model.train_on_batch(x, y)
+            model = keras.models.Sequential()
+            model.add(keras.layers.Dense(2, input_shape=(3,)))
+            model.add(keras.layers.RepeatVector(3))
+            model.add(keras.layers.TimeDistributed(keras.layers.Dense(3)))
+            model.compile(loss=keras.losses.MSE,
+                          optimizer=opt,
+                          metrics=[keras.metrics.categorical_accuracy],
+                          sample_weight_mode='temporal')
 
-        _, fname = tempfile.mkstemp('.h5')
-        model.save(fname)
+            x = np.random.random((1, 3))
+            y = np.random.random((1, 3, 3))
+            model.train_on_batch(x, y)
 
-        new_model = hvd.load_model(fname)
-        new_opt = new_model.optimizer
-        os.remove(fname)
+            _, fname = tempfile.mkstemp('.h5')
+            model.save(fname)
 
-        self.assertEqual(type(new_opt).__module__, 'horovod.keras')
-        self.assertEqual(type(new_opt).__name__, 'RMSprop')
-        self.assertEqual(K.get_value(opt.lr), K.get_value(new_opt.lr))
-        self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))
-        for weights, new_weights in zip(opt.get_weights(),
-                                        new_opt.get_weights()):
-            self.assertListEqual(weights.tolist(), new_weights.tolist())
+            new_model = hvd.load_model(fname)
+            new_opt = new_model.optimizer
+            os.remove(fname)
 
+            self.assertEqual(type(new_opt).__module__, 'horovod.keras')
+            self.assertEqual(type(new_opt).__name__, 'RMSprop')
+            self.assertEqual(K.get_value(opt.lr), K.get_value(new_opt.lr))
+            self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))
+            for weights, new_weights in zip(opt.get_weights(),
+                                            new_opt.get_weights()):
+                self.assertListEqual(weights.tolist(), new_weights.tolist())
+
+    @keras_test
     def test_load_model_custom_optimizers(self):
-        K.clear_session()
         hvd.init()
 
         class TestOptimizer(keras.optimizers.RMSprop):
             def __init__(self, **kwargs):
                 super(TestOptimizer, self).__init__(**kwargs)
 
-        opt = TestOptimizer(lr=0.0001)
-        opt = hvd.DistributedOptimizer(opt)
+        with self.test_session() as sess:
+            K.set_session(sess)
 
-        model = keras.models.Sequential()
-        model.add(keras.layers.Dense(2, input_shape=(3,)))
-        model.add(keras.layers.RepeatVector(3))
-        model.add(keras.layers.TimeDistributed(keras.layers.Dense(3)))
-        model.compile(loss=keras.losses.MSE,
-                      optimizer=opt,
-                      metrics=[keras.metrics.categorical_accuracy],
-                      sample_weight_mode='temporal')
+            opt = TestOptimizer(lr=0.0001)
+            opt = hvd.DistributedOptimizer(opt)
 
-        x = np.random.random((1, 3))
-        y = np.random.random((1, 3, 3))
-        model.train_on_batch(x, y)
+            model = keras.models.Sequential()
+            model.add(keras.layers.Dense(2, input_shape=(3,)))
+            model.add(keras.layers.RepeatVector(3))
+            model.add(keras.layers.TimeDistributed(keras.layers.Dense(3)))
+            model.compile(loss=keras.losses.MSE,
+                          optimizer=opt,
+                          metrics=[keras.metrics.categorical_accuracy],
+                          sample_weight_mode='temporal')
 
-        _, fname = tempfile.mkstemp('.h5')
-        model.save(fname)
+            x = np.random.random((1, 3))
+            y = np.random.random((1, 3, 3))
+            model.train_on_batch(x, y)
 
-        custom_optimizers = [TestOptimizer]
-        new_model = hvd.load_model(fname, custom_optimizers=custom_optimizers)
-        new_opt = new_model.optimizer
-        os.remove(fname)
+            _, fname = tempfile.mkstemp('.h5')
+            model.save(fname)
 
-        self.assertEqual(type(new_opt).__module__, 'horovod.keras')
-        self.assertEqual(type(new_opt).__name__, 'TestOptimizer')
-        self.assertEqual(K.get_value(opt.lr), K.get_value(new_opt.lr))
-        self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))
-        for weights, new_weights in zip(opt.get_weights(),
-                                        new_opt.get_weights()):
-            self.assertListEqual(weights.tolist(), new_weights.tolist())
+            custom_optimizers = [TestOptimizer]
+            new_model = hvd.load_model(fname, custom_optimizers=custom_optimizers)
+            new_opt = new_model.optimizer
+            os.remove(fname)
 
+            self.assertEqual(type(new_opt).__module__, 'horovod.keras')
+            self.assertEqual(type(new_opt).__name__, 'TestOptimizer')
+            self.assertEqual(K.get_value(opt.lr), K.get_value(new_opt.lr))
+            self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))
+            for weights, new_weights in zip(opt.get_weights(),
+                                            new_opt.get_weights()):
+                self.assertListEqual(weights.tolist(), new_weights.tolist())
+
+    @keras_test
     def test_load_model_custom_objects(self):
-        K.clear_session()
         hvd.init()
 
         class TestOptimizer(keras.optimizers.RMSprop):
             def __init__(self, **kwargs):
                 super(TestOptimizer, self).__init__(**kwargs)
 
-        opt = TestOptimizer(lr=0.0001)
-        opt = hvd.DistributedOptimizer(opt)
+        with self.test_session() as sess:
+            K.set_session(sess)
 
-        model = keras.models.Sequential()
-        model.add(keras.layers.Dense(2, input_shape=(3,)))
-        model.add(keras.layers.RepeatVector(3))
-        model.add(keras.layers.TimeDistributed(keras.layers.Dense(3)))
-        model.compile(loss=keras.losses.MSE,
-                      optimizer=opt,
-                      metrics=[keras.metrics.categorical_accuracy],
-                      sample_weight_mode='temporal')
+            opt = TestOptimizer(lr=0.0001)
+            opt = hvd.DistributedOptimizer(opt)
 
-        x = np.random.random((1, 3))
-        y = np.random.random((1, 3, 3))
-        model.train_on_batch(x, y)
+            model = keras.models.Sequential()
+            model.add(keras.layers.Dense(2, input_shape=(3,)))
+            model.add(keras.layers.RepeatVector(3))
+            model.add(keras.layers.TimeDistributed(keras.layers.Dense(3)))
+            model.compile(loss=keras.losses.MSE,
+                          optimizer=opt,
+                          metrics=[keras.metrics.categorical_accuracy],
+                          sample_weight_mode='temporal')
 
-        _, fname = tempfile.mkstemp('.h5')
-        model.save(fname)
+            x = np.random.random((1, 3))
+            y = np.random.random((1, 3, 3))
+            model.train_on_batch(x, y)
 
-        custom_objects = {
-            'TestOptimizer': lambda **kwargs: hvd.DistributedOptimizer(
-                TestOptimizer(**kwargs))
-        }
-        new_model = hvd.load_model(fname, custom_objects=custom_objects)
-        new_opt = new_model.optimizer
-        os.remove(fname)
+            _, fname = tempfile.mkstemp('.h5')
+            model.save(fname)
 
-        self.assertEqual(type(new_opt).__module__, 'horovod.keras')
-        self.assertEqual(type(new_opt).__name__, 'TestOptimizer')
-        self.assertEqual(K.get_value(opt.lr), K.get_value(new_opt.lr))
-        self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))
-        for weights, new_weights in zip(opt.get_weights(),
-                                        new_opt.get_weights()):
-            self.assertListEqual(weights.tolist(), new_weights.tolist())
+            custom_objects = {
+                'TestOptimizer': lambda **kwargs: hvd.DistributedOptimizer(
+                    TestOptimizer(**kwargs))
+            }
+            new_model = hvd.load_model(fname, custom_objects=custom_objects)
+            new_opt = new_model.optimizer
+            os.remove(fname)
 
+            self.assertEqual(type(new_opt).__module__, 'horovod.keras')
+            self.assertEqual(type(new_opt).__name__, 'TestOptimizer')
+            self.assertEqual(K.get_value(opt.lr), K.get_value(new_opt.lr))
+            self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))
+            for weights, new_weights in zip(opt.get_weights(),
+                                            new_opt.get_weights()):
+                self.assertListEqual(weights.tolist(), new_weights.tolist())
+
+    @keras_test
     def test_load_model_broadcast(self):
-        K.clear_session()
         hvd.init()
 
         def create_model():
@@ -176,34 +186,39 @@ class KerasTests(unittest.TestCase):
 
             return model
 
-        model = create_model()
+        with self.test_session() as sess:
+            K.set_session(sess)
 
-        x = np.random.random((1, 3))
-        y = np.random.random((1, 3, 3))
-        model.train_on_batch(x, y)
-
-        if hvd.rank() == 0:
-            _, fname = tempfile.mkstemp('.h5')
-            model.save(fname)
-
-        K.clear_session()
-
-        if hvd.rank() == 0:
-            model = hvd.load_model(fname)
-            os.remove(fname)
-        else:
             model = create_model()
 
-        def generator():
-            while 1:
-                yield (x, y)
+            x = np.random.random((1, 3))
+            y = np.random.random((1, 3, 3))
+            model.train_on_batch(x, y)
 
-        # No assertions, we just need to verify that it doesn't hang
-        callbacks = [hvd.callbacks.BroadcastGlobalVariablesCallback(0)]
-        model.fit_generator(generator(),
-                            steps_per_epoch=10,
-                            callbacks=callbacks,
-                            epochs=2,
-                            verbose=0,
-                            workers=4,
-                            initial_epoch=1)
+            if hvd.rank() == 0:
+                _, fname = tempfile.mkstemp('.h5')
+                model.save(fname)
+
+        K.clear_session()
+        with self.test_session() as sess:
+            K.set_session(sess)
+
+            if hvd.rank() == 0:
+                model = hvd.load_model(fname)
+                os.remove(fname)
+            else:
+                model = create_model()
+
+            def generator():
+                while 1:
+                    yield (x, y)
+
+            # No assertions, we just need to verify that it doesn't hang
+            callbacks = [hvd.callbacks.BroadcastGlobalVariablesCallback(0)]
+            model.fit_generator(generator(),
+                                steps_per_epoch=10,
+                                callbacks=callbacks,
+                                epochs=2,
+                                verbose=0,
+                                workers=4,
+                                initial_epoch=1)
