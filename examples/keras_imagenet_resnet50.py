@@ -75,7 +75,8 @@ test_iter = test_gen.flow_from_directory(test_dir, batch_size=batch_size,
 model = keras.applications.resnet50.ResNet50(weights=None)
 
 # Restore from a previous checkpoint, if initial_epoch is specified.
-# Horovod: restore on the first worker which will broadcast weights to other workers.
+# Horovod: restore on the first worker which will broadcast both model and optimizer weights
+# to other workers.
 if resume_from_epoch > 0 and hvd.rank() == 0:
     model = hvd.load_model(checkpoint_format.format(epoch=resume_from_epoch))
 else:
