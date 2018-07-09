@@ -40,6 +40,7 @@ class KerasTests(unittest.TestCase):
         super(KerasTests, self).__init__(*args, **kwargs)
 
     def test_load_model(self):
+        K.clear_session()
         hvd.init()
 
         opt = keras.optimizers.RMSprop(lr=0.0001)
@@ -74,6 +75,7 @@ class KerasTests(unittest.TestCase):
             self.assertListEqual(weights.tolist(), new_weights.tolist())
 
     def test_load_model_custom_optimizers(self):
+        K.clear_session()
         hvd.init()
 
         class TestOptimizer(keras.optimizers.RMSprop):
@@ -113,6 +115,7 @@ class KerasTests(unittest.TestCase):
             self.assertListEqual(weights.tolist(), new_weights.tolist())
 
     def test_load_model_custom_objects(self):
+        K.clear_session()
         hvd.init()
 
         class TestOptimizer(keras.optimizers.RMSprop):
@@ -155,6 +158,7 @@ class KerasTests(unittest.TestCase):
             self.assertListEqual(weights.tolist(), new_weights.tolist())
 
     def test_load_model_broadcast(self):
+        K.clear_session()
         hvd.init()
 
         def create_model():
@@ -194,11 +198,12 @@ class KerasTests(unittest.TestCase):
             while 1:
                 yield (x, y)
 
+        # No assertions, we just need to verify that it doesn't hang
         callbacks = [hvd.callbacks.BroadcastGlobalVariablesCallback(0)]
         model.fit_generator(generator(),
                             steps_per_epoch=10,
                             callbacks=callbacks,
                             epochs=2,
-                            verbose=1,
+                            verbose=0,
                             workers=4,
                             initial_epoch=1)
