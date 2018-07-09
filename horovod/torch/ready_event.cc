@@ -14,16 +14,23 @@
 // =============================================================================
 
 #if HAVE_CUDA
-#include <cassert>
 #include <THC/THC.h>
+#include <cassert>
+#include <mutex>
+#include <queue>
+#include <unordered_map>
+#endif
 
 #include "ready_event.h"
 
+#if HAVE_CUDA
 extern THCState* state;
+#endif
 
 namespace horovod {
 namespace torch {
 
+#if HAVE_CUDA
 struct ReadyEventRegistry {
   std::unordered_map<int, std::queue<cudaEvent_t>> cuda_events;
   std::mutex mutex;
@@ -31,8 +38,7 @@ struct ReadyEventRegistry {
 
 static ReadyEventRegistry ready_event_registry;
 
-template <class T>
-TorchReadyEvent<T>::TorchReadyEvent(int device) : device_(device) {
+TorchReadyEvent::TorchReadyEvent(int device) : device_(device) {
   assert(device_ != CPU_DEVICE_ID);
 
   int restoreDevice;
@@ -54,7 +60,7 @@ TorchReadyEvent<T>::TorchReadyEvent(int device) : device_(device) {
   THCudaCheck(cudaSetDevice(restoreDevice));
 }
 
-template <class T> TorchReadyEvent<T>::~TorchReadyEvent() {
+TorchReadyEvent::~TorchReadyEvent() {
   {
     std::lock_guard<std::mutex> guard(ready_event_registry.mutex);
     auto& queue = ready_event_registry.cuda_events[device_];
@@ -62,7 +68,7 @@ template <class T> TorchReadyEvent<T>::~TorchReadyEvent() {
   }
 }
 
-template <class T> bool TorchReadyEvent<T>::Ready() const {
+bool TorchReadyEvent::Ready() const {
   auto status = cudaEventQuery(cuda_event_);
   if (status == cudaErrorNotReady) {
     return false;
@@ -70,15 +76,22 @@ template <class T> bool TorchReadyEvent<T>::Ready() const {
   THCudaCheck(status);
   return true;
 }
+#endif
 
-READY_EVENT_DEFINE_TYPE(THCudaByteTensor)
-READY_EVENT_DEFINE_TYPE(THCudaCharTensor)
-READY_EVENT_DEFINE_TYPE(THCudaShortTensor)
-READY_EVENT_DEFINE_TYPE(THCudaIntTensor)
-READY_EVENT_DEFINE_TYPE(THCudaLongTensor)
-READY_EVENT_DEFINE_TYPE(THCudaTensor)
-READY_EVENT_DEFINE_TYPE(THCudaDoubleTensor)
+// On GPU this event will signal that GPU computations are done and data is
+// ready.
+std::shared_ptr<ReadyEvent> RecordReadyEvent(int device) {
+  if (device == CPU_DEVICE_ID) {
+    return std::shared_ptr<ReadyEvent>();
+  } else {
+#if HAVE_CUDA
+    return std::make_shared<TorchReadyEvent>(device);
+#else
+    throw std::logic_error("Internal error. Requested ReadyEvent "
+                           "with GPU device but not compiled with CUDA.");
+#endif
+  }
+}
 
 } // namespace torch
 } // namespace horovod
-#endif
