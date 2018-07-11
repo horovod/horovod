@@ -18,7 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 import itertools
+import tempfile
 import torch
+import torch.nn.functional as F
 import unittest
 import numpy as np
 
@@ -650,3 +652,55 @@ class TorchTests(unittest.TestCase):
             self.assertLess(err, 0.00000001,
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
+
+    def test_load_model(self):
+        hvd.init()
+
+        N, D_in, H, D_out = 64, 100, 10, 10
+        x = torch.autograd.Variable(torch.randn(N, D_in), requires_grad=True)
+        y = torch.autograd.Variable(torch.randn(N, D_out), requires_grad=True)
+
+        def create_model():
+            model = torch.nn.Sequential(
+                torch.nn.Linear(D_in, H),
+                torch.nn.ReLU(),
+                torch.nn.Linear(H, D_out),
+            )
+
+            optimizer = torch.optim.SGD(model.parameters(),
+                                        lr=1e-4, momentum=0.9)
+
+            return model, optimizer
+
+        model, optimizer = create_model()
+
+        optimizer = hvd.DistributedOptimizer(
+            optimizer, named_parameters=model.named_parameters())
+
+        y_pred = model(x)
+        loss = F.mse_loss(y_pred, y, size_average=False)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        if hvd.rank() == 0:
+            _, fname = tempfile.mkstemp('.h5')
+            state = {
+                'epoch': 1,
+                'state_dict': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+            }
+            torch.save(state, fname)
+
+        model, optimizer = create_model()
+        if hvd.rank() == 0:
+            model, optimizer = hvd.load_model(fname, model, optimizer)
+        else:
+            optimizer = hvd.DistributedOptimizer(
+                optimizer,
+                named_parameters=model.named_parameters(),
+                initialize_state=True)
+
+        # No assertions, we just need to verify that it doesn't hang
+        hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+        hvd.broadcast_parameters(optimizer, root_rank=0)

@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import collections
+
 from horovod.common import init
 from horovod.common import size
 from horovod.common import local_size
@@ -87,7 +89,8 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         return super(self.__class__, self).step(closure)
 
 
-def DistributedOptimizer(optimizer, named_parameters=None):
+def DistributedOptimizer(optimizer, named_parameters=None,
+                         initialize_state=False):
     """
     An optimizer that wraps another torch.optim.Optimizer, using an allreduce to
     average gradient values before applying gradients to model weights.
@@ -114,12 +117,20 @@ def DistributedOptimizer(optimizer, named_parameters=None):
         optimizer: Optimizer to use for computing gradients and applying updates.
         named_parameters: A mapping between parameter names and values. Used for naming of
                           allreduce operations. Typically just `model.named_parameters()`.
+        initialize_state: Initialize the state variables for the purpose of receiving
+                          their values from a broadcast sent by another rank.
     """
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override the `step()` method with an allreduce implementation.
     cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                dict(_DistributedOptimizer.__dict__))
-    return cls(optimizer.param_groups, named_parameters)
+    opt = cls(optimizer.param_groups, named_parameters)
+    if initialize_state:
+        for group in opt.param_groups:
+            for p in group['params']:
+                p.grad = torch.autograd.Variable(p.data.new(p.size()).zero_())
+        opt.step()
+    return opt
 
 
 def broadcast_parameters(params, root_rank):
@@ -129,18 +140,39 @@ def broadcast_parameters(params, root_rank):
     `model.named_parameters()`, or `model.parameters()`.
 
     Arguments:
-        params: The list of parameters to broadcast.
+        params: One of the following:
+            - list of parameters to broadcast
+            - dict of parameters to broadcast
+            - torch.optim.Optimizer whose state will be broadcast
         root_rank: The rank of the process from which parameters will be
                    broadcasted to all other processes.
     """
+    handles = []
+    occurrences = collections.defaultdict(int)
+
     if isinstance(params, dict):
         params = sorted(params.items())
-    else:
+    elif isinstance(params, list):
         # support both named_parameters() and regular parameters()
         params = [p if isinstance(p, tuple) else (None, p) for p in params]
+    elif isinstance(params, torch.optim.Optimizer):
+        new_params = []
+        for group in params.state_dict()['param_groups']:
+            for pid in group['params']:
+                param_state = params.state_dict()['state'][pid]
+                for name, p in param_state.iteritems():
+                    # Some parameter names may appear more than once, in which
+                    # case we ensure they have a unique identifier defined by
+                    # their order
+                    occurrences[name] += 1
+                    name = '%s.%d' % (str(name), occurrences[name])
+                    new_params.append((name, p))
+                    print(rank(), name, p.shape)
+        params = new_params
+    else:
+        raise ValueError('invalid params of type: %s' % type(params))
 
     # Run asynchronous broadcasts.
-    handles = []
     for name, p in params:
         if isinstance(p, torch.autograd.Variable):
             p = p.data
@@ -150,3 +182,26 @@ def broadcast_parameters(params, root_rank):
     # Wait for completion.
     for handle in handles:
         synchronize(handle)
+
+
+def load_model(filepath, model, optimizer=None):
+    """
+    Loads a saved PyTorch model with a Horovod DistributedOptimizer.
+
+    The DistributedOptimizer will wrap the underlying optimizer used to train
+    the saved model, so that the optimizer state (params and weights) will
+    be picked up for retraining.
+
+    Arguments:
+        filepath: The string path to the saved model.
+        model: The model whose state will be loaded.
+        optimizer: The (optional) underlying optimizer whose state will be
+                   loaded and then wrapped by a DistributedOptimizer.
+    """
+    checkpoint = torch.load(filepath)
+    model.load_state_dict(checkpoint['state_dict'])
+    if optimizer is not None:
+        optimizer = DistributedOptimizer(
+            optimizer, named_parameters=model.named_parameters())
+        optimizer.load_state_dict(checkpoint['optimizer'])
+    return model, optimizer
