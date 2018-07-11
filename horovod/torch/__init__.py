@@ -138,9 +138,6 @@ def broadcast_parameters(params, root_rank):
         root_rank: The rank of the process from which parameters will be
                    broadcasted to all other processes.
     """
-    handles = []
-    occurrences = collections.defaultdict(int)
-
     if isinstance(params, dict):
         params = sorted(params.items())
     elif isinstance(params, list):
@@ -157,6 +154,7 @@ def broadcast_parameters(params, root_rank):
             params.step()
 
         new_params = []
+        occurrences = collections.defaultdict(int)
         for group in params.state_dict()['param_groups']:
             for pid in group['params']:
                 param_state = params.state_dict()['state'][pid]
@@ -172,6 +170,7 @@ def broadcast_parameters(params, root_rank):
         raise ValueError('invalid params of type: %s' % type(params))
 
     # Run asynchronous broadcasts.
+    handles = []
     for name, p in params:
         if isinstance(p, torch.autograd.Variable):
             p = p.data
