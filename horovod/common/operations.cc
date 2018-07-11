@@ -29,7 +29,10 @@
 
 #if HAVE_NCCL
 #include <nccl.h>
-#include "dgc.cc"
+#endif
+
+#if HAVE_CUDA && HAVE_NCCL
+#include "dgc.h"
 #endif
 
 #define OMPI_SKIP_MPICXX
@@ -144,66 +147,13 @@ struct HorovodGlobalState {
   // Whether to use Deep Gradient Compression (DGC).
   bool use_dgc = false;
 
-  // The number of warmup epoches for DGC.
-  // DGC communication will use a gradient sparsity, which starts from
-  // init_sparsity in the first epoch, and exponentially increases to
-  // final_sparsity after warmup epoches.
-  int warmup_epoches = 5;
 
-  // Initial gradient sparsity for DGC.
-  double init_sparsity = 0.75;
-
-  // Final gradient sparsity for DGC, after the warmup epoches.
-  double final_sparsity = 0.999;
-
-  // Sampling rate for top-k selection in DGC
-  double sampling_rate = 0.01;
-
-  // dgc rand seed
-  unsigned int rand_seed = 2800;
-
-  // dgc grid and block sizes
-  int grid_size = 4;
-  int block_size = 256;
+#if HOROVOID_GPU_ALLREDUCE == 'N'
+  // DGC configuration
+  DgcConfig dgc_config;
 
   // DGC storages
-#if HOROVOID_GPU_ALLREDUCE == 'N'
-  // States for curand, one for each GPU thread
-  curandState *dgc_rand_states = NULL;
-
-  // Sample counter
-  int64_t  *dgc_samp_counter       = NULL;
-
-  // Sample data, raw data in chars; need to convert type before using
-  char     *dgc_samp_data          = NULL;
-  size_t    dgc_samp_allocated     = 0;
-
-  // Gradient selection threshold
-  float    *dgc_gradient_threshold = NULL;
-
-  // Counter for gradient selection
-  uint32_t *dgc_send_counter       = NULL;
-
-  // Number of allocated elements for selected data
-  uint64_t  dgc_send_allocated     = 0;
-
-  // Memory for selected gradient and indices
-  char     *dgc_send_data          = NULL;
-  uint32_t *dgc_send_indices       = NULL;
-
-  // Number of allocated elements for recv data
-  uint64_t  dgc_recv_allocated     = 0;
-
-  // Memory for recved gradient and indices
-  char     *dgc_recv_data          = NULL;
-  uint32_t *dgc_recv_indices       = NULL;
-
-  // Number of allocated elements for global gradients
-  uint64_t  dgc_global_allocated   = 0;
-
-  // Global gradients
-  char     *dgc_global_gradients   = NULL;
-
+  DgcState dgc_state;
 #endif
 
   // Background thread cycle time in milliseconds.  Fractional numbers are
@@ -921,129 +871,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         }
 
         if (horovod_global.use_dgc) {
-          // Deep gradient compression routines
-          int64_t num_samples = 0;
-          size_t element_size = first_entry.output->size()
-            / first_entry.tensor->shape().num_elements();
-          auto   element_type = GetNCCLDataType(first_entry.tensor);
 
-          auto & grid_size = horovod_global.grid_size;
-          auto &block_size = horovod_global.block_size;
-
-          if (horovod_global.sampling_rate < 1)
-          {
-            auto &rand_states = horovod_global.dgc_rand_states;
-            if (rand_states == NULL)
-            {
-              CUDA_CHECK(entries, "Malloc",
-                dgc::Malloc(rand_states, grid_size * block_size));
-
-              dgc::rand_init_kernel
-                <<<grid_size, block_size, 0, stream>>>(
-                horovod_global.rand_seed, rand_states);
-            }
-
-            // Init counter
-            auto &samp_counter = horovod_global.dgc_samp_counter;
-            if (samp_counter == NULL)
-            {
-              CUDA_CHECK(entries, "Malloc",
-                dgc::Malloc(samp_counter, 1));
-            }
-            dgc::assign_kernel
-              <<<1, 1, 0, stream>>>(
-              samp_counter, 1, (int64_t)0);
-
-            num_samples = num_elements * horovod_global.sampling_rate;
-            auto &samp_data      = horovod_global.dgc_samp_data;
-            auto &samp_allocated = horovod_global.dgc_samp_allocated;
-
-            CUDA_CHECK(entries, "GarenteeAllocation",
-              dgc::GarenteeAllocation(samp_data, samp_allocated,
-                num_samples * element_size));
-
-            // Sampling
-            CUDA_CHECK(entries, "Sample",
-              dgc::Sample(
-                element_type, horovod_global,
-                buffer_data, num_elements,
-                samp_data, num_samples,
-                rand_states, stream));
-
-          } else {
-            num_samples = num_elements;
-            auto &samp_data      = horovod_global.dgc_samp_data;
-            auto &samp_allocated = horovod_global.dgc_samp_allocated;
-
-            CUDA_CHECK(entries, "GarenteeAllocation",
-              dgc::GarenteeAllocation(samp_data, samp_allocated,
-                num_samples * element_size));
-
-            CUDA_CHECK(entries, "cudaMemcpyAsync",
-              cudaMemcpyAsync(samp_data, buffer_data,
-                element_size * num_samples, cudaMemcpyDeviceToDevice, stream));
-          }
-
-          // Sort the samples
-          CUDA_CHECK(entries, "dgc::Sort",
-            dgc::Sort(element_type, samp_data, num_samples));
-
-          // Determine the threshold
-          double sparsity = 0; // TODO: calculate the sparsity value
-          int64_t target_num = num_elements * (1 - sparsity);
-          auto &threshold = horovod_global.dgc_gradient_threshold;
-          if (threshold == NULL)
-          {
-            CUDA_CHECK(entries, "dgc::Malloc",
-              dgc::Malloc(threshold, 1));
-          }
-          CUDA_CHECK(entries, "dgc::Threshold",
-            dgc::Threshold(
-              element_type, samp_data, num_samples,
-              (1 - sparsity), threshold));
-
-          // Pick those larger than threshold
-          auto &send_counter   = horovod_global.dgc_send_counter;
-          auto &send_data      = horovod_global.dgc_send_data;
-          auto &send_indices   = horovod_global.dgc_send_indices;
-          auto &send_allocated = horovod_global.dgc_send_allocated;
-          CUDA_CHECK(entries, "dgc::Select",
-            dgc::Select(
-              element_type, buffer_data, num_elements,
-              threshold, target_num,
-              send_data, send_indices,
-              send_allocated, send_counter,
-              stream, grid_size, block_size));
-
-          // Reallocate if not enough
-          auto  recv_count      = target_num * horovod_global.size();
-          auto &recv_allocated  = horovod_global.dgc_recv_allocated;
-          auto  recv_allocated_ = horovod_global.dgc_recv_allocated * element_size;
-          auto &recv_data       = horovod_global.dgc_recv_data;
-          auto &recv_indices    = horovod_global.dgc_recv_indices;
-          CUDA_CHECK(entries, "dgc:GarenteeAllocation",
-            dgc::GarenteeAllocation(
-              recv_data, recv_allocated_, recv_count * element_size));
-          CUDA_CHECK(entries, "dgc::GarenteeAllocation",
-            dgc::GarenteeAllocation(
-              recv_indices, recv_allocated, recv_count));
-
-          // Collect selected data & indices from all peers
-          NCCL_CHECK(entries, "ncclAllGather",
-            ncclAllGather(send_data, (void*)recv_data,
-              (size_t)target_num, element_type, nccl_comm, stream));
-          NCCL_CHECK(entries, "ncclAllGather",
-            ncclAllGather(send_indices, (void*)recv_indices,
-              (size_t)target_num, GetNCCLDataType(uint32_t),
-              nccl_comm, stream));
-
-          auto &global_gradients = horovod_global.dgc_global_gradients;
-          auto &global_allocated = horovod_global.dgc_global_allocated;
-          CUDA_CHECK(entries, "dgc::Unpack",
-            dgc::Unpack(element_type,
-              recv_data, recv_indices, recv_count,
-              global_gradients, global_allocated,
-              grid_size, block_size, stream));
 
         } // end of if (use_dgc)
 
