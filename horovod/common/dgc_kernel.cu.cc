@@ -9,32 +9,6 @@
 namespace horovod {
 namespace dgc {
 
-__global__
-void rand_init_kernel(
-  unsigned int  seed,
-  curandState  *rand_states)
-{
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
-  curand_init(seed, id, 0, rand_states + id);
-} // end of rand_init_kernel
-
-template <typename T, typename SizeT>
-__global__
-void assign_kernel(
-  T     *elements,
-  SizeT  num_elements,
-  T      val)
-{
-  const SizeT STRIDE = (SizeT)gridDim.x * blockDim.x;
-  SizeT i = (SizeT)blockDim.x * blockIdx.x + threadIdx.x;
-
-  while (i < num_elements)
-  {
-    elements[i] = val;
-    i += STRIDE;
-  }
-}
-
 template <typename T, typename SizeT>
 __global__
 void sample_kernel(
@@ -57,17 +31,6 @@ void sample_kernel(
 
     i += STRIDE;
   }
-}
-
-template <typename T, typename SizeT>
-__global__
-void threshold_kernel(
-  T      *elements,
-  SizeT   num_elements,
-  double  top_ratio,
-  float  *threshold)
-{
-  threshold[0] = elements[top_ratio * num_elements];
 }
 
 template <typename T, typename IndexT, typename SizeT, typename CounterT>
@@ -140,26 +103,6 @@ void pad_kernel(
   {
     selected_elements[i] = PreDefinedValues<T    >::InvalidValue;
     selected_indices [i] = PreDefinedValues<SizeT>::InvalidValue;
-    i += STRIDE;
-  }
-}
-
-template <typename T, typename SizeT>
-__global__
-void uppack_kernel(
-  T     *recv_elements,
-  SizeT *recv_indices,
-  SizeT  recv_count,
-  T     *global_elements)
-{
-  const SizeT STRIDE = (SizeT)gridDim.x * blockDim.x;
-  SizeT i = (SizeT)blockIdx.x * blockIdx.x + threadIdx.x;
-
-  while (i < recv_count)
-  {
-    T     element = recv_elements[i];
-    SizeT index   = recv_indices [i];
-    atomicAdd(global_elements + index, element);
     i += STRIDE;
   }
 }

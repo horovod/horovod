@@ -139,106 +139,8 @@ cudaError_t GarenteeAllocation(
 }
 
 // ****************************
-// Warpper functions
+// DGC Functions
 // ****************************
-
-/*template <typename HorovodStateT, typename SizeT>
-cudaError_t Sample(
-  ncclDataType_t nccl_type,
-  HorovodStateT &horovod_global,
-  void *buffer_data,
-  SizeT num_elements,
-  void *sample_data,
-  SizeT num_samples,
-  curandState *rand_states,
-  cudaStream_t stream)
-{
-  cudaError_t retval = cudaSuccess;
-  auto grid_size = horovod_global.grid_size;
-  auto bock_size = horovod_global.block_size;
-
-  switch (nccl_type)
-  {
-  case ncclFloat32:
-    sample_kernel <float>
-      <<<grid_size, block_size, 0, stream>>>(
-        (float*)buffer_data, num_elements,
-        (float*)sample_data, num_samples,
-        rand_states);
-    break;
-
-  case ncclFloat64:
-    sample_kernel <double>
-      <<<grid_size, block_size, 0, stream>>>(
-        (double*)buffer_data, num_elements,
-        (double*)sample_data, num_samples,
-        rand_states);
-    break;
-
-  case ncclInit32:
-    sample_kernel <int32_t>
-      <<<grid_size, block_size, 0, stream>>>(
-        (int32_t*)buffer_data, num_elements,
-        (int32_t*)sample_data, num_samples,
-        rand_states);
-    break;
-
-  case ncclInt64:
-    sample_kernel <int64_t>
-      <<<grid_size, block_size, 0, stream>>>(
-      (int64_t*)buffer_data, num_elements,
-      (int64_t*)sample_data, num_samples,
-      rand_states);
-    break;
-
-  default:
-    // Unsupported data type
-  }
-
-  return retval;
-}
-
-template <typename SizeT>
-cudaError_t Threshold(
-  ncclDataType_t nccl_type,
-  void *elements,
-  SizeT num_elements,
-  double top_ratio,
-  float  *threshold,
-  cudaStream_t stream)
-{
-  cudaError_t retval = cudaSuccess;
-
-  switch (nccl_type)
-  {
-  case ncclFloat32:
-    threshold_kernel <float>
-      <<<1, 1, 0, stream>>>(
-      (float*)elements, num_elements,
-      top_ratio, threshold);
-
-  case ncclFloat64:
-    threshold_kernel <double>
-      <<<1, 1, 0, stream>>>(
-      (double*)elements, num_elements,
-      top_ratio, threshold);
-
-  case ncclInt32:
-    threshold_kernel <int32_t>
-      <<<1, 1, 0, stream>>>(
-      (int32_t*)elements, num_elements,
-      top_ratio, threshold);
-
-  case ncclFloat64:
-    threshold_kernel <int64_t>
-      <<<1, 1, 0, stream>>>(
-      (int64_t*)elements, num_elements,
-      top_ratio, threshold);
-  default:
-  }
-
-  return retval;
-}*/
 
 template <typename T, typename SizeT, typename Compare>
 cudaError_t Sort(
@@ -361,208 +263,7 @@ cudaError_t Sort(
   return retval;
 }
 
-/*template <typename T, typename SizeT>
-cudaError_t Select(
-  T         *elements,
-  SizeT      num_elements,
-  float     *threshold,
-  SizeT      target_num,
-  T*        &selected_data,
-  uint32_t* &selected_indices,
-  SizeT     &selected_allocated,
-  uint32_t* &selected_counter,
-  cudaStream_t stream,
-  int        grid_size,
-  int        block_size)
-{
-  cudaError_t retval = cudaSuccess;
-
-  if (selected_counter == NULL)
-  {
-    retval = Malloc(selected_counter, 1);
-    if (retval) return retval;
-  }
-  assign_kernel
-    <<<1, 1, 0, stream>>>(
-    selected_counter, 1, (uint32_t)0);
-
-  auto selected_allocated_ = selected_allocated;
-  retval = GarenteeAllocation(selected_data   , selected_allocated_, target_num);
-  if (retval) return retval;
-  retval = GarenteeAllocation(selected_indices, selected_allocated , target_num);
-  if (retval) return retval;
-
-  // select at most target_num elements
-  select_kernel
-    <<<grid_size, block_size, 0, stream>>>
-    (elements, num_elements, threshold, target_num,
-    selected_data, selected_indices, selected_counter);
-
-  // pad if num_slected < target_num
-  pad_kernel
-    <<<grid_size, block_size, 0, stream>>>
-    (selected_data, selected_indices, target_num, selected_counter);
-
-  return retval;
-}
-
-template <typename SizeT>
-cudaError_t Select(
-  ncclDataType_t nccl_type,
-  void      *elements,
-  SizeT      num_elements,
-  float     *threshold,
-  SizeT      target_num,
-  void*     &selected_data,
-  uint32_t* &selected_indices,
-  SizeT     &selected_allocated,
-  uint32_t* &selected_counter,
-  cudaStream_t stream,
-  int        grid_size,
-  int        block_size)
-{
-  cudaError_t retval = cudaSuccess;
-
-  switch (nccl_type)
-  {
-  case ncclFloat32:
-    float* selected_data_f = (float*)selected_data;
-    retval = Select<float>(
-      (float*)elements, num_elements,
-      threshold, target_num,
-      selected_data_f, selected_indices,
-      selected_allocated, selected_counter,
-      stream, grid_size, block_size);
-    selected_data = selected_data_f;
-    break;
-
-  case ncclFloat64:
-    double* selected_data_d = (double*)selected_data;
-    retval = Select<double>(
-      (double*)elements, num_elements,
-      threshold, target_num,
-      selected_data_d, selected_indices,
-      selected_allocated, selected_counter,
-      stream, grid_size, block_size);
-    selected_data = selected_data_d;
-    break;
-
-  case ncclInt32:
-    int32_t* selected_data_i = (int32_t*)selected_data;
-    retval = Select<int32_t>(
-      (int32_t*)elements, num_elements,
-      threshold, target_num,
-      selected_data_i, selected_indices,
-      selected_allocated, selected_counter,
-      stream, grid_size, block_size);
-    selected_data = selected_data_i;
-    break;
-
-  case ncclInt64:
-    int64_t* selected_data_l = (int64_t*)selected_data;
-    retval = Select<int64_t>(
-      (int64_t*)elements, num_elements,
-      threshold, target_num,
-      selected_data_l, selected_indices,
-      selected_allocated, selected_counter,
-      stream, grid_size, block_size);
-    selected_data = selected_data_l;
-    break;
-
-  default:
-  }
-
-  return retval;
-}
-
-template <typename T, typename SizeT>
-cudaError_t Unpack(
-  T        *recv_data,
-  uint32_t *recv_indices,
-  SizeT     recv_count,
-  T*       &global_gradients,
-  SizeT    &global_allocated,
-  int       grid_size,
-  int       block_size,
-  cudaStream_t stream)
-{
-  cudaError_t retval = cudaSuccess;
-
-  retval = GarenteeAllocation(global_gradients, global_allocated, recv_count);
-  if (retval)
-    return retval;
-
-  assign_kernel
-    <<<grid_size, block_size, 0, stream>>>
-    (global_gradients, recv_count, (T)0);
-
-  unpack_kernel
-    <<<grid_size, block_size, 0, stream>>>
-    (recv_data, recv_indices, recv_count,
-    global_gradients);
-
-  return retval;
-}
-
-template <typename SizeT>
-cudaError_t Unpack(
-  ncclDataType_t nccl_type,
-  void     *recv_data,
-  uint32_t *recv_indices,
-  SizeT     recv_count,
-  void*    &global_gradients,
-  SizeT    &global_allocated,
-  int       grid_size,
-  int       block_size,
-  cudaStream_t stream)
-{
-  cudaError_t retval = cudaSuccess;
-
-  switch (nccl_type)
-  {
-  case ncclFloat32:
-    float* global_gradients_f = (float*)global_gradients;
-    retval = Unpack<float>(
-      (float*)recv_data, recv_indices, recv_selected,
-      global_gradients_f, global_allocated,
-      grid_size, block_size, stream);
-    global_gradients = global_gradients_f;
-    break;
-
-  case ncclFloat64:
-    double* global_gradients_d = (double*)global_gradients;
-    retval = Unpack<double>(
-      (double*)recv_data, recv_indices, recv_selected,
-      global_gradients_d, global_allocated,
-      grid_size, block_size, stream);
-    global_gradients = global_gradients_d;
-    break;
-
-  case ncclInt32:
-    int32_t* global_gradients_i = (int32_t*)global_gradients;
-    retval = Unpack<int32_t>(
-      (int32_t*)recv_data, recv_indices, recv_selected,
-      global_gradients_i, global_allocated,
-      grid_size, block_size, stream);
-    global_gradients = global_gradients_i;
-    break;
-
-  case ncclInt64:
-    int64_t* global_gradients_l = (int64_t*)global_gradients;
-    retval = Unpack<int64_t>(
-      (int64_t*)recv_data, recv_indices, recv_selected,
-      global_gradients_l, global_allocated,
-      grid_size, block_size, stream);
-    global_gradients = global_gradients_l;
-  break;
-
-  default:
-  }
-
-  return retval;
-}*/
-
-// Entry function
+// Main DGC routine
 template <typename T, typename SizeT>
 cudaError_t GradientAllReduce(
   T              *elements,     // GPU pointer to the elements
@@ -583,9 +284,6 @@ cudaError_t GradientAllReduce(
     if (rand_states == NULL) {
       GUARD_CU(Malloc(rand_states, grid_size * block_size));
 
-      //rand_init_kernel
-      //  <<<grid_size, block_size, 0, stream>>>(
-      //  config.rand_seed, state.rand_states);
       loop_kernel<<<grid_size, block_size, 0, stream>>>(
         (SizeT)grid_size * block_size,
         [rand_states, rand_seed] __device__ (const SizeT &i){
@@ -598,9 +296,6 @@ cudaError_t GradientAllReduce(
     if (samp_counter == NULL) {
       GUARD_CU(Malloc(samp_counter, 1));
     }
-    //assign_kernel
-    //  <<<1, 1, 0, stream>>>(
-    //  samp_counter, 1, (uint64_t)0);
     loop_kernel <<<1, 1, 0, stream>>>((SizeT)1,
       [samp_counter] __device__ (const SizeT &i)
       {
@@ -617,13 +312,6 @@ cudaError_t GradientAllReduce(
       elements, num_elements,
       (T*)(state.samp_data), num_samples,
       state.rand_states);
-
-    //CUDA_CHECK(entries, "Sample",
-    //  dgc::Sample(
-    //    element_type, horovod_global,
-    //    buffer_data, num_elements,
-    //    samp_data, num_samples,
-    //    rand_states, stream));
   }
 
   else { // no sampling
@@ -640,7 +328,7 @@ cudaError_t GradientAllReduce(
   GUARD_CU(Sort(state.samp_data, num_samples, stream));
 
   // Determine the threshold
-  double sparsity   = 0; // TODO: calculate the sparsity value
+  double sparsity   = config.final_sparsity; // TODO: calculate the sparsity value
   SizeT  target_num = num_elements * (1 - sparsity);
   auto &threshold = state.gradient_threshold;
   if (threshold == NULL) {
@@ -651,24 +339,12 @@ cudaError_t GradientAllReduce(
       threshold[0] = elements[target_num];
     });
 
-  //GUARD_CU(entries, "dgc::Threshold",
-  //  dgc::Threshold(
-  //    element_type, samp_data, num_samples,
-  //    (1 - sparsity), threshold));
-
   // Pick those larger than threshold
   auto &send_counter   = state.send_counter;
   auto &send_data      = state.send_data;
   auto &send_indices   = state.send_indices;
   auto &send_allocated = state.send_allocated;
   auto send_allocated_ = send_allocated * sizeof(T);
-  //CUDA_CHECK(entries, "dgc::Select",
-  //  dgc::Select(
-  //    element_type, buffer_data, num_elements,
-  //    threshold, target_num,
-  //    send_data, send_indices,
-  //    send_allocated, send_counter,
-  //    stream, grid_size, block_size));
   if (send_counter == NULL) {
     GUARD_CU(Malloc(send_counter, 1));
   }
@@ -682,9 +358,6 @@ cudaError_t GradientAllReduce(
     {
       send_counter[0] = 0;
     });
-  //assign_kernel
-  //  <<<1, 1, 0, stream>>>(
-  //  selected_counter, 1, (uint32_t)0);
 
   // select at most target_num elements
   select_kernel
@@ -720,17 +393,10 @@ cudaError_t GradientAllReduce(
 
   auto &global_gradients_= state.global_gradients;
   auto &global_allocated = state.global_allocated;
-  //CUDA_CHECK(entries, "dgc::Unpack",
-  //  dgc::Unpack(element_type,
-  //    recv_data, recv_indices, recv_count,
-  //    global_gradients, global_allocated,
-  //    grid_size, block_size, stream));
   GUARD_CU(GarenteeAllocation(
     global_gradients_, global_allocated, num_elements * sizeof(T)));
 
-  //assign_kernel
-  //  <<<grid_size, block_size, 0, stream>>>
-  //  (global_gradients, recv_count, (T)0);
+  // Post process gradients
   T* global_gradients = (T*)global_gradients_;
   loop_kernel <<<grid_size, block_size, 0, stream>>>(num_elements,
     [global_gradients] __device__ (const SizeT &i)
@@ -738,10 +404,6 @@ cudaError_t GradientAllReduce(
       global_gradients[i] = 0;
     });
 
-  //unpack_kernel
-  //  <<<grid_size, block_size, 0, stream>>>
-  //  (recv_data, recv_indices, recv_count,
-  //  global_gradients);
   loop_kernel <<<grid_size, block_size, 0, stream>>>(recv_count,
     [recv_data, recv_indices, global_gradients] __device__ (const SizeT &i)
     {
