@@ -182,7 +182,7 @@ def broadcast_parameters(params, root_rank):
         synchronize(handle)
 
 
-def save_model(filepath, model, optimizer=None):
+def save_model(filepath, model, optimizer=None, custom_state=None):
     """
     Saves the model and optional optimizer to disk.
 
@@ -190,11 +190,14 @@ def save_model(filepath, model, optimizer=None):
         filepath: The string path to write the model.
         model: The model whose state will be saved.
         optimizer: The (optional) optimizer whose state will be saved.
+        custom_state: Optional dictionary of additional state to be saved.
     """
     state = {
         'model': model.state_dict(),
         'optimizer': optimizer.state_dict() if optimizer else {},
     }
+    if custom_state is not None:
+        state.update(custom_state)
     torch.save(state, filepath)
 
 
@@ -210,8 +213,12 @@ def load_model(filepath, model, optimizer=None):
         filepath: The string path to the saved model.
         model: The model whose state will be loaded.
         optimizer: The (optional) optimizer whose state will be loaded.
+
+    Returns:
+        The loaded checkpoint.
     """
     checkpoint = torch.load(filepath)
     model.load_state_dict(checkpoint['model'])
     if optimizer is not None:
         optimizer.load_state_dict(checkpoint['optimizer'])
+    return checkpoint

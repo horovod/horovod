@@ -659,7 +659,7 @@ class TorchTests(unittest.TestCase):
 
         N, D_in, H, D_out = 64, 100, 10, 10
         x = torch.autograd.Variable(torch.randn(N, D_in), requires_grad=True)
-        y = torch.autograd.Variable(torch.randn(N, D_out), requires_grad=True)
+        y = torch.autograd.Variable(torch.randn(N, D_out), requires_grad=False)
 
         def create_model():
             model = torch.nn.Sequential(
