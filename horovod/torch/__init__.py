@@ -158,7 +158,7 @@ def broadcast_parameters(params, root_rank):
         for group in params.state_dict()['param_groups']:
             for pid in group['params']:
                 param_state = params.state_dict()['state'][pid]
-                for name, p in param_state.iteritems():
+                for name, p in param_state.items():
                     # Some parameter names may appear more than once, in which
                     # case we ensure they have a unique identifier defined by
                     # their order
