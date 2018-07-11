@@ -701,6 +701,6 @@ class TorchTests(unittest.TestCase):
         state_buffers = optimizer.state_dict()['state'].values()
         self.assertEqual(len(state_buffers), 4)
         for buffer in state_buffers:
-            for key, t in buffer.iteritems():
+            for key, t in buffer.items():
                 nonzero = np.prod(list(torch.nonzero(t).size()))
                 self.assertGreater(nonzero, 0)
