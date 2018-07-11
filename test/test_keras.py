@@ -213,12 +213,19 @@ class KerasTests(tf.test.TestCase):
                 while 1:
                     yield (x, y)
 
+            if hvd.rank() == 0:
+                self.assertEqual(len(model.optimizer.weights), 5)
+            else:
+                self.assertEqual(len(model.optimizer.weights), 0)
+
             # No assertions, we just need to verify that it doesn't hang
             callbacks = [hvd.callbacks.BroadcastGlobalVariablesCallback(0)]
             model.fit_generator(generator(),
                                 steps_per_epoch=10,
                                 callbacks=callbacks,
-                                epochs=2,
+                                epochs=0,
                                 verbose=0,
                                 workers=4,
                                 initial_epoch=1)
+
+            self.assertEqual(len(model.optimizer.weights), 5)
