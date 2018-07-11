@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
+
 import itertools
 import tempfile
 import torch
@@ -670,12 +672,13 @@ class TorchTests(unittest.TestCase):
             optimizer = torch.optim.SGD(model.parameters(),
                                         lr=1e-4, momentum=0.9)
 
+            optimizer = hvd.DistributedOptimizer(
+                optimizer,
+                named_parameters=model.named_parameters())
+
             return model, optimizer
 
         model, optimizer = create_model()
-
-        optimizer = hvd.DistributedOptimizer(
-            optimizer, named_parameters=model.named_parameters())
 
         y_pred = model(x)
         loss = F.mse_loss(y_pred, y, size_average=False)
@@ -685,22 +688,20 @@ class TorchTests(unittest.TestCase):
 
         if hvd.rank() == 0:
             _, fname = tempfile.mkstemp('.h5')
-            state = {
-                'epoch': 1,
-                'state_dict': model.state_dict(),
-                'optimizer': optimizer.state_dict(),
-            }
-            torch.save(state, fname)
+            hvd.save_model(fname, model, optimizer)
 
         model, optimizer = create_model()
         if hvd.rank() == 0:
-            model, optimizer = hvd.load_model(fname, model, optimizer)
-        else:
-            optimizer = hvd.DistributedOptimizer(
-                optimizer,
-                named_parameters=model.named_parameters(),
-                initialize_state=True)
+            hvd.load_model(fname, model, optimizer)
+            os.remove(fname)
 
         # No assertions, we just need to verify that it doesn't hang
         hvd.broadcast_parameters(model.state_dict(), root_rank=0)
         hvd.broadcast_parameters(optimizer, root_rank=0)
+
+        state_buffers = optimizer.state_dict()['state'].values()
+        self.assertEqual(len(state_buffers), 4)
+        for buffer in state_buffers:
+            for key, t in buffer.iteritems():
+                nonzero = np.prod(list(torch.nonzero(t).size()))
+                self.assertGreater(nonzero, 0)
