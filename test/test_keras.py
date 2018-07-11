@@ -64,7 +64,7 @@ class KerasTests(tf.test.TestCase):
             model.train_on_batch(x, y)
 
             _, fname = tempfile.mkstemp('.h5')
-            model.save(fname)
+            hvd.save_model(fname, model)
 
             new_model = hvd.load_model(fname)
             new_opt = new_model.optimizer
@@ -106,7 +106,7 @@ class KerasTests(tf.test.TestCase):
             model.train_on_batch(x, y)
 
             _, fname = tempfile.mkstemp('.h5')
-            model.save(fname)
+            hvd.save_model(fname, model)
 
             custom_optimizers = [TestOptimizer]
             new_model = hvd.load_model(fname, custom_optimizers=custom_optimizers)
@@ -149,7 +149,7 @@ class KerasTests(tf.test.TestCase):
             model.train_on_batch(x, y)
 
             _, fname = tempfile.mkstemp('.h5')
-            model.save(fname)
+            hvd.save_model(fname, model)
 
             custom_objects = {
                 'TestOptimizer': lambda **kwargs: hvd.DistributedOptimizer(
@@ -197,7 +197,7 @@ class KerasTests(tf.test.TestCase):
 
             if hvd.rank() == 0:
                 _, fname = tempfile.mkstemp('.h5')
-                model.save(fname)
+                hvd.save_model(fname, model)
 
         K.clear_session()
         with self.test_session() as sess:

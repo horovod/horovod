@@ -146,6 +146,17 @@ def broadcast(value, root_rank, name=None):
     return K.get_session().run(bcast_op)
 
 
+def save_model(filepath, model):
+    """
+    Saves a Keras model with its Horovod DistributedOptimizer state.
+
+    Arguments:
+        filepath: The string path to write the model.
+        model: The model whose state will be saved.
+    """
+    model.save(filepath)
+
+
 def load_model(filepath, custom_optimizers=None, custom_objects=None):
     """
     Loads a saved Keras model with a Horovod DistributedOptimizer.
@@ -158,7 +169,7 @@ def load_model(filepath, custom_optimizers=None, custom_objects=None):
     and wrapped without needing to specify any `custom_optimizers` or
     `custom_objects`.
 
-    # Arguments
+    Arguments
         filepath: One of the following:
             - string, path to the saved model, or
             - h5py.File object from which to load the model
@@ -167,10 +178,10 @@ def load_model(filepath, custom_optimizers=None, custom_objects=None):
         custom_objects: Optional dictionary mapping names (strings) to custom
             classes or functions to be considered during deserialization.
 
-    # Returns
+    Returns
         A Keras model instance.
 
-    # Raises
+    Raises
         ImportError: If h5py is not available.
         ValueError: In case of an invalid savefile.
     """
