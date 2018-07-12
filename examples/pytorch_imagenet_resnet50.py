@@ -127,7 +127,9 @@ if resume_from_epoch > 0 and hvd.rank() == 0:
 
 # Horovod: broadcast parameters.
 hvd.broadcast_parameters(model.state_dict(), root_rank=0)
-hvd.broadcast_parameters(optimizer, root_rank=0)
+state_dict = hvd.broadcast_object(optimizer.state_dict(), root_rank=0)
+if hvd.rank() > 0:
+    optimizer.load_state_dict(state_dict)
 
 def train(epoch):
     model.train()

@@ -696,7 +696,9 @@ class TorchTests(unittest.TestCase):
 
         # No assertions, we just need to verify that it doesn't hang
         hvd.broadcast_parameters(model.state_dict(), root_rank=0)
-        hvd.broadcast_parameters(optimizer, root_rank=0)
+        state_dict = hvd.broadcast_object(optimizer.state_dict(), root_rank=0)
+        if hvd.rank() > 0:
+            optimizer.load_state_dict(state_dict)
 
         state_buffers = optimizer.state_dict()['state'].values()
         self.assertEqual(len(state_buffers), 4)
@@ -744,4 +746,39 @@ class TorchTests(unittest.TestCase):
         os.remove(fname)
 
         self.assertEqual(checkpoint['epoch'], 49)
+
+    def test_broadcast_object(self):
+        hvd.init()
+
+        N, D_in, H, D_out = 64, 100, 10, 10
+
+        model = torch.nn.Sequential(
+            torch.nn.Linear(D_in, H),
+            torch.nn.ReLU(),
+            torch.nn.Linear(H, D_out),
+        )
+
+        lr = 2.0 if hvd.rank() == 0 else 1.0
+        momentum = 0.9 if hvd.rank() == 0 else 0.8
+
+        optimizer = torch.optim.SGD(model.parameters(),
+                                    lr=lr, momentum=momentum)
+
+        if hvd.rank() == 0:
+            for group in optimizer.param_groups:
+                for p in group['params']:
+                    p.grad = torch.autograd.Variable(
+                        p.data.new(p.size()).zero_())
+            optimizer.step()
+
+        state_dict = hvd.broadcast_object(optimizer.state_dict(), 0)
+        if hvd.rank() > 0:
+            optimizer.load_state_dict(state_dict)
+
+        opt_state_dict = optimizer.state_dict()
+        self.assertEqual(opt_state_dict['param_groups'][0]['lr'], 2.0)
+        self.assertEqual(opt_state_dict['param_groups'][0]['momentum'], 0.9)
+        self.assertEqual(len(opt_state_dict['state'].values()), 4)
+
+
 
