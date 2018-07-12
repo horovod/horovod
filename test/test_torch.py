@@ -737,10 +737,10 @@ class TorchTests(unittest.TestCase):
         optimizer.step()
 
         _, fname = tempfile.mkstemp('.pt')
-        hvd.save_model(fname, model, optimizer, custom_state={'epoch': 49})
+        hvd.save_model(fname, model, custom_state={'epoch': 49})
 
         model, optimizer = create_model()
-        checkpoint = hvd.load_model(fname, model, optimizer)
+        checkpoint = hvd.load_model(fname, model)
         os.remove(fname)
 
         self.assertEqual(checkpoint['epoch'], 49)
