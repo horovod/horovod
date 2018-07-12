@@ -2,7 +2,11 @@
 // by Yuechao Pan
 // for NVIDIA
 
+#pragma once
+
+#include <math.h>
 #include <nccl.h>
+#include <curand_kernel.h>
 
 namespace horovod {
 namespace dgc {
@@ -91,12 +95,15 @@ struct DgcConfig {
 
   // NCCL communication handle
   ncclComm_t nccl_comm;
+
+  // whether DgcConfig has been configured
+  bool configured = false;
 };
 
 struct DgcState {
 
   // States for curand, one for each GPU thread
-  curandState *rand_states = NULL;
+  curandState *rand_states     = NULL;
 
   // Sample counter
   uint64_t *samp_counter       = NULL;
@@ -134,11 +141,10 @@ struct DgcState {
 };
 
 // Entry warper function
-template <typename SizeT>
 cudaError_t GradientAllReduce(
   ncclDataType_t  element_type, // type of element
   void           *elements,     // GPU pointer to the elements
-  SizeT           num_elements, // number of elements
+  uint64_t        num_elements, // number of elements
   DgcConfig      &config,       // DGC configuration
   DgcState       &state);       // DGC running states
 

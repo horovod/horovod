@@ -31,7 +31,7 @@
 #include <nccl.h>
 #endif
 
-#if HAVE_CUDA && HAVE_NCCL
+#if HOROVOD_GPU_ALLREDUCE == 'N'
 #include "dgc.h"
 #endif
 
@@ -145,15 +145,14 @@ struct HorovodGlobalState {
   int64_t tensor_fusion_threshold = 64 * 1024 * 1024;
 
   // Whether to use Deep Gradient Compression (DGC).
-  bool use_dgc = false;
+  bool use_dgc = true;
 
-
-#if HOROVOID_GPU_ALLREDUCE == 'N'
+#if HOROVOD_GPU_ALLREDUCE == 'N'
   // DGC configuration
-  DgcConfig dgc_config;
+  horovod::dgc::DgcConfig dgc_config;
 
   // DGC storages
-  DgcState dgc_state;
+  horovod::dgc::DgcState dgc_state;
 #endif
 
   // Background thread cycle time in milliseconds.  Fractional numbers are
@@ -871,7 +870,19 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         }
 
         if (horovod_global.use_dgc) {
+          if (!horovod_global.dgc_config.configured) {
+            auto &config = horovod_global.dgc_config;
+            config.stream = stream;
+            config.nccl_comm = nccl_comm;
+            config.global_num_gpus = horovod_global.size;
+            config.configured = true;
+          }
 
+          CUDA_CHECK(entries, "dgc::GradientAllReduce",
+            dgc::GradientAllReduce(
+              GetNCCLDataType(first_entry.tensor),
+              (void*)buffer_data, num_elements,
+              horovod_global.dgc_config, horovod_global.dgc_state));
 
         } // end of if (use_dgc)
 

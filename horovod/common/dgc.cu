@@ -6,7 +6,7 @@
 // nvcc -std=c++11 -c -o dgc.cu.o horovod_nvidia/horovod/common/dgc.cu.cc      \
    -x cu -Xcompiler -fPIC -dlink --expt-extended-lambda -gencode=arch=compute_70,code=\"sm_70,compute_70\"
 
-#pragma once
+//#pragma once
 
 #include <string>
 #include <algorithm>
@@ -418,7 +418,7 @@ cudaError_t GradientAllReduce(
 // Entry warper function
 cudaError_t GradientAllReduce(
   ncclDataType_t  element_type, // type of element
-  void           *elements,     // GPU pointer to the elements
+  void     *elements,     // GPU pointer to the elements
   uint64_t        num_elements, // number of elements
   DgcConfig      &config,       // DGC configuration
   DgcState       &state)        // DGC running states
