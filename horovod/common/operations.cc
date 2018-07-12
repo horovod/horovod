@@ -31,6 +31,10 @@
 #include <nccl.h>
 #endif
 
+#if HAVE_DDL
+#include <ddl.hpp>
+#endif
+
 #define OMPI_SKIP_MPICXX
 #include "hashes.h"
 #include "mpi.h"
@@ -204,9 +208,13 @@ struct HorovodGlobalState {
   std::unordered_map<std::vector<int32_t>, ncclComm_t> nccl_comms;
 #endif
 
+  // Will be set to true after initialization when ddl is used
+  bool ddl_initialized = false;
+  int32_t ddl_local_device_id = 0;
+
 // We reuse CUDA events as it appears that their creation carries non-zero cost.
 // Event management code is only used in NCCL path.
-#if HAVE_NCCL
+#if HAVE_NCCL || HAVE_DDL
   std::unordered_map<int, std::queue<cudaEvent_t>> cuda_events;
   std::mutex cuda_events_mutex;
 #endif
@@ -240,6 +248,15 @@ const Status SHUT_DOWN_ERROR = Status::Aborted(
     "one of the ranks finished execution. If the shutdown was caused by an "
     "exception, you should see the exception in the log before the first "
     "shutdown message.");
+
+#define OP_ERROR(entries, error_message)                                       \
+  {                                                                            \
+      for (auto& e : (entries)) {                                              \
+        timeline.End(e.tensor_name, nullptr);                                  \
+        e.callback(Status::UnknownError(error_message));                       \
+      }                                                                        \
+      return;                                                                  \
+  }
 
 // Store the MPIRequest for a name, and return whether the total count of
 // MPIRequests for that tensor is now equal to the MPI size (and thus we are
@@ -525,6 +542,18 @@ ncclDataType_t GetNCCLDataType(const std::shared_ptr<Tensor> tensor) {
 }
 #endif
 
+#if HAVE_DDL
+DDL_Type GetDDLDataType(const std::shared_ptr<Tensor> tensor) {
+  switch (tensor->dtype()) {
+  case HOROVOD_FLOAT32:
+    return DDL_TYPE_FLOAT;
+  default:
+    throw std::logic_error("Type " + MPIDataType_Name(tensor->dtype()) +
+                           " is not supported in DDL mode.");
+  }
+}
+#endif
+
 #define MPI_CHECK(entries, op_name, op)                                        \
   {                                                                            \
     auto mpi_result = (op);                                                    \
@@ -564,8 +593,20 @@ ncclDataType_t GetNCCLDataType(const std::shared_ptr<Tensor> tensor) {
     }                                                                          \
   }
 
+#define DDL_CHECK(entries, op_name, op)                                        \
+  {                                                                            \
+    auto ddl_result = (op);                                                    \
+    if (ddl_result != DDL_SUCCESS) {                                           \
+      for (auto& e : (entries)) {                                              \
+        timeline.End(e.tensor_name, nullptr);                                  \
+        e.callback(Status::UnknownError(std::string(op_name) + " failed."));   \
+      }                                                                        \
+      return;                                                                  \
+    }                                                                          \
+  }
+
 // This event management code is only used in NCCL.
-#ifdef HAVE_NCCL
+#if HAVE_NCCL || HAVE_DDL
 cudaError_t GetCudaEvent(cudaEvent_t* event) {
   int device;
   auto status = cudaGetDevice(&device);
@@ -812,7 +853,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     }
 #endif
 
-#if HOROVOD_GPU_ALLREDUCE == 'N' // 'N' stands for NCCL
+// 'N' stands for NCCL and 'D' for DDL
+#if HOROVOD_GPU_ALLREDUCE == 'N' || HOROVOD_GPU_ALLREDUCE == 'D'
     if (on_gpu) {
       auto stream = horovod_global.streams[first_entry.device];
       auto event_queue = std::queue<std::pair<std::string, cudaEvent_t>>();
@@ -827,6 +869,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         nccl_device_map = response.devices();
       }
 
+#if HOROVOD_GPU_ALLREDUCE == 'N'
       // Ensure NCCL communicator is in the map before executing reduction.
       ncclComm_t& nccl_comm = horovod_global.nccl_comms[nccl_device_map];
       if (nccl_comm == nullptr) {
@@ -865,6 +908,20 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
         ACTIVITY_END_ALL(entries, timeline)
       }
+#elif HOROVOD_GPU_ALLREDUCE == 'D'
+      if (!horovod_global.ddl_initialized) {
+        // Initialize DDL
+        auto ddl_options = std::getenv("DDL_OPTIONS");
+        if (ddl_options == nullptr) {
+          OP_ERROR(entries, "DDL_OPTIONS env variable needs to be set to use DDL.")
+        }
+        DDL_CHECK(entries, "ddl_init", ddl_init(ddl_options))
+        horovod_global.ddl_initialized = true;
+        horovod_global.ddl_local_device_id = first_entry.device;
+      } else if (horovod_global.ddl_local_device_id != first_entry.device) {
+        OP_ERROR(entries, "DDL does not support more than one GPU device per process.")
+      }
+#endif
 
       if (timeline.Initialized()) {
         RECORD_EVENT(entries, event_queue, QUEUE, stream)
@@ -896,12 +953,12 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           offset += e.tensor->size();
         }
         buffer_len = (size_t)offset;
-        if (timeline.Initialized()) {
+        if (timeline.Initialized() || horovod_global.ddl_initialized) {
           RECORD_EVENT(entries, event_queue, MEMCPY_IN_FUSION_BUFFER, stream)
         }
 
         // Set the input data to originate from the buffer.
-        fused_input_data = const_cast<const void*>(buffer_data);
+        fused_input_data = buffer_data;
 
         // Perform the reduction on the fusion buffer.
         for (auto& e : entries) {
@@ -912,9 +969,33 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         buffer_data = (void*)first_entry.output->data();
         num_elements = first_entry.tensor->shape().num_elements();
         buffer_len = (size_t)first_entry.output->size();
+        if (horovod_global.ddl_initialized) {
+          // Copy input buffer content to output buffer
+          // because DDL only supports in-place allreduce
+          CUDA_CHECK(entries, "cudaMemcpyAsync",
+                     cudaMemcpyAsync(buffer_data, fused_input_data,
+                                     buffer_len,
+                                     cudaMemcpyDeviceToDevice, stream))
+          RECORD_EVENT(entries, event_queue, MEMCPY_IN_FUSION_BUFFER, stream)
+        }
       }
 
       void* host_buffer = nullptr;
+#if HOROVOD_GPU_ALLREDUCE == 'D'
+      // Synchronize.
+      WAIT_FOR_EVENTS(entries, timeline, event_queue)
+      DDL_Type ddl_data_type;
+      try {
+        ddl_data_type = GetDDLDataType(first_entry.tensor);
+      } catch (const std::logic_error& ex) {
+        OP_ERROR(entries, ex.what())
+      }
+      DDL_CHECK(entries, "ddl_allreduce",
+                ddl_allreduce(buffer_data,
+                              (size_t)num_elements,
+                              ddl_data_type,
+                              DDL_OP_SUM))
+#else
       if (horovod_global.hierarchical_allreduce) {
         NCCL_CHECK(entries, "ncclReduce",
                    ncclReduce(fused_input_data, buffer_data,
@@ -968,6 +1049,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                                  GetNCCLDataType(first_entry.tensor), ncclSum,
                                  nccl_comm, stream))
       }
+#endif
       if (timeline.Initialized()) {
         RECORD_EVENT(entries, event_queue, NCCL_ALLREDUCE, stream)
       }
@@ -995,12 +1077,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
       // TODO: use thread pool or single thread for callbacks
       std::thread finalizer_thread([entries, first_entry, host_buffer, response,
-                                    event_queue, &timeline] {
+                                    event_queue, &timeline]() mutable {
         CUDA_CHECK(entries, "cudaSetDevice", cudaSetDevice(first_entry.device))
 
-        auto mutable_event_queue =
-            (std::queue<std::pair<std::string, cudaEvent_t>>)event_queue;
-        WAIT_FOR_EVENTS(entries, timeline, mutable_event_queue)
+        WAIT_FOR_EVENTS(entries, timeline, event_queue)
 
         if (host_buffer != nullptr) {
           free(host_buffer);
@@ -1351,7 +1431,12 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   MPI_Comm_free(&state.local_comm);
   MPI_Comm_free(&state.cross_comm);
 
+#if HAVE_DDL
+  // ddl_finalize calls MPI_Finalize
+  ddl_finalize();
+#else
   MPI_Finalize();
+#endif
 }
 
 // The coordinator currently follows a master-worker paradigm. Rank zero acts
