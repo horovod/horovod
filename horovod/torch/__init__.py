@@ -135,13 +135,17 @@ def broadcast_object(obj, root_rank, name=None):
     state_dict = broadcast_object(optimizer.state_dict(), 0)
     if hvd.rank() > 0:
         optimizer.load_state_dict(state_dict)
+    ```
 
     Arguments:
         obj: An object capable of being serialized without losing any context.
         root_rank: The rank of the process from which parameters will be
                    broadcasted to all other processes.
-       name: Optional name to use during broadcast, will default to the class
-             type.
+        name: Optional name to use during broadcast, will default to the class
+              type.
+
+    Returns:
+        The object that was broadcast from the `root_rank`.
     """
     if name is None:
         name = str(type(obj))
@@ -156,7 +160,7 @@ def broadcast_object(obj, root_rank, name=None):
     else:
         sz = torch.IntTensor([0])
         broadcast_(sz, root_rank, name + '.sz')
-        t = torch.zeros(sz.data.tolist()[0], dtype=torch.uint8)
+        t = torch.ByteTensor([0] * sz.tolist()[0])
 
     broadcast_(t, root_rank, name + '.t')
 
