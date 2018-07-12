@@ -686,7 +686,7 @@ class TorchTests(unittest.TestCase):
         optimizer.step()
 
         if hvd.rank() == 0:
-            _, fname = tempfile.mkstemp('.h5')
+            _, fname = tempfile.mkstemp('.pt')
             hvd.save_model(fname, model, optimizer)
 
         model, optimizer = create_model()
@@ -704,3 +704,44 @@ class TorchTests(unittest.TestCase):
             for key, t in buffer.items():
                 nonzero = np.prod(list(torch.nonzero(t).size()))
                 self.assertGreater(nonzero, 0)
+
+    def test_load_model_custom_state(self):
+        hvd.init()
+
+        N, D_in, H, D_out = 64, 100, 10, 10
+        x = torch.autograd.Variable(torch.randn(N, D_in), requires_grad=True)
+        y = torch.autograd.Variable(torch.randn(N, D_out), requires_grad=False)
+
+        def create_model():
+            model = torch.nn.Sequential(
+                torch.nn.Linear(D_in, H),
+                torch.nn.ReLU(),
+                torch.nn.Linear(H, D_out),
+            )
+
+            optimizer = torch.optim.SGD(model.parameters(),
+                                        lr=1e-4, momentum=0.9)
+
+            optimizer = hvd.DistributedOptimizer(
+                optimizer,
+                named_parameters=model.named_parameters())
+
+            return model, optimizer
+
+        model, optimizer = create_model()
+
+        y_pred = model(x)
+        loss = F.mse_loss(y_pred, y, size_average=False)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        _, fname = tempfile.mkstemp('.pt')
+        hvd.save_model(fname, model, optimizer, custom_state={'epoch': 49})
+
+        model, optimizer = create_model()
+        checkpoint = hvd.load_model(fname, model, optimizer)
+        os.remove(fname)
+
+        self.assertEqual(checkpoint['epoch'], 49)
+
