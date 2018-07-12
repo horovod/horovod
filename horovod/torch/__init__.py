@@ -146,18 +146,23 @@ def broadcast_parameters(params, root_rank):
     elif isinstance(params, torch.optim.Optimizer):
         # Newly created optimizers will not have their state initialized, so
         # do that initialization here
-        if len(params.state_dict()['state']) == 0:
+        state_dict = params.state_dict()
+        if len(state_dict['state']) == 0:
             for group in params.param_groups:
                 for p in group['params']:
                     p.grad = torch.autograd.Variable(
                         p.data.new(p.size()).zero_())
             params.step()
+            state_dict = params.state_dict()
 
         new_params = []
         occurrences = collections.defaultdict(int)
-        for group in params.state_dict()['param_groups']:
+
+        # Groups are unordered, but their params will be distinct
+        for group in state_dict['param_groups']:
+            # The params list here is ordered by the layers in the model
             for pid in group['params']:
-                param_state = params.state_dict()['state'][pid]
+                param_state = state_dict['state'][pid]
                 for name, p in param_state.items():
                     # Some parameter names may appear more than once, in which
                     # case we ensure they have a unique identifier defined by
