@@ -99,7 +99,8 @@ cudaError_t Malloc(
   T* &ptr,
   size_t target,
   Malloc_t malloc_type = Malloc_t::Default,
-  unsigned int flags = cudaMemAttachGlobal)
+  unsigned int flags = cudaMemAttachGlobal,
+  cudaStream_t stream = 0)
 {
   cudaError_t retval = cudaSuccess;
 
@@ -125,12 +126,18 @@ cudaError_t GarenteeAllocation(
   SizeT   &allocated,
   size_t   target,
   Malloc_t malloc_type = Malloc_t::Default,
-  unsigned int flags = cudaMemAttachGlobal)
+  unsigned int flags = cudaMemAttachGlobal,
+  cudaStream_t stream = 0)
 {
   cudaError_t retval = cudaSuccess;
   if (allocated >= target)
     return retval;
 
+  if (stream != 0)
+  {
+    GUARD_CU2("cudaStreamSynchronize",
+      cudaStreamSynchronize(stream));
+  }
   auto temp_ptr = ptr;
   GUARD_CU(Free<T> (temp_ptr, malloc_type));
   GUARD_CU(Malloc(ptr, target, malloc_type, flags));
@@ -278,7 +285,8 @@ cudaError_t GradientAllReduce(
   auto  grid_size    = config.grid_size;
   auto  stream       = config.stream;
 
-  if (config.sampling_rate < 1) {
+  if (config.sampling_rate < 1 &&
+      num_elements > config.min_sampling_num) {
     auto &rand_states = state.rand_states;
     auto &rand_seed   = config.rand_seed;
     if (rand_states == NULL) {
@@ -303,9 +311,16 @@ cudaError_t GradientAllReduce(
       });
 
     num_samples = num_elements * config.sampling_rate;
+    if (num_samples < config.min_sampling_num)
+      num_samples = 4000;
+    //if (num_samples > num_elements)
+    //  num_samples = num_elements;
+    //printf("#elments = %ld, #samples = %ld\n",
+    //  (long long)num_elements, (long long)num_samples);
     GUARD_CU(GarenteeAllocation(state.samp_data, state.samp_allocated,
       num_samples * sizeof(T)));
 
+    GUARD_CU(cudaDeviceSynchronize());
     // Sampling
     sample_kernel <T, SizeT>
       <<<grid_size, block_size, 0, stream>>>(
@@ -324,8 +339,16 @@ cudaError_t GradientAllReduce(
         sizeof(T) * num_samples, cudaMemcpyDeviceToDevice, stream));
   }
 
+  T* samp_data = (T*)(state.samp_data);
+  //loop_kernel<<<grid_size, block_size, 0, stream>>>((SizeT)10,
+  //  [samp_data, num_samples] __device__ (const SizeT &i)
+  //  {
+  //    printf("before Sort samp[%d] = %f\n", i,
+  //      (i < num_samples) ? samp_data[i] : 0.12345678);
+  //  });
+
   // Sort the samples
-  GUARD_CU(Sort(state.samp_data, num_samples, stream));
+  GUARD_CU(Sort(samp_data, num_samples, stream));
 
   // Determine the threshold
   double sparsity   = config.final_sparsity; // TODO: calculate the sparsity value
@@ -334,10 +357,43 @@ cudaError_t GradientAllReduce(
   if (threshold == NULL) {
     GUARD_CU(Malloc(threshold, 1));
   }
+
   loop_kernel<<<1, 1, 0, stream>>>((SizeT)1,
-    [threshold, elements, target_num] __device__ (const SizeT &i){
-      threshold[0] = elements[target_num];
+    [threshold, samp_data, num_samples, sparsity] __device__ (const SizeT &i){
+      SizeT pos = num_samples * sparsity;
+      if (pos >= num_samples)
+        pos = num_samples - 1;
+      threshold[0] = samp_data[pos];
+      //printf("selecting samp[%d] from [%d] {%f, %f, ... %f, %f, %f, ... %f, %f}\n",
+      //  pos, num_samples,
+      //  num_samples > 0 ? samp_data[0] : -1,
+      //  num_samples > 1 ? samp_data[1] : -1,
+      //  num_samples + 1 > pos  && pos > 0 ? samp_data[pos - 1] : -1,
+      //  num_samples > pos && pos >= 0 ? samp_data[pos] : -1,
+      //  num_samples > pos + 1 && pos + 1 >= 0 ? samp_data[pos + 1] : -1,
+      //  num_samples > 1 ? samp_data[num_samples - 2] : -1,
+      //  num_samples > 0 ? samp_data[num_samples - 1] : -1);
     });
+
+  //auto &samp_counter = state.samp_counter;
+  //loop_kernel <<<1, 1, 0, stream>>>((SizeT)1,
+  //  [samp_counter] __device__ (const SizeT &i)
+  //  {
+  //    samp_counter[0] = 0;
+  //  });
+  //loop_kernel <<<grid_size, block_size, 0, stream>>>(num_samples,
+  //  [samp_data, num_samples, samp_counter, threshold] __device__ (const SizeT &i)
+  //  {
+  //    if (!(samp_data[i] < threshold[0]))
+  //    {
+  //      atomicAdd(samp_counter, (uint64_t)1);
+  //    }
+  //  });
+  //loop_kernel <<<1, 1, 0, stream>>>((SizeT)1,
+  //  [samp_counter] __device__ (const SizeT &i)
+  //  {
+  //    printf("Recount = %d\n", samp_counter[0]);
+  //  });
 
   // Pick those larger than threshold
   auto &send_counter   = state.send_counter;
@@ -376,6 +432,8 @@ cudaError_t GradientAllReduce(
   auto  recv_allocated_ = state.recv_allocated * sizeof(T);
   auto &recv_data       = state.recv_data;
   auto &recv_indices    = state.recv_indices;
+
+  printf("recv_count = %lld\n", (long long)recv_count);
   GUARD_CU(GarenteeAllocation(
       recv_data, recv_allocated_, recv_count * sizeof(T)));
   GUARD_CU(GarenteeAllocation(
@@ -409,7 +467,8 @@ cudaError_t GradientAllReduce(
     {
       T     element = ((T*)recv_data)[i];
       SizeT index   = recv_indices[i];
-      atomicAdd(global_gradients + index, element);
+      if (isValid(index))
+        atomicAdd(global_gradients + index, element);
     });
 
   return retval;

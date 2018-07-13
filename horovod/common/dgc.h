@@ -64,6 +64,34 @@ struct PreDefinedValues<uint64_t>
   static const uint64_t InvalidValue = AllOnes;
 };
 
+template <typename T>
+__device__ __host__ __forceinline__
+bool isValid(const T &val)
+{
+    return (val != PreDefinedValues<T>::InvalidValue);
+}
+
+template <>
+__device__ __host__ __forceinline__
+bool isValid(const float &val)
+{
+    return (!isnan(val));
+}
+
+template <>
+__device__ __host__ __forceinline__
+bool isValid(const double &val)
+{
+    return (!isnan(val));
+}
+
+template <>
+__device__ __host__ __forceinline__
+bool isValid(const long double &val)
+{
+    return (!isnan(val));
+}
+
 struct DgcConfig {
   // The number of warmup epoches for DGC.
   // DGC communication will use a gradient sparsity, which starts from
@@ -85,7 +113,7 @@ struct DgcConfig {
 
   // dgc grid and block sizes
   int grid_size = 4;
-  int block_size = 256;
+  int block_size = 512;
 
   // stream DGC works on
   cudaStream_t stream = 0;
@@ -98,6 +126,9 @@ struct DgcConfig {
 
   // whether DgcConfig has been configured
   bool configured = false;
+
+  // the minimum number of elements to trigger sampling
+  uint64_t min_sampling_num = 10000;
 };
 
 struct DgcState {
