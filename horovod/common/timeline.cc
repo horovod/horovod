@@ -14,7 +14,7 @@
 // =============================================================================
 
 #include <sstream>
-#include <assert.h>
+#include <cassert>
 
 #include "timeline.h"
 

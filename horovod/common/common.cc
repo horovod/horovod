@@ -14,15 +14,14 @@
 // =============================================================================
 
 #include <sstream>
-#include <assert.h>
+#include <cassert>
 
 #include "common.h"
 
 namespace horovod {
 namespace common {
 
-Status::Status() {
-}
+Status::Status() = default;
 
 Status::Status(StatusType type, std::string reason) {
   type_ = type;
