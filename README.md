@@ -175,8 +175,9 @@ $ mpirun -np 16 \
 3. To run in Docker, see the [Horovod in Docker](docs/docker.md) page.
 
 4. To run in Kubernetes, see [Kubeflow](https://github.com/kubeflow/kubeflow/blob/master/kubeflow/openmpi/),
-[MPI Operator](https://github.com/kubeflow/mpi-operator/), and
-[Helm Chart](https://github.com/kubernetes/charts/tree/master/stable/horovod/).
+[MPI Operator](https://github.com/kubeflow/mpi-operator/), 
+[Helm Chart](https://github.com/kubernetes/charts/tree/master/stable/horovod/), and 
+[FfDL](https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/).
 
 ## Keras
 
