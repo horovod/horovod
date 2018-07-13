@@ -18,7 +18,10 @@ from __future__ import division
 from __future__ import print_function
 
 import itertools
+import os
+import tempfile
 import torch
+import torch.nn.functional as F
 import unittest
 import numpy as np
 
@@ -650,3 +653,61 @@ class TorchTests(unittest.TestCase):
             self.assertLess(err, 0.00000001,
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
+
+    def test_broadcast_object(self):
+        hvd.init()
+
+        N, D_in, H, D_out = 64, 100, 10, 10
+        x = torch.autograd.Variable(torch.randn(N, D_in), requires_grad=True)
+        y = torch.autograd.Variable(torch.randn(N, D_out), requires_grad=False)
+
+        def create_model():
+            model = torch.nn.Sequential(
+                torch.nn.Linear(D_in, H),
+                torch.nn.ReLU(),
+                torch.nn.Linear(H, D_out),
+            )
+
+            lr = 2.0 if hvd.rank() == 0 else 1.0
+            momentum = 0.9 if hvd.rank() == 0 else 0.8
+
+            optimizer = torch.optim.SGD(model.parameters(),
+                                        lr=lr, momentum=momentum)
+
+            optimizer = hvd.DistributedOptimizer(
+                optimizer,
+                named_parameters=model.named_parameters())
+
+            return model, optimizer
+
+        model, optimizer = create_model()
+        y_pred = model(x)
+        loss = F.mse_loss(y_pred, y, size_average=False)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        if hvd.rank() == 0:
+            state = {
+                'model': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+            }
+            _, fname = tempfile.mkstemp('.pt')
+            torch.save(state, fname)
+
+        model, optimizer = create_model()
+        if hvd.rank() == 0:
+            checkpoint = torch.load(fname)
+            model.load_state_dict(checkpoint['model'])
+            optimizer.load_state_dict(checkpoint['optimizer'])
+            os.remove(fname)
+
+        hvd.broadcast_parameters(model.state_dict(), 0)
+        state_dict = hvd.broadcast_object(optimizer.state_dict(), 0)
+        if hvd.rank() > 0:
+            optimizer.load_state_dict(state_dict)
+
+        opt_state_dict = optimizer.state_dict()
+        self.assertEqual(opt_state_dict['param_groups'][0]['lr'], 2.0)
+        self.assertEqual(opt_state_dict['param_groups'][0]['momentum'], 0.9)
+        self.assertEqual(len(opt_state_dict['state'].values()), 4)

@@ -111,15 +111,6 @@ if args.cuda:
     # Move model to GPU.
     model.cuda()
 
-# Restore from a previous checkpoint, if initial_epoch is specified.
-# Horovod: restore on the first worker which will broadcast weights to other workers.
-if resume_from_epoch > 0 and hvd.rank() == 0:
-    checkpoint = torch.load(args.checkpoint_format.format(epoch=resume_from_epoch))
-    model.load_state_dict(checkpoint)
-
-# Horovod: broadcast parameters.
-hvd.broadcast_parameters(model.state_dict(), root_rank=0)
-
 # Horovod: scale learning rate by the number of GPUs.
 optimizer = optim.SGD(model.parameters(), lr=args.base_lr * hvd.size(),
                       momentum=args.momentum, weight_decay=args.wd)
@@ -127,6 +118,20 @@ optimizer = optim.SGD(model.parameters(), lr=args.base_lr * hvd.size(),
 # Horovod: wrap optimizer with DistributedOptimizer.
 optimizer = hvd.DistributedOptimizer(
     optimizer, named_parameters=model.named_parameters())
+
+# Restore from a previous checkpoint, if initial_epoch is specified.
+# Horovod: restore on the first worker which will broadcast weights to other workers.
+if resume_from_epoch > 0 and hvd.rank() == 0:
+    filepath = args.checkpoint_format.format(epoch=resume_from_epoch)
+    checkpoint = torch.load(filepath)
+    model.load_state_dict(checkpoint['model'])
+    optimizer.load_state_dict(checkpoint['optimizer'])
+
+# Horovod: broadcast parameters.
+hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+state_dict = hvd.broadcast_object(optimizer.state_dict(), root_rank=0)
+if hvd.rank() > 0:
+    optimizer.load_state_dict(state_dict)
 
 def train(epoch):
     model.train()
@@ -212,7 +217,12 @@ def accuracy(output, target):
 
 def save_checkpoint(epoch):
     if hvd.rank() == 0:
-        torch.save(model.state_dict(), args.checkpoint_format.format(epoch=epoch + 1))
+        filepath = args.checkpoint_format.format(epoch=epoch + 1)
+        state = {
+            'model': model.state_dict(),
+            'optimizer': optimizer.state_dict(),
+        }
+        torch.save(state, filepath)
 
 
 # Horovod: average metrics from distributed training.
