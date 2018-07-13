@@ -711,6 +711,3 @@ class TorchTests(unittest.TestCase):
         self.assertEqual(opt_state_dict['param_groups'][0]['lr'], 2.0)
         self.assertEqual(opt_state_dict['param_groups'][0]['momentum'], 0.9)
         self.assertEqual(len(opt_state_dict['state'].values()), 4)
-
-
-

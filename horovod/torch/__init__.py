@@ -160,7 +160,7 @@ def broadcast_object(obj, root_rank, name=None):
     else:
         sz = torch.IntTensor([0])
         broadcast_(sz, root_rank, name + '.sz')
-        t = torch.ByteTensor([0] * sz.tolist()[0])
+        t = torch.ByteTensor(sz.tolist()[0])
 
     broadcast_(t, root_rank, name + '.t')
 
