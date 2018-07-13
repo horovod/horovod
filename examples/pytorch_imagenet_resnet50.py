@@ -123,7 +123,9 @@ optimizer = hvd.DistributedOptimizer(
 # Horovod: restore on the first worker which will broadcast weights to other workers.
 if resume_from_epoch > 0 and hvd.rank() == 0:
     filepath = args.checkpoint_format.format(epoch=resume_from_epoch)
-    hvd.load_model(filepath, model, optimizer)
+    checkpoint = torch.load(filepath)
+    model.load_state_dict(checkpoint['model'])
+    optimizer.load_state_dict(checkpoint['optimizer'])
 
 # Horovod: broadcast parameters.
 hvd.broadcast_parameters(model.state_dict(), root_rank=0)
@@ -216,7 +218,11 @@ def accuracy(output, target):
 def save_checkpoint(epoch):
     if hvd.rank() == 0:
         filepath = args.checkpoint_format.format(epoch=epoch + 1)
-        hvd.save_model(filepath, model, optimizer)
+        state = {
+            'model': model.state_dict(),
+            'optimizer': optimizer.state_dict() if optimizer else {},
+        }
+        torch.save(state, filepath)
 
 
 # Horovod: average metrics from distributed training.
