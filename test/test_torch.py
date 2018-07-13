@@ -690,7 +690,7 @@ class TorchTests(unittest.TestCase):
         if hvd.rank() == 0:
             state = {
                 'model': model.state_dict(),
-                'optimizer': optimizer.state_dict() if optimizer else {},
+                'optimizer': optimizer.state_dict(),
             }
             _, fname = tempfile.mkstemp('.pt')
             torch.save(state, fname)

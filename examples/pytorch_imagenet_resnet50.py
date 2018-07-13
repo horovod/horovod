@@ -220,7 +220,7 @@ def save_checkpoint(epoch):
         filepath = args.checkpoint_format.format(epoch=epoch + 1)
         state = {
             'model': model.state_dict(),
-            'optimizer': optimizer.state_dict() if optimizer else {},
+            'optimizer': optimizer.state_dict(),
         }
         torch.save(state, filepath)
 
