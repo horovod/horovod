@@ -100,10 +100,12 @@ def get_cpp_flags(build_ext):
 def get_cuda_flags(build_ext):
     last_err = None
     default_flags = ['-std=c++11', #'-Xcompiler -fPIC',
-        '-dlink',
+        #'-dlink',
+        '-ccbin', 'g++', '-m64',
         '-O2', '--expt-extended-lambda',
         '--gpu-architecture=compute_70',
         '--gpu-code=sm_70']
+        #'--device-c']
 
     return default_flags
     if sys.platform == 'darwin':
@@ -449,10 +451,11 @@ def build_common_extension(build_ext, options, abi_compile_flags):
     common_mpi_lib.sources = options['SOURCES'] + ['horovod/common/common.cc',
                                                    'horovod/common/mpi_message.cc',
                                                    'horovod/common/operations.cc',
-                                                   'horovod/common/timeline.cc']
+                                                   'horovod/common/timeline.cc',
+                                                   'horovod/common/dgc.cu']
     common_mpi_lib.extra_compile_args = options['COMPILE_FLAGS'] + \
         abi_compile_flags
-    common_mpi_lib.extra_link_args = options['LINK_FLAGS']
+    common_mpi_lib.extra_link_args = options['LINK_FLAGS'] + ['-lcudart']
     common_mpi_lib.library_dirs = options['LIBRARY_DIRS']
     common_mpi_lib.libraries = options['LIBRARIES']
 
@@ -487,7 +490,7 @@ def nvcc_compiler(self, build_ext):
             #postargs = [['-Xcompiler', arg] \
             #    for arg in extra_postargs if "Wl," not in arg]
             nvcc_args = cuda_flags + cc_args
-            command = self.compiler_so + nvcc_args + [src, '-o', obj] + postargs
+            #command = self.compiler_so + nvcc_args + [src, '-o', obj] + postargs
             #print(command)
             super(obj, src, ext, nvcc_args, postargs, pp_opts)
         else:
@@ -502,17 +505,7 @@ def nvcc_compiler(self, build_ext):
 
     self._compile = _compile
 
-
-#class build_ext_nvcc(build_ext):
-    #super = build_ext.compiler
-    #compiler = nvcc_compiler(super)
-    #def build_extension(self):
-    #    nvcc_compiler(self.compiler)
-    #    build_ext.build_extension(self)
-
 def build_dgc_extension(build_ext, options, abi_compile_flags):
-    #build_ext_nvcc(build_ext)
-    #build_ext_nvcc.compiler = nvcc_compiler(build_ext.compiler)
     dgc_mpi_lib.define_macros = options['MACROS']
     dgc_mpi_lib.include_dirs = options['INCLUDES']
     dgc_mpi_lib.sources = options['SOURCES'] + ['horovod/common/dgc.cu']
@@ -700,9 +693,9 @@ class custom_build_ext(build_ext):
         if not any(built_plugins):
             raise DistutilsError(
                 'Neither TensorFlow nor PyTorch plugins were built. See errors above.')
-        build_common_extension(self, options, abi_compile_flags)
         nvcc_compiler(self.compiler, build_ext)
-        build_dgc_extension(self, options, abi_compile_flags)
+        build_common_extension(self, options, abi_compile_flags)
+        #build_dgc_extension(self, options, abi_compile_flags)
 
 setup(name='horovod',
       version=__version__,
@@ -716,7 +709,7 @@ setup(name='horovod',
       classifiers=[
           'License :: OSI Approved :: Apache Software License'
       ],
-      ext_modules=[common_mpi_lib, dgc_mpi_lib, tensorflow_mpi_lib,
+      ext_modules=[common_mpi_lib, tensorflow_mpi_lib, #dgc_mpi_lib,
                    torch_mpi_lib, torch_mpi_lib_impl],
       cmdclass={'build_ext': custom_build_ext},
       # cffi is required for PyTorch
