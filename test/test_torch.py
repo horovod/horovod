@@ -654,7 +654,7 @@ class TorchTests(unittest.TestCase):
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
 
-    def test_broadcast_object(self):
+    def test_broadcast_state(self):
         hvd.init()
 
         N, D_in, H, D_out = 64, 100, 10, 10
@@ -668,17 +668,19 @@ class TorchTests(unittest.TestCase):
                 torch.nn.Linear(H, D_out),
             )
 
-            lr = 2.0 if hvd.rank() == 0 else 1.0
-            momentum = 0.9 if hvd.rank() == 0 else 0.8
-
-            optimizer = torch.optim.SGD(model.parameters(),
-                                        lr=lr, momentum=momentum)
-
+            optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
             optimizer = hvd.DistributedOptimizer(
-                optimizer,
-                named_parameters=model.named_parameters())
+                optimizer, named_parameters=model.named_parameters())
 
             return model, optimizer
+
+        def get_model_param_value(model):
+            return model.state_dict()['0.weight'].clone()
+
+        def get_optimizer_param_value(optimizer):
+            state_dict = optimizer.state_dict()
+            param_id = state_dict['param_groups'][0]['params'][0]
+            return state_dict['state'][param_id]['momentum_buffer'].clone()
 
         model, optimizer = create_model()
         y_pred = model(x)
@@ -686,6 +688,12 @@ class TorchTests(unittest.TestCase):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
+        model_param_value = get_model_param_value(model)
+        hvd.broadcast_(model_param_value, root_rank=0)
+
+        opt_param_value = get_optimizer_param_value(optimizer)
+        hvd.broadcast_(opt_param_value, root_rank=0)
 
         if hvd.rank() == 0:
             state = {
@@ -702,12 +710,11 @@ class TorchTests(unittest.TestCase):
             optimizer.load_state_dict(checkpoint['optimizer'])
             os.remove(fname)
 
-        hvd.broadcast_parameters(model.state_dict(), 0)
-        state_dict = hvd.broadcast_object(optimizer.state_dict(), 0)
-        if hvd.rank() > 0:
-            optimizer.load_state_dict(state_dict)
+        hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+        model_param_value_after = get_model_param_value(model)
+        self.assertTrue((model_param_value == model_param_value_after).all())
 
-        opt_state_dict = optimizer.state_dict()
-        self.assertEqual(opt_state_dict['param_groups'][0]['lr'], 2.0)
-        self.assertEqual(opt_state_dict['param_groups'][0]['momentum'], 0.9)
-        self.assertEqual(len(opt_state_dict['state'].values()), 4)
+        hvd.broadcast_optimizer_state(optimizer, root_rank=0)
+        self.assertEqual(len(optimizer.state_dict()['state'].values()), 4)
+        opt_param_value_after = get_optimizer_param_value(optimizer)
+        self.assertTrue((opt_param_value == opt_param_value_after).all())

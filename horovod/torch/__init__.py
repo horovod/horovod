@@ -17,10 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import collections
-import io
-import pickle
-
 from horovod.common import init
 from horovod.common import size
 from horovod.common import local_size
@@ -38,6 +34,7 @@ from horovod.torch.mpi_ops import broadcast, broadcast_async, broadcast_, broadc
 from horovod.torch.mpi_ops import poll, synchronize
 
 import torch
+import collections
 
 
 class _DistributedOptimizer(torch.optim.Optimizer):
@@ -126,51 +123,6 @@ def DistributedOptimizer(optimizer, named_parameters=None):
     return cls(optimizer.param_groups, named_parameters)
 
 
-def broadcast_object(obj, root_rank, name=None):
-    """
-    Serializes and broadcasts an object from root rank to all other processes.
-    Typical usage is to broadcast the `optimizer.state_dict()`, for example:
-
-    ```
-    state_dict = broadcast_object(optimizer.state_dict(), 0)
-    if hvd.rank() > 0:
-        optimizer.load_state_dict(state_dict)
-    ```
-
-    Arguments:
-        obj: An object capable of being serialized without losing any context.
-        root_rank: The rank of the process from which parameters will be
-                   broadcasted to all other processes.
-        name: Optional name to use during broadcast, will default to the class
-              type.
-
-    Returns:
-        The object that was broadcast from the `root_rank`.
-    """
-    if name is None:
-        name = str(type(obj))
-
-    if rank() == root_rank:
-        b = io.BytesIO()
-        pickle.dump(obj, b)
-        buf = bytearray(b.getvalue())
-        t = torch.ByteTensor(buf)
-        sz = torch.IntTensor([t.shape[0]])
-        broadcast_(sz, root_rank, name + '.sz')
-    else:
-        sz = torch.IntTensor([0])
-        broadcast_(sz, root_rank, name + '.sz')
-        t = torch.ByteTensor(sz.tolist()[0])
-
-    broadcast_(t, root_rank, name + '.t')
-
-    if rank() != root_rank:
-        buf = bytearray(t.tolist())
-        obj = pickle.loads(buf)
-
-    return obj
-
-
 def broadcast_parameters(params, root_rank):
     """
     Broadcasts the parameters from root rank to all other processes.
@@ -203,3 +155,45 @@ def broadcast_parameters(params, root_rank):
     # Wait for completion.
     for handle in handles:
         synchronize(handle)
+
+
+def broadcast_optimizer_state(optimizer, root_rank):
+    """
+    Broadcasts an optimizer state from root rank to all other processes.
+
+    Arguments:
+        optimizer: An optimizer.
+        root_rank: The rank of the process from which the optimizer will be
+                   broadcasted to all other processes.
+        name: Optional name to use during broadcast, will default to the class
+              type.
+    """
+    state_dict = optimizer.state_dict()
+
+    # Newly created optimizers will not have their state initialized, so
+    # do that initialization here
+    if len(state_dict['state']) == 0:
+        for group in optimizer.param_groups:
+            for p in group['params']:
+                p.grad = torch.autograd.Variable(
+                    p.data.new(p.size()).zero_())
+        optimizer.step()
+        state_dict = optimizer.state_dict()
+
+    params = []
+    occurrences = collections.defaultdict(int)
+
+    # Groups are unordered, but their params will be distinct
+    for group in state_dict['param_groups']:
+        # The params list here is ordered by the layers in the model
+        for pid in group['params']:
+            param_state = state_dict['state'][pid]
+            for name, p in param_state.items():
+                # Some parameter names may appear more than once, in which
+                # case we ensure they have a unique identifier defined by
+                # their order
+                occurrences[name] += 1
+                name = '%s.%d' % (str(name), occurrences[name])
+                params.append((name, p))
+
+    broadcast_parameters(params, root_rank)
