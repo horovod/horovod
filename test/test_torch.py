@@ -654,7 +654,7 @@ class TorchTests(unittest.TestCase):
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
 
-    def test_broadcast_optimizer_state(self):
+    def test_broadcast_state(self):
         hvd.init()
 
         N, D_in, H, D_out = 64, 100, 10, 10
@@ -674,12 +674,26 @@ class TorchTests(unittest.TestCase):
 
             return model, optimizer
 
+        def get_model_param_value(model):
+            return model.state_dict()['0.weight'].clone()
+
+        def get_optimizer_param_value(optimizer):
+            state_dict = optimizer.state_dict()
+            param_id = state_dict['param_groups'][0]['params'][0]
+            return state_dict['state'][param_id]['momentum_buffer'].clone()
+
         model, optimizer = create_model()
         y_pred = model(x)
         loss = F.mse_loss(y_pred, y, size_average=False)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
+        model_param_value = get_model_param_value(model)
+        hvd.broadcast_(model_param_value, root_rank=0)
+
+        opt_param_value = get_optimizer_param_value(optimizer)
+        hvd.broadcast_(opt_param_value, root_rank=0)
 
         if hvd.rank() == 0:
             state = {
@@ -696,8 +710,11 @@ class TorchTests(unittest.TestCase):
             optimizer.load_state_dict(checkpoint['optimizer'])
             os.remove(fname)
 
-        hvd.broadcast_parameters(model.state_dict(), 0)
-        hvd.broadcast_optimizer_state(optimizer, 0)
+        hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+        model_param_value_after = get_model_param_value(model)
+        self.assertTrue((model_param_value == model_param_value_after).all())
 
-        opt_state_dict = optimizer.state_dict()
-        self.assertEqual(len(opt_state_dict['state'].values()), 4)
+        hvd.broadcast_optimizer_state(optimizer, root_rank=0)
+        self.assertEqual(len(optimizer.state_dict()['state'].values()), 4)
+        opt_param_value_after = get_optimizer_param_value(optimizer)
+        self.assertTrue((opt_param_value == opt_param_value_after).all())
