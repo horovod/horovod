@@ -1,0 +1,5737 @@
+{
+  "nodes": [
+    {
+      "op": "null", 
+      "name": "data", 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_conv0_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64, 3, 7, 7)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_conv0_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(7, 7)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "64", 
+        "num_group": "1", 
+        "pad": "(3, 3)", 
+        "stride": "(2, 2)"
+      }, 
+      "inputs": [[0, 0, 0], [1, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_batchnorm0_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_batchnorm0_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_batchnorm0_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_batchnorm0_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_batchnorm0_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[2, 0, 0], [3, 0, 0], [4, 0, 0], [5, 0, 1], [6, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_relu0_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[7, 0, 0]]
+    }, 
+    {
+      "op": "Pooling", 
+      "name": "resnetv1b0_pool0_fwd", 
+      "attrs": {
+        "global_pool": "False", 
+        "kernel": "(3, 3)", 
+        "pad": "(1, 1)", 
+        "pool_type": "max", 
+        "pooling_convention": "valid", 
+        "stride": "(2, 2)"
+      }, 
+      "inputs": [[8, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_conv0_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64, 64, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers1_conv0_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "64", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[9, 0, 0], [10, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm0_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm0_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm0_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm0_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers1_batchnorm0_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[11, 0, 0], [12, 0, 0], [13, 0, 0], [14, 0, 1], [15, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers1_relu0_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[16, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_conv1_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64, 64, 3, 3)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers1_conv1_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "64", 
+        "num_group": "1", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[17, 0, 0], [18, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm1_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm1_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm1_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm1_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers1_batchnorm1_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[19, 0, 0], [20, 0, 0], [21, 0, 0], [22, 0, 1], [23, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers1_relu0_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[24, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_conv2_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256, 64, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers1_conv2_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "256", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[25, 0, 0], [26, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm2_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm2_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm2_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm2_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers1_batchnorm2_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[27, 0, 0], [28, 0, 0], [29, 0, 0], [30, 0, 1], [31, 0, 1]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_down1_conv0_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256, 64, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_down1_conv0_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "256", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[9, 0, 0], [33, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_down1_batchnorm0_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_down1_batchnorm0_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_down1_batchnorm0_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_down1_batchnorm0_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_down1_batchnorm0_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[34, 0, 0], [35, 0, 0], [36, 0, 0], [37, 0, 1], [38, 0, 1]]
+    }, 
+    {
+      "op": "elemwise_add", 
+      "name": "resnetv1b0_layers1_bottleneckv1b0__plus0", 
+      "inputs": [[32, 0, 0], [39, 0, 0]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers1_relu0_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[40, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_conv3_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64, 256, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers1_conv3_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "64", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[41, 0, 0], [42, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm3_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm3_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm3_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm3_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers1_batchnorm3_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[43, 0, 0], [44, 0, 0], [45, 0, 0], [46, 0, 1], [47, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers1_relu1_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[48, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_conv4_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64, 64, 3, 3)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers1_conv4_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "64", 
+        "num_group": "1", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[49, 0, 0], [50, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm4_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm4_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm4_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm4_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers1_batchnorm4_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[51, 0, 0], [52, 0, 0], [53, 0, 0], [54, 0, 1], [55, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers1_relu1_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[56, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_conv5_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256, 64, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers1_conv5_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "256", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[57, 0, 0], [58, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm5_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm5_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm5_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm5_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers1_batchnorm5_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[59, 0, 0], [60, 0, 0], [61, 0, 0], [62, 0, 1], [63, 0, 1]]
+    }, 
+    {
+      "op": "elemwise_add", 
+      "name": "resnetv1b0_layers1_bottleneckv1b1__plus0", 
+      "inputs": [[64, 0, 0], [41, 0, 0]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers1_relu1_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[65, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_conv6_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64, 256, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers1_conv6_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "64", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[66, 0, 0], [67, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm6_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm6_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm6_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm6_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers1_batchnorm6_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[68, 0, 0], [69, 0, 0], [70, 0, 0], [71, 0, 1], [72, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers1_relu2_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[73, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_conv7_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64, 64, 3, 3)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers1_conv7_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "64", 
+        "num_group": "1", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[74, 0, 0], [75, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm7_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm7_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm7_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm7_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(64,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers1_batchnorm7_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[76, 0, 0], [77, 0, 0], [78, 0, 0], [79, 0, 1], [80, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers1_relu2_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[81, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_conv8_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256, 64, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers1_conv8_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "256", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[82, 0, 0], [83, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm8_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm8_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm8_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers1_batchnorm8_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers1_batchnorm8_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[84, 0, 0], [85, 0, 0], [86, 0, 0], [87, 0, 1], [88, 0, 1]]
+    }, 
+    {
+      "op": "elemwise_add", 
+      "name": "resnetv1b0_layers1_bottleneckv1b2__plus0", 
+      "inputs": [[89, 0, 0], [66, 0, 0]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers1_relu2_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[90, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_conv0_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128, 256, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers2_conv0_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "128", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[91, 0, 0], [92, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm0_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm0_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm0_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm0_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers2_batchnorm0_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[93, 0, 0], [94, 0, 0], [95, 0, 0], [96, 0, 1], [97, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers2_relu0_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[98, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_conv1_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128, 128, 3, 3)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers2_conv1_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "128", 
+        "num_group": "1", 
+        "pad": "(1, 1)", 
+        "stride": "(2, 2)"
+      }, 
+      "inputs": [[99, 0, 0], [100, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm1_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm1_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm1_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm1_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers2_batchnorm1_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[101, 0, 0], [102, 0, 0], [103, 0, 0], [104, 0, 1], [105, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers2_relu0_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[106, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_conv2_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512, 128, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers2_conv2_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "512", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[107, 0, 0], [108, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm2_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm2_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm2_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm2_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers2_batchnorm2_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[109, 0, 0], [110, 0, 0], [111, 0, 0], [112, 0, 1], [113, 0, 1]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_down2_conv0_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512, 256, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_down2_conv0_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "512", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(2, 2)"
+      }, 
+      "inputs": [[91, 0, 0], [115, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_down2_batchnorm0_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_down2_batchnorm0_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_down2_batchnorm0_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_down2_batchnorm0_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_down2_batchnorm0_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[116, 0, 0], [117, 0, 0], [118, 0, 0], [119, 0, 1], [120, 0, 1]]
+    }, 
+    {
+      "op": "elemwise_add", 
+      "name": "resnetv1b0_layers2_bottleneckv1b0__plus0", 
+      "inputs": [[114, 0, 0], [121, 0, 0]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers2_relu0_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[122, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_conv3_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128, 512, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers2_conv3_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "128", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[123, 0, 0], [124, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm3_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm3_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm3_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm3_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers2_batchnorm3_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[125, 0, 0], [126, 0, 0], [127, 0, 0], [128, 0, 1], [129, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers2_relu1_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[130, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_conv4_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128, 128, 3, 3)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers2_conv4_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "128", 
+        "num_group": "1", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[131, 0, 0], [132, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm4_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm4_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm4_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm4_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers2_batchnorm4_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[133, 0, 0], [134, 0, 0], [135, 0, 0], [136, 0, 1], [137, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers2_relu1_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[138, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_conv5_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512, 128, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers2_conv5_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "512", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[139, 0, 0], [140, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm5_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm5_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm5_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm5_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers2_batchnorm5_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[141, 0, 0], [142, 0, 0], [143, 0, 0], [144, 0, 1], [145, 0, 1]]
+    }, 
+    {
+      "op": "elemwise_add", 
+      "name": "resnetv1b0_layers2_bottleneckv1b1__plus0", 
+      "inputs": [[146, 0, 0], [123, 0, 0]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers2_relu1_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[147, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_conv6_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128, 512, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers2_conv6_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "128", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[148, 0, 0], [149, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm6_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm6_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm6_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm6_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers2_batchnorm6_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[150, 0, 0], [151, 0, 0], [152, 0, 0], [153, 0, 1], [154, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers2_relu2_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[155, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_conv7_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128, 128, 3, 3)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers2_conv7_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "128", 
+        "num_group": "1", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[156, 0, 0], [157, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm7_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm7_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm7_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm7_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers2_batchnorm7_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[158, 0, 0], [159, 0, 0], [160, 0, 0], [161, 0, 1], [162, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers2_relu2_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[163, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_conv8_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512, 128, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers2_conv8_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "512", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[164, 0, 0], [165, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm8_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm8_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm8_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm8_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers2_batchnorm8_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[166, 0, 0], [167, 0, 0], [168, 0, 0], [169, 0, 1], [170, 0, 1]]
+    }, 
+    {
+      "op": "elemwise_add", 
+      "name": "resnetv1b0_layers2_bottleneckv1b2__plus0", 
+      "inputs": [[171, 0, 0], [148, 0, 0]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers2_relu2_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[172, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_conv9_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128, 512, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers2_conv9_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "128", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[173, 0, 0], [174, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm9_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm9_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm9_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm9_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers2_batchnorm9_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[175, 0, 0], [176, 0, 0], [177, 0, 0], [178, 0, 1], [179, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers2_relu3_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[180, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_conv10_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128, 128, 3, 3)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers2_conv10_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "128", 
+        "num_group": "1", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[181, 0, 0], [182, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm10_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm10_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm10_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm10_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(128,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers2_batchnorm10_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[183, 0, 0], [184, 0, 0], [185, 0, 0], [186, 0, 1], [187, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers2_relu3_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[188, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_conv11_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512, 128, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers2_conv11_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "512", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[189, 0, 0], [190, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm11_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm11_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm11_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers2_batchnorm11_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers2_batchnorm11_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[191, 0, 0], [192, 0, 0], [193, 0, 0], [194, 0, 1], [195, 0, 1]]
+    }, 
+    {
+      "op": "elemwise_add", 
+      "name": "resnetv1b0_layers2_bottleneckv1b3__plus0", 
+      "inputs": [[196, 0, 0], [173, 0, 0]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers2_relu3_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[197, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_conv0_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256, 512, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers3_conv0_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "256", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[198, 0, 0], [199, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm0_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm0_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm0_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm0_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers3_batchnorm0_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[200, 0, 0], [201, 0, 0], [202, 0, 0], [203, 0, 1], [204, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers3_relu0_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[205, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_conv1_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256, 256, 3, 3)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers3_conv1_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "256", 
+        "num_group": "1", 
+        "pad": "(1, 1)", 
+        "stride": "(2, 2)"
+      }, 
+      "inputs": [[206, 0, 0], [207, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm1_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm1_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm1_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm1_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers3_batchnorm1_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[208, 0, 0], [209, 0, 0], [210, 0, 0], [211, 0, 1], [212, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers3_relu0_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[213, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_conv2_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024, 256, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers3_conv2_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "1024", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[214, 0, 0], [215, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm2_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm2_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm2_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm2_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers3_batchnorm2_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[216, 0, 0], [217, 0, 0], [218, 0, 0], [219, 0, 1], [220, 0, 1]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_down3_conv0_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024, 512, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_down3_conv0_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "1024", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(2, 2)"
+      }, 
+      "inputs": [[198, 0, 0], [222, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_down3_batchnorm0_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_down3_batchnorm0_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_down3_batchnorm0_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_down3_batchnorm0_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_down3_batchnorm0_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[223, 0, 0], [224, 0, 0], [225, 0, 0], [226, 0, 1], [227, 0, 1]]
+    }, 
+    {
+      "op": "elemwise_add", 
+      "name": "resnetv1b0_layers3_bottleneckv1b0__plus0", 
+      "inputs": [[221, 0, 0], [228, 0, 0]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers3_relu0_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[229, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_conv3_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256, 1024, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers3_conv3_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "256", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[230, 0, 0], [231, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm3_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm3_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm3_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm3_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers3_batchnorm3_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[232, 0, 0], [233, 0, 0], [234, 0, 0], [235, 0, 1], [236, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers3_relu1_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[237, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_conv4_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256, 256, 3, 3)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers3_conv4_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "256", 
+        "num_group": "1", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[238, 0, 0], [239, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm4_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm4_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm4_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm4_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers3_batchnorm4_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[240, 0, 0], [241, 0, 0], [242, 0, 0], [243, 0, 1], [244, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers3_relu1_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[245, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_conv5_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024, 256, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers3_conv5_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "1024", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[246, 0, 0], [247, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm5_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm5_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm5_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm5_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers3_batchnorm5_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[248, 0, 0], [249, 0, 0], [250, 0, 0], [251, 0, 1], [252, 0, 1]]
+    }, 
+    {
+      "op": "elemwise_add", 
+      "name": "resnetv1b0_layers3_bottleneckv1b1__plus0", 
+      "inputs": [[253, 0, 0], [230, 0, 0]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers3_relu1_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[254, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_conv6_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256, 1024, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers3_conv6_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "256", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[255, 0, 0], [256, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm6_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm6_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm6_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm6_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers3_batchnorm6_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[257, 0, 0], [258, 0, 0], [259, 0, 0], [260, 0, 1], [261, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers3_relu2_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[262, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_conv7_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256, 256, 3, 3)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers3_conv7_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "256", 
+        "num_group": "1", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[263, 0, 0], [264, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm7_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm7_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm7_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm7_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers3_batchnorm7_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[265, 0, 0], [266, 0, 0], [267, 0, 0], [268, 0, 1], [269, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers3_relu2_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[270, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_conv8_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024, 256, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers3_conv8_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "1024", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[271, 0, 0], [272, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm8_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm8_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm8_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm8_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers3_batchnorm8_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[273, 0, 0], [274, 0, 0], [275, 0, 0], [276, 0, 1], [277, 0, 1]]
+    }, 
+    {
+      "op": "elemwise_add", 
+      "name": "resnetv1b0_layers3_bottleneckv1b2__plus0", 
+      "inputs": [[278, 0, 0], [255, 0, 0]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers3_relu2_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[279, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_conv9_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256, 1024, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers3_conv9_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "256", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[280, 0, 0], [281, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm9_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm9_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm9_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm9_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers3_batchnorm9_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[282, 0, 0], [283, 0, 0], [284, 0, 0], [285, 0, 1], [286, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers3_relu3_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[287, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_conv10_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256, 256, 3, 3)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers3_conv10_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "256", 
+        "num_group": "1", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[288, 0, 0], [289, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm10_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm10_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm10_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm10_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers3_batchnorm10_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[290, 0, 0], [291, 0, 0], [292, 0, 0], [293, 0, 1], [294, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers3_relu3_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[295, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_conv11_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024, 256, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers3_conv11_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "1024", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[296, 0, 0], [297, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm11_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm11_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm11_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm11_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers3_batchnorm11_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[298, 0, 0], [299, 0, 0], [300, 0, 0], [301, 0, 1], [302, 0, 1]]
+    }, 
+    {
+      "op": "elemwise_add", 
+      "name": "resnetv1b0_layers3_bottleneckv1b3__plus0", 
+      "inputs": [[303, 0, 0], [280, 0, 0]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers3_relu3_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[304, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_conv12_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256, 1024, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers3_conv12_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "256", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[305, 0, 0], [306, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm12_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm12_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm12_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm12_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers3_batchnorm12_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[307, 0, 0], [308, 0, 0], [309, 0, 0], [310, 0, 1], [311, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers3_relu4_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[312, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_conv13_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256, 256, 3, 3)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers3_conv13_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "256", 
+        "num_group": "1", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[313, 0, 0], [314, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm13_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm13_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm13_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm13_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers3_batchnorm13_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[315, 0, 0], [316, 0, 0], [317, 0, 0], [318, 0, 1], [319, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers3_relu4_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[320, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_conv14_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024, 256, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers3_conv14_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "1024", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[321, 0, 0], [322, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm14_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm14_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm14_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm14_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers3_batchnorm14_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[323, 0, 0], [324, 0, 0], [325, 0, 0], [326, 0, 1], [327, 0, 1]]
+    }, 
+    {
+      "op": "elemwise_add", 
+      "name": "resnetv1b0_layers3_bottleneckv1b4__plus0", 
+      "inputs": [[328, 0, 0], [305, 0, 0]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers3_relu4_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[329, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_conv15_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256, 1024, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers3_conv15_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "256", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[330, 0, 0], [331, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm15_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm15_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm15_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm15_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers3_batchnorm15_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[332, 0, 0], [333, 0, 0], [334, 0, 0], [335, 0, 1], [336, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers3_relu5_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[337, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_conv16_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256, 256, 3, 3)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers3_conv16_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "256", 
+        "num_group": "1", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[338, 0, 0], [339, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm16_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm16_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm16_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm16_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(256,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers3_batchnorm16_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[340, 0, 0], [341, 0, 0], [342, 0, 0], [343, 0, 1], [344, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers3_relu5_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[345, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_conv17_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024, 256, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers3_conv17_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "1024", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[346, 0, 0], [347, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm17_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm17_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm17_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers3_batchnorm17_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1024,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers3_batchnorm17_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[348, 0, 0], [349, 0, 0], [350, 0, 0], [351, 0, 1], [352, 0, 1]]
+    }, 
+    {
+      "op": "elemwise_add", 
+      "name": "resnetv1b0_layers3_bottleneckv1b5__plus0", 
+      "inputs": [[353, 0, 0], [330, 0, 0]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers3_relu5_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[354, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_conv0_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512, 1024, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers4_conv0_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "512", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[355, 0, 0], [356, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm0_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm0_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm0_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm0_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers4_batchnorm0_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[357, 0, 0], [358, 0, 0], [359, 0, 0], [360, 0, 1], [361, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers4_relu0_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[362, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_conv1_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512, 512, 3, 3)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers4_conv1_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "512", 
+        "num_group": "1", 
+        "pad": "(1, 1)", 
+        "stride": "(2, 2)"
+      }, 
+      "inputs": [[363, 0, 0], [364, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm1_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm1_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm1_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm1_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers4_batchnorm1_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[365, 0, 0], [366, 0, 0], [367, 0, 0], [368, 0, 1], [369, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers4_relu0_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[370, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_conv2_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(2048, 512, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers4_conv2_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "2048", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[371, 0, 0], [372, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm2_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(2048,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm2_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(2048,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm2_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(2048,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm2_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(2048,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers4_batchnorm2_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[373, 0, 0], [374, 0, 0], [375, 0, 0], [376, 0, 1], [377, 0, 1]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_down4_conv0_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(2048, 1024, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_down4_conv0_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "2048", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(2, 2)"
+      }, 
+      "inputs": [[355, 0, 0], [379, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_down4_batchnorm0_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(2048,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_down4_batchnorm0_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(2048,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_down4_batchnorm0_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(2048,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_down4_batchnorm0_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(2048,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_down4_batchnorm0_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[380, 0, 0], [381, 0, 0], [382, 0, 0], [383, 0, 1], [384, 0, 1]]
+    }, 
+    {
+      "op": "elemwise_add", 
+      "name": "resnetv1b0_layers4_bottleneckv1b0__plus0", 
+      "inputs": [[378, 0, 0], [385, 0, 0]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers4_relu0_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[386, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_conv3_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512, 2048, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers4_conv3_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "512", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[387, 0, 0], [388, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm3_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm3_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm3_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm3_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers4_batchnorm3_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[389, 0, 0], [390, 0, 0], [391, 0, 0], [392, 0, 1], [393, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers4_relu1_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[394, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_conv4_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512, 512, 3, 3)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers4_conv4_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "512", 
+        "num_group": "1", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[395, 0, 0], [396, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm4_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm4_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm4_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm4_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers4_batchnorm4_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[397, 0, 0], [398, 0, 0], [399, 0, 0], [400, 0, 1], [401, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers4_relu1_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[402, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_conv5_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(2048, 512, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers4_conv5_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "2048", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[403, 0, 0], [404, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm5_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(2048,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm5_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(2048,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm5_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(2048,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm5_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(2048,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers4_batchnorm5_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[405, 0, 0], [406, 0, 0], [407, 0, 0], [408, 0, 1], [409, 0, 1]]
+    }, 
+    {
+      "op": "elemwise_add", 
+      "name": "resnetv1b0_layers4_bottleneckv1b1__plus0", 
+      "inputs": [[410, 0, 0], [387, 0, 0]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers4_relu1_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[411, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_conv6_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512, 2048, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers4_conv6_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "512", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[412, 0, 0], [413, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm6_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm6_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm6_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm6_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers4_batchnorm6_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[414, 0, 0], [415, 0, 0], [416, 0, 0], [417, 0, 1], [418, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers4_relu2_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[419, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_conv7_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512, 512, 3, 3)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers4_conv7_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(3, 3)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "512", 
+        "num_group": "1", 
+        "pad": "(1, 1)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[420, 0, 0], [421, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm7_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm7_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm7_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm7_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(512,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers4_batchnorm7_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[422, 0, 0], [423, 0, 0], [424, 0, 0], [425, 0, 1], [426, 0, 1]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers4_relu2_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[427, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_conv8_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(2048, 512, 1, 1)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "Convolution", 
+      "name": "resnetv1b0_layers4_conv8_fwd", 
+      "attrs": {
+        "dilate": "(1, 1)", 
+        "kernel": "(1, 1)", 
+        "layout": "NCHW", 
+        "no_bias": "True", 
+        "num_filter": "2048", 
+        "num_group": "1", 
+        "pad": "(0, 0)", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[428, 0, 0], [429, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm8_gamma", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(2048,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm8_beta", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(2048,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm8_running_mean", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(2048,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_layers4_batchnorm8_running_var", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "ones", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(2048,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "BatchNorm", 
+      "name": "resnetv1b0_layers4_batchnorm8_fwd", 
+      "attrs": {
+        "axis": "1", 
+        "eps": "1e-05", 
+        "fix_gamma": "False", 
+        "momentum": "0.9", 
+        "use_global_stats": "False"
+      }, 
+      "inputs": [[430, 0, 0], [431, 0, 0], [432, 0, 0], [433, 0, 1], [434, 0, 1]]
+    }, 
+    {
+      "op": "elemwise_add", 
+      "name": "resnetv1b0_layers4_bottleneckv1b2__plus0", 
+      "inputs": [[435, 0, 0], [412, 0, 0]]
+    }, 
+    {
+      "op": "Activation", 
+      "name": "resnetv1b0_layers4_relu2_fwd", 
+      "attrs": {"act_type": "relu"}, 
+      "inputs": [[436, 0, 0]]
+    }, 
+    {
+      "op": "Pooling", 
+      "name": "resnetv1b0_pool1_fwd", 
+      "attrs": {
+        "global_pool": "True", 
+        "kernel": "(1, 1)", 
+        "pad": "(0, 0)", 
+        "pool_type": "avg", 
+        "pooling_convention": "full", 
+        "stride": "(1, 1)"
+      }, 
+      "inputs": [[437, 0, 0]]
+    }, 
+    {
+      "op": "Reshape", 
+      "name": "resnetv1b0_flatten0_reshape0", 
+      "attrs": {"shape": "(0, -1)"}, 
+      "inputs": [[438, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_dense0_weight", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1000, 2048)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "null", 
+      "name": "resnetv1b0_dense0_bias", 
+      "attrs": {
+        "__dtype__": "0", 
+        "__init__": "zeros", 
+        "__lr_mult__": "1.0", 
+        "__shape__": "(1000,)", 
+        "__wd_mult__": "1.0"
+      }, 
+      "inputs": []
+    }, 
+    {
+      "op": "FullyConnected", 
+      "name": "resnetv1b0_dense0_fwd", 
+      "attrs": {
+        "flatten": "True", 
+        "no_bias": "False", 
+        "num_hidden": "1000"
+      }, 
+      "inputs": [[439, 0, 0], [440, 0, 0], [441, 0, 0]]
+    }, 
+    {
+      "op": "null", 
+      "name": "softmax_label", 
+      "inputs": []
+    }, 
+    {
+      "op": "SoftmaxOutput", 
+      "name": "hybridlambda0_softmaxoutput0", 
+      "inputs": [[442, 0, 0], [443, 0, 0]]
+    }
+  ], 
+  "arg_nodes": [
+    0, 
+    1, 
+    3, 
+    4, 
+    5, 
+    6, 
+    10, 
+    12, 
+    13, 
+    14, 
+    15, 
+    18, 
+    20, 
+    21, 
+    22, 
+    23, 
+    26, 
+    28, 
+    29, 
+    30, 
+    31, 
+    33, 
+    35, 
+    36, 
+    37, 
+    38, 
+    42, 
+    44, 
+    45, 
+    46, 
+    47, 
+    50, 
+    52, 
+    53, 
+    54, 
+    55, 
+    58, 
+    60, 
+    61, 
+    62, 
+    63, 
+    67, 
+    69, 
+    70, 
+    71, 
+    72, 
+    75, 
+    77, 
+    78, 
+    79, 
+    80, 
+    83, 
+    85, 
+    86, 
+    87, 
+    88, 
+    92, 
+    94, 
+    95, 
+    96, 
+    97, 
+    100, 
+    102, 
+    103, 
+    104, 
+    105, 
+    108, 
+    110, 
+    111, 
+    112, 
+    113, 
+    115, 
+    117, 
+    118, 
+    119, 
+    120, 
+    124, 
+    126, 
+    127, 
+    128, 
+    129, 
+    132, 
+    134, 
+    135, 
+    136, 
+    137, 
+    140, 
+    142, 
+    143, 
+    144, 
+    145, 
+    149, 
+    151, 
+    152, 
+    153, 
+    154, 
+    157, 
+    159, 
+    160, 
+    161, 
+    162, 
+    165, 
+    167, 
+    168, 
+    169, 
+    170, 
+    174, 
+    176, 
+    177, 
+    178, 
+    179, 
+    182, 
+    184, 
+    185, 
+    186, 
+    187, 
+    190, 
+    192, 
+    193, 
+    194, 
+    195, 
+    199, 
+    201, 
+    202, 
+    203, 
+    204, 
+    207, 
+    209, 
+    210, 
+    211, 
+    212, 
+    215, 
+    217, 
+    218, 
+    219, 
+    220, 
+    222, 
+    224, 
+    225, 
+    226, 
+    227, 
+    231, 
+    233, 
+    234, 
+    235, 
+    236, 
+    239, 
+    241, 
+    242, 
+    243, 
+    244, 
+    247, 
+    249, 
+    250, 
+    251, 
+    252, 
+    256, 
+    258, 
+    259, 
+    260, 
+    261, 
+    264, 
+    266, 
+    267, 
+    268, 
+    269, 
+    272, 
+    274, 
+    275, 
+    276, 
+    277, 
+    281, 
+    283, 
+    284, 
+    285, 
+    286, 
+    289, 
+    291, 
+    292, 
+    293, 
+    294, 
+    297, 
+    299, 
+    300, 
+    301, 
+    302, 
+    306, 
+    308, 
+    309, 
+    310, 
+    311, 
+    314, 
+    316, 
+    317, 
+    318, 
+    319, 
+    322, 
+    324, 
+    325, 
+    326, 
+    327, 
+    331, 
+    333, 
+    334, 
+    335, 
+    336, 
+    339, 
+    341, 
+    342, 
+    343, 
+    344, 
+    347, 
+    349, 
+    350, 
+    351, 
+    352, 
+    356, 
+    358, 
+    359, 
+    360, 
+    361, 
+    364, 
+    366, 
+    367, 
+    368, 
+    369, 
+    372, 
+    374, 
+    375, 
+    376, 
+    377, 
+    379, 
+    381, 
+    382, 
+    383, 
+    384, 
+    388, 
+    390, 
+    391, 
+    392, 
+    393, 
+    396, 
+    398, 
+    399, 
+    400, 
+    401, 
+    404, 
+    406, 
+    407, 
+    408, 
+    409, 
+    413, 
+    415, 
+    416, 
+    417, 
+    418, 
+    421, 
+    423, 
+    424, 
+    425, 
+    426, 
+    429, 
+    431, 
+    432, 
+    433, 
+    434, 
+    440, 
+    441, 
+    443
+  ], 
+  "node_row_ptr": [
+    0, 
+    1, 
+    2, 
+    3, 
+    4, 
+    5, 
+    6, 
+    7, 
+    10, 
+    11, 
+    12, 
+    13, 
+    14, 
+    15, 
+    16, 
+    17, 
+    18, 
+    21, 
+    22, 
+    23, 
+    24, 
+    25, 
+    26, 
+    27, 
+    28, 
+    31, 
+    32, 
+    33, 
+    34, 
+    35, 
+    36, 
+    37, 
+    38, 
+    41, 
+    42, 
+    43, 
+    44, 
+    45, 
+    46, 
+    47, 
+    50, 
+    51, 
+    52, 
+    53, 
+    54, 
+    55, 
+    56, 
+    57, 
+    58, 
+    61, 
+    62, 
+    63, 
+    64, 
+    65, 
+    66, 
+    67, 
+    68, 
+    71, 
+    72, 
+    73, 
+    74, 
+    75, 
+    76, 
+    77, 
+    78, 
+    81, 
+    82, 
+    83, 
+    84, 
+    85, 
+    86, 
+    87, 
+    88, 
+    89, 
+    92, 
+    93, 
+    94, 
+    95, 
+    96, 
+    97, 
+    98, 
+    99, 
+    102, 
+    103, 
+    104, 
+    105, 
+    106, 
+    107, 
+    108, 
+    109, 
+    112, 
+    113, 
+    114, 
+    115, 
+    116, 
+    117, 
+    118, 
+    119, 
+    120, 
+    123, 
+    124, 
+    125, 
+    126, 
+    127, 
+    128, 
+    129, 
+    130, 
+    133, 
+    134, 
+    135, 
+    136, 
+    137, 
+    138, 
+    139, 
+    140, 
+    143, 
+    144, 
+    145, 
+    146, 
+    147, 
+    148, 
+    149, 
+    152, 
+    153, 
+    154, 
+    155, 
+    156, 
+    157, 
+    158, 
+    159, 
+    160, 
+    163, 
+    164, 
+    165, 
+    166, 
+    167, 
+    168, 
+    169, 
+    170, 
+    173, 
+    174, 
+    175, 
+    176, 
+    177, 
+    178, 
+    179, 
+    180, 
+    183, 
+    184, 
+    185, 
+    186, 
+    187, 
+    188, 
+    189, 
+    190, 
+    191, 
+    194, 
+    195, 
+    196, 
+    197, 
+    198, 
+    199, 
+    200, 
+    201, 
+    204, 
+    205, 
+    206, 
+    207, 
+    208, 
+    209, 
+    210, 
+    211, 
+    214, 
+    215, 
+    216, 
+    217, 
+    218, 
+    219, 
+    220, 
+    221, 
+    222, 
+    225, 
+    226, 
+    227, 
+    228, 
+    229, 
+    230, 
+    231, 
+    232, 
+    235, 
+    236, 
+    237, 
+    238, 
+    239, 
+    240, 
+    241, 
+    242, 
+    245, 
+    246, 
+    247, 
+    248, 
+    249, 
+    250, 
+    251, 
+    252, 
+    253, 
+    256, 
+    257, 
+    258, 
+    259, 
+    260, 
+    261, 
+    262, 
+    263, 
+    266, 
+    267, 
+    268, 
+    269, 
+    270, 
+    271, 
+    272, 
+    273, 
+    276, 
+    277, 
+    278, 
+    279, 
+    280, 
+    281, 
+    282, 
+    285, 
+    286, 
+    287, 
+    288, 
+    289, 
+    290, 
+    291, 
+    292, 
+    293, 
+    296, 
+    297, 
+    298, 
+    299, 
+    300, 
+    301, 
+    302, 
+    303, 
+    306, 
+    307, 
+    308, 
+    309, 
+    310, 
+    311, 
+    312, 
+    313, 
+    316, 
+    317, 
+    318, 
+    319, 
+    320, 
+    321, 
+    322, 
+    323, 
+    324, 
+    327, 
+    328, 
+    329, 
+    330, 
+    331, 
+    332, 
+    333, 
+    334, 
+    337, 
+    338, 
+    339, 
+    340, 
+    341, 
+    342, 
+    343, 
+    344, 
+    347, 
+    348, 
+    349, 
+    350, 
+    351, 
+    352, 
+    353, 
+    354, 
+    355, 
+    358, 
+    359, 
+    360, 
+    361, 
+    362, 
+    363, 
+    364, 
+    365, 
+    368, 
+    369, 
+    370, 
+    371, 
+    372, 
+    373, 
+    374, 
+    375, 
+    378, 
+    379, 
+    380, 
+    381, 
+    382, 
+    383, 
+    384, 
+    385, 
+    386, 
+    389, 
+    390, 
+    391, 
+    392, 
+    393, 
+    394, 
+    395, 
+    396, 
+    399, 
+    400, 
+    401, 
+    402, 
+    403, 
+    404, 
+    405, 
+    406, 
+    409, 
+    410, 
+    411, 
+    412, 
+    413, 
+    414, 
+    415, 
+    416, 
+    417, 
+    420, 
+    421, 
+    422, 
+    423, 
+    424, 
+    425, 
+    426, 
+    427, 
+    430, 
+    431, 
+    432, 
+    433, 
+    434, 
+    435, 
+    436, 
+    437, 
+    440, 
+    441, 
+    442, 
+    443, 
+    444, 
+    445, 
+    446, 
+    447, 
+    448, 
+    451, 
+    452, 
+    453, 
+    454, 
+    455, 
+    456, 
+    457, 
+    458, 
+    461, 
+    462, 
+    463, 
+    464, 
+    465, 
+    466, 
+    467, 
+    468, 
+    471, 
+    472, 
+    473, 
+    474, 
+    475, 
+    476, 
+    477, 
+    480, 
+    481, 
+    482, 
+    483, 
+    484, 
+    485, 
+    486, 
+    487, 
+    488, 
+    491, 
+    492, 
+    493, 
+    494, 
+    495, 
+    496, 
+    497, 
+    498, 
+    501, 
+    502, 
+    503, 
+    504, 
+    505, 
+    506, 
+    507, 
+    508, 
+    511, 
+    512, 
+    513, 
+    514, 
+    515, 
+    516, 
+    517, 
+    518, 
+    519, 
+    522, 
+    523, 
+    524, 
+    525, 
+    526, 
+    527, 
+    528, 
+    529, 
+    532, 
+    533, 
+    534, 
+    535, 
+    536, 
+    537, 
+    538, 
+    539, 
+    542, 
+    543, 
+    544, 
+    545, 
+    546, 
+    547, 
+    548, 
+    549, 
+    550, 
+    551
+  ], 
+  "heads": [[444, 0, 0]], 
+  "attrs": {"mxnet_version": ["int", 10200]}
+}
