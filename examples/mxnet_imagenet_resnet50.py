@@ -23,7 +23,6 @@ from common import find_mxnet, data, fit
 from common.util import download_file
 import mxnet as mx
 from mxnet import profiler
-import time
 
 if __name__ == '__main__':
     # parse args
