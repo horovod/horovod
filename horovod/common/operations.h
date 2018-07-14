@@ -44,7 +44,7 @@ namespace common {
 // A callback to call after the MPI communication completes. Since the
 // allreduce and allgather ops are asynchronous, this callback is what resumes
 // computation after the reduction is completed.
-typedef std::function<void(const Status&)> StatusCallback;
+using StatusCallback = std::function<void(const Status&)>;
 
 // Check that Horovod is initialized.
 Status CheckInitialized();
