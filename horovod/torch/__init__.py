@@ -17,9 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import collections
 import io
-import pickle
 
 from horovod.common import init
 from horovod.common import size
@@ -148,11 +146,11 @@ def broadcast_object(obj, root_rank, name=None):
         The object that was broadcast from the `root_rank`.
     """
     if name is None:
-        name = str(type(obj))
+        name = 'obj.' + type(obj).__name__
 
     if rank() == root_rank:
         b = io.BytesIO()
-        pickle.dump(obj, b)
+        torch.save(obj, b)
         buf = bytearray(b.getvalue())
         t = torch.ByteTensor(buf)
         sz = torch.IntTensor([t.shape[0]])
@@ -160,13 +158,14 @@ def broadcast_object(obj, root_rank, name=None):
     else:
         sz = torch.IntTensor([0])
         broadcast_(sz, root_rank, name + '.sz')
-        t = torch.ByteTensor(sz.tolist()[0])
+        t = torch.ByteTensor(int(sz[0]))
 
     broadcast_(t, root_rank, name + '.t')
 
     if rank() != root_rank:
-        buf = bytearray(t.tolist())
-        obj = pickle.loads(buf)
+        buf = bytearray(t.numpy())
+        b = io.BytesIO(buf)
+        obj = torch.load(b)
 
     return obj
 
