@@ -168,9 +168,10 @@ def broadcast_optimizer_state(optimizer, root_rank):
         name: Optional name to use during broadcast, will default to the class
               type.
     """
+    state_dict = optimizer.state_dict()
+
     # Newly created optimizers will not have their state initialized, so
     # do that initialization here
-    state_dict = optimizer.state_dict()
     if len(state_dict['state']) == 0:
         for group in optimizer.param_groups:
             for p in group['params']:
