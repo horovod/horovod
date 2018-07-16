@@ -31,13 +31,12 @@ using namespace horovod::common;
 
 template <class T> class MXReadyEvent : public ReadyEvent {
 public:
-  MXReadyEvent(int device);
+  MXReadyEvent(NDArray* tensor);
   ~MXReadyEvent();
   virtual bool Ready() const override;
 
 private:
-  int device_;
-  cudaEvent_t cuda_event_;
+  NDArray* tensor_;
 };
 
 } // namespace mxnet
