@@ -23,23 +23,23 @@ import mxnet
 from mxnet.base import _LIB, c_str_array, c_handle_array, c_array, c_array_buf, c_str
 from mxnet.base import check_call, string_types, mx_uint, py_str
 
-#from horovod.mxnet import mpi_lib_impl
-#from horovod.mxnet import mpi_lib
+#from horovod.mxnet import _LIB_impl
+#from horovod.mxnet import _LIB
 from horovod.mxnet import rank, size
 
 # Schema: handle -> input, output
 # We keep input in order to make sure it does not get garbage collected
 # before the operation is finished.
-#_handle_map = {}
+_handle_map = {}
 
 
 # Null pointer.
-#_NULL = mpi_lib._ffi.NULL
+#_NULL = _LIB._ffi.NULL
 from mxnet.base import _Null
 
 def _check_function(function_factory, tensor):
     function = function_factory(tensor)
-    if not hasattr(mpi_lib, function):
+    if not hasattr(_LIB, function):
         raise ValueError('Tensor type %s is not supported.' % tensor.type())
     if not tensor.is_contiguous():
         raise ValueError('Tensor is required to be contiguous.')
@@ -47,11 +47,13 @@ def _check_function(function_factory, tensor):
 
 
 def _allreduce_function_factory(tensor):
-    return 'horovod_mxnet_allreduce_async' + tensor.type().replace('.', '_')
+    return 'horovod_mxnet_allreduce_async'
 
 
 def _allreduce_async(tensor, output, average, name):
-    check_call(_LIB.horovod_mxnet_allreduce_async(tensor, output, average, name.encode() if name is not None else _NULL))
+    function = _check_function(_allreduce_function_factory, tensor)
+    handle = getattr(_LIB, function)(tensor, output, average,
+                                        name.encode() if name is not None else _Null)
     _handle_map[handle] = (tensor, output)
     return handle
 
@@ -169,12 +171,12 @@ def allreduce_(tensor, average=True, name=None):
 
 
 def _allgather_function_factory(tensor):
-    return 'horovod_torch_allgather_async_' + tensor.type().replace('.', '_')
+    return 'horovod_torch_allgather_async_'
 
 
 def _allgather_async(tensor, output, name):
     function = _check_function(_allgather_function_factory, tensor)
-    handle = getattr(mpi_lib, function)(
+    handle = getattr(_LIB, function)(
         tensor, output, name.encode() if name is not None else _NULL)
     _handle_map[handle] = (tensor, output)
     return handle
@@ -249,12 +251,12 @@ def allgather(tensor, name=None):
 
 
 def _broadcast_function_factory(tensor):
-    return 'horovod_torch_broadcast_async_' + tensor.type().replace('.', '_')
+    return 'horovod_torch_broadcast_async_'
 
 
 def _broadcast_async(tensor, output, root_rank, name):
     function = _check_function(_broadcast_function_factory, tensor)
-    handle = getattr(mpi_lib, function)(
+    handle = getattr(_LIB, function)(
         tensor, output, root_rank, name.encode() if name is not None else _NULL)
     _handle_map[handle] = (tensor, output)
     return handle
@@ -384,7 +386,7 @@ def poll(handle):
     Returns:
         A flag indicating whether the operation has completed.
     """
-    return mpi_lib.horovod_torch_poll(handle) != 0
+    return _LIB.horovod_torch_poll(handle) != 0
 
 
 def synchronize(handle):
@@ -401,6 +403,6 @@ def synchronize(handle):
     """
     if handle not in _handle_map:
         return
-    mpi_lib.horovod_torch_wait_and_clear(handle)
+    _LIB.horovod_torch_wait_and_clear(handle)
     _, output = _handle_map.pop(handle)
     return output
