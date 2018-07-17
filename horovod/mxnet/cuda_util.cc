@@ -20,6 +20,7 @@
 
 #include "../common/common.h"
 #include "cuda_util.h"
+#include "util.h"
 
 namespace horovod {
 namespace MX {

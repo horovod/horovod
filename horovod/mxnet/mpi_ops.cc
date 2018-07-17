@@ -70,7 +70,6 @@ int DoAllreduceCudaOnCPU(NDArray* tensor, NDArray* output, int average,
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
-  auto device = TensorUtil::GetDevice(tensor);
   auto hvd_cpu_buffer =
       std::make_shared<MXTemporaryBuffer<NDArray>>(CPU_DEVICE_ID);
   TensorUtil::AsyncCopyCudaToCPU(tensor, hvd_cpu_buffer->tensor());
@@ -119,7 +118,6 @@ int DoAllgatherCudaOnCPU(NDArray* tensor, NDArray* output, char* name) {
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
-  auto device = TensorUtil::GetDevice(tensor);
   auto hvd_cpu_tensor =
       std::make_shared<MXTemporaryBuffer<NDArray>>(CPU_DEVICE_ID);
   TensorUtil::AsyncCopyCudaToCPU(tensor, hvd_cpu_tensor->tensor());
@@ -177,7 +175,6 @@ int DoBroadcastCudaOnCPU(NDArray* tensor, NDArray* output, int root_rank,
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
-  auto device = TensorUtil::GetDevice(tensor);
   auto hvd_cpu_buffer =
       std::make_shared<MXTemporaryBuffer<NDArray>>(CPU_DEVICE_ID);
   TensorUtil::AsyncCopyCudaToCPU(tensor, hvd_cpu_buffer->tensor());
