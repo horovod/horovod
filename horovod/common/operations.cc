@@ -75,7 +75,7 @@ namespace {
 
 // Table storing Tensors to be reduced, keyed by unique name.
 // This table contains everything necessary to do the reduction.
-typedef struct {
+struct TensorTableEntry {
   // Name of the tensor.
   std::string tensor_name;
   // Operation context.
@@ -92,16 +92,15 @@ typedef struct {
   int device;
   // A callback to call with the status.
   StatusCallback callback;
-} TensorTableEntry;
-typedef std::unordered_map<std::string, TensorTableEntry> TensorTable;
+};
+using TensorTable = std::unordered_map<std::string, TensorTableEntry>;
 
 // Table for storing Tensor metadata on rank zero. This is used for error
 // checking, stall checking and size calculations, as well as determining
 // when a reduction is ready to be done (when all nodes are ready to do it).
-typedef std::unordered_map<
+using MessageTable = std::unordered_map<
     std::string,
-    std::tuple<std::vector<MPIRequest>, std::chrono::steady_clock::time_point>>
-    MessageTable;
+    std::tuple<std::vector<MPIRequest>, std::chrono::steady_clock::time_point>>;
 
 // The global state required for the MPI ops.
 //

@@ -36,8 +36,8 @@ inline std::size_t hash_one(const T& element, std::size_t seed) {
 } // namespace
 
 template <typename T> struct hash<std::vector<T>> {
-  typedef std::vector<T> argument_type;
-  typedef std::size_t result_type;
+  using argument_type = std::vector<T>;
+  using result_type = std::size_t;
 
   result_type operator()(argument_type const& in) const {
     size_t size = in.size();
@@ -49,8 +49,8 @@ template <typename T> struct hash<std::vector<T>> {
 };
 
 template <typename U, typename V> struct hash<std::tuple<U, V>> {
-  typedef std::tuple<U, V> argument_type;
-  typedef std::size_t result_type;
+  using argument_type = std::tuple<U, V>;
+  using result_type = std::size_t;
 
   result_type operator()(argument_type const& in) const {
     result_type seed = 0;
