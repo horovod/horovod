@@ -21,7 +21,7 @@
 #include "ready_event.h"
 
 namespace horovod {
-namespace mxnet {
+namespace MX {
 
 /*struct ReadyEventRegistry {
   std::unordered_map<int, std::queue<cudaEvent_t>> cuda_events;
@@ -75,6 +75,6 @@ template <class T> bool MXReadyEvent<T>::Ready() const {
 
 template class MXReadyEvent<NDArray>;
 
-} // namespace mxnet
+} // namespace MX
 } // namespace horovod
 #endif

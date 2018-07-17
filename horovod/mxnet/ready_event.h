@@ -25,7 +25,7 @@
 #include "../common/common.h"
 
 namespace horovod {
-namespace mxnet {
+namespace MX {
 
 using namespace horovod::common;
 
@@ -39,7 +39,7 @@ private:
   NDArray* tensor_;
 };
 
-} // namespace mxnet
+} // namespace MX
 } // namespace horovod
 #endif
 

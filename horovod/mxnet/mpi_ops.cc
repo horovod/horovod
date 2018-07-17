@@ -26,7 +26,7 @@
 #include "tensor_util.h"
 
 namespace horovod {
-namespace mxnet {
+namespace MX {
 
 static HandleManager handle_manager;
 
@@ -204,11 +204,15 @@ int DoBroadcastCudaOnCPU(NDArray* tensor, NDArray* output, int root_rank,
 // Otherwise do AllReduce on CPU
 extern "C" int horovod_mxnet_allreduce_async(
     NDArray* tensor, NDArray* output, int average, char* name) {
-  if (tensor->ctx().dev_mask() == gpu::kDevMask &&
-      output->ctx().dev_mask() == gpu::kDevMask)
+  if (tensor->ctx().dev_mask() == mshadow::gpu::kDevMask &&
+      output->ctx().dev_mask() == mshadow::gpu::kDevMask)
     return DoAllreduce(tensor, output, average, name);
   else
-    return DoAllreduceCudaOnCPU(tensor, output, average, name);
+    #ifdef HAVE_CUDA
+      return DoAllreduceCudaOnCPU(tensor, output, average, name);
+    #else
+      return DoAllreduce(tensor, output, average, name);
+    #endif
 }
 
 extern "C" int horovod_mxnet_allgather_async(
@@ -217,7 +221,11 @@ extern "C" int horovod_mxnet_allgather_async(
       output->ctx().dev_mask() == gpu::kDevMask)
     return DoAllgather(tensor, output, name);
   else
-    return DoAllgatherCudaOnCPU(tensor, output, name);
+    #ifdef HAVE_CUDA
+      return DoAllgatherCudaOnCPU(tensor, output, name);
+    #else
+      return DoAllgather(tensor, output, name);
+    #endif
 }
 
 extern "C" int horovod_mxnet_broadcast_async(
@@ -226,7 +234,11 @@ extern "C" int horovod_mxnet_broadcast_async(
       output->ctx().dev_mask() == gpu::kDevMask)
     return DoBroadcast(tensor, output, root_rank, name);
   else
-    return DoBroadcastCudaOnCPU(tensor, output, root_rank, name);
+    #ifdef HAVE_CUDA
+      return DoBroadcastCudaOnCPU(tensor, output, root_rank, name);
+    #else
+      return DoBroadcast(tensor, output, root_rank, name);
+    #endif
 }
 
 extern "C" int horovod_mxnet_poll(int handle) {
@@ -241,5 +253,5 @@ extern "C" void horovod_mxnet_wait_and_clear(int handle) {
   ThrowIfError(*status);
 }
 
-} // namespace mxnet
+} // namespace MX
 } // namespace horovod
