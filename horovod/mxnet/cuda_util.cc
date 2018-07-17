@@ -22,7 +22,7 @@
 #include "cuda_util.h"
 
 namespace horovod {
-namespace mxnet {
+namespace MX {
 
 with_device::with_device(int device) {
   if (device == CPU_DEVICE_ID) {
@@ -46,5 +46,5 @@ with_device::~with_device() {
 #endif
 }
 
-} // namespace mxnet
+} // namespace MX
 } // namespace horovod

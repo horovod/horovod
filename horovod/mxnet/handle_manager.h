@@ -24,7 +24,7 @@
 #include "../common/common.h"
 
 namespace horovod {
-namespace mxnet {
+namespace MX {
 
 using namespace horovod::common;
 
@@ -41,7 +41,7 @@ private:
   std::mutex mutex_;
 };
 
-} // namespace mxnet
+} // namespace MX
 } // namespace horovod
 
 #endif // HOROVOD_MXNET_HANDLE_MANAGER_H

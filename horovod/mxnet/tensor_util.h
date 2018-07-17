@@ -17,15 +17,17 @@
 #define HOROVOD_MXNET_TENSOR_UTIL_H
 
 #include <mxnet/base.h>
+#include <mxnet/ndarray.h>
 #include <cassert>
 
 #include "../common/common.h"
 #include "cuda_util.h"
 
 namespace horovod {
-namespace mxnet {
+namespace MX {
 
 using namespace horovod::common;
+using namespace mxnet;
 
 class TensorUtil {
 public:
@@ -37,7 +39,6 @@ public:
 
   static NDArray* New(int device);
   static void Free(NDArray* tensor);
-  template <class NDArray>
   static void ResizeNd(NDArray* tensor, int nDimension, int64_t* size);
   static void Copy(NDArray* output, NDArray* tensor);
   static void DivideTensorInPlace(NDArray* tensor, int value);
@@ -48,16 +49,16 @@ public:
 #endif
 
 private:
-  const size_t kFloat32Size = 4;
-  const size_t kFloat64Size = 8;
-  const size_t kFloat16Size = 2;
-  const size_t kUInt8Size   = 1;
-  const size_t kInt32Size   = 4;
-  const size_t kInt8Size    = 1;
-  const size_t kInt64Size   = 8;
+  static const size_t kFloat32Size = 4;
+  static const size_t kFloat64Size = 8;
+  static const size_t kFloat16Size = 2;
+  static const size_t kUInt8Size   = 1;
+  static const size_t kInt32Size   = 4;
+  static const size_t kInt8Size    = 1;
+  static const size_t kInt64Size   = 8;
 };
 
-} // namespace mxnet
+} // namespace MX
 } // namespace horovod
 
 #endif // HOROVOD_MXNET_TENSOR_UTIL_H
