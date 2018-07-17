@@ -74,7 +74,7 @@ int DoAllreduceCudaOnCPU(NDArray* tensor, NDArray* output, int average,
   auto hvd_cpu_buffer =
       std::make_shared<MXTemporaryBuffer<NDArray>>(CPU_DEVICE_ID);
   TensorUtil::AsyncCopyCudaToCPU(tensor, hvd_cpu_buffer->tensor());
-  auto ready_event = std::make_shared<MXReadyEvent<NDArray>>(device);
+  auto ready_event = std::make_shared<MXReadyEvent<NDArray>>(tensor);
 
   auto hvd_context = std::make_shared<MXOpContext<NDArray>>(
       CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
@@ -123,7 +123,7 @@ int DoAllgatherCudaOnCPU(NDArray* tensor, NDArray* output, char* name) {
   auto hvd_cpu_tensor =
       std::make_shared<MXTemporaryBuffer<NDArray>>(CPU_DEVICE_ID);
   TensorUtil::AsyncCopyCudaToCPU(tensor, hvd_cpu_tensor->tensor());
-  auto ready_event = std::make_shared<MXReadyEvent<NDArray>>(device);
+  auto ready_event = std::make_shared<MXReadyEvent<NDArray>>(tensor);
 
   auto hvd_cpu_output =
       std::make_shared<MXTemporaryBuffer<NDArray>>(CPU_DEVICE_ID);
@@ -181,7 +181,7 @@ int DoBroadcastCudaOnCPU(NDArray* tensor, NDArray* output, int root_rank,
   auto hvd_cpu_buffer =
       std::make_shared<MXTemporaryBuffer<NDArray>>(CPU_DEVICE_ID);
   TensorUtil::AsyncCopyCudaToCPU(tensor, hvd_cpu_buffer->tensor());
-  auto ready_event = std::make_shared<MXReadyEvent<NDArray>>(device);
+  auto ready_event = std::make_shared<MXReadyEvent<NDArray>>(tensor);
 
   auto hvd_context = std::make_shared<MXOpContext<NDArray>>(
       CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
@@ -208,7 +208,7 @@ extern "C" int horovod_mxnet_allreduce_async(
       output->ctx().dev_mask() == mshadow::gpu::kDevMask)
     return DoAllreduce(tensor, output, average, name);
   else
-    #ifdef HAVE_CUDA
+    #if HAVE_CUDA
       return DoAllreduceCudaOnCPU(tensor, output, average, name);
     #else
       return DoAllreduce(tensor, output, average, name);
@@ -221,7 +221,7 @@ extern "C" int horovod_mxnet_allgather_async(
       output->ctx().dev_mask() == gpu::kDevMask)
     return DoAllgather(tensor, output, name);
   else
-    #ifdef HAVE_CUDA
+    #if HAVE_CUDA
       return DoAllgatherCudaOnCPU(tensor, output, name);
     #else
       return DoAllgather(tensor, output, name);
@@ -234,7 +234,7 @@ extern "C" int horovod_mxnet_broadcast_async(
       output->ctx().dev_mask() == gpu::kDevMask)
     return DoBroadcast(tensor, output, root_rank, name);
   else
-    #ifdef HAVE_CUDA
+    #if HAVE_CUDA
       return DoBroadcastCudaOnCPU(tensor, output, root_rank, name);
     #else
       return DoBroadcast(tensor, output, root_rank, name);

@@ -69,7 +69,7 @@ template <class T> bool MXReadyEvent<T>::Ready() const {
     return false;
   }
   CUDA_CALL(status);*/
-  tensor->WaitToRead();
+  tensor_->WaitToRead();
   return true;
 }
 
