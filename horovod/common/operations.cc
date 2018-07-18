@@ -171,7 +171,6 @@ struct HorovodGlobalState {
   int cross_size = 1;
   bool mpi_threads_supported = false;
   std::vector<int> ranks;
-  MPI_Comm mpi_comm = MPI_COMM_WORLD;
 
   // COMM_WORLD ranks of processes running on this node.
   std::vector<int> local_comm_ranks;
@@ -1308,7 +1307,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   auto mpi_threads_disable = std::getenv("HOROVOD_MPI_THREADS_DISABLE");
   int required = MPI_THREAD_MULTIPLE;
   if (mpi_threads_disable != nullptr &&
-      std::strtol(mpi_threads_disable, nullptr, 10) > 0) {
+    std::strtol(mpi_threads_disable, nullptr, 10) > 0) {
     required = MPI_THREAD_FUNNELED;
   }
   int provided;
@@ -1317,7 +1316,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   if (is_mpi_initialized) {
     MPI_Query_thread(&provided);
   } else {
-    MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &provided);
+    MPI_Init_thread(NULL, NULL, required, &provided);
   }
 
   if (state.ranks.size() > 0) {
@@ -1357,7 +1356,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   // Set up cross-communicator in case of hierarchical allreduce.
   MPI_Comm cross_comm;
-  MPI_Comm_split(mpi_comm, local_rank, rank, &cross_comm);
+  MPI_Comm_split(state.mpi_comm, local_rank, rank, &cross_comm);
   int cross_rank, cross_size;
   MPI_Comm_rank(cross_comm, &cross_rank);
   MPI_Comm_size(cross_comm, &cross_size);
@@ -1368,7 +1367,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.size = size;
   state.local_size = local_size;
   state.cross_size = cross_size;
-  state.mpi_comm = mpi_comm;
   state.local_comm = local_comm;
   state.cross_comm = cross_comm;
   state.mpi_threads_supported = (provided == MPI_THREAD_MULTIPLE);
@@ -1443,10 +1441,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   for (auto& cb : callbacks) {
     cb(SHUT_DOWN_ERROR);
   }
-
-  MPI_Comm_free(&state.mpi_comm);
-  MPI_Comm_free(&state.local_comm);
-  MPI_Comm_free(&state.cross_comm);
 }
 
 // The coordinator currently follows a master-worker paradigm. Rank zero acts
@@ -1732,10 +1726,17 @@ void horovod_terminate(bool finalize) {
     horovod_global.shut_down = false;
   }
 
-  if (horovod_global.mpi_comm != MPI_COMM_WORLD) {
+  if (horovod_global.mpi_comm != MPI_COMM_NULL && horovod_global.mpi_comm != MPI_COMM_WORLD) {
     MPI_Comm_free(&horovod_global.mpi_comm);
   }
 
+  if (horovod_global.local_comm != MPI_COMM_NULL) {
+    MPI_Comm_free(&horovod_global.local_comm);
+  }
+
+  if (horovod_global.cross_comm != MPI_COMM_NULL) {
+    MPI_Comm_free(&horovod_global.cross_comm);
+  }
 
   if (finalize) {
 #if HAVE_DDL
@@ -1744,7 +1745,9 @@ void horovod_terminate(bool finalize) {
 #else
     int is_mpi_finalized = 0;
     MPI_Finalized(&is_mpi_finalized);
-    if (!is_mpi_finalized) MPI_Finalize();
+    if (!is_mpi_finalized) {
+      MPI_Finalize();
+    }
 #endif
   }
 }

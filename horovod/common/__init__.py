@@ -51,13 +51,15 @@ def init(comm=None):
     """A function that initializes Horovod.
 
     Args:
-      comm: List specifying ranks for the communicator, relative to the WORLD communicator OR
-        the MPI communicator to use.
-        If None, horovod will use WORLD Communicator.
+      comm: List specifying ranks for the communicator, relative to the MPI_COMM_WORLD
+        communicator OR the MPI communicator to use. Given communicator will be duplicated.
+        If None, Horovod will use MPI_COMM_WORLD Communicator.
 
     """
     if comm is None:
         comm=[]
+
+    atexit.register(terminate, finalize=True)
 
     if not isinstance(comm, list):
         from mpi4py import MPI
@@ -75,8 +77,6 @@ def init(comm=None):
 
 def terminate(finalize=False):
     return MPI_COMMON_LIB_CTYPES.horovod_terminate(ctypes.c_bool(finalize))
-
-atexit.register(terminate, finalize=True)
 
 def size():
     """A function that returns the number of Horovod processes.
