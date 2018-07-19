@@ -30,7 +30,7 @@ void sample_kernel(
     //if (i < 10)
     //  printf("Selecting elements[%d] = %f for pos %d\n",
     //    pos, elements[pos], i);
-    samples[i] = elements[pos];
+    samples[i] = abs(elements[pos]);
 
     i += STRIDE;
   }
@@ -41,6 +41,7 @@ __global__
 void select_kernel(
   T      *elements,
   SizeT   num_elements,
+  int     global_num_gpus,
   float  *threshold_,
   SizeT   target_num,
   T      *selected_elements,
@@ -69,7 +70,7 @@ void select_kernel(
     if (thread_input < num_elements)
     {
       element = elements[thread_input];
-      if (!(element < threshold))
+      if (!(abs(element) < threshold))
       {
         thread_to_select = true;
         thread_output = atomicAdd(&s_block_output_count, (SizeT)1);
@@ -87,7 +88,7 @@ void select_kernel(
     thread_output += s_block_output_start;
     if (thread_to_select && thread_output < target_num)
     {
-      selected_elements[thread_output] = element;
+      selected_elements[thread_output] = element / global_num_gpus;
       selected_indices [thread_output] = thread_input;
     }
 
@@ -100,6 +101,7 @@ __global__
 void select_kernel2(
   T      *elements,
   SizeT   num_elements,
+  int     global_num_gpus,
   float  *threshold_,
   SizeT   target_num,
   T      *selected_elements,
@@ -134,7 +136,7 @@ void select_kernel2(
     {
       T element = elements[thread_pos];
       //T element = 0;
-      if (!(element < threshold))
+      if ((abs(element) > threshold))
       {
         thread_elements[thread_num_output] = element;
         thread_indices [thread_num_output] = thread_pos;
@@ -168,7 +170,7 @@ void select_kernel2(
     {
       if (output_pos >= target_num)
         break;
-      selected_elements[output_pos] = thread_elements[i];
+      selected_elements[output_pos] = thread_elements[i] / global_num_gpus;
       selected_indices [output_pos] = thread_indices [i];
       output_pos ++;
     }

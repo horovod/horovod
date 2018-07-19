@@ -121,26 +121,104 @@ cudaError_t Malloc(
 }
 
 template <typename T, typename SizeT>
+cudaError_t Memcpy(
+  T* dest,
+  T* src,
+  SizeT num_elements,
+  Malloc_t malloc_type = Malloc_t::Default,
+  cudaStream_t stream = 0)
+{
+  cudaError_t retval = cudaSuccess;
+  if (num_elements == 0)
+    return retval;
+  if (dest == NULL || src == NULL)
+    return retval;
+
+  if (malloc_type != Raw)
+  {
+    if (stream == 0)
+    {
+      retval = cudaMemcpyAsync(dest, src, sizeof(T) * num_elements,
+        cudaMemcpyDefault, stream);
+    } else {
+      retval = cudaMemcpy(dest, src, sizeof(T) * num_elements,
+        cudaMemcpyDefault);
+    }
+  } else {
+    memcpy(dest, src, sizeof(T) * num_elements);
+  }
+  return retval;
+}
+
+template <typename T, typename SizeT>
+cudaError_t Memset(
+  T* ptr,
+  int value,
+  SizeT num_elements,
+  Malloc_t malloc_type = Malloc_t::Default,
+  cudaStream_t stream = 0)
+{
+  cudaError_t retval = cudaSuccess;
+  if (num_elements == 0 || ptr == NULL)
+    return retval;
+
+  if (malloc_type != Malloc_t::Raw)
+  {
+    if (stream == 0)
+    {
+      retval = cudaMemset(ptr, value, num_elements * sizeof(T));
+    } else {
+      retval = cudaMemsetAsync(ptr, value, num_elements * sizeof(T), stream);
+    }
+  } else {
+    memset(ptr, value, num_elements * sizeof(T));
+  }
+
+  return retval;
+}
+
+template <typename T, typename SizeT>
 cudaError_t GarenteeAllocation(
   T*      &ptr,
   SizeT   &allocated,
   size_t   target,
   Malloc_t malloc_type = Malloc_t::Default,
   unsigned int flags = cudaMemAttachGlobal,
-  cudaStream_t stream = 0)
+  cudaStream_t stream = 0,
+  bool     keep_content = false,
+  bool     init_to_zero = false)
 {
   cudaError_t retval = cudaSuccess;
   if (allocated >= target)
     return retval;
 
-  if (stream != 0)
+  //if (stream != 0)
+  //{
+  //  GUARD_CU2("cudaStreamSynchronize",
+  //    cudaStreamSynchronize(stream));
+  //}
+  if (!keep_content)
   {
-    GUARD_CU2("cudaStreamSynchronize",
-      cudaStreamSynchronize(stream));
+    auto temp_ptr = ptr;
+    GUARD_CU(Free<T> (temp_ptr, malloc_type));
+    GUARD_CU(Malloc(ptr, target, malloc_type, flags));
+    if (init_to_zero)
+    {
+      GUARD_CU(Memset(ptr, 0, target, malloc_type, stream));
+    }
+  } else {
+    T* temp_ptr = NULL;
+    GUARD_CU(Malloc(temp_ptr, target, malloc_type, flags));
+    GUARD_CU(Memcpy(temp_ptr, ptr, allocated, malloc_type, stream));
+    if (init_to_zero)
+    {
+      GUARD_CU(Memset(temp_ptr + allocated, 0, target - allocated,
+        malloc_type, stream));
+    }
+    GUARD_CU(Free(ptr, malloc_type));
+    ptr = temp_ptr;
+    temp_ptr = NULL;
   }
-  auto temp_ptr = ptr;
-  GUARD_CU(Free<T> (temp_ptr, malloc_type));
-  GUARD_CU(Malloc(ptr, target, malloc_type, flags));
   allocated = target;
   return retval;
 }
@@ -273,10 +351,13 @@ cudaError_t Sort(
 // Main DGC routine
 template <typename T, typename SizeT>
 cudaError_t GradientAllReduce(
-  T              *elements,     // GPU pointer to the elements
-  SizeT           num_elements, // number of elements
-  DgcConfig      &config,       // DGC configuration
-  DgcState       &state)        // DGC running states
+  T              *gradients,     // GPU pointer to the gradients
+  SizeT           num_gradients, // number of gradients
+  std::vector<std::tuple<uint64_t, uint64_t, size_t> >
+                 &offset_map,    // <start, length, offset> mappings for
+                                 // continous chunks of gradients
+  DgcConfig      &config,        // DGC configuration
+  DgcState       &state)         // DGC running states
 {
   cudaError_t retval = cudaSuccess;
 
@@ -285,8 +366,55 @@ cudaError_t GradientAllReduce(
   auto  grid_size    = config.grid_size;
   auto  stream       = config.stream;
 
+  // Memory allocation and type conversion
+  size_t current_size = num_gradients * sizeof(T);
+  GUARD_CU(GarenteeAllocation(state.verlocity,
+    state.verlocity_allocated, current_size));
+  GUARD_CU(GarenteeAllocation(state.accumulated_verlocity,
+    state.accumulated_verlocity_allocated, current_size));
+  T* verlocity = (T*)(state.verlocity);
+  T* accumulated_verlocity = (T*)(state.accumulated_verlocity);
+
+  size_t max_size = 0;
+  for (auto it = offset_map.begin(); it != offset_map.end(); it++)
+  {
+    size_t size = std::get<1>(*it) * sizeof(T) + std::get<2>(*it);
+    if (max_size < size)
+      max_size = size;
+  }
+  GUARD_CU(GarenteeAllocation(state.pervious_verlocity,
+    state.pervious_verlocity_allocated, max_size,
+    Malloc_t::Default, cudaMemAttachGlobal, stream, true, true));
+  GUARD_CU(GarenteeAllocation(state.pervious_accumulated_verlocity,
+    state.pervious_accumulated_verlocity_allocated, max_size,
+    Malloc_t::Default, cudaMemAttachGlobal, stream, true, true));
+
+  // Process by chunks
+  for (auto it = offset_map.begin(); it != offset_map.end(); it++)
+  {
+    SizeT gradient_start_chunk = std::get<0>(*it);
+    SizeT num_gradients_chunk  = std::get<1>(*it);
+    size_t offset              = std::get<2>(*it);
+
+    T* pervious_verlocity
+      = (T*)(state.pervious_verlocity + offset);
+    T* pervious_accumulated_verlocity
+      = (T*)(state.pervious_accumulated_verlocity + offset);
+    auto &momentum = config.momentum;
+
+    loop_kernel<<<grid_size, block_size, 0, stream>>>(num_gradients_chunk,
+      [momentum, gradients, gradient_start_chunk,
+      pervious_verlocity, verlocity,
+      accumulated_verlocity, pervious_accumulated_verlocity]
+      __device__ (const SizeT &i) {
+        auto u = pervious_verlocity[i] * momentum + gradients[i + gradient_start_chunk];
+        accumulated_verlocity[i] = pervious_accumulated_verlocity[i] + u;
+        verlocity[i + gradient_start_chunk] = u;
+      });
+  }
+
   if (config.sampling_rate < 1 &&
-      num_elements > config.min_sampling_num) {
+      num_gradients > config.min_sampling_num) {
     auto &rand_states = state.rand_states;
     auto &rand_seed   = config.rand_seed;
     if (rand_states == NULL) {
@@ -304,19 +432,20 @@ cudaError_t GradientAllReduce(
     if (samp_counter == NULL) {
       GUARD_CU(Malloc(samp_counter, 1));
     }
-    loop_kernel <<<1, 1, 0, stream>>>((SizeT)1,
-      [samp_counter] __device__ (const SizeT &i)
-      {
-        samp_counter[0] = 0;
-      });
+    //loop_kernel <<<1, 1, 0, stream>>>((SizeT)1,
+    //  [samp_counter] __device__ (const SizeT &i)
+    //  {
+    //    samp_counter[0] = 0;
+    //  });
+    GUARD_CU(Memset(samp_counter, 0, 1, Malloc_t::Default, stream));
 
-    num_samples = num_elements * config.sampling_rate;
+    num_samples = num_gradients * config.sampling_rate;
     if (num_samples < config.min_sampling_num)
-      num_samples = 4000;
-    //if (num_samples > num_elements)
-    //  num_samples = num_elements;
+      num_samples = config.min_sampling_num;
+    //if (num_samples > num_gradients)
+    //  num_samples = num_gradients;
     //printf("#elments = %ld, #samples = %ld\n",
-    //  (long long)num_elements, (long long)num_samples);
+    //  (long long)num_gradients, (long long)num_samples);
     GUARD_CU(GarenteeAllocation(state.samp_data, state.samp_allocated,
       num_samples * sizeof(T)));
 
@@ -324,19 +453,24 @@ cudaError_t GradientAllReduce(
     // Sampling
     sample_kernel <T, SizeT>
       <<<grid_size, block_size, 0, stream>>>(
-      elements, num_elements,
+      accumulated_verlocity, num_gradients,
       (T*)(state.samp_data), num_samples,
       state.rand_states);
   }
 
   else { // no sampling
-    num_samples = num_elements;
+    num_samples = num_gradients;
     GUARD_CU(GarenteeAllocation(state.samp_data, state.samp_allocated,
       num_samples * sizeof(T)));
 
-    GUARD_CU2("cudaMemcpyAsync",
-      cudaMemcpyAsync(state.samp_data, elements,
-        sizeof(T) * num_samples, cudaMemcpyDeviceToDevice, stream));
+    //GUARD_CU2("cudaMemcpyAsync",
+    //  cudaMemcpyAsync(state.samp_data, gradients,
+    //    sizeof(T) * num_samples, cudaMemcpyDeviceToDevice, stream));
+    T* samp_data = (T*)(state.samp_data);
+    loop_kernel<<<grid_size, block_size, 0, stream>>>(num_samples,
+      [samp_data, accumulated_verlocity] __device__ (const SizeT &i){
+        samp_data[i] = abs(accumulated_verlocity[i]);
+      });
   }
 
   T* samp_data = (T*)(state.samp_data);
@@ -352,7 +486,7 @@ cudaError_t GradientAllReduce(
 
   // Determine the threshold
   double sparsity   = config.final_sparsity; // TODO: calculate the sparsity value
-  SizeT  target_num = num_elements * (1 - sparsity);
+  SizeT  target_num = num_gradients * (1 - sparsity);
   auto &threshold = state.gradient_threshold;
   if (threshold == NULL) {
     GUARD_CU(Malloc(threshold, 1));
@@ -397,7 +531,7 @@ cudaError_t GradientAllReduce(
 
   // Pick those larger than threshold
   auto &send_counter   = state.send_counter;
-  auto &send_data      = state.send_data;
+  //auto &send_data      = state.send_data;
   auto &send_indices   = state.send_indices;
   auto &send_allocated = state.send_allocated;
   auto send_allocated_ = send_allocated * sizeof(T);
@@ -406,20 +540,22 @@ cudaError_t GradientAllReduce(
   }
 
   GUARD_CU(GarenteeAllocation(
-    send_data   , send_allocated_, target_num * sizeof(T)));
+    state.send_data, send_allocated_, target_num * sizeof(T)));
   GUARD_CU(GarenteeAllocation(
     send_indices, send_allocated , target_num));
-  loop_kernel <<<1, 1, 0, stream>>>((SizeT)1,
-    [send_counter] __device__ (const SizeT &i)
-    {
-      send_counter[0] = 0;
-    });
+  //loop_kernel <<<1, 1, 0, stream>>>((SizeT)1,
+  //  [send_counter] __device__ (const SizeT &i)
+  //  {
+  //    send_counter[0] = 0;
+  //  });
+  GUARD_CU(Memset(send_counter, 0, 1, Malloc_t::Default, stream));
 
-  // select at most target_num elements
+  T* send_data = (T*)(state.send_data);
+  // select at most target_num gradients
   select_kernel
     <<<grid_size, block_size, 0, stream>>>
-    (elements, num_elements, threshold, target_num,
-    (T*)send_data, send_indices, send_counter);
+    (accumulated_verlocity, num_gradients, config.global_num_gpus,
+    threshold, target_num, send_data, send_indices, send_counter);
 
   // pad if num_slected < target_num
   pad_kernel
@@ -430,15 +566,16 @@ cudaError_t GradientAllReduce(
   SizeT recv_count      = target_num * config.global_num_gpus;
   auto &recv_allocated  = state.recv_allocated;
   auto  recv_allocated_ = state.recv_allocated * sizeof(T);
-  auto &recv_data       = state.recv_data;
+  //auto &recv_data       = state.recv_data;
   auto &recv_indices    = state.recv_indices;
 
   printf("recv_count = %lld\n", (long long)recv_count);
   GUARD_CU(GarenteeAllocation(
-      recv_data, recv_allocated_, recv_count * sizeof(T)));
+      state.recv_data, recv_allocated_, recv_count * sizeof(T)));
   GUARD_CU(GarenteeAllocation(
       recv_indices, recv_allocated, recv_count));
 
+  T* recv_data = (T*)(state.recv_data);
   // Collect selected data & indices from all peers
   GUARD_NCCL2("ncclAllGather",
     ncclAllGather(send_data   , (void*)recv_data,
@@ -449,62 +586,96 @@ cudaError_t GradientAllReduce(
       (size_t)target_num, PreDefinedValues<uint32_t>::NCCLDataType,
       config.nccl_comm, stream));
 
-  auto &global_gradients_= state.global_gradients;
-  auto &global_allocated = state.global_allocated;
-  GUARD_CU(GarenteeAllocation(
-    global_gradients_, global_allocated, num_elements * sizeof(T)));
+  //auto &global_gradients_= state.global_gradients;
+  //auto &global_allocated = state.global_allocated;
+  //GUARD_CU(GarenteeAllocation(
+  //  state.global_gradients, global_allocated, num_gradients * sizeof(T)));
+  //T* global_gradients = (T*)(state.global_gradients);
 
   // Post process gradients
-  T* global_gradients = (T*)global_gradients_;
-  loop_kernel <<<grid_size, block_size, 0, stream>>>(num_elements,
-    [global_gradients] __device__ (const SizeT &i)
-    {
-      global_gradients[i] = 0;
-    });
+  //loop_kernel <<<grid_size, block_size, 0, stream>>>(num_gradients,
+  //  [global_gradients] __device__ (const SizeT &i)
+  //  {
+  //    global_gradients[i] = 0;
+  //  });
+  GUARD_CU(Memset(gradients, 0, num_gradients, Malloc_t::Default, stream));
 
+  // Unpack recv data
   loop_kernel <<<grid_size, block_size, 0, stream>>>(recv_count,
-    [recv_data, recv_indices, global_gradients] __device__ (const SizeT &i)
+    [recv_data, recv_indices, gradients] __device__ (const SizeT &i)
     {
-      T     element = ((T*)recv_data)[i];
+      T     element = recv_data   [i];
       SizeT index   = recv_indices[i];
       if (isValid(index))
-        atomicAdd(global_gradients + index, element);
+        atomicAdd(gradients + index, element);
     });
 
+  // Updates pervious_verlocity and pervious_accumulated_verlocity
+  // Can be overlap with communication
+  for (auto it = offset_map.begin(); it != offset_map.end(); it++)
+  {
+    SizeT gradient_start_chunk = std::get<0>(*it);
+    SizeT num_gradients_chunk  = std::get<1>(*it);
+    size_t offset              = std::get<2>(*it);
+
+    T* pervious_verlocity
+      = (T*)(state.pervious_verlocity + offset);
+    T* pervious_accumulated_verlocity
+      = (T*)(state.pervious_accumulated_verlocity + offset);
+
+    loop_kernel <<<grid_size, block_size, 0, stream>>>(num_gradients_chunk,
+      [threshold, gradient_start_chunk, verlocity, pervious_verlocity,
+       accumulated_verlocity, pervious_accumulated_verlocity]
+      __device__ (const SizeT &i)
+      {
+        auto v = accumulated_verlocity[i + gradient_start_chunk];
+        if (abs(v) > threshold[0])
+        {
+          pervious_verlocity[i] = 0;
+          pervious_accumulated_verlocity[i] = 0;
+        } else {
+          pervious_verlocity[i] = verlocity[i];
+          pervious_accumulated_verlocity[i] = v;
+        }
+      });
+  }
   return retval;
 }
 
 // Entry warper function
 cudaError_t GradientAllReduce(
-  ncclDataType_t  element_type, // type of element
-  void     *elements,     // GPU pointer to the elements
-  uint64_t        num_elements, // number of elements
-  DgcConfig      &config,       // DGC configuration
-  DgcState       &state)        // DGC running states
+  ncclDataType_t  gradient_type, // type of gradient
+  void           *gradients,     // GPU pointer to the gradients
+  uint64_t        num_gradients, // number of gradients
+  std::vector<std::tuple<uint64_t, uint64_t, size_t> >
+                 &offset_map,    // <start, length, offset> mappings for
+                                 // continous chunks of gradients
+  DgcConfig      &config,        // DGC configuration
+  DgcState       &state)         // DGC running states
 {
   typedef uint32_t SizeT;
   cudaError_t retval = cudaSuccess;
 
-  switch (element_type)
+  switch (gradient_type)
   {
   case ncclFloat32:
     retval = GradientAllReduce <float, SizeT> (
-      (float*)elements, (SizeT)num_elements, config, state);
+      (float*)gradients, (SizeT)num_gradients, offset_map, config, state);
     break;
 
   case ncclFloat64:
     retval = GradientAllReduce<double, SizeT> (
-      (double*)elements, (SizeT)num_elements, config, state);
+      (double*)gradients, (SizeT)num_gradients, offset_map, config, state);
     break;
 
   case ncclInt32:
     retval = GradientAllReduce<int32_t, SizeT> (
-      (int32_t*)elements, (SizeT)num_elements, config, state);
+      (int32_t*)gradients, (SizeT)num_gradients, offset_map, config, state);
     break;
 
   case ncclInt64:
     retval = GradientAllReduce<int64_t, SizeT> (
-      (int64_t*)elements, (SizeT)num_elements, config, state);
+      (int64_t*)gradients, (SizeT)num_gradients, offset_map, config, state);
     break;
 
   default:

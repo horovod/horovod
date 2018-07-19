@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <map>
 #include <math.h>
 #include <nccl.h>
 #include <curand_kernel.h>
@@ -112,7 +113,7 @@ struct DgcConfig {
   unsigned int rand_seed = 2800;
 
   // dgc grid and block sizes
-  int grid_size = 4;
+  int grid_size = 32;
   int block_size = 512;
 
   // stream DGC works on
@@ -128,13 +129,31 @@ struct DgcConfig {
   bool configured = false;
 
   // the minimum number of elements to trigger sampling
-  uint64_t min_sampling_num = 10000;
+  uint64_t min_sampling_num = 4000;
+
+  // Momentum
+  float momentum = 0.9;
 };
 
 struct DgcState {
 
   // States for curand, one for each GPU thread
   curandState *rand_states     = NULL;
+
+  // Verlocity
+  char     *verlocity          = NULL;
+  uint64_t  verlocity_allocated = 0;
+
+  // Past verlocity
+  char     *pervious_verlocity = NULL;
+  uint64_t  pervious_verlocity_allocated = 0;
+
+  // Accumulated verlociy
+  char     *accumulated_verlocity = NULL;
+  uint64_t  accumulated_verlocity_allocated = 0;
+
+  char     *pervious_accumulated_verlocity = NULL;
+  uint64_t  pervious_accumulated_verlocity_allocated = 0;
 
   // Sample counter
   uint64_t *samp_counter       = NULL;
@@ -169,6 +188,11 @@ struct DgcState {
   // Global gradients
   char     *global_gradients   = NULL;
 
+  // Tensor offset address book
+  std::map<std::string, size_t> tensor_offsets;
+
+  // Counter for adding new tensor to the end of memory space
+  size_t offset_counter = 0;
 };
 
 // Entry warper function
@@ -176,6 +200,9 @@ cudaError_t GradientAllReduce(
   ncclDataType_t  element_type, // type of element
   void           *elements,     // GPU pointer to the elements
   uint64_t        num_elements, // number of elements
+  std::vector<std::tuple<uint64_t, uint64_t, size_t> >
+                 &offset_map,   // <start, length, offset> mappings for
+                                // continous chunks of gradients
   DgcConfig      &config,       // DGC configuration
   DgcState       &state);       // DGC running states
 
