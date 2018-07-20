@@ -30,8 +30,8 @@ public:
   AccessData(std::shared_ptr<OpContext> context) const override;
 
 private:
-  int device_;
-  void* buffer_;
+  int device_ = CPU_DEVICE_ID;
+  void* buffer_ = nullptr;
 };
 
 template <class T> class TorchTensor : public Tensor {
@@ -43,7 +43,7 @@ public:
   virtual int64_t size() const override;
 
 protected:
-  T* tensor_;
+  T* tensor_ = nullptr;
 };
 
 template <class T> class TorchTemporaryBuffer : public TorchTensor<T> {
@@ -64,8 +64,8 @@ public:
   virtual Framework framework() const override;
 
 private:
-  int device_;
-  T* output_;
+  int device_ = CPU_DEVICE_ID;
+  T* output_ = nullptr;
 };
 
 void ThrowIfError(Status status);

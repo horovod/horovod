@@ -85,11 +85,11 @@ struct TensorTableEntry {
   // Pre-allocated output tensor.
   std::shared_ptr<Tensor> output;
   // Root rank for broadcast operation.
-  int root_rank;
+  int root_rank = 0;
   // Event indicating that data is ready.
   std::shared_ptr<ReadyEvent> ready_event;
   // GPU to do reduction on, or CPU_DEVICE_ID in case of CPU.
-  int device;
+  int device = CPU_DEVICE_ID;
   // A callback to call with the status.
   StatusCallback callback;
 };

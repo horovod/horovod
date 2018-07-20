@@ -37,8 +37,8 @@ public:
   virtual bool Ready() const override;
 
 private:
-  int device_;
-  cudaEvent_t cuda_event_;
+  int device_ = CPU_DEVICE_ID;
+  cudaEvent_t cuda_event_ = nullptr;
 };
 #endif
 
