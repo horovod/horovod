@@ -37,7 +37,7 @@ const MPIDataType TensorUtil::GetDType(NDArray* tensor) {
     case 6:
       return MPIDataType::HOROVOD_INT64;
     default:
-      throw std::logic_error("Type " + std::to_string(tensor->dtype()) +
+      throw std::logic_error("GetDType: Type " + std::to_string(tensor->dtype()) +
                              " is not supported in MPI mode.");
   }
 }
@@ -73,7 +73,7 @@ const void* TensorUtil::GetData(NDArray* tensor) {
     case 6:
       return static_cast<void*>(tensor->data().dptr<int64_t>());
     default:
-      throw std::logic_error("Type " + std::to_string(tensor->dtype()) +
+      throw std::logic_error("GetData: Type " + std::to_string(tensor->dtype()) +
                              " is not supported in MPI mode.");
   }
 }
@@ -81,6 +81,8 @@ const void* TensorUtil::GetData(NDArray* tensor) {
 // Return size of tensor in bytes
 int64_t TensorUtil::GetSize(NDArray* tensor) {
   int64_t element_size = 0;
+  LOG(WARNING) << "Dtype: " << tensor->dtype();
+  LOG(WARNING) << "Size:  " << tensor->shape().Size();
   switch (tensor->dtype()) {
     case 0:
       element_size = kFloat32Size;
@@ -88,9 +90,9 @@ int64_t TensorUtil::GetSize(NDArray* tensor) {
     case 1:
       element_size = kFloat64Size;
       break;
-    case 2:
-      element_size = kFloat16Size;
-      break;
+    //case 2:
+    //  element_size = kFloat16Size;
+    //  break;
     case 3:
       element_size = kUInt8Size;
       break;
@@ -104,10 +106,12 @@ int64_t TensorUtil::GetSize(NDArray* tensor) {
       element_size = kInt64Size;
       break;
     default:
-      throw std::logic_error("Type " + std::to_string(tensor->dtype()) +
-                             " is not supported in MPI mode.");
+      LOG(WARNING) << "GetSize: Type " << std::to_string(tensor->dtype()) <<
+                      " is not supported in MPI mode.";
+      //throw std::logic_error("GetSize: Type " + std::to_string(tensor->dtype()) +
+      //                       " is not supported in MPI mode.");
   }
-  return (int64_t)(tensor->shape().Size() * element_size);
+  return (int64_t)(tensor->shape().Size()) * element_size;
 }
 
 // If Tensor on GPU, return device id
@@ -123,13 +127,18 @@ int TensorUtil::GetDevice(NDArray* tensor) {
 // If dev_id equal to CPU_DEVICE_ID, construct Tensor on CPU
 // Otherwise construct on GPU
 NDArray* TensorUtil::New(int device) {
-  if (device == CPU_DEVICE_ID)
-    return new NDArray(TShape(), Context::CPU(0));
-  else
+  if (device == CPU_DEVICE_ID) {
+    NDArray* my_array = new NDArray(TShape(), Context::CPU(0));
+    LOG(WARNING) << "my cpu Dtype: " << my_array->dtype();
+    return my_array;
+  } else {
     // TODO(ctcyang): Test whether MXNet integration works fine without this
     // line that PyTorch requires
     //with_device device_context(device);
-    return new NDArray(TShape(), Context::GPU(device));
+    NDArray* my_array = new NDArray(TShape(), Context::GPU(device));
+    LOG(WARNING) << "my gpu Dtype: " << my_array->dtype();
+    return my_array;
+  }
 }
 
 void TensorUtil::Free(NDArray* tensor) {

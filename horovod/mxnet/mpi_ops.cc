@@ -201,8 +201,14 @@ int DoBroadcastCudaOnCPU(NDArray* tensor, NDArray* output, int root_rank,
 // Otherwise do AllReduce on CPU
 extern "C" int horovod_mxnet_allreduce_async(
     NDArray* tensor, NDArray* output, int average, char* name) {
-  if (tensor->ctx().dev_mask() == mshadow::gpu::kDevMask &&
-      output->ctx().dev_mask() == mshadow::gpu::kDevMask)
+  /*LOG(WARNING) << "Input on GPU:  " << (tensor->ctx().dev_mask()) << " " << (tensor->ctx().dev_mask() == gpu::kDevMask) << " on " << (tensor->ctx().real_dev_id());
+  LOG(WARNING) << "Input on CPU:  " << (tensor->ctx().dev_mask()) << " " << (tensor->ctx().dev_mask() == cpu::kDevMask);
+  LOG(WARNING) << "Output on GPU: " << (output->ctx().dev_mask()) << " " << (output->ctx().dev_mask() == gpu::kDevMask) << " on " << (output->ctx().real_dev_id());
+  LOG(WARNING) << "Output on CPU: " << (output->ctx().dev_mask()) << " " << (output->ctx().dev_mask() == cpu::kDevMask);
+  LOG(WARNING) << "Input:  " << tensor->dtype() << " " << tensor->shape().Size();
+  LOG(WARNING) << "Output: " << output->dtype() << " " << output->shape().Size();*/
+  if (tensor->ctx().dev_mask() == gpu::kDevMask &&
+      output->ctx().dev_mask() == gpu::kDevMask)
     return DoAllreduce(tensor, output, average, name);
   else
     #if HAVE_CUDA
@@ -227,6 +233,10 @@ extern "C" int horovod_mxnet_allgather_async(
 
 extern "C" int horovod_mxnet_broadcast_async(
     NDArray* tensor, NDArray* output, int root_rank, char* name) {
+   
+  return DoBroadcast(tensor, output, root_rank, name);
+  LOG(WARNING) << "Rank: " << horovod_rank() << " Input on GPU:  " << (tensor->ctx().dev_mask() == gpu::kDevMask);
+  LOG(WARNING) << "Rank: " << horovod_rank() << " Output on GPU: " << (output->ctx().dev_mask() == gpu::kDevMask);
   if (tensor->ctx().dev_mask() == gpu::kDevMask &&
       output->ctx().dev_mask() == gpu::kDevMask)
     return DoBroadcast(tensor, output, root_rank, name);
