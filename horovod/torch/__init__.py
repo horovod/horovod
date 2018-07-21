@@ -181,7 +181,17 @@ def broadcast_optimizer_state(optimizer, root_rank):
         state_dict = optimizer.state_dict()
 
     params = []
+    callbacks = {}
     occurrences = collections.defaultdict(int)
+
+    # Some optimizer parameters may be represented as scalars instead of
+    # tensors.  In such cases, we need to wrap the scalar in a tensor, then
+    # broadcast, then update the appropriate value in the state_dict with the
+    # new unwrapped scalar value via a callback.
+    def _create_callback(pid, name, t, p):
+        def _from_tensor():
+            state_dict['state'][pid][name] = t(p.numpy()[0])
+        return _from_tensor
 
     # Groups are unordered, but their params will be distinct
     for group in state_dict['param_groups']:
@@ -193,7 +203,21 @@ def broadcast_optimizer_state(optimizer, root_rank):
                 # case we ensure they have a unique identifier defined by
                 # their order
                 occurrences[name] += 1
-                name = '%s.%d' % (str(name), occurrences[name])
-                params.append((name, p))
+                key = '%s.%d' % (str(name), occurrences[name])
 
+                if not torch.is_tensor(p):
+                    # Wrap the scalar in a FloatTensor, and remember its type
+                    # so we can cast it back after unwrapping
+                    t = type(p)
+                    p = torch.Tensor([p])
+                    callbacks[key] = _create_callback(pid, name, t, p)
+
+                params.append((key, p))
+
+    # Synchronized broadcast of all parameters
     broadcast_parameters(params, root_rank)
+
+    # Post-broadcast clenaup for non-tensor parameters
+    for key, p in params:
+        if key in callbacks:
+            callbacks[key]()
