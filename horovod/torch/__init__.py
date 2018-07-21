@@ -165,8 +165,6 @@ def broadcast_optimizer_state(optimizer, root_rank):
         optimizer: An optimizer.
         root_rank: The rank of the process from which the optimizer will be
                    broadcasted to all other processes.
-        name: Optional name to use during broadcast, will default to the class
-              type.
     """
     state_dict = optimizer.state_dict()
 
