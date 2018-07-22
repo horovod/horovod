@@ -706,9 +706,9 @@ class TorchTests(unittest.TestCase):
                subclass != torch.optim.LBFGS and
                subclass != torch.optim.SparseAdam
         ]
+        optimizers.sort()
 
         for opt_name, create_opt in optimizers:
-
             model, optimizer = create_model(create_opt)
             y_pred = model(x)
             loss = F.mse_loss(y_pred, y, size_average=False)
