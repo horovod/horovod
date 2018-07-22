@@ -692,6 +692,7 @@ class TorchTests(unittest.TestCase):
         optimizers = [
             lambda m: torch.optim.SGD(m.parameters(), lr=0.2, momentum=0.9),
             lambda m: torch.optim.Adam(m.parameters(), lr=0.2),
+            lambda m: torch.optim.ASGD(m.parameters()),
             lambda m: torch.optim.RMSprop(m.parameters(), weight_decay=0.1,
                                           momentum=0.9, centered=True),
         ]
