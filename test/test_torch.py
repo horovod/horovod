@@ -690,13 +690,8 @@ class TorchTests(unittest.TestCase):
                             (k, v.clone() if torch.is_tensor(v) else v))
             return results
 
-        def to_sparse(x):
-            x_typename = torch.typename(x).split('.')[-1]
-            sparse_tensortype = getattr(torch.sparse, x_typename)
-            return sparse_tensortype(*x.shape)
-
         opt_params = dict(lr=0.2, momentum=0.9, weight_decay=0.1, centered=True)
-        
+
         def new_optimizer(cls):
             p = {
                 k: v for k, v in opt_params.items()
@@ -708,24 +703,17 @@ class TorchTests(unittest.TestCase):
             (subclass.__name__, new_optimizer(subclass))
             for subclass in torch.optim.Optimizer.__subclasses__()
             if subclass.__module__.startswith('torch.optim') and
-               subclass != torch.optim.LBFGS
+               subclass != torch.optim.LBFGS and
+               subclass != torch.optim.SparseAdam
         ]
 
         for opt_name, create_opt in optimizers:
+
             model, optimizer = create_model(create_opt)
             y_pred = model(x)
             loss = F.mse_loss(y_pred, y, size_average=False)
             optimizer.zero_grad()
             loss.backward()
-
-            if isinstance(optimizer, torch.optim.SparseAdam):
-                # SparseAdam requires sparse gradients, but our model does not
-                # produce them, so we'll perform a conversion here
-                for group in optimizer.param_groups:
-                    for p in group['params']:
-                        if p.grad is not None:
-                            p.grad.data = to_sparse(p.grad.data)
-
             optimizer.step()
 
             model_param_values = get_model_param_values(model)
