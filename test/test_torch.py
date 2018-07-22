@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import inspect
 import itertools
 import os
 import tempfile
@@ -689,20 +690,42 @@ class TorchTests(unittest.TestCase):
                             (k, v.clone() if torch.is_tensor(v) else v))
             return results
 
+        def to_sparse(x):
+            x_typename = torch.typename(x).split('.')[-1]
+            sparse_tensortype = getattr(torch.sparse, x_typename)
+            return sparse_tensortype(*x.shape)
+
+        opt_params = dict(lr=0.2, momentum=0.9, weight_decay=0.1, centered=True)
+        
+        def new_optimizer(cls):
+            p = {
+                k: v for k, v in opt_params.items()
+                if k in inspect.getargspec(cls.__init__).args
+            }
+            return lambda m: cls(m.parameters(), **p)
+
         optimizers = [
-            lambda m: torch.optim.SGD(m.parameters(), lr=0.2, momentum=0.9),
-            lambda m: torch.optim.Adam(m.parameters(), lr=0.2),
-            lambda m: torch.optim.ASGD(m.parameters()),
-            lambda m: torch.optim.RMSprop(m.parameters(), weight_decay=0.1,
-                                          momentum=0.9, centered=True),
+            (subclass.__name__, new_optimizer(subclass))
+            for subclass in torch.optim.Optimizer.__subclasses__()
+            if subclass.__module__.startswith('torch.optim') and
+               subclass != torch.optim.LBFGS
         ]
 
-        for create_opt in optimizers:
+        for opt_name, create_opt in optimizers:
             model, optimizer = create_model(create_opt)
             y_pred = model(x)
             loss = F.mse_loss(y_pred, y, size_average=False)
             optimizer.zero_grad()
             loss.backward()
+
+            if isinstance(optimizer, torch.optim.SparseAdam):
+                # SparseAdam requires sparse gradients, but our model does not
+                # produce them, so we'll perform a conversion here
+                for group in optimizer.param_groups:
+                    for p in group['params']:
+                        if p.grad is not None:
+                            p.grad.data = to_sparse(p.grad.data)
+
             optimizer.step()
 
             model_param_values = get_model_param_values(model)

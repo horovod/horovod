@@ -166,6 +166,12 @@ def broadcast_optimizer_state(optimizer, root_rank):
         root_rank: The rank of the process from which the optimizer will be
                    broadcasted to all other processes.
     """
+    if isinstance(optimizer, torch.optim.LBFGS):
+        # TODO(travis): L-BFGS cannot be easily supported without serializing
+        # the entire state_dict, as its structure is deeply nested and contains
+        # None type parameter values
+        raise ValueError('cannot broadcast torch.optim.LBFGS state')
+
     state_dict = optimizer.state_dict()
 
     # Newly created optimizers will not have their state initialized, so
@@ -175,6 +181,12 @@ def broadcast_optimizer_state(optimizer, root_rank):
             for p in group['params']:
                 p.grad = torch.autograd.Variable(
                     p.data.new(p.size()).zero_())
+
+                if isinstance(optimizer, torch.optim.SparseAdam):
+                    # SparseAdam requires the gradients to be sparse
+                    x_typename = torch.typename(p.grad.data).split('.')[-1]
+                    sparse_tensortype = getattr(torch.sparse, x_typename)
+                    p.grad.data = sparse_tensortype(*p.grad.data.shape)
         optimizer.step()
         state_dict = optimizer.state_dict()
 
