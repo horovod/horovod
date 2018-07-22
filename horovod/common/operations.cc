@@ -1331,6 +1331,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     }
     MPI_Group_free(&world_group);
     MPI_Group_free(&work_group);
+  } else if (!state.mpi_comm) {
+    // No ranks were given and no communicator provided to horovod_init() so use MPI_COMM_WORLD 
+    MPI_Comm_dup(MPI_COMM_WORLD, &(horovod_global.mpi_comm));
   }
 
   // Get MPI rank to determine if we are rank zero.
