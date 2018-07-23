@@ -699,6 +699,8 @@ class TorchTests(unittest.TestCase):
             }
             return lambda m: cls(m.parameters(), **p)
 
+        # L-BFGS is currently unsupported, as are sparse tensors, which are
+        # required by SparseAdam optimizer
         optimizers = [
             (subclass.__name__, new_optimizer(subclass))
             for subclass in torch.optim.Optimizer.__subclasses__()
