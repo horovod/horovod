@@ -75,11 +75,11 @@ public:
   static void SerializeToString(MPIRequest& request, std::string& output);
 
 private:
-  int32_t request_rank_;
-  RequestType request_type_;
-  MPIDataType tensor_type_;
-  int32_t root_rank_;
-  int32_t device_;
+  int32_t request_rank_ = 0;
+  RequestType request_type_ = RequestType::ALLREDUCE;
+  MPIDataType tensor_type_ = MPIDataType::HOROVOD_UINT8;
+  int32_t root_rank_ = 0;
+  int32_t device_ = 0;
   std::string tensor_name_;
   std::vector<int64_t> tensor_shape_;
 };
@@ -145,7 +145,7 @@ public:
   static void SerializeToString(MPIResponse& response, std::string& output);
 
 private:
-  ResponseType response_type_;
+  ResponseType response_type_ = ResponseType::ALLREDUCE;
   std::vector<std::string> tensor_names_;
   std::string error_message_;
   std::vector<int32_t> devices_;
