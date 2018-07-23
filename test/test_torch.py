@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import inspect
 import itertools
 import os
 import tempfile
@@ -661,60 +662,118 @@ class TorchTests(unittest.TestCase):
         x = torch.autograd.Variable(torch.randn(N, D_in), requires_grad=True)
         y = torch.autograd.Variable(torch.randn(N, D_out), requires_grad=False)
 
-        def create_model():
+        def create_model(create_opt):
             model = torch.nn.Sequential(
                 torch.nn.Linear(D_in, H),
                 torch.nn.ReLU(),
                 torch.nn.Linear(H, D_out),
             )
 
-            optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
+            optimizer = create_opt(model)
             optimizer = hvd.DistributedOptimizer(
                 optimizer, named_parameters=model.named_parameters())
 
             return model, optimizer
 
-        def get_model_param_value(model):
-            return model.state_dict()['0.weight'].clone()
+        def get_model_param_values(model):
+            params = sorted(model.state_dict().items())
+            return [(k, v.clone()) for k, v in params]
 
-        def get_optimizer_param_value(optimizer):
+        def get_optimizer_param_values(optimizer):
+            results = []
             state_dict = optimizer.state_dict()
-            param_id = state_dict['param_groups'][0]['params'][0]
-            return state_dict['state'][param_id]['momentum_buffer'].clone()
+            for group in state_dict['param_groups']:
+                for param_id in group['params']:
+                    params = sorted(state_dict['state'][param_id].items())
+                    for k, v in params:
+                        results.append(
+                            (k, v.clone() if torch.is_tensor(v) else v))
+            return results
 
-        model, optimizer = create_model()
-        y_pred = model(x)
-        loss = F.mse_loss(y_pred, y, size_average=False)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        opt_params = dict(lr=0.2, momentum=0.9, weight_decay=0.1, centered=True)
 
-        model_param_value = get_model_param_value(model)
-        hvd.broadcast_(model_param_value, root_rank=0)
-
-        opt_param_value = get_optimizer_param_value(optimizer)
-        hvd.broadcast_(opt_param_value, root_rank=0)
-
-        if hvd.rank() == 0:
-            state = {
-                'model': model.state_dict(),
-                'optimizer': optimizer.state_dict(),
+        def new_optimizer(cls):
+            p = {
+                k: v for k, v in opt_params.items()
+                if k in inspect.getargspec(cls.__init__).args
             }
-            _, fname = tempfile.mkstemp('.pt')
-            torch.save(state, fname)
+            return lambda m: cls(m.parameters(), **p)
 
-        model, optimizer = create_model()
-        if hvd.rank() == 0:
-            checkpoint = torch.load(fname)
-            model.load_state_dict(checkpoint['model'])
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            os.remove(fname)
+        # L-BFGS is currently unsupported, as are sparse tensors, which are
+        # required by SparseAdam optimizer
+        optimizers = [
+            (subclass.__name__, new_optimizer(subclass))
+            for subclass in torch.optim.Optimizer.__subclasses__()
+            if subclass.__module__.startswith('torch.optim') and
+               subclass != torch.optim.LBFGS and
+               subclass != torch.optim.SparseAdam
+        ]
+        optimizers.sort()
 
-        hvd.broadcast_parameters(model.state_dict(), root_rank=0)
-        model_param_value_after = get_model_param_value(model)
-        self.assertTrue((model_param_value == model_param_value_after).all())
+        for opt_name, create_opt in optimizers:
+            model, optimizer = create_model(create_opt)
+            y_pred = model(x)
+            loss = F.mse_loss(y_pred, y, size_average=False)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-        hvd.broadcast_optimizer_state(optimizer, root_rank=0)
-        self.assertEqual(len(optimizer.state_dict()['state'].values()), 4)
-        opt_param_value_after = get_optimizer_param_value(optimizer)
-        self.assertTrue((opt_param_value == opt_param_value_after).all())
+            model_param_values = get_model_param_values(model)
+            for name, model_param_value in model_param_values:
+                hvd.broadcast_(model_param_value, root_rank=0)
+
+            opt_param_values_updated = []
+            opt_param_values = get_optimizer_param_values(optimizer)
+            for name, opt_param_value in opt_param_values:
+                is_tensor = torch.is_tensor(opt_param_value)
+                if not is_tensor:
+                    t = type(opt_param_value)
+                    opt_param_value = torch.Tensor([opt_param_value])
+                hvd.broadcast_(opt_param_value, root_rank=0)
+                if not is_tensor:
+                    opt_param_value = t(opt_param_value.numpy()[0])
+                opt_param_values_updated.append((name, opt_param_value))
+            opt_param_values = opt_param_values_updated
+
+            if hvd.rank() == 0:
+                state = {
+                    'model': model.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                }
+                _, fname = tempfile.mkstemp('.pt')
+                torch.save(state, fname)
+
+            model, optimizer = create_model(create_opt)
+            if hvd.rank() == 0:
+                checkpoint = torch.load(fname)
+                model.load_state_dict(checkpoint['model'])
+                optimizer.load_state_dict(checkpoint['optimizer'])
+                os.remove(fname)
+
+            hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+            model_param_value_after = get_model_param_values(model)
+            for before, after in zip(model_param_values,
+                                     model_param_value_after):
+                name, model_param_value = before
+                name_after, model_param_value_after = after
+                self.assertEqual(name, name_after)
+                self.assertEqual(type(model_param_value),
+                                 type(model_param_value_after))
+                self.assertTrue(
+                    (model_param_value == model_param_value_after).all())
+
+            hvd.broadcast_optimizer_state(optimizer, root_rank=0)
+            self.assertEqual(len(optimizer.state_dict()['state'].values()), 4)
+
+            opt_param_values_after = get_optimizer_param_values(optimizer)
+            for before, after in zip(opt_param_values, opt_param_values_after):
+                name, opt_param_value = before
+                name_after, opt_param_value_after = after
+                self.assertEqual(name, name_after)
+                self.assertEqual(type(opt_param_value),
+                                 type(opt_param_value_after))
+                if torch.is_tensor(opt_param_value):
+                    self.assertTrue(
+                        (opt_param_value == opt_param_value_after).all())
+                else:
+                    self.assertEqual(opt_param_value, opt_param_value_after)
