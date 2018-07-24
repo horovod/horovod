@@ -1681,6 +1681,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 // only done once no matter how many times this function is called.
 void InitializeHorovodOnce() {
   // Ensure background thread is only started once.
+  printf("this is from function InitializeHorovodOnce Authors->wuyongyu\n");
   if (!horovod_global.initialize_flag.test_and_set()) {
     horovod_global.background_thread =
         std::thread(BackgroundThreadLoop, std::ref(horovod_global));
