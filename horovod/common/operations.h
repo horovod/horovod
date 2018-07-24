@@ -59,8 +59,8 @@ void horovod_init(const int *ranks, int nranks);
 // C interface to initialize Horovod with the given MPI communicator.
 void horovod_init_comm(MPI_Comm comm);
 
-// C interface to terminate Horovod.
-void horovod_terminate(bool finalize);
+// C interface to shut down Horovod.
+void horovod_shutdown(bool finalize);
 
 // C interface to get index of current Horovod process.
 // Returns -1 if Horovod is not initialized.

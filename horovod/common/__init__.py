@@ -47,6 +47,7 @@ MPI_COMMON_LIB_CTYPES = \
     ctypes.CDLL(os.path.join(os.path.dirname(__file__),
                              'mpi_lib' + get_ext_suffix()), mode=ctypes.RTLD_GLOBAL)
 
+
 def init(comm=None):
     """A function that initializes Horovod.
 
@@ -57,9 +58,9 @@ def init(comm=None):
 
     """
     if comm is None:
-        comm=[]
+        comm = []
 
-    atexit.register(terminate, finalize=True)
+    atexit.register(shutdown, finalize=True)
 
     if not isinstance(comm, list):
         from mpi4py import MPI
@@ -73,10 +74,13 @@ def init(comm=None):
         return MPI_COMMON_LIB_CTYPES.horovod_init_comm(comm_obj)
     else:
         comm_size = len(comm)
-        return MPI_COMMON_LIB_CTYPES.horovod_init((ctypes.c_int * comm_size)(*comm), ctypes.c_int(comm_size))
+        return MPI_COMMON_LIB_CTYPES.horovod_init(
+            (ctypes.c_int * comm_size)(*comm), ctypes.c_int(comm_size))
 
-def terminate(finalize=False):
-    return MPI_COMMON_LIB_CTYPES.horovod_terminate(ctypes.c_bool(finalize))
+
+def shutdown(finalize=False):
+    return MPI_COMMON_LIB_CTYPES.horovod_shutdown(ctypes.c_bool(finalize))
+
 
 def size():
     """A function that returns the number of Horovod processes.
