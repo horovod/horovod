@@ -90,6 +90,7 @@ cudaError_t Free(
   } else if (malloc_type == Raw)
     free(ptr);
 
+  printf("Freed @ %p\n", ptr);
   ptr = NULL;
   return retval;
 }
@@ -117,6 +118,7 @@ cudaError_t Malloc(
   } else if (malloc_type == Raw)
     ptr = (T*)malloc(size);
 
+  printf("Allocated %ld @ %p\n", target, ptr);
   return retval;
 }
 
@@ -226,6 +228,44 @@ cudaError_t GarenteeAllocation(
 // ****************************
 // DGC Functions
 // ****************************
+
+void DgcConfig::Set(std::string key, std::string value)
+{
+  if (key == "dgc_sparsity_warmup_epochs")
+    warmup_epochs = std::stoi(value);
+
+  else if (key == "dgc_init_sparsity")
+    init_sparsity = std::stod(value);
+
+  else if (key == "dgc_final_sparsity")
+    final_sparsity = std::stod(value);
+
+  else if (key == "dgc_sampling_rate")
+    sampling_rate = std::stod(value);
+
+  else if (key == "dgc_rand_seed")
+    rand_seed = std::stoi(value);
+
+  else if (key == "dgc_grid_size")
+    grid_size = std::stoi(value);
+
+  else if (key == "dgc_block_size")
+    block_size = std::stoi(value);
+
+  else if (key == "dgc_min_sampling_num")
+    min_sampling_num = std::stoi(value);
+
+  else if (key == "momentum")
+    momentum = std::stof(value);
+
+  else if (key == "num_examples_per_epoch")
+    num_examples_per_epoch = std::stoi(value);
+
+  else if (key == "batch_size")
+    batch_size_per_gpu = std::stoi(value);
+
+  //printf("%s = %s\n", key.c_str(), value.c_str());
+}
 
 template <typename T, typename SizeT, typename Compare>
 cudaError_t Sort(
@@ -366,6 +406,9 @@ cudaError_t GradientAllReduce(
   auto  grid_size    = config.grid_size;
   auto  stream       = config.stream;
 
+  GUARD_CU2("cudaStreamSynchronize before", 
+    cudaStreamSynchronize(stream));
+
   // Memory allocation and type conversion
   size_t current_size = num_gradients * sizeof(T);
   GUARD_CU(GarenteeAllocation(state.verlocity,
@@ -449,7 +492,7 @@ cudaError_t GradientAllReduce(
     GUARD_CU(GarenteeAllocation(state.samp_data, state.samp_allocated,
       num_samples * sizeof(T)));
 
-    GUARD_CU(cudaDeviceSynchronize());
+    //GUARD_CU(cudaDeviceSynchronize());
     // Sampling
     sample_kernel <T, SizeT>
       <<<grid_size, block_size, 0, stream>>>(
@@ -481,11 +524,34 @@ cudaError_t GradientAllReduce(
   //      (i < num_samples) ? samp_data[i] : 0.12345678);
   //  });
 
+  printf("samp_data = %p, #samples = %ld\n", samp_data, (long)num_samples);
+  GUARD_CU2("cudaStreamSynchronize before Sort",
+    cudaStreamSynchronize(stream));
+  GUARD_CU2("cudaDeviceSynchronize before Sort",
+    cudaDeviceSynchronize());
+
   // Sort the samples
   GUARD_CU(Sort(samp_data, num_samples, stream));
-
+  GUARD_CU2("cudaDeviceSynchronize after Sort",
+    cudaDeviceSynchronize());
+  GUARD_CU2("cudaStreamSynchronize after Sort",
+    cudaStreamSynchronize(stream));
+ 
   // Determine the threshold
-  double sparsity   = config.final_sparsity; // TODO: calculate the sparsity value
+  uint64_t num_examples_per_step = config.batch_size_per_gpu * config.global_num_gpus;
+  uint64_t steps_per_epoch = config.num_examples_per_epoch / num_examples_per_step;
+  if (steps_per_epoch * num_examples_per_step < config.num_examples_per_epoch)
+    steps_per_epoch ++;
+  uint64_t epoch    = state.step * 1.0 / steps_per_epoch;
+  double sparsity   = config.final_sparsity;
+  if (epoch < config.warmup_epochs) {
+    sparsity = config.init_sparsity * exp(
+      log(config.final_sparsity / config.init_sparsity)
+      / (config.warmup_epochs - 1) * epoch);
+    if (epoch * steps_per_epoch == state.step)
+      printf("Epoch %ld, Step %ld, sparsity = %lf\n",
+        epoch, state.step, sparsity);
+  }
   SizeT  target_num = num_gradients * (1 - sparsity);
   auto &threshold = state.gradient_threshold;
   if (threshold == NULL) {
@@ -624,10 +690,15 @@ cudaError_t GradientAllReduce(
       = (T*)(state.pervious_accumulated_verlocity + offset);
 
     loop_kernel <<<grid_size, block_size, 0, stream>>>(num_gradients_chunk,
-      [threshold, gradient_start_chunk, verlocity, pervious_verlocity,
+      [threshold, gradient_start_chunk, num_gradients_chunk,
+       verlocity, pervious_verlocity,
        accumulated_verlocity, pervious_accumulated_verlocity]
       __device__ (const SizeT &i)
       {
+        if (i == 0)
+          printf("gradient [%ld...%ld) \n",
+            (long)gradient_start_chunk,
+            (long)(gradient_start_chunk + num_gradients_chunk));
         auto v = accumulated_verlocity[i + gradient_start_chunk];
         if (abs(v) > threshold[0])
         {
@@ -639,6 +710,10 @@ cudaError_t GradientAllReduce(
         }
       });
   }
+
+  GUARD_CU2("cudaStreamSynchronize after", 
+    cudaStreamSynchronize(stream));
+
   return retval;
 }
 

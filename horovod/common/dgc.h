@@ -98,7 +98,12 @@ struct DgcConfig {
   // DGC communication will use a gradient sparsity, which starts from
   // init_sparsity in the first epoch, and exponentially increases to
   // final_sparsity after warmup epoches.
-  int warmup_epoches = 5;
+  double warmup_epochs = 5.0;
+
+  // Each epoch has (num_examples_per_epoch / (global_num_gpus * batch_size_per_gpu)
+  // steps
+  int num_examples_per_epoch = 1000000;
+  int batch_size_per_gpu = 32;
 
   // Initial gradient sparsity for DGC.
   double init_sparsity = 0.75;
@@ -133,6 +138,9 @@ struct DgcConfig {
 
   // Momentum
   float momentum = 0.9;
+
+  // function to set indivual configuration
+  void Set(std::string key, std::string value);
 };
 
 struct DgcState {
@@ -189,7 +197,16 @@ struct DgcState {
   char     *global_gradients   = NULL;
 
   // Tensor offset address book
-  std::map<std::string, size_t> tensor_offsets;
+  std::map<std::string, size_t  > tensor_offsets;
+
+  // Per-tensor step counter
+  std::map<std::string, uint64_t> step_counters;
+
+  // Step number
+  uint64_t step = 0;
+  
+  // Epoch number
+  double epoch = 0;
 
   // Counter for adding new tensor to the end of memory space
   size_t offset_counter = 0;

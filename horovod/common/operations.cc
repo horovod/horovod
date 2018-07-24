@@ -145,7 +145,7 @@ struct HorovodGlobalState {
   int64_t tensor_fusion_threshold = 64 * 1024 * 1024;
 
   // Whether to use Deep Gradient Compression (DGC).
-  bool use_dgc = true;
+  bool use_dgc = false;
 
 #if HOROVOD_GPU_ALLREDUCE == 'N'
   // DGC configuration
@@ -867,6 +867,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
             config.global_num_gpus = horovod_global.size;
             config.configured = true;
             horovod_global.dgc_state.tensor_offsets.clear();
+            horovod_global.dgc_state.step_counters.clear();
           }
 
           // Looks for starting offset
@@ -884,6 +885,17 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         for (auto it = entries.begin(); it != entries.end(); it++) {
           if (horovod_global.use_dgc) {
             auto name = it -> tensor_name;
+            auto &counters = horovod_global.dgc_state.step_counters;
+            auto counter_it = counters.find(name);
+            if (counter_it == counters.end())
+              counters[name] = 0;
+            else {
+              auto step = counter_it -> second;
+              counter_it -> second ++;
+              if (step > horovod_global.dgc_state.step)
+                horovod_global.dgc_state.step = step;
+            }
+
             auto &offsets = horovod_global.dgc_state.tensor_offsets;
             auto it2 = offsets.find(name);
             if (it2 == offsets.end()) {
@@ -896,8 +908,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
             } else {
               if (dgc::isValid(dgc_offset_start)) {
                 if (dgc_offset_start + offset != it2 -> second) {
-                  printf("Offset mismatch: start = (%s, %ld), "
+                  printf("%ld\t Offset mismatch: start = (%s, %ld), "
                     "current = (%s, %ld), offset = %ld\n",
+                    horovod_global.dgc_state.step,
                     entries.begin() -> tensor_name.c_str(), dgc_offset_start,
                     it2 -> first.c_str(), it2 -> second, offset);
                   dgc_offset_map.push_back(std::make_tuple(
@@ -911,8 +924,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                   dgc_num_gradients_chunk += it -> tensor -> shape().num_elements();
                 }
               } else {
-                printf("Offset mismatch: start = (%s, Not found), "
+                printf("%ld\t Offset mismatch: start = (%s, Not found), "
                   "current = (%s, %ld), offset = %ld\n",
+                  horovod_global.dgc_state.step,
                   entries.begin() -> tensor_name.c_str(),
                   it2 -> first.c_str(), it2 -> second, offset);
               }
@@ -952,21 +966,24 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
             if (dgc::isValid(dgc_offset_start) &&
               dgc_offset_start + std::get<2>(*it) != current_offset) {
-              printf("Offset mismatch2: start = (%s, %ld), "
+              printf("%ld\t Offset mismatch2: start = (%s, %ld), "
                 "current = (%s, %ld), offset = %ld\n",
+                horovod_global.dgc_state.step,
                 entries.begin() -> tensor_name.c_str(), dgc_offset_start,
                 std::get<0>(*it).c_str(), current_offset, std::get<2>(*it));
             }
 
             if (dgc::isValid(dgc_offset_start))
-              printf("Record0: start = (%s, %ld), current = (%s, %ld), "
+              printf("%ld\t Record0: start = (%s, %ld), current = (%s, %ld), "
                 "offset = %ld, size = %ld\n",
+                horovod_global.dgc_state.step,
                 entries.begin() -> tensor_name.c_str(), dgc_offset_start,
                 std::get<0>(*it).c_str(), current_offset, std::get<2>(*it),
                 std::get<1>(*it));
             else
-              printf("Record1: start = (%s, None), current = (%s, %ld), "
+              printf("%ld\t Record1: start = (%s, None), current = (%s, %ld), "
                 "offset = %ld, size = %ld\n",
+                horovod_global.dgc_state.step,
                 entries.begin() -> tensor_name.c_str(),
                 std::get<0>(*it).c_str(), current_offset, std::get<2>(*it),
                 std::get<1>(*it));
@@ -991,25 +1008,27 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
               dgc_offset_start));
           }
 
-          std::string str = "";
-          uint64_t total_elements = 0;
-          for (auto it = dgc_offset_map.begin(); it != dgc_offset_map.end();
-            it++) {
-            str = str + "("
-              + std::to_string(std::get<0>(*it)) + ", "
-              + std::to_string(std::get<1>(*it)) + ", "
-              + std::to_string(std::get<2>(*it)) + ") ";
-            total_elements += std::get<1>(*it);
-          }
-          printf("Mapping: (%s, %ld) -> %ld = %s\n",
-            first_entry.tensor_name.c_str(), num_elements,
-            total_elements, str.c_str());
+          //std::string str = "";
+          //uint64_t total_elements = 0;
+          //for (auto it = dgc_offset_map.begin(); it != dgc_offset_map.end();
+          //  it++) {
+          //  str = str + "("
+          //    + std::to_string(std::get<0>(*it)) + ", "
+          //    + std::to_string(std::get<1>(*it)) + ", "
+          //    + std::to_string(std::get<2>(*it)) + ") ";
+          //  total_elements += std::get<1>(*it);
+          //}
+          //printf("Mapping: (%s, %ld) -> %ld = %s\n",
+          //  first_entry.tensor_name.c_str(), num_elements,
+          //  total_elements, str.c_str());
 
-          CUDA_CHECK(entries, "dgc::GradientAllReduce",
-            dgc::GradientAllReduce(
-              GetNCCLDataType(first_entry.tensor),
-              (void*)buffer_data, num_elements, dgc_offset_map,
-              horovod_global.dgc_config, horovod_global.dgc_state));
+          if (horovod_global.size > 1) {
+            CUDA_CHECK(entries, "dgc::GradientAllReduce",
+              dgc::GradientAllReduce(
+                GetNCCLDataType(first_entry.tensor),
+                (void*)buffer_data, num_elements, dgc_offset_map,
+                horovod_global.dgc_config, horovod_global.dgc_state));
+          }
         } // end of if (use_dgc)
 
         else {
@@ -1049,13 +1068,26 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
             config.global_num_gpus = horovod_global.size;
             config.configured = true;
             horovod_global.dgc_state.tensor_offsets.clear();
+            horovod_global.dgc_state.step_counters.clear();
           }
 
           auto &offsets = horovod_global.dgc_state.tensor_offsets;
+          auto &counters = horovod_global.dgc_state.step_counters;
+          auto counter_it = counters.find(e.tensor_name);
+          if (counter_it == counters.end())
+            counters[e.tensor_name] = 0;
+          else {
+            auto step = counter_it -> second;
+            counter_it -> second ++;
+            if (step > horovod_global.dgc_state.step)
+              horovod_global.dgc_state.step = step;
+          }
+
           auto it = offsets.find(e.tensor_name);
           if (it == offsets.end()) {
             offsets[e.tensor_name] = horovod_global.dgc_state.offset_counter;
-            printf("Record: start = None, current = (%s, %ld), size = %ld\n",
+            printf("%ld\t Record: start = None, current = (%s, %ld), size = %ld\n",
+              horovod_global.dgc_state.step,
               e.tensor_name.c_str(), horovod_global.dgc_state.offset_counter,
               e.tensor->size());
             horovod_global.dgc_state.offset_counter += e.tensor->size();
@@ -1070,11 +1102,13 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
               cudaMemcpyAsync((void*)e.tensor->data(), (void*)e.output->data(),
                 e.tensor->size(), cudaMemcpyDefault, stream));
 
-          CUDA_CHECK(entries, "dgc::GradientAllReduce",
-            dgc::GradientAllReduce(
-              GetNCCLDataType(e.tensor),
-              (void*)e.output->data(), e.tensor->shape().num_elements(),
-              dgc_offset_map, horovod_global.dgc_config, horovod_global.dgc_state));
+          if (horovod_global.size > 1) {
+            CUDA_CHECK(entries, "dgc::GradientAllReduce",
+              dgc::GradientAllReduce(
+                GetNCCLDataType(e.tensor),
+                (void*)e.output->data(), e.tensor->shape().num_elements(),
+                dgc_offset_map, horovod_global.dgc_config, horovod_global.dgc_state));
+          }
         } // end of if (use_dgc)
 
         else {
@@ -1723,7 +1757,46 @@ Status CheckInitialized() {
 
 extern "C" {
 
+void horovod_set(std::string key, std::string value) {
+  if (key == "horovod_tensor_funsion_threshold")
+    horovod_global.tensor_fusion_threshold = std::stol(value);
+
+  else if (key == "horovod_use_dgc") {
+    if (value == "False")
+      horovod_global.use_dgc = false;
+    else if (value == "True")
+      horovod_global.use_dgc = true;
+  }
+
+  else if (key == "horovod_cycle_time")
+    horovod_global.cycle_time = std::stod(value);
+
+  horovod_global.dgc_config.Set(key, value);
+}
+
 void horovod_init() { InitializeHorovodOnce(); }
+
+void horovod_read_config() {
+  std::string filename = "/tmp/horovod_config_" + std::to_string(horovod_rank()) + ".txt";
+  std::ifstream fin;
+  fin.open(filename.c_str());
+  if (!fin.is_open())
+    return;
+
+  std::string key = "", value = "";
+  while (key != "EndOfFile")
+  {
+    std::getline(fin, key);
+    if (key == "EndOfFile")
+      break;
+
+    std::getline(fin, value);
+    //printf("%s = %s\n", key.c_str(), value.c_str());
+    horovod_set(key, value);
+  }
+
+  fin.close();
+}
 
 int horovod_rank() {
   if (!horovod_global.initialization_done) {
