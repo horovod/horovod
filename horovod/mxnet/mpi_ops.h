@@ -23,14 +23,16 @@ namespace horovod {
 namespace MX {
 
 using namespace horovod::common;
-using namespace mxnet;
+
+typedef mxnet::NDArray NDArray;
+typedef mxnet::Engine::CallbackOnComplete Callback;
 
 extern "C" int horovod_mxnet_allreduce_async(
-    NDArray* tensor, NDArray* output, int average, char* name);
+    NDArray* tensor, NDArray* output, int average, char* name, Callback cb);
 extern "C" int horovod_mxnet_allgather_async(
-    NDArray* tensor, NDArray* output, char* name);
+    NDArray* tensor, NDArray* output, char* name, Callback cb);
 extern "C" int horovod_mxnet_broadcast_async(
-    NDArray* tensor, NDArray* output, int root_rank, char* name);
+    NDArray* tensor, NDArray* output, int root_rank, char* name, Callback cb);
 extern "C" int horovod_mxnet_poll(int handle);
 extern "C" void horovod_mxnet_wait_and_clear(int handle);
 

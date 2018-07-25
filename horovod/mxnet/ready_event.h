@@ -30,7 +30,7 @@ namespace horovod {
 namespace MX {
 
 using namespace horovod::common;
-using namespace mxnet;
+typedef mxnet::NDArray NDArray;
 
 template <class T> class MXReadyEvent : public ReadyEvent {
 public:

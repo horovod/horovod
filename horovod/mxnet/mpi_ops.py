@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-# Load all the necessary PyTorch C types.
+# Load all the necessary MXNet C types.
 import mxnet
 
 from mxnet.base import _LIB, c_str_array, c_handle_array, c_array, c_array_buf, c_str
@@ -82,7 +82,7 @@ def allreduce_async(tensor, average=True, name=None):
     return _allreduce_async(tensor, output, average, name)
 
 
-class HorovodAllreduce(torch.autograd.Function):
+class HorovodAllreduce(mxnet.autograd.Function):
     """An autograd function that performs allreduce on a tensor."""
 
     @staticmethod
@@ -171,7 +171,7 @@ def allreduce_(tensor, average=True, name=None):
 
 
 def _allgather_function_factory(tensor):
-    return 'horovod_torch_allgather_async_'
+    return 'horovod_mxnet_allgather_async_'
 
 
 def _allgather_async(tensor, output, name):
@@ -203,7 +203,7 @@ def allgather_async(tensor, name=None):
     return _allgather_async(tensor, output, name)
 
 
-class HorovodAllgather(torch.autograd.Function):
+class HorovodAllgather(mxnet.autograd.Function):
     """An autograd function that performs allgather on a tensor."""
 
     @staticmethod
@@ -216,11 +216,11 @@ class HorovodAllgather(torch.autograd.Function):
     def backward(ctx, grad_output):
         grad_reduced = allreduce(grad_output, average=False)
 
-        dim_t = torch.IntTensor([ctx.dim])
+        dim_t = mxnet.IntTensor([ctx.dim])
         dim = allgather(dim_t).view(size())
 
         r = rank()
-        offset = torch.sum(dim.narrow(0, 0, r)).data[0] if r != 0 else 0
+        offset = mxnet.sum(dim.narrow(0, 0, r)).data[0] if r != 0 else 0
         return grad_reduced.narrow(0, offset, ctx.dim), None
 
 
@@ -251,7 +251,7 @@ def allgather(tensor, name=None):
 
 
 def _broadcast_function_factory(tensor):
-    return 'horovod_torch_broadcast_async_'
+    return 'horovod_mxnet_broadcast_async_'
 
 
 def _broadcast_async(tensor, output, root_rank, name):
@@ -285,7 +285,7 @@ def broadcast_async(tensor, root_rank, name=None):
     return _broadcast_async(tensor, output, root_rank, name)
 
 
-class HorovodBroadcast(torch.autograd.Function):
+class HorovodBroadcast(mxnet.autograd.Function):
     """An autograd function that broadcasts a tensor."""
 
     @staticmethod
@@ -386,7 +386,7 @@ def poll(handle):
     Returns:
         A flag indicating whether the operation has completed.
     """
-    return _LIB.horovod_torch_poll(handle) != 0
+    return _LIB.horovod_mxnet_poll(handle) != 0
 
 
 def synchronize(handle):
@@ -403,6 +403,6 @@ def synchronize(handle):
     """
     if handle not in _handle_map:
         return
-    _LIB.horovod_torch_wait_and_clear(handle)
+    _LIB.horovod_mxnet_wait_and_clear(handle)
     _, output = _handle_map.pop(handle)
     return output
