@@ -128,6 +128,9 @@ struct HorovodGlobalState {
   // Whether the background thread should shutdown.
   bool shut_down = false;
 
+  // Whether Horovod should finalize MPI (only if it has initialized it).
+  bool should_finalize = false;
+
   // Only exists on the coordinator node (rank zero). Maintains a count of
   // how many nodes are ready to allreduce every tensor (keyed by tensor
   // name) and time point when tensor started allreduce op.
@@ -1318,6 +1321,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     MPI_Query_thread(&provided);
   } else {
     MPI_Init_thread(NULL, NULL, required, &provided);
+    state.should_finalize = true;
   }
 
   if (state.ranks.size() > 0) {
@@ -1729,7 +1733,7 @@ void horovod_init_comm(MPI_Comm comm) {
   InitializeHorovodOnce(NULL, 0);
 }
 
-void horovod_shutdown(bool finalize) {
+void horovod_shutdown() {
 
   if (horovod_global.background_thread.joinable()) {
     horovod_global.shut_down = true;
@@ -1752,7 +1756,7 @@ void horovod_shutdown(bool finalize) {
     MPI_Comm_free(&horovod_global.cross_comm);
   }
 
-  if (finalize) {
+  if (horovod_global.should_finalize) {
 #if HAVE_DDL
     // ddl_finalize calls MPI_Finalize
     ddl_finalize();

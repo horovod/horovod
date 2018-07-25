@@ -60,7 +60,7 @@ void horovod_init(const int *ranks, int nranks);
 void horovod_init_comm(MPI_Comm comm);
 
 // C interface to shut down Horovod.
-void horovod_shutdown(bool finalize);
+void horovod_shutdown();
 
 // C interface to get index of current Horovod process.
 // Returns -1 if Horovod is not initialized.

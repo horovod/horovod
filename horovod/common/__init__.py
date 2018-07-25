@@ -60,7 +60,7 @@ def init(comm=None):
     if comm is None:
         comm = []
 
-    atexit.register(shutdown, finalize=True)
+    atexit.register(shutdown)
 
     if not isinstance(comm, list):
         from mpi4py import MPI
@@ -78,8 +78,8 @@ def init(comm=None):
             (ctypes.c_int * comm_size)(*comm), ctypes.c_int(comm_size))
 
 
-def shutdown(finalize=False):
-    return MPI_COMMON_LIB_CTYPES.horovod_shutdown(ctypes.c_bool(finalize))
+def shutdown():
+    return MPI_COMMON_LIB_CTYPES.horovod_shutdown()
 
 
 def size():
