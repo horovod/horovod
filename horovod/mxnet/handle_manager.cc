@@ -18,10 +18,13 @@
 namespace horovod {
 namespace MX {
 
-int HandleManager::AllocateHandle() {
+typedef mxnet::Engine::CallbackOnComplete Callback;
+
+int HandleManager::AllocateHandle(Callback cb) {
   int handle = last_handle_.fetch_add(1) + 1;
   std::lock_guard<std::mutex> guard(mutex_);
   results_[handle] = nullptr;
+  callbacks_[handle] = std::make_shared<Callback>(cb);
   return handle;
 }
 
@@ -37,6 +40,11 @@ bool HandleManager::PollHandle(int handle) {
                                 " was not created or has been cleared.");
   }
   return results_[handle] != nullptr;
+}
+
+void HandleManager::ExecuteCallback(int handle) {
+  Callback cb = *callbacks_[handle];
+  cb();
 }
 
 std::shared_ptr<Status> HandleManager::ReleaseHandle(int handle) {

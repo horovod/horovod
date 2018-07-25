@@ -30,6 +30,10 @@ namespace MX {
 
 static HandleManager handle_manager;
 
+using namespace mxnet;
+
+typedef mxnet::Engine::CallbackOnComplete Callback;
+
 namespace {
 
 std::string GetOpName(std::string prefix, char* name, int handle) {
@@ -41,10 +45,11 @@ std::string GetOpName(std::string prefix, char* name, int handle) {
 
 } // namespace
 
-int DoAllreduce(NDArray* tensor, NDArray* output, int average, char* name) {
+int DoAllreduce(NDArray* tensor, NDArray* output, int average, char* name,
+                Callback cb) {
   ThrowIfError(common::CheckInitialized());
 
-  auto handle = handle_manager.AllocateHandle();
+  auto handle = handle_manager.AllocateHandle(cb);
   auto device = TensorUtil::GetDevice(tensor);
   auto hvd_tensor = std::make_shared<MXTensor<NDArray>>(tensor);
   auto hvd_context = std::make_shared<MXOpContext<NDArray>>(device, output);
@@ -58,6 +63,7 @@ int DoAllreduce(NDArray* tensor, NDArray* output, int average, char* name) {
           TensorUtil::DivideTensorInPlace(output, horovod_size());
         }
         handle_manager.MarkDone(handle, status);
+        handle_manager.ExecuteCallback(handle);
       });
   ThrowIfError(enqueue_result);
 
@@ -66,7 +72,7 @@ int DoAllreduce(NDArray* tensor, NDArray* output, int average, char* name) {
 
 #if HAVE_CUDA
 int DoAllreduceCudaOnCPU(NDArray* tensor, NDArray* output, int average, 
-                         char* name) {
+                         char* name, Callback cb) {
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
@@ -78,7 +84,7 @@ int DoAllreduceCudaOnCPU(NDArray* tensor, NDArray* output, int average,
   auto hvd_context = std::make_shared<MXOpContext<NDArray>>(
       CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
 
-  auto handle = handle_manager.AllocateHandle();
+  auto handle = handle_manager.AllocateHandle(cb);
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, ready_event,
       GetOpName("allreduce", name, handle), CPU_DEVICE_ID,
@@ -88,6 +94,7 @@ int DoAllreduceCudaOnCPU(NDArray* tensor, NDArray* output, int average,
           TensorUtil::DivideTensorInPlace(output, horovod_size());
         }
         handle_manager.MarkDone(handle, status);
+        handle_manager.ExecuteCallback(handle);
       });
   ThrowIfError(enqueue_result);
 
@@ -95,18 +102,19 @@ int DoAllreduceCudaOnCPU(NDArray* tensor, NDArray* output, int average,
 }
 #endif
 
-int DoAllgather(NDArray* tensor, NDArray* output, char* name) {
+int DoAllgather(NDArray* tensor, NDArray* output, char* name, Callback cb) {
   ThrowIfError(common::CheckInitialized());
 
   auto device = TensorUtil::GetDevice(tensor);
   auto hvd_tensor = std::make_shared<MXTensor<NDArray>>(tensor);
   auto hvd_context = std::make_shared<MXOpContext<NDArray>>(device, output);
 
-  auto handle = handle_manager.AllocateHandle();
+  auto handle = handle_manager.AllocateHandle(cb);
   auto enqueue_result = EnqueueTensorAllgather(
       hvd_context, hvd_tensor, nullptr, GetOpName("allgather", name, handle),
       device, [handle](const Status& status) {
         handle_manager.MarkDone(handle, status);
+        handle_manager.ExecuteCallback(handle);
       });
   ThrowIfError(enqueue_result);
 
@@ -114,7 +122,8 @@ int DoAllgather(NDArray* tensor, NDArray* output, char* name) {
 }
 
 #if HAVE_CUDA
-int DoAllgatherCudaOnCPU(NDArray* tensor, NDArray* output, char* name) {
+int DoAllgatherCudaOnCPU(NDArray* tensor, NDArray* output, char* name,
+                         Callback cb) {
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
@@ -128,13 +137,14 @@ int DoAllgatherCudaOnCPU(NDArray* tensor, NDArray* output, char* name) {
   auto hvd_context = std::make_shared<MXOpContext<NDArray>>(
       CPU_DEVICE_ID, hvd_cpu_output->tensor());
 
-  auto handle = handle_manager.AllocateHandle();
+  auto handle = handle_manager.AllocateHandle(cb);
   auto enqueue_result = EnqueueTensorAllgather(
       hvd_context, hvd_cpu_tensor, ready_event,
       GetOpName("allgather", name, handle), CPU_DEVICE_ID,
       [handle, hvd_cpu_output, output](const Status& status) {
         TensorUtil::CopyCPUToCuda(hvd_cpu_output->tensor(), output);
         handle_manager.MarkDone(handle, status);
+        handle_manager.ExecuteCallback(handle);
       });
   ThrowIfError(enqueue_result);
 
@@ -142,7 +152,8 @@ int DoAllgatherCudaOnCPU(NDArray* tensor, NDArray* output, char* name) {
 }
 #endif
 
-int DoBroadcast(NDArray* tensor, NDArray* output, int root_rank, char* name) {
+int DoBroadcast(NDArray* tensor, NDArray* output, int root_rank, char* name, 
+                Callback cb) {
   ThrowIfError(common::CheckInitialized());
 
   auto device = TensorUtil::GetDevice(tensor);
@@ -157,12 +168,13 @@ int DoBroadcast(NDArray* tensor, NDArray* output, int root_rank, char* name) {
     hvd_output = std::make_shared<MXTensor<NDArray>>(output);
   }
 
-  auto handle = handle_manager.AllocateHandle();
+  auto handle = handle_manager.AllocateHandle(cb);
   auto enqueue_result =
       EnqueueTensorBroadcast(hvd_context, hvd_tensor, hvd_output, root_rank,
                              nullptr, GetOpName("broadcast", name, handle),
                              device, [handle](const Status& status) {
                                handle_manager.MarkDone(handle, status);
+                               handle_manager.ExecuteCallback(handle);
                              });
   ThrowIfError(enqueue_result);
 
@@ -171,7 +183,7 @@ int DoBroadcast(NDArray* tensor, NDArray* output, int root_rank, char* name) {
 
 #if HAVE_CUDA
 int DoBroadcastCudaOnCPU(NDArray* tensor, NDArray* output, int root_rank, 
-                         char* name) {
+                         char* name, Callback cb) {
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
@@ -183,13 +195,14 @@ int DoBroadcastCudaOnCPU(NDArray* tensor, NDArray* output, int root_rank,
   auto hvd_context = std::make_shared<MXOpContext<NDArray>>(
       CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
 
-  auto handle = handle_manager.AllocateHandle();
+  auto handle = handle_manager.AllocateHandle(cb);
   auto enqueue_result = EnqueueTensorBroadcast(
       hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, root_rank, ready_event,
       GetOpName("broadcast", name, handle), CPU_DEVICE_ID,
       [handle, hvd_cpu_buffer, output](const Status& status) {
         TensorUtil::CopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
         handle_manager.MarkDone(handle, status);
+        handle_manager.ExecuteCallback(handle);
       });
   ThrowIfError(enqueue_result);
 
@@ -200,51 +213,48 @@ int DoBroadcastCudaOnCPU(NDArray* tensor, NDArray* output, int root_rank,
 // Do AllReduce on GPU only if src and dst are on GPU
 // Otherwise do AllReduce on CPU
 extern "C" int horovod_mxnet_allreduce_async(
-    NDArray* tensor, NDArray* output, int average, char* name) {
-  /*LOG(WARNING) << "Input on GPU:  " << (tensor->ctx().dev_mask()) << " " << (tensor->ctx().dev_mask() == gpu::kDevMask) << " on " << (tensor->ctx().real_dev_id());
-  LOG(WARNING) << "Input on CPU:  " << (tensor->ctx().dev_mask()) << " " << (tensor->ctx().dev_mask() == cpu::kDevMask);
-  LOG(WARNING) << "Output on GPU: " << (output->ctx().dev_mask()) << " " << (output->ctx().dev_mask() == gpu::kDevMask) << " on " << (output->ctx().real_dev_id());
-  LOG(WARNING) << "Output on CPU: " << (output->ctx().dev_mask()) << " " << (output->ctx().dev_mask() == cpu::kDevMask);
-  LOG(WARNING) << "Input:  " << tensor->dtype() << " " << tensor->shape().Size();
-  LOG(WARNING) << "Output: " << output->dtype() << " " << output->shape().Size();*/
+    NDArray* tensor, NDArray* output, int average, char* name, Callback cb) {
   if (tensor->ctx().dev_mask() == gpu::kDevMask &&
-      output->ctx().dev_mask() == gpu::kDevMask)
-    return DoAllreduce(tensor, output, average, name);
-  else
+      output->ctx().dev_mask() == gpu::kDevMask) {
+    //LOG(WARNING) << "Correct allreduce";
+    return DoAllreduce(tensor, output, average, name, cb);
+  } else {
+    //LOG(WARNING) << "Wrong allreduce";
     #if HAVE_CUDA
-      return DoAllreduceCudaOnCPU(tensor, output, average, name);
+      return DoAllreduceCudaOnCPU(tensor, output, average, name, cb);
     #else
-      return DoAllreduce(tensor, output, average, name);
+      return DoAllreduce(tensor, output, average, name, cb);
     #endif
+  }
 }
 
 extern "C" int horovod_mxnet_allgather_async(
-    NDArray* tensor, NDArray* output, char* name) {
+    NDArray* tensor, NDArray* output, char* name, Callback cb) {
   if (tensor->ctx().dev_mask() == gpu::kDevMask &&
       output->ctx().dev_mask() == gpu::kDevMask)
-    return DoAllgather(tensor, output, name);
+    return DoAllgather(tensor, output, name, cb);
   else
     #if HAVE_CUDA
-      return DoAllgatherCudaOnCPU(tensor, output, name);
+      return DoAllgatherCudaOnCPU(tensor, output, name, cb);
     #else
-      return DoAllgather(tensor, output, name);
+      return DoAllgather(tensor, output, name, cb);
     #endif
 }
 
 extern "C" int horovod_mxnet_broadcast_async(
-    NDArray* tensor, NDArray* output, int root_rank, char* name) {
+    NDArray* tensor, NDArray* output, int root_rank, char* name, Callback cb) {
    
-  return DoBroadcast(tensor, output, root_rank, name);
+  return DoBroadcast(tensor, output, root_rank, name, cb);
   LOG(WARNING) << "Rank: " << horovod_rank() << " Input on GPU:  " << (tensor->ctx().dev_mask() == gpu::kDevMask);
   LOG(WARNING) << "Rank: " << horovod_rank() << " Output on GPU: " << (output->ctx().dev_mask() == gpu::kDevMask);
   if (tensor->ctx().dev_mask() == gpu::kDevMask &&
       output->ctx().dev_mask() == gpu::kDevMask)
-    return DoBroadcast(tensor, output, root_rank, name);
+    return DoBroadcast(tensor, output, root_rank, name, cb);
   else
     #if HAVE_CUDA
-      return DoBroadcastCudaOnCPU(tensor, output, root_rank, name);
+      return DoBroadcastCudaOnCPU(tensor, output, root_rank, name, cb);
     #else
-      return DoBroadcast(tensor, output, root_rank, name);
+      return DoBroadcast(tensor, output, root_rank, name, cb);
     #endif
 }
 

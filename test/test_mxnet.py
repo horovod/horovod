@@ -22,8 +22,8 @@ import mxnet as mx
 import unittest
 import numpy as np
 
-import horovod.mxnet as hvd
-
+#import horovod.mxnet as hvd
+import mxnet as mx
 
 class MXTests(unittest.TestCase):
     """
@@ -32,19 +32,62 @@ class MXTests(unittest.TestCase):
 
     def test_horovod_allreduce(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
-        hvd.init()
-        size = hvd.size()
+        kv = mx.kv.create("horovod")
+        size = kv.num_workers
         dtypes = ['int32',   'int64',
                   'float32', 'float64']
         dims = [1, 2, 3]
+        dev = mx.gpu(kv.local_rank)
+        count = 0
+        shapes = [(), (17), (17, 17), (17, 17, 17)]
+        kv.init([i for i in range(len(dtypes)*len(dims))], [mx.nd.zeros(shapes[dim]) for dtype, dim in itertools.product(dtypes, dims)])
         for dtype, dim in itertools.product(dtypes, dims):
-            mx.random.seed(1234)
-            tensor = mx.ndarray(*([17] * dim)).random(-100, 100)
-            tensor = torch.FloatTensor(*([17] * dim)).random_(-100, 100)
+            # MXNet uses gpu_id as part of the seed, so to get identical seeds
+            # we must set a context.
+            mx.random.seed(1234, ctx=dev)
+            tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim], ctx=dev)
+            summed = mx.nd.zeros(shapes[dim], ctx=dev)
             tensor = tensor.astype(dtype)
-            summed = hvd.allreduce(tensor, average=False)
+            summed = summed.astype(dtype)
+            kv.pushpull(count, tensor, summed)
             multiplied = tensor * size
-            max_difference = summed.data.sub(multiplied).max()
+            max_difference = mx.nd.max(mx.nd.subtract(summed, multiplied))
+            count += 1
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in ['int32', 'int64']:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+            assert max_difference <= threshold, 'hvd.allreduce produces incorrect results'
+
+    def test_horovod_allreduce_average(self):
+        """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
+        kv = mx.kv.create("horovod")
+        size = kv.num_workers
+        dtypes = ['int32',   'int64',
+                  'float32', 'float64']
+        dims = [1, 2, 3]
+        dev = mx.gpu(kv.local_rank)
+        count = 0
+        shapes = [(), (17), (17, 17), (17, 17, 17)]
+        kv.init([i for i in range(len(dtypes)*len(dims))], [mx.nd.zeros(shapes[dim]) for dtype, dim in itertools.product(dtypes, dims)])
+        for dtype, dim in itertools.product(dtypes, dims):
+            mx.random.seed(1234, ctx=dev)
+            tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim], ctx=dev)
+            tensor = tensor.astype(dtype)
+            print("tensor", tensor)
+            averaged = mx.nd.zeros(shapes[dim], ctx=dev)
+            averaged = averaged.astype(dtype)
+            kv.pushpull(count, tensor, averaged, average=True)
+            max_difference = mx.nd.max(mx.nd.subtract(averaged, tensor))
+            count += 1
+            print("averaged", averaged)
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
@@ -57,38 +100,10 @@ class MXTests(unittest.TestCase):
             else:
                 break
 
-            assert max_difference <= threshold, 'hvd.allreduce produces incorrect results'
+            if max_difference > threshold:
+                print(count, dtype, dim, max_difference, threshold)
+            assert max_difference <= threshold, 'hvd.allreduce produces incorrect results for average'
     '''
-    def test_horovod_allreduce_average(self):
-        """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
-        hvd.init()
-        size = hvd.size()
-        dtypes = [torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor]
-        if torch.cuda.is_available():
-            dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
-                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
-        dims = [1, 2, 3]
-        for dtype, dim in itertools.product(dtypes, dims):
-            torch.manual_seed(1234)
-            tensor = torch.FloatTensor(*([17] * dim)).random_(-100, 100)
-            tensor = tensor.type(dtype)
-            averaged = hvd.allreduce(tensor, average=True)
-            max_difference = averaged.data.sub(tensor).max()
-
-            # Threshold for floating point equality depends on number of
-            # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
-                                      torch.cuda.IntTensor, torch.cuda.LongTensor]:
-                threshold = 0
-            elif size < 10:
-                threshold = 1e-4
-            elif size < 15:
-                threshold = 5e-4
-            else:
-                break
-
-            assert max_difference <= threshold, 'hvd.allreduce produces incorrect results'
 
     def test_horovod_allreduce_inplace(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
@@ -647,4 +662,9 @@ class MXTests(unittest.TestCase):
             self.assertLess(err, 0.00000001,
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
-    '''
+   ''' 
+
+if __name__ == '__main__':
+    test = MXTests()
+    test.test_horovod_allreduce()
+    test.test_horovod_allreduce_average()
