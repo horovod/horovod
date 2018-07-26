@@ -30,7 +30,10 @@ void sample_kernel(
     //if (i < 10)
     //  printf("Selecting elements[%d] = %f for pos %d\n",
     //    pos, elements[pos], i);
-    samples[i] = abs(elements[pos]);
+    auto element = elements[pos];
+    if (!isfinite(element * 1.0f))
+      element = 0;
+    samples[i] = abs(element);
 
     i += STRIDE;
   }
@@ -46,18 +49,22 @@ void select_kernel(
   SizeT   target_num,
   T      *selected_elements,
   IndexT *selected_indices,
-  CounterT *selected_count)
+  CounterT *selected_count,
+  float  *max_gradient)
 {
   const SizeT STRIDE = (SizeT)gridDim.x * blockDim.x;
   SizeT block_input_start = (SizeT)blockDim.x * blockIdx.x;
   __shared__ SizeT s_block_output_count, s_block_output_start;
   float threshold = threshold_[0];
+  float t_max_gradient = 0;
+  __shared__ float s_max_gradient;
 
   if (threadIdx.x == 0)
   {
     s_block_output_count = 0;
+    s_max_gradient = 0;
     if (blockIdx.x == 0)
-      printf("threadhold = %f\n", threshold);
+      printf("threadhold = %f, #elements = %lld\n", threshold, (long long)num_elements);
   }
   __syncthreads();
 
@@ -70,10 +77,17 @@ void select_kernel(
     if (thread_input < num_elements)
     {
       element = elements[thread_input];
-      if (!(abs(element) < threshold))
+      if (isfinite(element * 1.0f))
       {
-        thread_to_select = true;
-        thread_output = atomicAdd(&s_block_output_count, (SizeT)1);
+        auto abs_element = abs(element);
+        if (!(abs_element < threshold))
+        {
+          thread_to_select = true;
+          thread_output = atomicAdd(&s_block_output_count, (SizeT)1);
+        }
+
+        if (t_max_gradient < abs_element)
+          t_max_gradient = abs_element;
       }
     }
     __syncthreads();
@@ -93,6 +107,16 @@ void select_kernel(
     }
 
     block_input_start += STRIDE;
+  }
+
+  atomicMax(&s_max_gradient, t_max_gradient);
+  __syncthreads();
+
+  if (threadIdx.x == 0)
+  {
+    atomicMax(max_gradient, s_max_gradient);
+    //printf("(%d, %d) s_max_gradient = %f\n",
+    //  blockIdx.x, threadIdx.x, s_max_gradient);
   }
 }
 
@@ -188,13 +212,15 @@ void pad_kernel(
   T     *selected_elements,
   IndexT *selected_indices,
   SizeT  target_num,
-  CounterT *selected_count)
+  CounterT *selected_count,
+  float  *max_gradient)
 {
   const SizeT STRIDE = (SizeT)gridDim.x * blockDim.x;
   SizeT i = selected_count[0] + (SizeT)blockDim.x * blockIdx.x + threadIdx.x;
 
   if (blockIdx.x == 0 && threadIdx.x == 0)
-    printf("#selected = %ld, target = %ld\n", (long long)i, (long long)target_num);
+    printf("#selected = %ld, target = %ld, max_gradient = %f\n",
+      (long long)i, (long long)target_num, max_gradient[0]);
 
   while (i < target_num)
   {

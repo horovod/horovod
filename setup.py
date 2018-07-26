@@ -104,7 +104,8 @@ def get_cuda_flags(build_ext):
         '-ccbin', 'g++', '-m64',
         '-O2', '--expt-extended-lambda',
         '--gpu-architecture=compute_70',
-        '--gpu-code=sm_70']
+        '--gpu-code=sm_70',
+        '-I"externals/cub"']
         #'--device-c']
 
     return default_flags

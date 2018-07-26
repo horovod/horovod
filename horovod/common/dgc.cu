@@ -11,8 +11,9 @@
 #include <string>
 #include <algorithm>
 #include <curand_kernel.h>
-#include <thrust/sort.h>
-#include <thrust/execution_policy.h>
+//#include <thrust/sort.h>
+//#include <thrust/execution_policy.h>
+#include <cub/cub.cuh>
 #include "dgc.h"
 #include "dgc_kernel.cu.cc"
 
@@ -255,6 +256,17 @@ void DgcConfig::Set(std::string key, std::string value)
   else if (key == "dgc_min_sampling_num")
     min_sampling_num = std::stoi(value);
 
+  else if (key == "dgc_local_gradient_clipping")
+  {
+    if (value == "True")
+      local_gradient_clipping = true;
+    else if (value == "False")
+      local_gradient_clipping = false;
+  }
+
+  else if (key == "dgc_clipping_threshold")
+    clipping_threshold = std::stof(value);
+
   else if (key == "momentum")
     momentum = std::stof(value);
 
@@ -288,10 +300,11 @@ cudaError_t Sort(
 
   // Use thrust for now;
   // if sort becomes performance bottleneck, change to cub
-  thrust::sort(thrust::cuda::par.on(stream),
-    elements, elements + num_elements, compare);
+  // Note: thrust::sort hit a bug that produced illegal memory access
+  //thrust::sort(thrust::cuda::par.on(stream),
+  //  elements, elements + num_elements, compare);
 
-  /* Cub sorting
+  // Cub sorting
   bool temp_storage_allocated = false;
   if (temp_storage == NULL && temp_storage_bytes == NULL)
   {
@@ -303,31 +316,30 @@ cudaError_t Sort(
   }
 
   size_t required_bytes = 0;
-  cub::DeviceRadixSort::SortKeys(
+  GUARD_CU(cub::DeviceRadixSort::SortKeys(
     (char*)NULL, required_bytes,
-    elements, elements + num_elements,
-    num_elements, 0, sizeof(T) * 8, stream);
+    elements, elements,
+    num_elements, 0, sizeof(T) * 8, stream));
 
-  retval = GarenteeAllocation(temp_storage[0],
-    temp_storage_bytes[0], required_bytes, malloc_type, flags);
-  if (retval)
-    return retval;
+  GUARD_CU(GarenteeAllocation(temp_storage[0],
+    temp_storage_bytes[0], required_bytes, malloc_type, flags));
+  GUARD_CU2("cudaDeviceSynchronize",
+    cudaDeviceSynchronize());
 
-  cub::DeviceRadixSort::SortKeys(
+  GUARD_CU(cub::DeviceRadixSort::SortKeys(
     temp_storage[0], temp_storage_bytes[0],
-    elements, elements + num_elements,
-    num_elements, 0, sizeof(T) * 8, stream);
+    elements, elements,
+    num_elements, 0, sizeof(T) * 8, stream));
 
   if (temp_storage_allocated)
   {
-    retval = Free(temp_storage[0], malloc_type);
+    GUARD_CU(Free(temp_storage[0], malloc_type));
     free(temp_storage);
     free(temp_storage_bytes);
     temp_storage = NULL;
     temp_storage_bytes = NULL;
     temp_storage_allocated = false;
   }
-  */
 
   return retval;
 }
@@ -388,6 +400,76 @@ cudaError_t Sort(
   return retval;
 }
 
+template <typename T>
+cudaError_t ClipGradient(
+  T          *gradients,
+  uint64_t   *layer_offsets,
+  int         num_layers,
+  DgcConfig  &config,
+  DgcState   &state)
+{
+  cudaError_t retval = cudaSuccess;
+  
+  // skip first step, because total number of layers are unknown
+  if (state.step == 0)
+    return retval;
+
+  GUARD_CU(GarenteeAllocation(state.temp_storage, state.temp_storage_bytes,
+    sizeof(T) * 2 * num_layers + sizeof(uint64_t) * (num_layers + 1)));
+
+  T* sums         = (T*)(state.temp_storage);
+  T* coefficients = (T*)(state.temp_storage + sizeof(T) * num_layers);
+  uint64_t* offsets = (uint64_t*)(state.temp_storage + sizeof(T) * 2 * num_layers);
+  auto stream     = config.stream;
+  int  grid_size  = config.grid_size;
+  int  block_size = config.block_size;
+  auto clipping_threshold = config.clipping_threshold;
+
+  GUARD_CU(Memset(sums, 0, num_layers, Malloc_t::Default, stream));
+  GUARD_CU2("cudaMemcpyAsync",
+    cudaMemcpyAsync(offsets, layer_offsets, sizeof(uint64_t) * (num_layers + 1),
+      cudaMemcpyHostToDevice, stream));
+
+  loop_kernel<<<grid_size, block_size, 0, stream>>>(layer_offsets[num_layers],
+    [offsets, sums, gradients, num_layers] __device__ (const uint64_t &i)
+    {
+      int layer = binarySearch(offsets, 0, num_layers, i);
+      //if (i < offsets[layer] || i >= offsets[layer + 1])
+      //  printf("offset mismatch: i = %ld, layer = %d, offsets = %ld, %ld, %ld\n",
+      //      i, layer, layer > 0 ? offsets[layer -1] : -1,
+      //      offsets[layer], layer < num_layers ? offsets[layer + 1] : -1);
+
+      auto gradient = gradients[i];
+      atomicAdd(sums + layer, gradient * gradient);
+    });
+
+  int total_num_layers = state.tensor_offsets.size();
+  uint64_t total_num_gradients = state.offset_counter / sizeof(T);
+
+  loop_kernel<<<grid_size, block_size, 0, stream>>>(num_layers,
+    [sums, coefficients, total_num_layers, total_num_gradients, clipping_threshold, offsets]
+    __device__ (const int &layer)
+    {
+      coefficients[layer] = clipping_threshold /
+        //(sqrt(sums[layer] * total_num_gradients / (offsets[layer + 1] - offsets[layer])) + 1e-6);
+        (sqrt(sums[layer]) + 1e-6);
+      printf("Layer %3d: L2 norm = %f, #gradients = %6ld, coef = %f\n",
+        layer, sqrt(sums[layer]), (long)(offsets[layer+1] - offsets[layer]), 
+        coefficients[layer]);
+    });
+
+  loop_kernel<<<grid_size, block_size, 0, stream>>>(layer_offsets[num_layers],
+    [offsets, gradients, coefficients, num_layers] __device__ (const uint64_t &i)
+    {
+      int layer = binarySearch(offsets, 0, num_layers, i);
+      auto coefficient = coefficients[layer];
+      if (coefficient < 1)
+        gradients[i] *= coefficient;
+    });
+
+  return retval;
+}
+
 // Main DGC routine
 template <typename T, typename SizeT>
 cudaError_t GradientAllReduce(
@@ -406,7 +488,7 @@ cudaError_t GradientAllReduce(
   auto  grid_size    = config.grid_size;
   auto  stream       = config.stream;
 
-  GUARD_CU2("cudaStreamSynchronize before", 
+  GUARD_CU2("cudaStreamSynchronize before",
     cudaStreamSynchronize(stream));
 
   // Memory allocation and type conversion
@@ -524,19 +606,20 @@ cudaError_t GradientAllReduce(
   //      (i < num_samples) ? samp_data[i] : 0.12345678);
   //  });
 
-  printf("samp_data = %p, #samples = %ld\n", samp_data, (long)num_samples);
+  //printf("samp_data = %p, #samples = %ld\n", samp_data, (long)num_samples);
   GUARD_CU2("cudaStreamSynchronize before Sort",
     cudaStreamSynchronize(stream));
   GUARD_CU2("cudaDeviceSynchronize before Sort",
     cudaDeviceSynchronize());
 
   // Sort the samples
-  GUARD_CU(Sort(samp_data, num_samples, stream));
+  GUARD_CU(Sort(samp_data, num_samples, stream, Malloc_t::Default,
+    &(state.temp_storage), &(state.temp_storage_bytes)));
   GUARD_CU2("cudaDeviceSynchronize after Sort",
     cudaDeviceSynchronize());
   GUARD_CU2("cudaStreamSynchronize after Sort",
     cudaStreamSynchronize(stream));
- 
+
   // Determine the threshold
   uint64_t num_examples_per_step = config.batch_size_per_gpu * config.global_num_gpus;
   uint64_t steps_per_epoch = config.num_examples_per_epoch / num_examples_per_step;
@@ -609,24 +692,30 @@ cudaError_t GradientAllReduce(
     state.send_data, send_allocated_, target_num * sizeof(T)));
   GUARD_CU(GarenteeAllocation(
     send_indices, send_allocated , target_num));
+  if (state.max_gradient == NULL)
+  {
+    GUARD_CU(Malloc(state.max_gradient, 1));
+  }
   //loop_kernel <<<1, 1, 0, stream>>>((SizeT)1,
   //  [send_counter] __device__ (const SizeT &i)
   //  {
   //    send_counter[0] = 0;
   //  });
   GUARD_CU(Memset(send_counter, 0, 1, Malloc_t::Default, stream));
+  GUARD_CU(Memset(state.max_gradient, 0, 1, Malloc_t::Default, stream));
 
   T* send_data = (T*)(state.send_data);
   // select at most target_num gradients
   select_kernel
     <<<grid_size, block_size, 0, stream>>>
     (accumulated_verlocity, num_gradients, config.global_num_gpus,
-    threshold, target_num, send_data, send_indices, send_counter);
+    threshold, target_num, send_data, send_indices, send_counter,
+    state.max_gradient);
 
   // pad if num_slected < target_num
   pad_kernel
     <<<grid_size, block_size, 0, stream>>>
-    ((T*)send_data, send_indices, target_num, send_counter);
+    ((T*)send_data, send_indices, target_num, send_counter, state.max_gradient);
 
   // Reallocate if not enough
   SizeT recv_count      = target_num * config.global_num_gpus;
@@ -635,7 +724,7 @@ cudaError_t GradientAllReduce(
   //auto &recv_data       = state.recv_data;
   auto &recv_indices    = state.recv_indices;
 
-  printf("recv_count = %lld\n", (long long)recv_count);
+  //printf("recv_count = %lld\n", (long long)recv_count);
   GUARD_CU(GarenteeAllocation(
       state.recv_data, recv_allocated_, recv_count * sizeof(T)));
   GUARD_CU(GarenteeAllocation(
@@ -695,10 +784,10 @@ cudaError_t GradientAllReduce(
        accumulated_verlocity, pervious_accumulated_verlocity]
       __device__ (const SizeT &i)
       {
-        if (i == 0)
-          printf("gradient [%ld...%ld) \n",
-            (long)gradient_start_chunk,
-            (long)(gradient_start_chunk + num_gradients_chunk));
+        //if (i == 0)
+        //  printf("gradient [%ld...%ld) \n",
+        //    (long)gradient_start_chunk,
+        //    (long)(gradient_start_chunk + num_gradients_chunk));
         auto v = accumulated_verlocity[i + gradient_start_chunk];
         if (abs(v) > threshold[0])
         {
@@ -711,13 +800,52 @@ cudaError_t GradientAllReduce(
       });
   }
 
-  GUARD_CU2("cudaStreamSynchronize after", 
+  GUARD_CU2("cudaStreamSynchronize after",
     cudaStreamSynchronize(stream));
 
   return retval;
 }
 
 // Entry warper function
+cudaError_t ClipGradient(
+  ncclDataType_t  gradient_type, // type of gradient
+  void           *gradients,     // GPU pointer to the gradients
+  uint64_t       *layer_offsets, // gradient layer offsets, on host
+  int             num_layers,    // The number of layers in the gradients
+  DgcConfig      &config,        // DGC configuration
+  DgcState       &state)         // DGC running states
+{
+  typedef uint32_t SizeT;
+  cudaError_t retval = cudaSuccess;
+
+  switch (gradient_type)
+  {
+  case ncclFloat32:
+    retval = ClipGradient <float> (
+      (float*)gradients, layer_offsets, num_layers, config, state);
+    break;
+
+  case ncclFloat64:
+    retval = ClipGradient <double> (
+      (double*)gradients, layer_offsets, num_layers, config, state);
+    break;
+
+  case ncclInt32:
+    retval = ClipGradient <int32_t> (
+      (int32_t*)gradients, layer_offsets, num_layers, config, state);
+    break;
+
+  case ncclInt64:
+    retval = ClipGradient <int64_t> (
+      (int64_t*)gradients, layer_offsets, num_layers, config, state);
+    break;
+
+  default:
+    break;
+  }
+  return retval;
+}
+
 cudaError_t GradientAllReduce(
   ncclDataType_t  gradient_type, // type of gradient
   void           *gradients,     // GPU pointer to the gradients

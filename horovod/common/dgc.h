@@ -139,6 +139,12 @@ struct DgcConfig {
   // Momentum
   float momentum = 0.9;
 
+  // Whether to use local gradient clipping
+  bool local_gradient_clipping = true;
+
+  // Gradient clipping threshold
+  float clipping_threshold = 6.0;
+
   // function to set indivual configuration
   void Set(std::string key, std::string value);
 };
@@ -204,24 +210,43 @@ struct DgcState {
 
   // Step number
   uint64_t step = 0;
-  
+
   // Epoch number
   double epoch = 0;
 
   // Counter for adding new tensor to the end of memory space
   size_t offset_counter = 0;
+
+  // Temp storage
+  char* temp_storage = NULL;
+  size_t temp_storage_bytes = 0;
+
+  // Maximum gradient
+  float* max_gradient = NULL;
+
+  // Gradient layer offsets, on host, for gradient clipping
+  uint64_t* gradient_offsets = NULL;
+  uint64_t  gradient_offsets_allocated = 0;
 };
 
 // Entry warper function
 cudaError_t GradientAllReduce(
-  ncclDataType_t  element_type, // type of element
-  void           *elements,     // GPU pointer to the elements
-  uint64_t        num_elements, // number of elements
+  ncclDataType_t  gradient_type, // type of gradient
+  void           *gradients,     // GPU pointer to the graients
+  uint64_t        num_gradients, // number of gradients
   std::vector<std::tuple<uint64_t, uint64_t, size_t> >
                  &offset_map,   // <start, length, offset> mappings for
                                 // continous chunks of gradients
   DgcConfig      &config,       // DGC configuration
   DgcState       &state);       // DGC running states
+
+cudaError_t ClipGradient(
+  ncclDataType_t  gradient_type, // type of gradient
+  void           *gradients,     // GPU pointer to the gradients
+  uint64_t       *layer_offsets, // gradient layer offsets, on host
+  int             num_layers,    // The number of layers in the gradients
+  DgcConfig      &config,        // DGC configuration
+  DgcState       &state);        // DGC running states
 
 } // end of namespace dgc
 } // end of namespace horovod

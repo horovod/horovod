@@ -879,6 +879,21 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           else {
             dgc_offset_start = dgc::PreDefinedValues<size_t>::InvalidValue;
           }
+
+          auto num_layers = entries.size();
+          if (horovod_global.dgc_config.local_gradient_clipping &&
+            horovod_global.dgc_state.gradient_offsets_allocated <= num_layers) {
+
+            if (horovod_global.dgc_state.gradient_offsets != NULL)
+              CUDA_CHECK(entries, "cudaFreeHost",
+                cudaFreeHost(horovod_global.dgc_state.gradient_offsets));
+
+            CUDA_CHECK(entries, "cudaMallocHost",
+              cudaMallocHost(&(horovod_global.dgc_state.gradient_offsets),
+                sizeof(uint64_t) * (num_layers + 1)));
+
+            horovod_global.dgc_state.gradient_offsets_allocated = num_layers + 1;
+          }
         }
 
         //size_t dgc_request_size = 0;
@@ -997,9 +1012,18 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         // Perform the reduction on the fusion buffer.
         // Note: assuming elements in the tensors are all of the same size
         int64_t num_elements = 0;
+        int layer_num = 0;
         for (auto it = entries.begin(); it != entries.end(); it++) {
+          if (horovod_global.use_dgc &&
+            horovod_global.dgc_config.local_gradient_clipping) {
+            horovod_global.dgc_state.gradient_offsets[layer_num] = num_elements;
+          }
+          layer_num ++;
           num_elements += it->tensor->shape().num_elements();
         }
+        if (horovod_global.use_dgc &&
+          horovod_global.dgc_config.local_gradient_clipping)
+          horovod_global.dgc_state.gradient_offsets[layer_num] = num_elements;
 
         if (horovod_global.use_dgc) {
           if (dgc_num_gradients_chunk != 0) {
@@ -1023,6 +1047,14 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           //  total_elements, str.c_str());
 
           if (horovod_global.size > 1) {
+            if (horovod_global.dgc_config.local_gradient_clipping)
+              CUDA_CHECK(entries, "dgc::ClipGradient",
+                dgc::ClipGradient(
+                  GetNCCLDataType(first_entry.tensor),
+                  (void*)buffer_data,
+                  horovod_global.dgc_state.gradient_offsets, entries.size(),
+                  horovod_global.dgc_config, horovod_global.dgc_state));
+
             CUDA_CHECK(entries, "dgc::GradientAllReduce",
               dgc::GradientAllReduce(
                 GetNCCLDataType(first_entry.tensor),
@@ -1103,6 +1135,32 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                 e.tensor->size(), cudaMemcpyDefault, stream));
 
           if (horovod_global.size > 1) {
+            if (horovod_global.dgc_config.local_gradient_clipping &&
+              horovod_global.dgc_state.gradient_offsets_allocated <= 1) {
+
+              if (horovod_global.dgc_state.gradient_offsets != NULL)
+                CUDA_CHECK(entries, "cudaFreeHost",
+                  cudaFreeHost(horovod_global.dgc_state.gradient_offsets));
+
+              CUDA_CHECK(entries, "cudaMallocHost",
+                cudaMallocHost(&(horovod_global.dgc_state.gradient_offsets),
+                  sizeof(uint64_t) * 2));
+
+              horovod_global.dgc_state.gradient_offsets_allocated = 2;
+            }
+
+            if (horovod_global.dgc_config.local_gradient_clipping) {
+              horovod_global.dgc_state.gradient_offsets[0] = 0;
+              horovod_global.dgc_state.gradient_offsets[1]
+                = e.tensor->shape().num_elements();
+              CUDA_CHECK(entries, "dgc::ClipGradient",
+                dgc::ClipGradient(
+                  GetNCCLDataType(e.tensor),
+                  (void*)e.output->data(),
+                  horovod_global.dgc_state.gradient_offsets, 1,
+                  horovod_global.dgc_config, horovod_global.dgc_state));
+            }
+
             CUDA_CHECK(entries, "dgc::GradientAllReduce",
               dgc::GradientAllReduce(
                 GetNCCLDataType(e.tensor),
