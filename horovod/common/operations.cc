@@ -1310,7 +1310,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
   int provided;
   MPI_Init_thread(NULL, NULL, required, &provided);
-
+  //TODO:wuyongyu  in BAckgroundTHreadLoop
+  printf("operations.cc BackgroundThreadLoop multiple threads required :%d,MPI_THREAD_MULTIPLE:%d,MPI_THREAD_FUNNELED:%d\n",required,MPI_THREAD_MULTIPLE,MPI_THREAD_FUNNELED);
   // Create a private MPI communicator for Horovod to avoid collisions with
   // other threads using MPI.
   MPI_Comm mpi_comm;
@@ -1336,7 +1337,13 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   local_comm_ranks[local_rank] = rank;
   MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, local_comm_ranks.data(), 1,
                 MPI_INT, local_comm);
-
+  //TODO:wuyongyu
+  printf("local_comm_ranks:");
+  for(auto k :local_comm_ranks){
+  	printf("%d ,",k);
+  }
+  printf("\n");
+  
   // Set up cross-communicator in case of hierarchical allreduce.
   MPI_Comm cross_comm;
   MPI_Comm_split(mpi_comm, local_rank, rank, &cross_comm);
@@ -1368,6 +1375,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     state.tensor_fusion_threshold =
         std::strtol(horovod_fusion_threshold, nullptr, 10);
   }
+  //TODO :wuyongyu To look the horovod_fusion_threshold
+  printf("operations.cc BackgroundThreadLoop --->horovod_fusion_threshold:%d\n",state.tensor_fusion_threshold);
 
   // Override the cycle time.
   auto horovod_cycle_time = std::getenv("HOROVOD_CYCLE_TIME");
@@ -1745,7 +1754,7 @@ int horovod_mpi_threads_supported() {
 // MPI must be initialized and the background thread must be running before
 // this function is called.
 //TODO:change by wuyongyu all
-int GLOBAL_NUMBER=0;
+//int GLOBAL_NUMBER=0;
 Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<Tensor> output,
@@ -1762,10 +1771,10 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
     message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
   }
 //TODO
-  if(GLOBAL_NUMBER<20){
-	  printf("All reduce tensor_name:%s device id is %d,request_rank:%d,root rank:%d\n",name.c_str(),device,message.request_rank(),message.root_rank());
-	  GLOBAL_NUMBER++;
-  }
+//  if(GLOBAL_NUMBER<20){
+//	  printf("All reduce tensor_name:%s device id is %d,request_rank:%d,root rank:%d\n",name.c_str(),device,message.request_rank(),message.root_rank());
+//	  GLOBAL_NUMBER++;
+ // }
   TensorTableEntry e;
   e.tensor_name = name;
   e.context = context;
@@ -1788,7 +1797,7 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
 // MPI must be initialized and the background thread must be running before
 // this function is called.
 //TODO : wuyongyu allgather
-int GLOBAL_NUMBER2=0;
+//int GLOBAL_NUMBER2=0;
 Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<ReadyEvent> ready_event,
@@ -1804,10 +1813,10 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
     message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
   }
   //TODO
-  if(GLOBAL_NUMBER2<20){
-	  printf("Allganther tensor_name:%s device id is %d,request_rank:%d,root rank:%d\n",name.c_str(),device,message.request_rank(),message.root_rank());
-	  GLOBAL_NUMBER2++;
-  }
+  //if(GLOBAL_NUMBER2<20){
+	//  printf("Allganther tensor_name:%s device id is %d,request_rank:%d,root rank:%d\n",name.c_str(),device,message.request_rank(),message.root_rank());
+	//  GLOBAL_NUMBER2++;
+// }
 
   TensorTableEntry e;
   e.tensor_name = name;
@@ -1830,7 +1839,7 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
 // MPI must be initialized and the background thread must be running before
 // this function is called.
 //TODO : wuyongyu broadcast
-int GLOBAL_NUMBER3=0;
+//int GLOBAL_NUMBER3=0;
 Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<Tensor> output, int root_rank,
@@ -1849,10 +1858,10 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   }
 
  //TODO
-  if(GLOBAL_NUMBER3<20){
-	  printf("Broadcast tensor_name:%s device id is %d,request_rank:%d,root rank:%d\n",name.c_str(),device,message.request_rank(),message.root_rank());
-	  GLOBAL_NUMBER3++;
-  }
+  //if(GLOBAL_NUMBER3<20){
+//	  printf("Broadcast tensor_name:%s device id is %d,request_rank:%d,root rank:%d\n",name.c_str(),device,message.request_rank(),message.root_rank());
+//	  GLOBAL_NUMBER3++;
+ // }
 
   TensorTableEntry e;
   e.tensor_name = name;

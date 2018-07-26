@@ -91,8 +91,6 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
       [handle, average, hvd_cpu_buffer, output](const Status& status) {
         TensorUtil::CopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
         if (average) {
-
-          //TODO: wuyongyu print average
          TensorUtil::DivideTensorInPlace(output, horovod_size());
 
         }
