@@ -93,12 +93,12 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
         if (average) {
 
           //TODO: wuyongyu print average
-          printf("mpi_opc.cc DoAllreduceCudaOnCpu After allreduce begin  average,--->horovod size :%d,handle :%d, name:%s,device :%d\n",horovod_size(),handle,name,device);
-          TensorUtil::DivideTensorInPlace(output, horovod_size());
+         TensorUtil::DivideTensorInPlace(output, horovod_size());
 
         }
         handle_manager.MarkDone(handle, status);
       });
+   printf("mpi_opc.cc DoAllreduceCudaOnCpu --->horovod size :%d,handle :%d, name:%s,device :%d\n",horovod_size(),handle,name,device);
   ThrowIfError(enqueue_result);
 
   return handle;
@@ -212,7 +212,7 @@ int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
         handle_manager.MarkDone(handle, status);
       });
   //TODO: wuyongyu print allgather
-  printf("mpi_opc.cc DoBroadcastOnCpu ------->handle :%d, name:%s, device:%d, roo_rank:%d \n",handle,name,device,roo_rank);
+  printf("mpi_opc.cc DoBroadcastOnCpu ------->handle :%d, name:%s, device:%d, roo_rank:%d \n",handle,name,device,root_rank);
   ThrowIfError(enqueue_result);
 
   return handle;
