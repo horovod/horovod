@@ -12,12 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
+# Modified to add nvcc compilation path
+# by Yuechao Pan
+# with reference to https://github.com/rmcgibbo/npcuda-example/blob/master/cython/setup.py
+# for NVIDIA
+
 from __future__ import print_function
 
 import os
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
 from distutils.errors import CompileError, DistutilsError, DistutilsPlatformError, LinkError
+from os.path import join as pjoin
 import shlex
 import subprocess
 import sys
@@ -31,6 +38,7 @@ common_mpi_lib = Extension('horovod.common.mpi_lib', [])
 tensorflow_mpi_lib = Extension('horovod.tensorflow.mpi_lib', [])
 torch_mpi_lib = Extension('horovod.torch.mpi_lib', [])
 torch_mpi_lib_impl = Extension('horovod.torch.mpi_lib_impl', [])
+dgc_mpi_lib = Extension('horovod.dgc.mpi_lib', [])
 
 
 def is_build_action():
@@ -89,6 +97,47 @@ def get_cpp_flags(build_ext):
 
     raise DistutilsPlatformError(last_err)
 
+def get_cuda_flags(build_ext):
+    last_err = None
+    default_flags = ['-std=c++11', #'-Xcompiler -fPIC',
+        #'-dlink',
+        '-ccbin', 'g++', '-m64',
+        '-O2', '--expt-extended-lambda',
+        '--gpu-architecture=compute_70',
+        '--gpu-code=sm_70',
+        '-I"externals/cub"']
+        #'--device-c']
+
+    return default_flags
+    if sys.platform == 'darwin':
+        # Darwin most likely will have Clang, which has libc++.
+        flags_to_try = [default_flags + ['-Xcompiler -stdlib=libc++'], default_flags]
+    else:
+        flags_to_try = [default_flags, default_flags + ['-Xcompiler -stdlib=libc++']]
+    for cuda_flags in flags_to_try:
+        try:
+            test_compile(build_ext, 'test_cuda_flags', extra_preargs=cuda_flags,
+                         code=textwrap.dedent('''\
+                    __global__ void dummy_kernel(
+                        int* array)
+                    {
+                        array[blockIdx.x * blockDim.x + threadIdx.x] = 0;
+                    }
+
+                    void test(int *array)
+                    {
+                        dummy_kernel<<<1, 1>>> (array);
+                    }
+                    '''))
+
+            return cpp_flags
+        except (CompileError, LinkError):
+            last_err = 'Unable to determine cuda compilation flags (see error above).'
+        except Exception:
+            last_err = 'Unable to determine cuda compilation flags.  ' \
+                       'Last error:\n\n%s' % traceback.format_exc()
+
+    raise DistutilsPlatformError(last_err)
 
 def get_tf_include_dirs():
     import tensorflow as tf
@@ -251,6 +300,9 @@ def get_cuda_dirs(build_ext, cpp_flags):
         cuda_include_dirs += ['/usr/local/cuda/include']
         cuda_lib_dirs += ['/usr/local/cuda/lib', '/usr/local/cuda/lib64']
 
+    #print('cuda_home0 = %s ' % cuda_home)
+    return cuda_include_dirs, cuda_lib_dirs, cuda_home
+
     try:
         test_compile(build_ext, 'test_cuda', libraries=['cudart'], include_dirs=cuda_include_dirs,
                      library_dirs=cuda_lib_dirs, extra_preargs=cpp_flags, code=textwrap.dedent('''\
@@ -269,7 +321,7 @@ def get_cuda_dirs(build_ext, cpp_flags):
             'HOROVOD_CUDA_INCLUDE - path to CUDA include directory\n'
             'HOROVOD_CUDA_LIB - path to CUDA lib directory')
 
-    return cuda_include_dirs, cuda_lib_dirs
+    return cuda_include_dirs, cuda_lib_dirs, cuda_home
 
 
 def get_nccl_vals(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
@@ -356,7 +408,7 @@ def get_common_options(build_ext):
 
     if gpu_allreduce or gpu_allgather or gpu_broadcast:
         have_cuda = True
-        cuda_include_dirs, cuda_lib_dirs = get_cuda_dirs(build_ext, cpp_flags)
+        cuda_include_dirs, cuda_lib_dirs, _ = get_cuda_dirs(build_ext, cpp_flags)
     else:
         have_cuda = False
         cuda_include_dirs = cuda_lib_dirs = []
@@ -427,15 +479,70 @@ def build_common_extension(build_ext, options, abi_compile_flags):
     common_mpi_lib.sources = options['SOURCES'] + ['horovod/common/common.cc',
                                                    'horovod/common/mpi_message.cc',
                                                    'horovod/common/operations.cc',
-                                                   'horovod/common/timeline.cc']
+                                                   'horovod/common/timeline.cc',
+                                                   'horovod/common/dgc.cu']
     common_mpi_lib.extra_compile_args = options['COMPILE_FLAGS'] + \
         abi_compile_flags
-    common_mpi_lib.extra_link_args = options['LINK_FLAGS']
+    common_mpi_lib.extra_link_args = options['LINK_FLAGS'] + ['-lcudart']
     common_mpi_lib.library_dirs = options['LIBRARY_DIRS']
     common_mpi_lib.libraries = options['LIBRARIES']
 
     build_ext.build_extension(common_mpi_lib)
 
+def nvcc_compiler(self, build_ext):
+    self.src_extensions.append('.cu')
+    #self.source_extension.append('.cu.cc')
+
+    default_compiler_so = self.compiler_so
+    super = self._compile
+
+    def _compile(obj, src, ext, cc_args, extra_postargs, pp_opts):
+        if os.path.splitext(src)[1] == '.cu':
+            cuda_flags = get_cuda_flags(build_ext)
+            _, _, cuda_home = get_cuda_dirs(build_ext, cuda_flags)
+            #cuda_config = {'home': cuda_home,
+            #               'nvcc': pjoin(cuda_home, 'bin', 'nvcc'),
+            #               'include': cuda_include_dirs[0],
+            #               'lib64': cuda_lib_dirs[0]}
+            #print('cuda_home = %s, ' % cuda_config["home"], \
+            #    'nvcc = %s, ' % cuda_config["nvcc"], \
+            #    'include = %s, ' % cuda_config["include"], \
+            #    'lib64 = %s' % cuda_config["lib64"])
+            nvcc_exec = pjoin(cuda_home, 'bin', 'nvcc')
+            self.set_executable('compiler_so', nvcc_exec)
+            postargs = []
+            for arg in extra_postargs:
+                if "Wl," not in arg:
+                    postargs.append('-Xcompiler')
+                    postargs.append(arg)
+            #postargs = [['-Xcompiler', arg] \
+            #    for arg in extra_postargs if "Wl," not in arg]
+            nvcc_args = cuda_flags + cc_args
+            #command = self.compiler_so + nvcc_args + [src, '-o', obj] + postargs
+            #print(command)
+            super(obj, src, ext, nvcc_args, postargs, pp_opts)
+        else:
+            postargs = extra_postargs#['gcc']
+            super(obj, src, ext, cc_args, postargs, pp_opts)
+
+        #print('obj = %s, ' % obj, 'src = %s, ' % src, \
+        #    'cc_args = %s, ' % cc_args, 'postargs = %s, ' % postargs, \
+        #    'pp_opts = %s' % pp_opts)
+
+        self.compiler_so = default_compiler_so
+
+    self._compile = _compile
+
+def build_dgc_extension(build_ext, options, abi_compile_flags):
+    dgc_mpi_lib.define_macros = options['MACROS']
+    dgc_mpi_lib.include_dirs = options['INCLUDES']
+    dgc_mpi_lib.sources = options['SOURCES'] + ['horovod/common/dgc.cu']
+    dgc_mpi_lib.extra_compile_args = options['COMPILE_FLAGS'] + abi_compile_flags
+    dgc_mpi_lib.extra_link_args = options['LINK_FLAGS'] + ['-lcudart']
+    dgc_mpi_lib.library_dirs = options['LIBRARY_DIRS']
+    dgc_mpi_lib.libraries = options['LIBRARIES']
+
+    build_ext.build_extension(dgc_mpi_lib)
 
 def build_tf_extension(build_ext, options):
     check_tf_version()
@@ -576,6 +683,9 @@ def build_torch_extension(build_ext, options, abi_compile_flags):
 
 # run the customize_compiler
 class custom_build_ext(build_ext):
+    #def build_extensions(self):
+    #    nvcc_compiler(self.compiler)
+    #    build_ext.build_extension(self)
     def build_extensions(self):
         options = get_common_options(self)
         abi_compile_flags = []
@@ -611,8 +721,9 @@ class custom_build_ext(build_ext):
         if not any(built_plugins):
             raise DistutilsError(
                 'Neither TensorFlow nor PyTorch plugins were built. See errors above.')
+        nvcc_compiler(self.compiler, build_ext)
         build_common_extension(self, options, abi_compile_flags)
-
+        #build_dgc_extension(self, options, abi_compile_flags)
 
 setup(name='horovod',
       version=__version__,
@@ -626,7 +737,7 @@ setup(name='horovod',
       classifiers=[
           'License :: OSI Approved :: Apache Software License'
       ],
-      ext_modules=[common_mpi_lib, tensorflow_mpi_lib,
+      ext_modules=[common_mpi_lib, tensorflow_mpi_lib, #dgc_mpi_lib,
                    torch_mpi_lib, torch_mpi_lib_impl],
       cmdclass={'build_ext': custom_build_ext},
       # cffi is required for PyTorch
