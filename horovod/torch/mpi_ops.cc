@@ -74,7 +74,7 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto device = TensorUtil::GetDevice(tensor);
  //TODO:print device
-  printf("Make async copy of input tensor to CPU tensor the device  is %d, CPU_DEVICE_ID is :%d\n",device,CPU_DEVICE_ID);
+ // printf("mpi_ops.cc  DoAllreduceCudaOnCPU :Make async copy of input tensor to CPU tensor the device  is %d, CPU_DEVICE_ID is :%d\n",device,CPU_DEVICE_ID);
 
   auto hvd_cpu_buffer =
       std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
@@ -93,7 +93,7 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
         if (average) {
 
           //TODO: wuyongyu print average
-          printf("mpi_opc.cc DoAllreduceCudaOnCpu After allreduce begin  average,horovod size :%d,handle :%d\n",horovod_size(),handle);
+          printf("mpi_opc.cc DoAllreduceCudaOnCpu After allreduce begin  average,--->horovod size :%d,handle :%d, name:%s,device :%d\n",horovod_size(),handle,name,device);
           TensorUtil::DivideTensorInPlace(output, horovod_size());
 
         }
@@ -150,6 +150,9 @@ int DoAllgatherCudaOnCPU(TC* tensor, TC* output, char* name) {
         TensorUtil::CopyCPUToCuda(hvd_cpu_output->tensor(), output);
         handle_manager.MarkDone(handle, status);
       });
+
+  //TODO: wuyongyu print allgather
+  printf("mpi_opc.cc DoGatherCudaOnCpu ------->handle :%d, name:%s, device:%d \n",handle,name,device);
   ThrowIfError(enqueue_result);
 
   return handle;
@@ -208,6 +211,8 @@ int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
         TensorUtil::CopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
         handle_manager.MarkDone(handle, status);
       });
+  //TODO: wuyongyu print allgather
+  printf("mpi_opc.cc DoBroadcastOnCpu ------->handle :%d, name:%s, device:%d, roo_rank:%d \n",handle,name,device,roo_rank);
   ThrowIfError(enqueue_result);
 
   return handle;
