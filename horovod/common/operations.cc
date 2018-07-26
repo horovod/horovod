@@ -1744,6 +1744,8 @@ int horovod_mpi_threads_supported() {
 
 // MPI must be initialized and the background thread must be running before
 // this function is called.
+//TODO:change by wuyongyu all
+int GLOBAL_NUMBER=0;
 Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<Tensor> output,
@@ -1759,7 +1761,11 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   for (int i = 0; i < tensor->shape().dims(); i++) {
     message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
   }
-
+//TODO
+  if(GLOBAL_NUMBER<20){
+	  printf("All reduce tensor_name:%s device id is %d,request_rank:%d,root rank:%d\n",name.c_str(),device,message.request_rank(),message.root_rank());
+	  GLOBAL_NUMBER++;
+  }
   TensorTableEntry e;
   e.tensor_name = name;
   e.context = context;
@@ -1781,6 +1787,8 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
 
 // MPI must be initialized and the background thread must be running before
 // this function is called.
+//TODO : wuyongyu allgather
+int GLOBAL_NUMBER2=0;
 Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<ReadyEvent> ready_event,
@@ -1794,6 +1802,11 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
   message.set_request_type(MPIRequest::ALLGATHER);
   for (int i = 0; i < tensor->shape().dims(); i++) {
     message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
+  }
+  //TODO
+  if(GLOBAL_NUMBER2<20){
+	  printf("Allganther tensor_name:%s device id is %d,request_rank:%d,root rank:%d\n",name.c_str(),device,message.request_rank(),message.root_rank());
+	  GLOBAL_NUMBER2++;
   }
 
   TensorTableEntry e;
@@ -1816,6 +1829,8 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
 
 // MPI must be initialized and the background thread must be running before
 // this function is called.
+//TODO : wuyongyu broadcast
+int GLOBAL_NUMBER3=0;
 Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<Tensor> output, int root_rank,
@@ -1831,6 +1846,12 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   message.set_request_type(MPIRequest::BROADCAST);
   for (int i = 0; i < tensor->shape().dims(); i++) {
     message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
+  }
+
+ //TODO
+  if(GLOBAL_NUMBER3<20){
+	  printf("Broadcast tensor_name:%s device id is %d,request_rank:%d,root rank:%d\n",name.c_str(),device,message.request_rank(),message.root_rank());
+	  GLOBAL_NUMBER3++;
   }
 
   TensorTableEntry e;
