@@ -49,12 +49,15 @@ class NoneCompression(object):
 
 class FP16Compression(object):
     """Compress all floating point gradients to 16-bit."""
-    def __init__(self):
-        self._dtype = None
+    def __init__(self, dtype):
+        """Compresses tensors of the given dtype, and decompresses back."""
+        self._dtype = dtype
 
     def compress(self, tensor):
         """Downcasts the tensor to 16-bit."""
-        self._dtype = tensor.dtype
+        if tensor.dtype != self._dtype:
+            raise ValueError('expected tensor of type %s but given %s' %
+                             (str(self._dtype), str(tensor.dtype)))
         tensor_compressed = tensor
         if self._dtype.is_floating:
             # Only allow compression from other floating point types
@@ -73,11 +76,11 @@ class Compression(Enum):
     """Optional gradient compression algorithm used during allreduce."""
 
     """Do not compress the gradients. This is the default."""
-    none = partial(lambda: NoneCompression.instance())
+    none = partial(lambda dtype: NoneCompression.instance())
 
     """Compress all floating point gradients to 16-bit."""
-    fp16 = partial(lambda: FP16Compression())
+    fp16 = partial(lambda dtype: FP16Compression(dtype))
 
-    def get_compressor(self):
-        """Returns a new compressor instance of the defined type."""
-        return self.value()
+    def get_compressor(self, dtype):
+        """Returns a new compressor instance for the given dtype."""
+        return self.value(dtype)
