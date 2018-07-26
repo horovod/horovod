@@ -73,6 +73,9 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
 
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto device = TensorUtil::GetDevice(tensor);
+ //TODO:print device
+  printf("Make async copy of input tensor to CPU tensor the device  is %d, CPU_DEVICE_ID is :%d\n",device,CPU_DEVICE_ID);
+
   auto hvd_cpu_buffer =
       std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
   TensorUtil::AsyncCopyCudaToCPU(tensor, hvd_cpu_buffer->tensor());
@@ -88,7 +91,11 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
       [handle, average, hvd_cpu_buffer, output](const Status& status) {
         TensorUtil::CopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
         if (average) {
+
+          //TODO: wuyongyu print average
+          printf("mpi_opc.cc DoAllreduceCudaOnCpu After allreduce begin  average,horovod size :%d,handle :%d\n",horovod_size(),handle);
           TensorUtil::DivideTensorInPlace(output, horovod_size());
+
         }
         handle_manager.MarkDone(handle, status);
       });
