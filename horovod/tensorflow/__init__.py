@@ -40,6 +40,7 @@ from horovod.common import check_extension
 check_extension('horovod.tensorflow',
                 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
 
+from horovod.tensorflow.compression import Compression
 from horovod.tensorflow.mpi_ops import allgather
 from horovod.tensorflow.mpi_ops import broadcast
 from horovod.tensorflow.mpi_ops import _allreduce
@@ -47,7 +48,8 @@ from horovod.tensorflow.mpi_ops import _allreduce
 import tensorflow as tf
 
 
-def allreduce(tensor, average=True, device_dense='', device_sparse=''):
+def allreduce(tensor, average=True, device_dense='', device_sparse='',
+              compression=Compression.none):
     """Perform an allreduce on a tf.Tensor or tf.IndexedSlices.
 
     Arguments:
@@ -59,6 +61,9 @@ def allreduce(tensor, average=True, device_dense='', device_sparse=''):
                       if Horovod was build with HOROVOD_GPU_ALLREDUCE.
         device_sparse: Device to be used for sparse tensors. Uses GPU by default
                        if Horovod was build with HOROVOD_GPU_ALLGATHER.
+        compression: Compression algorithm used to reduce the amount of data
+                     sent and received by each worker node.  Defaults to not
+                     using compression.
 
     This function performs a bandwidth-optimal ring allreduce on the input
     tensor. If the input is an tf.IndexedSlices, the function instead does an
@@ -79,12 +84,12 @@ def allreduce(tensor, average=True, device_dense='', device_sparse=''):
                                 dense_shape=tensor.dense_shape)
     else:
         with tf.device(device_dense):
-            dtype = tensor.dtype
-            horovod_size = tf.cast(size(), dtype=dtype)
+            compressor = compression.get_compressor()
+            horovod_size = tf.cast(size(), dtype=tensor.dtype)
             tensor_to_sum = tf.div(tensor, horovod_size) if average else tensor
-            tensor_fp16 = tf.cast(tensor_to_sum, dtype=tf.float16)
-            summed_tensor_fp16 = _allreduce(tensor_fp16)
-            new_tensor = tf.cast(summed_tensor_fp16, dtype=dtype)
+            tensor_compressed = compressor.compress(tensor_to_sum)
+            summed_tensor_compressed = _allreduce(tensor_compressed)
+            new_tensor = compressor.decompress(summed_tensor_compressed)
         return new_tensor
 
 
@@ -138,7 +143,7 @@ class DistributedOptimizer(tf.train.Optimizer):
     average gradient values before applying gradients to model weights."""
 
     def __init__(self, optimizer, name=None, use_locking=False, device_dense='',
-                 device_sparse=''):
+                 device_sparse='', compression=Compression.none):
         """Construct a new DistributedOptimizer, which uses another optimizer
         under the hood for computing single-process gradient values and
         applying gradient updates after the gradient values have been averaged
@@ -160,6 +165,10 @@ class DistributedOptimizer(tf.train.Optimizer):
           device_sparse:
             Device to be used for sparse tensors. Uses GPU by default
             if Horovod was build with HOROVOD_GPU_ALLGATHER.
+          compression:
+            Compression algorithm used during allreduce to reduce the amount
+            of data sent during the each parameter update step.  Defaults to
+            not using compression.
         """
         if name is None:
             name = "Distributed{}".format(type(optimizer).__name__)
@@ -167,6 +176,7 @@ class DistributedOptimizer(tf.train.Optimizer):
         self._optimizer = optimizer
         self._device_dense = device_dense
         self._device_sparse = device_sparse
+        self._compression = compression
         super(DistributedOptimizer, self).__init__(
             name=name, use_locking=use_locking)
 
@@ -184,8 +194,10 @@ class DistributedOptimizer(tf.train.Optimizer):
             with tf.name_scope(self._name + "_Allreduce"):
                 for grad, var in gradients:
                     if grad is not None:
-                        avg_grad = allreduce(grad, device_dense=self._device_dense,
-                                             device_sparse=self._device_sparse)
+                        avg_grad = allreduce(grad,
+                                             device_dense=self._device_dense,
+                                             device_sparse=self._device_sparse,
+                                             compression=self._compression)
                         averaged_gradients.append((avg_grad, var))
                     else:
                         averaged_gradients.append((None, var))

@@ -21,6 +21,7 @@ from __future__ import division
 from __future__ import print_function
 
 import itertools
+import numpy as np
 import tensorflow as tf
 
 import horovod.tensorflow as hvd
@@ -536,6 +537,45 @@ class MPITests(tf.test.TestCase):
             tensor = tf.ones([17] * 3, dtype=tf.float32)
             with self.assertRaises(tf.errors.FailedPreconditionError):
                 session.run(hvd.broadcast(tensor, rank))
+
+    def test_compression_fp16(self):
+        valid_dtypes = [tf.float16, tf.float32, tf.float64]
+        invalid_dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                          tf.int32, tf.int64, tf.bool]
+
+        tensor_size = [17] * 3
+        compression = hvd.Compression.fp16
+
+        with self.test_session(config=self.config) as session:
+            for dtype in valid_dtypes:
+                tensor = tf.ones(tensor_size, dtype=dtype)
+
+                compressor = compression.get_compressor()
+                tensor_compressed = compressor.compress(tensor)
+                self.assertEqual(tensor_compressed.dtype, tf.float16)
+
+                tensor_decompressed = compressor.decompress(tensor_compressed)
+                self.assertEqual(tensor_decompressed.dtype, dtype)
+
+                actual = session.run(tensor_decompressed)
+                expected = np.ones(tensor_size)
+                err = np.linalg.norm(expected - actual)
+                self.assertLess(err, 0.00000001)
+
+            for dtype in invalid_dtypes:
+                tensor = tf.ones(tensor_size, dtype=dtype)
+
+                compressor = compression.get_compressor()
+                tensor_compressed = compressor.compress(tensor)
+                self.assertEqual(tensor_compressed.dtype, dtype)
+
+                tensor_decompressed = compressor.decompress(tensor_compressed)
+                self.assertEqual(tensor_decompressed.dtype, dtype)
+
+                actual = session.run(tensor_decompressed)
+                expected = np.ones(tensor_size)
+                err = np.linalg.norm(expected - actual)
+                self.assertLess(err, 0.00000001)
 
 
 if __name__ == '__main__':
