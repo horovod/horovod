@@ -1368,6 +1368,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   if (is_coordinator && horovod_timeline != nullptr) {
     state.timeline.Initialize(std::string(horovod_timeline));
   }
+  //TODO:wuyongyu
+if(is_coordinator && horovod_timeline != nullptr){	
+	printf("timeline rank is%d,filename:%s\n",rank,std::string(horovod_timeline).c_str());
+}
 
   // Override Tensor Fusion threshold, if it's set.
   auto horovod_fusion_threshold = std::getenv("HOROVOD_FUSION_THRESHOLD");
