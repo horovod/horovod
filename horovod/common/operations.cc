@@ -1480,6 +1480,8 @@ if(is_coordinator && horovod_timeline != nullptr){
 //      response from the coordinator. At that point, the tick ends.
 //      If instead of "DONE" they receive "SHUTDOWN", they exit their background
 //      loop.
+
+int RunLoopOnceCounter=0;
 bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   // The coordinator sends a SHUTDOWN message to trigger shutdown.
   bool should_shut_down = false;
@@ -1534,6 +1536,15 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     MPI_Gather(MPI_IN_PLACE, 1, MPI_INT, recvcounts, 1, MPI_INT, RANK_ZERO,
                state.mpi_comm);
 
+    //TODO:wuyongyu 
+    if(RunLoopOnceCounter<100){
+    	printf("RunLoopOnce coordinator recvcounts :");
+    	for(auto k :recvcounts){
+    		printf(" %d ,",k);
+    	}
+    	printf("\n");
+    }
+
     // 2. Compute displacements.
     auto displcmnts = new int[state.size];
     size_t total_size = 0;
@@ -1570,6 +1581,14 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
         // Received SHUTDOWN request from one of the workers.
         state.shut_down = true;
       }
+    }
+    //TODO:wuyognyu
+    if(RunLoopOnceCounter<100){
+    	printf("RunLoopOnce ready_to_reduce:\n");
+    	for(auto k :ready_to_reduce){
+    		printf("%s, ",k.c_str());
+    	}
+    	printf("\n");
     }
 
     // 5. Free buffers.
@@ -1638,7 +1657,12 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     MPI_Bcast(&encoded_response_length, 1, MPI_INT, RANK_ZERO, state.mpi_comm);
     MPI_Bcast((void*)encoded_response.c_str(), encoded_response_length,
               MPI_BYTE, RANK_ZERO, state.mpi_comm);
-
+    
+    //TODO:wuyongyu
+    if(RunLoopOnceCounter<100){
+    	printf("RunLoopOnce encoded_response:%s\n", encoded_response);
+    }
+    
     // Perform the collective operation. All nodes should end up performing
     // the same operation.
     for (auto& response : response_list.responses()) {
