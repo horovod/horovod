@@ -1319,6 +1319,12 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   MPI_Initialized(&is_mpi_initialized);
   if (is_mpi_initialized) {
     MPI_Query_thread(&provided);
+    if (provided < MPI_THREAD_MULTIPLE) {
+      std::cerr << "WARNING: MPI has already been initialized without "
+                   "multi-threading support (MPI_THREAD_MULTIPLE). This will "
+                   "likely cause a segmentation fault."
+                << std::endl;
+    }
   } else {
     MPI_Init_thread(NULL, NULL, required, &provided);
     state.should_finalize = true;
