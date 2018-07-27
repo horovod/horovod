@@ -1514,6 +1514,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   // recorded (everyone else).
   std::vector<std::string> ready_to_reduce;
   if (is_coordinator) {
+  	RunLoopOnceCounter++;
     while (!message_queue.empty()) {
       // Pop the first available message message
       MPIRequest message = message_queue.front();
@@ -1539,10 +1540,10 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     //TODO:wuyongyu 
     if(RunLoopOnceCounter<100){
     	printf("RunLoopOnce coordinator recvcounts :");
-    	for(auto k :recvcounts){
-    		printf(" %d ,",k);
-    	}
-    	printf("\n");
+    	for(int i=0;i<state.size;i++){
+		printf(" %d ,",recvcounts[i]);
+		}
+		printf("\n");
     }
 
     // 2. Compute displacements.
@@ -1660,9 +1661,9 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     
     //TODO:wuyongyu
     if(RunLoopOnceCounter<100){
-    	printf("RunLoopOnce encoded_response:%s\n", encoded_response);
+    	printf("RunLoopOnce encoded_response:%s\n", encoded_response.c_str());
     }
-    
+
     // Perform the collective operation. All nodes should end up performing
     // the same operation.
     for (auto& response : response_list.responses()) {
