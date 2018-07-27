@@ -698,7 +698,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       // We should never fail at finding this key in the tensor table.
       auto iter = tensor_table.find(name);
       assert(iter != tensor_table.end());
-
+	   printf("operation.cc PerformOperation response.tensor_names name :%s,response Type:%d\n",name.c_str(),response.response_type());
+	
       assert(response.response_type() == MPIResponse::ALLREDUCE ||
              response.response_type() == MPIResponse::ALLGATHER ||
              response.response_type() == MPIResponse::BROADCAST ||
@@ -773,7 +774,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
   if (response.response_type() == MPIResponse::ALLGATHER) {
     assert(entries.size() == 1);
     auto e = entries[0];
-
+	printf("operation.cc PerformOperation MPIResponse:ALLGATHER -->entry.size()%d\n",entries.size());
     // Copy tensor sizes from the MPI response into a vector of int64_t
     // and compute total size.  This is size of first dimension.
     std::vector<int64_t> tensor_sizes;
@@ -1514,7 +1515,6 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   // recorded (everyone else).
   std::vector<std::string> ready_to_reduce;
   if (is_coordinator) {
-  	RunLoopOnceCounter++;
     while (!message_queue.empty()) {
       // Pop the first available message message
       MPIRequest message = message_queue.front();
@@ -1537,14 +1537,6 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     MPI_Gather(MPI_IN_PLACE, 1, MPI_INT, recvcounts, 1, MPI_INT, RANK_ZERO,
                state.mpi_comm);
 
-    //TODO:wuyongyu 
-    if(RunLoopOnceCounter<100){
-    	printf("RunLoopOnce coordinator recvcounts :");
-    	for(int i=0;i<state.size;i++){
-		printf(" %d ,",recvcounts[i]);
-		}
-		printf("\n");
-    }
 
     // 2. Compute displacements.
     auto displcmnts = new int[state.size];
@@ -1582,14 +1574,6 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
         // Received SHUTDOWN request from one of the workers.
         state.shut_down = true;
       }
-    }
-    //TODO:wuyognyu
-    if(RunLoopOnceCounter<100){
-    	printf("RunLoopOnce ready_to_reduce:\n");
-    	for(auto k :ready_to_reduce){
-    		printf("%s, ",k.c_str());
-    	}
-    	printf("\n");
     }
 
     // 5. Free buffers.
@@ -1659,10 +1643,6 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     MPI_Bcast((void*)encoded_response.c_str(), encoded_response_length,
               MPI_BYTE, RANK_ZERO, state.mpi_comm);
     
-    //TODO:wuyongyu
-    if(RunLoopOnceCounter<100){
-    	printf("RunLoopOnce encoded_response:%s\n", encoded_response.c_str());
-    }
 
     // Perform the collective operation. All nodes should end up performing
     // the same operation.
