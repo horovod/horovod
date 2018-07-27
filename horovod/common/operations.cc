@@ -890,7 +890,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         nccl_device_map = response.devices();
       }
 
-#if HOROVOD_GPU_ALLREDUCE == 'N'
       // Ensure NCCL communicator is in the map before executing reduction.
       ncclComm_t& nccl_comm = horovod_global.nccl_comms[nccl_device_map];
       if (nccl_comm == nullptr) {
@@ -1229,7 +1228,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       //LOG(WARNING) << horovod_local_rank() << " Finished Wait for thread pool";
       return;
     }
-#endif
 
     //LOG(WARNING) << horovod_local_rank() << " Begin AllReduce MPI";
     if (entries.size() > 1) {
