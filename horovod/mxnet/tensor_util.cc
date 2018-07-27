@@ -25,9 +25,8 @@ const MPIDataType TensorUtil::GetDType(NDArray* tensor) {
       return MPIDataType::HOROVOD_FLOAT32;
     case 1:
       return MPIDataType::HOROVOD_FLOAT64;
-    // TODO(carlyang) unsupported in Horovod
-    //case 2:
-    //  return MPIDataType::HOROVOD_FLOAT16;
+    case 2:
+      return MPIDataType::HOROVOD_FLOAT16;
     case 3:
       return MPIDataType::HOROVOD_UINT8;
     case 4:
@@ -61,9 +60,8 @@ const void* TensorUtil::GetData(NDArray* tensor) {
       return static_cast<void*>(tensor->data().dptr<float>());
     case 1:
       return static_cast<void*>(tensor->data().dptr<double>());
-    // TODO(carlyang) unsupported in Horovod
-    //case 2:
-    //  return MPIDataType::HOROVOD_FLOAT16;
+    case 2:
+      return static_cast<void*>(tensor->data().dptr<mshadow::half::half_t>());
     case 3:
       return static_cast<void*>(tensor->data().dptr<uint8_t>());
     case 4:
@@ -90,10 +88,9 @@ int64_t TensorUtil::GetSize(NDArray* tensor) {
     case 1:
       element_size = kFloat64Size;
       break;
-    // TODO(carlyang) unsupported in Horovod
-    //case 2:
-    //  element_size = kFloat16Size;
-    //  break;
+    case 2:
+      element_size = kFloat16Size;
+      break;
     case 3:
       element_size = kUInt8Size;
       break;
