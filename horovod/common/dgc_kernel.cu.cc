@@ -9,6 +9,62 @@
 namespace horovod {
 namespace dgc {
 
+template <typename T>
+__global__
+void L2norm_kernel(
+  T           *gradients,
+  uint64_t    *layer_offsets,
+  int          num_layers,
+  T           *layer_square_sums)
+{
+  //uint64_t block_start = layer_offsets[num_layers] / gridDim.x * blockIdx.x;
+  const uint64_t block_end
+    = (blockIdx.x + 1 == gridDim.x) ? layer_offsets[num_layers] :
+    (layer_offsets[num_layers] / gridDim.x * (blockIdx.x + 1));
+  //if (blockIdx.x == 0)
+  //  block_start = 0;
+  //if (blockIdx.x +1 == gridDim.x)
+  //  block_end = layer_offsets[num_layers];
+
+  __shared__ uint64_t s_block_current;
+  __shared__ T s_sum;
+  __shared__ int s_block_layer;
+
+  if (threadIdx.x == 0)
+  {
+    s_sum = 0;
+    s_block_current = layer_offsets[num_layers] / gridDim.x * blockIdx.x;
+    if (blockIdx.x == 0)
+      s_block_current = 0;
+    s_block_layer = binarySearch(layer_offsets, 0, num_layers, s_block_current);
+  }
+  __syncthreads();
+
+  while (s_block_current < block_end)
+  {
+    T t_sum = 0;
+    uint64_t layer_end = layer_offsets[s_block_layer + 1];
+    uint64_t thread_current = s_block_current + threadIdx.x;
+    while (thread_current < block_end && thread_current < layer_end)
+    {
+      auto gradient = gradients[thread_current];
+      t_sum += gradient * gradient;
+      thread_current += blockDim.x;
+    }
+
+    atomicAdd(&s_sum, t_sum);
+    __syncthreads();
+    if (threadIdx.x == 0)
+    {
+      atomicAdd(layer_square_sums + s_block_layer, s_sum);
+      s_block_layer ++;
+      s_sum = 0;
+      s_block_current = layer_end;
+    }
+    __syncthreads();
+  }
+}
+
 template <typename T, typename SizeT>
 __global__
 void sample_kernel(
