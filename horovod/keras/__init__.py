@@ -144,3 +144,52 @@ def broadcast(value, root_rank, name=None):
     """
     bcast_op = hvd.broadcast(tf.constant(value, name=name), root_rank)
     return K.get_session().run(bcast_op)
+
+
+def load_model(filepath, custom_optimizers=None, custom_objects=None):
+    """
+    Loads a saved Keras model with a Horovod DistributedOptimizer.
+
+    The DistributedOptimizer will wrap the underlying optimizer used to train
+    the saved model, so that the optimizer state (params and weights) will
+    be picked up for retraining.
+
+    By default, all optimizers in the module `keras.optimizers` will be loaded
+    and wrapped without needing to specify any `custom_optimizers` or
+    `custom_objects`.
+
+    # Arguments
+        filepath: One of the following:
+            - string, path to the saved model, or
+            - h5py.File object from which to load the model
+        custom_optimizers: Optional list of Optimizer subclasses to support
+            during loading.
+        custom_objects: Optional dictionary mapping names (strings) to custom
+            classes or functions to be considered during deserialization.
+
+    # Returns
+        A Keras model instance.
+
+    # Raises
+        ImportError: If h5py is not available.
+        ValueError: In case of an invalid savefile.
+    """
+    def wrap_optimizer(cls):
+        return lambda **kwargs: DistributedOptimizer(cls(**kwargs))
+
+    horovod_objects = {
+        subclass.__name__.lower(): wrap_optimizer(subclass)
+        for subclass in keras.optimizers.Optimizer.__subclasses__()
+        if subclass.__module__ == 'keras.optimizers'
+    }
+
+    if custom_optimizers is not None:
+        horovod_objects.update({
+            cls.__name__: wrap_optimizer(cls)
+            for cls in custom_optimizers
+        })
+
+    if custom_objects is not None:
+        horovod_objects.update(custom_objects)
+
+    return keras.models.load_model(filepath, custom_objects=horovod_objects)

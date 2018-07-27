@@ -47,12 +47,13 @@ int DoAllreduce(T* tensor, T* output, int average, char* name) {
 
   auto handle = handle_manager.AllocateHandle();
   auto device = TensorUtil::GetDevice(tensor);
+  auto ready_event = RecordReadyEvent(device);
   auto hvd_tensor = std::make_shared<TorchTensor<T>>(tensor);
   auto hvd_context = std::make_shared<TorchOpContext<T>>(device, output);
   auto hvd_output = std::make_shared<TorchTensor<T>>(output);
 
   auto enqueue_result = EnqueueTensorAllreduce(
-      hvd_context, hvd_tensor, hvd_output, nullptr,
+      hvd_context, hvd_tensor, hvd_output, ready_event,
       GetOpName("allreduce", name, handle), device,
       [handle, average, output](const Status& status) {
         if (average) {
@@ -75,7 +76,7 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
   auto hvd_cpu_buffer =
       std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
   TensorUtil::AsyncCopyCudaToCPU(tensor, hvd_cpu_buffer->tensor());
-  auto ready_event = std::make_shared<TorchReadyEvent<TC>>(device);
+  auto ready_event = RecordReadyEvent(device);
 
   auto hvd_context = std::make_shared<TorchOpContext<T>>(
       CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
@@ -101,15 +102,17 @@ template <class T> int DoAllgather(T* tensor, T* output, char* name) {
   ThrowIfError(common::CheckInitialized());
 
   auto device = TensorUtil::GetDevice(tensor);
+  auto ready_event = RecordReadyEvent(device);
   auto hvd_tensor = std::make_shared<TorchTensor<T>>(tensor);
   auto hvd_context = std::make_shared<TorchOpContext<T>>(device, output);
 
   auto handle = handle_manager.AllocateHandle();
-  auto enqueue_result = EnqueueTensorAllgather(
-      hvd_context, hvd_tensor, nullptr, GetOpName("allgather", name, handle),
-      device, [handle](const Status& status) {
-        handle_manager.MarkDone(handle, status);
-      });
+  auto enqueue_result =
+      EnqueueTensorAllgather(hvd_context, hvd_tensor, ready_event,
+                             GetOpName("allgather", name, handle), device,
+                             [handle](const Status& status) {
+                               handle_manager.MarkDone(handle, status);
+                             });
   ThrowIfError(enqueue_result);
 
   return handle;
@@ -125,7 +128,7 @@ int DoAllgatherCudaOnCPU(TC* tensor, TC* output, char* name) {
   auto hvd_cpu_tensor =
       std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
   TensorUtil::AsyncCopyCudaToCPU(tensor, hvd_cpu_tensor->tensor());
-  auto ready_event = std::make_shared<TorchReadyEvent<TC>>(device);
+  auto ready_event = RecordReadyEvent(device);
 
   auto hvd_cpu_output =
       std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
@@ -151,6 +154,7 @@ int DoBroadcast(T* tensor, T* output, int root_rank, char* name) {
   ThrowIfError(common::CheckInitialized());
 
   auto device = TensorUtil::GetDevice(tensor);
+  auto ready_event = RecordReadyEvent(device);
   auto hvd_tensor = std::make_shared<TorchTensor<T>>(tensor);
   auto hvd_context = std::make_shared<TorchOpContext<T>>(device, output);
   std::shared_ptr<Tensor> hvd_output = nullptr;
@@ -165,7 +169,7 @@ int DoBroadcast(T* tensor, T* output, int root_rank, char* name) {
   auto handle = handle_manager.AllocateHandle();
   auto enqueue_result =
       EnqueueTensorBroadcast(hvd_context, hvd_tensor, hvd_output, root_rank,
-                             nullptr, GetOpName("broadcast", name, handle),
+                             ready_event, GetOpName("broadcast", name, handle),
                              device, [handle](const Status& status) {
                                handle_manager.MarkDone(handle, status);
                              });
@@ -184,7 +188,7 @@ int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
   auto hvd_cpu_buffer =
       std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
   TensorUtil::AsyncCopyCudaToCPU(tensor, hvd_cpu_buffer->tensor());
-  auto ready_event = std::make_shared<TorchReadyEvent<TC>>(device);
+  auto ready_event = RecordReadyEvent(device);
 
   auto hvd_context = std::make_shared<TorchOpContext<T>>(
       CPU_DEVICE_ID, hvd_cpu_buffer->tensor());

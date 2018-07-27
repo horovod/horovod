@@ -74,7 +74,7 @@ private:
 class ReadyEvent {
 public:
   virtual bool Ready() const = 0;
-  virtual ~ReadyEvent(){};
+  virtual ~ReadyEvent() = default;
 };
 
 class OpContext;
@@ -82,7 +82,7 @@ class OpContext;
 class PersistentBuffer {
 public:
   virtual const void* AccessData(std::shared_ptr<OpContext> context) const = 0;
-  virtual ~PersistentBuffer(){};
+  virtual ~PersistentBuffer() = default;
 };
 
 class Tensor {
@@ -91,7 +91,7 @@ public:
   virtual const TensorShape shape() const = 0;
   virtual const void* data() const = 0;
   virtual int64_t size() const = 0;
-  virtual ~Tensor(){};
+  virtual ~Tensor() = default;
 };
 
 class OpContext {
@@ -103,7 +103,7 @@ public:
   virtual Status AllocateOutput(TensorShape shape,
                                 std::shared_ptr<Tensor>* tensor) = 0;
   virtual Framework framework() const = 0;
-  virtual ~OpContext(){};
+  virtual ~OpContext() = default;
 };
 
 } // namespace common

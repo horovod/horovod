@@ -1,7 +1,7 @@
 FROM nvidia/cuda:9.0-devel-ubuntu16.04
 
 # TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
-ENV TENSORFLOW_VERSION=1.8.0
+ENV TENSORFLOW_VERSION=1.9.0
 ENV PYTORCH_VERSION=0.4.0
 ENV CUDNN_VERSION=7.0.5.15-1+cuda9.0
 ENV NCCL_VERSION=2.2.12-1+cuda9.0
