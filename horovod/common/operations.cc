@@ -834,11 +834,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     e.callback(Status::OK());
 
   } else if (response.response_type() == MPIResponse::ALLREDUCE) {
-  	printf("operation.cc PerformOperation MPIResponse:ALLREDUCE\n");
     auto& first_entry = entries[0];
 #if HAVE_CUDA
     bool on_gpu = first_entry.device != CPU_DEVICE_ID;
-    printf("operation.cc PerformOperation MPIResponse:ALLREDUCE HAVE_CUDA \n");
     if (on_gpu) {
 
       printf("operation.cc PerformOperation MPIResponse:ALLREDUCE -->first_entry.device:%d\n",first_entry.device);
@@ -873,11 +871,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       } else {
         nccl_device_map = response.devices();
       }
-     printf("operation.cc PerformOperation MPIResponse:ALLREDUCE nccl_device_map:\n");
-	 for(auto k:nccl_device_map){
-			  printf("%d ,",k);
-	   }
-	 printf("\n");
 
 #if HOROVOD_GPU_ALLREDUCE == 'N'
       // Ensure NCCL communicator is in the map before executing reduction.
@@ -1052,7 +1045,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         if (timeline.Initialized()) {
           RECORD_EVENT(entries, event_queue, NCCL_BCAST, stream)
         }
-      } else {
+      }//end  horovod_global.hierarchical_allreduce 
+      else {// 在这里进行缓冲区的缩减
+      	
+      	 printf("operations.cc PerformOperation -->ncclAllreduce num_elements:%d,horovod rank:%d\n",num_elements,horovod_rank);
         NCCL_CHECK(entries, "ncclAllReduce",
                    ncclAllReduce(fused_input_data, buffer_data,
                                  (size_t)num_elements,
