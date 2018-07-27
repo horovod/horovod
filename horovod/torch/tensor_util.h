@@ -49,7 +49,6 @@ public:
   static void ResizeNd(T* tensor, int nDimension, int64_t* size,
                        int64_t* stride);
   template <class T> static void Copy(T* output, T* tensor);
-  template <class T> static void DivideTensorInPlace(T* tensor, int value);
 
 #if HAVE_CUDA
   template <class T, class TC> static void CopyCPUToCuda(T* cpu, TC* cuda);
@@ -72,9 +71,6 @@ public:
                                       int64_t* size, int64_t* stride);         \
   template <>                                                                  \
   void TensorUtil::Copy<THTensor>(THTensor * output, THTensor * tensor);       \
-  template <>                                                                  \
-  void TensorUtil::DivideTensorInPlace<THTensor>(THTensor * tensor,            \
-                                                 int value);
 
 #define TENSOR_UTIL_DEFINE_CUDA_TYPE_H(THCTensor, THTensor)                    \
   TENSOR_UTIL_DEFINE_TYPE_H(THCTensor)                                         \
@@ -132,12 +128,6 @@ public:
   void TensorUtil::Copy<THTensor>(THTensor * output, THTensor * tensor) {      \
     THTensor##_copy(output, tensor);                                           \
   }                                                                            \
-                                                                               \
-  template <>                                                                  \
-  void TensorUtil::DivideTensorInPlace<THTensor>(THTensor * tensor,            \
-                                                 int value) {                  \
-    THTensor##_div(tensor, tensor, value);                                     \
-  }
 
 #define TENSOR_UTIL_DEFINE_CUDA_TYPE(THCTensor, THTensor, THCStorage,          \
                                      HorovodType)                              \
@@ -188,13 +178,6 @@ public:
   void TensorUtil::Copy<THCTensor>(THCTensor * output, THCTensor * tensor) {   \
     with_device device_context(THCTensor##_getDevice(state, output));          \
     THCTensor##_copy(state, output, tensor);                                   \
-  }                                                                            \
-                                                                               \
-  template <>                                                                  \
-  void TensorUtil::DivideTensorInPlace<THCTensor>(THCTensor * tensor,          \
-                                                  int value) {                 \
-    with_device device_context(THCTensor##_getDevice(state, tensor));          \
-    THCTensor##_div(state, tensor, tensor, value);                             \
   }                                                                            \
                                                                                \
   template <>                                                                  \
