@@ -838,6 +838,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 #if HAVE_CUDA
     bool on_gpu = first_entry.device != CPU_DEVICE_ID;
     if (on_gpu) {
+
+      printf("operation.cc PerformOperation MPIResponse:ALLREDUCE -->first_entry.device:%d\n",first_entry.device);
+	 
       CUDA_CHECK(entries, "cudaSetDevice", cudaSetDevice(first_entry.device))
 
       // Ensure stream is in the map before executing reduction.
@@ -868,6 +871,11 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       } else {
         nccl_device_map = response.devices();
       }
+     printf("operation.cc PerformOperation MPIResponse:ALLREDUCE nccl_device_map:\n");
+	 for(auto k:nccl_device_map){
+			  printf("%d ,",k);
+	   }
+	 printf("\n");
 
 #if HOROVOD_GPU_ALLREDUCE == 'N'
       // Ensure NCCL communicator is in the map before executing reduction.
