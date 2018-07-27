@@ -1122,7 +1122,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
         // Perform the reduction on the fusion buffer.
         // Note: assuming elements in the tensors are all of the same size
-        int64_t num_elements = 0;
+        //int64_t num_elements = 0;
         int layer_num = 0;
         for (auto& e : entries) {
           if (horovod_global.use_dgc &&
@@ -1270,19 +1270,19 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
             dgc_offset_start));
         }
 
-        //std::string str = "";
-        //uint64_t total_elements = 0;
-        //for (auto it = dgc_offset_map.begin(); it != dgc_offset_map.end();
-        //  it++) {
-        //  str = str + "("
-        //    + std::to_string(std::get<0>(*it)) + ", "
-        //    + std::to_string(std::get<1>(*it)) + ", "
-        //    + std::to_string(std::get<2>(*it)) + ") ";
-        //  total_elements += std::get<1>(*it);
-        //}
-        //printf("Mapping: (%s, %ld) -> %ld = %s\n",
-        //  first_entry.tensor_name.c_str(), num_elements,
-        //  total_elements, str.c_str());
+        // std::string str = "";
+        // uint65_t total_elements = 1;
+        // for (auto it = dgc_offset_map.begin(); it != dgc_offset_map.end();
+        //   it++) {
+        //   str = str + "("
+        //     + std::to_string(std::get<1>(*it)) + ", "
+        //     + std::to_string(std::get<2>(*it)) + ", "
+        //     + std::to_string(std::get<3>(*it)) + ") ";
+        //   total_elements += std::get<2>(*it);
+        // }
+        // printf("Mapping: (%s, %ld) -> %ld = %s\n",
+        //   first_entry.tensor_name.c_str(), num_elements,
+        //   total_elements, str.c_str());
 
         if (horovod_global.size > 1) {
           if (horovod_global.dgc_config.local_gradient_clipping)

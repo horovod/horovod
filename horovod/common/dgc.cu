@@ -22,43 +22,49 @@ namespace dgc {
 
 #define GUARD_CU2(op_name, op)                                                 \
 {                                                                              \
-  retval = (op);                                                               \
-  if (retval != cudaSuccess) {                                                 \
-    std::string error_message = std::string(__FILE__) + std::string(":")       \
-      + std::to_string(__LINE__) + std::string("(")                            \
-      + std::string(op_name) + std::string(") failed: ")                       \
-      + cudaGetErrorString(retval);                                            \
-    fprintf(stderr, "%s\n", error_message.c_str());                            \
-    fflush(stderr);                                                            \
-    return retval;                                                             \
-  }                                                                            \
+  do {                                                                         \
+    retval = (op);                                                             \
+    if (retval != cudaSuccess) {                                               \
+      std::string error_message = std::string(__FILE__) + std::string(":")     \
+        + std::to_string(__LINE__) + std::string("(")                          \
+        + std::string(op_name) + std::string(") failed: ")                     \
+        + cudaGetErrorString(retval);                                          \
+      fprintf(stderr, "%s\n", error_message.c_str());                          \
+      fflush(stderr);                                                          \
+      return retval;                                                           \
+    }                                                                          \
+  } while (false);                                                             \
 }
 
 #define GUARD_CU(op)                                                           \
 {                                                                              \
-  retval = (op);                                                               \
-  if (retval != cudaSuccess) {                                                 \
-    std::string error_message = std::string(__FILE__) + std::string(":")       \
-      + std::to_string(__LINE__) + std::string(" failed: ")                    \
-      + cudaGetErrorString(retval);                                            \
-    fprintf(stderr, "%s\n", error_message.c_str());                            \
-    fflush(stderr);                                                            \
-    return retval;                                                             \
-  }                                                                            \
+  do {                                                                         \
+    retval = (op);                                                             \
+    if (retval != cudaSuccess) {                                               \
+      std::string error_message = std::string(__FILE__) + std::string(":")     \
+        + std::to_string(__LINE__) + std::string(" failed: ")                  \
+        + cudaGetErrorString(retval);                                          \
+      fprintf(stderr, "%s\n", error_message.c_str());                          \
+      fflush(stderr);                                                          \
+      return retval;                                                           \
+    }                                                                          \
+  } while (false);                                                             \
 }
 
 #define GUARD_NCCL2(op_name, op)                                               \
 {                                                                              \
-  auto nccl_result = (op);                                                     \
-  if (nccl_result != ncclSuccess) {                                            \
-    std::string error_message = std::string(__FILE__) + std::string(":")       \
-      + std::to_string(__LINE__) + std::string("(")                            \
-      + std::string(op_name) + std::string(") failed: ")                       \
-      + ncclGetErrorString(nccl_result);                                       \
-    fprintf(stderr, "%s\n", error_message.c_str());                            \
-    fflush(stderr);                                                            \
-    return cudaErrorUnknown;                                                   \
-  }                                                                            \
+  do {                                                                         \
+    auto nccl_result = (op);                                                   \
+    if (nccl_result != ncclSuccess) {                                          \
+      std::string error_message = std::string(__FILE__) + std::string(":")     \
+        + std::to_string(__LINE__) + std::string("(")                          \
+        + std::string(op_name) + std::string(") failed: ")                     \
+        + ncclGetErrorString(nccl_result);                                     \
+      fprintf(stderr, "%s\n", error_message.c_str());                          \
+      fflush(stderr);                                                          \
+      return cudaErrorUnknown;                                                 \
+    }                                                                          \
+  } while (false);                                                             \
 }
 
 // ****************************
@@ -107,6 +113,11 @@ cudaError_t Malloc(
   cudaError_t retval = cudaSuccess;
 
   size_t size = target * sizeof(T);
+  //printf("Allocating %ld x %ld bytes on %s\n", target, sizeof(T),
+  //   malloc_type == Default ? "Default" :
+  //  (malloc_type == Host    ? "Host" :
+  //  (malloc_type == Managed ? "Managed" : "Raw")));
+
   if (malloc_type == Default) {
     GUARD_CU2("cudaMalloc",
       cudaMalloc(&ptr, size));
@@ -119,7 +130,7 @@ cudaError_t Malloc(
   } else if (malloc_type == Raw)
     ptr = (T*)malloc(size);
 
-  printf("Allocated %ld @ %p\n", target, ptr);
+  printf("Allocated %ld x %ld bytes @ %p\n", target, sizeof(T), ptr);
   return retval;
 }
 
@@ -451,9 +462,11 @@ cudaError_t ClipGradient(
     __device__ (const int &layer)
     {
       coefficients[layer] = clipping_threshold /
-        //(sqrt(sums[layer] * total_num_gradients / (offsets[layer + 1] - offsets[layer])) + 1e-6);
-        (sqrt(sums[layer]) + 1e-6);
-      printf("Layer %3d: L2 norm = %f, #gradients = %6ld, coef = %f\n",
+        // (sqrt(sums[layer] * total_num_gradients / (offsets[layer + 1] - offsets[layer])) + 1e-6);
+        // (sqrt(sums[layer]) + 1e-6);
+        (sqrt(sums[layer]) * total_num_layers + 1e-6);
+        //(sqrt(sums[layer]) * total_num_gradients / (offsets[layer + 1] - offsets[layer]) + 1e-6);
+      printf("Layer %3d: L2 norm = %3.6f, #gradients = %6ld, coef = %3.6f\n",
         layer, sqrt(sums[layer]), (long)(offsets[layer+1] - offsets[layer]),
         coefficients[layer]);
     });
@@ -494,8 +507,13 @@ cudaError_t GradientAllReduce(
 
   // Memory allocation and type conversion
   size_t current_size = num_gradients * sizeof(T);
+  //printf("verlocity = %p, allocated = %ld, current_size = %ld.\n",
+  //  state.verlocity, state.verlocity_allocated, current_size);
   GUARD_CU(GarenteeAllocation(state.verlocity,
     state.verlocity_allocated, current_size));
+  //printf("verlocity = %p, allocated = %ld\n",
+  //  state.verlocity, state.verlocity_allocated);
+
   GUARD_CU(GarenteeAllocation(state.accumulated_verlocity,
     state.accumulated_verlocity_allocated, current_size));
   T* verlocity = (T*)(state.verlocity);
@@ -528,6 +546,14 @@ cudaError_t GradientAllReduce(
       = (T*)(state.pervious_accumulated_verlocity + offset);
     auto &momentum = config.momentum;
 
+    //printf("input_gradients = %p, gradient_chunk = [%ld, %ld), "
+    //  "pervious_verlocity = %p, verlocity = %p, "
+    //  "pervious_accumulated_verlocity = %p, accumulated_verlocity = %p\n",
+    //  input_gradients, gradient_start_chunk,
+    //  gradient_start_chunk + num_gradients_chunk,
+    //  pervious_verlocity, verlocity,
+    //  pervious_accumulated_verlocity, accumulated_verlocity);
+
     loop_kernel<<<grid_size, block_size, 0, stream>>>(num_gradients_chunk,
       [momentum, input_gradients, gradient_start_chunk,
       pervious_verlocity, verlocity,
@@ -539,6 +565,8 @@ cudaError_t GradientAllReduce(
         verlocity[i + gradient_start_chunk] = u;
       });
   }
+  GUARD_CU2("cudaStreamSynchronize after local gradient updates",
+    cudaStreamSynchronize(stream));
 
   if (config.sampling_rate < 1 &&
       num_gradients > config.min_sampling_num) {
