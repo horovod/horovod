@@ -838,6 +838,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     auto& first_entry = entries[0];
 #if HAVE_CUDA
     bool on_gpu = first_entry.device != CPU_DEVICE_ID;
+    printf("operation.cc PerformOperation MPIResponse:ALLREDUCE HAVE_CUDA \n");
     if (on_gpu) {
 
       printf("operation.cc PerformOperation MPIResponse:ALLREDUCE -->first_entry.device:%d\n",first_entry.device);
