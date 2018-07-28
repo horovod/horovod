@@ -838,9 +838,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 #if HAVE_CUDA
     bool on_gpu = first_entry.device != CPU_DEVICE_ID;
     if (on_gpu) {
-
-      printf("operation.cc PerformOperation MPIResponse:ALLREDUCE -->first_entry.device:%d\n",first_entry.device);
-	 
       CUDA_CHECK(entries, "cudaSetDevice", cudaSetDevice(first_entry.device))
 
       // Ensure stream is in the map before executing reduction.
@@ -1047,7 +1044,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         }
       }//end  horovod_global.hierarchical_allreduce 
       else {// 在这里进行缓冲区的缩减
-      	
+
       	 printf("operations.cc PerformOperation -->ncclAllreduce num_elements:%d,horovod rank:%d\n",num_elements,horovod_rank);
         NCCL_CHECK(entries, "ncclAllReduce",
                    ncclAllReduce(fused_input_data, buffer_data,
@@ -1853,8 +1850,7 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
 
 // MPI must be initialized and the background thread must be running before
 // this function is called.
-//TODO : wuyongyu broadcast
-//int GLOBAL_NUMBER3=0;
+
 Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<Tensor> output, int root_rank,
@@ -1872,11 +1868,8 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
     message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
   }
 
- //TODO
-  //if(GLOBAL_NUMBER3<20){
-//	  printf("Broadcast tensor_name:%s device id is %d,request_rank:%d,root rank:%d\n",name.c_str(),device,message.request_rank(),message.root_rank());
-//	  GLOBAL_NUMBER3++;
- // }
+ printf("operations.cc EnqueueTensorBroadcast --> message request rank:%d,message root_rank:%d,message device:%d,tensor_type:%d\n", horovod_global.rank,root_rank,device
+ 	,tensor.dtype());
 
   TensorTableEntry e;
   e.tensor_name = name;

@@ -197,7 +197,8 @@ int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
       std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
   TensorUtil::AsyncCopyCudaToCPU(tensor, hvd_cpu_buffer->tensor());
   auto ready_event = RecordReadyEvent(device);
-
+  printf("mpi_ops.cc DoBroadcastCudaOnCPU --> ready_event device:%d\n",device);
+  
   auto hvd_context = std::make_shared<TorchOpContext<T>>(
       CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
 
@@ -208,9 +209,9 @@ int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
       [handle, hvd_cpu_buffer, output](const Status& status) {
         TensorUtil::CopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
         handle_manager.MarkDone(handle, status);
+        printf("mpi_ops.cc DoBroadcastCudaOnCPU --> handle:%d,roo_rank:%d,name:%s\n",handle,root_rank,name);
       });
-  //TODO: wuyongyu print allgather
-  printf("mpi_opc.cc DoBroadcastOnCpu ------->handle :%d, name:%s, device:%d, roo_rank:%d \n",handle,name,device,root_rank);
+  
   ThrowIfError(enqueue_result);
 
   return handle;
