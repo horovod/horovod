@@ -41,23 +41,23 @@ std::string GetOpName(std::string prefix, char* name, int handle) {
 
 } // namespace
 
-template <class T>
+template <class T, MPIDataType DT>
 int DoAllreduce(T* tensor, T* output, int average, char* name) {
   ThrowIfError(common::CheckInitialized());
 
   auto handle = handle_manager.AllocateHandle();
-  auto device = TensorUtil::GetDevice(tensor);
+  auto device = TensorUtil::GetDevice<T, DT>(tensor);
   auto ready_event = RecordReadyEvent(device);
-  auto hvd_tensor = std::make_shared<TorchTensor<T>>(tensor);
-  auto hvd_context = std::make_shared<TorchOpContext<T>>(device, output);
-  auto hvd_output = std::make_shared<TorchTensor<T>>(output);
+  auto hvd_tensor = std::make_shared<TorchTensor<T, DT>>(tensor);
+  auto hvd_context = std::make_shared<TorchOpContext<T, DT>>(device, output);
+  auto hvd_output = std::make_shared<TorchTensor<T, DT>>(output);
 
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_tensor, hvd_output, ready_event,
       GetOpName("allreduce", name, handle), device,
       [handle, average, output](const Status& status) {
         if (average) {
-          TensorUtil::DivideTensorInPlace(output, horovod_size());
+          TensorUtil::DivideTensorInPlace<T, DT>(output, horovod_size());
         }
         handle_manager.MarkDone(handle, status);
       });
@@ -67,18 +67,18 @@ int DoAllreduce(T* tensor, T* output, int average, char* name) {
 }
 
 #if HAVE_CUDA
-template <class TC, class T>
+template <class TC, class T, MPIDataType DT>
 int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
-  auto device = TensorUtil::GetDevice(tensor);
+  auto device = TensorUtil::GetDevice<TC, DT>(tensor);
   auto hvd_cpu_buffer =
-      std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
-  TensorUtil::AsyncCopyCudaToCPU(tensor, hvd_cpu_buffer->tensor());
+      std::make_shared<TorchTemporaryBuffer<T, DT>>(CPU_DEVICE_ID);
+  TensorUtil::AsyncCopyCudaToCPU<TC, T, DT>(tensor, hvd_cpu_buffer->tensor());
   auto ready_event = RecordReadyEvent(device);
 
-  auto hvd_context = std::make_shared<TorchOpContext<T>>(
+  auto hvd_context = std::make_shared<TorchOpContext<T, DT>>(
       CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
 
   auto handle = handle_manager.AllocateHandle();
@@ -86,9 +86,9 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
       hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, ready_event,
       GetOpName("allreduce", name, handle), CPU_DEVICE_ID,
       [handle, average, hvd_cpu_buffer, output](const Status& status) {
-        TensorUtil::CopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
+        TensorUtil::CopyCPUToCuda<T, TC, DT>(hvd_cpu_buffer->tensor(), output);
         if (average) {
-          TensorUtil::DivideTensorInPlace(output, horovod_size());
+          TensorUtil::DivideTensorInPlace<TC, DT>(output, horovod_size());
         }
         handle_manager.MarkDone(handle, status);
       });
@@ -98,13 +98,14 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
 }
 #endif
 
-template <class T> int DoAllgather(T* tensor, T* output, char* name) {
+template <class T, MPIDataType DT>
+int DoAllgather(T* tensor, T* output, char* name) {
   ThrowIfError(common::CheckInitialized());
 
-  auto device = TensorUtil::GetDevice(tensor);
+  auto device = TensorUtil::GetDevice<T, DT>(tensor);
   auto ready_event = RecordReadyEvent(device);
-  auto hvd_tensor = std::make_shared<TorchTensor<T>>(tensor);
-  auto hvd_context = std::make_shared<TorchOpContext<T>>(device, output);
+  auto hvd_tensor = std::make_shared<TorchTensor<T, DT>>(tensor);
+  auto hvd_context = std::make_shared<TorchOpContext<T, DT>>(device, output);
 
   auto handle = handle_manager.AllocateHandle();
   auto enqueue_result =
@@ -119,20 +120,20 @@ template <class T> int DoAllgather(T* tensor, T* output, char* name) {
 }
 
 #if HAVE_CUDA
-template <class TC, class T>
+template <class TC, class T, MPIDataType DT>
 int DoAllgatherCudaOnCPU(TC* tensor, TC* output, char* name) {
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
-  auto device = TensorUtil::GetDevice(tensor);
+  auto device = TensorUtil::GetDevice<TC, DT>(tensor);
   auto hvd_cpu_tensor =
-      std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
-  TensorUtil::AsyncCopyCudaToCPU(tensor, hvd_cpu_tensor->tensor());
+      std::make_shared<TorchTemporaryBuffer<T, DT>>(CPU_DEVICE_ID);
+  TensorUtil::AsyncCopyCudaToCPU<TC, T, DT>(tensor, hvd_cpu_tensor->tensor());
   auto ready_event = RecordReadyEvent(device);
 
   auto hvd_cpu_output =
-      std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
-  auto hvd_context = std::make_shared<TorchOpContext<T>>(
+      std::make_shared<TorchTemporaryBuffer<T, DT>>(CPU_DEVICE_ID);
+  auto hvd_context = std::make_shared<TorchOpContext<T, DT>>(
       CPU_DEVICE_ID, hvd_cpu_output->tensor());
 
   auto handle = handle_manager.AllocateHandle();
@@ -140,7 +141,7 @@ int DoAllgatherCudaOnCPU(TC* tensor, TC* output, char* name) {
       hvd_context, hvd_cpu_tensor, ready_event,
       GetOpName("allgather", name, handle), CPU_DEVICE_ID,
       [handle, hvd_cpu_output, output](const Status& status) {
-        TensorUtil::CopyCPUToCuda(hvd_cpu_output->tensor(), output);
+        TensorUtil::CopyCPUToCuda<T, TC, DT>(hvd_cpu_output->tensor(), output);
         handle_manager.MarkDone(handle, status);
       });
   ThrowIfError(enqueue_result);
@@ -149,21 +150,21 @@ int DoAllgatherCudaOnCPU(TC* tensor, TC* output, char* name) {
 }
 #endif
 
-template <class T>
+template <class T, MPIDataType DT>
 int DoBroadcast(T* tensor, T* output, int root_rank, char* name) {
   ThrowIfError(common::CheckInitialized());
 
-  auto device = TensorUtil::GetDevice(tensor);
+  auto device = TensorUtil::GetDevice<T, DT>(tensor);
   auto ready_event = RecordReadyEvent(device);
-  auto hvd_tensor = std::make_shared<TorchTensor<T>>(tensor);
-  auto hvd_context = std::make_shared<TorchOpContext<T>>(device, output);
+  auto hvd_tensor = std::make_shared<TorchTensor<T, DT>>(tensor);
+  auto hvd_context = std::make_shared<TorchOpContext<T, DT>>(device, output);
   std::shared_ptr<Tensor> hvd_output = nullptr;
   if (horovod_rank() == root_rank) {
     if (tensor != output) {
-      TensorUtil::Copy(output, tensor);
+      TensorUtil::Copy<T, DT>(output, tensor);
     }
   } else {
-    hvd_output = std::make_shared<TorchTensor<T>>(output);
+    hvd_output = std::make_shared<TorchTensor<T, DT>>(output);
   }
 
   auto handle = handle_manager.AllocateHandle();
@@ -179,18 +180,18 @@ int DoBroadcast(T* tensor, T* output, int root_rank, char* name) {
 }
 
 #if HAVE_CUDA
-template <class TC, class T>
+template <class TC, class T, MPIDataType DT>
 int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
-  auto device = TensorUtil::GetDevice(tensor);
+  auto device = TensorUtil::GetDevice<TC, DT>(tensor);
   auto hvd_cpu_buffer =
-      std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
-  TensorUtil::AsyncCopyCudaToCPU(tensor, hvd_cpu_buffer->tensor());
+      std::make_shared<TorchTemporaryBuffer<T, DT>>(CPU_DEVICE_ID);
+  TensorUtil::AsyncCopyCudaToCPU<TC, T, DT>(tensor, hvd_cpu_buffer->tensor());
   auto ready_event = RecordReadyEvent(device);
 
-  auto hvd_context = std::make_shared<TorchOpContext<T>>(
+  auto hvd_context = std::make_shared<TorchOpContext<T, DT>>(
       CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
 
   auto handle = handle_manager.AllocateHandle();
@@ -198,7 +199,7 @@ int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
       hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, root_rank, ready_event,
       GetOpName("broadcast", name, handle), CPU_DEVICE_ID,
       [handle, hvd_cpu_buffer, output](const Status& status) {
-        TensorUtil::CopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
+        TensorUtil::CopyCPUToCuda<T, TC, DT>(hvd_cpu_buffer->tensor(), output);
         handle_manager.MarkDone(handle, status);
       });
   ThrowIfError(enqueue_result);
@@ -207,120 +208,140 @@ int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
 }
 #endif
 
-#define ALLREDUCE(torch_Tensor, THTensor)                                      \
+#define ALLREDUCE(torch_Tensor, THTensor, HorovodType)                         \
   extern "C" int horovod_torch_allreduce_async_##torch_Tensor(                 \
       THTensor* tensor, THTensor* output, int average, char* name) {           \
-    return DoAllreduce(tensor, output, average, name);                         \
+    return DoAllreduce<THTensor, HorovodType>(tensor, output, average, name);  \
   }
 
-ALLREDUCE(torch_IntTensor, THIntTensor)
-ALLREDUCE(torch_LongTensor, THLongTensor)
-ALLREDUCE(torch_FloatTensor, THFloatTensor)
-ALLREDUCE(torch_DoubleTensor, THDoubleTensor)
+ALLREDUCE(torch_IntTensor, THIntTensor, MPIDataType::HOROVOD_INT32)
+ALLREDUCE(torch_LongTensor, THLongTensor, MPIDataType::HOROVOD_INT64)
+ALLREDUCE(torch_FloatTensor, THFloatTensor, MPIDataType::HOROVOD_FLOAT32)
+ALLREDUCE(torch_DoubleTensor, THDoubleTensor, MPIDataType::HOROVOD_FLOAT64)
 
 #if HOROVOD_GPU_ALLREDUCE
-ALLREDUCE(torch_cuda_IntTensor, THCudaIntTensor)
-ALLREDUCE(torch_cuda_LongTensor, THCudaLongTensor)
-ALLREDUCE(torch_cuda_FloatTensor, THCudaTensor)
-ALLREDUCE(torch_cuda_DoubleTensor, THCudaDoubleTensor)
+ALLREDUCE(torch_cuda_IntTensor, THCudaIntTensor, MPIDataType::HOROVOD_INT32)
+ALLREDUCE(torch_cuda_LongTensor, THCudaLongTensor, MPIDataType::HOROVOD_INT64)
+ALLREDUCE(torch_cuda_FloatTensor, THCudaTensor, MPIDataType::HOROVOD_FLOAT32)
+ALLREDUCE(torch_cuda_DoubleTensor, THCudaDoubleTensor,
+          MPIDataType::HOROVOD_FLOAT64)
 #endif
 
-#define ALLREDUCE_CUDA_ON_CPU(torch_Tensor, THCTensor, THTensor)               \
+#define ALLREDUCE_CUDA_ON_CPU(torch_Tensor, THCTensor, THTensor, HorovodType)  \
   extern "C" int horovod_torch_allreduce_async_##torch_Tensor(                 \
       THCTensor* tensor, THCTensor* output, int average, char* name) {         \
-    return DoAllreduceCudaOnCPU<THCTensor, THTensor>(tensor, output, average,  \
-                                                     name);                    \
+    return DoAllreduceCudaOnCPU<THCTensor, THTensor, HorovodType>(             \
+        tensor, output, average, name);                                        \
   }
 
 #if !HOROVOD_GPU_ALLREDUCE && HAVE_CUDA
-ALLREDUCE_CUDA_ON_CPU(torch_cuda_IntTensor, THCudaIntTensor, THIntTensor)
-ALLREDUCE_CUDA_ON_CPU(torch_cuda_LongTensor, THCudaLongTensor, THLongTensor)
-ALLREDUCE_CUDA_ON_CPU(torch_cuda_FloatTensor, THCudaTensor, THFloatTensor)
+ALLREDUCE_CUDA_ON_CPU(torch_cuda_IntTensor, THCudaIntTensor, THIntTensor,
+                      MPIDataType::HOROVOD_INT32)
+ALLREDUCE_CUDA_ON_CPU(torch_cuda_LongTensor, THCudaLongTensor, THLongTensor,
+                      MPIDataType::HOROVOD_INT64)
+ALLREDUCE_CUDA_ON_CPU(torch_cuda_FloatTensor, THCudaTensor, THFloatTensor,
+                      MPIDataType::HOROVOD_FLOAT32)
 ALLREDUCE_CUDA_ON_CPU(torch_cuda_DoubleTensor, THCudaDoubleTensor,
-                      THDoubleTensor)
+                      THDoubleTensor, MPIDataType::HOROVOD_FLOAT64)
 #endif
 
-#define ALLGATHER(torch_Tensor, THTensor)                                      \
+#define ALLGATHER(torch_Tensor, THTensor, HorovodType)                         \
   extern "C" int horovod_torch_allgather_async_##torch_Tensor(                 \
       THTensor* tensor, THTensor* output, char* name) {                        \
-    return DoAllgather(tensor, output, name);                                  \
+    return DoAllgather<THTensor, HorovodType>(tensor, output, name);           \
   }
 
-ALLGATHER(torch_ByteTensor, THByteTensor)
-ALLGATHER(torch_CharTensor, THCharTensor)
-ALLGATHER(torch_ShortTensor, THShortTensor)
-ALLGATHER(torch_IntTensor, THIntTensor)
-ALLGATHER(torch_LongTensor, THLongTensor)
-ALLGATHER(torch_FloatTensor, THFloatTensor)
-ALLGATHER(torch_DoubleTensor, THDoubleTensor)
+ALLGATHER(torch_ByteTensor, THByteTensor, MPIDataType::HOROVOD_UINT8)
+ALLGATHER(torch_CharTensor, THCharTensor, MPIDataType::HOROVOD_INT8)
+ALLGATHER(torch_ShortTensor, THShortTensor, MPIDataType::HOROVOD_INT16)
+ALLGATHER(torch_IntTensor, THIntTensor, MPIDataType::HOROVOD_INT32)
+ALLGATHER(torch_LongTensor, THLongTensor, MPIDataType::HOROVOD_INT64)
+ALLGATHER(torch_FloatTensor, THFloatTensor, MPIDataType::HOROVOD_FLOAT32)
+ALLGATHER(torch_DoubleTensor, THDoubleTensor, MPIDataType::HOROVOD_FLOAT64)
 
 #if HOROVOD_GPU_ALLGATHER
-ALLGATHER(torch_cuda_ByteTensor, THCudaByteTensor)
-ALLGATHER(torch_cuda_CharTensor, THCudaCharTensor)
-ALLGATHER(torch_cuda_ShortTensor, THCudaShortTensor)
-ALLGATHER(torch_cuda_IntTensor, THCudaIntTensor)
-ALLGATHER(torch_cuda_LongTensor, THCudaLongTensor)
-ALLGATHER(torch_cuda_FloatTensor, THCudaTensor)
-ALLGATHER(torch_cuda_DoubleTensor, THCudaDoubleTensor)
+ALLGATHER(torch_cuda_ByteTensor, THCudaByteTensor, MPIDataType::HOROVOD_UINT8)
+ALLGATHER(torch_cuda_CharTensor, THCudaCharTensor, MPIDataType::HOROVOD_INT8)
+ALLGATHER(torch_cuda_ShortTensor, THCudaShortTensor, MPIDataType::HOROVOD_INT16)
+ALLGATHER(torch_cuda_IntTensor, THCudaIntTensor, MPIDataType::HOROVOD_INT32)
+ALLGATHER(torch_cuda_LongTensor, THCudaLongTensor, MPIDataType::HOROVOD_INT64)
+ALLGATHER(torch_cuda_FloatTensor, THCudaTensor, MPIDataType::HOROVOD_FLOAT32)
+ALLGATHER(torch_cuda_DoubleTensor, THCudaDoubleTensor,
+          MPIDataType::HOROVOD_FLOAT64)
 #endif
 
-#define ALLGATHER_CUDA_ON_CPU(torch_Tensor, THCTensor, THTensor)               \
+#define ALLGATHER_CUDA_ON_CPU(torch_Tensor, THCTensor, THTensor, HorovodType)  \
   extern "C" int horovod_torch_allgather_async_##torch_Tensor(                 \
       THCTensor* tensor, THCTensor* output, char* name) {                      \
-    return DoAllgatherCudaOnCPU<THCTensor, THTensor>(tensor, output, name);    \
+    return DoAllgatherCudaOnCPU<THCTensor, THTensor, HorovodType>(             \
+        tensor, output, name);                                                 \
   }
 
 #if !HOROVOD_GPU_ALLGATHER && HAVE_CUDA
-ALLGATHER_CUDA_ON_CPU(torch_cuda_ByteTensor, THCudaByteTensor, THByteTensor)
-ALLGATHER_CUDA_ON_CPU(torch_cuda_CharTensor, THCudaCharTensor, THCharTensor)
-ALLGATHER_CUDA_ON_CPU(torch_cuda_ShortTensor, THCudaShortTensor, THShortTensor)
-ALLGATHER_CUDA_ON_CPU(torch_cuda_IntTensor, THCudaIntTensor, THIntTensor)
-ALLGATHER_CUDA_ON_CPU(torch_cuda_LongTensor, THCudaLongTensor, THLongTensor)
-ALLGATHER_CUDA_ON_CPU(torch_cuda_FloatTensor, THCudaTensor, THFloatTensor)
+ALLGATHER_CUDA_ON_CPU(torch_cuda_ByteTensor, THCudaByteTensor, THByteTensor,
+                      MPIDataType::HOROVOD_UINT8)
+ALLGATHER_CUDA_ON_CPU(torch_cuda_CharTensor, THCudaCharTensor, THCharTensor,
+                      MPIDataType::HOROVOD_INT8)
+ALLGATHER_CUDA_ON_CPU(torch_cuda_ShortTensor, THCudaShortTensor, THShortTensor,
+                      MPIDataType::HOROVOD_INT16)
+ALLGATHER_CUDA_ON_CPU(torch_cuda_IntTensor, THCudaIntTensor, THIntTensor,
+                      MPIDataType::HOROVOD_INT32)
+ALLGATHER_CUDA_ON_CPU(torch_cuda_LongTensor, THCudaLongTensor, THLongTensor,
+                      MPIDataType::HOROVOD_INT64)
+ALLGATHER_CUDA_ON_CPU(torch_cuda_FloatTensor, THCudaTensor, THFloatTensor,
+                      MPIDataType::HOROVOD_FLOAT32)
 ALLGATHER_CUDA_ON_CPU(torch_cuda_DoubleTensor, THCudaDoubleTensor,
-                      THDoubleTensor)
+                      THDoubleTensor, MPIDataType::HOROVOD_FLOAT64)
 #endif
 
-#define BROADCAST(torch_Tensor, THTensor)                                      \
+#define BROADCAST(torch_Tensor, THTensor, HorovodType)                         \
   extern "C" int horovod_torch_broadcast_async_##torch_Tensor(                 \
       THTensor* tensor, THTensor* output, int root_rank, char* name) {         \
-    return DoBroadcast(tensor, output, root_rank, name);                       \
+    return DoBroadcast<THTensor, HorovodType>(tensor, output, root_rank,       \
+                                              name);                           \
   }
 
-BROADCAST(torch_ByteTensor, THByteTensor)
-BROADCAST(torch_CharTensor, THCharTensor)
-BROADCAST(torch_ShortTensor, THShortTensor)
-BROADCAST(torch_IntTensor, THIntTensor)
-BROADCAST(torch_LongTensor, THLongTensor)
-BROADCAST(torch_FloatTensor, THFloatTensor)
-BROADCAST(torch_DoubleTensor, THDoubleTensor)
+BROADCAST(torch_ByteTensor, THByteTensor, MPIDataType::HOROVOD_UINT8)
+BROADCAST(torch_CharTensor, THCharTensor, MPIDataType::HOROVOD_INT8)
+BROADCAST(torch_ShortTensor, THShortTensor, MPIDataType::HOROVOD_INT16)
+BROADCAST(torch_IntTensor, THIntTensor, MPIDataType::HOROVOD_INT32)
+BROADCAST(torch_LongTensor, THLongTensor, MPIDataType::HOROVOD_INT64)
+BROADCAST(torch_FloatTensor, THFloatTensor, MPIDataType::HOROVOD_FLOAT32)
+BROADCAST(torch_DoubleTensor, THDoubleTensor, MPIDataType::HOROVOD_FLOAT64)
 
 #if HOROVOD_GPU_BROADCAST
-BROADCAST(torch_cuda_ByteTensor, THCudaByteTensor)
-BROADCAST(torch_cuda_CharTensor, THCudaCharTensor)
-BROADCAST(torch_cuda_ShortTensor, THCudaShortTensor)
-BROADCAST(torch_cuda_IntTensor, THCudaIntTensor)
-BROADCAST(torch_cuda_LongTensor, THCudaLongTensor)
-BROADCAST(torch_cuda_FloatTensor, THCudaTensor)
-BROADCAST(torch_cuda_DoubleTensor, THCudaDoubleTensor)
+BROADCAST(torch_cuda_ByteTensor, THCudaByteTensor, MPIDataType::HOROVOD_UINT8)
+BROADCAST(torch_cuda_CharTensor, THCudaCharTensor, MPIDataType::HOROVOD_INT8)
+BROADCAST(torch_cuda_ShortTensor, THCudaShortTensor, MPIDataType::HOROVOD_INT16)
+BROADCAST(torch_cuda_IntTensor, THCudaIntTensor, MPIDataType::HOROVOD_INT32)
+BROADCAST(torch_cuda_LongTensor, THCudaLongTensor, MPIDataType::HOROVOD_INT64)
+BROADCAST(torch_cuda_FloatTensor, THCudaTensor, MPIDataType::HOROVOD_FLOAT32)
+BROADCAST(torch_cuda_DoubleTensor, THCudaDoubleTensor,
+          MPIDataType::HOROVOD_FLOAT64)
 #endif
 
-#define BROADCAST_CUDA_ON_CPU(torch_Tensor, THCTensor, THTensor)               \
+#define BROADCAST_CUDA_ON_CPU(torch_Tensor, THCTensor, THTensor, HorovodType)  \
   extern "C" int horovod_torch_broadcast_async_##torch_Tensor(                 \
       THCTensor* tensor, THCTensor* output, int root_rank, char* name) {       \
-    return DoBroadcastCudaOnCPU<THCTensor, THTensor>(tensor, output,           \
-                                                     root_rank, name);         \
+    return DoBroadcastCudaOnCPU<THCTensor, THTensor, HorovodType>(             \
+        tensor, output, root_rank, name);                                      \
   }
 
 #if !HOROVOD_GPU_BROADCAST && HAVE_CUDA
-BROADCAST_CUDA_ON_CPU(torch_cuda_ByteTensor, THCudaByteTensor, THByteTensor)
-BROADCAST_CUDA_ON_CPU(torch_cuda_CharTensor, THCudaCharTensor, THCharTensor)
-BROADCAST_CUDA_ON_CPU(torch_cuda_ShortTensor, THCudaShortTensor, THShortTensor)
-BROADCAST_CUDA_ON_CPU(torch_cuda_IntTensor, THCudaIntTensor, THIntTensor)
-BROADCAST_CUDA_ON_CPU(torch_cuda_LongTensor, THCudaLongTensor, THLongTensor)
-BROADCAST_CUDA_ON_CPU(torch_cuda_FloatTensor, THCudaTensor, THFloatTensor)
+BROADCAST_CUDA_ON_CPU(torch_cuda_ByteTensor, THCudaByteTensor, THByteTensor,
+                      MPIDataType::HOROVOD_UINT8)
+BROADCAST_CUDA_ON_CPU(torch_cuda_CharTensor, THCudaCharTensor, THCharTensor,
+                      MPIDataType::HOROVOD_INT8)
+BROADCAST_CUDA_ON_CPU(torch_cuda_ShortTensor, THCudaShortTensor, THShortTensor,
+                      MPIDataType::HOROVOD_INT16)
+BROADCAST_CUDA_ON_CPU(torch_cuda_IntTensor, THCudaIntTensor, THIntTensor,
+                      MPIDataType::HOROVOD_INT32)
+BROADCAST_CUDA_ON_CPU(torch_cuda_LongTensor, THCudaLongTensor, THLongTensor,
+                      MPIDataType::HOROVOD_INT64)
+BROADCAST_CUDA_ON_CPU(torch_cuda_FloatTensor, THCudaTensor, THFloatTensor,
+                      MPIDataType::HOROVOD_FLOAT32)
 BROADCAST_CUDA_ON_CPU(torch_cuda_DoubleTensor, THCudaDoubleTensor,
-                      THDoubleTensor)
+                      THDoubleTensor, MPIDataType::HOROVOD_FLOAT64)
 #endif
 
 extern "C" int horovod_torch_poll(int handle) {

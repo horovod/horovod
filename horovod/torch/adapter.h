@@ -34,7 +34,7 @@ private:
   void* buffer_ = nullptr;
 };
 
-template <class T> class TorchTensor : public Tensor {
+template <class T, MPIDataType DT> class TorchTensor : public Tensor {
 public:
   TorchTensor(T* tensor);
   virtual const MPIDataType dtype() const override;
@@ -46,14 +46,14 @@ protected:
   T* tensor_ = nullptr;
 };
 
-template <class T> class TorchTemporaryBuffer : public TorchTensor<T> {
+template <class T, MPIDataType DT> class TorchTemporaryBuffer : public TorchTensor<T, DT> {
 public:
   TorchTemporaryBuffer(int device);
   ~TorchTemporaryBuffer();
   virtual T* tensor() const;
 };
 
-template <class T> class TorchOpContext : public OpContext {
+template <class T, MPIDataType DT> class TorchOpContext : public OpContext {
 public:
   TorchOpContext(int device, T* output);
   virtual Status
@@ -70,10 +70,10 @@ private:
 
 void ThrowIfError(Status status);
 
-#define ADAPTER_DEFINE_TYPE(THTensor) \
-  template class TorchTensor<THTensor>; \
-  template class TorchTemporaryBuffer<THTensor>; \
-  template class TorchOpContext<THTensor>;
+#define ADAPTER_DEFINE_TYPE(THTensor, DT) \
+  template class TorchTensor<THTensor, DT>; \
+  template class TorchTemporaryBuffer<THTensor, DT>; \
+  template class TorchOpContext<THTensor, DT>;
 
 } // namespace torch
 } // namespace horovod
