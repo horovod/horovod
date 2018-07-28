@@ -1869,7 +1869,7 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   }
 
  printf("operations.cc EnqueueTensorBroadcast --> message request rank:%d,message root_rank:%d,message device:%d,tensor_type:%d\n", horovod_global.rank,root_rank,device
- 	,tensor.dtype());
+ 	,tensor->dtype());
 
   TensorTableEntry e;
   e.tensor_name = name;
