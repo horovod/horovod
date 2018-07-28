@@ -254,8 +254,6 @@ provided that the MPI was built with multi-threading support.
 
 You can check for MPI multi-threading support by querying the `hvd.mpi_threads_supported()` function.
 
-**Note**: Make sure that MPI library will **NOT** re-initialize MPI.  For example:
-
 ```python
 import horovod.tensorflow as hvd
 
@@ -264,10 +262,6 @@ hvd.init()
 
 # Verify that MPI multi-threading is supported.
 assert hvd.mpi_threads_supported()
-
-# Make sure MPI is not re-initialized.
-import mpi4py.rc
-mpi4py.rc.initialize = False
 
 from mpi4py import MPI
 assert hvd.size() == MPI.COMM_WORLD.Get_size()

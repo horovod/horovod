@@ -19,6 +19,8 @@
 #include <functional>
 
 #include "common.h"
+#define OMPI_SKIP_MPICXX
+#include "mpi.h"
 
 namespace horovod {
 namespace common {
@@ -52,7 +54,13 @@ Status CheckInitialized();
 extern "C" {
 
 // C interface to initialize Horovod.
-void horovod_init();
+void horovod_init(const int *ranks, int nranks);
+
+// C interface to initialize Horovod with the given MPI communicator.
+void horovod_init_comm(MPI_Comm comm);
+
+// C interface to shut down Horovod.
+void horovod_shutdown();
 
 // C interface to get index of current Horovod process.
 // Returns -1 if Horovod is not initialized.
