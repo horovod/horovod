@@ -19,32 +19,36 @@ namespace horovod {
 namespace torch {
 
 // Define all types for TensorUtil.
-TENSOR_UTIL_DEFINE_TYPE(THByteTensor, THByteStorage, MPIDataType::HOROVOD_UINT8)
-TENSOR_UTIL_DEFINE_TYPE(THCharTensor, THCharStorage, MPIDataType::HOROVOD_INT8)
-TENSOR_UTIL_DEFINE_TYPE(THShortTensor, THShortStorage,
-                        MPIDataType::HOROVOD_INT16)
-TENSOR_UTIL_DEFINE_TYPE(THIntTensor, THIntStorage, MPIDataType::HOROVOD_INT32)
-TENSOR_UTIL_DEFINE_TYPE(THLongTensor, THLongStorage, MPIDataType::HOROVOD_INT64)
-TENSOR_UTIL_DEFINE_TYPE(THFloatTensor, THFloatStorage,
-                        MPIDataType::HOROVOD_FLOAT32)
-TENSOR_UTIL_DEFINE_TYPE(THDoubleTensor, THDoubleStorage,
-                        MPIDataType::HOROVOD_FLOAT64)
+TENSOR_UTIL_DEFINE_CPU_TYPE(MPIDataType::HOROVOD_UINT8, THByteTensor,
+                            THByteStorage)
+TENSOR_UTIL_DEFINE_CPU_TYPE(MPIDataType::HOROVOD_INT8, THCharTensor,
+                            THCharStorage)
+TENSOR_UTIL_DEFINE_CPU_TYPE(MPIDataType::HOROVOD_INT16, THShortTensor,
+                            THShortStorage)
+TENSOR_UTIL_DEFINE_CPU_TYPE(MPIDataType::HOROVOD_INT32, THIntTensor,
+                            THIntStorage)
+TENSOR_UTIL_DEFINE_CPU_TYPE(MPIDataType::HOROVOD_INT64, THLongTensor,
+                            THLongStorage)
+TENSOR_UTIL_DEFINE_CPU_TYPE(MPIDataType::HOROVOD_FLOAT32, THFloatTensor,
+                            THFloatStorage)
+TENSOR_UTIL_DEFINE_CPU_TYPE(MPIDataType::HOROVOD_FLOAT64, THDoubleTensor,
+                            THDoubleStorage)
 
 #if HAVE_CUDA
-TENSOR_UTIL_DEFINE_CUDA_TYPE(THCudaByteTensor, THByteTensor, THCudaByteStorage,
-                             MPIDataType::HOROVOD_UINT8)
-TENSOR_UTIL_DEFINE_CUDA_TYPE(THCudaCharTensor, THCharTensor, THCudaCharStorage,
-                             MPIDataType::HOROVOD_INT8)
-TENSOR_UTIL_DEFINE_CUDA_TYPE(THCudaShortTensor, THShortTensor,
-                             THCudaShortStorage, MPIDataType::HOROVOD_INT16)
-TENSOR_UTIL_DEFINE_CUDA_TYPE(THCudaIntTensor, THIntTensor, THCudaIntStorage,
-                             MPIDataType::HOROVOD_INT32)
-TENSOR_UTIL_DEFINE_CUDA_TYPE(THCudaLongTensor, THLongTensor, THCudaLongStorage,
-                             MPIDataType::HOROVOD_INT64)
-TENSOR_UTIL_DEFINE_CUDA_TYPE(THCudaTensor, THFloatTensor, THCudaStorage,
-                             MPIDataType::HOROVOD_FLOAT32)
-TENSOR_UTIL_DEFINE_CUDA_TYPE(THCudaDoubleTensor, THDoubleTensor,
-                             THCudaDoubleStorage, MPIDataType::HOROVOD_FLOAT64)
+TENSOR_UTIL_DEFINE_CUDA_TYPE(MPIDataType::HOROVOD_UINT8, THCudaByteTensor,
+                             THByteTensor, THCudaByteStorage)
+TENSOR_UTIL_DEFINE_CUDA_TYPE(MPIDataType::HOROVOD_INT8, THCudaCharTensor,
+                             THCharTensor, THCudaCharStorage)
+TENSOR_UTIL_DEFINE_CUDA_TYPE(MPIDataType::HOROVOD_INT16, THCudaShortTensor,
+                             THShortTensor, THCudaShortStorage)
+TENSOR_UTIL_DEFINE_CUDA_TYPE(MPIDataType::HOROVOD_INT32, THCudaIntTensor,
+                             THIntTensor, THCudaIntStorage)
+TENSOR_UTIL_DEFINE_CUDA_TYPE(MPIDataType::HOROVOD_INT64, THCudaLongTensor,
+                             THLongTensor, THCudaLongStorage)
+TENSOR_UTIL_DEFINE_CUDA_TYPE(MPIDataType::HOROVOD_FLOAT32, THCudaTensor,
+                             THFloatTensor, THCudaStorage)
+TENSOR_UTIL_DEFINE_CUDA_TYPE(MPIDataType::HOROVOD_FLOAT64, THCudaDoubleTensor,
+                             THDoubleTensor, THCudaDoubleStorage)
 #endif
 
 } // namespace torch
