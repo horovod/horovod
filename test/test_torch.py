@@ -313,7 +313,7 @@ class TorchTests(unittest.TestCase):
             summed = hvd.allreduce(tensor, average=False)
 
             summed.backward(torch.ones([17] * dim).type(dtype))
-            grad_out = tensor.grad.data.numpy()
+            grad_out = tensor.grad.data.cpu().numpy()
 
             expected = np.ones([17] * dim) * size
             err = np.linalg.norm(expected - grad_out)
@@ -337,7 +337,7 @@ class TorchTests(unittest.TestCase):
             summed = hvd.allreduce(tensor, average=True)
 
             summed.backward(torch.ones([17] * dim).type(dtype))
-            grad_out = tensor.grad.data.numpy()
+            grad_out = tensor.grad.data.cpu().numpy()
 
             expected = np.ones([17] * dim)
             err = np.linalg.norm(expected - grad_out)
@@ -485,7 +485,7 @@ class TorchTests(unittest.TestCase):
 
             gathered = hvd.allgather(tensor)
             gathered.backward(grad_ys)
-            grad_out = tensor.grad.data.numpy()
+            grad_out = tensor.grad.data.cpu().numpy()
 
             expected = np.ones(
                 [tensor_sizes[rank]] + [17] * (dim - 1)
@@ -640,7 +640,7 @@ class TorchTests(unittest.TestCase):
 
             broadcasted_tensor = hvd.broadcast(tensor, root_rank)
             broadcasted_tensor.backward(torch.ones([17] * dim).type(dtype))
-            grad_out = tensor.grad.data.numpy()
+            grad_out = tensor.grad.data.cpu().numpy()
 
             c = size if rank == root_rank else 0
             expected = np.ones([17] * dim) * c
@@ -725,7 +725,7 @@ class TorchTests(unittest.TestCase):
                     opt_param_value = torch.Tensor([opt_param_value])
                 hvd.broadcast_(opt_param_value, root_rank=0)
                 if not is_tensor:
-                    opt_param_value = t(opt_param_value.numpy()[0])
+                    opt_param_value = t(opt_param_value.cpu().numpy()[0])
                 opt_param_values_updated.append((name, opt_param_value))
             opt_param_values = opt_param_values_updated
 
