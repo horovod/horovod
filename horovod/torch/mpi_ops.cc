@@ -32,7 +32,7 @@ static HandleManager handle_manager;
 
 namespace {
 
-std::string GetOpName(std::string prefix, char* name, int handle) {
+std::string GetOpName(const std::string& prefix, char* name, int handle) {
   if (name != nullptr) {
     return prefix + "." + std::string(name);
   }
