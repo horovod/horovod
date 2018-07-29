@@ -6,6 +6,7 @@
 
 #include <map>
 #include <math.h>
+#include <mpi.h>
 #include <nccl.h>
 #include <curand_kernel.h>
 
@@ -19,6 +20,7 @@ template <>
 struct PreDefinedValues<float>
 {
   static const ncclDataType_t NCCLDataType = ncclFloat32;
+  MPI_Datatype getMpiDataType() {return MPI_FLOAT;}
   constexpr static const float InvalidValue = NAN;
 };
 
@@ -26,6 +28,7 @@ template <>
 struct PreDefinedValues<double>
 {
   static const ncclDataType_t NCCLDataType = ncclFloat64;
+  MPI_Datatype getMpiDataType() {return MPI_DOUBLE;}
   constexpr static const double InvalidValue = NAN;
 };
 
@@ -33,6 +36,7 @@ template <>
 struct PreDefinedValues<int32_t>
 {
   static const ncclDataType_t NCCLDataType = ncclInt32;
+  static MPI_Datatype getMpiDataType() {return MPI_INT;}
   static const int32_t AllZeros = (int32_t)0;
   static const int32_t AllOnes  = ~AllZeros;
   static const int32_t InvalidValue = AllOnes;
@@ -42,6 +46,7 @@ template <>
 struct PreDefinedValues<uint32_t>
 {
   static const ncclDataType_t NCCLDataType = ncclUint32;
+  static MPI_Datatype getMpiDataType() {return MPI_UNSIGNED;}
   static const uint32_t AllZeros = (uint32_t)0;
   static const uint32_t AllOnes  = ~AllZeros;
   static const uint32_t InvalidValue = AllOnes;
@@ -51,6 +56,7 @@ template <>
 struct PreDefinedValues<int64_t>
 {
   static const ncclDataType_t NCCLDataType = ncclInt64;
+  static MPI_Datatype getMpiDataType() {return MPI_LONG_LONG;}
   static const int64_t AllZeros = (int64_t)0;
   static const int64_t AllOnes  = ~AllZeros;
   static const int64_t InvalidValue = AllOnes;
@@ -60,6 +66,7 @@ template <>
 struct PreDefinedValues<uint64_t>
 {
   static const ncclDataType_t NCCLDataType = ncclUint64;
+  static MPI_Datatype getMpiDataType() {return MPI_UNSIGNED_LONG_LONG;}
   static const uint64_t AllZeros = (uint64_t)0;
   static const uint64_t AllOnes  = ~AllZeros;
   static const uint64_t InvalidValue = AllOnes;
@@ -129,6 +136,7 @@ struct DgcConfig {
 
   // NCCL communication handle
   ncclComm_t nccl_comm;
+  MPI_Comm mpi_comm;
 
   // whether DgcConfig has been configured
   bool configured = false;
@@ -144,6 +152,9 @@ struct DgcConfig {
 
   // Gradient clipping threshold
   float clipping_threshold = 6.0;
+
+  // Whether to use allReduce instead of allGather for gradient communication
+  bool use_allReduce = true;
 
   // function to set indivual configuration
   void Set(std::string key, std::string value);
@@ -227,6 +238,20 @@ struct DgcState {
   // Gradient layer offsets, on host, for gradient clipping
   uint64_t* gradient_offsets = NULL;
   uint64_t  gradient_offsets_allocated = 0;
+
+  // Gradient selection mask for allReduce communication
+  uint32_t* send_masks = NULL;
+  uint32_t* recv_masks = NULL;
+  uint32_t* h_send_masks = NULL;
+  uint32_t* h_recv_masks = NULL;
+  uint64_t  mask_allocated = 0;
+
+  uint32_t* mask_counters = NULL;
+  uint64_t  mask_counters_allocated = 0;
+  uint32_t* mask_offsets  = NULL;
+  uint64_t  mask_offsets_allocated = 0;
+
+  uint32_t* num_gradients_to_communicate = NULL; 
 };
 
 // Entry warper function

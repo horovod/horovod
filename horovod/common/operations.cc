@@ -961,6 +961,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         auto &config = horovod_global.dgc_config;
         config.stream = stream;
         config.nccl_comm = nccl_comm;
+        config.mpi_comm = horovod_global.mpi_comm; 
         config.global_num_gpus = horovod_global.size;
         config.configured = true;
         horovod_global.dgc_state.tensor_offsets.clear();

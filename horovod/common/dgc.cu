@@ -14,6 +14,7 @@
 //#include <thrust/sort.h>
 //#include <thrust/execution_policy.h>
 #include <cub/cub.cuh>
+#include <mpi.h>
 #include "dgc.h"
 #include "dgc_kernel.cu.cc"
 
@@ -277,6 +278,14 @@ void DgcConfig::Set(std::string key, std::string value)
 
   else if (key == "dgc_clipping_threshold")
     clipping_threshold = std::stof(value);
+
+  else if (key == "dgc_use_allreduce")
+  {
+    if (value == "True")
+      use_allReduce = true;
+    else if (value == "False")
+      use_allReduce = false;
+  }
 
   else if (key == "momentum")
     momentum = std::stof(value);
@@ -690,112 +699,324 @@ cudaError_t GradientAllReduce(
       //  num_samples > 0 ? samp_data[num_samples - 1] : -1);
     });
 
-  //auto &samp_counter = state.samp_counter;
-  //loop_kernel <<<1, 1, 0, stream>>>((SizeT)1,
-  //  [samp_counter] __device__ (const SizeT &i)
-  //  {
-  //    samp_counter[0] = 0;
-  //  });
-  //loop_kernel <<<grid_size, block_size, 0, stream>>>(num_samples,
-  //  [samp_data, num_samples, samp_counter, threshold] __device__ (const SizeT &i)
-  //  {
-  //    if (!(samp_data[i] < threshold[0]))
-  //    {
-  //      atomicAdd(samp_counter, (uint64_t)1);
-  //    }
-  //  });
-  //loop_kernel <<<1, 1, 0, stream>>>((SizeT)1,
-  //  [samp_counter] __device__ (const SizeT &i)
-  //  {
-  //    printf("Recount = %d\n", samp_counter[0]);
-  //  });
+  if (config.use_allReduce) {
+    // use allReduce on mask to communicate
 
-  // Pick those larger than threshold
-  auto &send_counter   = state.send_counter;
-  //auto &send_data      = state.send_data;
-  auto &send_indices   = state.send_indices;
-  auto &send_allocated = state.send_allocated;
-  auto send_allocated_ = send_allocated * sizeof(T);
-  if (send_counter == NULL) {
-    GUARD_CU(Malloc(send_counter, 1));
-  }
+    SizeT num_masks = num_gradients / 32;
+    if (num_masks * 32 < num_gradients)
+      num_masks ++;
 
-  GUARD_CU(GarenteeAllocation(
-    state.send_data, send_allocated_, target_num * sizeof(T)));
-  GUARD_CU(GarenteeAllocation(
-    send_indices, send_allocated , target_num));
-  if (state.max_gradient == NULL)
-  {
-    GUARD_CU(Malloc(state.max_gradient, 1));
-  }
-  //loop_kernel <<<1, 1, 0, stream>>>((SizeT)1,
-  //  [send_counter] __device__ (const SizeT &i)
-  //  {
-  //    send_counter[0] = 0;
-  //  });
-  GUARD_CU(Memset(send_counter, 0, 1, Malloc_t::Default, stream));
-  GUARD_CU(Memset(state.max_gradient, 0, 1, Malloc_t::Default, stream));
+    auto mask_allocated_ = state.mask_allocated;
+    GUARD_CU(GarenteeAllocation(state.send_masks  , mask_allocated_, num_masks));
+    mask_allocated_ = state.mask_allocated;
+    GUARD_CU(GarenteeAllocation(state.h_send_masks, mask_allocated_, num_masks, Malloc_t::Host));
+    mask_allocated_ = state.mask_allocated;
+    GUARD_CU(GarenteeAllocation(state.h_recv_masks, mask_allocated_, num_masks, Malloc_t::Host));
+    mask_allocated_ = state.mask_allocated;
+    GUARD_CU(GarenteeAllocation(state.recv_masks  , mask_allocated_, num_masks));
+    if (state.mask_allocated < num_masks)
+      state.mask_allocated = num_masks;
 
-  T* send_data = (T*)(state.send_data);
-  // select at most target_num gradients
-  select_kernel
-    <<<grid_size, block_size, 0, stream>>>
-    (accumulated_verlocity, num_gradients, config.global_num_gpus,
-    threshold, target_num, send_data, send_indices, send_counter,
-    state.max_gradient);
+    auto &mask_counters = state.mask_counters;
+    auto &mask_offsets  = state.mask_offsets;
+    GUARD_CU(GarenteeAllocation(
+        mask_counters, state.mask_counters_allocated, (num_masks + 1)));
+    GUARD_CU(GarenteeAllocation(
+        mask_offsets , state.mask_offsets_allocated , (num_masks + 1))); 
 
-  // pad if num_slected < target_num
-  pad_kernel
-    <<<grid_size, block_size, 0, stream>>>
-    ((T*)send_data, send_indices, target_num, send_counter, state.max_gradient);
+    size_t required_bytes = 0;
+    GUARD_CU(cub::DeviceScan::InclusiveSum(
+      (char*)NULL, required_bytes,
+      mask_counters, mask_counters, num_masks));
+    GUARD_CU(GarenteeAllocation(
+      state.temp_storage, state.temp_storage_bytes, required_bytes));
 
-  // Reallocate if not enough
-  SizeT recv_count      = target_num * config.global_num_gpus;
-  auto &recv_allocated  = state.recv_allocated;
-  auto  recv_allocated_ = state.recv_allocated * sizeof(T);
-  //auto &recv_data       = state.recv_data;
-  auto &recv_indices    = state.recv_indices;
+    if (state.num_gradients_to_communicate == NULL)
+        GUARD_CU(Malloc(state.num_gradients_to_communicate, 1));
 
-  //printf("recv_count = %lld\n", (long long)recv_count);
-  GUARD_CU(GarenteeAllocation(
-      state.recv_data, recv_allocated_, recv_count * sizeof(T)));
-  GUARD_CU(GarenteeAllocation(
-      recv_indices, recv_allocated, recv_count));
+    auto &send_masks = state.send_masks;
+    auto &recv_masks = state.recv_masks;
+    loop_kernel<<<grid_size, block_size, 0, stream>>>(num_masks,
+      [send_masks, num_gradients, threshold, accumulated_verlocity]
+      __device__ (const SizeT &i)
+      {
+        uint32_t mask = 0;
+        SizeT offset = i * 32;
+        int end_j = 32, j = 0;
+        if (offset + end_j > num_gradients)
+          end_j = num_gradients - offset;
+        while (j < end_j)
+        {
+          T element = accumulated_verlocity[j + offset];
+          if (!isfinite(element * 1.0f))
+          {
+            j ++;
+            continue;
+          }
 
-  T* recv_data = (T*)(state.recv_data);
-  // Collect selected data & indices from all peers
-  GUARD_NCCL2("ncclAllGather",
-    ncclAllGather(send_data   , (void*)recv_data,
-      (size_t)target_num, PreDefinedValues<T       >::NCCLDataType,
-      config.nccl_comm, stream));
-  GUARD_NCCL2("ncclAllGather",
-    ncclAllGather(send_indices, (void*)recv_indices,
-      (size_t)target_num, PreDefinedValues<uint32_t>::NCCLDataType,
-      config.nccl_comm, stream));
+          if (!(abs(element) < threshold[0]))
+          {
+            mask |= (((uint32_t)1) << j);
+          }
+          j++;
+        }
+        send_masks[i] = mask;
+      });
 
-  //auto &global_gradients_= state.global_gradients;
-  //auto &global_allocated = state.global_allocated;
-  //GUARD_CU(GarenteeAllocation(
-  //  state.global_gradients, global_allocated, num_gradients * sizeof(T)));
-  //T* global_gradients = (T*)(state.global_gradients);
+    GUARD_CU2("cudaMemcpyAsync",
+      cudaMemcpyAsync(state.h_send_masks, send_masks, sizeof(uint32_t) * num_masks,
+        cudaMemcpyDeviceToHost, stream));
+    GUARD_CU2("cudaStreamSynchronize",
+      cudaStreamSynchronize(stream));
 
-  // Post process gradients
-  //loop_kernel <<<grid_size, block_size, 0, stream>>>(num_gradients,
-  //  [global_gradients] __device__ (const SizeT &i)
-  //  {
-  //    global_gradients[i] = 0;
-  //  });
-  GUARD_CU(Memset(output_gradients, 0, num_gradients, Malloc_t::Default, stream));
+    MPI_Allreduce(state.h_send_masks, state.h_recv_masks, (int)num_masks,
+      PreDefinedValues<uint32_t>::getMpiDataType(), MPI_BOR, config.mpi_comm);
 
-  // Unpack recv data
-  loop_kernel <<<grid_size, block_size, 0, stream>>>(recv_count,
-    [recv_data, recv_indices, output_gradients] __device__ (const SizeT &i)
+    GUARD_CU2("cudaMemcpyAsync",
+      cudaMemcpyAsync(recv_masks, state.h_recv_masks, sizeof(uint32_t) * num_masks,
+        cudaMemcpyHostToDevice, stream));
+
+    loop_kernel<<<grid_size, block_size, 0, stream>>>(num_masks,
+      [recv_masks, mask_counters] __device__ (const SizeT &i)
+      {
+        mask_counters[i] = __popc(recv_masks[i]);
+      });
+
+    GUARD_CU(Memset(mask_offsets, 0, 1, Malloc_t::Default, stream));
+    GUARD_CU(cub::DeviceScan::InclusiveSum(
+      state.temp_storage, required_bytes,
+      mask_counters, mask_offsets + 1, num_masks));
+
+    GUARD_CU2("cudaMemcpyAsync",
+      cudaMemcpyAsync(state.num_gradients_to_communicate,
+        mask_offsets + num_masks, sizeof(uint32_t), cudaMemcpyDeviceToHost, stream));
+    GUARD_CU2("cudaStreamSynchronize",
+      cudaStreamSynchronize(stream));
+
+    auto num_gradients_comm = state.num_gradients_to_communicate[0];
+    auto send_allocated_ = state.send_allocated * sizeof(T);
+    GUARD_CU(GarenteeAllocation(
+      state.send_data, send_allocated_, sizeof(T) * num_gradients_comm));
+    if (state.send_allocated < num_gradients_comm)
+      state.send_allocated = num_gradients_comm;
+    auto recv_allocated_ = state.recv_allocated * sizeof(T);
+    GUARD_CU(GarenteeAllocation(
+      state.recv_data, recv_allocated_, sizeof(T) * num_gradients_comm));
+    if (state.recv_allocated < num_gradients_comm)
+      state.recv_allocated = num_gradients_comm;
+    
+    T* send_data = (T*)(state.send_data);
+    T* recv_data = (T*)(state.recv_data);
+    auto global_num_gpus = config.global_num_gpus;
+    loop_kernel<<<grid_size, block_size, 0, stream>>>(num_masks,
+      [recv_masks, mask_offsets, send_data, global_num_gpus, num_gradients, accumulated_verlocity]
+      __device__ (const SizeT &i)
+      {
+        uint32_t mask = recv_masks[i];
+        if (mask == 0)
+          return;
+
+        SizeT offset = i * 32, output_offset = mask_offsets[i];
+        int end_j = 32, j = 0, output_count = 0;
+        if (offset + end_j > num_gradients)
+          end_j = num_gradients - offset;
+        while (j < end_j)
+        {
+          if ((mask & (((uint32_t)1) << j)) == 0)
+          {
+            j ++;
+            continue;
+          }
+          T element = accumulated_verlocity[j + offset];
+          if (!isfinite(element * 1.0f))
+            element = 0;
+
+          send_data[output_offset + output_count] = element / global_num_gpus;
+          output_count ++;
+          j++;
+        }
+      });
+
+    GUARD_NCCL2("ncclAllReduce",
+      ncclAllReduce(send_data   , (void*)recv_data,
+        (size_t)num_gradients_comm,
+        PreDefinedValues<T>::NCCLDataType, ncclSum, config.nccl_comm, stream));
+
+    GUARD_CU(Memset(output_gradients, 0, num_gradients, Malloc_t::Default, stream));
+    loop_kernel<<<grid_size, block_size, 0, stream>>>(num_masks,
+      [recv_masks, mask_offsets, recv_data, output_gradients, num_gradients]
+      __device__ (const SizeT &i)
+      {
+        uint32_t mask = recv_masks[i];
+        if (mask == 0)
+          return;
+
+        SizeT offset = i * 32, output_offset = mask_offsets[i];
+        int end_j = 32, j = 0, output_count = 0;
+        if (offset + end_j > num_gradients)
+          end_j = num_gradients - offset;
+        while (j < end_j)
+        {
+          if ((mask & (((uint32_t)1) << j)) == 0)
+          {
+            j ++;
+            continue;
+          }
+
+          output_gradients[j + offset] = recv_data[output_offset + output_count];
+          output_count ++;
+          j++;
+        }
+      });
+
+    // Updates pervious_verlocity and pervious_accumulated_verlocity
+    // Can be overlap with communication
+    for (auto it = offset_map.begin(); it != offset_map.end(); it++)
     {
-      T     element = recv_data   [i];
-      SizeT index   = recv_indices[i];
-      if (isValid(index))
-        atomicAdd(output_gradients + index, element);
-    });
+      SizeT gradient_start_chunk = std::get<0>(*it);
+      SizeT num_gradients_chunk  = std::get<1>(*it);
+      size_t offset              = std::get<2>(*it);
+
+      T* pervious_verlocity
+        = (T*)(state.pervious_verlocity + offset);
+      T* pervious_accumulated_verlocity
+        = (T*)(state.pervious_accumulated_verlocity + offset);
+
+      loop_kernel <<<grid_size, block_size, 0, stream>>>(num_gradients_chunk,
+        [recv_masks, gradient_start_chunk, num_gradients_chunk,
+         verlocity, pervious_verlocity,
+         accumulated_verlocity, pervious_accumulated_verlocity]
+        __device__ (const SizeT &i)
+        {
+          //if (i == 0)
+          //  printf("gradient [%ld...%ld) \n",
+          //    (long)gradient_start_chunk,
+          //    (long)(gradient_start_chunk + num_gradients_chunk));
+          auto gradient_pos = i + gradient_start_chunk;
+          auto mask_pos = gradient_pos / 32;
+          auto mask = recv_masks[mask_pos];
+          auto mask_offset = (gradient_pos & ((uint32_t)31));
+
+          if ((mask & (((uint32_t)1) << mask_offset)) != 0)
+          {
+            pervious_verlocity[i] = 0;
+            pervious_accumulated_verlocity[i] = 0;
+          } else {
+            pervious_verlocity[i] = verlocity[gradient_pos];
+            pervious_accumulated_verlocity[i] = accumulated_verlocity[gradient_pos];
+          }
+        });
+    }
+  }
+
+  else {
+    // use allGather to communicate
+    //auto &samp_counter = state.samp_counter;
+    //loop_kernel <<<1, 1, 0, stream>>>((SizeT)1,
+    //  [samp_counter] __device__ (const SizeT &i)
+    //  {
+    //    samp_counter[0] = 0;
+    //  });
+    //loop_kernel <<<grid_size, block_size, 0, stream>>>(num_samples,
+    //  [samp_data, num_samples, samp_counter, threshold] __device__ (const SizeT &i)
+    //  {
+    //    if (!(samp_data[i] < threshold[0]))
+    //    {
+    //      atomicAdd(samp_counter, (uint64_t)1);
+    //    }
+    //  });
+    //loop_kernel <<<1, 1, 0, stream>>>((SizeT)1,
+    //  [samp_counter] __device__ (const SizeT &i)
+    //  {
+    //    printf("Recount = %d\n", samp_counter[0]);
+    //  });
+
+    // Pick those larger than threshold
+    auto &send_counter   = state.send_counter;
+    //auto &send_data      = state.send_data;
+    auto &send_indices   = state.send_indices;
+    auto &send_allocated = state.send_allocated;
+    auto send_allocated_ = send_allocated * sizeof(T);
+    if (send_counter == NULL) {
+      GUARD_CU(Malloc(send_counter, 1));
+    }
+
+    GUARD_CU(GarenteeAllocation(
+      state.send_data, send_allocated_, target_num * sizeof(T)));
+    GUARD_CU(GarenteeAllocation(
+      send_indices, send_allocated , target_num));
+    if (state.max_gradient == NULL) {
+      GUARD_CU(Malloc(state.max_gradient, 1));
+    }
+    //loop_kernel <<<1, 1, 0, stream>>>((SizeT)1,
+    //  [send_counter] __device__ (const SizeT &i)
+    //  {
+    //    send_counter[0] = 0;
+    //  });
+    GUARD_CU(Memset(send_counter, 0, 1, Malloc_t::Default, stream));
+    GUARD_CU(Memset(state.max_gradient, 0, 1, Malloc_t::Default, stream));
+
+    T* send_data = (T*)(state.send_data);
+    // select at most target_num gradients
+    select_kernel
+      <<<grid_size, block_size, 0, stream>>>
+      (accumulated_verlocity, num_gradients, config.global_num_gpus,
+      threshold, target_num, send_data, send_indices, send_counter,
+      state.max_gradient);
+
+    // pad if num_slected < target_num
+    pad_kernel
+      <<<grid_size, block_size, 0, stream>>>
+      ((T*)send_data, send_indices, target_num, send_counter, state.max_gradient);
+
+    // Reallocate if not enough
+    SizeT recv_count      = target_num * config.global_num_gpus;
+    auto &recv_allocated  = state.recv_allocated;
+    auto  recv_allocated_ = state.recv_allocated * sizeof(T);
+    //auto &recv_data       = state.recv_data;
+    auto &recv_indices    = state.recv_indices;
+
+    //printf("recv_count = %lld\n", (long long)recv_count);
+    GUARD_CU(GarenteeAllocation(
+        state.recv_data, recv_allocated_, recv_count * sizeof(T)));
+    GUARD_CU(GarenteeAllocation(
+        recv_indices, recv_allocated, recv_count));
+
+    T* recv_data = (T*)(state.recv_data);
+    // Collect selected data & indices from all peers
+    GUARD_NCCL2("ncclAllGather",
+      ncclAllGather(send_data   , (void*)recv_data,
+        (size_t)target_num, PreDefinedValues<T       >::NCCLDataType,
+        config.nccl_comm, stream));
+    GUARD_NCCL2("ncclAllGather",
+      ncclAllGather(send_indices, (void*)recv_indices,
+        (size_t)target_num, PreDefinedValues<uint32_t>::NCCLDataType,
+        config.nccl_comm, stream));
+
+    //auto &global_gradients_= state.global_gradients;
+    //auto &global_allocated = state.global_allocated;
+    //GUARD_CU(GarenteeAllocation(
+    //  state.global_gradients, global_allocated, num_gradients * sizeof(T)));
+    //T* global_gradients = (T*)(state.global_gradients);
+
+    // Post process gradients
+    //loop_kernel <<<grid_size, block_size, 0, stream>>>(num_gradients,
+    //  [global_gradients] __device__ (const SizeT &i)
+    //  {
+    //    global_gradients[i] = 0;
+    //  });
+    GUARD_CU(Memset(output_gradients, 0, num_gradients, Malloc_t::Default, stream));
+
+    // Unpack recv data
+    loop_kernel <<<grid_size, block_size, 0, stream>>>(recv_count,
+      [recv_data, recv_indices, output_gradients] __device__ (const SizeT &i)
+      {
+        T     element = recv_data   [i];
+        SizeT index   = recv_indices[i];
+        if (isValid(index))
+          atomicAdd(output_gradients + index, element);
+      });
+  }
 
   // Updates pervious_verlocity and pervious_accumulated_verlocity
   // Can be overlap with communication
@@ -820,13 +1041,14 @@ cudaError_t GradientAllReduce(
         //  printf("gradient [%ld...%ld) \n",
         //    (long)gradient_start_chunk,
         //    (long)(gradient_start_chunk + num_gradients_chunk));
-        auto v = accumulated_verlocity[i + gradient_start_chunk];
+        auto gradient_pos = i + gradient_start_chunk;
+        auto v = accumulated_verlocity[gradient_pos];
         if (abs(v) > threshold[0])
         {
           pervious_verlocity[i] = 0;
           pervious_accumulated_verlocity[i] = 0;
         } else {
-          pervious_verlocity[i] = verlocity[i];
+          pervious_verlocity[i] = verlocity[gradient_pos];
           pervious_accumulated_verlocity[i] = v;
         }
       });
