@@ -42,7 +42,11 @@ TorchPersistentBuffer::TorchPersistentBuffer(int device, int64_t size)
     buffer_ = new char[size];
   } else {
 #if HAVE_CUDA
+#if TORCH_VERSION >= 4001000
+    buffer_ = THCudaMalloc(state, size);
+#else
     THCudaCheck(THCudaMalloc(state, (void**)&buffer_, size));
+#endif
 #else
     throw std::logic_error("Internal error. Requested TorchPersistentBuffer "
                            "with GPU device but not compiled with CUDA.");
