@@ -1518,7 +1518,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   // recorded (everyone else).
   std::vector<std::string> ready_to_reduce;
   if (is_coordinator) {
-  	printf("operations.cc RunLoopOnce -->this is coordinator!\n");
+  	//printf("operations.cc RunLoopOnce -->this is coordinator!\n");
     while (!message_queue.empty()) {
       // Pop the first available message message
       MPIRequest message = message_queue.front();
@@ -1665,7 +1665,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 
   else {
 
-  	printf("operations.cc RunLoopOnce --> this is other rank!\n");
+  	//printf("operations.cc RunLoopOnce --> this is other rank!\n");
     std::string encoded_message;
     MPIRequestList message_list;
     message_list.set_shutdown(state.shut_down);
