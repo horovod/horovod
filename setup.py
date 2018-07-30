@@ -987,6 +987,10 @@ class custom_build_ext(build_ext):
             raise DistutilsError(
                 'None of TensorFlow, PyTorch, or MXNet plugins were built. See errors above.')
 
+require_list = ['cloudpickle', 'psutil', 'six']
+# Skip cffi if pytorch extension explicitly disabled
+if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
+  require_list.append('cffi>=1.4.0')
 
 setup(name='horovod',
       version=__version__,
@@ -1007,7 +1011,7 @@ setup(name='horovod',
       # If cffi is specified in setup_requires, it will need libffi to be installed on the machine,
       # which is undesirable.  Luckily, `install` action will install cffi before executing build,
       # so it's only necessary for `build*` or `bdist*` actions.
-      setup_requires=['cffi>=1.4.0', 'cloudpickle', 'psutil', 'six'] if is_build_action() else [],
-      install_requires=['cffi>=1.4.0', 'cloudpickle', 'psutil', 'six'],
+      setup_requires=require_list if is_build_action() else [],
+      install_requires=require_list,
       zip_safe=False,
       scripts=['bin/horovodrun'])
