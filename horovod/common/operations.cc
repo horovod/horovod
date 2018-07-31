@@ -1001,51 +1001,58 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                               DDL_OP_SUM))
 #else
       if (horovod_global.hierarchical_allreduce) {
-        NCCL_CHECK(entries, "ncclReduce",
-                   ncclReduce(fused_input_data, buffer_data,
-                              (size_t)num_elements,
-                              GetNCCLDataType(first_entry.tensor), ncclSum, 0,
+        int64_t num_elements_per_gpu = num_elements%horovod_global.local_size == 0 ?
+                   (num_elements/horovod_global.local_size) : (num_elements/horovod_global.local_size + 1);
+        size_t buffer_len_per_proc = (buffer_len/num_elements)*num_elements_per_gpu;
+
+        NCCL_CHECK(entries, "ncclReduceScatter",
+                   ncclReduceScatter(fused_input_data, buffer_data,
+                              (size_t)num_elements_per_gpu,
+                              GetNCCLDataType(first_entry.tensor), ncclSum,
                               nccl_comm, stream))
+
         if (timeline.Initialized()) {
-          RECORD_EVENT(entries, event_queue, NCCL_REDUCE, stream)
+          RECORD_EVENT(entries, event_queue, NCCL_REDUCESCATTER, stream)
         }
 
-        if (horovod_global.local_rank == 0) {
-          // cudaHostAlloc is significantly slower than malloc.  Pre-allocating
-          // a buffer is not safe since the tensor can be arbitrarily large.
-          host_buffer = malloc(buffer_len);
+        // cudaHostAlloc is significantly slower than malloc.  Pre-allocating
+        // a buffer is not safe since the tensor can be arbitrarily large.
 
-          CUDA_CHECK(entries, "cudaMemcpyAsync",
-                     cudaMemcpyAsync(host_buffer, buffer_data, buffer_len,
+         host_buffer = malloc(buffer_len_per_proc);
+
+         CUDA_CHECK(entries, "cudaMemcpyAsync",
+                     cudaMemcpyAsync(host_buffer, buffer_data, buffer_len_per_proc,
                                      cudaMemcpyDeviceToHost, stream))
-          // This event must be recorded for the subsequent synchronize.
-          RECORD_EVENT(entries, event_queue, MEMCPY_IN_HOST_BUFFER, stream)
+         // This event must be recorded for the subsequent synchronize.
+         RECORD_EVENT(entries, event_queue, MEMCPY_IN_HOST_BUFFER, stream)
 
-          // Synchronize.
-          WAIT_FOR_EVENTS(entries, timeline, event_queue)
+         // Synchronize.
+         WAIT_FOR_EVENTS(entries, timeline, event_queue)
 
-          ACTIVITY_START_ALL(entries, timeline, MPI_ALLREDUCE)
-          MPI_CHECK(entries, "MPI_Allreduce",
-                    MPI_Allreduce(MPI_IN_PLACE, host_buffer, (int)num_elements,
-                                  GetMPIDataType(first_entry.tensor), MPI_SUM,
-                                  horovod_global.cross_comm))
-          ACTIVITY_END_ALL(entries, timeline)
+         ACTIVITY_START_ALL(entries, timeline, MPI_ALLREDUCE)
+         MPI_CHECK(entries, "MPI_Allreduce",
+                   MPI_Allreduce(MPI_IN_PLACE, host_buffer, (int)num_elements_per_gpu,
+                                 GetMPIDataType(first_entry.tensor), MPI_SUM,
+                                 horovod_global.cross_comm))
 
-          CUDA_CHECK(entries, "cudaMemcpyAsync",
-                     cudaMemcpyAsync(buffer_data, host_buffer, buffer_len,
+         ACTIVITY_END_ALL(entries, timeline)
+
+         CUDA_CHECK(entries, "cudaMemcpyAsync",
+                     cudaMemcpyAsync(buffer_data, host_buffer, buffer_len_per_proc,
                                      cudaMemcpyHostToDevice, stream))
-          if (timeline.Initialized()) {
+         if (timeline.Initialized()) {
             RECORD_EVENT(entries, event_queue, MEMCPY_OUT_HOST_BUFFER, stream)
-          }
-        }
+         } 
 
-        NCCL_CHECK(entries, "ncclBcast",
-                   ncclBcast(buffer_data, (size_t)num_elements,
-                             GetNCCLDataType(first_entry.tensor), 0, nccl_comm,
+         NCCL_CHECK(entries, "ncclAllGather",
+                   ncclAllGather(buffer_data, buffer_data, (size_t)num_elements_per_gpu,
+                             GetNCCLDataType(first_entry.tensor), nccl_comm,
                              stream))
-        if (timeline.Initialized()) {
-          RECORD_EVENT(entries, event_queue, NCCL_BCAST, stream)
-        }
+
+         if (timeline.Initialized()) {
+           RECORD_EVENT(entries, event_queue, NCCL_ALLGATHER, stream)
+         }
+
       } else {
         NCCL_CHECK(entries, "ncclAllReduce",
                    ncclAllReduce(fused_input_data, buffer_data,
