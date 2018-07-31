@@ -89,6 +89,7 @@ cudaError_t Free(
   if (ptr == NULL)
     return retval;
 
+  printf("Freeing @ %p\n", ptr);
   if (malloc_type == Host) {
     GUARD_CU2("cudaFreeHost",
       cudaFreeHost(ptr));
@@ -114,10 +115,10 @@ cudaError_t Malloc(
   cudaError_t retval = cudaSuccess;
 
   size_t size = target * sizeof(T);
-  //printf("Allocating %ld x %ld bytes on %s\n", target, sizeof(T),
-  //   malloc_type == Default ? "Default" :
-  //  (malloc_type == Host    ? "Host" :
-  //  (malloc_type == Managed ? "Managed" : "Raw")));
+  printf("Allocating %ld x %ld bytes on %s\n", target, sizeof(T),
+     malloc_type == Default ? "Default" :
+    (malloc_type == Host    ? "Host" :
+    (malloc_type == Managed ? "Managed" : "Raw")));
 
   if (malloc_type == Default) {
     GUARD_CU2("cudaMalloc",
@@ -570,10 +571,10 @@ cudaError_t GradientAllReduce(
       pervious_verlocity, verlocity,
       accumulated_verlocity, pervious_accumulated_verlocity]
       __device__ (const SizeT &i) {
-        auto u = pervious_verlocity[i] * momentum
-          + input_gradients[i + gradient_start_chunk];
-        accumulated_verlocity[i] = pervious_accumulated_verlocity[i] + u;
-        verlocity[i + gradient_start_chunk] = u;
+        auto pos = i + gradient_start_chunk;
+        auto u = pervious_verlocity[i] * momentum + input_gradients[pos];
+        accumulated_verlocity[pos] = pervious_accumulated_verlocity[i] + u;
+        verlocity[pos] = u;
       });
   }
   //GUARD_CU2("cudaStreamSynchronize after local gradient updates",
@@ -672,9 +673,9 @@ cudaError_t GradientAllReduce(
     sparsity = config.init_sparsity * exp(
       log(config.final_sparsity / config.init_sparsity)
       / (config.warmup_epochs - 1) * epoch);
-    if (epoch * steps_per_epoch == state.step)
-      printf("Epoch %ld, Step %ld, sparsity = %lf\n",
-        epoch, state.step, sparsity);
+    //if (epoch * steps_per_epoch == state.step)
+    //  printf("Epoch %ld, Step %ld, sparsity = %lf\n",
+    //    epoch, state.step, sparsity);
   }
   SizeT  target_num = num_gradients * (1 - sparsity);
   auto &threshold = state.gradient_threshold;
@@ -732,7 +733,10 @@ cudaError_t GradientAllReduce(
       state.temp_storage, state.temp_storage_bytes, required_bytes));
 
     if (state.num_gradients_to_communicate == NULL)
-        GUARD_CU(Malloc(state.num_gradients_to_communicate, 1));
+        GUARD_CU(Malloc(state.num_gradients_to_communicate, 1, Malloc_t::Host));
+
+    //GUARD_CU2("cudaStreamSynchronize after allocation",
+    //  cudaStreamSynchronize(stream));
 
     auto &send_masks = state.send_masks;
     auto &recv_masks = state.recv_masks;
@@ -766,7 +770,7 @@ cudaError_t GradientAllReduce(
     GUARD_CU2("cudaMemcpyAsync",
       cudaMemcpyAsync(state.h_send_masks, send_masks, sizeof(uint32_t) * num_masks,
         cudaMemcpyDeviceToHost, stream));
-    GUARD_CU2("cudaStreamSynchronize",
+    GUARD_CU2("cudaStreamSynchronize before MPI_Allreduce",
       cudaStreamSynchronize(stream));
 
     MPI_Allreduce(state.h_send_masks, state.h_recv_masks, (int)num_masks,
@@ -785,15 +789,20 @@ cudaError_t GradientAllReduce(
     GUARD_CU(Memset(mask_offsets, 0, 1, Malloc_t::Default, stream));
     GUARD_CU(cub::DeviceScan::InclusiveSum(
       state.temp_storage, required_bytes,
-      mask_counters, mask_offsets + 1, num_masks));
+      mask_counters, mask_offsets + 1, num_masks, stream));
 
     GUARD_CU2("cudaMemcpyAsync",
       cudaMemcpyAsync(state.num_gradients_to_communicate,
         mask_offsets + num_masks, sizeof(uint32_t), cudaMemcpyDeviceToHost, stream));
-    GUARD_CU2("cudaStreamSynchronize",
+    GUARD_CU2("cudaStreamSynchronize after InclusiveSum",
       cudaStreamSynchronize(stream));
 
     auto num_gradients_comm = state.num_gradients_to_communicate[0];
+    if (config.global_gpu_rank == 0)
+      printf("#gradients to comm = %ld, #gradients = %ld, rate = %f\n", 
+        (long)num_gradients_comm, (long)num_gradients, 
+        1.0f * num_gradients_comm / num_gradients);
+
     auto send_allocated_ = state.send_allocated * sizeof(T);
     GUARD_CU(GarenteeAllocation(
       state.send_data, send_allocated_, sizeof(T) * num_gradients_comm));
@@ -809,7 +818,8 @@ cudaError_t GradientAllReduce(
     T* recv_data = (T*)(state.recv_data);
     auto global_num_gpus = config.global_num_gpus;
     loop_kernel<<<grid_size, block_size, 0, stream>>>(num_masks,
-      [recv_masks, mask_offsets, send_data, global_num_gpus, num_gradients, accumulated_verlocity]
+      [recv_masks, mask_offsets, send_data, global_num_gpus, 
+      num_gradients, accumulated_verlocity]
       __device__ (const SizeT &i)
       {
         uint32_t mask = recv_masks[i];
@@ -836,6 +846,10 @@ cudaError_t GradientAllReduce(
           j++;
         }
       });
+
+    //GUARD_CU2("cudaStreamSynchronize before ncclAllReduce",
+    //  cudaStreamSynchronize(stream));
+
 
     GUARD_NCCL2("ncclAllReduce",
       ncclAllReduce(send_data   , (void*)recv_data,
@@ -868,6 +882,9 @@ cudaError_t GradientAllReduce(
           j++;
         }
       });
+
+    //GUARD_CU2("cudaStreamSynchronize before pervious value updates",
+    //  cudaStreamSynchronize(stream));
 
     // Updates pervious_verlocity and pervious_accumulated_verlocity
     // Can be overlap with communication
@@ -982,6 +999,9 @@ cudaError_t GradientAllReduce(
     GUARD_CU(GarenteeAllocation(
         recv_indices, recv_allocated, recv_count));
 
+    //GUARD_CU2("cudaStreamSynchronize before AllGather",
+    //    cudaStreamSynchronize(stream));
+
     T* recv_data = (T*)(state.recv_data);
     // Collect selected data & indices from all peers
     GUARD_NCCL2("ncclAllGather",
@@ -992,6 +1012,8 @@ cudaError_t GradientAllReduce(
       ncclAllGather(send_indices, (void*)recv_indices,
         (size_t)target_num, PreDefinedValues<uint32_t>::NCCLDataType,
         config.nccl_comm, stream));
+    //GUARD_CU2("cudaStreamSynchronize after AllGather",
+    //    cudaStreamSynchronize(stream));
 
     //auto &global_gradients_= state.global_gradients;
     //auto &global_allocated = state.global_allocated;
@@ -1016,42 +1038,42 @@ cudaError_t GradientAllReduce(
         if (isValid(index))
           atomicAdd(output_gradients + index, element);
       });
-  }
 
-  // Updates pervious_verlocity and pervious_accumulated_verlocity
-  // Can be overlap with communication
-  for (auto it = offset_map.begin(); it != offset_map.end(); it++)
-  {
-    SizeT gradient_start_chunk = std::get<0>(*it);
-    SizeT num_gradients_chunk  = std::get<1>(*it);
-    size_t offset              = std::get<2>(*it);
+    // Updates pervious_verlocity and pervious_accumulated_verlocity
+    // Can be overlap with communication
+    for (auto it = offset_map.begin(); it != offset_map.end(); it++)
+    {
+      SizeT gradient_start_chunk = std::get<0>(*it);
+      SizeT num_gradients_chunk  = std::get<1>(*it);
+      size_t offset              = std::get<2>(*it);
 
-    T* pervious_verlocity
-      = (T*)(state.pervious_verlocity + offset);
-    T* pervious_accumulated_verlocity
-      = (T*)(state.pervious_accumulated_verlocity + offset);
+      T* pervious_verlocity
+        = (T*)(state.pervious_verlocity + offset);
+      T* pervious_accumulated_verlocity
+        = (T*)(state.pervious_accumulated_verlocity + offset);
 
-    loop_kernel <<<grid_size, block_size, 0, stream>>>(num_gradients_chunk,
-      [threshold, gradient_start_chunk, num_gradients_chunk,
-       verlocity, pervious_verlocity,
-       accumulated_verlocity, pervious_accumulated_verlocity]
-      __device__ (const SizeT &i)
-      {
-        //if (i == 0)
-        //  printf("gradient [%ld...%ld) \n",
-        //    (long)gradient_start_chunk,
-        //    (long)(gradient_start_chunk + num_gradients_chunk));
-        auto gradient_pos = i + gradient_start_chunk;
-        auto v = accumulated_verlocity[gradient_pos];
-        if (abs(v) > threshold[0])
+      loop_kernel <<<grid_size, block_size, 0, stream>>>(num_gradients_chunk,
+        [threshold, gradient_start_chunk, num_gradients_chunk,
+        verlocity, pervious_verlocity,
+        accumulated_verlocity, pervious_accumulated_verlocity]
+        __device__ (const SizeT &i)
         {
-          pervious_verlocity[i] = 0;
-          pervious_accumulated_verlocity[i] = 0;
-        } else {
-          pervious_verlocity[i] = verlocity[gradient_pos];
-          pervious_accumulated_verlocity[i] = v;
-        }
-      });
+          //if (i == 0)
+          //  printf("gradient [%ld...%ld) \n",
+          //    (long)gradient_start_chunk,
+          //    (long)(gradient_start_chunk + num_gradients_chunk));
+          auto gradient_pos = i + gradient_start_chunk;
+          auto v = accumulated_verlocity[gradient_pos];
+          if (isfinite(v * 1.0f) && abs(v) > threshold[0])
+          {
+            pervious_verlocity[i] = 0;
+            pervious_accumulated_verlocity[i] = 0;
+          } else {
+            pervious_verlocity[i] = verlocity[gradient_pos];
+            pervious_accumulated_verlocity[i] = v;
+          }
+        });
+    }
   }
 
   //GUARD_CU2("cudaStreamSynchronize after",

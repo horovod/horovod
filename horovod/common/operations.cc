@@ -963,6 +963,11 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         config.nccl_comm = nccl_comm;
         config.mpi_comm = horovod_global.mpi_comm; 
         config.global_num_gpus = horovod_global.size;
+        config.global_gpu_rank = horovod_global.rank;
+        config.local_num_gpus  = horovod_global.local_size;
+        config.local_gpu_rank  = horovod_global.local_rank;
+        config.global_num_nodes = horovod_global.size / horovod_global.local_size;
+        config.global_node_rank = horovod_global.rank % horovod_global.local_size;
         config.configured = true;
         horovod_global.dgc_state.tensor_offsets.clear();
         horovod_global.dgc_state.step_counters.clear();
@@ -1183,10 +1188,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                 sizeof(uint64_t) * 2));
 
             horovod_global.dgc_state.gradient_offsets_allocated = 2;
+            horovod_global.dgc_state.gradient_offsets[0] = 0;
+            horovod_global.dgc_state.gradient_offsets[1]
+              = e.tensor->shape().num_elements();
           }
-          horovod_global.dgc_state.gradient_offsets[0] = 0;
-          horovod_global.dgc_state.gradient_offsets[1]
-            = e.tensor->shape().num_elements();
         }
 
         if (horovod_global.ddl_initialized) {

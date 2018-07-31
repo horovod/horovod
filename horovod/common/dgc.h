@@ -133,6 +133,21 @@ struct DgcConfig {
 
   // number of GPUs in all nodes
   int global_num_gpus = 1;
+  
+  // global GPU rank
+  int global_gpu_rank = 0;
+
+  // number of nodes
+  int global_num_nodes = 1;
+  
+  // node rank
+  int global_node_rank = 0;
+
+  // number of GPUs in local node
+  int local_num_gpus = 1;
+
+  // local GPU rank
+  int local_gpu_rank = 0;
 
   // NCCL communication handle
   ncclComm_t nccl_comm;

@@ -119,8 +119,8 @@ void select_kernel(
   {
     s_block_output_count = 0;
     s_max_gradient = 0;
-    if (blockIdx.x == 0)
-      printf("threadhold = %f, #elements = %lld\n", threshold, (long long)num_elements);
+    //if (blockIdx.x == 0)
+    //  printf("threadhold = %f, #elements = %lld\n", threshold, (long long)num_elements);
   }
   __syncthreads();
 
@@ -274,9 +274,9 @@ void pad_kernel(
   const SizeT STRIDE = (SizeT)gridDim.x * blockDim.x;
   SizeT i = selected_count[0] + (SizeT)blockDim.x * blockIdx.x + threadIdx.x;
 
-  if (blockIdx.x == 0 && threadIdx.x == 0)
-    printf("#selected = %ld, target = %ld, max_gradient = %f\n",
-      (long long)i, (long long)target_num, max_gradient[0]);
+  //if (blockIdx.x == 0 && threadIdx.x == 0)
+  //  printf("#selected = %ld, target = %ld, max_gradient = %f\n",
+  //    (long long)i, (long long)target_num, max_gradient[0]);
 
   while (i < target_num)
   {
