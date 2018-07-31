@@ -949,29 +949,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       void* buffer_data;
       int64_t num_elements = 0;
       size_t buffer_len;
-      size_t dgc_offset_start = 0;
-      std::vector<std::tuple<std::string, size_t, size_t> > dgc_to_allocate;
-      std::vector<std::tuple<uint64_t, uint64_t, size_t> > dgc_offset_map;
-      uint64_t dgc_num_gradients_chunk = 0;
-      uint64_t dgc_gradient_start_chunk = 0;
-
-      // DGC initialization
-      if (horovod_global.use_dgc &&
-        !horovod_global.dgc_config.configured) {
-        auto &config = horovod_global.dgc_config;
-        config.stream = stream;
-        config.nccl_comm = nccl_comm;
-        config.mpi_comm = horovod_global.mpi_comm; 
-        config.global_num_gpus = horovod_global.size;
-        config.global_gpu_rank = horovod_global.rank;
-        config.local_num_gpus  = horovod_global.local_size;
-        config.local_gpu_rank  = horovod_global.local_rank;
-        config.global_num_nodes = horovod_global.size / horovod_global.local_size;
-        config.global_node_rank = horovod_global.rank % horovod_global.local_size;
-        config.configured = true;
-        horovod_global.dgc_state.tensor_offsets.clear();
-        horovod_global.dgc_state.step_counters.clear();
-      }
 
       if (entries.size() > 1) {
         // Access the fusion buffer.
@@ -982,140 +959,13 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
         // Copy memory into the fusion buffer.
         int64_t offset = 0;
-        if (horovod_global.use_dgc) {
-          // Looks for starting offset
-          auto name = entries.begin() -> tensor_name;
-          auto &offsets = horovod_global.dgc_state.tensor_offsets;
-          auto it = offsets.find(name);
-          if (it != offsets.end())
-            dgc_offset_start = it -> second;
-          else {
-            dgc_offset_start = dgc::PreDefinedValues<size_t>::InvalidValue;
-          }
-
-          auto num_layers = entries.size();
-          if (horovod_global.dgc_config.local_gradient_clipping &&
-            horovod_global.dgc_state.gradient_offsets_allocated <= num_layers) {
-
-            if (horovod_global.dgc_state.gradient_offsets != NULL)
-              CUDA_CHECK(entries, "cudaFreeHost",
-                cudaFreeHost(horovod_global.dgc_state.gradient_offsets));
-
-            CUDA_CHECK(entries, "cudaMallocHost",
-              cudaMallocHost(&(horovod_global.dgc_state.gradient_offsets),
-                sizeof(uint64_t) * (num_layers + 1)));
-
-            horovod_global.dgc_state.gradient_offsets_allocated = num_layers + 1;
-          }
-        }
-
-        //size_t dgc_request_size = 0;
         for (auto& e : entries) {
-          if (horovod_global.use_dgc) {
-            auto name = e.tensor_name;
-            auto &counters = horovod_global.dgc_state.step_counters;
-            auto counter_it = counters.find(name);
-            if (counter_it == counters.end())
-              counters[name] = 0;
-            else {
-              auto step = counter_it -> second;
-              counter_it -> second ++;
-              if (step > horovod_global.dgc_state.step)
-                horovod_global.dgc_state.step = step;
-            }
-
-            auto &offsets = horovod_global.dgc_state.tensor_offsets;
-            auto it2 = offsets.find(name);
-            if (it2 == offsets.end()) {
-              dgc_to_allocate.push_back(
-                std::make_tuple(name, e.tensor -> size(), offset));
-              //dgc_request_size += it -> tensor -> size();
-              if (dgc::isValid(dgc_offset_start)) {
-                dgc_num_gradients_chunk += e.tensor -> shape().num_elements();
-              }
-            } else {
-              if (dgc::isValid(dgc_offset_start)) {
-                if (dgc_offset_start + offset != it2 -> second) {
-                  printf("%ld\t Offset mismatch: start = (%s, %ld), "
-                    "current = (%s, %ld), offset = %ld\n",
-                    horovod_global.dgc_state.step,
-                    entries.begin() -> tensor_name.c_str(), dgc_offset_start,
-                    it2 -> first.c_str(), it2 -> second, offset);
-                  dgc_offset_map.push_back(std::make_tuple(
-                    dgc_gradient_start_chunk, dgc_num_gradients_chunk,
-                    dgc_offset_start));
-
-                  dgc_gradient_start_chunk += dgc_num_gradients_chunk;
-                  dgc_num_gradients_chunk = e.tensor -> shape().num_elements();
-                  dgc_offset_start = it2 -> second;
-                } else {
-                  dgc_num_gradients_chunk += e.tensor -> shape().num_elements();
-                }
-              } else {
-                printf("%ld\t Offset mismatch: start = (%s, Not found), "
-                  "current = (%s, %ld), offset = %ld\n",
-                  horovod_global.dgc_state.step,
-                  entries.begin() -> tensor_name.c_str(),
-                  it2 -> first.c_str(), it2 -> second, offset);
-              }
-            }
-          }
           void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
           CUDA_CHECK(entries, "cudaMemcpyAsync",
                      cudaMemcpyAsync(buffer_data_at_offset, e.tensor->data(),
                                      (size_t)e.tensor->size(),
                                      cudaMemcpyDeviceToDevice, stream))
           offset += e.tensor->size();
-        }
-
-        if (horovod_global.use_dgc && dgc_to_allocate.size() != 0) {
-          bool new_first_tensor = false;
-          size_t element_size = 0;
-          auto &offsets = horovod_global.dgc_state.tensor_offsets;
-          for (auto it = dgc_to_allocate.begin();
-            it != dgc_to_allocate.end(); it++) {
-            auto current_offset = horovod_global.dgc_state.offset_counter;
-            offsets[std::get<0>(*it)] = current_offset;
-            horovod_global.dgc_state.offset_counter += std::get<1>(*it);
-
-            if (std::get<0>(*it) == entries.begin() -> tensor_name)
-            {
-              auto &tensor = entries.begin() -> tensor;
-              dgc_offset_start = current_offset;
-              dgc_num_gradients_chunk = tensor -> shape().num_elements();
-              dgc_gradient_start_chunk = 0;
-              new_first_tensor = true;
-              element_size = tensor -> size() / tensor -> shape().num_elements();
-            } else if (new_first_tensor)
-            {
-              dgc_num_gradients_chunk += std::get<1>(*it) / element_size;
-            }
-
-            // Printout record and mismatch checking
-            // if (dgc::isValid(dgc_offset_start) &&
-            //   dgc_offset_start + std::get<2>(*it) != current_offset) {
-            //   printf("%ld\t Offset mismatch2: start = (%s, %ld), "
-            //     "current = (%s, %ld), offset = %ld\n",
-            //     horovod_global.dgc_state.step,
-            //     entries.begin() -> tensor_name.c_str(), dgc_offset_start,
-            //     std::get<0>(*it).c_str(), current_offset, std::get<2>(*it));
-            // }
-            //
-            // if (dgc::isValid(dgc_offset_start))
-            //   printf("%ld\t Record0: start = (%s, %ld), current = (%s, %ld), "
-            //     "offset = %ld, size = %ld\n",
-            //     horovod_global.dgc_state.step,
-            //     entries.begin() -> tensor_name.c_str(), dgc_offset_start,
-            //     std::get<0>(*it).c_str(), current_offset, std::get<2>(*it),
-            //     std::get<1>(*it));
-            // else
-            //   printf("%ld\t Record1: start = (%s, None), current = (%s, %ld), "
-            //     "offset = %ld, size = %ld\n",
-            //     horovod_global.dgc_state.step,
-            //     entries.begin() -> tensor_name.c_str(),
-            //     std::get<0>(*it).c_str(), current_offset, std::get<2>(*it),
-            //     std::get<1>(*it));
-          }
         }
 
         buffer_len = (size_t)offset;
@@ -1125,23 +975,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
         // Set the input data to originate from the buffer.
         fused_input_data = buffer_data;
-
-        // Perform the reduction on the fusion buffer.
-        // Note: assuming elements in the tensors are all of the same size
-        //int64_t num_elements = 0;
-        int layer_num = 0;
-        for (auto& e : entries) {
-          if (horovod_global.use_dgc &&
-            horovod_global.dgc_config.local_gradient_clipping) {
-            horovod_global.dgc_state.gradient_offsets[layer_num] = num_elements;
-          }
-          layer_num ++;
-          num_elements += e.tensor->shape().num_elements();
-        }
-
-        if (horovod_global.use_dgc &&
-          horovod_global.dgc_config.local_gradient_clipping)
-          horovod_global.dgc_state.gradient_offsets[layer_num] = num_elements;
       }
       else {
         auto &e = first_entry;
@@ -1150,49 +983,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         buffer_data = (void*)e.output->data();
         num_elements = e.tensor->shape().num_elements();
         buffer_len = (size_t)e.output->size();
-
-        if (horovod_global.use_dgc) {
-          auto &offsets = horovod_global.dgc_state.tensor_offsets;
-          auto &counters = horovod_global.dgc_state.step_counters;
-          auto counter_it = counters.find(e.tensor_name);
-          if (counter_it == counters.end())
-            counters[e.tensor_name] = 0;
-          else {
-            auto step = counter_it -> second;
-            counter_it -> second ++;
-            if (step > horovod_global.dgc_state.step)
-              horovod_global.dgc_state.step = step;
-          }
-
-          auto it = offsets.find(e.tensor_name);
-          if (it == offsets.end()) {
-            offsets[e.tensor_name] = horovod_global.dgc_state.offset_counter;
-            //printf("%ld\t Record: start = None, current = (%s, %ld), size = %ld\n",
-            //  horovod_global.dgc_state.step,
-            //  e.tensor_name.c_str(), horovod_global.dgc_state.offset_counter,
-            //  e.tensor->size());
-            horovod_global.dgc_state.offset_counter += e.tensor->size();
-          }
-
-          dgc_offset_map.push_back(std::make_tuple(
-            0, e.tensor->shape().num_elements(), offsets[e.tensor_name]));
-
-          if (horovod_global.dgc_config.local_gradient_clipping &&
-              horovod_global.dgc_state.gradient_offsets_allocated <= 1) {
-            if (horovod_global.dgc_state.gradient_offsets != NULL)
-              CUDA_CHECK(entries, "cudaFreeHost",
-                cudaFreeHost(horovod_global.dgc_state.gradient_offsets));
-
-            CUDA_CHECK(entries, "cudaMallocHost",
-              cudaMallocHost(&(horovod_global.dgc_state.gradient_offsets),
-                sizeof(uint64_t) * 2));
-
-            horovod_global.dgc_state.gradient_offsets_allocated = 2;
-            horovod_global.dgc_state.gradient_offsets[0] = 0;
-            horovod_global.dgc_state.gradient_offsets[1]
-              = e.tensor->shape().num_elements();
-          }
-        }
 
         if (horovod_global.ddl_initialized) {
           // Copy input buffer content to output buffer
@@ -1270,41 +1060,35 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       }
 
       else if (horovod_global.use_dgc) {
-        if (dgc_num_gradients_chunk != 0) {
-          dgc_offset_map.push_back(std::make_tuple(
-            dgc_gradient_start_chunk, dgc_num_gradients_chunk,
-            dgc_offset_start));
+        auto &config = horovod_global.dgc_config;
+        auto &state  = horovod_global.dgc_state;
+
+        // DGC initialization
+        if (!config.configured) {
+          config.stream = stream;
+          config.nccl_comm = nccl_comm;
+          config.mpi_comm = horovod_global.mpi_comm;
+          config.global_num_gpus = horovod_global.size;
+          config.global_gpu_rank = horovod_global.rank;
+          config.local_num_gpus  = horovod_global.local_size;
+          config.local_gpu_rank  = horovod_global.local_rank;
+          config.global_num_nodes = horovod_global.size / horovod_global.local_size;
+          config.global_node_rank = horovod_global.rank % horovod_global.local_size;
+          config.configured = true;
+          state.layer_offset_bytes.clear();
+          state.step_counters.clear();
         }
 
-        // std::string str = "";
-        // uint65_t total_elements = 1;
-        // for (auto it = dgc_offset_map.begin(); it != dgc_offset_map.end();
-        //   it++) {
-        //   str = str + "("
-        //     + std::to_string(std::get<1>(*it)) + ", "
-        //     + std::to_string(std::get<2>(*it)) + ", "
-        //     + std::to_string(std::get<3>(*it)) + ") ";
-        //   total_elements += std::get<2>(*it);
-        // }
-        // printf("Mapping: (%s, %ld) -> %ld = %s\n",
-        //   first_entry.tensor_name.c_str(), num_elements,
-        //   total_elements, str.c_str());
+        std::vector<std::pair<std::string, uint64_t> > layers;
+        for (auto& e : entries)
+          layers.push_back(std::make_pair(
+            e.tensor_name, e.tensor -> shape().num_elements()));
 
-        if (horovod_global.size > 1) {
-          if (horovod_global.dgc_config.local_gradient_clipping)
-            CUDA_CHECK(entries, "dgc::ClipGradient",
-              dgc::ClipGradient(
-                GetNCCLDataType(first_entry.tensor),
-                (void*)fused_input_data,
-                horovod_global.dgc_state.gradient_offsets, entries.size(),
-                horovod_global.dgc_config, horovod_global.dgc_state));
-
-          CUDA_CHECK(entries, "dgc::GradientAllReduce",
-            dgc::GradientAllReduce(
-              GetNCCLDataType(first_entry.tensor),
-              (void*)fused_input_data, buffer_data, num_elements, dgc_offset_map,
-              horovod_global.dgc_config, horovod_global.dgc_state));
-        }
+        CUDA_CHECK(entries, "dgc::GradientAllReduce",
+          dgc::GradientAllReduce(
+            GetNCCLDataType(first_entry.tensor),
+            (void*)fused_input_data, buffer_data, layers, //num_elements, dgc_offset_map,
+            config, state));
       } // end of if (use_dgc)
 
       else {

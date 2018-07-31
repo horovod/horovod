@@ -133,13 +133,13 @@ struct DgcConfig {
 
   // number of GPUs in all nodes
   int global_num_gpus = 1;
-  
+
   // global GPU rank
   int global_gpu_rank = 0;
 
   // number of nodes
   int global_num_nodes = 1;
-  
+
   // node rank
   int global_node_rank = 0;
 
@@ -196,7 +196,7 @@ struct DgcState {
   uint64_t  pervious_accumulated_verlocity_allocated = 0;
 
   // Sample counter
-  uint64_t *samp_counter       = NULL;
+  //uint64_t *samp_counter       = NULL;
 
   // Sample data, raw data in chars; need to convert type before using
   char     *samp_data          = NULL;
@@ -228,8 +228,8 @@ struct DgcState {
   // Global gradients
   char     *global_gradients   = NULL;
 
-  // Tensor offset address book
-  std::map<std::string, size_t  > tensor_offsets;
+  // layer offset address book
+  std::map<std::string, size_t  > layer_offset_bytes;
 
   // Per-tensor step counter
   std::map<std::string, uint64_t> step_counters;
@@ -241,7 +241,7 @@ struct DgcState {
   double epoch = 0;
 
   // Counter for adding new tensor to the end of memory space
-  size_t offset_counter = 0;
+  size_t offset_byte_counter = 0;
 
   // Temp storage
   char* temp_storage = NULL;
@@ -251,8 +251,8 @@ struct DgcState {
   float* max_gradient = NULL;
 
   // Gradient layer offsets, on host, for gradient clipping
-  uint64_t* gradient_offsets = NULL;
-  uint64_t  gradient_offsets_allocated = 0;
+  uint64_t* gradient_starts = NULL;
+  uint64_t  gradient_starts_allocated = 0;
 
   // Gradient selection mask for allReduce communication
   uint32_t* send_masks = NULL;
@@ -266,7 +266,10 @@ struct DgcState {
   uint32_t* mask_offsets  = NULL;
   uint64_t  mask_offsets_allocated = 0;
 
-  uint32_t* num_gradients_to_communicate = NULL; 
+  uint32_t* h_num_gradients_to_communicate = NULL;
+
+  uint32_t* h_layer_starts = NULL;
+  uint64_t  h_layer_starts_allocated = 0;
 };
 
 // Entry warper function
@@ -274,18 +277,22 @@ cudaError_t GradientAllReduce(
   ncclDataType_t  gradient_type, // type of gradient
   void           *input_gradients, // GPU pointer to the input graients
   void           *output_gradients,// GPU pointer to the output gradients
-  uint64_t        num_gradients, // number of gradients
-  std::vector<std::tuple<uint64_t, uint64_t, size_t> >
-                 &offset_map,   // <start, length, offset> mappings for
+  //uint64_t        num_gradients, // number of gradients
+  //std::vector<std::tuple<uint64_t, uint64_t, size_t> >
+  //               &offset_map,   // <start, length, offset> mappings for
                                 // continous chunks of gradients
+  std::vector<std::pair<std::string, uint64_t> > &layers,
+                                // <name, #elements> of layers
   DgcConfig      &config,       // DGC configuration
   DgcState       &state);       // DGC running states
 
 cudaError_t ClipGradient(
   ncclDataType_t  gradient_type, // type of gradient
   void           *gradients,     // GPU pointer to the gradients
-  uint64_t       *layer_offsets, // gradient layer offsets, on host
-  int             num_layers,    // The number of layers in the gradients
+  //uint64_t       *layer_offsets, // gradient layer offsets, on host
+  std::vector<std::pair<std::string, uint64_t> > &layers,
+                                 // <name, #elements> of layers
+  //int             num_layers,    // The number of layers in the gradients
   DgcConfig      &config,        // DGC configuration
   DgcState       &state);        // DGC running states
 

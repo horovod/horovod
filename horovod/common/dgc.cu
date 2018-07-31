@@ -319,7 +319,7 @@ cudaError_t Sort(
     return retval;
   }
 
-  // Use thrust for now;
+  // Not using thrust for now;
   // if sort becomes performance bottleneck, change to cub
   // Note: thrust::sort hit a bug that produced illegal memory access
   //thrust::sort(thrust::cuda::par.on(stream),
@@ -424,8 +424,10 @@ cudaError_t Sort(
 template <typename T>
 cudaError_t ClipGradient(
   T          *gradients,
-  uint64_t   *layer_offsets,
-  int         num_layers,
+  //uint64_t   *layer_offsets,
+  //int         num_layers,
+  std::vector<std::pair<std::string, uint64_t> > &layers,
+             // <name, #elements> of layers
   DgcConfig  &config,
   DgcState   &state)
 {
@@ -435,12 +437,22 @@ cudaError_t ClipGradient(
   if (state.step == 0)
     return retval;
 
+  int num_layers = layers.size();
   GUARD_CU(GarenteeAllocation(state.temp_storage, state.temp_storage_bytes,
-    sizeof(T) * 2 * num_layers + sizeof(uint64_t) * (num_layers + 1)));
+    sizeof(T) * 2 * num_layers + sizeof(uint32_t) * (num_layers + 1)));
+  GUARD_CU(GarenteeAllocation(state.h_layer_starts, state.h_layer_starts_allocated,
+    num_layers + 1, Malloc_t::Host));
+  uint32_t start_counter = 0;
+  for (int i = 0; i < num_layers; i++)
+  {
+    state.h_layer_starts[i] = start_counter;
+    start_counter += layers[i].second;
+  }
+  state.h_layer_starts[num_layers] = start_counter;
 
   T* sums         = (T*)(state.temp_storage);
   T* coefficients = (T*)(state.temp_storage + sizeof(T) * num_layers);
-  uint64_t* offsets = (uint64_t*)(state.temp_storage + sizeof(T) * 2 * num_layers);
+  uint32_t* layer_starts = (uint32_t*)(state.temp_storage + sizeof(T) * 2 * num_layers);
   auto stream     = config.stream;
   int  grid_size  = config.grid_size;
   int  block_size = config.block_size;
@@ -448,7 +460,7 @@ cudaError_t ClipGradient(
 
   GUARD_CU(Memset(sums, 0, num_layers, Malloc_t::Default, stream));
   GUARD_CU2("cudaMemcpyAsync",
-    cudaMemcpyAsync(offsets, layer_offsets, sizeof(uint64_t) * (num_layers + 1),
+    cudaMemcpyAsync(layer_starts, state.h_layer_starts, sizeof(uint32_t) * (num_layers + 1),
       cudaMemcpyHostToDevice, stream));
 
   // loop_kernel<<<grid_size, block_size, 0, stream>>>(layer_offsets[num_layers],
@@ -464,13 +476,14 @@ cudaError_t ClipGradient(
   //     atomicAdd(sums + layer, gradient * gradient);
   //   });
   L2norm_kernel<<<grid_size, block_size, 0, stream>>>(
-    gradients, layer_offsets, num_layers, sums);
+    gradients, layer_starts, num_layers, sums);
 
-  int total_num_layers = state.tensor_offsets.size();
-  uint64_t total_num_gradients = state.offset_counter / sizeof(T);
+  int total_num_layers = state.layer_offset_bytes.size();
+  uint64_t total_num_gradients = state.offset_byte_counter / sizeof(T);
 
   loop_kernel<<<grid_size, block_size, 0, stream>>>(num_layers,
-    [sums, coefficients, total_num_layers, total_num_gradients, clipping_threshold, offsets]
+    [sums, coefficients, total_num_layers, total_num_gradients,
+    clipping_threshold, layer_starts]
     __device__ (const int &layer)
     {
       coefficients[layer] = clipping_threshold /
@@ -483,10 +496,10 @@ cudaError_t ClipGradient(
       //  coefficients[layer]);
     });
 
-  loop_kernel<<<grid_size, block_size, 0, stream>>>(layer_offsets[num_layers],
-    [offsets, gradients, coefficients, num_layers] __device__ (const uint64_t &i)
+  loop_kernel<<<grid_size, block_size, 0, stream>>>(start_counter,
+    [layer_starts, gradients, coefficients, num_layers] __device__ (const uint32_t &i)
     {
-      int layer = binarySearch(offsets, 0, num_layers, i);
+      int layer = binarySearch(layer_starts, 0, num_layers, i);
       auto coefficient = coefficients[layer];
       if (coefficient < 1)
         gradients[i] *= coefficient;
@@ -500,62 +513,111 @@ template <typename T, typename SizeT>
 cudaError_t GradientAllReduce(
   T              *input_gradients,     // GPU pointer to the input_gradients
   T              *output_gradients,     // GPU pointer to the output_gradients
-  SizeT           num_gradients, // number of gradients
-  std::vector<std::tuple<uint64_t, uint64_t, size_t> >
-                 &offset_map,    // <start, length, offset> mappings for
-                                 // continous chunks of gradients
+  std::vector<std::pair<std::string, uint64_t> > &layers,
+                                  // <name, #elements> of layers
   DgcConfig      &config,        // DGC configuration
   DgcState       &state)         // DGC running states
 {
   cudaError_t retval = cudaSuccess;
 
+  if (config.local_gradient_clipping)
+    GUARD_CU(ClipGradient(input_gradients, layers, config, state));
+
   SizeT num_samples  = 0;
   auto  block_size   = config.block_size;
   auto  grid_size    = config.grid_size;
   auto  stream       = config.stream;
+  SizeT num_gradients = 0;
 
-  //GUARD_CU2("cudaStreamSynchronize before",
-  //  cudaStreamSynchronize(stream));
+  // find which step is currently in and look for unallocated layers
+  std::vector<std::pair<std::string, uint64_t> > layers_to_allocate;
+  SizeT num_gradients_to_allocate = 0;
+  for (auto &layer : layers)
+  {
+    auto name = layer.first;
+    num_gradients += layer.second;
+    // finds step number
+    auto counter_it = state.step_counters.find(name);
+    if (counter_it == state.step_counters.end())
+      state.step_counters[name] = 0;
+    else {
+      auto step = counter_it -> second;
+      counter_it -> second ++;
+      if (state.step < step)
+        state.step = step;
+    }
+
+    auto offset_it = state.layer_offset_bytes.find(name);
+    if (offset_it == state.layer_offset_bytes.end()) {
+      layers_to_allocate.push_back(layer);
+      num_gradients_to_allocate += layer.second;
+    }
+  } // end of for layers
+
+  // allocate new layers
+  if (num_gradients_to_allocate > 0) {
+    GUARD_CU(GarenteeAllocation(state.pervious_verlocity,
+      state.pervious_verlocity_allocated,
+      state.offset_byte_counter + sizeof(T) * num_gradients_to_allocate,
+      Malloc_t::Default, cudaMemAttachGlobal, stream, true, true));
+    GUARD_CU(GarenteeAllocation(state.pervious_accumulated_verlocity,
+      state.pervious_accumulated_verlocity_allocated,
+      state.offset_byte_counter + sizeof(T) * num_gradients_to_allocate,
+      Malloc_t::Default, cudaMemAttachGlobal, stream, true, true));
+
+    for (auto& layer : layers_to_allocate) {
+      state.layer_offset_bytes[layer.first] = state.offset_byte_counter;
+      state.offset_byte_counter += layer.second * sizeof(T);
+    }
+  }
+
+  // find continous layers as chunks
+  // <start, size, offset> of chunks
+  std::vector<std::tuple<SizeT, SizeT, size_t> > chunks;
+  size_t chunk_offset_bytes = state.layer_offset_bytes[layers.begin() -> first];
+  SizeT  layer_start = 0;
+  SizeT  chunk_start = 0;
+  SizeT  chunk_size  = 0;
+  for (auto& layer : layers) {
+    if (chunk_offset_bytes + chunk_size * sizeof(T) !=
+      state.layer_offset_bytes[layer.first]) {
+      // mismatch
+      chunks.push_back(std::make_tuple(
+        chunk_start, chunk_size, chunk_offset_bytes));
+      chunk_size  = 0;
+      chunk_start = layer_start;
+      chunk_offset_bytes = state.layer_offset_bytes[layer.first];
+    }
+
+    chunk_size  += layer.second;
+    layer_start += layer.second;
+  } // end of for layers
+  if (chunk_size != 0)
+    chunks.push_back(std::make_tuple(
+      chunk_start, chunk_size, chunk_offset_bytes));
+
+  GUARD_CU(GarenteeAllocation(state.gradient_starts,
+    state.gradient_starts_allocated, layers.size() + 1, Malloc_t::Host));
 
   // Memory allocation and type conversion
-  size_t current_size = num_gradients * sizeof(T);
-  //printf("verlocity = %p, allocated = %ld, current_size = %ld.\n",
-  //  state.verlocity, state.verlocity_allocated, current_size);
   GUARD_CU(GarenteeAllocation(state.verlocity,
-    state.verlocity_allocated, current_size));
-  //printf("verlocity = %p, allocated = %ld\n",
-  //  state.verlocity, state.verlocity_allocated);
-
+    state.verlocity_allocated, num_gradients * sizeof(T)));
   GUARD_CU(GarenteeAllocation(state.accumulated_verlocity,
-    state.accumulated_verlocity_allocated, current_size));
+    state.accumulated_verlocity_allocated, num_gradients * sizeof(T)));
   T* verlocity = (T*)(state.verlocity);
   T* accumulated_verlocity = (T*)(state.accumulated_verlocity);
 
-  size_t max_size = 0;
-  for (auto it = offset_map.begin(); it != offset_map.end(); it++)
+  // momentum correction by chunks
+  for (auto& chunk : chunks)
   {
-    size_t size = std::get<1>(*it) * sizeof(T) + std::get<2>(*it);
-    if (max_size < size)
-      max_size = size;
-  }
-  GUARD_CU(GarenteeAllocation(state.pervious_verlocity,
-    state.pervious_verlocity_allocated, max_size,
-    Malloc_t::Default, cudaMemAttachGlobal, stream, true, true));
-  GUARD_CU(GarenteeAllocation(state.pervious_accumulated_verlocity,
-    state.pervious_accumulated_verlocity_allocated, max_size,
-    Malloc_t::Default, cudaMemAttachGlobal, stream, true, true));
-
-  // Process by chunks
-  for (auto it = offset_map.begin(); it != offset_map.end(); it++)
-  {
-    SizeT gradient_start_chunk = std::get<0>(*it);
-    SizeT num_gradients_chunk  = std::get<1>(*it);
-    size_t offset              = std::get<2>(*it);
+    SizeT chunk_start = std::get<0>(chunk);
+    SizeT chunk_size  = std::get<1>(chunk);
+    size_t chunk_offset = std::get<2>(chunk);
 
     T* pervious_verlocity
-      = (T*)(state.pervious_verlocity + offset);
+      = (T*)(state.pervious_verlocity + chunk_offset);
     T* pervious_accumulated_verlocity
-      = (T*)(state.pervious_accumulated_verlocity + offset);
+      = (T*)(state.pervious_accumulated_verlocity + chunk_offset);
     auto &momentum = config.momentum;
 
     //printf("input_gradients = %p, gradient_chunk = [%ld, %ld), "
@@ -566,18 +628,18 @@ cudaError_t GradientAllReduce(
     //  pervious_verlocity, verlocity,
     //  pervious_accumulated_verlocity, accumulated_verlocity);
 
-    loop_kernel<<<grid_size, block_size, 0, stream>>>(num_gradients_chunk,
-      [momentum, input_gradients, gradient_start_chunk,
+    loop_kernel<<<grid_size, block_size, 0, stream>>>(chunk_size,
+      [momentum, input_gradients, chunk_start,
       pervious_verlocity, verlocity,
       accumulated_verlocity, pervious_accumulated_verlocity]
       __device__ (const SizeT &i) {
-        auto pos = i + gradient_start_chunk;
+        auto pos = i + chunk_start;
         auto u = pervious_verlocity[i] * momentum + input_gradients[pos];
         accumulated_verlocity[pos] = pervious_accumulated_verlocity[i] + u;
         verlocity[pos] = u;
       });
   }
-  //GUARD_CU2("cudaStreamSynchronize after local gradient updates",
+  //GUARD_CU2("cudaStreamSynchronize after momentum correction",
   //  cudaStreamSynchronize(stream));
 
   if (config.sampling_rate < 1 &&
@@ -594,25 +656,15 @@ cudaError_t GradientAllReduce(
         });
     }
 
-    auto &samp_counter = state.samp_counter;
     // Init counter
-    if (samp_counter == NULL) {
-      GUARD_CU(Malloc(samp_counter, 1));
-    }
-    //loop_kernel <<<1, 1, 0, stream>>>((SizeT)1,
-    //  [samp_counter] __device__ (const SizeT &i)
-    //  {
-    //    samp_counter[0] = 0;
-    //  });
-    GUARD_CU(Memset(samp_counter, 0, 1, Malloc_t::Default, stream));
+    //if (state.samp_counter == NULL) {
+    //  GUARD_CU(Malloc(state.samp_counter, 1));
+    //}
+    //GUARD_CU(Memset(state.samp_counter, 0, 1, Malloc_t::Default, stream));
 
     num_samples = num_gradients * config.sampling_rate;
     if (num_samples < config.min_sampling_num)
       num_samples = config.min_sampling_num;
-    //if (num_samples > num_gradients)
-    //  num_samples = num_gradients;
-    //printf("#elments = %ld, #samples = %ld\n",
-    //  (long long)num_gradients, (long long)num_samples);
     GUARD_CU(GarenteeAllocation(state.samp_data, state.samp_allocated,
       num_samples * sizeof(T)));
 
@@ -641,14 +693,6 @@ cudaError_t GradientAllReduce(
   }
 
   T* samp_data = (T*)(state.samp_data);
-  //loop_kernel<<<grid_size, block_size, 0, stream>>>((SizeT)10,
-  //  [samp_data, num_samples] __device__ (const SizeT &i)
-  //  {
-  //    printf("before Sort samp[%d] = %f\n", i,
-  //      (i < num_samples) ? samp_data[i] : 0.12345678);
-  //  });
-
-  //printf("samp_data = %p, #samples = %ld\n", samp_data, (long)num_samples);
   //GUARD_CU2("cudaStreamSynchronize before Sort",
   //  cudaStreamSynchronize(stream));
   //GUARD_CU2("cudaDeviceSynchronize before Sort",
@@ -723,7 +767,7 @@ cudaError_t GradientAllReduce(
     GUARD_CU(GarenteeAllocation(
         mask_counters, state.mask_counters_allocated, (num_masks + 1)));
     GUARD_CU(GarenteeAllocation(
-        mask_offsets , state.mask_offsets_allocated , (num_masks + 1))); 
+        mask_offsets , state.mask_offsets_allocated , (num_masks + 1)));
 
     size_t required_bytes = 0;
     GUARD_CU(cub::DeviceScan::InclusiveSum(
@@ -732,8 +776,8 @@ cudaError_t GradientAllReduce(
     GUARD_CU(GarenteeAllocation(
       state.temp_storage, state.temp_storage_bytes, required_bytes));
 
-    if (state.num_gradients_to_communicate == NULL)
-        GUARD_CU(Malloc(state.num_gradients_to_communicate, 1, Malloc_t::Host));
+    if (state.h_num_gradients_to_communicate == NULL)
+        GUARD_CU(Malloc(state.h_num_gradients_to_communicate, 1, Malloc_t::Host));
 
     //GUARD_CU2("cudaStreamSynchronize after allocation",
     //  cudaStreamSynchronize(stream));
@@ -792,15 +836,15 @@ cudaError_t GradientAllReduce(
       mask_counters, mask_offsets + 1, num_masks, stream));
 
     GUARD_CU2("cudaMemcpyAsync",
-      cudaMemcpyAsync(state.num_gradients_to_communicate,
+      cudaMemcpyAsync(state.h_num_gradients_to_communicate,
         mask_offsets + num_masks, sizeof(uint32_t), cudaMemcpyDeviceToHost, stream));
     GUARD_CU2("cudaStreamSynchronize after InclusiveSum",
       cudaStreamSynchronize(stream));
 
-    auto num_gradients_comm = state.num_gradients_to_communicate[0];
+    auto num_gradients_comm = state.h_num_gradients_to_communicate[0];
     if (config.global_gpu_rank == 0)
-      printf("#gradients to comm = %ld, #gradients = %ld, rate = %f\n", 
-        (long)num_gradients_comm, (long)num_gradients, 
+      printf("#gradients to comm = %ld, #gradients = %ld, rate = %f\n",
+        (long)num_gradients_comm, (long)num_gradients,
         1.0f * num_gradients_comm / num_gradients);
 
     auto send_allocated_ = state.send_allocated * sizeof(T);
@@ -813,12 +857,12 @@ cudaError_t GradientAllReduce(
       state.recv_data, recv_allocated_, sizeof(T) * num_gradients_comm));
     if (state.recv_allocated < num_gradients_comm)
       state.recv_allocated = num_gradients_comm;
-    
+
     T* send_data = (T*)(state.send_data);
     T* recv_data = (T*)(state.recv_data);
     auto global_num_gpus = config.global_num_gpus;
     loop_kernel<<<grid_size, block_size, 0, stream>>>(num_masks,
-      [recv_masks, mask_offsets, send_data, global_num_gpus, 
+      [recv_masks, mask_offsets, send_data, global_num_gpus,
       num_gradients, accumulated_verlocity]
       __device__ (const SizeT &i)
       {
@@ -849,7 +893,6 @@ cudaError_t GradientAllReduce(
 
     //GUARD_CU2("cudaStreamSynchronize before ncclAllReduce",
     //  cudaStreamSynchronize(stream));
-
 
     GUARD_NCCL2("ncclAllReduce",
       ncclAllReduce(send_data   , (void*)recv_data,
@@ -888,19 +931,19 @@ cudaError_t GradientAllReduce(
 
     // Updates pervious_verlocity and pervious_accumulated_verlocity
     // Can be overlap with communication
-    for (auto it = offset_map.begin(); it != offset_map.end(); it++)
+    for (auto& chunk : chunks)
     {
-      SizeT gradient_start_chunk = std::get<0>(*it);
-      SizeT num_gradients_chunk  = std::get<1>(*it);
-      size_t offset              = std::get<2>(*it);
+      SizeT  chunk_start  = std::get<0>(chunk);
+      SizeT  chunk_size   = std::get<1>(chunk);
+      size_t chunk_offset = std::get<2>(chunk);
 
       T* pervious_verlocity
-        = (T*)(state.pervious_verlocity + offset);
+        = (T*)(state.pervious_verlocity + chunk_offset);
       T* pervious_accumulated_verlocity
-        = (T*)(state.pervious_accumulated_verlocity + offset);
+        = (T*)(state.pervious_accumulated_verlocity + chunk_offset);
 
-      loop_kernel <<<grid_size, block_size, 0, stream>>>(num_gradients_chunk,
-        [recv_masks, gradient_start_chunk, num_gradients_chunk,
+      loop_kernel <<<grid_size, block_size, 0, stream>>>(chunk_size,
+        [recv_masks, chunk_start, chunk_size,
          verlocity, pervious_verlocity,
          accumulated_verlocity, pervious_accumulated_verlocity]
         __device__ (const SizeT &i)
@@ -909,7 +952,7 @@ cudaError_t GradientAllReduce(
           //  printf("gradient [%ld...%ld) \n",
           //    (long)gradient_start_chunk,
           //    (long)(gradient_start_chunk + num_gradients_chunk));
-          auto gradient_pos = i + gradient_start_chunk;
+          auto gradient_pos = i + chunk_start;
           auto mask_pos = gradient_pos / 32;
           auto mask = recv_masks[mask_pos];
           auto mask_offset = (gradient_pos & ((uint32_t)31));
@@ -924,7 +967,7 @@ cudaError_t GradientAllReduce(
           }
         });
     }
-  }
+  } // end of if (use_allReduce)
 
   else {
     // use allGather to communicate
@@ -1041,19 +1084,19 @@ cudaError_t GradientAllReduce(
 
     // Updates pervious_verlocity and pervious_accumulated_verlocity
     // Can be overlap with communication
-    for (auto it = offset_map.begin(); it != offset_map.end(); it++)
+    for (auto &chunk : chunks)
     {
-      SizeT gradient_start_chunk = std::get<0>(*it);
-      SizeT num_gradients_chunk  = std::get<1>(*it);
-      size_t offset              = std::get<2>(*it);
+      SizeT  chunk_start  = std::get<0>(chunk);
+      SizeT  chunk_size   = std::get<1>(chunk);
+      size_t chunk_offset = std::get<2>(chunk);
 
       T* pervious_verlocity
-        = (T*)(state.pervious_verlocity + offset);
+        = (T*)(state.pervious_verlocity + chunk_offset);
       T* pervious_accumulated_verlocity
-        = (T*)(state.pervious_accumulated_verlocity + offset);
+        = (T*)(state.pervious_accumulated_verlocity + chunk_offset);
 
-      loop_kernel <<<grid_size, block_size, 0, stream>>>(num_gradients_chunk,
-        [threshold, gradient_start_chunk, num_gradients_chunk,
+      loop_kernel <<<grid_size, block_size, 0, stream>>>(chunk_size,
+        [threshold, chunk_start, chunk_size,
         verlocity, pervious_verlocity,
         accumulated_verlocity, pervious_accumulated_verlocity]
         __device__ (const SizeT &i)
@@ -1062,7 +1105,7 @@ cudaError_t GradientAllReduce(
           //  printf("gradient [%ld...%ld) \n",
           //    (long)gradient_start_chunk,
           //    (long)(gradient_start_chunk + num_gradients_chunk));
-          auto gradient_pos = i + gradient_start_chunk;
+          auto gradient_pos = i + chunk_start;
           auto v = accumulated_verlocity[gradient_pos];
           if (isfinite(v * 1.0f) && abs(v) > threshold[0])
           {
@@ -1086,8 +1129,10 @@ cudaError_t GradientAllReduce(
 cudaError_t ClipGradient(
   ncclDataType_t  gradient_type, // type of gradient
   void           *gradients,     // GPU pointer to the gradients
-  uint64_t       *layer_offsets, // gradient layer offsets, on host
-  int             num_layers,    // The number of layers in the gradients
+  //uint64_t       *layer_offsets, // gradient layer offsets, on host
+  //int             num_layers,    // The number of layers in the gradients
+  std::vector<std::pair<std::string, uint64_t> > &layers,
+                                // <name, #elements> of layers
   DgcConfig      &config,        // DGC configuration
   DgcState       &state)         // DGC running states
 {
@@ -1098,22 +1143,26 @@ cudaError_t ClipGradient(
   {
   case ncclFloat32:
     retval = ClipGradient <float> (
-      (float*)gradients, layer_offsets, num_layers, config, state);
+      //(float*)gradients, layer_offsets, num_layers, config, state);
+      (float*)gradients, layers, config, state);
     break;
 
   case ncclFloat64:
     retval = ClipGradient <double> (
-      (double*)gradients, layer_offsets, num_layers, config, state);
+      //(double*)gradients, layer_offsets, num_layers, config, state);
+      (double*)gradients, layers, config, state);
     break;
 
   case ncclInt32:
     retval = ClipGradient <int32_t> (
-      (int32_t*)gradients, layer_offsets, num_layers, config, state);
+      //(int32_t*)gradients, layer_offsets, num_layers, config, state);
+      (int32_t*)gradients, layers, config, state);
     break;
 
   case ncclInt64:
     retval = ClipGradient <int64_t> (
-      (int64_t*)gradients, layer_offsets, num_layers, config, state);
+      //(int64_t*)gradients, layer_offsets, num_layers, config, state);
+      (int64_t*)gradients, layers, config, state);
     break;
 
   default:
@@ -1126,10 +1175,12 @@ cudaError_t GradientAllReduce(
   ncclDataType_t  gradient_type, // type of gradient
   void           *input_gradients, // GPU pointer to the input graients
   void           *output_gradients,// GPU pointer to the output gradients
-  uint64_t        num_gradients, // number of gradients
-  std::vector<std::tuple<uint64_t, uint64_t, size_t> >
-                 &offset_map,    // <start, length, offset> mappings for
+  //uint64_t        num_gradients, // number of gradients
+  //std::vector<std::tuple<uint64_t, uint64_t, size_t> >
+  //               &offset_map,    // <start, length, offset> mappings for
                                  // continous chunks of gradients
+  std::vector<std::pair<std::string, uint64_t> > &layers,
+                                 // <name, #elements> of layers
   DgcConfig      &config,        // DGC configuration
   DgcState       &state)         // DGC running states
 {
@@ -1141,25 +1192,29 @@ cudaError_t GradientAllReduce(
   case ncclFloat32:
     retval = GradientAllReduce <float, SizeT> (
       (float*)input_gradients, (float*)output_gradients,
-      (SizeT)num_gradients, offset_map, config, state);
+      //(SizeT)num_gradients, offset_map, config, state);
+      layers, config, state);
     break;
 
   case ncclFloat64:
     retval = GradientAllReduce<double, SizeT> (
       (double*)input_gradients, (double*)output_gradients,
-      (SizeT)num_gradients, offset_map, config, state);
+      //(SizeT)num_gradients, offset_map, config, state);
+      layers, config, state);
     break;
 
   case ncclInt32:
     retval = GradientAllReduce<int32_t, SizeT> (
       (int32_t*)input_gradients, (int32_t*)output_gradients,
-      (SizeT)num_gradients, offset_map, config, state);
+      //(SizeT)num_gradients, offset_map, config, state);
+      layers, config, state);
     break;
 
   case ncclInt64:
     retval = GradientAllReduce<int64_t, SizeT> (
       (int64_t*)input_gradients, (int64_t*)output_gradients,
-      (SizeT)num_gradients, offset_map, config, state);
+      //(SizeT)num_gradients, offset_map, config, state);
+      layers, config, state);
     break;
 
   default:
