@@ -203,7 +203,8 @@ struct DgcState {
   uint64_t  samp_allocated     = 0;
 
   // Gradient selection threshold
-  float    *gradient_threshold = NULL;
+  float    *thresholds = NULL;
+  uint64_t  thresholds_allocated = 0;
 
   // Counter for gradient selection
   uint64_t *send_counter       = NULL;
@@ -250,9 +251,17 @@ struct DgcState {
   // Maximum gradient
   float* max_gradient = NULL;
 
-  // Gradient layer offsets, on host, for gradient clipping
-  uint64_t* gradient_starts = NULL;
-  uint64_t  gradient_starts_allocated = 0;
+  // Gradient layer starts
+  uint32_t* layer_starts = NULL;
+  uint32_t  layer_starts_allocated = 0;
+  uint32_t* h_layer_starts = NULL;
+  uint32_t  h_layer_starts_allocated = 0;
+
+  // Sample starts
+  uint32_t* samp_starts = NULL;
+  uint32_t  samp_starts_allocated = 0;
+  uint32_t* h_samp_starts = NULL;
+  uint32_t  h_samp_starts_allocated = 0;
 
   // Gradient selection mask for allReduce communication
   uint32_t* send_masks = NULL;
@@ -267,9 +276,6 @@ struct DgcState {
   uint64_t  mask_offsets_allocated = 0;
 
   uint32_t* h_num_gradients_to_communicate = NULL;
-
-  uint32_t* h_layer_starts = NULL;
-  uint64_t  h_layer_starts_allocated = 0;
 };
 
 // Entry warper function

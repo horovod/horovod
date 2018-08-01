@@ -421,6 +421,93 @@ cudaError_t Sort(
   return retval;
 }
 
+template <typename T, typename SizeT, typename Compare>
+cudaError_t SegSort(
+  T           *elements,
+  SizeT        num_elements,
+  SizeT       *seg_starts,
+  int          num_segments,
+  Compare      compare,
+  cudaStream_t stream = 0,
+  Malloc_t     malloc_type = Malloc_t::Default,
+  char       **temp_storage = NULL,
+  size_t      *temp_storage_bytes = NULL,
+  unsigned int flags = cudaMemAttachGlobal)
+{
+  cudaError_t retval = cudaSuccess;
+
+  if (malloc_type == Raw)
+  {
+    for (int i = 0; i < num_segments; i++)
+      std::sort(elements + seg_starts[i], elements + seg_starts[i+1], compare);
+    return retval;
+  }
+
+  // Not using thrust for now;
+  // if sort becomes performance bottleneck, change to cub
+  // Note: thrust::sort hit a bug that produced illegal memory access
+  //thrust::sort(thrust::cuda::par.on(stream),
+  //  elements, elements + num_elements, compare);
+
+  // Cub sorting
+  bool temp_storage_allocated = false;
+  if (temp_storage == NULL && temp_storage_bytes == NULL)
+  {
+    temp_storage = new char*;
+    temp_storage[0] = NULL;
+    temp_storage_bytes = new size_t;
+    temp_storage_bytes[0] = 0;
+    temp_storage_allocated = true;
+  }
+
+  size_t required_bytes = 0;
+  GUARD_CU(cub::DeviceSegmentedRadixSort::SortKeys(
+    (char*)NULL, required_bytes,
+    elements, elements, num_elements,
+    num_segments, seg_starts, seg_starts + 1,
+    0, sizeof(T) * 8, stream));
+
+  GUARD_CU(GarenteeAllocation(temp_storage[0],
+    temp_storage_bytes[0], required_bytes, malloc_type, flags));
+  //GUARD_CU2("cudaDeviceSynchronize",
+  //  cudaDeviceSynchronize());
+
+  GUARD_CU(cub::DeviceSegmentedRadixSort::SortKeys(
+    temp_storage[0], temp_storage_bytes[0],
+    elements, elements, num_elements,
+    num_segments, seg_starts, seg_starts + 1,
+    0, sizeof(T) * 8, stream));
+
+  if (temp_storage_allocated)
+  {
+    GUARD_CU(Free(temp_storage[0], malloc_type));
+    free(temp_storage);
+    free(temp_storage_bytes);
+    temp_storage = NULL;
+    temp_storage_bytes = NULL;
+    temp_storage_allocated = false;
+  }
+
+  return retval;
+}
+
+template <typename T, typename SizeT>
+cudaError_t SegSort(
+  T      *elements,
+  SizeT   num_elements,
+  SizeT  *seg_starts,
+  int     num_segments,
+  cudaStream_t stream = 0,
+  Malloc_t malloc_type = Malloc_t::Default,
+  char       **temp_storage = NULL,
+  size_t      *temp_storage_bytes = NULL,
+  unsigned int flags = cudaMemAttachGlobal)
+{
+  return SegSort(elements, num_elements, seg_starts, num_segments,
+    [] __host__ __device__ (T a, T b){ return a < b;},
+    stream, malloc_type, temp_storage, temp_storage_bytes, flags);
+}
+
 template <typename T>
 cudaError_t ClipGradient(
   T          *gradients,
@@ -519,16 +606,23 @@ cudaError_t GradientAllReduce(
   DgcState       &state)         // DGC running states
 {
   cudaError_t retval = cudaSuccess;
-
-  if (config.local_gradient_clipping)
-    GUARD_CU(ClipGradient(input_gradients, layers, config, state));
-
-  SizeT num_samples  = 0;
+  //SizeT num_samples  = 0;
   auto  block_size   = config.block_size;
   auto  grid_size    = config.grid_size;
   auto  stream       = config.stream;
+  int   num_layers   = layers.size();
   SizeT num_gradients = 0;
 
+  GUARD_CU2("cudaStreamSynchronize before",
+    cudaStreamSynchronize(stream));
+
+  if (config.local_gradient_clipping)
+    GUARD_CU(ClipGradient(input_gradients, layers, config, state));
+  GUARD_CU2("cudaStreamSynchronize after clipping",
+    cudaStreamSynchronize(stream));
+
+  GUARD_CU(GarenteeAllocation(state.h_layer_starts, state.h_layer_starts_allocated,
+    num_layers + 1, Malloc_t::Host));
   // find which step is currently in and look for unallocated layers
   std::vector<std::pair<std::string, uint64_t> > layers_to_allocate;
   SizeT num_gradients_to_allocate = 0;
@@ -578,7 +672,9 @@ cudaError_t GradientAllReduce(
   SizeT  layer_start = 0;
   SizeT  chunk_start = 0;
   SizeT  chunk_size  = 0;
-  for (auto& layer : layers) {
+  for (int i = 0; i < num_layers; i++) {
+    auto &layer = layers[i];
+    state.h_layer_starts[i] = layer_start;
     if (chunk_offset_bytes + chunk_size * sizeof(T) !=
       state.layer_offset_bytes[layer.first]) {
       // mismatch
@@ -592,12 +688,17 @@ cudaError_t GradientAllReduce(
     chunk_size  += layer.second;
     layer_start += layer.second;
   } // end of for layers
+  state.h_layer_starts[num_layers] = layer_start;
   if (chunk_size != 0)
     chunks.push_back(std::make_tuple(
       chunk_start, chunk_size, chunk_offset_bytes));
 
-  GUARD_CU(GarenteeAllocation(state.gradient_starts,
-    state.gradient_starts_allocated, layers.size() + 1, Malloc_t::Host));
+  auto &layer_starts = state.layer_starts;
+  GUARD_CU(GarenteeAllocation(state.layer_starts,
+    state.layer_starts_allocated, num_layers + 1));
+  GUARD_CU2("cudaMemcpyAsync",
+    cudaMemcpyAsync(state.layer_starts, state.h_layer_starts,
+      sizeof(uint32_t) * (num_layers + 1), cudaMemcpyHostToDevice, stream));
 
   // Memory allocation and type conversion
   GUARD_CU(GarenteeAllocation(state.verlocity,
@@ -639,72 +740,93 @@ cudaError_t GradientAllReduce(
         verlocity[pos] = u;
       });
   }
-  //GUARD_CU2("cudaStreamSynchronize after momentum correction",
-  //  cudaStreamSynchronize(stream));
+  GUARD_CU2("cudaStreamSynchronize after momentum correction",
+    cudaStreamSynchronize(stream));
 
-  if (config.sampling_rate < 1 &&
-      num_gradients > config.min_sampling_num) {
-    auto &rand_states = state.rand_states;
-    auto &rand_seed   = config.rand_seed;
-    if (rand_states == NULL) {
-      GUARD_CU(Malloc(rand_states, grid_size * block_size));
+  // Sampling
+  auto &samp_starts = state.samp_starts;
+  GUARD_CU(GarenteeAllocation(state.samp_starts, state.samp_starts_allocated,
+    num_layers + 1));
+  GUARD_CU(GarenteeAllocation(state.h_samp_starts, state.h_samp_starts_allocated,
+    num_layers + 1, Malloc_t::Host));
+  uint32_t samp_counter = 0;
+  for (int i = 0; i < num_layers; i++)
+  {
+    auto &layer = layers[i];
+    state.h_samp_starts[i] = samp_counter;
 
-      loop_kernel<<<grid_size, block_size, 0, stream>>>(
-        (SizeT)grid_size * block_size,
-        [rand_states, rand_seed] __device__ (const SizeT &i){
-          curand_init(rand_seed, i, 0, rand_states + i);
-        });
+    uint32_t num_samples = 0;
+    if (config.sampling_rate < 1 &&
+        layer.second > config.min_sampling_num) {
+
+      num_samples = layer.second * config.sampling_rate;
+      if (num_samples < config.min_sampling_num)
+        num_samples = config.min_sampling_num;
+      if (num_samples > layer.second)
+        num_samples = layer.second;
     }
 
-    // Init counter
-    //if (state.samp_counter == NULL) {
-    //  GUARD_CU(Malloc(state.samp_counter, 1));
-    //}
-    //GUARD_CU(Memset(state.samp_counter, 0, 1, Malloc_t::Default, stream));
+    else { // no sampling
+      num_samples = layer.second;
+      //GUARD_CU(GarenteeAllocation(state.samp_data, state.samp_allocated,
+      //  num_samples * sizeof(T)));
 
-    num_samples = num_gradients * config.sampling_rate;
-    if (num_samples < config.min_sampling_num)
-      num_samples = config.min_sampling_num;
-    GUARD_CU(GarenteeAllocation(state.samp_data, state.samp_allocated,
-      num_samples * sizeof(T)));
-
-    //GUARD_CU(cudaDeviceSynchronize());
-    // Sampling
-    sample_kernel <T, SizeT>
-      <<<grid_size, block_size, 0, stream>>>(
-      accumulated_verlocity, num_gradients,
-      (T*)(state.samp_data), num_samples,
-      state.rand_states);
+      //GUARD_CU2("cudaMemcpyAsync",
+      //  cudaMemcpyAsync(state.samp_data, gradients,
+      //    sizeof(T) * num_samples, cudaMemcpyDeviceToDevice, stream));
+      //T* samp_data = (T*)(state.samp_data);
+      //loop_kernel<<<grid_size, block_size, 0, stream>>>(num_samples,
+      //  [samp_data, accumulated_verlocity] __device__ (const SizeT &i){
+      //    samp_data[i] = abs(accumulated_verlocity[i]);
+      //  });
+    }
+    samp_counter += num_samples;
   }
+  state.h_samp_starts[num_layers] = samp_counter;
+  GUARD_CU2("cudaMemcpyAsync",
+    cudaMemcpyAsync(state.samp_starts, state.h_samp_starts,
+      sizeof(uint32_t) * (num_layers + 1), cudaMemcpyHostToDevice, stream));
 
-  else { // no sampling
-    num_samples = num_gradients;
-    GUARD_CU(GarenteeAllocation(state.samp_data, state.samp_allocated,
-      num_samples * sizeof(T)));
+  auto &rand_states = state.rand_states;
+  auto &rand_seed   = config.rand_seed;
+  if (rand_states == NULL) {
+    GUARD_CU(Malloc(rand_states, grid_size * block_size));
 
-    //GUARD_CU2("cudaMemcpyAsync",
-    //  cudaMemcpyAsync(state.samp_data, gradients,
-    //    sizeof(T) * num_samples, cudaMemcpyDeviceToDevice, stream));
-    T* samp_data = (T*)(state.samp_data);
-    loop_kernel<<<grid_size, block_size, 0, stream>>>(num_samples,
-      [samp_data, accumulated_verlocity] __device__ (const SizeT &i){
-        samp_data[i] = abs(accumulated_verlocity[i]);
+    loop_kernel<<<grid_size, block_size, 0, stream>>>(
+      (SizeT)grid_size * block_size,
+      [rand_states, rand_seed] __device__ (const SizeT &i){
+        curand_init(rand_seed, i, 0, rand_states + i);
       });
   }
 
+  GUARD_CU(GarenteeAllocation(state.samp_data, state.samp_allocated,
+    samp_counter * sizeof(T)));
   T* samp_data = (T*)(state.samp_data);
-  //GUARD_CU2("cudaStreamSynchronize before Sort",
-  //  cudaStreamSynchronize(stream));
+
+  //sample_kernel <T, SizeT>
+  //  <<<grid_size, block_size, 0, stream>>>(
+  //  accumulated_verlocity, num_gradients,
+  //  samp_data, num_samples,
+  //  state.rand_states);
+  sample_kernel2<<<grid_size, block_size, 0, stream>>>(
+    accumulated_verlocity, num_gradients,
+    state.layer_starts, num_layers,
+    state.samp_starts, samp_data, state.rand_states);
+
+  GUARD_CU2("cudaStreamSynchronize after sampling",
+    cudaStreamSynchronize(stream));
   //GUARD_CU2("cudaDeviceSynchronize before Sort",
   //  cudaDeviceSynchronize());
 
   // Sort the samples
-  GUARD_CU(Sort(samp_data, num_samples, stream, Malloc_t::Default,
-    &(state.temp_storage), &(state.temp_storage_bytes)));
+  //GUARD_CU(Sort(samp_data, num_samples, stream, Malloc_t::Default,
+  //  &(state.temp_storage), &(state.temp_storage_bytes)));
+  GUARD_CU(SegSort(samp_data, samp_counter, state.samp_starts, num_layers,
+    stream, Malloc_t::Default, &(state.temp_storage), &(state.temp_storage_bytes)));
   //GUARD_CU2("cudaDeviceSynchronize after Sort",
   //  cudaDeviceSynchronize());
-  //GUARD_CU2("cudaStreamSynchronize after Sort",
-  //  cudaStreamSynchronize(stream));
+  GUARD_CU2("cudaStreamSynchronize after Sort",
+    cudaStreamSynchronize(stream));
 
   // Determine the threshold
   uint64_t num_examples_per_step = config.batch_size_per_gpu * config.global_num_gpus;
@@ -722,26 +844,40 @@ cudaError_t GradientAllReduce(
     //    epoch, state.step, sparsity);
   }
   SizeT  target_num = num_gradients * (1 - sparsity);
-  auto &threshold = state.gradient_threshold;
-  if (threshold == NULL) {
-    GUARD_CU(Malloc(threshold, 1));
-  }
+  //auto &threshold = state.gradient_threshold;
+  //if (threshold == NULL) {
+  //  GUARD_CU(Malloc(threshold, 1));
+  //}
 
-  loop_kernel<<<1, 1, 0, stream>>>((SizeT)1,
-    [threshold, samp_data, num_samples, sparsity] __device__ (const SizeT &i){
-      SizeT pos = num_samples * sparsity;
-      if (pos >= num_samples)
-        pos = num_samples - 1;
-      threshold[0] = samp_data[pos];
-      //printf("selecting samp[%d] from [%d] {%f, %f, ... %f, %f, %f, ... %f, %f}\n",
-      //  pos, num_samples,
-      //  num_samples > 0 ? samp_data[0] : -1,
-      //  num_samples > 1 ? samp_data[1] : -1,
-      //  num_samples + 1 > pos  && pos > 0 ? samp_data[pos - 1] : -1,
-      //  num_samples > pos && pos >= 0 ? samp_data[pos] : -1,
-      //  num_samples > pos + 1 && pos + 1 >= 0 ? samp_data[pos + 1] : -1,
-      //  num_samples > 1 ? samp_data[num_samples - 2] : -1,
-      //  num_samples > 0 ? samp_data[num_samples - 1] : -1);
+  //loop_kernel<<<1, 1, 0, stream>>>((SizeT)1,
+  //  [threshold, samp_data, num_samples, sparsity] __device__ (const SizeT &i){
+  //    SizeT pos = num_samples * sparsity;
+  //    if (pos >= num_samples)
+  //      pos = num_samples - 1;
+  //    threshold[0] = samp_data[pos];
+  //    //printf("selecting samp[%d] from [%d] {%f, %f, ... %f, %f, %f, ... %f, %f}\n",
+  //    //  pos, num_samples,
+  //    //  num_samples > 0 ? samp_data[0] : -1,
+  //    //  num_samples > 1 ? samp_data[1] : -1,
+  //    //  num_samples + 1 > pos  && pos > 0 ? samp_data[pos - 1] : -1,
+  //    //  num_samples > pos && pos >= 0 ? samp_data[pos] : -1,
+  //    //  num_samples > pos + 1 && pos + 1 >= 0 ? samp_data[pos + 1] : -1,
+  //    //  num_samples > 1 ? samp_data[num_samples - 2] : -1,
+  //    //  num_samples > 0 ? samp_data[num_samples - 1] : -1);
+  //  });
+  auto &thresholds = state.thresholds;
+  GUARD_CU(GarenteeAllocation(thresholds, state.thresholds_allocated, num_layers));
+
+  loop_kernel<<<grid_size, block_size, 0, stream>>>(num_layers,
+    [thresholds, samp_data, samp_starts, sparsity]
+    __device__ (const int &layer){
+      auto samp_start = samp_starts[layer];
+      auto samp_end   = samp_starts[layer + 1];
+      auto samp_size  = samp_end - samp_start;
+      SizeT pos = samp_size * sparsity;
+      if (pos >= samp_size)
+        pos = samp_size;
+      thresholds[layer] = samp_data[samp_start + pos];
     });
 
   if (config.use_allReduce) {
@@ -779,13 +915,14 @@ cudaError_t GradientAllReduce(
     if (state.h_num_gradients_to_communicate == NULL)
         GUARD_CU(Malloc(state.h_num_gradients_to_communicate, 1, Malloc_t::Host));
 
-    //GUARD_CU2("cudaStreamSynchronize after allocation",
-    //  cudaStreamSynchronize(stream));
+    GUARD_CU2("cudaStreamSynchronize after allocation",
+      cudaStreamSynchronize(stream));
 
     auto &send_masks = state.send_masks;
     auto &recv_masks = state.recv_masks;
     loop_kernel<<<grid_size, block_size, 0, stream>>>(num_masks,
-      [send_masks, num_gradients, threshold, accumulated_verlocity]
+      [send_masks, num_gradients, thresholds, layer_starts, num_layers,
+      accumulated_verlocity]
       __device__ (const SizeT &i)
       {
         uint32_t mask = 0;
@@ -795,14 +932,16 @@ cudaError_t GradientAllReduce(
           end_j = num_gradients - offset;
         while (j < end_j)
         {
-          T element = accumulated_verlocity[j + offset];
+          auto pos = j + offset;
+          T element = accumulated_verlocity[pos];
+          int layer = binarySearch(layer_starts, 0, num_layers, pos);
           if (!isfinite(element * 1.0f))
           {
             j ++;
             continue;
           }
 
-          if (!(abs(element) < threshold[0]))
+          if (!(abs(element) < thresholds[layer]))
           {
             mask |= (((uint32_t)1) << j);
           }
@@ -814,7 +953,7 @@ cudaError_t GradientAllReduce(
     GUARD_CU2("cudaMemcpyAsync",
       cudaMemcpyAsync(state.h_send_masks, send_masks, sizeof(uint32_t) * num_masks,
         cudaMemcpyDeviceToHost, stream));
-    GUARD_CU2("cudaStreamSynchronize before MPI_Allreduce",
+    GUARD_CU2("cudaStreamSynchronize after mask",
       cudaStreamSynchronize(stream));
 
     MPI_Allreduce(state.h_send_masks, state.h_recv_masks, (int)num_masks,
@@ -843,8 +982,8 @@ cudaError_t GradientAllReduce(
 
     auto num_gradients_comm = state.h_num_gradients_to_communicate[0];
     if (config.global_gpu_rank == 0)
-      printf("#gradients to comm = %ld, #gradients = %ld, rate = %f\n",
-        (long)num_gradients_comm, (long)num_gradients,
+      printf("%d #gradients to comm = %ld, #gradients = %ld, rate = %f\n",
+        state.step, (long)num_gradients_comm, (long)num_gradients,
         1.0f * num_gradients_comm / num_gradients);
 
     auto send_allocated_ = state.send_allocated * sizeof(T);
@@ -891,8 +1030,8 @@ cudaError_t GradientAllReduce(
         }
       });
 
-    //GUARD_CU2("cudaStreamSynchronize before ncclAllReduce",
-    //  cudaStreamSynchronize(stream));
+    GUARD_CU2("cudaStreamSynchronize after send_data forming",
+      cudaStreamSynchronize(stream));
 
     GUARD_NCCL2("ncclAllReduce",
       ncclAllReduce(send_data   , (void*)recv_data,
@@ -926,8 +1065,8 @@ cudaError_t GradientAllReduce(
         }
       });
 
-    //GUARD_CU2("cudaStreamSynchronize before pervious value updates",
-    //  cudaStreamSynchronize(stream));
+    GUARD_CU2("cudaStreamSynchronize after output_gradient calculation",
+      cudaStreamSynchronize(stream));
 
     // Updates pervious_verlocity and pervious_accumulated_verlocity
     // Can be overlap with communication
@@ -1018,11 +1157,16 @@ cudaError_t GradientAllReduce(
 
     T* send_data = (T*)(state.send_data);
     // select at most target_num gradients
-    select_kernel
+    //select_kernel
+    //  <<<grid_size, block_size, 0, stream>>>
+    //  (accumulated_verlocity, num_gradients, config.global_num_gpus,
+    //  threshold, target_num, send_data, send_indices, send_counter,
+    //  state.max_gradient);
+    select_kernel3
       <<<grid_size, block_size, 0, stream>>>
-      (accumulated_verlocity, num_gradients, config.global_num_gpus,
-      threshold, target_num, send_data, send_indices, send_counter,
-      state.max_gradient);
+      (accumulated_verlocity, config.global_num_gpus,
+      thresholds, layer_starts, num_layers, target_num,
+      send_data, send_indices, send_counter, state.max_gradient);
 
     // pad if num_slected < target_num
     pad_kernel
@@ -1042,8 +1186,8 @@ cudaError_t GradientAllReduce(
     GUARD_CU(GarenteeAllocation(
         recv_indices, recv_allocated, recv_count));
 
-    //GUARD_CU2("cudaStreamSynchronize before AllGather",
-    //    cudaStreamSynchronize(stream));
+    GUARD_CU2("cudaStreamSynchronize after send data forming",
+        cudaStreamSynchronize(stream));
 
     T* recv_data = (T*)(state.recv_data);
     // Collect selected data & indices from all peers
@@ -1055,8 +1199,8 @@ cudaError_t GradientAllReduce(
       ncclAllGather(send_indices, (void*)recv_indices,
         (size_t)target_num, PreDefinedValues<uint32_t>::NCCLDataType,
         config.nccl_comm, stream));
-    //GUARD_CU2("cudaStreamSynchronize after AllGather",
-    //    cudaStreamSynchronize(stream));
+    GUARD_CU2("cudaStreamSynchronize after AllGather",
+        cudaStreamSynchronize(stream));
 
     //auto &global_gradients_= state.global_gradients;
     //auto &global_allocated = state.global_allocated;
@@ -1096,9 +1240,10 @@ cudaError_t GradientAllReduce(
         = (T*)(state.pervious_accumulated_verlocity + chunk_offset);
 
       loop_kernel <<<grid_size, block_size, 0, stream>>>(chunk_size,
-        [threshold, chunk_start, chunk_size,
+        [thresholds, chunk_start, chunk_size,
         verlocity, pervious_verlocity,
-        accumulated_verlocity, pervious_accumulated_verlocity]
+        accumulated_verlocity, pervious_accumulated_verlocity,
+        layer_starts, num_layers]
         __device__ (const SizeT &i)
         {
           //if (i == 0)
@@ -1107,7 +1252,8 @@ cudaError_t GradientAllReduce(
           //    (long)(gradient_start_chunk + num_gradients_chunk));
           auto gradient_pos = i + chunk_start;
           auto v = accumulated_verlocity[gradient_pos];
-          if (isfinite(v * 1.0f) && abs(v) > threshold[0])
+          int layer = binarySearch(layer_starts, 0, num_layers, gradient_pos);
+          if (isfinite(v * 1.0f) && abs(v) > thresholds[layer])
           {
             pervious_verlocity[i] = 0;
             pervious_accumulated_verlocity[i] = 0;
@@ -1119,8 +1265,8 @@ cudaError_t GradientAllReduce(
     }
   }
 
-  //GUARD_CU2("cudaStreamSynchronize after",
-  //  cudaStreamSynchronize(stream));
+  GUARD_CU2("cudaStreamSynchronize after",
+    cudaStreamSynchronize(stream));
 
   return retval;
 }
