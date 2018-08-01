@@ -1070,10 +1070,12 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           config.mpi_comm = horovod_global.mpi_comm;
           config.global_num_gpus = horovod_global.size;
           config.global_gpu_rank = horovod_global.rank;
+          config.local_comm      = horovod_global.local_comm;
           config.local_num_gpus  = horovod_global.local_size;
           config.local_gpu_rank  = horovod_global.local_rank;
-          config.global_num_nodes = horovod_global.size / horovod_global.local_size;
-          config.global_node_rank = horovod_global.rank % horovod_global.local_size;
+          config.cross_comm      = horovod_global.cross_comm;
+          config.global_num_nodes = horovod_global.cross_size;
+          config.global_node_rank = horovod_global.cross_rank;
           config.configured = true;
           state.layer_offset_bytes.clear();
           state.step_counters.clear();

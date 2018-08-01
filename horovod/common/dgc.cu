@@ -288,6 +288,14 @@ void DgcConfig::Set(std::string key, std::string value)
       use_allReduce = false;
   }
 
+  else if (key == "dgc_use_hierarchical_allreduce")
+  {
+    if (value == "True")
+      use_hierarchical_allreduce = true;
+    else if (value == "False")
+      use_hierarchical_allreduce = false;
+  }
+
   else if (key == "momentum")
     momentum = std::stof(value);
 
@@ -957,7 +965,8 @@ cudaError_t GradientAllReduce(
       cudaStreamSynchronize(stream));
 
     MPI_Allreduce(state.h_send_masks, state.h_recv_masks, (int)num_masks,
-      PreDefinedValues<uint32_t>::getMpiDataType(), MPI_BOR, config.mpi_comm);
+      PreDefinedValues<uint32_t>::getMpiDataType(), MPI_BOR,
+      config.use_hierarchical_allreduce ? config.cross_comm : config.mpi_comm);
 
     GUARD_CU2("cudaMemcpyAsync",
       cudaMemcpyAsync(recv_masks, state.h_recv_masks, sizeof(uint32_t) * num_masks,
@@ -1036,7 +1045,9 @@ cudaError_t GradientAllReduce(
     GUARD_NCCL2("ncclAllReduce",
       ncclAllReduce(send_data   , (void*)recv_data,
         (size_t)num_gradients_comm,
-        PreDefinedValues<T>::NCCLDataType, ncclSum, config.nccl_comm, stream));
+        PreDefinedValues<T>::NCCLDataType, ncclSum,
+        config.use_hierarchical_allreduce ? config.nccl_cross_comm :
+          config.nccl_comm, stream));
 
     GUARD_CU(Memset(output_gradients, 0, num_gradients, Malloc_t::Default, stream));
     loop_kernel<<<grid_size, block_size, 0, stream>>>(num_masks,
@@ -1194,11 +1205,13 @@ cudaError_t GradientAllReduce(
     GUARD_NCCL2("ncclAllGather",
       ncclAllGather(send_data   , (void*)recv_data,
         (size_t)target_num, PreDefinedValues<T       >::NCCLDataType,
-        config.nccl_comm, stream));
+        config.use_hierarchical_allreduce ? config.nccl_cross_comm :
+          config.nccl_comm, stream));
     GUARD_NCCL2("ncclAllGather",
       ncclAllGather(send_indices, (void*)recv_indices,
         (size_t)target_num, PreDefinedValues<uint32_t>::NCCLDataType,
-        config.nccl_comm, stream));
+        config.use_hierarchical_allreduce ? config.nccl_cross_comm :
+          config.nccl_comm, stream));
     //GUARD_CU2("cudaStreamSynchronize after AllGather",
     //    cudaStreamSynchronize(stream));
 
@@ -1333,38 +1346,93 @@ cudaError_t GradientAllReduce(
   typedef uint32_t SizeT;
   cudaError_t retval = cudaSuccess;
 
-  switch (gradient_type)
-  {
-  case ncclFloat32:
-    retval = GradientAllReduce <float, SizeT> (
-      (float*)input_gradients, (float*)output_gradients,
-      //(SizeT)num_gradients, offset_map, config, state);
-      layers, config, state);
-    break;
+  if (config.use_hierarchical_allreduce &&
+      !config.cross_comm_inited) {
+    ncclUniqueId nccl_cross_id;
+    if (config.global_node_rank == 0) {
+      GUARD_NCCL2("ncclGetUniqueId",
+        ncclGetUniqueId(&nccl_cross_id));
+    }
 
-  case ncclFloat64:
-    retval = GradientAllReduce<double, SizeT> (
-      (double*)input_gradients, (double*)output_gradients,
-      //(SizeT)num_gradients, offset_map, config, state);
-      layers, config, state);
-    break;
+    MPI_Bcast((void*)&nccl_cross_id, sizeof(nccl_cross_id), MPI_BYTE, 0,
+      config.cross_comm);
 
-  case ncclInt32:
-    retval = GradientAllReduce<int32_t, SizeT> (
-      (int32_t*)input_gradients, (int32_t*)output_gradients,
-      //(SizeT)num_gradients, offset_map, config, state);
-      layers, config, state);
-    break;
+    ncclComm_t new_nccl_comm;
+    GUARD_NCCL2("ncclCommInitRank",
+      ncclCommInitRank(&new_nccl_comm, config.global_num_nodes,
+        nccl_cross_id, config.global_node_rank));
+    config.nccl_cross_comm = new_nccl_comm;
 
-  case ncclInt64:
-    retval = GradientAllReduce<int64_t, SizeT> (
-      (int64_t*)input_gradients, (int64_t*)output_gradients,
-      //(SizeT)num_gradients, offset_map, config, state);
-      layers, config, state);
-    break;
+    ncclUniqueId nccl_local_id;
+    if (config.local_gpu_rank == 0) {
+      GUARD_NCCL2("ncclGetUniqueId",
+        ncclGetUniqueId(&nccl_local_id));
+    }
 
-  default:
-    break;
+    MPI_Bcast((void*)&nccl_local_id, sizeof(nccl_local_id), MPI_BYTE, 0,
+      config.local_comm);
+
+    ncclComm_t new_nccl_comm2;
+    GUARD_NCCL2("ncclCommInitRank",
+      ncclCommInitRank(&new_nccl_comm2, config.local_num_gpus,
+        nccl_local_id, config.local_gpu_rank));
+    config.nccl_local_comm = new_nccl_comm2;
+
+    MPI_Barrier(config.mpi_comm);
+    config.cross_comm_inited = true;
+  }
+
+  size_t num_gradients = 0;
+  if (config.use_hierarchical_allreduce) {
+    for (auto& layer : layers)
+      num_gradients += layer.second;
+
+    GUARD_NCCL2("ncclReduce",
+      ncclReduce(input_gradients, input_gradients, num_gradients,
+        gradient_type, ncclSum, 0, config.nccl_local_comm, config.stream));
+  }
+
+  if ((config.use_hierarchical_allreduce && config.local_gpu_rank == 0) ||
+      !config.use_hierarchical_allreduce) {
+    switch (gradient_type)
+    {
+    case ncclFloat32:
+      retval = GradientAllReduce <float, SizeT> (
+        (float*)input_gradients, (float*)output_gradients,
+        //(SizeT)num_gradients, offset_map, config, state);
+        layers, config, state);
+      break;
+
+    case ncclFloat64:
+      retval = GradientAllReduce<double, SizeT> (
+        (double*)input_gradients, (double*)output_gradients,
+        //(SizeT)num_gradients, offset_map, config, state);
+        layers, config, state);
+      break;
+
+    case ncclInt32:
+      retval = GradientAllReduce<int32_t, SizeT> (
+        (int32_t*)input_gradients, (int32_t*)output_gradients,
+        //(SizeT)num_gradients, offset_map, config, state);
+        layers, config, state);
+      break;
+
+    case ncclInt64:
+      retval = GradientAllReduce<int64_t, SizeT> (
+        (int64_t*)input_gradients, (int64_t*)output_gradients,
+        //(SizeT)num_gradients, offset_map, config, state);
+        layers, config, state);
+      break;
+
+    default:
+      break;
+    }
+  }
+
+  if (config.use_hierarchical_allreduce) {
+    GUARD_NCCL2("ncclBcast",
+      ncclBcast(output_gradients, num_gradients,
+        gradient_type, 0, config.nccl_local_comm, config.stream));
   }
   return retval;
 }

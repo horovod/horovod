@@ -152,6 +152,8 @@ struct DgcConfig {
   // NCCL communication handle
   ncclComm_t nccl_comm;
   MPI_Comm mpi_comm;
+  MPI_Comm cross_comm;
+  MPI_Comm local_comm;
 
   // whether DgcConfig has been configured
   bool configured = false;
@@ -170,6 +172,14 @@ struct DgcConfig {
 
   // Whether to use allReduce instead of allGather for gradient communication
   bool use_allReduce = true;
+
+  // Whether to use hierarchical_allreduce
+  bool use_hierarchical_allreduce = true;
+
+  // NCCL communicator for cross node communication, only GPU0
+  ncclComm_t nccl_cross_comm;
+  ncclComm_t nccl_local_comm;
+  bool cross_comm_inited = false;
 
   // function to set indivual configuration
   void Set(std::string key, std::string value);
