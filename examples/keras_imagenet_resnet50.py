@@ -19,6 +19,7 @@ from keras import backend as K
 from keras.preprocessing import image
 import tensorflow as tf
 import horovod.keras as hvd
+from horovod.tensorflow.compression import Compression
 import os
 
 parser = argparse.ArgumentParser(description='Keras ImageNet Example',
@@ -117,7 +118,7 @@ else:
                                momentum=args.momentum)
 
     # Horovod: add Horovod Distributed Optimizer.
-    opt = hvd.DistributedOptimizer(opt)
+    opt = hvd.DistributedOptimizer(opt, compression=Compression.fp16)
 
     model.compile(loss=keras.losses.categorical_crossentropy,
                   optimizer=opt,
