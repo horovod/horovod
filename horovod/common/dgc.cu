@@ -613,13 +613,13 @@ cudaError_t GradientAllReduce(
   int   num_layers   = layers.size();
   SizeT num_gradients = 0;
 
-  GUARD_CU2("cudaStreamSynchronize before",
-    cudaStreamSynchronize(stream));
+  //GUARD_CU2("cudaStreamSynchronize before",
+  //  cudaStreamSynchronize(stream));
 
   if (config.local_gradient_clipping)
     GUARD_CU(ClipGradient(input_gradients, layers, config, state));
-  GUARD_CU2("cudaStreamSynchronize after clipping",
-    cudaStreamSynchronize(stream));
+  //GUARD_CU2("cudaStreamSynchronize after clipping",
+  //  cudaStreamSynchronize(stream));
 
   GUARD_CU(GarenteeAllocation(state.h_layer_starts, state.h_layer_starts_allocated,
     num_layers + 1, Malloc_t::Host));
@@ -740,8 +740,8 @@ cudaError_t GradientAllReduce(
         verlocity[pos] = u;
       });
   }
-  GUARD_CU2("cudaStreamSynchronize after momentum correction",
-    cudaStreamSynchronize(stream));
+  //GUARD_CU2("cudaStreamSynchronize after momentum correction",
+  //  cudaStreamSynchronize(stream));
 
   // Sampling
   auto &samp_starts = state.samp_starts;
@@ -813,8 +813,8 @@ cudaError_t GradientAllReduce(
     state.layer_starts, num_layers,
     state.samp_starts, samp_data, state.rand_states);
 
-  GUARD_CU2("cudaStreamSynchronize after sampling",
-    cudaStreamSynchronize(stream));
+  //GUARD_CU2("cudaStreamSynchronize after sampling",
+  //  cudaStreamSynchronize(stream));
   //GUARD_CU2("cudaDeviceSynchronize before Sort",
   //  cudaDeviceSynchronize());
 
@@ -825,8 +825,8 @@ cudaError_t GradientAllReduce(
     stream, Malloc_t::Default, &(state.temp_storage), &(state.temp_storage_bytes)));
   //GUARD_CU2("cudaDeviceSynchronize after Sort",
   //  cudaDeviceSynchronize());
-  GUARD_CU2("cudaStreamSynchronize after Sort",
-    cudaStreamSynchronize(stream));
+  //GUARD_CU2("cudaStreamSynchronize after Sort",
+  //  cudaStreamSynchronize(stream));
 
   // Determine the threshold
   uint64_t num_examples_per_step = config.batch_size_per_gpu * config.global_num_gpus;
@@ -915,8 +915,8 @@ cudaError_t GradientAllReduce(
     if (state.h_num_gradients_to_communicate == NULL)
         GUARD_CU(Malloc(state.h_num_gradients_to_communicate, 1, Malloc_t::Host));
 
-    GUARD_CU2("cudaStreamSynchronize after allocation",
-      cudaStreamSynchronize(stream));
+    //GUARD_CU2("cudaStreamSynchronize after allocation",
+    //  cudaStreamSynchronize(stream));
 
     auto &send_masks = state.send_masks;
     auto &recv_masks = state.recv_masks;
@@ -1024,14 +1024,14 @@ cudaError_t GradientAllReduce(
           if (!isfinite(element * 1.0f))
             element = 0;
 
-          send_data[output_offset + output_count] = element / global_num_gpus;
+          send_data[output_offset + output_count] = element; // / global_num_gpus;
           output_count ++;
           j++;
         }
       });
 
-    GUARD_CU2("cudaStreamSynchronize after send_data forming",
-      cudaStreamSynchronize(stream));
+    //GUARD_CU2("cudaStreamSynchronize after send_data forming",
+    //  cudaStreamSynchronize(stream));
 
     GUARD_NCCL2("ncclAllReduce",
       ncclAllReduce(send_data   , (void*)recv_data,
@@ -1065,8 +1065,8 @@ cudaError_t GradientAllReduce(
         }
       });
 
-    GUARD_CU2("cudaStreamSynchronize after output_gradient calculation",
-      cudaStreamSynchronize(stream));
+    //GUARD_CU2("cudaStreamSynchronize after output_gradient calculation",
+    //  cudaStreamSynchronize(stream));
 
     // Updates pervious_verlocity and pervious_accumulated_verlocity
     // Can be overlap with communication
@@ -1186,8 +1186,8 @@ cudaError_t GradientAllReduce(
     GUARD_CU(GarenteeAllocation(
         recv_indices, recv_allocated, recv_count));
 
-    GUARD_CU2("cudaStreamSynchronize after send data forming",
-        cudaStreamSynchronize(stream));
+    //GUARD_CU2("cudaStreamSynchronize after send data forming",
+    //    cudaStreamSynchronize(stream));
 
     T* recv_data = (T*)(state.recv_data);
     // Collect selected data & indices from all peers
@@ -1199,8 +1199,8 @@ cudaError_t GradientAllReduce(
       ncclAllGather(send_indices, (void*)recv_indices,
         (size_t)target_num, PreDefinedValues<uint32_t>::NCCLDataType,
         config.nccl_comm, stream));
-    GUARD_CU2("cudaStreamSynchronize after AllGather",
-        cudaStreamSynchronize(stream));
+    //GUARD_CU2("cudaStreamSynchronize after AllGather",
+    //    cudaStreamSynchronize(stream));
 
     //auto &global_gradients_= state.global_gradients;
     //auto &global_allocated = state.global_allocated;
@@ -1265,8 +1265,8 @@ cudaError_t GradientAllReduce(
     }
   }
 
-  GUARD_CU2("cudaStreamSynchronize after",
-    cudaStreamSynchronize(stream));
+  //GUARD_CU2("cudaStreamSynchronize after",
+  //  cudaStreamSynchronize(stream));
 
   return retval;
 }

@@ -201,7 +201,7 @@ void select_kernel(
     thread_output += s_block_output_start;
     if (thread_to_select && thread_output < target_num)
     {
-      selected_elements[thread_output] = element / global_num_gpus;
+      selected_elements[thread_output] = element; // / global_num_gpus;
       selected_indices [thread_output] = thread_input;
     }
 
@@ -293,7 +293,7 @@ void select_kernel2(
     {
       if (output_pos >= target_num)
         break;
-      selected_elements[output_pos] = thread_elements[i] / global_num_gpus;
+      selected_elements[output_pos] = thread_elements[i];// / global_num_gpus;
       selected_indices [output_pos] = thread_indices [i];
       output_pos ++;
     }
@@ -373,7 +373,7 @@ void select_kernel3(
     thread_output += s_block_output_start;
     if (thread_to_select && thread_output < target_num)
     {
-      selected_elements[thread_output] = element / global_num_gpus;
+      selected_elements[thread_output] = element;// / global_num_gpus;
       selected_indices [thread_output] = thread_input;
     }
 
