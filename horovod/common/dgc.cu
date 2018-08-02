@@ -524,7 +524,8 @@ cudaError_t ClipGradient(
   std::vector<std::pair<std::string, uint64_t> > &layers,
              // <name, #elements> of layers
   DgcConfig  &config,
-  DgcState   &state)
+  DgcState   &state,
+  DgcToken   &token)
 {
   cudaError_t retval = cudaSuccess;
 
@@ -535,15 +536,15 @@ cudaError_t ClipGradient(
   int num_layers = layers.size();
   GUARD_CU(GarenteeAllocation(state.temp_storage, state.temp_storage_bytes,
     sizeof(T) * 2 * num_layers + sizeof(uint32_t) * (num_layers + 1)));
-  GUARD_CU(GarenteeAllocation(state.h_layer_starts, state.h_layer_starts_allocated,
+  GUARD_CU(GarenteeAllocation(token.h_layer_starts, token.h_layer_starts_allocated,
     num_layers + 1, Malloc_t::Host));
   uint32_t start_counter = 0;
   for (int i = 0; i < num_layers; i++)
   {
-    state.h_layer_starts[i] = start_counter;
+    token.h_layer_starts[i] = start_counter;
     start_counter += layers[i].second;
   }
-  state.h_layer_starts[num_layers] = start_counter;
+  token.h_layer_starts[num_layers] = start_counter;
 
   T* sums         = (T*)(state.temp_storage);
   T* coefficients = (T*)(state.temp_storage + sizeof(T) * num_layers);
@@ -555,7 +556,7 @@ cudaError_t ClipGradient(
 
   GUARD_CU(Memset(sums, 0, num_layers, Malloc_t::Default, stream));
   GUARD_CU2("cudaMemcpyAsync",
-    cudaMemcpyAsync(layer_starts, state.h_layer_starts, sizeof(uint32_t) * (num_layers + 1),
+    cudaMemcpyAsync(layer_starts, token.h_layer_starts, sizeof(uint32_t) * (num_layers + 1),
       cudaMemcpyHostToDevice, stream));
 
   // loop_kernel<<<grid_size, block_size, 0, stream>>>(layer_offsets[num_layers],
@@ -603,6 +604,43 @@ cudaError_t ClipGradient(
   return retval;
 }
 
+cudaError_t GetToken(DgcState &state, DgcToken &token)
+{
+  cudaError_t retval = cudaSuccess;
+
+  if (state.free_tokens.size() != 0)
+  {
+    token = state.free_tokens.front();
+    state.free_tokens.pop_front();
+    return retval;
+  }
+
+  if (state.busy_tokens.size() != 0)
+  {
+    auto &first_token = state.busy_tokens.front();
+    retval = cudaEventQuery(first_token.dgc_finish);
+    if (retval == cudaSuccess)
+    {
+      token = first_token;
+      state.busy_tokens.pop_front();
+      return retval;
+    }
+
+    if (retval != cudaErrorNotReady)
+    {
+      GUARD_CU2("cudaEventQuery", retval);
+    }
+    retval = cudaSuccess;
+  }
+
+  DgcToken *new_token = new DgcToken;
+  token = new_token[0];
+  GUARD_CU2("cudaEventCreateWithFlags",
+    cudaEventCreateWithFlags(&(token.dgc_finish), cudaEventDisableTiming));
+
+  return retval;
+}
+
 // Main DGC routine
 template <typename T, typename SizeT>
 cudaError_t GradientAllReduce(
@@ -621,16 +659,16 @@ cudaError_t GradientAllReduce(
   int   num_layers   = layers.size();
   SizeT num_gradients = 0;
 
+  DgcToken token;
+  GUARD_CU(GetToken(state, token));
   //GUARD_CU2("cudaStreamSynchronize before",
   //  cudaStreamSynchronize(stream));
 
   if (config.local_gradient_clipping)
-    GUARD_CU(ClipGradient(input_gradients, layers, config, state));
+    GUARD_CU(ClipGradient(input_gradients, layers, config, state, token));
   //GUARD_CU2("cudaStreamSynchronize after clipping",
   //  cudaStreamSynchronize(stream));
 
-  GUARD_CU(GarenteeAllocation(state.h_layer_starts, state.h_layer_starts_allocated,
-    num_layers + 1, Malloc_t::Host));
   // find which step is currently in and look for unallocated layers
   std::vector<std::pair<std::string, uint64_t> > layers_to_allocate;
   SizeT num_gradients_to_allocate = 0;
@@ -673,6 +711,8 @@ cudaError_t GradientAllReduce(
     }
   }
 
+  GUARD_CU(GarenteeAllocation(token.h_layer_starts, token.h_layer_starts_allocated,
+    num_layers + 1, Malloc_t::Host));
   // find continous layers as chunks
   // <start, size, offset> of chunks
   std::vector<std::tuple<SizeT, SizeT, size_t> > chunks;
@@ -682,7 +722,7 @@ cudaError_t GradientAllReduce(
   SizeT  chunk_size  = 0;
   for (int i = 0; i < num_layers; i++) {
     auto &layer = layers[i];
-    state.h_layer_starts[i] = layer_start;
+    token.h_layer_starts[i] = layer_start;
     //printf("layer %d : %s [%ld, %ld)\n",
     //    i, layer.first.c_str(), layer_start, layer_start + layer.second);
     if (chunk_offset_bytes + chunk_size * sizeof(T) !=
@@ -698,7 +738,7 @@ cudaError_t GradientAllReduce(
     chunk_size  += layer.second;
     layer_start += layer.second;
   } // end of for layers
-  state.h_layer_starts[num_layers] = layer_start;
+  token.h_layer_starts[num_layers] = layer_start;
   if (chunk_size != 0)
     chunks.push_back(std::make_tuple(
       chunk_start, chunk_size, chunk_offset_bytes));
@@ -707,7 +747,7 @@ cudaError_t GradientAllReduce(
   GUARD_CU(GarenteeAllocation(state.layer_starts,
     state.layer_starts_allocated, num_layers + 1));
   GUARD_CU2("cudaMemcpyAsync",
-    cudaMemcpyAsync(state.layer_starts, state.h_layer_starts,
+    cudaMemcpyAsync(state.layer_starts, token.h_layer_starts,
       sizeof(uint32_t) * (num_layers + 1), cudaMemcpyHostToDevice, stream));
 
   // Memory allocation and type conversion
@@ -757,13 +797,13 @@ cudaError_t GradientAllReduce(
   auto &samp_starts = state.samp_starts;
   GUARD_CU(GarenteeAllocation(state.samp_starts, state.samp_starts_allocated,
     num_layers + 1));
-  GUARD_CU(GarenteeAllocation(state.h_samp_starts, state.h_samp_starts_allocated,
+  GUARD_CU(GarenteeAllocation(token.h_samp_starts, token.h_samp_starts_allocated,
     num_layers + 1, Malloc_t::Host));
   uint32_t samp_counter = 0;
   for (int i = 0; i < num_layers; i++)
   {
     auto &layer = layers[i];
-    state.h_samp_starts[i] = samp_counter;
+    token.h_samp_starts[i] = samp_counter;
 
     uint32_t num_samples = 0;
     if (config.sampling_rate < 1 &&
@@ -793,9 +833,9 @@ cudaError_t GradientAllReduce(
     printf("samp %d of %d: [%d, %d)\n", i, num_layers, samp_counter, samp_counter + num_samples);
     samp_counter += num_samples;
   }
-  state.h_samp_starts[num_layers] = samp_counter;
+  token.h_samp_starts[num_layers] = samp_counter;
   GUARD_CU2("cudaMemcpyAsync",
-    cudaMemcpyAsync(state.samp_starts, state.h_samp_starts,
+    cudaMemcpyAsync(state.samp_starts, token.h_samp_starts,
       sizeof(uint32_t) * (num_layers + 1), cudaMemcpyHostToDevice, stream));
 
   auto &rand_states = state.rand_states;
@@ -823,6 +863,10 @@ cudaError_t GradientAllReduce(
     accumulated_verlocity, num_gradients,
     state.layer_starts, num_layers,
     state.samp_starts, samp_data, state.rand_states);
+
+  GUARD_CU2("cudaEventRecord",
+    cudaEventRecord(token.dgc_finish, stream));
+  state.busy_tokens.push_back(token);
   return retval;
 
   //GUARD_CU2("cudaStreamSynchronize after sampling",
@@ -1290,50 +1334,50 @@ cudaError_t GradientAllReduce(
 }
 
 // Entry warper function
-cudaError_t ClipGradient(
-  ncclDataType_t  gradient_type, // type of gradient
-  void           *gradients,     // GPU pointer to the gradients
-  //uint64_t       *layer_offsets, // gradient layer offsets, on host
-  //int             num_layers,    // The number of layers in the gradients
-  std::vector<std::pair<std::string, uint64_t> > &layers,
-                                // <name, #elements> of layers
-  DgcConfig      &config,        // DGC configuration
-  DgcState       &state)         // DGC running states
-{
-  typedef uint32_t SizeT;
-  cudaError_t retval = cudaSuccess;
-
-  switch (gradient_type)
-  {
-  case ncclFloat32:
-    retval = ClipGradient <float> (
-      //(float*)gradients, layer_offsets, num_layers, config, state);
-      (float*)gradients, layers, config, state);
-    break;
-
-  case ncclFloat64:
-    retval = ClipGradient <double> (
-      //(double*)gradients, layer_offsets, num_layers, config, state);
-      (double*)gradients, layers, config, state);
-    break;
-
-  case ncclInt32:
-    retval = ClipGradient <int32_t> (
-      //(int32_t*)gradients, layer_offsets, num_layers, config, state);
-      (int32_t*)gradients, layers, config, state);
-    break;
-
-  case ncclInt64:
-    retval = ClipGradient <int64_t> (
-      //(int64_t*)gradients, layer_offsets, num_layers, config, state);
-      (int64_t*)gradients, layers, config, state);
-    break;
-
-  default:
-    break;
-  }
-  return retval;
-}
+// cudaError_t ClipGradient(
+//   ncclDataType_t  gradient_type, // type of gradient
+//   void           *gradients,     // GPU pointer to the gradients
+//   //uint64_t       *layer_offsets, // gradient layer offsets, on host
+//   //int             num_layers,    // The number of layers in the gradients
+//   std::vector<std::pair<std::string, uint64_t> > &layers,
+//                                 // <name, #elements> of layers
+//   DgcConfig      &config,        // DGC configuration
+//   DgcState       &state)         // DGC running states
+// {
+//   typedef uint32_t SizeT;
+//   cudaError_t retval = cudaSuccess;
+//
+//   switch (gradient_type)
+//   {
+//   case ncclFloat32:
+//     retval = ClipGradient <float> (
+//       //(float*)gradients, layer_offsets, num_layers, config, state);
+//       (float*)gradients, layers, config, state);
+//     break;
+//
+//   case ncclFloat64:
+//     retval = ClipGradient <double> (
+//       //(double*)gradients, layer_offsets, num_layers, config, state);
+//       (double*)gradients, layers, config, state);
+//     break;
+//
+//   case ncclInt32:
+//     retval = ClipGradient <int32_t> (
+//       //(int32_t*)gradients, layer_offsets, num_layers, config, state);
+//       (int32_t*)gradients, layers, config, state);
+//     break;
+//
+//   case ncclInt64:
+//     retval = ClipGradient <int64_t> (
+//       //(int64_t*)gradients, layer_offsets, num_layers, config, state);
+//       (int64_t*)gradients, layers, config, state);
+//     break;
+//
+//   default:
+//     break;
+//   }
+//   return retval;
+// }
 
 cudaError_t GradientAllReduce(
   ncclDataType_t  gradient_type, // type of gradient

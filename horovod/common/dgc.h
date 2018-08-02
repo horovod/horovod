@@ -5,6 +5,7 @@
 #pragma once
 
 #include <map>
+#include <list>
 #include <math.h>
 #include <mpi.h>
 #include <nccl.h>
@@ -100,6 +101,7 @@ bool isValid(const long double &val)
     return (!isnan(val));
 }
 
+// Configuration for DGC
 struct DgcConfig {
   // The number of warmup epoches for DGC.
   // DGC communication will use a gradient sparsity, which starts from
@@ -185,6 +187,21 @@ struct DgcConfig {
   void Set(std::string key, std::string value);
 };
 
+// Token for GradientAllReduce call, mainly for host arrays,
+// to avoid CPU-side data being overwrote before moving to GPU,
+// if another call happens before GPU operations of pervious calls
+// are executed.
+struct DgcToken {
+  // Gradient layer and sample layer starts
+  uint32_t* h_layer_starts = NULL;
+  uint32_t  h_layer_starts_allocated = 0;
+  uint32_t* h_samp_starts = NULL;
+  uint32_t  h_samp_starts_allocated = 0;
+
+  cudaEvent_t dgc_finish;
+};
+
+// Running state, including memory allocation of DGC
 struct DgcState {
 
   // States for curand, one for each GPU thread
@@ -261,17 +278,11 @@ struct DgcState {
   // Maximum gradient
   float* max_gradient = NULL;
 
-  // Gradient layer starts
+  // Gradient and sample starts for each layer
   uint32_t* layer_starts = NULL;
   uint32_t  layer_starts_allocated = 0;
-  uint32_t* h_layer_starts = NULL;
-  uint32_t  h_layer_starts_allocated = 0;
-
-  // Sample starts
   uint32_t* samp_starts = NULL;
   uint32_t  samp_starts_allocated = 0;
-  uint32_t* h_samp_starts = NULL;
-  uint32_t  h_samp_starts_allocated = 0;
 
   // Gradient selection mask for allReduce communication
   uint32_t* send_masks = NULL;
@@ -286,6 +297,10 @@ struct DgcState {
   uint64_t  mask_offsets_allocated = 0;
 
   uint32_t* h_num_gradients_to_communicate = NULL;
+
+  // Tokens
+  std::list<DgcToken> free_tokens;
+  std::list<DgcToken> busy_tokens;
 };
 
 // Entry warper function
