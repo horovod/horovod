@@ -651,7 +651,7 @@ cudaError_t GradientAllReduce(
 
     auto offset_it = state.layer_offset_bytes.find(name);
     if (offset_it == state.layer_offset_bytes.end()) {
-      layers_to_allocate.push_back(layer);
+      layers_to_allocate.push_back(std::make_pair(layer.first, layer.second));
       num_gradients_to_allocate += layer.second;
     }
   } // end of for layers
@@ -683,6 +683,8 @@ cudaError_t GradientAllReduce(
   for (int i = 0; i < num_layers; i++) {
     auto &layer = layers[i];
     state.h_layer_starts[i] = layer_start;
+    //printf("layer %d : %s [%ld, %ld)\n",
+    //    i, layer.first.c_str(), layer_start, layer_start + layer.second);
     if (chunk_offset_bytes + chunk_size * sizeof(T) !=
       state.layer_offset_bytes[layer.first]) {
       // mismatch
@@ -788,6 +790,7 @@ cudaError_t GradientAllReduce(
       //    samp_data[i] = abs(accumulated_verlocity[i]);
       //  });
     }
+    printf("samp %d of %d: [%d, %d)\n", i, num_layers, samp_counter, samp_counter + num_samples);
     samp_counter += num_samples;
   }
   state.h_samp_starts[num_layers] = samp_counter;
@@ -820,6 +823,7 @@ cudaError_t GradientAllReduce(
     accumulated_verlocity, num_gradients,
     state.layer_starts, num_layers,
     state.samp_starts, samp_data, state.rand_states);
+  return retval;
 
   //GUARD_CU2("cudaStreamSynchronize after sampling",
   //  cudaStreamSynchronize(stream));
@@ -1185,7 +1189,8 @@ cudaError_t GradientAllReduce(
       ((T*)send_data, send_indices, target_num, send_counter, state.max_gradient);
 
     // Reallocate if not enough
-    SizeT recv_count      = target_num * config.global_num_gpus;
+    SizeT recv_count      = target_num * (config.use_hierarchical_allreduce ?
+        config.global_num_nodes : config.global_num_gpus);
     auto &recv_allocated  = state.recv_allocated;
     auto  recv_allocated_ = state.recv_allocated * sizeof(T);
     //auto &recv_data       = state.recv_data;
@@ -1379,6 +1384,10 @@ cudaError_t GradientAllReduce(
     config.nccl_local_comm = new_nccl_comm2;
 
     MPI_Barrier(config.mpi_comm);
+    printf("local = %d of %d, cross = %d of %d, global = %d of %d\n",
+        config.local_gpu_rank, config.local_num_gpus,
+        config.global_node_rank, config.global_num_nodes,
+        config.global_gpu_rank, config.global_num_gpus);
     config.cross_comm_inited = true;
   }
 

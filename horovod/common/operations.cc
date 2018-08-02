@@ -1082,6 +1082,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         }
 
         std::vector<std::pair<std::string, uint64_t> > layers;
+        layers.clear();
         for (auto& e : entries)
           layers.push_back(std::make_pair(
             e.tensor_name, e.tensor -> shape().num_elements()));

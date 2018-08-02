@@ -114,6 +114,15 @@ void sample_kernel2(
   while (i < num_samples)
   {
     int layer = binarySearch(samp_starts, 0, num_layers, i);
+    if (layer < 0 || layer >= num_layers ||
+      samp_starts[layer] > i || samp_starts[layer + 1] <= i)
+    {
+      printf("#layers = %d, i = %ld, layer = %d, samp_starts = %ld, %ld, %ld\n",
+        num_layers, (long)i, layer, layer < 1 ? (long)-1 : (long)samp_starts[layer - 1],
+        layer < 0 || layer >= num_layers ? (long)-1 : (long)samp_starts[layer],
+        layer + 1 >= num_layers ? (long)-1 : (long)samp_starts[layer + 1]);
+      break;
+    }
     auto layer_start = layer_starts[layer];
     auto layer_end   = layer_starts[layer + 1];
     auto samp_start  = samp_starts [layer];
@@ -126,14 +135,22 @@ void sample_kernel2(
       element = elements[layer_start + i - samp_start];
     } else {
       SizeT pos = curand_uniform(rand_states + thread_id) * layer_size;
-      if (pos > layer_size)
+      if (pos >= layer_size)
         pos -= layer_size;
-      element = elements[layer_start + pos];
+      if (pos + layer_start < 0 || pos + layer_start >= num_elements)
+      {
+        printf("i = %ld, pos = %ld, layer_start = %ld, layer = %d, layer_size = %ld, "
+          "#elements = %ld, layer_end = %ld\n",
+          (long)i, (long)pos, (long)layer_start, layer, (long)layer_size,
+          (long)num_elements, (long)layer_end);
+        break;
+      } else 
+        element = elements[layer_start + pos];
     }
     if (!isfinite(element * 1.0f))
       element = 0;
     samples[i] = abs(element);
-
+    
     i += STRIDE;
   }
 }
