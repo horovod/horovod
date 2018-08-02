@@ -29,7 +29,7 @@ parser.add_argument('--val-dir', default=os.path.expanduser('~/imagenet/validati
                     help='path to validation data')
 parser.add_argument('--log-dir', default='./logs',
                     help='tensorboard log directory')
-parser.add_argument('--checkpoint-format', default='./checkpoint-{epoch}.pth.tar',
+parser.add_argument('--checkpoint-format', default='./checkpoint-{epoch}.h5',
                     help='checkpoint file format')
 
 # Default settings from https://arxiv.org/abs/1706.02677.
