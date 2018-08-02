@@ -13,12 +13,39 @@
 #
 from __future__ import print_function
 
+import argparse
 import keras
 from keras import backend as K
 from keras.preprocessing import image
 import tensorflow as tf
 import horovod.keras as hvd
 import os
+
+parser = argparse.ArgumentParser(description='Keras ImageNet Example',
+                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('--train-dir', default=os.path.expanduser('~/imagenet/train'),
+                    help='path to training data')
+parser.add_argument('--val-dir', default=os.path.expanduser('~/imagenet/validation'),
+                    help='path to validation data')
+parser.add_argument('--log-dir', default='./logs',
+                    help='tensorboard log directory')
+parser.add_argument('--checkpoint-format', default='./checkpoint-{epoch}.pth.tar',
+                    help='checkpoint file format')
+parser.add_argument('--batch-size', type=int, default=32,
+                    help='input batch size for training')
+parser.add_argument('--val-batch-size', type=int, default=32,
+                    help='input batch size for validation')
+parser.add_argument('--epochs', type=int, default=90,
+                    help='number of epochs to train')
+parser.add_argument('--base-lr', type=float, default=0.0125,
+                    help='learning rate for a single GPU')
+parser.add_argument('--warmup-epochs', type=float, default=5,
+                    help='number of warmup epochs')
+parser.add_argument('--momentum', type=float, default=0.9,
+                    help='SGD momentum')
+parser.add_argument('--wd', type=float, default=0.00005,
+                    help='weight decay')
+args = parser.parse_args()
 
 # Horovod: initialize Horovod.
 hvd.init()
@@ -29,20 +56,21 @@ config.gpu_options.allow_growth = True
 config.gpu_options.visible_device_list = str(hvd.local_rank())
 K.set_session(tf.Session(config=config))
 
-# Settings from https://arxiv.org/abs/1706.02677.
-batch_size = 32
-learning_rate = 0.0125
-warmup_epochs = 5
-weight_decay = 0.00005
-epochs = 90
+# Default settings from https://arxiv.org/abs/1706.02677.
+train_batch_size = args.batch_size
+val_batch_size = args.val_batch_size
+learning_rate = args.base_lr
+warmup_epochs = args.warmup_epochs
+weight_decay = args.wd
+epochs = args.epochs
 
 # Paths for training and validation.
-train_dir = os.path.expanduser('~/imagenet/train')
-test_dir = os.path.expanduser('~/imagenet/validation')
+train_dir = args.train_dir
+test_dir = args.val_dir
 
 # Checkpoint format and log directory.
-checkpoint_format = './checkpoint-{epoch}.h5'
-log_dir = './logs'
+checkpoint_format = args.checkpoint_format
+log_dir = args.log_dir
 
 # If set > 0, will resume training from a given checkpoint.
 resume_from_epoch = 0
@@ -62,13 +90,13 @@ verbose = 1 if hvd.rank() == 0 else 0
 train_gen = image.ImageDataGenerator(
     width_shift_range=0.33, height_shift_range=0.33, zoom_range=0.5, horizontal_flip=True,
     preprocessing_function=keras.applications.resnet50.preprocess_input)
-train_iter = train_gen.flow_from_directory(train_dir, batch_size=batch_size,
+train_iter = train_gen.flow_from_directory(train_dir, batch_size=train_batch_size,
                                            target_size=(224, 224))
 
 # Validation data iterator.
 test_gen = image.ImageDataGenerator(
     zoom_range=(0.875, 0.875), preprocessing_function=keras.applications.resnet50.preprocess_input)
-test_iter = test_gen.flow_from_directory(test_dir, batch_size=batch_size,
+test_iter = test_gen.flow_from_directory(test_dir, batch_size=val_batch_size,
                                          target_size=(224, 224))
 
 # Set up standard ResNet-50 model.
@@ -96,7 +124,8 @@ else:
     model = keras.models.Model.from_config(model_config)
 
     # Horovod: adjust learning rate based on number of GPUs.
-    opt = keras.optimizers.SGD(lr=learning_rate * hvd.size(), momentum=0.9)
+    opt = keras.optimizers.SGD(lr=learning_rate * hvd.size(),
+                               momentum=args.momentum)
 
     # Horovod: add Horovod Distributed Optimizer.
     opt = hvd.DistributedOptimizer(opt)
