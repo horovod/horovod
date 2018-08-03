@@ -139,6 +139,9 @@ struct HorovodGlobalState {
   // Time point when coordinator last checked for stalled tensors.
   std::chrono::steady_clock::time_point last_stall_check;
 
+  // Flag indicating whether to perform stall tensor check.
+  bool perform_stall_check = true;
+
   // Timeline writer.
   Timeline timeline;
 
@@ -1308,7 +1311,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // By default, we will ask for multiple threads, so other libraries like
   // mpi4py can be used together with Horovod if multi-threaded MPI is
   // installed.
-  auto mpi_threads_disable = std::getenv("HOROVOD_MPI_THREADS_DISABLE");
+  auto mpi_threads_disable = std::getenv(HOROVOD_MPI_THREADS_DISABLE);
   int required = MPI_THREAD_MULTIPLE;
   if (mpi_threads_disable != nullptr &&
     std::strtol(mpi_threads_disable, nullptr, 10) > 0) {
@@ -1391,28 +1394,35 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.local_comm_ranks = local_comm_ranks;
 
   // Open the timeline file on coordinator.
-  auto horovod_timeline = std::getenv("HOROVOD_TIMELINE");
+  auto horovod_timeline = std::getenv(HOROVOD_TIMELINE);
   if (is_coordinator && horovod_timeline != nullptr) {
     state.timeline.Initialize(std::string(horovod_timeline));
   }
 
   // Override Tensor Fusion threshold, if it's set.
-  auto horovod_fusion_threshold = std::getenv("HOROVOD_FUSION_THRESHOLD");
+  auto horovod_fusion_threshold = std::getenv(HOROVOD_FUSION_THRESHOLD);
   if (horovod_fusion_threshold != nullptr) {
     state.tensor_fusion_threshold =
         std::strtol(horovod_fusion_threshold, nullptr, 10);
   }
 
   // Override the cycle time.
-  auto horovod_cycle_time = std::getenv("HOROVOD_CYCLE_TIME");
+  auto horovod_cycle_time = std::getenv(HOROVOD_CYCLE_TIME);
   if (horovod_cycle_time != nullptr) {
     state.cycle_time_ms = std::strtof(horovod_cycle_time, nullptr);
+  }
+
+  // Disable stall check.
+  auto horovod_stall_check_disable = std::getenv(HOROVOD_STALL_CHECK_DISABLE);
+  if (horovod_stall_check_disable != nullptr &&
+      std::strtol(horovod_stall_check_disable, nullptr, 10) > 0) {
+    state.perform_stall_check = false;
   }
 
   // Set flag for hierarchical allreduce. Ignore if Horovod is running on a
   // single node.
   auto horovod_hierarchical_allreduce =
-      std::getenv("HOROVOD_HIERARCHICAL_ALLREDUCE");
+      std::getenv(HOROVOD_HIERARCHICAL_ALLREDUCE);
   if (horovod_hierarchical_allreduce != nullptr &&
       std::strtol(horovod_hierarchical_allreduce, nullptr, 10) > 0 &&
       cross_size > 1) {
@@ -1656,8 +1666,9 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     }
 
     // Check for stalled tensors.
-    if (std::chrono::steady_clock::now() - state.last_stall_check >
-        STALL_WARNING_TIME) {
+    if (state.perform_stall_check &&
+        std::chrono::steady_clock::now() - state.last_stall_check >
+            STALL_WARNING_TIME) {
       CheckForStalledTensors(state);
       state.last_stall_check = std::chrono::steady_clock::now();
     }
