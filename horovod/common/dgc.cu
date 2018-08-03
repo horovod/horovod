@@ -830,7 +830,8 @@ cudaError_t GradientAllReduce(
       //    samp_data[i] = abs(accumulated_verlocity[i]);
       //  });
     }
-    printf("samp %d of %d: [%d, %d)\n", i, num_layers, samp_counter, samp_counter + num_samples);
+    //printf("samp %d of %d: [%d, %d)\n", i, num_layers, samp_counter, 
+    //  samp_counter + num_samples);
     samp_counter += num_samples;
   }
   token.h_samp_starts[num_layers] = samp_counter;
@@ -863,11 +864,6 @@ cudaError_t GradientAllReduce(
     accumulated_verlocity, num_gradients,
     state.layer_starts, num_layers,
     state.samp_starts, samp_data, state.rand_states);
-
-  GUARD_CU2("cudaEventRecord",
-    cudaEventRecord(token.dgc_finish, stream));
-  state.busy_tokens.push_back(token);
-  return retval;
 
   //GUARD_CU2("cudaStreamSynchronize after sampling",
   //  cudaStreamSynchronize(stream));
@@ -1329,7 +1325,9 @@ cudaError_t GradientAllReduce(
 
   //GUARD_CU2("cudaStreamSynchronize after",
   //  cudaStreamSynchronize(stream));
-
+  GUARD_CU2("cudaEventRecord",
+    cudaEventRecord(token.dgc_finish, stream));
+  state.busy_tokens.push_back(token);
   return retval;
 }
 
