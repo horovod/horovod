@@ -1500,6 +1500,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   // Copy the data structures from global state under this lock.
   // However, don't keep the lock for the rest of the loop, so that
   // enqueued stream callbacks can continue.
+  //将sate 全局的message_queue 弹出来，直到message_queue有内容
   std::queue<MPIRequest> message_queue;
   {
     std::lock_guard<std::mutex> guard(state.mutex);
@@ -1509,8 +1510,6 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       message_queue.push(message);
     }
   }
- if(!message_queue.empty())
-  	printf("operations.cc RunLoopOnce --> message_queue Size:%d\n",message_queue.size());
   // Collect all tensors that are ready to be reduced. Record them in the
   // tensor count table (rank zero) or send them to rank zero to be
   // recorded (everyone else).
@@ -1525,12 +1524,10 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 
       bool reduce =
           IncrementTensorCount(state.message_table, message, state.size);
-      printf("operations.cc RunLoopOnce --> number:%d,reduce:%d\n",num_reduce,reduce);
-      num_reduce++;
 
       if (reduce) {
         ready_to_reduce.push_back(message.tensor_name());
-        printf("reduce --->messgae tensor_name:%s\n",message.tensor_name().c_str() );
+        printf("RunLoopOnce 1530Line -->ready_to_reduce tensor_name:%s\n",message.tensor_name().c_str());
       }
     }
 
@@ -1575,11 +1572,13 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
                                            received_message, state.size);
         if (reduce) {
           ready_to_reduce.push_back(received_name);
+           printf("RunLoopOnce 1575Line -->ready_to_reduce received_name:%s\n",received_name.c_str());
         }
       }
       if (received_message_list.shutdown()) {
         // Received SHUTDOWN request from one of the workers.
         state.shut_down = true;
+        printf("received_message_list shutdown!!!\n");
       }
     }
 
