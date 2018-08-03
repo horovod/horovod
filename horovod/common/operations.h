@@ -43,6 +43,14 @@ namespace common {
 #define MEMCPY_OUT_FUSION_BUFFER "MEMCPY_OUT_FUSION_BUFFER"
 #define MPI_BCAST "MPI_BCAST"
 
+// Horovod knobs.
+#define HOROVOD_MPI_THREADS_DISABLE "HOROVOD_MPI_THREADS_DISABLE"
+#define HOROVOD_TIMELINE "HOROVOD_TIMELINE"
+#define HOROVOD_FUSION_THRESHOLD "HOROVOD_FUSION_THRESHOLD"
+#define HOROVOD_CYCLE_TIME "HOROVOD_CYCLE_TIME"
+#define HOROVOD_STALL_CHECK_DISABLE "HOROVOD_STALL_CHECK_DISABLE"
+#define HOROVOD_HIERARCHICAL_ALLREDUCE "HOROVOD_HIERARCHICAL_ALLREDUCE"
+
 // A callback to call after the MPI communication completes. Since the
 // allreduce and allgather ops are asynchronous, this callback is what resumes
 // computation after the reduction is completed.
