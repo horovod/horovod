@@ -1530,7 +1530,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 
       if (reduce) {
         ready_to_reduce.push_back(message.tensor_name());
-        printf("reduce --->messgae tensor_name:%s\n",messgae.tensor_name.c_str() );
+        printf("reduce --->messgae tensor_name:%s\n",message.tensor_name().c_str() );
       }
     }
 
