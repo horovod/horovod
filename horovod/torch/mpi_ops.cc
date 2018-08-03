@@ -96,7 +96,7 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
         }
         handle_manager.MarkDone(handle, status);
       });
-   printf("mpi_opc.cc DoAllreduceCudaOnCpu --->horovod size :%d,handle :%d, name:%s,device :%d\n",horovod_size(),handle,name,device);
+   printf("mpi_opc.cc DoAllreduceCudaOnCpu  ------> handle :%d, name:%s\n",handle,name);
   ThrowIfError(enqueue_result);
 
   return handle;

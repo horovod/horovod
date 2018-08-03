@@ -1341,12 +1341,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   local_comm_ranks[local_rank] = rank;
   MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, local_comm_ranks.data(), 1,
                 MPI_INT, local_comm);
-  //TODO:wuyongyu
-  printf("local_comm_ranks:");
-  for(auto k :local_comm_ranks){
-  	printf("%d ,",k);
-  }
-  printf("\n");
+ 
   
   // Set up cross-communicator in case of hierarchical allreduce.
   MPI_Comm cross_comm;
@@ -1354,7 +1349,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   int cross_rank, cross_size;
   MPI_Comm_rank(cross_comm, &cross_rank);
   MPI_Comm_size(cross_comm, &cross_size);
-
+  printf("operations.cc BackgroundThreadLoop -->local_rank:%d,rank:%d,cross_rank:%d,cross_size:%d\n",local_rank,rank,cross_rank,cross_size );
   state.rank = rank;
   state.local_rank = local_rank;
   state.cross_rank = cross_rank;
@@ -1401,6 +1396,7 @@ if(is_coordinator && horovod_timeline != nullptr){
       cross_size > 1) {
     state.hierarchical_allreduce = true;
   }
+  printf("operations.cc BackgroundThreadLoop --->horovod_hierarchical_allreduce:%d\n", state.hierarchical_allreduce);
 
   // Initialize the tensor count table. No tensors are available yet.
   if (is_coordinator) {
@@ -1779,7 +1775,7 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string name, const int device,
                               StatusCallback callback) {
-  printf("operations.cc EnqueueTensorAllreduce-------> hvd rank:%d,hvd local_rank%d\n",horovod_global.rank,horovod_global.local_rank);
+  printf("operations.cc EnqueueTensorAllreduce-------> hvd rank: %d,hvd local_rank: %d\n",horovod_global.rank,horovod_global.local_rank);
   MPIRequest message;
   message.set_request_rank(horovod_global.rank);
   message.set_tensor_name(name);
