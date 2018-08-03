@@ -1686,7 +1686,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     MPIRequestList::SerializeToString(message_list, encoded_message);
     int encoded_message_length = (int)encoded_message.length() + 1;
 
-    printf("1687 Line:encoded_message_length:%d,the node rank is：%d\n",encoded_message_length,rank);
+    printf("1687 Line:encoded_message_length:%d,the node rank is：%d\n",encoded_message_length,state.rank);
     MPI_Gather(&encoded_message_length, 1, MPI_INT, nullptr, 1, MPI_INT,
                RANK_ZERO, state.mpi_comm);
     MPI_Gatherv((void*)encoded_message.c_str(), encoded_message_length,
