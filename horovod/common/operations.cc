@@ -1384,11 +1384,9 @@ if(is_coordinator && horovod_timeline != nullptr){
   // Override the cycle time.
   auto horovod_cycle_time = std::getenv("HOROVOD_CYCLE_TIME");
   if (horovod_cycle_time != nullptr) {
-  	printf("horovod_cycle_time is not nullptr\n");
     state.cycle_time_ms = std::strtof(horovod_cycle_time, nullptr);
-  }else{
-  	printf("horovod_cycle_time is nullptr\n");
   }
+  printf("operations.cc BackgroundThreadLoop -->state.cycle_time_ms:%f\n",state.cycle_time_ms );
   // Set flag for hierarchical allreduce. Ignore if Horovod is running on a
   // single node.
   auto horovod_hierarchical_allreduce =
@@ -1510,13 +1508,14 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       message_queue.push(message);
     }
   }
-
+	printf("operations.cc RunLoopOnce --> state.message_queue Size:%d\n",state.message_queue.size());
   // Collect all tensors that are ready to be reduced. Record them in the
   // tensor count table (rank zero) or send them to rank zero to be
   // recorded (everyone else).
   std::vector<std::string> ready_to_reduce;
   if (is_coordinator) {
   	//printf("operations.cc RunLoopOnce -->this is coordinator!\n");
+  	int num_reduce=0;
     while (!message_queue.empty()) {
       // Pop the first available message message
       MPIRequest message = message_queue.front();
@@ -1524,6 +1523,9 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 
       bool reduce =
           IncrementTensorCount(state.message_table, message, state.size);
+      printf("operations.cc RunLoopOnce --> number:%d,reduce:%d\n",num_reduce,reduce);
+      num_reduce++;
+      
       if (reduce) {
         ready_to_reduce.push_back(message.tensor_name());
       }
