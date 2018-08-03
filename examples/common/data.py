@@ -92,15 +92,21 @@ def set_resnet_aug(aug):
     aug.set_defaults(brightness=0.4, contrast=0.4, saturation=0.4, pca_noise=0.1)
 
 class SyntheticDataIter(DataIter):
-    def __init__(self, num_classes, data_shape, max_iter, dtype):
+    def __init__(self, num_classes, data_shape, max_iter, dtype, kv):
         self.batch_size = data_shape[0]
         self.cur_iter = 0
         self.max_iter = max_iter
         self.dtype = dtype
         label = np.random.randint(0, num_classes, [self.batch_size,])
         data = np.random.uniform(-1, 1, data_shape)
-        self.data = mx.nd.array(data, dtype=self.dtype, ctx=mx.Context('cpu', 0))
-        self.label = mx.nd.array(label, dtype=self.dtype, ctx=mx.Context('cpu', 0))
+        if 'horovod' in kv.type:
+            print("Using horovod")
+            self.data = mx.nd.array(data, dtype=self.dtype, ctx=mx.Context('cpu_pinned', kv.local_rank))
+            self.label = mx.nd.array(label, dtype=self.dtype, ctx=mx.Context('cpu_pinned', kv.local_rank))
+        else:
+            print("Not using horovod")
+            self.data = mx.nd.array(data, dtype=self.dtype, ctx=mx.Context('cpu_pinned', 0))
+            self.label = mx.nd.array(label, dtype=self.dtype, ctx=mx.Context('cpu_pinned', 0))
     def __iter__(self):
         return self
     @property
@@ -130,7 +136,7 @@ def get_rec_iter(args, kv=None):
     if 'benchmark' in args and args.benchmark:
         data_shape = (args.batch_size,) + image_shape
         train = SyntheticDataIter(args.num_classes, data_shape,
-                args.num_examples / args.batch_size, np.float32)
+                args.num_examples / args.batch_size, np.float32, kv)
         return (train, None)
     if kv:
         (rank, nworker) = (kv.rank, kv.num_workers)
