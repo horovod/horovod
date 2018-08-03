@@ -1540,6 +1540,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     recvcounts[0] = 0;
     MPI_Gather(MPI_IN_PLACE, 1, MPI_INT, recvcounts, 1, MPI_INT, RANK_ZERO,
                state.mpi_comm);
+    printf("RANK ZERO 1543 Line: MPI_Gather:recvcounts[1]%d\n",recvcounts[1]);
 
 
     // 2. Compute displacements.
@@ -1558,6 +1559,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     auto buffer = new char[total_size];
     MPI_Gatherv(nullptr, 0, MPI_BYTE, buffer, recvcounts, displcmnts, MPI_BYTE,
                 RANK_ZERO, state.mpi_comm);
+    printf("RANK ZERO 1562 Line: MPI_Gather:recv buffer\n");
 
     // 4. Process messages.
     for (int i = 1; i < state.size; i++) {
@@ -1614,7 +1616,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 
       if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
         // Attempt to add more responses to this fused response.
-        auto& entry = state.tensor_table[response.tensor_names()[0]];
+        auto& entry = state.tensor_table[response.tensor_names()[0]]
         int64_t tensor_size = entry.tensor->size();
 
         while (!responses.empty()) {
@@ -1644,6 +1646,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       }
 
       response_list.add_responses(response);
+      printf("1647 Line response name:%s\n", response.tensor_names()[0].c_str());
     }
 
     // Notify all nodes which tensors we'd like to reduce at this step.
@@ -1682,6 +1685,8 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     }
     MPIRequestList::SerializeToString(message_list, encoded_message);
     int encoded_message_length = (int)encoded_message.length() + 1;
+
+    printf("1687 Line:encoded_message_length:%d,the node rank is：%d\n",encoded_message_length,rank);
     MPI_Gather(&encoded_message_length, 1, MPI_INT, nullptr, 1, MPI_INT,
                RANK_ZERO, state.mpi_comm);
     MPI_Gatherv((void*)encoded_message.c_str(), encoded_message_length,
