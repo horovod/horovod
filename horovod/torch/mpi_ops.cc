@@ -74,7 +74,7 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto device = TensorUtil::GetDevice(tensor);
  //TODO:print device
- // printf("mpi_ops.cc  DoAllreduceCudaOnCPU :Make async copy of input tensor to CPU tensor the device  is %d, CPU_DEVICE_ID is :%d\n",device,CPU_DEVICE_ID);
+ printf("mpi_ops.cc  DoAllreduceCudaOnCPU :Make async copy of input tensor to CPU tensor the device  is %d, CPU_DEVICE_ID is :%d\n",device,CPU_DEVICE_ID);
 
   auto hvd_cpu_buffer =
       std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
@@ -338,6 +338,8 @@ extern "C" int horovod_torch_poll(int handle) {
   return handle_manager.PollHandle(handle) ? 1 : 0;
 }
 
+// Synchronizes an asynchronous allreduce, allgather or broadcast operation until
+//it's completed. Returns the result of the operation.
 extern "C" void horovod_torch_wait_and_clear(int handle) {
   while (!handle_manager.PollHandle(handle)) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));

@@ -1779,6 +1779,7 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string name, const int device,
                               StatusCallback callback) {
+  printf("operations.cc EnqueueTensorAllreduce-------> hvd rank:%d,hvd local_rank%d\n",horovod_global.rank,horovod_global.local_rank);
   MPIRequest message;
   message.set_request_rank(horovod_global.rank);
   message.set_tensor_name(name);
