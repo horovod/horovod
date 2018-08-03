@@ -163,6 +163,12 @@ struct DgcConfig {
   // the minimum number of elements to trigger sampling
   uint64_t min_sampling_num = 4000;
 
+  // the minimum number of selected elements per layer
+  uint64_t min_gradients_comm_per_layer = 10;
+
+  // the minimum number of selected samples per layer
+  uint64_t min_selected_samples_per_layer = 5;
+
   // Momentum
   float momentum = 0.9;
 

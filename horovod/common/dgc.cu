@@ -793,6 +793,23 @@ cudaError_t GradientAllReduce(
   //GUARD_CU2("cudaStreamSynchronize after momentum correction",
   //  cudaStreamSynchronize(stream));
 
+  // Determine the threshold
+  uint64_t num_examples_per_step = config.batch_size_per_gpu * config.global_num_gpus;
+  uint64_t steps_per_epoch = config.num_examples_per_epoch / num_examples_per_step;
+  if (steps_per_epoch * num_examples_per_step < config.num_examples_per_epoch)
+    steps_per_epoch ++;
+  uint64_t epoch    = state.step * 1.0 / steps_per_epoch;
+  double sparsity   = config.final_sparsity;
+  if (epoch < config.warmup_epochs) {
+    sparsity = config.init_sparsity * exp(
+      log(config.final_sparsity / config.init_sparsity)
+      / (config.warmup_epochs - 1) * epoch);
+    //if (epoch * steps_per_epoch == state.step)
+    //  printf("Epoch %ld, Step %ld, sparsity = %lf\n",
+    //    epoch, state.step, sparsity);
+  }
+  SizeT  target_num = num_gradients * (1 - sparsity);
+
   // Sampling
   auto &samp_starts = state.samp_starts;
   GUARD_CU(GarenteeAllocation(state.samp_starts, state.samp_starts_allocated,
@@ -812,6 +829,13 @@ cudaError_t GradientAllReduce(
       num_samples = layer.second * config.sampling_rate;
       if (num_samples < config.min_sampling_num)
         num_samples = config.min_sampling_num;
+      uint32_t num_selected_samples = config.min_gradients_comm_per_layer
+        * config.sampling_rate;
+      if (num_selected_samples < config.min_selected_samples_per_layer)
+        num_selected_samples = config.min_selected_samples_per_layer;
+      if (num_samples < num_selected_samples * 1.0f / (1 - sparsity)) {
+        num_samples = num_selected_samples * 1.0f / (1 - sparsity);
+      }
       if (num_samples > layer.second)
         num_samples = layer.second;
     }
@@ -830,7 +854,7 @@ cudaError_t GradientAllReduce(
       //    samp_data[i] = abs(accumulated_verlocity[i]);
       //  });
     }
-    //printf("samp %d of %d: [%d, %d)\n", i, num_layers, samp_counter, 
+    //printf("samp %d of %d: [%d, %d)\n", i, num_layers, samp_counter,
     //  samp_counter + num_samples);
     samp_counter += num_samples;
   }
@@ -880,22 +904,6 @@ cudaError_t GradientAllReduce(
   //GUARD_CU2("cudaStreamSynchronize after Sort",
   //  cudaStreamSynchronize(stream));
 
-  // Determine the threshold
-  uint64_t num_examples_per_step = config.batch_size_per_gpu * config.global_num_gpus;
-  uint64_t steps_per_epoch = config.num_examples_per_epoch / num_examples_per_step;
-  if (steps_per_epoch * num_examples_per_step < config.num_examples_per_epoch)
-    steps_per_epoch ++;
-  uint64_t epoch    = state.step * 1.0 / steps_per_epoch;
-  double sparsity   = config.final_sparsity;
-  if (epoch < config.warmup_epochs) {
-    sparsity = config.init_sparsity * exp(
-      log(config.final_sparsity / config.init_sparsity)
-      / (config.warmup_epochs - 1) * epoch);
-    //if (epoch * steps_per_epoch == state.step)
-    //  printf("Epoch %ld, Step %ld, sparsity = %lf\n",
-    //    epoch, state.step, sparsity);
-  }
-  SizeT  target_num = num_gradients * (1 - sparsity);
   //auto &threshold = state.gradient_threshold;
   //if (threshold == NULL) {
   //  GUARD_CU(Malloc(threshold, 1));
@@ -918,10 +926,11 @@ cudaError_t GradientAllReduce(
   //    //  num_samples > 0 ? samp_data[num_samples - 1] : -1);
   //  });
   auto &thresholds = state.thresholds;
+  auto &min_selected_samples_per_layer = config.min_gradients_comm_per_layer;
   GUARD_CU(GarenteeAllocation(thresholds, state.thresholds_allocated, num_layers));
 
   loop_kernel<<<grid_size, block_size, 0, stream>>>(num_layers,
-    [thresholds, samp_data, samp_starts, sparsity]
+    [thresholds, samp_data, samp_starts, sparsity, min_selected_samples_per_layer]
     __device__ (const int &layer){
       auto samp_start = samp_starts[layer];
       auto samp_end   = samp_starts[layer + 1];
@@ -929,6 +938,9 @@ cudaError_t GradientAllReduce(
       SizeT pos = samp_size * sparsity;
       if (pos >= samp_size)
         pos = samp_size;
+      if (min_selected_samples_per_layer < samp_size &&
+        pos > samp_size - min_selected_samples_per_layer)
+        pos = samp_size - min_selected_samples_per_layer;
       thresholds[layer] = samp_data[samp_start + pos];
     });
 
