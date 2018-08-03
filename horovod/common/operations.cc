@@ -1482,6 +1482,7 @@ if(is_coordinator && horovod_timeline != nullptr){
 //      loop.
 
 int RunLoopOnceCounter=0;
+int num_reduce=0;
 bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   // The coordinator sends a SHUTDOWN message to trigger shutdown.
   bool should_shut_down = false;
@@ -1508,14 +1509,15 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       message_queue.push(message);
     }
   }
-	printf("operations.cc RunLoopOnce --> state.message_queue Size:%d\n",state.message_queue.size());
+ if(!message_queue.empty())
+  	printf("operations.cc RunLoopOnce --> message_queue Size:%d\n",message_queue.size());
   // Collect all tensors that are ready to be reduced. Record them in the
   // tensor count table (rank zero) or send them to rank zero to be
   // recorded (everyone else).
   std::vector<std::string> ready_to_reduce;
   if (is_coordinator) {
   	//printf("operations.cc RunLoopOnce -->this is coordinator!\n");
-  	int num_reduce=0;
+  	
     while (!message_queue.empty()) {
       // Pop the first available message message
       MPIRequest message = message_queue.front();
@@ -1525,9 +1527,10 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
           IncrementTensorCount(state.message_table, message, state.size);
       printf("operations.cc RunLoopOnce --> number:%d,reduce:%d\n",num_reduce,reduce);
       num_reduce++;
-      
+
       if (reduce) {
         ready_to_reduce.push_back(message.tensor_name());
+        printf("reduce --->messgae tensor_name:%s\n",messgae.tensor_name.c_str() );
       }
     }
 
