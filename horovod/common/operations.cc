@@ -1566,13 +1566,14 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       MPIRequestList received_message_list;
       MPIRequestList::ParseFromString(received_message_list, received_data);
       for (auto& received_message : received_message_list.requests()) {
+      	printf("received_message_list:tensor_name%s\n", received_message.tensor_name().c_str());
         auto& received_name = received_message.tensor_name();
 
         bool reduce = IncrementTensorCount(state.message_table,
                                            received_message, state.size);
         if (reduce) {
           ready_to_reduce.push_back(received_name);
-           printf("RunLoopOnce 1575Line -->ready_to_reduce received_name:%s\n",received_name.c_str());
+          printf("RunLoopOnce 1575Line -->ready_to_reduce received_name:%s\n",received_name.c_str());
         }
       }
       if (received_message_list.shutdown()) {
@@ -1598,6 +1599,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       MPIResponse response =
           ConstructMPIResponse(state.message_table, tensor_name);
       responses.push_back(std::move(response));
+      printf("RunloopOnece Line:1602 responses tensor_name:%s\n",tensor_name.c_str());
     }
 
     MPIResponseList response_list;
@@ -1608,6 +1610,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       auto response = responses.front();
       assert(response.tensor_names().size() == 1);
       responses.pop_front();
+      printf("1613Line response name:%s\n",response.tensor_names()[0].c_str());
 
       if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
         // Attempt to add more responses to this fused response.
@@ -1617,6 +1620,8 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
         while (!responses.empty()) {
           auto new_response = responses.front();
           assert(new_response.tensor_names().size() == 1);
+          printf("1623Line new_response name:%s\n",new_response.tensor_names()[0].c_str());
+
           auto& new_entry = state.tensor_table[new_response.tensor_names()[0]];
           int64_t new_tensor_size = new_entry.tensor->size();
 
