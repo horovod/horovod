@@ -1384,9 +1384,11 @@ if(is_coordinator && horovod_timeline != nullptr){
   // Override the cycle time.
   auto horovod_cycle_time = std::getenv("HOROVOD_CYCLE_TIME");
   if (horovod_cycle_time != nullptr) {
+  	printf("horovod_cycle_time is not nullptr\n");
     state.cycle_time_ms = std::strtof(horovod_cycle_time, nullptr);
+  }else{
+  	printf("horovod_cycle_time is nullptr\n");
   }
-
   // Set flag for hierarchical allreduce. Ignore if Horovod is running on a
   // single node.
   auto horovod_hierarchical_allreduce =
