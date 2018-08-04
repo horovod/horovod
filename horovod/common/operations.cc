@@ -765,9 +765,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         timeline.ActivityEnd(it->tensor_name);
         timeline.ActivityStart(it->tensor_name, WAIT_FOR_OTHER_TENSOR_DATA);
         it = waiting_tensors.erase(it);
-        printf("GPU Ready_event 等待结束!!");
+        printf("GPU Ready_event 等待结束!!\n");
       } else {
-        printf("GPU Ready_event 等待...");
+        printf("GPU Ready_event 等待...\n");
         ++it;
       }
     }
@@ -842,7 +842,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     timeline.End(e.tensor_name, e.output);
     e.callback(Status::OK());
 
-  } else if (response.response_type() == MPIResponse::ALLREDUCE) {
+  } 
+  //##################################################################################在这里进行ALLREDUCE
+  else if (response.response_type() == MPIResponse::ALLREDUCE) {
     auto& first_entry = entries[0];
 #if HAVE_CUDA
     bool on_gpu = first_entry.device != CPU_DEVICE_ID;
@@ -887,10 +889,12 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         int nccl_rank, nccl_size;
         MPI_Comm nccl_id_bcast_comm;
         if (horovod_global.hierarchical_allreduce) {
+          printf("operations.cc 第892行，使用nccl进行分层allreduce\n");
           nccl_rank = horovod_global.local_rank;
           nccl_size = horovod_global.local_size;
           nccl_id_bcast_comm = horovod_global.local_comm;
         } else {
+          printf("使用全局的所有节点的reduce\n");
           nccl_rank = horovod_global.rank;
           nccl_size = horovod_global.size;
           nccl_id_bcast_comm = horovod_global.mpi_comm;
@@ -913,6 +917,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
         // Barrier helps NCCL to synchronize after initialization and avoid
         // deadlock that we've been seeing without it.
+        //在这里进行通信的同步，等待所有通信完成
         MPI_CHECK(entries, "MPI_Barrier", MPI_Barrier(horovod_global.mpi_comm));
 
         ACTIVITY_END_ALL(entries, timeline)
@@ -950,7 +955,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
             first_entry.device, first_entry.context->framework())];
         buffer_data =
             const_cast<void*>(buffer->AccessData(first_entry.context));
-
+        printf("在operation.cc 的第985 行，得到第一个entry的张量存储区，这个张量仍然放在GPU上面...\n");
         // Copy memory into the fusion buffer.
         int64_t offset = 0;
         for (auto& e : entries) {
@@ -1005,6 +1010,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                               ddl_data_type,
                               DDL_OP_SUM))
 #else
+      //在这里进行分层的融合
       if (horovod_global.hierarchical_allreduce) {
         NCCL_CHECK(entries, "ncclReduce",
                    ncclReduce(fused_input_data, buffer_data,
@@ -1054,7 +1060,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       }//end  horovod_global.hierarchical_allreduce 
       else {// 在这里进行缓冲区的缩减
 
-      	 printf("operations.cc PerformOperation -->ncclAllreduce num_elements:%d,horovod rank:%d\n",num_elements,horovod_rank);
+      	 printf("operations.cc PerformOperation -->ncclAllreduce 在这里进行缓冲区的融合缩减..num_elements:%d,horovod rank:%d\n",num_elements,horovod_rank);
+        //将fused_input_data 融合之后放到buffer_data
         NCCL_CHECK(entries, "ncclAllReduce",
                    ncclAllReduce(fused_input_data, buffer_data,
                                  (size_t)num_elements,
@@ -1071,6 +1078,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         int64_t offset = 0;
         for (auto& e : entries) {
           void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
+
+          //将融合之后的数据放到GPU的输出tesnor上
           CUDA_CHECK(entries, "cudaMemcpyAsync",
                      cudaMemcpyAsync((void*)e.output->data(),
                                      buffer_data_at_offset,
