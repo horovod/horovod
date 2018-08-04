@@ -1515,8 +1515,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   // recorded (everyone else).
   std::vector<std::string> ready_to_reduce;
   if (is_coordinator) {
-  	//printf("operations.cc RunLoopOnce -->this is coordinator!\n");
-  	
+  	// 将本节点coordinator 的message_queue放进 全局的message_table
     while (!message_queue.empty()) {
       // Pop the first available message message
       MPIRequest message = message_queue.front();
@@ -1527,10 +1526,10 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 
       if (reduce) {
         ready_to_reduce.push_back(message.tensor_name());
-        printf("RunLoopOnce 1530Line -->ready_to_reduce tensor_name:%s\n",message.tensor_name().c_str());
       }
     }
 
+    //将其余节点的message_queue 通过MPI通信，放进全局的message_table
     // Rank zero has put all its own tensors in the tensor count table.
     // Now, it should count all the tensors that are coming from other
     // ranks at this tick.
@@ -1538,10 +1537,10 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     // 1. Get message lengths from every rank.
     auto recvcounts = new int[state.size];
     recvcounts[0] = 0;
+
+   //这里对其余rank 传来的消息的长度进行接收
     MPI_Gather(MPI_IN_PLACE, 1, MPI_INT, recvcounts, 1, MPI_INT, RANK_ZERO,
                state.mpi_comm);
-    printf("RANK ZERO 1543 Line: MPI_Gather:recvcounts[1]%d\n",recvcounts[1]);
-
 
     // 2. Compute displacements.
     auto displcmnts = new int[state.size];
@@ -1557,9 +1556,9 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 
     // 3. Collect messages from every rank.
     auto buffer = new char[total_size];
+    //这里对消息进行接收
     MPI_Gatherv(nullptr, 0, MPI_BYTE, buffer, recvcounts, displcmnts, MPI_BYTE,
                 RANK_ZERO, state.mpi_comm);
-    printf("RANK ZERO 1562 Line: MPI_Gather:recv buffer\n");
 
     // 4. Process messages.
     for (int i = 1; i < state.size; i++) {
@@ -1568,14 +1567,14 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       MPIRequestList received_message_list;
       MPIRequestList::ParseFromString(received_message_list, received_data);
       for (auto& received_message : received_message_list.requests()) {
-      	printf("received_message_list:tensor_name%s\n", received_message.tensor_name().c_str());
+
+      	//对来自每一个rank的消息进行接收，并传去 state.message_table
         auto& received_name = received_message.tensor_name();
 
         bool reduce = IncrementTensorCount(state.message_table,
                                            received_message, state.size);
         if (reduce) {
           ready_to_reduce.push_back(received_name);
-          printf("RunLoopOnce 1575Line -->ready_to_reduce received_name:%s\n",received_name.c_str());
         }
       }
       if (received_message_list.shutdown()) {
@@ -1596,12 +1595,12 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     // to rank zero. We can now do reductions and gathers; rank zero will
     // choose which ones and in what order, and will notify the other ranks
     // before doing each reduction.
+    //在这时候，rank 0 等到其他tensor的信息，开始进行reduce 或者其他的操作
     std::deque<MPIResponse> responses;
     for (auto& tensor_name : ready_to_reduce) {
       MPIResponse response =
           ConstructMPIResponse(state.message_table, tensor_name);
       responses.push_back(std::move(response));
-      printf("RunloopOnece Line:1602 responses tensor_name:%s\n",tensor_name.c_str());
     }
 
     MPIResponseList response_list;
@@ -1612,7 +1611,6 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       auto response = responses.front();
       assert(response.tensor_names().size() == 1);
       responses.pop_front();
-      printf("1613Line response name:%s\n",response.tensor_names()[0].c_str());
 
       if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
         // Attempt to add more responses to this fused response.
@@ -1622,7 +1620,6 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
         while (!responses.empty()) {
           auto new_response = responses.front();
           assert(new_response.tensor_names().size() == 1);
-          printf("1623Line new_response name:%s\n",new_response.tensor_names()[0].c_str());
 
           auto& new_entry = state.tensor_table[new_response.tensor_names()[0]];
           int64_t new_tensor_size = new_entry.tensor->size();
@@ -1645,21 +1642,26 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
         }
       }
 
+      //将response 放进消息队列，这个消息可能包含一个response,也可能包含多个response,根据tensor_fusion_threshold确定
       response_list.add_responses(response);
-      printf("1647 Line response name:%s\n", response.tensor_names()[0].c_str());
     }
 
     // Notify all nodes which tensors we'd like to reduce at this step.
+    //在这时候，通知其他的节点开始进行reduce操作
     std::string encoded_response;
     MPIResponseList::SerializeToString(response_list, encoded_response);
     int encoded_response_length = (int)encoded_response.length() + 1;
+    //在这里对消息的长度进行广播
     MPI_Bcast(&encoded_response_length, 1, MPI_INT, RANK_ZERO, state.mpi_comm);
+    
+    //在这里对消息内容进行广播
     MPI_Bcast((void*)encoded_response.c_str(), encoded_response_length,
               MPI_BYTE, RANK_ZERO, state.mpi_comm);
     
 
     // Perform the collective operation. All nodes should end up performing
     // the same operation.
+    //对消息进行执行
     for (auto& response : response_list.responses()) {
       PerformOperation(state.tensor_table, response);
     }
@@ -1686,6 +1688,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     MPIRequestList::SerializeToString(message_list, encoded_message);
     int encoded_message_length = (int)encoded_message.length() + 1;
 
+    //在这里不包括rank 0,进行while循环进行通信
     printf("1687 Line:encoded_message_length:%d,the node rank is：%d\n",encoded_message_length,state.rank);
     MPI_Gather(&encoded_message_length, 1, MPI_INT, nullptr, 1, MPI_INT,
                RANK_ZERO, state.mpi_comm);
@@ -1693,9 +1696,13 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
                 MPI_BYTE, nullptr, nullptr, nullptr, MPI_BYTE, RANK_ZERO,
                 state.mpi_comm);
 
+
+    //在这里对广播消息的长度进行接收
     int msg_length;
     MPI_Bcast(&msg_length, 1, MPI_INT, RANK_ZERO, state.mpi_comm);
     auto buffer = new char[msg_length];
+    
+    //在这里对广播的消息内容进行接收
     MPI_Bcast(buffer, msg_length, MPI_BYTE, RANK_ZERO, state.mpi_comm);
     std::string received_message(buffer, (size_t)msg_length);
     MPIResponseList response_list;
