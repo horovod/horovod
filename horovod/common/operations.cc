@@ -689,6 +689,8 @@ cudaError_t ReleaseCudaEvent(cudaEvent_t event) {
 // Process an MPIResponse by doing a reduction, a gather, a broadcast, or
 // raising an error.
 void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
+
+  // 将response里面的张量放进entries
   std::vector<TensorTableEntry> entries;
   {
     // Lock on the tensor table.
@@ -713,6 +715,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     }
   }
 
+  //在timeline里面进行entry的start
   auto& timeline = horovod_global.timeline;
   for (auto& e : entries) {
     timeline.Start(e.tensor_name, response.response_type());
@@ -723,9 +726,12 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     // Note: it is OK for different entries to come from different frameworks
     // since buffer allocated here is guaranteed to survive at least till the
     // end of this operation.
+
+    //为buffer 分配永久的存储空间,保存在horovod_global.tensor_fusison_buffers里面
     auto& buffer = horovod_global.tensor_fusion_buffers[std::make_tuple(
         first_entry.device, first_entry.context->framework())];
     if (buffer == nullptr) {
+      printf("operations.cc line:732 buffer is null!\n");
       ACTIVITY_START_ALL(entries, timeline, INIT_FUSION_BUFFER)
 
       // Lazily allocate persistent buffer for Tensor Fusion and keep it
@@ -745,6 +751,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
   }
 
   // On GPU data readiness is signalled by ready_event.
+  //等待所有的GPU就绪
   std::vector<TensorTableEntry> waiting_tensors;
   for (auto& e : entries) {
     if (e.ready_event != nullptr) {
@@ -758,7 +765,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         timeline.ActivityEnd(it->tensor_name);
         timeline.ActivityStart(it->tensor_name, WAIT_FOR_OTHER_TENSOR_DATA);
         it = waiting_tensors.erase(it);
+        printf("GPU Ready_event 等待结束!!");
       } else {
+        printf("GPU Ready_event 等待...");
         ++it;
       }
     }
@@ -1194,7 +1203,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       timeline.End(e.tensor_name, e.output);
       e.callback(Status::OK());
     }
-  } else if (response.response_type() == MPIResponse::BROADCAST) {
+  }//结束ALLREDUCE 
+
+   else if (response.response_type() == MPIResponse::BROADCAST) {
     assert(entries.size() == 1);
     auto e = entries[0];
 
