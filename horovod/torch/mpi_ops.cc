@@ -42,8 +42,7 @@ std::string GetOpName(const std::string& prefix, char* name, int handle) {
 } // namespace
 
 template <MPIDataType DT, DeviceType Dev, class T>
-int DoAllreduce(T* tensor, T* output, int average, char* name) {
-template <class T> int DoAllreduce(T* tensor, T* output, char* name) {
+int DoAllreduce(T* tensor, T* output, char* name) {
   ThrowIfError(common::CheckInitialized());
 
   auto handle = handle_manager.AllocateHandle();
