@@ -1349,7 +1349,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   int cross_rank, cross_size;
   MPI_Comm_rank(cross_comm, &cross_rank);
   MPI_Comm_size(cross_comm, &cross_size);
-  printf("operations.cc BackgroundThreadLoop -->local_rank:%d,rank:%d,cross_rank:%d,cross_size:%d\n",local_rank,rank,cross_rank,cross_size );
+
   state.rank = rank;
   state.local_rank = local_rank;
   state.cross_rank = cross_rank;
@@ -1689,7 +1689,6 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     int encoded_message_length = (int)encoded_message.length() + 1;
 
     //在这里不包括rank 0,进行while循环进行通信
-    printf("1687 Line:encoded_message_length:%d,the node rank is：%d\n",encoded_message_length,state.rank);
     MPI_Gather(&encoded_message_length, 1, MPI_INT, nullptr, 1, MPI_INT,
                RANK_ZERO, state.mpi_comm);
     MPI_Gatherv((void*)encoded_message.c_str(), encoded_message_length,
