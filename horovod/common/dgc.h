@@ -189,6 +189,11 @@ struct DgcConfig {
   ncclComm_t nccl_local_comm;
   bool cross_comm_inited = false;
 
+  // Learning rate decay parameters
+  double learning_rate_decay_factor = 0.1;
+  double num_epochs_per_decay = 30;
+  double min_learning_rate_factor = 1e-6;
+
   // function to set indivual configuration
   void Set(std::string key, std::string value);
 };

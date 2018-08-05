@@ -296,6 +296,15 @@ void DgcConfig::Set(std::string key, std::string value)
       use_hierarchical_allreduce = false;
   }
 
+  else if (key == "dgc_learning_rate_decay_factor")
+    learning_rate_decay_factor = std::stof(value);
+
+  else if (key == "dgc_num_epochs_per_decay")
+    num_epochs_per_decay = std::stof(value);
+
+  else if (key == "dgc_min_learning_rate_factor")
+    min_learning_rate_factor = std::stof(value);
+
   else if (key == "momentum")
     momentum = std::stof(value);
 
@@ -1333,6 +1342,27 @@ cudaError_t GradientAllReduce(
           }
         });
     }
+  }
+
+  if (config.learning_rate_decay_factor > 0 &&
+      epoch >= config.num_epochs_per_decay) {
+    float learning_rate_adjustment = 1;
+    auto epoch_ = epoch;
+    while (epoch_ >= config.num_epochs_per_decay)
+    {
+      learning_rate_adjustment *= config.learning_rate_decay_factor;
+      epoch_ -= config.num_epochs_per_decay;
+    }
+    if (learning_rate_adjustment < config.min_learning_rate_factor)
+      learning_rate_adjustment = config.min_learning_rate_factor;
+    if (config.global_gpu_rank == 0)
+      printf("%d\t learning_rate_adjustment = %f\n", learning_rate_adjustment);
+
+    loop_kernel <<<grid_size, block_size, 0, stream>>>(num_gradients,
+      [learning_rate_adjustment, output_gradients] __device__ (const SizeT &i)
+      {
+        output_gradients[i] *= learning_rate_adjustment;
+      });
   }
 
   //GUARD_CU2("cudaStreamSynchronize after",
