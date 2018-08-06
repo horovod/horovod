@@ -41,7 +41,7 @@
 #include "mpi_message.h"
 #include "operations.h"
 #include "timeline.h"
-#include "../common/wir/mpi_message_generated.h"
+#include "../common/wire/mpi_message_generated.h"
 
 /*
  * Allreduce, Allgather and Broadcast Ops.
