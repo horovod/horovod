@@ -1,0 +1,3 @@
+recursive-include * *.h *.cc *.md
+include LICENSE *.lds
+prune .eggs
