@@ -41,9 +41,9 @@ std::string GetOpName(std::string prefix, char* name, int handle) {
 
 } // namespace
 
+// 在GPU上面执行DoAllreduce
 template <class T>
 int DoAllreduce(T* tensor, T* output, int average, char* name) {
-  printf("在GPU上面执行DoAllreduce...\n");
   ThrowIfError(common::CheckInitialized());
 
   auto handle = handle_manager.AllocateHandle();
@@ -67,10 +67,10 @@ int DoAllreduce(T* tensor, T* output, int average, char* name) {
   return handle;
 }
 
+//将GPU上的数据拷贝到CPU上面进行CPU上面的allReduce
 #if HAVE_CUDA
 template <class TC, class T>
 int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
-  printf("在CPU上面执行DoAllreduce...\n");
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
