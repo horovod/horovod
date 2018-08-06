@@ -896,7 +896,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         int nccl_rank, nccl_size;
         MPI_Comm nccl_id_bcast_comm;
         if (horovod_global.hierarchical_allreduce) {
-          printf("operations.cc 第892行，使用nccl进行分层allreduce\n");
+          printf("operations.cc 第899行，使用nccl进行分层allreduce\n");
           nccl_rank = horovod_global.local_rank;
           nccl_size = horovod_global.local_size;
           nccl_id_bcast_comm = horovod_global.local_comm;
@@ -992,8 +992,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         buffer_data = (void*)first_entry.output->data();
         num_elements = first_entry.tensor->shape().num_elements();
         buffer_len = (size_t)first_entry.output->size();
-        printf("operations.cc PerformOperation函数，输入tensor的大小:%d,输出tensor的大小：%d\n", (size_t)first_entry.tensor->size(),buffer_len);
-      
+       
         if (horovod_global.ddl_initialized) {
         	printf("仅仅支持ddl!!!\n");
           // Copy input buffer content to output buffer
@@ -1072,7 +1071,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       }//end  horovod_global.hierarchical_allreduce 
       else {// 在这里进行缓冲区的缩减
 
-      	 printf("operations.cc PerformOperation -->ncclAllreduce 不分层时，在这里进行缓冲区的融合缩减..num_elements:%d,horovod rank:%d\n",num_elements,horovod_rank());
+      	 //不分层时，在这里进行缓冲区的融合缩减
         //将fused_input_data 融合之后放到buffer_data
         NCCL_CHECK(entries, "ncclAllReduce",
                    ncclAllReduce(fused_input_data, buffer_data,
@@ -1351,7 +1350,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   int provided;
   MPI_Init_thread(NULL, NULL, required, &provided);
   //TODO:wuyongyu  in BAckgroundTHreadLoop
-  printf("operations.cc BackgroundThreadLoop multiple threads required :%d,MPI_THREAD_MULTIPLE:%d,MPI_THREAD_FUNNELED:%d\n",required,MPI_THREAD_MULTIPLE,MPI_THREAD_FUNNELED);
+  //printf("operations.cc BackgroundThreadLoop multiple threads required :%d,MPI_THREAD_MULTIPLE:%d,MPI_THREAD_FUNNELED:%d\n",required,MPI_THREAD_MULTIPLE,MPI_THREAD_FUNNELED);
   // Create a private MPI communicator for Horovod to avoid collisions with
   // other threads using MPI.
   MPI_Comm mpi_comm;
@@ -1487,7 +1486,8 @@ if(is_coordinator && horovod_timeline != nullptr){
 #endif
   auto t2 = std::chrono::steady_clock::now();
   std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-  printf("程序运行时间:%f seconds\n",time_span);
+  if(horovod_rank()==0)
+	  printf("程序运行时间:%f seconds\n",time_span);
 }
 
 // The coordinator currently follows a master-worker paradigm. Rank zero acts
@@ -1763,7 +1763,6 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 // only done once no matter how many times this function is called.
 void InitializeHorovodOnce() {
   // Ensure background thread is only started once.
-  	printf("this is from function InitializeHorovodOnce Authors->wuyongyu\n");
   	if (!horovod_global.initialize_flag.test_and_set()) {
     	horovod_global.background_thread =
         	std::thread(BackgroundThreadLoop, std::ref(horovod_global));
