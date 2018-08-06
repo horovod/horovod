@@ -41,7 +41,16 @@
 #include "mpi_message.h"
 #include "operations.h"
 #include "timeline.h"
+
+//添加
 #include "../common/wire/mpi_message_generated.h"
+#include "tensor_util.h"
+
+#include <TH/TH.h>
+
+#if HAVE_CUDA
+#include <THC/THC.h>
+#endif
 
 /*
  * Allreduce, Allgather and Broadcast Ops.
@@ -962,7 +971,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         int64_t offset = 0;
         for (auto& e : entries) {
 
-          printf("operations.cc PerformOperation函数，输出entries的tensor的类型:%d,%s\n",e.tensor->dtype(),wire::EnumNameMPIDataType(wire::MPIDataType::MPIDataType_HOROVOD_FLOAT32));
+          printf("operations.cc PerformOperation函数，输出entries的tensor的类型:%s\n",wire::EnumNameMPIDataType(e.tensor->dtype()));
           void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
           CUDA_CHECK(entries, "cudaMemcpyAsync",
                      cudaMemcpyAsync(buffer_data_at_offset, e.tensor->data(),
@@ -984,11 +993,17 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           num_elements += e.tensor->shape().num_elements();
         }
       } else {
-      	printf("operations.cc PerformOperation函数，输出entries的tensor的类型:%d,%s\n",first_entry.tensor->dtype(),wire::EnumNameMPIDataType(wire::MPIDataType::MPIDataType_HOROVOD_FLOAT32));
+      	printf("operations.cc PerformOperation函数，输出entries的tensor的类型:%s\n",,wire::EnumNameMPIDataType(first_entry.tensor->dtype()));
         fused_input_data = first_entry.tensor->data();
         buffer_data = (void*)first_entry.output->data();
         num_elements = first_entry.tensor->shape().num_elements();
         buffer_len = (size_t)first_entry.output->size();
+        
+        //在这里把input_data内容打印出来  ******************************88
+        THFloatTensor * output_first=new THFloatTensor[buffer_len];
+        TensorUtil::AsyncCopyCudaToCPU(fused_input_data,output_first);
+
+
         if (horovod_global.ddl_initialized) {
           // Copy input buffer content to output buffer
           // because DDL only supports in-place allreduce
