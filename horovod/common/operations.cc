@@ -1330,6 +1330,8 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
 //      progress if we have a thread pool limit.
 bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator);
 void BackgroundThreadLoop(HorovodGlobalState& state) {
+
+  auto t1 = std::chrono::steady_clock::now();
   // Initialize MPI. This must happen on the background thread, since not all
   // MPI implementations support being called from multiple threads.
   //
@@ -1483,6 +1485,9 @@ if(is_coordinator && horovod_timeline != nullptr){
 #else
   MPI_Finalize();
 #endif
+  auto t2 = std::chrono::steady_clock::now();
+  std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+  printf("程序运行时间:%f seconds\n",time_span);
 }
 
 // The coordinator currently follows a master-worker paradigm. Rank zero acts
@@ -1758,7 +1763,6 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 // only done once no matter how many times this function is called.
 void InitializeHorovodOnce() {
   // Ensure background thread is only started once.
- 	auto t1 = std::chrono::steady_clock::now();
   	printf("this is from function InitializeHorovodOnce Authors->wuyongyu\n");
   	if (!horovod_global.initialize_flag.test_and_set()) {
     	horovod_global.background_thread =
@@ -1769,9 +1773,6 @@ void InitializeHorovodOnce() {
   	while (!horovod_global.initialization_done) {
     	std::this_thread::sleep_for(std::chrono::milliseconds(1));
   	}
-  	auto t2 = std::chrono::steady_clock::now();
-  	std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-  	printf("程序运行时间:%f seconds\n",time_span);
 }
 
 } // namespace
