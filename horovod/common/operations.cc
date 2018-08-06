@@ -963,8 +963,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         // Copy memory into the fusion buffer.
         int64_t offset = 0;
         for (auto& e : entries) {
-
-          printf("operations.cc PerformOperation函数，输出entries的tensor的类型:%s\n",wire::EnumNameMPIDataType(e.tensor->dtype()));
           void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
           CUDA_CHECK(entries, "cudaMemcpyAsync",
                      cudaMemcpyAsync(buffer_data_at_offset, e.tensor->data(),
@@ -990,7 +988,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         buffer_data = (void*)first_entry.output->data();
         num_elements = first_entry.tensor->shape().num_elements();
         buffer_len = (size_t)first_entry.output->size();
-        printf("operations.cc PerformOperation函数，输出entries的tensor的类型:%s,tensor的大小：%d\n",,wire::EnumNameMPIDataType(first_entry.tensor->dtype()),buffer_len);
       
         if (horovod_global.ddl_initialized) {
           // Copy input buffer content to output buffer
