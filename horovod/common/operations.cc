@@ -44,7 +44,6 @@
 
 //添加
 #include "../common/wire/mpi_message_generated.h"
-#include "../torch/tensor_util.h"
 
 /*
  * Allreduce, Allgather and Broadcast Ops.
@@ -987,19 +986,12 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           num_elements += e.tensor->shape().num_elements();
         }
       } else {
-      	printf("operations.cc PerformOperation函数，输出entries的tensor的类型:%s\n",,wire::EnumNameMPIDataType(first_entry.tensor->dtype()));
         fused_input_data = first_entry.tensor->data();
         buffer_data = (void*)first_entry.output->data();
         num_elements = first_entry.tensor->shape().num_elements();
         buffer_len = (size_t)first_entry.output->size();
-        
-        //在这里把input_data内容打印出来  ******************************88
-        //THFloatTensor * output_first=new THFloatTensor[buffer_len];
-        //TensorUtil::AsyncCopyCudaToCPU(fused_input_data,output_first);
-        auto hvd_cpu_buffer =std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
-		TensorUtil::AsyncCopyCudaToCPU(fused_input_data, hvd_cpu_buffer->tensor());
-
-
+        printf("operations.cc PerformOperation函数，输出entries的tensor的类型:%s,tensor的大小：%d\n",,wire::EnumNameMPIDataType(first_entry.tensor->dtype()),buffer_len);
+      
         if (horovod_global.ddl_initialized) {
           // Copy input buffer content to output buffer
           // because DDL only supports in-place allreduce
