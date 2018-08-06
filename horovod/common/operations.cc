@@ -1133,6 +1133,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
     if (entries.size() > 1) {
       // Access the fusion buffer.
+      printf("如果是多个个first_entry，进行MPI_ALLreduce!\n");
       auto& buffer = horovod_global.tensor_fusion_buffers[std::make_tuple(
           first_entry.device, first_entry.context->framework())];
       auto buffer_data = buffer->AccessData(first_entry.context);
