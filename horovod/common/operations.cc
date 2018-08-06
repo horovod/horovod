@@ -1758,16 +1758,20 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 // only done once no matter how many times this function is called.
 void InitializeHorovodOnce() {
   // Ensure background thread is only started once.
-  printf("this is from function InitializeHorovodOnce Authors->wuyongyu\n");
-  if (!horovod_global.initialize_flag.test_and_set()) {
-    horovod_global.background_thread =
-        std::thread(BackgroundThreadLoop, std::ref(horovod_global));
-  }
+ 	auto t1 = std::chrono::steady_clock::now();
+  	printf("this is from function InitializeHorovodOnce Authors->wuyongyu\n");
+  	if (!horovod_global.initialize_flag.test_and_set()) {
+    	horovod_global.background_thread =
+        	std::thread(BackgroundThreadLoop, std::ref(horovod_global));
+  	}
 
-  // Wait to ensure that the background thread has finished initializing MPI.
-  while (!horovod_global.initialization_done) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  }
+  	// Wait to ensure that the background thread has finished initializing MPI.
+  	while (!horovod_global.initialization_done) {
+    	std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  	}
+  	auto t2 = std::chrono::steady_clock::now();
+  	std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+  	printf("程序运行时间:%f seconds\n",time_span);
 }
 
 } // namespace
