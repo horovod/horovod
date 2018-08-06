@@ -97,8 +97,8 @@ class MPITests(tf.test.TestCase):
                     break
 
                 diff = session.run(max_difference)
-                self.assertTrue(diff <= threshold,
-                                "hvd.allreduce produces incorrect results")
+                self.assertLessEqual(diff, threshold,
+                                     "hvd.allreduce produces incorrect results")
 
     def test_horovod_allreduce_cpu_fused(self):
         """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors
