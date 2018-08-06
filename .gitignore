@@ -1,6 +1,0 @@
-*.pyc
-.idea
-.eggs
-horovod.egg-info
-dist
-build
