@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+
 #if HAVE_CUDA
 #include <cuda_runtime.h>
 #endif
@@ -1124,7 +1125,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         }
       });
       finalizer_thread.detach();
-      return;      #######################################结束GPU 上面的ALLREDUCE返回 ！
+      return;      //#######################################结束GPU 上面的ALLREDUCE返回 ！
     }
 #endif
 
