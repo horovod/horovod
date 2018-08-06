@@ -190,6 +190,17 @@ $ HOROVOD_HIERARCHICAL_ALLREDUCE=1 mpirun -np 4 -H server1:2,server2:2 \
      python train.py
 ```
 
+6. 打印TIME_LINE 使用chrome://tracing/ 查看运行结果信息
+
+```bash
+$ HOROVOD_TIMELINE=./timeline.json  mpirun -np 3 \
+    -H localhost:3 \
+    -bind-to none -map-by slot \
+    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH -x HOROVOD_TIMELINE\
+    -mca pml ob1 -mca btl ^openib \
+    python train.py
+```
+
 ## Keras
 
 Horovod supports Keras and regular TensorFlow in similar ways.
