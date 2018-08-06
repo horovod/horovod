@@ -46,12 +46,6 @@
 #include "../common/wire/mpi_message_generated.h"
 #include "../torch/tensor_util.h"
 
-#include <TH/TH.h>
-
-#if HAVE_CUDA
-#include <THC/THC.h>
-#endif
-
 /*
  * Allreduce, Allgather and Broadcast Ops.
  *
