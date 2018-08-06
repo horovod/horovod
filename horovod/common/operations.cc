@@ -44,7 +44,7 @@
 
 //添加
 #include "../common/wire/mpi_message_generated.h"
-#include "tensor_util.h"
+#include "../torch/tensor_util.h"
 
 #include <TH/TH.h>
 
@@ -1000,8 +1000,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         buffer_len = (size_t)first_entry.output->size();
         
         //在这里把input_data内容打印出来  ******************************88
-        THFloatTensor * output_first=new THFloatTensor[buffer_len];
-        TensorUtil::AsyncCopyCudaToCPU(fused_input_data,output_first);
+        //THFloatTensor * output_first=new THFloatTensor[buffer_len];
+        //TensorUtil::AsyncCopyCudaToCPU(fused_input_data,output_first);
+        auto hvd_cpu_buffer =std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
+		TensorUtil::AsyncCopyCudaToCPU(fused_input_data, hvd_cpu_buffer->tensor());
 
 
         if (horovod_global.ddl_initialized) {
