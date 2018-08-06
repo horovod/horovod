@@ -953,12 +953,15 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         // Access the fusion buffer.
         auto& buffer = horovod_global.tensor_fusion_buffers[std::make_tuple(
             first_entry.device, first_entry.context->framework())];
+        //在这里获取buffer对应的数据
         buffer_data =
             const_cast<void*>(buffer->AccessData(first_entry.context));
         printf("在operation.cc 的第985 行，得到第一个entry的张量存储区，这个张量仍然放在GPU上面...\n");
         // Copy memory into the fusion buffer.
         int64_t offset = 0;
         for (auto& e : entries) {
+
+          printf("operations.cc PerformOperation函数，输出entries的tensor的类型:%d,%s\n",e.tensor->dtype(),wire::EnumNameMPIDataType(1));
           void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
           CUDA_CHECK(entries, "cudaMemcpyAsync",
                      cudaMemcpyAsync(buffer_data_at_offset, e.tensor->data(),
@@ -972,6 +975,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         }
 
         // Set the input data to originate from the buffer.
+        //得到所有tensor放到fused_input_data 指针上面
         fused_input_data = buffer_data;
 
         // Perform the reduction on the fusion buffer.
@@ -1060,7 +1064,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       }//end  horovod_global.hierarchical_allreduce 
       else {// 在这里进行缓冲区的缩减
 
-      	 printf("operations.cc PerformOperation -->ncclAllreduce 在这里进行缓冲区的融合缩减..num_elements:%d,horovod rank:%d\n",num_elements,horovod_rank);
+      	 printf("operations.cc PerformOperation -->ncclAllreduce 在这里进行缓冲区的融合缩减..num_elements:%d,horovod rank:%d\n",num_elements,horovod_rank());
         //将fused_input_data 融合之后放到buffer_data
         NCCL_CHECK(entries, "ncclAllReduce",
                    ncclAllReduce(fused_input_data, buffer_data,
