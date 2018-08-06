@@ -988,6 +988,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         buffer_data = (void*)first_entry.output->data();
         num_elements = first_entry.tensor->shape().num_elements();
         buffer_len = (size_t)first_entry.output->size();
+        printf("operations.cc PerformOperation函数，输出entries的名字:%s,tensor的大小：%d\n",wire::EnumNameMPIDataType(first_entry.tensor->dtype()),buffer_len);
       
         if (horovod_global.ddl_initialized) {
           // Copy input buffer content to output buffer
