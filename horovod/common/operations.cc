@@ -988,7 +988,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         buffer_data = (void*)first_entry.output->data();
         num_elements = first_entry.tensor->shape().num_elements();
         buffer_len = (size_t)first_entry.output->size();
-        printf("operations.cc PerformOperation函数，输出tensor的大小：%d\n",buffer_len);
+        printf("operations.cc PerformOperation函数，输入tensor的大小:%d,输出tensor的大小：%d\n", (size_t)first_entry.tensor->size(),buffer_len);
       
         if (horovod_global.ddl_initialized) {
         	printf("仅仅支持ddl!!!\n");
