@@ -762,13 +762,15 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       waiting_tensors.push_back(e);
     }
   }
+
+  //等待GPU就绪
   while (!waiting_tensors.empty()) {
     for (auto it = waiting_tensors.begin(); it != waiting_tensors.end();) {
       if (it->ready_event->Ready()) {
         timeline.ActivityEnd(it->tensor_name);
         timeline.ActivityStart(it->tensor_name, WAIT_FOR_OTHER_TENSOR_DATA);
         it = waiting_tensors.erase(it);
-        printf("GPU Ready_event 等待结束!!\n");
+        //printf("GPU Ready_event 等待结束!!\n");
       } else {
         printf("GPU Ready_event 等待...\n");
         ++it;
@@ -886,11 +888,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 #if HOROVOD_GPU_ALLREDUCE == 'N'
       // Ensure NCCL communicator is in the map before executing reduction.
       ncclComm_t& nccl_comm = horovod_global.nccl_comms[nccl_device_map];
-      printf("打印nccl_device_map:\n");
-      for(auto kk :nccl_device_map){
-      	printf("%d,\n",kk );
-      }
-      printf("\n");
 
       if (nccl_comm == nullptr) {
         ACTIVITY_START_ALL(entries, timeline, INIT_NCCL)
@@ -965,7 +962,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         //在这里获取buffer对应的数据
         buffer_data =
             const_cast<void*>(buffer->AccessData(first_entry.context));
-        printf("在operation.cc 的第985 行，得到第一个entry的张量存储区，这个张量仍然放在GPU上面...\n");
+        printf("在operation.cc 的第985 行，得到第一个entry的张量存储区，这个张量仍然放在GPU上面...rank:%d\n",horovod_rank());
         // Copy memory into the fusion buffer.
         int64_t offset = 0;
         for (auto& e : entries) {
@@ -1074,7 +1071,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       }//end  horovod_global.hierarchical_allreduce 
       else {// 在这里进行缓冲区的缩减
 
-      	 printf("operations.cc PerformOperation -->ncclAllreduce 在这里进行缓冲区的融合缩减..num_elements:%d,horovod rank:%d\n",num_elements,horovod_rank());
+      	 printf("operations.cc PerformOperation -->ncclAllreduce 不分层时，在这里进行缓冲区的融合缩减..num_elements:%d,horovod rank:%d\n",num_elements,horovod_rank());
         //将fused_input_data 融合之后放到buffer_data
         NCCL_CHECK(entries, "ncclAllReduce",
                    ncclAllReduce(fused_input_data, buffer_data,
@@ -1127,13 +1124,12 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         }
       });
       finalizer_thread.detach();
-      return;
+      return;      #######################################结束GPU 上面的ALLREDUCE返回 ！
     }
 #endif
 
     if (entries.size() > 1) {
       // Access the fusion buffer.
-      printf("如果是多个个first_entry，进行MPI_ALLreduce!\n");
       auto& buffer = horovod_global.tensor_fusion_buffers[std::make_tuple(
           first_entry.device, first_entry.context->framework())];
       auto buffer_data = buffer->AccessData(first_entry.context);
@@ -1211,7 +1207,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       ACTIVITY_END_ALL(entries, timeline)
     } else {
 
-      printf("如果是只有一个first_entry，进行MPI_ALLreduce!\n");
+      printf("如果是只有一个first_entry，进行使用MPI_ALLreduce!\n");
       auto& e = first_entry;
       ACTIVITY_START_ALL(entries, timeline, MPI_ALLREDUCE)
       const void* sendbuf = e.tensor->data() == e.output->data()
@@ -1824,15 +1820,14 @@ int horovod_mpi_threads_supported() {
 
 // MPI must be initialized and the background thread must be running before
 // this function is called.
-//TODO:change by wuyongyu all
-//int GLOBAL_NUMBER=0;
+
 Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<Tensor> output,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string name, const int device,
                               StatusCallback callback) {
-  printf("operations.cc EnqueueTensorAllreduce-------> hvd rank: %d,hvd local_rank: %d\n",horovod_global.rank,horovod_global.local_rank);
+  //printf("operations.cc EnqueueTensorAllreduce-------> hvd rank: %d,hvd local_rank: %d\n",horovod_global.rank,horovod_global.local_rank);
   MPIRequest message;
   message.set_request_rank(horovod_global.rank);
   message.set_tensor_name(name);
@@ -1842,11 +1837,8 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   for (int i = 0; i < tensor->shape().dims(); i++) {
     message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
   }
-//TODO
-//  if(GLOBAL_NUMBER<20){
-//	  printf("All reduce tensor_name:%s device id is %d,request_rank:%d,root rank:%d\n",name.c_str(),device,message.request_rank(),message.root_rank());
-//	  GLOBAL_NUMBER++;
- // }
+
+
   TensorTableEntry e;
   e.tensor_name = name;
   e.context = context;
