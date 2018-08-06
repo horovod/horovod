@@ -886,6 +886,12 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 #if HOROVOD_GPU_ALLREDUCE == 'N'
       // Ensure NCCL communicator is in the map before executing reduction.
       ncclComm_t& nccl_comm = horovod_global.nccl_comms[nccl_device_map];
+      printf("打印nccl_device_map:\n");
+      for(auto kk :nccl_device_map){
+      	printf("%d,\n",kk );
+      }
+      printf("\n");
+
       if (nccl_comm == nullptr) {
         ACTIVITY_START_ALL(entries, timeline, INIT_NCCL)
 
@@ -1203,6 +1209,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 #endif
       ACTIVITY_END_ALL(entries, timeline)
     } else {
+
+      printf("如果是只有一个first_entry，进行MPI_ALLreduce!\n");
       auto& e = first_entry;
       ACTIVITY_START_ALL(entries, timeline, MPI_ALLREDUCE)
       const void* sendbuf = e.tensor->data() == e.output->data()
