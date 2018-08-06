@@ -43,6 +43,7 @@ std::string GetOpName(std::string prefix, char* name, int handle) {
 
 template <class T>
 int DoAllreduce(T* tensor, T* output, int average, char* name) {
+  printf("在GPU上面执行DoAllreduce...\n");
   ThrowIfError(common::CheckInitialized());
 
   auto handle = handle_manager.AllocateHandle();
@@ -69,12 +70,13 @@ int DoAllreduce(T* tensor, T* output, int average, char* name) {
 #if HAVE_CUDA
 template <class TC, class T>
 int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
+  printf("在CPU上面执行DoAllreduce...\n");
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto device = TensorUtil::GetDevice(tensor);
  //TODO:print device
- printf("mpi_ops.cc  DoAllreduceCudaOnCPU :Make async copy of input tensor to CPU tensor the device  is %d, CPU_DEVICE_ID is :%d\n",device,CPU_DEVICE_ID);
+ //printf("mpi_ops.cc  DoAllreduceCudaOnCPU :Make async copy of input tensor to CPU tensor the device  is %d, CPU_DEVICE_ID is :%d\n",device,CPU_DEVICE_ID);
 
   auto hvd_cpu_buffer =
       std::make_shared<TorchTemporaryBuffer<T>>(CPU_DEVICE_ID);
@@ -96,7 +98,7 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
         }
         handle_manager.MarkDone(handle, status);
       });
-   printf("mpi_opc.cc DoAllreduceCudaOnCpu  ------> handle :%d, name:%s\n",handle,name);
+  //printf("mpi_opc.cc DoAllreduceCudaOnCpu  ------> handle :%d, name:%s\n",handle,name);
   ThrowIfError(enqueue_result);
 
   return handle;
