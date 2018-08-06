@@ -984,6 +984,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           num_elements += e.tensor->shape().num_elements();
         }
       } else {
+      	printf("operations.cc PerformOperation函数，输出entries的tensor的类型:%d,%s\n",first_entry.tensor->dtype(),wire::EnumNameMPIDataType(wire::MPIDataType::MPIDataType_HOROVOD_FLOAT32));
         fused_input_data = first_entry.tensor->data();
         buffer_data = (void*)first_entry.output->data();
         num_elements = first_entry.tensor->shape().num_elements();
