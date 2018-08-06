@@ -962,7 +962,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         int64_t offset = 0;
         for (auto& e : entries) {
 
-          printf("operations.cc PerformOperation函数，输出entries的tensor的类型:%d,%s\n",e.tensor->dtype(),wire::EnumNameMPIDataType(1));
+          printf("operations.cc PerformOperation函数，输出entries的tensor的类型:%d,%s\n",e.tensor->dtype(),wire::EnumNameMPIDataType(wire::MPIDataType::MPIDataType_HOROVOD_FLOAT32));
           void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
           CUDA_CHECK(entries, "cudaMemcpyAsync",
                      cudaMemcpyAsync(buffer_data_at_offset, e.tensor->data(),
@@ -1506,8 +1506,6 @@ if(is_coordinator && horovod_timeline != nullptr){
 //      If instead of "DONE" they receive "SHUTDOWN", they exit their background
 //      loop.
 
-int RunLoopOnceCounter=0;
-int num_reduce=0;
 bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   // The coordinator sends a SHUTDOWN message to trigger shutdown.
   bool should_shut_down = false;
