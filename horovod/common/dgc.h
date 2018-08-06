@@ -194,6 +194,9 @@ struct DgcConfig {
   double num_epochs_per_decay = 30;
   double min_learning_rate_factor = 1e-6;
 
+  // Number of steps per whole model gradient flush, 0 to disable
+  uint64_t flush_steps = 0;
+
   // function to set indivual configuration
   void Set(std::string key, std::string value);
 };

@@ -305,6 +305,9 @@ void DgcConfig::Set(std::string key, std::string value)
   else if (key == "dgc_min_learning_rate_factor")
     min_learning_rate_factor = std::stof(value);
 
+  else if (key == "dgc_flush_steps")
+    flush_steps = std::stoi(value);
+
   else if (key == "momentum")
     momentum = std::stof(value);
 
@@ -818,6 +821,63 @@ cudaError_t GradientAllReduce(
     //    epoch, state.step, sparsity);
   }
   SizeT  target_num = num_gradients * (1 - sparsity);
+
+  // Communicate all gradients if it's a flushing step
+  bool to_flush = false;
+  if (config.flush_steps > 0) {
+    if ((state.step >= config.flush_steps) && 
+        (state.step % config.flush_steps) == 0)
+      to_flush = true;
+  }
+
+  if (to_flush) {
+    printf("%ld\t Flushing %ld elements\n",
+      (long)state.step, (long)num_gradients);
+
+    GUARD_NCCL2("ncclAllReduce",
+      ncclAllReduce(accumulated_verlocity, output_gradients,
+        (size_t)num_gradients, PreDefinedValues<T>::NCCLDataType, ncclSum,
+        config.use_hierarchical_allreduce ? config.nccl_cross_comm : config.nccl_comm,
+        stream));
+
+    for (auto& chunk : chunks)
+    {
+      SizeT  chunk_start  = std::get<0>(chunk);
+      SizeT  chunk_size   = std::get<1>(chunk);
+      size_t chunk_offset = std::get<2>(chunk);
+
+      T* pervious_verlocity
+        = (T*)(state.pervious_verlocity + chunk_offset);
+      T* pervious_accumulated_verlocity
+        = (T*)(state.pervious_accumulated_verlocity + chunk_offset);
+    
+      GUARD_CU(Memset(pervious_verlocity, 0, chunk_size, Malloc_t::Default, stream));
+      GUARD_CU(Memset(pervious_accumulated_verlocity, 0, chunk_size, Malloc_t::Default, stream));
+    }
+
+    if (config.learning_rate_decay_factor > 0 &&
+        epoch >= config.num_epochs_per_decay) {
+      float learning_rate_adjustment = 1;
+      auto epoch_ = epoch;
+      while (epoch_ >= config.num_epochs_per_decay)
+      {
+        learning_rate_adjustment *= config.learning_rate_decay_factor;
+        epoch_ -= config.num_epochs_per_decay;
+      }
+      if (learning_rate_adjustment < config.min_learning_rate_factor)
+        learning_rate_adjustment = config.min_learning_rate_factor;
+      if (config.global_gpu_rank == 0)
+        printf("%ld\t learning_rate_adjustment = %f\n", epoch, learning_rate_adjustment);
+
+      loop_kernel <<<grid_size, block_size, 0, stream>>>(num_gradients,
+        [learning_rate_adjustment, output_gradients] __device__ (const SizeT &i)
+        {
+          output_gradients[i] *= learning_rate_adjustment;
+        });
+    }
+
+    return retval; 
+  }
 
   // Sampling
   auto &samp_starts = state.samp_starts;
@@ -1356,7 +1416,7 @@ cudaError_t GradientAllReduce(
     if (learning_rate_adjustment < config.min_learning_rate_factor)
       learning_rate_adjustment = config.min_learning_rate_factor;
     if (config.global_gpu_rank == 0)
-      printf("%d\t learning_rate_adjustment = %f\n", learning_rate_adjustment);
+      printf("%ld\t learning_rate_adjustment = %f\n", epoch, learning_rate_adjustment);
 
     loop_kernel <<<grid_size, block_size, 0, stream>>>(num_gradients,
       [learning_rate_adjustment, output_gradients] __device__ (const SizeT &i)
