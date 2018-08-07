@@ -100,11 +100,9 @@ class SyntheticDataIter(DataIter):
         label = np.random.randint(0, num_classes, [self.batch_size,])
         data = np.random.uniform(-1, 1, data_shape)
         if 'horovod' in kv.type:
-            print("Using horovod")
             self.data = mx.nd.array(data, dtype=self.dtype, ctx=mx.Context('cpu_pinned', kv.local_rank))
             self.label = mx.nd.array(label, dtype=self.dtype, ctx=mx.Context('cpu_pinned', kv.local_rank))
         else:
-            print("Not using horovod")
             self.data = mx.nd.array(data, dtype=self.dtype, ctx=mx.Context('cpu_pinned', 0))
             self.label = mx.nd.array(label, dtype=self.dtype, ctx=mx.Context('cpu_pinned', 0))
     def __iter__(self):

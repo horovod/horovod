@@ -249,7 +249,6 @@ class MXTests(unittest.TestCase):
             dev = mx.cpu(kv.rank)
 
         try:
-            hvd.allreduce(tensor)
             kv.pushpull("1", tensor, tensor)
             assert False, 'hvd.allreduce did not throw cpu-gpu error'
         except Exception as e:
