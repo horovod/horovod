@@ -6,7 +6,6 @@
 
 # Additional dependencies required compared to vanilla MXNet
 1) MPI (we tested using OpenMPI 3.1.1 compiled with CUDA-aware)
-  -we have not tested non-CUDA-aware MPI versions
 2) NCCL (we tested with both NCCL 2.1 and 2.2)
 
 # Building
