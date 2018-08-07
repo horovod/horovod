@@ -79,8 +79,6 @@ const void* TensorUtil::GetData(NDArray* tensor) {
 // Return size of tensor in bytes
 int64_t TensorUtil::GetSize(NDArray* tensor) {
   int64_t element_size = 0;
-  //LOG(WARNING) << "Dtype: " << tensor->dtype();
-  //LOG(WARNING) << "Size:  " << tensor->shape().Size();
   switch (tensor->dtype()) {
     case 0:
       element_size = kFloat32Size;
@@ -104,8 +102,6 @@ int64_t TensorUtil::GetSize(NDArray* tensor) {
       element_size = kInt64Size;
       break;
     default:
-      //LOG(WARNING) << "GetSize: Type " << std::to_string(tensor->dtype()) <<
-      //                " is not supported in MPI mode.";
       throw std::logic_error("Type " + std::to_string(tensor->dtype()) +
                              " is not supported in MPI mode.");
   }
@@ -127,20 +123,14 @@ int TensorUtil::GetDevice(NDArray* tensor) {
 NDArray* TensorUtil::New(int device) {
   if (device == CPU_DEVICE_ID) {
     NDArray* my_array = new NDArray(TShape(), Context::CPU(0));
-    //LOG(WARNING) << "my cpu Dtype: " << my_array->dtype();
     return my_array;
   } else {
-    // TODO(ctcyang): Test whether MXNet integration works fine without this
-    // line that PyTorch requires
-    //with_device device_context(device);
     NDArray* my_array = new NDArray(TShape(), Context::GPU(device));
-    //LOG(WARNING) << "my gpu Dtype: " << my_array->dtype();
     return my_array;
   }
 }
 
 void TensorUtil::Free(NDArray* tensor) {
-  // TODO(ctcyang): Does this way of destroying NDArray work?
   delete tensor;
 }
 
