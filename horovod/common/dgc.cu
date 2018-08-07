@@ -649,7 +649,10 @@ cudaError_t GetToken(DgcState &state, DgcToken &token)
   token = new_token[0];
   GUARD_CU2("cudaEventCreateWithFlags",
     cudaEventCreateWithFlags(&(token.dgc_finish), cudaEventDisableTiming));
-
+  GUARD_CU2("cudaEventCreateWithFlags",
+    cudaEventCreateWithFlags(&(token.stream2_begin), cudaEventDisableTiming));
+  GUARD_CU2("cudaEventCreateWithFlags",
+    cudaEventCreateWithFlags(&(token.stream2_finish), cudaEventDisableTiming));
   return retval;
 }
 
@@ -673,6 +676,17 @@ cudaError_t GradientAllReduce(
 
   DgcToken token;
   GUARD_CU(GetToken(state, token));
+  if (config.stream2 == 0)
+  {
+    int greatest_priority;
+    GUARD_CU2("cudaDeviceGetStreamPriorityRange",
+      cudaDeviceGetStreamPriorityRange(NULL, &greatest_priority));
+    GUARD_CU2("cudaStreamCreateWithPriority",
+      cudaStreamCreateWithPriority(&(config.stream2), cudaStreamNonBlocking,
+        greatest_priority));
+  }
+  auto stream2 = config.stream2;
+
   //GUARD_CU2("cudaStreamSynchronize before",
   //  cudaStreamSynchronize(stream));
 
@@ -825,7 +839,7 @@ cudaError_t GradientAllReduce(
   // Communicate all gradients if it's a flushing step
   bool to_flush = false;
   if (config.flush_steps > 0) {
-    if ((state.step >= config.flush_steps) && 
+    if ((state.step >= config.flush_steps) &&
         (state.step % config.flush_steps) == 0)
       to_flush = true;
   }
@@ -834,12 +848,16 @@ cudaError_t GradientAllReduce(
     printf("%ld\t Flushing %ld elements\n",
       (long)state.step, (long)num_gradients);
 
+    GUARD_CU2("cudaEventRecord",
+      cudaEventRecord(token.stream2_begin, stream));
     GUARD_NCCL2("ncclAllReduce",
       ncclAllReduce(accumulated_verlocity, output_gradients,
         (size_t)num_gradients, PreDefinedValues<T>::NCCLDataType, ncclSum,
         config.use_hierarchical_allreduce ? config.nccl_cross_comm : config.nccl_comm,
         stream));
 
+    GUARD_CU2("cudaStreamWaitEvent",
+      cudaStreamWaitEvent(stream2, token.stream2_begin, 0));
     for (auto& chunk : chunks)
     {
       SizeT  chunk_start  = std::get<0>(chunk);
@@ -850,10 +868,14 @@ cudaError_t GradientAllReduce(
         = (T*)(state.pervious_verlocity + chunk_offset);
       T* pervious_accumulated_verlocity
         = (T*)(state.pervious_accumulated_verlocity + chunk_offset);
-    
-      GUARD_CU(Memset(pervious_verlocity, 0, chunk_size, Malloc_t::Default, stream));
-      GUARD_CU(Memset(pervious_accumulated_verlocity, 0, chunk_size, Malloc_t::Default, stream));
+
+      GUARD_CU(Memset(pervious_verlocity,
+        0, chunk_size, Malloc_t::Default, stream2));
+      GUARD_CU(Memset(pervious_accumulated_verlocity,
+        0, chunk_size, Malloc_t::Default, stream2));
     }
+    GUARD_CU2("cudaEventRecord",
+      cudaEventRecord(token.stream2_finish, stream2));
 
     if (config.learning_rate_decay_factor > 0 &&
         epoch >= config.num_epochs_per_decay) {
@@ -875,8 +897,14 @@ cudaError_t GradientAllReduce(
           output_gradients[i] *= learning_rate_adjustment;
         });
     }
+    GUARD_CU2("cudaStreamWaitEvent",
+      cudaStreamWaitEvent(stream, token.stream2_finish, 0));
 
-    return retval; 
+    GUARD_CU2("cudaEventRecord",
+      cudaEventRecord(token.dgc_finish, stream));
+    state.busy_tokens.push_back(token);
+
+    return retval;
   }
 
   // Sampling
@@ -1164,6 +1192,8 @@ cudaError_t GradientAllReduce(
         }
       });
 
+    GUARD_CU2("cudaEventRecord",
+      cudaEventRecord(token.stream2_begin, stream));
     //GUARD_CU2("cudaStreamSynchronize after send_data forming",
     //  cudaStreamSynchronize(stream));
 
@@ -1206,6 +1236,8 @@ cudaError_t GradientAllReduce(
 
     // Updates pervious_verlocity and pervious_accumulated_verlocity
     // Can be overlap with communication
+    GUARD_CU2("cudaStreamWaitEvent",
+      cudaStreamWaitEvent(stream2, token.stream2_begin, 0));
     for (auto& chunk : chunks)
     {
       SizeT  chunk_start  = std::get<0>(chunk);
@@ -1217,7 +1249,7 @@ cudaError_t GradientAllReduce(
       T* pervious_accumulated_verlocity
         = (T*)(state.pervious_accumulated_verlocity + chunk_offset);
 
-      loop_kernel <<<grid_size, block_size, 0, stream>>>(chunk_size,
+      loop_kernel <<<grid_size, block_size, 0, stream2>>>(chunk_size,
         [recv_masks, chunk_start, chunk_size,
          verlocity, pervious_verlocity,
          accumulated_verlocity, pervious_accumulated_verlocity]
@@ -1242,6 +1274,10 @@ cudaError_t GradientAllReduce(
           }
         });
     }
+    GUARD_CU2("cudaEventRecord",
+      cudaEventRecord(token.stream2_finish, stream2));
+    GUARD_CU2("cudaStreamWaitEvent",
+      cudaStreamWaitEvent(stream, token.stream2_finish, 0));
   } // end of if (use_allReduce)
 
   else {
@@ -1325,6 +1361,8 @@ cudaError_t GradientAllReduce(
 
     //GUARD_CU2("cudaStreamSynchronize after send data forming",
     //    cudaStreamSynchronize(stream));
+    GUARD_CU2("cudaEventRecord",
+      cudaEventRecord(token.stream2_begin, stream));
 
     T* recv_data = (T*)(state.recv_data);
     // Collect selected data & indices from all peers
@@ -1367,6 +1405,8 @@ cudaError_t GradientAllReduce(
 
     // Updates pervious_verlocity and pervious_accumulated_verlocity
     // Can be overlap with communication
+    GUARD_CU2("cudaStreamWaitEvent",
+      cudaStreamWaitEvent(stream2, token.stream2_begin, 0));
     for (auto &chunk : chunks)
     {
       SizeT  chunk_start  = std::get<0>(chunk);
@@ -1378,7 +1418,7 @@ cudaError_t GradientAllReduce(
       T* pervious_accumulated_verlocity
         = (T*)(state.pervious_accumulated_verlocity + chunk_offset);
 
-      loop_kernel <<<grid_size, block_size, 0, stream>>>(chunk_size,
+      loop_kernel <<<grid_size, block_size, 0, stream2>>>(chunk_size,
         [thresholds, chunk_start, chunk_size,
         verlocity, pervious_verlocity,
         accumulated_verlocity, pervious_accumulated_verlocity,
@@ -1402,6 +1442,10 @@ cudaError_t GradientAllReduce(
           }
         });
     }
+    GUARD_CU2("cudaEventRecord",
+      cudaEventRecord(token.stream2_finish, stream2));
+    GUARD_CU2("cudaStreamWaitEvent",
+      cudaStreamWaitEvent(stream, token.stream2_finish, 0));
   }
 
   if (config.learning_rate_decay_factor > 0 &&

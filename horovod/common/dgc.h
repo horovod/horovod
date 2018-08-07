@@ -132,6 +132,7 @@ struct DgcConfig {
 
   // stream DGC works on
   cudaStream_t stream = 0;
+  cudaStream_t stream2 = 0;
 
   // number of GPUs in all nodes
   int global_num_gpus = 1;
@@ -212,7 +213,7 @@ struct DgcToken {
   uint32_t* h_samp_starts = NULL;
   uint32_t  h_samp_starts_allocated = 0;
 
-  cudaEvent_t dgc_finish;
+  cudaEvent_t dgc_finish, stream2_begin, stream2_finish;
 };
 
 // Running state, including memory allocation of DGC
