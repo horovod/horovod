@@ -771,7 +771,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         timeline.ActivityStart(it->tensor_name, WAIT_FOR_OTHER_TENSOR_DATA);
         it = waiting_tensors.erase(it);
       } else {
-		printf("GPU Ready_event 等待...\n");
+		    //printf("GPU Ready_event 等待...\n");
         ++it;
       }
     }
