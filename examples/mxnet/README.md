@@ -3,6 +3,7 @@
 2) NVCC (we tried with both CUDA 9.0 and 9.2)
 3) CUDA Driver (we tried with both 384.111 and 396.37)
 4) GCC 5.4.0
+5) Install all dependencies following steps for [standard MXNet install](https://mxnet.incubator.apache.org/install/index.html?platform=Linux&language=Python&processor=GPU&version=master#)
 
 # Additional dependencies required compared to vanilla MXNet
 1) MPI (we tested using OpenMPI 3.1.1 compiled with CUDA-aware)
