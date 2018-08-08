@@ -898,7 +898,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           nccl_size = horovod_global.local_size;
           nccl_id_bcast_comm = horovod_global.local_comm;
         } else {
-		  printf("使用全局的所有节点的reduce,不使用分层\n");
+		      //printf("使用全局的所有节点的reduce,不使用分层\n");
           nccl_rank = horovod_global.rank;
           nccl_size = horovod_global.size;
           nccl_id_bcast_comm = horovod_global.mpi_comm;
@@ -1197,7 +1197,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 #endif
       ACTIVITY_END_ALL(entries, timeline)
     } else {
-	  printf("如果是只有一个first_entry，进行使用MPI_ALLreduce!\n");
+	    //printf("如果是只有一个first_entry，进行使用MPI_ALLreduce!\n");
       auto& e = first_entry;
       ACTIVITY_START_ALL(entries, timeline, MPI_ALLREDUCE)
       const void* sendbuf = e.tensor->data() == e.output->data()
