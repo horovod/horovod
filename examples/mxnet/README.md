@@ -36,7 +36,7 @@ To run on Imagenet data:
 # Testing
 The following Horovod unit tests do not pass:
   * tests that check Horovod+MXNet throws the correct error if the user passes in NDArrays that differ in size
-  * test for average variant of Horovod Allreduce (i.e. that performs a divide by number of workers). W haven’t spent time debugging the reason
+  * test for average variant of Horovod Allreduce (i.e. that performs a divide by number of workers). We haven’t spent time debugging the reason
 
 To run tests, we did:
 
