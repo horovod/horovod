@@ -1092,7 +1092,21 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         if (timeline.Initialized()) {
           RECORD_EVENT(entries, event_queue, MEMCPY_OUT_FUSION_BUFFER, stream)
         }
-      }
+      }  //change by wuyongyu
+      else {
+        printf("如果是只有一个first_entry，进行使用MPI_ALLreduce!\n");
+        auto& e = first_entry;
+        ACTIVITY_START_ALL(entries, timeline, MPI_ALLREDUCE)
+        const void* sendbuf = e.tensor->data() == e.output->data()
+                                  ? MPI_IN_PLACE
+                                  : e.tensor->data();
+        MPI_CHECK(entries, "MPI_Allreduce",
+                  MPI_Allreduce(sendbuf, (void*)e.output->data(),
+                                (int)e.tensor->shape().num_elements(),
+                                GetMPIDataType(e.tensor), MPI_SUM,
+                                horovod_global.mpi_comm))
+        ACTIVITY_END_ALL(entries, timeline)
+    }
 
       // Use completion marker via event because it's faster than
       // blocking cudaStreamSynchronize() in this thread.
@@ -1197,7 +1211,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 #endif
       ACTIVITY_END_ALL(entries, timeline)
     } else {
-	    //printf("如果是只有一个first_entry，进行使用MPI_ALLreduce!\n");
+	    printf("如果是只有一个first_entry，进行使用MPI_ALLreduce!\n");
       auto& e = first_entry;
       ACTIVITY_START_ALL(entries, timeline, MPI_ALLREDUCE)
       const void* sendbuf = e.tensor->data() == e.output->data()
