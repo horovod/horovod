@@ -1010,7 +1010,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         // ReduceScatter - Parallelized MPI Allreduce - NCCL Allgather. For the
         // remainder (if any), do NCCL Reduce (at local rank 0) - MPI Allreduce
         // (across rank 0's) - NCCL Bcast
-
         int64_t num_elements_per_rank =
             num_elements / horovod_global.local_size;
 
@@ -1086,7 +1085,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
               (uint8_t*)buffer_data +
               buffer_len_per_rank * horovod_global.local_size;
           void* fused_input_data_remainder =
-              (uint8_t*)fused_input_data_remainder +
+              (uint8_t*)fused_input_data +
               buffer_len_per_rank * horovod_global.local_size;
 
           NCCL_CHECK(entries, "ncclReduce",
@@ -1149,11 +1148,13 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                                  (size_t)num_elements,
                                  GetNCCLDataType(first_entry.tensor), ncclSum,
                                  nccl_comm, stream))
+        if (timeline.Initialized()) {
+          RECORD_EVENT(entries, event_queue, NCCL_ALLREDUCE, stream)
+        }
+
+
       }
 #endif
-      if (timeline.Initialized()) {
-        RECORD_EVENT(entries, event_queue, NCCL_ALLREDUCE, stream)
-      }
 
       if (entries.size() > 1) {
         // Copy memory out of the fusion buffer.
