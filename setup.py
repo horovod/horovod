@@ -382,9 +382,8 @@ def get_common_options(build_ext):
 
     if (gpu_allreduce == 'NCCL' and (gpu_allgather == 'MPI' or gpu_broadcast == 'MPI')
             and not os.environ('HOROVOD_ALLOW_MIXED_GPU_IMPL')):
-        raise DistutilsError('It is not recommended to mix NCCL and MPI GPU '
-                             'implementations due to a possible deadlock.\n'
-                             'If you\'re really sure, please set the'
+        raise DistutilsError('You should not mix NCCL and MPI GPU due to a possible deadlock.\n'
+                             'If you\'re sure you want to mix them, set the '
                              'HOROVOD_ALLOW_MIXED_GPU_IMPL environment variable to \'1\'.')
 
     MACROS = []
