@@ -1259,6 +1259,7 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
     std::chrono::steady_clock::time_point start_at = std::get<1>(m.second);
 
     if (now - start_at > STALL_WARNING_TIME) {
+      printf("在这里报错！checkForStalledTensors tensor名字:%s\n",tensor_name.c_str());
       if (!preamble) {
         std::cerr << "WARNING: One or more tensors were submitted to be "
                      "reduced, gathered or broadcasted by subset of ranks and "
