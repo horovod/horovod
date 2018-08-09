@@ -1269,6 +1269,13 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
 
     if (now - start_at > STALL_WARNING_TIME) {
       printf("在这里报错！checkForStalledTensors tensor名字:%s\n",tensor_name.c_str());
+      printf("打印出错的rank和消息:");
+        for (auto msg_iter = messages.begin(); msg_iter != messages.end();
+           msg_iter++) {
+            printf("名字:%s\n,request_rank:%d ,device:%d", msg_iter->tensor_name().c_str(),msg_iter->request_rank(),msg_iter->device());
+
+        }
+        printf("\n");
       if (!preamble) {
         std::cerr << "WARNING: One or more tensors were submitted to be "
                      "reduced, gathered or broadcasted by subset of ranks and "
