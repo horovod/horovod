@@ -989,30 +989,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         }
       }
 
-      // For hierarchical allreduce pad the buffer to make the effective number
-      // of elements a multiple of local size
-      if (horovod_global.hierarchical_allreduce &&
-          num_elements % horovod_global.local_size != 0) {
-        int64_t num_elements_to_pad =
-            horovod_global.local_size -
-            (num_elements % horovod_global.local_size);
-        int64_t bytes_to_pad =
-            num_elements_to_pad * sizeof(first_entry.tensor->dtype());
-
-        void* buffer_data_at_offset = (uint8_t*)buffer_data + buffer_len;
-        void* fused_input_data_at_offset =
-            (uint8_t*)fused_input_data + buffer_len;
-
-        CUDA_CHECK(
-            entries, "cudaMalloc",
-            cudaMalloc((void**)&fused_input_data_at_offset, bytes_to_pad))
-        CUDA_CHECK(entries, "cudaMalloc",
-                   cudaMalloc((void**)&buffer_data_at_offset, bytes_to_pad))
-        buffer_len += bytes_to_pad;
-        num_elements += num_elements_to_pad;
-      }
-
       void* host_buffer = nullptr;
+      void* host_buffer_remainder = nullptr;
+
 #if HOROVOD_GPU_ALLREDUCE == 'D'
       // Synchronize.
       WAIT_FOR_EVENTS(entries, timeline, event_queue)
@@ -1027,6 +1006,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                               DDL_OP_SUM))
 #else
       if (horovod_global.hierarchical_allreduce) {
+
         int64_t num_elements_per_gpu = num_elements / horovod_global.local_size;
 
         size_t buffer_len_per_proc =
@@ -1035,6 +1015,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         void* buffer_data_at_gpu_offset =
             (uint8_t*)buffer_data +
             buffer_len_per_proc * horovod_global.local_rank;
+
+        int64_t num_elements_remaining = num_elements%horovod_global.local_size;
+        size_t buffer_len_remaining = (buffer_len / num_elements) * num_elements_remaining; 
 
         NCCL_CHECK(entries, "ncclReduceScatter",
                    ncclReduceScatter(fused_input_data,
@@ -1089,6 +1072,59 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           RECORD_EVENT(entries, event_queue, NCCL_ALLGATHER, stream)
         }
 
+        if(num_elements_remaining > 0) {
+
+        // For the remaining data do ncclReduce - MPIAllreduce - ncclBcast
+        void* buffer_data_remainder = (uint8_t*)buffer_data + buffer_len_per_proc * horovod_global.local_size;
+        void* fused_input_data_remainder = (uint8_t*)fused_input_data_remainder + buffer_len_per_proc * horovod_global.local_size;
+
+        NCCL_CHECK(entries, "ncclReduce",
+                   ncclReduce(fused_input_data_remainder, buffer_data_remainder,
+                              (size_t)num_elements_remaining,
+                              GetNCCLDataType(first_entry.tensor), ncclSum, 0,
+                              nccl_comm, stream))
+        if (timeline.Initialized()) {
+          RECORD_EVENT(entries, event_queue, NCCL_REDUCE, stream)
+        }
+
+        if (horovod_global.local_rank == 0) {
+          // cudaHostAlloc is significantly slower than malloc.  Pre-allocating
+          // a buffer is not safe since the tensor can be arbitrarily large.
+          host_buffer_remainder = malloc(buffer_len_remaining);
+
+          CUDA_CHECK(entries, "cudaMemcpyAsync",
+                     cudaMemcpyAsync(host_buffer_remainder, buffer_data_remainder, buffer_len_remaining,
+                                     cudaMemcpyDeviceToHost, stream))
+          // This event must be recorded for the subsequent synchronize.
+          RECORD_EVENT(entries, event_queue, MEMCPY_IN_HOST_BUFFER, stream)
+
+          // Synchronize.
+          WAIT_FOR_EVENTS(entries, timeline, event_queue)
+
+          ACTIVITY_START_ALL(entries, timeline, MPI_ALLREDUCE)
+          MPI_CHECK(entries, "MPI_Allreduce",
+                    MPI_Allreduce(MPI_IN_PLACE, host_buffer_remainder, (int)num_elements_remaining,
+                                  GetMPIDataType(first_entry.tensor), MPI_SUM,
+                                  horovod_global.cross_comm))
+          ACTIVITY_END_ALL(entries, timeline)
+
+          CUDA_CHECK(entries, "cudaMemcpyAsync",
+                     cudaMemcpyAsync(buffer_data_remainder, host_buffer_remainder, buffer_len_remaining,
+                                     cudaMemcpyHostToDevice, stream))
+          if (timeline.Initialized()) {
+            RECORD_EVENT(entries, event_queue, MEMCPY_OUT_HOST_BUFFER, stream)
+          }
+        }
+
+        NCCL_CHECK(entries, "ncclBcast",
+                   ncclBcast(buffer_data_remainder, (size_t)num_elements_remaining,
+                             GetNCCLDataType(first_entry.tensor), 0, nccl_comm,
+                             stream))
+        if (timeline.Initialized()) {
+          RECORD_EVENT(entries, event_queue, NCCL_BCAST, stream)
+        }
+      }
+
       } else {
         NCCL_CHECK(entries, "ncclAllReduce",
                    ncclAllReduce(fused_input_data, buffer_data,
@@ -1123,7 +1159,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       RECORD_EVENT(entries, event_queue, "", stream)
 
       // TODO: use thread pool or single thread for callbacks
-      std::thread finalizer_thread([entries, first_entry, host_buffer, response,
+      std::thread finalizer_thread([entries, first_entry, host_buffer, host_buffer_remainder, response,
                                     event_queue, &timeline]() mutable {
         CUDA_CHECK(entries, "cudaSetDevice", cudaSetDevice(first_entry.device))
 
@@ -1131,6 +1167,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
         if (host_buffer != nullptr) {
           free(host_buffer);
+        }
+        if (host_buffer_remainder != nullptr) {
+          free(host_buffer_remainder);
         }
 
         for (auto& e : entries) {
@@ -1352,6 +1391,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // By default, we will ask for multiple threads, so other libraries like
   // mpi4py can be used together with Horovod if multi-threaded MPI is
   // installed.
+
   auto mpi_threads_disable = std::getenv("HOROVOD_MPI_THREADS_DISABLE");
   int required = MPI_THREAD_MULTIPLE;
   if (mpi_threads_disable != nullptr &&
@@ -1560,6 +1600,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       message_queue.push(message);
     }
   }
+
 
   // Collect all tensors that are ready to be reduced. Record them in the
   // tensor count table (rank zero) or send them to rank zero to be

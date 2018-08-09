@@ -42,7 +42,8 @@ namespace common {
 #define MPI_BCAST "MPI_BCAST"
 #define NCCL_REDUCESCATTER "NCCL_REDUCESCATTER"
 #define NCCL_ALLGATHER "NCCL_ALLGATHER"
-
+#define NCCL_REDUCE "NCCL_REDUCE"
+#define NCCL_BCAST "NCCL_BCAST"
 
 // A callback to call after the MPI communication completes. Since the
 // allreduce and allgather ops are asynchronous, this callback is what resumes

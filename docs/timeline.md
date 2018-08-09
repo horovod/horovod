@@ -40,4 +40,5 @@ workers were early and which were late.
  (or CPU) and highlights whether the operation was performed using NCCL or pure MPI.
 
 * In case of `HOROVOD_HIERARCHICAL_ALLREDUCE=1`, *NCCL_ALLREDUCE* will become a sequence of *NCCL_REDUCESCATTER*,
- *MEMCPY_IN_HOST_BUFFER*, *MPI_ALLREDUCE*, *MEMCPY_OUT_HOST_BUFFER*, *NCCL_ALLGATHER*.
+ *MEMCPY_IN_HOST_BUFFER*, *MPI_ALLREDUCE*, *MEMCPY_OUT_HOST_BUFFER*, *NCCL_ALLGATHER*, followed by a sequence of
+ *NCCL_REDUCE*, *MEMCPY_IN_HOST_BUFFER*, *MPI_ALLREDUCE*, *MEMCPY_OUT_HOST_BUFFER*, *NCCL_BCAST*.
