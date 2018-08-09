@@ -709,7 +709,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       // We should never fail at finding this key in the tensor table.
       auto iter = tensor_table.find(name);
       assert(iter != tensor_table.end());
-	  printf("operation.cc PerformOperation response.tensor_names name :%s,response Type:%d\n",name.c_str(),response.response_type());
+	    //printf("operation.cc PerformOperation response.tensor_names name :%s,response Type:%d\n",name.c_str(),response.response_type());
 	
       assert(response.response_type() == MPIResponse::ALLREDUCE ||
              response.response_type() == MPIResponse::ALLGATHER ||
@@ -787,7 +787,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
   if (response.response_type() == MPIResponse::ALLGATHER) {
     assert(entries.size() == 1);
     auto e = entries[0];
-	printf("operation.cc PerformOperation MPIResponse:ALLGATHER -->entry.size()%d\n",entries.size());
+	  printf("operation.cc PerformOperation MPIResponse:ALLGATHER -->entry.size()%d\n",entries.size());
     // Copy tensor sizes from the MPI response into a vector of int64_t
     // and compute total size.  This is size of first dimension.
     std::vector<int64_t> tensor_sizes;
@@ -850,7 +850,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
   //##################################################################################在这里进行ALLREDUCE
   else if (response.response_type() == MPIResponse::ALLREDUCE) {
     auto& first_entry = entries[0];
-     printf("在这里进行ALLREDUCE_ tensor_name:%s\n",first_entry.tensor_name.c_str());
+     //printf("在这里进行ALLREDUCE_ tensor_name:%s\n",first_entry.tensor_name.c_str());
 #if HAVE_CUDA
     bool on_gpu = first_entry.device != CPU_DEVICE_ID;
     if (on_gpu) {
@@ -872,7 +872,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 // 'N' stands for NCCL and 'D' for DDL
 #if HOROVOD_GPU_ALLREDUCE == 'N' || HOROVOD_GPU_ALLREDUCE == 'D'
     if (on_gpu) {
-      printf("Line 875 on_gpu...\n");
+      //printf("Line 875 on_gpu...\n");
       auto stream = horovod_global.streams[first_entry.device];
       auto event_queue = std::queue<std::pair<std::string, cudaEvent_t>>();
 
@@ -895,7 +895,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         int nccl_rank, nccl_size;
         MPI_Comm nccl_id_bcast_comm;
         if (horovod_global.hierarchical_allreduce) {
-		  printf("operations.cc 第899行，使用nccl进行分层allreduce\n");
+		      printf("operations.cc 第899行，使用nccl进行分层allreduce\n");
           nccl_rank = horovod_global.local_rank;
           nccl_size = horovod_global.local_size;
           nccl_id_bcast_comm = horovod_global.local_comm;
@@ -956,7 +956,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       int64_t num_elements = 0;
       size_t buffer_len;
       if (entries.size() > 1) {
-        printf("Line 958...\n");
+        //printf("Line 958...\n");
         // Access the fusion buffer.
         auto& buffer = horovod_global.tensor_fusion_buffers[std::make_tuple(
             first_entry.device, first_entry.context->framework())];
@@ -987,7 +987,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           num_elements += e.tensor->shape().num_elements();
         }
       } else {
-        printf("Line 989 ...\n");
+        //printf("Line 989 ...\n");
         fused_input_data = first_entry.tensor->data();
         buffer_data = (void*)first_entry.output->data();
         num_elements = first_entry.tensor->shape().num_elements();
@@ -1069,7 +1069,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       } else {
 		  // 不分层时，在这里进行缓冲区的缩减,在这里进行缓冲区的融合缩减
         //将fused_input_data 融合之后放到buffer_data
-        printf("line 1072 在这里进行缓冲区的融合缩减...\n");
+        //printf("line 1072 在这里进行缓冲区的融合缩减...\n");
         NCCL_CHECK(entries, "ncclAllReduce",
                    ncclAllReduce(fused_input_data, buffer_data,
                                  (size_t)num_elements,
@@ -1098,9 +1098,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           RECORD_EVENT(entries, event_queue, MEMCPY_OUT_FUSION_BUFFER, stream)
         }
       }  //change by wuyongyu
-      else {
-        printf("只有一个first_entry，进行使用GPU_ALLreduce!这里还没有做\n");
-      }
+        //printf("只有一个first_entry，进行使用GPU_ALLreduce!这里还没有做\n");
 
       // Use completion marker via event because it's faster than
       // blocking cudaStreamSynchronize() in this thread.
@@ -1126,9 +1124,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       return; //#######################################结束GPU 上面的ALLREDUCE返回 ！
     }
 #endif   //end line number:873 
-    printf("在CPU上面进行ALLREDUCE....\n");
+    //printf("在CPU上面进行ALLREDUCE....\n");
     if (entries.size() > 1) {
-      printf("在CPU上面进行ALLREDUCE,有多个entry..\n");
       // Access the fusion buffer.
       auto& buffer = horovod_global.tensor_fusion_buffers[std::make_tuple(
           first_entry.device, first_entry.context->framework())];
@@ -1206,7 +1203,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 #endif
       ACTIVITY_END_ALL(entries, timeline)
     } else {
-	    printf("如果是只有一个first_entry，CPU上面进行使用MPI_ALLreduce!\n");
+	    //printf("如果是只有一个first_entry，CPU上面进行使用MPI_ALLreduce!\n");
       auto& e = first_entry;
       ACTIVITY_START_ALL(entries, timeline, MPI_ALLREDUCE)
       const void* sendbuf = e.tensor->data() == e.output->data()
@@ -1268,11 +1265,11 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
     std::chrono::steady_clock::time_point start_at = std::get<1>(m.second);
 
     if (now - start_at > STALL_WARNING_TIME) {
-      printf("在这里报错！checkForStalledTensors tensor名字:%s\n",tensor_name.c_str());
-      printf("打印出错的rank和消息:");
+      printf("checkForStalledTensors tensor:%s\n",tensor_name.c_str());
+      printf("print:");
         for (auto msg_iter = messages.begin(); msg_iter != messages.end();
            msg_iter++) {
-            printf("名字:%s\n,request_rank:%d ,device:%d", msg_iter->tensor_name().c_str(),msg_iter->request_rank(),msg_iter->device());
+            printf("name:%s\n,request_rank:%d ,device:%d", msg_iter->tensor_name().c_str(),msg_iter->request_rank(),msg_iter->device());
 
         }
         printf("\n");
