@@ -1078,6 +1078,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           RECORD_EVENT(entries, event_queue, NCCL_ALLGATHER, stream)
         }
 
+        // Synchronize.
+        WAIT_FOR_EVENTS(entries, timeline, event_queue)
+
         if (num_elements_remaining > 0) {
 
           // For the remaining data do ncclReduce - MPIAllreduce - ncclBcast
