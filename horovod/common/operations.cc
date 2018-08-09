@@ -1625,7 +1625,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
         bool reduce = IncrementTensorCount(state.message_table,
                                            received_message, state.size);
         if (reduce) {
-           printf("RunLoopOnce 第1624行 message tensor_name:%s\n",received_name.c_str() );
+           //printf("RunLoopOnce 第1624行 message tensor_name:%s\n",received_name.c_str() );
           ready_to_reduce.push_back(received_name);
         }
       }
