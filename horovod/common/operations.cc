@@ -709,7 +709,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       // We should never fail at finding this key in the tensor table.
       auto iter = tensor_table.find(name);
       assert(iter != tensor_table.end());
-	  //printf("operation.cc PerformOperation response.tensor_names name :%s,response Type:%d\n",name.c_str(),response.response_type());
+	  printf("operation.cc PerformOperation response.tensor_names name :%s,response Type:%d\n",name.c_str(),response.response_type());
 	
       assert(response.response_type() == MPIResponse::ALLREDUCE ||
              response.response_type() == MPIResponse::ALLGATHER ||
@@ -849,6 +849,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
   } 
   //##################################################################################在这里进行ALLREDUCE
   else if (response.response_type() == MPIResponse::ALLREDUCE) {
+    printf("在这里进行ALLREDUCE\n");
     auto& first_entry = entries[0];
 #if HAVE_CUDA
     bool on_gpu = first_entry.device != CPU_DEVICE_ID;
@@ -1121,8 +1122,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       return; //#######################################结束GPU 上面的ALLREDUCE返回 ！
     }
 #endif
-
+    printf("在CPU上面进行ALLREDUCE....\n");
     if (entries.size() > 1) {
+      printf("在CPU上面进行ALLREDUCE,有多个entry..\n");
       // Access the fusion buffer.
       auto& buffer = horovod_global.tensor_fusion_buffers[std::make_tuple(
           first_entry.device, first_entry.context->framework())];
