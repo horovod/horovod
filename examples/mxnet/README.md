@@ -21,6 +21,7 @@
   USE_MPI_PATH = [root directory in which MPI folders /lib and /include reside]
   ```
 5) make -j16
+6) pip install -e python
 
 # Running
 You can run the synthetic benchmark by doing (tested using OpenMPI 3.1.1 on AWS p3.16xlarge instances):
