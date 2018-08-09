@@ -1621,13 +1621,14 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
         bool reduce = IncrementTensorCount(state.message_table,
                                            received_message, state.size);
         if (reduce) {
+           printf("RunLoopOnce 第1624行 message tensor_name:%s\n",received_name.c_str() );
           ready_to_reduce.push_back(received_name);
         }
       }
       if (received_message_list.shutdown()) {
         // Received SHUTDOWN request from one of the workers.
         state.shut_down = true;
-		printf("received_message_list shutdown!!!\n");
+		    printf("received_message_list shutdown!!!\n");
       }
     }
 
