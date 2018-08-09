@@ -101,7 +101,7 @@ void Timeline::NegotiateStart(const std::string& tensor_name,
     return;
   }
 
-  std::lock_guard guard(mutex_);
+  std::lock_guard<std::recursive_mutex> guard(mutex_);
   assert(tensor_states_[tensor_name] == TimelineState::UNKNOWN);
   auto event_category =
       "NEGOTIATE_" + MPIRequest::RequestType_Name(request_type);
@@ -115,7 +115,7 @@ void Timeline::NegotiateRankReady(const std::string& tensor_name,
     return;
   }
 
-  std::lock_guard guard(mutex_);
+  std::lock_guard<std::recursive_mutex> guard(mutex_);
   assert(tensor_states_[tensor_name] == TimelineState::NEGOTIATING);
   WriteEvent(tensor_name, 'X', std::to_string(rank));
 }
@@ -125,7 +125,7 @@ void Timeline::NegotiateEnd(const std::string& tensor_name) {
     return;
   }
 
-  std::lock_guard guard(mutex_);
+  std::lock_guard<std::recursive_mutex> guard(mutex_);
   assert(tensor_states_[tensor_name] == TimelineState::NEGOTIATING);
   WriteEvent(tensor_name, 'E');
   tensor_states_.erase(tensor_name);
@@ -137,7 +137,7 @@ void Timeline::Start(const std::string& tensor_name,
     return;
   }
 
-  std::lock_guard guard(mutex_);
+  std::lock_guard<std::recursive_mutex> guard(mutex_);
   assert(tensor_states_[tensor_name] == TimelineState::UNKNOWN);
   auto event_category = MPIResponse::ResponseType_Name(response_type);
   WriteEvent(tensor_name, 'B', event_category);
@@ -150,7 +150,7 @@ void Timeline::ActivityStart(const std::string& tensor_name,
     return;
   }
 
-  std::lock_guard guard(mutex_);
+  std::lock_guard<std::recursive_mutex> guard(mutex_);
   assert(tensor_states_[tensor_name] == TimelineState::TOP_LEVEL);
   WriteEvent(tensor_name, 'B', activity);
   tensor_states_[tensor_name] = TimelineState::ACTIVITY;
@@ -161,7 +161,7 @@ void Timeline::ActivityEnd(const std::string& tensor_name) {
     return;
   }
 
-  std::lock_guard guard(mutex_);
+  std::lock_guard<std::recursive_mutex> guard(mutex_);
   assert(tensor_states_[tensor_name] == TimelineState::ACTIVITY);
   WriteEvent(tensor_name, 'E');
   tensor_states_[tensor_name] = TimelineState::TOP_LEVEL;
@@ -172,7 +172,7 @@ void Timeline::End(const std::string& tensor_name, const std::shared_ptr<Tensor>
     return;
   }
 
-  std::lock_guard guard(mutex_);
+  std::lock_guard<std::recursive_mutex> guard(mutex_);
 
   // Pop out of current state, if applicable.
   if (tensor_states_[tensor_name] == TimelineState::ACTIVITY) {
