@@ -133,6 +133,7 @@ struct DgcConfig {
   // stream DGC works on
   cudaStream_t stream = 0;
   cudaStream_t stream2 = 0;
+  cudaStream_t stream3 = 0;
 
   // number of GPUs in all nodes
   int global_num_gpus = 1;
@@ -198,6 +199,9 @@ struct DgcConfig {
   // Number of steps per whole model gradient flush, 0 to disable
   uint64_t flush_steps = 0;
 
+  // Whether to overlap MPI AllReduce on masks
+  bool overlap_mask_allreduce = false;
+
   // function to set indivual configuration
   void Set(std::string key, std::string value);
 };
@@ -213,7 +217,37 @@ struct DgcToken {
   uint32_t* h_samp_starts = NULL;
   uint32_t  h_samp_starts_allocated = 0;
 
-  cudaEvent_t dgc_finish, stream2_begin, stream2_finish;
+  cudaEvent_t dgc_finish, stream2_begin, stream2_finish, stream3_begin;
+
+  bool dgc_finished = false;
+  cudaError_t Init();
+  cudaError_t isFinished(bool &finished, int check = 0);
+};
+
+// Token for overlapping MPI Reduce of mask and computation
+struct MaskToken {
+  uint32_t*   h_send_masks = NULL;
+  uint32_t*   h_recv_masks = NULL;
+  uint64_t    num_masks    = 0;
+  uint32_t    num_layers   = 0;
+  uint32_t    num_layers_comsumed = 0;
+  uint64_t    mask_allocated = 0;
+  cudaEvent_t d2h_finish;
+  bool        d2h_finished = false;
+  cudaEvent_t h2d_finish;
+  bool        h2d_finished = false;
+
+  MPI_Request mpi_request;
+  bool        mpi_finished = false;
+
+  cudaError_t Init();
+  cudaError_t isFinished(bool &finished, int check = 0);
+};
+
+// Per layer information for overlapping mask communication
+struct LayerRecord {
+  MaskToken *token = NULL;
+  uint32_t   layer_start = 0;
 };
 
 // Running state, including memory allocation of DGC
@@ -314,8 +348,16 @@ struct DgcState {
   uint32_t* h_num_gradients_to_communicate = NULL;
 
   // Tokens
-  std::list<DgcToken> free_tokens;
-  std::list<DgcToken> busy_tokens;
+  std::list<DgcToken*> free_tokens;
+  std::list<DgcToken*> busy_tokens;
+
+  std::list<MaskToken*> free_mask_tokens;
+  std::list<MaskToken*> d2h_mask_queue;
+  std::list<MaskToken*> mpi_mask_queue;
+  std::list<MaskToken*> h2d_mask_queue;
+
+  // Layer records
+  std::map<std::string, LayerRecord> layer_records[2];
 };
 
 // Entry warper function
