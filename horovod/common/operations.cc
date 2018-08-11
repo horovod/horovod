@@ -1092,7 +1092,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       } else {
 		  // 不分层时，在这里进行缓冲区的缩减,在这里进行缓冲区的融合缩减
         //将fused_input_data 融合之后放到buffer_data
-        //printf("line 1072 在这里进行缓冲区的融合缩减...\n");
+        printf("line 1072 在这里进行缓冲区的融合缩减...\n");
         NCCL_CHECK(entries, "ncclAllReduce",
                    ncclAllReduce(fused_input_data, buffer_data,
                                  (size_t)num_elements,
@@ -1105,6 +1105,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       }
 
       if (entries.size() > 1) {
+         printf("有多个entry，进行使用GPU_ALLreduce!\n");
         // Copy memory out of the fusion buffer.
         int64_t offset = 0;
         for (auto& e : entries) {
@@ -1121,7 +1122,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           RECORD_EVENT(entries, event_queue, MEMCPY_OUT_FUSION_BUFFER, stream)
         }
       }  //change by wuyongyu
-        //printf("只有一个first_entry，进行使用GPU_ALLreduce!这里还没有做\n");
+      printf("只有一个first_entry，进行使用GPU_ALLreduce!这里还没有做\n");
 
       // Use completion marker via event because it's faster than
       // blocking cudaStreamSynchronize() in this thread.
@@ -1147,7 +1148,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       return; //#######################################结束GPU 上面的ALLREDUCE返回 ！
     }
 #endif   //end line number:873 
-    //printf("在CPU上面进行ALLREDUCE....\n");
+    printf("在CPU上面进行ALLREDUCE....\n");
     if (entries.size() > 1) {
       // Access the fusion buffer.
       auto& buffer = horovod_global.tensor_fusion_buffers[std::make_tuple(
