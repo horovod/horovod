@@ -1588,7 +1588,7 @@ if(is_coordinator && horovod_timeline != nullptr){
       std::strtol(horovod_hierarchical_allreduce, nullptr, 10) > 0 &&
       cross_size > 1) {
     state.hierarchical_allreduce = true;
-    if(horovod_rank()==0){
+    if(is_coordinator){
       printf("默认的分层融合Allreduce\n");
     }
   }
