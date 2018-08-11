@@ -197,6 +197,9 @@ struct HorovodGlobalState {
   // Do hierarchical allreduce with MPI + NCCL.
   bool hierarchical_allreduce = false;
 
+  //Do hierarchical allreduce with MPI + NCCL. But change the ring size to a number.
+  bool hierarchical_allreduce_ring=false;
+
 // The CUDA stream used for data transfers and within-allreduce operations.
 // A naive implementation would use the TensorFlow StreamExecutor CUDA
 // stream. However, the allreduce and allgather require doing memory copies
@@ -1461,6 +1464,18 @@ printf("operations.cc BackgroundThreadLoop --->horovod_fusion_threshold:%d\n",st
       std::strtol(horovod_stall_check_disable, nullptr, 10) > 0) {
     state.perform_stall_check = false;
   }
+
+  //Set flag for hierarchical Ring allreduce. Ignore if Horovod is running on a
+  // single node.
+  int ring=0;
+  int CIRCLE=2;
+  auto horovod_hierarchical_allreduce_ring=std::getenv(HOROVOD_HIERARCHICAL_ALLREDUCE_RING);
+   if (horovod_hierarchical_allreduce_ring != nullptr &&
+      std::strtol(horovod_hierarchical_allreduce_ring, nullptr, 10) > 0) {
+        state.hierarchical_allreduce_ring=true;
+      CIRCLE=std::strtol(horovod_hierarchical_allreduce_ring, nullptr, 10);
+    }    
+  printf("operations.cc BackgroundThreadLoop --->进行环间的分层ALLREDUE:%d,环的大小：%d\n", state.hierarchical_allreduce_ring,CIRCLE);
 
   // Set flag for hierarchical allreduce. Ignore if Horovod is running on a
   // single node.
