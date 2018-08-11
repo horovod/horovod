@@ -1413,17 +1413,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     MPI_Comm_dup(MPI_COMM_WORLD, &(horovod_global.mpi_comm));
   }
 
-  //Set flag for hierarchical Ring allreduce. Ignore if Horovod is running on a
-  // single node.
-  int ring=0;
-  int CIRCLE=2;
-  auto horovod_hierarchical_allreduce_ring=std::getenv(HOROVOD_HIERARCHICAL_ALLREDUCE_RING);
-   if (horovod_hierarchical_allreduce_ring != nullptr &&
-      std::strtol(horovod_hierarchical_allreduce_ring, nullptr, 10) > 0) {
-        state.hierarchical_allreduce_ring=true;
-      CIRCLE=std::strtol(horovod_hierarchical_allreduce_ring, nullptr, 10);
-    }    
-  printf("operations.cc BackgroundThreadLoop --->进行环间的分层ALLREDUE:%d,环的大小：%d\n", state.hierarchical_allreduce_ring,CIRCLE);
 
   // Get MPI rank to determine if we are rank zero.
   int rank;
@@ -1463,6 +1452,46 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.cross_comm = cross_comm;
   state.mpi_threads_supported = (provided == MPI_THREAD_MULTIPLE);
   state.local_comm_ranks = local_comm_ranks;
+
+  //在这里定义环间的MPI通信
+   //Set flag for hierarchical Ring allreduce. Ignore if Horovod is running on a
+  // single node.
+  int ring=0;
+  int CIRCLE=2;
+  auto horovod_hierarchical_allreduce_ring=std::getenv(HOROVOD_HIERARCHICAL_ALLREDUCE_RING);
+   if (horovod_hierarchical_allreduce_ring != nullptr &&
+      std::strtol(horovod_hierarchical_allreduce_ring, nullptr, 10) > 0) {
+        state.hierarchical_allreduce_ring=true;
+      CIRCLE=std::strtol(horovod_hierarchical_allreduce_ring, nullptr, 10);
+    }    
+  printf("operations.cc BackgroundThreadLoop --->进行环间的分层ALLREDUE:%d,环的大小：%d\n", state.hierarchical_allreduce_ring,CIRCLE);
+  
+  MPI_Comm ring_comm;
+  ring=rank/CIRCLE;
+  MPI_Comm_split(state.mpi_comm,ring,rank,&ring_comm);
+  int ring_rank,ring_size;
+  MPI_Comm_rank(ring_comm,&ring_rank);
+  MPI_Comm_size(ring_comm,&ring_size);
+  std::vector<int> ring_comm_ranks((size_t)ring_size);
+  ring_comm_ranks[ring_rank] = rank;
+  MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, ring_comm_ranks.data(), 1,
+                MPI_INT, ring_comm);
+
+
+  MPI_Comm cross_ring_comm;
+  MPI_Comm_split(state.mpi_comm,ring_rank,rank,&cross_ring_comm);
+  int cross_ring_rank,cross_ring_size;
+  MPI_Comm_rank(cross_ring_comm,&cross_ring_rank);
+  MPI_Comm_size(cross_ring_comm,&cross_ring_size);
+  state.ring_rank=ring_rank;
+  state.cross_ring_rank=cross_ring_rank;
+  state.ring_size=ring_size;
+  state.cross_ring_size=cross_ring_size;
+  state.ring_comm=ring_comm;
+  state.cross_ring_comm=cross_ring_comm;
+  state.ring_comm_ranks=ring_comm_ranks;
+
+
 
   // Open the timeline file on coordinator.
   auto horovod_timeline = std::getenv(HOROVOD_TIMELINE);
@@ -1801,7 +1830,6 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
     for (int i = 0; i < nranks; i++) {
       horovod_global.ranks.push_back(ranks[i]);
     }
-    printf("InitializeHorovodOnce 函数执行，ranks大小:%d\n",horovod_global.ranks.size());
 
     horovod_global.background_thread =
         std::thread(BackgroundThreadLoop, std::ref(horovod_global));
