@@ -1515,7 +1515,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       std::strtol(horovod_hierarchical_allreduce_ring, nullptr, 10) > 0) {
         state.hierarchical_allreduce_ring=true;
       CIRCLE=std::strtol(horovod_hierarchical_allreduce_ring, nullptr, 10);
-      if(horovod_rank()==0){
+      if(is_coordinator){
         printf("进行定义环间的分层ALLREDUE,环的大小：%d\n", CIRCLE);
       }     
     }    
@@ -1567,7 +1567,7 @@ if(is_coordinator && horovod_timeline != nullptr){
   if (horovod_cycle_time != nullptr) {
     state.cycle_time_ms = std::strtof(horovod_cycle_time, nullptr);
   }
-  if(horovod_rank()==0){
+  if(is_coordinator){
     printf("operations.cc BackgroundThreadLoop --->horovod_fusion_threshold:%d\n",state.tensor_fusion_threshold);
     printf("operations.cc BackgroundThreadLoop -->state.cycle_time_ms:%f\n",state.cycle_time_ms );
   }
