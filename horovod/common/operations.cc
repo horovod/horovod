@@ -1410,7 +1410,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   } else if (!state.mpi_comm) {
     // No ranks were given and no communicator provided to horovod_init() so use
     // MPI_COMM_WORLD
-    printf("在这里使用MPI_COMM_WORLD\n");
     MPI_Comm_dup(MPI_COMM_WORLD, &(horovod_global.mpi_comm));
   }
 
@@ -1802,6 +1801,7 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
     for (int i = 0; i < nranks; i++) {
       horovod_global.ranks.push_back(ranks[i]);
     }
+    printf("InitializeHorovodOnce 函数执行，ranks大小:%d\n",horovod_global.ranks.size());
 
     horovod_global.background_thread =
         std::thread(BackgroundThreadLoop, std::ref(horovod_global));
