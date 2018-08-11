@@ -134,6 +134,7 @@ struct DgcConfig {
   cudaStream_t stream = 0;
   cudaStream_t stream2 = 0;
   cudaStream_t stream3 = 0;
+  cudaStream_t stream4 = 0;
 
   // number of GPUs in all nodes
   int global_num_gpus = 1;
@@ -233,6 +234,7 @@ struct MaskToken {
   uint32_t*   h_recv_masks = NULL;
   uint64_t    num_masks    = 0;
   uint32_t    num_layers   = 0;
+  uint32_t    num_layers_produced = 0;
   uint32_t    num_layers_comsumed = 0;
   uint64_t    mask_allocated = 0;
   cudaEvent_t d2h_finish;
@@ -329,8 +331,8 @@ struct DgcState {
   size_t temp_storage_bytes = 0;
   char* temp_storage2 = NULL;
   size_t temp_storage2_bytes = 0;
-  char* temp_storage3 = NULL;
-  size_t temp_storage3_bytes = 0;
+  //char* temp_storage3 = NULL;
+  //size_t temp_storage3_bytes = 0;
 
   // Maximum gradient
   float* max_gradient = NULL;
