@@ -1515,7 +1515,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       std::strtol(horovod_hierarchical_allreduce_ring, nullptr, 10) > 0) {
         state.hierarchical_allreduce_ring=true;
       CIRCLE=std::strtol(horovod_hierarchical_allreduce_ring, nullptr, 10);
-      printf("进行定义环间的分层ALLREDUE,环的大小：%d\n", CIRCLE);
+      if(horovod_rank()==0){
+        printf("进行定义环间的分层ALLREDUE,环的大小：%d\n", CIRCLE);
+      }     
     }    
 
   MPI_Comm ring_comm;
