@@ -176,13 +176,13 @@ struct HorovodGlobalState {
   int local_rank = 0;
   int cross_rank = 0;
   int ring_rank = 0;
-  int across_ring_rank = 0; 
+  int cross_ring_rank = 0; 
 
   int size = 1;
   int local_size = 1;
   int cross_size = 1;
   int ring_size = 2;
-  int across_ring_size = 1;
+  int cross_ring_size = 1;
 
   bool mpi_threads_supported = false;
   std::vector<int> ranks;
@@ -1465,7 +1465,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       CIRCLE=std::strtol(horovod_hierarchical_allreduce_ring, nullptr, 10);
     }    
   printf("operations.cc BackgroundThreadLoop --->进行环间的分层ALLREDUE:%d,环的大小：%d\n", state.hierarchical_allreduce_ring,CIRCLE);
-  
+
   MPI_Comm ring_comm;
   ring=rank/CIRCLE;
   MPI_Comm_split(state.mpi_comm,ring,rank,&ring_comm);
