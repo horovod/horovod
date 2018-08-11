@@ -175,15 +175,24 @@ struct HorovodGlobalState {
   int rank = 0;
   int local_rank = 0;
   int cross_rank = 0;
+  int ring_rank = 0;
+  int across_ring_rank = 0; 
+
   int size = 1;
   int local_size = 1;
   int cross_size = 1;
+  int ring_size = 2;
+  int across_ring_size = 1;
+
   bool mpi_threads_supported = false;
   std::vector<int> ranks;
 
   // COMM_WORLD ranks of processes running on this node.
   std::vector<int> local_comm_ranks;
 
+  // COMM_WORLD  ranks of processes running on this node which is running RING.
+  std::vector<int> ring_comm_ranks;
+ 
   // Private MPI communicator for Horovod to ensure no collisions with other
   // threads using MPI.
   MPI_Comm mpi_comm;
@@ -193,6 +202,12 @@ struct HorovodGlobalState {
 
   // Cross-node communicator for hierarchical allreduce.
   MPI_Comm cross_comm;
+
+  // RING communicator
+  MPI_Comm ring_comm;
+
+  //Cross-ring communicator for hierarchical allreduce.
+  MPI_Comm cross_ring_comm;
 
   // Do hierarchical allreduce with MPI + NCCL.
   bool hierarchical_allreduce = false;
@@ -1377,6 +1392,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 
   if (state.ranks.size() > 0) {
+    printf("state.ranks.size()>0\n");
     MPI_Group world_group;
     MPI_Comm_group(MPI_COMM_WORLD, &world_group);
     MPI_Group work_group;
@@ -1394,8 +1410,21 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   } else if (!state.mpi_comm) {
     // No ranks were given and no communicator provided to horovod_init() so use
     // MPI_COMM_WORLD
+    printf("在这里使用MPI_COMM_WORLD\n");
     MPI_Comm_dup(MPI_COMM_WORLD, &(horovod_global.mpi_comm));
   }
+
+  //Set flag for hierarchical Ring allreduce. Ignore if Horovod is running on a
+  // single node.
+  int ring=0;
+  int CIRCLE=2;
+  auto horovod_hierarchical_allreduce_ring=std::getenv(HOROVOD_HIERARCHICAL_ALLREDUCE_RING);
+   if (horovod_hierarchical_allreduce_ring != nullptr &&
+      std::strtol(horovod_hierarchical_allreduce_ring, nullptr, 10) > 0) {
+        state.hierarchical_allreduce_ring=true;
+      CIRCLE=std::strtol(horovod_hierarchical_allreduce_ring, nullptr, 10);
+    }    
+  printf("operations.cc BackgroundThreadLoop --->进行环间的分层ALLREDUE:%d,环的大小：%d\n", state.hierarchical_allreduce_ring,CIRCLE);
 
   // Get MPI rank to determine if we are rank zero.
   int rank;
@@ -1465,17 +1494,7 @@ printf("operations.cc BackgroundThreadLoop --->horovod_fusion_threshold:%d\n",st
     state.perform_stall_check = false;
   }
 
-  //Set flag for hierarchical Ring allreduce. Ignore if Horovod is running on a
-  // single node.
-  int ring=0;
-  int CIRCLE=2;
-  auto horovod_hierarchical_allreduce_ring=std::getenv(HOROVOD_HIERARCHICAL_ALLREDUCE_RING);
-   if (horovod_hierarchical_allreduce_ring != nullptr &&
-      std::strtol(horovod_hierarchical_allreduce_ring, nullptr, 10) > 0) {
-        state.hierarchical_allreduce_ring=true;
-      CIRCLE=std::strtol(horovod_hierarchical_allreduce_ring, nullptr, 10);
-    }    
-  printf("operations.cc BackgroundThreadLoop --->进行环间的分层ALLREDUE:%d,环的大小：%d\n", state.hierarchical_allreduce_ring,CIRCLE);
+  
 
   // Set flag for hierarchical allreduce. Ignore if Horovod is running on a
   // single node.
