@@ -907,11 +907,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       }else {
         nccl_device_map = response.devices();
       }
-      printf("在rank:%d上面的device:\n",horovod_rank());
-      for(auto k : nccl_device_map){
-        printf("devide:%d ,",k);
-      }
-      printf("\n");
+
 
 #if HOROVOD_GPU_ALLREDUCE == 'N'
       // Ensure NCCL communicator is in the map before executing reduction.
@@ -922,12 +918,11 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         int nccl_rank, nccl_size;
         MPI_Comm nccl_id_bcast_comm;
         if (horovod_global.hierarchical_allreduce) {
-		      printf("operations.cc 第899行，使用nccl进行分层allreduce\n");
           nccl_rank = horovod_global.local_rank;
           nccl_size = horovod_global.local_size;
           nccl_id_bcast_comm = horovod_global.local_comm;
         } else if(horovod_global.hierarchical_allreduce_ring){
-          printf("进行自定义环的分层融合的需要的rank和comm\n");
+          //进行自定义环的分层融合的需要的rank和comm
           nccl_rank = horovod_global.ring_rank;
           nccl_size = horovod_global.ring_size;
           nccl_id_bcast_comm = horovod_global.ring_comm;
@@ -955,7 +950,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
         // Barrier helps NCCL to synchronize after initialization and avoid
         // deadlock that we've been seeing without it.
-		//在这里进行通信的同步，等待所有通信完成
+		    //在这里进行通信的同步，等待所有通信完成
         MPI_CHECK(entries, "MPI_Barrier", MPI_Barrier(horovod_global.mpi_comm));
 
         ACTIVITY_END_ALL(entries, timeline)
@@ -1163,7 +1158,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       }
 
       if (entries.size() > 1) {
-         printf("有多个entry，进行使用GPU_ALLreduce!\n");
         // Copy memory out of the fusion buffer.
         int64_t offset = 0;
         for (auto& e : entries) {
@@ -1179,8 +1173,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         if (timeline.Initialized()) {
           RECORD_EVENT(entries, event_queue, MEMCPY_OUT_FUSION_BUFFER, stream)
         }
-      }  //change by wuyongyu
-      printf("只有一个first_entry，进行使用GPU_ALLreduce!这里还没有做\n");
+      }
 
       // Use completion marker via event because it's faster than
       // blocking cudaStreamSynchronize() in this thread.
@@ -1522,8 +1515,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       std::strtol(horovod_hierarchical_allreduce_ring, nullptr, 10) > 0) {
         state.hierarchical_allreduce_ring=true;
       CIRCLE=std::strtol(horovod_hierarchical_allreduce_ring, nullptr, 10);
+      printf("进行定义环间的分层ALLREDUE,环的大小：%d\n", CIRCLE);
     }    
-  printf("operations.cc BackgroundThreadLoop --->进行环间的分层ALLREDUE:%d,环的大小：%d\n", state.hierarchical_allreduce_ring,CIRCLE);
 
   MPI_Comm ring_comm;
   ring=rank/CIRCLE;
@@ -1567,13 +1560,15 @@ if(is_coordinator && horovod_timeline != nullptr){
     state.tensor_fusion_threshold =
         std::strtol(horovod_fusion_threshold, nullptr, 10);
   }
-printf("operations.cc BackgroundThreadLoop --->horovod_fusion_threshold:%d\n",state.tensor_fusion_threshold);
   // Override the cycle time.
   auto horovod_cycle_time = std::getenv(HOROVOD_CYCLE_TIME);
   if (horovod_cycle_time != nullptr) {
     state.cycle_time_ms = std::strtof(horovod_cycle_time, nullptr);
   }
- printf("operations.cc BackgroundThreadLoop -->state.cycle_time_ms:%f\n",state.cycle_time_ms );
+  if(horovod_rank()==0){
+    printf("operations.cc BackgroundThreadLoop --->horovod_fusion_threshold:%d\n",state.tensor_fusion_threshold);
+    printf("operations.cc BackgroundThreadLoop -->state.cycle_time_ms:%f\n",state.cycle_time_ms );
+  }
   // Disable stall check.
   auto horovod_stall_check_disable = std::getenv(HOROVOD_STALL_CHECK_DISABLE);
   if (horovod_stall_check_disable != nullptr &&
@@ -1591,8 +1586,10 @@ printf("operations.cc BackgroundThreadLoop --->horovod_fusion_threshold:%d\n",st
       std::strtol(horovod_hierarchical_allreduce, nullptr, 10) > 0 &&
       cross_size > 1) {
     state.hierarchical_allreduce = true;
+    if(horovod_rank()==0){
+      printf("默认的分层融合Allreduce\n");
+    }
   }
- printf("operations.cc BackgroundThreadLoop --->horovod_hierarchical_allreduce:%d\n", state.hierarchical_allreduce);
   // Initialize the tensor count table. No tensors are available yet.
   if (is_coordinator) {
     state.message_table = std::unique_ptr<MessageTable>(new MessageTable());
