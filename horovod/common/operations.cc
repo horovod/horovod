@@ -885,6 +885,11 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       } else {
         nccl_device_map = response.devices();
       }
+      printf("在rank:%d上面的device:\n",horovod_global.horovod_rank());
+      for(auto k : nccl_device_map){
+        print("devide:%d ,",k);
+      }
+      printf("\n");
 
 #if HOROVOD_GPU_ALLREDUCE == 'N'
       // Ensure NCCL communicator is in the map before executing reduction.
