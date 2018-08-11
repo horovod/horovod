@@ -720,16 +720,26 @@ cudaError_t MaskToken::isFinished(bool &finished, int check)
       finished = true;
       return retval;
     }
+    if (!this -> mpi_started)
+    {
+      finished = false;
+      return retval;
+    }
+
+    //printf("Checking MPI token\n");
     int flag;
     GUARD_MPI2("MPI_Test",
       MPI_Test(&(this -> mpi_request), &flag, MPI_STATUS_IGNORE));
     if (flag)
     {
+      //printf("\t token = %p, received %ld masks from MPI, first 3: %#X, %#X, %#X\n",
+      //  this, (long)this -> num_masks,
+      //  this -> h_recv_masks[0], this -> h_recv_masks[1], this -> h_recv_masks[2]);
       finished = true;
       this -> mpi_finished = true;
+      this -> mpi_started = false;
     } else {
       finished = false;
-      retval = cudaErrorNotReady;
     }
   }
 
@@ -773,7 +783,7 @@ cudaError_t GetToken(
 
   if (busy_queue.size() != 0 && check != -1)
   {
-    auto &first_token = busy_queue.front();
+    auto first_token = busy_queue.front();
     bool finished = false;
     GUARD_CU(first_token -> isFinished(finished, check));
     if (finished)
@@ -801,21 +811,28 @@ cudaError_t TryPushMask(
 {
   cudaError_t retval = cudaSuccess;
 
-  while (!state.h2d_mask_queue.empty())
+  while (!state.d2h_mask_queue.empty())
   {
-    auto &token = state.h2d_mask_queue.front();
+    auto token = state.d2h_mask_queue.front();
     bool finished = false;
     GUARD_CU(token -> isFinished(finished, 0));
     if (!finished)
       break;
 
-    state.h2d_mask_queue.pop_front();
+    //printf("%ld\t token = %p, %ld masks pushing to MPI\n",
+    //  (long)state.step, token, (long)token -> num_masks);
+ 
+    state.d2h_mask_queue.pop_front();
     GUARD_MPI2("MPI_Iallreduce",
       MPI_Iallreduce(token -> h_send_masks, token -> h_recv_masks,
         (int)token -> num_masks, PreDefinedValues<uint32_t>::getMpiDataType(), MPI_BOR,
         config.use_hierarchical_allreduce ? config.cross_comm : config.mpi_comm,
         &(token -> mpi_request)));
+    token -> mpi_started  = true;
     token -> mpi_finished = false;
+    //printf("%ld\t token = %p, %ld masks pushed to MPI, first 3: %#X, %#X, %#X\n",
+    //  (long)state.step, token, (long)token -> num_masks,
+    //  token -> h_send_masks[0], token -> h_send_masks[1], token -> h_send_masks[2]);
     state.mpi_mask_queue.push_back(token);
   }
   return retval;
@@ -1124,7 +1141,7 @@ cudaError_t GradientAllReduce(
 
       //GUARD_CU2("cudaMemcpyAsync",
       //  cudaMemcpyAsync(state.samp_data, gradients,
-      //    sizeof(T) * num_samples, cudaMemcpyDeviceToDevice, stream));
+      //    sizeof(T) * num_samples, cudaMemcpyDeviceToDevice, (to_overlap_mask ? stream3 : stream));
       //T* samp_data = (T*)(state.samp_data);
       //loop_kernel<<<grid_size, block_size, 0, stream>>>(num_samples,
       //  [samp_data, accumulated_verlocity] __device__ (const SizeT &i){
@@ -1139,7 +1156,7 @@ cudaError_t GradientAllReduce(
   GUARD_CU2("cudaMemcpyAsync",
     cudaMemcpyAsync(state.samp_starts, token -> h_samp_starts,
       sizeof(uint32_t) * (num_layers + 1), cudaMemcpyHostToDevice,
-      to_overlap_mask ? stream3 : stream));
+      (to_overlap_mask ? stream3 : stream)));
 
   auto &rand_states = state.rand_states;
   auto &rand_seed   = config.rand_seed;
@@ -1159,7 +1176,7 @@ cudaError_t GradientAllReduce(
   T* samp_data = (T*)(state.samp_data);
 
   //sample_kernel <T, SizeT>
-  //  <<<grid_size, block_size, 0, to_overlap_mask ? stream3 : stream>>>(
+  //  <<<grid_size, block_size, 0, (to_overlap_mask ? stream3 : stream)>>>(
   //  accumulated_verlocity, num_gradients,
   //  samp_data, num_samples,
   //  state.rand_states);
@@ -1176,10 +1193,10 @@ cudaError_t GradientAllReduce(
 
   // Sort the samples
   //GUARD_CU(Sort(samp_data, num_samples,
-  //  to_overlap_mask ? stream3 : stream, Malloc_t::Default,
+  //  (to_overlap_mask ? stream3 : stream), Malloc_t::Default,
   //  &(state.temp_storage), &(state.temp_storage_bytes)));
   GUARD_CU(SegSort(samp_data, samp_counter, state.samp_starts, num_layers,
-    to_overlap_mask ? stream3 : stream, Malloc_t::Default,
+    (to_overlap_mask ? stream3 : stream), Malloc_t::Default,
     &(state.temp_storage), &(state.temp_storage_bytes)));
   //GUARD_CU2("cudaDeviceSynchronize after Sort",
   //  cudaDeviceSynchronize());
@@ -1191,7 +1208,7 @@ cudaError_t GradientAllReduce(
   //  GUARD_CU(Malloc(threshold, 1));
   //}
 
-  //loop_kernel<<<1, 1, 0, to_overlap_mask ? stream3 : stream>>>((SizeT)1,
+  //loop_kernel<<<1, 1, 0, (to_overlap_mask ? stream3 : stream)>>>((SizeT)1,
   //  [threshold, samp_data, num_samples, sparsity] __device__ (const SizeT &i){
   //    SizeT pos = num_samples * sparsity;
   //    if (pos >= num_samples)
@@ -1255,13 +1272,6 @@ cudaError_t GradientAllReduce(
         mask_counters, state.mask_counters_allocated, (num_masks + 1)));
     GUARD_CU(GarenteeAllocation(
         mask_offsets , state.mask_offsets_allocated , (num_masks + 1)));
-
-    size_t required_bytes = 0;
-    GUARD_CU(cub::DeviceScan::InclusiveSum(
-      (char*)NULL, required_bytes,
-      mask_counters, mask_counters, num_masks));
-    GUARD_CU(GarenteeAllocation(
-      state.temp_storage, state.temp_storage_bytes, required_bytes));
 
     if (state.h_num_gradients_to_communicate == NULL)
         GUARD_CU(Malloc(state.h_num_gradients_to_communicate, 1, Malloc_t::Host));
@@ -1336,12 +1346,29 @@ cudaError_t GradientAllReduce(
       }
       mask_token -> num_masks = num_masks;
       mask_token -> num_layers = layers.size();
+      if (state.step + 1 == config.overlap_skip_steps)
+        mask_token -> num_layers = layers.size() * 2;
       mask_token -> num_layers_comsumed = 0;
       state.d2h_mask_queue.push_back(mask_token);
 
+      //printf("%ld\t token = %p, %ld masks d2h started\n",
+      //  (long)state.step, mask_token, (long) num_masks);
+      if (state.step < config.overlap_skip_steps)
+      {
+        GUARD_CU2("cudaStreamSynchronize",
+            cudaStreamSynchronize(stream3));
+        //printf("%ld\t token = %p, %ld masks d2h finished\n",
+        //  (long)state.step, mask_token, (long) num_masks);
+        GUARD_CU(TryPushMask(config, state));
+      }
+
       // wait for the mask from pervious step
       bool all_layers_ready = false;
-      auto &pervious_layer_records = state.layer_records[(state.step + 1) % 2];
+      int pervious_step_index = (state.step < config.overlap_skip_steps) ? 
+        (state.step % 2) : ((state.step + 1) % 2);
+      auto &pervious_layer_records = state.layer_records[pervious_step_index];
+      //printf("%ld\t Waiting to receive %ld masks from MPI\n",
+      //  (long)state.step, (long)num_masks);
       while (!all_layers_ready)
       {
         all_layers_ready = true;
@@ -1349,7 +1376,14 @@ cudaError_t GradientAllReduce(
           auto name   = layer.first;
           auto record = pervious_layer_records[name];
           bool finished = false;
-          GUARD_CU(record.token -> isFinished(finished, 1));
+          //if (record.token == NULL)
+          //{
+          //  printf("Can't find record for layer %s\n", name.c_str());
+          //} else {
+            //printf("Checking a token\n");
+            GUARD_CU(record.token -> isFinished(finished, 1));
+            //printf("Check done, finished = %s\n", finished ? "True" : "False");
+          //}
           if (!finished) {
             all_layers_ready = false;
             break;
@@ -1360,13 +1394,16 @@ cudaError_t GradientAllReduce(
           std::this_thread::sleep_for(std::chrono::microseconds(10));
         }
       }
+      //printf("%ld\t All %ld masks received from MPI\n",
+      //  (long)state.step, (long)num_masks);
 
       // Reuse temp_storage to hold masks before bit-swift copy to recv_masks
       size_t request_bytes = sizeof(uint32_t) * (num_masks + layers.size() * 2);
-      GUARD_CU(GarenteeAllocation(state.temp_storage, state.temp_storage_bytes,
+      GUARD_CU(GarenteeAllocation(state.temp_storage2, state.temp_storage2_bytes,
         request_bytes));
-      uint32_t* temp_masks_ = (uint32_t*)(state.temp_storage);
+      uint32_t* temp_masks_ = (uint32_t*)(state.temp_storage2);
 
+      GUARD_CU(Memset(recv_masks + num_masks - 1, 0, 1, Malloc_t::Default, stream));
       // move to GPU with bit swift
       SizeT chunk_start = 0;
       SizeT chunk_size = 0;
@@ -1375,15 +1412,28 @@ cudaError_t GradientAllReduce(
       uint32_t chunk_num_layers = 0;
       SizeT pervious_chunk_start = 0;
       MaskToken *current_token = NULL;
-      for (auto &layer : layers)
+      //for (auto &layer : layers)
+      for (auto i = 0; i <= layers.size(); i++)
       {
+        if (layers.empty())
+          break;
+        auto layer = layers[(i == layers.size()) ? i - 1 : i];
         auto name = layer.first;
         auto layer_size = layer.second;
         auto record = pervious_layer_records[name];
         bool new_chunk = false;
-        if (current_token == NULL)
+
+        if (i == layers.size())
+        {
+          //if (i == 1)
+            current_token = record.token;
+          new_chunk = true;
+        } else if (current_token == NULL)
+        {
           new_chunk = false;
-        else if (current_token != record.token)
+          current_token = record.token;
+          pervious_chunk_start = record.layer_start;
+        } else if (current_token != record.token)
           new_chunk = true;
         else if (pervious_chunk_start + chunk_size != record.layer_start)
           new_chunk = true;
@@ -1406,13 +1456,20 @@ cudaError_t GradientAllReduce(
               src_mask_end += 1;
             SizeT src_mask_size = src_mask_end - src_mask_start;
             uint32_t *temp_masks = temp_masks_ + temp_start;
+            int ro = src_mask_offset - dest_mask_offset; // relative offset
 
+            //printf("%ld\t token = %p, Copy with bitswift: src = %ld + %ld, src_size = %ld, "
+            //  "dest = %ld + %ld, dest_size = %ld, temp_start = %ld, ro = %d, "
+            //  "token -> num_masks = %ld, chunk_size = %ld\n",
+            //  (long)state.step, current_token,
+            //  (long)src_mask_start, (long)src_mask_offset, (long)src_mask_size,
+            //  (long)dest_mask_start, (long)dest_mask_offset, (long)dest_mask_size,
+            //  (long)temp_start, ro, (long)current_token -> num_masks, (long)chunk_size);
             GUARD_CU2("cudaMemcpyAsync",
               cudaMemcpyAsync(temp_masks,
                 current_token -> h_recv_masks + src_mask_start,
                 sizeof(uint32_t) * src_mask_size, cudaMemcpyHostToDevice, stream));
 
-            int ro = src_mask_offset - dest_mask_offset; // relative offset
             loop_kernel<<<grid_size, block_size, 0, stream>>>(dest_mask_size,
               [temp_masks, dest_masks, dest_mask_size, ro,
               dest_mask_offset, src_mask_offset, chunk_size]
@@ -1489,6 +1546,11 @@ cudaError_t GradientAllReduce(
             }
           }
 
+          //GUARD_CU2("cudaStreamSynchronize after local mask update",
+          //  cudaStreamSynchronize(stream));
+
+          if (i == layers.size())
+            break;
           pervious_chunk_start = record.layer_start;
           current_token = record.token;
           chunk_start += chunk_size;
@@ -1500,7 +1562,8 @@ cudaError_t GradientAllReduce(
         chunk_num_layers ++;
       }
 
-      GUARD_CU(TryPushMask(config, state));
+      //printf("%ld\t Local mask updated\n", (long)state.step);
+      //GUARD_CU(TryPushMask(config, state));
       while (!state.mpi_mask_queue.empty())
       {
         auto first_token = state.mpi_mask_queue.front();
@@ -1508,6 +1571,8 @@ cudaError_t GradientAllReduce(
           first_token -> num_layers)
           break;
 
+        //printf("%ld\t token = %p, cleared\n",
+        ///    (long)state.step, first_token);
         state.mpi_mask_queue.pop_front();
         state.h2d_mask_queue.push_back(first_token);
       }
@@ -1529,28 +1594,44 @@ cudaError_t GradientAllReduce(
         cudaMemcpyAsync(recv_masks, state.h_recv_masks,
           sizeof(uint32_t) * num_masks, cudaMemcpyHostToDevice, stream));
     }
+    //GUARD_CU2("cudaStreamSynchronize before popc",
+    //  cudaStreamSynchronize(stream));
+    //GUARD_CU2("cudaDeviceSynchronize before popc",
+    //  cudaDeviceSynchronize());
 
     loop_kernel<<<grid_size, block_size, 0, stream>>>(num_masks,
       [recv_masks, mask_counters] __device__ (const SizeT &i)
       {
         mask_counters[i] = __popc(recv_masks[i]);
+        //if (mask_counters[i] != 0)
+        //  printf("recv_masks[%ld] = %#X\n",
+        //    (long)i, recv_masks[i]);
       });
+
+    size_t required_bytes = 0;
+    GUARD_CU(cub::DeviceScan::InclusiveSum(
+      (char*)NULL, required_bytes,
+      mask_counters, mask_offsets + 1, num_masks, stream));
+    GUARD_CU(GarenteeAllocation(
+      state.temp_storage3, state.temp_storage3_bytes, required_bytes));
 
     GUARD_CU(Memset(mask_offsets, 0, 1, Malloc_t::Default, stream));
     GUARD_CU(cub::DeviceScan::InclusiveSum(
-      state.temp_storage, required_bytes,
+      state.temp_storage3, required_bytes,
       mask_counters, mask_offsets + 1, num_masks, stream));
 
     GUARD_CU2("cudaMemcpyAsync",
       cudaMemcpyAsync(state.h_num_gradients_to_communicate,
         mask_offsets + num_masks, sizeof(uint32_t),
         cudaMemcpyDeviceToHost, stream));
+    //printf("%d\t Waiting for stream after InclusiveSum, #masks = %ld\n",
+    //  state.step, (long)num_masks);
     GUARD_CU2("cudaStreamSynchronize after InclusiveSum",
       cudaStreamSynchronize(stream));
 
     auto num_gradients_comm = state.h_num_gradients_to_communicate[0];
     if (config.global_gpu_rank == 0)
-      printf("%d #gradients to comm = %ld, #gradients = %ld, rate = %f\n",
+      printf("%d\t #gradients to comm = %ld, #gradients = %ld, rate = %f\n",
         state.step, (long)num_gradients_comm, (long)num_gradients,
         1.0f * num_gradients_comm / num_gradients);
 
@@ -1884,7 +1965,11 @@ cudaError_t GradientAllReduce(
   state.busy_tokens.push_back(token);
 
   if (to_overlap_mask)
+  {
+    GUARD_CU2("cudaStreamSynchronize",
+        cudaStreamSynchronize(stream3));
     GUARD_CU(TryPushMask(config, state));
+  }
   return retval;
 }
 

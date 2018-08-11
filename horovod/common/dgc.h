@@ -202,6 +202,9 @@ struct DgcConfig {
   // Whether to overlap MPI AllReduce on masks
   bool overlap_mask_allreduce = false;
 
+  // Steps to skip overlap
+  int overlap_skip_steps = 20;
+
   // function to set indivual configuration
   void Set(std::string key, std::string value);
 };
@@ -238,6 +241,7 @@ struct MaskToken {
   bool        h2d_finished = false;
 
   MPI_Request mpi_request;
+  bool        mpi_started  = false;
   bool        mpi_finished = false;
 
   cudaError_t Init();
@@ -323,6 +327,10 @@ struct DgcState {
   // Temp storage
   char* temp_storage = NULL;
   size_t temp_storage_bytes = 0;
+  char* temp_storage2 = NULL;
+  size_t temp_storage2_bytes = 0;
+  char* temp_storage3 = NULL;
+  size_t temp_storage3_bytes = 0;
 
   // Maximum gradient
   float* max_gradient = NULL;
