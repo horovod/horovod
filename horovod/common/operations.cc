@@ -885,7 +885,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       } else {
         nccl_device_map = response.devices();
       }
-      printf("在rank:%d上面的device:\n",horovod_global.horovod_rank());
+      printf("在rank:%d上面的device:\n",horovod_rank());
       for(auto k : nccl_device_map){
         printf("devide:%d ,",k);
       }
