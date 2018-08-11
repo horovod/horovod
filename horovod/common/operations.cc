@@ -900,7 +900,11 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         for (int rank : horovod_global.local_comm_ranks) {
           nccl_device_map.push_back(response.devices()[rank]);
         }
-      } else {
+      } else if(horovod_global.hierarchical_allreduce_ring){
+          for (int rank : horovod_global.ring_comm_ranks) {
+             nccl_device_map.push_back(response.devices()[rank]);
+          }
+      }else {
         nccl_device_map = response.devices();
       }
       printf("在rank:%d上面的device:\n",horovod_rank());
@@ -922,7 +926,12 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           nccl_rank = horovod_global.local_rank;
           nccl_size = horovod_global.local_size;
           nccl_id_bcast_comm = horovod_global.local_comm;
-        } else {
+        } else if(horovod_global.hierarchical_allreduce_ring){
+          printf("进行自定义环的分层融合的需要的rank和comm\n");
+          nccl_rank = horovod_global.ring_rank;
+          nccl_size = horovod_global.ring_size;
+          nccl_id_bcast_comm = horovod_global.ring_comm;
+        }else {
 		      //printf("使用全局的所有节点的reduce,不使用分层\n");
           nccl_rank = horovod_global.rank;
           nccl_size = horovod_global.size;
@@ -1043,7 +1052,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                               DDL_OP_SUM))
 #else
       if (horovod_global.hierarchical_allreduce) {
-		//在这里进行分层的融合
+		    //在这里进行分层的融合
         NCCL_CHECK(entries, "ncclReduce",
                    ncclReduce(fused_input_data, buffer_data,
                               (size_t)num_elements,
@@ -1089,7 +1098,56 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         if (timeline.Initialized()) {
           RECORD_EVENT(entries, event_queue, NCCL_BCAST, stream)
         }
-      } else {
+      }  else if (horovod_global.hierarchical_allreduce_ring) {
+         //在这里进行定义环的分层的融合
+        printf("开始进行定义环的分层融合...\n");
+        NCCL_CHECK(entries, "ncclReduce",
+                   ncclReduce(fused_input_data, buffer_data,
+                              (size_t)num_elements,
+                              GetNCCLDataType(first_entry.tensor), ncclSum, 0,
+                              nccl_comm, stream))
+        if (timeline.Initialized()) {
+          RECORD_EVENT(entries, event_queue, NCCL_REDUCE, stream)
+        }
+
+        if (horovod_global.ring_rank == 0) {
+          // cudaHostAlloc is significantly slower than malloc.  Pre-allocating
+          // a buffer is not safe since the tensor can be arbitrarily large.
+          host_buffer = malloc(buffer_len);
+
+          CUDA_CHECK(entries, "cudaMemcpyAsync",
+                     cudaMemcpyAsync(host_buffer, buffer_data, buffer_len,
+                                     cudaMemcpyDeviceToHost, stream))
+          // This event must be recorded for the subsequent synchronize.
+          RECORD_EVENT(entries, event_queue, MEMCPY_IN_HOST_BUFFER, stream)
+
+          // Synchronize.
+          WAIT_FOR_EVENTS(entries, timeline, event_queue)
+
+          ACTIVITY_START_ALL(entries, timeline, MPI_ALLREDUCE)
+          MPI_CHECK(entries, "MPI_Allreduce",
+                    MPI_Allreduce(MPI_IN_PLACE, host_buffer, (int)num_elements,
+                                  GetMPIDataType(first_entry.tensor), MPI_SUM,
+                                  horovod_global.cross_ring_comm))
+          ACTIVITY_END_ALL(entries, timeline)
+
+          CUDA_CHECK(entries, "cudaMemcpyAsync",
+                     cudaMemcpyAsync(buffer_data, host_buffer, buffer_len,
+                                     cudaMemcpyHostToDevice, stream))
+          if (timeline.Initialized()) {
+            RECORD_EVENT(entries, event_queue, MEMCPY_OUT_HOST_BUFFER, stream)
+          }
+        }
+
+        NCCL_CHECK(entries, "ncclBcast",
+                   ncclBcast(buffer_data, (size_t)num_elements,
+                             GetNCCLDataType(first_entry.tensor), 0, nccl_comm,
+                             stream))
+        if (timeline.Initialized()) {
+          RECORD_EVENT(entries, event_queue, NCCL_BCAST, stream)
+        }
+      }
+      else {
 		  // 不分层时，在这里进行缓冲区的缩减,在这里进行缓冲区的融合缩减
         //将fused_input_data 融合之后放到buffer_data
         printf("line 1072 在这里进行缓冲区的融合缩减...\n");
