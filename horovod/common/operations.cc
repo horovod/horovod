@@ -1095,7 +1095,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         }
       }  else if (horovod_global.hierarchical_allreduce_ring) {
          //在这里进行定义环的分层的融合
-        printf("开始进行定义环的分层融合...\n");
+        //printf("开始进行定义环的分层融合...\n");
         NCCL_CHECK(entries, "ncclReduce",
                    ncclReduce(fused_input_data, buffer_data,
                               (size_t)num_elements,
@@ -1199,7 +1199,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       return; //#######################################结束GPU 上面的ALLREDUCE返回 ！
     }
 #endif   //end line number:873 
-    printf("在CPU上面进行ALLREDUCE....\n");
+    //"在CPU上面进行ALLREDUCE....\n");
     if (entries.size() > 1) {
       // Access the fusion buffer.
       auto& buffer = horovod_global.tensor_fusion_buffers[std::make_tuple(
