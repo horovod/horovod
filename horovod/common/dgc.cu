@@ -1087,12 +1087,18 @@ cudaError_t GradientAllReduce(
   uint64_t epoch    = state.step * 1.0 / steps_per_epoch;
   double sparsity   = config.final_sparsity;
   if (epoch < config.warmup_epochs) {
-    sparsity = config.init_sparsity * exp(
-      log(config.final_sparsity / config.init_sparsity)
-      / (config.warmup_epochs - 1) * epoch);
-    //if (epoch * steps_per_epoch == state.step)
-    //  printf("Epoch %ld, Step %ld, sparsity = %lf\n",
-    //    epoch, state.step, sparsity);
+    auto init_comm_rate = 1 - config.init_sparsity;
+    auto final_comm_rate = 1 - config.final_sparsity;
+    auto comm_rate = init_comm_rate * exp(
+      log(final_comm_rate / init_comm_rate) 
+      / config.warmup_epochs * epoch);
+    sparsity = 1 - comm_rate;
+    //sparsity = (1 - config.init_sparsity) * exp(
+    //  log(config.final_sparsity / config.init_sparsity)
+    //  / (config.warmup_epochs - 1) * epoch);
+    if (epoch * steps_per_epoch == state.step)
+      printf("Epoch %ld, Step %ld, sparsity = %lf\n",
+        epoch, state.step, sparsity);
   }
   SizeT  target_num = num_gradients * (1 - sparsity);
 

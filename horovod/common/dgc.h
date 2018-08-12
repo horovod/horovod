@@ -107,7 +107,7 @@ struct DgcConfig {
   // DGC communication will use a gradient sparsity, which starts from
   // init_sparsity in the first epoch, and exponentially increases to
   // final_sparsity after warmup epoches.
-  double warmup_epochs = 5.0;
+  double warmup_epochs = 4.0;
 
   // Each epoch has (num_examples_per_epoch / (global_num_gpus * batch_size_per_gpu)
   // steps
