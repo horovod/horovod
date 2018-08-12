@@ -949,7 +949,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       void* buffer_data;
       int64_t num_elements = 0;
       size_t buffer_len;
-
       if (entries.size() > 1) {
         // Access the fusion buffer.
         auto& buffer = horovod_global.tensor_fusion_buffers[std::make_tuple(
@@ -967,7 +966,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                                      cudaMemcpyDeviceToDevice, stream))
           offset += e.tensor->size();
         }
-
         buffer_len = (size_t)offset;
         if (timeline.Initialized() || horovod_global.ddl_initialized) {
           RECORD_EVENT(entries, event_queue, MEMCPY_IN_FUSION_BUFFER, stream)
@@ -975,15 +973,16 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
         // Set the input data to originate from the buffer.
         fused_input_data = buffer_data;
-      }
-      else {
-        auto &e = first_entry;
 
-        fused_input_data = e.tensor->data();
-        buffer_data = (void*)e.output->data();
-        num_elements = e.tensor->shape().num_elements();
-        buffer_len = (size_t)e.output->size();
-
+        // Perform the reduction on the fusion buffer.
+        for (auto& e : entries) {
+          num_elements += e.tensor->shape().num_elements();
+        }
+      } else {
+        fused_input_data = first_entry.tensor->data();
+        buffer_data = (void*)first_entry.output->data();
+        num_elements = first_entry.tensor->shape().num_elements();
+        buffer_len = (size_t)first_entry.output->size();
         if (horovod_global.ddl_initialized) {
           // Copy input buffer content to output buffer
           // because DDL only supports in-place allreduce
@@ -1121,7 +1120,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         if (timeline.Initialized()) {
           RECORD_EVENT(entries, event_queue, MEMCPY_OUT_FUSION_BUFFER, stream)
         }
-      } // end of if (entries.size() > 1)
+      }
 
       // Use completion marker via event because it's faster than
       // blocking cudaStreamSynchronize() in this thread.
