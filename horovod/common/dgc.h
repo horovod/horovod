@@ -206,6 +206,9 @@ struct DgcConfig {
   // Steps to skip overlap
   int overlap_skip_steps = 20;
 
+  // Whether to use momentum correction; if not, directly accumulate gradients
+  bool use_momentum_correction = true;
+
   // function to set indivual configuration
   void Set(std::string key, std::string value);
 };
@@ -261,6 +264,13 @@ struct DgcState {
 
   // States for curand, one for each GPU thread
   curandState *rand_states     = NULL;
+
+  // Accumulated gradients
+  char     *accumulated_gradients = NULL;
+  uint64_t  accumulated_gradients_allocated = 0;
+
+  char     *pervious_accumulated_gradients = NULL;
+  uint64_t  pervious_accumulated_gradients_allocated = 0;
 
   // Verlocity
   char     *verlocity          = NULL;
