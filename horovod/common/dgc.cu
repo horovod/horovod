@@ -917,8 +917,21 @@ cudaError_t GradientAllReduce(
   auto  stream       = config.stream;
   int   num_layers   = layers.size();
   SizeT num_gradients = 0;
-  for (auto& layer : layers) 
+  for (auto& layer : layers) {
+    auto name = layer.first;
+    // finds step number
+    auto counter_it = state.step_counters.find(name);
+    if (counter_it == state.step_counters.end())
+      state.step_counters[name] = 0;
+    else {
+      auto step = counter_it -> second;
+      counter_it -> second ++;
+      if (state.step < step)
+        state.step = step;
+    }
+
     num_gradients += layer.second;
+  }
 
   // Determine the threshold
   uint64_t num_examples_per_step
@@ -992,15 +1005,15 @@ cudaError_t GradientAllReduce(
   {
     auto name = layer.first;
     // finds step number
-    auto counter_it = state.step_counters.find(name);
-    if (counter_it == state.step_counters.end())
-      state.step_counters[name] = 0;
-    else {
-      auto step = counter_it -> second;
-      counter_it -> second ++;
-      if (state.step < step)
-        state.step = step;
-    }
+    //auto counter_it = state.step_counters.find(name);
+    //if (counter_it == state.step_counters.end())
+    //  state.step_counters[name] = 0;
+    //else {
+    //  auto step = counter_it -> second;
+    //  counter_it -> second ++;
+    //  if (state.step < step)
+    //    state.step = step;
+    //}
 
     auto offset_it = state.layer_offset_bytes.find(name);
     if (offset_it == state.layer_offset_bytes.end()) {
