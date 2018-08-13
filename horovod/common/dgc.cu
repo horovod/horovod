@@ -344,6 +344,14 @@ void DgcConfig::Set(std::string key, std::string value)
       use_momentum_correction = false;
   }
 
+  else if (key == "dgc_use_gradient_accumulation")
+  {
+    if (value == "True")
+      use_gradient_accumulation = true;
+    else if (value == "False")
+      use_gradient_accumulation = false;
+  }
+
   else if (key == "momentum")
     momentum = std::stof(value);
 
@@ -861,6 +869,37 @@ cudaError_t TryPushMask(
   return retval;
 }
 
+template <typename T, typename SizeT>
+cudaError_t LearningRateAdjustment(
+  T              *gradients,
+  SizeT           num_gradients,
+  uint64_t        epoch,
+  DgcConfig      &config,
+  DgcState       &state)
+{
+  cudaError_t retval = cudaSuccess;
+  float learning_rate_adjustment = 1;
+  auto epoch_ = epoch;
+  while (epoch_ >= config.num_epochs_per_decay)
+  {
+    learning_rate_adjustment *= config.learning_rate_decay_factor;
+    epoch_ -= config.num_epochs_per_decay;
+  }
+  if (learning_rate_adjustment < config.min_learning_rate_factor)
+    learning_rate_adjustment = config.min_learning_rate_factor;
+  if (config.global_gpu_rank == 0)
+    printf("%ld\t learning_rate_adjustment = %f\n",
+      (long)state.step, learning_rate_adjustment);
+
+  loop_kernel <<<config.grid_size, config.block_size, 0, config.stream>>>(num_gradients,
+    [learning_rate_adjustment, gradients] __device__ (const SizeT &i)
+    {
+      gradients[i] *= learning_rate_adjustment;
+    });
+
+  return retval;
+}
+
 // Main DGC routine
 template <typename T, typename SizeT>
 cudaError_t GradientAllReduce(
@@ -878,6 +917,44 @@ cudaError_t GradientAllReduce(
   auto  stream       = config.stream;
   int   num_layers   = layers.size();
   SizeT num_gradients = 0;
+  for (auto& layer : layers) 
+    num_gradients += layer.second;
+
+  // Determine the threshold
+  uint64_t num_examples_per_step
+    = config.batch_size_per_gpu * config.global_num_gpus;
+  uint64_t steps_per_epoch
+    = config.num_examples_per_epoch / num_examples_per_step;
+  if (steps_per_epoch * num_examples_per_step < config.num_examples_per_epoch)
+    steps_per_epoch ++;
+  uint64_t epoch    = state.step * 1.0 / steps_per_epoch;
+  if (!config.use_momentum_correction && !config.use_gradient_accumulation) {
+    GUARD_NCCL2("ncclAllReduce",
+      ncclAllReduce(input_gradients, output_gradients, num_gradients,
+      PreDefinedValues<T>::NCCLDataType, ncclSum, config.use_hierarchical_allreduce ?
+      config.nccl_cross_comm : config.nccl_comm, stream));
+    
+    // by pass everything, except for learning rate adjustment
+    GUARD_CU(LearningRateAdjustment(output_gradients, num_gradients, epoch, config, state));
+    return retval;
+  }
+
+  double sparsity   = config.final_sparsity;
+  if (epoch < config.warmup_epochs) {
+    auto init_comm_rate = 1 - config.init_sparsity;
+    auto final_comm_rate = 1 - config.final_sparsity;
+    auto comm_rate = init_comm_rate * exp(
+      log(final_comm_rate / init_comm_rate) 
+      / config.warmup_epochs * epoch);
+    sparsity = 1 - comm_rate;
+    //sparsity = (1 - config.init_sparsity) * exp(
+    //  log(config.final_sparsity / config.init_sparsity)
+    //  / (config.warmup_epochs - 1) * epoch);
+    if (epoch * steps_per_epoch == state.step)
+      printf("Epoch %ld, Step %ld, sparsity = %lf\n",
+        epoch, state.step, sparsity);
+  }
+  SizeT  target_num = num_gradients * (1 - sparsity);
 
   DgcToken *token = NULL;
   GUARD_CU(GetToken(state.free_tokens, state.busy_tokens, token));
@@ -914,7 +991,6 @@ cudaError_t GradientAllReduce(
   for (auto &layer : layers)
   {
     auto name = layer.first;
-    num_gradients += layer.second;
     // finds step number
     auto counter_it = state.step_counters.find(name);
     if (counter_it == state.step_counters.end())
@@ -1077,31 +1153,6 @@ cudaError_t GradientAllReduce(
       cudaStreamWaitEvent(stream3, token -> stream3_begin, 0));
   }
 
-  // Determine the threshold
-  uint64_t num_examples_per_step
-    = config.batch_size_per_gpu * config.global_num_gpus;
-  uint64_t steps_per_epoch
-    = config.num_examples_per_epoch / num_examples_per_step;
-  if (steps_per_epoch * num_examples_per_step < config.num_examples_per_epoch)
-    steps_per_epoch ++;
-  uint64_t epoch    = state.step * 1.0 / steps_per_epoch;
-  double sparsity   = config.final_sparsity;
-  if (epoch < config.warmup_epochs) {
-    auto init_comm_rate = 1 - config.init_sparsity;
-    auto final_comm_rate = 1 - config.final_sparsity;
-    auto comm_rate = init_comm_rate * exp(
-      log(final_comm_rate / init_comm_rate) 
-      / config.warmup_epochs * epoch);
-    sparsity = 1 - comm_rate;
-    //sparsity = (1 - config.init_sparsity) * exp(
-    //  log(config.final_sparsity / config.init_sparsity)
-    //  / (config.warmup_epochs - 1) * epoch);
-    if (epoch * steps_per_epoch == state.step)
-      printf("Epoch %ld, Step %ld, sparsity = %lf\n",
-        epoch, state.step, sparsity);
-  }
-  SizeT  target_num = num_gradients * (1 - sparsity);
-
   // Communicate all gradients if it's a flushing step
   bool to_flush = false;
   if (config.flush_steps > 0) {
@@ -1158,24 +1209,26 @@ cudaError_t GradientAllReduce(
 
     if (config.learning_rate_decay_factor > 0 &&
         epoch >= config.num_epochs_per_decay) {
-      float learning_rate_adjustment = 1;
-      auto epoch_ = epoch;
-      while (epoch_ >= config.num_epochs_per_decay)
-      {
-        learning_rate_adjustment *= config.learning_rate_decay_factor;
-        epoch_ -= config.num_epochs_per_decay;
-      }
-      if (learning_rate_adjustment < config.min_learning_rate_factor)
-        learning_rate_adjustment = config.min_learning_rate_factor;
-      if (config.global_gpu_rank == 0)
-        printf("%ld\t learning_rate_adjustment = %f\n",
-          (long)state.step, learning_rate_adjustment);
+      //float learning_rate_adjustment = 1;
+      //auto epoch_ = epoch;
+      //while (epoch_ >= config.num_epochs_per_decay)
+      //{
+      //  learning_rate_adjustment *= config.learning_rate_decay_factor;
+      //  epoch_ -= config.num_epochs_per_decay;
+      //}
+      //if (learning_rate_adjustment < config.min_learning_rate_factor)
+      //  learning_rate_adjustment = config.min_learning_rate_factor;
+      //if (config.global_gpu_rank == 0)
+      //  printf("%ld\t learning_rate_adjustment = %f\n",
+      //    (long)state.step, learning_rate_adjustment);
 
-      loop_kernel <<<grid_size, block_size, 0, stream>>>(num_gradients,
-        [learning_rate_adjustment, output_gradients] __device__ (const SizeT &i)
-        {
-          output_gradients[i] *= learning_rate_adjustment;
-        });
+      //loop_kernel <<<grid_size, block_size, 0, stream>>>(num_gradients,
+      //  [learning_rate_adjustment, output_gradients] __device__ (const SizeT &i)
+      //  {
+      //    output_gradients[i] *= learning_rate_adjustment;
+      //  });
+
+      GUARD_CU(LearningRateAdjustment(output_gradients, num_gradients, epoch, config, state));
     }
     GUARD_CU2("cudaStreamWaitEvent",
       cudaStreamWaitEvent(stream, token -> stream2_finish, 0));
@@ -2075,24 +2128,26 @@ cudaError_t GradientAllReduce(
 
   if (config.learning_rate_decay_factor > 0 &&
       epoch >= config.num_epochs_per_decay) {
-    float learning_rate_adjustment = 1;
-    auto epoch_ = epoch;
-    while (epoch_ >= config.num_epochs_per_decay)
-    {
-      learning_rate_adjustment *= config.learning_rate_decay_factor;
-      epoch_ -= config.num_epochs_per_decay;
-    }
-    if (learning_rate_adjustment < config.min_learning_rate_factor)
-      learning_rate_adjustment = config.min_learning_rate_factor;
-    if (config.global_gpu_rank == 0)
-      printf("%ld\t learning_rate_adjustment = %f\n",
-        (long)state.step, learning_rate_adjustment);
+    //float learning_rate_adjustment = 1;
+    //auto epoch_ = epoch;
+    //while (epoch_ >= config.num_epochs_per_decay)
+    //{
+    //  learning_rate_adjustment *= config.learning_rate_decay_factor;
+    //  epoch_ -= config.num_epochs_per_decay;
+    //}
+    //if (learning_rate_adjustment < config.min_learning_rate_factor)
+    //  learning_rate_adjustment = config.min_learning_rate_factor;
+    //if (config.global_gpu_rank == 0)
+    //  printf("%ld\t learning_rate_adjustment = %f\n",
+    //    (long)state.step, learning_rate_adjustment);
 
-    loop_kernel <<<grid_size, block_size, 0, stream>>>(num_gradients,
-      [learning_rate_adjustment, output_gradients] __device__ (const SizeT &i)
-      {
-        output_gradients[i] *= learning_rate_adjustment;
-      });
+    //loop_kernel <<<grid_size, block_size, 0, stream>>>(num_gradients,
+    //  [learning_rate_adjustment, output_gradients] __device__ (const SizeT &i)
+    //  {
+    //    output_gradients[i] *= learning_rate_adjustment;
+    //  });
+
+    GUARD_CU(LearningRateAdjustment(output_gradients, num_gradients, epoch, config, state));
   }
 
   //GUARD_CU2("cudaStreamSynchronize after",

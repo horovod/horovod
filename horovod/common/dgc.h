@@ -209,6 +209,9 @@ struct DgcConfig {
   // Whether to use momentum correction; if not, directly accumulate gradients
   bool use_momentum_correction = true;
 
+  // Whether to accumulate gradients, if momentum correction is not in use
+  bool use_gradient_accumulation = true;
+
   // function to set indivual configuration
   void Set(std::string key, std::string value);
 };
