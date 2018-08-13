@@ -1151,6 +1151,12 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                                  (size_t)num_elements,
                                  GetNCCLDataType(first_entry.tensor), ncclSum,
                                  nccl_comm, stream))
+
+        //打印查看接收到的数据
+        void *host_buffer=malloc(buffer_len);
+
+        cudaMemcpyAsync(host_buffer,buffer_data, buffer_len,cudaMemcpyDeviceToHost, stream);
+
       }
 #endif
       if (timeline.Initialized()) {
