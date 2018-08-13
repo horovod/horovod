@@ -1007,8 +1007,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       if (horovod_global.hierarchical_allreduce) {
         // For the part of data divisible by local_rank, perform NCCL
         // ReduceScatter - Parallelized MPI Allreduce - NCCL Allgather. For the
-        // remainder (if any), do NCCL Reduce (at local rank 0) - MPI Allreduce
-        // (across rank 0's) - NCCL Bcast
+        // non-divisible part (if any), do NCCL Reduce (at rank local_size-1), 
+        // MPI Allreduce (across rank (local_size-1)'s), and NCCL Bcast
         int64_t num_elements_per_rank =
             num_elements / horovod_global.local_size;
 
@@ -1055,7 +1055,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
         if (num_elements_remaining > 0) {
 
-          // For the remaining data do ncclReduce - MPIAllreduce - ncclBcast
+          // Reduce the remaining data at local_size-1 to append to 
+          // existing buffer
           NCCL_CHECK(
               entries, "ncclReduce",
               ncclReduce(fused_input_data_remainder, buffer_data_remainder,
