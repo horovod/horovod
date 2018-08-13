@@ -1156,7 +1156,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         void *host_buffer=malloc(buffer_len);
 
         cudaMemcpyAsync(host_buffer,buffer_data, buffer_len,cudaMemcpyDeviceToHost, stream);
-        auto k=*host_buffer;
+        auto k=*((float*)host_buffer);
         printf("打印查看接收到的数据：%f\n",k );
       }
 #endif
