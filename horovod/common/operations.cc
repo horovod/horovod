@@ -1146,9 +1146,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 		  // 不分层时，在这里进行缓冲区的缩减,在这里进行缓冲区的融合缩减
         //将fused_input_data 融合之后放到buffer_data
         printf("line 1072 在这里进行缓冲区的融合缩减...\n");
-        float r1 = *((float*)fused_input_data);
-        float r2 = *((float*)buffer_data);
-        printf("打印融合之前send buffer的值：%f,receive buffer:%f\n",r1,r2);
+        float r1 = *((static_cast<float*>)fused_input_data);
+        //float r2 = *((float*)buffer_data);
+        printf("打印融合之前send buffer的值：%f,receive buffer:%f\n",r1,r1);
 
         NCCL_CHECK(entries, "ncclAllReduce",
                    ncclAllReduce(fused_input_data, buffer_data,
