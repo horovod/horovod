@@ -959,11 +959,11 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           offset += e.tensor->size();
         }
 
+        buffer_len = (size_t)offset;
+
         if (timeline.Initialized() || horovod_global.ddl_initialized) {
           RECORD_EVENT(entries, event_queue, MEMCPY_IN_FUSION_BUFFER, stream)
         }
-
-        buffer_len = (size_t)offset;
 
         // Set the input data to originate from the buffer.
         fused_input_data = buffer_data;
@@ -990,7 +990,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       }
 
       void* host_buffer = nullptr;
-      void* host_buffer_remainder = nullptr;
 
 #if HOROVOD_GPU_ALLREDUCE == 'D'
       // Synchronize.
@@ -1025,6 +1024,24 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         size_t buffer_len_remaining =
             (buffer_len / num_elements) * num_elements_remaining;
 
+        void* buffer_data_remainder =
+            (uint8_t*)buffer_data +
+            buffer_len_per_rank * horovod_global.local_size;
+
+        void* fused_input_data_remainder =
+            (uint8_t*)fused_input_data +
+            buffer_len_per_rank * horovod_global.local_size;
+
+        bool is_last_rank =
+            horovod_global.local_rank == horovod_global.local_size - 1;
+
+        int64_t total_num_elements =
+            is_last_rank ? num_elements_per_rank + num_elements_remaining
+                         : num_elements_per_rank;
+        int64_t total_buffer_len =
+            is_last_rank ? buffer_len_per_rank + buffer_len_remaining
+                         : buffer_len_per_rank;
+
         NCCL_CHECK(entries, "ncclReduceScatter",
                    ncclReduceScatter(fused_input_data,
                                      buffer_data_at_rank_offset,
@@ -1036,14 +1053,27 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           RECORD_EVENT(entries, event_queue, NCCL_REDUCESCATTER, stream)
         }
 
+        if (num_elements_remaining > 0) {
+
+          // For the remaining data do ncclReduce - MPIAllreduce - ncclBcast
+          NCCL_CHECK(
+              entries, "ncclReduce",
+              ncclReduce(fused_input_data_remainder, buffer_data_remainder,
+                         (size_t)num_elements_remaining,
+                         GetNCCLDataType(first_entry.tensor), ncclSum,
+                         horovod_global.local_size - 1, nccl_comm, stream))
+          if (timeline.Initialized()) {
+            RECORD_EVENT(entries, event_queue, NCCL_REDUCE, stream)
+          }
+        }
+
         // cudaHostAlloc is significantly slower than malloc.  Pre-allocating
         // a buffer is not safe since the tensor can be arbitrarily large.
-
-        host_buffer = malloc(buffer_len_per_rank);
+        host_buffer = malloc(total_buffer_len);
 
         CUDA_CHECK(entries, "cudaMemcpyAsync",
                    cudaMemcpyAsync(host_buffer, buffer_data_at_rank_offset,
-                                   buffer_len_per_rank, cudaMemcpyDeviceToHost,
+                                   total_buffer_len, cudaMemcpyDeviceToHost,
                                    stream))
         // This event must be recorded for the subsequent synchronize.
         RECORD_EVENT(entries, event_queue, MEMCPY_IN_HOST_BUFFER, stream)
@@ -1054,7 +1084,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         ACTIVITY_START_ALL(entries, timeline, MPI_ALLREDUCE)
         MPI_CHECK(entries, "MPI_Allreduce",
                   MPI_Allreduce(MPI_IN_PLACE, host_buffer,
-                                (int)num_elements_per_rank,
+                                (int)total_num_elements,
                                 GetMPIDataType(first_entry.tensor), MPI_SUM,
                                 horovod_global.cross_comm))
 
@@ -1062,7 +1092,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
         CUDA_CHECK(entries, "cudaMemcpyAsync",
                    cudaMemcpyAsync(buffer_data_at_rank_offset, host_buffer,
-                                   buffer_len_per_rank, cudaMemcpyHostToDevice,
+                                   total_buffer_len, cudaMemcpyHostToDevice,
                                    stream))
         if (timeline.Initialized()) {
           RECORD_EVENT(entries, event_queue, MEMCPY_OUT_HOST_BUFFER, stream)
@@ -1078,73 +1108,16 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           RECORD_EVENT(entries, event_queue, NCCL_ALLGATHER, stream)
         }
 
-        // Synchronize.
-        WAIT_FOR_EVENTS(entries, timeline, event_queue)
-
         if (num_elements_remaining > 0) {
-
-          // For the remaining data do ncclReduce - MPIAllreduce - ncclBcast
-          void* buffer_data_remainder =
-              (uint8_t*)buffer_data +
-              buffer_len_per_rank * horovod_global.local_size;
-          void* fused_input_data_remainder =
-              (uint8_t*)fused_input_data +
-              buffer_len_per_rank * horovod_global.local_size;
-
-          NCCL_CHECK(entries, "ncclReduce",
-                     ncclReduce(fused_input_data_remainder,
-                                buffer_data_remainder,
-                                (size_t)num_elements_remaining,
-                                GetNCCLDataType(first_entry.tensor), ncclSum, 0,
-                                nccl_comm, stream))
-          if (timeline.Initialized()) {
-            RECORD_EVENT(entries, event_queue, NCCL_REDUCE, stream)
-          }
-
-          if (horovod_global.local_rank == 0) {
-            // cudaHostAlloc is significantly slower than malloc. Pre-allocating
-            // a buffer is not safe since the tensor can be arbitrarily large.
-            host_buffer_remainder = malloc(buffer_len_remaining);
-
-            CUDA_CHECK(entries, "cudaMemcpyAsync",
-                       cudaMemcpyAsync(host_buffer_remainder,
-                                       buffer_data_remainder,
-                                       buffer_len_remaining,
-                                       cudaMemcpyDeviceToHost, stream))
-            // This event must be recorded for the subsequent synchronize.
-            RECORD_EVENT(entries, event_queue, MEMCPY_IN_HOST_BUFFER, stream)
-
-            // Synchronize.
-            WAIT_FOR_EVENTS(entries, timeline, event_queue)
-
-            ACTIVITY_START_ALL(entries, timeline, MPI_ALLREDUCE)
-            MPI_CHECK(entries, "MPI_Allreduce",
-                      MPI_Allreduce(MPI_IN_PLACE, host_buffer_remainder,
-                                    (int)num_elements_remaining,
-                                    GetMPIDataType(first_entry.tensor), MPI_SUM,
-                                    horovod_global.cross_comm))
-            ACTIVITY_END_ALL(entries, timeline)
-
-            CUDA_CHECK(entries, "cudaMemcpyAsync",
-                       cudaMemcpyAsync(buffer_data_remainder,
-                                       host_buffer_remainder,
-                                       buffer_len_remaining,
-                                       cudaMemcpyHostToDevice, stream))
-            if (timeline.Initialized()) {
-              RECORD_EVENT(entries, event_queue, MEMCPY_OUT_HOST_BUFFER, stream)
-            }
-          }
-
-          NCCL_CHECK(entries, "ncclBcast",
-                     ncclBcast(buffer_data_remainder,
-                               (size_t)num_elements_remaining,
-                               GetNCCLDataType(first_entry.tensor), 0,
-                               nccl_comm, stream))
+          NCCL_CHECK(
+              entries, "ncclBcast",
+              ncclBcast(buffer_data_remainder, (size_t)num_elements_remaining,
+                        GetNCCLDataType(first_entry.tensor),
+                        horovod_global.local_size - 1, nccl_comm, stream))
           if (timeline.Initialized()) {
             RECORD_EVENT(entries, event_queue, NCCL_BCAST, stream)
           }
         }
-
       } else {
         NCCL_CHECK(entries, "ncclAllReduce",
                    ncclAllReduce(fused_input_data, buffer_data,
@@ -1154,8 +1127,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         if (timeline.Initialized()) {
           RECORD_EVENT(entries, event_queue, NCCL_ALLREDUCE, stream)
         }
-
-
       }
 #endif
 
@@ -1181,8 +1152,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       RECORD_EVENT(entries, event_queue, "", stream)
 
       // TODO: use thread pool or single thread for callbacks
-      std::thread finalizer_thread([entries, first_entry, host_buffer,
-                                    host_buffer_remainder, response,
+      std::thread finalizer_thread([entries, first_entry, host_buffer, response,
                                     event_queue, &timeline]() mutable {
         CUDA_CHECK(entries, "cudaSetDevice", cudaSetDevice(first_entry.device))
 
@@ -1190,9 +1160,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
         if (host_buffer != nullptr) {
           free(host_buffer);
-        }
-        if (host_buffer_remainder != nullptr) {
-          free(host_buffer_remainder);
         }
 
         for (auto& e : entries) {
