@@ -1080,6 +1080,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           state.step_counters.clear();
         }
 
+        // Get names and sizes of each layer, in order
         std::vector<std::pair<std::string, uint64_t> > layers;
         layers.clear();
         for (auto& e : entries)
@@ -1089,7 +1090,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         CUDA_CHECK(entries, "dgc::GradientAllReduce",
           dgc::GradientAllReduce(
             GetNCCLDataType(first_entry.tensor),
-            (void*)fused_input_data, buffer_data, layers, //num_elements, dgc_offset_map,
+            (void*)fused_input_data, buffer_data, layers,
             config, state));
       } // end of if (use_dgc)
 
@@ -1730,8 +1731,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 }
 
 // Get configuration from enviromental variables
-void ReadFromENV()
-{
+void ReadFromENV() {
   char* value = NULL;
 
   if ((value = std::getenv("HOROVOD_TENSOR_FUSION_THRESHOLD")))
@@ -1739,6 +1739,14 @@ void ReadFromENV()
 
   if ((value = std::getenv("HOROVOD_CYCLE_TIME")))
     horovod_global.cycle_time_ms = std::stod(std::string(value));
+
+  if ((value = std::getenv("HOROVOD_USE_DGC"))) {
+    std::string str_value = std::string(value);
+    if (str_value == "True")
+      horovod_global.use_dgc = true;
+    else if (str_value == "False")
+      horovod_global.use_dgc = false;
+  }
 
 #if HOROVOD_GPU_ALLREDUCE == 'N'
   horovod_global.dgc_config.ReadFromENV();

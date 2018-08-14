@@ -52,6 +52,7 @@ def init():
     """
     return MPI_COMMON_LIB_CTYPES.horovod_init()
 
+
 def size():
     """A function that returns the number of Horovod processes.
 

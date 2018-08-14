@@ -99,14 +99,13 @@ def get_cpp_flags(build_ext):
 
 def get_cuda_flags(build_ext):
     last_err = None
-    default_flags = ['-std=c++11', #'-Xcompiler -fPIC',
-        #'-dlink',
+    default_flags = ['-std=c++11',
         '-ccbin', 'g++', '-m64',
         '-O2', '--expt-extended-lambda',
+        #compiled for SM70, change to other architecture if needed
         '--gpu-architecture=compute_70',
         '--gpu-code=sm_70',
         '-I"externals/cub"']
-        #'--device-c']
 
     return default_flags
     if sys.platform == 'darwin':
@@ -300,7 +299,6 @@ def get_cuda_dirs(build_ext, cpp_flags):
         cuda_include_dirs += ['/usr/local/cuda/include']
         cuda_lib_dirs += ['/usr/local/cuda/lib', '/usr/local/cuda/lib64']
 
-    #print('cuda_home0 = %s ' % cuda_home)
     return cuda_include_dirs, cuda_lib_dirs, cuda_home
 
     try:
@@ -498,16 +496,9 @@ def nvcc_compiler(self, build_ext):
 
     def _compile(obj, src, ext, cc_args, extra_postargs, pp_opts):
         if os.path.splitext(src)[1] == '.cu':
+            # compilation path for cuda code
             cuda_flags = get_cuda_flags(build_ext)
             _, _, cuda_home = get_cuda_dirs(build_ext, cuda_flags)
-            #cuda_config = {'home': cuda_home,
-            #               'nvcc': pjoin(cuda_home, 'bin', 'nvcc'),
-            #               'include': cuda_include_dirs[0],
-            #               'lib64': cuda_lib_dirs[0]}
-            #print('cuda_home = %s, ' % cuda_config["home"], \
-            #    'nvcc = %s, ' % cuda_config["nvcc"], \
-            #    'include = %s, ' % cuda_config["include"], \
-            #    'lib64 = %s' % cuda_config["lib64"])
             nvcc_exec = pjoin(cuda_home, 'bin', 'nvcc')
             self.set_executable('compiler_so', nvcc_exec)
             postargs = []
@@ -515,19 +506,11 @@ def nvcc_compiler(self, build_ext):
                 if "Wl," not in arg:
                     postargs.append('-Xcompiler')
                     postargs.append(arg)
-            #postargs = [['-Xcompiler', arg] \
-            #    for arg in extra_postargs if "Wl," not in arg]
             nvcc_args = cuda_flags + cc_args
-            #command = self.compiler_so + nvcc_args + [src, '-o', obj] + postargs
-            #print(command)
             super(obj, src, ext, nvcc_args, postargs, pp_opts)
         else:
-            postargs = extra_postargs#['gcc']
+            postargs = extra_postargs
             super(obj, src, ext, cc_args, postargs, pp_opts)
-
-        #print('obj = %s, ' % obj, 'src = %s, ' % src, \
-        #    'cc_args = %s, ' % cc_args, 'postargs = %s, ' % postargs, \
-        #    'pp_opts = %s' % pp_opts)
 
         self.compiler_so = default_compiler_so
 
@@ -683,9 +666,6 @@ def build_torch_extension(build_ext, options, abi_compile_flags):
 
 # run the customize_compiler
 class custom_build_ext(build_ext):
-    #def build_extensions(self):
-    #    nvcc_compiler(self.compiler)
-    #    build_ext.build_extension(self)
     def build_extensions(self):
         options = get_common_options(self)
         abi_compile_flags = []
@@ -723,7 +703,7 @@ class custom_build_ext(build_ext):
                 'Neither TensorFlow nor PyTorch plugins were built. See errors above.')
         nvcc_compiler(self.compiler, build_ext)
         build_common_extension(self, options, abi_compile_flags)
-        #build_dgc_extension(self, options, abi_compile_flags)
+
 
 setup(name='horovod',
       version=__version__,
@@ -737,7 +717,7 @@ setup(name='horovod',
       classifiers=[
           'License :: OSI Approved :: Apache Software License'
       ],
-      ext_modules=[common_mpi_lib, tensorflow_mpi_lib, #dgc_mpi_lib,
+      ext_modules=[common_mpi_lib, tensorflow_mpi_lib,
                    torch_mpi_lib, torch_mpi_lib_impl],
       cmdclass={'build_ext': custom_build_ext},
       # cffi is required for PyTorch
