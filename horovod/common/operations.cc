@@ -1772,48 +1772,7 @@ Status CheckInitialized() {
 
 extern "C" {
 
-void horovod_set(std::string key, std::string value) {
-  if (key == "horovod_tensor_funsion_threshold")
-    horovod_global.tensor_fusion_threshold = std::stol(value);
-
-  else if (key == "horovod_cycle_time")
-    horovod_global.cycle_time_ms = std::stod(value);
-
-#if HOROVOD_GPU_ALLREDUCE == 'N'
-  else if (key == "horovod_use_dgc") {
-    if (value == "False")
-      horovod_global.use_dgc = false;
-    else if (value == "True")
-      horovod_global.use_dgc = true;
-  }
-
-  horovod_global.dgc_config.Set(key, value);
-#endif
-}
-
 void horovod_init() { InitializeHorovodOnce(); }
-
-void horovod_read_config() {
-  std::string filename = "/tmp/horovod_config_" + std::to_string(horovod_rank()) + ".txt";
-  std::ifstream fin;
-  fin.open(filename.c_str());
-  if (!fin.is_open())
-    return;
-
-  std::string key = "", value = "";
-  while (key != "EndOfFile")
-  {
-    std::getline(fin, key);
-    if (key == "EndOfFile")
-      break;
-
-    std::getline(fin, value);
-    //printf("%s = %s\n", key.c_str(), value.c_str());
-    horovod_set(key, value);
-  }
-
-  fin.close();
-}
 
 int horovod_rank() {
   if (!horovod_global.initialization_done) {

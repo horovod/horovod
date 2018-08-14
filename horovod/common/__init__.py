@@ -52,18 +52,6 @@ def init():
     """
     return MPI_COMMON_LIB_CTYPES.horovod_init()
 
-def configure(params):
-    f = open('/tmp/horovod_config_' + str(rank()) + '.txt', 'w')
-    for key in params._fields:
-        value = str(getattr(params, key))
-        #print(type(key), key, type(value), value)
-        f.writelines(key + '\n')
-        f.writelines(value + '\n')
-    f.writelines('EndOfFile\n')
-    f.close()
-
-    MPI_COMMON_LIB_CTYPES.horovod_read_config()
-
 def size():
     """A function that returns the number of Horovod processes.
 

@@ -17,7 +17,6 @@
 #define HOROVOD_OPERATIONS_H
 
 #include <functional>
-#include <Python.h>
 
 #include "common.h"
 
@@ -52,14 +51,8 @@ Status CheckInitialized();
 
 extern "C" {
 
-// C interfact to pass parameters into horovod_global
-void horovod_set(std::string key, std::string value);
-
 // C interface to initialize Horovod.
 void horovod_init();
-
-// C interfact to pass parameters into horovod_global
-void horovod_read_config();
 
 // C interface to get index of current Horovod process.
 // Returns -1 if Horovod is not initialized.
