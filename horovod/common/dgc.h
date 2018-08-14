@@ -214,6 +214,9 @@ struct DgcConfig {
 
   // function to set indivual configuration
   void Set(std::string key, std::string value);
+
+  // function to read configurations from enviromental variables
+  void ReadFromENV();
 };
 
 // Token for GradientAllReduce call, mainly for host arrays,

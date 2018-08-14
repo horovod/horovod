@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <chrono>
 #include <thread>
+#include <locale>
 #include <curand_kernel.h>
 //#include <thrust/sort.h>
 //#include <thrust/execution_policy.h>
@@ -289,8 +290,7 @@ void DgcConfig::Set(std::string key, std::string value)
   else if (key == "dgc_min_sampling_num")
     min_sampling_num = std::stoi(value);
 
-  else if (key == "dgc_local_gradient_clipping")
-  {
+  else if (key == "dgc_local_gradient_clipping") {
     if (value == "True")
       local_gradient_clipping = true;
     else if (value == "False")
@@ -300,24 +300,21 @@ void DgcConfig::Set(std::string key, std::string value)
   else if (key == "dgc_clipping_threshold")
     clipping_threshold = std::stof(value);
 
-  else if (key == "dgc_use_allreduce")
-  {
+  else if (key == "dgc_use_allreduce") {
     if (value == "True")
       use_allReduce = true;
     else if (value == "False")
       use_allReduce = false;
   }
 
-  else if (key == "dgc_use_hierarchical_allreduce")
-  {
+  else if (key == "dgc_use_hierarchical_allreduce") {
     if (value == "True")
       use_hierarchical_allreduce = true;
     else if (value == "False")
       use_hierarchical_allreduce = false;
   }
 
-  else if (key == "dgc_overlap_mask_allreduce")
-  {
+  else if (key == "dgc_overlap_mask_allreduce") {
     if (value == "True")
       overlap_mask_allreduce = true;
     else if (value == "False")
@@ -336,16 +333,14 @@ void DgcConfig::Set(std::string key, std::string value)
   else if (key == "dgc_flush_steps")
     flush_steps = std::stoi(value);
 
-  else if (key == "dgc_use_momentum_correction")
-  {
+  else if (key == "dgc_use_momentum_correction") {
     if (value == "True")
       use_momentum_correction = true;
     else if (value == "False")
       use_momentum_correction = false;
   }
 
-  else if (key == "dgc_use_gradient_accumulation")
-  {
+  else if (key == "dgc_use_gradient_accumulation") {
     if (value == "True")
       use_gradient_accumulation = true;
     else if (value == "False")
@@ -362,6 +357,62 @@ void DgcConfig::Set(std::string key, std::string value)
     batch_size_per_gpu = std::stoi(value);
 
   //printf("%s = %s\n", key.c_str(), value.c_str());
+}
+
+// Get configuration from environmental variables
+void DgcConfig::ReadFromENV()
+{
+  const std::string env_list[] = {
+    "dgc_sparsity_warmup_epochs",
+    "dgc_init_sparsity",
+    "dgc_final_sparsity",
+    "dgc_sampling_rate",
+    "dgc_rand_seed",
+    "dgc_grid_size",
+    "dgc_block_size",
+    "dgc_min_sampling_num",
+    "dgc_local_gradient_clipping",
+    "dgc_clipping_threshold",
+    "dgc_use_allreduce",
+    "dgc_use_hierarchical_allreduce",
+    "dgc_overlap_mask_allreduce",
+    "dgc_learning_rate_decay_factor",
+    "dgc_num_epochs_per_decay",
+    "dgc_min_learning_rate_factor",
+    "dgc_flush_steps",
+    "dgc_use_momentum_correction",
+    "dgc_use_gradient_accumulation",
+    "momentum",
+    "num_examples_per_epoch",
+    "batch_size"};
+  const int num_parameters = 22;
+  auto& f = std::use_facet<std::ctype<char>>(std::locale());
+
+  for (int i = 0; i < num_parameters; i++) {
+    std::string env_name = env_list[i];
+    std::string env_name_upper = env_name;
+    f.toupper(&env_name_upper[0], &env_name_upper[0] + env_name_upper.size());
+    char* value = std::getenv(env_name_upper.c_str());
+    std::string value_str = "";
+    if (value == NULL) {
+      value = std::getenv(("NO" + env_name_upper).c_str());
+      if (value != NULL)
+      {
+        value_str = std::string(value);
+        if (value_str == "True")
+          value_str = "False";
+        else if (value_str == "False")
+          value_str = "True";
+      }
+    } else
+      value_str = std::string(value);
+
+    if (value != NULL) {
+      //printf("%s is set to %s\n", env_name.c_str(), value_str.c_str());
+      Set(env_name, value_str);
+    }
+  }
+  //printf("ReadFromEnv finished");
 }
 
 template <typename T, typename SizeT, typename Compare>
@@ -946,7 +997,7 @@ cudaError_t GradientAllReduce(
       ncclAllReduce(input_gradients, output_gradients, num_gradients,
       PreDefinedValues<T>::NCCLDataType, ncclSum, config.use_hierarchical_allreduce ?
       config.nccl_cross_comm : config.nccl_comm, stream));
-    
+
     // by pass everything, except for learning rate adjustment
     GUARD_CU(LearningRateAdjustment(output_gradients, num_gradients, epoch, config, state));
     return retval;
@@ -957,7 +1008,7 @@ cudaError_t GradientAllReduce(
     auto init_comm_rate = 1 - config.init_sparsity;
     auto final_comm_rate = 1 - config.final_sparsity;
     auto comm_rate = init_comm_rate * exp(
-      log(final_comm_rate / init_comm_rate) 
+      log(final_comm_rate / init_comm_rate)
       / config.warmup_epochs * epoch);
     sparsity = 1 - comm_rate;
     //sparsity = (1 - config.init_sparsity) * exp(

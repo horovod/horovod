@@ -1729,11 +1729,28 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   return !should_shut_down;
 }
 
+// Get configuration from enviromental variables
+void ReadFromENV()
+{
+  char* value = NULL;
+
+  if ((value = std::getenv("HOROVOD_TENSOR_FUSION_THRESHOLD")))
+    horovod_global.tensor_fusion_threshold = std::stol(std::string(value));
+
+  if ((value = std::getenv("HOROVOD_CYCLE_TIME")))
+    horovod_global.cycle_time_ms = std::stod(std::string(value));
+
+#if HOROVOD_GPU_ALLREDUCE == 'N'
+  horovod_global.dgc_config.ReadFromENV();
+#endif
+}
+
 // Start Horovod background thread. Ensure that this is
 // only done once no matter how many times this function is called.
 void InitializeHorovodOnce() {
   // Ensure background thread is only started once.
   if (!horovod_global.initialize_flag.test_and_set()) {
+    ReadFromENV();
     horovod_global.background_thread =
         std::thread(BackgroundThreadLoop, std::ref(horovod_global));
   }
@@ -1759,6 +1776,10 @@ void horovod_set(std::string key, std::string value) {
   if (key == "horovod_tensor_funsion_threshold")
     horovod_global.tensor_fusion_threshold = std::stol(value);
 
+  else if (key == "horovod_cycle_time")
+    horovod_global.cycle_time_ms = std::stod(value);
+
+#if HOROVOD_GPU_ALLREDUCE == 'N'
   else if (key == "horovod_use_dgc") {
     if (value == "False")
       horovod_global.use_dgc = false;
@@ -1766,10 +1787,8 @@ void horovod_set(std::string key, std::string value) {
       horovod_global.use_dgc = true;
   }
 
-  else if (key == "horovod_cycle_time")
-    horovod_global.cycle_time_ms = std::stod(value);
-
   horovod_global.dgc_config.Set(key, value);
+#endif
 }
 
 void horovod_init() { InitializeHorovodOnce(); }
