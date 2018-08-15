@@ -1145,7 +1145,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       else {
 		  // 不分层时，在这里进行缓冲区的缩减,在这里进行缓冲区的融合缩减
         //将fused_input_data 融合之后放到buffer_data
-        printf("line 1072 在这里进行缓冲区的融合缩减...\n");
+        //printf("line 1072 在这里进行缓冲区的融合缩减...\n");
         NCCL_CHECK(entries, "ncclAllReduce",
                    ncclAllReduce(fused_input_data, buffer_data,
                                  (size_t)num_elements,
@@ -1153,11 +1153,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                                  nccl_comm, stream))
 
         //打印查看接收到的数据
-        void *host_buffer=malloc(buffer_len);
-
-        cudaMemcpyAsync(host_buffer,buffer_data, buffer_len,cudaMemcpyDeviceToHost, stream);
-        auto k=*((float*)host_buffer);
-        printf("打印查看接收到的数据：%f\n",k );
+        //void *host_buffer=malloc(buffer_len);
+        //cudaMemcpyAsync(host_buffer,buffer_data, buffer_len,cudaMemcpyDeviceToHost, stream);
+        //auto k=*((float*)host_buffer);
+        //printf("打印查看接收到的数据：%f\n",k );
       }
 #endif
       if (timeline.Initialized()) {
