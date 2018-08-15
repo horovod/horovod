@@ -1315,7 +1315,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   int required = MPI_THREAD_MULTIPLE;
   if (mpi_threads_disable != nullptr &&
     std::strtol(mpi_threads_disable, nullptr, 10) > 0) {
-    required = MPI_THREAD_FUNNELED;
+    required = MPI_THREAD_SINGLE;
   }
   int provided;
   int is_mpi_initialized = 0;
