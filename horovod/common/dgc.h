@@ -10,96 +10,10 @@
 #include <mpi.h>
 #include <nccl.h>
 #include <curand_kernel.h>
+#include "types.h"
 
 namespace horovod {
 namespace dgc {
-
-template <typename T>
-struct PreDefinedValues{};
-
-template <>
-struct PreDefinedValues<float>
-{
-  static const ncclDataType_t NCCLDataType = ncclFloat32;
-  MPI_Datatype getMpiDataType() {return MPI_FLOAT;}
-  constexpr static const float InvalidValue = NAN;
-};
-
-template <>
-struct PreDefinedValues<double>
-{
-  static const ncclDataType_t NCCLDataType = ncclFloat64;
-  MPI_Datatype getMpiDataType() {return MPI_DOUBLE;}
-  constexpr static const double InvalidValue = NAN;
-};
-
-template <>
-struct PreDefinedValues<int32_t>
-{
-  static const ncclDataType_t NCCLDataType = ncclInt32;
-  static MPI_Datatype getMpiDataType() {return MPI_INT;}
-  static const int32_t AllZeros = (int32_t)0;
-  static const int32_t AllOnes  = ~AllZeros;
-  static const int32_t InvalidValue = AllOnes;
-};
-
-template <>
-struct PreDefinedValues<uint32_t>
-{
-  static const ncclDataType_t NCCLDataType = ncclUint32;
-  static MPI_Datatype getMpiDataType() {return MPI_UNSIGNED;}
-  static const uint32_t AllZeros = (uint32_t)0;
-  static const uint32_t AllOnes  = ~AllZeros;
-  static const uint32_t InvalidValue = AllOnes;
-};
-
-template <>
-struct PreDefinedValues<int64_t>
-{
-  static const ncclDataType_t NCCLDataType = ncclInt64;
-  static MPI_Datatype getMpiDataType() {return MPI_LONG_LONG;}
-  static const int64_t AllZeros = (int64_t)0;
-  static const int64_t AllOnes  = ~AllZeros;
-  static const int64_t InvalidValue = AllOnes;
-};
-
-template <>
-struct PreDefinedValues<uint64_t>
-{
-  static const ncclDataType_t NCCLDataType = ncclUint64;
-  static MPI_Datatype getMpiDataType() {return MPI_UNSIGNED_LONG_LONG;}
-  static const uint64_t AllZeros = (uint64_t)0;
-  static const uint64_t AllOnes  = ~AllZeros;
-  static const uint64_t InvalidValue = AllOnes;
-};
-
-template <typename T>
-__device__ __host__ __forceinline__
-bool isValid(const T &val)
-{
-    return (val != PreDefinedValues<T>::InvalidValue);
-}
-
-template <>
-__device__ __host__ __forceinline__
-bool isValid(const float &val)
-{
-    return (!isnan(val));
-}
-
-template <>
-__device__ __host__ __forceinline__
-bool isValid(const double &val)
-{
-    return (!isnan(val));
-}
-
-template <>
-__device__ __host__ __forceinline__
-bool isValid(const long double &val)
-{
-    return (!isnan(val));
-}
 
 // Configuration for DGC
 struct DgcConfig {
@@ -215,7 +129,7 @@ struct DgcConfig {
   // function to set indivual configuration
   void Set(std::string key, std::string value);
 
-  // function to read configurations from enviromental variables
+  // Get configuration from environmental variables
   void ReadFromENV();
 };
 
@@ -391,24 +305,10 @@ cudaError_t GradientAllReduce(
   ncclDataType_t  gradient_type, // type of gradient
   void           *input_gradients, // GPU pointer to the input graients
   void           *output_gradients,// GPU pointer to the output gradients
-  //uint64_t        num_gradients, // number of gradients
-  //std::vector<std::tuple<uint64_t, uint64_t, size_t> >
-  //               &offset_map,   // <start, length, offset> mappings for
-                                // continous chunks of gradients
   std::vector<std::pair<std::string, uint64_t> > &layers,
                                 // <name, #elements> of layers
   DgcConfig      &config,       // DGC configuration
   DgcState       &state);       // DGC running states
-
-cudaError_t ClipGradient(
-  ncclDataType_t  gradient_type, // type of gradient
-  void           *gradients,     // GPU pointer to the gradients
-  //uint64_t       *layer_offsets, // gradient layer offsets, on host
-  std::vector<std::pair<std::string, uint64_t> > &layers,
-                                 // <name, #elements> of layers
-  //int             num_layers,    // The number of layers in the gradients
-  DgcConfig      &config,        // DGC configuration
-  DgcState       &state);        // DGC running states
 
 } // end of namespace dgc
 } // end of namespace horovod
