@@ -270,6 +270,8 @@ void str2bool(std::string str, bool &val)
 // Setting config parameters
 void DgcConfig::Set(std::string key, std::string value)
 {
+  printf("Setting %s to %s\n", key.c_str(), value.c_str());
+
   if (key == "dgc_sparsity_warmup_epochs")
     warmup_epochs = std::stoi(value);
 
