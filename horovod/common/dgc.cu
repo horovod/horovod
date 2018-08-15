@@ -259,6 +259,14 @@ cudaError_t GarenteeAllocation(
 // DGC Functions
 // ****************************
 
+void str2bool(std::string str, bool &val)
+{
+  if (str == "True")
+    val = true;
+  if (str == "False")
+    val = false; 
+}
+
 // Setting config parameters
 void DgcConfig::Set(std::string key, std::string value)
 {
@@ -286,36 +294,20 @@ void DgcConfig::Set(std::string key, std::string value)
   else if (key == "dgc_min_sampling_num")
     min_sampling_num = std::stoi(value);
 
-  else if (key == "dgc_local_gradient_clipping") {
-    if (value == "True")
-      local_gradient_clipping = true;
-    else if (value == "False")
-      local_gradient_clipping = false;
-  }
+  else if (key == "dgc_local_gradient_clipping")
+    str2bool(value, local_gradient_clipping);
 
   else if (key == "dgc_clipping_threshold")
     clipping_threshold = std::stof(value);
 
-  else if (key == "dgc_use_allreduce") {
-    if (value == "True")
-      use_allReduce = true;
-    else if (value == "False")
-      use_allReduce = false;
-  }
+  else if (key == "dgc_use_allreduce")
+    str2bool(value, use_allReduce);
 
-  else if (key == "dgc_use_hierarchical_allreduce") {
-    if (value == "True")
-      use_hierarchical_allreduce = true;
-    else if (value == "False")
-      use_hierarchical_allreduce = false;
-  }
-
-  else if (key == "dgc_overlap_mask_allreduce") {
-    if (value == "True")
-      overlap_mask_allreduce = true;
-    else if (value == "False")
-      overlap_mask_allreduce = false;
-  }
+  else if (key == "dgc_use_hierarchical_allreduce")
+    str2bool(value, use_hierarchical_allreduce);
+ 
+  else if (key == "dgc_overlap_mask_allreduce")
+    str2bool(value, overlap_mask_allreduce);
 
   else if (key == "dgc_learning_rate_decay_factor")
     learning_rate_decay_factor = std::stof(value);
@@ -329,19 +321,14 @@ void DgcConfig::Set(std::string key, std::string value)
   else if (key == "dgc_flush_steps")
     flush_steps = std::stoi(value);
 
-  else if (key == "dgc_use_momentum_correction") {
-    if (value == "True")
-      use_momentum_correction = true;
-    else if (value == "False")
-      use_momentum_correction = false;
-  }
+  else if (key == "dgc_use_momentum_correction")
+    str2bool(value, use_momentum_correction);
 
-  else if (key == "dgc_use_gradient_accumulation") {
-    if (value == "True")
-      use_gradient_accumulation = true;
-    else if (value == "False")
-      use_gradient_accumulation = false;
-  }
+  else if (key == "dgc_use_gradient_accumulation")
+    str2bool(value, use_gradient_accumulation);
+
+  else if (key == "dgc_smooth_sparsity")
+    str2bool(value, smooth_sparsity);
 
   else if (key == "momentum")
     momentum = std::stof(value);
@@ -377,10 +364,11 @@ void DgcConfig::ReadFromENV()
     "dgc_flush_steps",
     "dgc_use_momentum_correction",
     "dgc_use_gradient_accumulation",
+    "dgc_smooth_sparsity",
     "momentum",
     "num_examples_per_epoch",
     "batch_size"};
-  const int num_parameters = 22;
+  const int num_parameters = 23;
   auto& f = std::use_facet<std::ctype<char>>(std::locale());
 
   for (int i = 0; i < num_parameters; i++) {
@@ -947,13 +935,21 @@ cudaError_t GradientAllReduce(
   if (epoch < config.warmup_epochs) {
     auto init_comm_rate = 1 - config.init_sparsity;
     auto final_comm_rate = 1 - config.final_sparsity;
-    auto comm_rate = init_comm_rate * exp(
-      log(final_comm_rate / init_comm_rate)
-      / config.warmup_epochs * epoch);
-    sparsity = 1 - comm_rate;
+    if (config.smooth_sparsity) {
+      auto comm_rate = init_comm_rate * exp(
+        log(final_comm_rate / init_comm_rate)
+        / config.warmup_epochs * state.step * 1.0 / steps_per_epoch);
+      sparsity = 1 - comm_rate;
+    } else {
+      auto comm_rate = init_comm_rate * exp(
+        log(final_comm_rate / init_comm_rate)
+        / config.warmup_epochs * epoch);
+    }
+    
     //if (epoch * steps_per_epoch == state.step && config.global_gpu_rank == 0)
-    //  printf("Epoch %ld, Step %ld, sparsity = %lf\n",
-    //    epoch, state.step, sparsity);
+    if (config.global_gpu_rank == 0)  
+      printf("Epoch %ld, Step %ld, sparsity = %lf\n",
+        epoch, state.step, sparsity);
   }
   SizeT  target_num = num_gradients * (1 - sparsity);
 

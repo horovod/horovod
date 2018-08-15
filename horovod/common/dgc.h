@@ -126,6 +126,9 @@ struct DgcConfig {
   // Whether to accumulate gradients, if momentum correction is not in use
   bool use_gradient_accumulation = true;
 
+  // Whether to smooth out sparsity changes
+  bool smooth_sparsity = false;
+
   // function to set indivual configuration
   void Set(std::string key, std::string value);
 
