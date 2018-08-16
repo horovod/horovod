@@ -162,10 +162,15 @@ struct DgcToken {
   cudaError_t isFinished(bool &finished, int check = 0);
 };
 
+typedef uint32_t MaskT;
+const int MASK_BITS = 32;
+const int LOG_MASK_BITS = 5;
+const MaskT MASK_BITS_MASK = (1 << LOG_MASK_BITS) - 1;
+
 // Token for overlapping MPI Reduce of mask and computation
 struct MaskToken {
-  uint32_t*   h_send_masks = NULL;
-  uint32_t*   h_recv_masks = NULL;
+  MaskT*   h_send_masks = NULL;
+  MaskT*   h_recv_masks = NULL;
   uint64_t    num_masks    = 0;
   uint32_t    num_layers   = 0;
   uint32_t    num_layers_produced = 0;
@@ -194,63 +199,63 @@ struct LayerRecord {
 struct DgcState {
 
   // States for curand, one for each GPU thread
-  curandState *rand_states     = NULL;
+  // curandState *rand_states     = NULL;
 
   // Accumulated gradients
-  char     *accumulated_gradients = NULL;
-  uint64_t  accumulated_gradients_allocated = 0;
+  //char     *accumulated_gradients = NULL;
+  //uint64_t  accumulated_gradients_allocated = 0;
 
-  char     *pervious_accumulated_gradients = NULL;
-  uint64_t  pervious_accumulated_gradients_allocated = 0;
+  //char     *pervious_accumulated_gradients = NULL;
+  //uint64_t  pervious_accumulated_gradients_allocated = 0;
 
   // Verlocity
-  char     *verlocity          = NULL;
-  uint64_t  verlocity_allocated = 0;
+  //char     *verlocity          = NULL;
+  //uint64_t  verlocity_allocated = 0;
 
   // Past verlocity
   //char     *pervious_verlocity = NULL;
   //uint64_t  pervious_verlocity_allocated = 0;
 
   // Accumulated verlociy
-  char     *accumulated_verlocity = NULL;
-  uint64_t  accumulated_verlocity_allocated = 0;
+  //char     *accumulated_verlocity = NULL;
+  //uint64_t  accumulated_verlocity_allocated = 0;
 
-  char     *pervious_accumulated_verlocity = NULL;
-  uint64_t  pervious_accumulated_verlocity_allocated = 0;
+  //char     *pervious_accumulated_verlocity = NULL;
+  //uint64_t  pervious_accumulated_verlocity_allocated = 0;
 
   // Sample counter
   //uint64_t *samp_counter       = NULL;
 
   // Sample data, raw data in chars; need to convert type before using
-  char     *samp_data          = NULL;
-  uint64_t  samp_allocated     = 0;
+  //char     *samp_data          = NULL;
+  //uint64_t  samp_allocated     = 0;
 
   // Gradient selection threshold
-  float    *thresholds = NULL;
-  uint64_t  thresholds_allocated = 0;
+  //float    *thresholds = NULL;
+  //uint64_t  thresholds_allocated = 0;
 
   // Counter for gradient selection
-  uint64_t *send_counter       = NULL;
+  //uint64_t *send_counter       = NULL;
 
   // Number of allocated elements for selected data
-  uint64_t  send_allocated     = 0;
+  //uint64_t  send_allocated     = 0;
 
   // Memory for selected gradient and indices
-  char     *send_data          = NULL;
-  uint32_t *send_indices       = NULL;
+  //char     *send_data          = NULL;
+  //uint32_t *send_indices       = NULL;
 
   // Number of allocated elements for recv data
-  uint64_t  recv_allocated     = 0;
+  //uint64_t  recv_allocated     = 0;
 
   // Memory for recved gradient and indices
-  char     *recv_data          = NULL;
-  uint32_t *recv_indices       = NULL;
+  //char     *recv_data          = NULL;
+  //uint32_t *recv_indices       = NULL;
 
   // Number of allocated elements for global gradients
-  uint64_t  global_allocated   = 0;
+  //uint64_t  global_allocated   = 0;
 
   // Global gradients
-  char     *global_gradients   = NULL;
+  //char     *global_gradients   = NULL;
 
   // layer offset address book
   std::map<std::string, size_t  > layer_offset_bytes;
@@ -268,33 +273,33 @@ struct DgcState {
   size_t offset_byte_counter = 0;
 
   // Temp storage
-  char* temp_storage = NULL;
-  size_t temp_storage_bytes = 0;
-  char* temp_storage2 = NULL;
-  size_t temp_storage2_bytes = 0;
+  //char* temp_storage = NULL;
+  //size_t temp_storage_bytes = 0;
+  //char* temp_storage2 = NULL;
+  //size_t temp_storage2_bytes = 0;
   //char* temp_storage3 = NULL;
   //size_t temp_storage3_bytes = 0;
 
   // Maximum gradient
-  float* max_gradient = NULL;
+  //float* max_gradient = NULL;
 
   // Gradient and sample starts for each layer
-  uint32_t* layer_starts = NULL;
-  uint32_t  layer_starts_allocated = 0;
-  uint32_t* samp_starts = NULL;
-  uint32_t  samp_starts_allocated = 0;
+  //uint32_t* layer_starts = NULL;
+  //uint32_t  layer_starts_allocated = 0;
+  //uint32_t* samp_starts = NULL;
+  //uint32_t  samp_starts_allocated = 0;
 
   // Gradient selection mask for allReduce communication
-  uint32_t* send_masks = NULL;
-  uint32_t* recv_masks = NULL;
-  uint32_t* h_send_masks = NULL;
-  uint32_t* h_recv_masks = NULL;
+  //MaskT* send_masks = NULL;
+  //MaskT* recv_masks = NULL;
+  MaskT* h_send_masks = NULL;
+  MaskT* h_recv_masks = NULL;
   uint64_t  mask_allocated = 0;
 
-  uint32_t* mask_counters = NULL;
-  uint64_t  mask_counters_allocated = 0;
-  uint32_t* mask_offsets  = NULL;
-  uint64_t  mask_offsets_allocated = 0;
+  //uint32_t* mask_counters = NULL;
+  //uint64_t  mask_counters_allocated = 0;
+  //uint32_t* mask_offsets  = NULL;
+  //uint64_t  mask_offsets_allocated = 0;
 
   uint32_t* h_num_gradients_to_communicate = NULL;
 

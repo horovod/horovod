@@ -20,7 +20,14 @@ __device__ uint64_t atomicAdd(uint64_t* addr, uint64_t val)
     (unsigned long long )val);
 }
 
-__device__ static float atomicMin(float* addr, float val)
+__device__ int64_t atomicMax(int64_t* addr, int64_t val)
+{
+  return (int64_t)atomicMax(
+    (signed long long*)addr,
+    (signed long long )val);
+}
+
+__device__ float atomicMin(float* addr, float val)
 {
     int* addr_as_int = (int*)addr;
     int old = *addr_as_int;
@@ -31,6 +38,14 @@ __device__ static float atomicMin(float* addr, float val)
           __float_as_int(fminf(val, __int_as_float(expected))));
     } while (expected != old);
     return __int_as_float(old);
+}
+
+__device__ long long atomicCAS(long long* addr, long long compare, long long val)
+{
+  return (long long)atomicCAS(
+    (unsigned long long*)addr,
+    (unsigned long long )compare,
+    (unsigned long long )val);
 }
 
 __device__ static float atomicMax(float* addr, float val)
@@ -46,6 +61,18 @@ __device__ static float atomicMax(float* addr, float val)
     return __int_as_float(old);
 }
 
+__device__ static double atomicMax(double* addr, double val)
+{
+    long long* addr_as_longlong = (long long*)addr;
+    long long old = *addr_as_longlong;
+    long long expected;
+    do {
+        expected = old;
+        old = atomicCAS(addr_as_longlong, expected,
+          __double_as_longlong(fmax(val, __longlong_as_double(expected))));
+    } while (expected != old);
+    return __longlong_as_double(old);
+}
 template <typename T, typename SizeT, typename Compare>
 __device__ SizeT binarySearch(T* elements, SizeT lower_bound, SizeT upper_bound,
   T element_to_find, Compare lessThan)
