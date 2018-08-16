@@ -1090,9 +1090,9 @@ cudaError_t GradientAllReduce(
     }
 
     //if (epoch * steps_per_epoch == state.step && config.global_gpu_rank == 0)
-    if (config.global_gpu_rank == 0)
-      printf("Epoch %ld, Step %ld, sparsity = %lf\n",
-        epoch, state.step, sparsity);
+    //if (config.global_gpu_rank == 0)
+    //  printf("Epoch %ld, Step %ld, sparsity = %lf\n",
+    //    epoch, state.step, sparsity);
   }
   SizeT  target_num = num_gradients * (1 - sparsity);
 
@@ -1958,6 +1958,8 @@ cudaError_t GradientAllReduce(
     }
 
     else { // gradient accumulation
+      //if (config.global_gpu_rank == 0)
+      //  printf("Dividing output gradients\n");
       for (auto& chunk : chunks) {
         SizeT  chunk_start  = std::get<0>(chunk);
         SizeT  chunk_size   = std::get<1>(chunk);
@@ -1984,7 +1986,7 @@ cudaError_t GradientAllReduce(
               pervious_accumulated_gradients[i] = 0;
               auto step_gap = step - pervious_comm_steps[i];
               if (step_gap != 0)
-                output_gradients[i] /= step_gap;
+                output_gradients[gradient_pos] /= step_gap;
               pervious_comm_steps[i] = step;
             } else {
               pervious_accumulated_gradients[i]
