@@ -19,6 +19,8 @@
 #include <functional>
 
 #include "common.h"
+#define OMPI_SKIP_MPICXX
+#include "mpi.h"
 
 namespace horovod {
 namespace common {
@@ -41,6 +43,14 @@ namespace common {
 #define MEMCPY_OUT_FUSION_BUFFER "MEMCPY_OUT_FUSION_BUFFER"
 #define MPI_BCAST "MPI_BCAST"
 
+// Horovod knobs.
+#define HOROVOD_MPI_THREADS_DISABLE "HOROVOD_MPI_THREADS_DISABLE"
+#define HOROVOD_TIMELINE "HOROVOD_TIMELINE"
+#define HOROVOD_FUSION_THRESHOLD "HOROVOD_FUSION_THRESHOLD"
+#define HOROVOD_CYCLE_TIME "HOROVOD_CYCLE_TIME"
+#define HOROVOD_STALL_CHECK_DISABLE "HOROVOD_STALL_CHECK_DISABLE"
+#define HOROVOD_HIERARCHICAL_ALLREDUCE "HOROVOD_HIERARCHICAL_ALLREDUCE"
+
 // A callback to call after the MPI communication completes. Since the
 // allreduce and allgather ops are asynchronous, this callback is what resumes
 // computation after the reduction is completed.
@@ -52,7 +62,13 @@ Status CheckInitialized();
 extern "C" {
 
 // C interface to initialize Horovod.
-void horovod_init();
+void horovod_init(const int *ranks, int nranks);
+
+// C interface to initialize Horovod with the given MPI communicator.
+void horovod_init_comm(MPI_Comm comm);
+
+// C interface to shut down Horovod.
+void horovod_shutdown();
 
 // C interface to get index of current Horovod process.
 // Returns -1 if Horovod is not initialized.

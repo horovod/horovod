@@ -300,11 +300,10 @@ class TorchTests(unittest.TestCase):
         """Test the correctness of the allreduce gradient."""
         hvd.init()
         size = hvd.size()
-        dtypes = [torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor]
+        # Only Tensors of floating point dtype can require gradients
+        dtypes = [torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
-            dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
-                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
+            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
@@ -313,8 +312,8 @@ class TorchTests(unittest.TestCase):
             tensor = torch.autograd.Variable(tensor, requires_grad=True)
             summed = hvd.allreduce(tensor, average=False)
 
-            summed.backward(torch.ones([17] * dim))
-            grad_out = tensor.grad.data.numpy()
+            summed.backward(torch.ones([17] * dim).type(dtype))
+            grad_out = tensor.grad.data.cpu().numpy()
 
             expected = np.ones([17] * dim) * size
             err = np.linalg.norm(expected - grad_out)
@@ -325,11 +324,10 @@ class TorchTests(unittest.TestCase):
     def test_horovod_allreduce_grad_average(self):
         """Test the correctness of the allreduce averaged gradient."""
         hvd.init()
-        dtypes = [torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor]
+        # Only Tensors of floating point dtype can require gradients
+        dtypes = [torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
-            dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
-                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
+            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
@@ -338,8 +336,8 @@ class TorchTests(unittest.TestCase):
             tensor = torch.autograd.Variable(tensor, requires_grad=True)
             summed = hvd.allreduce(tensor, average=True)
 
-            summed.backward(torch.ones([17] * dim))
-            grad_out = tensor.grad.data.numpy()
+            summed.backward(torch.ones([17] * dim).type(dtype))
+            grad_out = tensor.grad.data.cpu().numpy()
 
             expected = np.ones([17] * dim)
             err = np.linalg.norm(expected - grad_out)
@@ -462,12 +460,10 @@ class TorchTests(unittest.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
-        dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
-                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
+        # Only Tensors of floating point dtype can require gradients
+        dtypes = [torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
-            dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
-                       torch.cuda.IntTensor, torch.cuda.LongTensor, torch.cuda.FloatTensor,
-                       torch.cuda.DoubleTensor]
+            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             # Support tests up to MPI Size of 35
@@ -484,12 +480,12 @@ class TorchTests(unittest.TestCase):
 
             grad_list = []
             for r, size in enumerate(tensor_sizes):
-                grad_list.append(torch.ones([size] + [17] * (dim - 1)) * r)
+                grad_list.append(torch.ones([size] + [17] * (dim - 1)).type(dtype) * r)
             grad_ys = torch.cat(grad_list, dim=0)
 
             gathered = hvd.allgather(tensor)
             gathered.backward(grad_ys)
-            grad_out = tensor.grad.data.numpy()
+            grad_out = tensor.grad.data.cpu().numpy()
 
             expected = np.ones(
                 [tensor_sizes[rank]] + [17] * (dim - 1)
@@ -631,12 +627,10 @@ class TorchTests(unittest.TestCase):
         if size == 1:
             return
 
-        dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
-                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
+        # Only Tensors of floating point dtype can require gradients
+        dtypes = [torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
-            dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
-                       torch.cuda.IntTensor, torch.cuda.LongTensor, torch.cuda.FloatTensor,
-                       torch.cuda.DoubleTensor]
+            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
         dims = [1, 2, 3]
         root_ranks = list(range(size))
         for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
@@ -645,8 +639,8 @@ class TorchTests(unittest.TestCase):
             tensor = torch.autograd.Variable(tensor, requires_grad=True)
 
             broadcasted_tensor = hvd.broadcast(tensor, root_rank)
-            broadcasted_tensor.backward(torch.ones([17] * dim))
-            grad_out = tensor.grad.data.numpy()
+            broadcasted_tensor.backward(torch.ones([17] * dim).type(dtype))
+            grad_out = tensor.grad.data.cpu().numpy()
 
             c = size if rank == root_rank else 0
             expected = np.ones([17] * dim) * c
@@ -731,7 +725,7 @@ class TorchTests(unittest.TestCase):
                     opt_param_value = torch.Tensor([opt_param_value])
                 hvd.broadcast_(opt_param_value, root_rank=0)
                 if not is_tensor:
-                    opt_param_value = t(opt_param_value.numpy()[0])
+                    opt_param_value = t(opt_param_value.cpu().numpy()[0])
                 opt_param_values_updated.append((name, opt_param_value))
             opt_param_values = opt_param_values_updated
 

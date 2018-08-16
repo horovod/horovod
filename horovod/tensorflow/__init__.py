@@ -30,6 +30,7 @@ from __future__ import division
 from __future__ import print_function
 
 from horovod.common import init
+from horovod.common import shutdown
 from horovod.common import size
 from horovod.common import local_size
 from horovod.common import rank

@@ -30,6 +30,7 @@ import subprocess
 import sys
 import textwrap
 import traceback
+import re
 
 from horovod import __version__
 
@@ -370,6 +371,7 @@ def get_nccl_vals(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
 
     return nccl_include_dirs, nccl_lib_dirs, nccl_libs
 
+
 def get_ddl_dirs():
     # Default DDL home
     ddl_home = '/opt/DL/ddl'
@@ -377,9 +379,11 @@ def get_ddl_dirs():
     ddl_lib_dir = '%s/lib' % ddl_home
 
     if not os.path.exists(ddl_lib_dir):
-        raise DistutilsPlatformError('DDL lib was not found. Please, make sure \'ddl\' package is installed.')
+        raise DistutilsPlatformError(
+            'DDL lib was not found. Please, make sure \'ddl\' package is installed.')
     if not os.path.exists(ddl_include_dir):
-        raise DistutilsPlatformError('DDL include was not found. Please, make sure \'ddl-dev\' package is installed.')
+        raise DistutilsPlatformError(
+            'DDL include was not found. Please, make sure \'ddl-dev\' package is installed.')
 
     return [ddl_include_dir], [ddl_lib_dir]
 
@@ -425,6 +429,12 @@ def get_common_options(build_ext):
     else:
         have_ddl = False
         ddl_include_dirs = ddl_lib_dirs = []
+
+    if (gpu_allreduce == 'NCCL' and (gpu_allgather == 'MPI' or gpu_broadcast == 'MPI')
+            and not os.environ.get('HOROVOD_ALLOW_MIXED_GPU_IMPL')):
+        raise DistutilsError('You should not mix NCCL and MPI GPU due to a possible deadlock.\n'
+                             'If you\'re sure you want to mix them, set the '
+                             'HOROVOD_ALLOW_MIXED_GPU_IMPL environment variable to \'1\'.')
 
     MACROS = []
     INCLUDES = []
@@ -549,6 +559,22 @@ def build_tf_extension(build_ext, options):
     return [flag for flag in tf_compile_flags if '_GLIBCXX_USE_CXX11_ABI' in flag]
 
 
+def parse_version(version_str):
+    m = re.match('^(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:\.(\d+))?', version_str)
+    if m is None:
+        return None
+
+    # turn version string to long integer
+    version = int(m.group(1)) * 10 ** 9
+    if m.group(2) is not None:
+        version += int(m.group(2)) * 10 ** 6
+    if m.group(3) is not None:
+        version += int(m.group(3)) * 10 ** 3
+    if m.group(4) is not None:
+        version += int(m.group(4))
+    return version
+
+
 def dummy_import_torch():
     try:
         import torch
@@ -556,12 +582,19 @@ def dummy_import_torch():
         pass
 
 
-def check_torch_import():
+def check_torch_version():
     try:
         import torch
     except ImportError:
         raise DistutilsPlatformError(
             'import torch failed, is it installed?\n\n%s' % traceback.format_exc())
+
+    # parse version
+    version = parse_version(torch.__version__)
+    if version is None:
+        raise DistutilsPlatformError(
+            'Unable to determine PyTorch version from the version string \'%s\'' % torch.__version__)
+    return version
 
 
 def is_torch_cuda():
@@ -606,7 +639,7 @@ class protect_files(object):
 
 
 def build_torch_extension(build_ext, options, abi_compile_flags):
-    check_torch_import()
+    torch_version = check_torch_version()
 
     have_cuda = is_torch_cuda()
     if not have_cuda and check_macro(options['MACROS'], 'HAVE_CUDA'):
@@ -619,6 +652,10 @@ def build_torch_extension(build_ext, options, abi_compile_flags):
     # version or transfer tensors to CPU memory for those operations.
     updated_macros = set_macro(
         options['MACROS'], 'HAVE_CUDA', str(int(have_cuda)))
+
+    # Export TORCH_VERSION equal to our representation of torch.__version__. Internally it's
+    # used for backwards compatibility checks.
+    updated_macros = set_macro(updated_macros, 'TORCH_VERSION', str(torch_version))
 
     # Create_extension overwrites these files which are customized, we need to protect them.
     with protect_files('horovod/torch/mpi_lib/__init__.py',

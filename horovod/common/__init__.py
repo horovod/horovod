@@ -17,6 +17,7 @@
 import ctypes
 import os
 import sysconfig
+import atexit
 
 
 def get_ext_suffix():
@@ -47,10 +48,38 @@ MPI_COMMON_LIB_CTYPES = \
                              'mpi_lib' + get_ext_suffix()), mode=ctypes.RTLD_GLOBAL)
 
 
-def init():
+def init(comm=None):
     """A function that initializes Horovod.
+
+    Args:
+      comm: List specifying ranks for the communicator, relative to the MPI_COMM_WORLD
+        communicator OR the MPI communicator to use. Given communicator will be duplicated.
+        If None, Horovod will use MPI_COMM_WORLD Communicator.
+
     """
-    return MPI_COMMON_LIB_CTYPES.horovod_init()
+    if comm is None:
+        comm = []
+
+    atexit.register(shutdown)
+
+    if not isinstance(comm, list):
+        from mpi4py import MPI
+        if MPI._sizeof(MPI.Comm) == ctypes.sizeof(ctypes.c_int):
+            MPI_Comm = ctypes.c_int
+        else:
+            MPI_Comm = ctypes.c_void_p
+            MPI_COMMON_LIB_CTYPES.horovod_init_comm.argtypes = [MPI_Comm]
+
+        comm_obj = MPI_Comm.from_address(MPI._addressof(comm))
+        return MPI_COMMON_LIB_CTYPES.horovod_init_comm(comm_obj)
+    else:
+        comm_size = len(comm)
+        return MPI_COMMON_LIB_CTYPES.horovod_init(
+            (ctypes.c_int * comm_size)(*comm), ctypes.c_int(comm_size))
+
+
+def shutdown():
+    return MPI_COMMON_LIB_CTYPES.horovod_shutdown()
 
 
 def size():
