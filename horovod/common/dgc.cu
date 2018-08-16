@@ -492,6 +492,9 @@ void DgcConfig::Set(std::string key, std::string value)
   else if (key == "dgc_smooth_sparsity")
     str2bool(value, smooth_sparsity);
 
+  else if (key == "dgc_skip_epochs")
+    skip_epochs = std::stof(value);
+
   else if (key == "momentum")
     momentum = std::stof(value);
 
@@ -527,10 +530,11 @@ void DgcConfig::ReadFromENV()
     "dgc_use_momentum_correction",
     "dgc_use_gradient_accumulation",
     "dgc_smooth_sparsity",
+    "dgc_skip_epochs",
     "momentum",
     "num_examples_per_epoch",
     "batch_size"};
-  const int num_parameters = 23;
+  const int num_parameters = 24;
   auto& f = std::use_facet<std::ctype<char>>(std::locale());
 
   for (int i = 0; i < num_parameters; i++) {
@@ -1046,7 +1050,8 @@ cudaError_t GradientAllReduce(
     = config.num_examples_per_epoch / num_examples_per_step;
   if (steps_per_epoch * num_examples_per_step < config.num_examples_per_epoch)
     steps_per_epoch ++;
-  uint64_t epoch    = state.step * 1.0 / steps_per_epoch;
+  float    epoch_f  = state.step * 1.0 / steps_per_epoch;
+  uint64_t epoch    = (uint64_t)epoch_f;
 
   // if bypass both momentum correction and gradient accumulation
   if (!config.use_momentum_correction && !config.use_gradient_accumulation) {
@@ -1063,18 +1068,25 @@ cudaError_t GradientAllReduce(
 
   // Calcuate sparsity based on epoch number
   double sparsity   = config.final_sparsity;
-  if (epoch < config.warmup_epochs) {
+  if ((config.skip_epochs > 0 &&
+       epoch_f < config.skip_epochs + config.warmup_epochs) ||
+    (!(config.skip_epochs > 0) && epoch_f < config.warmup_epochs)) {
     auto init_comm_rate = 1 - config.init_sparsity;
     auto final_comm_rate = 1 - config.final_sparsity;
-    if (config.smooth_sparsity) {
+    if (config.skip_epochs > 0 && epoch_f < config.skip_epochs) {
+      sparsity = config.init_sparsity;
+    } else if (config.smooth_sparsity) {
       auto comm_rate = init_comm_rate * exp(
         log(final_comm_rate / init_comm_rate)
-        / config.warmup_epochs * state.step * 1.0 / steps_per_epoch);
+        / config.warmup_epochs
+        * (config.skip_epochs > 0 ? (epoch_f - config.skip_epochs) : epoch_f));
       sparsity = 1 - comm_rate;
     } else {
       auto comm_rate = init_comm_rate * exp(
         log(final_comm_rate / init_comm_rate)
-        / config.warmup_epochs * epoch);
+        / config.warmup_epochs
+        * (config.skip_epochs > 0 ? (epoch - config.skip_epochs) : epoch));
+      sparsity = 1 - comm_rate;
     }
 
     //if (epoch * steps_per_epoch == state.step && config.global_gpu_rank == 0)
@@ -1265,7 +1277,9 @@ cudaError_t GradientAllReduce(
 
   // Communicate all gradients if it's a flushing step
   bool to_flush = false;
-  if (config.flush_steps > 0) {
+  if (config.skip_epochs > 0 && state.epoch < config.skip_epochs)
+    to_flush = true;
+  else if (config.flush_steps > 0) {
     if ((state.step >= config.flush_steps) &&
         (state.step % config.flush_steps) == 0)
       to_flush = true;
@@ -1285,20 +1299,22 @@ cudaError_t GradientAllReduce(
     GUARD_CU2("cudaStreamWaitEvent",
       cudaStreamWaitEvent(stream2, token -> stream2_begin, 0));
     if (config.use_momentum_correction) {
-      for (auto& chunk : chunks) {
-        SizeT  chunk_start  = std::get<0>(chunk);
-        SizeT  chunk_size   = std::get<1>(chunk);
-        size_t chunk_offset = std::get<2>(chunk);
+      if (!(config.skip_epochs > 0) || (epoch_f > config.skip_epochs)) {
+        for (auto& chunk : chunks) {
+          SizeT  chunk_start  = std::get<0>(chunk);
+          SizeT  chunk_size   = std::get<1>(chunk);
+          size_t chunk_offset = std::get<2>(chunk);
 
-        T* pervious_verlocity
-          = (T*)(state_pervious_verlocity + chunk_offset);
-        T* pervious_accumulated_verlocity
-          = (T*)(state_pervious_accumulated_verlocity + chunk_offset);
+          T* pervious_verlocity
+            = (T*)(state_pervious_verlocity + chunk_offset);
+          T* pervious_accumulated_verlocity
+            = (T*)(state_pervious_accumulated_verlocity + chunk_offset);
 
-        GUARD_CU(Memset(pervious_verlocity,
-          0, chunk_size, Malloc_t::Default, stream2));
-        GUARD_CU(Memset(pervious_accumulated_verlocity,
-          0, chunk_size, Malloc_t::Default, stream2));
+          GUARD_CU(Memset(pervious_verlocity,
+            0, chunk_size, Malloc_t::Default, stream2));
+          GUARD_CU(Memset(pervious_accumulated_verlocity,
+            0, chunk_size, Malloc_t::Default, stream2));
+        }
       }
     }
 
@@ -1542,14 +1558,24 @@ cudaError_t GradientAllReduce(
       }
       mask_token -> num_masks = num_masks;
       mask_token -> num_layers = layers.size();
-      if (state.step + 1 == config.overlap_skip_steps)
+      if ((!(config.skip_epochs > 0) &&
+           state.step + 1 == config.overlap_skip_steps) ||
+          (config.skip_epochs > 0) &&
+           state.step + 1 == int(config.skip_epochs * steps_per_epoch)
+             + config.overlap_skip_steps)
         mask_token -> num_layers_produced = layers.size() * 2;
       else
         mask_token -> num_layers_produced = layers.size();
       mask_token -> num_layers_comsumed = 0;
       state.d2h_mask_queue.push_back(mask_token);
 
-      if (state.step < config.overlap_skip_steps)
+      bool to_skip = false;
+      if (!(config.skip_epochs > 0) && state.step < config.overlap_skip_steps)
+        to_skip = true;
+      if (config.skip_epochs > 0 && state.step < config.overlap_skip_steps
+        + int(config.skip_epochs * steps_per_epoch))
+        to_skip = true;
+      if (to_skip)
       {
         // Force sync mask communication for the first few steps
         GUARD_CU(TryPushMask(0, config, state));
@@ -1557,7 +1583,7 @@ cudaError_t GradientAllReduce(
 
       // wait for the mask from pervious step
       bool all_layers_ready = false;
-      int pervious_step_index = (state.step < config.overlap_skip_steps) ?
+      int pervious_step_index = (to_skip) ?
         (state.step % 2) : ((state.step + 1) % 2);
       auto &pervious_layer_records = state.layer_records[pervious_step_index];
 

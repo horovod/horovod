@@ -131,6 +131,9 @@ struct DgcConfig {
   // Whether to smooth out sparsity changes
   bool smooth_sparsity = false;
 
+  // Number of epochs to skip for DGC
+  float skip_epochs = 0;
+
   // Horovod operation context
   std::shared_ptr<horovod::common::OpContext> context;
 
