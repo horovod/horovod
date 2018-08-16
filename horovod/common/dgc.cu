@@ -255,6 +255,173 @@ cudaError_t GarenteeAllocation(
   return retval;
 }
 
+template <typename T>
+std::string ToString(const T& val)
+{
+  return std::to_string(val);
+}
+
+template <>
+std::string ToString(const common::Framework& val)
+{
+  std::string str = "Unknown";
+  if (val == common::Framework::TENSORFLOW)
+    str = "TensorFlow";
+  else if (val == common::Framework::PYTORCH)
+    str = "PyTorch";
+  return str;
+}
+
+template <typename T>
+cudaError_t FreePersistent(
+  std::string  name,
+  T*          &ptr,
+  DgcConfig   &config,
+  DgcState    &state)
+{
+  cudaError_t retval = cudaSuccess;
+  printf("Freeing %s @ %p\n", name.c_str(), ptr);
+
+  //auto tuple = std::make_tuple(
+  //  config.device, config.context -> framework(), name);
+  std::string key = std::to_string(config.device) + "::"
+    + ToString(config.context -> framework()) + "::" + name;
+  if (state.memory_table[key].second == 0)
+    return retval;
+  //state.memory_table[key].first
+  //  = std::make_shared<common::PersistentBuffer>(config.context, 0);
+  auto buffer = state.memory_table[key].first;
+  ptr = (T*)(buffer -> AccessData(config.context));
+  auto status = config.context -> AllocatePersistent(0, &buffer);
+  if (!status.ok()) {
+    GUARD_CU2("Allocating 0 byte", cudaErrorUnknown);
+  }
+  state.memory_table[key].first = buffer;
+  state.memory_table[key].second = 0;
+
+  printf("Freed %s @ %p\n", name.c_str(), ptr);
+  ptr = NULL;
+  return retval;
+}
+
+template <typename T>
+cudaError_t AccessPersistent(
+  std::string  name,
+  T*          &ptr,
+  DgcConfig   &config,
+  DgcState    &state)
+{
+  cudaError_t retval = cudaSuccess;
+  //auto tuple = std::make_tuple(
+  //  config.device, config.context -> framework(), name);
+  std::string key = std::to_string(config.device) + "::"
+    + ToString(config.context -> framework()) + "::" + name;
+  auto& buffer = state.memory_table[key].first;
+
+  ptr = (T*)(buffer -> AccessData(config.context));
+  printf("Accessing %s @ %p\n", name.c_str(), ptr);
+  return retval;
+}
+
+template <typename T, typename SizeT>
+cudaError_t MallocPersistent(
+  std::string  name,
+  T*          &ptr,
+  SizeT        num_elements,
+  DgcConfig   &config,
+  DgcState    &state)
+{
+  cudaError_t retval = cudaSuccess;
+  std::string str = std::to_string(sizeof(T)) + " * "
+    + std::to_string(num_elements) + " bytes for " + name;
+  printf("Allocating %s\n", str.c_str());
+
+  //auto tuple = std::make_tuple(
+  //  config.device, config.context -> framework(), name);
+  std::string key = std::to_string(config.device) + "::"
+    + ToString(config.context -> framework()) + "::" + name;
+  auto buffer = state.memory_table[key].first;
+  size_t allocated = state.memory_table[key].second;
+  size_t request_bytes = sizeof(T) * num_elements;
+
+  if (allocated != 0) {
+    ptr = (T*)(buffer -> AccessData(config.context));
+    printf("Warnning: %s has been allocated %ld bytes on GPU %d, ptr = %p. "
+      "Reallocating %d * %ld = %ld bytes.",
+      name.c_str(), (long)allocated, config.device, ptr,
+      sizeof(T), (long)num_elements, (long)request_bytes);
+
+    GUARD_CU(FreePersistent(name, ptr, config, state));
+  }
+
+  auto status = config.context -> AllocatePersistent(request_bytes, &buffer);
+  if (!status.ok()) {
+    GUARD_CU2("Allocating " + str, cudaErrorUnknown);
+  }
+
+  state.memory_table[key] = std::make_pair(buffer, request_bytes);
+  ptr = (T*)(buffer -> AccessData(config.context));
+
+  printf("Allocated %s, ptr = %p\n", str.c_str(), ptr);
+  return retval;
+}
+
+template <typename T, typename SizeT>
+cudaError_t GarenteeAllocationPersistent(
+  std::string   name,
+  T*           &ptr,
+  SizeT         request_num_elements,
+  DgcConfig    &config,
+  DgcState     &state,
+  cudaStream_t  stream = 0,
+  bool          keep_content = false,
+  bool          init_to_zero = false)
+{
+  cudaError_t retval = cudaSuccess;
+
+  //auto tuple = std::make_tuple(
+  //  config.device, config.context -> framework(), name);
+  std::string key = std::to_string(config.device) + "::"
+    + ToString(config.context -> framework()) + "::" + name;
+  size_t allocated = state.memory_table[key].second;
+  size_t request_bytes = sizeof(T) * request_num_elements;
+  if (allocated >= request_bytes) {
+    ptr = (T*)(state.memory_table[key].first -> AccessData(config.context));
+    return retval;
+  }
+
+  if (!keep_content || allocated == 0) {
+    GUARD_CU(FreePersistent  (name, ptr, config, state));
+    GUARD_CU(MallocPersistent(name, ptr, request_num_elements, config, state));
+    if (init_to_zero) {
+      GUARD_CU(Memset(ptr, 0, request_num_elements, Malloc_t::Default, stream));
+    }
+  }
+
+  else {
+    auto old_buffer = state.memory_table[key].first;
+    T* old_ptr = (T*)(old_buffer -> AccessData(config.context));
+    SizeT allocated_num_elements = allocated / sizeof(T);
+    GUARD_CU(FreePersistent  (name, ptr, config, state));
+    GUARD_CU(MallocPersistent(name, ptr, request_num_elements, config, state));
+
+    GUARD_CU(Memcpy(ptr, old_ptr, allocated_num_elements,
+      Malloc_t::Default, stream));
+    if (init_to_zero) {
+      GUARD_CU(Memset(ptr + allocated_num_elements, 0,
+        request_num_elements - allocated_num_elements,
+        Malloc_t::Default, stream));
+    }
+    old_ptr = NULL;
+    //old_buffer = std::make_shared<common::PersistentBuffer>(config.context, 0);
+    auto status = config.context -> AllocatePersistent(0, &old_buffer);
+    if (!status.ok()) {
+      GUARD_CU2("Allocating 0 byte", cudaErrorUnknown);
+    }
+  }
+  return retval;
+}
+
 // ****************************
 // DGC Functions
 // ****************************
@@ -264,7 +431,7 @@ void str2bool(std::string str, bool &val)
   if (str == "True")
     val = true;
   if (str == "False")
-    val = false; 
+    val = false;
 }
 
 // Setting config parameters
@@ -307,7 +474,7 @@ void DgcConfig::Set(std::string key, std::string value)
 
   else if (key == "dgc_use_hierarchical_allreduce")
     str2bool(value, use_hierarchical_allreduce);
- 
+
   else if (key == "dgc_overlap_mask_allreduce")
     str2bool(value, overlap_mask_allreduce);
 
@@ -947,9 +1114,9 @@ cudaError_t GradientAllReduce(
         log(final_comm_rate / init_comm_rate)
         / config.warmup_epochs * epoch);
     }
-    
+
     //if (epoch * steps_per_epoch == state.step && config.global_gpu_rank == 0)
-    if (config.global_gpu_rank == 0)  
+    if (config.global_gpu_rank == 0)
       printf("Epoch %ld, Step %ld, sparsity = %lf\n",
         epoch, state.step, sparsity);
   }
@@ -992,13 +1159,30 @@ cudaError_t GradientAllReduce(
     }
   }
 
+  // Test persistent memory
+  //char* state_pervious_verlocity = NULL;
+  //for (int i = 0; i < 1000; i++)
+  //{
+  //  char *temp_ptr = NULL;
+  //  size_t size = 1024 * 1024;
+  //  size *= 64;
+  //  GUARD_CU(MallocPersistent("temp" + std::to_string(i), temp_ptr,
+  //    size, config, state));
+
+  //  GUARD_CU(FreePersistent("temp" + std::to_string(i), temp_ptr,
+  //    config, state));
+  //}
   // allocate new layers
   if (num_gradients_to_allocate > 0) {
     if (config.use_momentum_correction) {
-      GUARD_CU(GarenteeAllocation(state.pervious_verlocity,
-        state.pervious_verlocity_allocated,
+      //GUARD_CU(GarenteeAllocation(state.pervious_verlocity,
+      //  state.pervious_verlocity_allocated,
+      //  state.offset_byte_counter + sizeof(T) * num_gradients_to_allocate,
+      //  Malloc_t::Default, cudaMemAttachGlobal, stream, true, true));
+      GUARD_CU(GarenteeAllocationPersistent("pervious_verlocity",
+        state_pervious_verlocity,
         state.offset_byte_counter + sizeof(T) * num_gradients_to_allocate,
-        Malloc_t::Default, cudaMemAttachGlobal, stream, true, true));
+        config, state, stream, true, true));
       GUARD_CU(GarenteeAllocation(state.pervious_accumulated_verlocity,
         state.pervious_accumulated_verlocity_allocated,
         state.offset_byte_counter + sizeof(T) * num_gradients_to_allocate,
@@ -1014,6 +1198,8 @@ cudaError_t GradientAllReduce(
       state.offset_byte_counter += layer.second * sizeof(T);
     }
   }
+  GUARD_CU(AccessPersistent("pervious_verlocity", state_pervious_verlocity,
+    config, state));
   GUARD_CU(GarenteeAllocation(token -> h_layer_starts,
     token -> h_layer_starts_allocated, num_layers + 1, Malloc_t::Host));
 
@@ -1075,7 +1261,7 @@ cudaError_t GradientAllReduce(
       size_t chunk_offset = std::get<2>(chunk);
 
       T* pervious_verlocity
-        = (T*)(state.pervious_verlocity + chunk_offset);
+        = (T*)(state_pervious_verlocity + chunk_offset);
       T* pervious_accumulated_verlocity
         = (T*)(state.pervious_accumulated_verlocity + chunk_offset);
       auto &momentum = config.momentum;
@@ -1153,7 +1339,7 @@ cudaError_t GradientAllReduce(
         size_t chunk_offset = std::get<2>(chunk);
 
         T* pervious_verlocity
-          = (T*)(state.pervious_verlocity + chunk_offset);
+          = (T*)(state_pervious_verlocity + chunk_offset);
         T* pervious_accumulated_verlocity
           = (T*)(state.pervious_accumulated_verlocity + chunk_offset);
 
@@ -1750,7 +1936,7 @@ cudaError_t GradientAllReduce(
         size_t chunk_offset = std::get<2>(chunk);
 
         T* pervious_verlocity
-          = (T*)(state.pervious_verlocity + chunk_offset);
+          = (T*)(state_pervious_verlocity + chunk_offset);
         T* pervious_accumulated_verlocity
           = (T*)(state.pervious_accumulated_verlocity + chunk_offset);
 
@@ -1893,7 +2079,7 @@ cudaError_t GradientAllReduce(
         size_t chunk_offset = std::get<2>(chunk);
 
         T* pervious_verlocity
-          = (T*)(state.pervious_verlocity + chunk_offset);
+          = (T*)(state_pervious_verlocity + chunk_offset);
         T* pervious_accumulated_verlocity
           = (T*)(state.pervious_accumulated_verlocity + chunk_offset);
 

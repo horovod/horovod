@@ -5,11 +5,13 @@
 #pragma once
 
 #include <map>
+#include <unordered_map>
 #include <list>
 #include <math.h>
 #include <mpi.h>
 #include <nccl.h>
 #include <curand_kernel.h>
+#include "common.h"
 #include "types.h"
 
 namespace horovod {
@@ -129,6 +131,12 @@ struct DgcConfig {
   // Whether to smooth out sparsity changes
   bool smooth_sparsity = false;
 
+  // Horovod operation context
+  std::shared_ptr<horovod::common::OpContext> context;
+
+  // GPU index, or CPU_DEVICE_ID in case of CPU
+  int device = CPU_DEVICE_ID;
+
   // function to set indivual configuration
   void Set(std::string key, std::string value);
 
@@ -200,8 +208,8 @@ struct DgcState {
   uint64_t  verlocity_allocated = 0;
 
   // Past verlocity
-  char     *pervious_verlocity = NULL;
-  uint64_t  pervious_verlocity_allocated = 0;
+  //char     *pervious_verlocity = NULL;
+  //uint64_t  pervious_verlocity_allocated = 0;
 
   // Accumulated verlociy
   char     *accumulated_verlocity = NULL;
@@ -301,6 +309,14 @@ struct DgcState {
 
   // Layer records
   std::map<std::string, LayerRecord> layer_records[2];
+
+  // Memory buffer for DGC usage, keyed by "device ID::framework::name"
+  std::unordered_map<std::string, //std::tuple<int, common::Framework, std::string>,
+    std::pair<std::shared_ptr<common::PersistentBuffer>, size_t> >
+    //std::shared_ptr<common::PersistentBuffer> >
+    memory_table;
+
+  //std::unordered_map<std::string, uint64_t> size_table;
 };
 
 // Entry warper function

@@ -35,16 +35,16 @@
 #include <ddl.hpp>
 #endif
 
-#if HOROVOD_GPU_ALLREDUCE == 'N'
-#include "dgc.h"
-#endif
-
 #define OMPI_SKIP_MPICXX
 #include "hashes.h"
 #include "mpi.h"
 #include "mpi_message.h"
 #include "operations.h"
 #include "timeline.h"
+
+#if HOROVOD_GPU_ALLREDUCE == 'N'
+#include "dgc.h"
+#endif
 
 /*
  * Allreduce, Allgather and Broadcast Ops.
@@ -1078,7 +1078,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           config.configured = true;
           state.layer_offset_bytes.clear();
           state.step_counters.clear();
+          state.memory_table.clear();
         }
+        config.context = entries[0].context;
+        config.device  = entries[0].device;
 
         // Get names and sizes of each layer, in order
         std::vector<std::pair<std::string, uint64_t> > layers;
