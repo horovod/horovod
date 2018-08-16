@@ -296,12 +296,12 @@ void select_kernel3(
   const SizeT num_elements = layer_starts[num_layers];
   SizeT block_input_start = (SizeT)blockDim.x * blockIdx.x;
   __shared__ SizeT s_block_output_count, s_block_output_start;
-  T t_max_gradient = 0;
-  __shared__ T s_max_gradient;
+  //T t_max_gradient = 0;
+  //__shared__ T s_max_gradient;
 
   if (threadIdx.x == 0) {
     s_block_output_count = 0;
-    s_max_gradient = 0;
+    //s_max_gradient = 0;
     //if (blockIdx.x == 0)
     //  printf("threadhold = %f, #elements = %lld\n",
     //    threshold, (long long)num_elements);

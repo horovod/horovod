@@ -214,6 +214,9 @@ struct DgcState {
   //char     *pervious_accumulated_gradients = NULL;
   //uint64_t  pervious_accumulated_gradients_allocated = 0;
 
+  // Pervious step when the communication happens
+  //uint32_t *pervious_comm_steps = NULL;
+
   // Verlocity
   //char     *verlocity          = NULL;
   //uint64_t  verlocity_allocated = 0;

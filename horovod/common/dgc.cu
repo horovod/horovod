@@ -1137,6 +1137,7 @@ cudaError_t GradientAllReduce(
   char* state_pervious_verlocity = NULL;
   char* state_pervious_accumulated_verlocity = NULL;
   char* state_pervious_accumulated_gradients = NULL;
+  char* state_pervious_comm_steps = NULL;
   if (num_gradients_to_allocate > 0) {
     if (config.use_momentum_correction) {
       GUARD_CU(GarenteeAllocationPersistent("pervious_verlocity",
@@ -1152,6 +1153,11 @@ cudaError_t GradientAllReduce(
         state_pervious_accumulated_gradients,
         state.offset_byte_counter + sizeof(T) * num_gradients_to_allocate,
         config, state, stream, true, true));
+      GUARD_CU(GarenteeAllocationPersistent("pervious_comm_steps",
+        state_pervious_comm_steps,
+        state.offset_byte_counter / sizeof(T) * sizeof(uint32_t)
+          + sizeof(uint32_t) * num_gradients_to_allocate,
+        config, state, stream, true, true));
     }
     for (auto& layer : layers_to_allocate) {
       state.layer_offset_bytes[layer.first] = state.offset_byte_counter;
@@ -1164,6 +1170,8 @@ cudaError_t GradientAllReduce(
     state_pervious_accumulated_verlocity, config, state));
   GUARD_CU(AccessPersistent("pervious_accumulated_gradients",
     state_pervious_accumulated_gradients, config, state));
+  GUARD_CU(AccessPersistent("pervious_comm_steps",
+    state_pervious_comm_steps, config, state));
   GUARD_CU(GarenteeAllocation(token -> h_layer_starts,
     token -> h_layer_starts_allocated, num_layers + 1, Malloc_t::Host));
 
@@ -1329,6 +1337,15 @@ cudaError_t GradientAllReduce(
           = (T*)(state_pervious_accumulated_gradients + chunk_offset);
         GUARD_CU(Memset(pervious_accumulated_gradients,
           0, chunk_size, Malloc_t::Default, stream2));
+
+        uint32_t* pervious_comm_steps
+          = (uint32_t*)(state_pervious_comm_steps
+            + (chunk_offset / sizeof(T) * sizeof(uint32_t)));
+        auto step = state.step;
+        loop_kernel<<<grid_size, block_size, 0, stream2>>>(chunk_size,
+          [step, pervious_comm_steps] __device__ (const SizeT &i) {
+            pervious_comm_steps[i] = step;
+          });
       }
     }
     GUARD_CU2("cudaEventRecord",
@@ -1945,12 +1962,18 @@ cudaError_t GradientAllReduce(
         SizeT  chunk_start  = std::get<0>(chunk);
         SizeT  chunk_size   = std::get<1>(chunk);
         size_t chunk_offset = std::get<2>(chunk);
+        auto   step = state.step;
 
         T* pervious_accumulated_gradients
           = (T*)(state_pervious_accumulated_gradients + chunk_offset);
-        loop_kernel <<<grid_size, block_size, 0, stream2>>>(chunk_size,
+        uint32_t* pervious_comm_steps
+          = (uint32_t*)(state_pervious_comm_steps
+            + (chunk_offset / sizeof(T) * sizeof(uint32_t)));
+
+        loop_kernel <<<grid_size, block_size, 0, stream>>>(chunk_size,
           [recv_masks, chunk_start, chunk_size,
-          accumulated_gradients, pervious_accumulated_gradients]
+          accumulated_gradients, pervious_accumulated_gradients,
+          step, pervious_comm_steps, output_gradients]
           __device__ (const SizeT &i) {
             auto gradient_pos = i + chunk_start;
             auto mask_pos = gradient_pos >> LOG_MASK_BITS;
@@ -1959,6 +1982,10 @@ cudaError_t GradientAllReduce(
 
             if ((mask & (((MaskT)1) << mask_offset)) != 0) {
               pervious_accumulated_gradients[i] = 0;
+              auto step_gap = step - pervious_comm_steps[i];
+              if (step_gap != 0)
+                output_gradients[i] /= step_gap;
+              pervious_comm_steps[i] = step;
             } else {
               pervious_accumulated_gradients[i]
                 = accumulated_gradients[gradient_pos];
