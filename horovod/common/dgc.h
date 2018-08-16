@@ -273,7 +273,7 @@ struct DgcState {
   uint64_t step = 0;
 
   // Epoch number
-  double epoch = 0;
+  // double epoch = 0;
 
   // Counter for adding new tensor to the end of memory space
   size_t offset_byte_counter = 0;

@@ -1277,7 +1277,7 @@ cudaError_t GradientAllReduce(
 
   // Communicate all gradients if it's a flushing step
   bool to_flush = false;
-  if (config.skip_epochs > 0 && state.epoch < config.skip_epochs)
+  if (config.skip_epochs > 0 && epoch_f < config.skip_epochs)
     to_flush = true;
   else if (config.flush_steps > 0) {
     if ((state.step >= config.flush_steps) &&
@@ -1299,7 +1299,8 @@ cudaError_t GradientAllReduce(
     GUARD_CU2("cudaStreamWaitEvent",
       cudaStreamWaitEvent(stream2, token -> stream2_begin, 0));
     if (config.use_momentum_correction) {
-      if (!(config.skip_epochs > 0) || (epoch_f > config.skip_epochs)) {
+      //if (!(config.skip_epochs > 0) || (epoch_f > config.skip_epochs)) {
+      {
         for (auto& chunk : chunks) {
           SizeT  chunk_start  = std::get<0>(chunk);
           SizeT  chunk_size   = std::get<1>(chunk);
