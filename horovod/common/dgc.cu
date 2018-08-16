@@ -323,7 +323,7 @@ cudaError_t AccessPersistent(
   } else {
     ptr = NULL;
   }
-  printf("Accessing %s @ %p\n", name.c_str(), ptr);
+  //printf("Accessing %s @ %p\n", name.c_str(), ptr);
   return retval;
 }
 

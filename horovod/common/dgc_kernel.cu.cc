@@ -169,8 +169,8 @@ void select_kernel(
           thread_output = atomicAdd(&s_block_output_count, (SizeT)1);
         }
 
-        if (t_max_gradient < abs_element)
-          t_max_gradient = abs_element;
+        //if (t_max_gradient < abs_element)
+        //  t_max_gradient = abs_element;
       }
     }
     __syncthreads();
@@ -192,12 +192,12 @@ void select_kernel(
     block_input_start += STRIDE;
   }
 
-  atomicMax(&s_max_gradient, t_max_gradient);
-  __syncthreads();
+  //atomicMax(&s_max_gradient, t_max_gradient);
+  //__syncthreads();
 
-  if (threadIdx.x == 0) {
-    atomicMax(max_gradient, s_max_gradient);
-  }
+  //if (threadIdx.x == 0) {
+  //  atomicMax(max_gradient, s_max_gradient);
+  //}
 }
 
 // Another way to select and compact
@@ -326,8 +326,8 @@ void select_kernel3(
           thread_output = atomicAdd(&s_block_output_count, (SizeT)1);
         }
 
-        if (t_max_gradient < abs_element)
-          t_max_gradient = abs_element;
+        //if (t_max_gradient < abs_element)
+        //  t_max_gradient = abs_element;
       }
     }
     __syncthreads();
@@ -349,14 +349,14 @@ void select_kernel3(
     block_input_start += STRIDE;
   }
 
-  atomicMax(&s_max_gradient, t_max_gradient);
-  __syncthreads();
+  //atomicMax(&s_max_gradient, t_max_gradient);
+  //__syncthreads();
 
-  if (threadIdx.x == 0) {
-    atomicMax(max_gradient, s_max_gradient);
+  //if (threadIdx.x == 0) {
+  //  atomicMax(max_gradient, s_max_gradient);
     //printf("(%d, %d) s_max_gradient = %f\n",
     //  blockIdx.x, threadIdx.x, s_max_gradient);
-  }
+  //}
 }
 
 // Pad unfill elements with invalid flags
