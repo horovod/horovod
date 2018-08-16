@@ -197,6 +197,9 @@ struct LayerRecord {
 
 // Running state, including memory allocation of DGC
 struct DgcState {
+  //The commented out definations are GPU memory spaces used by DGC,
+  //  they are storing in the memory table now, to use TF's persistent buffer.
+  //  This list can serve as a reference to the spaces and their purposes
 
   // States for curand, one for each GPU thread
   // curandState *rand_states     = NULL;
@@ -316,12 +319,9 @@ struct DgcState {
   std::map<std::string, LayerRecord> layer_records[2];
 
   // Memory buffer for DGC usage, keyed by "device ID::framework::name"
-  std::unordered_map<std::string, //std::tuple<int, common::Framework, std::string>,
+  std::unordered_map<std::string,
     std::pair<std::shared_ptr<common::PersistentBuffer>, size_t> >
-    //std::shared_ptr<common::PersistentBuffer> >
     memory_table;
-
-  //std::unordered_map<std::string, uint64_t> size_table;
 };
 
 // Entry warper function

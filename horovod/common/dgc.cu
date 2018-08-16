@@ -280,26 +280,22 @@ cudaError_t FreePersistent(
   DgcState    &state)
 {
   cudaError_t retval = cudaSuccess;
-  printf("Freeing %s @ %p\n", name.c_str(), ptr);
+  //printf("Freeing %s @ %p\n", name.c_str(), ptr);
 
-  //auto tuple = std::make_tuple(
-  //  config.device, config.context -> framework(), name);
   std::string key = std::to_string(config.device) + "::"
     + ToString(config.context -> framework()) + "::" + name;
   if (state.memory_table[key].second == 0)
     return retval;
-  //state.memory_table[key].first
-  //  = std::make_shared<common::PersistentBuffer>(config.context, 0);
   auto buffer = state.memory_table[key].first;
   ptr = (T*)(buffer -> AccessData(config.context));
   auto status = config.context -> AllocatePersistent(0, &buffer);
   if (!status.ok()) {
-    GUARD_CU2("Allocating 0 byte", cudaErrorUnknown);
+    GUARD_CU2("Allocating 0 byte for " + name, cudaErrorUnknown);
   }
   state.memory_table[key].first = buffer;
   state.memory_table[key].second = 0;
 
-  printf("Freed %s @ %p\n", name.c_str(), ptr);
+  //printf("Freed %s @ %p\n", name.c_str(), ptr);
   ptr = NULL;
   return retval;
 }
@@ -312,8 +308,6 @@ cudaError_t AccessPersistent(
   DgcState    &state)
 {
   cudaError_t retval = cudaSuccess;
-  //auto tuple = std::make_tuple(
-  //  config.device, config.context -> framework(), name);
   std::string key = std::to_string(config.device) + "::"
     + ToString(config.context -> framework()) + "::" + name;
 
@@ -338,10 +332,8 @@ cudaError_t MallocPersistent(
   cudaError_t retval = cudaSuccess;
   std::string str = std::to_string(sizeof(T)) + " * "
     + std::to_string(num_elements) + " bytes for " + name;
-  printf("Allocating %s\n", str.c_str());
+  //printf("Allocating %s\n", str.c_str());
 
-  //auto tuple = std::make_tuple(
-  //  config.device, config.context -> framework(), name);
   std::string key = std::to_string(config.device) + "::"
     + ToString(config.context -> framework()) + "::" + name;
   auto buffer = state.memory_table[key].first;
@@ -350,10 +342,10 @@ cudaError_t MallocPersistent(
 
   if (allocated != 0) {
     ptr = (T*)(buffer -> AccessData(config.context));
-    printf("Warnning: %s has been allocated %ld bytes on GPU %d, ptr = %p. "
-      "Reallocating %d * %ld = %ld bytes.",
-      name.c_str(), (long)allocated, config.device, ptr,
-      sizeof(T), (long)num_elements, (long)request_bytes);
+    //printf("Warnning: %s has been allocated %ld bytes on GPU %d, ptr = %p. "
+    //  "Reallocating %d * %ld = %ld bytes.",
+    //  name.c_str(), (long)allocated, config.device, ptr,
+    //  sizeof(T), (long)num_elements, (long)request_bytes);
 
     GUARD_CU(FreePersistent(name, ptr, config, state));
   }
@@ -366,7 +358,7 @@ cudaError_t MallocPersistent(
   state.memory_table[key] = std::make_pair(buffer, request_bytes);
   ptr = (T*)(buffer -> AccessData(config.context));
 
-  printf("Allocated %s, ptr = %p\n", str.c_str(), ptr);
+  //printf("Allocated %s, ptr = %p\n", str.c_str(), ptr);
   return retval;
 }
 
@@ -383,8 +375,6 @@ cudaError_t GarenteeAllocationPersistent(
 {
   cudaError_t retval = cudaSuccess;
 
-  //auto tuple = std::make_tuple(
-  //  config.device, config.context -> framework(), name);
   std::string key = std::to_string(config.device) + "::"
     + ToString(config.context -> framework()) + "::" + name;
   size_t allocated = state.memory_table[key].second;
@@ -417,10 +407,9 @@ cudaError_t GarenteeAllocationPersistent(
         Malloc_t::Default, stream));
     }
     old_ptr = NULL;
-    //old_buffer = std::make_shared<common::PersistentBuffer>(config.context, 0);
     auto status = config.context -> AllocatePersistent(0, &old_buffer);
     if (!status.ok()) {
-      GUARD_CU2("Allocating 0 byte", cudaErrorUnknown);
+      GUARD_CU2("Allocating 0 byte for " + name, cudaErrorUnknown);
     }
   }
   return retval;
@@ -441,7 +430,7 @@ void str2bool(std::string str, bool &val)
 // Setting config parameters
 void DgcConfig::Set(std::string key, std::string value)
 {
-  printf("Setting %s to %s\n", key.c_str(), value.c_str());
+  //printf("Setting %s to %s\n", key.c_str(), value.c_str());
 
   if (key == "dgc_sparsity_warmup_epochs")
     warmup_epochs = std::stoi(value);
@@ -580,9 +569,6 @@ cudaError_t Sort(
   std::string  temp_storage_name = "temp_storage",
   cudaStream_t stream = 0,
   Malloc_t     malloc_type = Malloc_t::Default)
-  //char       **temp_storage = NULL,
-  //size_t      *temp_storage_bytes = NULL,
-  //unsigned int flags = cudaMemAttachGlobal)
 {
   cudaError_t retval = cudaSuccess;
 
@@ -598,15 +584,6 @@ cudaError_t Sort(
   //  elements, elements + num_elements, compare);
 
   // Cub sorting
-  //bool temp_storage_allocated = false;
-  //if (temp_storage == NULL && temp_storage_bytes == NULL) {
-  //  temp_storage = new char*;
-  //  temp_storage[0] = NULL;
-  //  temp_storage_bytes = new size_t;
-  //  temp_storage_bytes[0] = 0;
-  //  temp_storage_allocated = true;
-  //}
-
   size_t required_bytes = 0;
   GUARD_CU(cub::DeviceRadixSort::SortKeys(
     (char*)NULL, required_bytes,
@@ -614,8 +591,6 @@ cudaError_t Sort(
     num_elements, 0, sizeof(T) * 8, stream));
 
   char* temp_storage = NULL;
-  //GUARD_CU(GarenteeAllocation(temp_storage[0],
-  //  temp_storage_bytes[0], required_bytes, malloc_type, flags));
   GUARD_CU(GarenteeAllocationPersistent(temp_storage_name,
     temp_storage, required_bytes, config, state));
 
@@ -623,15 +598,6 @@ cudaError_t Sort(
     temp_storage, required_bytes,
     elements, elements,
     num_elements, 0, sizeof(T) * 8, stream));
-
-  //if (temp_storage_allocated) {
-  //  GUARD_CU(Free(temp_storage[0], malloc_type));
-  //  free(temp_storage);
-  //  free(temp_storage_bytes);
-  //  temp_storage = NULL;
-  //  temp_storage_bytes = NULL;
-  //  temp_storage_allocated = false;
-  //}
 
   return retval;
 }
@@ -646,13 +612,9 @@ cudaError_t Sort(
   std::string temp_storage_name = "temp_storage",
   cudaStream_t stream = 0,
   Malloc_t malloc_type = Malloc_t::Default)
-  //char       **temp_storage = NULL,
-  //size_t      *temp_storage_bytes = NULL,
-  //unsigned int flags = cudaMemAttachGlobal)
 {
   return Sort(elements, num_elements,
     [] __host__ __device__ (T a, T b){return a < b;},
-    //stream, malloc_type, temp_storage, temp_storage_bytes, flags);
     config, state, temp_storage_name, stream, malloc_type);
 }
 
@@ -667,34 +629,27 @@ cudaError_t Sort(
   std::string  temp_storage_name = "temp_storage",
   cudaStream_t stream = 0,
   Malloc_t     malloc_type = Malloc_t::Default)
-  //char       **temp_storage = NULL,
-  //size_t      *temp_storage_bytes = NULL,
-  //unsigned int flags = cudaMemAttachGlobal)
 {
   cudaError_t retval = cudaSuccess;
 
   switch (nccl_type) {
   case ncclFloat32:
-    retval = Sort<float> ((float*)elements, num_elements,      
-      //stream, malloc_type, temp_storage, temp_storage_bytes, flags);
+    retval = Sort<float> ((float*)elements, num_elements,
       config, state, temp_storage_name, stream, malloc_type);
     break;
 
   case ncclFloat64:
     retval = Sort<double> ((double*)elements, num_elements,
-      //stream, malloc_type, temp_storage, temp_storage_bytes, flags);
       config, state, temp_storage_name, stream, malloc_type);
     break;
 
   case ncclInt32:
     retval = Sort<int32_t> ((int32_t*)elements, num_elements,
-      //stream, malloc_type, temp_storage, temp_storage_bytes, flags);
       config, state, temp_storage_name, stream, malloc_type);
     break;
 
   case ncclInt64:
     retval = Sort<int64_t> ((int64_t*)elements, num_elements,
-      //stream, malloc_type, temp_storage, temp_storage_bytes, flags);
       config, state, temp_storage_name, stream, malloc_type);
     break;
 
@@ -717,9 +672,6 @@ cudaError_t SegSort(
   std::string  temp_storage_name = "temp_storage",
   cudaStream_t stream = 0,
   Malloc_t     malloc_type = Malloc_t::Default)
-  //char       **temp_storage = NULL,
-  //size_t      *temp_storage_bytes = NULL,
-  //unsigned int flags = cudaMemAttachGlobal)
 {
   cudaError_t retval = cudaSuccess;
 
@@ -729,15 +681,6 @@ cudaError_t SegSort(
     return retval;
   }
 
-  //bool temp_storage_allocated = false;
-  //if (temp_storage == NULL && temp_storage_bytes == NULL) {
-  //  temp_storage = new char*;
-  //  temp_storage[0] = NULL;
-  //  temp_storage_bytes = new size_t;
-  //  temp_storage_bytes[0] = 0;
-  //  temp_storage_allocated = true;
-  //}
-
   // Cub segmented sort
   size_t required_bytes = 0;
   GUARD_CU(cub::DeviceSegmentedRadixSort::SortKeys(
@@ -746,26 +689,15 @@ cudaError_t SegSort(
     num_segments, seg_starts, seg_starts + 1,
     0, sizeof(T) * 8, stream));
 
-  //GUARD_CU(GarenteeAllocation(temp_storage[0],
-  //  temp_storage_bytes[0], required_bytes, malloc_type, flags));
   char* temp_storage = NULL;
   GUARD_CU(GarenteeAllocationPersistent(temp_storage_name,
     temp_storage, required_bytes, config, state));
 
   GUARD_CU(cub::DeviceSegmentedRadixSort::SortKeys(
-    temp_storage, required_bytes, //temp_storage_bytes[0],
+    temp_storage, required_bytes,
     elements, elements, num_elements,
     num_segments, seg_starts, seg_starts + 1,
     0, sizeof(T) * 8, stream));
-
-  //if (temp_storage_allocated) {
-  //  GUARD_CU(Free(temp_storage[0], malloc_type));
-  //  free(temp_storage);
-  //  free(temp_storage_bytes);
-  //  temp_storage = NULL;
-  //  temp_storage_bytes = NULL;
-  //  temp_storage_allocated = false;
-  //}
 
   return retval;
 }
@@ -782,13 +714,9 @@ cudaError_t SegSort(
   std::string temp_storage_name = "temp_storage",
   cudaStream_t stream = 0,
   Malloc_t malloc_type = Malloc_t::Default)
-  //char       **temp_storage = NULL,
-  //size_t      *temp_storage_bytes = NULL,
-  //unsigned int flags = cudaMemAttachGlobal)
 {
   return SegSort(elements, num_elements, seg_starts, num_segments,
     [] __host__ __device__ (T a, T b){ return a < b;},
-    //stream, malloc_type, temp_storage, temp_storage_bytes, flags);
     config, state, temp_storage_name, stream, malloc_type);
 }
 
@@ -810,14 +738,12 @@ cudaError_t ClipGradient(
 
   int num_layers = layers.size();
   char* temp_storage = NULL;
-  //GUARD_CU(GarenteeAllocation(state.temp_storage, state.temp_storage_bytes,
-  //  sizeof(T) * 2 * num_layers + sizeof(uint32_t) * (num_layers + 1)));
   GUARD_CU(GarenteeAllocationPersistent("temp_storage",
-    temp_storage, sizeof(T) * 2 * num_layers + sizeof(uint32_t) * (num_layers + 1),
-    config, state));
-
+    temp_storage, sizeof(T) * 2 * num_layers
+      + sizeof(uint32_t) * (num_layers + 1), config, state));
   GUARD_CU(GarenteeAllocation(token -> h_layer_starts,
     token -> h_layer_starts_allocated, num_layers + 1, Malloc_t::Host));
+
   uint32_t start_counter = 0;
   for (int i = 0; i < num_layers; i++) {
     token -> h_layer_starts[i] = start_counter;
@@ -1195,46 +1121,21 @@ cudaError_t GradientAllReduce(
     }
   }
 
-  // Test persistent memory
-  //for (int i = 0; i < 1000; i++)
-  //{
-  //  char *temp_ptr = NULL;
-  //  size_t size = 1024 * 1024;
-  //  size *= 64;
-  //  GUARD_CU(MallocPersistent("temp" + std::to_string(i), temp_ptr,
-  //    size, config, state));
-
-  //  GUARD_CU(FreePersistent("temp" + std::to_string(i), temp_ptr,
-  //    config, state));
-  //}
-
   // allocate new layers
   char* state_pervious_verlocity = NULL;
   char* state_pervious_accumulated_verlocity = NULL;
   char* state_pervious_accumulated_gradients = NULL;
   if (num_gradients_to_allocate > 0) {
     if (config.use_momentum_correction) {
-      //GUARD_CU(GarenteeAllocation(state.pervious_verlocity,
-      //  state.pervious_verlocity_allocated,
-      //  state.offset_byte_counter + sizeof(T) * num_gradients_to_allocate,
-      //  Malloc_t::Default, cudaMemAttachGlobal, stream, true, true));
       GUARD_CU(GarenteeAllocationPersistent("pervious_verlocity",
         state_pervious_verlocity,
         state.offset_byte_counter + sizeof(T) * num_gradients_to_allocate,
         config, state, stream, true, true));
-      //GUARD_CU(GarenteeAllocation(state.pervious_accumulated_verlocity,
-      //  state.pervious_accumulated_verlocity_allocated,
-      //  state.offset_byte_counter + sizeof(T) * num_gradients_to_allocate,
-      //  Malloc_t::Default, cudaMemAttachGlobal, stream, true, true));
       GUARD_CU(GarenteeAllocationPersistent("pervious_accumulated_verlocity",
         state_pervious_accumulated_verlocity,
         state.offset_byte_counter + sizeof(T) * num_gradients_to_allocate,
         config, state, stream, true, true));
     } else {
-      //GUARD_CU(GarenteeAllocation(state.pervious_accumulated_gradients,
-      //  state.pervious_accumulated_gradients_allocated,
-      //  state.offset_byte_counter + sizeof(T) * num_gradients_to_allocate,
-      //  Malloc_t::Default, cudaMemAttachGlobal, stream, true, true));
       GUARD_CU(GarenteeAllocationPersistent("pervious_accumulated_gradients",
         state_pervious_accumulated_gradients,
         state.offset_byte_counter + sizeof(T) * num_gradients_to_allocate,
@@ -1282,9 +1183,6 @@ cudaError_t GradientAllReduce(
     chunks.push_back(std::make_tuple(
       chunk_start, chunk_size, chunk_offset_bytes));
 
-  //auto &layer_starts = state.layer_starts;
-  //GUARD_CU(GarenteeAllocation(state.layer_starts,
-  //  state.layer_starts_allocated, num_layers + 1));
   uint32_t *layer_starts = NULL;
   GUARD_CU(GarenteeAllocationPersistent("layer_starts",
     layer_starts, num_layers + 1, config, state));
@@ -1297,17 +1195,11 @@ cudaError_t GradientAllReduce(
   T* accumulated_verlocity = NULL;
   T* accumulated_gradients = NULL;
   if (config.use_momentum_correction) {
-    //GUARD_CU(GarenteeAllocation(state.verlocity,
-    //  state.verlocity_allocated, num_gradients * sizeof(T)));
     GUARD_CU(GarenteeAllocationPersistent("verlocity",
       verlocity, num_gradients, config, state));
-    //GUARD_CU(GarenteeAllocation(state.accumulated_verlocity,
-    //  state.accumulated_verlocity_allocated, num_gradients * sizeof(T)));
     GUARD_CU(GarenteeAllocationPersistent("accumulated_verlocity",
       accumulated_verlocity, num_gradients, config, state));
   } else {
-    //GUARD_CU(GarenteeAllocation(state.accumulated_gradients,
-    //  state.accumulated_gradients_allocated, num_gradients * sizeof(T)));
     GUARD_CU(GarenteeAllocationPersistent("accumulated_gradients",
       accumulated_gradients, num_gradients, config, state));
   }
@@ -1442,9 +1334,6 @@ cudaError_t GradientAllReduce(
   }
 
   // Sampling
-  //auto &samp_starts = state.samp_starts;
-  //GUARD_CU(GarenteeAllocation(state.samp_starts, state.samp_starts_allocated,
-  //  num_layers + 1));
   uint32_t *samp_starts = NULL;
   GUARD_CU(GarenteeAllocationPersistent("samp_starts",
     samp_starts, num_layers + 1, config, state));
@@ -1486,12 +1375,10 @@ cudaError_t GradientAllReduce(
       (to_overlap_mask ? stream3 : stream)));
 
   // Prepare rand states
-  //auto &rand_states = state.rand_states;
   curandState *rand_states = NULL;
   GUARD_CU(AccessPersistent("rand_states", rand_states, config, state));
   auto &rand_seed   = config.rand_seed;
   if (rand_states == NULL) {
-    //GUARD_CU(Malloc(rand_states, grid_size * block_size));
     GUARD_CU(MallocPersistent("rand_states", rand_states,
       grid_size * block_size, config, state));
 
@@ -1503,9 +1390,6 @@ cudaError_t GradientAllReduce(
       });
   }
 
-  //GUARD_CU(GarenteeAllocation(state.samp_data, state.samp_allocated,
-  //  samp_counter * sizeof(T)));
-  //T* samp_data = (T*)(state.samp_data);
   T* samp_data = NULL;
   GUARD_CU(GarenteeAllocationPersistent("samp_data",
     samp_data, samp_counter, config, state));
@@ -1519,7 +1403,6 @@ cudaError_t GradientAllReduce(
   GUARD_CU(SegSort(samp_data, samp_counter, samp_starts, num_layers,
     config, state, "temp_storage",
     (to_overlap_mask ? stream3 : stream), Malloc_t::Default));
-    //&(state.temp_storage), &(state.temp_storage_bytes)));
 
   //loop_kernel<<<1, 1, 0, (to_overlap_mask ? stream3 : stream)>>>((SizeT)1,
   //  [threshold, samp_data, num_samples, sparsity] __device__ (const SizeT &i){
@@ -1537,10 +1420,8 @@ cudaError_t GradientAllReduce(
   //    //  num_samples > 1 ? samp_data[num_samples - 2] : -1,
   //    //  num_samples > 0 ? samp_data[num_samples - 1] : -1);
   //  });
-  //auto &thresholds = state.thresholds;
+
   auto &min_selected_samples_per_layer = config.min_gradients_comm_per_layer;
-  //GUARD_CU(
-  //  GarenteeAllocation(thresholds, state.thresholds_allocated, num_layers));
   T *thresholds = NULL;
   GUARD_CU(GarenteeAllocationPersistent("thresholds",
     thresholds, num_layers, config, state));
@@ -1570,14 +1451,10 @@ cudaError_t GradientAllReduce(
       num_masks ++;
 
     // Garentee sufficient memory allocation
-    //auto mask_allocated_ = state.mask_allocated;
     MaskT   * send_masks   = NULL;
     MaskT   * recv_masks   = NULL;
-    //GUARD_CU(GarenteeAllocation(state.send_masks  , mask_allocated_, num_masks));
-    //mask_allocated_ = state.mask_allocated;
     GUARD_CU(GarenteeAllocationPersistent("send_masks",
       send_masks, num_masks, config, state));
-    //GUARD_CU(GarenteeAllocation(state.recv_masks  , mask_allocated_, num_masks));
     GUARD_CU(GarenteeAllocationPersistent("recv_masks",
       recv_masks, num_masks, config, state));
 
@@ -1588,20 +1465,14 @@ cudaError_t GradientAllReduce(
       mask_allocated_ = state.mask_allocated;
       GUARD_CU(GarenteeAllocation(state.h_recv_masks, mask_allocated_,
         num_masks, Malloc_t::Host));
+      if (state.mask_allocated < num_masks)
+        state.mask_allocated = num_masks;
     }
-    //if (state.mask_allocated < num_masks)
-    //  state.mask_allocated = num_masks;
 
-    //auto &mask_counters = state.mask_counters;
-    //auto &mask_offsets  = state.mask_offsets;
     uint32_t *mask_counters = NULL;
     uint32_t *mask_offsets  = NULL;
-    //GUARD_CU(GarenteeAllocation(
-    //    mask_counters, state.mask_counters_allocated, (num_masks + 1)));
     GUARD_CU(GarenteeAllocationPersistent("mask_counters",
       mask_counters, num_masks + 1, config, state));
-    //GUARD_CU(GarenteeAllocation(
-    //    mask_offsets , state.mask_offsets_allocated , (num_masks + 1)));
     GUARD_CU(GarenteeAllocationPersistent("mask_offsets",
       mask_offsets, num_masks + 1, config, state));
 
@@ -1609,8 +1480,6 @@ cudaError_t GradientAllReduce(
         GUARD_CU(Malloc(state.h_num_gradients_to_communicate, 1, Malloc_t::Host));
 
     // Prepare the mask
-    //auto &send_masks = state.send_masks;
-    //auto &recv_masks = state.recv_masks;
     loop_kernel
       <<<grid_size, block_size, 0, (to_overlap_mask ? stream3 : stream)>>>(
         num_masks, [send_masks, num_gradients, thresholds,
@@ -1713,11 +1582,8 @@ cudaError_t GradientAllReduce(
       // Reuse temp_storage to hold masks before bit-swift copy to recv_masks
       size_t request_bytes = sizeof(MaskT) * (num_masks + layers.size() * 2);
       char* temp_storage2 = NULL;
-      //GUARD_CU(GarenteeAllocation(state.temp_storage2, state.temp_storage2_bytes,
-      //  request_bytes));
       GUARD_CU(GarenteeAllocationPersistent("temp_storage2",
         temp_storage2, request_bytes, config, state));
-      //uint32_t* temp_masks_ = (uint32_t*)(state.temp_storage2);
       MaskT* temp_masks_ = (MaskT*)temp_storage2;
 
       GUARD_CU(
@@ -1911,8 +1777,6 @@ cudaError_t GradientAllReduce(
       (char*)NULL, required_bytes,
       mask_counters, mask_offsets + 1, num_masks,
       (to_overlap_mask ? stream4 : stream)));
-    //GUARD_CU(GarenteeAllocation(
-    //  state.temp_storage2, state.temp_storage2_bytes, required_bytes));
     char *temp_storage2 = NULL;
     GUARD_CU(GarenteeAllocationPersistent("temp_storage2",
       temp_storage2, required_bytes, config, state));
@@ -1940,24 +1804,12 @@ cudaError_t GradientAllReduce(
 
     T* send_data = NULL;
     T* recv_data = NULL;
-    //auto send_allocated_ = state.send_allocated * sizeof(T);
-    //GUARD_CU(GarenteeAllocation(
-    //  state.send_data, send_allocated_, sizeof(T) * num_gradients_comm));
-    //if (state.send_allocated < num_gradients_comm)
-    //  state.send_allocated = num_gradients_comm;
     GUARD_CU(GarenteeAllocationPersistent("send_data",
       send_data, num_gradients_comm, config, state));
-    //auto recv_allocated_ = state.recv_allocated * sizeof(T);
-    //GUARD_CU(GarenteeAllocation(
-    //  state.recv_data, recv_allocated_, sizeof(T) * num_gradients_comm));
-    //if (state.recv_allocated < num_gradients_comm)
-    //  state.recv_allocated = num_gradients_comm;
     GUARD_CU(GarenteeAllocationPersistent("recv_data",
       recv_data, num_gradients_comm, config, state));
 
     // Compact gradients
-    //T* send_data = (T*)(state.send_data);
-    //T* recv_data = (T*)(state.recv_data);
     auto global_num_gpus = config.global_num_gpus;
     loop_kernel<<<grid_size, block_size, 0, stream>>>(num_masks,
       [recv_masks, mask_offsets, send_data, global_num_gpus,
@@ -2096,40 +1948,23 @@ cudaError_t GradientAllReduce(
   else {
     // use allGather to communicate
     // Pick those larger than threshold
-    //auto &send_counter   = state.send_counter;
-    uint64_t* send_counter = NULL;
-    //auto &send_indices   = state.send_indices;
-    uint32_t* send_indices = NULL;
-    //auto &send_allocated = state.send_allocated;
-    //auto send_allocated_ = send_allocated * sizeof(T);
-    T* send_data = NULL;
-    //if (send_counter == NULL) {
-    //  GUARD_CU(Malloc(send_counter, 1));
-    //}
-    GUARD_CU(GarenteeAllocationPersistent("send_counter",
-      send_counter, 1, config, state));
 
     // Prepare send buffer
-    //GUARD_CU(GarenteeAllocation(
-    //  state.send_data, send_allocated_, target_num * sizeof(T)));
+    uint64_t* send_counter = NULL;
+    uint32_t* send_indices = NULL;
+    T*        send_data    = NULL;
+    T*        max_gradient = NULL;
+    GUARD_CU(GarenteeAllocationPersistent("send_counter",
+      send_counter, 1, config, state));
     GUARD_CU(GarenteeAllocationPersistent("send_data",
       send_data, target_num, config, state));
-    //GUARD_CU(GarenteeAllocation(
-    //  send_indices, send_allocated , target_num));
     GUARD_CU(GarenteeAllocationPersistent("send_indices",
       send_indices, target_num, config, state));
-
-    //if (state.max_gradient == NULL) {
-    //  GUARD_CU(Malloc(state.max_gradient, 1));
-    //}
-    T* max_gradient = NULL;
     GUARD_CU(GarenteeAllocationPersistent("max_gradient",
       max_gradient, 1, config, state));
-
     GUARD_CU(Memset(send_counter, 0, 1, Malloc_t::Default, stream));
     GUARD_CU(Memset(max_gradient, 0, 1, Malloc_t::Default, stream));
 
-    //T* send_data = (T*)(state.send_data);
     // Compact gradients
     select_kernel3
       <<<grid_size, block_size, 0, stream>>>
@@ -2145,23 +1980,15 @@ cudaError_t GradientAllReduce(
     // Reallocate if not enough
     SizeT recv_count      = target_num * (config.use_hierarchical_allreduce ?
         config.global_num_nodes : config.global_num_gpus);
-    //auto &recv_allocated  = state.recv_allocated;
-    //auto  recv_allocated_ = state.recv_allocated * sizeof(T);
-    //auto &recv_indices    = state.recv_indices;
     T*        recv_data = NULL;
     uint32_t* recv_indices = NULL;
-    //GUARD_CU(GarenteeAllocation(
-    //    state.recv_data, recv_allocated_, recv_count * sizeof(T)));
     GUARD_CU(GarenteeAllocationPersistent("recv_data",
       recv_data, recv_count, config, state));
-    //GUARD_CU(GarenteeAllocation(
-    //    recv_indices, recv_allocated, recv_count));
     GUARD_CU(GarenteeAllocationPersistent("recv_indices",
       recv_indices, recv_count, config, state));
     GUARD_CU2("cudaEventRecord",
       cudaEventRecord(token -> stream2_begin, stream));
 
-    //T* recv_data = (T*)(state.recv_data);
     // Collect selected data & indices from all peers
     GUARD_NCCL2("ncclAllGather",
       ncclAllGather(send_data   , (void*)recv_data,
