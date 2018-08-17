@@ -23,15 +23,15 @@ struct DgcConfig {
   // DGC communication will use a gradient sparsity, which starts from
   // init_sparsity in the first epoch, and exponentially increases to
   // final_sparsity after warmup epoches.
-  double warmup_epochs = 4.0;
+  double warmup_epochs = 6.0;
 
   // Each epoch has (num_examples_per_epoch / (global_num_gpus * batch_size_per_gpu)
   // steps
-  int num_examples_per_epoch = 1000000;
+  int num_examples_per_epoch = 1281167;
   int batch_size_per_gpu = 32;
 
   // Initial gradient sparsity for DGC.
-  double init_sparsity = 0.75;
+  double init_sparsity = 0.50;
 
   // Final gradient sparsity for DGC, after the warmup epoches.
   double final_sparsity = 0.999;
@@ -92,10 +92,10 @@ struct DgcConfig {
   float momentum = 0.9;
 
   // Whether to use local gradient clipping
-  bool local_gradient_clipping = true;
+  bool local_gradient_clipping = false;
 
   // Gradient clipping threshold
-  float clipping_threshold = 6.0;
+  float clipping_threshold = 48.0;
 
   // Whether to use allReduce instead of allGather for gradient communication
   bool use_allReduce = true;
@@ -109,7 +109,7 @@ struct DgcConfig {
   bool cross_comm_inited = false;
 
   // Learning rate decay parameters
-  double learning_rate_decay_factor = 0.1;
+  double learning_rate_decay_factor = -0.1;
   double num_epochs_per_decay = 30;
   double min_learning_rate_factor = 1e-6;
 
@@ -126,10 +126,10 @@ struct DgcConfig {
   bool use_momentum_correction = true;
 
   // Whether to accumulate gradients, if momentum correction is not in use
-  bool use_gradient_accumulation = true;
+  bool use_gradient_accumulation = false;
 
   // Whether to smooth out sparsity changes
-  bool smooth_sparsity = false;
+  bool smooth_sparsity = true;
 
   // Number of epochs to skip for DGC
   float skip_epochs = 0;
