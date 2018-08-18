@@ -33,7 +33,7 @@ def get_ext_suffix():
     return '.so'
 
 
-def extension_full_path(pkg_path, *args):
+def get_extension_full_path(pkg_path, *args):
     assert len(args) >= 1
     dir_path = os.path.join(os.path.dirname(pkg_path), *args[:-1])
     full_path = os.path.join(dir_path, args[-1] + get_ext_suffix())
@@ -41,7 +41,7 @@ def extension_full_path(pkg_path, *args):
 
 
 def check_extension(ext_name, ext_env_var, pkg_path, *args):
-    full_path = extension_full_path(pkg_path, *args)
+    full_path = get_extension_full_path(pkg_path, *args)
     if not os.path.exists(full_path):
         raise ImportError(
             'Extension %s has not been built.  If this is not expected, reinstall '
@@ -52,7 +52,7 @@ class HorovodBasics(object):
     """Wrapper class for the basic Horovod API."""
 
     def __init__(self, pkg_path, *args):
-        full_path = extension_full_path(pkg_path, *args)
+        full_path = get_extension_full_path(pkg_path, *args)
         self.MPI_LIB_CTYPES = ctypes.CDLL(full_path, mode=ctypes.RTLD_GLOBAL)
 
     def init(self, comm=None):
