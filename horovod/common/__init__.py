@@ -48,7 +48,7 @@ def check_extension(ext_name, ext_env_var, pkg_path, *args):
             'Horovod with %s=1 to debug the build error.' % (ext_name, ext_env_var))
 
 
-class HorovodExtension(object):
+class HorovodBasics(object):
     def __init__(self, pkg_path, *args):
         full_path = extension_full_path(pkg_path, *args)
         self.MPI_LIB_CTYPES = ctypes.CDLL(full_path, mode=ctypes.RTLD_GLOBAL)
