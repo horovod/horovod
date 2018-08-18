@@ -22,7 +22,18 @@ import torch
 
 from horovod.torch import mpi_lib_impl
 from horovod.torch import mpi_lib
-from horovod.torch import rank, size
+from horovod.common import HorovodExtension as _HorovodExtension
+
+_ext = _HorovodExtension(__file__, 'mpi_lib_impl', '_mpi_lib_impl')
+
+# import common methods
+init = _ext.init
+shutdown = _ext.shutdown
+size = _ext.size
+local_size = _ext.local_size
+rank = _ext.rank
+local_rank = _ext.local_rank
+mpi_threads_supported = _ext.mpi_threads_supported
 
 
 # Schema: handle -> input, output
