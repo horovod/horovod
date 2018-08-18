@@ -49,6 +49,8 @@ def check_extension(ext_name, ext_env_var, pkg_path, *args):
 
 
 class HorovodBasics(object):
+    """Wrapper class for the basic Horovod API."""
+
     def __init__(self, pkg_path, *args):
         full_path = extension_full_path(pkg_path, *args)
         self.MPI_LIB_CTYPES = ctypes.CDLL(full_path, mode=ctypes.RTLD_GLOBAL)
@@ -60,7 +62,6 @@ class HorovodBasics(object):
           comm: List specifying ranks for the communicator, relative to the MPI_COMM_WORLD
             communicator OR the MPI communicator to use. Given communicator will be duplicated.
             If None, Horovod will use MPI_COMM_WORLD Communicator.
-
         """
         if comm is None:
             comm = []
@@ -83,6 +84,7 @@ class HorovodBasics(object):
                 (ctypes.c_int * comm_size)(*comm), ctypes.c_int(comm_size))
 
     def shutdown(self):
+        """A function that shuts Horovod down."""
         return self.MPI_LIB_CTYPES.horovod_shutdown()
 
     def size(self):
