@@ -375,8 +375,7 @@ TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_FLOAT32, THCudaTensor,
                                THFloatTensor)
 TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_FLOAT64, THCudaDoubleTensor,
                                THDoubleTensor)
-TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_FLOAT16, THCudaHalfTensor,
-                               THFloatTensor)
+//TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_FLOAT16, THCudaHalfTensor, THFloatTensor)
 #endif
 
 } // namespace torch

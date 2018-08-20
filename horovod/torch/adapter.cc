@@ -173,7 +173,7 @@ ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_INT64, DeviceType::GPU,
 ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_FLOAT32, DeviceType::GPU, THCudaTensor)
 ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_FLOAT64, DeviceType::GPU,
                     THCudaDoubleTensor)
-ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_FLOAT16, DeviceType::GPU, THCudaHalfTensor)
+//ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_FLOAT16, DeviceType::GPU, THCudaHalfTensor)
 #endif
 
 } // namespace torch
