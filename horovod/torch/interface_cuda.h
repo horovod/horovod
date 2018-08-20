@@ -25,10 +25,10 @@ int horovod_torch_allreduce_async_torch_cuda_FloatTensor(THCudaTensor* tensor,
                                                          char* name);
 //添加新的数据类型 Float16
 //torch.cuda.HalfTensor
-//int horovod_torch_allreduce_async_torch_cuda_HalfTensor(THCudaHalfTensor* tensor,
-//                                                        THCudaHalfTensor* output,
-//                                                         int average,
-//                                                         char* name);
+int horovod_torch_allreduce_async_torch_cuda_HalfTensor(THCudaHalfTensor* tensor,
+                                                        THCudaHalfTensor* output,
+                                                         int average,
+                                                         char* name);
 
 int horovod_torch_allreduce_async_torch_cuda_DoubleTensor(
     THCudaDoubleTensor* tensor, THCudaDoubleTensor* output, int average,

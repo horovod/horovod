@@ -263,6 +263,8 @@ ALLREDUCE_CUDA_ON_CPU(torch_cuda_FloatTensor, MPIDataType::HOROVOD_FLOAT32,
                       THCudaTensor, THFloatTensor)
 ALLREDUCE_CUDA_ON_CPU(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64,
                       THCudaDoubleTensor, THDoubleTensor)
+ALLREDUCE_CUDA_ON_CPU(torch_cuda_HalfTensor, MPIDataType::HOROVOD_FLOAT16,
+                      THCudaHalfTensor,THFloatTensor)
 #endif
 
 #define ALLGATHER(torch_Tensor, HorovodType, DeviceType, THTensor)             \
