@@ -234,7 +234,7 @@ public:
   TensorUtil::DivideTensorInPlace<HorovodType, DeviceType::GPU, THCTensor>(    \
       THCTensor * tensor, int value) {                                         \
     with_device device_context(THCTensor##_getDevice(state, tensor));          \
-    if(HorovodType!=MPIDataType::HOROVOD_FLOAT16)                              \                                                                           \
+    if(HorovodType!=MPIDataType::HOROVOD_FLOAT16)                              \
     THCTensor##_div(state, tensor, tensor, value);                             \
     else{                                                                      \
       THCTensor##_div(state, (THCudaTensor)tensor, (THCudaTensor)tensor, value);\
