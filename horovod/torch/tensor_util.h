@@ -235,6 +235,7 @@ public:
       THCTensor * tensor, int value) {                                         \
     with_device device_context(THCTensor##_getDevice(state, tensor));          \
     try{                                                                       \
+    if(HorovodType!=9)                                                         \
     THCTensor##_div(state, tensor, tensor, value);                             \
     }catch(...){                                                                \
       printf("error:DivideTensorInPlace in tensor_util.h\n");                   \
