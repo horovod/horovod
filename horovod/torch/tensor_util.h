@@ -237,7 +237,7 @@ public:
     if(HorovodType!=MPIDataType::HOROVOD_FLOAT16)                              \
     THCTensor##_div(state, tensor, tensor, value);                             \
     else{                                                                      \
-      THCTensor##_div(state, (THCudaTensor)tensor, (THCudaTensor)tensor, value);\
+      printf("error:DivideTensorInPlace in tensor_util.h\n");                   \
     }                                                                           \
   }                                                                            \
                                                                                \
