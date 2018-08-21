@@ -1081,7 +1081,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         }
 
         if (num_elements_remaining > 0) {
-
           // Reduce the remaining data at local_size-1 to append to
           // existing buffer
           NCCL_CHECK(entries, "ncclReduce",
@@ -1101,15 +1100,15 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           // a buffer is not safe since the tensor can be arbitrarily large.
           host_buffer = malloc(total_buffer_len);
 
+          // Synchronize.
+          WAIT_FOR_EVENTS(entries, timeline, event_queue)
+
+          ACTIVITY_START_ALL(entries, timeline, MEMCPY_IN_HOST_BUFFER)
           CUDA_CHECK(entries, "cudaMemcpyAsync",
                      cudaMemcpyAsync(host_buffer, buffer_data_at_rank_offset,
                                      total_buffer_len, cudaMemcpyDeviceToHost,
                                      stream))
-          // This event must be recorded for the subsequent synchronize.
-          RECORD_EVENT(entries, event_queue, MEMCPY_IN_HOST_BUFFER, stream)
-
-          // Synchronize.
-          WAIT_FOR_EVENTS(entries, timeline, event_queue)
+          ACTIVITY_END_ALL(entries, timeline)
 
           ACTIVITY_START_ALL(entries, timeline, MPI_ALLREDUCE)
           MPI_CHECK(entries, "MPI_Allreduce",
@@ -1117,16 +1116,14 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                                   (int)total_num_elements,
                                   GetMPIDataType(first_entry.tensor), MPI_SUM,
                                   horovod_global.cross_comm))
-
           ACTIVITY_END_ALL(entries, timeline)
 
+          ACTIVITY_START_ALL(entries, timeline, MEMCPY_OUT_HOST_BUFFER)
           CUDA_CHECK(entries, "cudaMemcpyAsync",
                      cudaMemcpyAsync(buffer_data_at_rank_offset, host_buffer,
                                      total_buffer_len, cudaMemcpyHostToDevice,
                                      stream))
-          if (timeline.Initialized()) {
-            RECORD_EVENT(entries, event_queue, MEMCPY_OUT_HOST_BUFFER, stream)
-          }
+          ACTIVITY_END_ALL(entries, timeline)
         }
 
         if (num_elements_per_rank > 0) {
@@ -1544,29 +1541,21 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 
   // Override Tensor Fusion threshold, if it's set.
-  auto horovod_fusion_threshold = std::getenv("HOROVOD_FUSION_THRESHOLD");
-  if (horovod_fusion_threshold != nullptr) {
-    int64_t proposed_fusion_threshold =
-        std::strtol(horovod_fusion_threshold, nullptr, 10);
+  auto horovod_fusion_threshold = std::getenv("HOROVOD_FUSION_THRESHOLD"); 
+  int64_t proposed_fusion_threshold = (horovod_fusion_threshold != nullptr) ?  
+        std::strtol(horovod_fusion_threshold, nullptr, 10) :
+        state.tensor_fusion_threshold;
 
-    // If the cluster is homogeneous and hierarchical allreduce is enabled,
-    // adjust buffer size to make sure it is divisible by local_size to improve
-    // performance.
-    if (state.is_homogeneous && state.hierarchical_allreduce) {
-      // Assume the worst-case data type float64, since if it is divisible with
-      // float64, it will be divisible for other types too.
-      int64_t div = state.local_size * sizeof(MPI_DOUBLE);
-      state.tensor_fusion_threshold = (proposed_fusion_threshold / div) * div;
-
-      if (is_coordinator) {
-        std::cerr << "WARNING: Using fusion threshold "
-                  << state.tensor_fusion_threshold
-                  << " bytes instead of specified " << proposed_fusion_threshold
-                  << " bytes to improve performance on your system.";
-      }
-    } else {
-      state.tensor_fusion_threshold = proposed_fusion_threshold;
-    }
+  // If the cluster is homogeneous and hierarchical allreduce is enabled,
+  // adjust buffer size to make sure it is divisible by local_size to improve
+  // performance.
+  if (state.is_homogeneous && state.hierarchical_allreduce) {
+    // Assume the worst-case data type float64, since if it is divisible with
+    // float64, it will be divisible for other types too.
+    int64_t div = state.local_size * sizeof(MPI_DOUBLE);
+    state.tensor_fusion_threshold = ((proposed_fusion_threshold+div-1) / div) * div;
+  } else {
+    state.tensor_fusion_threshold = proposed_fusion_threshold;
   }
 
   // Initialize the tensor count table. No tensors are available yet.
