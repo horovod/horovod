@@ -244,7 +244,7 @@ ALLREDUCE(torch_cuda_FloatTensor, MPIDataType::HOROVOD_FLOAT32, DeviceType::GPU,
 ALLREDUCE(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64,
           DeviceType::GPU, THCudaDoubleTensor)
 ALLREDUCE(torch_cuda_HalfTensor, MPIDataType::HOROVOD_FLOAT16,
-          DeviceType::GPU, THCudaTensor)
+          DeviceType::GPU, THCudaHalfTensor)
 #endif
 
 #define ALLREDUCE_CUDA_ON_CPU(torch_Tensor, HorovodType, THCTensor, THTensor)  \

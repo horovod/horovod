@@ -41,7 +41,7 @@ ALLREDUCE_H(torch_cuda_IntTensor, THCudaIntTensor)
 ALLREDUCE_H(torch_cuda_LongTensor, THCudaLongTensor)
 ALLREDUCE_H(torch_cuda_FloatTensor, THCudaTensor)
 ALLREDUCE_H(torch_cuda_DoubleTensor, THCudaDoubleTensor)
-ALLREDUCE_H(torch_cuda_HalfTensor, THCudaTensor)
+ALLREDUCE_H(torch_cuda_HalfTensor, THCudaHalfTensor)
 #endif
 
 #define ALLGATHER_H(torch_Tensor, THTensor)                                    \
