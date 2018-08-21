@@ -563,6 +563,8 @@ ncclDataType_t GetNCCLDataType(const std::shared_ptr<Tensor> tensor) {
     return ncclFloat32;
   case HOROVOD_FLOAT64:
     return ncclFloat64;
+  case HOROVOD_FLOAT16:
+    return ncclFloat16;
   default:
     throw std::logic_error("Type " + MPIDataType_Name(tensor->dtype()) +
                            " is not supported in NCCL mode.");
