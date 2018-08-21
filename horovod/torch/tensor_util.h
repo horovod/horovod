@@ -325,6 +325,7 @@ public:
   TensorUtil::DivideTensorInPlace<HorovodType, DeviceType::GPU, THCTensor>(    \
       THCTensor * tensor, int value) {                                         \
     with_device device_context(THCTensor##_getDevice(state, tensor));          \
+    THCTensor##_div(state, tensor, tensor, value);                             \
     printf("THCudaHalfTensor did not do DivideTensorInPlace\n");               \
   }                                                                            \
                                                                                \
@@ -375,7 +376,7 @@ TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_FLOAT32, THCudaTensor,
                                THFloatTensor)
 TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_FLOAT64, THCudaDoubleTensor,
                                THDoubleTensor)
-//TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_FLOAT16, THCudaHalfTensor, THFloatTensor)
+TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_FLOAT16, THCudaTensor, THFloatTensor)
 #endif
 
 } // namespace torch
