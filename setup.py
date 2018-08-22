@@ -28,7 +28,6 @@ import re
 from horovod import __version__
 
 
-common_mpi_lib = Extension('horovod.common.mpi_lib', [])
 tensorflow_mpi_lib = Extension('horovod.tensorflow.mpi_lib', [])
 torch_mpi_lib = Extension('horovod.torch.mpi_lib', [])
 torch_mpi_lib_impl = Extension('horovod.torch.mpi_lib_impl', [])
@@ -388,7 +387,10 @@ def get_common_options(build_ext):
 
     MACROS = []
     INCLUDES = []
-    SOURCES = []
+    SOURCES = ['horovod/common/common.cc',
+               'horovod/common/mpi_message.cc',
+               'horovod/common/operations.cc',
+               'horovod/common/timeline.cc']
     COMPILE_FLAGS = cpp_flags + shlex.split(mpi_flags)
     LINK_FLAGS = shlex.split(mpi_flags)
     LIBRARY_DIRS = []
@@ -431,22 +433,6 @@ def get_common_options(build_ext):
                 LIBRARIES=LIBRARIES)
 
 
-def build_common_extension(build_ext, options, abi_compile_flags):
-    common_mpi_lib.define_macros = options['MACROS']
-    common_mpi_lib.include_dirs = options['INCLUDES']
-    common_mpi_lib.sources = options['SOURCES'] + ['horovod/common/common.cc',
-                                                   'horovod/common/mpi_message.cc',
-                                                   'horovod/common/operations.cc',
-                                                   'horovod/common/timeline.cc']
-    common_mpi_lib.extra_compile_args = options['COMPILE_FLAGS'] + \
-        abi_compile_flags
-    common_mpi_lib.extra_link_args = options['LINK_FLAGS']
-    common_mpi_lib.library_dirs = options['LIBRARY_DIRS']
-    common_mpi_lib.libraries = options['LIBRARIES']
-
-    build_ext.build_extension(common_mpi_lib)
-
-
 def build_tf_extension(build_ext, options):
     check_tf_version()
     tf_compile_flags, tf_link_flags = get_tf_flags(
@@ -463,10 +449,6 @@ def build_tf_extension(build_ext, options):
     tensorflow_mpi_lib.libraries = options['LIBRARIES']
 
     build_ext.build_extension(tensorflow_mpi_lib)
-
-    # Return ABI flags used for TensorFlow compilation.  We will use this flag
-    # to compile all the libraries.
-    return [flag for flag in tf_compile_flags if '_GLIBCXX_USE_CXX11_ABI' in flag]
 
 
 def parse_version(version_str):
@@ -548,7 +530,7 @@ class protect_files(object):
             os.rename(file + '.protected', file)
 
 
-def build_torch_extension(build_ext, options, abi_compile_flags):
+def build_torch_extension(build_ext, options):
     torch_version = check_torch_version()
 
     have_cuda = is_torch_cuda()
@@ -596,7 +578,7 @@ def build_torch_extension(build_ext, options, abi_compile_flags):
                                           'horovod/torch/tensor_util.cc',
                                           'horovod/torch/cuda_util.cc',
                                           'horovod/torch/adapter.cc'],
-            extra_compile_args=options['COMPILE_FLAGS'] + abi_compile_flags,
+            extra_compile_args=options['COMPILE_FLAGS'],
             extra_link_args=options['LINK_FLAGS'],
             library_dirs=options['LIBRARY_DIRS'],
             libraries=options['LIBRARIES']
@@ -615,14 +597,13 @@ def build_torch_extension(build_ext, options, abi_compile_flags):
 class custom_build_ext(build_ext):
     def build_extensions(self):
         options = get_common_options(self)
-        abi_compile_flags = []
         built_plugins = []
         # If PyTorch is installed, it must be imported before TensorFlow, otherwise
         # we may get an error: dlopen: cannot load any more object with static TLS
         dummy_import_torch()
         if not os.environ.get('HOROVOD_WITHOUT_TENSORFLOW'):
             try:
-                abi_compile_flags = build_tf_extension(self, options)
+                build_tf_extension(self, options)
                 built_plugins.append(True)
             except:
                 if not os.environ.get('HOROVOD_WITH_TENSORFLOW'):
@@ -633,7 +614,7 @@ class custom_build_ext(build_ext):
                     raise
         if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
             try:
-                build_torch_extension(self, options, abi_compile_flags)
+                build_torch_extension(self, options)
                 built_plugins.append(True)
             except:
                 if not os.environ.get('HOROVOD_WITH_PYTORCH'):
@@ -648,7 +629,6 @@ class custom_build_ext(build_ext):
         if not any(built_plugins):
             raise DistutilsError(
                 'Neither TensorFlow nor PyTorch plugins were built. See errors above.')
-        build_common_extension(self, options, abi_compile_flags)
 
 
 setup(name='horovod',
@@ -663,8 +643,7 @@ setup(name='horovod',
       classifiers=[
           'License :: OSI Approved :: Apache Software License'
       ],
-      ext_modules=[common_mpi_lib, tensorflow_mpi_lib,
-                   torch_mpi_lib, torch_mpi_lib_impl],
+      ext_modules=[tensorflow_mpi_lib, torch_mpi_lib, torch_mpi_lib_impl],
       cmdclass={'build_ext': custom_build_ext},
       # cffi is required for PyTorch
       # If cffi is specified in setup_requires, it will need libffi to be installed on the machine,
