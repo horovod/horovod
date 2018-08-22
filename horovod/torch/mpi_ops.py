@@ -20,11 +20,17 @@ from __future__ import print_function
 # Load all the necessary PyTorch C types.
 import torch
 
-from horovod.torch import mpi_lib_impl
-from horovod.torch import mpi_lib
-from horovod.common import HorovodBasics as _HorovodBasics
-
-_basics = _HorovodBasics(__file__, 'mpi_lib_impl', '_mpi_lib_impl')
+try:
+    from horovod.torch import mpi_lib_v2 as mpi_lib
+    from horovod.common import HorovodBasics as _HorovodBasics
+    _NULL = ""
+    _basics = _HorovodBasics(__file__, 'mpi_lib_v2')
+except:
+    from horovod.torch import mpi_lib_impl
+    from horovod.torch import mpi_lib
+    from horovod.common import HorovodBasics as _HorovodBasics
+    _NULL = mpi_lib._ffi.NULL
+    _basics = _HorovodBasics(__file__, 'mpi_lib_impl', '_mpi_lib_impl')
 
 # import basic methods
 init = _basics.init
@@ -40,10 +46,6 @@ mpi_threads_supported = _basics.mpi_threads_supported
 # We keep input in order to make sure it does not get garbage collected
 # before the operation is finished.
 _handle_map = {}
-
-
-# Null pointer.
-_NULL = mpi_lib._ffi.NULL
 
 
 def _check_function(function_factory, tensor):

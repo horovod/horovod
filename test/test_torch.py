@@ -244,7 +244,7 @@ class TorchTests(unittest.TestCase):
         try:
             hvd.allreduce(tensor)
             assert False, 'hvd.allreduce did not throw error'
-        except torch.FatalError:
+        except (torch.FatalError, RuntimeError):
             pass
 
         # Same number of elements, different rank
@@ -257,7 +257,7 @@ class TorchTests(unittest.TestCase):
         try:
             hvd.allreduce(tensor)
             assert False, 'hvd.allreduce did not throw error'
-        except torch.FatalError:
+        except (torch.FatalError, RuntimeError):
             pass
 
     def test_horovod_allreduce_type_error(self):
@@ -281,7 +281,7 @@ class TorchTests(unittest.TestCase):
         try:
             hvd.allreduce(tensor)
             assert False, 'hvd.allreduce did not throw error'
-        except torch.FatalError:
+        except (torch.FatalError, RuntimeError):
             pass
 
     def test_horovod_allreduce_cpu_gpu_error(self):
@@ -309,7 +309,7 @@ class TorchTests(unittest.TestCase):
         try:
             hvd.allreduce(tensor)
             assert False, 'hvd.allreduce did not throw error'
-        except torch.FatalError:
+        except (torch.FatalError, RuntimeError):
             pass
 
     def test_horovod_allreduce_grad(self):
@@ -444,7 +444,7 @@ class TorchTests(unittest.TestCase):
         try:
             hvd.allgather(tensor)
             assert False, 'hvd.allgather did not throw error'
-        except torch.FatalError:
+        except (torch.FatalError, RuntimeError):
             pass
 
     def test_horovod_allgather_type_error(self):
@@ -467,7 +467,7 @@ class TorchTests(unittest.TestCase):
         try:
             hvd.allgather(tensor)
             assert False, 'hvd.allgather did not throw error'
-        except torch.FatalError:
+        except (torch.FatalError, RuntimeError):
             pass
 
     def test_horovod_allgather_grad(self):
@@ -588,7 +588,7 @@ class TorchTests(unittest.TestCase):
         try:
             hvd.broadcast(tensor, 0)
             assert False, 'hvd.broadcast did not throw error'
-        except torch.FatalError:
+        except (torch.FatalError, RuntimeError):
             pass
 
     def test_horovod_broadcast_type_error(self):
@@ -611,7 +611,7 @@ class TorchTests(unittest.TestCase):
         try:
             hvd.broadcast(tensor, 0)
             assert False, 'hvd.broadcast did not throw error'
-        except torch.FatalError:
+        except (torch.FatalError, RuntimeError):
             pass
 
     def test_horovod_broadcast_rank_error(self):
@@ -630,7 +630,7 @@ class TorchTests(unittest.TestCase):
         try:
             hvd.broadcast(tensor, rank)
             assert False, 'hvd.broadcast did not throw error'
-        except torch.FatalError:
+        except (torch.FatalError, RuntimeError):
             pass
 
     def test_horovod_broadcast_grad(self):

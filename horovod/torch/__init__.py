@@ -19,8 +19,12 @@ from __future__ import print_function
 
 from horovod.common import check_extension
 
-check_extension('horovod.torch', 'HOROVOD_WITH_PYTORCH',
-                __file__, 'mpi_lib', '_mpi_lib')
+try:
+    check_extension('horovod.torch', 'HOROVOD_WITH_PYTORCH',
+                    __file__, 'mpi_lib_v2')
+except:
+    check_extension('horovod.torch', 'HOROVOD_WITH_PYTORCH',
+                    __file__, 'mpi_lib', '_mpi_lib')
 
 from horovod.torch.mpi_ops import allreduce, allreduce_async, allreduce_, allreduce_async_
 from horovod.torch.mpi_ops import allgather, allgather_async
