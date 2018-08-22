@@ -147,6 +147,7 @@ int DoAllgatherCudaOnCPU(at::Tensor tensor, at::Tensor output,
       hvd_context, hvd_cpu_tensor, ready_event,
       GetOpName("allgather", name, handle), CPU_DEVICE_ID,
       [handle, cpu_output, output](const Status& status) mutable {
+        // output needs to be resized before copying in the CPU tensor.
         output.resize_as_(cpu_output);
         output.copy_(cpu_output);
         handle_manager.MarkDone(handle, status);
