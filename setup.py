@@ -507,11 +507,11 @@ def is_torch_cuda():
         return False
 
 
-def is_torch_cuda_v2(build_ext, include_dirs, extra_compile_flags):
+def is_torch_cuda_v2(build_ext, include_dirs, extra_compile_args):
     try:
         from torch.utils.cpp_extension import include_paths
-        test_compile(build_ext, 'test_torch_cuda', include_dirs=include_dirs + include_paths(),
-                     extra_preargs=extra_compile_flags, code=textwrap.dedent('''\
+        test_compile(build_ext, 'test_torch_cuda', include_dirs=include_dirs + include_paths(cuda=True),
+                     extra_preargs=extra_compile_args, code=textwrap.dedent('''\
             #include <THC/THC.h>
             void test() {
             }
@@ -609,7 +609,7 @@ def build_torch_extension(build_ext, options, torch_version):
 
 def build_torch_extension_v2(build_ext, options, torch_version):
     have_cuda = is_torch_cuda_v2(build_ext, include_dirs=options['INCLUDES'],
-                                 extra_compile_flags=options['COMPILE_FLAGS'])
+                                 extra_compile_args=options['COMPILE_FLAGS'])
     if not have_cuda and check_macro(options['MACROS'], 'HAVE_CUDA'):
         raise DistutilsPlatformError(
             'Horovod build with GPU support was requested, but this PyTorch '
@@ -630,19 +630,19 @@ def build_torch_extension_v2(build_ext, options, torch_version):
     updated_macros = set_macro(updated_macros, '_GLIBCXX_USE_CXX11_ABI',
                                str(int(torch.compiled_with_cxx11_abi())))
 
-    from torch.utils.cpp_extension import CppExtension
-    ext = CppExtension(torch_mpi_lib_v2.name,
-                       define_macros=updated_macros,
-                       include_dirs=options['INCLUDES'],
-                       sources=options['SOURCES'] + ['horovod/torch/mpi_ops_v2.cc',
-                                                     'horovod/torch/handle_manager.cc',
-                                                     'horovod/torch/ready_event.cc',
-                                                     'horovod/torch/cuda_util.cc',
-                                                     'horovod/torch/adapter_v2.cc'],
-                       extra_compile_args=options['COMPILE_FLAGS'],
-                       extra_link_args=options['LINK_FLAGS'],
-                       library_dirs=options['LIBRARY_DIRS'],
-                       libraries=options['LIBRARIES'])
+    from torch.utils.cpp_extension import CUDAExtension
+    ext = CUDAExtension(torch_mpi_lib_v2.name,
+                        define_macros=updated_macros,
+                        include_dirs=options['INCLUDES'],
+                        sources=options['SOURCES'] + ['horovod/torch/mpi_ops_v2.cc',
+                                                      'horovod/torch/handle_manager.cc',
+                                                      'horovod/torch/ready_event.cc',
+                                                      'horovod/torch/cuda_util.cc',
+                                                      'horovod/torch/adapter_v2.cc'],
+                        extra_compile_args=options['COMPILE_FLAGS'],
+                        extra_link_args=options['LINK_FLAGS'],
+                        library_dirs=options['LIBRARY_DIRS'],
+                        libraries=options['LIBRARIES'])
 
     # Patch an existing torch_mpi_lib_v2 extension object.
     for k, v in ext.__dict__.items():
