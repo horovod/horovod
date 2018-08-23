@@ -199,16 +199,16 @@ int DoBroadcastCudaOnCPU(at::Tensor tensor, at::Tensor output, int root_rank,
   auto hvd_cpu_buffer = std::make_shared<TorchTensor>(cpu_buffer);
   auto ready_event = RecordReadyEvent(device);
 
-  auto hvd_context = std::make_shared<TorchOpContext>(
-      CPU_DEVICE_ID, cpu_buffer;
+  auto hvd_context =
+      std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_buffer);
 
   auto handle = handle_manager.AllocateHandle();
   auto enqueue_result = EnqueueTensorBroadcast(
       hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, root_rank, ready_event,
       GetOpName("broadcast", name, handle), CPU_DEVICE_ID,
       [handle, cpu_buffer, output](const Status& status) mutable {
-    output.copy_(cpu_buffer);
-    handle_manager.MarkDone(handle, status);
+        output.copy_(cpu_buffer);
+        handle_manager.MarkDone(handle, status);
       });
   ThrowIfError(enqueue_result);
 
