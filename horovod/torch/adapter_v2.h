@@ -13,8 +13,8 @@
 // limitations under the License.
 // =============================================================================
 
-#ifndef HOROVOD_TORCH_ADAPTER_H
-#define HOROVOD_TORCH_ADAPTER_H
+#ifndef HOROVOD_TORCH_ADAPTER_V2_H
+#define HOROVOD_TORCH_ADAPTER_V2_H
 
 #include <torch/torch.h>
 
@@ -68,4 +68,4 @@ void ThrowIfError(Status status);
 } // namespace torch
 } // namespace horovod
 
-#endif // HOROVOD_TORCH_ADAPTER_H
+#endif // HOROVOD_TORCH_ADAPTER_V2_H
