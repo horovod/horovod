@@ -84,8 +84,12 @@ install:
   # PyTorch
   - |
     if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then
-      PY=$(echo ${PYTHON_VERSION} | sed s/\\.//)
-      PYTORCH_WHEEL=https://download.pytorch.org/whl/nightly/cu90/torch_nightly-2018.8.14.dev1-cp${PY}-cp${PY}m-linux_x86_64.whl
+      PY=$(echo ${TRAVIS_PYTHON_VERSION} | sed s/\\.//)
+      if [[ ${TRAVIS_PYTHON_VERSION} == 3* ]]; then
+        PYTORCH_WHEEL=https://download.pytorch.org/whl/nightly/cu90/torch_nightly-2018.8.14.dev1-cp${PY}-cp${PY}m-linux_x86_64.whl
+      else
+        PYTORCH_WHEEL=https://download.pytorch.org/whl/nightly/cu90/torch_nightly-2018.8.14.dev1-cp${PY}-cp${PY}mu-linux_x86_64.whl
+      fi
       docker exec ${CONTAINER} /bin/sh -c "pip install ${PYTORCH_WHEEL} torchvision"
     else
       docker exec ${CONTAINER} /bin/sh -c "pip install ${PYTORCH_PACKAGE} torchvision"
