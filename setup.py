@@ -510,7 +510,7 @@ def is_torch_cuda():
 def is_torch_cuda_v2(build_ext, include_dirs, extra_compile_flags):
     try:
         from torch.utils.cpp_extension import include_paths
-        test_compile(build_ext, 'test_torch_cuda', include_dirs=include_dirs,
+        test_compile(build_ext, 'test_torch_cuda', include_dirs=include_dirs + include_paths(),
                      extra_preargs=extra_compile_flags, code=textwrap.dedent('''\
             #include <THC/THC.h>
             void test() {
