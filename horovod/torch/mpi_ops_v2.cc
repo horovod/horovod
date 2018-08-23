@@ -137,7 +137,8 @@ int DoAllgatherCudaOnCPU(at::Tensor tensor, at::Tensor output,
   auto hvd_cpu_tensor = std::make_shared<TorchTensor>(cpu_tensor);
   auto ready_event = RecordReadyEvent(device);
 
-  auto cpu_output = at::Tensor().to(at::Device(at::DeviceType::CPU));
+  auto cpu_output =
+      at::tensor(cpu_tensor.type()).to(at::Device(at::DeviceType::CPU));
   auto hvd_cpu_output = std::make_shared<TorchTensor>(cpu_output);
   auto hvd_context =
       std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_output);
@@ -148,7 +149,7 @@ int DoAllgatherCudaOnCPU(at::Tensor tensor, at::Tensor output,
       GetOpName("allgather", name, handle), CPU_DEVICE_ID,
       [handle, cpu_output, output](const Status& status) mutable {
         // output needs to be resized before copying in the CPU tensor.
-        output.resize_as_(cpu_output);
+        output.resize_(cpu_output.sizes());
         output.copy_(cpu_output);
         handle_manager.MarkDone(handle, status);
       });
