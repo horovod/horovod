@@ -238,7 +238,7 @@ PYBIND11_MODULE(mpi_lib_v2, m) {
   m.def("horovod_torch_allreduce_async_torch_cuda_LongTensor", &DoAllreduce);
   m.def("horovod_torch_allreduce_async_torch_cuda_FloatTensor", &DoAllreduce);
   m.def("horovod_torch_allreduce_async_torch_cuda_DoubleTensor", &DoAllreduce);
-#elif !HOROVOD_GPU_ALLREDUCE && HAVE_CUDA
+#elif HAVE_CUDA
   m.def("horovod_torch_allreduce_async_torch_cuda_IntTensor",
         &DoAllreduceCudaOnCPU);
   m.def("horovod_torch_allreduce_async_torch_cuda_LongTensor",
@@ -265,7 +265,7 @@ PYBIND11_MODULE(mpi_lib_v2, m) {
   m.def("horovod_torch_allgather_async_torch_cuda_LongTensor", &DoAllgather);
   m.def("horovod_torch_allgather_async_torch_cuda_FloatTensor", &DoAllgather);
   m.def("horovod_torch_allgather_async_torch_cuda_DoubleTensor", &DoAllgather);
-#elif !HOROVOD_GPU_ALLGATHER && HAVE_CUDA
+#elif HAVE_CUDA
   m.def("horovod_torch_allgather_async_torch_cuda_ByteTensor",
         &DoAllgatherCudaOnCPU);
   m.def("horovod_torch_allgather_async_torch_cuda_CharTensor",
@@ -298,7 +298,7 @@ PYBIND11_MODULE(mpi_lib_v2, m) {
   m.def("horovod_torch_broadcast_async_torch_cuda_LongTensor", &DoBroadcast);
   m.def("horovod_torch_broadcast_async_torch_cuda_FloatTensor", &DoBroadcast);
   m.def("horovod_torch_broadcast_async_torch_cuda_DoubleTensor", &DoBroadcast);
-#elif !HOROVOD_GPU_BROADCAST && HAVE_CUDA
+#elif HAVE_CUDA
   m.def("horovod_torch_broadcast_async_torch_cuda_ByteTensor",
         &DoBroadcastCudaOnCPU);
   m.def("horovod_torch_broadcast_async_torch_cuda_CharTensor",
