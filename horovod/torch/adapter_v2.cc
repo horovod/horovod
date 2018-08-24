@@ -15,11 +15,14 @@
 
 #if HAVE_CUDA
 #include <THC/THC.h>
-extern THCState* state;
 #endif
 
 #include "adapter_v2.h"
 #include "cuda_util.h"
+
+#if HAVE_CUDA
+extern THCState* state;
+#endif
 
 namespace horovod {
 namespace torch {
