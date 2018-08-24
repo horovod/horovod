@@ -92,7 +92,11 @@ int DoAllreduceCudaOnCPU(at::Tensor tensor, at::Tensor output, int average,
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, ready_event,
       GetOpName("allreduce", name, handle), CPU_DEVICE_ID,
-      [handle, average, cpu_buffer, output](const Status& status) mutable {
+      [handle, average, cpu_buffer, output,
+       device](const Status& status) mutable {
+        // Since the operation was on CPU, need to perform copy with the GPU
+        // device guard.
+        with_device device_guard(device);
         output.copy_(cpu_buffer);
         if (average) {
           output.div_(horovod_size());
@@ -147,7 +151,10 @@ int DoAllgatherCudaOnCPU(at::Tensor tensor, at::Tensor output,
   auto enqueue_result = EnqueueTensorAllgather(
       hvd_context, hvd_cpu_tensor, ready_event,
       GetOpName("allgather", name, handle), CPU_DEVICE_ID,
-      [handle, cpu_output, output](const Status& status) mutable {
+      [handle, cpu_output, output, device](const Status& status) mutable {
+        // Since the operation was on CPU, need to perform copy with the GPU
+        // device guard.
+        with_device device_guard(device);
         // output needs to be resized before copying in the CPU tensor.
         output.resize_(cpu_output.sizes());
         output.copy_(cpu_output);
@@ -207,7 +214,10 @@ int DoBroadcastCudaOnCPU(at::Tensor tensor, at::Tensor output, int root_rank,
   auto enqueue_result = EnqueueTensorBroadcast(
       hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, root_rank, ready_event,
       GetOpName("broadcast", name, handle), CPU_DEVICE_ID,
-      [handle, cpu_buffer, output](const Status& status) mutable {
+      [handle, cpu_buffer, output, device](const Status& status) mutable {
+        // Since the operation was on CPU, need to perform copy with the GPU
+        // device guard.
+        with_device device_guard(device);
         output.copy_(cpu_buffer);
         handle_manager.MarkDone(handle, status);
       });
