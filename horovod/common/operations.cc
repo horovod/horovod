@@ -23,6 +23,10 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#if HAVE_HIP
+#include <hip/hip_runtime_api.h>
+#endif
+
 #if HAVE_CUDA
 #include <cuda_runtime.h>
 #endif
@@ -208,6 +212,9 @@ struct HorovodGlobalState {
 // other parts of the graph. Overlaying memory transfers and compute during
 // backpropagation is crucial for good performance, so we cannot use the
 // TensorFlow stream, and must use our own stream.
+#if HAVE_HIP
+  std::unordered_map<int, hipStream_t> streams;
+#endif
 #if HAVE_CUDA
   std::unordered_map<int, cudaStream_t> streams;
 #endif
@@ -574,6 +581,19 @@ DDL_Type GetDDLDataType(const std::shared_ptr<Tensor> tensor) {
     }                                                                          \
   }
 
+#define HIP_CHECK(entries, op_name, op)                                        \
+  {                                                                            \
+    auto hip_result = (op);                                                    \
+    if (hip_result != hipSuccess) {                                            \
+      for (auto& e : (entries)) {                                              \
+        timeline.End(e.tensor_name, nullptr);                                  \
+        e.callback(Status::UnknownError(std::string(op_name) + " failed: " +   \
+                                        hipGetErrorString(hip_result)));       \
+      }                                                                        \
+      return;                                                                  \
+    }                                                                          \
+  }
+
 #define CUDA_CHECK(entries, op_name, op)                                       \
   {                                                                            \
     auto cuda_result = (op);                                                   \
@@ -842,6 +862,20 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
   } else if (response.response_type() == MPIResponse::ALLREDUCE) {
     auto& first_entry = entries[0];
+#if HAVE_HIP
+    bool on_gpu = first_entry.device != CPU_DEVICE_ID;
+    if (on_gpu) {
+      HIP_CHECK(entries, "hipSetDevice", hipSetDevice(first_entry.device))
+
+      // Ensure stream is in the map before executing reduction.
+      hipStream_t& stream = horovod_global.streams[first_entry.device];
+      if (stream == nullptr) {
+        // hipStreamCreateWithPriority is not yet supported in HIP
+        HIP_CHECK(entries, "hipStreamCreateWithFlags",
+                  hipStreamCreateWithFlags(&stream, hipStreamNonBlocking))
+      }
+    }
+#endif
 #if HAVE_CUDA
     bool on_gpu = first_entry.device != CPU_DEVICE_ID;
     if (on_gpu) {
@@ -1114,6 +1148,15 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       int64_t offset = 0;
       for (auto& e : entries) {
         void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
+#if HAVE_HIP
+        if (on_gpu) {
+          HIP_CHECK(entries, "hipMemcpyAsync",
+                    hipMemcpyAsync(
+                        buffer_data_at_offset, e.tensor->data(),
+                        (size_t)e.tensor->size(), hipMemcpyDeviceToDevice,
+                        horovod_global.streams[first_entry.device]))
+        } else {
+#endif
 #if HAVE_CUDA
         if (on_gpu) {
           CUDA_CHECK(entries, "cudaMemcpyAsync",
@@ -1125,11 +1168,21 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 #endif
           std::memcpy(buffer_data_at_offset, e.tensor->data(),
                       (size_t)e.tensor->size());
+#if HAVE_HIP
+        }
+#endif
 #if HAVE_CUDA
         }
 #endif
         offset += e.tensor->size();
       }
+#if HAVE_HIP
+      if (on_gpu) {
+        HIP_CHECK(
+            entries, "hipStreamSynchronize",
+            hipStreamSynchronize(horovod_global.streams[first_entry.device]))
+      }
+#endif
 #if HAVE_CUDA
       if (on_gpu) {
         CUDA_CHECK(
@@ -1156,6 +1209,15 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       offset = 0;
       for (auto& e : entries) {
         void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
+#if HAVE_HIP
+        if (on_gpu) {
+          HIP_CHECK(entries, "hipMemcpyAsync",
+                    hipMemcpyAsync(
+                        (void*)e.output->data(), buffer_data_at_offset,
+                        (size_t)e.tensor->size(), hipMemcpyDeviceToDevice,
+                        horovod_global.streams[first_entry.device]))
+        } else {
+#endif
 #if HAVE_CUDA
         if (on_gpu) {
           CUDA_CHECK(entries, "cudaMemcpyAsync",
@@ -1167,11 +1229,21 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 #endif
           std::memcpy((void*)e.output->data(), buffer_data_at_offset,
                       (size_t)e.tensor->size());
+#if HAVE_HIP
+        }
+#endif
 #if HAVE_CUDA
         }
 #endif
         offset += e.tensor->size();
       }
+#if HAVE_HIP
+      if (on_gpu) {
+        HIP_CHECK(
+            entries, "hipStreamSynchronize",
+            hipStreamSynchronize(horovod_global.streams[first_entry.device]))
+      }
+#endif
 #if HAVE_CUDA
       if (on_gpu) {
         CUDA_CHECK(

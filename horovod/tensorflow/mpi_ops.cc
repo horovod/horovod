@@ -25,7 +25,7 @@
 
 #define EIGEN_USE_THREADS
 
-#if HAVE_CUDA
+#if HAVE_CUDA || HAVE_HIP
 #include "tensorflow/stream_executor/stream.h"
 #endif
 
@@ -70,7 +70,7 @@ common::Status ConvertStatus(Status status) {
   }
 }
 
-#if HAVE_CUDA
+#if HAVE_CUDA || HAVE_HIP
 class TFReadyEvent : public common::ReadyEvent {
 public:
   TFReadyEvent(DeviceContext* device_context);
@@ -118,7 +118,7 @@ private:
   OpKernelContext* context_ = nullptr;
 };
 
-#if HAVE_CUDA
+#if HAVE_CUDA || HAVE_HIP
 TFReadyEvent::TFReadyEvent(DeviceContext* device_context) {
   auto executor = device_context->stream()->parent();
   auto ready_event = new perftools::gputools::Event(executor);
@@ -143,7 +143,7 @@ TFPersistentBuffer::TFPersistentBuffer(OpKernelContext* context, int64_t size) {
   if (!status.ok()) {
     throw status;
   }
-#if HAVE_CUDA
+#if HAVE_CUDA || HAVE_HIP
   // On GPU allocation is asynchronous, we need to wait for it to
   // complete.
   auto device_context = context->op_device_context();
@@ -227,7 +227,7 @@ TFOpContext::AllocateOutput(common::TensorShape shape,
   if (status.ok()) {
     *tensor = std::make_shared<TFTensor>(*tf_tensor);
   }
-#if HAVE_CUDA
+#if HAVE_CUDA || HAVE_HIP
   // On GPU allocation is asynchronous, we need to wait for it to
   // complete.
   auto device_context = context_->op_device_context();
@@ -256,7 +256,7 @@ int GetDeviceID(OpKernelContext* context) {
 // On GPU this event will signal that data is ready, and tensors are
 // allocated.
 common::ReadyEvent* RecordReadyEvent(OpKernelContext* context) {
-#if HAVE_CUDA
+#if HAVE_CUDA || HAVE_HIP
   auto device_context = context->op_device_context();
   if (device_context != nullptr) {
     return new TFReadyEvent(device_context);

@@ -206,6 +206,21 @@ def get_mpi_flags():
             '%s' % (show_command, traceback.format_exc()))
 
 
+def get_hip_cpp_flags():
+    hipconfig_command = os.environ.get('HOROVOD_HIPCONFIG_CPP_CONFIG', 'hipconfig --cpp_config')
+    try:
+        hipconfig_output = subprocess.check_output(
+            shlex.split(hipconfig_command), universal_newlines=True).strip()
+        hipconfig_args = shlex.split(hipconfig_output)
+        return hipconfig_args
+    except Exception:
+        raise DistutilsPlatformError(
+            '%s failed (see error below), is hipconfig in $PATH?\n'
+            'Note: If your version of HIP has a custom command to show platform flags, '
+            'please specify it with the HOROVOD_HIPCONFIG_PLATFORM environment variable.\n\n'
+            '%s' % (platform_command, traceback.format_exc()))
+
+
 def test_compile(build_ext, name, code, libraries=None, include_dirs=None, library_dirs=None, macros=None,
                  extra_preargs=None):
     test_compile_dir = os.path.join(build_ext.build_temp, 'test_compile')
@@ -270,6 +285,27 @@ def get_cuda_dirs(build_ext, cpp_flags):
             'HOROVOD_CUDA_LIB - path to CUDA lib directory')
 
     return cuda_include_dirs, cuda_lib_dirs
+
+
+def test_hip_compile(build_ext, cpp_flags):
+    hip_include_dirs = []
+    hip_lib_dirs = []
+    hip_cpp_flags = cpp_flags[:]
+    hip_cpp_flags.extend(get_hip_cpp_flags())
+    hip_libraries = []
+
+    try:
+        test_compile(build_ext, 'test_hip', libraries=hip_libraries, include_dirs=hip_include_dirs,
+                     library_dirs=hip_lib_dirs, extra_preargs=hip_cpp_flags, code=textwrap.dedent('''\
+            #include <hip/hip_runtime.h>
+            void test() {
+                hipSetDevice(0);
+            }
+            '''))
+    except (CompileError, LinkError):
+        raise DistutilsPlatformError(
+            'HIP library was not found (see error above).\n'
+            'Please specify correct hipconfig location in your PATH')
 
 
 def get_nccl_vals(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
@@ -357,12 +393,16 @@ def get_common_options(build_ext):
         raise DistutilsError('HOROVOD_GPU_BROADCAST=%s is invalid, supported '
                              'values are "", "MPI".' % gpu_broadcast)
 
+    have_cuda = False
+    have_hip = False
+    cuda_include_dirs = cuda_lib_dirs = []
     if gpu_allreduce or gpu_allgather or gpu_broadcast:
-        have_cuda = True
-        cuda_include_dirs, cuda_lib_dirs = get_cuda_dirs(build_ext, cpp_flags)
-    else:
-        have_cuda = False
-        cuda_include_dirs = cuda_lib_dirs = []
+        if os.environ.get('HOROVOD_GPU_HIP'):
+            have_hip = True
+            test_hip_compile(build_ext, cpp_flags)
+        else:
+            have_cuda = True
+            cuda_include_dirs, cuda_lib_dirs = get_cuda_dirs(build_ext, cpp_flags)
 
     if gpu_allreduce == 'NCCL':
         have_nccl = True
@@ -401,6 +441,10 @@ def get_common_options(build_ext):
         INCLUDES += cuda_include_dirs
         LIBRARY_DIRS += cuda_lib_dirs
         LIBRARIES += ['cudart']
+
+    if have_hip:
+        MACROS += [('HAVE_HIP', '1')]
+        COMPILE_FLAGS += get_hip_cpp_flags()
 
     if have_nccl:
         MACROS += [('HAVE_NCCL', '1')]
