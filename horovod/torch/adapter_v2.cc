@@ -116,6 +116,7 @@ Status TorchOpContext::AllocateOutput(TensorShape shape,
   for (int idx = 0; idx < shape.dims(); idx++) {
     shape_vector.push_back(shape.dim_size(idx));
   }
+  with_device device_context(device_);
   output_.resize_(shape_vector);
   *tensor = std::make_shared<TorchTensor>(output_);
   return Status::OK();

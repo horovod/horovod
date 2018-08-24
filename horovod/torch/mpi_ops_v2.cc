@@ -177,6 +177,7 @@ int DoBroadcast(at::Tensor tensor, at::Tensor output, int root_rank,
   std::shared_ptr<Tensor> hvd_output = nullptr;
   if (horovod_rank() == root_rank) {
     if (tensor.data_ptr() != output.data_ptr()) {
+      with_device device_guard(device);
       output.copy_(tensor);
     }
   } else {
