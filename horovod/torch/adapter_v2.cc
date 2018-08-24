@@ -84,12 +84,6 @@ const TensorShape TorchTensor::shape() const {
   for (int idx = 0; idx < tensor_.dim(); idx++) {
     shape.AddDim(tensor_.size(idx));
   }
-  if (shape.dims() == 0) {
-    // Tensor with empty shape is a Tensor with no values in PyTorch, unlike a
-    // constant in TensorFlow. So, we inject a dummy zero dimension to make sure
-    // that the number-of-elements calculation is correct.
-    shape.AddDim(0);
-  }
   return shape;
 }
 
