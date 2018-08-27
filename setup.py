@@ -630,19 +630,23 @@ def build_torch_extension_v2(build_ext, options, torch_version):
     updated_macros = set_macro(updated_macros, '_GLIBCXX_USE_CXX11_ABI',
                                str(int(torch.compiled_with_cxx11_abi())))
 
-    from torch.utils.cpp_extension import CUDAExtension
-    ext = CUDAExtension(torch_mpi_lib_v2.name,
-                        define_macros=updated_macros,
-                        include_dirs=options['INCLUDES'],
-                        sources=options['SOURCES'] + ['horovod/torch/mpi_ops_v2.cc',
-                                                      'horovod/torch/handle_manager.cc',
-                                                      'horovod/torch/ready_event.cc',
-                                                      'horovod/torch/cuda_util.cc',
-                                                      'horovod/torch/adapter_v2.cc'],
-                        extra_compile_args=options['COMPILE_FLAGS'],
-                        extra_link_args=options['LINK_FLAGS'],
-                        library_dirs=options['LIBRARY_DIRS'],
-                        libraries=options['LIBRARIES'])
+    if have_cuda:
+        from torch.utils.cpp_extension import CUDAExtension as TorchExtension
+    else:
+        # CUDAExtension fails with `ld: library not found for -lcudart` if CUDA is not present
+        from torch.utils.cpp_extension import CppExtension as TorchExtension
+    ext = TorchExtension(torch_mpi_lib_v2.name,
+                         define_macros=updated_macros,
+                         include_dirs=options['INCLUDES'],
+                         sources=options['SOURCES'] + ['horovod/torch/mpi_ops_v2.cc',
+                                                       'horovod/torch/handle_manager.cc',
+                                                       'horovod/torch/ready_event.cc',
+                                                       'horovod/torch/cuda_util.cc',
+                                                       'horovod/torch/adapter_v2.cc'],
+                         extra_compile_args=options['COMPILE_FLAGS'],
+                         extra_link_args=options['LINK_FLAGS'],
+                         library_dirs=options['LIBRARY_DIRS'],
+                         libraries=options['LIBRARIES'])
 
     # Patch an existing torch_mpi_lib_v2 extension object.
     for k, v in ext.__dict__.items():

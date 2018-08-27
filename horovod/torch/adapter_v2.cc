@@ -13,47 +13,25 @@
 // limitations under the License.
 // =============================================================================
 
-#if HAVE_CUDA
-#include <THC/THC.h>
-#endif
-
 #include "adapter_v2.h"
 #include "cuda_util.h"
-
-#if HAVE_CUDA
-extern THCState* state;
-#endif
 
 namespace horovod {
 namespace torch {
 
-// This class intentionally does not have destructor at the moment.
-//
-// Unfortunately, by the time this destructor would be called in normal
-// circumstances (application shutdown), CUDA context would already be destroyed
-// and cudaFree() operations would print nasty errors in the log - in a pretty
-// normal termination scenario.
-//
-// If we add functionality to terminate Horovod without terminating the
-// application, we should revisit this logic.
 TorchPersistentBuffer::TorchPersistentBuffer(int device, int64_t size)
     : device_(device) {
   with_device device_context(device_);
   if (device_ == CPU_DEVICE_ID) {
-    buffer_ = new char[size];
+    tensor_ = at::CPU(at::ScalarType::Byte).tensor({size});
   } else {
-#if HAVE_CUDA
-    buffer_ = THCudaMalloc(state, size);
-#else
-    throw std::logic_error("Internal error. Requested TorchPersistentBuffer "
-                           "with GPU device but not compiled with CUDA.");
-#endif
+    tensor_ = at::CUDA(at::ScalarType::Byte).tensor({size});
   }
 }
 
 const void*
 TorchPersistentBuffer::AccessData(std::shared_ptr<OpContext> context) const {
-  return buffer_;
+  return tensor_.data_ptr();
 }
 
 TorchTensor::TorchTensor(at::Tensor tensor) : tensor_(tensor) {}

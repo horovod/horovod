@@ -63,6 +63,7 @@ int DoAllreduce(at::Tensor tensor, at::Tensor output, int average,
       hvd_context, hvd_tensor, hvd_output, ready_event,
       GetOpName("allreduce", name, handle), device,
       [handle, average, output](const Status& status) mutable {
+        // Will execute in the `device` context.
         if (average) {
           output.div_(horovod_size());
         }
@@ -73,7 +74,6 @@ int DoAllreduce(at::Tensor tensor, at::Tensor output, int average,
   return handle;
 }
 
-#if HAVE_CUDA
 int DoAllreduceCudaOnCPU(at::Tensor tensor, at::Tensor output, int average,
                          const std::string& name) {
   ThrowIfError(common::CheckInitialized());
@@ -107,7 +107,6 @@ int DoAllreduceCudaOnCPU(at::Tensor tensor, at::Tensor output, int average,
 
   return handle;
 }
-#endif
 
 int DoAllgather(at::Tensor tensor, at::Tensor output, const std::string& name) {
   ThrowIfError(common::CheckInitialized());
@@ -129,7 +128,6 @@ int DoAllgather(at::Tensor tensor, at::Tensor output, const std::string& name) {
   return handle;
 }
 
-#if HAVE_CUDA
 int DoAllgatherCudaOnCPU(at::Tensor tensor, at::Tensor output,
                          const std::string& name) {
   ThrowIfError(common::CheckInitialized());
@@ -164,7 +162,6 @@ int DoAllgatherCudaOnCPU(at::Tensor tensor, at::Tensor output,
 
   return handle;
 }
-#endif
 
 int DoBroadcast(at::Tensor tensor, at::Tensor output, int root_rank,
                 const std::string& name) {
@@ -196,7 +193,6 @@ int DoBroadcast(at::Tensor tensor, at::Tensor output, int root_rank,
   return handle;
 }
 
-#if HAVE_CUDA
 int DoBroadcastCudaOnCPU(at::Tensor tensor, at::Tensor output, int root_rank,
                          const std::string& name) {
   ThrowIfError(common::CheckInitialized());
@@ -226,7 +222,6 @@ int DoBroadcastCudaOnCPU(at::Tensor tensor, at::Tensor output, int root_rank,
 
   return handle;
 }
-#endif
 
 int PollHandle(int handle) { return handle_manager.PollHandle(handle) ? 1 : 0; }
 
@@ -249,7 +244,7 @@ PYBIND11_MODULE(mpi_lib_v2, m) {
   m.def("horovod_torch_allreduce_async_torch_cuda_LongTensor", &DoAllreduce);
   m.def("horovod_torch_allreduce_async_torch_cuda_FloatTensor", &DoAllreduce);
   m.def("horovod_torch_allreduce_async_torch_cuda_DoubleTensor", &DoAllreduce);
-#elif HAVE_CUDA
+#else
   m.def("horovod_torch_allreduce_async_torch_cuda_IntTensor",
         &DoAllreduceCudaOnCPU);
   m.def("horovod_torch_allreduce_async_torch_cuda_LongTensor",
@@ -276,7 +271,7 @@ PYBIND11_MODULE(mpi_lib_v2, m) {
   m.def("horovod_torch_allgather_async_torch_cuda_LongTensor", &DoAllgather);
   m.def("horovod_torch_allgather_async_torch_cuda_FloatTensor", &DoAllgather);
   m.def("horovod_torch_allgather_async_torch_cuda_DoubleTensor", &DoAllgather);
-#elif HAVE_CUDA
+#else
   m.def("horovod_torch_allgather_async_torch_cuda_ByteTensor",
         &DoAllgatherCudaOnCPU);
   m.def("horovod_torch_allgather_async_torch_cuda_CharTensor",
@@ -309,7 +304,7 @@ PYBIND11_MODULE(mpi_lib_v2, m) {
   m.def("horovod_torch_broadcast_async_torch_cuda_LongTensor", &DoBroadcast);
   m.def("horovod_torch_broadcast_async_torch_cuda_FloatTensor", &DoBroadcast);
   m.def("horovod_torch_broadcast_async_torch_cuda_DoubleTensor", &DoBroadcast);
-#elif HAVE_CUDA
+#else
   m.def("horovod_torch_broadcast_async_torch_cuda_ByteTensor",
         &DoBroadcastCudaOnCPU);
   m.def("horovod_torch_broadcast_async_torch_cuda_CharTensor",

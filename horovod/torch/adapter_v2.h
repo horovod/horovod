@@ -33,7 +33,7 @@ public:
 
 private:
   int device_ = CPU_DEVICE_ID;
-  void* buffer_ = nullptr;
+  at::Tensor tensor_;
 };
 
 class TorchTensor : public Tensor {
