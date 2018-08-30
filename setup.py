@@ -31,6 +31,7 @@ from horovod import __version__
 tensorflow_mpi_lib = Extension('horovod.tensorflow.mpi_lib', [])
 torch_mpi_lib = Extension('horovod.torch.mpi_lib', [])
 torch_mpi_lib_impl = Extension('horovod.torch.mpi_lib_impl', [])
+torch_mpi_lib_v2 = Extension('horovod.torch.mpi_lib_v2', [])
 
 
 def is_build_action():
@@ -506,6 +507,21 @@ def is_torch_cuda():
         return False
 
 
+def is_torch_cuda_v2(build_ext, include_dirs, extra_compile_args):
+    try:
+        from torch.utils.cpp_extension import include_paths
+        test_compile(build_ext, 'test_torch_cuda', include_dirs=include_dirs + include_paths(cuda=True),
+                     extra_preargs=extra_compile_args, code=textwrap.dedent('''\
+            #include <THC/THC.h>
+            void test() {
+            }
+            '''))
+        return True
+    except (CompileError, LinkError):
+        print('INFO: Above error indicates that this PyTorch installation does not support CUDA.')
+        return False
+
+
 def check_macro(macros, key):
     return any(k == key and v for k, v in macros)
 
@@ -530,9 +546,7 @@ class protect_files(object):
             os.rename(file + '.protected', file)
 
 
-def build_torch_extension(build_ext, options):
-    torch_version = check_torch_version()
-
+def build_torch_extension(build_ext, options, torch_version):
     have_cuda = is_torch_cuda()
     if not have_cuda and check_macro(options['MACROS'], 'HAVE_CUDA'):
         raise DistutilsPlatformError(
@@ -593,6 +607,53 @@ def build_torch_extension(build_ext, options):
         build_ext.build_extension(setuptools_ext)
 
 
+def build_torch_extension_v2(build_ext, options, torch_version):
+    have_cuda = is_torch_cuda_v2(build_ext, include_dirs=options['INCLUDES'],
+                                 extra_compile_args=options['COMPILE_FLAGS'])
+    if not have_cuda and check_macro(options['MACROS'], 'HAVE_CUDA'):
+        raise DistutilsPlatformError(
+            'Horovod build with GPU support was requested, but this PyTorch '
+            'installation does not support CUDA.')
+
+    # Update HAVE_CUDA to mean that PyTorch supports CUDA. Internally, we will be checking
+    # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
+    # version or transfer tensors to CPU memory for those operations.
+    updated_macros = set_macro(
+        options['MACROS'], 'HAVE_CUDA', str(int(have_cuda)))
+
+    # Export TORCH_VERSION equal to our representation of torch.__version__. Internally it's
+    # used for backwards compatibility checks.
+    updated_macros = set_macro(updated_macros, 'TORCH_VERSION', str(torch_version))
+
+    # Always set _GLIBCXX_USE_CXX11_ABI, since PyTorch can only detect whether it was set to 1.
+    import torch
+    updated_macros = set_macro(updated_macros, '_GLIBCXX_USE_CXX11_ABI',
+                               str(int(torch.compiled_with_cxx11_abi())))
+
+    if have_cuda:
+        from torch.utils.cpp_extension import CUDAExtension as TorchExtension
+    else:
+        # CUDAExtension fails with `ld: library not found for -lcudart` if CUDA is not present
+        from torch.utils.cpp_extension import CppExtension as TorchExtension
+    ext = TorchExtension(torch_mpi_lib_v2.name,
+                         define_macros=updated_macros,
+                         include_dirs=options['INCLUDES'],
+                         sources=options['SOURCES'] + ['horovod/torch/mpi_ops_v2.cc',
+                                                       'horovod/torch/handle_manager.cc',
+                                                       'horovod/torch/ready_event.cc',
+                                                       'horovod/torch/cuda_util.cc',
+                                                       'horovod/torch/adapter_v2.cc'],
+                         extra_compile_args=options['COMPILE_FLAGS'],
+                         extra_link_args=options['LINK_FLAGS'],
+                         library_dirs=options['LIBRARY_DIRS'],
+                         libraries=options['LIBRARIES'])
+
+    # Patch an existing torch_mpi_lib_v2 extension object.
+    for k, v in ext.__dict__.items():
+        torch_mpi_lib_v2.__dict__[k] = v
+    build_ext.build_extension(torch_mpi_lib_v2)
+
+
 # run the customize_compiler
 class custom_build_ext(build_ext):
     def build_extensions(self):
@@ -614,7 +675,11 @@ class custom_build_ext(build_ext):
                     raise
         if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
             try:
-                build_torch_extension(self, options)
+                torch_version = check_torch_version()
+                if torch_version >= 4002000:
+                    build_torch_extension_v2(self, options, torch_version)
+                else:
+                    build_torch_extension(self, options, torch_version)
                 built_plugins.append(True)
             except:
                 if not os.environ.get('HOROVOD_WITH_PYTORCH'):
@@ -643,7 +708,7 @@ setup(name='horovod',
       classifiers=[
           'License :: OSI Approved :: Apache Software License'
       ],
-      ext_modules=[tensorflow_mpi_lib, torch_mpi_lib, torch_mpi_lib_impl],
+      ext_modules=[tensorflow_mpi_lib, torch_mpi_lib, torch_mpi_lib_impl, torch_mpi_lib_v2],
       cmdclass={'build_ext': custom_build_ext},
       # cffi is required for PyTorch
       # If cffi is specified in setup_requires, it will need libffi to be installed on the machine,
