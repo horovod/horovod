@@ -1524,7 +1524,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
         state.hierarchical_allreduce_ring=true;
       CIRCLE=std::strtol(horovod_hierarchical_allreduce_ring, nullptr, 10);
       if(is_coordinator){
-        printf("进行定义环间的分层ALLREDUE,环的大小：%d\n", CIRCLE);
+        printf("jin xing huan jian de fen cengALLREDUE,ring size:%d\n", CIRCLE);
       }     
     }    
 
@@ -1597,7 +1597,7 @@ if(is_coordinator && horovod_timeline != nullptr){
       cross_size > 1) {
     state.hierarchical_allreduce = true;
     if(is_coordinator){
-      printf("默认的分层融合Allreduce\n");
+      printf("mo ren fen ceng rong he Allreduce\n");
     }
   }
   // Initialize the tensor count table. No tensors are available yet.
@@ -1643,7 +1643,7 @@ if(is_coordinator && horovod_timeline != nullptr){
   auto t2 = std::chrono::steady_clock::now();
   std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
   if(horovod_rank()==0)
-  printf("程序运行时间:%f seconds\n",time_span);
+  printf("The Program Running Time :%f seconds\n",time_span);
 }
 
 // The coordinator currently follows a master-worker paradigm. Rank zero acts
