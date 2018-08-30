@@ -393,7 +393,7 @@ def get_common_options(build_ext):
                'horovod/common/operations.cc',
                'horovod/common/timeline.cc']
     COMPILE_FLAGS = cpp_flags + shlex.split(mpi_flags)
-    LINK_FLAGS = shlex.split(mpi_flags)
+    LINK_FLAGS = ['-Wl,--version-script=horovod.lds' ] + shlex.split(mpi_flags)
     LIBRARY_DIRS = []
     LIBRARIES = []
 
@@ -406,7 +406,6 @@ def get_common_options(build_ext):
     if have_nccl:
         MACROS += [('HAVE_NCCL', '1')]
         INCLUDES += nccl_include_dirs
-        LINK_FLAGS += ['-Wl,--version-script=hide_nccl.lds']
         LIBRARY_DIRS += nccl_lib_dirs
         LIBRARIES += nccl_libs
 
