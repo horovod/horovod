@@ -1,4 +1,4 @@
 {
-  global: *horovod*;
+  global: *horovod*; *PyInit*;
   local: *;
 };
