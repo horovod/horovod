@@ -93,7 +93,8 @@ def get_cpp_flags(build_ext):
 
 def get_link_flags(build_ext):
     last_err = None
-    mac_flags = ['-Wl,-exported_symbol,*PyInit*', '-Wl,-exported_symbol,*horovod*']
+    mac_flags = ['-Wl,-exported_symbol,*horovod*', '-Wl,-exported_symbol,*PyInit*',
+                 '-Wl,-exported_symbol,*init_mpi_lib*']
     ld_flags = ['-Wl,--version-script=horovod.lds']
     if sys.platform == 'darwin':
         flags_to_try = [mac_flags, ld_flags]
