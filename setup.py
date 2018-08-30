@@ -517,7 +517,7 @@ def is_torch_cuda_v2(build_ext, include_dirs, extra_compile_args):
             }
             '''))
         return True
-    except (CompileError, LinkError):
+    except (CompileError, LinkError, EnvironmentError):
         print('INFO: Above error indicates that this PyTorch installation does not support CUDA.')
         return False
 
