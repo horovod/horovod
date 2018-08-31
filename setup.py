@@ -74,7 +74,7 @@ def get_cpp_flags(build_ext):
         flags_to_try = [default_flags, default_flags + ['-stdlib=libc++']]
     for cpp_flags in flags_to_try:
         try:
-            test_compile(build_ext, 'test_cpp_flags', extra_preargs=cpp_flags,
+            test_compile(build_ext, 'test_cpp_flags', extra_compile_preargs=cpp_flags,
                          code=textwrap.dedent('''\
                     #include <unordered_map>
                     void test() {
@@ -86,6 +86,32 @@ def get_cpp_flags(build_ext):
             last_err = 'Unable to determine C++ compilation flags (see error above).'
         except Exception:
             last_err = 'Unable to determine C++ compilation flags.  ' \
+                       'Last error:\n\n%s' % traceback.format_exc()
+
+    raise DistutilsPlatformError(last_err)
+
+
+def get_link_flags(build_ext):
+    last_err = None
+    libtool_flags = ['-Wl,-exported_symbols_list,horovod.exp']
+    ld_flags = ['-Wl,--version-script=horovod.lds']
+    if sys.platform == 'darwin':
+        flags_to_try = [libtool_flags, ld_flags]
+    else:
+        flags_to_try = [ld_flags, libtool_flags]
+    for link_flags in flags_to_try:
+        try:
+            test_compile(build_ext, 'test_link_flags', extra_link_preargs=link_flags,
+                         code=textwrap.dedent('''\
+                    void test() {
+                    }
+                    '''))
+
+            return link_flags
+        except (CompileError, LinkError):
+            last_err = 'Unable to determine C++ link flags (see error above).'
+        except Exception:
+            last_err = 'Unable to determine C++ link flags.  ' \
                        'Last error:\n\n%s' % traceback.format_exc()
 
     raise DistutilsPlatformError(last_err)
@@ -109,7 +135,7 @@ def get_tf_libs(build_ext, lib_dirs, cpp_flags):
         try:
             lib_file = test_compile(build_ext, 'test_tensorflow_libs',
                                     library_dirs=lib_dirs, libraries=tf_libs,
-                                    extra_preargs=cpp_flags,
+                                    extra_compile_preargs=cpp_flags,
                                     code=textwrap.dedent('''\
                     void test() {
                     }
@@ -136,7 +162,7 @@ def get_tf_abi(build_ext, include_dirs, lib_dirs, libs, cpp_flags):
             lib_file = test_compile(build_ext, 'test_tensorflow_abi',
                                     macros=[(cxx11_abi_macro, cxx11_abi)],
                                     include_dirs=include_dirs, library_dirs=lib_dirs,
-                                    libraries=libs, extra_preargs=cpp_flags,
+                                    libraries=libs, extra_compile_preargs=cpp_flags,
                                     code=textwrap.dedent('''\
                 #include <string>
                 #include "tensorflow/core/framework/op.h"
@@ -207,8 +233,8 @@ def get_mpi_flags():
             '%s' % (show_command, traceback.format_exc()))
 
 
-def test_compile(build_ext, name, code, libraries=None, include_dirs=None, library_dirs=None, macros=None,
-                 extra_preargs=None):
+def test_compile(build_ext, name, code, libraries=None, include_dirs=None, library_dirs=None,
+                 macros=None, extra_compile_preargs=None, extra_link_preargs=None):
     test_compile_dir = os.path.join(build_ext.build_temp, 'test_compile')
     if not os.path.exists(test_compile_dir):
         os.makedirs(test_compile_dir)
@@ -222,10 +248,11 @@ def test_compile(build_ext, name, code, libraries=None, include_dirs=None, libra
     shared_object_file = compiler.shared_object_filename(
         name, output_dir=test_compile_dir)
 
-    compiler.compile([source_file], extra_preargs=extra_preargs,
+    compiler.compile([source_file], extra_preargs=extra_compile_preargs,
                      include_dirs=include_dirs, macros=macros)
     compiler.link_shared_object(
-        [object_file], shared_object_file, libraries=libraries, library_dirs=library_dirs)
+        [object_file], shared_object_file, libraries=libraries, library_dirs=library_dirs,
+        extra_preargs=extra_link_preargs)
 
     return shared_object_file
 
@@ -254,7 +281,8 @@ def get_cuda_dirs(build_ext, cpp_flags):
 
     try:
         test_compile(build_ext, 'test_cuda', libraries=['cudart'], include_dirs=cuda_include_dirs,
-                     library_dirs=cuda_lib_dirs, extra_preargs=cpp_flags, code=textwrap.dedent('''\
+                     library_dirs=cuda_lib_dirs, extra_compile_preargs=cpp_flags,
+                     code=textwrap.dedent('''\
             #include <cuda_runtime.h>
             void test() {
                 cudaSetDevice(0);
@@ -299,7 +327,8 @@ def get_nccl_vals(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
 
     try:
         test_compile(build_ext, 'test_nccl', libraries=nccl_libs, include_dirs=nccl_include_dirs + cuda_include_dirs,
-                     library_dirs=nccl_lib_dirs + cuda_lib_dirs, extra_preargs=cpp_flags, code=textwrap.dedent('''\
+                     library_dirs=nccl_lib_dirs + cuda_lib_dirs, extra_compile_preargs=cpp_flags,
+                     code=textwrap.dedent('''\
             #include <nccl.h>
             #if NCCL_MAJOR < 2
             #error Horovod requires NCCL 2.0 or later version, please upgrade.
@@ -340,6 +369,7 @@ def get_ddl_dirs():
 
 def get_common_options(build_ext):
     cpp_flags = get_cpp_flags(build_ext)
+    link_flags = get_link_flags(build_ext)
     mpi_flags = get_mpi_flags()
 
     gpu_allreduce = os.environ.get('HOROVOD_GPU_ALLREDUCE')
@@ -393,7 +423,7 @@ def get_common_options(build_ext):
                'horovod/common/operations.cc',
                'horovod/common/timeline.cc']
     COMPILE_FLAGS = cpp_flags + shlex.split(mpi_flags)
-    LINK_FLAGS = shlex.split(mpi_flags)
+    LINK_FLAGS = link_flags + shlex.split(mpi_flags)
     LIBRARY_DIRS = []
     LIBRARIES = []
 
@@ -406,7 +436,6 @@ def get_common_options(build_ext):
     if have_nccl:
         MACROS += [('HAVE_NCCL', '1')]
         INCLUDES += nccl_include_dirs
-        LINK_FLAGS += ['-Wl,--version-script=hide_nccl.lds']
         LIBRARY_DIRS += nccl_lib_dirs
         LIBRARIES += nccl_libs
 
@@ -511,7 +540,7 @@ def is_torch_cuda_v2(build_ext, include_dirs, extra_compile_args):
     try:
         from torch.utils.cpp_extension import include_paths
         test_compile(build_ext, 'test_torch_cuda', include_dirs=include_dirs + include_paths(cuda=True),
-                     extra_preargs=extra_compile_args, code=textwrap.dedent('''\
+                     extra_compile_preargs=extra_compile_args, code=textwrap.dedent('''\
             #include <THC/THC.h>
             void test() {
             }
