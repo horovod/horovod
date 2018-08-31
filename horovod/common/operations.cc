@@ -258,18 +258,15 @@ const Status SHUT_DOWN_ERROR = Status::Aborted(
 
 #define OP_ERROR(entries, error_message)                                       \
   {                                                                            \
-      for (auto& e : (entries)) {                                              \
-        timeline.End(e.tensor_name, nullptr);                                  \
-        e.callback(Status::UnknownError(error_message));                       \
-      }                                                                        \
-      return;                                                                  \
+    for (auto& e : (entries)) {                                                \
+      timeline.End(e.tensor_name, nullptr);                                    \
+      e.callback(Status::UnknownError(error_message));                         \
+    }                                                                          \
+    return;                                                                    \
   }
 
-// Store the MPIRequest for a name, and return whether the total count of
-// MPIRequests for that tensor is now equal to the MPI size (and thus we are
-// ready to reduce the tensor).
-bool IncrementTensorCount(std::unique_ptr<MessageTable>& message_table,
-                          MPIRequest msg, int mpi_size) {
+void IncrementTensorCount(std::unique_ptr<MessageTable>& message_table,
+                          const MPIRequest& msg, int mpi_size) {
   auto& name = msg.tensor_name();
   auto& timeline = horovod_global.timeline;
   auto table_iter = message_table->find(name);
@@ -287,12 +284,11 @@ bool IncrementTensorCount(std::unique_ptr<MessageTable>& message_table,
   timeline.NegotiateRankReady(name, msg.request_rank());
 
   std::vector<MPIRequest>& messages = std::get<0>(table_iter->second);
-  int count = (int)messages.size();
-  bool ready_to_reduce = count == mpi_size;
-  if (ready_to_reduce) {
+  auto count = (int)messages.size();
+  bool negotiation_done = count == mpi_size;
+  if (negotiation_done) {
     timeline.NegotiateEnd(name);
   }
-  return ready_to_reduce;
 }
 
 // Once a tensor is ready to be reduced, the coordinator sends an MPIResponse
@@ -1530,18 +1526,12 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   // Collect all tensors that are ready to be reduced. Record them in the
   // tensor count table (rank zero) or send them to rank zero to be
   // recorded (everyone else).
-  std::vector<std::string> ready_to_reduce;
   if (is_coordinator) {
     while (!message_queue.empty()) {
       // Pop the first available message message
       MPIRequest message = message_queue.front();
       message_queue.pop();
-
-      bool reduce =
-          IncrementTensorCount(state.message_table, message, state.size);
-      if (reduce) {
-        ready_to_reduce.push_back(message.tensor_name());
-      }
+      IncrementTensorCount(state.message_table, message, state.size);
     }
 
     // Rank zero has put all its own tensors in the tensor count table.
@@ -1579,12 +1569,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       MPIRequestList::ParseFromString(received_message_list, received_data);
       for (auto& received_message : received_message_list.requests()) {
         auto& received_name = received_message.tensor_name();
-
-        bool reduce = IncrementTensorCount(state.message_table,
-                                           received_message, state.size);
-        if (reduce) {
-          ready_to_reduce.push_back(received_name);
-        }
+        IncrementTensorCount(state.message_table, received_message, state.size);
       }
       if (received_message_list.shutdown()) {
         // Received SHUTDOWN request from one of the workers.
@@ -1596,6 +1581,20 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     delete[] recvcounts;
     delete[] displcmnts;
     delete[] buffer;
+
+    // Find tensors which are negotiated by all ranks AND are ready from GPU
+    // perspective.
+    std::vector<std::string> ready_to_reduce;
+    for (auto& m : *state.message_table) {
+      auto& tensor_name = m.first;
+      auto& messages = std::get<0>(m.second);
+      if (messages.size() == state.size) {
+        auto& ready_event = state.tensor_table[tensor_name].ready_event;
+        if (ready_event == nullptr || ready_event->Ready()) {
+          ready_to_reduce.push_back(tensor_name);
+        }
+      }
+    }
 
     // At this point, rank zero should have a fully updated tensor count
     // table and should know all the tensors that need to be reduced or
