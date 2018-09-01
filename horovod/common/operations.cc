@@ -37,6 +37,7 @@
 
 #define OMPI_SKIP_MPICXX
 #include "hashes.h"
+#include "fusion_buffer_manager.h"
 #include "mpi.h"
 #include "mpi_message.h"
 #include "operations.h"
@@ -147,7 +148,10 @@ struct HorovodGlobalState {
 
   // Threshold for Tensor Fusion.  All tensors that occupy memory beyond this
   // threshold will be fused.
-  int64_t tensor_fusion_threshold = 64 * 1024 * 1024;
+  int64_t default_tensor_fusion_threshold = 64 * 1024 * 1024;
+
+  // Encapsulates the fusion buffers, handles resizing and auto-tuning of buffer size.
+  FusionBufferManager fusion_buffer = FusionBufferManager(default_tensor_fusion_threshold);
 
   // Background thread cycle time in milliseconds.  Fractional numbers are
   // permitted.
@@ -155,13 +159,6 @@ struct HorovodGlobalState {
 
   // Time point when last cycle started.
   std::chrono::steady_clock::time_point last_cycle_start;
-
-  // Memory buffers for Tensor Fusion.  They are keyed off device ID and
-  // framework, and all are allocated tensor_fusion_threshold bytes if
-  // initialized.
-  std::unordered_map<std::tuple<int, Framework>,
-                     std::shared_ptr<PersistentBuffer>>
-      tensor_fusion_buffers;
 
   // Whether MPI_Init has been completed on the background thread.
   bool initialization_done = false;
@@ -730,24 +727,15 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     // Note: it is OK for different entries to come from different frameworks
     // since buffer allocated here is guaranteed to survive at least till the
     // end of this operation.
-    auto& buffer = horovod_global.tensor_fusion_buffers[std::make_tuple(
-        first_entry.device, first_entry.context->framework())];
-    if (buffer == nullptr) {
-      ACTIVITY_START_ALL(entries, timeline, INIT_FUSION_BUFFER)
-
-      // Lazily allocate persistent buffer for Tensor Fusion and keep it
-      // forever per device.
-      Status status = first_entry.context->AllocatePersistent(
-          horovod_global.tensor_fusion_threshold, &buffer);
-      if (!status.ok()) {
-        for (auto& e : entries) {
-          timeline.End(e.tensor_name, nullptr);
-          e.callback(status);
-        }
-        return;
+    Status status = horovod_global.fusion_buffer.InitializeBuffer(
+        first_entry.device, first_entry.context,
+        [&](){ACTIVITY_START_ALL(entries, timeline, INIT_FUSION_BUFFER)},
+        [&](){ACTIVITY_END_ALL(entries, timeline)});
+    if (!status.ok()) {
+      for (auto& e : entries) {
+        timeline.End(e.tensor_name, nullptr);
+        e.callback(status);
       }
-
-      ACTIVITY_END_ALL(entries, timeline)
     }
   }
 
@@ -944,8 +932,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       size_t buffer_len;
       if (entries.size() > 1) {
         // Access the fusion buffer.
-        auto& buffer = horovod_global.tensor_fusion_buffers[std::make_tuple(
-            first_entry.device, first_entry.context->framework())];
+        auto& buffer = horovod_global.fusion_buffer.GetBuffer(
+            first_entry.device, first_entry.context->framework());
         buffer_data =
             const_cast<void*>(buffer->AccessData(first_entry.context));
 
@@ -1105,8 +1093,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
     if (entries.size() > 1) {
       // Access the fusion buffer.
-      auto& buffer = horovod_global.tensor_fusion_buffers[std::make_tuple(
-          first_entry.device, first_entry.context->framework())];
+      auto& buffer = horovod_global.fusion_buffer.GetBuffer(
+          first_entry.device, first_entry.context->framework());
       auto buffer_data = buffer->AccessData(first_entry.context);
 
       // Copy memory into the fusion buffer.
@@ -1402,8 +1390,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Override Tensor Fusion threshold, if it's set.
   auto horovod_fusion_threshold = std::getenv(HOROVOD_FUSION_THRESHOLD);
   if (horovod_fusion_threshold != nullptr) {
-    state.tensor_fusion_threshold =
-        std::strtol(horovod_fusion_threshold, nullptr, 10);
+    int64_t threshold = std::strtol(horovod_fusion_threshold, nullptr, 10);
+    horovod_global.fusion_buffer.SetInitialThreshold(threshold);
   }
 
   // Override the cycle time.
@@ -1633,7 +1621,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
           if (response.response_type() == new_response.response_type() &&
               response.devices() == new_response.devices() &&
               entry.tensor->dtype() == new_entry.tensor->dtype() &&
-              tensor_size + new_tensor_size <= state.tensor_fusion_threshold) {
+              tensor_size + new_tensor_size <= state.fusion_buffer.GetThreshold()) {
             // These tensors will fuse together well.
             tensor_size += new_tensor_size;
             response.add_tensor_names(new_response.tensor_names()[0]);

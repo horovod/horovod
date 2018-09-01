@@ -39,6 +39,7 @@ from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank
 from horovod.tensorflow.mpi_ops import mpi_threads_supported
 
 import tensorflow as tf
+from tensorflow.contrib import slim
 
 
 def allreduce(tensor, average=True, device_dense='', device_sparse=''):
@@ -59,6 +60,7 @@ def allreduce(tensor, average=True, device_dense='', device_sparse=''):
     allgather on the values and the indices, effectively doing an allreduce on
     the represented tensor.
     """
+    slim.model_analyzer.analyze_vars([tensor], print_info=True)
     if isinstance(tensor, tf.IndexedSlices):
         with tf.device(device_sparse):
             # For IndexedSlices, do two allgathers intead of an allreduce.
@@ -159,6 +161,7 @@ class DistributedOptimizer(tf.train.Optimizer):
         self._optimizer = optimizer
         self._device_dense = device_dense
         self._device_sparse = device_sparse
+        self.count = 0
         super(DistributedOptimizer, self).__init__(
             name=name, use_locking=use_locking)
 
@@ -172,6 +175,9 @@ class DistributedOptimizer(tf.train.Optimizer):
         """
         gradients = self._optimizer.compute_gradients(*args, **kwargs)
         if size() > 1:
+            grads = [grad for grad, var in gradients]
+            slim.model_analyzer.analyze_vars(grads, print_info=True)
+
             averaged_gradients = []
             with tf.name_scope(self._name + "_Allreduce"):
                 for grad, var in gradients:

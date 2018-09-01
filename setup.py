@@ -419,6 +419,7 @@ def get_common_options(build_ext):
     MACROS = []
     INCLUDES = []
     SOURCES = ['horovod/common/common.cc',
+               'horovod/common/fusion_buffer_manager.cc',
                'horovod/common/mpi_message.cc',
                'horovod/common/operations.cc',
                'horovod/common/timeline.cc']
