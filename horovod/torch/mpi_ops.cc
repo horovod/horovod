@@ -41,7 +41,7 @@ std::string GetOpName(const std::string& prefix, char* name, int handle) {
 
 } // namespace
 
-// 在GPU上面执行DoAllreduce
+
 template <MPIDataType DT, DeviceType Dev, class T>
 int DoAllreduce(T* tensor, T* output, int average, char* name) {
   ThrowIfError(common::CheckInitialized());
@@ -68,7 +68,7 @@ int DoAllreduce(T* tensor, T* output, int average, char* name) {
   return handle;
 }
 
-//将GPU上的数据拷贝到CPU上面进行CPU上面的allReduce
+
 #if HAVE_CUDA
 template <MPIDataType DT, class TC, class T>
 int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
