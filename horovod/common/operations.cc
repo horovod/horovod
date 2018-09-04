@@ -736,6 +736,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         timeline.End(e.tensor_name, nullptr);
         e.callback(status);
       }
+      return;
     }
   }
 
