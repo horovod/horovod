@@ -1011,9 +1011,11 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         // If cluster is homogeneous and we are using fusion buffer, include
         // dummy elements from the buffer (if necessary) to make sure the data
         // is divisible by local_size. This is always possible since we
-        // allocated the set the fusion buffer size divisible by local_size.
+        // set the fusion buffer size divisible by local_size.
         if (horovod_global.is_homogeneous && entries.size() > 1) {
-          int div = horovod_global.local_size;
+          // Making sure the number of elements is divisible by 64
+          // for improved performance
+          int div = horovod_global.local_size * 64;
           num_elements = ((num_elements + div - 1) / div) * div;
           buffer_len = num_elements * element_size;
         }
@@ -1021,7 +1023,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         // Split the elements into two groups: num_elements_per_rank*local_size,
         // and num_elements_remaining. Cross-node reduction for the first group
         // is done by all local_rank's in parallel, while for the second group
-        // it it is only done by the root_node. If the cluster is not
+        // it it is only done by the root_rank. If the cluster is not
         // homogeneous first group is zero, and root_rank is 0.
 
         // Homogeneous case:
@@ -1103,6 +1105,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           // Synchronize.
           WAIT_FOR_EVENTS(entries, timeline, event_queue)
 
+          // According to https://docs.nvidia.com/cuda/cuda-runtime-api/
+          // api-sync-behavior.html#api-sync-behavior__memcpy-async, 
+          // cudaMemcpyAsync is synchronous with respect to the host, so we
+          // memcpy (effectively) synchronously to generate an accurate timeline
           ACTIVITY_START_ALL(entries, timeline, MEMCPY_IN_HOST_BUFFER)
           CUDA_CHECK(entries, "cudaMemcpyAsync",
                      cudaMemcpyAsync(host_buffer, buffer_data_at_rank_offset,
@@ -1552,7 +1558,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   if (state.is_homogeneous && state.hierarchical_allreduce) {
     // Assume the worst-case data type float64, since if it is divisible with
     // float64, it will be divisible for other types too.
-    int64_t div = state.local_size * sizeof(MPI_DOUBLE);
+
+    // Ensuring that fusion buffer can hold a number of elements divisible by 64
+    // for performance
+    int64_t div = state.local_size * sizeof(MPI_DOUBLE) * 64;
     state.tensor_fusion_threshold = ((proposed_fusion_threshold+div-1) / div) * div;
   } else {
     state.tensor_fusion_threshold = proposed_fusion_threshold;
