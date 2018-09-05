@@ -178,6 +178,7 @@ struct HorovodGlobalState {
 
   // COMM_WORLD ranks of processes running on this node.
   std::vector<int> local_comm_ranks;
+  std::vector<int> cross_comm_ranks;
 
   // Private MPI communicator for Horovod to ensure no collisions with other
   // threads using MPI.
@@ -816,23 +817,70 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     // MPI_Allgatherv API that supports gathering arrays of different length.
     ACTIVITY_START_ALL(entries, timeline, MPI_ALLGATHER)
     auto* recvcounts = new int[tensor_sizes.size()];
-    auto* displcmnts = new int[tensor_sizes.size()];
+    auto* cross_recvcounts = new int[horovod_global.cross_size];
+    auto* cross_displcmnts = new int[horovod_global.cross_size];
+    auto* local_recvcounts = new int[horovod_global.local_size];
+    auto* local_displcmnts = new int[horovod_global.local_size];
+
     for (unsigned int i = 0; i < tensor_sizes.size(); i++) {
-      recvcounts[i] =
-          (int)(single_slice_shape.num_elements() * tensor_sizes[i]);
+      recvcounts[i] = (int)(single_slice_shape.num_elements() * tensor_sizes[i]);
+    }
+
+    // compute the displacements for cross-node allgather
+    for (int i = 0; i < horovod_global.cross_size; i++) {
+      cross_recvcounts[i] = recvcounts[horovod_global.cross_comm_ranks[i]];
       if (i == 0) {
-        displcmnts[i] = 0;
+        cross_displcmnts[i] = 0;
       } else {
-        displcmnts[i] = recvcounts[i - 1] + displcmnts[i - 1];
+        cross_displcmnts[i] = cross_recvcounts[i-1] + cross_displcmnts[i - 1];
       }
     }
-    auto result = MPI_Allgatherv(
+
+    // compute the recvcounts and displacements for the local allgather
+    int last_cross_rank = horovod_global.cross_comm_ranks[horovod_global.cross_size-1];
+    local_recvcounts[horovod_global.local_rank] = cross_displcmnts[horovod_global.cross_size-1] 
+                       + recvcounts[last_cross_rank];
+
+    MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, local_recvcounts, 1,
+                MPI_INT, horovod_global.local_comm);
+
+    for (int i = 0; i < horovod_global.local_size; i++) {
+      if (i == 0) {
+        local_displcmnts[i] = 0;
+      }
+      else {
+        local_displcmnts[i] = local_displcmnts[i-1] + local_recvcounts[i-1];
+      }
+    }
+
+    // Perform the allgather: first parallelized allgather across nodes, then local allgather.
+
+    // Appropriately offset the displacements during cross-allgather so the local allgather
+    // can be done in-place.  
+    for(int i=0; i<horovod_global.cross_size; i++) {
+      cross_displcmnts[i] += local_displcmnts[horovod_global.local_rank];
+    }
+
+    auto cross_result = MPI_Allgatherv(
         e.tensor->data(), (int)e.tensor->shape().num_elements(),
-        GetMPIDataType(e.tensor), (void*)e.output->data(), recvcounts,
-        displcmnts, GetMPIDataType(e.tensor), horovod_global.mpi_comm);
+        GetMPIDataType(e.tensor), (void*)e.output->data(), cross_recvcounts,
+        cross_displcmnts, GetMPIDataType(e.tensor), horovod_global.cross_comm);
+
+    MPI_CHECK(entries, "MPI_Allgatherv", cross_result)
+
+    auto local_result = MPI_Allgatherv(
+        MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, (void*)e.output->data(),
+        local_recvcounts, local_displcmnts, GetMPIDataType(e.tensor),
+        horovod_global.local_comm);
+
+    MPI_CHECK(entries, "MPI_Allgatherv", local_result)
+
     delete[] recvcounts;
-    delete[] displcmnts;
-    MPI_CHECK(entries, "MPI_Allgatherv", result)
+    delete[] cross_displcmnts;
+    delete[] cross_recvcounts;
+    delete[] local_displcmnts;
+    delete[] local_recvcounts;
+
     ACTIVITY_END_ALL(entries, timeline)
 
     timeline.End(e.tensor_name, e.output);
@@ -1503,6 +1551,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   int cross_rank, cross_size;
   MPI_Comm_rank(cross_comm, &cross_rank);
   MPI_Comm_size(cross_comm, &cross_size);
+  std::vector<int> cross_comm_ranks((size_t)cross_size);
+  cross_comm_ranks[cross_rank] = rank;
+  MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, cross_comm_ranks.data(), 1,
+                MPI_INT, cross_comm);
 
   state.rank = rank;
   state.local_rank = local_rank;
@@ -1514,6 +1566,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.cross_comm = cross_comm;
   state.mpi_threads_supported = (provided == MPI_THREAD_MULTIPLE);
   state.local_comm_ranks = local_comm_ranks;
+  state.cross_comm_ranks = cross_comm_ranks;
 
   // Open the timeline file on coordinator.
   auto horovod_timeline = std::getenv("HOROVOD_TIMELINE");
