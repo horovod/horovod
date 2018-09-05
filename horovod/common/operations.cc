@@ -1587,18 +1587,22 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     // Find tensors which are negotiated by all ranks AND are ready from GPU
     // perspective.
     std::vector<std::string> ready_to_reduce;
-    if (!any_messages) {
-      // Only do allreduce if there were no new messages this cycle.
-      for (auto& m : *state.message_table) {
-        auto& tensor_name = m.first;
-        auto& messages = std::get<0>(m.second);
-        if (messages.size() == state.size) {
-          auto& ready_event = state.tensor_table[tensor_name].ready_event;
-          if (ready_event == nullptr || ready_event->Ready()) {
-            ready_to_reduce.push_back(tensor_name);
-          }
+    int64_t total_ready_size = 0;
+    for (auto& m : *state.message_table) {
+      auto& tensor_name = m.first;
+      auto& messages = std::get<0>(m.second);
+      if (messages.size() == state.size) {
+        auto& ready_event = state.tensor_table[tensor_name].ready_event;
+        if (ready_event == nullptr || ready_event->Ready()) {
+          ready_to_reduce.push_back(tensor_name);
+          // TODO: simplified for now.
+          total_ready_size += state.tensor_table[tensor_name].tensor->size();
         }
       }
+    }
+    if (any_messages && total_ready_size < state.tensor_fusion_threshold) {
+      // Only reduce if there are a lot of tensors or there were no messages.
+      ready_to_reduce.clear();
     }
 
     // At this point, rank zero should have a fully updated tensor count
