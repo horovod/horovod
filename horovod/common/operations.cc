@@ -1527,6 +1527,8 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   // tensor count table (rank zero) or send them to rank zero to be
   // recorded (everyone else).
   if (is_coordinator) {
+    bool any_messages = !message_queue.empty();
+
     while (!message_queue.empty()) {
       // Pop the first available message message
       MPIRequest message = message_queue.front();
@@ -1585,13 +1587,16 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     // Find tensors which are negotiated by all ranks AND are ready from GPU
     // perspective.
     std::vector<std::string> ready_to_reduce;
-    for (auto& m : *state.message_table) {
-      auto& tensor_name = m.first;
-      auto& messages = std::get<0>(m.second);
-      if (messages.size() == state.size) {
-        auto& ready_event = state.tensor_table[tensor_name].ready_event;
-        if (ready_event == nullptr || ready_event->Ready()) {
-          ready_to_reduce.push_back(tensor_name);
+    if (!any_messages) {
+      // Only do allreduce if there were no new messages this cycle.
+      for (auto& m : *state.message_table) {
+        auto& tensor_name = m.first;
+        auto& messages = std::get<0>(m.second);
+        if (messages.size() == state.size) {
+          auto& ready_event = state.tensor_table[tensor_name].ready_event;
+          if (ready_event == nullptr || ready_event->Ready()) {
+            ready_to_reduce.push_back(tensor_name);
+          }
         }
       }
     }
