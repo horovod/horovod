@@ -45,6 +45,10 @@ namespace common {
 #define NCCL_REDUCE "NCCL_REDUCE"
 #define NCCL_BCAST "NCCL_BCAST"
 
+// The number of elements held by fusion buffer and hierarchical
+// allreduce size is always a multiple of FUSION_BUFFER_ATOMIC_UNIT
+#define FUSION_BUFFER_ATOMIC_UNIT 64
+
 // A callback to call after the MPI communication completes. Since the
 // allreduce and allgather ops are asynchronous, this callback is what resumes
 // computation after the reduction is completed.

@@ -1013,9 +1013,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         // is divisible by local_size. This is always possible since we
         // set the fusion buffer size divisible by local_size.
         if (horovod_global.is_homogeneous && entries.size() > 1) {
-          // Making sure the number of elements is divisible by 64
-          // for improved performance
-          int div = horovod_global.local_size * 64;
+          // Making sure the number of elements is divisible by
+          // FUSION_BUFFER_ATOMIC_UNIT for improved performance
+          int div = horovod_global.local_size * FUSION_BUFFER_ATOMIC_UNIT;
           num_elements = ((num_elements + div - 1) / div) * div;
           buffer_len = num_elements * element_size;
         }
@@ -1559,9 +1559,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     // Assume the worst-case data type float64, since if it is divisible with
     // float64, it will be divisible for other types too.
 
-    // Ensuring that fusion buffer can hold a number of elements divisible by 64
-    // for performance
-    int64_t div = state.local_size * sizeof(MPI_DOUBLE) * 64;
+    // Ensuring that fusion buffer can hold a number of elements divisible by
+    // FUSION_BUFFER_ATOMIC_UNIT for performance
+    int64_t div = state.local_size * sizeof(MPI_DOUBLE) * FUSION_BUFFER_ATOMIC_UNIT;
     state.tensor_fusion_threshold = ((proposed_fusion_threshold+div-1) / div) * div;
   } else {
     state.tensor_fusion_threshold = proposed_fusion_threshold;
