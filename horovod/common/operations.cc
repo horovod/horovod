@@ -1723,12 +1723,20 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   // enqueued stream callbacks can continue.
   std::queue<MPIRequest> message_queue;
   {
+    std::queue<MPIRequest> not_ready_messages;
     std::lock_guard<std::mutex> guard(state.mutex);
     while (!state.message_queue.empty()) {
       MPIRequest message = state.message_queue.front();
       state.message_queue.pop();
-      message_queue.push(message);
+      auto& ready_event = state.tensor_table[message.tensor_name()].ready_event;
+      if (ready_event == nullptr || ready_event->Ready()) {
+        // Only process ready tensors.
+        message_queue.push(message);
+      } else {
+        not_ready_messages.push(message);
+      }
     }
+    state.message_queue.swap(not_ready_messages);
   }
 
   // Flag indicating that the background thread should shut down.
