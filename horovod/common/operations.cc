@@ -139,6 +139,9 @@ struct HorovodGlobalState {
   // Time point when coordinator last checked for stalled tensors.
   std::chrono::steady_clock::time_point last_stall_check;
 
+  // Flag indicating whether to perform stall tensor check.
+  bool perform_stall_check = true;
+
   // Timeline writer.
   Timeline timeline;
 
@@ -1061,9 +1064,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         // is divisible by local_size. This is always possible since we
         // set the fusion buffer size divisible by local_size.
         if (horovod_global.is_homogeneous && entries.size() > 1) {
-          // Making sure the number of elements is divisible by 64
-          // for improved performance
-          int div = horovod_global.local_size * 64;
+          // Making sure the number of elements is divisible by
+          // FUSION_BUFFER_ATOMIC_UNIT for improved performance
+          int div = horovod_global.local_size * FUSION_BUFFER_ATOMIC_UNIT;
           num_elements = ((num_elements + div - 1) / div) * div;
           buffer_len = num_elements * element_size;
         }
@@ -1465,12 +1468,11 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // By default, we will ask for multiple threads, so other libraries like
   // mpi4py can be used together with Horovod if multi-threaded MPI is
   // installed.
-
-  auto mpi_threads_disable = std::getenv("HOROVOD_MPI_THREADS_DISABLE");
+  auto mpi_threads_disable = std::getenv(HOROVOD_MPI_THREADS_DISABLE);
   int required = MPI_THREAD_MULTIPLE;
   if (mpi_threads_disable != nullptr &&
-      std::strtol(mpi_threads_disable, nullptr, 10) > 0) {
-    required = MPI_THREAD_FUNNELED;
+    std::strtol(mpi_threads_disable, nullptr, 10) > 0) {
+    required = MPI_THREAD_SINGLE;
   }
   int provided;
   int is_mpi_initialized = 0;
@@ -1569,21 +1571,28 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.cross_comm_ranks = cross_comm_ranks;
 
   // Open the timeline file on coordinator.
-  auto horovod_timeline = std::getenv("HOROVOD_TIMELINE");
+  auto horovod_timeline = std::getenv(HOROVOD_TIMELINE);
   if (is_coordinator && horovod_timeline != nullptr) {
     state.timeline.Initialize(std::string(horovod_timeline));
   }
 
   // Override the cycle time.
-  auto horovod_cycle_time = std::getenv("HOROVOD_CYCLE_TIME");
+  auto horovod_cycle_time = std::getenv(HOROVOD_CYCLE_TIME);
   if (horovod_cycle_time != nullptr) {
     state.cycle_time_ms = std::strtof(horovod_cycle_time, nullptr);
+  }
+
+  // Disable stall check.
+  auto horovod_stall_check_disable = std::getenv(HOROVOD_STALL_CHECK_DISABLE);
+  if (horovod_stall_check_disable != nullptr &&
+      std::strtol(horovod_stall_check_disable, nullptr, 10) > 0) {
+    state.perform_stall_check = false;
   }
 
   // Set flag for hierarchical allreduce. Ignore if Horovod is running on a
   // single node.
   auto horovod_hierarchical_allreduce =
-      std::getenv("HOROVOD_HIERARCHICAL_ALLREDUCE");
+      std::getenv(HOROVOD_HIERARCHICAL_ALLREDUCE);
   if (horovod_hierarchical_allreduce != nullptr &&
       std::strtol(horovod_hierarchical_allreduce, nullptr, 10) > 0 &&
       (size != local_size)) {
@@ -1612,9 +1621,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     // Assume the worst-case data type float64, since if it is divisible with
     // float64, it will be divisible for other types too.
 
-    // Ensuring that fusion buffer can hold a number of elements divisible by 64
-    // for performance
-    int64_t div = state.local_size * sizeof(MPI_DOUBLE) * 64;
+    // Ensuring that fusion buffer can hold a number of elements divisible by
+    // FUSION_BUFFER_ATOMIC_UNIT for performance
+    int64_t div = state.local_size * sizeof(MPI_DOUBLE) * FUSION_BUFFER_ATOMIC_UNIT;
     state.tensor_fusion_threshold = ((proposed_fusion_threshold+div-1) / div) * div;
   } else {
     state.tensor_fusion_threshold = proposed_fusion_threshold;
@@ -1857,8 +1866,9 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     }
 
     // Check for stalled tensors.
-    if (std::chrono::steady_clock::now() - state.last_stall_check >
-        STALL_WARNING_TIME) {
+    if (state.perform_stall_check &&
+        std::chrono::steady_clock::now() - state.last_stall_check >
+            STALL_WARNING_TIME) {
       CheckForStalledTensors(state);
       state.last_stall_check = std::chrono::steady_clock::now();
     }

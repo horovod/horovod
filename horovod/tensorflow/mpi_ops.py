@@ -25,7 +25,8 @@ from tensorflow.python.framework import load_library
 from tensorflow.python.framework import ops
 from tensorflow.python.platform import resource_loader
 
-from horovod.common import get_ext_suffix, rank, size
+from horovod.common import get_ext_suffix
+from horovod.common import HorovodBasics as _HorovodBasics
 
 
 def _load_library(name, op_list=None):
@@ -55,6 +56,17 @@ def _load_library(name, op_list=None):
 
 MPI_LIB = _load_library('mpi_lib' + get_ext_suffix(),
                         ['HorovodAllgather', 'HorovodAllreduce'])
+
+_basics = _HorovodBasics(__file__, 'mpi_lib')
+
+# import basic methods
+init = _basics.init
+shutdown = _basics.shutdown
+size = _basics.size
+local_size = _basics.local_size
+rank = _basics.rank
+local_rank = _basics.local_rank
+mpi_threads_supported = _basics.mpi_threads_supported
 
 
 def _normalize_name(name):

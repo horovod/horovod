@@ -22,6 +22,7 @@
 #endif
 
 #include "ready_event.h"
+#include "cuda_util.h"
 
 #if HAVE_CUDA
 extern THCState* state;
@@ -41,9 +42,7 @@ static ReadyEventRegistry ready_event_registry;
 TorchReadyEvent::TorchReadyEvent(int device) : device_(device) {
   assert(device_ != CPU_DEVICE_ID);
 
-  int restoreDevice;
-  THCudaCheck(cudaGetDevice(&restoreDevice));
-  THCudaCheck(cudaSetDevice(device_));
+  with_device device_context(device_);
   {
     std::lock_guard<std::mutex> guard(ready_event_registry.mutex);
     auto& queue = ready_event_registry.cuda_events[device_];
@@ -57,7 +56,6 @@ TorchReadyEvent::TorchReadyEvent(int device) : device_(device) {
   }
   auto stream = THCState_getCurrentStreamOnDevice(state, device_);
   THCudaCheck(cudaEventRecord(cuda_event_, stream));
-  THCudaCheck(cudaSetDevice(restoreDevice));
 }
 
 TorchReadyEvent::~TorchReadyEvent() {
