@@ -26,6 +26,8 @@ import tensorflow as tf
 
 import horovod.tensorflow as hvd
 
+from common import mpi_env_rank_and_size
+
 
 class MPITests(tf.test.TestCase):
     """
@@ -36,6 +38,20 @@ class MPITests(tf.test.TestCase):
         super(MPITests, self).__init__(*args, **kwargs)
         self.config = tf.ConfigProto()
         self.config.gpu_options.allow_growth = True
+
+    def test_horovod_rank(self):
+        """Test that the rank returned by hvd.rank() is correct."""
+        true_rank, _ = mpi_env_rank_and_size()
+        hvd.init()
+        rank = hvd.rank()
+        assert true_rank == rank
+
+    def test_horovod_size(self):
+        """Test that the size returned by hvd.size() is correct."""
+        _, true_size = mpi_env_rank_and_size()
+        hvd.init()
+        size = hvd.size()
+        assert true_size == size
 
     def test_horovod_allreduce_cpu(self):
         """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors."""

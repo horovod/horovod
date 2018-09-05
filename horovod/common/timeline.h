@@ -68,8 +68,8 @@ private:
   // Timeline file.
   std::ofstream file_;
 
-  // A mutex that guards timeline file from concurrent access.
-  std::mutex mutex_;
+  // A mutex that guards timeline state from concurrent access.
+  std::recursive_mutex mutex_;
 
   // Mapping of tensor names to indexes. It is used to reduce size of the
   // timeline file.
