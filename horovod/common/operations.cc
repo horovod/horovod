@@ -574,8 +574,6 @@ ncclDataType_t GetNCCLDataType(const std::shared_ptr<Tensor> tensor) {
     return ncclFloat32;
   case HOROVOD_FLOAT64:
     return ncclFloat64;
-  case HOROVOD_FLOAT16:
-    return ncclFloat16;
   default:
     throw std::logic_error("Type " + MPIDataType_Name(tensor->dtype()) +
                            " is not supported in NCCL mode.");
@@ -740,7 +738,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       // We should never fail at finding this key in the tensor table.
       auto iter = tensor_table.find(name);
       assert(iter != tensor_table.end());
-	    //printf("operation.cc PerformOperation response.tensor_names name :%s,response Type:%d\n",name.c_str(),response.response_type());
 	
       assert(response.response_type() == MPIResponse::ALLREDUCE ||
              response.response_type() == MPIResponse::ALLGATHER ||
@@ -833,8 +830,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
   if (response.response_type() == MPIResponse::ALLGATHER) {
     assert(entries.size() == 1);
     auto e = entries[0];
-	  printf("operation.cc PerformOperation MPIResponse:ALLGATHER -->entry.size()%d\n",entries.size());
-    // Copy tensor sizes from the MPI response into a vector of int64_t
+	 // Copy tensor sizes from the MPI response into a vector of int64_t
     // and compute total size.  This is size of first dimension.
     std::vector<int64_t> tensor_sizes;
     int64_t total_dimension_size = 0;
@@ -1076,7 +1072,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           num_elements += e.tensor->shape().num_elements();
         }
       } else {
-        //printf("Line 989 ...\n");
+        
         fused_input_data = first_entry.tensor->data();
         buffer_data = (void*)first_entry.output->data();
         num_elements = first_entry.tensor->shape().num_elements();
@@ -1273,9 +1269,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         }
       });
       finalizer_thread.detach();
-      return; //#######################################
+      return; 
     }
-#endif   //end line number:873 
+#endif
     
     if (entries.size() > 1) {
       // Access the fusion buffer.
@@ -1417,14 +1413,7 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
     std::chrono::steady_clock::time_point start_at = std::get<1>(m.second);
 
     if (now - start_at > STALL_WARNING_TIME) {
-      printf("checkForStalledTensors tensor:%s\n",tensor_name.c_str());
-      printf("print:");
-        for (auto msg_iter = messages.begin(); msg_iter != messages.end();
-           msg_iter++) {
-            printf("name:%s\n,request_rank:%d ,device:%d", msg_iter->tensor_name().c_str(),msg_iter->request_rank(),msg_iter->device());
-
-        }
-        printf("\n");
+  
       if (!preamble) {
         std::cerr << "WARNING: One or more tensors were submitted to be "
                      "reduced, gathered or broadcasted by subset of ranks and "
@@ -1496,7 +1485,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // By default, we will ask for multiple threads, so other libraries like
   // mpi4py can be used together with Horovod if multi-threaded MPI is
   // installed.
-  auto t1 = std::chrono::steady_clock::now();
+
   
   auto mpi_threads_disable = std::getenv(HOROVOD_MPI_THREADS_DISABLE);
   int required = MPI_THREAD_MULTIPLE;
@@ -1521,7 +1510,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 
   if (state.ranks.size() > 0) {
-    printf("state.ranks.size()>0\n");
+    
     MPI_Group world_group;
     MPI_Comm_group(MPI_COMM_WORLD, &world_group);
     MPI_Group work_group;
@@ -1634,10 +1623,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   if (is_coordinator && horovod_timeline != nullptr) {
     state.timeline.Initialize(std::string(horovod_timeline));
   }
- //TODO:wuyongyu
-if(is_coordinator && horovod_timeline != nullptr){	
-	printf("timeline rank is%d,filename:%s\n",rank,std::string(horovod_timeline).c_str());
-}
+ 
   // Override Tensor Fusion threshold, if it's set.
   auto horovod_fusion_threshold = std::getenv(HOROVOD_FUSION_THRESHOLD);
   if (horovod_fusion_threshold != nullptr) {
@@ -1649,10 +1635,7 @@ if(is_coordinator && horovod_timeline != nullptr){
   if (horovod_cycle_time != nullptr) {
     state.cycle_time_ms = std::strtof(horovod_cycle_time, nullptr);
   }
-  if(is_coordinator){
-    printf("operations.cc BackgroundThreadLoop --->horovod_fusion_threshold:%d\n",state.tensor_fusion_threshold);
-    printf("operations.cc BackgroundThreadLoop -->state.cycle_time_ms:%f\n",state.cycle_time_ms );
-  }
+ 
   // Disable stall check.
   auto horovod_stall_check_disable = std::getenv(HOROVOD_STALL_CHECK_DISABLE);
   if (horovod_stall_check_disable != nullptr &&
@@ -1670,9 +1653,7 @@ if(is_coordinator && horovod_timeline != nullptr){
       std::strtol(horovod_hierarchical_allreduce, nullptr, 10) > 0 &&
       cross_size > 1) {
     state.hierarchical_allreduce = true;
-    if(is_coordinator){
-      printf("mo ren fen ceng rong he Allreduce\n");
-    }
+    
   }
   // Initialize the tensor count table. No tensors are available yet.
   if (is_coordinator) {
@@ -1714,11 +1695,8 @@ if(is_coordinator && horovod_timeline != nullptr){
   for (auto& cb : callbacks) {
     cb(SHUT_DOWN_ERROR);
   }
-  auto t2 = std::chrono::steady_clock::now();
-  std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-  if(horovod_rank()==0)
-  printf("The Program Running Time :%f seconds\n",time_span);
-}
+ 
+ }
 
 // The coordinator currently follows a master-worker paradigm. Rank zero acts
 // as the master (the "coordinator"), whereas all other ranks are simply
@@ -1839,7 +1817,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       if (received_message_list.shutdown()) {
         // Received SHUTDOWN request from one of the workers.
         state.shut_down = true;
-		    printf("received_message_list shutdown!!!\n");
+		
       }
     }
 
