@@ -1208,7 +1208,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                                  GetNCCLDataType(first_entry.tensor), ncclSum,
                                  nccl_across_ring_comm, stream))
 
-             buffer_data = buffer2
+             buffer_data = buffer2;
         }
 
         NCCL_CHECK(entries, "ncclBcast",
