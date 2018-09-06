@@ -1497,6 +1497,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       break;
     }
   }
+  delete[] local_sizes;
   state.is_homogeneous = is_homogeneous;
 
   // Set up cross-communicator in case of hierarchical allreduce.
