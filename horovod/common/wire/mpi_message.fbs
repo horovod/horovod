@@ -26,8 +26,7 @@ enum MPIDataType:byte {
     HOROVOD_INT64 = 5,
     HOROVOD_FLOAT32 = 6,
     HOROVOD_FLOAT64 = 7,
-    HOROVOD_BOOL = 8,
-	HOROVOD_FLOAT16 = 9,
+    HOROVOD_BOOL = 8
 }
 
 // An MPIRequest is a message sent from a rank greater than zero to the

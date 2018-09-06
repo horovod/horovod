@@ -50,9 +50,6 @@ const std::string& MPIDataType_Name(MPIDataType value) {
   case HOROVOD_BOOL:
     static const std::string bool_("bool");
     return bool_;
-  case HOROVOD_FLOAT16:
-  static const std::string float16("float16");
-  return float16;
   default:
     static const std::string unknown("<unknown>");
     return unknown;

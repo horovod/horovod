@@ -29,20 +29,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from horovod.common import init
-from horovod.common import shutdown
-from horovod.common import size
-from horovod.common import local_size
-from horovod.common import rank
-from horovod.common import local_rank
-from horovod.common import mpi_threads_supported
 from horovod.common import check_extension
 
 check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
 
-from horovod.tensorflow.mpi_ops import allgather
-from horovod.tensorflow.mpi_ops import broadcast
-from horovod.tensorflow.mpi_ops import _allreduce
+from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce
+from horovod.tensorflow.mpi_ops import init, shutdown
+from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank
+from horovod.tensorflow.mpi_ops import mpi_threads_supported
 
 import tensorflow as tf
 

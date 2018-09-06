@@ -41,7 +41,6 @@ std::string GetOpName(const std::string& prefix, char* name, int handle) {
 
 } // namespace
 
-
 template <MPIDataType DT, DeviceType Dev, class T>
 int DoAllreduce(T* tensor, T* output, int average, char* name) {
   ThrowIfError(common::CheckInitialized());
@@ -67,7 +66,6 @@ int DoAllreduce(T* tensor, T* output, int average, char* name) {
 
   return handle;
 }
-
 
 #if HAVE_CUDA
 template <MPIDataType DT, class TC, class T>
@@ -243,7 +241,6 @@ ALLREDUCE(torch_cuda_FloatTensor, MPIDataType::HOROVOD_FLOAT32, DeviceType::GPU,
           THCudaTensor)
 ALLREDUCE(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64,
           DeviceType::GPU, THCudaDoubleTensor)
-ALLREDUCE(torch_cuda_HalfTensor, MPIDataType::HOROVOD_FLOAT16,DeviceType::GPU, THCudaHalfTensor)
 #endif
 
 #define ALLREDUCE_CUDA_ON_CPU(torch_Tensor, HorovodType, THCTensor, THTensor)  \
@@ -262,7 +259,6 @@ ALLREDUCE_CUDA_ON_CPU(torch_cuda_FloatTensor, MPIDataType::HOROVOD_FLOAT32,
                       THCudaTensor, THFloatTensor)
 ALLREDUCE_CUDA_ON_CPU(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64,
                       THCudaDoubleTensor, THDoubleTensor)
-
 #endif
 
 #define ALLGATHER(torch_Tensor, HorovodType, DeviceType, THTensor)             \

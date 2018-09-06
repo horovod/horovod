@@ -25,8 +25,6 @@
 
 #include "../common/common.h"
 #include "cuda_util.h"
-#include <cuda_fp16.h>
-#include <cuda_runtime_api.h>
 
 #if HAVE_CUDA
 extern THCState* state;
@@ -263,97 +261,6 @@ public:
     THTensor##_copyAsyncCuda(state, cpu, cuda);                                \
   }
 
-#define TENSOR_UTIL_DEFINE_CUDA_TYPE_FORHALF(HorovodType, THCTensor, THTensor, \
-                                     THCStorage)                               \
-  template <>                                                                  \
-  const TensorShape TensorUtil::GetShape<HorovodType, DeviceType::GPU,         \
-                                         THCTensor>(THCTensor * tensor) {      \
-    TensorShape shape;                                                         \
-    for (int idx = 0; idx < THCTensor##_nDimension(state, tensor); idx++) {    \
-      shape.AddDim(THCTensor##_size(state, tensor, idx));                      \
-    }                                                                          \
-    return shape;                                                              \
-  }                                                                            \
-                                                                               \
-  template <>                                                                  \
-  const void* TensorUtil::GetData<HorovodType, DeviceType::GPU, THCTensor>(    \
-      THCTensor * tensor) {                                                    \
-    return THCTensor##_data(state, tensor);                                    \
-  }                                                                            \
-                                                                               \
-  template <>                                                                  \
-  int64_t TensorUtil::GetSize<HorovodType, DeviceType::GPU, THCTensor>(        \
-      THCTensor * tensor) {                                                    \
-    return (int64_t)(                                                          \
-        THCStorage##_size(state, THCTensor##_storage(state, tensor)) *         \
-        THCStorage##_elementSize(state));                                      \
-  }                                                                            \
-                                                                               \
-  template <>                                                                  \
-  int TensorUtil::GetDevice<HorovodType, DeviceType::GPU, THCTensor>(          \
-      THCTensor * tensor) {                                                    \
-    return THCTensor##_getDevice(state, tensor);                               \
-  }                                                                            \
-                                                                               \
-  template <>                                                                  \
-  THCTensor* TensorUtil::New<HorovodType, DeviceType::GPU, THCTensor>(         \
-      int device) {                                                            \
-    with_device device_context(device);                                        \
-    return THCTensor##_new(state);                                             \
-  }                                                                            \
-                                                                               \
-  template <>                                                                  \
-  void TensorUtil::Free<HorovodType, DeviceType::GPU, THCTensor>(THCTensor *   \
-                                                                 tensor) {     \
-    THCTensor##_free(state, tensor);                                           \
-  }                                                                            \
-                                                                               \
-  template <>                                                                  \
-  void TensorUtil::ResizeNd<HorovodType, DeviceType::GPU, THCTensor>(          \
-      THCTensor * tensor, int nDimension, int64_t* size, int64_t* stride) {    \
-    with_device device_context(THCTensor##_getDevice(state, tensor));          \
-    THCTensor##_resizeNd(state, tensor, nDimension, size, stride);             \
-  }                                                                            \
-                                                                               \
-  template <>                                                                  \
-  void TensorUtil::Copy<HorovodType, DeviceType::GPU, THCTensor>(              \
-      THCTensor * output, THCTensor * tensor) {                                \
-    with_device device_context(THCTensor##_getDevice(state, output));          \
-    THCTensor##_copy(state, output, tensor);                                   \
-  }                                                                            \
-                                                                               \
-  template <>                                                                  \
-  void                                                                         \
-  TensorUtil::DivideTensorInPlace<HorovodType, DeviceType::GPU, THCTensor>(    \
-      THCTensor * tensor, int value) {                                         \
-    with_device device_context(THCTensor##_getDevice(state, tensor));          \
-    printf("THCudaHalfTensor did not do DivideTensorInPlace\n");               \
-  }                                                                            \
-                                                                               \
-  template <>                                                                  \
-  void TensorUtil::CopyCPUToCuda<HorovodType, THTensor, THCTensor>(            \
-      THTensor * cpu, THCTensor * cuda) {                                      \
-    with_device device_context(THCTensor##_getDevice(state, cuda));            \
-    THLongStorage* size = THTensor##_newSizeOf(cpu);                           \
-    if (!THCTensor##_isSize(state, cuda, size)) {                              \
-      THCTensor##_resize(state, cuda, size, NULL);                             \
-    }                                                                          \
-    THLongStorage_free(size);                                                  \
-    THCTensor##_copyCPU(state, cuda, cpu);                                     \
-  }                                                                            \
-                                                                               \
-  template <>                                                                  \
-  void TensorUtil::AsyncCopyCudaToCPU<HorovodType, THCTensor, THTensor>(       \
-      THCTensor * cuda, THTensor * cpu) {                                      \
-    with_device device_context(THCTensor##_getDevice(state, cuda));            \
-    THLongStorage* size = THCTensor##_newSizeOf(state, cuda);                  \
-    if (!THTensor##_isSize(cpu, size)) {                                       \
-      THTensor##_resize(cpu, size, NULL);                                      \
-    }                                                                          \
-    THLongStorage_free(size);                                                  \
-    THTensor##_copyAsyncCuda(state, cpu, cuda);                                \
-  }
-
 TENSOR_UTIL_DEFINE_CPU_TYPE_H(MPIDataType::HOROVOD_UINT8, THByteTensor)
 TENSOR_UTIL_DEFINE_CPU_TYPE_H(MPIDataType::HOROVOD_INT8, THCharTensor)
 TENSOR_UTIL_DEFINE_CPU_TYPE_H(MPIDataType::HOROVOD_INT16, THShortTensor)
@@ -377,7 +284,6 @@ TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_FLOAT32, THCudaTensor,
                                THFloatTensor)
 TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_FLOAT64, THCudaDoubleTensor,
                                THDoubleTensor)
-TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_FLOAT16, THCudaHalfTensor, THHalfTensor)
 #endif
 
 } // namespace torch

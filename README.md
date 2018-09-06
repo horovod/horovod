@@ -179,28 +179,6 @@ $ mpirun -np 16 \
 [Helm Chart](https://github.com/kubernetes/charts/tree/master/stable/horovod/), and 
 [FfDL](https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/).
 
-5. 执行多个节点，不打印NCCL调试信息  ,使用分层allreduce
-
- ```bash
- $ HOROVOD_HIERARCHICAL_ALLREDUCE=1 mpirun -np 4 -H server1:2,server2:2 \
-      -bind-to none -map-by slot \
-       -x HOROVOD_HIERARCHICAL_ALLREDUCE -x LD_LIBRARY_PATH -x PATH  -x NCCL_SOCKET_IFNAME=enp129s0f0 \
-      -mca pml ob1 -mca btl ^openib \
-      -mca btl_tcp_if_exclude lo,docker0,enp129s0f1 \
-      python train.py
- ```
- 
-6. 打印TIME_LINE 使用chrome://tracing/ 查看运行结果信息
-
- ```bash
- $ HOROVOD_TIMELINE=./timeline.json  mpirun -np 3 \
-     -H localhost:3 \
-     -bind-to none -map-by slot \
-     -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH -x HOROVOD_TIMELINE\
-     -mca pml ob1 -mca btl ^openib \
-     python train.py
- ```
- 
 ## Keras
 
 Horovod supports Keras and regular TensorFlow in similar ways.

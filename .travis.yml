@@ -42,7 +42,7 @@ env:
     - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_PACKAGE=torch==0.3.1 MPI=OpenMPI
     - TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.0 MPI=OpenMPI
     - TF_PACKAGE=tensorflow==1.9.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==0.4.1 MPI=OpenMPI
-    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch MPI=OpenMPI
+    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MPI=OpenMPI
     - TF_PACKAGE=tensorflow==1.9.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==0.4.1 MPI=MPICH
 
 matrix:
@@ -57,7 +57,7 @@ matrix:
     - python: "3.6"
       env: TF_PACKAGE=tensorflow==1.9.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==0.4.1 MPI=MPICH
     - python: "3.5"
-      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch MPI=OpenMPI
+      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MPI=OpenMPI
 
 install:
   - |
@@ -82,7 +82,14 @@ install:
   - docker exec ${CONTAINER} /bin/sh -c "pip install scipy"
 
   # PyTorch
-  - docker exec ${CONTAINER} /bin/sh -c "pip install ${PYTORCH_PACKAGE} torchvision"
+  - |
+    if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then
+      docker exec ${CONTAINER} /bin/sh -c "pip install torchvision"
+      docker exec ${CONTAINER} /bin/sh -c "pip uninstall -y torch"
+      docker exec ${CONTAINER} /bin/sh -c "pip install torch_nightly -v -f https://download.pytorch.org/whl/nightly/cu90/torch_nightly.html"
+    else
+      docker exec ${CONTAINER} /bin/sh -c "pip install ${PYTORCH_PACKAGE} torchvision"
+    fi
 
   # Horovod
   - docker exec ${CONTAINER} /bin/sh -c "cd /horovod && python setup.py sdist"
