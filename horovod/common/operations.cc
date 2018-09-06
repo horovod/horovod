@@ -856,13 +856,13 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       }
     }
 
-    // Perform the allgather: first parallelized allgather across nodes, then local allgather.
-
     // Appropriately offset the displacements during cross-allgather so the local allgather
     // can be done in-place.  
     for(int i=0; i<horovod_global.cross_size; i++) {
       cross_displcmnts[i] += local_displcmnts[horovod_global.local_rank];
     }
+
+    // Perform the allgather: first parallelized allgather across nodes, then local allgather.
 
     auto cross_result = MPI_Allgatherv(
         e.tensor->data(), (int)e.tensor->shape().num_elements(),
@@ -871,12 +871,82 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
     MPI_CHECK(entries, "MPI_Allgatherv", cross_result)
 
-    auto local_result = MPI_Allgatherv(
-        MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, (void*)e.output->data(),
-        local_recvcounts, local_displcmnts, GetMPIDataType(e.tensor),
-        horovod_global.local_comm);
+    // cannot use allgather since nccl requires all tensors to be gathered to be
+    // of the same size. emulate allgatherv with a sequence of broadcasts instead.
+    // use group calls to pipeline the calls.
 
-    MPI_CHECK(entries, "MPI_Allgatherv", local_result)
+    bool on_gpu = e.device != CPU_DEVICE_ID;
+
+    if (0) {
+
+      std::cout << "Executing allgather on gpu" << std::endl;
+      cudaStream_t& stream = horovod_global.streams[e.device];
+
+      CUDA_CHECK(entries, "cudaSetDevice", cudaSetDevice(e.device))
+
+      // Ensure stream is in the map before executing reduction.
+      if (stream == nullptr) {
+        int greatest_priority;
+        CUDA_CHECK(entries, "cudaDeviceGetStreamPriorityRange",
+                   cudaDeviceGetStreamPriorityRange(NULL, &greatest_priority))
+        CUDA_CHECK(entries, "cudaStreamCreateWithPriority",
+                   cudaStreamCreateWithPriority(&stream, cudaStreamNonBlocking,
+                                                greatest_priority))
+      }
+      auto event_queue = std::queue<std::pair<std::string, cudaEvent_t>>();
+
+      // Determine GPU IDs of the devices participating in this communicator.
+      std::vector<int32_t> nccl_device_map;
+      for (int rank : horovod_global.local_comm_ranks) {
+        nccl_device_map.push_back(response.devices()[rank]);
+      }
+      // Ensure NCCL communicator is in the map before executing reduction.
+      ncclComm_t& nccl_comm = horovod_global.nccl_comms[nccl_device_map];
+
+      if (nccl_comm == nullptr) {
+        ACTIVITY_START_ALL(entries, timeline, INIT_NCCL)
+
+        ncclUniqueId nccl_id;
+        if (horovod_global.local_rank == 0) {
+          NCCL_CHECK(entries, "ncclGetUniqueId", ncclGetUniqueId(&nccl_id))
+        }
+
+        MPI_CHECK(entries, "MPI_Bcast",
+                  MPI_Bcast((void*)&nccl_id, sizeof(nccl_id), MPI_BYTE, 0,
+                            horovod_global.local_comm));
+
+        ncclComm_t new_nccl_comm;
+        NCCL_CHECK(
+            entries, "ncclCommInitRank",
+            ncclCommInitRank(&new_nccl_comm, horovod_global.local_size,
+                                nccl_id, horovod_global.local_rank))
+        nccl_comm = new_nccl_comm;
+
+        // Barrier helps NCCL to synchronize after initialization and avoid
+        // deadlock that we've been seeing without it.
+        MPI_CHECK(entries, "MPI_Barrier", MPI_Barrier(horovod_global.mpi_comm));
+
+        ACTIVITY_END_ALL(entries, timeline)
+      }
+
+      for (int i=0; i < horovod_global.local_size; i++) {
+          void* output_buffer_at_offset = (uint8_t*)e.output->data() 
+                     + local_displcmnts[i]*sizeof(GetMPIDataType(e.tensor));
+
+          NCCL_CHECK(entries, "ncclBcast",
+                     ncclBcast(output_buffer_at_offset,
+                               local_recvcounts[i],
+                               GetNCCLDataType(e.tensor), i,
+                               nccl_comm, stream))
+      }
+    } else {
+      auto local_result = MPI_Allgatherv(
+          MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, (void*)e.output->data(),
+          local_recvcounts, local_displcmnts, GetMPIDataType(e.tensor),
+          horovod_global.local_comm);
+
+      MPI_CHECK(entries, "MPI_Allgatherv", local_result)
+    }
 
     delete[] recvcounts;
     delete[] cross_displcmnts;
