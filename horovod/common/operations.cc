@@ -243,6 +243,8 @@ struct HorovodGlobalState {
 #endif
 #if HAVE_NCCL
   std::unordered_map<std::vector<int32_t>, ncclComm_t> nccl_comms;
+  //TODO:wuyongyu deteriminator the accross ring nccl_comms;
+  std::unordered_map<std::vector<int32_t>, ncclComm_t> nccl_across_ring_comms;
 #endif
 
   // Will be set to true after initialization when ddl is used
@@ -946,6 +948,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 #if HOROVOD_GPU_ALLREDUCE == 'N'
       // Ensure NCCL communicator is in the map before executing reduction.
       ncclComm_t& nccl_comm = horovod_global.nccl_comms[nccl_device_map];
+      ncclComm_t& nccl_across_ring_comm = horovod_global.nccl_across_ring_comms[nccl_across_ring_device_map];
       if (nccl_comm == nullptr) {
         ACTIVITY_START_ALL(entries, timeline, INIT_NCCL)
 
@@ -988,6 +991,30 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         MPI_CHECK(entries, "MPI_Barrier", MPI_Barrier(horovod_global.mpi_comm));
 
         ACTIVITY_END_ALL(entries, timeline)
+      }
+      //TODO:wuyongyu define the ncll communicator across the ring
+      if (nccl_across_ring_comm == nullptr){
+        int nccl_rank,nccl_size;
+        MPI_Comm nccl_id_bcast_comm;
+        if (horovod_global.hierarchical_allreduce_ring){
+           nccl_rank = horovod_global.cross_ring_rank;
+           nccl_size = horovod_global.cross_ring_size;
+           nccl_id_bcast_comm = horovod.cross_ring_comm;
+        }
+        ncclUniqueId nccl_id;
+        if (nccl_rank == 0 ){
+          NCCL_CHECK(entries, "ncclGetUniqueId", ncclGetUniqueId(&nccl_id))
+        }
+        MPI_CHECK(entries, "MPI_Bcast",
+                  MPI_Bcast((void*)&nccl_id, sizeof(nccl_id), MPI_BYTE, 0,
+                            nccl_id_bcast_comm));
+        ncclComm_t new_nccl_comm;
+        NCCL_CHECK(entries, "ncclCommInitRank",ncclCommInitRank(&new_nccl_comm, nccl_size, nccl_id, nccl_rank))
+
+        nccl_across_ring_comm  = new_nccl_comm;
+
+        MPI_CHECK(entries, "MPI_Barrier", MPI_Barrier(horovod_global.mpi_comm));
+
       }
 #elif HOROVOD_GPU_ALLREDUCE == 'D'
       if (!horovod_global.ddl_initialized) {
@@ -1141,34 +1168,47 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         if (horovod_global.ring_rank == 0) {
           // cudaHostAlloc is significantly slower than malloc.  Pre-allocating
           // a buffer is not safe since the tensor can be arbitrarily large.
-          host_buffer = malloc(buffer_len);
 
-          CUDA_CHECK(entries, "cudaMemcpyAsync",
-                     cudaMemcpyAsync(host_buffer, buffer_data, buffer_len,
-                                     cudaMemcpyDeviceToHost, stream))
+          //TODO:wuyognyu defince the cuda device
+          //CUDA_CHECK(entries, "cudaSetDevice", cudaSetDevice(first_entry.device))
+
+          //if (first_entry.tensor->dtype() == HOROVOD_FLOAT32){
+          //}
+
+
+//          host_buffer = malloc(buffer_len);
+//
+//          CUDA_CHECK(entries, "cudaMemcpyAsync",
+//                     cudaMemcpyAsync(host_buffer, buffer_data, buffer_len,
+//                                     cudaMemcpyDeviceToHost, stream))
           // This event must be recorded for the subsequent synchronize.
-          RECORD_EVENT(entries, event_queue, MEMCPY_IN_HOST_BUFFER, stream)
+//          RECORD_EVENT(entries, event_queue, MEMCPY_IN_HOST_BUFFER, stream)
+//
+//          // Synchronize.
+//          WAIT_FOR_EVENTS(entries, timeline, event_queue)
 
-          // Synchronize.
-          WAIT_FOR_EVENTS(entries, timeline, event_queue)
-
-          ACTIVITY_START_ALL(entries, timeline, MPI_ALLREDUCE)
-          MPI_CHECK(entries, "MPI_Allreduce",
-                    MPI_Allreduce(MPI_IN_PLACE, host_buffer, (int)num_elements,
-                                  GetMPIDataType(first_entry.tensor), MPI_SUM,
-                                  horovod_global.cross_ring_comm))
-          ACTIVITY_END_ALL(entries, timeline)
-
-          CUDA_CHECK(entries, "cudaMemcpyAsync",
-                     cudaMemcpyAsync(buffer_data, host_buffer, buffer_len,
-                                     cudaMemcpyHostToDevice, stream))
-          if (timeline.Initialized()) {
-            RECORD_EVENT(entries, event_queue, MEMCPY_OUT_HOST_BUFFER, stream)
-          }
+//          ACTIVITY_START_ALL(entries, timeline, MPI_ALLREDUCE)
+//          MPI_CHECK(entries, "MPI_Allreduce",
+//                    MPI_Allreduce(MPI_IN_PLACE, host_buffer, (int)num_elements,
+//                                  GetMPIDataType(first_entry.tensor), MPI_SUM,
+//                                  horovod_global.cross_ring_comm))
+//          ACTIVITY_END_ALL(entries, timeline)
+//
+//          CUDA_CHECK(entries, "cudaMemcpyAsync",
+//                     cudaMemcpyAsync(buffer_data, host_buffer, buffer_len,
+//                                     cudaMemcpyHostToDevice, stream))
+//          if (timeline.Initialized()) {
+//            RECORD_EVENT(entries, event_queue, MEMCPY_OUT_HOST_BUFFER, stream)
+//          }
+            NCCL_CHECK(entries, "ncclAllReduce",
+                   ncclAllReduce(buffer_data,fused_input_data,
+                                 (size_t)num_elements,
+                                 GetNCCLDataType(first_entry.tensor), ncclSum,
+                                 nccl_across_ring_comm, stream))
         }
 
         NCCL_CHECK(entries, "ncclBcast",
-                   ncclBcast(buffer_data, (size_t)num_elements,
+                   ncclBcast(fused_input_data, (size_t)num_elements,
                              GetNCCLDataType(first_entry.tensor), 0, nccl_comm,
                              stream))
         if (timeline.Initialized()) {
