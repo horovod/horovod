@@ -999,7 +999,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         if (horovod_global.hierarchical_allreduce_ring){
            nccl_rank = horovod_global.cross_ring_rank;
            nccl_size = horovod_global.cross_ring_size;
-           nccl_id_bcast_comm = horovod.cross_ring_comm;
+           nccl_id_bcast_comm = horovod_global.cross_ring_comm;
         }
         ncclUniqueId nccl_id;
         if (nccl_rank == 0 ){
@@ -1039,7 +1039,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       // allreduce, and distribute results of allreduce back into target
       // tensors after allreduce.
 
-      const void* fused_input_data;
+      //TODO:wuyongyu remove const attribute
+      void* fused_input_data;
       void* buffer_data;
       int64_t num_elements = 0;
       size_t buffer_len;
