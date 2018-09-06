@@ -1040,7 +1040,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       // tensors after allreduce.
 
       //TODO:wuyongyu remove const attribute
-      void* fused_input_data;
+      const void* fused_input_data;
       void* buffer_data;
       int64_t num_elements = 0;
       size_t buffer_len;
@@ -1201,15 +1201,18 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 //          if (timeline.Initialized()) {
 //            RECORD_EVENT(entries, event_queue, MEMCPY_OUT_HOST_BUFFER, stream)
 //          }
+            void *buffer2=const_cast<void*>(fused_input_data);
             NCCL_CHECK(entries, "ncclAllReduce",
-                   ncclAllReduce(buffer_data,const_cast<void*>(fused_input_data),
+                   ncclAllReduce(buffer_data,buffer2,
                                  (size_t)num_elements,
                                  GetNCCLDataType(first_entry.tensor), ncclSum,
                                  nccl_across_ring_comm, stream))
+
+             buffer = buffer2
         }
 
         NCCL_CHECK(entries, "ncclBcast",
-                   ncclBcast(fused_input_data, (size_t)num_elements,
+                   ncclBcast(buffer, (size_t)num_elements,
                              GetNCCLDataType(first_entry.tensor), 0, nccl_comm,
                              stream))
         if (timeline.Initialized()) {
