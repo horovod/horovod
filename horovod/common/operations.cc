@@ -178,6 +178,7 @@ struct HorovodGlobalState {
   bool mpi_threads_supported = false;
   bool is_homogeneous = false;
   std::vector<int> ranks;
+  std::vector<int> local_sizes;
 
   // COMM_WORLD ranks of processes running on this node.
   std::vector<int> local_comm_ranks;
@@ -818,51 +819,61 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
     // Tensors may have different first dimension, so we need to use
     // MPI_Allgatherv API that supports gathering arrays of different length.
-    ACTIVITY_START_ALL(entries, timeline, MPI_ALLGATHER)
     auto* recvcounts = new int[tensor_sizes.size()];
-    auto* cross_recvcounts = new int[horovod_global.cross_size];
-    auto* cross_displcmnts = new int[horovod_global.cross_size];
-    auto* local_recvcounts = new int[horovod_global.local_size];
-    auto* local_displcmnts = new int[horovod_global.local_size];
 
+    // find the maximum local size across all nodes
+    int max_local_size = 0;
+    for (auto it = horovod_global.local_sizes.begin(); it != horovod_global.local_sizes.end(); ++it) {
+      if(*it > max_local_size) {
+        max_local_size = *it;
+      } 
+    }
+
+    // Initialize arrays to 0
+    auto* cross_recvcounts = new int[horovod_global.cross_size] (); 
+    auto* cross_displcmnts = new int[horovod_global.cross_size] ();
+    auto* local_recvcounts = new int[max_local_size] ();
+    auto* local_displcmnts = new int[max_local_size] ();
+
+    // Compute all recvcounts and displacements
+    unsigned int current_node = 0; 
+    unsigned int current_local_rank = 0;
     for (unsigned int i = 0; i < tensor_sizes.size(); i++) {
       recvcounts[i] = (int)(single_slice_shape.num_elements() * tensor_sizes[i]);
-    }
 
-    // compute the displacements for cross-node allgather
-    for (int i = 0; i < horovod_global.cross_size; i++) {
-      cross_recvcounts[i] = recvcounts[horovod_global.cross_comm_ranks[i]];
-      if (i == 0) {
-        cross_displcmnts[i] = 0;
-      } else {
-        cross_displcmnts[i] = cross_recvcounts[i-1] + cross_displcmnts[i - 1];
+      if(current_local_rank == horovod_global.local_rank) {
+        cross_recvcounts[current_node] = recvcounts[i];
+        if(current_node == 0) {
+          cross_displcmnts[current_node] = 0;
+        } else {
+          cross_displcmnts[current_node] = cross_displcmnts[current_node-1] + cross_recvcounts[current_node-1];
+        }
+      }
+      local_recvcounts[current_local_rank] += recvcounts[i];
+
+      current_local_rank++;
+      if (current_local_rank == horovod_global.local_sizes[current_node]) {
+        current_local_rank = 0;
+        current_node++;
       }
     }
 
-    // compute the recvcounts and displacements for the local allgather
-    int last_cross_rank = horovod_global.cross_comm_ranks[horovod_global.cross_size-1];
-    local_recvcounts[horovod_global.local_rank] = cross_displcmnts[horovod_global.cross_size-1] 
-                       + recvcounts[last_cross_rank];
-
-    MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, local_recvcounts, 1,
-                MPI_INT, horovod_global.local_comm);
-
-    for (int i = 0; i < horovod_global.local_size; i++) {
+    for (int i = 0; i < max_local_size; i++) {
       if (i == 0) {
         local_displcmnts[i] = 0;
-      }
-      else {
+      } else {
         local_displcmnts[i] = local_displcmnts[i-1] + local_recvcounts[i-1];
       }
     }
-
-    // Perform the allgather: first parallelized allgather across nodes, then local allgather.
 
     // Appropriately offset the displacements during cross-allgather so the local allgather
     // can be done in-place.  
     for(int i=0; i<horovod_global.cross_size; i++) {
       cross_displcmnts[i] += local_displcmnts[horovod_global.local_rank];
     }
+
+    // Perform the allgather: first parallelized allgather across nodes, then local allgather
+    ACTIVITY_START_ALL(entries, timeline, MPI_CROSS_ALLGATHER)
 
     auto cross_result = MPI_Allgatherv(
         e.tensor->data(), (int)e.tensor->shape().num_elements(),
@@ -871,20 +882,24 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
     MPI_CHECK(entries, "MPI_Allgatherv", cross_result)
 
+    ACTIVITY_END_ALL(entries, timeline)
+
+    ACTIVITY_START_ALL(entries, timeline, MPI_LOCAL_ALLGATHER)
+
     auto local_result = MPI_Allgatherv(
         MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, (void*)e.output->data(),
         local_recvcounts, local_displcmnts, GetMPIDataType(e.tensor),
         horovod_global.local_comm);
 
     MPI_CHECK(entries, "MPI_Allgatherv", local_result)
+    ACTIVITY_END_ALL(entries, timeline)
 
+    // Free the buffers
     delete[] recvcounts;
     delete[] cross_displcmnts;
     delete[] cross_recvcounts;
     delete[] local_displcmnts;
     delete[] local_recvcounts;
-
-    ACTIVITY_END_ALL(entries, timeline)
 
     timeline.End(e.tensor_name, e.output);
     e.callback(Status::OK());
@@ -1532,21 +1547,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, local_comm_ranks.data(), 1,
                 MPI_INT, local_comm);
 
-  // Determine if cluster is homogeneous, i.e., if every node has the same
-  // local_size
-  auto local_sizes = new int[size];
-  MPI_Allgather(&local_size, 1, MPI_INT, local_sizes, 1, MPI_INT,
-                state.mpi_comm);
-
-  bool is_homogeneous = true;
-  for (int i = 0; i < size; i++) {
-    if (local_sizes[i] != local_size) {
-      is_homogeneous = false;
-      break;
-    }
-  }
-  state.is_homogeneous = is_homogeneous;
-
   // Set up cross-communicator in case of hierarchical allreduce.
   MPI_Comm cross_comm;
   MPI_Comm_split(state.mpi_comm, local_rank, rank, &cross_comm);
@@ -1569,6 +1569,26 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.mpi_threads_supported = (provided == MPI_THREAD_MULTIPLE);
   state.local_comm_ranks = local_comm_ranks;
   state.cross_comm_ranks = cross_comm_ranks;
+
+  // Determine if cluster is homogeneous, i.e., if every node has the same
+  // local_size
+  auto local_sizes = new int[cross_size];
+  MPI_Allgather(&local_size, 1, MPI_INT, local_sizes, 1, MPI_INT,
+                cross_comm);
+
+  bool is_homogeneous = true;
+  for (int i = 0; i < size; i++) {
+    if (local_sizes[i] != local_size) {
+      is_homogeneous = false;
+      break;
+    }
+  }
+  state.is_homogeneous = is_homogeneous;
+
+  for(int i=0; i<cross_size; i++){
+    state.local_sizes.push_back(local_sizes[i]);
+  }
+  delete[] local_sizes;
 
   // Open the timeline file on coordinator.
   auto horovod_timeline = std::getenv(HOROVOD_TIMELINE);
