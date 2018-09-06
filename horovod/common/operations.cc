@@ -1208,11 +1208,11 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                                  GetNCCLDataType(first_entry.tensor), ncclSum,
                                  nccl_across_ring_comm, stream))
 
-             buffer = buffer2
+             buffer_data = buffer2
         }
 
         NCCL_CHECK(entries, "ncclBcast",
-                   ncclBcast(buffer, (size_t)num_elements,
+                   ncclBcast(buffer_data, (size_t)num_elements,
                              GetNCCLDataType(first_entry.tensor), 0, nccl_comm,
                              stream))
         if (timeline.Initialized()) {
