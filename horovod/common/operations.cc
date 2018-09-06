@@ -166,6 +166,12 @@ struct HorovodGlobalState {
                      std::shared_ptr<PersistentBuffer>>
       tensor_fusion_buffers;
 
+  //Memory buffers for GPU tensor Fusion. It used for the allreduce acorss the ring .
+  std::unordered_map<std::tuple<int, Framework>,
+          std::shared_ptr<PersistentBuffer>>
+          across_GPU_fusion_buffers;
+
+
   // Whether MPI_Init has been completed on the background thread.
   bool initialization_done = false;
 
@@ -192,6 +198,9 @@ struct HorovodGlobalState {
 
   // COMM_WORLD  ranks of processes running on this node which is running RING.
   std::vector<int> ring_comm_ranks;
+
+  //COMM_WORLD ranks of processes running on this node which is across the RING
+  std::vector<int> across_ring_comm_ranks;
  
   // Private MPI communicator for Horovod to ensure no collisions with other
   // threads using MPI.
@@ -757,6 +766,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 	//
     auto& buffer = horovod_global.tensor_fusion_buffers[std::make_tuple(
         first_entry.device, first_entry.context->framework())];
+    //TODO:wuyongyu allocate persistant buffer on GPU for across ring.
+    auto& GPUbuffer = horovod_global.across_GPU_fusion_buffers[std::make_tuple(
+            first_entry.device, first_entry.context->framework())];
     if (buffer == nullptr) {
       ACTIVITY_START_ALL(entries, timeline, INIT_FUSION_BUFFER)
 
@@ -773,6 +785,18 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       }
 
       ACTIVITY_END_ALL(entries, timeline)
+    }
+    //TODO:wuyongyu allocate persistant buffer id GPUbuffer is null.
+    if (GPUbuffer == nullptr ){
+      Status status = first_entry.context->AllocatePersistent(
+              horovod_global.tensor_fusion_threshold, &GPUbuffer);
+      if (!status.ok()) {
+        for (auto& e : entries) {
+          timeline.End(e.tensor_name, nullptr);
+          e.callback(status);
+        }
+        return;
+      }
     }
   }
 
@@ -867,7 +891,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     e.callback(Status::OK());
 
   } 
-  //##################################################################################
+  //################################################################################## allreduce below
   else if (response.response_type() == MPIResponse::ALLREDUCE) {
     auto& first_entry = entries[0];
      
@@ -898,6 +922,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
       // Determine GPU IDs of the devices participating in this communicator.
       std::vector<int32_t> nccl_device_map;
+
+      //TODO:wuyongyu Determine the GPU IDs for ring devices participating in this commmunicator
+      std::vector<int32_t> nccl_across_ring_device_map;
+
       if (horovod_global.hierarchical_allreduce) {
         for (int rank : horovod_global.local_comm_ranks) {
           nccl_device_map.push_back(response.devices()[rank]);
@@ -905,6 +933,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       } else if(horovod_global.hierarchical_allreduce_ring){
           for (int rank : horovod_global.ring_comm_ranks) {
              nccl_device_map.push_back(response.devices()[rank]);
+          }
+          //TODO:wuyongyu define the nccl_ring _device_map
+          for ( int rank : horovod_global.across_ring_comm_ranks){
+            nccl_across_ring_device_map.push_back(response.devices()[rank]);
           }
       }else {
         nccl_device_map = response.devices();
@@ -1095,7 +1127,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         if (timeline.Initialized()) {
           RECORD_EVENT(entries, event_queue, NCCL_BCAST, stream)
         }
-      }  else if (horovod_global.hierarchical_allreduce_ring) {
+      }  else if (horovod_global.hierarchical_allreduce_ring) {  //TODO:wuyongyu the ring allreduce ,and cross the ring,we use the nccl to communicate
          
         NCCL_CHECK(entries, "ncclReduce",
                    ncclReduce(fused_input_data, buffer_data,
@@ -1516,11 +1548,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       std::strtol(horovod_hierarchical_allreduce_ring, nullptr, 10) > 0) {
         state.hierarchical_allreduce_ring=true;
       CIRCLE=std::strtol(horovod_hierarchical_allreduce_ring, nullptr, 10);
-      if(is_coordinator){
-        printf("jin xing huan jian de fen cengALLREDUE,ring size:%d\n", CIRCLE);
-      }     
     }    
-
+    //TODO:wuyongyu define the ring communicator
   MPI_Comm ring_comm;
   ring=rank/CIRCLE;
   MPI_Comm_split(state.mpi_comm,ring,rank,&ring_comm);
@@ -1533,11 +1562,18 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
                 MPI_INT, ring_comm);
 
 
+  //TODO:define the across the ring commnunicateor
   MPI_Comm cross_ring_comm;
   MPI_Comm_split(state.mpi_comm,ring_rank,rank,&cross_ring_comm);
   int cross_ring_rank,cross_ring_size;
   MPI_Comm_rank(cross_ring_comm,&cross_ring_rank);
   MPI_Comm_size(cross_ring_comm,&cross_ring_size);
+  std::vector<int> across_ring_comm_ranks((size_t)cross_ring_size);
+  across_ring_comm_ranks[cross_ring_rank]=rank;
+  MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, across_ring_comm_ranks.data(), 1,
+                MPI_INT, cross_ring_comm);
+
+
   state.ring_rank=ring_rank;
   state.cross_ring_rank=cross_ring_rank;
   state.ring_size=ring_size;
@@ -1545,6 +1581,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.ring_comm=ring_comm;
   state.cross_ring_comm=cross_ring_comm;
   state.ring_comm_ranks=ring_comm_ranks;
+  state.acorss_ring_comm_ranks = across_ring_comm_ranks;
 
 
 
