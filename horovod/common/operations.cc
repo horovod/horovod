@@ -1201,7 +1201,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 //            RECORD_EVENT(entries, event_queue, MEMCPY_OUT_HOST_BUFFER, stream)
 //          }
             NCCL_CHECK(entries, "ncclAllReduce",
-                   ncclAllReduce(buffer_data,fused_input_data,
+                   ncclAllReduce(buffer_data,const_cast<void*>(fused_input_data),
                                  (size_t)num_elements,
                                  GetNCCLDataType(first_entry.tensor), ncclSum,
                                  nccl_across_ring_comm, stream))
