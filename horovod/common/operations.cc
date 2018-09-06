@@ -1581,7 +1581,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.ring_comm=ring_comm;
   state.cross_ring_comm=cross_ring_comm;
   state.ring_comm_ranks=ring_comm_ranks;
-  state.acorss_ring_comm_ranks = across_ring_comm_ranks;
+  state.across_ring_comm_ranks = across_ring_comm_ranks;
 
 
 
