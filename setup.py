@@ -422,6 +422,7 @@ def get_common_options(build_ext):
                'horovod/common/fusion_buffer_manager.cc',
                'horovod/common/mpi_message.cc',
                'horovod/common/operations.cc',
+               'horovod/common/parameter_manager.cc',
                'horovod/common/timeline.cc']
     COMPILE_FLAGS = cpp_flags + shlex.split(mpi_flags)
     LINK_FLAGS = link_flags + shlex.split(mpi_flags)

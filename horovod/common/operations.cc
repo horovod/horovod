@@ -38,6 +38,7 @@
 #define OMPI_SKIP_MPICXX
 #include "hashes.h"
 #include "fusion_buffer_manager.h"
+#include "parameter_manager.h"
 #include "mpi.h"
 #include "mpi_message.h"
 #include "operations.h"
@@ -146,16 +147,10 @@ struct HorovodGlobalState {
   // Timeline writer.
   Timeline timeline;
 
-  // Threshold for Tensor Fusion.  All tensors that occupy memory beyond this
-  // threshold will be fused.
-  int64_t default_tensor_fusion_threshold = 64 * 1024 * 1024;
+  ParameterManager param_manager;
 
   // Encapsulates the fusion buffers, handles resizing and auto-tuning of buffer size.
-  FusionBufferManager fusion_buffer = FusionBufferManager(default_tensor_fusion_threshold);
-
-  // Background thread cycle time in milliseconds.  Fractional numbers are
-  // permitted.
-  double cycle_time_ms = 5;
+  FusionBufferManager fusion_buffer = FusionBufferManager(param_manager.TensorFusionThreshold());
 
   // Time point when last cycle started.
   std::chrono::steady_clock::time_point last_cycle_start;
@@ -1392,13 +1387,15 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   auto horovod_fusion_threshold = std::getenv(HOROVOD_FUSION_THRESHOLD);
   if (horovod_fusion_threshold != nullptr) {
     int64_t threshold = std::strtol(horovod_fusion_threshold, nullptr, 10);
+    state.param_manager.SetTensorFusionThreshold(threshold);
+    // TODO(taddair): this goes away, set only during initialization
     horovod_global.fusion_buffer.SetInitialThreshold(threshold);
   }
 
   // Override the cycle time.
   auto horovod_cycle_time = std::getenv(HOROVOD_CYCLE_TIME);
   if (horovod_cycle_time != nullptr) {
-    state.cycle_time_ms = std::strtof(horovod_cycle_time, nullptr);
+    state.param_manager.SetCycleTimeMs(std::strtof(horovod_cycle_time, nullptr));
   }
 
   // Disable stall check.
@@ -1496,7 +1493,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   // This delay determines thread frequency and MPI message latency
   auto sleep_duration =
       state.last_cycle_start +
-      std::chrono::microseconds(long(state.cycle_time_ms * 1000.)) -
+      std::chrono::microseconds(long(state.param_manager.CycleTimeMs() * 1000.)) -
       std::chrono::steady_clock::now();
   if (sleep_duration > std::chrono::steady_clock::duration::zero()) {
     std::this_thread::sleep_for(sleep_duration);

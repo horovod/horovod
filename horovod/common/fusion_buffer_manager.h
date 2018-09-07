@@ -34,7 +34,9 @@ public:
                           std::function<void()> on_start_init,
                           std::function<void()> on_end_init);
   std::shared_ptr<PersistentBuffer>& GetBuffer(int device, Framework framework);
-  inline int64_t GetThreshold() { return threshold_; };
+  inline int64_t GetThreshold() {
+    return threshold_;
+  };
 
 private:
   int64_t threshold_;
