@@ -782,6 +782,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
   Status status;
   if (response.response_type() == MPIResponse::ALLGATHER) {
+
     assert(entries.size() == 1);
     auto e = entries[0];
 
@@ -809,12 +810,15 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     output_shape.AppendShape(single_slice_shape);
 
     ACTIVITY_START_ALL(entries, timeline, ALLOCATE_OUTPUT)
+
     status = e.context->AllocateOutput(output_shape, &e.output);
+
     if (!status.ok()) {
       timeline.End(e.tensor_name, nullptr);
       e.callback(status);
       return;
     }
+
     ACTIVITY_END_ALL(entries, timeline)
 
     // Tensors may have different first dimension, so we need to use
@@ -837,8 +841,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     auto* local_displcmnts = new int[max_local_size]();
 
     // Compute all recvcounts and displacements
-    unsigned int current_node = 0;
-    unsigned int current_local_rank = 0;
+    int current_node = 0;
+    int current_local_rank = 0;
     for (unsigned int i = 0; i < tensor_sizes.size(); i++) {
       recvcounts[i] =
           (int)(single_slice_shape.num_elements() * tensor_sizes[i]);
@@ -869,29 +873,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       }
     }
 
-    // Appropriately offset the displacements during cross-allgather so the
-    // local allgather can be done in-place.
-    for (int i = 0; i < horovod_global.cross_size; i++) {
-      cross_displcmnts[i] += local_displcmnts[horovod_global.local_rank];
-    }
-
-    // Perform the allgather: first parallelized allgather across nodes, then
-    // local allgather
-    ACTIVITY_START_ALL(entries, timeline, MPI_CROSS_ALLGATHER)
-
-    auto cross_result = MPI_Allgatherv(
-        e.tensor->data(), (int)e.tensor->shape().num_elements(),
-        GetMPIDataType(e.tensor), (void*)e.output->data(), cross_recvcounts,
-        cross_displcmnts, GetMPIDataType(e.tensor), horovod_global.cross_comm);
-
-    MPI_CHECK(entries, "MPI_Allgatherv", cross_result)
-
-    ACTIVITY_END_ALL(entries, timeline)
-
     bool on_gpu = e.device != CPU_DEVICE_ID;
 
-    if (0) {
-      std::cout << "Executing allgather on gpu" << std::endl;
+    if (on_gpu) {
       cudaStream_t& stream = horovod_global.streams[e.device];
 
       CUDA_CHECK(entries, "cudaSetDevice", cudaSetDevice(e.device))
@@ -933,44 +917,101 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                                     nccl_id, horovod_global.local_rank))
         nccl_comm = new_nccl_comm;
 
+        auto event_queue = std::queue<std::pair<std::string, cudaEvent_t>>();
+
         // Barrier helps NCCL to synchronize after initialization and avoid
         // deadlock that we've been seeing without it.
         MPI_CHECK(entries, "MPI_Barrier", MPI_Barrier(horovod_global.mpi_comm));
 
         ACTIVITY_END_ALL(entries, timeline)
       }
-      ACTIVITY_START_ALL(entries, timeline, MPI_LOCAL_ALLGATHER)
-      for (int i = 0; i < horovod_global.local_size; i++) {
-        void* output_buffer_at_offset =
-            (uint8_t*)e.output->data() +
-            local_displcmnts[i] * sizeof(GetMPIDataType(e.tensor));
+      // copy to cpu - offset so that mpi allgather can be done in-place
+      int element_size = e.tensor->size()/recvcounts[horovod_global.rank];
 
-        // cannot use allgather since nccl requires all tensors to be gathered
-        // to be of the same size. emulate allgatherv with a sequence of
-        // broadcasts instead. use group calls to pipeline the calls.
+      int64_t buffer_len = local_recvcounts[horovod_global.local_rank]*element_size;
+      int64_t copy_len = cross_recvcounts[horovod_global.cross_rank]*element_size;
+      void *host_buffer = malloc(buffer_len);
+      void *host_buffer_at_offset = (uint8_t*)host_buffer + cross_displcmnts[horovod_global.cross_rank]*element_size;
+
+      ACTIVITY_START_ALL(entries, timeline, MEMCPY_IN_HOST_BUFFER)
+      CUDA_CHECK(entries, "cudaMemcpyAsync",
+                 cudaMemcpyAsync(host_buffer_at_offset, e.tensor->data(),
+                                     copy_len, cudaMemcpyDeviceToHost,
+                                     stream))
+      ACTIVITY_END_ALL(entries, timeline)
+
+      // parallelized mpi allgather at cpu
+      ACTIVITY_START_ALL(entries, timeline, MPI_CROSS_ALLGATHER)
+
+      auto cross_result = MPI_Allgatherv(
+        MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, host_buffer, cross_recvcounts,
+        cross_displcmnts, GetMPIDataType(e.tensor), horovod_global.cross_comm);
+
+      MPI_CHECK(entries, "MPI_Allgatherv", cross_result)
+      ACTIVITY_END_ALL(entries, timeline)
+
+      // copy to gpu
+      void *output_data_at_offset = (uint8_t*)e.output->data() + local_displcmnts[horovod_global.local_rank]*element_size;
+
+      ACTIVITY_START_ALL(entries, timeline, MEMCPY_OUT_HOST_BUFFER)
+      CUDA_CHECK(entries, "cudaMemcpyAsync",
+                cudaMemcpyAsync(output_data_at_offset, host_buffer,
+                                (size_t)buffer_len, cudaMemcpyHostToDevice,
+                                stream))
+      ACTIVITY_END_ALL(entries, timeline)
+
+
+      ACTIVITY_START_ALL(entries, timeline, NCCL_LOCAL_ALLGATHER)
+
+      NCCL_CHECK(entries, "ncclGroupStart", ncclGroupStart())
+      for (int i = 0; i < horovod_global.local_size; i++) {
+        void *output_buffer_at_offset = (uint8_t*)e.output->data() + local_displcmnts[i] * element_size;
+
         NCCL_CHECK(entries, "ncclBcast",
                    ncclBcast(output_buffer_at_offset, local_recvcounts[i],
                              GetNCCLDataType(e.tensor), i, nccl_comm, stream))
-      } 
-/*        void* output_buffer_at_offset =
-            (uint8_t*)e.output->data() +
-            local_displcmnts[horovod_global.local_rank] * sizeof(GetMPIDataType(e.tensor));
+      }
+      NCCL_CHECK(entries, "ncclGroupEnd", ncclGroupEnd())
 
-        NCCL_CHECK(entries, "ncclAllGather",
-                   ncclAllGather(output_buffer_at_offset, (void*)e.output->data(),
-                                   (size_t)local_recvcounts[0],
-                                   GetNCCLDataType(e.tensor),
-                                   nccl_comm, stream))*/
+/*      NCCL_CHECK(entries, "ncclAllGather",
+                 ncclAllGather(output_data_at_offset, (void*)e.output->data(),
+                               (size_t)local_recvcounts[0],
+                               GetNCCLDataType(e.tensor),
+                               nccl_comm, stream))
+*/
+      CUDA_CHECK(entries, "cudaStreamSynchronize", cudaStreamSynchronize(stream))
+      ACTIVITY_END_ALL(entries, timeline)
+
+      free(host_buffer);
     } else {
+      // Appropriately offset the displacements during cross-allgather so the
+      // local allgather can be done in-place.
+      for (int i = 0; i < horovod_global.cross_size; i++) {
+        cross_displcmnts[i] += local_displcmnts[horovod_global.local_rank];
+      }
+
+      // Perform the allgather: first parallelized allgather across nodes, then
+      // local allgather
+      ACTIVITY_START_ALL(entries, timeline, MPI_CROSS_ALLGATHER)
+
+      auto cross_result = MPI_Allgatherv(
+        e.tensor->data(), (int)e.tensor->shape().num_elements(),
+        GetMPIDataType(e.tensor), (void*)e.output->data(), cross_recvcounts,
+        cross_displcmnts, GetMPIDataType(e.tensor), horovod_global.cross_comm);
+
+      MPI_CHECK(entries, "MPI_Allgatherv", cross_result)
+
+      ACTIVITY_END_ALL(entries, timeline)
       ACTIVITY_START_ALL(entries, timeline, MPI_LOCAL_ALLGATHER)
+
       auto local_result = MPI_Allgatherv(
           MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, (void*)e.output->data(),
           local_recvcounts, local_displcmnts, GetMPIDataType(e.tensor),
           horovod_global.local_comm);
 
       MPI_CHECK(entries, "MPI_Allgatherv", local_result)
+      ACTIVITY_END_ALL(entries, timeline)
     }
-    ACTIVITY_END_ALL(entries, timeline)
 
     // Free the buffers
     delete[] recvcounts;
