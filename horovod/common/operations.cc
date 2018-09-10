@@ -926,7 +926,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         ACTIVITY_END_ALL(entries, timeline)
       }
       // copy to cpu - offset so that mpi allgather can be done in-place
-      int element_size = e.tensor->size()/recvcounts[horovod_global.rank];
+      int element_size;
+      MPI_Type_size(GetMPIDataType(e.tensor), &element_size);
 
       int64_t buffer_len = local_recvcounts[horovod_global.local_rank]*element_size;
       int64_t copy_len = cross_recvcounts[horovod_global.cross_rank]*element_size;
