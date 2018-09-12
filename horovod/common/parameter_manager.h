@@ -17,6 +17,7 @@
 #define HOROVOD_PARAMETER_MANAGER_H
 
 #include <iostream>
+#include <vector>
 
 namespace horovod {
 namespace common {
@@ -42,7 +43,6 @@ public:
   void SetCycleTimeMs(double cycle_time_ms);
 
 private:
-
   void Step();
 
   template <class T>
@@ -58,31 +58,25 @@ private:
   };
 
   template <class T>
-  class NumericParameter : public ITunableParameter {
+  class TunableParameter : public ITunableParameter {
   public:
-    NumericParameter(T initial_value, T low, T high, T epsilon,
-                     ParameterManager& parent, ITunableParameter* const next_param);
+    TunableParameter(T initial_value, ParameterManager& parent, ITunableParameter* const next_param);
+    virtual void Step(double score, double samples);
+    virtual void Tune(double score);
+
     void SetValue(T value);
-    void Step(double score, double samples);
-    void Tune(double score);
     inline T Value() { return value_; };
     inline T BestValue() { return best_value_; };
 
   private:
-    void CheckGradient();
-    void DoneTune();
-    void ResetState();
+    void CompleteTuning();
+    void NextValue();
+    virtual void OnTune(double score, T& value) = 0;
+    virtual bool IsDoneTuning() = 0;
+    virtual void ResetState() = 0;
 
-    T low_;
-    T high_;
-    T epsilon_;
-
-    ParameterScore<T> current_;
-    ParameterScore<T> left_;
-    ParameterScore<T> right_;
-
+    T initial_value_;
     T value_;
-    int32_t depth_;
     double samples_;
     double sum_score_;
 
@@ -93,8 +87,46 @@ private:
     ITunableParameter* const next_param_;
   };
 
-  NumericParameter<int64_t> tensor_fusion_threshold_;
-  NumericParameter<double> cycle_time_ms_;
+  template <class T>
+  class NumericParameter : public TunableParameter<T> {
+  public:
+    NumericParameter(T low, T high, ParameterManager& parent, ITunableParameter* const next_param);
+
+  private:
+    void OnTune(double score, T& value);
+    bool IsDoneTuning();
+    void ResetState();
+
+    T low_;
+    T high_;
+    ParameterScore<T> left_;
+    ParameterScore<T> right_;
+
+    double h_;
+    int32_t n_;
+    int32_t k_;
+  };
+
+  template <class T>
+  class CategoricalParameter : public TunableParameter<T> {
+  public:
+    CategoricalParameter(std::vector<T> values, ParameterManager& parent, ITunableParameter* const next_param);
+
+  private:
+    void OnTune(double score, T& value);
+    bool IsDoneTuning();
+    void ResetState();
+
+    std::vector<T> values_;
+    int32_t index_;
+  };
+
+//  NumericParameter<int64_t> tensor_fusion_threshold_;
+//  NumericParameter<double> cycle_time_ms_;
+
+  CategoricalParameter<int64_t> tensor_fusion_threshold_;
+  CategoricalParameter<double> cycle_time_ms_;
+
   ITunableParameter* const leaf_param_;
   bool active_;
 };
