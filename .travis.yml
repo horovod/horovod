@@ -69,6 +69,15 @@ install:
       docker exec ${CONTAINER} /bin/sh -c "apt-get install -y mpich"
     fi
 
+  # OpenCV, per https://unix.stackexchange.com/questions/444697/cannot-run-python-file-asks-to-relink-libraries
+  - docker exec ${CONTAINER} /bin/sh -c "pip install numpy"
+  - |
+    if [[ ${TRAVIS_PYTHON_VERSION} == 3* ]]; then
+      docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python3-opencv"
+    else
+      docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python-opencv"
+    fi
+
   # TensorFlow
   - docker exec ${CONTAINER} /bin/sh -c "pip install ${TF_PACKAGE}"
 
