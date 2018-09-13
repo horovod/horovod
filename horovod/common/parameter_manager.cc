@@ -50,8 +50,9 @@ void ParameterManager::Update(const std::vector<std::string>& tensor_names, int6
   bool next_step = false;
   for (const std::string tensor_name : tensor_names) {
     int32_t count = ++tensor_counts_[tensor_name];
-    if (count > 0) {
-      std::cerr << tensor_name << " " << total_bytes_ << std::endl;
+    if (count > 1) {
+      double score = sum_score_ / samples_;
+      std::cerr << tensor_name << " " << total_bytes_ << " " << score << std::endl;
       next_step = true;
       break;
     }
@@ -85,7 +86,7 @@ void ParameterManager::SetCycleTimeMs(double cycle_time_ms) {
 }
 
 void ParameterManager::Tune(double score) {
-  leaf_param_->Tune(score);
+//  leaf_param_->Tune(score);
   ReadyTune();
 }
 

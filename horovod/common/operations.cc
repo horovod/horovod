@@ -1654,6 +1654,19 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     MPI_Bcast((void*)encoded_response.c_str(), encoded_response_length,
               MPI_BYTE, RANK_ZERO, state.mpi_comm);
 
+    std::vector<std::string> tensor_names;
+    int64_t total_tensor_size = 0;
+    if (state.param_manager.IsAutoTuning()) {
+      for (auto &response : response_list.responses()) {
+        if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
+          assert(response.tensor_names().size() == 1);
+          auto &entry = state.tensor_table[response.tensor_names()[0]];
+          tensor_names.push_back(response.tensor_names()[0]);
+          total_tensor_size += entry.tensor->size();
+        }
+      }
+    }
+
     // Perform the collective operation. All nodes should end up performing
     // the same operation.
     for (auto& response : response_list.responses()) {
@@ -1669,21 +1682,10 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     }
 
     if (state.param_manager.IsAutoTuning()) {
-      std::vector<std::string> tensor_names;
-      int64_t total_tensor_size = 0;
-      for (auto &response : response_list.responses()) {
-        assert(response.tensor_names().size() == 1);
-        auto &entry = state.tensor_table[response.tensor_names()[0]];
-        tensor_names.push_back(response.tensor_names()[0]);
-        total_tensor_size += entry.tensor->size();
-      }
-
       double duration = (std::chrono::steady_clock::now() - start_time).count();
       MPI_Bcast(&duration, 1, MPI_DOUBLE, RANK_ZERO, state.mpi_comm);
-
       state.param_manager.Update(tensor_names, total_tensor_size, duration);
     }
-
   } else {
     std::string encoded_message;
     MPIRequestList message_list;
@@ -1709,6 +1711,19 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     MPIResponseList::ParseFromString(response_list, received_message);
     delete[] buffer;
 
+    std::vector<std::string> tensor_names;
+    int64_t total_tensor_size = 0;
+    if (state.param_manager.IsAutoTuning()) {
+      for (auto &response : response_list.responses()) {
+        if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
+          assert(response.tensor_names().size() == 1);
+          auto &entry = state.tensor_table[response.tensor_names()[0]];
+          tensor_names.push_back(response.tensor_names()[0]);
+          total_tensor_size += entry.tensor->size();
+        }
+      }
+    }
+
     // Perform the collective operation. All nodes should end up performing
     // the same operation.
     for (auto& response : response_list.responses()) {
@@ -1716,18 +1731,8 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     }
 
     if (state.param_manager.IsAutoTuning()) {
-      std::vector<std::string> tensor_names;
-      int64_t total_tensor_size = 0;
-      for (auto &response : response_list.responses()) {
-        assert(response.tensor_names().size() == 1);
-        auto &entry = state.tensor_table[response.tensor_names()[0]];
-        tensor_names.push_back(response.tensor_names()[0]);
-        total_tensor_size += entry.tensor->size();
-      }
-
       double duration;
       MPI_Bcast(&duration, 1, MPI_DOUBLE, RANK_ZERO, state.mpi_comm);
-
       state.param_manager.Update(tensor_names, total_tensor_size, duration);
     }
 
