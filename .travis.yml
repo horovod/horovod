@@ -27,11 +27,11 @@ before_install:
   # install Python, if it's Python 3 - add symlink for `python`
   - |
     if [[ ${TRAVIS_PYTHON_VERSION} == 3* ]]; then
-      docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev python3-pip python3-requests python3-opencv"
+      docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev python3-pip python3-requests"
       docker exec ${CONTAINER} /bin/sh -c "pip3 install -U --force pip"
       docker exec ${CONTAINER} /bin/sh -c "ln -s /usr/bin/python3 /usr/bin/python"
     else
-      docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev python-pip python-requests python-opencv"
+      docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev python-pip python-requests"
       docker exec ${CONTAINER} /bin/sh -c "pip install -U --force pip"
     fi
   # install necessary network tools
@@ -68,6 +68,9 @@ install:
       # installs mpich version 3.0.4
       docker exec ${CONTAINER} /bin/sh -c "apt-get install -y mpich"
     fi
+
+  # OpenCV, per https://unix.stackexchange.com/questions/444697/cannot-run-python-file-asks-to-relink-libraries
+  - docker exec ${CONTAINER} /bin/sh -c "pip install opencv-python"
 
   # TensorFlow
   - docker exec ${CONTAINER} /bin/sh -c "pip install ${TF_PACKAGE}"
