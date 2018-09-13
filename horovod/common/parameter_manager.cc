@@ -21,13 +21,13 @@
 namespace horovod {
 namespace common {
 
-#define MAX_DEPTH 4
-#define MAX_SAMPLES 1.0
+#define TENSOR_COUNT 3
 
 #define INVPHI 0.61803398875
 #define INVPHI2 0.38196601125
 #define TOL 0.00001
 
+// ParameterManager
 ParameterManager::ParameterManager() :
     tensor_fusion_threshold_(CategoricalParameter<int64_t>(
         std::vector<int64_t>{0, 1, 2, 4, 8, 16, 32, 64}, *this, nullptr)),
@@ -38,14 +38,34 @@ ParameterManager::ParameterManager() :
 //    cycle_time_ms_(NumericParameter<double>(
 //        1.0, 25.0, *this, &tensor_fusion_threshold_)),
     leaf_param_(&cycle_time_ms_),
-    active_(false) {}
+    active_(false) {
+  ReadyTune();
+}
 
-void ParameterManager::Update(int64_t bytes, double seconds) {
+void ParameterManager::Update(const std::vector<std::string>& tensor_names, int64_t bytes, double seconds) {
   if (!active_) {
     return;
   }
 
-  leaf_param_->Step(bytes, seconds);
+  bool next_step = false;
+  for (const std::string tensor_name : tensor_names) {
+    int32_t count = ++tensor_counts_[tensor_name];
+    if (count > 0) {
+      std::cerr << tensor_name << " " << total_bytes_ << std::endl;
+      next_step = true;
+      break;
+    }
+  }
+
+  sum_score_ += bytes;
+  samples_ += seconds;
+
+  if (next_step) {
+    double score = sum_score_ / samples_;
+    Tune(score);
+  }
+
+  total_bytes_ += bytes;
 }
 
 int64_t ParameterManager::TensorFusionThreshold() {
@@ -64,6 +84,19 @@ void ParameterManager::SetCycleTimeMs(double cycle_time_ms) {
   cycle_time_ms_.SetValue(cycle_time_ms);
 }
 
+void ParameterManager::Tune(double score) {
+  leaf_param_->Tune(score);
+  ReadyTune();
+}
+
+void ParameterManager::ReadyTune() {
+  samples_ = 0;
+  sum_score_ = 0;
+  total_bytes_ = 0;
+  tensor_counts_.clear();
+}
+
+// TunableParameter
 template <class T>
 ParameterManager::TunableParameter<T>::TunableParameter(
     T initial_value, ParameterManager &parent, ITunableParameter* const next_param) :
@@ -72,20 +105,7 @@ ParameterManager::TunableParameter<T>::TunableParameter(
     best_value_(initial_value),
     best_score_(0),
     parent_(parent),
-    next_param_(next_param) {
-  NextValue();
-}
-
-template <class T>
-void ParameterManager::TunableParameter<T>::Step(double score, double samples) {
-  sum_score_ += score;
-  samples_ += samples;
-
-  if (samples >= MAX_SAMPLES) {
-    double score = sum_score_ / samples_;
-    Tune(score);
-  }
-}
+    next_param_(next_param) {}
 
 template <class T>
 void ParameterManager::TunableParameter<T>::Tune(double score) {
@@ -98,7 +118,6 @@ void ParameterManager::TunableParameter<T>::Tune(double score) {
   if (IsDoneTuning()) {
     CompleteTuning();
   }
-  NextValue();
 }
 
 template <class T>
@@ -122,12 +141,7 @@ void ParameterManager::TunableParameter<T>::CompleteTuning() {
   ResetState();
 }
 
-template <class T>
-void ParameterManager::TunableParameter<T>::NextValue() {
-  samples_ = 0;
-  sum_score_ = 0;
-}
-
+// NumericParameter
 template <class T>
 ParameterManager::NumericParameter<T>::NumericParameter(
     T low, T high,
@@ -185,6 +199,7 @@ void ParameterManager::NumericParameter<T>::ResetState() {
   k_ = 0;
 }
 
+// CategoricalParameter
 template <class T>
 ParameterManager::CategoricalParameter<T>::CategoricalParameter(
     std::vector<T> values,

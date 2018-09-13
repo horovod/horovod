@@ -17,6 +17,7 @@
 #define HOROVOD_PARAMETER_MANAGER_H
 
 #include <iostream>
+#include <unordered_map>
 #include <vector>
 
 namespace horovod {
@@ -26,11 +27,15 @@ class ParameterManager {
 public:
   ParameterManager();
 
-  void Update(int64_t bytes, double seconds);
+  void Update(const std::vector<std::string>& tensor_names, int64_t bytes, double seconds);
 
   inline void SetAutoTuning(bool active) {
     active_ = active;
   };
+
+  inline const bool IsAutoTuning() {
+    return active_;
+  }
 
   // Threshold for Tensor Fusion.  All tensors that occupy memory beyond this
   // threshold will be fused.
@@ -43,7 +48,8 @@ public:
   void SetCycleTimeMs(double cycle_time_ms);
 
 private:
-  void Step();
+  void Tune(double score);
+  void ReadyTune();
 
   template <class T>
   struct ParameterScore {
@@ -53,7 +59,6 @@ private:
 
   class ITunableParameter {
   public:
-    virtual void Step(double score, double samples) = 0;
     virtual void Tune(double score) = 0;
   };
 
@@ -61,7 +66,6 @@ private:
   class TunableParameter : public ITunableParameter {
   public:
     TunableParameter(T initial_value, ParameterManager& parent, ITunableParameter* const next_param);
-    virtual void Step(double score, double samples);
     virtual void Tune(double score);
 
     void SetValue(T value);
@@ -70,15 +74,12 @@ private:
 
   private:
     void CompleteTuning();
-    void NextValue();
     virtual void OnTune(double score, T& value) = 0;
     virtual bool IsDoneTuning() = 0;
     virtual void ResetState() = 0;
 
     T initial_value_;
     T value_;
-    double samples_;
-    double sum_score_;
 
     T best_value_;
     double best_score_;
@@ -129,6 +130,11 @@ private:
 
   ITunableParameter* const leaf_param_;
   bool active_;
+
+  double samples_;
+  double sum_score_;
+  int64_t total_bytes_;
+  std::unordered_map<std::string, int32_t> tensor_counts_;
 };
 
 } // namespace common

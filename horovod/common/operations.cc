@@ -1398,6 +1398,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     state.param_manager.SetCycleTimeMs(std::strtof(horovod_cycle_time, nullptr));
   }
 
+  // Enable auto-tuning.
+  state.param_manager.SetAutoTuning(true);
+
   // Disable stall check.
   auto horovod_stall_check_disable = std::getenv(HOROVOD_STALL_CHECK_DISABLE);
   if (horovod_stall_check_disable != nullptr &&
@@ -1491,10 +1494,11 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   bool should_shut_down = false;
 
   // This delay determines thread frequency and MPI message latency
+  auto start_time = std::chrono::steady_clock::now();
   auto sleep_duration =
       state.last_cycle_start +
       std::chrono::microseconds(long(state.param_manager.CycleTimeMs() * 1000.)) -
-      std::chrono::steady_clock::now();
+      start_time;
   if (sleep_duration > std::chrono::steady_clock::duration::zero()) {
     std::this_thread::sleep_for(sleep_duration);
   }
@@ -1529,6 +1533,11 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
         ready_to_reduce.push_back(message.tensor_name());
       }
     }
+
+    // TODO(travis): remove
+//    if (ready_to_reduce.size() > 0) {
+//      std::cerr << "ready_to_reduce: " << ready_to_reduce[0] << " " << ready_to_reduce.size() << std::endl;
+//    }
 
     // Rank zero has put all its own tensors in the tensor count table.
     // Now, it should count all the tensors that are coming from other
@@ -1658,6 +1667,23 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       CheckForStalledTensors(state);
       state.last_stall_check = std::chrono::steady_clock::now();
     }
+
+    if (state.param_manager.IsAutoTuning()) {
+      std::vector<std::string> tensor_names;
+      int64_t total_tensor_size = 0;
+      for (auto &response : response_list.responses()) {
+        assert(response.tensor_names().size() == 1);
+        auto &entry = state.tensor_table[response.tensor_names()[0]];
+        tensor_names.push_back(response.tensor_names()[0]);
+        total_tensor_size += entry.tensor->size();
+      }
+
+      double duration = (std::chrono::steady_clock::now() - start_time).count();
+      MPI_Bcast(&duration, 1, MPI_DOUBLE, RANK_ZERO, state.mpi_comm);
+
+      state.param_manager.Update(tensor_names, total_tensor_size, duration);
+    }
+
   } else {
     std::string encoded_message;
     MPIRequestList message_list;
@@ -1687,6 +1713,22 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     // the same operation.
     for (auto& response : response_list.responses()) {
       PerformOperation(state.tensor_table, response);
+    }
+
+    if (state.param_manager.IsAutoTuning()) {
+      std::vector<std::string> tensor_names;
+      int64_t total_tensor_size = 0;
+      for (auto &response : response_list.responses()) {
+        assert(response.tensor_names().size() == 1);
+        auto &entry = state.tensor_table[response.tensor_names()[0]];
+        tensor_names.push_back(response.tensor_names()[0]);
+        total_tensor_size += entry.tensor->size();
+      }
+
+      double duration;
+      MPI_Bcast(&duration, 1, MPI_DOUBLE, RANK_ZERO, state.mpi_comm);
+
+      state.param_manager.Update(tensor_names, total_tensor_size, duration);
     }
 
     if (response_list.shutdown()) {
