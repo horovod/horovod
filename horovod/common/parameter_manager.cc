@@ -50,9 +50,9 @@ void ParameterManager::Update(const std::vector<std::string>& tensor_names, int6
   bool next_step = false;
   for (const std::string tensor_name : tensor_names) {
     int32_t count = ++tensor_counts_[tensor_name];
-    if (count > 1) {
+    if (count >= 3) {
       double score = sum_score_ / samples_;
-      std::cerr << tensor_name << " " << total_bytes_ << " " << score << std::endl;
+      std::cerr << tensor_names.size() << " " << total_bytes_ << " " << sum_score_ << " " << score << std::endl;
       next_step = true;
       break;
     }
@@ -60,13 +60,12 @@ void ParameterManager::Update(const std::vector<std::string>& tensor_names, int6
 
   sum_score_ += bytes;
   samples_ += seconds;
+  total_bytes_ += bytes;
 
   if (next_step) {
     double score = sum_score_ / samples_;
     Tune(score);
   }
-
-  total_bytes_ += bytes;
 }
 
 int64_t ParameterManager::TensorFusionThreshold() {
