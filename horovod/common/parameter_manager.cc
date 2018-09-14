@@ -47,23 +47,36 @@ void ParameterManager::Update(const std::vector<std::string>& tensor_names, int6
     return;
   }
 
+  bool all_tensors_collected = true;
+  for (auto& tensor_count : tensor_counts_) {
+    if (tensor_count.second < TENSOR_COUNT) {
+      all_tensors_collected = false;
+      break;
+    }
+  }
+
   bool next_step = false;
-  for (const std::string tensor_name : tensor_names) {
+  for (const std::string& tensor_name : tensor_names) {
     int32_t count = ++tensor_counts_[tensor_name];
-    if (count >= 3) {
-      double score = sum_score_ / samples_;
-      std::cerr << tensor_names.size() << " " << total_bytes_ << " " << sum_score_ << " " << score << std::endl;
+    if (count > TENSOR_COUNT) {
+      if (!all_tensors_collected) {
+        std::cerr << "NOT ALL TENSORS COLLECTED" << std::endl;
+        ReadyTune();
+        return;
+      }
+
+      double score = total_bytes_ / total_seconds_;
+      std::cerr << total_bytes_ << " " << score << std::endl;
       next_step = true;
       break;
     }
   }
 
-  sum_score_ += bytes;
-  samples_ += seconds;
   total_bytes_ += bytes;
+  total_seconds_ += seconds;
 
   if (next_step) {
-    double score = sum_score_ / samples_;
+    double score = total_bytes_ / total_seconds_;
     Tune(score);
   }
 }
@@ -90,9 +103,8 @@ void ParameterManager::Tune(double score) {
 }
 
 void ParameterManager::ReadyTune() {
-  samples_ = 0;
-  sum_score_ = 0;
   total_bytes_ = 0;
+  total_seconds_ = 0;
   tensor_counts_.clear();
 }
 

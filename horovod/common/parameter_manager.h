@@ -131,9 +131,8 @@ private:
   ITunableParameter* const leaf_param_;
   bool active_;
 
-  double samples_;
-  double sum_score_;
   int64_t total_bytes_;
+  double total_seconds_;
   std::unordered_map<std::string, int32_t> tensor_counts_;
 };
 
