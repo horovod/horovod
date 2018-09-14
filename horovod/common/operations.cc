@@ -1009,7 +1009,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                               DDL_OP_SUM))
 #else
       if (horovod_global.hierarchical_allreduce) {
-        int element_size = buffer_len / num_elements;
+        int element_size;
+        MPI_Type_size(GetMPIDataType(first_entry.tensor), &element_size); 
 
         // If cluster is homogeneous and we are using fusion buffer, include
         // dummy elements from the buffer (if necessary) to make sure the data
@@ -1571,7 +1572,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
     // Ensuring that fusion buffer can hold a number of elements divisible by
     // FUSION_BUFFER_ATOMIC_UNIT for performance
-    int64_t div = state.local_size * sizeof(MPI_DOUBLE) * FUSION_BUFFER_ATOMIC_UNIT;
+    int mpi_double_size;
+    MPI_Type_size(MPI_DOUBLE, &mpi_double_size);
+    int64_t div = state.local_size * mpi_double_size * FUSION_BUFFER_ATOMIC_UNIT;
     state.tensor_fusion_threshold = ((proposed_fusion_threshold+div-1) / div) * div;
   } else {
     state.tensor_fusion_threshold = proposed_fusion_threshold;
