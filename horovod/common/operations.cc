@@ -1399,6 +1399,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 
   // Enable auto-tuning.
+  state.param_manager.SetRank(rank, RANK_ZERO);
   state.param_manager.SetAutoTuning(true);
 
   // Disable stall check.

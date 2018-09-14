@@ -27,11 +27,8 @@ class ParameterManager {
 public:
   ParameterManager();
 
-  void Update(const std::vector<std::string>& tensor_names, int64_t bytes, double seconds);
-
-  inline void SetAutoTuning(bool active) {
-    active_ = active;
-  };
+  void SetRank(int32_t rank, int32_t root_rank);
+  void SetAutoTuning(bool active);
 
   inline const bool IsAutoTuning() {
     return active_;
@@ -47,6 +44,8 @@ public:
   double CycleTimeMs();
   void SetCycleTimeMs(double cycle_time_ms);
 
+  void Update(const std::vector<std::string>& tensor_names, int64_t bytes, double seconds);
+
 private:
   void Tune(double score);
   void ReadyTune();
@@ -60,6 +59,7 @@ private:
   class ITunableParameter {
   public:
     virtual void Tune(double score) = 0;
+    virtual double BestScore() = 0;
   };
 
   template <class T>
@@ -71,6 +71,7 @@ private:
     void SetValue(T value);
     inline T Value() { return value_; };
     inline T BestValue() { return best_value_; };
+    inline double BestScore() { return best_score_; };
 
   private:
     void CompleteTuning();
@@ -130,10 +131,14 @@ private:
 
   ITunableParameter* const leaf_param_;
   bool active_;
+  int32_t warmup_remaining_;
 
   int64_t total_bytes_;
   double total_seconds_;
   std::unordered_map<std::string, int32_t> tensor_counts_;
+
+  int32_t rank_;
+  int32_t root_rank_;
 };
 
 } // namespace common

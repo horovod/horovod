@@ -21,6 +21,7 @@
 namespace horovod {
 namespace common {
 
+#define WARMUPS 3
 #define TENSOR_COUNT 3
 
 #define INVPHI 0.61803398875
@@ -38,8 +39,39 @@ ParameterManager::ParameterManager() :
 //    cycle_time_ms_(NumericParameter<double>(
 //        1.0, 25.0, *this, &tensor_fusion_threshold_)),
     leaf_param_(&cycle_time_ms_),
-    active_(false) {
+    active_(false),
+    warmup_remaining_(WARMUPS),
+    rank_(-1),
+    root_rank_(0) {
   ReadyTune();
+}
+
+void ParameterManager::SetRank(int32_t rank, int32_t root_rank) {
+  rank_ = rank;
+  root_rank_ = root_rank;
+}
+
+void ParameterManager::SetAutoTuning(bool active) {
+  if (active != active_) {
+    warmup_remaining_ = WARMUPS;
+  }
+  active_ = active;
+};
+
+int64_t ParameterManager::TensorFusionThreshold() {
+  return active_ ? tensor_fusion_threshold_.Value() : tensor_fusion_threshold_.BestValue();
+};
+
+void ParameterManager::SetTensorFusionThreshold(int64_t threshold) {
+  tensor_fusion_threshold_.SetValue(threshold);
+}
+
+double ParameterManager::CycleTimeMs() {
+  return active_ ? cycle_time_ms_.Value() : cycle_time_ms_.BestValue();
+};
+
+void ParameterManager::SetCycleTimeMs(double cycle_time_ms) {
+  cycle_time_ms_.SetValue(cycle_time_ms);
 }
 
 void ParameterManager::Update(const std::vector<std::string>& tensor_names, int64_t bytes, double seconds) {
@@ -65,8 +97,6 @@ void ParameterManager::Update(const std::vector<std::string>& tensor_names, int6
         return;
       }
 
-      double score = total_bytes_ / total_seconds_;
-      std::cerr << total_bytes_ << " " << score << std::endl;
       next_step = true;
       break;
     }
@@ -81,24 +111,19 @@ void ParameterManager::Update(const std::vector<std::string>& tensor_names, int6
   }
 }
 
-int64_t ParameterManager::TensorFusionThreshold() {
-  return active_ ? tensor_fusion_threshold_.Value() : tensor_fusion_threshold_.BestValue();
-};
-
-void ParameterManager::SetTensorFusionThreshold(int64_t threshold) {
-  tensor_fusion_threshold_.SetValue(threshold);
-}
-
-double ParameterManager::CycleTimeMs() {
-  return active_ ? cycle_time_ms_.Value() : cycle_time_ms_.BestValue();
-};
-
-void ParameterManager::SetCycleTimeMs(double cycle_time_ms) {
-  cycle_time_ms_.SetValue(cycle_time_ms);
-}
-
 void ParameterManager::Tune(double score) {
-//  leaf_param_->Tune(score);
+  if (warmup_remaining_ > 0) {
+    warmup_remaining_--;
+    std::cerr << "WARMUP DONE" << std::endl;
+  } else {
+    if (rank_ == root_rank_) {
+      std::cerr << "[" << cycle_time_ms_.Value() << ", " << tensor_fusion_threshold_.Value() << "] " << score << "  "
+                << "[" << cycle_time_ms_.BestValue() << ", " << tensor_fusion_threshold_.BestValue() << "] " << leaf_param_->BestScore()
+                << std::endl;
+    }
+
+    leaf_param_->Tune(score);
+  }
   ReadyTune();
 }
 
