@@ -1080,7 +1080,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                               DDL_OP_SUM))
 #else
       if (horovod_global.hierarchical_allreduce) {
-        int element_size = buffer_len / num_elements;
+        int element_size;
+        MPI_Type_size(GetMPIDataType(first_entry.tensor), &element_size); 
 
         // If cluster is homogeneous and we are using fusion buffer, include
         // dummy elements from the buffer (if necessary) to make sure the data
@@ -1171,6 +1172,87 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           }
         }
 
+=======
+        }
+
+        // Split the elements into two groups: num_elements_per_rank*local_size,
+        // and num_elements_remaining. Cross-node reduction for the first group
+        // is done by all local_rank's in parallel, while for the second group
+        // it it is only done by the root_rank. If the cluster is not
+        // homogeneous first group is zero, and root_rank is 0.
+
+        // Homogeneous case:
+        // For the part of data divisible by local_size, perform NCCL
+        // ReduceScatter - Parallelized MPI Allreduce - NCCL Allgather. For the
+        // non-divisible part (if any), do NCCL Reduce (at rank local_size-1),
+        // MPI Allreduce (across rank (local_size-1)'s), and NCCL Bcast
+
+        int64_t num_elements_per_rank =
+            horovod_global.is_homogeneous
+                ? num_elements / horovod_global.local_size
+                : 0;
+
+        size_t buffer_len_per_rank = element_size * num_elements_per_rank;
+
+        void* buffer_data_at_rank_offset =
+            (uint8_t*)buffer_data +
+            buffer_len_per_rank * horovod_global.local_rank;
+
+        int64_t num_elements_remaining =
+            horovod_global.is_homogeneous
+                ? num_elements % horovod_global.local_size
+                : num_elements;
+
+        size_t buffer_len_remaining = element_size * num_elements_remaining;
+
+        void* buffer_data_remainder =
+            (uint8_t*)buffer_data +
+            buffer_len_per_rank * horovod_global.local_size;
+
+        void* fused_input_data_remainder =
+            (uint8_t*)fused_input_data +
+            buffer_len_per_rank * horovod_global.local_size;
+
+        int root_rank =
+            horovod_global.is_homogeneous ? horovod_global.local_size - 1 : 0;
+        bool is_root_rank = horovod_global.local_rank == root_rank;
+
+        int64_t total_num_elements =
+            is_root_rank ? num_elements_per_rank + num_elements_remaining
+                         : num_elements_per_rank;
+        int64_t total_buffer_len =
+            is_root_rank ? buffer_len_per_rank + buffer_len_remaining
+                         : buffer_len_per_rank;
+
+        if (num_elements_per_rank > 0) {
+          NCCL_CHECK(entries, "ncclReduceScatter",
+                     ncclReduceScatter(fused_input_data,
+                                       buffer_data_at_rank_offset,
+                                       (size_t)num_elements_per_rank,
+                                       GetNCCLDataType(first_entry.tensor),
+                                       ncclSum, nccl_comm, stream))
+
+          if (timeline.Initialized()) {
+            RECORD_EVENT(entries, event_queue, NCCL_REDUCESCATTER, stream)
+          }
+        }
+
+        if (num_elements_remaining > 0) {
+          // Reduce the remaining data at local_size-1 to append to
+          // existing buffer
+          NCCL_CHECK(entries, "ncclReduce",
+                     ncclReduce(fused_input_data_remainder,
+                                buffer_data_remainder,
+                                (size_t)num_elements_remaining,
+                                GetNCCLDataType(first_entry.tensor), ncclSum,
+                                root_rank, nccl_comm, stream))
+
+          if (timeline.Initialized()) {
+            RECORD_EVENT(entries, event_queue, NCCL_REDUCE, stream)
+          }
+        }
+
+>>>>>>> 95b2616472099e78880c3aa89ab258f61a2ed974
         if (horovod_global.is_homogeneous || is_root_rank) {
           // cudaHostAlloc is significantly slower than malloc.  Pre-allocating
           // a buffer is not safe since the tensor can be arbitrarily large.
@@ -1555,6 +1637,22 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, local_comm_ranks.data(), 1,
                 MPI_INT, local_comm);
 
+  // Determine if cluster is homogeneous, i.e., if every node has the same
+  // local_size
+  auto local_sizes = new int[size];
+  MPI_Allgather(&local_size, 1, MPI_INT, local_sizes, 1, MPI_INT,
+                state.mpi_comm);
+
+  bool is_homogeneous = true;
+  for (int i = 0; i < size; i++) {
+    if (local_sizes[i] != local_size) {
+      is_homogeneous = false;
+      break;
+    }
+  }
+  delete[] local_sizes;
+  state.is_homogeneous = is_homogeneous;
+
   // Set up cross-communicator in case of hierarchical allreduce.
   MPI_Comm cross_comm;
   MPI_Comm_split(state.mpi_comm, local_rank, rank, &cross_comm);
@@ -1682,7 +1780,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
     // Ensuring that fusion buffer can hold a number of elements divisible by
     // FUSION_BUFFER_ATOMIC_UNIT for performance
-    int64_t div = state.local_size * sizeof(MPI_DOUBLE) * FUSION_BUFFER_ATOMIC_UNIT;
+    int mpi_double_size;
+    MPI_Type_size(MPI_DOUBLE, &mpi_double_size);
+    int64_t div = state.local_size * mpi_double_size * FUSION_BUFFER_ATOMIC_UNIT;
     state.tensor_fusion_threshold = ((proposed_fusion_threshold+div-1) / div) * div;
   } else {
     state.tensor_fusion_threshold = proposed_fusion_threshold;
