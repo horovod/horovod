@@ -863,10 +863,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         }
       }
 
-#if HAVE_CUDA
-#if HOROVOD_GPU_ALLGATHER='N'
-
-// gpu_allgather logic here
+#if HAVE_CUDA && HOROVOD_GPU_ALLGATHER == 'N'
     bool on_gpu = e.device != CPU_DEVICE_ID;
 
     if (on_gpu) {
@@ -954,8 +951,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                                 (size_t)buffer_len, cudaMemcpyHostToDevice,
                                 stream))
       ACTIVITY_END_ALL(entries, timeline)
-
-
       ACTIVITY_START_ALL(entries, timeline, NCCL_LOCAL_ALLGATHER)
 
       NCCL_CHECK(entries, "ncclGroupStart", ncclGroupStart())
@@ -968,23 +963,28 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       }
       NCCL_CHECK(entries, "ncclGroupEnd", ncclGroupEnd())
 
-/*      NCCL_CHECK(entries, "ncclAllGather",
-                 ncclAllGather(output_data_at_offset, (void*)e.output->data(),
-                               (size_t)local_recvcounts[0],
-                               GetNCCLDataType(e.tensor),
-                               nccl_comm, stream))
-*/
+//      NCCL_CHECK(entries, "ncclAllGather",
+//                 ncclAllGather(output_data_at_offset, (void*)e.output->data(),
+//                               (size_t)local_recvcounts[0],
+//                               GetNCCLDataType(e.tensor),
+//                               nccl_comm, stream))
+//
       CUDA_CHECK(entries, "cudaStreamSynchronize", cudaStreamSynchronize(stream))
       ACTIVITY_END_ALL(entries, timeline)
 
+      // Free the buffers
+      delete[] recvcounts;
+      delete[] cross_displcmnts;
+      delete[] cross_recvcounts;
+      delete[] local_displcmnts;
+      delete[] local_recvcounts;
       free(host_buffer);
+
       timeline.End(e.tensor_name, e.output);
       e.callback(Status::OK());
       return;
     }
 #endif
-#endif
- 
       // Appropriately offset the displacements during cross-allgather so the local allgather
       // can be done in-place.  
       for(int i=0; i<horovod_global.cross_size; i++) {
@@ -1299,87 +1299,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           }
         }
 
-=======
-        }
-
-        // Split the elements into two groups: num_elements_per_rank*local_size,
-        // and num_elements_remaining. Cross-node reduction for the first group
-        // is done by all local_rank's in parallel, while for the second group
-        // it it is only done by the root_rank. If the cluster is not
-        // homogeneous first group is zero, and root_rank is 0.
-
-        // Homogeneous case:
-        // For the part of data divisible by local_size, perform NCCL
-        // ReduceScatter - Parallelized MPI Allreduce - NCCL Allgather. For the
-        // non-divisible part (if any), do NCCL Reduce (at rank local_size-1),
-        // MPI Allreduce (across rank (local_size-1)'s), and NCCL Bcast
-
-        int64_t num_elements_per_rank =
-            horovod_global.is_homogeneous
-                ? num_elements / horovod_global.local_size
-                : 0;
-
-        size_t buffer_len_per_rank = element_size * num_elements_per_rank;
-
-        void* buffer_data_at_rank_offset =
-            (uint8_t*)buffer_data +
-            buffer_len_per_rank * horovod_global.local_rank;
-
-        int64_t num_elements_remaining =
-            horovod_global.is_homogeneous
-                ? num_elements % horovod_global.local_size
-                : num_elements;
-
-        size_t buffer_len_remaining = element_size * num_elements_remaining;
-
-        void* buffer_data_remainder =
-            (uint8_t*)buffer_data +
-            buffer_len_per_rank * horovod_global.local_size;
-
-        void* fused_input_data_remainder =
-            (uint8_t*)fused_input_data +
-            buffer_len_per_rank * horovod_global.local_size;
-
-        int root_rank =
-            horovod_global.is_homogeneous ? horovod_global.local_size - 1 : 0;
-        bool is_root_rank = horovod_global.local_rank == root_rank;
-
-        int64_t total_num_elements =
-            is_root_rank ? num_elements_per_rank + num_elements_remaining
-                         : num_elements_per_rank;
-        int64_t total_buffer_len =
-            is_root_rank ? buffer_len_per_rank + buffer_len_remaining
-                         : buffer_len_per_rank;
-
-        if (num_elements_per_rank > 0) {
-          NCCL_CHECK(entries, "ncclReduceScatter",
-                     ncclReduceScatter(fused_input_data,
-                                       buffer_data_at_rank_offset,
-                                       (size_t)num_elements_per_rank,
-                                       GetNCCLDataType(first_entry.tensor),
-                                       ncclSum, nccl_comm, stream))
-
-          if (timeline.Initialized()) {
-            RECORD_EVENT(entries, event_queue, NCCL_REDUCESCATTER, stream)
-          }
-        }
-
-        if (num_elements_remaining > 0) {
-          // Reduce the remaining data at local_size-1 to append to
-          // existing buffer
-          NCCL_CHECK(entries, "ncclReduce",
-                     ncclReduce(fused_input_data_remainder,
-                                buffer_data_remainder,
-                                (size_t)num_elements_remaining,
-                                GetNCCLDataType(first_entry.tensor), ncclSum,
-                                root_rank, nccl_comm, stream))
-
-          if (timeline.Initialized()) {
-            RECORD_EVENT(entries, event_queue, NCCL_REDUCE, stream)
-          }
-        }
-
->>>>>>> 95b2616472099e78880c3aa89ab258f61a2ed974
         if (horovod_global.is_homogeneous || is_root_rank) {
           // cudaHostAlloc is significantly slower than malloc.  Pre-allocating
           // a buffer is not safe since the tensor can be arbitrarily large.
@@ -1797,25 +1716,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.cross_comm = cross_comm;
   state.mpi_threads_supported = (provided == MPI_THREAD_MULTIPLE);
   state.local_comm_ranks = local_comm_ranks;
-
-  // Determine if cluster is homogeneous, i.e., if every node has the same
-  // local_size
-  auto local_sizes = new int[cross_size];
-  MPI_Allgather(&local_size, 1, MPI_INT, local_sizes, 1, MPI_INT, cross_comm);
-
-  bool is_homogeneous = true;
-  for (int i = 0; i < cross_size; i++) {
-    if (local_sizes[i] != local_size) {
-      is_homogeneous = false;
-      break;
-    }
-  }
-  state.is_homogeneous = is_homogeneous;
-
-  for (int i = 0; i < cross_size; i++) {
-    state.local_sizes.push_back(local_sizes[i]);
-  }
-  delete[] local_sizes;
 
   // Open the timeline file on coordinator.
   auto horovod_timeline = std::getenv(HOROVOD_TIMELINE);

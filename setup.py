@@ -379,9 +379,9 @@ def get_common_options(build_ext):
                              'values are "", "MPI", "NCCL", "DDL".' % gpu_allreduce)
 
     gpu_allgather = os.environ.get('HOROVOD_GPU_ALLGATHER')
-    if gpu_allgather and gpu_allgather != 'MPI':
+    if gpu_allgather and gpu_allgather != 'MPI' and gpu_allgather != 'NCCL':
         raise DistutilsError('HOROVOD_GPU_ALLGATHER=%s is invalid, supported '
-                             'values are "", "MPI".' % gpu_allgather)
+                             'values are "", "MPI", "NCCL".' % gpu_allgather)
 
     gpu_broadcast = os.environ.get('HOROVOD_GPU_BROADCAST')
     if gpu_broadcast and gpu_broadcast != 'MPI':
