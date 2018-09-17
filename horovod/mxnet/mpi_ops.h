@@ -28,7 +28,7 @@ typedef mxnet::NDArray NDArray;
 typedef mxnet::Engine::CallbackOnComplete Callback;
 
 extern "C" int horovod_mxnet_allreduce_async(
-    NDArray* tensor, NDArray* output, int average, char* name, Callback cb);
+    NDArray* tensor, NDArray* output, int average, char* name);
 extern "C" int horovod_mxnet_allgather_async(
     NDArray* tensor, NDArray* output, char* name, Callback cb);
 extern "C" int horovod_mxnet_broadcast_async(

@@ -25,6 +25,8 @@
 #include "ready_event.h"
 #include "tensor_util.h"
 
+
+
 namespace horovod {
 namespace MX {
 
@@ -213,16 +215,40 @@ int DoBroadcastCudaOnCPU(NDArray* tensor, NDArray* output, int root_rank,
 // Do AllReduce on GPU only if src and dst are on GPU
 // Otherwise do AllReduce on CPU
 extern "C" int horovod_mxnet_allreduce_async(
-    NDArray* tensor, NDArray* output, int average, char* name, Callback cb) {
-  if (tensor->ctx().dev_mask() == gpu::kDevMask &&
+    NDArray* input, NDArray* output, int average, char* name) {
+  if (input->ctx().dev_mask() == gpu::kDevMask &&
       output->ctx().dev_mask() == gpu::kDevMask) {
-    return DoAllreduce(tensor, output, average, name, cb);
+
+    auto allreduce_async_fn = [input, output, name, average](
+          RunContext rctx, Callback cb) mutable {
+      DoAllreduce(input, output, average, name, cb);
+    };
+    if (input->var() != output->var()) {
+    Engine::Get()->PushAsync(
+      allreduce_async_fn,
+      input->ctx(),
+      {input->var()},
+      {output->var()},
+      FnProperty::kNormal,
+      0,
+      "KVStoreHorovodAllreduce");
+    } else {
+    Engine::Get()->PushAsync(
+      allreduce_async_fn,
+      input->ctx(),
+      {},
+      {output->var()},
+      FnProperty::kNormal,
+      0,
+      "KVStoreHorovodAllreduce");
+    }
+    return 0;
   } else {
-    #if HAVE_CUDA
-      return DoAllreduceCudaOnCPU(tensor, output, average, name, cb);
+    /*#if HAVE_CUDA
+      return DoAllreduceCudaOnCPU(input, output, average, name, cb);
     #else
-      return DoAllreduce(tensor, output, average, name, cb);
-    #endif
+      return DoAllreduce(input, output, average, name, cb);
+    #endif*/
   }
 }
 

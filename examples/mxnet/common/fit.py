@@ -23,6 +23,7 @@ import re
 import math
 import mxnet as mx
 import time
+import horovod.mxnet as hvd
 
 def get_epoch_size(args, kv):
     return math.ceil(int(args.num_examples / kv.num_workers) / args.batch_size)
@@ -146,6 +147,9 @@ def fit(args, network, data_loader, **kwargs):
     network : the symbol definition of the nerual network
     data_loader : function that returns the train and val data iterators
     """
+    # initialize Horovod
+    hvd.init()
+
     # kvstore
     kv = mx.kvstore.create(args.kv_store)
     time.sleep(30)
@@ -154,7 +158,7 @@ def fit(args, network, data_loader, **kwargs):
                                      'threshold': args.gc_threshold})
 
     # logging
-    head = '%(asctime)-15s Node[' + str(kv.rank) + '] %(message)s'
+    head = '%(asctime)-15s Node[' + str(hvd.rank()) + '] %(message)s'
     logging.basicConfig(level=logging.DEBUG, format=head)
     logging.info('start with arguments %s', args)
     
@@ -190,15 +194,15 @@ def fit(args, network, data_loader, **kwargs):
         arg_params = kwargs['arg_params']
         aux_params = kwargs['aux_params']
     else:
-        sym, arg_params, aux_params = _load_model(args, kv.rank)
+        sym, arg_params, aux_params = _load_model(args, hvd.rank())
         if sym is not None:
             assert sym.tojson() == network.tojson()
 
     # save model
-    checkpoint = _save_model(args, kv.rank)
+    checkpoint = _save_model(args, hvd.rank())
 
     # devices for training
-    local_rank = kv.local_rank
+    local_rank = hvd.local_rank()
     devs = mx.cpu() if args.gpus is None or args.gpus == "" else mx.gpu(local_rank)
 
     # learning rate
@@ -228,7 +232,7 @@ def fit(args, network, data_loader, **kwargs):
     # A limited number of optimizers have a warmup period
     has_warmup = {'lbsgd', 'lbnag'}
     if args.optimizer in has_warmup:
-        nworkers = kv.num_workers
+        nworkers = hvd.size()
         if epoch_size < 1:
             epoch_size = 1
         macrobatch_size = args.macrobatch_size
@@ -243,6 +247,13 @@ def fit(args, network, data_loader, **kwargs):
         optimizer_params['warmup_strategy'] = args.warmup_strategy
         optimizer_params['warmup_epochs'] = args.warmup_epochs
         optimizer_params['num_epochs'] = args.num_epochs
+
+    # create optimizer
+    optimizer_params = dict(optimizer_params)
+    if 'rescale_grad' not in optimizer_params:
+        optimizer_params['rescale_grad'] = 1.0/hvd.size()
+    opt = mx.optimizer.create(args.optimizer, sym=network, **optimizer_params)
+    opt = hvd.DistributedOptimizer(opt)
 
     if args.initializer == 'default':
         if args.network == 'alexnet':
@@ -269,6 +280,12 @@ def fit(args, network, data_loader, **kwargs):
         initializer = mx.init.One()
     elif args.initializer == 'zero':
         initializer = mx.init.Zero()
+
+    # create initializer
+    model.init_params(initializer, arg_params=arg_params, aux_params=aux_params)
+    (arg_params, aux_params) = mod.get_params()
+    hvd.broadcast_parameters(arg_params, root_rank=0)
+    hvd.broadcast_parameters(aux_params, root_rank=0)
 
     # evaluation metrices
     eval_metrics = ['accuracy']
@@ -307,11 +324,11 @@ def fit(args, network, data_loader, **kwargs):
               eval_data=val,
               eval_metric=eval_metrics,
               kvstore=kv,
-              optimizer=args.optimizer,
+              optimizer=opt,
               optimizer_params=optimizer_params,
-              initializer=initializer,
-              arg_params=arg_params,
-              aux_params=aux_params,
+              #initializer=initializer,
+              #arg_params=arg_params,
+              #aux_params=aux_params,
               batch_end_callback=batch_end_callbacks,
               epoch_end_callback=checkpoint,
               allow_missing=True,
