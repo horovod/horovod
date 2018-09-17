@@ -1385,6 +1385,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 
   // Override Tensor Fusion threshold, if it's set.
+  state.param_manager.SetTensorFusionThresholdMb(64);
   auto horovod_fusion_threshold = std::getenv(HOROVOD_FUSION_THRESHOLD);
   if (horovod_fusion_threshold != nullptr) {
     int64_t threshold = std::strtol(horovod_fusion_threshold, nullptr, 10);
@@ -1392,16 +1393,20 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 
   // Override the cycle time.
+  state.param_manager.SetCycleTimeMs(10);
   auto horovod_cycle_time = std::getenv(HOROVOD_CYCLE_TIME);
   if (horovod_cycle_time != nullptr) {
     state.param_manager.SetCycleTimeMs(std::strtof(horovod_cycle_time, nullptr));
   }
 
   // Enable auto-tuning.
-  auto horovod_params = std::getenv(HOROVOD_PARAMS);
-  state.param_manager.Initialize(rank, RANK_ZERO,
-                                 horovod_params != nullptr ? std::string(horovod_params) : "");
-  state.param_manager.SetAutoTuning(true);
+  auto horovod_tune_params = std::getenv(HOROVOD_TUNE_PARAMS);
+  if (horovod_tune_params != nullptr && std::strtol(horovod_tune_params, nullptr, 10) > 0) {
+    auto horovod_params = std::getenv(HOROVOD_PARAMS_OUTPUT);
+    state.param_manager.Initialize(rank, RANK_ZERO,
+                                   horovod_params != nullptr ? std::string(horovod_params) : "");
+    state.param_manager.SetAutoTuning(true);
+  }
 
   // Disable stall check.
   auto horovod_stall_check_disable = std::getenv(HOROVOD_STALL_CHECK_DISABLE);
@@ -1535,11 +1540,6 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
         ready_to_reduce.push_back(message.tensor_name());
       }
     }
-
-    // TODO(travis): remove
-//    if (ready_to_reduce.size() > 0) {
-//      std::cerr << "ready_to_reduce: " << ready_to_reduce[0] << " " << ready_to_reduce.size() << std::endl;
-//    }
 
     // Rank zero has put all its own tensors in the tensor count table.
     // Now, it should count all the tensors that are coming from other

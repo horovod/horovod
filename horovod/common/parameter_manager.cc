@@ -67,7 +67,7 @@ void ParameterManager::SetAutoTuning(bool active) {
   active_ = active;
 };
 
-int64_t ParameterManager::TensorFusionThresholdMb() {
+int64_t ParameterManager::TensorFusionThresholdMb() const {
   int64_t b = active_ ? tensor_fusion_threshold_.Value() : tensor_fusion_threshold_.BestValue();
   return b * 1024 * 1024;
 };
@@ -76,7 +76,7 @@ void ParameterManager::SetTensorFusionThresholdMb(int64_t threshold) {
   tensor_fusion_threshold_.SetValue(threshold / (1024 * 1024));
 }
 
-double ParameterManager::CycleTimeMs() {
+double ParameterManager::CycleTimeMs() const {
   return active_ ? cycle_time_ms_.Value() : cycle_time_ms_.BestValue();
 };
 
@@ -164,9 +164,6 @@ void ParameterManager::TunableParameter<T>::Tune(double score) {
 
 template <class T>
 void ParameterManager::TunableParameter<T>::SetValue(T value) {
-  value_ = value;
-  ResetState();
-
   best_value_ = value_;
   best_score_ = 0;
 }
@@ -228,7 +225,7 @@ void ParameterManager::NumericParameter<T>::OnTune(double score, T& value) {
 }
 
 template <class T>
-bool ParameterManager::NumericParameter<T>::IsDoneTuning() {
+bool ParameterManager::NumericParameter<T>::IsDoneTuning() const {
   return k_ >= n_ - 1;
 }
 
@@ -261,7 +258,7 @@ void ParameterManager::CategoricalParameter<T>::OnTune(double score, T& value) {
 }
 
 template <class T>
-bool ParameterManager::CategoricalParameter<T>::IsDoneTuning() {
+bool ParameterManager::CategoricalParameter<T>::IsDoneTuning() const {
   return index_ >= values_.size();
 }
 
