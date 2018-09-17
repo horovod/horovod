@@ -76,7 +76,7 @@ private:
   class TunableParameter : public ITunableParameter {
   public:
     TunableParameter(T initial_value, ParameterManager& parent, ITunableParameter* const next_param);
-    virtual void Tune(double score);
+    void Tune(double score) override;
 
     void SetValue(T value);
     inline T Value() const { return value_; };
