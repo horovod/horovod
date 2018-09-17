@@ -723,7 +723,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     // since buffer allocated here is guaranteed to survive at least till the
     // end of this operation.
     Status status = horovod_global.fusion_buffer.InitializeBuffer(
-        horovod_global.param_manager.TensorFusionThresholdMb(),
+        horovod_global.param_manager.TensorFusionThresholdBytes(),
         first_entry.device, first_entry.context,
         [&](){ACTIVITY_START_ALL(entries, timeline, INIT_FUSION_BUFFER)},
         [&](){ACTIVITY_END_ALL(entries, timeline)});
@@ -1385,11 +1385,11 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 
   // Override Tensor Fusion threshold, if it's set.
-  state.param_manager.SetTensorFusionThresholdMb(64);
+  state.param_manager.SetTensorFusionThresholdBytes(64 * 1024 * 1024);
   auto horovod_fusion_threshold = std::getenv(HOROVOD_FUSION_THRESHOLD);
   if (horovod_fusion_threshold != nullptr) {
     int64_t threshold = std::strtol(horovod_fusion_threshold, nullptr, 10);
-    state.param_manager.SetTensorFusionThresholdMb(threshold);
+    state.param_manager.SetTensorFusionThresholdBytes(threshold);
   }
 
   // Override the cycle time.
@@ -1630,7 +1630,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
           if (response.response_type() == new_response.response_type() &&
               response.devices() == new_response.devices() &&
               entry.tensor->dtype() == new_entry.tensor->dtype() &&
-              tensor_size + new_tensor_size <= state.param_manager.TensorFusionThresholdMb()) {
+              tensor_size + new_tensor_size <= state.param_manager.TensorFusionThresholdBytes()) {
             // These tensors will fuse together well.
             tensor_size += new_tensor_size;
             response.add_tensor_names(new_response.tensor_names()[0]);

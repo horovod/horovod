@@ -46,8 +46,8 @@ public:
 
   // Threshold for Tensor Fusion.  All tensors that occupy memory beyond this
   // threshold will be fused.
-  int64_t TensorFusionThresholdMb() const;
-  void SetTensorFusionThresholdMb(int64_t threshold);
+  int64_t TensorFusionThresholdBytes() const;
+  void SetTensorFusionThresholdBytes(int64_t threshold);
 
   // Background thread cycle time in milliseconds.  Fractional numbers are
   // permitted.
@@ -133,10 +133,10 @@ private:
     int32_t index_;
   };
 
-//  NumericParameter<int64_t> tensor_fusion_threshold_;
+//  NumericParameter<int64_t> tensor_fusion_threshold_mb_;
 //  NumericParameter<double> cycle_time_ms_;
 
-  CategoricalParameter<int64_t> tensor_fusion_threshold_;
+  CategoricalParameter<int64_t> tensor_fusion_threshold_mb_;
   CategoricalParameter<double> cycle_time_ms_;
 
   ITunableParameter* const leaf_param_;

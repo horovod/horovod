@@ -30,14 +30,14 @@ namespace common {
 
 // ParameterManager
 ParameterManager::ParameterManager() :
-    tensor_fusion_threshold_(CategoricalParameter<int64_t>(
+    tensor_fusion_threshold_mb_(CategoricalParameter<int64_t>(
         std::vector<int64_t>{0, 1, 2, 4, 8, 16, 32, 64}, *this, nullptr)),
     cycle_time_ms_(CategoricalParameter<double>(
-        std::vector<double>{1, 2.5, 5, 7.5, 10, 20, 30, 50}, *this, &tensor_fusion_threshold_)),
-//    tensor_fusion_threshold_(NumericParameter<int64_t>(
+        std::vector<double>{1, 2.5, 5, 7.5, 10, 20, 30, 50}, *this, &tensor_fusion_threshold_mb_)),
+//    tensor_fusion_threshold_mb_(NumericParameter<int64_t>(
 //        1024 * 1024, 256 * 1024 * 1024, *this, nullptr)),
 //    cycle_time_ms_(NumericParameter<double>(
-//        1.0, 25.0, *this, &tensor_fusion_threshold_)),
+//        1.0, 25.0, *this, &tensor_fusion_threshold_mb_)),
     leaf_param_(&cycle_time_ms_),
     active_(false),
     warmup_remaining_(WARMUPS),
@@ -67,13 +67,13 @@ void ParameterManager::SetAutoTuning(bool active) {
   active_ = active;
 };
 
-int64_t ParameterManager::TensorFusionThresholdMb() const {
-  int64_t b = active_ ? tensor_fusion_threshold_.Value() : tensor_fusion_threshold_.BestValue();
+int64_t ParameterManager::TensorFusionThresholdBytes() const {
+  int64_t b = active_ ? tensor_fusion_threshold_mb_.Value() : tensor_fusion_threshold_mb_.BestValue();
   return b * 1024 * 1024;
 };
 
-void ParameterManager::SetTensorFusionThresholdMb(int64_t threshold) {
-  tensor_fusion_threshold_.SetValue(threshold / (1024 * 1024));
+void ParameterManager::SetTensorFusionThresholdBytes(int64_t threshold) {
+  tensor_fusion_threshold_mb_.SetValue(threshold / (1024 * 1024));
 }
 
 double ParameterManager::CycleTimeMs() const {
@@ -117,12 +117,12 @@ void ParameterManager::Tune(double score) {
   } else {
     if (rank_ == root_rank_) {
       std::cerr << total_bytes_ << ", " << total_seconds_ << " "
-                << "[" << cycle_time_ms_.Value() << ", " << tensor_fusion_threshold_.Value() << "] " << score << "  "
-                << "[" << cycle_time_ms_.BestValue() << ", " << tensor_fusion_threshold_.BestValue() << "] "
+                << "[" << cycle_time_ms_.Value() << ", " << tensor_fusion_threshold_mb_.Value() << "] " << score << "  "
+                << "[" << cycle_time_ms_.BestValue() << ", " << tensor_fusion_threshold_mb_.BestValue() << "] "
                 << leaf_param_->BestScore()
                 << std::endl;
       if (writing_ && file_.good()) {
-        file_ << cycle_time_ms_.Value() << "," << tensor_fusion_threshold_.Value() << "," << score << std::endl;
+        file_ << cycle_time_ms_.Value() << "," << tensor_fusion_threshold_mb_.Value() << "," << score << std::endl;
       }
     }
 
