@@ -1393,7 +1393,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 
   // Override the cycle time.
-  state.param_manager.SetCycleTimeMs(10);
+  state.param_manager.SetCycleTimeMs(5);
   auto horovod_cycle_time = std::getenv(HOROVOD_CYCLE_TIME);
   if (horovod_cycle_time != nullptr) {
     state.param_manager.SetCycleTimeMs(std::strtof(horovod_cycle_time, nullptr));
