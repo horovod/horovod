@@ -33,7 +33,7 @@ ParameterManager::ParameterManager() :
     tensor_fusion_threshold_mb_(CategoricalParameter<int64_t>(
         std::vector<int64_t>{0, 1, 2, 4, 8, 16, 32, 64}, *this, nullptr)),
     cycle_time_ms_(CategoricalParameter<double>(
-        std::vector<double>{1, 2.5, 5, 7.5, 10, 20, 30, 50}, *this, &tensor_fusion_threshold_mb_)),
+        std::vector<double>{1, 2.5, 5, 10, 50, 100, 250}, *this, &tensor_fusion_threshold_mb_)),
 //    tensor_fusion_threshold_mb_(NumericParameter<int64_t>(
 //        1024 * 1024, 256 * 1024 * 1024, *this, nullptr)),
 //    cycle_time_ms_(NumericParameter<double>(
