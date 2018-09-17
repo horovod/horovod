@@ -18,22 +18,24 @@
 namespace horovod {
 namespace common {
 
-FusionBufferManager::FusionBufferManager(int64_t default_threshold) : threshold_(default_threshold) {}
-
-void FusionBufferManager::SetInitialThreshold(int64_t threshold) {
-  threshold_ = threshold;
-}
-
-Status FusionBufferManager::InitializeBuffer(int device, std::shared_ptr<OpContext> context,
+Status FusionBufferManager::InitializeBuffer(int64_t threshold, int device, std::shared_ptr<OpContext> context,
                                              std::function<void()> on_start_init,
                                              std::function<void()> on_end_init) {
-  auto& buffer = GetBuffer(device, context->framework());
+  auto& elem = tensor_fusion_buffers_[std::make_tuple(device, context->framework())];
+  auto& buffer = elem.first;
+  int64_t& size = elem.second;
+  if (size != threshold) {
+    buffer.reset();
+    size = 0;
+  }
+
   if (buffer == nullptr) {
     on_start_init();
+    size = threshold;
 
     // Lazily allocate persistent buffer for Tensor Fusion and keep it
     // forever per device.
-    Status status = context->AllocatePersistent(threshold_, &buffer);
+    Status status = context->AllocatePersistent(threshold, &buffer);
     if (status.ok()) {
       on_end_init();
     }
@@ -45,7 +47,7 @@ Status FusionBufferManager::InitializeBuffer(int device, std::shared_ptr<OpConte
 }
 
 std::shared_ptr<PersistentBuffer>& FusionBufferManager::GetBuffer(int device, Framework framework) {
-  return tensor_fusion_buffers_[std::make_tuple(device, framework)];
+  return tensor_fusion_buffers_[std::make_tuple(device, framework)].first;
 }
 
 } // namespace common

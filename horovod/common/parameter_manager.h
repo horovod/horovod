@@ -16,6 +16,7 @@
 #ifndef HOROVOD_PARAMETER_MANAGER_H
 #define HOROVOD_PARAMETER_MANAGER_H
 
+#include <fstream>
 #include <iostream>
 #include <unordered_map>
 #include <vector>
@@ -27,7 +28,7 @@ class ParameterManager {
 public:
   ParameterManager();
 
-  void SetRank(int32_t rank, int32_t root_rank);
+  void Initialize(int32_t rank, int32_t root_rank, std::string file_name);
   void SetAutoTuning(bool active);
 
   inline const bool IsAutoTuning() {
@@ -36,8 +37,8 @@ public:
 
   // Threshold for Tensor Fusion.  All tensors that occupy memory beyond this
   // threshold will be fused.
-  int64_t TensorFusionThreshold();
-  void SetTensorFusionThreshold(int64_t threshold);
+  int64_t TensorFusionThresholdMb();
+  void SetTensorFusionThresholdMb(int64_t threshold);
 
   // Background thread cycle time in milliseconds.  Fractional numbers are
   // permitted.
@@ -133,12 +134,18 @@ private:
   bool active_;
   int32_t warmup_remaining_;
 
+  static constexpr int CYCLES = 9;
+  double scores_[CYCLES];
+  int32_t cycle_;
+
   int64_t total_bytes_;
   double total_seconds_;
   std::unordered_map<std::string, int32_t> tensor_counts_;
 
   int32_t rank_;
   int32_t root_rank_;
+  std::ofstream file_;
+  bool writing_;
 };
 
 } // namespace common

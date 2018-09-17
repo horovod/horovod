@@ -15,6 +15,7 @@
 
 #include "parameter_manager.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 
@@ -22,7 +23,6 @@ namespace horovod {
 namespace common {
 
 #define WARMUPS 3
-#define TENSOR_COUNT 3
 
 #define INVPHI 0.61803398875
 #define INVPHI2 0.38196601125
@@ -41,14 +41,23 @@ ParameterManager::ParameterManager() :
     leaf_param_(&cycle_time_ms_),
     active_(false),
     warmup_remaining_(WARMUPS),
+    cycle_(0),
     rank_(-1),
-    root_rank_(0) {
+    root_rank_(0),
+    writing_(false) {
   ReadyTune();
 }
 
-void ParameterManager::SetRank(int32_t rank, int32_t root_rank) {
+void ParameterManager::Initialize(int32_t rank, int32_t root_rank, std::string file_name) {
   rank_ = rank;
   root_rank_ = root_rank;
+  if (rank_ == root_rank && !file_name.empty()) {
+    file_.open(file_name, std::ios::out | std::ios::trunc);
+    if (file_.good()) {
+      file_ << "cycle_time_ms,tensor_fusion_threshold,score" << std::endl;
+      writing_ = true;
+    }
+  }
 }
 
 void ParameterManager::SetAutoTuning(bool active) {
@@ -58,12 +67,13 @@ void ParameterManager::SetAutoTuning(bool active) {
   active_ = active;
 };
 
-int64_t ParameterManager::TensorFusionThreshold() {
-  return active_ ? tensor_fusion_threshold_.Value() : tensor_fusion_threshold_.BestValue();
+int64_t ParameterManager::TensorFusionThresholdMb() {
+  int64_t b = active_ ? tensor_fusion_threshold_.Value() : tensor_fusion_threshold_.BestValue();
+  return b * 1024 * 1024;
 };
 
-void ParameterManager::SetTensorFusionThreshold(int64_t threshold) {
-  tensor_fusion_threshold_.SetValue(threshold);
+void ParameterManager::SetTensorFusionThresholdMb(int64_t threshold) {
+  tensor_fusion_threshold_.SetValue(threshold / (1024 * 1024));
 }
 
 double ParameterManager::CycleTimeMs() {
@@ -79,25 +89,13 @@ void ParameterManager::Update(const std::vector<std::string>& tensor_names, int6
     return;
   }
 
-  bool all_tensors_collected = true;
-  for (auto& tensor_count : tensor_counts_) {
-    if (tensor_count.second < TENSOR_COUNT) {
-      all_tensors_collected = false;
-      break;
-    }
-  }
-
-  bool next_step = false;
   for (const std::string& tensor_name : tensor_names) {
-    int32_t count = ++tensor_counts_[tensor_name];
-    if (count > TENSOR_COUNT) {
-      if (!all_tensors_collected) {
-        std::cerr << "NOT ALL TENSORS COLLECTED" << std::endl;
-        ReadyTune();
-        return;
-      }
-
-      next_step = true;
+    int32_t cycle = tensor_counts_[tensor_name]++;
+    if (cycle > cycle_) {
+      scores_[cycle_] = total_bytes_ / total_seconds_;
+      total_bytes_ = 0;
+      total_seconds_ = 0;
+      cycle_ = cycle;
       break;
     }
   }
@@ -105,9 +103,10 @@ void ParameterManager::Update(const std::vector<std::string>& tensor_names, int6
   total_bytes_ += bytes;
   total_seconds_ += seconds;
 
-  if (next_step) {
-    double score = total_bytes_ / total_seconds_;
-    Tune(score);
+  if (cycle_ >= CYCLES) {
+    std::sort(scores_, scores_ + CYCLES);
+    double med_score = scores_[CYCLES / 2];
+    Tune(med_score);
   }
 }
 
@@ -117,9 +116,14 @@ void ParameterManager::Tune(double score) {
     std::cerr << "WARMUP DONE" << std::endl;
   } else {
     if (rank_ == root_rank_) {
-      std::cerr << "[" << cycle_time_ms_.Value() << ", " << tensor_fusion_threshold_.Value() << "] " << score << "  "
-                << "[" << cycle_time_ms_.BestValue() << ", " << tensor_fusion_threshold_.BestValue() << "] " << leaf_param_->BestScore()
+      std::cerr << total_bytes_ << ", " << total_seconds_ << " "
+                << "[" << cycle_time_ms_.Value() << ", " << tensor_fusion_threshold_.Value() << "] " << score << "  "
+                << "[" << cycle_time_ms_.BestValue() << ", " << tensor_fusion_threshold_.BestValue() << "] "
+                << leaf_param_->BestScore()
                 << std::endl;
+      if (writing_ && file_.good()) {
+        file_ << cycle_time_ms_.Value() << "," << tensor_fusion_threshold_.Value() << "," << score << std::endl;
+      }
     }
 
     leaf_param_->Tune(score);
@@ -131,6 +135,7 @@ void ParameterManager::ReadyTune() {
   total_bytes_ = 0;
   total_seconds_ = 0;
   tensor_counts_.clear();
+  cycle_ = 0;
 }
 
 // TunableParameter

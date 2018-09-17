@@ -150,7 +150,7 @@ struct HorovodGlobalState {
   ParameterManager param_manager;
 
   // Encapsulates the fusion buffers, handles resizing and auto-tuning of buffer size.
-  FusionBufferManager fusion_buffer = FusionBufferManager(param_manager.TensorFusionThreshold());
+  FusionBufferManager fusion_buffer;
 
   // Time point when last cycle started.
   std::chrono::steady_clock::time_point last_cycle_start;
@@ -723,6 +723,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     // since buffer allocated here is guaranteed to survive at least till the
     // end of this operation.
     Status status = horovod_global.fusion_buffer.InitializeBuffer(
+        horovod_global.param_manager.TensorFusionThresholdMb(),
         first_entry.device, first_entry.context,
         [&](){ACTIVITY_START_ALL(entries, timeline, INIT_FUSION_BUFFER)},
         [&](){ACTIVITY_END_ALL(entries, timeline)});
@@ -1387,9 +1388,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   auto horovod_fusion_threshold = std::getenv(HOROVOD_FUSION_THRESHOLD);
   if (horovod_fusion_threshold != nullptr) {
     int64_t threshold = std::strtol(horovod_fusion_threshold, nullptr, 10);
-    state.param_manager.SetTensorFusionThreshold(threshold);
-    // TODO(taddair): this goes away, set only during initialization
-    horovod_global.fusion_buffer.SetInitialThreshold(threshold);
+    state.param_manager.SetTensorFusionThresholdMb(threshold);
   }
 
   // Override the cycle time.
@@ -1399,7 +1398,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 
   // Enable auto-tuning.
-  state.param_manager.SetRank(rank, RANK_ZERO);
+  auto horovod_params = std::getenv(HOROVOD_PARAMS);
+  state.param_manager.Initialize(rank, RANK_ZERO,
+                                 horovod_params != nullptr ? std::string(horovod_params) : "");
   state.param_manager.SetAutoTuning(true);
 
   // Disable stall check.
@@ -1629,7 +1630,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
           if (response.response_type() == new_response.response_type() &&
               response.devices() == new_response.devices() &&
               entry.tensor->dtype() == new_entry.tensor->dtype() &&
-              tensor_size + new_tensor_size <= state.fusion_buffer.GetThreshold()) {
+              tensor_size + new_tensor_size <= state.param_manager.TensorFusionThresholdMb()) {
             // These tensors will fuse together well.
             tensor_size += new_tensor_size;
             response.add_tensor_names(new_response.tensor_names()[0]);
@@ -1683,7 +1684,8 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     }
 
     if (state.param_manager.IsAutoTuning()) {
-      double duration = (std::chrono::steady_clock::now() - start_time).count();
+      double duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - start_time).count();
       MPI_Bcast(&duration, 1, MPI_DOUBLE, RANK_ZERO, state.mpi_comm);
       state.param_manager.Update(tensor_names, total_tensor_size, duration);
     }

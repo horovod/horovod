@@ -28,25 +28,19 @@ namespace common {
 
 class FusionBufferManager {
 public:
-  FusionBufferManager(int64_t default_threshold);
-  void SetInitialThreshold(int64_t threshold);
-  Status InitializeBuffer(int device, std::shared_ptr<OpContext> context,
+  Status InitializeBuffer(int64_t threshold,
+                          int device, std::shared_ptr<OpContext> context,
                           std::function<void()> on_start_init,
                           std::function<void()> on_end_init);
   std::shared_ptr<PersistentBuffer>& GetBuffer(int device, Framework framework);
-  inline int64_t GetThreshold() {
-    return threshold_;
-  };
 
 private:
-  int64_t threshold_;
-
   // Memory buffers for Tensor Fusion.  They are keyed off device ID and
   // framework, and all are allocated tensor_fusion_threshold bytes if
   // initialized.
-  std::unordered_map<std::tuple<int, Framework>,
-      std::shared_ptr<PersistentBuffer>>
-      tensor_fusion_buffers_;
+  std::unordered_map<
+      std::tuple<int, Framework>,
+      std::pair<std::shared_ptr<PersistentBuffer>, int64_t>> tensor_fusion_buffers_;
 };
 
 } // namespace common
