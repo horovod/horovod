@@ -34,6 +34,13 @@ from horovod.mxnet.mpi_ops import allgather, allgather_async
 from horovod.mxnet.mpi_ops import broadcast, broadcast_async, broadcast_, broadcast_async_
 from horovod.mxnet.mpi_ops import poll, synchronize
 
-import mxnet
+import mxnet as mx
 
-# This is where Horovod's DistributedOptimizer wrapper for PyTorch goes
+# This is where Horovod's DistributedOptimizer wrapper for MXNet goes
+class DistributedOptimizer(mx.optimizer.Optimizer):
+    def __init__(self, optimizer):
+        self._optimizer = optimizer
+
+    def update(self, index, weight, grad, state):
+        allreduce(grad, average=False, name=None)
+        self._optimizer.update(index, weight, grad, state)

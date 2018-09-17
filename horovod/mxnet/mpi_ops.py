@@ -18,13 +18,13 @@ from __future__ import division
 from __future__ import print_function
 
 # Load all the necessary MXNet C types.
-import mxnet
+import mxnet as mx
+import logging
+import ctypes
 
-from mxnet.base import _LIB, c_str_array, c_handle_array, c_array, c_array_buf, c_str
+from mxnet.base import c_str_array, c_handle_array, c_array, c_array_buf, c_str
 from mxnet.base import check_call, string_types, mx_uint, py_str
 
-#from horovod.mxnet import _LIB_impl
-#from horovod.mxnet import _LIB
 from horovod.mxnet import rank, size
 
 # Schema: handle -> input, output
@@ -34,8 +34,12 @@ _handle_map = {}
 
 
 # Null pointer.
-#_NULL = _LIB._ffi.NULL
 from mxnet.base import _Null
+
+dll_path = ctypes.util.find_library('horovod')
+dll_path = '/home/ubuntu/anaconda3/lib/python3.6/site-packages/horovod/mxnet/mpi_lib.cpython-36m-x86_64-linux-gnu.so'
+logging.info(dll_path)
+_LIB = ctypes.CDLL(dll_path, ctypes.RTLD_GLOBAL)
 
 def _check_function(function_factory, tensor):
     function = function_factory(tensor)
@@ -53,7 +57,7 @@ def _allreduce_function_factory(tensor):
 def _allreduce_async(tensor, output, average, name):
     function = _check_function(_allreduce_function_factory, tensor)
     handle = getattr(_LIB, function)(tensor, output, average,
-                                        name.encode() if name is not None else _Null)
+                                     name.encode() if name is not None else _Null)
     _handle_map[handle] = (tensor, output)
     return handle
 
@@ -78,22 +82,8 @@ def allreduce_async(tensor, average=True, name=None):
         A handle to the allreduce operation that can be used with `poll()` or
         `synchronize()`.
     """
-    output = tensor.new(tensor.shape)
+    output = mx.nd.array(tensor.shape)
     return _allreduce_async(tensor, output, average, name)
-
-
-class HorovodAllreduce(mxnet.autograd.Function):
-    """An autograd function that performs allreduce on a tensor."""
-
-    @staticmethod
-    def forward(ctx, tensor, average, name):
-        ctx.average = average
-        handle = allreduce_async(tensor, average, name)
-        return synchronize(handle)
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        return allreduce(grad_output, ctx.average), None, None
 
 
 def allreduce(tensor, average=True, name=None):
@@ -120,10 +110,15 @@ def allreduce(tensor, average=True, name=None):
         A tensor of the same shape and type as `tensor`, averaged or summed across all
         processes.
     """
-    return HorovodAllreduce.apply(tensor, average, name)
+    assert(isinstance(tensor, mx.nd.NDArray))
+    output = mx.nd.array(tensor.shape)
+    c_in = c_handle_array([tensor])
+    c_out = c_handle_array([output])
+    check_call(_LIB.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_bool(average), c_str(name) if name is not None else _Null))
+    return output
 
 
-def allreduce_async_(tensor, average=True, name=None):
+def allreduce_async_(tensor, average=False, name=None):
     """
     A function that performs asynchronous in-place averaging or summation of the input
     tensor over all the Horovod processes.
@@ -177,7 +172,7 @@ def _allgather_function_factory(tensor):
 def _allgather_async(tensor, output, name):
     function = _check_function(_allgather_function_factory, tensor)
     handle = getattr(_LIB, function)(
-        tensor, output, name.encode() if name is not None else _NULL)
+        tensor, output, name.encode() if name is not None else _Null)
     _handle_map[handle] = (tensor, output)
     return handle
 
@@ -203,7 +198,7 @@ def allgather_async(tensor, name=None):
     return _allgather_async(tensor, output, name)
 
 
-class HorovodAllgather(mxnet.autograd.Function):
+class HorovodAllgather(mx.autograd.Function):
     """An autograd function that performs allgather on a tensor."""
 
     @staticmethod
@@ -257,7 +252,7 @@ def _broadcast_function_factory(tensor):
 def _broadcast_async(tensor, output, root_rank, name):
     function = _check_function(_broadcast_function_factory, tensor)
     handle = getattr(_LIB, function)(
-        tensor, output, root_rank, name.encode() if name is not None else _NULL)
+        tensor, output, root_rank, name.encode() if name is not None else _Null)
     _handle_map[handle] = (tensor, output)
     return handle
 
@@ -285,7 +280,7 @@ def broadcast_async(tensor, root_rank, name=None):
     return _broadcast_async(tensor, output, root_rank, name)
 
 
-class HorovodBroadcast(mxnet.autograd.Function):
+class HorovodBroadcast(mx.autograd.Function):
     """An autograd function that broadcasts a tensor."""
 
     @staticmethod
