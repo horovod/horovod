@@ -29,9 +29,7 @@ from horovod.common import check_extension
 #check_extension('horovod.mxnet', 'HOROVOD_WITH_MXNET',
 #                __file__, 'mpi_lib', '_mpi_lib')
 
-from horovod.mxnet.mpi_ops import allreduce, allreduce_async, allreduce_, allreduce_async_
-from horovod.mxnet.mpi_ops import allgather, allgather_async
-from horovod.mxnet.mpi_ops import broadcast, broadcast_async, broadcast_, broadcast_async_
+from horovod.mxnet.mpi_ops import allreduce, allgather, broadcast
 from horovod.mxnet.mpi_ops import poll, synchronize
 
 import mxnet as mx
