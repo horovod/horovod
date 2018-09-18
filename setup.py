@@ -395,7 +395,7 @@ def get_common_options(build_ext):
         have_cuda = False
         cuda_include_dirs = cuda_lib_dirs = []
 
-    if gpu_allreduce == 'NCCL':
+    if gpu_allreduce == 'NCCL' or gpu_allgather == 'NCCL':
         have_nccl = True
         nccl_include_dirs, nccl_lib_dirs, nccl_libs = get_nccl_vals(
             build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags)
@@ -410,7 +410,8 @@ def get_common_options(build_ext):
         have_ddl = False
         ddl_include_dirs = ddl_lib_dirs = []
 
-    if (gpu_allreduce == 'NCCL' and (gpu_allgather == 'MPI' or gpu_broadcast == 'MPI')
+    if (((gpu_allreduce == 'NCCL' and (gpu_allgather == 'MPI' or gpu_broadcast == 'MPI')) or
+        (gpu_allgather == 'NCCL' and (gpu_allreduce == 'MPI' or gpu_broadcast == 'MPI')))
             and not os.environ.get('HOROVOD_ALLOW_MIXED_GPU_IMPL')):
         raise DistutilsError('You should not mix NCCL and MPI GPU due to a possible deadlock.\n'
                              'If you\'re sure you want to mix them, set the '

@@ -785,7 +785,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
   Status status;
   if (response.response_type() == MPIResponse::ALLGATHER) {
-
     assert(entries.size() == 1);
     auto e = entries[0];
 
@@ -837,6 +836,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       unsigned int current_node = 0; 
       unsigned int current_local_rank = 0;
       for (unsigned int i = 0; i < tensor_sizes.size(); i++) {
+
         int proc_rank = horovod_global.local_rank_partition[i];
         recvcounts[i] = (int)(single_slice_shape.num_elements() * tensor_sizes[proc_rank]);
   
@@ -855,6 +855,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           current_node++;
         }
       }
+
       for (int i = 0; i < horovod_global.local_size; i++) {
         if (i == 0) {
           local_displcmnts[i] = 0;
@@ -892,7 +893,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
       if (nccl_comm == nullptr) {
         ACTIVITY_START_ALL(entries, timeline, INIT_NCCL)
-
         ncclUniqueId nccl_id;
         if (horovod_global.local_rank == 0) {
           NCCL_CHECK(entries, "ncclGetUniqueId", ncclGetUniqueId(&nccl_id))
@@ -1038,7 +1038,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
  
     timeline.End(e.tensor_name, e.output);
     e.callback(Status::OK());
-
   } else if (response.response_type() == MPIResponse::ALLREDUCE) {
     auto& first_entry = entries[0];
 #if HAVE_CUDA
@@ -1683,22 +1682,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, local_comm_ranks.data(), 1,
                 MPI_INT, local_comm);
 
-  // Determine if cluster is homogeneous, i.e., if every node has the same
-  // local_size
-  auto local_sizes = new int[size];
-  MPI_Allgather(&local_size, 1, MPI_INT, local_sizes, 1, MPI_INT,
-                state.mpi_comm);
-
-  bool is_homogeneous = true;
-  for (int i = 0; i < size; i++) {
-    if (local_sizes[i] != local_size) {
-      is_homogeneous = false;
-      break;
-    }
-  }
-  delete[] local_sizes;
-  state.is_homogeneous = is_homogeneous;
-
   // Set up cross-communicator in case of hierarchical allreduce.
   MPI_Comm cross_comm;
   MPI_Comm_split(state.mpi_comm, local_rank, rank, &cross_comm);
@@ -1716,6 +1699,25 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.cross_comm = cross_comm;
   state.mpi_threads_supported = (provided == MPI_THREAD_MULTIPLE);
   state.local_comm_ranks = local_comm_ranks;
+
+  // Determine if cluster is homogeneous, i.e., if every node has the same
+  // local_size
+  auto local_sizes = new int[cross_size];
+  MPI_Allgather(&local_size, 1, MPI_INT, local_sizes, 1, MPI_INT,
+                state.cross_comm);
+
+  bool is_homogeneous = true;
+  for (int i = 0; i < cross_size; i++) {
+    if (local_sizes[i] != local_size) {
+      is_homogeneous = false;
+      break;
+    }
+  }
+  for (int i=0; i<cross_size; i++) {
+    state.local_sizes.push_back(local_sizes[i]);
+  }
+  delete[] local_sizes;
+  state.is_homogeneous = is_homogeneous;
 
   // Open the timeline file on coordinator.
   auto horovod_timeline = std::getenv(HOROVOD_TIMELINE);
@@ -1753,6 +1755,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   if (horovod_hierarchical_allgather != nullptr &&
       std::strtol(horovod_hierarchical_allgather, nullptr, 10) > 0 &&
       (size != local_size)) {
+
     if (state.is_homogeneous) {
       state.hierarchical_allgather = true;
     } else {
