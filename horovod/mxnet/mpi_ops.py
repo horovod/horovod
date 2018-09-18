@@ -23,7 +23,7 @@ import logging
 import ctypes
 
 from mxnet.base import c_str_array, c_handle_array, c_array, c_array_buf, c_str
-from mxnet.base import check_call, string_types, mx_uint, py_str
+from mxnet.base import check_call, string_types, mx_uint, py_str, string_types
 
 from horovod.mxnet import rank, size
 
@@ -35,6 +35,8 @@ _handle_map = {}
 
 # Null pointer.
 from mxnet.base import _Null
+
+from ctypes.util import find_library
 
 dll_path = ctypes.util.find_library('horovod')
 dll_path = '/home/ubuntu/anaconda3/lib/python3.6/site-packages/horovod/mxnet/mpi_lib.cpython-36m-x86_64-linux-gnu.so'
@@ -49,44 +51,7 @@ def _check_function(function_factory, tensor):
         raise ValueError('Tensor is required to be contiguous.')
     return function
 
-
-def _allreduce_function_factory(tensor):
-    return 'horovod_mxnet_allreduce_async'
-
-
-def _allreduce_async(tensor, output, average, name):
-    function = _check_function(_allreduce_function_factory, tensor)
-    handle = getattr(_LIB, function)(tensor, output, average,
-                                     name.encode() if name is not None else _Null)
-    _handle_map[handle] = (tensor, output)
-    return handle
-
-
-def allreduce_async(tensor, average=True, name=None):
-    """
-    A function that performs asynchronous averaging or summation of the input tensor
-    over all the Horovod processes. The input tensor is not modified.
-
-    The reduction operation is keyed by the name. If name is not provided, an incremented
-    auto-generated name is used. The tensor type and shape must be the same on all
-    Horovod processes for a given name. The reduction will not start until all processes
-    are ready to send and receive the tensor.
-
-    Arguments:
-        tensor: A tensor to average and sum.
-        average: A flag indicating whether to compute average or summation,
-                 defaults to average.
-        name: A name of the reduction operation.
-
-    Returns:
-        A handle to the allreduce operation that can be used with `poll()` or
-        `synchronize()`.
-    """
-    output = mx.nd.array(tensor.shape)
-    return _allreduce_async(tensor, output, average, name)
-
-
-def allreduce(tensor, average=True, name=None):
+def allreduce(tensor, average=False, name=None):
     """
     A function that performs averaging or summation of the input tensor over all the
     Horovod processes. The input tensor is not modified.
@@ -111,113 +76,14 @@ def allreduce(tensor, average=True, name=None):
         processes.
     """
     assert(isinstance(tensor, mx.nd.NDArray))
-    output = mx.nd.array(tensor.shape)
-    c_in = c_handle_array([tensor])
-    c_out = c_handle_array([output])
-    check_call(_LIB.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_bool(average), c_str(name) if name is not None else _Null))
+    output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context, dtype=tensor.dtype)
+    c_in = tensor.handle
+    c_out = output.handle
+    if isinstance(name, string_types):
+        check_call(_LIB.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), c_str(name)))
+    else:
+        check_call(_LIB.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), name))
     return output
-
-
-def allreduce_async_(tensor, average=False, name=None):
-    """
-    A function that performs asynchronous in-place averaging or summation of the input
-    tensor over all the Horovod processes.
-
-    The reduction operation is keyed by the name. If name is not provided, an incremented
-    auto-generated name is used. The tensor type and shape must be the same on all
-    Horovod processes for a given name. The reduction will not start until all processes
-    are ready to send and receive the tensor.
-
-    Arguments:
-        tensor: A tensor to average and sum.
-        average: A flag indicating whether to compute average or summation,
-                 defaults to average.
-        name: A name of the reduction operation.
-
-    Returns:
-        A handle to the allreduce operation that can be used with `poll()` or
-        `synchronize()`.
-    """
-    return _allreduce_async(tensor, tensor, average, name)
-
-
-def allreduce_(tensor, average=True, name=None):
-    """
-    A function that performs in-place averaging or summation of the input tensor over
-    all the Horovod processes.
-
-    The reduction operation is keyed by the name. If name is not provided, an incremented
-    auto-generated name is used. The tensor type and shape must be the same on all
-    Horovod processes for a given name. The reduction will not start until all processes
-    are ready to send and receive the tensor.
-
-    Arguments:
-        tensor: A tensor to average and sum.
-        average: A flag indicating whether to compute average or summation,
-                 defaults to average.
-        name: A name of the reduction operation.
-
-    Returns:
-        A tensor of the same shape and type as `tensor`, averaged or summed across all
-        processes.
-    """
-    handle = allreduce_async_(tensor, average, name)
-    return synchronize(handle)
-
-
-def _allgather_function_factory(tensor):
-    return 'horovod_mxnet_allgather_async_'
-
-
-def _allgather_async(tensor, output, name):
-    function = _check_function(_allgather_function_factory, tensor)
-    handle = getattr(_LIB, function)(
-        tensor, output, name.encode() if name is not None else _Null)
-    _handle_map[handle] = (tensor, output)
-    return handle
-
-
-def allgather_async(tensor, name=None):
-    """
-    A function that asynchronously concatenates the input tensor with the same input
-    tensor on all other Horovod processes. The input tensor is not modified.
-
-    The concatenation is done on the first dimension, so the input tensors on the
-    different processes must have the same rank and shape, except for the first
-    dimension, which is allowed to be different.
-
-    Arguments:
-        tensor: A tensor to allgather.
-        name: A name of the allgather operation.
-
-    Returns:
-        A handle to the allgather operation that can be used with `poll()` or
-        `synchronize()`.
-    """
-    output = tensor.new()
-    return _allgather_async(tensor, output, name)
-
-
-class HorovodAllgather(mx.autograd.Function):
-    """An autograd function that performs allgather on a tensor."""
-
-    @staticmethod
-    def forward(ctx, tensor, name):
-        ctx.dim = tensor.shape[0]
-        handle = allgather_async(tensor, name)
-        return synchronize(handle)
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        grad_reduced = allreduce(grad_output, average=False)
-
-        dim_t = mxnet.IntTensor([ctx.dim])
-        dim = allgather(dim_t).view(size())
-
-        r = rank()
-        offset = mxnet.sum(dim.narrow(0, 0, r)).data[0] if r != 0 else 0
-        return grad_reduced.narrow(0, offset, ctx.dim), None
-
 
 def allgather(tensor, name=None):
     """
@@ -242,60 +108,15 @@ def allgather(tensor, name=None):
         the first dimension, which may be greater and is the sum of all first
         dimensions of the tensors in different Horovod processes.
     """
-    return HorovodAllgather.apply(tensor, name)
-
-
-def _broadcast_function_factory(tensor):
-    return 'horovod_mxnet_broadcast_async_'
-
-
-def _broadcast_async(tensor, output, root_rank, name):
-    function = _check_function(_broadcast_function_factory, tensor)
-    handle = getattr(_LIB, function)(
-        tensor, output, root_rank, name.encode() if name is not None else _Null)
-    _handle_map[handle] = (tensor, output)
-    return handle
-
-
-def broadcast_async(tensor, root_rank, name=None):
-    """
-    A function that asynchronously broadcasts the input tensor on root rank to the same
-    input tensor on all other Horovod processes. The input tensor is not modified.
-
-    The broadcast operation is keyed by the name. If name is not provided, an incremented
-    auto-generated name is used. The tensor type and shape must be the same on all
-    Horovod processes for a given name. The broadcast will not start until all processes
-    are ready to send and receive the tensor.
-
-    Arguments:
-        tensor: A tensor to broadcast.
-        root_rank: The rank to broadcast the value from.
-        name: A name of the broadcast operation.
-
-    Returns:
-        A handle to the broadcast operation that can be used with `poll()` or
-        `synchronize()`.
-    """
-    output = tensor.new(tensor.shape)
-    return _broadcast_async(tensor, output, root_rank, name)
-
-
-class HorovodBroadcast(mx.autograd.Function):
-    """An autograd function that broadcasts a tensor."""
-
-    @staticmethod
-    def forward(ctx, tensor, root_rank, name):
-        ctx.root_rank = root_rank
-        handle = broadcast_async(tensor, root_rank, name)
-        return synchronize(handle)
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        grad_reduced = allreduce(grad_output, average=False)
-        if rank() != ctx.root_rank:
-            grad_reduced *= 0
-        return grad_reduced, None, None
-
+    assert(isinstance(tensor, mx.nd.NDArray))
+    output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context, dtype=tensor.dtype)
+    c_in = tensor.handle
+    c_out = output.handle
+    if isinstance(name, string_types):
+        check_call(_LIB.horovod_mxnet_allreduce_async(c_in, c_out, c_str(name)))
+    else:
+        check_call(_LIB.horovod_mxnet_allreduce_async(c_in, c_out, name))
+    return output
 
 def broadcast(tensor, root_rank, name=None):
     """
@@ -320,53 +141,15 @@ def broadcast(tensor, root_rank, name=None):
         A tensor of the same shape and type as `tensor`, with the value broadcasted
         from root rank.
     """
-    return HorovodBroadcast.apply(tensor, root_rank, name)
-
-
-def broadcast_async_(tensor, root_rank, name=None):
-    """
-    A function that asynchronously broadcasts the input tensor on root rank to the same
-    input tensor on all other Horovod processes. The operation is performed in-place.
-
-    The broadcast operation is keyed by the name. If name is not provided, an incremented
-    auto-generated name is used. The tensor type and shape must be the same on all
-    Horovod processes for a given name. The broadcast will not start until all processes
-    are ready to send and receive the tensor.
-
-    Arguments:
-        tensor: A tensor to broadcast.
-        root_rank: The rank to broadcast the value from.
-        name: A name of the broadcast operation.
-
-    Returns:
-        A handle to the broadcast operation that can be used with `poll()` or
-        `synchronize()`.
-    """
-    return _broadcast_async(tensor, tensor, root_rank, name)
-
-
-def broadcast_(tensor, root_rank, name=None):
-    """
-    A function that broadcasts the input tensor on root rank to the same input tensor
-    on all other Horovod processes. The operation is performed in-place.
-
-    The broadcast operation is keyed by the name. If name is not provided, an incremented
-    auto-generated name is used. The tensor type and shape must be the same on all
-    Horovod processes for a given name. The broadcast will not start until all processes
-    are ready to send and receive the tensor.
-
-    Arguments:
-        tensor: A tensor to broadcast.
-        root_rank: The rank to broadcast the value from.
-        name: A name of the broadcast operation.
-
-    Returns:
-        A tensor of the same shape and type as `tensor`, with the value broadcasted
-        from root rank.
-    """
-    handle = broadcast_async_(tensor, root_rank, name)
-    return synchronize(handle)
-
+    assert(isinstance(tensor, mx.nd.NDArray))
+    output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context, dtype=tensor.dtype)
+    c_in = tensor.handle
+    c_out = output.handle
+    if isinstance(name, string_types):
+        check_call(_LIB.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(root_rank), c_str(name)))
+    else:
+        check_call(_LIB.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(root_rank), name))
+    return output
 
 def poll(handle):
     """
