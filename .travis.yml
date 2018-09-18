@@ -86,7 +86,7 @@ install:
     if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then
       docker exec ${CONTAINER} /bin/sh -c "pip install torchvision"
       docker exec ${CONTAINER} /bin/sh -c "pip uninstall -y torch"
-      docker exec ${CONTAINER} /bin/sh -c "pip install torch_nightly -v -f https://download.pytorch.org/whl/nightly/cu90/torch_nightly.html"
+      docker exec ${CONTAINER} /bin/sh -c "pip install torch_nightly -v -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html"
     else
       docker exec ${CONTAINER} /bin/sh -c "pip install ${PYTORCH_PACKAGE} torchvision"
     fi
