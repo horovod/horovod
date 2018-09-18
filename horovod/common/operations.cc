@@ -1661,10 +1661,11 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     if (state.param_manager.IsAutoTuning()) {
       for (auto &response : response_list.responses()) {
         if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
-          assert(response.tensor_names().size() == 1);
-          auto &entry = state.tensor_table[response.tensor_names()[0]];
-          tensor_names.push_back(response.tensor_names()[0]);
-          total_tensor_size += entry.tensor->size();
+          for (auto& tensor_name : response.tensor_names()) {
+            tensor_names.push_back(tensor_name);
+            auto &entry = state.tensor_table[tensor_name];
+            total_tensor_size += entry.tensor->size();
+          }
         }
       }
     }
@@ -1719,10 +1720,11 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     if (state.param_manager.IsAutoTuning()) {
       for (auto &response : response_list.responses()) {
         if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
-          assert(response.tensor_names().size() == 1);
-          auto &entry = state.tensor_table[response.tensor_names()[0]];
-          tensor_names.push_back(response.tensor_names()[0]);
-          total_tensor_size += entry.tensor->size();
+          for (auto& tensor_name : response.tensor_names()) {
+            tensor_names.push_back(tensor_name);
+            auto &entry = state.tensor_table[tensor_name];
+            total_tensor_size += entry.tensor->size();
+          }
         }
       }
     }
