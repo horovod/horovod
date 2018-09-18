@@ -75,15 +75,49 @@ def allreduce(tensor, average=False, name=None):
         A tensor of the same shape and type as `tensor`, averaged or summed across all
         processes.
     """
-    assert(isinstance(tensor, mx.nd.NDArray))
-    output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context, dtype=tensor.dtype)
-    c_in = tensor.handle
+    if average:
+        output = tensor / size()
+        c_in = output.handle
+    else:
+        output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context, dtype=tensor.dtype)
+        c_in = tensor.handle
+    print(tensor)
     c_out = output.handle
     if isinstance(name, string_types):
         check_call(_LIB.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), c_str(name)))
     else:
         check_call(_LIB.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), name))
     return output
+
+def allreduce_(tensor, average=False, name=None):
+    """
+    A function that performs in-place averaging or summation of the input tensor over
+    all the Horovod processes.
+
+    The reduction operation is keyed by the name. If name is not provided, an incremented
+    auto-generated name is used. The tensor type and shape must be the same on all
+    Horovod processes for a given name. The reduction will not start until all processes
+    are ready to send and receive the tensor.
+
+    Arguments:
+        tensor: A tensor to average and sum.
+        average: A flag indicating whether to compute average or summation,
+                 defaults to average.
+        name: A name of the reduction operation.
+
+    Returns:
+        A tensor of the same shape and type as `tensor`, averaged or summed across all
+        processes.
+    """
+    if average:
+        tensor /= size()
+    c_in = tensor.handle
+    c_out = tensor.handle
+    if isinstance(name, string_types):
+        check_call(_LIB.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), c_str(name)))
+    else:
+        check_call(_LIB.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), name))
+    return tensor
 
 def allgather(tensor, name=None):
     """
@@ -113,9 +147,9 @@ def allgather(tensor, name=None):
     c_in = tensor.handle
     c_out = output.handle
     if isinstance(name, string_types):
-        check_call(_LIB.horovod_mxnet_allreduce_async(c_in, c_out, c_str(name)))
+        check_call(_LIB.horovod_mxnet_allgather_async(c_in, c_out, c_str(name)))
     else:
-        check_call(_LIB.horovod_mxnet_allreduce_async(c_in, c_out, name))
+        check_call(_LIB.horovod_mxnet_allgather_async(c_in, c_out, name))
     return output
 
 def broadcast(tensor, root_rank, name=None):
@@ -141,15 +175,42 @@ def broadcast(tensor, root_rank, name=None):
         A tensor of the same shape and type as `tensor`, with the value broadcasted
         from root rank.
     """
-    assert(isinstance(tensor, mx.nd.NDArray))
     output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context, dtype=tensor.dtype)
     c_in = tensor.handle
     c_out = output.handle
     if isinstance(name, string_types):
-        check_call(_LIB.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(root_rank), c_str(name)))
+        check_call(_LIB.horovod_mxnet_broadcast_async(c_in, c_out, ctypes.c_int(root_rank), c_str(name)))
     else:
-        check_call(_LIB.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(root_rank), name))
+        check_call(_LIB.horovod_mxnet_broadcast_async(c_in, c_out, ctypes.c_int(root_rank), name))
     return output
+
+def broadcast_(tensor, root_rank, name=None):
+    """
+    A function that broadcasts the input tensor on root rank to the same input tensor
+    on all other Horovod processes. The operation is performed in-place.
+
+    The broadcast operation is keyed by the name. If name is not provided, an incremented
+    auto-generated name is used. The tensor type and shape must be the same on all
+    Horovod processes for a given name. The broadcast will not start until all processes
+    are ready to send and receive the tensor.
+
+    Arguments:
+        tensor: A tensor to broadcast.
+        root_rank: The rank to broadcast the value from.
+        name: A name of the broadcast operation.
+
+    Returns:
+        A tensor of the same shape and type as `tensor`, with the value broadcasted
+        from root rank.
+    """
+    c_in = tensor.handle
+    c_out = tensor.handle
+    if isinstance(name, string_types):
+        check_call(_LIB.horovod_mxnet_broadcast_async(c_in, c_out, ctypes.c_int(root_rank), c_str(name)))
+    else:
+        check_call(_LIB.horovod_mxnet_broadcast_async(c_in, c_out, ctypes.c_int(root_rank), name))
+    return tensor
+      
 
 def poll(handle):
     """

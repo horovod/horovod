@@ -30,7 +30,6 @@ class MXTests(unittest.TestCase):
     Tests for ops in horovod.mxnet.
     """
 
-    @unittest.skip("")
     def test_horovod_allreduce(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
@@ -91,7 +90,7 @@ class MXTests(unittest.TestCase):
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
             if size <= 3 or dtype in ['int32', 'int64']:
-                threshold = 0
+                threshold = 1
             elif size < 10:
                 threshold = 1e-4
             elif size < 15:
@@ -105,7 +104,6 @@ class MXTests(unittest.TestCase):
                 print("averaged", hvd.rank(), averaged)
             assert max_difference <= threshold, 'hvd.allreduce produces incorrect results for average'
     
-    @unittest.skip("")
     def test_horovod_allreduce_inplace(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
@@ -121,7 +119,7 @@ class MXTests(unittest.TestCase):
             tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim], ctx=dev)
             tensor = tensor.astype(dtype)
             multiplied = tensor * size
-            tensor = hvd.allreduce(tensor)
+            hvd.allreduce_(tensor)
             max_difference = mx.nd.max(mx.nd.subtract(tensor, multiplied))
             count += 1
 
@@ -154,9 +152,9 @@ class MXTests(unittest.TestCase):
         """Test that the allreduce raises an error if different ranks try to
         send tensors of different rank or dimension."""
         hvd.init()
-        rank = kv.rank
-        size = kv.num_workers
-        dev = mx.gpu(kv.local_rank)
+        rank = hvd.rank()
+        size = hvd.size()
+        dev = mx.gpu(hvd.local_rank())
 
         # This test does not apply if there is only one worker.
         if size == 1:
@@ -165,10 +163,9 @@ class MXTests(unittest.TestCase):
         # Same rank, different dimension
         mx.random.seed(1234, ctx=dev)
         dims = (17 + rank, 17 + rank, 17 + rank)
-        kv.init("1", mx.nd.zeros(dims))
         tensor = mx.nd.random.uniform(-100, 100, shape=dims, ctx=dev)
         try:
-            kv.pushpull("1", tensor, tensor)
+            tensor = hvd.allreduce_(tensor)
             assert False, 'hvd.allreduce did not throw error'
         except Exception as e:
             print(e)
@@ -177,10 +174,10 @@ class MXTests(unittest.TestCase):
     def test_horovod_allreduce_rank_error(self):
         """Test that the allreduce raises an error if different ranks try to
         send tensors of different rank or dimension."""
-        kv = mx.kv.create("horovod")
-        rank = kv.rank
-        size = kv.num_workers
-        dev = mx.gpu(kv.local_rank)
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+        dev = mx.gpu(hvd.local_rank())
 
         # This test does not apply if there is only one worker.
         if size == 1:
@@ -193,9 +190,8 @@ class MXTests(unittest.TestCase):
         else:
             dims = (17, 23, 57)
         tensor = mx.nd.random.uniform(-100, 100, shape=dims, ctx=dev)
-        kv.init("1", mx.nd.zeros(dims))
         try:
-            kv.pushpull("1", tensor, tensor)
+            tensor = hvd.allreduce_(tensor)
             assert False, 'hvd.allreduce did not throw rank error'
         except Exception as e:
             print(e)
@@ -204,10 +200,10 @@ class MXTests(unittest.TestCase):
     def test_horovod_allreduce_type_error(self):
         """Test that the allreduce raises an error if different ranks try to
         send tensors of different type."""
-        kv = mx.kv.create("horovod")
-        rank = kv.rank
-        size = kv.num_workers
-        dev = mx.gpu(kv.local_rank)
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+        dev = mx.gpu(hvd.local_rank())
 
         # This test does not apply if there is only one worker.
         if size == 1:
@@ -215,13 +211,12 @@ class MXTests(unittest.TestCase):
 
         # Same rank, different dimension
         dims = (17, 17, 17)
-        kv.init("1", mx.nd.zeros(dims, ctx=dev))
         tensor = mx.nd.zeros(shape=dims, ctx=dev)
         if rank % 2 == 0:
             tensor.astype('int32')
 
         try:
-            kv.pushpull("1", tensor, tensor)
+            tensor = hvd.allreduce_(tensor)
             assert False, 'hvd.allreduce did not throw type error'
         except Exception as e:
             print(e)
@@ -230,10 +225,10 @@ class MXTests(unittest.TestCase):
     def test_horovod_allreduce_cpu_gpu_error(self):
         """Test that the allreduce raises an error if different ranks try to
         perform reduction on CPU and GPU."""
-        kv = mx.kv.create("horovod")
-        rank = kv.rank
-        size = kv.num_workers
-        dev = mx.gpu(kv.local_rank)
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+        dev = mx.gpu(hvd.local_rank())
 
         # This test does not apply if there is only one worker.
         if size == 1:
@@ -242,12 +237,12 @@ class MXTests(unittest.TestCase):
         # Same rank, different dimension
         dims = (17, 17, 17)
         if rank % 2 == 0:
-            dev = mx.gpu(kv.rank)
+            dev = mx.gpu(hvd.rank())
         else:
-            dev = mx.cpu(kv.rank)
+            dev = mx.cpu(hvd.rank())
 
         try:
-            kv.pushpull("1", tensor, tensor)
+            tensor = hvd.allreduce_(tensor)
             assert False, 'hvd.allreduce did not throw cpu-gpu error'
         except Exception as e:
             print(e)
@@ -378,9 +373,9 @@ class MXTests(unittest.TestCase):
     @unittest.skip("")
     def test_horovod_broadcast(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
-        kv = mx.kv.create("horovod")
-        rank = kv.rank
-        size = kv.num_workers
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
 
         # This test does not apply if there is only one worker.
         if size == 1:
@@ -389,10 +384,9 @@ class MXTests(unittest.TestCase):
         dtypes = ['int32',   'int64',
                   'float32', 'float64'] 
         dims = [1, 2, 3]
-        dev = mx.gpu(kv.local_rank)
+        dev = mx.gpu(hvd.local_rank())
         count = 0
         shapes = [(), (17), (17, 17), (17, 17, 17)]
-        kv.init([i for i in range(len(dtypes)*len(dims))], [mx.nd.zeros(shapes[dim]) for dtype, dim in itertools.product(dtypes, dims)])
         root_ranks = list(range(size))
         for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
             tensor = mx.nd.ones(shapes[dim], ctx=dev) * rank
@@ -402,26 +396,65 @@ class MXTests(unittest.TestCase):
 
             # Only do broadcasting using and on broadcast_tensor
             broadcast_tensor = tensor.copy()
-            kv.broadcast(count, broadcast_tensor, root_rank)
+            broadcast_tensor = hvd.broadcast_(broadcast_tensor, root_rank)
             if rank != root_rank:
                 if mx.nd.max(tensor == root_tensor) != 0:
                     print("broadcast", count, dtype, dim, mx.nd.max(tensor == root_tensor))
-                    print("tensor", kv.rank, tensor)
-                    print("root_tensor", kv.rank, root_tensor)
-                    print("comparison", kv.rank, tensor == root_tensor)
+                    print("tensor", hvd.rank(), tensor)
+                    print("root_tensor", hvd.rank(), root_tensor)
+                    print("comparison", hvd.rank(), tensor == root_tensor)
                 assert mx.nd.max(tensor == root_tensor) == 0, \
                     'hvd.broadcast modifies source tensor'
             if mx.nd.min(broadcast_tensor == root_tensor) != 1:
                 print("broadcast", count, dtype, dim)
-                print("broadcast_tensor", kv.rank, broadcast_tensor)
-                print("root_tensor", kv.rank, root_tensor)
-                print("comparison", kv.rank, broadcast_tensor == root_tensor)
+                print("broadcast_tensor", hvd.rank(), broadcast_tensor)
+                print("root_tensor", hvd.rank(), root_tensor)
+                print("comparison", hvd.rank(), broadcast_tensor == root_tensor)
             assert mx.nd.min(broadcast_tensor == root_tensor) == 1, \
                 'hvd.broadcast produces incorrect broadcasted tensor'
 
-    # Does not apply to MXNet broadcast, which only does inplace
-    #def test_horovod_broadcast_inplace(self):
+
+    def test_horovod_broadcast_inplace(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        dtypes = ['int32',   'int64',
+                  'float32', 'float64'] 
+        dims = [1, 2, 3]
+        dev = mx.gpu(hvd.local_rank())
+        count = 0
+        shapes = [(), (17), (17, 17), (17, 17, 17)]
+        root_ranks = list(range(size))
+        for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
+            tensor = mx.nd.ones(shapes[dim], ctx=dev) * rank
+            root_tensor = mx.nd.ones(shapes[dim], ctx=dev) * root_rank
+            tensor = tensor.astype(dtype)
+            root_tensor = root_tensor.astype(dtype)
+
+            # Only do broadcasting using and on broadcast_tensor
+            broadcast_tensor = tensor.copy()
+            broadcast_tensor = hvd.broadcast_(broadcast_tensor, root_rank)
+            if rank != root_rank:
+                if mx.nd.max(tensor == root_tensor) != 0:
+                    print("broadcast", count, dtype, dim, mx.nd.max(tensor == root_tensor))
+                    print("tensor", hvd.rank(), tensor)
+                    print("root_tensor", hvd.rank(), root_tensor)
+                    print("comparison", hvd.rank(), tensor == root_tensor)
+                assert mx.nd.max(tensor == root_tensor) == 0, \
+                    'hvd.broadcast modifies source tensor'
+            if mx.nd.min(broadcast_tensor == root_tensor) != 1:
+                print("broadcast", count, dtype, dim)
+                print("broadcast_tensor", hvd.rank(), broadcast_tensor)
+                print("root_tensor", hvd.rank(), root_tensor)
+                print("comparison", hvd.rank(), broadcast_tensor == root_tensor)
+            assert mx.nd.min(broadcast_tensor == root_tensor) == 1, \
+                'hvd.broadcast produces incorrect broadcasted tensor'
 
     @unittest.skip("")
     def test_horovod_broadcast_error(self):
