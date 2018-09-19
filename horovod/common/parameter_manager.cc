@@ -26,18 +26,17 @@ namespace common {
 
 #define INVPHI 0.61803398875
 #define INVPHI2 0.38196601125
-#define TOL 0.00001
+#define TOL 10.0
 
 // ParameterManager
 ParameterManager::ParameterManager() :
     tensor_fusion_threshold_mb_(CategoricalParameter<int64_t>(
         std::vector<int64_t>{0, 1, 2, 4, 8, 16, 32, 64}, *this, nullptr)),
-    cycle_time_ms_(CategoricalParameter<double>(
-        std::vector<double>{1, 2.5, 5, 10, 50, 100, 250}, *this, &tensor_fusion_threshold_mb_)),
 //    tensor_fusion_threshold_mb_(NumericParameter<int64_t>(
 //        1024 * 1024, 256 * 1024 * 1024, *this, nullptr)),
-//    cycle_time_ms_(NumericParameter<double>(
-//        1.0, 25.0, *this, &tensor_fusion_threshold_mb_)),
+//    cycle_time_ms_(CategoricalParameter<double>(
+//        std::vector<double>{1, 5, 10, 20, 50, 100, 200}, *this, &tensor_fusion_threshold_mb_)),
+    cycle_time_ms_(NumericParameter<double>(1.0, 200.0, *this, &tensor_fusion_threshold_mb_)),
     leaf_param_(&cycle_time_ms_),
     active_(false),
     warmup_remaining_(WARMUPS),
@@ -164,8 +163,13 @@ void ParameterManager::TunableParameter<T>::Tune(double score) {
 
 template <class T>
 void ParameterManager::TunableParameter<T>::SetValue(T value) {
-  best_value_ = value_;
+  best_value_ = value;
   best_score_ = 0;
+}
+
+template <class T>
+void ParameterManager::TunableParameter<T>::SetCurrentValue(T value) {
+  value_ = value;
 }
 
 template <class T>
@@ -187,6 +191,8 @@ ParameterManager::NumericParameter<T>::NumericParameter(
     ParameterManager& parent,
     ParameterManager::ITunableParameter* const next_param) :
     TunableParameter<T>(low, parent, next_param),
+    low_init_(low),
+    high_init_(high),
     low_(low),
     high_(high) {
   ResetState();
@@ -196,13 +202,13 @@ template <class T>
 void ParameterManager::NumericParameter<T>::OnTune(double score, T& value) {
   if (std::isnan(left_.score)) {
     left_.score = score;
-    value = right_;
+    value = right_.value;
   } else if (std::isnan(right_.score)) {
     right_.score = score;
   }
 
   if (!std::isnan(left_.score) && !std::isnan(right_.score)) {
-    if (left_.score < right_.score) {
+    if (left_.score > right_.score) {
       high_ = right_.value;
       right_.value = left_.value;
       right_.score = left_.score;
@@ -210,6 +216,7 @@ void ParameterManager::NumericParameter<T>::OnTune(double score, T& value) {
       value = low_ + INVPHI2 * h_;
       left_.value = value;
       left_.score = std::numeric_limits<double>::quiet_NaN();
+      std::cerr << std::endl << "LEFT: " << value << " " << low_ << " " << left_.value << " " << right_.value << " " << high_ << std::endl << std::endl;
     } else {
       low_ = left_.value;
       left_.value = right_.value;
@@ -218,6 +225,7 @@ void ParameterManager::NumericParameter<T>::OnTune(double score, T& value) {
       value = low_ + INVPHI * h_;
       right_.value = value;
       right_.score = std::numeric_limits<double>::quiet_NaN();
+      std::cerr << std::endl << "LEFT: " << value << " " << low_ << " " << left_.value << " " << right_.value << " " << high_ << std::endl << std::endl;
     }
 
     k_++;
@@ -231,11 +239,14 @@ bool ParameterManager::NumericParameter<T>::IsDoneTuning() const {
 
 template <class T>
 void ParameterManager::NumericParameter<T>::ResetState() {
+  low_ = low_init_;
+  high_ = high_init_;
   h_ = high_ - low_;
   n_ = int32_t(ceil(log(TOL / h_) / log(INVPHI)));
   left_ = {low_ + INVPHI2 * h_, std::numeric_limits<double>::quiet_NaN()};
   right_ = {low_ + INVPHI * h_, std::numeric_limits<double>::quiet_NaN()};
   k_ = 0;
+  this->SetCurrentValue(left_.value);
 }
 
 // CategoricalParameter

@@ -83,6 +83,9 @@ private:
     inline T BestValue() const { return best_value_; };
     inline double BestScore() const override { return best_score_; };
 
+  protected:
+    void SetCurrentValue(T value);
+
   private:
     void CompleteTuning();
     virtual void OnTune(double score, T& value) = 0;
@@ -109,6 +112,9 @@ private:
     bool IsDoneTuning() const override;
     void ResetState() override;
 
+    T low_init_;
+    T high_init_;
+
     T low_;
     T high_;
     ParameterScore<T> left_;
@@ -134,16 +140,16 @@ private:
   };
 
 //  NumericParameter<int64_t> tensor_fusion_threshold_mb_;
-//  NumericParameter<double> cycle_time_ms_;
-
   CategoricalParameter<int64_t> tensor_fusion_threshold_mb_;
-  CategoricalParameter<double> cycle_time_ms_;
+
+  NumericParameter<double> cycle_time_ms_;
+//  CategoricalParameter<double> cycle_time_ms_;
 
   ITunableParameter* const leaf_param_;
   bool active_;
   int32_t warmup_remaining_;
 
-  static constexpr int CYCLES = 9;
+  static constexpr int CYCLES = 21;
   double scores_[CYCLES];
   int32_t cycle_;
 
