@@ -32,20 +32,20 @@ using namespace horovod::common;
 
 typedef mxnet::Engine Engine;
 typedef mxnet::NDArray NDArray;
-typedef void (*CallbackFinal)(Engine*, void*);
+typedef mxnet::Engine::CallbackOnComplete Callback;
 
 class HandleManager {
 public:
-  int AllocateHandle(CallbackFinal cb);
+  int AllocateHandle(Callback cb);
   void MarkDone(int handle, const Status& status);
   bool PollHandle(int handle);
   std::shared_ptr<Status> ReleaseHandle(int handle);
-  void ExecuteCallback(int handle, Engine* engine, void* param);
+  void ExecuteCallback(int handle);
 
 private:
   std::atomic_int last_handle_;
   std::unordered_map<int, std::shared_ptr<Status>> results_;
-  std::unordered_map<int, std::shared_ptr<CallbackFinal>> callbacks_;
+  std::unordered_map<int, std::shared_ptr<Callback>> callbacks_;
   std::mutex mutex_;
 };
 
