@@ -81,7 +81,6 @@ def allreduce(tensor, average=False, name=None):
     else:
         output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context, dtype=tensor.dtype)
         c_in = tensor.handle
-    print(tensor)
     c_out = output.handle
     if isinstance(name, string_types):
         check_call(_LIB.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), c_str(name)))
