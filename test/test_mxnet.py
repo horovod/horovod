@@ -370,7 +370,6 @@ class MXTests(unittest.TestCase):
     #def test_horovod_allgather_grad(self):
         """Test the correctness of the allgather gradient."""
 
-    @unittest.skip("")
     def test_horovod_broadcast(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
         hvd.init()
