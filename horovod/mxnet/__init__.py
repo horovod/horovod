@@ -25,10 +25,6 @@ from horovod.common import local_rank
 from horovod.common import mpi_threads_supported
 from horovod.common import check_extension
 
-# TODO(ctcyang): do we need this here?
-#check_extension('horovod.mxnet', 'HOROVOD_WITH_MXNET',
-#                __file__, 'mpi_lib', '_mpi_lib')
-
 from horovod.mxnet.mpi_ops import allreduce, allreduce_
 from horovod.mxnet.mpi_ops import allgather
 from horovod.mxnet.mpi_ops import broadcast, broadcast_
@@ -38,9 +34,38 @@ import mxnet as mx
 
 # This is where Horovod's DistributedOptimizer wrapper for MXNet goes
 class DistributedOptimizer(mx.optimizer.Optimizer):
+    #pass
     def __init__(self, optimizer):
         self._optimizer = optimizer
+
+    def __getattr__(self, item):
+        return getattr(self._optimizer, item)
 
     def update(self, index, weight, grad, state):
         allreduce(grad, average=False, name=None)
         self._optimizer.update(index, weight, grad, state)
+        #super(DistributedOptimizer, self).update(index, weight, grad, state)
+
+def broadcast_parameters(params, root_rank):
+    """
+    Broadcasts the parameters from root rank to all other processes.
+    Typical usage is to broadcast the `model.get_params()`.
+
+    Arguments:
+        params: One of the following:
+            - list of parameters to broadcast
+            - dict of parameters to broadcast
+        root_rank: The rank of the process from which parameters will be
+                   broadcasted to all other processes.
+    """
+    if isinstance(params, dict):
+        params = sorted(params.items())
+    elif isinstance(params, list):
+        # support both named_parameters() and regular parameters()
+        params = [p if isinstance(p, tuple) else (None, p) for p in params]
+    else:
+        raise ValueError('invalid params of type: %s' % type(params))
+
+    # Run broadcasts.
+    for name, p in params:
+        broadcast_(p, root_rank, name)
