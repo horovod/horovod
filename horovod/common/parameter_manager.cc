@@ -28,15 +28,24 @@ namespace common {
 #define INVPHI2 0.38196601125
 #define TOL 10.0
 
+std::vector<double> CycleTimes() {
+  std::vector<double> results;
+  for (int i = 0; i < 60; i++) {
+    results.push_back(i * 5);
+  }
+  std::random_shuffle(results.begin(), results.end());
+  return results;
+}
+
 // ParameterManager
 ParameterManager::ParameterManager() :
     tensor_fusion_threshold_mb_(CategoricalParameter<int64_t>(
         std::vector<int64_t>{0, 1, 2, 4, 8, 16, 32, 64}, *this, nullptr)),
 //    tensor_fusion_threshold_mb_(NumericParameter<int64_t>(
 //        1024 * 1024, 256 * 1024 * 1024, *this, nullptr)),
-//    cycle_time_ms_(CategoricalParameter<double>(
-//        std::vector<double>{1, 5, 10, 20, 50, 100, 200}, *this, &tensor_fusion_threshold_mb_)),
-    cycle_time_ms_(NumericParameter<double>(1.0, 200.0, *this, &tensor_fusion_threshold_mb_)),
+    cycle_time_ms_(CategoricalParameter<double>(
+        CycleTimes(), *this, &tensor_fusion_threshold_mb_)),
+//    cycle_time_ms_(NumericParameter<double>(1.0, 200.0, *this, &tensor_fusion_threshold_mb_)),
     leaf_param_(&cycle_time_ms_),
     active_(false),
     warmup_remaining_(WARMUPS),

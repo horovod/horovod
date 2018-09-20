@@ -142,8 +142,8 @@ private:
 //  NumericParameter<int64_t> tensor_fusion_threshold_mb_;
   CategoricalParameter<int64_t> tensor_fusion_threshold_mb_;
 
-  NumericParameter<double> cycle_time_ms_;
-//  CategoricalParameter<double> cycle_time_ms_;
+//  NumericParameter<double> cycle_time_ms_;
+  CategoricalParameter<double> cycle_time_ms_;
 
   ITunableParameter* const leaf_param_;
   bool active_;
