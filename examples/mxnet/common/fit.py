@@ -277,10 +277,10 @@ def fit(args, network, data_loader, **kwargs):
     # create initializer
     model.bind(data_shapes=train.provide_data, label_shapes=train.provide_label)
     model.init_params(initializer, arg_params=arg_params, aux_params=aux_params)
-    (arg_params, aux_params) = model.get_params()
-    print(hvd.rank(), next(iter(arg_params.items())))
-    #hvd.broadcast_parameters(arg_params, root_rank=0)
-    #hvd.broadcast_parameters(aux_params, root_rank=0)
+    (arg_params, aux_params) = model.get_params(copy_to_cpu=False)
+    #print(hvd.rank(), next(iter(arg_params.items())))
+    hvd.broadcast_parameters(arg_params, root_rank=0)
+    hvd.broadcast_parameters(aux_params, root_rank=0)
     print(hvd.rank(), next(iter(arg_params.items())))
     #model.set_params(arg_params=arg_params, aux_params=aux_params)
 
