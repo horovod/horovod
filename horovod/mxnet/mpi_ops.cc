@@ -205,13 +205,51 @@ extern "C" int DoBroadcastCudaOnCPU(NDArray* tensor, NDArray* output,
 // Otherwise do AllReduce on CPU
 extern "C" int horovod_mxnet_allreduce_async(
     NDArray* input, NDArray* output, int average, char* name) {
-  if (input->ctx().dev_mask() == gpu::kDevMask &&
-      output->ctx().dev_mask() == gpu::kDevMask) {
-    auto allreduce_async_fn = [input, output, name, average](
-        RunContext rctx, Engine::CallbackOnComplete cb) mutable {
-        DoAllreduce(input, output, average, name, cb);
-    };
-    printf("Allreduce!\n");
+  auto allreduce_async_fn = [input, output, name, average](
+      RunContext rctx, Engine::CallbackOnComplete cb) mutable {
+      DoAllreduce(input, output, average, name, cb);
+  };
+  auto allreduce_async_cpu_fn = [input, output, name, average](
+      RunContext rctx, Engine::CallbackOnComplete cb) mutable {
+      DoAllreduceCudaOnCPU(input, output, average, name, cb);
+  };
+  int cpu = -1;
+  if ((input->ctx().dev_mask() == gpu::kDevMask &&
+       output->ctx().dev_mask() == gpu::kDevMask) ||
+      (input->ctx().dev_mask() == cpu::kDevMask &&
+       output->ctx().dev_mask() == cpu::kDevMask)) {
+    cpu = 0;
+  } else {
+#if HAVE_CUDA
+    cpu = 1;
+#else
+    cpu = 0;
+#endif
+  }
+
+  if (cpu) {
+    // Not in-place
+    if (input->var() != output->var()) {
+      Engine::Get()->PushAsync(
+        allreduce_async_cpu_fn,
+        input->ctx(),
+        {input->var()},
+        {output->var()},
+        FnProperty::kNormal,
+        0,
+        "HorovodAllreduce");
+    // In-place
+    } else {
+      Engine::Get()->PushAsync(
+        allreduce_async_cpu_fn,
+        input->ctx(),
+        {},
+        {output->var()},
+        FnProperty::kNormal,
+        0,
+        "HorovodAllreduce");
+    }
+  } else {
     // Not in-place
     if (input->var() != output->var()) {
       Engine::Get()->PushAsync(
@@ -233,12 +271,6 @@ extern "C" int horovod_mxnet_allreduce_async(
         0,
         "HorovodAllreduce");
     }
-  } else {
-    /*#if HAVE_CUDA
-      return DoAllreduceCudaOnCPU(tensor, output, average, name, cb);
-    #else
-      return DoAllreduce(tensor, output, average, name, cb);
-    #endif*/
   }
   return 0;
 }
@@ -270,9 +302,11 @@ extern "C" int horovod_mxnet_broadcast_async(
     DoBroadcastCudaOnCPU(input, output, root_rank, name, cb);
   };
   int cpu = -1;
-  printf("Broadcast!\n");
-  if (input->ctx().dev_mask() == gpu::kDevMask &&
-      output->ctx().dev_mask() == gpu::kDevMask) {
+  //printf("Broadcast!\n");
+  if ((input->ctx().dev_mask() == gpu::kDevMask &&
+       output->ctx().dev_mask() == gpu::kDevMask) ||
+      (input->ctx().dev_mask() == cpu::kDevMask &&
+       output->ctx().dev_mask() == cpu::kDevMask)) {
     cpu = 0;
   } else {
 #if HAVE_CUDA

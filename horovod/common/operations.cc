@@ -1409,7 +1409,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.initialization_done = true;
 
   // Iterate until shutdown.
-  unsigned count = 0;
   while (RunLoopOnce(state, is_coordinator)) {};
 
   // TODO: init.cu:645 WARN Cuda failure 'driver shutting down'
