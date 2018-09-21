@@ -44,11 +44,11 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
         return self._optimizer.create_state_multi_precision(index, weight)
 
     def update(self, index, weight, grad, state):
-        print("Allreduce Python!")
-        allreduce(grad, average=True, name=None)
+        allreduce_(grad, average=False, name=None)
         return self._optimizer.update(index, weight, grad, state)
 
     def update_multi_precision(self, index, weight, grad, state):
+        allreduce_(grad, average=False, name=None)
         return self._optimizer.update_multi_precision(index, weight, grad, state)
 
     def set_learning_rate(self, lr):
@@ -59,19 +59,6 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
 
     def set_wd_mult(args_wd_mult):
         return self._optimizer.set_wd_mult(args_wd_mult)
-
-'''class DistributedOptimizer:
-    def __init__(self, optimizer):
-        self._optimizer = optimizer
-
-    def __getattr__(self, item):
-        return getattr(self._optimizer, item)
-
-    def update(self, index, weight, grad, state):
-        print("Allreduce Python!")
-        allreduce(grad, average=True, name=None)
-        self._optimizer.update(index, weight, grad, state)
-        #super(DistributedOptimizer, self).update(index, weight, grad, state)'''
 
 def broadcast_parameters(params, root_rank):
     """

@@ -1605,7 +1605,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.initialization_done = true;
 
   // Iterate until shutdown.
-  unsigned count = 0;
   while (RunLoopOnce(state, is_coordinator)) {};
 
   // Signal that shutdown has been requested.
