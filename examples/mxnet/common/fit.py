@@ -25,13 +25,13 @@ import mxnet as mx
 import time
 import horovod.mxnet as hvd
 
-def get_epoch_size(args, kv):
-    return math.ceil(int(args.num_examples / kv.num_workers) / args.batch_size)
+def get_epoch_size(args):
+    return math.ceil(int(args.num_examples / hvd.local_size()) / args.batch_size)
 
-def _get_lr_scheduler(args, kv):
+def _get_lr_scheduler(args):
     if 'lr_factor' not in args or args.lr_factor >= 1:
         return (args.lr, None)
-    epoch_size = get_epoch_size(args, kv)
+    epoch_size = get_epoch_size(args)
     begin_epoch = args.load_epoch if args.load_epoch else 0
     if 'pow' in args.lr_step_epochs:
         lr = args.lr
@@ -149,28 +149,21 @@ def fit(args, network, data_loader, **kwargs):
     """
     # initialize Horovod
     hvd.init()
-
-    # kvstore
-    kv = mx.kvstore.create(args.kv_store)
-    time.sleep(30)
-    if args.gc_type != 'none':
-        kv.set_gradient_compression({'type': args.gc_type,
-                                     'threshold': args.gc_threshold})
+    #time.sleep(30)
 
     # logging
     head = '%(asctime)-15s Node[' + str(hvd.rank()) + '] %(message)s'
     logging.basicConfig(level=logging.DEBUG, format=head)
     logging.info('start with arguments %s', args)
     
-    epoch_size = get_epoch_size(args, kv)
+    epoch_size = get_epoch_size(args)
 
     # data iterators
-    (train, val) = data_loader(args, kv)
-    if 'dist' in args.kv_store and not 'async' in args.kv_store:
-        logging.info('Resizing training data to %d batches per machine', epoch_size)
-        # resize train iter to ensure each machine has same number of batches per epoch
-        # if not, dist_sync can hang at the end with one machine waiting for other machines
-        train = mx.io.ResizeIter(train, epoch_size)
+    (train, val) = data_loader(args)
+    logging.info('Resizing training data to %d batches per machine', epoch_size)
+    # resize train iter to ensure each machine has same number of batches per epoch
+    # if not, dist_sync can hang at the end with one machine waiting for other machines
+    train = mx.io.ResizeIter(train, epoch_size)
 
     if args.test_io:
         tic = time.time()
@@ -206,7 +199,7 @@ def fit(args, network, data_loader, **kwargs):
     devs = mx.cpu() if args.gpus is None or args.gpus == "" else mx.gpu(local_rank)
 
     # learning rate
-    lr, lr_scheduler = _get_lr_scheduler(args, kv)
+    lr, lr_scheduler = _get_lr_scheduler(args)
 
     # create model
     model = mx.mod.Module(
@@ -251,7 +244,7 @@ def fit(args, network, data_loader, **kwargs):
     # create optimizer
     optimizer_params = dict(optimizer_params)
     if 'rescale_grad' not in optimizer_params:
-        optimizer_params['rescale_grad'] = 1.0/hvd.size()
+        optimizer_params['rescale_grad'] = 1.0/args.batch_size
     opt = mx.optimizer.create(args.optimizer, sym=network, **optimizer_params)
     opt = hvd.DistributedOptimizer(opt)
 
@@ -287,6 +280,9 @@ def fit(args, network, data_loader, **kwargs):
     (arg_params, aux_params) = model.get_params()
     hvd.broadcast_parameters(arg_params, root_rank=0)
     hvd.broadcast_parameters(aux_params, root_rank=0)
+
+    #print(arg_params)
+    #print(aux_params)
 
     # evaluation metrices
     eval_metrics = ['accuracy']
@@ -324,7 +320,7 @@ def fit(args, network, data_loader, **kwargs):
               num_epoch=args.num_epochs,
               eval_data=val,
               eval_metric=eval_metrics,
-              kvstore=kv,
+              kvstore=None,
               optimizer=opt,
               optimizer_params=optimizer_params,
               #initializer=initializer,

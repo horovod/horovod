@@ -34,7 +34,33 @@ import mxnet as mx
 
 # This is where Horovod's DistributedOptimizer wrapper for MXNet goes
 class DistributedOptimizer(mx.optimizer.Optimizer):
-    #pass
+    def __init__(self, optimizer):
+        self._optimizer = optimizer
+
+    def __getattr__(self, item):
+        return getattr(self._optimizer, item)
+
+    def create_state_multi_precision(self, index, weight):
+        return self._optimizer.create_state_multi_precision(index, weight)
+
+    def update(self, index, weight, grad, state):
+        print("Allreduce Python!")
+        allreduce(grad, average=True, name=None)
+        return self._optimizer.update(index, weight, grad, state)
+
+    def update_multi_precision(self, index, weight, grad, state):
+        return self._optimizer.update_multi_precision(index, weight, grad, state)
+
+    def set_learning_rate(self, lr):
+        return self._optimizer.set_learning_rate(lr)
+
+    def set_lr_mult(args_lr_mult):
+        return self._optimizer.set_lr_mult(args_lr_mult)
+
+    def set_wd_mult(args_wd_mult):
+        return self._optimizer.set_wd_mult(args_wd_mult)
+
+'''class DistributedOptimizer:
     def __init__(self, optimizer):
         self._optimizer = optimizer
 
@@ -42,9 +68,10 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
         return getattr(self._optimizer, item)
 
     def update(self, index, weight, grad, state):
-        allreduce(grad, average=False, name=None)
+        print("Allreduce Python!")
+        allreduce(grad, average=True, name=None)
         self._optimizer.update(index, weight, grad, state)
-        #super(DistributedOptimizer, self).update(index, weight, grad, state)
+        #super(DistributedOptimizer, self).update(index, weight, grad, state)'''
 
 def broadcast_parameters(params, root_rank):
     """
@@ -67,5 +94,6 @@ def broadcast_parameters(params, root_rank):
         raise ValueError('invalid params of type: %s' % type(params))
 
     # Run broadcasts.
+    print("Begin broadcast!")
     for name, p in params:
         broadcast_(p, root_rank, name)

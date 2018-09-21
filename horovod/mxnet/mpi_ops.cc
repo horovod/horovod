@@ -211,6 +211,7 @@ extern "C" int horovod_mxnet_allreduce_async(
         RunContext rctx, Engine::CallbackOnComplete cb) mutable {
         DoAllreduce(input, output, average, name, cb);
     };
+    printf("Allreduce!\n");
     // Not in-place
     if (input->var() != output->var()) {
       Engine::Get()->PushAsync(
@@ -260,13 +261,50 @@ extern "C" int horovod_mxnet_allgather_async(
 extern "C" int horovod_mxnet_broadcast_async(
     NDArray* input, NDArray* output, int root_rank, char* name) {
    
+  auto broadcast_async_fn = [input, output, name, root_rank](
+      RunContext rctx, Engine::CallbackOnComplete cb) mutable {
+    DoBroadcast(input, output, root_rank, name, cb);
+  };
+  auto broadcast_async_cpu_fn = [input, output, name, root_rank](
+      RunContext rctx, Engine::CallbackOnComplete cb) mutable {
+    DoBroadcastCudaOnCPU(input, output, root_rank, name, cb);
+  };
+  int cpu = -1;
+  printf("Broadcast!\n");
   if (input->ctx().dev_mask() == gpu::kDevMask &&
       output->ctx().dev_mask() == gpu::kDevMask) {
-    auto broadcast_async_fn = [input, output, name, root_rank](
-        RunContext rctx, Engine::CallbackOnComplete cb) mutable {
-      DoBroadcast(input, output, root_rank, name, cb);
-    };
-    // Not in-place
+    cpu = 0;
+  } else {
+#if HAVE_CUDA
+    cpu = 1;
+#else
+    cpu = 0;
+#endif
+  }
+
+  // Not in-place
+  if (cpu) {
+    if (input->var() != output->var()) {
+      Engine::Get()->PushAsync(
+        broadcast_async_cpu_fn,
+        Context::CPU(0),
+        {input->var()},
+        {output->var()},
+        FnProperty::kNormal,
+        0,
+        "HorovodBroadcast");
+  // In-place
+    } else {
+      Engine::Get()->PushAsync(
+        broadcast_async_cpu_fn,
+        Context::CPU(0),
+        {},
+        {output->var()},
+        FnProperty::kNormal,
+        0,
+        "HorovodBroadcast");
+    }
+  } else {
     if (input->var() != output->var()) {
       Engine::Get()->PushAsync(
         broadcast_async_fn,
@@ -276,7 +314,7 @@ extern "C" int horovod_mxnet_broadcast_async(
         FnProperty::kNormal,
         0,
         "HorovodBroadcast");
-    // In-place
+  // In-place
     } else {
       Engine::Get()->PushAsync(
         broadcast_async_fn,
@@ -287,12 +325,6 @@ extern "C" int horovod_mxnet_broadcast_async(
         0,
         "HorovodBroadcast");
     }
-  } else {
-    /*#if HAVE_CUDA
-      return DoBroadcastCudaOnCPU(tensor, output, root_rank, name, cb);
-    #else
-      return DoBroadcast(tensor, output, root_rank, name, cb);
-    #endif*/
   }
   return 0;
 }

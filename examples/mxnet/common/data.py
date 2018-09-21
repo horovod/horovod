@@ -19,6 +19,7 @@ import mxnet as mx
 import random
 from mxnet.io import DataBatch, DataIter
 import numpy as np
+import horovod.mxnet as hvd
 
 def add_data_args(parser):
     data = parser.add_argument_group('Data', 'the input images')
@@ -92,19 +93,15 @@ def set_resnet_aug(aug):
     aug.set_defaults(brightness=0.4, contrast=0.4, saturation=0.4, pca_noise=0.1)
 
 class SyntheticDataIter(DataIter):
-    def __init__(self, num_classes, data_shape, max_iter, dtype, kv):
+    def __init__(self, num_classes, data_shape, max_iter, dtype):
         self.batch_size = data_shape[0]
         self.cur_iter = 0
         self.max_iter = max_iter
         self.dtype = dtype
         label = np.random.randint(0, num_classes, [self.batch_size,])
         data = np.random.uniform(-1, 1, data_shape)
-        if 'horovod' in kv.type:
-            self.data = mx.nd.array(data, dtype=self.dtype, ctx=mx.Context('cpu_pinned', kv.local_rank))
-            self.label = mx.nd.array(label, dtype=self.dtype, ctx=mx.Context('cpu_pinned', kv.local_rank))
-        else:
-            self.data = mx.nd.array(data, dtype=self.dtype, ctx=mx.Context('cpu_pinned', 0))
-            self.label = mx.nd.array(label, dtype=self.dtype, ctx=mx.Context('cpu_pinned', 0))
+        self.data = mx.nd.array(data, dtype=self.dtype, ctx=mx.Context('cpu_pinned', hvd.local_rank()))
+        self.label = mx.nd.array(label, dtype=self.dtype, ctx=mx.Context('cpu_pinned', hvd.local_rank()))
     def __iter__(self):
         return self
     @property
@@ -129,17 +126,14 @@ class SyntheticDataIter(DataIter):
     def reset(self):
         self.cur_iter = 0
 
-def get_rec_iter(args, kv=None):
+def get_rec_iter(args):
     image_shape = tuple([int(l) for l in args.image_shape.split(',')])
     if 'benchmark' in args and args.benchmark:
         data_shape = (args.batch_size,) + image_shape
         train = SyntheticDataIter(args.num_classes, data_shape,
-                args.num_examples / args.batch_size, np.float32, kv)
+                args.num_examples / args.batch_size, np.float32)
         return (train, None)
-    if kv:
-        (rank, nworker) = (kv.rank, kv.num_workers)
-    else:
-        (rank, nworker) = (0, 1)
+    (rank, nworker) = (hvd.rank(), hvd.size())
     rgb_mean = [float(i) for i in args.rgb_mean.split(',')]
     train = mx.io.ImageRecordIter(
         path_imgrec         = args.data_train,
