@@ -84,6 +84,8 @@ class MXTests(unittest.TestCase):
             tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim], ctx=dev)
             tensor = tensor.astype(dtype)
             averaged = hvd.allreduce(tensor, average=True)
+            tensor = tensor / size
+            tensor = tensor * size
             max_difference = mx.nd.max(mx.nd.subtract(averaged, tensor))
             count += 1
 
