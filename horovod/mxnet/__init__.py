@@ -60,7 +60,7 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
     def set_wd_mult(args_wd_mult):
         return self._optimizer.set_wd_mult(args_wd_mult)
 
-def broadcast_parameters(params, root_rank):
+def broadcast_parameters(params, root_rank=0):
     """
     Broadcasts the parameters from root rank to all other processes.
     Typical usage is to broadcast the `model.get_params()`.
