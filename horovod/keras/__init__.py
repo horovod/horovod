@@ -12,9 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-import keras
-import keras.backend as K
-import tensorflow as tf
+
+from horovod.common import get_framework, set_framework, Framework
+if get_framework() == Framework.TENSORFLOW_KERAS:
+    from tensorflow import keras
+    from tensorflow.python.keras import backend as K
+else:
+    import keras
+    import keras.backend as K
+    set_framework(Framework.KERAS, override=True)
 
 import horovod.tensorflow as hvd
 from horovod.tensorflow import init
@@ -25,6 +31,8 @@ from horovod.tensorflow import rank
 from horovod.tensorflow import local_rank
 from horovod.tensorflow import mpi_threads_supported
 from horovod.keras import callbacks
+
+import tensorflow as tf
 
 
 class _DistributedOptimizer(keras.optimizers.Optimizer):
