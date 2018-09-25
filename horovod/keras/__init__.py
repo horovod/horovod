@@ -13,65 +13,21 @@
 # limitations under the License.
 # ==============================================================================
 
-from horovod.common import get_framework, set_framework, Framework
-if get_framework() == Framework.TENSORFLOW_KERAS:
-    from tensorflow import keras
-    from tensorflow.python.keras import backend as K
-else:
-    import keras
-    import keras.backend as K
-    set_framework(Framework.KERAS, override=True)
+import keras
+import keras.backend as K
 
-import horovod.tensorflow as hvd
-from horovod.tensorflow import init
-from horovod.tensorflow import shutdown
-from horovod.tensorflow import size
-from horovod.tensorflow import local_size
-from horovod.tensorflow import rank
-from horovod.tensorflow import local_rank
-from horovod.tensorflow import mpi_threads_supported
-from horovod.keras import callbacks
-
-import tensorflow as tf
+from horovod.keras import callbacks, impl
 
 
-class _DistributedOptimizer(keras.optimizers.Optimizer):
+class _DistributedOptimizer(impl.DistributedOptimizerImpl, keras.optimizers.Optimizer):
     """
     This is an internal implementation class of Distributed Optimizer, not to be
     directly instantiated by end-users. See horovod.keras.DistributedOptimizer.
     """
 
     def __init__(self, name, device_dense, device_sparse, **kwargs):
-        if name is None:
-            name = "Distributed%s" % self.__class__.__base__.__name__
-        self._name = name
-        self._device_dense = device_dense
-        self._device_sparse = device_sparse
-        super(self.__class__, self).__init__(**kwargs)
-
-    def get_gradients(self, loss, params):
-        """
-        Compute gradients of all trainable variables.
-
-        See Optimizer.get_gradients() for more info.
-
-        In DistributedOptimizer, get_gradients() is overriden to also
-        allreduce the gradients before returning them.
-        """
-        gradients = super(self.__class__, self).get_gradients(loss, params)
-        if hvd.size() > 1:
-            averaged_gradients = []
-            with tf.name_scope(self._name + "_Allreduce"):
-                for grad in gradients:
-                    if grad is not None:
-                        avg_grad = hvd.allreduce(grad, device_dense=self._device_dense,
-                                                 device_sparse=self._device_sparse)
-                        averaged_gradients.append(avg_grad)
-                    else:
-                        averaged_gradients.append(None)
-                return averaged_gradients
-        else:
-            return gradients
+        impl.DistributedOptimizerImpl.__init__(self, name, device_dense, device_sparse)
+        keras.optimizers.Optimizer.__init__(self, **kwargs)
 
 
 def DistributedOptimizer(optimizer, name=None, device_dense='', device_sparse=''):
@@ -105,8 +61,7 @@ def broadcast_global_variables(root_rank):
         root_rank: Rank of the process from which global variables will be broadcasted
                    to all other processes.
     """
-    bcast_op = hvd.broadcast_global_variables(root_rank)
-    return K.get_session().run(bcast_op)
+    return impl.broadcast_global_variables(K, root_rank)
 
 
 def allreduce(value, name=None, average=True):
@@ -120,8 +75,7 @@ def allreduce(value, name=None, average=True):
         average: If True, computes the average over all ranks.
                  Otherwise, computes the sum over all ranks.
     """
-    allreduce_op = hvd.allreduce(tf.constant(value, name=name), average=average)
-    return K.get_session().run(allreduce_op)
+    return impl.allreduce(K, value, name, average)
 
 
 def allgather(value, name=None):
@@ -136,8 +90,7 @@ def allgather(value, name=None):
         value: A tensor-compatible value to gather.
         name: Optional name prefix for the constants created by this operation.
     """
-    allgather_op = hvd.allgather(tf.constant(value, name=name))
-    return K.get_session().run(allgather_op)
+    return impl.allgather(K, value, name)
 
 
 def broadcast(value, root_rank, name=None):
@@ -151,8 +104,7 @@ def broadcast(value, root_rank, name=None):
                    broadcasted to all other processes.
         name: Optional name for the constants created by this operation.
     """
-    bcast_op = hvd.broadcast(tf.constant(value, name=name), root_rank)
-    return K.get_session().run(bcast_op)
+    return impl.broadcast(K, value, root_rank, name)
 
 
 def load_model(filepath, custom_optimizers=None, custom_objects=None):
@@ -185,20 +137,4 @@ def load_model(filepath, custom_optimizers=None, custom_objects=None):
     """
     def wrap_optimizer(cls):
         return lambda **kwargs: DistributedOptimizer(cls(**kwargs))
-
-    horovod_objects = {
-        subclass.__name__.lower(): wrap_optimizer(subclass)
-        for subclass in keras.optimizers.Optimizer.__subclasses__()
-        if subclass.__module__ == 'keras.optimizers'
-    }
-
-    if custom_optimizers is not None:
-        horovod_objects.update({
-            cls.__name__: wrap_optimizer(cls)
-            for cls in custom_optimizers
-        })
-
-    if custom_objects is not None:
-        horovod_objects.update(custom_objects)
-
-    return keras.models.load_model(filepath, custom_objects=horovod_objects)
+    return impl.load_model(keras, wrap_optimizer, filepath, custom_optimizers, custom_objects)

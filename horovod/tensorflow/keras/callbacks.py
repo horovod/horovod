@@ -13,8 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
-import keras
-import keras.backend as K
+from tensorflow import keras
+from tensorflow.python.keras import backend as K
 
 import horovod.keras.callbacks_impl as impl
 

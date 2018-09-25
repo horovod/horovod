@@ -18,32 +18,6 @@ import ctypes
 import os
 import sysconfig
 import atexit
-from enum import Enum
-
-
-class Framework(Enum):
-    """The Horovod framework API being used for training."""
-    TENSORFLOW = 'horovod.tensorflow'
-    PYTORCH = 'horovod.torch'
-    KERAS = 'horovod.keras'
-    TENSORFLOW_KERAS = 'horovod.tensorflow.keras'
-
-
-"""Global framework state encapsulation."""
-_FRAMEWORK = None
-
-
-def set_framework(framework, override=False):
-    """Set the framework being used if not already set."""
-    global _FRAMEWORK
-    if not _FRAMEWORK or override:
-        _FRAMEWORK = framework
-
-
-def get_framework():
-    """Get the framework being used."""
-    global _FRAMEWORK
-    return _FRAMEWORK
 
 
 def get_ext_suffix():
@@ -178,8 +152,3 @@ class HorovodBasics(object):
             raise ValueError(
                 'Horovod has not been initialized; use hvd.init().')
         return bool(mpi_threads_supported)
-
-
-class HorovodError(Exception):
-    """API-level error in Horovod."""
-    pass
