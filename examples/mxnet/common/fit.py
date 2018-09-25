@@ -243,8 +243,6 @@ def fit(args, network, data_loader, **kwargs):
 
     # create optimizer
     optimizer_params = dict(optimizer_params)
-    if 'rescale_grad' not in optimizer_params:
-        optimizer_params['rescale_grad'] = 1.0/args.batch_size
     opt = mx.optimizer.create(args.optimizer, sym=network, **optimizer_params)
     opt = hvd.DistributedOptimizer(opt)
 
@@ -277,12 +275,12 @@ def fit(args, network, data_loader, **kwargs):
     # create initializer
     model.bind(data_shapes=train.provide_data, label_shapes=train.provide_label)
     model.init_params(initializer, arg_params=arg_params, aux_params=aux_params)
-    (arg_params, aux_params) = model.get_params(copy_to_cpu=False)
-    #print(hvd.rank(), next(iter(arg_params.items())))
+    (arg_params, aux_params) = model.get_params(copy_to_cpu=False, context=mx.gpu(hvd.local_rank()))
+    #hvd.synchronize()
     hvd.broadcast_parameters(arg_params, root_rank=0)
     hvd.broadcast_parameters(aux_params, root_rank=0)
-    print(hvd.rank(), next(iter(arg_params.items())))
-    #model.set_params(arg_params=arg_params, aux_params=aux_params)
+    #print(hvd.rank(), next(iter(arg_params.items())))
+    model.set_params(arg_params=arg_params, aux_params=aux_params)
 
     # evaluation metrices
     eval_metrics = ['accuracy']
@@ -313,6 +311,12 @@ def fit(args, network, data_loader, **kwargs):
     if 'batch_end_callback' in kwargs:
         cbs = kwargs['batch_end_callback']
         batch_end_callbacks += cbs if isinstance(cbs, list) else [cbs]
+
+    def acc_callback():
+        opt.
+
+    # callbacks that run after each epoch
+    epoch_end_callbacks = []
 
     # run
     model.fit(train,

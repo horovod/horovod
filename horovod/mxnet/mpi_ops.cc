@@ -73,7 +73,7 @@ extern "C" int DoAllreduceCudaOnCPU(NDArray* tensor, NDArray* output,
   ThrowIfError(common::CheckInitialized());
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto hvd_cpu_buffer =
-      std::make_shared<MXTemporaryBuffer<NDArray>>(CPU_DEVICE_ID);
+      std::make_shared<MXTemporaryBuffer<NDArray>>(CPU_DEVICE_ID, tensor->dtype());
   TensorUtil::AsyncCopyCudaToCPU(tensor, hvd_cpu_buffer->tensor());
   auto ready_event = std::make_shared<MXReadyEvent<NDArray>>(tensor);
 
@@ -121,12 +121,12 @@ extern "C" int DoAllgatherCudaOnCPU(NDArray* tensor, NDArray* output, char* name
 
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto hvd_cpu_tensor =
-      std::make_shared<MXTemporaryBuffer<NDArray>>(CPU_DEVICE_ID);
+      std::make_shared<MXTemporaryBuffer<NDArray>>(CPU_DEVICE_ID, tensor->dtype());
   TensorUtil::AsyncCopyCudaToCPU(tensor, hvd_cpu_tensor->tensor());
   auto ready_event = std::make_shared<MXReadyEvent<NDArray>>(tensor);
 
   auto hvd_cpu_output =
-      std::make_shared<MXTemporaryBuffer<NDArray>>(CPU_DEVICE_ID);
+      std::make_shared<MXTemporaryBuffer<NDArray>>(CPU_DEVICE_ID, output->dtype());
   auto hvd_context = std::make_shared<MXOpContext<NDArray>>(
       CPU_DEVICE_ID, hvd_cpu_output->tensor());
 
@@ -179,7 +179,7 @@ extern "C" int DoBroadcastCudaOnCPU(NDArray* tensor, NDArray* output,
   ThrowIfError(common::CheckInitialized());
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto hvd_cpu_buffer =
-      std::make_shared<MXTemporaryBuffer<NDArray>>(CPU_DEVICE_ID);
+      std::make_shared<MXTemporaryBuffer<NDArray>>(CPU_DEVICE_ID, tensor->dtype());
   TensorUtil::AsyncCopyCudaToCPU(tensor, hvd_cpu_buffer->tensor());
   auto ready_event = std::make_shared<MXReadyEvent<NDArray>>(tensor);
 
@@ -302,7 +302,6 @@ extern "C" int horovod_mxnet_broadcast_async(
     DoBroadcastCudaOnCPU(input, output, root_rank, name, cb);
   };
   int cpu = -1;
-  //printf("Broadcast!\n");
   if ((input->ctx().dev_mask() == gpu::kDevMask &&
        output->ctx().dev_mask() == gpu::kDevMask) ||
       (input->ctx().dev_mask() == cpu::kDevMask &&

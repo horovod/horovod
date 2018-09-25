@@ -48,7 +48,7 @@ protected:
 
 template <class T> class MXTemporaryBuffer : public MXTensor<T> {
 public:
-  MXTemporaryBuffer(int device);
+  MXTemporaryBuffer(int device, int dtype);
   ~MXTemporaryBuffer();
   virtual T* tensor() const;
 };

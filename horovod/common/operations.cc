@@ -1212,6 +1212,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     }
 
     ACTIVITY_START_ALL(entries, timeline, MPI_BCAST)
+
     MPI_CHECK(entries, "MPI_Bcast",
               MPI_Bcast(data_ptr, (int)first_entry.tensor->shape().num_elements(),
                         GetMPIDataType(first_entry.tensor), first_entry.root_rank,
@@ -1409,7 +1410,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.initialization_done = true;
 
   // Iterate until shutdown.
-  while (RunLoopOnce(state, is_coordinator)) {};
+  int count = 0;
+  while (RunLoopOnce(state, is_coordinator)) {
+    count++;
+  };
 
   // TODO: init.cu:645 WARN Cuda failure 'driver shutting down'
   //#if HAVE_NCCL
@@ -1753,6 +1757,13 @@ int horovod_mpi_threads_supported() {
     return -1;
   }
   return horovod_global.mpi_threads_supported ? 1 : 0;
+}
+
+int horovod_synchronize() {
+  if (!horovod_global.initialization_done) {
+    return -1;
+  }
+  return MPI_Barrier(horovod_global.mpi_comm);
 }
 }
 

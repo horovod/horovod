@@ -81,9 +81,9 @@ template <class T> int64_t MXTensor<T>::size() const {
 }
 
 template <class T>
-MXTemporaryBuffer<T>::MXTemporaryBuffer(int device)
+MXTemporaryBuffer<T>::MXTemporaryBuffer(int device, int dtype)
     : MXTensor<T>(nullptr) {
-  this->tensor_ = TensorUtil::New(device);
+  this->tensor_ = TensorUtil::New(device, dtype);
 }
 
 template <class T> MXTemporaryBuffer<T>::~MXTemporaryBuffer() {
