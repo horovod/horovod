@@ -16,12 +16,16 @@
 #ifndef HOROVOD_MXNET_MPI_OPS_H
 #define HOROVOD_MXNET_MPI_OPS_H
 
+#include <mxnet/c_api.h>
 #include <mxnet/base.h>
+#include <mxnet/ndarray.h>
 
 namespace horovod {
-namespace mxnet {
+namespace MX {
 
 using namespace horovod::common;
+
+typedef mxnet::NDArray NDArray;
 
 extern "C" int horovod_mxnet_allreduce_async(
     NDArray* tensor, NDArray* output, int average, char* name);
@@ -32,7 +36,7 @@ extern "C" int horovod_mxnet_broadcast_async(
 extern "C" int horovod_mxnet_poll(int handle);
 extern "C" void horovod_mxnet_wait_and_clear(int handle);
 
-} // namespace mxnet
+} // namespace MX
 } // namespace horovod
 
 #endif // HOROVOD_MXNET_MPI_OPS_H

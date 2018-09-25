@@ -24,16 +24,69 @@ from horovod.common import rank
 from horovod.common import local_rank
 from horovod.common import mpi_threads_supported
 from horovod.common import check_extension
+from horovod.common import synchronize
 
-# TODO(ctcyang): do we need this here?
-#check_extension('horovod.mxnet', 'HOROVOD_WITH_MXNET',
-#                __file__, 'mpi_lib', '_mpi_lib')
+from horovod.mxnet.mpi_ops import allreduce, allreduce_
+from horovod.mxnet.mpi_ops import allgather
+from horovod.mxnet.mpi_ops import broadcast, broadcast_
+#from horovod.mxnet.mpi_ops import poll, synchronize
 
-from horovod.mxnet.mpi_ops import allreduce, allreduce_async, allreduce_, allreduce_async_
-from horovod.mxnet.mpi_ops import allgather, allgather_async
-from horovod.mxnet.mpi_ops import broadcast, broadcast_async, broadcast_, broadcast_async_
-from horovod.mxnet.mpi_ops import poll, synchronize
+import mxnet as mx
 
-import mxnet
+# This is where Horovod's DistributedOptimizer wrapper for MXNet goes
+class DistributedOptimizer(mx.optimizer.Optimizer):
+    def __init__(self, optimizer):
+        self._optimizer = optimizer
 
-# This is where Horovod's DistributedOptimizer wrapper for PyTorch goes
+    def __getattr__(self, item):
+        return getattr(self._optimizer, item)
+
+    def create_state_multi_precision(self, index, weight):
+        return self._optimizer.create_state_multi_precision(index, weight)
+
+    def update(self, index, weight, grad, state):
+        allreduce_(grad, average=True, name=None)
+        return self._optimizer.update(index, weight, grad, state)
+
+    def update_multi_precision(self, index, weight, grad, state):
+        allreduce_(grad, average=True, name=None)
+        return self._optimizer.update_multi_precision(index, weight, grad, state)
+
+    def set_learning_rate(self, lr):
+        return self._optimizer.set_learning_rate(lr)
+
+    def set_lr_mult(args_lr_mult):
+        return self._optimizer.set_lr_mult(args_lr_mult)
+
+    def set_wd_mult(args_wd_mult):
+        return self._optimizer.set_wd_mult(args_wd_mult)
+
+def broadcast_parameters(params, root_rank=0):
+    """
+    Broadcasts the parameters from root rank to all other processes.
+    Typical usage is to broadcast the `model.get_params()`.
+
+    Arguments:
+        params: One of the following:
+            - list of parameters to broadcast
+            - dict of parameters to broadcast
+        root_rank: The rank of the process from which parameters will be
+                   broadcasted to all other processes.
+    """
+    if isinstance(params, dict):
+        params = sorted(params.items())
+    elif isinstance(params, list):
+        # support both named_parameters() and regular parameters()
+        params = [p if isinstance(p, tuple) else (None, p) for p in params]
+    else:
+        raise ValueError('invalid params of type: %s' % type(params))
+
+    # Run broadcasts.
+    for name, p in params:
+        if not isinstance(name, str):
+            if isinstance(name, int):
+                name = str(name)
+            else:
+                raise ValueError('invalid params of type: %s' % type(name))
+        broadcast_(p, root_rank, name)
+        mx.ndarray.waitall()

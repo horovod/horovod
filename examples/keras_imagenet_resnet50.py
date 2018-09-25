@@ -74,29 +74,36 @@ test_iter = test_gen.flow_from_directory(test_dir, batch_size=batch_size,
 # Set up standard ResNet-50 model.
 model = keras.applications.resnet50.ResNet50(weights=None)
 
-# ResNet-50 model that is included with Keras is optimized for inference.
-# Add L2 weight decay & adjust BN settings.
-model_config = model.get_config()
-for layer, layer_config in zip(model.layers, model_config['layers']):
-    if hasattr(layer, 'kernel_regularizer'):
-        regularizer = keras.regularizers.l2(weight_decay)
-        layer_config['config']['kernel_regularizer'] = \
-            {'class_name': regularizer.__class__.__name__,
-             'config': regularizer.get_config()}
-    if type(layer) == keras.layers.BatchNormalization:
-        layer_config['config']['momentum'] = 0.9
-        layer_config['config']['epsilon'] = 1e-5
-model = keras.models.Model.from_config(model_config)
+# Restore from a previous checkpoint, if initial_epoch is specified.
+# Horovod: restore on the first worker which will broadcast both model and optimizer weights
+# to other workers.
+if resume_from_epoch > 0 and hvd.rank() == 0:
+    model = hvd.load_model(checkpoint_format.format(epoch=resume_from_epoch))
+else:
+    # ResNet-50 model that is included with Keras is optimized for inference.
+    # Add L2 weight decay & adjust BN settings.
+    model_config = model.get_config()
+    for layer, layer_config in zip(model.layers, model_config['layers']):
+        if hasattr(layer, 'kernel_regularizer'):
+            regularizer = keras.regularizers.l2(weight_decay)
+            layer_config['config']['kernel_regularizer'] = \
+                {'class_name': regularizer.__class__.__name__,
+                 'config': regularizer.get_config()}
+        if type(layer) == keras.layers.BatchNormalization:
+            layer_config['config']['momentum'] = 0.9
+            layer_config['config']['epsilon'] = 1e-5
 
-# Horovod: adjust learning rate based on number of GPUs.
-opt = keras.optimizers.SGD(lr=learning_rate * hvd.size(), momentum=0.9)
+    model = keras.models.Model.from_config(model_config)
 
-# Horovod: add Horovod Distributed Optimizer.
-opt = hvd.DistributedOptimizer(opt)
+    # Horovod: adjust learning rate based on number of GPUs.
+    opt = keras.optimizers.SGD(lr=learning_rate * hvd.size(), momentum=0.9)
 
-model.compile(loss=keras.losses.categorical_crossentropy,
-              optimizer=opt,
-              metrics=['accuracy', 'top_k_categorical_accuracy'])
+    # Horovod: add Horovod Distributed Optimizer.
+    opt = hvd.DistributedOptimizer(opt)
+
+    model.compile(loss=keras.losses.categorical_crossentropy,
+                  optimizer=opt,
+                  metrics=['accuracy', 'top_k_categorical_accuracy'])
 
 callbacks = [
     # Horovod: broadcast initial variable states from rank 0 to all other processes.
@@ -126,11 +133,6 @@ callbacks = [
 if hvd.rank() == 0:
     callbacks.append(keras.callbacks.ModelCheckpoint(checkpoint_format))
     callbacks.append(keras.callbacks.TensorBoard(log_dir))
-
-# Restore from a previous checkpoint, if initial_epoch is specified.
-# Horovod: restore on the first worker which will broadcast weights to other workers.
-if resume_from_epoch > 0 and hvd.rank() == 0:
-    model.load_weights(checkpoint_format.format(epoch=resume_from_epoch))
 
 # Train the model. The training will randomly sample 1 / N batches of training data and
 # 3 / N batches of validation data on every worker, where N is the number of workers.

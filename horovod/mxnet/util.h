@@ -13,38 +13,26 @@
 // limitations under the License.
 // =============================================================================
 
-#ifndef HOROVOD_TORCH_READY_EVENT_H
-#define HOROVOD_TORCH_READY_EVENT_H
+#ifndef HOROVOD_MXNET_UTIL_H
+#define HOROVOD_MXNET_UTIL_H
 
 #if HAVE_CUDA
-#include "cuda_runtime.h"
-#endif
 
-#include <memory>
+#include <cuda_runtime.h>
 
-#include "../common/common.h"
+/*!
+ * \brief Protected CUDA call.
+ * \param func Expression to call.
+ *
+ * It checks for CUDA errors after invocation of the expression.
+ */
+#define CUDA_CALL(func)                                            \
+  {                                                                \
+    cudaError_t e = (func);                                        \
+    CHECK(e == cudaSuccess || e == cudaErrorCudartUnloading)       \
+        << "CUDA: " << cudaGetErrorString(e);                      \
+  }
 
-namespace horovod {
-namespace torch {
+#endif // HAVE_CUDA
 
-using namespace horovod::common;
-
-#if HAVE_CUDA
-class TorchReadyEvent : public ReadyEvent {
-public:
-  TorchReadyEvent(int device);
-  ~TorchReadyEvent();
-  virtual bool Ready() const override;
-
-private:
-  int device_ = CPU_DEVICE_ID;
-  cudaEvent_t cuda_event_ = nullptr;
-};
-#endif
-
-std::shared_ptr<ReadyEvent> RecordReadyEvent(int device);
-
-} // namespace torch
-} // namespace horovod
-
-#endif // HOROVOD_TORCH_READY_EVENT_H
+#endif // HOROVOD_MXNET_UTIL_H

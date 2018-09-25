@@ -16,7 +16,7 @@
 #include "tensor_util.h"
 
 namespace horovod {
-namespace mxnet {
+namespace MX {
 
 // Define all types for TensorUtil.
 const MPIDataType TensorUtil::GetDType(NDArray* tensor) {
@@ -36,7 +36,7 @@ const MPIDataType TensorUtil::GetDType(NDArray* tensor) {
     case 6:
       return MPIDataType::HOROVOD_INT64;
     default:
-      throw std::logic_error("Type " + tensor->dtype() +
+      throw std::logic_error("GetDType: Type " + std::to_string(tensor->dtype()) +
                              " is not supported in MPI mode.");
   }
 }
@@ -45,10 +45,35 @@ const MPIDataType TensorUtil::GetDType(NDArray* tensor) {
 const TensorShape TensorUtil::GetShape(NDArray* tensor) {
   TensorShape shape;
   TShape mx_shape = tensor->shape();
-  for (int idx = 0; idx < mx_shape.ndim(); idx++) {
+  for (unsigned idx = 0; idx < mx_shape.ndim(); idx++) {
     shape.AddDim(mx_shape[idx]);
   }
   return shape;
+}
+
+// Return data of tensor
+const void* TensorUtil::GetData(NDArray* tensor) {
+  // The following returns an error:
+  // return tensor->data().dptr<void>();
+  switch (tensor->dtype()) {
+    case 0:
+      return static_cast<void*>(tensor->data().dptr<float>());
+    case 1:
+      return static_cast<void*>(tensor->data().dptr<double>());
+    case 2:
+      return static_cast<void*>(tensor->data().dptr<mshadow::half::half_t>());
+    case 3:
+      return static_cast<void*>(tensor->data().dptr<uint8_t>());
+    case 4:
+      return static_cast<void*>(tensor->data().dptr<int32_t>());
+    case 5:
+      return static_cast<void*>(tensor->data().dptr<int8_t>());
+    case 6:
+      return static_cast<void*>(tensor->data().dptr<int64_t>());
+    default:
+      throw std::logic_error("Type " + std::to_string(tensor->dtype()) +
+                             " is not supported in MPI mode.");
+  }
 }
 
 // Return size of tensor in bytes
@@ -77,43 +102,40 @@ int64_t TensorUtil::GetSize(NDArray* tensor) {
       element_size = kInt64Size;
       break;
     default:
-      throw std::logic_error("Type " + tensor->dtype() +
+      throw std::logic_error("Type " + std::to_string(tensor->dtype()) +
                              " is not supported in MPI mode.");
   }
-  return (int64_t)(tensor->shape().Size() * element_size);
+  return (int64_t)(tensor->shape().Size()) * element_size;
 }
 
 // If Tensor on GPU, return device id
 // Otherwise return CPU_DEVICE_ID (-1)
 int TensorUtil::GetDevice(NDArray* tensor) {
   int dev_mask = tensor->ctx().dev_mask();
-  if (dev_mask == cpu::kDevMask)
-    return CPU_DEVICE_ID;
-  else if (dev_mask == gpu::kDevMask)
+  if (dev_mask == gpu::kDevMask)
     return tensor->ctx().real_dev_id();
+  return CPU_DEVICE_ID;
 }
 
 // Returns pointer to newly created NDArray
 // If dev_id equal to CPU_DEVICE_ID, construct Tensor on CPU
 // Otherwise construct on GPU
-NDArray* TensorUtil::New(int device) {
-  if (device == CPU_DEVICE_ID)
-    return &NDArray(TShape(), Context::CPU(0));
-  else
-    // TODO(ctcyang): Test whether MXNet integration works fine without this
-    // line that PyTorch requires
-    //with_device device_context(device);
-    return &NDArray(TShape(), Context::GPU(device));
+NDArray* TensorUtil::New(int device, int dtype) {
+  if (device == CPU_DEVICE_ID) {
+    NDArray* my_array = new NDArray(TShape(), Context::CPU(0), false, dtype);
+    return my_array;
+  } else {
+    NDArray* my_array = new NDArray(TShape(), Context::GPU(device), false, dtype);
+    return my_array;
+  }
 }
 
 void TensorUtil::Free(NDArray* tensor) {
-  // TODO(ctcyang): Does this way of destroying NDArray work?
-  delete *tensor;
+  delete tensor;
 }
 
 // Resize tensor to nDimension with length size[i] in dimension i
-void TensorUtil::ResizeNd(NDArray* tensor, int nDimension, 
-                                   int64_t* size) {
+void TensorUtil::ResizeNd(NDArray* tensor, int nDimension, int64_t* size) {
   TShape mx_shape(nDimension);
   for (int idx = 0; idx < nDimension; ++idx) {
     mx_shape[idx] = size[idx];
@@ -124,7 +146,9 @@ void TensorUtil::ResizeNd(NDArray* tensor, int nDimension,
 // Copy from tensor to output
 // TODO(ctcyang): Is priority 0 okay?
 void TensorUtil::Copy(NDArray* output, NDArray* tensor) {
-  CopyFromTo(tensor, output, 0)
+  if (tensor->shape() != output->shape())
+    output->ReshapeAndAlloc(tensor->shape());
+  CopyFromTo(*tensor, output, 0);
 }
 
 // Elementwise division of tensor by value in-place
@@ -142,5 +166,5 @@ void TensorUtil::AsyncCopyCudaToCPU(NDArray* cuda, NDArray* cpu) {
 }
 #endif
 
-} // namespace mxnet
+} // namespace MX
 } // namespace horovod

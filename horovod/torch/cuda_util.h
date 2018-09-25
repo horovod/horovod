@@ -25,7 +25,7 @@ public:
   ~with_device();
 
 private:
-  int restore_device_;
+  int restore_device_ = CPU_DEVICE_ID;
 };
 
 }

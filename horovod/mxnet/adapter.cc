@@ -24,7 +24,7 @@
 #include "tensor_util.h"
 
 namespace horovod {
-namespace mxnet {
+namespace MX {
 
 // This class intentionally does not have destructor at the moment.
 //
@@ -58,7 +58,7 @@ MXPersistentBuffer::AccessData(std::shared_ptr<OpContext> context) const {
 template <class T> MXTensor<T>::MXTensor(T* tensor) : tensor_(tensor) {}
 
 template <class T> const MPIDataType MXTensor<T>::dtype() const {
-  return TensorUtil::GetDType<T>(tensor_);
+  return TensorUtil::GetDType(tensor_);
 }
 
 template <class T> const TensorShape MXTensor<T>::shape() const {
@@ -81,9 +81,9 @@ template <class T> int64_t MXTensor<T>::size() const {
 }
 
 template <class T>
-MXTemporaryBuffer<T>::MXTemporaryBuffer(int device)
+MXTemporaryBuffer<T>::MXTemporaryBuffer(int device, int dtype)
     : MXTensor<T>(nullptr) {
-  this->tensor_ = TensorUtil::New<T>(device);
+  this->tensor_ = TensorUtil::New(device, dtype);
 }
 
 template <class T> MXTemporaryBuffer<T>::~MXTemporaryBuffer() {
@@ -140,5 +140,5 @@ template class MXTensor<NDArray>;
 template class MXTemporaryBuffer<NDArray>;
 template class MXOpContext<NDArray>;
 
-} // namespace mxnet
+} // namespace MX
 } // namespace horovod

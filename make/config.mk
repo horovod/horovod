@@ -1,0 +1,3 @@
+USE_CUDA = 1
+USE_NCCL = 1
+USE_NVRTC = 1

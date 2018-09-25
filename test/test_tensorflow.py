@@ -68,6 +68,38 @@ class MPITests(tf.test.TestCase):
                 self.assertTrue(diff <= threshold,
                                 "hvd.allreduce produces incorrect results")
 
+    def test_horovod_allreduce_average(self):
+        """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors."""
+        hvd.init()
+        size = hvd.size()
+        with self.test_session() as session:
+            dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]
+            dims = [1, 2, 3]
+            for dtype, dim in itertools.product(dtypes, dims):
+                with tf.device("/cpu:0"):
+                    tf.set_random_seed(1234)
+                    tensor = tf.random_uniform(
+                        [17] * dim, -100, 100, dtype=dtype)
+                    summed = hvd.allreduce(tensor, average=True)
+                max_difference = tf.reduce_max(tf.abs(summed - tensor))
+
+                # Threshold for floating point equality depends on number of
+                # ranks, since we're comparing against precise multiplication.
+                if dtype in [tf.int32, tf.int64]:
+                    threshold = hvd.size()
+                elif size <= 3:
+                    threshold = 0
+                elif size < 10:
+                    threshold = 1e-4
+                elif size < 15:
+                    threshold = 5e-4
+                else:
+                    break
+
+                diff = session.run(max_difference)
+                self.assertTrue(diff <= threshold,
+                                "hvd.allreduce produces incorrect results")
+
     def test_horovod_allreduce_cpu_fused(self):
         """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors
         with Tensor Fusion."""
@@ -117,7 +149,7 @@ class MPITests(tf.test.TestCase):
         size = hvd.size()
 
         with self.test_session(config=self.config) as session:
-            dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]
+            dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
             dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
                 with tf.device("/gpu:%d" % local_rank):
@@ -158,7 +190,7 @@ class MPITests(tf.test.TestCase):
         size = hvd.size()
 
         with self.test_session(config=self.config) as session:
-            dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]
+            dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
             dims = [1, 2, 3]
             tests = []
             for dtype, dim in itertools.product(dtypes, dims):
@@ -203,7 +235,7 @@ class MPITests(tf.test.TestCase):
         iter = 0
         gpu_ids = [local_rank * 2, local_rank * 2 + 1]
         with self.test_session(config=self.config) as session:
-            dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]
+            dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
             dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
                 iter += 1
@@ -337,8 +369,8 @@ class MPITests(tf.test.TestCase):
 
         with self.test_session(config=self.config) as session:
             dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
-                      tf.int32, tf.int64, tf.float32, tf.float64,
-                      tf.bool]
+                      tf.int32, tf.int64, tf.float16, tf.float32,
+                      tf.float64, tf.bool]
             dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
                 tensor = tf.ones([17] * dim) * rank
@@ -376,8 +408,8 @@ class MPITests(tf.test.TestCase):
 
         with self.test_session(config=self.config) as session:
             dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
-                      tf.int32, tf.int64, tf.float32, tf.float64,
-                      tf.bool]
+                      tf.int32, tf.int64, tf.float16, tf.float32,
+                      tf.float64, tf.bool]
             dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
                 # Support tests up to MPI Size of 35
@@ -502,8 +534,8 @@ class MPITests(tf.test.TestCase):
 
         with self.test_session(config=self.config) as session:
             dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
-                      tf.int32, tf.int64, tf.float32, tf.float64,
-                      tf.bool]
+                      tf.int32, tf.int64, tf.float16, tf.float32,
+                      tf.float64, tf.bool]
             dims = [1, 2, 3]
             root_ranks = list(range(size))
             for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
@@ -572,40 +604,44 @@ class MPITests(tf.test.TestCase):
             with self.assertRaises(tf.errors.FailedPreconditionError):
                 session.run(hvd.broadcast(tensor, rank))
 
-    def test_horovod_broadcast_grad(self):
-        """Test the correctness of the broadcast gradient."""
-        hvd.init()
-        rank = hvd.rank()
-        size = hvd.size()
+    def test_compression_fp16(self):
+        valid_dtypes = [tf.float16, tf.float32, tf.float64]
+        invalid_dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                          tf.int32, tf.int64, tf.bool]
 
-        # This test does not apply if there is only one worker.
-        if size == 1:
-            return
+        tensor_size = [17] * 3
+        compression = hvd.Compression.fp16
 
         with self.test_session(config=self.config) as session:
-            # As of TensorFlow v1.9, gradients are not supported on
-            # integer tensors
-            dtypes = [tf.float32, tf.float64]
-            dims = [1, 2, 3]
-            root_ranks = list(range(size))
-            for dtype, dim, root_rank in itertools.product(
-                    dtypes, dims, root_ranks):
-                tensor = tf.ones([5] * dim) * rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
-                tensor = tf.cast(tensor, dtype=dtype)
-                broadcasted_tensor = hvd.broadcast(tensor, root_rank)
+            for dtype in valid_dtypes:
+                tensor = tf.ones(tensor_size, dtype=dtype)
 
-                grad_ys = tf.ones([5] * dim)
-                grad = tf.gradients(broadcasted_tensor, tensor, grad_ys)[0]
-                grad_out = session.run(grad)
+                compressor = compression.get_compressor(dtype)
+                tensor_compressed = compressor.compress(tensor)
+                self.assertEqual(tensor_compressed.dtype, tf.float16)
 
-                c = size if rank == root_rank else 0
-                expected = np.ones([5] * dim) * c
-                err = np.linalg.norm(expected - grad_out)
-                self.assertLess(err, 0.00000001,
-                                "gradient %s differs from expected %s, "
-                                "error: %s" % (grad_out, expected, str(err)))
+                tensor_decompressed = compressor.decompress(tensor_compressed)
+                self.assertEqual(tensor_decompressed.dtype, dtype)
+
+                actual = session.run(tensor_decompressed)
+                expected = np.ones(tensor_size)
+                err = np.linalg.norm(expected - actual)
+                self.assertLess(err, 0.00000001)
+
+            for dtype in invalid_dtypes:
+                tensor = tf.ones(tensor_size, dtype=dtype)
+
+                compressor = compression.get_compressor(dtype)
+                tensor_compressed = compressor.compress(tensor)
+                self.assertEqual(tensor_compressed.dtype, dtype)
+
+                tensor_decompressed = compressor.decompress(tensor_compressed)
+                self.assertEqual(tensor_decompressed.dtype, dtype)
+
+                actual = session.run(tensor_decompressed)
+                expected = np.ones(tensor_size)
+                err = np.linalg.norm(expected - actual)
+                self.assertLess(err, 0.00000001)
 
 
 if __name__ == '__main__':

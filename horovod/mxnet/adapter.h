@@ -19,7 +19,7 @@
 #include "../common/common.h"
 
 namespace horovod {
-namespace mxnet {
+namespace MX {
 
 using namespace horovod::common;
 
@@ -48,7 +48,7 @@ protected:
 
 template <class T> class MXTemporaryBuffer : public MXTensor<T> {
 public:
-  MXTemporaryBuffer(int device);
+  MXTemporaryBuffer(int device, int dtype);
   ~MXTemporaryBuffer();
   virtual T* tensor() const;
 };
@@ -70,7 +70,7 @@ private:
 
 void ThrowIfError(Status status);
 
-} // namespace mxnet 
+} // namespace MX 
 } // namespace horovod
 
 #endif // HOROVOD_MXNET_ADAPTER_H

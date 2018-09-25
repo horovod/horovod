@@ -16,6 +16,8 @@
 #ifndef HOROVOD_MXNET_READY_EVENT_H
 #define HOROVOD_MXNET_READY_EVENT_H
 
+#include <mxnet/ndarray.h>
+
 #if HAVE_CUDA
 #include "cuda_runtime.h"
 #include <mutex>
@@ -25,9 +27,10 @@
 #include "../common/common.h"
 
 namespace horovod {
-namespace mxnet {
+namespace MX {
 
 using namespace horovod::common;
+typedef mxnet::NDArray NDArray;
 
 template <class T> class MXReadyEvent : public ReadyEvent {
 public:
@@ -39,7 +42,7 @@ private:
   NDArray* tensor_;
 };
 
-} // namespace mxnet
+} // namespace MX
 } // namespace horovod
 #endif
 

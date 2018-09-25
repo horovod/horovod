@@ -23,14 +23,27 @@ import re
 import math
 import mxnet as mx
 import time
+import horovod.mxnet as hvd
 
-def get_epoch_size(args, kv):
-    return math.ceil(int(args.num_examples / kv.num_workers) / args.batch_size)
+def get_epoch_size(args):
+    return math.ceil(int(args.num_examples / hvd.local_size()) / args.batch_size)
 
-def _get_lr_scheduler(args, kv):
+class LogValidationMetricsCallback(object):
+    """Just logs the eval metrics at the end of an epoch."""
+
+    def __call__(self, param):
+        if not param.eval_metric:
+            return
+        name_value = param.eval_metric.get_name_value()
+        for name, value in name_value:
+            val_array = mx.nd.array([value])
+            hvd.allreduce_(val_array)
+            logging.info('Epoch[%d] Validation-%s=%f', param.epoch, name, val_array.asscalar())
+
+def _get_lr_scheduler(args):
     if 'lr_factor' not in args or args.lr_factor >= 1:
         return (args.lr, None)
-    epoch_size = get_epoch_size(args, kv)
+    epoch_size = get_epoch_size(args)
     begin_epoch = args.load_epoch if args.load_epoch else 0
     if 'pow' in args.lr_step_epochs:
         lr = args.lr
@@ -146,27 +159,23 @@ def fit(args, network, data_loader, **kwargs):
     network : the symbol definition of the nerual network
     data_loader : function that returns the train and val data iterators
     """
-    # kvstore
-    kv = mx.kvstore.create(args.kv_store)
-    time.sleep(30)
-    if args.gc_type != 'none':
-        kv.set_gradient_compression({'type': args.gc_type,
-                                     'threshold': args.gc_threshold})
+    # initialize Horovod
+    hvd.init()
+    #time.sleep(30)
 
     # logging
-    head = '%(asctime)-15s Node[' + str(kv.rank) + '] %(message)s'
+    head = '%(asctime)-15s Node[' + str(hvd.rank()) + '] %(message)s'
     logging.basicConfig(level=logging.DEBUG, format=head)
     logging.info('start with arguments %s', args)
     
-    epoch_size = get_epoch_size(args, kv)
+    epoch_size = get_epoch_size(args)
 
     # data iterators
-    (train, val) = data_loader(args, kv)
-    if 'dist' in args.kv_store and not 'async' in args.kv_store:
-        logging.info('Resizing training data to %d batches per machine', epoch_size)
-        # resize train iter to ensure each machine has same number of batches per epoch
-        # if not, dist_sync can hang at the end with one machine waiting for other machines
-        train = mx.io.ResizeIter(train, epoch_size)
+    (train, val) = data_loader(args)
+    logging.info('Resizing training data to %d batches per machine', epoch_size)
+    # resize train iter to ensure each machine has same number of batches per epoch
+    # if not, dist_sync can hang at the end with one machine waiting for other machines
+    train = mx.io.ResizeIter(train, epoch_size)
 
     if args.test_io:
         tic = time.time()
@@ -190,19 +199,19 @@ def fit(args, network, data_loader, **kwargs):
         arg_params = kwargs['arg_params']
         aux_params = kwargs['aux_params']
     else:
-        sym, arg_params, aux_params = _load_model(args, kv.rank)
+        sym, arg_params, aux_params = _load_model(args, hvd.rank())
         if sym is not None:
             assert sym.tojson() == network.tojson()
 
     # save model
-    checkpoint = _save_model(args, kv.rank)
+    checkpoint = _save_model(args, hvd.rank())
 
     # devices for training
-    devs = mx.cpu() if args.gpus is None or args.gpus == "" else [
-        mx.gpu(int(i)) for i in args.gpus.split(',')]
+    local_rank = hvd.local_rank()
+    devs = mx.cpu() if args.gpus is None or args.gpus == "" else mx.gpu(local_rank)
 
     # learning rate
-    lr, lr_scheduler = _get_lr_scheduler(args, kv)
+    lr, lr_scheduler = _get_lr_scheduler(args)
 
     # create model
     model = mx.mod.Module(
@@ -228,7 +237,7 @@ def fit(args, network, data_loader, **kwargs):
     # A limited number of optimizers have a warmup period
     has_warmup = {'lbsgd', 'lbnag'}
     if args.optimizer in has_warmup:
-        nworkers = kv.num_workers
+        nworkers = hvd.size()
         if epoch_size < 1:
             epoch_size = 1
         macrobatch_size = args.macrobatch_size
@@ -243,6 +252,13 @@ def fit(args, network, data_loader, **kwargs):
         optimizer_params['warmup_strategy'] = args.warmup_strategy
         optimizer_params['warmup_epochs'] = args.warmup_epochs
         optimizer_params['num_epochs'] = args.num_epochs
+
+    # create optimizer
+    optimizer_params = dict(optimizer_params)
+    if 'rescale_grad' not in optimizer_params:
+        optimizer_params['rescale_grad'] = 1.0/args.batch_size
+    opt = mx.optimizer.create(args.optimizer, sym=network, **optimizer_params)
+    opt = hvd.DistributedOptimizer(opt)
 
     if args.initializer == 'default':
         if args.network == 'alexnet':
@@ -269,6 +285,14 @@ def fit(args, network, data_loader, **kwargs):
         initializer = mx.init.One()
     elif args.initializer == 'zero':
         initializer = mx.init.Zero()
+
+    # create initializer
+    model.bind(data_shapes=train.provide_data, label_shapes=train.provide_label)
+    model.init_params(initializer, arg_params=arg_params, aux_params=aux_params)
+    (arg_params, aux_params) = model.get_params(copy_to_cpu=False)
+    hvd.broadcast_parameters(arg_params, root_rank=0)
+    hvd.broadcast_parameters(aux_params, root_rank=0)
+    model.set_params(arg_params=arg_params, aux_params=aux_params)
 
     # evaluation metrices
     eval_metrics = ['accuracy']
@@ -300,19 +324,28 @@ def fit(args, network, data_loader, **kwargs):
         cbs = kwargs['batch_end_callback']
         batch_end_callbacks += cbs if isinstance(cbs, list) else [cbs]
 
+    #def acc_callback():
+    #    opt.
+
+    # callbacks that run after each epoch
+    eval_end_callbacks = [LogValidationMetricsCallback()]
+
     # run
     model.fit(train,
               begin_epoch=args.load_epoch if args.load_epoch else 0,
               num_epoch=args.num_epochs,
               eval_data=val,
               eval_metric=eval_metrics,
-              kvstore=kv,
-              optimizer=args.optimizer,
+              kvstore=None,
+              optimizer=opt,
               optimizer_params=optimizer_params,
-              initializer=initializer,
-              arg_params=arg_params,
-              aux_params=aux_params,
+              #initializer=initializer,
+              #arg_params=arg_params,
+              #aux_params=aux_params,
               batch_end_callback=batch_end_callbacks,
               epoch_end_callback=checkpoint,
+              eval_end_callback=eval_end_callbacks,
               allow_missing=True,
               monitor=monitor)
+
+    mx.ndarray.waitall()
