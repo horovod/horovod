@@ -275,7 +275,7 @@ def fit(args, network, data_loader, **kwargs):
     # create initializer
     model.bind(data_shapes=train.provide_data, label_shapes=train.provide_label)
     model.init_params(initializer, arg_params=arg_params, aux_params=aux_params)
-    (arg_params, aux_params) = model.get_params(copy_to_cpu=False, context=mx.gpu(hvd.local_rank()))
+    (arg_params, aux_params) = model.get_params(copy_to_cpu=False)#, context=mx.gpu(hvd.local_rank()))
     #hvd.synchronize()
     hvd.broadcast_parameters(arg_params, root_rank=0)
     hvd.broadcast_parameters(aux_params, root_rank=0)
@@ -312,8 +312,8 @@ def fit(args, network, data_loader, **kwargs):
         cbs = kwargs['batch_end_callback']
         batch_end_callbacks += cbs if isinstance(cbs, list) else [cbs]
 
-    def acc_callback():
-        opt.
+    #def acc_callback():
+    #    opt.
 
     # callbacks that run after each epoch
     epoch_end_callbacks = []
