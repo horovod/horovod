@@ -30,7 +30,6 @@ class MXTests(unittest.TestCase):
     Tests for ops in horovod.mxnet.
     """
 
-    @unittest.skip("")
     def test_horovod_allreduce(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
@@ -70,7 +69,6 @@ class MXTests(unittest.TestCase):
                 print("multiplied", hvd.rank(), multiplied)
             assert max_difference <= threshold, 'hvd.allreduce produces incorrect results'
 
-    @unittest.skip("")
     def test_horovod_allreduce_average(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
@@ -108,7 +106,6 @@ class MXTests(unittest.TestCase):
                 print("averaged", hvd.rank(), averaged)
             assert max_difference <= threshold, 'hvd.allreduce produces incorrect results for average'
     
-    @unittest.skip("")
     def test_horovod_allreduce_inplace(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
@@ -375,7 +372,6 @@ class MXTests(unittest.TestCase):
     #def test_horovod_allgather_grad(self):
         """Test the correctness of the allgather gradient."""
 
-    @unittest.skip("")
     def test_horovod_broadcast(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
         hvd.init()
@@ -418,7 +414,6 @@ class MXTests(unittest.TestCase):
             assert mx.nd.min(broadcast_tensor == root_tensor) == 1, \
                 'hvd.broadcast produces incorrect broadcasted tensor'
 
-    @unittest.skip("")
     def test_horovod_broadcast_inplace(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
         hvd.init()
