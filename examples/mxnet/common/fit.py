@@ -28,6 +28,18 @@ import horovod.mxnet as hvd
 def get_epoch_size(args):
     return math.ceil(int(args.num_examples / hvd.local_size()) / args.batch_size)
 
+class LogValidationMetricsCallback(object):
+    """Just logs the eval metrics at the end of an epoch."""
+
+    def __call__(self, param):
+        if not param.eval_metric:
+            return
+        name_value = param.eval_metric.get_name_value()
+        for name, value in name_value:
+            val_array = mx.nd.array([value])
+            hvd.allreduce_(val_array)
+            logging.info('Epoch[%d] Validation-%s=%f', param.epoch, name, val_array.asscalar())
+
 def _get_lr_scheduler(args):
     if 'lr_factor' not in args or args.lr_factor >= 1:
         return (args.lr, None)
@@ -316,7 +328,7 @@ def fit(args, network, data_loader, **kwargs):
     #    opt.
 
     # callbacks that run after each epoch
-    epoch_end_callbacks = []
+    eval_end_callbacks = [LogValidationMetricsCallback()]
 
     # run
     model.fit(train,
@@ -332,5 +344,8 @@ def fit(args, network, data_loader, **kwargs):
               #aux_params=aux_params,
               batch_end_callback=batch_end_callbacks,
               epoch_end_callback=checkpoint,
+              eval_end_callback=eval_end_callbacks,
               allow_missing=True,
               monitor=monitor)
+
+    mx.ndarray.waitall()
