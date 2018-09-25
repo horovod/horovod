@@ -31,13 +31,14 @@ An example script is: sudo PATH=/usr/local/bin:$PATH LD_LIBRARY_PATH=/lib/nccl/c
 # Running
 You can run the synthetic benchmark by doing (tested using OpenMPI 3.1.1 on AWS p3.16xlarge instances):
 
-```mpirun -np 8 --hostfile ~/host_file --bind-to none --map-by slot -x NCCL_DEBUG=INFO -x NCCL_MIN_NRINGS=4 -x LD_LIBRARY_PATH -x PATH -x MXNET_USE_OPERATOR_TUNING=0 -mca pml ob1 -mca btl ^openib python mxnet_imagenet_resnet50.py --benchmark 1 --batch-size=128 --network resnet-v1 --num-layers=50 --num-epochs 1 --kv-store horovod --dtype float32 --gpus 0```
+```mpirun -np 8 --hostfile ~/host_file --bind-to none --map-by slot -x NCCL_DEBUG=INFO -x NCCL_MIN_NRINGS=4 -x LD_LIBRARY_PATH -x PATH -x MXNET_USE_OPERATOR_TUNING=0 -mca pml ob1 -mca btl ^openib python mxnet_imagenet_resnet50.py --benchmark 1 --batch-size=128 --network resnet-v1 --num-layers=50 --num-epochs 1 --kv-store None --dtype float32 --gpus 0```
 
-Note the use of MXNET_USE_OPERATOR_TUNING=0 flag to disable OpenMP tuning. If this flag is not included, then starting up 8 MXNet processes will take upwards of 2 minutes. We find disabling this tuning does not affect performance.
+Note 1: KVStore must be set to None.
+Note 2: the use of MXNET_USE_OPERATOR_TUNING=0 flag to disable OpenMP tuning. If this flag is not included, then starting up 8 MXNet processes will take upwards of 2 minutes. We find disabling this tuning does not affect performance.
 
 To run on Imagenet data:
 
-```mpirun -np 8 --hostfile ~/host_file --bind-to none --map-by slot -x NCCL_DEBUG=INFO -x NCCL_MIN_NRINGS=4 -x LD_LIBRARY_PATH -x PATH -x MXNET_USE_OPERATOR_TUNING=0 -mca pml ob1 -mca btl ^openib python mxnet_imagenet_resnet50.py --batch-size=128 --network resnet-v1 --num-layers=50 --num-epochs 1 --kv-store horovod --dtype float32 --gpus 0 --data-nthreads 40```
+```mpirun -np 8 --hostfile ~/host_file --bind-to none --map-by slot -x NCCL_DEBUG=INFO -x NCCL_MIN_NRINGS=4 -x LD_LIBRARY_PATH -x PATH -x MXNET_USE_OPERATOR_TUNING=0 -mca pml ob1 -mca btl ^openib python mxnet_imagenet_resnet50.py --batch-size=128 --network resnet-v1 --num-layers=50 --num-epochs 1 --kv-store None --dtype float32 --gpus 0 --data-nthreads 4```
 
 # Testing
 The following Horovod unit tests do not pass:
