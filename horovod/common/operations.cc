@@ -1606,9 +1606,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.initialization_done = true;
 
   // Iterate until shutdown.
-  int count = 0;
   while (RunLoopOnce(state, is_coordinator)) {
-    count++;
   };
 
   // Signal that shutdown has been requested.
@@ -1648,7 +1646,12 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   MPI_Comm_free(&state.cross_comm);
   MPI_Type_free(&state.mpi_float16_t);
 
+#if HAVE_DDL
+  // ddl_finalize calls MPI_Finalize
+  ddl_finalize();
+#else
   MPI_Finalize();
+#endif
 }
 
 // The coordinator currently follows a master-worker paradigm. Rank zero acts

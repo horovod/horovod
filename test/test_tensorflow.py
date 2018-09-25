@@ -620,40 +620,44 @@ class MPITests(tf.test.TestCase):
             with self.assertRaises(tf.errors.FailedPreconditionError):
                 session.run(hvd.broadcast(tensor, rank))
 
-    def test_horovod_broadcast_grad(self):
-        """Test the correctness of the broadcast gradient."""
-        hvd.init()
-        rank = hvd.rank()
-        size = hvd.size()
+    def test_compression_fp16(self):
+        valid_dtypes = [tf.float16, tf.float32, tf.float64]
+        invalid_dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                          tf.int32, tf.int64, tf.bool]
 
-        # This test does not apply if there is only one worker.
-        if size == 1:
-            return
+        tensor_size = [17] * 3
+        compression = hvd.Compression.fp16
 
         with self.test_session(config=self.config) as session:
-            # As of TensorFlow v1.9, gradients are not supported on
-            # integer tensors
-            dtypes = [tf.float32, tf.float64]
-            dims = [1, 2, 3]
-            root_ranks = list(range(size))
-            for dtype, dim, root_rank in itertools.product(
-                    dtypes, dims, root_ranks):
-                tensor = tf.ones([5] * dim) * rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
-                tensor = tf.cast(tensor, dtype=dtype)
-                broadcasted_tensor = hvd.broadcast(tensor, root_rank)
+            for dtype in valid_dtypes:
+                tensor = tf.ones(tensor_size, dtype=dtype)
 
-                grad_ys = tf.ones([5] * dim)
-                grad = tf.gradients(broadcasted_tensor, tensor, grad_ys)[0]
-                grad_out = session.run(grad)
+                compressor = compression.get_compressor(dtype)
+                tensor_compressed = compressor.compress(tensor)
+                self.assertEqual(tensor_compressed.dtype, tf.float16)
 
-                c = size if rank == root_rank else 0
-                expected = np.ones([5] * dim) * c
-                err = np.linalg.norm(expected - grad_out)
-                self.assertLess(err, 0.00000001,
-                                "gradient %s differs from expected %s, "
-                                "error: %s" % (grad_out, expected, str(err)))
+                tensor_decompressed = compressor.decompress(tensor_compressed)
+                self.assertEqual(tensor_decompressed.dtype, dtype)
+
+                actual = session.run(tensor_decompressed)
+                expected = np.ones(tensor_size)
+                err = np.linalg.norm(expected - actual)
+                self.assertLess(err, 0.00000001)
+
+            for dtype in invalid_dtypes:
+                tensor = tf.ones(tensor_size, dtype=dtype)
+
+                compressor = compression.get_compressor(dtype)
+                tensor_compressed = compressor.compress(tensor)
+                self.assertEqual(tensor_compressed.dtype, dtype)
+
+                tensor_decompressed = compressor.decompress(tensor_compressed)
+                self.assertEqual(tensor_decompressed.dtype, dtype)
+
+                actual = session.run(tensor_decompressed)
+                expected = np.ones(tensor_size)
+                err = np.linalg.norm(expected - actual)
+                self.assertLess(err, 0.00000001)
 
     def test_compression_fp16(self):
         valid_dtypes = [tf.float16, tf.float32, tf.float64]

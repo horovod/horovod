@@ -161,3 +161,12 @@ class HorovodBasics(object):
             raise ValueError(
                 'Horovod has not been initialized; use hvd.init().')
         return synchronize
+
+    def synchronize(self):
+        """A function that synchronizes all MPI ranks.
+        """
+        synchronize = self.MPI_LIB_CTYPES.horovod_synchronize()
+        if synchronize == -1:
+            raise ValueError(
+                'Horovod has not been initialized; use hvd.init().')
+        return synchronize

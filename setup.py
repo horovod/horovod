@@ -380,6 +380,19 @@ def get_nccl_vals(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
 
     return nccl_include_dirs, nccl_lib_dirs, nccl_libs
 
+def get_ddl_dirs():
+    # Default DDL home
+    ddl_home = '/opt/DL/ddl'
+    ddl_include_dir = '%s/include' % ddl_home
+    ddl_lib_dir = '%s/lib' % ddl_home
+
+    if not os.path.exists(ddl_lib_dir):
+        raise DistutilsPlatformError('DDL lib was not found. Please, make sure \'ddl\' package is installed.')
+    if not os.path.exists(ddl_include_dir):
+        raise DistutilsPlatformError('DDL include was not found. Please, make sure \'ddl-dev\' package is installed.')
+
+    return [ddl_include_dir], [ddl_lib_dir]
+
 
 def get_ddl_dirs():
     # Default DDL home
