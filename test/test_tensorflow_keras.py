@@ -19,11 +19,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from tensorflow import keras
-from tensorflow.python.keras import backend as K
-
-import numpy as np
 import tensorflow as tf
+import numpy as np
+
+from distutils.version import LooseVersion
+if LooseVersion(tf.__version__) >= LooseVersion("1.4.0"):
+    from tensorflow import keras
+    from tensorflow.python.keras import backend as K
+else:
+    from tensorflow.contrib import keras
+    from tensorflow.contrib.keras import backend as K
 
 import horovod.tensorflow.keras as hvd
 
@@ -42,57 +47,31 @@ class TfKerasTests(tf.test.TestCase):
         with self.test_session() as sess:
             K.set_session(sess)
 
-            num_classes = 10
-
-            x = np.random.random((5, 10, 10))
-            y = np.random.random((5, 10))
-
-            x = x.astype(np.float32) / 255
-            x = np.expand_dims(x, -1)
-            y = tf.one_hot(y, num_classes)
-
-            dataset = tf.data.Dataset.from_tensor_slices((x, y))
-            dataset = dataset.repeat()
-            dataset = dataset.shuffle(1)
-            dataset = dataset.batch(1)
-            iterator = dataset.make_one_shot_iterator()
-
-            inputs, targets = iterator.get_next()
-            model_input = keras.layers.Input(tensor=inputs)
-
-            x = keras.layers.Conv2D(32, (3, 3),
-                                    activation='relu', padding='valid')(model_input)
-            x = keras.layers.MaxPooling2D(pool_size=(2, 2))(x)
-            x = keras.layers.Conv2D(64, (3, 3), activation='relu')(x)
-            x = keras.layers.MaxPooling2D(pool_size=(2, 2))(x)
-            x = keras.layers.Flatten()(x)
-            x = keras.layers.Dense(512, activation='relu')(x)
-            x = keras.layers.Dropout(0.5)(x)
-            model_output = keras.layers.Dense(num_classes,
-                                              activation='softmax',
-                                              name='x_train_out')(x)
-
-            train_model = keras.models.Model(inputs=model_input, outputs=model_output)
-
             opt = keras.optimizers.RMSprop(lr=0.0001)
             opt = hvd.DistributedOptimizer(opt)
 
             model = keras.models.Sequential()
             model.add(keras.layers.Dense(2, input_shape=(3,)))
             model.add(keras.layers.RepeatVector(3))
-            model.add(keras.layers.TimeDistributed(keras.layers.Dense(3)))
-            model.compile(loss=keras.losses.MSE,
+            model.add(keras.layers.ThresholdedReLU(0.5))
+            model.compile(loss=keras.losses.mean_squared_error,
                           optimizer=opt,
                           metrics=[keras.metrics.categorical_accuracy],
                           sample_weight_mode='temporal')
 
-            train_model.compile(optimizer=opt,
-                                loss='categorical_crossentropy',
-                                metrics=['accuracy'],
-                                target_tensors=[targets])
+            x = np.random.random((1, 3))
+            y = np.random.random((1, 3, 3))
 
-            # No assertions, we just need to verify that it doesn't raise an Exception
+            def generator():
+                while 1:
+                    yield (x, y)
+
+            # No assertions, we just need to verify that it doesn't hang
             callbacks = [hvd.callbacks.BroadcastGlobalVariablesCallback(0)]
-            train_model.fit(epochs=1,
-                            steps_per_epoch=10,
-                            callbacks=callbacks)
+            model.fit_generator(generator(),
+                                steps_per_epoch=10,
+                                callbacks=callbacks,
+                                epochs=0,
+                                verbose=0,
+                                workers=4,
+                                initial_epoch=1)
