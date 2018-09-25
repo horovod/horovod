@@ -255,6 +255,8 @@ def fit(args, network, data_loader, **kwargs):
 
     # create optimizer
     optimizer_params = dict(optimizer_params)
+    if 'rescale_grad' not in optimizer_params:
+        optimizer_params['rescale_grad'] = 1.0/args.batch_size
     opt = mx.optimizer.create(args.optimizer, sym=network, **optimizer_params)
     opt = hvd.DistributedOptimizer(opt)
 
