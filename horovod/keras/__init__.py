@@ -16,18 +16,42 @@
 import keras
 import keras.backend as K
 
+from horovod.tensorflow import init
+from horovod.tensorflow import shutdown
+from horovod.tensorflow import size
+from horovod.tensorflow import local_size
+from horovod.tensorflow import rank
+from horovod.tensorflow import local_rank
+from horovod.tensorflow import mpi_threads_supported
+
 from horovod.keras import callbacks, impl
 
 
-class _DistributedOptimizer(impl.DistributedOptimizerImpl, keras.optimizers.Optimizer):
+class _DistributedOptimizer(keras.optimizers.Optimizer):
     """
     This is an internal implementation class of Distributed Optimizer, not to be
     directly instantiated by end-users. See horovod.keras.DistributedOptimizer.
     """
 
     def __init__(self, name, device_dense, device_sparse, **kwargs):
-        impl.DistributedOptimizerImpl.__init__(self, name, device_dense, device_sparse)
-        keras.optimizers.Optimizer.__init__(self, **kwargs)
+        if name is None:
+            name = "Distributed%s" % self.__class__.__base__.__name__
+        self._name = name
+        self._device_dense = device_dense
+        self._device_sparse = device_sparse
+        super(self.__class__, self).__init__(**kwargs)
+
+    def get_gradients(self, loss, params):
+        """
+        Compute gradients of all trainable variables.
+
+        See Optimizer.get_gradients() for more info.
+
+        In DistributedOptimizer, get_gradients() is overriden to also
+        allreduce the gradients before returning them.
+        """
+        gradients = super(self.__class__, self).get_gradients(loss, params)
+        return impl.get_gradients(gradients, self._device_dense, self._device_sparse, self._name)
 
 
 def DistributedOptimizer(optimizer, name=None, device_dense='', device_sparse=''):

@@ -14,49 +14,23 @@
 # ==============================================================================
 
 import horovod.tensorflow as hvd
-from horovod.tensorflow import init
-from horovod.tensorflow import shutdown
-from horovod.tensorflow import size
-from horovod.tensorflow import local_size
-from horovod.tensorflow import rank
-from horovod.tensorflow import local_rank
-from horovod.tensorflow import mpi_threads_supported
-from horovod.keras import callbacks
-
 import tensorflow as tf
 
 
-class DistributedOptimizerImpl:
-    def __init__(self, name, device_dense, device_sparse, **kwargs):
-        if name is None:
-            name = "Distributed%s" % self.__class__.__base__.__name__
-        self._name = name
-        self._device_dense = device_dense
-        self._device_sparse = device_sparse
-
-    def get_gradients(self, loss, params):
-        """
-        Compute gradients of all trainable variables.
-
-        See Optimizer.get_gradients() for more info.
-
-        In DistributedOptimizer, get_gradients() is overriden to also
-        allreduce the gradients before returning them.
-        """
-        gradients = super(self.__class__, self).get_gradients(loss, params)
-        if hvd.size() > 1:
-            averaged_gradients = []
-            with tf.name_scope(self._name + "_Allreduce"):
-                for grad in gradients:
-                    if grad is not None:
-                        avg_grad = hvd.allreduce(grad, device_dense=self._device_dense,
-                                                 device_sparse=self._device_sparse)
-                        averaged_gradients.append(avg_grad)
-                    else:
-                        averaged_gradients.append(None)
-                return averaged_gradients
-        else:
-            return gradients
+def get_gradients(gradients, device_dense, device_sparse, name):
+    if hvd.size() > 1:
+        averaged_gradients = []
+        with tf.name_scope(name + "_Allreduce"):
+            for grad in gradients:
+                if grad is not None:
+                    avg_grad = hvd.allreduce(grad, device_dense=device_dense,
+                                             device_sparse=device_sparse)
+                    averaged_gradients.append(avg_grad)
+                else:
+                    averaged_gradients.append(None)
+            return averaged_gradients
+    else:
+        return gradients
 
 
 def broadcast_global_variables(backend, root_rank):
