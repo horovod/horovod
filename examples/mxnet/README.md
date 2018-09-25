@@ -47,3 +47,13 @@ The following Horovod unit tests do not pass:
 To run tests, we did:
 
 ```mpirun -np 8 --hostfile ~/host_file --bind-to none --map-by slot -x NCCL_DEBUG=INFO -x NCCL_MIN_NRINGS=4 -x LD_LIBRARY_PATH -x PATH -x MXNET_USE_OPERATOR_TUNING=0 -mca pml ob1 -mca btl ^openib python test_mxnet.py```
+
+# Troubleshooting
+Two common errors that happen are:
+1. `OSError: libmxnet.so: cannot open shared object file: No such file or directory`
+
+Solution: `export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/ubuntu/master/lib`
+
+2. `OSError: /home/ubuntu/horovod/horovod/mxnet/mpi_lib.cpython-36m-x86_64-linux-gnu.so: cannot open shared object file: No such file or directory`
+
+Solution: launch Python from another directory
