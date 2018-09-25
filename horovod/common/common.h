@@ -32,6 +32,8 @@ enum Framework { TENSORFLOW, PYTORCH, MXNET };
 
 enum StatusType { OK, UNKNOWN_ERROR, PRECONDITION_ERROR, ABORTED };
 
+enum DeviceType { CPU, GPU };
+
 class Status {
 public:
   Status();

@@ -42,7 +42,11 @@ TorchPersistentBuffer::TorchPersistentBuffer(int device, int64_t size)
     buffer_ = new char[size];
   } else {
 #if HAVE_CUDA
+#if TORCH_VERSION >= 4001000
+    buffer_ = THCudaMalloc(state, size);
+#else
     THCudaCheck(THCudaMalloc(state, (void**)&buffer_, size));
+#endif
 #else
     throw std::logic_error("Internal error. Requested TorchPersistentBuffer "
                            "with GPU device but not compiled with CUDA.");
@@ -55,14 +59,17 @@ TorchPersistentBuffer::AccessData(std::shared_ptr<OpContext> context) const {
   return buffer_;
 }
 
-template <class T> TorchTensor<T>::TorchTensor(T* tensor) : tensor_(tensor) {}
+template <MPIDataType DT, DeviceType Dev, class T>
+TorchTensor<DT, Dev, T>::TorchTensor(T* tensor) : tensor_(tensor) {}
 
-template <class T> const MPIDataType TorchTensor<T>::dtype() const {
-  return TensorUtil::GetDType<T>();
+template <MPIDataType DT, DeviceType Dev, class T>
+const MPIDataType TorchTensor<DT, Dev, T>::dtype() const {
+  return DT;
 }
 
-template <class T> const TensorShape TorchTensor<T>::shape() const {
-  auto shape = TensorUtil::GetShape(tensor_);
+template <MPIDataType DT, DeviceType Dev, class T>
+const TensorShape TorchTensor<DT, Dev, T>::shape() const {
+  auto shape = TensorUtil::GetShape<DT, Dev>(tensor_);
   if (shape.dims() == 0) {
     // Tensor with empty shape is a Tensor with no values in PyTorch, unlike a
     // constant in TensorFlow. So, we inject a dummy zero dimension to make sure
@@ -72,54 +79,60 @@ template <class T> const TensorShape TorchTensor<T>::shape() const {
   return shape;
 }
 
-template <class T> const void* TorchTensor<T>::data() const {
-  return TensorUtil::GetData(tensor_);
+template <MPIDataType DT, DeviceType Dev, class T>
+const void* TorchTensor<DT, Dev, T>::data() const {
+  return TensorUtil::GetData<DT, Dev>(tensor_);
 }
 
-template <class T> int64_t TorchTensor<T>::size() const {
-  return TensorUtil::GetSize(tensor_);
+template <MPIDataType DT, DeviceType Dev, class T>
+int64_t TorchTensor<DT, Dev, T>::size() const {
+  return TensorUtil::GetSize<DT, Dev>(tensor_);
 }
 
-template <class T>
-TorchTemporaryBuffer<T>::TorchTemporaryBuffer(int device)
-    : TorchTensor<T>(nullptr) {
-  this->tensor_ = TensorUtil::New<T>(device);
+template <MPIDataType DT, DeviceType Dev, class T>
+TorchTemporaryBuffer<DT, Dev, T>::TorchTemporaryBuffer(int device)
+    : TorchTensor<DT, Dev, T>(nullptr) {
+  this->tensor_ = TensorUtil::New<DT, Dev, T>(device);
 }
 
-template <class T> TorchTemporaryBuffer<T>::~TorchTemporaryBuffer() {
-  TensorUtil::Free(this->tensor_);
+template <MPIDataType DT, DeviceType Dev, class T>
+TorchTemporaryBuffer<DT, Dev, T>::~TorchTemporaryBuffer() {
+  TensorUtil::Free<DT, Dev>(this->tensor_);
 }
 
-template <class T> T* TorchTemporaryBuffer<T>::tensor() const {
+template <MPIDataType DT, DeviceType Dev, class T>
+T* TorchTemporaryBuffer<DT, Dev, T>::tensor() const {
   return this->tensor_;
 }
 
-template <class T>
-TorchOpContext<T>::TorchOpContext(int device, T* output)
+template <MPIDataType DT, DeviceType Dev, class T>
+TorchOpContext<DT, Dev, T>::TorchOpContext(int device, T* output)
     : device_(device), output_(output) {}
 
-template <class T>
-Status TorchOpContext<T>::AllocatePersistent(
+template <MPIDataType DT, DeviceType Dev, class T>
+Status TorchOpContext<DT, Dev, T>::AllocatePersistent(
     int64_t size, std::shared_ptr<PersistentBuffer>* tensor) {
   // Allocation errors are handled using PyTorch exceptions.
   *tensor = std::make_shared<TorchPersistentBuffer>(device_, size);
   return Status::OK();
 }
 
-template <class T>
-Status TorchOpContext<T>::AllocateOutput(TensorShape shape,
-                                         std::shared_ptr<Tensor>* tensor) {
+template <MPIDataType DT, DeviceType Dev, class T>
+Status
+TorchOpContext<DT, Dev, T>::AllocateOutput(TensorShape shape,
+                                           std::shared_ptr<Tensor>* tensor) {
   int64_t* shape_array = new int64_t[shape.dims()];
   for (int idx = 0; idx < shape.dims(); idx++) {
     shape_array[idx] = shape.dim_size(idx);
   }
-  TensorUtil::ResizeNd(output_, shape.dims(), shape_array, nullptr);
+  TensorUtil::ResizeNd<DT, Dev>(output_, shape.dims(), shape_array, nullptr);
   delete[] shape_array;
-  *tensor = std::make_shared<TorchTensor<T>>(output_);
+  *tensor = std::make_shared<TorchTensor<DT, Dev, T>>(output_);
   return Status::OK();
 }
 
-template <class T> Framework TorchOpContext<T>::framework() const {
+template <MPIDataType DT, DeviceType Dev, class T>
+Framework TorchOpContext<DT, Dev, T>::framework() const {
   return Framework::PYTORCH;
 }
 
@@ -136,22 +149,30 @@ void ThrowIfError(Status status) {
   }
 }
 
-ADAPTER_DEFINE_TYPE(THByteTensor)
-ADAPTER_DEFINE_TYPE(THCharTensor)
-ADAPTER_DEFINE_TYPE(THShortTensor)
-ADAPTER_DEFINE_TYPE(THIntTensor)
-ADAPTER_DEFINE_TYPE(THLongTensor)
-ADAPTER_DEFINE_TYPE(THFloatTensor)
-ADAPTER_DEFINE_TYPE(THDoubleTensor)
+ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_UINT8, DeviceType::CPU, THByteTensor)
+ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_INT8, DeviceType::CPU, THCharTensor)
+ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_INT16, DeviceType::CPU, THShortTensor)
+ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_INT32, DeviceType::CPU, THIntTensor)
+ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_INT64, DeviceType::CPU, THLongTensor)
+ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_FLOAT32, DeviceType::CPU,
+                    THFloatTensor)
+ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_FLOAT64, DeviceType::CPU,
+                    THDoubleTensor)
 
 #if HAVE_CUDA
-ADAPTER_DEFINE_TYPE(THCudaByteTensor)
-ADAPTER_DEFINE_TYPE(THCudaCharTensor)
-ADAPTER_DEFINE_TYPE(THCudaShortTensor)
-ADAPTER_DEFINE_TYPE(THCudaIntTensor)
-ADAPTER_DEFINE_TYPE(THCudaLongTensor)
-ADAPTER_DEFINE_TYPE(THCudaTensor)
-ADAPTER_DEFINE_TYPE(THCudaDoubleTensor)
+ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_UINT8, DeviceType::GPU,
+                    THCudaByteTensor)
+ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_INT8, DeviceType::GPU,
+                    THCudaCharTensor)
+ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_INT16, DeviceType::GPU,
+                    THCudaShortTensor)
+ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_INT32, DeviceType::GPU,
+                    THCudaIntTensor)
+ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_INT64, DeviceType::GPU,
+                    THCudaLongTensor)
+ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_FLOAT32, DeviceType::GPU, THCudaTensor)
+ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_FLOAT64, DeviceType::GPU,
+                    THCudaDoubleTensor)
 #endif
 
 } // namespace torch

@@ -39,5 +39,5 @@ workers were early and which were late.
 * *NCCL_ALLREDUCE*, *MPI_ALLREDUCE*, *MPI_ALLGATHER*, or *MPI_BCAST* indicate time taken to do the actual operation on GPU 
  (or CPU) and highlights whether the operation was performed using NCCL or pure MPI.
 
-* In case of `HOROVOD_HIERARCHICAL_ALLREDUCE=1`, *NCCL_ALLREDUCE* will become a sequence of *NCCL_REDUCE*,
- *MEMCPY_IN_HOST_BUFFER*, *MPI_ALLREDUCE*, *MEMCPY_OUT_HOST_BUFFER*, *NCCL_BCAST*.
+* In case of `HOROVOD_HIERARCHICAL_ALLREDUCE=1`, *NCCL_ALLREDUCE* will become a sequence or a subsequence of *NCCL_REDUCESCATTER*,
+*NCCL_REDUCE*, *MEMCPY_IN_HOST_BUFFER*, *MPI_ALLREDUCE*, *MEMCPY_OUT_HOST_BUFFER*, *NCCL_ALLGATHER*, *NCCL_BCAST*. 

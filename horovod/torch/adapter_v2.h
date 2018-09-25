@@ -13,8 +13,10 @@
 // limitations under the License.
 // =============================================================================
 
-#ifndef HOROVOD_TORCH_ADAPTER_H
-#define HOROVOD_TORCH_ADAPTER_H
+#ifndef HOROVOD_TORCH_ADAPTER_V2_H
+#define HOROVOD_TORCH_ADAPTER_V2_H
+
+#include <torch/torch.h>
 
 #include "../common/common.h"
 
@@ -31,34 +33,24 @@ public:
 
 private:
   int device_ = CPU_DEVICE_ID;
-  void* buffer_ = nullptr;
+  at::Tensor tensor_;
 };
 
-template <MPIDataType DT, DeviceType Dev, class T>
 class TorchTensor : public Tensor {
 public:
-  TorchTensor(T* tensor);
+  TorchTensor(at::Tensor tensor);
   virtual const MPIDataType dtype() const override;
   virtual const TensorShape shape() const override;
   virtual const void* data() const override;
   virtual int64_t size() const override;
 
 protected:
-  T* tensor_ = nullptr;
+  at::Tensor tensor_;
 };
 
-template <MPIDataType DT, DeviceType Dev, class T>
-class TorchTemporaryBuffer : public TorchTensor<DT, Dev, T> {
-public:
-  TorchTemporaryBuffer(int device);
-  ~TorchTemporaryBuffer();
-  virtual T* tensor() const;
-};
-
-template <MPIDataType DT, DeviceType Dev, class T>
 class TorchOpContext : public OpContext {
 public:
-  TorchOpContext(int device, T* output);
+  TorchOpContext(int device, at::Tensor output);
   virtual Status
   AllocatePersistent(int64_t size,
                      std::shared_ptr<PersistentBuffer>* tensor) override;
@@ -68,17 +60,12 @@ public:
 
 private:
   int device_ = CPU_DEVICE_ID;
-  T* output_ = nullptr;
+  at::Tensor output_;
 };
 
 void ThrowIfError(Status status);
 
-#define ADAPTER_DEFINE_TYPE(HorovodType, DeviceType, THTensor)                     \
-  template class TorchTensor<HorovodType, DeviceType, THTensor>;                   \
-  template class TorchTemporaryBuffer<HorovodType, DeviceType, THTensor>;          \
-  template class TorchOpContext<HorovodType, DeviceType, THTensor>;
-
 } // namespace torch
 } // namespace horovod
 
-#endif // HOROVOD_TORCH_ADAPTER_H
+#endif // HOROVOD_TORCH_ADAPTER_V2_H

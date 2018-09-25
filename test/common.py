@@ -20,8 +20,6 @@ from __future__ import print_function
 
 import os
 
-import horovod.common as hvd
-
 
 def mpi_env_rank_and_size():
     """Get MPI rank and size from environment variables and return them as a
@@ -56,19 +54,3 @@ def mpi_env_rank_and_size():
 
     # Default to rank zero and size one if there are no environment variables
     return 0, 1
-
-
-def test_horovod_rank():
-    """Test that the rank returned by hvd.rank() is correct."""
-    true_rank, _ = mpi_env_rank_and_size()
-    hvd.init()
-    rank = hvd.rank()
-    assert true_rank == rank
-
-
-def test_horovod_size():
-    """Test that the size returned by hvd.size() is correct."""
-    _, true_size = mpi_env_rank_and_size()
-    hvd.init()
-    size = hvd.size()
-    assert true_size == size

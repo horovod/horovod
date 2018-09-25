@@ -17,21 +17,22 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from horovod.common import init
-from horovod.common import size
-from horovod.common import local_size
-from horovod.common import rank
-from horovod.common import local_rank
-from horovod.common import mpi_threads_supported
 from horovod.common import check_extension
 
-check_extension('horovod.torch', 'HOROVOD_WITH_PYTORCH',
-                __file__, 'mpi_lib', '_mpi_lib')
+try:
+    check_extension('horovod.torch', 'HOROVOD_WITH_PYTORCH',
+                    __file__, 'mpi_lib_v2')
+except:
+    check_extension('horovod.torch', 'HOROVOD_WITH_PYTORCH',
+                    __file__, 'mpi_lib', '_mpi_lib')
 
 from horovod.torch.mpi_ops import allreduce, allreduce_async, allreduce_, allreduce_async_
 from horovod.torch.mpi_ops import allgather, allgather_async
 from horovod.torch.mpi_ops import broadcast, broadcast_async, broadcast_, broadcast_async_
 from horovod.torch.mpi_ops import poll, synchronize
+from horovod.torch.mpi_ops import init, shutdown
+from horovod.torch.mpi_ops import size, local_size, rank, local_rank
+from horovod.torch.mpi_ops import mpi_threads_supported
 
 import torch
 import collections
