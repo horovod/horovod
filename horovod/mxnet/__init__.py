@@ -24,11 +24,12 @@ from horovod.common import rank
 from horovod.common import local_rank
 from horovod.common import mpi_threads_supported
 from horovod.common import check_extension
+from horovod.common import synchronize
 
 from horovod.mxnet.mpi_ops import allreduce, allreduce_
 from horovod.mxnet.mpi_ops import allgather
 from horovod.mxnet.mpi_ops import broadcast, broadcast_
-from horovod.mxnet.mpi_ops import poll, synchronize
+#from horovod.mxnet.mpi_ops import poll, synchronize
 
 import mxnet as mx
 
@@ -81,6 +82,11 @@ def broadcast_parameters(params, root_rank=0):
         raise ValueError('invalid params of type: %s' % type(params))
 
     # Run broadcasts.
-    print("Begin broadcast!")
     for name, p in params:
+        if not isinstance(name, str):
+            if isinstance(name, int):
+                name = str(name)
+            else:
+                raise ValueError('invalid params of type: %s' % type(name))
         broadcast_(p, root_rank, name)
+        mx.ndarray.waitall()

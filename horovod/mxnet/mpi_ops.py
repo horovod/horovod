@@ -47,7 +47,7 @@ def _check_function(function_factory, tensor):
         raise ValueError('Tensor is required to be contiguous.')
     return function
 
-def allreduce(tensor, average=False, name=None):
+def allreduce(tensor, average=True, name=None):
     """
     A function that performs averaging or summation of the input tensor over all the
     Horovod processes. The input tensor is not modified.
@@ -84,7 +84,7 @@ def allreduce(tensor, average=False, name=None):
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), name))
     return output
 
-def allreduce_(tensor, average=False, name=None):
+def allreduce_(tensor, average=True, name=None):
     """
     A function that performs in-place averaging or summation of the input tensor over
     all the Horovod processes.

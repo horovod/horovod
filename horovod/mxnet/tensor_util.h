@@ -38,7 +38,7 @@ public:
   static int64_t GetSize(NDArray* tensor);
   static int GetDevice(NDArray* tensor);
 
-  static NDArray* New(int device);
+  static NDArray* New(int device, int dtype);
   static void Free(NDArray* tensor);
   static void ResizeNd(NDArray* tensor, int nDimension, int64_t* size);
   static void Copy(NDArray* output, NDArray* tensor);
