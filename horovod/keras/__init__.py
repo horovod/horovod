@@ -24,7 +24,8 @@ from horovod.tensorflow import rank
 from horovod.tensorflow import local_rank
 from horovod.tensorflow import mpi_threads_supported
 
-from horovod.keras import callbacks, impl
+from horovod.keras import callbacks
+from horovod.keras import impl as _impl
 
 
 class _DistributedOptimizer(keras.optimizers.Optimizer):
@@ -51,7 +52,7 @@ class _DistributedOptimizer(keras.optimizers.Optimizer):
         allreduce the gradients before returning them.
         """
         gradients = super(self.__class__, self).get_gradients(loss, params)
-        return impl.get_gradients(gradients, self._device_dense, self._device_sparse, self._name)
+        return _impl.get_gradients(gradients, self._device_dense, self._device_sparse, self._name)
 
 
 def DistributedOptimizer(optimizer, name=None, device_dense='', device_sparse=''):
@@ -85,7 +86,7 @@ def broadcast_global_variables(root_rank):
         root_rank: Rank of the process from which global variables will be broadcasted
                    to all other processes.
     """
-    return impl.broadcast_global_variables(K, root_rank)
+    return _impl.broadcast_global_variables(K, root_rank)
 
 
 def allreduce(value, name=None, average=True):
@@ -99,7 +100,7 @@ def allreduce(value, name=None, average=True):
         average: If True, computes the average over all ranks.
                  Otherwise, computes the sum over all ranks.
     """
-    return impl.allreduce(K, value, name, average)
+    return _impl.allreduce(K, value, name, average)
 
 
 def allgather(value, name=None):
@@ -114,7 +115,7 @@ def allgather(value, name=None):
         value: A tensor-compatible value to gather.
         name: Optional name prefix for the constants created by this operation.
     """
-    return impl.allgather(K, value, name)
+    return _impl.allgather(K, value, name)
 
 
 def broadcast(value, root_rank, name=None):
@@ -128,7 +129,7 @@ def broadcast(value, root_rank, name=None):
                    broadcasted to all other processes.
         name: Optional name for the constants created by this operation.
     """
-    return impl.broadcast(K, value, root_rank, name)
+    return _impl.broadcast(K, value, root_rank, name)
 
 
 def load_model(filepath, custom_optimizers=None, custom_objects=None):
@@ -161,4 +162,4 @@ def load_model(filepath, custom_optimizers=None, custom_objects=None):
     """
     def wrap_optimizer(cls):
         return lambda **kwargs: DistributedOptimizer(cls(**kwargs))
-    return impl.load_model(keras, wrap_optimizer, filepath, custom_optimizers, custom_objects)
+    return _impl.load_model(keras, wrap_optimizer, filepath, custom_optimizers, custom_objects)

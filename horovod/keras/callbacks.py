@@ -16,10 +16,10 @@
 import keras
 import keras.backend as K
 
-from horovod.keras import callbacks_impl as impl
+from horovod.keras import callbacks_impl as _impl
 
 
-class BroadcastGlobalVariablesCallback(impl.BroadcastGlobalVariablesCallbackImpl, keras.callbacks.Callback):
+class BroadcastGlobalVariablesCallback(_impl.BroadcastGlobalVariablesCallbackImpl, keras.callbacks.Callback):
     """
     Keras Callback that will broadcast all global variables from root rank
     to all other processes during initialization.
@@ -38,11 +38,11 @@ class BroadcastGlobalVariablesCallback(impl.BroadcastGlobalVariablesCallbackImpl
             device: Device to be used for broadcasting. Uses GPU by default
                     if Horovod was build with HOROVOD_GPU_BROADCAST.
         """
-        impl.BroadcastGlobalVariablesCallbackImpl.__init__(self, K, root_rank, device)
+        _impl.BroadcastGlobalVariablesCallbackImpl.__init__(self, K, root_rank, device)
         keras.callbacks.Callback.__init__(self)
 
 
-class MetricAverageCallback(impl.MetricAverageCallbackImpl, keras.callbacks.Callback):
+class MetricAverageCallback(_impl.MetricAverageCallbackImpl, keras.callbacks.Callback):
     """
     Keras Callback that will average metrics across all processes at the
     end of the epoch. Useful in conjuction with ReduceLROnPlateau,
@@ -61,11 +61,11 @@ class MetricAverageCallback(impl.MetricAverageCallbackImpl, keras.callbacks.Call
             device: Device to be used for allreduce. Uses GPU by default
                     if Horovod was build with HOROVOD_GPU_ALLREDUCE.
         """
-        impl.MetricAverageCallbackImpl.__init__(self, K, device)
+        _impl.MetricAverageCallbackImpl.__init__(self, K, device)
         keras.callbacks.Callback.__init__(self)
 
 
-class LearningRateScheduleCallback(impl.LearningRateScheduleCallbackImpl, keras.callbacks.Callback):
+class LearningRateScheduleCallback(_impl.LearningRateScheduleCallbackImpl, keras.callbacks.Callback):
     """
     LearningRateScheduleCallback sets learning rate between epochs `start_epoch` and
     `end_epoch` to be `initial_lr * multiplier`.  `multiplier` can be a constant or
@@ -102,12 +102,12 @@ class LearningRateScheduleCallback(impl.LearningRateScheduleCallbackImpl, keras.
                              epoch with Keras >= 2.0.0. Provide this value if you have an older
                              version of Keras.
         """
-        impl.LearningRateScheduleCallbackImpl.__init__(self, K, multiplier, start_epoch, end_epoch,
+        _impl.LearningRateScheduleCallbackImpl.__init__(self, K, multiplier, start_epoch, end_epoch,
                                                        staircase, momentum_correction, steps_per_epoch)
         keras.callbacks.Callback.__init__(self)
 
 
-class LearningRateWarmupCallback(impl.LearningRateWarmupCallbackImpl, keras.callbacks.Callback):
+class LearningRateWarmupCallback(_impl.LearningRateWarmupCallbackImpl, keras.callbacks.Callback):
     """
     Implements gradual learning rate warmup:
 
@@ -148,6 +148,6 @@ class LearningRateWarmupCallback(impl.LearningRateWarmupCallbackImpl, keras.call
                              version of Keras.
             verbose: verbosity mode, 0 or 1.
         """
-        impl.LearningRateWarmupCallbackImpl.__init__(self, K, warmup_epochs, momentum_correction,
+        _impl.LearningRateWarmupCallbackImpl.__init__(self, K, warmup_epochs, momentum_correction,
                                                      steps_per_epoch, verbose)
         keras.callbacks.Callback.__init__(self)
