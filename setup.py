@@ -229,8 +229,7 @@ def get_tf_flags(build_ext, cpp_flags):
         return compile_flags, link_flags
 
 
-def get_mx_flags(build_ext, cpp_flags):
-    import mxnet as mx
+def get_mx_flags(build_ext, cpp_flags, lib_dirs):
     compile_flags = []
     link_flags = []
     mx_lib_dirs = ['/home/ubuntu/master/lib']
@@ -493,6 +492,9 @@ def get_common_options(build_ext):
         MACROS += [('MSHADOW_USE_CBLAS', '1')]
         INCLUDES += ['%s' % mxnet_include_dirs]
 
+    if mxnet_library_dirs:
+        LIBRARY_DIRS += ['%s' % mxnet_library_dirs]
+
     if gpu_allreduce:
         MACROS += [('HOROVOD_GPU_ALLREDUCE', "'%s'" % gpu_allreduce[0])]
 
@@ -548,7 +550,7 @@ def parse_version(version_str):
 def build_mx_extension(build_ext, options):
     check_mx_version()
     mx_compile_flags, mx_link_flags = get_mx_flags(
-        build_ext, options['COMPILE_FLAGS'])
+        build_ext, options['COMPILE_FLAGS'], options['LIBRARY_DIRS'])
 
     mxnet_mpi_lib.define_macros = options['MACROS']
     mxnet_mpi_lib.include_dirs = options['INCLUDES']

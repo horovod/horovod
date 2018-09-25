@@ -26,7 +26,19 @@ from mxnet.base import c_str_array, c_handle_array, c_array, c_array_buf, c_str
 from mxnet.base import check_call, string_types, mx_uint, py_str, string_types
 
 from horovod.common import get_ext_suffix
-from horovod.mxnet import rank, size
+from horovod.common import HorovodBasics as _HorovodBasics
+_basics = _HorovodBasics(__file__, 'mpi_lib')
+
+# import basic methods
+init = _basics.init
+shutdown = _basics.shutdown
+size = _basics.size
+local_size = _basics.local_size
+rank = _basics.rank
+local_rank = _basics.local_rank
+mpi_threads_supported = _basics.mpi_threads_supported
+
+
 
 # TODO (@ctcyang):
 # Used for synchronize and poll support
