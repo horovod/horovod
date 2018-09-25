@@ -29,13 +29,13 @@
 # Running
 You can run the synthetic benchmark by doing (tested using OpenMPI 3.1.1 on AWS p3.16xlarge instances):
 
-```mpirun -np 8 --hostfile ~/host_file --bind-to none --map-by slot -x NCCL_DEBUG=INFO -x NCCL_MIN_NRINGS=4 -x LD_LIBRARY_PATH -x PATH -x MXNET_USE_OPERATOR_TUNING=0 -mca pml ob1 -mca btl ^openib python mxnet_imagenet_resnet50.py --benchmark 1 --batch-size 128 --network resnet-v1 --num-layers 50 --num-epochs 1 --kv-store horovod --dtype float32 --gpus 0```
+```mpirun -np 8 --hostfile ~/host_file --bind-to none --map-by slot -x NCCL_DEBUG=INFO -x NCCL_MIN_NRINGS=4 -x LD_LIBRARY_PATH -x PATH -x MXNET_USE_OPERATOR_TUNING=0 -mca pml ob1 -mca btl ^openib python mxnet_imagenet_resnet50.py --benchmark 1 --batch-size=128 --network resnet-v1 --num-layers=50 --num-epochs 1 --kv-store horovod --dtype float32 --gpus 0```
 
 Note the use of MXNET_USE_OPERATOR_TUNING=0 flag to disable OpenMP tuning. If this flag is not included, then starting up 8 MXNet processes will take upwards of 2 minutes. We find disabling this tuning does not affect performance.
 
 To run on Imagenet data:
 
-```mpirun -np 8 --hostfile ~/host_file --bind-to none --map-by slot -x NCCL_DEBUG=INFO -x NCCL_MIN_NRINGS=4 -x LD_LIBRARY_PATH -x PATH -x MXNET_USE_OPERATOR_TUNING=0 -mca pml ob1 -mca btl ^openib python mxnet_imagenet_resnet50.py --batch-size 128 --network resnet-v1 --num-layers 50 --num-epochs 1 --kv-store horovod --dtype float32 --gpus 0 --data-nthreads 4```
+```mpirun -np 8 --hostfile ~/host_file --bind-to none --map-by slot -x NCCL_DEBUG=INFO -x NCCL_MIN_NRINGS=4 -x LD_LIBRARY_PATH -x PATH -x MXNET_USE_OPERATOR_TUNING=0 -mca pml ob1 -mca btl ^openib python mxnet_imagenet_resnet50.py --batch-size=128 --network resnet-v1 --num-layers=50 --num-epochs 1 --kv-store horovod --dtype float32 --gpus 0 --data-nthreads 40```
 
 # Testing
 The following Horovod unit tests do not pass:
@@ -49,4 +49,3 @@ To run tests, we did:
 # fp16 support
 My latest branch that supports fp32 and fp16 is mxnet_fp16_divide_before_sum
   * however despite the name, the Horovod-MXNet prototype does not divide before summing. The division step has been left out, because MXNet is accustomed to do the division by effective batch size in Optimizer after Allreduce has been done.
-

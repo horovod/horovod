@@ -572,6 +572,30 @@ def build_mx_extension(build_ext, options):
     # to compile all the libraries.
     return [flag for flag in mx_compile_flags if '_GLIBCXX_USE_CXX11_ABI' in flag]
 
+def build_mx_extension(build_ext, options):
+    check_mx_version()
+    mx_compile_flags, mx_link_flags = get_mx_flags(
+        build_ext, options['COMPILE_FLAGS'])
+
+    mxnet_mpi_lib.define_macros = options['MACROS']
+    mxnet_mpi_lib.include_dirs = options['INCLUDES']
+    mxnet_mpi_lib.sources = options['SOURCES'] + \
+        ['horovod/mxnet/mpi_ops.cc',
+         'horovod/mxnet/handle_manager.cc',
+         'horovod/mxnet/ready_event.cc',
+         'horovod/mxnet/tensor_util.cc',
+         'horovod/mxnet/cuda_util.cc',
+         'horovod/mxnet/adapter.cc']
+    mxnet_mpi_lib.extra_compile_args = options['COMPILE_FLAGS'] + \
+        mx_compile_flags
+    mxnet_mpi_lib.extra_link_args = options['LINK_FLAGS'] + mx_link_flags
+
+    build_ext.build_extension(mxnet_mpi_lib)
+
+    # Return ABI flags used for MXNet compilation.  We will use this flag
+    # to compile all the libraries.
+    return [flag for flag in mx_compile_flags if '_GLIBCXX_USE_CXX11_ABI' in flag]
+
 def dummy_import_torch():
     try:
         import torch

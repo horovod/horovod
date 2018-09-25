@@ -870,8 +870,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     }
 #endif
 
-// 'N' stands for NCCL and 'D' for DDL
-#if HOROVOD_GPU_ALLREDUCE == 'N' || HOROVOD_GPU_ALLREDUCE == 'D'
+#if HOROVOD_GPU_ALLREDUCE=='N' || HOROVOD_GPU_ALLREDUCE=='D'// 'N' stands for NCCL
     if (on_gpu) {
       auto stream = horovod_global.streams[first_entry.device];
       auto event_queue = std::queue<std::pair<std::string, cudaEvent_t>>();
@@ -886,7 +885,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         nccl_device_map = response.devices();
       }
 
-#if HOROVOD_GPU_ALLREDUCE == 'N'
+#if HOROVOD_GPU_ALLREDUCE=='N'
       // Ensure NCCL communicator is in the map before executing reduction.
       ncclComm_t& nccl_comm = horovod_global.nccl_comms[nccl_device_map];
       if (nccl_comm == nullptr) {
