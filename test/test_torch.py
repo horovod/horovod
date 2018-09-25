@@ -263,22 +263,8 @@ class TorchTests(unittest.TestCase):
 
         # Same number of elements, different rank
         torch.manual_seed(1234)
-        tensor = torch.FloatTensor(*([17] * dim)).random_(-100, 100)
-        tensor = tensor.type(dtype)
-        averaged = hvd.allreduce(tensor, average=True)
-        max_difference = averaged.sub(tensor).max()
-
-        # Threshold for floating point equality depends on number of
-        # ranks, since we're comparing against precise multiplication.
-        if dtype in [torch.IntTensor, torch.LongTensor,
-                     torch.cuda.IntTensor, torch.cuda.LongTensor]:
-            threshold = hvd.size()
-        elif size <= 3:
-            threshold = 0
-        elif size < 10:
-            threshold = 1e-4
-        elif size < 15:
-            threshold = 5e-4
+        if rank == 0:
+            dims = [17, 23 * 57]
         else:
             dims = [17, 23, 57]
         tensor = torch.FloatTensor(*dims).random_(-100, 100)
