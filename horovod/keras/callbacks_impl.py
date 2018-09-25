@@ -17,8 +17,9 @@ import horovod.tensorflow as hvd
 import tensorflow as tf
 
 
-class BroadcastGlobalVariablesCallbackImpl:
-    def __init__(self, backend, root_rank, device=''):
+class BroadcastGlobalVariablesCallbackImpl(object):
+    def __init__(self, backend, root_rank, device='', *args):
+        super(BroadcastGlobalVariablesCallbackImpl, self).__init__(*args)
         self.backend = backend
         self.root_rank = root_rank
         self.device = device
@@ -29,8 +30,9 @@ class BroadcastGlobalVariablesCallbackImpl:
             self.backend.get_session().run(bcast_op)
 
 
-class MetricAverageCallbackImpl:
-    def __init__(self, backend, device=''):
+class MetricAverageCallbackImpl(object):
+    def __init__(self, backend, device='', *args):
+        super(MetricAverageCallbackImpl, self).__init__(*args)
         self.backend = backend
         self.variables = {}
         self.allreduce_ops = {}
@@ -65,9 +67,10 @@ class MetricAverageCallbackImpl:
         self._average_metrics_in_place(logs)
 
 
-class LearningRateScheduleCallbackImpl:
+class LearningRateScheduleCallbackImpl(object):
     def __init__(self, backend, multiplier, start_epoch=0, end_epoch=None, staircase=True,
-                 momentum_correction=True, steps_per_epoch=None):
+                 momentum_correction=True, steps_per_epoch=None, *args):
+        super(LearningRateScheduleCallbackImpl, self).__init__(*args)
         self.backend = backend
         self.start_epoch = start_epoch
         self.end_epoch = end_epoch
@@ -145,16 +148,16 @@ class LearningRateScheduleCallbackImpl:
 
 class LearningRateWarmupCallbackImpl(LearningRateScheduleCallbackImpl):
     def __init__(self, backend, warmup_epochs=5, momentum_correction=True, steps_per_epoch=None,
-                 verbose=0):
+                 verbose=0, *args):
         def multiplier(epoch):
             # Adjust epoch to produce round numbers at the end of each epoch, so that TensorBoard
             # learning rate graphs look better.
             epoch += 1. / self.steps_per_epoch
             return 1. / hvd.size() * (epoch * (hvd.size() - 1) / warmup_epochs + 1)
-        self.verbose = verbose
         super(LearningRateWarmupCallbackImpl, self).__init__(
             backend, multiplier, start_epoch=0, end_epoch=warmup_epochs, staircase=False,
-            momentum_correction=momentum_correction, steps_per_epoch=steps_per_epoch)
+            momentum_correction=momentum_correction, steps_per_epoch=steps_per_epoch, *args)
+        self.verbose = verbose
 
     def on_epoch_end(self, epoch, logs=None):
         super(LearningRateWarmupCallbackImpl, self).on_epoch_end(epoch, logs)

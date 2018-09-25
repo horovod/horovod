@@ -38,8 +38,7 @@ class BroadcastGlobalVariablesCallback(_impl.BroadcastGlobalVariablesCallbackImp
             device: Device to be used for broadcasting. Uses GPU by default
                     if Horovod was build with HOROVOD_GPU_BROADCAST.
         """
-        _impl.BroadcastGlobalVariablesCallbackImpl.__init__(self, K, root_rank, device)
-        keras.callbacks.Callback.__init__(self)
+        super(BroadcastGlobalVariablesCallback, self).__init__(K, root_rank, device)
 
 
 class MetricAverageCallback(_impl.MetricAverageCallbackImpl, keras.callbacks.Callback):
@@ -61,8 +60,7 @@ class MetricAverageCallback(_impl.MetricAverageCallbackImpl, keras.callbacks.Cal
             device: Device to be used for allreduce. Uses GPU by default
                     if Horovod was build with HOROVOD_GPU_ALLREDUCE.
         """
-        _impl.MetricAverageCallbackImpl.__init__(self, K, device)
-        keras.callbacks.Callback.__init__(self)
+        super(MetricAverageCallback, self).__init__(K, device)
 
 
 class LearningRateScheduleCallback(_impl.LearningRateScheduleCallbackImpl, keras.callbacks.Callback):
@@ -102,9 +100,8 @@ class LearningRateScheduleCallback(_impl.LearningRateScheduleCallbackImpl, keras
                              epoch with Keras >= 2.0.0. Provide this value if you have an older
                              version of Keras.
         """
-        _impl.LearningRateScheduleCallbackImpl.__init__(self, K, multiplier, start_epoch, end_epoch,
-                                                       staircase, momentum_correction, steps_per_epoch)
-        keras.callbacks.Callback.__init__(self)
+        super(LearningRateScheduleCallback, self).__init__(K, multiplier, start_epoch, end_epoch,
+                                                           staircase, momentum_correction, steps_per_epoch)
 
 
 class LearningRateWarmupCallback(_impl.LearningRateWarmupCallbackImpl, keras.callbacks.Callback):
@@ -148,6 +145,5 @@ class LearningRateWarmupCallback(_impl.LearningRateWarmupCallbackImpl, keras.cal
                              version of Keras.
             verbose: verbosity mode, 0 or 1.
         """
-        _impl.LearningRateWarmupCallbackImpl.__init__(self, K, warmup_epochs, momentum_correction,
-                                                     steps_per_epoch, verbose)
-        keras.callbacks.Callback.__init__(self)
+        super(LearningRateWarmupCallback, self).__init__(K, warmup_epochs, momentum_correction,
+                                                         steps_per_epoch, verbose)
