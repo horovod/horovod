@@ -115,7 +115,7 @@ public:
   OpKernelContext* GetKernelContext() const;
 
 private:
-  OpKernelContext* context_ = nullptr;
+  OpKernelContext* context_;
 };
 
 #if HAVE_CUDA

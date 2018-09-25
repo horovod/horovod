@@ -22,6 +22,7 @@
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
+#include <mxnet/base.h>
 
 #if HAVE_CUDA
 #include <cuda_runtime.h>
@@ -181,6 +182,9 @@ struct HorovodGlobalState {
 
   // COMM_WORLD ranks of processes running on this node.
   std::vector<int> local_comm_ranks;
+
+  // MPI custom data type for float16.
+  MPI_Datatype mpi_float16_t;
 
   // Private MPI communicator for Horovod to ensure no collisions with other
   // threads using MPI.
@@ -520,6 +524,8 @@ MPI_Datatype GetMPIDataType(const std::shared_ptr<Tensor> tensor) {
     return MPI_INT32_T;
   case HOROVOD_INT64:
     return MPI_INT64_T;
+  case HOROVOD_FLOAT16:
+    return horovod_global.mpi_float16_t;
   case HOROVOD_FLOAT32:
     return MPI_FLOAT;
   case HOROVOD_FLOAT64:
@@ -539,6 +545,8 @@ ncclDataType_t GetNCCLDataType(const std::shared_ptr<Tensor> tensor) {
     return ncclInt32;
   case HOROVOD_INT64:
     return ncclInt64;
+  case HOROVOD_FLOAT16:
+    return ncclFloat16;
   case HOROVOD_FLOAT32:
     return ncclFloat32;
   case HOROVOD_FLOAT64:
@@ -843,6 +851,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
   } else if (response.response_type() == MPIResponse::ALLREDUCE) {
     auto& first_entry = entries[0];
+
 #if HAVE_CUDA
     bool on_gpu = first_entry.device != CPU_DEVICE_ID;
     if (on_gpu) {
@@ -861,8 +870,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     }
 #endif
 
-// 'N' stands for NCCL and 'D' for DDL
-#if HOROVOD_GPU_ALLREDUCE == 'N' || HOROVOD_GPU_ALLREDUCE == 'D'
+#if HOROVOD_GPU_ALLREDUCE=='N' || HOROVOD_GPU_ALLREDUCE=='D'// 'N' stands for NCCL
     if (on_gpu) {
       auto stream = horovod_global.streams[first_entry.device];
       auto event_queue = std::queue<std::pair<std::string, cudaEvent_t>>();
@@ -877,7 +885,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         nccl_device_map = response.devices();
       }
 
-#if HOROVOD_GPU_ALLREDUCE == 'N'
+#if HOROVOD_GPU_ALLREDUCE=='N'
       // Ensure NCCL communicator is in the map before executing reduction.
       ncclComm_t& nccl_comm = horovod_global.nccl_comms[nccl_device_map];
       if (nccl_comm == nullptr) {
@@ -1190,6 +1198,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       // Use completion marker via event because it's faster than
       // blocking cudaStreamSynchronize() in this thread.
       RECORD_EVENT(entries, event_queue, "", stream)
+      
 
       // TODO: use thread pool or single thread for callbacks
       std::thread finalizer_thread([entries, first_entry, host_buffer, response,
@@ -1309,25 +1318,26 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     }
   } else if (response.response_type() == MPIResponse::BROADCAST) {
     assert(entries.size() == 1);
-    auto e = entries[0];
+    auto first_entry = entries[0];
 
     // On root rank, MPI_Bcast sends data, on other ranks it receives data.
     void* data_ptr;
-    if (horovod_global.rank == e.root_rank) {
-      data_ptr = (void*)e.tensor->data();
+    if (horovod_global.rank == first_entry.root_rank) {
+      data_ptr = (void*)first_entry.tensor->data();
     } else {
-      data_ptr = (void*)e.output->data();
+      data_ptr = (void*)first_entry.output->data();
     }
 
     ACTIVITY_START_ALL(entries, timeline, MPI_BCAST)
+
     MPI_CHECK(entries, "MPI_Bcast",
-              MPI_Bcast(data_ptr, (int)e.tensor->shape().num_elements(),
-                        GetMPIDataType(e.tensor), e.root_rank,
+              MPI_Bcast(data_ptr, (int)first_entry.tensor->shape().num_elements(),
+                        GetMPIDataType(first_entry.tensor), first_entry.root_rank,
                         horovod_global.mpi_comm))
     ACTIVITY_END_ALL(entries, timeline)
 
-    timeline.End(e.tensor_name, e.output);
-    e.callback(Status::OK());
+    timeline.End(first_entry.tensor_name, first_entry.output);
+    first_entry.callback(Status::OK());
   } else if (response.response_type() == MPIResponse::ERROR) {
     assert(entries.size() == 1);
     auto e = entries[0];
@@ -1508,6 +1518,11 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   MPI_Comm_rank(cross_comm, &cross_rank);
   MPI_Comm_size(cross_comm, &cross_size);
 
+  // Create custom MPI float16 data type.
+  MPI_Datatype mpi_float16_t;
+  MPI_Type_contiguous(2, MPI_BYTE, &mpi_float16_t);
+  MPI_Type_commit(&mpi_float16_t);
+
   state.rank = rank;
   state.local_rank = local_rank;
   state.cross_rank = cross_rank;
@@ -1516,6 +1531,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.cross_size = cross_size;
   state.local_comm = local_comm;
   state.cross_comm = cross_comm;
+  state.mpi_float16_t = mpi_float16_t;
   state.mpi_threads_supported = (provided == MPI_THREAD_MULTIPLE);
   state.local_comm_ranks = local_comm_ranks;
 
@@ -1589,8 +1605,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.initialization_done = true;
 
   // Iterate until shutdown.
-  while (RunLoopOnce(state, is_coordinator))
-    ;
+  while (RunLoopOnce(state, is_coordinator)) {};
 
   // TODO: init.cu:645 WARN Cuda failure 'driver shutting down'
   //#if HAVE_NCCL
@@ -1971,6 +1986,13 @@ int horovod_mpi_threads_supported() {
     return -1;
   }
   return horovod_global.mpi_threads_supported ? 1 : 0;
+}
+
+int horovod_synchronize() {
+  if (!horovod_global.initialization_done) {
+    return -1;
+  }
+  return MPI_Barrier(horovod_global.mpi_comm);
 }
 }
 

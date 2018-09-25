@@ -40,9 +40,10 @@ enum MPIDataType {
   MPIDataType_HOROVOD_INT16 = 3,
   MPIDataType_HOROVOD_INT32 = 4,
   MPIDataType_HOROVOD_INT64 = 5,
-  MPIDataType_HOROVOD_FLOAT32 = 6,
-  MPIDataType_HOROVOD_FLOAT64 = 7,
-  MPIDataType_HOROVOD_BOOL = 8,
+  MPIDataType_HOROVOD_FLOAT16 = 6,
+  MPIDataType_HOROVOD_FLOAT32 = 7,
+  MPIDataType_HOROVOD_FLOAT64 = 8,
+  MPIDataType_HOROVOD_BOOL = 9,
   MPIDataType_MIN = MPIDataType_HOROVOD_UINT8,
   MPIDataType_MAX = MPIDataType_HOROVOD_BOOL
 };
@@ -55,6 +56,7 @@ inline const char **EnumNamesMPIDataType() {
     "HOROVOD_INT16",
     "HOROVOD_INT32",
     "HOROVOD_INT64",
+    "HOROVOD_FLOAT16",
     "HOROVOD_FLOAT32",
     "HOROVOD_FLOAT64",
     "HOROVOD_BOOL",
