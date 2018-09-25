@@ -17,20 +17,47 @@ import horovod.tensorflow as hvd
 import tensorflow as tf
 
 
-def get_gradients(gradients, device_dense, device_sparse, name):
-    if hvd.size() > 1:
-        averaged_gradients = []
-        with tf.name_scope(name + "_Allreduce"):
-            for grad in gradients:
-                if grad is not None:
-                    avg_grad = hvd.allreduce(grad, device_dense=device_dense,
-                                             device_sparse=device_sparse)
-                    averaged_gradients.append(avg_grad)
-                else:
-                    averaged_gradients.append(None)
-            return averaged_gradients
-    else:
-        return gradients
+def create_distributed_optimizer(keras, optimizer, name=None, device_dense='', device_sparse=''):
+    class _DistributedOptimizer(keras.optimizers.Optimizer):
+        def __init__(self, name, device_dense, device_sparse, **kwargs):
+            if name is None:
+                name = "Distributed%s" % self.__class__.__base__.__name__
+            self._name = name
+            self._device_dense = device_dense
+            self._device_sparse = device_sparse
+            super(self.__class__, self).__init__(**kwargs)
+
+        def get_gradients(self, loss, params):
+            """
+            Compute gradients of all trainable variables.
+
+            See Optimizer.get_gradients() for more info.
+
+            In DistributedOptimizer, get_gradients() is overriden to also
+            allreduce the gradients before returning them.
+            """
+            gradients = super(self.__class__, self).get_gradients(loss, params)
+            if hvd.size() > 1:
+                averaged_gradients = []
+                with tf.name_scope(self._name + "_Allreduce"):
+                    for grad in gradients:
+                        if grad is not None:
+                            avg_grad = hvd.allreduce(grad, device_dense=self._device_dense,
+                                                     device_sparse=self._device_sparse)
+                            averaged_gradients.append(avg_grad)
+                        else:
+                            averaged_gradients.append(None)
+                    return averaged_gradients
+            else:
+                return gradients
+
+    # We dynamically create a new class that inherits from the optimizer that was passed in.
+    # The goal is to override get_gradients() method with an allreduce implementation.
+    # This class will have the same name as the optimizer it's wrapping, so that the saved
+    # model could be easily restored without Horovod.
+    cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
+               dict(_DistributedOptimizer.__dict__))
+    return cls(name, device_dense, device_sparse, **optimizer.get_config())
 
 
 def broadcast_global_variables(backend, root_rank):

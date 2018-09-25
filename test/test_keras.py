@@ -70,7 +70,7 @@ class KerasTests(tf.test.TestCase):
             new_opt = new_model.optimizer
             os.remove(fname)
 
-            self.assertEqual(type(new_opt).__module__, 'horovod.keras')
+            self.assertEqual(type(new_opt).__module__, 'horovod.keras.impl')
             self.assertEqual(type(new_opt).__name__, 'RMSprop')
             self.assertEqual(K.get_value(opt.lr), K.get_value(new_opt.lr))
             self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))
@@ -113,7 +113,7 @@ class KerasTests(tf.test.TestCase):
             new_opt = new_model.optimizer
             os.remove(fname)
 
-            self.assertEqual(type(new_opt).__module__, 'horovod.keras')
+            self.assertEqual(type(new_opt).__module__, 'horovod.keras.impl')
             self.assertEqual(type(new_opt).__name__, 'TestOptimizer')
             self.assertEqual(K.get_value(opt.lr), K.get_value(new_opt.lr))
             self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))
@@ -159,7 +159,7 @@ class KerasTests(tf.test.TestCase):
             new_opt = new_model.optimizer
             os.remove(fname)
 
-            self.assertEqual(type(new_opt).__module__, 'horovod.keras')
+            self.assertEqual(type(new_opt).__module__, 'horovod.keras.impl')
             self.assertEqual(type(new_opt).__name__, 'TestOptimizer')
             self.assertEqual(K.get_value(opt.lr), K.get_value(new_opt.lr))
             self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))

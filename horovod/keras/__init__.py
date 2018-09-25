@@ -28,33 +28,6 @@ from horovod.keras import callbacks
 from horovod.keras import impl as _impl
 
 
-class _DistributedOptimizer(keras.optimizers.Optimizer):
-    """
-    This is an internal implementation class of Distributed Optimizer, not to be
-    directly instantiated by end-users. See horovod.keras.DistributedOptimizer.
-    """
-
-    def __init__(self, name, device_dense, device_sparse, **kwargs):
-        if name is None:
-            name = "Distributed%s" % self.__class__.__base__.__name__
-        self._name = name
-        self._device_dense = device_dense
-        self._device_sparse = device_sparse
-        super(self.__class__, self).__init__(**kwargs)
-
-    def get_gradients(self, loss, params):
-        """
-        Compute gradients of all trainable variables.
-
-        See Optimizer.get_gradients() for more info.
-
-        In DistributedOptimizer, get_gradients() is overriden to also
-        allreduce the gradients before returning them.
-        """
-        gradients = super(self.__class__, self).get_gradients(loss, params)
-        return _impl.get_gradients(gradients, self._device_dense, self._device_sparse, self._name)
-
-
 def DistributedOptimizer(optimizer, name=None, device_dense='', device_sparse=''):
     """
     An optimizer that wraps another keras.optimizers.Optimizer, using an allreduce to
@@ -70,13 +43,7 @@ def DistributedOptimizer(optimizer, name=None, device_dense='', device_sparse=''
         device_sparse: Device to be used for sparse tensors. Uses GPU by default
                        if Horovod was build with HOROVOD_GPU_ALLGATHER.
     """
-    # We dynamically create a new class that inherits from the optimizer that was passed in.
-    # The goal is to override get_gradients() method with an allreduce implementation.
-    # This class will have the same name as the optimizer it's wrapping, so that the saved
-    # model could be easily restored without Horovod.
-    cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
-               dict(_DistributedOptimizer.__dict__))
-    return cls(name, device_dense, device_sparse, **optimizer.get_config())
+    return _impl.create_distributed_optimizer(keras, optimizer, name, device_dense, device_sparse)
 
 
 def broadcast_global_variables(root_rank):
