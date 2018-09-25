@@ -24,7 +24,9 @@
 # Building Horovod
 1) git clone https://github.com/ctcyang/horovod.git -b mxnet_feature horovod
 2) cd horovod
-3) sudo PATH=/usr/local/bin:$PATH LD_LIBRARY_PATH=/lib/nccl/cuda-9.0/lib/:/usr/local/cuda/lib64:/usr/local/lib:/usr/lib:/usr/local/cuda/extras/CUPTI/lib64:/lib/:/home/ubuntu/src/cntk/bindings/python/cntk/libs:/usr/local/cuda/lib64:/usr/local/lib:/usr/lib:/usr/local/cuda/extras/CUPTI/lib64:/usr/lib64/openmpi/lib/:/usr/local/cuda/lib64:/usr/local/lib:/usr/lib:/usr/local/cuda/extras/CUPTI/lib64:/usr/local/mpi/lib:/lib/:/lib/nccl/cuda-9.0/lib HOROVOD_NCCL_HOME=/lib/nccl/cuda-9.0/ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_WITHOUT_TENSORFLOW=1 HOROVOD_WITHOUT_PYTORCH=1 INCLUDES=[mxnet git directory/python/mxnet/include] LIBRARY_DIRS=[mxnet git directory/lib] /home/ubuntu/anaconda3/bin/pip install --upgrade -v --no-cache-dir [horovod git directory]
+3) sudo PATH=/usr/local/bin:$PATH LD_LIBRARY_PATH=/lib/nccl/cuda-9.0/lib/:/usr/local/cuda/lib64:/usr/local/lib:/usr/lib:/usr/local/cuda/extras/CUPTI/lib64:/lib/:/home/ubuntu/src/cntk/bindings/python/cntk/libs:/usr/local/cuda/lib64:/usr/local/lib:/usr/lib:/usr/local/cuda/extras/CUPTI/lib64:/usr/lib64/openmpi/lib/:/usr/local/cuda/lib64:/usr/local/lib:/usr/lib:/usr/local/cuda/extras/CUPTI/lib64:/usr/local/mpi/lib:/lib/:/lib/nccl/cuda-9.0/lib HOROVOD_NCCL_HOME=/lib/nccl/cuda-9.0/ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_WITHOUT_TENSORFLOW=1 HOROVOD_WITHOUT_PYTORCH=1 INCLUDES=['mxnet git directory'/python/mxnet/include] LIBRARY_DIRS=['mxnet git directory'/lib] /home/ubuntu/anaconda3/bin/pip install --upgrade -v --no-cache-dir ['horovod git directory']
+
+An example script is: sudo PATH=/usr/local/bin:$PATH LD_LIBRARY_PATH=/lib/nccl/cuda-9.0/lib/:/usr/local/cuda/lib64:/usr/local/lib:/usr/lib:/usr/local/cuda/extras/CUPTI/lib64:/lib/:/home/ubuntu/src/cntk/bindings/python/cntk/libs:/usr/local/cuda/lib64:/usr/local/lib:/usr/lib:/usr/local/cuda/extras/CUPTI/lib64:/usr/lib64/openmpi/lib/:/usr/local/cuda/lib64:/usr/local/lib:/usr/lib:/usr/local/cuda/extras/CUPTI/lib64:/usr/local/mpi/lib:/lib/:/lib/nccl/cuda-9.0/lib HOROVOD_NCCL_HOME=/lib/nccl/cuda-9.0/ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_WITHOUT_TENSORFLOW=1 HOROVOD_WITHOUT_PYTORCH=1 INCLUDES=/home/ubuntu/mxnet/python/mxnet/include LIBRARY_DIRS=/home/ubuntu/mxnet/lib /home/ubuntu/anaconda3/bin/pip install --upgrade -v --no-cache-dir /home/ubuntu/horovod/
 
 # Running
 You can run the synthetic benchmark by doing (tested using OpenMPI 3.1.1 on AWS p3.16xlarge instances):
@@ -45,7 +47,3 @@ The following Horovod unit tests do not pass:
 To run tests, we did:
 
 ```mpirun -np 8 --hostfile ~/host_file --bind-to none --map-by slot -x NCCL_DEBUG=INFO -x NCCL_MIN_NRINGS=4 -x LD_LIBRARY_PATH -x PATH -x MXNET_USE_OPERATOR_TUNING=0 -mca pml ob1 -mca btl ^openib python test_mxnet.py```
-
-# fp16 support
-My latest branch that supports fp32 and fp16 is mxnet_fp16_divide_before_sum
-  * however despite the name, the Horovod-MXNet prototype does not divide before summing. The division step has been left out, because MXNet is accustomed to do the division by effective batch size in Optimizer after Allreduce has been done.

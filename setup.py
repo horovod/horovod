@@ -230,7 +230,6 @@ def get_tf_flags(build_ext, cpp_flags):
 
 
 def get_mx_flags(build_ext, cpp_flags, lib_dirs):
-    import mxnet as mx
     compile_flags = []
     link_flags = []
     mx_libs = ['mxnet']
@@ -494,7 +493,7 @@ def get_common_options(build_ext):
         INCLUDES += ['%s' % mxnet_include_dirs]
 
     if mxnet_library_dirs:
-        INCLUDES += ['%s' % mxnet_library_dirs]
+        LIBRARY_DIRS += ['%s' % mxnet_library_dirs]
 
     if gpu_allreduce:
         MACROS += [('HOROVOD_GPU_ALLREDUCE', "'%s'" % gpu_allreduce[0])]
@@ -552,30 +551,6 @@ def build_mx_extension(build_ext, options):
     check_mx_version()
     mx_compile_flags, mx_link_flags = get_mx_flags(
         build_ext, options['COMPILE_FLAGS'], options['LIBRARY_DIRS'])
-
-    mxnet_mpi_lib.define_macros = options['MACROS']
-    mxnet_mpi_lib.include_dirs = options['INCLUDES']
-    mxnet_mpi_lib.sources = options['SOURCES'] + \
-        ['horovod/mxnet/mpi_ops.cc',
-         'horovod/mxnet/handle_manager.cc',
-         'horovod/mxnet/ready_event.cc',
-         'horovod/mxnet/tensor_util.cc',
-         'horovod/mxnet/cuda_util.cc',
-         'horovod/mxnet/adapter.cc']
-    mxnet_mpi_lib.extra_compile_args = options['COMPILE_FLAGS'] + \
-        mx_compile_flags
-    mxnet_mpi_lib.extra_link_args = options['LINK_FLAGS'] + mx_link_flags
-
-    build_ext.build_extension(mxnet_mpi_lib)
-
-    # Return ABI flags used for MXNet compilation.  We will use this flag
-    # to compile all the libraries.
-    return [flag for flag in mx_compile_flags if '_GLIBCXX_USE_CXX11_ABI' in flag]
-
-def build_mx_extension(build_ext, options):
-    check_mx_version()
-    mx_compile_flags, mx_link_flags = get_mx_flags(
-        build_ext, options['COMPILE_FLAGS'])
 
     mxnet_mpi_lib.define_macros = options['MACROS']
     mxnet_mpi_lib.include_dirs = options['INCLUDES']

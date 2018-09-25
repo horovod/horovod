@@ -17,19 +17,15 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from horovod.common import init
-from horovod.common import size
-from horovod.common import local_size
-from horovod.common import rank
-from horovod.common import local_rank
-from horovod.common import mpi_threads_supported
 from horovod.common import check_extension
-from horovod.common import synchronize
 
 from horovod.mxnet.mpi_ops import allreduce, allreduce_
 from horovod.mxnet.mpi_ops import allgather
 from horovod.mxnet.mpi_ops import broadcast, broadcast_
-#from horovod.mxnet.mpi_ops import poll, synchronize
+from horovod.mxnet.mpi_ops import init, shutdown
+from horovod.mxnet.mpi_ops import size, local_size, rank, local_rank
+from horovod.mxnet.mpi_ops import mpi_threads_supported, synchronize
+#from horovod.mxnet.mpi_ops import poll
 
 import mxnet as mx
 
