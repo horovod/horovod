@@ -61,9 +61,9 @@ def _allreduce_function_factory(tensor):
     return 'horovod_torch_allreduce_async_' + tensor.type().replace('.', '_')
 
 
-def _allreduce_async(tensor, output, name):
+def _allreduce_async(tensor, output, average, name):
     function = _check_function(_allreduce_function_factory, tensor)
-    handle = getattr(mpi_lib, function)(tensor, output,
+    handle = getattr(mpi_lib, function)(tensor, output, average,
                                         name.encode() if name is not None else _NULL)
     _handle_map[handle] = (tensor, output)
     return handle
@@ -89,12 +89,8 @@ def allreduce_async(tensor, average=True, name=None):
         A handle to the allreduce operation that can be used with `poll()` or
         `synchronize()`.
     """
-    if average:
-        output = tensor.div(size())
-        return _allreduce_async(output, output, name)
-    else:
-        output = tensor.new(tensor.shape)
-        return _allreduce_async(tensor, output, name)
+    output = tensor.new(tensor.shape)
+    return _allreduce_async(tensor, output, average, name)
 
 
 class HorovodAllreduce(torch.autograd.Function):
@@ -158,9 +154,7 @@ def allreduce_async_(tensor, average=True, name=None):
         A handle to the allreduce operation that can be used with `poll()` or
         `synchronize()`.
     """
-    if average:
-        tensor.div_(size())
-    return _allreduce_async(tensor, tensor, name)
+    return _allreduce_async(tensor, tensor, average, name)
 
 
 def allreduce_(tensor, average=True, name=None):
