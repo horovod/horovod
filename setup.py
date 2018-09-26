@@ -507,6 +507,10 @@ def dummy_import_torch():
 def check_torch_version():
     try:
         import torch
+        if torch.__version__ < '0.4.0':
+            raise DistutilsPlatformError(
+                'Your PyTorch version %s is outdated.  '
+                'Horovod requires torch>=0.4.0' % torch.__version__)
     except ImportError:
         raise DistutilsPlatformError(
             'import torch failed, is it installed?\n\n%s' % traceback.format_exc())
