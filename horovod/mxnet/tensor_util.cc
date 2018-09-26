@@ -25,13 +25,16 @@ const MPIDataType TensorUtil::GetDType(NDArray* tensor) {
       return MPIDataType::HOROVOD_FLOAT32;
     case 1:
       return MPIDataType::HOROVOD_FLOAT64;
-    case 2:
-      return MPIDataType::HOROVOD_UINT8;
+    // TODO(@ctcyang): restore after fp16 grad branch is ready
+    //case 2:
+    //  return MPIDataType::HOROVOD_FLOAT16;
     case 3:
-      return MPIDataType::HOROVOD_INT32;
+      return MPIDataType::HOROVOD_UINT8;
     case 4:
-      return MPIDataType::HOROVOD_INT8;
+      return MPIDataType::HOROVOD_INT32;
     case 5:
+      return MPIDataType::HOROVOD_INT8;
+    case 6:
       return MPIDataType::HOROVOD_INT64;
     default:
       throw std::logic_error("GetDType: Type " + std::to_string(tensor->dtype()) +
@@ -58,8 +61,9 @@ const void* TensorUtil::GetData(NDArray* tensor) {
       return static_cast<void*>(tensor->data().dptr<float>());
     case 1:
       return static_cast<void*>(tensor->data().dptr<double>());
-    case 2:
-      return static_cast<void*>(tensor->data().dptr<mshadow::half::half_t>());
+    // TODO(@ctcyang): for fp16 support when branch is merged
+    //case 2:
+    //  return static_cast<void*>(tensor->data().dptr<mshadow::half::half_t>());
     case 3:
       return static_cast<void*>(tensor->data().dptr<uint8_t>());
     case 4:
