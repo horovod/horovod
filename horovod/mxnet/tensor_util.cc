@@ -26,8 +26,8 @@ const MPIDataType TensorUtil::GetDType(NDArray* tensor) {
     case 1:
       return MPIDataType::HOROVOD_FLOAT64;
     // TODO(@ctcyang): restore after fp16 grad branch is ready
-    //case 2:
-    //  return MPIDataType::HOROVOD_FLOAT16;
+    case 2:
+      return MPIDataType::HOROVOD_FLOAT16;
     case 3:
       return MPIDataType::HOROVOD_UINT8;
     case 4:
@@ -62,8 +62,8 @@ const void* TensorUtil::GetData(NDArray* tensor) {
     case 1:
       return static_cast<void*>(tensor->data().dptr<double>());
     // TODO(@ctcyang): for fp16 support when branch is merged
-    //case 2:
-    //  return static_cast<void*>(tensor->data().dptr<mshadow::half::half_t>());
+    case 2:
+      return static_cast<void*>(tensor->data().dptr<mshadow::half::half_t>());
     case 3:
       return static_cast<void*>(tensor->data().dptr<uint8_t>());
     case 4:
@@ -89,9 +89,9 @@ int64_t TensorUtil::GetSize(NDArray* tensor) {
       element_size = kFloat64Size;
       break;
     // TODO(@ctcyang): for fp16 support when that branch is merged
-    //case 2:
-    //  element_size = kFloat16Size;
-    //  break;
+    case 2:
+      element_size = kFloat16Size;
+      break;
     case 3:
       element_size = kUInt8Size;
       break;
@@ -147,7 +147,6 @@ void TensorUtil::ResizeNd(NDArray* tensor, int nDimension, int64_t* size) {
 }
 
 // Copy from tensor to output
-// TODO(ctcyang): Is priority 0 okay?
 void TensorUtil::Copy(NDArray* output, NDArray* tensor) {
   if (tensor->shape() != output->shape())
     output->ReshapeAndAlloc(tensor->shape());
