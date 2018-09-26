@@ -231,7 +231,7 @@ class HorovodAllgather(torch.autograd.Function):
         dim = allgather(dim_t).view(size())
 
         r = rank()
-        offset = torch.sum(dim.narrow(0, 0, r)).data[0] if r != 0 else 0
+        offset = torch.sum(dim.narrow(0, 0, r)).item() if r != 0 else 0
         return grad_reduced.narrow(0, offset, ctx.dim), None
 
 

@@ -18,6 +18,7 @@ import os
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
 from distutils.errors import CompileError, DistutilsError, DistutilsPlatformError, LinkError
+from distutils.version import LooseVersion
 import shlex
 import subprocess
 import sys
@@ -51,7 +52,7 @@ def is_build_action():
 def check_tf_version():
     try:
         import tensorflow as tf
-        if tf.__version__ < '1.1.0':
+        if LooseVersion(tf.__version__) < LooseVersion('1.1.0'):
             raise DistutilsPlatformError(
                 'Your TensorFlow version %s is outdated.  '
                 'Horovod requires tensorflow>=1.1.0' % tf.__version__)
@@ -507,6 +508,10 @@ def dummy_import_torch():
 def check_torch_version():
     try:
         import torch
+        if LooseVersion(torch.__version__) < LooseVersion('0.4.0'):
+            raise DistutilsPlatformError(
+                'Your PyTorch version %s is outdated.  '
+                'Horovod requires torch>=0.4.0' % torch.__version__)
     except ImportError:
         raise DistutilsPlatformError(
             'import torch failed, is it installed?\n\n%s' % traceback.format_exc())
@@ -658,6 +663,9 @@ def build_torch_extension_v2(build_ext, options, torch_version):
     import torch
     updated_macros = set_macro(updated_macros, '_GLIBCXX_USE_CXX11_ABI',
                                str(int(torch.compiled_with_cxx11_abi())))
+
+    # PyTorch requires -DTORCH_API_INCLUDE_EXTENSION_H
+    updated_macros = set_macro(updated_macros, 'TORCH_API_INCLUDE_EXTENSION_H', '1')
 
     if have_cuda:
         from torch.utils.cpp_extension import CUDAExtension as TorchExtension

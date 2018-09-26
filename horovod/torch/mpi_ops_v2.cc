@@ -16,7 +16,7 @@
 #include <chrono>
 #include <memory>
 #include <thread>
-#include <torch/torch.h>
+#include <torch/extension.h>
 
 #include "../common/operations.h"
 #include "adapter_v2.h"

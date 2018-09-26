@@ -234,7 +234,6 @@ hvd.broadcast_parameters(model.state_dict(), root_rank=0)
 
 for epoch in range(100):
    for batch_idx, (data, target) in enumerate(train_loader):
-       data, target = Variable(data), Variable(target)
        optimizer.zero_grad()
        output = model(data)
        loss = F.nll_loss(output, target)
@@ -242,7 +241,7 @@ for epoch in range(100):
        optimizer.step()
        if batch_idx % args.log_interval == 0:
            print('Train Epoch: {} [{}/{}]\tLoss: {}'.format(
-               epoch, batch_idx * len(data), len(train_sampler), loss.data[0]))
+               epoch, batch_idx * len(data), len(train_sampler), loss.item()))
 ```
 
 **Note**: PyTorch support requires NCCL 2.2 or later. It also works with NCCL 2.1.15 if you are not using RoCE or InfiniBand.

@@ -41,7 +41,7 @@ before_install:
 
 env:
   matrix:
-    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_PACKAGE=torch==0.3.1 MPI=OpenMPI
+    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_PACKAGE=torch==0.4.0 MPI=OpenMPI
     - TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.0 MPI=OpenMPI
     - TF_PACKAGE=tensorflow==1.9.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==0.4.1 MPI=OpenMPI
     - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MPI=OpenMPI
