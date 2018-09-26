@@ -52,7 +52,8 @@ public:
 private:
   static const size_t kFloat32Size = 4;
   static const size_t kFloat64Size = 8;
-  static const size_t kFloat16Size = 2;
+  // TODO(@ctcyang): for when fp16 branch is ready
+  //static const size_t kFloat16Size = 2;
   static const size_t kUInt8Size   = 1;
   static const size_t kInt32Size   = 4;
   static const size_t kInt8Size    = 1;

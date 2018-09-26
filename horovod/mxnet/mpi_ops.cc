@@ -45,8 +45,7 @@ std::string GetOpName(std::string prefix, char* name, int handle) {
 
 } // namespace
 
-extern "C" int DoAllreduce(NDArray* tensor, NDArray* output, int average, 
-                           char* name, Callback cb) {
+int DoAllreduce(NDArray* tensor, NDArray* output, int average, char* name, Callback cb) {
   ThrowIfError(common::CheckInitialized());
 
   auto handle = handle_manager.AllocateHandle(cb);
@@ -68,8 +67,7 @@ extern "C" int DoAllreduce(NDArray* tensor, NDArray* output, int average,
 }
 
 #if HAVE_CUDA
-extern "C" int DoAllreduceCudaOnCPU(NDArray* tensor, NDArray* output, 
-                                    int average, char* name, Callback cb) {
+int DoAllreduceCudaOnCPU(NDArray* tensor, NDArray* output, int average, char* name, Callback cb) {
   ThrowIfError(common::CheckInitialized());
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto hvd_cpu_buffer =
@@ -95,8 +93,7 @@ extern "C" int DoAllreduceCudaOnCPU(NDArray* tensor, NDArray* output,
 }
 #endif
 
-extern "C" int DoAllgather(NDArray* tensor, NDArray* output, char* name,
-                           Callback cb) {
+int DoAllgather(NDArray* tensor, NDArray* output, char* name, Callback cb) {
   ThrowIfError(common::CheckInitialized());
   auto device = TensorUtil::GetDevice(tensor);
   auto hvd_tensor = std::make_shared<MXTensor<NDArray>>(tensor);
@@ -115,8 +112,7 @@ extern "C" int DoAllgather(NDArray* tensor, NDArray* output, char* name,
 }
 
 #if HAVE_CUDA
-extern "C" int DoAllgatherCudaOnCPU(NDArray* tensor, NDArray* output, char* name,
-                                    Callback cb) {
+int DoAllgatherCudaOnCPU(NDArray* tensor, NDArray* output, char* name, Callback cb) {
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
@@ -145,8 +141,7 @@ extern "C" int DoAllgatherCudaOnCPU(NDArray* tensor, NDArray* output, char* name
 }
 #endif
 
-extern "C" int DoBroadcast(NDArray* tensor, NDArray* output, int root_rank,
-                           char* name, Callback cb) {
+int DoBroadcast(NDArray* tensor, NDArray* output, int root_rank, char* name, Callback cb) {
   ThrowIfError(common::CheckInitialized());
   auto device = TensorUtil::GetDevice(tensor);
   auto hvd_tensor = std::make_shared<MXTensor<NDArray>>(tensor);
@@ -174,8 +169,7 @@ extern "C" int DoBroadcast(NDArray* tensor, NDArray* output, int root_rank,
 }
 
 #if HAVE_CUDA
-extern "C" int DoBroadcastCudaOnCPU(NDArray* tensor, NDArray* output, 
-                                    int root_rank, char* name, Callback cb) {
+int DoBroadcastCudaOnCPU(NDArray* tensor, NDArray* output, int root_rank, char* name, Callback cb) {
   ThrowIfError(common::CheckInitialized());
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto hvd_cpu_buffer =

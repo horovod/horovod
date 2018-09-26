@@ -26,14 +26,12 @@ const MPIDataType TensorUtil::GetDType(NDArray* tensor) {
     case 1:
       return MPIDataType::HOROVOD_FLOAT64;
     case 2:
-      return MPIDataType::HOROVOD_FLOAT16;
-    case 3:
       return MPIDataType::HOROVOD_UINT8;
-    case 4:
+    case 3:
       return MPIDataType::HOROVOD_INT32;
-    case 5:
+    case 4:
       return MPIDataType::HOROVOD_INT8;
-    case 6:
+    case 5:
       return MPIDataType::HOROVOD_INT64;
     default:
       throw std::logic_error("GetDType: Type " + std::to_string(tensor->dtype()) +
@@ -86,9 +84,10 @@ int64_t TensorUtil::GetSize(NDArray* tensor) {
     case 1:
       element_size = kFloat64Size;
       break;
-    case 2:
-      element_size = kFloat16Size;
-      break;
+    // TODO(@ctcyang): for fp16 support when that branch is merged
+    //case 2:
+    //  element_size = kFloat16Size;
+    //  break;
     case 3:
       element_size = kUInt8Size;
       break;
