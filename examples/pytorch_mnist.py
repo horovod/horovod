@@ -4,7 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
-from torch.autograd import Variable
 import torch.utils.data.distributed
 import horovod.torch as hvd
 
@@ -104,7 +103,6 @@ def train(epoch):
     for batch_idx, (data, target) in enumerate(train_loader):
         if args.cuda:
             data, target = data.cuda(), target.cuda()
-        data, target = Variable(data), Variable(target)
         optimizer.zero_grad()
         output = model(data)
         loss = F.nll_loss(output, target)
@@ -113,13 +111,13 @@ def train(epoch):
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_sampler),
-                100. * batch_idx / len(train_loader), loss.data[0]))
+                100. * batch_idx / len(train_loader), loss.item()))
 
 
 def metric_average(val, name):
-    tensor = torch.FloatTensor([val])
+    tensor = torch.tensor(val)
     avg_tensor = hvd.allreduce(tensor, name=name)
-    return avg_tensor.data[0]
+    return avg_tensor.item()
 
 
 def test():
@@ -129,10 +127,9 @@ def test():
     for data, target in test_loader:
         if args.cuda:
             data, target = data.cuda(), target.cuda()
-        data, target = Variable(data, volatile=True), Variable(target)
         output = model(data)
         # sum up batch loss
-        test_loss += F.nll_loss(output, target, size_average=False).data[0]
+        test_loss += F.nll_loss(output, target, size_average=False).item()
         # get the index of the max log-probability
         pred = output.data.max(1, keepdim=True)[1]
         test_accuracy += pred.eq(target.data.view_as(pred)).cpu().float().sum()

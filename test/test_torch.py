@@ -325,7 +325,7 @@ class TorchTests(unittest.TestCase):
             torch.manual_seed(1234)
             tensor = torch.FloatTensor(*([17] * dim)).random_(-100, 100)
             tensor = tensor.type(dtype)
-            tensor = torch.autograd.Variable(tensor, requires_grad=True)
+            tensor.requires_grad_()
             summed = hvd.allreduce(tensor, average=False)
 
             summed.backward(torch.ones([17] * dim).type(dtype))
@@ -349,7 +349,7 @@ class TorchTests(unittest.TestCase):
             torch.manual_seed(1234)
             tensor = torch.FloatTensor(*([17] * dim)).random_(-100, 100)
             tensor = tensor.type(dtype)
-            tensor = torch.autograd.Variable(tensor, requires_grad=True)
+            tensor.requires_grad_()
             summed = hvd.allreduce(tensor, average=True)
 
             summed.backward(torch.ones([17] * dim).type(dtype))
@@ -492,7 +492,7 @@ class TorchTests(unittest.TestCase):
             tensor = torch.FloatTensor(
                 *([tensor_sizes[rank]] + [17] * (dim - 1))).fill_(1).mul_(rank)
             tensor = tensor.type(dtype)
-            tensor = torch.autograd.Variable(tensor, requires_grad=True)
+            tensor.requires_grad_()
 
             grad_list = []
             for r, size in enumerate(tensor_sizes):
@@ -652,7 +652,7 @@ class TorchTests(unittest.TestCase):
         for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
             tensor = torch.FloatTensor(*([17] * dim)).fill_(1).mul_(rank)
             tensor = tensor.type(dtype)
-            tensor = torch.autograd.Variable(tensor, requires_grad=True)
+            tensor.requires_grad_()
 
             broadcasted_tensor = hvd.broadcast(tensor, root_rank)
             broadcasted_tensor.backward(torch.ones([17] * dim).type(dtype))
@@ -669,8 +669,8 @@ class TorchTests(unittest.TestCase):
         hvd.init()
 
         N, D_in, H, D_out = 64, 100, 10, 10
-        x = torch.autograd.Variable(torch.randn(N, D_in), requires_grad=True)
-        y = torch.autograd.Variable(torch.randn(N, D_out), requires_grad=False)
+        x = torch.randn(N, D_in).requires_grad_()
+        y = torch.randn(N, D_out).requires_grad_()
 
         def create_model(create_opt):
             model = torch.nn.Sequential(

@@ -148,8 +148,6 @@ def broadcast_parameters(params, root_rank):
     # Run asynchronous broadcasts.
     handles = []
     for name, p in params:
-        if isinstance(p, torch.autograd.Variable):
-            p = p.data
         handle = broadcast_async_(p, root_rank, name)
         handles.append(handle)
 
@@ -180,8 +178,7 @@ def broadcast_optimizer_state(optimizer, root_rank):
     if len(state_dict['state']) == 0:
         for group in optimizer.param_groups:
             for p in group['params']:
-                p.grad = torch.autograd.Variable(
-                    p.data.new(p.size()).zero_())
+                p.grad = p.data.new(p.size()).zero_()
         optimizer.step()
         state_dict = optimizer.state_dict()
 
