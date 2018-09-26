@@ -36,6 +36,8 @@ before_install:
     fi
   # install necessary network tools
   - docker exec ${CONTAINER} /bin/sh -c "apt-get install -y wget openssh-client git"
+  # install `future` package until https://github.com/pytorch/pytorch/issues/11995 is resolved
+  - docker exec ${CONTAINER} /bin/sh -c "pip install future"
 
 env:
   matrix:
