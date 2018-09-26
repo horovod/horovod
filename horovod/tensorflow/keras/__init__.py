@@ -1,4 +1,4 @@
-# Copyright 2017 Uber Technologies, Inc. All Rights Reserved.
+# Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +13,15 @@
 # limitations under the License.
 # ==============================================================================
 
-import keras
-import keras.backend as K
+import tensorflow as tf
+
+from distutils.version import LooseVersion
+if LooseVersion(tf.__version__) >= LooseVersion("1.4.0"):
+    from tensorflow import keras
+    from tensorflow.python.keras import backend as K
+else:
+    from tensorflow.contrib import keras
+    from tensorflow.contrib.keras import backend as K
 
 from horovod.tensorflow import init
 from horovod.tensorflow import shutdown
@@ -24,8 +31,8 @@ from horovod.tensorflow import rank
 from horovod.tensorflow import local_rank
 from horovod.tensorflow import mpi_threads_supported
 
-from horovod.keras import callbacks
-from horovod.keras import impl as _impl
+from horovod.keras import _impl
+from horovod.tensorflow.keras import callbacks
 
 
 def DistributedOptimizer(optimizer, name=None, device_dense='', device_sparse=''):
@@ -130,3 +137,4 @@ def load_model(filepath, custom_optimizers=None, custom_objects=None):
     def wrap_optimizer(cls):
         return lambda **kwargs: DistributedOptimizer(cls(**kwargs))
     return _impl.load_model(keras, wrap_optimizer, filepath, custom_optimizers, custom_objects)
+
