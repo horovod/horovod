@@ -16,7 +16,7 @@
 #ifndef HOROVOD_TORCH_ADAPTER_V2_H
 #define HOROVOD_TORCH_ADAPTER_V2_H
 
-#include <torch/torch.h>
+#include <torch/extension.h>
 
 #include "../common/common.h"
 

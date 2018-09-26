@@ -659,6 +659,9 @@ def build_torch_extension_v2(build_ext, options, torch_version):
     updated_macros = set_macro(updated_macros, '_GLIBCXX_USE_CXX11_ABI',
                                str(int(torch.compiled_with_cxx11_abi())))
 
+    # PyTorch requires -DTORCH_API_INCLUDE_EXTENSION_H
+    updated_macros = set_macro(updated_macros, 'TORCH_API_INCLUDE_EXTENSION_H', '1')
+
     if have_cuda:
         from torch.utils.cpp_extension import CUDAExtension as TorchExtension
     else:
