@@ -698,7 +698,8 @@ class custom_build_ext(build_ext):
         built_plugins = []
         # If PyTorch is installed, it must be imported before TensorFlow, otherwise
         # we may get an error: dlopen: cannot load any more object with static TLS
-        dummy_import_torch()
+        if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
+            dummy_import_torch()
         if not os.environ.get('HOROVOD_WITHOUT_TENSORFLOW'):
             try:
                 build_tf_extension(self, options)
