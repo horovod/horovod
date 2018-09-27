@@ -19,6 +19,9 @@ int horovod_torch_allreduce_async_torch_IntTensor(THIntTensor* tensor,
 int horovod_torch_allreduce_async_torch_LongTensor(THLongTensor* tensor,
                                                    THLongTensor* output,
                                                    int average, char* name);
+int horovod_torch_allreduce_async_torch_HalfTensor(struct THHalfTensor* tensor,
+                                                   struct THHalfTensor* output,
+                                                   int average, char* name);
 int horovod_torch_allreduce_async_torch_FloatTensor(THFloatTensor* tensor,
                                                     THFloatTensor* output,
                                                     int average, char* name);
@@ -41,6 +44,9 @@ int horovod_torch_allgather_async_torch_IntTensor(THIntTensor* tensor,
 int horovod_torch_allgather_async_torch_LongTensor(THLongTensor* tensor,
                                                    THLongTensor* output,
                                                    char* name);
+int horovod_torch_allgather_async_torch_HalfTensor(struct THHalfTensor* tensor,
+                                                   struct THHalfTensor* output,
+                                                   char* name);
 int horovod_torch_allgather_async_torch_FloatTensor(THFloatTensor* tensor,
                                                     THFloatTensor* output,
                                                     char* name);
@@ -62,6 +68,9 @@ int horovod_torch_broadcast_async_torch_IntTensor(THIntTensor* tensor,
                                                   int root_rank, char* name);
 int horovod_torch_broadcast_async_torch_LongTensor(THLongTensor* tensor,
                                                    THLongTensor* output,
+                                                   int root_rank, char* name);
+int horovod_torch_broadcast_async_torch_HalfTensor(struct THHalfTensor* tensor,
+                                                   struct THHalfTensor* output,
                                                    int root_rank, char* name);
 int horovod_torch_broadcast_async_torch_FloatTensor(THFloatTensor* tensor,
                                                     THFloatTensor* output,

@@ -19,6 +19,10 @@ int horovod_torch_allreduce_async_torch_cuda_IntTensor(THCudaIntTensor* tensor,
 int horovod_torch_allreduce_async_torch_cuda_LongTensor(
     THCudaLongTensor* tensor, THCudaLongTensor* output, int average,
     char* name);
+int horovod_torch_allreduce_async_torch_cuda_HalfTensor(THCudaHalfTensor* tensor,
+                                                        THCudaHalfTensor* output,
+                                                        int average,
+                                                        char* name);
 int horovod_torch_allreduce_async_torch_cuda_FloatTensor(THCudaTensor* tensor,
                                                          THCudaTensor* output,
                                                          int average,
@@ -38,6 +42,9 @@ int horovod_torch_allgather_async_torch_cuda_IntTensor(THCudaIntTensor* tensor,
                                                        char* name);
 int horovod_torch_allgather_async_torch_cuda_LongTensor(
     THCudaLongTensor* tensor, THCudaLongTensor* output, char* name);
+int horovod_torch_allgather_async_torch_cuda_HalfTensor(THCudaHalfTensor* tensor,
+                                                        THCudaHalfTensor* output,
+                                                        char* name);
 int horovod_torch_allgather_async_torch_cuda_FloatTensor(THCudaTensor* tensor,
                                                          THCudaTensor* output,
                                                          char* name);
@@ -60,6 +67,10 @@ int horovod_torch_broadcast_async_torch_cuda_IntTensor(THCudaIntTensor* tensor,
 int horovod_torch_broadcast_async_torch_cuda_LongTensor(
     THCudaLongTensor* tensor, THCudaLongTensor* output, int root_rank,
     char* name);
+int horovod_torch_broadcast_async_torch_cuda_HalfTensor(THCudaHalfTensor* tensor,
+                                                        THCudaHalfTensor* output,
+                                                        int root_rank,
+                                                        char* name);
 int horovod_torch_broadcast_async_torch_cuda_FloatTensor(THCudaTensor* tensor,
                                                          THCudaTensor* output,
                                                          int root_rank,
