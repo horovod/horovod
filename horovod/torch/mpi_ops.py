@@ -20,6 +20,7 @@ from __future__ import print_function
 # Load all the necessary PyTorch C types.
 import torch
 
+from horovod.torch.compression import Compression
 try:
     from horovod.torch import mpi_lib_v2 as mpi_lib
     from horovod.common import HorovodBasics as _HorovodBasics
@@ -107,7 +108,7 @@ class HorovodAllreduce(torch.autograd.Function):
         return allreduce(grad_output, ctx.average), None, None
 
 
-def allreduce(tensor, average=True, name=None):
+def allreduce(tensor, average=True, name=None, compression=Compression.none):
     """
     A function that performs averaging or summation of the input tensor over all the
     Horovod processes. The input tensor is not modified.
@@ -126,12 +127,18 @@ def allreduce(tensor, average=True, name=None):
         average: A flag indicating whether to compute average or summation,
                  defaults to average.
         name: A name of the reduction operation.
+        compression: Compression algorithm used during allreduce to reduce the amount
+                     of data sent during the each parameter update step.  Defaults to
+                     not using compression.
 
     Returns:
         A tensor of the same shape and type as `tensor`, averaged or summed across all
         processes.
     """
-    return HorovodAllreduce.apply(tensor, average, name)
+    compressor = compression.get_compressor(tensor.dtype)
+    tensor_compressed = compressor.compress(tensor)
+    summed_tensor_compressed = HorovodAllreduce.apply(tensor_compressed, average, name)
+    return compressor.decompress(summed_tensor_compressed)
 
 
 def allreduce_async_(tensor, average=True, name=None):

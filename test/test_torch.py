@@ -787,3 +787,46 @@ class TorchTests(unittest.TestCase):
                         (opt_param_value == opt_param_value_after).all())
                 else:
                     self.assertEqual(opt_param_value, opt_param_value_after)
+
+    def test_compression_fp16(self):
+        valid_dtypes = [torch.float16, torch.float32, torch.float64]
+        invalid_dtypes = [torch.uint8, torch.int8, torch.int16,
+                          torch.int32, torch.int64]
+
+        tensor_size = [5] * 3
+        compression = hvd.Compression.fp16
+
+        for dtype in valid_dtypes:
+            if dtype != torch.float16:
+                tensor = torch.ones(tensor_size, dtype=dtype)
+            else:
+                # HalfTensor is missing many operations, so we need to construct
+                # in float32, then cast
+                tensor = torch.ones(tensor_size, dtype=torch.float32)
+                tensor = tensor.type(dtype)
+
+            compressor = compression.get_compressor(dtype)
+            tensor_compressed = compressor.compress(tensor)
+            self.assertEqual(tensor_compressed.dtype, torch.float16)
+
+            tensor_decompressed = compressor.decompress(tensor_compressed)
+            self.assertEqual(tensor_decompressed.dtype, dtype)
+
+            expected = np.ones(tensor_size)
+            err = np.linalg.norm(expected - tensor_decompressed)
+            self.assertLess(err, 0.00000001)
+
+        for dtype in invalid_dtypes:
+            tensor = torch.ones(tensor_size, dtype=dtype)
+
+            compressor = compression.get_compressor(dtype)
+            tensor_compressed = compressor.compress(tensor)
+            self.assertEqual(tensor_compressed.dtype, dtype)
+
+            tensor_decompressed = compressor.decompress(tensor_compressed)
+            self.assertEqual(tensor_decompressed.dtype, dtype)
+
+            if dtype != torch.int8:  # Cannot cast to NumPy with a CharTensor
+                expected = np.ones(tensor_size)
+                err = np.linalg.norm(expected - tensor_decompressed)
+                self.assertLess(err, 0.00000001)
