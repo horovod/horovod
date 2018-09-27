@@ -23,6 +23,7 @@ else:
     from tensorflow.contrib import keras
     from tensorflow.contrib.keras import backend as K
 
+import horovod.tensorflow as hvd
 from horovod.tensorflow import init
 from horovod.tensorflow import shutdown
 from horovod.tensorflow import size
@@ -35,7 +36,9 @@ from horovod.keras import _impl
 from horovod.tensorflow.keras import callbacks
 
 
-def DistributedOptimizer(optimizer, name=None, device_dense='', device_sparse=''):
+def DistributedOptimizer(optimizer, name=None,
+                         device_dense='', device_sparse='',
+                         compression=hvd.Compression.none):
     """
     An optimizer that wraps another keras.optimizers.Optimizer, using an allreduce to
     average gradient values before applying gradients to model weights.
@@ -49,8 +52,12 @@ def DistributedOptimizer(optimizer, name=None, device_dense='', device_sparse=''
                       if Horovod was build with HOROVOD_GPU_ALLREDUCE.
         device_sparse: Device to be used for sparse tensors. Uses GPU by default
                        if Horovod was build with HOROVOD_GPU_ALLGATHER.
+        compression: Compression algorithm used to reduce the amount of data
+                     sent and received by each worker node.  Defaults to not
+                     using compression.
     """
-    return _impl.create_distributed_optimizer(keras, optimizer, name, device_dense, device_sparse)
+    return _impl.create_distributed_optimizer(keras, optimizer, name,
+                                              device_dense, device_sparse, compression)
 
 
 def broadcast_global_variables(root_rank):

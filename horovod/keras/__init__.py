@@ -16,6 +16,7 @@
 import keras
 import keras.backend as K
 
+import horovod.tensorflow as hvd
 from horovod.tensorflow import init
 from horovod.tensorflow import shutdown
 from horovod.tensorflow import size
@@ -48,7 +49,8 @@ def DistributedOptimizer(optimizer, name=None,
                      sent and received by each worker node.  Defaults to not
                      using compression.
     """
-    return _impl.create_distributed_optimizer(keras, optimizer, name, device_dense, device_sparse)
+    return _impl.create_distributed_optimizer(keras, optimizer, name,
+                                              device_dense, device_sparse, compression)
 
 
 def broadcast_global_variables(root_rank):
