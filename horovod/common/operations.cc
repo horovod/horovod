@@ -235,7 +235,7 @@ struct HorovodGlobalState {
     // call. If a thread is still joinable (not detached or complete) its
     // destructor cannot be called.
     if (background_thread.joinable()) {
-      shut_down.store(true);
+      shut_down = true;
       background_thread.join();
     }
   }
@@ -1599,7 +1599,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 
   // Signal that initialization is completed.
-  state.initialization_done.store(true);
+  state.initialization_done = true;
 
   // Iterate until shutdown.
   while (RunLoopOnce(state, is_coordinator))
@@ -1752,7 +1752,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       }
       if (received_message_list.shutdown()) {
         // Received SHUTDOWN request from one of the workers.
-        state.shut_down.store(true);
+        state.shut_down = true;
       }
     }
 
@@ -1916,12 +1916,12 @@ void horovod_init_comm(MPI_Comm comm) {
 
 void horovod_shutdown() {
   if (horovod_global.background_thread.joinable()) {
-    horovod_global.shut_down.store(true);
+    horovod_global.shut_down = true;
     horovod_global.background_thread.join();
     // Reset the initialization flag to allow restarting with horovod_init(...)
-    horovod_global.initialization_done.store(false);
+    horovod_global.initialization_done = false;
     horovod_global.initialize_flag.clear();
-    horovod_global.shut_down.store(false);
+    horovod_global.shut_down = false;
   }
 
   if (horovod_global.mpi_comm != MPI_COMM_NULL &&
