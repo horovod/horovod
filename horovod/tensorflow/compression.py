@@ -18,9 +18,9 @@ import tensorflow as tf
 
 
 class Compressor(object):
-    """Interface for compressing a given tensor with optional state."""
+    """Interface for compressing and decompressing a given tensor."""
     @staticmethod
-    def compress(tensor, ctx=None):
+    def compress(tensor):
         """Compresses a tensor and returns it with the context needed to decompress it."""
         pass
 
@@ -33,7 +33,7 @@ class Compressor(object):
 class NoneCompressor(Compressor):
     """Default no-op compression."""
     @staticmethod
-    def compress(tensor, ctx=None):
+    def compress(tensor):
         """Returns the tensor unmodified."""
         return tensor, None
 
@@ -46,7 +46,7 @@ class NoneCompressor(Compressor):
 class FP16Compressor(Compressor):
     """Compress all floating point gradients to 16-bit."""
     @staticmethod
-    def compress(tensor, ctx=None):
+    def compress(tensor):
         """Downcasts the tensor to 16-bit."""
         tensor_compressed = tensor
         if tensor.dtype.is_floating:
