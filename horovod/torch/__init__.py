@@ -90,7 +90,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         for p, value in self._handles.items():
             handle, compressor = value
             output = synchronize(handle)
-            p.grad.data = compressor.decompress(output)
+            p.grad.data.set_(compressor.decompress(output))
         self._handles.clear()
 
     def step(self, closure=None):
