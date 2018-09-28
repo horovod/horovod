@@ -68,7 +68,7 @@ def _allreduce_async(tensor, output, average, name):
     if tensor.dtype == torch.float16 and \
             LooseVersion(torch.__version__) < LooseVersion('0.4.2'):
         raise NotImplementedError(
-            'fp16 compression is not supported for PyTorch version {} < 0.4.2'
+            'float16 allreduce is not supported for PyTorch version {} < 0.4.2'
             .format(torch.__version__))
 
     function = _check_function(_allreduce_function_factory, tensor)
