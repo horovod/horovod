@@ -58,7 +58,7 @@ class TorchTests(unittest.TestCase):
                   torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
-                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
+                       torch.cuda.HalfTensor, torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
@@ -90,7 +90,7 @@ class TorchTests(unittest.TestCase):
                   torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
-                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
+                       torch.cuda.HalfTensor, torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
@@ -121,7 +121,7 @@ class TorchTests(unittest.TestCase):
                   torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
-                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
+                       torch.cuda.HalfTensor, torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
@@ -154,7 +154,7 @@ class TorchTests(unittest.TestCase):
                   torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
-                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
+                       torch.cuda.HalfTensor, torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
         dims = [1, 2, 3]
         tests = []
         is_hvd_poll_false_once = False
@@ -319,7 +319,7 @@ class TorchTests(unittest.TestCase):
         # Only Tensors of floating point dtype can require gradients
         dtypes = [torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
-            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
+            dtypes += [torch.cuda.HalfTensor, torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
@@ -343,7 +343,7 @@ class TorchTests(unittest.TestCase):
         # Only Tensors of floating point dtype can require gradients
         dtypes = [torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
-            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
+            dtypes += [torch.cuda.HalfTensor, torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
@@ -371,8 +371,8 @@ class TorchTests(unittest.TestCase):
                   torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
-                       torch.cuda.IntTensor, torch.cuda.LongTensor, torch.cuda.FloatTensor,
-                       torch.cuda.DoubleTensor]
+                       torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.HalfTensor, torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             tensor = torch.FloatTensor(*([17] * dim)).fill_(1).mul_(rank)
@@ -399,8 +399,8 @@ class TorchTests(unittest.TestCase):
                   torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
-                       torch.cuda.IntTensor, torch.cuda.LongTensor, torch.cuda.FloatTensor,
-                       torch.cuda.DoubleTensor]
+                       torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.HalfTensor, torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             # Support tests up to MPI Size of 35
@@ -479,7 +479,7 @@ class TorchTests(unittest.TestCase):
         # Only Tensors of floating point dtype can require gradients
         dtypes = [torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
-            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
+            dtypes += [torch.cuda.HalfTensor, torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             # Support tests up to MPI Size of 35
@@ -525,8 +525,8 @@ class TorchTests(unittest.TestCase):
                   torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
-                       torch.cuda.IntTensor, torch.cuda.LongTensor, torch.cuda.FloatTensor,
-                       torch.cuda.DoubleTensor]
+                       torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.HalfTensor, torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
         dims = [1, 2, 3]
         root_ranks = list(range(size))
         for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
@@ -555,8 +555,8 @@ class TorchTests(unittest.TestCase):
                   torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
-                       torch.cuda.IntTensor, torch.cuda.LongTensor, torch.cuda.FloatTensor,
-                       torch.cuda.DoubleTensor]
+                       torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.HalfTensor, torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
         dims = [1, 2, 3]
         root_ranks = list(range(size))
         for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
@@ -646,7 +646,7 @@ class TorchTests(unittest.TestCase):
         # Only Tensors of floating point dtype can require gradients
         dtypes = [torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
-            dtypes += [torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
+            dtypes += [torch.cuda.HalfTensor, torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
         dims = [1, 2, 3]
         root_ranks = list(range(size))
         for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
