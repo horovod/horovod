@@ -33,14 +33,12 @@ using namespace horovod::common;
 
 ALLREDUCE_H(torch_IntTensor, THIntTensor)
 ALLREDUCE_H(torch_LongTensor, THLongTensor)
-ALLREDUCE_H(torch_HalfTensor, THHalfTensor)
 ALLREDUCE_H(torch_FloatTensor, THFloatTensor)
 ALLREDUCE_H(torch_DoubleTensor, THDoubleTensor)
 
 #if HAVE_CUDA
 ALLREDUCE_H(torch_cuda_IntTensor, THCudaIntTensor)
 ALLREDUCE_H(torch_cuda_LongTensor, THCudaLongTensor)
-ALLREDUCE_H(torch_cuda_HalfTensor, THCudaHalfTensor)
 ALLREDUCE_H(torch_cuda_FloatTensor, THCudaTensor)
 ALLREDUCE_H(torch_cuda_DoubleTensor, THCudaDoubleTensor)
 #endif
@@ -54,7 +52,6 @@ ALLGATHER_H(torch_CharTensor, THCharTensor)
 ALLGATHER_H(torch_ShortTensor, THShortTensor)
 ALLGATHER_H(torch_IntTensor, THIntTensor)
 ALLGATHER_H(torch_LongTensor, THLongTensor)
-ALLGATHER_H(torch_HalfTensor, THHalfTensor)
 ALLGATHER_H(torch_FloatTensor, THFloatTensor)
 ALLGATHER_H(torch_DoubleTensor, THDoubleTensor)
 
@@ -64,7 +61,6 @@ ALLGATHER_H(torch_cuda_CharTensor, THCudaCharTensor)
 ALLGATHER_H(torch_cuda_ShortTensor, THCudaShortTensor)
 ALLGATHER_H(torch_cuda_IntTensor, THCudaIntTensor)
 ALLGATHER_H(torch_cuda_LongTensor, THCudaLongTensor)
-ALLGATHER_H(torch_cuda_HalfTensor, THCudaHalfTensor)
 ALLGATHER_H(torch_cuda_FloatTensor, THCudaTensor)
 ALLGATHER_H(torch_cuda_DoubleTensor, THCudaDoubleTensor)
 #endif
@@ -78,7 +74,6 @@ BROADCAST_H(torch_CharTensor, THCharTensor)
 BROADCAST_H(torch_ShortTensor, THShortTensor)
 BROADCAST_H(torch_IntTensor, THIntTensor)
 BROADCAST_H(torch_LongTensor, THLongTensor)
-BROADCAST_H(torch_HalfTensor, THHalfTensor)
 BROADCAST_H(torch_FloatTensor, THFloatTensor)
 BROADCAST_H(torch_DoubleTensor, THDoubleTensor)
 
@@ -88,7 +83,6 @@ BROADCAST_H(torch_cuda_CharTensor, THCudaCharTensor)
 BROADCAST_H(torch_cuda_ShortTensor, THCudaShortTensor)
 BROADCAST_H(torch_cuda_IntTensor, THCudaIntTensor)
 BROADCAST_H(torch_cuda_LongTensor, THCudaLongTensor)
-BROADCAST_H(torch_cuda_HalfTensor, THCudaHalfTensor)
 BROADCAST_H(torch_cuda_FloatTensor, THCudaTensor)
 BROADCAST_H(torch_cuda_DoubleTensor, THCudaDoubleTensor)
 #endif

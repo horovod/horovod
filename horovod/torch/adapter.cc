@@ -154,8 +154,6 @@ ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_INT8, DeviceType::CPU, THCharTensor)
 ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_INT16, DeviceType::CPU, THShortTensor)
 ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_INT32, DeviceType::CPU, THIntTensor)
 ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_INT64, DeviceType::CPU, THLongTensor)
-ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_FLOAT16, DeviceType::CPU,
-                    THHalfTensor)
 ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_FLOAT32, DeviceType::CPU,
                     THFloatTensor)
 ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_FLOAT64, DeviceType::CPU,
@@ -172,8 +170,6 @@ ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_INT32, DeviceType::GPU,
                     THCudaIntTensor)
 ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_INT64, DeviceType::GPU,
                     THCudaLongTensor)
-ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_FLOAT16, DeviceType::GPU,
-                    THCudaHalfTensor)
 ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_FLOAT32, DeviceType::GPU,
                     THCudaTensor)
 ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_FLOAT64, DeviceType::GPU,

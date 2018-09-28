@@ -29,9 +29,6 @@ TENSOR_UTIL_DEFINE_CPU_TYPE(MPIDataType::HOROVOD_INT32, THIntTensor,
                             THIntStorage)
 TENSOR_UTIL_DEFINE_CPU_TYPE(MPIDataType::HOROVOD_INT64, THLongTensor,
                             THLongStorage)
-// TODO(tgaddair): requires CPU instructions
-//TENSOR_UTIL_DEFINE_CPU_TYPE(MPIDataType::HOROVOD_FLOAT16, THHalfTensor,
-//                            THHalfStorage)
 TENSOR_UTIL_DEFINE_CPU_TYPE(MPIDataType::HOROVOD_FLOAT32, THFloatTensor,
                             THFloatStorage)
 TENSOR_UTIL_DEFINE_CPU_TYPE(MPIDataType::HOROVOD_FLOAT64, THDoubleTensor,

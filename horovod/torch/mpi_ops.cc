@@ -227,8 +227,6 @@ ALLREDUCE(torch_IntTensor, MPIDataType::HOROVOD_INT32, DeviceType::CPU,
           THIntTensor)
 ALLREDUCE(torch_LongTensor, MPIDataType::HOROVOD_INT64, DeviceType::CPU,
           THLongTensor)
-ALLREDUCE(torch_HalfTensor, MPIDataType::HOROVOD_FLOAT16, DeviceType::CPU,
-          THHalfTensor)
 ALLREDUCE(torch_FloatTensor, MPIDataType::HOROVOD_FLOAT32, DeviceType::CPU,
           THFloatTensor)
 ALLREDUCE(torch_DoubleTensor, MPIDataType::HOROVOD_FLOAT64, DeviceType::CPU,
@@ -239,8 +237,6 @@ ALLREDUCE(torch_cuda_IntTensor, MPIDataType::HOROVOD_INT32, DeviceType::GPU,
           THCudaIntTensor)
 ALLREDUCE(torch_cuda_LongTensor, MPIDataType::HOROVOD_INT64, DeviceType::GPU,
           THCudaLongTensor)
-ALLREDUCE(torch_cuda_HalfTensor, MPIDataType::HOROVOD_FLOAT16, DeviceType::GPU,
-          THCudaHalfTensor)
 ALLREDUCE(torch_cuda_FloatTensor, MPIDataType::HOROVOD_FLOAT32, DeviceType::GPU,
           THCudaTensor)
 ALLREDUCE(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64,
@@ -259,8 +255,6 @@ ALLREDUCE_CUDA_ON_CPU(torch_cuda_IntTensor, MPIDataType::HOROVOD_INT32,
                       THCudaIntTensor, THIntTensor)
 ALLREDUCE_CUDA_ON_CPU(torch_cuda_LongTensor, MPIDataType::HOROVOD_INT64,
                       THCudaLongTensor, THLongTensor)
-ALLREDUCE_CUDA_ON_CPU(torch_cuda_HalfTensor, MPIDataType::HOROVOD_FLOAT16,
-                      THCudaHalfTensor, THHalfTensor)
 ALLREDUCE_CUDA_ON_CPU(torch_cuda_FloatTensor, MPIDataType::HOROVOD_FLOAT32,
                       THCudaTensor, THFloatTensor)
 ALLREDUCE_CUDA_ON_CPU(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64,
@@ -283,8 +277,6 @@ ALLGATHER(torch_IntTensor, MPIDataType::HOROVOD_INT32, DeviceType::CPU,
           THIntTensor)
 ALLGATHER(torch_LongTensor, MPIDataType::HOROVOD_INT64, DeviceType::CPU,
           THLongTensor)
-ALLGATHER(torch_HalfTensor, MPIDataType::HOROVOD_FLOAT16, DeviceType::CPU,
-          THHalfTensor)
 ALLGATHER(torch_FloatTensor, MPIDataType::HOROVOD_FLOAT32, DeviceType::CPU,
           THFloatTensor)
 ALLGATHER(torch_DoubleTensor, MPIDataType::HOROVOD_FLOAT64, DeviceType::CPU,
@@ -301,8 +293,6 @@ ALLGATHER(torch_cuda_IntTensor, MPIDataType::HOROVOD_INT32, DeviceType::GPU,
           THCudaIntTensor)
 ALLGATHER(torch_cuda_LongTensor, MPIDataType::HOROVOD_INT64, DeviceType::GPU,
           THCudaLongTensor)
-ALLGATHER(torch_cuda_HalfTensor, MPIDataType::HOROVOD_FLOAT16, DeviceType::GPU,
-          THCudaHalfTensor)
 ALLGATHER(torch_cuda_FloatTensor, MPIDataType::HOROVOD_FLOAT32, DeviceType::GPU,
           THCudaTensor)
 ALLGATHER(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64,
@@ -327,8 +317,6 @@ ALLGATHER_CUDA_ON_CPU(torch_cuda_IntTensor, MPIDataType::HOROVOD_INT32,
                       THCudaIntTensor, THIntTensor)
 ALLGATHER_CUDA_ON_CPU(torch_cuda_LongTensor, MPIDataType::HOROVOD_INT64,
                       THCudaLongTensor, THLongTensor)
-ALLGATHER_CUDA_ON_CPU(torch_cuda_HalfTensor, MPIDataType::HOROVOD_FLOAT16,
-                      THCudaHalfTensor, THHalfTensor)
 ALLGATHER_CUDA_ON_CPU(torch_cuda_FloatTensor, MPIDataType::HOROVOD_FLOAT32,
                       THCudaTensor, THFloatTensor)
 ALLGATHER_CUDA_ON_CPU(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64,
@@ -352,8 +340,6 @@ BROADCAST(torch_IntTensor, MPIDataType::HOROVOD_INT32, DeviceType::CPU,
           THIntTensor)
 BROADCAST(torch_LongTensor, MPIDataType::HOROVOD_INT64, DeviceType::CPU,
           THLongTensor)
-BROADCAST(torch_HalfTensor, MPIDataType::HOROVOD_FLOAT16, DeviceType::CPU,
-          THHalfTensor)
 BROADCAST(torch_FloatTensor, MPIDataType::HOROVOD_FLOAT32, DeviceType::CPU,
           THFloatTensor)
 BROADCAST(torch_DoubleTensor, MPIDataType::HOROVOD_FLOAT64, DeviceType::CPU,
@@ -370,8 +356,6 @@ BROADCAST(torch_cuda_IntTensor, MPIDataType::HOROVOD_INT32, DeviceType::GPU,
           THCudaIntTensor)
 BROADCAST(torch_cuda_LongTensor, MPIDataType::HOROVOD_INT64, DeviceType::GPU,
           THCudaLongTensor)
-BROADCAST(torch_cuda_HalfTensor, MPIDataType::HOROVOD_FLOAT16, DeviceType::GPU,
-          THCudaHalfTensor)
 BROADCAST(torch_cuda_FloatTensor, MPIDataType::HOROVOD_FLOAT32, DeviceType::GPU,
           THCudaTensor)
 BROADCAST(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64, DeviceType::GPU,
@@ -396,8 +380,6 @@ BROADCAST_CUDA_ON_CPU(torch_cuda_IntTensor, MPIDataType::HOROVOD_INT32,
                       THCudaIntTensor, THIntTensor)
 BROADCAST_CUDA_ON_CPU(torch_cuda_LongTensor, MPIDataType::HOROVOD_INT64,
                       THCudaLongTensor, THLongTensor)
-BROADCAST_CUDA_ON_CPU(torch_cuda_HalfTensor, MPIDataType::HOROVOD_FLOAT16,
-                      THCudaHalfTensor, THHalfTensor)
 BROADCAST_CUDA_ON_CPU(torch_cuda_FloatTensor, MPIDataType::HOROVOD_FLOAT32,
                       THCudaTensor, THFloatTensor)
 BROADCAST_CUDA_ON_CPU(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64,
