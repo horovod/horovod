@@ -16,7 +16,6 @@
 import keras
 import keras.backend as K
 
-import horovod.tensorflow as hvd
 from horovod.tensorflow import init
 from horovod.tensorflow import shutdown
 from horovod.tensorflow import size

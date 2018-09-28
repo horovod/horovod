@@ -23,7 +23,6 @@ else:
     from tensorflow.contrib import keras
     from tensorflow.contrib.keras import backend as K
 
-import horovod.tensorflow as hvd
 from horovod.tensorflow import init
 from horovod.tensorflow import shutdown
 from horovod.tensorflow import size
@@ -39,7 +38,7 @@ from horovod.tensorflow.keras import callbacks
 
 def DistributedOptimizer(optimizer, name=None,
                          device_dense='', device_sparse='',
-                         compression=hvd.Compression.none):
+                         compression=Compression.none):
     """
     An optimizer that wraps another keras.optimizers.Optimizer, using an allreduce to
     average gradient values before applying gradients to model weights.
