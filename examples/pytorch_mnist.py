@@ -25,7 +25,7 @@ parser.add_argument('--seed', type=int, default=42, metavar='S',
                     help='random seed (default: 42)')
 parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='how many batches to wait before logging training status')
-parser.add_argument('--fp16', action='store_true', default=False,
+parser.add_argument('--fp16-allreduce', action='store_true', default=False,
                     help='use fp16 compression during allreduce')
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -95,7 +95,7 @@ optimizer = optim.SGD(model.parameters(), lr=args.lr * hvd.size(),
                       momentum=args.momentum)
 
 # Horovod: (optional) compression algorithm.
-compression = hvd.Compression.fp16 if args.fp16 else hvd.Compression.none
+compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
 
 # Horovod: wrap optimizer with DistributedOptimizer.
 optimizer = hvd.DistributedOptimizer(optimizer,

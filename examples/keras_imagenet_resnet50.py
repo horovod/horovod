@@ -31,7 +31,7 @@ parser.add_argument('--log-dir', default='./logs',
                     help='tensorboard log directory')
 parser.add_argument('--checkpoint-format', default='./checkpoint-{epoch}.h5',
                     help='checkpoint file format')
-parser.add_argument('--fp16', action='store_true', default=False,
+parser.add_argument('--fp16-allreduce', action='store_true', default=False,
                     help='use fp16 compression during allreduce')
 
 # Default settings from https://arxiv.org/abs/1706.02677.
@@ -94,7 +94,7 @@ test_iter = test_gen.flow_from_directory(args.val_dir,
 model = keras.applications.resnet50.ResNet50(weights=None)
 
 # Horovod: (optional) compression algorithm.
-compression = hvd.Compression.fp16 if args.fp16 else hvd.Compression.none
+compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
 
 # Restore from a previous checkpoint, if initial_epoch is specified.
 # Horovod: restore on the first worker which will broadcast both model and optimizer weights
