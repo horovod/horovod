@@ -21,12 +21,10 @@ from __future__ import print_function
 
 import keras
 from keras import backend as K
-from keras.utils.test_utils import keras_test
 
 import numpy as np
 import os
 import tempfile
-import unittest
 import tensorflow as tf
 
 import horovod.keras as hvd
@@ -40,7 +38,6 @@ class KerasTests(tf.test.TestCase):
     def __init__(self, *args, **kwargs):
         super(KerasTests, self).__init__(*args, **kwargs)
 
-    @keras_test
     def test_load_model(self):
         hvd.init()
 
@@ -78,7 +75,6 @@ class KerasTests(tf.test.TestCase):
                                             new_opt.get_weights()):
                 self.assertListEqual(weights.tolist(), new_weights.tolist())
 
-    @keras_test
     def test_load_model_custom_optimizers(self):
         hvd.init()
 
@@ -121,7 +117,6 @@ class KerasTests(tf.test.TestCase):
                                             new_opt.get_weights()):
                 self.assertListEqual(weights.tolist(), new_weights.tolist())
 
-    @keras_test
     def test_load_model_custom_objects(self):
         hvd.init()
 
@@ -167,7 +162,6 @@ class KerasTests(tf.test.TestCase):
                                             new_opt.get_weights()):
                 self.assertListEqual(weights.tolist(), new_weights.tolist())
 
-    @keras_test
     def test_load_model_broadcast(self):
         hvd.init()
 
