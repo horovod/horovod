@@ -208,18 +208,17 @@ extern "C" int horovod_mxnet_allreduce_async(
       DoAllreduceCudaOnCPU(input, output, average, name, cb);
   };
   int cpu = -1;
-  if ((input->ctx().dev_mask() == gpu::kDevMask &&
-       output->ctx().dev_mask() == gpu::kDevMask) ||
-      (input->ctx().dev_mask() == cpu::kDevMask &&
-       output->ctx().dev_mask() == cpu::kDevMask)) {
+#ifdef HOROVOD_GPU_ALLREDUCE
+  if (input->ctx().dev_mask() == gpu::kDevMask &&
+      output->ctx().dev_mask() == gpu::kDevMask)
     cpu = 0;
-  } else {
+  else
+#endif
 #if HAVE_CUDA
     cpu = 1;
 #else
     cpu = 0;
 #endif
-  }
 
   if (cpu) {
     // Not in-place
@@ -270,16 +269,72 @@ extern "C" int horovod_mxnet_allreduce_async(
 }
 
 extern "C" int horovod_mxnet_allgather_async(
-    NDArray* tensor, NDArray* output, char* name) {
-  if (tensor->ctx().dev_mask() == gpu::kDevMask &&
-      output->ctx().dev_mask() == gpu::kDevMask) {
-    //return DoAllgather(tensor, output, name, cb);
+    NDArray* input, NDArray* output, char* name) {
+
+  auto allgather_async_fn = [input, output, name](
+      RunContext rctx, Engine::CallbackOnComplete cb) mutable {
+    DoAllgather(input, output, name, cb);
+  };
+  auto allgather_async_cpu_fn = [input, output, name](
+      RunContext rctx, Engine::CallbackOnComplete cb) mutable {
+    DoAllgatherCudaOnCPU(input, output, name, cb);
+  };
+  int cpu = -1;
+#if HOROVOD_GPU_ALLGATHER == 'M'
+  if (input->ctx().dev_mask() == gpu::kDevMask &&
+      output->ctx().dev_mask() == gpu::kDevMask)
+    cpu = 0;
+  else
+#endif
+#if HAVE_CUDA
+    cpu = 1;
+#else
+    cpu = 0;
+#endif
+
+  // Not in-place
+  if (cpu) {
+    if (input->var() != output->var()) {
+      Engine::Get()->PushAsync(
+        allgather_async_cpu_fn,
+        Context::CPU(0),
+        {input->var()},
+        {output->var()},
+        FnProperty::kNormal,
+        0,
+        "HorovodAllgather");
+  // In-place
+    } else {
+      Engine::Get()->PushAsync(
+        allgather_async_cpu_fn,
+        Context::CPU(0),
+        {},
+        {output->var()},
+        FnProperty::kNormal,
+        0,
+        "HorovodAllgather");
+    }
   } else {
-    /*#if HAVE_CUDA
-      return DoAllgatherCudaOnCPU(tensor, output, name, cb);
-    #else
-      return DoAllgather(tensor, output, name, cb);
-    #endif*/
+    if (input->var() != output->var()) {
+      Engine::Get()->PushAsync(
+        allgather_async_fn,
+        Context::CPU(0),
+        {input->var()},
+        {output->var()},
+        FnProperty::kNormal,
+        0,
+        "HorovodAllgather");
+  // In-place
+    } else {
+      Engine::Get()->PushAsync(
+        allgather_async_fn,
+        Context::CPU(0),
+        {},
+        {output->var()},
+        FnProperty::kNormal,
+        0,
+        "HorovodAllgather");
+    }
   }
   return 0;
 }
@@ -296,18 +351,17 @@ extern "C" int horovod_mxnet_broadcast_async(
     DoBroadcastCudaOnCPU(input, output, root_rank, name, cb);
   };
   int cpu = -1;
-  if ((input->ctx().dev_mask() == gpu::kDevMask &&
-       output->ctx().dev_mask() == gpu::kDevMask) ||
-      (input->ctx().dev_mask() == cpu::kDevMask &&
-       output->ctx().dev_mask() == cpu::kDevMask)) {
+#if HOROVOD_GPU_BROADCAST == 'M'
+  if (input->ctx().dev_mask() == gpu::kDevMask &&
+       output->ctx().dev_mask() == gpu::kDevMask)
     cpu = 0;
-  } else {
+  else
+#endif
 #if HAVE_CUDA
     cpu = 1;
 #else
     cpu = 0;
 #endif
-  }
 
   // Not in-place
   if (cpu) {

@@ -37,7 +37,7 @@ local_size = _basics.local_size
 rank = _basics.rank
 local_rank = _basics.local_rank
 mpi_threads_supported = _basics.mpi_threads_supported
-
+synchronize = _basics.synchronize
 
 
 # TODO(@ctcyang):
