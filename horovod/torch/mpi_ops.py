@@ -50,6 +50,9 @@ mpi_threads_supported = _basics.mpi_threads_supported
 # before the operation is finished.
 _handle_map = {}
 
+# Only support fp16 allreduce for PyTorch versions using v2 API.
+_fp16_supported = LooseVersion(torch.__version__) >= LooseVersion('0.4.2')
+
 
 def _check_function(function_factory, tensor):
     function = function_factory(tensor)
@@ -65,8 +68,7 @@ def _allreduce_function_factory(tensor):
 
 
 def _allreduce_async(tensor, output, average, name):
-    if tensor.dtype == torch.float16 and \
-            LooseVersion(torch.__version__) < LooseVersion('0.4.2'):
+    if tensor.dtype == torch.float16 and not _fp16_supported:
         raise NotImplementedError(
             'float16 allreduce is not supported for PyTorch version {} < 0.4.2'
             .format(torch.__version__))
