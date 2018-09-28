@@ -17,14 +17,15 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from distutils.version import LooseVersion
 import inspect
 import itertools
+import numpy as np
 import os
 import tempfile
 import torch
 import torch.nn.functional as F
 import unittest
-import numpy as np
 
 import horovod.torch as hvd
 
@@ -201,7 +202,7 @@ class TorchTests(unittest.TestCase):
 
         iter = 0
         dtypes = [torch.cuda.IntTensor, torch.cuda.LongTensor,
-                  torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
+                  torch.cuda.HalfTensor, torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             iter += 1
@@ -789,7 +790,7 @@ class TorchTests(unittest.TestCase):
                     self.assertEqual(opt_param_value, opt_param_value_after)
 
     def test_compression_fp16(self):
-        valid_dtypes = [torch.float16, torch.float32, torch.float64]
+        valid_dtypes = [torch.float32, torch.float64]
         invalid_dtypes = [torch.uint8, torch.int8, torch.int16,
                           torch.int32, torch.int64]
 
@@ -797,13 +798,7 @@ class TorchTests(unittest.TestCase):
         compression = hvd.Compression.fp16
 
         for dtype in valid_dtypes:
-            if dtype != torch.float16:
-                tensor = torch.ones(tensor_size, dtype=dtype)
-            else:
-                # HalfTensor is missing many operations, so we need to construct
-                # in float32, then cast
-                tensor = torch.ones(tensor_size, dtype=torch.float32)
-                tensor = tensor.type(dtype)
+            tensor = torch.ones(tensor_size, dtype=dtype)
 
             compressor = compression.get_compressor(tensor)
             tensor_compressed = compressor.compress(tensor)

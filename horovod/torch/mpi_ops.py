@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from distutils.version import LooseVersion
+
 # Load all the necessary PyTorch C types.
 import torch
 
@@ -63,6 +65,12 @@ def _allreduce_function_factory(tensor):
 
 
 def _allreduce_async(tensor, output, average, name):
+    if tensor.dtype == torch.float16 and \
+            LooseVersion(torch.__version__) < LooseVersion('0.4.2'):
+        raise NotImplementedError(
+            'fp16 compression is not supported for PyTorch version {} < 0.4.2'
+            .format(torch.__version__))
+
     function = _check_function(_allreduce_function_factory, tensor)
     handle = getattr(mpi_lib, function)(tensor, output, average,
                                         name.encode() if name is not None else _NULL)

@@ -14,7 +14,6 @@
 # ==============================================================================
 """Gradient compression algorithms."""
 
-from distutils.version import LooseVersion
 from functools import partial
 
 import torch
@@ -48,17 +47,12 @@ class NoneCompression(object):
 
 class FP16Compression(object):
     """Compress all floating point gradients to 16-bit."""
-    def __init__(self, dtype):
-        """Compresses tensors of the given dtype, and decompresses back."""
-        self._dtype = dtype
+    def __init__(self, tensor):
+        """Compresses tensors of the given tensor's dtype, and decompresses back."""
+        self._dtype = tensor.dtype
 
     def compress(self, tensor):
         """Downcasts the tensor to 16-bit."""
-        if LooseVersion(torch.__version__) < LooseVersion('0.4.2'):
-            raise NotImplementedError(
-                'fp16 compression is not supported for PyTorch version {} < 0.4.2'
-                .format(torch.__version__))
-
         if tensor.dtype != self._dtype:
             raise ValueError('expected tensor of type %s but given %s' %
                              (str(self._dtype), str(tensor.dtype)))
@@ -69,7 +63,7 @@ class FP16Compression(object):
         return tensor_compressed
 
     def decompress(self, tensor):
-        """Upcasts the tensor to the dtype of the last compressed tensor."""
+        """Upcasts the tensor to the initialization dtype."""
         tensor_decompressed = tensor
         if self._dtype.is_floating_point:
             tensor_decompressed = tensor.type(self._dtype)

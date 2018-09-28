@@ -63,7 +63,7 @@ class FP16Compression(object):
         return tensor_compressed
 
     def decompress(self, tensor):
-        """Upcasts the tensor to the dtype of the last compressed tensor."""
+        """Upcasts the tensor to the initialization dtype."""
         tensor_decompressed = tensor
         if self._dtype.is_floating:
             tensor_decompressed = tf.cast(tensor, dtype=self._dtype)
