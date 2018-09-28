@@ -956,7 +956,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         int64_t offset = 0;
         for (auto& e : entries) {
           void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
-          CUDA_CHECK(entries, "cudaMemcpyAsync",
+          CUDA_CHECK(entries, "beforeCudaMemcpyAsync1", cudaGetLastError())
+          CUDA_CHECK(entries, "cudaMemcpyAsync1",
                      cudaMemcpyAsync(buffer_data_at_offset, e.tensor->data(),
                                      (size_t)e.tensor->size(),
                                      cudaMemcpyDeviceToDevice, stream))
@@ -986,7 +987,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         if (horovod_global.ddl_initialized) {
           // Copy input buffer content to output buffer
           // because DDL only supports in-place allreduce
-          CUDA_CHECK(entries, "cudaMemcpyAsync",
+          CUDA_CHECK(entries, "beforeCudaMemcpyAsync2", cudaGetLastError())
+          CUDA_CHECK(entries, "cudaMemcpyAsync2",
                      cudaMemcpyAsync(buffer_data, fused_input_data, buffer_len,
                                      cudaMemcpyDeviceToDevice, stream))
           RECORD_EVENT(entries, event_queue, MEMCPY_IN_FUSION_BUFFER, stream)
@@ -1114,7 +1116,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           // cudaMemcpyAsync is synchronous with respect to the host, so we
           // memcpy (effectively) synchronously to generate an accurate timeline
           ACTIVITY_START_ALL(entries, timeline, MEMCPY_IN_HOST_BUFFER)
-          CUDA_CHECK(entries, "cudaMemcpyAsync",
+          CUDA_CHECK(entries, "beforeCudaMemcpyAsync3", cudaGetLastError())
+          CUDA_CHECK(entries, "cudaMemcpyAsync3",
                      cudaMemcpyAsync(host_buffer, buffer_data_at_rank_offset,
                                      total_buffer_len, cudaMemcpyDeviceToHost,
                                      stream))
@@ -1129,7 +1132,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           ACTIVITY_END_ALL(entries, timeline)
 
           ACTIVITY_START_ALL(entries, timeline, MEMCPY_OUT_HOST_BUFFER)
-          CUDA_CHECK(entries, "cudaMemcpyAsync",
+          CUDA_CHECK(entries, "beforeCudaMemcpyAsync4", cudaGetLastError())
+          CUDA_CHECK(entries, "cudaMemcpyAsync4",
                      cudaMemcpyAsync(buffer_data_at_rank_offset, host_buffer,
                                      total_buffer_len, cudaMemcpyHostToDevice,
                                      stream))
@@ -1175,7 +1179,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         int64_t offset = 0;
         for (auto& e : entries) {
           void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
-          CUDA_CHECK(entries, "cudaMemcpyAsync",
+          CUDA_CHECK(entries, "beforeCudaMemcpyAsync5", cudaGetLastError())
+          CUDA_CHECK(entries, "cudaMemcpyAsync5",
                      cudaMemcpyAsync((void*)e.output->data(),
                                      buffer_data_at_offset,
                                      (size_t)e.tensor->size(),
@@ -1225,7 +1230,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
 #if HAVE_CUDA
         if (on_gpu) {
-          CUDA_CHECK(entries, "cudaMemcpyAsync",
+          CUDA_CHECK(entries, "beforeCudaMemcpyAsync6", cudaGetLastError())
+          CUDA_CHECK(entries, "cudaMemcpyAsync6",
                      cudaMemcpyAsync(
                          buffer_data_at_offset, e.tensor->data(),
                          (size_t)e.tensor->size(), cudaMemcpyDeviceToDevice,
@@ -1267,7 +1273,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
 #if HAVE_CUDA
         if (on_gpu) {
-          CUDA_CHECK(entries, "cudaMemcpyAsync",
+          CUDA_CHECK(entries, "beforeCudaMemcpyAsync7", cudaGetLastError())
+          CUDA_CHECK(entries, "cudaMemcpyAsync7",
                      cudaMemcpyAsync(
                          (void*)e.output->data(), buffer_data_at_offset,
                          (size_t)e.tensor->size(), cudaMemcpyDeviceToDevice,
