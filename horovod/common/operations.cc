@@ -126,7 +126,7 @@ struct HorovodGlobalState {
   std::thread background_thread;
 
   // Whether the background thread should shutdown.
-  bool shut_down = false;
+  std::atomic_bool shut_down = false;
 
   // Whether Horovod should finalize MPI (only if it has initialized it).
   bool should_finalize = false;
@@ -164,7 +164,7 @@ struct HorovodGlobalState {
       tensor_fusion_buffers;
 
   // Whether MPI_Init has been completed on the background thread.
-  bool initialization_done = false;
+  std::atomic_bool initialization_done = false;
 
   // The MPI rank, local rank, size, local size, flag indicating whether MPI
   // multi-threading is supported, ranks from which the MPI communicator will
@@ -1915,11 +1915,11 @@ void horovod_init_comm(MPI_Comm comm) {
 }
 
 void horovod_shutdown() {
-
   if (horovod_global.background_thread.joinable()) {
     horovod_global.shut_down = true;
     horovod_global.background_thread.join();
     // Reset the initialization flag to allow restarting with horovod_init(...)
+    horovod_global.initialization_done = false;
     horovod_global.initialize_flag.clear();
     horovod_global.shut_down = false;
   }
