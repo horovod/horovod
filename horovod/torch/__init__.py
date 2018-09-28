@@ -26,6 +26,7 @@ except:
     check_extension('horovod.torch', 'HOROVOD_WITH_PYTORCH',
                     __file__, 'mpi_lib', '_mpi_lib')
 
+from horovod.torch.compression import Compression
 from horovod.torch.mpi_ops import allreduce, allreduce_async, allreduce_, allreduce_async_
 from horovod.torch.mpi_ops import allgather, allgather_async
 from horovod.torch.mpi_ops import broadcast, broadcast_async, broadcast_, broadcast_async_
@@ -39,8 +40,9 @@ import collections
 
 
 class _DistributedOptimizer(torch.optim.Optimizer):
-    def __init__(self, params, named_parameters=None):
+    def __init__(self, params, named_parameters, compression):
         super(self.__class__, self).__init__(params)
+        self._compression = compression
 
         if named_parameters is not None:
             named_parameters = list(named_parameters)
@@ -75,13 +77,19 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             assert p not in self._handles
             assert not p.grad.requires_grad
             name = self._parameter_names.get(p)
-            handle = allreduce_async_(p.grad.data, average=True, name=name)
-            self._handles[p] = handle
+
+            tensor = p.grad.data
+            tensor_compressed, ctx = self._compression.compress(tensor)
+
+            handle = allreduce_async_(tensor_compressed, average=True, name=name)
+            self._handles[p] = (handle, ctx)
         return hook
 
     def synchronize(self):
-        for handle in self._handles.values():
-            synchronize(handle)
+        for p, value in self._handles.items():
+            handle, ctx = value
+            output = synchronize(handle)
+            p.grad.data.set_(self._compression.decompress(output, ctx))
         self._handles.clear()
 
     def step(self, closure=None):
@@ -89,7 +97,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         return super(self.__class__, self).step(closure)
 
 
-def DistributedOptimizer(optimizer, named_parameters=None):
+def DistributedOptimizer(optimizer, named_parameters=None, compression=Compression.none):
     """
     An optimizer that wraps another torch.optim.Optimizer, using an allreduce to
     average gradient values before applying gradients to model weights.
@@ -116,12 +124,15 @@ def DistributedOptimizer(optimizer, named_parameters=None):
         optimizer: Optimizer to use for computing gradients and applying updates.
         named_parameters: A mapping between parameter names and values. Used for naming of
                           allreduce operations. Typically just `model.named_parameters()`.
+        compression: Compression algorithm used during allreduce to reduce the amount
+                     of data sent during the each parameter update step.  Defaults to
+                     not using compression.
     """
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override the `step()` method with an allreduce implementation.
     cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                dict(_DistributedOptimizer.__dict__))
-    return cls(optimizer.param_groups, named_parameters)
+    return cls(optimizer.param_groups, named_parameters, compression)
 
 
 def broadcast_parameters(params, root_rank):

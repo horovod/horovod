@@ -133,7 +133,7 @@ class MPITests(tf.test.TestCase):
         size = hvd.size()
 
         with self.test_session(config=self.config) as session:
-            dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]
+            dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
             dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
                 with tf.device("/gpu:%d" % local_rank):
@@ -174,7 +174,7 @@ class MPITests(tf.test.TestCase):
         size = hvd.size()
 
         with self.test_session(config=self.config) as session:
-            dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]
+            dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
             dims = [1, 2, 3]
             tests = []
             for dtype, dim in itertools.product(dtypes, dims):
@@ -219,7 +219,7 @@ class MPITests(tf.test.TestCase):
         iter = 0
         gpu_ids = [local_rank * 2, local_rank * 2 + 1]
         with self.test_session(config=self.config) as session:
-            dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]
+            dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
             dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
                 iter += 1
@@ -353,8 +353,8 @@ class MPITests(tf.test.TestCase):
 
         with self.test_session(config=self.config) as session:
             dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
-                      tf.int32, tf.int64, tf.float32, tf.float64,
-                      tf.bool]
+                      tf.int32, tf.int64, tf.float16, tf.float32,
+                      tf.float64, tf.bool]
             dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
                 tensor = tf.ones([17] * dim) * rank
@@ -392,8 +392,8 @@ class MPITests(tf.test.TestCase):
 
         with self.test_session(config=self.config) as session:
             dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
-                      tf.int32, tf.int64, tf.float32, tf.float64,
-                      tf.bool]
+                      tf.int32, tf.int64, tf.float16, tf.float32,
+                      tf.float64, tf.bool]
             dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
                 # Support tests up to MPI Size of 35
@@ -518,8 +518,8 @@ class MPITests(tf.test.TestCase):
 
         with self.test_session(config=self.config) as session:
             dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
-                      tf.int32, tf.int64, tf.float32, tf.float64,
-                      tf.bool]
+                      tf.int32, tf.int64, tf.float16, tf.float32,
+                      tf.float64, tf.bool]
             dims = [1, 2, 3]
             root_ranks = list(range(size))
             for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
@@ -622,6 +622,43 @@ class MPITests(tf.test.TestCase):
                 self.assertLess(err, 0.00000001,
                                 "gradient %s differs from expected %s, "
                                 "error: %s" % (grad_out, expected, str(err)))
+
+    def test_compression_fp16(self):
+        valid_dtypes = [tf.float16, tf.float32, tf.float64]
+        invalid_dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                          tf.int32, tf.int64, tf.bool]
+
+        tensor_size = [17] * 3
+        compression = hvd.Compression.fp16
+
+        with self.test_session(config=self.config) as session:
+            for dtype in valid_dtypes:
+                tensor = tf.ones(tensor_size, dtype=dtype)
+
+                tensor_compressed, ctx = compression.compress(tensor)
+                self.assertEqual(tensor_compressed.dtype, tf.float16)
+
+                tensor_decompressed = compression.decompress(tensor_compressed, ctx)
+                self.assertEqual(tensor_decompressed.dtype, dtype)
+
+                actual = session.run(tensor_decompressed)
+                expected = np.ones(tensor_size)
+                err = np.linalg.norm(expected - actual)
+                self.assertLess(err, 0.00000001)
+
+            for dtype in invalid_dtypes:
+                tensor = tf.ones(tensor_size, dtype=dtype)
+
+                tensor_compressed, ctx = compression.compress(tensor)
+                self.assertEqual(tensor_compressed.dtype, dtype)
+
+                tensor_decompressed = compression.decompress(tensor_compressed, ctx)
+                self.assertEqual(tensor_decompressed.dtype, dtype)
+
+                actual = session.run(tensor_decompressed)
+                expected = np.ones(tensor_size)
+                err = np.linalg.norm(expected - actual)
+                self.assertLess(err, 0.00000001)
 
 
 if __name__ == '__main__':

@@ -48,6 +48,8 @@ const MPIDataType TorchTensor::dtype() const {
     return common::HOROVOD_INT32;
   case at::ScalarType::Long:
     return common::HOROVOD_INT64;
+  case at::ScalarType::Half:
+    return common::HOROVOD_FLOAT16;
   case at::ScalarType::Float:
     return common::HOROVOD_FLOAT32;
   case at::ScalarType::Double:

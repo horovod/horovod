@@ -30,12 +30,15 @@ from horovod.tensorflow import local_size
 from horovod.tensorflow import rank
 from horovod.tensorflow import local_rank
 from horovod.tensorflow import mpi_threads_supported
+from horovod.tensorflow import Compression
 
 from horovod.keras import _impl
 from horovod.tensorflow.keras import callbacks
 
 
-def DistributedOptimizer(optimizer, name=None, device_dense='', device_sparse=''):
+def DistributedOptimizer(optimizer, name=None,
+                         device_dense='', device_sparse='',
+                         compression=Compression.none):
     """
     An optimizer that wraps another keras.optimizers.Optimizer, using an allreduce to
     average gradient values before applying gradients to model weights.
@@ -49,8 +52,12 @@ def DistributedOptimizer(optimizer, name=None, device_dense='', device_sparse=''
                       if Horovod was build with HOROVOD_GPU_ALLREDUCE.
         device_sparse: Device to be used for sparse tensors. Uses GPU by default
                        if Horovod was build with HOROVOD_GPU_ALLGATHER.
+        compression: Compression algorithm used to reduce the amount of data
+                     sent and received by each worker node.  Defaults to not
+                     using compression.
     """
-    return _impl.create_distributed_optimizer(keras, optimizer, name, device_dense, device_sparse)
+    return _impl.create_distributed_optimizer(keras, optimizer, name,
+                                              device_dense, device_sparse, compression)
 
 
 def broadcast_global_variables(root_rank):
@@ -106,7 +113,7 @@ def broadcast(value, root_rank, name=None):
     return _impl.broadcast(K, value, root_rank, name)
 
 
-def load_model(filepath, custom_optimizers=None, custom_objects=None):
+def load_model(filepath, custom_optimizers=None, custom_objects=None, compression=Compression.none):
     """
     Loads a saved Keras model with a Horovod DistributedOptimizer.
 
@@ -126,6 +133,9 @@ def load_model(filepath, custom_optimizers=None, custom_objects=None):
             during loading.
         custom_objects: Optional dictionary mapping names (strings) to custom
             classes or functions to be considered during deserialization.
+        compression: Compression algorithm used to reduce the amount of data
+                     sent and received by each worker node.  Defaults to not
+                     using compression.
 
     # Returns
         A Keras model instance.
@@ -135,6 +145,6 @@ def load_model(filepath, custom_optimizers=None, custom_objects=None):
         ValueError: In case of an invalid savefile.
     """
     def wrap_optimizer(cls):
-        return lambda **kwargs: DistributedOptimizer(cls(**kwargs))
+        return lambda **kwargs: DistributedOptimizer(cls(**kwargs), compression=compression)
     return _impl.load_model(keras, wrap_optimizer, filepath, custom_optimizers, custom_objects)
 

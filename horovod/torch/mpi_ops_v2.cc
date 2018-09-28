@@ -237,17 +237,21 @@ PYBIND11_MODULE(mpi_lib_v2, m) {
   // allreduce
   m.def("horovod_torch_allreduce_async_torch_IntTensor", &DoAllreduce);
   m.def("horovod_torch_allreduce_async_torch_LongTensor", &DoAllreduce);
+  m.def("horovod_torch_allreduce_async_torch_HalfTensor", &DoAllreduce);
   m.def("horovod_torch_allreduce_async_torch_FloatTensor", &DoAllreduce);
   m.def("horovod_torch_allreduce_async_torch_DoubleTensor", &DoAllreduce);
 #if HOROVOD_GPU_ALLREDUCE
   m.def("horovod_torch_allreduce_async_torch_cuda_IntTensor", &DoAllreduce);
   m.def("horovod_torch_allreduce_async_torch_cuda_LongTensor", &DoAllreduce);
+  m.def("horovod_torch_allreduce_async_torch_cuda_HalfTensor", &DoAllreduce);
   m.def("horovod_torch_allreduce_async_torch_cuda_FloatTensor", &DoAllreduce);
   m.def("horovod_torch_allreduce_async_torch_cuda_DoubleTensor", &DoAllreduce);
 #else
   m.def("horovod_torch_allreduce_async_torch_cuda_IntTensor",
         &DoAllreduceCudaOnCPU);
   m.def("horovod_torch_allreduce_async_torch_cuda_LongTensor",
+        &DoAllreduceCudaOnCPU);
+  m.def("horovod_torch_allreduce_async_torch_cuda_HalfTensor",
         &DoAllreduceCudaOnCPU);
   m.def("horovod_torch_allreduce_async_torch_cuda_FloatTensor",
         &DoAllreduceCudaOnCPU);
@@ -261,6 +265,7 @@ PYBIND11_MODULE(mpi_lib_v2, m) {
   m.def("horovod_torch_allgather_async_torch_ShortTensor", &DoAllgather);
   m.def("horovod_torch_allgather_async_torch_IntTensor", &DoAllgather);
   m.def("horovod_torch_allgather_async_torch_LongTensor", &DoAllgather);
+  m.def("horovod_torch_allgather_async_torch_HalfTensor", &DoAllgather);
   m.def("horovod_torch_allgather_async_torch_FloatTensor", &DoAllgather);
   m.def("horovod_torch_allgather_async_torch_DoubleTensor", &DoAllgather);
 #if HOROVOD_GPU_ALLGATHER
@@ -269,6 +274,7 @@ PYBIND11_MODULE(mpi_lib_v2, m) {
   m.def("horovod_torch_allgather_async_torch_cuda_ShortTensor", &DoAllgather);
   m.def("horovod_torch_allgather_async_torch_cuda_IntTensor", &DoAllgather);
   m.def("horovod_torch_allgather_async_torch_cuda_LongTensor", &DoAllgather);
+  m.def("horovod_torch_allgather_async_torch_cuda_HalfTensor", &DoAllgather);
   m.def("horovod_torch_allgather_async_torch_cuda_FloatTensor", &DoAllgather);
   m.def("horovod_torch_allgather_async_torch_cuda_DoubleTensor", &DoAllgather);
 #else
@@ -282,6 +288,8 @@ PYBIND11_MODULE(mpi_lib_v2, m) {
         &DoAllgatherCudaOnCPU);
   m.def("horovod_torch_allgather_async_torch_cuda_LongTensor",
         &DoAllgatherCudaOnCPU);
+  m.def("horovod_torch_allgather_async_torch_cuda_HalfTensor",
+        &DoAllgatherCudaOnCPU);
   m.def("horovod_torch_allgather_async_torch_cuda_FloatTensor",
         &DoAllgatherCudaOnCPU);
   m.def("horovod_torch_allgather_async_torch_cuda_DoubleTensor",
@@ -294,6 +302,7 @@ PYBIND11_MODULE(mpi_lib_v2, m) {
   m.def("horovod_torch_broadcast_async_torch_ShortTensor", &DoBroadcast);
   m.def("horovod_torch_broadcast_async_torch_IntTensor", &DoBroadcast);
   m.def("horovod_torch_broadcast_async_torch_LongTensor", &DoBroadcast);
+  m.def("horovod_torch_broadcast_async_torch_HalfTensor", &DoBroadcast);
   m.def("horovod_torch_broadcast_async_torch_FloatTensor", &DoBroadcast);
   m.def("horovod_torch_broadcast_async_torch_DoubleTensor", &DoBroadcast);
 #if HOROVOD_GPU_BROADCAST
@@ -302,6 +311,7 @@ PYBIND11_MODULE(mpi_lib_v2, m) {
   m.def("horovod_torch_broadcast_async_torch_cuda_ShortTensor", &DoBroadcast);
   m.def("horovod_torch_broadcast_async_torch_cuda_IntTensor", &DoBroadcast);
   m.def("horovod_torch_broadcast_async_torch_cuda_LongTensor", &DoBroadcast);
+  m.def("horovod_torch_broadcast_async_torch_cuda_HalfTensor", &DoBroadcast);
   m.def("horovod_torch_broadcast_async_torch_cuda_FloatTensor", &DoBroadcast);
   m.def("horovod_torch_broadcast_async_torch_cuda_DoubleTensor", &DoBroadcast);
 #else
@@ -314,6 +324,8 @@ PYBIND11_MODULE(mpi_lib_v2, m) {
   m.def("horovod_torch_broadcast_async_torch_cuda_IntTensor",
         &DoBroadcastCudaOnCPU);
   m.def("horovod_torch_broadcast_async_torch_cuda_LongTensor",
+        &DoBroadcastCudaOnCPU);
+  m.def("horovod_torch_broadcast_async_torch_cuda_HalfTensor",
         &DoBroadcastCudaOnCPU);
   m.def("horovod_torch_broadcast_async_torch_cuda_FloatTensor",
         &DoBroadcastCudaOnCPU);

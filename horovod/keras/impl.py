@@ -17,7 +17,7 @@ import horovod.tensorflow as hvd
 import tensorflow as tf
 
 
-def create_distributed_optimizer(keras, optimizer, name=None, device_dense='', device_sparse=''):
+def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sparse, compression):
     class _DistributedOptimizer(keras.optimizers.Optimizer):
         def __init__(self, name, device_dense, device_sparse, **kwargs):
             if name is None:
@@ -25,6 +25,7 @@ def create_distributed_optimizer(keras, optimizer, name=None, device_dense='', d
             self._name = name
             self._device_dense = device_dense
             self._device_sparse = device_sparse
+            self._compression = compression
             super(self.__class__, self).__init__(**kwargs)
 
         def get_gradients(self, loss, params):
@@ -42,8 +43,10 @@ def create_distributed_optimizer(keras, optimizer, name=None, device_dense='', d
                 with tf.name_scope(self._name + "_Allreduce"):
                     for grad in gradients:
                         if grad is not None:
-                            avg_grad = hvd.allreduce(grad, device_dense=self._device_dense,
-                                                     device_sparse=self._device_sparse)
+                            avg_grad = hvd.allreduce(grad,
+                                                     device_dense=self._device_dense,
+                                                     device_sparse=self._device_sparse,
+                                                     compression=self._compression)
                             averaged_gradients.append(avg_grad)
                         else:
                             averaged_gradients.append(None)
@@ -65,22 +68,22 @@ def broadcast_global_variables(backend, root_rank):
     return backend.get_session().run(bcast_op)
 
 
-def allreduce(backend, value, name=None, average=True):
+def allreduce(backend, value, name, average):
     allreduce_op = hvd.allreduce(tf.constant(value, name=name), average=average)
     return backend.get_session().run(allreduce_op)
 
 
-def allgather(backend, value, name=None):
+def allgather(backend, value, name):
     allgather_op = hvd.allgather(tf.constant(value, name=name))
     return backend.get_session().run(allgather_op)
 
 
-def broadcast(backend, value, root_rank, name=None):
+def broadcast(backend, value, root_rank, name):
     bcast_op = hvd.broadcast(tf.constant(value, name=name), root_rank)
     return backend.get_session().run(bcast_op)
 
 
-def load_model(keras, wrap_optimizer, filepath, custom_optimizers=None, custom_objects=None):
+def load_model(keras, wrap_optimizer, filepath, custom_optimizers, custom_objects):
     horovod_objects = {
         subclass.__name__.lower(): wrap_optimizer(subclass)
         for subclass in keras.optimizers.Optimizer.__subclasses__()
