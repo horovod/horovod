@@ -79,7 +79,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             name = self._parameter_names.get(p)
 
             tensor = p.grad.data
-            compressor = self._compression.get_compressor(tensor.dtype)
+            compressor = self._compression.get_compressor(tensor)
             tensor_compressed = compressor.compress(tensor)
 
             handle = allreduce_async_(tensor_compressed, average=True, name=name)

@@ -805,7 +805,7 @@ class TorchTests(unittest.TestCase):
                 tensor = torch.ones(tensor_size, dtype=torch.float32)
                 tensor = tensor.type(dtype)
 
-            compressor = compression.get_compressor(dtype)
+            compressor = compression.get_compressor(tensor)
             tensor_compressed = compressor.compress(tensor)
             self.assertEqual(tensor_compressed.dtype, torch.float16)
 
@@ -819,7 +819,7 @@ class TorchTests(unittest.TestCase):
         for dtype in invalid_dtypes:
             tensor = torch.ones(tensor_size, dtype=dtype)
 
-            compressor = compression.get_compressor(dtype)
+            compressor = compression.get_compressor(tensor)
             tensor_compressed = compressor.compress(tensor)
             self.assertEqual(tensor_compressed.dtype, dtype)
 

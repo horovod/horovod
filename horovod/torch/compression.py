@@ -15,7 +15,6 @@
 """Gradient compression algorithms."""
 
 from distutils.version import LooseVersion
-from enum import Enum
 from functools import partial
 
 import torch
@@ -77,15 +76,21 @@ class FP16Compression(object):
         return tensor_decompressed
 
 
-class Compression(Enum):
+class CompressionFactory(object):
+    """Creates a compressor for a given tensor."""
+    def __init__(self, value):
+        self._value = value
+
+    def get_compressor(self, tensor):
+        """Returns a new compressor instance for the given tensor."""
+        return self._value(tensor)
+
+
+class Compression(object):
     """Optional gradient compression algorithm used during allreduce."""
 
     """Do not compress the gradients. This is the default."""
-    none = partial(lambda dtype: NoneCompression.instance())
+    none = CompressionFactory(partial(lambda tensor: NoneCompression.instance()))
 
     """Compress all floating point gradients to 16-bit."""
-    fp16 = partial(lambda dtype: FP16Compression(dtype))
-
-    def get_compressor(self, dtype):
-        """Returns a new compressor instance for the given dtype."""
-        return self.value(dtype)
+    fp16 = CompressionFactory(partial(lambda tensor: FP16Compression(tensor)))
