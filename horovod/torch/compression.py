@@ -14,6 +14,7 @@
 # ==============================================================================
 """Gradient compression algorithms."""
 
+from distutils.version import LooseVersion
 from enum import Enum
 from functools import partial
 
@@ -54,6 +55,11 @@ class FP16Compression(object):
 
     def compress(self, tensor):
         """Downcasts the tensor to 16-bit."""
+        if LooseVersion(torch.__version__) < LooseVersion('0.4.2'):
+            raise NotImplementedError(
+                'fp16 compression is not supported for PyTorch version {} < 0.4.2'
+                .format(torch.__version__))
+
         if tensor.dtype != self._dtype:
             raise ValueError('expected tensor of type %s but given %s' %
                              (str(self._dtype), str(tensor.dtype)))
