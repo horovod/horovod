@@ -45,8 +45,6 @@ TENSOR_UTIL_DEFINE_CUDA_TYPE(MPIDataType::HOROVOD_INT32, THCudaIntTensor,
                              THIntTensor, THCudaIntStorage)
 TENSOR_UTIL_DEFINE_CUDA_TYPE(MPIDataType::HOROVOD_INT64, THCudaLongTensor,
                              THLongTensor, THCudaLongStorage)
-TENSOR_UTIL_DEFINE_CUDA_TYPE(MPIDataType::HOROVOD_FLOAT16, THCudaHalfTensor,
-                             THHalfTensor, THCudaHalfStorage)
 TENSOR_UTIL_DEFINE_CUDA_TYPE(MPIDataType::HOROVOD_FLOAT32, THCudaTensor,
                              THFloatTensor, THCudaStorage)
 TENSOR_UTIL_DEFINE_CUDA_TYPE(MPIDataType::HOROVOD_FLOAT64, THCudaDoubleTensor,
