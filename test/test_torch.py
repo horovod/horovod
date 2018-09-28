@@ -808,7 +808,7 @@ class TorchTests(unittest.TestCase):
             self.assertEqual(tensor_decompressed.dtype, dtype)
 
             expected = np.ones(tensor_size)
-            err = np.linalg.norm(expected - tensor_decompressed)
+            err = np.linalg.norm(expected - tensor_decompressed.data.numpy())
             self.assertLess(err, 0.00000001)
 
         for dtype in invalid_dtypes:
@@ -823,5 +823,5 @@ class TorchTests(unittest.TestCase):
 
             if dtype != torch.int8:  # Cannot cast to NumPy with a CharTensor
                 expected = np.ones(tensor_size)
-                err = np.linalg.norm(expected - tensor_decompressed)
+                err = np.linalg.norm(expected - tensor_decompressed.data.numpy())
                 self.assertLess(err, 0.00000001)
