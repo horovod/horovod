@@ -799,11 +799,10 @@ class TorchTests(unittest.TestCase):
         for dtype in valid_dtypes:
             tensor = torch.ones(tensor_size, dtype=dtype)
 
-            compressor = compression.get_compressor(tensor)
-            tensor_compressed = compressor.compress(tensor)
+            tensor_compressed, ctx = compression.compress(tensor)
             self.assertEqual(tensor_compressed.dtype, torch.float16)
 
-            tensor_decompressed = compressor.decompress(tensor_compressed)
+            tensor_decompressed = compression.decompress(tensor_compressed, ctx)
             self.assertEqual(tensor_decompressed.dtype, dtype)
 
             expected = np.ones(tensor_size)
@@ -813,11 +812,10 @@ class TorchTests(unittest.TestCase):
         for dtype in invalid_dtypes:
             tensor = torch.ones(tensor_size, dtype=dtype)
 
-            compressor = compression.get_compressor(tensor)
-            tensor_compressed = compressor.compress(tensor)
+            tensor_compressed, ctx = compression.compress(tensor)
             self.assertEqual(tensor_compressed.dtype, dtype)
 
-            tensor_decompressed = compressor.decompress(tensor_compressed)
+            tensor_decompressed = compression.decompress(tensor_compressed, ctx)
             self.assertEqual(tensor_decompressed.dtype, dtype)
 
             if dtype != torch.int8:  # Cannot cast to NumPy with a CharTensor

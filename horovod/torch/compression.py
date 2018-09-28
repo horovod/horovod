@@ -14,77 +14,61 @@
 # ==============================================================================
 """Gradient compression algorithms."""
 
-from functools import partial
-
 import torch
 
 
-class NoneCompression(object):
-    """Default no-op compression."""
-    __instance = None
-
-    def __init__(self):
-        if NoneCompression.__instance is not None:
-            raise Exception("NoneCompression is a singleton")
-        else:
-            NoneCompression.__instance = self
-
-    def compress(self, tensor):
-        """Returns the tensor unmodified."""
-        return tensor
-
-    def decompress(self, tensor):
-        """Returns the tensor unmodified."""
-        return tensor
+class Compressor(object):
+    """Interface for compressing a given tensor with optional state."""
+    @staticmethod
+    def compress(tensor, ctx=None):
+        """Compresses a tensor and returns it with the context needed to decompress it."""
+        pass
 
     @staticmethod
-    def instance():
-        """Returns the singleton instance."""
-        if NoneCompression.__instance is None:
-            NoneCompression()
-        return NoneCompression.__instance
+    def decompress(tensor, ctx):
+        """Decompress the tensor with the given context."""
+        pass
 
 
-class FP16Compression(object):
+class NoneCompressor(Compressor):
+    """Default no-op compression."""
+    @staticmethod
+    def compress(tensor, ctx=None):
+        """Returns the tensor unmodified."""
+        return tensor, None
+
+    @staticmethod
+    def decompress(tensor, ctx):
+        """Returns the tensor unmodified."""
+        return tensor
+
+
+class FP16Compressor(Compressor):
     """Compress all floating point gradients to 16-bit."""
-    def __init__(self, tensor):
-        """Compresses tensors of the given tensor's dtype, and decompresses back."""
-        self._dtype = tensor.dtype
-
-    def compress(self, tensor):
+    @staticmethod
+    def compress(tensor, ctx=None):
         """Downcasts the tensor to 16-bit."""
-        if tensor.dtype != self._dtype:
-            raise ValueError('expected tensor of type %s but given %s' %
-                             (str(self._dtype), str(tensor.dtype)))
         tensor_compressed = tensor
-        if self._dtype.is_floating_point:
+        if tensor.dtype.is_floating_point:
             # Only allow compression from other floating point types
             tensor_compressed = tensor.type(torch.float16)
-        return tensor_compressed
+        return tensor_compressed, tensor.dtype
 
-    def decompress(self, tensor):
+    @staticmethod
+    def decompress(tensor, ctx):
         """Upcasts the tensor to the initialization dtype."""
         tensor_decompressed = tensor
-        if self._dtype.is_floating_point:
-            tensor_decompressed = tensor.type(self._dtype)
+        dtype = ctx
+        if dtype.is_floating_point:
+            tensor_decompressed = tensor.type(dtype)
         return tensor_decompressed
-
-
-class CompressionFactory(object):
-    """Creates a compressor for a given tensor."""
-    def __init__(self, value):
-        self._value = value
-
-    def get_compressor(self, tensor):
-        """Returns a new compressor instance for the given tensor."""
-        return self._value(tensor)
 
 
 class Compression(object):
     """Optional gradient compression algorithm used during allreduce."""
 
     """Do not compress the gradients. This is the default."""
-    none = CompressionFactory(partial(lambda tensor: NoneCompression.instance()))
+    none = NoneCompressor
 
     """Compress all floating point gradients to 16-bit."""
-    fp16 = CompressionFactory(partial(lambda tensor: FP16Compression(tensor)))
+    fp16 = FP16Compressor

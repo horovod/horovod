@@ -79,18 +79,17 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             name = self._parameter_names.get(p)
 
             tensor = p.grad.data
-            compressor = self._compression.get_compressor(tensor)
-            tensor_compressed = compressor.compress(tensor)
+            tensor_compressed, ctx = self._compression.compress(tensor)
 
             handle = allreduce_async_(tensor_compressed, average=True, name=name)
-            self._handles[p] = (handle, compressor)
+            self._handles[p] = (handle, ctx)
         return hook
 
     def synchronize(self):
         for p, value in self._handles.items():
-            handle, compressor = value
+            handle, ctx = value
             output = synchronize(handle)
-            p.grad.data.set_(compressor.decompress(output))
+            p.grad.data.set_(self._compression.decompress(output, ctx))
         self._handles.clear()
 
     def step(self, closure=None):

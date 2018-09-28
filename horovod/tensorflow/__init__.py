@@ -78,11 +78,10 @@ def allreduce(tensor, average=True, device_dense='', device_sparse='',
                                 dense_shape=tensor.dense_shape)
     else:
         with tf.device(device_dense):
-            compressor = compression.get_compressor(tensor)
             horovod_size = tf.cast(size(), dtype=tensor.dtype)
-            tensor_compressed = compressor.compress(tensor)
+            tensor_compressed, ctx = compression.compress(tensor)
             summed_tensor_compressed = _allreduce(tensor_compressed)
-            summed_tensor = compressor.decompress(summed_tensor_compressed)
+            summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
             new_tensor = (tf.div(summed_tensor, horovod_size)
                           if average else summed_tensor)
         return new_tensor

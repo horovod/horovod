@@ -635,11 +635,10 @@ class MPITests(tf.test.TestCase):
             for dtype in valid_dtypes:
                 tensor = tf.ones(tensor_size, dtype=dtype)
 
-                compressor = compression.get_compressor(tensor)
-                tensor_compressed = compressor.compress(tensor)
+                tensor_compressed, ctx = compression.compress(tensor)
                 self.assertEqual(tensor_compressed.dtype, tf.float16)
 
-                tensor_decompressed = compressor.decompress(tensor_compressed)
+                tensor_decompressed = compression.decompress(tensor_compressed, ctx)
                 self.assertEqual(tensor_decompressed.dtype, dtype)
 
                 actual = session.run(tensor_decompressed)
@@ -650,11 +649,10 @@ class MPITests(tf.test.TestCase):
             for dtype in invalid_dtypes:
                 tensor = tf.ones(tensor_size, dtype=dtype)
 
-                compressor = compression.get_compressor(tensor)
-                tensor_compressed = compressor.compress(tensor)
+                tensor_compressed, ctx = compression.compress(tensor)
                 self.assertEqual(tensor_compressed.dtype, dtype)
 
-                tensor_decompressed = compressor.decompress(tensor_compressed)
+                tensor_decompressed = compression.decompress(tensor_compressed, ctx)
                 self.assertEqual(tensor_decompressed.dtype, dtype)
 
                 actual = session.run(tensor_decompressed)
