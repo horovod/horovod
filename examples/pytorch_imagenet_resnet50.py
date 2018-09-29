@@ -22,6 +22,8 @@ parser.add_argument('--log-dir', default='./logs',
                     help='tensorboard log directory')
 parser.add_argument('--checkpoint-format', default='./checkpoint-{epoch}.pth.tar',
                     help='checkpoint file format')
+parser.add_argument('--fp16-allreduce', action='store_true', default=False,
+                    help='use fp16 compression during allreduce')
 
 # Default settings from https://arxiv.org/abs/1706.02677.
 parser.add_argument('--batch-size', type=int, default=32,
@@ -119,9 +121,13 @@ if args.cuda:
 optimizer = optim.SGD(model.parameters(), lr=args.base_lr * hvd.size(),
                       momentum=args.momentum, weight_decay=args.wd)
 
+# Horovod: (optional) compression algorithm.
+compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
+
 # Horovod: wrap optimizer with DistributedOptimizer.
-optimizer = hvd.DistributedOptimizer(
-    optimizer, named_parameters=model.named_parameters())
+optimizer = hvd.DistributedOptimizer(optimizer,
+                                     named_parameters=model.named_parameters(),
+                                     compression=compression)
 
 # Restore from a previous checkpoint, if initial_epoch is specified.
 # Horovod: restore on the first worker which will broadcast weights to other workers.
