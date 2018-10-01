@@ -265,9 +265,10 @@ extern "C" int horovod_mxnet_allreduce_async(
         "HorovodAllreduce");
     }
   }
-  if (average) {
+  // TODO(@ctcyang): Allreduce not implemented yet
+  /*if (average) {
     TensorUtil::DivideTensorInPlace(output, horovod_size());
-  }
+  }*/
   return 0;
 }
 
