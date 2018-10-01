@@ -46,7 +46,7 @@ class MXTests(unittest.TestCase):
             mx.random.seed(1234, ctx=dev)
             tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim], ctx=dev)
             tensor = tensor.astype(dtype)
-            summed = hvd.allreduce(tensor, average=False)
+            summed = hvd.allreduce(tensor, average=False, name=str(count))
             multiplied = tensor * size
             max_difference = mx.nd.max(mx.nd.subtract(summed, multiplied))
             count += 1
@@ -87,7 +87,7 @@ class MXTests(unittest.TestCase):
             mx.random.seed(1234, ctx=dev)
             tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim], ctx=dev)
             tensor = tensor.astype(dtype)
-            averaged = hvd.allreduce(tensor, average=True)
+            averaged = hvd.allreduce(tensor, average=True, name=str(count))
             tensor = tensor / size
             tensor = tensor * size
             max_difference = mx.nd.max(mx.nd.subtract(averaged, tensor))
@@ -126,7 +126,7 @@ class MXTests(unittest.TestCase):
             tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim], ctx=dev)
             tensor = tensor.astype(dtype)
             multiplied = tensor * size
-            hvd.allreduce_(tensor, average=False)
+            hvd.allreduce_(tensor, average=False, name=str(count))
             max_difference = mx.nd.max(mx.nd.subtract(tensor, multiplied))
             count += 1
 
@@ -403,7 +403,7 @@ class MXTests(unittest.TestCase):
 
             # Only do broadcasting using and on broadcast_tensor
             broadcast_tensor = tensor.copy()
-            broadcast_tensor = hvd.broadcast(tensor, root_rank)
+            broadcast_tensor = hvd.broadcast(tensor, root_rank=root_rank, name=str(count))
             if rank != root_rank:
                 if mx.nd.max(tensor == root_tensor) != 0:
                     print("broadcast", count, dtype, dim, mx.nd.max(tensor == root_tensor))
@@ -448,7 +448,7 @@ class MXTests(unittest.TestCase):
 
             # Only do broadcasting using and on broadcast_tensor
             broadcast_tensor = tensor.copy()
-            hvd.broadcast_(broadcast_tensor, root_rank)
+            hvd.broadcast_(broadcast_tensor, root_rank=root_rank, name=str(count))
             if rank != root_rank:
                 if mx.nd.max(tensor == root_tensor) != 0:
                     print("broadcast", count, dtype, dim, mx.nd.max(tensor == root_tensor))
