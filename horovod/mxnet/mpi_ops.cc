@@ -58,9 +58,6 @@ int DoAllreduce(NDArray* tensor, NDArray* output, int average, char* name, Callb
       hvd_context, hvd_tensor, hvd_output, nullptr,
       GetOpName("allreduce", name, handle), device,
       [handle, average, output](const Status& status) {
-        if (average) {
-          TensorUtil::DivideTensorInPlace(output, horovod_size());
-        }
         handle_manager.MarkDone(handle, status);
         handle_manager.ExecuteCallback(handle);
       });
@@ -87,9 +84,6 @@ int DoAllreduceCudaOnCPU(NDArray* tensor, NDArray* output, int average, char* na
       GetOpName("allreduce", name, handle), CPU_DEVICE_ID,
       [handle, average, hvd_cpu_buffer, output](const Status& status) {
         TensorUtil::CopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
-        if (average) {
-          TensorUtil::DivideTensorInPlace(output, horovod_size());
-        }
         handle_manager.MarkDone(handle, status);
         handle_manager.ExecuteCallback(handle);
       });
@@ -270,6 +264,9 @@ extern "C" int horovod_mxnet_allreduce_async(
         0,
         "HorovodAllreduce");
     }
+  }
+  if (average) {
+    TensorUtil::DivideTensorInPlace(output, horovod_size());
   }
   return 0;
 }
