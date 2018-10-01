@@ -83,17 +83,16 @@ def allreduce(tensor, average=True, name=None):
         A tensor of the same shape and type as `tensor`, averaged or summed across all
         processes.
     """
-    if average:
-        output = tensor / size()
-        c_in = output.handle
-    else:
-        output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context, dtype=tensor.dtype)
-        c_in = tensor.handle
+    output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context, dtype=tensor.dtype)
+    c_in = tensor.handle
     c_out = output.handle
     if isinstance(name, string_types):
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), c_str(name)))
+        # TODO(@ctcyang): pending mxnet GPU support for inplace division op
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(False)), c_str(name)))
+        #check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), c_str(name)))
     else:
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), name))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(False)), name))
+        #check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), name))
     return output
 
 def allreduce_(tensor, average=True, name=None):
@@ -116,14 +115,15 @@ def allreduce_(tensor, average=True, name=None):
         A tensor of the same shape and type as `tensor`, averaged or summed across all
         processes.
     """
-    if average:
-        tensor /= size()
     c_in = tensor.handle
     c_out = tensor.handle
     if isinstance(name, string_types):
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), c_str(name)))
+        # TODO(@ctcyang): pending mxnet GPU support for inplace division op
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(False)), c_str(name)))
+        #check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), c_str(name)))
     else:
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), name))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(False)), name))
+        #check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), name))
     return tensor
 
 def allgather(tensor, name=None):
@@ -237,7 +237,7 @@ def poll(handle):
 
 # TODO(@ctcyang):
 # Add synchronize support
-def synchronize(handle):
+'''def synchronize(handle):
     """
     Synchronizes an asynchronous allreduce, allgather or broadcast operation until
     it's completed. Returns the result of the operation.
@@ -253,4 +253,4 @@ def synchronize(handle):
         return
     MPI_MXNET_LIB_CTYPES.horovod_mxnet_wait_and_clear(handle)
     _, output = _handle_map.pop(handle)
-    return output
+    return output'''

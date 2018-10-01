@@ -58,6 +58,9 @@ int DoAllreduce(NDArray* tensor, NDArray* output, int average, char* name, Callb
       hvd_context, hvd_tensor, hvd_output, nullptr,
       GetOpName("allreduce", name, handle), device,
       [handle, average, output](const Status& status) {
+        if (average) {
+          TensorUtil::DivideTensorInPlace(output, horovod_size());
+        }
         handle_manager.MarkDone(handle, status);
         handle_manager.ExecuteCallback(handle);
       });
@@ -84,6 +87,9 @@ int DoAllreduceCudaOnCPU(NDArray* tensor, NDArray* output, int average, char* na
       GetOpName("allreduce", name, handle), CPU_DEVICE_ID,
       [handle, average, hvd_cpu_buffer, output](const Status& status) {
         TensorUtil::CopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
+        if (average) {
+          TensorUtil::DivideTensorInPlace(output, horovod_size());
+        }
         handle_manager.MarkDone(handle, status);
         handle_manager.ExecuteCallback(handle);
       });
@@ -365,47 +371,23 @@ extern "C" int horovod_mxnet_broadcast_async(
 
   // Not in-place
   if (cpu) {
-    if (input->var() != output->var()) {
-      Engine::Get()->PushAsync(
-        broadcast_async_cpu_fn,
-        Context::CPU(0),
-        {input->var()},
-        {output->var()},
-        FnProperty::kNormal,
-        0,
-        "HorovodBroadcast");
-  // In-place
-    } else {
-      Engine::Get()->PushAsync(
-        broadcast_async_cpu_fn,
-        Context::CPU(0),
-        {},
-        {output->var()},
-        FnProperty::kNormal,
-        0,
-        "HorovodBroadcast");
-    }
+    Engine::Get()->PushAsync(
+      broadcast_async_cpu_fn,
+      Context::CPU(0),
+      {},
+      {output->var()},
+      FnProperty::kNormal,
+      0,
+      "HorovodBroadcast");
   } else {
-    if (input->var() != output->var()) {
-      Engine::Get()->PushAsync(
-        broadcast_async_fn,
-        Context::CPU(0),
-        {input->var()},
-        {output->var()},
-        FnProperty::kNormal,
-        0,
-        "HorovodBroadcast");
-  // In-place
-    } else {
-      Engine::Get()->PushAsync(
-        broadcast_async_fn,
-        Context::CPU(0),
-        {},
-        {output->var()},
-        FnProperty::kNormal,
-        0,
-        "HorovodBroadcast");
-    }
+    Engine::Get()->PushAsync(
+      broadcast_async_fn,
+      Context::CPU(0),
+      {},
+      {output->var()},
+      FnProperty::kNormal,
+      0,
+      "HorovodBroadcast");
   }
   return 0;
 }
