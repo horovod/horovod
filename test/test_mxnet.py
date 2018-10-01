@@ -35,7 +35,7 @@ class MXTests(unittest.TestCase):
         hvd.init()
         size = hvd.size()
         dtypes = ['int32',   'int64',
-                  'float32', 'float64']
+                  'float16', 'float32', 'float64']
         dims = [1, 2, 3]
         dev = mx.gpu(hvd.local_rank())
         count = 0
@@ -78,7 +78,7 @@ class MXTests(unittest.TestCase):
         hvd.init()
         size = hvd.size()
         dtypes = ['int32',   'int64',
-                  'float32', 'float64']
+                  'float16', 'float32', 'float64']
         dims = [1, 2, 3]
         dev = mx.gpu(hvd.local_rank())
         count = 0
@@ -116,7 +116,7 @@ class MXTests(unittest.TestCase):
         hvd.init()
         size = hvd.size()
         dtypes = ['int32',   'int64',
-                  'float32', 'float64'] 
+                  'float16', 'float32', 'float64'] 
         dims = [1, 2, 3]
         dev = mx.gpu(hvd.local_rank())
         count = 0
@@ -389,7 +389,7 @@ class MXTests(unittest.TestCase):
             return
 
         dtypes = ['int32',   'int64',
-                  'float32', 'float64'] 
+                  'float16', 'float32', 'float64'] 
         dims = [1, 2, 3]
         dev = mx.gpu(hvd.local_rank())
         count = 0
@@ -434,7 +434,7 @@ class MXTests(unittest.TestCase):
             return
 
         dtypes = ['int32',   'int64',
-                  'float32', 'float64'] 
+                  'float16', 'float32', 'float64'] 
         dims = [1, 2, 3]
         dev = mx.gpu(hvd.local_rank())
         count = 0
@@ -532,7 +532,6 @@ class MXTests(unittest.TestCase):
         except Exception as e:
             print(e)
 
-    @unittest.skip("")
     def test_horovod_broadcast_grad(self):
         """Test the correctness of the broadcast gradient."""
         hvd.init()
@@ -544,7 +543,7 @@ class MXTests(unittest.TestCase):
             return
 
         dtypes = ['int32',   'int64',
-                  'float32', 'float64'] 
+                  'float16', 'float32', 'float64'] 
         dims = [1, 2, 3]
         dev = mx.gpu(hvd.local_rank())
         count = 0

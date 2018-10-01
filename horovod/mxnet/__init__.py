@@ -81,15 +81,7 @@ def broadcast_parameters(params, root_rank=0):
     ret_dict = {}
     count = 0
     for name, p in params:
-        #if not isinstance(name, str):
-        #    if isinstance(name, int):
-        #        str_name = str(name)
-        #    else:
-        #        raise ValueError('invalid params of type: %s' % type(name))
-        #else:
-        #    str_name = name
         int_name = str(count)
-        print(name, rank())
         p_copy = mx.nd.zeros(shape=p.shape, ctx=p.context, dtype=p.dtype)
         p_copy = broadcast(p, root_rank, int_name)
         mx.ndarray.waitall()
