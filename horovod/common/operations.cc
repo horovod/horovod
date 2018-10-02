@@ -1884,6 +1884,9 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
       horovod_global.ranks.push_back(ranks[i]);
     }
 
+    // Reset initialization flag
+    horovod_global.initialization_done = false;
+
     horovod_global.background_thread =
         std::thread(BackgroundThreadLoop, std::ref(horovod_global));
   }
@@ -1919,7 +1922,6 @@ void horovod_shutdown() {
     horovod_global.shut_down = true;
     horovod_global.background_thread.join();
     // Reset the initialization flag to allow restarting with horovod_init(...)
-    horovod_global.initialization_done = false;
     horovod_global.initialize_flag.clear();
     horovod_global.shut_down = false;
   }
