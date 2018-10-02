@@ -126,7 +126,7 @@ struct HorovodGlobalState {
   std::thread background_thread;
 
   // Whether the background thread should shutdown.
-  bool shut_down = false;
+  std::atomic_bool shut_down {false};
 
   // Whether Horovod should finalize MPI (only if it has initialized it).
   bool should_finalize = false;
@@ -164,7 +164,7 @@ struct HorovodGlobalState {
       tensor_fusion_buffers;
 
   // Whether MPI_Init has been completed on the background thread.
-  bool initialization_done = false;
+  std::atomic_bool initialization_done {false};
 
   // The MPI rank, local rank, size, local size, flag indicating whether MPI
   // multi-threading is supported, ranks from which the MPI communicator will
@@ -1605,6 +1605,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   while (RunLoopOnce(state, is_coordinator))
     ;
 
+  // Signal that shutdown has been requested.
+  state.shut_down = true;
+
   // TODO: init.cu:645 WARN Cuda failure 'driver shutting down'
   //#if HAVE_NCCL
   //  for (auto it = horovod_global.streams.begin();
@@ -1665,9 +1668,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 //      If instead of "DONE" they receive "SHUTDOWN", they exit their background
 //      loop.
 bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
-  // The coordinator sends a SHUTDOWN message to trigger shutdown.
-  bool should_shut_down = false;
-
   // This delay determines thread frequency and MPI message latency
   auto sleep_duration =
       state.last_cycle_start +
@@ -1690,6 +1690,9 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       message_queue.push(message);
     }
   }
+
+  // Flag indicating that the background thread should shut down.
+  bool should_shut_down = state.shut_down;
 
   // Collect all tensors that are ready to be reduced. Record them in the
   // tensor count table (rank zero) or send them to rank zero to be
@@ -1752,7 +1755,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       }
       if (received_message_list.shutdown()) {
         // Received SHUTDOWN request from one of the workers.
-        state.shut_down = true;
+        should_shut_down = true;
       }
     }
 
@@ -1775,8 +1778,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     }
 
     MPIResponseList response_list;
-    response_list.set_shutdown(state.shut_down);
-    should_shut_down = state.shut_down;
+    response_list.set_shutdown(should_shut_down);
 
     while (!responses.empty()) {
       auto response = responses.front();
@@ -1839,7 +1841,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   } else {
     std::string encoded_message;
     MPIRequestList message_list;
-    message_list.set_shutdown(state.shut_down);
+    message_list.set_shutdown(should_shut_down);
     while (!message_queue.empty()) {
       message_list.add_requests(message_queue.front());
       message_queue.pop();
@@ -1884,6 +1886,9 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
       horovod_global.ranks.push_back(ranks[i]);
     }
 
+    // Reset initialization flag
+    horovod_global.initialization_done = false;
+
     horovod_global.background_thread =
         std::thread(BackgroundThreadLoop, std::ref(horovod_global));
   }
@@ -1915,7 +1920,6 @@ void horovod_init_comm(MPI_Comm comm) {
 }
 
 void horovod_shutdown() {
-
   if (horovod_global.background_thread.joinable()) {
     horovod_global.shut_down = true;
     horovod_global.background_thread.join();
