@@ -79,14 +79,11 @@ def allreduce(tensor, average=True, name=None):
     c_in = tensor.handle
     c_out = output.handle
     if isinstance(name, string_types):
-        # TODO(@ctcyang): pending mxnet GPU support for inplace division op
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(False)), c_str(name)))
-        #check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), c_str(name)))
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(False)), name))
-        #check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), name))
-    output.wait_to_read()
     if average is True:
+        output.wait_to_read()
         output /= size()
     return output
 
@@ -113,14 +110,11 @@ def allreduce_(tensor, average=True, name=None):
     c_in = tensor.handle
     c_out = tensor.handle
     if isinstance(name, string_types):
-        # TODO(@ctcyang): pending mxnet GPU support for inplace division op
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(False)), c_str(name)))
-        #check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), c_str(name)))
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(False)), name))
-        #check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), name))
-    tensor.wait_to_read()
     if average is True:
+        tensor.wait_to_read()
         tensor /= size()
     return tensor
 
@@ -187,7 +181,6 @@ def broadcast(tensor, root_rank, name=None):
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(c_in, c_out, ctypes.c_int(root_rank), c_str(name)))
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(c_in, c_out, ctypes.c_int(root_rank), name))
-    output.wait_to_read()
     return output
 
 def broadcast_(tensor, root_rank, name=None):

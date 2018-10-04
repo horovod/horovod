@@ -41,11 +41,11 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
         return self._optimizer.create_state_multi_precision(index, weight)
 
     def update(self, index, weight, grad, state):
-        allreduce_(grad, average=True, name=str(index))
+        allreduce_(grad, average=False, name=str(index))
         return self._optimizer.update(index, weight, grad, state)
 
     def update_multi_precision(self, index, weight, grad, state):
-        allreduce_(grad, average=True, name=str(index))
+        allreduce_(grad, average=False, name=str(index))
         return self._optimizer.update_multi_precision(index, weight, grad, state)
 
     def set_learning_rate(self, lr):
@@ -84,6 +84,7 @@ def broadcast_parameters(params, root_rank=0):
         int_name = str(count)
         p_copy = mx.nd.zeros(shape=p.shape, ctx=p.context, dtype=p.dtype)
         p_copy = broadcast(p, root_rank, int_name)
+        p_copy.wait_to_read()
         ret_dict[name] = p_copy
         count += 1
     return ret_dict
