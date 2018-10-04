@@ -84,7 +84,6 @@ def broadcast_parameters(params, root_rank=0):
         int_name = str(count)
         p_copy = mx.nd.zeros(shape=p.shape, ctx=p.context, dtype=p.dtype)
         p_copy = broadcast(p, root_rank, int_name)
-        mx.ndarray.waitall()
         ret_dict[name] = p_copy
         count += 1
     return ret_dict

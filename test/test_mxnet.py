@@ -70,9 +70,6 @@ class MXTests(unittest.TestCase):
             assert max_difference <= threshold, 'hvd.allreduce produces incorrect results'
         mx.ndarray.waitall()
 
-    # TODO(@ctcyang): activate this test once allreduce average version works
-    # This is currently blocked by lack of GPU inplace div op
-    @unittest.skip("")
     def test_horovod_allreduce_average(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
@@ -88,8 +85,8 @@ class MXTests(unittest.TestCase):
             tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim], ctx=dev)
             tensor = tensor.astype(dtype)
             averaged = hvd.allreduce(tensor, average=True, name=str(count))
-            tensor = tensor / size
-            tensor = tensor * size
+            tensor *= size
+            tensor /= size
             max_difference = mx.nd.max(mx.nd.subtract(averaged, tensor))
             count += 1
 
@@ -405,21 +402,22 @@ class MXTests(unittest.TestCase):
             broadcast_tensor = tensor.copy()
             broadcast_tensor = hvd.broadcast(tensor, root_rank=root_rank, name=str(count))
             if rank != root_rank:
-                if mx.nd.max(tensor == root_tensor) != 0:
+                if (mx.nd.max(tensor == root_tensor) == 0) is False:
                     print("broadcast", count, dtype, dim, mx.nd.max(tensor == root_tensor))
                     print("tensor", hvd.rank(), tensor)
                     print("root_tensor", hvd.rank(), root_tensor)
                     print("comparison", hvd.rank(), tensor == root_tensor)
                 assert mx.nd.max(tensor == root_tensor) == 0, \
                     'hvd.broadcast modifies source tensor'
-            if mx.nd.min(broadcast_tensor == root_tensor) != 1:
+            if (mx.nd.min(broadcast_tensor == root_tensor) == 1) is False:
                 print("broadcast", count, dtype, dim)
                 print("broadcast_tensor", hvd.rank(), broadcast_tensor)
                 print("root_tensor", hvd.rank(), root_tensor)
                 print("comparison", hvd.rank(), broadcast_tensor == root_tensor)
+            broadcast_tensor.wait_to_read()
+            tensor.wait_to_read()
             assert mx.nd.min(broadcast_tensor == root_tensor) == 1, \
                 'hvd.broadcast produces incorrect broadcasted tensor'
-        mx.ndarray.waitall()
 
     # TODO(@ctcyang): needs to be added
     @unittest.skip("")
@@ -564,14 +562,14 @@ class MXTests(unittest.TestCase):
         broadcast_dict = hvd.broadcast_parameters(tensor_dict, root_rank=root_rank)
         for i in range(count):
             if rank != root_rank:
-                if mx.nd.max(tensor_dict[i] == root_dict[i]) != 0:
+                if (mx.nd.max(tensor_dict[i] == root_dict[i]) == 0) is False:
                     print("broadcast", count, dtype, dim, mx.nd.max(tensor_dict[i] == root_dict[i]))
                     print("tensor", hvd.rank(), tensor_dict[i])
                     print("root_tensor", hvd.rank(), root_dict[i])
                     print("comparison", hvd.rank(), tensor_dict[i] == root_dict[i])
                 assert mx.nd.max(tensor_dict[i] == root_dict[i]) == 0, \
                     'hvd.broadcast modifies source tensor'
-            if mx.nd.min(broadcast_dict[i] == root_dict[i]) != 1:
+            if (mx.nd.min(broadcast_dict[i] == root_dict[i]) == 1) is False:
                 print("broadcast", count, dtype, dim)
                 print("broadcast_tensor", hvd.rank(), broadcast_dict[i])
                 print("root_tensor", hvd.rank(), root_dict[i])

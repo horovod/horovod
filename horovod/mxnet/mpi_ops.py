@@ -51,14 +51,6 @@ _handle_map = {}
 dll_path = os.path.join(os.path.dirname(__file__), 'mpi_lib' + get_ext_suffix())
 MPI_MXNET_LIB_CTYPES = ctypes.CDLL(dll_path, ctypes.RTLD_GLOBAL)
 
-def _check_function(function_factory, tensor):
-    function = function_factory(tensor)
-    if not hasattr(MPI_MXNET_LIB_CTYPES, function):
-        raise ValueError('Tensor type %s is not supported.' % tensor.type())
-    if not tensor.is_contiguous():
-        raise ValueError('Tensor is required to be contiguous.')
-    return function
-
 def allreduce(tensor, average=True, name=None):
     """
     A function that performs averaging or summation of the input tensor over all the
@@ -93,6 +85,9 @@ def allreduce(tensor, average=True, name=None):
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(False)), name))
         #check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), name))
+    output.wait_to_read()
+    if average is True:
+        output /= size()
     return output
 
 def allreduce_(tensor, average=True, name=None):
@@ -124,6 +119,9 @@ def allreduce_(tensor, average=True, name=None):
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(False)), name))
         #check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(average == True)), name))
+    tensor.wait_to_read()
+    if average is True:
+        tensor /= size()
     return tensor
 
 def allgather(tensor, name=None):
@@ -189,6 +187,7 @@ def broadcast(tensor, root_rank, name=None):
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(c_in, c_out, ctypes.c_int(root_rank), c_str(name)))
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(c_in, c_out, ctypes.c_int(root_rank), name))
+    output.wait_to_read()
     return output
 
 def broadcast_(tensor, root_rank, name=None):
