@@ -78,13 +78,13 @@ def broadcast_parameters(params, root_rank=0):
         raise ValueError('invalid params of type: %s' % type(params))
 
     # Run broadcasts.
-    ret_dict = {}
+    ret_list = []
     count = 0
     for name, p in params:
         int_name = str(count)
-        p_copy = mx.nd.zeros(shape=p.shape, ctx=p.context, dtype=p.dtype)
-        p_copy = broadcast(p, root_rank, int_name)
-        p_copy.wait_to_read()
-        ret_dict[name] = p_copy
+        broadcast_(p, root_rank, int_name)
+        p.wait_to_read()
+        ret_list.append((name, p))
+        #params[name] = p
         count += 1
-    return ret_dict
+    params = dict(ret_list)

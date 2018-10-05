@@ -558,22 +558,22 @@ class MXTests(unittest.TestCase):
             # Only do broadcasting using and on broadcast_tensor
             count += 1
 
-        broadcast_dict = hvd.broadcast_parameters(tensor_dict, root_rank=root_rank)
+        hvd.broadcast_parameters(tensor_dict, root_rank=root_rank)
         for i in range(count):
-            if rank != root_rank:
-                if (mx.nd.max(tensor_dict[i] == root_dict[i]) == 0) is False:
-                    print("broadcast", count, dtype, dim, mx.nd.max(tensor_dict[i] == root_dict[i]))
-                    print("tensor", hvd.rank(), tensor_dict[i])
-                    print("root_tensor", hvd.rank(), root_dict[i])
-                    print("comparison", hvd.rank(), tensor_dict[i] == root_dict[i])
-                assert mx.nd.max(tensor_dict[i] == root_dict[i]) == 0, \
-                    'hvd.broadcast modifies source tensor'
-            if (mx.nd.min(broadcast_dict[i] == root_dict[i]) == 1) is False:
+            #if rank != root_rank:
+            #    if (mx.nd.max(tensor_dict[i] == root_dict[i]) == 0) is False:
+            #        print("broadcast", count, dtype, dim, mx.nd.max(tensor_dict[i] == root_dict[i]))
+            #        print("tensor", hvd.rank(), tensor_dict[i])
+            #        print("root_tensor", hvd.rank(), root_dict[i])
+            #        print("comparison", hvd.rank(), tensor_dict[i] == root_dict[i])
+            #    assert mx.nd.max(tensor_dict[i] == root_dict[i]) == 0, \
+            #        'hvd.broadcast modifies source tensor'
+            if (mx.nd.min(tensor_dict[i] == root_dict[i]) == 1) is False:
                 print("broadcast", count, dtype, dim)
-                print("broadcast_tensor", hvd.rank(), broadcast_dict[i])
+                print("broadcast_tensor", hvd.rank(), tensor_dict[i])
                 print("root_tensor", hvd.rank(), root_dict[i])
-                print("comparison", hvd.rank(), broadcast_dict[i] == root_dict[i])
-            assert mx.nd.min(broadcast_dict[i] == root_dict[i]) == 1, \
+                print("comparison", hvd.rank(), tensor_dict[i] == root_dict[i])
+            assert mx.nd.min(tensor_dict[i] == root_dict[i]) == 1, \
                 'hvd.broadcast produces incorrect broadcasted tensor'
         mx.ndarray.waitall()
 
