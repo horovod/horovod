@@ -37,7 +37,7 @@ local_size = _basics.local_size
 rank = _basics.rank
 local_rank = _basics.local_rank
 mpi_threads_supported = _basics.mpi_threads_supported
-synchronize = _basics.synchronize
+barrier = _basics.barrier
 
 
 # TODO(@ctcyang):
@@ -229,7 +229,7 @@ def poll(handle):
 
 # TODO(@ctcyang):
 # Add synchronize support
-'''def synchronize(handle):
+def synchronize(handle):
     """
     Synchronizes an asynchronous allreduce, allgather or broadcast operation until
     it's completed. Returns the result of the operation.
@@ -245,4 +245,4 @@ def poll(handle):
         return
     MPI_MXNET_LIB_CTYPES.horovod_mxnet_wait_and_clear(handle)
     _, output = _handle_map.pop(handle)
-    return output'''
+    return output

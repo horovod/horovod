@@ -2005,6 +2005,10 @@ int horovod_mpi_threads_supported() {
   }
   return horovod_global.mpi_threads_supported ? 1 : 0;
 }
+
+int horovod_barrier() {
+  return MPI_Barrier(horovod_global.mpi_comm);
+}
 }
 
 // MPI must be initialized and the background thread must be running before
