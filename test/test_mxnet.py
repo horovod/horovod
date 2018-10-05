@@ -419,8 +419,6 @@ class MXTests(unittest.TestCase):
             assert mx.nd.min(broadcast_tensor == root_tensor) == 1, \
                 'hvd.broadcast produces incorrect broadcasted tensor'
 
-    # TODO(@ctcyang): needs to be added
-    @unittest.skip("")
     def test_horovod_broadcast_inplace(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
         hvd.init()
@@ -448,21 +446,22 @@ class MXTests(unittest.TestCase):
             broadcast_tensor = tensor.copy()
             hvd.broadcast_(broadcast_tensor, root_rank=root_rank, name=str(count))
             if rank != root_rank:
-                if mx.nd.max(tensor == root_tensor) != 0:
+                if (mx.nd.max(tensor == root_tensor) == 0) is False:
                     print("broadcast", count, dtype, dim, mx.nd.max(tensor == root_tensor))
                     print("tensor", hvd.rank(), tensor)
                     print("root_tensor", hvd.rank(), root_tensor)
                     print("comparison", hvd.rank(), tensor == root_tensor)
                 assert mx.nd.max(tensor == root_tensor) == 0, \
                     'hvd.broadcast modifies source tensor'
-            if mx.nd.min(broadcast_tensor == root_tensor) != 1:
+            if (mx.nd.min(broadcast_tensor == root_tensor) == 1) is False:
                 print("broadcast", count, dtype, dim)
                 print("broadcast_tensor", hvd.rank(), broadcast_tensor)
                 print("root_tensor", hvd.rank(), root_tensor)
                 print("comparison", hvd.rank(), broadcast_tensor == root_tensor)
+            broadcast_tensor.wait_to_read()
+            tensor.wait_to_read()
             assert mx.nd.min(broadcast_tensor == root_tensor) == 1, \
                 'hvd.broadcast produces incorrect broadcasted tensor'
-        mx.ndarray.waitall()
 
     @unittest.skip("")
     def test_horovod_broadcast_error(self):

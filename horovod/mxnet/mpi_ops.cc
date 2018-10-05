@@ -176,23 +176,17 @@ int DoBroadcast(NDArray* tensor, NDArray* output, int root_rank, std::string& na
 }
 
 #if HAVE_CUDA
-int DoBroadcastCudaOnCPU(NDArray* tensor, NDArray* output, int root_rank, std::string& name, Callback cb) {
-  ThrowIfError(common::CheckInitialized());
+int DoBroadcastCudaOnCPU(std::shared_ptr<MXTemporaryBuffer<NDArray>>& hvd_cpu_buffer, int root_rank, std::string& name, Callback cb) {
   // Make async copy of input tensor to CPU tensor and record completion event.
-  auto hvd_cpu_buffer =
-      std::make_shared<MXTemporaryBuffer<NDArray>>(CPU_DEVICE_ID, tensor->dtype());
-  TensorUtil::AsyncCopyCudaToCPU(tensor, hvd_cpu_buffer->tensor());
-  auto ready_event = std::make_shared<MXReadyEvent<NDArray>>(tensor);
-
   auto hvd_context = std::make_shared<MXOpContext<NDArray>>(
       CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
+  auto ready_event = std::make_shared<MXReadyEvent<NDArray>>(hvd_cpu_buffer->tensor());
 
   auto handle = handle_manager.AllocateHandle(cb);
   auto enqueue_result = EnqueueTensorBroadcast(
       hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, root_rank, ready_event,
       GetOpNameHandle("broadcast", name, handle), CPU_DEVICE_ID,
-      [handle, hvd_cpu_buffer, output](const Status& status) {
-        TensorUtil::CopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
+      [handle, hvd_cpu_buffer](const Status& status) {
         handle_manager.MarkDone(handle, status);
         handle_manager.ExecuteCallback(handle);
       });
@@ -357,10 +351,6 @@ extern "C" int horovod_mxnet_broadcast_async(
       RunContext rctx, Engine::CallbackOnComplete cb) mutable {
     DoBroadcast(input, output, root_rank, new_name, cb);
   };
-  auto broadcast_async_cpu_fn = [input, output, new_name, root_rank](
-      RunContext rctx, Engine::CallbackOnComplete cb) mutable {
-    DoBroadcastCudaOnCPU(input, output, root_rank, new_name, cb);
-  };
   int cpu = -1;
 #if HOROVOD_GPU_BROADCAST == 'M'
   if (input->ctx().dev_mask() == gpu::kDevMask &&
@@ -376,6 +366,16 @@ extern "C" int horovod_mxnet_broadcast_async(
 
   // Not in-place
   if (cpu) {
+    ThrowIfError(common::CheckInitialized());
+    // Make async copy of input tensor to CPU tensor and record completion event.
+    auto hvd_cpu_buffer =
+        std::make_shared<MXTemporaryBuffer<NDArray>>(CPU_DEVICE_ID, input->dtype());
+    TensorUtil::AsyncCopyCudaToCPU(input, hvd_cpu_buffer->tensor());
+    auto broadcast_async_cpu_fn = [hvd_cpu_buffer, new_name, root_rank](
+        RunContext rctx, Engine::CallbackOnComplete cb) mutable {
+      DoBroadcastCudaOnCPU(hvd_cpu_buffer, root_rank, new_name, cb);
+    };
+
     Engine::Get()->PushAsync(
       broadcast_async_cpu_fn,
       Context::CPU(0),
@@ -384,6 +384,8 @@ extern "C" int horovod_mxnet_broadcast_async(
       FnProperty::kNormal,
       0,
       "HorovodBroadcast");
+
+    TensorUtil::CopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
   } else {
     Engine::Get()->PushAsync(
       broadcast_async_fn,
