@@ -33,8 +33,6 @@ hvd.init()
 parser = argparse.ArgumentParser(description='Train a model for image classification.')
 parser.add_argument('--benchmark', type=int, default='0',
                     help='if 0 then feed the network with synthetic data.')
-parser.add_argument('--data-dir', type=str, default='~/.mxnet/datasets/imagenet',
-                    help='training and validation pictures to use.')
 parser.add_argument('--data-nthreads', type=int, default=4,
                     help='number of threads for data decoding')
 parser.add_argument('--rec-train', type=str, default='',
@@ -193,8 +191,8 @@ class SyntheticDataIter(DataIter):
     def reset(self):
         self.cur_iter = 0
 
+# Logs eval metrics at the end of an epoch
 class LogValidationMetricsCallback(object):
-    """Just logs the eval metrics at the end of an epoch."""
 
     def __call__(self, param):
         if not param.eval_metric:
