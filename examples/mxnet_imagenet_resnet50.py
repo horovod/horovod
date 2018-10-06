@@ -281,8 +281,7 @@ def main():
             num_epoch=args.num_epochs,
             kvstore=None,
             batch_end_callback=mx.callback.Speedometer(batch_size, 20),
-            epoch_end_callback=mx.callback.do_checkpoint('imagenet-%s'% args.model, period=save_frequency),
-            eval_end_callback=eval_end_callbacks,
+            #eval_end_callback=eval_end_callbacks,
             optimizer=opt,
             optimizer_params=optimizer_params)
     mx.nd.waitall()
