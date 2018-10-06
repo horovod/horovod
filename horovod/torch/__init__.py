@@ -104,7 +104,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         for p, value in self._handles.items():
             handle, ctx = value
             if not self._reduce_gradients:
-                warnings.warn("Attempting to synchornize an optimizer that "
+                warnings.warn("Attempting to synchronize an optimizer that "
                               "ignores gradient updates. Falling back to "
                               "ignore_gradients(False)")
                 handle, ctx = self._all_reduce_grad(p)
