@@ -1,4 +1,4 @@
-# Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
+// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ barrier = _basics.barrier
 
 
 # TODO(@ctcyang):
-# Used for synchronize and poll support
+# Used for poll support
 #
 # Schema: handle -> input, output
 # We keep input in order to make sure it does not get garbage collected
