@@ -56,7 +56,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                              'tuples (name, parameter), usually produced by '
                              'model.named_parameters().')
 
-        self._reduce_gradients = False
+        self._reduce_gradients = True
         self._parameter_names = {v: k for k, v
                                  in sorted(named_parameters)}
         self._handles = {}
