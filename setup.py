@@ -35,6 +35,7 @@ torch_mpi_lib_impl = Extension('horovod.torch.mpi_lib_impl', [])
 torch_mpi_lib_v2 = Extension('horovod.torch.mpi_lib_v2', [])
 mxnet_mpi_lib = Extension('horovod.mxnet.mpi_lib', [])
 
+
 def is_build_action():
     if len(sys.argv) <= 1:
         return False
