@@ -77,7 +77,8 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                     grad_acc.register_hook(self._make_hook(p))
                     self._grad_accs.append(grad_acc)
 
-    def _all_reduce_grad(self, p, name):
+    def _all_reduce_grad(self, p):
+        name = self._parameter_names.get(p)
         tensor = p.grad.data
         tensor_compressed, ctx = self._compression.compress(tensor)
 
@@ -92,10 +93,9 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                     "call to step(). Use ignore_gradients(True) to "
                     "accumulate gradients locally.")
             assert not p.grad.requires_grad
-            name = self._parameter_names.get(p)
-            if not self._reduce_gradients and p in self._handles:
-                self._handles.pop(p)
-            handle, ctx = self._all_reduce_grad(p, name)
+            handle, ctx = None, None
+            if self._reduce_gradients:
+                handle, ctx = self._all_reduce_grad(p)
             self._handles[p] = (handle, ctx)
         return hook
 
@@ -106,6 +106,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                 warnings.warn("Attempting to synchornize an optimizer that "
                               "ignores gradient updates. Falling back to "
                               "ignore_gradients(False)")
+                handle, ctx = self._all_reduce_grad(p)
                 self.ignore_gradients(False)
             output = synchronize(handle)
             p.grad.data.set_(self._compression.decompress(output, ctx))
