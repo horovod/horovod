@@ -42,7 +42,8 @@ from horovod.tensorflow.mpi_ops import mpi_threads_supported
 import tensorflow as tf
 
 
-def allreduce(tensor, average=True, device_dense='', device_sparse=''):
+def allreduce(tensor, average=True, device_dense='', device_sparse='',
+              compression=Compression.none):
     """Perform an allreduce on a tf.Tensor or tf.IndexedSlices.
 
     Arguments:
@@ -54,6 +55,9 @@ def allreduce(tensor, average=True, device_dense='', device_sparse=''):
                       if Horovod was build with HOROVOD_GPU_ALLREDUCE.
         device_sparse: Device to be used for sparse tensors. Uses GPU by default
                        if Horovod was build with HOROVOD_GPU_ALLGATHER.
+        compression: Compression algorithm used to reduce the amount of data
+                     sent and received by each worker node.  Defaults to not
+                     using compression.
 
     This function performs a bandwidth-optimal ring allreduce on the input
     tensor. If the input is an tf.IndexedSlices, the function instead does an
@@ -133,7 +137,7 @@ class DistributedOptimizer(tf.train.Optimizer):
     average gradient values before applying gradients to model weights."""
 
     def __init__(self, optimizer, name=None, use_locking=False, device_dense='',
-                 device_sparse=''):
+                 device_sparse='', compression=Compression.none):
         """Construct a new DistributedOptimizer, which uses another optimizer
         under the hood for computing single-process gradient values and
         applying gradient updates after the gradient values have been averaged
@@ -155,6 +159,10 @@ class DistributedOptimizer(tf.train.Optimizer):
           device_sparse:
             Device to be used for sparse tensors. Uses GPU by default
             if Horovod was build with HOROVOD_GPU_ALLGATHER.
+          compression:
+            Compression algorithm used during allreduce to reduce the amount
+            of data sent during the each parameter update step.  Defaults to
+            not using compression.
         """
         if name is None:
             name = "Distributed{}".format(type(optimizer).__name__)
@@ -162,6 +170,7 @@ class DistributedOptimizer(tf.train.Optimizer):
         self._optimizer = optimizer
         self._device_dense = device_dense
         self._device_sparse = device_sparse
+        self._compression = compression
         super(DistributedOptimizer, self).__init__(
             name=name, use_locking=use_locking)
 
@@ -179,8 +188,10 @@ class DistributedOptimizer(tf.train.Optimizer):
             with tf.name_scope(self._name + "_Allreduce"):
                 for grad, var in gradients:
                     if grad is not None:
-                        avg_grad = allreduce(grad, device_dense=self._device_dense,
-                                             device_sparse=self._device_sparse)
+                        avg_grad = allreduce(grad,
+                                             device_dense=self._device_dense,
+                                             device_sparse=self._device_sparse,
+                                             compression=self._compression)
                         averaged_gradients.append((avg_grad, var))
                     else:
                         averaged_gradients.append((None, var))
