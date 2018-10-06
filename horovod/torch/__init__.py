@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import warnings
 from horovod.common import check_extension
 
 try:
@@ -55,6 +56,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                              'tuples (name, parameter), usually produced by '
                              'model.named_parameters().')
 
+        self._reduce_gradients = False
         self._parameter_names = {v: k for k, v
                                  in sorted(named_parameters)}
         self._handles = {}
@@ -62,6 +64,9 @@ class _DistributedOptimizer(torch.optim.Optimizer):
 
         if size() > 1:
             self._register_hooks()
+
+    def ignore_gradients(self, state):
+        self._reduce_gradients = not state
 
     def _register_hooks(self):
         for param_group in self.param_groups:
@@ -72,22 +77,36 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                     grad_acc.register_hook(self._make_hook(p))
                     self._grad_accs.append(grad_acc)
 
+    def _all_reduce_grad(self, p, name):
+        tensor = p.grad.data
+        tensor_compressed, ctx = self._compression.compress(tensor)
+
+        handle = allreduce_async_(tensor_compressed, average=True, name=name)
+        return handle, ctx
+
     def _make_hook(self, p):
         def hook(*ignore):
-            assert p not in self._handles
+            if p in self._handles and self._reduce_gradients:
+                raise AssertionError(
+                    "Gradients were accumulated twice without a "
+                    "call to step(). Use ignore_gradients(True) to "
+                    "accumulate gradients locally.")
             assert not p.grad.requires_grad
             name = self._parameter_names.get(p)
-
-            tensor = p.grad.data
-            tensor_compressed, ctx = self._compression.compress(tensor)
-
-            handle = allreduce_async_(tensor_compressed, average=True, name=name)
+            if not self._reduce_gradients and p in self._handles:
+                self._handles.pop(p)
+            handle, ctx = self._all_reduce_grad(p, name)
             self._handles[p] = (handle, ctx)
         return hook
 
     def synchronize(self):
         for p, value in self._handles.items():
             handle, ctx = value
+            if not self._reduce_gradients:
+                warnings.warn("Attempting to synchornize an optimizer that "
+                              "ignores gradient updates. Falling back to "
+                              "ignore_gradients(False)")
+                self.ignore_gradients(False)
             output = synchronize(handle)
             p.grad.data.set_(self._compression.decompress(output, ctx))
         self._handles.clear()
