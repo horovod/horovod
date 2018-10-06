@@ -87,11 +87,12 @@ class _DistributedOptimizer(torch.optim.Optimizer):
 
     def _make_hook(self, p):
         def hook(*ignore):
-            if p in self._handles and self._reduce_gradients:
-                raise AssertionError(
-                    "Gradients were accumulated twice without a "
-                    "call to step(). Use ignore_gradients(True) to "
-                    "accumulate gradients locally.")
+            if p in self._handles and self._handles[p][0] is not None:
+                if self._reduce_gradients:
+                    raise AssertionError(
+                        "Gradients were accumulated twice without a "
+                        "call to step(). Use ignore_gradients(True) to "
+                        "accumulate gradients locally.")
             assert not p.grad.requires_grad
             handle, ctx = None, None
             if self._reduce_gradients:
