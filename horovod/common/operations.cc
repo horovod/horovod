@@ -957,10 +957,23 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         for (auto& e : entries) {
           void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
           CUDA_CHECK(entries, "beforeCudaMemcpyAsync1", cudaGetLastError())
-          CUDA_CHECK(entries, "cudaMemcpyAsync1",
-                     cudaMemcpyAsync(buffer_data_at_offset, e.tensor->data(),
-                                     (size_t)e.tensor->size(),
-                                     cudaMemcpyDeviceToDevice, stream))
+          auto cuda_result = cudaMemcpyAsync(
+              buffer_data_at_offset, e.tensor->data(), (size_t)e.tensor->size(),
+              cudaMemcpyDeviceToDevice, stream);
+          if (cuda_result != cudaSuccess) {
+            std::ostringstream stream;
+            stream << "cudaMemcpyAsync1 failed: "
+                   << cudaGetErrorString(cuda_result);
+            stream << ", buffer_data: " << buffer_data;
+            stream << ", buffer_data_at_offset: " << buffer_data_at_offset;
+            stream << ", tensor: " << e.tensor->data();
+            stream << ", size: " << e.tensor->size();
+            for (auto& e : (entries)) {
+              timeline.End(e.tensor_name, nullptr);
+              e.callback(Status::UnknownError(stream.str()));
+            }
+            return;
+          }
           offset += e.tensor->size();
         }
 
@@ -1012,7 +1025,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 #else
       if (horovod_global.hierarchical_allreduce) {
         int element_size;
-        MPI_Type_size(GetMPIDataType(first_entry.tensor), &element_size); 
+        MPI_Type_size(GetMPIDataType(first_entry.tensor), &element_size);
 
         // If cluster is homogeneous and we are using fusion buffer, include
         // dummy elements from the buffer (if necessary) to make sure the data
@@ -1112,7 +1125,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           WAIT_FOR_EVENTS(entries, timeline, event_queue)
 
           // According to https://docs.nvidia.com/cuda/cuda-runtime-api/
-          // api-sync-behavior.html#api-sync-behavior__memcpy-async, 
+          // api-sync-behavior.html#api-sync-behavior__memcpy-async,
           // cudaMemcpyAsync is synchronous with respect to the host, so we
           // memcpy (effectively) synchronously to generate an accurate timeline
           ACTIVITY_START_ALL(entries, timeline, MEMCPY_IN_HOST_BUFFER)
@@ -1431,7 +1444,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   auto mpi_threads_disable = std::getenv(HOROVOD_MPI_THREADS_DISABLE);
   int required = MPI_THREAD_MULTIPLE;
   if (mpi_threads_disable != nullptr &&
-    std::strtol(mpi_threads_disable, nullptr, 10) > 0) {
+      std::strtol(mpi_threads_disable, nullptr, 10) > 0) {
     required = MPI_THREAD_SINGLE;
   }
   int provided;
@@ -1565,10 +1578,11 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 
   // Override Tensor Fusion threshold, if it's set.
-  auto horovod_fusion_threshold = std::getenv("HOROVOD_FUSION_THRESHOLD"); 
-  int64_t proposed_fusion_threshold = (horovod_fusion_threshold != nullptr) ?  
-        std::strtol(horovod_fusion_threshold, nullptr, 10) :
-        state.tensor_fusion_threshold;
+  auto horovod_fusion_threshold = std::getenv("HOROVOD_FUSION_THRESHOLD");
+  int64_t proposed_fusion_threshold =
+      (horovod_fusion_threshold != nullptr)
+          ? std::strtol(horovod_fusion_threshold, nullptr, 10)
+          : state.tensor_fusion_threshold;
 
   // If the cluster is homogeneous and hierarchical allreduce is enabled,
   // adjust buffer size to make sure it is divisible by local_size to improve
@@ -1581,8 +1595,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     // FUSION_BUFFER_ATOMIC_UNIT for performance
     int mpi_double_size;
     MPI_Type_size(MPI_DOUBLE, &mpi_double_size);
-    int64_t div = state.local_size * mpi_double_size * FUSION_BUFFER_ATOMIC_UNIT;
-    state.tensor_fusion_threshold = ((proposed_fusion_threshold+div-1) / div) * div;
+    int64_t div =
+        state.local_size * mpi_double_size * FUSION_BUFFER_ATOMIC_UNIT;
+    state.tensor_fusion_threshold =
+        ((proposed_fusion_threshold + div - 1) / div) * div;
   } else {
     state.tensor_fusion_threshold = proposed_fusion_threshold;
   }
