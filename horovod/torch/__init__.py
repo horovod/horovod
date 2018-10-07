@@ -103,10 +103,11 @@ class _DistributedOptimizer(torch.optim.Optimizer):
     def synchronize(self):
         for p, value in self._handles.items():
             handle, ctx = value
-            if not self._reduce_gradients:
+            if handle is None:
                 warnings.warn("Attempting to synchronize an optimizer that "
-                              "ignores gradient updates. Falling back to "
-                              "ignore_gradients(False)")
+                              "ignores gradient updates. This may have a "
+                              "performance impact or cause synchronization "
+                              "failures")
                 handle, ctx = self._all_reduce_grad(p)
                 self.ignore_gradients(False)
             output = synchronize(handle)
