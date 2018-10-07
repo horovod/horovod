@@ -402,6 +402,7 @@ def get_common_options(build_ext):
     link_flags = get_link_flags(build_ext)
     mpi_flags = get_mpi_flags()
     mxnet_include_dirs = os.environ.get('INCLUDES')
+    mxnet_library_dirs = os.environ.get('LIBRARY_DIRS')
 
     gpu_allreduce = os.environ.get('HOROVOD_GPU_ALLREDUCE')
     if gpu_allreduce and gpu_allreduce != 'MPI' and gpu_allreduce != 'NCCL' and \
