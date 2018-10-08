@@ -61,8 +61,7 @@ optimizer = hvd.DistributedOptimizer(optimizer,
 
 # Horovod: broadcast parameters & optimizer state.
 hvd.broadcast_parameters(model.state_dict(), root_rank=0)
-# TODO: needs bugfix
-#hvd.broadcast_optimizer_state(optimizer, root_rank=0)
+hvd.broadcast_optimizer_state(optimizer, root_rank=0)
 
 # Set up fixed fake data
 data = torch.randn(args.batch_size, 3, 224, 224)
