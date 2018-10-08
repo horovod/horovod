@@ -41,7 +41,8 @@ import collections
 
 
 class _DistributedOptimizer(torch.optim.Optimizer):
-    def __init__(self, params, named_parameters, compression):
+    def __init__(self, params, named_parameters, compression,
+                 aggregation_delay=1):
         super(self.__class__, self).__init__(params)
         self._compression = compression
 
@@ -56,17 +57,18 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                              'tuples (name, parameter), usually produced by '
                              'model.named_parameters().')
 
-        self._reduce_gradients = True
         self._parameter_names = {v: k for k, v
                                  in sorted(named_parameters)}
+        self._aggregation_delay = aggregation_delay
+        self._parameter_update_delay = {v: self._aggregation_delay for _, v
+                                        in sorted(named_parameters)}
         self._handles = {}
         self._grad_accs = []
-
         if size() > 1:
             self._register_hooks()
 
-    def ignore_gradients(self, state):
-        self._reduce_gradients = not state
+    def set_aggregation_delay(self, delay):
+        self._aggregation_delay = delay
 
     def _register_hooks(self):
         for param_group in self.param_groups:
@@ -88,14 +90,15 @@ class _DistributedOptimizer(torch.optim.Optimizer):
     def _make_hook(self, p):
         def hook(*ignore):
             if p in self._handles and self._handles[p][0] is not None:
-                if self._reduce_gradients:
+                if self._parameter_update_delay[p] <= 0:
                     raise AssertionError(
                         "Gradients were accumulated twice without a "
-                        "call to step(). Use ignore_gradients(True) to "
+                        "call to step(). Increase set_aggregation_delay to "
                         "accumulate gradients locally.")
             assert not p.grad.requires_grad
             handle, ctx = None, None
-            if self._reduce_gradients:
+            self._parameter_update_delay[p] -= 1
+            if self._parameter_update_delay[p] == 0:
                 handle, ctx = self._all_reduce_grad(p)
             self._handles[p] = (handle, ctx)
         return hook
@@ -105,12 +108,13 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             handle, ctx = value
             if handle is None:
                 warnings.warn("Attempting to synchronize an optimizer that "
-                              "ignores gradient updates. This may have a "
-                              "performance impact or cause synchronization "
-                              "failures")
+                              "is still waiting for more gradients. This may "
+                              "have a performance impact or cause "
+                              "synchronization failures")
                 handle, ctx = self._all_reduce_grad(p)
                 self.ignore_gradients(False)
             output = synchronize(handle)
+            self._parameter_update_delay[p] = self._aggregation_delay
             p.grad.data.set_(self._compression.decompress(output, ctx))
         self._handles.clear()
 
