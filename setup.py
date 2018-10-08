@@ -233,9 +233,8 @@ def get_tf_flags(build_ext, cpp_flags):
 def get_mx_flags(build_ext, cpp_flags, lib_dirs):
     compile_flags = []
     link_flags = []
-    mx_lib_dirs = ['/home/ubuntu/master/lib']
     mx_libs = ['mxnet']
-    for lib_dir in mx_lib_dirs:
+    for lib_dir in lib_dirs:
         link_flags.append('-L%s' % lib_dir)
     for lib in mx_libs:
         link_flags.append('-l%s' % lib)
