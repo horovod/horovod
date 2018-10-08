@@ -193,6 +193,13 @@ def broadcast_optimizer_state(optimizer, root_rank):
         optimizer.step()
         state_dict = optimizer.state_dict()
 
+    # If the state_dict is still empty after initialization, then
+    # the optimizer is stateless, and there is nothing to broadcast.
+    # Furthermore, attempting to access the state dict would result in
+    # an error.
+    if len(state_dict['state']) == 0:
+        return
+
     params = []
     callbacks = {}
     occurrences = collections.defaultdict(int)

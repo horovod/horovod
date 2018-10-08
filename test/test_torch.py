@@ -702,14 +702,21 @@ class TorchTests(unittest.TestCase):
         x = torch.randn(N, D_in).requires_grad_()
         y = torch.randn(N, D_out).requires_grad_()
 
-        def create_model(create_opt):
+        def new_optimizer(cls, opt_params, model):
+            p = {
+                k: v for k, v in opt_params.items()
+                if k in inspect.getargspec(cls.__init__).args
+            }
+            return cls(model.parameters(), **p)
+
+        def create_model(opt_class, opt_params):
             model = torch.nn.Sequential(
                 torch.nn.Linear(D_in, H),
                 torch.nn.ReLU(),
                 torch.nn.Linear(H, D_out),
             )
 
-            optimizer = create_opt(model)
+            optimizer = new_optimizer(opt_class, opt_params, model)
             optimizer = hvd.DistributedOptimizer(
                 optimizer, named_parameters=model.named_parameters())
 
@@ -724,25 +731,18 @@ class TorchTests(unittest.TestCase):
             state_dict = optimizer.state_dict()
             for group in state_dict['param_groups']:
                 for param_id in group['params']:
+                    if param_id not in state_dict['state']:
+                        continue
                     params = sorted(state_dict['state'][param_id].items())
                     for k, v in params:
                         results.append(
                             (k, v.clone() if torch.is_tensor(v) else v))
             return results
 
-        opt_params = dict(lr=0.2, momentum=0.9, weight_decay=0.1, centered=True)
-
-        def new_optimizer(cls):
-            p = {
-                k: v for k, v in opt_params.items()
-                if k in inspect.getargspec(cls.__init__).args
-            }
-            return lambda m: cls(m.parameters(), **p)
-
         # L-BFGS is currently unsupported, as are sparse tensors, which are
         # required by SparseAdam optimizer
         optimizers = [
-            (subclass.__name__, new_optimizer(subclass))
+            (subclass.__name__, subclass)
             for subclass in torch.optim.Optimizer.__subclasses__()
             if subclass.__module__.startswith('torch.optim') and
                subclass != torch.optim.LBFGS and
@@ -750,8 +750,13 @@ class TorchTests(unittest.TestCase):
         ]
         optimizers.sort()
 
-        for opt_name, create_opt in optimizers:
-            model, optimizer = create_model(create_opt)
+        opt_params_list = [
+            dict(lr=0.2, momentum=0.9, weight_decay=0.1, centered=True),
+            dict(lr=0.2)
+        ]
+
+        for (opt_name, opt_class), opt_params in itertools.product(optimizers, opt_params_list):
+            model, optimizer = create_model(opt_class, opt_params)
             y_pred = model(x)
             loss = F.mse_loss(y_pred, y, size_average=False)
             optimizer.zero_grad()
@@ -783,7 +788,7 @@ class TorchTests(unittest.TestCase):
                 _, fname = tempfile.mkstemp('.pt')
                 torch.save(state, fname)
 
-            model, optimizer = create_model(create_opt)
+            model, optimizer = create_model(opt_class, opt_params)
             if hvd.rank() == 0:
                 checkpoint = torch.load(fname)
                 model.load_state_dict(checkpoint['model'])
@@ -803,7 +808,13 @@ class TorchTests(unittest.TestCase):
                     (model_param_value == model_param_value_after).all())
 
             hvd.broadcast_optimizer_state(optimizer, root_rank=0)
-            self.assertEqual(len(optimizer.state_dict()['state'].values()), 4)
+
+            expected_tensors = 4
+            if 'momentum' not in opt_params and opt_class == torch.optim.SGD:
+                # SGD only maintains state when momentum is specified, otherwise
+                # it does not populate the state dict, so it will contain no tensors.
+                expected_tensors = 0
+            self.assertEqual(len(optimizer.state_dict()['state'].values()), expected_tensors)
 
             opt_param_values_after = get_optimizer_param_values(optimizer)
             for before, after in zip(opt_param_values, opt_param_values_after):
