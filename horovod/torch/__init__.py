@@ -60,7 +60,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         self._parameter_names = {v: k for k, v
                                  in sorted(named_parameters)}
         self.backward_passes_per_step = backward_passes_per_step
-        self._parameter_update_delay = {v: self._backward_passes_per_step
+        self._parameter_update_delay = {v: self.backward_passes_per_step
                                         for _, v in sorted(named_parameters)}
         self._handles = {}
         self._grad_accs = []
@@ -113,7 +113,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                               "backwards_passes_per_step'th pass.")
                 handle, ctx = self._all_reduce_grad(p)
             output = synchronize(handle)
-            self._parameter_update_delay[p] = self._backward_passes_per_step
+            self._parameter_update_delay[p] = self.backward_passes_per_step
             p.grad.data.set_(self._compression.decompress(output, ctx))
         self._handles.clear()
 
