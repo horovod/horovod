@@ -42,7 +42,7 @@ import collections
 
 class _DistributedOptimizer(torch.optim.Optimizer):
     def __init__(self, params, named_parameters, compression,
-                 aggregation_delay=1):
+                 backward_passes_per_step=1):
         super(self.__class__, self).__init__(params)
         self._compression = compression
 
@@ -59,16 +59,13 @@ class _DistributedOptimizer(torch.optim.Optimizer):
 
         self._parameter_names = {v: k for k, v
                                  in sorted(named_parameters)}
-        self._aggregation_delay = aggregation_delay
-        self._parameter_update_delay = {v: self._aggregation_delay for _, v
-                                        in sorted(named_parameters)}
+        self.backward_passes_per_step = backward_passes_per_step
+        self._parameter_update_delay = {v: self._backward_passes_per_step
+                                        for _, v in sorted(named_parameters)}
         self._handles = {}
         self._grad_accs = []
         if size() > 1:
             self._register_hooks()
-
-    def set_aggregation_delay(self, delay):
-        self._aggregation_delay = delay
 
     def _register_hooks(self):
         for param_group in self.param_groups:
@@ -92,8 +89,9 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             if p in self._handles and self._handles[p][0] is not None:
                 if self._parameter_update_delay[p] <= 0:
                     raise AssertionError(
-                        "Gradients were accumulated twice without a "
-                        "call to step(). Increase set_aggregation_delay to "
+                        "Gradients were computed more than "
+                        "backward_passes_per_step times call to step(). "
+                        "Increase backward_passes_per_step to "
                         "accumulate gradients locally.")
             assert not p.grad.requires_grad
             handle, ctx = None, None
@@ -107,14 +105,15 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         for p, value in self._handles.items():
             handle, ctx = value
             if handle is None:
-                warnings.warn("Attempting to synchronize an optimizer that "
-                              "is still waiting for more gradients. This may "
-                              "have a performance impact or cause "
-                              "synchronization failures")
+                warnings.warn("Called step on optimizer before computing "
+                              "gradients backwards_passes_per_step times. "
+                              "This will cause performance degradation, as "
+                              "gradient exchange is interleaved with "
+                              "computation only on the "
+                              "backwards_passes_per_step'th pass.")
                 handle, ctx = self._all_reduce_grad(p)
-                self.ignore_gradients(False)
             output = synchronize(handle)
-            self._parameter_update_delay[p] = self._aggregation_delay
+            self._parameter_update_delay[p] = self._backward_passes_per_step
             p.grad.data.set_(self._compression.decompress(output, ctx))
         self._handles.clear()
 
