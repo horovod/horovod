@@ -79,7 +79,7 @@ int MinLogLevelFromEnv() {
 bool LogTimeFromEnv() {
   const char* env_var_val = getenv("HOROVOD_LOG_TIME_DISABLE");
   if (env_var_val != nullptr &&
-      std::strtol(env_var_val, nullptr, 10) <= 0) {
+      std::strtol(env_var_val, nullptr, 10) > 0) {
     return false;
   } else {
     return true;
