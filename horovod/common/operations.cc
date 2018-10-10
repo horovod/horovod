@@ -1812,11 +1812,13 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Signal that initialization is completed.
   state.initialization_done = true;
 
-  LOG(INFO) << "HVD Initialized";
+  LOG(INFO, rank) << "Horovod Initialized";
   
   // Iterate until shutdown.
   while (RunLoopOnce(state, is_coordinator))
     ;
+
+  LOG(DEBUG, rank) << "Shutting down control thread";
 
   // Signal that shutdown has been requested.
   state.shut_down = true;
@@ -1945,6 +1947,8 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       message_queue.push(message);
     }
   }
+
+  if (!message_queue.empty()) LOG(DEBUG, state.rank) << "Sent " << message_queue.size() << " messages";
 
   // Flag indicating that the background thread should shut down.
   bool should_shut_down = state.shut_down;
@@ -2076,6 +2080,12 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       }
     }
 
+    std::string tensors_ready;
+    for (auto r : response_list.responses()) {
+      tensors_ready += r.tensor_names_string() + "; " ;
+    }
+    LOG(TRACE) << "Sending ready responses as " << tensors_ready;
+
     // Notify all nodes which tensors we'd like to reduce at this step.
     std::string encoded_response;
     MPIResponseList::SerializeToString(response_list, encoded_response);
@@ -2101,7 +2111,9 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     // Perform the collective operation. All nodes should end up performing
     // the same operation.
     for (auto& response : response_list.responses()) {
+      LOG(TRACE, state.rank) << "Performing " << response.tensor_names_string();
       PerformOperation(state.tensor_table, response);
+      LOG(TRACE, state.rank) << "Finished performing " << response.tensor_names_string();
     }
 
     // Check for stalled tensors.
@@ -2159,7 +2171,9 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     // Perform the collective operation. All nodes should end up performing
     // the same operation.
     for (auto& response : response_list.responses()) {
+      LOG(TRACE, state.rank) << "Performing " << response.tensor_names_string();
       PerformOperation(state.tensor_table, response);
+      LOG(TRACE, state.rank) << "Finished performing " << response.tensor_names_string();
     }
 
     if (state.param_manager.IsAutoTuning()) {
@@ -2299,6 +2313,7 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   }
   horovod_global.tensor_table.emplace(name, std::move(e));
   horovod_global.message_queue.push(message);
+  LOG(TRACE, horovod_global.rank) << "Enqueued " << name;
   return Status::OK();
 }
 
@@ -2337,6 +2352,7 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
   }
   horovod_global.tensor_table.emplace(name, std::move(e));
   horovod_global.message_queue.push(message);
+  LOG(TRACE, horovod_global.rank) << "Enqueued " << name;
   return Status::OK();
 }
 
@@ -2379,6 +2395,7 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   }
   horovod_global.tensor_table.emplace(name, std::move(e));
   horovod_global.message_queue.push(message);
+  LOG(TRACE, horovod_global.rank) << "Enqueued " << name;
   return Status::OK();
 }
 
