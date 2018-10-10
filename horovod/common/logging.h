@@ -49,9 +49,12 @@ class LogMessageFatal : public LogMessage {
 #define _HVD_LOG_FATAL \
   LogMessageFatal(__FILE__, __LINE__)
 
-#define LOG(severity) _HVD_LOG_##severity
+#define _LOG(severity) _HVD_LOG_##severity
 
-#define LOG_RANK(severity, rank) _HVD_LOG_##severity << "[" << rank << "]: "
+#define _LOG_RANK(severity, rank) _HVD_LOG_##severity << "[" << rank << "]: "
+
+#define GET_LOG(_1, _2, NAME, ...) NAME
+#define LOG(...) GET_LOG(__VA_ARGS__, _LOG_RANK, _LOG)(__VA_ARGS__)
 
 int MinLogLevelFromEnv();
 
