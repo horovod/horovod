@@ -44,6 +44,7 @@
 #include "mpi_message.h"
 #include "operations.h"
 #include "timeline.h"
+#include "logging.h"
 
 /*
  * Allreduce, Allgather and Broadcast Ops.
@@ -1811,6 +1812,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Signal that initialization is completed.
   state.initialization_done = true;
 
+  LOG(INFO) << "HVD Initialized";
+  
   // Iterate until shutdown.
   while (RunLoopOnce(state, is_coordinator))
     ;

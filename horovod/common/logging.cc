@@ -8,34 +8,42 @@ namespace common {
 LogMessage::LogMessage(const char* fname, int line, int severity)
     : fname_(fname), line_(line), severity_(severity) {}
 
-void LogMessage::GenerateLogMessage() {
-  auto now = std::chrono::system_clock::now();
-  auto as_time_t = std::chrono::system_clock::to_time_t(now);
+void LogMessage::GenerateLogMessage(bool log_time) {
 
-  auto duration = now.time_since_epoch();
-  auto seconds = std::chrono::duration_cast<std::chrono::seconds>(duration);
-  auto micros_remainder = std::chrono::duration_cast<std::chrono::microseconds>(duration - seconds);
+  if (log_time) {
+    auto now = std::chrono::system_clock::now();
+    auto as_time_t = std::chrono::system_clock::to_time_t(now);
 
-  const size_t time_buffer_size = 30;
-  char time_buffer[time_buffer_size];
-  strftime(time_buffer, time_buffer_size, "%Y-%m-%d %H:%M:%S",
-           localtime(&as_time_t));
+    auto duration = now.time_since_epoch();
+    auto seconds = std::chrono::duration_cast<std::chrono::seconds>(duration);
+    auto micros_remainder = std::chrono::duration_cast<std::chrono::microseconds>(duration - seconds);
 
-  fprintf(stdout, "[%s.%06d: %c %s:%d] %s\n", time_buffer, micros_remainder,
-          "TDIWEF"[severity_], fname_, line_, str().c_str());
+    const size_t time_buffer_size = 30;
+    char time_buffer[time_buffer_size];
+    strftime(time_buffer, time_buffer_size, "%Y-%m-%d %H:%M:%S",
+             localtime(&as_time_t));
+
+    fprintf(stdout, "[%s.%06d: %c %s:%d] %s\n", time_buffer, micros_remainder,
+            "TDIWEF"[severity_], fname_, line_, str().c_str());  
+  } else {
+    fprintf(stdout, "[%c %s:%d] %s\n", "TDIWEF"[severity_], 
+            fname_, line_, str().c_str());  
+  }
 }
 
 LogMessage::~LogMessage() {
   // Read the min log level once during the first call to logging.
   static int min_log_level = MinLogLevelFromEnv();
-  if (severity_ >= min_log_level) GenerateLogMessage();
+  static bool log_time = LogTimeFromEnv();
+  if (severity_ >= min_log_level) GenerateLogMessage(log_time);
 }
 
 
 LogMessageFatal::LogMessageFatal(const char* file, int line)
     : LogMessage(file, line, FATAL) {}
 LogMessageFatal::~LogMessageFatal() {
-  GenerateLogMessage();
+  static bool log_time = LogTimeFromEnv();
+  GenerateLogMessage(log_time);
   abort();
 }
 
@@ -66,6 +74,16 @@ int MinLogLevelFromEnv() {
     return 3;
   }
   return LogLevelStrToInt(env_var_val);
+}
+
+bool LogTimeFromEnv() {
+  const char* env_var_val = getenv("HOROVOD_LOG_TIME_DISABLE");
+  if (env_var_val != nullptr &&
+      std::strtol(env_var_val, nullptr, 10) <= 0) {
+    return false;
+  } else {
+    return true;
+  }
 }
 
 

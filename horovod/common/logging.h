@@ -20,7 +20,7 @@ class LogMessage : public std::basic_ostringstream<char> {
   ~LogMessage();
 
  protected:
-  void GenerateLogMessage();
+  void GenerateLogMessage(bool log_time);
 
  private:
   const char* fname_;
@@ -57,6 +57,7 @@ class LogMessageFatal : public LogMessage {
 #define LOG(...) GET_LOG(__VA_ARGS__, _LOG_RANK, _LOG)(__VA_ARGS__)
 
 int MinLogLevelFromEnv();
+bool LogTimeFromEnv();
 
 }
 }
