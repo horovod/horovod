@@ -139,7 +139,8 @@ int DoAllgatherCudaOnCPU(at::Tensor tensor, at::Tensor output,
   auto hvd_cpu_tensor = std::make_shared<TorchTensor>(cpu_tensor);
   auto ready_event = RecordReadyEvent(device);
 
-  auto cpu_output = at::CPU(cpu_tensor.type().scalarType()).tensor({});
+  auto cpu_output =
+      at::tensor(cpu_tensor.type()).to(at::Device(at::DeviceType::CPU));
   auto hvd_cpu_output = std::make_shared<TorchTensor>(cpu_output);
   auto hvd_context =
       std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_output);
