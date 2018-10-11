@@ -2080,12 +2080,14 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       }
     }
 
-    std::string tensors_ready;
-    for (auto r : response_list.responses()) {
-      tensors_ready += r.tensor_names_string() + "; " ;
+    if (!response_list.responses().empty()) {
+      std::string tensors_ready;
+      for (auto r : response_list.responses()) {
+        tensors_ready += r.tensor_names_string() + "; " ;
+      }
+      LOG(TRACE) << "Sending ready responses as " << tensors_ready;  
     }
-    LOG(TRACE) << "Sending ready responses as " << tensors_ready;
-
+    
     // Notify all nodes which tensors we'd like to reduce at this step.
     std::string encoded_response;
     MPIResponseList::SerializeToString(response_list, encoded_response);
