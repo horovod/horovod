@@ -46,6 +46,7 @@ namespace common {
 #define NCCL_ALLGATHER "NCCL_ALLGATHER"
 #define NCCL_REDUCE "NCCL_REDUCE"
 #define NCCL_BCAST "NCCL_BCAST"
+#define COPY_ALLGATHER_OUTPUT "COPY_ALLGATHER_OUTPUT"
 
 // The number of elements held by fusion buffer and hierarchical
 // allreduce size is always a multiple of FUSION_BUFFER_ATOMIC_UNIT
@@ -58,7 +59,6 @@ namespace common {
 #define HOROVOD_CYCLE_TIME "HOROVOD_CYCLE_TIME"
 #define HOROVOD_STALL_CHECK_DISABLE "HOROVOD_STALL_CHECK_DISABLE"
 #define HOROVOD_HIERARCHICAL_ALLREDUCE "HOROVOD_HIERARCHICAL_ALLREDUCE"
-#define HOROVOD_HIERARCHICAL_ALLGATHER "HOROVOD_HIERARCHICAL_ALLGATHER"
 
 // A callback to call after the MPI communication completes. Since the
 // allreduce and allgather ops are asynchronous, this callback is what resumes
