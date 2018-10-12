@@ -902,40 +902,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         }
         auto event_queue = std::queue<std::pair<std::string, cudaEvent_t>>();
 
-        /*// Determine GPU IDs of the devices participating in this communicator.
-        std::vector<int32_t> nccl_device_map;
-        for (int rank : horovod_global.local_comm_ranks) {
-          nccl_device_map.push_back(response.devices()[rank]);
-        }
-        // Ensure NCCL communicator is in the map before executing reduction.
-        ncclComm_t& nccl_comm = horovod_global.nccl_comms[nccl_device_map];
-
-        if (nccl_comm == nullptr) {
-          ACTIVITY_START_ALL(entries, timeline, INIT_NCCL)
-          ncclUniqueId nccl_id;
-          if (horovod_global.local_rank == 0) {
-            NCCL_CHECK(entries, "ncclGetUniqueId", ncclGetUniqueId(&nccl_id))
-          }
-
-          MPI_CHECK(entries, "MPI_Bcast",
-                    MPI_Bcast((void*)&nccl_id, sizeof(nccl_id), MPI_BYTE, 0,
-                              horovod_global.local_comm));
-
-          ncclComm_t new_nccl_comm;
-          NCCL_CHECK(entries, "ncclCommInitRank",
-                     ncclCommInitRank(&new_nccl_comm, horovod_global.local_size,
-                                      nccl_id, horovod_global.local_rank))
-          nccl_comm = new_nccl_comm;
-
-          auto event_queue = std::queue<std::pair<std::string, cudaEvent_t>>();
-
-          // Barrier helps NCCL to synchronize after initialization and avoid
-          // deadlock that we've been seeing without it.
-          MPI_CHECK(entries, "MPI_Barrier",
-                    MPI_Barrier(horovod_global.mpi_comm));
-
-          ACTIVITY_END_ALL(entries, timeline)
-        }*/
         // copy to shared buffer at cpu
         int64_t copy_len =
             cross_recvcounts[horovod_global.cross_rank] * element_size;
