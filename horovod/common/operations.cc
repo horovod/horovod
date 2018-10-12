@@ -823,15 +823,12 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     output_shape.AppendShape(single_slice_shape);
 
     ACTIVITY_START_ALL(entries, timeline, ALLOCATE_OUTPUT)
-
     status = e.context->AllocateOutput(output_shape, &e.output);
-
     if (!status.ok()) {
       timeline.End(e.tensor_name, nullptr);
       e.callback(status);
       return;
     }
-
     ACTIVITY_END_ALL(entries, timeline)
 
     // Compute all displacements and recvcounts
@@ -972,6 +969,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       delete[] cross_recvcounts;
 
     } else { // is_homogeneous == false
+
+      ACTIVITY_START_ALL(entries, timeline, MPI_ALLGATHER)
       auto result = MPI_Allgatherv(
           e.tensor->data(), (int)e.tensor->shape().num_elements(),
           GetMPIDataType(e.tensor), (void*)e.output->data(), recvcounts,
@@ -1628,6 +1627,22 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, local_comm_ranks.data(), 1,
                 MPI_INT, local_comm);
 
+  // Determine if cluster is homogeneous, i.e., if every node has the same
+  // local_size
+  auto local_sizes = new int[size];
+  MPI_Allgather(&local_size, 1, MPI_INT, local_sizes, 1, MPI_INT,
+                state.mpi_comm);
+
+  bool is_homogeneous = true;
+  for (int i = 0; i < size; i++) {
+    if (local_sizes[i] != local_size) {
+      is_homogeneous = false;
+      break;
+    }
+  }
+  delete[] local_sizes;
+  state.is_homogeneous = is_homogeneous;
+
   // Set up cross-communicator in case of hierarchical allreduce.
   MPI_Comm cross_comm;
   MPI_Comm_split(state.mpi_comm, local_rank, rank, &cross_comm);
@@ -1651,22 +1666,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.mpi_float16_t = mpi_float16_t;
   state.mpi_threads_supported = (provided == MPI_THREAD_MULTIPLE);
   state.local_comm_ranks = local_comm_ranks;
-
-  // Determine if cluster is homogeneous, i.e., if every node has the same
-  // local_size
-  auto local_sizes = new int[size];
-  MPI_Allgather(&local_size, 1, MPI_INT, local_sizes, 1, MPI_INT,
-                state.mpi_comm);
-
-  bool is_homogeneous = true;
-  for (int i = 0; i < size; i++) {
-    if (local_sizes[i] != local_size) {
-      is_homogeneous = false;
-      break;
-    }
-  }
-  delete[] local_sizes;
-  state.is_homogeneous = is_homogeneous;
 
   // Open the timeline file on coordinator.
   auto horovod_timeline = std::getenv(HOROVOD_TIMELINE);
@@ -1710,10 +1709,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   // Override Tensor Fusion threshold, if it's set.
   auto horovod_fusion_threshold = std::getenv("HOROVOD_FUSION_THRESHOLD");
-  int64_t proposed_fusion_threshold =
-      (horovod_fusion_threshold != nullptr)
-          ? std::strtol(horovod_fusion_threshold, nullptr, 10)
-          : state.tensor_fusion_threshold;
+  int64_t proposed_fusion_threshold = (horovod_fusion_threshold != nullptr) ?
+          std::strtol(horovod_fusion_threshold, nullptr, 10) :
+          state.tensor_fusion_threshold;
 
   // If the cluster is homogeneous and hierarchical allreduce is enabled,
   // adjust buffer size to make sure it is divisible by local_size to improve
@@ -1726,10 +1724,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     // FUSION_BUFFER_ATOMIC_UNIT for performance
     int mpi_double_size;
     MPI_Type_size(MPI_DOUBLE, &mpi_double_size);
-    int64_t div =
-        state.local_size * mpi_double_size * FUSION_BUFFER_ATOMIC_UNIT;
-    state.tensor_fusion_threshold =
-        ((proposed_fusion_threshold + div - 1) / div) * div;
+    int64_t div = state.local_size * mpi_double_size * FUSION_BUFFER_ATOMIC_UNIT;
+    state.tensor_fusion_threshold = ((proposed_fusion_threshold + div - 1) / div) * div;
   } else {
     state.tensor_fusion_threshold = proposed_fusion_threshold;
   }

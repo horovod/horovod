@@ -301,7 +301,7 @@ public:
 
 REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_CPU),
                         HorovodAllreduceOp);
-#if HOROVOD_GPU_ALLREDUCE || HOROVOD_GPU_ALLGATHER
+#if HOROVOD_GPU_ALLREDUCE 
 REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_GPU),
                         HorovodAllreduceOp);
 #endif
