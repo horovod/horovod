@@ -2077,6 +2077,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       }
 
         response_list.add_responses(response);
+        LOG(DEBUG) << "Created response of size " << tensor_size;
       }
     }
 
