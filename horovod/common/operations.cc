@@ -195,6 +195,15 @@ struct HorovodGlobalState {
   // Do hierarchical allreduce with MPI + NCCL.
   bool hierarchical_allreduce = false;
 
+  // MPI Window used for shared memory allgather
+  MPI_Win window;
+
+  // Pointer to shared buffer for allgather
+  void* shared_buffer = nullptr;
+
+  // Current shared buffer size
+  int64_t shared_buffer_size = 0;
+
 // The CUDA stream used for data transfers and within-allreduce operations.
 // A naive implementation would use the TensorFlow StreamExecutor CUDA
 // stream. However, the allreduce and allgather require doing memory copies
@@ -818,48 +827,64 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
     ACTIVITY_END_ALL(entries, timeline)
 
+    // Compute all displacements and recvcounts
     auto* recvcounts = new int[tensor_sizes.size()];
     auto* displcmnts = new int[tensor_sizes.size()];
     for (unsigned int i = 0; i < tensor_sizes.size(); i++) {
       recvcounts[i] =
-            (int)(single_slice_shape.num_elements() * tensor_sizes[proc_rank]);
+          (int)(single_slice_shape.num_elements() * tensor_sizes[i]);
       if (i == 0) {
         displcmnts[i] = 0;
       } else {
-        displcmnts[i] = displcmnts[i-1] + recvcounts[i-1];
+        displcmnts[i] = displcmnts[i - 1] + recvcounts[i - 1];
       }
     }
 
-#ifndef HOROVOD_GPU_ALLGATHER
+    // If the cluster is homogeneous do parallelized MPI cross-node
+    // allgather into the shared buffer first, then memcpy to output buffer
     if (horovod_global.is_homogeneous) {
+      int element_size;
+      MPI_Type_size(GetMPIDataType(e.tensor), &element_size);
+
       auto* cross_recvcounts = new int[horovod_global.cross_size]();
       auto* cross_displcmnts = new int[horovod_global.cross_size]();
-      for (unsigned int i = 0; i < horovod_global.cross_size; i++) {
-        cross_recvcounts[i] = recvcounts[horovod_global.local_size*i + horovod_global.local_rank];
-        cross_displcmnts[i] = displcmnts[horovod_global.local_size*i + horovod_global.local_rank];
+      for (int i = 0; i < horovod_global.cross_size; i++) {
+        cross_recvcounts[i] = recvcounts[horovod_global.local_size * i +
+                                         horovod_global.local_rank];
+        cross_displcmnts[i] = displcmnts[horovod_global.local_size * i +
+                                         horovod_global.local_rank];
       }
-      int64_t total_size = recvcounts[tensor_sizes.size()-1] 
-                     + displcmnts[tensor_sizes.size()-1];
+      int64_t total_size = recvcounts[tensor_sizes.size() - 1] +
+                           displcmnts[tensor_sizes.size() - 1];
 
-      // allocate shared memory
-      MPI_Win window;
-      void* local_ptr; 
-      int64_t window_size = horovod_global.local_rank == 0 ? total_size*element_size:0;
+      // If shared buffer is not initialized or is not large enough, reallocate
+      if (horovod_global.shared_buffer == nullptr ||
+          horovod_global.shared_buffer_size < total_size * element_size) {
+        if (horovod_global.shared_buffer != nullptr) {
+          MPI_Win_fence(0, horovod_global.window);
+          MPI_Win_free(&horovod_global.window);
+          horovod_global.shared_buffer = nullptr;
+        }
+        int64_t window_size =
+            horovod_global.local_rank == 0 ? total_size * element_size : 0;
 
-      // Allocate shared memory, give each rank their respective pointer
-      ACTIVITY_START_ALL(entries, timeline, ALLOCATE_SHARED_BUFFER)
-      MPI_Win_allocate_shared(window_size, element_size, MPI_INFO_NULL,
-              horovod_global.local_comm, &local_ptr, &window);
+        // Allocate shared memory, give each rank their respective pointer
+        ACTIVITY_START_ALL(entries, timeline, ALLOCATE_SHARED_BUFFER)
+        MPI_Win_allocate_shared(
+            window_size, element_size, MPI_INFO_NULL, horovod_global.local_comm,
+            &horovod_global.shared_buffer, &horovod_global.window);
 
-      if (horovod_global.local_rank != 0) {
-        int disp_unit;
-        MPI_Aint winsize;
-        MPI_Win_shared_query(window, 0, &winsize, &disp_unit, &local_ptr);
+        if (horovod_global.local_rank != 0) {
+          int disp_unit;
+          MPI_Aint winsize;
+          MPI_Win_shared_query(horovod_global.window, 0, &winsize, &disp_unit,
+                               &horovod_global.shared_buffer);
+        }
+        MPI_Win_fence(0, horovod_global.window);
+        horovod_global.shared_buffer_size = total_size * element_size;
+        ACTIVITY_END_ALL(entries, timeline)
       }
-      MPI_Win_fence(0, window);
-      ACTIVITY_END_ALL(entries, timeline)
-
-#if HAVE_CUDA 
+#if HAVE_CUDA
       bool on_gpu = e.device != CPU_DEVICE_ID;
       if (on_gpu) {
         cudaStream_t& stream = horovod_global.streams[e.device];
@@ -877,7 +902,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         }
         auto event_queue = std::queue<std::pair<std::string, cudaEvent_t>>();
 
-        // Determine GPU IDs of the devices participating in this communicator.
+        /*// Determine GPU IDs of the devices participating in this communicator.
         std::vector<int32_t> nccl_device_map;
         for (int rank : horovod_global.local_comm_ranks) {
           nccl_device_map.push_back(response.devices()[rank]);
@@ -910,80 +935,75 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                     MPI_Barrier(horovod_global.mpi_comm));
 
           ACTIVITY_END_ALL(entries, timeline)
-        }
-        // copy to cpu - offset so that mpi allgather can be done in-place
-        int element_size;
-        MPI_Type_size(GetMPIDataType(e.tensor), &element_size);
-
+        }*/
+        // copy to shared buffer at cpu
         int64_t copy_len =
             cross_recvcounts[horovod_global.cross_rank] * element_size;
-        void* host_buffer_at_offset =
-            (uint8_t*)local_ptr +
+        void* shared_buffer_at_offset =
+            (uint8_t*)horovod_global.shared_buffer +
             cross_displcmnts[horovod_global.cross_rank] * element_size;
 
         ACTIVITY_START_ALL(entries, timeline, MEMCPY_IN_HOST_BUFFER)
         CUDA_CHECK(entries, "cudaMemcpyAsync",
-                   cudaMemcpyAsync(host_buffer_at_offset, e.tensor->data(),
+                   cudaMemcpyAsync(shared_buffer_at_offset, e.tensor->data(),
                                    copy_len, cudaMemcpyDeviceToHost, stream))
         ACTIVITY_END_ALL(entries, timeline)
 
         // parallelized mpi allgather at cpu
         ACTIVITY_START_ALL(entries, timeline, MPI_CROSS_ALLGATHER)
 
-        auto cross_result =
-            MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, local_ptr,
-                           cross_recvcounts, cross_displcmnts,
-                           GetMPIDataType(e.tensor), horovod_global.cross_comm);
+        auto cross_result = MPI_Allgatherv(
+            MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, horovod_global.shared_buffer,
+            cross_recvcounts, cross_displcmnts, GetMPIDataType(e.tensor),
+            horovod_global.cross_comm);
 
         MPI_CHECK(entries, "MPI_Allgatherv", cross_result)
-        MPI_Win_fence(0, window);
+        MPI_Win_fence(0, horovod_global.window);
         ACTIVITY_END_ALL(entries, timeline)
 
         // copy back to gpu
         ACTIVITY_START_ALL(entries, timeline, MEMCPY_OUT_HOST_BUFFER)
         CUDA_CHECK(entries, "cudaMemcpyAsync",
-                   cudaMemcpyAsync(e.output->data(), local_ptr,
-                                   (size_t)total_size, cudaMemcpyHostToDevice,
-                                   stream))
+                   cudaMemcpyAsync((void*)e.output->data(),
+                                   horovod_global.shared_buffer,
+                                   (size_t)(total_size * element_size),
+                                   cudaMemcpyHostToDevice, stream))
         CUDA_CHECK(entries, "cudaStreamSynchronize",
                    cudaStreamSynchronize(stream))
         ACTIVITY_END_ALL(entries, timeline)
-      } else {    // data is at cpu 
+      } else { // data is at cpu
 #endif
-      // Perform the parallelized allgather across nodes
-      ACTIVITY_START_ALL(entries, timeline, MPI_CROSS_ALLGATHER)
-      auto cross_result = MPI_Allgatherv(
-          e.tensor->data(), (int)e.tensor->shape().num_elements(),
-          GetMPIDataType(e.tensor), local_ptr, cross_recvcounts,
-          cross_displcmnts, GetMPIDataType(e.tensor), horovod_global.cross_comm);
+        // Perform the parallelized allgather across nodes
+        ACTIVITY_START_ALL(entries, timeline, MPI_CROSS_ALLGATHER)
+        auto cross_result = MPI_Allgatherv(
+            e.tensor->data(), (int)e.tensor->shape().num_elements(),
+            GetMPIDataType(e.tensor), horovod_global.shared_buffer,
+            cross_recvcounts, cross_displcmnts, GetMPIDataType(e.tensor),
+            horovod_global.cross_comm);
 
-      MPI_CHECK(entries, "MPI_Allgatherv", cross_result)
-      MPI_Win_fence(0, window);
-      ACTIVITY_END_ALL(entries, timeline)
+        MPI_CHECK(entries, "MPI_Allgatherv", cross_result)
+        MPI_Win_fence(0, horovod_global.window);
+        ACTIVITY_END_ALL(entries, timeline)
 
-      ACTIVITY_START_ALL(entries, timeline, COPY_ALLGATHER_OUTPUT)
-      memcpy((void*)e.output->data(), local_ptr, total_size*element_size);
-      ACTIVITY_END_ALL(entries, timeline)
-
+        ACTIVITY_START_ALL(entries, timeline, COPY_ALLGATHER_OUTPUT)
+        memcpy((void*)e.output->data(), horovod_global.shared_buffer,
+               total_size * element_size);
+        ACTIVITY_END_ALL(entries, timeline)
 #if HAVE_CUDA
       }
 #endif
       // Free the buffers
       delete[] cross_displcmnts;
       delete[] cross_recvcounts;
-      MPI_Win_free(&window);   // also de-allocates local_ptr
 
-    } else {   // is_homogeneous = false
-#endif
+    } else { // is_homogeneous = false
       auto result = MPI_Allgatherv(
           e.tensor->data(), (int)e.tensor->shape().num_elements(),
           GetMPIDataType(e.tensor), (void*)e.output->data(), recvcounts,
           displcmnts, GetMPIDataType(e.tensor), horovod_global.mpi_comm);
       MPI_CHECK(entries, "MPI_Allgatherv", result)
       ACTIVITY_END_ALL(entries, timeline)
-#ifndef HOROVOD_GPU_ALLGATHER
     }
-#endif
     delete[] recvcounts;
     delete[] displcmnts;
     timeline.End(e.tensor_name, e.output);
@@ -1653,12 +1673,12 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   // Determine if cluster is homogeneous, i.e., if every node has the same
   // local_size
-  auto local_sizes = new int[cross_size];
+  auto local_sizes = new int[size];
   MPI_Allgather(&local_size, 1, MPI_INT, local_sizes, 1, MPI_INT,
-                state.cross_comm);
+                state.mpi_comm);
 
   bool is_homogeneous = true;
-  for (int i = 0; i < cross_size; i++) {
+  for (int i = 0; i < size; i++) {
     if (local_sizes[i] != local_size) {
       is_homogeneous = false;
       break;
@@ -1700,8 +1720,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   if (is_coordinator && !state.is_homogeneous) {
     std::cerr
         << "WARNING: Using different number of ranks per node might cause "
-           "performance loss in Horovod allgather and (if enabled) hierarchical allreduce. Consider assigning the same "
-           "number of ranks to each node if you are using either of these features."
+           "performance loss in Horovod allgather and (if enabled) "
+           "hierarchical allreduce. Consider assigning the same "
+           "number of ranks to each node if you are using either of these "
+           "features."
         << std::endl;
   }
 
@@ -2073,6 +2095,10 @@ void horovod_shutdown() {
 
   if (horovod_global.cross_comm != MPI_COMM_NULL) {
     MPI_Comm_free(&horovod_global.cross_comm);
+  }
+
+  if (horovod_global.shared_buffer != nullptr) {
+    MPI_Win_free(&horovod_global.window);
   }
 
   if (horovod_global.should_finalize) {

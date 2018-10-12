@@ -47,6 +47,7 @@ namespace common {
 #define NCCL_REDUCE "NCCL_REDUCE"
 #define NCCL_BCAST "NCCL_BCAST"
 #define COPY_ALLGATHER_OUTPUT "COPY_ALLGATHER_OUTPUT"
+#define ALLOCATE_SHARED_BUFFER "ALLOCATE_SHARED_BUFFER"
 
 // The number of elements held by fusion buffer and hierarchical
 // allreduce size is always a multiple of FUSION_BUFFER_ATOMIC_UNIT
