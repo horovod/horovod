@@ -1725,7 +1725,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     int mpi_double_size;
     MPI_Type_size(MPI_DOUBLE, &mpi_double_size);
     int64_t div = state.local_size * mpi_double_size * FUSION_BUFFER_ATOMIC_UNIT;
-    state.tensor_fusion_threshold = ((proposed_fusion_threshold + div - 1) / div) * div;
+    state.tensor_fusion_threshold = ((proposed_fusion_threshold+div-1) / div) * div;
   } else {
     state.tensor_fusion_threshold = proposed_fusion_threshold;
   }
