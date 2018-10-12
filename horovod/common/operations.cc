@@ -1948,7 +1948,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     }
   }
 
-  if (!message_queue.empty()) LOG(DEBUG, state.rank) << "Sent " << message_queue.size() << " messages";
+  // if (!message_queue.empty()) LOG(DEBUG, state.rank) << "Sent " << message_queue.size() << " messages";
 
   // Flag indicating that the background thread should shut down.
   bool should_shut_down = state.shut_down;
@@ -2114,6 +2114,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     // the same operation.
     for (auto& response : response_list.responses()) {
       LOG(TRACE, state.rank) << "Performing " << response.tensor_names_string();
+      LOG(DEBUG, state.rank) << "Processing " << response.tensor_names().size() << " tensors";
       PerformOperation(state.tensor_table, response);
       LOG(TRACE, state.rank) << "Finished performing " << response.tensor_names_string();
     }
