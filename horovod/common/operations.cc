@@ -198,6 +198,15 @@ struct HorovodGlobalState {
   // Do hierarchical allreduce with MPI + NCCL.
   bool hierarchical_allreduce = false;
 
+  // MPI Window used for shared memory allgather
+  MPI_Win window;
+
+  // Pointer to shared buffer for allgather
+  void* shared_buffer = nullptr;
+
+  // Current shared buffer size
+  int64_t shared_buffer_size = 0;
+
 // The CUDA stream used for data transfers and within-allreduce operations.
 // A naive implementation would use the TensorFlow StreamExecutor CUDA
 // stream. However, the allreduce and allgather require doing memory copies
@@ -814,17 +823,18 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     output_shape.AppendShape(single_slice_shape);
 
     ACTIVITY_START_ALL(entries, timeline, ALLOCATE_OUTPUT)
+
     status = e.context->AllocateOutput(output_shape, &e.output);
+
     if (!status.ok()) {
       timeline.End(e.tensor_name, nullptr);
       e.callback(status);
       return;
     }
+
     ACTIVITY_END_ALL(entries, timeline)
 
-    // Tensors may have different first dimension, so we need to use
-    // MPI_Allgatherv API that supports gathering arrays of different length.
-    ACTIVITY_START_ALL(entries, timeline, MPI_ALLGATHER)
+    // Compute all displacements and recvcounts
     auto* recvcounts = new int[tensor_sizes.size()];
     auto* displcmnts = new int[tensor_sizes.size()];
     for (unsigned int i = 0; i < tensor_sizes.size(); i++) {
@@ -833,18 +843,144 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       if (i == 0) {
         displcmnts[i] = 0;
       } else {
-        displcmnts[i] = recvcounts[i - 1] + displcmnts[i - 1];
+        displcmnts[i] = displcmnts[i - 1] + recvcounts[i - 1];
       }
     }
-    auto result = MPI_Allgatherv(
-        e.tensor->data(), (int)e.tensor->shape().num_elements(),
-        GetMPIDataType(e.tensor), (void*)e.output->data(), recvcounts,
-        displcmnts, GetMPIDataType(e.tensor), horovod_global.mpi_comm);
+
+    // If the cluster is homogeneous do parallelized MPI cross-node
+    // allgather into the shared buffer first, then memcpy to output buffer
+    if (horovod_global.is_homogeneous) {
+      int element_size;
+      MPI_Type_size(GetMPIDataType(e.tensor), &element_size);
+
+      auto* cross_recvcounts = new int[horovod_global.cross_size]();
+      auto* cross_displcmnts = new int[horovod_global.cross_size]();
+      for (int i = 0; i < horovod_global.cross_size; i++) {
+        cross_recvcounts[i] = recvcounts[horovod_global.local_size * i +
+                                         horovod_global.local_rank];
+        cross_displcmnts[i] = displcmnts[horovod_global.local_size * i +
+                                         horovod_global.local_rank];
+      }
+      int64_t total_size = recvcounts[tensor_sizes.size() - 1] +
+                           displcmnts[tensor_sizes.size() - 1];
+
+      // If shared buffer is not initialized or is not large enough, reallocate
+      if (horovod_global.shared_buffer == nullptr ||
+          horovod_global.shared_buffer_size < total_size * element_size) {
+        if (horovod_global.shared_buffer != nullptr) {
+          MPI_Win_fence(0, horovod_global.window);
+          MPI_Win_free(&horovod_global.window);
+          horovod_global.shared_buffer = nullptr;
+        }
+        int64_t window_size =
+            horovod_global.local_rank == 0 ? total_size * element_size : 0;
+
+        // Allocate shared memory, give each rank their respective pointer
+        ACTIVITY_START_ALL(entries, timeline, ALLOCATE_SHARED_BUFFER)
+        MPI_Win_allocate_shared(
+            window_size, element_size, MPI_INFO_NULL, horovod_global.local_comm,
+            &horovod_global.shared_buffer, &horovod_global.window);
+
+        if (horovod_global.local_rank != 0) {
+          int disp_unit;
+          MPI_Aint winsize;
+          MPI_Win_shared_query(horovod_global.window, 0, &winsize, &disp_unit,
+                               &horovod_global.shared_buffer);
+        }
+        MPI_Win_fence(0, horovod_global.window);
+        horovod_global.shared_buffer_size = total_size * element_size;
+        ACTIVITY_END_ALL(entries, timeline)
+      }
+#if HAVE_CUDA
+      bool on_gpu = e.device != CPU_DEVICE_ID;
+      if (on_gpu) {
+        cudaStream_t& stream = horovod_global.streams[e.device];
+
+        CUDA_CHECK(entries, "cudaSetDevice", cudaSetDevice(e.device))
+
+        // Ensure stream is in the map before executing reduction.
+        if (stream == nullptr) {
+          int greatest_priority;
+          CUDA_CHECK(entries, "cudaDeviceGetStreamPriorityRange",
+                     cudaDeviceGetStreamPriorityRange(NULL, &greatest_priority))
+          CUDA_CHECK(entries, "cudaStreamCreateWithPriority",
+                     cudaStreamCreateWithPriority(
+                         &stream, cudaStreamNonBlocking, greatest_priority))
+        }
+        auto event_queue = std::queue<std::pair<std::string, cudaEvent_t>>();
+
+        // Copy to shared buffer at the cpu
+        int64_t copy_len =
+            cross_recvcounts[horovod_global.cross_rank] * element_size;
+        void* shared_buffer_at_offset =
+            (uint8_t*)horovod_global.shared_buffer +
+            cross_displcmnts[horovod_global.cross_rank] * element_size;
+
+        ACTIVITY_START_ALL(entries, timeline, MEMCPY_IN_HOST_BUFFER)
+        CUDA_CHECK(entries, "cudaMemcpyAsync",
+                   cudaMemcpyAsync(shared_buffer_at_offset, e.tensor->data(),
+                                   copy_len, cudaMemcpyDeviceToHost, stream))
+        ACTIVITY_END_ALL(entries, timeline)
+
+        // Parallelized MPI allgather at cpu
+        ACTIVITY_START_ALL(entries, timeline, MPI_CROSS_ALLGATHER)
+
+        // Tensors may have different first dimension, so we need to use
+        // MPI_Allgatherv API that supports gathering arrays of different length.
+        auto cross_result = MPI_Allgatherv(
+            MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, horovod_global.shared_buffer,
+            cross_recvcounts, cross_displcmnts, GetMPIDataType(e.tensor),
+            horovod_global.cross_comm);
+
+        MPI_CHECK(entries, "MPI_Allgatherv", cross_result)
+        MPI_Win_fence(0, horovod_global.window);
+        ACTIVITY_END_ALL(entries, timeline)
+
+        // Copy back to the output buffer at the gpu
+        ACTIVITY_START_ALL(entries, timeline, MEMCPY_OUT_HOST_BUFFER)
+        CUDA_CHECK(entries, "cudaMemcpyAsync",
+                   cudaMemcpyAsync((void*)e.output->data(),
+                                   horovod_global.shared_buffer,
+                                   (size_t)(total_size * element_size),
+                                   cudaMemcpyHostToDevice, stream))
+        CUDA_CHECK(entries, "cudaStreamSynchronize",
+                   cudaStreamSynchronize(stream))
+        ACTIVITY_END_ALL(entries, timeline)
+      } else { // data is at cpu
+#endif
+        // Perform the parallelized allgather across nodes
+        ACTIVITY_START_ALL(entries, timeline, MPI_CROSS_ALLGATHER)
+        auto cross_result = MPI_Allgatherv(
+            e.tensor->data(), (int)e.tensor->shape().num_elements(),
+            GetMPIDataType(e.tensor), horovod_global.shared_buffer,
+            cross_recvcounts, cross_displcmnts, GetMPIDataType(e.tensor),
+            horovod_global.cross_comm);
+
+        MPI_CHECK(entries, "MPI_Allgatherv", cross_result)
+        MPI_Win_fence(0, horovod_global.window);
+        ACTIVITY_END_ALL(entries, timeline)
+
+        ACTIVITY_START_ALL(entries, timeline, COPY_ALLGATHER_OUTPUT)
+        memcpy((void*)e.output->data(), horovod_global.shared_buffer,
+               total_size * element_size);
+        ACTIVITY_END_ALL(entries, timeline)
+#if HAVE_CUDA
+      }
+#endif
+      // Free the buffers
+      delete[] cross_displcmnts;
+      delete[] cross_recvcounts;
+
+    } else { // is_homogeneous == false
+      auto result = MPI_Allgatherv(
+          e.tensor->data(), (int)e.tensor->shape().num_elements(),
+          GetMPIDataType(e.tensor), (void*)e.output->data(), recvcounts,
+          displcmnts, GetMPIDataType(e.tensor), horovod_global.mpi_comm);
+      MPI_CHECK(entries, "MPI_Allgatherv", result)
+      ACTIVITY_END_ALL(entries, timeline)
+    }
     delete[] recvcounts;
     delete[] displcmnts;
-    MPI_CHECK(entries, "MPI_Allgatherv", result)
-    ACTIVITY_END_ALL(entries, timeline)
-
     timeline.End(e.tensor_name, e.output);
     e.callback(Status::OK());
 
@@ -1431,7 +1567,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   auto mpi_threads_disable = std::getenv(HOROVOD_MPI_THREADS_DISABLE);
   int required = MPI_THREAD_MULTIPLE;
   if (mpi_threads_disable != nullptr &&
-    std::strtol(mpi_threads_disable, nullptr, 10) > 0) {
+      std::strtol(mpi_threads_disable, nullptr, 10) > 0) {
     required = MPI_THREAD_SINGLE;
   }
   int provided;
@@ -1492,22 +1628,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, local_comm_ranks.data(), 1,
                 MPI_INT, local_comm);
 
-  // Determine if cluster is homogeneous, i.e., if every node has the same
-  // local_size
-  auto local_sizes = new int[size];
-  MPI_Allgather(&local_size, 1, MPI_INT, local_sizes, 1, MPI_INT,
-                state.mpi_comm);
-
-  bool is_homogeneous = true;
-  for (int i = 0; i < size; i++) {
-    if (local_sizes[i] != local_size) {
-      is_homogeneous = false;
-      break;
-    }
-  }
-  delete[] local_sizes;
-  state.is_homogeneous = is_homogeneous;
-
   // Set up cross-communicator in case of hierarchical allreduce.
   MPI_Comm cross_comm;
   MPI_Comm_split(state.mpi_comm, local_rank, rank, &cross_comm);
@@ -1531,6 +1651,22 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.mpi_float16_t = mpi_float16_t;
   state.mpi_threads_supported = (provided == MPI_THREAD_MULTIPLE);
   state.local_comm_ranks = local_comm_ranks;
+
+  // Determine if cluster is homogeneous, i.e., if every node has the same
+  // local_size
+  auto local_sizes = new int[size];
+  MPI_Allgather(&local_size, 1, MPI_INT, local_sizes, 1, MPI_INT,
+                state.mpi_comm);
+
+  bool is_homogeneous = true;
+  for (int i = 0; i < size; i++) {
+    if (local_sizes[i] != local_size) {
+      is_homogeneous = false;
+      break;
+    }
+  }
+  delete[] local_sizes;
+  state.is_homogeneous = is_homogeneous;
 
   // Open the timeline file on coordinator.
   auto horovod_timeline = std::getenv(HOROVOD_TIMELINE);
@@ -1561,20 +1697,23 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     state.hierarchical_allreduce = true;
   }
 
-  // Issue warning if hierarchical allreduce is enabled in heterogeneous cluster
-  if (is_coordinator && state.hierarchical_allreduce && !state.is_homogeneous) {
+  // Issue warning if cluster is heterogeneous
+  if (is_coordinator && !state.is_homogeneous) {
     std::cerr
-        << "WARNING: Using different number of ranks per node might hurt "
-           "performance of hierarchical allreduce. Consider assigning the same "
-           "number of ranks to each node or disabling hierarchical allreduce."
+        << "WARNING: Using different number of ranks per node might cause "
+           "performance loss in Horovod allgather and (if enabled) "
+           "hierarchical allreduce. Consider assigning the same "
+           "number of ranks to each node if you are using either of these "
+           "features."
         << std::endl;
   }
 
   // Override Tensor Fusion threshold, if it's set.
   auto horovod_fusion_threshold = std::getenv("HOROVOD_FUSION_THRESHOLD");
-  int64_t proposed_fusion_threshold = (horovod_fusion_threshold != nullptr) ?
-        std::strtol(horovod_fusion_threshold, nullptr, 10) :
-        state.tensor_fusion_threshold;
+  int64_t proposed_fusion_threshold =
+      (horovod_fusion_threshold != nullptr)
+          ? std::strtol(horovod_fusion_threshold, nullptr, 10)
+          : state.tensor_fusion_threshold;
 
   // If the cluster is homogeneous and hierarchical allreduce is enabled,
   // adjust buffer size to make sure it is divisible by local_size to improve
@@ -1587,8 +1726,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     // FUSION_BUFFER_ATOMIC_UNIT for performance
     int mpi_double_size;
     MPI_Type_size(MPI_DOUBLE, &mpi_double_size);
-    int64_t div = state.local_size * mpi_double_size * FUSION_BUFFER_ATOMIC_UNIT;
-    state.tensor_fusion_threshold = ((proposed_fusion_threshold+div-1) / div) * div;
+    int64_t div =
+        state.local_size * mpi_double_size * FUSION_BUFFER_ATOMIC_UNIT;
+    state.tensor_fusion_threshold =
+        ((proposed_fusion_threshold + div - 1) / div) * div;
   } else {
     state.tensor_fusion_threshold = proposed_fusion_threshold;
   }
@@ -1943,6 +2084,9 @@ void horovod_shutdown() {
 
   if (horovod_global.mpi_float16_t != MPI_DATATYPE_NULL) {
     MPI_Type_free(&horovod_global.mpi_float16_t);
+
+  if (horovod_global.shared_buffer != nullptr) {
+    MPI_Win_free(&horovod_global.window);
   }
 
   if (horovod_global.should_finalize) {
