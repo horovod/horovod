@@ -829,7 +829,7 @@ class TorchTests(unittest.TestCase):
                 else:
                     self.assertEqual(opt_param_value, opt_param_value_after)
 
-    def test_broadcast_state_param(self):
+    def test_broadcast_state_options(self):
         hvd.init()
 
         N, D_in, H, D_out = 64, 100, 10, 10

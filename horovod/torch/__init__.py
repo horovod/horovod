@@ -224,6 +224,7 @@ def broadcast_optimizer_state(optimizer, root_rank):
             if option_key == 'params':
                 continue
 
+            # Options like the learning rate are scalar, and need to be wrapped in tensors
             key = '%s.%d' % (option_key, index)
             dtype = type(option_value)
             option_tensor = torch.Tensor([option_value])
