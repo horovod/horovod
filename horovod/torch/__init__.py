@@ -213,8 +213,23 @@ def broadcast_optimizer_state(optimizer, root_rank):
             state_dict['state'][pid][name] = t(p.numpy()[0])
         return _from_tensor
 
+    def _create_option_callback(index, option_key, option_tensor, dtype):
+        def _from_tensor():
+            optimizer.param_groups[index][option_key] = dtype(option_tensor.numpy()[0])
+        return _from_tensor
+
     # Groups are unordered, but their params will be distinct
-    for group in state_dict['param_groups']:
+    for index, group in enumerate(state_dict['param_groups']):
+        for option_key, option_value in group.items():
+            if option_key == 'params':
+                continue
+
+            key = '%s.%d' % (option_key, index)
+            dtype = type(option_value)
+            option_tensor = torch.Tensor([option_value])
+            callbacks[key] = _create_option_callback(index, option_key, option_tensor, dtype)
+            params.append((key, option_tensor))
+
         # The params list here is ordered by the layers in the model
         for pid in group['params']:
             param_state = state_dict['state'][pid]

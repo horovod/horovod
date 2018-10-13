@@ -829,6 +829,41 @@ class TorchTests(unittest.TestCase):
                 else:
                     self.assertEqual(opt_param_value, opt_param_value_after)
 
+    def test_broadcast_state_param(self):
+        hvd.init()
+
+        N, D_in, H, D_out = 64, 100, 10, 10
+        x = torch.randn(N, D_in).requires_grad_()
+        y = torch.randn(N, D_out).requires_grad_()
+
+        params_0 = dict(lr=0.1, momentum=0.8, weight_decay=0.2, nesterov=True)
+        params_1 = dict(lr=0.2, momentum=0.9, weight_decay=0.1, nesterov=False)
+
+        def create_model():
+            model = torch.nn.Sequential(
+                torch.nn.Linear(D_in, H),
+                torch.nn.ReLU(),
+                torch.nn.Linear(H, D_out),
+            )
+
+            params = params_0 if hvd.rank() == 0 else params_1
+            opt = torch.optim.SGD(model.parameters(), **params)
+            opt = hvd.DistributedOptimizer(opt, named_parameters=model.named_parameters())
+
+            return model, opt
+
+        model, optimizer = create_model()
+        y_pred = model(x)
+        loss = F.mse_loss(y_pred, y, size_average=False)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        hvd.broadcast_optimizer_state(optimizer, root_rank=0)
+        print(hvd.rank(), optimizer)
+        for k, p in params_0.items():
+            self.assertAlmostEqual(optimizer.param_groups[0][k], p)
+
     def test_compression_fp16(self):
         valid_dtypes = [torch.float32, torch.float64]
         invalid_dtypes = [torch.uint8, torch.int8, torch.int16,
