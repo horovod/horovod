@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import torch
 import argparse
 import torch.backends.cudnn as cudnn
 import torch.nn.functional as F
@@ -40,6 +41,9 @@ parser.add_argument('--momentum', type=float, default=0.9,
                     help='SGD momentum')
 parser.add_argument('--wd', type=float, default=0.00005,
                     help='weight decay')
+parser.add_argument('--backward-steps', type=float, default=1,
+                    help='number of backward iteration steps '
+                         'executed before updating parameters')
 
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
@@ -127,7 +131,8 @@ compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.n
 # Horovod: wrap optimizer with DistributedOptimizer.
 optimizer = hvd.DistributedOptimizer(optimizer,
                                      named_parameters=model.named_parameters(),
-                                     compression=compression)
+                                     compression=compression,
+                                     backward_passes_per_step=args.backward_steps)
 
 # Restore from a previous checkpoint, if initial_epoch is specified.
 # Horovod: restore on the first worker which will broadcast weights to other workers.
@@ -156,13 +161,24 @@ def train(epoch):
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
             optimizer.zero_grad()
-            output = model(data)
-            loss = F.cross_entropy(output, target)
-            loss.backward()
+            # Split batch into sub-batches and sum gradients for all samples
+            sub_batch_size = int(data.size(0) // args.backward_steps)
+            batch_loss = 0
+            batch_output = []
+            for i in range(0, data.size(0), sub_batch_size):
+                data_step = data[i:i + sub_batch_size]
+                target_step = target[i:i + sub_batch_size]
+                output = model(data_step)
+                batch_output.append(output)
+                loss = F.cross_entropy(output, target_step)
+                batch_loss += loss / args.accum_grad
+                loss.backward()
+            # Gradient is averaged by args.backward_steps by the optimizer
             optimizer.step()
 
-            train_loss.update(loss)
-            train_accuracy.update(accuracy(output, target))
+            batch_output = torch.cat(batch_output, dim=0)
+            train_loss.update(batch_loss.item())
+            train_accuracy.update(accuracy(batch_output, target))
             t.set_postfix({'loss': train_loss.avg.item(),
                            'accuracy': 100. * train_accuracy.avg.item()})
             t.update(1)
