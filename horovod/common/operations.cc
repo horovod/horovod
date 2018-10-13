@@ -261,9 +261,9 @@ const Status SHUT_DOWN_ERROR = Status::Aborted(
     "shutdown message.");
 
 const Status DUPLICATE_NAME_ERROR = Status::InvalidArgument(
-    "Requested to allreduce, allgather or broadcast a tensor with a same name "
-    "as another tensor that is currently being processed.  Please make sure "
-    "this is a desired behavior and if so, use a different tensor name.");
+    "Requested to allreduce, allgather, or broadcast a tensor with the same "
+    "name as another tensor that is currently being processed.  If you want "
+    "to request another tensor, use a different tensor name.");
 
 #define OP_ERROR(entries, error_message)                                       \
   {                                                                            \
