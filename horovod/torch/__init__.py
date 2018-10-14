@@ -67,6 +67,11 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         if size() > 1:
             self._register_hooks()
 
+    def set_backward_passes_per_step(self, passes):
+        self.backward_passes_per_step = passes
+        for p in self._allreduce_delay:
+            self._allreduce_delay[p] = self.backward_passes_per_step
+
     def _register_hooks(self):
         for param_group in self.param_groups:
             for p in param_group['params']:
