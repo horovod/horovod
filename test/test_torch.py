@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from distutils.version import LooseVersion
+import collections
 import inspect
 import itertools
 import numpy as np
@@ -836,10 +837,12 @@ class TorchTests(unittest.TestCase):
         x = torch.randn(N, D_in).requires_grad_()
         y = torch.randn(N, D_out).requires_grad_()
 
-        params_0 = dict(lr=0.1, momentum=0.8, weight_decay=0.2, nesterov=True)
-        params_1 = dict(lr=0.2, momentum=0.9, weight_decay=0.1, nesterov=False)
+        params_0 = dict(lr=0.1, momentum=0.8, weight_decay=0.2, nesterov=True,
+                        etas=(0.8, 2.4), step_sizes=(1e-5, 100))
+        params_1 = dict(lr=0.2, momentum=0.9, weight_decay=0.1, nesterov=False,
+                        etas=(0.25, 1.75), step_sizes=(1e-7, 5))
 
-        def create_model():
+        def create_model(opt_class):
             model = torch.nn.Sequential(
                 torch.nn.Linear(D_in, H),
                 torch.nn.ReLU(),
@@ -847,22 +850,46 @@ class TorchTests(unittest.TestCase):
             )
 
             params = params_0 if hvd.rank() == 0 else params_1
-            opt = torch.optim.SGD(model.parameters(), **params)
+            p = {
+                k: v for k, v in params.items()
+                if k in inspect.getargspec(opt_class.__init__).args
+            }
+            opt = opt_class(model.parameters(), **p)
             opt = hvd.DistributedOptimizer(opt, named_parameters=model.named_parameters())
 
             return model, opt
 
-        model, optimizer = create_model()
-        y_pred = model(x)
-        loss = F.mse_loss(y_pred, y, size_average=False)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        # Include subclass name so we can sort them lexicographically, otherwise different
+        # ranks will have different optimizer orderings
+        optimizers = [
+            (subclass.__name__, subclass)
+            for subclass in torch.optim.Optimizer.__subclasses__()
+            if subclass.__module__.startswith('torch.optim') and
+               subclass != torch.optim.LBFGS and
+               subclass != torch.optim.SparseAdam
+        ]
+        optimizers.sort()
 
-        hvd.broadcast_optimizer_state(optimizer, root_rank=0)
-        print(hvd.rank(), optimizer)
-        for k, p in params_0.items():
-            self.assertAlmostEqual(optimizer.param_groups[0][k], p)
+        for _, opt_class in optimizers:
+            model, optimizer = create_model(opt_class)
+            y_pred = model(x)
+            loss = F.mse_loss(y_pred, y, size_average=False)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            hvd.broadcast_optimizer_state(optimizer, root_rank=0)
+            p0 = {
+                k: v for k, v in params_0.items()
+                if k in inspect.getargspec(opt_class.__init__).args
+            }
+            for k, p in p0.items():
+                p_actual = optimizer.param_groups[0][k]
+                if not isinstance(p, collections.Iterable):
+                    p_actual = [p_actual]
+                    p = [p]
+                for i in range(len(p)):
+                    self.assertAlmostEqual(p_actual[i], p[i], delta=1e-5)
 
     def test_compression_fp16(self):
         valid_dtypes = [torch.float32, torch.float64]
