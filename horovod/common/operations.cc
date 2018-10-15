@@ -260,6 +260,11 @@ const Status SHUT_DOWN_ERROR = Status::Aborted(
     "exception, you should see the exception in the log before the first "
     "shutdown message.");
 
+const Status DUPLICATE_NAME_ERROR = Status::InvalidArgument(
+    "Requested to allreduce, allgather, or broadcast a tensor with the same "
+    "name as another tensor that is currently being processed.  If you want "
+    "to request another tensor, use a different tensor name.");
+
 #define OP_ERROR(entries, error_message)                                       \
   {                                                                            \
     for (auto& e : (entries)) {                                                \
@@ -2023,13 +2028,16 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   e.callback = callback;
 
   std::lock_guard<std::mutex> guard(horovod_global.mutex);
-  if (!horovod_global.shut_down) {
-    horovod_global.tensor_table.emplace(name, std::move(e));
-    horovod_global.message_queue.push(message);
-    return Status::OK();
-  } else {
+  if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
   }
+  if (horovod_global.tensor_table.find(name) !=
+      horovod_global.tensor_table.end()) {
+    return DUPLICATE_NAME_ERROR;
+  }
+  horovod_global.tensor_table.emplace(name, std::move(e));
+  horovod_global.message_queue.push(message);
+  return Status::OK();
 }
 
 // MPI must be initialized and the background thread must be running before
@@ -2058,13 +2066,16 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
   e.callback = callback;
 
   std::lock_guard<std::mutex> guard(horovod_global.mutex);
-  if (!horovod_global.shut_down) {
-    horovod_global.tensor_table.emplace(name, std::move(e));
-    horovod_global.message_queue.push(message);
-    return Status::OK();
-  } else {
+  if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
   }
+  if (horovod_global.tensor_table.find(name) !=
+      horovod_global.tensor_table.end()) {
+    return DUPLICATE_NAME_ERROR;
+  }
+  horovod_global.tensor_table.emplace(name, std::move(e));
+  horovod_global.message_queue.push(message);
+  return Status::OK();
 }
 
 // MPI must be initialized and the background thread must be running before
@@ -2097,13 +2108,16 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   e.callback = callback;
 
   std::lock_guard<std::mutex> guard(horovod_global.mutex);
-  if (!horovod_global.shut_down) {
-    horovod_global.tensor_table.emplace(name, std::move(e));
-    horovod_global.message_queue.push(message);
-    return Status::OK();
-  } else {
+  if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
   }
+  if (horovod_global.tensor_table.find(name) !=
+      horovod_global.tensor_table.end()) {
+    return DUPLICATE_NAME_ERROR;
+  }
+  horovod_global.tensor_table.emplace(name, std::move(e));
+  horovod_global.message_queue.push(message);
+  return Status::OK();
 }
 
 } // namespace common
