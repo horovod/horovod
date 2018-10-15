@@ -218,8 +218,11 @@ def broadcast_optimizer_state(optimizer, root_rank):
             optimizer.param_groups[index][option_key] = dtype(option_tensor.numpy()[0])
         return _from_tensor
 
-    # Groups are unordered, but their params will be distinct
+    # Param groups are an ordered list, normally there is only one per model,
+    # but users can add additional param groups for example to train
+    # previously frozen layers
     for index, group in enumerate(state_dict['param_groups']):
+        # Broadcast options like learning rate
         for option_key, option_value in group.items():
             if option_key == 'params':
                 continue
