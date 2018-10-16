@@ -54,12 +54,7 @@ parser.add_argument('--seed', type=int, default=42,
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 
-if args.batch_size % args.batches_per_allreduce != 0:
-    raise ValueError("batches_per_allreduce must be an "
-                     "integer divisor of batch_size")
-
-backward_pass_batch_size = int(
-    args.batch_size // args.batches_per_allreduce)
+actual_batch_size = args.batch_size * args.batches_per_allreduce
 
 hvd.init()
 torch.manual_seed(args.seed)
@@ -105,7 +100,8 @@ train_dataset = \
 train_sampler = torch.utils.data.distributed.DistributedSampler(
     train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
 train_loader = torch.utils.data.DataLoader(
-    train_dataset, batch_size=args.batch_size, sampler=train_sampler, **kwargs)
+    train_dataset, batch_size=actual_batch_size,
+    sampler=train_sampler, **kwargs)
 
 val_dataset = \
     datasets.ImageFolder(args.val_dir,
@@ -169,9 +165,11 @@ def train(epoch):
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
             optimizer.zero_grad()
-            for i in range(0, args.batch_size, backward_pass_batch_size):
-                data_step = data[i:i + backward_pass_batch_size]
-                target_step = target[i:i + backward_pass_batch_size]
+            # Split batch_size * batches_per_allreduce batch into sub-batches
+            # of size batch_size
+            for i in range(0, actual_batch_size, args.batch_size):
+                data_step = data[i:i + args.batch_size]
+                target_step = target[i:i + args.batch_size]
                 output = model(data_step)
                 train_accuracy.update(accuracy(output, target_step))
                 loss = F.cross_entropy(output, target_step)
