@@ -62,7 +62,7 @@ inline void HalfBits2Float(unsigned short* src, float* res) {
     }
   }
 
-  *(unsigned*)res = f;
+  *res = *reinterpret_cast<float const*>(&f);
 }
 
 inline void Float2HalfBits(float* src, unsigned short* dest) {
