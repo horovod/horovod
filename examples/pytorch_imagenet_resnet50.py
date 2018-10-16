@@ -148,11 +148,10 @@ hvd.broadcast_optimizer_state(optimizer, root_rank=0)
 
 def train(epoch):
     model.train()
-    optimizer.zero_grad()
     train_sampler.set_epoch(epoch)
     train_loss = Metric('train_loss')
     train_accuracy = Metric('train_accuracy')
-    batch_loss = 0
+
     with tqdm(total=len(train_loader),
               desc='Train Epoch     #{}'.format(epoch + 1),
               disable=not verbose) as t:
@@ -161,24 +160,27 @@ def train(epoch):
 
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
-            output = model(data)
-            loss = F.cross_entropy(output, target)
-            # Average gradients by backward_passes_per_step
-            loss = loss / args.backward_passes_per_step
-            # Accumulate gradients
-            loss.backward()
-            batch_loss += loss
-            train_accuracy.update(accuracy(output, target))
-            if ((batch_idx + 1) % args.backward_passes_per_step == 0 or
-                (batch_idx + 1) >= len(train_loader)):
-                # Update parameters across all ranks
-                optimizer.step()
-                optimizer.zero_grad()
-                batch_loss = 0
-                train_loss.update(batch_loss.item())
-                t.set_postfix({'loss': train_loss.avg.item(),
-                               'accuracy': 100. * train_accuracy.avg.item()})
-                t.update(1)
+            optimizer.zero_grad()
+            # Split batch into sub-batches and sum gradients for all samples
+            sub_batch_size = int(
+                args.batch_size // args.backward_passes_per_step)
+            batch_loss = 0
+            for i in range(0, args.batch_size, sub_batch_size):
+                data_step = data[i:i + sub_batch_size]
+                target_step = target[i:i + sub_batch_size]
+                output = model(data_step)
+                train_accuracy.update(accuracy(output, target_step))
+                loss = F.cross_entropy(output, target_step)
+                # Average gradients by the total number of sub-batches
+                loss = loss / args.backward_passes_per_step
+                batch_loss += loss
+                loss.backward()
+            # Gradient is updated across all ranks
+            optimizer.step()
+            train_loss.update(batch_loss.item())
+            t.set_postfix({'loss': train_loss.avg.item(),
+                           'accuracy': 100. * train_accuracy.avg.item()})
+            t.update(1)
 
     if log_writer:
         log_writer.add_scalar('train/loss', train_loss.avg, epoch)
