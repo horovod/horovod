@@ -43,8 +43,8 @@ parser.add_argument('--wd', type=float, default=0.00005,
                     help='weight decay')
 parser.add_argument('--batches-per-allreduce', type=float, default=1,
                     help='number of backward iteration steps '
-                         'executed before applying gradients. '
-                         'It multiplies total batch size.')
+                         'executed before applying gradients; '
+                         'it multiplies total batch size.')
 
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
@@ -54,7 +54,7 @@ parser.add_argument('--seed', type=int, default=42,
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 
-actual_batch_size = args.batch_size * args.batches_per_allreduce
+allreduce_batch_size = args.batch_size * args.batches_per_allreduce
 
 hvd.init()
 torch.manual_seed(args.seed)
@@ -100,7 +100,7 @@ train_dataset = \
 train_sampler = torch.utils.data.distributed.DistributedSampler(
     train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
 train_loader = torch.utils.data.DataLoader(
-    train_dataset, batch_size=actual_batch_size,
+    train_dataset, batch_size=allreduce_batch_size,
     sampler=train_sampler, **kwargs)
 
 val_dataset = \
@@ -133,10 +133,10 @@ optimizer = optim.SGD(model.parameters(), lr=args.base_lr * hvd.size(),
 compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
 
 # Horovod: wrap optimizer with DistributedOptimizer.
-optimizer = hvd.DistributedOptimizer(optimizer,
-                                     named_parameters=model.named_parameters(),
-                                     compression=compression,
-                                     batches_per_allreduce=args.backward_steps)
+optimizer = hvd.DistributedOptimizer(
+    optimizer, named_parameters=model.named_parameters(),
+    compression=compression,
+    backward_passes_per_step=args.batches_per_allreduce)
 
 # Restore from a previous checkpoint, if initial_epoch is specified.
 # Horovod: restore on the first worker which will broadcast weights to other workers.
@@ -167,17 +167,17 @@ def train(epoch):
             optimizer.zero_grad()
             # Split batch_size * batches_per_allreduce batch into sub-batches
             # of size batch_size
-            for i in range(0, actual_batch_size, args.batch_size):
+            for i in range(0, allreduce_batch_size, args.batch_size):
                 data_step = data[i:i + args.batch_size]
                 target_step = target[i:i + args.batch_size]
                 output = model(data_step)
                 train_accuracy.update(accuracy(output, target_step))
                 loss = F.cross_entropy(output, target_step)
-                # Average gradients by the total number of sub-batches
-                loss = loss / args.batches_per_allreduce
+                # Normalize gradients to be averaged by allreduce_batch_size
+                loss = args.batch_size * loss / allreduce_batch_size
                 train_loss.update(loss.item())
                 loss.backward()
-            # Gradient is updated across all ranks
+            # Gradient is applied across all ranks
             optimizer.step()
             t.set_postfix({'loss': train_loss.avg.item(),
                            'accuracy': 100. * train_accuracy.avg.item()})

@@ -164,8 +164,8 @@ def DistributedOptimizer(optimizer, named_parameters=None,
         backward_passes_per_step: Number of expected backward passes to perform
                                   before calling step()/synchronize(). This
                                   allows accumulating gradients over multiple
-                                  mini-batches before executing allreduce and
-                                  updating parameters.
+                                  mini-batches before executing averaging and
+                                  applying them.
     """
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override the `step()` method with an allreduce implementation.
