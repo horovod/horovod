@@ -173,8 +173,6 @@ def train(epoch):
                 output = model(data_step)
                 train_accuracy.update(accuracy(output, target_step))
                 loss = F.cross_entropy(output, target_step)
-                # Normalize gradients to be averaged by allreduce_batch_size
-                loss = args.batch_size * loss / allreduce_batch_size
                 train_loss.update(loss.item())
                 loss.backward()
             # Gradient is applied across all ranks
