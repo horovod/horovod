@@ -169,7 +169,8 @@ def train(epoch):
             loss.backward()
             batch_loss += loss
             train_accuracy.update(accuracy(output, target))
-            if (batch_idx + 1) % args.backward_passes_per_step == 0:
+            if ((batch_idx + 1) % args.backward_passes_per_step == 0 or
+                (batch_idx + 1) >= len(train_loader)):
                 # Update parameters across all ranks
                 optimizer.step()
                 optimizer.zero_grad()
