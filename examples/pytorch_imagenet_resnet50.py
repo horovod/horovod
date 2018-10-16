@@ -162,6 +162,8 @@ def train(epoch):
                 data, target = data.cuda(), target.cuda()
             optimizer.zero_grad()
             # Split batch into sub-batches and sum gradients for all samples
+            # Note: the performance may degrade if backward_passes_per_step is
+            # not an integer divisor of batch_size
             sub_batch_size = int(
                 args.batch_size // args.backward_passes_per_step)
             batch_loss = 0
