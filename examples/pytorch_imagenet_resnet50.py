@@ -126,7 +126,10 @@ if args.cuda:
     model.cuda()
 
 # Horovod: scale learning rate by the number of GPUs.
-optimizer = optim.SGD(model.parameters(), lr=args.base_lr * hvd.size(),
+# Gradient Accumulation: scale learning rate by batches_per_allreduce
+optimizer = optim.SGD(model.parameters(),
+                      lr=(args.base_lr *
+                          args.batches_per_allreduce * hvd.size()),
                       momentum=args.momentum, weight_decay=args.wd)
 
 # Horovod: (optional) compression algorithm.
@@ -173,6 +176,7 @@ def train(epoch):
                 output = model(data_batch)
                 train_accuracy.update(accuracy(output, target_batch))
                 loss = F.cross_entropy(output, target_batch)
+                loss.div_(allreduce_batch_size).mul_(args.batch_size)
                 train_loss.update(loss.item())
                 loss.backward()
             # Gradient is applied across all ranks
