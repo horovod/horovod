@@ -53,6 +53,13 @@ parser.add_argument('--seed', type=int, default=42,
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 
+if args.batch_size % args.backward_passes_per_step != 0:
+    raise ValueError("backward_passes_per_step must be an "
+                     "integer divisor of batch_size")
+
+backward_pass_batch_size = int(
+    args.batch_size // args.backward_passes_per_step)
+
 hvd.init()
 torch.manual_seed(args.seed)
 
@@ -161,25 +168,18 @@ def train(epoch):
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
             optimizer.zero_grad()
-            # Split batch into sub-batches and sum gradients for all samples
-            # Note: the performance may degrade if backward_passes_per_step is
-            # not an integer divisor of batch_size
-            sub_batch_size = int(
-                args.batch_size // args.backward_passes_per_step)
-            batch_loss = 0
-            for i in range(0, args.batch_size, sub_batch_size):
-                data_step = data[i:i + sub_batch_size]
-                target_step = target[i:i + sub_batch_size]
+            for i in range(0, args.batch_size, backward_pass_batch_size):
+                data_step = data[i:i + backward_pass_batch_size]
+                target_step = target[i:i + backward_pass_batch_size]
                 output = model(data_step)
                 train_accuracy.update(accuracy(output, target_step))
                 loss = F.cross_entropy(output, target_step)
                 # Average gradients by the total number of sub-batches
                 loss = loss / args.backward_passes_per_step
-                batch_loss += loss
+                train_loss.update(loss.item())
                 loss.backward()
             # Gradient is updated across all ranks
             optimizer.step()
-            train_loss.update(batch_loss.item())
             t.set_postfix({'loss': train_loss.avg.item(),
                            'accuracy': 100. * train_accuracy.avg.item()})
             t.update(1)
