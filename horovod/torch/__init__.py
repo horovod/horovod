@@ -111,9 +111,10 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         for p, value in self._handles.items():
             handle, ctx = value
             if handle is None:
-                warnings.warn("Called synchronize() on optimizer before "
-                              "computing gradients backwards_passes_per_step "
-                              "times. This will cause performance "
+                warnings.warn("Called step()/synchronize() on optimizer "
+                              "before computing gradients "
+                              "backwards_passes_per_step times. "
+                              "This will cause performance "
                               "degradation, as gradient exchange is "
                               "interleaved with computation only on the "
                               "backwards_passes_per_step'th pass.")
@@ -160,8 +161,11 @@ def DistributedOptimizer(optimizer, named_parameters=None,
         compression: Compression algorithm used during allreduce to reduce the amount
                      of data sent during the each parameter update step.  Defaults to
                      not using compression.
-        backward_passes_per_step: Number of expected backward passes to perform before
-                                  executing allreduce
+        backward_passes_per_step: Number of expected backward passes to perform
+                                  before calling step()/synchronize(). This
+                                  allows accumulating gradients over multiple
+                                  mini-batches before executing allreduce and
+                                  updating parameters.
     """
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override the `step()` method with an allreduce implementation.
