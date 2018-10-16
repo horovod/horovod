@@ -41,7 +41,7 @@ parser.add_argument('--momentum', type=float, default=0.9,
                     help='SGD momentum')
 parser.add_argument('--wd', type=float, default=0.00005,
                     help='weight decay')
-parser.add_argument('--batches-per-allreduce', type=float, default=1,
+parser.add_argument('--batches-per-allreduce', type=int, default=1,
                     help='number of backward iteration steps '
                          'executed before applying gradients; '
                          'it multiplies total batch size.')
@@ -168,11 +168,11 @@ def train(epoch):
             # Split batch_size * batches_per_allreduce batch into sub-batches
             # of size batch_size
             for i in range(0, allreduce_batch_size, args.batch_size):
-                data_step = data[i:i + args.batch_size]
-                target_step = target[i:i + args.batch_size]
-                output = model(data_step)
-                train_accuracy.update(accuracy(output, target_step))
-                loss = F.cross_entropy(output, target_step)
+                data_batch = data[i:i + args.batch_size]
+                target_batch = target[i:i + args.batch_size]
+                output = model(data_batch)
+                train_accuracy.update(accuracy(output, target_batch))
+                loss = F.cross_entropy(output, target_batch)
                 train_loss.update(loss.item())
                 loss.backward()
             # Gradient is applied across all ranks
