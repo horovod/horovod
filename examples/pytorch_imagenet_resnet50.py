@@ -41,9 +41,10 @@ parser.add_argument('--momentum', type=float, default=0.9,
                     help='SGD momentum')
 parser.add_argument('--wd', type=float, default=0.00005,
                     help='weight decay')
-parser.add_argument('--backward-passes-per-step', type=float, default=1,
+parser.add_argument('--batches-per-allreduce', type=float, default=1,
                     help='number of backward iteration steps '
-                         'executed before updating parameters')
+                         'executed before applying gradients. '
+                         'It multiplies total batch size.')
 
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
@@ -53,12 +54,12 @@ parser.add_argument('--seed', type=int, default=42,
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 
-if args.batch_size % args.backward_passes_per_step != 0:
-    raise ValueError("backward_passes_per_step must be an "
+if args.batch_size % args.batches_per_allreduce != 0:
+    raise ValueError("batches_per_allreduce must be an "
                      "integer divisor of batch_size")
 
 backward_pass_batch_size = int(
-    args.batch_size // args.backward_passes_per_step)
+    args.batch_size // args.batches_per_allreduce)
 
 hvd.init()
 torch.manual_seed(args.seed)
@@ -139,7 +140,7 @@ compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.n
 optimizer = hvd.DistributedOptimizer(optimizer,
                                      named_parameters=model.named_parameters(),
                                      compression=compression,
-                                     backward_passes_per_step=args.backward_steps)
+                                     batches_per_allreduce=args.backward_steps)
 
 # Restore from a previous checkpoint, if initial_epoch is specified.
 # Horovod: restore on the first worker which will broadcast weights to other workers.
@@ -175,7 +176,7 @@ def train(epoch):
                 train_accuracy.update(accuracy(output, target_step))
                 loss = F.cross_entropy(output, target_step)
                 # Average gradients by the total number of sub-batches
-                loss = loss / args.backward_passes_per_step
+                loss = loss / args.batches_per_allreduce
                 train_loss.update(loss.item())
                 loss.backward()
             # Gradient is updated across all ranks
