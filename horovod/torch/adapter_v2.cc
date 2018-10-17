@@ -23,9 +23,9 @@ TorchPersistentBuffer::TorchPersistentBuffer(int device, int64_t size)
     : device_(device) {
   with_device device_context(device_);
   if (device_ == CPU_DEVICE_ID) {
-    tensor_ = at::CPU(at::ScalarType::Byte).tensor({size});
+    tensor_ = at::empty({size}, at::device(at::kCPU).dtype(at::kByte));
   } else {
-    tensor_ = at::CUDA(at::ScalarType::Byte).tensor({size});
+    tensor_ = at::empty({size}, at::device(at::kCUDA).dtype(at::kByte));
   }
 }
 
