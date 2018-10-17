@@ -1,6 +1,7 @@
 # Horovod
 
 [![Build Status](https://travis-ci.org/uber/horovod.svg?branch=master)](https://travis-ci.org/uber/horovod) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fuber%2Fhorovod.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fuber%2Fhorovod?ref=badge_shield)
 
 <p align="center"><img src="https://user-images.githubusercontent.com/16640218/34506318-84d0c06c-efe0-11e7-8831-0425772ed8f2.png" alt="Logo" width="200"/></p>
 
@@ -320,3 +321,7 @@ Retrieved from [https://eng.uber.com/horovod/](https://eng.uber.com/horovod/)
 The Horovod source code was based off the Baidu [tensorflow-allreduce](https://github.com/baidu-research/tensorflow-allreduce)
 repository written by Andrew Gibiansky and Joel Hestness. Their original work is described in the article
 [Bringing HPC Techniques to Deep Learning](http://andrew.gibiansky.com/blog/machine-learning/baidu-allreduce/).
+
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fuber%2Fhorovod.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fuber%2Fhorovod?ref=badge_large)
