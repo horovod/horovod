@@ -714,7 +714,7 @@ class custom_build_ext(build_ext):
         if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
             try:
                 torch_version = check_torch_version()
-                if torch_version >= 4002000:
+                if torch_version >= 1000000000:
                     build_torch_extension_v2(self, options, torch_version)
                 else:
                     build_torch_extension(self, options, torch_version)
