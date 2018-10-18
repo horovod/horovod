@@ -25,12 +25,12 @@ namespace horovod {
 namespace common {
 
 // Device ID used for CPU.
-#define CPU_DEVICE_ID -1
+#define CPU_DEVICE_ID (-1)
 
 // List of supported frameworks.
 enum Framework { TENSORFLOW, PYTORCH };
 
-enum StatusType { OK, UNKNOWN_ERROR, PRECONDITION_ERROR, ABORTED };
+enum StatusType { OK, UNKNOWN_ERROR, PRECONDITION_ERROR, ABORTED, INVALID_ARGUMENT };
 
 enum DeviceType { CPU, GPU };
 
@@ -41,6 +41,7 @@ public:
   static Status UnknownError(std::string message);
   static Status PreconditionError(std::string message);
   static Status Aborted(std::string message);
+  static Status InvalidArgument(std::string message);
   bool ok() const;
   StatusType type() const;
   const std::string& reason() const;

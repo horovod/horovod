@@ -81,6 +81,9 @@ install:
   # scipy for Keras image preprocessing
   - docker exec ${CONTAINER} /bin/sh -c "pip install scipy"
 
+  # future for PyTorch, needed due to https://github.com/pytorch/pytorch/pull/12504
+  - docker exec ${CONTAINER} /bin/sh -c "pip install future"
+
   # PyTorch
   - |
     if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then

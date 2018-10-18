@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from distutils.version import LooseVersion
+import collections
 import inspect
 import itertools
 import numpy as np
@@ -39,6 +40,17 @@ class TorchTests(unittest.TestCase):
     Tests for ops in horovod.torch.
     """
 
+    def convert_cpu_fp16_to_fp32(self, *values):
+        # PyTorch doesn't support any CPU ops on FP16 tensors.
+        # In case we need to do ops, we will convert tensor to FP32 here.
+        result = []
+        for value in values:
+            if value.dtype in [torch.float16, torch.HalfTensor]:
+                result.append(value.float())
+            else:
+                result.append(value)
+        return result
+
     def test_horovod_rank(self):
         """Test that the rank returned by hvd.rank() is correct."""
         true_rank, _ = mpi_env_rank_and_size()
@@ -59,6 +71,8 @@ class TorchTests(unittest.TestCase):
         size = hvd.size()
         dtypes = [torch.IntTensor, torch.LongTensor,
                   torch.FloatTensor, torch.DoubleTensor]
+        if _fp16_supported:
+            dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -70,6 +84,7 @@ class TorchTests(unittest.TestCase):
             tensor = torch.FloatTensor(*([17] * dim)).random_(-100, 100)
             tensor = tensor.type(dtype)
             summed = hvd.allreduce(tensor, average=False)
+            tensor, summed = self.convert_cpu_fp16_to_fp32(tensor, summed)
             multiplied = tensor * size
             max_difference = summed.data.sub(multiplied).max()
 
@@ -126,6 +141,8 @@ class TorchTests(unittest.TestCase):
         size = hvd.size()
         dtypes = [torch.IntTensor, torch.LongTensor,
                   torch.FloatTensor, torch.DoubleTensor]
+        if _fp16_supported:
+            dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -135,9 +152,10 @@ class TorchTests(unittest.TestCase):
         for dtype, dim in itertools.product(dtypes, dims):
             torch.manual_seed(1234)
             tensor = torch.FloatTensor(*([17] * dim)).random_(-100, 100)
+            multiplied = (tensor * size).type(dtype)
             tensor = tensor.type(dtype)
-            multiplied = tensor * size
             hvd.allreduce_(tensor, average=False)
+            tensor, multiplied = self.convert_cpu_fp16_to_fp32(tensor, multiplied)
             max_difference = tensor.sub(multiplied).max()
 
             # Threshold for floating point equality depends on number of
@@ -161,6 +179,8 @@ class TorchTests(unittest.TestCase):
         size = hvd.size()
         dtypes = [torch.IntTensor, torch.LongTensor,
                   torch.FloatTensor, torch.DoubleTensor]
+        if _fp16_supported:
+            dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -176,6 +196,7 @@ class TorchTests(unittest.TestCase):
             handle = hvd.allreduce_async(tensor, average=False)
             if not hvd.poll(handle):
                 is_hvd_poll_false_once = True
+            tensor, = self.convert_cpu_fp16_to_fp32(tensor)
             multiplied = tensor * size
             tests.append((dtype, multiplied, handle))
 
@@ -184,6 +205,7 @@ class TorchTests(unittest.TestCase):
 
         for dtype, multiplied, handle in tests:
             summed = hvd.synchronize(handle)
+            summed, = self.convert_cpu_fp16_to_fp32(summed)
             max_difference = summed.sub(multiplied).max()
 
             # Threshold for floating point equality depends on number of
@@ -387,6 +409,8 @@ class TorchTests(unittest.TestCase):
 
         dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
                   torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
+        if _fp16_supported:
+            dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
                        torch.cuda.IntTensor, torch.cuda.LongTensor,
@@ -398,6 +422,7 @@ class TorchTests(unittest.TestCase):
             tensor = torch.FloatTensor(*([17] * dim)).fill_(1).mul_(rank)
             tensor = tensor.type(dtype)
             gathered = hvd.allgather(tensor)
+            tensor, gathered = self.convert_cpu_fp16_to_fp32(tensor, gathered)
 
             assert list(gathered.shape) == [17 * size] + [17] * (dim - 1)
 
@@ -417,6 +442,8 @@ class TorchTests(unittest.TestCase):
 
         dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
                   torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
+        if _fp16_supported:
+            dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
                        torch.cuda.IntTensor, torch.cuda.LongTensor,
@@ -436,6 +463,7 @@ class TorchTests(unittest.TestCase):
                 *([tensor_sizes[rank]] + [17] * (dim - 1))).fill_(1).mul_(rank)
             tensor = tensor.type(dtype)
             gathered = hvd.allgather(tensor)
+            tensor, gathered = self.convert_cpu_fp16_to_fp32(tensor, gathered)
 
             expected_size = sum(tensor_sizes)
             assert list(gathered.shape) == [expected_size] + [17] * (dim - 1)
@@ -547,6 +575,8 @@ class TorchTests(unittest.TestCase):
 
         dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
                   torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
+        if _fp16_supported:
+            dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
                        torch.cuda.IntTensor, torch.cuda.LongTensor,
@@ -561,6 +591,8 @@ class TorchTests(unittest.TestCase):
             tensor = tensor.type(dtype)
             root_tensor = root_tensor.type(dtype)
             broadcasted_tensor = hvd.broadcast(tensor, root_rank)
+            tensor, root_tensor, broadcasted_tensor = \
+                self.convert_cpu_fp16_to_fp32(tensor, root_tensor, broadcasted_tensor)
             if rank != root_rank:
                 assert (tensor == root_tensor).max() == 0, \
                     'hvd.broadcast modifies source tensor'
@@ -579,6 +611,8 @@ class TorchTests(unittest.TestCase):
 
         dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
                   torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
+        if _fp16_supported:
+            dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
                        torch.cuda.IntTensor, torch.cuda.LongTensor,
@@ -593,6 +627,8 @@ class TorchTests(unittest.TestCase):
             tensor = tensor.type(dtype)
             root_tensor = root_tensor.type(dtype)
             broadcasted_tensor = hvd.broadcast_(tensor, root_rank)
+            tensor, root_tensor, broadcasted_tensor = \
+                self.convert_cpu_fp16_to_fp32(tensor, root_tensor, broadcasted_tensor)
             assert (tensor == broadcasted_tensor).min() == 1, \
                 'hvd.broadcast does not modify source tensor'
             assert (broadcasted_tensor == root_tensor).min() == 1, \
@@ -828,6 +864,67 @@ class TorchTests(unittest.TestCase):
                         (opt_param_value == opt_param_value_after).all())
                 else:
                     self.assertEqual(opt_param_value, opt_param_value_after)
+
+    def test_broadcast_state_options(self):
+        hvd.init()
+
+        N, D_in, H, D_out = 64, 100, 10, 10
+        x = torch.randn(N, D_in).requires_grad_()
+        y = torch.randn(N, D_out).requires_grad_()
+
+        params_0 = dict(lr=0.1, momentum=0.8, weight_decay=0.2, nesterov=True,
+                        etas=(0.8, 2.4), step_sizes=(1e-5, 100))
+        params_1 = dict(lr=0.2, momentum=0.9, weight_decay=0.1, nesterov=False,
+                        etas=(0.25, 1.75), step_sizes=(1e-7, 5))
+
+        def create_model(opt_class):
+            model = torch.nn.Sequential(
+                torch.nn.Linear(D_in, H),
+                torch.nn.ReLU(),
+                torch.nn.Linear(H, D_out),
+            )
+
+            params = params_0 if hvd.rank() == 0 else params_1
+            p = {
+                k: v for k, v in params.items()
+                if k in inspect.getargspec(opt_class.__init__).args
+            }
+            opt = opt_class(model.parameters(), **p)
+            opt = hvd.DistributedOptimizer(opt, named_parameters=model.named_parameters())
+
+            return model, opt
+
+        # Include subclass name so we can sort them lexicographically, otherwise different
+        # ranks will have different optimizer orderings
+        optimizers = [
+            (subclass.__name__, subclass)
+            for subclass in torch.optim.Optimizer.__subclasses__()
+            if subclass.__module__.startswith('torch.optim') and
+               subclass != torch.optim.LBFGS and
+               subclass != torch.optim.SparseAdam
+        ]
+        optimizers.sort()
+
+        for _, opt_class in optimizers:
+            model, optimizer = create_model(opt_class)
+            y_pred = model(x)
+            loss = F.mse_loss(y_pred, y, size_average=False)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            hvd.broadcast_optimizer_state(optimizer, root_rank=0)
+            p0 = {
+                k: v for k, v in params_0.items()
+                if k in inspect.getargspec(opt_class.__init__).args
+            }
+            for k, p in p0.items():
+                p_actual = optimizer.param_groups[0][k]
+                if not isinstance(p, collections.Iterable):
+                    p_actual = [p_actual]
+                    p = [p]
+                for i in range(len(p)):
+                    self.assertAlmostEqual(p_actual[i], p[i], delta=1e-5)
 
     def test_compression_fp16(self):
         valid_dtypes = [torch.float32, torch.float64]
