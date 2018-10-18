@@ -25,6 +25,10 @@ parser.add_argument('--checkpoint-format', default='./checkpoint-{epoch}.pth.tar
                     help='checkpoint file format')
 parser.add_argument('--fp16-allreduce', action='store_true', default=False,
                     help='use fp16 compression during allreduce')
+parser.add_argument('--batches-per-allreduce', type=int, default=1,
+                    help='number of batches processed locally before '
+                         'executing allreduce across workers; it multiplies '
+                         'total batch size.')
 
 # Default settings from https://arxiv.org/abs/1706.02677.
 parser.add_argument('--batch-size', type=int, default=32,
@@ -41,10 +45,6 @@ parser.add_argument('--momentum', type=float, default=0.9,
                     help='SGD momentum')
 parser.add_argument('--wd', type=float, default=0.00005,
                     help='weight decay')
-parser.add_argument('--batches-per-allreduce', type=int, default=1,
-                    help='number of backward iteration steps '
-                         'executed before applying gradients; '
-                         'it multiplies total batch size.')
 
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
@@ -176,7 +176,8 @@ def train(epoch):
                 output = model(data_batch)
                 train_accuracy.update(accuracy(output, target_batch))
                 loss = F.cross_entropy(output, target_batch)
-                loss.div_(allreduce_batch_size).mul_(args.batch_size)
+                # Average gradients among sub-batches
+                loss.div_(args.batches_per_allreduce)
                 train_loss.update(loss.item())
                 loss.backward()
             # Gradient is applied across all ranks
