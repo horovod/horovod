@@ -17,15 +17,18 @@ import horovod.tensorflow as hvd
 import tensorflow as tf
 
 
-def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sparse, compression):
+def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sparse,
+                                 compression, sparse_as_dense):
     class _DistributedOptimizer(keras.optimizers.Optimizer):
-        def __init__(self, name, device_dense, device_sparse, **kwargs):
+        def __init__(self, name, device_dense, device_sparse, compression, sparse_as_dense,
+                     **kwargs):
             if name is None:
                 name = "Distributed%s" % self.__class__.__base__.__name__
             self._name = name
             self._device_dense = device_dense
             self._device_sparse = device_sparse
             self._compression = compression
+            self._sparse_as_dense = sparse_as_dense
             super(self.__class__, self).__init__(**kwargs)
 
         def get_gradients(self, loss, params):
@@ -43,6 +46,9 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                 with tf.name_scope(self._name + "_Allreduce"):
                     for grad in gradients:
                         if grad is not None:
+                            if self._sparse_as_dense and \
+                                    isinstance(grad, tf.IndexedSlices):
+                                grad = tf.convert_to_tensor(grad)
                             avg_grad = hvd.allreduce(grad,
                                                      device_dense=self._device_dense,
                                                      device_sparse=self._device_sparse,
@@ -60,7 +66,8 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
     # model could be easily restored without Horovod.
     cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                dict(_DistributedOptimizer.__dict__))
-    return cls(name, device_dense, device_sparse, **optimizer.get_config())
+    return cls(name, device_dense, device_sparse, compression, sparse_as_dense,
+               **optimizer.get_config())
 
 
 def broadcast_global_variables(backend, root_rank):
