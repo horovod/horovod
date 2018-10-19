@@ -1,4 +1,5 @@
 #include <chrono>
+#include <algorithm>
 
 #include "logging.h"
 
@@ -54,24 +55,33 @@ void LogString(const char* fname, int line, int severity,
 
 int LogLevelStrToInt(const char* env_var_val) {
   if (env_var_val == nullptr) {
-    return 0;
+    // default to WARN
+    return WARNING;
   }
   std::string min_log_level(env_var_val);
-  std::istringstream ss(min_log_level);
-  int level;
-  if (!(ss >> level)) {
-    // Invalid log level setting, set level to default (0)
-    level = 0;
+  std::transform(min_log_level.begin(), min_log_level.end(), min_log_level.begin(), ::tolower);
+  if (min_log_level == "trace") {
+    return TRACE;
+  } else if (min_log_level == "debug") {
+    return DEBUG;
+  } else if (min_log_level == "info") {
+    return INFO;
+  } else if (min_log_level == "warning") {
+    return WARNING;
+  } else if (min_log_level == "error") {
+    return ERROR;
+  } else if (min_log_level == "fatal") {
+    return FATAL;
+  } else {
+    return WARNING;
   }
-
-  return level;
 }
 
 int MinLogLevelFromEnv() {
   const char* env_var_val = getenv("HOROVOD_LOG_LEVEL");
   if (env_var_val == nullptr) {
     // default to WARN
-    return 3;
+    return WARNING;
   }
   return LogLevelStrToInt(env_var_val);
 }
