@@ -17,7 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import warnings
 from horovod.common import check_extension
 
 try:
@@ -111,14 +110,9 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         for p, value in self._handles.items():
             handle, ctx = value
             if handle is None:
-                warnings.warn("Called step()/synchronize() on optimizer "
-                              "before computing gradients "
-                              "backwards_passes_per_step times. "
-                              "This will cause performance "
-                              "degradation, as gradient exchange is "
-                              "interleaved with computation only on the "
-                              "backwards_passes_per_step'th pass.")
                 handle, ctx = self._allreduce_grad(p)
+                self._handles[p] = (handle, ctx)
+        for p, (handle, _) in self._handles.items():
             output = synchronize(handle)
             self._allreduce_delay[p] = self.backward_passes_per_step
             p.grad.data.set_(self._compression.decompress(output, ctx))

@@ -10,6 +10,7 @@ from torchvision import datasets, transforms, models
 import horovod.torch as hvd
 import tensorboardX
 import os
+import math
 from tqdm import tqdm
 
 # Training settings
@@ -168,17 +169,16 @@ def train(epoch):
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
             optimizer.zero_grad()
-            # Split batch_size * batches_per_allreduce batch into sub-batches
-            # of size batch_size
-            for i in range(0, allreduce_batch_size, args.batch_size):
+            # Split data into sub-batches of size batch_size
+            for i in range(0, len(data), args.batch_size):
                 data_batch = data[i:i + args.batch_size]
                 target_batch = target[i:i + args.batch_size]
                 output = model(data_batch)
                 train_accuracy.update(accuracy(output, target_batch))
                 loss = F.cross_entropy(output, target_batch)
-                # Average gradients among sub-batches
-                loss.div_(args.batches_per_allreduce)
                 train_loss.update(loss.item())
+                # Average gradients among sub-batches
+                loss.div_(math.ceil(float(len(data)) / args.batch_size))
                 loss.backward()
             # Gradient is applied across all ranks
             optimizer.step()
