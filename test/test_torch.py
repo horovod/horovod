@@ -69,10 +69,15 @@ class TorchTests(unittest.TestCase):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        dtypes = [torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor]
-        if _fp16_supported:
-            dtypes += [torch.HalfTensor]
+
+        # MLSL supports only byte, float and double data types
+        if 'MLSL_ROOT' in os.environ:
+           dtypes = [torch.FloatTensor, torch.DoubleTensor]
+        else:
+           dtypes = [torch.IntTensor, torch.LongTensor,
+                     torch.FloatTensor, torch.DoubleTensor]
+           if _fp16_supported:
+               dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -106,8 +111,12 @@ class TorchTests(unittest.TestCase):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        dtypes = [torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor]
+        # MLSL supports only byte, float and double data types
+        if 'MLSL_ROOT' in os.environ:
+           dtypes = [torch.FloatTensor, torch.DoubleTensor]
+        else:
+           dtypes = [torch.IntTensor, torch.LongTensor,
+                     torch.FloatTensor, torch.DoubleTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -139,10 +148,14 @@ class TorchTests(unittest.TestCase):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        dtypes = [torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor]
-        if _fp16_supported:
-            dtypes += [torch.HalfTensor]
+        # MLSL supports only byte, float and double data types
+        if 'MLSL_ROOT' in os.environ:
+           dtypes = [torch.FloatTensor, torch.DoubleTensor]
+        else:
+           dtypes = [torch.IntTensor, torch.LongTensor,
+                     torch.FloatTensor, torch.DoubleTensor]
+           if _fp16_supported:
+               dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -177,10 +190,14 @@ class TorchTests(unittest.TestCase):
         with Tensor Fusion."""
         hvd.init()
         size = hvd.size()
-        dtypes = [torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor]
-        if _fp16_supported:
-            dtypes += [torch.HalfTensor]
+        # MLSL supports only byte, float and double data types
+        if 'MLSL_ROOT' in os.environ:
+           dtypes = [torch.FloatTensor, torch.DoubleTensor]
+        else:
+           dtypes = [torch.IntTensor, torch.LongTensor,
+                     torch.FloatTensor, torch.DoubleTensor]
+           if _fp16_supported:
+               dtypes += [torch.HalfTensor]
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -269,6 +286,11 @@ class TorchTests(unittest.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
+        # There is no checking if tensor dims are equal in MLSL.
+        # It will fail on MPI level only.
+        if 'MLSL_ROOT' in os.environ:
+           return
+
         # This test does not apply if there is only one worker.
         if size == 1:
             return
@@ -302,6 +324,11 @@ class TorchTests(unittest.TestCase):
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
+
+        # There is no checking if tensor types are equal in MLSL.
+        # It will fail on MPI level only.
+        if 'MLSL_ROOT' in os.environ:
+           return
 
         # This test does not apply if there is only one worker.
         if size == 1:
@@ -483,6 +510,11 @@ class TorchTests(unittest.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
+        # There is no checking if tensor dims are equal in MLSL.
+        # It will fail on MPI level only.
+        if 'MLSL_ROOT' in os.environ:
+            return
+
         # This test does not apply if there is only one worker.
         if size == 1:
             return
@@ -503,6 +535,11 @@ class TorchTests(unittest.TestCase):
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
+
+        # There is no checking if tensor types are equal in MLSL.
+        # It will fail on MPI level only.
+        if 'MLSL_ROOT' in os.environ:
+            return
 
         # This test does not apply if there is only one worker.
         if size == 1:
@@ -641,6 +678,11 @@ class TorchTests(unittest.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
+        # There is no checking if tensor dims are equal in MLSL.
+        # It will fail on MPI level only.
+        if 'MLSL_ROOT' in os.environ:
+            return
+
         # This test does not apply if there is only one worker.
         if size == 1:
             return
@@ -661,6 +703,11 @@ class TorchTests(unittest.TestCase):
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
+
+        # There is no checking if tensor types are equal in MLSL.
+        # It will fail on MPI level only.
+        if 'MLSL_ROOT' in os.environ:
+            return
 
         # This test does not apply if there is only one worker.
         if size == 1:
@@ -684,6 +731,11 @@ class TorchTests(unittest.TestCase):
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
+
+        # There is no checking if root ranks are equal in MLSL.
+        # It will fail on MPI level only.
+        if 'MLSL_ROOT' in os.environ:
+            return
 
         # This test does not apply if there is only one worker.
         if size == 1:
@@ -960,3 +1012,6 @@ class TorchTests(unittest.TestCase):
                 expected = np.ones(tensor_size)
                 err = np.linalg.norm(expected - tensor_decompressed.data.numpy())
                 self.assertLess(err, 0.00000001)
+
+if __name__ == "__main__":
+   unittest.main()

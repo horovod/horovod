@@ -27,6 +27,7 @@ import tensorflow as tf
 import horovod.tensorflow as hvd
 
 from common import mpi_env_rank_and_size
+import os
 
 
 class MPITests(tf.test.TestCase):
@@ -58,7 +59,11 @@ class MPITests(tf.test.TestCase):
         hvd.init()
         size = hvd.size()
         with self.test_session(config=self.config) as session:
-            dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+            # MLSL supports only byte, float and double data types
+            if 'MLSL_ROOT' in os.environ:
+               dtypes = [tf.float32, tf.float64]
+            else:
+               dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
             dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
                 with tf.device("/cpu:0"):
@@ -90,7 +95,10 @@ class MPITests(tf.test.TestCase):
         hvd.init()
         size = hvd.size()
         with self.test_session(config=self.config) as session:
-            dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+            if 'MLSL_ROOT' in os.environ:
+               dtypes = [tf.float32, tf.float64]
+            else:
+               dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
             dims = [1, 2, 3]
             tests = []
             for dtype, dim in itertools.product(dtypes, dims):
@@ -253,6 +261,11 @@ class MPITests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
+        # There is no checking if tensor sizes from different ranks are equal in MLSL.
+        # It won't break MLSL because the failure will take place only on the MPI level
+        if 'MLSL_ROOT' in os.environ:
+            return
+
         # This test does not apply if there is only one worker.
         if size == 1:
             return
@@ -281,6 +294,11 @@ class MPITests(tf.test.TestCase):
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
+
+        # There is no checking if tensor types from different ranks are equal in MLSL.
+        # It won't break MLSL because the failure will take place only on the MPI level
+        if 'MLSL_ROOT' in os.environ:
+            return
 
         # This test does not apply if there is only one worker.
         if size == 1:
@@ -438,6 +456,11 @@ class MPITests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
+        # There is no checking if tensor sizes from different ranks are equal in MLSL.
+        # It won't break MLSL because the failure will take place only on the MPI level
+        if 'MLSL_ROOT' in os.environ:
+            return
+
         # This test does not apply if there is only one worker.
         if size == 1:
             return
@@ -455,6 +478,11 @@ class MPITests(tf.test.TestCase):
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
+
+        # There is no checking if tensor types from different ranks are equal in MLSL.
+        # It won't break MLSL because the failure will take place only on the MPI level
+        if 'MLSL_ROOT' in os.environ:
+            return
 
         # This test does not apply if there is only one worker.
         if size == 1:
@@ -543,6 +571,11 @@ class MPITests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
+        # There is no checking if tensor sizes from different ranks are equal in MLSL.
+        # It won't break MLSL because the failure will take place only on the MPI level
+        if 'MLSL_ROOT' in os.environ:
+            return
+
         # This test does not apply if there is only one worker.
         if size == 1:
             return
@@ -561,6 +594,11 @@ class MPITests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
+        # There is no checking if tensor types from different ranks are equal in MLSL.
+        # It won't break MLSL because the failure will take place only on the MPI level
+        if 'MLSL_ROOT' in os.environ:
+            return
+
         # This test does not apply if there is only one worker.
         if size == 1:
             return
@@ -578,6 +616,10 @@ class MPITests(tf.test.TestCase):
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
+
+        # There is no root rank equality checking in MLSL.
+        if 'MLSL_ROOT' in os.environ:
+            return
 
         # This test does not apply if there is only one worker.
         if size == 1:

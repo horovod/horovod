@@ -34,6 +34,7 @@ torch_mpi_lib = Extension('horovod.torch.mpi_lib', [])
 torch_mpi_lib_impl = Extension('horovod.torch.mpi_lib_impl', [])
 torch_mpi_lib_v2 = Extension('horovod.torch.mpi_lib_v2', [])
 
+mlsl_root = os.environ.get('MLSL_ROOT')
 
 def is_build_action():
     if len(sys.argv) <= 1:
@@ -68,6 +69,8 @@ def check_tf_version():
 def get_cpp_flags(build_ext):
     last_err = None
     default_flags = ['-std=c++11', '-fPIC', '-O2']
+    if mlsl_root:
+        default_flags = ['-DHAVE_MLSL'] + default_flags
     if sys.platform == 'darwin':
         # Darwin most likely will have Clang, which has libc++.
         flags_to_try = [default_flags + ['-stdlib=libc++'], default_flags]
@@ -421,12 +424,20 @@ def get_common_options(build_ext):
     INCLUDES = []
     SOURCES = ['horovod/common/common.cc',
                'horovod/common/mpi_message.cc',
-               'horovod/common/operations.cc',
                'horovod/common/timeline.cc']
+    if mlsl_root:
+        SOURCES += ['horovod/common/mlsl_operations.cc']
+    else:
+        SOURCES += ['horovod/common/operations.cc']
     COMPILE_FLAGS = cpp_flags + shlex.split(mpi_flags)
     LINK_FLAGS = link_flags + shlex.split(mpi_flags)
     LIBRARY_DIRS = []
     LIBRARIES = []
+
+    if mlsl_root:
+        LIBRARY_DIRS += [mlsl_root + '/intel64/lib/']
+        INCLUDES += [mlsl_root + '/intel64/include/']
+        LINK_FLAGS += ['-lmlsl']
 
     if have_cuda:
         MACROS += [('HAVE_CUDA', '1')]
