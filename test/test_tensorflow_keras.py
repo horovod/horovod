@@ -87,7 +87,7 @@ class TfKerasTests(tf.test.TestCase):
 
             model = keras.models.Sequential()
             model.add(keras.layers.Embedding(1000, 64, input_length=10))
-            model.compile(loss=keras.losses.MSE,
+            model.compile(loss=keras.losses.mean_squared_error,
                           optimizer=opt)
 
             x = np.random.randint(1000, size=(32, 10))
