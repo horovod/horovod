@@ -68,11 +68,18 @@ def check_tf_version():
 def get_cpp_flags(build_ext):
     last_err = None
     default_flags = ['-std=c++11', '-fPIC', '-O2']
+    avx_flags = ['-mf16c', '-mavx']
     if sys.platform == 'darwin':
         # Darwin most likely will have Clang, which has libc++.
-        flags_to_try = [default_flags + ['-stdlib=libc++'], default_flags]
+        flags_to_try = [default_flags + ['-stdlib=libc++'] + avx_flags,
+                        default_flags + avx_flags,
+                        default_flags + ['-stdlib=libc++'],
+                        default_flags]
     else:
-        flags_to_try = [default_flags, default_flags + ['-stdlib=libc++']]
+        flags_to_try = [default_flags + avx_flags,
+                        default_flags + ['-stdlib=libc++'] + avx_flags,
+                        default_flags,
+                        default_flags + ['-stdlib=libc++']]
     for cpp_flags in flags_to_try:
         try:
             test_compile(build_ext, 'test_cpp_flags', extra_compile_preargs=cpp_flags,
@@ -421,6 +428,7 @@ def get_common_options(build_ext):
     INCLUDES = []
     SOURCES = ['horovod/common/common.cc',
                'horovod/common/mpi_message.cc',
+               'horovod/common/half.cc',
                'horovod/common/operations.cc',
                'horovod/common/timeline.cc']
     COMPILE_FLAGS = cpp_flags + shlex.split(mpi_flags)

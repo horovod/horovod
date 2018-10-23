@@ -1411,22 +1411,6 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
   }
 }
 
-// float16 custom data type summation operation.
-void float16_sum(void* invec, void* inoutvec, int* len,
-                 MPI_Datatype* datatype) {
-  // cast invec and inoutvec to your float16 type
-  auto* in = (unsigned short*)invec;
-  auto* inout = (unsigned short*)inoutvec;
-  for (int i = 0; i < *len; ++i) {
-    float in_float;
-    float inout_float;
-    HalfBits2Float(in + i, &in_float);
-    HalfBits2Float(inout + i, &inout_float);
-    inout_float += in_float;
-    Float2HalfBits(&inout_float, inout + i);
-  }
-}
-
 // The MPI background thread loop coordinates all the MPI processes and the
 // tensor reductions. The design of the communicator mechanism is limited by a
 // few considerations:
