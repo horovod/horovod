@@ -28,11 +28,11 @@ before_install:
   - |
     if [[ ${TRAVIS_PYTHON_VERSION} == 3* ]]; then
       docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev python3-pip python3-requests"
-      docker exec ${CONTAINER} /bin/sh -c "pip3 install -U --force pip"
+      docker exec ${CONTAINER} /bin/sh -c "pip3 install -U --force pip setuptools"
       docker exec ${CONTAINER} /bin/sh -c "ln -s /usr/bin/python3 /usr/bin/python"
     else
       docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev python-pip python-requests"
-      docker exec ${CONTAINER} /bin/sh -c "pip install -U --force pip"
+      docker exec ${CONTAINER} /bin/sh -c "pip install -U --force pip setuptools"
     fi
   # install necessary network tools
   - docker exec ${CONTAINER} /bin/sh -c "apt-get install -y wget openssh-client git"

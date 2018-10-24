@@ -26,6 +26,11 @@
 #ifndef HOROVOD_HALF_H
 #define HOROVOD_HALF_H
 
+#include <stdint.h>
+
+#define OMPI_SKIP_MPICXX
+#include "mpi.h"
+
 namespace horovod {
 namespace common {
 
@@ -126,6 +131,8 @@ inline void Float2HalfBits(float* src, unsigned short* dest) {
 
   *dest = u;
 }
+
+void float16_sum(void* invec, void* inoutvec, int* len, MPI_Datatype* datatype);
 
 } // namespace common
 } // namespace horovod
