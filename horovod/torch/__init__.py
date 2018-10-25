@@ -59,7 +59,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                                  in sorted(named_parameters)}
         self._handles = {}
         self._grad_accs = []
-
+        self._requires_update = set()
         if size() > 1:
             self._register_hooks()
 
@@ -67,6 +67,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         for param_group in self.param_groups:
             for p in param_group['params']:
                 if p.requires_grad:
+                    self._requires_update.add(p)
                     p_tmp = p.expand_as(p)
                     grad_acc = p_tmp.grad_fn.next_functions[0][0]
                     grad_acc.register_hook(self._make_hook(p))
@@ -77,7 +78,6 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             assert p not in self._handles
             assert not p.grad.requires_grad
             name = self._parameter_names.get(p)
-
             tensor = p.grad.data
             tensor_compressed, ctx = self._compression.compress(tensor)
 
@@ -86,6 +86,16 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         return hook
 
     def synchronize(self):
+        missing_p = self._requires_update - self._handles.keys()
+        for p in missing_p:
+            name = self._parameter_names.get(p)
+            print(name, p.shape, p.dtype)
+            p.grad = torch.zeros(p.shape, dtype=p.dtype, requires_grad=True)
+            tensor = p.grad.data
+            tensor_compressed, ctx = self._compression.compress(tensor)
+            handle = allreduce_async_(tensor_compressed, average=True, name=name)
+            self._handles[p] = (handle, ctx)
+        
         for p, value in self._handles.items():
             handle, ctx = value
             output = synchronize(handle)
