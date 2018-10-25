@@ -43,8 +43,15 @@ bool HandleManager::PollHandle(int handle) {
 }
 
 void HandleManager::ExecuteCallback(int handle) {
-  Callback cb = *callbacks_[handle];
-  cb();
+  std::unique_lock<std::mutex> lock(mutex_);
+  if (callbacks_.find(handle) == callbacks_.end()) {
+    return;
+  }
+  auto cb_ptr = callbacks_[handle];
+  lock.unlock();
+   if (cb_ptr != nullptr) {
+    (*cb_ptr)();
+  }
 }
 
 std::shared_ptr<Status> HandleManager::ReleaseHandle(int handle) {
@@ -55,6 +62,7 @@ std::shared_ptr<Status> HandleManager::ReleaseHandle(int handle) {
   }
   auto status = results_[handle];
   results_.erase(handle);
+  callbacks_.erase(handle);
   return status;
 }
 

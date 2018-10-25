@@ -263,7 +263,7 @@ def main():
     mod.init_params(initializer, arg_params=arg_params, aux_params=aux_params)
 
     # Fetch and broadcast parameters
-    (arg_params, aux_params) = mod.get_params(copy_to_cpu=False)
+    (arg_params, aux_params) = mod.get_params()
     mx.nd.waitall()
     hvd.barrier()
     if arg_params is not None:
