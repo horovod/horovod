@@ -73,29 +73,23 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                     grad_acc.register_hook(self._make_hook(p))
                     self._grad_accs.append(grad_acc)
 
+    def _allreduce_grad(self, p):
+        name = self._parameter_names.get(p)
+        tensor = p.grad.data
+        tensor_compressed, ctx = self._compression.compress(tensor)
+    
+        handle = allreduce_async_(tensor_compressed, average=True, name=name)
+        return handle, ctx
+
     def _make_hook(self, p):
         def hook(*ignore):
             assert p not in self._handles
             assert not p.grad.requires_grad
-            name = self._parameter_names.get(p)
-            tensor = p.grad.data
-            tensor_compressed, ctx = self._compression.compress(tensor)
-
-            handle = allreduce_async_(tensor_compressed, average=True, name=name)
+            handle, ctx = self._allreduce_grad(p)
             self._handles[p] = (handle, ctx)
         return hook
 
     def synchronize(self):
-        missing_p = self._requires_update - self._handles.keys()
-        for p in missing_p:
-            name = self._parameter_names.get(p)
-            print(name, p.shape, p.dtype)
-            p.grad = torch.zeros(p.shape, dtype=p.dtype, requires_grad=True)
-            tensor = p.grad.data
-            tensor_compressed, ctx = self._compression.compress(tensor)
-            handle = allreduce_async_(tensor_compressed, average=True, name=name)
-            self._handles[p] = (handle, ctx)
-        
         for p, value in self._handles.items():
             handle, ctx = value
             output = synchronize(handle)
@@ -103,6 +97,10 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         self._handles.clear()
 
     def step(self, closure=None):
+        missing_p = self._requires_update - set(self._handles.keys())
+        for p in missing_p:
+            p.grad = torch.zeros(p.shape, dtype=p.dtype, device=p.device)
+            self._allreduce_grad(p)
         self.synchronize()
         return super(self.__class__, self).step(closure)
 
