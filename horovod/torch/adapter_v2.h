@@ -16,6 +16,7 @@
 #ifndef HOROVOD_TORCH_ADAPTER_V2_H
 #define HOROVOD_TORCH_ADAPTER_V2_H
 
+#include <torch/extension.h>
 #include <torch/torch.h>
 
 #include "../common/common.h"
@@ -33,24 +34,24 @@ public:
 
 private:
   int device_ = CPU_DEVICE_ID;
-  torch::Tensor tensor_;
+  ::torch::Tensor tensor_;
 };
 
 class TorchTensor : public Tensor {
 public:
-  TorchTensor(torch::Tensor tensor);
+  TorchTensor(::torch::Tensor tensor);
   virtual const MPIDataType dtype() const override;
   virtual const TensorShape shape() const override;
   virtual const void* data() const override;
   virtual int64_t size() const override;
 
 protected:
-  torch::Tensor tensor_;
+  ::torch::Tensor tensor_;
 };
 
 class TorchOpContext : public OpContext {
 public:
-  TorchOpContext(int device, torch::Tensor output);
+  TorchOpContext(int device, ::torch::Tensor output);
   virtual Status
   AllocatePersistent(int64_t size,
                      std::shared_ptr<PersistentBuffer>* tensor) override;
@@ -60,7 +61,7 @@ public:
 
 private:
   int device_ = CPU_DEVICE_ID;
-  torch::Tensor output_;
+  ::torch::Tensor output_;
 };
 
 void ThrowIfError(Status status);
