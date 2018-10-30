@@ -57,6 +57,11 @@ class _DistributedOptimizer(torch.optim.Optimizer):
 
         self._parameter_names = {v: k for k, v
                                  in sorted(named_parameters)}
+
+        if len(self._parameter_names) == 0:
+            self._parameter_names = {v: str(i) for param_group in self.param_groups
+                                     for i, v in enumerate(param_group['params'])}
+
         self._handles = {}
         self._grad_accs = []
         self._requires_update = set()
