@@ -59,7 +59,8 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             self._parameter_names = {v: k for k, v
                                      in sorted(named_parameters)}
         else:
-            self._parameter_names = {v: 'allreduce.noname.%s' % i for param_group in self.param_groups
+            self._parameter_names = {v: 'allreduce.noname.%s' % i
+                                     for param_group in self.param_groups
                                      for i, v in enumerate(param_group['params'])}
 
         self._handles = {}
@@ -95,6 +96,10 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         return hook
 
     def synchronize(self):
+        missing_p = self._requires_update - set(self._handles.keys())
+        for p in missing_p:
+            self._allreduce_grad(p)
+
         for p, value in self._handles.items():
             handle, ctx = value
             output = synchronize(handle)
@@ -102,10 +107,6 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         self._handles.clear()
 
     def step(self, closure=None):
-        missing_p = self._requires_update - set(self._handles.keys())
-        for p in missing_p:
-            p.grad = torch.zeros(p.shape, dtype=p.dtype, device=p.device)
-            self._allreduce_grad(p)
         self.synchronize()
         return super(self.__class__, self).step(closure)
 
