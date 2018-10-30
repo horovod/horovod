@@ -55,11 +55,11 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                              'tuples (name, parameter), usually produced by '
                              'model.named_parameters().')
 
-        self._parameter_names = {v: k for k, v
-                                 in sorted(named_parameters)}
-
-        if len(self._parameter_names) == 0:
-            self._parameter_names = {v: str(i) for param_group in self.param_groups
+        if len(named_parameters) > 0:
+            self._parameter_names = {v: k for k, v
+                                     in sorted(named_parameters)}
+        else:
+            self._parameter_names = {v: 'allreduce.noname.%s' % i for param_group in self.param_groups
                                      for i, v in enumerate(param_group['params'])}
 
         self._handles = {}
