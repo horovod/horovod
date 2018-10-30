@@ -204,7 +204,7 @@ def broadcast_optimizer_state(optimizer, root_rank):
         for group in optimizer.param_groups:
             for p in group['params']:
                 p.grad = p.data.new(p.size()).zero_()
-        optimizer.step()
+        super(optimizer.__class__, optimizer).step()
         state_dict = optimizer.state_dict()
 
     # If the state_dict is still empty after initialization, then
