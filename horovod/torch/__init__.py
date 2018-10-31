@@ -204,7 +204,10 @@ def broadcast_optimizer_state(optimizer, root_rank):
         for group in optimizer.param_groups:
             for p in group['params']:
                 p.grad = p.data.new(p.size()).zero_()
-        super(optimizer.__class__, optimizer).step()
+        if type(optimizer).__module__.startswith('horovod'):
+            super(optimizer.__class__, optimizer).step()
+        else:
+            optimizer.step()
         state_dict = optimizer.state_dict()
 
     # If the state_dict is still empty after initialization, then
