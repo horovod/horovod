@@ -99,7 +99,6 @@ class _DistributedOptimizer(torch.optim.Optimizer):
     def synchronize(self):
         missing_p = self._requires_update - set(self._handles.keys())
         for p in missing_p:
-            # p.grad = torch.zeros(p.shape, dtype=p.dtype, device=p.device)
             self._allreduce_grad(p)
 
         for p, value in self._handles.items():
