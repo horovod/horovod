@@ -204,7 +204,7 @@ def broadcast_optimizer_state(optimizer, root_rank):
         for group in optimizer.param_groups:
             for p in group['params']:
                 p.grad = p.data.new(p.size()).zero_()
-        if type(optimizer).__module__.startswith('horovod'):
+        if optimizer.__module__ == DistributedOptimizer.__module__:
             super(optimizer.__class__, optimizer).step()
         else:
             optimizer.step()
