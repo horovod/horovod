@@ -73,6 +73,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         for param_group in self.param_groups:
             for p in param_group['params']:
                 if p.requires_grad:
+                    p.grad = p.data.new(p.size()).zero_()
                     self._requires_update.add(p)
                     p_tmp = p.expand_as(p)
                     grad_acc = p_tmp.grad_fn.next_functions[0][0]
@@ -83,7 +84,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         name = self._parameter_names.get(p)
         tensor = p.grad.data
         tensor_compressed, ctx = self._compression.compress(tensor)
-    
+
         handle = allreduce_async_(tensor_compressed, average=True, name=name)
         return handle, ctx
 
@@ -98,6 +99,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
     def synchronize(self):
         missing_p = self._requires_update - set(self._handles.keys())
         for p in missing_p:
+            # p.grad = torch.zeros(p.shape, dtype=p.dtype, device=p.device)
             self._allreduce_grad(p)
 
         for p, value in self._handles.items():
