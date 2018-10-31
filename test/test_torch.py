@@ -962,7 +962,7 @@ class TorchTests(unittest.TestCase):
                 self.assertLess(err, 0.00000001)
 
     def test_force_allreduce(self):
-        """Test that allreduce is forced on all gradients during opt.step() even if gradient hook isn not called during loss.backward()."""
+        """Test that allreduce is forced on all gradients during opt.step()."""
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
