@@ -22,18 +22,21 @@ from distutils.version import LooseVersion
 # Load all the necessary PyTorch C types.
 import torch
 
-from horovod.torch.compression import Compression
-try:
+# PyTorch v2 API starts with 1.0.0 (including nightly builds)
+_v2_api = LooseVersion(torch.__version__) >= LooseVersion('1.0.0')
+if _v2_api:
     from horovod.torch import mpi_lib_v2 as mpi_lib
     from horovod.common import HorovodBasics as _HorovodBasics
     _NULL = ""
     _basics = _HorovodBasics(__file__, 'mpi_lib_v2')
-except:
+else:
     from horovod.torch import mpi_lib_impl
     from horovod.torch import mpi_lib
     from horovod.common import HorovodBasics as _HorovodBasics
     _NULL = mpi_lib._ffi.NULL
     _basics = _HorovodBasics(__file__, 'mpi_lib_impl', '_mpi_lib_impl')
+
+from horovod.torch.compression import Compression
 
 # import basic methods
 init = _basics.init
@@ -51,7 +54,7 @@ mpi_threads_supported = _basics.mpi_threads_supported
 _handle_map = {}
 
 # Only support fp16 allreduce for PyTorch versions using v2 API.
-_fp16_supported = LooseVersion(torch.__version__) >= LooseVersion('1.0.0')
+_fp16_supported = _v2_api
 
 
 def _check_function(function_factory, tensor):
