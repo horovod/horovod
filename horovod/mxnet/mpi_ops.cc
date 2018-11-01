@@ -26,13 +26,9 @@
 #include "tensor_util.h"
 
 namespace horovod {
-namespace MX {
+namespace mxnet {
 
 static HandleManager handle_manager;
-
-using namespace mxnet;
-
-typedef mxnet::Engine::CallbackOnComplete Callback;
 
 namespace {
 
@@ -411,5 +407,5 @@ extern "C" void horovod_mxnet_wait_and_clear(int handle) {
   ThrowIfError(*status);
 }
 
-} // namespace MX
+} // namespace mxnet
 } // namespace horovod
