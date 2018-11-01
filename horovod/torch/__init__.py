@@ -205,6 +205,11 @@ def broadcast_optimizer_state(optimizer, root_rank):
         for group in optimizer.param_groups:
             for p in group['params']:
                 p.grad = p.data.new(p.size()).zero_()
+        # This function accepts a torch.optim.Optimizer or a DistributedOptimizer
+        # wrapped around a torch optimizer. Calling step() with a DistributedOptimizer
+        # forces allreduce on all model parameters, which will result in deadlock
+        # unless every rank calls step(). Therefore, to finish state initialization
+        # only call optimizer.step() with a torch.optim.Optimizer.
         if optimizer.__module__ == DistributedOptimizer.__module__:
             super(optimizer.__class__, optimizer).step()
         else:
