@@ -16,9 +16,7 @@
 #include "handle_manager.h"
 
 namespace horovod {
-namespace MX {
-
-typedef mxnet::Engine::CallbackOnComplete Callback;
+namespace mxnet {
 
 typedef ::mxnet::Engine::CallbackOnComplete Callback;
 
@@ -68,6 +66,6 @@ std::shared_ptr<Status> HandleManager::ReleaseHandle(int handle) {
   return status;
 }
 
-} // namespace MX
+} // namespace mxnet
 } // namespace horovod
 
