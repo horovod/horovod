@@ -1,0 +1,112 @@
+# Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
+import threading
+import time
+
+from horovod.spark.network import BasicService, BasicClient
+from horovod.spark import safe_shell_exec
+
+
+class RunCommandRequest(object):
+    def __init__(self, command):
+        self.command = command
+        """Command to run."""
+
+
+class RunCommandResponse(object):
+    pass
+
+
+class CommandTerminatedRequest(object):
+    pass
+
+
+class CommandTerminatedResponse(object):
+    def __init__(self, flag):
+        self.flag = flag
+
+
+class InitialRegistrationCompleteRequest(object):
+    pass
+
+
+class InitialRegistrationCompleteResponse(object):
+    pass
+
+
+class TaskService(BasicService):
+    NAME_FORMAT = 'task service #%d'
+
+    def __init__(self, index):
+        super(TaskService, self).__init__(TaskService.NAME_FORMAT % index)
+        self._initial_registration_complete = False
+        self._wait_cond = threading.Condition()
+        self._command_thread = None
+
+    def _handle(self, req, client_address):
+        if isinstance(req, RunCommandRequest):
+            if self._command_thread is None:
+                # We only permit executing exactly one command, so this is idempotent.
+                self._command_thread = threading.Thread(target=safe_shell_exec.execute,
+                                                        args=(req.command,))
+                self._command_thread.daemon = True
+                self._command_thread.start()
+            return RunCommandResponse()
+
+        if isinstance(req, InitialRegistrationCompleteRequest):
+            self._wait_cond.acquire()
+            self._initial_registration_complete = True
+            self._wait_cond.notify_all()
+            self._wait_cond.release()
+            return InitialRegistrationCompleteResponse()
+
+        if isinstance(req, CommandTerminatedRequest):
+            return CommandTerminatedResponse(not self._command_thread.is_alive())
+
+        return super(TaskService, self)._handle(req, client_address)
+
+    def wait_for_initial_registration(self, timeout):
+        self._wait_cond.acquire()
+        while not self._initial_registration_complete:
+            self._wait_cond.wait(timeout.remaining())
+            if timeout.timed_out():
+                raise Exception('Timed out waiting for tasks to start.')
+        self._wait_cond.release()
+
+
+class TaskClient(BasicClient):
+    def __init__(self, index, task_addresses):
+        super(TaskClient, self).__init__(TaskService.NAME_FORMAT % index,
+                                         task_addresses)
+
+    def run_command(self, command):
+        self._send(RunCommandRequest(command))
+
+    def notify_initial_registration_complete(self):
+        self._send(InitialRegistrationCompleteRequest())
+
+    def command_terminated(self):
+        resp = self._send(CommandTerminatedRequest())
+        return resp.flag
+
+    def wait_for_command_termination(self, delay=1):
+        while True:
+            try:
+                if self.command_terminated():
+                    break
+            except:
+                break
+            time.sleep(delay)

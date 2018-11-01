@@ -765,6 +765,6 @@ setup(name='horovod',
       # If cffi is specified in setup_requires, it will need libffi to be installed on the machine,
       # which is undesirable.  Luckily, `install` action will install cffi before executing build,
       # so it's only necessary for `build*` or `bdist*` actions.
-      setup_requires=['cffi>=1.4.0'] if is_build_action() else [],
-      install_requires=['cffi>=1.4.0'],
+      setup_requires=['cffi>=1.4.0', 'cloudpickle', 'psutil', 'six'] if is_build_action() else [],
+      install_requires=['cffi>=1.4.0', 'cloudpickle', 'psutil', 'six'],
       zip_safe=False)
