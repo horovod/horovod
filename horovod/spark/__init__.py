@@ -15,7 +15,6 @@
 
 import pyspark
 import os
-import sys
 import threading
 
 from horovod.spark import codec, host_hash, task_service, driver_service, timeout, safe_shell_exec
@@ -55,21 +54,11 @@ def _make_spark_thread(spark_context, num_proc, driver, start_timeout):
     return spark_thread
 
 
-def _autodetect_spark_context():
-    if ('__main__' in sys.modules and hasattr(sys.modules['__main__'], 'spark')
-            and isinstance(sys.modules['__main__'].spark, pyspark.sql.session.SparkSession)):
-        return sys.modules['__main__'].spark.sparkContext
-
-    if ('pyspark.shell' in sys.modules and hasattr(sys.modules['pyspark.shell'], 'spark')
-            and isinstance(sys.modules['pyspark.shell'].spark, pyspark.sql.session.SparkSession)):
-        return sys.modules['pyspark.shell'].spark.sparkContext
-
-    raise Exception('Could not find SparkContext, please set it via spark_context= parameter.')
-
-
-def train(fn, num_proc=None, spark_context=None, start_timeout=180):
+def train(fn, num_proc=None, start_timeout=180):
+    spark_context = pyspark.SparkContext._active_spark_context
     if spark_context is None:
-        spark_context = _autodetect_spark_context()
+        raise Exception('Could not find an active SparkContext, are you running in a PySpark session?')
+
     if num_proc is None:
         num_proc = spark_context.defaultParallelism
 
