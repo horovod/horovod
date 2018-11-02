@@ -68,6 +68,16 @@ class TaskHostHashIndicesResponse(object):
         self.indices = indices
 
 
+class TaskIndexByRankRequest(object):
+    def __init__(self, rank):
+        self.rank = rank
+
+
+class TaskIndexByRankResponse(object):
+    def __init__(self, index):
+        self.index = index
+
+
 class CodeRequest(object):
     pass
 
@@ -88,6 +98,7 @@ class DriverService(BasicService):
         self._task_addresses_for_driver = {}
         self._task_addresses_for_tasks = {}
         self._task_host_hash_indices = {}
+        self._ranks_to_indices = None
         self._wait_cond = threading.Condition()
 
     def _handle(self, req, client_address):
@@ -121,6 +132,9 @@ class DriverService(BasicService):
         if isinstance(req, TaskHostHashIndicesRequest):
             return TaskHostHashIndicesResponse(self._task_host_hash_indices[req.host_hash])
 
+        if isinstance(req, TaskIndexByRankRequest):
+            return TaskIndexByRankResponse(self._ranks_to_indices[req.rank])
+
         if isinstance(req, CodeRequest):
             return CodeResponse(self._fn)
 
@@ -143,6 +157,9 @@ class DriverService(BasicService):
 
     def task_host_hash_indices(self):
         return self._task_host_hash_indices
+
+    def set_ranks_to_indices(self, ranks_to_indices):
+        self._ranks_to_indices = ranks_to_indices
 
     def wait_for_initial_registration(self, timeout):
         self._wait_cond.acquire()
@@ -179,6 +196,10 @@ class DriverClient(BasicClient):
     def task_host_hash_indices(self, host_hash):
         resp = self._send(TaskHostHashIndicesRequest(host_hash))
         return resp.indices
+
+    def task_index_by_rank(self, rank):
+        resp = self._send(TaskIndexByRankRequest(rank))
+        return resp.index
 
     def code(self):
         resp = self._send(CodeRequest())

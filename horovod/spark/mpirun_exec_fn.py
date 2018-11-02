@@ -13,15 +13,21 @@
 # limitations under the License.
 # ==============================================================================
 
+import os
 import sys
 
-from horovod.spark import codec, driver_service
+from horovod.spark import codec, driver_service, task_service
 
 
 def main(driver_addresses):
+    rank = int(os.environ['OMPI_COMM_WORLD_RANK'])
     driver_client = driver_service.DriverClient(driver_addresses)
+    task_index = driver_client.task_index_by_rank(rank)
+    task_addresses = driver_client.all_task_addresses(task_index)
+    task_client = task_service.TaskClient(task_index, task_addresses)
     fn = driver_client.code()
-    fn()
+    result = fn()
+    task_client.send_code_result(result)
 
 
 if __name__ == '__main__':

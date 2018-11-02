@@ -47,6 +47,15 @@ class InitialRegistrationCompleteResponse(object):
     pass
 
 
+class CodeResultRequest(object):
+    def __init__(self, result):
+        self.result = result
+
+
+class CodeResultResponse(object):
+    pass
+
+
 class TaskService(BasicService):
     NAME_FORMAT = 'task service #%d'
 
@@ -55,6 +64,7 @@ class TaskService(BasicService):
         self._initial_registration_complete = False
         self._wait_cond = threading.Condition()
         self._command_thread = None
+        self._fn_result = None
 
     def _handle(self, req, client_address):
         if isinstance(req, RunCommandRequest):
@@ -76,7 +86,14 @@ class TaskService(BasicService):
         if isinstance(req, CommandTerminatedRequest):
             return CommandTerminatedResponse(not self._command_thread.is_alive())
 
+        if isinstance(req, CodeResultRequest):
+            self._fn_result = req.result
+            return CodeResultResponse()
+
         return super(TaskService, self)._handle(req, client_address)
+
+    def fn_result(self):
+        return self._fn_result
 
     def wait_for_initial_registration(self, timeout):
         self._wait_cond.acquire()
@@ -101,6 +118,9 @@ class TaskClient(BasicClient):
     def command_terminated(self):
         resp = self._send(CommandTerminatedRequest())
         return resp.flag
+
+    def send_code_result(self, result):
+        self._send(CodeResultRequest(result))
 
     def wait_for_command_termination(self, delay=1):
         while True:

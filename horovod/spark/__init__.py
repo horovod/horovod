@@ -13,8 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
-import pyspark
 import os
+import pyspark
+from six.moves import queue
 import threading
 
 from horovod.spark import codec, host_hash, task_service, driver_service, timeout, safe_shell_exec
@@ -35,19 +36,20 @@ def _make_mapper(driver_addresses, num_proc, start_timeout):
             next_task_client = task_service.TaskClient(next_task_index, next_task_addresses)
             driver_client.register_task_to_task_addresses(next_task_index, next_task_client.addresses())
             driver_client.wait_for_termination()
-            yield
+            yield task.fn_result()
         finally:
             task.shutdown()
     return _mapper
 
 
-def _make_spark_thread(spark_context, num_proc, driver, start_timeout):
+def _make_spark_thread(spark_context, num_proc, driver, start_timeout, result_queue):
     def run_spark():
         # TODO: what is a future way to run GPU workers?
-        spark_context \
+        result = spark_context \
             .range(0, numSlices=num_proc) \
             .mapPartitionsWithIndex(_make_mapper(driver.addresses(), num_proc, start_timeout)) \
             .collect()
+        result_queue.put(result)
 
     spark_thread = threading.Thread(target=run_spark)
     spark_thread.start()
@@ -62,9 +64,10 @@ def train(fn, num_proc=None, start_timeout=180):
     if num_proc is None:
         num_proc = spark_context.defaultParallelism
 
+    result_queue = queue.Queue(1)
     tmout = timeout.Timeout(start_timeout)
     driver = driver_service.DriverService(num_proc, fn)
-    spark_thread = _make_spark_thread(spark_context, num_proc, driver, start_timeout)
+    spark_thread = _make_spark_thread(spark_context, num_proc, driver, start_timeout, result_queue)
     try:
         driver.wait_for_initial_registration(tmout)
         task_clients = [task_service.TaskClient(index, driver.task_addresses_for_driver(index))
@@ -88,6 +91,11 @@ def train(fn, num_proc=None, start_timeout=180):
         while 0 not in driver.task_host_hash_indices()[host_hashes[0]]:
             host_hashes = host_hashes[1:] + host_hashes[:1]
 
+        ranks_to_indices = []
+        for host_hash in host_hashes:
+            ranks_to_indices += driver.task_host_hash_indices()[host_hash]
+        driver.set_ranks_to_indices(ranks_to_indices)
+
         exit_code = safe_shell_exec.execute(
             'mpirun --allow-run-as-root '
             '-np {num_proc} -H {hosts} '
@@ -108,3 +116,6 @@ def train(fn, num_proc=None, start_timeout=180):
     finally:
         driver.shutdown()
         spark_thread.join()
+
+    # If there's no exception, execution results are in this queue.
+    return result_queue.get_nowait()
