@@ -44,11 +44,11 @@ def _make_mapper(driver_addresses, num_proc, start_timeout):
 
 def _make_spark_thread(spark_context, num_proc, driver, start_timeout, result_queue):
     def run_spark():
-        # TODO: what is a future way to run GPU workers?
-        result = spark_context \
-            .range(0, numSlices=num_proc) \
-            .mapPartitionsWithIndex(_make_mapper(driver.addresses(), num_proc, start_timeout)) \
-            .collect()
+        procs = spark_context.range(0, numSlices=num_proc)
+        if hasattr(procs, 'barrier'):
+            # Use .barrier() functionality if it's available.
+            procs = procs.barrier()
+        result = procs.mapPartitionsWithIndex(_make_mapper(driver.addresses(), num_proc, start_timeout)).collect()
         result_queue.put(result)
 
     spark_thread = threading.Thread(target=run_spark)
