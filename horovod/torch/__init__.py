@@ -227,6 +227,22 @@ def broadcast_optimizer_state(optimizer, root_rank):
     callbacks = {}
     occurrences = collections.defaultdict(int)
 
+    # Returns the full type structure of the possibly nested objects for recursive casting back
+    def _get_types(x):
+        if isinstance(x, collections.Iterable):
+            return type(x), [_get_types(xi) for xi in x]
+        else:
+            return type(x)
+
+    # Casts an object encoded in a tensor back into its original type and subtypes
+    def _recursive_cast(x, dtype):
+        if isinstance(dtype, tuple):
+            t, dtypes = dtype
+            x = t(x)
+            return t([_recursive_cast(x[i], dtypes[i]) for i in range(len(x))])
+        else:
+            return dtype(x)
+
     # Some optimizer parameters may be represented as scalars instead of
     # tensors.  In such cases, we need to wrap the scalar in a tensor, then
     # broadcast, then update the appropriate value in the state_dict with the
@@ -236,9 +252,9 @@ def broadcast_optimizer_state(optimizer, root_rank):
             state_dict['state'][pid][name] = t(p.numpy()[0])
         return _from_tensor
 
-    def _create_option_callback(index, option_key, option_tensor, dtype):
+    def _create_option_callback(index, option_key, option_tensor, dtypes):
         def _from_tensor():
-            optimizer.param_groups[index][option_key] = dtype(option_tensor.numpy()[0])
+            optimizer.param_groups[index][option_key] = _recursive_cast(option_tensor.numpy()[0], dtypes)
         return _from_tensor
 
     # Param groups are an ordered list, normally there is only one per model,
@@ -252,9 +268,9 @@ def broadcast_optimizer_state(optimizer, root_rank):
 
             # Options like the learning rate are scalar, and need to be wrapped in tensors
             key = '%s.%d' % (option_key, index)
-            dtype = type(option_value)
+            dtypes = _get_types(option_value)
             option_tensor = torch.Tensor([option_value])
-            callbacks[key] = _create_option_callback(index, option_key, option_tensor, dtype)
+            callbacks[key] = _create_option_callback(index, option_key, option_tensor, dtypes)
             params.append((key, option_tensor))
 
         # The params list here is ordered by the layers in the model

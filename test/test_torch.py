@@ -873,9 +873,9 @@ class TorchTests(unittest.TestCase):
         y = torch.randn(N, D_out).requires_grad_()
 
         params_0 = dict(lr=0.1, momentum=0.8, weight_decay=0.2, nesterov=True,
-                        etas=(0.8, 2.4), step_sizes=(1e-5, 100))
+                        betas=(0.9, 0.999), etas=(0.8, 2.4), step_sizes=(1e-5, 100))
         params_1 = dict(lr=0.2, momentum=0.9, weight_decay=0.1, nesterov=False,
-                        etas=(0.25, 1.75), step_sizes=(1e-7, 5))
+                        betas=(0.8, 0.9), etas=(0.25, 1.75), step_sizes=(1e-7, 5))
 
         def create_model(opt_class):
             model = torch.nn.Sequential(
@@ -924,7 +924,15 @@ class TorchTests(unittest.TestCase):
                     p_actual = [p_actual]
                     p = [p]
                 for i in range(len(p)):
+                    self.assertEqual(type(p_actual[i]), type(p[i]))
                     self.assertAlmostEqual(p_actual[i], p[i], delta=1e-5)
+
+            # Ensure that the parameter option types are compatible with ops
+            y_pred = model(x)
+            loss = F.mse_loss(y_pred, y, size_average=False)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
     def test_compression_fp16(self):
         valid_dtypes = [torch.float32, torch.float64]
