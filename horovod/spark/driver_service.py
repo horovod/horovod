@@ -14,9 +14,8 @@
 # ==============================================================================
 
 import threading
-import time
 
-from horovod.spark.network import BasicService, BasicClient, PingRequest
+from horovod.spark.network import BasicService, BasicClient
 
 
 class RegisterRequest(object):
@@ -204,11 +203,3 @@ class DriverClient(BasicClient):
     def code(self):
         resp = self._send(CodeRequest())
         return resp.fn
-
-    def wait_for_termination(self, delay=5):
-        while True:
-            try:
-                self._send(PingRequest())
-            except:
-                break
-            time.sleep(delay)

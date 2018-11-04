@@ -27,7 +27,6 @@ def main(driver_addresses, host_hash, command):
     task_addresses = driver_client.all_task_addresses(first_task_index)
     task_client = task_service.TaskClient(first_task_index, task_addresses)
     task_client.run_command(command)
-    task_client.wait_for_command_termination()
 
 
 if __name__ == '__main__':

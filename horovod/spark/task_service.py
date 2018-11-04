@@ -14,7 +14,6 @@
 # ==============================================================================
 
 import threading
-import time
 
 from horovod.spark.network import BasicService, BasicClient
 from horovod.spark import safe_shell_exec
@@ -28,15 +27,6 @@ class RunCommandRequest(object):
 
 class RunCommandResponse(object):
     pass
-
-
-class CommandTerminatedRequest(object):
-    pass
-
-
-class CommandTerminatedResponse(object):
-    def __init__(self, flag):
-        self.flag = flag
 
 
 class InitialRegistrationCompleteRequest(object):
@@ -68,12 +58,15 @@ class TaskService(BasicService):
 
     def _handle(self, req, client_address):
         if isinstance(req, RunCommandRequest):
+            self._wait_cond.acquire()
             if self._command_thread is None:
                 # We only permit executing exactly one command, so this is idempotent.
                 self._command_thread = threading.Thread(target=safe_shell_exec.execute,
                                                         args=(req.command,))
                 self._command_thread.daemon = True
                 self._command_thread.start()
+            self._wait_cond.notify_all()
+            self._wait_cond.release()
             return RunCommandResponse()
 
         if isinstance(req, InitialRegistrationCompleteRequest):
@@ -82,9 +75,6 @@ class TaskService(BasicService):
             self._wait_cond.notify_all()
             self._wait_cond.release()
             return InitialRegistrationCompleteResponse()
-
-        if isinstance(req, CommandTerminatedRequest):
-            return CommandTerminatedResponse(not self._command_thread.is_alive())
 
         if isinstance(req, CodeResultRequest):
             self._fn_result = req.result
@@ -103,6 +93,17 @@ class TaskService(BasicService):
                 raise Exception('Timed out waiting for tasks to start.')
         self._wait_cond.release()
 
+    def wait_for_command_start(self, timeout):
+        self._wait_cond.acquire()
+        while self._command_thread is None:
+            self._wait_cond.wait(timeout.remaining())
+            if timeout.timed_out():
+                raise Exception('Timed out waiting for command to run.')
+        self._wait_cond.release()
+
+    def wait_for_command_termination(self):
+        self._command_thread.join()
+
 
 class TaskClient(BasicClient):
     def __init__(self, index, task_addresses):
@@ -115,18 +116,5 @@ class TaskClient(BasicClient):
     def notify_initial_registration_complete(self):
         self._send(InitialRegistrationCompleteRequest())
 
-    def command_terminated(self):
-        resp = self._send(CommandTerminatedRequest())
-        return resp.flag
-
     def send_code_result(self, result):
         self._send(CodeResultRequest(result))
-
-    def wait_for_command_termination(self, delay=1):
-        while True:
-            try:
-                if self.command_terminated():
-                    break
-            except:
-                break
-            time.sleep(delay)

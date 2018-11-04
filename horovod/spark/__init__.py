@@ -35,7 +35,8 @@ def _make_mapper(driver_addresses, num_proc, start_timeout):
             next_task_addresses = driver_client.all_task_addresses(next_task_index)
             next_task_client = task_service.TaskClient(next_task_index, next_task_addresses)
             driver_client.register_task_to_task_addresses(next_task_index, next_task_client.addresses())
-            driver_client.wait_for_termination()
+            task.wait_for_command_start(tmout)
+            task.wait_for_command_termination()
             yield task.fn_result()
         finally:
             task.shutdown()
