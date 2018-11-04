@@ -35,8 +35,16 @@ def _make_mapper(driver_addresses, num_proc, start_timeout):
             next_task_addresses = driver_client.all_task_addresses(next_task_index)
             next_task_client = task_service.TaskClient(next_task_index, next_task_addresses)
             driver_client.register_task_to_task_addresses(next_task_index, next_task_client.addresses())
-            task.wait_for_command_start(tmout)
-            task.wait_for_command_termination()
+            task_indices_on_this_host = driver_client.task_host_hash_indices(host_hash.host_hash())
+            if task_indices_on_this_host[0] == index:
+                # Task with first index will execute orted that will run mpirun_exec_fn for all tasks.
+                task.wait_for_command_start(tmout)
+                task.wait_for_command_termination()
+            else:
+                # The rest of tasks need to wait for the first task to finish.
+                first_task_addresses = driver_client.all_task_addresses(task_indices_on_this_host[0])
+                first_task_client = task_service.TaskClient(task_indices_on_this_host[0], first_task_addresses)
+                first_task_client.wait_for_command_termination()
             yield task.fn_result()
         finally:
             task.shutdown()

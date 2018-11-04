@@ -14,6 +14,7 @@
 # ==============================================================================
 
 import threading
+import time
 
 from horovod.spark.network import BasicService, BasicClient
 from horovod.spark import safe_shell_exec
@@ -27,6 +28,15 @@ class RunCommandRequest(object):
 
 class RunCommandResponse(object):
     pass
+
+
+class CommandTerminatedRequest(object):
+    pass
+
+
+class CommandTerminatedResponse(object):
+    def __init__(self, flag):
+        self.flag = flag
 
 
 class InitialRegistrationCompleteRequest(object):
@@ -76,6 +86,13 @@ class TaskService(BasicService):
             self._wait_cond.release()
             return InitialRegistrationCompleteResponse()
 
+        if isinstance(req, CommandTerminatedRequest):
+            self._wait_cond.acquire()
+            terminated = (self._command_thread is not None and
+                          not self._command_thread.is_alive())
+            self._wait_cond.release()
+            return CommandTerminatedResponse(terminated)
+
         if isinstance(req, CodeResultRequest):
             self._fn_result = req.result
             return CodeResultResponse()
@@ -116,5 +133,18 @@ class TaskClient(BasicClient):
     def notify_initial_registration_complete(self):
         self._send(InitialRegistrationCompleteRequest())
 
+    def command_terminated(self):
+        resp = self._send(CommandTerminatedRequest())
+        return resp.flag
+
     def send_code_result(self, result):
         self._send(CodeResultRequest(result))
+
+    def wait_for_command_termination(self, delay=1):
+        while True:
+            try:
+                if self.command_terminated():
+                    break
+            except:
+                break
+            time.sleep(delay)
