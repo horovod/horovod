@@ -103,26 +103,30 @@ class DriverService(BasicService):
     def _handle(self, req, client_address):
         if isinstance(req, RegisterRequest):
             self._wait_cond.acquire()
-            assert 0 <= req.index < self._num_proc
-            self._all_task_addresses[req.index] = req.task_addresses
-            # Just use source address for driver for fast probing.
-            self._task_addresses_for_driver[req.index] = \
-                self._filter_by_ip(req.task_addresses, client_address[0])
-            # Make host hash -> indices map.
-            if req.host_hash not in self._task_host_hash_indices:
-                self._task_host_hash_indices[req.host_hash] = []
-            self._task_host_hash_indices[req.host_hash].append(req.index)
-            self._task_host_hash_indices[req.host_hash].sort()
-            self._wait_cond.notify_all()
-            self._wait_cond.release()
+            try:
+                assert 0 <= req.index < self._num_proc
+                self._all_task_addresses[req.index] = req.task_addresses
+                # Just use source address for driver for fast probing.
+                self._task_addresses_for_driver[req.index] = \
+                    self._filter_by_ip(req.task_addresses, client_address[0])
+                # Make host hash -> indices map.
+                if req.host_hash not in self._task_host_hash_indices:
+                    self._task_host_hash_indices[req.host_hash] = []
+                self._task_host_hash_indices[req.host_hash].append(req.index)
+                self._task_host_hash_indices[req.host_hash].sort()
+            finally:
+                self._wait_cond.notify_all()
+                self._wait_cond.release()
             return RegisterResponse()
 
         if isinstance(req, RegisterTaskToTaskAddressesRequest):
             self._wait_cond.acquire()
-            assert 0 <= req.index < self._num_proc
-            self._task_addresses_for_tasks[req.index] = req.task_addresses
-            self._wait_cond.notify_all()
-            self._wait_cond.release()
+            try:
+                assert 0 <= req.index < self._num_proc
+                self._task_addresses_for_tasks[req.index] = req.task_addresses
+            finally:
+                self._wait_cond.notify_all()
+                self._wait_cond.release()
             return RegisterResponse()
 
         if isinstance(req, TaskAddressesRequest):
@@ -162,20 +166,24 @@ class DriverService(BasicService):
 
     def wait_for_initial_registration(self, timeout):
         self._wait_cond.acquire()
-        while len(self._all_task_addresses) < self._num_proc:
-            self._wait_cond.wait(timeout.remaining())
-            if timeout.timed_out():
-                raise Exception('Timed out waiting for tasks to start.')
-        self._wait_cond.release()
+        try:
+            while len(self._all_task_addresses) < self._num_proc:
+                self._wait_cond.wait(timeout.remaining())
+                if timeout.timed_out():
+                    raise Exception('Timed out waiting for tasks to start.')
+        finally:
+            self._wait_cond.release()
 
     def wait_for_task_to_task_address_updates(self, timeout):
         self._wait_cond.acquire()
-        while len(self._task_addresses_for_tasks) < self._num_proc:
-            self._wait_cond.wait(timeout.remaining())
-            if timeout.timed_out():
-                raise Exception('Timed out waiting for tasks to update '
-                                'task-to-task addresses.')
-        self._wait_cond.release()
+        try:
+            while len(self._task_addresses_for_tasks) < self._num_proc:
+                self._wait_cond.wait(timeout.remaining())
+                if timeout.timed_out():
+                    raise Exception('Timed out waiting for tasks to update '
+                                    'task-to-task addresses.')
+        finally:
+            self._wait_cond.release()
 
 
 class DriverClient(BasicClient):

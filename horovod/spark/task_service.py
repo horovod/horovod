@@ -69,28 +69,34 @@ class TaskService(BasicService):
     def _handle(self, req, client_address):
         if isinstance(req, RunCommandRequest):
             self._wait_cond.acquire()
-            if self._command_thread is None:
-                # We only permit executing exactly one command, so this is idempotent.
-                self._command_thread = threading.Thread(target=safe_shell_exec.execute,
-                                                        args=(req.command,))
-                self._command_thread.daemon = True
-                self._command_thread.start()
-            self._wait_cond.notify_all()
-            self._wait_cond.release()
+            try:
+                if self._command_thread is None:
+                    # We only permit executing exactly one command, so this is idempotent.
+                    self._command_thread = threading.Thread(target=safe_shell_exec.execute,
+                                                            args=(req.command,))
+                    self._command_thread.daemon = True
+                    self._command_thread.start()
+            finally:
+                self._wait_cond.notify_all()
+                self._wait_cond.release()
             return RunCommandResponse()
 
         if isinstance(req, InitialRegistrationCompleteRequest):
             self._wait_cond.acquire()
-            self._initial_registration_complete = True
-            self._wait_cond.notify_all()
-            self._wait_cond.release()
+            try:
+                self._initial_registration_complete = True
+            finally:
+                self._wait_cond.notify_all()
+                self._wait_cond.release()
             return InitialRegistrationCompleteResponse()
 
         if isinstance(req, CommandTerminatedRequest):
             self._wait_cond.acquire()
-            terminated = (self._command_thread is not None and
-                          not self._command_thread.is_alive())
-            self._wait_cond.release()
+            try:
+                terminated = (self._command_thread is not None and
+                              not self._command_thread.is_alive())
+            finally:
+                self._wait_cond.release()
             return CommandTerminatedResponse(terminated)
 
         if isinstance(req, CodeResultRequest):
@@ -104,19 +110,23 @@ class TaskService(BasicService):
 
     def wait_for_initial_registration(self, timeout):
         self._wait_cond.acquire()
-        while not self._initial_registration_complete:
-            self._wait_cond.wait(timeout.remaining())
-            if timeout.timed_out():
-                raise Exception('Timed out waiting for tasks to start.')
-        self._wait_cond.release()
+        try:
+            while not self._initial_registration_complete:
+                self._wait_cond.wait(timeout.remaining())
+                if timeout.timed_out():
+                    raise Exception('Timed out waiting for tasks to start.')
+        finally:
+            self._wait_cond.release()
 
     def wait_for_command_start(self, timeout):
         self._wait_cond.acquire()
-        while self._command_thread is None:
-            self._wait_cond.wait(timeout.remaining())
-            if timeout.timed_out():
-                raise Exception('Timed out waiting for command to run.')
-        self._wait_cond.release()
+        try:
+            while self._command_thread is None:
+                self._wait_cond.wait(timeout.remaining())
+                if timeout.timed_out():
+                    raise Exception('Timed out waiting for command to run.')
+        finally:
+            self._wait_cond.release()
 
     def wait_for_command_termination(self):
         self._command_thread.join()
