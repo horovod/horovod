@@ -15,28 +15,63 @@
 
 import os
 import psutil
-import sys
+import signal
 import subprocess
+import sys
 import threading
+import time
+
+
+KILL_TIMEOUT = 5
+
+
+def kill_children():
+    p = psutil.Process()
+
+    # Ask executor to terminate itself and children gracefully.
+    for child in p.children():
+        try:
+            child.terminate()
+        except psutil.NoSuchProcess:
+            pass
+
+    # Escalate to SIGKILL to children (recursively).
+    time.sleep(KILL_TIMEOUT)
+    for child in p.children(recursive=True):
+        try:
+            child.kill()
+        except psutil.NoSuchProcess:
+            pass
 
 
 def execute(command):
     (r, w) = os.pipe()
-    child = os.fork()
-    if child == 0:
+    middleman_pid = os.fork()
+    if middleman_pid == 0:
         os.close(w)
         os.setpgid(0, 0)
-        middleman = psutil.Process()
+
+        sigterm_received = threading.Event()
+
+        def set_sigterm_received(signum, frame):
+            sigterm_received.set()
+
+        signal.signal(signal.SIGINT, set_sigterm_received)
+        signal.signal(signal.SIGTERM, set_sigterm_received)
 
         def kill_children_if_parent_dies():
             os.read(r, 1)
-            for child in middleman.children(recursive=True):
-                try:
-                    child.kill()
-                except psutil.NoSuchProcess:
-                    pass
+            kill_children()
 
         bg = threading.Thread(target=kill_children_if_parent_dies)
+        bg.daemon = True
+        bg.start()
+
+        def kill_children_if_sigterm_received():
+            sigterm_received.wait()
+            kill_children()
+
+        bg = threading.Thread(target=kill_children_if_sigterm_received)
         bg.daemon = True
         bg.start()
 
@@ -45,7 +80,19 @@ def execute(command):
         os._exit(exit_code)
 
     os.close(r)
-    _, status = os.wait()
+    try:
+        _, status = os.waitpid(middleman_pid, 0)
+    except:
+        # interrupted, send middleman TERM signal which will terminate children
+        os.kill(middleman_pid, signal.SIGTERM)
+        while True:
+            try:
+                _, status = os.waitpid(middleman_pid, 0)
+                break
+            except:
+                # interrupted, wait for middleman to finish
+                pass
+
     exit_code = status >> 8
     return exit_code
 
