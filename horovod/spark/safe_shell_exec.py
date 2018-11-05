@@ -22,26 +22,34 @@ import threading
 import time
 
 
-KILL_TIMEOUT = 5
+GRACEFUL_TERMINATION_TIME = 5
 
 
-def kill_children():
-    p = psutil.Process()
+def terminate_executor_shell_and_children(pid):
+    p = psutil.Process(pid)
 
-    # Ask executor to terminate itself and children gracefully.
+    # Terminate children gracefully.
     for child in p.children():
         try:
             child.terminate()
         except psutil.NoSuchProcess:
             pass
 
-    # Escalate to SIGKILL to children (recursively).
-    time.sleep(KILL_TIMEOUT)
+    # Wait for graceful termination.
+    time.sleep(GRACEFUL_TERMINATION_TIME)
+
+    # Send STOP to executor shell to stop progress.
+    p.send_signal(signal.SIGSTOP)
+
+    # Kill children recursively.
     for child in p.children(recursive=True):
         try:
             child.kill()
         except psutil.NoSuchProcess:
             pass
+
+    # Kill shell itself.
+    p.kill()
 
 
 def execute(command):
@@ -51,6 +59,8 @@ def execute(command):
         os.close(w)
         os.setpgid(0, 0)
 
+        executor_shell = subprocess.Popen(command, shell=True)
+
         sigterm_received = threading.Event()
 
         def set_sigterm_received(signum, frame):
@@ -59,24 +69,23 @@ def execute(command):
         signal.signal(signal.SIGINT, set_sigterm_received)
         signal.signal(signal.SIGTERM, set_sigterm_received)
 
-        def kill_children_if_parent_dies():
+        def kill_executor_children_if_parent_dies():
             os.read(r, 1)
-            kill_children()
+            terminate_executor_shell_and_children(executor_shell.pid)
 
-        bg = threading.Thread(target=kill_children_if_parent_dies)
+        bg = threading.Thread(target=kill_executor_children_if_parent_dies)
         bg.daemon = True
         bg.start()
 
-        def kill_children_if_sigterm_received():
+        def kill_executor_children_if_sigterm_received():
             sigterm_received.wait()
-            kill_children()
+            terminate_executor_shell_and_children(executor_shell.pid)
 
-        bg = threading.Thread(target=kill_children_if_sigterm_received)
+        bg = threading.Thread(target=kill_executor_children_if_sigterm_received)
         bg.daemon = True
         bg.start()
 
-        executor = subprocess.Popen(command, shell=True)
-        exit_code = executor.wait()
+        exit_code = executor_shell.wait()
         os._exit(exit_code)
 
     os.close(r)

@@ -15,11 +15,26 @@
 
 import os
 import sys
+import threading
+import time
 
 from horovod.spark import codec, driver_service, task_service
 
 
+def parent_process_monitor(initial_ppid):
+    while True:
+        if initial_ppid != os.getppid():
+            # Parent process died, terminate
+            os._exit(1)
+        time.sleep(1)
+
+
 def main(driver_addresses):
+    # Die if parent process terminates
+    bg = threading.Thread(target=parent_process_monitor, args=(os.getppid(),))
+    bg.daemon = True
+    bg.start()
+
     rank = int(os.environ['OMPI_COMM_WORLD_RANK'])
     driver_client = driver_service.DriverClient(driver_addresses)
     task_index = driver_client.task_index_by_rank(rank)
