@@ -102,6 +102,7 @@ class DriverService(BasicService):
         self._task_addresses_for_tasks = {}
         self._task_host_hash_indices = {}
         self._ranks_to_indices = None
+        self._spark_job_failed = False
         self._wait_cond = threading.Condition()
 
     def _handle(self, req, client_address):
@@ -168,24 +169,40 @@ class DriverService(BasicService):
     def set_ranks_to_indices(self, ranks_to_indices):
         self._ranks_to_indices = ranks_to_indices
 
+    def notify_spark_job_failed(self):
+        self._wait_cond.acquire()
+        try:
+            self._spark_job_failed = True
+        finally:
+            self._wait_cond.notify_all()
+            self._wait_cond.release()
+
+    def check_for_spark_job_failure(self):
+        if self._spark_job_failed:
+            raise Exception('Spark job has failed, see the error above.')
+
     def wait_for_initial_registration(self, timeout):
         self._wait_cond.acquire()
         try:
-            while len(self._all_task_addresses) < self._num_proc:
+            while (len(self._all_task_addresses) < self._num_proc and
+                   not self._spark_job_failed):
                 self._wait_cond.wait(timeout.remaining())
                 if timeout.timed_out():
                     raise Exception('Timed out waiting for tasks to start.')
+            self.check_for_spark_job_failure()
         finally:
             self._wait_cond.release()
 
     def wait_for_task_to_task_address_updates(self, timeout):
         self._wait_cond.acquire()
         try:
-            while len(self._task_addresses_for_tasks) < self._num_proc:
+            while (len(self._task_addresses_for_tasks) < self._num_proc and
+                   not self._spark_job_failed):
                 self._wait_cond.wait(timeout.remaining())
                 if timeout.timed_out():
                     raise Exception('Timed out waiting for tasks to update '
                                     'task-to-task addresses.')
+            self.check_for_spark_job_failure()
         finally:
             self._wait_cond.release()
 
