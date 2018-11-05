@@ -65,7 +65,7 @@ def _make_spark_thread(spark_context, num_proc, driver, start_timeout, result_qu
     return spark_thread
 
 
-def train(fn, num_proc=None, start_timeout=180):
+def train(fn, args=(), kwargs={}, num_proc=None, start_timeout=180):
     spark_context = pyspark.SparkContext._active_spark_context
     if spark_context is None:
         raise Exception('Could not find an active SparkContext, are you running in a PySpark session?')
@@ -75,7 +75,7 @@ def train(fn, num_proc=None, start_timeout=180):
 
     result_queue = queue.Queue(1)
     tmout = timeout.Timeout(start_timeout)
-    driver = driver_service.DriverService(num_proc, fn)
+    driver = driver_service.DriverService(num_proc, fn, args, kwargs)
     spark_thread = _make_spark_thread(spark_context, num_proc, driver, start_timeout, result_queue)
     try:
         driver.wait_for_initial_registration(tmout)

@@ -82,17 +82,21 @@ class CodeRequest(object):
 
 
 class CodeResponse(object):
-    def __init__(self, fn):
+    def __init__(self, fn, args, kwargs):
         self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
 
 
 class DriverService(BasicService):
     NAME = 'driver service'
 
-    def __init__(self, num_proc, fn):
+    def __init__(self, num_proc, fn, args, kwargs):
         super(DriverService, self).__init__(DriverService.NAME)
         self._num_proc = num_proc
         self._fn = fn
+        self._args = args
+        self._kwargs = kwargs
         self._all_task_addresses = {}
         self._task_addresses_for_driver = {}
         self._task_addresses_for_tasks = {}
@@ -139,7 +143,7 @@ class DriverService(BasicService):
             return TaskIndexByRankResponse(self._ranks_to_indices[req.rank])
 
         if isinstance(req, CodeRequest):
-            return CodeResponse(self._fn)
+            return CodeResponse(self._fn, self._args, self._kwargs)
 
         return super(DriverService, self)._handle(req, client_address)
 
@@ -210,4 +214,4 @@ class DriverClient(BasicClient):
 
     def code(self):
         resp = self._send(CodeRequest())
-        return resp.fn
+        return resp.fn, resp.args, resp.kwargs
