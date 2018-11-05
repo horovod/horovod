@@ -69,7 +69,7 @@ def _make_spark_thread(spark_context, num_proc, driver, start_timeout, result_qu
     return spark_thread
 
 
-def train(fn, args=(), kwargs={}, num_proc=None, start_timeout=180):
+def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=180):
     spark_context = pyspark.SparkContext._active_spark_context
     if spark_context is None:
         raise Exception('Could not find an active SparkContext, are you running in a PySpark session?')
