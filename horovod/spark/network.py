@@ -61,11 +61,16 @@ class BasicService(object):
 
         class _Handler(SocketServer.StreamRequestHandler):
             def handle(self):
-                req = cloudpickle.load(self.rfile)
-                resp = server._handle(req, self.client_address)
-                if not resp:
-                    raise Exception('Handler did not return a response.')
-                cloudpickle.dump(resp, self.wfile)
+                try:
+                    req = cloudpickle.load(self.rfile)
+                    resp = server._handle(req, self.client_address)
+                    if not resp:
+                        raise Exception('Handler did not return a response.')
+                    cloudpickle.dump(resp, self.wfile)
+                except EOFError:
+                    # Happens when client is abruptly terminated, don't want to pollute the logs.
+                    # TODO: consider putting all these in the debug logs.
+                    pass
 
         return _Handler
 

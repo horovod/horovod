@@ -21,9 +21,9 @@ import threading
 from horovod.spark import codec, host_hash, task_service, driver_service, timeout, safe_shell_exec
 
 
-def _make_mapper(driver_addresses, num_proc, start_timeout):
+def _make_mapper(driver_addresses, num_proc, start_timeout_at):
     def _mapper(index, _):
-        tmout = timeout.Timeout(start_timeout)
+        tmout = timeout.Timeout(start_timeout_at)
         task = task_service.TaskService(index)
         try:
             driver_client = driver_service.DriverClient(driver_addresses)
@@ -51,14 +51,14 @@ def _make_mapper(driver_addresses, num_proc, start_timeout):
     return _mapper
 
 
-def _make_spark_thread(spark_context, num_proc, driver, start_timeout, result_queue):
+def _make_spark_thread(spark_context, num_proc, driver, start_timeout_at, result_queue):
     def run_spark():
         try:
             procs = spark_context.range(0, numSlices=num_proc)
             if hasattr(procs, 'barrier'):
                 # Use .barrier() functionality if it's available.
                 procs = procs.barrier()
-            result = procs.mapPartitionsWithIndex(_make_mapper(driver.addresses(), num_proc, start_timeout)).collect()
+            result = procs.mapPartitionsWithIndex(_make_mapper(driver.addresses(), num_proc, start_timeout_at)).collect()
             result_queue.put(result)
         except:
             driver.notify_spark_job_failed()
@@ -78,9 +78,10 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=180):
         num_proc = spark_context.defaultParallelism
 
     result_queue = queue.Queue(1)
-    tmout = timeout.Timeout(start_timeout)
+    start_timeout_at = timeout.timeout_at(start_timeout)
+    tmout = timeout.Timeout(start_timeout_at)
     driver = driver_service.DriverService(num_proc, fn, args, kwargs)
-    spark_thread = _make_spark_thread(spark_context, num_proc, driver, start_timeout, result_queue)
+    spark_thread = _make_spark_thread(spark_context, num_proc, driver, start_timeout_at, result_queue)
     try:
         driver.wait_for_initial_registration(tmout)
         task_clients = [task_service.TaskClient(index, driver.task_addresses_for_driver(index))
@@ -135,4 +136,5 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=180):
     driver.check_for_spark_job_failure()
 
     # If there's no exception, execution results are in this queue.
-    return result_queue.get_nowait()
+    results = result_queue.get_nowait()
+    return [results[index] for index in ranks_to_indices]

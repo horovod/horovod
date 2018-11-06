@@ -151,10 +151,10 @@ class TaskClient(BasicClient):
         self._send(CodeResultRequest(result))
 
     def wait_for_command_termination(self, delay=1):
-        while True:
-            try:
+        try:
+            while True:
                 if self.command_terminated():
                     break
-            except:
-                break
             time.sleep(delay)
+        except:
+            pass
