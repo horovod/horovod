@@ -52,14 +52,14 @@ def terminate_executor_shell_and_children(pid):
     p.kill()
 
 
-def execute(command):
+def execute(command, env=None):
     (r, w) = os.pipe()
     middleman_pid = os.fork()
     if middleman_pid == 0:
         os.close(w)
         os.setpgid(0, 0)
 
-        executor_shell = subprocess.Popen(command, shell=True)
+        executor_shell = subprocess.Popen(command, shell=True, env=env)
 
         sigterm_received = threading.Event()
 

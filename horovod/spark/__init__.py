@@ -123,7 +123,8 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=180):
                                    for host_hash in host_hashes),
                     common_intfs=','.join(common_intfs),
                     env=' '.join('-x %s' % key for key in os.environ.keys()),
-                    encoded_driver_addresses=codec.dumps_base64(driver.addresses())))
+                    encoded_driver_addresses=codec.dumps_base64(driver.addresses())),
+            env=os.environ)
         if exit_code != 0:
             raise Exception('mpirun exited with code %d, see the error above.' % exit_code)
     finally:
