@@ -154,6 +154,9 @@ class DriverService(BasicService):
                 if ip == target_ip:
                     return {intf: [(ip, port)]}
 
+    def registered_task_indices(self):
+        return self._all_task_addresses.keys()
+
     def all_task_addresses(self, index):
         return self._all_task_addresses[index]
 
@@ -184,25 +187,23 @@ class DriverService(BasicService):
     def wait_for_initial_registration(self, timeout):
         self._wait_cond.acquire()
         try:
-            while (len(self._all_task_addresses) < self._num_proc and
-                   not self._spark_job_failed):
+            while len(self._all_task_addresses) < self._num_proc:
+                self.check_for_spark_job_failure()
                 self._wait_cond.wait(timeout.remaining())
                 if timeout.timed_out():
                     raise Exception('Timed out waiting for tasks to start.')
-            self.check_for_spark_job_failure()
         finally:
             self._wait_cond.release()
 
     def wait_for_task_to_task_address_updates(self, timeout):
         self._wait_cond.acquire()
         try:
-            while (len(self._task_addresses_for_tasks) < self._num_proc and
-                   not self._spark_job_failed):
+            while len(self._task_addresses_for_tasks) < self._num_proc:
+                self.check_for_spark_job_failure()
                 self._wait_cond.wait(timeout.remaining())
                 if timeout.timed_out():
                     raise Exception('Timed out waiting for tasks to update '
                                     'task-to-task addresses.')
-            self.check_for_spark_job_failure()
         finally:
             self._wait_cond.release()
 

@@ -56,6 +56,15 @@ class CodeResultResponse(object):
     pass
 
 
+class InterruptWaitsRequest(object):
+    def __init__(self, reason):
+        self.reason = reason
+
+
+class InterruptWaitsResponse(object):
+    pass
+
+
 class TaskService(BasicService):
     NAME_FORMAT = 'task service #%d'
 
@@ -65,6 +74,8 @@ class TaskService(BasicService):
         self._wait_cond = threading.Condition()
         self._command_thread = None
         self._fn_result = None
+        self._interrupt_waits = False
+        self._interrupt_reason = None
 
     def _handle(self, req, client_address):
         if isinstance(req, RunCommandRequest):
@@ -103,6 +114,16 @@ class TaskService(BasicService):
             self._fn_result = req.result
             return CodeResultResponse()
 
+        if isinstance(req, InterruptWaitsRequest):
+            self._wait_cond.acquire()
+            try:
+                self._interrupt_reason = req.reason
+                self._interrupt_waits = True
+            finally:
+                self._wait_cond.notify_all()
+                self._wait_cond.release()
+            return InterruptWaitsResponse()
+
         return super(TaskService, self)._handle(req, client_address)
 
     def fn_result(self):
@@ -112,6 +133,8 @@ class TaskService(BasicService):
         self._wait_cond.acquire()
         try:
             while not self._initial_registration_complete:
+                if self._interrupt_waits:
+                    raise Exception('Interrupted waiting for tasks to start: %s' % self._interrupt_reason)
                 self._wait_cond.wait(timeout.remaining())
                 if timeout.timed_out():
                     raise Exception('Timed out waiting for tasks to start.')
@@ -122,6 +145,8 @@ class TaskService(BasicService):
         self._wait_cond.acquire()
         try:
             while self._command_thread is None:
+                if self._interrupt_waits:
+                    raise Exception('Interrupted waiting for command to run: %s' % self._interrupt_reason)
                 self._wait_cond.wait(timeout.remaining())
                 if timeout.timed_out():
                     raise Exception('Timed out waiting for command to run.')
@@ -149,6 +174,9 @@ class TaskClient(BasicClient):
 
     def send_code_result(self, result):
         self._send(CodeResultRequest(result))
+
+    def interrupt_waits(self, reason):
+        self._send(InterruptWaitsRequest(reason))
 
     def wait_for_command_termination(self, delay=1):
         try:

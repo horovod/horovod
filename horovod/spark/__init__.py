@@ -16,9 +16,12 @@
 import os
 import pyspark
 from six.moves import queue
+import sys
 import threading
 
-from horovod.spark import codec, host_hash, task_service, driver_service, timeout, safe_shell_exec
+from horovod.spark import codec, host_hash, task_service, driver_service, network, timeout, safe_shell_exec
+
+
 def task_fn(index, driver_addresses, num_proc, start_timeout_at):
     tmout = timeout.Timeout(start_timeout_at)
     task = task_service.TaskService(index)
@@ -143,9 +146,30 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=180):
             env=os.environ)
         if exit_code != 0:
             raise Exception('mpirun exited with code %d, see the error above.' % exit_code)
+    except:
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+
+        # Schedule driver for shutdown, so tasks trying to connect due to Spark retries will fail fast.
+        driver.drain(str(exc_value))
+
+        # Interrupt waiting tasks.  This is useful if the main flow quickly terminated, e.g. due to mpirun error,
+        # and tasks are still waiting for a command to be executed on them.  This request is best-effort and is
+        # not required for the proper shutdown, it just speeds it up and provides clear error message.
+        for index in driver.registered_task_indices():
+            # We only need to do this housekeeping while Spark Job is in progress.  If Spark job has finished,
+            # it means that all the tasks are already terminated.
+            if spark_thread.is_alive():
+                try:
+                    task_client = task_service.TaskClient(index, driver.task_addresses_for_driver(index))
+                    task_client.interrupt_waits(str(exc_value))
+                except:
+                    pass
+
+        # Re-raise the error.
+        raise exc_type, exc_value, exc_traceback
     finally:
-        driver.shutdown()
         spark_thread.join()
+        driver.shutdown()
 
     # Make sure Spark Job did not fail.
     driver.check_for_spark_job_failure()
