@@ -19,35 +19,48 @@ from six.moves import queue
 import threading
 
 from horovod.spark import codec, host_hash, task_service, driver_service, timeout, safe_shell_exec
+def task_fn(index, driver_addresses, num_proc, start_timeout_at):
+    tmout = timeout.Timeout(start_timeout_at)
+    task = task_service.TaskService(index)
+    try:
+        driver_client = driver_service.DriverClient(driver_addresses)
+        driver_client.register(index, task.addresses(), host_hash.host_hash())
+        task.wait_for_initial_registration(tmout)
+        # Tasks ping each other in a circular fashion to determine interfaces reachable within
+        # the cluster.
+        next_task_index = (index + 1) % num_proc
+        next_task_addresses = driver_client.all_task_addresses(next_task_index)
+        next_task_client = task_service.TaskClient(next_task_index, next_task_addresses)
+        driver_client.register_task_to_task_addresses(next_task_index, next_task_client.addresses())
+        task_indices_on_this_host = driver_client.task_host_hash_indices(host_hash.host_hash())
+        if task_indices_on_this_host[0] == index:
+            # Task with first index will execute orted that will run mpirun_exec_fn for all tasks.
+            task.wait_for_command_start(tmout)
+            task.wait_for_command_termination()
+        else:
+            # The rest of tasks need to wait for the first task to finish.
+            first_task_addresses = driver_client.all_task_addresses(task_indices_on_this_host[0])
+            first_task_client = task_service.TaskClient(task_indices_on_this_host[0], first_task_addresses)
+            first_task_client.wait_for_command_termination()
+        return task.fn_result()
+    except network.DrainError as e:
+        raise Exception('Terminating due to an earlier error: %s' % str(e))
+    finally:
+        task.shutdown()
 
 
 def _make_mapper(driver_addresses, num_proc, start_timeout_at):
     def _mapper(index, _):
-        tmout = timeout.Timeout(start_timeout_at)
-        task = task_service.TaskService(index)
-        try:
-            driver_client = driver_service.DriverClient(driver_addresses)
-            driver_client.register(index, task.addresses(), host_hash.host_hash())
-            task.wait_for_initial_registration(tmout)
-            # Tasks ping each other in a circular fashion to determine interfaces reachable within
-            # the cluster.
-            next_task_index = (index + 1) % num_proc
-            next_task_addresses = driver_client.all_task_addresses(next_task_index)
-            next_task_client = task_service.TaskClient(next_task_index, next_task_addresses)
-            driver_client.register_task_to_task_addresses(next_task_index, next_task_client.addresses())
-            task_indices_on_this_host = driver_client.task_host_hash_indices(host_hash.host_hash())
-            if task_indices_on_this_host[0] == index:
-                # Task with first index will execute orted that will run mpirun_exec_fn for all tasks.
-                task.wait_for_command_start(tmout)
-                task.wait_for_command_termination()
-            else:
-                # The rest of tasks need to wait for the first task to finish.
-                first_task_addresses = driver_client.all_task_addresses(task_indices_on_this_host[0])
-                first_task_client = task_service.TaskClient(task_indices_on_this_host[0], first_task_addresses)
-                first_task_client.wait_for_command_termination()
-            yield task.fn_result()
-        finally:
-            task.shutdown()
+        yield task_fn(index, driver_addresses, num_proc, start_timeout_at)
+    return _mapper
+
+
+def _make_barrier_mapper(driver_addresses, num_proc, start_timeout_at):
+    def _mapper(_):
+        ctx = pyspark.BarrierTaskContext.get()
+        ctx.barrier()
+        index = ctx.partitionId()
+        yield task_fn(index, driver_addresses, num_proc, start_timeout_at)
     return _mapper
 
 
@@ -58,7 +71,9 @@ def _make_spark_thread(spark_context, num_proc, driver, start_timeout_at, result
             if hasattr(procs, 'barrier'):
                 # Use .barrier() functionality if it's available.
                 procs = procs.barrier()
-            result = procs.mapPartitionsWithIndex(_make_mapper(driver.addresses(), num_proc, start_timeout_at)).collect()
+                result = procs.mapPartitions(_make_barrier_mapper(driver.addresses(), num_proc, start_timeout_at)).collect()
+            else:
+                result = procs.mapPartitionsWithIndex(_make_mapper(driver.addresses(), num_proc, start_timeout_at)).collect()
             result_queue.put(result)
         except:
             driver.notify_spark_job_failed()
