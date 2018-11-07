@@ -47,7 +47,10 @@ def task_fn(index, driver_addresses, num_proc, start_timeout_at):
             first_task_client.wait_for_command_termination()
         return task.fn_result()
     except network.DrainError as e:
-        raise Exception('Terminating due to an earlier error: %s' % str(e))
+        # Drop traceback for Python 3 since it's not informative in this case.
+        exc = Exception('Terminating due to an earlier error: %s' % str(e))
+        exc.__cause__ = None
+        raise exc
     finally:
         task.shutdown()
 
@@ -118,7 +121,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=180):
 
         # Determine the index grouping based on host hashes.
         # Barrel shift until index 0 is in the first host.
-        host_hashes = driver.task_host_hash_indices().keys()
+        host_hashes = list(driver.task_host_hash_indices().keys())
         host_hashes.sort()
         while 0 not in driver.task_host_hash_indices()[host_hashes[0]]:
             host_hashes = host_hashes[1:] + host_hashes[:1]
@@ -135,38 +138,40 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=180):
             '-mca pml ob1 -mca btl ^openib -mca btl_tcp_if_include {common_intfs} '
             '-x NCCL_DEBUG=INFO -x NCCL_SOCKET_IFNAME={common_intfs} '
             '{env} '  # expect a lot of environment variables
-            '-mca plm_rsh_agent "python -m horovod.spark.mpirun_rsh {encoded_driver_addresses}" '
-            'python -m horovod.spark.mpirun_exec_fn {encoded_driver_addresses} '
+            '-mca plm_rsh_agent "{python} -m horovod.spark.mpirun_rsh {encoded_driver_addresses}" '
+            '{python} -m horovod.spark.mpirun_exec_fn {encoded_driver_addresses} '
             .format(num_proc=num_proc,
                     hosts=','.join('%s:%d' % (host_hash, len(driver.task_host_hash_indices()[host_hash]))
                                    for host_hash in host_hashes),
                     common_intfs=','.join(common_intfs),
                     env=' '.join('-x %s' % key for key in os.environ.keys()),
+                    python=sys.executable,
                     encoded_driver_addresses=codec.dumps_base64(driver.addresses())),
             env=os.environ)
         if exit_code != 0:
             raise Exception('mpirun exited with code %d, see the error above.' % exit_code)
-    except:
-        exc_type, exc_value, exc_traceback = sys.exc_info()
+    except Exception as e:
+        try:
+            # Naked raise re-raises last exception.  Since notifications below use exception-swallowing which could
+            # corrupt the last exception, we immediately re-raise here to ensure the correct exception is raised
+            # and use finally to execute the notification code before it happens.
+            raise
+        finally:
+            # Schedule driver for shutdown, so tasks trying to connect due to Spark retries will fail fast.
+            driver.drain(str(e))
 
-        # Schedule driver for shutdown, so tasks trying to connect due to Spark retries will fail fast.
-        driver.drain(str(exc_value))
-
-        # Interrupt waiting tasks.  This is useful if the main flow quickly terminated, e.g. due to mpirun error,
-        # and tasks are still waiting for a command to be executed on them.  This request is best-effort and is
-        # not required for the proper shutdown, it just speeds it up and provides clear error message.
-        for index in driver.registered_task_indices():
-            # We only need to do this housekeeping while Spark Job is in progress.  If Spark job has finished,
-            # it means that all the tasks are already terminated.
-            if spark_thread.is_alive():
-                try:
-                    task_client = task_service.TaskClient(index, driver.task_addresses_for_driver(index))
-                    task_client.interrupt_waits(str(exc_value))
-                except:
-                    pass
-
-        # Re-raise the error.
-        raise exc_type, exc_value, exc_traceback
+            # Interrupt waiting tasks.  This is useful if the main flow quickly terminated, e.g. due to mpirun error,
+            # and tasks are still waiting for a command to be executed on them.  This request is best-effort and is
+            # not required for the proper shutdown, it just speeds it up and provides clear error message.
+            for index in driver.registered_task_indices():
+                # We only need to do this housekeeping while Spark Job is in progress.  If Spark job has finished,
+                # it means that all the tasks are already terminated.
+                if spark_thread.is_alive():
+                    try:
+                        task_client = task_service.TaskClient(index, driver.task_addresses_for_driver(index))
+                        task_client.interrupt_waits(str(e))
+                    except:
+                        pass
     finally:
         spark_thread.join()
         driver.shutdown()

@@ -18,7 +18,7 @@ from six.moves import queue
 import psutil
 import random
 import socket
-import SocketServer
+from six.moves import socketserver
 import threading
 
 
@@ -56,7 +56,7 @@ class BasicService(object):
         for port_offset in range(num_ports):
             try:
                 port = min_port + (start_port + port_offset) % num_ports
-                return SocketServer.ThreadingTCPServer(('0.0.0.0', port), self._make_handler())
+                return socketserver.ThreadingTCPServer(('0.0.0.0', port), self._make_handler())
             except:
                 pass
 
@@ -66,7 +66,7 @@ class BasicService(object):
     def _make_handler(self):
         server = self
 
-        class _Handler(SocketServer.StreamRequestHandler):
+        class _Handler(socketserver.StreamRequestHandler):
             def handle(self):
                 try:
                     req = cloudpickle.load(self.rfile)
@@ -201,7 +201,7 @@ class BasicClient(object):
 
     def _send(self, req):
         # Since all the addresses were vetted, use the first one.
-        addr = self._addresses.values()[0][0]
+        addr = list(self._addresses.values())[0][0]
         return self._send_one(addr, req)
 
     def addresses(self):
