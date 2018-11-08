@@ -957,6 +957,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         MPI_Win_fence(0, horovod_global.window);
         ACTIVITY_END_ALL(entries, timeline)
 
+        // Copy the result from MPI shared memory to rank-specific output buffer
         ACTIVITY_START_ALL(entries, timeline, COPY_ALLGATHER_OUTPUT)
         memcpy((void*)e.output->data(), horovod_global.shared_buffer,
                total_size * element_size);
