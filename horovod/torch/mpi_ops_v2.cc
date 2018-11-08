@@ -17,6 +17,7 @@
 #include <memory>
 #include <thread>
 #include <torch/extension.h>
+#include <torch/torch.h>
 
 #include "../common/operations.h"
 #include "adapter_v2.h"
@@ -39,7 +40,7 @@ std::string GetOpName(const std::string& prefix, const std::string& name,
   return prefix + ".noname." + std::to_string(handle);
 }
 
-int GetDeviceID(const at::Tensor& tensor) {
+int GetDeviceID(const ::torch::Tensor& tensor) {
   if (tensor.device().is_cuda()) {
     return tensor.device().index();
   }
@@ -48,7 +49,7 @@ int GetDeviceID(const at::Tensor& tensor) {
 
 } // namespace
 
-int DoAllreduce(at::Tensor tensor, at::Tensor output, int average,
+int DoAllreduce(::torch::Tensor tensor, ::torch::Tensor output, int average,
                 const std::string& name) {
   ThrowIfError(common::CheckInitialized());
 
@@ -74,14 +75,14 @@ int DoAllreduce(at::Tensor tensor, at::Tensor output, int average,
   return handle;
 }
 
-int DoAllreduceCudaOnCPU(at::Tensor tensor, at::Tensor output, int average,
+int DoAllreduceCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int average,
                          const std::string& name) {
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto device = GetDeviceID(tensor);
   auto cpu_buffer =
-      tensor.to(at::Device(at::DeviceType::CPU), /*non_blocking=*/true);
+      tensor.to(::torch::Device(::torch::kCPU), /*non_blocking=*/true);
   auto hvd_cpu_buffer = std::make_shared<TorchTensor>(cpu_buffer);
   auto ready_event = RecordReadyEvent(device);
 
@@ -108,7 +109,7 @@ int DoAllreduceCudaOnCPU(at::Tensor tensor, at::Tensor output, int average,
   return handle;
 }
 
-int DoAllgather(at::Tensor tensor, at::Tensor output, const std::string& name) {
+int DoAllgather(::torch::Tensor tensor, ::torch::Tensor output, const std::string& name) {
   ThrowIfError(common::CheckInitialized());
 
   auto device = GetDeviceID(tensor);
@@ -128,18 +129,18 @@ int DoAllgather(at::Tensor tensor, at::Tensor output, const std::string& name) {
   return handle;
 }
 
-int DoAllgatherCudaOnCPU(at::Tensor tensor, at::Tensor output,
+int DoAllgatherCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output,
                          const std::string& name) {
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto device = GetDeviceID(tensor);
   auto cpu_tensor =
-      tensor.to(at::Device(at::DeviceType::CPU), /*non_blocking=*/true);
+      tensor.to(::torch::Device(::torch::kCPU), /*non_blocking=*/true);
   auto hvd_cpu_tensor = std::make_shared<TorchTensor>(cpu_tensor);
   auto ready_event = RecordReadyEvent(device);
 
-  auto cpu_output = at::empty_like(cpu_tensor);
+  auto cpu_output = ::torch::empty_like(cpu_tensor);
   auto hvd_cpu_output = std::make_shared<TorchTensor>(cpu_output);
   auto hvd_context =
       std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_output);
@@ -162,7 +163,7 @@ int DoAllgatherCudaOnCPU(at::Tensor tensor, at::Tensor output,
   return handle;
 }
 
-int DoBroadcast(at::Tensor tensor, at::Tensor output, int root_rank,
+int DoBroadcast(::torch::Tensor tensor, ::torch::Tensor output, int root_rank,
                 const std::string& name) {
   ThrowIfError(common::CheckInitialized());
 
@@ -192,14 +193,14 @@ int DoBroadcast(at::Tensor tensor, at::Tensor output, int root_rank,
   return handle;
 }
 
-int DoBroadcastCudaOnCPU(at::Tensor tensor, at::Tensor output, int root_rank,
+int DoBroadcastCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int root_rank,
                          const std::string& name) {
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto device = GetDeviceID(tensor);
   auto cpu_buffer =
-      tensor.to(at::Device(at::DeviceType::CPU), /*non_blocking=*/true);
+      tensor.to(::torch::Device(::torch::kCPU), /*non_blocking=*/true);
   auto hvd_cpu_buffer = std::make_shared<TorchTensor>(cpu_buffer);
   auto ready_event = RecordReadyEvent(device);
 

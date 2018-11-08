@@ -23,9 +23,9 @@ TorchPersistentBuffer::TorchPersistentBuffer(int device, int64_t size)
     : device_(device) {
   with_device device_context(device_);
   if (device_ == CPU_DEVICE_ID) {
-    tensor_ = at::CPU(at::ScalarType::Byte).tensor({size});
+    tensor_ = ::torch::empty(size, ::torch::device(::torch::kCPU).dtype(::torch::kByte));
   } else {
-    tensor_ = at::CUDA(at::ScalarType::Byte).tensor({size});
+    tensor_ = ::torch::empty(size, ::torch::device(::torch::kCUDA).dtype(::torch::kByte));
   }
 }
 
@@ -34,25 +34,25 @@ TorchPersistentBuffer::AccessData(std::shared_ptr<OpContext> context) const {
   return tensor_.data_ptr();
 }
 
-TorchTensor::TorchTensor(at::Tensor tensor) : tensor_(tensor) {}
+TorchTensor::TorchTensor(::torch::Tensor tensor) : tensor_(tensor) {}
 
 const MPIDataType TorchTensor::dtype() const {
-  switch (tensor_.dtype()) {
-  case at::ScalarType::Byte:
+  switch (tensor_.scalar_type()) {
+  case ::torch::kByte:
     return common::HOROVOD_UINT8;
-  case at::ScalarType::Char:
+  case ::torch::kChar:
     return common::HOROVOD_INT8;
-  case at::ScalarType::Short:
+  case ::torch::kShort:
     return common::HOROVOD_INT16;
-  case at::ScalarType::Int:
+  case ::torch::kInt:
     return common::HOROVOD_INT32;
-  case at::ScalarType::Long:
+  case ::torch::kLong:
     return common::HOROVOD_INT64;
-  case at::ScalarType::Half:
+  case ::torch::kHalf:
     return common::HOROVOD_FLOAT16;
-  case at::ScalarType::Float:
+  case ::torch::kFloat:
     return common::HOROVOD_FLOAT32;
-  case at::ScalarType::Double:
+  case ::torch::kDouble:
     return common::HOROVOD_FLOAT64;
   default:
     throw std::logic_error("Invalid tensor type.");
@@ -73,7 +73,7 @@ int64_t TorchTensor::size() const {
   return tensor_.type().elementSizeInBytes() * tensor_.numel();
 }
 
-TorchOpContext::TorchOpContext(int device, at::Tensor output)
+TorchOpContext::TorchOpContext(int device, ::torch::Tensor output)
     : device_(device), output_(output) {}
 
 Status
@@ -108,6 +108,8 @@ void ThrowIfError(Status status) {
     throw std::logic_error(status.reason());
   case StatusType::ABORTED:
     throw std::runtime_error(status.reason());
+  case StatusType::INVALID_ARGUMENT:
+    throw std::invalid_argument(status.reason());
   default: // Includes UNKNOWN_ERROR
     throw std::runtime_error(status.reason());
   }

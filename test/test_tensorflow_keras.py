@@ -75,3 +75,22 @@ class TfKerasTests(tf.test.TestCase):
                                 verbose=0,
                                 workers=4,
                                 initial_epoch=1)
+
+    def test_sparse_as_dense(self):
+        hvd.init()
+
+        with self.test_session() as sess:
+            K.set_session(sess)
+
+            opt = keras.optimizers.RMSprop(lr=0.0001)
+            opt = hvd.DistributedOptimizer(opt, sparse_as_dense=True)
+
+            model = keras.models.Sequential()
+            model.add(keras.layers.Embedding(1000, 64, input_length=10))
+            model.compile(loss=keras.losses.mean_squared_error,
+                          optimizer=opt)
+
+            x = np.random.randint(1000, size=(32, 10))
+            y = np.random.random((32, 10, 64))
+            # No assertions, we just need to verify that it doesn't hang
+            model.train_on_batch(x, y)
