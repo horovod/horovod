@@ -19,7 +19,7 @@
 #include "../common/common.h"
 
 namespace horovod {
-namespace mxnet {
+namespace MX {
 
 using namespace horovod::common;
 
@@ -70,7 +70,7 @@ private:
 
 void ThrowIfError(Status status);
 
-} // namespace mxnet 
+} // namespace MX 
 } // namespace horovod
 
 #endif // HOROVOD_MXNET_ADAPTER_H

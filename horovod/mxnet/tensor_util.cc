@@ -16,7 +16,7 @@
 #include "tensor_util.h"
 
 namespace horovod {
-namespace mxnet {
+namespace MX {
 
 // Define all types for TensorUtil.
 const MPIDataType TensorUtil::GetDType(NDArray* tensor) {
@@ -168,5 +168,5 @@ void TensorUtil::AsyncCopyCudaToCPU(NDArray* cuda, NDArray* cpu) {
 }
 #endif
 
-} // namespace mxnet
+} // namespace MX
 } // namespace horovod

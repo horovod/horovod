@@ -137,8 +137,7 @@ class DistributedOptimizer(tf.train.Optimizer):
     average gradient values before applying gradients to model weights."""
 
     def __init__(self, optimizer, name=None, use_locking=False, device_dense='',
-                 device_sparse='', compression=Compression.none,
-                 sparse_as_dense=False):
+                 device_sparse='', compression=Compression.none):
         """Construct a new DistributedOptimizer, which uses another optimizer
         under the hood for computing single-process gradient values and
         applying gradient updates after the gradient values have been averaged
@@ -164,10 +163,6 @@ class DistributedOptimizer(tf.train.Optimizer):
             Compression algorithm used during allreduce to reduce the amount
             of data sent during the each parameter update step.  Defaults to
             not using compression.
-          sparse_as_dense:
-            Treat all sparse gradients as dense tensors.  This can help improve
-            performance and memory utilization if the original sparse gradient
-            has high density.  Defaults to false.
         """
         if name is None:
             name = "Distributed{}".format(type(optimizer).__name__)
@@ -176,7 +171,6 @@ class DistributedOptimizer(tf.train.Optimizer):
         self._device_dense = device_dense
         self._device_sparse = device_sparse
         self._compression = compression
-        self._sparse_as_dense = sparse_as_dense
         super(DistributedOptimizer, self).__init__(
             name=name, use_locking=use_locking)
 
@@ -194,9 +188,6 @@ class DistributedOptimizer(tf.train.Optimizer):
             with tf.name_scope(self._name + "_Allreduce"):
                 for grad, var in gradients:
                     if grad is not None:
-                        if self._sparse_as_dense and \
-                                isinstance(grad, tf.IndexedSlices):
-                            grad = tf.convert_to_tensor(grad)
                         avg_grad = allreduce(grad,
                                              device_dense=self._device_dense,
                                              device_sparse=self._device_sparse,

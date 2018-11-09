@@ -26,13 +26,13 @@
 #include <mxnet/engine.h>
 
 namespace horovod {
-namespace mxnet {
+namespace MX {
 
 using namespace horovod::common;
 
-typedef ::mxnet::Engine Engine;
-typedef ::mxnet::NDArray NDArray;
-typedef ::mxnet::Engine::CallbackOnComplete Callback;
+typedef mxnet::Engine Engine;
+typedef mxnet::NDArray NDArray;
+typedef mxnet::Engine::CallbackOnComplete Callback;
 
 class HandleManager {
 public:
@@ -49,7 +49,7 @@ private:
   std::mutex mutex_;
 };
 
-} // namespace mxnet
+} // namespace MX
 } // namespace horovod
 
 #endif // HOROVOD_MXNET_HANDLE_MANAGER_H

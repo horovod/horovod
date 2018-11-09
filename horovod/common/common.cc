@@ -44,10 +44,6 @@ Status Status::Aborted(std::string message) {
   return Status(StatusType::ABORTED, message);
 }
 
-Status Status::InvalidArgument(std::string message) {
-  return Status(StatusType::INVALID_ARGUMENT, message);
-}
-
 bool Status::ok() const {
   return type_ == StatusType::OK;
 }

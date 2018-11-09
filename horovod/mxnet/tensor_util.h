@@ -25,10 +25,10 @@
 #include "util.h"
 
 namespace horovod {
-namespace mxnet {
+namespace MX {
 
 using namespace horovod::common;
-using namespace ::mxnet;
+using namespace mxnet;
 
 class TensorUtil {
 public:
@@ -60,7 +60,7 @@ private:
   static const size_t kInt64Size   = 8;
 };
 
-} // namespace mxnet
+} // namespace MX
 } // namespace horovod
 
 #endif // HOROVOD_MXNET_TENSOR_UTIL_H

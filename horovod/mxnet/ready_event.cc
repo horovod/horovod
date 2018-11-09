@@ -21,7 +21,7 @@
 #include "ready_event.h"
 
 namespace horovod {
-namespace mxnet {
+namespace MX {
 
 template <class T>
 MXReadyEvent<T>::MXReadyEvent(NDArray* tensor) : tensor_(tensor) {
@@ -37,6 +37,6 @@ template <class T> bool MXReadyEvent<T>::Ready() const {
 
 template class MXReadyEvent<NDArray>;
 
-} // namespace mxnet
+} // namespace MX
 } // namespace horovod
 #endif

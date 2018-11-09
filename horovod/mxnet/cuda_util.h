@@ -17,7 +17,7 @@
 #define HOROVOD_MXNET_CUDA_UTIL_H
 
 namespace horovod {
-namespace mxnet {
+namespace MX {
 
 class with_device {
 public:

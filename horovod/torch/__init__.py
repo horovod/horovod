@@ -193,13 +193,6 @@ def broadcast_optimizer_state(optimizer, root_rank):
         optimizer.step()
         state_dict = optimizer.state_dict()
 
-    # If the state_dict is still empty after initialization, then
-    # the optimizer is stateless, and there is nothing to broadcast.
-    # Furthermore, attempting to access the state dict would result in
-    # an error.
-    if len(state_dict['state']) == 0:
-        return
-
     params = []
     callbacks = {}
     occurrences = collections.defaultdict(int)
@@ -213,27 +206,8 @@ def broadcast_optimizer_state(optimizer, root_rank):
             state_dict['state'][pid][name] = t(p.numpy()[0])
         return _from_tensor
 
-    def _create_option_callback(index, option_key, option_tensor, dtype):
-        def _from_tensor():
-            optimizer.param_groups[index][option_key] = dtype(option_tensor.numpy()[0])
-        return _from_tensor
-
-    # Param groups are an ordered list, normally there is only one per model,
-    # but users can add additional param groups for example to train
-    # previously frozen layers
-    for index, group in enumerate(state_dict['param_groups']):
-        # Broadcast options like learning rate
-        for option_key, option_value in group.items():
-            if option_key == 'params':
-                continue
-
-            # Options like the learning rate are scalar, and need to be wrapped in tensors
-            key = '%s.%d' % (option_key, index)
-            dtype = type(option_value)
-            option_tensor = torch.Tensor([option_value])
-            callbacks[key] = _create_option_callback(index, option_key, option_tensor, dtype)
-            params.append((key, option_tensor))
-
+    # Groups are unordered, but their params will be distinct
+    for group in state_dict['param_groups']:
         # The params list here is ordered by the layers in the model
         for pid in group['params']:
             param_state = state_dict['state'][pid]

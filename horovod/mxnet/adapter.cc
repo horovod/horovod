@@ -24,7 +24,7 @@
 #include "tensor_util.h"
 
 namespace horovod {
-namespace mxnet {
+namespace MX {
 
 // This class intentionally does not have destructor at the moment.
 //
@@ -140,5 +140,5 @@ template class MXTensor<NDArray>;
 template class MXTemporaryBuffer<NDArray>;
 template class MXOpContext<NDArray>;
 
-} // namespace mxnet
+} // namespace MX
 } // namespace horovod
