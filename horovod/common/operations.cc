@@ -2106,6 +2106,7 @@ void horovod_shutdown() {
 
   if (horovod_global.mpi_float16_t != MPI_DATATYPE_NULL) {
     MPI_Type_free(&horovod_global.mpi_float16_t);
+  }
 
   if (horovod_global.shared_buffer != nullptr) {
     MPI_Win_free(&horovod_global.window);
