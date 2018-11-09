@@ -23,9 +23,9 @@ TorchPersistentBuffer::TorchPersistentBuffer(int device, int64_t size)
     : device_(device) {
   with_device device_context(device_);
   if (device_ == CPU_DEVICE_ID) {
-    tensor_ = at::CPU(at::ScalarType::Byte).tensor({size});
+    tensor_ = at::empty({size}, at::device(at::kCPU).dtype(at::kByte));
   } else {
-    tensor_ = at::CUDA(at::ScalarType::Byte).tensor({size});
+    tensor_ = at::empty({size}, at::device(at::kCUDA).dtype(at::kByte));
   }
 }
 
@@ -37,7 +37,7 @@ TorchPersistentBuffer::AccessData(std::shared_ptr<OpContext> context) const {
 TorchTensor::TorchTensor(at::Tensor tensor) : tensor_(tensor) {}
 
 const MPIDataType TorchTensor::dtype() const {
-  switch (tensor_.dtype()) {
+  switch (tensor_.scalar_type()) {
   case at::ScalarType::Byte:
     return common::HOROVOD_UINT8;
   case at::ScalarType::Char:
@@ -108,6 +108,8 @@ void ThrowIfError(Status status) {
     throw std::logic_error(status.reason());
   case StatusType::ABORTED:
     throw std::runtime_error(status.reason());
+  case StatusType::INVALID_ARGUMENT:
+    throw std::invalid_argument(status.reason());
   default: // Includes UNKNOWN_ERROR
     throw std::runtime_error(status.reason());
   }

@@ -36,6 +36,7 @@
 #endif
 
 #define OMPI_SKIP_MPICXX
+#include "half.h"
 #include "hashes.h"
 #include "mpi.h"
 #include "mpi_message.h"
@@ -184,6 +185,7 @@ struct HorovodGlobalState {
 
   // MPI custom data type for float16.
   MPI_Datatype mpi_float16_t;
+  MPI_Op mpi_float16_sum;
 
   // Private MPI communicator for Horovod to ensure no collisions with other
   // threads using MPI.
@@ -253,12 +255,17 @@ HorovodGlobalState horovod_global;
 const Status NOT_INITIALIZED_ERROR = Status::PreconditionError(
     "Horovod has not been initialized; use hvd.init().");
 
-const Status SHUT_DOWN_ERROR = Status::Aborted(
+const Status SHUT_DOWN_ERROR = Status::UnknownError(
     "Horovod has been shut down. This was caused by an exception on one of the "
     "ranks or an attempt to allreduce, allgather or broadcast a tensor after "
     "one of the ranks finished execution. If the shutdown was caused by an "
     "exception, you should see the exception in the log before the first "
     "shutdown message.");
+
+const Status DUPLICATE_NAME_ERROR = Status::InvalidArgument(
+    "Requested to allreduce, allgather, or broadcast a tensor with the same "
+    "name as another tensor that is currently being processed.  If you want "
+    "to request another tensor, use a different tensor name.");
 
 #define OP_ERROR(entries, error_message)                                       \
   {                                                                            \
@@ -1131,7 +1138,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           MPI_CHECK(entries, "MPI_Allreduce",
                     MPI_Allreduce(MPI_IN_PLACE, host_buffer,
                                   (int)total_num_elements,
-                                  GetMPIDataType(first_entry.tensor), MPI_SUM,
+                                  GetMPIDataType(first_entry.tensor),
+                                  first_entry.tensor->dtype() == HOROVOD_FLOAT16
+                                      ? horovod_global.mpi_float16_sum
+                                      : MPI_SUM,
                                   horovod_global.cross_comm))
           ACTIVITY_END_ALL(entries, timeline)
 
@@ -1263,7 +1273,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       MPI_CHECK(entries, "MPI_Allreduce",
                 MPI_Allreduce(MPI_IN_PLACE, (void*)buffer_data,
                               (int)num_elements,
-                              GetMPIDataType(first_entry.tensor), MPI_SUM,
+                              GetMPIDataType(first_entry.tensor),
+                              first_entry.tensor->dtype() == HOROVOD_FLOAT16
+                                  ? horovod_global.mpi_float16_sum
+                                  : MPI_SUM,
                               horovod_global.mpi_comm))
       ACTIVITY_END_ALL(entries, timeline)
 
@@ -1305,7 +1318,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       MPI_CHECK(entries, "MPI_Allreduce",
                 MPI_Allreduce(sendbuf, (void*)e.output->data(),
                               (int)e.tensor->shape().num_elements(),
-                              GetMPIDataType(e.tensor), MPI_SUM,
+                              GetMPIDataType(e.tensor),
+                              first_entry.tensor->dtype() == HOROVOD_FLOAT16
+                                  ? horovod_global.mpi_float16_sum
+                                  : MPI_SUM,
                               horovod_global.mpi_comm))
       ACTIVITY_END_ALL(entries, timeline)
     }
@@ -1431,7 +1447,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   auto mpi_threads_disable = std::getenv(HOROVOD_MPI_THREADS_DISABLE);
   int required = MPI_THREAD_MULTIPLE;
   if (mpi_threads_disable != nullptr &&
-    std::strtol(mpi_threads_disable, nullptr, 10) > 0) {
+      std::strtol(mpi_threads_disable, nullptr, 10) > 0) {
     required = MPI_THREAD_SINGLE;
   }
   int provided;
@@ -1520,6 +1536,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   MPI_Type_contiguous(2, MPI_BYTE, &mpi_float16_t);
   MPI_Type_commit(&mpi_float16_t);
 
+  // Create custom MPI float16 summation op.
+  MPI_Op mpi_float16_sum;
+  MPI_Op_create(&float16_sum, 1, &mpi_float16_sum);
+
   state.rank = rank;
   state.local_rank = local_rank;
   state.cross_rank = cross_rank;
@@ -1529,6 +1549,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.local_comm = local_comm;
   state.cross_comm = cross_comm;
   state.mpi_float16_t = mpi_float16_t;
+  state.mpi_float16_sum = mpi_float16_sum;
   state.mpi_threads_supported = (provided == MPI_THREAD_MULTIPLE);
   state.local_comm_ranks = local_comm_ranks;
 
@@ -1572,9 +1593,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   // Override Tensor Fusion threshold, if it's set.
   auto horovod_fusion_threshold = std::getenv("HOROVOD_FUSION_THRESHOLD");
-  int64_t proposed_fusion_threshold = (horovod_fusion_threshold != nullptr) ?
-        std::strtol(horovod_fusion_threshold, nullptr, 10) :
-        state.tensor_fusion_threshold;
+  int64_t proposed_fusion_threshold =
+      (horovod_fusion_threshold != nullptr)
+          ? std::strtol(horovod_fusion_threshold, nullptr, 10)
+          : state.tensor_fusion_threshold;
 
   // If the cluster is homogeneous and hierarchical allreduce is enabled,
   // adjust buffer size to make sure it is divisible by local_size to improve
@@ -1587,8 +1609,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     // FUSION_BUFFER_ATOMIC_UNIT for performance
     int mpi_double_size;
     MPI_Type_size(MPI_DOUBLE, &mpi_double_size);
-    int64_t div = state.local_size * mpi_double_size * FUSION_BUFFER_ATOMIC_UNIT;
-    state.tensor_fusion_threshold = ((proposed_fusion_threshold+div-1) / div) * div;
+    int64_t div =
+        state.local_size * mpi_double_size * FUSION_BUFFER_ATOMIC_UNIT;
+    state.tensor_fusion_threshold =
+        ((proposed_fusion_threshold + div - 1) / div) * div;
   } else {
     state.tensor_fusion_threshold = proposed_fusion_threshold;
   }
@@ -1875,6 +1899,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   }
 
   return !should_shut_down;
+  MPI_Op_free(&state.mpi_float16_sum);
 }
 
 // Start Horovod background thread. Ensure that this is
@@ -2027,13 +2052,16 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   e.callback = callback;
 
   std::lock_guard<std::mutex> guard(horovod_global.mutex);
-  if (!horovod_global.shut_down) {
-    horovod_global.tensor_table.emplace(name, std::move(e));
-    horovod_global.message_queue.push(message);
-    return Status::OK();
-  } else {
+  if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
   }
+  if (horovod_global.tensor_table.find(name) !=
+      horovod_global.tensor_table.end()) {
+    return DUPLICATE_NAME_ERROR;
+  }
+  horovod_global.tensor_table.emplace(name, std::move(e));
+  horovod_global.message_queue.push(message);
+  return Status::OK();
 }
 
 // MPI must be initialized and the background thread must be running before
@@ -2062,13 +2090,16 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
   e.callback = callback;
 
   std::lock_guard<std::mutex> guard(horovod_global.mutex);
-  if (!horovod_global.shut_down) {
-    horovod_global.tensor_table.emplace(name, std::move(e));
-    horovod_global.message_queue.push(message);
-    return Status::OK();
-  } else {
+  if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
   }
+  if (horovod_global.tensor_table.find(name) !=
+      horovod_global.tensor_table.end()) {
+    return DUPLICATE_NAME_ERROR;
+  }
+  horovod_global.tensor_table.emplace(name, std::move(e));
+  horovod_global.message_queue.push(message);
+  return Status::OK();
 }
 
 // MPI must be initialized and the background thread must be running before
@@ -2101,13 +2132,16 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   e.callback = callback;
 
   std::lock_guard<std::mutex> guard(horovod_global.mutex);
-  if (!horovod_global.shut_down) {
-    horovod_global.tensor_table.emplace(name, std::move(e));
-    horovod_global.message_queue.push(message);
-    return Status::OK();
-  } else {
+  if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
   }
+  if (horovod_global.tensor_table.find(name) !=
+      horovod_global.tensor_table.end()) {
+    return DUPLICATE_NAME_ERROR;
+  }
+  horovod_global.tensor_table.emplace(name, std::move(e));
+  horovod_global.message_queue.push(message);
+  return Status::OK();
 }
 
 } // namespace common

@@ -58,7 +58,7 @@ class MPITests(tf.test.TestCase):
         hvd.init()
         size = hvd.size()
         with self.test_session(config=self.config) as session:
-            dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]
+            dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
             dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
                 with tf.device("/cpu:0"):
@@ -90,7 +90,7 @@ class MPITests(tf.test.TestCase):
         hvd.init()
         size = hvd.size()
         with self.test_session(config=self.config) as session:
-            dtypes = [tf.int32, tf.int64, tf.float32, tf.float64]
+            dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
             dims = [1, 2, 3]
             tests = []
             for dtype, dim in itertools.product(dtypes, dims):

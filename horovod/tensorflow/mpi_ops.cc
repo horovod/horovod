@@ -40,7 +40,7 @@ namespace tensorflow {
 
 namespace {
 
-Status ConvertStatus(common::Status status) {
+Status ConvertStatus(const common::Status& status) {
   switch (status.type()) {
   case common::OK:
     return Status::OK();
@@ -50,12 +50,14 @@ Status ConvertStatus(common::Status status) {
     return errors::FailedPrecondition(status.reason());
   case common::ABORTED:
     return errors::Aborted(status.reason());
+  case common::INVALID_ARGUMENT:
+    return errors::InvalidArgument(status.reason());
   default:
     return errors::Unknown("Unknown error.");
   }
 }
 
-common::Status ConvertStatus(Status status) {
+common::Status ConvertStatus(const Status& status) {
   switch (status.code()) {
   case error::Code::OK:
     return common::Status::OK();
@@ -65,6 +67,8 @@ common::Status ConvertStatus(Status status) {
     return common::Status::PreconditionError(status.error_message());
   case error::Code::ABORTED:
     return common::Status::Aborted(status.error_message());
+  case error::Code::INVALID_ARGUMENT:
+    return common::Status::InvalidArgument(status.error_message());
   default:
     return common::Status::UnknownError("Unknown error.");
   }

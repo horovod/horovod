@@ -1,16 +1,14 @@
 FROM nvidia/cuda:9.0-devel-ubuntu16.04
 
 # TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
-ENV TENSORFLOW_VERSION=1.10.0
-ENV PYTORCH_VERSION=0.4.0
-ENV CUDNN_VERSION=7.0.5.15-1+cuda9.0
-ENV NCCL_VERSION=2.2.13-1+cuda9.0
+ENV TENSORFLOW_VERSION=1.11.0
+ENV PYTORCH_VERSION=0.4.1
+ENV CUDNN_VERSION=7.3.1.20-1+cuda9.0
+ENV NCCL_VERSION=2.3.5-2+cuda9.0
 
 # Python 2.7 or 3.5 is supported by Ubuntu Xenial out of the box
 ARG python=2.7
 ENV PYTHON_VERSION=${python}
-
-RUN echo "deb http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1604/x86_64 /" > /etc/apt/sources.list.d/nvidia-ml.list
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
@@ -34,24 +32,15 @@ RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
     python get-pip.py && \
     rm get-pip.py
 
-# Install TensorFlow and Keras
-RUN pip install tensorflow-gpu==${TENSORFLOW_VERSION} keras h5py
-
-# Install PyTorch
-RUN PY=$(echo ${PYTHON_VERSION} | sed s/\\.//); \
-    if echo ${PYTHON_VERSION} | grep ^3 >/dev/null; then \
-        pip install http://download.pytorch.org/whl/cu90/torch-${PYTORCH_VERSION}-cp${PY}-cp${PY}m-linux_x86_64.whl; \
-    else \
-        pip install http://download.pytorch.org/whl/cu90/torch-${PYTORCH_VERSION}-cp${PY}-cp${PY}mu-linux_x86_64.whl; \
-    fi; \
-    pip install torchvision
+# Install TensorFlow, Keras and PyTorch
+RUN pip install tensorflow-gpu==${TENSORFLOW_VERSION} keras h5py torch==${PYTORCH_VERSION} torchvision
 
 # Install Open MPI
 RUN mkdir /tmp/openmpi && \
     cd /tmp/openmpi && \
-    wget https://www.open-mpi.org/software/ompi/v3.0/downloads/openmpi-3.0.0.tar.gz && \
-    tar zxf openmpi-3.0.0.tar.gz && \
-    cd openmpi-3.0.0 && \
+    wget https://www.open-mpi.org/software/ompi/v3.1/downloads/openmpi-3.1.2.tar.gz && \
+    tar zxf openmpi-3.1.2.tar.gz && \
+    cd openmpi-3.1.2 && \
     ./configure --enable-orterun-prefix-by-default && \
     make -j $(nproc) all && \
     make install && \
