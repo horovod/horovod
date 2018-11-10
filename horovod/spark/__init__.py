@@ -132,7 +132,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=180):
         driver.set_ranks_to_indices(ranks_to_indices)
 
         exit_code = safe_shell_exec.execute(
-            'mpirun --allow-run-as-root '
+            'mpirun --allow-run-as-root --tag-output '
             '-np {num_proc} -H {hosts} '
             '-bind-to none -map-by slot '
             '-mca pml ob1 -mca btl ^openib -mca btl_tcp_if_include {common_intfs} '
