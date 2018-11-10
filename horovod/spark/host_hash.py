@@ -13,18 +13,25 @@
 # limitations under the License.
 # ==============================================================================
 
+import hashlib
 import os
-import re
 import socket
 
 
-UTS_FILE = '/proc/self/ns/uts'
+NAMESPACE_PATH = '/proc/self/ns'
+
+
+def _namespaces():
+    hash = ''
+    if os.path.exists(NAMESPACE_PATH):
+        for file in os.listdir(NAMESPACE_PATH):
+            if hash != '':
+                hash += ' '
+            hash += os.readlink(os.path.join(NAMESPACE_PATH, file))
+    return hash
 
 
 def host_hash():
-    hash = socket.gethostname()
-    if os.path.exists(UTS_FILE):
-        m = re.match('uts:\[(.*)\]', os.readlink(UTS_FILE))
-        if m:
-            hash += '--uts-%s' % m.group(1)
-    return hash
+    hostname = socket.gethostname()
+    ns = _namespaces()
+    return '%s-%s' % (hostname, hashlib.md5(ns.encode('ascii')).hexdigest())
