@@ -90,7 +90,7 @@ def _make_spark_thread(spark_context, num_proc, driver, start_timeout_at, result
     return spark_thread
 
 
-def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=180):
+def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=180, env=None):
     spark_context = pyspark.SparkContext._active_spark_context
     if spark_context is None:
         raise Exception('Could not find an active SparkContext, are you running in a PySpark session?')
@@ -147,7 +147,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=180):
                     env=' '.join('-x %s' % key for key in os.environ.keys()),
                     python=sys.executable,
                     encoded_driver_addresses=codec.dumps_base64(driver.addresses())),
-            env=os.environ)
+            env=os.environ if env is None else env)
         if exit_code != 0:
             raise Exception('mpirun exited with code %d, see the error above.' % exit_code)
     except Exception as e:
