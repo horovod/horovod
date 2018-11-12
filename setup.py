@@ -425,7 +425,8 @@ def get_common_options(build_ext):
                              'HOROVOD_ALLOW_MIXED_GPU_IMPL environment variable to \'1\'.')
 
     MACROS = []
-    INCLUDES = []
+    INCLUDES = ['third_party/eigen3',
+                'third_party/lbfgs']
     SOURCES = ['horovod/common/common.cc',
                'horovod/common/mpi_message.cc',
                'horovod/common/half.cc',
