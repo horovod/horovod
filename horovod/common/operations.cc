@@ -1808,16 +1808,17 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       auto response = responses.front();
       assert(response.tensor_names().size() == 1);
       responses.pop_front();
-       if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
+
+      if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
         // Attempt to add more responses to this fused response.
         auto& entry = state.tensor_table[response.tensor_names()[0]];
         int64_t tensor_size = entry.tensor->size();
-         while (!responses.empty()) {
+        while (!responses.empty()) {
           auto new_response = responses.front();
           assert(new_response.tensor_names().size() == 1);
           auto& new_entry = state.tensor_table[new_response.tensor_names()[0]];
           int64_t new_tensor_size = new_entry.tensor->size();
-           if (response.response_type() == new_response.response_type() &&
+          if (response.response_type() == new_response.response_type() &&
               response.devices() == new_response.devices() &&
               entry.tensor->dtype() == new_entry.tensor->dtype() &&
               tensor_size + new_tensor_size <= state.tensor_fusion_threshold) {
