@@ -1,6 +1,6 @@
 # Horovod
 
-[![Build Status](https://travis-ci.org/uber/horovod.svg?branch=master)](https://travis-ci.org/uber/horovod) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Build Status](https://travis-ci.org/uber/horovod.svg?branch=master)](https://travis-ci.org/uber/horovod) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE) [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fuber%2Fhorovod.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fuber%2Fhorovod?ref=badge_shield)
 
 <p align="center"><img src="https://user-images.githubusercontent.com/16640218/34506318-84d0c06c-efe0-11e7-8831-0425772ed8f2.png" alt="Logo" width="200"/></p>
 
@@ -36,7 +36,7 @@ distributed Deep Learning fast and easy to use.
 The primary motivation for this project is to make it easy to take a single-GPU TensorFlow program and successfully train
 it on many GPUs faster. This has two aspects:
 
-1. How much modifications does one have to make to a program to make it distributed, and how easy is it to run it.
+1. How much modification does one have to make to a program to make it distributed, and how easy is it to run it.
 2. How much faster would it run in distributed mode?
 
 Internally at Uber we found the MPI model to be much more straightforward and require far less code changes than the
