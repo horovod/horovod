@@ -51,8 +51,8 @@ parser.add_argument('--gpus', type=str, default='0',
                     help='number of gpus to use.')
 parser.add_argument('--num-epochs', type=int, default=90,
                     help='number of training epochs.')
-parser.add_argument('--lr', type=float, default=0.8,
-                    help='learning rate. default is 0.8.')
+parser.add_argument('--lr', type=float, default=0.1,
+                    help='learning rate. default is 0.1.')
 parser.add_argument('--momentum', type=float, default=0.9,
                     help='momentum value for optimizer, default is 0.9.')
 parser.add_argument('--wd', type=float, default=0.0001,
@@ -63,8 +63,8 @@ parser.add_argument('--lr-decay-epoch', type=str, default='40,60',
                     help='epoches at which learning rate decays. default is 40,60.')
 parser.add_argument('--warmup-lr', type=float, default=0.001,
                     help='starting warmup learning rate. default is 0.001')
-parser.add_argument('--warmup-epochs', type=int, default=0,
-                    help='number of warmup epochs.')
+parser.add_argument('--warmup-epochs', type=int, default=5,
+                    help='number of warmup epochs. default is 5')
 parser.add_argument('--model', type=str, required=True,
                     help='type of model to use. see vision_model for options.')
 parser.add_argument('--use-pretrained', action='store_true',

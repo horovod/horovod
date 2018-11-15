@@ -18,6 +18,8 @@
 namespace horovod {
 namespace mxnet {
 
+typedef ::mxnet::Engine::CallbackOnComplete Callback;
+
 int HandleManager::AllocateHandle(Callback cb) {
   int handle = last_handle_.fetch_add(1) + 1;
   std::lock_guard<std::mutex> guard(mutex_);
