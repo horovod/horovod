@@ -25,7 +25,6 @@ from horovod.mxnet.mpi_ops import broadcast, broadcast_
 from horovod.mxnet.mpi_ops import init, shutdown
 from horovod.mxnet.mpi_ops import size, local_size, rank, local_rank
 from horovod.mxnet.mpi_ops import mpi_threads_supported, barrier
-#from horovod.mxnet.mpi_ops import poll
 
 import mxnet as mx
 
@@ -51,10 +50,10 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
     def set_learning_rate(self, lr):
         return self._optimizer.set_learning_rate(lr)
 
-    def set_lr_mult(args_lr_mult):
+    def set_lr_mult(self, args_lr_mult):
         return self._optimizer.set_lr_mult(args_lr_mult)
 
-    def set_wd_mult(args_wd_mult):
+    def set_wd_mult(self, args_wd_mult):
         return self._optimizer.set_wd_mult(args_wd_mult)
 
 def broadcast_parameters(params, root_rank=0):
@@ -85,6 +84,5 @@ def broadcast_parameters(params, root_rank=0):
         broadcast_(p, root_rank, int_name)
         p.wait_to_read()
         ret_list.append((name, p))
-        #params[name] = p
         count += 1
     params = dict(ret_list)

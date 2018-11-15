@@ -237,12 +237,42 @@ def get_tf_flags(build_ext, cpp_flags):
         return compile_flags, link_flags
 
 
-def get_mx_flags(build_ext, cpp_flags, lib_dirs):
+def get_mx_lib_dirs():
+    import mxnet as mx
+    mx_libs = mx.libinfo.find_lib_path()
+    mx_lib_dirs = [os.path.dirname(mx_lib) for mx_lib in mx_libs]
+    return mx_lib_dirs
+
+
+def get_mx_libs(build_ext, lib_dirs, cpp_flags):
+    last_err = None
+    for mx_libs in [['mxnet'], []]:
+        try:
+            lib_file = test_compile(build_ext, 'test_mx_libs',
+                                    library_dirs=lib_dirs, libraries=mx_libs,
+                                    extra_compile_preargs=cpp_flags,
+                                    code=textwrap.dedent('''\
+                    void test() {
+                    }
+                    '''))
+
+            return mx_libs
+        except (CompileError, LinkError):
+            last_err = 'Unable to determine -l link flags to use with MXNet (see error above).'
+        except Exception:
+            last_err = 'Unable to determine -l link flags to use with MXNet.  ' \
+                       'Last error:\n\n%s' % traceback.format_exc()
+
+    raise DistutilsPlatformError(last_err)
+
+
+def get_mx_flags(build_ext, cpp_flags):
     compile_flags = []
     link_flags = []
-    mx_libs = ['mxnet']
-    for lib_dir in lib_dirs:
+    mx_lib_dirs = get_mx_lib_dirs()
+    for lib_dir in mx_lib_dirs:
         link_flags.append('-L%s' % lib_dir)
+    mx_libs = get_mx_libs(build_ext, mx_lib_dirs, cpp_flags) 
     for lib in mx_libs:
         link_flags.append('-l%s' % lib)
 
@@ -408,7 +438,6 @@ def get_common_options(build_ext):
     link_flags = get_link_flags(build_ext)
     mpi_flags = get_mpi_flags()
     mxnet_include_dirs = os.environ.get('INCLUDES')
-    mxnet_library_dirs = os.environ.get('LIBRARY_DIRS')
 
     gpu_allreduce = os.environ.get('HOROVOD_GPU_ALLREDUCE')
     if gpu_allreduce and gpu_allreduce != 'MPI' and gpu_allreduce != 'NCCL' and \
@@ -488,9 +517,6 @@ def get_common_options(build_ext):
         MACROS += [('MSHADOW_USE_CBLAS', '1')]
         INCLUDES += ['%s' % mxnet_include_dirs]
 
-    if mxnet_library_dirs:
-        LIBRARY_DIRS += ['%s' % mxnet_library_dirs]
-
     if gpu_allreduce:
         MACROS += [('HOROVOD_GPU_ALLREDUCE', "'%s'" % gpu_allreduce[0])]
 
@@ -546,7 +572,7 @@ def parse_version(version_str):
 def build_mx_extension(build_ext, options):
     check_mx_version()
     mx_compile_flags, mx_link_flags = get_mx_flags(
-        build_ext, options['COMPILE_FLAGS'], options['LIBRARY_DIRS'])
+        build_ext, options['COMPILE_FLAGS'])
 
     mxnet_mpi_lib.define_macros = options['MACROS']
     mxnet_mpi_lib.include_dirs = options['INCLUDES']
