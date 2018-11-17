@@ -127,5 +127,11 @@ script:
   # run Keras MNIST advanced example
   - docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/keras_mnist_advanced.py"
 
+  # hack PyTorch MNIST example to be smaller
+  - docker exec ${CONTAINER} /bin/sh -c "sed -i \"s/self.fc1 = nn.Linear(320, 50)/self.fc1 = nn.Linear(784, 50)/\" /horovod/examples/pytorch_mnist.py"
+  - docker exec ${CONTAINER} /bin/sh -c "sed -i \"s/x = F.relu(F.max_pool2d(self.conv1(x), 2))//\" /horovod/examples/pytorch_mnist.py"
+  - docker exec ${CONTAINER} /bin/sh -c "sed -i \"s/x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))//\" /horovod/examples/pytorch_mnist.py"
+  - docker exec ${CONTAINER} /bin/sh -c "sed -i \"s/x = x.view(-1, 320)/x = x.view(-1, 784)/\" /horovod/examples/pytorch_mnist.py"
+
   # run PyTorch MNIST example
-  - docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/pytorch_mnist.py --epochs 2"
+  - docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/pytorch_mnist.py"
