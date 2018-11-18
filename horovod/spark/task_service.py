@@ -181,6 +181,6 @@ class TaskClient(BasicClient):
             while True:
                 if self.command_terminated():
                     break
-            time.sleep(delay)
+                time.sleep(delay)
         except:
             pass
