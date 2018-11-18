@@ -134,10 +134,9 @@ class TaskService(BasicService):
         try:
             while not self._initial_registration_complete:
                 if self._interrupt_waits:
-                    raise Exception('Interrupted waiting for tasks to start: %s' % self._interrupt_reason)
+                    raise Exception('Interrupted waiting for Spark tasks to start: %s' % self._interrupt_reason)
                 self._wait_cond.wait(timeout.remaining())
-                if timeout.timed_out():
-                    raise Exception('Timed out waiting for tasks to start.')
+                timeout.check_time_out_for('Spark tasks to start')
         finally:
             self._wait_cond.release()
 
@@ -148,8 +147,7 @@ class TaskService(BasicService):
                 if self._interrupt_waits:
                     raise Exception('Interrupted waiting for command to run: %s' % self._interrupt_reason)
                 self._wait_cond.wait(timeout.remaining())
-                if timeout.timed_out():
-                    raise Exception('Timed out waiting for command to run.')
+                timeout.check_time_out_for('command to run')
         finally:
             self._wait_cond.release()
 

@@ -90,13 +90,18 @@ def _make_spark_thread(spark_context, num_proc, driver, start_timeout_at, result
     return spark_thread
 
 
-def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=180, env=None):
+def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=300, env=None, verbose=1):
     spark_context = pyspark.SparkContext._active_spark_context
     if spark_context is None:
         raise Exception('Could not find an active SparkContext, are you running in a PySpark session?')
 
     if num_proc is None:
         num_proc = spark_context.defaultParallelism
+        if verbose >= 1:
+            print('Running %d processes (inferred from spark.default.parallelism)...' % num_proc)
+    else:
+        if verbose >= 1:
+            print('Running %d processes...' % num_proc)
 
     result_queue = queue.Queue(1)
     start_timeout_at = timeout.timeout_at(start_timeout)
@@ -105,11 +110,15 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=180, env=None):
     spark_thread = _make_spark_thread(spark_context, num_proc, driver, start_timeout_at, result_queue)
     try:
         driver.wait_for_initial_registration(tmout)
+        if verbose >= 2:
+            print('Initial Spark task registration is complete.')
         task_clients = [task_service.TaskClient(index, driver.task_addresses_for_driver(index))
                         for index in range(num_proc)]
         for task_client in task_clients:
             task_client.notify_initial_registration_complete()
         driver.wait_for_task_to_task_address_updates(tmout)
+        if verbose >= 2:
+            print('Spark task-to-task address registration is complete.')
 
         # Determine a set of common interfaces for task-to-task communication.
         common_intfs = set(driver.task_addresses_for_tasks(0).keys())
@@ -131,7 +140,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=180, env=None):
             ranks_to_indices += driver.task_host_hash_indices()[host_hash]
         driver.set_ranks_to_indices(ranks_to_indices)
 
-        exit_code = safe_shell_exec.execute(
+        mpirun_command = (
             'mpirun --allow-run-as-root --tag-output '
             '-np {num_proc} -H {hosts} '
             '-bind-to none -map-by slot '
@@ -146,7 +155,11 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=180, env=None):
                     common_intfs=','.join(common_intfs),
                     env=' '.join('-x %s' % key for key in os.environ.keys()),
                     python=sys.executable,
-                    encoded_driver_addresses=codec.dumps_base64(driver.addresses())),
+                    encoded_driver_addresses=codec.dumps_base64(driver.addresses())))
+        if verbose >= 2:
+            print('+ %s' % mpirun_command)
+        exit_code = safe_shell_exec.execute(
+            mpirun_command,
             env=os.environ if env is None else env)
         if exit_code != 0:
             raise Exception('mpirun exited with code %d, see the error above.' % exit_code)

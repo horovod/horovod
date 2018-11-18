@@ -190,8 +190,7 @@ class DriverService(BasicService):
             while len(self._all_task_addresses) < self._num_proc:
                 self.check_for_spark_job_failure()
                 self._wait_cond.wait(timeout.remaining())
-                if timeout.timed_out():
-                    raise Exception('Timed out waiting for tasks to start.')
+                timeout.check_time_out_for('Spark tasks to start')
         finally:
             self._wait_cond.release()
 
@@ -201,9 +200,7 @@ class DriverService(BasicService):
             while len(self._task_addresses_for_tasks) < self._num_proc:
                 self.check_for_spark_job_failure()
                 self._wait_cond.wait(timeout.remaining())
-                if timeout.timed_out():
-                    raise Exception('Timed out waiting for tasks to update '
-                                    'task-to-task addresses.')
+                timeout.check_time_out_for('Spark tasks to update task-to-task addresses')
         finally:
             self._wait_cond.release()
 

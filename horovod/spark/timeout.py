@@ -29,3 +29,10 @@ class Timeout(object):
 
     def timed_out(self):
         return time.time() > self._timeout_at
+
+    def check_time_out_for(self, activity):
+        if self.timed_out():
+            raise Exception('Timed out waiting for %s. Please check that you have enough resources '
+                            'to run all Horovod processes. Each Horovod process runs in a Spark task. '
+                            'You may need to increase the start_timeout parameter to a larger value '
+                            'if your Spark resources are allocated on-demand.' % activity)
