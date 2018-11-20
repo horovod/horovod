@@ -1804,41 +1804,45 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     MPIResponseList response_list;
     response_list.set_shutdown(should_shut_down);
 
-    while (!responses.empty()) {
-      auto response = responses.front();
-      assert(response.tensor_names().size() == 1);
-      responses.pop_front();
+    {
+      // Protect access to tensor table.
+      std::lock_guard<std::mutex> guard(horovod_global.mutex);
+      while (!responses.empty()) {
+        auto response = responses.front();
+        assert(response.tensor_names().size() == 1);
+        responses.pop_front();
 
-      if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
-        // Attempt to add more responses to this fused response.
-        auto& entry = state.tensor_table[response.tensor_names()[0]];
-        int64_t tensor_size = entry.tensor->size();
+        if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
+          // Attempt to add more responses to this fused response.
+          auto& entry = state.tensor_table[response.tensor_names()[0]];
+          int64_t tensor_size = entry.tensor->size();
 
-        while (!responses.empty()) {
-          auto new_response = responses.front();
-          assert(new_response.tensor_names().size() == 1);
-          auto& new_entry = state.tensor_table[new_response.tensor_names()[0]];
-          int64_t new_tensor_size = new_entry.tensor->size();
+          while (!responses.empty()) {
+            auto new_response = responses.front();
+            assert(new_response.tensor_names().size() == 1);
+            auto& new_entry = state.tensor_table[new_response.tensor_names()[0]];
+            int64_t new_tensor_size = new_entry.tensor->size();
 
-          if (response.response_type() == new_response.response_type() &&
-              response.devices() == new_response.devices() &&
-              entry.tensor->dtype() == new_entry.tensor->dtype() &&
-              tensor_size + new_tensor_size <= state.tensor_fusion_threshold) {
-            // These tensors will fuse together well.
-            tensor_size += new_tensor_size;
-            response.add_tensor_names(new_response.tensor_names()[0]);
-            responses.pop_front();
-          } else {
-            // Don't try to fuse additional tensors since they are usually
-            // computed in order of requests and skipping tensors may mean
-            // that the batch will have to wait longer while skipped tensors
-            // could be reduced at that time.
-            break;
+            if (response.response_type() == new_response.response_type() &&
+                response.devices() == new_response.devices() &&
+                entry.tensor->dtype() == new_entry.tensor->dtype() &&
+                tensor_size + new_tensor_size <= state.tensor_fusion_threshold) {
+              // These tensors will fuse together well.
+              tensor_size += new_tensor_size;
+              response.add_tensor_names(new_response.tensor_names()[0]);
+              responses.pop_front();
+            } else {
+              // Don't try to fuse additional tensors since they are usually
+              // computed in order of requests and skipping tensors may mean
+              // that the batch will have to wait longer while skipped tensors
+              // could be reduced at that time.
+              break;
+            }
           }
         }
-      }
 
-      response_list.add_responses(response);
+        response_list.add_responses(response);
+      }
     }
 
     // Notify all nodes which tensors we'd like to reduce at this step.

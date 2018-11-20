@@ -36,7 +36,7 @@ distributed Deep Learning fast and easy to use.
 The primary motivation for this project is to make it easy to take a single-GPU TensorFlow program and successfully train
 it on many GPUs faster. This has two aspects:
 
-1. How much modifications does one have to make to a program to make it distributed, and how easy is it to run it.
+1. How much modification does one have to make to a program to make it distributed, and how easy is it to run it.
 2. How much faster would it run in distributed mode?
 
 Internally at Uber we found the MPI model to be much more straightforward and require far less code changes than the
