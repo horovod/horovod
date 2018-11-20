@@ -22,7 +22,7 @@ import threading
 from horovod.spark import codec, host_hash, task_service, driver_service, network, timeout, safe_shell_exec
 
 
-def task_fn(index, driver_addresses, num_proc, start_timeout_at):
+def _task_fn(index, driver_addresses, num_proc, start_timeout_at):
     tmout = timeout.Timeout(start_timeout_at)
     task = task_service.TaskService(index)
     try:
@@ -57,7 +57,7 @@ def task_fn(index, driver_addresses, num_proc, start_timeout_at):
 
 def _make_mapper(driver_addresses, num_proc, start_timeout_at):
     def _mapper(index, _):
-        yield task_fn(index, driver_addresses, num_proc, start_timeout_at)
+        yield _task_fn(index, driver_addresses, num_proc, start_timeout_at)
     return _mapper
 
 
@@ -66,7 +66,7 @@ def _make_barrier_mapper(driver_addresses, num_proc, start_timeout_at):
         ctx = pyspark.BarrierTaskContext.get()
         ctx.barrier()
         index = ctx.partitionId()
-        yield task_fn(index, driver_addresses, num_proc, start_timeout_at)
+        yield _task_fn(index, driver_addresses, num_proc, start_timeout_at)
     return _mapper
 
 
@@ -90,7 +90,24 @@ def _make_spark_thread(spark_context, num_proc, driver, start_timeout_at, result
     return spark_thread
 
 
-def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=300, env=None, verbose=1):
+def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, verbose=1):
+    """
+    Runs Horovod in Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
+
+    Args:
+        fn: Function to run.
+        args: Arguments to pass to `fn`.
+        kwargs: Keyword arguments to pass to `fn`.
+        num_proc: Number of Horovod processes.  Defaults to `spark.default.parallelism`.
+        start_timeout: Timeout for Spark tasks to spawn, register and start running the code, in seconds.
+                       If not set, falls back to `HOROVOD_SPARK_START_TIMEOUT` environment variable value.
+                       If it is not set as well, defaults to 300 seconds.
+        env: Environment dictionary to use in training.  Defaults to `os.environ`.
+        verbose: Output verbosity (0-2). Defaults to 1.
+
+    Returns:
+        List of results returned by running `fn` on each rank.
+    """
     spark_context = pyspark.SparkContext._active_spark_context
     if spark_context is None:
         raise Exception('Could not find an active SparkContext, are you running in a PySpark session?')
@@ -102,6 +119,10 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=300, env=None, verb
     else:
         if verbose >= 1:
             print('Running %d processes...' % num_proc)
+
+    if start_timeout is None:
+        # Lookup default timeout from the environment variable.
+        start_timeout = int(os.getenv('HOROVOD_SPARK_START_TIMEOUT', '300'))
 
     result_queue = queue.Queue(1)
     start_timeout_at = timeout.timeout_at(start_timeout)
