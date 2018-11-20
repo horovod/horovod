@@ -94,6 +94,9 @@ install:
       docker exec ${CONTAINER} /bin/sh -c "pip install ${PYTORCH_PACKAGE} torchvision"
     fi
 
+  # MXNet
+  - docker exec ${CONTAINER} /bin/sh -c "pip install ${MXNET_PACKAGE}"
+
   # Horovod
   - docker exec ${CONTAINER} /bin/sh -c "cd /horovod && python setup.py sdist"
   - docker exec ${CONTAINER} /bin/sh -c "pip install -v /horovod/dist/horovod-*.tar.gz"
@@ -135,6 +138,3 @@ script:
 
   # run PyTorch MNIST example
   - docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/pytorch_mnist.py"
-
-  # MXNet
-  - docker exec ${CONTAINER} /bin/sh -c "pip install ${MXNET_PACKAGE}"
