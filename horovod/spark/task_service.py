@@ -16,7 +16,7 @@
 import threading
 import time
 
-from horovod.spark.network import BasicService, BasicClient
+from horovod.spark.network import BasicService, BasicClient, AckResponse
 from horovod.spark import safe_shell_exec
 
 
@@ -26,50 +26,39 @@ class RunCommandRequest(object):
         """Command to run."""
 
 
-class RunCommandResponse(object):
-    pass
-
-
 class CommandTerminatedRequest(object):
+    """Is command execution finished?"""
     pass
 
 
 class CommandTerminatedResponse(object):
     def __init__(self, flag):
         self.flag = flag
+        """Yes/no"""
 
 
-class InitialRegistrationCompleteRequest(object):
+class NotifyInitialRegistrationCompleteRequest(object):
+    """Notification that initial task registration has completed."""
     pass
 
 
-class InitialRegistrationCompleteResponse(object):
-    pass
-
-
-class CodeResultRequest(object):
+class RegisterCodeResultRequest(object):
+    """Register code execution results with task."""
     def __init__(self, result):
         self.result = result
 
 
-class CodeResultResponse(object):
-    pass
-
-
 class InterruptWaitsRequest(object):
+    """Interrupt any waits on the task to terminate Spark job earlier."""
     def __init__(self, reason):
         self.reason = reason
-
-
-class InterruptWaitsResponse(object):
-    pass
 
 
 class TaskService(BasicService):
     NAME_FORMAT = 'task service #%d'
 
-    def __init__(self, index):
-        super(TaskService, self).__init__(TaskService.NAME_FORMAT % index)
+    def __init__(self, index, key):
+        super(TaskService, self).__init__(TaskService.NAME_FORMAT % index, key)
         self._initial_registration_complete = False
         self._wait_cond = threading.Condition()
         self._command_thread = None
@@ -90,16 +79,16 @@ class TaskService(BasicService):
             finally:
                 self._wait_cond.notify_all()
                 self._wait_cond.release()
-            return RunCommandResponse()
+            return AckResponse()
 
-        if isinstance(req, InitialRegistrationCompleteRequest):
+        if isinstance(req, NotifyInitialRegistrationCompleteRequest):
             self._wait_cond.acquire()
             try:
                 self._initial_registration_complete = True
             finally:
                 self._wait_cond.notify_all()
                 self._wait_cond.release()
-            return InitialRegistrationCompleteResponse()
+            return AckResponse()
 
         if isinstance(req, CommandTerminatedRequest):
             self._wait_cond.acquire()
@@ -110,9 +99,9 @@ class TaskService(BasicService):
                 self._wait_cond.release()
             return CommandTerminatedResponse(terminated)
 
-        if isinstance(req, CodeResultRequest):
+        if isinstance(req, RegisterCodeResultRequest):
             self._fn_result = req.result
-            return CodeResultResponse()
+            return AckResponse()
 
         if isinstance(req, InterruptWaitsRequest):
             self._wait_cond.acquire()
@@ -122,7 +111,7 @@ class TaskService(BasicService):
             finally:
                 self._wait_cond.notify_all()
                 self._wait_cond.release()
-            return InterruptWaitsResponse()
+            return AckResponse()
 
         return super(TaskService, self)._handle(req, client_address)
 
@@ -156,22 +145,23 @@ class TaskService(BasicService):
 
 
 class TaskClient(BasicClient):
-    def __init__(self, index, task_addresses):
+    def __init__(self, index, task_addresses, key):
         super(TaskClient, self).__init__(TaskService.NAME_FORMAT % index,
-                                         task_addresses)
+                                         task_addresses,
+                                         key)
 
     def run_command(self, command):
         self._send(RunCommandRequest(command))
 
     def notify_initial_registration_complete(self):
-        self._send(InitialRegistrationCompleteRequest())
+        self._send(NotifyInitialRegistrationCompleteRequest())
 
     def command_terminated(self):
         resp = self._send(CommandTerminatedRequest())
         return resp.flag
 
-    def send_code_result(self, result):
-        self._send(CodeResultRequest(result))
+    def register_code_result(self, result):
+        self._send(RegisterCodeResultRequest(result))
 
     def interrupt_waits(self, reason):
         self._send(InterruptWaitsRequest(reason))

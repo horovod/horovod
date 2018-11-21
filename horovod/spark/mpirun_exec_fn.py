@@ -42,7 +42,7 @@ def main(driver_addresses):
     task_client = task_service.TaskClient(task_index, task_addresses)
     fn, args, kwargs = driver_client.code()
     result = fn(*args, **kwargs)
-    task_client.send_code_result(result)
+    task_client.register_code_result(result)
 
 
 if __name__ == '__main__':

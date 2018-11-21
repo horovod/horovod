@@ -19,7 +19,10 @@ import psutil
 import random
 import socket
 from six.moves import socketserver
+import struct
 import threading
+
+from horovod.spark import secret
 
 
 class PingRequest(object):
@@ -31,14 +34,41 @@ class PingResponse(object):
         self.service_name = service_name
 
 
+class AckResponse(object):
+    """Used for situations when the response does not carry any data."""
+    pass
+
+
 class DrainError(Exception):
     def __init__(self, *args, **kwargs):
         super(DrainError, self).__init__(*args, **kwargs)
 
 
+class Wire(object):
+    def __init__(self, key):
+        self._key = key
+
+    def write(self, obj, wfile):
+        message = cloudpickle.dumps(obj)
+        digest = secret.compute_digest(self._key, message)
+        wfile.write(digest)
+        wfile.write(struct.pack('i', len(message)))
+        wfile.write(message)
+        wfile.flush()
+
+    def read(self, rfile):
+        digest = rfile.read(secret.DIGEST_LENGTH)
+        message_len = struct.unpack('i', rfile.read(4))[0]
+        message = rfile.read(message_len)
+        if not secret.check_digest(self._key, message, digest):
+            raise Exception('Security error: digest did not match the message.')
+        return cloudpickle.loads(message)
+
+
 class BasicService(object):
-    def __init__(self, service_name):
+    def __init__(self, service_name, key):
         self._service_name = service_name
+        self._wire = Wire(key)
         self._server = self._make_server()
         self._port = self._server.socket.getsockname()[1]
         self._thread = threading.Thread(target=self._server.serve_forever)
@@ -47,7 +77,6 @@ class BasicService(object):
         self._draining = False
         self._drain_reason = None
 
-    # TODO: make port range configurable
     def _make_server(self):
         min_port = 1024
         max_port = 65536
@@ -62,24 +91,22 @@ class BasicService(object):
 
         raise Exception('Unable to find a port to bind to.')
 
-    # TODO: add TLS with cert based auth
     def _make_handler(self):
         server = self
 
         class _Handler(socketserver.StreamRequestHandler):
             def handle(self):
                 try:
-                    req = cloudpickle.load(self.rfile)
+                    req = server._wire.read(self.rfile)
                     if server._draining:
                         resp = DrainError(server._drain_reason)
                     else:
                         resp = server._handle(req, self.client_address)
                     if not resp:
                         raise Exception('Handler did not return a response.')
-                    cloudpickle.dump(resp, self.wfile)
+                    server._wire.write(resp, self.wfile)
                 except EOFError:
                     # Happens when client is abruptly terminated, don't want to pollute the logs.
-                    # TODO: consider putting all these in the debug logs.
                     pass
 
         return _Handler
@@ -111,9 +138,10 @@ class BasicService(object):
 
 
 class BasicClient(object):
-    def __init__(self, service_name, addresses, probe_timeout=20, retries=3):
+    def __init__(self, service_name, addresses, key, probe_timeout=20, retries=3):
         # Note: because of retry logic, ALL RPC calls are REQUIRED to be idempotent.
         self._service_name = service_name
+        self._wire = Wire(key)
         self._probe_timeout = probe_timeout
         self._retries = retries
         self._addresses = self._probe(addresses)
@@ -156,9 +184,8 @@ class BasicClient(object):
                 rfile = sock.makefile('rb', -1)
                 wfile = sock.makefile('wb', 0)
                 try:
-                    cloudpickle.dump(PingRequest(), wfile)
-                    wfile.flush()
-                    resp = cloudpickle.load(rfile)
+                    self._wire.write(PingRequest(), wfile)
+                    resp = self._wire.read(rfile)
                     if isinstance(resp, DrainError):
                         drain_errors_queue.put(resp)
                         return
@@ -181,9 +208,8 @@ class BasicClient(object):
                 rfile = sock.makefile('rb', -1)
                 wfile = sock.makefile('wb', 0)
                 try:
-                    cloudpickle.dump(req, wfile)
-                    wfile.flush()
-                    resp = cloudpickle.load(rfile)
+                    self._wire.write(req, wfile)
+                    resp = self._wire.read(rfile)
                     if isinstance(resp, DrainError):
                         raise resp
                     return resp

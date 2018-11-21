@@ -19,21 +19,21 @@ from six.moves import queue
 import sys
 import threading
 
-from horovod.spark import codec, host_hash, task_service, driver_service, network, timeout, safe_shell_exec
+from horovod.spark import codec, host_hash, task_service, driver_service, network, timeout, safe_shell_exec, secret
 
 
-def _task_fn(index, driver_addresses, num_proc, start_timeout_at):
+def _task_fn(index, driver_addresses, num_proc, start_timeout_at, key):
     tmout = timeout.Timeout(start_timeout_at)
-    task = task_service.TaskService(index)
+    task = task_service.TaskService(index, key)
     try:
-        driver_client = driver_service.DriverClient(driver_addresses)
-        driver_client.register(index, task.addresses(), host_hash.host_hash())
+        driver_client = driver_service.DriverClient(driver_addresses, key)
+        driver_client.register_task(index, task.addresses(), host_hash.host_hash())
         task.wait_for_initial_registration(tmout)
         # Tasks ping each other in a circular fashion to determine interfaces reachable within
         # the cluster.
         next_task_index = (index + 1) % num_proc
         next_task_addresses = driver_client.all_task_addresses(next_task_index)
-        next_task_client = task_service.TaskClient(next_task_index, next_task_addresses)
+        next_task_client = task_service.TaskClient(next_task_index, next_task_addresses, key)
         driver_client.register_task_to_task_addresses(next_task_index, next_task_client.addresses())
         task_indices_on_this_host = driver_client.task_host_hash_indices(host_hash.host_hash())
         if task_indices_on_this_host[0] == index:
@@ -43,7 +43,7 @@ def _task_fn(index, driver_addresses, num_proc, start_timeout_at):
         else:
             # The rest of tasks need to wait for the first task to finish.
             first_task_addresses = driver_client.all_task_addresses(task_indices_on_this_host[0])
-            first_task_client = task_service.TaskClient(task_indices_on_this_host[0], first_task_addresses)
+            first_task_client = task_service.TaskClient(task_indices_on_this_host[0], first_task_addresses, key)
             first_task_client.wait_for_command_termination()
         return task.fn_result()
     except network.DrainError as e:
@@ -55,31 +55,35 @@ def _task_fn(index, driver_addresses, num_proc, start_timeout_at):
         task.shutdown()
 
 
-def _make_mapper(driver_addresses, num_proc, start_timeout_at):
+def _make_mapper(driver_addresses, num_proc, start_timeout_at, key):
     def _mapper(index, _):
-        yield _task_fn(index, driver_addresses, num_proc, start_timeout_at)
+        yield _task_fn(index, driver_addresses, num_proc, start_timeout_at, key)
     return _mapper
 
 
-def _make_barrier_mapper(driver_addresses, num_proc, start_timeout_at):
+def _make_barrier_mapper(driver_addresses, num_proc, start_timeout_at, key):
     def _mapper(_):
         ctx = pyspark.BarrierTaskContext.get()
         ctx.barrier()
         index = ctx.partitionId()
-        yield _task_fn(index, driver_addresses, num_proc, start_timeout_at)
+        yield _task_fn(index, driver_addresses, num_proc, start_timeout_at, key)
     return _mapper
 
 
-def _make_spark_thread(spark_context, num_proc, driver, start_timeout_at, result_queue):
+def _make_spark_thread(spark_context, num_proc, driver, start_timeout_at, key, result_queue):
     def run_spark():
         try:
+            # We assume that folks caring about security will enable Spark RPC encryption,
+            # thus ensuring that key that is passed here remains secret.
             procs = spark_context.range(0, numSlices=num_proc)
             if hasattr(procs, 'barrier'):
                 # Use .barrier() functionality if it's available.
                 procs = procs.barrier()
-                result = procs.mapPartitions(_make_barrier_mapper(driver.addresses(), num_proc, start_timeout_at)).collect()
+                result = procs.mapPartitions(
+                    _make_barrier_mapper(driver.addresses(), num_proc, start_timeout_at, key)).collect()
             else:
-                result = procs.mapPartitionsWithIndex(_make_mapper(driver.addresses(), num_proc, start_timeout_at)).collect()
+                result = procs.mapPartitionsWithIndex(
+                    _make_mapper(driver.addresses(), num_proc, start_timeout_at, key)).collect()
             result_queue.put(result)
         except:
             driver.notify_spark_job_failed()
@@ -127,13 +131,14 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, ver
     result_queue = queue.Queue(1)
     start_timeout_at = timeout.timeout_at(start_timeout)
     tmout = timeout.Timeout(start_timeout_at)
-    driver = driver_service.DriverService(num_proc, fn, args, kwargs)
-    spark_thread = _make_spark_thread(spark_context, num_proc, driver, start_timeout_at, result_queue)
+    key = secret.make_secret_key()
+    driver = driver_service.DriverService(num_proc, fn, args, kwargs, key)
+    spark_thread = _make_spark_thread(spark_context, num_proc, driver, start_timeout_at, key, result_queue)
     try:
         driver.wait_for_initial_registration(tmout)
         if verbose >= 2:
             print('Initial Spark task registration is complete.')
-        task_clients = [task_service.TaskClient(index, driver.task_addresses_for_driver(index))
+        task_clients = [task_service.TaskClient(index, driver.task_addresses_for_driver(index), key)
                         for index in range(num_proc)]
         for task_client in task_clients:
             task_client.notify_initial_registration_complete()
@@ -202,7 +207,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, ver
                 # it means that all the tasks are already terminated.
                 if spark_thread.is_alive():
                     try:
-                        task_client = task_service.TaskClient(index, driver.task_addresses_for_driver(index))
+                        task_client = task_service.TaskClient(index, driver.task_addresses_for_driver(index), key)
                         task_client.interrupt_waits(str(e))
                     except:
                         pass

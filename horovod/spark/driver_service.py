@@ -15,10 +15,10 @@
 
 import threading
 
-from horovod.spark.network import BasicService, BasicClient
+from horovod.spark.network import BasicService, BasicClient, AckResponse
 
 
-class RegisterRequest(object):
+class RegisterTaskRequest(object):
     def __init__(self, index, task_addresses, host_hash):
         self.index = index
         """Task index."""
@@ -42,22 +42,20 @@ class RegisterTaskToTaskAddressesRequest(object):
         """Map of interface to list of (ip, port) pairs."""
 
 
-class RegisterResponse(object):
-    pass
-
-
-class TaskAddressesRequest(object):
+class AllTaskAddressesRequest(object):
+    """Request all task addresses for a given index."""
     def __init__(self, index):
         self.index = index
 
 
-# TODO: clarify all these various task addresses
-class TaskAddressesResponse(object):
+class AllTaskAddressesResponse(object):
     def __init__(self, all_task_addresses):
         self.all_task_addresses = all_task_addresses
+        """Map of interface to list of (ip, port) pairs."""
 
 
 class TaskHostHashIndicesRequest(object):
+    """Request task indices for a given host hash."""
     def __init__(self, host_hash):
         self.host_hash = host_hash
 
@@ -65,9 +63,11 @@ class TaskHostHashIndicesRequest(object):
 class TaskHostHashIndicesResponse(object):
     def __init__(self, indices):
         self.indices = indices
+        """Task indices."""
 
 
 class TaskIndexByRankRequest(object):
+    """Request task index by Horovod rank."""
     def __init__(self, rank):
         self.rank = rank
 
@@ -75,24 +75,31 @@ class TaskIndexByRankRequest(object):
 class TaskIndexByRankResponse(object):
     def __init__(self, index):
         self.index = index
+        """Task index."""
 
 
 class CodeRequest(object):
+    """Request Python function to execute."""
     pass
 
 
 class CodeResponse(object):
     def __init__(self, fn, args, kwargs):
         self.fn = fn
+        """Function."""
+
         self.args = args
+        """Function args."""
+
         self.kwargs = kwargs
+        """Function kwargs."""
 
 
 class DriverService(BasicService):
     NAME = 'driver service'
 
-    def __init__(self, num_proc, fn, args, kwargs):
-        super(DriverService, self).__init__(DriverService.NAME)
+    def __init__(self, num_proc, fn, args, kwargs, key):
+        super(DriverService, self).__init__(DriverService.NAME, key)
         self._num_proc = num_proc
         self._fn = fn
         self._args = args
@@ -106,7 +113,7 @@ class DriverService(BasicService):
         self._wait_cond = threading.Condition()
 
     def _handle(self, req, client_address):
-        if isinstance(req, RegisterRequest):
+        if isinstance(req, RegisterTaskRequest):
             self._wait_cond.acquire()
             try:
                 assert 0 <= req.index < self._num_proc
@@ -122,7 +129,7 @@ class DriverService(BasicService):
             finally:
                 self._wait_cond.notify_all()
                 self._wait_cond.release()
-            return RegisterResponse()
+            return AckResponse()
 
         if isinstance(req, RegisterTaskToTaskAddressesRequest):
             self._wait_cond.acquire()
@@ -132,10 +139,10 @@ class DriverService(BasicService):
             finally:
                 self._wait_cond.notify_all()
                 self._wait_cond.release()
-            return RegisterResponse()
+            return AckResponse()
 
-        if isinstance(req, TaskAddressesRequest):
-            return TaskAddressesResponse(self._all_task_addresses[req.index])
+        if isinstance(req, AllTaskAddressesRequest):
+            return AllTaskAddressesResponse(self._all_task_addresses[req.index])
 
         if isinstance(req, TaskHostHashIndicesRequest):
             return TaskHostHashIndicesResponse(self._task_host_hash_indices[req.host_hash])
@@ -206,14 +213,14 @@ class DriverService(BasicService):
 
 
 class DriverClient(BasicClient):
-    def __init__(self, driver_addresses):
-        super(DriverClient, self).__init__(DriverService.NAME, driver_addresses)
+    def __init__(self, driver_addresses, key):
+        super(DriverClient, self).__init__(DriverService.NAME, driver_addresses, key)
 
-    def register(self, index, task_addresses, host_hash):
-        self._send(RegisterRequest(index, task_addresses, host_hash))
+    def register_task(self, index, task_addresses, host_hash):
+        self._send(RegisterTaskRequest(index, task_addresses, host_hash))
 
     def all_task_addresses(self, index):
-        resp = self._send(TaskAddressesRequest(index))
+        resp = self._send(AllTaskAddressesRequest(index))
         return resp.all_task_addresses
 
     def register_task_to_task_addresses(self, index, task_addresses):
