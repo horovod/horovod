@@ -213,8 +213,9 @@ class DriverService(BasicService):
 
 
 class DriverClient(BasicClient):
-    def __init__(self, driver_addresses, key):
-        super(DriverClient, self).__init__(DriverService.NAME, driver_addresses, key)
+    def __init__(self, driver_addresses, key, match_intf=False):
+        super(DriverClient, self).__init__(DriverService.NAME, driver_addresses, key,
+                                           match_intf=match_intf)
 
     def register_task(self, index, task_addresses, host_hash):
         self._send(RegisterTaskRequest(index, task_addresses, host_hash))

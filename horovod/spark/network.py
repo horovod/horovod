@@ -30,8 +30,11 @@ class PingRequest(object):
 
 
 class PingResponse(object):
-    def __init__(self, service_name):
+    def __init__(self, service_name, source_address):
         self.service_name = service_name
+        """Service name that responded to this ping."""
+        self.source_address = source_address
+        """Source IP address that was visible to the service."""
 
 
 class AckResponse(object):
@@ -113,7 +116,7 @@ class BasicService(object):
 
     def _handle(self, req, client_address):
         if isinstance(req, PingRequest):
-            return PingResponse(self._service_name)
+            return PingResponse(self._service_name, client_address[0])
 
         raise NotImplementedError(req)
 
@@ -138,10 +141,11 @@ class BasicService(object):
 
 
 class BasicClient(object):
-    def __init__(self, service_name, addresses, key, probe_timeout=20, retries=3):
+    def __init__(self, service_name, addresses, key, match_intf=False, probe_timeout=20, retries=3):
         # Note: because of retry logic, ALL RPC calls are REQUIRED to be idempotent.
         self._service_name = service_name
         self._wire = Wire(key)
+        self._match_intf = match_intf
         self._probe_timeout = probe_timeout
         self._retries = retries
         self._addresses = self._probe(addresses)
@@ -189,8 +193,18 @@ class BasicClient(object):
                     if isinstance(resp, DrainError):
                         drain_errors_queue.put(resp)
                         return
-                    if resp.service_name == self._service_name:
-                        result_queue.put((intf, addr))
+                    if resp.service_name != self._service_name:
+                        return
+                    if self._match_intf:
+                        # Interface name of destination and source must match
+                        # since `match_intf` is requested.
+                        client_intf_addrs = \
+                            [x.address
+                             for x in psutil.net_if_addrs().get(intf, [])
+                             if x.family == socket.AF_INET]
+                        if resp.source_address not in client_intf_addrs:
+                            return
+                    result_queue.put((intf, addr))
                     return
                 finally:
                     rfile.close()

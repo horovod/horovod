@@ -145,10 +145,9 @@ class TaskService(BasicService):
 
 
 class TaskClient(BasicClient):
-    def __init__(self, index, task_addresses, key):
-        super(TaskClient, self).__init__(TaskService.NAME_FORMAT % index,
-                                         task_addresses,
-                                         key)
+    def __init__(self, index, task_addresses, key, match_intf=False):
+        super(TaskClient, self).__init__(TaskService.NAME_FORMAT % index, task_addresses, key,
+                                         match_intf=match_intf)
 
     def run_command(self, command):
         self._send(RunCommandRequest(command))

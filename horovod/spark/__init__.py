@@ -33,7 +33,8 @@ def _task_fn(index, driver_addresses, num_proc, start_timeout_at, key):
         # the cluster.
         next_task_index = (index + 1) % num_proc
         next_task_addresses = driver_client.all_task_addresses(next_task_index)
-        next_task_client = task_service.TaskClient(next_task_index, next_task_addresses, key)
+        # We request interface matching to weed out all the NAT'ed interfaces.
+        next_task_client = task_service.TaskClient(next_task_index, next_task_addresses, key, match_intf=True)
         driver_client.register_task_to_task_addresses(next_task_index, next_task_client.addresses())
         task_indices_on_this_host = driver_client.task_host_hash_indices(host_hash.host_hash())
         if task_indices_on_this_host[0] == index:
