@@ -28,7 +28,7 @@ namespace common {
 #define CPU_DEVICE_ID (-1)
 
 // List of supported frameworks.
-enum Framework { TENSORFLOW, PYTORCH };
+enum Framework { TENSORFLOW, PYTORCH, MXNET };
 
 enum StatusType { OK, UNKNOWN_ERROR, PRECONDITION_ERROR, ABORTED, INVALID_ARGUMENT };
 
