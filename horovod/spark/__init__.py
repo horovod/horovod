@@ -166,6 +166,12 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, ver
             ranks_to_indices += driver.task_host_hash_indices()[host_hash]
         driver.set_ranks_to_indices(ranks_to_indices)
 
+        if env is None:
+            env = os.environ.copy()
+
+        # Pass secret key through the environment variables.
+        env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(key)
+
         mpirun_command = (
             'mpirun --allow-run-as-root --tag-output '
             '-np {num_proc} -H {hosts} '
@@ -179,14 +185,12 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, ver
                     hosts=','.join('%s:%d' % (host_hash, len(driver.task_host_hash_indices()[host_hash]))
                                    for host_hash in host_hashes),
                     common_intfs=','.join(common_intfs),
-                    env=' '.join('-x %s' % key for key in os.environ.keys()),
+                    env=' '.join('-x %s' % key for key in env.keys()),
                     python=sys.executable,
                     encoded_driver_addresses=codec.dumps_base64(driver.addresses())))
         if verbose >= 2:
             print('+ %s' % mpirun_command)
-        exit_code = safe_shell_exec.execute(
-            mpirun_command,
-            env=os.environ if env is None else env)
+        exit_code = safe_shell_exec.execute(mpirun_command, env)
         if exit_code != 0:
             raise Exception('mpirun exited with code %d, see the error above.' % exit_code)
     except Exception as e:

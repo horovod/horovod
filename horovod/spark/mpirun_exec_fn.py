@@ -18,7 +18,7 @@ import sys
 import threading
 import time
 
-from horovod.spark import codec, driver_service, task_service
+from horovod.spark import codec, driver_service, task_service, secret
 
 
 def parent_process_monitor(initial_ppid):
@@ -35,11 +35,12 @@ def main(driver_addresses):
     bg.daemon = True
     bg.start()
 
+    key = codec.loads_base64(os.environ[secret.HOROVOD_SECRET_KEY])
     rank = int(os.environ['OMPI_COMM_WORLD_RANK'])
-    driver_client = driver_service.DriverClient(driver_addresses)
+    driver_client = driver_service.DriverClient(driver_addresses, key)
     task_index = driver_client.task_index_by_rank(rank)
     task_addresses = driver_client.all_task_addresses(task_index)
-    task_client = task_service.TaskClient(task_index, task_addresses)
+    task_client = task_service.TaskClient(task_index, task_addresses, key)
     fn, args, kwargs = driver_client.code()
     result = fn(*args, **kwargs)
     task_client.register_code_result(result)

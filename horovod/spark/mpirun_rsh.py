@@ -13,19 +13,21 @@
 # limitations under the License.
 # ==============================================================================
 
+import os
 import sys
 
-from horovod.spark import codec, task_service, driver_service
+from horovod.spark import codec, task_service, driver_service, secret
 
 
 def main(driver_addresses, host_hash, command):
-    driver_client = driver_service.DriverClient(driver_addresses)
+    key = codec.loads_base64(os.environ[secret.HOROVOD_SECRET_KEY])
+    driver_client = driver_service.DriverClient(driver_addresses, key)
     task_indices = driver_client.task_host_hash_indices(host_hash)
     # Since tasks with the same host hash have shared memory, we will run only
     # one ORTED process on the first task.
     first_task_index = task_indices[0]
     task_addresses = driver_client.all_task_addresses(first_task_index)
-    task_client = task_service.TaskClient(first_task_index, task_addresses)
+    task_client = task_service.TaskClient(first_task_index, task_addresses, key)
     task_client.run_command(command)
 
 

@@ -20,6 +20,7 @@ import os
 
 SECRET_LENGTH = 32  # bytes
 DIGEST_LENGTH = 32  # bytes
+HOROVOD_SECRET_KEY = '_HOROVOD_SECRET_KEY'
 
 
 def make_secret_key():
@@ -27,7 +28,7 @@ def make_secret_key():
 
 
 def compute_digest(key, message):
-    return hmac.new(key, message, hashlib.sha256).hexdigest()
+    return hmac.new(key, message, hashlib.sha256).digest()
 
 
 def check_digest(key, message, digest):
