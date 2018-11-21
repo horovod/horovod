@@ -2110,6 +2110,7 @@ void horovod_shutdown() {
 
   if (horovod_global.shared_buffer != nullptr) {
     MPI_Win_free(&horovod_global.window);
+    horovod_global.shared_buffer = nullptr;
   }
 
   if (horovod_global.should_finalize) {
