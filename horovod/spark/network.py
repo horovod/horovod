@@ -198,10 +198,9 @@ class BasicClient(object):
                     if self._match_intf:
                         # Interface name of destination and source must match
                         # since `match_intf` is requested.
-                        client_intf_addrs = \
-                            [x.address
-                             for x in psutil.net_if_addrs().get(intf, [])
-                             if x.family == socket.AF_INET]
+                        client_intf_addrs = [x.address
+                                             for x in psutil.net_if_addrs().get(intf, [])
+                                             if x.family == socket.AF_INET]
                         if resp.source_address not in client_intf_addrs:
                             return
                     result_queue.put((intf, addr))
