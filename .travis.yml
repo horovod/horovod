@@ -29,7 +29,7 @@ before_install:
   # install Python, if it's Python 3 - add symlink for `python`
   - |
     if [[ ${TRAVIS_PYTHON_VERSION} == 3* ]]; then
-      docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev"
+      docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev python3-distutils"
     else
       docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev"
     fi
