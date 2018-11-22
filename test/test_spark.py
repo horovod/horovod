@@ -35,7 +35,7 @@ class SparkTests(unittest.TestCase):
             # Running in MPI as a rank > 0, ignore.
             return
 
-        if not 'Open MPI' in subprocess.check_output('mpirun --version', shell=True):
+        if not 'Open MPI' in str(subprocess.check_output('mpirun --version', shell=True)):
             return
 
         super(SparkTests, self).run(result)
