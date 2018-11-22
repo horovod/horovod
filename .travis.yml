@@ -24,18 +24,19 @@ before_install:
   - sleep 5
   - export CONTAINER=$(docker ps -q | head -n 1)
   - docker exec ${CONTAINER} /bin/sh -c "apt-get update -qq"
-  # install Python, if it's Python 3 - add symlink for `python`
-  - |
-    if [[ ${TRAVIS_PYTHON_VERSION} == 3* ]]; then
-      docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev python3-pip python3-requests"
-      docker exec ${CONTAINER} /bin/sh -c "pip3 install -U --force pip setuptools"
-      docker exec ${CONTAINER} /bin/sh -c "ln -s /usr/bin/python3 /usr/bin/python"
-    else
-      docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev python-pip python-requests"
-      docker exec ${CONTAINER} /bin/sh -c "pip install -U --force pip setuptools"
-    fi
   # install necessary network tools
-  - docker exec ${CONTAINER} /bin/sh -c "apt-get install -y wget openssh-client git"
+  - docker exec ${CONTAINER} /bin/sh -c "apt-get install -y wget openssh-client git build-essential"
+  # install Python and add a proper symlink
+  - |
+    if [[ ${TRAVIS_PYTHON_VERSION} == "3.6" ]]; then
+      # Python 3.6 requires special handling in Debian `sid` since the default is Python 3.7.
+      docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev python3-distutils"
+    else
+      docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev"
+    fi
+  - docker exec ${CONTAINER} /bin/sh -c "ln -s /usr/bin/python${TRAVIS_PYTHON_VERSION} /usr/bin/python"
+  - docker exec ${CONTAINER} /bin/sh -c "wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py"
+  - docker exec ${CONTAINER} /bin/sh -c "pip install -U --force pip setuptools requests"
 
 env:
   matrix:
