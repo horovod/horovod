@@ -34,18 +34,7 @@ class SparkTests(unittest.TestCase):
             # Running in MPI as a rank > 0, ignore.
             return
 
-        # Clean up environment from MPI variables.
-        backup_env = {}
-        for key in list(os.environ.keys()):
-            if key.startswith('OMPI_') or key.startswith('PMIX_'):
-                backup_env[key] = os.environ[key]
-                del os.environ[key]
-
-        try:
-            super(SparkTests, self).run(result)
-        finally:
-            # Restore original environment.
-            os.environ.update(backup_env)
+        super(SparkTests, self).run(result)
 
     def test_happy_run(self):
         from pyspark import SparkConf
@@ -62,7 +51,9 @@ class SparkTests(unittest.TestCase):
             return res, hvd.rank()
 
         try:
-            assert [([0, 1], 0), ([0, 1], 1)] == horovod.spark.run(fn)
+            res = horovod.spark.run(fn, env={'PATH': os.environ.get('PATH')})
+            assert [([0, 1], 0), ([0, 1], 1)] == res
+
         finally:
             spark.stop()
 
@@ -76,7 +67,8 @@ class SparkTests(unittest.TestCase):
             .getOrCreate()
 
         try:
-            horovod.spark.run(None, num_proc=4, start_timeout=5)
+            horovod.spark.run(None, num_proc=4, start_timeout=5,
+                              env={'PATH': os.environ.get('PATH')})
             assert False, "Timeout expected"
         except Exception as e:
             assert "Timed out waiting for Spark tasks to start" in str(e)
