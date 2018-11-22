@@ -161,12 +161,6 @@ class DriverService(BasicService):
                 if ip == target_ip:
                     return {intf: [(ip, port)]}
 
-    def registered_task_indices(self):
-        return self._all_task_addresses.keys()
-
-    def all_task_addresses(self, index):
-        return self._all_task_addresses[index]
-
     def task_addresses_for_driver(self, index):
         return self._task_addresses_for_driver[index]
 

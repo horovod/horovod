@@ -42,11 +42,6 @@ class AckResponse(object):
     pass
 
 
-class DrainError(Exception):
-    def __init__(self, *args, **kwargs):
-        super(DrainError, self).__init__(*args, **kwargs)
-
-
 class Wire(object):
     def __init__(self, key):
         self._key = key
@@ -77,8 +72,6 @@ class BasicService(object):
         self._thread = threading.Thread(target=self._server.serve_forever)
         self._thread.daemon = True
         self._thread.start()
-        self._draining = False
-        self._drain_reason = None
 
     def _make_server(self):
         min_port = 1024
@@ -101,10 +94,7 @@ class BasicService(object):
             def handle(self):
                 try:
                     req = server._wire.read(self.rfile)
-                    if server._draining:
-                        resp = DrainError(server._drain_reason)
-                    else:
-                        resp = server._handle(req, self.client_address)
+                    resp = server._handle(req, self.client_address)
                     if not resp:
                         raise Exception('Handler did not return a response.')
                     server._wire.write(resp, self.wfile)
@@ -119,10 +109,6 @@ class BasicService(object):
             return PingResponse(self._service_name, client_address[0])
 
         raise NotImplementedError(req)
-
-    def drain(self, reason):
-        self._drain_reason = reason
-        self._draining = True
 
     def addresses(self):
         result = {}
@@ -155,21 +141,16 @@ class BasicClient(object):
 
     def _probe(self, addresses):
         result_queue = queue.Queue()
-        drain_errors_queue = queue.Queue()
         threads = []
         for intf, intf_addresses in addresses.items():
             for addr in intf_addresses:
                 thread = threading.Thread(target=self._probe_one,
-                                          args=(intf, addr, result_queue,
-                                                drain_errors_queue))
+                                          args=(intf, addr, result_queue))
                 thread.daemon = True
                 thread.start()
                 threads.append(thread)
         for t in threads:
             t.join()
-
-        if not drain_errors_queue.empty():
-            raise drain_errors_queue.get_nowait()
 
         result = {}
         while not result_queue.empty():
@@ -179,7 +160,7 @@ class BasicClient(object):
             result[intf].append(addr)
         return result
 
-    def _probe_one(self, intf, addr, result_queue, drain_errors_queue):
+    def _probe_one(self, intf, addr, result_queue):
         for iter in range(self._retries):
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(self._probe_timeout)
@@ -190,9 +171,6 @@ class BasicClient(object):
                 try:
                     self._wire.write(PingRequest(), wfile)
                     resp = self._wire.read(rfile)
-                    if isinstance(resp, DrainError):
-                        drain_errors_queue.put(resp)
-                        return
                     if resp.service_name != self._service_name:
                         return
                     if self._match_intf:
@@ -223,14 +201,10 @@ class BasicClient(object):
                 try:
                     self._wire.write(req, wfile)
                     resp = self._wire.read(rfile)
-                    if isinstance(resp, DrainError):
-                        raise resp
                     return resp
                 finally:
                     rfile.close()
                     wfile.close()
-            except DrainError:
-                raise
             except:
                 if iter == self._retries - 1:
                     # Raise exception on the last retry.

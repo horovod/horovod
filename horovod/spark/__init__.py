@@ -19,7 +19,8 @@ from six.moves import queue
 import sys
 import threading
 
-from horovod.spark import codec, host_hash, task_service, driver_service, network, timeout, safe_shell_exec, secret
+from horovod.spark import (codec, host_hash, task_service, driver_service, network, timeout,
+                           safe_shell_exec, secret, job_id)
 
 
 def _task_fn(index, driver_addresses, num_proc, start_timeout_at, key):
@@ -47,11 +48,6 @@ def _task_fn(index, driver_addresses, num_proc, start_timeout_at, key):
             first_task_client = task_service.TaskClient(task_indices_on_this_host[0], first_task_addresses, key)
             first_task_client.wait_for_command_termination()
         return task.fn_result()
-    except network.DrainError as e:
-        # Drop traceback for Python 3 since it's not informative in this case.
-        exc = Exception('Terminating due to an earlier error: %s' % str(e))
-        exc.__cause__ = None
-        raise exc
     finally:
         task.shutdown()
 
@@ -62,29 +58,15 @@ def _make_mapper(driver_addresses, num_proc, start_timeout_at, key):
     return _mapper
 
 
-def _make_barrier_mapper(driver_addresses, num_proc, start_timeout_at, key):
-    def _mapper(_):
-        ctx = pyspark.BarrierTaskContext.get()
-        ctx.barrier()
-        index = ctx.partitionId()
-        yield _task_fn(index, driver_addresses, num_proc, start_timeout_at, key)
-    return _mapper
-
-
-def _make_spark_thread(spark_context, num_proc, driver, start_timeout_at, key, result_queue):
+def _make_spark_thread(spark_context, spark_job_group, num_proc, driver, start_timeout_at, key, result_queue):
     def run_spark():
         try:
+            spark_context.setJobGroup(spark_job_group, "Horovod Spark Run", interruptOnCancel=True)
+            procs = spark_context.range(0, numSlices=num_proc)
             # We assume that folks caring about security will enable Spark RPC encryption,
             # thus ensuring that key that is passed here remains secret.
-            procs = spark_context.range(0, numSlices=num_proc)
-            if hasattr(procs, 'barrier'):
-                # Use .barrier() functionality if it's available.
-                procs = procs.barrier()
-                result = procs.mapPartitions(
-                    _make_barrier_mapper(driver.addresses(), num_proc, start_timeout_at, key)).collect()
-            else:
-                result = procs.mapPartitionsWithIndex(
-                    _make_mapper(driver.addresses(), num_proc, start_timeout_at, key)).collect()
+            result = procs.mapPartitionsWithIndex(
+                _make_mapper(driver.addresses(), num_proc, start_timeout_at, key)).collect()
             result_queue.put(result)
         except:
             driver.notify_spark_job_failed()
@@ -106,7 +88,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, ver
         num_proc: Number of Horovod processes.  Defaults to `spark.default.parallelism`.
         start_timeout: Timeout for Spark tasks to spawn, register and start running the code, in seconds.
                        If not set, falls back to `HOROVOD_SPARK_START_TIMEOUT` environment variable value.
-                       If it is not set as well, defaults to 300 seconds.
+                       If it is not set as well, defaults to 600 seconds.
         env: Environment dictionary to use in training.  Defaults to `os.environ`.
         verbose: Output verbosity (0-2). Defaults to 1.
 
@@ -127,14 +109,15 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, ver
 
     if start_timeout is None:
         # Lookup default timeout from the environment variable.
-        start_timeout = int(os.getenv('HOROVOD_SPARK_START_TIMEOUT', '300'))
+        start_timeout = int(os.getenv('HOROVOD_SPARK_START_TIMEOUT', '600'))
 
     result_queue = queue.Queue(1)
     start_timeout_at = timeout.timeout_at(start_timeout)
     tmout = timeout.Timeout(start_timeout_at)
     key = secret.make_secret_key()
+    spark_job_group = 'horovod.spark.run.%d' % job_id.next_job_id()
     driver = driver_service.DriverService(num_proc, fn, args, kwargs, key)
-    spark_thread = _make_spark_thread(spark_context, num_proc, driver, start_timeout_at, key, result_queue)
+    spark_thread = _make_spark_thread(spark_context, spark_job_group, num_proc, driver, start_timeout_at, key, result_queue)
     try:
         driver.wait_for_initial_registration(tmout)
         if verbose >= 2:
@@ -194,28 +177,12 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, ver
         exit_code = safe_shell_exec.execute(mpirun_command, env)
         if exit_code != 0:
             raise Exception('mpirun exited with code %d, see the error above.' % exit_code)
-    except Exception as e:
-        try:
-            # Naked raise re-raises last exception.  Since notifications below use exception-swallowing which could
-            # corrupt the last exception, we immediately re-raise here to ensure the correct exception is raised
-            # and use finally to execute the notification code before it happens.
-            raise
-        finally:
-            # Schedule driver for shutdown, so tasks trying to connect due to Spark retries will fail fast.
-            driver.drain(str(e))
+    except:
+        # Terminate Spark job.
+        spark_context.cancelJobGroup(spark_job_group)
 
-            # Interrupt waiting tasks.  This is useful if the main flow quickly terminated, e.g. due to mpirun error,
-            # and tasks are still waiting for a command to be executed on them.  This request is best-effort and is
-            # not required for the proper shutdown, it just speeds it up and provides clear error message.
-            for index in driver.registered_task_indices():
-                # We only need to do this housekeeping while Spark Job is in progress.  If Spark job has finished,
-                # it means that all the tasks are already terminated.
-                if spark_thread.is_alive():
-                    try:
-                        task_client = task_service.TaskClient(index, driver.task_addresses_for_driver(index), key)
-                        task_client.interrupt_waits(str(e))
-                    except:
-                        pass
+        # Re-raise exception.
+        raise
     finally:
         spark_thread.join()
         driver.shutdown()

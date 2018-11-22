@@ -48,12 +48,6 @@ class RegisterCodeResultRequest(object):
         self.result = result
 
 
-class InterruptWaitsRequest(object):
-    """Interrupt any waits on the task to terminate Spark job earlier."""
-    def __init__(self, reason):
-        self.reason = reason
-
-
 class TaskService(BasicService):
     NAME_FORMAT = 'task service #%d'
 
@@ -63,8 +57,6 @@ class TaskService(BasicService):
         self._wait_cond = threading.Condition()
         self._command_thread = None
         self._fn_result = None
-        self._interrupt_waits = False
-        self._interrupt_reason = None
 
     def _handle(self, req, client_address):
         if isinstance(req, RunCommandRequest):
@@ -103,16 +95,6 @@ class TaskService(BasicService):
             self._fn_result = req.result
             return AckResponse()
 
-        if isinstance(req, InterruptWaitsRequest):
-            self._wait_cond.acquire()
-            try:
-                self._interrupt_reason = req.reason
-                self._interrupt_waits = True
-            finally:
-                self._wait_cond.notify_all()
-                self._wait_cond.release()
-            return AckResponse()
-
         return super(TaskService, self)._handle(req, client_address)
 
     def fn_result(self):
@@ -122,8 +104,6 @@ class TaskService(BasicService):
         self._wait_cond.acquire()
         try:
             while not self._initial_registration_complete:
-                if self._interrupt_waits:
-                    raise Exception('Interrupted waiting for Spark tasks to start: %s' % self._interrupt_reason)
                 self._wait_cond.wait(timeout.remaining())
                 timeout.check_time_out_for('Spark tasks to start')
         finally:
@@ -133,8 +113,6 @@ class TaskService(BasicService):
         self._wait_cond.acquire()
         try:
             while self._command_thread is None:
-                if self._interrupt_waits:
-                    raise Exception('Interrupted waiting for command to run: %s' % self._interrupt_reason)
                 self._wait_cond.wait(timeout.remaining())
                 timeout.check_time_out_for('command to run')
         finally:
@@ -161,9 +139,6 @@ class TaskClient(BasicClient):
 
     def register_code_result(self, result):
         self._send(RegisterCodeResultRequest(result))
-
-    def interrupt_waits(self, reason):
-        self._send(InterruptWaitsRequest(reason))
 
     def wait_for_command_termination(self, delay=1):
         try:
