@@ -1660,6 +1660,40 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   for (auto& cb : callbacks) {
     cb(SHUT_DOWN_ERROR);
   }
+
+  if (horovod_global.mpi_comm != MPI_COMM_NULL &&
+      horovod_global.mpi_comm != MPI_COMM_WORLD) {
+    MPI_Comm_free(&horovod_global.mpi_comm);
+  }
+
+  if (horovod_global.local_comm != MPI_COMM_NULL) {
+    MPI_Comm_free(&horovod_global.local_comm);
+  }
+
+  if (horovod_global.cross_comm != MPI_COMM_NULL) {
+    MPI_Comm_free(&horovod_global.cross_comm);
+  }
+
+  if (horovod_global.mpi_float16_t != MPI_DATATYPE_NULL) {
+    MPI_Type_free(&horovod_global.mpi_float16_t);
+  }
+
+  if (horovod_global.mpi_float16_sum != MPI_OP_NULL) {
+    MPI_Op_free(&horovod_global.mpi_float16_sum);
+  }
+
+  if (horovod_global.should_finalize) {
+#if HAVE_DDL
+    // ddl_finalize calls MPI_Finalize
+    ddl_finalize();
+#else
+    int is_mpi_finalized = 0;
+    MPI_Finalized(&is_mpi_finalized);
+    if (!is_mpi_finalized) {
+      MPI_Finalize();
+    }
+#endif
+  }
 }
 
 // The coordinator currently follows a master-worker paradigm. Rank zero acts
@@ -1903,7 +1937,6 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   }
 
   return !should_shut_down;
-  MPI_Op_free(&state.mpi_float16_sum);
 }
 
 // Start Horovod background thread. Ensure that this is
@@ -1955,36 +1988,6 @@ void horovod_shutdown() {
     // Reset the initialization flag to allow restarting with horovod_init(...)
     horovod_global.initialize_flag.clear();
     horovod_global.shut_down = false;
-  }
-
-  if (horovod_global.mpi_comm != MPI_COMM_NULL &&
-      horovod_global.mpi_comm != MPI_COMM_WORLD) {
-    MPI_Comm_free(&horovod_global.mpi_comm);
-  }
-
-  if (horovod_global.local_comm != MPI_COMM_NULL) {
-    MPI_Comm_free(&horovod_global.local_comm);
-  }
-
-  if (horovod_global.cross_comm != MPI_COMM_NULL) {
-    MPI_Comm_free(&horovod_global.cross_comm);
-  }
-
-  if (horovod_global.mpi_float16_t != MPI_DATATYPE_NULL) {
-    MPI_Type_free(&horovod_global.mpi_float16_t);
-  }
-
-  if (horovod_global.should_finalize) {
-#if HAVE_DDL
-    // ddl_finalize calls MPI_Finalize
-    ddl_finalize();
-#else
-    int is_mpi_finalized = 0;
-    MPI_Finalized(&is_mpi_finalized);
-    if (!is_mpi_finalized) {
-      MPI_Finalize();
-    }
-#endif
   }
 }
 
