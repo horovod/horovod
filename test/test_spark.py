@@ -36,7 +36,7 @@ class SparkTests(unittest.TestCase):
 
         # Clean up environment from MPI variables.
         backup_env = {}
-        for key in os.environ.keys():
+        for key in list(os.environ.keys()):
             if key.startswith('OMPI_') or key.startswith('PMIX_'):
                 backup_env[key] = os.environ[key]
                 del os.environ[key]
