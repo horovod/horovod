@@ -34,11 +34,18 @@ class SparkTests(unittest.TestCase):
             # Running in MPI as a rank > 0, ignore.
             return
 
+        # Clean up environment from MPI variables.
+        backup_env = {}
         for key in os.environ.keys():
             if key.startswith('OMPI_') or key.startswith('PMIX_'):
+                backup_env[key] = os.environ[key]
                 del os.environ[key]
 
-        super(SparkTests, self).run(result)
+        try:
+            super(SparkTests, self).run(result)
+        finally:
+            # Restore original environment.
+            os.environ.update(backup_env)
 
     def test_happy_run(self):
         from pyspark import SparkConf
