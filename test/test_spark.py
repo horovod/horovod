@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+import subprocess
 import torch
 import unittest
 
@@ -32,6 +33,9 @@ class SparkTests(unittest.TestCase):
     def run(self, result=None):
         if os.environ.get('OMPI_COMM_WORLD_RANK', '0') != '0':
             # Running in MPI as a rank > 0, ignore.
+            return
+
+        if not 'Open MPI' in subprocess.check_output('mpirun --version', shell=True):
             return
 
         super(SparkTests, self).run(result)
