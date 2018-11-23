@@ -19,7 +19,9 @@ from __future__ import print_function
 
 import os
 import subprocess
+import time
 import torch
+import traceback
 import unittest
 
 import horovod.spark
@@ -57,7 +59,6 @@ class SparkTests(unittest.TestCase):
         try:
             res = horovod.spark.run(fn, env={'PATH': os.environ.get('PATH')})
             assert [([0, 1], 0), ([0, 1], 1)] == res
-
         finally:
             spark.stop()
 
@@ -75,6 +76,29 @@ class SparkTests(unittest.TestCase):
                               env={'PATH': os.environ.get('PATH')})
             assert False, "Timeout expected"
         except Exception as e:
+            print('Caught exception:')
+            traceback.print_exc()
             assert "Timed out waiting for Spark tasks to start" in str(e)
+        finally:
+            spark.stop()
+
+    def test_mpirun_not_found(self):
+        from pyspark import SparkConf
+        from pyspark.sql import SparkSession
+        conf = SparkConf().setAppName("test_happy_run").setMaster("local[2]")
+        spark = SparkSession \
+            .builder \
+            .config(conf=conf) \
+            .getOrCreate()
+
+        start = time.time()
+        try:
+            horovod.spark.run(None, env={'PATH': '/nonexistent'})
+            assert False, "Failure expected"
+        except Exception as e:
+            print('Caught exception:')
+            traceback.print_exc()
+            assert "mpirun exited with code" in str(e)
+            assert time.time() - start <= 10, "Failure propagation took too long"
         finally:
             spark.stop()
