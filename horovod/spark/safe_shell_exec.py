@@ -53,6 +53,11 @@ def terminate_executor_shell_and_children(pid):
 
 
 def forward_stream(src, dst):
+    if hasattr(dst, 'buffer'):
+        # In case of Python 3, src will be binary stream so we'll need to output
+        # to a corresponding binary buffer.
+        dst = dst.buffer
+
     while True:
         line = src.readline()
         if not line:
