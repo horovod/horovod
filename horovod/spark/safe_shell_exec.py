@@ -58,9 +58,20 @@ def forward_stream(src, dst):
         if not line:
             break
         dst.write(line)
+        dst.flush()
 
 
 def execute(command, env=None, stdout=None, stderr=None):
+    if stdout is None:
+        stdout = sys.stdout
+
+    if stderr is None:
+        stderr = sys.stderr
+
+    # Flush outstanding outputs before forking.
+    stdout.flush()
+    stderr.flush()
+
     (r, w) = os.pipe()
     middleman_pid = os.fork()
     if middleman_pid == 0:
@@ -73,13 +84,9 @@ def execute(command, env=None, stdout=None, stderr=None):
         executor_shell = subprocess.Popen(command, shell=True, env=env,
                                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-        if stdout is None:
-            stdout = sys.stdout
         stdout_fwd = threading.Thread(target=forward_stream, args=(executor_shell.stdout, stdout))
         stdout_fwd.start()
 
-        if stderr is None:
-            stderr = sys.stderr
         stderr_fwd = threading.Thread(target=forward_stream, args=(executor_shell.stderr, stderr))
         stderr_fwd.start()
 
