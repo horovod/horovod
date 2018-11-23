@@ -52,14 +52,36 @@ def terminate_executor_shell_and_children(pid):
     p.kill()
 
 
-def execute(command, env=None):
+def forward_stream(src, dst):
+    while True:
+        line = src.readline()
+        if not line:
+            break
+        dst.write(line)
+
+
+def execute(command, env=None, stdout=None, stderr=None):
     (r, w) = os.pipe()
     middleman_pid = os.fork()
     if middleman_pid == 0:
         os.close(w)
         os.setpgid(0, 0)
 
-        executor_shell = subprocess.Popen(command, shell=True, env=env)
+        # Redirect command stdout & stderr to provided streams or sys.stdout/sys.stderr.
+        # This is useful for Jupyter Notebook that uses custom sys.stdout/sys.stderr or
+        # redirecting to a file on disk.
+        executor_shell = subprocess.Popen(command, shell=True, env=env,
+                                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        if stdout is None:
+            stdout = sys.stdout
+        stdout_fwd = threading.Thread(target=forward_stream, args=(executor_shell.stdout, stdout))
+        stdout_fwd.start()
+
+        if stderr is None:
+            stderr = sys.stderr
+        stderr_fwd = threading.Thread(target=forward_stream, args=(executor_shell.stderr, stderr))
+        stderr_fwd.start()
 
         sigterm_received = threading.Event()
 
@@ -86,6 +108,8 @@ def execute(command, env=None):
         bg.start()
 
         exit_code = executor_shell.wait()
+        stdout_fwd.join()
+        stderr_fwd.join()
         os._exit(exit_code)
 
     os.close(r)

@@ -77,7 +77,7 @@ def _make_spark_thread(spark_context, spark_job_group, num_proc, driver, start_t
     return spark_thread
 
 
-def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, verbose=1):
+def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, stdout=None, stderr=None, verbose=1):
     """
     Runs Horovod in Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
 
@@ -89,8 +89,10 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, ver
         start_timeout: Timeout for Spark tasks to spawn, register and start running the code, in seconds.
                        If not set, falls back to `HOROVOD_SPARK_START_TIMEOUT` environment variable value.
                        If it is not set as well, defaults to 600 seconds.
-        env: Environment dictionary to use in training.  Defaults to `os.environ`.
-        verbose: Output verbosity (0-2). Defaults to 1.
+        env: Environment dictionary to use in Horovod run.  Defaults to `os.environ`.
+        stdout: Horovod stdout is redirected to this stream. Defaults to sys.stdout.
+        stderr: Horovod stderr is redirected to this stream. Defaults to sys.stderr.
+        verbose: Debug output verbosity (0-2). Defaults to 1.
 
     Returns:
         List of results returned by running `fn` on each rank.
@@ -174,7 +176,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, ver
                     encoded_driver_addresses=codec.dumps_base64(driver.addresses())))
         if verbose >= 2:
             print('+ %s' % mpirun_command)
-        exit_code = safe_shell_exec.execute(mpirun_command, env)
+        exit_code = safe_shell_exec.execute(mpirun_command, env, stdout, stderr)
         if exit_code != 0:
             raise Exception('mpirun exited with code %d, see the error above.' % exit_code)
     except:
