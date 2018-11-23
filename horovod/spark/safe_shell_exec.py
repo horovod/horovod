@@ -66,25 +66,18 @@ def forward_stream(src_fd, dst_stream):
 
 
 def execute(command, env=None, stdout=None, stderr=None):
-    if stdout is None:
-        stdout = sys.stdout
-
-    if stderr is None:
-        stderr = sys.stderr
-
-    # Start pipe for the subprocess stdout/stderr.
+    # Make a pipe for the subprocess stdout/stderr.
     (stdout_r, stdout_w) = os.pipe()
     (stderr_r, stderr_w) = os.pipe()
 
+    # Make a pipe for notifying the child that parent has died.
     (r, w) = os.pipe()
+
     middleman_pid = os.fork()
     if middleman_pid == 0:
         os.close(w)
         os.setpgid(0, 0)
 
-        # Redirect command stdout & stderr to provided streams or sys.stdout/sys.stderr.
-        # This is useful for Jupyter Notebook that uses custom sys.stdout/sys.stderr or
-        # redirecting to a file on disk.
         executor_shell = subprocess.Popen(command, shell=True, env=env,
                                           stdout=stdout_w, stderr=stderr_w)
 
@@ -120,7 +113,13 @@ def execute(command, env=None, stdout=None, stderr=None):
     os.close(stdout_w)
     os.close(stderr_w)
 
-    # Start stream forwarders.
+    # Redirect command stdout & stderr to provided streams or sys.stdout/sys.stderr.
+    # This is useful for Jupyter Notebook that uses custom sys.stdout/sys.stderr or
+    # for redirecting to a file on disk.
+    if stdout is None:
+        stdout = sys.stdout
+    if stderr is None:
+        stderr = sys.stderr
     stdout_fwd = threading.Thread(target=forward_stream, args=(stdout_r, stdout))
     stderr_fwd = threading.Thread(target=forward_stream, args=(stderr_r, stderr))
     stdout_fwd.start()
