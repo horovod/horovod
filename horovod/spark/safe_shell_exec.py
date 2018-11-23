@@ -52,18 +52,17 @@ def terminate_executor_shell_and_children(pid):
     p.kill()
 
 
-def forward_stream(src, dst):
-    if hasattr(dst, 'buffer'):
-        # In case of Python 3, src will be binary stream so we'll need to output
-        # to a corresponding binary buffer.
-        dst = dst.buffer
+def forward_stream(src_fd, dst_stream):
+    if hasattr(dst_stream, 'buffer'):
+        # If dst stream is a text buffer, we need to get its binary buffer.
+        dst_stream = dst_stream.buffer
 
-    while True:
-        line = src.readline()
-        if not line:
-            break
-        dst.write(line)
-        dst.flush()
+    with os.fdopen(src_fd, 'rb') as src:
+        while True:
+            line = src.readline()
+            if not line:
+                break
+            dst_stream.write(line)
 
 
 def execute(command, env=None, stdout=None, stderr=None):
@@ -73,9 +72,9 @@ def execute(command, env=None, stdout=None, stderr=None):
     if stderr is None:
         stderr = sys.stderr
 
-    # Flush outstanding outputs before forking.
-    stdout.flush()
-    stderr.flush()
+    # Start pipe for the subprocess stdout/stderr.
+    (stdout_r, stdout_w) = os.pipe()
+    (stderr_r, stderr_w) = os.pipe()
 
     (r, w) = os.pipe()
     middleman_pid = os.fork()
@@ -87,13 +86,7 @@ def execute(command, env=None, stdout=None, stderr=None):
         # This is useful for Jupyter Notebook that uses custom sys.stdout/sys.stderr or
         # redirecting to a file on disk.
         executor_shell = subprocess.Popen(command, shell=True, env=env,
-                                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-        stdout_fwd = threading.Thread(target=forward_stream, args=(executor_shell.stdout, stdout))
-        stdout_fwd.start()
-
-        stderr_fwd = threading.Thread(target=forward_stream, args=(executor_shell.stderr, stderr))
-        stderr_fwd.start()
+                                          stdout=stdout_w, stderr=stderr_w)
 
         sigterm_received = threading.Event()
 
@@ -120,11 +113,19 @@ def execute(command, env=None, stdout=None, stderr=None):
         bg.start()
 
         exit_code = executor_shell.wait()
-        stdout_fwd.join()
-        stderr_fwd.join()
         os._exit(exit_code)
 
+    # Close unused file descriptors to enforce PIPE behavior.
     os.close(r)
+    os.close(stdout_w)
+    os.close(stderr_w)
+
+    # Start stream forwarders.
+    stdout_fwd = threading.Thread(target=forward_stream, args=(stdout_r, stdout))
+    stderr_fwd = threading.Thread(target=forward_stream, args=(stderr_r, stderr))
+    stdout_fwd.start()
+    stderr_fwd.start()
+
     try:
         _, status = os.waitpid(middleman_pid, 0)
     except:
@@ -138,6 +139,8 @@ def execute(command, env=None, stdout=None, stderr=None):
                 # interrupted, wait for middleman to finish
                 pass
 
+    stdout_fwd.join()
+    stderr_fwd.join()
     exit_code = status >> 8
     return exit_code
 
