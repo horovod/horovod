@@ -63,6 +63,7 @@ def forward_stream(src_fd, dst_stream):
             if not line:
                 break
             dst_stream.write(line)
+            dst_stream.flush()
 
 
 def execute(command, env=None, stdout=None, stderr=None):
