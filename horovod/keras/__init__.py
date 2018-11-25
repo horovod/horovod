@@ -26,7 +26,7 @@ from horovod.tensorflow import mpi_threads_supported
 from horovod.tensorflow import Compression
 
 from horovod.keras import callbacks
-from horovod.keras import impl as _impl
+import horovod._keras as _impl
 
 
 def DistributedOptimizer(optimizer, name=None,
