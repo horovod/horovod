@@ -94,7 +94,7 @@ def load_model(keras, wrap_optimizer, filepath, custom_optimizers, custom_object
     horovod_objects = {
         subclass.__name__.lower(): wrap_optimizer(subclass)
         for subclass in keras.optimizers.Optimizer.__subclasses__()
-        if subclass.__module__ == 'keras.optimizers'
+        if subclass.__module__ == keras.optimizers.Optimizer.__module__
     }
 
     if custom_optimizers is not None:
