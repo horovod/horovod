@@ -21,9 +21,11 @@ from horovod.spark import safe_shell_exec
 
 
 class RunCommandRequest(object):
-    def __init__(self, command):
+    def __init__(self, command, env):
         self.command = command
         """Command to run."""
+        self.env = env
+        """Environment to use."""
 
 
 class CommandTerminatedRequest(object):
@@ -65,7 +67,7 @@ class TaskService(BasicService):
                 if self._command_thread is None:
                     # We only permit executing exactly one command, so this is idempotent.
                     self._command_thread = threading.Thread(target=safe_shell_exec.execute,
-                                                            args=(req.command,))
+                                                            args=(req.command, req.env))
                     self._command_thread.daemon = True
                     self._command_thread.start()
             finally:
@@ -127,8 +129,8 @@ class TaskClient(BasicClient):
         super(TaskClient, self).__init__(TaskService.NAME_FORMAT % index, task_addresses, key,
                                          match_intf=match_intf)
 
-    def run_command(self, command):
-        self._send(RunCommandRequest(command))
+    def run_command(self, command, env):
+        self._send(RunCommandRequest(command, env))
 
     def notify_initial_registration_complete(self):
         self._send(NotifyInitialRegistrationCompleteRequest())
