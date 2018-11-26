@@ -42,7 +42,7 @@ from horovod.tensorflow.mpi_ops import mpi_threads_supported
 import tensorflow as tf
 
 
-def allreduce(tensor, average=True, device_dense='', device_sparse='',
+def allreduce(tensors, average=True, device_dense='', device_sparse='',
               compression=Compression.none):
     """Perform an allreduce on a tf.Tensor or tf.IndexedSlices.
 
@@ -64,7 +64,8 @@ def allreduce(tensor, average=True, device_dense='', device_sparse='',
     allgather on the values and the indices, effectively doing an allreduce on
     the represented tensor.
     """
-    if isinstance(tensor, tf.IndexedSlices):
+    tensors = tensors if type(tensors) == list else [tensors]
+    if isinstance(tensors[0], tf.IndexedSlices):
         with tf.device(device_sparse):
             # For IndexedSlices, do two allgathers intead of an allreduce.
             horovod_size = tf.cast(size(), tensor.values.dtype)
@@ -78,12 +79,14 @@ def allreduce(tensor, average=True, device_dense='', device_sparse='',
                                 dense_shape=tensor.dense_shape)
     else:
         with tf.device(device_dense):
-            horovod_size = tf.cast(size(), dtype=tensor.dtype)
-            tensor_compressed, ctx = compression.compress(tensor)
-            summed_tensor_compressed = _allreduce(tensor_compressed)
-            summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
-            new_tensor = (tf.div(summed_tensor, horovod_size)
-                          if average else summed_tensor)
+            horovod_size = tf.cast(size(), dtype=tensors[0][0].dtype)
+            for num_tensor, tensor in enumerate(tensors):
+                tensor_compressed, ctx = compression.compress(tensor)
+                name = 'HorovodAllreduce_%s' % num_tensor if tf.executing_eagerly() else None
+                summed_tensor_compressed = _allreduce(tensor_compressed, name)
+                summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
+                new_tensor = (tf.div(summed_tensor, horovod_size)
+                              if average else summed_tensor)
         return new_tensor
 
 
@@ -96,6 +99,17 @@ def broadcast_global_variables(root_rank):
     """
     return tf.group(*[tf.assign(var, broadcast(var, root_rank))
                       for var in tf.global_variables()])
+
+def bcast(root_rank, variables):
+    """Broadcasts variables from root rank to all other processes.
+
+    Arguments:
+        root_rank: rank of the process from which global variables will be broadcasted
+        to all other processes.
+        variables: variables for broadcast
+    """
+    return tf.group(*[tf.assign(var, broadcast(var, root_rank))
+                      for var in variables])
 
 
 class BroadcastGlobalVariablesHook(tf.train.SessionRunHook):
