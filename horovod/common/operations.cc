@@ -200,6 +200,9 @@ struct HorovodGlobalState {
   // Do hierarchical allreduce with MPI + NCCL.
   bool hierarchical_allreduce = false;
 
+  // Do hierarchical allgather with MPI.
+  bool hierarchical_allgather = false;
+
   // MPI Window used for shared memory allgather
   MPI_Win window;
 
@@ -853,7 +856,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
     // If the cluster is homogeneous do parallelized MPI cross-node
     // allgather into the shared buffer first, then memcpy to output buffer
-    if (horovod_global.is_homogeneous) {
+    if (horovod_global.is_homogeneous && horovod_global.hierarchical_allgather) {
       int element_size;
       MPI_Type_size(GetMPIDataType(e.tensor), &element_size);
 
@@ -1708,6 +1711,16 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     state.perform_stall_check = false;
   }
 
+  // Set flag for hierarchical allgather. Ignore if Horovod is running on a
+  // single node.
+  auto horovod_hierarchical_allgather =
+      std::getenv(HOROVOD_HIERARCHICAL_ALLGATHER);
+  if (horovod_hierarchical_allgather != nullptr &&
+      std::strtol(horovod_hierarchical_allgather, nullptr, 10) > 0 &&
+      (size != local_size)) {
+    state.hierarchical_allgather = true;
+  }
+
   // Set flag for hierarchical allreduce. Ignore if Horovod is running on a
   // single node.
   auto horovod_hierarchical_allreduce =
@@ -1719,13 +1732,14 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 
   // Issue warning if cluster is heterogeneous
-  if (is_coordinator && !state.is_homogeneous) {
+  if (is_coordinator && !state.is_homogeneous && 
+        (state.hierarchical_allgather || state.hierarchical_allreduce)) {
     std::cerr
         << "WARNING: Using different number of ranks per node might cause "
-           "performance loss in Horovod allgather and (if enabled) "
+           "performance loss in hierarchical allgather and "
            "hierarchical allreduce. Consider assigning the same "
-           "number of ranks to each node if you are using either of these "
-           "features."
+           "number of ranks to each node, or disabling hierarchical "
+           "allgather and hierarchical allreduce."
         << std::endl;
   }
 
