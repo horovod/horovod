@@ -67,7 +67,7 @@ def main(_):
         grads = tape.gradient(loss_value, mnist_model.variables)
         opt.apply_gradients(
             zip(grads, mnist_model.variables), global_step=tf.train.get_or_create_global_step())
-        if batch % 10 == 0:
+        if batch % 10 == 0 and hvd.local_rank() == 0:
             print('Step #%d\tLoss: %.6f' % (batch, loss_value))
 
     checkpoint.save(checkpoint_dir) if hvd.rank() == 0 else None
