@@ -40,7 +40,6 @@ from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank
 from horovod.tensorflow.mpi_ops import mpi_threads_supported
 
 import tensorflow as tf
-
 from tensorflow.python.eager import context
 
 def allreduce(tensor, average=True, device_dense='', device_sparse='',
