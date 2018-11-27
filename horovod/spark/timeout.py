@@ -16,13 +16,9 @@
 import time
 
 
-def timeout_at(timeout):
-    return time.time() + timeout
-
-
 class Timeout(object):
-    def __init__(self, timeout_at):
-        self._timeout_at = timeout_at
+    def __init__(self, timeout):
+        self._timeout_at = time.time() + timeout
 
     def remaining(self):
         return max(0, self._timeout_at - time.time())

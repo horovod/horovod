@@ -14,11 +14,10 @@
 # ==============================================================================
 
 import cloudpickle
-from six.moves import queue
+from six.moves import queue, socketserver
 import psutil
 import random
 import socket
-from six.moves import socketserver
 import struct
 import threading
 
@@ -43,6 +42,20 @@ class AckResponse(object):
 
 
 class Wire(object):
+    """
+    Used for serialization/deserialization of objects over the wire.
+
+    We use HMAC to protect services from unauthorized use. Key used for
+    the HMAC digest is distributed by Open MPI and Spark.
+
+    The objects are serialized using cloudpickle. Serialized objects become
+    the body of the message.
+
+    Structure of the message is as follows:
+    - HMAC digest of the body (32 bytes)
+    - length of the body (4 bytes)
+    - body
+    """
     def __init__(self, key):
         self._key = key
 
@@ -50,12 +63,14 @@ class Wire(object):
         message = cloudpickle.dumps(obj)
         digest = secret.compute_digest(self._key, message)
         wfile.write(digest)
+        # Pack message length into 4-byte integer.
         wfile.write(struct.pack('i', len(message)))
         wfile.write(message)
         wfile.flush()
 
     def read(self, rfile):
         digest = rfile.read(secret.DIGEST_LENGTH)
+        # Unpack message length into 4-byte integer.
         message_len = struct.unpack('i', rfile.read(4))[0]
         message = rfile.read(message_len)
         if not secret.check_digest(self._key, message, digest):
@@ -166,8 +181,8 @@ class BasicClient(object):
             sock.settimeout(self._probe_timeout)
             try:
                 sock.connect(addr)
-                rfile = sock.makefile('rb', -1)
-                wfile = sock.makefile('wb', 0)
+                rfile = sock.makefile('rb')
+                wfile = sock.makefile('wb')
                 try:
                     self._wire.write(PingRequest(), wfile)
                     resp = self._wire.read(rfile)
@@ -196,8 +211,8 @@ class BasicClient(object):
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
                 sock.connect(addr)
-                rfile = sock.makefile('rb', -1)
-                wfile = sock.makefile('wb', 0)
+                rfile = sock.makefile('rb')
+                wfile = sock.makefile('wb')
                 try:
                     self._wire.write(req, wfile)
                     resp = self._wire.read(rfile)

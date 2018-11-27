@@ -20,11 +20,10 @@ import sys
 import threading
 
 from horovod.spark import (codec, host_hash, task_service, driver_service, network, timeout,
-                           safe_shell_exec, secret, job_id)
+                           safe_shell_exec, secret, job_id, mpirun_rsh, mpirun_exec_fn)
 
 
-def _task_fn(index, driver_addresses, num_proc, start_timeout_at, key):
-    tmout = timeout.Timeout(start_timeout_at)
+def _task_fn(index, driver_addresses, num_proc, tmout, key):
     task = task_service.TaskService(index, key)
     try:
         driver_client = driver_service.DriverClient(driver_addresses, key)
@@ -52,13 +51,13 @@ def _task_fn(index, driver_addresses, num_proc, start_timeout_at, key):
         task.shutdown()
 
 
-def _make_mapper(driver_addresses, num_proc, start_timeout_at, key):
+def _make_mapper(driver_addresses, num_proc, tmout, key):
     def _mapper(index, _):
-        yield _task_fn(index, driver_addresses, num_proc, start_timeout_at, key)
+        yield _task_fn(index, driver_addresses, num_proc, tmout, key)
     return _mapper
 
 
-def _make_spark_thread(spark_context, spark_job_group, num_proc, driver, start_timeout_at, key, result_queue):
+def _make_spark_thread(spark_context, spark_job_group, num_proc, driver, tmout, key, result_queue):
     def run_spark():
         try:
             spark_context.setJobGroup(spark_job_group, "Horovod Spark Run", interruptOnCancel=True)
@@ -66,7 +65,7 @@ def _make_spark_thread(spark_context, spark_job_group, num_proc, driver, start_t
             # We assume that folks caring about security will enable Spark RPC encryption,
             # thus ensuring that key that is passed here remains secret.
             result = procs.mapPartitionsWithIndex(
-                _make_mapper(driver.addresses(), num_proc, start_timeout_at, key)).collect()
+                _make_mapper(driver.addresses(), num_proc, tmout, key)).collect()
             result_queue.put(result)
         except:
             driver.notify_spark_job_failed()
@@ -114,12 +113,11 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, std
         start_timeout = int(os.getenv('HOROVOD_SPARK_START_TIMEOUT', '600'))
 
     result_queue = queue.Queue(1)
-    start_timeout_at = timeout.timeout_at(start_timeout)
-    tmout = timeout.Timeout(start_timeout_at)
+    tmout = timeout.Timeout(start_timeout)
     key = secret.make_secret_key()
     spark_job_group = 'horovod.spark.run.%d' % job_id.next_job_id()
     driver = driver_service.DriverService(num_proc, fn, args, kwargs, key)
-    spark_thread = _make_spark_thread(spark_context, spark_job_group, num_proc, driver, start_timeout_at, key, result_queue)
+    spark_thread = _make_spark_thread(spark_context, spark_job_group, num_proc, driver, tmout, key, result_queue)
     try:
         driver.wait_for_initial_registration(tmout)
         if verbose >= 2:
@@ -165,14 +163,16 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, std
             '-mca pml ob1 -mca btl ^openib -mca btl_tcp_if_include {common_intfs} '
             '-x NCCL_DEBUG=INFO -x NCCL_SOCKET_IFNAME={common_intfs} '
             '{env} '  # expect a lot of environment variables
-            '-mca plm_rsh_agent "{python} -m horovod.spark.mpirun_rsh {encoded_driver_addresses}" '
-            '{python} -m horovod.spark.mpirun_exec_fn {encoded_driver_addresses} '
+            '-mca plm_rsh_agent "{python} -m {mpirun_rsh} {encoded_driver_addresses}" '
+            '{python} -m {mpirun_exec_fn} {encoded_driver_addresses} '
             .format(num_proc=num_proc,
                     hosts=','.join('%s:%d' % (host_hash, len(driver.task_host_hash_indices()[host_hash]))
                                    for host_hash in host_hashes),
                     common_intfs=','.join(common_intfs),
                     env=' '.join('-x %s' % key for key in env.keys()),
                     python=sys.executable,
+                    mpirun_rsh=mpirun_rsh.__name__,
+                    mpirun_exec_fn=mpirun_exec_fn.__name__,
                     encoded_driver_addresses=codec.dumps_base64(driver.addresses())))
         if verbose >= 2:
             print('+ %s' % mpirun_command)

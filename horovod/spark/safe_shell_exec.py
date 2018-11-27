@@ -22,7 +22,7 @@ import threading
 import time
 
 
-GRACEFUL_TERMINATION_TIME = 5
+GRACEFUL_TERMINATION_TIME_S = 5
 
 
 def terminate_executor_shell_and_children(pid):
@@ -36,7 +36,7 @@ def terminate_executor_shell_and_children(pid):
             pass
 
     # Wait for graceful termination.
-    time.sleep(GRACEFUL_TERMINATION_TIME)
+    time.sleep(GRACEFUL_TERMINATION_TIME_S)
 
     # Send STOP to executor shell to stop progress.
     p.send_signal(signal.SIGSTOP)
@@ -76,6 +76,7 @@ def execute(command, env=None, stdout=None, stderr=None):
 
     middleman_pid = os.fork()
     if middleman_pid == 0:
+        # Close unused file descriptors to enforce PIPE behavior.
         os.close(w)
         os.setpgid(0, 0)
 
@@ -91,6 +92,8 @@ def execute(command, env=None, stdout=None, stderr=None):
         signal.signal(signal.SIGTERM, set_sigterm_received)
 
         def kill_executor_children_if_parent_dies():
+            # This read blocks until the pipe is closed on the other side
+            # due to the process termination.
             os.read(r, 1)
             terminate_executor_shell_and_children(executor_shell.pid)
 

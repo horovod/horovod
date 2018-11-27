@@ -58,7 +58,7 @@ class SparkTests(unittest.TestCase):
 
         try:
             res = horovod.spark.run(fn, env={'PATH': os.environ.get('PATH')})
-            assert [([0, 1], 0), ([0, 1], 1)] == res
+            self.assertListEqual([([0, 1], 0), ([0, 1], 1)], res)
         finally:
             spark.stop()
 
@@ -74,11 +74,11 @@ class SparkTests(unittest.TestCase):
         try:
             horovod.spark.run(None, num_proc=4, start_timeout=5,
                               env={'PATH': os.environ.get('PATH')})
-            assert False, "Timeout expected"
+            self.fail("Timeout expected")
         except Exception as e:
             print('Caught exception:')
             traceback.print_exc()
-            assert "Timed out waiting for Spark tasks to start" in str(e)
+            self.assertIn("Timed out waiting for Spark tasks to start", str(e))
         finally:
             spark.stop()
 
@@ -94,11 +94,11 @@ class SparkTests(unittest.TestCase):
         start = time.time()
         try:
             horovod.spark.run(None, env={'PATH': '/nonexistent'})
-            assert False, "Failure expected"
+            self.fail("Failure expected")
         except Exception as e:
             print('Caught exception:')
             traceback.print_exc()
-            assert "mpirun exited with code" in str(e)
-            assert time.time() - start <= 10, "Failure propagation took too long"
+            self.assertIn("mpirun exited with code", str(e))
+            self.assertLessEqual(time.time() - start, 10, "Failure propagation took too long")
         finally:
             spark.stop()
