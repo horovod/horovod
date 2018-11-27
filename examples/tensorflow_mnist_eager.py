@@ -37,7 +37,6 @@ def main(_):
 
     # Horovod: adjust learning rate based on number of GPUs.
     opt = tf.train.RMSPropOptimizer(0.001 * hvd.size())
-    opt = hvd.DistributedOptimizer(opt)
 
     (mnist_images, mnist_labels), _ = tf.keras.datasets.mnist.load_data()
 
