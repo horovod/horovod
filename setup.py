@@ -424,13 +424,18 @@ def get_common_options(build_ext):
                              'If you\'re sure you want to mix them, set the '
                              'HOROVOD_ALLOW_MIXED_GPU_IMPL environment variable to \'1\'.')
 
-    MACROS = []
-    INCLUDES = []
+    MACROS = [('EIGEN_MPL2_ONLY', 1)]
+    INCLUDES = ['third_party/eigen',
+                'third_party/lbfgs/include']
     SOURCES = ['horovod/common/common.cc',
+               'horovod/common/fusion_buffer_manager.cc',
                'horovod/common/mpi_message.cc',
                'horovod/common/half.cc',
                'horovod/common/operations.cc',
-               'horovod/common/timeline.cc']
+               'horovod/common/parameter_manager.cc',
+               'horovod/common/timeline.cc',
+               'horovod/common/optim/bayesian_optimization.cc',
+               'horovod/common/optim/gaussian_process.cc']
     COMPILE_FLAGS = cpp_flags + shlex.split(mpi_flags)
     LINK_FLAGS = link_flags + shlex.split(mpi_flags)
     LIBRARY_DIRS = []
