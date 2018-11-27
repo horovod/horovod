@@ -15,7 +15,7 @@
 
 import threading
 
-from horovod.spark.network import BasicService, BasicClient, AckResponse
+from horovod.spark.util.network import BasicService, BasicClient, AckResponse
 
 
 class RegisterTaskRequest(object):

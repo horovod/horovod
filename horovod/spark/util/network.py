@@ -21,7 +21,7 @@ import socket
 import struct
 import threading
 
-from horovod.spark import secret
+from horovod.spark.util import secret
 
 
 class PingRequest(object):

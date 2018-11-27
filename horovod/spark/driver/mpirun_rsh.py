@@ -16,7 +16,9 @@
 import os
 import sys
 
-from horovod.spark import codec, task_service, driver_service, secret
+from horovod.spark.task import task_service
+from horovod.spark.util import codec, secret
+from horovod.spark.driver import driver_service
 
 
 def main(driver_addresses, host_hash, command):

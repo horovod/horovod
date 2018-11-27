@@ -16,8 +16,8 @@
 import threading
 import time
 
-from horovod.spark.network import BasicService, BasicClient, AckResponse
-from horovod.spark import safe_shell_exec
+from horovod.spark.util.network import BasicService, BasicClient, AckResponse
+from horovod.spark.util import safe_shell_exec
 
 
 class RunCommandRequest(object):

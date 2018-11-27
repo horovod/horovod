@@ -19,8 +19,9 @@ from six.moves import queue
 import sys
 import threading
 
-from horovod.spark import (codec, host_hash, task_service, driver_service, network, timeout,
-                           safe_shell_exec, secret, job_id, mpirun_rsh, mpirun_exec_fn)
+from horovod.spark.task import mpirun_exec_fn, task_service
+from horovod.spark.util import host_hash, codec, network, safe_shell_exec, secret, timeout
+from horovod.spark.driver import driver_service, job_id, mpirun_rsh
 
 
 def _task_fn(index, driver_addresses, num_proc, tmout, key):
