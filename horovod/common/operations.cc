@@ -894,7 +894,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           MPI_Win_shared_query(horovod_global.window, 0, &winsize, &disp_unit,
                                &horovod_global.shared_buffer);
         }
-        MPI_Win_fence(0, horovod_global.window);
         horovod_global.shared_buffer_size = total_size * element_size;
         ACTIVITY_END_ALL(entries, timeline)
       }
@@ -923,11 +922,14 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
             (uint8_t*)horovod_global.shared_buffer +
             cross_displcmnts[horovod_global.cross_rank] * element_size;
 
-        ACTIVITY_START_ALL(entries, timeline, MEMCPY_IN_HOST_BUFFER)
         CUDA_CHECK(entries, "cudaMemcpyAsync",
                    cudaMemcpyAsync(shared_buffer_at_offset, e.tensor->data(),
                                    copy_len, cudaMemcpyDeviceToHost, stream))
-        ACTIVITY_END_ALL(entries, timeline)
+
+        if (timeline.Initialized()) {
+          RECORD_EVENT(entries, event_queue, MEMCPY_IN_HOST_BUFFER, stream)
+        }
+        WAIT_FOR_EVENTS(entries, timeline, event_queue)
 
         // Parallelized MPI allgather at cpu
         ACTIVITY_START_ALL(entries, timeline, MPI_CROSS_ALLGATHER)
@@ -940,19 +942,20 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
             horovod_global.cross_comm);
 
         MPI_CHECK(entries, "MPI_Allgatherv", cross_result)
-        MPI_Win_fence(0, horovod_global.window);
         ACTIVITY_END_ALL(entries, timeline)
 
         // Copy back to the output buffer at the gpu
-        ACTIVITY_START_ALL(entries, timeline, MEMCPY_OUT_HOST_BUFFER)
         CUDA_CHECK(entries, "cudaMemcpyAsync",
                    cudaMemcpyAsync((void*)e.output->data(),
                                    horovod_global.shared_buffer,
                                    (size_t)(total_size * element_size),
                                    cudaMemcpyHostToDevice, stream))
-        CUDA_CHECK(entries, "cudaStreamSynchronize",
-                   cudaStreamSynchronize(stream))
-        ACTIVITY_END_ALL(entries, timeline)
+
+        if (timeline.Initialized()) {
+          RECORD_EVENT(entries, event_queue, MEMCPY_OUT_HOST_BUFFER, stream)
+        }
+        WAIT_FOR_EVENTS(entries, timeline, event_queue)
+
       } else { // data is at cpu
 #endif
         // Perform the parallelized allgather across nodes
@@ -964,7 +967,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
             horovod_global.cross_comm);
 
         MPI_CHECK(entries, "MPI_Allgatherv", cross_result)
-        MPI_Win_fence(0, horovod_global.window);
         ACTIVITY_END_ALL(entries, timeline)
 
         // Copy the result from MPI shared memory to rank-specific output buffer
@@ -979,7 +981,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       delete[] cross_displcmnts;
       delete[] cross_recvcounts;
 
-    } else { // is_homogeneous == false
+    } else { // is_homogeneous == false, or hierarchical_allgather is disabled
 
       ACTIVITY_START_ALL(entries, timeline, MPI_ALLGATHER)
       auto result = MPI_Allgatherv(
