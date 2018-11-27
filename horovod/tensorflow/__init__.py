@@ -237,7 +237,7 @@ class DistributedOptimizer(tf.train.Optimizer):
 
 
 class DistributedGradientTape(tf.GradientTape):
-    """An gradienttape that wraps another tf.GradientTape, using an allreduce to
+    """An tape that wraps another tf.GradientTape, using an allreduce to
     average gradient values before applying gradients to model weights."""
 
     def __init__(self, gradtape, persistent=False, watch_accessed_variables=True,
@@ -260,39 +260,39 @@ class DistributedGradientTape(tf.GradientTape):
             persistent=False, watch_accessed_variables=True)
 
     def __enter__(self, *args, **kwargs):
-        """Calls this same method on the underlying optimizer."""
+        """Calls this same method on the underlying tape."""
         return self._gradtape.__enter__(*args, **kwargs)
 
     def __exit__(self, *args, **kwargs):
-        """Calls this same method on the underlying optimizer."""
+        """Calls this same method on the underlying tape."""
         return self._gradtape.__exit__(*args, **kwargs)
 
     def _push_tape(self, *args, **kwargs):
-        """Calls this same method on the underlying optimizer."""
+        """Calls this same method on the underlying tape."""
         return self._gradtape.__push_tape(*args, **kwargs)
 
     def _pop_tape(self, *args, **kwargs):
-        """Calls this same method on the underlying optimizer."""
+        """Calls this same method on the underlying tape."""
         return self._gradtape.__pop_tape(*args, **kwargs)
 
     def __del__(self, *args, **kwargs):
-        """Calls this same method on the underlying optimizer."""
+        """Calls this same method on the underlying tape."""
         return self._gradtape.__del__(*args, **kwargs)
 
     def watch(self, *args, **kwargs):
-        """Calls this same method on the underlying optimizer."""
+        """Calls this same method on the underlying tape."""
         return self._gradtape.watch(*args, **kwargs)
 
     def stop_recording(self, *args, **kwargs):
-        """Calls this same method on the underlying optimizer."""
+        """Calls this same method on the underlying tape."""
         return self._gradtape.stop_recording(*args, **kwargs)
 
     def reset(self, *args, **kwargs):
-        """Calls this same method on the underlying optimizer."""
+        """Calls this same method on the underlying tape."""
         return self._gradtape.reset(*args, **kwargs)
 
     def watched_variables(self, *args, **kwargs):
-        """Calls this same method on the underlying optimizer."""
+        """Calls this same method on the underlying tape."""
         return self._gradtape.watched_variables(*args, **kwargs)
 
     def gradient(self, *args, **kwargs):
