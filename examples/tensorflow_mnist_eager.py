@@ -37,6 +37,7 @@ def main(_):
 
     # Horovod: adjust learning rate based on number of GPUs.
     opt = tf.train.RMSPropOptimizer(0.001 * hvd.size())
+    opt = hvd.DistributedOptimizer(opt)
 
     (mnist_images, mnist_labels), _ = tf.keras.datasets.mnist.load_data()
 
@@ -53,10 +54,9 @@ def main(_):
         model=mnist_model, optimizer=opt, step_counter=step_counter)
 
     # Horovod: adjust number of steps based on number of GPUs.
-    for (batch, (images, labels)) in enumerate(dataset.take(2000 // hvd.size())):
+    for (batch, (images, labels)) in enumerate(dataset.take(20000 // hvd.size())):
         with tf.GradientTape() as tape:
             logits = mnist_model(images, training=True)
-
             # Horovod: broadcast initial variable states
             # from rank 0 to all other processes. This is necessary to ensure consistent
             # initialization of all workers when training is started with random weights
@@ -64,10 +64,10 @@ def main(_):
             hvd.bcast(0, mnist_model.variables) if batch == 0 else None
 
             loss_value = tf.losses.sparse_softmax_cross_entropy(labels, logits)
+        tape = hvd.DistributedGradientTape(tape)
         grads = tape.gradient(loss_value, mnist_model.variables)
         opt.apply_gradients(
             zip(grads, mnist_model.variables), global_step=tf.train.get_or_create_global_step())
-        hvd.allreduce(grads, average=True)
         if batch % 10 == 0:
             print('Step #%d\tLoss: %.6f' % (batch, loss_value))
 

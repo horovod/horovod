@@ -41,8 +41,9 @@ from horovod.tensorflow.mpi_ops import mpi_threads_supported
 
 import tensorflow as tf
 
+from tensorflow.python.eager import context
 
-def allreduce(tensors, average=True, device_dense='', device_sparse='',
+def allreduce(tensor, average=True, device_dense='', device_sparse='',
               compression=Compression.none):
     """Perform an allreduce on a tf.Tensor or tf.IndexedSlices.
 
@@ -64,8 +65,7 @@ def allreduce(tensors, average=True, device_dense='', device_sparse='',
     allgather on the values and the indices, effectively doing an allreduce on
     the represented tensor.
     """
-    tensors = tensors if type(tensors) == list else [tensors]
-    if isinstance(tensors[0], tf.IndexedSlices):
+    if isinstance(tensor, tf.IndexedSlices):
         with tf.device(device_sparse):
             # For IndexedSlices, do two allgathers intead of an allreduce.
             horovod_size = tf.cast(size(), tensor.values.dtype)
@@ -79,14 +79,12 @@ def allreduce(tensors, average=True, device_dense='', device_sparse='',
                                 dense_shape=tensor.dense_shape)
     else:
         with tf.device(device_dense):
-            horovod_size = tf.cast(size(), dtype=tensors[0][0].dtype)
-            for num_tensor, tensor in enumerate(tensors):
-                tensor_compressed, ctx = compression.compress(tensor)
-                name = 'HorovodAllreduce_%s' % num_tensor if tf.executing_eagerly() else None
-                summed_tensor_compressed = _allreduce(tensor_compressed, name)
-                summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
-                new_tensor = (tf.div(summed_tensor, horovod_size)
-                              if average else summed_tensor)
+            horovod_size = tf.cast(size(), dtype=tensor.dtype)
+            tensor_compressed, ctx = compression.compress(tensor)
+            summed_tensor_compressed = _allreduce(tensor_compressed)
+            summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
+            new_tensor = (tf.div(summed_tensor, horovod_size)
+                          if average else summed_tensor)
         return new_tensor
 
 
@@ -237,3 +235,81 @@ class DistributedOptimizer(tf.train.Optimizer):
     def variables(self, *args, **kwargs):
         """Calls this same method on the underlying optimizer."""
         return self._optimizer.variables(*args, **kwargs)
+
+
+class DistributedGradientTape(tf.GradientTape):
+    """An gradienttape that wraps another tf.GradientTape, using an allreduce to
+    average gradient values before applying gradients to model weights."""
+
+    def __init__(self, gradtape, persistent=False, watch_accessed_variables=True,
+                 device_dense='', device_sparse='', compression=Compression.none,
+                 sparse_as_dense=False):
+        self._gradtape = gradtape
+        self._tape = None
+        self._persistent = persistent
+        self._watch_accessed_variables = watch_accessed_variables
+        self._recording = False
+        self._created_eagerly = context.executing_eagerly()
+        self._name = "Distributed"
+        self._device_dense = device_dense
+        self._device_sparse = device_sparse
+        self._compression = compression
+        self._sparse_as_dense = sparse_as_dense
+        if self._created_eagerly:
+            context.context().start_step()
+        super(DistributedGradientTape, self).__init__(
+            persistent=False, watch_accessed_variables=True)
+
+    def __enter__(self, *args, **kwargs):
+        """Calls this same method on the underlying optimizer."""
+        return self._gradtape.__enter__(*args, **kwargs)
+
+    def __exit__(self, *args, **kwargs):
+        """Calls this same method on the underlying optimizer."""
+        return self._gradtape.__exit__(*args, **kwargs)
+
+    def _push_tape(self, *args, **kwargs):
+        """Calls this same method on the underlying optimizer."""
+        return self._gradtape.__push_tape(*args, **kwargs)
+
+    def _pop_tape(self, *args, **kwargs):
+        """Calls this same method on the underlying optimizer."""
+        return self._gradtape.__pop_tape(*args, **kwargs)
+
+    def __del__(self, *args, **kwargs):
+        """Calls this same method on the underlying optimizer."""
+        return self._gradtape.__del__(*args, **kwargs)
+
+    def watch(self, *args, **kwargs):
+        """Calls this same method on the underlying optimizer."""
+        return self._gradtape.watch(*args, **kwargs)
+
+    def stop_recording(self, *args, **kwargs):
+        """Calls this same method on the underlying optimizer."""
+        return self._gradtape.stop_recording(*args, **kwargs)
+
+    def reset(self, *args, **kwargs):
+        """Calls this same method on the underlying optimizer."""
+        return self._gradtape.reset(*args, **kwargs)
+
+    def watched_variables(self, *args, **kwargs):
+        """Calls this same method on the underlying optimizer."""
+        return self._gradtape.watched_variables(*args, **kwargs)
+
+    def gradient(self, *args, **kwargs):
+        gradients = self._gradtape.gradient(*args, **kwargs)
+        if size() > 1:
+            averaged_gradients = []
+            with tf.name_scope(self._name + "_Allreduce"):
+                for grad in gradients:
+                    if self._sparse_as_dense and \
+                            isinstance(grad, tf.IndexedSlices):
+                        grad = tf.convert_to_tensor(grad)
+                    avg_grad = allreduce(grad,
+                                         device_dense=self._device_dense,
+                                         device_sparse=self._device_sparse,
+                                         compression=self._compression)
+                    averaged_gradients.append(avg_grad)
+            return averaged_gradients
+        else:
+            return gradients
