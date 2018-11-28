@@ -826,9 +826,8 @@ class custom_build_ext(build_ext):
             try:
                 build_mx_extension(self, options)
                 built_plugins.append(True)
-            except Exception as e:
-                print(e)
-                if not os.environ.get('HOROVOD_WITHOUT_MXNET'):
+            except:
+                if not os.environ.get('HOROVOD_WITH_MXNET'):
                     print('INFO: Unable to build MXNet plugin, will skip it.\n\n'
                           '%s' % traceback.format_exc(), file=sys.stderr)
                     built_plugins.append(False)

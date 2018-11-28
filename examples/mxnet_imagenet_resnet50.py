@@ -46,25 +46,25 @@ parser.add_argument('--rec-val-idx', type=str, default='',
 parser.add_argument('--batch-size', type=int, default=128,
                     help='training batch size per device (CPU/GPU).')
 parser.add_argument('--dtype', type=str, default='float32',
-                    help='data type for training. default is float32')
+                    help='data type for training, default is float32')
 parser.add_argument('--gpus', type=str, default='0',
                     help='number of gpus to use.')
 parser.add_argument('--num-epochs', type=int, default=90,
                     help='number of training epochs.')
 parser.add_argument('--lr', type=float, default=0.1,
-                    help='learning rate. default is 0.1.')
+                    help='learning rate, default is 0.1.')
 parser.add_argument('--momentum', type=float, default=0.9,
                     help='momentum value for optimizer, default is 0.9.')
 parser.add_argument('--wd', type=float, default=0.0001,
-                    help='weight decay rate. default is 0.0001.')
+                    help='weight decay rate, default is 0.0001.')
 parser.add_argument('--lr-decay', type=float, default=0.1,
-                    help='decay rate of learning rate. default is 0.1.')
+                    help='decay rate of learning rate, default is 0.1.')
 parser.add_argument('--lr-decay-epoch', type=str, default='40,60',
-                    help='epoches at which learning rate decays. default is 40,60.')
+                    help='epoches at which learning rate decays, default is 40,60.')
 parser.add_argument('--warmup-lr', type=float, default=0.001,
-                    help='starting warmup learning rate. default is 0.001')
+                    help='starting warmup learning rate, default is 0.001')
 parser.add_argument('--warmup-epochs', type=int, default=5,
-                    help='number of warmup epochs. default is 5.')
+                    help='number of warmup epochs, default is 5.')
 parser.add_argument('--model', type=str, required=True,
                     help='type of model to use. see vision_model for options.')
 parser.add_argument('--use-pretrained', action='store_true',
@@ -96,6 +96,8 @@ steps = [epoch_size * x for x in lr_decay_epoch]
 lr_scheduler = MultiFactorScheduler(step=steps, factor=lr_decay, base_lr=args.lr, warmup_steps=(args.warmup_epochs * epoch_size), warmup_begin_lr=args.warmup_lr)
 
 # Two functions for reading data from record file or raw images
+# For more details about data loading in MXNet, please refer to
+# https://mxnet.incubator.apache.org/tutorials/basic/data.html?highlight=imagerecorditer
 def get_data_rec(rec_train, rec_train_idx, rec_val, rec_val_idx, batch_size, data_nthreads):
     rec_train = os.path.expanduser(rec_train)
     rec_train_idx = os.path.expanduser(rec_train_idx)
@@ -272,16 +274,12 @@ def main():
         hvd.broadcast_parameters(aux_params, root_rank=0)
     mod.set_params(arg_params=arg_params, aux_params=aux_params)
 
-    # Create callback to sum validation accuracy
-    eval_end_callbacks = [LogValidationMetricsCallback()]
-
     # Train model
     mod.fit(train_data,
             eval_data=val_data,
             num_epoch=args.num_epochs,
             kvstore=None,
             batch_end_callback=mx.callback.Speedometer(batch_size, 20),
-            #eval_end_callback=eval_end_callbacks,
             optimizer=opt,
             optimizer_params=optimizer_params)
     mx.nd.waitall()
