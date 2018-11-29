@@ -26,7 +26,6 @@ def main(_):
     config.gpu_options.visible_device_list = str(hvd.local_rank())
 
     tf.enable_eager_execution(config=config)
-    tfe = tf.contrib.eager
 
     mnist_model = tf.keras.Sequential([
         tf.keras.layers.Conv2D(16,[3,3], activation='relu'),
