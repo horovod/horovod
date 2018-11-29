@@ -323,10 +323,9 @@ class MPITests(tf.test.TestCase):
                 [5] * dim, -100, 100, dtype=dtype))
             with tf.GradientTape() as tape:
                     summed = hvd.allreduce(tensor, average=False)
-            tape = hvd.DistributedGradientTape(tape)
             grad = tape.gradient(summed, tensor)
-            expected = tf.ones([5] * dim) * size
-            err = tf.norm(expected - grad)
+            expected = np.ones([5] * dim) * size
+            err = np.linalg.norm(expected - grad)
             self.assertLess(err, 0.00000001,
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad, expected, str(err)))
@@ -446,6 +445,42 @@ class MPITests(tf.test.TestCase):
         with self.assertRaises(tf.errors.FailedPreconditionError):
             hvd.allgather(tensor)
 
+    def test_horovod_allgather_grad(self):
+        """Test the correctness of the allgather gradient."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            tensor_sizes = [3, 2, 7, 4, 6, 8, 10] * 5
+            tensor_sizes = tensor_sizes[:size]
+
+            with tf.GradientTape() as tape:
+                tensor = tf.Variable(tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank)
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                tensor = tf.cast(tensor, dtype=dtype)
+                gathered = hvd.allgather(tensor)
+                grad_list = []
+                for r, tensor_size in enumerate(tensor_sizes):
+                    g = tf.ones([tensor_size] + [17] * (dim - 1)) * r
+                    grad_list.append(g)
+                grad_ys = tf.concat(grad_list, axis=0)
+            grad_out = tape.gradient(gathered, tensor, grad_ys)
+
+            expected = np.ones(
+                [tensor_sizes[rank]] + [17] * (dim - 1)
+            ) * rank * size
+
+            err = np.linalg.norm(expected - grad_out)
+            self.assertLess(err, 0.00000001,
+                            "gradient %s differs from expected %s, "
+                            "error: %s" %
+                            (grad_out, expected, str(err)))
     def test_horovod_broadcast(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
         hvd.init()
@@ -542,16 +577,15 @@ class MPITests(tf.test.TestCase):
         for dtype, dim, root_rank in itertools.product(
                 dtypes, dims, root_ranks):
             tensor = tf.Variable(tf.ones([5] * dim) * rank)
-            #if dtype == tf.bool:
-            #    tensor = tensor % 2
+            if dtype == tf.bool:
+                tensor = tensor % 2
             with tf.GradientTape() as tape:
-                #tensor = tf.cast(tensor, dtype=dtype)
+                tensor = tf.cast(tensor, dtype=dtype)
                 broadcasted_tensor = hvd.broadcast(tensor, root_rank)
-            tape = hvd.DistributedGradientTape(tape)
             grad_out = tape.gradient(broadcasted_tensor, tensor)
             c = size if rank == root_rank else 0
-            expected = tf.ones([5] * dim) * c
-            err = tf.norm(tf.subtract(expected , grad_out))
+            expected = np.ones([5] * dim) * c
+            err = np.linalg.norm(expected - grad_out)
             self.assertLess(err, 0.00000001,
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
