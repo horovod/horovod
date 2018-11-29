@@ -24,7 +24,7 @@ from horovod.mxnet.mpi_ops import allgather
 from horovod.mxnet.mpi_ops import broadcast, broadcast_
 from horovod.mxnet.mpi_ops import init, shutdown
 from horovod.mxnet.mpi_ops import size, local_size, rank, local_rank
-from horovod.mxnet.mpi_ops import mpi_threads_supported, barrier
+from horovod.mxnet.mpi_ops import mpi_threads_supported
 
 import mxnet as mx
 

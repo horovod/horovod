@@ -152,12 +152,3 @@ class HorovodBasics(object):
             raise ValueError(
                 'Horovod has not been initialized; use hvd.init().')
         return bool(mpi_threads_supported)
-
-    def barrier(self):
-        """A function that synchronizes all MPI ranks.
-        """
-        barrier = self.MPI_LIB_CTYPES.horovod_barrier()
-        if barrier == -1:
-            raise ValueError(
-                'Horovod has not been initialized; use hvd.init().')
-        return barrier
