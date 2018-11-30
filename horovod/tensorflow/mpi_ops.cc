@@ -361,10 +361,8 @@ public:
 
 REGISTER_KERNEL_BUILDER(Name("HorovodAllgather").Device(DEVICE_CPU),
                         HorovodAllgatherOp);
-#if HOROVOD_GPU_ALLGATHER
 REGISTER_KERNEL_BUILDER(Name("HorovodAllgather").Device(DEVICE_GPU),
                         HorovodAllgatherOp);
-#endif
 
 REGISTER_OP("HorovodAllgather")
     .Attr(

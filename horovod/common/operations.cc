@@ -854,12 +854,15 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       }
     }
 
+    int element_size;
+    MPI_Type_size(GetMPIDataType(e.tensor), &element_size);
+
+    int64_t total_size = recvcounts[tensor_sizes.size() - 1] +
+                           displcmnts[tensor_sizes.size() - 1];
+
     // If the cluster is homogeneous do parallelized MPI cross-node
     // allgather into the shared buffer first, then memcpy to output buffer
     if (horovod_global.is_homogeneous && horovod_global.hierarchical_allgather) {
-      int element_size;
-      MPI_Type_size(GetMPIDataType(e.tensor), &element_size);
-
       auto* cross_recvcounts = new int[horovod_global.cross_size]();
       auto* cross_displcmnts = new int[horovod_global.cross_size]();
       for (int i = 0; i < horovod_global.cross_size; i++) {
@@ -868,8 +871,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         cross_displcmnts[i] = displcmnts[horovod_global.local_size * i +
                                          horovod_global.local_rank];
       }
-      int64_t total_size = recvcounts[tensor_sizes.size() - 1] +
-                           displcmnts[tensor_sizes.size() - 1];
 
       // If shared buffer is not initialized or is not large enough, reallocate
       if (horovod_global.shared_buffer == nullptr ||
@@ -982,15 +983,96 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       delete[] cross_recvcounts;
 
     } else { // is_homogeneous == false, or hierarchical_allgather is disabled
+#if HAVE_CUDA && HOROVOD_GPU_ALLGATHER != 'M'      // 'M' stands for CUDA-aware MPI 
+        bool on_gpu = e.device != CPU_DEVICE_ID;
+        if (on_gpu) {
+          // If shared buffer is not initialized or is not large enough, reallocate
+          if (horovod_global.shared_buffer == nullptr ||
+              horovod_global.shared_buffer_size < total_size * element_size) {
+            if (horovod_global.shared_buffer != nullptr) {
+              MPI_Win_fence(0, horovod_global.window);
+              MPI_Win_free(&horovod_global.window);
+              horovod_global.shared_buffer = nullptr;
+            }
+            int64_t window_size =
+                horovod_global.local_rank == 0 ? total_size * element_size : 0;
+    
+            // Allocate shared memory, give each rank their respective pointer
+            ACTIVITY_START_ALL(entries, timeline, ALLOCATE_SHARED_BUFFER)
+            MPI_Win_allocate_shared(
+                window_size, element_size, MPI_INFO_NULL, horovod_global.local_comm,
+                &horovod_global.shared_buffer, &horovod_global.window);
+    
+            if (horovod_global.local_rank != 0) {
+              int disp_unit;
+              MPI_Aint winsize;
+              MPI_Win_shared_query(horovod_global.window, 0, &winsize, &disp_unit,
+                                   &horovod_global.shared_buffer);
+            }
+            horovod_global.shared_buffer_size = total_size * element_size;
+            ACTIVITY_END_ALL(entries, timeline)
+          }
 
-      ACTIVITY_START_ALL(entries, timeline, MPI_ALLGATHER)
-      auto result = MPI_Allgatherv(
-          e.tensor->data(), (int)e.tensor->shape().num_elements(),
-          GetMPIDataType(e.tensor), (void*)e.output->data(), recvcounts,
-          displcmnts, GetMPIDataType(e.tensor), horovod_global.mpi_comm);
-      MPI_CHECK(entries, "MPI_Allgatherv", result)
-      ACTIVITY_END_ALL(entries, timeline)
-    }
+          cudaStream_t& stream = horovod_global.streams[e.device];
+          CUDA_CHECK(entries, "cudaSetDevice", cudaSetDevice(e.device))
+
+          if (stream == nullptr) {
+            int greatest_priority;
+            CUDA_CHECK(entries, "cudaDeviceGetStreamPriorityRange",
+                       cudaDeviceGetStreamPriorityRange(NULL, &greatest_priority))
+            CUDA_CHECK(entries, "cudaStreamCreateWithPriority",
+                       cudaStreamCreateWithPriority(
+                           &stream, cudaStreamNonBlocking, greatest_priority))
+          }
+          auto event_queue = std::queue<std::pair<std::string, cudaEvent_t>>();
+
+          int64_t local_buffer_len = element_size*recvcounts[horovod_global.rank];
+          void* host_buffer = malloc(local_buffer_len);
+
+          CUDA_CHECK(entries, "cudaMemcpyAsync",
+                   cudaMemcpyAsync(host_buffer, e.tensor->data(),
+                                   local_buffer_len, cudaMemcpyDeviceToHost, stream))
+
+          if (timeline.Initialized()) {
+            RECORD_EVENT(entries, event_queue, MEMCPY_IN_HOST_BUFFER, stream)
+          }
+          WAIT_FOR_EVENTS(entries, timeline, event_queue)
+
+          ACTIVITY_START_ALL(entries, timeline, MPI_ALLGATHER)
+          auto result = MPI_Allgatherv(
+              host_buffer, (int)e.tensor->shape().num_elements(),
+              GetMPIDataType(e.tensor), horovod_global.shared_buffer, recvcounts,
+              displcmnts, GetMPIDataType(e.tensor), horovod_global.mpi_comm);
+          MPI_CHECK(entries, "MPI_Allgatherv", result)
+          ACTIVITY_END_ALL(entries, timeline)
+
+          // Copy back to the output buffer at the gpu
+          CUDA_CHECK(entries, "cudaMemcpyAsync",
+                   cudaMemcpyAsync((void*)e.output->data(),
+                                   horovod_global.shared_buffer,
+                                   (size_t)(total_size * element_size),
+                                   cudaMemcpyHostToDevice, stream))
+
+          if (timeline.Initialized()) {
+            RECORD_EVENT(entries, event_queue, MEMCPY_OUT_HOST_BUFFER, stream)
+          }
+          WAIT_FOR_EVENTS(entries, timeline, event_queue) 
+          free(host_buffer);
+        } else {
+#endif
+          // data is at the cpu, or Horovod was compiled with CUDA-aware MPI
+          ACTIVITY_START_ALL(entries, timeline, MPI_ALLGATHER)
+          auto result = MPI_Allgatherv(
+              e.tensor->data(), (int)e.tensor->shape().num_elements(),
+              GetMPIDataType(e.tensor), (void*)e.output->data(), recvcounts,
+              displcmnts, GetMPIDataType(e.tensor), horovod_global.mpi_comm);
+          MPI_CHECK(entries, "MPI_Allgatherv", result)
+          ACTIVITY_END_ALL(entries, timeline)
+
+#if HAVE_CUDA && HOROVOD_GPU_ALLGATHER != 'M' 
+        }
+#endif
+      }
     delete[] recvcounts;
     delete[] displcmnts;
     timeline.End(e.tensor_name, e.output);
