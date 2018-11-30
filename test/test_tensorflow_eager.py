@@ -322,7 +322,7 @@ class MPITests(tf.test.TestCase):
             tensor = tf.Variable(tf.random_uniform(
                 [5] * dim, -100, 100, dtype=dtype))
             with tf.GradientTape() as tape:
-                    summed = hvd.allreduce(tensor, average=False)
+                summed = hvd.allreduce(tensor, average=False)
             grad = tape.gradient(summed, tensor)
             expected = np.ones([5] * dim) * size
             err = np.linalg.norm(expected - grad)
@@ -363,7 +363,12 @@ class MPITests(tf.test.TestCase):
                 else:
                     value = i % 2
                 self.assertTrue(
-                    tf.reduce_all(tf.equal(tf.cast(rank_tensor, tf.int32), value)),
+                    tf.reduce_all(
+                        tf.equal(
+                            tf.cast(
+                                rank_tensor,
+                                tf.int32),
+                            value)),
                     "hvd.allgather produces incorrect gathered tensor")
 
     def test_horovod_allgather_variable_size(self):
@@ -408,7 +413,12 @@ class MPITests(tf.test.TestCase):
                 else:
                     value = i % 2
                 self.assertTrue(
-                    tf.reduce_all(tf.equal(tf.cast(rank_tensor, tf.int32), value)),
+                    tf.reduce_all(
+                        tf.equal(
+                            tf.cast(
+                                rank_tensor,
+                                tf.int32),
+                            value)),
                     "hvd.allgather produces incorrect gathered tensor")
 
     def test_horovod_allgather_error(self):
@@ -460,7 +470,8 @@ class MPITests(tf.test.TestCase):
             tensor_sizes = tensor_sizes[:size]
 
             with tf.GradientTape() as tape:
-                tensor = tf.Variable(tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank)
+                tensor = tf.Variable(
+                    tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank)
                 if dtype == tf.bool:
                     tensor = tensor % 2
                 tensor = tf.cast(tensor, dtype=dtype)
@@ -481,6 +492,7 @@ class MPITests(tf.test.TestCase):
                             "gradient %s differs from expected %s, "
                             "error: %s" %
                             (grad_out, expected, str(err)))
+
     def test_horovod_broadcast(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
         hvd.init()
@@ -496,7 +508,8 @@ class MPITests(tf.test.TestCase):
                   tf.float64, tf.bool]
         dims = [1, 2, 3]
         root_ranks = list(range(size))
-        for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
+        for dtype, dim, root_rank in itertools.product(
+                dtypes, dims, root_ranks):
             tensor = tf.ones([17] * dim) * rank
             root_tensor = tf.ones([17] * dim) * root_rank
             if dtype == tf.bool:
@@ -506,8 +519,14 @@ class MPITests(tf.test.TestCase):
             root_tensor = tf.cast(root_tensor, dtype=dtype)
             broadcasted_tensor = hvd.broadcast(tensor, root_rank)
             self.assertTrue(
-                tf.reduce_all(tf.equal(
-                    tf.cast(root_tensor, tf.int32), tf.cast(broadcasted_tensor, tf.int32))),
+                tf.reduce_all(
+                    tf.equal(
+                        tf.cast(
+                            root_tensor,
+                            tf.int32),
+                        tf.cast(
+                            broadcasted_tensor,
+                            tf.int32))),
                 "hvd.broadcast produces incorrect broadcasted tensor")
 
     def test_horovod_broadcast_error(self):
@@ -602,7 +621,8 @@ class MPITests(tf.test.TestCase):
             tensor_compressed, ctx = compression.compress(tensor)
             self.assertEqual(tensor_compressed.dtype, tf.float16)
 
-            tensor_decompressed = compression.decompress(tensor_compressed, ctx)
+            tensor_decompressed = compression.decompress(
+                tensor_compressed, ctx)
             self.assertEqual(tensor_decompressed.dtype, dtype)
 
             actual = tensor_decompressed

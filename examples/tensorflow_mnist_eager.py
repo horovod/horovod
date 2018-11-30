@@ -17,6 +17,7 @@
 import tensorflow as tf
 import horovod.tensorflow as hvd
 
+
 def main(_):
     # Horovod: initialize Horovod.
     hvd.init()
@@ -28,8 +29,8 @@ def main(_):
     tf.enable_eager_execution(config=config)
 
     mnist_model = tf.keras.Sequential([
-        tf.keras.layers.Conv2D(16,[3,3], activation='relu'),
-        tf.keras.layers.Conv2D(16,[3,3], activation='relu'),
+        tf.keras.layers.Conv2D(16, [3, 3], activation='relu'),
+        tf.keras.layers.Conv2D(16, [3, 3], activation='relu'),
         tf.keras.layers.GlobalAveragePooling2D(),
         tf.keras.layers.Dense(10)
     ])
@@ -40,8 +41,8 @@ def main(_):
     (mnist_images, mnist_labels), _ = tf.keras.datasets.mnist.load_data()
 
     dataset = tf.data.Dataset.from_tensor_slices(
-          (tf.cast(mnist_images[...,tf.newaxis]/255, tf.float32),
-             tf.cast(mnist_labels,tf.int64))
+        (tf.cast(mnist_images[..., tf.newaxis] / 255, tf.float32),
+         tf.cast(mnist_labels, tf.int64))
     )
     dataset = dataset.shuffle(1000).batch(32)
 
@@ -52,7 +53,8 @@ def main(_):
         model=mnist_model, optimizer=opt, step_counter=step_counter)
 
     # Horovod: adjust number of steps based on number of GPUs.
-    for (batch, (images, labels)) in enumerate(dataset.take(20000 // hvd.size())):
+    for (batch, (images, labels)) in enumerate(
+            dataset.take(20000 // hvd.size())):
         with tf.GradientTape() as tape:
             logits = mnist_model(images, training=True)
             # Horovod: broadcast initial variable states
@@ -64,12 +66,13 @@ def main(_):
             loss_value = tf.losses.sparse_softmax_cross_entropy(labels, logits)
         tape = hvd.DistributedGradientTape(tape)
         grads = tape.gradient(loss_value, mnist_model.variables)
-        opt.apply_gradients(
-            zip(grads, mnist_model.variables), global_step=tf.train.get_or_create_global_step())
+        opt.apply_gradients(zip(grads, mnist_model.variables),
+                            global_step=tf.train.get_or_create_global_step())
         if batch % 10 == 0 and hvd.local_rank() == 0:
             print('Step #%d\tLoss: %.6f' % (batch, loss_value))
 
     checkpoint.save(checkpoint_dir) if hvd.rank() == 0 else None
+
 
 if __name__ == "__main__":
     tf.app.run()
