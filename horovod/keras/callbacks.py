@@ -16,7 +16,7 @@
 import keras
 import keras.backend as K
 
-from horovod.keras import callbacks_impl as _impl
+from horovod._keras import callbacks as _impl
 
 
 class BroadcastGlobalVariablesCallback(_impl.BroadcastGlobalVariablesCallbackImpl, keras.callbacks.Callback):

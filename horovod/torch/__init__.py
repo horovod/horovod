@@ -80,11 +80,10 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                     grad_acc.register_hook(self._make_hook(p))
                     self._grad_accs.append(grad_acc)
 
-    def _allreduce_grad(self, p):
+    def _allreduce_grad_async(self, p):
         name = self._parameter_names.get(p)
         tensor = p.grad.data
         tensor_compressed, ctx = self._compression.compress(tensor)
-
         handle = allreduce_async_(tensor_compressed, average=True, name=name)
         return handle, ctx
 
@@ -92,14 +91,15 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         def hook(*ignore):
             assert p not in self._handles
             assert not p.grad.requires_grad
-            handle, ctx = self._allreduce_grad(p)
+            handle, ctx = self._allreduce_grad_async(p)
             self._handles[p] = (handle, ctx)
         return hook
 
     def synchronize(self):
         missing_p = self._requires_update - set(self._handles.keys())
         for p in missing_p:
-            self._allreduce_grad(p)
+            handle, ctx = self._allreduce_grad_async(p)
+            self._handles[p] = (handle, ctx)
 
         for p, value in self._handles.items():
             handle, ctx = value
