@@ -2046,11 +2046,11 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
         auto response = responses.front();
         assert(response.tensor_names().size() == 1);
         responses.pop_front();
-
+        int64_t tensor_size = 0;
         if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
           // Attempt to add more responses to this fused response.
           auto& entry = state.tensor_table[response.tensor_names()[0]];
-          int64_t tensor_size = entry.tensor->size();
+          tensor_size = entry.tensor->size();
 
           while (!responses.empty()) {
             auto new_response = responses.front();
