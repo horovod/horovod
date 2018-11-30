@@ -1948,9 +1948,11 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       message_queue.push(message);
     }
   }
-
-  // if (!message_queue.empty()) LOG(DEBUG, state.rank) << "Sent " << message_queue.size() << " messages";
-
+  
+  if (!message_queue.empty()) {
+    LOG(DEBUG, state.rank) << "Sent " << message_queue.size() << " messages";
+  }
+  
   // Flag indicating that the background thread should shut down.
   bool should_shut_down = state.shut_down;
 
