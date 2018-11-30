@@ -267,7 +267,6 @@ def main():
     # Fetch and broadcast parameters
     (arg_params, aux_params) = mod.get_params()
     mx.nd.waitall()
-    hvd.barrier()
     if arg_params is not None:
         hvd.broadcast_parameters(arg_params, root_rank=0)
     if aux_params is not None:

@@ -25,8 +25,7 @@ namespace mxnet {
 
 template <class T>
 MXReadyEvent<T>::MXReadyEvent(NDArray* tensor) : tensor_(tensor) {
-  int device = tensor->ctx().real_dev_id();
-  assert(device != CPU_DEVICE_ID);
+  assert(tensor->ctx().real_dev_id() != CPU_DEVICE_ID);
 }
 
 template <class T> MXReadyEvent<T>::~MXReadyEvent() {}
