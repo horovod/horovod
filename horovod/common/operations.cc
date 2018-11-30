@@ -1542,23 +1542,23 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
     std::chrono::steady_clock::time_point start_at = std::get<1>(m.second);
 
     if (now - start_at > STALL_WARNING_TIME) {
+      std::stringstream message;
       if (!preamble) {
-        std::cerr << "WARNING: One or more tensors were submitted to be "
+        LOG(WARNING) << "WARNING: One or more tensors were submitted to be "
                      "reduced, gathered or broadcasted by subset of ranks and "
                      "are waiting for remainder of ranks for more than "
                   << std::chrono::duration_cast<std::chrono::seconds>(
                          STALL_WARNING_TIME)
                          .count()
-                  << " seconds. ";
-        std::cerr << "This may indicate that different ranks are trying to "
+                  << " seconds. "
+                  << "This may indicate that different ranks are trying to "
                      "submit different tensors or that only subset of ranks is "
                      "submitting tensors, which will cause deadlock. "
-                  << std::endl;
-        std::cerr << "Stalled ops:" << std::endl;
+                  << std::endl << "Stalled ops:" ;
         preamble = true;
       }
-      std::cerr << tensor_name;
-      std::cerr << " [missing ranks:";
+      message << tensor_name;
+      message << " [missing ranks:";
       std::unordered_set<int32_t> ready_ranks;
       bool missing_preamble = false;
       for (auto msg_iter = messages.begin(); msg_iter != messages.end();
@@ -1568,15 +1568,16 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
       for (int32_t rank = 0; rank < state.size; rank++) {
         if (ready_ranks.find(rank) == ready_ranks.end()) {
           if (!missing_preamble) {
-            std::cerr << " ";
+            message << " ";
             missing_preamble = true;
           } else {
-            std::cerr << ", ";
+            message << ", ";
           }
-          std::cerr << rank;
+          message << rank;
         }
       }
-      std::cerr << "]" << std::endl;
+      message << "]";
+      LOG(WARNING) << message.str();
     }
   }
 }
@@ -1626,10 +1627,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   if (is_mpi_initialized) {
     MPI_Query_thread(&provided);
     if (provided < MPI_THREAD_MULTIPLE) {
-      std::cerr << "WARNING: MPI has already been initialized without "
+      LOG(WARNING) << "WARNING: MPI has already been initialized without "
                    "multi-threading support (MPI_THREAD_MULTIPLE). This will "
-                   "likely cause a segmentation fault."
-                << std::endl;
+                   "likely cause a segmentation fault.";
     }
   } else {
     MPI_Init_thread(NULL, NULL, required, &provided);
@@ -1644,9 +1644,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
                    &work_group);
     MPI_Comm_create_group(MPI_COMM_WORLD, work_group, 0, &(state.mpi_comm));
     if (state.mpi_comm == MPI_COMM_NULL) {
-      std::cerr << "WARNING: Unable to create Horovod communicator, using "
-                   "MPI_COMM_WORLD instead."
-                << std::endl;
+      LOG(WARNING) << "WARNING: Unable to create Horovod communicator, using "
+                   "MPI_COMM_WORLD instead.";
       state.mpi_comm = MPI_COMM_WORLD;
     }
     MPI_Group_free(&world_group);
@@ -1665,6 +1664,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Get MPI size to determine how many tensors to wait for before reducing.
   int size;
   MPI_Comm_size(state.mpi_comm, &size);
+  LOG(INFO) << "Started Horovod with " << size << " processes";
 
   // Determine local rank by querying the local communicator.
   MPI_Comm local_comm;
@@ -1777,6 +1777,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
                  (size != local_size);
     state.param_manager.SetHierarchicalAllreduce(value, true);
   }
+  if (state.hierarchical_allreduce) LOG(INFO) << "Using Hierarchical Allreduce";
 
 #if HOROVOD_GPU_ALLREDUCE != 'N' && HOROVOD_GPU_ALLREDUCE != 'D'
   // Hierarchical allreduce is not supported without NCCL or DDL
@@ -1786,13 +1787,12 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Issue warning if hierarchical allreduce is enabled in heterogeneous cluster
   if (is_coordinator && (state.param_manager.HierarchicalAllreduce()
               || state.param_manager.HierarchicalAllgather()) && !state.is_homogeneous) {
-    std::cerr
+    LOG(WARNING)
         << "WARNING: Using different number of ranks per node might cause "
            "performance loss in hierarchical allgather and "
            "hierarchical allreduce. Consider assigning the same "
            "number of ranks to each node, or disabling hierarchical "
-           "allgather and hierarchical allreduce."
-        << std::endl;
+           "allgather and hierarchical allreduce.";
   }
 
   // Enable auto-tuning.
@@ -1803,6 +1803,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
                                    horovod_autotune_log != nullptr ? std::string(horovod_autotune_log) : "");
     state.param_manager.SetAutoTuning(true);
   }
+  LOG(INFO) << "Using fusion threshold of " << state.tensor_fusion_threshold;
 
   // Initialize the tensor count table. No tensors are available yet.
   if (is_coordinator) {
@@ -1813,12 +1814,12 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.initialization_done = true;
 
   LOG(INFO, rank) << "Horovod Initialized";
-  
+
   // Iterate until shutdown.
   while (RunLoopOnce(state, is_coordinator))
     ;
 
-  LOG(DEBUG, rank) << "Shutting down control thread";
+  LOG(DEBUG, rank) << "Shutting down background thread";
 
   // Signal that shutdown has been requested.
   state.shut_down = true;
@@ -2176,6 +2177,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     // the same operation.
     for (auto& response : response_list.responses()) {
       LOG(TRACE, state.rank) << "Performing " << response.tensor_names_string();
+      LOG(DEBUG, state.rank) << "Processing " << response.tensor_names().size() << " tensors";
       PerformOperation(state.tensor_table, response);
       LOG(TRACE, state.rank) << "Finished performing " << response.tensor_names_string();
     }
