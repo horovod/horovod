@@ -1664,7 +1664,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Get MPI size to determine how many tensors to wait for before reducing.
   int size;
   MPI_Comm_size(state.mpi_comm, &size);
-  LOG(INFO) << "Started Horovod with " << size << " processes";
+  if (is_coordinator) LOG(INFO) << "Started Horovod with " << size << " processes";
 
   // Determine local rank by querying the local communicator.
   MPI_Comm local_comm;
@@ -1803,7 +1803,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
                                    horovod_autotune_log != nullptr ? std::string(horovod_autotune_log) : "");
     state.param_manager.SetAutoTuning(true);
   }
-  LOG(INFO) << "Using fusion threshold of " << state.tensor_fusion_threshold;
+  if (is_coordinator) LOG(INFO) << "Using fusion threshold of " << state.tensor_fusion_threshold;
 
   // Initialize the tensor count table. No tensors are available yet.
   if (is_coordinator) {
