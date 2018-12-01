@@ -237,6 +237,11 @@ def get_tf_flags(build_ext, cpp_flags):
         return compile_flags, link_flags
 
 
+def get_mx_include_dirs():
+    import mxnet as mx
+    return mx.libinfo.find_include_path()
+
+
 def get_mx_lib_dirs():
     import mxnet as mx
     mx_libs = mx.libinfo.find_lib_path()
@@ -437,7 +442,7 @@ def get_common_options(build_ext):
     cpp_flags = get_cpp_flags(build_ext)
     link_flags = get_link_flags(build_ext)
     mpi_flags = get_mpi_flags()
-    mxnet_include_dirs = os.environ.get('INCLUDES')
+    mxnet_include_dirs = get_mx_include_dirs()
 
     gpu_allreduce = os.environ.get('HOROVOD_GPU_ALLREDUCE')
     if gpu_allreduce and gpu_allreduce != 'MPI' and gpu_allreduce != 'NCCL' and \

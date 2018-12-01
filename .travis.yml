@@ -39,11 +39,11 @@ before_install:
 
 env:
   matrix:
-    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=mxnet==1.4.0b20181128 MPI=OpenMPI
-    - TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=mxnet==1.4.0b20181128 MPI=OpenMPI
-    - TF_PACKAGE=tensorflow==1.9.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet==1.4.0b20181128 MPI=OpenMPI
+    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=mxnet==1.4.0b20181201 MPI=OpenMPI
+    - TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=mxnet==1.4.0b20181201 MPI=OpenMPI
+    - TF_PACKAGE=tensorflow==1.9.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet==1.4.0b20181201 MPI=OpenMPI
     - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet MPI=OpenMPI
-    - TF_PACKAGE=tensorflow==1.9.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet==1.4.0b20181128 MPI=MPICH
+    - TF_PACKAGE=tensorflow==1.9.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet==1.4.0b20181201 MPI=MPICH
 
 matrix:
   fast_finish: true
