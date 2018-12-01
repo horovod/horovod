@@ -1612,11 +1612,11 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 
   // Enable auto-tuning.
-  auto horovod_tune_params = std::getenv(HOROVOD_TUNE_PARAMS);
-  if (horovod_tune_params != nullptr && std::strtol(horovod_tune_params, nullptr, 10) > 0) {
-    auto horovod_params = std::getenv(HOROVOD_PARAMS_OUTPUT);
+  auto horovod_autotuner = std::getenv(HOROVOD_AUTOTUNER);
+  if (horovod_autotuner != nullptr && std::strtol(horovod_autotuner, nullptr, 10) > 0) {
+    auto horovod_autotuner_log = std::getenv(HOROVOD_AUTOTUNER_LOG);
     state.param_manager.Initialize(rank, RANK_ZERO, state.mpi_comm,
-                                   horovod_params != nullptr ? std::string(horovod_params) : "");
+                                   horovod_autotuner_log != nullptr ? std::string(horovod_autotuner_log) : "");
     state.param_manager.SetAutoTuning(true);
   }
 

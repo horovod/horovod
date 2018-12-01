@@ -72,7 +72,7 @@ private:
   Eigen::VectorXd ProposeLocation(
       const Eigen::MatrixXd& x_sample, const Eigen::MatrixXd& y_sample, int n_restarts=25);
 
-  // Computes the EI at points X based on existing samples X_sample and Y_sample
+  // Computes the Expected Improvement at points X based on existing samples X_sample and Y_sample
   // using a Gaussian process surrogate model fitted to the samples.
   //
   // Args:

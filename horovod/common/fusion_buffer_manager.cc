@@ -36,9 +36,7 @@ Status FusionBufferManager::InitializeBuffer(int64_t threshold, int device, std:
     // Lazily allocate persistent buffer for Tensor Fusion and keep it
     // forever per device.
     Status status = context->AllocatePersistent(threshold, &buffer);
-    if (status.ok()) {
-      on_end_init();
-    }
+    on_end_init();
 
     return status;
   }

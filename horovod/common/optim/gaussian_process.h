@@ -24,6 +24,15 @@
 namespace horovod {
 namespace common {
 
+// Bayesian Optimization attempts to find the global optimum in a minimum number of steps, by incorporating
+// prior belief about the objective function. It updates the prior with samples drawn from the objective function
+// to get a posterior that better approximates that objective function. The model used for approximating the objective
+// function is called surrogate model. In this implementation, we use Gaussian processes for our surrogate model.
+//
+// Bayesian optimization also uses an acquisition function that directs sampling to areas where an improvement
+// over the current best observation is likely.  Acquisition functions trade-off between exploration (sampling
+// where uncertainty is high) and exploitation (sampling where the surrogate model predicts a high objective).
+//
 // This implementation is based on the scikit-learn GaussianProcessRegressor and the blog
 // by Martin Krasser on Gaussian Processes and is an adaptation of Python code to C++.
 //
@@ -79,8 +88,16 @@ public:
   Eigen::MatrixXd Kernel(const Eigen::MatrixXd& x1, const Eigen::MatrixXd& x2, double l=1.0, double sigma_f=1.0) const;
 
 private:
+  // Kernel parameter for noise. Higher values make more coarse approximations which avoids overfitting to noisy data.
   double alpha_;
+
+  // Kernel parameter for smoothness. Higher values lead to smoother functions and therefore to coarser approximations
+  // of the training data. Lower values make functions more wiggly with high confidence intervals between
+  // training data points.
   double length_;
+
+  // Kernel parameter that controls the vertical variation of functions drawn from the GP. Higher values lead to wider
+  // confidence intervals.
   double sigma_f_;
 
   // These pointers are not owned.
