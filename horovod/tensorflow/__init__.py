@@ -40,6 +40,7 @@ from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank
 from horovod.tensorflow.mpi_ops import mpi_threads_supported
 
 import tensorflow as tf
+from tensorflow.python.eager import context
 
 
 def allreduce(tensor, average=True, device_dense='', device_sparse='',
@@ -192,18 +193,26 @@ class DistributedOptimizer(tf.train.Optimizer):
         if size() > 1:
             averaged_gradients = []
             with tf.name_scope(self._name + "_Allreduce"):
-                for grad, var in gradients:
-                    if grad is not None:
-                        if self._sparse_as_dense and \
-                                isinstance(grad, tf.IndexedSlices):
-                            grad = tf.convert_to_tensor(grad)
-                        avg_grad = allreduce(grad,
-                                             device_dense=self._device_dense,
-                                             device_sparse=self._device_sparse,
-                                             compression=self._compression)
-                        averaged_gradients.append((avg_grad, var))
-                    else:
-                        averaged_gradients.append((None, var))
+                def aggregate_gradients():
+                    for grad, var in gradients:
+                        if grad is not None:
+                            if self._sparse_as_dense and \
+                                    isinstance(grad, tf.IndexedSlices):
+                                grad = tf.convert_to_tensor(grad)
+                            avg_grad = allreduce(grad,
+                                                 device_dense=self._device_dense,
+                                                 device_sparse=self._device_sparse,
+                                                 compression=self._compression)
+                            averaged_gradients.append((avg_grad, var))
+                        else:
+                            averaged_gradients.append((None, var))
+
+                if context.executing_eagerly():
+                    with context.execution_mode(context.ASYNC):
+                        aggregate_gradients()
+                    context.async_wait()
+                else:
+                    aggregate_gradients()
             return averaged_gradients
         else:
             return gradients
