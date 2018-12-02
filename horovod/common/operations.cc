@@ -1835,6 +1835,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       responses.push_back(std::move(response));
     }
 
+    int fused_tensors = 0;
     MPIResponseList response_list;
     response_list.set_shutdown(should_shut_down);
 
@@ -1865,6 +1866,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
               tensor_size += new_tensor_size;
               response.add_tensor_names(new_response.tensor_names()[0]);
               responses.pop_front();
+              fused_tensors++;
             } else {
               // Don't try to fuse additional tensors since they are usually
               // computed in order of requests and skipping tensors may mean
@@ -1878,6 +1880,8 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
         response_list.add_responses(response);
       }
     }
+
+    std::cerr << "FUSED TENSORS: " << fused_tensors << std::endl;
 
     // Notify all nodes which tensors we'd like to reduce at this step.
     std::string encoded_response;
