@@ -1881,7 +1881,9 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       }
     }
 
-    std::cerr << "FUSED TENSORS: " << fused_tensors << std::endl;
+    if (fused_tensors > 0) {
+      std::cerr << "FUSED TENSORS: " << fused_tensors << std::endl;
+    }
 
     // Notify all nodes which tensors we'd like to reduce at this step.
     std::string encoded_response;
