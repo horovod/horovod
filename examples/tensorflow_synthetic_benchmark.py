@@ -10,7 +10,7 @@ from tensorflow.python.keras import backend as K
 from tensorflow.keras import applications
 
 # Benchmark settings
-parser = argparse.ArgumentParser(description='PyTorch Synthetic Benchmark',
+parser = argparse.ArgumentParser(description='TensorFlow Synthetic Benchmark',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--fp16-allreduce', action='store_true', default=False,
                     help='use fp16 compression during allreduce')
@@ -39,8 +39,11 @@ hvd.init()
 
 # Horovod: pin GPU to be used to process local rank (one GPU per process)
 config = tf.ConfigProto()
-config.gpu_options.allow_growth = True
-config.gpu_options.visible_device_list = str(hvd.local_rank())
+if args.cuda:
+    config.gpu_options.allow_growth = True
+    config.gpu_options.visible_device_list = str(hvd.local_rank())
+else:
+    config.gpu_options.visible_device_list = ''
 
 if args.eager:
     tf.enable_eager_execution(config)
