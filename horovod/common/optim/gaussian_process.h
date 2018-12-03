@@ -24,17 +24,22 @@
 namespace horovod {
 namespace common {
 
-// Bayesian Optimization attempts to find the global optimum in a minimum number of steps, by incorporating
-// prior belief about the objective function. It updates the prior with samples drawn from the objective function
-// to get a posterior that better approximates that objective function. The model used for approximating the objective
-// function is called surrogate model. In this implementation, we use Gaussian processes for our surrogate model.
+// A Gaussian Process is a non-parametric regression model used to estimate the uncertainty
+// of predictions. A random process, any point x we observe is given a random variable f(x)
+// where the joint distribution over these variables p(f(x1), f(x2), ..., f(xn)) is also
+// Gaussian. Thus, a Gaussian Process is a distribution over functions, whose smoothness
+// is defined by a kernel function (covariance function). For any two points xi and xj, if
+// they are considered close by the kernel function, then we would expect that f(xi) and
+// f(xj) would be similar as well.
 //
-// Bayesian optimization also uses an acquisition function that directs sampling to areas where an improvement
-// over the current best observation is likely.  Acquisition functions trade-off between exploration (sampling
-// where uncertainty is high) and exploitation (sampling where the surrogate model predicts a high objective).
+// We use Gaussian Processes to infer functions directly as an alternative to inferring
+// point estimates of the functions or posterior distributions. A Gaussian Process defines
+// a prior over functions that we can convert into a posterior after observing some inputs
+// X and outputs y of the function we are attempting to model. We can then use this posterior
+// to make new predictions given new input data.
 //
-// This implementation is based on the scikit-learn GaussianProcessRegressor and the blog
-// by Martin Krasser on Gaussian Processes and is an adaptation of Python code to C++.
+// This implementation is based on the blog by Martin Krasser on Gaussian Processes, along with
+// scikit-learn, and is an adaptation of the Python + NumPy code to C++.
 //
 // See: http://krasserm.github.io/2018/03/19/gaussian-processes
 class GaussianProcessRegressor {

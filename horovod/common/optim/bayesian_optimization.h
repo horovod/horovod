@@ -26,6 +26,18 @@
 namespace horovod {
 namespace common {
 
+// Bayesian Optimization attempts to find the global optimum in a minimum number of steps, by incorporating
+// prior belief about the objective function. It updates the prior with samples drawn from the objective function
+// to get a posterior that better approximates that objective function. The model used for approximating the objective
+// function is called surrogate model. In this implementation, we use Gaussian processes for our surrogate model.
+//
+// Bayesian optimization also uses an acquisition function that directs sampling to areas where an improvement
+// over the current best observation is likely.  Acquisition functions trade-off between exploration (sampling
+// where uncertainty is high) and exploitation (sampling where the surrogate model predicts a high objective).
+//
+// This implementation is based on the scikit-learn GaussianProcessRegressor and the blog
+// by Martin Krasser on Gaussian Processes and is an adaptation of Python code to C++.
+//
 // This implementation is based on the blog by Martin Krasser on Bayesian Optimization and is
 // an adaptation of the Python + NumPy code to C++.
 //
@@ -64,9 +76,9 @@ private:
   //
   // Args:
   //  acquisition: Acquisition function.
-  //  X_sample: Sample locations (n x d).
-  //  Y_sample: Sample values (n x 1).
-  //  gpr: A GaussianProcessRegressor fitted to samples.
+  //  x_sample: Sample locations (n x d).
+  //  y_sample: Sample values (n x 1).
+  //  n_restarts: How many times to run minimization routine with random restarts.
   //
   // Returns: Location of the acquisition function maximum.
   Eigen::VectorXd ProposeLocation(
@@ -76,21 +88,21 @@ private:
   // using a Gaussian process surrogate model fitted to the samples.
   //
   // Args:
-  //  x: Points at which EI shall be computed (m x d).
-  //  x_sample: Sample locations (n x d).
-  //  y_sample: Sample values (n x 1).
+  //  x: Proposed points at which EI shall be computed (m x d).
+  //  x_sample: Sample locations observed (n x d).
   //
-  // Returns: Expected improvements at points X. '''
+  // Returns: Expected improvements at points X.
   Eigen::VectorXd ExpectedImprovement(const Eigen::MatrixXd& x, const Eigen::MatrixXd& x_sample);
 
+  // Returns true if all elements of the vector are within the respective bounds for its dimension.
   bool CheckBounds(const Eigen::VectorXd& x);
 
-  unsigned long d_;
+  unsigned long d_;  // Dimension of the input data.
   std::vector<std::pair<double, double>> bounds_;
   double xi_;
 
   std::random_device rd_;  // Will be used to obtain a seed for the random number engine
-  std::mt19937 gen_ = std::mt19937(rd_()); // Standard mersenne_twister_engine seeded with rd()
+  std::mt19937 gen_ = std::mt19937(rd_()); // Standard mersenne_twister_engine seeded with random_device.
   std::vector<std::uniform_real_distribution<>> dists_;
 
   GaussianProcessRegressor gpr_;
