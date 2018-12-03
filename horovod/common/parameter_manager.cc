@@ -26,6 +26,8 @@ namespace common {
 
 #define WARMUPS 3
 #define CYCLES_PER_SAMPLE 10
+#define BAYES_OPT_MAX_SAMPLES 20
+#define GAUSSIAN_PROCESS_NOISE 0.2
 
 Eigen::VectorXd CreateVector(double x1, double x2) {
   Eigen::VectorXd v(2);
@@ -373,8 +375,7 @@ void ParameterManager::BayesianParameter::OnTune(double score, Eigen::VectorXd& 
 }
 
 bool ParameterManager::BayesianParameter::IsDoneTuning() const {
-  unsigned long d = bayes_->Dim();
-  return iteration_ > 20 * d;
+  return iteration_ > BAYES_OPT_MAX_SAMPLES;
 }
 
 void ParameterManager::BayesianParameter::ResetState() {
@@ -395,7 +396,7 @@ void ParameterManager::BayesianParameter::ResetBayes() {
     }
   }
 
-  bayes_.reset(new BayesianOptimization(bounds, 0.2));
+  bayes_.reset(new BayesianOptimization(bounds, GAUSSIAN_PROCESS_NOISE));
   Reinitialize(FilterTestPoint(0));
 }
 
