@@ -276,6 +276,7 @@ def get_mx_flags(build_ext, cpp_flags):
     link_flags = []
     mx_lib_dirs = get_mx_lib_dirs()
     for lib_dir in mx_lib_dirs:
+        link_flags.append('-Wl,-rpath=%s' % lib_dir)
         link_flags.append('-L%s' % lib_dir)
     mx_libs = get_mx_libs(build_ext, mx_lib_dirs, cpp_flags) 
     for lib in mx_libs:
@@ -597,10 +598,6 @@ def build_mx_extension(build_ext, options):
     mxnet_mpi_lib.extra_link_args = options['LINK_FLAGS'] + mx_link_flags
 
     build_ext.build_extension(mxnet_mpi_lib)
-
-    # Return ABI flags used for MXNet compilation.  We will use this flag
-    # to compile all the libraries.
-    return [flag for flag in mx_compile_flags if '_GLIBCXX_USE_CXX11_ABI' in flag]
 
 
 def dummy_import_torch():
