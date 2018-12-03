@@ -69,10 +69,10 @@ def check_tf_version():
 def check_mx_version():
     try:
         import mxnet as mx
-        if mx.__version__ < '1.3.0':
+        if mx.__version__ < '1.4.0':
             raise DistutilsPlatformError(
                 'Your MXNet version %s is outdated.  '
-                'Horovod requires mxnet>=1.3.0' % mx.__version__)
+                'Horovod requires mxnet>=1.4.0' % mx.__version__)
     except ImportError:
         raise DistutilsPlatformError(
             'import mxnet failed, is it installed?\n\n%s' % traceback.format_exc())
@@ -519,7 +519,11 @@ def get_common_options(build_ext):
         LIBRARIES += ['ddl', 'ddl_pack']
 
     if mxnet_include_dirs:
-        MACROS += [('MSHADOW_USE_CBLAS', '1')]
+        if have_cuda:
+            MACROS += [('MSHADOW_USE_CUDA', '1')]
+        else:
+            MACROS += [('MSHADOW_USE_CUDA', '0')] 
+        MACROS += [('MSHADOW_USE_MKL', '0')]
         INCLUDES += ['%s' % mxnet_include_dirs]
 
     if gpu_allreduce:

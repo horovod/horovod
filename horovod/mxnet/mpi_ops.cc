@@ -192,8 +192,6 @@ int DoBroadcastCudaOnCPU(std::shared_ptr<MXTemporaryBuffer<NDArray>>& hvd_cpu_bu
 }
 #endif
 
-// Do AllReduce on GPU only if src and dst are on GPU
-// Otherwise do AllReduce on CPU
 extern "C" int horovod_mxnet_allreduce_async(
     NDArray* input, NDArray* output, int average, char* name) {
 
@@ -202,68 +200,58 @@ extern "C" int horovod_mxnet_allreduce_async(
       RunContext rctx, Engine::CallbackOnComplete cb) mutable {
       DoAllreduce(input, output, average, new_name, cb);
   };
+#if HAVE_CUDA
   auto allreduce_async_cpu_fn = [input, output, new_name, average](
       RunContext rctx, Engine::CallbackOnComplete cb) mutable {
       DoAllreduceCudaOnCPU(input, output, average, new_name, cb);
   };
-  int cpu = -1;
-#ifdef HOROVOD_GPU_ALLREDUCE
-  if (input->ctx().dev_mask() == gpu::kDevMask &&
-      output->ctx().dev_mask() == gpu::kDevMask)
-    cpu = 0;
-  else
-#endif
-#if HAVE_CUDA
-    cpu = 1;
-#else
-    cpu = 0;
 #endif
 
-  if (cpu) {
-    // Not in-place
-    if (input->var() != output->var()) {
-      Engine::Get()->PushAsync(
-        allreduce_async_cpu_fn,
-        input->ctx(),
-        {input->var()},
-        {output->var()},
-        FnProperty::kNormal,
-        0,
-        "HorovodAllreduce");
-    // In-place
-    } else {
-      Engine::Get()->PushAsync(
-        allreduce_async_cpu_fn,
-        input->ctx(),
-        {},
-        {output->var()},
-        FnProperty::kNormal,
-        0,
-        "HorovodAllreduce");
-    }
+#if HAVE_CUDA && !HOROVOD_GPU_ALLREDUCE
+  // Not in-place
+  if (input->var() != output->var()) {
+    Engine::Get()->PushAsync(
+      allreduce_async_cpu_fn,
+      input->ctx(),
+      {input->var()},
+      {output->var()},
+      FnProperty::kNormal,
+      0,
+      "HorovodAllreduce");
+  // In-place
   } else {
-    // Not in-place
-    if (input->var() != output->var()) {
-      Engine::Get()->PushAsync(
-        allreduce_async_fn,
-        input->ctx(),
-        {input->var()},
-        {output->var()},
-        FnProperty::kNormal,
-        0,
-        "HorovodAllreduce");
-    // In-place
-    } else {
-      Engine::Get()->PushAsync(
-        allreduce_async_fn,
-        input->ctx(),
-        {},
-        {output->var()},
-        FnProperty::kNormal,
-        0,
-        "HorovodAllreduce");
-    }
+    Engine::Get()->PushAsync(
+      allreduce_async_cpu_fn,
+      input->ctx(),
+      {},
+      {output->var()},
+      FnProperty::kNormal,
+      0,
+      "HorovodAllreduce");
   }
+#else
+  // Not in-place
+  if (input->var() != output->var()) {
+    Engine::Get()->PushAsync(
+      allreduce_async_fn,
+      input->ctx(),
+      {input->var()},
+      {output->var()},
+      FnProperty::kNormal,
+      0,
+      "HorovodAllreduce");
+  // In-place
+  } else {
+    Engine::Get()->PushAsync(
+      allreduce_async_fn,
+      input->ctx(),
+      {},
+      {output->var()},
+      FnProperty::kNormal,
+      0,
+      "HorovodAllreduce");
+  }
+#endif
   return 0;
 }
 
@@ -275,67 +263,57 @@ extern "C" int horovod_mxnet_allgather_async(
       RunContext rctx, Engine::CallbackOnComplete cb) mutable {
     DoAllgather(input, output, new_name, cb);
   };
+#if HAVE_CUDA
   auto allgather_async_cpu_fn = [input, output, new_name](
       RunContext rctx, Engine::CallbackOnComplete cb) mutable {
     DoAllgatherCudaOnCPU(input, output, new_name, cb);
   };
-  int cpu = -1;
-#if HOROVOD_GPU_ALLGATHER == 'M'
-  if (input->ctx().dev_mask() == gpu::kDevMask &&
-      output->ctx().dev_mask() == gpu::kDevMask)
-    cpu = 0;
-  else
-#endif
-#if HAVE_CUDA
-    cpu = 1;
-#else
-    cpu = 0;
 #endif
 
+#if HAVE_CUDA && HOROVOD_GPU_ALLGATHER != 'M'
   // Not in-place
-  if (cpu) {
-    if (input->var() != output->var()) {
-      Engine::Get()->PushAsync(
-        allgather_async_cpu_fn,
-        Context::CPU(0),
-        {input->var()},
-        {output->var()},
-        FnProperty::kNormal,
-        0,
-        "HorovodAllgather");
+  if (input->var() != output->var()) {
+    Engine::Get()->PushAsync(
+      allgather_async_cpu_fn,
+      Context::CPU(0),
+      {input->var()},
+      {output->var()},
+      FnProperty::kNormal,
+      0,
+      "HorovodAllgather");
   // In-place
-    } else {
-      Engine::Get()->PushAsync(
-        allgather_async_cpu_fn,
-        Context::CPU(0),
-        {},
-        {output->var()},
-        FnProperty::kNormal,
-        0,
-        "HorovodAllgather");
-    }
   } else {
-    if (input->var() != output->var()) {
-      Engine::Get()->PushAsync(
-        allgather_async_fn,
-        Context::CPU(0),
-        {input->var()},
-        {output->var()},
-        FnProperty::kNormal,
-        0,
-        "HorovodAllgather");
-  // In-place
-    } else {
-      Engine::Get()->PushAsync(
-        allgather_async_fn,
-        Context::CPU(0),
-        {},
-        {output->var()},
-        FnProperty::kNormal,
-        0,
-        "HorovodAllgather");
-    }
+    Engine::Get()->PushAsync(
+      allgather_async_cpu_fn,
+      Context::CPU(0),
+      {},
+      {output->var()},
+      FnProperty::kNormal,
+      0,
+      "HorovodAllgather");
   }
+#else
+  if (input->var() != output->var()) {
+    Engine::Get()->PushAsync(
+      allgather_async_fn,
+      Context::CPU(0),
+      {input->var()},
+      {output->var()},
+      FnProperty::kNormal,
+      0,
+      "HorovodAllgather");
+  // In-place
+  } else {
+    Engine::Get()->PushAsync(
+      allgather_async_fn,
+      Context::CPU(0),
+      {},
+      {output->var()},
+      FnProperty::kNormal,
+      0,
+      "HorovodAllgather");
+  }
+#endif
   return 0;
 }
 
@@ -347,51 +325,39 @@ extern "C" int horovod_mxnet_broadcast_async(
       RunContext rctx, Engine::CallbackOnComplete cb) mutable {
     DoBroadcast(input, output, root_rank, new_name, cb);
   };
-  int cpu = -1;
-#if HOROVOD_GPU_BROADCAST == 'M'
-  if (input->ctx().dev_mask() == gpu::kDevMask &&
-       output->ctx().dev_mask() == gpu::kDevMask)
-    cpu = 0;
-  else
-#endif
-#if HAVE_CUDA
-    cpu = 1;
-#else
-    cpu = 0;
-#endif
 
+#if HAVE_CUDA && HOROVOD_GPU_BROADCAST != 'M'
   // Not in-place
-  if (cpu) {
-    ThrowIfError(common::CheckInitialized());
-    // Make async copy of input tensor to CPU tensor and record completion event.
-    auto hvd_cpu_buffer =
-        std::make_shared<MXTemporaryBuffer<NDArray>>(CPU_DEVICE_ID, input->dtype());
-    TensorUtil::AsyncCopyCudaToCPU(input, hvd_cpu_buffer->tensor());
-    auto broadcast_async_cpu_fn = [hvd_cpu_buffer, new_name, root_rank](
-        RunContext rctx, Engine::CallbackOnComplete cb) mutable {
-      DoBroadcastCudaOnCPU(hvd_cpu_buffer, root_rank, new_name, cb);
-    };
+  ThrowIfError(common::CheckInitialized());
+  // Make async copy of input tensor to CPU tensor and record completion event.
+  auto hvd_cpu_buffer =
+      std::make_shared<MXTemporaryBuffer<NDArray>>(CPU_DEVICE_ID, input->dtype());
+  TensorUtil::AsyncCopyCudaToCPU(input, hvd_cpu_buffer->tensor());
+  auto broadcast_async_cpu_fn = [hvd_cpu_buffer, new_name, root_rank](
+      RunContext rctx, Engine::CallbackOnComplete cb) mutable {
+    DoBroadcastCudaOnCPU(hvd_cpu_buffer, root_rank, new_name, cb);
+  };
 
-    Engine::Get()->PushAsync(
-      broadcast_async_cpu_fn,
-      Context::CPU(0),
-      {},
-      {output->var()},
-      FnProperty::kNormal,
-      0,
-      "HorovodBroadcast");
+  Engine::Get()->PushAsync(
+    broadcast_async_cpu_fn,
+    Context::CPU(0),
+    {},
+    {output->var()},
+    FnProperty::kNormal,
+    0,
+    "HorovodBroadcast");
 
-    TensorUtil::CopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
-  } else {
-    Engine::Get()->PushAsync(
-      broadcast_async_fn,
-      Context::CPU(0),
-      {},
-      {output->var()},
-      FnProperty::kNormal,
-      0,
-      "HorovodBroadcast");
-  }
+  TensorUtil::CopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
+#else
+  Engine::Get()->PushAsync(
+    broadcast_async_fn,
+    Context::CPU(0),
+    {},
+    {output->var()},
+    FnProperty::kNormal,
+    0,
+    "HorovodBroadcast");
+#endif
   return 0;
 }
 
