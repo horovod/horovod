@@ -36,7 +36,7 @@ namespace common {
 //
 // During the early training batches, the auto-tuning feature (if enabled) will try various
 // combinations of parameters in search of the combination that yields the highest throughput
-// in units of bytes allreduced per second.
+// in units of bytes processed per second.
 //
 // Once the auto-tuner has converged to find the highest scoring combination of parameters, the tuning
 // will end and the returned values will always be equal to the best scoring.
@@ -75,12 +75,12 @@ public:
   double CycleTimeMs() const;
   void SetCycleTimeMs(double cycle_time_ms, bool fixed=false);
 
-  // Observes that the given tensors have been allreduced over the given number of microseconds.
+  // Observes that the given tensors have been processed (e.g., allreduced) over the given number of microseconds.
   //
   // Args:
-  //  tensor_names: The names of the tensors that have been allreduced.
-  //  bytes: The number of bytes that were allreduced per worker.
-  //  microseconds: The number of microseconds taken to allreduce the bytes on this worker.
+  //  tensor_names: The names of the tensors that have been processed.
+  //  bytes: The number of bytes that were processed per worker.
+  //  microseconds: The number of microseconds taken to process the bytes on this worker.
   void Update(const std::vector<std::string>& tensor_names, int64_t bytes, double microseconds);
 
 private:
