@@ -56,7 +56,7 @@ ParameterManager::ParameterManager() :
     rank_(-1),
     root_rank_(0),
     writing_(false) {
-  ReadyTune();
+  Reset();
 }
 
 void ParameterManager::CreateMpiTypes() {
@@ -163,47 +163,40 @@ void ParameterManager::Update(const std::vector<std::string>& tensor_names, int6
 
 void ParameterManager::Tune(double score) {
   if (warmup_remaining_ > 0) {
+    // Ignore this score as we're still warming up.
     warmup_remaining_--;
     if (rank_ == root_rank_) {
-      std::cerr << "Horovod Tune: WARMUP DONE (" << warmup_remaining_ << " remaining)" << std::endl;
+      std::cerr << "HOROVOD_AUTOTUNER: WARMUP DONE (" << warmup_remaining_ << " remaining)" << std::endl;
     }
   } else {
-    if (rank_ == root_rank_) {
-      std::cerr << "Horovod Tune: [" << hierarchical_allreduce_.Value() << ", "
-                << joint_params_.Value(cycle_time_ms) << " ms , " << joint_params_.Value(fusion_buffer_threshold_mb) << " mb ] "
-                << score
-                << std::endl;
-      if (writing_ && file_.good()) {
-        file_ << hierarchical_allreduce_.Value() << ","
-              << joint_params_.Value(cycle_time_ms) << ","
-              << joint_params_.Value(fusion_buffer_threshold_mb) << ","
-              << score
-              << std::endl;
-      }
+    // Log the last parameter values before updating.
+    LogParameters(score);
 
+    // Only do the tuning on the coordinator to ensure consistency.
+    if (rank_ == root_rank_) {
       leaf_param_->Tune(score);
     }
 
+    // Send the updated parameter values to other workers.
     SyncParams();
   }
-  ReadyTune();
-}
 
-void ParameterManager::ReadyTune() {
-  total_bytes_ = 0;
-  total_microseconds_ = 0;
-  tensor_counts_.clear();
-  sample_ = 0;
+  // Prepare for the next round of collecting statistics.
+  Reset();
 }
 
 void ParameterManager::SyncParams() {
   Params params;
+
+  // Coordinator send the updated parameters.
   if (rank_ == root_rank_) {
     if (active_) {
+      // We're actively tuning, so send the current value.
       params.hierarchical_allreduce = hierarchical_allreduce_.Value();
       params.tensor_fusion_threshold = joint_params_.Value(fusion_buffer_threshold_mb);
       params.cycle_time = joint_params_.Value(cycle_time_ms);
     } else {
+      // Tuning has completed, so send the best value.
       params.hierarchical_allreduce = hierarchical_allreduce_.BestValue();
       params.tensor_fusion_threshold = joint_params_.BestValue(fusion_buffer_threshold_mb);
       params.cycle_time = joint_params_.BestValue(cycle_time_ms);
@@ -212,12 +205,39 @@ void ParameterManager::SyncParams() {
     params.active = active_;
   }
 
+  // Broadcast the parameter struct to other workers.
   MPI_Bcast(&params, 1, mpi_params_type_, root_rank_, mpi_comm_);
+
+  // The other workers receive the broadcasted parameters and update their internal state in response.
   if (rank_ != root_rank_) {
     hierarchical_allreduce_.SetValue(params.hierarchical_allreduce, true);
     joint_params_.SetValue(fusion_buffer_threshold_mb, params.tensor_fusion_threshold, true);
     joint_params_.SetValue(cycle_time_ms, params.cycle_time, true);
     active_ = params.active;
+  }
+}
+
+void ParameterManager::Reset() {
+  total_bytes_ = 0;
+  total_microseconds_ = 0;
+  tensor_counts_.clear();
+  sample_ = 0;
+}
+
+void ParameterManager::LogParameters(double score) {
+  if (rank_ == root_rank_) {
+    std::cerr << "HOROVOD_AUTOTUNER: [" << hierarchical_allreduce_.Value() << ", "
+              << joint_params_.Value(cycle_time_ms) << " ms , " << joint_params_.Value(fusion_buffer_threshold_mb)
+              << " mb ] "
+              << score
+              << std::endl;
+    if (writing_ && file_.good()) {
+      file_ << hierarchical_allreduce_.Value() << ","
+            << joint_params_.Value(cycle_time_ms) << ","
+            << joint_params_.Value(fusion_buffer_threshold_mb) << ","
+            << score
+            << std::endl;
+    }
   }
 }
 

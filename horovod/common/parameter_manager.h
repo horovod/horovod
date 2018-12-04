@@ -84,9 +84,17 @@ public:
   void Update(const std::vector<std::string>& tensor_names, int64_t bytes, double microseconds);
 
 private:
+  // Adjusts the parameter values based on the last observed score.
   void Tune(double score);
-  void ReadyTune();
+
+  // Broadcasts updated parameter values from the coordinator to the other workers.
   void SyncParams();
+
+  // Resets the tuning state in preparation for evaluating a new set of parameter values.
+  void Reset();
+
+  // Outputs parameter values and writes results to a log file (if provided).
+  void LogParameters(double score);
 
   // Interface used to represent a parameter (or group of parameters) being tuned.
   class ITunableParameter {
