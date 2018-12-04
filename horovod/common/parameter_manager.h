@@ -99,7 +99,7 @@ private:
   // Interface used to represent a parameter (or group of parameters) being tuned.
   class ITunableParameter {
   public:
-    virtual void Tune(double score) = 0;
+    virtual bool Tune(double score) = 0;
     virtual void UpdateBestValue(double score) = 0;
     virtual double BestScore() const = 0;
     virtual bool IsTunable() const = 0;
@@ -110,7 +110,7 @@ private:
   class TunableParameter : public ITunableParameter {
   public:
     TunableParameter(T initial_value, ParameterManager& parent, ITunableParameter* const next_param);
-    void Tune(double score) override;
+    bool Tune(double score) override;
     void UpdateBestValue(double score) override;
 
     void SetValue(T value, bool fixed);
@@ -125,7 +125,6 @@ private:
     void Reinitialize(T value);
 
   private:
-    void TuneNextParameter();
     void CompleteTuning();
     virtual void OnTune(double score, T& value) = 0;
     virtual bool IsDoneTuning() const = 0;
@@ -201,7 +200,7 @@ private:
   CategoricalParameter<bool> hierarchical_allreduce_;
   BayesianParameter joint_params_;
 
-  ITunableParameter* const leaf_param_;
+  std::vector<ITunableParameter*> parameter_chain_;
   bool active_;
   int32_t warmup_remaining_;
 

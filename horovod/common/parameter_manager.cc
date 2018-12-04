@@ -49,7 +49,7 @@ ParameterManager::ParameterManager() :
         CreateVector(16, 25),
         CreateVector(8, 10)
       }, *this, &hierarchical_allreduce_)),
-    leaf_param_(&joint_params_),
+    parameter_chain_(std::vector<ITunableParameter*>{&joint_params_, &hierarchical_allreduce_}),
     active_(false),
     warmup_remaining_(WARMUPS),
     sample_(0),
@@ -174,7 +174,18 @@ void ParameterManager::Tune(double score) {
 
     // Only do the tuning on the coordinator to ensure consistency.
     if (rank_ == root_rank_) {
-      leaf_param_->Tune(score);
+      bool finished_tuning = true;
+      for (auto* param : parameter_chain_) {
+        bool finished = param->Tune(score);
+        if (!finished) {
+          finished_tuning = false;
+          break;
+        }
+      }
+
+      if (finished_tuning) {
+        SetAutoTuning(false);
+      }
     }
 
     // Send the updated parameter values to other workers.
@@ -254,17 +265,19 @@ ParameterManager::TunableParameter<T>::TunableParameter(
     next_param_(next_param) {}
 
 template <class T>
-void ParameterManager::TunableParameter<T>::Tune(double score) {
+bool ParameterManager::TunableParameter<T>::Tune(double score) {
   UpdateBestValue(score);
   if (!tunable_) {
-    TuneNextParameter();
-    return;
+    return true;
   }
 
   OnTune(score, value_);
   if (IsDoneTuning()) {
     CompleteTuning();
+    return true;
   }
+
+  return false;
 }
 
 template <class T>
@@ -298,17 +311,7 @@ void ParameterManager::TunableParameter<T>::Reinitialize(T value) {
 }
 
 template <class T>
-void ParameterManager::TunableParameter<T>::TuneNextParameter() {
-  if (next_param_ != nullptr) {
-    next_param_->Tune(best_score_);
-  } else {
-    parent_.SetAutoTuning(false);
-  }
-}
-
-template <class T>
 void ParameterManager::TunableParameter<T>::CompleteTuning() {
-  TuneNextParameter();
   value_ = initial_value_;
   ResetState();
 }
