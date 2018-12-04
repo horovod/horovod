@@ -109,7 +109,7 @@ private:
   template <class T>
   class TunableParameter : public ITunableParameter {
   public:
-    TunableParameter(T initial_value, ParameterManager& parent, ITunableParameter* const next_param);
+    TunableParameter(T initial_value);
     bool Tune(double score) override;
     void UpdateBestValue(double score) override;
 
@@ -137,16 +137,13 @@ private:
     double best_score_;
 
     bool tunable_;
-
-    ParameterManager& parent_;
-    ITunableParameter* const next_param_;
   };
 
   // A parameter that optimizes over a finite set of discrete values to be tried sequentially.
   template <class T>
   class CategoricalParameter : public TunableParameter<T> {
   public:
-    CategoricalParameter(std::vector<T> values, ParameterManager& parent, ITunableParameter* const next_param);
+    CategoricalParameter(std::vector<T> values);
 
   private:
     void OnTune(double score, T& value);
@@ -167,8 +164,7 @@ private:
   // A set of numerical parameters optimized jointly using Bayesian Optimization.
   class BayesianParameter : public TunableParameter<Eigen::VectorXd> {
   public:
-    BayesianParameter(std::vector<BayesianVariableConfig> variables, std::vector<Eigen::VectorXd> test_points,
-                      ParameterManager& parent, ITunableParameter* const next_param);
+    BayesianParameter(std::vector<BayesianVariableConfig> variables, std::vector<Eigen::VectorXd> test_points);
 
     void SetValue(BayesianVariable variable, double value, bool fixed);
     double Value(BayesianVariable variable) const;

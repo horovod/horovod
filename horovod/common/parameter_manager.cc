@@ -38,7 +38,7 @@ Eigen::VectorXd CreateVector(double x1, double x2) {
 
 // ParameterManager
 ParameterManager::ParameterManager() :
-    hierarchical_allreduce_(CategoricalParameter<bool>(std::vector<bool>{false, true}, *this, nullptr)),
+    hierarchical_allreduce_(CategoricalParameter<bool>(std::vector<bool>{false, true})),
     joint_params_(BayesianParameter(
       std::vector<BayesianVariableConfig>{
         { BayesianVariable::fusion_buffer_threshold_mb, std::pair<double, double>(0, 64) },
@@ -48,7 +48,7 @@ ParameterManager::ParameterManager() :
         CreateVector(32, 50),
         CreateVector(16, 25),
         CreateVector(8, 10)
-      }, *this, &hierarchical_allreduce_)),
+      })),
     parameter_chain_(std::vector<ITunableParameter*>{&joint_params_, &hierarchical_allreduce_}),
     active_(false),
     warmup_remaining_(WARMUPS),
@@ -254,15 +254,12 @@ void ParameterManager::LogParameters(double score) {
 
 // TunableParameter
 template <class T>
-ParameterManager::TunableParameter<T>::TunableParameter(
-    T initial_value, ParameterManager &parent, ITunableParameter* const next_param) :
+ParameterManager::TunableParameter<T>::TunableParameter(T initial_value) :
     initial_value_(initial_value),
     value_(initial_value),
     best_value_(initial_value),
     best_score_(0),
-    tunable_(true),
-    parent_(parent),
-    next_param_(next_param) {}
+    tunable_(true) {}
 
 template <class T>
 bool ParameterManager::TunableParameter<T>::Tune(double score) {
@@ -318,11 +315,8 @@ void ParameterManager::TunableParameter<T>::CompleteTuning() {
 
 // CategoricalParameter
 template <class T>
-ParameterManager::CategoricalParameter<T>::CategoricalParameter(
-    std::vector<T> values,
-    ParameterManager& parent,
-    ParameterManager::ITunableParameter* const next_param) :
-    TunableParameter<T>(values[0], parent, next_param),
+ParameterManager::CategoricalParameter<T>::CategoricalParameter(std::vector<T> values) :
+    TunableParameter<T>(values[0]),
     values_(values) {
   ResetState();
 }
@@ -348,10 +342,8 @@ void ParameterManager::CategoricalParameter<T>::ResetState() {
 // BayesianParameter
 ParameterManager::BayesianParameter::BayesianParameter(
     std::vector<BayesianVariableConfig> variables,
-    std::vector<Eigen::VectorXd> test_points,
-    ParameterManager& parent,
-    ParameterManager::ITunableParameter* const next_param) :
-    TunableParameter<Eigen::VectorXd>(test_points[0], parent, next_param),
+    std::vector<Eigen::VectorXd> test_points) :
+    TunableParameter<Eigen::VectorXd>(test_points[0]),
     variables_(variables),
     test_points_(test_points),
     iteration_(0) {
