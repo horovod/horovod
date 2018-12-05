@@ -97,15 +97,15 @@ def _allreduce(tensor, name=None):
 
 
 def _allreduce_async(tensor, name=None):
-    """An op which sums an input tensor over all the Horovod processes.
+    """An op which asynchronously sums an input tensor over all the Horovod processes.
 
     The reduction operation is keyed by the name of the op. The tensor type and
     shape must be the same on all Horovod processes for a given name. The reduction
     will not start until all processes are ready to send and receive the tensor.
 
     Returns:
-      A tensor of the same shape and type as `tensor`, summed across all
-      processes.
+      A handle to the allreduce operation that can be used with `poll()` or
+      `synchronize()`.
     """
     if name is None:
         name = 'HorovodAllreduce_%s' % _normalize_name(tensor.name)
@@ -204,3 +204,38 @@ def _broadcast_grad(op, grad):
     if rank() != root_rank:
         return grad_reduced * 0
     return grad_reduced
+
+
+def poll(handle):
+    """
+    Polls an allreduce, allgather or broadcast handle to determine whether underlying
+    asynchronous operation has completed. After `poll()` returns `True`, `synchronize()`
+    will return without blocking.
+
+    Arguments:
+        handle: A handle returned by an allreduce, allgather or broadcast asynchronous
+                operation.
+
+    Returns:
+        A flag indicating whether the operation has completed.
+    """
+    return MPI_LIB.horovod_poll_handle(handle) != 0
+
+
+def synchronize(handle):
+    """
+    Synchronizes an asynchronous allreduce, allgather or broadcast operation until
+    it's completed. Returns the result of the operation.
+
+    Arguments:
+        handle: A handle returned by an allreduce, allgather or broadcast asynchronous
+                operation.
+
+    Returns:
+        An output tensor of the operation.
+    """
+    if handle not in _handle_map:
+        return
+    MPI_LIB.horovod_wait_and_clear(handle)
+    _, output = _handle_map.pop(handle)
+    return output

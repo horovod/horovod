@@ -532,5 +532,52 @@ Output
                `tensor` on root rank.
 )doc");
 
+class HorovodPollHandleOp : public OpKernel {
+public:
+  explicit HorovodPollHandleOp(OpKernelConstruction* context) : OpKernel(context) {}
+
+  void Compute(OpKernelContext* context) override {
+    const Tensor& input_tensor = context->input(0);
+    auto input = input_tensor.flat<int32>();
+
+    Tensor* output;
+    OP_REQUIRES_OK(context, context->allocate_output(0, TensorShape(), &output));
+    auto result = output->flat<int32>();
+    result(0) = handle_manager.PollHandle(input(0)) ? 1 : 0;
+  }
+};
+
+REGISTER_KERNEL_BUILDER(Name("HorovodPollHandle").Device(DEVICE_CPU), HorovodPollHandleOp);
+
+REGISTER_OP("HorovodPollHandle")
+.Input("handle: int32")
+.Output("completed: int32")
+.SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
+c->set_output(0, c->Scalar());
+return Status::OK();
+});
+
+class HorovodWaitAndClearOp : public OpKernel {
+public:
+  explicit HorovodWaitAndClearOp(OpKernelConstruction* context) : OpKernel(context) {}
+
+  void Compute(OpKernelContext* context) override {
+    const Tensor& input_tensor = context->input(0);
+    auto input = input_tensor.flat<int32>();
+
+    int32 handle = input(0);
+    while (!handle_manager.PollHandle(handle)) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    auto status = handle_manager.ReleaseHandle(handle);
+    OP_REQUIRES_OK(context, ConvertStatus(*status));
+  }
+};
+
+REGISTER_KERNEL_BUILDER(Name("HorovodWaitAndClear").Device(DEVICE_CPU), HorovodWaitAndClearOp);
+
+REGISTER_OP("HorovodWaitAndClear")
+.Input("handle: int32");
+
 } // namespace tensorflow
 } // namespace horovod
