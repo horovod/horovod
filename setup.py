@@ -596,6 +596,8 @@ def build_mx_extension(build_ext, options):
     mxnet_mpi_lib.extra_compile_args = options['COMPILE_FLAGS'] + \
         mx_compile_flags
     mxnet_mpi_lib.extra_link_args = options['LINK_FLAGS'] + mx_link_flags
+    mxnet_mpi_lib.library_dirs = options['LIBRARY_DIRS']
+    mxnet_mpi_lib.libraries = options['LIBRARIES']
 
     build_ext.build_extension(mxnet_mpi_lib)
 
