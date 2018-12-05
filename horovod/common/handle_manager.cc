@@ -16,7 +16,7 @@
 #include "handle_manager.h"
 
 namespace horovod {
-namespace torch {
+namespace common {
 
 int HandleManager::AllocateHandle() {
   int handle = last_handle_.fetch_add(1) + 1;
@@ -50,5 +50,5 @@ std::shared_ptr<Status> HandleManager::ReleaseHandle(int handle) {
   return status;
 }
 
-} // namespace torch
+} // namespace common
 } // namespace horovod

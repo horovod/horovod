@@ -30,6 +30,7 @@
 #endif
 
 #define OMPI_SKIP_MPICXX
+#include "../common/handle_manager.h"
 #include "../common/operations.h"
 
 using namespace tensorflow;
@@ -37,6 +38,8 @@ using namespace horovod;
 
 namespace horovod {
 namespace tensorflow {
+
+static common::HandleManager handle_manager;
 
 namespace {
 
@@ -319,6 +322,73 @@ REGISTER_OP("HorovodAllreduce")
       return Status::OK();
     })
     .Doc(R"doc(
+Perform an MPI Allreduce on a tensor. All other processes that do a reduction
+on a tensor with the same name must have the same dimension for that tensor.
+Tensors are reduced with other tensors that have the same node name for the
+allreduce.
+
+Arguments
+    tensor:     A tensor to reduce.
+
+Output
+    sum:    A tensor with the same shape as `tensor`, summed across all MPI processes.
+)doc");
+
+class HorovodAllreduceAsyncOp : public AsyncOpKernel {
+public:
+  explicit HorovodAllreduceAsyncOp(OpKernelConstruction* context)
+      : AsyncOpKernel(context) {}
+
+  void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(common::CheckInitialized()),
+                         done);
+
+    Tensor* handle_output;
+    OP_REQUIRES_OK_ASYNC(
+        context, context->allocate_output(0, TensorShape(), &handle_output), done);
+    auto handle = handle_output->flat<int32>();
+    handle(0) = handle_manager.AllocateHandle();
+
+
+    auto node_name = name();
+    auto device = GetDeviceID(context);
+    auto tensor = context->input(0);
+    Tensor* output;
+    OP_REQUIRES_OK_ASYNC(
+        context, context->allocate_output(1, tensor.shape(), &output), done);
+    // ReadyEvent makes sure input tensor is ready, and output is allocated.
+    auto ready_event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context));
+    auto hvd_context = std::make_shared<TFOpContext>(context);
+    auto hvd_tensor = std::make_shared<TFTensor>(tensor);
+    auto hvd_output = std::make_shared<TFTensor>(*output);
+    auto enqueue_result = EnqueueTensorAllreduce(
+        hvd_context, hvd_tensor, hvd_output, ready_event, node_name, device,
+        [context, handle](const common::Status& status) {
+          handle_manager.MarkDone(handle(0), status);
+        });
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
+    done();
+  }
+};
+
+REGISTER_KERNEL_BUILDER(Name("HorovodAllreduceAsync").Device(DEVICE_CPU),
+    HorovodAllreduceAsyncOp);
+#if HOROVOD_GPU_ALLREDUCE
+REGISTER_KERNEL_BUILDER(Name("HorovodAllreduceAsync").Device(DEVICE_GPU),
+                        HorovodAllreduceAsyncOp);
+#endif
+
+REGISTER_OP("HorovodAllreduceAsync")
+.Attr("T: {int32, int64, float16, float32, float64}")
+.Input("tensor: T")
+.Output("handle: int32")
+.Output("sum: T")
+.SetShapeFn([](shape_inference::InferenceContext* c) {
+c->set_output(0, c->Scalar());
+c->set_output(1, c->input(0));
+return Status::OK();
+})
+.Doc(R"doc(
 Perform an MPI Allreduce on a tensor. All other processes that do a reduction
 on a tensor with the same name must have the same dimension for that tensor.
 Tensors are reduced with other tensors that have the same node name for the

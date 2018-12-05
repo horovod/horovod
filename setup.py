@@ -427,6 +427,7 @@ def get_common_options(build_ext):
     MACROS = []
     INCLUDES = []
     SOURCES = ['horovod/common/common.cc',
+               'horovod/common/handle_manager.cc',
                'horovod/common/mpi_message.cc',
                'horovod/common/half.cc',
                'horovod/common/operations.cc',
@@ -629,7 +630,6 @@ def build_torch_extension(build_ext, options, torch_version):
             define_macros=updated_macros,
             include_dirs=options['INCLUDES'],
             sources=options['SOURCES'] + ['horovod/torch/mpi_ops.cc',
-                                          'horovod/torch/handle_manager.cc',
                                           'horovod/torch/ready_event.cc',
                                           'horovod/torch/tensor_util.cc',
                                           'horovod/torch/cuda_util.cc',

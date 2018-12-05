@@ -69,6 +69,12 @@ local_rank = _basics.local_rank
 mpi_threads_supported = _basics.mpi_threads_supported
 
 
+# Schema: handle -> input, output
+# We keep input in order to make sure it does not get garbage collected
+# before the operation is finished.
+_handle_map = {}
+
+
 def _normalize_name(name):
     """Normalizes operation name to TensorFlow rules."""
     return re.sub('[^a-zA-Z0-9_]', '_', name)
@@ -88,6 +94,24 @@ def _allreduce(tensor, name=None):
     if name is None:
         name = 'HorovodAllreduce_%s' % _normalize_name(tensor.name)
     return MPI_LIB.horovod_allreduce(tensor, name=name)
+
+
+def _allreduce_async(tensor, name=None):
+    """An op which sums an input tensor over all the Horovod processes.
+
+    The reduction operation is keyed by the name of the op. The tensor type and
+    shape must be the same on all Horovod processes for a given name. The reduction
+    will not start until all processes are ready to send and receive the tensor.
+
+    Returns:
+      A tensor of the same shape and type as `tensor`, summed across all
+      processes.
+    """
+    if name is None:
+        name = 'HorovodAllreduce_%s' % _normalize_name(tensor.name)
+    handle, output = MPI_LIB.horovod_allreduce_async(tensor, name=name)
+    _handle_map[handle] = (tensor, output)
+    return handle
 
 
 @ops.RegisterGradient('HorovodAllreduce')

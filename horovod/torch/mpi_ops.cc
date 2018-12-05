@@ -17,10 +17,10 @@
 #include <memory>
 #include <thread>
 
+#include "../common/handle_manager.h"
 #include "../common/operations.h"
 #include "adapter.h"
 #include "cuda_util.h"
-#include "handle_manager.h"
 #include "mpi_ops.h"
 #include "ready_event.h"
 #include "tensor_util.h"
@@ -28,7 +28,7 @@
 namespace horovod {
 namespace torch {
 
-static HandleManager handle_manager;
+static common::HandleManager handle_manager;
 
 namespace {
 
