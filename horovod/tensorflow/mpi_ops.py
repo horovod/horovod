@@ -96,24 +96,6 @@ def _allreduce(tensor, name=None):
     return MPI_LIB.horovod_allreduce(tensor, name=name)
 
 
-def _allreduce_async(tensor, name=None):
-    """An op which asynchronously sums an input tensor over all the Horovod processes.
-
-    The reduction operation is keyed by the name of the op. The tensor type and
-    shape must be the same on all Horovod processes for a given name. The reduction
-    will not start until all processes are ready to send and receive the tensor.
-
-    Returns:
-      A handle to the allreduce operation that can be used with `poll()` or
-      `synchronize()`.
-    """
-    if name is None:
-        name = 'HorovodAllreduce_%s' % _normalize_name(tensor.name)
-    handle, output = MPI_LIB.horovod_allreduce_async(tensor, name=name)
-    _handle_map[handle] = (tensor, output)
-    return handle
-
-
 @ops.RegisterGradient('HorovodAllreduce')
 def _allreduce_grad(op, grad):
     """Gradient for allreduce op.
@@ -126,6 +108,28 @@ def _allreduce_grad(op, grad):
       The gradient with respect to the input of the op.
     """
     return _allreduce(grad)
+
+
+def allreduce_async(tensor, name=None):
+    """An op which asynchronously sums an input tensor over all the Horovod processes.
+
+    The reduction operation is keyed by the name of the op. The tensor type and
+    shape must be the same on all Horovod processes for a given name. The reduction
+    will not start until all processes are ready to send and receive the tensor.
+
+    Args:
+        tensor: A tensor to sum.
+        name: A name of the reduction operation.
+
+    Returns:
+      A handle to the allreduce operation that can be used with `poll()` or
+      `synchronize()`.
+    """
+    if name is None:
+        name = ''
+    handle, output = MPI_LIB.horovod_allreduce_async(tensor, tag=name)
+    _handle_map[handle] = (tensor, output)
+    return handle
 
 
 def allgather(tensor, name=None):
