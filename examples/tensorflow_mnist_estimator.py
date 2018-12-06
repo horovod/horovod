@@ -142,7 +142,7 @@ def main(unused_argv):
     except OSError as ex:
         # When running tests, if dataset is previously downloaded, it may cause
         # the tests to fail. In this case, we need to remove the dataset cache
-        # folder first and download the dataset again.
+        # folder first and download the dataset again. 
         cache_dir = os.path.join(os.path.expanduser('~'), '.keras')
         datadir_base = os.path.expanduser(cache_dir)
         datadir = os.path.join(datadir_base, "datasets")
