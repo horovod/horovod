@@ -361,8 +361,10 @@ public:
 
 REGISTER_KERNEL_BUILDER(Name("HorovodAllgather").Device(DEVICE_CPU),
                         HorovodAllgatherOp);
+#if HAVE_CUDA
 REGISTER_KERNEL_BUILDER(Name("HorovodAllgather").Device(DEVICE_GPU),
                         HorovodAllgatherOp);
+#endif
 
 REGISTER_OP("HorovodAllgather")
     .Attr(
