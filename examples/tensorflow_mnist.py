@@ -12,12 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-#!/usr/bin/env python
+# !/usr/bin/env python
+
+import shutil
+import os
 
 import tensorflow as tf
+import keras
 import horovod.tensorflow as hvd
+import numpy as np
+
 layers = tf.contrib.layers
-learn = tf.contrib.learn
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -53,7 +58,7 @@ def conv_model(feature, target, mode):
         layers.fully_connected(
             h_pool2_flat, 1024, activation_fn=tf.nn.relu),
         keep_prob=0.5,
-        is_training=mode == tf.contrib.learn.ModeKeys.TRAIN)
+        is_training=mode == tf.estimator.ModeKeys.TRAIN)
 
     # Compute logits (1 per class) and compute loss.
     logits = layers.fully_connected(h_fc1, 10, activation_fn=None)
@@ -62,18 +67,46 @@ def conv_model(feature, target, mode):
     return tf.argmax(logits, 1), loss
 
 
+def train_input_generator(x_train, y_train, batch_size=64):
+    assert len(x_train) == len(y_train)
+    while True:
+        p = np.random.permutation(len(x_train))
+        x_train, y_train = x_train[p], y_train[p]
+        index = 0
+        while index <= len(x_train) - batch_size:
+            yield x_train[index:index + batch_size], \
+                  y_train[index:index + batch_size],
+            index += batch_size
+
+
 def main(_):
     # Horovod: initialize Horovod.
     hvd.init()
 
     # Download and load MNIST dataset.
-    mnist = learn.datasets.mnist.read_data_sets('MNIST-data-%d' % hvd.rank())
+    try:
+        (x_train, y_train), (x_test, y_test) = \
+            keras.datasets.mnist.load_data('MNIST-data-%d' % hvd.rank())
+    except OSError as ex:
+        # When running tests, if dataset is previously downloaded, it may cause
+        # the tests to fail. In this case, we need to remove the dataset cache
+        # folder first and download the dataset again.
+        cache_dir = os.path.join(os.path.expanduser('~'), '.keras')
+        datadir_base = os.path.expanduser(cache_dir)
+        datadir = os.path.join(datadir_base, "datasets")
+        shutil.rmtree(datadir)
+        (x_train, y_train), (
+            x_test, y_test) = keras.datasets.mnist.load_data(
+            'MNIST-data-%d' % hvd.rank())
+
+    x_train = np.reshape(x_train, (-1, 784)) / 255
+    x_test = np.reshape(x_test, (-1, 784)) / 255
 
     # Build model...
     with tf.name_scope('input'):
         image = tf.placeholder(tf.float32, [None, 784], name='image')
         label = tf.placeholder(tf.float32, [None], name='label')
-    predict, loss = conv_model(image, label, tf.contrib.learn.ModeKeys.TRAIN)
+    predict, loss = conv_model(image, label, tf.estimator.ModeKeys.TRAIN)
 
     # Horovod: adjust learning rate based on number of GPUs.
     opt = tf.train.RMSPropOptimizer(0.001 * hvd.size())
@@ -106,7 +139,8 @@ def main(_):
     # Horovod: save checkpoints only on worker 0 to prevent other workers from
     # corrupting them.
     checkpoint_dir = './checkpoints' if hvd.rank() == 0 else None
-
+    training_batch_generator = train_input_generator(x_train,
+                                                     y_train, batch_size=100)
     # The MonitoredTrainingSession takes care of session initialization,
     # restoring from a checkpoint, saving to a checkpoint, and closing when done
     # or an error occurs.
@@ -115,7 +149,7 @@ def main(_):
                                            config=config) as mon_sess:
         while not mon_sess.should_stop():
             # Run a training step synchronously.
-            image_, label_ = mnist.train.next_batch(100)
+            image_, label_ = next(training_batch_generator)
             mon_sess.run(train_op, feed_dict={image: image_, label: label_})
 
 
