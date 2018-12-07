@@ -21,10 +21,16 @@ from __future__ import print_function
 import os
 import shutil
 
-import keras
 import numpy as np
 import tensorflow as tf
 import horovod.tensorflow as hvd
+
+from distutils.version import LooseVersion
+
+if LooseVersion(tf.__version__) >= LooseVersion("1.4.0"):
+    from tensorflow import keras
+else:
+    from tensorflow.contrib import keras
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -142,7 +148,7 @@ def main(unused_argv):
     except OSError as ex:
         # When running tests, if dataset is previously downloaded, it may cause
         # the tests to fail. In this case, we need to remove the dataset cache
-        # folder first and download the dataset again. 
+        # folder first and download the dataset again.
         cache_dir = os.path.join(os.path.expanduser('~'), '.keras')
         datadir_base = os.path.expanduser(cache_dir)
         datadir = os.path.join(datadir_base, "datasets")
@@ -152,8 +158,8 @@ def main(unused_argv):
             'MNIST-data-%d' % hvd.rank())
 
     # reshape the features and normalize them between 0 and 1
-    train_data = np.reshape(train_data, (-1, 784)) / 255
-    eval_data = np.reshape(eval_data, (-1, 784)) / 255
+    train_data = np.reshape(train_data, (-1, 784)) / 255.0
+    eval_data = np.reshape(eval_data, (-1, 784)) / 255.0
 
     # Horovod: pin GPU to be used to process local rank (one GPU per process)
     config = tf.ConfigProto()
