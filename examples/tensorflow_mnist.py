@@ -18,11 +18,17 @@ import shutil
 import os
 
 import tensorflow as tf
-import keras
 import horovod.tensorflow as hvd
 import numpy as np
 
-layers = tf.contrib.layers
+from distutils.version import LooseVersion
+
+if LooseVersion(tf.__version__) >= LooseVersion("1.4.0"):
+    from tensorflow import keras
+else:
+    from tensorflow.contrib import keras
+
+layers = tf.layers
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -39,15 +45,15 @@ def conv_model(feature, target, mode):
 
     # First conv layer will compute 32 features for each 5x5 patch
     with tf.variable_scope('conv_layer1'):
-        h_conv1 = layers.conv2d(
-            feature, 32, kernel_size=[5, 5], activation_fn=tf.nn.relu)
+        h_conv1 = layers.conv2d(feature, 32, kernel_size=[5, 5],
+                                activation=tf.nn.relu, padding="SAME")
         h_pool1 = tf.nn.max_pool(
             h_conv1, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
     # Second conv layer will compute 64 features for each 5x5 patch.
     with tf.variable_scope('conv_layer2'):
-        h_conv2 = layers.conv2d(
-            h_pool1, 64, kernel_size=[5, 5], activation_fn=tf.nn.relu)
+        h_conv2 = layers.conv2d(h_pool1, 64, kernel_size=[5, 5],
+                                activation=tf.nn.relu, padding="SAME")
         h_pool2 = tf.nn.max_pool(
             h_conv2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
         # reshape tensor into a batch of vectors
@@ -55,13 +61,11 @@ def conv_model(feature, target, mode):
 
     # Densely connected layer with 1024 neurons.
     h_fc1 = layers.dropout(
-        layers.fully_connected(
-            h_pool2_flat, 1024, activation_fn=tf.nn.relu),
-        keep_prob=0.5,
-        is_training=mode == tf.estimator.ModeKeys.TRAIN)
+        layers.dense(h_pool2_flat, 1024, activation=tf.nn.relu),
+        rate=0.5, training=mode == tf.estimator.ModeKeys.TRAIN)
 
     # Compute logits (1 per class) and compute loss.
-    logits = layers.fully_connected(h_fc1, 10, activation_fn=None)
+    logits = layers.dense(h_fc1, 10, activation=None)
     loss = tf.losses.softmax_cross_entropy(target, logits)
 
     return tf.argmax(logits, 1), loss
@@ -99,8 +103,8 @@ def main(_):
             x_test, y_test) = keras.datasets.mnist.load_data(
             'MNIST-data-%d' % hvd.rank())
 
-    x_train = np.reshape(x_train, (-1, 784)) / 255
-    x_test = np.reshape(x_test, (-1, 784)) / 255
+    x_train = np.reshape(x_train, (-1, 784)) / 255.0
+    x_test = np.reshape(x_test, (-1, 784)) / 255.0
 
     # Build model...
     with tf.name_scope('input'):
@@ -114,7 +118,7 @@ def main(_):
     # Horovod: add Horovod Distributed Optimizer.
     opt = hvd.DistributedOptimizer(opt)
 
-    global_step = tf.contrib.framework.get_or_create_global_step()
+    global_step = tf.train.get_or_create_global_step()
     train_op = opt.minimize(loss, global_step=global_step)
 
     hooks = [
