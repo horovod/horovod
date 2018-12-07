@@ -18,7 +18,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
+import os
 import numpy as np
 import tensorflow as tf
 import horovod.tensorflow as hvd
@@ -140,23 +140,10 @@ def main(unused_argv):
     hvd.init()
 
     # Load training and eval data
-
-    # When running with MPI and with more than 1 process, all the processes try
-    # to download the data and this can cause a race condition.
-    # Multiple processes might simultaneously check if the dataset folder
-    # exists and then try to create the folder and download the data. However,
-    # one of them only succeeds, and the rest fail with an os IOError.
-    for i in range(5):
-        try:
-            (train_data, train_labels), (eval_data, eval_labels) = \
-                keras.datasets.mnist.load_data('MNIST-data-%d' % hvd.rank())
-        except OSError:
-            continue  # retrying
-        else:
-            break
-    else:
-        exit(1)
-
+    dataset_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                               'MNIST-data-%d' % hvd.rank())
+    (train_data, train_labels), (eval_data, eval_labels) = \
+        keras.datasets.mnist.load_data(dataset_dir)
 
     # reshape the features and normalize them between 0 and 1
     train_data = np.reshape(train_data, (-1, 784)) / 255.0
