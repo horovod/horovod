@@ -99,9 +99,8 @@ def main(_):
         datadir_base = os.path.expanduser(cache_dir)
         datadir = os.path.join(datadir_base, "datasets")
         shutil.rmtree(datadir)
-        (x_train, y_train), (
-            x_test, y_test) = keras.datasets.mnist.load_data(
-            'MNIST-data-%d' % hvd.rank())
+        (x_train, y_train), (x_test, y_test) = \
+            keras.datasets.mnist.load_data('MNIST-data-%d' % hvd.rank())
 
     x_train = np.reshape(x_train, (-1, 784)) / 255.0
     x_test = np.reshape(x_test, (-1, 784)) / 255.0

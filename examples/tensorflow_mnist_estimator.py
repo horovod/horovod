@@ -153,9 +153,8 @@ def main(unused_argv):
         datadir_base = os.path.expanduser(cache_dir)
         datadir = os.path.join(datadir_base, "datasets")
         shutil.rmtree(datadir)
-        (train_data, train_labels), (
-            eval_data, eval_labels) = keras.datasets.mnist.load_data(
-            'MNIST-data-%d' % hvd.rank())
+        (train_data, train_labels), (eval_data, eval_labels) = \
+            keras.datasets.mnist.load_data('MNIST-data-%d' % hvd.rank())
 
     # reshape the features and normalize them between 0 and 1
     train_data = np.reshape(train_data, (-1, 784)) / 255.0
