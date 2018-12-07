@@ -158,7 +158,7 @@ def main(unused_argv):
             'MNIST-data-%d' % hvd.rank())
 
     # reshape the features and normalize them between 0 and 1
-    train_data = np.reshape(train_data, (-1, 784)) / 255.0 
+    train_data = np.reshape(train_data, (-1, 784)) / 255.0
     eval_data = np.reshape(eval_data, (-1, 784)) / 255.0
 
     # Horovod: pin GPU to be used to process local rank (one GPU per process)
