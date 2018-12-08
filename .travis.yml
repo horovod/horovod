@@ -11,7 +11,7 @@ before_install:
   # force latest Debian for Python 3.6 and nightly TensorFlow which requires new glibc
   - |
     if [[ ${TRAVIS_PYTHON_VERSION} == "3.6" || ${TF_PACKAGE} == "tf-nightly" ]]; then
-      export DEBIAN=sid
+      export DEBIAN=buster
     elif [[ ${TRAVIS_PYTHON_VERSION} == "3.5" ]]; then
       export DEBIAN=stretch
     else
@@ -29,7 +29,7 @@ before_install:
   # install Python and add a proper symlink
   - |
     if [[ ${TRAVIS_PYTHON_VERSION} == "3.6" ]]; then
-      # Python 3.6 requires special handling in Debian `sid` since the default is Python 3.7.
+      # Python 3.6 requires special handling in Debian `buster` since the default is Python 3.7.
       docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev python3-distutils"
     else
       docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev"
@@ -41,10 +41,10 @@ before_install:
 env:
   matrix:
     - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_PACKAGE=torch==0.4.0 MPI=OpenMPI
-    - TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.0 MPI=OpenMPI
-    - TF_PACKAGE=tensorflow==1.9.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==0.4.1 MPI=OpenMPI
+    - TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MPI=OpenMPI
+    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MPI=OpenMPI
     - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MPI=OpenMPI
-    - TF_PACKAGE=tensorflow==1.9.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==0.4.1 MPI=MPICH
+    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MPI=MPICH
 
 matrix:
   fast_finish: true
@@ -52,11 +52,11 @@ matrix:
     - python: "3.5"
       env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.0 MPI=OpenMPI
     - python: "3.6"
-      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.0 MPI=OpenMPI
+      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MPI=OpenMPI
     - python: "3.5"
-      env: TF_PACKAGE=tensorflow==1.9.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==0.4.1 MPI=MPICH
+      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MPI=MPICH
     - python: "3.6"
-      env: TF_PACKAGE=tensorflow==1.9.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==0.4.1 MPI=MPICH
+      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MPI=MPICH
     - python: "3.5"
       env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MPI=OpenMPI
 
