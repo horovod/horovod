@@ -145,7 +145,9 @@ def main(unused_argv):
     (train_data, train_labels), (eval_data, eval_labels) = \
         keras.datasets.mnist.load_data(dataset_dir)
 
-    # reshape the features and normalize them between 0 and 1
+    # The shape of downloaded data is (-1, 28, 28), hence we need to reshape it
+    # into (-1, 784) to feed into our network. Also, need to normalize the
+    # features between 0 and 1.
     train_data = np.reshape(train_data, (-1, 784)) / 255.0
     eval_data = np.reshape(eval_data, (-1, 784)) / 255.0
 

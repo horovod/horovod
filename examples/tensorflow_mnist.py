@@ -92,6 +92,9 @@ def main(_):
     (x_train, y_train), (x_test, y_test) = \
         keras.datasets.mnist.load_data(dataset_dir)
 
+    # The shape of downloaded data is (-1, 28, 28), hence we need to reshape it
+    # into (-1, 784) to feed into our network. Also, need to normalize the
+    # features between 0 and 1.
     x_train = np.reshape(x_train, (-1, 784)) / 255.0
     x_test = np.reshape(x_test, (-1, 784)) / 255.0
 
