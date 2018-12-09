@@ -52,6 +52,7 @@ def main(_):
     checkpoint = tf.train.Checkpoint(
         model=mnist_model, optimizer=opt, step_counter=step_counter)
 
+    hvd.bcast(0, mnist_model.variables)
     # Horovod: adjust number of steps based on number of GPUs.
     for (batch, (images, labels)) in enumerate(
             dataset.take(20000 // hvd.size())):
@@ -61,8 +62,6 @@ def main(_):
             # from rank 0 to all other processes. This is necessary to ensure consistent
             # initialization of all workers when training is started with random weights
             # or restored from a checkpoint.
-            hvd.bcast(0, mnist_model.variables) if batch == 0 else None
-
             loss_value = tf.losses.sparse_softmax_cross_entropy(labels, logits)
         tape = hvd.DistributedGradientTape(tape)
         grads = tape.gradient(loss_value, mnist_model.variables)
