@@ -146,10 +146,3 @@ def execute(command, env=None, stdout=None, stderr=None):
     stderr_fwd.join()
     exit_code = status >> 8
     return exit_code
-
-
-if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print('Usage: %s <command>' % sys.argv[0])
-        sys.exit(1)
-    sys.exit(execute(sys.argv[1]))

@@ -19,9 +19,9 @@ from six.moves import queue
 import sys
 import threading
 
-from horovod.spark.task import mpirun_exec_fn, task_service
+from horovod.spark.task import task_service
 from horovod.spark.util import host_hash, codec, network, safe_shell_exec, secret, timeout
-from horovod.spark.driver import driver_service, job_id, mpirun_rsh
+from horovod.spark.driver import driver_service, job_id
 
 
 def _task_fn(index, driver_addresses, num_proc, tmout, key):
@@ -164,16 +164,14 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, std
             '-mca pml ob1 -mca btl ^openib -mca btl_tcp_if_include {common_intfs} '
             '-x NCCL_DEBUG=INFO -x NCCL_SOCKET_IFNAME={common_intfs} '
             '{env} '  # expect a lot of environment variables
-            '-mca plm_rsh_agent "{python} -m {mpirun_rsh} {encoded_driver_addresses}" '
-            '{python} -m {mpirun_exec_fn} {encoded_driver_addresses} '
+            '-mca plm_rsh_agent "{python} -m horovod.spark.driver.mpirun_rsh {encoded_driver_addresses}" '
+            '{python} -m horovod.spark.task.mpirun_exec_fn {encoded_driver_addresses} '
             .format(num_proc=num_proc,
                     hosts=','.join('%s:%d' % (host_hash, len(driver.task_host_hash_indices()[host_hash]))
                                    for host_hash in host_hashes),
                     common_intfs=','.join(common_intfs),
                     env=' '.join('-x %s' % key for key in env.keys()),
                     python=sys.executable,
-                    mpirun_rsh=mpirun_rsh.__name__,
-                    mpirun_exec_fn=mpirun_exec_fn.__name__,
                     encoded_driver_addresses=codec.dumps_base64(driver.addresses())))
         if verbose >= 2:
             print('+ %s' % mpirun_command)
