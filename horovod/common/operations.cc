@@ -2060,7 +2060,6 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   e.device = device;
   e.callback = callback;
 
-  std::cerr << "TENSOR NAME: " << name << std::endl;
   std::lock_guard<std::mutex> guard(horovod_global.mutex);
   if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;

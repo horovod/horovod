@@ -132,6 +132,23 @@ def allreduce_async(tensor, name=None):
     return handle
 
 
+def allreduce_list(tensors):
+    """An op which sums a list of input tensors over all the Horovod processes.
+
+    This function is intended to be used in eager execution mode, when all ops
+    are normally executed synchronously. By batching all tensors together into
+    a single call, we can perform tensor fusion, resulting in fewer network calls
+    and quicker results.
+
+    Args:
+        tensors: A list of tensors to sum independently across workers.
+
+    Returns:
+      A list of summed tensors.
+    """
+    return MPI_LIB.horovod_allreduce_list(tensors)
+
+
 def allgather(tensor, name=None):
     """An op which concatenates the input tensor with the same input tensor on
     all other Horovod processes.

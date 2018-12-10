@@ -15,6 +15,7 @@
 // =============================================================================
 
 #include <memory>
+#include <mutex>
 #include <queue>
 #include <thread>
 #include <unordered_map>
@@ -40,6 +41,7 @@ namespace horovod {
 namespace tensorflow {
 
 static common::HandleManager handle_manager;
+static std::mutex mutex;
 
 namespace {
 
@@ -135,14 +137,16 @@ private:
 
 class TFListOpContext : public TFOpContext {
 public:
-  TFListOpContext(OpKernelContext* context, OpOutputList* outputs, int index);
+  TFListOpContext(OpKernelContext* context, int index);
+  virtual Status InitializationStatus();
   virtual common::Status
   AllocateOutput(common::TensorShape shape,
                  std::shared_ptr<common::Tensor>* tensor) override;
 
 private:
-  OpOutputList* outputs_ = nullptr;
+  OpOutputList outputs_;
   int index_;
+  Status init_status_;
 };
 
 #if HAVE_CUDA
@@ -273,8 +277,12 @@ common::Framework TFOpContext::framework() const {
 
 OpKernelContext* TFOpContext::GetKernelContext() const { return context_; }
 
-TFListOpContext::TFListOpContext(OpKernelContext* context, OpOutputList* outputs, int index)
-: TFOpContext(context), outputs_(outputs), index_(index) {}
+TFListOpContext::TFListOpContext(OpKernelContext* context, int index)
+: TFOpContext(context), index_(index), init_status_(context->output_list("outputs", &outputs_)) {}
+
+Status TFListOpContext::InitializationStatus() {
+  return init_status_;
+}
 
 common::Status
 TFListOpContext::AllocateOutput(common::TensorShape shape,
@@ -284,7 +292,7 @@ TFListOpContext::AllocateOutput(common::TensorShape shape,
     tf_shape.AddDim(shape.dim_size(idx));
   }
   Tensor* tf_tensor;
-  Status status = outputs_->allocate(index_, tf_shape, &tf_tensor);
+  Status status = outputs_.allocate(index_, tf_shape, &tf_tensor);
   if (status.ok()) {
     *tensor = std::make_shared<TFTensor>(*tf_tensor);
   }
@@ -642,9 +650,12 @@ public:
 
     auto node_name = name();
     auto device = GetDeviceID(context);
+
+    // ReadyEvent makes sure input tensor is ready, and output is allocated.
     auto ready_event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context));
 
     const int N = values.size();
+    auto remaining = std::make_shared<std::atomic<int>>(N);
     for (int i = 0; i < N; i++) {
       auto tensor = values[i];
 
@@ -652,15 +663,22 @@ public:
       OP_REQUIRES_OK_ASYNC(
           context, outputs.allocate(i, tensor.shape(), &output), done);
 
-      // ReadyEvent makes sure input tensor is ready, and output is allocated.
-      auto hvd_context = std::make_shared<TFOpContext>(TFListOpContext(context, &outputs, i));
+      auto hvd_context = std::make_shared<TFListOpContext>(TFListOpContext(context, i));
+      OP_REQUIRES_OK_ASYNC(context, hvd_context->InitializationStatus(), done);
+
       auto hvd_tensor = std::make_shared<TFTensor>(tensor);
       auto hvd_output = std::make_shared<TFTensor>(*output);
       auto enqueue_result = EnqueueTensorAllreduce(
-          hvd_context, hvd_tensor, hvd_output, ready_event, node_name, device,
-          [context, done](const common::Status& status) {
+          hvd_context, hvd_tensor, hvd_output, ready_event,
+          node_name + "." + std::to_string(i), device,
+          [remaining, context, done](const common::Status& status) {
             context->SetStatus(ConvertStatus(status));
-            done();
+
+            std::lock_guard<std::mutex> guard(mutex);
+            (*remaining)--;
+            if ((*remaining) == 0) {
+              done();
+            }
           });
       OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
     }
@@ -675,10 +693,9 @@ REGISTER_KERNEL_BUILDER(Name("HorovodAllreduceList").Device(DEVICE_GPU),
 #endif
 
 REGISTER_OP("HorovodAllreduceList")
-.Attr("T: {int32, int64, float16, float32, float64}")
-.Attr("N: int >= 1")
-.Input("values: N * T")
-.Output("outputs: N * T")
+.Input("values: T")
+.Output("outputs: T")
+.Attr("T: list({int32, int64, float16, float32, float64})")
 .SetShapeFn([](shape_inference::InferenceContext* c) {
 for (int i = 0; i < c->num_inputs(); i++) {
   c->set_output(i, c->input(i));
