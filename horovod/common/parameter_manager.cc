@@ -98,14 +98,6 @@ void ParameterManager::SetAutoTuning(bool active) {
     warmup_remaining_ = WARMUPS;
   }
   active_ = active;
-  if (!active_ && rank_ == root_rank_) {
-    std::cerr << "HOROVOD_AUTOTUNER: BEST [ "
-              << hierarchical_allreduce_.BestValue() << ", "
-              << joint_params_.BestValue(cycle_time_ms) << " ms , "
-              << joint_params_.BestValue(fusion_buffer_threshold_mb) << " mb ] "
-              << hierarchical_allreduce_.BestScore()
-              << std::endl;
-  }
 };
 
 bool ParameterManager::HierarchicalAllreduce() const {
@@ -185,6 +177,7 @@ void ParameterManager::Tune(double score) {
 
       if (finished_tuning) {
         SetAutoTuning(false);
+        LogBestParameters();
       }
     }
 
@@ -237,9 +230,10 @@ void ParameterManager::Reset() {
 
 void ParameterManager::LogParameters(double score) {
   if (rank_ == root_rank_) {
-    std::cerr << "HOROVOD_AUTOTUNER: [" << hierarchical_allreduce_.Value() << ", "
-              << joint_params_.Value(cycle_time_ms) << " ms , " << joint_params_.Value(fusion_buffer_threshold_mb)
-              << " mb ] "
+    std::cerr << "HOROVOD_AUTOTUNER: ["
+              << hierarchical_allreduce_.Value() << ", "
+              << joint_params_.Value(cycle_time_ms) << " ms , "
+              << joint_params_.Value(fusion_buffer_threshold_mb) << " mb ] "
               << score
               << std::endl;
     if (writing_ && file_.good()) {
@@ -247,6 +241,24 @@ void ParameterManager::LogParameters(double score) {
             << joint_params_.Value(cycle_time_ms) << ","
             << joint_params_.Value(fusion_buffer_threshold_mb) << ","
             << score
+            << std::endl;
+    }
+  }
+}
+
+void ParameterManager::LogBestParameters() {
+  if (rank_ == root_rank_) {
+    std::cerr << "HOROVOD_AUTOTUNER: BEST [ "
+              << hierarchical_allreduce_.BestValue() << ", "
+              << joint_params_.BestValue(cycle_time_ms) << " ms , "
+              << joint_params_.BestValue(fusion_buffer_threshold_mb) << " mb ] "
+              << hierarchical_allreduce_.BestScore()
+              << std::endl;
+    if (writing_ && file_.good()) {
+      file_ << hierarchical_allreduce_.BestValue() << ","
+            << joint_params_.BestValue(cycle_time_ms) << ","
+            << joint_params_.BestValue(fusion_buffer_threshold_mb) << ","
+            << hierarchical_allreduce_.BestScore()
             << std::endl;
     }
   }

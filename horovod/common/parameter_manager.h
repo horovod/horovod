@@ -95,6 +95,8 @@ private:
 
   // Outputs parameter values and writes results to a log file (if provided).
   void LogParameters(double score);
+  void LogBestParameters();
+
 
   // Interface used to represent a parameter (or group of parameters) being tuned.
   class ITunableParameter {
