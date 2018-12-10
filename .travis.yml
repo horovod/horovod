@@ -111,6 +111,12 @@ script:
   # run unit tests
   - docker exec ${CONTAINER} /bin/sh -c "pip install pytest && cd /horovod/test && ${MPIRUN} pytest -v"
 
+  # hack for compatibility of MNIST example with tf 1.1.0
+  - |
+    if [[ ${TF_PACKAGE} == "tensorflow==1.1.0" ]]; then
+      docker exec ${CONTAINER} /bin/sh -c "sed -i \"s/from tensorflow import keras/from tensorflow.contrib import keras/\" /horovod/examples/tensorflow_mnist.py"
+    fi
+
   # hack TensorFlow MNIST example to be smaller
   - docker exec ${CONTAINER} /bin/sh -c "sed -i \"s/last_step=20000/last_step=100/\" /horovod/examples/tensorflow_mnist.py"
 
