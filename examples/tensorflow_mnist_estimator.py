@@ -19,16 +19,12 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+import errno
 import numpy as np
 import tensorflow as tf
 import horovod.tensorflow as hvd
 
-from distutils.version import LooseVersion
-
-if LooseVersion(tf.__version__) >= LooseVersion("1.4.0"):
-    from tensorflow import keras
-else:
-    from tensorflow.contrib import keras
+from tensorflow import keras
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -139,11 +135,24 @@ def main(unused_argv):
     # Horovod: initialize Horovod.
     hvd.init()
 
-    # Load training and eval data
-    dataset_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                               'MNIST-data-%d' % hvd.rank())
+    # Keras automatically creates a cache directory in ~/.keras/datasets for
+    # storing the downloaded MNIST data. This creates a race
+    # condition among the workers that share the same filesystem. If the
+    # directory already exists by the time this worker gets around to creating
+    # it, ignore the resulting exception and continue.
+    cache_dir = os.path.join(os.path.expanduser('~'), '.keras', 'datasets')
+    if not os.path.exists(cache_dir):
+        try:
+            os.mkdir(cache_dir)
+        except OSError as e:
+            if e.errno == errno.EEXIST and os.path.isdir(cache_dir):
+                pass
+            else:
+                raise
+
+    # Download and load MNIST dataset.
     (train_data, train_labels), (eval_data, eval_labels) = \
-        keras.datasets.mnist.load_data(dataset_dir)
+        keras.datasets.mnist.load_data('MNIST-data-%d' % hvd.rank())
 
     # The shape of downloaded data is (-1, 28, 28), hence we need to reshape it
     # into (-1, 784) to feed into our network. Also, need to normalize the
