@@ -99,7 +99,7 @@ void ParameterManager::SetAutoTuning(bool active) {
   }
   active_ = active;
   if (!active_ && rank_ == root_rank_) {
-    std::cerr << "Horovod Tune: BEST [ "
+    std::cerr << "HOROVOD_AUTOTUNER: BEST [ "
               << hierarchical_allreduce_.BestValue() << ", "
               << joint_params_.BestValue(cycle_time_ms) << " ms , "
               << joint_params_.BestValue(fusion_buffer_threshold_mb) << " mb ] "
