@@ -38,6 +38,25 @@ class KerasTests(tf.test.TestCase):
     def __init__(self, *args, **kwargs):
         super(KerasTests, self).__init__(*args, **kwargs)
 
+    def test_sparse_as_dense(self):
+        hvd.init()
+
+        with self.test_session() as sess:
+            K.set_session(sess)
+
+            opt = keras.optimizers.RMSprop(lr=0.0001)
+            opt = hvd.DistributedOptimizer(opt, sparse_as_dense=True)
+
+            model = keras.models.Sequential()
+            model.add(keras.layers.Embedding(1000, 64, input_length=10))
+            model.compile(loss=keras.losses.MSE,
+                          optimizer=opt)
+
+            x = np.random.randint(1000, size=(32, 10))
+            y = np.random.random((32, 10, 64))
+            # No assertions, we just need to verify that it doesn't hang
+            model.train_on_batch(x, y)
+
     def test_load_model(self):
         hvd.init()
 
@@ -67,7 +86,7 @@ class KerasTests(tf.test.TestCase):
             new_opt = new_model.optimizer
             os.remove(fname)
 
-            self.assertEqual(type(new_opt).__module__, 'horovod.keras.impl')
+            self.assertEqual(type(new_opt).__module__, 'horovod._keras')
             self.assertEqual(type(new_opt).__name__, 'RMSprop')
             self.assertEqual(K.get_value(opt.lr), K.get_value(new_opt.lr))
             self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))
@@ -109,7 +128,7 @@ class KerasTests(tf.test.TestCase):
             new_opt = new_model.optimizer
             os.remove(fname)
 
-            self.assertEqual(type(new_opt).__module__, 'horovod.keras.impl')
+            self.assertEqual(type(new_opt).__module__, 'horovod._keras')
             self.assertEqual(type(new_opt).__name__, 'TestOptimizer')
             self.assertEqual(K.get_value(opt.lr), K.get_value(new_opt.lr))
             self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))
@@ -154,7 +173,7 @@ class KerasTests(tf.test.TestCase):
             new_opt = new_model.optimizer
             os.remove(fname)
 
-            self.assertEqual(type(new_opt).__module__, 'horovod.keras.impl')
+            self.assertEqual(type(new_opt).__module__, 'horovod._keras')
             self.assertEqual(type(new_opt).__name__, 'TestOptimizer')
             self.assertEqual(K.get_value(opt.lr), K.get_value(new_opt.lr))
             self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))

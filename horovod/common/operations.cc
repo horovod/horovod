@@ -1411,22 +1411,6 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
   }
 }
 
-// float16 custom data type summation operation.
-void float16_sum(void* invec, void* inoutvec, int* len,
-                 MPI_Datatype* datatype) {
-  // cast invec and inoutvec to your float16 type
-  auto* in = (unsigned short*)invec;
-  auto* inout = (unsigned short*)inoutvec;
-  for (int i = 0; i < *len; ++i) {
-    float in_float;
-    float inout_float;
-    HalfBits2Float(in + i, &in_float);
-    HalfBits2Float(inout + i, &inout_float);
-    inout_float += in_float;
-    Float2HalfBits(&inout_float, inout + i);
-  }
-}
-
 // The MPI background thread loop coordinates all the MPI processes and the
 // tensor reductions. The design of the communicator mechanism is limited by a
 // few considerations:
@@ -1676,6 +1660,40 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   for (auto& cb : callbacks) {
     cb(SHUT_DOWN_ERROR);
   }
+
+  if (horovod_global.mpi_comm != MPI_COMM_NULL &&
+      horovod_global.mpi_comm != MPI_COMM_WORLD) {
+    MPI_Comm_free(&horovod_global.mpi_comm);
+  }
+
+  if (horovod_global.local_comm != MPI_COMM_NULL) {
+    MPI_Comm_free(&horovod_global.local_comm);
+  }
+
+  if (horovod_global.cross_comm != MPI_COMM_NULL) {
+    MPI_Comm_free(&horovod_global.cross_comm);
+  }
+
+  if (horovod_global.mpi_float16_t != MPI_DATATYPE_NULL) {
+    MPI_Type_free(&horovod_global.mpi_float16_t);
+  }
+
+  if (horovod_global.mpi_float16_sum != MPI_OP_NULL) {
+    MPI_Op_free(&horovod_global.mpi_float16_sum);
+  }
+
+  if (horovod_global.should_finalize) {
+#if HAVE_DDL
+    // ddl_finalize calls MPI_Finalize
+    ddl_finalize();
+#else
+    int is_mpi_finalized = 0;
+    MPI_Finalized(&is_mpi_finalized);
+    if (!is_mpi_finalized) {
+      MPI_Finalize();
+    }
+#endif
+  }
 }
 
 // The coordinator currently follows a master-worker paradigm. Rank zero acts
@@ -1820,41 +1838,45 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     MPIResponseList response_list;
     response_list.set_shutdown(should_shut_down);
 
-    while (!responses.empty()) {
-      auto response = responses.front();
-      assert(response.tensor_names().size() == 1);
-      responses.pop_front();
+    {
+      // Protect access to tensor table.
+      std::lock_guard<std::mutex> guard(horovod_global.mutex);
+      while (!responses.empty()) {
+        auto response = responses.front();
+        assert(response.tensor_names().size() == 1);
+        responses.pop_front();
 
-      if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
-        // Attempt to add more responses to this fused response.
-        auto& entry = state.tensor_table[response.tensor_names()[0]];
-        int64_t tensor_size = entry.tensor->size();
+        if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
+          // Attempt to add more responses to this fused response.
+          auto& entry = state.tensor_table[response.tensor_names()[0]];
+          int64_t tensor_size = entry.tensor->size();
 
-        while (!responses.empty()) {
-          auto new_response = responses.front();
-          assert(new_response.tensor_names().size() == 1);
-          auto& new_entry = state.tensor_table[new_response.tensor_names()[0]];
-          int64_t new_tensor_size = new_entry.tensor->size();
+          while (!responses.empty()) {
+            auto new_response = responses.front();
+            assert(new_response.tensor_names().size() == 1);
+            auto& new_entry = state.tensor_table[new_response.tensor_names()[0]];
+            int64_t new_tensor_size = new_entry.tensor->size();
 
-          if (response.response_type() == new_response.response_type() &&
-              response.devices() == new_response.devices() &&
-              entry.tensor->dtype() == new_entry.tensor->dtype() &&
-              tensor_size + new_tensor_size <= state.tensor_fusion_threshold) {
-            // These tensors will fuse together well.
-            tensor_size += new_tensor_size;
-            response.add_tensor_names(new_response.tensor_names()[0]);
-            responses.pop_front();
-          } else {
-            // Don't try to fuse additional tensors since they are usually
-            // computed in order of requests and skipping tensors may mean
-            // that the batch will have to wait longer while skipped tensors
-            // could be reduced at that time.
-            break;
+            if (response.response_type() == new_response.response_type() &&
+                response.devices() == new_response.devices() &&
+                entry.tensor->dtype() == new_entry.tensor->dtype() &&
+                tensor_size + new_tensor_size <= state.tensor_fusion_threshold) {
+              // These tensors will fuse together well.
+              tensor_size += new_tensor_size;
+              response.add_tensor_names(new_response.tensor_names()[0]);
+              responses.pop_front();
+            } else {
+              // Don't try to fuse additional tensors since they are usually
+              // computed in order of requests and skipping tensors may mean
+              // that the batch will have to wait longer while skipped tensors
+              // could be reduced at that time.
+              break;
+            }
           }
         }
-      }
 
-      response_list.add_responses(response);
+        response_list.add_responses(response);
+      }
     }
 
     // Notify all nodes which tensors we'd like to reduce at this step.
@@ -1915,7 +1937,6 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   }
 
   return !should_shut_down;
-  MPI_Op_free(&state.mpi_float16_sum);
 }
 
 // Start Horovod background thread. Ensure that this is
@@ -1967,36 +1988,6 @@ void horovod_shutdown() {
     // Reset the initialization flag to allow restarting with horovod_init(...)
     horovod_global.initialize_flag.clear();
     horovod_global.shut_down = false;
-  }
-
-  if (horovod_global.mpi_comm != MPI_COMM_NULL &&
-      horovod_global.mpi_comm != MPI_COMM_WORLD) {
-    MPI_Comm_free(&horovod_global.mpi_comm);
-  }
-
-  if (horovod_global.local_comm != MPI_COMM_NULL) {
-    MPI_Comm_free(&horovod_global.local_comm);
-  }
-
-  if (horovod_global.cross_comm != MPI_COMM_NULL) {
-    MPI_Comm_free(&horovod_global.cross_comm);
-  }
-
-  if (horovod_global.mpi_float16_t != MPI_DATATYPE_NULL) {
-    MPI_Type_free(&horovod_global.mpi_float16_t);
-  }
-
-  if (horovod_global.should_finalize) {
-#if HAVE_DDL
-    // ddl_finalize calls MPI_Finalize
-    ddl_finalize();
-#else
-    int is_mpi_finalized = 0;
-    MPI_Finalized(&is_mpi_finalized);
-    if (!is_mpi_finalized) {
-      MPI_Finalize();
-    }
-#endif
   }
 }
 
