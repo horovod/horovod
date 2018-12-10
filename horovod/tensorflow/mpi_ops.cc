@@ -133,6 +133,18 @@ private:
   OpKernelContext* context_ = nullptr;
 };
 
+class TFListOpContext : public TFOpContext {
+public:
+  TFListOpContext(OpKernelContext* context, OpOutputList* outputs, int index);
+  virtual common::Status
+  AllocateOutput(common::TensorShape shape,
+                 std::shared_ptr<common::Tensor>* tensor) override;
+
+private:
+  OpOutputList* outputs_ = nullptr;
+  int index_;
+};
+
 #if HAVE_CUDA
 TFReadyEvent::TFReadyEvent(DeviceContext* device_context) {
   auto executor = device_context->stream()->parent();
@@ -261,6 +273,32 @@ common::Framework TFOpContext::framework() const {
 
 OpKernelContext* TFOpContext::GetKernelContext() const { return context_; }
 
+TFListOpContext::TFListOpContext(OpKernelContext* context, OpOutputList* outputs, int index)
+: TFOpContext(context), outputs_(outputs), index_(index) {}
+
+common::Status
+TFListOpContext::AllocateOutput(common::TensorShape shape,
+                                std::shared_ptr<common::Tensor>* tensor) {
+  TensorShape tf_shape;
+  for (int idx = 0; idx < shape.dims(); idx++) {
+    tf_shape.AddDim(shape.dim_size(idx));
+  }
+  Tensor* tf_tensor;
+  Status status = outputs_->allocate(index_, tf_shape, &tf_tensor);
+  if (status.ok()) {
+    *tensor = std::make_shared<TFTensor>(*tf_tensor);
+  }
+#if HAVE_CUDA
+  // On GPU allocation is asynchronous, we need to wait for it to
+  // complete.
+  auto device_context = context_->op_device_context();
+  if (device_context != nullptr) {
+    device_context->stream()->BlockHostUntilDone();
+  }
+#endif
+  return ConvertStatus(status);
+}
+
 int GetDeviceID(OpKernelContext* context) {
   int device = CPU_DEVICE_ID;
   if (context->device() != nullptr &&
@@ -315,21 +353,21 @@ public:
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_CPU),
-                        HorovodAllreduceOp);
+    HorovodAllreduceOp);
 #if HOROVOD_GPU_ALLREDUCE
 REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_GPU),
                         HorovodAllreduceOp);
 #endif
 
 REGISTER_OP("HorovodAllreduce")
-    .Attr("T: {int32, int64, float16, float32, float64}")
-    .Input("tensor: T")
-    .Output("sum: T")
-    .SetShapeFn([](shape_inference::InferenceContext* c) {
-      c->set_output(0, c->input(0));
-      return Status::OK();
-    })
-    .Doc(R"doc(
+.Attr("T: {int32, int64, float16, float32, float64}")
+.Input("tensor: T")
+.Output("sum: T")
+.SetShapeFn([](shape_inference::InferenceContext* c) {
+c->set_output(0, c->input(0));
+return Status::OK();
+})
+.Doc(R"doc(
 Perform an MPI Allreduce on a tensor. All other processes that do a reduction
 on a tensor with the same name must have the same dimension for that tensor.
 Tensors are reduced with other tensors that have the same node name for the
@@ -586,6 +624,79 @@ REGISTER_KERNEL_BUILDER(Name("HorovodWaitAndClear").Device(DEVICE_CPU), HorovodW
 
 REGISTER_OP("HorovodWaitAndClear")
 .Input("handle: int32");
+
+class HorovodAllreduceListOp : public AsyncOpKernel {
+public:
+  explicit HorovodAllreduceListOp(OpKernelConstruction* context)
+  : AsyncOpKernel(context) {}
+
+  void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(common::CheckInitialized()),
+                         done);
+
+    OpInputList values;
+    OP_REQUIRES_OK_ASYNC(context, context->input_list("values", &values), done);
+
+    OpOutputList outputs;
+    OP_REQUIRES_OK_ASYNC(context, context->output_list("outputs", &outputs), done);
+
+    auto node_name = name();
+    auto device = GetDeviceID(context);
+    auto ready_event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context));
+
+    const int N = values.size();
+    for (int i = 0; i < N; i++) {
+      auto tensor = values[i];
+
+      Tensor* output;
+      OP_REQUIRES_OK_ASYNC(
+          context, outputs.allocate(i, tensor.shape(), &output), done);
+
+      // ReadyEvent makes sure input tensor is ready, and output is allocated.
+      auto hvd_context = std::make_shared<TFOpContext>(TFListOpContext(context, &outputs, i));
+      auto hvd_tensor = std::make_shared<TFTensor>(tensor);
+      auto hvd_output = std::make_shared<TFTensor>(*output);
+      auto enqueue_result = EnqueueTensorAllreduce(
+          hvd_context, hvd_tensor, hvd_output, ready_event, node_name, device,
+          [context, done](const common::Status& status) {
+            context->SetStatus(ConvertStatus(status));
+            done();
+          });
+      OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
+    }
+  }
+};
+
+REGISTER_KERNEL_BUILDER(Name("HorovodAllreduceList").Device(DEVICE_CPU),
+    HorovodAllreduceListOp);
+#if HOROVOD_GPU_ALLREDUCE
+REGISTER_KERNEL_BUILDER(Name("HorovodAllreduceList").Device(DEVICE_GPU),
+                        HorovodAllreduceListOp);
+#endif
+
+REGISTER_OP("HorovodAllreduceList")
+.Attr("T: {int32, int64, float16, float32, float64}")
+.Attr("N: int >= 1")
+.Input("values: N * T")
+.Output("outputs: N * T")
+.SetShapeFn([](shape_inference::InferenceContext* c) {
+for (int i = 0; i < c->num_inputs(); i++) {
+  c->set_output(i, c->input(i));
+}
+return Status::OK();
+})
+.Doc(R"doc(
+Perform an MPI Allreduce on a tensor. All other processes that do a reduction
+on a tensor with the same name must have the same dimension for that tensor.
+Tensors are reduced with other tensors that have the same node name for the
+allreduce.
+
+Arguments
+    tensor:     A tensor to reduce.
+
+Output
+    sum:    A tensor with the same shape as `tensor`, summed across all MPI processes.
+)doc");
 
 } // namespace tensorflow
 } // namespace horovod
