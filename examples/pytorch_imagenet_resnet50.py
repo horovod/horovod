@@ -223,7 +223,7 @@ def validate(epoch):
 def adjust_learning_rate(epoch, batch_idx):
     if epoch < args.warmup_epochs:
         epoch += float(batch_idx + 1) / len(train_loader)
-        lr_adj = 1. / hvd.size() * (epoch * (hvd.size() - 1) / args.warmup_epochs + 1)
+        lr_adj = 1. / hvd.size() * args.batches_per_allreduce * (epoch * (hvd.size() * args.batches_per_allreduce - 1) / args.warmup_epochs + 1)
     elif epoch < 30:
         lr_adj = 1.
     elif epoch < 60:
@@ -233,7 +233,7 @@ def adjust_learning_rate(epoch, batch_idx):
     else:
         lr_adj = 1e-3
     for param_group in optimizer.param_groups:
-        param_group['lr'] = args.base_lr * hvd.size() * lr_adj
+        param_group['lr'] = args.base_lr * hvd.size() * args.batches_per_allreduce * lr_adj
 
 
 def accuracy(output, target):
