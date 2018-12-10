@@ -1924,7 +1924,6 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     if (state.param_manager.IsAutoTuning()) {
       double duration = std::chrono::duration_cast<std::chrono::microseconds>(
           std::chrono::steady_clock::now() - start_time).count();
-      MPI_Bcast(&duration, 1, MPI_DOUBLE, RANK_ZERO, state.mpi_comm);
       state.param_manager.Update(tensor_names, total_tensor_size, duration);
     }
   } else {
@@ -1973,9 +1972,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     }
 
     if (state.param_manager.IsAutoTuning()) {
-      double duration;
-      MPI_Bcast(&duration, 1, MPI_DOUBLE, RANK_ZERO, state.mpi_comm);
-      state.param_manager.Update(tensor_names, total_tensor_size, duration);
+      state.param_manager.Update(tensor_names, total_tensor_size, 1.0);
     }
 
     if (response_list.shutdown()) {
