@@ -170,9 +170,9 @@ class MPITests(tf.test.TestCase):
                         "hvd.allreduce_async produces incorrect results")
 
     @run_in_graph_and_eager_modes
-    def test_horovod_allreduce_list_fused(self):
-        """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors
-        with Tensor Fusion."""
+    def test_horovod_allreduce_list(self):
+        """Test on CPU that the allreduce correctly sums lists of 1D, 2D, 3D tensors
+        with eager execution enabled."""
         if not tf.executing_eagerly():
             return
 
@@ -472,6 +472,47 @@ class MPITests(tf.test.TestCase):
                             tf.equal(tf.cast(rank_tensor, tf.int32), value))),
                         "hvd.allgather produces incorrect gathered tensor")
 
+    @run_in_graph_and_eager_modes
+    def test_horovod_allgather_list(self):
+        """Test that the allgather correctly gathers a list containing 1D, 2D, 3D tensors."""
+        if not tf.executing_eagerly():
+            return
+
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64, tf.bool]
+        dims = [1, 2, 3]
+        tensors = []
+        for dtype, dim in itertools.product(dtypes, dims):
+            tensor = tf.ones([17] * dim) * rank
+            if dtype == tf.bool:
+                tensor = tensor % 2
+            tensor = tf.cast(tensor, dtype=dtype)
+            tensors.append(tensor)
+
+        outputs = hvd.allgather_list(tensors)
+        for tensor, gathered_tensor, (dtype, dim) in zip(tensors, outputs, itertools.product(dtypes, dims)):
+            self.assertEqual(list(gathered_tensor.shape),
+                             [17 * size] + [17] * (dim - 1))
+
+            for i in range(size):
+                rank_tensor = tf.slice(gathered_tensor,
+                                       [i * 17] + [0] * (dim - 1),
+                                       [17] + [-1] * (dim - 1))
+                self.assertEqual(list(rank_tensor.shape), [17] * dim)
+                # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
+                # so need to cast rank_tensor to tf.int32.
+                if dtype != tf.bool:
+                    value = i
+                else:
+                    value = i % 2
+                self.assertTrue(tf.reduce_all(tf.equal(tf.cast(rank_tensor, tf.int32), value)),
+                                "hvd.allgather produces incorrect gathered tensor")
+
     def test_horovod_allgather_variable_size(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors,
         even if those tensors have different sizes along the first dim."""
@@ -624,6 +665,44 @@ class MPITests(tf.test.TestCase):
                     session.run(tf.reduce_all(tf.equal(
                         tf.cast(root_tensor, tf.int32), tf.cast(broadcasted_tensor, tf.int32)))),
                     "hvd.broadcast produces incorrect broadcasted tensor")
+
+    @run_in_graph_and_eager_modes
+    def test_horovod_broadcast_list(self):
+        """Test that the broadcast correctly broadcasts a list containing 1D, 2D, 3D tensors."""
+        if not tf.executing_eagerly():
+            return
+
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64, tf.bool]
+        dims = [1, 2, 3]
+        root_rank = 0
+        tensors = []
+        root_tensors = []
+        for dtype, dim in itertools.product(dtypes, dims):
+            tensor = tf.ones([17] * dim) * rank
+            root_tensor = tf.ones([17] * dim) * root_rank
+            if dtype == tf.bool:
+                tensor = tensor % 2
+                root_tensor = root_tensor % 2
+            tensor = tf.cast(tensor, dtype=dtype)
+            root_tensor = tf.cast(root_tensor, dtype=dtype)
+            tensors.append(tensor)
+            root_tensors.append(root_tensor)
+
+        outputs = hvd.broadcast_list(tensors, root_rank)
+        for root_tensor, broadcasted_tensor in zip(root_tensors, outputs):
+            self.assertTrue(tf.reduce_all(tf.equal(tf.cast(root_tensor, tf.int32),
+                                                   tf.cast(broadcasted_tensor, tf.int32))),
+                            "hvd.broadcast produces incorrect broadcasted tensor")
 
     def test_horovod_broadcast_error(self):
         """Test that the broadcast returns an error if any dimension besides

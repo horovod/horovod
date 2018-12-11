@@ -253,7 +253,7 @@ def _broadcast_grad(op, grad):
     return grad_reduced
 
 
-def broadcast_list(tensors):
+def broadcast_list(tensors, root_rank):
     """An op which broadcasts the input tensors on root rank to the same input tensors
     on all other Horovod processes.
 
@@ -268,12 +268,13 @@ def broadcast_list(tensors):
 
     Args:
         tensors: A list of tensors to broadcast from the root rank to all other workers.
+        root_rank: Rank that will send data, other ranks will receive data.
 
     Returns:
       A list of tensors of the same shapes, types, and order as `tensors`, with the
       values broadcasted from root rank.
     """
-    return MPI_LIB.horovod_broadcast_list(tensors)
+    return MPI_LIB.horovod_broadcast_list(tensors, root_rank=root_rank)
 
 
 def poll(handle):

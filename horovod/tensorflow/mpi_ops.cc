@@ -703,16 +703,16 @@ REGISTER_OP("HorovodAllreduceList")
   return Status::OK();
 })
 .Doc(R"doc(
-Perform an MPI Allreduce on a tensor. All other processes that do a reduction
+Perform an MPI Allreduce on a list of tensors. All other processes that do a reduction
 on a tensor with the same name must have the same dimension for that tensor.
-Tensors are reduced with other tensors that have the same node name for the
+Tensors are reduced with other tensors that have the same index in the list for the
 allreduce.
 
 Arguments
-    tensor:     A tensor to reduce.
+    values:     A list of tensors to reduce.
 
 Output
-    sum:    A tensor with the same shape as `tensor`, summed across all MPI processes.
+    outputs:    A list of tensors with the same shape as `tensors`, summed across all MPI processes.
 )doc");
 
 class HorovodAllgatherListOp : public AsyncOpKernel {
@@ -771,7 +771,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodAllgatherList").Device(DEVICE_GPU),
 REGISTER_OP("HorovodAllgatherList")
 .Input("values: T")
 .Output("outputs: T")
-.Attr("T: list({uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool)")
+.Attr("T: list({uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool})")
 .SetShapeFn([](shape_inference::InferenceContext* c) {
   for (int i = 0; i < c->num_inputs(); i++) {
     shape_inference::ShapeHandle output;
@@ -782,16 +782,15 @@ REGISTER_OP("HorovodAllgatherList")
   return Status::OK();
 })
 .Doc(R"doc(
-Perform an MPI Allreduce on a tensor. All other processes that do a reduction
-on a tensor with the same name must have the same dimension for that tensor.
-Tensors are reduced with other tensors that have the same node name for the
-allreduce.
+Perform an MPI Allgather on a list of tensors. All other processes that do a gather on a
+tensor with the same index in the list must have the same rank for that tensor, and have the
+same dimension on all but the first dimension.
 
 Arguments
-    tensor:     A tensor to reduce.
+    values:     A list of tensors to gather.
 
 Output
-    sum:    A tensor with the same shape as `tensor`, summed across all MPI processes.
+    outputs:    A list of tensors with the same shape as `tensors` except for the first dimension.
 )doc");
 
 class HorovodBroadcastListOp : public AsyncOpKernel {
@@ -879,16 +878,16 @@ REGISTER_OP("HorovodBroadcastList")
   return Status::OK();
 })
 .Doc(R"doc(
-Perform an MPI Allreduce on a tensor. All other processes that do a reduction
-on a tensor with the same name must have the same dimension for that tensor.
-Tensors are reduced with other tensors that have the same node name for the
-allreduce.
+Perform an MPI Broadcast on a list of tensors. All other processes that do a broadcast
+on a tensor with the same index in the list must have the same dimension for that tensor.
 
 Arguments
-    tensor:     A tensor to reduce.
+    values:     A list of tensors to broadcast.
+    root_rank:  Rank that will send data, other ranks will receive data.
 
 Output
-    sum:    A tensor with the same shape as `tensor`, summed across all MPI processes.
+    outputs:    A list of tensors with the same shape as `tensors` and same value as
+               `tensors` on root rank.
 )doc");
 
 } // namespace tensorflow
