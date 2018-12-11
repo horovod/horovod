@@ -31,7 +31,6 @@
 #endif
 
 #define OMPI_SKIP_MPICXX
-#include "../common/handle_manager.h"
 #include "../common/operations.h"
 
 using namespace tensorflow;
@@ -40,7 +39,6 @@ using namespace horovod;
 namespace horovod {
 namespace tensorflow {
 
-static common::HandleManager handle_manager;
 static std::mutex mutex;
 
 namespace {
@@ -388,73 +386,6 @@ Output
     sum:    A tensor with the same shape as `tensor`, summed across all MPI processes.
 )doc");
 
-class HorovodAllreduceAsyncOp : public OpKernel {
-public:
-  explicit HorovodAllreduceAsyncOp(OpKernelConstruction* context) : OpKernel(context) {
-    OP_REQUIRES_OK(context, context->GetAttr("tag", &tag_));
-  }
-
-  void Compute(OpKernelContext* context) override {
-    OP_REQUIRES_OK(context, ConvertStatus(common::CheckInitialized()));
-
-    Tensor* handle_output;
-    OP_REQUIRES_OK(context, context->allocate_output(0, TensorShape(), &handle_output));
-    auto handle = handle_output->flat<int32>();
-    handle(0) = handle_manager.AllocateHandle();
-
-    auto device = GetDeviceID(context);
-    auto tensor = context->input(0);
-    Tensor* output;
-    OP_REQUIRES_OK(context, context->allocate_output(1, tensor.shape(), &output));
-    // ReadyEvent makes sure input tensor is ready, and output is allocated.
-    auto ready_event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context));
-    auto hvd_context = std::make_shared<TFOpContext>(context);
-    auto hvd_tensor = std::make_shared<TFTensor>(tensor);
-    auto hvd_output = std::make_shared<TFTensor>(*output);
-    auto enqueue_result = EnqueueTensorAllreduce(
-        hvd_context, hvd_tensor, hvd_output, ready_event,
-        GetOpName("allreduce_async", tag_, handle(0)), device,
-        [handle](const common::Status& status) {
-          handle_manager.MarkDone(handle(0), status);
-        });
-    OP_REQUIRES_OK(context, ConvertStatus(enqueue_result));
-  }
-
-private:
-  std::string tag_;
-};
-
-REGISTER_KERNEL_BUILDER(Name("HorovodAllreduceAsync").Device(DEVICE_CPU),
-    HorovodAllreduceAsyncOp);
-#if HOROVOD_GPU_ALLREDUCE
-REGISTER_KERNEL_BUILDER(Name("HorovodAllreduceAsync").Device(DEVICE_GPU),
-                        HorovodAllreduceAsyncOp);
-#endif
-
-REGISTER_OP("HorovodAllreduceAsync")
-.Attr("T: {int32, int64, float16, float32, float64}")
-.Attr("tag: string")
-.Input("tensor: T")
-.Output("handle: int32")
-.Output("sum: T")
-.SetShapeFn([](shape_inference::InferenceContext* c) {
-c->set_output(0, c->Scalar());
-c->set_output(1, c->input(0));
-return Status::OK();
-})
-.Doc(R"doc(
-Perform an MPI Allreduce on a tensor. All other processes that do a reduction
-on a tensor with the same name must have the same dimension for that tensor.
-Tensors are reduced with other tensors that have the same node name for the
-allreduce.
-
-Arguments
-    tensor:     A tensor to reduce.
-
-Output
-    sum:    A tensor with the same shape as `tensor`, summed across all MPI processes.
-)doc");
-
 class HorovodAllgatherOp : public AsyncOpKernel {
 public:
   explicit HorovodAllgatherOp(OpKernelConstruction* context)
@@ -585,53 +516,6 @@ Output
     output:    A tensor with the same shape as `tensor` and same value as
                `tensor` on root rank.
 )doc");
-
-class HorovodPollHandleOp : public OpKernel {
-public:
-  explicit HorovodPollHandleOp(OpKernelConstruction* context) : OpKernel(context) {}
-
-  void Compute(OpKernelContext* context) override {
-    const Tensor& input_tensor = context->input(0);
-    auto input = input_tensor.flat<int32>();
-
-    Tensor* output;
-    OP_REQUIRES_OK(context, context->allocate_output(0, TensorShape(), &output));
-    auto result = output->flat<int32>();
-    result(0) = handle_manager.PollHandle(input(0)) ? 1 : 0;
-  }
-};
-
-REGISTER_KERNEL_BUILDER(Name("HorovodPollHandle").Device(DEVICE_CPU), HorovodPollHandleOp);
-
-REGISTER_OP("HorovodPollHandle")
-.Input("handle: int32")
-.Output("completed: int32")
-.SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
-c->set_output(0, c->Scalar());
-return Status::OK();
-});
-
-class HorovodWaitAndClearOp : public OpKernel {
-public:
-  explicit HorovodWaitAndClearOp(OpKernelConstruction* context) : OpKernel(context) {}
-
-  void Compute(OpKernelContext* context) override {
-    const Tensor& input_tensor = context->input(0);
-    auto input = input_tensor.flat<int32>();
-
-    int32 handle = input(0);
-    while (!handle_manager.PollHandle(handle)) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
-    auto status = handle_manager.ReleaseHandle(handle);
-    OP_REQUIRES_OK(context, ConvertStatus(*status));
-  }
-};
-
-REGISTER_KERNEL_BUILDER(Name("HorovodWaitAndClear").Device(DEVICE_CPU), HorovodWaitAndClearOp);
-
-REGISTER_OP("HorovodWaitAndClear")
-.Input("handle: int32");
 
 class HorovodAllreduceListOp : public AsyncOpKernel {
 public:

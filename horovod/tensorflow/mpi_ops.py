@@ -110,28 +110,6 @@ def _allreduce_grad(op, grad):
     return _allreduce(grad)
 
 
-def allreduce_async(tensor, name=None):
-    """An op which asynchronously sums an input tensor over all the Horovod processes.
-
-    The reduction operation is keyed by the name of the op. The tensor type and
-    shape must be the same on all Horovod processes for a given name. The reduction
-    will not start until all processes are ready to send and receive the tensor.
-
-    Args:
-        tensor: A tensor to sum.
-        name: A name of the reduction operation.
-
-    Returns:
-      A handle to the allreduce operation that can be used with `poll()` or
-      `synchronize()`.
-    """
-    if name is None:
-        name = ''
-    handle, output = MPI_LIB.horovod_allreduce_async(tensor, tag=name)
-    _handle_map[handle] = (tensor, output)
-    return handle
-
-
 def allreduce_list(tensors):
     """An op which sums a list of input tensors over all the Horovod processes.
 
@@ -275,38 +253,3 @@ def broadcast_list(tensors, root_rank):
       values broadcasted from root rank.
     """
     return MPI_LIB.horovod_broadcast_list(tensors, root_rank=root_rank)
-
-
-def poll(handle):
-    """
-    Polls an allreduce, allgather or broadcast handle to determine whether underlying
-    asynchronous operation has completed. After `poll()` returns `True`, `synchronize()`
-    will return without blocking.
-
-    Arguments:
-        handle: A handle returned by an allreduce, allgather or broadcast asynchronous
-                operation.
-
-    Returns:
-        A flag indicating whether the operation has completed.
-    """
-    return MPI_LIB.horovod_poll_handle(handle) != 0
-
-
-def synchronize(handle):
-    """
-    Synchronizes an asynchronous allreduce, allgather or broadcast operation until
-    it's completed. Returns the result of the operation.
-
-    Arguments:
-        handle: A handle returned by an allreduce, allgather or broadcast asynchronous
-                operation.
-
-    Returns:
-        An output tensor of the operation.
-    """
-    if handle not in _handle_map:
-        return
-    MPI_LIB.horovod_wait_and_clear(handle)
-    _, output = _handle_map.pop(handle)
-    return output

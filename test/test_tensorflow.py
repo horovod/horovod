@@ -120,56 +120,6 @@ class MPITests(tf.test.TestCase):
                             "hvd.allreduce produces incorrect results")
 
     @run_in_graph_and_eager_modes
-    def test_horovod_allreduce_async_fused(self):
-        """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors
-        with Tensor Fusion."""
-        if not tf.executing_eagerly():
-            return
-
-        hvd.init()
-        size = hvd.size()
-
-        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
-        dims = [1, 2, 3]
-        tests = []
-        is_hvd_poll_false_once = False
-        for dtype, dim in itertools.product(dtypes, dims):
-            with tf.device("/cpu:0"):
-                tf.set_random_seed(1234)
-                tensor = tf.random_uniform(
-                    [17] * dim, -100, 100, dtype=dtype)
-                handle = hvd.allreduce_async(tensor)
-                print(handle)
-                print(hvd.poll(handle))
-                if not hvd.poll(handle):
-                    is_hvd_poll_false_once = True
-                multiplied = tensor * size
-                tests.append((dtype, multiplied, handle))
-
-        # Make sure it's an asynchronous operation.
-        self.assertTrue(is_hvd_poll_false_once, 'hvd.poll() always returns True, not an async op?')
-
-        for dtype, multiplied, handle in tests:
-            summed = hvd.synchronize(handle)
-            max_difference = tf.reduce_max(tf.abs(summed - multiplied))
-
-            # Threshold for floating point equality depends on number of
-            # ranks, since we're comparing against precise multiplication.
-            if size <= 3 or dtype in [tf.int32, tf.int64]:
-                threshold = 0
-            elif size < 10:
-                threshold = 1e-4
-            elif size < 15:
-                threshold = 5e-4
-            else:
-                break
-
-            test = max_difference <= threshold
-            tests.append(test)
-        self.assertTrue(tf.reduce_all(tests),
-                        "hvd.allreduce_async produces incorrect results")
-
-    @run_in_graph_and_eager_modes
     def test_horovod_allreduce_list(self):
         """Test on CPU that the allreduce correctly sums lists of 1D, 2D, 3D tensors
         with eager execution enabled."""

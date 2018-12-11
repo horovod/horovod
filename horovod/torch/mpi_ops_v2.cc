@@ -19,16 +19,16 @@
 #include <torch/extension.h>
 #include <torch/torch.h>
 
-#include "../common/handle_manager.h"
 #include "../common/operations.h"
 #include "adapter_v2.h"
 #include "cuda_util.h"
+#include "handle_manager.h"
 #include "ready_event.h"
 
 namespace horovod {
 namespace torch {
 
-static common::HandleManager handle_manager;
+static HandleManager handle_manager;
 
 namespace {
 
