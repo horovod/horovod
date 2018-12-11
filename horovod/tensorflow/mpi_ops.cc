@@ -697,10 +697,186 @@ REGISTER_OP("HorovodAllreduceList")
 .Output("outputs: T")
 .Attr("T: list({int32, int64, float16, float32, float64})")
 .SetShapeFn([](shape_inference::InferenceContext* c) {
-for (int i = 0; i < c->num_inputs(); i++) {
-  c->set_output(i, c->input(i));
-}
-return Status::OK();
+  for (int i = 0; i < c->num_inputs(); i++) {
+    c->set_output(i, c->input(i));
+  }
+  return Status::OK();
+})
+.Doc(R"doc(
+Perform an MPI Allreduce on a tensor. All other processes that do a reduction
+on a tensor with the same name must have the same dimension for that tensor.
+Tensors are reduced with other tensors that have the same node name for the
+allreduce.
+
+Arguments
+    tensor:     A tensor to reduce.
+
+Output
+    sum:    A tensor with the same shape as `tensor`, summed across all MPI processes.
+)doc");
+
+class HorovodAllgatherListOp : public AsyncOpKernel {
+public:
+  explicit HorovodAllgatherListOp(OpKernelConstruction* context)
+      : AsyncOpKernel(context) {}
+
+  void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(common::CheckInitialized()),
+                         done);
+
+    OpInputList values;
+    OP_REQUIRES_OK_ASYNC(context, context->input_list("values", &values), done);
+
+    auto node_name = name();
+    auto device = GetDeviceID(context);
+
+    // ReadyEvent makes sure input tensor is ready.  We cannot pre-allocate
+    // output for allgather, since shape of result is only known after all
+    // ranks make a request.
+    auto ready_event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context));
+
+    const int N = values.size();
+    auto remaining = std::make_shared<std::atomic<int>>(N);
+    for (int i = 0; i < N; i++) {
+      auto tensor = values[i];
+
+      auto hvd_context = std::make_shared<TFListOpContext>(TFListOpContext(context, i));
+      OP_REQUIRES_OK_ASYNC(context, hvd_context->InitializationStatus(), done);
+
+      auto hvd_tensor = std::make_shared<TFTensor>(tensor);
+      auto enqueue_result = EnqueueTensorAllgather(
+          hvd_context, hvd_tensor, ready_event,
+          node_name + "." + std::to_string(i), device,
+          [remaining, context, done](const common::Status& status) {
+            context->SetStatus(ConvertStatus(status));
+
+            std::lock_guard<std::mutex> guard(mutex);
+            (*remaining)--;
+            if ((*remaining) == 0) {
+              done();
+            }
+          });
+      OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
+    }
+  }
+};
+
+REGISTER_KERNEL_BUILDER(Name("HorovodAllgatherList").Device(DEVICE_CPU),
+    HorovodAllgatherListOp);
+#if HOROVOD_GPU_ALLREDUCE
+REGISTER_KERNEL_BUILDER(Name("HorovodAllgatherList").Device(DEVICE_GPU),
+                        HorovodAllgatherListOp);
+#endif
+
+REGISTER_OP("HorovodAllgatherList")
+.Input("values: T")
+.Output("outputs: T")
+.Attr("T: list({uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool)")
+.SetShapeFn([](shape_inference::InferenceContext* c) {
+  for (int i = 0; i < c->num_inputs(); i++) {
+    shape_inference::ShapeHandle output;
+    TF_RETURN_IF_ERROR(
+        c->ReplaceDim(c->input(i), 0, c->UnknownDim(), &output));
+    c->set_output(i, output);
+  }
+  return Status::OK();
+})
+.Doc(R"doc(
+Perform an MPI Allreduce on a tensor. All other processes that do a reduction
+on a tensor with the same name must have the same dimension for that tensor.
+Tensors are reduced with other tensors that have the same node name for the
+allreduce.
+
+Arguments
+    tensor:     A tensor to reduce.
+
+Output
+    sum:    A tensor with the same shape as `tensor`, summed across all MPI processes.
+)doc");
+
+class HorovodBroadcastListOp : public AsyncOpKernel {
+public:
+  explicit HorovodBroadcastListOp(OpKernelConstruction* context)
+      : AsyncOpKernel(context) {
+    OP_REQUIRES_OK(context, context->GetAttr("root_rank", &root_rank_));
+  }
+
+  void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(common::CheckInitialized()),
+                         done);
+
+    OpInputList values;
+    OP_REQUIRES_OK_ASYNC(context, context->input_list("values", &values), done);
+
+    OpOutputList outputs;
+    OP_REQUIRES_OK_ASYNC(context, context->output_list("outputs", &outputs), done);
+
+    auto node_name = name();
+    auto device = GetDeviceID(context);
+
+    // ReadyEvent makes sure input tensor is ready, and output is allocated.
+    auto ready_event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context));
+
+    const int N = values.size();
+    auto remaining = std::make_shared<std::atomic<int>>(N);
+    for (int i = 0; i < N; i++) {
+      auto tensor = values[i];
+
+      Tensor* output = nullptr;
+      if (common::horovod_rank() == root_rank_) {
+        outputs.set(i, tensor);
+      } else {
+        OP_REQUIRES_OK_ASYNC(
+            context, outputs.allocate(i, tensor.shape(), &output), done);
+      }
+
+      auto hvd_context = std::make_shared<TFListOpContext>(TFListOpContext(context, i));
+      OP_REQUIRES_OK_ASYNC(context, hvd_context->InitializationStatus(), done);
+
+      auto hvd_tensor = std::make_shared<TFTensor>(tensor);
+
+      std::shared_ptr<TFTensor> hvd_output = nullptr;
+      if (output != nullptr) {
+        hvd_output = std::make_shared<TFTensor>(*output);
+      }
+
+      auto enqueue_result = EnqueueTensorBroadcast(
+          hvd_context, hvd_tensor, hvd_output, root_rank_, ready_event,
+          node_name + "." + std::to_string(i), device,
+          [remaining, context, done](const common::Status& status) {
+            context->SetStatus(ConvertStatus(status));
+
+            std::lock_guard<std::mutex> guard(mutex);
+            (*remaining)--;
+            if ((*remaining) == 0) {
+              done();
+            }
+          });
+      OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
+    }
+  }
+
+private:
+  int root_rank_;
+};
+
+REGISTER_KERNEL_BUILDER(Name("HorovodBroadcastList").Device(DEVICE_CPU),
+    HorovodBroadcastListOp);
+#if HOROVOD_GPU_ALLREDUCE
+REGISTER_KERNEL_BUILDER(Name("HorovodBroadcastList").Device(DEVICE_GPU),
+                        HorovodBroadcastListOp);
+#endif
+
+REGISTER_OP("HorovodBroadcastList")
+.Input("values: T")
+.Output("outputs: T")
+.Attr("T: list({uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool})")
+.Attr("root_rank: int")
+.SetShapeFn([](shape_inference::InferenceContext* c) {
+  for (int i = 0; i < c->num_inputs(); i++) {
+    c->set_output(i, c->input(i));
+  }
+  return Status::OK();
 })
 .Doc(R"doc(
 Perform an MPI Allreduce on a tensor. All other processes that do a reduction
