@@ -131,7 +131,7 @@ public:
   virtual common::Framework framework() const override;
   OpKernelContext* GetKernelContext() const;
 
-private:
+protected:
   OpKernelContext* context_ = nullptr;
 };
 
