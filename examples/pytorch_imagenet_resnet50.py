@@ -223,7 +223,7 @@ def validate(epoch):
 def adjust_learning_rate(epoch, batch_idx):
     if epoch < args.warmup_epochs:
         epoch += float(batch_idx + 1) / len(train_loader)
-        lr_adj = 1. / hvd.size() * args.batches_per_allreduce * (epoch * (hvd.size() * args.batches_per_allreduce - 1) / args.warmup_epochs + 1)
+        lr_adj = 1. / hvd.size() * (epoch * (hvd.size() - 1) / args.warmup_epochs + 1)
     elif epoch < 30:
         lr_adj = 1.
     elif epoch < 60:
