@@ -192,6 +192,32 @@ def _allgather_grad(op, grad):
     return splits[rank()]
 
 
+def allgather_list(tensors):
+    """An op which concatenates the list of input tensors with the same input tensors on
+    all other Horovod processes.
+
+    The concatenation is done on the first dimension, so the input tensors on the
+    different processes must have the same rank and shape, except for the first
+    dimension, which is allowed to be different.
+
+    This function is intended to be used in eager execution mode, when all ops
+    are normally executed synchronously. By batching all tensors together into
+    a single call, we can perform tensor fusion, resulting in fewer network calls
+    and quicker results.
+
+    Args:
+        tensors: A list of tensors to gather independently across workers.
+
+    Returns:
+      A list of tensosr of the same types as the input `tensors`, concatenated on dimension
+      zero across all processes. For every tensor in the list, the shape is identical to the
+      shape of the input tensor at the same index, except for the first dimension, which may
+      be greater and is the sum of all first dimensions of the tensors in different Horovod
+      processes.
+    """
+    return MPI_LIB.horovod_allgather_list(tensors)
+
+
 def broadcast(tensor, root_rank, name=None):
     """An op which broadcasts the input tensor on root rank to the same input tensor
     on all other Horovod processes.
@@ -225,6 +251,29 @@ def _broadcast_grad(op, grad):
     if rank() != root_rank:
         return grad_reduced * 0
     return grad_reduced
+
+
+def broadcast_list(tensors):
+    """An op which broadcasts the input tensors on root rank to the same input tensors
+    on all other Horovod processes.
+
+    The broadcast operation is keyed by the name of the op. The tensor types, shapes,
+    and order in the list must be the same on all Horovod processes. The broadcast
+    will not start until all processes are ready to send and receive the tensor.
+
+    This function is intended to be used in eager execution mode, when all ops
+    are normally executed synchronously. By batching all tensors together into
+    a single call, we can perform tensor fusion, resulting in fewer network calls
+    and quicker results.
+
+    Args:
+        tensors: A list of tensors to broadcast from the root rank to all other workers.
+
+    Returns:
+      A list of tensors of the same shapes, types, and order as `tensors`, with the
+      values broadcasted from root rank.
+    """
+    return MPI_LIB.horovod_broadcast_list(tensors)
 
 
 def poll(handle):
