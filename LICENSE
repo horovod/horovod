@@ -328,7 +328,7 @@
 
    The derived work can be found in the files:
 
-           - horovod/common/optim/bayesian_optimization.h
-           - horovod/common/optim/bayesian_optimization.cc
-           - horovod/common/optim/gaussian_process.h
-           - horovod/common/optim/gaussian_process.cc
+        - horovod/common/optim/bayesian_optimization.h
+        - horovod/common/optim/bayesian_optimization.cc
+        - horovod/common/optim/gaussian_process.h
+        - horovod/common/optim/gaussian_process.cc
