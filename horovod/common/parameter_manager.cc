@@ -232,8 +232,8 @@ void ParameterManager::LogParameters(double score) {
   if (rank_ == root_rank_) {
     std::cerr << "HOROVOD_AUTOTUNER: ["
               << hierarchical_allreduce_.Value() << ", "
-              << joint_params_.Value(cycle_time_ms) << " ms , "
-              << joint_params_.Value(fusion_buffer_threshold_mb) << " mb ] "
+              << joint_params_.Value(cycle_time_ms) << " ms, "
+              << joint_params_.Value(fusion_buffer_threshold_mb) << " mb] "
               << score
               << std::endl;
     if (writing_ && file_.good()) {
@@ -248,10 +248,10 @@ void ParameterManager::LogParameters(double score) {
 
 void ParameterManager::LogBestParameters() {
   if (rank_ == root_rank_) {
-    std::cerr << "HOROVOD_AUTOTUNER: BEST [ "
+    std::cerr << "HOROVOD_AUTOTUNER: BEST ["
               << hierarchical_allreduce_.BestValue() << ", "
-              << joint_params_.BestValue(cycle_time_ms) << " ms , "
-              << joint_params_.BestValue(fusion_buffer_threshold_mb) << " mb ] "
+              << joint_params_.BestValue(cycle_time_ms) << " ms, "
+              << joint_params_.BestValue(fusion_buffer_threshold_mb) << " mb] "
               << hierarchical_allreduce_.BestScore()
               << std::endl;
     if (writing_ && file_.good()) {
