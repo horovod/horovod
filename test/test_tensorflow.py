@@ -184,9 +184,10 @@ class MPITests(tf.test.TestCase):
                 return
             return max_difference, threshold
 
+        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+        dims = [1, 2, 3]
+
         with self.eager_mode:
-            dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
-            dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
                 diff, threshold = graph_and_eager(dtype, dim)
                 with self.subTest(msg='eager mode'):
@@ -195,8 +196,6 @@ class MPITests(tf.test.TestCase):
                         "hvd.allreduce on GPU produces incorrect results")
 
         with self.test_session(config=self.config) as session:
-            dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
-            dims = [1, 2, 3]
             for dtype, dim in itertools.product(dtypes, dims):
                 max_difference, threshold = graph_and_eager(dtype, dim)
                 diff = session.run(max_difference)
@@ -250,7 +249,7 @@ class MPITests(tf.test.TestCase):
         with self.eager_mode:
             tests = graph_and_eager()
             with self.subTest(msg='eager mode'):
-                self.assertTrue(session.run(tf.reduce_all(tests)),
+                self.assertTrue(tf.reduce_all(tests),
                                 "hvd.allreduce produces incorrect results")
 
         with self.test_session(config=self.config) as session:

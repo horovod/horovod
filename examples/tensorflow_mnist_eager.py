@@ -58,12 +58,16 @@ def main(_):
             dataset.take(20000 // hvd.size())):
         with tf.GradientTape() as tape:
             logits = mnist_model(images, training=True)
-            # Horovod: broadcast initial variable states
-            # from rank 0 to all other processes. This is necessary to ensure consistent
-            # initialization of all workers when training is started with random weights
-            # or restored from a checkpoint.
             loss_value = tf.losses.sparse_softmax_cross_entropy(labels, logits)
+        # Horovod: broadcast initial variable states
+        # from rank 0 to all other processes. This is necessary to ensure consistent
+        # initialization of all workers when training is started with random weights
+        # or restored from a checkpoint.
+        hvd.bcast(0, mnist_model.variables) if batch == 0 else None
+
+        # Horovod: add Horovod Distributed GradientTape.
         tape = hvd.DistributedGradientTape(tape)
+
         grads = tape.gradient(loss_value, mnist_model.variables)
         opt.apply_gradients(zip(grads, mnist_model.variables),
                             global_step=tf.train.get_or_create_global_step())
