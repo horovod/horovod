@@ -38,6 +38,8 @@
 #define OMPI_SKIP_MPICXX
 #include "half.h"
 #include "hashes.h"
+#include "fusion_buffer_manager.h"
+#include "parameter_manager.h"
 #include "mpi.h"
 #include "mpi_message.h"
 #include "operations.h"
@@ -146,23 +148,13 @@ struct HorovodGlobalState {
   // Timeline writer.
   Timeline timeline;
 
-  // Threshold for Tensor Fusion.  All tensors that occupy memory beyond this
-  // threshold will be fused.
-  int64_t tensor_fusion_threshold = 64 * 1024 * 1024;
+  ParameterManager param_manager;
 
-  // Background thread cycle time in milliseconds.  Fractional numbers are
-  // permitted.
-  double cycle_time_ms = 5;
+  // Encapsulates the fusion buffers, handles resizing and auto-tuning of buffer size.
+  FusionBufferManager fusion_buffer;
 
   // Time point when last cycle started.
   std::chrono::steady_clock::time_point last_cycle_start;
-
-  // Memory buffers for Tensor Fusion.  They are keyed off device ID and
-  // framework, and all are allocated tensor_fusion_threshold bytes if
-  // initialized.
-  std::unordered_map<std::tuple<int, Framework>,
-                     std::shared_ptr<PersistentBuffer>>
-      tensor_fusion_buffers;
 
   // Whether MPI_Init has been completed on the background thread.
   std::atomic_bool initialization_done {false};
@@ -196,9 +188,6 @@ struct HorovodGlobalState {
 
   // Cross-node communicator for hierarchical allreduce.
   MPI_Comm cross_comm;
-
-  // Do hierarchical allreduce with MPI + NCCL.
-  bool hierarchical_allreduce = false;
 
 // The CUDA stream used for data transfers and within-allreduce operations.
 // A naive implementation would use the TensorFlow StreamExecutor CUDA
@@ -709,6 +698,27 @@ cudaError_t ReleaseCudaEvent(cudaEvent_t event) {
     }                                                                          \
   }
 
+int64_t TensorFusionThresholdBytes() {
+  int64_t proposed_fusion_threshold = horovod_global.param_manager.TensorFusionThresholdBytes();
+
+  // If the cluster is homogeneous and hierarchical allreduce is enabled,
+  // adjust buffer size to make sure it is divisible by local_size to improve
+  // performance.
+  if (horovod_global.is_homogeneous && horovod_global.param_manager.HierarchicalAllreduce()) {
+    // Assume the worst-case data type float64, since if it is divisible with
+    // float64, it will be divisible for other types too.
+
+    // Ensuring that fusion buffer can hold a number of elements divisible by
+    // FUSION_BUFFER_ATOMIC_UNIT for performance
+    int mpi_double_size;
+    MPI_Type_size(MPI_DOUBLE, &mpi_double_size);
+    int64_t div = horovod_global.local_size * mpi_double_size * FUSION_BUFFER_ATOMIC_UNIT;
+    return ((proposed_fusion_threshold + div - 1) / div) * div;
+  }
+
+  return proposed_fusion_threshold;
+}
+
 // Process an MPIResponse by doing a reduction, a gather, a broadcast, or
 // raising an error.
 void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
@@ -745,24 +755,17 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     // Note: it is OK for different entries to come from different frameworks
     // since buffer allocated here is guaranteed to survive at least till the
     // end of this operation.
-    auto& buffer = horovod_global.tensor_fusion_buffers[std::make_tuple(
-        first_entry.device, first_entry.context->framework())];
-    if (buffer == nullptr) {
-      ACTIVITY_START_ALL(entries, timeline, INIT_FUSION_BUFFER)
-
-      // Lazily allocate persistent buffer for Tensor Fusion and keep it
-      // forever per device.
-      Status status = first_entry.context->AllocatePersistent(
-          horovod_global.tensor_fusion_threshold, &buffer);
-      if (!status.ok()) {
-        for (auto& e : entries) {
-          timeline.End(e.tensor_name, nullptr);
-          e.callback(status);
-        }
-        return;
+    Status status = horovod_global.fusion_buffer.InitializeBuffer(
+        TensorFusionThresholdBytes(),
+        first_entry.device, first_entry.context,
+        [&](){ACTIVITY_START_ALL(entries, timeline, INIT_FUSION_BUFFER)},
+        [&](){ACTIVITY_END_ALL(entries, timeline)});
+    if (!status.ok()) {
+      for (auto& e : entries) {
+        timeline.End(e.tensor_name, nullptr);
+        e.callback(status);
       }
-
-      ACTIVITY_END_ALL(entries, timeline)
+      return;
     }
   }
 
@@ -883,7 +886,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
       // Determine GPU IDs of the devices participating in this communicator.
       std::vector<int32_t> nccl_device_map;
-      if (horovod_global.hierarchical_allreduce) {
+      if (horovod_global.param_manager.HierarchicalAllreduce()) {
         for (int rank : horovod_global.local_comm_ranks) {
           nccl_device_map.push_back(response.devices()[rank]);
         }
@@ -899,7 +902,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
         int nccl_rank, nccl_size;
         MPI_Comm nccl_id_bcast_comm;
-        if (horovod_global.hierarchical_allreduce) {
+        if (horovod_global.param_manager.HierarchicalAllreduce()) {
           nccl_rank = horovod_global.local_rank;
           nccl_size = horovod_global.local_size;
           nccl_id_bcast_comm = horovod_global.local_comm;
@@ -961,8 +964,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       size_t buffer_len;
       if (entries.size() > 1) {
         // Access the fusion buffer.
-        auto& buffer = horovod_global.tensor_fusion_buffers[std::make_tuple(
-            first_entry.device, first_entry.context->framework())];
+        auto& buffer = horovod_global.fusion_buffer.GetBuffer(
+            first_entry.device, first_entry.context->framework());
         buffer_data =
             const_cast<void*>(buffer->AccessData(first_entry.context));
 
@@ -1022,7 +1025,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                 ddl_allreduce(buffer_data, (size_t)num_elements, ddl_data_type,
                               DDL_OP_SUM))
 #else
-      if (horovod_global.hierarchical_allreduce) {
+      if (horovod_global.param_manager.HierarchicalAllreduce()) {
         int element_size;
         MPI_Type_size(GetMPIDataType(first_entry.tensor), &element_size);
 
@@ -1231,8 +1234,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
     if (entries.size() > 1) {
       // Access the fusion buffer.
-      auto& buffer = horovod_global.tensor_fusion_buffers[std::make_tuple(
-          first_entry.device, first_entry.context->framework())];
+      auto& buffer = horovod_global.fusion_buffer.GetBuffer(
+          first_entry.device, first_entry.context->framework());
       auto buffer_data = buffer->AccessData(first_entry.context);
 
       // Copy memory into the fusion buffer.
@@ -1540,6 +1543,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   MPI_Op mpi_float16_sum;
   MPI_Op_create(&float16_sum, 1, &mpi_float16_sum);
 
+  // Create custom datatypes for the parameter manager.
+  state.param_manager.CreateMpiTypes();
+
   state.rank = rank;
   state.local_rank = local_rank;
   state.cross_rank = cross_rank;
@@ -1559,10 +1565,19 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     state.timeline.Initialize(std::string(horovod_timeline));
   }
 
+  // Override Tensor Fusion threshold, if it's set.
+  state.param_manager.SetTensorFusionThresholdBytes(64 * 1024 * 1024);
+  auto horovod_fusion_threshold = std::getenv(HOROVOD_FUSION_THRESHOLD);
+  if (horovod_fusion_threshold != nullptr) {
+    int64_t threshold = std::strtol(horovod_fusion_threshold, nullptr, 10);
+    state.param_manager.SetTensorFusionThresholdBytes(threshold, true);
+  }
+
   // Override the cycle time.
+  state.param_manager.SetCycleTimeMs(5);
   auto horovod_cycle_time = std::getenv(HOROVOD_CYCLE_TIME);
   if (horovod_cycle_time != nullptr) {
-    state.cycle_time_ms = std::strtof(horovod_cycle_time, nullptr);
+    state.param_manager.SetCycleTimeMs(std::strtof(horovod_cycle_time, nullptr), true);
   }
 
   // Disable stall check.
@@ -1574,16 +1589,21 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   // Set flag for hierarchical allreduce. Ignore if Horovod is running on a
   // single node.
-  auto horovod_hierarchical_allreduce =
-      std::getenv(HOROVOD_HIERARCHICAL_ALLREDUCE);
-  if (horovod_hierarchical_allreduce != nullptr &&
-      std::strtol(horovod_hierarchical_allreduce, nullptr, 10) > 0 &&
-      (size != local_size)) {
-    state.hierarchical_allreduce = true;
+  auto horovod_hierarchical_allreduce = std::getenv(HOROVOD_HIERARCHICAL_ALLREDUCE);
+  state.param_manager.SetHierarchicalAllreduce(false);
+  if (horovod_hierarchical_allreduce != nullptr) {
+    bool value = std::strtol(horovod_hierarchical_allreduce, nullptr, 10) > 0 &&
+                 (size != local_size);
+    state.param_manager.SetHierarchicalAllreduce(value, true);
   }
 
+#if HOROVOD_GPU_ALLREDUCE != 'N' && HOROVOD_GPU_ALLREDUCE != 'D'
+  // Hierarchical allreduce is not supported without NCCL or DDL
+  state.param_manager.SetHierarchicalAllreduce(false, true);
+#endif
+
   // Issue warning if hierarchical allreduce is enabled in heterogeneous cluster
-  if (is_coordinator && state.hierarchical_allreduce && !state.is_homogeneous) {
+  if (is_coordinator && state.param_manager.HierarchicalAllreduce() && !state.is_homogeneous) {
     std::cerr
         << "WARNING: Using different number of ranks per node might hurt "
            "performance of hierarchical allreduce. Consider assigning the same "
@@ -1591,30 +1611,13 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
         << std::endl;
   }
 
-  // Override Tensor Fusion threshold, if it's set.
-  auto horovod_fusion_threshold = std::getenv("HOROVOD_FUSION_THRESHOLD");
-  int64_t proposed_fusion_threshold =
-      (horovod_fusion_threshold != nullptr)
-          ? std::strtol(horovod_fusion_threshold, nullptr, 10)
-          : state.tensor_fusion_threshold;
-
-  // If the cluster is homogeneous and hierarchical allreduce is enabled,
-  // adjust buffer size to make sure it is divisible by local_size to improve
-  // performance.
-  if (state.is_homogeneous && state.hierarchical_allreduce) {
-    // Assume the worst-case data type float64, since if it is divisible with
-    // float64, it will be divisible for other types too.
-
-    // Ensuring that fusion buffer can hold a number of elements divisible by
-    // FUSION_BUFFER_ATOMIC_UNIT for performance
-    int mpi_double_size;
-    MPI_Type_size(MPI_DOUBLE, &mpi_double_size);
-    int64_t div =
-        state.local_size * mpi_double_size * FUSION_BUFFER_ATOMIC_UNIT;
-    state.tensor_fusion_threshold =
-        ((proposed_fusion_threshold + div - 1) / div) * div;
-  } else {
-    state.tensor_fusion_threshold = proposed_fusion_threshold;
+  // Enable auto-tuning.
+  auto horovod_autotune = std::getenv(HOROVOD_AUTOTUNE);
+  if (horovod_autotune != nullptr && std::strtol(horovod_autotune, nullptr, 10) > 0) {
+    auto horovod_autotune_log = std::getenv(HOROVOD_AUTOTUNE_LOG);
+    state.param_manager.Initialize(rank, RANK_ZERO, state.mpi_comm,
+                                   horovod_autotune_log != nullptr ? std::string(horovod_autotune_log) : "");
+    state.param_manager.SetAutoTuning(true);
   }
 
   // Initialize the tensor count table. No tensors are available yet.
@@ -1682,6 +1685,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     MPI_Op_free(&horovod_global.mpi_float16_sum);
   }
 
+  horovod_global.param_manager.FreeMpiTypes();
+
   if (horovod_global.should_finalize) {
 #if HAVE_DDL
     // ddl_finalize calls MPI_Finalize
@@ -1727,10 +1732,11 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 //      loop.
 bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   // This delay determines thread frequency and MPI message latency
+  auto start_time = std::chrono::steady_clock::now();
   auto sleep_duration =
       state.last_cycle_start +
-      std::chrono::microseconds(long(state.cycle_time_ms * 1000.)) -
-      std::chrono::steady_clock::now();
+      std::chrono::microseconds(long(state.param_manager.CycleTimeMs() * 1000.)) -
+      start_time;
   if (sleep_duration > std::chrono::steady_clock::duration::zero()) {
     std::this_thread::sleep_for(sleep_duration);
   }
@@ -1857,23 +1863,23 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
             auto& new_entry = state.tensor_table[new_response.tensor_names()[0]];
             int64_t new_tensor_size = new_entry.tensor->size();
 
-            if (response.response_type() == new_response.response_type() &&
-                response.devices() == new_response.devices() &&
-                entry.tensor->dtype() == new_entry.tensor->dtype() &&
-                tensor_size + new_tensor_size <= state.tensor_fusion_threshold) {
-              // These tensors will fuse together well.
-              tensor_size += new_tensor_size;
-              response.add_tensor_names(new_response.tensor_names()[0]);
-              responses.pop_front();
-            } else {
-              // Don't try to fuse additional tensors since they are usually
-              // computed in order of requests and skipping tensors may mean
-              // that the batch will have to wait longer while skipped tensors
-              // could be reduced at that time.
-              break;
-            }
+          if (response.response_type() == new_response.response_type() &&
+              response.devices() == new_response.devices() &&
+              entry.tensor->dtype() == new_entry.tensor->dtype() &&
+              tensor_size + new_tensor_size <= TensorFusionThresholdBytes()) {
+            // These tensors will fuse together well.
+            tensor_size += new_tensor_size;
+            response.add_tensor_names(new_response.tensor_names()[0]);
+            responses.pop_front();
+          } else {
+            // Don't try to fuse additional tensors since they are usually
+            // computed in order of requests and skipping tensors may mean
+            // that the batch will have to wait longer while skipped tensors
+            // could be reduced at that time.
+            break;
           }
         }
+      }
 
         response_list.add_responses(response);
       }
@@ -1887,6 +1893,20 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     MPI_Bcast((void*)encoded_response.c_str(), encoded_response_length,
               MPI_BYTE, RANK_ZERO, state.mpi_comm);
 
+    std::vector<std::string> tensor_names;
+    int64_t total_tensor_size = 0;
+    if (state.param_manager.IsAutoTuning()) {
+      for (auto &response : response_list.responses()) {
+        if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
+          for (auto& tensor_name : response.tensor_names()) {
+            tensor_names.push_back(tensor_name);
+            auto &entry = state.tensor_table[tensor_name];
+            total_tensor_size += entry.tensor->size();
+          }
+        }
+      }
+    }
+
     // Perform the collective operation. All nodes should end up performing
     // the same operation.
     for (auto& response : response_list.responses()) {
@@ -1899,6 +1919,12 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
             STALL_WARNING_TIME) {
       CheckForStalledTensors(state);
       state.last_stall_check = std::chrono::steady_clock::now();
+    }
+
+    if (state.param_manager.IsAutoTuning()) {
+      double duration = std::chrono::duration_cast<std::chrono::microseconds>(
+          std::chrono::steady_clock::now() - start_time).count();
+      state.param_manager.Update(tensor_names, total_tensor_size, duration);
     }
   } else {
     std::string encoded_message;
@@ -1925,10 +1951,28 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     MPIResponseList::ParseFromString(response_list, received_message);
     delete[] buffer;
 
+    std::vector<std::string> tensor_names;
+    int64_t total_tensor_size = 0;
+    if (state.param_manager.IsAutoTuning()) {
+      for (auto &response : response_list.responses()) {
+        if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
+          for (auto& tensor_name : response.tensor_names()) {
+            tensor_names.push_back(tensor_name);
+            auto &entry = state.tensor_table[tensor_name];
+            total_tensor_size += entry.tensor->size();
+          }
+        }
+      }
+    }
+
     // Perform the collective operation. All nodes should end up performing
     // the same operation.
     for (auto& response : response_list.responses()) {
       PerformOperation(state.tensor_table, response);
+    }
+
+    if (state.param_manager.IsAutoTuning()) {
+      state.param_manager.Update(tensor_names, total_tensor_size, 1.0);
     }
 
     if (response_list.shutdown()) {
