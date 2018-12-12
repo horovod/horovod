@@ -18,10 +18,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
+import errno
 import numpy as np
 import tensorflow as tf
 import horovod.tensorflow as hvd
-learn = tf.contrib.learn
+
+from tensorflow import keras
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -78,7 +81,8 @@ def cnn_model_fn(features, labels, mode):
     # Densely connected layer with 1024 neurons
     # Input Tensor Shape: [batch_size, 7 * 7 * 64]
     # Output Tensor Shape: [batch_size, 1024]
-    dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
+    dense = tf.layers.dense(inputs=pool2_flat, units=1024,
+                            activation=tf.nn.relu)
 
     # Add dropout operation; 0.6 probability that element will be kept
     dropout = tf.layers.dropout(
@@ -116,7 +120,8 @@ def cnn_model_fn(features, labels, mode):
         train_op = optimizer.minimize(
             loss=loss,
             global_step=tf.train.get_global_step())
-        return tf.estimator.EstimatorSpec(mode=mode, loss=loss, train_op=train_op)
+        return tf.estimator.EstimatorSpec(mode=mode, loss=loss,
+                                          train_op=train_op)
 
     # Add evaluation metrics (for EVAL mode)
     eval_metric_ops = {
@@ -130,12 +135,30 @@ def main(unused_argv):
     # Horovod: initialize Horovod.
     hvd.init()
 
-    # Load training and eval data
-    mnist = learn.datasets.mnist.read_data_sets('MNIST-data-%d' % hvd.rank())
-    train_data = mnist.train.images  # Returns np.array
-    train_labels = np.asarray(mnist.train.labels, dtype=np.int32)
-    eval_data = mnist.test.images  # Returns np.array
-    eval_labels = np.asarray(mnist.test.labels, dtype=np.int32)
+    # Keras automatically creates a cache directory in ~/.keras/datasets for
+    # storing the downloaded MNIST data. This creates a race
+    # condition among the workers that share the same filesystem. If the
+    # directory already exists by the time this worker gets around to creating
+    # it, ignore the resulting exception and continue.
+    cache_dir = os.path.join(os.path.expanduser('~'), '.keras', 'datasets')
+    if not os.path.exists(cache_dir):
+        try:
+            os.mkdir(cache_dir)
+        except OSError as e:
+            if e.errno == errno.EEXIST and os.path.isdir(cache_dir):
+                pass
+            else:
+                raise
+
+    # Download and load MNIST dataset.
+    (train_data, train_labels), (eval_data, eval_labels) = \
+        keras.datasets.mnist.load_data('MNIST-data-%d' % hvd.rank())
+
+    # The shape of downloaded data is (-1, 28, 28), hence we need to reshape it
+    # into (-1, 784) to feed into our network. Also, need to normalize the
+    # features between 0 and 1.
+    train_data = np.reshape(train_data, (-1, 784)) / 255.0
+    eval_data = np.reshape(eval_data, (-1, 784)) / 255.0
 
     # Horovod: pin GPU to be used to process local rank (one GPU per process)
     config = tf.ConfigProto()
