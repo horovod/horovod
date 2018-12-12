@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import torch
 import argparse
 import torch.backends.cudnn as cudnn
 import torch.nn.functional as F
@@ -9,6 +10,7 @@ from torchvision import datasets, transforms, models
 import horovod.torch as hvd
 import tensorboardX
 import os
+import math
 from tqdm import tqdm
 
 # Training settings
@@ -24,6 +26,10 @@ parser.add_argument('--checkpoint-format', default='./checkpoint-{epoch}.pth.tar
                     help='checkpoint file format')
 parser.add_argument('--fp16-allreduce', action='store_true', default=False,
                     help='use fp16 compression during allreduce')
+parser.add_argument('--batches-per-allreduce', type=int, default=1,
+                    help='number of batches processed locally before '
+                         'executing allreduce across workers; it multiplies '
+                         'total batch size.')
 
 # Default settings from https://arxiv.org/abs/1706.02677.
 parser.add_argument('--batch-size', type=int, default=32,
@@ -48,6 +54,8 @@ parser.add_argument('--seed', type=int, default=42,
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
+
+allreduce_batch_size = args.batch_size * args.batches_per_allreduce
 
 hvd.init()
 torch.manual_seed(args.seed)
@@ -93,7 +101,8 @@ train_dataset = \
 train_sampler = torch.utils.data.distributed.DistributedSampler(
     train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
 train_loader = torch.utils.data.DataLoader(
-    train_dataset, batch_size=args.batch_size, sampler=train_sampler, **kwargs)
+    train_dataset, batch_size=allreduce_batch_size,
+    sampler=train_sampler, **kwargs)
 
 val_dataset = \
     datasets.ImageFolder(args.val_dir,
@@ -118,16 +127,20 @@ if args.cuda:
     model.cuda()
 
 # Horovod: scale learning rate by the number of GPUs.
-optimizer = optim.SGD(model.parameters(), lr=args.base_lr * hvd.size(),
+# Gradient Accumulation: scale learning rate by batches_per_allreduce
+optimizer = optim.SGD(model.parameters(),
+                      lr=(args.base_lr *
+                          args.batches_per_allreduce * hvd.size()),
                       momentum=args.momentum, weight_decay=args.wd)
 
 # Horovod: (optional) compression algorithm.
 compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
 
 # Horovod: wrap optimizer with DistributedOptimizer.
-optimizer = hvd.DistributedOptimizer(optimizer,
-                                     named_parameters=model.named_parameters(),
-                                     compression=compression)
+optimizer = hvd.DistributedOptimizer(
+    optimizer, named_parameters=model.named_parameters(),
+    compression=compression,
+    backward_passes_per_step=args.batches_per_allreduce)
 
 # Restore from a previous checkpoint, if initial_epoch is specified.
 # Horovod: restore on the first worker which will broadcast weights to other workers.
@@ -156,13 +169,19 @@ def train(epoch):
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
             optimizer.zero_grad()
-            output = model(data)
-            loss = F.cross_entropy(output, target)
-            loss.backward()
+            # Split data into sub-batches of size batch_size
+            for i in range(0, len(data), args.batch_size):
+                data_batch = data[i:i + args.batch_size]
+                target_batch = target[i:i + args.batch_size]
+                output = model(data_batch)
+                train_accuracy.update(accuracy(output, target_batch))
+                loss = F.cross_entropy(output, target_batch)
+                train_loss.update(loss.item())
+                # Average gradients among sub-batches
+                loss.div_(math.ceil(float(len(data)) / args.batch_size))
+                loss.backward()
+            # Gradient is applied across all ranks
             optimizer.step()
-
-            train_loss.update(loss)
-            train_accuracy.update(accuracy(output, target))
             t.set_postfix({'loss': train_loss.avg.item(),
                            'accuracy': 100. * train_accuracy.avg.item()})
             t.update(1)
@@ -214,7 +233,7 @@ def adjust_learning_rate(epoch, batch_idx):
     else:
         lr_adj = 1e-3
     for param_group in optimizer.param_groups:
-        param_group['lr'] = args.base_lr * hvd.size() * lr_adj
+        param_group['lr'] = args.base_lr * hvd.size() * args.batches_per_allreduce * lr_adj
 
 
 def accuracy(output, target):
