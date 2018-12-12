@@ -139,7 +139,7 @@ class MPITests(tf.test.TestCase):
                     [17] * dim, -100, 100, dtype=dtype)
                 tensors.append(tensor)
 
-        outputs = hvd.allreduce_list(tensors)
+        outputs = hvd._allreduce_list(tensors)
         for tensor, summed in zip(tensors, outputs):
             multiplied = tensor * size
             max_difference = tf.reduce_max(tf.abs(summed - multiplied))
@@ -156,6 +156,42 @@ class MPITests(tf.test.TestCase):
                 break
 
             self.assertLessEqual(max_difference, threshold)
+
+    @run_in_graph_and_eager_modes
+    def test_horovod_allreduce_list_sparse_and_dense(self):
+        """Test on CPU that the allreduce correctly sums lists of sparse and dense tensors
+        with eager execution enabled."""
+        if not tf.executing_eagerly():
+            return
+
+        hvd.init()
+        size = hvd.size()
+        rank = hvd.rank()
+
+        # List of tensors of varying types and shapes, the results must retain the same order,
+        # tensor types, and have the correct outputs
+        dense1 = tf.ones([2] * size, dtype=tf.float32) * (rank + 1)
+        idx1 = tf.where(tf.equal(dense1, rank + 1))
+        sparse1 = tf.IndexedSlices(tf.gather_nd(dense1, idx1), idx1, dense_shape=dense1.shape)
+
+        dense2 = tf.ones([size] * 2, dtype=tf.float32) * (rank + 1)
+        idx2 = tf.convert_to_tensor([rank])
+        sparse2 = tf.IndexedSlices(tf.gather_nd(dense2, idx2), idx2, dense_shape=dense2.shape)
+
+        empty = None
+
+        tensors = [dense1, sparse1, dense2, sparse2, empty]
+        reduced = hvd.allreduce_list(tensors)
+
+        avg = ((size * (size + 1)) / 2.0) / size
+        for input, output in zip(tensors, reduced):
+            if input is None:
+                self.assertIsNone(output)
+            elif isinstance(input, tf.IndexedSlices):
+                self.assertTrue(isinstance(output, tf.IndexedSlices))
+            else:
+                self.assertFalse(isinstance(output, tf.IndexedSlices))
+                self.assertEqual(tf.reduce_sum(output).numpy(), avg * tf.size(input).numpy())
 
     def test_horovod_allreduce_gpu(self):
         """Test that the allreduce works on GPUs.

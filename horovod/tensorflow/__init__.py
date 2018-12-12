@@ -29,14 +29,15 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from heapq import merge
+
 from horovod.common import check_extension
 
 check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
 
 from horovod.tensorflow.compression import Compression
 from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce
-from horovod.tensorflow.mpi_ops import allreduce_async, poll, synchronize
-from horovod.tensorflow.mpi_ops import broadcast_list, allgather_list, allreduce_list
+from horovod.tensorflow.mpi_ops import broadcast_list, allgather_list, _allreduce_list
 from horovod.tensorflow.mpi_ops import init, shutdown
 from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank
 from horovod.tensorflow.mpi_ops import mpi_threads_supported
@@ -49,32 +50,36 @@ def allreduce(tensor, average=True, device_dense='', device_sparse='',
               compression=Compression.none):
     """Perform an allreduce on a tf.Tensor or tf.IndexedSlices.
 
-    Arguments:
-        tensor: tf.Tensor, tf.Variable, or tf.IndexedSlices to reduce.
-        The shape of the input must be identical across all ranks.
-        average: If True, computes the average over all ranks.
-                 Otherwise, computes the sum over all ranks.
-        device_dense: Device to be used for dense tensors. Uses GPU by default
-                      if Horovod was build with HOROVOD_GPU_ALLREDUCE.
-        device_sparse: Device to be used for sparse tensors. Uses GPU by default
-                       if Horovod was build with HOROVOD_GPU_ALLGATHER.
-        compression: Compression algorithm used to reduce the amount of data
-                     sent and received by each worker node.  Defaults to not
-                     using compression.
-
     This function performs a bandwidth-optimal ring allreduce on the input
     tensor. If the input is an tf.IndexedSlices, the function instead does an
     allgather on the values and the indices, effectively doing an allreduce on
     the represented tensor.
+
+    Arguments:
+        tensor: tf.Tensor, tf.Variable, or tf.IndexedSlices to reduce.
+                The shape of the input must be identical across all ranks.
+        average: If True, computes the average over all ranks.
+                 Otherwise, computes the sum over all ranks.
+        device_dense: Device to be used for dense tensors. Uses GPU by default
+                      if Horovod was built with HOROVOD_GPU_ALLREDUCE.
+        device_sparse: Device to be used for sparse tensors. Uses GPU by default
+                       if Horovod was built with HOROVOD_GPU_ALLGATHER.
+        compression: Compression algorithm used to reduce the amount of data
+                     sent and received by each worker node.  Defaults to not
+                     using compression.
+
+    Returns:
+        A tensor of the same shape and type as `tensor`, summed across all
+        processes.
     """
     if isinstance(tensor, tf.IndexedSlices):
         with tf.device(device_sparse):
-            # For IndexedSlices, do two allgathers intead of an allreduce.
+            # For IndexedSlices, do two allgathers instead of an allreduce.
             horovod_size = tf.cast(size(), tensor.values.dtype)
             values = allgather(tensor.values)
             indices = allgather(tensor.indices)
 
-            # To make this operation into an average, divide all gathered values by
+            # To make this operation into an average, divide allgathered values by
             # the Horovod size.
             new_values = tf.div(values, horovod_size) if average else values
         return tf.IndexedSlices(new_values, indices,
@@ -88,6 +93,82 @@ def allreduce(tensor, average=True, device_dense='', device_sparse='',
             new_tensor = (tf.div(summed_tensor, horovod_size)
                           if average else summed_tensor)
         return new_tensor
+
+
+def allreduce_list(tensors, average=True, device_dense='', device_sparse='',
+                   compression=Compression.none):
+    """Perform an allreduce on a list of tf.Tensor and tf.IndexedSlices.
+
+    This function performs a bandwidth-optimal ring allreduce on the input
+    tensors. If the input has tf.IndexedSlices, the function instead does an
+    allgather on the values and the indices of those tensors, achieving the same
+    effect as an allreduce on the represented tensor without needing to convert it
+    to dense.
+
+    Arguments:
+        tensors: List of tf.Tensor, tf.Variable, and tf.IndexedSlices to reduce.
+                 The shape of the inputs and their order in the list must be identical across
+                 all ranks.
+        average: If True, computes the average over all ranks.
+                 Otherwise, computes the sum over all ranks.
+        device_dense: Device to be used for dense tensors. Uses GPU by default
+                      if Horovod was built with HOROVOD_GPU_ALLREDUCE.
+        device_sparse: Device to be used for sparse tensors. Uses GPU by default
+                       if Horovod was built with HOROVOD_GPU_ALLGATHER.
+        compression: Compression algorithm used to reduce the amount of data
+                     sent and received by each worker node.  Defaults to not
+                     using compression.
+
+    Returns:
+        A list of tensors with the same shapes and order as `tensors`, summed
+        across all processes.
+    """
+    empty_tensors = []
+    sparse_tensors = []
+    dense_tensors = []
+    for index, tensor in enumerate(tensors):
+        if tensor is None:
+            empty_tensors.append((index, tensor))
+        elif isinstance(tensor, tf.IndexedSlices):
+            sparse_tensors.append((index, tensor))
+        else:
+            dense_tensors.append((index, tensor))
+
+    if len(sparse_tensors) > 0:
+        indices, tensors = zip(*sparse_tensors)
+        with tf.device(device_sparse):
+            # For IndexedSlices, do two allgathers instead of an allreduce.
+            horovod_sizes = [tf.cast(size(), tensor.values.dtype) for tensor in tensors]
+            tensor_values = allgather_list([tensor.values for tensor in tensors])
+            tensor_indices = allgather_list([tensor.indices for tensor in tensors])
+
+            # To make this operation into an average, divide allgathered values by
+            # the Horovod size.
+            new_tensor_values = [tf.div(values, horovod_size)
+                                 if average else values for values, horovod_size
+                                 in zip(tensor_values, horovod_sizes)]
+        new_tensors = [tf.IndexedSlices(new_values, new_indices,
+                                        dense_shape=tensor.dense_shape)
+                       for new_values, new_indices, tensor
+                       in zip(new_tensor_values, tensor_indices, tensors)]
+        sparse_tensors = zip(indices, new_tensors)
+
+    if len(dense_tensors) > 0:
+        indices, tensors = zip(*dense_tensors)
+        with tf.device(device_dense):
+            horovod_sizes = [tf.cast(size(), tensor.dtype) for tensor in tensors]
+            tensors_compressed, contexts = zip(*[compression.compress(tensor)
+                                                 for tensor in tensors])
+            summed_tensors_compressed = _allreduce_list(tensors_compressed)
+            summed_tensors = [compression.decompress(tensor, ctx)
+                              for tensor, ctx in zip(summed_tensors_compressed, contexts)]
+            new_tensors = [tf.div(tensor, horovod_size) if average else tensor
+                           for tensor, horovod_size in zip(summed_tensors, horovod_sizes)]
+        dense_tensors = zip(indices, new_tensors)
+
+    merged = merge(empty_tensors, sparse_tensors, dense_tensors)
+    _, tensors = zip(*merged)
+    return tensors
 
 
 def broadcast_global_variables(root_rank):
@@ -193,9 +274,21 @@ class DistributedOptimizer(tf.train.Optimizer):
         """
         gradients = self._optimizer.compute_gradients(*args, **kwargs)
         if size() > 1:
-            averaged_gradients = []
-            with tf.name_scope(self._name + "_Allreduce"):
-                def aggregate_gradients():
+            if context.executing_eagerly():
+                grads, vars = zip(*gradients)
+                if self._sparse_as_dense:
+                    grads = [tf.convert_to_tensor(grad)
+                             if grad is not None and isinstance(grad, tf.IndexedSlices)
+                             else grad for grad in grads]
+
+                avg_grads = allreduce_list(grads,
+                                           device_dense=self._device_dense,
+                                           device_sparse=self._device_sparse,
+                                           compression=self._compression)
+                averaged_gradients = zip(avg_grads, vars)
+            else:
+                averaged_gradients = []
+                with tf.name_scope(self._name + "_Allreduce"):
                     for grad, var in gradients:
                         if grad is not None:
                             if self._sparse_as_dense and \
@@ -208,13 +301,6 @@ class DistributedOptimizer(tf.train.Optimizer):
                             averaged_gradients.append((avg_grad, var))
                         else:
                             averaged_gradients.append((None, var))
-
-                if context.executing_eagerly():
-                    with context.execution_mode(context.ASYNC):
-                        aggregate_gradients()
-                    context.async_wait()
-                else:
-                    aggregate_gradients()
             return averaged_gradients
         else:
             return gradients

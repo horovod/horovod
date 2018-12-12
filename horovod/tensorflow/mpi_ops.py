@@ -110,7 +110,7 @@ def _allreduce_grad(op, grad):
     return _allreduce(grad)
 
 
-def allreduce_list(tensors):
+def _allreduce_list(tensors):
     """An op which sums a list of input tensors over all the Horovod processes.
 
     This function is intended to be used in eager execution mode, when all ops
