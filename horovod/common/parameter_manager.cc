@@ -39,6 +39,7 @@ Eigen::VectorXd CreateVector(double x1, double x2) {
 // ParameterManager
 ParameterManager::ParameterManager() :
     hierarchical_allreduce_(CategoricalParameter<bool>(std::vector<bool>{false, true})),
+    hierarchical_allgather_(CategoricalParameter<bool>(std::vector<bool>{false, true})),
     joint_params_(BayesianParameter(
       std::vector<BayesianVariableConfig>{
         { BayesianVariable::fusion_buffer_threshold_mb, std::pair<double, double>(0, 64) },
@@ -49,7 +50,7 @@ ParameterManager::ParameterManager() :
         CreateVector(16, 25),
         CreateVector(8, 10)
       })),
-    parameter_chain_(std::vector<ITunableParameter*>{&joint_params_, &hierarchical_allreduce_}),
+    parameter_chain_(std::vector<ITunableParameter*>{&joint_params_, &hierarchical_allreduce_, &hierarchical_allgather_}),
     active_(false),
     warmup_remaining_(WARMUPS),
     sample_(0),
@@ -60,15 +61,16 @@ ParameterManager::ParameterManager() :
 }
 
 void ParameterManager::CreateMpiTypes() {
-  const int nitems = 4;
-  int blocklengths[4] = {1, 1, 1, 1};
-  MPI_Datatype types[4] = {MPI_CXX_BOOL, MPI_DOUBLE, MPI_DOUBLE, MPI_CXX_BOOL};
+  const int nitems = 5;
+  int blocklengths[5] = {1, 1, 1, 1, 1};
+  MPI_Datatype types[5] = {MPI_CXX_BOOL, MPI_CXX_BOOL, MPI_DOUBLE, MPI_DOUBLE, MPI_CXX_BOOL};
 
-  MPI_Aint offsets[4];
+  MPI_Aint offsets[5];
   offsets[0] = offsetof(Params, hierarchical_allreduce);
-  offsets[1] = offsetof(Params, tensor_fusion_threshold);
-  offsets[2] = offsetof(Params, cycle_time);
-  offsets[3] = offsetof(Params, active);
+  offsets[1] = offsetof(Params, hierarchical_allgather);
+  offsets[2] = offsetof(Params, tensor_fusion_threshold);
+  offsets[3] = offsetof(Params, cycle_time);
+  offsets[4] = offsetof(Params, active);
 
   MPI_Type_create_struct(nitems, blocklengths, offsets, types, &mpi_params_type_);
   MPI_Type_commit(&mpi_params_type_);
@@ -87,7 +89,7 @@ void ParameterManager::Initialize(int32_t rank, int32_t root_rank, MPI_Comm mpi_
   if (rank_ == root_rank && !file_name.empty()) {
     file_.open(file_name, std::ios::out | std::ios::trunc);
     if (file_.good()) {
-      file_ << "hierarchical_allreduce,cycle_time_ms,tensor_fusion_threshold,score" << std::endl;
+      file_ << "hierarchical_allreduce,hierarchical_allgather,cycle_time_ms,tensor_fusion_threshold,score" << std::endl;
       writing_ = true;
     }
   }
@@ -107,6 +109,15 @@ bool ParameterManager::HierarchicalAllreduce() const {
 void ParameterManager::SetHierarchicalAllreduce(bool value, bool fixed) {
   hierarchical_allreduce_.SetValue(value, fixed);
 }
+
+bool ParameterManager::HierarchicalAllgather() const {
+  return active_ ? hierarchical_allgather_.Value() : hierarchical_allgather_.BestValue();
+}
+
+void ParameterManager::SetHierarchicalAllgather(bool value, bool fixed) {
+  hierarchical_allgather_.SetValue(value, fixed);
+}
+
 
 int64_t ParameterManager::TensorFusionThresholdBytes() const {
   double b = active_ ?
@@ -197,11 +208,13 @@ void ParameterManager::SyncParams() {
     if (active_) {
       // We're actively tuning, so send the current value.
       params.hierarchical_allreduce = hierarchical_allreduce_.Value();
+      params.hierarchical_allgather = hierarchical_allgather_.Value();
       params.tensor_fusion_threshold = joint_params_.Value(fusion_buffer_threshold_mb);
       params.cycle_time = joint_params_.Value(cycle_time_ms);
     } else {
       // Tuning has completed, so send the best value.
       params.hierarchical_allreduce = hierarchical_allreduce_.BestValue();
+      params.hierarchical_allgather = hierarchical_allgather_.BestValue();
       params.tensor_fusion_threshold = joint_params_.BestValue(fusion_buffer_threshold_mb);
       params.cycle_time = joint_params_.BestValue(cycle_time_ms);
     }
@@ -215,6 +228,7 @@ void ParameterManager::SyncParams() {
   // The other workers receive the broadcasted parameters and update their internal state in response.
   if (rank_ != root_rank_) {
     hierarchical_allreduce_.SetValue(params.hierarchical_allreduce, true);
+    hierarchical_allgather_.SetValue(params.hierarchical_allgather, true);
     joint_params_.SetValue(fusion_buffer_threshold_mb, params.tensor_fusion_threshold, true);
     joint_params_.SetValue(cycle_time_ms, params.cycle_time, true);
     active_ = params.active;
@@ -232,12 +246,14 @@ void ParameterManager::LogParameters(double score) {
   if (rank_ == root_rank_) {
     std::cerr << "HOROVOD_AUTOTUNER: ["
               << hierarchical_allreduce_.Value() << ", "
+              << hierarchical_allgather_.Value() << ", "
               << joint_params_.Value(cycle_time_ms) << " ms, "
               << joint_params_.Value(fusion_buffer_threshold_mb) << " mb] "
               << score
               << std::endl;
     if (writing_ && file_.good()) {
       file_ << hierarchical_allreduce_.Value() << ","
+            << hierarchical_allgather_.Value() << ","
             << joint_params_.Value(cycle_time_ms) << ","
             << joint_params_.Value(fusion_buffer_threshold_mb) << ","
             << score
@@ -250,12 +266,14 @@ void ParameterManager::LogBestParameters() {
   if (rank_ == root_rank_) {
     std::cerr << "HOROVOD_AUTOTUNER: BEST ["
               << hierarchical_allreduce_.BestValue() << ", "
+              << hierarchical_allgather_.BestValue() << ", "
               << joint_params_.BestValue(cycle_time_ms) << " ms, "
               << joint_params_.BestValue(fusion_buffer_threshold_mb) << " mb] "
               << hierarchical_allreduce_.BestScore()
               << std::endl;
     if (writing_ && file_.good()) {
       file_ << hierarchical_allreduce_.BestValue() << ","
+            << hierarchical_allgather_.BestValue() << ","
             << joint_params_.BestValue(cycle_time_ms) << ","
             << joint_params_.BestValue(fusion_buffer_threshold_mb) << ","
             << hierarchical_allreduce_.BestScore()
