@@ -6,7 +6,6 @@ import timeit
 
 import tensorflow as tf
 import horovod.tensorflow as hvd
-from tensorflow.python.keras import backend as K
 from tensorflow.keras import applications
 
 # Benchmark settings
@@ -42,13 +41,12 @@ config = tf.ConfigProto()
 if args.cuda:
     config.gpu_options.allow_growth = True
     config.gpu_options.visible_device_list = str(hvd.local_rank())
+    config.log_device_placement = True
 else:
     config.gpu_options.visible_device_list = ''
 
 if args.eager:
     tf.enable_eager_execution(config)
-else:
-    K.set_session(tf.Session(config=config))
 
 # Set up standard model.
 model = getattr(applications, args.model)(weights=None)
@@ -61,20 +59,16 @@ compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.n
 # Horovod: wrap optimizer with DistributedOptimizer.
 opt = hvd.DistributedOptimizer(opt, compression=compression)
 
-model.compile(loss=tf.keras.losses.sparse_categorical_crossentropy,
-              optimizer=opt,
-              metrics=['accuracy'])
-
+init = tf.global_variables_initializer()
 bcast_op = hvd.broadcast_global_variables(0)
-if not tf.executing_eagerly():
-    K.get_session().run(bcast_op)
 
 data = tf.random_uniform([args.batch_size, 224, 224, 3])
 target = tf.random_uniform([args.batch_size, 1], minval=0, maxval=999, dtype=tf.int64)
 
 
-def benchmark_step():
-    model.train_on_batch(data, target)
+def loss_function():
+    logits = model(data, training=True)
+    return tf.losses.sparse_softmax_cross_entropy(target, logits)
 
 
 def log(s, nl=True):
@@ -88,22 +82,36 @@ log('Batch size: %d' % args.batch_size)
 device = 'GPU' if args.cuda else 'CPU'
 log('Number of %ss: %d' % (device, hvd.size()))
 
-# Warm-up
-log('Running warmup...')
-timeit.timeit(benchmark_step, number=args.num_warmup_batches)
 
-# Benchmark
-log('Running benchmark...')
-img_secs = []
-for x in range(args.num_iters):
-    time = timeit.timeit(benchmark_step, number=args.num_batches_per_iter)
-    img_sec = args.batch_size * args.num_batches_per_iter / time
-    log('Iter #%d: %.1f img/sec per %s' % (x, img_sec, device))
-    img_secs.append(img_sec)
+def run(benchmark_step):
+    # Warm-up
+    log('Running warmup...')
+    timeit.timeit(benchmark_step, number=args.num_warmup_batches)
 
-# Results
-img_sec_mean = np.mean(img_secs)
-img_sec_conf = 1.96 * np.std(img_secs)
-log('Img/sec per %s: %.1f +-%.1f' % (device, img_sec_mean, img_sec_conf))
-log('Total img/sec on %d %s(s): %.1f +-%.1f' %
-    (hvd.size(), device, hvd.size() * img_sec_mean, hvd.size() * img_sec_conf))
+    # Benchmark
+    log('Running benchmark...')
+    img_secs = []
+    for x in range(args.num_iters):
+        time = timeit.timeit(benchmark_step, number=args.num_batches_per_iter)
+        img_sec = args.batch_size * args.num_batches_per_iter / time
+        log('Iter #%d: %.1f img/sec per %s' % (x, img_sec, device))
+        img_secs.append(img_sec)
+
+    # Results
+    img_sec_mean = np.mean(img_secs)
+    img_sec_conf = 1.96 * np.std(img_secs)
+    log('Img/sec per %s: %.1f +-%.1f' % (device, img_sec_mean, img_sec_conf))
+    log('Total img/sec on %d %s(s): %.1f +-%.1f' %
+        (hvd.size(), device, hvd.size() * img_sec_mean, hvd.size() * img_sec_conf))
+
+
+if tf.executing_eagerly():
+    run(lambda: opt.minimize(loss_function))
+else:
+    with tf.Session(config=config) as session:
+        init.run()
+        bcast_op.run()
+
+        loss = loss_function()
+        train_opt = opt.minimize(loss)
+        run(lambda: session.run(train_opt))
