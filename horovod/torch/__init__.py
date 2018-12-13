@@ -40,7 +40,8 @@ import collections
 
 
 class _DistributedOptimizer(torch.optim.Optimizer):
-    def __init__(self, params, named_parameters, compression):
+    def __init__(self, params, named_parameters, compression,
+                 backward_passes_per_step=1):
         super(self.__class__, self).__init__(params)
         self._compression = compression
 
@@ -62,12 +63,19 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             self._parameter_names = {v: 'allreduce.noname.%s' % i
                                      for param_group in self.param_groups
                                      for i, v in enumerate(param_group['params'])}
-
+        self.backward_passes_per_step = backward_passes_per_step
+        self._allreduce_delay = {v: self.backward_passes_per_step
+                                 for _, v in sorted(named_parameters)}
         self._handles = {}
         self._grad_accs = []
         self._requires_update = set()
         if size() > 1:
             self._register_hooks()
+
+    def set_backward_passes_per_step(self, passes):
+        self.backward_passes_per_step = passes
+        for p in self._allreduce_delay:
+            self._allreduce_delay[p] = self.backward_passes_per_step
 
     def _register_hooks(self):
         for param_group in self.param_groups:
@@ -84,14 +92,25 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         name = self._parameter_names.get(p)
         tensor = p.grad.data
         tensor_compressed, ctx = self._compression.compress(tensor)
+
         handle = allreduce_async_(tensor_compressed, average=True, name=name)
         return handle, ctx
 
     def _make_hook(self, p):
         def hook(*ignore):
-            assert p not in self._handles
+            if p in self._handles and self._handles[p][0] is not None:
+                if self._allreduce_delay[p] <= 0:
+                    raise AssertionError(
+                        "Gradients were computed more than "
+                        "backward_passes_per_step times before call "
+                        "to step(). Increase backward_passes_per_step to "
+                        "accumulate gradients locally.")
             assert not p.grad.requires_grad
-            handle, ctx = self._allreduce_grad_async(p)
+            assert self._allreduce_delay[p] > 0
+            handle, ctx = None, None
+            self._allreduce_delay[p] -= 1
+            if self._allreduce_delay[p] == 0:
+                handle, ctx = self._allreduce_grad_async(p)
             self._handles[p] = (handle, ctx)
         return hook
 
@@ -103,7 +122,12 @@ class _DistributedOptimizer(torch.optim.Optimizer):
 
         for p, value in self._handles.items():
             handle, ctx = value
+            if handle is None:
+                handle, ctx = self._allreduce_grad_async(p)
+                self._handles[p] = (handle, ctx)
+        for p, (handle, _) in self._handles.items():
             output = synchronize(handle)
+            self._allreduce_delay[p] = self.backward_passes_per_step
             p.grad.data.set_(self._compression.decompress(output, ctx))
         self._handles.clear()
 
@@ -112,7 +136,9 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         return super(self.__class__, self).step(closure)
 
 
-def DistributedOptimizer(optimizer, named_parameters=None, compression=Compression.none):
+def DistributedOptimizer(optimizer, named_parameters=None,
+                         compression=Compression.none,
+                         backward_passes_per_step=1):
     """
     An optimizer that wraps another torch.optim.Optimizer, using an allreduce to
     average gradient values before applying gradients to model weights.
@@ -142,12 +168,18 @@ def DistributedOptimizer(optimizer, named_parameters=None, compression=Compressi
         compression: Compression algorithm used during allreduce to reduce the amount
                      of data sent during the each parameter update step.  Defaults to
                      not using compression.
+        backward_passes_per_step: Number of expected backward passes to perform
+                                  before calling step()/synchronize(). This
+                                  allows accumulating gradients over multiple
+                                  mini-batches before executing averaging and
+                                  applying them.
     """
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override the `step()` method with an allreduce implementation.
     cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                dict(_DistributedOptimizer.__dict__))
-    return cls(optimizer.param_groups, named_parameters, compression)
+    return cls(optimizer.param_groups, named_parameters,
+               compression, backward_passes_per_step)
 
 
 def broadcast_parameters(params, root_rank):
