@@ -65,8 +65,7 @@ RUN echo "hwloc_base_binding_policy = none" >> /usr/local/etc/openmpi-mca-params
     echo "btl_tcp_if_exclude = lo,docker0" >> /usr/local/etc/openmpi-mca-params.conf
 
 # Set default NCCL parameters
-RUN echo NCCL_DEBUG=INFO >> /etc/nccl.conf && \
-    echo NCCL_SOCKET_IFNAME=^docker0 >> /etc/nccl.conf
+RUN echo NCCL_DEBUG=INFO >> /etc/nccl.conf
 
 # Install OpenSSH for MPI to communicate between containers
 RUN apt-get install -y --no-install-recommends openssh-client openssh-server && \
