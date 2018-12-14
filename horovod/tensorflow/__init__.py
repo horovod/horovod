@@ -218,7 +218,7 @@ class DistributedOptimizer(tf.train.Optimizer):
         if size() > 1:
             grads, vars = zip(*gradients)
             avg_grads = self._allreduce_grads(grads)
-            return zip(avg_grads, vars)
+            return list(zip(avg_grads, vars))
         else:
             return gradients
 
