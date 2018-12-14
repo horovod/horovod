@@ -40,25 +40,27 @@ before_install:
 
 env:
   matrix:
-    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=mxnet_horovod MPI=OpenMPI
-    - TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet_horovod MPI=OpenMPI
-    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet_horovod MPI=OpenMPI
-    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet_horovod MPI=OpenMPI
-    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet_horovod MPI=MPICH
+    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=mxnet-horovod MPI=OpenMPI
+    - TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet-horovod MPI=OpenMPI
+    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet-horovod MPI=OpenMPI
+    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet-horovod MPI=OpenMPI
+    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet-horovod MPI=MPICH
 
 matrix:
   fast_finish: true
   exclude:
     - python: "3.5"
-      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=mxnet_horovod MPI=OpenMPI
+      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.0 MPI=OpenMPI
     - python: "3.6"
-      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet_horovod MPI=OpenMPI
+      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MPI=OpenMPI
     - python: "3.5"
-      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet_horovod MPI=MPICH
+      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MPI=MPICH
     - python: "3.6"
-      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet_horovod MPI=MPICH
+      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MPI=MPICH
     - python: "3.5"
-      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet_horovod MPI=OpenMPI
+      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MPI=OpenMPI
+    - pythob: "2.7"
+      env: MXNET_PACKAGE=mxnet-horovod MPI=OpenMPI
 
 install:
   - |
