@@ -227,8 +227,7 @@ struct HorovodGlobalState {
   int32_t ddl_local_device_id = 0;
 
 // We reuse CUDA events as it appears that their creation carries non-zero cost.
-// Event management code is only used in NCCL path.
-#if HAVE_NCCL || HAVE_DDL
+#if HAVE_CUDA
   std::unordered_map<int, std::queue<cudaEvent_t>> cuda_events;
   std::mutex cuda_events_mutex;
 #endif
@@ -628,8 +627,8 @@ DDL_Type GetDDLDataType(const std::shared_ptr<Tensor> tensor) {
     }                                                                          \
   }
 
-// This event management code is only used in NCCL.
-#if HAVE_NCCL || HAVE_DDL
+// This event management code is only used with CUDA
+#if HAVE_CUDA
 cudaError_t GetCudaEvent(cudaEvent_t* event) {
   int device;
   auto status = cudaGetDevice(&device);
