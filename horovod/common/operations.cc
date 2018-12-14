@@ -628,8 +628,8 @@ DDL_Type GetDDLDataType(const std::shared_ptr<Tensor> tensor) {
     }                                                                          \
   }
 
-// This event management code is only used in NCCL.
-#if HAVE_NCCL || HAVE_DDL
+// This event management code is only used with CUDA, NCCL, or DDL.
+#if HAVE_NCCL || HAVE_DDL || HAVE_CUDA
 cudaError_t GetCudaEvent(cudaEvent_t* event) {
   int device;
   auto status = cudaGetDevice(&device);
