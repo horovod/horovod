@@ -42,7 +42,6 @@ config = tf.ConfigProto()
 if args.cuda:
     config.gpu_options.allow_growth = True
     config.gpu_options.visible_device_list = str(hvd.local_rank())
-    config.log_device_placement = True
 else:
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     config.gpu_options.allow_growth = False

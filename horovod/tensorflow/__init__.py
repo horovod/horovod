@@ -29,6 +29,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+
 from horovod.common import check_extension
 
 check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
@@ -38,6 +39,7 @@ from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce
 from horovod.tensorflow.mpi_ops import init, shutdown
 from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank
 from horovod.tensorflow.mpi_ops import mpi_threads_supported
+from horovod.tensorflow.util import _executing_eagerly
 
 import tensorflow as tf
 
@@ -196,7 +198,7 @@ class DistributedOptimizer(tf.train.Optimizer):
                         if grad is not None else grad
                         for grad in grads]
 
-        if tf.executing_eagerly():
+        if _executing_eagerly():
             self._allreduce_grads = tf.contrib.eager.defun(allreduce_grads)
         else:
             self._allreduce_grads = allreduce_grads
