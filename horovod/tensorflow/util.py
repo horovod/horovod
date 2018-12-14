@@ -17,9 +17,13 @@ from distutils.version import LooseVersion
 import tensorflow as tf
 
 
-_has_eager = LooseVersion(tf.__version__) >= LooseVersion("1.4.0")
+if LooseVersion(tf.__version__) >= LooseVersion("1.4.0"):
+    from tensorflow.python.eager import context
+    _has_eager = True
+else:
+    _has_eager = False
 
 
 def _executing_eagerly():
     """Returns true if eager execution is supported and enabled."""
-    return _has_eager and tf.executing_eagerly()
+    return _has_eager and context.in_eager_mode()
