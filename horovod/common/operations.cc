@@ -228,7 +228,7 @@ struct HorovodGlobalState {
 
 // We reuse CUDA events as it appears that their creation carries non-zero cost.
 // Event management code is only used in NCCL path.
-#if HAVE_NCCL || HAVE_DDL
+#if HAVE_NCCL || HAVE_DDL || HAVE_CUDA
   std::unordered_map<int, std::queue<cudaEvent_t>> cuda_events;
   std::mutex cuda_events_mutex;
 #endif
