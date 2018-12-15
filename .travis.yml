@@ -10,13 +10,13 @@ services:
 before_install:
   # force latest Debian for Python 3.6 and nightly TensorFlow which requires new glibc
   - |
-    if [[ ${TRAVIS_PYTHON_VERSION} == "3.6" || ${TF_PACKAGE} == "tf-nightly" ]]; then
-      export DEBIAN=buster
-    elif [[ ${TRAVIS_PYTHON_VERSION} == "3.5" ]]; then
-      export DEBIAN=stretch
-    else
-      export DEBIAN=jessie
-    fi
+#    if [[ ${TRAVIS_PYTHON_VERSION} == "3.6" || ${TF_PACKAGE} == "tf-nightly" ]]; then
+#      export DEBIAN=buster
+#    elif [[ ${TRAVIS_PYTHON_VERSION} == "3.5" ]]; then
+#      export DEBIAN=stretch
+#    else
+     export DEBIAN=jessie
+#    fi
   - docker pull debian:${DEBIAN}
   # run docker container for an hour
   - docker run -v `pwd`:/horovod debian:${DEBIAN} /bin/sh -c "sleep 3600" &
@@ -40,11 +40,11 @@ before_install:
 
 env:
   matrix:
-    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=mxnet-horovod MPI=OpenMPI
-    - TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet-horovod MPI=OpenMPI
-    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet-horovod MPI=OpenMPI
-    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet-horovod MPI=OpenMPI
-    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet-horovod MPI=MPICH
+    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=mxnet MPI=OpenMPI
+    - TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet MPI=OpenMPI
+    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet MPI=OpenMPI
+    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet MPI=OpenMPI
+    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet MPI=MPICH
 
 matrix:
   fast_finish: true
@@ -52,13 +52,13 @@ matrix:
     - python: "3.5"
       env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.0 MPI=OpenMPI
     - python: "3.6"
-      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet-horovod MPI=OpenMPI
+      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet MPI=OpenMPI
     - python: "3.5"
-      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet-horovod MPI=MPICH
+      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet MPI=MPICH
     - python: "3.6"
-      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet-horovod MPI=MPICH
+      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet MPI=MPICH
     - python: "3.5"
-      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet-horovod MPI=OpenMPI
+      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet MPI=OpenMPI
 
 install:
   - |
