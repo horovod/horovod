@@ -63,7 +63,7 @@ def main(_):
         # from rank 0 to all other processes. This is necessary to ensure consistent
         # initialization of all workers when training is started with random weights
         # or restored from a checkpoint.
-        hvd.bcast(0, mnist_model.variables) if batch == 0 else None
+        hvd.broadcast_variables(0, mnist_model.variables) if batch == 0 else None
 
         # Horovod: add Horovod Distributed GradientTape.
         tape = hvd.DistributedGradientTape(tape)
