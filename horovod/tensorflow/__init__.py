@@ -297,21 +297,26 @@ class _DistributedGradientTape(tf.GradientTape):
         self._compression = compression
         self._sparse_as_dense = sparse_as_dense
 
-    def gradient(self, target, sources, output_gradients=None):
-        gradients = super(self.__class__, self).gradient(target, sources, output_gradients)
-        if size() > 1:
-            averaged_gradients = []
+        def allreduce_grads(grads):
             with tf.name_scope(self._name + "_Allreduce"):
-                for grad in gradients:
-                    if self._sparse_as_dense and \
-                            isinstance(grad, tf.IndexedSlices):
-                        grad = tf.convert_to_tensor(grad)
-                    avg_grad = allreduce(grad,
-                                         device_dense=self._device_dense,
-                                         device_sparse=self._device_sparse,
-                                         compression=self._compression)
-                    averaged_gradients.append(avg_grad)
-            return averaged_gradients
+                if self._sparse_as_dense:
+                    grads = [tf.convert_to_tensor(grad)
+                             if grad is not None and isinstance(grad, tf.IndexedSlices)
+                             else grad for grad in grads]
+                return [allreduce(grad,
+                                  device_dense=self._device_dense,
+                                  device_sparse=self._device_sparse,
+                                  compression=self._compression)
+                        if grad is not None else grad
+                        for grad in grads]
+
+        self._allreduce_grads = tf.contrib.eager.defun(allreduce_grads)
+
+    def gradient(self, target, sources, output_gradients=None):
+        grads = super(self.__class__, self).gradient(target, sources, output_gradients)
+        if size() > 1:
+            avg_grads = self._allreduce_grads(grads)
+            return avg_grads
         else:
             return gradients
 
