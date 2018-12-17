@@ -27,6 +27,7 @@ from tensorflow.python.platform import resource_loader
 
 from horovod.common import get_ext_suffix
 from horovod.common import HorovodBasics as _HorovodBasics
+from horovod.tensorflow.util import _executing_eagerly
 
 
 def _load_library(name, op_list=None):
@@ -85,10 +86,8 @@ def _allreduce(tensor, name=None):
       A tensor of the same shape and type as `tensor`, summed across all
       processes.
     """
-    if name is None and not tf.executing_eagerly():
+    if name is None and not _executing_eagerly():
         name = 'HorovodAllreduce_%s' % _normalize_name(tensor.name)
-    if tf.executing_eagerly():
-        name = 'HorovodAllreduce'
     return MPI_LIB.horovod_allreduce(tensor, name=name)
 
 
@@ -120,10 +119,8 @@ def allgather(tensor, name=None):
       the first dimension, which may be greater and is the sum of all first
       dimensions of the tensors in different Horovod processes.
     """
-    if name is None and not tf.executing_eagerly():
+    if name is None and not _executing_eagerly():
         name = 'HorovodAllgather_%s' % _normalize_name(tensor.name)
-    if tf.executing_eagerly():
-        name = 'HorovodAllgather'
     return MPI_LIB.horovod_allgather(tensor, name=name)
 
 
@@ -163,10 +160,8 @@ def broadcast(tensor, root_rank, name=None):
       A tensor of the same shape and type as `tensor`, with the value broadcasted
       from root rank.
     """
-    if name is None and not tf.executing_eagerly():
+    if name is None and not _executing_eagerly():
         name = 'HorovodBroadcast_%s' % _normalize_name(tensor.name)
-    if tf.executing_eagerly():
-        name = 'HorovodBroadcast'
     return MPI_LIB.horovod_broadcast(tensor, name=name, root_rank=root_rank)
 
 
