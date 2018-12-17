@@ -97,7 +97,7 @@ def broadcast_global_variables(root_rank):
     return tf.group(*[tf.assign(var, broadcast(var, root_rank))
                       for var in tf.global_variables()])
 
-def bcast(root_rank, variables):
+def broadcast_variables(root_rank, variables):
     """Broadcasts variables from root rank to all other processes.
 
     Arguments:
