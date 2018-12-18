@@ -68,9 +68,7 @@ def check_tf_version():
 
 def get_cpp_flags(build_ext):
     last_err = None
-    default_flags = ['-std=c++11', '-fPIC', '-O2']
-    if mlsl_root:
-        default_flags = ['-DHAVE_MLSL'] + default_flags
+    default_flags = ['-std=c++11', '-fPIC', '-O2', '-Wall']
     avx_flags = ['-mf16c', '-mavx']
     if sys.platform == 'darwin':
         # Darwin most likely will have Clang, which has libc++.
@@ -427,22 +425,26 @@ def get_common_options(build_ext):
                              'If you\'re sure you want to mix them, set the '
                              'HOROVOD_ALLOW_MIXED_GPU_IMPL environment variable to \'1\'.')
 
-    MACROS = []
-    INCLUDES = []
+    MACROS = [('EIGEN_MPL2_ONLY', 1)]
+    INCLUDES = ['third_party/eigen',
+                'third_party/lbfgs/include']
     SOURCES = ['horovod/common/common.cc',
+               'horovod/common/fusion_buffer_manager.cc',
                'horovod/common/mpi_message.cc',
                'horovod/common/half.cc',
                'horovod/common/timeline.cc']
-    if mlsl_root:
-        SOURCES += ['horovod/common/mlsl_operations.cc']
-    else:
-        SOURCES += ['horovod/common/operations.cc']
+               'horovod/common/operations.cc',
+               'horovod/common/parameter_manager.cc',
+               'horovod/common/timeline.cc',
+               'horovod/common/optim/bayesian_optimization.cc',
+               'horovod/common/optim/gaussian_process.cc']
     COMPILE_FLAGS = cpp_flags + shlex.split(mpi_flags)
     LINK_FLAGS = link_flags + shlex.split(mpi_flags)
     LIBRARY_DIRS = []
     LIBRARIES = []
 
     if mlsl_root:
+        MACROS += [('HAVE_MLSL', '1')]
         LIBRARY_DIRS += [mlsl_root + '/intel64/lib/']
         INCLUDES += [mlsl_root + '/intel64/include/']
         LINK_FLAGS += ['-lmlsl']

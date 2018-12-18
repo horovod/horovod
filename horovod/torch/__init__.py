@@ -40,7 +40,8 @@ import collections
 
 
 class _DistributedOptimizer(torch.optim.Optimizer):
-    def __init__(self, params, named_parameters, compression):
+    def __init__(self, params, named_parameters, compression,
+                 backward_passes_per_step=1):
         super(self.__class__, self).__init__(params)
         self._compression = compression
 
@@ -55,40 +56,78 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                              'tuples (name, parameter), usually produced by '
                              'model.named_parameters().')
 
-        self._parameter_names = {v: k for k, v
-                                 in sorted(named_parameters)}
+        if len(named_parameters) > 0:
+            self._parameter_names = {v: k for k, v
+                                     in sorted(named_parameters)}
+        else:
+            self._parameter_names = {v: 'allreduce.noname.%s' % i
+                                     for param_group in self.param_groups
+                                     for i, v in enumerate(param_group['params'])}
+        self.backward_passes_per_step = backward_passes_per_step
+        self._allreduce_delay = {v: self.backward_passes_per_step
+                                 for _, v in sorted(named_parameters)}
         self._handles = {}
         self._grad_accs = []
-
+        self._requires_update = set()
         if size() > 1:
             self._register_hooks()
+
+    def set_backward_passes_per_step(self, passes):
+        self.backward_passes_per_step = passes
+        for p in self._allreduce_delay:
+            self._allreduce_delay[p] = self.backward_passes_per_step
 
     def _register_hooks(self):
         for param_group in self.param_groups:
             for p in param_group['params']:
                 if p.requires_grad:
+                    p.grad = p.data.new(p.size()).zero_()
+                    self._requires_update.add(p)
                     p_tmp = p.expand_as(p)
                     grad_acc = p_tmp.grad_fn.next_functions[0][0]
                     grad_acc.register_hook(self._make_hook(p))
                     self._grad_accs.append(grad_acc)
 
+    def _allreduce_grad_async(self, p):
+        name = self._parameter_names.get(p)
+        tensor = p.grad.data
+        tensor_compressed, ctx = self._compression.compress(tensor)
+
+        handle = allreduce_async_(tensor_compressed, average=True, name=name)
+        return handle, ctx
+
     def _make_hook(self, p):
         def hook(*ignore):
-            assert p not in self._handles
+            if p in self._handles and self._handles[p][0] is not None:
+                if self._allreduce_delay[p] <= 0:
+                    raise AssertionError(
+                        "Gradients were computed more than "
+                        "backward_passes_per_step times before call "
+                        "to step(). Increase backward_passes_per_step to "
+                        "accumulate gradients locally.")
             assert not p.grad.requires_grad
-            name = self._parameter_names.get(p)
-
-            tensor = p.grad.data
-            tensor_compressed, ctx = self._compression.compress(tensor)
-
-            handle = allreduce_async_(tensor_compressed, average=True, name=name)
+            assert self._allreduce_delay[p] > 0
+            handle, ctx = None, None
+            self._allreduce_delay[p] -= 1
+            if self._allreduce_delay[p] == 0:
+                handle, ctx = self._allreduce_grad_async(p)
             self._handles[p] = (handle, ctx)
         return hook
 
     def synchronize(self):
+        missing_p = self._requires_update - set(self._handles.keys())
+        for p in missing_p:
+            handle, ctx = self._allreduce_grad_async(p)
+            self._handles[p] = (handle, ctx)
+
         for p, value in self._handles.items():
             handle, ctx = value
+            if handle is None:
+                handle, ctx = self._allreduce_grad_async(p)
+                self._handles[p] = (handle, ctx)
+        for p, (handle, _) in self._handles.items():
             output = synchronize(handle)
+            self._allreduce_delay[p] = self.backward_passes_per_step
             p.grad.data.set_(self._compression.decompress(output, ctx))
         self._handles.clear()
 
@@ -97,7 +136,9 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         return super(self.__class__, self).step(closure)
 
 
-def DistributedOptimizer(optimizer, named_parameters=None, compression=Compression.none):
+def DistributedOptimizer(optimizer, named_parameters=None,
+                         compression=Compression.none,
+                         backward_passes_per_step=1):
     """
     An optimizer that wraps another torch.optim.Optimizer, using an allreduce to
     average gradient values before applying gradients to model weights.
@@ -127,12 +168,18 @@ def DistributedOptimizer(optimizer, named_parameters=None, compression=Compressi
         compression: Compression algorithm used during allreduce to reduce the amount
                      of data sent during the each parameter update step.  Defaults to
                      not using compression.
+        backward_passes_per_step: Number of expected backward passes to perform
+                                  before calling step()/synchronize(). This
+                                  allows accumulating gradients over multiple
+                                  mini-batches before executing averaging and
+                                  applying them.
     """
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override the `step()` method with an allreduce implementation.
     cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                dict(_DistributedOptimizer.__dict__))
-    return cls(optimizer.param_groups, named_parameters, compression)
+    return cls(optimizer.param_groups, named_parameters,
+               compression, backward_passes_per_step)
 
 
 def broadcast_parameters(params, root_rank):
@@ -190,7 +237,15 @@ def broadcast_optimizer_state(optimizer, root_rank):
         for group in optimizer.param_groups:
             for p in group['params']:
                 p.grad = p.data.new(p.size()).zero_()
-        optimizer.step()
+        # This function accepts a torch.optim.Optimizer or a DistributedOptimizer
+        # wrapped around a torch optimizer. Calling step() with a DistributedOptimizer
+        # forces allreduce on all model parameters, which will result in deadlock
+        # unless every rank calls step(). Therefore, to finish state initialization
+        # only call optimizer.step() with a torch.optim.Optimizer.
+        if optimizer.__module__ == DistributedOptimizer.__module__:
+            super(optimizer.__class__, optimizer).step()
+        else:
+            optimizer.step()
         state_dict = optimizer.state_dict()
 
     # If the state_dict is still empty after initialization, then
@@ -204,6 +259,22 @@ def broadcast_optimizer_state(optimizer, root_rank):
     callbacks = {}
     occurrences = collections.defaultdict(int)
 
+    # Returns the full type structure of the possibly nested objects for recursive casting back
+    def _get_types(x):
+        if isinstance(x, collections.Iterable):
+            return type(x), [_get_types(xi) for xi in x]
+        else:
+            return type(x)
+
+    # Casts an object encoded in a tensor back into its original type and subtypes
+    def _recursive_cast(x, dtype):
+        if isinstance(dtype, tuple):
+            t, dtypes = dtype
+            x = t(x)
+            return t([_recursive_cast(x[i], dtypes[i]) for i in range(len(x))])
+        else:
+            return dtype(x)
+
     # Some optimizer parameters may be represented as scalars instead of
     # tensors.  In such cases, we need to wrap the scalar in a tensor, then
     # broadcast, then update the appropriate value in the state_dict with the
@@ -213,9 +284,9 @@ def broadcast_optimizer_state(optimizer, root_rank):
             state_dict['state'][pid][name] = t(p.numpy()[0])
         return _from_tensor
 
-    def _create_option_callback(index, option_key, option_tensor, dtype):
+    def _create_option_callback(index, option_key, option_tensor, dtypes):
         def _from_tensor():
-            optimizer.param_groups[index][option_key] = dtype(option_tensor.numpy()[0])
+            optimizer.param_groups[index][option_key] = _recursive_cast(option_tensor.numpy()[0], dtypes)
         return _from_tensor
 
     # Param groups are an ordered list, normally there is only one per model,
@@ -229,9 +300,9 @@ def broadcast_optimizer_state(optimizer, root_rank):
 
             # Options like the learning rate are scalar, and need to be wrapped in tensors
             key = '%s.%d' % (option_key, index)
-            dtype = type(option_value)
+            dtypes = _get_types(option_value)
             option_tensor = torch.Tensor([option_value])
-            callbacks[key] = _create_option_callback(index, option_key, option_tensor, dtype)
+            callbacks[key] = _create_option_callback(index, option_key, option_tensor, dtypes)
             params.append((key, option_tensor))
 
         # The params list here is ordered by the layers in the model

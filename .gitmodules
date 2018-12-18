@@ -1,0 +1,6 @@
+[submodule "third_party/lbfgs"]
+	path = third_party/lbfgs
+	url = https://github.com/yixuan/LBFGSpp.git
+[submodule "third_party/eigen"]
+	path = third_party/eigen
+	url = https://github.com/eigenteam/eigen-git-mirror.git
