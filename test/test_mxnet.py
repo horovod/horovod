@@ -192,6 +192,7 @@ class MXTests(unittest.TestCase):
             tensor.wait_to_read()
             assert mx.nd.min(broadcast_tensor == root_tensor) == 1, \
                 'hvd.broadcast produces incorrect broadcasted tensor'
+        mx.ndarray.waitall()
 
     def test_horovod_broadcast_inplace(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
@@ -236,6 +237,7 @@ class MXTests(unittest.TestCase):
             tensor.wait_to_read()
             assert mx.nd.min(broadcast_tensor == root_tensor) == 1, \
                 'hvd.broadcast produces incorrect broadcasted tensor'
+        mx.ndarray.waitall()
 
     def test_horovod_broadcast_grad(self):
         """Test the correctness of the broadcast gradient."""
