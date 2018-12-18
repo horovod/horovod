@@ -432,7 +432,6 @@ def get_common_options(build_ext):
                'horovod/common/fusion_buffer_manager.cc',
                'horovod/common/mpi_message.cc',
                'horovod/common/half.cc',
-               'horovod/common/timeline.cc',
                'horovod/common/operations.cc',
                'horovod/common/parameter_manager.cc',
                'horovod/common/timeline.cc',
