@@ -46,6 +46,7 @@ env:
       else
         export MXNET=mxnet-horovod
       fi
+
   matrix:
     - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=${MXNET} MPI=OpenMPI
     - TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=${MXNET} MPI=OpenMPI
