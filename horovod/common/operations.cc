@@ -23,6 +23,34 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#if HAVE_MLSL
+/*
+ * MLSL provides such collective ops as:
+ *      – MLSL::AllReduce:
+ *          Perform allreduce on a Tensor, returning the sum
+ *          across all MLSL processes in the global distribution.
+ *      – MLSL::AllGatherv:
+ *          Perform allgather on a Tensor, returning the concatenation of
+ *          the tensor on the first dimension across all MLSL processes in the
+ *          global communicator.
+ *      - MLSL::Bcast:
+ *          Perform broadcast on a Tensor, broadcasting Tensor
+ *          value from root rank to all other ranks.
+ *
+ * AllGatherv and Bcast can use MLSL::DT_BYTE type because they don't deal with
+ * math and just collect/distribute the data.
+ *
+ * For better performance one should correctly set HVD_MLSL_BGT_AFFINITY
+ * environment variable to pin BackgroundThread so that it wouldn't
+ * interfere with other threads.
+ *
+ */
+#include <assert.h>
+#include <mutex>
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <vector>
+#else
 #if HAVE_CUDA
 #include <cuda_runtime.h>
 #endif
@@ -34,6 +62,7 @@
 #if HAVE_DDL
 #include <ddl.hpp>
 #endif
+#endif
 
 #define OMPI_SKIP_MPICXX
 #include "half.h"
@@ -41,6 +70,9 @@
 #include "fusion_buffer_manager.h"
 #include "parameter_manager.h"
 #include "mpi.h"
+#if HAVE_MLSL
+#include "mlsl.hpp"
+#endif
 #include "mpi_message.h"
 #include "operations.h"
 #include "timeline.h"
@@ -75,6 +107,63 @@ namespace horovod {
 namespace common {
 
 namespace {
+    
+#if HAVE_MLSL
+#define COMMUNICATOR_TABLE_MAX 1000
+#define NULL_VAL nullptr
+
+#define ERROR 0
+#define INFO  1
+#define DEBUG 2
+#define TRACE 3
+
+#define GET_TID() syscall(SYS_gettid)
+
+#define MLSL_LOG(log_lvl, fmt, ...)					\
+  do {									\
+    if (log_lvl <= mlsl_log_lvl)					\
+    {									\
+       char time_buf[20]; /*2016:07:21 14:47:39*/			\
+       GetTime(time_buf, 20);						\
+       switch (log_lvl) {						\
+       case ERROR:							\
+         printf("%s: ERROR: (%ld): %s:%u " fmt "\n", time_buf, GET_TID(),\
+            __FUNCTION__, __LINE__, ##__VA_ARGS__);			\
+         break;							\
+       case INFO:							\
+         printf("(%ld): %s:%u " fmt "\n", GET_TID(),			\
+            __FUNCTION__, __LINE__, ##__VA_ARGS__);			\
+         break;							\
+       case DEBUG:							\
+       case TRACE:							\
+         printf("%s: (%ld): %s:%u " fmt "\n", time_buf, GET_TID(),	\
+            __FUNCTION__, __LINE__, ##__VA_ARGS__);			\
+       default:							\
+         assert(0);							\
+       }								\
+       fflush(stdout);							\
+    }									\
+  } while (0)
+
+void GetTime(char* buf, size_t bufSize)
+{
+   time_t timer;
+   struct tm* timeInfo = 0;
+   time(&timer);
+   timeInfo = localtime(&timer);
+   assert(timeInfo);
+   strftime(buf, bufSize, "%Y:%m:%d %H:%M:%S", timeInfo);
+}
+
+enum HvdRequestType
+{
+  HRT_ALLREDUCE = 0,
+  HRT_BCAST     = 1,
+  HRT_ALLGATHER = 2,
+};
+
+static int mlsl_log_lvl = ERROR;
+#endif
 
 // Table storing Tensors to be reduced, keyed by unique name.
 // This table contains everything necessary to do the reduction.
@@ -88,23 +177,39 @@ struct TensorTableEntry {
   // Pre-allocated output tensor.
   std::shared_ptr<Tensor> output;
   // Root rank for broadcast operation.
-  int root_rank = 0;
+  int root_rank = 0;  
+#if HAVE_MLSL
+  // Request object for this tensor
+  MLSL::CommReq *request;
+  // Communicator
+  MLSL::Distribution *comm;
+  MLSL::Distribution *tmp_comm;
+  HvdRequestType req_type;
+  size_t* size_vec;
+#else
   // Event indicating that data is ready.
   std::shared_ptr<ReadyEvent> ready_event;
   // GPU to do reduction on, or CPU_DEVICE_ID in case of CPU.
   int device = CPU_DEVICE_ID;
+#endif
   // A callback to call with the status.
   StatusCallback callback;
 };
+
 using TensorTable = std::unordered_map<std::string, TensorTableEntry>;
 
+#if HAVE_MLSL
+// Table storing Tensor metadata on all non-coordinator ranks until
+// rank zero sends communicator for tensor.
+typedef std::unordered_map<std::string, MLSL::Distribution*> NameTable;
+#else
 // Table for storing Tensor metadata on rank zero. This is used for error
 // checking, stall checking and size calculations, as well as determining
 // when a reduction is ready to be done (when all nodes are ready to do it).
 using MessageTable = std::unordered_map<
     std::string,
     std::tuple<std::vector<MPIRequest>, std::chrono::steady_clock::time_point>>;
-
+#endif
 // The global state required for the MPI ops.
 //
 // MPI is a library that stores a lot of global per-program state and often
@@ -121,16 +226,24 @@ struct HorovodGlobalState {
 
   // Tensors waiting to be allreduced or allgathered.
   TensorTable tensor_table;
+  
+#if HAVE_MLSL
+  // Communicators ready to be used for tensors awaiting allreduce or allgather
+  std::queue<MLSL::Distribution*> comm_table;
+  int next_free_comm;
+  
+  // Table for ready to use tensors
+  std::vector<TensorTableEntry> current_table;
 
+  // Table that keeps tensor names along with tensor name specific communicator
+  NameTable recvname_table;
+  
+  // Communicator for coordination
+  MPI_Comm coord_comm;
+#else
   // Queue of MPI requests waiting to be sent to the coordinator node.
   std::queue<MPIRequest> message_queue;
-
-  // Background thread running MPI communication.
-  std::thread background_thread;
-
-  // Whether the background thread should shutdown.
-  std::atomic_bool shut_down {false};
-
+  
   // Whether Horovod should finalize MPI (only if it has initialized it).
   bool should_finalize = false;
 
@@ -149,12 +262,18 @@ struct HorovodGlobalState {
   Timeline timeline;
 
   ParameterManager param_manager;
-
+  
   // Encapsulates the fusion buffers, handles resizing and auto-tuning of buffer size.
   FusionBufferManager fusion_buffer;
 
   // Time point when last cycle started.
   std::chrono::steady_clock::time_point last_cycle_start;
+#endif
+  // Background thread running MPI communication.
+  std::thread background_thread;
+
+  // Whether the background thread should shutdown.
+  std::atomic_bool shut_down {false};
 
   // Whether MPI_Init has been completed on the background thread.
   std::atomic_bool initialization_done {false};
@@ -163,9 +282,11 @@ struct HorovodGlobalState {
   // multi-threading is supported, ranks from which the MPI communicator will
   // be made and the communicator itself.
   int rank = 0;
+  int size = 1;
+#if !HAVE_MLSL
   int local_rank = 0;
   int cross_rank = 0;
-  int size = 1;
+  
   int local_size = 1;
   int cross_size = 1;
   bool mpi_threads_supported = false;
@@ -231,7 +352,7 @@ struct HorovodGlobalState {
   std::unordered_map<int, std::queue<cudaEvent_t>> cuda_events;
   std::mutex cuda_events_mutex;
 #endif
-
+#endif
   ~HorovodGlobalState() {
     // Make sure that the destructor of the background thread is safe to
     // call. If a thread is still joinable (not detached or complete) its
@@ -267,6 +388,141 @@ const Status DUPLICATE_NAME_ERROR = Status::InvalidArgument(
     "name as another tensor that is currently being processed.  If you want "
     "to request another tensor, use a different tensor name.");
 
+#if HAVE_MLSL
+/* Current implementation of reduction operation supports
+ * only float and double data types. For other collective
+ * operations a data type of the same size is used */
+
+MLSL::DataType GetMLSLDataType(const std::shared_ptr<Tensor> tensor) {
+  switch (tensor->dtype()) {
+  case HOROVOD_UINT8:
+    return MLSL::DT_BYTE;
+  case HOROVOD_FLOAT32:
+    return MLSL::DT_FLOAT;
+  case HOROVOD_FLOAT64:
+    return MLSL::DT_DOUBLE;
+  default:
+    throw std::logic_error("Type " + MPIDataType_Name(tensor->dtype()) +
+                           " is not supported in MLSL.");
+  }
+}
+
+void PerformOperationMLSL(std::vector<TensorTableEntry>& tensor_table) {
+    bool op_completed = false;
+
+    std::vector<TensorTableEntry>::size_type i = 0;
+    while (i < tensor_table.size())
+    {
+        op_completed = false;
+        if (tensor_table[i].request == NULL_VAL && tensor_table[i].comm != NULL_VAL)
+        {
+            // Issue op if communicator assigned for this tensor
+            MLSL_LOG(DEBUG, "NOW collective operation %s %p %p %d %p %p %ld\n",
+                     tensor_table[i].tensor_name.c_str(), tensor_table[i].tensor->data(),
+                     tensor_table[i].comm, tensor_table[i].tensor->dtype(), tensor_table[i].request,
+                     NULL_VAL, tensor_table[i].tensor->size());
+
+            if (tensor_table[i].req_type == HRT_BCAST)
+            {
+                tensor_table[i].request = tensor_table[i].comm->Bcast(horovod_global.rank == tensor_table[i].root_rank ?
+                                                   (void*) tensor_table[i].tensor->data() : (void*) tensor_table[i].output->data(),
+                                                   (int) tensor_table[i].tensor->size(), MLSL::DT_BYTE, tensor_table[i].root_rank, MLSL::GT_DATA);
+            }
+            else if (tensor_table[i].req_type == HRT_ALLREDUCE)
+            {
+                tensor_table[i].request = tensor_table[i].comm->AllReduce((void*) tensor_table[i].tensor->data(), (void*) tensor_table[i].output->data(),
+                                                   (int) tensor_table[i].tensor->shape().num_elements(), GetMLSLDataType(tensor_table[i].tensor),
+                                                   MLSL::RT_SUM, MLSL::GT_DATA);
+            }
+            else if (tensor_table[i].req_type == HRT_ALLGATHER && tensor_table[i].size_vec != NULL)
+            {
+                size_t mySize = tensor_table[i].tensor->shape().dim_size(0);
+                std::vector<size_t> rcvCounts(horovod_global.size);
+                for (int j = 0; j < horovod_global.size; j++)
+                    rcvCounts[j] = sizeof(size_t);
+
+                tensor_table[i].request = tensor_table[i].comm->AllGatherv(&mySize, sizeof(size_t), (void*) tensor_table[i].size_vec, rcvCounts.data(),
+                                                                             MLSL::DT_BYTE, MLSL::GT_DATA);
+                tensor_table[i].tmp_comm = tensor_table[i].comm;
+            }
+
+            tensor_table[i].comm = NULL_VAL;
+            MLSL_LOG(DEBUG, "NOW collective operation done %s %p %p %d %p %p %ld\n",
+                     tensor_table[i].tensor_name.c_str(), tensor_table[i].tensor->data(),
+                     tensor_table[i].comm, tensor_table[i].tensor->dtype(), tensor_table[i].request,
+                     NULL_VAL, tensor_table[i].tensor->size());
+        }
+        else if (tensor_table[i].request != NULL_VAL && tensor_table[i].comm == NULL_VAL)
+        {
+            bool testflag = 0;
+            MLSL::Environment::GetEnv().Test(tensor_table[i].request, &testflag);
+
+            if (testflag)
+            {
+                if (tensor_table[i].req_type == HRT_ALLGATHER && tensor_table[i].size_vec != NULL)
+                {
+                    TensorShape single_slice_shape;
+                    size_t total_first_dimension_size = 0;
+                    size_t total_size_of_other_dims = 1;
+                    for (int j = 1; j < tensor_table[i].tensor->shape().dims(); j++)
+                    {
+                        single_slice_shape.AddDim(tensor_table[i].tensor->shape().dim_size(j));
+                        total_size_of_other_dims *= tensor_table[i].tensor->shape().dim_size(j);
+                    }
+
+                    std::vector<size_t> rcounts(horovod_global.size);
+                    size_t element_bytesize = tensor_table[i].tensor->size()/tensor_table[i].tensor->shape().num_elements();
+                    for (int j = 0; j < horovod_global.size; j++)
+                    {
+                        rcounts[j] = tensor_table[i].size_vec[j] * total_size_of_other_dims * element_bytesize;
+                        total_first_dimension_size += tensor_table[i].size_vec[j];
+                    }
+
+                    // Allgather output will have shape of:
+                    // (sum of first dimension of every tensor) x (tensor slice shape)
+                    TensorShape output_shape;
+                    output_shape.AddDim((int64_t)total_first_dimension_size);
+                    output_shape.AppendShape(single_slice_shape);
+
+                    Status status = tensor_table[i].context->AllocateOutput(output_shape, &(tensor_table[i].output));
+                    if (!status.ok())
+                    {
+                        tensor_table[i].callback(status);
+                        return;
+                    }
+
+                    tensor_table[i].request = tensor_table[i].tmp_comm->AllGatherv((void*) tensor_table[i].tensor->data(), tensor_table[i].tensor->size(),
+                                                            (void*) tensor_table[i].output->data(), rcounts.data(),
+                                                            MLSL::DT_BYTE, MLSL::GT_DATA);
+
+                    delete tensor_table[i].size_vec;
+                    tensor_table[i].size_vec = NULL;
+                    tensor_table[i].comm = NULL_VAL;
+                    MLSL_LOG(DEBUG, "Test success for intermediate AllGather call %s %p\n",
+                             tensor_table[i].tensor_name.c_str(), tensor_table[i].tensor->data());
+                }
+                else
+                {
+                    // Remove request from request_table and execute tensor callback.
+                    tensor_table[i].callback(Status::OK());
+                    tensor_table[i].request = NULL_VAL;
+                    op_completed = true;
+                    MLSL_LOG(DEBUG, "Test success %s %p\n",
+                             tensor_table[i].tensor_name.c_str(), tensor_table[i].tensor->data());
+                }
+            }
+        }
+
+        if (op_completed == true)
+        {
+            tensor_table.erase(tensor_table.begin() + i);
+            break;
+        } else {
+            ++i;
+        }
+    }
+}
+#else
 #define OP_ERROR(entries, error_message)                                       \
   {                                                                            \
     for (auto& e : (entries)) {                                                \
@@ -1530,6 +1786,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
   }
 }
 
+
 // Report Tensors that were submitted to be reduced, gathered or broadcasted by
 // some ranks but not others and are waiting for long time to get processed.
 void CheckForStalledTensors(HorovodGlobalState& state) {
@@ -1579,7 +1836,7 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
     }
   }
 }
-
+#endif
 // The MPI background thread loop coordinates all the MPI processes and the
 // tensor reductions. The design of the communicator mechanism is limited by a
 // few considerations:
@@ -1601,7 +1858,65 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
 //      otherwise we may end up dispatching many blocked threads and never make
 //      progress if we have a thread pool limit.
 bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator);
+
+#if HAVE_MLSL
+static void server_affinity_set(int affinity) {
+  cpu_set_t cpuset;
+  pthread_t current_thread = pthread_self();
+
+  __CPU_ZERO_S(sizeof(cpu_set_t), &cpuset);
+  __CPU_SET_S(affinity, sizeof(cpu_set_t), &cpuset);
+
+  if (pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset) != 0)
+      perror("setaffinity failed\n");
+
+  // Check if we set the affinity correctly
+  if (pthread_getaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset) != 0)
+      perror("sched_getaffinity failed\n");
+
+  for (int core_idx = 0; core_idx < __CPU_SETSIZE; core_idx++)
+       if (__CPU_ISSET_S(core_idx, sizeof(cpu_set_t), &cpuset))
+           MLSL_LOG(DEBUG, "BG-thread affinity %d\n", core_idx);
+}
+#endif
 void BackgroundThreadLoop(HorovodGlobalState& state) {
+#if HAVE_MLSL
+    char* hvd_mlsl_bg_thread_env = NULL;
+    int bg_thread_affinity = 0;
+    if ((hvd_mlsl_bg_thread_env = getenv("HVD_MLSL_BGT_AFFINITY")) != NULL)
+        bg_thread_affinity = atoi(hvd_mlsl_bg_thread_env);
+
+    server_affinity_set(bg_thread_affinity);
+
+    char* log_lvl_env = NULL;
+    if ((log_lvl_env = getenv("HVD_MLSL_LOG_LVL")) != NULL)
+        mlsl_log_lvl = atoi(log_lvl_env);
+
+    MLSL_LOG(DEBUG, "BG-thread start\n");
+
+    // Initialize MLSL
+    MLSL::Environment::GetEnv().Init(NULL, NULL);
+
+    // Get rank to determine if we are rank zero.
+    size_t rank = MLSL::Environment::GetEnv().GetProcessIdx();
+    bool is_coordinator = rank == 0;
+
+    // Get comm size to determine how many tensors to wait for before reducing.
+    size_t size = MLSL::Environment::GetEnv().GetProcessCount();
+
+    state.rank = rank;
+    state.size = size;
+    state.initialization_done = true;
+
+    MLSL::Distribution* global_dist = MLSL::Environment::GetEnv().CreateDistribution(size, 1);
+
+    state.next_free_comm = 0;
+
+    // Special communicator for coordinator to send new communicator id for the specific tensor
+    MPI_Comm newcomm_world;
+    MPI_Comm_split(MPI_COMM_WORLD, 0, rank, &newcomm_world);
+    state.coord_comm = newcomm_world;
+#else
   // Initialize MPI if it was not initialized. This must happen on the
   // background thread, since not all MPI implementations support being called
   // from multiple threads.
@@ -1810,11 +2125,28 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   // Signal that initialization is completed.
   state.initialization_done = true;
+#endif
 
   // Iterate until shutdown.
   while (RunLoopOnce(state, is_coordinator))
     ;
+#if HAVE_MLSL
+  global_dist->Barrier(MLSL::GT_GLOBAL);
+  MLSL_LOG(DEBUG, "BG-thread comm destroy\n");
+  
+  // Destroy MLSL communicators
+  MLSL::Environment::GetEnv().DeleteDistribution(global_dist);
 
+  while (!state.comm_table.empty())
+  {
+      MLSL::Distribution *comm = state.comm_table.front();
+      state.comm_table.pop();
+      MLSL::Environment::GetEnv().DeleteDistribution(comm);
+  }
+
+  MLSL_LOG(DEBUG, "BG-thread MLSL Finalize\n");
+  MLSL::Environment::GetEnv().Finalize();
+#else
   // Signal that shutdown has been requested.
   state.shut_down = true;
 
@@ -1887,6 +2219,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     }
 #endif
   }
+#endif
 }
 
 // The coordinator currently follows a master-worker paradigm. Rank zero acts
@@ -1919,6 +2252,124 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 //      If instead of "DONE" they receive "SHUTDOWN", they exit their background
 //      loop.
 bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
+#if HAVE_MLSL
+    bool should_shut_down = false;
+
+    // Lock and create private copy of tensor table
+    {
+        std::lock_guard<std::mutex> guard(state.mutex);
+        for (auto& i : state.tensor_table)
+            state.current_table.push_back(i.second);
+
+        state.tensor_table.clear();
+    }
+
+    // Background thread prepares a pool of predefined communicators organized as a queue.
+    // When coordinator is ready to post a collective operation for some tensors it distributes
+    // next 'free' communicator idx along with tensor names to all other processes so that
+    // every process could use the same communicator with specified tensor names.
+    // All the other processes check msg from coordinator. If communicator to use has not been
+    // sent by coordinator, they postpone the processing until the communicator idx is received
+
+    if (is_coordinator)
+    {
+        for (unsigned int i = 0; i < state.current_table.size(); ++i)
+        {
+            auto& entry = state.current_table[i];
+            auto name = entry.tensor_name;
+            if (entry.request == NULL_VAL && entry.comm == NULL_VAL)
+            {
+                auto rn_it = state.recvname_table.find(name);
+                if (rn_it != state.recvname_table.end())
+                {
+                    entry.comm = rn_it->second;
+                }
+                else
+                {
+                    // Use next free communicator and send tensor name to all other ranks.
+                    // Communicators are assigned in the order enforced by coordinator rank
+                    for (int r = 1; r < state.size; r++)
+                    {
+                        MPI_Send(name.c_str(), (int)name.length(), MPI_BYTE, r,
+                                 state.next_free_comm, state.coord_comm);
+                    }
+
+                    MLSL::Distribution *newcomm = MLSL::Environment::GetEnv().CreateDistribution(state.size, 1);
+                    state.comm_table.push(newcomm);
+                    entry.comm = newcomm;
+                    state.recvname_table.emplace(name, newcomm);
+                    state.next_free_comm++;
+                    // We should be able to remove the below but
+                    // keep it for now in case this indicates an issue rather than big model
+                    if (state.next_free_comm == COMMUNICATOR_TABLE_MAX)
+                        MLSL_LOG(INFO, "Created more than 1K distributions which may indicate an issue if model is not that large");
+                }
+                MLSL_LOG(DEBUG, "NOW Coord comm assigned %d %p %lu %s\n",
+                         state.next_free_comm - 1, entry.comm, name.length(), name.c_str());
+            }
+        }
+    }
+    else
+    {
+        // Check for messages from coordinator
+        MPI_Status status;
+        int test_flag;
+
+        do {
+            test_flag = 0;
+
+            MPI_Iprobe(RANK_ZERO, state.next_free_comm, state.coord_comm, &test_flag, &status);
+            if (test_flag)
+            {
+                int msg_length;
+                MPI_Get_count(&status, MPI_BYTE, &msg_length);
+
+                // Get tensor name from MPI into an std::string.
+                char* buffer = new char[msg_length];
+                MPI_Recv(buffer, msg_length, MPI_BYTE, RANK_ZERO, state.next_free_comm, state.coord_comm, &status);
+                std::string received_name(buffer, (size_t)msg_length);
+                delete[] buffer;
+
+                MLSL::Distribution *newcomm = MLSL::Environment::GetEnv().CreateDistribution(state.size, 1);
+                state.comm_table.push(newcomm);
+                state.next_free_comm++;
+                state.recvname_table.emplace(received_name, newcomm);
+                MLSL_LOG(DEBUG, "NCoord comm added:  %s - %p\n", received_name.c_str(), newcomm);
+            }
+        } while (test_flag == 1);
+
+        for (unsigned int i = 0; i < state.current_table.size(); ++i)
+        {
+            auto& entry = state.current_table[i];
+            auto name = entry.tensor_name;
+            if (entry.request == NULL_VAL && entry.comm == NULL_VAL)
+            {
+                auto rn_it = state.recvname_table.find(name);
+                if (rn_it != state.recvname_table.end())
+                {
+                    entry.comm = rn_it->second;
+                    MLSL_LOG(DEBUG, "NOW NCoord comm assigned %p %lu %s\n", entry.comm, name.length(), name.c_str());
+                }
+            }
+        }
+    }
+
+    PerformOperationMLSL(state.current_table);
+
+    volatile bool check_shut_down = state.shut_down;
+    if (check_shut_down == true)
+    {
+        should_shut_down = check_shut_down;
+        for (unsigned int i = 0; i < state.current_table.size(); ++i)
+        {
+            if (state.current_table[i].request != NULL_VAL)
+            {
+                should_shut_down = false;
+                break;
+            }
+        }
+    }
+#else  
   // This delay determines thread frequency and MPI message latency
   auto start_time = std::chrono::steady_clock::now();
   auto sleep_duration =
@@ -2168,6 +2619,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     }
   }
 
+#endif
   return !should_shut_down;
 }
 
@@ -2176,9 +2628,11 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 void InitializeHorovodOnce(const int* ranks, int nranks) {
   // Ensure background thread is only started once.
   if (!horovod_global.initialize_flag.test_and_set()) {
+#if !HAVE_MLSL
     for (int i = 0; i < nranks; i++) {
       horovod_global.ranks.push_back(ranks[i]);
     }
+#endif
 
     // Reset initialization flag
     horovod_global.initialization_done = false;
@@ -2191,6 +2645,14 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
   while (!horovod_global.initialization_done) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
+  
+#if HAVE_MLSL
+  MLSL_LOG(DEBUG, "BG-thread init done\n");
+
+  char hostname[256];
+  gethostname(hostname, sizeof(hostname));
+  MLSL_LOG(DEBUG, "PID %d on %s ready for attach\n", getpid(), hostname);
+#endif
 }
 
 } // namespace
@@ -2209,7 +2671,9 @@ void horovod_init(const int* ranks, int nranks) {
 }
 
 void horovod_init_comm(MPI_Comm comm) {
+#if !HAVE_MLSL
   MPI_Comm_dup(comm, &(horovod_global.mpi_comm));
+#endif
   InitializeHorovodOnce(NULL, 0);
 }
 
@@ -2231,10 +2695,14 @@ int horovod_rank() {
 }
 
 int horovod_local_rank() {
+#if HAVE_MLSL
+  return horovod_rank();
+#else
   if (!horovod_global.initialization_done) {
     return -1;
   }
   return horovod_global.local_rank;
+#endif
 }
 
 int horovod_size() {
@@ -2245,18 +2713,24 @@ int horovod_size() {
 }
 
 int horovod_local_size() {
+#if HAVE_MLSL
+  return horovod_size();
+#else
   if (!horovod_global.initialization_done) {
     return -1;
   }
   return horovod_global.local_size;
+#endif
 }
 
+#if !HAVE_MLSL
 int horovod_mpi_threads_supported() {
   if (!horovod_global.initialization_done) {
     return -1;
   }
   return horovod_global.mpi_threads_supported ? 1 : 0;
 }
+#endif
 }
 
 // MPI must be initialized and the background thread must be running before
@@ -2267,6 +2741,7 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string name, const int device,
                               StatusCallback callback) {
+#if !HAVE_MLSL
   MPIRequest message;
   message.set_request_rank(horovod_global.rank);
   message.set_tensor_name(name);
@@ -2276,15 +2751,24 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   for (int i = 0; i < tensor->shape().dims(); i++) {
     message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
   }
+#endif
 
   TensorTableEntry e;
   e.tensor_name = name;
   e.context = context;
   e.tensor = tensor;
   e.output = output;
+  e.callback = callback;
+#if HAVE_MLSL
+  e.request = NULL_VAL;
+  e.comm = NULL_VAL;
+  e.req_type = HRT_ALLREDUCE;
+  
+  MLSL_LOG(DEBUG, "Enqueue allreduce for tensor with address: %p\n", e.tensor->data());
+#else
   e.ready_event = ready_event;
   e.device = device;
-  e.callback = callback;
+#endif
 
   std::lock_guard<std::mutex> guard(horovod_global.mutex);
   if (horovod_global.shut_down) {
@@ -2295,7 +2779,9 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
     return DUPLICATE_NAME_ERROR;
   }
   horovod_global.tensor_table.emplace(name, std::move(e));
+#if !HAVE_MLSL
   horovod_global.message_queue.push(message);
+#endif
   return Status::OK();
 }
 
@@ -2306,6 +2792,7 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string name, const int device,
                               StatusCallback callback) {
+#if !HAVE_MLSL
   MPIRequest message;
   message.set_request_rank(horovod_global.rank);
   message.set_tensor_name(name);
@@ -2315,25 +2802,38 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
   for (int i = 0; i < tensor->shape().dims(); i++) {
     message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
   }
+#endif
 
   TensorTableEntry e;
   e.tensor_name = name;
   e.context = context;
   e.tensor = tensor;
+  e.callback = callback;
+#if HAVE_MLSL
+  e.request = NULL_VAL;
+  e.comm = NULL_VAL;
+  e.req_type = HRT_ALLGATHER;
+  e.size_vec = new size_t[horovod_global.size];
+
+  MLSL_LOG(DEBUG, "Enqueue allgather for tensor with address: %p\n", e.tensor->data());
+#else
   e.ready_event = ready_event;
   e.device = device;
-  e.callback = callback;
+#endif
+  
 
   std::lock_guard<std::mutex> guard(horovod_global.mutex);
   if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
-  }
+  }  
   if (horovod_global.tensor_table.find(name) !=
       horovod_global.tensor_table.end()) {
     return DUPLICATE_NAME_ERROR;
   }
   horovod_global.tensor_table.emplace(name, std::move(e));
+#if !HAVE_MLSL
   horovod_global.message_queue.push(message);
+#endif
   return Status::OK();
 }
 
@@ -2345,6 +2845,7 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string name, const int device,
                               StatusCallback callback) {
+#if !HAVE_MLSL
   MPIRequest message;
   message.set_request_rank(horovod_global.rank);
   message.set_tensor_name(name);
@@ -2355,6 +2856,7 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   for (int i = 0; i < tensor->shape().dims(); i++) {
     message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
   }
+#endif
 
   TensorTableEntry e;
   e.tensor_name = name;
@@ -2362,9 +2864,17 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   e.tensor = tensor;
   e.output = output;
   e.root_rank = root_rank;
+  e.callback = callback;
+#if HAVE_MLSL
+  e.request = NULL_VAL;
+  e.comm = NULL_VAL;
+  e.req_type = HRT_BCAST;
+
+  MLSL_LOG(DEBUG, "Enqueue bcast for tensor with address: %p\n", e.tensor->data());
+#else
   e.ready_event = ready_event;
   e.device = device;
-  e.callback = callback;
+#endif
 
   std::lock_guard<std::mutex> guard(horovod_global.mutex);
   if (horovod_global.shut_down) {
@@ -2375,7 +2885,9 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
     return DUPLICATE_NAME_ERROR;
   }
   horovod_global.tensor_table.emplace(name, std::move(e));
+#if !HAVE_MLSL
   horovod_global.message_queue.push(message);
+#endif
   return Status::OK();
 }
 
