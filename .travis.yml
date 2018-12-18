@@ -40,12 +40,7 @@ before_install:
 
 env:
   global:
-    - |
-      if [[ ${TRAVIS_PYTHON_VERSION} == "2.7" ]]; then
-        MXNET=mxnet==1.5.0b20181216
-      else
-        MXNET=mxnet-horovod==1.5.0b2018121401
-      fi
+    - MXNET=mxnet==1.5.0b20181216
 
   matrix:
     - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=${MXNET} MPI=OpenMPI
@@ -104,7 +99,12 @@ install:
     fi
 
   # MXNet
-  - docker exec ${CONTAINER} /bin/sh -c "pip install ${MXNET_PACKAGE}"
+  - |
+    if [[ ${TRAVIS_PYTHON_VERSION} == "2.7" ]]; then
+      docker exec ${CONTAINER} /bin/sh -c "pip install mxnet==1.5.0b20181216"
+    else
+      docker exec ${CONTAINER} /bin/sh -c "pip install mxnet-horovod==1.5.0b2018121401"
+    fi
 
   # Horovod
   - docker exec ${CONTAINER} /bin/sh -c "cd /horovod && python setup.py sdist"
