@@ -267,7 +267,7 @@ void ParameterManager::LogParameters(double score) {
 
 void ParameterManager::LogBestParameters() {
   if (rank_ == root_rank_) {
-    LOG(INFO) << "HOROVOD_AUTOTUNER: BEST ["
+    LOG(INFO) << "Autotuner: Best params ["
               << hierarchical_allreduce_.BestValue() << ", "
               << hierarchical_allgather_.BestValue() << ", "
               << joint_params_.BestValue(cycle_time_ms) << " ms, "
