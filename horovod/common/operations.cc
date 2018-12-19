@@ -1767,7 +1767,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
                  (size != local_size);
     state.param_manager.SetHierarchicalAllgather(value, true);
   }
-
+  
   // Set flag for hierarchical allreduce. Ignore if Horovod is running on a
   // single node.
   auto horovod_hierarchical_allreduce = std::getenv(HOROVOD_HIERARCHICAL_ALLREDUCE);
@@ -1777,7 +1777,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
                  (size != local_size);
     state.param_manager.SetHierarchicalAllreduce(value, true);
   }
-  if (state.hierarchical_allreduce) LOG(INFO) << "Using Hierarchical Allreduce";
 
 #if HOROVOD_GPU_ALLREDUCE != 'N' && HOROVOD_GPU_ALLREDUCE != 'D'
   // Hierarchical allreduce is not supported without NCCL or DDL
@@ -1803,7 +1802,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
                                    horovod_autotune_log != nullptr ? std::string(horovod_autotune_log) : "");
     state.param_manager.SetAutoTuning(true);
   }
-  if (is_coordinator) LOG(INFO) << "Using fusion threshold of " << state.tensor_fusion_threshold;
 
   // Initialize the tensor count table. No tensors are available yet.
   if (is_coordinator) {

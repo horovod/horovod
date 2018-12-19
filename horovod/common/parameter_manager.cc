@@ -87,6 +87,9 @@ void ParameterManager::Initialize(int32_t rank, int32_t root_rank, MPI_Comm mpi_
   rank_ = rank;
   root_rank_ = root_rank;
   mpi_comm_ = mpi_comm;
+  if (rank_ == root_rank) {
+    LOG(INFO) << "Autotuner: Tunable params [hierarchical_allreduce,hierarchical_allgather,cycle_time_ms,tensor_fusion_threshold] score";
+  }
   if (rank_ == root_rank && !file_name.empty()) {
     file_.open(file_name, std::ios::out | std::ios::trunc);
     if (file_.good()) {
@@ -170,7 +173,7 @@ void ParameterManager::Tune(double score) {
     // Ignore this score as we're still warming up.
     warmup_remaining_--;
     if (rank_ == root_rank_) {
-      LOG(INFO) << "HOROVOD_AUTOTUNER: WARMUP DONE (" << warmup_remaining_ << " remaining)";
+      LOG(INFO) << "Autotuner: Warming up (" << warmup_remaining_ << " remaining)";
     }
   } else {
     // Log the last parameter values before updating.
@@ -245,7 +248,7 @@ void ParameterManager::Reset() {
 
 void ParameterManager::LogParameters(double score) {
   if (rank_ == root_rank_) {
-    LOG(INFO) << "HOROVOD_AUTOTUNER: ["
+    LOG(INFO) << "Autotuner: ["
               << hierarchical_allreduce_.Value() << ", "
               << hierarchical_allgather_.Value() << ", "
               << joint_params_.Value(cycle_time_ms) << " ms, "
