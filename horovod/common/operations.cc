@@ -1544,17 +1544,17 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
     if (now - start_at > STALL_WARNING_TIME) {
       std::stringstream message;
       if (!preamble) {
-        LOG(WARNING) << "WARNING: One or more tensors were submitted to be "
-                     "reduced, gathered or broadcasted by subset of ranks and "
-                     "are waiting for remainder of ranks for more than "
-                  << std::chrono::duration_cast<std::chrono::seconds>(
+        LOG(WARNING) << "One or more tensors were submitted to be "
+                        "reduced, gathered or broadcasted by subset of ranks and "
+                        "are waiting for remainder of ranks for more than "
+                     << std::chrono::duration_cast<std::chrono::seconds>(
                          STALL_WARNING_TIME)
                          .count()
-                  << " seconds. "
-                  << "This may indicate that different ranks are trying to "
-                     "submit different tensors or that only subset of ranks is "
-                     "submitting tensors, which will cause deadlock. "
-                  << std::endl << "Stalled ops:" ;
+                     << " seconds. "
+                     << "This may indicate that different ranks are trying to "
+                        "submit different tensors or that only subset of ranks is "
+                        "submitting tensors, which will cause deadlock. "
+                     << std::endl << "Stalled ops:" ;
         preamble = true;
       }
       message << tensor_name;
@@ -1627,9 +1627,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   if (is_mpi_initialized) {
     MPI_Query_thread(&provided);
     if (provided < MPI_THREAD_MULTIPLE) {
-      LOG(WARNING) << "WARNING: MPI has already been initialized without "
-                   "multi-threading support (MPI_THREAD_MULTIPLE). This will "
-                   "likely cause a segmentation fault.";
+      LOG(WARNING) << "MPI has already been initialized without "
+                      "multi-threading support (MPI_THREAD_MULTIPLE). This will "
+                      "likely cause a segmentation fault.";
     }
   } else {
     MPI_Init_thread(NULL, NULL, required, &provided);
@@ -1644,8 +1644,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
                    &work_group);
     MPI_Comm_create_group(MPI_COMM_WORLD, work_group, 0, &(state.mpi_comm));
     if (state.mpi_comm == MPI_COMM_NULL) {
-      LOG(WARNING) << "WARNING: Unable to create Horovod communicator, using "
-                   "MPI_COMM_WORLD instead.";
+      LOG(WARNING) << "Unable to create Horovod communicator, using "
+                      "MPI_COMM_WORLD instead.";
       state.mpi_comm = MPI_COMM_WORLD;
     }
     MPI_Group_free(&world_group);
@@ -1788,7 +1788,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   if (is_coordinator && (state.param_manager.HierarchicalAllreduce()
               || state.param_manager.HierarchicalAllgather()) && !state.is_homogeneous) {
     LOG(WARNING)
-        << "WARNING: Using different number of ranks per node might cause "
+        << "Using different number of ranks per node might cause "
            "performance loss in hierarchical allgather and "
            "hierarchical allreduce. Consider assigning the same "
            "number of ranks to each node, or disabling hierarchical "

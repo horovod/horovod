@@ -14,6 +14,7 @@
 // =============================================================================
 
 #include "parameter_manager.h"
+#include "logging.h"
 
 #include <algorithm>
 #include <cmath>
@@ -169,7 +170,7 @@ void ParameterManager::Tune(double score) {
     // Ignore this score as we're still warming up.
     warmup_remaining_--;
     if (rank_ == root_rank_) {
-      std::cerr << "HOROVOD_AUTOTUNER: WARMUP DONE (" << warmup_remaining_ << " remaining)" << std::endl;
+      LOG(INFO) << "HOROVOD_AUTOTUNER: WARMUP DONE (" << warmup_remaining_ << " remaining)";
     }
   } else {
     // Log the last parameter values before updating.
@@ -244,13 +245,12 @@ void ParameterManager::Reset() {
 
 void ParameterManager::LogParameters(double score) {
   if (rank_ == root_rank_) {
-    std::cerr << "HOROVOD_AUTOTUNER: ["
+    LOG(INFO) << "HOROVOD_AUTOTUNER: ["
               << hierarchical_allreduce_.Value() << ", "
               << hierarchical_allgather_.Value() << ", "
               << joint_params_.Value(cycle_time_ms) << " ms, "
               << joint_params_.Value(fusion_buffer_threshold_mb) << " mb] "
-              << score
-              << std::endl;
+              << score;
     if (writing_ && file_.good()) {
       file_ << hierarchical_allreduce_.Value() << ","
             << hierarchical_allgather_.Value() << ","
@@ -264,13 +264,12 @@ void ParameterManager::LogParameters(double score) {
 
 void ParameterManager::LogBestParameters() {
   if (rank_ == root_rank_) {
-    std::cerr << "HOROVOD_AUTOTUNER: BEST ["
+    LOG(INFO) << "HOROVOD_AUTOTUNER: BEST ["
               << hierarchical_allreduce_.BestValue() << ", "
               << hierarchical_allgather_.BestValue() << ", "
               << joint_params_.BestValue(cycle_time_ms) << " ms, "
               << joint_params_.BestValue(fusion_buffer_threshold_mb) << " mb] "
-              << hierarchical_allreduce_.BestScore()
-              << std::endl;
+              << hierarchical_allreduce_.BestScore();
     if (writing_ && file_.good()) {
       file_ << hierarchical_allreduce_.BestValue() << ","
             << hierarchical_allgather_.BestValue() << ","
