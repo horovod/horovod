@@ -146,7 +146,9 @@ void ThrowIfError(Status status) {
     throw std::runtime_error(status.reason());
   case StatusType::INVALID_ARGUMENT:
     throw std::invalid_argument(status.reason());
-  default: // Includes UNKNOWN_ERROR and OUT_OF_RANGE_ERROR
+  case StatusType::OUT_OF_RANGE_ERROR:
+    throw std::runtime_error(status.reason());
+  default: // Includes UNKNOWN_ERROR
     throw std::runtime_error(status.reason());
   }
 }
