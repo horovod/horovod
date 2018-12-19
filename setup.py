@@ -239,7 +239,7 @@ def get_tf_flags(build_ext, cpp_flags):
 
 def get_mx_include_dirs():
     import mxnet as mx
-    return mx.libinfo.find_include_path()
+    return [mx.libinfo.find_include_path()]
 
 
 def get_mx_lib_dirs():
@@ -272,13 +272,19 @@ def get_mx_libs(build_ext, lib_dirs, cpp_flags):
 
 
 def get_mx_flags(build_ext, cpp_flags):
-    compile_flags = []
-    link_flags = []
+    mx_include_dirs = get_mx_include_dirs()
     mx_lib_dirs = get_mx_lib_dirs()
+    mx_libs = get_mx_libs(build_ext, mx_lib_dirs, cpp_flags)
+
+    compile_flags = []
+    for include_dir in mx_include_dirs:
+        compile_flags.append('-I%s' % include_dir)
+
+    link_flags = []
     for lib_dir in mx_lib_dirs:
         link_flags.append('-Wl,-rpath,%s' % lib_dir)
         link_flags.append('-L%s' % lib_dir)
-    mx_libs = get_mx_libs(build_ext, mx_lib_dirs, cpp_flags) 
+
     for lib in mx_libs:
         link_flags.append('-l%s' % lib)
 
@@ -443,7 +449,6 @@ def get_common_options(build_ext):
     cpp_flags = get_cpp_flags(build_ext)
     link_flags = get_link_flags(build_ext)
     mpi_flags = get_mpi_flags()
-    mxnet_include_dirs = get_mx_include_dirs()
 
     gpu_allreduce = os.environ.get('HOROVOD_GPU_ALLREDUCE')
     if gpu_allreduce and gpu_allreduce != 'MPI' and gpu_allreduce != 'NCCL' and \
@@ -524,14 +529,6 @@ def get_common_options(build_ext):
         LIBRARY_DIRS += ddl_lib_dirs
         LIBRARIES += ['ddl', 'ddl_pack']
 
-    if mxnet_include_dirs:
-        if have_cuda:
-            MACROS += [('MSHADOW_USE_CUDA', '1')]
-        else:
-            MACROS += [('MSHADOW_USE_CUDA', '0')] 
-        MACROS += [('MSHADOW_USE_MKL', '0')]
-        INCLUDES += ['%s' % mxnet_include_dirs]
-
     if gpu_allreduce:
         MACROS += [('HOROVOD_GPU_ALLREDUCE', "'%s'" % gpu_allreduce[0])]
 
@@ -590,6 +587,11 @@ def build_mx_extension(build_ext, options):
         build_ext, options['COMPILE_FLAGS'])
 
     mxnet_mpi_lib.define_macros = options['MACROS']
+    if check_macro(options['MACROS'], 'HAVE_CUDA'):
+        mxnet_mpi_lib.define_macros += [('MSHADOW_USE_CUDA', '1')]
+    else:
+        mxnet_mpi_lib.define_macros += [('MSHADOW_USE_CUDA', '0')]
+    mxnet_mpi_lib.define_macros += [('MSHADOW_USE_MKL', '0')]
     mxnet_mpi_lib.include_dirs = options['INCLUDES']
     mxnet_mpi_lib.sources = options['SOURCES'] + \
         ['horovod/mxnet/mpi_ops.cc',
