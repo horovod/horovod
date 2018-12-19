@@ -36,6 +36,10 @@ Status Status::UnknownError(std::string message) {
   return Status(StatusType::UNKNOWN_ERROR, message);
 }
 
+Status Status::OutOfRangeError(std::string message){
+  return Status(StatusType::OUT_OF_RANGE_ERROR, message);
+}
+
 Status Status::PreconditionError(std::string message) {
   return Status(StatusType::PRECONDITION_ERROR, message);
 }

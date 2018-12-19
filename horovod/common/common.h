@@ -30,7 +30,8 @@ namespace common {
 // List of supported frameworks.
 enum Framework { TENSORFLOW, PYTORCH };
 
-enum StatusType { OK, UNKNOWN_ERROR, PRECONDITION_ERROR, ABORTED, INVALID_ARGUMENT };
+enum StatusType { OK, UNKNOWN_ERROR, OUT_OF_RANGE_ERROR, PRECONDITION_ERROR,
+    ABORTED, INVALID_ARGUMENT };
 
 enum DeviceType { CPU, GPU };
 
@@ -39,6 +40,7 @@ public:
   Status();
   static Status OK();
   static Status UnknownError(std::string message);
+  static Status OutOfRangeError(std::string message);
   static Status PreconditionError(std::string message);
   static Status Aborted(std::string message);
   static Status InvalidArgument(std::string message);

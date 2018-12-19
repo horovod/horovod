@@ -46,6 +46,8 @@ Status ConvertStatus(const common::Status& status) {
     return Status::OK();
   case common::UNKNOWN_ERROR:
     return errors::Unknown(status.reason());
+  case common::OUT_OF_RANGE_ERROR:
+    return errors::OutOfRange(status.reason());
   case common::PRECONDITION_ERROR:
     return errors::FailedPrecondition(status.reason());
   case common::ABORTED:

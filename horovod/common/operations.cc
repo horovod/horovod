@@ -255,7 +255,7 @@ HorovodGlobalState horovod_global;
 const Status NOT_INITIALIZED_ERROR = Status::PreconditionError(
     "Horovod has not been initialized; use hvd.init().");
 
-const Status SHUT_DOWN_ERROR = Status::UnknownError(
+const Status SHUT_DOWN_ERROR = Status::OutOfRangeError(
     "Horovod has been shut down. This was caused by an exception on one of the "
     "ranks or an attempt to allreduce, allgather or broadcast a tensor after "
     "one of the ranks finished execution. If the shutdown was caused by an "
