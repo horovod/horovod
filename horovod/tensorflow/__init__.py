@@ -100,8 +100,7 @@ def broadcast_global_variables(root_rank):
         root_rank: rank of the process from which global variables will be broadcasted
         to all other processes.
     """
-    return tf.group(*[tf.assign(var, broadcast(var, root_rank))
-                      for var in tf.global_variables()])
+    return broadcast_variables(root_rank, tf.global_variables())
 
 def broadcast_variables(root_rank, variables):
     """Broadcasts variables from root rank to all other processes.
@@ -251,42 +250,10 @@ class DistributedOptimizer(tf.train.Optimizer):
 
 
 class _DistributedGradientTape(tf.GradientTape):
-    """An tape that wraps another tf.GradientTape, using an allreduce to
-    average gradient values before applying gradients to model weights.
-
-    Args:
-      gradtape:
-        GradientTape to use for computing gradients and applying updates.
-      persistent:
-        Boolean controlling whether a persistent gradient tape
-        is created. False by default, which means at most one call can
-        be made to the gradient() method on this object.
-      watch_accessed_variables:
-        Boolean controlling whether the tape will
-        automatically `watch` any (trainable) variables accessed while the tape
-        is active. Defaults to True meaning gradients can be requested from any
-        result computed in the tape derived from reading a trainable `Variable`.
-        If False users must explicitly `watch` any `Variable`s they want to
-        request gradients from.
-      device_dense:
-        Device to be used for dense tensors. Uses GPU by default
-        if Horovod was build with HOROVOD_GPU_ALLREDUCE.
-      device_sparse:
-        Device to be used for sparse tensors. Uses GPU by default
-        if Horovod was build with HOROVOD_GPU_ALLGATHER.
-      compression:
-        Compression algorithm used during allreduce to reduce the amount
-        of data sent during the each parameter update step.  Defaults to
-        not using compression.
-      sparse_as_dense:
-        Treat all sparse gradients as dense tensors.  This can help improve
-        performance and memory utilization if the original sparse gradient
-        has high density.  Defaults to false.
-    """
 
     def __init__(self, persistent, watch_accessed_variables,
-                 tape, device_dense='', device_sparse='',
-                 compression=Compression.none, sparse_as_dense=False):
+                 tape, device_dense, device_sparse,
+                 compression, sparse_as_dense):
         super(self.__class__, self).__init__(persistent, watch_accessed_variables)
         self._tape = tape
         self._persistent = persistent
@@ -323,9 +290,40 @@ class _DistributedGradientTape(tf.GradientTape):
 
 def DistributedGradientTape(gradtape, device_dense='', device_sparse='', compression=Compression.none,
                             sparse_as_dense=False):
+    """An tape that wraps another tf.GradientTape, using an allreduce to
+    average gradient values before applying gradients to model weights.
+
+    Args:
+      gradtape:
+        GradientTape to use for computing gradients and applying updates.
+      persistent:
+        Boolean controlling whether a persistent gradient tape
+        is created. False by default, which means at most one call can
+        be made to the gradient() method on this object.
+      watch_accessed_variables:
+        Boolean controlling whether the tape will
+        automatically `watch` any (trainable) variables accessed while the tape
+        is active. Defaults to True meaning gradients can be requested from any
+        result computed in the tape derived from reading a trainable `Variable`.
+        If False users must explicitly `watch` any `Variable`s they want to
+        request gradients from.
+      device_dense:
+        Device to be used for dense tensors. Uses GPU by default
+        if Horovod was build with HOROVOD_GPU_ALLREDUCE.
+      device_sparse:
+        Device to be used for sparse tensors. Uses GPU by default
+        if Horovod was build with HOROVOD_GPU_ALLGATHER.
+      compression:
+        Compression algorithm used during allreduce to reduce the amount
+        of data sent during the each parameter update step.  Defaults to
+        not using compression.
+      sparse_as_dense:
+        Treat all sparse gradients as dense tensors.  This can help improve
+        performance and memory utilization if the original sparse gradient
+        has high density.  Defaults to false.
+    """
     cls = type(gradtape.__class__.__name__, (gradtape.__class__,),
                dict(_DistributedGradientTape.__dict__))
     return cls(gradtape._persistent, gradtape._watch_accessed_variables,
-               gradtape._tape,
-               device_dense='', device_sparse='',
-               compression=Compression.none, sparse_as_dense=False)
+               gradtape._tape, device_dense, device_sparse,
+               compression, sparse_as_dense)
