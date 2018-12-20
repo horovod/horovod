@@ -288,8 +288,8 @@ class _DistributedGradientTape(tf.GradientTape):
             return gradients
 
 
-def DistributedGradientTape(gradtape, device_dense='', device_sparse='', compression=Compression.none,
-                            sparse_as_dense=False):
+def DistributedGradientTape(gradtape, device_dense='', device_sparse='',
+                            compression=Compression.none, sparse_as_dense=False):
     """An tape that wraps another tf.GradientTape, using an allreduce to
     average gradient values before applying gradients to model weights.
 
