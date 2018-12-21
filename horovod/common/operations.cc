@@ -108,10 +108,9 @@ namespace horovod {
 namespace common {
 
 namespace {
-    
+
 #if HAVE_MLSL
 #define COMMUNICATOR_TABLE_MAX 1000
-#define NULL_VAL nullptr
 
 #define ERROR 0
 #define INFO  1
@@ -156,13 +155,6 @@ void GetTime(char* buf, size_t bufSize)
    strftime(buf, bufSize, "%Y:%m:%d %H:%M:%S", timeInfo);
 }
 
-enum HvdRequestType
-{
-  HRT_ALLREDUCE = 0,
-  HRT_BCAST     = 1,
-  HRT_ALLGATHER = 2,
-};
-
 static int mlsl_log_lvl = ERROR;
 #endif
 
@@ -178,14 +170,14 @@ struct TensorTableEntry {
   // Pre-allocated output tensor.
   std::shared_ptr<Tensor> output;
   // Root rank for broadcast operation.
-  int root_rank = 0;  
+  int root_rank = 0;
 #if HAVE_MLSL
   // Request object for this tensor
   MLSL::CommReq *request;
   // Communicator
   MLSL::Distribution *comm;
   MLSL::Distribution *tmp_comm;
-  HvdRequestType req_type;
+  MPIRequest::RequestType req_type;
   size_t* size_vec;
 #else
   // Event indicating that data is ready.
@@ -227,24 +219,24 @@ struct HorovodGlobalState {
 
   // Tensors waiting to be allreduced or allgathered.
   TensorTable tensor_table;
-  
+
 #if HAVE_MLSL
   // Communicators ready to be used for tensors awaiting allreduce or allgather
   std::queue<MLSL::Distribution*> comm_table;
   int next_free_comm;
-  
+
   // Table for ready to use tensors
   std::vector<TensorTableEntry> current_table;
 
   // Table that keeps tensor names along with tensor name specific communicator
   NameTable recvname_table;
-  
+
   // Communicator for coordination
   MPI_Comm coord_comm;
 #else
   // Queue of MPI requests waiting to be sent to the coordinator node.
   std::queue<MPIRequest> message_queue;
-  
+
   // Whether Horovod should finalize MPI (only if it has initialized it).
   bool should_finalize = false;
 
@@ -263,7 +255,7 @@ struct HorovodGlobalState {
   Timeline timeline;
 
   ParameterManager param_manager;
-  
+
   // Encapsulates the fusion buffers, handles resizing and auto-tuning of buffer size.
   FusionBufferManager fusion_buffer;
 
@@ -284,21 +276,21 @@ struct HorovodGlobalState {
   // be made and the communicator itself.
   int rank = 0;
   int size = 1;
-#if !HAVE_MLSL
   int local_rank = 0;
   int cross_rank = 0;
-  
   int local_size = 1;
   int cross_size = 1;
-  bool mpi_threads_supported = false;
-  bool is_homogeneous = false;
-  std::vector<int> ranks;
 
-  // COMM_WORLD ranks of processes running on this node.
-  std::vector<int> local_comm_ranks;
+  std::vector<int> ranks;
 
   // Numbers of ranks running per node
   std::vector<int> local_sizes;
+#if !HAVE_MLSL
+  bool mpi_threads_supported = false;
+  bool is_homogeneous = false;
+
+  // COMM_WORLD ranks of processes running on this node.
+  std::vector<int> local_comm_ranks;
 
   // MPI custom data type for float16.
   MPI_Datatype mpi_float16_t;
@@ -415,27 +407,27 @@ void PerformOperationMLSL(std::vector<TensorTableEntry>& tensor_table) {
     while (i < tensor_table.size())
     {
         op_completed = false;
-        if (tensor_table[i].request == NULL_VAL && tensor_table[i].comm != NULL_VAL)
+        if (tensor_table[i].request == nullptr && tensor_table[i].comm != nullptr)
         {
             // Issue op if communicator assigned for this tensor
             MLSL_LOG(DEBUG, "NOW collective operation %s %p %p %d %p %p %ld\n",
                      tensor_table[i].tensor_name.c_str(), tensor_table[i].tensor->data(),
                      tensor_table[i].comm, tensor_table[i].tensor->dtype(), tensor_table[i].request,
-                     NULL_VAL, tensor_table[i].tensor->size());
+                     nullptr, tensor_table[i].tensor->size());
 
-            if (tensor_table[i].req_type == HRT_BCAST)
+            if (tensor_table[i].req_type == MPIRequest::BROADCAST)
             {
                 tensor_table[i].request = tensor_table[i].comm->Bcast(horovod_global.rank == tensor_table[i].root_rank ?
                                                    (void*) tensor_table[i].tensor->data() : (void*) tensor_table[i].output->data(),
                                                    (int) tensor_table[i].tensor->size(), MLSL::DT_BYTE, tensor_table[i].root_rank, MLSL::GT_DATA);
             }
-            else if (tensor_table[i].req_type == HRT_ALLREDUCE)
+            else if (tensor_table[i].req_type == MPIRequest::ALLREDUCE)
             {
                 tensor_table[i].request = tensor_table[i].comm->AllReduce((void*) tensor_table[i].tensor->data(), (void*) tensor_table[i].output->data(),
                                                    (int) tensor_table[i].tensor->shape().num_elements(), GetMLSLDataType(tensor_table[i].tensor),
                                                    MLSL::RT_SUM, MLSL::GT_DATA);
             }
-            else if (tensor_table[i].req_type == HRT_ALLGATHER && tensor_table[i].size_vec != NULL)
+            else if (tensor_table[i].req_type == MPIRequest::ALLGATHER && tensor_table[i].size_vec != NULL)
             {
                 size_t mySize = tensor_table[i].tensor->shape().dim_size(0);
                 std::vector<size_t> rcvCounts(horovod_global.size);
@@ -447,20 +439,20 @@ void PerformOperationMLSL(std::vector<TensorTableEntry>& tensor_table) {
                 tensor_table[i].tmp_comm = tensor_table[i].comm;
             }
 
-            tensor_table[i].comm = NULL_VAL;
+            tensor_table[i].comm = nullptr;
             MLSL_LOG(DEBUG, "NOW collective operation done %s %p %p %d %p %p %ld\n",
                      tensor_table[i].tensor_name.c_str(), tensor_table[i].tensor->data(),
                      tensor_table[i].comm, tensor_table[i].tensor->dtype(), tensor_table[i].request,
-                     NULL_VAL, tensor_table[i].tensor->size());
+                     nullptr, tensor_table[i].tensor->size());
         }
-        else if (tensor_table[i].request != NULL_VAL && tensor_table[i].comm == NULL_VAL)
+        else if (tensor_table[i].request != nullptr && tensor_table[i].comm == nullptr)
         {
             bool testflag = 0;
             MLSL::Environment::GetEnv().Test(tensor_table[i].request, &testflag);
 
             if (testflag)
             {
-                if (tensor_table[i].req_type == HRT_ALLGATHER && tensor_table[i].size_vec != NULL)
+                if (tensor_table[i].req_type == MPIRequest::ALLGATHER && tensor_table[i].size_vec != NULL)
                 {
                     TensorShape single_slice_shape;
                     size_t total_first_dimension_size = 0;
@@ -498,7 +490,7 @@ void PerformOperationMLSL(std::vector<TensorTableEntry>& tensor_table) {
 
                     delete tensor_table[i].size_vec;
                     tensor_table[i].size_vec = NULL;
-                    tensor_table[i].comm = NULL_VAL;
+                    tensor_table[i].comm = nullptr;
                     MLSL_LOG(DEBUG, "Test success for intermediate AllGather call %s %p\n",
                              tensor_table[i].tensor_name.c_str(), tensor_table[i].tensor->data());
                 }
@@ -506,7 +498,7 @@ void PerformOperationMLSL(std::vector<TensorTableEntry>& tensor_table) {
                 {
                     // Remove request from request_table and execute tensor callback.
                     tensor_table[i].callback(Status::OK());
-                    tensor_table[i].request = NULL_VAL;
+                    tensor_table[i].request = nullptr;
                     op_completed = true;
                     MLSL_LOG(DEBUG, "Test success %s %p\n",
                              tensor_table[i].tensor_name.c_str(), tensor_table[i].tensor->data());
@@ -2278,7 +2270,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
         {
             auto& entry = state.current_table[i];
             auto name = entry.tensor_name;
-            if (entry.request == NULL_VAL && entry.comm == NULL_VAL)
+            if (entry.request == nullptr && entry.comm == nullptr)
             {
                 auto rn_it = state.recvname_table.find(name);
                 if (rn_it != state.recvname_table.end())
@@ -2343,7 +2335,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
         {
             auto& entry = state.current_table[i];
             auto name = entry.tensor_name;
-            if (entry.request == NULL_VAL && entry.comm == NULL_VAL)
+            if (entry.request == nullptr && entry.comm == nullptr)
             {
                 auto rn_it = state.recvname_table.find(name);
                 if (rn_it != state.recvname_table.end())
@@ -2363,7 +2355,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
         should_shut_down = check_shut_down;
         for (unsigned int i = 0; i < state.current_table.size(); ++i)
         {
-            if (state.current_table[i].request != NULL_VAL)
+            if (state.current_table[i].request != nullptr)
             {
                 should_shut_down = false;
                 break;
@@ -2629,11 +2621,9 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 void InitializeHorovodOnce(const int* ranks, int nranks) {
   // Ensure background thread is only started once.
   if (!horovod_global.initialize_flag.test_and_set()) {
-#if !HAVE_MLSL
     for (int i = 0; i < nranks; i++) {
       horovod_global.ranks.push_back(ranks[i]);
     }
-#endif
 
     // Reset initialization flag
     horovod_global.initialization_done = false;
@@ -2646,7 +2636,7 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
   while (!horovod_global.initialization_done) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
-  
+
 #if HAVE_MLSL
   MLSL_LOG(DEBUG, "BG-thread init done\n");
 
@@ -2696,14 +2686,10 @@ int horovod_rank() {
 }
 
 int horovod_local_rank() {
-#if HAVE_MLSL
-  return horovod_rank();
-#else
   if (!horovod_global.initialization_done) {
     return -1;
   }
   return horovod_global.local_rank;
-#endif
 }
 
 int horovod_size() {
@@ -2714,14 +2700,10 @@ int horovod_size() {
 }
 
 int horovod_local_size() {
-#if HAVE_MLSL
-  return horovod_size();
-#else
   if (!horovod_global.initialization_done) {
     return -1;
   }
   return horovod_global.local_size;
-#endif
 }
 
 #if !HAVE_MLSL
@@ -2761,10 +2743,10 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   e.output = output;
   e.callback = callback;
 #if HAVE_MLSL
-  e.request = NULL_VAL;
-  e.comm = NULL_VAL;
-  e.req_type = HRT_ALLREDUCE;
-  
+  e.request = nullptr;
+  e.comm = nullptr;
+  e.req_type = MPIRequest::ALLREDUCE;
+
   MLSL_LOG(DEBUG, "Enqueue allreduce for tensor with address: %p\n", e.tensor->data());
 #else
   e.ready_event = ready_event;
@@ -2811,9 +2793,9 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
   e.tensor = tensor;
   e.callback = callback;
 #if HAVE_MLSL
-  e.request = NULL_VAL;
-  e.comm = NULL_VAL;
-  e.req_type = HRT_ALLGATHER;
+  e.request = nullptr;
+  e.comm = nullptr;
+  e.req_type = MPIRequest::ALLGATHER;
   e.size_vec = new size_t[horovod_global.size];
 
   MLSL_LOG(DEBUG, "Enqueue allgather for tensor with address: %p\n", e.tensor->data());
@@ -2821,12 +2803,11 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
   e.ready_event = ready_event;
   e.device = device;
 #endif
-  
 
   std::lock_guard<std::mutex> guard(horovod_global.mutex);
   if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
-  }  
+  }
   if (horovod_global.tensor_table.find(name) !=
       horovod_global.tensor_table.end()) {
     return DUPLICATE_NAME_ERROR;
@@ -2867,9 +2848,9 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   e.root_rank = root_rank;
   e.callback = callback;
 #if HAVE_MLSL
-  e.request = NULL_VAL;
-  e.comm = NULL_VAL;
-  e.req_type = HRT_BCAST;
+  e.request = nullptr;
+  e.comm = nullptr;
+  e.req_type = MPIRequest::BROADCAST;
 
   MLSL_LOG(DEBUG, "Enqueue bcast for tensor with address: %p\n", e.tensor->data());
 #else
