@@ -38,15 +38,6 @@ rank = _basics.rank
 local_rank = _basics.local_rank
 mpi_threads_supported = _basics.mpi_threads_supported
 
-
-# TODO(@ctcyang):
-# Used for poll support
-#
-# Schema: handle -> input, output
-# We keep input in order to make sure it does not get garbage collected
-# before the operation is finished.
-_handle_map = {}
-
 dll_path = os.path.join(os.path.dirname(__file__), 'mpi_lib' + get_ext_suffix())
 MPI_MXNET_LIB_CTYPES = ctypes.CDLL(dll_path, ctypes.RTLD_GLOBAL)
 
@@ -208,40 +199,3 @@ def broadcast_(tensor, root_rank, name=None):
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(c_in, c_out, ctypes.c_int(root_rank), name))
     return tensor
-      
-# TODO(@ctcyang):
-# Add poll support
-def poll(handle):
-    """
-    Polls an allreduce, allgather or broadcast handle to determine whether underlying
-    asynchronous operation has completed. After `poll()` returns `True`, `synchronize()`
-    will return without blocking.
-
-    Arguments:
-        handle: A handle returned by an allreduce, allgather or broadcast asynchronous
-                operation.
-
-    Returns:
-        A flag indicating whether the operation has completed.
-    """
-    return MPI_MXNET_LIB_CTYPES.horovod_mxnet_poll(handle) != 0
-
-# TODO(@ctcyang):
-# Add synchronize support
-def synchronize(handle):
-    """
-    Synchronizes an asynchronous allreduce, allgather or broadcast operation until
-    it's completed. Returns the result of the operation.
-
-    Arguments:
-        handle: A handle returned by an allreduce, allgather or broadcast asynchronous
-                operation.
-
-    Returns:
-        An output tensor of the operation.
-    """
-    if handle not in _handle_map:
-        return
-    MPI_MXNET_LIB_CTYPES.horovod_mxnet_wait_and_clear(handle)
-    _, output = _handle_map.pop(handle)
-    return output

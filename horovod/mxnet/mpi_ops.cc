@@ -361,17 +361,5 @@ extern "C" int horovod_mxnet_broadcast_async(
   return 0;
 }
 
-extern "C" int horovod_mxnet_poll(int handle) {
-  return handle_manager.PollHandle(handle) ? 1 : 0;
-}
-
-extern "C" void horovod_mxnet_wait_and_clear(int handle) {
-  while (!handle_manager.PollHandle(handle)) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  }
-  auto status = handle_manager.ReleaseHandle(handle);
-  ThrowIfError(*status);
-}
-
 } // namespace mxnet
 } // namespace horovod
