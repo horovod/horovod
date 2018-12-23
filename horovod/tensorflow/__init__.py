@@ -280,9 +280,9 @@ class _DistributedGradientTape(tf.GradientTape):
         self._allreduce_grads = tf.contrib.eager.defun(allreduce_grads)
 
     def gradient(self, target, sources, output_gradients=None):
-        grads = super(self.__class__, self).gradient(target, sources, output_gradients)
+        gradients = super(self.__class__, self).gradient(target, sources, output_gradients)
         if size() > 1:
-            avg_grads = self._allreduce_grads(grads)
+            avg_grads = self._allreduce_grads(gradients)
             return avg_grads
         else:
             return gradients
