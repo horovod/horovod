@@ -35,7 +35,7 @@ class MXTests(unittest.TestCase):
         else:
             return mx.current_context()
 
-    @unittest.skipUnless(any('stretch' in s for s in platform.dist()), "not supported")
+    @unittest.skipUnless(any('jessie' in s for s in platform.dist()), "not supported")
     def test_horovod_allreduce(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
@@ -76,7 +76,7 @@ class MXTests(unittest.TestCase):
             assert max_difference <= threshold, 'hvd.allreduce produces incorrect results'
         mx.ndarray.waitall()
 
-    @unittest.skipUnless(any('stretch' in s for s in platform.dist()), "not supported")
+    @unittest.skipUnless(any('jessie' in s for s in platform.dist()), "not supported")
     def test_horovod_allreduce_average(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
@@ -115,7 +115,7 @@ class MXTests(unittest.TestCase):
             assert max_difference <= threshold, 'hvd.allreduce produces incorrect results for average'
         mx.ndarray.waitall()
 
-    @unittest.skipUnless(any('stretch' in s for s in platform.dist()), "not supported")
+    @unittest.skipUnless(any('jessie' in s for s in platform.dist()), "not supported")
     def test_horovod_allreduce_inplace(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
@@ -153,7 +153,7 @@ class MXTests(unittest.TestCase):
             assert max_difference <= threshold, 'hvd.allreduce produces incorrect results for self'
         mx.ndarray.waitall()
 
-    @unittest.skipUnless(any('stretch' in s for s in platform.dist()), "not supported")
+    @unittest.skipUnless(any('jessie' in s for s in platform.dist()), "not supported")
     def test_horovod_broadcast(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
         hvd.init()
@@ -199,7 +199,7 @@ class MXTests(unittest.TestCase):
                 'hvd.broadcast produces incorrect broadcasted tensor'
         mx.ndarray.waitall()
 
-    @unittest.skipUnless(any('stretch' in s for s in platform.dist()), "not supported")
+    @unittest.skipUnless(any('jessie' in s for s in platform.dist()), "not supported")
     def test_horovod_broadcast_inplace(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
         hvd.init()
@@ -245,7 +245,7 @@ class MXTests(unittest.TestCase):
                 'hvd.broadcast produces incorrect broadcasted tensor'
         mx.ndarray.waitall()
 
-    @unittest.skipUnless(any('stretch' in s for s in platform.dist()), "not supported")
+    @unittest.skipUnless(any('jessie' in s for s in platform.dist()), "only supported on 14.04")
     def test_horovod_broadcast_grad(self):
         """Test the correctness of the broadcast gradient."""
         hvd.init()

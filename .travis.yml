@@ -97,7 +97,7 @@ install:
 
   # MXNet
   - |
-    if [[ ${TRAVIS_PYTHON_VERSION} == "2.7" ]]; then
+    if [[ ${DEBIAN} == "jessie" ]]; then
       docker exec ${CONTAINER} /bin/sh -c "pip install mxnet==1.5.0b20181216"
     else
       docker exec ${CONTAINER} /bin/sh -c "pip install mxnet-horovod==1.5.0b2018121401"
