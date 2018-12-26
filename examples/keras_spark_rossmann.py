@@ -473,9 +473,10 @@ def train_fn(model_bytes):
                                 verbose=verbose,
                                 epochs=100)
 
-    # TODO (@selitvin): Petastorm currently displays a wall of errors upon termination.
+    # Dataset API usage currently displays a wall of errors upon termination.
     # This global model registration ensures clean termination.
-    globals()['_PETASTORM_MODEL_HACK'] = model
+    # Tracked in https://github.com/tensorflow/tensorflow/issues/24570
+    globals()['_DATASET_FINALIZATION_HACK'] = model
 
     if hvd.rank() == 0:
         with open(ckpt_file, 'rb') as f:
