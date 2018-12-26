@@ -48,7 +48,7 @@ std::string GetOpNameHandle(std::string prefix, const std::string& name, int han
 
 } // namespace
 
-int DoAllreduce(NDArray* tensor, NDArray* output, int average, const std::string& name, Callback cb) {
+int DoAllreduce(NDArray* tensor, NDArray* output, const std::string& name, Callback cb) {
   ThrowIfError(common::CheckInitialized());
  
   auto handle = handle_manager.AllocateHandle(cb);
@@ -60,7 +60,7 @@ int DoAllreduce(NDArray* tensor, NDArray* output, int average, const std::string
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_tensor, hvd_output, nullptr,
       GetOpNameHandle("allreduce", name, handle), device,
-      [handle, average, output](const Status& status) {
+      [handle](const Status& status) {
         handle_manager.MarkDone(handle, status);
         handle_manager.ExecuteCallback(handle);
       });
@@ -70,7 +70,7 @@ int DoAllreduce(NDArray* tensor, NDArray* output, int average, const std::string
 }
 
 #if HAVE_CUDA
-int DoAllreduceCudaOnCPU(NDArray* tensor, NDArray* output, int average, std::string& name, Callback cb) {
+int DoAllreduceCudaOnCPU(NDArray* tensor, NDArray* output, std::string& name, Callback cb) {
   ThrowIfError(common::CheckInitialized());
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto hvd_cpu_buffer =
@@ -85,7 +85,7 @@ int DoAllreduceCudaOnCPU(NDArray* tensor, NDArray* output, int average, std::str
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, ready_event,
       GetOpNameHandle("allreduce", name, handle), CPU_DEVICE_ID,
-      [handle, average, hvd_cpu_buffer, output](const Status& status) {
+      [handle, hvd_cpu_buffer, output](const Status& status) {
         TensorUtil::CopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
         handle_manager.MarkDone(handle, status);
         handle_manager.ExecuteCallback(handle);
@@ -182,7 +182,7 @@ int DoBroadcastCudaOnCPU(std::shared_ptr<MXTemporaryBuffer<NDArray>>& hvd_cpu_bu
   auto enqueue_result = EnqueueTensorBroadcast(
       hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, root_rank, ready_event,
       GetOpNameHandle("broadcast", name, handle), CPU_DEVICE_ID,
-      [handle, hvd_cpu_buffer](const Status& status) {
+      [handle](const Status& status) {
         handle_manager.MarkDone(handle, status);
         handle_manager.ExecuteCallback(handle);
       });
@@ -193,17 +193,17 @@ int DoBroadcastCudaOnCPU(std::shared_ptr<MXTemporaryBuffer<NDArray>>& hvd_cpu_bu
 #endif
 
 extern "C" int horovod_mxnet_allreduce_async(
-    NDArray* input, NDArray* output, int average, char* name) {
+    NDArray* input, NDArray* output, char* name) {
 
   std::string new_name = GetOpName("allreduce", name);
-  auto allreduce_async_fn = [input, output, new_name, average](
+  auto allreduce_async_fn = [input, output, new_name](
       RunContext rctx, Engine::CallbackOnComplete cb) mutable {
-      DoAllreduce(input, output, average, new_name, cb);
+      DoAllreduce(input, output, new_name, cb);
   };
 #if HAVE_CUDA
-  auto allreduce_async_cpu_fn = [input, output, new_name, average](
+  auto allreduce_async_cpu_fn = [input, output, new_name](
       RunContext rctx, Engine::CallbackOnComplete cb) mutable {
-      DoAllreduceCudaOnCPU(input, output, average, new_name, cb);
+      DoAllreduceCudaOnCPU(input, output, new_name, cb);
   };
 #endif
 

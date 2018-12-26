@@ -33,15 +33,6 @@ void HandleManager::MarkDone(int handle, const Status& status) {
   results_[handle] = std::make_shared<Status>(status);
 }
 
-bool HandleManager::PollHandle(int handle) {
-  std::lock_guard<std::mutex> guard(mutex_);
-  if (results_.find(handle) == results_.end()) {
-    throw std::invalid_argument("Handle " + std::to_string(handle) +
-                                " was not created or has been cleared.");
-  }
-  return results_[handle] != nullptr;
-}
-
 void HandleManager::ExecuteCallback(int handle) {
   std::unique_lock<std::mutex> lock(mutex_);
   if (callbacks_.find(handle) == callbacks_.end()) {
@@ -52,18 +43,6 @@ void HandleManager::ExecuteCallback(int handle) {
    if (cb_ptr != nullptr) {
     (*cb_ptr)();
   }
-}
-
-std::shared_ptr<Status> HandleManager::ReleaseHandle(int handle) {
-  std::lock_guard<std::mutex> guard(mutex_);
-  if (results_.find(handle) == results_.end()) {
-    throw std::invalid_argument("Handle " + std::to_string(handle) +
-        " was not created or has been cleared.");
-  }
-  auto status = results_[handle];
-  results_.erase(handle);
-  callbacks_.erase(handle);
-  return status;
 }
 
 } // namespace mxnet

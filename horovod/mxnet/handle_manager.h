@@ -38,8 +38,6 @@ class HandleManager {
 public:
   int AllocateHandle(Callback cb);
   void MarkDone(int handle, const Status& status);
-  bool PollHandle(int handle);
-  std::shared_ptr<Status> ReleaseHandle(int handle);
   void ExecuteCallback(int handle);
 
 private:

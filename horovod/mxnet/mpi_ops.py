@@ -69,9 +69,9 @@ def allreduce(tensor, average=True, name=None):
     c_in = tensor.handle
     c_out = output.handle
     if isinstance(name, string_types):
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(False)), c_str(name)))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, c_str(name)))
     else:
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(False)), name))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, name))
     if average is True:
         output.wait_to_read()
         output /= size()
@@ -100,9 +100,9 @@ def allreduce_(tensor, average=True, name=None):
     c_in = tensor.handle
     c_out = tensor.handle
     if isinstance(name, string_types):
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(False)), c_str(name)))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, c_str(name)))
     else:
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, ctypes.c_int(int(False)), name))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, name))
     if average is True:
         tensor.wait_to_read()
         tensor /= size()
