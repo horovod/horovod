@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 import datetime
 import h5py
 import io
@@ -472,7 +473,7 @@ def train_fn(model_bytes):
                                 verbose=verbose,
                                 epochs=100)
 
-    # TODO (@yevgeni): Petastorm currently displays a wall of errors upon termination.
+    # TODO (@selitvin): Petastorm currently displays a wall of errors upon termination.
     # This global model registration ensures clean termination.
     globals()['_PETASTORM_MODEL_HACK'] = model
 
