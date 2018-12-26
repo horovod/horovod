@@ -43,7 +43,71 @@ Hello, rank = 14, local_rank = 2, size = 16, local_size = 4, magic_number = 42
 >>>
 ```
 
-(TODO) E2E example with Petastorm
+### End-to-end example
+
+[keras_spark_rossmann.py script](../examples/keras_spark_rossmann.py) provides
+an example of end-to-end data preparation and training of a model for the
+[Rossmann Store Sales](https://www.kaggle.com/c/rossmann-store-sales) Kaggle
+competition.
+
+It is inspired by an article [An Introduction to Deep Learning for Tabular Data](https://www.fast.ai/2018/04/29/categorical-embeddings/)
+and leverages the code of the notebook referenced in the article.
+
+The example is split into three parts:
+1. The first part performs complicated data preprocessing over initial set
+of CSV files provided by competition and gathered by the community.
+2. The second part defines a Keras model and performs a distributed training
+of the model using Horovod in Spark.
+3. The third part performs prediction using the best model and creates
+a submission file.
+
+In order to run the example, please install the following dependencies:
+* `pyspark`
+* `petastorm >= 0.5.1`
+* `h5py >= 2.9.0`
+* `tensorflow-gpu >= 1.12.0` (or `tensorflow >= 1.12.0`)
+* `horovod >= 0.15.3`
+
+Run the example:
+```bash
+$ wget https://raw.githubusercontent.com/uber/horovod/master/examples/keras_spark_rossmann.py
+$ wget http://files.fast.ai/part2/lesson14/rossmann.tgz
+$ tar zxvf rossmann.tgz
+$ python keras_spark_rossmann.py
+```
+
+### Spark cluster setup
+
+As deep learning workloads tend to have very different resource requirements
+from typical data processing workloads, there are certain considerations
+for DL Spark cluster setup.
+
+#### GPU training
+
+For GPU training, one approach is to set up a separate GPU Spark cluster
+and configure each executor with `# of CPU cores` = `# of GPUs`. This can
+be accomplished in standalone mode as follows:
+```bash
+$ echo "export SPARK_WORKER_CORES=<# of GPUs>" >> /path/to/spark/conf/spark-env.sh
+$ /path/to/spark/sbin/start-all.sh
+```
+
+This approach turns the `spark.task.cpus` setting to control # of GPUs
+requested per process (defaults to 1).
+
+#### CPU training
+
+For CPU training, one approach is to specify the `spark.task.cpus` setting
+during the training session creation:
+```python
+conf = SparkConf().setAppName('training') \
+    .setMaster('spark://training-cluster:7077') \
+    .set('spark.task.cpus', '16')
+spark = SparkSession.builder.config(conf=conf).getOrCreate()
+```
+
+This approach allows to reuse the same Spark cluster for data preparation
+and training.
 
 ### Security
 
