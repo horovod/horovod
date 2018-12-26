@@ -95,6 +95,9 @@ $ /path/to/spark/sbin/start-all.sh
 This approach turns the `spark.task.cpus` setting to control # of GPUs
 requested per process (defaults to 1).
 
+Ongoing https://issues.apache.org/jira/browse/SPARK-24615 effort aims to
+introduce GPU-aware resource scheduling in future versions of Spark.
+
 #### CPU training
 
 For CPU training, one approach is to specify the `spark.task.cpus` setting
