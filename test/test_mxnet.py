@@ -18,16 +18,28 @@ from __future__ import division
 from __future__ import print_function
 
 import itertools
-import platform
 import mxnet as mx
 import unittest
 import numpy as np
 import horovod.mxnet as hvd
 
+
 class MXTests(unittest.TestCase):
     """
     Tests for ops in horovod.mxnet.
     """
+
+    @classmethod
+    def setUpClass(cls):
+        hvd.init()
+    
+    @classmethod
+    def tear(cls):
+        # Shutdown horovod for MXNet explicitly after unit tests are done.
+        # Otherwise, due to the order of running unit tests among different
+        # frameworks, we may get NULL communicator error in MPI_Gather during
+        # stack unwinding after all unit tests pass.
+        hvd.shutdown()
 
     def _current_context(self):
         if mx.current_context().device_type == 'gpu':
@@ -35,10 +47,8 @@ class MXTests(unittest.TestCase):
         else:
             return mx.current_context()
 
-    @unittest.skipUnless(any('jessie' in s for s in platform.dist()), "not supported")
     def test_horovod_allreduce(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
-        hvd.init()
         size = hvd.size()
         dtypes = ['int32',   'int64',
                   'float32', 'float64']
@@ -76,10 +86,8 @@ class MXTests(unittest.TestCase):
             assert max_difference <= threshold, 'hvd.allreduce produces incorrect results'
         mx.ndarray.waitall()
 
-    @unittest.skipUnless(any('jessie' in s for s in platform.dist()), "not supported")
     def test_horovod_allreduce_average(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
-        hvd.init()
         size = hvd.size()
         dtypes = ['int32',   'int64',
                   'float32', 'float64']
@@ -115,10 +123,8 @@ class MXTests(unittest.TestCase):
             assert max_difference <= threshold, 'hvd.allreduce produces incorrect results for average'
         mx.ndarray.waitall()
 
-    @unittest.skipUnless(any('jessie' in s for s in platform.dist()), "not supported")
     def test_horovod_allreduce_inplace(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
-        hvd.init()
         size = hvd.size()
         dtypes = ['int32',   'int64',
                   'float32', 'float64'] 
@@ -153,10 +159,8 @@ class MXTests(unittest.TestCase):
             assert max_difference <= threshold, 'hvd.allreduce produces incorrect results for self'
         mx.ndarray.waitall()
 
-    @unittest.skipUnless(any('jessie' in s for s in platform.dist()), "not supported")
     def test_horovod_broadcast(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
-        hvd.init()
         rank = hvd.rank()
         size = hvd.size()
 
@@ -199,10 +203,8 @@ class MXTests(unittest.TestCase):
                 'hvd.broadcast produces incorrect broadcasted tensor'
         mx.ndarray.waitall()
 
-    @unittest.skipUnless(any('jessie' in s for s in platform.dist()), "not supported")
     def test_horovod_broadcast_inplace(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
-        hvd.init()
         rank = hvd.rank()
         size = hvd.size()
 
@@ -245,10 +247,8 @@ class MXTests(unittest.TestCase):
                 'hvd.broadcast produces incorrect broadcasted tensor'
         mx.ndarray.waitall()
 
-    @unittest.skipUnless(any('jessie' in s for s in platform.dist()), "only supported on 14.04")
     def test_horovod_broadcast_grad(self):
         """Test the correctness of the broadcast gradient."""
-        hvd.init()
         rank = hvd.rank()
         size = hvd.size()
 
@@ -277,14 +277,6 @@ class MXTests(unittest.TestCase):
 
         hvd.broadcast_parameters(tensor_dict, root_rank=root_rank)
         for i in range(count):
-            #if rank != root_rank:
-            #    if (mx.nd.max(tensor_dict[i] == root_dict[i]) == 0) is False:
-            #        print("broadcast", count, dtype, dim, mx.nd.max(tensor_dict[i] == root_dict[i]))
-            #        print("tensor", hvd.rank(), tensor_dict[i])
-            #        print("root_tensor", hvd.rank(), root_dict[i])
-            #        print("comparison", hvd.rank(), tensor_dict[i] == root_dict[i])
-            #    assert mx.nd.max(tensor_dict[i] == root_dict[i]) == 0, \
-            #        'hvd.broadcast modifies source tensor'
             if (mx.nd.min(tensor_dict[i] == root_dict[i]) == 1) is False:
                 print("broadcast", count, dtype, dim)
                 print("broadcast_tensor", hvd.rank(), tensor_dict[i])
