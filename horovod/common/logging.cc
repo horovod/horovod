@@ -6,11 +6,10 @@
 namespace horovod {
 namespace common {
 
-LogMessage::LogMessage(const char* fname, int line, int severity)
+LogMessage::LogMessage(const char* fname, int line, LogLevel severity)
     : fname_(fname), line_(line), severity_(severity) {}
 
 void LogMessage::GenerateLogMessage(bool log_time) {
-
   if (log_time) {
     auto now = std::chrono::system_clock::now();
     auto as_time_t = std::chrono::system_clock::to_time_t(now);
@@ -25,65 +24,57 @@ void LogMessage::GenerateLogMessage(bool log_time) {
              localtime(&as_time_t));
 
     fprintf(stdout, "[%s.%06d: %c %s:%d] %s\n", time_buffer, micros_remainder,
-            "TDIWEF"[severity_], fname_, line_, str().c_str());  
+            LOG_LEVELS[static_cast<int>(severity_)], fname_, line_, str().c_str());  
   } else {
-    fprintf(stdout, "[%c %s:%d] %s\n", "TDIWEF"[severity_], 
+    fprintf(stdout, "[%c %s:%d] %s\n", LOG_LEVELS[static_cast<int>(severity_)], 
             fname_, line_, str().c_str());  
   }
 }
 
 LogMessage::~LogMessage() {
-  // Read the min log level once during the first call to logging.
-  static int min_log_level = MinLogLevelFromEnv();
+  static LogLevel min_log_level = MinLogLevelFromEnv();
   static bool log_time = LogTimeFromEnv();
-  if (severity_ >= min_log_level) GenerateLogMessage(log_time);
+  if (severity_ >= min_log_level) {
+    GenerateLogMessage(log_time);
+  }
 }
 
-
 LogMessageFatal::LogMessageFatal(const char* file, int line)
-    : LogMessage(file, line, FATAL) {}
+    : LogMessage(file, line, LogLevel::FATAL) {}
+
 LogMessageFatal::~LogMessageFatal() {
   static bool log_time = LogTimeFromEnv();
   GenerateLogMessage(log_time);
   abort();
 }
 
-void LogString(const char* fname, int line, int severity,
-               const std::string& message) {
-  LogMessage(fname, line, severity) << message;
-}
-
-int LogLevelStrToInt(const char* env_var_val) {
-  if (env_var_val == nullptr) {
-    // default to WARN
-    return WARNING;
-  }
+LogLevel ParseLogLevelStr(const char* env_var_val) {
   std::string min_log_level(env_var_val);
   std::transform(min_log_level.begin(), min_log_level.end(), min_log_level.begin(), ::tolower);
   if (min_log_level == "trace") {
-    return TRACE;
+    return LogLevel::TRACE;
   } else if (min_log_level == "debug") {
-    return DEBUG;
+    return LogLevel::DEBUG;
   } else if (min_log_level == "info") {
-    return INFO;
+    return LogLevel::INFO;
   } else if (min_log_level == "warning") {
-    return WARNING;
+    return LogLevel::WARNING;
   } else if (min_log_level == "error") {
-    return ERROR;
+    return LogLevel::ERROR;
   } else if (min_log_level == "fatal") {
-    return FATAL;
+    return LogLevel::FATAL;
   } else {
-    return WARNING;
+    return LogLevel::WARNING;
   }
 }
 
-int MinLogLevelFromEnv() {
+LogLevel MinLogLevelFromEnv() {
   const char* env_var_val = getenv("HOROVOD_LOG_LEVEL");
   if (env_var_val == nullptr) {
-    // default to WARN
-    return WARNING;
+    // default to WARNING
+    return LogLevel::WARNING;
   }
-  return LogLevelStrToInt(env_var_val);
+  return ParseLogLevelStr(env_var_val);
 }
 
 bool LogTimeFromEnv() {
@@ -95,7 +86,6 @@ bool LogTimeFromEnv() {
     return true;
   }
 }
-
 
 }
 }

@@ -1544,17 +1544,17 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
     if (now - start_at > STALL_WARNING_TIME) {
       std::stringstream message;
       if (!preamble) {
-        LOG(WARNING) << "One or more tensors were submitted to be "
-                        "reduced, gathered or broadcasted by subset of ranks and "
-                        "are waiting for remainder of ranks for more than "
-                     << std::chrono::duration_cast<std::chrono::seconds>(
-                         STALL_WARNING_TIME)
-                         .count()
-                     << " seconds. "
-                     << "This may indicate that different ranks are trying to "
-                        "submit different tensors or that only subset of ranks is "
-                        "submitting tensors, which will cause deadlock. "
-                     << std::endl << "Stalled ops:" ;
+       message << "One or more tensors were submitted to be "
+                  "reduced, gathered or broadcasted by subset of ranks and "
+                  "are waiting for remainder of ranks for more than "
+               << std::chrono::duration_cast<std::chrono::seconds>(
+                   STALL_WARNING_TIME)
+                   .count()
+               << " seconds. "
+               << "This may indicate that different ranks are trying to "
+                  "submit different tensors or that only subset of ranks is "
+                  "submitting tensors, which will cause deadlock. "
+               << std::endl << "Stalled ops:" ;
         preamble = true;
       }
       message << tensor_name;
@@ -1664,8 +1664,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Get MPI size to determine how many tensors to wait for before reducing.
   int size;
   MPI_Comm_size(state.mpi_comm, &size);
-  if (is_coordinator) LOG(INFO) << "Started Horovod with " << size << " processes";
-
+  if (is_coordinator) {
+    LOG(INFO) << "Started Horovod with " << size << " processes";
+  }
+  
   // Determine local rank by querying the local communicator.
   MPI_Comm local_comm;
   MPI_Comm_split_type(state.mpi_comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
@@ -1767,7 +1769,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
                  (size != local_size);
     state.param_manager.SetHierarchicalAllgather(value, true);
   }
-  
   // Set flag for hierarchical allreduce. Ignore if Horovod is running on a
   // single node.
   auto horovod_hierarchical_allreduce = std::getenv(HOROVOD_HIERARCHICAL_ALLREDUCE);
