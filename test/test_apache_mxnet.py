@@ -32,8 +32,14 @@ import horovod.mxnet as hvd
 # and remove this requirement, we will skip unit tests for MXNet framework on OSes
 # other than Debian:jessie/Ubuntu 14.04 (Trusty).
 def is_supported_os():
-    os_info = str(subprocess.check_output(["cat", "/etc/os-release"]))
-    return "jessie" in os_info or "Trusty" in os_info
+    from sys import platform
+    if platform == "linux" or platform == "linux2":
+        os_info = str(subprocess.check_output(["cat", "/etc/os-release"]))
+        return "jessie" in os_info or "Trusty" in os_info
+    elif platform == "darwin" or platform == "win32":
+        return True
+    else:
+        return False
 
 
 class MXTests(unittest.TestCase):
