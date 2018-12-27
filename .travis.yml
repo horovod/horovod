@@ -102,7 +102,7 @@ install:
 script:
   - |
     if [[ ${MPI} == "OpenMPI" ]]; then
-      export MPIRUN="mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot"
+      export MPIRUN="mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot -mca mpi_abort_print_stack 1"
     else
       export MPIRUN="mpirun -np 2"
     fi
