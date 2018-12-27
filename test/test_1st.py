@@ -33,16 +33,3 @@ try:
     import keras
 except:
     pass
-
-# If PyTorch and MXNet are installed, horovod.torch must be imported before
-# horovod.mxnet. Otherwise we may get the follwoing error when running PyTorch
-# unit tests: Error in `/usr/bin/python': free(): invalid pointer.
-try:
-    import horovod.torch
-except:
-    pass
-
-try:
-    import horovod.mxnet
-except:
-    pass
