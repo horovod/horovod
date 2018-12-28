@@ -28,7 +28,7 @@ private:
   int restore_device_;
 };
 
-}
-}
+} // namespace mxnet
+} // namespace horovod
 
 #endif // HOROVOD_MXNET_CUDA_UTIL_H

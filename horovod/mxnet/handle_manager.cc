@@ -40,11 +40,10 @@ void HandleManager::ExecuteCallback(int handle) {
   }
   auto cb_ptr = callbacks_[handle];
   lock.unlock();
-   if (cb_ptr != nullptr) {
+  if (cb_ptr != nullptr) {
     (*cb_ptr)();
   }
 }
 
 } // namespace mxnet
 } // namespace horovod
-

@@ -706,7 +706,8 @@ def build_torch_extension(build_ext, options, torch_version):
 
     # Export TORCH_VERSION equal to our representation of torch.__version__. Internally it's
     # used for backwards compatibility checks.
-    updated_macros = set_macro(updated_macros, 'TORCH_VERSION', str(torch_version))
+    updated_macros = set_macro(
+        updated_macros, 'TORCH_VERSION', str(torch_version))
 
     # Create_extension overwrites these files which are customized, we need to protect them.
     with protect_files('horovod/torch/mpi_lib/__init__.py',
@@ -768,7 +769,8 @@ def build_torch_extension_v2(build_ext, options, torch_version):
 
     # Export TORCH_VERSION equal to our representation of torch.__version__. Internally it's
     # used for backwards compatibility checks.
-    updated_macros = set_macro(updated_macros, 'TORCH_VERSION', str(torch_version))
+    updated_macros = set_macro(
+        updated_macros, 'TORCH_VERSION', str(torch_version))
 
     # Always set _GLIBCXX_USE_CXX11_ABI, since PyTorch can only detect whether it was set to 1.
     import torch
@@ -776,7 +778,8 @@ def build_torch_extension_v2(build_ext, options, torch_version):
                                str(int(torch.compiled_with_cxx11_abi())))
 
     # PyTorch requires -DTORCH_API_INCLUDE_EXTENSION_H
-    updated_macros = set_macro(updated_macros, 'TORCH_API_INCLUDE_EXTENSION_H', '1')
+    updated_macros = set_macro(
+        updated_macros, 'TORCH_API_INCLUDE_EXTENSION_H', '1')
 
     if have_cuda:
         from torch.utils.cpp_extension import CUDAExtension as TorchExtension

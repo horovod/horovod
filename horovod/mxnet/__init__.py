@@ -28,6 +28,7 @@ from horovod.mxnet.mpi_ops import mpi_threads_supported
 
 import mxnet as mx
 
+
 # This is where Horovod's DistributedOptimizer wrapper for MXNet goes
 class DistributedOptimizer(mx.optimizer.Optimizer):
     def __init__(self, optimizer):
@@ -45,7 +46,8 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
 
     def update_multi_precision(self, index, weight, grad, state):
         allreduce_(grad, average=False, name=str(index))
-        return self._optimizer.update_multi_precision(index, weight, grad, state)
+        return self._optimizer.update_multi_precision(index, weight, grad,
+                                                      state)
 
     def set_learning_rate(self, lr):
         return self._optimizer.set_learning_rate(lr)
@@ -55,6 +57,7 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
 
     def set_wd_mult(self, args_wd_mult):
         return self._optimizer.set_wd_mult(args_wd_mult)
+
 
 def broadcast_parameters(params, root_rank=0):
     """

@@ -1,19 +1,24 @@
 # Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
-# Permission is hereby granted, free of charge, to any person obtaining a copy of this
-# software and associated documentation files (the "Software"), to deal in the Software
-# without restriction, including without limitation the rights to use, copy, modify,
-# merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so.
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so.
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
-import argparse, time, logging, os
+import argparse
+import time
+import logging
+import os
 import numpy as np
 import mxnet as mx
 import math
@@ -30,7 +35,8 @@ import horovod.mxnet as hvd
 hvd.init()
 
 # CLI
-parser = argparse.ArgumentParser(description='Train a model for image classification.')
+parser = argparse.ArgumentParser(description='Train a model for image \
+                                 classification.')
 parser.add_argument('--benchmark', type=int, default='0',
                     help='if 0 then feed the network with synthetic data.')
 parser.add_argument('--data-nthreads', type=int, default=4,
@@ -60,7 +66,8 @@ parser.add_argument('--wd', type=float, default=0.0001,
 parser.add_argument('--lr-decay', type=float, default=0.1,
                     help='decay rate of learning rate, default is 0.1.')
 parser.add_argument('--lr-decay-epoch', type=str, default='40,60',
-                    help='epoches at which learning rate decays, default is 40,60.')
+                    help='epoches at which learning rate decays, default is \
+                          40,60.')
 parser.add_argument('--warmup-lr', type=float, default=0.001,
                     help='starting warmup learning rate, default is 0.001')
 parser.add_argument('--warmup-epochs', type=int, default=5,
@@ -82,23 +89,33 @@ classes = 1000
 num_training_samples = 1281167
 
 data_nthreads = args.data_nthreads
-context = mx.cpu() if args.gpus is None or args.gpus == "" else mx.gpu(hvd.local_rank())
+context = mx.cpu() if args.gpus is None or args.gpus == "" \
+                   else mx.gpu(hvd.local_rank())
 num_workers = hvd.size()
 batch_size = args.batch_size
-kwargs = {'ctx': context, 'pretrained': args.use_pretrained, 'classes': classes}
+kwargs = {'ctx': context, 'pretrained': args.use_pretrained,
+          'classes': classes}
 
-epoch_size = int(math.ceil(int(num_training_samples // num_workers)/batch_size))
+epoch_size = \
+    int(math.ceil(int(num_training_samples // num_workers)/batch_size))
 
 # Adjust learning rate
 lr_decay = args.lr_decay
 lr_decay_epoch = [int(i) for i in args.lr_decay_epoch.split(',')]
 steps = [epoch_size * x for x in lr_decay_epoch]
-lr_scheduler = MultiFactorScheduler(step=steps, factor=lr_decay, base_lr=args.lr, warmup_steps=(args.warmup_epochs * epoch_size), warmup_begin_lr=args.warmup_lr)
+lr_scheduler = \
+    MultiFactorScheduler(step=steps,
+                         factor=lr_decay,
+                         base_lr=args.lr,
+                         warmup_steps=(args.warmup_epochs * epoch_size),
+                         warmup_begin_lr=args.warmup_lr)
+
 
 # Two functions for reading data from record file or raw images
 # For more details about data loading in MXNet, please refer to
 # https://mxnet.incubator.apache.org/tutorials/basic/data.html?highlight=imagerecorditer
-def get_data_rec(rec_train, rec_train_idx, rec_val, rec_val_idx, batch_size, data_nthreads):
+def get_data_rec(rec_train, rec_train_idx, rec_val, rec_val_idx, batch_size,
+                 data_nthreads):
     rec_train = os.path.expanduser(rec_train)
     rec_train_idx = os.path.expanduser(rec_train_idx)
     rec_val = os.path.expanduser(rec_val)
@@ -109,54 +126,57 @@ def get_data_rec(rec_train, rec_train_idx, rec_val, rec_val_idx, batch_size, dat
     std_rgb = [58.393, 57.12, 57.375]
 
     def batch_fn(batch, ctx):
-        data = gluon.utils.split_and_load(batch.data[0], ctx_list=ctx, batch_axis=0)
-        label = gluon.utils.split_and_load(batch.label[0], ctx_list=ctx, batch_axis=0)
+        data = gluon.utils.split_and_load(batch.data[0], ctx_list=ctx,
+                                          batch_axis=0)
+        label = gluon.utils.split_and_load(batch.label[0], ctx_list=ctx,
+                                           batch_axis=0)
         return data, label
 
     train_data = mx.io.ImageRecordIter(
-        path_imgrec         = rec_train,
-        path_imgidx         = rec_train_idx,
-        preprocess_threads  = data_nthreads,
-        shuffle             = True,
-        batch_size          = batch_size,
-        label_width         = 1,
-        data_shape          = (3, 224, 224),
-        mean_r              = mean_rgb[0],
-        mean_g              = mean_rgb[1],
-        mean_b              = mean_rgb[2],
-        rand_mirror         = True,
-        rand_crop           = False,
-        random_resized_crop = True,
-        max_aspect_ratio    = 4. / 3.,
-        min_aspect_ratio    = 3. / 4.,
-        max_random_area     = 1,
-        min_random_area     = 0.08,
-        verbose             = False,
-        brightness          = jitter_param,
-        saturation          = jitter_param,
-        contrast            = jitter_param,
-        pca_noise           = lighting_param,
-        num_parts           = hvd.size(),
-        part_index          = hvd.rank()
+        path_imgrec=rec_train,
+        path_imgidx=rec_train_idx,
+        preprocess_threads=data_nthreads,
+        shuffle=True,
+        batch_size=batch_size,
+        label_width=1,
+        data_shape=(3, 224, 224),
+        mean_r=mean_rgb[0],
+        mean_g=mean_rgb[1],
+        mean_b=mean_rgb[2],
+        rand_mirror=True,
+        rand_crop=False,
+        random_resized_crop=True,
+        max_aspect_ratio=4. / 3.,
+        min_aspect_ratio=3. / 4.,
+        max_random_area=1,
+        min_random_area=0.08,
+        verbose=False,
+        brightness=jitter_param,
+        saturation=jitter_param,
+        contrast=jitter_param,
+        pca_noise=lighting_param,
+        num_parts=hvd.size(),
+        part_index=hvd.rank()
     )
     # kept each node to use full val data to make it easy to monitor results
     val_data = mx.io.ImageRecordIter(
-        path_imgrec         = rec_val,
-        path_imgidx         = rec_val_idx,
-        preprocess_threads  = data_nthreads,
-        shuffle             = False,
-        batch_size          = batch_size,
-        resize              = 256,
-        label_width         = 1,
-        rand_crop           = False,
-        rand_mirror         = False,
-        data_shape          = (3, 224, 224),
-        mean_r              = mean_rgb[0],
-        mean_g              = mean_rgb[1],
-        mean_b              = mean_rgb[2]
+        path_imgrec=rec_val,
+        path_imgidx=rec_val_idx,
+        preprocess_threads=data_nthreads,
+        shuffle=False,
+        batch_size=batch_size,
+        resize=256,
+        label_width=1,
+        rand_crop=False,
+        rand_mirror=False,
+        data_shape=(3, 224, 224),
+        mean_r=mean_rgb[0],
+        mean_g=mean_rgb[1],
+        mean_b=mean_rgb[2]
     )
 
     return train_data, val_data, batch_fn
+
 
 # Create data iterator for synthetic data
 class SyntheticDataIter(DataIter):
@@ -165,18 +185,26 @@ class SyntheticDataIter(DataIter):
         self.cur_iter = 0
         self.max_iter = max_iter
         self.dtype = dtype
-        label = np.random.randint(0, num_classes, [self.batch_size,])
+        label = np.random.randint(0, num_classes, [self.batch_size, ])
         data = np.random.uniform(-1, 1, data_shape)
-        self.data = mx.nd.array(data, dtype=self.dtype, ctx=mx.Context('cpu_pinned', hvd.local_rank()))
-        self.label = mx.nd.array(label, dtype=self.dtype, ctx=mx.Context('cpu_pinned', hvd.local_rank()))
+        self.data = mx.nd.array(data, dtype=self.dtype,
+                                ctx=mx.Context('cpu_pinned', hvd.local_rank()))
+        self.label = mx.nd.array(label, dtype=self.dtype,
+                                 ctx=mx.Context('cpu_pinned',
+                                                hvd.local_rank()))
+
     def __iter__(self):
         return self
+
     @property
     def provide_data(self):
         return [mx.io.DataDesc('data', self.data.shape, self.dtype)]
+
     @property
     def provide_label(self):
-        return [mx.io.DataDesc('softmax_label', (self.batch_size,), self.dtype)]
+        return [mx.io.DataDesc('softmax_label',
+                               (self.batch_size,), self.dtype)]
+
     def next(self):
         self.cur_iter += 1
         if self.cur_iter <= self.max_iter:
@@ -188,10 +216,13 @@ class SyntheticDataIter(DataIter):
                              provide_label=self.provide_label)
         else:
             raise StopIteration
+
     def __next__(self):
         return self.next()
+
     def reset(self):
         self.cur_iter = 0
+
 
 # Logs eval metrics at the end of an epoch
 class LogValidationMetricsCallback(object):
@@ -203,13 +234,17 @@ class LogValidationMetricsCallback(object):
         for name, value in name_value:
             val_array = mx.nd.array([value])
             hvd.allreduce_(val_array, average=True, name=str(-1))
-            logging.info('Epoch[%d] Validation-%s=%f', param.epoch, name, val_array.asscalar())
+            logging.info('Epoch[%d] Validation-%s=%f', param.epoch,
+                         name, val_array.asscalar())
 
 # Fetch training and validation data if present
 try:
-    train_data, val_data, batch_fn = get_data_rec(args.rec_train, args.rec_train_idx,
-                                              args.rec_val, args.rec_val_idx,
-                                              batch_size, data_nthreads)
+    train_data, val_data, batch_fn = get_data_rec(args.rec_train,
+                                                  args.rec_train_idx,
+                                                  args.rec_val,
+                                                  args.rec_val_idx,
+                                                  batch_size,
+                                                  data_nthreads)
 except Exception as e:
     print("Data not found, using synthetic data instead!")
     args.benchmark = 1
@@ -218,8 +253,9 @@ except Exception as e:
 if args.benchmark is 1:
     image_shape = (3, 224, 224)
     data_shape = (batch_size,) + image_shape
-    train_data  = SyntheticDataIter(classes, data_shape, epoch_size, np.float32)
+    train_data = SyntheticDataIter(classes, data_shape, epoch_size, np.float32)
     val_data = None
+
 
 def main():
     # Get model from Gluon model zoo
@@ -260,8 +296,10 @@ def main():
     opt = hvd.DistributedOptimizer(opt)
 
     # Create initializer and initializer parameters
-    initializer = mx.init.Xavier(rnd_type='gaussian', factor_type="in", magnitude=2)
-    mod.bind(data_shapes=train_data.provide_data, label_shapes=train_data.provide_label)
+    initializer = mx.init.Xavier(rnd_type='gaussian', factor_type="in",
+                                 magnitude=2)
+    mod.bind(data_shapes=train_data.provide_data,
+             label_shapes=train_data.provide_label)
     mod.init_params(initializer, arg_params=arg_params, aux_params=aux_params)
 
     # Fetch and broadcast parameters

@@ -38,8 +38,10 @@ rank = _basics.rank
 local_rank = _basics.local_rank
 mpi_threads_supported = _basics.mpi_threads_supported
 
-dll_path = os.path.join(os.path.dirname(__file__), 'mpi_lib' + get_ext_suffix())
+dll_path = os.path.join(os.path.dirname(__file__),
+                        'mpi_lib' + get_ext_suffix())
 MPI_MXNET_LIB_CTYPES = ctypes.CDLL(dll_path, ctypes.RTLD_GLOBAL)
+
 
 def allreduce(tensor, average=True, name=None):
     """
@@ -62,30 +64,34 @@ def allreduce(tensor, average=True, name=None):
         name: A name of the reduction operation.
 
     Returns:
-        A tensor of the same shape and type as `tensor`, averaged or summed across all
-        processes.
+        A tensor of the same shape and type as `tensor`, averaged or summed
+        across all processes.
     """
-    output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context, dtype=tensor.dtype)
+    output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context,
+                         dtype=tensor.dtype)
     c_in = tensor.handle
     c_out = output.handle
     if isinstance(name, string_types):
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, c_str(name)))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in,
+                   c_out, c_str(name)))
     else:
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, name))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in,
+                   c_out, name))
     if average is True:
         output.wait_to_read()
         output /= size()
     return output
 
+
 def allreduce_(tensor, average=True, name=None):
     """
-    A function that performs in-place averaging or summation of the input tensor over
-    all the Horovod processes.
+    A function that performs in-place averaging or summation of the input
+    tensor over all the Horovod processes.
 
-    The reduction operation is keyed by the name. If name is not provided, an incremented
-    auto-generated name is used. The tensor type and shape must be the same on all
-    Horovod processes for a given name. The reduction will not start until all processes
-    are ready to send and receive the tensor.
+    The reduction operation is keyed by the name. If name is not provided, an
+    incremented auto-generated name is used. The tensor type and shape must be
+    the same on all Horovod processes for a given name. The reduction will not
+    start until all processes are ready to send and receive the tensor.
 
     Arguments:
         tensor: A tensor to average and sum.
@@ -94,28 +100,31 @@ def allreduce_(tensor, average=True, name=None):
         name: A name of the reduction operation.
 
     Returns:
-        A tensor of the same shape and type as `tensor`, averaged or summed across all
-        processes.
+        A tensor of the same shape and type as `tensor`, averaged or summed
+        across all processes.
     """
     c_in = tensor.handle
     c_out = tensor.handle
     if isinstance(name, string_types):
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, c_str(name)))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in,
+                   c_out, c_str(name)))
     else:
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in, c_out, name))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in,
+                   c_out, name))
     if average is True:
         tensor.wait_to_read()
         tensor /= size()
     return tensor
+
 
 def allgather(tensor, name=None):
     """
     A function that concatenates the input tensor with the same input tensor on
     all other Horovod processes. The input tensor is not modified.
 
-    The concatenation is done on the first dimension, so the input tensors on the
-    different processes must have the same rank and shape, except for the first
-    dimension, which is allowed to be different.
+    The concatenation is done on the first dimension, so the input tensors on
+    the different processes must have the same rank and shape, except for the
+    first dimension, which is allowed to be different.
 
     This acts as a thin wrapper around an autograd function.  If your input
     tensor requires gradients, then callings this function will allow gradients
@@ -127,29 +136,33 @@ def allgather(tensor, name=None):
 
     Returns:
         A tensor of the same type as `tensor`, concatenated on dimension zero
-        across all processes. The shape is identical to the input shape, except for
-        the first dimension, which may be greater and is the sum of all first
-        dimensions of the tensors in different Horovod processes.
+        across all processes. The shape is identical to the input shape, except
+        for the first dimension, which may be greater and is the sum of all
+        first dimensions of the tensors in different Horovod processes.
     """
     assert(isinstance(tensor, mx.nd.NDArray))
-    output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context, dtype=tensor.dtype)
+    output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context,
+                         dtype=tensor.dtype)
     c_in = tensor.handle
     c_out = output.handle
     if isinstance(name, string_types):
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allgather_async(c_in, c_out, c_str(name)))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allgather_async(c_in,
+                   c_out, c_str(name)))
     else:
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allgather_async(c_in, c_out, name))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allgather_async(c_in,
+                   c_out, name))
     return output
+
 
 def broadcast(tensor, root_rank, name=None):
     """
-    A function that broadcasts the input tensor on root rank to the same input tensor
-    on all other Horovod processes. The input tensor is not modified.
+    A function that broadcasts the input tensor on root rank to the same input
+    tensor on all other Horovod processes. The input tensor is not modified.
 
-    The broadcast operation is keyed by the name. If name is not provided, an incremented
-    auto-generated name is used. The tensor type and shape must be the same on all
-    Horovod processes for a given name. The broadcast will not start until all processes
-    are ready to send and receive the tensor.
+    The broadcast operation is keyed by the name. If name is not provided, an
+    incremented auto-generated name is used. The tensor type and shape must be
+    the same on all Horovod processes for a given name. The broadcast will not
+    start until all processes are ready to send and receive the tensor.
 
     This acts as a thin wrapper around an autograd function.  If your input
     tensor requires gradients, then callings this function will allow gradients
@@ -161,27 +174,31 @@ def broadcast(tensor, root_rank, name=None):
         name: A name of the broadcast operation.
 
     Returns:
-        A tensor of the same shape and type as `tensor`, with the value broadcasted
-        from root rank.
+        A tensor of the same shape and type as `tensor`, with the value
+        broadcasted from root rank.
     """
-    output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context, dtype=tensor.dtype)
+    output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context,
+                         dtype=tensor.dtype)
     c_in = tensor.handle
     c_out = output.handle
     if isinstance(name, string_types):
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(c_in, c_out, ctypes.c_int(root_rank), c_str(name)))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(c_in,
+                   c_out, ctypes.c_int(root_rank), c_str(name)))
     else:
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(c_in, c_out, ctypes.c_int(root_rank), name))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(c_in,
+                   c_out, ctypes.c_int(root_rank), name))
     return output
+
 
 def broadcast_(tensor, root_rank, name=None):
     """
-    A function that broadcasts the input tensor on root rank to the same input tensor
-    on all other Horovod processes. The operation is performed in-place.
+    A function that broadcasts the input tensor on root rank to the same input
+    tensor on all other Horovod processes. The operation is performed in-place.
 
-    The broadcast operation is keyed by the name. If name is not provided, an incremented
-    auto-generated name is used. The tensor type and shape must be the same on all
-    Horovod processes for a given name. The broadcast will not start until all processes
-    are ready to send and receive the tensor.
+    The broadcast operation is keyed by the name. If name is not provided, an
+    incremented auto-generated name is used. The tensor type and shape must be
+    the same on all Horovod processes for a given name. The broadcast will not
+    start until all processes are ready to send and receive the tensor.
 
     Arguments:
         tensor: A tensor to broadcast.
@@ -189,13 +206,15 @@ def broadcast_(tensor, root_rank, name=None):
         name: A name of the broadcast operation.
 
     Returns:
-        A tensor of the same shape and type as `tensor`, with the value broadcasted
-        from root rank.
+        A tensor of the same shape and type as `tensor`, with the value
+        broadcasted from root rank.
     """
     c_in = tensor.handle
     c_out = tensor.handle
     if isinstance(name, string_types):
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(c_in, c_out, ctypes.c_int(root_rank), c_str(name)))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(c_in,
+                   c_out, ctypes.c_int(root_rank), c_str(name)))
     else:
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(c_in, c_out, ctypes.c_int(root_rank), name))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(c_in,
+                   c_out, ctypes.c_int(root_rank), name))
     return tensor

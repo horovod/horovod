@@ -99,8 +99,9 @@ MXOpContext<T>::MXOpContext(int device, T* output)
     : device_(device), output_(output) {}
 
 template <class T>
-Status MXOpContext<T>::AllocatePersistent(
-    int64_t size, std::shared_ptr<PersistentBuffer>* tensor) {
+Status
+MXOpContext<T>::AllocatePersistent(int64_t size,
+                                   std::shared_ptr<PersistentBuffer>* tensor) {
   // Allocation errors are handled using PyMX exceptions.
   *tensor = std::make_shared<MXPersistentBuffer>(device_, size);
   return Status::OK();

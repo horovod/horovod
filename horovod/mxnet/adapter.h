@@ -70,7 +70,7 @@ private:
 
 void ThrowIfError(Status status);
 
-} // namespace mxnet 
+} // namespace mxnet
 } // namespace horovod
 
 #endif // HOROVOD_MXNET_ADAPTER_H

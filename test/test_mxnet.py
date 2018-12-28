@@ -25,12 +25,12 @@ import numpy as np
 import horovod.mxnet as hvd
 
 
-# Currently, when we build and install Horovod with MXNet pip package, we need to
-# do it on the same OS which MXNet pip package is built. Otherwise, we will hit
-# segmentation fault when running MXNet unit tests, which we suspect is due to
-# different versions of libc library. While we are investigating the root cause
-# and remove this requirement, we will skip unit tests for MXNet framework on OSes
-# other than Debian:jessie/Ubuntu 14.04 (Trusty).
+# Currently, when we build and install Horovod with MXNet pip package, we need
+# to do it on the same OS which MXNet pip package is built. Otherwise, we will
+# hit segmentation fault when running MXNet unit tests, which we suspect is due
+# to different versions of libc library. While we are investigating the root
+# cause and remove this requirement, we will skip unit tests for MXNet
+# framework on OSes other than Debian:jessie/Ubuntu 14.04 (Trusty).
 def is_supported_os():
     from sys import platform
     if platform == "linux" or platform == "linux2":
@@ -68,7 +68,8 @@ class MXTests(unittest.TestCase):
             # MXNet uses gpu_id as part of the seed, so to get identical seeds
             # we must set a context.
             mx.random.seed(1234, ctx=ctx)
-            tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim], ctx=ctx)
+            tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim],
+                                          ctx=ctx)
             tensor = tensor.astype(dtype)
             summed = hvd.allreduce(tensor, average=False, name=str(count))
             multiplied = tensor * size
@@ -87,11 +88,13 @@ class MXTests(unittest.TestCase):
                 break
 
             if max_difference > threshold:
-                print("allreduce", count, dtype, dim, max_difference, threshold)
+                print("allreduce", count, dtype, dim, max_difference,
+                      threshold)
                 print("tensor", hvd.rank(), tensor)
                 print("summed", hvd.rank(), summed)
                 print("multiplied", hvd.rank(), multiplied)
-            assert max_difference <= threshold, 'hvd.allreduce produces incorrect results'
+            assert max_difference <= threshold, 'hvd.allreduce produces \
+                                                 incorrect results'
         mx.ndarray.waitall()
 
     @unittest.skipUnless(is_supported_os(), "not supported OS")
@@ -107,7 +110,8 @@ class MXTests(unittest.TestCase):
         shapes = [(), (17), (17, 17), (17, 17, 17)]
         for dtype, dim in itertools.product(dtypes, dims):
             mx.random.seed(1234, ctx=ctx)
-            tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim], ctx=ctx)
+            tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim],
+                                          ctx=ctx)
             tensor = tensor.astype(dtype)
             averaged = hvd.allreduce(tensor, average=True, name=str(count))
             tensor *= size
@@ -130,7 +134,8 @@ class MXTests(unittest.TestCase):
                 print("average", count, dtype, dim, max_difference, threshold)
                 print("tensor", hvd.rank(), tensor)
                 print("averaged", hvd.rank(), averaged)
-            assert max_difference <= threshold, 'hvd.allreduce produces incorrect results for average'
+            assert max_difference <= threshold, 'hvd.allreduce produces \
+                                                 incorrect results for average'
         mx.ndarray.waitall()
 
     @unittest.skipUnless(is_supported_os(), "not supported OS")
@@ -146,7 +151,8 @@ class MXTests(unittest.TestCase):
         shapes = [(), (17), (17, 17), (17, 17, 17)]
         for dtype, dim in itertools.product(dtypes, dims):
             mx.random.seed(1234, ctx=ctx)
-            tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim], ctx=ctx)
+            tensor = mx.nd.random.uniform(-100, 100, shape=shapes[dim],
+                                          ctx=ctx)
             tensor = tensor.astype(dtype)
             multiplied = tensor * size
             hvd.allreduce_(tensor, average=False, name=str(count))
@@ -168,7 +174,8 @@ class MXTests(unittest.TestCase):
                 print("self", count, dtype, dim, max_difference, threshold)
                 print("tensor", hvd.rank(), tensor)
                 print("multiplied", hvd.rank(), multiplied)
-            assert max_difference <= threshold, 'hvd.allreduce produces incorrect results for self'
+            assert max_difference <= threshold, 'hvd.allreduce produces \
+                                                 incorrect results for self'
         mx.ndarray.waitall()
 
     @unittest.skipUnless(is_supported_os(), "not supported OS")
@@ -189,7 +196,8 @@ class MXTests(unittest.TestCase):
         count = 0
         shapes = [(), (17), (17, 17), (17, 17, 17)]
         root_ranks = list(range(size))
-        for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
+        for dtype, dim, root_rank in itertools.product(dtypes, dims,
+                                                       root_ranks):
             tensor = mx.nd.ones(shapes[dim], ctx=ctx) * rank
             root_tensor = mx.nd.ones(shapes[dim], ctx=ctx) * root_rank
             tensor = tensor.astype(dtype)
@@ -197,10 +205,12 @@ class MXTests(unittest.TestCase):
 
             # Only do broadcasting using and on broadcast_tensor
             broadcast_tensor = tensor.copy()
-            broadcast_tensor = hvd.broadcast(tensor, root_rank=root_rank, name=str(count))
+            broadcast_tensor = hvd.broadcast(tensor, root_rank=root_rank,
+                                             name=str(count))
             if rank != root_rank:
                 if (mx.nd.max(tensor == root_tensor) == 0) is False:
-                    print("broadcast", count, dtype, dim, mx.nd.max(tensor == root_tensor))
+                    print("broadcast", count, dtype, dim,
+                          mx.nd.max(tensor == root_tensor))
                     print("tensor", hvd.rank(), tensor)
                     print("root_tensor", hvd.rank(), root_tensor)
                     print("comparison", hvd.rank(), tensor == root_tensor)
@@ -210,7 +220,8 @@ class MXTests(unittest.TestCase):
                 print("broadcast", count, dtype, dim)
                 print("broadcast_tensor", hvd.rank(), broadcast_tensor)
                 print("root_tensor", hvd.rank(), root_tensor)
-                print("comparison", hvd.rank(), broadcast_tensor == root_tensor)
+                print("comparison", hvd.rank(),
+                      broadcast_tensor == root_tensor)
             broadcast_tensor.wait_to_read()
             tensor.wait_to_read()
             assert mx.nd.min(broadcast_tensor == root_tensor) == 1, \
@@ -235,7 +246,8 @@ class MXTests(unittest.TestCase):
         count = 0
         shapes = [(), (17), (17, 17), (17, 17, 17)]
         root_ranks = list(range(size))
-        for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
+        for dtype, dim, root_rank in itertools.product(dtypes, dims,
+                                                       root_ranks):
             tensor = mx.nd.ones(shapes[dim], ctx=ctx) * rank
             root_tensor = mx.nd.ones(shapes[dim], ctx=ctx) * root_rank
             tensor = tensor.astype(dtype)
@@ -243,10 +255,12 @@ class MXTests(unittest.TestCase):
 
             # Only do broadcasting using and on broadcast_tensor
             broadcast_tensor = tensor.copy()
-            hvd.broadcast_(broadcast_tensor, root_rank=root_rank, name=str(count))
+            hvd.broadcast_(broadcast_tensor, root_rank=root_rank,
+                           name=str(count))
             if rank != root_rank:
                 if (mx.nd.max(tensor == root_tensor) == 0) is False:
-                    print("broadcast", count, dtype, dim, mx.nd.max(tensor == root_tensor))
+                    print("broadcast", count, dtype, dim,
+                          mx.nd.max(tensor == root_tensor))
                     print("tensor", hvd.rank(), tensor)
                     print("root_tensor", hvd.rank(), root_tensor)
                     print("comparison", hvd.rank(), tensor == root_tensor)
@@ -256,7 +270,8 @@ class MXTests(unittest.TestCase):
                 print("broadcast", count, dtype, dim)
                 print("broadcast_tensor", hvd.rank(), broadcast_tensor)
                 print("root_tensor", hvd.rank(), root_tensor)
-                print("comparison", hvd.rank(), broadcast_tensor == root_tensor)
+                print("comparison", hvd.rank(),
+                      broadcast_tensor == root_tensor)
             broadcast_tensor.wait_to_read()
             tensor.wait_to_read()
             assert mx.nd.min(broadcast_tensor == root_tensor) == 1, \

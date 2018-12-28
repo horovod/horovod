@@ -26,11 +26,11 @@
  *
  * It checks for CUDA errors after invocation of the expression.
  */
-#define CUDA_CALL(func)                                            \
-  {                                                                \
-    cudaError_t e = (func);                                        \
-    CHECK(e == cudaSuccess || e == cudaErrorCudartUnloading)       \
-        << "CUDA: " << cudaGetErrorString(e);                      \
+#define CUDA_CALL(func)                                                        \
+  {                                                                            \
+    cudaError_t e = (func);                                                    \
+    CHECK(e == cudaSuccess || e == cudaErrorCudartUnloading)                   \
+        << "CUDA: " << cudaGetErrorString(e);                                  \
   }
 
 #endif // HAVE_CUDA

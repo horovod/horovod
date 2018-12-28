@@ -16,9 +16,9 @@
 #ifndef HOROVOD_MXNET_TENSOR_UTIL_H
 #define HOROVOD_MXNET_TENSOR_UTIL_H
 
+#include <cassert>
 #include <mxnet/base.h>
 #include <mxnet/ndarray.h>
-#include <cassert>
 
 #include "../common/common.h"
 #include "cuda_util.h"
@@ -54,10 +54,10 @@ private:
   static const size_t kFloat64Size = 8;
   // TODO(@ctcyang): for when fp16 branch is ready
   static const size_t kFloat16Size = 2;
-  static const size_t kUInt8Size   = 1;
-  static const size_t kInt32Size   = 4;
-  static const size_t kInt8Size    = 1;
-  static const size_t kInt64Size   = 8;
+  static const size_t kUInt8Size = 1;
+  static const size_t kInt32Size = 4;
+  static const size_t kInt8Size = 1;
+  static const size_t kInt64Size = 8;
 };
 
 } // namespace mxnet

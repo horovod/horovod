@@ -30,9 +30,7 @@ MXReadyEvent<T>::MXReadyEvent(NDArray* tensor) : tensor_(tensor) {
 
 template <class T> MXReadyEvent<T>::~MXReadyEvent() {}
 
-template <class T> bool MXReadyEvent<T>::Ready() const {
-  return true;
-}
+template <class T> bool MXReadyEvent<T>::Ready() const { return true; }
 
 template class MXReadyEvent<NDArray>;
 
