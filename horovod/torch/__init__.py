@@ -90,7 +90,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
 
     def _allreduce_grad_async(self, p):
         name = self._parameter_names.get(p)
-        tensor = p.grad.data
+        tensor = p.grad
         tensor_compressed, ctx = self._compression.compress(tensor)
 
         handle = allreduce_async_(tensor_compressed, average=True, name=name)
@@ -128,7 +128,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         for p, (handle, _) in self._handles.items():
             output = synchronize(handle)
             self._allreduce_delay[p] = self.backward_passes_per_step
-            p.grad.data.set_(self._compression.decompress(output, ctx))
+            p.grad.set_(self._compression.decompress(output, ctx))
         self._handles.clear()
 
     def step(self, closure=None):
