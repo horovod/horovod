@@ -21,20 +21,19 @@ namespace mxnet {
 // Define all types for TensorUtil.
 const MPIDataType TensorUtil::GetDType(NDArray* tensor) {
   switch (tensor->dtype()) {
-  case 0:
+  case mshadow::kFloat32:
     return MPIDataType::HOROVOD_FLOAT32;
-  case 1:
+  case mshadow::kFloat64:
     return MPIDataType::HOROVOD_FLOAT64;
-  // TODO(@ctcyang): restore after fp16 grad branch is ready
-  case 2:
+  case mshadow::kFloat16:
     return MPIDataType::HOROVOD_FLOAT16;
-  case 3:
+  case mshadow::kUint8:
     return MPIDataType::HOROVOD_UINT8;
-  case 4:
+  case mshadow::kInt32:
     return MPIDataType::HOROVOD_INT32;
-  case 5:
+  case mshadow::kInt8:
     return MPIDataType::HOROVOD_INT8;
-  case 6:
+  case mshadow::kInt64:
     return MPIDataType::HOROVOD_INT64;
   default:
     throw std::logic_error("GetDType: Type " + std::to_string(tensor->dtype()) +
@@ -57,20 +56,19 @@ const void* TensorUtil::GetData(NDArray* tensor) {
   // The following returns an error:
   // return tensor->data().dptr<void>();
   switch (tensor->dtype()) {
-  case 0:
+  case mshadow::kFloat32:
     return static_cast<void*>(tensor->data().dptr<float>());
-  case 1:
+  case mshadow::kFloat64:
     return static_cast<void*>(tensor->data().dptr<double>());
-  // TODO(@ctcyang): for fp16 support when branch is merged
-  case 2:
+  case mshadow::kFloat16:
     return static_cast<void*>(tensor->data().dptr<mshadow::half::half_t>());
-  case 3:
+  case mshadow::kUint8:
     return static_cast<void*>(tensor->data().dptr<uint8_t>());
-  case 4:
+  case mshadow::kInt32:
     return static_cast<void*>(tensor->data().dptr<int32_t>());
-  case 5:
+  case mshadow::kInt8:
     return static_cast<void*>(tensor->data().dptr<int8_t>());
-  case 6:
+  case mshadow::kInt64:
     return static_cast<void*>(tensor->data().dptr<int64_t>());
   default:
     throw std::logic_error("Type " + std::to_string(tensor->dtype()) +
@@ -82,26 +80,25 @@ const void* TensorUtil::GetData(NDArray* tensor) {
 int64_t TensorUtil::GetSize(NDArray* tensor) {
   int64_t element_size = 0;
   switch (tensor->dtype()) {
-  case 0:
+  case mshadow::kFloat32:
     element_size = kFloat32Size;
     break;
-  case 1:
+  case mshadow::kFloat64:
     element_size = kFloat64Size;
     break;
-  // TODO(@ctcyang): for fp16 support when that branch is merged
-  case 2:
+  case mshadow::kFloat16:
     element_size = kFloat16Size;
     break;
-  case 3:
+  case mshadow::kUint8:
     element_size = kUInt8Size;
     break;
-  case 4:
+  case mshadow::kInt32:
     element_size = kInt32Size;
     break;
-  case 5:
+  case mshadow::kInt8:
     element_size = kInt8Size;
     break;
-  case 6:
+  case mshadow::kInt64:
     element_size = kInt64Size;
     break;
   default:
