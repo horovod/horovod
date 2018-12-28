@@ -41,11 +41,11 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
         return self._optimizer.create_state_multi_precision(index, weight)
 
     def update(self, index, weight, grad, state):
-        allreduce_(grad, average=False, name=str(index))
+        allreduce_(grad, average=True, name=str(index))
         return self._optimizer.update(index, weight, grad, state)
 
     def update_multi_precision(self, index, weight, grad, state):
-        allreduce_(grad, average=False, name=str(index))
+        allreduce_(grad, average=True, name=str(index))
         return self._optimizer.update_multi_precision(index, weight, grad,
                                                       state)
 

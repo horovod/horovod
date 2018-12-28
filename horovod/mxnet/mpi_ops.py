@@ -45,13 +45,13 @@ MPI_MXNET_LIB_CTYPES = ctypes.CDLL(dll_path, ctypes.RTLD_GLOBAL)
 
 def allreduce(tensor, average=True, name=None):
     """
-    A function that performs averaging or summation of the input tensor over all the
-    Horovod processes. The input tensor is not modified.
+    A function that performs averaging or summation of the input tensor over
+    all the Horovod processes. The input tensor is not modified.
 
-    The reduction operation is keyed by the name. If name is not provided, an incremented
-    auto-generated name is used. The tensor type and shape must be the same on all
-    Horovod processes for a given name. The reduction will not start until all processes
-    are ready to send and receive the tensor.
+    The reduction operation is keyed by the name. If name is not provided, an
+    incremented auto-generated name is used. The tensor type and shape must be
+    the same on all Horovod processes for a given name. The reduction will not
+    start until all processes are ready to send and receive the tensor.
 
     This acts as a thin wrapper around an autograd function.  If your input
     tensor requires gradients, then callings this function will allow gradients
@@ -73,13 +73,10 @@ def allreduce(tensor, average=True, name=None):
     c_out = output.handle
     if isinstance(name, string_types):
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in,
-                   c_out, c_str(name)))
+                   c_out, c_str(name), ctypes.c_bool(average)))
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in,
-                   c_out, name))
-    if average is True:
-        output.wait_to_read()
-        output /= size()
+                   c_out, name, ctypes.c_bool(average)))
     return output
 
 
@@ -107,13 +104,10 @@ def allreduce_(tensor, average=True, name=None):
     c_out = tensor.handle
     if isinstance(name, string_types):
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in,
-                   c_out, c_str(name)))
+                   c_out, c_str(name), ctypes.c_bool(average)))
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in,
-                   c_out, name))
-    if average is True:
-        tensor.wait_to_read()
-        tensor /= size()
+                   c_out, name, ctypes.c_bool(average)))
     return tensor
 
 
