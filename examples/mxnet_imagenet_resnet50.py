@@ -72,7 +72,7 @@ parser.add_argument('--warmup-lr', type=float, default=0.001,
                     help='starting warmup learning rate, default is 0.001')
 parser.add_argument('--warmup-epochs', type=int, default=5,
                     help='number of warmup epochs, default is 5.')
-parser.add_argument('--model', type=str, required=True,
+parser.add_argument('--model', type=str, default='resnet50_v1',
                     help='type of model to use. see vision_model for options.')
 parser.add_argument('--use-pretrained', action='store_true',
                     help='enable using pretrained model from gluon.')
@@ -259,6 +259,7 @@ if args.benchmark is 1:
 
 def main():
     # Get model from Gluon model zoo
+    # https://mxnet.incubator.apache.org/api/python/gluon/model_zoo.html
     net = get_model(args.model, **kwargs)
     net.cast(args.dtype)
 
