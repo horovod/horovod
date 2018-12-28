@@ -291,7 +291,6 @@ def main():
     optimizer_params = {'wd': args.wd,
                         'momentum': args.momentum,
                         'lr_scheduler': lr_scheduler,
-                        'rescale_grad': 1.0/batch_size/num_workers,
                         'multi_precision': True}
     opt = mx.optimizer.create('sgd', sym=out, **optimizer_params)
     opt = hvd.DistributedOptimizer(opt)
