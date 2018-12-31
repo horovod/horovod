@@ -179,6 +179,8 @@ $ mpirun -np 16 \
 [Helm Chart](https://github.com/kubernetes/charts/tree/master/stable/horovod/), and 
 [FfDL](https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/).
 
+5. To run in Spark, see the [Spark](docs/spark.md) page.
+
 ## Keras
 
 Horovod supports Keras and regular TensorFlow in similar ways.
