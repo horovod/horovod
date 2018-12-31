@@ -3,11 +3,11 @@
 The `horovod.spark` package provides a convenient wrapper around Open
 MPI that makes running Horovod jobs in Spark clusters easy.
 
-In situations where training data originates from Spark this enables
-tight model design loop in which data processing, model training and
+In situations where training data originates from Spark, this enables
+a tight model design loop in which data processing, model training, and
 model evaluation are all done in Spark.
 
-The toy example of running a Horovod job in Spark is provided below:
+A toy example of running a Horovod job in Spark is provided below:
 
 ```
 $ pyspark
@@ -54,14 +54,14 @@ It is inspired by an article [An Introduction to Deep Learning for Tabular Data]
 and leverages the code of the notebook referenced in the article.
 
 The example is split into three parts:
-1. The first part performs complicated data preprocessing over initial set
-of CSV files provided by competition and gathered by the community.
+1. The first part performs complicated data preprocessing over an initial set
+of CSV files provided by the competition and gathered by the community.
 2. The second part defines a Keras model and performs a distributed training
 of the model using Horovod in Spark.
 3. The third part performs prediction using the best model and creates
 a submission file.
 
-In order to run the example, please install the following dependencies:
+To run the example, please install the following dependencies:
 * `pyspark`
 * `petastorm >= 0.5.1`
 * `h5py >= 2.9.0`
@@ -95,7 +95,7 @@ $ /path/to/spark/sbin/start-all.sh
 This approach turns the `spark.task.cpus` setting to control # of GPUs
 requested per process (defaults to 1).
 
-Ongoing [SPARK-24615](https://issues.apache.org/jira/browse/SPARK-24615) effort aims to
+The ongoing [SPARK-24615](https://issues.apache.org/jira/browse/SPARK-24615) effort aims to
 introduce GPU-aware resource scheduling in future versions of Spark.
 
 #### CPU training
@@ -109,12 +109,12 @@ conf = SparkConf().setAppName('training') \
 spark = SparkSession.builder.config(conf=conf).getOrCreate()
 ```
 
-This approach allows to reuse the same Spark cluster for data preparation
+This approach allows you to reuse the same Spark cluster for data preparation
 and training.
 
 ### Security
 
-Horovod in Spark uses Open MPI to run the Horovod jobs in Spark, and so
+Horovod in Spark uses Open MPI to run the Horovod jobs in Spark, so
 it's as secure as the Open MPI implementation itself.
 
 Since Open MPI does not use encrypted communication and is capable of
@@ -124,6 +124,6 @@ security to isolate Horovod jobs from potential attackers**.
 ### Environment knobs
 
 * `HOROVOD_SPARK_START_TIMEOUT` - sets the default timeout for Spark
-tasks to spawn, register and start running the code.  If executors for
-Spark tasks are scheduled on-demand and can take long time to start,
+tasks to spawn, register, and start running the code.  If executors for
+Spark tasks are scheduled on-demand and can take a long time to start,
 it may be useful to increase this timeout on a system level.

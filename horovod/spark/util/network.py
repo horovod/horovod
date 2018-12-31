@@ -45,7 +45,7 @@ class Wire(object):
     """
     Used for serialization/deserialization of objects over the wire.
 
-    We use HMAC to protect services from unauthorized use. Key used for
+    We use HMAC to protect services from unauthorized use. The key used for
     the HMAC digest is distributed by Open MPI and Spark.
 
     The objects are serialized using cloudpickle. Serialized objects become
