@@ -17,8 +17,11 @@
 import tensorflow as tf
 import horovod.tensorflow as hvd
 
-
 def main(_):
+    if not hasattr(tf, 'enable_eager_execution'):
+        print("this tensorflow is not support eager mode")
+        return
+
     # Horovod: initialize Horovod.
     hvd.init()
 
@@ -58,11 +61,13 @@ def main(_):
         with tf.GradientTape() as tape:
             logits = mnist_model(images, training=True)
             loss_value = tf.losses.sparse_softmax_cross_entropy(labels, logits)
+
         # Horovod: broadcast initial variable states
         # from rank 0 to all other processes. This is necessary to ensure consistent
         # initialization of all workers when training is started with random weights
         # or restored from a checkpoint.
-        hvd.broadcast_variables(0, mnist_model.variables) if batch == 0 else None
+        if batch == 0:
+            hvd.broadcast_variables(0, mnist_model.variables)
 
         # Horovod: add Horovod Distributed GradientTape.
         tape = hvd.DistributedGradientTape(tape)
@@ -73,7 +78,8 @@ def main(_):
         if batch % 10 == 0 and hvd.local_rank() == 0:
             print('Step #%d\tLoss: %.6f' % (batch, loss_value))
 
-    checkpoint.save(checkpoint_dir) if hvd.rank() == 0 else None
+    if hvd.rank() == 0:
+        checkpoint.save(checkpoint_dir)
 
 
 if __name__ == "__main__":

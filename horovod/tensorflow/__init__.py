@@ -42,7 +42,6 @@ from horovod.tensorflow.mpi_ops import mpi_threads_supported
 from horovod.tensorflow.util import _executing_eagerly
 
 import tensorflow as tf
-from tensorflow.python.eager import context
 
 def allreduce(tensor, average=True, device_dense='', device_sparse='',
               compression=Compression.none):
@@ -249,43 +248,44 @@ class DistributedOptimizer(tf.train.Optimizer):
         return self._optimizer.variables(*args, **kwargs)
 
 
-class _DistributedGradientTape(tf.GradientTape):
+if hasattr(tf, 'GradientTape'):
+    class _DistributedGradientTape(tf.GradientTape):
 
-    def __init__(self, persistent, watch_accessed_variables,
-                 tape, device_dense, device_sparse,
-                 compression, sparse_as_dense):
-        super(self.__class__, self).__init__(persistent, watch_accessed_variables)
-        self._tape = tape
-        self._persistent = persistent
-        self._watch_accessed_variables = watch_accessed_variables
-        self._name = "Distributed"
-        self._device_dense = device_dense
-        self._device_sparse = device_sparse
-        self._compression = compression
-        self._sparse_as_dense = sparse_as_dense
+        def __init__(self, persistent, watch_accessed_variables,
+                     tape, device_dense, device_sparse,
+                     compression, sparse_as_dense):
+            super(self.__class__, self).__init__(persistent, watch_accessed_variables)
+            self._tape = tape
+            self._persistent = persistent
+            self._watch_accessed_variables = watch_accessed_variables
+            self._name = "Distributed"
+            self._device_dense = device_dense
+            self._device_sparse = device_sparse
+            self._compression = compression
+            self._sparse_as_dense = sparse_as_dense
 
-        def allreduce_grads(grads):
-            with tf.name_scope(self._name + "_Allreduce"):
-                if self._sparse_as_dense:
-                    grads = [tf.convert_to_tensor(grad)
-                             if grad is not None and isinstance(grad, tf.IndexedSlices)
-                             else grad for grad in grads]
-                return [allreduce(grad,
-                                  device_dense=self._device_dense,
-                                  device_sparse=self._device_sparse,
-                                  compression=self._compression)
-                        if grad is not None else grad
-                        for grad in grads]
+            def allreduce_grads(grads):
+                with tf.name_scope(self._name + "_Allreduce"):
+                    if self._sparse_as_dense:
+                        grads = [tf.convert_to_tensor(grad)
+                                 if grad is not None and isinstance(grad, tf.IndexedSlices)
+                                 else grad for grad in grads]
+                    return [allreduce(grad,
+                                      device_dense=self._device_dense,
+                                      device_sparse=self._device_sparse,
+                                      compression=self._compression)
+                            if grad is not None else grad
+                            for grad in grads]
 
-        self._allreduce_grads = tf.contrib.eager.defun(allreduce_grads)
+            self._allreduce_grads = tf.contrib.eager.defun(allreduce_grads)
 
-    def gradient(self, target, sources, output_gradients=None):
-        gradients = super(self.__class__, self).gradient(target, sources, output_gradients)
-        if size() > 1:
-            avg_grads = self._allreduce_grads(gradients)
-            return avg_grads
-        else:
-            return gradients
+        def gradient(self, target, sources, output_gradients=None):
+            gradients = super(self.__class__, self).gradient(target, sources, output_gradients)
+            if size() > 1:
+                avg_grads = self._allreduce_grads(gradients)
+                return avg_grads
+            else:
+                return gradients
 
 
 def DistributedGradientTape(gradtape, device_dense='', device_sparse='',
@@ -296,17 +296,6 @@ def DistributedGradientTape(gradtape, device_dense='', device_sparse='',
     Args:
       gradtape:
         GradientTape to use for computing gradients and applying updates.
-      persistent:
-        Boolean controlling whether a persistent gradient tape
-        is created. False by default, which means at most one call can
-        be made to the gradient() method on this object.
-      watch_accessed_variables:
-        Boolean controlling whether the tape will
-        automatically `watch` any (trainable) variables accessed while the tape
-        is active. Defaults to True meaning gradients can be requested from any
-        result computed in the tape derived from reading a trainable `Variable`.
-        If False users must explicitly `watch` any `Variable`s they want to
-        request gradients from.
       device_dense:
         Device to be used for dense tensors. Uses GPU by default
         if Horovod was build with HOROVOD_GPU_ALLREDUCE.
