@@ -160,4 +160,7 @@ script:
   - docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/pytorch_mnist.py"
 
   # run MXNet MNIST example
-  - docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/mxnet_mnist.py"
+  - |
+    if [[ ${DEBIAN} == "jessie" ]]; then
+      docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/mxnet_mnist.py"
+    fi
