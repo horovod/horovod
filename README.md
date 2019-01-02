@@ -202,6 +202,8 @@ See a full training [example](examples/tensorflow_mnist_estimator.py).
 
 Horovod supports MXNet and regular TensorFlow in similar ways.
 
+See a full training [example](examples/mxnet_mnist.py).
+
 ```python
 import mxnet as mx
 import horovod.mxnet as hvd
@@ -213,25 +215,23 @@ hvd.init()
 context = mx.gpu(hvd.local_rank())
 num_workers = hvd.size()
 
-# Build model 
-data = mx.sym.var('data')
-fc1  = mx.sym.FullyConnected(data=data, num_hidden=128)
-act1 = mx.sym.Activation(data=fc1, act_type="relu")
-...
-mlp = mx.sym.SoftmaxOutput(data=fc3, name='softmax')
-my_model = mx.mod.Module(symbol=mlp, context=context)
+# Build model
+model = ...
 
+# Define hyper parameters
+optimizer_params = ...
 
-# Add Horovod Distributed Optimizer 
-opt = mx.optimizer.create('sgd', sym=fc3, **optimizer_params)
+# Add Horovod Distributed Optimizer
+opt = mx.optimizer.create('sgd', sym=model, **optimizer_params)
 opt = hvd.DistributedOptimizer(opt)
 
-# Step 5: fit the model
-my_model.fit(train_data,
-             kvstore=None,
-             optimizer=opt,
-             opitmizer_params=optimizer_params,
-             num_epoch=num_epoc)
+hvd.broadcast_parameters(model.get_params(), root_rank=0)
+
+# Train model
+model.fit(train_data,
+          optimizer=opt,
+          opitmizer_params=optimizer_params,
+          num_epoch=num_epoch)
 
 ```
 
