@@ -93,6 +93,7 @@ mlp_model.fit(train_iter,  # train data
               eval_metric='acc',  # report accuracy during training
               batch_end_callback=mx.callback.Speedometer(batch_size),
               num_epoch=args.epochs)  # train for at most 10 dataset passes
+mx.nd.waitall()
 
 # Step 5: Evaluate model accuracy
 test_iter = mx.io.NDArrayIter(mnist['test_data'], mnist['test_label'],
