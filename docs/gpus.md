@@ -29,6 +29,9 @@ involvement, which significantly reduces latency and load on CPU.  NCCL 2 is abl
 
 Steps to install Open MPI are listed [here](https://www.open-mpi.org/faq/?category=building#easy-build).
 
+**Note**: Open MPI 3.1.3 has an issue that may cause hangs.  It is recommended
+to downgrade to Open MPI 3.1.2 or upgrade to Open MPI 4.0.0.
+
 4. Install the `horovod` pip package.
 
 If you have installed NCCL 2 using the `nccl-<version>.txz` package, you should specify the path to NCCL 2 using the `HOROVOD_NCCL_HOME`
