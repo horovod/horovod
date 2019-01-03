@@ -122,7 +122,7 @@ script:
   
 
   # run unit tests
-  - docker exec ${CONTAINER} /bin/sh -c "pip install pytest && cd /horovod/test && ${MPIRUN} pytest -v"
+  - docker exec ${CONTAINER} /bin/sh -c "pip install pytest && cd /horovod/test && (echo test_*.py | xargs -n 1 ${MPIRUN} pytest -v)"
 
   # hack for compatibility of MNIST example with tf 1.1.0
   - |
