@@ -256,7 +256,7 @@ const std::string MPIResponse::tensor_names_string() const {
   bool is_first_name = true;
   for (auto const& s : tensor_names_) {
     if (!is_first_name) {
-      result += ",";
+      result += ", ";
     } else {
       is_first_name = false;
     }

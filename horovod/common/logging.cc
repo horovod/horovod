@@ -1,5 +1,7 @@
 #include <chrono>
 #include <algorithm>
+#include <iostream>
+#include <iomanip>
 
 #include "logging.h"
 
@@ -10,6 +12,8 @@ LogMessage::LogMessage(const char* fname, int line, LogLevel severity)
     : fname_(fname), line_(line), severity_(severity) {}
 
 void LogMessage::GenerateLogMessage(bool log_time) {
+  bool use_cout = static_cast<int>(severity_) <= static_cast<int>(LogLevel::INFO);
+  std::ostream& os = use_cout ? std::cout : std::cerr;
   if (log_time) {
     auto now = std::chrono::system_clock::now();
     auto as_time_t = std::chrono::system_clock::to_time_t(now);
@@ -22,12 +26,12 @@ void LogMessage::GenerateLogMessage(bool log_time) {
     char time_buffer[time_buffer_size];
     strftime(time_buffer, time_buffer_size, "%Y-%m-%d %H:%M:%S",
              localtime(&as_time_t));
-
-    fprintf(stdout, "[%s.%06d: %c %s:%d] %s\n", time_buffer, micros_remainder,
-            LOG_LEVELS[static_cast<int>(severity_)], fname_, line_, str().c_str());  
+    os << "[" << time_buffer << "." << std::setw(6) << micros_remainder.count() 
+              << ": " << LOG_LEVELS[static_cast<int>(severity_)] << " " 
+              << fname_ << ":" << line_ << "] " << str() << std::endl;
   } else {
-    fprintf(stdout, "[%c %s:%d] %s\n", LOG_LEVELS[static_cast<int>(severity_)], 
-            fname_, line_, str().c_str());  
+    os << "[" << LOG_LEVELS[static_cast<int>(severity_)] << " " 
+              << fname_ << ":" << line_ << "] " << str() << std::endl;
   }
 }
 
