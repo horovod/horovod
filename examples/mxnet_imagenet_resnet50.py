@@ -106,7 +106,7 @@ steps = [epoch_size * x for x in lr_decay_epoch]
 lr_scheduler = \
     MultiFactorScheduler(step=steps,
                          factor=lr_decay,
-                         base_lr=args.lr,
+                         base_lr=(args.lr * nun_workers),
                          warmup_steps=(args.warmup_epochs * epoch_size),
                          warmup_begin_lr=args.warmup_lr)
 
