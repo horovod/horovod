@@ -383,6 +383,102 @@ class MPITests(tf.test.TestCase):
                             tf.equal(tf.cast(rank_tensor, tf.int32), value))),
                         "hvd.allgather produces incorrect gathered tensor")
 
+    def test_horovod_allgather_fused(self):
+        """Test that the allgather correctly gathers 1D, 2D, 3D tensors
+        with Tensor Fusion."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        with self.test_session(config=self.config) as session:
+            dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                      tf.int32, tf.int64, tf.float16, tf.float32,
+                      tf.float64, tf.bool]
+            dims = [1, 2, 3]
+            tests = []
+            for dtype, dim in itertools.product(dtypes, dims):
+                tensor = tf.ones([17] * dim) * rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                tensor = tf.cast(tensor, dtype=dtype)
+                gathered = hvd.allgather(tensor)
+
+                gathered_tensor = session.run(gathered)
+                self.assertEqual(list(gathered_tensor.shape),
+                                 [17 * size] + [17] * (dim - 1))
+
+                for i in range(size):
+                    rank_tensor = tf.slice(gathered,
+                                           [i * 17] + [0] * (dim - 1),
+                                           [17] + [-1] * (dim - 1))
+                    # self.assertEqual(list(rank_tensor.shape), [17] * dim)
+                    # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
+                    # so need to cast rank_tensor to tf.int32.
+                    if dtype != tf.bool:
+                        value = i
+                    else:
+                        value = i % 2
+
+                    tests.append(
+                        tf.reduce_all(
+                            tf.equal(tf.cast(rank_tensor, tf.int32), value)))
+
+            self.assertTrue(
+                session.run(session.run(tf.reduce_all(tests))),
+                "hvd.allgather produces incorrect gathered tensor")
+
+    def test_horovod_allgather_variable_size_fused(self):
+        """Test that the allgather correctly gathers 1D, 2D, 3D tensors with
+        Tensor Fusion, even if those tensors have different sizes along the
+        first dim."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        with self.test_session(config=self.config) as session:
+            dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                      tf.int32, tf.int64, tf.float16, tf.float32,
+                      tf.float64, tf.bool]
+            dims = [1, 2, 3]
+            tests = []
+            for dtype, dim in itertools.product(dtypes, dims):
+                # Support tests up to MPI Size of 35
+                if size > 35:
+                    break
+
+                tensor_sizes = [17, 32, 81, 12, 15, 23, 22] * 5
+                tensor_sizes = tensor_sizes[:size]
+
+                tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                tensor = tf.cast(tensor, dtype=dtype)
+                gathered = hvd.allgather(tensor)
+
+                gathered_tensor = session.run(gathered)
+                expected_size = sum(tensor_sizes)
+                self.assertEqual(list(gathered_tensor.shape),
+                                 [expected_size] + [17] * (dim - 1))
+
+                for i in range(size):
+                    rank_size = [tensor_sizes[i]] + [17] * (dim - 1)
+                    rank_tensor = tf.slice(
+                        gathered, [sum(tensor_sizes[:i])] + [0] * (dim - 1),
+                        rank_size)
+                    self.assertEqual(list(rank_tensor.shape), rank_size)
+                    # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
+                    # so need to cast rank_tensor to tf.int32.
+                    if dtype != tf.bool:
+                        value = i
+                    else:
+                        value = i % 2
+
+                    tests.append(tf.reduce_all(
+                        tf.equal(tf.cast(rank_tensor, tf.int32), value)))
+
+            self.assertTrue(session.run(tf.reduce_all(tests)),
+                            "hvd.allgather produces incorrect gathered tensor")
+
     def test_horovod_allgather_variable_size(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors,
         even if those tensors have different sizes along the first dim."""
