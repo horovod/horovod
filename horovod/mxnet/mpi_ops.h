@@ -18,12 +18,17 @@
 
 #include <mxnet/base.h>
 #include <mxnet/c_api.h>
+#include <mxnet/engine.h>
 #include <mxnet/ndarray.h>
 
 namespace horovod {
 namespace mxnet {
 
 using namespace horovod::common;
+
+typedef ::mxnet::Engine Engine;
+typedef ::mxnet::NDArray NDArray;
+typedef ::mxnet::Engine::CallbackOnComplete Callback;
 
 extern "C" int horovod_mxnet_allreduce_async(NDArray* tensor, NDArray* output,
                                              char* name, bool average);

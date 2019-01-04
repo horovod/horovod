@@ -18,8 +18,8 @@ parser.add_argument('--gpus', type=str, default='0',
                     help='number of gpus to use (default: 0)')
 parser.add_argument('--epochs', type=int, default=10,
                     help='number of training epochs (default: 10)')
-parser.add_argument('--lr', type=float, default=0.01,
-                    help='learning rate (default: 0.01)')
+parser.add_argument('--lr', type=float, default=0.001,
+                    help='learning rate (default: 0.001)')
 parser.add_argument('--momentum', type=float, default=0.5,
                     help='SGD momentum (default: 0.5)')
 args = parser.parse_args()
@@ -85,7 +85,7 @@ net = mlp()
 # Softmax with cross entropy loss
 loss = mx.sym.SoftmaxOutput(data=net, name='softmax')
 mlp_model = mx.mod.Module(symbol=loss, context=context)
-optimizer_params = {'learning_rate': 0.01}
+optimizer_params = {'learning_rate': args.lr * hvd.size()}
 opt = mx.optimizer.create('sgd', sym=net, **optimizer_params)
 opt = hvd.DistributedOptimizer(opt)
 
