@@ -16,6 +16,7 @@
 #include <chrono>
 #include <memory>
 #include <thread>
+#include <atomic>
 
 #include "../common/operations.h"
 #include "adapter.h"
