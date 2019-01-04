@@ -97,7 +97,7 @@ mlp_model.init_params(initializer)
 
 # Fetch and broadcast parameters
 (arg_params, aux_params) = mlp_model.get_params()
-mx.nd.waitall()
+
 if arg_params is not None:
     hvd.broadcast_parameters(arg_params, root_rank=0)
 if aux_params is not None:
@@ -110,10 +110,8 @@ mlp_model.fit(train_iter,  # train data
               eval_metric='acc',  # report accuracy during training
               batch_end_callback=mx.callback.Speedometer(batch_size),
               num_epoch=args.epochs)  # train for at most 10 dataset passes
-mx.nd.waitall()
 
 # Step 5: Evaluate model accuracy
-# predict accuracy of mlp
 acc = mx.metric.Accuracy()
 mlp_model.score(val_iter, acc)
 
