@@ -1,8 +1,10 @@
 # Step 1: import required packages
+import os
 import argparse
 import logging
 import mxnet as mx
 import horovod.mxnet as hvd
+from mxnet.test_utils import get_mnist_ubyte
 
 hvd.init()
 
@@ -29,15 +31,42 @@ context = mx.cpu() if args.gpus is None or args.gpus == '0' \
                    else mx.gpu(hvd.local_rank())
 
 # Step 2: data loading
-mnist = mx.test_utils.get_mnist()
-# Fix the seed
 mx.random.seed(42)
+batch_size = args.batch_size
+input_shape = (1, 28, 28)
 
-batch_size = 100
-train_iter = mx.io.NDArrayIter(mnist['train_data'], mnist['train_label'],
-                               batch_size, shuffle=True)
-val_iter = mx.io.NDArrayIter(mnist['test_data'], mnist['test_label'],
-                             batch_size)
+
+if not os.path.isdir('data'):
+    try:
+        os.makedirs('data')
+    except OSError as e:
+        if e.errno == errno.EEXIST and os.path.isdir('data'):
+            pass
+        else:
+            raise
+
+get_mnist_ubyte()
+
+train_iter = mx.io.MNISTIter(
+    image="data/train-images-idx3-ubyte",
+    label="data/train-labels-idx1-ubyte",
+    input_shape=input_shape,
+    batch_size=batch_size,
+    shuffle=True,
+    flat=False,
+    num_parts=hvd.size(),
+    part_index=hvd.rank()
+)
+
+val_iter = mx.io.MNISTIter(
+    image="data/t10k-images-idx3-ubyte",
+    label="data/t10k-labels-idx1-ubyte",
+    input_shape=input_shape,
+    batch_size=batch_size,
+    flat=False,
+    num_parts=hvd.size(),
+    part_index=hvd.rank()
+)
 
 
 # Step 3: define network
@@ -96,11 +125,11 @@ mlp_model.fit(train_iter,  # train data
 mx.nd.waitall()
 
 # Step 5: Evaluate model accuracy
-test_iter = mx.io.NDArrayIter(mnist['test_data'], mnist['test_label'],
-                              batch_size)
 # predict accuracy of mlp
 acc = mx.metric.Accuracy()
-mlp_model.score(test_iter, acc)
-print(acc)
-assert acc.get()[1] > 0.96, "Achieved accuracy (%f) is lower than expected \
-                            (0.96)" % acc.get()[1]
+mlp_model.score(val_iter, acc)
+
+if hvd.rank() == 0:
+    print(acc)
+    assert acc.get()[1] > 0.96, "Achieved accuracy (%f) is lower than \
+                                expected (0.96)" % acc.get()[1]
