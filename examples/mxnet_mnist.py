@@ -35,18 +35,6 @@ mx.random.seed(42)
 batch_size = args.batch_size
 input_shape = (1, 28, 28)
 
-
-if not os.path.isdir('data'):
-    try:
-        os.makedirs('data')
-    except OSError as e:
-        if e.errno == errno.EEXIST and os.path.isdir('data'):
-            pass
-        else:
-            raise
-
-get_mnist_ubyte()
-
 train_iter = mx.io.MNISTIter(
     image="data/train-images-idx3-ubyte",
     label="data/train-labels-idx1-ubyte",
