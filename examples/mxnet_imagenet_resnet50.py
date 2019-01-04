@@ -304,7 +304,7 @@ def main():
 
     # Fetch and broadcast parameters
     (arg_params, aux_params) = mod.get_params()
-    mx.nd.waitall()
+
     if arg_params is not None:
         hvd.broadcast_parameters(arg_params, root_rank=0)
     if aux_params is not None:
@@ -319,7 +319,7 @@ def main():
             batch_end_callback=mx.callback.Speedometer(batch_size, 20),
             optimizer=opt,
             optimizer_params=optimizer_params)
-    mx.nd.waitall()
+
 
 if __name__ == '__main__':
     main()
