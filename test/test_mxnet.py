@@ -23,6 +23,7 @@ import mxnet as mx
 import unittest
 import numpy as np
 import horovod.mxnet as hvd
+from mxnet.test_utils import same
 
 
 # Currently, when we build and install Horovod with MXNet pip package, we need
@@ -208,15 +209,15 @@ class MXTests(unittest.TestCase):
             broadcast_tensor = hvd.broadcast(tensor, root_rank=root_rank,
                                              name=str(count))
             if rank != root_rank:
-                if (mx.nd.max(tensor == root_tensor) == 0) is False:
+                if same(tensor.asnumpy(), root_tensor.asnumpy()):
                     print("broadcast", count, dtype, dim,
                           mx.nd.max(tensor == root_tensor))
                     print("tensor", hvd.rank(), tensor)
                     print("root_tensor", hvd.rank(), root_tensor)
                     print("comparison", hvd.rank(), tensor == root_tensor)
-                assert mx.nd.max(tensor == root_tensor) == 0, \
+                assert not same(tensor.asnumpy(), root_tensor.asnumpy()), \
                     'hvd.broadcast modifies source tensor'
-            if (mx.nd.min(broadcast_tensor == root_tensor) == 1) is False:
+            if not same(broadcast_tensor.asnumpy(), root_tensor.asnumpy()):
                 print("broadcast", count, dtype, dim)
                 print("broadcast_tensor", hvd.rank(), broadcast_tensor)
                 print("root_tensor", hvd.rank(), root_tensor)
@@ -224,7 +225,7 @@ class MXTests(unittest.TestCase):
                       broadcast_tensor == root_tensor)
             broadcast_tensor.wait_to_read()
             tensor.wait_to_read()
-            assert mx.nd.min(broadcast_tensor == root_tensor) == 1, \
+            assert same(broadcast_tensor.asnumpy(), root_tensor.asnumpy()), \
                 'hvd.broadcast produces incorrect broadcasted tensor'
         mx.ndarray.waitall()
 
@@ -258,15 +259,15 @@ class MXTests(unittest.TestCase):
             hvd.broadcast_(broadcast_tensor, root_rank=root_rank,
                            name=str(count))
             if rank != root_rank:
-                if (mx.nd.max(tensor == root_tensor) == 0) is False:
+                if same(tensor.asnumpy(), root_tensor.asnumpy()):
                     print("broadcast", count, dtype, dim,
                           mx.nd.max(tensor == root_tensor))
                     print("tensor", hvd.rank(), tensor)
                     print("root_tensor", hvd.rank(), root_tensor)
                     print("comparison", hvd.rank(), tensor == root_tensor)
-                assert mx.nd.max(tensor == root_tensor) == 0, \
+                assert not same(tensor.asnumpy(), root_tensor.asnumpy()), \
                     'hvd.broadcast modifies source tensor'
-            if (mx.nd.min(broadcast_tensor == root_tensor) == 1) is False:
+            if not same(broadcast_tensor.asnumpy(), root_tensor.asnumpy()):
                 print("broadcast", count, dtype, dim)
                 print("broadcast_tensor", hvd.rank(), broadcast_tensor)
                 print("root_tensor", hvd.rank(), root_tensor)
@@ -274,7 +275,7 @@ class MXTests(unittest.TestCase):
                       broadcast_tensor == root_tensor)
             broadcast_tensor.wait_to_read()
             tensor.wait_to_read()
-            assert mx.nd.min(broadcast_tensor == root_tensor) == 1, \
+            assert same(broadcast_tensor.asnumpy(), root_tensor.asnumpy()), \
                 'hvd.broadcast produces incorrect broadcasted tensor'
         mx.ndarray.waitall()
 
@@ -310,12 +311,12 @@ class MXTests(unittest.TestCase):
 
         hvd.broadcast_parameters(tensor_dict, root_rank=root_rank)
         for i in range(count):
-            if (mx.nd.min(tensor_dict[i] == root_dict[i]) == 1) is False:
+            if not same(tensor_dict[i].asnumpy(), root_dict[i].asnumpy()):
                 print("broadcast", count, dtype, dim)
                 print("broadcast_tensor", hvd.rank(), tensor_dict[i])
                 print("root_tensor", hvd.rank(), root_dict[i])
                 print("comparison", hvd.rank(), tensor_dict[i] == root_dict[i])
-            assert mx.nd.min(tensor_dict[i] == root_dict[i]) == 1, \
+            assert same(tensor_dict[i].asnumpy(), root_dict[i].asnumpy()), \
                 'hvd.broadcast produces incorrect broadcasted tensor'
         mx.ndarray.waitall()
 
