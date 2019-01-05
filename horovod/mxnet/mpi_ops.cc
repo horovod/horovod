@@ -152,7 +152,7 @@ void DoBroadcast(NDArray* tensor, NDArray* output, int root_rank,
 }
 
 #if HAVE_CUDA
-int DoBroadcastCudaOnCPU(
+void DoBroadcastCudaOnCPU(
     std::shared_ptr<MXTemporaryBuffer<NDArray>>& hvd_cpu_buffer, int root_rank,
     std::string& name, Callback cb) {
   // Make async copy of input tensor to CPU tensor and record completion event.
@@ -168,8 +168,6 @@ int DoBroadcastCudaOnCPU(
         cb();
       });
   ThrowIfError(enqueue_result);
-
-  return handle;
 }
 #endif
 
