@@ -109,7 +109,13 @@ install:
     fi
 
   # MXNet
-  - docker exec ${CONTAINER} /bin/sh -c "pip install ${MXNET_PACKAGE}"
+  - |
+    if [[ ${DEBIAN} == "jessie" ]]; then
+      docker exec ${CONTAINER} /bin/sh -c "pip install ${MXNET_PACKAGE}"
+    else
+      # mxnet-horovod is built with GCC 5.4.0 to avoid segfault on debian:stretch/buster
+      docker exec ${CONTAINER} /bin/sh -c "pip install mxnet-horovod"
+    fi
 
   # Horovod
   - docker exec ${CONTAINER} /bin/sh -c "cd /horovod && python setup.py sdist"
@@ -159,11 +165,6 @@ script:
   # run PyTorch MNIST example
   - docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/pytorch_mnist.py"
 
-  # run MXNet MNIST example
-  - |
-    if [[ ${DEBIAN} == "jessie" ]]; then
-      # download MXNet MNIST dataset
-      docker exec ${CONTAINER} /bin/sh -c "python -c \"from mxnet.test_utils import get_mnist_ubyte; get_mnist_ubyte()\""
-      # run MXNet MNIST example
-      docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/mxnet_mnist.py"
-    fi
+  # download MXNet MNIST dataset and run MXNet MNIST example
+  - docker exec ${CONTAINER} /bin/sh -c "python -c \"from mxnet.test_utils import get_mnist_ubyte; get_mnist_ubyte()\""
+  - docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/mxnet_mnist.py"

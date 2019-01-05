@@ -18,29 +18,11 @@ from __future__ import division
 from __future__ import print_function
 
 import itertools
-import subprocess
 import mxnet as mx
 import unittest
 import numpy as np
 import horovod.mxnet as hvd
 from mxnet.test_utils import same
-
-
-# Currently, when we build and install Horovod with MXNet pip package, we need
-# to do it on the same OS which MXNet pip package is built. Otherwise, we will
-# hit segmentation fault when running MXNet unit tests, which we suspect is due
-# to different versions of libc library. While we are investigating the root
-# cause and remove this requirement, we will skip unit tests for MXNet
-# framework on OSes other than Debian:jessie/Ubuntu 14.04 (Trusty).
-def is_supported_os():
-    from sys import platform
-    if platform == "linux" or platform == "linux2":
-        os_info = str(subprocess.check_output(["cat", "/etc/os-release"]))
-        return "jessie" in os_info or "Trusty" in os_info
-    elif platform == "darwin" or platform == "win32":
-        return True
-    else:
-        return False
 
 
 class MXTests(unittest.TestCase):
@@ -54,7 +36,6 @@ class MXTests(unittest.TestCase):
         else:
             return mx.current_context()
 
-    @unittest.skipUnless(is_supported_os(), "not supported OS")
     def test_horovod_allreduce(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
@@ -98,7 +79,6 @@ class MXTests(unittest.TestCase):
                                                  incorrect results'
         mx.ndarray.waitall()
 
-    @unittest.skipUnless(is_supported_os(), "not supported OS")
     def test_horovod_allreduce_average(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
@@ -139,7 +119,6 @@ class MXTests(unittest.TestCase):
                                                  incorrect results for average'
         mx.ndarray.waitall()
 
-    @unittest.skipUnless(is_supported_os(), "not supported OS")
     def test_horovod_allreduce_inplace(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
@@ -179,7 +158,6 @@ class MXTests(unittest.TestCase):
                                                  incorrect results for self'
         mx.ndarray.waitall()
 
-    @unittest.skipUnless(is_supported_os(), "not supported OS")
     def test_horovod_broadcast(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
         hvd.init()
@@ -229,7 +207,6 @@ class MXTests(unittest.TestCase):
                 'hvd.broadcast produces incorrect broadcasted tensor'
         mx.ndarray.waitall()
 
-    @unittest.skipUnless(is_supported_os(), "not supported OS")
     def test_horovod_broadcast_inplace(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
         hvd.init()
@@ -279,7 +256,6 @@ class MXTests(unittest.TestCase):
                 'hvd.broadcast produces incorrect broadcasted tensor'
         mx.ndarray.waitall()
 
-    @unittest.skipUnless(is_supported_os(), "not supported OS")
     def test_horovod_broadcast_grad(self):
         """Test the correctness of the broadcast gradient."""
         hvd.init()
