@@ -240,23 +240,23 @@ extern "C" int horovod_mxnet_allgather_async(NDArray* input, NDArray* output,
 #if HAVE_CUDA && HOROVOD_GPU_ALLGATHER != 'M'
   // Not in-place
   if (input->var() != output->var()) {
-    Engine::Get()->PushAsync(allgather_async_cpu_fn, Context::CPU(0),
+    Engine::Get()->PushAsync(allgather_async_cpu_fn, input->ctx(),
                              {input->var()}, {output->var()},
                              FnProperty::kNormal, 0, "HorovodAllgather");
     // In-place
   } else {
-    Engine::Get()->PushAsync(allgather_async_cpu_fn, Context::CPU(0), {},
+    Engine::Get()->PushAsync(allgather_async_cpu_fn, input->ctx(), {},
                              {output->var()}, FnProperty::kNormal, 0,
                              "HorovodAllgather");
   }
 #else
   if (input->var() != output->var()) {
-    Engine::Get()->PushAsync(allgather_async_fn, Context::CPU(0),
+    Engine::Get()->PushAsync(allgather_async_fn, input->ctx(),
                              {input->var()}, {output->var()},
                              FnProperty::kNormal, 0, "HorovodAllgather");
     // In-place
   } else {
-    Engine::Get()->PushAsync(allgather_async_fn, Context::CPU(0), {},
+    Engine::Get()->PushAsync(allgather_async_fn, input->ctx(), {},
                              {output->var()}, FnProperty::kNormal, 0,
                              "HorovodAllgather");
   }
@@ -287,13 +287,13 @@ extern "C" int horovod_mxnet_broadcast_async(NDArray* input, NDArray* output,
           DoBroadcastCudaOnCPU(hvd_cpu_buffer, root_rank, op_name, cb);
         };
 
-  Engine::Get()->PushAsync(broadcast_async_cpu_fn, Context::CPU(0), {},
+  Engine::Get()->PushAsync(broadcast_async_cpu_fn, input->ctx(), {},
                            {output->var()}, FnProperty::kNormal, 0,
                            "HorovodBroadcast");
 
   TensorUtil::CopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
 #else
-  Engine::Get()->PushAsync(broadcast_async_fn, Context::CPU(0), {},
+  Engine::Get()->PushAsync(broadcast_async_fn, input->ctx(), {},
                            {output->var()}, FnProperty::kNormal, 0,
                            "HorovodBroadcast");
 #endif
