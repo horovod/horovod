@@ -852,10 +852,10 @@ class custom_build_ext(build_ext):
                     raise
         if not built_plugins:
             raise DistutilsError(
-                'TensorFlow, PyTorch and MXNet plugins were excluded from build. Aborting.')
+                'TensorFlow, PyTorch, and MXNet plugins were excluded from build. Aborting.')
         if not any(built_plugins):
             raise DistutilsError(
-                'None of TensorFlow or PyTorch or MXNet plugins were built. See errors above.')
+                'None of TensorFlow, PyTorch, or MXNet plugins were built. See errors above.')
 
 
 setup(name='horovod',
