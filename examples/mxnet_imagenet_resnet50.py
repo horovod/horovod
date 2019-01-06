@@ -28,17 +28,13 @@ from mxnet.lr_scheduler import MultiFactorScheduler
 from mxnet.io import DataBatch, DataIter
 from mxnet.util import makedirs
 from mxnet.gluon.model_zoo.vision import get_model
-
 import horovod.mxnet as hvd
 
-# Initialize Horovod
-hvd.init()
-
-# CLI
-parser = argparse.ArgumentParser(description='Train a model for image \
-                                 classification.')
+# Training settings
+parser = argparse.ArgumentParser(description='MXNet ImageNet Example',
+                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--benchmark', type=int, default='0',
-                    help='if 0 then feed the network with synthetic data.')
+                    help='if 1 then feed the network with synthetic data.')
 parser.add_argument('--data-nthreads', type=int, default=4,
                     help='number of threads for data decoding')
 parser.add_argument('--rec-train', type=str, default='',
@@ -50,51 +46,54 @@ parser.add_argument('--rec-val', type=str, default='',
 parser.add_argument('--rec-val-idx', type=str, default='',
                     help='the index of validation data')
 parser.add_argument('--batch-size', type=int, default=128,
-                    help='training batch size per device (CPU/GPU).')
+                    help='training batch size per device (default: 128)')
 parser.add_argument('--dtype', type=str, default='float32',
-                    help='data type for training, default is float32')
-parser.add_argument('--gpus', type=str, default='0',
-                    help='number of gpus to use.')
+                    help='data type for training (default: float32)')
 parser.add_argument('--num-epochs', type=int, default=90,
                     help='number of training epochs.')
 parser.add_argument('--lr', type=float, default=0.1,
-                    help='learning rate, default is 0.1.')
+                    help='learning rate (default: 0.1)')
 parser.add_argument('--momentum', type=float, default=0.9,
-                    help='momentum value for optimizer, default is 0.9.')
+                    help='momentum value for optimizer (default: 0.9)')
 parser.add_argument('--wd', type=float, default=0.0001,
-                    help='weight decay rate, default is 0.0001.')
+                    help='weight decay rate (default: 0.0001)')
 parser.add_argument('--lr-decay', type=float, default=0.1,
-                    help='decay rate of learning rate, default is 0.1.')
+                    help='decay rate of learning rate (default: 0.1)')
 parser.add_argument('--lr-decay-epoch', type=str, default='40,60',
-                    help='epoches at which learning rate decays, default is \
-                          40,60.')
+                    help='epoches at which learning rate decays \
+                    (default is : 40,60)')
 parser.add_argument('--warmup-lr', type=float, default=0.001,
-                    help='starting warmup learning rate, default is 0.001')
+                    help='starting warmup learning rate (default: 0.001)')
 parser.add_argument('--warmup-epochs', type=int, default=5,
-                    help='number of warmup epochs, default is 5.')
+                    help='number of warmup epochs (default: 5)')
 parser.add_argument('--model', type=str, default='resnet50_v1',
                     help='type of model to use. see vision_model for options.')
-parser.add_argument('--use-pretrained', action='store_true',
-                    help='enable using pretrained model from gluon.')
-parser.add_argument('--save-frequency', type=int, default=0,
-                    help='frequency of model saving.')
+parser.add_argument('--use-pretrained', action='store_true', default=False,
+                    help='load pretrained model weights')
+parser.add_argument('--no-cuda', action='store_true', default=False,
+                    help='disables CUDA training (default: False)')
+
+
 args = parser.parse_args()
 
 logging.basicConfig(level=logging.INFO)
 logging.info(args)
 
-save_frequency = args.save_frequency
+# Initialize Horovod
+hvd.init()
+num_workers = hvd.size()
+
 batch_size = args.batch_size
-classes = 1000
+num_classes = 1000
 num_training_samples = 1281167
 
 data_nthreads = args.data_nthreads
-context = mx.cpu() if args.gpus is None or args.gpus == "" \
-                   else mx.gpu(hvd.local_rank())
-num_workers = hvd.size()
+context = mx.cpu() if args.no_cuda else mx.gpu(hvd.local_rank())
+
 batch_size = args.batch_size
+
 kwargs = {'ctx': context, 'pretrained': args.use_pretrained,
-          'classes': classes}
+          'classes': num_classes}
 
 epoch_size = \
     int(math.ceil(int(num_training_samples // num_workers)/batch_size))
@@ -180,7 +179,7 @@ def get_data_rec(rec_train, rec_train_idx, rec_val, rec_val_idx, batch_size,
 
 # Create data iterator for synthetic data
 class SyntheticDataIter(DataIter):
-    def __init__(self, num_classes, data_shape, max_iter, dtype):
+    def __init__(self, num_classes, data_shape, max_iter, dtype, ctx):
         self.batch_size = data_shape[0]
         self.cur_iter = 0
         self.max_iter = max_iter
@@ -188,10 +187,9 @@ class SyntheticDataIter(DataIter):
         label = np.random.randint(0, num_classes, [self.batch_size, ])
         data = np.random.uniform(-1, 1, data_shape)
         self.data = mx.nd.array(data, dtype=self.dtype,
-                                ctx=mx.Context('cpu_pinned', hvd.local_rank()))
+                                ctx=ctx)
         self.label = mx.nd.array(label, dtype=self.dtype,
-                                 ctx=mx.Context('cpu_pinned',
-                                                hvd.local_rank()))
+                                 ctx=ctx)
 
     def __iter__(self):
         return self
@@ -237,23 +235,27 @@ class LogValidationMetricsCallback(object):
             logging.info('Epoch[%d] Validation-%s=%f', param.epoch,
                          name, val_array.asscalar())
 
-# Fetch training and validation data if present
-try:
-    train_data, val_data, batch_fn = get_data_rec(args.rec_train,
-                                                  args.rec_train_idx,
-                                                  args.rec_val,
-                                                  args.rec_val_idx,
-                                                  batch_size,
-                                                  data_nthreads)
-except Exception as e:
-    print("Data not found, using synthetic data instead!")
-    args.benchmark = 1
+
+if args.benchmark is 0:
+    # Fetch training and validation data if present
+    try:
+        train_data, val_data, batch_fn = get_data_rec(args.rec_train,
+                                                      args.rec_train_idx,
+                                                      args.rec_val,
+                                                      args.rec_val_idx,
+                                                      batch_size,
+                                                      data_nthreads)
+    except Exception as e:
+        print("Data not found, using synthetic data instead!")
+        args.benchmark = 1
+
 
 # Otherwise use synthetic data
 if args.benchmark is 1:
     image_shape = (3, 224, 224)
     data_shape = (batch_size,) + image_shape
-    train_data = SyntheticDataIter(classes, data_shape, epoch_size, np.float32)
+    train_data = SyntheticDataIter(num_classes, data_shape, epoch_size,
+                                   np.float32, context)
     val_data = None
 
 
