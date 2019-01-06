@@ -205,7 +205,7 @@ See a full training [example](examples/tensorflow_mnist_estimator.py).
 
 Horovod supports MXNet and regular TensorFlow in similar ways.
 
-See full training [mnist](examples/mxnet_mnist.py) and [imagenet](examples/mxnet_imagenet_resnet50.py) examples.
+See full training [MNIST](examples/mxnet_mnist.py) and [ImageNet](examples/mxnet_imagenet_resnet50.py) examples.
 
 **Note**: we recommend users to build MXNet from source following this [guide](https://mxnet.incubator.apache.org/install/build_from_source.html) when running Horovod with MXNet on a Linux OS with GCC version 5.X and above. The MXNet shared library distributed through MXNet pip package is currently built using GCC 4.8.4. If we build and install Horovod on a Linux OS with GCC 5.X+ with MXNet pip package, we will hit segmentation fault due to std::function definition change from GCC [4.X](https://github.com/gcc-mirror/gcc/blob/gcc-4_8_4-release/libstdc++-v3/include/std/functional#L2069) to GCC [5.X](https://github.com/gcc-mirror/gcc/blob/gcc-5_4_0-release/libstdc++-v3/include/std/functional#L1854).
 
