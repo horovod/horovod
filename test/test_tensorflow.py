@@ -35,17 +35,8 @@ config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 
 if _has_eager:
-    from tensorflow.python.framework.test_util import run_in_graph_and_eager_modes
-    tfe = tf.contrib.eager
+    from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
     tf.enable_eager_execution(config=config)
-
-    def run_all_in_graph_and_eager_modes_with_config(cls, config):
-          """Execute all test methods in the given class, config with and without eager."""
-          base_decorator = run_in_graph_and_eager_modes(config=config)
-          for name, value in cls.__dict__.copy().items():
-              if callable(value) and name.startswith("test"):
-                  setattr(cls, name, base_decorator(value))
-          return cls
 
 class MPITests(tf.test.TestCase):
     """
@@ -54,15 +45,18 @@ class MPITests(tf.test.TestCase):
 
     def __init__(self, *args, **kwargs):
         super(MPITests, self).__init__(*args, **kwargs)
+        if _has_eager:
+            self.tfe = tf.contrib.eager
 
-    if not _has_eager:
-        def evaluate(self, tensors):
-            sess = ops.get_default_session()
-            if sess is None:
-                with self.test_session(config=config) as sess:
-                  return sess.run(tensors)
-            else:
+    def evaluate(self, tensors):
+        if _executing_eagerly():
+            return self._eval_helper(tensors)
+        sess = ops.get_default_session()
+        if sess is None:
+            with self.test_session(config=config) as sess:
                 return sess.run(tensors)
+        else:
+            return sess.run(tensors)
 
     def test_horovod_rank(self):
         """Test that the rank returned by hvd.rank() is correct."""
@@ -348,7 +342,7 @@ class MPITests(tf.test.TestCase):
             with tf.device("/cpu:0"):
                 tf.set_random_seed(1234)
                 if _executing_eagerly():
-                    tensor = tfe.Variable(tf.random_uniform(
+                    tensor = self.tfe.Variable(tf.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype))
                     with tf.GradientTape() as tape:
                         summed = hvd.allreduce(tensor, average=False)
@@ -504,7 +498,7 @@ class MPITests(tf.test.TestCase):
 
             if _executing_eagerly():
                 with tf.GradientTape() as tape:
-                    tensor = tfe.Variable(
+                    tensor = self.tfe.Variable(
                         tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank)
                     if dtype == tf.bool:
                         tensor = tensor % 2
@@ -637,7 +631,7 @@ class MPITests(tf.test.TestCase):
         for dtype, dim, root_rank in itertools.product(
                 dtypes, dims, root_ranks):
             if _executing_eagerly():
-                tensor = tfe.Variable(tf.ones([5] * dim) * rank)
+                tensor = self.tfe.Variable(tf.ones([5] * dim) * rank)
             else:
                 tensor = tf.ones([5] * dim) * rank
             if dtype == tf.bool:
@@ -701,5 +695,5 @@ class MPITests(tf.test.TestCase):
 
 if __name__ == '__main__':
     if _has_eager:
-        run_all_in_graph_and_eager_modes_with_config(MPITests(), config)
+        run_all_in_graph_and_eager_modes(MPITests())
     tf.test.main()
