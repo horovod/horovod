@@ -37,11 +37,6 @@ before_install:
     else
       docker exec ${CONTAINER} /bin/sh -c "apt install -y openjdk-8-jdk-headless"
     fi
-  # install required packages to build MXNet from source
-  - |
-    if [[ ${DEBIAN} != "jessie" ]]; then
-      docker exec ${CONTAINER} /bin/sh -c "apt-get install -y libopenblas-dev libopencv-dev"
-    fi
   # install Python and add a proper symlink
   - |
     if [[ ${TRAVIS_PYTHON_VERSION} == "3.6" ]]; then
@@ -50,7 +45,7 @@ before_install:
     else
       docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev"
     fi
-  - docker exec ${CONTAINER} /bin/sh -c "ln -sf /usr/bin/python${TRAVIS_PYTHON_VERSION} /usr/bin/python"
+  - docker exec ${CONTAINER} /bin/sh -c "ln -s /usr/bin/python${TRAVIS_PYTHON_VERSION} /usr/bin/python"
   - docker exec ${CONTAINER} /bin/sh -c "wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py"
   - docker exec ${CONTAINER} /bin/sh -c "pip install -U --force pip setuptools requests"
   # install PySpark
@@ -118,10 +113,8 @@ install:
     if [[ ${DEBIAN} == "jessie" ]]; then
       docker exec ${CONTAINER} /bin/sh -c "pip install ${MXNET_PACKAGE}"
     else
-      # build MXNet from source to avoid segfault on debian:stretch/buster
-      docker exec ${CONTAINER} /bin/sh -c "git clone --recursive https://github.com/apache/incubator-mxnet.git mxnet"
-      docker exec ${CONTAINER} /bin/sh -c "cd /mxnet && cp make/config.mk ./ && sed -i 's/atlas/openblas/' config.mk && make --quiet -j $(nproc)"
-      docker exec ${CONTAINER} /bin/sh -c "cd /mxnet && pip install -e python"
+      # mxnet-horovod is built with GCC 5.4.0 to avoid segfault on debian:stretch/buster
+      docker exec ${CONTAINER} /bin/sh -c "pip install mxnet-horovod"
     fi
 
   # Horovod
