@@ -396,16 +396,14 @@ class MPITests(tf.test.TestCase):
                       tf.float64, tf.bool]
             dims = [1, 2, 3]
             tests = []
+            tensors_to_gather = []
             for dtype, dim in itertools.product(dtypes, dims):
                 tensor = tf.ones([17] * dim) * rank
                 if dtype == tf.bool:
                     tensor = tensor % 2
                 tensor = tf.cast(tensor, dtype=dtype)
                 gathered = hvd.allgather(tensor)
-
-                gathered_tensor = session.run(gathered)
-                self.assertEqual(list(gathered_tensor.shape),
-                                 [17 * size] + [17] * (dim - 1))
+                tensors_to_gather.append(gathered)
 
                 for i in range(size):
                     rank_tensor = tf.slice(gathered,
@@ -423,8 +421,14 @@ class MPITests(tf.test.TestCase):
                         tf.reduce_all(
                             tf.equal(tf.cast(rank_tensor, tf.int32), value)))
 
+            gathered_tensors = session.run(tensors_to_gather)
+            gathered_tensors_it = iter(gathered_tensors)
+            for dtype, dim in itertools.product(dtypes, dims):
+                tensor_shape, expected_shape = list(next(gathered_tensors_it).shape), [17 * size] + [17] * (dim - 1)
+                self.assertListEqual(tensor_shape, expected_shape)
+
             self.assertTrue(
-                session.run(session.run(tf.reduce_all(tests))),
+                session.run(tf.reduce_all(tests)),
                 "hvd.allgather produces incorrect gathered tensor")
 
     def test_horovod_allgather_variable_size_fused(self):
@@ -441,6 +445,8 @@ class MPITests(tf.test.TestCase):
                       tf.float64, tf.bool]
             dims = [1, 2, 3]
             tests = []
+            tensors_to_gather = []
+            expected_size_of_tensors_to_gather = []
             for dtype, dim in itertools.product(dtypes, dims):
                 # Support tests up to MPI Size of 35
                 if size > 35:
@@ -454,11 +460,11 @@ class MPITests(tf.test.TestCase):
                     tensor = tensor % 2
                 tensor = tf.cast(tensor, dtype=dtype)
                 gathered = hvd.allgather(tensor)
+                tensors_to_gather.append(gathered)
+                expected_size_of_tensors_to_gather.append(sum(tensor_sizes))
 
-                gathered_tensor = session.run(gathered)
-                expected_size = sum(tensor_sizes)
-                self.assertEqual(list(gathered_tensor.shape),
-                                 [expected_size] + [17] * (dim - 1))
+                # self.assertEqual(list(gathered_tensor.shape),
+                #                  [expected_size] + [17] * (dim - 1))
 
                 for i in range(size):
                     rank_size = [tensor_sizes[i]] + [17] * (dim - 1)
@@ -475,6 +481,16 @@ class MPITests(tf.test.TestCase):
 
                     tests.append(tf.reduce_all(
                         tf.equal(tf.cast(rank_tensor, tf.int32), value)))
+
+            gathered_tensors = session.run(tensors_to_gather)
+            gathered_tensors_it = iter(gathered_tensors)
+            expected_size_it = iter(expected_size_of_tensors_to_gather)
+
+            for dtype, dim in itertools.product(dtypes, dims):
+                tensor_shape = list(next(gathered_tensors_it).shape)
+                expected_shape = [next(expected_size_it)] + [17] * (dim - 1)
+
+                self.assertListEqual(tensor_shape, expected_shape)
 
             self.assertTrue(session.run(tf.reduce_all(tests)),
                             "hvd.allgather produces incorrect gathered tensor")

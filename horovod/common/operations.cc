@@ -277,6 +277,15 @@ const Status DUPLICATE_NAME_ERROR = Status::InvalidArgument(
     return;                                                                    \
   }
 
+// Return the total size of the tensor across the ranks
+int64_t TotalDimensionSize(const std::vector<int64_t>& tensor_sizes) {
+  int64_t new_total_dimension_size = 0;
+  for (auto sz : tensor_sizes) {
+    new_total_dimension_size += sz;
+  }
+  return new_total_dimension_size;
+}
+
 // Store the MPIRequest for a name, and return whether the total count of
 // MPIRequests for that tensor is now equal to the MPI size (and thus we are
 // ready to reduce the tensor).
@@ -810,7 +819,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
   Status status;
   if (response.response_type() == MPIResponse::ALLGATHER) {
-    std::vector<int64_t> tensor_sizes;
 
     // Sizes of subcomponents of each entry from all ranks
     auto** entry_component_sizes = new int64_t*[entries.size()];
@@ -844,16 +852,12 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       // and compute total size.  This is size of first dimension.
       int64_t total_entry_dimension_size = 0;
       for (unsigned int rc = 0; rc < horovod_global.size; ++rc) {
-        tensor_sizes.push_back(
-            response.tensor_sizes()[ec * horovod_global.size + rc]);
-        total_entry_dimension_size +=
+        auto component_size =
             response.tensor_sizes()[ec * horovod_global.size + rc];
-        recvcounts[rc] +=
-            response.tensor_sizes()[ec * horovod_global.size + rc] *
-            single_slice_shape.num_elements();
+        total_entry_dimension_size += component_size;
+        recvcounts[rc] += component_size * single_slice_shape.num_elements();
         entry_component_sizes[ec][rc] =
-            response.tensor_sizes()[ec * horovod_global.size + rc] *
-            single_slice_shape.num_elements();
+            component_size * single_slice_shape.num_elements();
       }
 
       // Allgather output will have shape of:
@@ -966,9 +970,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                (size_t)(entry_component_sizes[ec][horovod_global.rank] *
                         element_size));
       }
-      ACTIVITY_END_ALL(entries, timeline)
-
       MPI_CHECK(entries, "MPI_Barrier", MPI_Barrier(horovod_global.mpi_comm));
+      ACTIVITY_END_ALL(entries, timeline)
 
       // Perform the cross-node allgather. If the cluster is homogeneous all
       // local ranks participate, otherwise local rank 0 handles all data
@@ -990,11 +993,12 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         auto& e = entries[ec];
         int64_t copy_offset = 0;
         for (int rc = 0; rc < horovod_global.size; rc++) {
+          auto entry_component_size = entry_component_sizes[ec][rc];
           std::memcpy((void*)((uint8_t*)e.output->data() + copy_offset),
                       (void*)((uint8_t*)horovod_global.shared_buffer +
-                              entry_component_offsets[ec][rc] * element_size),
-                      (size_t)entry_component_sizes[ec][rc] * element_size);
-          copy_offset += entry_component_sizes[ec][rc] * element_size;
+                              entry_component_size * element_size),
+                      (size_t)entry_component_size * element_size);
+          copy_offset += entry_component_size * element_size;
         }
       }
       MPI_CHECK(entries, "MPI_Barrier", MPI_Barrier(horovod_global.mpi_comm));
@@ -1807,7 +1811,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.param_manager.SetCycleTimeMs(5);
   auto horovod_cycle_time = std::getenv(HOROVOD_CYCLE_TIME);
   if (horovod_cycle_time != nullptr) {
-    state.param_manager.SetCycleTimeMs(std::strtof(horovod_cycle_time, nullptr), true);
+    state.param_manager.SetCycleTimeMs(std::strtof(horovod_cycle_time, nullptr),
+                                       true);
   }
 
   // Disable stall check.
@@ -2135,10 +2140,8 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 
           // Copy tensor sizes from the MPI response into a vector of int64_t
           // and compute total size.  This is size of first dimension.
-          int64_t total_dimension_size = 0;
-          for (auto sz : response.tensor_sizes()) {
-            total_dimension_size += sz;
-          }
+          int64_t total_dimension_size =
+              TotalDimensionSize(response.tensor_sizes());
 
           // Every tensor participating in Allgather operation may have
           // different first dimension size, but the rest of dimensions are same
@@ -2161,10 +2164,9 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
             auto& new_entry =
                 state.tensor_table[new_response.tensor_names()[0]];
 
-            int64_t new_total_dimension_size = 0;
-            for (auto sz : new_response.tensor_sizes()) {
-              new_total_dimension_size += sz;
-            }
+            int64_t new_total_dimension_size =
+                TotalDimensionSize(new_response.tensor_sizes());
+
             int64_t new_total_count_of_output_entries =
                 new_total_dimension_size;
             for (int i = 1; i < new_entry.tensor->shape().dims(); ++i) {
