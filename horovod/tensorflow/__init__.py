@@ -251,10 +251,12 @@ class DistributedOptimizer(tf.train.Optimizer):
 if hasattr(tf, 'GradientTape'):
     class _DistributedGradientTape(tf.GradientTape):
 
-        def __init__(self, persistent, watch_accessed_variables,
-                     tape, device_dense, device_sparse,
-                     compression, sparse_as_dense):
-            super(self.__class__, self).__init__(persistent, watch_accessed_variables)
+        def __init__(self, tape, device_dense, device_sparse,
+                     compression, sparse_as_dense, persistent=False, watch_accessed_variables=True):
+            if hasattr(tape, '_watch_accessed_variables'):
+                super(self.__class__, self).__init__(persistent, watch_accessed_variables)
+            else:
+                super(self.__class__, self).__init__(persistent)
             self._tape = tape
             self._persistent = persistent
             self._watch_accessed_variables = watch_accessed_variables
@@ -313,6 +315,11 @@ def DistributedGradientTape(gradtape, device_dense='', device_sparse='',
     """
     cls = type(gradtape.__class__.__name__, (gradtape.__class__,),
                dict(_DistributedGradientTape.__dict__))
-    return cls(gradtape._persistent, gradtape._watch_accessed_variables,
-               gradtape._tape, device_dense, device_sparse,
-               compression, sparse_as_dense)
+    if hasattr(gradtape, '_watch_accessed_variables'):
+        return cls(gradtape._tape, device_dense, device_sparse,
+                   compression, sparse_as_dense,
+                   gradtape._persistent, gradtape._watch_accessed_variables)
+    else:
+        return cls(gradtape._tape, device_dense, device_sparse,
+                   compression, sparse_as_dense,
+                   gradtape._persistent)
