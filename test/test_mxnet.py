@@ -25,7 +25,7 @@ import horovod.mxnet as hvd
 from mxnet.test_utils import same
 
 
-has_gpu = mx.context.num_gpus > 0
+has_gpu = mx.context.num_gpus() > 0
 
 
 class MXTests(unittest.TestCase):
