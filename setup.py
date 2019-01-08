@@ -435,7 +435,8 @@ def get_common_options(build_ext):
                'horovod/common/parameter_manager.cc',
                'horovod/common/timeline.cc',
                'horovod/common/optim/bayesian_optimization.cc',
-               'horovod/common/optim/gaussian_process.cc']
+               'horovod/common/optim/gaussian_process.cc',
+               'horovod/common/logging.cc']
     COMPILE_FLAGS = cpp_flags + shlex.split(mpi_flags)
     LINK_FLAGS = link_flags + shlex.split(mpi_flags)
     LIBRARY_DIRS = []

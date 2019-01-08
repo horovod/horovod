@@ -124,6 +124,7 @@ public:
 
   // Empty if the type is DONE or SHUTDOWN.
   const std::vector<std::string>& tensor_names() const;
+  const std::string tensor_names_string() const;
   void set_tensor_names(const std::vector<std::string>& value);
   void add_tensor_names(const std::string& value);
 

@@ -251,6 +251,20 @@ const std::vector<std::string>& MPIResponse::tensor_names() const {
   return tensor_names_;
 }
 
+const std::string MPIResponse::tensor_names_string() const {
+  std::string result;
+  bool is_first_name = true;
+  for (auto const& s : tensor_names_) {
+    if (!is_first_name) {
+      result += ", ";
+    } else {
+      is_first_name = false;
+    }
+    result += s;
+  }
+  return result;
+}
+
 void MPIResponse::set_tensor_names(const std::vector<std::string>& value) {
   tensor_names_ = value;
 }
