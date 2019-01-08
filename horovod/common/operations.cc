@@ -546,8 +546,8 @@ MPI_Datatype GetMPIDataType(const std::shared_ptr<Tensor> tensor) {
 }
 
 // Return the total byte size of the final allgathered output tensor
-int64_t TotalByteSizeOfOutput(const std::vector<int64_t>& tensor_sizes,
-                              const TensorTableEntry entry) {
+int64_t TotalByteSizeOfAllgatherOutput(const std::vector<int64_t> &tensor_sizes,
+                                       const TensorTableEntry entry) {
   int64_t total_dimension_size = 0;
   for (auto sz : tensor_sizes) {
     total_dimension_size += sz;
@@ -2162,7 +2162,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 
           // This is size of first dimension.
           int64_t total_byte_size_of_output =
-              TotalByteSizeOfOutput(response.tensor_sizes(), entry);
+              TotalByteSizeOfAllgatherOutput(response.tensor_sizes(), entry);
 
           while (!responses.empty()) {
 
@@ -2172,7 +2172,8 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
                 state.tensor_table[new_response.tensor_names()[0]];
 
             int64_t new_total_byte_size_of_output =
-                TotalByteSizeOfOutput(new_response.tensor_sizes(), new_entry);
+                TotalByteSizeOfAllgatherOutput(new_response.tensor_sizes(),
+                                               new_entry);
 
             if (response.response_type() == new_response.response_type() &&
                 response.devices() == new_response.devices() &&
