@@ -290,7 +290,6 @@ void MPIResponse::add_allgather_response(
   assert(response_type() == MPIResponse::ResponseType::ALLGATHER);
   assert(response.tensor_names().size() == 1);
   assert(response.devices() == devices());
-  assert(response.tensor_sizes().size() == tensor_sizes().size());
   add_tensor_names(response.tensor_names()[0]);
   for (auto size: response.tensor_sizes()){
     add_tensor_sizes(size);

@@ -277,15 +277,6 @@ const Status DUPLICATE_NAME_ERROR = Status::InvalidArgument(
     return;                                                                    \
   }
 
-// Return the total size of the tensor across the ranks
-int64_t TotalDimensionSize(const std::vector<int64_t>& tensor_sizes) {
-  int64_t new_total_dimension_size = 0;
-  for (auto sz : tensor_sizes) {
-    new_total_dimension_size += sz;
-  }
-  return new_total_dimension_size;
-}
-
 // Store the MPIRequest for a name, and return whether the total count of
 // MPIRequests for that tensor is now equal to the MPI size (and thus we are
 // ready to reduce the tensor).
@@ -552,6 +543,30 @@ MPI_Datatype GetMPIDataType(const std::shared_ptr<Tensor> tensor) {
     throw std::logic_error("Type " + MPIDataType_Name(tensor->dtype()) +
                            " is not supported in MPI mode.");
   }
+}
+
+// Return the total byte size of the final allgathered output tensor
+int64_t TotalByteSizeOfOutput(const std::vector<int64_t>& tensor_sizes,
+                              const TensorTableEntry entry) {
+  int64_t total_dimension_size = 0;
+  for (auto sz : tensor_sizes) {
+    total_dimension_size += sz;
+  }
+  // Every tensor participating in Allgather operation may have
+  // different first dimension size, but the rest of dimensions are same
+  // for all tensors.  Here we get shape of tensor sliced by first
+  // dimension. Allgather output will have shape of: (sum of first
+  // dimension of every tensor) x (tensor slice shape).
+  int64_t total_count_of_output_entries = total_dimension_size;
+  for (int i = 1; i < entry.tensor->shape().dims(); ++i) {
+    total_count_of_output_entries *= entry.tensor->shape().dim_size(i);
+  }
+  int element_size;
+  MPI_Type_size(GetMPIDataType(entry.tensor), &element_size);
+  int64_t total_byte_size_of_output =
+      total_count_of_output_entries * element_size;
+
+  return total_byte_size_of_output;
 }
 
 #if HAVE_NCCL
@@ -1824,7 +1839,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   // Set flag for hierarchical allgather. Ignore if Horovod is running on a
   // single node.
-  auto horovod_hierarchical_allgather = std::getenv(HOROVOD_HIERARCHICAL_ALLGATHER);
+  auto horovod_hierarchical_allgather =
+      std::getenv(HOROVOD_HIERARCHICAL_ALLGATHER);
   state.param_manager.SetHierarchicalAllgather(false);
   if (horovod_hierarchical_allgather != nullptr) {
     bool value = std::strtol(horovod_hierarchical_allgather, nullptr, 10) > 0 &&
@@ -1834,7 +1850,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   // Set flag for hierarchical allreduce. Ignore if Horovod is running on a
   // single node.
-  auto horovod_hierarchical_allreduce = std::getenv(HOROVOD_HIERARCHICAL_ALLREDUCE);
+  auto horovod_hierarchical_allreduce =
+      std::getenv(HOROVOD_HIERARCHICAL_ALLREDUCE);
   state.param_manager.SetHierarchicalAllreduce(false);
   if (horovod_hierarchical_allreduce != nullptr) {
     bool value = std::strtol(horovod_hierarchical_allreduce, nullptr, 10) > 0 &&
@@ -1848,8 +1865,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 #endif
 
   // Issue warning if hierarchical allreduce is enabled in heterogeneous cluster
-  if (is_coordinator && (state.param_manager.HierarchicalAllreduce()
-              || state.param_manager.HierarchicalAllgather()) && !state.is_homogeneous) {
+  if (is_coordinator &&
+      (state.param_manager.HierarchicalAllreduce() ||
+       state.param_manager.HierarchicalAllgather()) &&
+      !state.is_homogeneous) {
     std::cerr
         << "WARNING: Using different number of ranks per node might cause "
            "performance loss in hierarchical allgather and "
@@ -1861,10 +1880,13 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   // Enable auto-tuning.
   auto horovod_autotune = std::getenv(HOROVOD_AUTOTUNE);
-  if (horovod_autotune != nullptr && std::strtol(horovod_autotune, nullptr, 10) > 0) {
+  if (horovod_autotune != nullptr &&
+      std::strtol(horovod_autotune, nullptr, 10) > 0) {
     auto horovod_autotune_log = std::getenv(HOROVOD_AUTOTUNE_LOG);
     state.param_manager.Initialize(rank, RANK_ZERO, state.mpi_comm,
-                                   horovod_autotune_log != nullptr ? std::string(horovod_autotune_log) : "");
+                                   horovod_autotune_log != nullptr
+                                       ? std::string(horovod_autotune_log)
+                                       : "");
     state.param_manager.SetAutoTuning(true);
   }
 
@@ -2138,24 +2160,9 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
           // Attempt to add more responses to this fused response.
           auto& entry = state.tensor_table[response.tensor_names()[0]];
 
-          // Copy tensor sizes from the MPI response into a vector of int64_t
-          // and compute total size.  This is size of first dimension.
-          int64_t total_dimension_size =
-              TotalDimensionSize(response.tensor_sizes());
-
-          // Every tensor participating in Allgather operation may have
-          // different first dimension size, but the rest of dimensions are same
-          // for all tensors.  Here we get shape of tensor sliced by first
-          // dimension. Allgather output will have shape of: (sum of first
-          // dimension of every tensor) x (tensor slice shape).
-          int64_t total_count_of_output_entries = total_dimension_size;
-          for (int i = 1; i < entry.tensor->shape().dims(); ++i) {
-            total_count_of_output_entries *= entry.tensor->shape().dim_size(i);
-          }
-          int element_size;
-          MPI_Type_size(GetMPIDataType(entry.tensor), &element_size);
+          // This is size of first dimension.
           int64_t total_byte_size_of_output =
-              total_count_of_output_entries * element_size;
+              TotalByteSizeOfOutput(response.tensor_sizes(), entry);
 
           while (!responses.empty()) {
 
@@ -2164,20 +2171,8 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
             auto& new_entry =
                 state.tensor_table[new_response.tensor_names()[0]];
 
-            int64_t new_total_dimension_size =
-                TotalDimensionSize(new_response.tensor_sizes());
-
-            int64_t new_total_count_of_output_entries =
-                new_total_dimension_size;
-            for (int i = 1; i < new_entry.tensor->shape().dims(); ++i) {
-              new_total_count_of_output_entries *=
-                  new_entry.tensor->shape().dim_size(i);
-            }
-
-            int new_element_size;
-            MPI_Type_size(GetMPIDataType(new_entry.tensor), &new_element_size);
             int64_t new_total_byte_size_of_output =
-                new_total_count_of_output_entries * new_element_size;
+                TotalByteSizeOfOutput(new_response.tensor_sizes(), new_entry);
 
             if (response.response_type() == new_response.response_type() &&
                 response.devices() == new_response.devices() &&
