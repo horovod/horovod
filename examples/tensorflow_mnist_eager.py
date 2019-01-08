@@ -18,10 +18,6 @@ import tensorflow as tf
 import horovod.tensorflow as hvd
 
 def main(_):
-    if not hasattr(tf, 'enable_eager_execution'):
-        print("this tensorflow is not support eager mode")
-        return
-
     # Horovod: initialize Horovod.
     hvd.init()
 
