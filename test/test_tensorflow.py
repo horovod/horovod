@@ -28,6 +28,15 @@ import horovod.tensorflow as hvd
 
 from common import mpi_env_rank_and_size
 
+from horovod.tensorflow.util import _executing_eagerly, _has_eager
+from tensorflow.python.framework import ops
+
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+
+if _has_eager:
+    from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
+    tf.enable_eager_execution(config=config)
 
 class MPITests(tf.test.TestCase):
     """
@@ -36,8 +45,18 @@ class MPITests(tf.test.TestCase):
 
     def __init__(self, *args, **kwargs):
         super(MPITests, self).__init__(*args, **kwargs)
-        self.config = tf.ConfigProto()
-        self.config.gpu_options.allow_growth = True
+        if _has_eager:
+            self.tfe = tf.contrib.eager
+
+    def evaluate(self, tensors):
+        if _executing_eagerly():
+            return self._eval_helper(tensors)
+        sess = ops.get_default_session()
+        if sess is None:
+            with self.test_session(config=config) as sess:
+                return sess.run(tensors)
+        else:
+            return sess.run(tensors)
 
     def test_horovod_rank(self):
         """Test that the rank returned by hvd.rank() is correct."""
@@ -57,66 +76,64 @@ class MPITests(tf.test.TestCase):
         """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        with self.test_session(config=self.config) as session:
-            dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
-            dims = [1, 2, 3]
-            for dtype, dim in itertools.product(dtypes, dims):
-                with tf.device("/cpu:0"):
-                    tf.set_random_seed(1234)
-                    tensor = tf.random_uniform(
-                        [17] * dim, -100, 100, dtype=dtype)
-                    summed = hvd.allreduce(tensor, average=False)
-                multiplied = tensor * size
-                max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                tf.set_random_seed(1234)
+                tensor = tf.random_uniform(
+                    [17] * dim, -100, 100, dtype=dtype)
+                summed = hvd.allreduce(tensor, average=False)
+            multiplied = tensor * size
+            max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
-                # Threshold for floating point equality depends on number of
-                # ranks, since we're comparing against precise multiplication.
-                if size <= 3 or dtype in [tf.int32, tf.int64]:
-                    threshold = 0
-                elif size < 10:
-                    threshold = 1e-4
-                elif size < 15:
-                    threshold = 5e-4
-                else:
-                    break
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
 
-                diff = session.run(max_difference)
-                self.assertTrue(diff <= threshold,
-                                "hvd.allreduce produces incorrect results")
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold,
+                            "hvd.allreduce produces incorrect results")
 
     def test_horovod_allreduce_cpu_fused(self):
         """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors
         with Tensor Fusion."""
         hvd.init()
         size = hvd.size()
-        with self.test_session(config=self.config) as session:
-            dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
-            dims = [1, 2, 3]
-            tests = []
-            for dtype, dim in itertools.product(dtypes, dims):
-                with tf.device("/cpu:0"):
-                    tf.set_random_seed(1234)
-                    tensor = tf.random_uniform(
-                        [17] * dim, -100, 100, dtype=dtype)
-                    summed = hvd.allreduce(tensor, average=False)
-                multiplied = tensor * size
-                max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        tests = []
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                tf.set_random_seed(1234)
+                tensor = tf.random_uniform(
+                    [17] * dim, -100, 100, dtype=dtype)
+                summed = hvd.allreduce(tensor, average=False)
+            multiplied = tensor * size
+            max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
-                # Threshold for floating point equality depends on number of
-                # ranks, since we're comparing against precise multiplication.
-                if size <= 3 or dtype in [tf.int32, tf.int64]:
-                    threshold = 0
-                elif size < 10:
-                    threshold = 1e-4
-                elif size < 15:
-                    threshold = 5e-4
-                else:
-                    break
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
 
-                test = max_difference <= threshold
-                tests.append(test)
-            self.assertTrue(session.run(tf.reduce_all(tests)),
-                            "hvd.allreduce produces incorrect results")
+            test = max_difference <= threshold
+            tests.append(test)
+        self.assertTrue(self.evaluate(tf.reduce_all(tests)),
+                        "hvd.allreduce produces incorrect results")
 
     def test_horovod_allreduce_gpu(self):
         """Test that the allreduce works on GPUs.
@@ -132,32 +149,31 @@ class MPITests(tf.test.TestCase):
         local_rank = hvd.local_rank()
         size = hvd.size()
 
-        with self.test_session(config=self.config) as session:
-            dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
-            dims = [1, 2, 3]
-            for dtype, dim in itertools.product(dtypes, dims):
-                with tf.device("/gpu:%d" % local_rank):
-                    tf.set_random_seed(1234)
-                    tensor = tf.random_uniform(
-                        [17] * dim, -100, 100, dtype=dtype)
-                    summed = hvd.allreduce(tensor, average=False)
-                multiplied = tensor * size
-                max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%d" % local_rank):
+                tf.set_random_seed(1234)
+                tensor = tf.random_uniform(
+                    [17] * dim, -100, 100, dtype=dtype)
+                summed = hvd.allreduce(tensor, average=False)
+            multiplied = tensor * size
+            max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
-                # Threshold for floating point equality depends on number of
-                # ranks, since we're comparing against precise multiplication.
-                if size <= 3 or dtype in [tf.int32, tf.int64]:
-                    threshold = 0
-                elif size < 10:
-                    threshold = 1e-4
-                elif size < 15:
-                    threshold = 5e-4
-                else:
-                    return
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                return
 
-                diff = session.run(max_difference)
-                self.assertTrue(diff <= threshold,
-                                "hvd.allreduce on GPU produces incorrect results")
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold,
+                            "hvd.allreduce on GPU produces incorrect results")
 
     def test_horovod_allreduce_gpu_fused(self):
         """Test that the allreduce works on GPUs with Tensor Fusion.
@@ -173,34 +189,33 @@ class MPITests(tf.test.TestCase):
         local_rank = hvd.local_rank()
         size = hvd.size()
 
-        with self.test_session(config=self.config) as session:
-            dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
-            dims = [1, 2, 3]
-            tests = []
-            for dtype, dim in itertools.product(dtypes, dims):
-                with tf.device("/gpu:%d" % local_rank):
-                    tf.set_random_seed(1234)
-                    tensor = tf.random_uniform(
-                        [17] * dim, -100, 100, dtype=dtype)
-                    summed = hvd.allreduce(tensor, average=False)
-                multiplied = tensor * size
-                max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        tests = []
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%d" % local_rank):
+                tf.set_random_seed(1234)
+                tensor = tf.random_uniform(
+                    [17] * dim, -100, 100, dtype=dtype)
+                summed = hvd.allreduce(tensor, average=False)
+            multiplied = tensor * size
+            max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
-                # Threshold for floating point equality depends on number of
-                # ranks, since we're comparing against precise multiplication.
-                if size <= 3 or dtype in [tf.int32, tf.int64]:
-                    threshold = 0
-                elif size < 10:
-                    threshold = 1e-4
-                elif size < 15:
-                    threshold = 5e-4
-                else:
-                    return
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                return
 
-                test = max_difference <= threshold
-                tests.append(test)
-            self.assertTrue(session.run(tf.reduce_all(tests)),
-                            "hvd.allreduce produces incorrect results")
+            test = max_difference <= threshold
+            tests.append(test)
+        self.assertTrue(self.evaluate(tf.reduce_all(tests)),
+                        "hvd.allreduce produces incorrect results")
 
     def test_horovod_allreduce_multi_gpu(self):
         """Test that the allreduce works on multiple GPUs.
@@ -218,33 +233,32 @@ class MPITests(tf.test.TestCase):
 
         iter = 0
         gpu_ids = [local_rank * 2, local_rank * 2 + 1]
-        with self.test_session(config=self.config) as session:
-            dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
-            dims = [1, 2, 3]
-            for dtype, dim in itertools.product(dtypes, dims):
-                iter += 1
-                with tf.device("/gpu:%d" % gpu_ids[(iter + local_rank) % 2]):
-                    tf.set_random_seed(1234)
-                    tensor = tf.random_uniform(
-                        [17] * dim, -100, 100, dtype=dtype)
-                    summed = hvd.allreduce(tensor, average=False)
-                multiplied = tensor * size
-                max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            iter += 1
+            with tf.device("/gpu:%d" % gpu_ids[(iter + local_rank) % 2]):
+                tf.set_random_seed(1234)
+                tensor = tf.random_uniform(
+                    [17] * dim, -100, 100, dtype=dtype)
+                summed = hvd.allreduce(tensor, average=False)
+            multiplied = tensor * size
+            max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
-                # Threshold for floating point equality depends on number of
-                # ranks, since we're comparing against precise multiplication.
-                if size <= 3 or dtype in [tf.int32, tf.int64]:
-                    threshold = 0
-                elif size < 10:
-                    threshold = 1e-4
-                elif size < 15:
-                    threshold = 5e-4
-                else:
-                    return
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                return
 
-                diff = session.run(max_difference)
-                self.assertTrue(diff <= threshold,
-                                "hvd.allreduce on GPU produces incorrect results")
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold,
+                            "hvd.allreduce on GPU produces incorrect results")
 
     def test_horovod_allreduce_error(self):
         """Test that the allreduce raises an error if different ranks try to
@@ -257,23 +271,22 @@ class MPITests(tf.test.TestCase):
         if size == 1:
             return
 
-        with self.test_session(config=self.config) as session:
-            # Same rank, different dimension
-            tf.set_random_seed(1234)
-            dims = [17 + rank] * 3
-            tensor = tf.random_uniform(dims, -1.0, 1.0)
-            with self.assertRaises(tf.errors.FailedPreconditionError):
-                session.run(hvd.allreduce(tensor))
+        # Same rank, different dimension
+        tf.set_random_seed(1234)
+        dims = [17 + rank] * 3
+        tensor = tf.random_uniform(dims, -1.0, 1.0)
+        with self.assertRaises(tf.errors.FailedPreconditionError):
+            self.evaluate(hvd.allreduce(tensor))
 
-            # Same number of elements, different rank
-            tf.set_random_seed(1234)
-            if rank == 0:
-                dims = [17, 23 * 57]
-            else:
-                dims = [17, 23, 57]
-            tensor = tf.random_uniform(dims, -1.0, 1.0)
-            with self.assertRaises(tf.errors.FailedPreconditionError):
-                session.run(hvd.allreduce(tensor))
+        # Same number of elements, different rank
+        tf.set_random_seed(1234)
+        if rank == 0:
+            dims = [17, 23 * 57]
+        else:
+            dims = [17, 23, 57]
+        tensor = tf.random_uniform(dims, -1.0, 1.0)
+        with self.assertRaises(tf.errors.FailedPreconditionError):
+            self.evaluate(hvd.allreduce(tensor))
 
     def test_horovod_allreduce_type_error(self):
         """Test that the allreduce raises an error if different ranks try to
@@ -286,13 +299,12 @@ class MPITests(tf.test.TestCase):
         if size == 1:
             return
 
-        with self.test_session(config=self.config) as session:
-            # Same rank, different dimension
-            dims = [17] * 3
-            tensor = tf.ones(dims,
-                             dtype=tf.int32 if rank % 2 == 0 else tf.float32)
-            with self.assertRaises(tf.errors.FailedPreconditionError):
-                session.run(hvd.allreduce(tensor))
+        # Same rank, different dimension
+        dims = [17] * 3
+        tensor = tf.ones(dims,
+                         dtype=tf.int32 if rank % 2 == 0 else tf.float32)
+        with self.assertRaises(tf.errors.FailedPreconditionError):
+            self.evaluate(hvd.allreduce(tensor))
 
     def test_horovod_allreduce_cpu_gpu_error(self):
         """Test that the allreduce raises an error if different ranks try to
@@ -310,40 +322,47 @@ class MPITests(tf.test.TestCase):
             return
 
         device = "/gpu:%d" % local_rank if local_rank % 2 == 0 else "/cpu:0"
-        with self.test_session(config=self.config) as session:
-            with tf.device(device):
-                # Same rank, different dimension
-                dims = [17] * 3
-                tensor = tf.ones(dims, dtype=tf.int32)
-                with self.assertRaises(tf.errors.FailedPreconditionError):
-                    session.run(hvd.allreduce(tensor))
+        with tf.device(device):
+            # Same rank, different dimension
+            dims = [17] * 3
+            tensor = tf.ones(dims, dtype=tf.int32)
+            with self.assertRaises(tf.errors.FailedPreconditionError):
+                self.evaluate(hvd.allreduce(tensor))
 
     def test_horovod_allreduce_grad(self):
         """Test the correctness of the allreduce gradient."""
         hvd.init()
         size = hvd.size()
 
-        with self.test_session(config=self.config) as session:
-            # As of TensorFlow v1.9, gradients are not supported on
-            # integer tensors
-            dtypes = [tf.float32, tf.float64]
-            dims = [1, 2, 3]
-            for dtype, dim in itertools.product(dtypes, dims):
-                with tf.device("/cpu:0"):
-                    tf.set_random_seed(1234)
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                tf.set_random_seed(1234)
+                if _executing_eagerly():
+                    tensor = self.tfe.Variable(tf.random_uniform(
+                        [5] * dim, -100, 100, dtype=dtype))
+                    with tf.GradientTape() as tape:
+                        summed = hvd.allreduce(tensor, average=False)
+                else:
                     tensor = tf.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype)
                     summed = hvd.allreduce(tensor, average=False)
 
-                grad_ys = tf.ones([5] * dim)
+            grad_ys = tf.ones([5] * dim)
+            if _executing_eagerly():
+                grad_out = tape.gradient(summed, tensor, grad_ys)
+            else:
                 grad = tf.gradients(summed, tensor, grad_ys)[0]
-                grad_out = session.run(grad)
+                grad_out = self.evaluate(grad)
 
-                expected = np.ones([5] * dim) * size
-                err = np.linalg.norm(expected - grad_out)
-                self.assertLess(err, 0.00000001,
-                                "gradient %s differs from expected %s, "
-                                "error: %s" % (grad_out, expected, str(err)))
+            expected = np.ones([5] * dim) * size
+            err = np.linalg.norm(expected - grad_out)
+            self.assertLess(err, 0.00000001,
+                            "gradient %s differs from expected %s, "
+                            "error: %s" % (grad_out, expected, str(err)))
 
     def test_horovod_allgather(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors."""
@@ -351,37 +370,36 @@ class MPITests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
-        with self.test_session(config=self.config) as session:
-            dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
-                      tf.int32, tf.int64, tf.float16, tf.float32,
-                      tf.float64, tf.bool]
-            dims = [1, 2, 3]
-            for dtype, dim in itertools.product(dtypes, dims):
-                tensor = tf.ones([17] * dim) * rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
-                tensor = tf.cast(tensor, dtype=dtype)
-                gathered = hvd.allgather(tensor)
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64, tf.bool]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            tensor = tf.ones([17] * dim) * rank
+            if dtype == tf.bool:
+                tensor = tensor % 2
+            tensor = tf.cast(tensor, dtype=dtype)
+            gathered = hvd.allgather(tensor)
 
-                gathered_tensor = session.run(gathered)
-                self.assertEqual(list(gathered_tensor.shape),
-                                 [17 * size] + [17] * (dim - 1))
+            gathered_tensor = self.evaluate(gathered)
+            self.assertEqual(list(gathered_tensor.shape),
+                             [17 * size] + [17] * (dim - 1))
 
-                for i in range(size):
-                    rank_tensor = tf.slice(gathered_tensor,
-                                           [i * 17] + [0] * (dim - 1),
-                                           [17] + [-1] * (dim - 1))
-                    self.assertEqual(list(rank_tensor.shape), [17] * dim)
-                    # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
-                    # so need to cast rank_tensor to tf.int32.
-                    if dtype != tf.bool:
-                        value = i
-                    else:
-                        value = i % 2
-                    self.assertTrue(
-                        session.run(tf.reduce_all(
-                            tf.equal(tf.cast(rank_tensor, tf.int32), value))),
-                        "hvd.allgather produces incorrect gathered tensor")
+            for i in range(size):
+                rank_tensor = tf.slice(gathered_tensor,
+                                       [i * 17] + [0] * (dim - 1),
+                                       [17] + [-1] * (dim - 1))
+                self.assertEqual(list(rank_tensor.shape), [17] * dim)
+                # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
+                # so need to cast rank_tensor to tf.int32.
+                if dtype != tf.bool:
+                    value = i
+                else:
+                    value = i % 2
+                self.assertTrue(
+                    self.evaluate(tf.reduce_all(
+                        tf.equal(tf.cast(rank_tensor, tf.int32), value))),
+                    "hvd.allgather produces incorrect gathered tensor")
 
     def test_horovod_allgather_variable_size(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors,
@@ -390,46 +408,45 @@ class MPITests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
-        with self.test_session(config=self.config) as session:
-            dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
-                      tf.int32, tf.int64, tf.float16, tf.float32,
-                      tf.float64, tf.bool]
-            dims = [1, 2, 3]
-            for dtype, dim in itertools.product(dtypes, dims):
-                # Support tests up to MPI Size of 35
-                if size > 35:
-                    break
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64, tf.bool]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            # Support tests up to MPI Size of 35
+            if size > 35:
+                break
 
-                tensor_sizes = [17, 32, 81, 12, 15, 23, 22] * 5
-                tensor_sizes = tensor_sizes[:size]
+            tensor_sizes = [17, 32, 81, 12, 15, 23, 22] * 5
+            tensor_sizes = tensor_sizes[:size]
 
-                tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
-                tensor = tf.cast(tensor, dtype=dtype)
-                gathered = hvd.allgather(tensor)
+            tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
+            if dtype == tf.bool:
+                tensor = tensor % 2
+            tensor = tf.cast(tensor, dtype=dtype)
+            gathered = hvd.allgather(tensor)
 
-                gathered_tensor = session.run(gathered)
-                expected_size = sum(tensor_sizes)
-                self.assertEqual(list(gathered_tensor.shape),
-                                 [expected_size] + [17] * (dim - 1))
+            gathered_tensor = self.evaluate(gathered)
+            expected_size = sum(tensor_sizes)
+            self.assertEqual(list(gathered_tensor.shape),
+                             [expected_size] + [17] * (dim - 1))
 
-                for i in range(size):
-                    rank_size = [tensor_sizes[i]] + [17] * (dim - 1)
-                    rank_tensor = tf.slice(
-                        gathered, [sum(tensor_sizes[:i])] + [0] * (dim - 1),
-                        rank_size)
-                    self.assertEqual(list(rank_tensor.shape), rank_size)
-                    # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
-                    # so need to cast rank_tensor to tf.int32.
-                    if dtype != tf.bool:
-                        value = i
-                    else:
-                        value = i % 2
-                    self.assertTrue(
-                        session.run(tf.reduce_all(
-                            tf.equal(tf.cast(rank_tensor, tf.int32), value))),
-                        "hvd.allgather produces incorrect gathered tensor")
+            for i in range(size):
+                rank_size = [tensor_sizes[i]] + [17] * (dim - 1)
+                rank_tensor = tf.slice(
+                    gathered, [sum(tensor_sizes[:i])] + [0] * (dim - 1),
+                    rank_size)
+                self.assertEqual(list(rank_tensor.shape), rank_size)
+                # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
+                # so need to cast rank_tensor to tf.int32.
+                if dtype != tf.bool:
+                    value = i
+                else:
+                    value = i % 2
+                self.assertTrue(
+                    self.evaluate(tf.reduce_all(
+                        tf.equal(tf.cast(rank_tensor, tf.int32), value))),
+                    "hvd.allgather produces incorrect gathered tensor")
 
     def test_horovod_allgather_error(self):
         """Test that the allgather returns an error if any dimension besides
@@ -442,12 +459,11 @@ class MPITests(tf.test.TestCase):
         if size == 1:
             return
 
-        with self.test_session(config=self.config) as session:
-            tensor_size = [17] * 3
-            tensor_size[1] = 10 * (rank + 1)
-            tensor = tf.ones(tensor_size, dtype=tf.float32) * rank
-            with self.assertRaises(tf.errors.FailedPreconditionError):
-                session.run(hvd.allgather(tensor))
+        tensor_size = [17] * 3
+        tensor_size[1] = 10 * (rank + 1)
+        tensor = tf.ones(tensor_size, dtype=tf.float32) * rank
+        with self.assertRaises(tf.errors.FailedPreconditionError):
+            self.evaluate(hvd.allgather(tensor))
 
     def test_horovod_allgather_type_error(self):
         """Test that the allgather returns an error if the types being gathered
@@ -460,12 +476,11 @@ class MPITests(tf.test.TestCase):
         if size == 1:
             return
 
-        with self.test_session(config=self.config) as session:
-            tensor_size = [17] * 3
-            dtype = tf.int32 if rank % 2 == 0 else tf.float32
-            tensor = tf.ones(tensor_size, dtype=dtype) * rank
-            with self.assertRaises(tf.errors.FailedPreconditionError):
-                session.run(hvd.allgather(tensor))
+        tensor_size = [17] * 3
+        dtype = tf.int32 if rank % 2 == 0 else tf.float32
+        tensor = tf.ones(tensor_size, dtype=dtype) * rank
+        with self.assertRaises(tf.errors.FailedPreconditionError):
+            self.evaluate(hvd.allgather(tensor))
 
     def test_horovod_allgather_grad(self):
         """Test the correctness of the allgather gradient."""
@@ -473,15 +488,29 @@ class MPITests(tf.test.TestCase):
         rank = hvd.rank()
         size = hvd.size()
 
-        with self.test_session(config=self.config) as session:
-            # As of TensorFlow v1.9, gradients are not supported on
-            # integer tensors
-            dtypes = [tf.float32, tf.float64]
-            dims = [1, 2, 3]
-            for dtype, dim in itertools.product(dtypes, dims):
-                tensor_sizes = [3, 2, 7, 4, 6, 8, 10] * 5
-                tensor_sizes = tensor_sizes[:size]
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            tensor_sizes = [3, 2, 7, 4, 6, 8, 10] * 5
+            tensor_sizes = tensor_sizes[:size]
 
+            if _executing_eagerly():
+                with tf.GradientTape() as tape:
+                    tensor = self.tfe.Variable(
+                        tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank)
+                    if dtype == tf.bool:
+                        tensor = tensor % 2
+                    tensor = tf.cast(tensor, dtype=dtype)
+                    gathered = hvd.allgather(tensor)
+                    grad_list = []
+                    for r, tensor_size in enumerate(tensor_sizes):
+                        g = tf.ones([tensor_size] + [17] * (dim - 1)) * r
+                        grad_list.append(g)
+                    grad_ys = tf.concat(grad_list, axis=0)
+                grad_out = tape.gradient(gathered, tensor, grad_ys)
+            else:
                 tensor = tf.ones([tensor_sizes[rank]] + [17] * (dim - 1)) * rank
                 if dtype == tf.bool:
                     tensor = tensor % 2
@@ -495,16 +524,16 @@ class MPITests(tf.test.TestCase):
                 grad_ys = tf.concat(grad_list, axis=0)
 
                 grad = tf.gradients(gathered, tensor, grad_ys)[0]
-                grad_out = session.run(grad)
+                grad_out = self.evaluate(grad)
 
-                expected = np.ones(
-                    [tensor_sizes[rank]] + [17] * (dim - 1)
-                ) * rank * size
-                err = np.linalg.norm(expected - grad_out)
-                self.assertLess(err, 0.00000001,
-                                "gradient %s differs from expected %s, "
-                                "error: %s" %
-                                (grad_out, expected, str(err)))
+            expected = np.ones(
+                [tensor_sizes[rank]] + [17] * (dim - 1)
+            ) * rank * size
+            err = np.linalg.norm(expected - grad_out)
+            self.assertLess(err, 0.00000001,
+                            "gradient %s differs from expected %s, "
+                            "error: %s" %
+                            (grad_out, expected, str(err)))
 
     def test_horovod_broadcast(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
@@ -516,25 +545,24 @@ class MPITests(tf.test.TestCase):
         if size == 1:
             return
 
-        with self.test_session(config=self.config) as session:
-            dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
-                      tf.int32, tf.int64, tf.float16, tf.float32,
-                      tf.float64, tf.bool]
-            dims = [1, 2, 3]
-            root_ranks = list(range(size))
-            for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
-                tensor = tf.ones([17] * dim) * rank
-                root_tensor = tf.ones([17] * dim) * root_rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
-                    root_tensor = root_tensor % 2
-                tensor = tf.cast(tensor, dtype=dtype)
-                root_tensor = tf.cast(root_tensor, dtype=dtype)
-                broadcasted_tensor = hvd.broadcast(tensor, root_rank)
-                self.assertTrue(
-                    session.run(tf.reduce_all(tf.equal(
-                        tf.cast(root_tensor, tf.int32), tf.cast(broadcasted_tensor, tf.int32)))),
-                    "hvd.broadcast produces incorrect broadcasted tensor")
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64, tf.bool]
+        dims = [1, 2, 3]
+        root_ranks = list(range(size))
+        for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
+            tensor = tf.ones([17] * dim) * rank
+            root_tensor = tf.ones([17] * dim) * root_rank
+            if dtype == tf.bool:
+                tensor = tensor % 2
+                root_tensor = root_tensor % 2
+            tensor = tf.cast(tensor, dtype=dtype)
+            root_tensor = tf.cast(root_tensor, dtype=dtype)
+            broadcasted_tensor = hvd.broadcast(tensor, root_rank)
+            self.assertTrue(
+                self.evaluate(tf.reduce_all(tf.equal(
+                    tf.cast(root_tensor, tf.int32), tf.cast(broadcasted_tensor, tf.int32)))),
+                "hvd.broadcast produces incorrect broadcasted tensor")
 
     def test_horovod_broadcast_error(self):
         """Test that the broadcast returns an error if any dimension besides
@@ -547,12 +575,11 @@ class MPITests(tf.test.TestCase):
         if size == 1:
             return
 
-        with self.test_session(config=self.config) as session:
-            tensor_size = [17] * 3
-            tensor_size[1] = 10 * (rank + 1)
-            tensor = tf.ones(tensor_size, dtype=tf.float32) * rank
-            with self.assertRaises(tf.errors.FailedPreconditionError):
-                session.run(hvd.broadcast(tensor, 0))
+        tensor_size = [17] * 3
+        tensor_size[1] = 10 * (rank + 1)
+        tensor = tf.ones(tensor_size, dtype=tf.float32) * rank
+        with self.assertRaises(tf.errors.FailedPreconditionError):
+            self.evaluate(hvd.broadcast(tensor, 0))
 
     def test_horovod_broadcast_type_error(self):
         """Test that the broadcast returns an error if the types being broadcasted
@@ -565,12 +592,11 @@ class MPITests(tf.test.TestCase):
         if size == 1:
             return
 
-        with self.test_session(config=self.config) as session:
-            tensor_size = [17] * 3
-            dtype = tf.int32 if rank % 2 == 0 else tf.float32
-            tensor = tf.ones(tensor_size, dtype=dtype) * rank
-            with self.assertRaises(tf.errors.FailedPreconditionError):
-                session.run(hvd.broadcast(tensor, 0))
+        tensor_size = [17] * 3
+        dtype = tf.int32 if rank % 2 == 0 else tf.float32
+        tensor = tf.ones(tensor_size, dtype=dtype) * rank
+        with self.assertRaises(tf.errors.FailedPreconditionError):
+            self.evaluate(hvd.broadcast(tensor, 0))
 
     def test_horovod_broadcast_rank_error(self):
         """Test that the broadcast returns an error if different ranks
@@ -583,10 +609,9 @@ class MPITests(tf.test.TestCase):
         if size == 1:
             return
 
-        with self.test_session(config=self.config) as session:
-            tensor = tf.ones([17] * 3, dtype=tf.float32)
-            with self.assertRaises(tf.errors.FailedPreconditionError):
-                session.run(hvd.broadcast(tensor, rank))
+        tensor = tf.ones([17] * 3, dtype=tf.float32)
+        with self.assertRaises(tf.errors.FailedPreconditionError):
+            self.evaluate(hvd.broadcast(tensor, rank))
 
     def test_horovod_broadcast_grad(self):
         """Test the correctness of the broadcast gradient."""
@@ -598,30 +623,38 @@ class MPITests(tf.test.TestCase):
         if size == 1:
             return
 
-        with self.test_session(config=self.config) as session:
-            # As of TensorFlow v1.9, gradients are not supported on
-            # integer tensors
-            dtypes = [tf.float32, tf.float64]
-            dims = [1, 2, 3]
-            root_ranks = list(range(size))
-            for dtype, dim, root_rank in itertools.product(
-                    dtypes, dims, root_ranks):
+        # As of TensorFlow v1.9, gradients are not supported on
+        # integer tensors
+        dtypes = [tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        root_ranks = list(range(size))
+        for dtype, dim, root_rank in itertools.product(
+                dtypes, dims, root_ranks):
+            if _executing_eagerly():
+                tensor = self.tfe.Variable(tf.ones([5] * dim) * rank)
+            else:
                 tensor = tf.ones([5] * dim) * rank
-                if dtype == tf.bool:
-                    tensor = tensor % 2
+            if dtype == tf.bool:
+                tensor = tensor % 2
+            if _executing_eagerly():
+                with tf.GradientTape() as tape:
+                    tensor = tf.cast(tensor, dtype=dtype)
+                    broadcasted_tensor = hvd.broadcast(tensor, root_rank)
+                grad_out = tape.gradient(broadcasted_tensor, tensor)
+            else:
                 tensor = tf.cast(tensor, dtype=dtype)
                 broadcasted_tensor = hvd.broadcast(tensor, root_rank)
 
                 grad_ys = tf.ones([5] * dim)
                 grad = tf.gradients(broadcasted_tensor, tensor, grad_ys)[0]
-                grad_out = session.run(grad)
+                grad_out = self.evaluate(grad)
 
-                c = size if rank == root_rank else 0
-                expected = np.ones([5] * dim) * c
-                err = np.linalg.norm(expected - grad_out)
-                self.assertLess(err, 0.00000001,
-                                "gradient %s differs from expected %s, "
-                                "error: %s" % (grad_out, expected, str(err)))
+            c = size if rank == root_rank else 0
+            expected = np.ones([5] * dim) * c
+            err = np.linalg.norm(expected - grad_out)
+            self.assertLess(err, 0.00000001,
+                            "gradient %s differs from expected %s, "
+                            "error: %s" % (grad_out, expected, str(err)))
 
     def test_compression_fp16(self):
         valid_dtypes = [tf.float16, tf.float32, tf.float64]
@@ -631,35 +664,36 @@ class MPITests(tf.test.TestCase):
         tensor_size = [17] * 3
         compression = hvd.Compression.fp16
 
-        with self.test_session(config=self.config) as session:
-            for dtype in valid_dtypes:
-                tensor = tf.ones(tensor_size, dtype=dtype)
+        for dtype in valid_dtypes:
+            tensor = tf.ones(tensor_size, dtype=dtype)
 
-                tensor_compressed, ctx = compression.compress(tensor)
-                self.assertEqual(tensor_compressed.dtype, tf.float16)
+            tensor_compressed, ctx = compression.compress(tensor)
+            self.assertEqual(tensor_compressed.dtype, tf.float16)
 
-                tensor_decompressed = compression.decompress(tensor_compressed, ctx)
-                self.assertEqual(tensor_decompressed.dtype, dtype)
+            tensor_decompressed = compression.decompress(tensor_compressed, ctx)
+            self.assertEqual(tensor_decompressed.dtype, dtype)
 
-                actual = session.run(tensor_decompressed)
-                expected = np.ones(tensor_size)
-                err = np.linalg.norm(expected - actual)
-                self.assertLess(err, 0.00000001)
+            actual = self.evaluate(tensor_decompressed)
+            expected = np.ones(tensor_size)
+            err = np.linalg.norm(expected - actual)
+            self.assertLess(err, 0.00000001)
 
-            for dtype in invalid_dtypes:
-                tensor = tf.ones(tensor_size, dtype=dtype)
+        for dtype in invalid_dtypes:
+            tensor = tf.ones(tensor_size, dtype=dtype)
 
-                tensor_compressed, ctx = compression.compress(tensor)
-                self.assertEqual(tensor_compressed.dtype, dtype)
+            tensor_compressed, ctx = compression.compress(tensor)
+            self.assertEqual(tensor_compressed.dtype, dtype)
 
-                tensor_decompressed = compression.decompress(tensor_compressed, ctx)
-                self.assertEqual(tensor_decompressed.dtype, dtype)
+            tensor_decompressed = compression.decompress(tensor_compressed, ctx)
+            self.assertEqual(tensor_decompressed.dtype, dtype)
 
-                actual = session.run(tensor_decompressed)
-                expected = np.ones(tensor_size)
-                err = np.linalg.norm(expected - actual)
-                self.assertLess(err, 0.00000001)
+            actual = self.evaluate(tensor_decompressed)
+            expected = np.ones(tensor_size)
+            err = np.linalg.norm(expected - actual)
+            self.assertLess(err, 0.00000001)
 
 
 if __name__ == '__main__':
+    if _has_eager:
+        run_all_in_graph_and_eager_modes(MPITests())
     tf.test.main()

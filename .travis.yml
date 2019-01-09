@@ -119,7 +119,7 @@ script:
     else
       export MPIRUN="mpirun -np 2"
     fi
-  
+
 
   # run unit tests
   - docker exec ${CONTAINER} /bin/sh -c "pip install pytest && cd /horovod/test && (echo test_*.py | xargs -n 1 ${MPIRUN} pytest -v)"
@@ -135,6 +135,15 @@ script:
 
   # run TensorFlow MNIST example
   - docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/tensorflow_mnist.py"
+
+  # hack TensorFlow Eager MNIST example to be smaller
+  - docker exec ${CONTAINER} /bin/sh -c "sed -i \"s/dataset.take(20000/dataset.take(100/\" /horovod/examples/tensorflow_mnist_eager.py"
+
+  # run TensorFlow Eager MNIST example
+  - |
+    if [[ ${TF_PACKAGE} == "tensorflow==1.12.0" ]]; then
+      docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/tensorflow_mnist_eager.py"
+    fi
 
   # download Keras MNIST dataset
   - docker exec ${CONTAINER} /bin/sh -c "python -c \"from keras.datasets import mnist; mnist.load_data()\""
