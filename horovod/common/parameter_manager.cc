@@ -307,7 +307,6 @@ bool ParameterManager::TunableParameter<T>::Tune(double score, double* best_scor
   }
 
   OnTune(score, value_);
-
   if (IsDoneTuning()) {
     CompleteTuning();
     return true;
