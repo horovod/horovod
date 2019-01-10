@@ -184,7 +184,10 @@ void ParameterManager::Tune(double score) {
       bool finished_tuning = true;
       double last_score = score;
       for (auto* param : parameter_chain_) {
-        bool finished = param->Tune(last_score);
+        double best_score;
+        bool finished = param->Tune(last_score, &best_score);
+        last_score = best_score;
+
         if (!finished) {
           finished_tuning = false;
           break;
@@ -295,14 +298,14 @@ ParameterManager::TunableParameter<T>::TunableParameter(T initial_value) :
     tunable_(true) {}
 
 template <class T>
-bool ParameterManager::TunableParameter<T>::Tune(double& score) {
+bool ParameterManager::TunableParameter<T>::Tune(double score, double* best_score) {
   UpdateBestValue(score);
   if (!tunable_) {
     return true;
   }
 
   OnTune(score, value_);
-  score = best_score_;
+  *best_score = best_score_;
 
   if (IsDoneTuning()) {
     CompleteTuning();
