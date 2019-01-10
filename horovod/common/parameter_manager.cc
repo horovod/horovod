@@ -182,8 +182,9 @@ void ParameterManager::Tune(double score) {
     // Only do the tuning on the coordinator to ensure consistency.
     if (rank_ == root_rank_) {
       bool finished_tuning = true;
+      double last_score = score;
       for (auto* param : parameter_chain_) {
-        bool finished = param->Tune(score);
+        bool finished = param->Tune(last_score);
         if (!finished) {
           finished_tuning = false;
           break;
@@ -294,7 +295,7 @@ ParameterManager::TunableParameter<T>::TunableParameter(T initial_value) :
     tunable_(true) {}
 
 template <class T>
-bool ParameterManager::TunableParameter<T>::Tune(double score) {
+bool ParameterManager::TunableParameter<T>::Tune(double& score) {
   UpdateBestValue(score);
   if (!tunable_) {
     return true;
@@ -306,6 +307,7 @@ bool ParameterManager::TunableParameter<T>::Tune(double score) {
     return true;
   }
 
+  score = best_score_;
   return false;
 }
 
