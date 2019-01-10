@@ -1039,7 +1039,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         // process is assumed to be in the area where that process would
         // receive its own contribution to the receive buffer.
         ACTIVITY_START_ALL(entries, timeline, MEMCPY_IN_FUSION_BUFFER)
-
         int64_t offset = displcmnts[horovod_global.rank] * element_size;
         for (auto& e : entries) {
           void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
@@ -1049,6 +1048,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           total_num_elements += e.tensor->shape().num_elements();
         }
         ACTIVITY_END_ALL(entries, timeline)
+
         ACTIVITY_START_ALL(entries, timeline, MPI_ALLGATHER)
         MPI_CHECK(entries, "MPI_Allgatherv",
                   MPI_Allgatherv(MPI_IN_PLACE, (int)total_num_elements,
@@ -1057,6 +1057,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                                  GetMPIDataType(first_entry.tensor),
                                  horovod_global.mpi_comm))
         ACTIVITY_END_ALL(entries, timeline)
+
         ACTIVITY_START_ALL(entries, timeline, MEMCPY_OUT_FUSION_BUFFER)
         // Copy memory out of the fusion buffer.
         for (int ec = 0; ec < entries.size(); ec++) {
@@ -1747,7 +1748,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   if (is_coordinator) {
     LOG(INFO) << "Started Horovod with " << size << " processes";
   }
-  
+
   // Determine local rank by querying the local communicator.
   MPI_Comm local_comm;
   MPI_Comm_split_type(state.mpi_comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
@@ -2035,11 +2036,11 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       message_queue.push(message);
     }
   }
-  
+
   if (!message_queue.empty()) {
     LOG(DEBUG, state.rank) << "Sent " << message_queue.size() << " messages";
   }
-  
+
   // Flag indicating that the background thread should shut down.
   bool should_shut_down = state.shut_down;
 
@@ -2215,9 +2216,9 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       for (auto r : response_list.responses()) {
         tensors_ready += r.tensor_names_string() + "; " ;
       }
-      LOG(TRACE) << "Sending ready responses as " << tensors_ready;  
+      LOG(TRACE) << "Sending ready responses as " << tensors_ready;
     }
-    
+
     // Notify all nodes which tensors we'd like to reduce at this step.
     std::string encoded_response;
     MPIResponseList::SerializeToString(response_list, encoded_response);
