@@ -1049,13 +1049,14 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           total_num_elements += e.tensor->shape().num_elements();
         }
         ACTIVITY_END_ALL(entries, timeline)
+        ACTIVITY_START_ALL(entries, timeline, MPI_ALLGATHER)
         MPI_CHECK(entries, "MPI_Allgatherv",
                   MPI_Allgatherv(MPI_IN_PLACE, (int)total_num_elements,
                                  GetMPIDataType(first_entry.tensor),
                                  (void*)buffer_data, recvcounts, displcmnts,
                                  GetMPIDataType(first_entry.tensor),
                                  horovod_global.mpi_comm))
-
+        ACTIVITY_END_ALL(entries, timeline)
         ACTIVITY_START_ALL(entries, timeline, MEMCPY_OUT_FUSION_BUFFER)
         // Copy memory out of the fusion buffer.
         for (int ec = 0; ec < entries.size(); ec++) {
