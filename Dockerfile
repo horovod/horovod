@@ -10,7 +10,7 @@ ENV NCCL_VERSION=2.3.5-2+cuda9.0
 ARG python=2.7
 ENV PYTHON_VERSION=${python}
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
         build-essential \
         cmake \
         git \
