@@ -412,14 +412,13 @@ class MPITests(tf.test.TestCase):
                     rank_tensor = tf.slice(gathered,
                                            [i * 17] + [0] * (dim - 1),
                                            [17] + [-1] * (dim - 1))
-                    # self.assertEqual(list(rank_tensor.shape), [17] * dim)
-                    # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
-                    # so need to cast rank_tensor to tf.int32.
                     if dtype != tf.bool:
                         value = i
                     else:
                         value = i % 2
 
+                    # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
+                    # so need to cast rank_tensor to tf.int32.
                     tests.append(
                         tf.reduce_all(
                             tf.equal(tf.cast(rank_tensor, tf.int32), value)))
@@ -472,13 +471,13 @@ class MPITests(tf.test.TestCase):
                         gathered, [sum(tensor_sizes[:i])] + [0] * (dim - 1),
                         rank_size)
                     self.assertEqual(list(rank_tensor.shape), rank_size)
-                    # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
-                    # so need to cast rank_tensor to tf.int32.
                     if dtype != tf.bool:
                         value = i
                     else:
                         value = i % 2
 
+                    # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
+                    # so need to cast rank_tensor to tf.int32.
                     tests.append(tf.reduce_all(
                         tf.equal(tf.cast(rank_tensor, tf.int32), value)))
 
