@@ -300,12 +300,13 @@ ParameterManager::TunableParameter<T>::TunableParameter(T initial_value) :
 template <class T>
 bool ParameterManager::TunableParameter<T>::Tune(double score, double* best_score) {
   UpdateBestValue(score);
+  *best_score = best_score_;
+
   if (!tunable_) {
     return true;
   }
 
   OnTune(score, value_);
-  *best_score = best_score_;
 
   if (IsDoneTuning()) {
     CompleteTuning();
