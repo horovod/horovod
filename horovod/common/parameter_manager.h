@@ -105,7 +105,7 @@ private:
   // Interface used to represent a parameter (or group of parameters) being tuned.
   class ITunableParameter {
   public:
-    virtual bool Tune(double score) = 0;
+    virtual bool Tune(double score, double* best_score) = 0;
     virtual void UpdateBestValue(double score) = 0;
     virtual double BestScore() const = 0;
     virtual bool IsTunable() const = 0;
@@ -116,7 +116,7 @@ private:
   class TunableParameter : public ITunableParameter {
   public:
     TunableParameter(T initial_value);
-    bool Tune(double score) override;
+    bool Tune(double score, double* best_score) override;
     void UpdateBestValue(double score) override;
 
     void SetValue(T value, bool fixed);
