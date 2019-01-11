@@ -16,25 +16,25 @@
 # SOFTWARE.
 
 import argparse
-import time
 import logging
-import os
-import numpy as np
-import mxnet as mx
 import math
-from mxnet import gluon, nd
-from mxnet import autograd as ag
-from mxnet.lr_scheduler import MultiFactorScheduler
-from mxnet.io import DataBatch, DataIter
-from mxnet.util import makedirs
-from mxnet.gluon.model_zoo.vision import get_model
+import os
+
+
+from gluoncv.model_zoo import get_model
 import horovod.mxnet as hvd
+import mxnet as mx
+import numpy as np
+from mxnet import gluon
+from mxnet import lr_scheduler
+from mxnet.io import DataBatch, DataIter
+
 
 # Training settings
 parser = argparse.ArgumentParser(description='MXNet ImageNet Example',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('--benchmark', type=int, default='0',
-                    help='if 1 then feed the network with synthetic data.')
+parser.add_argument('--use-rec', action='store_true', default=False,
+                    help='use image record iter for data input (default: False)')
 parser.add_argument('--data-nthreads', type=int, default=4,
                     help='number of threads for data decoding')
 parser.add_argument('--rec-train', type=str, default='',
@@ -51,27 +51,37 @@ parser.add_argument('--dtype', type=str, default='float32',
                     help='data type for training (default: float32)')
 parser.add_argument('--num-epochs', type=int, default=90,
                     help='number of training epochs.')
-parser.add_argument('--lr', type=float, default=0.1,
-                    help='learning rate (default: 0.1)')
+parser.add_argument('--lr', type=float, default=0.05,
+                    help='learning rate (default: 0.05)')
 parser.add_argument('--momentum', type=float, default=0.9,
                     help='momentum value for optimizer (default: 0.9)')
 parser.add_argument('--wd', type=float, default=0.0001,
                     help='weight decay rate (default: 0.0001)')
+parser.add_argument('--lr-mode', type=str, default='poly',
+                    help='learning rate scheduler mode. Options are step, \
+                    poly and cosine. (default: poly)')
 parser.add_argument('--lr-decay', type=float, default=0.1,
                     help='decay rate of learning rate (default: 0.1)')
 parser.add_argument('--lr-decay-epoch', type=str, default='40,60',
                     help='epoches at which learning rate decays \
                     (default is : 40,60)')
-parser.add_argument('--warmup-lr', type=float, default=0.001,
-                    help='starting warmup learning rate (default: 0.001)')
+parser.add_argument('--warmup-lr', type=float, default=0.0,
+                    help='starting warmup learning rate (default: 0.0)')
 parser.add_argument('--warmup-epochs', type=int, default=5,
                     help='number of warmup epochs (default: 5)')
+parser.add_argument('--last-gamma', action='store_true', default=False,
+                    help='whether to init gamma of the last BN layer in \
+                    each bottleneck to 0 (default: False)')
 parser.add_argument('--model', type=str, default='resnet50_v1',
                     help='type of model to use. see vision_model for options.')
 parser.add_argument('--use-pretrained', action='store_true', default=False,
-                    help='load pretrained model weights')
+                    help='load pretrained model weights (default: False)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training (default: False)')
+parser.add_argument('--log-interval', type=int, default=20,
+                    help='number of batches to wait before logging (default: 20)')
+parser.add_argument('--save-frequency', type=int, default=0,
+                    help='frequency of model saving. (default: 0)')
 
 
 args = parser.parse_args()
@@ -83,32 +93,45 @@ logging.info(args)
 hvd.init()
 num_workers = hvd.size()
 
-batch_size = args.batch_size
 num_classes = 1000
 num_training_samples = 1281167
-
-data_nthreads = args.data_nthreads
-context = mx.cpu() if args.no_cuda else mx.gpu(hvd.local_rank())
-
 batch_size = args.batch_size
+epoch_size = \
+    int(math.ceil(int(num_training_samples // num_workers) / batch_size))
 
+if args.lr_mode == 'step':
+    lr_decay_epoch = [int(i) for i in args.lr_decay_epoch.split(',')]
+    steps = [epoch_size * x for x in lr_decay_epoch]
+    lr_sched = lr_scheduler.MultiFactorScheduler(
+        step=steps,
+        factor=args.lr_decay,
+        base_lr=(args.lr * num_workers),
+        warmup_steps=(args.warmup_epochs * epoch_size),
+        warmup_begin_lr=args.warmup_lr
+    )
+elif args.lr_mode == 'poly':
+    lr_sched = lr_scheduler.PolyScheduler(
+        args.num_epochs * epoch_size,
+        base_lr=(args.lr * num_workers),
+        pwr=2,
+        warmup_steps=(args.warmup_epochs * epoch_size),
+        warmup_begin_lr=args.warmup_lr
+    )
+elif args.lr_mode == 'cosine':
+    lr_sched = lr_scheduler.CosineScheduler(
+        args.num_epochs * epoch_size,
+        base_lr=(args.lr * num_workers),
+        warmup_steps=(args.warmup_epochs * epoch_size),
+        warmup_begin_lr=args.warmup_lr
+    )
+else:
+    raise ValueError('Invalid lr mode')
+
+context = mx.cpu() if args.no_cuda else mx.gpu(hvd.local_rank())
 kwargs = {'ctx': context, 'pretrained': args.use_pretrained,
           'classes': num_classes}
-
-epoch_size = \
-    int(math.ceil(int(num_training_samples // num_workers)/batch_size))
-
-# Adjust learning rate
-lr_decay = args.lr_decay
-lr_decay_epoch = [int(i) for i in args.lr_decay_epoch.split(',')]
-steps = [epoch_size * x for x in lr_decay_epoch]
-lr_scheduler = \
-    MultiFactorScheduler(step=steps,
-                         factor=lr_decay,
-                         base_lr=(args.lr * num_workers),
-                         warmup_steps=(args.warmup_epochs * epoch_size),
-                         warmup_begin_lr=args.warmup_lr)
-
+if args.last_gamma:
+    kwargs['last_gamma'] = True
 
 # Two functions for reading data from record file or raw images
 # For more details about data loading in MXNet, please refer to
@@ -221,37 +244,16 @@ class SyntheticDataIter(DataIter):
     def reset(self):
         self.cur_iter = 0
 
-
-# Logs eval metrics at the end of an epoch
-class LogValidationMetricsCallback(object):
-
-    def __call__(self, param):
-        if not param.eval_metric:
-            return
-        name_value = param.eval_metric.get_name_value()
-        for name, value in name_value:
-            val_array = mx.nd.array([value])
-            hvd.allreduce_(val_array, average=True, name=str(-1))
-            logging.info('Epoch[%d] Validation-%s=%f', param.epoch,
-                         name, val_array.asscalar())
-
-
-if args.benchmark is 0:
+if args.use_rec:
     # Fetch training and validation data if present
-    try:
-        train_data, val_data, batch_fn = get_data_rec(args.rec_train,
-                                                      args.rec_train_idx,
-                                                      args.rec_val,
-                                                      args.rec_val_idx,
-                                                      batch_size,
-                                                      data_nthreads)
-    except Exception as e:
-        print("Data not found, using synthetic data instead!")
-        args.benchmark = 1
-
-
-# Otherwise use synthetic data
-if args.benchmark is 1:
+    train_data, val_data, batch_fn = get_data_rec(args.rec_train,
+                                                  args.rec_train_idx,
+                                                  args.rec_val,
+                                                  args.rec_val_idx,
+                                                  batch_size,
+                                                  args.data_nthreads)
+else:
+    # Otherwise use synthetic data
     image_shape = (3, 224, 224)
     data_shape = (batch_size,) + image_shape
     train_data = SyntheticDataIter(num_classes, data_shape, epoch_size,
@@ -260,8 +262,8 @@ if args.benchmark is 1:
 
 
 def main():
-    # Get model from Gluon model zoo
-    # https://mxnet.incubator.apache.org/api/python/gluon/model_zoo.html
+    # Get model from GluonCV model zoo
+    # https://gluon-cv.mxnet.io/model_zoo/index.html
     net = get_model(args.model, **kwargs)
     net.cast(args.dtype)
 
@@ -278,7 +280,7 @@ def main():
     softmax = mx.sym.SoftmaxOutput(out, name='softmax')
 
     if args.use_pretrained:
-        arg_params = {} 
+        arg_params = {}
         for x in net.collect_params().values():
             x.reset_ctx(mx.cpu())
             arg_params[x.name] = x.data()
@@ -292,9 +294,11 @@ def main():
     # Create optimizer
     optimizer_params = {'wd': args.wd,
                         'momentum': args.momentum,
-                        'lr_scheduler': lr_scheduler,
-                        'multi_precision': True}
-    opt = mx.optimizer.create('sgd', sym=out, **optimizer_params)
+                        'rescale_grad': 1.0 / batch_size,
+                        'lr_scheduler': lr_sched}
+    if args.dtype == 'float16':
+        optimizer_params['multi_precision'] = True
+    opt = mx.optimizer.create('nag', sym=out, **optimizer_params)
     opt = hvd.DistributedOptimizer(opt)
 
     # Create initializer and initializer parameters
@@ -314,11 +318,17 @@ def main():
     mod.set_params(arg_params=arg_params, aux_params=aux_params)
 
     # Train model
+    epoch_callback = None
+    if args.save_frequency > 0:
+        epoch_callback = mx.callback.do_checkpoint('imagenet-%s' % args.model,
+                                                   period=args.save_frequency)
     mod.fit(train_data,
             eval_data=val_data,
             num_epoch=args.num_epochs,
             kvstore=None,
-            batch_end_callback=mx.callback.Speedometer(batch_size, 20),
+            batch_end_callback=mx.callback.Speedometer(batch_size,
+                                                       max(1, args.log_interval)),
+            epoch_end_callback=epoch_callback,
             optimizer=opt,
             optimizer_params=optimizer_params)
 
