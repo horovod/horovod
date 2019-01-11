@@ -74,7 +74,7 @@ $ HOROVOD_GPU_ALLREDUCE=MPI HOROVOD_GPU_ALLGATHER=MPI HOROVOD_GPU_BROADCAST=MPI 
 ```
 
 **Note**: Allgather allocates an output tensor which is proportionate to the number of processes participating in the
-training.  If you find yourself running out of GPU memory, you can force allreduce to happen on CPU by passing
+training.  If you find yourself running out of GPU memory, you can force allgather to happen on CPU by passing
 `device_sparse='/cpu:0'` to `hvd.DistributedOptimizer`:
 
 ```python
