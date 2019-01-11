@@ -17,7 +17,7 @@ from distutils.version import LooseVersion
 import tensorflow as tf
 
 
-if LooseVersion(tf.__version__) >= LooseVersion("1.4.0"):
+if LooseVersion(tf.__version__) >= LooseVersion("1.9.0"):
     from tensorflow.python.eager import context
     _has_eager = True
 else:

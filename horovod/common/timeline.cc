@@ -17,6 +17,7 @@
 #include <cassert>
 
 #include "timeline.h"
+#include "logging.h"
 
 namespace horovod {
 namespace common {
@@ -29,8 +30,8 @@ void Timeline::Initialize(std::string file_name) {
     start_time_ = last_flush_time_ = std::chrono::steady_clock::now();
     initialized_ = true;
   } else {
-    std::cerr << "WARNING: Error opening the Horovod Timeline file "
-              << file_name << ", will not write a timeline." << std::endl;
+    LOG(ERROR) << "Error opening the Horovod Timeline file "
+               << file_name << ", will not write a timeline.";
   }
 }
 
@@ -89,9 +90,8 @@ void Timeline::WriteEvent(const std::string& tensor_name, const char phase,
   }
 
   if (!file_.good()) {
-    std::cerr << "WARNING: Error writing to the Horovod Timeline after it was "
-                 "successfully opened, will stop writing the timeline."
-              << std::endl;
+    LOG(ERROR) << "Error writing to the Horovod Timeline after it was "
+                  "successfully opened, will stop writing the timeline.";
   }
 }
 
