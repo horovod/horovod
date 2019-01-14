@@ -6,6 +6,7 @@ import mxnet as mx
 import horovod.mxnet as hvd
 from mxnet.test_utils import get_mnist_ubyte
 
+# Step 1: Initialize horovod
 hvd.init()
 
 # Training settings
@@ -32,6 +33,8 @@ context = mx.cpu() if args.gpus is None or args.gpus == '0' \
                    else mx.gpu(hvd.local_rank())
 
 # Step 2: data loading
+# download mnist data set
+get_mnist_ubyte()
 mx.random.seed(42)
 batch_size = args.batch_size
 input_shape = (1, 28, 28)
