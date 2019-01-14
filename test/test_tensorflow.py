@@ -23,13 +23,13 @@ from __future__ import print_function
 import itertools
 import numpy as np
 import tensorflow as tf
+from horovod.tensorflow.util import _executing_eagerly, _has_eager
+from tensorflow.python.framework import ops
+import warnings
 
 import horovod.tensorflow as hvd
 
 from common import mpi_env_rank_and_size
-
-from horovod.tensorflow.util import _executing_eagerly, _has_eager
-from tensorflow.python.framework import ops
 
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
@@ -38,6 +38,7 @@ if _has_eager:
     from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
     tf.enable_eager_execution(config=config)
 
+
 class MPITests(tf.test.TestCase):
     """
     Tests for ops in horovod.tensorflow.
@@ -45,6 +46,7 @@ class MPITests(tf.test.TestCase):
 
     def __init__(self, *args, **kwargs):
         super(MPITests, self).__init__(*args, **kwargs)
+        warnings.simplefilter('module')
         if _has_eager:
             self.tfe = tf.contrib.eager
 
