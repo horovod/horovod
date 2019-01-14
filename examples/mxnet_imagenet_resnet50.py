@@ -297,6 +297,7 @@ def main():
     # Create optimizer
     optimizer_params = {'wd': args.wd,
                         'momentum': args.momentum,
+                        'rescale_grad': 1.0 / batch_size,
                         'lr_scheduler': lr_sched}
     if args.dtype == 'float16':
         optimizer_params['multi_precision'] = True
