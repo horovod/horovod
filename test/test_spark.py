@@ -34,8 +34,8 @@ class SparkTests(unittest.TestCase):
     Tests for horovod.spark.run().
     """
 
-    def __init__(self):
-        super(SparkTests, self).__init__()
+    def __init__(self, *args, **kwargs):
+        super(SparkTests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
 
     def run(self, result=None):
