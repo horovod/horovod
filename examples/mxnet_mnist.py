@@ -33,8 +33,8 @@ context = mx.cpu() if args.gpus is None or args.gpus == '0' \
                    else mx.gpu(hvd.local_rank())
 
 # Step 2: data loading
-# download mnist data set
-get_mnist_ubyte()
+
+# Download mnist data set using get_mnist_ubyte()
 mx.random.seed(42)
 batch_size = args.batch_size
 input_shape = (1, 28, 28)
