@@ -30,6 +30,7 @@ parser.add_argument('--fp16-allreduce', action='store_true', default=False,
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 
+# Horovod: initialize library.
 hvd.init()
 torch.manual_seed(args.seed)
 
@@ -107,6 +108,7 @@ optimizer = hvd.DistributedOptimizer(optimizer,
 
 def train(epoch):
     model.train()
+    # Horovod: set epoch to sampler for shuffling.
     train_sampler.set_epoch(epoch)
     for batch_idx, (data, target) in enumerate(train_loader):
         if args.cuda:
