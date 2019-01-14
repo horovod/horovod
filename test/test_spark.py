@@ -23,6 +23,7 @@ import time
 import torch
 import traceback
 import unittest
+import warnings
 
 import horovod.spark
 import horovod.torch as hvd
@@ -32,6 +33,11 @@ class SparkTests(unittest.TestCase):
     """
     Tests for horovod.spark.run().
     """
+
+    def __init__(self, *args, **kwargs):
+        super(SparkTests, self).__init__(*args, **kwargs)
+        warnings.simplefilter('module')
+
     def run(self, result=None):
         if os.environ.get('OMPI_COMM_WORLD_RANK', '0') != '0':
             # Running in MPI as a rank > 0, ignore.

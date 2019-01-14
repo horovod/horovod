@@ -27,6 +27,7 @@ import tempfile
 import torch
 import torch.nn.functional as F
 import unittest
+import warnings
 
 import horovod.torch as hvd
 
@@ -39,6 +40,10 @@ class TorchTests(unittest.TestCase):
     """
     Tests for ops in horovod.torch.
     """
+
+    def __init__(self, *args, **kwargs):
+        super(TorchTests, self).__init__(*args, **kwargs)
+        warnings.simplefilter('module')
 
     def convert_cpu_fp16_to_fp32(self, *values):
         # PyTorch doesn't support any CPU ops on FP16 tensors.
