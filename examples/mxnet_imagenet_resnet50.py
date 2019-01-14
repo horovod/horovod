@@ -35,7 +35,7 @@ parser = argparse.ArgumentParser(description='MXNet ImageNet Example',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--use-rec', action='store_true', default=False,
                     help='use image record iter for data input (default: False)')
-parser.add_argument('--data-nthreads', type=int, default=4,
+parser.add_argument('--data-nthreads', type=int, default=2,
                     help='number of threads for data decoding')
 parser.add_argument('--rec-train', type=str, default='',
                     help='the training data')
@@ -52,7 +52,7 @@ parser.add_argument('--dtype', type=str, default='float32',
 parser.add_argument('--num-epochs', type=int, default=90,
                     help='number of training epochs.')
 parser.add_argument('--lr', type=float, default=0.05,
-                    help='learning rate (default: 0.05)')
+                    help='learning rate for a single GPU (default: 0.05)')
 parser.add_argument('--momentum', type=float, default=0.9,
                     help='momentum value for optimizer (default: 0.9)')
 parser.add_argument('--wd', type=float, default=0.0001,
@@ -76,10 +76,12 @@ parser.add_argument('--model', type=str, default='resnet50_v1',
                     help='type of model to use. see vision_model for options.')
 parser.add_argument('--use-pretrained', action='store_true', default=False,
                     help='load pretrained model weights (default: False)')
+parser.add_argument('--eval-epoch', action='store_true', default=False,
+                    help='evaluate validation accuracy after each epoch (default: False)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training (default: False)')
-parser.add_argument('--log-interval', type=int, default=20,
-                    help='number of batches to wait before logging (default: 20)')
+parser.add_argument('--log-interval', type=int, default=0,
+                    help='number of batches to wait before logging (default: 0)')
 parser.add_argument('--save-frequency', type=int, default=0,
                     help='frequency of model saving. (default: 0)')
 
@@ -127,6 +129,7 @@ elif args.lr_mode == 'cosine':
 else:
     raise ValueError('Invalid lr mode')
 
+# Horovod: pin GPU to local rank.
 context = mx.cpu() if args.no_cuda else mx.gpu(hvd.local_rank())
 kwargs = {'ctx': context, 'pretrained': args.use_pretrained,
           'classes': num_classes}
@@ -294,11 +297,12 @@ def main():
     # Create optimizer
     optimizer_params = {'wd': args.wd,
                         'momentum': args.momentum,
-                        'rescale_grad': 1.0 / batch_size,
                         'lr_scheduler': lr_sched}
     if args.dtype == 'float16':
         optimizer_params['multi_precision'] = True
     opt = mx.optimizer.create('nag', sym=out, **optimizer_params)
+
+    # Horovod: Wrap optimizer with DistributedOptimizer.
     opt = hvd.DistributedOptimizer(opt)
 
     # Create initializer and initializer parameters
@@ -308,29 +312,45 @@ def main():
              label_shapes=train_data.provide_label)
     mod.init_params(initializer, arg_params=arg_params, aux_params=aux_params)
 
-    # Fetch and broadcast parameters
+    # Horovod: fetch and broadcast parameters
     (arg_params, aux_params) = mod.get_params()
-
     if arg_params is not None:
         hvd.broadcast_parameters(arg_params, root_rank=0)
     if aux_params is not None:
         hvd.broadcast_parameters(aux_params, root_rank=0)
     mod.set_params(arg_params=arg_params, aux_params=aux_params)
 
-    # Train model
+    # Setup validation and callback during training
+    eval_data = None
+    if args.eval_epoch:
+        eval_data = val_data
+    batch_callback = None
+    if args.log_interval > 0:
+        batch_callback = mx.callback.Speedometer(batch_size, max(1, args.log_interval))
     epoch_callback = None
     if args.save_frequency > 0:
-        epoch_callback = mx.callback.do_checkpoint('imagenet-%s' % args.model,
-                                                   period=args.save_frequency)
+        epoch_callback = mx.callback.do_checkpoint(
+            '%s-%d' % (args.model, hvd.rank()),
+            period=args.save_frequency)
+
+
+    # Train model
     mod.fit(train_data,
-            eval_data=val_data,
+            eval_data=eval_data,
             num_epoch=args.num_epochs,
             kvstore=None,
-            batch_end_callback=mx.callback.Speedometer(batch_size,
-                                                       max(1, args.log_interval)),
+            batch_end_callback=batch_callback,
             epoch_end_callback=epoch_callback,
             optimizer=opt,
             optimizer_params=optimizer_params)
+
+    # Evaluate performance
+    acc_top1 = mx.metric.Accuracy()
+    acc_top5 = mx.metric.TopKAccuracy(5)
+    res = mod.score(val_data, [acc_top1, acc_top5])
+    for name, val in res:
+        logging.info('Epoch[%d] Rank[%d] Validation-%s=%f',
+                     args.num_epochs - 1, hvd.rank(), name, val)
 
 
 if __name__ == '__main__':

@@ -8,7 +8,7 @@ from mxnet.test_utils import get_mnist_ubyte
 
 hvd.init()
 
-# CLI
+# Training settings
 parser = argparse.ArgumentParser(description='MXNet MNIST Example')
 parser.add_argument('--batch-size', type=int, default=64,
                     help='training batch size (default: 64)')
@@ -18,8 +18,8 @@ parser.add_argument('--gpus', type=str, default='0',
                     help='number of gpus to use (default: 0)')
 parser.add_argument('--epochs', type=int, default=10,
                     help='number of training epochs (default: 10)')
-parser.add_argument('--lr', type=float, default=0.001,
-                    help='learning rate (default: 0.001)')
+parser.add_argument('--lr', type=float, default=0.05,
+                    help='learning rate (default: 0.05)')
 parser.add_argument('--momentum', type=float, default=0.5,
                     help='SGD momentum (default: 0.5)')
 args = parser.parse_args()
@@ -27,6 +27,7 @@ args = parser.parse_args()
 logging.basicConfig(level=logging.INFO)
 logging.info(args)
 
+# Horovod: pin GPU to local rank.
 context = mx.cpu() if args.gpus is None or args.gpus == '0' \
                    else mx.gpu(hvd.local_rank())
 
@@ -85,8 +86,11 @@ net = mlp()
 # Softmax with cross entropy loss
 loss = mx.sym.SoftmaxOutput(data=net, name='softmax')
 mlp_model = mx.mod.Module(symbol=loss, context=context)
-optimizer_params = {'learning_rate': args.lr * hvd.size()}
+optimizer_params = {'learning_rate': args.lr * hvd.size(),
+                    'rescale_grad': 1.0 / batch_size}
 opt = mx.optimizer.create('sgd', sym=net, **optimizer_params)
+
+# Horovod: Wrap optimizer with DistributedOptimizer.
 opt = hvd.DistributedOptimizer(opt)
 
 initializer = mx.init.Xavier(rnd_type='gaussian', factor_type="in",
@@ -95,9 +99,8 @@ mlp_model.bind(data_shapes=train_iter.provide_data,
                label_shapes=train_iter.provide_label)
 mlp_model.init_params(initializer)
 
-# Fetch and broadcast parameters
+# Horovod: fetch and broadcast parameters
 (arg_params, aux_params) = mlp_model.get_params()
-
 if arg_params is not None:
     hvd.broadcast_parameters(arg_params, root_rank=0)
 if aux_params is not None:
