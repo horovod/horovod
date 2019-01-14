@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-
         libcudnn7=${CUDNN_VERSION} \
         libnccl2=${NCCL_VERSION} \
         libnccl-dev=${NCCL_VERSION} \
+        libibverbs-dev \
         libjpeg-dev \
         libpng-dev \
         python${PYTHON_VERSION} \
