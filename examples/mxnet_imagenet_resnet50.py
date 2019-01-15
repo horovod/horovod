@@ -91,7 +91,7 @@ args = parser.parse_args()
 logging.basicConfig(level=logging.INFO)
 logging.info(args)
 
-# Initialize Horovod
+# Horovod: initialize Horovod
 hvd.init()
 num_workers = hvd.size()
 
@@ -129,14 +129,14 @@ elif args.lr_mode == 'cosine':
 else:
     raise ValueError('Invalid lr mode')
 
-# Horovod: pin GPU to local rank.
+# Horovod: pin GPU to local rank
 context = mx.cpu() if args.no_cuda else mx.gpu(hvd.local_rank())
 kwargs = {'ctx': context, 'pretrained': args.use_pretrained,
           'classes': num_classes}
 if args.last_gamma:
     kwargs['last_gamma'] = True
 
-# Two functions for reading data from record file or raw images
+# Function for reading data from record file
 # For more details about data loading in MXNet, please refer to
 # https://mxnet.incubator.apache.org/tutorials/basic/data.html?highlight=imagerecorditer
 def get_data_rec(rec_train, rec_train_idx, rec_val, rec_val_idx, batch_size,
@@ -148,7 +148,6 @@ def get_data_rec(rec_train, rec_train_idx, rec_val, rec_val_idx, batch_size,
     jitter_param = 0.4
     lighting_param = 0.1
     mean_rgb = [123.68, 116.779, 103.939]
-    std_rgb = [58.393, 57.12, 57.375]
 
     def batch_fn(batch, ctx):
         data = gluon.utils.split_and_load(batch.data[0], ctx_list=ctx,
@@ -183,7 +182,7 @@ def get_data_rec(rec_train, rec_train_idx, rec_val, rec_val_idx, batch_size,
         num_parts=hvd.size(),
         part_index=hvd.rank()
     )
-    # kept each node to use full val data to make it easy to monitor results
+    # Kept each node to use full val data to make it easy to monitor results
     val_data = mx.io.ImageRecordIter(
         path_imgrec=rec_val,
         path_imgidx=rec_val_idx,
@@ -303,7 +302,7 @@ def main():
         optimizer_params['multi_precision'] = True
     opt = mx.optimizer.create('nag', sym=out, **optimizer_params)
 
-    # Horovod: Wrap optimizer with DistributedOptimizer.
+    # Horovod: wrap optimizer with DistributedOptimizer
     opt = hvd.DistributedOptimizer(opt)
 
     # Create initializer and initializer parameters
@@ -321,7 +320,7 @@ def main():
         hvd.broadcast_parameters(aux_params, root_rank=0)
     mod.set_params(arg_params=arg_params, aux_params=aux_params)
 
-    # Setup validation and callback during training
+    # Setup validation data and callback during training
     eval_data = None
     if args.eval_epoch:
         eval_data = val_data
@@ -333,7 +332,6 @@ def main():
         epoch_callback = mx.callback.do_checkpoint(
             '%s-%d' % (args.model, hvd.rank()),
             period=args.save_frequency)
-
 
     # Train model
     mod.fit(train_data,

@@ -1,13 +1,12 @@
-# Step 1: import required packages
-import os
+# Step 0: import required packages
 import argparse
 import logging
-import mxnet as mx
-import horovod.mxnet as hvd
-from mxnet.test_utils import get_mnist_ubyte
+import os
+import zipfile
 
-# Step 1: Initialize horovod
-hvd.init()
+import horovod.mxnet as hvd
+import mxnet as mx
+from mxnet.test_utils import download
 
 # Training settings
 parser = argparse.ArgumentParser(description='MXNet MNIST Example')
@@ -28,38 +27,51 @@ args = parser.parse_args()
 logging.basicConfig(level=logging.INFO)
 logging.info(args)
 
-# Horovod: pin GPU to local rank.
+# Function to get mnist iterator given a rank
+def get_mnist_iterator(rank):
+    data_dir = "data-%d" % rank
+    if not os.path.isdir(data_dir):
+        os.makedirs(data_dir)
+    zip_file_path = download('http://data.mxnet.io/mxnet/data/mnist.zip',
+                             dirname=data_dir)
+    with zipfile.ZipFile(zip_file_path) as zf:
+        zf.extractall(data_dir)
+
+    input_shape = (1, 28, 28)
+    batch_size = args.batch_size
+
+    train_iter = mx.io.MNISTIter(
+        image="%s/train-images-idx3-ubyte" % data_dir,
+        label="%s/train-labels-idx1-ubyte" % data_dir,
+        input_shape=input_shape,
+        batch_size=batch_size,
+        shuffle=True,
+        flat=False,
+        num_parts=hvd.size(),
+        part_index=hvd.rank()
+    )
+
+    val_iter = mx.io.MNISTIter(
+        image="%s/t10k-images-idx3-ubyte" % data_dir,
+        label="%s/t10k-labels-idx1-ubyte" % data_dir,
+        input_shape=input_shape,
+        batch_size=batch_size,
+        flat=False,
+        num_parts=hvd.size(),
+        part_index=hvd.rank()
+    )
+
+    return train_iter, val_iter
+
+# Step 1: initialize Horovod
+hvd.init()
+
+# Horovod: pin GPU to local rank
 context = mx.cpu() if args.gpus is None or args.gpus == '0' \
                    else mx.gpu(hvd.local_rank())
 
-# Step 2: data loading
-
-# Download mnist data set using get_mnist_ubyte()
-mx.random.seed(42)
-batch_size = args.batch_size
-input_shape = (1, 28, 28)
-
-train_iter = mx.io.MNISTIter(
-    image="data/train-images-idx3-ubyte",
-    label="data/train-labels-idx1-ubyte",
-    input_shape=input_shape,
-    batch_size=batch_size,
-    shuffle=True,
-    flat=False,
-    num_parts=hvd.size(),
-    part_index=hvd.rank()
-)
-
-val_iter = mx.io.MNISTIter(
-    image="data/t10k-images-idx3-ubyte",
-    label="data/t10k-labels-idx1-ubyte",
-    input_shape=input_shape,
-    batch_size=batch_size,
-    flat=False,
-    num_parts=hvd.size(),
-    part_index=hvd.rank()
-)
-
+# Step 2: load data
+train_iter, val_iter = get_mnist_iterator(hvd.rank())
 
 # Step 3: define network
 def mlp():
@@ -90,12 +102,13 @@ net = mlp()
 loss = mx.sym.SoftmaxOutput(data=net, name='softmax')
 mlp_model = mx.mod.Module(symbol=loss, context=context)
 optimizer_params = {'learning_rate': args.lr * hvd.size(),
-                    'rescale_grad': 1.0 / batch_size}
+                    'rescale_grad': 1.0 / args.batch_size}
 opt = mx.optimizer.create('sgd', sym=net, **optimizer_params)
 
-# Horovod: Wrap optimizer with DistributedOptimizer.
+# Horovod: wrap optimizer with DistributedOptimizer
 opt = hvd.DistributedOptimizer(opt)
 
+# Create initializer and initializer parameters
 initializer = mx.init.Xavier(rnd_type='gaussian', factor_type="in",
                              magnitude=2)
 mlp_model.bind(data_shapes=train_iter.provide_data,
@@ -114,10 +127,10 @@ mlp_model.fit(train_iter,  # train data
               eval_data=val_iter,  # validation data
               optimizer=opt,  # use SGD to train
               eval_metric='acc',  # report accuracy during training
-              batch_end_callback=mx.callback.Speedometer(batch_size),
+              batch_end_callback=mx.callback.Speedometer(args.batch_size),
               num_epoch=args.epochs)  # train for at most 10 dataset passes
 
-# Step 5: Evaluate model accuracy
+# Step 5: evaluate model accuracy
 acc = mx.metric.Accuracy()
 mlp_model.score(val_iter, acc)
 

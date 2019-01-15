@@ -174,6 +174,5 @@ script:
   # run PyTorch MNIST example
   - docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/pytorch_mnist.py"
 
-  # download MXNet MNIST dataset and run MXNet MNIST example
-  - docker exec ${CONTAINER} /bin/sh -c "python -c \"from mxnet.test_utils import get_mnist_ubyte; get_mnist_ubyte()\""
+  # run MXNet MNIST example
   - docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/mxnet_mnist.py"
