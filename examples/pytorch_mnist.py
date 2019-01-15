@@ -30,6 +30,7 @@ parser.add_argument('--fp16-allreduce', action='store_true', default=False,
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 
+# Horovod: initialize library.
 hvd.init()
 torch.manual_seed(args.seed)
 
@@ -46,6 +47,7 @@ train_dataset = \
                        transforms.ToTensor(),
                        transforms.Normalize((0.1307,), (0.3081,))
                    ]))
+# Horovod: use DistributedSampler to partition the training data.
 train_sampler = torch.utils.data.distributed.DistributedSampler(
     train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
 train_loader = torch.utils.data.DataLoader(
@@ -56,6 +58,7 @@ test_dataset = \
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
     ]))
+# Horovod: use DistributedSampler to partition the test data.
 test_sampler = torch.utils.data.distributed.DistributedSampler(
     test_dataset, num_replicas=hvd.size(), rank=hvd.rank())
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.test_batch_size,
@@ -105,6 +108,7 @@ optimizer = hvd.DistributedOptimizer(optimizer,
 
 def train(epoch):
     model.train()
+    # Horovod: set epoch to sampler for shuffling.
     train_sampler.set_epoch(epoch)
     for batch_idx, (data, target) in enumerate(train_loader):
         if args.cuda:
@@ -115,6 +119,8 @@ def train(epoch):
         loss.backward()
         optimizer.step()
         if batch_idx % args.log_interval == 0:
+            # Horovod: use train_sampler to determine the number of examples in
+            # this worker's partition.
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_sampler),
                 100. * batch_idx / len(train_loader), loss.item()))
@@ -140,12 +146,16 @@ def test():
         pred = output.data.max(1, keepdim=True)[1]
         test_accuracy += pred.eq(target.data.view_as(pred)).cpu().float().sum()
 
+    # Horovod: use test_sampler to determine the number of examples in
+    # this worker's partition.
     test_loss /= len(test_sampler)
     test_accuracy /= len(test_sampler)
 
+    # Horovod: average metric values across workers.
     test_loss = metric_average(test_loss, 'avg_loss')
     test_accuracy = metric_average(test_accuracy, 'avg_accuracy')
 
+    # Horovod: print output only on first rank.
     if hvd.rank() == 0:
         print('\nTest set: Average loss: {:.4f}, Accuracy: {:.2f}%\n'.format(
             test_loss, 100. * test_accuracy))

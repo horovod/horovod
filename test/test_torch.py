@@ -353,6 +353,26 @@ class TorchTests(unittest.TestCase):
         except (torch.FatalError, RuntimeError):
             pass
 
+    def test_horovod_allreduce_duplicate_name_error(self):
+        """Test that the allreduce raises an error if there are
+        two concurrent operations with the same name."""
+        hvd.init()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        dims = [17] * 3
+        tensor = torch.FloatTensor(*dims)
+
+        hvd.allreduce_async(tensor, name='duplicate_name')
+        try:
+            hvd.allreduce_async(tensor, name='duplicate_name')
+            assert False, 'hvd.allreduce_async did not throw error'
+        except (torch.FatalError, ValueError):
+            pass
+
     def test_horovod_allreduce_grad(self):
         """Test the correctness of the allreduce gradient."""
         hvd.init()
@@ -523,6 +543,26 @@ class TorchTests(unittest.TestCase):
             hvd.allgather(tensor)
             assert False, 'hvd.allgather did not throw error'
         except (torch.FatalError, RuntimeError):
+            pass
+
+    def test_horovod_allgather_duplicate_name_error(self):
+        """Test that the allgather raises an error if there are
+        two concurrent operations with the same name."""
+        hvd.init()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        dims = [17] * 3
+        tensor = torch.FloatTensor(*dims)
+
+        hvd.allgather_async(tensor, name='duplicate_name')
+        try:
+            hvd.allgather_async(tensor, name='duplicate_name')
+            assert False, 'hvd.allgather_async did not throw error'
+        except (torch.FatalError, ValueError):
             pass
 
     def test_horovod_allgather_grad(self):
@@ -700,6 +740,26 @@ class TorchTests(unittest.TestCase):
             hvd.broadcast(tensor, rank)
             assert False, 'hvd.broadcast did not throw error'
         except (torch.FatalError, RuntimeError):
+            pass
+
+    def test_horovod_broadcast_duplicate_name_error(self):
+        """Test that the broadcast raises an error if there are
+        two concurrent operations with the same name."""
+        hvd.init()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        dims = [17] * 3
+        tensor = torch.FloatTensor(*dims)
+
+        hvd.broadcast_async(tensor, root_rank=0, name='duplicate_name')
+        try:
+            hvd.broadcast_async(tensor, root_rank=0, name='duplicate_name')
+            assert False, 'hvd.broadcast_async did not throw error'
+        except (torch.FatalError, ValueError):
             pass
 
     def test_horovod_broadcast_grad(self):
