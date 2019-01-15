@@ -76,6 +76,8 @@ parser.add_argument('--model', type=str, default='resnet50_v1',
                     help='type of model to use. see vision_model for options.')
 parser.add_argument('--use-pretrained', action='store_true', default=False,
                     help='load pretrained model weights (default: False)')
+parser.add_argument('--optimizer', type=str, default='nag',
+                    help='optimizer to use for training (default: nag)')
 parser.add_argument('--eval-epoch', action='store_true', default=False,
                     help='evaluate validation accuracy after each epoch (default: False)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
@@ -246,6 +248,7 @@ class SyntheticDataIter(DataIter):
     def reset(self):
         self.cur_iter = 0
 
+
 if args.use_rec:
     # Fetch training and validation data if present
     train_data, val_data, batch_fn = get_data_rec(args.rec_train,
@@ -300,7 +303,7 @@ def main():
                         'lr_scheduler': lr_sched}
     if args.dtype == 'float16':
         optimizer_params['multi_precision'] = True
-    opt = mx.optimizer.create('nag', sym=out, **optimizer_params)
+    opt = mx.optimizer.create(args.optimizer, sym=out, **optimizer_params)
 
     # Horovod: wrap optimizer with DistributedOptimizer
     opt = hvd.DistributedOptimizer(opt)
