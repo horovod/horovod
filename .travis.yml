@@ -121,6 +121,9 @@ script:
     fi
 
 
+  # prepare ~/.keras folder to avoid race condition
+  - docker exec ${CONTAINER} /bin/sh -c "mkdir -p ~/.keras"
+
   # run unit tests
   - docker exec ${CONTAINER} /bin/sh -c "pip install pytest && cd /horovod/test && (echo test_*.py | xargs -n 1 ${MPIRUN} pytest -v)"
 
