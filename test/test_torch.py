@@ -368,7 +368,8 @@ class TorchTests(unittest.TestCase):
 
         hvd.allreduce_async(tensor, name='duplicate_name')
         try:
-            hvd.allreduce_async(tensor, name='duplicate_name')
+            for i in range(10):
+                hvd.allreduce_async(tensor, name='duplicate_name')
             assert False, 'hvd.allreduce_async did not throw error'
         except (torch.FatalError, ValueError):
             pass
@@ -560,7 +561,8 @@ class TorchTests(unittest.TestCase):
 
         hvd.allgather_async(tensor, name='duplicate_name')
         try:
-            hvd.allgather_async(tensor, name='duplicate_name')
+            for i in range(10):
+                hvd.allgather_async(tensor, name='duplicate_name')
             assert False, 'hvd.allgather_async did not throw error'
         except (torch.FatalError, ValueError):
             pass
@@ -757,7 +759,8 @@ class TorchTests(unittest.TestCase):
 
         hvd.broadcast_async(tensor, root_rank=0, name='duplicate_name')
         try:
-            hvd.broadcast_async(tensor, root_rank=0, name='duplicate_name')
+            for i in range(10):
+                hvd.broadcast_async(tensor, root_rank=0, name='duplicate_name')
             assert False, 'hvd.broadcast_async did not throw error'
         except (torch.FatalError, ValueError):
             pass
