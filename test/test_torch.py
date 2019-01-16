@@ -1105,3 +1105,57 @@ class TorchTests(unittest.TestCase):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
+    def test_model_parallelism(self):
+        """Test that tensors on different GPUs are supported."""
+        # Only do this test if there are GPUs available.
+        if not torch.cuda.is_available():
+            return
+
+        hvd.init()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        class Net(torch.nn.Module):
+            def __init__(self):
+                super(Net, self).__init__()
+                # Place parts of model on different GPUs.
+                self.conv1 = torch.nn.Conv2d(1, 100, 1).cuda(0)
+                self.conv2 = torch.nn.Conv2d(100, 1, 1).cuda(1)
+
+            def forward(self, x):
+                x = x.cuda(0)
+                x = self.conv1(x)
+                x = x.cuda(1)
+                x = self.conv2(x)
+                return x
+
+        model = Net()
+        inp = torch.rand([1, 1, 1000, 1000])
+
+        opt = torch.optim.SGD(model.parameters(), lr=0.1)
+        opt = hvd.DistributedOptimizer(opt, named_parameters=model.named_parameters())
+
+        loss = model(inp).sum()
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+
+    def test_duplicate_names(self):
+        """Test that passing duplicate names to optimizer will fail."""
+        net1 = torch.nn.Conv2d(1, 1, 1)
+        net2 = torch.nn.Conv2d(1, 1, 1)
+
+        parameters = itertools.chain(net1.parameters(), net2.parameters())
+        opt = torch.optim.SGD(parameters, lr=0.1)
+
+        # This will have duplicate names, since both net1 and net2 have 'weight' and 'bias'
+        named_parameters = itertools.chain(net1.named_parameters(), net2.named_parameters())
+        try:
+            hvd.DistributedOptimizer(opt, named_parameters=named_parameters)
+            assert False, 'hvd.DistributedOptimizer did not throw error'
+        except ValueError:
+            pass
