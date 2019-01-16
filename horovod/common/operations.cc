@@ -112,51 +112,6 @@ namespace {
 
 #if HAVE_MLSL
 #define COMMUNICATOR_TABLE_MAX 1000
-
-#define ERROR 0
-#define INFO  1
-#define DEBUG 2
-#define TRACE 3
-
-#define GET_TID() syscall(SYS_gettid)
-
-#define MLSL_LOG(log_lvl, fmt, ...)					\
-  do {									\
-    if (log_lvl <= mlsl_log_lvl)					\
-    {									\
-       char time_buf[20]; /*2016:07:21 14:47:39*/			\
-       GetTime(time_buf, 20);						\
-       switch (log_lvl) {						\
-       case ERROR:							\
-         printf("%s: ERROR: (%ld): %s:%u " fmt "\n", time_buf, GET_TID(),\
-            __FUNCTION__, __LINE__, ##__VA_ARGS__);			\
-         break;							\
-       case INFO:							\
-         printf("(%ld): %s:%u " fmt "\n", GET_TID(),			\
-            __FUNCTION__, __LINE__, ##__VA_ARGS__);			\
-         break;							\
-       case DEBUG:							\
-       case TRACE:							\
-         printf("%s: (%ld): %s:%u " fmt "\n", time_buf, GET_TID(),	\
-            __FUNCTION__, __LINE__, ##__VA_ARGS__);			\
-       default:							\
-         assert(0);							\
-       }								\
-       fflush(stdout);							\
-    }									\
-  } while (0)
-
-void GetTime(char* buf, size_t bufSize)
-{
-   time_t timer;
-   struct tm* timeInfo = 0;
-   time(&timer);
-   timeInfo = localtime(&timer);
-   assert(timeInfo);
-   strftime(buf, bufSize, "%Y:%m:%d %H:%M:%S", timeInfo);
-}
-
-static int mlsl_log_lvl = ERROR;
 #endif
 
 // Table storing Tensors to be reduced, keyed by unique name.
@@ -412,10 +367,10 @@ void PerformOperationMLSL(std::vector<TensorTableEntry>& tensor_table) {
         if (tensor_table[i].request == nullptr && tensor_table[i].comm != nullptr)
         {
             // Issue op if communicator assigned for this tensor
-            MLSL_LOG(DEBUG, "NOW collective operation %s %p %p %d %p %p %ld\n",
-                     tensor_table[i].tensor_name.c_str(), tensor_table[i].tensor->data(),
-                     tensor_table[i].comm, tensor_table[i].tensor->dtype(), tensor_table[i].request,
-                     nullptr, tensor_table[i].tensor->size());
+            LOG(DEBUG) << "NOW collective operation " << tensor_table[i].tensor_name.c_str()
+                     << " " << tensor_table[i].tensor->data() << " " << tensor_table[i].comm
+                     << " " << tensor_table[i].tensor->dtype() << " " << tensor_table[i].request
+                     << " (nil) " << tensor_table[i].tensor->size();
 
             if (tensor_table[i].req_type == MPIRequest::BROADCAST)
             {
@@ -442,10 +397,10 @@ void PerformOperationMLSL(std::vector<TensorTableEntry>& tensor_table) {
             }
 
             tensor_table[i].comm = nullptr;
-            MLSL_LOG(DEBUG, "NOW collective operation done %s %p %p %d %p %p %ld\n",
-                     tensor_table[i].tensor_name.c_str(), tensor_table[i].tensor->data(),
-                     tensor_table[i].comm, tensor_table[i].tensor->dtype(), tensor_table[i].request,
-                     nullptr, tensor_table[i].tensor->size());
+            LOG(DEBUG) << "NOW collective operation done " << tensor_table[i].tensor_name.c_str()
+                     << " " << tensor_table[i].tensor->data() << " " << tensor_table[i].comm
+                     << " " << tensor_table[i].tensor->dtype() << " " << tensor_table[i].request
+                     << " (nil) " << tensor_table[i].tensor->size();
         }
         else if (tensor_table[i].request != nullptr && tensor_table[i].comm == nullptr)
         {
@@ -493,8 +448,9 @@ void PerformOperationMLSL(std::vector<TensorTableEntry>& tensor_table) {
                     delete tensor_table[i].size_vec;
                     tensor_table[i].size_vec = NULL;
                     tensor_table[i].comm = nullptr;
-                    MLSL_LOG(DEBUG, "Test success for intermediate AllGather call %s %p\n",
-                             tensor_table[i].tensor_name.c_str(), tensor_table[i].tensor->data());
+                    LOG(DEBUG) << "Test success for intermediate AllGather call"
+                               << tensor_table[i].tensor_name.c_str()
+                               << tensor_table[i].tensor->data();
                 }
                 else
                 {
@@ -502,8 +458,9 @@ void PerformOperationMLSL(std::vector<TensorTableEntry>& tensor_table) {
                     tensor_table[i].callback(Status::OK());
                     tensor_table[i].request = nullptr;
                     op_completed = true;
-                    MLSL_LOG(DEBUG, "Test success %s %p\n",
-                             tensor_table[i].tensor_name.c_str(), tensor_table[i].tensor->data());
+                    LOG(DEBUG) << "Test success "
+                               << tensor_table[i].tensor_name.c_str()
+                               << tensor_table[i].tensor->data();
                 }
             }
         }
@@ -1952,7 +1909,7 @@ static void server_affinity_set(int affinity) {
 
   for (int core_idx = 0; core_idx < __CPU_SETSIZE; core_idx++)
        if (__CPU_ISSET_S(core_idx, sizeof(cpu_set_t), &cpuset))
-           MLSL_LOG(DEBUG, "BG-thread affinity %d\n", core_idx);
+           LOG(DEBUG) << "BG-thread affinity " << core_idx;
 }
 #endif
 void BackgroundThreadLoop(HorovodGlobalState& state) {
@@ -1964,11 +1921,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
     server_affinity_set(bg_thread_affinity);
 
-    char* log_lvl_env = NULL;
-    if ((log_lvl_env = getenv("HVD_MLSL_LOG_LVL")) != NULL)
-        mlsl_log_lvl = atoi(log_lvl_env);
-
-    MLSL_LOG(DEBUG, "BG-thread start\n");
+    LOG(DEBUG) << "BG-thread start";
 
     // Initialize MLSL
     MLSL::Environment::GetEnv().Init(NULL, NULL);
@@ -2217,7 +2170,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     ;
 #if HAVE_MLSL
   global_dist->Barrier(MLSL::GT_GLOBAL);
-  MLSL_LOG(DEBUG, "BG-thread comm destroy\n");
+  LOG(DEBUG) << "BG-thread comm destroy";
 
   // Destroy MLSL communicators
   MLSL::Environment::GetEnv().DeleteDistribution(global_dist);
@@ -2229,7 +2182,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       MLSL::Environment::GetEnv().DeleteDistribution(comm);
   }
 
-  MLSL_LOG(DEBUG, "BG-thread MLSL Finalize\n");
+  LOG(DEBUG) << "BG-thread MLSL Finalize";
   MLSL::Environment::GetEnv().Finalize();
 #else
   LOG(DEBUG, rank) << "Shutting down background thread";
@@ -2389,10 +2342,10 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
                     // We should be able to remove the below but
                     // keep it for now in case this indicates an issue rather than big model
                     if (state.next_free_comm == COMMUNICATOR_TABLE_MAX)
-                        MLSL_LOG(INFO, "Created more than 1K distributions which may indicate an issue if model is not that large");
+                        LOG(INFO) << "Created more than 1K distributions which may indicate an issue if model is not that large";
                 }
-                MLSL_LOG(DEBUG, "NOW Coord comm assigned %d %p %lu %s\n",
-                         state.next_free_comm - 1, entry.comm, name.length(), name.c_str());
+                LOG(DEBUG) << "NOW Coord comm assigned " << state.next_free_comm - 1
+                           << " " << entry.comm << " " << name.length() << " " << name.c_str();
             }
         }
     }
@@ -2421,7 +2374,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
                 state.comm_table.push(newcomm);
                 state.next_free_comm++;
                 state.recvname_table.emplace(received_name, newcomm);
-                MLSL_LOG(DEBUG, "NCoord comm added:  %s - %p\n", received_name.c_str(), newcomm);
+                LOG(DEBUG) << "NCoord comm added: " << received_name.c_str() << " - " << newcomm;
             }
         } while (test_flag == 1);
 
@@ -2435,7 +2388,8 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
                 if (rn_it != state.recvname_table.end())
                 {
                     entry.comm = rn_it->second;
-                    MLSL_LOG(DEBUG, "NOW NCoord comm assigned %p %lu %s\n", entry.comm, name.length(), name.c_str());
+                    LOG(DEBUG) << "NOW NCoord comm assigned " << entry.comm
+                               << " " << name.length() << " " << name.c_str();
                 }
             }
         }
@@ -2791,11 +2745,11 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
   }
 
 #if HAVE_MLSL
-  MLSL_LOG(DEBUG, "BG-thread init done\n");
+  LOG(DEBUG) << "BG-thread init done";
 
   char hostname[256];
   gethostname(hostname, sizeof(hostname));
-  MLSL_LOG(DEBUG, "PID %d on %s ready for attach\n", getpid(), hostname);
+  LOG(DEBUG) << "PID " << getpid() << " on " << hostname << " ready for attach";
 #endif
 }
 
@@ -2900,7 +2854,7 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   e.comm = nullptr;
   e.req_type = MPIRequest::ALLREDUCE;
 
-  MLSL_LOG(DEBUG, "Enqueue allreduce for tensor with address: %p\n", e.tensor->data());
+  LOG(DEBUG) << "Enqueue allreduce for tensor with address: " << e.tensor->data();
 #else
   e.ready_event = ready_event;
   e.device = device;
@@ -2952,7 +2906,7 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
   e.req_type = MPIRequest::ALLGATHER;
   e.size_vec = new size_t[horovod_global.size];
 
-  MLSL_LOG(DEBUG, "Enqueue allgather for tensor with address: %p\n", e.tensor->data());
+  LOG(DEBUG) << "Enqueue allgather for tensor with address: " << e.tensor->data();
 #else
   e.ready_event = ready_event;
   e.device = device;
@@ -3007,7 +2961,7 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   e.comm = nullptr;
   e.req_type = MPIRequest::BROADCAST;
 
-  MLSL_LOG(DEBUG, "Enqueue bcast for tensor with address: %p\n", e.tensor->data());
+  LOG(DEBUG) << "Enqueue bcast for tensor with address: " << e.tensor->data();
 #else
   e.ready_event = ready_event;
   e.device = device;
