@@ -56,6 +56,11 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                              'tuples (name, parameter), usually produced by '
                              'model.named_parameters().')
 
+        dups = _DistributedOptimizer.find_duplicates([k for k, _ in named_parameters])
+        if len(dups) > 0:
+            raise ValueError('Parameter names in named_parameters must be unique. '
+                             'Found duplicates: %s' % ', '.join(dups))
+
         if len(named_parameters) > 0:
             self._parameter_names = {v: k for k, v
                                      in sorted(named_parameters)}
@@ -71,6 +76,16 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         self._requires_update = set()
         if size() > 1:
             self._register_hooks()
+
+    @staticmethod
+    def find_duplicates(lst):
+        seen = set()
+        dups = set()
+        for el in lst:
+            if el in seen:
+                dups.add(el)
+            seen.add(el)
+        return dups
 
     def set_backward_passes_per_step(self, passes):
         self.backward_passes_per_step = passes
