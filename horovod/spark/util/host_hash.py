@@ -12,18 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from distutils.version import LooseVersion
 
-import tensorflow as tf
-
-
-if LooseVersion(tf.__version__) >= LooseVersion("1.9.0"):
-    from tensorflow.python.eager import context
-    _has_eager = True
-else:
-    _has_eager = False
+import hashlib
+import os
+import socket
 
 
-def _executing_eagerly():
-    """Returns true if eager execution is supported and enabled."""
-    return _has_eager and context.in_eager_mode()
+NAMESPACE_PATH = '/proc/self/ns'
+
+
+def _namespaces():
+    hash = ''
+    if os.path.exists(NAMESPACE_PATH):
+        for file in os.listdir(NAMESPACE_PATH):
+            if hash != '':
+                hash += ' '
+            hash += os.readlink(os.path.join(NAMESPACE_PATH, file))
+    return hash
+
+
+def host_hash():
+    hostname = socket.gethostname()
+    ns = _namespaces()
+    return '%s-%s' % (hostname, hashlib.md5(ns.encode('ascii')).hexdigest())

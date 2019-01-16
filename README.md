@@ -62,6 +62,9 @@ To install Horovod:
 
 Steps to install Open MPI are listed [here](https://www.open-mpi.org/faq/?category=building#easy-build).
 
+**Note**: Open MPI 3.1.3 has an issue that may cause hangs.  It is recommended
+to downgrade to Open MPI 3.1.2 or upgrade to Open MPI 4.0.0.
+
 2. Install the `horovod` pip package.
 
 ```bash
@@ -178,6 +181,8 @@ $ mpirun -np 16 \
 [MPI Operator](https://github.com/kubeflow/mpi-operator/), 
 [Helm Chart](https://github.com/kubernetes/charts/tree/master/stable/horovod/), and 
 [FfDL](https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/).
+
+5. To run in Spark, see the [Spark](docs/spark.md) page.
 
 ## Keras
 

@@ -23,9 +23,20 @@ before_install:
   # wait for docker to start
   - sleep 5
   - export CONTAINER=$(docker ps -q | head -n 1)
+  - |
+    if [[ ${DEBIAN} == "jessie" ]]; then
+      docker exec ${CONTAINER} /bin/sh -c "echo deb http://deb.debian.org/debian jessie-backports main >> /etc/apt/sources.list"
+    fi
   - docker exec ${CONTAINER} /bin/sh -c "apt-get update -qq"
   # install necessary network tools
   - docker exec ${CONTAINER} /bin/sh -c "apt-get install -y wget openssh-client git build-essential"
+  # install OpenJDK 8 for PySpark
+  - |
+    if [[ ${DEBIAN} == "jessie" ]]; then
+      docker exec ${CONTAINER} /bin/sh -c "apt install -t jessie-backports -y openjdk-8-jdk-headless"
+    else
+      docker exec ${CONTAINER} /bin/sh -c "apt install -y openjdk-8-jdk-headless"
+    fi
   # install Python and add a proper symlink
   - |
     if [[ ${TRAVIS_PYTHON_VERSION} == "3.6" ]]; then
@@ -37,28 +48,30 @@ before_install:
   - docker exec ${CONTAINER} /bin/sh -c "ln -s /usr/bin/python${TRAVIS_PYTHON_VERSION} /usr/bin/python"
   - docker exec ${CONTAINER} /bin/sh -c "wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py"
   - docker exec ${CONTAINER} /bin/sh -c "pip install -U --force pip setuptools requests"
+  # install PySpark
+  - docker exec ${CONTAINER} /bin/sh -c "pip install pyspark==${PYSPARK}"
 
 env:
   matrix:
-    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_PACKAGE=torch==0.4.0 MPI=OpenMPI
-    - TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MPI=OpenMPI
-    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MPI=OpenMPI
-    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MPI=OpenMPI
-    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MPI=MPICH
+    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_PACKAGE=torch==0.4.0 MPI=OpenMPI PYSPARK=2.1.2
+    - TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MPI=OpenMPI PYSPARK=2.3.2
+    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MPI=OpenMPI PYSPARK=2.4.0
+    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MPI=OpenMPI PYSPARK=2.4.0
+    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MPI=MPICH PYSPARK=2.4.0
 
 matrix:
   fast_finish: true
   exclude:
     - python: "3.5"
-      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.0 MPI=OpenMPI
+      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.0 MPI=OpenMPI PYSPARK=2.3.2
     - python: "3.6"
-      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MPI=OpenMPI
+      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MPI=OpenMPI PYSPARK=2.3.2
     - python: "3.5"
-      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MPI=MPICH
+      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MPI=MPICH PYSPARK=2.4.0
     - python: "3.6"
-      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MPI=MPICH
+      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MPI=MPICH PYSPARK=2.4.0
     - python: "3.5"
-      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MPI=OpenMPI
+      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MPI=OpenMPI PYSPARK=2.4.0
 
 install:
   - |
@@ -102,14 +115,17 @@ install:
 script:
   - |
     if [[ ${MPI} == "OpenMPI" ]]; then
-      export MPIRUN="mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot"
+      export MPIRUN="mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot -mca mpi_abort_print_stack 1"
     else
       export MPIRUN="mpirun -np 2"
     fi
-  
+
+
+  # prepare ~/.keras folder to avoid race condition
+  - docker exec ${CONTAINER} /bin/sh -c "mkdir -p ~/.keras"
 
   # run unit tests
-  - docker exec ${CONTAINER} /bin/sh -c "pip install pytest && cd /horovod/test && ${MPIRUN} pytest -v"
+  - docker exec ${CONTAINER} /bin/sh -c "pip install pytest && cd /horovod/test && (echo test_*.py | xargs -n 1 ${MPIRUN} pytest -v)"
 
   # hack for compatibility of MNIST example with tf 1.1.0
   - |
@@ -122,6 +138,15 @@ script:
 
   # run TensorFlow MNIST example
   - docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/tensorflow_mnist.py"
+
+  # hack TensorFlow Eager MNIST example to be smaller
+  - docker exec ${CONTAINER} /bin/sh -c "sed -i \"s/dataset.take(20000/dataset.take(100/\" /horovod/examples/tensorflow_mnist_eager.py"
+
+  # run TensorFlow Eager MNIST example
+  - |
+    if [[ ${TF_PACKAGE} == "tensorflow==1.12.0" ]]; then
+      docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/tensorflow_mnist_eager.py"
+    fi
 
   # download Keras MNIST dataset
   - docker exec ${CONTAINER} /bin/sh -c "python -c \"from keras.datasets import mnist; mnist.load_data()\""

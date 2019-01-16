@@ -21,6 +21,7 @@ from __future__ import print_function
 
 import tensorflow as tf
 import numpy as np
+import warnings
 
 from distutils.version import LooseVersion
 if LooseVersion(tf.__version__) >= LooseVersion("1.4.0"):
@@ -40,6 +41,7 @@ class TfKerasTests(tf.test.TestCase):
 
     def __init__(self, *args, **kwargs):
         super(TfKerasTests, self).__init__(*args, **kwargs)
+        warnings.simplefilter('module')
 
     def test_train_model(self):
         hvd.init()

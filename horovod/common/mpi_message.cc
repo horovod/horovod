@@ -251,6 +251,20 @@ const std::vector<std::string>& MPIResponse::tensor_names() const {
   return tensor_names_;
 }
 
+const std::string MPIResponse::tensor_names_string() const {
+  std::string result;
+  bool is_first_name = true;
+  for (auto const& s : tensor_names_) {
+    if (!is_first_name) {
+      result += ", ";
+    } else {
+      is_first_name = false;
+    }
+    result += s;
+  }
+  return result;
+}
+
 void MPIResponse::set_tensor_names(const std::vector<std::string>& value) {
   tensor_names_ = value;
 }
@@ -285,8 +299,19 @@ void MPIResponse::add_tensor_sizes(int64_t value) {
   tensor_sizes_.push_back(value);
 }
 
+void MPIResponse::add_allgather_response(
+    horovod::common::MPIResponse response) {
+  assert(response_type() == MPIResponse::ResponseType::ALLGATHER);
+  assert(response.tensor_names().size() == 1);
+  assert(response.devices() == devices());
+  add_tensor_names(response.tensor_names()[0]);
+  for (auto size: response.tensor_sizes()){
+    add_tensor_sizes(size);
+  }
+}
+
 void MPIResponse_ParseFromWire(MPIResponse& response,
-                              const wire::MPIResponse* obj) {
+                               const wire::MPIResponse* obj) {
   response.set_response_type((MPIResponse::ResponseType)obj->response_type());
   for (const auto& tensor_name_obj : *obj->tensor_names()) {
     response.add_tensor_names(tensor_name_obj->str());

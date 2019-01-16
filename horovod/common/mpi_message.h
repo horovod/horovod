@@ -124,6 +124,7 @@ public:
 
   // Empty if the type is DONE or SHUTDOWN.
   const std::vector<std::string>& tensor_names() const;
+  const std::string tensor_names_string() const;
   void set_tensor_names(const std::vector<std::string>& value);
   void add_tensor_names(const std::string& value);
 
@@ -141,6 +142,8 @@ public:
   const std::vector<int64_t>& tensor_sizes() const;
   void set_tensor_sizes(const std::vector<int64_t>& value);
   void add_tensor_sizes(int64_t value);
+  // To fuse multiple allgather responses
+  void add_allgather_response(MPIResponse response);
 
   static void ParseFromString(MPIResponse& response, const std::string& input);
   static void SerializeToString(MPIResponse& response, std::string& output);

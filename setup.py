@@ -436,7 +436,8 @@ def get_common_options(build_ext):
                'horovod/common/parameter_manager.cc',
                'horovod/common/timeline.cc',
                'horovod/common/optim/bayesian_optimization.cc',
-               'horovod/common/optim/gaussian_process.cc']
+               'horovod/common/optim/gaussian_process.cc',
+               'horovod/common/logging.cc']
     COMPILE_FLAGS = cpp_flags + shlex.split(mpi_flags)
     LINK_FLAGS = link_flags + shlex.split(mpi_flags)
     LIBRARY_DIRS = []
@@ -772,6 +773,6 @@ setup(name='horovod',
       # If cffi is specified in setup_requires, it will need libffi to be installed on the machine,
       # which is undesirable.  Luckily, `install` action will install cffi before executing build,
       # so it's only necessary for `build*` or `bdist*` actions.
-      setup_requires=['cffi>=1.4.0'] if is_build_action() else [],
-      install_requires=['cffi>=1.4.0'],
+      setup_requires=['cffi>=1.4.0', 'cloudpickle', 'psutil', 'six'] if is_build_action() else [],
+      install_requires=['cffi>=1.4.0', 'cloudpickle', 'psutil', 'six'],
       zip_safe=False)

@@ -13,23 +13,15 @@
 # limitations under the License.
 # ==============================================================================
 
-# If PyTorch is installed, it must be imported before TensorFlow, otherwise
-# we may get an error: dlopen: cannot load any more object with static TLS
-try:
-    import torch
-except:
-    pass
+import base64
+import cloudpickle
 
-try:
-    import tensorflow
-except:
-    pass
 
-# Keras 2.0.0 has a race condition during first initialization that attempts
-# to make a directory.  If multiple processes attempt to make the directory
-# at the same time, all but the first one will fail.  This has been fixed
-# in new versions of Keras.
-try:
-    import keras
-except:
-    pass
+def loads_base64(encoded):
+    decoded = base64.b64decode(encoded)
+    return cloudpickle.loads(decoded)
+
+
+def dumps_base64(obj):
+    serialized = cloudpickle.dumps(obj)
+    return base64.b64encode(serialized).decode('ascii')

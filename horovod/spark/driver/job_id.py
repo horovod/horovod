@@ -12,18 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from distutils.version import LooseVersion
 
-import tensorflow as tf
-
-
-if LooseVersion(tf.__version__) >= LooseVersion("1.9.0"):
-    from tensorflow.python.eager import context
-    _has_eager = True
-else:
-    _has_eager = False
+import threading
 
 
-def _executing_eagerly():
-    """Returns true if eager execution is supported and enabled."""
-    return _has_eager and context.in_eager_mode()
+LOCK = threading.Lock()
+JOB_ID = -1
+
+
+def next_job_id():
+    global LOCK, JOB_ID
+    with LOCK:
+        JOB_ID += 1
+        return JOB_ID

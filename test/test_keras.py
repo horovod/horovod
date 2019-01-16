@@ -26,6 +26,7 @@ import numpy as np
 import os
 import tempfile
 import tensorflow as tf
+import warnings
 
 import horovod.keras as hvd
 
@@ -37,6 +38,7 @@ class KerasTests(tf.test.TestCase):
 
     def __init__(self, *args, **kwargs):
         super(KerasTests, self).__init__(*args, **kwargs)
+        warnings.simplefilter('module')
 
     def test_sparse_as_dense(self):
         hvd.init()

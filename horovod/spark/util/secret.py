@@ -12,18 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from distutils.version import LooseVersion
 
-import tensorflow as tf
-
-
-if LooseVersion(tf.__version__) >= LooseVersion("1.9.0"):
-    from tensorflow.python.eager import context
-    _has_eager = True
-else:
-    _has_eager = False
+import hashlib
+import hmac
+import os
 
 
-def _executing_eagerly():
-    """Returns true if eager execution is supported and enabled."""
-    return _has_eager and context.in_eager_mode()
+SECRET_LENGTH = 32  # bytes
+DIGEST_LENGTH = 32  # bytes
+HOROVOD_SECRET_KEY = '_HOROVOD_SECRET_KEY'
+
+
+def make_secret_key():
+    return os.urandom(SECRET_LENGTH)
+
+
+def compute_digest(key, message):
+    return hmac.new(key, message, hashlib.sha256).digest()
+
+
+def check_digest(key, message, digest):
+    computed_digest = compute_digest(key, message)
+    return hmac.compare_digest(computed_digest, digest)
