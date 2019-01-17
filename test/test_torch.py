@@ -1159,3 +1159,53 @@ class TorchTests(unittest.TestCase):
             assert False, 'hvd.DistributedOptimizer did not throw error'
         except ValueError:
             pass
+
+    def test_dynamic_requires_grad(self):
+        """Test that makes sure that gradients can be turned off/on dynamically."""
+        hvd.init()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        gen = torch.nn.Conv2d(1, 10, 1)
+        disc = torch.nn.Conv2d(10, 1, 1)
+        inp = torch.rand([1, 1, 100, 100])
+
+        gen_opt = torch.optim.SGD(gen.parameters(), lr=0.1)
+        gen_opt = hvd.DistributedOptimizer(gen_opt, named_parameters=gen.named_parameters())
+
+        disc_opt = torch.optim.SGD(disc.parameters(), lr=0.1)
+        disc_opt = hvd.DistributedOptimizer(disc_opt, named_parameters=disc.named_parameters())
+
+        def train_step(train_generator=False, train_discriminator=False):
+            for p in gen.parameters():
+                p.requires_grad_(train_generator)
+            for p in disc.parameters():
+                p.requires_grad_(train_discriminator)
+
+            gen_opt.zero_grad()
+            disc_opt.zero_grad()
+
+            loss = disc(gen(inp)).sum()
+            loss.backward()
+
+            for p in gen.parameters():
+                assert train_generator == p.grad.max().is_nonzero(), \
+                    'Gradient for generator is zero but it should be trained or vice versa.'
+            for p in disc.parameters():
+                assert train_discriminator == p.grad.max().is_nonzero(), \
+                    'Gradient for discriminator is zero but it should be trained or vice versa.'
+
+            if train_generator:
+                gen_opt.step()
+            if train_discriminator:
+                disc_opt.step()
+
+        for x in range(10):
+            # Step 1: train generator.
+            train_step(train_generator=True)
+
+            # Step 2: train discriminator.
+            train_step(train_discriminator=True)
