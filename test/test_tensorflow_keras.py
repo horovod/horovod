@@ -42,11 +42,14 @@ class TfKerasTests(tf.test.TestCase):
     def __init__(self, *args, **kwargs):
         super(TfKerasTests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
-
-    def test_train_model(self):
         hvd.init()
 
-        with self.test_session() as sess:
+        self.config = tf.ConfigProto()
+        self.config.gpu_options.allow_growth = True
+        self.config.gpu_options.visible_device_list = str(hvd.local_rank())
+
+    def test_train_model(self):
+        with self.test_session(config=self.config) as sess:
             K.set_session(sess)
 
             opt = keras.optimizers.RMSprop(lr=0.0001)
@@ -79,9 +82,7 @@ class TfKerasTests(tf.test.TestCase):
                                 initial_epoch=1)
 
     def test_sparse_as_dense(self):
-        hvd.init()
-
-        with self.test_session() as sess:
+        with self.test_session(config=self.config) as sess:
             K.set_session(sess)
 
             opt = keras.optimizers.RMSprop(lr=0.0001)
