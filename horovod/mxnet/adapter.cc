@@ -17,8 +17,6 @@
 #include "cuda.h"
 #endif
 
-#include <mxnet/base.h>
-
 #include "adapter.h"
 #include "cuda_util.h"
 #include "tensor_util.h"
@@ -122,19 +120,6 @@ Status MXOpContext<T>::AllocateOutput(TensorShape shape,
 
 template <class T> Framework MXOpContext<T>::framework() const {
   return Framework::MXNET;
-}
-
-void ThrowIfError(Status status) {
-  switch (status.type()) {
-  case StatusType::OK:
-    return;
-  case StatusType::PRECONDITION_ERROR:
-    throw std::logic_error(status.reason());
-  case StatusType::ABORTED:
-    throw std::runtime_error(status.reason());
-  default: // Includes UNKNOWN_ERROR
-    throw std::runtime_error(status.reason());
-  }
 }
 
 template class MXTensor<NDArray>;

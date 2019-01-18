@@ -18,12 +18,11 @@ from __future__ import division
 from __future__ import print_function
 
 # Load all the necessary MXNet C types.
-import mxnet as mx
 import ctypes
 import os
 
-from mxnet.base import c_str_array, c_handle_array, c_array, c_array_buf, c_str
-from mxnet.base import check_call, string_types, mx_uint, py_str, string_types
+import mxnet as mx
+from mxnet.base import c_str, check_call, string_types
 
 from horovod.common import get_ext_suffix
 from horovod.common import HorovodBasics as _HorovodBasics
@@ -77,6 +76,7 @@ def allreduce(tensor, average=True, name=None):
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in,
                    c_out, name, ctypes.c_bool(average)))
+
     return output
 
 

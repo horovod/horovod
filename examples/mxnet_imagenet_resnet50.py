@@ -20,7 +20,6 @@ import logging
 import math
 import os
 
-
 from gluoncv.model_zoo import get_model
 import horovod.mxnet as hvd
 import mxnet as mx
@@ -67,8 +66,8 @@ parser.add_argument('--lr-decay-epoch', type=str, default='40,60',
                     (default is : 40,60)')
 parser.add_argument('--warmup-lr', type=float, default=0.0,
                     help='starting warmup learning rate (default: 0.0)')
-parser.add_argument('--warmup-epochs', type=int, default=5,
-                    help='number of warmup epochs (default: 5)')
+parser.add_argument('--warmup-epochs', type=int, default=10,
+                    help='number of warmup epochs (default: 10)')
 parser.add_argument('--last-gamma', action='store_true', default=False,
                     help='whether to init gamma of the last BN layer in \
                     each bottleneck to 0 (default: False)')
@@ -76,16 +75,14 @@ parser.add_argument('--model', type=str, default='resnet50_v1',
                     help='type of model to use. see vision_model for options.')
 parser.add_argument('--use-pretrained', action='store_true', default=False,
                     help='load pretrained model weights (default: False)')
-parser.add_argument('--optimizer', type=str, default='nag',
-                    help='optimizer to use for training (default: nag)')
 parser.add_argument('--eval-epoch', action='store_true', default=False,
                     help='evaluate validation accuracy after each epoch (default: False)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training (default: False)')
 parser.add_argument('--log-interval', type=int, default=0,
                     help='number of batches to wait before logging (default: 0)')
-parser.add_argument('--save-frequency', type=int, default=0,
-                    help='frequency of model saving. (default: 0)')
+parser.add_argument('--save-frequency', type=int, default=10,
+                    help='frequency of model saving. (default: 10)')
 
 
 args = parser.parse_args()
@@ -266,7 +263,7 @@ else:
     val_data = None
 
 
-def main():
+def train():
     # Get model from GluonCV model zoo
     # https://gluon-cv.mxnet.io/model_zoo/index.html
     net = get_model(args.model, **kwargs)
@@ -303,7 +300,7 @@ def main():
                         'lr_scheduler': lr_sched}
     if args.dtype == 'float16':
         optimizer_params['multi_precision'] = True
-    opt = mx.optimizer.create(args.optimizer, sym=out, **optimizer_params)
+    opt = mx.optimizer.create('sgd', sym=out, **optimizer_params)
 
     # Horovod: wrap optimizer with DistributedOptimizer
     opt = hvd.DistributedOptimizer(opt)
@@ -329,7 +326,8 @@ def main():
         eval_data = val_data
     batch_callback = None
     if args.log_interval > 0:
-        batch_callback = mx.callback.Speedometer(batch_size, max(1, args.log_interval))
+        batch_callback = mx.callback.Speedometer(batch_size,
+                                                 max(1, args.log_interval))
     epoch_callback = None
     if args.save_frequency > 0:
         epoch_callback = mx.callback.do_checkpoint(
@@ -346,14 +344,15 @@ def main():
             optimizer=opt,
             optimizer_params=optimizer_params)
 
-    # Evaluate performance
-    acc_top1 = mx.metric.Accuracy()
-    acc_top5 = mx.metric.TopKAccuracy(5)
-    res = mod.score(val_data, [acc_top1, acc_top5])
-    for name, val in res:
-        logging.info('Epoch[%d] Rank[%d] Validation-%s=%f',
-                     args.num_epochs - 1, hvd.rank(), name, val)
+    # Evaluate performance if not using synthetic data
+    if args.use_rec:
+        acc_top1 = mx.metric.Accuracy()
+        acc_top5 = mx.metric.TopKAccuracy(5)
+        res = mod.score(val_data, [acc_top1, acc_top5])
+        for name, val in res:
+            logging.info('Epoch[%d] Rank[%d] Validation-%s=%f',
+                         args.num_epochs - 1, hvd.rank(), name, val)
 
 
 if __name__ == '__main__':
-    main()
+    train()

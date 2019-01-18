@@ -19,8 +19,11 @@ from __future__ import print_function
 
 from horovod.common import check_extension
 
-from horovod.mxnet.mpi_ops import allreduce, allreduce_
+check_extension('horovod.mxnet', 'HOROVOD_WITH_MXNET',
+                __file__, 'mpi_lib')
+
 from horovod.mxnet.mpi_ops import allgather
+from horovod.mxnet.mpi_ops import allreduce, allreduce_
 from horovod.mxnet.mpi_ops import broadcast, broadcast_
 from horovod.mxnet.mpi_ops import init, shutdown
 from horovod.mxnet.mpi_ops import size, local_size, rank, local_rank

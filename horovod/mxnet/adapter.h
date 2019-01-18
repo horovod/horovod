@@ -16,6 +16,8 @@
 #ifndef HOROVOD_MXNET_ADAPTER_H
 #define HOROVOD_MXNET_ADAPTER_H
 
+#include <mxnet/base.h>
+
 #include "../common/common.h"
 
 namespace horovod {
@@ -68,7 +70,11 @@ private:
   T* output_;
 };
 
-void ThrowIfError(Status status);
+inline void ThrowIfError(const Status& status) {
+  if (!status.ok()) {
+    throw dmlc::Error(status.reason());
+  }
+}
 
 } // namespace mxnet
 } // namespace horovod

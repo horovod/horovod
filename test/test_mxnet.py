@@ -17,11 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import horovod.mxnet as hvd
 import itertools
 import mxnet as mx
-import unittest
 import numpy as np
-import horovod.mxnet as hvd
+import unittest
+from mxnet.base import MXNetError
 from mxnet.test_utils import same
 
 
@@ -161,6 +162,94 @@ class MXTests(unittest.TestCase):
                                                  incorrect results for self'
         mx.ndarray.waitall()
 
+    def test_horovod_allreduce_error(self):
+        """Test that the allreduce raises an error if different ranks try to
+           send tensors of different rank or dimension."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        # Same rank, different dimension
+        ctx = self._current_context()
+
+        shape = (17 + rank, 3)
+        tensor = mx.nd.ones(shape=shape, ctx=ctx)
+        try:
+            output = hvd.allreduce(tensor)
+            output.wait_to_read()
+            assert False, 'hvd.allreduce did not throw error'
+        except (MXNetError, RuntimeError):
+            pass
+
+        # Same number of elements, different rank
+        if rank == 0:
+            shape = (17, 23 * 57)
+        else:
+            shape = (17, 23, 57)
+        tensor = mx.nd.ones(shape=shape, ctx=ctx)
+        try:
+            output = hvd.allreduce(tensor)
+            output.wait_to_read()
+            assert False, 'hvd.allreduce did not throw error'
+        except (MXNetError, RuntimeError):
+            pass
+
+    def test_horovod_allreduce_type_error(self):
+        """Test that the allreduce raises an error if different ranks try to
+           send tensors of different type."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        ctx = self._current_context()
+        shape = (17, 3)
+        tensor = mx.nd.ones(shape=shape, ctx=ctx)
+        if rank % 2 == 0:
+            tensor = tensor.astype('int32')
+        else:
+            tensor = tensor.astype('float32')
+
+        try:
+            output = hvd.allreduce(tensor)
+            output.wait_to_read()
+            assert False, 'hvd.allreduce did not throw error'
+        except (MXNetError, RuntimeError):
+            pass
+
+    @unittest.skipUnless(has_gpu, "no gpu detected")
+    def test_horovod_allreduce_cpu_gpu_error(self):
+        """Test that the allreduce raises an error if different ranks try to
+           perform reduction on CPU and GPU."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        shape = (17, 17, 17)
+        if rank % 2 == 0:
+            ctx = mx.gpu(hvd.rank())
+        else:
+            ctx = mx.cpu(hvd.rank())
+        tensor = mx.nd.ones(shape=shape, ctx=ctx)
+
+        try:
+            output = hvd.allreduce(tensor)
+            output.wait_to_read()
+            assert False, 'hvd.allreduce did not throw cpu-gpu error'
+        except (MXNetError, RuntimeError):
+            pass
+
     def test_horovod_broadcast(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
         hvd.init()
@@ -299,6 +388,74 @@ class MXTests(unittest.TestCase):
                 'hvd.broadcast produces incorrect broadcasted tensor'
         mx.ndarray.waitall()
 
+    def test_horovod_broadcast_error(self):
+        """Test that the broadcast returns an error if any dimension besides
+           the first is different among the tensors being broadcasted."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        ctx = self._current_context()
+        shape = (17, rank+1)
+        tensor = mx.nd.ones(shape=shape, ctx=ctx)
+
+        try:
+            output = hvd.broadcast(tensor, 0)
+            output.wait_to_read()
+            assert False, 'hvd.broadcast did not throw error'
+        except (MXNetError, RuntimeError):
+            pass
+
+    def test_horovod_broadcast_type_error(self):
+        """Test that the broadcast returns an error if the types being broadcasted
+           differ among the processes"""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        ctx = self._current_context()
+        shape = (17, 3)
+        tensor = mx.nd.ones(shape=shape, ctx=ctx)
+        if rank % 2 == 0:
+            tensor = tensor.astype('int32')
+        else:
+            tensor = tensor.astype('float32')
+
+        try:
+            output = hvd.broadcast(tensor, 0)
+            output.wait_to_read()
+            assert False, 'hvd.broadcast did not throw error'
+        except (MXNetError, RuntimeError):
+            pass
+
+    def test_horovod_broadcast_rank_error(self):
+        """Test that the broadcast returns an error if different ranks
+           specify different root rank."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        ctx = self._current_context()
+        shape = (17, 17, 17)
+        tensor = mx.nd.ones(shape=shape, ctx=ctx)
+        try:
+            output = hvd.broadcast(tensor, root_rank=rank)
+            output.wait_to_read()
+            assert False, 'hvd.broadcast did not throw rank error'
+        except (MXNetError, RuntimeError):
+            pass
 
 if __name__ == '__main__':
     unittest.main()
