@@ -81,7 +81,6 @@ class MXTests(unittest.TestCase):
                 print("multiplied", hvd.rank(), multiplied)
             assert max_difference <= threshold, 'hvd.allreduce produces \
                                                  incorrect results'
-        mx.ndarray.waitall()
 
     def test_horovod_allreduce_average(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
@@ -121,7 +120,6 @@ class MXTests(unittest.TestCase):
                 print("averaged", hvd.rank(), averaged)
             assert max_difference <= threshold, 'hvd.allreduce produces \
                                                  incorrect results for average'
-        mx.ndarray.waitall()
 
     def test_horovod_allreduce_inplace(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
@@ -160,7 +158,6 @@ class MXTests(unittest.TestCase):
                 print("multiplied", hvd.rank(), multiplied)
             assert max_difference <= threshold, 'hvd.allreduce produces \
                                                  incorrect results for self'
-        mx.ndarray.waitall()
 
     def test_horovod_allreduce_error(self):
         """Test that the allreduce raises an error if different ranks try to
@@ -297,7 +294,6 @@ class MXTests(unittest.TestCase):
             tensor.wait_to_read()
             assert same(broadcast_tensor.asnumpy(), root_tensor.asnumpy()), \
                 'hvd.broadcast produces incorrect broadcasted tensor'
-        mx.ndarray.waitall()
 
     def test_horovod_broadcast_inplace(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
@@ -346,7 +342,6 @@ class MXTests(unittest.TestCase):
             tensor.wait_to_read()
             assert same(broadcast_tensor.asnumpy(), root_tensor.asnumpy()), \
                 'hvd.broadcast produces incorrect broadcasted tensor'
-        mx.ndarray.waitall()
 
     def test_horovod_broadcast_grad(self):
         """Test the correctness of the broadcast gradient."""
@@ -386,7 +381,6 @@ class MXTests(unittest.TestCase):
                 print("comparison", hvd.rank(), tensor_dict[i] == root_dict[i])
             assert same(tensor_dict[i].asnumpy(), root_dict[i].asnumpy()), \
                 'hvd.broadcast produces incorrect broadcasted tensor'
-        mx.ndarray.waitall()
 
     def test_horovod_broadcast_error(self):
         """Test that the broadcast returns an error if any dimension besides
