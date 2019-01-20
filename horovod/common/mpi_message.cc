@@ -394,6 +394,7 @@ void MPIResponseList::SerializeToString(MPIResponseList& response_list,
   // FlatBuffers must be built bottom-up.
   flatbuffers::FlatBufferBuilder builder(1024);
   std::vector<flatbuffers::Offset<wire::MPIResponse>> responses;
+  responses.reserve(response_list.responses().size());
   for (const auto& resp : response_list.responses()) {
     flatbuffers::Offset<wire::MPIResponse> resp_obj;
     MPIResponse_SerializeToWire(resp, builder, resp_obj);

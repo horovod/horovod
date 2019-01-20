@@ -62,12 +62,12 @@ void BayesianOptimization::AddSample(const Eigen::VectorXd& x, const Eigen::Vect
 VectorXd BayesianOptimization::NextSample() {
   // Matrices are immutable and must be regenerated each time a new sample is added.
   MatrixXd x_sample(x_samples_.size(), d_);
-  for (unsigned int i = 0; i < x_samples_.size(); i++) {
+  for (unsigned int i = 0; i < x_samples_.size(); ++i) {
     x_sample.row(i) = x_samples_[i];
   }
 
   MatrixXd y_sample(y_samples_.size(), 1);
-  for (unsigned int i = 0; i < y_samples_.size(); i++) {
+  for (unsigned int i = 0; i < y_samples_.size(); ++i) {
     y_sample.row(i) = y_samples_[i];
   }
 
@@ -106,10 +106,10 @@ VectorXd BayesianOptimization::ProposeLocation(const MatrixXd& x_sample, const M
   // Optimize with random restarts to avoid getting stuck in local minimum.
   VectorXd x_next = VectorXd::Zero(d_);
   double fx_min = std::numeric_limits<double>::max();
-  for (int i = 0; i < n_restarts; i++) {
+  for (int i = 0; i < n_restarts; ++i) {
     // Generate a random starting point by drawing from our bounded distributions.
     VectorXd x = VectorXd::Zero(d_);
-    for (unsigned int j = 0; j < d_; j++) {
+    for (unsigned int j = 0; j < d_; ++j) {
       x[j] = dists_[j](gen_);
     }
 
@@ -168,7 +168,7 @@ VectorXd BayesianOptimization::ExpectedImprovement(const MatrixXd& x, const Matr
 }
 
 bool BayesianOptimization::CheckBounds(const Eigen::VectorXd& x) {
-  for (int i = 0; i < x.size(); i++) {
+  for (int i = 0; i < x.size(); ++i) {
     if (x[i] < bounds_[i].first || x[i] > bounds_[i].second) {
       return false;
     }

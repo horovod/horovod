@@ -122,7 +122,7 @@ Status
 TorchOpContext<DT, Dev, T>::AllocateOutput(TensorShape shape,
                                            std::shared_ptr<Tensor>* tensor) {
   int64_t* shape_array = new int64_t[shape.dims()];
-  for (int idx = 0; idx < shape.dims(); idx++) {
+  for (int idx = 0; idx < shape.dims(); ++idx) {
     shape_array[idx] = shape.dim_size(idx);
   }
   TensorUtil::ResizeNd<DT, Dev>(output_, shape.dims(), shape_array, nullptr);

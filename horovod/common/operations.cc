@@ -328,7 +328,7 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
   // Check that all data types of tensors being reduced, gathered or broadcasted
   // are identical.
   auto data_type = requests[0].tensor_type();
-  for (unsigned int i = 1; i < requests.size(); i++) {
+  for (unsigned int i = 1; i < requests.size(); ++i) {
     auto request_type = requests[i].tensor_type();
     if (data_type != request_type) {
       error = true;
@@ -342,7 +342,7 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
 
   // Check that all requested operations are the same
   auto message_type = requests[0].request_type();
-  for (unsigned int i = 1; i < requests.size(); i++) {
+  for (unsigned int i = 1; i < requests.size(); ++i) {
     if (error) {
       break;
     }
@@ -366,7 +366,7 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
     for (auto dim : requests[0].tensor_shape()) {
       tensor_shape.AddDim(dim);
     }
-    for (unsigned int i = 1; i < requests.size(); i++) {
+    for (unsigned int i = 1; i < requests.size(); ++i) {
       if (error) {
         break;
       }
@@ -407,7 +407,7 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
       tensor_sizes[requests[0].request_rank()] = tensor_shape.dim_size(0);
     }
 
-    for (unsigned int i = 1; i < requests.size(); i++) {
+    for (unsigned int i = 1; i < requests.size(); ++i) {
       if (error) {
         break;
       }
@@ -428,7 +428,7 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
       }
 
       bool dim_mismatch = false;
-      for (int dim = 1; dim < tensor_shape.dims(); dim++) {
+      for (int dim = 1; dim < tensor_shape.dims(); ++dim) {
         if (tensor_shape.dim_size(dim) != request_shape.dim_size(dim)) {
           error = true;
           error_message_stream
@@ -452,7 +452,7 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
   // If we are doing a broadcast, check that all root ranks are identical.
   if (message_type == MPIRequest::BROADCAST) {
     int first_root_rank = requests[0].root_rank();
-    for (unsigned int i = 1; i < requests.size(); i++) {
+    for (unsigned int i = 1; i < requests.size(); ++i) {
       if (error) {
         break;
       }
@@ -471,7 +471,7 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
   }
 
   bool first_device_is_cpu = requests[0].device() == CPU_DEVICE_ID;
-  for (unsigned int i = 1; i < requests.size(); i++) {
+  for (unsigned int i = 1; i < requests.size(); ++i) {
     if (error) {
       break;
     }
@@ -763,6 +763,8 @@ int64_t TensorFusionThresholdBytes() {
 // raising an error.
 void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
   std::vector<TensorTableEntry> entries;
+  // Reserve to save re-allocation costs, as we know the size before.
+  entries.reserve(response.tensor_names().size());
   {
     // Lock on the tensor table.
     std::lock_guard<std::mutex> guard(horovod_global.mutex);
@@ -846,7 +848,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     auto* recvcounts = new int[horovod_global.size]();
     auto* displcmnts = new int[horovod_global.size]();
 
-    for (int ec = 0; ec < entries.size(); ec++) {
+    for (int ec = 0; ec < entries.size(); ++ec) {
       entry_component_sizes[ec] = new int64_t[horovod_global.size]();
       entry_component_offsets[ec] = new int64_t[horovod_global.size]();
     }
@@ -891,7 +893,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     }
     ACTIVITY_END_ALL(entries, timeline)
 
-    for (int rc = 0; rc < horovod_global.size; rc++) {
+    for (int rc = 0; rc < horovod_global.size; ++rc) {
       if (rc == 0) {
         displcmnts[rc] = 0;
       } else {
@@ -900,8 +902,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     }
 
     unsigned int rank_displacement = 0;
-    for (unsigned rc = 0; rc < horovod_global.size; rc++) {
-      for (unsigned ec = 0; ec < entries.size(); ec++) {
+    for (unsigned rc = 0; rc < horovod_global.size; ++rc) {
+      for (unsigned ec = 0; ec < entries.size(); ++ec) {
         if (ec == 0) {
           entry_component_offsets[ec][rc] = rank_displacement;
         } else {
@@ -955,7 +957,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       auto* cross_displcmnts = new int[horovod_global.cross_size]();
 
       if (horovod_global.is_homogeneous) {
-        for (int i = 0; i < horovod_global.cross_size; i++) {
+        for (int i = 0; i < horovod_global.cross_size; ++i) {
           cross_recvcounts[i] = recvcounts[horovod_global.local_size * i +
                                            horovod_global.local_rank];
           cross_displcmnts[i] = displcmnts[horovod_global.local_size * i +
@@ -964,9 +966,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       } else if (horovod_global.local_rank == 0) {
         // In this case local rank 0 will allgather with all local data
         int offset = 0;
-        for (int i = 0; i < horovod_global.cross_size; i++) {
+        for (int i = 0; i < horovod_global.cross_size; ++i) {
           for (int j = offset; j < offset + horovod_global.local_sizes[i];
-               j++) {
+               ++j) {
             cross_recvcounts[i] += recvcounts[j];
           }
           cross_displcmnts[i] = displcmnts[offset];
@@ -975,7 +977,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       }
 
       ACTIVITY_START_ALL(entries, timeline, MEMCPY_IN_SHARED_BUFFER)
-      for (int ec = 0; ec < entries.size(); ec++) {
+      for (int ec = 0; ec < entries.size(); ++ec) {
         auto& e = entries[ec];
         void* shared_buffer_at_offset =
             (uint8_t*)horovod_global.shared_buffer +
@@ -1005,10 +1007,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
       // Copy memory out of the fusion buffer.
       ACTIVITY_START_ALL(entries, timeline, MEMCPY_OUT_FUSION_BUFFER)
-      for (int ec = 0; ec < entries.size(); ec++) {
+      for (int ec = 0; ec < entries.size(); ++ec) {
         auto& e = entries[ec];
         int64_t copy_offset = 0;
-        for (int rc = 0; rc < horovod_global.size; rc++) {
+        for (int rc = 0; rc < horovod_global.size; ++rc) {
           auto entry_component_size = entry_component_sizes[ec][rc];
           std::memcpy((void*)((uint8_t*)e.output->data() + copy_offset),
                       (void*)((uint8_t*)horovod_global.shared_buffer +
@@ -1060,10 +1062,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
         ACTIVITY_START_ALL(entries, timeline, MEMCPY_OUT_FUSION_BUFFER)
         // Copy memory out of the fusion buffer.
-        for (int ec = 0; ec < entries.size(); ec++) {
+        for (int ec = 0; ec < entries.size(); ++ec) {
           auto& e = entries[ec];
           int64_t copy_offset = 0;
-          for (int rc = 0; rc < horovod_global.size; rc++) {
+          for (int rc = 0; rc < horovod_global.size; ++rc) {
             std::memcpy((void*)((uint8_t*)e.output->data() + copy_offset),
                         (void*)((uint8_t*)buffer_data +
                                 entry_component_offsets[ec][rc] * element_size),
@@ -1090,7 +1092,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       delete[] recvcounts;
       delete[] displcmnts;
 
-      for (int ec = 0; ec < entries.size(); ec++) {
+      for (int ec = 0; ec < entries.size(); ++ec) {
         delete[] entry_component_sizes[ec];
         delete[] entry_component_offsets[ec];
       }
@@ -1135,6 +1137,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       // Determine GPU IDs of the devices participating in this communicator.
       std::vector<int32_t> nccl_device_map;
       if (horovod_global.param_manager.HierarchicalAllreduce()) {
+        // Reserve before for-loop, to save on reallocation cost.
+        nccl_device_map.reserve(horovod_global.local_comm_ranks.size());
         for (int rank : horovod_global.local_comm_ranks) {
           nccl_device_map.push_back(response.devices()[rank]);
         }
@@ -1643,10 +1647,10 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
       std::unordered_set<int32_t> ready_ranks;
       bool missing_preamble = false;
       for (auto msg_iter = messages.begin(); msg_iter != messages.end();
-           msg_iter++) {
+           ++msg_iter) {
         ready_ranks.insert(msg_iter->request_rank());
       }
-      for (int32_t rank = 0; rank < state.size; rank++) {
+      for (int32_t rank = 0; rank < state.size; ++rank) {
         if (ready_ranks.find(rank) == ready_ranks.end()) {
           if (!missing_preamble) {
             message << " ";
@@ -1768,7 +1772,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
                 state.mpi_comm);
 
   bool is_homogeneous = true;
-  for (int i = 0; i < size; i++) {
+  for (int i = 0; i < size; ++i) {
     if (local_sizes[i] != local_size) {
       is_homogeneous = false;
       break;
@@ -1915,11 +1919,11 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // TODO: init.cu:645 WARN Cuda failure 'driver shutting down'
   //#if HAVE_NCCL
   //  for (auto it = horovod_global.streams.begin();
-  //       it != horovod_global.streams.end(); it++) {
+  //       it != horovod_global.streams.end(); ++it) {
   //    cudaStreamSynchronize(it->second);
   //  }
   //  for (auto it = horovod_global.nccl_comms.begin();
-  //       it != horovod_global.nccl_comms.end(); it++) {
+  //       it != horovod_global.nccl_comms.end(); ++it) {
   //    ncclCommDestroy(it->second);
   //  }
   //#endif
@@ -1927,6 +1931,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Notify all outstanding operations that Horovod has been shut down
   // and clear up the tensor table and message queue.
   std::vector<StatusCallback> callbacks;
+  // we know (# of elements put) == (size of tensor_table map).
+  callbacks.reserve(state.tensor_table.size()); 
   {
     std::lock_guard<std::mutex> guard(state.mutex);
     for (auto& e : state.tensor_table) {
@@ -2074,7 +2080,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     // 2. Compute displacements.
     auto displcmnts = new int[state.size];
     size_t total_size = 0;
-    for (int i = 0; i < state.size; i++) {
+    for (int i = 0; i < state.size; ++i) {
       if (i == 0) {
         displcmnts[i] = 0;
       } else {
@@ -2089,7 +2095,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
                 RANK_ZERO, state.mpi_comm);
 
     // 4. Process messages.
-    for (int i = 1; i < state.size; i++) {
+    for (int i = 1; i < state.size; ++i) {
       std::string received_data(buffer + displcmnts[i], (size_t)recvcounts[i]);
 
       MPIRequestList received_message_list;
@@ -2329,7 +2335,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 void InitializeHorovodOnce(const int* ranks, int nranks) {
   // Ensure background thread is only started once.
   if (!horovod_global.initialize_flag.test_and_set()) {
-    for (int i = 0; i < nranks; i++) {
+    for (int i = 0; i < nranks; ++i) {
       horovod_global.ranks.push_back(ranks[i]);
     }
 
@@ -2426,7 +2432,7 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   message.set_tensor_type(tensor->dtype());
   message.set_device(device);
   message.set_request_type(MPIRequest::ALLREDUCE);
-  for (int i = 0; i < tensor->shape().dims(); i++) {
+  for (int i = 0; i < tensor->shape().dims(); ++i) {
     message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
   }
 
@@ -2466,7 +2472,7 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
   message.set_tensor_type(tensor->dtype());
   message.set_device(device);
   message.set_request_type(MPIRequest::ALLGATHER);
-  for (int i = 0; i < tensor->shape().dims(); i++) {
+  for (int i = 0; i < tensor->shape().dims(); ++i) {
     message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
   }
 
@@ -2507,7 +2513,7 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   message.set_root_rank(root_rank);
   message.set_device(device);
   message.set_request_type(MPIRequest::BROADCAST);
-  for (int i = 0; i < tensor->shape().dims(); i++) {
+  for (int i = 0; i < tensor->shape().dims(); ++i) {
     message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
   }
 
