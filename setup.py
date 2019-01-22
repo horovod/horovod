@@ -33,6 +33,7 @@ tensorflow_mpi_lib = Extension('horovod.tensorflow.mpi_lib', [])
 torch_mpi_lib = Extension('horovod.torch.mpi_lib', [])
 torch_mpi_lib_impl = Extension('horovod.torch.mpi_lib_impl', [])
 torch_mpi_lib_v2 = Extension('horovod.torch.mpi_lib_v2', [])
+mxnet_mpi_lib = Extension('horovod.mxnet.mpi_lib', [])
 
 
 def is_build_action():
@@ -63,6 +64,21 @@ def check_tf_version():
         # This means that tf.__version__ was not exposed, which makes it *REALLY* old.
         raise DistutilsPlatformError(
             'Your TensorFlow version is outdated.  Horovod requires tensorflow>=1.1.0')
+
+
+def check_mx_version():
+    try:
+        import mxnet as mx
+        if mx.__version__ < '1.4.0':
+            raise DistutilsPlatformError(
+                'Your MXNet version %s is outdated.  '
+                'Horovod requires mxnet>=1.4.0' % mx.__version__)
+    except ImportError:
+        raise DistutilsPlatformError(
+            'import mxnet failed, is it installed?\n\n%s' % traceback.format_exc())
+    except AttributeError:
+        raise DistutilsPlatformError(
+            'Your MXNet version is outdated.  Horovod requires mxnet>1.3.0')
 
 
 def get_cpp_flags(build_ext):
@@ -219,6 +235,60 @@ def get_tf_flags(build_ext, cpp_flags):
             link_flags.append('-l%s' % lib)
 
         return compile_flags, link_flags
+
+
+def get_mx_include_dirs():
+    import mxnet as mx
+    return [mx.libinfo.find_include_path()]
+
+
+def get_mx_lib_dirs():
+    import mxnet as mx
+    mx_libs = mx.libinfo.find_lib_path()
+    mx_lib_dirs = [os.path.dirname(mx_lib) for mx_lib in mx_libs]
+    return mx_lib_dirs
+
+
+def get_mx_libs(build_ext, lib_dirs, cpp_flags):
+    last_err = None
+    for mx_libs in [['mxnet'], []]:
+        try:
+            lib_file = test_compile(build_ext, 'test_mx_libs',
+                                    library_dirs=lib_dirs, libraries=mx_libs,
+                                    extra_compile_preargs=cpp_flags,
+                                    code=textwrap.dedent('''\
+                    void test() {
+                    }
+                    '''))
+
+            return mx_libs
+        except (CompileError, LinkError):
+            last_err = 'Unable to determine -l link flags to use with MXNet (see error above).'
+        except Exception:
+            last_err = 'Unable to determine -l link flags to use with MXNet.  ' \
+                       'Last error:\n\n%s' % traceback.format_exc()
+
+    raise DistutilsPlatformError(last_err)
+
+
+def get_mx_flags(build_ext, cpp_flags):
+    mx_include_dirs = get_mx_include_dirs()
+    mx_lib_dirs = get_mx_lib_dirs()
+    mx_libs = get_mx_libs(build_ext, mx_lib_dirs, cpp_flags)
+
+    compile_flags = []
+    for include_dir in mx_include_dirs:
+        compile_flags.append('-I%s' % include_dir)
+
+    link_flags = []
+    for lib_dir in mx_lib_dirs:
+        link_flags.append('-Wl,-rpath,%s' % lib_dir)
+        link_flags.append('-L%s' % lib_dir)
+
+    for lib in mx_libs:
+        link_flags.append('-l%s' % lib)
+
+    return compile_flags, link_flags
 
 
 def get_mpi_flags():
@@ -512,6 +582,33 @@ def parse_version(version_str):
     return version
 
 
+def build_mx_extension(build_ext, options):
+    check_mx_version()
+    mx_compile_flags, mx_link_flags = get_mx_flags(
+        build_ext, options['COMPILE_FLAGS'])
+
+    mxnet_mpi_lib.define_macros = options['MACROS']
+    if check_macro(options['MACROS'], 'HAVE_CUDA'):
+        mxnet_mpi_lib.define_macros += [('MSHADOW_USE_CUDA', '1')]
+    else:
+        mxnet_mpi_lib.define_macros += [('MSHADOW_USE_CUDA', '0')]
+    mxnet_mpi_lib.define_macros += [('MSHADOW_USE_MKL', '0')]
+    mxnet_mpi_lib.include_dirs = options['INCLUDES']
+    mxnet_mpi_lib.sources = options['SOURCES'] + \
+        ['horovod/mxnet/mpi_ops.cc',
+         'horovod/mxnet/ready_event.cc',
+         'horovod/mxnet/tensor_util.cc',
+         'horovod/mxnet/cuda_util.cc',
+         'horovod/mxnet/adapter.cc']
+    mxnet_mpi_lib.extra_compile_args = options['COMPILE_FLAGS'] + \
+        mx_compile_flags
+    mxnet_mpi_lib.extra_link_args = options['LINK_FLAGS'] + mx_link_flags
+    mxnet_mpi_lib.library_dirs = options['LIBRARY_DIRS']
+    mxnet_mpi_lib.libraries = options['LIBRARIES']
+
+    build_ext.build_extension(mxnet_mpi_lib)
+
+
 def dummy_import_torch():
     try:
         import torch
@@ -609,7 +706,8 @@ def build_torch_extension(build_ext, options, torch_version):
 
     # Export TORCH_VERSION equal to our representation of torch.__version__. Internally it's
     # used for backwards compatibility checks.
-    updated_macros = set_macro(updated_macros, 'TORCH_VERSION', str(torch_version))
+    updated_macros = set_macro(
+        updated_macros, 'TORCH_VERSION', str(torch_version))
 
     # Create_extension overwrites these files which are customized, we need to protect them.
     with protect_files('horovod/torch/mpi_lib/__init__.py',
@@ -671,7 +769,8 @@ def build_torch_extension_v2(build_ext, options, torch_version):
 
     # Export TORCH_VERSION equal to our representation of torch.__version__. Internally it's
     # used for backwards compatibility checks.
-    updated_macros = set_macro(updated_macros, 'TORCH_VERSION', str(torch_version))
+    updated_macros = set_macro(
+        updated_macros, 'TORCH_VERSION', str(torch_version))
 
     # Always set _GLIBCXX_USE_CXX11_ABI, since PyTorch can only detect whether it was set to 1.
     import torch
@@ -679,7 +778,8 @@ def build_torch_extension_v2(build_ext, options, torch_version):
                                str(int(torch.compiled_with_cxx11_abi())))
 
     # PyTorch requires -DTORCH_API_INCLUDE_EXTENSION_H
-    updated_macros = set_macro(updated_macros, 'TORCH_API_INCLUDE_EXTENSION_H', '1')
+    updated_macros = set_macro(
+        updated_macros, 'TORCH_API_INCLUDE_EXTENSION_H', '1')
 
     if have_cuda:
         from torch.utils.cpp_extension import CUDAExtension as TorchExtension
@@ -740,27 +840,39 @@ class custom_build_ext(build_ext):
                     built_plugins.append(False)
                 else:
                     raise
+        if not os.environ.get('HOROVOD_WITHOUT_MXNET'):
+            try:
+                build_mx_extension(self, options)
+                built_plugins.append(True)
+            except:
+                if not os.environ.get('HOROVOD_WITH_MXNET'):
+                    print('INFO: Unable to build MXNet plugin, will skip it.\n\n'
+                          '%s' % traceback.format_exc(), file=sys.stderr)
+                    built_plugins.append(False)
+                else:
+                    raise
         if not built_plugins:
             raise DistutilsError(
-                'Both TensorFlow and PyTorch plugins were excluded from build. Aborting.')
+                'TensorFlow, PyTorch, and MXNet plugins were excluded from build. Aborting.')
         if not any(built_plugins):
             raise DistutilsError(
-                'Neither TensorFlow nor PyTorch plugins were built. See errors above.')
+                'None of TensorFlow, PyTorch, or MXNet plugins were built. See errors above.')
 
 
 setup(name='horovod',
       version=__version__,
       packages=find_packages(),
-      description='Distributed training framework for TensorFlow, Keras, and PyTorch.',
+      description='Distributed training framework for TensorFlow, Keras, PyTorch, and MXNet.',
       author='Uber Technologies, Inc.',
       long_description=textwrap.dedent('''\
-          Horovod is a distributed training framework for TensorFlow, Keras, and PyTorch.
+          Horovod is a distributed training framework for TensorFlow, Keras, PyTorch, and MXNet.
           The goal of Horovod is to make distributed Deep Learning fast and easy to use.'''),
       url='https://github.com/uber/horovod',
       classifiers=[
           'License :: OSI Approved :: Apache Software License'
       ],
-      ext_modules=[tensorflow_mpi_lib, torch_mpi_lib, torch_mpi_lib_impl, torch_mpi_lib_v2],
+      ext_modules=[tensorflow_mpi_lib, torch_mpi_lib, torch_mpi_lib_impl,
+                   torch_mpi_lib_v2, mxnet_mpi_lib],
       cmdclass={'build_ext': custom_build_ext},
       # cffi is required for PyTorch
       # If cffi is specified in setup_requires, it will need libffi to be installed on the machine,
