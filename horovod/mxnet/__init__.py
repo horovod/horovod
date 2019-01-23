@@ -85,6 +85,5 @@ def broadcast_parameters(params, root_rank=0):
     # Run broadcasts.
     count = 0
     for _, p in params:
-        int_name = str(count)
-        broadcast_(p, root_rank, int_name)
+        broadcast_(p, root_rank, str(count))
         count += 1
