@@ -271,8 +271,6 @@ class MXTests(unittest.TestCase):
             tensor = tensor.astype(dtype)
             root_tensor = root_tensor.astype(dtype)
 
-            # Only do broadcasting using and on broadcast_tensor
-            broadcast_tensor = tensor.copy()
             broadcast_tensor = hvd.broadcast(tensor, root_rank=root_rank,
                                              name=str(count))
             if rank != root_rank:
@@ -317,7 +315,7 @@ class MXTests(unittest.TestCase):
             tensor = tensor.astype(dtype)
             root_tensor = root_tensor.astype(dtype)
 
-            # Only do broadcasting using and on broadcast_tensor
+            # Only do broadcasting using broadcast_tensor
             broadcast_tensor = tensor.copy()
             hvd.broadcast_(broadcast_tensor, root_rank=root_rank,
                            name=str(count))
