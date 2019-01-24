@@ -248,6 +248,110 @@ class DistributedOptimizer(tf.train.Optimizer):
         return self._optimizer.variables(*args, **kwargs)
 
 
+def _var_key(var):
+  # from tensorflow.python.training.optimizer
+  if hasattr(var, "op"):
+    return (var.op.graph, var.op.name)
+  return var._unique_id
+
+
+class DistributedOptimizerExt(DistributedOptimizer):
+    """An extension to DistributedOptimizer optimizer that supports virtual batch sizes."""
+    def __init__(self, total_size, *args, **kwargs):
+        """Construct a new DistributedOptimizerExt, which uses another optimizer
+        under the hood for computing single-process gradient values and
+        applying gradient updates after the gradient values have been averaged
+        across all virtual batches and all the Horovod ranks.
+
+        Args:
+          total_size:
+            Total number of batches regardless of hvd.size(). apply_gradients will be applied after every (total_size // hvd.size()) steps.
+          optimizer:
+            Optimizer to use for computing gradients and applying updates.
+          name:
+            Optional name prefix for the operations created when applying
+            gradients. Defaults to "Distributed" followed by the provided
+            optimizer type.
+          use_locking:
+            Whether to use locking when updating variables.
+            See Optimizer.__init__ for more info.
+          device_dense:
+            Device to be used for dense tensors. Uses GPU by default
+            if Horovod was build with HOROVOD_GPU_ALLREDUCE.
+          device_sparse:
+            Device to be used for sparse tensors. Uses GPU by default
+            if Horovod was build with HOROVOD_GPU_ALLGATHER.
+          compression:
+            Compression algorithm used during allreduce to reduce the amount
+            of data sent during the each parameter update step.  Defaults to
+            not using compression.
+          sparse_as_dense:
+            Treat all sparse gradients as dense tensors.  This can help improve
+            performance and memory utilization if the original sparse gradient
+            has high density.  Defaults to false.
+        """
+        super().__init__(*args, **kwargs)
+        self._total_size = total_size
+        self._num_iterations = total_size // size()
+        self._scope = tf.variable_scope('GradientAccumulator')
+        self._acc_variables = {}
+        with self._scope:
+            self.step_count = tf.get_local_variable('Count', shape=(), dtype=tf.int32, trainable=False, initializer=tf.zeros_initializer())
+
+
+    def _aggregate(self, current_grad, variable, is_first_grad):
+        """Create and update accumulator for a given variable/gradient pair"""
+        if _var_key(variable) in self._acc_variables:
+            acc = self._acc_variables[_var_key(variable)]
+        else:
+            acc = tf.get_local_variable(_var_key(variable),
+                                shape=current_grad.shape,
+                                initializer=tf.zeros_initializer(),
+                                trainable=False)
+            self._acc_variables[_var_key(variable)] = acc
+        updated = tf.cond(is_first_grad, lambda: current_grad, lambda: acc + current_grad)
+        return (tf.assign(acc, updated), variable)
+
+    def compute_gradients(self, *args, **kwargs):
+        """Instead of aggregating gradients with horovod during compute_gradients, this will be done in apply_gradients instead"""
+        return self._optimizer.compute_gradients(*args, **kwargs)
+
+    def _reduce_and_apply(self, grads, *args, **kwargs):
+        """Final gradient step, accumulate distributed gradients and call wrapper optimizer"""
+        if size() > 1:
+            grads, vars = zip(*grads)
+            avg_grads = self._allreduce_grads(grads)
+            grads = list(zip(avg_grads, vars))
+
+        return self._optimizer.apply_gradients(grads, *args, **kwargs)
+
+    def apply_gradients(self, grads, *args, global_step=None, name=None, **kwargs):
+        """Accumulate gradients over many steps before calling apply_gradients."""
+        if self._num_iterations == 1:
+            return self._reduce_and_apply(grads, *args, global_step=global_step, name=name, **kwargs)
+        else:
+            with tf.variable_scope('GradientAccumulator'):
+                next_step = tf.assign(self.step_count, (self.step_count + 1) % self._num_iterations)
+
+                is_first_grad = tf.equal(next_step, 1)
+                updated_grads = tuple([self._aggregate(g, v, is_first_grad) for g, v in grads])
+
+                is_last_grad = tf.equal(next_step, 0)
+
+            with tf.control_dependencies([g for g, _ in updated_grads]):
+                def true_fn():
+                    fake_horovod_size = tf.cast(self._num_iterations, tf.float32)
+                    final_tensors = tuple([(tf.div(g, fake_horovod_size), v) for g, v in updated_grads])
+                    return self._reduce_and_apply(final_tensors, *args, **kwargs)
+
+                step_op = tf.cond(is_last_grad, true_fn, tf.no_op)
+                if global_step is None:
+                    return step_op
+                else:
+                    with tf.control_dependencies([step_op]):
+                        return tf.assign_add(global_step, 1, name).op
+
+
 if hasattr(tf, 'GradientTape'):
     class _DistributedGradientTape(tf.GradientTape):
 

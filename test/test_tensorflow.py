@@ -799,6 +799,42 @@ class MPITests(tf.test.TestCase):
             err = np.linalg.norm(expected - actual)
             self.assertLess(err, 0.00000001)
 
+    def test_simulated_distributed_optimizer(self):
+        """Test DistributedOptimizerExt virtual batch size"""
+        hvd.init()
+        full_gradients = tf.random_uniform(shape=(hvd.size(),))
+        v = self.tfe.Variable(tf.constant(0))
+        expected_gradients = tf.reduce_mean(full_gradients)
+        class FakeOptimizer(tf.train.AdamOptimizer):
+            def apply_gradients(opt, grads, *args, **kwargs):
+                assert len(grads) == 1
+                assert tf.equal(grads[0][0], expected_gradients)
+                return True
+        optimizer = FakeOptimizer()
+
+        # Sanity check
+        self.assertEqual(optimizer.apply_gradients([(expected_gradients + 0, v)]), True)
+        with self.assertRaises(AssertionError):
+            optimizer.apply_gradients([(expected_gradients + 1, v)])
+
+        # Test DistributedOptimizerExt
+        # 1 = skip the accumulator all together
+        # 2-3 apply_gradient will be called every 2-3 steps
+        for i in [1, 2, 3]:
+            hvd_optimizer = hvd.DistributedOptimizerExt(hvd.size() * i, optimizer)
+            full_gradients = tf.random_uniform(shape=(hvd.size() * i,))
+            expected_gradients = tf.reduce_mean(full_gradients)
+            current_batch = hvd.rank()
+            for a in range(i):
+                current_slice = full_gradients[current_batch]
+                result = hvd_optimizer.apply_gradients([(current_slice, v)])
+                if a == i - 1:
+                    self.assertEqual(result, True)
+                else:
+                    self.assertEqual(result, None)
+                current_batch += hvd.size()
+
+
 
 if __name__ == '__main__':
     if _has_eager:
