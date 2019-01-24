@@ -37,6 +37,12 @@ void Timeline::Initialize(std::string file_name) {
 
 bool Timeline::Initialized() const { return initialized_; }
 
+long Timeline::TimeSinceStartMicros() const {
+  auto now = std::chrono::steady_clock::now();
+  auto ts = now - start_time_;
+  return std::chrono::duration_cast<std::chrono::microseconds>(ts).count();
+}
+
 // Write event to the Horovod Timeline file.
 void Timeline::WriteEvent(const std::string& tensor_name, const char phase,
                           const std::string& op_name, const std::string& args) {
@@ -44,10 +50,7 @@ void Timeline::WriteEvent(const std::string& tensor_name, const char phase,
     return;
   }
 
-  auto now = std::chrono::steady_clock::now();
-  auto ts = now - start_time_;
-  auto ts_micros =
-      std::chrono::duration_cast<std::chrono::microseconds>(ts).count();
+  auto ts_micros = TimeSinceStartMicros();
 
   auto& tensor_idx = tensor_table_[tensor_name];
   if (tensor_idx == 0) {
@@ -84,6 +87,28 @@ void Timeline::WriteEvent(const std::string& tensor_name, const char phase,
   }
   file_ << "}," << std::endl;
 
+  FlushIfNecessary();
+}
+
+void Timeline::WriteMarker(const std::string& name) {
+  if (!file_.good()) {
+    return;
+  }
+
+  auto ts_micros = TimeSinceStartMicros();
+
+  file_ << "{";
+  file_ << "\"ph\": \"i\"";
+  file_ << ", \"name\": \"" << name << "\"";
+  file_ << ", \"ts\": " << ts_micros << "";
+  file_ << ", \"s\": \"g\"";
+  file_ << "}," << std::endl;
+
+  FlushIfNecessary();
+}
+
+void Timeline::FlushIfNecessary() {
+  auto now = std::chrono::steady_clock::now();
   if (now - last_flush_time_ >= TIMELINE_FLUSH_TIME) {
     file_.flush();
     last_flush_time_ = now;
@@ -185,6 +210,16 @@ void Timeline::End(const std::string& tensor_name, const std::shared_ptr<Tensor>
     args << ", \"shape\": \"" << tensor->shape().DebugString() << "\"";
   }
   WriteEvent(tensor_name, 'E', "", args.str());
+}
+
+void Timeline::MarkCycleStart() {
+  if (!initialized_) {
+    return;
+  }
+
+  std::lock_guard<std::recursive_mutex> guard(mutex_);
+
+  WriteMarker("CYCLE_START");
 }
 
 } // namespace common

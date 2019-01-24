@@ -49,11 +49,15 @@ public:
                      const std::string& activity);
   void ActivityEnd(const std::string& tensor_name);
   void End(const std::string& tensor_name, const std::shared_ptr<Tensor> tensor);
+  void MarkCycleStart();
 
 private:
+  long TimeSinceStartMicros() const;
   void WriteEvent(const std::string& tensor_name, const char phase,
                   const std::string& op_name = "",
                   const std::string& args = "");
+  void WriteMarker(const std::string& name);
+  void FlushIfNecessary();
 
   // Boolean flag indicating whether Timeline was initialized (and thus should
   // be recorded).

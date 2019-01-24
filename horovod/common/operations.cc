@@ -2024,6 +2024,9 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   }
   state.last_cycle_start = std::chrono::steady_clock::now();
 
+  // Mark start of the new cycle.
+  state.timeline.MarkCycleStart();
+
   // Copy the data structures from global state under this lock.
   // However, don't keep the lock for the rest of the loop, so that
   // enqueued stream callbacks can continue.
