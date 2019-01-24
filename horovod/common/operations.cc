@@ -149,6 +149,9 @@ struct HorovodGlobalState {
   // Timeline writer.
   Timeline timeline;
 
+  // Flag indicating whether to mark cycles in the timeline.
+  bool mark_cycles_in_timeline = false;
+
   ParameterManager param_manager;
 
   // Encapsulates the fusion buffers, handles resizing and auto-tuning of buffer
@@ -1819,6 +1822,12 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     state.timeline.Initialize(std::string(horovod_timeline));
   }
 
+  auto horovod_timeline_mark_cycles = std::getenv(HOROVOD_TIMELINE_MARK_CYCLES);
+  if (horovod_timeline_mark_cycles != nullptr &&
+      std::strtol(horovod_timeline_mark_cycles, nullptr, 10) > 0) {
+    state.mark_cycles_in_timeline = true;
+  }
+
   // Override Tensor Fusion threshold, if it's set.
   state.param_manager.SetTensorFusionThresholdBytes(64 * 1024 * 1024);
   auto horovod_fusion_threshold = std::getenv(HOROVOD_FUSION_THRESHOLD);
@@ -2024,8 +2033,10 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   }
   state.last_cycle_start = std::chrono::steady_clock::now();
 
-  // Mark start of the new cycle.
-  state.timeline.MarkCycleStart();
+  if (state.mark_cycles_in_timeline) {
+    // Mark start of the new cycle.
+    state.timeline.MarkCycleStart();
+  }
 
   // Copy the data structures from global state under this lock.
   // However, don't keep the lock for the rest of the loop, so that
