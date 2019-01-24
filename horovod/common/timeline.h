@@ -16,11 +16,12 @@
 #ifndef HOROVOD_TIMELINE_H
 #define HOROVOD_TIMELINE_H
 
+#include <boost/lockfree/spsc_queue.hpp>
 #include <chrono>
 #include <fstream>
 #include <iostream>
-#include <unordered_map>
 #include <mutex>
+#include <unordered_map>
 
 #include "common.h"
 #include "mpi_message.h"
@@ -28,8 +29,47 @@
 namespace horovod {
 namespace common {
 
-// How frequently Horovod Timeline should be flushed to disk.
-#define TIMELINE_FLUSH_TIME std::chrono::seconds(1)
+enum TimelineRecordType { EVENT, MARKER };
+
+struct TimelineRecord {
+  TimelineRecordType type;
+  std::string tensor_name;
+  char phase;
+  std::string op_name;
+  std::string args;
+  std::string marker_name;
+  long ts_micros;
+};
+
+class TimelineWriter {
+public:
+  void Initialize(std::string file_name);
+  inline bool IsHealthy() const { return healthy_; }
+  void EnqueueWriteEvent(const std::string& tensor_name, char phase,
+                         const std::string& op_name, const std::string& args,
+                         long ts_micros);
+  void EnqueueWriteMarker(const std::string& name, long ts_micros);
+
+private:
+  void DoWriteEvent(const TimelineRecord& r);
+  void DoWriteMarker(const TimelineRecord& r);
+  void WriterLoop();
+
+  // Are we healthy?
+  std::atomic_bool healthy_{false};
+
+  // Timeline file.
+  std::ofstream file_;
+
+  // Timeline record queue.
+  boost::lockfree::spsc_queue<TimelineRecord,
+                              boost::lockfree::capacity<1048576>>
+      record_queue_;
+
+  // Mapping of tensor names to indexes. It is used to reduce size of the
+  // timeline file.
+  std::unordered_map<std::string, int> tensor_table_;
+};
 
 enum TimelineState { UNKNOWN, NEGOTIATING, TOP_LEVEL, ACTIVITY };
 
@@ -38,46 +78,38 @@ enum TimelineState { UNKNOWN, NEGOTIATING, TOP_LEVEL, ACTIVITY };
 class Timeline {
 public:
   void Initialize(std::string file_name);
-  bool Initialized() const;
+  inline bool Initialized() const { return initialized_; }
   void NegotiateStart(const std::string& tensor_name,
-                      const MPIRequest::RequestType request_type);
-  void NegotiateRankReady(const std::string& tensor_name, const int rank);
+                      MPIRequest::RequestType request_type);
+  void NegotiateRankReady(const std::string& tensor_name, int rank);
   void NegotiateEnd(const std::string& tensor_name);
   void Start(const std::string& tensor_name,
-             const MPIResponse::ResponseType response_type);
+             MPIResponse::ResponseType response_type);
   void ActivityStart(const std::string& tensor_name,
                      const std::string& activity);
   void ActivityEnd(const std::string& tensor_name);
-  void End(const std::string& tensor_name, const std::shared_ptr<Tensor> tensor);
+  void End(const std::string& tensor_name, std::shared_ptr<Tensor> tensor);
   void MarkCycleStart();
 
 private:
   long TimeSinceStartMicros() const;
-  void WriteEvent(const std::string& tensor_name, const char phase,
+  void WriteEvent(const std::string& tensor_name, char phase,
                   const std::string& op_name = "",
                   const std::string& args = "");
   void WriteMarker(const std::string& name);
-  void FlushIfNecessary();
 
   // Boolean flag indicating whether Timeline was initialized (and thus should
   // be recorded).
   bool initialized_ = false;
 
+  // Timeline writer.
+  TimelineWriter writer_;
+
   // Time point when Horovod was started.
   std::chrono::steady_clock::time_point start_time_;
 
-  // Last time stream was flushed.
-  std::chrono::steady_clock::time_point last_flush_time_;
-
-  // Timeline file.
-  std::ofstream file_;
-
   // A mutex that guards timeline state from concurrent access.
   std::recursive_mutex mutex_;
-
-  // Mapping of tensor names to indexes. It is used to reduce size of the
-  // timeline file.
-  std::unordered_map<std::string, int> tensor_table_;
 
   // Current state of each tensor in the timeline.
   std::unordered_map<std::string, TimelineState> tensor_states_;

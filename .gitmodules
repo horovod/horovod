@@ -4,3 +4,15 @@
 [submodule "third_party/eigen"]
 	path = third_party/eigen
 	url = https://github.com/eigenteam/eigen-git-mirror.git
+[submodule "third_party/boost_lockfree"]
+	path = third_party/boost_lockfree
+	url = https://github.com/boostorg/lockfree.git
+[submodule "third_party/boost_parameter"]
+	path = third_party/boost_parameter
+	url = https://github.com/boostorg/parameter.git
+[submodule "third_party/boost_config"]
+	path = third_party/boost_config
+	url = https://github.com/boostorg/config.git
+[submodule "third_party/boost_core"]
+	path = third_party/boost_core
+	url = https://github.com/boostorg/core.git
