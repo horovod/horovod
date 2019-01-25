@@ -1819,7 +1819,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Open the timeline file on coordinator.
   auto horovod_timeline = std::getenv(HOROVOD_TIMELINE);
   if (is_coordinator && horovod_timeline != nullptr) {
-    state.timeline.Initialize(std::string(horovod_timeline));
+    state.timeline.Initialize(std::string(horovod_timeline),
+                              static_cast<unsigned int>(size));
   }
 
   auto horovod_timeline_mark_cycles = std::getenv(HOROVOD_TIMELINE_MARK_CYCLES);

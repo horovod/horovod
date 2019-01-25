@@ -22,6 +22,7 @@
 #include <iostream>
 #include <mutex>
 #include <unordered_map>
+#include <vector>
 
 #include "common.h"
 #include "mpi_message.h"
@@ -77,7 +78,7 @@ enum TimelineState { UNKNOWN, NEGOTIATING, TOP_LEVEL, ACTIVITY };
 // https://github.com/catapult-project/catapult/tree/master/tracing
 class Timeline {
 public:
-  void Initialize(std::string file_name);
+  void Initialize(std::string file_name, unsigned int horovod_size);
   inline bool Initialized() const { return initialized_; }
   void NegotiateStart(const std::string& tensor_name,
                       MPIRequest::RequestType request_type);
@@ -113,6 +114,10 @@ private:
 
   // Current state of each tensor in the timeline.
   std::unordered_map<std::string, TimelineState> tensor_states_;
+
+  // Map of ranks to their string representations.
+  // std::to_string() is very slow.
+  std::vector<std::string> rank_strings_;
 };
 
 } // namespace common

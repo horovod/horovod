@@ -145,10 +145,17 @@ void TimelineWriter::WriterLoop() {
   }
 }
 
-void Timeline::Initialize(std::string file_name) {
+void Timeline::Initialize(std::string file_name, unsigned int horovod_size) {
   writer_.Initialize(std::move(file_name));
+
   // Initialize if we were able to open the file successfully.
   initialized_ = writer_.IsHealthy();
+
+  // Pre-initialize the string representation for each rank.
+  rank_strings_ = std::vector<std::string>(horovod_size);
+  for (unsigned int i = 0; i < horovod_size; i++) {
+    rank_strings_[i] = std::to_string(i);
+  }
 }
 
 long Timeline::TimeSinceStartMicros() const {
@@ -191,7 +198,7 @@ void Timeline::NegotiateRankReady(const std::string& tensor_name,
 
   std::lock_guard<std::recursive_mutex> guard(mutex_);
   assert(tensor_states_[tensor_name] == TimelineState::NEGOTIATING);
-  WriteEvent(tensor_name, 'X', std::to_string(rank));
+  WriteEvent(tensor_name, 'X', rank_strings_[rank]);
 }
 
 void Timeline::NegotiateEnd(const std::string& tensor_name) {
