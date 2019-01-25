@@ -1,4 +1,4 @@
-// Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
+// Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -275,7 +275,6 @@ void Timeline::MarkCycleStart() {
   }
 
   std::lock_guard<std::recursive_mutex> guard(mutex_);
-
   WriteMarker("CYCLE_START");
 }
 
