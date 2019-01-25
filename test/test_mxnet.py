@@ -321,6 +321,7 @@ class MXTests(unittest.TestCase):
             broadcast_tensor = tensor.copy()
             hvd.broadcast_(broadcast_tensor, root_rank=root_rank,
                            name=str(count))
+            broadcast_tensor.wait_to_read()
             if rank != root_rank:
                 if same(tensor.asnumpy(), root_tensor.asnumpy()):
                     print("broadcast", count, dtype, dim,
