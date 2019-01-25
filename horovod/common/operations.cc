@@ -285,12 +285,13 @@ const Status DUPLICATE_NAME_ERROR = Status::InvalidArgument(
 // MPIRequests for that tensor is now equal to the MPI size (and thus we are
 // ready to reduce the tensor).
 bool IncrementTensorCount(std::unique_ptr<MessageTable>& message_table,
-                          MPIRequest msg, int mpi_size) {
+                          const MPIRequest& msg, int mpi_size) {
   auto& name = msg.tensor_name();
   auto& timeline = horovod_global.timeline;
   auto table_iter = message_table->find(name);
   if (table_iter == message_table->end()) {
     std::vector<MPIRequest> messages = {msg};
+    messages.reserve(static_cast<unsigned long>(mpi_size));
     auto now = std::chrono::steady_clock::now();
     message_table->emplace(name, std::make_tuple(std::move(messages), now));
     table_iter = message_table->find(name);
@@ -497,7 +498,7 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
   }
 
   MPIResponse response;
-  response.add_tensor_names(name);
+  response.add_tensor_name(name);
   if (error) {
     std::string error_message = error_message_stream.str();
     response.set_response_type(MPIResponse::ERROR);
@@ -505,7 +506,7 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
   } else if (message_type == MPIRequest::ALLGATHER) {
     response.set_response_type(MPIResponse::ALLGATHER);
     for (auto dim : tensor_sizes) {
-      response.add_tensor_sizes(dim);
+      response.add_tensor_size(dim);
     }
   } else if (message_type == MPIRequest::ALLREDUCE) {
     response.set_response_type(MPIResponse::ALLREDUCE);
@@ -849,7 +850,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     auto* recvcounts = new int[horovod_global.size]();
     auto* displcmnts = new int[horovod_global.size]();
 
-    for (int ec = 0; ec < entries.size(); ec++) {
+    for (size_t ec = 0; ec < entries.size(); ec++) {
       entry_component_sizes[ec] = new int64_t[horovod_global.size]();
       entry_component_offsets[ec] = new int64_t[horovod_global.size]();
     }
@@ -857,7 +858,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     auto& first_entry = entries[0];
 
     ACTIVITY_START_ALL(entries, timeline, ALLOCATE_OUTPUT)
-    for (unsigned int ec = 0; ec < entries.size(); ++ec) {
+    for (size_t ec = 0; ec < entries.size(); ++ec) {
       auto& e = entries[ec];
       // Every tensor participating in Allgather operation may have different
       // first dimension size, but the rest of dimensions are same for all
@@ -870,7 +871,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       // Copy tensor sizes from the MPI response into a vector of int64_t
       // and compute total size.  This is size of first dimension.
       int64_t total_entry_dimension_size = 0;
-      for (unsigned int rc = 0; rc < horovod_global.size; ++rc) {
+      for (int rc = 0; rc < horovod_global.size; ++rc) {
         auto component_size =
             response.tensor_sizes()[ec * horovod_global.size + rc];
         total_entry_dimension_size += component_size;
@@ -903,8 +904,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
     }
 
     unsigned int rank_displacement = 0;
-    for (unsigned rc = 0; rc < horovod_global.size; rc++) {
-      for (unsigned ec = 0; ec < entries.size(); ec++) {
+    for (int rc = 0; rc < horovod_global.size; rc++) {
+      for (size_t ec = 0; ec < entries.size(); ec++) {
         if (ec == 0) {
           entry_component_offsets[ec][rc] = rank_displacement;
         } else {
@@ -978,7 +979,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       }
 
       ACTIVITY_START_ALL(entries, timeline, MEMCPY_IN_SHARED_BUFFER)
-      for (int ec = 0; ec < entries.size(); ec++) {
+      for (size_t ec = 0; ec < entries.size(); ec++) {
         auto& e = entries[ec];
         void* shared_buffer_at_offset =
             (uint8_t*)horovod_global.shared_buffer +
@@ -1008,7 +1009,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
       // Copy memory out of the fusion buffer.
       ACTIVITY_START_ALL(entries, timeline, MEMCPY_OUT_FUSION_BUFFER)
-      for (int ec = 0; ec < entries.size(); ec++) {
+      for (size_t ec = 0; ec < entries.size(); ec++) {
         auto& e = entries[ec];
         int64_t copy_offset = 0;
         for (int rc = 0; rc < horovod_global.size; rc++) {
@@ -1063,7 +1064,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
         ACTIVITY_START_ALL(entries, timeline, MEMCPY_OUT_FUSION_BUFFER)
         // Copy memory out of the fusion buffer.
-        for (int ec = 0; ec < entries.size(); ec++) {
+        for (size_t ec = 0; ec < entries.size(); ec++) {
           auto& e = entries[ec];
           int64_t copy_offset = 0;
           for (int rc = 0; rc < horovod_global.size; rc++) {
@@ -1093,7 +1094,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       delete[] recvcounts;
       delete[] displcmnts;
 
-      for (int ec = 0; ec < entries.size(); ec++) {
+      for (size_t ec = 0; ec < entries.size(); ec++) {
         delete[] entry_component_sizes[ec];
         delete[] entry_component_offsets[ec];
       }
@@ -2099,16 +2100,15 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     }
 
     // 3. Collect messages from every rank.
-    auto buffer = new char[total_size];
+    auto buffer = new uint8_t[total_size];
     MPI_Gatherv(nullptr, 0, MPI_BYTE, buffer, recvcounts, displcmnts, MPI_BYTE,
                 RANK_ZERO, state.mpi_comm);
 
     // 4. Process messages.
     for (int i = 1; i < state.size; i++) {
-      std::string received_data(buffer + displcmnts[i], (size_t)recvcounts[i]);
-
+      auto rank_buffer_ptr = buffer + displcmnts[i];
       MPIRequestList received_message_list;
-      MPIRequestList::ParseFromString(received_message_list, received_data);
+      MPIRequestList::ParseFromBytes(received_message_list, rank_buffer_ptr);
       for (auto& received_message : received_message_list.requests()) {
         auto& received_name = received_message.tensor_name();
 
@@ -2171,7 +2171,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
                 tensor_size + new_tensor_size <= TensorFusionThresholdBytes()) {
               // These tensors will fuse together well.
               tensor_size += new_tensor_size;
-              response.add_tensor_names(new_response.tensor_names()[0]);
+              response.add_tensor_name(new_response.tensor_names()[0]);
               responses.pop_front();
             } else {
               // Don't try to fuse additional tensors since they are usually
@@ -2221,7 +2221,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
             }
           }
         }
-        response_list.add_responses(response);
+        response_list.add_response(response);
         LOG(DEBUG) << "Created response of size " << tensor_size;
       }
     }
@@ -2284,7 +2284,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     MPIRequestList message_list;
     message_list.set_shutdown(should_shut_down);
     while (!message_queue.empty()) {
-      message_list.add_requests(message_queue.front());
+      message_list.add_request(message_queue.front());
       message_queue.pop();
     }
     MPIRequestList::SerializeToString(message_list, encoded_message);
@@ -2297,11 +2297,10 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 
     int msg_length;
     MPI_Bcast(&msg_length, 1, MPI_INT, RANK_ZERO, state.mpi_comm);
-    auto buffer = new char[msg_length];
+    auto buffer = new uint8_t[msg_length];
     MPI_Bcast(buffer, msg_length, MPI_BYTE, RANK_ZERO, state.mpi_comm);
-    std::string received_message(buffer, (size_t)msg_length);
     MPIResponseList response_list;
-    MPIResponseList::ParseFromString(response_list, received_message);
+    MPIResponseList::ParseFromBytes(response_list, buffer);
     delete[] buffer;
 
     std::vector<std::string> tensor_names;
