@@ -273,6 +273,8 @@ class MXTests(unittest.TestCase):
 
             broadcast_tensor = hvd.broadcast(tensor, root_rank=root_rank,
                                              name=str(count))
+            # this wait is needed to avoid out of sync error between workers
+            broadcast_tensor.wait_to_read()
             if rank != root_rank:
                 if same(tensor.asnumpy(), root_tensor.asnumpy()):
                     print("broadcast", count, dtype, dim,
