@@ -50,7 +50,7 @@ Horovod has the ability to record the moment when each cycle starts for debuggin
 
 ![Cycle Markers](https://user-images.githubusercontent.com/16640218/51659458-64806100-1f5f-11e9-9a27-ba934ceec75f.png)
 
-Since this information makes timeline view very crowded it is not enabled by default.
+Since this information makes timeline view very crowded, it is not enabled by default.
 
 To add cycle markers to the timeline, set the `HOROVOD_TIMELINE_MARK_CYCLES` environment variable to `1`:
 
