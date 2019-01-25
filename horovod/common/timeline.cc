@@ -146,6 +146,11 @@ void TimelineWriter::WriterLoop() {
 }
 
 void Timeline::Initialize(std::string file_name, unsigned int horovod_size) {
+  if (initialized_) {
+    return;
+  }
+
+  // Start the writer.
   writer_.Initialize(std::move(file_name));
 
   // Initialize if we were able to open the file successfully.

@@ -18,6 +18,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from contextlib import contextmanager
 import os
 
 
@@ -54,3 +55,23 @@ def mpi_env_rank_and_size():
 
     # Default to rank zero and size one if there are no environment variables
     return 0, 1
+
+
+@contextmanager
+def env(**kwargs):
+    # backup environment
+    backup = {}
+    for k in kwargs.keys():
+        backup[k] = os.environ.get(k)
+
+    # set new values & yield
+    for k, v in kwargs.items():
+        os.environ[k] = v
+    yield
+
+    # restore environment
+    for k in kwargs.keys():
+        if backup[k] is not None:
+            os.environ[k] = backup[k]
+        else:
+            del os.environ[k]

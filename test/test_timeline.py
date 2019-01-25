@@ -26,6 +26,8 @@ import warnings
 
 import horovod.torch as hvd
 
+from common import env
+
 
 class TimelineTests(unittest.TestCase):
     """
@@ -38,20 +40,19 @@ class TimelineTests(unittest.TestCase):
 
     def test_timeline(self):
         with tempfile.NamedTemporaryFile() as t:
-            os.environ['HOROVOD_TIMELINE'] = t.name
-            os.environ['HOROVOD_TIMELINE_MARK_CYCLES'] = '1'
-            hvd.init()
+            with env(HOROVOD_TIMELINE=t.name, HOROVOD_TIMELINE_MARK_CYCLES='1'):
+                hvd.init()
 
-            # Perform a simple allreduce operation
-            hvd.allreduce(torch.tensor([1, 2, 3]), name='test_allreduce')
+                # Perform a simple allreduce operation
+                hvd.allreduce(torch.tensor([1, 2, 3]), name='test_allreduce')
 
-            # Wait for it to register in the timeline.
-            time.sleep(0.1)
+                # Wait for it to register in the timeline.
+                time.sleep(0.1)
 
-            if hvd.rank() == 0:
-                with open(t.name, 'r') as tf:
-                    timeline_text = tf.read()
-                    assert 'allreduce.test_allreduce' in timeline_text, timeline_text
-                    assert 'NEGOTIATE_ALLREDUCE' in timeline_text, timeline_text
-                    assert 'ALLREDUCE' in timeline_text, timeline_text
-                    assert 'CYCLE_START' in timeline_text, timeline_text
+                if hvd.rank() == 0:
+                    with open(t.name, 'r') as tf:
+                        timeline_text = tf.read()
+                        assert 'allreduce.test_allreduce' in timeline_text, timeline_text
+                        assert 'NEGOTIATE_ALLREDUCE' in timeline_text, timeline_text
+                        assert 'ALLREDUCE' in timeline_text, timeline_text
+                        assert 'CYCLE_START' in timeline_text, timeline_text
