@@ -1,5 +1,5 @@
 // Copyright 2016 The TensorFlow Authors. All Rights Reserved.
-// Modifications copyright (C) 2018 Uber Technologies, Inc.
+// Modifications copyright (C) 2019 Uber Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -151,13 +151,13 @@ void MPIRequest_SerializeToWire(const MPIRequest& request,
 
 } // namespace
 
-void MPIRequest::ParseFromString(MPIRequest& request,
-                                 const std::string& input) {
-  auto obj = flatbuffers::GetRoot<wire::MPIRequest>((uint8_t*)input.c_str());
+void MPIRequest::ParseFromBytes(MPIRequest& request, const uint8_t* input) {
+  auto obj = flatbuffers::GetRoot<wire::MPIRequest>(input);
   MPIRequest_ParseFromWire(request, obj);
 }
 
-void MPIRequest::SerializeToString(MPIRequest& request, std::string& output) {
+void MPIRequest::SerializeToString(const MPIRequest& request,
+                                   std::string& output) {
   flatbuffers::FlatBufferBuilder builder(1024);
   flatbuffers::Offset<wire::MPIRequest> obj;
   MPIRequest_SerializeToWire(request, builder, obj);
@@ -180,23 +180,26 @@ bool MPIRequestList::shutdown() const { return shutdown_; }
 
 void MPIRequestList::set_shutdown(bool value) { shutdown_ = value; }
 
-void MPIRequestList::add_requests(const MPIRequest& value) {
+void MPIRequestList::add_request(const MPIRequest& value) {
   requests_.push_back(value);
 }
 
-void MPIRequestList::ParseFromString(MPIRequestList& request_list,
-                                     const std::string& input) {
-  auto obj =
-      flatbuffers::GetRoot<wire::MPIRequestList>((uint8_t*)input.c_str());
+void MPIRequestList::emplace_request(MPIRequest&& value) {
+  requests_.emplace_back(value);
+}
+
+void MPIRequestList::ParseFromBytes(MPIRequestList& request_list,
+                                    const uint8_t* input) {
+  auto obj = flatbuffers::GetRoot<wire::MPIRequestList>(input);
   for (const auto& req_obj : *obj->requests()) {
     MPIRequest request;
     MPIRequest_ParseFromWire(request, req_obj);
-    request_list.add_requests(std::move(request));
+    request_list.emplace_request(std::move(request));
   }
   request_list.set_shutdown(obj->shutdown());
 }
 
-void MPIRequestList::SerializeToString(MPIRequestList& request_list,
+void MPIRequestList::SerializeToString(const MPIRequestList& request_list,
                                        std::string& output) {
   // FlatBuffers must be built bottom-up.
   flatbuffers::FlatBufferBuilder builder(1024);
@@ -269,7 +272,7 @@ void MPIResponse::set_tensor_names(const std::vector<std::string>& value) {
   tensor_names_ = value;
 }
 
-void MPIResponse::add_tensor_names(const std::string& value) {
+void MPIResponse::add_tensor_name(const std::string& value) {
   tensor_names_.push_back(value);
 }
 
@@ -285,7 +288,7 @@ void MPIResponse::set_devices(const std::vector<int32_t>& value) {
   devices_ = value;
 }
 
-void MPIResponse::add_devices(int32_t value) { devices_.push_back(value); }
+void MPIResponse::add_device(int32_t value) { devices_.push_back(value); }
 
 const std::vector<int64_t>& MPIResponse::tensor_sizes() const {
   return tensor_sizes_;
@@ -295,18 +298,17 @@ void MPIResponse::set_tensor_sizes(const std::vector<int64_t>& value) {
   tensor_sizes_ = value;
 }
 
-void MPIResponse::add_tensor_sizes(int64_t value) {
+void MPIResponse::add_tensor_size(int64_t value) {
   tensor_sizes_.push_back(value);
 }
 
-void MPIResponse::add_allgather_response(
-    horovod::common::MPIResponse response) {
+void MPIResponse::add_allgather_response(const MPIResponse& response) {
   assert(response_type() == MPIResponse::ResponseType::ALLGATHER);
   assert(response.tensor_names().size() == 1);
   assert(response.devices() == devices());
-  add_tensor_names(response.tensor_names()[0]);
-  for (auto size: response.tensor_sizes()){
-    add_tensor_sizes(size);
+  add_tensor_name(response.tensor_names()[0]);
+  for (auto size : response.tensor_sizes()) {
+    add_tensor_size(size);
   }
 }
 
@@ -314,7 +316,7 @@ void MPIResponse_ParseFromWire(MPIResponse& response,
                                const wire::MPIResponse* obj) {
   response.set_response_type((MPIResponse::ResponseType)obj->response_type());
   for (const auto& tensor_name_obj : *obj->tensor_names()) {
-    response.add_tensor_names(tensor_name_obj->str());
+    response.add_tensor_name(tensor_name_obj->str());
   }
   response.set_error_message(obj->error_message()->str());
   response.set_devices(
@@ -323,15 +325,14 @@ void MPIResponse_ParseFromWire(MPIResponse& response,
                                                  obj->tensor_sizes()->end()));
 }
 
-void MPIResponse::ParseFromString(MPIResponse& response,
-                                  const std::string& input) {
-  auto obj = flatbuffers::GetRoot<wire::MPIResponse>((uint8_t*)input.c_str());
+void MPIResponse::ParseFromBytes(MPIResponse& response, const uint8_t* input) {
+  auto obj = flatbuffers::GetRoot<wire::MPIResponse>(input);
   MPIResponse_ParseFromWire(response, obj);
 }
 
 void MPIResponse_SerializeToWire(const MPIResponse& response,
-                                flatbuffers::FlatBufferBuilder& builder,
-                                flatbuffers::Offset<wire::MPIResponse>& obj) {
+                                 flatbuffers::FlatBufferBuilder& builder,
+                                 flatbuffers::Offset<wire::MPIResponse>& obj) {
   // FlatBuffers must be built bottom-up.
   auto tensor_names_wire =
       builder.CreateVectorOfStrings(response.tensor_names());
@@ -349,7 +350,7 @@ void MPIResponse_SerializeToWire(const MPIResponse& response,
   obj = response_builder.Finish();
 }
 
-void MPIResponse::SerializeToString(MPIResponse& response,
+void MPIResponse::SerializeToString(const MPIResponse& response,
                                     std::string& output) {
   flatbuffers::FlatBufferBuilder builder(1024);
   flatbuffers::Offset<wire::MPIResponse> obj;
@@ -373,24 +374,27 @@ bool MPIResponseList::shutdown() const { return shutdown_; }
 
 void MPIResponseList::set_shutdown(bool value) { shutdown_ = value; }
 
-void MPIResponseList::add_responses(const MPIResponse& value) {
+void MPIResponseList::add_response(const MPIResponse& value) {
   responses_.push_back(value);
 }
 
-void MPIResponseList::ParseFromString(MPIResponseList& response_list,
-                                     const std::string& input) {
-  auto obj =
-      flatbuffers::GetRoot<wire::MPIResponseList>((uint8_t*)input.c_str());
+void MPIResponseList::emplace_response(MPIResponse&& value) {
+  responses_.emplace_back(value);
+}
+
+void MPIResponseList::ParseFromBytes(MPIResponseList& response_list,
+                                     const uint8_t* input) {
+  auto obj = flatbuffers::GetRoot<wire::MPIResponseList>(input);
   for (const auto& resp_obj : *obj->responses()) {
     MPIResponse response;
     MPIResponse_ParseFromWire(response, resp_obj);
-    response_list.add_responses(std::move(response));
+    response_list.emplace_response(std::move(response));
   }
   response_list.set_shutdown(obj->shutdown());
 }
 
-void MPIResponseList::SerializeToString(MPIResponseList& response_list,
-                                       std::string& output) {
+void MPIResponseList::SerializeToString(const MPIResponseList& response_list,
+                                        std::string& output) {
   // FlatBuffers must be built bottom-up.
   flatbuffers::FlatBufferBuilder builder(1024);
   std::vector<flatbuffers::Offset<wire::MPIResponse>> responses;

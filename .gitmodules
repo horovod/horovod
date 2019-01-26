@@ -4,3 +4,42 @@
 [submodule "third_party/eigen"]
 	path = third_party/eigen
 	url = https://github.com/eigenteam/eigen-git-mirror.git
+[submodule "third_party/boost/assert"]
+	path = third_party/boost/assert
+	url = https://github.com/boostorg/assert.git
+[submodule "third_party/boost/lockfree"]
+	path = third_party/boost/lockfree
+	url = https://github.com/boostorg/lockfree.git
+[submodule "third_party/boost/static_assert"]
+	path = third_party/boost/static_assert
+	url = https://github.com/boostorg/static_assert.git
+[submodule "third_party/boost/parameter"]
+	path = third_party/boost/parameter
+	url = https://github.com/boostorg/parameter.git
+[submodule "third_party/boost/utility"]
+	path = third_party/boost/utility
+	url = https://github.com/boostorg/utility.git
+[submodule "third_party/boost/config"]
+	path = third_party/boost/config
+	url = https://github.com/boostorg/config.git
+[submodule "third_party/boost/core"]
+	path = third_party/boost/core
+	url = https://github.com/boostorg/core.git
+[submodule "third_party/boost/type_traits"]
+	path = third_party/boost/type_traits
+	url = https://github.com/boostorg/type_traits.git
+[submodule "third_party/boost/preprocessor"]
+	path = third_party/boost/preprocessor
+	url = https://github.com/boostorg/preprocessor.git
+[submodule "third_party/boost/iterator"]
+	path = third_party/boost/iterator
+	url = https://github.com/boostorg/iterator.git
+[submodule "third_party/boost/mpl"]
+	path = third_party/boost/mpl
+	url = https://github.com/boostorg/mpl.git
+[submodule "third_party/boost/detail"]
+	path = third_party/boost/detail
+	url = https://github.com/boostorg/detail.git
+[submodule "third_party/boost/predef"]
+	path = third_party/boost/predef
+	url = https://github.com/boostorg/predef.git

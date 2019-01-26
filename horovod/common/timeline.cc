@@ -1,4 +1,4 @@
-// Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
+// Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,43 +13,64 @@
 // limitations under the License.
 // =============================================================================
 
-#include <sstream>
 #include <cassert>
+#include <chrono>
+#include <sstream>
+#include <thread>
 
-#include "timeline.h"
 #include "logging.h"
+#include "timeline.h"
 
 namespace horovod {
 namespace common {
 
-void Timeline::Initialize(std::string file_name) {
+void TimelineWriter::Initialize(std::string file_name) {
   file_.open(file_name, std::ios::out | std::ios::trunc);
   if (file_.good()) {
     // Initialize the timeline with '[' character.
-    file_ << "[" << std::endl;
-    start_time_ = last_flush_time_ = std::chrono::steady_clock::now();
-    initialized_ = true;
+    file_ << "[\n";
+    healthy_ = true;
+
+    // Spawn writer thread.
+    std::thread writer_thread(&TimelineWriter::WriterLoop, this);
+    writer_thread.detach();
   } else {
-    LOG(ERROR) << "Error opening the Horovod Timeline file "
-               << file_name << ", will not write a timeline.";
+    LOG(ERROR) << "Error opening the Horovod Timeline file " << file_name
+               << ", will not write a timeline.";
   }
 }
 
-bool Timeline::Initialized() const { return initialized_; }
+void TimelineWriter::EnqueueWriteEvent(const std::string& tensor_name,
+                                       char phase, const std::string& op_name,
+                                       const std::string& args,
+                                       long ts_micros) {
+  TimelineRecord r{};
+  r.type = TimelineRecordType::EVENT;
+  r.tensor_name = tensor_name;
+  r.phase = phase;
+  r.op_name = op_name;
+  r.args = args;
+  r.ts_micros = ts_micros;
 
-// Write event to the Horovod Timeline file.
-void Timeline::WriteEvent(const std::string& tensor_name, const char phase,
-                          const std::string& op_name, const std::string& args) {
-  if (!file_.good()) {
-    return;
-  }
+  while (healthy_ && !record_queue_.push(r))
+    ;
+}
 
-  auto now = std::chrono::steady_clock::now();
-  auto ts = now - start_time_;
-  auto ts_micros =
-      std::chrono::duration_cast<std::chrono::microseconds>(ts).count();
+void TimelineWriter::EnqueueWriteMarker(const std::string& name,
+                                        long ts_micros) {
+  TimelineRecord r{};
+  r.type = TimelineRecordType::MARKER;
+  r.marker_name = name;
+  r.ts_micros = ts_micros;
 
-  auto& tensor_idx = tensor_table_[tensor_name];
+  while (healthy_ && !record_queue_.push(r))
+    ;
+}
+
+void TimelineWriter::DoWriteEvent(const TimelineRecord& r) {
+  assert(r.type == TimelineRecordType::EVENT);
+
+  auto& tensor_idx = tensor_table_[r.tensor_name];
   if (tensor_idx == 0) {
     tensor_idx = (int)tensor_table_.size();
 
@@ -58,7 +79,7 @@ void Timeline::WriteEvent(const std::string& tensor_name, const char phase,
     file_ << "\"name\": \"process_name\"";
     file_ << ", \"ph\": \"M\"";
     file_ << ", \"pid\": " << tensor_idx << "";
-    file_ << ", \"args\": {\"name\": \"" << tensor_name << "\"}";
+    file_ << ", \"args\": {\"name\": \"" << r.tensor_name << "\"}";
     file_ << "}," << std::endl;
     file_ << "{";
     file_ << "\"name\": \"process_sort_index\"";
@@ -69,30 +90,95 @@ void Timeline::WriteEvent(const std::string& tensor_name, const char phase,
   }
 
   file_ << "{";
-  file_ << "\"ph\": \"" << phase << "\"";
-  if (phase != 'E') {
+  file_ << "\"ph\": \"" << r.phase << "\"";
+  if (r.phase != 'E') {
     // Not necessary for ending event.
-    file_ << ", \"name\": \"" << op_name << "\"";
+    file_ << ", \"name\": \"" << r.op_name << "\"";
   }
-  file_ << ", \"ts\": " << ts_micros << "";
+  file_ << ", \"ts\": " << r.ts_micros << "";
   file_ << ", \"pid\": " << tensor_idx << "";
-  if (phase == 'X') {
+  if (r.phase == 'X') {
     file_ << ", \"dur\": " << 0 << "";
   }
-  if (args != "") {
-    file_ << ", \"args\": {" << args << "}";
+  if (r.args != "") {
+    file_ << ", \"args\": {" << r.args << "}";
   }
   file_ << "}," << std::endl;
+}
 
-  if (now - last_flush_time_ >= TIMELINE_FLUSH_TIME) {
-    file_.flush();
-    last_flush_time_ = now;
+void TimelineWriter::DoWriteMarker(const TimelineRecord& r) {
+  assert(r.type == TimelineRecordType::MARKER);
+
+  file_ << "{";
+  file_ << "\"ph\": \"i\"";
+  file_ << ", \"name\": \"" << r.marker_name << "\"";
+  file_ << ", \"ts\": " << r.ts_micros << "";
+  file_ << ", \"s\": \"g\"";
+  file_ << "}," << std::endl;
+}
+
+void TimelineWriter::WriterLoop() {
+  while (healthy_) {
+    while (healthy_ && !record_queue_.empty()) {
+      auto& r = record_queue_.front();
+      switch (r.type) {
+      case TimelineRecordType::EVENT:
+        DoWriteEvent(r);
+        break;
+      case TimelineRecordType::MARKER:
+        DoWriteMarker(r);
+        break;
+      default:
+        throw std::logic_error("Unknown event type provided.");
+      }
+      record_queue_.pop();
+
+      if (!file_.good()) {
+        LOG(ERROR) << "Error writing to the Horovod Timeline after it was "
+                      "successfully opened, will stop writing the timeline.";
+        healthy_ = false;
+      }
+    }
+
+    // Allow scheduler to schedule other work for this core.
+    std::this_thread::yield();
+  }
+}
+
+void Timeline::Initialize(std::string file_name, unsigned int horovod_size) {
+  if (initialized_) {
+    return;
   }
 
-  if (!file_.good()) {
-    LOG(ERROR) << "Error writing to the Horovod Timeline after it was "
-                  "successfully opened, will stop writing the timeline.";
+  // Start the writer.
+  writer_.Initialize(std::move(file_name));
+
+  // Initialize if we were able to open the file successfully.
+  initialized_ = writer_.IsHealthy();
+
+  // Pre-initialize the string representation for each rank.
+  rank_strings_ = std::vector<std::string>(horovod_size);
+  for (unsigned int i = 0; i < horovod_size; i++) {
+    rank_strings_[i] = std::to_string(i);
   }
+}
+
+long Timeline::TimeSinceStartMicros() const {
+  auto now = std::chrono::steady_clock::now();
+  auto ts = now - start_time_;
+  return std::chrono::duration_cast<std::chrono::microseconds>(ts).count();
+}
+
+// Write event to the Horovod Timeline file.
+void Timeline::WriteEvent(const std::string& tensor_name, const char phase,
+                          const std::string& op_name, const std::string& args) {
+  auto ts_micros = TimeSinceStartMicros();
+  writer_.EnqueueWriteEvent(tensor_name, phase, op_name, args, ts_micros);
+}
+
+void Timeline::WriteMarker(const std::string& name) {
+  auto ts_micros = TimeSinceStartMicros();
+  writer_.EnqueueWriteMarker(name, ts_micros);
 }
 
 void Timeline::NegotiateStart(const std::string& tensor_name,
@@ -117,7 +203,7 @@ void Timeline::NegotiateRankReady(const std::string& tensor_name,
 
   std::lock_guard<std::recursive_mutex> guard(mutex_);
   assert(tensor_states_[tensor_name] == TimelineState::NEGOTIATING);
-  WriteEvent(tensor_name, 'X', std::to_string(rank));
+  WriteEvent(tensor_name, 'X', rank_strings_[rank]);
 }
 
 void Timeline::NegotiateEnd(const std::string& tensor_name) {
@@ -167,7 +253,8 @@ void Timeline::ActivityEnd(const std::string& tensor_name) {
   tensor_states_[tensor_name] = TimelineState::TOP_LEVEL;
 }
 
-void Timeline::End(const std::string& tensor_name, const std::shared_ptr<Tensor> tensor) {
+void Timeline::End(const std::string& tensor_name,
+                   const std::shared_ptr<Tensor> tensor) {
   if (!initialized_) {
     return;
   }
@@ -185,6 +272,15 @@ void Timeline::End(const std::string& tensor_name, const std::shared_ptr<Tensor>
     args << ", \"shape\": \"" << tensor->shape().DebugString() << "\"";
   }
   WriteEvent(tensor_name, 'E', "", args.str());
+}
+
+void Timeline::MarkCycleStart() {
+  if (!initialized_) {
+    return;
+  }
+
+  std::lock_guard<std::recursive_mutex> guard(mutex_);
+  WriteMarker("CYCLE_START");
 }
 
 } // namespace common
