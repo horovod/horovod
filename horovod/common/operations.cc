@@ -851,7 +851,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
     auto* recvcounts = new int[horovod_global.size]();
     auto* displcmnts = new int[horovod_global.size]();
-    
+
     for (size_t ec = 0; ec < entries.size(); ++ec) {
       entry_component_sizes[ec] = new int64_t[horovod_global.size]();
       entry_component_offsets[ec] = new int64_t[horovod_global.size]();
