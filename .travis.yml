@@ -53,25 +53,25 @@ before_install:
 
 env:
   matrix:
-    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_PACKAGE=torch==0.4.0 MPI=OpenMPI PYSPARK=2.1.2
-    - TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MPI=OpenMPI PYSPARK=2.3.2
-    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MPI=OpenMPI PYSPARK=2.4.0
-    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MPI=OpenMPI PYSPARK=2.4.0
-    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MPI=MPICH PYSPARK=2.4.0
+    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=mxnet==1.5.0b20190119 MPI=OpenMPI PYSPARK=2.1.2
+    - TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet==1.5.0b20190119 MPI=OpenMPI PYSPARK=2.3.2
+    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet==1.5.0b20190119 MPI=OpenMPI PYSPARK=2.4.0
+    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet==1.5.0b20190119 MPI=OpenMPI PYSPARK=2.4.0
+    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet==1.5.0b20190119 MPI=MPICH PYSPARK=2.4.0
 
 matrix:
   fast_finish: true
   exclude:
     - python: "3.5"
-      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.0 MPI=OpenMPI PYSPARK=2.3.2
+      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=mxnet==1.5.0b20190119 MPI=OpenMPI PYSPARK=2.3.2
     - python: "3.6"
-      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MPI=OpenMPI PYSPARK=2.3.2
+      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet==1.5.0b20190119 MPI=OpenMPI PYSPARK=2.3.2
     - python: "3.5"
-      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MPI=MPICH PYSPARK=2.4.0
+      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet==1.5.0b20190119 MPI=MPICH PYSPARK=2.4.0
     - python: "3.6"
-      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MPI=MPICH PYSPARK=2.4.0
+      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet==1.5.0b20190119 MPI=MPICH PYSPARK=2.4.0
     - python: "3.5"
-      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MPI=OpenMPI PYSPARK=2.4.0
+      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet==1.5.0b20190119 MPI=OpenMPI PYSPARK=2.4.0
 
 install:
   - |
@@ -106,6 +106,15 @@ install:
       docker exec ${CONTAINER} /bin/sh -c "pip install torch_nightly -v -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html"
     else
       docker exec ${CONTAINER} /bin/sh -c "pip install ${PYTORCH_PACKAGE} torchvision"
+    fi
+
+  # MXNet
+  - |
+    if [[ ${DEBIAN} == "jessie" ]]; then
+      docker exec ${CONTAINER} /bin/sh -c "pip install ${MXNET_PACKAGE}"
+    else
+      # mxnet-gcc5 is built with GCC 5.4.0 to avoid segfault on debian:stretch/buster
+      docker exec ${CONTAINER} /bin/sh -c "pip install mxnet-gcc5"
     fi
 
   # Horovod
@@ -167,3 +176,6 @@ script:
 
   # run PyTorch MNIST example
   - docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/pytorch_mnist.py"
+
+  # run MXNet MNIST example
+  - docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/mxnet_mnist.py"

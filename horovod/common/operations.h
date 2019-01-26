@@ -1,4 +1,4 @@
-// Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
+// Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -56,6 +56,7 @@ namespace common {
 // Horovod knobs.
 #define HOROVOD_MPI_THREADS_DISABLE "HOROVOD_MPI_THREADS_DISABLE"
 #define HOROVOD_TIMELINE "HOROVOD_TIMELINE"
+#define HOROVOD_TIMELINE_MARK_CYCLES "HOROVOD_TIMELINE_MARK_CYCLES"
 #define HOROVOD_AUTOTUNE "HOROVOD_AUTOTUNE"
 #define HOROVOD_AUTOTUNE_LOG "HOROVOD_AUTOTUNE_LOG"
 #define HOROVOD_FUSION_THRESHOLD "HOROVOD_FUSION_THRESHOLD"
