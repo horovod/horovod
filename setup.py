@@ -497,10 +497,19 @@ def get_common_options(build_ext):
     MACROS = [('EIGEN_MPL2_ONLY', 1)]
     INCLUDES = ['third_party/eigen',
                 'third_party/lbfgs/include',
-                'third_party/boost_lockfree/include',
-                'third_party/boost_parameter/include',
-                'third_party/boost_config/include',
-                'third_party/boost_core/include']
+                'third_party/boost/assert/include',
+                'third_party/boost/config/include',
+                'third_party/boost/core/include',
+                'third_party/boost/detail/include',
+                'third_party/boost/iterator/include',
+                'third_party/boost/lockfree/include',
+                'third_party/boost/mpl/include',
+                'third_party/boost/parameter/include',
+                'third_party/boost/predef/include',
+                'third_party/boost/preprocessor/include',
+                'third_party/boost/static_assert/include',
+                'third_party/boost/type_traits/include',
+                'third_party/boost/utility/include']
     SOURCES = ['horovod/common/common.cc',
                'horovod/common/fusion_buffer_manager.cc',
                'horovod/common/mpi_message.cc',
