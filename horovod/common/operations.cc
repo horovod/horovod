@@ -1096,7 +1096,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       delete[] recvcounts;
       delete[] displcmnts;
 
-      for (size_t ec = 0; ec < entries.size(); ++ec {
+      for (size_t ec = 0; ec < entries.size(); ++ec) {
         delete[] entry_component_sizes[ec];
         delete[] entry_component_offsets[ec];
       }
@@ -1942,8 +1942,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Notify all outstanding operations that Horovod has been shut down
   // and clear up the tensor table and message queue.
   std::vector<StatusCallback> callbacks;
-  // we know (# of elements put) == (size of tensor_table map).
-  callbacks.reserve(state.tensor_table.size()); 
   {
     std::lock_guard<std::mutex> guard(state.mutex);
     for (auto& e : state.tensor_table) {
