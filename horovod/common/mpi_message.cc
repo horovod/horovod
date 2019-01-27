@@ -204,6 +204,7 @@ void MPIRequestList::SerializeToString(const MPIRequestList& request_list,
   // FlatBuffers must be built bottom-up.
   flatbuffers::FlatBufferBuilder builder(1024);
   std::vector<flatbuffers::Offset<wire::MPIRequest>> requests;
+  requests.reserve(request_list.requests().size());
   for (const auto& req : request_list.requests()) {
     flatbuffers::Offset<wire::MPIRequest> req_obj;
     MPIRequest_SerializeToWire(req, builder, req_obj);
