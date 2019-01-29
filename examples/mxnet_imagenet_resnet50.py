@@ -181,7 +181,8 @@ def get_data_rec(rec_train, rec_train_idx, rec_val, rec_val_idx, batch_size,
         contrast=jitter_param,
         pca_noise=lighting_param,
         num_parts=num_workers,
-        part_index=rank
+        part_index=rank,
+        device_id=local_rank
     )
     # Kept each node to use full val data to make it easy to monitor results
     val_data = mx.io.ImageRecordIter(
@@ -197,7 +198,8 @@ def get_data_rec(rec_train, rec_train_idx, rec_val, rec_val_idx, batch_size,
         data_shape=(3, 224, 224),
         mean_r=mean_rgb[0],
         mean_g=mean_rgb[1],
-        mean_b=mean_rgb[2]
+        mean_b=mean_rgb[2],
+        device_id=local_rank
     )
 
     return train_data, val_data, batch_fn
