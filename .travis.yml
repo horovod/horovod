@@ -8,39 +8,27 @@ services:
   - docker
 
 before_install:
-  # force latest Debian for Python 3.6 and nightly TensorFlow which requires new glibc
+  # force latest Ubuntu for Python 3.6 and nightly TensorFlow which requires new glibc
   - |
     if [[ ${TRAVIS_PYTHON_VERSION} == "3.6" || ${TF_PACKAGE} == "tf-nightly" ]]; then
-      export DEBIAN=buster
-    elif [[ ${TRAVIS_PYTHON_VERSION} == "3.5" ]]; then
-      export DEBIAN=stretch
+      export UBUNTU=18.04
     else
-      export DEBIAN=jessie
+      export UBUNTU=16.04
     fi
-  - docker pull debian:${DEBIAN}
+  - docker pull ubuntu:${UBUNTU}
   # run docker container for an hour
-  - docker run -v `pwd`:/horovod debian:${DEBIAN} /bin/sh -c "sleep 3600" &
+  - docker run -v `pwd`:/horovod ubuntu:${UBUNTU} /bin/sh -c "sleep 3600" &
   # wait for docker to start
   - sleep 5
   - export CONTAINER=$(docker ps -q | head -n 1)
-  - |
-    if [[ ${DEBIAN} == "jessie" ]]; then
-      docker exec ${CONTAINER} /bin/sh -c "echo deb http://deb.debian.org/debian jessie-backports main >> /etc/apt/sources.list"
-    fi
   - docker exec ${CONTAINER} /bin/sh -c "apt-get update -qq"
   # install necessary network tools
   - docker exec ${CONTAINER} /bin/sh -c "apt-get install -y wget openssh-client git build-essential"
   # install OpenJDK 8 for PySpark
-  - |
-    if [[ ${DEBIAN} == "jessie" ]]; then
-      docker exec ${CONTAINER} /bin/sh -c "apt install -t jessie-backports -y openjdk-8-jdk-headless"
-    else
-      docker exec ${CONTAINER} /bin/sh -c "apt install -y openjdk-8-jdk-headless"
-    fi
+  - docker exec ${CONTAINER} /bin/sh -c "apt install -y openjdk-8-jdk-headless"
   # install Python and add a proper symlink
   - |
     if [[ ${TRAVIS_PYTHON_VERSION} == "3.6" ]]; then
-      # Python 3.6 requires special handling in Debian `buster` since the default is Python 3.7.
       docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev python3-distutils"
     else
       docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev"
@@ -53,25 +41,25 @@ before_install:
 
 env:
   matrix:
-    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=mxnet==1.5.0b20190119 MPI=OpenMPI PYSPARK=2.1.2
-    - TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet==1.5.0b20190119 MPI=OpenMPI PYSPARK=2.3.2
-    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet==1.5.0b20190119 MPI=OpenMPI PYSPARK=2.4.0
-    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet==1.5.0b20190119 MPI=OpenMPI PYSPARK=2.4.0
-    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet==1.5.0b20190119 MPI=MPICH PYSPARK=2.4.0
+    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=mxnet-gcc5 MPI=OpenMPI PYSPARK=2.1.2
+    - TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet-gcc5 MPI=OpenMPI PYSPARK=2.3.2
+    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet-gcc5 MPI=OpenMPI PYSPARK=2.4.0
+    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet-gcc5 MPI=OpenMPI PYSPARK=2.4.0
+    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet-gcc5 MPI=MPICH PYSPARK=2.4.0
 
 matrix:
   fast_finish: true
   exclude:
     - python: "3.5"
-      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=mxnet==1.5.0b20190119 MPI=OpenMPI PYSPARK=2.3.2
+      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=mxnet-gcc5 MPI=OpenMPI PYSPARK=2.3.2
     - python: "3.6"
-      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet==1.5.0b20190119 MPI=OpenMPI PYSPARK=2.3.2
+      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet-gcc5 MPI=OpenMPI PYSPARK=2.3.2
     - python: "3.5"
-      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet==1.5.0b20190119 MPI=MPICH PYSPARK=2.4.0
+      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet-gcc5 MPI=MPICH PYSPARK=2.4.0
     - python: "3.6"
-      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet==1.5.0b20190119 MPI=MPICH PYSPARK=2.4.0
+      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet-gcc5 MPI=MPICH PYSPARK=2.4.0
     - python: "3.5"
-      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet==1.5.0b20190119 MPI=OpenMPI PYSPARK=2.4.0
+      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet-gcc5 MPI=OpenMPI PYSPARK=2.4.0
 
 install:
   - |
@@ -86,17 +74,11 @@ install:
   # TensorFlow
   - docker exec ${CONTAINER} /bin/sh -c "pip install ${TF_PACKAGE}"
 
-  # Keras
-  - docker exec ${CONTAINER} /bin/sh -c "pip install ${KERAS_PACKAGE}"
+  # Keras & dependencies
+  - docker exec ${CONTAINER} /bin/sh -c "pip install ${KERAS_PACKAGE} h5py scipy pandas"
 
-  # h5py for Keras model saving
-  - docker exec ${CONTAINER} /bin/sh -c "pip install h5py"
-
-  # scipy for Keras image preprocessing
-  - docker exec ${CONTAINER} /bin/sh -c "pip install scipy"
-
-  # future for PyTorch, needed due to https://github.com/pytorch/pytorch/pull/12504
-  - docker exec ${CONTAINER} /bin/sh -c "pip install future"
+  # PyTorch dependencies
+  - docker exec ${CONTAINER} /bin/sh -c "pip install future typing"
 
   # PyTorch
   - |
@@ -109,13 +91,7 @@ install:
     fi
 
   # MXNet
-  - |
-    if [[ ${DEBIAN} == "jessie" ]]; then
-      docker exec ${CONTAINER} /bin/sh -c "pip install ${MXNET_PACKAGE}"
-    else
-      # mxnet-gcc5 is built with GCC 5.4.0 to avoid segfault on debian:stretch/buster
-      docker exec ${CONTAINER} /bin/sh -c "pip install mxnet-gcc5"
-    fi
+  - docker exec ${CONTAINER} /bin/sh -c "pip install ${MXNET_PACKAGE}"
 
   # Horovod
   - docker exec ${CONTAINER} /bin/sh -c "cd /horovod && python setup.py sdist"
