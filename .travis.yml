@@ -74,14 +74,8 @@ install:
   # TensorFlow
   - docker exec ${CONTAINER} /bin/sh -c "pip install ${TF_PACKAGE}"
 
-  # Keras
-  - docker exec ${CONTAINER} /bin/sh -c "pip install ${KERAS_PACKAGE}"
-
-  # h5py for Keras model saving
-  - docker exec ${CONTAINER} /bin/sh -c "pip install h5py"
-
-  # scipy for Keras image preprocessing
-  - docker exec ${CONTAINER} /bin/sh -c "pip install scipy"
+  # Keras & dependencies
+  - docker exec ${CONTAINER} /bin/sh -c "pip install ${KERAS_PACKAGE} h5py scipy pandas"
 
   # future for PyTorch, needed due to https://github.com/pytorch/pytorch/pull/12504
   - docker exec ${CONTAINER} /bin/sh -c "pip install future"
