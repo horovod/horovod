@@ -8,43 +8,33 @@ services:
   - docker
 
 before_install:
-  # force latest Debian for Python 3.6 and nightly TensorFlow which requires new glibc
+  # force latest Ubuntu for Python 3.6 and nightly TensorFlow which requires new glibc
   - |
     if [[ ${TRAVIS_PYTHON_VERSION} == "3.6" || ${TF_PACKAGE} == "tf-nightly" ]]; then
-      export DEBIAN=buster
+      export UBUNTU=18.04
     elif [[ ${TRAVIS_PYTHON_VERSION} == "3.5" ]]; then
-      export DEBIAN=stretch
+      export UBUNTU=16.04
     else
-      export DEBIAN=jessie
+      export UBUNTU=14.04
     fi
-  - docker pull debian:${DEBIAN}
+  - docker pull ubuntu:${UBUNTU}
   # run docker container for an hour
-  - docker run -v `pwd`:/horovod debian:${DEBIAN} /bin/sh -c "sleep 3600" &
+  - docker run -v `pwd`:/horovod ubuntu:${UBUNTU} /bin/sh -c "sleep 3600" &
   # wait for docker to start
   - sleep 5
   - export CONTAINER=$(docker ps -q | head -n 1)
-  - |
-    if [[ ${DEBIAN} == "jessie" ]]; then
-      docker exec ${CONTAINER} /bin/sh -c "echo deb http://deb.debian.org/debian jessie-backports main >> /etc/apt/sources.list"
-    fi
   - docker exec ${CONTAINER} /bin/sh -c "apt-get update -qq"
   # install necessary network tools
   - docker exec ${CONTAINER} /bin/sh -c "apt-get install -y wget openssh-client git build-essential"
-  # install OpenJDK 8 for PySpark
+  # install OpenJDK for PySpark
   - |
-    if [[ ${DEBIAN} == "jessie" ]]; then
-      docker exec ${CONTAINER} /bin/sh -c "apt install -t jessie-backports -y openjdk-8-jdk-headless"
+    if [[ ${UBUNTU} == "14.04" ]]; then
+      docker exec ${CONTAINER} /bin/sh -c "apt install -y openjdk-7-jdk-headless"
     else
       docker exec ${CONTAINER} /bin/sh -c "apt install -y openjdk-8-jdk-headless"
     fi
   # install Python and add a proper symlink
-  - |
-    if [[ ${TRAVIS_PYTHON_VERSION} == "3.6" ]]; then
-      # Python 3.6 requires special handling in Debian `buster` since the default is Python 3.7.
-      docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev python3-distutils"
-    else
-      docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev"
-    fi
+  - docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev"
   - docker exec ${CONTAINER} /bin/sh -c "ln -s /usr/bin/python${TRAVIS_PYTHON_VERSION} /usr/bin/python"
   - docker exec ${CONTAINER} /bin/sh -c "wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py"
   - docker exec ${CONTAINER} /bin/sh -c "pip install -U --force pip setuptools requests"
@@ -110,10 +100,10 @@ install:
 
   # MXNet
   - |
-    if [[ ${DEBIAN} == "jessie" ]]; then
+    if [[ ${UBUNTU} == "14.04" ]]; then
       docker exec ${CONTAINER} /bin/sh -c "pip install ${MXNET_PACKAGE}"
     else
-      # mxnet-gcc5 is built with GCC 5.4.0 to avoid segfault on debian:stretch/buster
+      # mxnet-gcc5 is built with GCC 5.4.0 to avoid segfault on ubuntu:16.04/18.04
       docker exec ${CONTAINER} /bin/sh -c "pip install mxnet-gcc5"
     fi
 
