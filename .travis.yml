@@ -77,8 +77,8 @@ install:
   # Keras & dependencies
   - docker exec ${CONTAINER} /bin/sh -c "pip install ${KERAS_PACKAGE} h5py scipy pandas"
 
-  # typing for PyTorch
-  - docker exec ${CONTAINER} /bin/sh -c "pip install typing"
+  # PyTorch dependencies
+  - docker exec ${CONTAINER} /bin/sh -c "pip install future typing"
 
   # PyTorch
   - |
