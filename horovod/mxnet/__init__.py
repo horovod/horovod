@@ -92,7 +92,7 @@ def broadcast_parameters(params, root_rank=0):
     count = 0
     for _, p in params:
         broadcast_(p, root_rank, str(count))
+        # Make sure the tensor pushed to MXNet engine gets processed
+        p.wait_to_read()
         count += 1
 
-    # Make sure the tensors pushed to MXNet engine get processed
-    mx.nd.waitall()
