@@ -230,7 +230,11 @@ optimizer_params = ...
 opt = mx.optimizer.create('sgd', sym=model, **optimizer_params)
 opt = hvd.DistributedOptimizer(opt)
 
-hvd.broadcast_parameters(model.get_params(), root_rank=0)
+(arg_params, aux_params) = model.get_params()
+if arg_params:
+    hvd.broadcast_parameters(arg_params, root_rank=0)
+if aux_params:
+    hvd.broadcast_parameters(aux_params, root_rank=0)
 
 # Train model
 model.fit(train_data,
