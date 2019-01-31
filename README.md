@@ -235,6 +235,7 @@ if arg_params:
     hvd.broadcast_parameters(arg_params, root_rank=0)
 if aux_params:
     hvd.broadcast_parameters(aux_params, root_rank=0)
+model.set_params(arg_params=arg_params, aux_params=aux_params)
 
 # Train model
 model.fit(train_data,
