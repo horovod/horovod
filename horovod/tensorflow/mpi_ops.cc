@@ -225,7 +225,7 @@ common::Status
 TFOpContext::AllocateOutput(common::TensorShape shape,
                             std::shared_ptr<common::Tensor>* tensor) {
   TensorShape tf_shape;
-  for (int idx = 0; idx < shape.dims(); idx++) {
+  for (int idx = 0; idx < shape.dims(); ++idx) {
     tf_shape.AddDim(shape.dim_size(idx));
   }
   Tensor* tf_tensor;

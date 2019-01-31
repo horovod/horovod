@@ -73,7 +73,7 @@ void TensorShape::AppendShape(TensorShape& other) {
 const std::string TensorShape::DebugString() const {
   std::stringstream args;
   args << "[";
-  for (auto it = shape_.begin(); it != shape_.end(); it++) {
+  for (auto it = shape_.begin(); it != shape_.end(); ++it) {
     if (it != shape_.begin()) {
       args << ", ";
     }
