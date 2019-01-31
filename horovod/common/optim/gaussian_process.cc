@@ -33,7 +33,7 @@ namespace common {
 
 // Returns true if any of the elements in the vectors is not a number.
 bool isnan(const VectorXd& x) {
-  for (int i = 0; i < x.size(); i++) {
+  for (int i = 0; i < x.size(); ++i) {
     if (std::isnan(x[i])) {
       return true;
     }
@@ -151,7 +151,7 @@ void GaussianProcessRegressor::PosteriorPrediction(
 void GaussianProcessRegressor::ApproxFPrime(const VectorXd& x, const std::function<double(const VectorXd&)>& f,
                                             double f0, VectorXd& grad, double epsilon) {
   VectorXd ei = VectorXd::Zero(x.size());
-  for (int k = 0; k < x.size(); k++) {
+  for (int k = 0; k < x.size(); ++k) {
     ei[k] = 1.0;
     VectorXd d = epsilon * ei;
     grad[k] = (f(x + d) - f0) / d[k];
