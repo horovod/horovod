@@ -2136,100 +2136,114 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     // to rank zero. We can now do reductions and gathers; rank zero will
     // choose which ones and in what order, and will notify the other ranks
     // before doing each reduction.
+    std::deque<MPIResponse> responses;
+    for (auto& tensor_name : ready_to_reduce) {
+      MPIResponse response =
+          ConstructMPIResponse(state.message_table, tensor_name);
+      responses.push_back(std::move(response));
+    }
 
     MPIResponseList response_list;
     response_list.set_shutdown(should_shut_down);
-    // Mixed-precision training may yield requests of various precisions
-    // in a mixed-up sequence. To enable more tensor fusion, process responses
-    // by type.
-    std::map<MPIDataType, std::deque<MPIResponse>> responses_by_dtype;
     {
       // Protect access to tensor table.
       std::lock_guard<std::mutex> guard(horovod_global.mutex);
-      for (auto& tensor_name : ready_to_reduce) {
-        MPIResponse response =
-            ConstructMPIResponse(state.message_table, tensor_name);
-        auto& entry = state.tensor_table[response.tensor_names()[0]];
-        responses_by_dtype[entry.tensor->dtype()].push_back(std::move(response));
-      }
+      while (!responses.empty()) {
 
-      for (auto& r: responses_by_dtype) {
-        auto& responses = r.second;
-        while (!responses.empty()) {
+        auto response = responses.front();
+        assert(response.tensor_names().size() == 1);
+        responses.pop_front();
+        int64_t tensor_size = 0;
+        if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
+          // Attempt to add more responses to this fused response.
+          auto& entry = state.tensor_table[response.tensor_names()[0]];
+          tensor_size = entry.tensor->size();
 
-          auto response = responses.front();
-          assert(response.tensor_names().size() == 1);
-          responses.pop_front();
-          int64_t tensor_size = 0;
+          std::deque<MPIResponse> skipped_responses;
+          int64_t skipped_size = 0;
+          while (!responses.empty()) {
+            auto new_response = responses.front();
+            assert(new_response.tensor_names().size() == 1);
+            auto& new_entry =
+                state.tensor_table[new_response.tensor_names()[0]];
+            int64_t new_tensor_size = new_entry.tensor->size();
 
-          if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
-            // Attempt to add more responses to this fused response.
-            auto& entry = state.tensor_table[response.tensor_names()[0]];
-            tensor_size = entry.tensor->size();
+            if (response.response_type() == new_response.response_type() &&
+                response.devices() == new_response.devices() &&
+                entry.tensor->dtype() == new_entry.tensor->dtype() &&
+                tensor_size + new_tensor_size <= TensorFusionThresholdBytes()) {
+              // These tensors will fuse together well.
+              tensor_size += new_tensor_size;
+              response.add_tensor_name(new_response.tensor_names()[0]);
+              responses.pop_front();
+            } else {
+              // In general, don't try to fuse additional tensors since they are usually
+              // computed in order of requests and skipping tensors may mean
+              // that the batch will have to wait longer while skipped tensors
+              // could be reduced at that time. However, mixed-precision training may yield
+              // requests of various dtype in a mixed-up sequence causing breakups
+              // in fusion. To counter this some look ahead is allowed.
 
-            while (!responses.empty()) {
-              auto new_response = responses.front();
-              assert(new_response.tensor_names().size() == 1);
-              auto& new_entry =
-                  state.tensor_table[new_response.tensor_names()[0]];
-              int64_t new_tensor_size = new_entry.tensor->size();
-
-              if (response.response_type() == new_response.response_type() &&
-                  response.devices() == new_response.devices() &&
-                  entry.tensor->dtype() == new_entry.tensor->dtype() &&
-                  tensor_size + new_tensor_size <= TensorFusionThresholdBytes()) {
-                tensor_size += new_tensor_size;
-                response.add_tensor_name(new_response.tensor_names()[0]);
+              skipped_size += new_tensor_size;
+              if (tensor_size + skipped_size <= TensorFusionThresholdBytes()) {
+                // Skip response and look ahead for more to fuse.
+                skipped_responses.push_back(std::move(responses.front()));
                 responses.pop_front();
               } else {
-                // Don't try to fuse additional tensors since they are usually
-                // computed in order of requests and skipping tensors may mean
-                // that the batch will have to wait longer while skipped tensors
-                // could be reduced at that time.
-                break;
-              }
-            }
-          } else if (response.response_type() ==
-                     MPIResponse::ResponseType::ALLGATHER) {
-            // Attempt to add more responses to this fused response.
-            auto& entry = state.tensor_table[response.tensor_names()[0]];
-
-            // This is size of first dimension.
-            int64_t total_byte_size_of_output =
-                TotalByteSizeOfAllgatherOutput(response.tensor_sizes(), entry);
-
-            while (!responses.empty()) {
-
-              auto new_response = responses.front();
-              assert(new_response.tensor_names().size() == 1);
-              auto& new_entry =
-                  state.tensor_table[new_response.tensor_names()[0]];
-
-              int64_t new_total_byte_size_of_output =
-                  TotalByteSizeOfAllgatherOutput(new_response.tensor_sizes(),
-                                                 new_entry);
-
-              if (response.response_type() == new_response.response_type() &&
-                  response.devices() == new_response.devices() &&
-                  entry.tensor->dtype() == new_entry.tensor->dtype() &&
-                  total_byte_size_of_output + new_total_byte_size_of_output <=
-                      TensorFusionThresholdBytes()) {
-
-                total_byte_size_of_output += new_total_byte_size_of_output;
-                response.add_allgather_response(new_response);
-                responses.pop_front();
-
-              } else {
-                // Don't try to fuse additional tensors since they are usually
-                // computed in order of requests and skipping tensors may mean
-                // that the batch will have to wait longer while skipped tensors
-                // could be reduced at that time.
                 break;
               }
             }
           }
-          response_list.add_response(response);
+
+          // Replace any skipped responses.
+          while (!skipped_responses.empty()) {
+            responses.push_front(std::move(skipped_responses.back()));
+            skipped_responses.pop_back();
+          }
+
+        } else if (response.response_type() ==
+                   MPIResponse::ResponseType::ALLGATHER) {
+          // Attempt to add more responses to this fused response.
+          auto& entry = state.tensor_table[response.tensor_names()[0]];
+
+          // This is size of first dimension.
+          int64_t total_byte_size_of_output =
+              TotalByteSizeOfAllgatherOutput(response.tensor_sizes(), entry);
+
+          while (!responses.empty()) {
+
+            auto new_response = responses.front();
+            assert(new_response.tensor_names().size() == 1);
+            auto& new_entry =
+                state.tensor_table[new_response.tensor_names()[0]];
+
+            int64_t new_total_byte_size_of_output =
+                TotalByteSizeOfAllgatherOutput(new_response.tensor_sizes(),
+                                               new_entry);
+
+            if (response.response_type() == new_response.response_type() &&
+                response.devices() == new_response.devices() &&
+                entry.tensor->dtype() == new_entry.tensor->dtype() &&
+                total_byte_size_of_output + new_total_byte_size_of_output <=
+                    TensorFusionThresholdBytes()) {
+
+              // These tensors will fuse together well.
+              total_byte_size_of_output += new_total_byte_size_of_output;
+              response.add_allgather_response(new_response);
+              responses.pop_front();
+
+            } else {
+              // Don't try to fuse additional tensors since they are usually
+              // computed in order of requests and skipping tensors may mean
+              // that the batch will have to wait longer while skipped tensors
+              // could be reduced at that time.
+              break;
+            }
+          }
         }
+
+        response_list.add_response(response);
+        LOG(DEBUG) << "Created response of size " << tensor_size;
       }
     }
 
