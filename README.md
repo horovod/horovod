@@ -7,8 +7,12 @@
 Horovod is a distributed training framework for TensorFlow, Keras, PyTorch, and MXNet. The goal of Horovod is to make
 distributed Deep Learning fast and easy to use.
 
-<img src="https://github.com/LFDLFoundation/artwork/raw/master/lfdl/horizontal/color/lfdl-horizontal-color.png" alt="LF DL" width="200"/>
-Horovod is hosted by the [Linux Foundation Deep Learning](https://lfdl.io) (LF DL). If you are a company that is deeply committed to using open source technologies in artificial intelligence, machine and deep learning, and wanting to support the communities of open source projects in these domains, consider joining the LF Deep Learning Foundation. For details about who's involved and how Horovod plays a role, read the LF DL [announcement](https://lfdl.io/press/2018/12/13/lf-deep-learning-welcomes-horovod-distributed-training-framework-as-newest-project/).
+<p><img src="https://github.com/LFDLFoundation/artwork/raw/master/lfdl/horizontal/color/lfdl-horizontal-color.png" alt="LF DL" width="200"/></p>
+
+Horovod is hosted by the [Linux Foundation Deep Learning](https://lfdl.io) (LF DL). If you are a company that is deeply
+committed to using open source technologies in artificial intelligence, machine and deep learning, and wanting to support
+the communities of open source projects in these domains, consider joining the LF Deep Learning Foundation. For details
+about who's involved and how Horovod plays a role, read the LF DL [announcement](https://lfdl.io/press/2018/12/13/lf-deep-learning-welcomes-horovod-distributed-training-framework-as-newest-project/).
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
