@@ -99,15 +99,16 @@ def broadcast_global_variables(root_rank):
         root_rank: rank of the process from which global variables will be broadcasted
         to all other processes.
     """
-    return broadcast_variables(root_rank, tf.global_variables())
+    return broadcast_variables(tf.global_variables(), root_rank)
 
-def broadcast_variables(root_rank, variables):
+
+def broadcast_variables(variables, root_rank):
     """Broadcasts variables from root rank to all other processes.
 
     Arguments:
-        root_rank: rank of the process from which global variables will be broadcasted
-        to all other processes.
         variables: variables for broadcast
+        root_rank: rank of the process from which global variables will be broadcasted
+                   to all other processes.
     """
     return tf.group(*[tf.assign(var, broadcast(var, root_rank))
                       for var in variables])
