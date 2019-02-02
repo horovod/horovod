@@ -22,6 +22,9 @@ from horovod.spark.driver import driver_service
 
 
 def main(driver_addresses, host_hash, command):
+    if ':' in host_hash:
+        raise Exception('Illegal host hash provided. Are you using Open MPI 4.0.0+?')
+
     key = codec.loads_base64(os.environ[secret.HOROVOD_SECRET_KEY])
     driver_client = driver_service.DriverClient(driver_addresses, key)
     task_indices = driver_client.task_host_hash_indices(host_hash)
