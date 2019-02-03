@@ -17,7 +17,6 @@
 #include <atomic>
 #include <cassert>
 #include <cstring>
-#include <map>
 #include <queue>
 #include <sstream>
 #include <thread>
