@@ -18,6 +18,7 @@
 
 #include "optim/bayesian_optimization.h"
 
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -213,6 +214,7 @@ private:
 
   int64_t total_bytes_;
   double total_microseconds_;
+  std::chrono::steady_clock::time_point last_cycle_start_;
   std::unordered_map<std::string, int32_t> tensor_counts_;
 
   int32_t rank_;
