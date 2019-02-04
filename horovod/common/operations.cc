@@ -2162,6 +2162,8 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
           auto& entry = state.tensor_table[response.tensor_names()[0]];
           tensor_size = entry.tensor->size();
 
+          std::deque<MPIResponse> skipped_responses;
+          int64_t skipped_size = 0;
           while (!responses.empty()) {
             auto new_response = responses.front();
             assert(new_response.tensor_names().size() == 1);
@@ -2178,13 +2180,30 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
               response.add_tensor_name(new_response.tensor_names()[0]);
               responses.pop_front();
             } else {
-              // Don't try to fuse additional tensors since they are usually
+              // In general, don't try to fuse additional tensors since they are usually
               // computed in order of requests and skipping tensors may mean
               // that the batch will have to wait longer while skipped tensors
-              // could be reduced at that time.
-              break;
+              // could be reduced at that time. However, mixed-precision training may yield
+              // requests of various dtype in a mixed-up sequence causing breakups
+              // in fusion. To counter this some look ahead is allowed.
+
+              skipped_size += new_tensor_size;
+              if (tensor_size + skipped_size <= TensorFusionThresholdBytes()) {
+                // Skip response and look ahead for more to fuse.
+                skipped_responses.push_back(std::move(responses.front()));
+                responses.pop_front();
+              } else {
+                break;
+              }
             }
           }
+
+          // Replace any skipped responses.
+          while (!skipped_responses.empty()) {
+            responses.push_front(std::move(skipped_responses.back()));
+            skipped_responses.pop_back();
+          }
+
         } else if (response.response_type() ==
                    MPIResponse::ResponseType::ALLGATHER) {
           // Attempt to add more responses to this fused response.
@@ -2194,6 +2213,8 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
           int64_t total_byte_size_of_output =
               TotalByteSizeOfAllgatherOutput(response.tensor_sizes(), entry);
 
+          std::deque<MPIResponse> skipped_responses;
+          int64_t skipped_size = 0;
           while (!responses.empty()) {
 
             auto new_response = responses.front();
@@ -2217,14 +2238,33 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
               responses.pop_front();
 
             } else {
-              // Don't try to fuse additional tensors since they are usually
+              // In general, don't try to fuse additional tensors since they are usually
               // computed in order of requests and skipping tensors may mean
               // that the batch will have to wait longer while skipped tensors
-              // could be reduced at that time.
-              break;
+              // could be reduced at that time. However, mixed-precision training may yield
+              // requests of various dtype in a mixed-up sequence causing breakups
+              // in fusion. To counter this some look ahead is allowed.
+
+              skipped_size += new_total_byte_size_of_output;
+              if (total_byte_size_of_output + skipped_size <=
+                      TensorFusionThresholdBytes()) {
+                // Skip response and look ahead for more to fuse.
+                skipped_responses.push_back(std::move(responses.front()));
+                responses.pop_front();
+              } else {
+                break;
+              }
             }
           }
+
+          // Replace any skipped responses.
+          while (!skipped_responses.empty()) {
+            responses.push_front(std::move(skipped_responses.back()));
+            skipped_responses.pop_back();
+          }
+
         }
+
         response_list.add_response(response);
         LOG(DEBUG) << "Created response of size " << tensor_size;
       }
