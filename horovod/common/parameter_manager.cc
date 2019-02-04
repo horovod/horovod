@@ -149,7 +149,7 @@ void ParameterManager::Update(const std::vector<std::string>& tensor_names, int6
 
   for (const std::string& tensor_name : tensor_names) {
     int32_t cycle = tensor_counts_[tensor_name]++;
-    if (cycle > sample_ * CYCLES_PER_SAMPLE) {
+    if (cycle >= (sample_ + 1) * CYCLES_PER_SAMPLE) {
       auto now = std::chrono::steady_clock::now();
       double duration = std::chrono::duration_cast<std::chrono::microseconds>(now - last_cycle_start_).count();
       scores_[sample_] = total_bytes_ / duration;
