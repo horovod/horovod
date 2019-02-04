@@ -142,7 +142,7 @@ void ParameterManager::SetCycleTimeMs(double value, bool fixed) {
   joint_params_.SetValue(cycle_time_ms, value, fixed);
 }
 
-void ParameterManager::Update(const std::vector<std::string>& tensor_names, int64_t bytes, double microseconds) {
+void ParameterManager::Update(const std::vector<std::string>& tensor_names, int64_t bytes) {
   if (!active_) {
     return;
   }
@@ -151,19 +151,17 @@ void ParameterManager::Update(const std::vector<std::string>& tensor_names, int6
     int32_t cycle = tensor_counts_[tensor_name]++;
     if (cycle >= (sample_ + 1) * CYCLES_PER_SAMPLE) {
       auto now = std::chrono::steady_clock::now();
-      double duration = std::chrono::duration_cast<std::chrono::microseconds>(now - last_cycle_start_).count();
+      double duration = std::chrono::duration_cast<std::chrono::microseconds>(now - last_sample_start_).count();
       scores_[sample_] = total_bytes_ / duration;
 
       total_bytes_ = 0;
-      total_microseconds_ = 0;
-      last_cycle_start_ = now;
+      last_sample_start_ = now;
       ++sample_;
       break;
     }
   }
 
   total_bytes_ += bytes;
-  total_microseconds_ += microseconds;
 
   if (sample_ >= SAMPLES) {
     std::sort(scores_, scores_ + SAMPLES);
@@ -249,8 +247,7 @@ void ParameterManager::SyncParams() {
 
 void ParameterManager::Reset() {
   total_bytes_ = 0;
-  total_microseconds_ = 0;
-  last_cycle_start_ = std::chrono::steady_clock::now();
+  last_sample_start_ = std::chrono::steady_clock::now();
   tensor_counts_.clear();
   sample_ = 0;
 }

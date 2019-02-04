@@ -86,7 +86,7 @@ public:
   //  tensor_names: The names of the tensors that have been processed.
   //  bytes: The number of bytes that were processed per worker.
   //  microseconds: The number of microseconds taken to process the bytes on this worker.
-  void Update(const std::vector<std::string>& tensor_names, int64_t bytes, double microseconds);
+  void Update(const std::vector<std::string>& tensor_names, int64_t bytes);
 
 private:
   // Adjusts the parameter values based on the last observed score.
@@ -213,8 +213,7 @@ private:
   int32_t sample_;
 
   int64_t total_bytes_;
-  double total_microseconds_;
-  std::chrono::steady_clock::time_point last_cycle_start_;
+  std::chrono::steady_clock::time_point last_sample_start_;
   std::unordered_map<std::string, int32_t> tensor_counts_;
 
   int32_t rank_;
