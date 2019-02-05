@@ -601,7 +601,6 @@ def build_mx_extension(build_ext, options):
         build_ext, options['COMPILE_FLAGS'])
 
     have_cuda = is_mx_cuda()
-    
     if not have_cuda and check_macro(options['MACROS'], 'HAVE_CUDA'):
         raise DistutilsPlatformError(
             'Horovod build with GPU support was requested, but this MXNet '
@@ -614,7 +613,7 @@ def build_mx_extension(build_ext, options):
     updated_macros = set_macro(options['MACROS'], 'HAVE_CUDA', str(int(have_cuda)))
 
     mxnet_mpi_lib.define_macros = updated_macros
-    if have_cuda: 
+    if have_cuda:
         mxnet_mpi_lib.define_macros += [('MSHADOW_USE_CUDA', '1')]
     else:
         mxnet_mpi_lib.define_macros += [('MSHADOW_USE_CUDA', '0')]
