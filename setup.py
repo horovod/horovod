@@ -611,10 +611,10 @@ def build_mx_extension(build_ext, options):
     # checking HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we
     # should use GPU version or transfer tensors to CPU memory for those
     # operations.
-    set_macro(options['MACROS'], 'HAVE_CUDA', str(int(have_cuda)))
+    updated_macros = set_macro(options['MACROS'], 'HAVE_CUDA', str(int(have_cuda)))
 
-    mxnet_mpi_lib.define_macros = options['MACROS']
-    if check_macro(options['MACROS'], 'HAVE_CUDA'):
+    mxnet_mpi_lib.define_macros = updated_macros
+    if have_cuda: 
         mxnet_mpi_lib.define_macros += [('MSHADOW_USE_CUDA', '1')]
     else:
         mxnet_mpi_lib.define_macros += [('MSHADOW_USE_CUDA', '0')]
