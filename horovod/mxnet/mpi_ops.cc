@@ -250,7 +250,7 @@ extern "C" int horovod_mxnet_allgather_async(NDArray* input, NDArray* output,
       };
 #endif
 
-#if HAVE_CUDA && HOROVOD_GPU_ALLGATHER != 'M'
+#if HAVE_CUDA && !HOROVOD_GPU_ALLGATHER
   // Not in-place
   if (input->var() != output->var()) {
     Engine::Get()->PushAsync(allgather_async_cpu_fn, input->ctx(),
@@ -289,9 +289,7 @@ extern "C" int horovod_mxnet_broadcast_async(NDArray* input, NDArray* output,
     DoBroadcast(input, output, root_rank, op_name, on_complete);
   };
 
-#if HAVE_CUDA && HOROVOD_GPU_BROADCAST != 'M'
-  // Not in-place
-  ThrowIfError(common::CheckInitialized());
+#if HAVE_CUDA && !HOROVOD_GPU_BROADCAST
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto hvd_cpu_buffer = std::make_shared<MXTemporaryBuffer<NDArray>>(
       CPU_DEVICE_ID, input->dtype());
