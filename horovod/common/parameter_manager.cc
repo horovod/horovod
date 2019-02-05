@@ -28,7 +28,7 @@ namespace common {
 #define WARMUPS 3
 #define CYCLES_PER_SAMPLE 10
 #define BAYES_OPT_MAX_SAMPLES 20
-#define GAUSSIAN_PROCESS_NOISE 0.2
+#define GAUSSIAN_PROCESS_NOISE 0.8
 
 Eigen::VectorXd CreateVector(double x1, double x2) {
   Eigen::VectorXd v(2);
