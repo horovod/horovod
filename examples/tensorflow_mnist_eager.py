@@ -63,7 +63,7 @@ def main(_):
         # This is necessary to ensure consistent initialization of all workers when
         # training is started with random weights or restored from a checkpoint.
         if batch == 0:
-            hvd.broadcast_variables(0, mnist_model.variables)
+            hvd.broadcast_variables(mnist_model.variables, root_rank=0)
 
         # Horovod: add Horovod Distributed GradientTape.
         tape = hvd.DistributedGradientTape(tape)

@@ -204,7 +204,7 @@ extern "C" int horovod_mxnet_allreduce_async(NDArray* input, NDArray* output,
     Engine::Get()->PushAsync(allreduce_async_cpu_fn, input->ctx(),
                              {input->var()}, {output->var()},
                              FnProperty::kNormal, 0, "HorovodAllreduce");
-    // In-place
+  // In-place
   } else {
     Engine::Get()->PushAsync(allreduce_async_cpu_fn, input->ctx(), {},
                              {output->var()}, FnProperty::kNormal, 0,
@@ -216,7 +216,7 @@ extern "C" int horovod_mxnet_allreduce_async(NDArray* input, NDArray* output,
     Engine::Get()->PushAsync(allreduce_async_fn, input->ctx(), {input->var()},
                              {output->var()}, FnProperty::kNormal, 0,
                              "HorovodAllreduce");
-    // In-place
+  // In-place
   } else {
     Engine::Get()->PushAsync(allreduce_async_fn, input->ctx(), {},
                              {output->var()}, FnProperty::kNormal, 0,
@@ -256,18 +256,19 @@ extern "C" int horovod_mxnet_allgather_async(NDArray* input, NDArray* output,
     Engine::Get()->PushAsync(allgather_async_cpu_fn, input->ctx(),
                              {input->var()}, {output->var()},
                              FnProperty::kNormal, 0, "HorovodAllgather");
-    // In-place
+  // In-place
   } else {
     Engine::Get()->PushAsync(allgather_async_cpu_fn, input->ctx(), {},
                              {output->var()}, FnProperty::kNormal, 0,
                              "HorovodAllgather");
   }
 #else
+  // Not in-place
   if (input->var() != output->var()) {
     Engine::Get()->PushAsync(allgather_async_fn, input->ctx(),
                              {input->var()}, {output->var()},
                              FnProperty::kNormal, 0, "HorovodAllgather");
-    // In-place
+  // In-place
   } else {
     Engine::Get()->PushAsync(allgather_async_fn, input->ctx(), {},
                              {output->var()}, FnProperty::kNormal, 0,
@@ -300,15 +301,31 @@ extern "C" int horovod_mxnet_broadcast_async(NDArray* input, NDArray* output,
           DoBroadcastCudaOnCPU(hvd_cpu_buffer, root_rank, op_name, on_complete);
         };
 
-  Engine::Get()->PushAsync(broadcast_async_cpu_fn, input->ctx(), {},
-                           {output->var()}, FnProperty::kNormal, 0,
-                           "HorovodBroadcast");
+  // Not in-place
+  if (input->var() != output->var()) {
+    Engine::Get()->PushAsync(broadcast_async_cpu_fn, input->ctx(),
+                             {input->var()}, {output->var()},
+                             FnProperty::kNormal, 0, "HorovodBroadcast");
+  // In-place
+  } else {
+    Engine::Get()->PushAsync(broadcast_async_cpu_fn, input->ctx(), {},
+                             {output->var()}, FnProperty::kNormal, 0,
+                             "HorovodBroadcast");
+  }
 
   TensorUtil::CopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
 #else
-  Engine::Get()->PushAsync(broadcast_async_fn, input->ctx(), {},
-                           {output->var()}, FnProperty::kNormal, 0,
-                           "HorovodBroadcast");
+  // Not in-place
+  if (input->var() != output->var()) {
+    Engine::Get()->PushAsync(broadcast_async_fn, input->ctx(), {input->var()},
+                             {output->var()}, FnProperty::kNormal, 0,
+                             "HorovodBroadcast");
+  // In-place
+  } else {
+    Engine::Get()->PushAsync(broadcast_async_fn, input->ctx(), {},
+                             {output->var()}, FnProperty::kNormal, 0,
+                             "HorovodBroadcast");
+  }
 #endif
 
   MX_API_END();

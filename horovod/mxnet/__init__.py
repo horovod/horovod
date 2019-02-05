@@ -43,23 +43,29 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
     def create_state_multi_precision(self, index, weight):
         return self._optimizer.create_state_multi_precision(index, weight)
 
+    def _do_allreduce(self, index, grad):
+        if isinstance(index, (tuple, list)):
+            for i in range(len(index)):
+                allreduce_(grad[i], average=True, name=str(index[i]))
+        else:
+            allreduce_(grad, average=True, name=str(index))
+
     def update(self, index, weight, grad, state):
-        allreduce_(grad, average=True, name=str(index))
-        return self._optimizer.update(index, weight, grad, state)
+        self._do_allreduce(index, grad)
+        self._optimizer.update(index, weight, grad, state)
 
     def update_multi_precision(self, index, weight, grad, state):
-        allreduce_(grad, average=True, name=str(index))
-        return self._optimizer.update_multi_precision(index, weight, grad,
-                                                      state)
+        self._do_allreduce(index, grad)
+        self._optimizer.update_multi_precision(index, weight, grad, state)
 
     def set_learning_rate(self, lr):
-        return self._optimizer.set_learning_rate(lr)
+        self._optimizer.set_learning_rate(lr)
 
     def set_lr_mult(self, args_lr_mult):
-        return self._optimizer.set_lr_mult(args_lr_mult)
+        self._optimizer.set_lr_mult(args_lr_mult)
 
     def set_wd_mult(self, args_wd_mult):
-        return self._optimizer.set_wd_mult(args_wd_mult)
+        self._optimizer.set_wd_mult(args_wd_mult)
 
 
 def broadcast_parameters(params, root_rank=0):
@@ -87,3 +93,8 @@ def broadcast_parameters(params, root_rank=0):
     for _, p in params:
         broadcast_(p, root_rank, str(count))
         count += 1
+
+    # Make sure tensors pushed to MXNet engine get processed such that all
+    # workers are synced before starting training.
+    for _, p in params:
+        p.wait_to_read()

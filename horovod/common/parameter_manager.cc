@@ -153,7 +153,7 @@ void ParameterManager::Update(const std::vector<std::string>& tensor_names, int6
       scores_[sample_] = total_bytes_ / total_microseconds_;
       total_bytes_ = 0;
       total_microseconds_ = 0;
-      sample_++;
+      ++sample_;
       break;
     }
   }
@@ -361,7 +361,7 @@ ParameterManager::CategoricalParameter<T>::CategoricalParameter(std::vector<T> v
 
 template <class T>
 void ParameterManager::CategoricalParameter<T>::OnTune(double score, T& value) {
-  index_++;
+  ++index_;
   if (index_ < values_.size()) {
     value = values_[index_];
   }
@@ -419,7 +419,7 @@ double ParameterManager::BayesianParameter::BestValue(BayesianVariable variable)
 void ParameterManager::BayesianParameter::OnTune(double score, Eigen::VectorXd& value) {
   bayes_->AddSample(value, score);
 
-  iteration_++;
+  ++iteration_;
   if (iteration_ < test_points_.size()) {
     value = FilterTestPoint(iteration_);
   } else {
@@ -445,7 +445,7 @@ void ParameterManager::BayesianParameter::ResetBayes() {
     if (fixed_values_.find(var.variable) == fixed_values_.end()) {
       bounds.push_back(var.bounds);
       index_[var.variable] = j;
-      j++;
+      ++j;
     }
   }
 
@@ -458,11 +458,11 @@ Eigen::VectorXd ParameterManager::BayesianParameter::FilterTestPoint(int i) {
   Eigen::VectorXd filtered_point(test_point.size() - fixed_values_.size());
 
   int k = 0;
-  for (int j = 0; j < test_point.size(); j++) {
+  for (int j = 0; j < test_point.size(); ++j) {
     BayesianVariable variable = variables_[j].variable;
     if (fixed_values_.find(variable) == fixed_values_.end()) {
       filtered_point(k) = test_point(j);
-      k++;
+      ++k;
     }
   }
 
