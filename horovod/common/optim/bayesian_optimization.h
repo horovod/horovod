@@ -62,11 +62,9 @@ public:
   //  y: Evaluated objective value at x.
   void AddSample(const Eigen::VectorXd& x, double y);
 
-  void AddSample(const Eigen::VectorXd& x, const Eigen::VectorXd& y);
-
   // Provides the next sample point to evaluate subject to maximizing the
   // expected improvement of the target acquisition function.
-  Eigen::VectorXd NextSample();
+  Eigen::VectorXd NextSample(bool normalize=true);
 
   // Reset the state of the optimizer by clearing all samples.
   void Clear();
@@ -107,7 +105,7 @@ private:
 
   GaussianProcessRegressor gpr_;
   std::vector<Eigen::VectorXd> x_samples_;
-  std::vector<Eigen::VectorXd> y_samples_;
+  std::vector<double> y_samples_;
 };
 
 } // namespace common

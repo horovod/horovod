@@ -28,7 +28,7 @@ namespace common {
 #define WARMUPS 3
 #define CYCLES_PER_SAMPLE 10
 #define BAYES_OPT_MAX_SAMPLES 20
-#define GAUSSIAN_PROCESS_NOISE 0.2
+#define GAUSSIAN_PROCESS_NOISE 0.8
 
 Eigen::VectorXd CreateVector(double x1, double x2) {
   Eigen::VectorXd v(2);
@@ -142,24 +142,26 @@ void ParameterManager::SetCycleTimeMs(double value, bool fixed) {
   joint_params_.SetValue(cycle_time_ms, value, fixed);
 }
 
-void ParameterManager::Update(const std::vector<std::string>& tensor_names, int64_t bytes, double microseconds) {
+void ParameterManager::Update(const std::vector<std::string>& tensor_names, int64_t bytes) {
   if (!active_) {
     return;
   }
 
   for (const std::string& tensor_name : tensor_names) {
     int32_t cycle = tensor_counts_[tensor_name]++;
-    if (cycle > sample_ * CYCLES_PER_SAMPLE) {
-      scores_[sample_] = total_bytes_ / total_microseconds_;
+    if (cycle >= (sample_ + 1) * CYCLES_PER_SAMPLE) {
+      auto now = std::chrono::steady_clock::now();
+      double duration = std::chrono::duration_cast<std::chrono::microseconds>(now - last_sample_start_).count();
+      scores_[sample_] = total_bytes_ / duration;
+
       total_bytes_ = 0;
-      total_microseconds_ = 0;
+      last_sample_start_ = now;
       ++sample_;
       break;
     }
   }
 
   total_bytes_ += bytes;
-  total_microseconds_ += microseconds;
 
   if (sample_ >= SAMPLES) {
     std::sort(scores_, scores_ + SAMPLES);
@@ -245,7 +247,7 @@ void ParameterManager::SyncParams() {
 
 void ParameterManager::Reset() {
   total_bytes_ = 0;
-  total_microseconds_ = 0;
+  last_sample_start_ = std::chrono::steady_clock::now();
   tensor_counts_.clear();
   sample_ = 0;
 }

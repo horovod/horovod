@@ -2318,10 +2318,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     }
 
     if (state.param_manager.IsAutoTuning()) {
-      double duration = std::chrono::duration_cast<std::chrono::microseconds>(
-                            std::chrono::steady_clock::now() - start_time)
-                            .count();
-      state.param_manager.Update(tensor_names, total_tensor_size, duration);
+      state.param_manager.Update(tensor_names, total_tensor_size);
     }
   } else {
     std::string encoded_message;
@@ -2371,7 +2368,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     }
 
     if (state.param_manager.IsAutoTuning()) {
-      state.param_manager.Update(tensor_names, total_tensor_size, 1.0);
+      state.param_manager.Update(tensor_names, total_tensor_size);
     }
 
     if (response_list.shutdown()) {
