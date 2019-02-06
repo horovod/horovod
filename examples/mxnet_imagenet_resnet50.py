@@ -72,19 +72,19 @@ parser.add_argument('--last-gamma', action='store_true', default=False,
                     each bottleneck to 0 (default: False)')
 parser.add_argument('--model', type=str, default='resnet50_v1',
                     help='type of model to use. see vision_model for options.')
-parser.add_argument('--mode', type=str, default='symbolic',
+parser.add_argument('--mode', type=str, default='module',
                     help='mode in which to train the model. options are \
-                    symbolic, hybrid (default: symbolic)')
+                    module, gluon (default: module)')
 parser.add_argument('--use-pretrained', action='store_true', default=False,
                     help='load pretrained model weights (default: False)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training (default: False)')
 parser.add_argument('--eval-epoch', action='store_true', default=False,
                     help='evaluate validation accuracy after each epoch \
-                    when training in symbolic mode (default: False)')
+                    when training in module mode (default: False)')
 parser.add_argument('--eval-frequency', type=int, default=0,
                     help='frequency of evaluating validation accuracy \
-                    when training with hybrid mode (default: 0)')
+                    when training with gluon mode (default: 0)')
 parser.add_argument('--log-interval', type=int, default=0,
                     help='number of batches to wait before logging (default: 0)')
 parser.add_argument('--save-frequency', type=int, default=0,
@@ -294,7 +294,7 @@ opt = mx.optimizer.create('sgd', **optimizer_params)
 opt = hvd.DistributedOptimizer(opt)
 
 
-def train_hybrid():
+def train_gluon():
     def evaluate(epoch):
         if not args.use_rec:
             return
@@ -376,7 +376,7 @@ def train_hybrid():
     evaluate(epoch)
 
 
-def train_symbolic():
+def train_module():
     # Create input symbol
     data = mx.sym.var('data')
     if args.dtype == 'float16':
@@ -448,9 +448,9 @@ def train_symbolic():
 
 
 if __name__ == '__main__':
-    if args.mode == 'symbolic':
-        train_symbolic()
-    elif args.mode == 'hybrid':
-        train_hybrid()
+    if args.mode == 'module':
+        train_module()
+    elif args.mode == 'gluon':
+        train_gluon()
     else:
         raise ValueError('Invalid training mode.')

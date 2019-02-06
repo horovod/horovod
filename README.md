@@ -216,7 +216,7 @@ See full training [MNIST](examples/mxnet_mnist.py) and [ImageNet](examples/mxnet
 
 **Note**: we recommend users to build MXNet from source following this [guide](https://mxnet.incubator.apache.org/install/build_from_source.html) when running Horovod with MXNet on a Linux OS with GCC version 5.X and above. The MXNet shared library distributed through MXNet pip package is currently built using GCC 4.8.4. If we build and install Horovod on a Linux OS with GCC 5.X+ with MXNet pip package, we will hit segmentation fault due to std::function definition change from GCC [4.X](https://github.com/gcc-mirror/gcc/blob/gcc-4_8_4-release/libstdc++-v3/include/std/functional#L2069) to GCC [5.X](https://github.com/gcc-mirror/gcc/blob/gcc-5_4_0-release/libstdc++-v3/include/std/functional#L1854).
 
-There are two ways to train a model using MXNet: Module Symbolic API and Gluon Trainer API. Here we provide the building block for each set of API to train a model using MXNet with Horovod.
+There are two ways to train a model using MXNet: [Module](http://mxnet.incubator.apache.org/api/python/module/module.html) Symbolic API and [Gluon](http://mxnet.incubator.apache.org/api/python/gluon/gluon.html) Trainer API. Here we provide the building block for each set of API to train a model using MXNet with Horovod.
 
 ###### Module Symbolic API
 ```python
@@ -243,9 +243,9 @@ opt = hvd.DistributedOptimizer(opt)
 # Initialize parameters
 initializer = mx.init.Xavier(rnd_type='gaussian', factor_type="in",
                              magnitude=2)
-mod.bind(data_shapes=train_data.provide_data,
-         label_shapes=train_data.provide_label)
-mod.init_params(initializer)
+model.bind(data_shapes=train_data.provide_data,
+           label_shapes=train_data.provide_label)
+model.init_params(initializer)
 
 # Fetch and broadcast parameters
 (arg_params, aux_params) = model.get_params()
@@ -257,6 +257,7 @@ model.set_params(arg_params=arg_params, aux_params=aux_params)
 
 # Train model
 model.fit(train_data,
+          kvstore=None,
           optimizer=opt,
           num_epoch=num_epoch)
 ```
@@ -295,7 +296,7 @@ if params is not None:
 
 # Create trainer and loss function
 trainer = gluon.Trainer(params, opt, kvstore=None)
-loss_fn = gluon.loss.SoftmaxCrossEntropyLoss()
+loss_fn = ...
 
 # Train model
 for epoch in range(num_epoch):
