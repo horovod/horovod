@@ -80,7 +80,6 @@ VectorXd BayesianOptimization::NextSample(bool normalize) {
   MatrixXd y_sample(y_samples_.size(), 1);
   for (unsigned int i = 0; i < y_samples_.size(); ++i) {
     double norm_score = (y_samples_[i] - mu) / sigma;
-//    std::cout << "norm_score[" << i << "] = " << norm_score << std::endl;
 
     VectorXd y_i(1);
     y_i(0) = norm_score;
