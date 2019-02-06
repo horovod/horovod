@@ -37,7 +37,7 @@ void GetSufficientStats(std::vector<double>& v, double* mu, double* sigma) {
   *mu = sum / v.size();
 
   std::vector<double> diff(v.size());
-  std::transform(v.begin(), v.end(), diff.begin(), std::bind2nd(std::minus<double>(), *mu));
+  std::transform(v.begin(), v.end(), diff.begin(), [mu](double& x) { return x - *mu; });
   double sq_sum = std::inner_product(diff.begin(), diff.end(), diff.begin(), 0.0);
   *sigma = std::sqrt(sq_sum / v.size());
 }
