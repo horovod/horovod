@@ -125,6 +125,7 @@ if aux_params is not None:
 model.set_params(arg_params=arg_params, aux_params=aux_params)
 
 model.fit(train_iter,  # train data
+          kvstore=None,  # no kvstore
           eval_data=val_iter,  # validation data
           optimizer=opt,  # use SGD to train
           eval_metric='acc',  # report accuracy during training
