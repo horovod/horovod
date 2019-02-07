@@ -71,30 +71,34 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
 def broadcast_parameters(params, root_rank=0):
     """
     Broadcasts the parameters from root rank to all other processes.
-    Typical usage is to broadcast the `model.get_params()`.
+    Typical usage is to broadcast the `Module.get_params()` or the
+    `Block.collect_params()`.
 
     Arguments:
         params: One of the following:
-            - list of parameters to broadcast
             - dict of parameters to broadcast
+            - ParameterDict to broadcast
         root_rank: The rank of the process from which parameters will be
                    broadcasted to all other processes.
     """
+    tensors = []
     if isinstance(params, dict):
-        params = sorted(params.items())
-    elif isinstance(params, list):
-        # support both named_parameters() and regular parameters()
-        params = [p if isinstance(p, tuple) else (None, p) for p in params]
+        tensors = [p for _, p in sorted(params.items())]
+    elif isinstance(params, mx.gluon.parameter.ParameterDict):
+        for _, p in sorted(params.items()):
+            try:
+                tensors.append(p.data())
+            except mx.gluon.parameter.DeferredInitializationError:
+                # skip broadcasting deferred init param
+                pass
     else:
         raise ValueError('invalid params of type: %s' % type(params))
 
     # Run broadcasts.
-    count = 0
-    for _, p in params:
-        broadcast_(p, root_rank, str(count))
-        count += 1
+    for i, tensor in enumerate(tensors):
+        broadcast_(tensor, root_rank, str(i))
 
     # Make sure tensors pushed to MXNet engine get processed such that all
     # workers are synced before starting training.
-    for _, p in params:
-        p.wait_to_read()
+    for tensor in tensors:
+        tensor.wait_to_read()
