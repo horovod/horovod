@@ -18,6 +18,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <numeric>
 
 #include <Eigen/LU>
 
@@ -30,6 +31,16 @@ namespace horovod {
 namespace common {
 
 const double NORM_PDF_C = std::sqrt(2 * M_PI);
+
+void GetSufficientStats(std::vector<double>& v, double* mu, double* sigma) {
+  double sum = std::accumulate(v.begin(), v.end(), 0.0);
+  *mu = sum / v.size();
+
+  std::vector<double> diff(v.size());
+  std::transform(v.begin(), v.end(), diff.begin(), [mu](double& x) { return x - *mu; });
+  double sq_sum = std::inner_product(diff.begin(), diff.end(), diff.begin(), 0.0);
+  *sigma = std::sqrt(sq_sum / v.size());
+}
 
 // Returns a list of distributions that generate real values uniformly and random between the bounds.
 std::vector<std::uniform_real_distribution<>> GetDistributions(std::vector<std::pair<double, double>> bounds) {
@@ -49,17 +60,17 @@ BayesianOptimization::BayesianOptimization(std::vector<std::pair<double, double>
       gpr_(GaussianProcessRegressor(alpha)) {}
 
 void BayesianOptimization::AddSample(const Eigen::VectorXd& x, double y) {
-  VectorXd y_v(1);
-  y_v << y;
-  AddSample(x, y_v);
-}
-
-void BayesianOptimization::AddSample(const Eigen::VectorXd& x, const Eigen::VectorXd& y) {
   x_samples_.push_back(x);
   y_samples_.push_back(y);
 }
 
-VectorXd BayesianOptimization::NextSample() {
+VectorXd BayesianOptimization::NextSample(bool normalize) {
+  double mu = 0.0;
+  double sigma = 1.0;
+  if (normalize && y_samples_.size() >= 3) {
+    GetSufficientStats(y_samples_, &mu, &sigma);
+  }
+
   // Matrices are immutable and must be regenerated each time a new sample is added.
   MatrixXd x_sample(x_samples_.size(), d_);
   for (unsigned int i = 0; i < x_samples_.size(); ++i) {
@@ -68,7 +79,11 @@ VectorXd BayesianOptimization::NextSample() {
 
   MatrixXd y_sample(y_samples_.size(), 1);
   for (unsigned int i = 0; i < y_samples_.size(); ++i) {
-    y_sample.row(i) = y_samples_[i];
+    double norm_score = (y_samples_[i] - mu) / sigma;
+
+    VectorXd y_i(1);
+    y_i(0) = norm_score;
+    y_sample.row(i) = y_i;
   }
 
   // Generate the posterior distribution for the GP given the observed data.
