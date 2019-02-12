@@ -288,7 +288,7 @@ def get_mx_flags(build_ext, cpp_flags):
     for lib in mx_libs:
         link_flags.append('-l%s' % lib)
 
-    return compile_flags, link_flags, mx_include_dirs
+    return compile_flags, link_flags
 
 
 def get_mpi_flags():
@@ -597,12 +597,9 @@ def parse_version(version_str):
 
 def build_mx_extension(build_ext, options):
     check_mx_version()
-    mx_compile_flags, mx_link_flags, mx_include_dirs = get_mx_flags(
+    mx_compile_flags, mx_link_flags = get_mx_flags(
         build_ext, options['COMPILE_FLAGS'])
-    print('DEBUG includes' + str(options['INCLUDES']))
-    print('DEBUG flags' + str(options['COMPILE_FLAGS']))
-    have_cuda = is_mx_cuda(build_ext, include_dirs=mx_include_dirs,
-                           extra_compile_args=options['COMPILE_FLAGS']+mx_compile_flags)
+    have_cuda = is_mx_cuda()
     if not have_cuda and check_macro(options['MACROS'], 'HAVE_CUDA'):
         raise DistutilsPlatformError(
             'Horovod build with GPU support was requested, but this MXNet '
@@ -636,21 +633,15 @@ def build_mx_extension(build_ext, options):
     build_ext.build_extension(mxnet_mpi_lib)
 
 
-def is_mx_cuda(build_ext, include_dirs, extra_compile_args):
-    try:
-        test_compile(build_ext, 'test_mxnet_cuda',
-                     include_dirs=include_dirs,
-                     extra_compile_preargs=extra_compile_args,
-                     code=textwrap.dedent('''\
-            #include<mxnet/base.h>
-            void test() {
-            }
-            '''))
-        return True
-    except (CompileError, LinkError, EnvironmentError):
-        print('INFO: Above error indicates that this MXNet installation does \
-            not support CUDA.')
-        return False
+def is_mx_cuda():
+    from mxnet import runtime
+    features = runtime.libinfo_features()
+    for feature in features:
+        if feature.name == b'CUDA':
+            return feature.enabled
+
+    return False
+
 
 def dummy_import_torch():
     try:
