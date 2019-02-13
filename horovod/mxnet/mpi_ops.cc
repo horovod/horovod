@@ -161,9 +161,9 @@ void DoBroadcast(NDArray* tensor, NDArray* output, int root_rank,
 
 #if HAVE_CUDA
 void DoBroadcastCudaOnCPU(
-    ThrowIfError(common::CheckInitialized());
     std::shared_ptr<MXTemporaryBuffer<NDArray>>& hvd_cpu_buffer, int root_rank,
     std::string& name, Callback on_complete) {
+  ThrowIfError(common::CheckInitialized());
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto hvd_context = std::make_shared<MXOpContext<NDArray>>(
       CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
