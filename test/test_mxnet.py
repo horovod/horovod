@@ -59,6 +59,8 @@ class MXTests(unittest.TestCase):
             tensor = tensor.astype(dtype)
             summed = hvd.allreduce(tensor, average=False, name=str(count))
             multiplied = tensor * size
+            summed.wait_to_read()
+            multiplied.wait_to_read()
             max_difference = mx.nd.max(mx.nd.subtract(summed, multiplied))
             count += 1
 
@@ -100,6 +102,8 @@ class MXTests(unittest.TestCase):
             averaged = hvd.allreduce(tensor, average=True, name=str(count))
             tensor *= size
             tensor /= size
+            tensor.wait_to_read()
+            averaged.wait_to_read()
             max_difference = mx.nd.max(mx.nd.subtract(averaged, tensor))
             count += 1
 
@@ -138,6 +142,8 @@ class MXTests(unittest.TestCase):
             tensor = tensor.astype(dtype)
             multiplied = tensor * size
             hvd.allreduce_(tensor, average=False, name=str(count))
+            tensor.wait_to_read()
+            multiplied.wait_to_read()
             max_difference = mx.nd.max(mx.nd.subtract(tensor, multiplied))
             count += 1
 
