@@ -40,7 +40,7 @@
 #include "half.h"
 #include "hashes.h"
 #include "mpi.h"
-#include "mpi_message.h"
+#include "message.h"
 #include "operations.h"
 #include "parameter_manager.h"
 #include "timeline.h"
@@ -104,7 +104,7 @@ using TensorTable = std::unordered_map<std::string, TensorTableEntry>;
 // when a reduction is ready to be done (when all nodes are ready to do it).
 using MessageTable = std::unordered_map<
     std::string,
-    std::tuple<std::vector<MPIRequest>, std::chrono::steady_clock::time_point>>;
+    std::tuple<std::vector<Request>, std::chrono::steady_clock::time_point>>;
 
 // The global state required for the MPI ops.
 //
@@ -123,8 +123,8 @@ struct HorovodGlobalState {
   // Tensors waiting to be allreduced or allgathered.
   TensorTable tensor_table;
 
-  // Queue of MPI requests waiting to be sent to the coordinator node.
-  std::queue<MPIRequest> message_queue;
+  // Queue of requests waiting to be sent to the coordinator node.
+  std::queue<Request> message_queue;
 
   // Background thread running MPI communication.
   std::thread background_thread;
@@ -281,29 +281,29 @@ const Status DUPLICATE_NAME_ERROR = Status::InvalidArgument(
     return;                                                                    \
   }
 
-// Store the MPIRequest for a name, and return whether the total count of
-// MPIRequests for that tensor is now equal to the MPI size (and thus we are
+// Store the Request for a name, and return whether the total count of
+// Requests for that tensor is now equal to the MPI size (and thus we are
 // ready to reduce the tensor).
 bool IncrementTensorCount(std::unique_ptr<MessageTable>& message_table,
-                          const MPIRequest& msg, int mpi_size) {
+                          const Request& msg, int mpi_size) {
   auto& name = msg.tensor_name();
   auto& timeline = horovod_global.timeline;
   auto table_iter = message_table->find(name);
   if (table_iter == message_table->end()) {
-    std::vector<MPIRequest> messages = {msg};
+    std::vector<Request> messages = {msg};
     messages.reserve(static_cast<unsigned long>(mpi_size));
     auto now = std::chrono::steady_clock::now();
     message_table->emplace(name, std::make_tuple(std::move(messages), now));
     table_iter = message_table->find(name);
     timeline.NegotiateStart(name, msg.request_type());
   } else {
-    std::vector<MPIRequest>& messages = std::get<0>(table_iter->second);
+    std::vector<Request>& messages = std::get<0>(table_iter->second);
     messages.push_back(msg);
   }
 
   timeline.NegotiateRankReady(name, msg.request_rank());
 
-  std::vector<MPIRequest>& messages = std::get<0>(table_iter->second);
+  std::vector<Request>& messages = std::get<0>(table_iter->second);
   int count = (int)messages.size();
   bool ready_to_reduce = count == mpi_size;
   if (ready_to_reduce) {
@@ -312,19 +312,19 @@ bool IncrementTensorCount(std::unique_ptr<MessageTable>& message_table,
   return ready_to_reduce;
 }
 
-// Once a tensor is ready to be reduced, the coordinator sends an MPIResponse
-// instructing all ranks to start the reduction to all ranks. The MPIResponse
-// also contains error messages in case the submitted MPIRequests were not
+// Once a tensor is ready to be reduced, the coordinator sends a Response
+// instructing all ranks to start the reduction to all ranks. The Response
+// also contains error messages in case the submitted Requests were not
 // valid (for example, contained mismatched shapes or types).
 //
-// Constructing the MPIResponse, thus, requires a whole lot of error checking.
-MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
-                                 std::string name) {
+// Constructing the Response, thus, requires a whole lot of error checking.
+Response ConstructResponse(std::unique_ptr<MessageTable>& message_table,
+                           std::string name) {
   bool error = false;
   auto it = message_table->find(name);
   assert(it != message_table->end());
 
-  std::vector<MPIRequest>& requests = std::get<0>(it->second);
+  std::vector<Request>& requests = std::get<0>(it->second);
   assert(requests.size() > 0);
 
   std::ostringstream error_message_stream;
@@ -337,9 +337,9 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
     if (data_type != request_type) {
       error = true;
       error_message_stream << "Mismatched data types: One rank had type "
-                           << MPIDataType_Name(data_type)
+                           << DataType_Name(data_type)
                            << ", but another rank had type "
-                           << MPIDataType_Name(request_type) << ".";
+                           << DataType_Name(request_type) << ".";
       break;
     }
   }
@@ -355,17 +355,17 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
     if (message_type != request_type) {
       error = true;
       error_message_stream << "Mismatched MPI operations: One rank did an "
-                           << MPIRequest::RequestType_Name(message_type)
+                           << Request::RequestType_Name(message_type)
                            << ", but another rank did an "
-                           << MPIRequest::RequestType_Name(request_type) << ".";
+                           << Request::RequestType_Name(request_type) << ".";
       break;
     }
   }
 
   // If we are doing an allreduce or broadcast, check that all tensor shapes are
   // identical.
-  if (message_type == MPIRequest::ALLREDUCE ||
-      message_type == MPIRequest::BROADCAST) {
+  if (message_type == Request::ALLREDUCE ||
+      message_type == Request::BROADCAST) {
     TensorShape tensor_shape;
     for (auto dim : requests[0].tensor_shape()) {
       tensor_shape.AddDim(dim);
@@ -382,7 +382,7 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
       if (tensor_shape != request_shape) {
         error = true;
         error_message_stream
-            << "Mismatched " << MPIRequest::RequestType_Name(message_type)
+            << "Mismatched " << Request::RequestType_Name(message_type)
             << " tensor shapes: One rank sent a tensor of shape "
             << tensor_shape.DebugString()
             << ", but another rank sent a tensor of shape "
@@ -396,7 +396,7 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
   // the same. The first dimension may be different and the output tensor is
   // the sum of the first dimension. Collect the sizes by rank.
   std::vector<int64_t> tensor_sizes(requests.size());
-  if (message_type == MPIRequest::ALLGATHER) {
+  if (message_type == Request::ALLGATHER) {
     TensorShape tensor_shape;
     for (auto dim : requests[0].tensor_shape()) {
       tensor_shape.AddDim(dim);
@@ -405,7 +405,7 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
     if (tensor_shape.dims() == 0) {
       error = true;
       error_message_stream << "Rank zero tried to "
-                           << MPIRequest::RequestType_Name(message_type)
+                           << Request::RequestType_Name(message_type)
                            << " a rank-zero tensor.";
     } else {
       tensor_sizes[requests[0].request_rank()] = tensor_shape.dim_size(0);
@@ -423,7 +423,7 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
       if (tensor_shape.dims() != request_shape.dims()) {
         error = true;
         error_message_stream
-            << "Mismatched " << MPIRequest::RequestType_Name(message_type)
+            << "Mismatched " << Request::RequestType_Name(message_type)
             << " tensor shapes: One rank sent a tensor of rank "
             << tensor_shape.dims()
             << ", but another rank sent a tensor of rank "
@@ -436,7 +436,7 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
         if (tensor_shape.dim_size(dim) != request_shape.dim_size(dim)) {
           error = true;
           error_message_stream
-              << "Mismatched " << MPIRequest::RequestType_Name(message_type)
+              << "Mismatched " << Request::RequestType_Name(message_type)
               << " tensor shapes: One rank sent a tensor with dimension " << dim
               << " equal to " << tensor_shape.dim_size(dim)
               << ", but another rank sent a tensor with dimension " << dim
@@ -454,7 +454,7 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
   }
 
   // If we are doing a broadcast, check that all root ranks are identical.
-  if (message_type == MPIRequest::BROADCAST) {
+  if (message_type == Request::BROADCAST) {
     int first_root_rank = requests[0].root_rank();
     for (unsigned int i = 1; i < requests.size(); ++i) {
       if (error) {
@@ -465,7 +465,7 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
       if (first_root_rank != this_root_rank) {
         error = true;
         error_message_stream
-            << "Mismatched " << MPIRequest::RequestType_Name(message_type)
+            << "Mismatched " << Request::RequestType_Name(message_type)
             << " root ranks: One rank specified root rank " << first_root_rank
             << ", but another rank specified root rank " << this_root_rank
             << ".";
@@ -484,7 +484,7 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
     if (first_device_is_cpu != this_device_is_cpu) {
       error = true;
       error_message_stream
-          << "Mismatched " << MPIRequest::RequestType_Name(message_type)
+          << "Mismatched " << Request::RequestType_Name(message_type)
           << " CPU/GPU device selection: One rank specified device "
           << (first_device_is_cpu ? "CPU" : "GPU")
           << ", but another rank specified device "
@@ -497,21 +497,21 @@ MPIResponse ConstructMPIResponse(std::unique_ptr<MessageTable>& message_table,
     devices[request.request_rank()] = request.device();
   }
 
-  MPIResponse response;
+  Response response;
   response.add_tensor_name(name);
   if (error) {
     std::string error_message = error_message_stream.str();
-    response.set_response_type(MPIResponse::ERROR);
+    response.set_response_type(Response::ERROR);
     response.set_error_message(error_message);
-  } else if (message_type == MPIRequest::ALLGATHER) {
-    response.set_response_type(MPIResponse::ALLGATHER);
+  } else if (message_type == Request::ALLGATHER) {
+    response.set_response_type(Response::ALLGATHER);
     for (auto dim : tensor_sizes) {
       response.add_tensor_size(dim);
     }
-  } else if (message_type == MPIRequest::ALLREDUCE) {
-    response.set_response_type(MPIResponse::ALLREDUCE);
-  } else if (message_type == MPIRequest::BROADCAST) {
-    response.set_response_type(MPIResponse::BROADCAST);
+  } else if (message_type == Request::ALLREDUCE) {
+    response.set_response_type(Response::ALLREDUCE);
+  } else if (message_type == Request::BROADCAST) {
+    response.set_response_type(Response::BROADCAST);
   }
   response.set_devices(devices);
 
@@ -545,7 +545,7 @@ MPI_Datatype GetMPIDataType(const std::shared_ptr<Tensor> tensor) {
   case HOROVOD_BOOL:
     return MPI_C_BOOL;
   default:
-    throw std::logic_error("Type " + MPIDataType_Name(tensor->dtype()) +
+    throw std::logic_error("Type " + DataType_Name(tensor->dtype()) +
                            " is not supported in MPI mode.");
   }
 }
@@ -588,7 +588,7 @@ ncclDataType_t GetNCCLDataType(const std::shared_ptr<Tensor> tensor) {
   case HOROVOD_FLOAT64:
     return ncclFloat64;
   default:
-    throw std::logic_error("Type " + MPIDataType_Name(tensor->dtype()) +
+    throw std::logic_error("Type " + DataType_Name(tensor->dtype()) +
                            " is not supported in NCCL mode.");
   }
 }
@@ -600,7 +600,7 @@ DDL_Type GetDDLDataType(const std::shared_ptr<Tensor> tensor) {
   case HOROVOD_FLOAT32:
     return DDL_TYPE_FLOAT;
   default:
-    throw std::logic_error("Type " + MPIDataType_Name(tensor->dtype()) +
+    throw std::logic_error("Type " + DataType_Name(tensor->dtype()) +
                            " is not supported in DDL mode.");
   }
 }
@@ -763,9 +763,9 @@ int64_t TensorFusionThresholdBytes() {
   return proposed_fusion_threshold;
 }
 
-// Process an MPIResponse by doing a reduction, a gather, a broadcast, or
+// Process a Response by doing a reduction, a gather, a broadcast, or
 // raising an error.
-void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
+void PerformOperation(TensorTable& tensor_table, Response response) {
   std::vector<TensorTableEntry> entries;
   // Reserve to save re-allocation costs, as we know the size before.
   entries.reserve(response.tensor_names().size());
@@ -777,10 +777,10 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       auto iter = tensor_table.find(name);
       assert(iter != tensor_table.end());
 
-      assert(response.response_type() == MPIResponse::ALLREDUCE ||
-             response.response_type() == MPIResponse::ALLGATHER ||
-             response.response_type() == MPIResponse::BROADCAST ||
-             response.response_type() == MPIResponse::ERROR);
+      assert(response.response_type() == Response::ALLREDUCE ||
+             response.response_type() == Response::ALLGATHER ||
+             response.response_type() == Response::BROADCAST ||
+             response.response_type() == Response::ERROR);
 
       entries.push_back(iter->second);
 
@@ -840,7 +840,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
   }
 
   Status status;
-  if (response.response_type() == MPIResponse::ALLGATHER) {
+  if (response.response_type() == Response::ALLGATHER) {
 
     // Sizes of subcomponents of each entry from all ranks
     auto** entry_component_sizes = new int64_t*[entries.size()];
@@ -870,7 +870,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         single_slice_shape.AddDim(e.tensor->shape().dim_size(i));
       }
 
-      // Copy tensor sizes from the MPI response into a vector of int64_t
+      // Copy tensor sizes from the Response into a vector of int64_t
       // and compute total size.  This is size of first dimension.
       int64_t total_entry_dimension_size = 0;
       for (int rc = 0; rc < horovod_global.size; ++rc) {
@@ -1112,7 +1112,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       e.callback(Status::OK());
     }
 
-  } else if (response.response_type() == MPIResponse::ALLREDUCE) {
+  } else if (response.response_type() == Response::ALLREDUCE) {
     auto& first_entry = entries[0];
 #if HAVE_CUDA
     bool on_gpu = first_entry.device != CPU_DEVICE_ID;
@@ -1589,7 +1589,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       timeline.End(e.tensor_name, e.output);
       e.callback(Status::OK());
     }
-  } else if (response.response_type() == MPIResponse::BROADCAST) {
+  } else if (response.response_type() == Response::BROADCAST) {
     assert(entries.size() == 1);
     auto e = entries[0];
 
@@ -1610,7 +1610,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
     timeline.End(e.tensor_name, e.output);
     e.callback(Status::OK());
-  } else if (response.response_type() == MPIResponse::ERROR) {
+  } else if (response.response_type() == Response::ERROR) {
     assert(entries.size() == 1);
     auto e = entries[0];
 
@@ -1627,7 +1627,7 @@ void CheckForStalledTensors(HorovodGlobalState& state) {
   auto now = std::chrono::steady_clock::now();
   for (auto& m : *state.message_table) {
     auto tensor_name = m.first;
-    std::vector<MPIRequest>& messages = std::get<0>(m.second);
+    std::vector<Request>& messages = std::get<0>(m.second);
     std::chrono::steady_clock::time_point start_at = std::get<1>(m.second);
 
     if (now - start_at > STALL_WARNING_TIME) {
@@ -2003,7 +2003,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 // workers. Each rank runs its own background thread which progresses in ticks.
 // In each tick, the following actions happen:
 //
-//      a) The workers send an MPIRequest to the coordinator, indicating what
+//      a) The workers send a Request to the coordinator, indicating what
 //      they would like to do (which tensor they would like to gather and
 //      reduce, as well as their shape and type). They repeat this for every
 //      tensor that they would like to operate on.
@@ -2011,18 +2011,18 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 //      b) The workers send an empty "DONE" message to the coordinator to
 //      indicate that there are no more tensors they wish to operate on.
 //
-//      c) The coordinator receives the MPIRequests from the workers, as well
+//      c) The coordinator receives the Requests from the workers, as well
 //      as from its own TensorFlow ops, and stores them in a request table. The
-//      coordinator continues to receive MPIRequest messages until it has
+//      coordinator continues to receive Request messages until it has
 //      received MPI_SIZE number of empty "DONE" messages.
 //
 //      d) The coordinator finds all tensors that are ready to be reduced,
 //      gathered, or all operations that result in an error. For each of those,
-//      it sends an MPIResponse to all the workers. When no more MPIResponses
+//      it sends a Response to all the workers. When no more Responses
 //      are available, it sends a "DONE" response to the workers. If the process
 //      is being shutdown, it instead sends a "SHUTDOWN" response.
 //
-//      e) The workers listen for MPIResponse messages, processing each one by
+//      e) The workers listen for Response messages, processing each one by
 //      doing the required reduce or gather, until they receive a "DONE"
 //      response from the coordinator. At that point, the tick ends.
 //      If instead of "DONE" they receive "SHUTDOWN", they exit their background
@@ -2047,11 +2047,11 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   // Copy the data structures from global state under this lock.
   // However, don't keep the lock for the rest of the loop, so that
   // enqueued stream callbacks can continue.
-  std::queue<MPIRequest> message_queue;
+  std::queue<Request> message_queue;
   {
     std::lock_guard<std::mutex> guard(state.mutex);
     while (!state.message_queue.empty()) {
-      MPIRequest message = state.message_queue.front();
+      Request message = state.message_queue.front();
       state.message_queue.pop();
       message_queue.push(message);
     }
@@ -2071,7 +2071,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   if (is_coordinator) {
     while (!message_queue.empty()) {
       // Pop the first available message message
-      MPIRequest message = message_queue.front();
+      Request message = message_queue.front();
       message_queue.pop();
 
       bool reduce =
@@ -2111,8 +2111,8 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     // 4. Process messages.
     for (int i = 1; i < state.size; ++i) {
       auto rank_buffer_ptr = buffer + displcmnts[i];
-      MPIRequestList received_message_list;
-      MPIRequestList::ParseFromBytes(received_message_list, rank_buffer_ptr);
+      RequestList received_message_list;
+      RequestList::ParseFromBytes(received_message_list, rank_buffer_ptr);
       for (auto& received_message : received_message_list.requests()) {
         auto& received_name = received_message.tensor_name();
 
@@ -2139,14 +2139,14 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     // to rank zero. We can now do reductions and gathers; rank zero will
     // choose which ones and in what order, and will notify the other ranks
     // before doing each reduction.
-    std::deque<MPIResponse> responses;
+    std::deque<Response> responses;
     for (auto& tensor_name : ready_to_reduce) {
-      MPIResponse response =
-          ConstructMPIResponse(state.message_table, tensor_name);
+      Response response =
+          ConstructResponse(state.message_table, tensor_name);
       responses.push_back(std::move(response));
     }
 
-    MPIResponseList response_list;
+    ResponseList response_list;
     response_list.set_shutdown(should_shut_down);
     {
       // Protect access to tensor table.
@@ -2157,12 +2157,12 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
         assert(response.tensor_names().size() == 1);
         responses.pop_front();
         int64_t tensor_size = 0;
-        if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
+        if (response.response_type() == Response::ResponseType::ALLREDUCE) {
           // Attempt to add more responses to this fused response.
           auto& entry = state.tensor_table[response.tensor_names()[0]];
           tensor_size = entry.tensor->size();
 
-          std::deque<MPIResponse> skipped_responses;
+          std::deque<Response> skipped_responses;
           int64_t skipped_size = 0;
           while (!responses.empty()) {
             auto new_response = responses.front();
@@ -2205,7 +2205,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
           }
 
         } else if (response.response_type() ==
-                   MPIResponse::ResponseType::ALLGATHER) {
+                   Response::ResponseType::ALLGATHER) {
           // Attempt to add more responses to this fused response.
           auto& entry = state.tensor_table[response.tensor_names()[0]];
 
@@ -2213,7 +2213,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
           int64_t total_byte_size_of_output =
               TotalByteSizeOfAllgatherOutput(response.tensor_sizes(), entry);
 
-          std::deque<MPIResponse> skipped_responses;
+          std::deque<Response> skipped_responses;
           int64_t skipped_size = 0;
           while (!responses.empty()) {
 
@@ -2280,7 +2280,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 
     // Notify all nodes which tensors we'd like to reduce at this step.
     std::string encoded_response;
-    MPIResponseList::SerializeToString(response_list, encoded_response);
+    ResponseList::SerializeToString(response_list, encoded_response);
     int encoded_response_length = (int)encoded_response.length() + 1;
     MPI_Bcast(&encoded_response_length, 1, MPI_INT, RANK_ZERO, state.mpi_comm);
     MPI_Bcast((void*)encoded_response.c_str(), encoded_response_length,
@@ -2290,7 +2290,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     int64_t total_tensor_size = 0;
     if (state.param_manager.IsAutoTuning()) {
       for (auto& response : response_list.responses()) {
-        if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
+        if (response.response_type() == Response::ResponseType::ALLREDUCE) {
           for (auto& tensor_name : response.tensor_names()) {
             tensor_names.push_back(tensor_name);
             auto& entry = state.tensor_table[tensor_name];
@@ -2322,13 +2322,13 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     }
   } else {
     std::string encoded_message;
-    MPIRequestList message_list;
+    RequestList message_list;
     message_list.set_shutdown(should_shut_down);
     while (!message_queue.empty()) {
       message_list.add_request(message_queue.front());
       message_queue.pop();
     }
-    MPIRequestList::SerializeToString(message_list, encoded_message);
+    RequestList::SerializeToString(message_list, encoded_message);
     int encoded_message_length = (int)encoded_message.length() + 1;
     MPI_Gather(&encoded_message_length, 1, MPI_INT, nullptr, 1, MPI_INT,
                RANK_ZERO, state.mpi_comm);
@@ -2340,15 +2340,15 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     MPI_Bcast(&msg_length, 1, MPI_INT, RANK_ZERO, state.mpi_comm);
     auto buffer = new uint8_t[msg_length];
     MPI_Bcast(buffer, msg_length, MPI_BYTE, RANK_ZERO, state.mpi_comm);
-    MPIResponseList response_list;
-    MPIResponseList::ParseFromBytes(response_list, buffer);
+    ResponseList response_list;
+    ResponseList::ParseFromBytes(response_list, buffer);
     delete[] buffer;
 
     std::vector<std::string> tensor_names;
     int64_t total_tensor_size = 0;
     if (state.param_manager.IsAutoTuning()) {
       for (auto& response : response_list.responses()) {
-        if (response.response_type() == MPIResponse::ResponseType::ALLREDUCE) {
+        if (response.response_type() == Response::ResponseType::ALLREDUCE) {
           for (auto& tensor_name : response.tensor_names()) {
             tensor_names.push_back(tensor_name);
             auto& entry = state.tensor_table[tensor_name];
@@ -2475,12 +2475,12 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string name, const int device,
                               StatusCallback callback) {
-  MPIRequest message;
+  Request message;
   message.set_request_rank(horovod_global.rank);
   message.set_tensor_name(name);
   message.set_tensor_type(tensor->dtype());
   message.set_device(device);
-  message.set_request_type(MPIRequest::ALLREDUCE);
+  message.set_request_type(Request::ALLREDUCE);
   for (int i = 0; i < tensor->shape().dims(); ++i) {
     message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
   }
@@ -2515,12 +2515,12 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string name, const int device,
                               StatusCallback callback) {
-  MPIRequest message;
+  Request message;
   message.set_request_rank(horovod_global.rank);
   message.set_tensor_name(name);
   message.set_tensor_type(tensor->dtype());
   message.set_device(device);
-  message.set_request_type(MPIRequest::ALLGATHER);
+  message.set_request_type(Request::ALLGATHER);
   for (int i = 0; i < tensor->shape().dims(); ++i) {
     message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
   }
@@ -2555,13 +2555,13 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string name, const int device,
                               StatusCallback callback) {
-  MPIRequest message;
+  Request message;
   message.set_request_rank(horovod_global.rank);
   message.set_tensor_name(name);
   message.set_tensor_type(tensor->dtype());
   message.set_root_rank(root_rank);
   message.set_device(device);
-  message.set_request_type(MPIRequest::BROADCAST);
+  message.set_request_type(Request::BROADCAST);
   for (int i = 0; i < tensor->shape().dims(); ++i) {
     message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
   }

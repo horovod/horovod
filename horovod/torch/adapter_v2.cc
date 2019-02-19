@@ -36,7 +36,7 @@ TorchPersistentBuffer::AccessData(std::shared_ptr<OpContext> context) const {
 
 TorchTensor::TorchTensor(::torch::Tensor tensor) : tensor_(tensor) {}
 
-const MPIDataType TorchTensor::dtype() const {
+const DataType TorchTensor::dtype() const {
   switch (tensor_.scalar_type()) {
   case ::torch::kByte:
     return common::HOROVOD_UINT8;

@@ -34,11 +34,11 @@ private:
   void* buffer_ = nullptr;
 };
 
-template <MPIDataType DT, DeviceType Dev, class T>
+template <DataType DT, DeviceType Dev, class T>
 class TorchTensor : public Tensor {
 public:
   TorchTensor(T* tensor);
-  virtual const MPIDataType dtype() const override;
+  virtual const DataType dtype() const override;
   virtual const TensorShape shape() const override;
   virtual const void* data() const override;
   virtual int64_t size() const override;
@@ -47,7 +47,7 @@ protected:
   T* tensor_ = nullptr;
 };
 
-template <MPIDataType DT, DeviceType Dev, class T>
+template <DataType DT, DeviceType Dev, class T>
 class TorchTemporaryBuffer : public TorchTensor<DT, Dev, T> {
 public:
   TorchTemporaryBuffer(int device);
@@ -55,7 +55,7 @@ public:
   virtual T* tensor() const;
 };
 
-template <MPIDataType DT, DeviceType Dev, class T>
+template <DataType DT, DeviceType Dev, class T>
 class TorchOpContext : public OpContext {
 public:
   TorchOpContext(int device, T* output);

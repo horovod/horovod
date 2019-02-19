@@ -17,7 +17,7 @@
 namespace horovod.common.wire;
 
 // Supported data types.
-enum MPIDataType:byte {
+enum DataType:byte {
     HOROVOD_UINT8 = 0,
     HOROVOD_INT8 = 1,
     HOROVOD_UINT16 = 2,
@@ -30,21 +30,21 @@ enum MPIDataType:byte {
     HOROVOD_BOOL = 9
 }
 
-// An MPIRequest is a message sent from a rank greater than zero to the
+// An Request is a message sent from a rank greater than zero to the
 // coordinator (rank zero), informing the coordinator of an operation that
 // the rank wants to do and the tensor that it wants to apply the operation to.
-enum MPIRequestType:byte {
+enum RequestType:byte {
     ALLREDUCE = 0,
     ALLGATHER = 1,
     BROADCAST = 2
 }
-table MPIRequest {
+table Request {
     // The request rank is necessary to create a consistent ordering of results,
     // for example in the allgather where the order of outputs should be sorted
     // by rank.
     request_rank:int;
-    request_type:MPIRequestType;
-    tensor_type:MPIDataType;
+    request_type:RequestType;
+    tensor_type:DataType;
     tensor_name:string;
 
     // Root rank is necessary for broadcast operation.
@@ -54,29 +54,29 @@ table MPIRequest {
     device:int;
 
     // We use a repeated integer instead of a TensorShapeProto because linking directly
-    // to TensorFlow protos causes issues. See the comment for MPIDataType.
+    // to TensorFlow protos causes issues. See the comment for DataType.
     tensor_shape:[long];
 }
-table MPIRequestList {
-    requests:[MPIRequest];
+table RequestList {
+    requests:[Request];
 
     // Flag indicating if worker is requesting a shutdown.
     shutdown:bool;
 }
 
-// An MPIResponse is a message sent from the coordinator (rank zero) to a rank
+// An Response is a message sent from the coordinator (rank zero) to a rank
 // greater than zero, informing the rank of an operation should be performed
 // now. If the operation requested would result in an error (for example, due
-// to a type or shape mismatch), then the MPIResponse can contain an error and
+// to a type or shape mismatch), then the Response can contain an error and
 // an error message instead.
-enum MPIResponseType:byte {
+enum ResponseType:byte {
     ALLREDUCE = 0,
     ALLGATHER = 1,
     BROADCAST = 2,
     ERROR = 3
 }
-table MPIResponse {
-    response_type:MPIResponseType;
+table Response {
+    response_type:ResponseType;
 
     // If tensor_names has more than one entry, this is a fused operation and the
     // rest of the fields are the same.
@@ -93,8 +93,8 @@ table MPIResponse {
     // indexed by the rank.
     tensor_sizes:[long];
 }
-table MPIResponseList {
-    responses:[MPIResponse];
+table ResponseList {
+    responses:[Response];
 
     // Flag indicating if worker is requested to shutdown.
     shutdown:bool;
