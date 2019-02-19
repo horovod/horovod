@@ -4,7 +4,7 @@ FROM nvidia/cuda:9.0-devel-ubuntu16.04
 ENV TENSORFLOW_VERSION=1.12.0
 ENV PYTORCH_VERSION=1.0.0
 ENV CUDNN_VERSION=7.4.1.5-1+cuda9.0
-ENV NCCL_VERSION=2.3.5-2+cuda9.0
+ENV NCCL_VERSION=2.4.2-1+cuda9.0
 
 # Python 2.7 or 3.5 is supported by Ubuntu Xenial out of the box
 ARG python=2.7
