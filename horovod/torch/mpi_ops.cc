@@ -41,7 +41,7 @@ std::string GetOpName(const std::string& prefix, char* name, int handle) {
 
 } // namespace
 
-template <MPIDataType DT, DeviceType Dev, class T>
+template <DataType DT, DeviceType Dev, class T>
 int DoAllreduce(T* tensor, T* output, int average, char* name) {
   ThrowIfError(common::CheckInitialized());
 
@@ -101,7 +101,7 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
 }
 #endif
 
-template <MPIDataType DT, DeviceType Dev, class T>
+template <DataType DT, DeviceType Dev, class T>
 int DoAllgather(T* tensor, T* output, char* name) {
   ThrowIfError(common::CheckInitialized());
 
@@ -156,7 +156,7 @@ int DoAllgatherCudaOnCPU(TC* tensor, TC* output, char* name) {
 }
 #endif
 
-template <MPIDataType DT, DeviceType Dev, class T>
+template <DataType DT, DeviceType Dev, class T>
 int DoBroadcast(T* tensor, T* output, int root_rank, char* name) {
   ThrowIfError(common::CheckInitialized());
 
@@ -223,13 +223,13 @@ int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
                                                 name);                         \
   }
 
-ALLREDUCE(torch_IntTensor, MPIDataType::HOROVOD_INT32, DeviceType::CPU,
+ALLREDUCE(torch_IntTensor, DataType::HOROVOD_INT32, DeviceType::CPU,
           THIntTensor)
-ALLREDUCE(torch_LongTensor, MPIDataType::HOROVOD_INT64, DeviceType::CPU,
+ALLREDUCE(torch_LongTensor, DataType::HOROVOD_INT64, DeviceType::CPU,
           THLongTensor)
-ALLREDUCE(torch_FloatTensor, MPIDataType::HOROVOD_FLOAT32, DeviceType::CPU,
+ALLREDUCE(torch_FloatTensor, DataType::HOROVOD_FLOAT32, DeviceType::CPU,
           THFloatTensor)
-ALLREDUCE(torch_DoubleTensor, MPIDataType::HOROVOD_FLOAT64, DeviceType::CPU,
+ALLREDUCE(torch_DoubleTensor, DataType::HOROVOD_FLOAT64, DeviceType::CPU,
           THDoubleTensor)
 
 #if HOROVOD_GPU_ALLREDUCE
@@ -267,19 +267,19 @@ ALLREDUCE_CUDA_ON_CPU(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64,
     return DoAllgather<HorovodType, DeviceType>(tensor, output, name);         \
   }
 
-ALLGATHER(torch_ByteTensor, MPIDataType::HOROVOD_UINT8, DeviceType::CPU,
+ALLGATHER(torch_ByteTensor, DataType::HOROVOD_UINT8, DeviceType::CPU,
           THByteTensor)
-ALLGATHER(torch_CharTensor, MPIDataType::HOROVOD_INT8, DeviceType::CPU,
+ALLGATHER(torch_CharTensor, DataType::HOROVOD_INT8, DeviceType::CPU,
           THCharTensor)
-ALLGATHER(torch_ShortTensor, MPIDataType::HOROVOD_INT16, DeviceType::CPU,
+ALLGATHER(torch_ShortTensor, DataType::HOROVOD_INT16, DeviceType::CPU,
           THShortTensor)
-ALLGATHER(torch_IntTensor, MPIDataType::HOROVOD_INT32, DeviceType::CPU,
+ALLGATHER(torch_IntTensor, DataType::HOROVOD_INT32, DeviceType::CPU,
           THIntTensor)
-ALLGATHER(torch_LongTensor, MPIDataType::HOROVOD_INT64, DeviceType::CPU,
+ALLGATHER(torch_LongTensor, DataType::HOROVOD_INT64, DeviceType::CPU,
           THLongTensor)
-ALLGATHER(torch_FloatTensor, MPIDataType::HOROVOD_FLOAT32, DeviceType::CPU,
+ALLGATHER(torch_FloatTensor, DataType::HOROVOD_FLOAT32, DeviceType::CPU,
           THFloatTensor)
-ALLGATHER(torch_DoubleTensor, MPIDataType::HOROVOD_FLOAT64, DeviceType::CPU,
+ALLGATHER(torch_DoubleTensor, DataType::HOROVOD_FLOAT64, DeviceType::CPU,
           THDoubleTensor)
 
 #if HOROVOD_GPU_ALLGATHER
@@ -330,19 +330,19 @@ ALLGATHER_CUDA_ON_CPU(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64,
                                                 name);                         \
   }
 
-BROADCAST(torch_ByteTensor, MPIDataType::HOROVOD_UINT8, DeviceType::CPU,
+BROADCAST(torch_ByteTensor, DataType::HOROVOD_UINT8, DeviceType::CPU,
           THByteTensor)
-BROADCAST(torch_CharTensor, MPIDataType::HOROVOD_INT8, DeviceType::CPU,
+BROADCAST(torch_CharTensor, DataType::HOROVOD_INT8, DeviceType::CPU,
           THCharTensor)
-BROADCAST(torch_ShortTensor, MPIDataType::HOROVOD_INT16, DeviceType::CPU,
+BROADCAST(torch_ShortTensor, DataType::HOROVOD_INT16, DeviceType::CPU,
           THShortTensor)
-BROADCAST(torch_IntTensor, MPIDataType::HOROVOD_INT32, DeviceType::CPU,
+BROADCAST(torch_IntTensor, DataType::HOROVOD_INT32, DeviceType::CPU,
           THIntTensor)
-BROADCAST(torch_LongTensor, MPIDataType::HOROVOD_INT64, DeviceType::CPU,
+BROADCAST(torch_LongTensor, DataType::HOROVOD_INT64, DeviceType::CPU,
           THLongTensor)
-BROADCAST(torch_FloatTensor, MPIDataType::HOROVOD_FLOAT32, DeviceType::CPU,
+BROADCAST(torch_FloatTensor, DataType::HOROVOD_FLOAT32, DeviceType::CPU,
           THFloatTensor)
-BROADCAST(torch_DoubleTensor, MPIDataType::HOROVOD_FLOAT64, DeviceType::CPU,
+BROADCAST(torch_DoubleTensor, DataType::HOROVOD_FLOAT64, DeviceType::CPU,
           THDoubleTensor)
 
 #if HOROVOD_GPU_BROADCAST

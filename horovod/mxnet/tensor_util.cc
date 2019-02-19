@@ -19,22 +19,22 @@ namespace horovod {
 namespace mxnet {
 
 // Define all types for TensorUtil.
-const MPIDataType TensorUtil::GetDType(NDArray* tensor) {
+const DataType TensorUtil::GetDType(NDArray* tensor) {
   switch (tensor->dtype()) {
   case mshadow::kFloat32:
-    return MPIDataType::HOROVOD_FLOAT32;
+    return DataType::HOROVOD_FLOAT32;
   case mshadow::kFloat64:
-    return MPIDataType::HOROVOD_FLOAT64;
+    return DataType::HOROVOD_FLOAT64;
   case mshadow::kFloat16:
-    return MPIDataType::HOROVOD_FLOAT16;
+    return DataType::HOROVOD_FLOAT16;
   case mshadow::kUint8:
-    return MPIDataType::HOROVOD_UINT8;
+    return DataType::HOROVOD_UINT8;
   case mshadow::kInt32:
-    return MPIDataType::HOROVOD_INT32;
+    return DataType::HOROVOD_INT32;
   case mshadow::kInt8:
-    return MPIDataType::HOROVOD_INT8;
+    return DataType::HOROVOD_INT8;
   case mshadow::kInt64:
-    return MPIDataType::HOROVOD_INT64;
+    return DataType::HOROVOD_INT64;
   default:
     throw std::logic_error("GetDType: Type " + std::to_string(tensor->dtype()) +
                            " is not supported in MPI mode.");

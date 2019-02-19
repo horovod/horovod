@@ -98,7 +98,7 @@ private:
 class TFTensor : public common::Tensor {
 public:
   TFTensor(::tensorflow::Tensor& tensor);
-  virtual const common::MPIDataType dtype() const override;
+  virtual const common::DataType dtype() const override;
   virtual const common::TensorShape shape() const override;
   virtual const void* data() const override;
   virtual int64_t size() const override;
@@ -170,7 +170,7 @@ const void* TFPersistentBuffer::AccessData(
 
 TFTensor::TFTensor(::tensorflow::Tensor& tensor) : tensor_(tensor) {}
 
-const common::MPIDataType TFTensor::dtype() const {
+const common::DataType TFTensor::dtype() const {
   switch (tensor_.dtype()) {
   case DT_UINT8:
     return common::HOROVOD_UINT8;

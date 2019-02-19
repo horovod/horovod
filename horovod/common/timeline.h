@@ -25,7 +25,7 @@
 #include <vector>
 
 #include "common.h"
-#include "mpi_message.h"
+#include "message.h"
 
 namespace horovod {
 namespace common {
@@ -81,11 +81,11 @@ public:
   void Initialize(std::string file_name, unsigned int horovod_size);
   inline bool Initialized() const { return initialized_; }
   void NegotiateStart(const std::string& tensor_name,
-                      MPIRequest::RequestType request_type);
+                      Request::RequestType request_type);
   void NegotiateRankReady(const std::string& tensor_name, int rank);
   void NegotiateEnd(const std::string& tensor_name);
   void Start(const std::string& tensor_name,
-             MPIResponse::ResponseType response_type);
+             Response::ResponseType response_type);
   void ActivityStart(const std::string& tensor_name,
                      const std::string& activity);
   void ActivityEnd(const std::string& tensor_name);

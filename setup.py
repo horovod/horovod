@@ -509,11 +509,12 @@ def get_common_options(build_ext):
                 'third_party/boost/preprocessor/include',
                 'third_party/boost/static_assert/include',
                 'third_party/boost/type_traits/include',
-                'third_party/boost/utility/include']
+                'third_party/boost/utility/include',
+                'third_party/flatbuffers/include']
     SOURCES = ['horovod/common/common.cc',
                'horovod/common/fusion_buffer_manager.cc',
-               'horovod/common/mpi_message.cc',
                'horovod/common/half.cc',
+               'horovod/common/message.cc',
                'horovod/common/operations.cc',
                'horovod/common/parameter_manager.cc',
                'horovod/common/timeline.cc',

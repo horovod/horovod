@@ -19,19 +19,19 @@ namespace horovod {
 namespace torch {
 
 // Define all types for TensorUtil.
-TENSOR_UTIL_DEFINE_CPU_TYPE(MPIDataType::HOROVOD_UINT8, THByteTensor,
+TENSOR_UTIL_DEFINE_CPU_TYPE(DataType::HOROVOD_UINT8, THByteTensor,
                             THByteStorage)
-TENSOR_UTIL_DEFINE_CPU_TYPE(MPIDataType::HOROVOD_INT8, THCharTensor,
+TENSOR_UTIL_DEFINE_CPU_TYPE(DataType::HOROVOD_INT8, THCharTensor,
                             THCharStorage)
-TENSOR_UTIL_DEFINE_CPU_TYPE(MPIDataType::HOROVOD_INT16, THShortTensor,
+TENSOR_UTIL_DEFINE_CPU_TYPE(DataType::HOROVOD_INT16, THShortTensor,
                             THShortStorage)
-TENSOR_UTIL_DEFINE_CPU_TYPE(MPIDataType::HOROVOD_INT32, THIntTensor,
+TENSOR_UTIL_DEFINE_CPU_TYPE(DataType::HOROVOD_INT32, THIntTensor,
                             THIntStorage)
-TENSOR_UTIL_DEFINE_CPU_TYPE(MPIDataType::HOROVOD_INT64, THLongTensor,
+TENSOR_UTIL_DEFINE_CPU_TYPE(DataType::HOROVOD_INT64, THLongTensor,
                             THLongStorage)
-TENSOR_UTIL_DEFINE_CPU_TYPE(MPIDataType::HOROVOD_FLOAT32, THFloatTensor,
+TENSOR_UTIL_DEFINE_CPU_TYPE(DataType::HOROVOD_FLOAT32, THFloatTensor,
                             THFloatStorage)
-TENSOR_UTIL_DEFINE_CPU_TYPE(MPIDataType::HOROVOD_FLOAT64, THDoubleTensor,
+TENSOR_UTIL_DEFINE_CPU_TYPE(DataType::HOROVOD_FLOAT64, THDoubleTensor,
                             THDoubleStorage)
 
 #if HAVE_CUDA
