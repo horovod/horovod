@@ -1,4 +1,4 @@
-# Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
+# Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ import threading
 import time
 
 from horovod.spark.task import task_service
-from horovod.spark.util import codec, secret
 from horovod.spark.driver import driver_service
+from horovod.run.common.util import codec, secret
 
 
 def parent_process_monitor(initial_ppid):
@@ -39,10 +39,10 @@ def main(driver_addresses):
 
     key = codec.loads_base64(os.environ[secret.HOROVOD_SECRET_KEY])
     rank = int(os.environ['OMPI_COMM_WORLD_RANK'])
-    driver_client = driver_service.DriverClient(driver_addresses, key)
+    driver_client = driver_service.SparkDriverClient(driver_addresses, key)
     task_index = driver_client.task_index_by_rank(rank)
     task_addresses = driver_client.all_task_addresses(task_index)
-    task_client = task_service.TaskClient(task_index, task_addresses, key)
+    task_client = task_service.SparkTaskClient(task_index, task_addresses, key)
     fn, args, kwargs = driver_client.code()
     result = fn(*args, **kwargs)
     task_client.register_code_result(result)
