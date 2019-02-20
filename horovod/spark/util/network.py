@@ -28,6 +28,10 @@ class PingRequest(object):
     pass
 
 
+class NoValidAddressesFound(Exception):
+    pass
+
+
 class PingResponse(object):
     def __init__(self, service_name, source_address):
         self.service_name = service_name
@@ -140,6 +144,9 @@ class BasicService(object):
         self._server.server_close()
         self._thread.join()
 
+    def get_port(self):
+        return self._port
+
 
 class BasicClient(object):
     def __init__(self, service_name, addresses, key, match_intf=False, probe_timeout=20, retries=3):
@@ -151,8 +158,8 @@ class BasicClient(object):
         self._retries = retries
         self._addresses = self._probe(addresses)
         if not self._addresses:
-            raise Exception('Unable to connect to the %s on any of the addresses: %s'
-                            % (service_name, addresses))
+            raise NoValidAddressesFound('Unable to connect to the %s on any of the addresses: %s'
+                                        % (service_name, addresses))
 
     def _probe(self, addresses):
         result_queue = queue.Queue()
