@@ -84,7 +84,7 @@ namespace {
 // All the Horovod state that must be stored globally per-process.
 HorovodGlobalState horovod_global;
 
-MPIChannel mpi_channel;
+MPIContext mpi_context;
 
 #if HAVE_CUDA
 CUDAContext cuda_context;
@@ -130,27 +130,27 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 
 #if HAVE_CUDA
 #if HOROVOD_GPU_ALLREDUCE == 'M'
-  allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new MPI_CUDAAllreduce(&mpi_channel, &cuda_context, &state)));
+  allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new MPI_CUDAAllreduce(&mpi_context, &cuda_context, &state)));
 
 #else
   #if HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
     allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
-        new NCCLHierarchicalAllreduce(&nccl_context, &mpi_channel, &cuda_context, &state)));
+        new NCCLHierarchicalAllreduce(&nccl_context, &mpi_context, &cuda_context, &state)));
     allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
-        new NCCLAllreduce(&nccl_context, &mpi_channel, &cuda_context, &state)));
+        new NCCLAllreduce(&nccl_context, &mpi_context, &cuda_context, &state)));
 
   #elif HAVE_DDL && HOROVOD_GPU_ALLREDUCE == 'D'
-    allreduce_ops.push_back(std::shared_ptr<Allreduce>(new DDLAllreduce(&ddl_context, &cuda_context, &state)));
+    allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new DDLAllreduce(&ddl_context, &cuda_context, &state)));
   #endif
 
-  allgather_ops.push_back(std::shared_ptr<AllgatherOp>(new MPIHierarchicalAllgather(&mpi_channel, &state)));
+  allgather_ops.push_back(std::shared_ptr<AllgatherOp>(new MPIHierarchicalAllgather(&mpi_context, &state)));
 #endif
 #endif
 
   // Default operations, always enabled but last to be checked.
-  allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpi_channel, &state)));
-  allgather_ops.push_back(std::shared_ptr<AllgatherOp>(new MPIAllgather(&mpi_channel, &state)));
-  broadcast_ops.push_back(std::shared_ptr<BroadcastOp>(new MPIBroadcast(&mpi_channel, &state)));
+  allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpi_context, &state)));
+  allgather_ops.push_back(std::shared_ptr<AllgatherOp>(new MPIAllgather(&mpi_context, &state)));
+  broadcast_ops.push_back(std::shared_ptr<BroadcastOp>(new MPIBroadcast(&mpi_context, &state)));
   std::shared_ptr<ErrorOp> error_op(new ErrorOp(&state));
 
   return new OperationManager(&state.param_manager, allreduce_ops, allgather_ops, broadcast_ops, error_op);
@@ -399,7 +399,7 @@ Response ConstructResponse(std::unique_ptr<MessageTable>& message_table,
 
 // Return the total byte size of the final allgathered output tensor
 int64_t TotalByteSizeOfAllgatherOutput(const std::vector<int64_t> &tensor_sizes,
-                                       const TensorTableEntry entry, Channel& ctx) {
+                                       const TensorTableEntry entry, MPIContext& ctx) {
   int64_t total_dimension_size = 0;
   for (auto sz : tensor_sizes) {
     total_dimension_size += sz;
@@ -414,7 +414,7 @@ int64_t TotalByteSizeOfAllgatherOutput(const std::vector<int64_t> &tensor_sizes,
     total_count_of_output_entries *= entry.tensor->shape().dim_size(i);
   }
   int element_size;
-  ctx.GetTypeSize(entry.tensor->dtype(), &element_size);
+  MPI_GetTypeSize(ctx, entry.tensor->dtype(), &element_size);
   int64_t total_byte_size_of_output =
       total_count_of_output_entries * element_size;
 
@@ -540,7 +540,7 @@ void PerformOperation(TensorTable& tensor_table, Response response) {
 
 // Report Tensors that were submitted to be reduced, gathered or broadcasted by
 // some ranks but not others and are waiting for long time to get processed.
-void CheckForStalledTensors(HorovodGlobalState& state, MPIChannel& ctx) {
+void CheckForStalledTensors(HorovodGlobalState& state, MPIContext& ctx) {
   bool preamble = false;
   auto now = std::chrono::steady_clock::now();
   for (auto& m : *state.message_table) {
@@ -609,8 +609,8 @@ void CheckForStalledTensors(HorovodGlobalState& state, MPIChannel& ctx) {
 //      in the same order, so we cannot dispatch one thread per tensor,
 //      otherwise we may end up dispatching many blocked threads and never make
 //      progress if we have a thread pool limit.
-bool RunLoopOnce(HorovodGlobalState& state, MPIChannel& ctx, bool is_coordinator);
-void BackgroundThreadLoop(HorovodGlobalState& state, MPIChannel& ctx) {
+bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator);
+void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
   // Initialize MPI if it was not initialized. This must happen on the
   // background thread, since not all MPI implementations support being called
   // from multiple threads.
@@ -947,7 +947,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIChannel& ctx) {
 //      response from the coordinator. At that point, the tick ends.
 //      If instead of "DONE" they receive "SHUTDOWN", they exit their background
 //      loop.
-bool RunLoopOnce(HorovodGlobalState& state, MPIChannel& ctx, bool is_coordinator) {
+bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator) {
   // This delay determines thread frequency and MPI message latency
   auto start_time = std::chrono::steady_clock::now();
   auto sleep_duration = state.last_cycle_start +
@@ -1312,7 +1312,7 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
     horovod_global.initialization_done = false;
 
     horovod_global.background_thread =
-        std::thread(BackgroundThreadLoop, std::ref(horovod_global), std::ref(mpi_channel));
+        std::thread(BackgroundThreadLoop, std::ref(horovod_global), std::ref(mpi_context));
   }
 
   // Wait to ensure that the background thread has finished initializing MPI.
@@ -1337,7 +1337,7 @@ void horovod_init(const int* ranks, int nranks) {
 }
 
 void horovod_init_comm(MPI_Comm comm) {
-  MPI_Comm_dup(comm, &(mpi_channel.mpi_comm));
+  MPI_Comm_dup(comm, &(mpi_context.mpi_comm));
   InitializeHorovodOnce(NULL, 0);
 }
 

@@ -14,7 +14,7 @@ a training script on 4 servers, each having 4 GPUs. If we launched one copy of t
     results back to them.  *Allreduce* is used to average dense tensors.  Here's an illustration from the
     [MPI Tutorial](http://mpitutorial.com/tutorials/mpi-reduce-and-allreduce/):
 
-    ![Allreduce Illustration](http://mpitutorial.com/tutorials/mpi-reduce-and-allreduce/mpi_allreduce_1.png)
+    ![MPI_Allreduce Illustration](http://mpitutorial.com/tutorials/mpi-reduce-and-allreduce/mpi_allreduce_1.png)
 
 * *Allgather* is an operation that gathers data from all processes on every process.  *Allgather* is used to collect
     values of sparse tensors.  Here's an illustration from the [MPI Tutorial](http://mpitutorial.com/tutorials/mpi-scatter-gather-and-allgather/):

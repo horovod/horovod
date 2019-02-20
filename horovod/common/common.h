@@ -60,6 +60,25 @@ enum StatusType { OK, UNKNOWN_ERROR, PRECONDITION_ERROR, ABORTED, INVALID_ARGUME
 
 enum DeviceType { CPU, GPU };
 
+enum Communicator {
+  GLOBAL = 0,
+  LOCAL = 1,
+  CROSS = 2
+};
+
+inline std::string CommunicatorName(Communicator comm) {
+  switch (comm) {
+    case GLOBAL:
+      return "global";
+    case LOCAL:
+      return "local";
+    case CROSS:
+      return "cross";
+    default:
+      return "<unknown>";
+  }
+}
+
 class Status {
 public:
   Status();

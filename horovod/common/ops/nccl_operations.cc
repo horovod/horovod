@@ -44,11 +44,11 @@ void NCCLContext::ErrorCheck(std::string op_name, ncclResult_t nccl_result) {
 }
 
 NCCLAllreduce::NCCLAllreduce(NCCLContext* nccl_context,
-                             Channel* cpu_channel,
+                             MPIContext* mpi_context,
                              CUDAContext* cuda_context,
                              HorovodGlobalState* global_state)
     : CUDAAllreduceAsync(cuda_context, global_state),
-      nccl_context_(nccl_context), cpu_channel_(cpu_channel) {}
+      nccl_context_(nccl_context), mpi_context_(mpi_context) {}
 
 void NCCLAllreduce::InitComm(std::vector<TensorTableEntry>& entries, const std::vector<int32_t>& devices) {
   // Determine GPU IDs of the devices participating in this communicator.
@@ -61,7 +61,7 @@ void NCCLAllreduce::InitComm(std::vector<TensorTableEntry>& entries, const std::
     timeline.ActivityStartAll(entries, INIT_NCCL);
 
     int nccl_rank, nccl_size;
-    Channel::Communicator nccl_id_bcast_comm;
+    Communicator nccl_id_bcast_comm;
     PopulateCommStrategy(nccl_rank, nccl_size, nccl_id_bcast_comm);
 
     ncclUniqueId nccl_id;
@@ -69,7 +69,7 @@ void NCCLAllreduce::InitComm(std::vector<TensorTableEntry>& entries, const std::
       nccl_context_->ErrorCheck("ncclGetUniqueId", ncclGetUniqueId(&nccl_id));
     }
 
-    cpu_channel_->Broadcast((void*) &nccl_id, sizeof(nccl_id), HOROVOD_BYTE, 0, nccl_id_bcast_comm);
+    MPI_Broadcast(*mpi_context_, (void*) &nccl_id, sizeof(nccl_id), HOROVOD_BYTE, 0, nccl_id_bcast_comm);
 
     ncclComm_t new_nccl_comm;
     auto nccl_result = ncclCommInitRank(&new_nccl_comm, nccl_size, nccl_id, nccl_rank);
@@ -78,7 +78,7 @@ void NCCLAllreduce::InitComm(std::vector<TensorTableEntry>& entries, const std::
 
     // Barrier helps NCCL to synchronize after initialization and avoid
     // deadlock that we've been seeing without it.
-    cpu_channel_->Barrier(Channel::Communicator::GLOBAL);
+    MPI_Barrier(*mpi_context_, Communicator::GLOBAL);
 
     timeline.ActivityEndAll(entries);
   }
@@ -105,15 +105,15 @@ const std::vector<int32_t> NCCLAllreduce::GetDeviceMap(const std::vector<int32_t
 }
 
 void NCCLAllreduce::PopulateCommStrategy(int& nccl_rank, int& nccl_size,
-                                         Channel::Communicator& nccl_id_bcast_comm) {
+                                         Communicator& nccl_id_bcast_comm) {
   nccl_rank = global_state_->rank;
   nccl_size = global_state_->size;
-  nccl_id_bcast_comm = Channel::Communicator::GLOBAL;
+  nccl_id_bcast_comm = Communicator::GLOBAL;
 }
 
-NCCLHierarchicalAllreduce::NCCLHierarchicalAllreduce(NCCLContext* nccl_context, Channel* cpu_channel,
+NCCLHierarchicalAllreduce::NCCLHierarchicalAllreduce(NCCLContext* nccl_context, MPIContext* mpi_context,
                                                      CUDAContext* cuda_context, HorovodGlobalState* global_state)
-    : NCCLAllreduce(nccl_context, cpu_channel,
+    : NCCLAllreduce(nccl_context, mpi_context,
                     cuda_context, global_state) {}
 
 bool NCCLHierarchicalAllreduce::Enabled(ParameterManager& param_manager,
@@ -130,7 +130,7 @@ void NCCLHierarchicalAllreduce::DoAllreduce(std::vector<TensorTableEntry>& entri
                                             int64_t& num_elements, size_t& buffer_len) {
   auto& first_entry = entries[0];
   int element_size;
-  cpu_channel_->GetTypeSize(first_entry.tensor->dtype(), &element_size);
+  MPI_GetTypeSize(*mpi_context_, first_entry.tensor->dtype(), &element_size);
 
   // If cluster is homogeneous and we are using fusion buffer, include
   // dummy elements from the buffer (if necessary) to make sure the data
@@ -240,8 +240,8 @@ void NCCLHierarchicalAllreduce::DoAllreduce(std::vector<TensorTableEntry>& entri
     timeline.ActivityEndAll(entries);
 
     timeline.ActivityStartAll(entries, MPI_ALLREDUCE);
-    cpu_channel_->Allreduce(host_buffer_, total_num_elements, first_entry,
-                            nullptr, Channel::Communicator::CROSS);
+    MPI_Allreduce(*mpi_context_, host_buffer_, total_num_elements, first_entry,
+                  nullptr, Communicator::CROSS);
     timeline.ActivityEndAll(entries);
 
     timeline.ActivityStartAll(entries, MEMCPY_OUT_HOST_BUFFER);
@@ -284,10 +284,10 @@ const std::vector<int32_t> NCCLHierarchicalAllreduce::GetDeviceMap(const std::ve
 }
 
 void NCCLHierarchicalAllreduce::PopulateCommStrategy(int& nccl_rank, int& nccl_size,
-                                                     Channel::Communicator& nccl_id_bcast_comm) {
+                                                     Communicator& nccl_id_bcast_comm) {
   nccl_rank = global_state_->local_rank;
   nccl_size = global_state_->local_size;
-  nccl_id_bcast_comm = Channel::Communicator::LOCAL;
+  nccl_id_bcast_comm = Communicator::LOCAL;
 }
 
 } // namespace common

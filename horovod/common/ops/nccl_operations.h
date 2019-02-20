@@ -20,6 +20,7 @@
 #include <nccl.h>
 
 #include "cuda_operations.h"
+#include "mpi_operations.h"
 
 namespace horovod {
 namespace common {
@@ -32,7 +33,7 @@ struct NCCLContext {
 
 class NCCLAllreduce : public CUDAAllreduceAsync {
 public:
-  NCCLAllreduce(NCCLContext* nccl_context, Channel* cpu_channel,
+  NCCLAllreduce(NCCLContext* nccl_context, MPIContext* mpi_context,
                 CUDAContext* cuda_context, HorovodGlobalState* global_state);
 
 protected:
@@ -45,17 +46,17 @@ protected:
   virtual const std::vector<int32_t> GetDeviceMap(const std::vector<int32_t>& devices);
 
   virtual void PopulateCommStrategy(int& nccl_rank, int& nccl_size,
-                                    Channel::Communicator& nccl_id_bcast_comm);
+                                    Communicator& nccl_id_bcast_comm);
 
   NCCLContext* nccl_context_;
   ncclComm_t* nccl_comm_;
 
-  Channel* cpu_channel_;
+  MPIContext* mpi_context_;
 };
 
 class NCCLHierarchicalAllreduce : public NCCLAllreduce {
 public:
-  NCCLHierarchicalAllreduce(NCCLContext* nccl_context, Channel* cpu_channel,
+  NCCLHierarchicalAllreduce(NCCLContext* nccl_context, MPIContext* mpi_context,
                             CUDAContext* cuda_context, HorovodGlobalState* global_state);
 
   bool Enabled(ParameterManager& param_manager,
@@ -71,7 +72,7 @@ private:
   const std::vector<int32_t> GetDeviceMap(const std::vector<int32_t>& devices) override;
 
   void PopulateCommStrategy(int& nccl_rank, int& nccl_size,
-                            Channel::Communicator& nccl_id_bcast_comm) override;
+                            Communicator& nccl_id_bcast_comm) override;
 };
 
 } // namespace common

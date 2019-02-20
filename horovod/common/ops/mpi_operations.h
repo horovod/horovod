@@ -22,7 +22,6 @@
 #include "mpi.h"
 
 #include "../common.h"
-#include "../communication_channel.h"
 #include "../global_state.h"
 #include "collective_operations.h"
 
@@ -33,31 +32,7 @@
 namespace horovod {
 namespace common {
 
-class MPIChannel : public Channel {
-public:
-  void Allreduce(const void* buffer_data, int64_t num_elements,
-                 TensorTableEntry& first_entry, const void* sendbuff,
-                 Communicator comm) override;
-
-  void Allgatherv(const void* sendbuf, int sendcount, DataType sendtype,
-                  void* recvbuf, const int recvcounts[],
-                  const int displs[], DataType recvtype,
-                  Communicator comm) override;
-
-  void Broadcast(const void* buffer_data, int64_t num_elements,
-                 DataType dtype, int root_rank,
-                 Communicator comm) override;
-
-  void Barrier(Communicator comm) override;
-
-  void AllocateSharedBuffer(int64_t window_size, int element_size, void* baseptr, Communicator comm) override;
-
-  void FreeSharedBuffer() override;
-
-  void QuerySharedBuffer(int rank, void* baseptr) override;
-
-  void GetTypeSize(DataType dtype, int* out) override;
-
+struct MPIContext {
   MPI_Datatype GetMPIDataType(std::shared_ptr<Tensor> tensor);
 
   MPI_Datatype GetMPIDataType(DataType dtype);
@@ -82,9 +57,32 @@ public:
   MPI_Win window;
 };
 
+void MPI_Allreduce(MPIContext& ctx, const void* buffer_data, int64_t num_elements,
+                   TensorTableEntry& first_entry, const void* sendbuff,
+                   Communicator comm);
+
+void MPI_Allgatherv(MPIContext& ctx, const void* sendbuf, int sendcount, DataType sendtype,
+                    void* recvbuf, const int* recvcounts,
+                    const int* displs, DataType recvtype,
+                    Communicator comm);
+
+void MPI_Broadcast(MPIContext& ctx, const void* buffer_data, int64_t num_elements,
+                   DataType dtype, int root_rank,
+                   Communicator comm);
+
+void MPI_Barrier(MPIContext& ctx, Communicator comm);
+
+void MPI_AllocateSharedBuffer(MPIContext& ctx, int64_t window_size, int element_size, void* baseptr, Communicator comm);
+
+void MPI_FreeSharedBuffer(MPIContext& ctx);
+
+void MPI_QuerySharedBuffer(MPIContext& ctx, int rank, void* baseptr);
+
+void MPI_GetTypeSize(MPIContext& ctx, DataType dtype, int* out);
+
 class MPIAllreduce : public AllreduceOp {
 public:
-  MPIAllreduce(MPIChannel* mpi_channel, HorovodGlobalState* global_state);
+  MPIAllreduce(MPIContext* mpi_context, HorovodGlobalState* global_state);
 
   virtual ~MPIAllreduce() = default;
 
@@ -97,13 +95,13 @@ protected:
                    const void* fused_input_data, void* buffer_data,
                    int64_t& num_elements, size_t& buffer_len) override;
 
-  MPIChannel* mpi_channel_;
+  MPIContext* mpi_context_;
 };
 
 #if HAVE_CUDA
 class MPI_CUDAAllreduce : public CUDAAllreduce {
 public:
-  MPI_CUDAAllreduce(MPIChannel* mpi_channel, CUDAContext* cuda_context,
+  MPI_CUDAAllreduce(MPIContext* mpi_context, CUDAContext* cuda_context,
                     CommunicationContext* comm_context, HorovodGlobalState* global_state);
   virtual ~MPI_CUDAAllreduce()=default;
 
@@ -112,55 +110,45 @@ protected:
                    const void* fused_input_data, void* buffer_data,
                    int64_t& num_elements, size_t& buffer_len) override;
 
-  MPIChannel* mpi_channel_;
+  MPIContext* mpi_context_;
 };
 #endif
 
 class MPIAllgather : public AllgatherOp {
 public:
-  MPIAllgather(MPIChannel* mpi_channel, HorovodGlobalState* global_state);
+  MPIAllgather(MPIContext* mpi_context, HorovodGlobalState* global_state);
 
   bool Enabled(ParameterManager& param_manager,
                std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
 
 protected:
-  void DoAllgatherv(std::vector<TensorTableEntry>& entries,
-                    const void* sendbuf, int sendcount, DataType sendtype,
-                    void* recvbuf, const int recvcounts[],
-                    const int displs[], DataType recvtype) override;
+  void DoAllgather(std::vector<TensorTableEntry>& entries, int* recvcounts, int* displcmnts,
+                   int64_t** entry_component_offsets, int64_t** entry_component_sizes,
+                   int64_t total_size, int element_size) override;
 
   int GetElementSize(DataType dtype) const override;
 
-  MPIChannel* mpi_channel_;
+  MPIContext* mpi_context_;
 };
 
-class MPIHierarchicalAllgather : public HierarchicalAllgather {
+class MPIHierarchicalAllgather : public MPIAllgather {
 public:
-  MPIHierarchicalAllgather(MPIChannel* mpi_channel, HorovodGlobalState* global_state);
+  MPIHierarchicalAllgather(MPIContext* mpi_context, HorovodGlobalState* global_state);
 
   bool Enabled(ParameterManager& param_manager,
                std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
 
 protected:
-  void DoAllgatherv(std::vector<TensorTableEntry>& entries,
-                    const void* sendbuf, int sendcount, DataType sendtype,
-                    void* recvbuf, const int recvcounts[],
-                    const int displs[], DataType recvtype) override;
-
-  void Barrier() override;
-
-  void FreeSharedBuffer() override;
-
-  void AllocateSharedBuffer(int64_t total_size_in_bytes, int element_size) override;
-
-  MPIChannel* mpi_channel_;
+  void DoAllgather(std::vector<TensorTableEntry>& entries, int* recvcounts, int* displcmnts,
+                   int64_t** entry_component_offsets, int64_t** entry_component_sizes,
+                   int64_t total_size, int element_size) override;
 };
 
 class MPIBroadcast : public BroadcastOp {
 public:
-  MPIBroadcast(MPIChannel* mpi_channel, HorovodGlobalState* global_state);
+  MPIBroadcast(MPIContext* mpi_context, HorovodGlobalState* global_state);
 
   bool Enabled(ParameterManager& param_manager,
                std::vector<TensorTableEntry>& entries,
@@ -171,7 +159,7 @@ protected:
                    const void* buffer_data, int64_t num_elements,
                    DataType dtype, int root_rank) override;
 
-  MPIChannel* mpi_channel_;
+  MPIContext* mpi_context_;
 };
 
 } // namespace common

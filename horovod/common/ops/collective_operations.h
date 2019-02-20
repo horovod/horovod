@@ -20,7 +20,6 @@
 #include <iostream>
 
 #include "../common.h"
-#include "../communication_channel.h"
 #include "../global_state.h"
 #include "../parameter_manager.h"
 
@@ -88,12 +87,7 @@ public:
 protected:
   virtual void DoAllgather(std::vector<TensorTableEntry>& entries, int* recvcounts, int* displcmnts,
                            int64_t** entry_component_offsets, int64_t** entry_component_sizes,
-                           int64_t total_size, int element_size);
-
-  virtual void DoAllgatherv(std::vector<TensorTableEntry>& entries,
-                            const void* sendbuf, int sendcount, DataType sendtype,
-                            void* recvbuf, const int recvcounts[],
-                            const int displs[], DataType recvtype) = 0;
+                           int64_t total_size, int element_size) = 0;
 
   virtual int GetElementSize(DataType dtype) const = 0;
 };
@@ -123,22 +117,6 @@ public:
   virtual ~ErrorOp() = default;
 
   virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response);
-};
-
-class HierarchicalAllgather : public AllgatherOp {
-public:
-  HierarchicalAllgather(HorovodGlobalState* global_state);
-
-protected:
-  void DoAllgather(std::vector<TensorTableEntry>& entries, int* recvcounts, int* displcmnts,
-                   int64_t** entry_component_offsets, int64_t** entry_component_sizes,
-                   int64_t total_size, int element_size) override;
-
-  virtual void Barrier() = 0;
-
-  virtual void FreeSharedBuffer() = 0;
-
-  virtual void AllocateSharedBuffer(int64_t total_size_in_bytes, int element_size) = 0;
 };
 
 } // namespace common
