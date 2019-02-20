@@ -162,19 +162,19 @@ ADAPTER_DEFINE_TYPE(DataType::HOROVOD_FLOAT64, DeviceType::CPU,
                     THDoubleTensor)
 
 #if HAVE_CUDA
-ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_UINT8, DeviceType::GPU,
+ADAPTER_DEFINE_TYPE(DataType::HOROVOD_UINT8, DeviceType::GPU,
                     THCudaByteTensor)
-ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_INT8, DeviceType::GPU,
+ADAPTER_DEFINE_TYPE(DataType::HOROVOD_INT8, DeviceType::GPU,
                     THCudaCharTensor)
-ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_INT16, DeviceType::GPU,
+ADAPTER_DEFINE_TYPE(DataType::HOROVOD_INT16, DeviceType::GPU,
                     THCudaShortTensor)
-ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_INT32, DeviceType::GPU,
+ADAPTER_DEFINE_TYPE(DataType::HOROVOD_INT32, DeviceType::GPU,
                     THCudaIntTensor)
-ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_INT64, DeviceType::GPU,
+ADAPTER_DEFINE_TYPE(DataType::HOROVOD_INT64, DeviceType::GPU,
                     THCudaLongTensor)
-ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_FLOAT32, DeviceType::GPU,
+ADAPTER_DEFINE_TYPE(DataType::HOROVOD_FLOAT32, DeviceType::GPU,
                     THCudaTensor)
-ADAPTER_DEFINE_TYPE(MPIDataType::HOROVOD_FLOAT64, DeviceType::GPU,
+ADAPTER_DEFINE_TYPE(DataType::HOROVOD_FLOAT64, DeviceType::GPU,
                     THCudaDoubleTensor)
 #endif
 
