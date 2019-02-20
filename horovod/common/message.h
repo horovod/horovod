@@ -20,8 +20,6 @@
 #include <string>
 #include <vector>
 
-#include "message.h"
-
 namespace horovod {
 namespace common {
 
