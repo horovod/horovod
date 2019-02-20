@@ -60,9 +60,9 @@ public:
   static void DivideTensorInPlace(T* tensor, int value);
 
 #if HAVE_CUDA
-  template <MPIDataType DT, class T, class TC>
+  template <DataType DT, class T, class TC>
   static void CopyCPUToCuda(T* cpu, TC* cuda);
-  template <MPIDataType DT, class TC, class T>
+  template <DataType DT, class TC, class T>
   static void AsyncCopyCudaToCPU(TC* cuda, T* cpu);
 #endif
 };
@@ -270,19 +270,19 @@ TENSOR_UTIL_DEFINE_CPU_TYPE_H(DataType::HOROVOD_FLOAT32, THFloatTensor)
 TENSOR_UTIL_DEFINE_CPU_TYPE_H(DataType::HOROVOD_FLOAT64, THDoubleTensor)
 
 #if HAVE_CUDA
-TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_UINT8, THCudaByteTensor,
+TENSOR_UTIL_DEFINE_CUDA_TYPE_H(DataType::HOROVOD_UINT8, THCudaByteTensor,
                                THByteTensor)
-TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_INT8, THCudaCharTensor,
+TENSOR_UTIL_DEFINE_CUDA_TYPE_H(DataType::HOROVOD_INT8, THCudaCharTensor,
                                THCharTensor)
-TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_INT16, THCudaShortTensor,
+TENSOR_UTIL_DEFINE_CUDA_TYPE_H(DataType::HOROVOD_INT16, THCudaShortTensor,
                                THShortTensor)
-TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_INT32, THCudaIntTensor,
+TENSOR_UTIL_DEFINE_CUDA_TYPE_H(DataType::HOROVOD_INT32, THCudaIntTensor,
                                THIntTensor)
-TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_INT64, THCudaLongTensor,
+TENSOR_UTIL_DEFINE_CUDA_TYPE_H(DataType::HOROVOD_INT64, THCudaLongTensor,
                                THLongTensor)
-TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_FLOAT32, THCudaTensor,
+TENSOR_UTIL_DEFINE_CUDA_TYPE_H(DataType::HOROVOD_FLOAT32, THCudaTensor,
                                THFloatTensor)
-TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_FLOAT64, THCudaDoubleTensor,
+TENSOR_UTIL_DEFINE_CUDA_TYPE_H(DataType::HOROVOD_FLOAT64, THCudaDoubleTensor,
                                THDoubleTensor)
 #endif
 
