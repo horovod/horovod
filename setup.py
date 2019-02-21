@@ -447,8 +447,10 @@ def get_ddl_dirs(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
         ddl_lib_dirs += [ddl_lib_dir]
 
     # Keep DDL legacy folders for backward compatibility
-    ddl_include_dirs += ['/opt/DL/ddl/include']
-    ddl_lib_dirs += ['/opt/DL/ddl/lib']
+    if not ddl_include_dirs:
+        ddl_include_dirs += ['/opt/DL/ddl/include']
+    if not ddl_lib_dirs:
+        ddl_lib_dirs += ['/opt/DL/ddl/lib']
 
     try:
         test_compile(build_ext, 'test_ddl', libraries=['ddl', 'ddl_pack'],
