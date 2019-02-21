@@ -42,7 +42,7 @@ def main(_):
         tf.keras.datasets.mnist.load_data(path='mnist-%d.npz' % hvd.rank())
 
     dataset = tf.data.Dataset.from_tensor_slices(
-        (tf.cast(mnist_images[..., tf.newaxis] / 255, tf.float32),
+        (tf.cast(mnist_images[..., tf.newaxis] / 255.0, tf.float32),
          tf.cast(mnist_labels, tf.int64))
     )
     dataset = dataset.shuffle(1000).batch(32)
