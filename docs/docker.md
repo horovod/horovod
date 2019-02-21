@@ -4,7 +4,7 @@ To streamline the installation process on GPU machines, we have published the re
 you can get started with Horovod in minutes. The container includes [Examples](../examples) in the `/examples`
 directory.
 
-Pre-built docker containers with Horovod are available on [DockerHub](https://hub.docker.com/r/uber/horovod).
+Pre-built docker containers with Horovod are available on [DockerHub](https://hub.docker.com/r/horovod/horovod).
 
 ### Building
 
@@ -12,7 +12,7 @@ Before building, you can modify `Dockerfile` to your liking, e.g. select a diffe
 
 ```bash
 $ mkdir horovod-docker
-$ wget -O horovod-docker/Dockerfile https://raw.githubusercontent.com/uber/horovod/master/Dockerfile
+$ wget -O horovod-docker/Dockerfile https://raw.githubusercontent.com/horovod/horovod/master/Dockerfile
 $ docker build -t horovod:latest horovod-docker
 ```
 
@@ -20,7 +20,7 @@ $ docker build -t horovod:latest horovod-docker
 
 After the container is built, run it using [nvidia-docker](https://github.com/NVIDIA/nvidia-docker).
 
-**Note**: you can replace `horovod:latest` with the [specific](https://hub.docker.com/r/uber/horovod/tags) pre-build 
+**Note**: you can replace `horovod:latest` with the [specific](https://hub.docker.com/r/horovod/horovod/tags) pre-build 
 Docker container with Horovod instead of building it by yourself
 
 ```bash
