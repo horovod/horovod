@@ -429,20 +429,49 @@ def get_nccl_vals(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
     return nccl_include_dirs, nccl_lib_dirs, nccl_libs
 
 
-def get_ddl_dirs():
-    # Default DDL home
-    ddl_home = '/opt/DL/ddl'
-    ddl_include_dir = '%s/include' % ddl_home
-    ddl_lib_dir = '%s/lib' % ddl_home
+def get_ddl_dirs(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
+    ddl_include_dirs = []
+    ddl_lib_dirs = []
 
-    if not os.path.exists(ddl_lib_dir):
-        raise DistutilsPlatformError(
-            'DDL lib was not found. Please, make sure \'ddl\' package is installed.')
-    if not os.path.exists(ddl_include_dir):
-        raise DistutilsPlatformError(
-            'DDL include was not found. Please, make sure \'ddl-dev\' package is installed.')
+    ddl_home = os.environ.get('HOROVOD_DDL_HOME')
+    if ddl_home:
+        ddl_include_dirs += ['%s/include' % ddl_home]
+        ddl_lib_dirs += ['%s/lib' % ddl_home, '%s/lib64' % ddl_home]
 
-    return [ddl_include_dir], [ddl_lib_dir]
+    ddl_include_dir = os.environ.get('HOROVOD_DDL_INCLUDE')
+    if ddl_include_dir:
+        ddl_include_dirs += [ddl_include_dir]
+
+    ddl_lib_dir = os.environ.get('HOROVOD_DDL_LIB')
+    if ddl_lib_dir:
+        ddl_lib_dirs += [ddl_lib_dir]
+
+    # Keep DDL legacy folders for backward compatibility
+    if not ddl_include_dirs:
+        ddl_include_dirs += ['/opt/DL/ddl/include']
+    if not ddl_lib_dirs:
+        ddl_lib_dirs += ['/opt/DL/ddl/lib']
+
+    try:
+        test_compile(build_ext, 'test_ddl', libraries=['ddl', 'ddl_pack'],
+                     include_dirs=ddl_include_dirs + cuda_include_dirs,
+                     library_dirs=ddl_lib_dirs + cuda_lib_dirs, extra_compile_preargs=cpp_flags,
+                     code=textwrap.dedent('''\
+                     #include <ddl.hpp>
+                     void test() {
+                     }
+                     '''))
+    except (CompileError, LinkError):
+        raise DistutilsPlatformError(
+            'IBM PowerAI DDL library was not found (see error above).\n'
+            'Please specify correct DDL location with the HOROVOD_DDL_HOME '
+            'environment variable or combination of HOROVOD_DDL_INCLUDE and '
+            'HOROVOD_DDL_LIB environment variables.\n\n'
+            'HOROVOD_DDL_HOME - path where DDL include and lib directories can be found\n'
+            'HOROVOD_DDL_INCLUDE - path to DDL include directory\n'
+            'HOROVOD_DDL_LIB - path to DDL lib directory')
+
+    return ddl_include_dirs, ddl_lib_dirs
 
 
 def get_common_options(build_ext):
@@ -483,7 +512,8 @@ def get_common_options(build_ext):
 
     if gpu_allreduce == 'DDL':
         have_ddl = True
-        ddl_include_dirs, ddl_lib_dirs = get_ddl_dirs()
+        ddl_include_dirs, ddl_lib_dirs = get_ddl_dirs(build_ext, cuda_include_dirs,
+                                                      cuda_lib_dirs, cpp_flags)
     else:
         have_ddl = False
         ddl_include_dirs = ddl_lib_dirs = []
