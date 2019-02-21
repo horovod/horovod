@@ -34,7 +34,7 @@ RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
     rm get-pip.py
 
 # Install TensorFlow, Keras, PyTorch and MXNet
-RUN pip install tensorflow-gpu==${TENSORFLOW_VERSION} keras h5py torch==${PYTORCH_VERSION} torchvision ${MXNET_URL}
+RUN pip install 'numpy<1.15.0' tensorflow-gpu==${TENSORFLOW_VERSION} keras h5py torch==${PYTORCH_VERSION} torchvision ${MXNET_URL}
 
 # Install Open MPI
 RUN mkdir /tmp/openmpi && \
@@ -79,7 +79,7 @@ RUN cat /etc/ssh/ssh_config | grep -v StrictHostKeyChecking > /etc/ssh/ssh_confi
 
 # Download examples
 RUN apt-get install -y --no-install-recommends subversion && \
-    svn checkout https://github.com/uber/horovod/trunk/examples && \
+    svn checkout https://github.com/horovod/horovod/trunk/examples && \
     rm -rf /examples/.svn
 
 WORKDIR "/examples"
