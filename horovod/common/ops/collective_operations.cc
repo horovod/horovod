@@ -24,97 +24,54 @@ HorovodOp::HorovodOp(HorovodGlobalState* global_state) : global_state_(global_st
 // Allreduce
 AllreduceOp::AllreduceOp(HorovodGlobalState* global_state) : HorovodOp(global_state) {}
 
-Status AllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
-  auto& first_entry = entries[0];
-
-  Initialize(entries, response);
-
-  const void* fused_input_data;
-  void* buffer_data;
-  size_t buffer_len;
-
-  // Copy memory into the fusion buffer.
-  if (entries.size() > 1) {
-    // Access the fusion buffer.
-    auto& buffer = global_state_->fusion_buffer.GetBuffer(
-        first_entry.device, first_entry.context->framework());
-    buffer_data = const_cast<void*>(buffer->AccessData(first_entry.context));
-
-    StartMemcpyInFusionBuffer(entries);
-    int64_t offset = 0;
-    for (auto& e : entries) {
-      void* buffer_data_at_offset = (uint8_t*) buffer_data + offset;
-      MemcpyInFusionBuffer(buffer_data_at_offset, e, entries);
-      offset += e.tensor->size();
-    }
-    EndMemcpyInFusionBuffer(entries);
-
-    buffer_len = (size_t) offset;
-
-    // Set the input data to originate from the buffer.
-    fused_input_data = buffer_data;
-  } else {
-    fused_input_data = first_entry.tensor->data();
-    buffer_data = (void*) first_entry.output->data();
-    buffer_len = (size_t) first_entry.output->size();
-  }
-
+int64_t AllreduceOp::NumElements(std::vector<TensorTableEntry>& entries) {
   int64_t num_elements = 0;
   for (auto& e : entries) {
     num_elements += e.tensor->shape().num_elements();
   }
+  return num_elements;
+}
 
-  // Do allreduce.
-  DoAllreduce(entries, fused_input_data, buffer_data, num_elements, buffer_len);
+void AllreduceOp::MemcpyInFusionBuffer(std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
+                                       void*& buffer_data, size_t& buffer_len) {
+  // Access the fusion buffer.
+  auto& first_entry = entries[0];
+  auto& buffer = global_state_->fusion_buffer.GetBuffer(
+      first_entry.device, first_entry.context->framework());
+  buffer_data = const_cast<void*>(buffer->AccessData(first_entry.context));
 
-  // Copy memory out of the fusion buffer.
-  if (entries.size() > 1) {
-    StartMemcpyOutFusionBuffer(entries);
-    int64_t offset = 0;
-    for (auto& e : entries) {
-      void* buffer_data_at_offset = (uint8_t*) buffer_data + offset;
-      MemcpyOutFusionBuffer(buffer_data_at_offset, e, entries);
-      offset += e.tensor->size();
-    }
-    EndMemcpyOutFusionBuffer(entries);
+  int64_t offset = 0;
+  for (auto& e : entries) {
+    void* buffer_data_at_offset = (uint8_t*) buffer_data + offset;
+    MemcpyEntryInFusionBuffer(buffer_data_at_offset, e, entries);
+    offset += e.tensor->size();
   }
 
-  return Finalize(entries);
+  buffer_len = (size_t) offset;
+
+  // Set the input data to originate from the buffer.
+  fused_input_data = buffer_data;
 }
 
-void AllreduceOp::Initialize(std::vector<TensorTableEntry>& entries, const Response& response) {
+void AllreduceOp::MemcpyOutFusionBuffer(std::vector<TensorTableEntry>& entries, void* buffer_data) {
+  int64_t offset = 0;
+  for (auto& e : entries) {
+    void* buffer_data_at_offset = (uint8_t*) buffer_data + offset;
+    MemcpyEntryOutFusionBuffer(buffer_data_at_offset, e, entries);
+    offset += e.tensor->size();
+  }
 }
 
-Status AllreduceOp::Finalize(std::vector<TensorTableEntry>& entries) {
-  return Status::OK();
-}
-
-void AllreduceOp::StartMemcpyInFusionBuffer(std::vector<TensorTableEntry>& entries) {
-  global_state_->timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
-}
-
-void AllreduceOp::MemcpyInFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
-                                       std::vector<TensorTableEntry>& entries) {
+void AllreduceOp::MemcpyEntryInFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
+                                            std::vector<TensorTableEntry>& entries) {
   std::memcpy(buffer_data_at_offset, e.tensor->data(),
               (size_t) e.tensor->size());
 }
 
-void AllreduceOp::EndMemcpyInFusionBuffer(std::vector<TensorTableEntry>& entries) {
-  global_state_->timeline.ActivityEndAll(entries);
-}
-
-void AllreduceOp::StartMemcpyOutFusionBuffer(std::vector<TensorTableEntry>& entries) {
-  global_state_->timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
-}
-
-void AllreduceOp::MemcpyOutFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
-                                        std::vector<TensorTableEntry>& entries) {
+void AllreduceOp::MemcpyEntryOutFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
+                                             std::vector<TensorTableEntry>& entries) {
   std::memcpy((void*) e.output->data(), buffer_data_at_offset,
               (size_t) e.tensor->size());
-}
-
-void AllreduceOp::EndMemcpyOutFusionBuffer(std::vector<TensorTableEntry>& entries) {
-  global_state_->timeline.ActivityEndAll(entries);
 }
 
 // Allgather

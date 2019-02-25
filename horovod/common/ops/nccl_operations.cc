@@ -50,10 +50,58 @@ NCCLAllreduce::NCCLAllreduce(NCCLContext* nccl_context,
     : CUDAAllreduceAsync(cuda_context, global_state),
       nccl_context_(nccl_context), mpi_context_(mpi_context) {}
 
-void NCCLAllreduce::InitComm(std::vector<TensorTableEntry>& entries, const std::vector<int32_t>& devices) {
-  // Determine GPU IDs of the devices participating in this communicator.
-  std::vector<int32_t> nccl_device_map = GetDeviceMap(devices);
+Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+  auto& first_entry = entries[0];
 
+  InitCUDA(entries);
+  InitComm(entries, response.devices());
+  InitCUDAQueue(entries, response);
+
+  const void* fused_input_data;
+  void* buffer_data;
+  size_t buffer_len;
+
+  // Copy memory into the fusion buffer.
+  if (entries.size() > 1) {
+    MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
+
+    if (global_state_->timeline.Initialized()) {
+      cuda_context_->RecordEvent(event_queue_, MEMCPY_IN_FUSION_BUFFER, stream);
+    }
+  } else {
+    fused_input_data = first_entry.tensor->data();
+    buffer_data = (void*) first_entry.output->data();
+    buffer_len = (size_t) first_entry.output->size();
+  }
+
+  int64_t num_elements = 0;
+  for (auto& e : entries) {
+    num_elements += e.tensor->shape().num_elements();
+  }
+
+  // Do allreduce.
+  auto nccl_result = ncclAllReduce(fused_input_data, buffer_data,
+                                   (size_t) num_elements,
+                                   GetNCCLDataType(first_entry.tensor), ncclSum,
+                                   *nccl_comm_, *stream_);
+  nccl_context_->ErrorCheck("ncclAllReduce", nccl_result);
+  if (global_state_->timeline.Initialized()) {
+    cuda_context_->RecordEvent(event_queue_, NCCL_ALLREDUCE, stream);
+  }
+
+  // Copy memory out of the fusion buffer.
+  if (entries.size() > 1) {
+    MemcpyOutFusionBuffer(entries, buffer_data);
+
+    if (global_state_->timeline.Initialized()) {
+      cuda_context_->RecordEvent(event_queue_, MEMCPY_OUT_FUSION_BUFFER, stream);
+    }
+  }
+
+  return FinalizeCUDAQueue(entries);
+}
+
+void NCCLAllreduce::InitComm(std::vector<TensorTableEntry>& entries, const std::vector<int32_t>& nccl_device_map) {
   // Ensure NCCL communicator is in the map before executing reduction.
   ncclComm_t& nccl_comm = nccl_context_->nccl_comms[nccl_device_map];
   if (nccl_comm == nullptr) {
@@ -86,24 +134,6 @@ void NCCLAllreduce::InitComm(std::vector<TensorTableEntry>& entries, const std::
   nccl_comm_ = &nccl_comm;
 }
 
-void NCCLAllreduce::DoAllreduce(std::vector<TensorTableEntry>& entries,
-                                const void* fused_input_data, void* buffer_data,
-                                int64_t& num_elements, size_t& buffer_len) {
-  auto& first_entry = entries[0];
-  auto nccl_result = ncclAllReduce(fused_input_data, buffer_data,
-                                   (size_t) num_elements,
-                                   GetNCCLDataType(first_entry.tensor), ncclSum,
-                                   *nccl_comm_, *stream_);
-  nccl_context_->ErrorCheck("ncclAllReduce", nccl_result);
-  if (global_state_->timeline.Initialized()) {
-    cuda_context_->RecordEvent(event_queue_, NCCL_ALLREDUCE, stream);
-  }
-}
-
-const std::vector<int32_t> NCCLAllreduce::GetDeviceMap(const std::vector<int32_t>& devices) {
-  return devices;
-}
-
 void NCCLAllreduce::PopulateCommStrategy(int& nccl_rank, int& nccl_size,
                                          Communicator& nccl_id_bcast_comm) {
   nccl_rank = global_state_->rank;
@@ -116,19 +146,43 @@ NCCLHierarchicalAllreduce::NCCLHierarchicalAllreduce(NCCLContext* nccl_context, 
     : NCCLAllreduce(nccl_context, mpi_context,
                     cuda_context, global_state) {}
 
-bool NCCLHierarchicalAllreduce::Enabled(ParameterManager& param_manager,
-                                        std::vector<TensorTableEntry>& entries,
-                                        const Response& response) const {
-  if (!NCCLAllreduce::Enabled(param_manager, entries, response)) {
-    return false;
-  }
-  return param_manager.HierarchicalAllreduce();
-}
-
-void NCCLHierarchicalAllreduce::DoAllreduce(std::vector<TensorTableEntry>& entries,
-                                            const void* fused_input_data, void* buffer_data,
-                                            int64_t& num_elements, size_t& buffer_len) {
+Status NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   auto& first_entry = entries[0];
+
+  // Determine GPU IDs of the devices participating in this communicator.
+  std::vector<int32_t> nccl_device_map;
+  nccl_device_map.reserve(global_state_->local_comm_ranks.size());
+  for (int rank : global_state_->local_comm_ranks) {
+    nccl_device_map.push_back(devices[rank]);
+  }
+
+  InitCUDA(entries);
+  InitComm(entries, nccl_device_map);
+  InitCUDAQueue(entries, response);
+
+  const void* fused_input_data;
+  void* buffer_data;
+  size_t buffer_len;
+
+  // Copy memory into the fusion buffer.
+  if (entries.size() > 1) {
+    MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
+
+    if (global_state_->timeline.Initialized()) {
+      cuda_context_->RecordEvent(event_queue_, MEMCPY_IN_FUSION_BUFFER, stream);
+    }
+  } else {
+    fused_input_data = first_entry.tensor->data();
+    buffer_data = (void*) first_entry.output->data();
+    buffer_len = (size_t) first_entry.output->size();
+  }
+
+  int64_t num_elements = 0;
+  for (auto& e : entries) {
+    num_elements += e.tensor->shape().num_elements();
+  }
+
+  // Do allreduce.
   int element_size;
   MPI_GetTypeSize(*mpi_context_, first_entry.tensor->dtype(), &element_size);
 
@@ -272,15 +326,26 @@ void NCCLHierarchicalAllreduce::DoAllreduce(std::vector<TensorTableEntry>& entri
       cuda_context_->RecordEvent(event_queue_, NCCL_BCAST, stream);
     }
   }
+
+  // Copy memory out of the fusion buffer.
+  if (entries.size() > 1) {
+    MemcpyOutFusionBuffer(entries, buffer_data);
+
+    if (global_state_->timeline.Initialized()) {
+      cuda_context_->RecordEvent(event_queue_, MEMCPY_OUT_FUSION_BUFFER, stream);
+    }
+  }
+
+  return FinalizeCUDAQueue(entries);
 }
 
-const std::vector<int32_t> NCCLHierarchicalAllreduce::GetDeviceMap(const std::vector<int32_t>& devices) {
-  std::vector<int32_t> nccl_device_map;
-  nccl_device_map.reserve(global_state_->local_comm_ranks.size());
-  for (int rank : global_state_->local_comm_ranks) {
-    nccl_device_map.push_back(devices[rank]);
+bool NCCLHierarchicalAllreduce::Enabled(ParameterManager& param_manager,
+                                        std::vector<TensorTableEntry>& entries,
+                                        const Response& response) const {
+  if (!NCCLAllreduce::Enabled(param_manager, entries, response)) {
+    return false;
   }
-  return nccl_device_map;
+  return param_manager.HierarchicalAllreduce();
 }
 
 void NCCLHierarchicalAllreduce::PopulateCommStrategy(int& nccl_rank, int& nccl_size,

@@ -49,27 +49,18 @@ public:
                        const Response& response) const = 0;
 
 protected:
-  virtual void DoAllreduce(std::vector<TensorTableEntry>& entries,
-                           const void* fused_input_data, void* buffer_data,
-                           int64_t& num_elements, size_t& buffer_len) = 0;
+  int64_t NumElements(std::vector<TensorTableEntry>& entries);
 
-  virtual void Initialize(std::vector<TensorTableEntry>& entries, const Response& response);
+  virtual void MemcpyInFusionBuffer(std::vector<TensorTableEntry>& entries,
+                                    const void*& fused_input_data, void*& buffer_data, size_t& buffer_len);
 
-  virtual Status Finalize(std::vector<TensorTableEntry>& entries);
+  virtual void MemcpyOutFusionBuffer(std::vector<TensorTableEntry>& entries, void* buffer_data);
 
-  virtual void StartMemcpyInFusionBuffer(std::vector<TensorTableEntry>& entries);
+  virtual void MemcpyEntryInFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
+                                         std::vector<TensorTableEntry>& entries) = 0;
 
-  virtual void MemcpyInFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
-                                    std::vector<TensorTableEntry>& entries);
-
-  virtual void EndMemcpyInFusionBuffer(std::vector<TensorTableEntry>& entries);
-
-  virtual void StartMemcpyOutFusionBuffer(std::vector<TensorTableEntry>& entries);
-
-  virtual void MemcpyOutFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
-                                     std::vector<TensorTableEntry>& entries);
-
-  virtual void EndMemcpyOutFusionBuffer(std::vector<TensorTableEntry>& entries);
+  virtual void MemcpyEntryOutFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
+                                          std::vector<TensorTableEntry>& entries) = 0;
 };
 
 class AllgatherOp : public HorovodOp {

@@ -70,49 +70,23 @@ public:
                const Response& response) const override;
 
 protected:
-  void Initialize(std::vector<TensorTableEntry>& entries, const Response& response) override;
+  void MemcpyEntryInFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
+                                 std::vector<TensorTableEntry>& entries) override;
 
-  void MemcpyInFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
-                            std::vector<TensorTableEntry>& entries) override;
-
-  void EndMemcpyInFusionBuffer(std::vector<TensorTableEntry>& entries) override;
-
-  void MemcpyOutFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
-                             std::vector<TensorTableEntry>& entries) override;
-
-  void EndMemcpyOutFusionBuffer(std::vector<TensorTableEntry>& entries) override;
+  void MemcpyEntryOutFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
+                                  std::vector<TensorTableEntry>& entries) override;
 
   void InitCUDA(std::vector<TensorTableEntry>& entries);
 
-  virtual void InitComm(std::vector<TensorTableEntry>& entries, const std::vector<int32_t>& devices) = 0;
+  void InitCUDAQueue(std::vector<TensorTableEntry>& entries, const Response& response);
 
-  struct CUDAContext* cuda_context_;
-};
-
-// Implementation of the Allreduce operation that does not block using StreamSynchronize after each step
-// (memcpy into fusion buffer, allreduce, memcpy out of fusion buffer), and instead relies in a separate
-// finalize thread to handle synchronization at the end of the operation.
-class CUDAAllreduceAsync : public CUDAAllreduce {
-public:
-  CUDAAllreduceAsync(CUDAContext* context,
-                     HorovodGlobalState* global_state);
-
-protected:
-  void Initialize(std::vector<TensorTableEntry>& entries, const Response& response) override;
-
-  Status Finalize(std::vector<TensorTableEntry>& entries) override;
-
-  void StartMemcpyInFusionBuffer(std::vector<TensorTableEntry>& entries) override;
-
-  void EndMemcpyInFusionBuffer(std::vector<TensorTableEntry>& entries) override;
-
-  void StartMemcpyOutFusionBuffer(std::vector<TensorTableEntry>& entries) override;
-
-  void EndMemcpyOutFusionBuffer(std::vector<TensorTableEntry>& entries) override;
+  Status FinalizeCUDAQueue(std::vector<TensorTableEntry>& entries);
 
   std::queue<std::pair<std::string, cudaEvent_t>> event_queue_;
   cudaStream_t* stream_;
   void* host_buffer_;
+
+  struct CUDAContext* cuda_context_;
 };
 
 } // namespace common

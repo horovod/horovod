@@ -147,18 +147,56 @@ void DoMPIAllreduce(MPIContext* mpi_context,
 MPIAllreduce::MPIAllreduce(MPIContext* mpi_context, HorovodGlobalState* global_state)
     : AllreduceOp(global_state), mpi_context_(mpi_context) {}
 
+Status MPIAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+  auto& first_entry = entries[0];
+
+  void* buffer_data;
+  size_t buffer_len;
+  int64_t num_elements = NumElements(entries);
+
+  // Copy memory into the fusion buffer.
+  auto& timeline = global_state_->timeline;
+  if (entries.size() > 1) {
+    timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
+    const void* fused_input_data;
+    MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
+    timeline.ActivityEndAll(entries);
+  } else {
+    buffer_data = (void*) first_entry.output->data();
+    buffer_len = (size_t) first_entry.output->size();
+  }
+
+  // Do allreduce.
+  timeline.ActivityStartAll(entries, MPI_ALLREDUCE);
+  DoMPIAllreduce(mpi_context_, entries, buffer_data, num_elements, buffer_len);
+  timeline.ActivityEndAll(entries);
+
+  // Copy memory out of the fusion buffer.
+  if (entries.size() > 1) {
+    timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
+    MemcpyOutFusionBuffer(entries, buffer_data);
+    timeline.ActivityEndAll(entries);
+  }
+
+  return Status::OK();
+}
+
 bool MPIAllreduce::Enabled(ParameterManager& param_manager,
                            std::vector<TensorTableEntry>& entries,
                            const Response& response) const {
   return true;
 }
 
-void MPIAllreduce::DoAllreduce(std::vector<TensorTableEntry>& entries,
-                               const void* fused_input_data, void* buffer_data,
-                               int64_t& num_elements, size_t& buffer_len) {
-  global_state_->timeline.ActivityStartAll(entries, MPI_ALLREDUCE);
-  DoMPIAllreduce(mpi_context_, entries, buffer_data, num_elements, buffer_len);
-  global_state_->timeline.ActivityEndAll(entries);
+void MPIAllreduce::MemcpyEntryInFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
+                                             std::vector<TensorTableEntry>& entries) {
+  std::memcpy(buffer_data_at_offset, e.tensor->data(),
+              (size_t) e.tensor->size());
+}
+
+void MPIAllreduce::MemcpyEntryOutFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
+                                              std::vector<TensorTableEntry>& entries) {
+  std::memcpy((void*) e.output->data(), buffer_data_at_offset,
+              (size_t) e.tensor->size());
 }
 
 #if HAVE_CUDA
@@ -167,12 +205,48 @@ MPI_CUDAAllreduce::MPI_CUDAAllreduce(MPIContext* mpi_context,
                                      : CUDAAllreduce(cuda_context, comm_context, global_state),
                                        mpi_context_(mpi_context) {}
 
-void MPI_CUDAAllreduce::DoAllreduce(std::vector<TensorTableEntry>& entries,
-                                    const void* fused_input_data, void* buffer_data,
-                                    int64_t& num_elements, size_t& buffer_len) {
-  global_state_->timeline.ActivityStartAll(entries, MPI_ALLREDUCE);
+Status MPI_CUDAAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+  auto& first_entry = entries[0];
+
+  InitCUDA(entries);
+
+  void* buffer_data;
+  size_t buffer_len;
+  int64_t num_elements = NumElements(entries);
+
+  // Copy memory into the fusion buffer.
+  auto& timeline = global_state_->timeline;
+  if (entries.size() > 1) {
+    timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
+    const void* fused_input_data;
+    MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
+
+    auto cuda_result = cudaStreamSynchronize(cuda_context_->streams[entries[0].device]);
+    cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_result);
+
+    timeline.ActivityEndAll(entries);
+  } else {
+    buffer_data = (void*) first_entry.output->data();
+    buffer_len = (size_t) first_entry.output->size();
+  }
+
+  // Do allreduce.
+  timeline.ActivityStartAll(entries, MPI_ALLREDUCE);
   DoMPIAllreduce(mpi_context_, entries, buffer_data, num_elements, buffer_len);
-  global_state_->timeline.ActivityEndAll(entries);
+  timeline.ActivityEndAll(entries);
+
+  // Copy memory out of the fusion buffer.
+  if (entries.size() > 1) {
+    timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
+    MemcpyOutFusionBuffer(entries, buffer_data);
+
+    auto cuda_result = cudaStreamSynchronize(cuda_context_->streams[entries[0].device]);
+    cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_result);
+
+    timeline.ActivityEndAll(entries);
+  }
+
+  return Status::OK();
 }
 #endif
 

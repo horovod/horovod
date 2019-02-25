@@ -31,19 +31,15 @@ struct NCCLContext {
   void ErrorCheck(std::string op_name, ncclResult_t nccl_result);
 };
 
-class NCCLAllreduce : public CUDAAllreduceAsync {
+class NCCLAllreduce : public CUDAAllreduce {
 public:
   NCCLAllreduce(NCCLContext* nccl_context, MPIContext* mpi_context,
                 CUDAContext* cuda_context, HorovodGlobalState* global_state);
 
+  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+
 protected:
-  void InitComm(std::vector<TensorTableEntry>& entries, const std::vector<int32_t>& devices) override;
-
-  void DoAllreduce(std::vector<TensorTableEntry>& entries,
-                   const void* fused_input_data, void* buffer_data,
-                   int64_t& num_elements, size_t& buffer_len) override;
-
-  virtual const std::vector<int32_t> GetDeviceMap(const std::vector<int32_t>& devices);
+  void InitComm(std::vector<TensorTableEntry>& entries, const std::vector<int32_t>& nccl_device_map);
 
   virtual void PopulateCommStrategy(int& nccl_rank, int& nccl_size,
                                     Communicator& nccl_id_bcast_comm);
@@ -59,18 +55,13 @@ public:
   NCCLHierarchicalAllreduce(NCCLContext* nccl_context, MPIContext* mpi_context,
                             CUDAContext* cuda_context, HorovodGlobalState* global_state);
 
+  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+
   bool Enabled(ParameterManager& param_manager,
                std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
 
-protected:
-  void DoAllreduce(std::vector<TensorTableEntry>& entries,
-                   const void* fused_input_data, void* buffer_data,
-                   int64_t& num_elements, size_t& buffer_len) override;
-
 private:
-  const std::vector<int32_t> GetDeviceMap(const std::vector<int32_t>& devices) override;
-
   void PopulateCommStrategy(int& nccl_rank, int& nccl_size,
                             Communicator& nccl_id_bcast_comm) override;
 };

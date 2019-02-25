@@ -35,9 +35,13 @@ DDLAllreduce::DDLAllreduce(DDLContext* ddl_context,
     : CUDAAllreduceAsync(cuda_context, global_state),
       ddl_context_(ddl_context) {}
 
-void DDLAllreduce::InitComm(std::vector<TensorTableEntry>& entries, const std::vector<int32_t>& devices) {
-  auto& timeline = global_state_->timeline;
+Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   auto& first_entry = entries[0];
+
+  InitCUDA(entries);
+  InitCUDAQueue(entries, response);
+
+  auto& timeline = global_state_->timeline;
   if (!ddl_context_->ddl_initialized) {
     // Initialize DDL
     auto ddl_options = std::getenv("DDL_OPTIONS");
@@ -54,11 +58,30 @@ void DDLAllreduce::InitComm(std::vector<TensorTableEntry>& entries, const std::v
   } else if (ddl_context_->ddl_local_device_id != first_entry.device) {
     throw std::logic_error("DDL does not support more than one GPU device per process.");
   }
-}
 
-void DDLAllreduce::DoAllreduce(std::vector<TensorTableEntry>& entries
-                               const void* fused_input_data, void* buffer_data,
-                               int64_t& num_elements, size_t& buffer_len) {
+  const void* fused_input_data;
+  void* buffer_data;
+  size_t buffer_len;
+
+  // Copy memory into the fusion buffer.
+  if (entries.size() > 1) {
+    MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
+
+    if (timeline.Initialized()) {
+      cuda_context_->RecordEvent(event_queue_, MEMCPY_IN_FUSION_BUFFER, stream);
+    }
+  } else {
+    fused_input_data = first_entry.tensor->data();
+    buffer_data = (void*) first_entry.output->data();
+    buffer_len = (size_t) first_entry.output->size();
+  }
+
+  int64_t num_elements = 0;
+  for (auto& e : entries) {
+    num_elements += e.tensor->shape().num_elements();
+  }
+
+  // Do allreduce.
   if (entries.size() == 1) {
     // Copy input buffer content to output buffer
     // because DDL only supports in-place allreduce
@@ -69,7 +92,6 @@ void DDLAllreduce::DoAllreduce(std::vector<TensorTableEntry>& entries
   }
 
   // Synchronize.
-  auto& timeline = global_state_->timeline;
   cuda_context_->WaitForEvents(event_queue_, entries, timeline);
 
   auto& first_entry = entries[0];
@@ -79,6 +101,17 @@ void DDLAllreduce::DoAllreduce(std::vector<TensorTableEntry>& entries
   if (ddl_result != DDL_SUCCESS) {
     throw std::logic_error("ddl_allreduce failed.");
   }
+
+  // Copy memory out of the fusion buffer.
+  if (entries.size() > 1) {
+    MemcpyOutFusionBuffer(entries, buffer_data);
+
+    if (timeline.Initialized()) {
+      cuda_context_->RecordEvent(event_queue_, MEMCPY_OUT_FUSION_BUFFER, stream);
+    }
+  }
+
+  return FinalizeCUDAQueue(entries);
 }
 
 } // namespace common

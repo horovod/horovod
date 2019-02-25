@@ -86,14 +86,18 @@ public:
 
   virtual ~MPIAllreduce() = default;
 
+  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+
   bool Enabled(ParameterManager& param_manager,
                std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
 
 protected:
-  void DoAllreduce(std::vector<TensorTableEntry>& entries,
-                   const void* fused_input_data, void* buffer_data,
-                   int64_t& num_elements, size_t& buffer_len) override;
+  void MemcpyEntryInFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
+                                 std::vector<TensorTableEntry>& entries) override;
+
+  void MemcpyEntryOutFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
+                                  std::vector<TensorTableEntry>& entries) override;
 
   MPIContext* mpi_context_;
 };
@@ -105,11 +109,9 @@ public:
                     CommunicationContext* comm_context, HorovodGlobalState* global_state);
   virtual ~MPI_CUDAAllreduce()=default;
 
-protected:
-  void DoAllreduce(std::vector<TensorTableEntry>& entries,
-                   const void* fused_input_data, void* buffer_data,
-                   int64_t& num_elements, size_t& buffer_len) override;
+  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
+protected:
   MPIContext* mpi_context_;
 };
 #endif

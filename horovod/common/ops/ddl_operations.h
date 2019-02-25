@@ -30,19 +30,15 @@ struct DDLContext {
   int32_t ddl_local_device_id = 0;
 };
 
-class DDLAllreduce : public CUDAAllreduceAsync {
+class DDLAllreduce : public CUDAAllreduce {
 public:
   DDLAllreduce(DDLContext* ddl_context,
                CUDAContext* cuda_context,
                HorovodGlobalState* global_state);
 
+  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+
 protected:
-  void InitComm(std::vector<TensorTableEntry>& entries, const std::vector<int32_t>& devices) override;
-
-  void Dollreduce(std::vector<TensorTableEntry>& entries,
-                  const void* fused_input_data, void* buffer_data,
-                  int64_t& num_elements, size_t& buffer_len) override;
-
   DDLContext* ddl_context_;
 };
 

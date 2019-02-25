@@ -108,8 +108,8 @@ void CUDAAllreduce::Initialize(std::vector<TensorTableEntry>& entries, const Res
   InitComm(entries, response.devices());
 }
 
-void CUDAAllreduce::MemcpyInFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
-                                         std::vector<TensorTableEntry>& entries) {
+void CUDAAllreduce::MemcpyEntryInFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
+                                              std::vector<TensorTableEntry>& entries) {
   auto& first_entry = entries[0];
   auto cuda_result = cudaMemcpyAsync(buffer_data_at_offset, e.tensor->data(),
                                      (size_t) e.tensor->size(), cudaMemcpyDeviceToDevice,
@@ -117,27 +117,13 @@ void CUDAAllreduce::MemcpyInFusionBuffer(void* buffer_data_at_offset, TensorTabl
   cuda_context_->ErrorCheck("cudaMemcpyAsync", cuda_result);
 }
 
-void CUDAAllreduce::EndMemcpyInFusionBuffer(std::vector<TensorTableEntry>& entries) {
-  auto cuda_result = cudaStreamSynchronize(cuda_context_->streams[entries[0].device]);
-  cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_result);
-
-  AllreduceOp::EndMemcpyInFusionBuffer(entries);
-}
-
-void CUDAAllreduce::MemcpyOutFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
-                                          std::vector<TensorTableEntry>& entries) {
+void CUDAAllreduce::MemcpyEntryOutFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
+                                               std::vector<TensorTableEntry>& entries) {
   auto& first_entry = entries[0];
   auto cuda_result = cudaMemcpyAsync((void*) e.output->data(), buffer_data_at_offset,
                                      (size_t) e.tensor->size(), cudaMemcpyDeviceToDevice,
                                      cuda_context_->streams[first_entry.device]);
   cuda_context_->ErrorCheck("cudaMemcpyAsync", cuda_result);
-}
-
-void CUDAAllreduce::EndMemcpyOutFusionBuffer(std::vector<TensorTableEntry>& entries) {
-  auto cuda_result = cudaStreamSynchronize(cuda_context_->streams[entries[0].device]);
-  cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_result);
-
-  AllreduceOp::EndMemcpyOutFusionBuffer(entries);
 }
 
 void CUDAAllreduce::InitCUDA(std::vector<TensorTableEntry>& entries) {
@@ -155,13 +141,7 @@ void CUDAAllreduce::InitCUDA(std::vector<TensorTableEntry>& entries) {
   }
 }
 
-CUDAAllreduceAsync::CUDAAllreduceAsync(CUDAContext* context,
-                                       HorovodGlobalState* global_state)
-    : CUDAAllreduce(context, global_state) {}
-
-void CUDAAllreduceAsync::Initialize(std::vector<TensorTableEntry>& entries, const Response& response) {
-  CUDAAllreduce::Initialize(entries, response);
-
+void CUDAAllreduce::InitCUDAQueue(std::vector<TensorTableEntry>& entries, const Response& response) {
   event_queue_ = std::queue<std::pair<std::string, cudaEvent_t>>();
   stream_ = &cuda_context_->streams[first_entry.device];
   host_buffer_ = nullptr;
@@ -171,7 +151,7 @@ void CUDAAllreduceAsync::Initialize(std::vector<TensorTableEntry>& entries, cons
   }
 }
 
-Status CUDAAllreduceAsync::Finalize(std::vector<TensorTableEntry>& entries) {
+Status CUDAAllreduce::FinalizeCUDAQueue(std::vector<TensorTableEntry>& entries) {
   // Use completion marker via event because it's faster than
   // blocking cudaStreamSynchronize() in this thread.
   cuda_context_->RecordEvent(event_queue_, "", *stream_);
@@ -202,24 +182,6 @@ Status CUDAAllreduceAsync::Finalize(std::vector<TensorTableEntry>& entries) {
   finalizer_thread.detach();
 
   return Status::InProgress();
-}
-
-void CUDAAllreduceAsync::StartMemcpyInFusionBuffer(std::vector<TensorTableEntry>& entries) {
-}
-
-void CUDAAllreduceAsync::EndMemcpyInFusionBuffer(std::vector<TensorTableEntry>& entries) {
-  if (global_state_->timeline.Initialized()) {
-    cuda_context_->RecordEvent(event_queue_, MEMCPY_IN_FUSION_BUFFER, stream);
-  }
-}
-
-void CUDAAllreduceAsync::StartMemcpyOutFusionBuffer(std::vector<TensorTableEntry>& entries) {
-}
-
-void CUDAAllreduceAsync::EndMemcpyOutFusionBuffer(std::vector<TensorTableEntry>& entries) {
-  if (global_state_->timeline.Initialized()) {
-    cuda_context_->RecordEvent(event_queue_, MEMCPY_OUT_FUSION_BUFFER, stream);
-  }
 }
 
 } // namespace common
