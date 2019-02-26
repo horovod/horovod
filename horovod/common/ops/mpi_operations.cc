@@ -259,13 +259,41 @@ bool MPIAllgather::Enabled(ParameterManager& param_manager,
   return true;
 }
 
-void MPIAllgather::DoAllgather(std::vector<TensorTableEntry>& entries, int* recvcounts, int* displcmnts,
-                               int64_t** entry_component_offsets, int64_t** entry_component_sizes,
-                               int64_t total_size, int element_size) {
-  // Data is at the CPU and hierarchical allgather is disabled, or
-  // Data is at the GPU and HOROVOD_GPU_ALLGATHER == MPI
+Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   auto& timeline = global_state_->timeline;
+
+  // Sizes of subcomponents of each entry from all ranks
+  auto** entry_component_sizes = new int64_t* [entries.size()];
+
+  // Offset of each subcomponent of every entry in the final buffer after
+  // allgatherv
+  auto** entry_component_offsets = new int64_t* [entries.size()];
+
+  auto* recvcounts = new int[global_state_->size]();
+  auto* displcmnts = new int[global_state_->size]();
+
+  for (size_t ec = 0; ec < entries.size(); ++ec) {
+    entry_component_sizes[ec] = new int64_t[global_state_->size]();
+    entry_component_offsets[ec] = new int64_t[global_state_->size]();
+  }
+
   auto& first_entry = entries[0];
+
+  timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
+  Status status = AllocateOutput(entries, response, entry_component_sizes, recvcounts);
+  if (!status.ok()) {
+    return status;
+  }
+  timeline.ActivityEndAll(entries);
+
+  SetDisplacements(recvcounts, displcmnts);
+  SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets);
+
+  int element_size;
+  MPI_GetTypeSize(*mpi_context_, first_entry.tensor->dtype(), &element_size);
+
+  int64_t total_size = displcmnts[global_state_->size - 1] +
+                       recvcounts[global_state_->size - 1];
 
   const void* sendbuf = nullptr;
   int64_t total_num_elements = 0;
@@ -334,28 +362,49 @@ void MPIAllgather::DoAllgather(std::vector<TensorTableEntry>& entries, int* recv
   }
   delete[] entry_component_sizes;
   delete[] entry_component_offsets;
-}
 
-int MPIAllgather::GetElementSize(DataType dtype) const {
-  int element_size;
-  MPI_GetTypeSize(*mpi_context_, dtype, &element_size);
-  return element_size;
+  return Status::OK();
 }
 
 MPIHierarchicalAllgather::MPIHierarchicalAllgather(MPIContext* mpi_context,
                                                    HorovodGlobalState* global_state)
     : MPIAllgather(mpi_context, global_state) {}
 
-bool MPIHierarchicalAllgather::Enabled(ParameterManager& param_manager,
-                                       std::vector<TensorTableEntry>& entries,
-                                       const Response& response) const {
-  return param_manager.HierarchicalAllgather();
-}
-
-void MPIHierarchicalAllgather::DoAllgather(std::vector<TensorTableEntry>& entries, int* recvcounts, int* displcmnts,
-                                           int64_t** entry_component_offsets, int64_t** entry_component_sizes,
-                                           int64_t total_size, int element_size) {
+Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   auto& timeline = global_state_->timeline;
+
+  // Sizes of subcomponents of each entry from all ranks
+  auto** entry_component_sizes = new int64_t* [entries.size()];
+
+  // Offset of each subcomponent of every entry in the final buffer after
+  // allgatherv
+  auto** entry_component_offsets = new int64_t* [entries.size()];
+
+  auto* recvcounts = new int[global_state_->size]();
+  auto* displcmnts = new int[global_state_->size]();
+
+  for (size_t ec = 0; ec < entries.size(); ++ec) {
+    entry_component_sizes[ec] = new int64_t[global_state_->size]();
+    entry_component_offsets[ec] = new int64_t[global_state_->size]();
+  }
+
+  auto& first_entry = entries[0];
+
+  timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
+  Status status = AllocateOutput(entries, response, entry_component_sizes, recvcounts);
+  if (!status.ok()) {
+    return status;
+  }
+  timeline.ActivityEndAll(entries);
+
+  SetDisplacements(recvcounts, displcmnts);
+  SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets);
+
+  int element_size;
+  MPI_GetTypeSize(*mpi_context_, first_entry.tensor->dtype(), &element_size);
+
+  int64_t total_size = displcmnts[global_state_->size - 1] +
+                       recvcounts[global_state_->size - 1];
 
   // If shared buffer is not initialized or is not large enough, reallocate
   int64_t total_size_in_bytes = total_size * element_size;
@@ -420,7 +469,6 @@ void MPIHierarchicalAllgather::DoAllgather(std::vector<TensorTableEntry>& entrie
   // Perform the cross-node allgather. If the cluster is homogeneous all
   // local ranks participate, otherwise local rank 0 handles all data
   global_state_->timeline.ActivityStartAll(entries, MPI_CROSS_ALLGATHER);
-  auto& first_entry = entries[0];
   if (global_state_->is_homogeneous || global_state_->local_rank == 0) {
     MPI_Allgatherv(*mpi_context_,
                    nullptr,
@@ -455,24 +503,43 @@ void MPIHierarchicalAllgather::DoAllgather(std::vector<TensorTableEntry>& entrie
   // Free the buffers
   delete[] cross_displcmnts;
   delete[] cross_recvcounts;
+
+  return Status::OK();
+}
+
+bool MPIHierarchicalAllgather::Enabled(ParameterManager& param_manager,
+                                       std::vector<TensorTableEntry>& entries,
+                                       const Response& response) const {
+  return param_manager.HierarchicalAllgather();
 }
 
 MPIBroadcast::MPIBroadcast(MPIContext* mpi_context, HorovodGlobalState* global_state)
     : BroadcastOp(global_state), mpi_context_(mpi_context) {}
 
+Status MPIBroadcast::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+  assert(entries.size() == 1);
+  auto e = entries[0];
+
+  // On root rank, MPI_Bcast sends data, on other ranks it receives data.
+  void* data_ptr;
+  if (global_state_->rank == e.root_rank) {
+    data_ptr = (void*) e.tensor->data();
+  } else {
+    data_ptr = (void*) e.output->data();
+  }
+
+  global_state_->timeline.ActivityStartAll(entries, MPI_BCAST);
+  MPI_Broadcast(*mpi_context_, data_ptr, (int) e.tensor->shape().num_elements(), e.tensor->dtype(), e.root_rank,
+                Communicator::GLOBAL);
+  global_state_->timeline.ActivityEndAll(entries);
+
+  return Status::OK();
+}
+
 bool MPIBroadcast::Enabled(ParameterManager& param_manager,
                            std::vector<TensorTableEntry>& entries,
                            const Response& response) const {
   return true;
-}
-
-void MPIBroadcast::DoBroadcast(std::vector<TensorTableEntry>& entries,
-                               const void* buffer_data, int64_t num_elements,
-                               DataType dtype, int root_rank) {
-  global_state_->timeline.ActivityStartAll(entries, MPI_BCAST);
-  MPI_Broadcast(*mpi_context_, buffer_data, num_elements, dtype, root_rank,
-                Communicator::GLOBAL);
-  global_state_->timeline.ActivityEndAll(entries);
 }
 
 } // namespace common

@@ -42,7 +42,7 @@ public:
 
   virtual ~AllreduceOp() = default;
 
-  virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response);
+  virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) = 0;
 
   virtual bool Enabled(ParameterManager& param_manager,
                        std::vector<TensorTableEntry>& entries,
@@ -69,18 +69,22 @@ public:
 
   virtual ~AllgatherOp() = default;
 
-  virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response);
+  virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) = 0;
 
   virtual bool Enabled(ParameterManager& param_manager,
                        std::vector<TensorTableEntry>& entries,
                        const Response& response) const = 0;
 
 protected:
-  virtual void DoAllgather(std::vector<TensorTableEntry>& entries, int* recvcounts, int* displcmnts,
-                           int64_t** entry_component_offsets, int64_t** entry_component_sizes,
-                           int64_t total_size, int element_size) = 0;
+  virtual Status AllocateOutput(std::vector<TensorTableEntry>& entries, const Response& response,
+                                int64_t**& entry_component_sizes, int*& recvcounts);
 
-  virtual int GetElementSize(DataType dtype) const = 0;
+  virtual void SetDisplacements(const int* recvcounts, int*& displcmnts);
+
+  virtual void SetEntryComponentOffsets(std::vector<TensorTableEntry>& entries,
+                                        int64_t** entry_component_sizes,
+                                        const int* recvcounts,
+                                        int64_t**& entry_component_offsets);
 };
 
 class BroadcastOp : public HorovodOp {
@@ -89,16 +93,11 @@ public:
 
   virtual ~BroadcastOp() = default;
 
-  virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response);
+  virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) = 0;
 
   virtual bool Enabled(ParameterManager& param_manager,
                        std::vector<TensorTableEntry>& entries,
-                       const Response& response) const;
-
-protected:
-  virtual void DoBroadcast(std::vector<TensorTableEntry>& entries,
-                           const void* buffer_data, int64_t num_elements,
-                           DataType dtype, int root_rank) = 0;
+                       const Response& response) const = 0;
 };
 
 class ErrorOp : public HorovodOp {

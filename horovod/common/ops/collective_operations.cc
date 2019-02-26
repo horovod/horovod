@@ -77,27 +77,8 @@ void AllreduceOp::MemcpyEntryOutFusionBuffer(void* buffer_data_at_offset, Tensor
 // Allgather
 AllgatherOp::AllgatherOp(HorovodGlobalState* global_state) : HorovodOp(global_state) {}
 
-Status AllgatherOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
-  auto& timeline = global_state_->timeline;
-
-  // Sizes of subcomponents of each entry from all ranks
-  auto** entry_component_sizes = new int64_t* [entries.size()];
-
-  // Offset of each subcomponent of every entry in the final buffer after
-  // allgatherv
-  auto** entry_component_offsets = new int64_t* [entries.size()];
-
-  auto* recvcounts = new int[global_state_->size]();
-  auto* displcmnts = new int[global_state_->size]();
-
-  for (size_t ec = 0; ec < entries.size(); ++ec) {
-    entry_component_sizes[ec] = new int64_t[global_state_->size]();
-    entry_component_offsets[ec] = new int64_t[global_state_->size]();
-  }
-
-  auto& first_entry = entries[0];
-
-  timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
+Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries, const Response& response,
+                                   int64_t**& entry_component_sizes, int*& recvcounts) {
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     auto& e = entries[ec];
     // Every tensor participating in Allgather operation may have different
@@ -131,8 +112,11 @@ Status AllgatherOp::Execute(std::vector<TensorTableEntry>& entries, const Respon
       return status;
     }
   }
-  timeline.ActivityEndAll(entries);
 
+  return Status::OK();
+}
+
+void AllgatherOp::SetDisplacements(const int* recvcounts, int*& displcmnts) {
   for (int rc = 0; rc < global_state_->size; ++rc) {
     if (rc == 0) {
       displcmnts[rc] = 0;
@@ -140,7 +124,12 @@ Status AllgatherOp::Execute(std::vector<TensorTableEntry>& entries, const Respon
       displcmnts[rc] = displcmnts[rc - 1] + recvcounts[rc - 1];
     }
   }
+}
 
+void AllgatherOp::SetEntryComponentOffsets(std::vector<TensorTableEntry>& entries,
+                                           int64_t** entry_component_sizes,
+                                           const int* recvcounts,
+                                           int64_t**& entry_component_offsets) {
   unsigned int rank_displacement = 0;
   for (int rc = 0; rc < global_state_->size; ++rc) {
     for (size_t ec = 0; ec < entries.size(); ++ec) {
@@ -154,42 +143,9 @@ Status AllgatherOp::Execute(std::vector<TensorTableEntry>& entries, const Respon
     }
     rank_displacement += recvcounts[rc];
   }
-
-  int element_size = GetElementSize(first_entry.tensor->dtype());
-  int64_t total_size = displcmnts[global_state_->size - 1] +
-                       recvcounts[global_state_->size - 1];
-
-  DoAllgather(entries, recvcounts, displcmnts,
-              entry_component_offsets, entry_component_sizes,
-              total_size, element_size);
-
-  return Status::OK();
 }
 
 BroadcastOp::BroadcastOp(HorovodGlobalState* global_state) : HorovodOp(global_state) {}
-
-Status BroadcastOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
-  assert(entries.size() == 1);
-  auto e = entries[0];
-
-  // On root rank, MPI_Bcast sends data, on other ranks it receives data.
-  void* data_ptr;
-  if (global_state_->rank == e.root_rank) {
-    data_ptr = (void*) e.tensor->data();
-  } else {
-    data_ptr = (void*) e.output->data();
-  }
-
-  DoBroadcast(entries, data_ptr, (int) e.tensor->shape().num_elements(), e.tensor->dtype(), e.root_rank);
-
-  return Status::OK();
-}
-
-bool BroadcastOp::Enabled(ParameterManager& param_manager,
-                          std::vector<TensorTableEntry>& entries,
-                          const Response& response) const {
-  return true;
-}
 
 ErrorOp::ErrorOp(HorovodGlobalState* global_state) : HorovodOp(global_state) {}
 

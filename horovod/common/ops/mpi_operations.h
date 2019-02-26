@@ -120,17 +120,13 @@ class MPIAllgather : public AllgatherOp {
 public:
   MPIAllgather(MPIContext* mpi_context, HorovodGlobalState* global_state);
 
+  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+
   bool Enabled(ParameterManager& param_manager,
                std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
 
 protected:
-  void DoAllgather(std::vector<TensorTableEntry>& entries, int* recvcounts, int* displcmnts,
-                   int64_t** entry_component_offsets, int64_t** entry_component_sizes,
-                   int64_t total_size, int element_size) override;
-
-  int GetElementSize(DataType dtype) const override;
-
   MPIContext* mpi_context_;
 };
 
@@ -138,29 +134,24 @@ class MPIHierarchicalAllgather : public MPIAllgather {
 public:
   MPIHierarchicalAllgather(MPIContext* mpi_context, HorovodGlobalState* global_state);
 
+  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+
   bool Enabled(ParameterManager& param_manager,
                std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
-
-protected:
-  void DoAllgather(std::vector<TensorTableEntry>& entries, int* recvcounts, int* displcmnts,
-                   int64_t** entry_component_offsets, int64_t** entry_component_sizes,
-                   int64_t total_size, int element_size) override;
 };
 
 class MPIBroadcast : public BroadcastOp {
 public:
   MPIBroadcast(MPIContext* mpi_context, HorovodGlobalState* global_state);
 
+  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+
   bool Enabled(ParameterManager& param_manager,
                std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
 
 protected:
-  void DoBroadcast(std::vector<TensorTableEntry>& entries,
-                   const void* buffer_data, int64_t num_elements,
-                   DataType dtype, int root_rank) override;
-
   MPIContext* mpi_context_;
 };
 
