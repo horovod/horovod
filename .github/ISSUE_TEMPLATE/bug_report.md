@@ -14,6 +14,8 @@ assignees: ''
 4. MPI version:
 5. CUDA version:
 6. NCCL version:
+7. Python version:
+8. OS and version:
 
 **Checklist:**
 1. Did you search issues to find if somebody asked this question before?
