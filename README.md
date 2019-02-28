@@ -258,15 +258,12 @@ loss_fn = ...
 for epoch in range(num_epoch):
     train_data.reset()
     for nbatch, batch in enumerate(train_data, start=1):
-        data = gluon.utils.split_and_load(batch.data[0], ctx_list=[context],
-                                          batch_axis=0)
-        label = gluon.utils.split_and_load(batch.label[0], ctx_list=[context],
-                                           batch_axis=0)
+        data = batch.data[0].as_in_context(context)
+        label = batch.label[0].as_in_context(context)
         with autograd.record():
-            outputs = [model(x.astype(dtype, copy=False)) for x in data]
-            loss = [loss_fn(yhat, y) for yhat, y in zip(outputs, label)]
-        for l in loss:
-            l.backward()
+            output = model(data.astype(dtype, copy=False))
+            loss = loss_fn(output, label)
+        loss.backward()
         trainer.step(batch_size)
 ```
 
