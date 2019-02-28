@@ -277,8 +277,12 @@ def get_mx_flags(build_ext, cpp_flags):
     mx_libs = get_mx_libs(build_ext, mx_lib_dirs, cpp_flags)
 
     compile_flags = []
+    has_mkldnn = is_mx_mkldnn()
     for include_dir in mx_include_dirs:
         compile_flags.append('-I%s' % include_dir)
+        if has_mkldnn:
+            mkldnn_include = os.path.join(include_dir, 'mkldnn')
+            compile_flags.append('-I%s' % mkldnn_include)
 
     link_flags = []
     for lib_dir in mx_lib_dirs:
@@ -626,6 +630,34 @@ def parse_version(version_str):
     return version
 
 
+def is_mx_mkldnn():
+    try:
+        from mxnet import runtime
+        features = runtime.Features()
+        return features.is_enabled('MKLDNN')
+    except Exception:
+        msg = 'INFO: Cannot detect if MKLDNN is enabled in MXNet. Please \
+            set MXNET_USE_MKLDNN=1 if MKLDNN is enabled in your MXNet build.'
+        if 'linux' not in sys.platform:
+            # MKLDNN is only enabled by default in MXNet Linux build. Return 
+            # False by default for non-linux build but still allow users to 
+            # enable it by using MXNET_USE_MKLDNN env variable. 
+            print(msg)
+            return os.environ.get('MXNET_USE_MKLDNN', '0') == '1'
+        else:
+            try:
+                import mxnet as mx
+                mx_libs = mx.libinfo.find_lib_path()
+                for mx_lib in mx_libs:
+                    output = subprocess.check_output(['readelf', '-d', mx_lib])
+                    if 'mkldnn' in str(output):
+                        return True
+                    return False
+            except Exception:
+                print(msg)
+                return os.environ.get('MXNET_USE_MKLDNN', '0') == '1'
+
+
 def build_mx_extension(build_ext, options):
     check_mx_version()
     mx_compile_flags, mx_link_flags = get_mx_flags(
@@ -636,6 +668,10 @@ def build_mx_extension(build_ext, options):
         mxnet_mpi_lib.define_macros += [('MSHADOW_USE_CUDA', '1')]
     else:
         mxnet_mpi_lib.define_macros += [('MSHADOW_USE_CUDA', '0')]
+    if is_mx_mkldnn():
+        mxnet_mpi_lib.define_macros += [('MXNET_USE_MKLDNN', '1')]
+    else:
+        mxnet_mpi_lib.define_macros += [('MXNET_USE_MKLDNN', '0')]    
     mxnet_mpi_lib.define_macros += [('MSHADOW_USE_MKL', '0')]
     mxnet_mpi_lib.include_dirs = options['INCLUDES']
     mxnet_mpi_lib.sources = options['SOURCES'] + \
