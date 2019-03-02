@@ -21,7 +21,6 @@
 namespace horovod {
 namespace common {
 
-// This event management code is only used with CUDA
 cudaError_t CUDAContext::GetCudaEvent(cudaEvent_t* event) {
   int device;
   auto status = cudaGetDevice(&device);

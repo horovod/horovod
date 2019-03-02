@@ -82,7 +82,17 @@ protected:
 
   Status FinalizeCUDAQueue(std::vector<TensorTableEntry>& entries);
 
+  // CUDA events are used as an alternative to host-device synchronization (which stalls the GPU pipeline)
+  // for the purpose of recording timing on the Horovod timeline.
+  //
+  // When an event we wish to record occurs (for example, NCCL_ALLREDUCE), the event is enqueued. After the entire
+  // operation completes, a background thread is spawned to synchronize on the events in the queue and record
+  // timing, while allowing Horovod to continue processing additional tensors.
+  //
+  // For more information of CUDA Events, see:
+  // https://devblogs.nvidia.com/how-implement-performance-metrics-cuda-cc/
   std::queue<std::pair<std::string, cudaEvent_t>> event_queue_;
+
   cudaStream_t* stream_;
   void* host_buffer_;
 
