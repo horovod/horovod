@@ -183,30 +183,15 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
   int element_size = mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
 
   const void* sendbuf = nullptr;
-  int64_t total_num_elements = 0;
   void* buffer_data;
+  int64_t total_num_elements = NumElements(entries);
 
   if (entries.size() > 1) {
-    auto& buffer = global_state_->fusion_buffer.GetBuffer(
-        first_entry.device, first_entry.context->framework());
-    buffer_data = const_cast<void*>(buffer->AccessData(first_entry.context));
-
-    // Copy memory into the fusion buffer. Then the input data of each
-    // process is assumed to be in the area where that process would
-    // receive its own contribution to the receive buffer.
     timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
-    int64_t offset = displcmnts[global_state_->rank] * element_size;
-    for (auto& e : entries) {
-      void* buffer_data_at_offset = (uint8_t*) buffer_data + offset;
-      std::memcpy(buffer_data_at_offset, e.tensor->data(),
-                  (size_t) e.tensor->size());
-      offset += e.tensor->size();
-      total_num_elements += e.tensor->shape().num_elements();
-    }
+    MemcpyInFusionBuffer(entries, buffer_data, displcmnts, element_size);
     timeline.ActivityEndAll(entries);
   } else {
     sendbuf = first_entry.tensor->data();
-    total_num_elements = first_entry.tensor->shape().num_elements();
     buffer_data = (void*) first_entry.output->data();
   }
 
@@ -227,19 +212,7 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
 
   if (entries.size() > 1) {
     timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
-    // Copy memory out of the fusion buffer.
-    for (size_t ec = 0; ec < entries.size(); ++ec) {
-      auto& e = entries[ec];
-      int64_t copy_offset = 0;
-      for (int rc = 0; rc < global_state_->size; ++rc) {
-        std::memcpy((void*) ((uint8_t*) e.output->data() + copy_offset),
-                    (void*) ((uint8_t*) buffer_data +
-                             entry_component_offsets[ec][rc] * element_size),
-                    (size_t) entry_component_sizes[ec][rc] * element_size);
-
-        copy_offset += entry_component_sizes[ec][rc] * element_size;
-      }
-    }
+    MemcpyOutFusionBuffer(entries, buffer_data, entry_component_sizes, element_size);
     timeline.ActivityEndAll(entries);
   }
 
@@ -387,18 +360,7 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
 
   // Copy memory out of the fusion buffer.
   timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
-  for (size_t ec = 0; ec < entries.size(); ++ec) {
-    auto& e = entries[ec];
-    int64_t copy_offset = 0;
-    for (int rc = 0; rc < global_state_->size; ++rc) {
-      auto entry_component_size = entry_component_sizes[ec][rc];
-      std::memcpy((void*) ((uint8_t*) e.output->data() + copy_offset),
-                  (void*) ((uint8_t*) global_state_->shared_buffer +
-                           entry_component_size * element_size),
-                  (size_t) entry_component_size * element_size);
-      copy_offset += entry_component_size * element_size;
-    }
-  }
+  MemcpyOutFusionBuffer(entries, global_state_->shared_buffer, entry_component_sizes, element_size);
   Barrier();
   timeline.ActivityEndAll(entries);
 

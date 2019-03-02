@@ -21,16 +21,16 @@ namespace common {
 
 HorovodOp::HorovodOp(HorovodGlobalState* global_state) : global_state_(global_state) {}
 
-// Allreduce
-AllreduceOp::AllreduceOp(HorovodGlobalState* global_state) : HorovodOp(global_state) {}
-
-int64_t AllreduceOp::NumElements(std::vector<TensorTableEntry>& entries) {
+int64_t HorovodOp::NumElements(std::vector<TensorTableEntry>& entries) {
   int64_t num_elements = 0;
   for (auto& e : entries) {
     num_elements += e.tensor->shape().num_elements();
   }
   return num_elements;
 }
+
+// Allreduce
+AllreduceOp::AllreduceOp(HorovodGlobalState* global_state) : HorovodOp(global_state) {}
 
 void AllreduceOp::MemcpyInFusionBuffer(std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
                                        void*& buffer_data, size_t& buffer_len) {
@@ -60,18 +60,6 @@ void AllreduceOp::MemcpyOutFusionBuffer(std::vector<TensorTableEntry>& entries, 
     MemcpyEntryOutFusionBuffer(buffer_data_at_offset, e, entries);
     offset += e.tensor->size();
   }
-}
-
-void AllreduceOp::MemcpyEntryInFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
-                                            std::vector<TensorTableEntry>& entries) {
-  std::memcpy(buffer_data_at_offset, e.tensor->data(),
-              (size_t) e.tensor->size());
-}
-
-void AllreduceOp::MemcpyEntryOutFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
-                                             std::vector<TensorTableEntry>& entries) {
-  std::memcpy((void*) e.output->data(), buffer_data_at_offset,
-              (size_t) e.tensor->size());
 }
 
 // Allgather
@@ -142,6 +130,38 @@ void AllgatherOp::SetEntryComponentOffsets(std::vector<TensorTableEntry>& entrie
       }
     }
     rank_displacement += recvcounts[rc];
+  }
+}
+
+void AllgatherOp::MemcpyInFusionBuffer(std::vector<TensorTableEntry>& entries, void*& buffer_data,
+                                       int* displcmnts, int element_size) {
+  // Access the fusion buffer.
+  auto& first_entry = entries[0];
+  auto& buffer = global_state_->fusion_buffer.GetBuffer(
+      first_entry.device, first_entry.context->framework());
+  buffer_data = const_cast<void*>(buffer->AccessData(first_entry.context));
+
+  int64_t offset = displcmnts[global_state_->rank] * element_size;
+  for (auto& e : entries) {
+    void* buffer_data_at_offset = (uint8_t*) buffer_data + offset;
+    std::memcpy(buffer_data_at_offset, e.tensor->data(), (size_t) e.tensor->size());
+    offset += e.tensor->size();
+  }
+}
+
+void AllgatherOp::MemcpyOutFusionBuffer(std::vector<TensorTableEntry>& entries, void* buffer_data,
+                                        int64_t** entry_component_sizes, int element_size) {
+  // Copy memory out of the fusion buffer.
+  for (size_t ec = 0; ec < entries.size(); ++ec) {
+    auto& e = entries[ec];
+    int64_t copy_offset = 0;
+    for (int rc = 0; rc < global_state_->size; ++rc) {
+      int64_t next_offset = entry_component_sizes[ec][rc] * element_size;
+      std::memcpy((void*) ((uint8_t*) e.output->data() + copy_offset),
+                  (void*) ((uint8_t*) buffer_data + next_offset),
+                  (size_t) next_offset);
+      copy_offset += next_offset;
+    }
   }
 }
 

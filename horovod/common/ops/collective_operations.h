@@ -33,6 +33,8 @@ public:
   virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) = 0;
 
 protected:
+  int64_t NumElements(std::vector<TensorTableEntry>& entries);
+
   HorovodGlobalState* global_state_;
 };
 
@@ -49,8 +51,6 @@ public:
                        const Response& response) const = 0;
 
 protected:
-  int64_t NumElements(std::vector<TensorTableEntry>& entries);
-
   virtual void MemcpyInFusionBuffer(std::vector<TensorTableEntry>& entries,
                                     const void*& fused_input_data, void*& buffer_data, size_t& buffer_len);
 
@@ -85,6 +85,12 @@ protected:
                                         int64_t** entry_component_sizes,
                                         const int* recvcounts,
                                         int64_t**& entry_component_offsets);
+
+  virtual void MemcpyInFusionBuffer(std::vector<TensorTableEntry>& entries, void*& buffer_data,
+                                    int* displcmnts, int element_size);
+
+  virtual void MemcpyOutFusionBuffer(std::vector<TensorTableEntry>& entries, void* buffer_data,
+                                     int64_t** entry_component_sizes, int element_size);
 };
 
 class BroadcastOp : public HorovodOp {
