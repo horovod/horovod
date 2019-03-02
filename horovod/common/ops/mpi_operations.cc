@@ -55,6 +55,10 @@ MPI_Datatype MPIContext::GetMPIDataType(const DataType dtype) {
   }
 }
 
+MPI_Op MPIContext::GetMPISumOp(DataType dtype) {
+  return dtype == HOROVOD_FLOAT16 ? mpi_float16_sum : MPI_SUM;
+}
+
 MPI_Comm MPIContext::GetMPICommunicator(Communicator comm) {
   switch (comm) {
     case GLOBAL:
@@ -69,70 +73,10 @@ MPI_Comm MPIContext::GetMPICommunicator(Communicator comm) {
   }
 }
 
-void MPI_Allreduce(MPIContext& ctx, const void* buffer_data, int64_t num_elements,
-                   TensorTableEntry& first_entry, const void* sendbuff,
-                   Communicator comm) {
-  int op = MPI_Allreduce(sendbuff != nullptr ? sendbuff : MPI_IN_PLACE, (void*) buffer_data,
-                         (int) num_elements,
-                         ctx.GetMPIDataType(first_entry.tensor),
-                         first_entry.tensor->dtype() == HOROVOD_FLOAT16 ? ctx.mpi_float16_sum : MPI_SUM,
-                         ctx.GetMPICommunicator(comm));
-  if (op != MPI_SUCCESS) {
-    throw std::logic_error("MPI_Allreduce failed, see MPI output for details.");
-  }
-}
-
-void MPI_Allgatherv(MPIContext& ctx, const void* sendbuf, int sendcount, DataType sendtype,
-                    void* recvbuf, const int* recvcounts,
-                    const int* displs, DataType recvtype,
-                    Communicator comm) {
-  int op = MPI_Allgatherv(sendbuf != nullptr ? sendbuf : MPI_IN_PLACE, sendcount, ctx.GetMPIDataType(sendtype),
-                          recvbuf, recvcounts, displs, ctx.GetMPIDataType(recvtype),
-                          ctx.GetMPICommunicator(comm));
-  if (op != MPI_SUCCESS) {
-    throw std::logic_error("MPI_Allgatherv failed, see MPI output for details.");
-  }
-}
-
-void MPI_Broadcast(MPIContext& ctx, const void* buffer_data, int64_t num_elements,
-                   DataType dtype, int root_rank,
-                   Communicator comm) {
-  int op = MPI_Bcast((void*) buffer_data,
-                     (int) num_elements,
-                     ctx.GetMPIDataType(dtype),
-                     root_rank,
-                     ctx.GetMPICommunicator(comm));
-  if (op != MPI_SUCCESS) {
-    throw std::logic_error("MPI_Broadcast failed, see MPI output for details.");
-  }
-}
-
-void MPI_Barrier(MPIContext& ctx, Communicator comm) {
-  int op = MPI_Barrier(ctx.GetMPICommunicator(comm));
-  if (op != MPI_SUCCESS) {
-    throw std::logic_error("MPI_Barrier failed, see MPI output for details.");
-  }
-}
-
-void MPI_AllocateSharedBuffer(MPIContext& ctx, int64_t window_size, int element_size, void* baseptr, Communicator comm) {
-  MPI_Win_allocate_shared(
-      window_size, element_size, MPI_INFO_NULL, ctx.GetMPICommunicator(comm),
-      baseptr, &ctx.window);
-}
-
-void MPI_FreeSharedBuffer(MPIContext& ctx) {
-  MPI_Win_fence(0, ctx.window);
-  MPI_Win_free(&ctx.window);
-}
-
-void MPI_QuerySharedBuffer(MPIContext& ctx, int rank, void* baseptr) {
-  int disp_unit;
-  MPI_Aint winsize;
-  MPI_Win_shared_query(ctx.window, rank, &winsize, &disp_unit, baseptr);
-}
-
-void MPI_GetTypeSize(MPIContext& ctx, DataType dtype, int* out) {
-  MPI_Type_size(ctx.GetMPIDataType(dtype), out);
+int MPIContext::GetMPITypeSize(DataType dtype) {
+  int out;
+  MPI_Type_size(GetMPIDataType(dtype), &out);
+  return out;
 }
 
 void DoMPIAllreduce(MPIContext* mpi_context,
@@ -140,8 +84,15 @@ void DoMPIAllreduce(MPIContext* mpi_context,
                     void* buffer_data, int64_t& num_elements, size_t& buffer_len) {
   auto& first_entry = entries[0];
   const void* sendbuf = entries.size() > 1 || first_entry.tensor->data() == first_entry.output->data()
-                        ? nullptr : first_entry.tensor->data();
-  MPI_Allreduce(*mpi_context, buffer_data, num_elements, first_entry, sendbuf, Communicator::GLOBAL);
+                        ? MPI_IN_PLACE : first_entry.tensor->data();
+  int op = MPI_Allreduce(sendbuf, buffer_data,
+                         (int) num_elements,
+                         mpi_context->GetMPIDataType(first_entry.tensor),
+                         mpi_context->GetMPISumOp(first_entry.tensor->dtype()),
+                         mpi_context->GetMPICommunicator(Communicator::GLOBAL));
+  if (op != MPI_SUCCESS) {
+    throw std::logic_error("MPI_Allreduce failed, see MPI output for details.");
+  }
 }
 
 MPIAllreduce::MPIAllreduce(MPIContext* mpi_context, HorovodGlobalState* global_state)
@@ -289,8 +240,7 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
   SetDisplacements(recvcounts, displcmnts);
   SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets);
 
-  int element_size;
-  MPI_GetTypeSize(*mpi_context_, first_entry.tensor->dtype(), &element_size);
+  int element_size = mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
 
   int64_t total_size = displcmnts[global_state_->size - 1] +
                        recvcounts[global_state_->size - 1];
@@ -324,15 +274,18 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
   }
 
   global_state_->timeline.ActivityStartAll(entries, MPI_ALLGATHER);
-  MPI_Allgatherv(*mpi_context_,
-                 sendbuf,
-                 (int) total_num_elements,
-                 first_entry.tensor->dtype(),
-                 buffer_data,
-                 recvcounts,
-                 displcmnts,
-                 first_entry.tensor->dtype(),
-                 Communicator::GLOBAL);
+  auto dtype = mpi_context_->GetMPIDataType(first_entry.tensor->dtype());
+  int op = MPI_Allgatherv(sendbuf,
+                          (int) total_num_elements,
+                          dtype,
+                          buffer_data,
+                          recvcounts,
+                          displcmnts,
+                          dtype,
+                          mpi_context_->GetMPICommunicator(Communicator::GLOBAL));
+  if (op != MPI_SUCCESS) {
+    throw std::logic_error("MPI_Allgatherv failed, see MPI output for details.");
+  }
   global_state_->timeline.ActivityEndAll(entries);
 
   if (entries.size() > 1) {
@@ -400,8 +353,7 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   SetDisplacements(recvcounts, displcmnts);
   SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets);
 
-  int element_size;
-  MPI_GetTypeSize(*mpi_context_, first_entry.tensor->dtype(), &element_size);
+  int element_size = mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
 
   int64_t total_size = displcmnts[global_state_->size - 1] +
                        recvcounts[global_state_->size - 1];
@@ -410,17 +362,28 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   int64_t total_size_in_bytes = total_size * element_size;
   if (global_state_->shared_buffer == nullptr || global_state_->shared_buffer_size < total_size_in_bytes) {
     if (global_state_->shared_buffer != nullptr) {
-      MPI_FreeSharedBuffer(*mpi_context_);
+      MPI_Win_fence(0, mpi_context_->window);
+      MPI_Win_free(&mpi_context_->window);
       global_state_->shared_buffer = nullptr;
     }
 
     // Allocate shared memory, give each rank their respective pointer
     timeline.ActivityStartAll(entries, ALLOCATE_SHARED_BUFFER);
     int64_t window_size = global_state_->local_rank == 0 ? total_size_in_bytes : 0;
-    MPI_AllocateSharedBuffer(*mpi_context_, window_size, element_size, &global_state_->shared_buffer,
-                             Communicator::LOCAL);
+    MPI_Win_allocate_shared(window_size,
+                            element_size,
+                            MPI_INFO_NULL,
+                            mpi_context_->GetMPICommunicator(Communicator::LOCAL),
+                            &global_state_->shared_buffer,
+                            &mpi_context_->window);
     if (global_state_->local_rank != 0) {
-      MPI_QuerySharedBuffer(*mpi_context_, 0, &global_state_->shared_buffer);
+      int disp_unit;
+      MPI_Aint winsize;
+      MPI_Win_shared_query(mpi_context_->window,
+                           0,
+                           &winsize,
+                           &disp_unit,
+                           &global_state_->shared_buffer);
     }
     global_state_->shared_buffer_size = total_size_in_bytes;
     timeline.ActivityEndAll(entries);
@@ -463,24 +426,26 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
            (size_t) (entry_component_sizes[ec][global_state_->rank] *
                      element_size));
   }
-  MPI_Barrier(*mpi_context_, Communicator::GLOBAL);
+  Barrier();
   timeline.ActivityEndAll(entries);
 
   // Perform the cross-node allgather. If the cluster is homogeneous all
   // local ranks participate, otherwise local rank 0 handles all data
   global_state_->timeline.ActivityStartAll(entries, MPI_CROSS_ALLGATHER);
   if (global_state_->is_homogeneous || global_state_->local_rank == 0) {
-    MPI_Allgatherv(*mpi_context_,
-                   nullptr,
-                   0,
-                   DataType::HOROVOD_NULL,
-                   global_state_->shared_buffer,
-                   cross_recvcounts,
-                   cross_displcmnts,
-                   first_entry.tensor->dtype(),
-                   Communicator::CROSS);
+    int op = MPI_Allgatherv(MPI_IN_PLACE,
+                            0,
+                            mpi_context_->GetMPIDataType(DataType::HOROVOD_NULL),
+                            global_state_->shared_buffer,
+                            cross_recvcounts,
+                            cross_displcmnts,
+                            mpi_context_->GetMPIDataType(first_entry.tensor->dtype()),
+                            mpi_context_->GetMPICommunicator(Communicator::CROSS));
+    if (op != MPI_SUCCESS) {
+      throw std::logic_error("MPI_Allgatherv failed, see MPI output for details.");
+    }
   }
-  MPI_Barrier(*mpi_context_, Communicator::GLOBAL);
+  Barrier();
   global_state_->timeline.ActivityEndAll(entries);
 
   // Copy memory out of the fusion buffer.
@@ -497,7 +462,7 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
       copy_offset += entry_component_size * element_size;
     }
   }
-  MPI_Barrier(*mpi_context_, Communicator::GLOBAL);
+  Barrier();
   timeline.ActivityEndAll(entries);
 
   // Free the buffers
@@ -511,6 +476,13 @@ bool MPIHierarchicalAllgather::Enabled(ParameterManager& param_manager,
                                        std::vector<TensorTableEntry>& entries,
                                        const Response& response) const {
   return param_manager.HierarchicalAllgather();
+}
+
+void MPIHierarchicalAllgather::Barrier() {
+  int op = MPI_Barrier(mpi_context_->GetMPICommunicator(Communicator::GLOBAL));
+  if (op != MPI_SUCCESS) {
+    throw std::logic_error("MPI_Barrier failed, see MPI output for details.");
+  }
 }
 
 MPIBroadcast::MPIBroadcast(MPIContext* mpi_context, HorovodGlobalState* global_state)
@@ -529,8 +501,14 @@ Status MPIBroadcast::Execute(std::vector<TensorTableEntry>& entries, const Respo
   }
 
   global_state_->timeline.ActivityStartAll(entries, MPI_BCAST);
-  MPI_Broadcast(*mpi_context_, data_ptr, (int) e.tensor->shape().num_elements(), e.tensor->dtype(), e.root_rank,
-                Communicator::GLOBAL);
+  int op = MPI_Bcast(data_ptr,
+                     (int) e.tensor->shape().num_elements(),
+                     mpi_context_->GetMPIDataType(e.tensor->dtype()),
+                     e.root_rank,
+                     mpi_context_->GetMPICommunicator(Communicator::GLOBAL));
+  if (op != MPI_SUCCESS) {
+    throw std::logic_error("MPI_Broadcast failed, see MPI output for details.");
+  }
   global_state_->timeline.ActivityEndAll(entries);
 
   return Status::OK();

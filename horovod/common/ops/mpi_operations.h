@@ -37,7 +37,11 @@ struct MPIContext {
 
   MPI_Datatype GetMPIDataType(DataType dtype);
 
+  MPI_Op GetMPISumOp(DataType dtype);
+
   MPI_Comm GetMPICommunicator(Communicator comm);
+
+  int GetMPITypeSize(DataType dtype);
 
   // MPI custom data type for float16.
   MPI_Datatype mpi_float16_t;
@@ -56,29 +60,6 @@ struct MPIContext {
   // MPI Window used for shared memory allgather
   MPI_Win window;
 };
-
-void MPI_Allreduce(MPIContext& ctx, const void* buffer_data, int64_t num_elements,
-                   TensorTableEntry& first_entry, const void* sendbuff,
-                   Communicator comm);
-
-void MPI_Allgatherv(MPIContext& ctx, const void* sendbuf, int sendcount, DataType sendtype,
-                    void* recvbuf, const int* recvcounts,
-                    const int* displs, DataType recvtype,
-                    Communicator comm);
-
-void MPI_Broadcast(MPIContext& ctx, const void* buffer_data, int64_t num_elements,
-                   DataType dtype, int root_rank,
-                   Communicator comm);
-
-void MPI_Barrier(MPIContext& ctx, Communicator comm);
-
-void MPI_AllocateSharedBuffer(MPIContext& ctx, int64_t window_size, int element_size, void* baseptr, Communicator comm);
-
-void MPI_FreeSharedBuffer(MPIContext& ctx);
-
-void MPI_QuerySharedBuffer(MPIContext& ctx, int rank, void* baseptr);
-
-void MPI_GetTypeSize(MPIContext& ctx, DataType dtype, int* out);
 
 class MPIAllreduce : public AllreduceOp {
 public:
@@ -139,6 +120,9 @@ public:
   bool Enabled(ParameterManager& param_manager,
                std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
+
+private:
+  void Barrier();
 };
 
 class MPIBroadcast : public BroadcastOp {

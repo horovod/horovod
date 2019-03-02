@@ -413,8 +413,7 @@ int64_t TotalByteSizeOfAllgatherOutput(const std::vector<int64_t> &tensor_sizes,
   for (int i = 1; i < entry.tensor->shape().dims(); ++i) {
     total_count_of_output_entries *= entry.tensor->shape().dim_size(i);
   }
-  int element_size;
-  MPI_GetTypeSize(ctx, entry.tensor->dtype(), &element_size);
+  int element_size = ctx.GetMPITypeSize(entry.tensor->dtype());
   int64_t total_byte_size_of_output =
       total_count_of_output_entries * element_size;
 

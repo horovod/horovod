@@ -117,7 +117,14 @@ void NCCLAllreduce::InitComm(std::vector<TensorTableEntry>& entries, const std::
       nccl_context_->ErrorCheck("ncclGetUniqueId", ncclGetUniqueId(&nccl_id));
     }
 
-    MPI_Broadcast(*mpi_context_, (void*) &nccl_id, sizeof(nccl_id), HOROVOD_BYTE, 0, nccl_id_bcast_comm);
+    int bcast_op = MPI_Bcast((void*) &nccl_id,
+                             sizeof(nccl_id),
+                             mpi_context_->GetMPIDataType(HOROVOD_BYTE),
+                             0,
+                             mpi_context_->GetMPICommunicator(nccl_id_bcast_comm));
+    if (bcast_op != MPI_SUCCESS) {
+      throw std::logic_error("MPI_Broadcast failed, see MPI output for details.");
+    }
 
     ncclComm_t new_nccl_comm;
     auto nccl_result = ncclCommInitRank(&new_nccl_comm, nccl_size, nccl_id, nccl_rank);
@@ -126,7 +133,10 @@ void NCCLAllreduce::InitComm(std::vector<TensorTableEntry>& entries, const std::
 
     // Barrier helps NCCL to synchronize after initialization and avoid
     // deadlock that we've been seeing without it.
-    MPI_Barrier(*mpi_context_, Communicator::GLOBAL);
+    int barrier_op = MPI_Barrier(mpi_context_->GetMPICommunicator(Communicator::GLOBAL));
+    if (barrier_op != MPI_SUCCESS) {
+      throw std::logic_error("MPI_Barrier failed, see MPI output for details.");
+    }
 
     timeline.ActivityEndAll(entries);
   }
@@ -183,8 +193,7 @@ Status NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries
   }
 
   // Do allreduce.
-  int element_size;
-  MPI_GetTypeSize(*mpi_context_, first_entry.tensor->dtype(), &element_size);
+  int element_size = mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
 
   // If cluster is homogeneous and we are using fusion buffer, include
   // dummy elements from the buffer (if necessary) to make sure the data
@@ -294,8 +303,14 @@ Status NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries
     timeline.ActivityEndAll(entries);
 
     timeline.ActivityStartAll(entries, MPI_ALLREDUCE);
-    MPI_Allreduce(*mpi_context_, host_buffer_, total_num_elements, first_entry,
-                  nullptr, Communicator::CROSS);
+    int op = MPI_Allreduce(MPI_IN_PLACE, host_buffer_,
+                           (int) total_num_elements,
+                           mpi_context_->GetMPIDataType(first_entry.tensor),
+                           mpi_context_->GetMPISumOp(first_entry.tensor->dtype()),
+                           mpi_context_->GetMPICommunicator(Communicator::CROSS));
+    if (op != MPI_SUCCESS) {
+      throw std::logic_error("MPI_Allreduce failed, see MPI output for details.");
+    }
     timeline.ActivityEndAll(entries);
 
     timeline.ActivityStartAll(entries, MEMCPY_OUT_HOST_BUFFER);
