@@ -23,6 +23,7 @@
 
 #include "../common.h"
 #include "../global_state.h"
+#include "../mpi_context.h"
 #include "collective_operations.h"
 
 #if HAVE_CUDA
@@ -31,35 +32,6 @@
 
 namespace horovod {
 namespace common {
-
-struct MPIContext {
-  MPI_Datatype GetMPIDataType(std::shared_ptr<Tensor> tensor);
-
-  MPI_Datatype GetMPIDataType(DataType dtype);
-
-  MPI_Op GetMPISumOp(DataType dtype);
-
-  MPI_Comm GetMPICommunicator(Communicator comm);
-
-  int GetMPITypeSize(DataType dtype);
-
-  // MPI custom data type for float16.
-  MPI_Datatype mpi_float16_t;
-  MPI_Op mpi_float16_sum;
-
-  // Private MPI communicator for Horovod to ensure no collisions with other
-  // threads using MPI.
-  MPI_Comm mpi_comm;
-
-  // Node-local communicator.
-  MPI_Comm local_comm;
-
-  // Cross-node communicator for hierarchical allreduce.
-  MPI_Comm cross_comm;
-
-  // MPI Window used for shared memory allgather
-  MPI_Win window;
-};
 
 class MPIAllreduce : public AllreduceOp {
 public:

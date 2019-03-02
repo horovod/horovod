@@ -515,6 +515,7 @@ def get_common_options(build_ext):
                'horovod/common/fusion_buffer_manager.cc',
                'horovod/common/half.cc',
                'horovod/common/message.cc',
+               'horovod/common/mpi_context.cc',
                'horovod/common/operations.cc',
                'horovod/common/parameter_manager.cc',
                'horovod/common/timeline.cc',

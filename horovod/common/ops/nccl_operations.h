@@ -20,7 +20,7 @@
 #include <nccl.h>
 
 #include "cuda_operations.h"
-#include "mpi_operations.h"
+#include "mpi_context.h"
 
 namespace horovod {
 namespace common {
