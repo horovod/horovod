@@ -652,7 +652,7 @@ def is_mx_mkldnn():
                     output = subprocess.check_output(['readelf', '-d', mx_lib])
                     if 'mkldnn' in str(output):
                         return True
-                    return False
+                return False
             except Exception:
                 print(msg)
                 return os.environ.get('MXNET_USE_MKLDNN', '0') == '1'
