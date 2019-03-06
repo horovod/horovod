@@ -404,6 +404,11 @@ ParameterManager::BayesianParameter::BayesianParameter(
 
 void ParameterManager::BayesianParameter::SetValue(BayesianVariable variable, double value, bool fixed) {
   if (fixed) {
+    // Fixed parameter values cannot be changed, and will be removed from the Bayesian optimization
+    // process so the search space can be reduced. To remove the parameter from the optimizer, we need
+    // to also remove it from the vector outputs of the optimization process. First we find the index
+    // of the variable we're removing in the existing vectors, then for each of the current, best, and
+    // initial value vectors, we remove that index to create a smaller vector, and reset those values.
     int32_t index = index_[variable];
     TunableParameter::SetCurrentValue(Remove(TunableParameter::Value(), index));
     TunableParameter::SetBestValue(Remove(TunableParameter::BestValue(), index));
