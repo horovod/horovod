@@ -4,7 +4,7 @@ To use Horovod on GPU, read the options below and see which one applies to you b
 
 ### Have GPUs?
 
-In most situations, using NCCL 2 will significantly improve performance over the CPU version.  NCCL 2 provides the *allreduce*
+In most situations, using NCCL 2 will significantly improve performance over the GPU version.  NCCL 2 provides the *allreduce*
 operation optimized for NVIDIA GPUs and a variety of networking devices, such as RoCE or InfiniBand.
 
 1. Install [NCCL 2](https://developer.nvidia.com/nccl).
