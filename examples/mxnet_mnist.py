@@ -22,9 +22,14 @@ parser.add_argument('--lr', type=float, default=0.01,
                     help='learning rate (default: 0.01)')
 parser.add_argument('--momentum', type=float, default=0.9,
                     help='SGD momentum (default: 0.9)')
-parser.add_argument('--use-gpu', action='store_true', default=False,
-                    help='run training on GPU (default: False)')
+parser.add_argument('--no-cuda', action='store_true', default=False,
+                    help='disable training on GPU (default: False)')
 args = parser.parse_args()
+
+if not args.no_cuda:
+    # Disable CUDA if there are no GPUs.
+    if not mx.test_utils.list_gpus():
+        args.no_cuda = True
 
 logging.basicConfig(level=logging.INFO)
 logging.info(args)
@@ -96,7 +101,7 @@ def evaluate(model, data_iter, context):
 hvd.init()
 
 # Horovod: pin context to local rank
-context = mx.gpu(hvd.local_rank()) if args.use_gpu else mx.cpu(hvd.local_rank())
+context = mx.cpu(hvd.local_rank()) if args.no_cuda else mx.gpu(hvd.local_rank())
 num_workers = hvd.size()
 
 # Load training and validation data
