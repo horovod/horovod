@@ -340,6 +340,16 @@ void ParameterManager::TunableParameter<T>::SetCurrentValue(T value) {
 }
 
 template <class T>
+void ParameterManager::TunableParameter<T>::SetBestValue(T value) {
+  best_value_ = value;
+}
+
+template <class T>
+void ParameterManager::TunableParameter<T>::SetInitialValue(T value) {
+  initial_value_ = value;
+}
+
+template <class T>
 void ParameterManager::TunableParameter<T>::Reinitialize(T value) {
   initial_value_ = value;
   value_ = value;
@@ -388,11 +398,17 @@ ParameterManager::BayesianParameter::BayesianParameter(
     test_points_(test_points),
     iteration_(0) {
   ResetBayes();
+  Reinitialize(FilterTestPoint(0));
   ResetState();
 }
 
 void ParameterManager::BayesianParameter::SetValue(BayesianVariable variable, double value, bool fixed) {
   if (fixed) {
+    int32_t index = index_[variable];
+    TunableParameter::SetCurrentValue(Remove(TunableParameter::Value(), index));
+    TunableParameter::SetBestValue(Remove(TunableParameter::BestValue(), index));
+    TunableParameter::SetInitialValue(Remove(TunableParameter::InitialValue(), index));
+
     fixed_values_[variable] = value;
     ResetBayes();
   } else {
@@ -452,7 +468,6 @@ void ParameterManager::BayesianParameter::ResetBayes() {
   }
 
   bayes_.reset(new BayesianOptimization(bounds, GAUSSIAN_PROCESS_NOISE));
-  Reinitialize(FilterTestPoint(0));
 }
 
 Eigen::VectorXd ParameterManager::BayesianParameter::FilterTestPoint(int i) {
@@ -466,6 +481,22 @@ Eigen::VectorXd ParameterManager::BayesianParameter::FilterTestPoint(int i) {
       filtered_point(k) = test_point(j);
       ++k;
     }
+  }
+
+  return filtered_point;
+}
+
+Eigen::VectorXd ParameterManager::BayesianParameter::Remove(const Eigen::VectorXd& v, int index) {
+  Eigen::VectorXd filtered_point(v.size() - 1);
+
+  int k = 0;
+  for (int j = 0; j < v.size(); ++j) {
+    if (j == index) {
+      continue;
+    }
+
+    filtered_point(k) = v(j);
+    ++k;
   }
 
   return filtered_point;

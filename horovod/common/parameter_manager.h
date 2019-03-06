@@ -128,7 +128,12 @@ private:
     inline bool IsTunable() const override { return tunable_; };
 
   protected:
+    inline T InitialValue() const { return initial_value_; };
+
     void SetCurrentValue(T value);
+    void SetBestValue(T value);
+    void SetInitialValue(T value);
+
     void Reinitialize(T value);
 
   private:
@@ -183,6 +188,7 @@ private:
     void ResetState();
     void ResetBayes();
     Eigen::VectorXd FilterTestPoint(int i);
+    Eigen::VectorXd Remove(const Eigen::VectorXd& v, int index);
 
     std::vector<BayesianVariableConfig> variables_;
     std::vector<Eigen::VectorXd> test_points_;
