@@ -39,10 +39,10 @@ public:
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
 protected:
-  void InitComm(std::vector<TensorTableEntry>& entries, const std::vector<int32_t>& nccl_device_map);
+  void InitNCCLComm(const std::vector<TensorTableEntry>& entries, const std::vector<int32_t>& nccl_device_map);
 
-  virtual void PopulateCommStrategy(int& nccl_rank, int& nccl_size,
-                                    Communicator& nccl_id_bcast_comm);
+  virtual void PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
+                                        Communicator& nccl_id_bcast_comm);
 
   NCCLContext* nccl_context_;
   ncclComm_t* nccl_comm_;
@@ -57,13 +57,13 @@ public:
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
-  bool Enabled(ParameterManager& param_manager,
-               std::vector<TensorTableEntry>& entries,
+  bool Enabled(const ParameterManager& param_manager,
+               const std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
 
 private:
-  void PopulateCommStrategy(int& nccl_rank, int& nccl_size,
-                            Communicator& nccl_id_bcast_comm) override;
+  void PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
+                                Communicator& nccl_id_bcast_comm) override;
 };
 
 } // namespace common

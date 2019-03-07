@@ -65,27 +65,27 @@ Status MPIAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
   // Copy memory out of the fusion buffer.
   if (entries.size() > 1) {
     timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
-    MemcpyOutFusionBuffer(entries, buffer_data);
+    MemcpyOutFusionBuffer(buffer_data, entries);
     timeline.ActivityEndAll(entries);
   }
 
   return Status::OK();
 }
 
-bool MPIAllreduce::Enabled(ParameterManager& param_manager,
-                           std::vector<TensorTableEntry>& entries,
+bool MPIAllreduce::Enabled(const ParameterManager& param_manager,
+                           const std::vector<TensorTableEntry>& entries,
                            const Response& response) const {
   return true;
 }
 
-void MPIAllreduce::MemcpyEntryInFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
-                                             std::vector<TensorTableEntry>& entries) {
+void MPIAllreduce::MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                             const TensorTableEntry& e, void* buffer_data_at_offset) {
   std::memcpy(buffer_data_at_offset, e.tensor->data(),
               (size_t) e.tensor->size());
 }
 
-void MPIAllreduce::MemcpyEntryOutFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
-                                              std::vector<TensorTableEntry>& entries) {
+void MPIAllreduce::MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                              const void* buffer_data_at_offset, TensorTableEntry& e) {
   std::memcpy((void*) e.output->data(), buffer_data_at_offset,
               (size_t) e.tensor->size());
 }
@@ -144,8 +144,8 @@ Status MPI_CUDAAllreduce::Execute(std::vector<TensorTableEntry>& entries, const 
 MPIAllgather::MPIAllgather(MPIContext* mpi_context, HorovodGlobalState* global_state)
     : AllgatherOp(global_state), mpi_context_(mpi_context) {}
 
-bool MPIAllgather::Enabled(ParameterManager& param_manager,
-                           std::vector<TensorTableEntry>& entries,
+bool MPIAllgather::Enabled(const ParameterManager& param_manager,
+                           const std::vector<TensorTableEntry>& entries,
                            const Response& response) const {
   return true;
 }
@@ -188,7 +188,7 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
 
   if (entries.size() > 1) {
     timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
-    MemcpyInFusionBuffer(entries, buffer_data, displcmnts, element_size);
+    MemcpyInFusionBuffer(entries, displcmnts, element_size, buffer_data);
     timeline.ActivityEndAll(entries);
   } else {
     sendbuf = first_entry.tensor->data();
@@ -212,7 +212,7 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
 
   if (entries.size() > 1) {
     timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
-    MemcpyOutFusionBuffer(entries, buffer_data, entry_component_sizes, element_size);
+    MemcpyOutFusionBuffer(entry_component_sizes, buffer_data, element_size, entries);
     timeline.ActivityEndAll(entries);
   }
 
@@ -345,7 +345,7 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   if (global_state_->is_homogeneous || global_state_->local_rank == 0) {
     int op = MPI_Allgatherv(MPI_IN_PLACE,
                             0,
-                            mpi_context_->GetMPIDataType(DataType::HOROVOD_NULL),
+                            MPI_DATATYPE_NULL,
                             global_state_->shared_buffer,
                             cross_recvcounts,
                             cross_displcmnts,
@@ -360,7 +360,7 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
 
   // Copy memory out of the fusion buffer.
   timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
-  MemcpyOutFusionBuffer(entries, global_state_->shared_buffer, entry_component_sizes, element_size);
+  MemcpyOutFusionBuffer(entry_component_sizes, global_state_->shared_buffer, element_size, entries);
   Barrier();
   timeline.ActivityEndAll(entries);
 
@@ -371,8 +371,8 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   return Status::OK();
 }
 
-bool MPIHierarchicalAllgather::Enabled(ParameterManager& param_manager,
-                                       std::vector<TensorTableEntry>& entries,
+bool MPIHierarchicalAllgather::Enabled(const ParameterManager& param_manager,
+                                       const std::vector<TensorTableEntry>& entries,
                                        const Response& response) const {
   return param_manager.HierarchicalAllgather();
 }
@@ -413,8 +413,8 @@ Status MPIBroadcast::Execute(std::vector<TensorTableEntry>& entries, const Respo
   return Status::OK();
 }
 
-bool MPIBroadcast::Enabled(ParameterManager& param_manager,
-                           std::vector<TensorTableEntry>& entries,
+bool MPIBroadcast::Enabled(const ParameterManager& param_manager,
+                           const std::vector<TensorTableEntry>& entries,
                            const Response& response) const {
   return true;
 }

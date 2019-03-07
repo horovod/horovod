@@ -250,7 +250,7 @@ void Timeline::ActivityStart(const std::string& tensor_name,
 }
 
 void Timeline::ActivityEndAll(const std::vector<TensorTableEntry>& entries) {
-  for (auto& e : (entries)) {
+  for (auto& e : entries) {
     ActivityEnd(e.tensor_name);
   }
 }

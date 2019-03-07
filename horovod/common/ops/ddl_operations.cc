@@ -104,7 +104,7 @@ Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
 
   // Copy memory out of the fusion buffer.
   if (entries.size() > 1) {
-    MemcpyOutFusionBuffer(entries, buffer_data);
+    MemcpyOutFusionBuffer(buffer_data, entries);
 
     if (timeline.Initialized()) {
       cuda_context_->RecordEvent(event_queue_, MEMCPY_OUT_FUSION_BUFFER, stream);

@@ -46,21 +46,21 @@ public:
 
   virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) = 0;
 
-  virtual bool Enabled(ParameterManager& param_manager,
-                       std::vector<TensorTableEntry>& entries,
+  virtual bool Enabled(const ParameterManager& param_manager,
+                       const std::vector<TensorTableEntry>& entries,
                        const Response& response) const = 0;
 
 protected:
-  virtual void MemcpyInFusionBuffer(std::vector<TensorTableEntry>& entries,
-                                    const void*& fused_input_data, void*& buffer_data, size_t& buffer_len);
+  virtual void MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
+                                    void*& buffer_data, size_t& buffer_len);
 
-  virtual void MemcpyOutFusionBuffer(std::vector<TensorTableEntry>& entries, void* buffer_data);
+  virtual void MemcpyOutFusionBuffer(const void* buffer_data, std::vector<TensorTableEntry>& entries);
 
-  virtual void MemcpyEntryInFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
-                                         std::vector<TensorTableEntry>& entries) = 0;
+  virtual void MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                         const TensorTableEntry& e, void* buffer_data_at_offset) = 0;
 
-  virtual void MemcpyEntryOutFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
-                                          std::vector<TensorTableEntry>& entries) = 0;
+  virtual void MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                          const void* buffer_data_at_offset, TensorTableEntry& e) = 0;
 };
 
 class AllgatherOp : public HorovodOp {
@@ -71,8 +71,8 @@ public:
 
   virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) = 0;
 
-  virtual bool Enabled(ParameterManager& param_manager,
-                       std::vector<TensorTableEntry>& entries,
+  virtual bool Enabled(const ParameterManager& param_manager,
+                       const std::vector<TensorTableEntry>& entries,
                        const Response& response) const = 0;
 
 protected:
@@ -81,16 +81,16 @@ protected:
 
   virtual void SetDisplacements(const int* recvcounts, int*& displcmnts);
 
-  virtual void SetEntryComponentOffsets(std::vector<TensorTableEntry>& entries,
-                                        int64_t** entry_component_sizes,
+  virtual void SetEntryComponentOffsets(const std::vector<TensorTableEntry>& entries,
+                                        const int64_t* const* entry_component_sizes,
                                         const int* recvcounts,
                                         int64_t**& entry_component_offsets);
 
-  virtual void MemcpyInFusionBuffer(std::vector<TensorTableEntry>& entries, void*& buffer_data,
-                                    int* displcmnts, int element_size);
+  virtual void MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                    const int* displcmnts, int element_size, void*& buffer_data);
 
-  virtual void MemcpyOutFusionBuffer(std::vector<TensorTableEntry>& entries, void* buffer_data,
-                                     int64_t** entry_component_sizes, int element_size);
+  virtual void MemcpyOutFusionBuffer(const int64_t* const* entry_component_sizes, const void* buffer_data,
+                                     int element_size, std::vector<TensorTableEntry>& entries);
 };
 
 class BroadcastOp : public HorovodOp {
@@ -101,8 +101,8 @@ public:
 
   virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) = 0;
 
-  virtual bool Enabled(ParameterManager& param_manager,
-                       std::vector<TensorTableEntry>& entries,
+  virtual bool Enabled(const ParameterManager& param_manager,
+                       const std::vector<TensorTableEntry>& entries,
                        const Response& response) const = 0;
 };
 

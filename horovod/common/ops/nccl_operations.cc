@@ -54,7 +54,7 @@ Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Resp
   auto& first_entry = entries[0];
 
   InitCUDA(entries);
-  InitComm(entries, response.devices());
+  InitNCCLComm(entries, response.devices());
   InitCUDAQueue(entries, response);
 
   const void* fused_input_data;
@@ -91,7 +91,7 @@ Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Resp
 
   // Copy memory out of the fusion buffer.
   if (entries.size() > 1) {
-    MemcpyOutFusionBuffer(entries, buffer_data);
+    MemcpyOutFusionBuffer(buffer_data, entries);
 
     if (global_state_->timeline.Initialized()) {
       cuda_context_->RecordEvent(event_queue_, MEMCPY_OUT_FUSION_BUFFER, stream);
@@ -101,7 +101,8 @@ Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Resp
   return FinalizeCUDAQueue(entries);
 }
 
-void NCCLAllreduce::InitComm(std::vector<TensorTableEntry>& entries, const std::vector<int32_t>& nccl_device_map) {
+void NCCLAllreduce::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
+                                 const std::vector<int32_t>& nccl_device_map) {
   // Ensure NCCL communicator is in the map before executing reduction.
   ncclComm_t& nccl_comm = nccl_context_->nccl_comms[nccl_device_map];
   if (nccl_comm == nullptr) {
@@ -110,7 +111,7 @@ void NCCLAllreduce::InitComm(std::vector<TensorTableEntry>& entries, const std::
 
     int nccl_rank, nccl_size;
     Communicator nccl_id_bcast_comm;
-    PopulateCommStrategy(nccl_rank, nccl_size, nccl_id_bcast_comm);
+    PopulateNCCLCommStrategy(nccl_rank, nccl_size, nccl_id_bcast_comm);
 
     ncclUniqueId nccl_id;
     if (nccl_rank == 0) {
@@ -144,8 +145,8 @@ void NCCLAllreduce::InitComm(std::vector<TensorTableEntry>& entries, const std::
   nccl_comm_ = &nccl_comm;
 }
 
-void NCCLAllreduce::PopulateCommStrategy(int& nccl_rank, int& nccl_size,
-                                         Communicator& nccl_id_bcast_comm) {
+void NCCLAllreduce::PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
+                                             Communicator& nccl_id_bcast_comm) {
   nccl_rank = global_state_->rank;
   nccl_size = global_state_->size;
   nccl_id_bcast_comm = Communicator::GLOBAL;
@@ -167,7 +168,7 @@ Status NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries
   }
 
   InitCUDA(entries);
-  InitComm(entries, nccl_device_map);
+  InitNCCLComm(entries, nccl_device_map);
   InitCUDAQueue(entries, response);
 
   const void* fused_input_data;
@@ -344,7 +345,7 @@ Status NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries
 
   // Copy memory out of the fusion buffer.
   if (entries.size() > 1) {
-    MemcpyOutFusionBuffer(entries, buffer_data);
+    MemcpyOutFusionBuffer(buffer_data, entries);
 
     if (global_state_->timeline.Initialized()) {
       cuda_context_->RecordEvent(event_queue_, MEMCPY_OUT_FUSION_BUFFER, stream);
@@ -354,8 +355,8 @@ Status NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries
   return FinalizeCUDAQueue(entries);
 }
 
-bool NCCLHierarchicalAllreduce::Enabled(ParameterManager& param_manager,
-                                        std::vector<TensorTableEntry>& entries,
+bool NCCLHierarchicalAllreduce::Enabled(const ParameterManager& param_manager,
+                                        const std::vector<TensorTableEntry>& entries,
                                         const Response& response) const {
   if (!NCCLAllreduce::Enabled(param_manager, entries, response)) {
     return false;
@@ -363,8 +364,8 @@ bool NCCLHierarchicalAllreduce::Enabled(ParameterManager& param_manager,
   return param_manager.HierarchicalAllreduce();
 }
 
-void NCCLHierarchicalAllreduce::PopulateCommStrategy(int& nccl_rank, int& nccl_size,
-                                                     Communicator& nccl_id_bcast_comm) {
+void NCCLHierarchicalAllreduce::PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
+                                                         Communicator& nccl_id_bcast_comm) {
   nccl_rank = global_state_->local_rank;
   nccl_size = global_state_->local_size;
   nccl_id_bcast_comm = Communicator::LOCAL;

@@ -41,16 +41,16 @@ public:
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
-  bool Enabled(ParameterManager& param_manager,
-               std::vector<TensorTableEntry>& entries,
+  bool Enabled(const ParameterManager& param_manager,
+               const std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
 
 protected:
-  void MemcpyEntryInFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
-                                 std::vector<TensorTableEntry>& entries) override;
+  void MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                 const TensorTableEntry& e, void* buffer_data_at_offset) override;
 
-  void MemcpyEntryOutFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
-                                  std::vector<TensorTableEntry>& entries) override;
+  void MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                  const void* buffer_data_at_offset, TensorTableEntry& e) override;
 
   MPIContext* mpi_context_;
 };
@@ -75,8 +75,8 @@ public:
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
-  bool Enabled(ParameterManager& param_manager,
-               std::vector<TensorTableEntry>& entries,
+  bool Enabled(const ParameterManager& param_manager,
+               const std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
 
 protected:
@@ -89,8 +89,8 @@ public:
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
-  bool Enabled(ParameterManager& param_manager,
-               std::vector<TensorTableEntry>& entries,
+  bool Enabled(const ParameterManager& param_manager,
+               const std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
 
 private:
@@ -103,8 +103,8 @@ public:
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
-  bool Enabled(ParameterManager& param_manager,
-               std::vector<TensorTableEntry>& entries,
+  bool Enabled(const ParameterManager& param_manager,
+               const std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
 
 protected:

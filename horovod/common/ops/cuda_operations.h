@@ -57,7 +57,7 @@ struct CUDAContext {
   void RecordEvent(std::queue<std::pair<std::string, cudaEvent_t>>& event_queue, std::string name, cudaStream_t stream);
 
   void WaitForEvents(std::queue<std::pair<std::string, cudaEvent_t>>& event_queue,
-                     std::vector<TensorTableEntry>& entries, Timeline& timeline);
+                     const std::vector<TensorTableEntry>& entries, Timeline& timeline);
 };
 
 class CUDAAllreduce : public AllreduceOp {
@@ -65,22 +65,22 @@ public:
   CUDAAllreduce(CUDAContext* context,
                 HorovodGlobalState* global_state);
 
-  bool Enabled(ParameterManager& param_manager,
-               std::vector<TensorTableEntry>& entries,
+  bool Enabled(const ParameterManager& param_manager,
+               const std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
 
 protected:
-  void MemcpyEntryInFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
-                                 std::vector<TensorTableEntry>& entries) override;
+  void MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                 const TensorTableEntry& e, void* buffer_data_at_offset) override;
 
-  void MemcpyEntryOutFusionBuffer(void* buffer_data_at_offset, TensorTableEntry& e,
-                                  std::vector<TensorTableEntry>& entries) override;
+  void MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                  const void* buffer_data_at_offset, TensorTableEntry& e) override;
 
-  void InitCUDA(std::vector<TensorTableEntry>& entries);
+  void InitCUDA(const std::vector<TensorTableEntry>& entries);
 
-  void InitCUDAQueue(std::vector<TensorTableEntry>& entries, const Response& response);
+  void InitCUDAQueue(const std::vector<TensorTableEntry>& entries, const Response& response);
 
-  Status FinalizeCUDAQueue(std::vector<TensorTableEntry>& entries);
+  Status FinalizeCUDAQueue(const std::vector<TensorTableEntry>& entries);
 
   // CUDA events are used as an alternative to host-device synchronization (which stalls the GPU pipeline)
   // for the purpose of recording timing on the Horovod timeline.
