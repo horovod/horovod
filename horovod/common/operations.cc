@@ -41,6 +41,7 @@
 
 #if HAVE_CUDA
 #include "ops/cuda_operations.h"
+#include "ops/mpi_cuda_operations.h"
 #endif
 
 #if HAVE_NCCL

@@ -26,10 +26,6 @@
 #include "../mpi_context.h"
 #include "collective_operations.h"
 
-#if HAVE_CUDA
-#include "cuda_operations.h"
-#endif
-
 namespace horovod {
 namespace common {
 
@@ -54,20 +50,6 @@ protected:
 
   MPIContext* mpi_context_;
 };
-
-#if HAVE_CUDA
-class MPI_CUDAAllreduce : public CUDAAllreduce {
-public:
-  MPI_CUDAAllreduce(MPIContext* mpi_context, CUDAContext* cuda_context,
-                    CommunicationContext* comm_context, HorovodGlobalState* global_state);
-  virtual ~MPI_CUDAAllreduce()=default;
-
-  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
-
-protected:
-  MPIContext* mpi_context_;
-};
-#endif
 
 class MPIAllgather : public AllgatherOp {
 public:
