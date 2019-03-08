@@ -149,18 +149,20 @@ void AllgatherOp::MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entr
   }
 }
 
-void AllgatherOp::MemcpyOutFusionBuffer(const int64_t* const* entry_component_sizes, const void* buffer_data,
+void AllgatherOp::MemcpyOutFusionBuffer(const int64_t* const* entry_component_offsets,
+                                        const int64_t* const* entry_component_sizes, const void* buffer_data,
                                         int element_size, std::vector<TensorTableEntry>& entries) {
   // Copy memory out of the fusion buffer.
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     auto& e = entries[ec];
     int64_t copy_offset = 0;
     for (int rc = 0; rc < global_state_->size; ++rc) {
-      int64_t next_offset = entry_component_sizes[ec][rc] * element_size;
+      int64_t entry_offset = entry_component_offsets[ec][rc] * element_size;
+      int64_t entry_size = entry_component_sizes[ec][rc] * element_size;
       std::memcpy((void*) ((uint8_t*) e.output->data() + copy_offset),
-                  (void*) ((uint8_t*) buffer_data + next_offset),
-                  (size_t) next_offset);
-      copy_offset += next_offset;
+                  (void*) ((uint8_t*) buffer_data + entry_offset),
+                  (size_t) entry_size);
+      copy_offset += entry_size;
     }
   }
 }

@@ -139,7 +139,7 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
 
   global_state_->timeline.ActivityStartAll(entries, MPI_ALLGATHER);
   auto dtype = mpi_context_->GetMPIDataType(first_entry.tensor->dtype());
-  int op = MPI_Allgatherv(sendbuf,
+  int op = MPI_Allgatherv(sendbuf != nullptr ? sendbuf : MPI_IN_PLACE,
                           (int) total_num_elements,
                           dtype,
                           buffer_data,
@@ -154,7 +154,8 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
 
   if (entries.size() > 1) {
     timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
-    MemcpyOutFusionBuffer(entry_component_sizes, buffer_data, element_size, entries);
+    MemcpyOutFusionBuffer(entry_component_offsets, entry_component_sizes,
+                          buffer_data, element_size, entries);
     timeline.ActivityEndAll(entries);
   }
 
@@ -302,7 +303,8 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
 
   // Copy memory out of the fusion buffer.
   timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
-  MemcpyOutFusionBuffer(entry_component_sizes, global_state_->shared_buffer, element_size, entries);
+  MemcpyOutFusionBuffer(entry_component_offsets, entry_component_sizes,
+                        global_state_->shared_buffer, element_size, entries);
   Barrier();
   timeline.ActivityEndAll(entries);
 
