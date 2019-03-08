@@ -102,11 +102,6 @@ bool CUDAAllreduce::Enabled(const ParameterManager& param_manager,
   return entries[0].device != CPU_DEVICE_ID;
 }
 
-void CUDAAllreduce::Initialize(std::vector<TensorTableEntry>& entries, const Response& response) {
-  InitCUDA(entries);
-  InitComm(entries, response.devices());
-}
-
 void CUDAAllreduce::MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
                                               const TensorTableEntry& e, void* buffer_data_at_offset) {
   auto& first_entry = entries[0];
@@ -142,7 +137,7 @@ void CUDAAllreduce::InitCUDA(const std::vector<TensorTableEntry>& entries) {
 
 void CUDAAllreduce::InitCUDAQueue(const std::vector<TensorTableEntry>& entries, const Response& response) {
   event_queue_ = std::queue<std::pair<std::string, cudaEvent_t>>();
-  stream_ = &cuda_context_->streams[first_entry.device];
+  stream_ = &cuda_context_->streams[entries[0].device];
   host_buffer_ = nullptr;
 
   if (global_state_->timeline.Initialized()) {
@@ -167,7 +162,7 @@ Status CUDAAllreduce::FinalizeCUDAQueue(const std::vector<TensorTableEntry>& ent
     auto cuda_result = cudaSetDevice(first_entry.device);
     cuda_context->ErrorCheck("cudaSetDevice", cuda_result);
 
-    cuda_context->WaitForEvents(event_queue_, entries, timeline);
+    cuda_context->WaitForEvents(event_queue, entries, timeline);
     if (host_buffer != nullptr) {
       free(host_buffer);
     }

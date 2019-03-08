@@ -54,7 +54,8 @@ struct CUDAContext {
 
   void ErrorCheck(std::string op_name, cudaError_t cuda_result);
 
-  void RecordEvent(std::queue<std::pair<std::string, cudaEvent_t>>& event_queue, std::string name, cudaStream_t stream);
+  void RecordEvent(std::queue<std::pair<std::string, cudaEvent_t>>& event_queue, std::string name,
+                   cudaStream_t& stream);
 
   void WaitForEvents(std::queue<std::pair<std::string, cudaEvent_t>>& event_queue,
                      const std::vector<TensorTableEntry>& entries, Timeline& timeline);
