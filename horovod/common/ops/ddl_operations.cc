@@ -32,7 +32,7 @@ DDL_Type GetDDLDataType(const std::shared_ptr<Tensor> tensor) {
 DDLAllreduce::DDLAllreduce(DDLContext* ddl_context,
                            CUDAContext* cuda_context,
                            HorovodGlobalState* global_state)
-    : CUDAAllreduceAsync(cuda_context, global_state),
+    : CUDAAllreduce(cuda_context, global_state),
       ddl_context_(ddl_context) {}
 
 Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
@@ -68,7 +68,7 @@ Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
     MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
 
     if (timeline.Initialized()) {
-      cuda_context_->RecordEvent(event_queue_, MEMCPY_IN_FUSION_BUFFER, stream);
+      cuda_context_->RecordEvent(event_queue_, MEMCPY_IN_FUSION_BUFFER, *stream_);
     }
   } else {
     fused_input_data = first_entry.tensor->data();
@@ -88,13 +88,12 @@ Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
     auto cuda_result = cudaMemcpyAsync(buffer_data, fused_input_data, buffer_len,
                                        cudaMemcpyDeviceToDevice, *stream_);
     cuda_context_->ErrorCheck("cudaMemcpyAsync", cuda_result);
-    cuda_context_->RecordEvent(event_queue, MEMCPY_IN_FUSION_BUFFER, stream);
+    cuda_context_->RecordEvent(event_queue, MEMCPY_IN_FUSION_BUFFER, *stream_);
   }
 
   // Synchronize.
   cuda_context_->WaitForEvents(event_queue_, entries, timeline);
 
-  auto& first_entry = entries[0];
   DDL_Type ddl_data_type = GetDDLDataType(first_entry.tensor);
   auto ddl_result = ddl_allreduce(buffer_data, (size_t) num_elements, ddl_data_type,
                                   DDL_OP_SUM);
@@ -107,7 +106,7 @@ Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
     MemcpyOutFusionBuffer(buffer_data, entries);
 
     if (timeline.Initialized()) {
-      cuda_context_->RecordEvent(event_queue_, MEMCPY_OUT_FUSION_BUFFER, stream);
+      cuda_context_->RecordEvent(event_queue_, MEMCPY_OUT_FUSION_BUFFER, *stream_);
     }
   }
 
