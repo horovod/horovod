@@ -230,6 +230,13 @@ void Timeline::Start(const std::string& tensor_name,
   tensor_states_[tensor_name] = TimelineState::TOP_LEVEL;
 }
 
+void Timeline::ActivityStartAll(const std::vector<TensorTableEntry>& entries,
+                                const std::string& activity) {
+  for (auto& e : entries) {
+    ActivityStart(e.tensor_name, activity);
+  }
+}
+
 void Timeline::ActivityStart(const std::string& tensor_name,
                              const std::string& activity) {
   if (!initialized_) {
@@ -240,6 +247,12 @@ void Timeline::ActivityStart(const std::string& tensor_name,
   assert(tensor_states_[tensor_name] == TimelineState::TOP_LEVEL);
   WriteEvent(tensor_name, 'B', activity);
   tensor_states_[tensor_name] = TimelineState::ACTIVITY;
+}
+
+void Timeline::ActivityEndAll(const std::vector<TensorTableEntry>& entries) {
+  for (auto& e : entries) {
+    ActivityEnd(e.tensor_name);
+  }
 }
 
 void Timeline::ActivityEnd(const std::string& tensor_name) {

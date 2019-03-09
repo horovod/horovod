@@ -85,9 +85,12 @@ public:
   void NegotiateRankReady(const std::string& tensor_name, int rank);
   void NegotiateEnd(const std::string& tensor_name);
   void Start(const std::string& tensor_name,
-             Response::ResponseType response_type);
+             const Response::ResponseType response_type);
+  void ActivityStartAll(const std::vector<TensorTableEntry>& entries,
+                        const std::string& activity);
   void ActivityStart(const std::string& tensor_name,
                      const std::string& activity);
+  void ActivityEndAll(const std::vector<TensorTableEntry>& entries);
   void ActivityEnd(const std::string& tensor_name);
   void End(const std::string& tensor_name, std::shared_ptr<Tensor> tensor);
   void MarkCycleStart();

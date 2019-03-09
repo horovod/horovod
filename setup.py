@@ -549,9 +549,13 @@ def get_common_options(build_ext):
                'horovod/common/fusion_buffer_manager.cc',
                'horovod/common/half.cc',
                'horovod/common/message.cc',
+               'horovod/common/mpi_context.cc',
                'horovod/common/operations.cc',
                'horovod/common/parameter_manager.cc',
                'horovod/common/timeline.cc',
+               'horovod/common/ops/collective_operations.cc',
+               'horovod/common/ops/mpi_operations.cc',
+               'horovod/common/ops/operation_manager.cc',
                'horovod/common/optim/bayesian_optimization.cc',
                'horovod/common/optim/gaussian_process.cc',
                'horovod/common/logging.cc']
@@ -563,18 +567,22 @@ def get_common_options(build_ext):
     if have_cuda:
         MACROS += [('HAVE_CUDA', '1')]
         INCLUDES += cuda_include_dirs
+        SOURCES += ['horovod/common/ops/cuda_operations.cc',
+                    'horovod/common/ops/mpi_cuda_operations.cc']
         LIBRARY_DIRS += cuda_lib_dirs
         LIBRARIES += ['cudart']
 
     if have_nccl:
         MACROS += [('HAVE_NCCL', '1')]
         INCLUDES += nccl_include_dirs
+        SOURCES += ['horovod/common/ops/nccl_operations.cc']
         LIBRARY_DIRS += nccl_lib_dirs
         LIBRARIES += nccl_libs
 
     if have_ddl:
         MACROS += [('HAVE_DDL', '1')]
         INCLUDES += ddl_include_dirs
+        SOURCES += ['horovod/common/ops/ddl_operations.cc']
         LIBRARY_DIRS += ddl_lib_dirs
         LIBRARIES += ['ddl', 'ddl_pack']
 

@@ -16,13 +16,39 @@
 #ifndef HOROVOD_COMMON_H
 #define HOROVOD_COMMON_H
 
+#include <functional>
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 #include "message.h"
 
 namespace horovod {
 namespace common {
+
+// Activity names, see Horovod Timeline for more details.
+#define INIT_FUSION_BUFFER "INIT_FUSION_BUFFER"
+#define WAIT_FOR_DATA "WAIT_FOR_DATA"
+#define WAIT_FOR_OTHER_TENSOR_DATA "WAIT_FOR_OTHER_TENSOR_DATA"
+#define ALLOCATE_OUTPUT "ALLOCATE_OUTPUT"
+#define MPI_CROSS_ALLGATHER "MPI_CROSS_ALLGATHER"
+#define MPI_ALLGATHER "MPI_ALLGATHER"
+#define INIT_NCCL "INIT_NCCL"
+#define QUEUE "QUEUE"
+#define MEMCPY_IN_FUSION_BUFFER "MEMCPY_IN_FUSION_BUFFER"
+#define MEMCPY_IN_HOST_BUFFER "MEMCPY_IN_HOST_BUFFER"
+#define MEMCPY_IN_SHARED_BUFFER "MEMCPY_IN_SHARED_BUFFER"
+#define MPI_ALLREDUCE "MPI_ALLREDUCE"
+#define MEMCPY_OUT_HOST_BUFFER "MEMCPY_OUT_HOST_BUFFER"
+#define NCCL_ALLREDUCE "NCCL_ALLREDUCE"
+#define MEMCPY_OUT_FUSION_BUFFER "MEMCPY_OUT_FUSION_BUFFER"
+#define MPI_BCAST "MPI_BCAST"
+#define NCCL_REDUCESCATTER "NCCL_REDUCESCATTER"
+#define NCCL_ALLGATHER "NCCL_ALLGATHER"
+#define NCCL_REDUCE "NCCL_REDUCE"
+#define NCCL_BCAST "NCCL_BCAST"
+#define COPY_ALLGATHER_OUTPUT "COPY_ALLGATHER_OUTPUT"
+#define ALLOCATE_SHARED_BUFFER "ALLOCATE_SHARED_BUFFER"
 
 // Device ID used for CPU.
 #define CPU_DEVICE_ID (-1)
@@ -30,9 +56,28 @@ namespace common {
 // List of supported frameworks.
 enum Framework { TENSORFLOW, PYTORCH, MXNET };
 
-enum StatusType { OK, UNKNOWN_ERROR, PRECONDITION_ERROR, ABORTED, INVALID_ARGUMENT };
+enum StatusType { OK, UNKNOWN_ERROR, PRECONDITION_ERROR, ABORTED, INVALID_ARGUMENT, IN_PROGRESS };
 
 enum DeviceType { CPU, GPU };
+
+enum Communicator {
+  GLOBAL = 0,
+  LOCAL = 1,
+  CROSS = 2
+};
+
+inline std::string CommunicatorName(Communicator comm) {
+  switch (comm) {
+    case GLOBAL:
+      return "global";
+    case LOCAL:
+      return "local";
+    case CROSS:
+      return "cross";
+    default:
+      return "<unknown>";
+  }
+}
 
 class Status {
 public:
@@ -42,7 +87,9 @@ public:
   static Status PreconditionError(std::string message);
   static Status Aborted(std::string message);
   static Status InvalidArgument(std::string message);
+  static Status InProgress();
   bool ok() const;
+  bool in_progress() const;
   StatusType type() const;
   const std::string& reason() const;
 
@@ -108,6 +155,33 @@ public:
   virtual Framework framework() const = 0;
   virtual ~OpContext() = default;
 };
+
+// A callback to call after the MPI communication completes. Since the
+// allreduce and allgather ops are asynchronous, this callback is what resumes
+// computation after the reduction is completed.
+using StatusCallback = std::function<void(const Status&)>;
+
+// Table storing Tensors to be reduced, keyed by unique name.
+// This table contains everything necessary to do the reduction.
+struct TensorTableEntry {
+  // Name of the tensor.
+  std::string tensor_name;
+  // Operation context.
+  std::shared_ptr<OpContext> context;
+  // Input tensor.
+  std::shared_ptr<Tensor> tensor;
+  // Pre-allocated output tensor.
+  std::shared_ptr<Tensor> output;
+  // Root rank for broadcast operation.
+  int root_rank = 0;
+  // Event indicating that data is ready.
+  std::shared_ptr<ReadyEvent> ready_event;
+  // GPU to do reduction on, or CPU_DEVICE_ID in case of CPU.
+  int device = CPU_DEVICE_ID;
+  // A callback to call with the status.
+  StatusCallback callback;
+};
+using TensorTable = std::unordered_map<std::string, TensorTableEntry>;
 
 } // namespace common
 } // namespace horovod
