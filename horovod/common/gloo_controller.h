@@ -13,24 +13,24 @@
 // limitations under the License.
 // =============================================================================
 
-#ifndef HOROVOD_MPI_CONTROLLER_H
-#define HOROVOD_MPI_CONTROLLER_H
+#ifndef HOROVOD_GLOO_CONTROLLER_H
+#define HOROVOD_GLOO_CONTROLLER_H
 
 #include "controller.h"
-#include "mpi_context.h"
+#include "logging.h"
 
 namespace horovod {
 namespace common {
 
-class MPIController : public Controller {
+class GlooController : public Controller {
 public:
-  MPIController(ResponseCache& response_cache, TensorQueue& tensor_queue,
-                Timeline& timeline, ParameterManager& parameter_manager,
-                MPIContext& mpi_ctx)
+  GlooController(ResponseCache& response_cache, TensorQueue& tensor_queue,
+                 Timeline& timeline, ParameterManager& parameter_manager,
+                 GlooContext& gloo_context)
       : Controller(response_cache, tensor_queue, timeline, parameter_manager),
-        mpi_ctx_(mpi_ctx) {
-    LOG(INFO) << "MPI Controller Initialized.";
-  }
+        gloo_context_(gloo_context) {
+    LOG(INFO) << "GLOO Controller Initialized.";
+  };
 
   void Initialize() override;
 
@@ -55,15 +55,30 @@ public:
 
   void Barrier(Communicator communicator) override;
 
-  bool IsMpiThreadsSupported() const { return mpi_threads_supported_; }
-
 protected:
-  MPIContext& mpi_ctx_;
-
-  // flag indicating whether MPI multi-threading is supported
-  bool mpi_threads_supported_ = false;
+  GlooContext& gloo_context_;
 };
+
+template <typename T>
+void BitOr(void* c_, const void* a_, const void* b_, size_t n) {
+  T* c = static_cast<T*>(c_);
+  const T* a = static_cast<const T*>(a_);
+  const T* b = static_cast<const T*>(b_);
+  for (size_t i = 0; i < n; i++) {
+    c[i] = a[i] | b[i];
+  }
+}
+
+template <typename T>
+void BitAnd(void* c_, const void* a_, const void* b_, size_t n) {
+  T* c = static_cast<T*>(c_);
+  const T* a = static_cast<const T*>(a_);
+  const T* b = static_cast<const T*>(b_);
+  for (size_t i = 0; i < n; i++) {
+    c[i] = a[i] & b[i];
+  }
+}
 
 } // namespace common
 } // namespace horovod
-#endif // HOROVOD_MPI_CONTROLLER_H
+#endif // HOROVOD_GLOO_CONTROLLER_H

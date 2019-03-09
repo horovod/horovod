@@ -71,8 +71,16 @@ def execute_function_multithreaded(fn,
     # Returns the results only if block_until_all_done is set.
     results = None
     if block_until_all_done:
-        for t in threads:
-            t.join()
+
+        # Because join() cannot be interrupted by signal, so we need
+        # to change a single join() into join() with timeout in a while loop.
+        have_alive_child = True
+        while have_alive_child:
+            have_alive_child = False
+            for t in threads:
+                t.join(1)
+                if t.is_alive():
+                    have_alive_child = True
 
         results = {}
         while not result_queue.empty():

@@ -32,6 +32,9 @@ from horovod.run.common.util import settings as hvd_settings
 from horovod.run.driver import driver_service
 from horovod.run.task import task_service
 from horovod.run.util import cache, threads, network
+from horovod.run.gloo_run import gloo_run
+from horovod.run.mpi_run import mpi_run
+
 
 # Cached information of horovodrun functions be stored in this directory
 CACHE_FOLDER = os.path.join(os.path.expanduser('~'), '.horovod')
@@ -192,8 +195,6 @@ def _driver_fn(all_host_names, local_host_names, settings):
     interfaces of the worker index + 1 (in a ring manner) and only keeps the
     routed interfaces. Function returns the intersection of the set of all the
     routed interfaces on all the workers.
-    :param key:
-    :type key: string
     :param all_host_names: list of addresses. for example,
         ['worker-0','worker-1']
         ['10.11.11.11', '10.11.11.12']
@@ -256,32 +257,6 @@ def _driver_fn(all_host_names, local_host_names, settings):
         driver.shutdown()
 
 
-def _is_open_mpi_installed():
-    output = six.StringIO()
-    command = 'mpirun --version'
-    try:
-        exit_code = safe_shell_exec.execute(command, stdout=output,
-                                            stderr=output)
-        output_msg = output.getvalue()
-    except Exception:
-        print(traceback.format_exc(), file=sys.stderr)
-        return False
-    finally:
-        output.close()
-
-    if exit_code == 0:
-        if 'Open MPI' not in output_msg:
-            print('Open MPI not found in output of mpirun --version.',
-                  file=sys.stderr)
-            return False
-        else:
-            return True
-    else:
-        print("Was not able to run %s:\n%s" % (command, output_msg),
-              file=sys.stderr)
-        return False
-
-
 def parse_args():
     parser = argparse.ArgumentParser(description='Horovod Runner')
 
@@ -321,6 +296,11 @@ def parse_args():
                              "Otherwise, all the checks will run every time "
                              "horovodrun is called.")
 
+    parser.add_argument('--gloo', action="store_true", dest="use_gloo",
+                        help="If this flag is set, horovod will be "
+                             "independent from mpi and use gloo "
+                             "controller instead.")
+
     parser.add_argument('--start-timeout', action="store",
                         dest="start_timeout", type=int,
                         help="Horovodrun has to perform all the checks and "
@@ -358,6 +338,10 @@ def run():
     if args.version:
         print(horovod.__version__)
         exit(0)
+
+    if args.use_gloo and (not args.host or not args.np):
+        raise Exception("Host and process number need to be specified if "
+                        "using gloo.")
 
     if args.host:
         all_host_names = [x for x in
@@ -440,66 +424,22 @@ def run():
         common_intfs = _driver_fn(all_host_names, local_host_names,
                                   settings, fn_cache=fn_cache)
 
-        tcp_intf_arg = "-mca btl_tcp_if_include {common_intfs}".format(
-            common_intfs=','.join(common_intfs))
-        nccl_socket_intf_arg = "-x NCCL_SOCKET_IFNAME={common_intfs}".format(
-            common_intfs=','.join(common_intfs))
-
         if settings.verbose >= 2:
             print("Interfaces on all the hosts were successfully checked.")
+
+        if settings.verbose >= 4:
+            print("Remote host found: " + " ".join(remote_host_names))
+            print("Common interface found: " + " ".join(common_intfs))
     else:
         # If all the given hosts are local, no need to specify the interfaces
         # because MPI does not use network for local execution.
-        tcp_intf_arg = ""
-        nccl_socket_intf_arg = ""
+        common_intfs = set()
 
-    # Pass all the env variables to the mpirun command.
-    env = os.environ.copy()
+    if args.use_gloo:
+        gloo_run(args, remote_host_names, common_intfs)
 
-    # Pass secret key through the environment variables.
-    env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(settings.key)
-
-    if not _is_open_mpi_installed():
-        raise Exception(
-            'horovodrun convenience script currently only supports '
-            'Open MPI.\n\n'
-            'Choose one of:\n'
-            '1. Install Open MPI 4.0.0+ and re-install Horovod '
-            '(use --no-cache-dir pip option).\n'
-            '2. Run distributed '
-            'training script using the standard way provided by your'
-            ' MPI distribution (usually mpirun, srun, or jsrun).')
-
-    if args.ssh_port:
-        ssh_port_arg = "-mca plm_rsh_args \"-p {ssh_port}\"".format(
-            ssh_port=args.ssh_port)
     else:
-        ssh_port_arg = ""
-
-    mpirun_command = (
-        'mpirun --allow-run-as-root --tag-output '
-        '-np {num_proc} {hosts_arg} '
-        '-bind-to none -map-by slot '
-        '-mca pml ob1 -mca btl ^openib '
-        '{ssh_port_arg} '
-        '{tcp_intf_arg} '
-        '-x NCCL_DEBUG=INFO '
-        '{nccl_socket_intf_arg} '
-        '{env} {command}'  # expect a lot of environment variables
-            .format(num_proc=settings.num_proc,
-                    hosts_arg=hosts_arg,
-                    tcp_intf_arg=tcp_intf_arg,
-                    nccl_socket_intf_arg=nccl_socket_intf_arg,
-                    ssh_port_arg=ssh_port_arg,
-                    env=' '.join('-x %s' % key for key in env.keys()
-                                 if env_util.is_exportable(key)),
-                    command=' '.join(quote(par) for par in args.command))
-    )
-
-    if settings.verbose >= 2:
-        print(mpirun_command)
-    # Execute the mpirun command.
-    os.execve('/bin/sh', ['/bin/sh', '-c', mpirun_command], env)
+        mpi_run(args, settings, common_intfs)
 
 
 if __name__ == "__main__":

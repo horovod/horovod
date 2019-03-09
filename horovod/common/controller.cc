@@ -27,9 +27,25 @@
 namespace horovod {
 namespace common {
 
-Controller::Controller(ResponseCache& response_cache,
-                       TensorQueue& tensor_queue, Timeline& timeline,
-                       ParameterManager& parameter_manager)
+
+void Controller::SynchronizeParameters() {
+  ParameterManager::Params param;
+  if (is_coordinator_) {
+    param = parameter_manager_.GetParams();
+  }
+
+  void* buffer = (void*)(&param);
+  size_t param_size = sizeof(param);
+  Bcast(buffer, param_size, 0, Communicator::GLOBAL);
+
+  if (!is_coordinator_) {
+    parameter_manager_.SetParams(param);
+  }
+  parameter_manager_.Reset();
+}
+
+Controller::Controller(ResponseCache& response_cache, TensorQueue& tensor_queue,
+                       Timeline& timeline, ParameterManager& parameter_manager)
     : stall_inspector_(response_cache), tensor_queue_(tensor_queue),
       timeline_(timeline), response_cache_(response_cache),
       parameter_manager_(parameter_manager) {}
@@ -170,7 +186,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down) {
     std::vector<std::string> ready_to_reduce;
 
     if (is_coordinator_) {
-      LOG(DEBUG) << "Adding messages from rank 0";
+      LOG(TRACE) << "Adding messages from rank 0";
       while (!message_queue_tmp.empty()) {
         // Pop the first available message
         Request message = message_queue_tmp.front();
@@ -190,11 +206,10 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down) {
 
       // Process messages.
       for (int i = 1; i < size_; ++i) {
-        LOG(DEBUG) << "Adding messages from rank " << i;
+        LOG(TRACE) << "Adding messages from rank " << i;
         auto received_message_list = ready_list[i];
         for (auto& received_message : received_message_list.requests()) {
           auto& received_name = received_message.tensor_name();
-          LOG(DEBUG) << "Processing tensor " << received_name;
           bool reduce = IncrementTensorCount(received_message);
           stall_inspector_.RecordUncachedTensorStart(
               received_message.tensor_name(), received_message.request_rank(),

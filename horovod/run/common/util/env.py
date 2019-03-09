@@ -15,10 +15,29 @@
 
 import re
 
+LOG_LEVEL_STR = ['FETAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'TRACE']
 
 # List of regular expressions to ignore environment variables by.
-IGNORE_REGEXES = {'BASH_FUNC_.*\(\)', 'OLDPWD'}
+IGNORE_REGEXES = {re.compile(r'BASH_FUNC_.*\(\)'), re.compile('OLDPWD'),
+                  # ignore strings with any none word chars (e.g. '<')
+                  re.compile(r'[^\w/.:]'),
+                  # TODO: Maybe we can write these to a file
+                  #  during ma client installing?
+                  # # Do not overwrite instance id on each instance
+                  # re.compile('MICHELANGELO_INSTANCE_ID'),
+                  # re.compile('PELOTON_INSTANCE_ID'),
+                  # re.compile('PELOTON_TASK_ID'),
+                  }
+
+
+def load_ignore_envs(file_name):
+    with open(file_name) as fp:
+        while True:
+            pattern = fp.readline().strip()
+            if not pattern:
+                return
+            IGNORE_REGEXES.add(re.compile(pattern))
 
 
 def is_exportable(v):
-    return not any(re.match(r, v) for r in IGNORE_REGEXES)
+    return not any(pattern.search(v) for pattern in IGNORE_REGEXES)

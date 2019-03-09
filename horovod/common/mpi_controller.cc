@@ -17,10 +17,6 @@
 #include "logging.h"
 #include "operations.h"
 
-#if HAVE_GLOO
-#include "ops/gloo_operations.h"
-#endif
-
 namespace horovod {
 namespace common {
 
@@ -182,20 +178,22 @@ void MPIController::RecvFinalTensors(ResponseList& response_list) {
   delete[] buffer;
 }
 
-void MPIController::SynchronizeParameters() {
-  ParameterManager::Params param;
-  if (is_coordinator_) {
-    param = parameter_manager_.GetParams();
-  }
+void MPIController::Bcast(void* buffer, size_t size, int root_rank, Communicator communicator) {
+  MPI_Comm comm = mpi_ctx_.GetMPICommunicator(communicator);
+  int ret_code = MPI_Bcast(buffer, size, MPI_BYTE, root_rank, comm);
 
-  void* buffer = (void*)(&param);
-  int param_size = sizeof(param);
-  MPI_Bcast(buffer, param_size, MPI_BYTE, RANK_ZERO, mpi_ctx_.mpi_comm);
-
-  if (!is_coordinator_) {
-    parameter_manager_.SetParams(param);
+  if (ret_code != MPI_SUCCESS) {
+    throw std::logic_error("MPI_Broadcast failed, see MPI output for details.");
   }
-  parameter_manager_.Reset();
+}
+
+void MPIController::Barrier(Communicator communicator) {
+  MPI_Comm comm = mpi_ctx_.GetMPICommunicator(communicator);
+  int ret_code = MPI_Barrier(comm);
+
+  if (ret_code != MPI_SUCCESS) {
+    throw std::logic_error("MPI_Barrier failed, see MPI output for details.");
+  }
 }
 
 } // namespace common

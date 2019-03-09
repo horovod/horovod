@@ -52,17 +52,21 @@ def terminate_executor_shell_and_children(pid):
     p.kill()
 
 
-def forward_stream(src_fd, dst_stream):
+def forward_stream(src_fd, dst_stream, prefix, index):
     with os.fdopen(src_fd, 'r') as src:
         while True:
             line = src.readline()
             if not line:
                 break
+
+            if index >= 0:
+                localtime = time.asctime(time.localtime(time.time()))
+                line = localtime + '[' + str(index) + ']<' + prefix + '>:' + line
             dst_stream.write(line)
             dst_stream.flush()
 
 
-def execute(command, env=None, stdout=None, stderr=None):
+def execute(command, env=None, stdout=None, stderr=None, index=-1):
     # Make a pipe for the subprocess stdout/stderr.
     (stdout_r, stdout_w) = os.pipe()
     (stderr_r, stderr_w) = os.pipe()
@@ -120,8 +124,8 @@ def execute(command, env=None, stdout=None, stderr=None):
         stdout = sys.stdout
     if stderr is None:
         stderr = sys.stderr
-    stdout_fwd = threading.Thread(target=forward_stream, args=(stdout_r, stdout))
-    stderr_fwd = threading.Thread(target=forward_stream, args=(stderr_r, stderr))
+    stdout_fwd = threading.Thread(target=forward_stream, args=(stdout_r, stdout, 'stdout', index))
+    stderr_fwd = threading.Thread(target=forward_stream, args=(stderr_r, stderr, 'stderr', index))
     stdout_fwd.start()
     stderr_fwd.start()
 
