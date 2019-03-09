@@ -16,16 +16,15 @@
 #ifndef HOROVOD_GLOO_CONTEXT_H
 #define HOROVOD_GLOO_CONTEXT_H
 
+#include "common.h"
 #include "gloo/context.h"
 #include "mpi.h"
-
-#include "common.h"
 
 namespace horovod {
 namespace common {
 
 struct GlooContext {
-  void InitializeFromMPI(const MPI_Comm &mpi_comm, const char* gloo_iface);
+  void InitializeFromMPI(const MPI_Comm& mpi_comm, const char* gloo_iface);
 
   void Finalize();
 
@@ -35,4 +34,4 @@ struct GlooContext {
 } // namespace common
 } // namespace horovod
 
-#endif //HOROVOD_GLOO_CONTEXT_H
+#endif // HOROVOD_GLOO_CONTEXT_H

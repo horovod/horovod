@@ -14,6 +14,15 @@
 // =============================================================================
 
 #include "gloo_operations.h"
+#include "../common.h"
+#include "../global_state.h"
+#include "../gloo_context.h"
+#include "gloo/allgather.h"
+#include "gloo/allgatherv.h"
+#include "gloo/allreduce.h"
+#include "gloo/broadcast.h"
+#include "gloo/math.h"
+#include "gloo/types.h"
 
 namespace horovod {
 namespace common {
@@ -159,12 +168,13 @@ Status GlooAllgather::Execute(std::vector<TensorTableEntry>& entries,
   // allgatherv
   auto** entry_component_offsets = new int64_t*[entries.size()];
 
-  auto* recvcounts = new int[global_state_->size]();
-  auto* displcmnts = new int[global_state_->size]();
+  int global_size = global_state_->controller->GetSize();
+  auto* recvcounts = new int[global_size]();
+  auto* displcmnts = new int[global_size]();
 
   for (size_t ec = 0; ec < entries.size(); ++ec) {
-    entry_component_sizes[ec] = new int64_t[global_state_->size]();
-    entry_component_offsets[ec] = new int64_t[global_state_->size]();
+    entry_component_sizes[ec] = new int64_t[global_size]();
+    entry_component_offsets[ec] = new int64_t[global_size]();
   }
 
   auto& first_entry = entries[0];
@@ -242,7 +252,7 @@ Status GlooBroadcast::Execute(std::vector<TensorTableEntry>& entries,
   // for gloo broadcast, only output needs to be set if inplace
 
   void* data_ptr;
-  if (global_state_->rank == e.root_rank) {
+  if (global_state_->controller->GetRank() == e.root_rank) {
     data_ptr = (void*)e.tensor->data();
   } else {
     data_ptr = (void*)e.output->data();

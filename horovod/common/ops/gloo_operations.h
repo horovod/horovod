@@ -16,17 +16,7 @@
 #ifndef HOROVOD_GLOO_OPERATIONS_H
 #define HOROVOD_GLOO_OPERATIONS_H
 
-#include "../common.h"
-#include "../global_state.h"
-#include "../gloo_context.h"
 #include "collective_operations.h"
-#include "gloo/allgather.h"
-#include "gloo/allgatherv.h"
-#include "gloo/allreduce.h"
-#include "gloo/broadcast.h"
-#include "gloo/math.h"
-#include "gloo/types.h"
-#include <iostream>
 
 namespace horovod {
 namespace common {

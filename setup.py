@@ -599,10 +599,14 @@ def get_common_options(build_ext):
                 'third_party/flatbuffers/include',
                 'third_party/lbfgs/include']
     SOURCES = ['horovod/common/common.cc',
+               'horovod/common/controller.cc',
                'horovod/common/fusion_buffer_manager.cc',
                'horovod/common/half.cc',
+               'horovod/common/logging.cc',
                'horovod/common/message.cc',
+               'horovod/common/message_table.cc',
                'horovod/common/mpi_context.cc',
+               'horovod/common/mpi_controller.cc',
                'horovod/common/operations.cc',
                'horovod/common/parameter_manager.cc',
                'horovod/common/response_cache.cc',
@@ -612,7 +616,8 @@ def get_common_options(build_ext):
                'horovod/common/ops/operation_manager.cc',
                'horovod/common/optim/bayesian_optimization.cc',
                'horovod/common/optim/gaussian_process.cc',
-               'horovod/common/logging.cc']
+               'horovod/common/utils/env_parser.cc'
+               ]
     COMPILE_FLAGS = cpp_flags + shlex.split(mpi_flags)
     LINK_FLAGS = link_flags + shlex.split(mpi_flags)
     LIBRARY_DIRS = []
@@ -666,7 +671,8 @@ def get_common_options(build_ext):
     if have_ddl:
         MACROS += [('HAVE_DDL', '1')]
         INCLUDES += ddl_include_dirs
-        SOURCES += ['horovod/common/ops/ddl_operations.cc']
+        SOURCES += ['horovod/common/ops/ddl_operations.cc',
+                    'horovod/common/ops/ddl_mpi_context_manager.cc']
         LIBRARY_DIRS += ddl_lib_dirs
         LIBRARIES += ['ddl', 'ddl_pack']
 
@@ -1366,6 +1372,7 @@ class custom_build_ext(build_ext):
         if not any(built_plugins):
             raise DistutilsError(
                 'None of TensorFlow, PyTorch, or MXNet plugins were built. See errors above.')
+
 
 require_list = ['cloudpickle', 'psutil', 'six']
 
