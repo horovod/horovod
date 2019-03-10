@@ -14,6 +14,7 @@
 # ==============================================================================
 from __future__ import print_function
 
+import fnmatch
 import os
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
@@ -29,11 +30,26 @@ import re
 from horovod import __version__
 
 
+class CMakeExtension(Extension):
+    def __init__(self, name, cmake_lists_dir='.', sources=[], **kwa):
+        Extension.__init__(self, name, sources=sources, **kwa)
+        self.cmake_lists_dir = os.path.abspath(cmake_lists_dir)
+
+
 tensorflow_mpi_lib = Extension('horovod.tensorflow.mpi_lib', [])
 torch_mpi_lib = Extension('horovod.torch.mpi_lib', [])
 torch_mpi_lib_impl = Extension('horovod.torch.mpi_lib_impl', [])
 torch_mpi_lib_v2 = Extension('horovod.torch.mpi_lib_v2', [])
 mxnet_mpi_lib = Extension('horovod.mxnet.mpi_lib', [])
+gloo_lib = CMakeExtension('gloo', cmake_lists_dir='third_party/gloo', sources=[])
+
+
+def find_files(base_dir, ext):
+    matches = []
+    for root, dirnames, filenames in os.walk(base_dir):
+        for filename in fnmatch.filter(filenames, ext):
+            matches.append(os.path.join(root, filename))
+    return matches
 
 mlsl_root = os.environ.get('MLSL_ROOT')
 have_mlsl = mlsl_root is not None
@@ -543,9 +559,7 @@ def get_common_options(build_ext):
                              'HOROVOD_ALLOW_MIXED_GPU_IMPL environment variable to \'1\'.')
 
     MACROS = [('EIGEN_MPL2_ONLY', 1)]
-    INCLUDES = ['third_party/eigen',
-                'third_party/lbfgs/include',
-                'third_party/boost/assert/include',
+    INCLUDES = ['third_party/boost/assert/include',
                 'third_party/boost/config/include',
                 'third_party/boost/core/include',
                 'third_party/boost/detail/include',
@@ -558,7 +572,10 @@ def get_common_options(build_ext):
                 'third_party/boost/static_assert/include',
                 'third_party/boost/type_traits/include',
                 'third_party/boost/utility/include',
-                'third_party/flatbuffers/include']
+                'third_party/eigen',
+                'third_party/flatbuffers/include',
+                'third_party/gloo',
+                'third_party/lbfgs/include']
     SOURCES = ['horovod/common/common.cc',
                'horovod/common/fusion_buffer_manager.cc',
                'horovod/common/half.cc',
@@ -955,11 +972,54 @@ def build_torch_extension_v2(build_ext, options, torch_version):
     build_ext.build_extension(torch_mpi_lib_v2)
 
 
+def build_cmake(build_ext, ext, output_dir, options):
+    try:
+        subprocess.check_output(['cmake', '--version'])
+    except OSError:
+        raise RuntimeError('Cannot find CMake executable')
+
+    # example of cmake args
+    extdir = os.path.abspath(os.path.dirname(build_ext.get_ext_fullpath(ext.name)))
+    config = 'Debug' if build_ext.debug else 'Release'
+    cmake_args = [
+        '-DCMAKE_BUILD_TYPE=' + config,
+        '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}'.format(config.upper(), extdir),
+        '-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{}={}'.format(config.upper(), output_dir),
+    ]
+    cmake_build_args = [
+        '--config', config,
+        '--', '-j4',
+    ]
+
+    build_temp = os.path.abspath(os.path.join(build_ext.build_temp, ext.name))
+    if not os.path.exists(build_temp):
+        os.makedirs(build_temp)
+
+    # Config and build the extension
+    subprocess.check_call(['cmake', ext.cmake_lists_dir] + cmake_args,
+                          cwd=build_temp)
+    subprocess.check_call(['cmake', '--build', '.'] + cmake_build_args,
+                          cwd=build_temp)
+
+    options['LIBRARIES'] += [ext.name]
+
+
 # run the customize_compiler
 class custom_build_ext(build_ext):
     def build_extensions(self):
         options = get_common_options(self)
         built_plugins = []
+
+        lib_output_dir = os.path.abspath(os.path.join(self.build_temp, 'lib'))
+        options['LIBRARY_DIRS'] += [lib_output_dir]
+
+        if not os.path.exists(lib_output_dir):
+            os.makedirs(lib_output_dir)
+
+        for ext in self.extensions:
+            if isinstance(ext, CMakeExtension):
+                build_cmake(self, ext, lib_output_dir, options)
+
         # If PyTorch is installed, it must be imported before TensorFlow, otherwise
         # we may get an error: dlopen: cannot load any more object with static TLS
         if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
@@ -1008,7 +1068,7 @@ class custom_build_ext(build_ext):
             raise DistutilsError(
                 'None of TensorFlow, PyTorch, or MXNet plugins were built. See errors above.')
 
-require_list = ['cloudpickle', 'psutil', 'six']
+require_list = ['cmake', 'cloudpickle', 'psutil', 'six']
 # Skip cffi if pytorch extension explicitly disabled
 if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
   require_list.append('cffi>=1.4.0')
@@ -1026,7 +1086,7 @@ setup(name='horovod',
           'License :: OSI Approved :: Apache Software License'
       ],
       ext_modules=[tensorflow_mpi_lib, torch_mpi_lib, torch_mpi_lib_impl,
-                   torch_mpi_lib_v2, mxnet_mpi_lib],
+                   torch_mpi_lib_v2, mxnet_mpi_lib, gloo_lib],
       cmdclass={'build_ext': custom_build_ext},
       # cffi is required for PyTorch
       # If cffi is specified in setup_requires, it will need libffi to be installed on the machine,
