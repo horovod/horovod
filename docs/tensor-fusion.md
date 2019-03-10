@@ -30,5 +30,5 @@ $ HOROVOD_FUSION_THRESHOLD=0 mpirun -np 4 -x HOROVOD_FUSION_THRESHOLD python tra
 You can tweak time between cycles (defined in milliseconds) using the `HOROVOD_CYCLE_TIME` environment variable:
 
 ```bash
-$ HOROVOD_CYCLE_TIME=3.5 mpirun -np 4 -x HOROVOD_FUSION_THRESHOLD python train.py
+$ HOROVOD_CYCLE_TIME=3.5 mpirun -np 4 -x HOROVOD_CYCLE_TIME python train.py
 ```
