@@ -29,7 +29,7 @@ struct GlooContext {
 
   void Finalize();
 
-  std::unique_ptr<gloo::Context> ctx;
+  std::shared_ptr<gloo::Context> ctx;
 };
 
 } // namespace common
