@@ -17,6 +17,7 @@
 #define HOROVOD_GLOO_CONTEXT_H
 
 #include "gloo/context.h"
+#include "mpi.h"
 
 #include "common.h"
 
@@ -24,7 +25,7 @@ namespace horovod {
 namespace common {
 
 struct GlooContext {
-  void InitializeFromMPI();
+  void InitializeFromMPI(const MPI_Comm& mpi_comm);
 
   std::shared_ptr<gloo::Context> ctx;
 };

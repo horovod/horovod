@@ -21,13 +21,13 @@
 namespace horovod {
 namespace common {
 
-void GlooContext::InitializeFromMPI() {
+void GlooContext::InitializeFromMPI(const MPI_Comm& mpi_comm) {
   gloo::transport::tcp::attr attr;
   attr.iface = "eth0";
   attr.ai_family = AF_UNSPEC;
   auto dev = gloo::transport::tcp::CreateDevice(attr);
-  
-  auto context = std::make_shared<gloo::mpi::Context>(MPI_COMM_WORLD);
+
+  auto context = std::make_shared<gloo::mpi::Context>(mpi_comm);
   context->connectFullMesh(dev);
   ctx = context;
 }
