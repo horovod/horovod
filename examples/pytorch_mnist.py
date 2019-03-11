@@ -4,7 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
-from torch.autograd import Variable
 import torch.utils.data.distributed
 import horovod.torch as hvd
 
@@ -26,9 +25,12 @@ parser.add_argument('--seed', type=int, default=42, metavar='S',
                     help='random seed (default: 42)')
 parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='how many batches to wait before logging training status')
+parser.add_argument('--fp16-allreduce', action='store_true', default=False,
+                    help='use fp16 compression during allreduce')
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 
+# Horovod: initialize library.
 hvd.init()
 torch.manual_seed(args.seed)
 
@@ -45,6 +47,7 @@ train_dataset = \
                        transforms.ToTensor(),
                        transforms.Normalize((0.1307,), (0.3081,))
                    ]))
+# Horovod: use DistributedSampler to partition the training data.
 train_sampler = torch.utils.data.distributed.DistributedSampler(
     train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
 train_loader = torch.utils.data.DataLoader(
@@ -55,6 +58,7 @@ test_dataset = \
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
     ]))
+# Horovod: use DistributedSampler to partition the test data.
 test_sampler = torch.utils.data.distributed.DistributedSampler(
     test_dataset, num_replicas=hvd.size(), rank=hvd.rank())
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.test_batch_size,
@@ -93,33 +97,39 @@ hvd.broadcast_parameters(model.state_dict(), root_rank=0)
 optimizer = optim.SGD(model.parameters(), lr=args.lr * hvd.size(),
                       momentum=args.momentum)
 
+# Horovod: (optional) compression algorithm.
+compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
+
 # Horovod: wrap optimizer with DistributedOptimizer.
-optimizer = hvd.DistributedOptimizer(
-    optimizer, named_parameters=model.named_parameters())
+optimizer = hvd.DistributedOptimizer(optimizer,
+                                     named_parameters=model.named_parameters(),
+                                     compression=compression)
 
 
 def train(epoch):
     model.train()
+    # Horovod: set epoch to sampler for shuffling.
     train_sampler.set_epoch(epoch)
     for batch_idx, (data, target) in enumerate(train_loader):
         if args.cuda:
             data, target = data.cuda(), target.cuda()
-        data, target = Variable(data), Variable(target)
         optimizer.zero_grad()
         output = model(data)
         loss = F.nll_loss(output, target)
         loss.backward()
         optimizer.step()
         if batch_idx % args.log_interval == 0:
+            # Horovod: use train_sampler to determine the number of examples in
+            # this worker's partition.
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_sampler),
-                100. * batch_idx / len(train_loader), loss.data[0]))
+                100. * batch_idx / len(train_loader), loss.item()))
 
 
 def metric_average(val, name):
-    tensor = torch.FloatTensor([val])
+    tensor = torch.tensor(val)
     avg_tensor = hvd.allreduce(tensor, name=name)
-    return avg_tensor.data[0]
+    return avg_tensor.item()
 
 
 def test():
@@ -129,20 +139,23 @@ def test():
     for data, target in test_loader:
         if args.cuda:
             data, target = data.cuda(), target.cuda()
-        data, target = Variable(data, volatile=True), Variable(target)
         output = model(data)
         # sum up batch loss
-        test_loss += F.nll_loss(output, target, size_average=False).data[0]
+        test_loss += F.nll_loss(output, target, size_average=False).item()
         # get the index of the max log-probability
         pred = output.data.max(1, keepdim=True)[1]
         test_accuracy += pred.eq(target.data.view_as(pred)).cpu().float().sum()
 
+    # Horovod: use test_sampler to determine the number of examples in
+    # this worker's partition.
     test_loss /= len(test_sampler)
     test_accuracy /= len(test_sampler)
 
+    # Horovod: average metric values across workers.
     test_loss = metric_average(test_loss, 'avg_loss')
     test_accuracy = metric_average(test_accuracy, 'avg_accuracy')
 
+    # Horovod: print output only on first rank.
     if hvd.rank() == 0:
         print('\nTest set: Average loss: {:.4f}, Accuracy: {:.2f}%\n'.format(
             test_loss, 100. * test_accuracy))

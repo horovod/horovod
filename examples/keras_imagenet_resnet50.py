@@ -31,6 +31,8 @@ parser.add_argument('--log-dir', default='./logs',
                     help='tensorboard log directory')
 parser.add_argument('--checkpoint-format', default='./checkpoint-{epoch}.h5',
                     help='checkpoint file format')
+parser.add_argument('--fp16-allreduce', action='store_true', default=False,
+                    help='use fp16 compression during allreduce')
 
 # Default settings from https://arxiv.org/abs/1706.02677.
 parser.add_argument('--batch-size', type=int, default=32,
@@ -91,11 +93,15 @@ test_iter = test_gen.flow_from_directory(args.val_dir,
 # Set up standard ResNet-50 model.
 model = keras.applications.resnet50.ResNet50(weights=None)
 
+# Horovod: (optional) compression algorithm.
+compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
+
 # Restore from a previous checkpoint, if initial_epoch is specified.
 # Horovod: restore on the first worker which will broadcast both model and optimizer weights
 # to other workers.
 if resume_from_epoch > 0 and hvd.rank() == 0:
-    model = hvd.load_model(args.checkpoint_format.format(epoch=resume_from_epoch))
+    model = hvd.load_model(args.checkpoint_format.format(epoch=resume_from_epoch),
+                           compression=compression)
 else:
     # ResNet-50 model that is included with Keras is optimized for inference.
     # Add L2 weight decay & adjust BN settings.
@@ -117,7 +123,7 @@ else:
                                momentum=args.momentum)
 
     # Horovod: add Horovod Distributed Optimizer.
-    opt = hvd.DistributedOptimizer(opt)
+    opt = hvd.DistributedOptimizer(opt, compression=compression)
 
     model.compile(loss=keras.losses.categorical_crossentropy,
                   optimizer=opt,

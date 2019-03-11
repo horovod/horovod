@@ -12,24 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+from distutils.version import LooseVersion
 
-# If PyTorch is installed, it must be imported before TensorFlow, otherwise
-# we may get an error: dlopen: cannot load any more object with static TLS
-try:
-    import torch
-except:
-    pass
+import tensorflow as tf
 
-try:
-    import tensorflow
-except:
-    pass
 
-# Keras 2.0.0 has a race condition during first initialization that attempts
-# to make a directory.  If multiple processes attempt to make the directory
-# at the same time, all but the first one will fail.  This has been fixed
-# in new versions of Keras.
-try:
-    import keras
-except:
-    pass
+if LooseVersion(tf.__version__) >= LooseVersion("1.9.0"):
+    from tensorflow.python.eager import context
+    _has_eager = True
+else:
+    _has_eager = False
+
+
+def _executing_eagerly():
+    """Returns true if eager execution is supported and enabled."""
+    return _has_eager and context.in_eager_mode()

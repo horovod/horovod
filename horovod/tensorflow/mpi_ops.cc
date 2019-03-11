@@ -40,7 +40,7 @@ namespace tensorflow {
 
 namespace {
 
-Status ConvertStatus(common::Status status) {
+Status ConvertStatus(const common::Status& status) {
   switch (status.type()) {
   case common::OK:
     return Status::OK();
@@ -50,12 +50,14 @@ Status ConvertStatus(common::Status status) {
     return errors::FailedPrecondition(status.reason());
   case common::ABORTED:
     return errors::Aborted(status.reason());
+  case common::INVALID_ARGUMENT:
+    return errors::InvalidArgument(status.reason());
   default:
     return errors::Unknown("Unknown error.");
   }
 }
 
-common::Status ConvertStatus(Status status) {
+common::Status ConvertStatus(const Status& status) {
   switch (status.code()) {
   case error::Code::OK:
     return common::Status::OK();
@@ -65,6 +67,8 @@ common::Status ConvertStatus(Status status) {
     return common::Status::PreconditionError(status.error_message());
   case error::Code::ABORTED:
     return common::Status::Aborted(status.error_message());
+  case error::Code::INVALID_ARGUMENT:
+    return common::Status::InvalidArgument(status.error_message());
   default:
     return common::Status::UnknownError("Unknown error.");
   }
@@ -180,6 +184,8 @@ const common::MPIDataType TFTensor::dtype() const {
     return common::HOROVOD_INT32;
   case DT_INT64:
     return common::HOROVOD_INT64;
+  case DT_HALF:
+    return common::HOROVOD_FLOAT16;
   case DT_FLOAT:
     return common::HOROVOD_FLOAT32;
   case DT_DOUBLE:
@@ -219,7 +225,7 @@ common::Status
 TFOpContext::AllocateOutput(common::TensorShape shape,
                             std::shared_ptr<common::Tensor>* tensor) {
   TensorShape tf_shape;
-  for (int idx = 0; idx < shape.dims(); idx++) {
+  for (int idx = 0; idx < shape.dims(); ++idx) {
     tf_shape.AddDim(shape.dim_size(idx));
   }
   Tensor* tf_tensor;
@@ -305,7 +311,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_GPU),
 #endif
 
 REGISTER_OP("HorovodAllreduce")
-    .Attr("T: {int32, int64, float32, float64}")
+    .Attr("T: {int32, int64, float16, float32, float64}")
     .Input("tensor: T")
     .Output("sum: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
@@ -362,7 +368,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodAllgather").Device(DEVICE_GPU),
 
 REGISTER_OP("HorovodAllgather")
     .Attr(
-        "T: {uint8, int8, uint16, int16, int32, int64, float32, float64, bool}")
+        "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
     .Input("tensor: T")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
@@ -435,7 +441,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodBroadcast").Device(DEVICE_GPU),
 
 REGISTER_OP("HorovodBroadcast")
     .Attr(
-        "T: {uint8, int8, uint16, int16, int32, int64, float32, float64, bool}")
+        "T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
     .Attr("root_rank: int")
     .Input("tensor: T")
     .Output("output: T")

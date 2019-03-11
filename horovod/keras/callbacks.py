@@ -1,11 +1,25 @@
+# Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 import keras
 import keras.backend as K
-import tensorflow as tf
 
-import horovod.tensorflow as hvd
+from horovod._keras import callbacks as _impl
 
 
-class BroadcastGlobalVariablesCallback(keras.callbacks.Callback):
+class BroadcastGlobalVariablesCallback(_impl.BroadcastGlobalVariablesCallbackImpl, keras.callbacks.Callback):
     """
     Keras Callback that will broadcast all global variables from root rank
     to all other processes during initialization.
@@ -24,17 +38,10 @@ class BroadcastGlobalVariablesCallback(keras.callbacks.Callback):
             device: Device to be used for broadcasting. Uses GPU by default
                     if Horovod was build with HOROVOD_GPU_BROADCAST.
         """
-        super(BroadcastGlobalVariablesCallback, self).__init__()
-        self.root_rank = root_rank
-        self.device = device
-
-    def on_train_begin(self, logs=None):
-        with tf.device(self.device):
-            bcast_op = hvd.broadcast_global_variables(self.root_rank)
-            K.get_session().run(bcast_op)
+        super(BroadcastGlobalVariablesCallback, self).__init__(K, root_rank, device)
 
 
-class MetricAverageCallback(keras.callbacks.Callback):
+class MetricAverageCallback(_impl.MetricAverageCallbackImpl, keras.callbacks.Callback):
     """
     Keras Callback that will average metrics across all processes at the
     end of the epoch. Useful in conjuction with ReduceLROnPlateau,
@@ -53,41 +60,10 @@ class MetricAverageCallback(keras.callbacks.Callback):
             device: Device to be used for allreduce. Uses GPU by default
                     if Horovod was build with HOROVOD_GPU_ALLREDUCE.
         """
-        super(MetricAverageCallback, self).__init__()
-        self.variables = {}
-        self.allreduce_ops = {}
-        self.device = device
-
-    def _make_variable(self, metric, value):
-        with tf.name_scope('MetricAverageCallback'):
-            var = tf.Variable(value, name=metric)
-            K.get_session().run(var.initializer)
-            allreduce_op = hvd.allreduce(var, device_dense=self.device)
-            return var, allreduce_op
-
-    def _average_metrics_in_place(self, logs):
-        logs = logs or {}
-        reduced_logs = {}
-        # Reduce every metric among workers. Sort metrics by name
-        # to ensure consistent order.
-        for metric, value in sorted(logs.items()):
-            if metric not in self.variables:
-                self.variables[metric], self.allreduce_ops[metric] = \
-                    self._make_variable(metric, value)
-            else:
-                K.set_value(self.variables[metric], value)
-            reduced_logs[metric] = \
-                K.get_session().run(self.allreduce_ops[metric])
-        # Override the reduced values back into logs dictionary
-        # for other callbacks to use.
-        for metric, value in reduced_logs.items():
-            logs[metric] = value
-
-    def on_epoch_end(self, epoch, logs=None):
-        self._average_metrics_in_place(logs)
+        super(MetricAverageCallback, self).__init__(K, device)
 
 
-class LearningRateScheduleCallback(keras.callbacks.Callback):
+class LearningRateScheduleCallback(_impl.LearningRateScheduleCallbackImpl, keras.callbacks.Callback):
     """
     LearningRateScheduleCallback sets learning rate between epochs `start_epoch` and
     `end_epoch` to be `initial_lr * multiplier`.  `multiplier` can be a constant or
@@ -124,82 +100,11 @@ class LearningRateScheduleCallback(keras.callbacks.Callback):
                              epoch with Keras >= 2.0.0. Provide this value if you have an older
                              version of Keras.
         """
-        super(LearningRateScheduleCallback, self).__init__()
-        self.start_epoch = start_epoch
-        self.end_epoch = end_epoch
-        self.staircase = staircase
-        self.momentum_correction = momentum_correction
-        self.initial_lr = None
-        self.restore_momentum = None
-        self.steps_per_epoch = steps_per_epoch
-        self.current_epoch = None
-
-        if not callable(multiplier):
-            self.staircase = True
-            self.multiplier = lambda epoch: multiplier
-        else:
-            self.multiplier = multiplier
-
-    def _autodetect_steps_per_epoch(self):
-        if self.params.get('steps'):
-            # The number of steps is provided in the parameters.
-            return self.params['steps']
-        elif self.params.get('samples') and self.params.get('batch_size'):
-            # Compute the number of steps per epoch using # of samples and a batch size.
-            return self.params['samples'] // self.params['batch_size']
-        else:
-            raise ValueError('Could not autodetect the number of steps per epoch. '
-                             'Please specify the steps_per_epoch parameter to the '
-                             '%s() or upgrade to the latest version of Keras.'
-                             % self.__class__.__name__)
-
-    def _adjust_learning_rate(self, epoch):
-        old_lr = K.get_value(self.model.optimizer.lr)
-        new_lr = self.initial_lr * self.multiplier(epoch)
-        K.set_value(self.model.optimizer.lr, new_lr)
-
-        if hasattr(self.model.optimizer, 'momentum') and self.momentum_correction:
-            # See the paper cited above for more information about momentum correction.
-            self.restore_momentum = K.get_value(self.model.optimizer.momentum)
-            K.set_value(self.model.optimizer.momentum,
-                        self.restore_momentum * new_lr / old_lr)
-
-    def _restore_momentum_if_needed(self):
-        if self.restore_momentum:
-            K.set_value(self.model.optimizer.momentum, self.restore_momentum)
-            self.restore_momentum = None
-
-    def on_train_begin(self, logs=None):
-        self.initial_lr = K.get_value(self.model.optimizer.lr)
-        if not self.staircase and not self.steps_per_epoch:
-            self.steps_per_epoch = self._autodetect_steps_per_epoch()
-
-    def on_epoch_begin(self, epoch, logs=None):
-        self.current_epoch = epoch
-
-    def on_batch_begin(self, batch, logs=None):
-        if (self.current_epoch < self.start_epoch or
-                (self.end_epoch is not None and self.current_epoch >= self.end_epoch)):
-            # Outside of the adjustment scope.
-            return
-
-        if self.staircase and batch == 0:
-            # Do on first batch of every epoch.
-            self._adjust_learning_rate(self.current_epoch)
-        elif not self.staircase:
-            epoch = self.current_epoch + float(batch) / self.steps_per_epoch
-            self._adjust_learning_rate(epoch)
-
-    def on_batch_end(self, batch, logs=None):
-        self._restore_momentum_if_needed()
-
-    def on_epoch_end(self, epoch, logs=None):
-        if logs is not None:
-            # Log current learning rate.
-            logs['lr'] = K.get_value(self.model.optimizer.lr)
+        super(LearningRateScheduleCallback, self).__init__(K, multiplier, start_epoch, end_epoch,
+                                                           staircase, momentum_correction, steps_per_epoch)
 
 
-class LearningRateWarmupCallback(LearningRateScheduleCallback):
+class LearningRateWarmupCallback(_impl.LearningRateWarmupCallbackImpl, keras.callbacks.Callback):
     """
     Implements gradual learning rate warmup:
 
@@ -240,20 +145,5 @@ class LearningRateWarmupCallback(LearningRateScheduleCallback):
                              version of Keras.
             verbose: verbosity mode, 0 or 1.
         """
-        def multiplier(epoch):
-            # Adjust epoch to produce round numbers at the end of each epoch, so that TensorBoard
-            # learning rate graphs look better.
-            epoch += 1. / self.steps_per_epoch
-            return 1. / hvd.size() * (epoch * (hvd.size() - 1) / warmup_epochs + 1)
-        self.verbose = verbose
-        super(LearningRateWarmupCallback, self).__init__(
-            multiplier, start_epoch=0, end_epoch=warmup_epochs, staircase=False,
-            momentum_correction=momentum_correction, steps_per_epoch=steps_per_epoch)
-
-    def on_epoch_end(self, epoch, logs=None):
-        super(LearningRateWarmupCallback, self).on_epoch_end(epoch, logs)
-
-        if epoch == self.end_epoch - 1 and self.verbose > 0:
-            new_lr = K.get_value(self.model.optimizer.lr)
-            print('\nEpoch %d: finished gradual learning rate warmup to %g.' %
-                  (epoch + 1, new_lr))
+        super(LearningRateWarmupCallback, self).__init__(K, warmup_epochs, momentum_correction,
+                                                         steps_per_epoch, verbose)

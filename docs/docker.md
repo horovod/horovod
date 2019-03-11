@@ -20,6 +20,9 @@ $ docker build -t horovod:latest horovod-docker
 
 After the container is built, run it using [nvidia-docker](https://github.com/NVIDIA/nvidia-docker).
 
+**Note**: you can replace `horovod:latest` with the [specific](https://hub.docker.com/r/uber/horovod/tags) pre-build 
+Docker container with Horovod instead of building it by yourself
+
 ```bash
 $ nvidia-docker run -it horovod:latest
 root@c278c88dd552:/examples# mpirun -np 4 -H localhost:4 python keras_mnist_advanced.py

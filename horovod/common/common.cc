@@ -44,6 +44,10 @@ Status Status::Aborted(std::string message) {
   return Status(StatusType::ABORTED, message);
 }
 
+Status Status::InvalidArgument(std::string message) {
+  return Status(StatusType::INVALID_ARGUMENT, message);
+}
+
 bool Status::ok() const {
   return type_ == StatusType::OK;
 }
@@ -69,7 +73,7 @@ void TensorShape::AppendShape(TensorShape& other) {
 const std::string TensorShape::DebugString() const {
   std::stringstream args;
   args << "[";
-  for (auto it = shape_.begin(); it != shape_.end(); it++) {
+  for (auto it = shape_.begin(); it != shape_.end(); ++it) {
     if (it != shape_.begin()) {
       args << ", ";
     }

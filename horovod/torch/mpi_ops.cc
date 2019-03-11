@@ -358,8 +358,8 @@ BROADCAST(torch_cuda_LongTensor, MPIDataType::HOROVOD_INT64, DeviceType::GPU,
           THCudaLongTensor)
 BROADCAST(torch_cuda_FloatTensor, MPIDataType::HOROVOD_FLOAT32, DeviceType::GPU,
           THCudaTensor)
-BROADCAST(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64,
-          DeviceType::GPU, THCudaDoubleTensor)
+BROADCAST(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64, DeviceType::GPU,
+          THCudaDoubleTensor)
 #endif
 
 #define BROADCAST_CUDA_ON_CPU(torch_Tensor, HorovodType, THCTensor, THTensor)  \

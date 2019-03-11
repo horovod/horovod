@@ -16,8 +16,8 @@ function build_one()
     docker rmi ${tag}
 }
 
-# clear upstream image
-docker rmi $(cat Dockerfile | grep FROM | awk '{print $2}')
+# clear upstream image, ok to fail if image does not exist
+docker rmi $(cat Dockerfile | grep FROM | awk '{print $2}') || true
 
 # build for py2 and py3
 build_one 2.7

@@ -17,14 +17,26 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from distutils.version import LooseVersion
+
 # Load all the necessary PyTorch C types.
 import torch
 
-from horovod.torch import mpi_lib_impl
-from horovod.torch import mpi_lib
-from horovod.common import HorovodBasics as _HorovodBasics
+# PyTorch v2 API starts with 1.0.0 (including nightly builds)
+_v2_api = LooseVersion(torch.__version__) >= LooseVersion('1.0.0')
+if _v2_api:
+    from horovod.torch import mpi_lib_v2 as mpi_lib
+    from horovod.common import HorovodBasics as _HorovodBasics
+    _NULL = ""
+    _basics = _HorovodBasics(__file__, 'mpi_lib_v2')
+else:
+    from horovod.torch import mpi_lib_impl
+    from horovod.torch import mpi_lib
+    from horovod.common import HorovodBasics as _HorovodBasics
+    _NULL = mpi_lib._ffi.NULL
+    _basics = _HorovodBasics(__file__, 'mpi_lib_impl', '_mpi_lib_impl')
 
-_basics = _HorovodBasics(__file__, 'mpi_lib_impl', '_mpi_lib_impl')
+from horovod.torch.compression import Compression
 
 # import basic methods
 init = _basics.init
@@ -41,9 +53,8 @@ mpi_threads_supported = _basics.mpi_threads_supported
 # before the operation is finished.
 _handle_map = {}
 
-
-# Null pointer.
-_NULL = mpi_lib._ffi.NULL
+# Only support fp16 allreduce for PyTorch versions using v2 API.
+_fp16_supported = _v2_api
 
 
 def _check_function(function_factory, tensor):
@@ -60,6 +71,11 @@ def _allreduce_function_factory(tensor):
 
 
 def _allreduce_async(tensor, output, average, name):
+    if tensor.dtype == torch.float16 and not _fp16_supported:
+        raise NotImplementedError(
+            'float16 allreduce is not supported for PyTorch version {} < 1.0.0'
+            .format(torch.__version__))
+
     function = _check_function(_allreduce_function_factory, tensor)
     handle = getattr(mpi_lib, function)(tensor, output, average,
                                         name.encode() if name is not None else _NULL)
@@ -105,7 +121,7 @@ class HorovodAllreduce(torch.autograd.Function):
         return allreduce(grad_output, ctx.average), None, None
 
 
-def allreduce(tensor, average=True, name=None):
+def allreduce(tensor, average=True, name=None, compression=Compression.none):
     """
     A function that performs averaging or summation of the input tensor over all the
     Horovod processes. The input tensor is not modified.
@@ -124,12 +140,17 @@ def allreduce(tensor, average=True, name=None):
         average: A flag indicating whether to compute average or summation,
                  defaults to average.
         name: A name of the reduction operation.
+        compression: Compression algorithm used during allreduce to reduce the amount
+                     of data sent during the each parameter update step.  Defaults to
+                     not using compression.
 
     Returns:
         A tensor of the same shape and type as `tensor`, averaged or summed across all
         processes.
     """
-    return HorovodAllreduce.apply(tensor, average, name)
+    tensor_compressed, ctx = compression.compress(tensor)
+    summed_tensor_compressed = HorovodAllreduce.apply(tensor_compressed, average, name)
+    return compression.decompress(summed_tensor_compressed, ctx)
 
 
 def allreduce_async_(tensor, average=True, name=None):
@@ -229,7 +250,7 @@ class HorovodAllgather(torch.autograd.Function):
         dim = allgather(dim_t).view(size())
 
         r = rank()
-        offset = torch.sum(dim.narrow(0, 0, r)).data[0] if r != 0 else 0
+        offset = torch.sum(dim.narrow(0, 0, r)).item() if r != 0 else 0
         return grad_reduced.narrow(0, offset, ctx.dim), None
 
 
