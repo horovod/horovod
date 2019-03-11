@@ -1,5 +1,4 @@
-// Copyright 2016 The TensorFlow Authors. All Rights Reserved.
-// Modifications copyright (C) 2019 Uber Technologies, Inc.
+// Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,68 +13,55 @@
 // limitations under the License.
 // =============================================================================
 
-#ifndef HOROVOD_MPI_OPERATIONS_H
-#define HOROVOD_MPI_OPERATIONS_H
+#ifndef HOROVOD_GLOO_OPERATIONS_H
+#define HOROVOD_GLOO_OPERATIONS_H
 
 #include <iostream>
 
-#include "mpi.h"
-
 #include "../common.h"
 #include "../global_state.h"
-#include "../mpi_context.h"
+#include "../gloo_context.h"
 #include "collective_operations.h"
 
 namespace horovod {
 namespace common {
 
-class MPIAllreduce : public AllreduceOp {
+class IGlooAlgorithms {
 public:
-  MPIAllreduce(MPIContext* mpi_context, HorovodGlobalState* global_state);
+  virtual void Allreduce(void* buffer_data, int num_elements) = 0;
 
-  virtual ~MPIAllreduce() = default;
+  virtual void Allgather(void* buffer_data, void* buffer_out, int num_elements) = 0;
 
-  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+  virtual void Broadcast(void* buffer_data, int num_elements, int root_rank) = 0;
 
-  bool Enabled(const ParameterManager& param_manager,
-               const std::vector<TensorTableEntry>& entries,
-               const Response& response) const override;
-
-protected:
-  MPIContext* mpi_context_;
+  virtual int ElementSize() const = 0;
 };
 
-class MPIAllgather : public AllgatherOp {
+template <typename T>
+class GlooAlgorithms : public IGlooAlgorithms {
 public:
-  MPIAllgather(MPIContext* mpi_context, HorovodGlobalState* global_state);
+  GlooAlgorithms(GlooContext* gloo_context, int element_size);
 
-  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+  ~GlooAlgorithms() = default;
 
-  bool Enabled(const ParameterManager& param_manager,
-               const std::vector<TensorTableEntry>& entries,
-               const Response& response) const override;
+  void Allreduce(void* buffer_data, int num_elements) override;
 
-protected:
-  MPIContext* mpi_context_;
-};
+  void Allgather(void* buffer_data, void* buffer_out, int num_elements) override;
 
-class MPIHierarchicalAllgather : public MPIAllgather {
-public:
-  MPIHierarchicalAllgather(MPIContext* mpi_context, HorovodGlobalState* global_state);
+  void Broadcast(void* buffer_data, int num_elements, int root_rank) override;
 
-  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
-
-  bool Enabled(const ParameterManager& param_manager,
-               const std::vector<TensorTableEntry>& entries,
-               const Response& response) const override;
+  int ElementSize() const override;
 
 private:
-  void Barrier();
+  GlooContext* gloo_context_;
+  int element_size_;
 };
 
-class MPIBroadcast : public BroadcastOp {
+class GlooAllreduce : public AllreduceOp {
 public:
-  MPIBroadcast(MPIContext* mpi_context, HorovodGlobalState* global_state);
+  GlooAllreduce(GlooContext* gloo_context, HorovodGlobalState* global_state);
+
+  virtual ~GlooAllreduce() = default;
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
@@ -84,10 +70,39 @@ public:
                const Response& response) const override;
 
 protected:
-  MPIContext* mpi_context_;
+  GlooContext* gloo_context_;
+};
+
+class GlooAllgather : public AllgatherOp {
+public:
+  GlooAllgather(GlooContext* gloo_context, HorovodGlobalState* global_state);
+
+  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+
+  bool Enabled(const ParameterManager& param_manager,
+               const std::vector<TensorTableEntry>& entries,
+               const Response& response) const override;
+
+protected:
+  GlooContext* gloo_context_;
+};
+
+class GlooBroadcast : public BroadcastOp {
+public:
+  GlooBroadcast(GlooContext* gloo_context, HorovodGlobalState* global_state);
+
+  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+
+  bool Enabled(const ParameterManager& param_manager,
+               const std::vector<TensorTableEntry>& entries,
+               const Response& response) const override;
+
+protected:
+  GlooContext* gloo_context_;
 };
 
 } // namespace common
 } // namespace horovod
 
-#endif //HOROVOD_MPI_OPERATIONS_H
+
+#endif //HOROVOD_GLOO_OPERATIONS_H

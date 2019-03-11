@@ -62,6 +62,18 @@ void AllreduceOp::MemcpyOutFusionBuffer(const void* buffer_data, std::vector<Ten
   }
 }
 
+void AllreduceOp::MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                            const TensorTableEntry& e, void* buffer_data_at_offset) {
+  std::memcpy(buffer_data_at_offset, e.tensor->data(),
+              (size_t) e.tensor->size());
+}
+
+void AllreduceOp::MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                             const void* buffer_data_at_offset, TensorTableEntry& e) {
+  std::memcpy((void*) e.output->data(), buffer_data_at_offset,
+              (size_t) e.tensor->size());
+}
+
 // Allgather
 AllgatherOp::AllgatherOp(HorovodGlobalState* global_state) : HorovodOp(global_state) {}
 
