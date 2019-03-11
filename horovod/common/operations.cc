@@ -1113,7 +1113,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
     state.message_table = std::unique_ptr<MessageTable>(new MessageTable());
   }
 
-  gloo_context.InitializeFromMPI();
+  gloo_context.InitializeFromMPI(ctx.mpi_comm);
 
   op_manager.reset(CreateOperationManager(state));
 
