@@ -641,7 +641,7 @@ void PerformOperation(TensorTable& tensor_table, Response response) {
     timeline.Start(e.tensor_name, response.response_type());
   }
 
-  if (entries.size() > 1) {
+  {
     auto first_entry = entries[0];
     // Note: it is OK for different entries to come from different frameworks
     // since buffer allocated here is guaranteed to survive at least till the
