@@ -27,7 +27,9 @@ namespace common {
 struct GlooContext {
   void InitializeFromMPI(const MPI_Comm& mpi_comm);
 
-  std::shared_ptr<gloo::Context> ctx;
+  void Finalize();
+
+  std::unique_ptr<gloo::Context> ctx;
 };
 
 } // namespace common
