@@ -96,15 +96,11 @@ Status GlooAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Resp
 
   // Copy memory into the fusion buffer.
   auto& timeline = global_state_->timeline;
-  if (entries.size() > 1) {
-    timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
-    const void* fused_input_data;
-    size_t buffer_len;
-    MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
-    timeline.ActivityEndAll(entries);
-  } else {
-    buffer_data = (void*) first_entry.output->data();
-  }
+  timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
+  const void* fused_input_data;
+  size_t buffer_len;
+  MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
+  timeline.ActivityEndAll(entries);
 
   // Do allreduce.
   timeline.ActivityStartAll(entries, GLOO_ALLREDUCE);
@@ -113,11 +109,9 @@ Status GlooAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Resp
   timeline.ActivityEndAll(entries);
 
   // Copy memory out of the fusion buffer.
-  if (entries.size() > 1) {
-    timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
-    MemcpyOutFusionBuffer(buffer_data, entries);
-    timeline.ActivityEndAll(entries);
-  }
+  timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
+  MemcpyOutFusionBuffer(buffer_data, entries);
+  timeline.ActivityEndAll(entries);
 
   return Status::OK();
 }
