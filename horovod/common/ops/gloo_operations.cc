@@ -18,6 +18,7 @@
 #include "gloo/allgather_ring.h"
 #include "gloo/allreduce_ring.h"
 #include "gloo/broadcast_one_to_all.h"
+#include "gloo/types.h"
 
 namespace horovod {
 namespace common {
@@ -36,6 +37,8 @@ IGlooAlgorithms* GetAlgorithmsForType(DataType dtype, GlooContext* gloo_context)
       return new GlooAlgorithms<int32_t>(gloo_context, 4);
     case HOROVOD_INT64:
       return new GlooAlgorithms<int64_t>(gloo_context, 8);
+    case HOROVOD_FLOAT16:
+      return new GlooAlgorithms<gloo::float16>(gloo_context, 2);
     case HOROVOD_FLOAT32:
       return new GlooAlgorithms<float_t>(gloo_context, 4);
     case HOROVOD_FLOAT64:
