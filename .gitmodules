@@ -43,3 +43,6 @@
 [submodule "third_party/boost/predef"]
 	path = third_party/boost/predef
 	url = https://github.com/boostorg/predef.git
+[submodule "third_party/flatbuffers"]
+	path = third_party/flatbuffers
+	url = https://github.com/google/flatbuffers.git

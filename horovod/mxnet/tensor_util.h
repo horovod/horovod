@@ -32,7 +32,7 @@ using namespace ::mxnet;
 
 class TensorUtil {
 public:
-  static const MPIDataType GetDType(NDArray* tensor);
+  static const DataType GetDType(NDArray* tensor);
   static const TensorShape GetShape(NDArray* tensor);
   static const void* GetData(NDArray* tensor);
   static int64_t GetSize(NDArray* tensor);

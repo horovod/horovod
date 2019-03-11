@@ -1,28 +1,35 @@
-# Step 0: import required packages
 import argparse
 import logging
 import os
 import zipfile
+import time
 
-import horovod.mxnet as hvd
 import mxnet as mx
+import horovod.mxnet as hvd
+from mxnet import autograd, gluon, nd
 from mxnet.test_utils import download
 
 # Training settings
 parser = argparse.ArgumentParser(description='MXNet MNIST Example')
+
 parser.add_argument('--batch-size', type=int, default=64,
                     help='training batch size (default: 64)')
 parser.add_argument('--dtype', type=str, default='float32',
                     help='training data type (default: float32)')
-parser.add_argument('--gpus', type=str, default='0',
-                    help='number of gpus to use (default: 0)')
 parser.add_argument('--epochs', type=int, default=5,
                     help='number of training epochs (default: 5)')
-parser.add_argument('--lr', type=float, default=0.05,
-                    help='learning rate (default: 0.05)')
-parser.add_argument('--momentum', type=float, default=0.5,
-                    help='SGD momentum (default: 0.5)')
+parser.add_argument('--lr', type=float, default=0.01,
+                    help='learning rate (default: 0.01)')
+parser.add_argument('--momentum', type=float, default=0.9,
+                    help='SGD momentum (default: 0.9)')
+parser.add_argument('--no-cuda', action='store_true', default=False,
+                    help='disable training on GPU (default: False)')
 args = parser.parse_args()
+
+if not args.no_cuda:
+    # Disable CUDA if there are no GPUs.
+    if not mx.test_utils.list_gpus():
+        args.no_cuda = True
 
 logging.basicConfig(level=logging.INFO)
 logging.info(args)
@@ -58,85 +65,110 @@ def get_mnist_iterator(rank):
         input_shape=input_shape,
         batch_size=batch_size,
         flat=False,
-        num_parts=hvd.size(),
-        part_index=hvd.rank()
     )
 
     return train_iter, val_iter
 
-# Step 1: initialize Horovod
+
+# Function to define neural network
+def conv_nets():
+    net = gluon.nn.HybridSequential()
+    with net.name_scope():
+        net.add(gluon.nn.Conv2D(channels=20, kernel_size=5, activation='relu'))
+        net.add(gluon.nn.MaxPool2D(pool_size=2, strides=2))
+        net.add(gluon.nn.Conv2D(channels=50, kernel_size=5, activation='relu'))
+        net.add(gluon.nn.MaxPool2D(pool_size=2, strides=2))
+        net.add(gluon.nn.Flatten())
+        net.add(gluon.nn.Dense(512, activation="relu"))
+        net.add(gluon.nn.Dense(10))
+    return net
+
+
+# Function to evaluate accuracy for a model
+def evaluate(model, data_iter, context):
+    data_iter.reset()
+    metric = mx.metric.Accuracy()
+    for _, batch in enumerate(data_iter):
+        data = batch.data[0].as_in_context(context)
+        label = batch.label[0].as_in_context(context)
+        output = model(data.astype(args.dtype, copy=False))
+        metric.update([label], [output])
+
+    return metric.get()
+
+
+# Initialize Horovod
 hvd.init()
 
-# Horovod: pin GPU to local rank
-context = mx.cpu() if args.gpus is None or args.gpus == '0' \
-                   else mx.gpu(hvd.local_rank())
+# Horovod: pin context to local rank
+context = mx.cpu(hvd.local_rank()) if args.no_cuda else mx.gpu(hvd.local_rank())
+num_workers = hvd.size()
 
-# Step 2: load data
-train_iter, val_iter = get_mnist_iterator(hvd.rank())
+# Load training and validation data
+train_data, val_data = get_mnist_iterator(hvd.rank())
 
+# Build model
+model = conv_nets()
+model.cast(args.dtype)
+model.hybridize()
 
-# Step 3: define network
-def conv_net():
-    # placeholder for data
-    data = mx.sym.var('data')
-    # first conv layer
-    conv1 = mx.sym.Convolution(data=data, kernel=(5, 5), num_filter=10)
-    relu1 = mx.sym.Activation(data=conv1, act_type='relu')
-    pool1 = mx.sym.Pooling(data=relu1, pool_type='max', kernel=(2, 2),
-                           stride=(2, 2))
-    # second conv layer
-    conv2 = mx.sym.Convolution(data=pool1, kernel=(5, 5), num_filter=20)
-    relu2 = mx.sym.Activation(data=conv2, act_type='relu')
-    pool2 = mx.sym.Pooling(data=relu2, pool_type='max', kernel=(2, 2),
-                           stride=(2, 2))
-    # first fully connected layer
-    flatten = mx.sym.flatten(data=pool2)
-    fc1 = mx.symbol.FullyConnected(data=flatten, num_hidden=50)
-    relu3 = mx.sym.Activation(data=fc1, act_type='relu')
-    # second fully connected layer
-    fc2 = mx.sym.FullyConnected(data=relu3, num_hidden=10)
-    # softmax loss
-    loss = mx.sym.SoftmaxOutput(data=fc2, name='softmax')
-    return loss
-
-
-# Step 4: fit the model
-net = conv_net()
-model = mx.mod.Module(symbol=net, context=context)
-optimizer_params = {'learning_rate': args.lr * hvd.size(),
+# Define hyper parameters
+optimizer_params = {'momentum': args.momentum,
+                    'learning_rate': args.lr * hvd.size(),
                     'rescale_grad': 1.0 / args.batch_size}
-opt = mx.optimizer.create('sgd', **optimizer_params)
 
-# Horovod: wrap optimizer with DistributedOptimizer
+# Add Horovod Distributed Optimizer
+opt = mx.optimizer.create('sgd', **optimizer_params)
 opt = hvd.DistributedOptimizer(opt)
 
+# Initialize parameters
 initializer = mx.init.Xavier(rnd_type='gaussian', factor_type="in",
                              magnitude=2)
-model.bind(data_shapes=train_iter.provide_data,
-           label_shapes=train_iter.provide_label)
-model.init_params(initializer)
+model.initialize(initializer, ctx=context)
 
-# Horovod: fetch and broadcast parameters
-(arg_params, aux_params) = model.get_params()
-if arg_params is not None:
-    hvd.broadcast_parameters(arg_params, root_rank=0)
-if aux_params is not None:
-    hvd.broadcast_parameters(aux_params, root_rank=0)
-model.set_params(arg_params=arg_params, aux_params=aux_params)
+# Fetch and broadcast parameters
+params = model.collect_params()
+if params is not None:
+    hvd.broadcast_parameters(params, root_rank=0)
 
-model.fit(train_iter,  # train data
-          kvstore=None,  # no kvstore
-          eval_data=val_iter,  # validation data
-          optimizer=opt,  # use SGD to train
-          eval_metric='acc',  # report accuracy during training
-          batch_end_callback=mx.callback.Speedometer(args.batch_size),
-          num_epoch=args.epochs)  # train for at most 10 dataset passes
+# Create trainer, loss function and train metric
+trainer = gluon.Trainer(params, opt, kvstore=None)
+loss_fn = gluon.loss.SoftmaxCrossEntropyLoss()
+metric = mx.metric.Accuracy()
 
-# Step 5: evaluate model accuracy
-acc = mx.metric.Accuracy()
-model.score(val_iter, acc)
+# Train model
+for epoch in range(args.epochs):
+    tic = time.time()
+    train_data.reset()
+    metric.reset()
+    for nbatch, batch in enumerate(train_data, start=1):
+        data = batch.data[0].as_in_context(context)
+        label = batch.label[0].as_in_context(context)
+        with autograd.record():
+            output = model(data.astype(args.dtype, copy=False))
+            loss = loss_fn(output, label)
+        loss.backward()
+        trainer.step(args.batch_size)
+        metric.update([label], [output])
 
-if hvd.rank() == 0:
-    print(acc)
-    assert acc.get()[1] > 0.96, "Achieved accuracy (%f) is lower than \
-                                expected (0.96)" % acc.get()[1]
+        if nbatch % 100 == 0:
+            name, acc = metric.get()
+            logging.info('[Epoch %d Batch %d] Training: %s=%f' %
+                         (epoch, nbatch, name, acc))
+
+    if hvd.rank() == 0:
+        elapsed = time.time() - tic
+        speed = nbatch * args.batch_size * hvd.size() / elapsed
+        logging.info('Epoch[%d]\tSpeed=%.2f samples/s\tTime cost=%f',
+                     epoch, speed, elapsed)
+
+    # Evaluate model accuracy
+    _, train_acc = metric.get()
+    name, val_acc = evaluate(model, val_data, context)
+    if hvd.rank() == 0:
+        logging.info('Epoch[%d]\tTrain: %s=%f\tValidation: %s=%f', epoch, name,
+                     train_acc, name, val_acc)
+
+    if hvd.rank() == 0 and epoch == args.epochs - 1:
+        assert val_acc > 0.96, "Achieved accuracy (%f) is lower than expected\
+                                (0.96)" % val_acc

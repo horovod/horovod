@@ -176,7 +176,7 @@ def train(epoch):
                 output = model(data_batch)
                 train_accuracy.update(accuracy(output, target_batch))
                 loss = F.cross_entropy(output, target_batch)
-                train_loss.update(loss.item())
+                train_loss.update(loss)
                 # Average gradients among sub-batches
                 loss.div_(math.ceil(float(len(data)) / args.batch_size))
                 loss.backward()

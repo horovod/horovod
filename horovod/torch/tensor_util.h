@@ -39,30 +39,30 @@ using namespace horovod::common;
 // an additional template parameter to distinguish between them.
 class TensorUtil {
 public:
-  template <MPIDataType DT, DeviceType Dev, class T>
+  template <DataType DT, DeviceType Dev, class T>
   static const TensorShape GetShape(T* tensor);
-  template <MPIDataType DT, DeviceType Dev, class T>
+  template <DataType DT, DeviceType Dev, class T>
   static const void* GetData(T* tensor);
-  template <MPIDataType DT, DeviceType Dev, class T>
+  template <DataType DT, DeviceType Dev, class T>
   static int64_t GetSize(T* tensor);
-  template <MPIDataType DT, DeviceType Dev, class T>
+  template <DataType DT, DeviceType Dev, class T>
   static int GetDevice(T* tensor);
 
-  template <MPIDataType DT, DeviceType Dev, class T> static T* New(int device);
-  template <MPIDataType DT, DeviceType Dev, class T>
+  template <DataType DT, DeviceType Dev, class T> static T* New(int device);
+  template <DataType DT, DeviceType Dev, class T>
   static void Free(T* tensor);
-  template <MPIDataType DT, DeviceType Dev, class T>
+  template <DataType DT, DeviceType Dev, class T>
   static void ResizeNd(T* tensor, int nDimension, int64_t* size,
                        int64_t* stride);
-  template <MPIDataType DT, DeviceType Dev, class T>
+  template <DataType DT, DeviceType Dev, class T>
   static void Copy(T* output, T* tensor);
-  template <MPIDataType DT, DeviceType Dev, class T>
+  template <DataType DT, DeviceType Dev, class T>
   static void DivideTensorInPlace(T* tensor, int value);
 
 #if HAVE_CUDA
-  template <MPIDataType DT, class T, class TC>
+  template <DataType DT, class T, class TC>
   static void CopyCPUToCuda(T* cpu, TC* cuda);
-  template <MPIDataType DT, class TC, class T>
+  template <DataType DT, class TC, class T>
   static void AsyncCopyCudaToCPU(TC* cuda, T* cpu);
 #endif
 };
@@ -261,28 +261,28 @@ public:
     THTensor##_copyAsyncCuda(state, cpu, cuda);                                \
   }
 
-TENSOR_UTIL_DEFINE_CPU_TYPE_H(MPIDataType::HOROVOD_UINT8, THByteTensor)
-TENSOR_UTIL_DEFINE_CPU_TYPE_H(MPIDataType::HOROVOD_INT8, THCharTensor)
-TENSOR_UTIL_DEFINE_CPU_TYPE_H(MPIDataType::HOROVOD_INT16, THShortTensor)
-TENSOR_UTIL_DEFINE_CPU_TYPE_H(MPIDataType::HOROVOD_INT32, THIntTensor)
-TENSOR_UTIL_DEFINE_CPU_TYPE_H(MPIDataType::HOROVOD_INT64, THLongTensor)
-TENSOR_UTIL_DEFINE_CPU_TYPE_H(MPIDataType::HOROVOD_FLOAT32, THFloatTensor)
-TENSOR_UTIL_DEFINE_CPU_TYPE_H(MPIDataType::HOROVOD_FLOAT64, THDoubleTensor)
+TENSOR_UTIL_DEFINE_CPU_TYPE_H(DataType::HOROVOD_UINT8, THByteTensor)
+TENSOR_UTIL_DEFINE_CPU_TYPE_H(DataType::HOROVOD_INT8, THCharTensor)
+TENSOR_UTIL_DEFINE_CPU_TYPE_H(DataType::HOROVOD_INT16, THShortTensor)
+TENSOR_UTIL_DEFINE_CPU_TYPE_H(DataType::HOROVOD_INT32, THIntTensor)
+TENSOR_UTIL_DEFINE_CPU_TYPE_H(DataType::HOROVOD_INT64, THLongTensor)
+TENSOR_UTIL_DEFINE_CPU_TYPE_H(DataType::HOROVOD_FLOAT32, THFloatTensor)
+TENSOR_UTIL_DEFINE_CPU_TYPE_H(DataType::HOROVOD_FLOAT64, THDoubleTensor)
 
 #if HAVE_CUDA
-TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_UINT8, THCudaByteTensor,
+TENSOR_UTIL_DEFINE_CUDA_TYPE_H(DataType::HOROVOD_UINT8, THCudaByteTensor,
                                THByteTensor)
-TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_INT8, THCudaCharTensor,
+TENSOR_UTIL_DEFINE_CUDA_TYPE_H(DataType::HOROVOD_INT8, THCudaCharTensor,
                                THCharTensor)
-TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_INT16, THCudaShortTensor,
+TENSOR_UTIL_DEFINE_CUDA_TYPE_H(DataType::HOROVOD_INT16, THCudaShortTensor,
                                THShortTensor)
-TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_INT32, THCudaIntTensor,
+TENSOR_UTIL_DEFINE_CUDA_TYPE_H(DataType::HOROVOD_INT32, THCudaIntTensor,
                                THIntTensor)
-TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_INT64, THCudaLongTensor,
+TENSOR_UTIL_DEFINE_CUDA_TYPE_H(DataType::HOROVOD_INT64, THCudaLongTensor,
                                THLongTensor)
-TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_FLOAT32, THCudaTensor,
+TENSOR_UTIL_DEFINE_CUDA_TYPE_H(DataType::HOROVOD_FLOAT32, THCudaTensor,
                                THFloatTensor)
-TENSOR_UTIL_DEFINE_CUDA_TYPE_H(MPIDataType::HOROVOD_FLOAT64, THCudaDoubleTensor,
+TENSOR_UTIL_DEFINE_CUDA_TYPE_H(DataType::HOROVOD_FLOAT64, THCudaDoubleTensor,
                                THDoubleTensor)
 #endif
 

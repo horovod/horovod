@@ -39,7 +39,7 @@ private:
 template <class T> class MXTensor : public Tensor {
 public:
   MXTensor(T* tensor);
-  virtual const MPIDataType dtype() const override;
+  virtual const DataType dtype() const override;
   virtual const TensorShape shape() const override;
   virtual const void* data() const override;
   virtual int64_t size() const override;

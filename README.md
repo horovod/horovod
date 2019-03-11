@@ -1,6 +1,6 @@
 # Horovod
 
-[![Build Status](https://travis-ci.org/uber/horovod.svg?branch=master)](https://travis-ci.org/uber/horovod) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE) [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fuber%2Fhorovod.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fuber%2Fhorovod?ref=badge_shield) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2373/badge)](https://bestpractices.coreinfrastructure.org/projects/2373)
+[![Build Status](https://travis-ci.org/horovod/horovod.svg?branch=master)](https://travis-ci.org/horovod/horovod) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE) [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fuber%2Fhorovod.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fuber%2Fhorovod?ref=badge_shield) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2373/badge)](https://bestpractices.coreinfrastructure.org/projects/2373) [![Downloads](https://pepy.tech/badge/horovod)](https://pepy.tech/project/horovod)
 
 <p align="center"><img src="https://user-images.githubusercontent.com/16640218/34506318-84d0c06c-efe0-11e7-8831-0425772ed8f2.png" alt="Logo" width="200"/></p>
 
@@ -214,15 +214,10 @@ Horovod supports MXNet and regular TensorFlow in similar ways.
 
 See full training [MNIST](examples/mxnet_mnist.py) and [ImageNet](examples/mxnet_imagenet_resnet50.py) examples.
 
-**Note**: we recommend users to build MXNet from source following this [guide](https://mxnet.incubator.apache.org/install/build_from_source.html) when running Horovod with MXNet on a Linux OS with GCC version 5.X and above. The MXNet shared library distributed through MXNet pip package is currently built using GCC 4.8.4. If we build and install Horovod on a Linux OS with GCC 5.X+ with MXNet pip package, we will hit segmentation fault due to std::function definition change from GCC [4.X](https://github.com/gcc-mirror/gcc/blob/gcc-4_8_4-release/libstdc++-v3/include/std/functional#L2069) to GCC [5.X](https://github.com/gcc-mirror/gcc/blob/gcc-5_4_0-release/libstdc++-v3/include/std/functional#L1854).
-
-There are two ways to train a model using MXNet: [Gluon](http://mxnet.incubator.apache.org/api/python/gluon/gluon.html) API (preferred) and [Module](http://mxnet.incubator.apache.org/api/python/module/module.html) API. Here we provide the building block for each set of API to train a model using MXNet with Horovod.
-
-###### Gluon API
 ```python
-from mxnet import autograd, gluon
 import mxnet as mx
 import horovod.mxnet as hvd
+from mxnet import autograd, gluon
 
 # Initialize Horovod
 hvd.init()
@@ -258,61 +253,15 @@ loss_fn = ...
 for epoch in range(num_epoch):
     train_data.reset()
     for nbatch, batch in enumerate(train_data, start=1):
-        data = gluon.utils.split_and_load(batch.data[0], ctx_list=[context],
-                                          batch_axis=0)
-        label = gluon.utils.split_and_load(batch.label[0], ctx_list=[context],
-                                           batch_axis=0)
+        data = batch.data[0].as_in_context(context)
+        label = batch.label[0].as_in_context(context)
         with autograd.record():
-            outputs = [model(x.astype(dtype, copy=False)) for x in data]
-            loss = [loss_fn(yhat, y) for yhat, y in zip(outputs, label)]
-        for l in loss:
-            l.backward()
+            output = model(data.astype(dtype, copy=False))
+            loss = loss_fn(output, label)
+        loss.backward()
         trainer.step(batch_size)
 ```
-
-###### Module API
-```python
-import mxnet as mx
-import horovod.mxnet as hvd
-
-# Initialize Horovod
-hvd.init()
-
-# Pin GPU to be used to process local rank
-context = mx.gpu(hvd.local_rank())
-num_workers = hvd.size()
-
-# Build model
-model = ...
-
-# Define hyper parameters
-optimizer_params = ...
-
-# Add Horovod Distributed Optimizer
-opt = mx.optimizer.create('sgd', **optimizer_params)
-opt = hvd.DistributedOptimizer(opt)
-
-# Initialize parameters
-initializer = mx.init.Xavier(rnd_type='gaussian', factor_type="in",
-                             magnitude=2)
-model.bind(data_shapes=train_data.provide_data,
-           label_shapes=train_data.provide_label)
-model.init_params(initializer)
-
-# Fetch and broadcast parameters
-(arg_params, aux_params) = model.get_params()
-if arg_params:
-    hvd.broadcast_parameters(arg_params, root_rank=0)
-if aux_params:
-    hvd.broadcast_parameters(aux_params, root_rank=0)
-model.set_params(arg_params=arg_params, aux_params=aux_params)
-
-# Train model
-model.fit(train_data,
-          kvstore=None,
-          optimizer=opt,
-          num_epoch=num_epoch)
-```
+**Note**: There is a [known issue](https://github.com/horovod/horovod/issues/884) when running Horovod with MXNet on a Linux system with GCC version 5.X and above. We recommend users to build MXNet from source following this [guide](https://mxnet.incubator.apache.org/install/build_from_source.html) as a workaround for now.
 
 ## PyTorch
 

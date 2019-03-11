@@ -41,7 +41,7 @@ std::string GetOpName(const std::string& prefix, char* name, int handle) {
 
 } // namespace
 
-template <MPIDataType DT, DeviceType Dev, class T>
+template <DataType DT, DeviceType Dev, class T>
 int DoAllreduce(T* tensor, T* output, int average, char* name) {
   ThrowIfError(common::CheckInitialized());
 
@@ -68,7 +68,7 @@ int DoAllreduce(T* tensor, T* output, int average, char* name) {
 }
 
 #if HAVE_CUDA
-template <MPIDataType DT, class TC, class T>
+template <DataType DT, class TC, class T>
 int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
   ThrowIfError(common::CheckInitialized());
 
@@ -101,7 +101,7 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
 }
 #endif
 
-template <MPIDataType DT, DeviceType Dev, class T>
+template <DataType DT, DeviceType Dev, class T>
 int DoAllgather(T* tensor, T* output, char* name) {
   ThrowIfError(common::CheckInitialized());
 
@@ -124,7 +124,7 @@ int DoAllgather(T* tensor, T* output, char* name) {
 }
 
 #if HAVE_CUDA
-template <MPIDataType DT, class TC, class T>
+template <DataType DT, class TC, class T>
 int DoAllgatherCudaOnCPU(TC* tensor, TC* output, char* name) {
   ThrowIfError(common::CheckInitialized());
 
@@ -156,7 +156,7 @@ int DoAllgatherCudaOnCPU(TC* tensor, TC* output, char* name) {
 }
 #endif
 
-template <MPIDataType DT, DeviceType Dev, class T>
+template <DataType DT, DeviceType Dev, class T>
 int DoBroadcast(T* tensor, T* output, int root_rank, char* name) {
   ThrowIfError(common::CheckInitialized());
 
@@ -187,7 +187,7 @@ int DoBroadcast(T* tensor, T* output, int root_rank, char* name) {
 }
 
 #if HAVE_CUDA
-template <MPIDataType DT, class TC, class T>
+template <DataType DT, class TC, class T>
 int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
   ThrowIfError(common::CheckInitialized());
 
@@ -223,23 +223,23 @@ int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
                                                 name);                         \
   }
 
-ALLREDUCE(torch_IntTensor, MPIDataType::HOROVOD_INT32, DeviceType::CPU,
+ALLREDUCE(torch_IntTensor, DataType::HOROVOD_INT32, DeviceType::CPU,
           THIntTensor)
-ALLREDUCE(torch_LongTensor, MPIDataType::HOROVOD_INT64, DeviceType::CPU,
+ALLREDUCE(torch_LongTensor, DataType::HOROVOD_INT64, DeviceType::CPU,
           THLongTensor)
-ALLREDUCE(torch_FloatTensor, MPIDataType::HOROVOD_FLOAT32, DeviceType::CPU,
+ALLREDUCE(torch_FloatTensor, DataType::HOROVOD_FLOAT32, DeviceType::CPU,
           THFloatTensor)
-ALLREDUCE(torch_DoubleTensor, MPIDataType::HOROVOD_FLOAT64, DeviceType::CPU,
+ALLREDUCE(torch_DoubleTensor, DataType::HOROVOD_FLOAT64, DeviceType::CPU,
           THDoubleTensor)
 
 #if HOROVOD_GPU_ALLREDUCE
-ALLREDUCE(torch_cuda_IntTensor, MPIDataType::HOROVOD_INT32, DeviceType::GPU,
+ALLREDUCE(torch_cuda_IntTensor, DataType::HOROVOD_INT32, DeviceType::GPU,
           THCudaIntTensor)
-ALLREDUCE(torch_cuda_LongTensor, MPIDataType::HOROVOD_INT64, DeviceType::GPU,
+ALLREDUCE(torch_cuda_LongTensor, DataType::HOROVOD_INT64, DeviceType::GPU,
           THCudaLongTensor)
-ALLREDUCE(torch_cuda_FloatTensor, MPIDataType::HOROVOD_FLOAT32, DeviceType::GPU,
+ALLREDUCE(torch_cuda_FloatTensor, DataType::HOROVOD_FLOAT32, DeviceType::GPU,
           THCudaTensor)
-ALLREDUCE(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64,
+ALLREDUCE(torch_cuda_DoubleTensor, DataType::HOROVOD_FLOAT64,
           DeviceType::GPU, THCudaDoubleTensor)
 #endif
 
@@ -251,13 +251,13 @@ ALLREDUCE(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64,
   }
 
 #if !HOROVOD_GPU_ALLREDUCE && HAVE_CUDA
-ALLREDUCE_CUDA_ON_CPU(torch_cuda_IntTensor, MPIDataType::HOROVOD_INT32,
+ALLREDUCE_CUDA_ON_CPU(torch_cuda_IntTensor, DataType::HOROVOD_INT32,
                       THCudaIntTensor, THIntTensor)
-ALLREDUCE_CUDA_ON_CPU(torch_cuda_LongTensor, MPIDataType::HOROVOD_INT64,
+ALLREDUCE_CUDA_ON_CPU(torch_cuda_LongTensor, DataType::HOROVOD_INT64,
                       THCudaLongTensor, THLongTensor)
-ALLREDUCE_CUDA_ON_CPU(torch_cuda_FloatTensor, MPIDataType::HOROVOD_FLOAT32,
+ALLREDUCE_CUDA_ON_CPU(torch_cuda_FloatTensor, DataType::HOROVOD_FLOAT32,
                       THCudaTensor, THFloatTensor)
-ALLREDUCE_CUDA_ON_CPU(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64,
+ALLREDUCE_CUDA_ON_CPU(torch_cuda_DoubleTensor, DataType::HOROVOD_FLOAT64,
                       THCudaDoubleTensor, THDoubleTensor)
 #endif
 
@@ -267,35 +267,35 @@ ALLREDUCE_CUDA_ON_CPU(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64,
     return DoAllgather<HorovodType, DeviceType>(tensor, output, name);         \
   }
 
-ALLGATHER(torch_ByteTensor, MPIDataType::HOROVOD_UINT8, DeviceType::CPU,
+ALLGATHER(torch_ByteTensor, DataType::HOROVOD_UINT8, DeviceType::CPU,
           THByteTensor)
-ALLGATHER(torch_CharTensor, MPIDataType::HOROVOD_INT8, DeviceType::CPU,
+ALLGATHER(torch_CharTensor, DataType::HOROVOD_INT8, DeviceType::CPU,
           THCharTensor)
-ALLGATHER(torch_ShortTensor, MPIDataType::HOROVOD_INT16, DeviceType::CPU,
+ALLGATHER(torch_ShortTensor, DataType::HOROVOD_INT16, DeviceType::CPU,
           THShortTensor)
-ALLGATHER(torch_IntTensor, MPIDataType::HOROVOD_INT32, DeviceType::CPU,
+ALLGATHER(torch_IntTensor, DataType::HOROVOD_INT32, DeviceType::CPU,
           THIntTensor)
-ALLGATHER(torch_LongTensor, MPIDataType::HOROVOD_INT64, DeviceType::CPU,
+ALLGATHER(torch_LongTensor, DataType::HOROVOD_INT64, DeviceType::CPU,
           THLongTensor)
-ALLGATHER(torch_FloatTensor, MPIDataType::HOROVOD_FLOAT32, DeviceType::CPU,
+ALLGATHER(torch_FloatTensor, DataType::HOROVOD_FLOAT32, DeviceType::CPU,
           THFloatTensor)
-ALLGATHER(torch_DoubleTensor, MPIDataType::HOROVOD_FLOAT64, DeviceType::CPU,
+ALLGATHER(torch_DoubleTensor, DataType::HOROVOD_FLOAT64, DeviceType::CPU,
           THDoubleTensor)
 
 #if HOROVOD_GPU_ALLGATHER
-ALLGATHER(torch_cuda_ByteTensor, MPIDataType::HOROVOD_UINT8, DeviceType::GPU,
+ALLGATHER(torch_cuda_ByteTensor, DataType::HOROVOD_UINT8, DeviceType::GPU,
           THCudaByteTensor)
-ALLGATHER(torch_cuda_CharTensor, MPIDataType::HOROVOD_INT8, DeviceType::GPU,
+ALLGATHER(torch_cuda_CharTensor, DataType::HOROVOD_INT8, DeviceType::GPU,
           THCudaCharTensor)
-ALLGATHER(torch_cuda_ShortTensor, MPIDataType::HOROVOD_INT16, DeviceType::GPU,
+ALLGATHER(torch_cuda_ShortTensor, DataType::HOROVOD_INT16, DeviceType::GPU,
           THCudaShortTensor)
-ALLGATHER(torch_cuda_IntTensor, MPIDataType::HOROVOD_INT32, DeviceType::GPU,
+ALLGATHER(torch_cuda_IntTensor, DataType::HOROVOD_INT32, DeviceType::GPU,
           THCudaIntTensor)
-ALLGATHER(torch_cuda_LongTensor, MPIDataType::HOROVOD_INT64, DeviceType::GPU,
+ALLGATHER(torch_cuda_LongTensor, DataType::HOROVOD_INT64, DeviceType::GPU,
           THCudaLongTensor)
-ALLGATHER(torch_cuda_FloatTensor, MPIDataType::HOROVOD_FLOAT32, DeviceType::GPU,
+ALLGATHER(torch_cuda_FloatTensor, DataType::HOROVOD_FLOAT32, DeviceType::GPU,
           THCudaTensor)
-ALLGATHER(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64,
+ALLGATHER(torch_cuda_DoubleTensor, DataType::HOROVOD_FLOAT64,
           DeviceType::GPU, THCudaDoubleTensor)
 #endif
 
@@ -307,19 +307,19 @@ ALLGATHER(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64,
   }
 
 #if !HOROVOD_GPU_ALLGATHER && HAVE_CUDA
-ALLGATHER_CUDA_ON_CPU(torch_cuda_ByteTensor, MPIDataType::HOROVOD_UINT8,
+ALLGATHER_CUDA_ON_CPU(torch_cuda_ByteTensor, DataType::HOROVOD_UINT8,
                       THCudaByteTensor, THByteTensor)
-ALLGATHER_CUDA_ON_CPU(torch_cuda_CharTensor, MPIDataType::HOROVOD_INT8,
+ALLGATHER_CUDA_ON_CPU(torch_cuda_CharTensor, DataType::HOROVOD_INT8,
                       THCudaCharTensor, THCharTensor)
-ALLGATHER_CUDA_ON_CPU(torch_cuda_ShortTensor, MPIDataType::HOROVOD_INT16,
+ALLGATHER_CUDA_ON_CPU(torch_cuda_ShortTensor, DataType::HOROVOD_INT16,
                       THCudaShortTensor, THShortTensor)
-ALLGATHER_CUDA_ON_CPU(torch_cuda_IntTensor, MPIDataType::HOROVOD_INT32,
+ALLGATHER_CUDA_ON_CPU(torch_cuda_IntTensor, DataType::HOROVOD_INT32,
                       THCudaIntTensor, THIntTensor)
-ALLGATHER_CUDA_ON_CPU(torch_cuda_LongTensor, MPIDataType::HOROVOD_INT64,
+ALLGATHER_CUDA_ON_CPU(torch_cuda_LongTensor, DataType::HOROVOD_INT64,
                       THCudaLongTensor, THLongTensor)
-ALLGATHER_CUDA_ON_CPU(torch_cuda_FloatTensor, MPIDataType::HOROVOD_FLOAT32,
+ALLGATHER_CUDA_ON_CPU(torch_cuda_FloatTensor, DataType::HOROVOD_FLOAT32,
                       THCudaTensor, THFloatTensor)
-ALLGATHER_CUDA_ON_CPU(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64,
+ALLGATHER_CUDA_ON_CPU(torch_cuda_DoubleTensor, DataType::HOROVOD_FLOAT64,
                       THCudaDoubleTensor, THDoubleTensor)
 #endif
 
@@ -330,35 +330,35 @@ ALLGATHER_CUDA_ON_CPU(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64,
                                                 name);                         \
   }
 
-BROADCAST(torch_ByteTensor, MPIDataType::HOROVOD_UINT8, DeviceType::CPU,
+BROADCAST(torch_ByteTensor, DataType::HOROVOD_UINT8, DeviceType::CPU,
           THByteTensor)
-BROADCAST(torch_CharTensor, MPIDataType::HOROVOD_INT8, DeviceType::CPU,
+BROADCAST(torch_CharTensor, DataType::HOROVOD_INT8, DeviceType::CPU,
           THCharTensor)
-BROADCAST(torch_ShortTensor, MPIDataType::HOROVOD_INT16, DeviceType::CPU,
+BROADCAST(torch_ShortTensor, DataType::HOROVOD_INT16, DeviceType::CPU,
           THShortTensor)
-BROADCAST(torch_IntTensor, MPIDataType::HOROVOD_INT32, DeviceType::CPU,
+BROADCAST(torch_IntTensor, DataType::HOROVOD_INT32, DeviceType::CPU,
           THIntTensor)
-BROADCAST(torch_LongTensor, MPIDataType::HOROVOD_INT64, DeviceType::CPU,
+BROADCAST(torch_LongTensor, DataType::HOROVOD_INT64, DeviceType::CPU,
           THLongTensor)
-BROADCAST(torch_FloatTensor, MPIDataType::HOROVOD_FLOAT32, DeviceType::CPU,
+BROADCAST(torch_FloatTensor, DataType::HOROVOD_FLOAT32, DeviceType::CPU,
           THFloatTensor)
-BROADCAST(torch_DoubleTensor, MPIDataType::HOROVOD_FLOAT64, DeviceType::CPU,
+BROADCAST(torch_DoubleTensor, DataType::HOROVOD_FLOAT64, DeviceType::CPU,
           THDoubleTensor)
 
 #if HOROVOD_GPU_BROADCAST
-BROADCAST(torch_cuda_ByteTensor, MPIDataType::HOROVOD_UINT8, DeviceType::GPU,
+BROADCAST(torch_cuda_ByteTensor, DataType::HOROVOD_UINT8, DeviceType::GPU,
           THCudaByteTensor)
-BROADCAST(torch_cuda_CharTensor, MPIDataType::HOROVOD_INT8, DeviceType::GPU,
+BROADCAST(torch_cuda_CharTensor, DataType::HOROVOD_INT8, DeviceType::GPU,
           THCudaCharTensor)
-BROADCAST(torch_cuda_ShortTensor, MPIDataType::HOROVOD_INT16, DeviceType::GPU,
+BROADCAST(torch_cuda_ShortTensor, DataType::HOROVOD_INT16, DeviceType::GPU,
           THCudaShortTensor)
-BROADCAST(torch_cuda_IntTensor, MPIDataType::HOROVOD_INT32, DeviceType::GPU,
+BROADCAST(torch_cuda_IntTensor, DataType::HOROVOD_INT32, DeviceType::GPU,
           THCudaIntTensor)
-BROADCAST(torch_cuda_LongTensor, MPIDataType::HOROVOD_INT64, DeviceType::GPU,
+BROADCAST(torch_cuda_LongTensor, DataType::HOROVOD_INT64, DeviceType::GPU,
           THCudaLongTensor)
-BROADCAST(torch_cuda_FloatTensor, MPIDataType::HOROVOD_FLOAT32, DeviceType::GPU,
+BROADCAST(torch_cuda_FloatTensor, DataType::HOROVOD_FLOAT32, DeviceType::GPU,
           THCudaTensor)
-BROADCAST(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64, DeviceType::GPU,
+BROADCAST(torch_cuda_DoubleTensor, DataType::HOROVOD_FLOAT64, DeviceType::GPU,
           THCudaDoubleTensor)
 #endif
 
@@ -370,19 +370,19 @@ BROADCAST(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64, DeviceType::GPU
   }
 
 #if !HOROVOD_GPU_BROADCAST && HAVE_CUDA
-BROADCAST_CUDA_ON_CPU(torch_cuda_ByteTensor, MPIDataType::HOROVOD_UINT8,
+BROADCAST_CUDA_ON_CPU(torch_cuda_ByteTensor, DataType::HOROVOD_UINT8,
                       THCudaByteTensor, THByteTensor)
-BROADCAST_CUDA_ON_CPU(torch_cuda_CharTensor, MPIDataType::HOROVOD_INT8,
+BROADCAST_CUDA_ON_CPU(torch_cuda_CharTensor, DataType::HOROVOD_INT8,
                       THCudaCharTensor, THCharTensor)
-BROADCAST_CUDA_ON_CPU(torch_cuda_ShortTensor, MPIDataType::HOROVOD_INT16,
+BROADCAST_CUDA_ON_CPU(torch_cuda_ShortTensor, DataType::HOROVOD_INT16,
                       THCudaShortTensor, THShortTensor)
-BROADCAST_CUDA_ON_CPU(torch_cuda_IntTensor, MPIDataType::HOROVOD_INT32,
+BROADCAST_CUDA_ON_CPU(torch_cuda_IntTensor, DataType::HOROVOD_INT32,
                       THCudaIntTensor, THIntTensor)
-BROADCAST_CUDA_ON_CPU(torch_cuda_LongTensor, MPIDataType::HOROVOD_INT64,
+BROADCAST_CUDA_ON_CPU(torch_cuda_LongTensor, DataType::HOROVOD_INT64,
                       THCudaLongTensor, THLongTensor)
-BROADCAST_CUDA_ON_CPU(torch_cuda_FloatTensor, MPIDataType::HOROVOD_FLOAT32,
+BROADCAST_CUDA_ON_CPU(torch_cuda_FloatTensor, DataType::HOROVOD_FLOAT32,
                       THCudaTensor, THFloatTensor)
-BROADCAST_CUDA_ON_CPU(torch_cuda_DoubleTensor, MPIDataType::HOROVOD_FLOAT64,
+BROADCAST_CUDA_ON_CPU(torch_cuda_DoubleTensor, DataType::HOROVOD_FLOAT64,
                       THCudaDoubleTensor, THDoubleTensor)
 #endif
 

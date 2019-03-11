@@ -182,7 +182,7 @@ void Timeline::WriteMarker(const std::string& name) {
 }
 
 void Timeline::NegotiateStart(const std::string& tensor_name,
-                              const MPIRequest::RequestType request_type) {
+                              const Request::RequestType request_type) {
   if (!initialized_) {
     return;
   }
@@ -190,7 +190,7 @@ void Timeline::NegotiateStart(const std::string& tensor_name,
   std::lock_guard<std::recursive_mutex> guard(mutex_);
   assert(tensor_states_[tensor_name] == TimelineState::UNKNOWN);
   auto event_category =
-      "NEGOTIATE_" + MPIRequest::RequestType_Name(request_type);
+      "NEGOTIATE_" + Request::RequestType_Name(request_type);
   WriteEvent(tensor_name, 'B', event_category);
   tensor_states_[tensor_name] = TimelineState::NEGOTIATING;
 }
@@ -218,16 +218,23 @@ void Timeline::NegotiateEnd(const std::string& tensor_name) {
 }
 
 void Timeline::Start(const std::string& tensor_name,
-                     const MPIResponse::ResponseType response_type) {
+                     const Response::ResponseType response_type) {
   if (!initialized_) {
     return;
   }
 
   std::lock_guard<std::recursive_mutex> guard(mutex_);
   assert(tensor_states_[tensor_name] == TimelineState::UNKNOWN);
-  auto event_category = MPIResponse::ResponseType_Name(response_type);
+  auto event_category = Response::ResponseType_Name(response_type);
   WriteEvent(tensor_name, 'B', event_category);
   tensor_states_[tensor_name] = TimelineState::TOP_LEVEL;
+}
+
+void Timeline::ActivityStartAll(const std::vector<TensorTableEntry>& entries,
+                                const std::string& activity) {
+  for (auto& e : entries) {
+    ActivityStart(e.tensor_name, activity);
+  }
 }
 
 void Timeline::ActivityStart(const std::string& tensor_name,
@@ -240,6 +247,12 @@ void Timeline::ActivityStart(const std::string& tensor_name,
   assert(tensor_states_[tensor_name] == TimelineState::TOP_LEVEL);
   WriteEvent(tensor_name, 'B', activity);
   tensor_states_[tensor_name] = TimelineState::ACTIVITY;
+}
+
+void Timeline::ActivityEndAll(const std::vector<TensorTableEntry>& entries) {
+  for (auto& e : entries) {
+    ActivityEnd(e.tensor_name);
+  }
 }
 
 void Timeline::ActivityEnd(const std::string& tensor_name) {
@@ -268,7 +281,7 @@ void Timeline::End(const std::string& tensor_name,
 
   std::stringstream args;
   if (tensor != nullptr) {
-    args << "\"dtype\": \"" << MPIDataType_Name(tensor->dtype()) << "\"";
+    args << "\"dtype\": \"" << DataType_Name(tensor->dtype()) << "\"";
     args << ", \"shape\": \"" << tensor->shape().DebugString() << "\"";
   }
   WriteEvent(tensor_name, 'E', "", args.str());

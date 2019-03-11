@@ -277,8 +277,12 @@ def get_mx_flags(build_ext, cpp_flags):
     mx_libs = get_mx_libs(build_ext, mx_lib_dirs, cpp_flags)
 
     compile_flags = []
+    has_mkldnn = is_mx_mkldnn()
     for include_dir in mx_include_dirs:
         compile_flags.append('-I%s' % include_dir)
+        if has_mkldnn:
+            mkldnn_include = os.path.join(include_dir, 'mkldnn')
+            compile_flags.append('-I%s' % mkldnn_include)
 
     link_flags = []
     for lib_dir in mx_lib_dirs:
@@ -465,20 +469,49 @@ def get_nccl_vals(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
     return nccl_include_dirs, nccl_lib_dirs, nccl_libs
 
 
-def get_ddl_dirs():
-    # Default DDL home
-    ddl_home = '/opt/DL/ddl'
-    ddl_include_dir = '%s/include' % ddl_home
-    ddl_lib_dir = '%s/lib' % ddl_home
+def get_ddl_dirs(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
+    ddl_include_dirs = []
+    ddl_lib_dirs = []
 
-    if not os.path.exists(ddl_lib_dir):
-        raise DistutilsPlatformError(
-            'DDL lib was not found. Please, make sure \'ddl\' package is installed.')
-    if not os.path.exists(ddl_include_dir):
-        raise DistutilsPlatformError(
-            'DDL include was not found. Please, make sure \'ddl-dev\' package is installed.')
+    ddl_home = os.environ.get('HOROVOD_DDL_HOME')
+    if ddl_home:
+        ddl_include_dirs += ['%s/include' % ddl_home]
+        ddl_lib_dirs += ['%s/lib' % ddl_home, '%s/lib64' % ddl_home]
 
-    return [ddl_include_dir], [ddl_lib_dir]
+    ddl_include_dir = os.environ.get('HOROVOD_DDL_INCLUDE')
+    if ddl_include_dir:
+        ddl_include_dirs += [ddl_include_dir]
+
+    ddl_lib_dir = os.environ.get('HOROVOD_DDL_LIB')
+    if ddl_lib_dir:
+        ddl_lib_dirs += [ddl_lib_dir]
+
+    # Keep DDL legacy folders for backward compatibility
+    if not ddl_include_dirs:
+        ddl_include_dirs += ['/opt/DL/ddl/include']
+    if not ddl_lib_dirs:
+        ddl_lib_dirs += ['/opt/DL/ddl/lib']
+
+    try:
+        test_compile(build_ext, 'test_ddl', libraries=['ddl', 'ddl_pack'],
+                     include_dirs=ddl_include_dirs + cuda_include_dirs,
+                     library_dirs=ddl_lib_dirs + cuda_lib_dirs, extra_compile_preargs=cpp_flags,
+                     code=textwrap.dedent('''\
+                     #include <ddl.hpp>
+                     void test() {
+                     }
+                     '''))
+    except (CompileError, LinkError):
+        raise DistutilsPlatformError(
+            'IBM PowerAI DDL library was not found (see error above).\n'
+            'Please specify correct DDL location with the HOROVOD_DDL_HOME '
+            'environment variable or combination of HOROVOD_DDL_INCLUDE and '
+            'HOROVOD_DDL_LIB environment variables.\n\n'
+            'HOROVOD_DDL_HOME - path where DDL include and lib directories can be found\n'
+            'HOROVOD_DDL_INCLUDE - path to DDL include directory\n'
+            'HOROVOD_DDL_LIB - path to DDL lib directory')
+
+    return ddl_include_dirs, ddl_lib_dirs
 
 
 def get_common_options(build_ext):
@@ -523,7 +556,8 @@ def get_common_options(build_ext):
 
     if gpu_allreduce == 'DDL':
         have_ddl = True
-        ddl_include_dirs, ddl_lib_dirs = get_ddl_dirs()
+        ddl_include_dirs, ddl_lib_dirs = get_ddl_dirs(build_ext, cuda_include_dirs,
+                                                      cuda_lib_dirs, cpp_flags)
     else:
         have_ddl = False
         ddl_include_dirs = ddl_lib_dirs = []
@@ -549,14 +583,19 @@ def get_common_options(build_ext):
                 'third_party/boost/preprocessor/include',
                 'third_party/boost/static_assert/include',
                 'third_party/boost/type_traits/include',
-                'third_party/boost/utility/include']
+                'third_party/boost/utility/include',
+                'third_party/flatbuffers/include']
     SOURCES = ['horovod/common/common.cc',
                'horovod/common/fusion_buffer_manager.cc',
-               'horovod/common/mpi_message.cc',
                'horovod/common/half.cc',
+               'horovod/common/message.cc',
+               'horovod/common/mpi_context.cc',
                'horovod/common/operations.cc',
                'horovod/common/parameter_manager.cc',
                'horovod/common/timeline.cc',
+               'horovod/common/ops/collective_operations.cc',
+               'horovod/common/ops/mpi_operations.cc',
+               'horovod/common/ops/operation_manager.cc',
                'horovod/common/optim/bayesian_optimization.cc',
                'horovod/common/optim/gaussian_process.cc',
                'horovod/common/logging.cc']
@@ -568,6 +607,8 @@ def get_common_options(build_ext):
     if have_cuda:
         MACROS += [('HAVE_CUDA', '1')]
         INCLUDES += cuda_include_dirs
+        SOURCES += ['horovod/common/ops/cuda_operations.cc',
+                    'horovod/common/ops/mpi_cuda_operations.cc']
         LIBRARY_DIRS += cuda_lib_dirs
         LIBRARIES += ['cudart']
 
@@ -578,12 +619,14 @@ def get_common_options(build_ext):
     if have_nccl:
         MACROS += [('HAVE_NCCL', '1')]
         INCLUDES += nccl_include_dirs
+        SOURCES += ['horovod/common/ops/nccl_operations.cc']
         LIBRARY_DIRS += nccl_lib_dirs
         LIBRARIES += nccl_libs
 
     if have_ddl:
         MACROS += [('HAVE_DDL', '1')]
         INCLUDES += ddl_include_dirs
+        SOURCES += ['horovod/common/ops/ddl_operations.cc']
         LIBRARY_DIRS += ddl_lib_dirs
         LIBRARIES += ['ddl', 'ddl_pack']
 
@@ -639,6 +682,34 @@ def parse_version(version_str):
     return version
 
 
+def is_mx_mkldnn():
+    try:
+        from mxnet import runtime
+        features = runtime.Features()
+        return features.is_enabled('MKLDNN')
+    except Exception:
+        msg = 'INFO: Cannot detect if MKLDNN is enabled in MXNet. Please \
+            set MXNET_USE_MKLDNN=1 if MKLDNN is enabled in your MXNet build.'
+        if 'linux' not in sys.platform:
+            # MKLDNN is only enabled by default in MXNet Linux build. Return 
+            # False by default for non-linux build but still allow users to 
+            # enable it by using MXNET_USE_MKLDNN env variable. 
+            print(msg)
+            return os.environ.get('MXNET_USE_MKLDNN', '0') == '1'
+        else:
+            try:
+                import mxnet as mx
+                mx_libs = mx.libinfo.find_lib_path()
+                for mx_lib in mx_libs:
+                    output = subprocess.check_output(['readelf', '-d', mx_lib])
+                    if 'mkldnn' in str(output):
+                        return True
+                return False
+            except Exception:
+                print(msg)
+                return os.environ.get('MXNET_USE_MKLDNN', '0') == '1'
+
+
 def build_mx_extension(build_ext, options):
     check_mx_version()
     mx_compile_flags, mx_link_flags = get_mx_flags(
@@ -649,6 +720,10 @@ def build_mx_extension(build_ext, options):
         mxnet_mpi_lib.define_macros += [('MSHADOW_USE_CUDA', '1')]
     else:
         mxnet_mpi_lib.define_macros += [('MSHADOW_USE_CUDA', '0')]
+    if is_mx_mkldnn():
+        mxnet_mpi_lib.define_macros += [('MXNET_USE_MKLDNN', '1')]
+    else:
+        mxnet_mpi_lib.define_macros += [('MXNET_USE_MKLDNN', '0')]    
     mxnet_mpi_lib.define_macros += [('MSHADOW_USE_MKL', '0')]
     mxnet_mpi_lib.include_dirs = options['INCLUDES']
     mxnet_mpi_lib.sources = options['SOURCES'] + \

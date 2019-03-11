@@ -55,7 +55,7 @@ MXPersistentBuffer::AccessData(std::shared_ptr<OpContext> context) const {
 
 template <class T> MXTensor<T>::MXTensor(T* tensor) : tensor_(tensor) {}
 
-template <class T> const MPIDataType MXTensor<T>::dtype() const {
+template <class T> const DataType MXTensor<T>::dtype() const {
   return TensorUtil::GetDType(tensor_);
 }
 
