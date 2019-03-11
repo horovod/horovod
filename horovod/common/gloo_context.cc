@@ -27,9 +27,9 @@ void GlooContext::InitializeFromMPI(const MPI_Comm& mpi_comm) {
   attr.ai_family = AF_UNSPEC;
   auto dev = gloo::transport::tcp::CreateDevice(attr);
 
-  auto context = new gloo::mpi::Context(mpi_comm);
+  auto context = std::make_shared<gloo::mpi::Context>(mpi_comm);
   context->connectFullMesh(dev);
-  ctx.reset(context);
+  ctx = context;
 }
 
 void GlooContext::Finalize() {
