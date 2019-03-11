@@ -14,7 +14,6 @@
 # ==============================================================================
 from __future__ import print_function
 
-import fnmatch
 import os
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
@@ -42,14 +41,6 @@ torch_mpi_lib_impl = Extension('horovod.torch.mpi_lib_impl', [])
 torch_mpi_lib_v2 = Extension('horovod.torch.mpi_lib_v2', [])
 mxnet_mpi_lib = Extension('horovod.mxnet.mpi_lib', [])
 gloo_lib = CMakeExtension('gloo', cmake_lists_dir='third_party/gloo', sources=[])
-
-
-def find_files(base_dir, ext):
-    matches = []
-    for root, dirnames, filenames in os.walk(base_dir):
-        for filename in fnmatch.filter(filenames, ext):
-            matches.append(os.path.join(root, filename))
-    return matches
 
 
 def is_build_action():
@@ -560,7 +551,6 @@ def get_common_options(build_ext):
                 'third_party/boost/utility/include',
                 'third_party/eigen',
                 'third_party/flatbuffers/include',
-                'third_party/gloo',
                 'third_party/lbfgs/include']
     SOURCES = ['horovod/common/common.cc',
                'horovod/common/fusion_buffer_manager.cc',
@@ -580,6 +570,12 @@ def get_common_options(build_ext):
     LINK_FLAGS = link_flags + shlex.split(mpi_flags)
     LIBRARY_DIRS = []
     LIBRARIES = []
+
+    use_gloo = True
+    if use_gloo:
+        INCLUDES += ['third_party/gloo']
+        SOURCES += ['horovod/common/gloo_context.cc',
+                    'horovod/common/ops/gloo_operations.cc']
 
     if have_cuda:
         MACROS += [('HAVE_CUDA', '1')]
@@ -911,12 +907,13 @@ def build_torch_extension_v2(build_ext, options, torch_version):
 
 
 def build_cmake(build_ext, ext, output_dir, options):
+    # CMake should come with pip requirement 'cmake', but let's verify
     try:
         subprocess.check_output(['cmake', '--version'])
     except OSError:
         raise RuntimeError('Cannot find CMake executable')
 
-    # example of cmake args
+    # Statically linked archive files go into the provided output directory
     extdir = os.path.abspath(os.path.dirname(build_ext.get_ext_fullpath(ext.name)))
     config = 'Debug' if build_ext.debug else 'Release'
     cmake_args = [
@@ -929,6 +926,7 @@ def build_cmake(build_ext, ext, output_dir, options):
         '--', '-j4',
     ]
 
+    # Keep temp build files within a unique subdirectory
     build_temp = os.path.abspath(os.path.join(build_ext.build_temp, ext.name))
     if not os.path.exists(build_temp):
         os.makedirs(build_temp)
@@ -939,6 +937,7 @@ def build_cmake(build_ext, ext, output_dir, options):
     subprocess.check_call(['cmake', '--build', '.'] + cmake_build_args,
                           cwd=build_temp)
 
+    # Add the library so other extensions will link against it during compilation
     options['LIBRARIES'] += [ext.name]
 
 
@@ -948,12 +947,13 @@ class custom_build_ext(build_ext):
         options = get_common_options(self)
         built_plugins = []
 
+        # All statically linked libraries will be placed here
         lib_output_dir = os.path.abspath(os.path.join(self.build_temp, 'lib'))
-        options['LIBRARY_DIRS'] += [lib_output_dir]
-
         if not os.path.exists(lib_output_dir):
             os.makedirs(lib_output_dir)
+        options['LIBRARY_DIRS'] += [lib_output_dir]
 
+        # Bild CMake libraries first so they can be statically linked against extensions
         for ext in self.extensions:
             if isinstance(ext, CMakeExtension):
                 build_cmake(self, ext, lib_output_dir, options)

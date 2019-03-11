@@ -57,10 +57,10 @@ protected:
   virtual void MemcpyOutFusionBuffer(const void* buffer_data, std::vector<TensorTableEntry>& entries);
 
   virtual void MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                         const TensorTableEntry& e, void* buffer_data_at_offset) = 0;
+                                         const TensorTableEntry& e, void* buffer_data_at_offset);
 
   virtual void MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                          const void* buffer_data_at_offset, TensorTableEntry& e) = 0;
+                                          const void* buffer_data_at_offset, TensorTableEntry& e);
 };
 
 class AllgatherOp : public HorovodOp {
