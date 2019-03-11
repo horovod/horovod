@@ -987,6 +987,7 @@ def build_cmake(build_ext, ext, output_dir, options):
     extdir = os.path.abspath(os.path.dirname(build_ext.get_ext_fullpath(ext.name)))
     config = 'Debug' if build_ext.debug else 'Release'
     cmake_args = [
+        '-DUSE_MPI=ON',
         '-DCMAKE_BUILD_TYPE=' + config,
         '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}'.format(config.upper(), extdir),
         '-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{}={}'.format(config.upper(), output_dir),
