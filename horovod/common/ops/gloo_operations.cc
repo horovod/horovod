@@ -76,7 +76,7 @@ void GlooAlgorithms<T>::Broadcast(void* buffer_data, int num_elements, int root_
   std::vector<T*> ptrs;
   ptrs.push_back((T*) buffer_data);
 
-  gloo::BroadcastOneToAll<T> bcast(gloo_context_->ctx, ptrs, (size_t) num_elements, root_rank, root_rank);
+  gloo::BroadcastOneToAll<T> bcast(gloo_context_->ctx, ptrs, (size_t) num_elements, root_rank);
   bcast.run();
 }
 
