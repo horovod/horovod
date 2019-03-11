@@ -407,7 +407,7 @@ def test_hip_compile(build_ext, cpp_flags):
 
     try:
         test_compile(build_ext, 'test_hip', libraries=hip_libraries, include_dirs=hip_include_dirs,
-                     library_dirs=hip_lib_dirs, extra_preargs=hip_cpp_flags, code=textwrap.dedent('''\
+                     library_dirs=hip_lib_dirs, extra_compile_preargs=hip_cpp_flags, code=textwrap.dedent('''\
             #include <hip/hip_runtime.h>
             void test() {
                 hipSetDevice(0);
@@ -614,6 +614,8 @@ def get_common_options(build_ext):
 
     if have_hip:
         MACROS += [('HAVE_HIP', '1')]
+        SOURCES += ['horovod/common/ops/cuda_operations.cc',
+                    'horovod/common/ops/mpi_cuda_operations.cc']
         COMPILE_FLAGS += get_hip_cpp_flags()
 
     if have_nccl:
@@ -691,9 +693,9 @@ def is_mx_mkldnn():
         msg = 'INFO: Cannot detect if MKLDNN is enabled in MXNet. Please \
             set MXNET_USE_MKLDNN=1 if MKLDNN is enabled in your MXNet build.'
         if 'linux' not in sys.platform:
-            # MKLDNN is only enabled by default in MXNet Linux build. Return 
-            # False by default for non-linux build but still allow users to 
-            # enable it by using MXNET_USE_MKLDNN env variable. 
+            # MKLDNN is only enabled by default in MXNet Linux build. Return
+            # False by default for non-linux build but still allow users to
+            # enable it by using MXNET_USE_MKLDNN env variable.
             print(msg)
             return os.environ.get('MXNET_USE_MKLDNN', '0') == '1'
         else:
@@ -723,7 +725,7 @@ def build_mx_extension(build_ext, options):
     if is_mx_mkldnn():
         mxnet_mpi_lib.define_macros += [('MXNET_USE_MKLDNN', '1')]
     else:
-        mxnet_mpi_lib.define_macros += [('MXNET_USE_MKLDNN', '0')]    
+        mxnet_mpi_lib.define_macros += [('MXNET_USE_MKLDNN', '0')]
     mxnet_mpi_lib.define_macros += [('MSHADOW_USE_MKL', '0')]
     mxnet_mpi_lib.include_dirs = options['INCLUDES']
     mxnet_mpi_lib.sources = options['SOURCES'] + \
