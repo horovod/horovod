@@ -43,6 +43,8 @@
 #include "timeline.h"
 #include "logging.h"
 
+#include "ops/gloo_operations.h"
+
 #if HAVE_CUDA
 #include "ops/cuda_operations.h"
 #include "ops/mpi_cuda_operations.h"
@@ -95,6 +97,8 @@ namespace {
 HorovodGlobalState horovod_global;
 
 MPIContext mpi_context;
+
+GlooContext gloo_context;
 
 #if HAVE_CUDA
 CUDAContext cuda_context;
@@ -1108,6 +1112,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
   if (is_coordinator) {
     state.message_table = std::unique_ptr<MessageTable>(new MessageTable());
   }
+
+  gloo_context.InitializeFromMPI();
 
   op_manager.reset(CreateOperationManager(state));
 
