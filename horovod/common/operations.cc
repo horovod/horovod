@@ -1,5 +1,6 @@
 // Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 // Modifications copyright (C) 2019 Uber Technologies, Inc.
+// Modifications copyright (C) 2019, NVIDIA CORPORATION. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +19,7 @@
 #include <cassert>
 #include <cstring>
 #include <queue>
+#include <set>
 #include <sstream>
 #include <thread>
 #include <map>
@@ -445,6 +447,134 @@ int64_t TensorFusionThresholdBytes() {
   return proposed_fusion_threshold;
 }
 
+// Populates provided ResponseList with responses from deque.
+void PopulateResponseList(ResponseList& response_list,
+                             std::deque<Response>& responses,
+                             HorovodGlobalState& state,
+                             MPIContext& ctx) {
+  {
+    // Protect access to tensor table.
+    std::lock_guard<std::mutex> guard(horovod_global.mutex);
+    while (!responses.empty()) {
+
+      auto response = responses.front();
+      assert(response.tensor_names().size() == 1);
+      responses.pop_front();
+      int64_t tensor_size = 0;
+      if (response.response_type() == Response::ResponseType::ALLREDUCE) {
+        // Attempt to add more responses to this fused response.
+        auto& entry = state.tensor_table[response.tensor_names()[0]];
+        tensor_size = entry.tensor->size();
+
+        std::deque<Response> skipped_responses;
+        int64_t skipped_size = 0;
+        while (!responses.empty()) {
+          auto new_response = responses.front();
+          assert(new_response.tensor_names().size() == 1);
+          auto& new_entry =
+              state.tensor_table[new_response.tensor_names()[0]];
+          int64_t new_tensor_size = new_entry.tensor->size();
+
+          if (response.response_type() == new_response.response_type() &&
+              response.devices() == new_response.devices() &&
+              entry.tensor->dtype() == new_entry.tensor->dtype() &&
+              tensor_size + new_tensor_size <= TensorFusionThresholdBytes()) {
+            // These tensors will fuse together well.
+            tensor_size += new_tensor_size;
+            response.add_tensor_name(new_response.tensor_names()[0]);
+            responses.pop_front();
+          } else {
+            // In general, don't try to fuse additional tensors since they are usually
+            // computed in order of requests and skipping tensors may mean
+            // that the batch will have to wait longer while skipped tensors
+            // could be reduced at that time. However, mixed-precision training may yield
+            // requests of various dtype in a mixed-up sequence causing breakups
+            // in fusion. To counter this some look ahead is allowed.
+
+            skipped_size += new_tensor_size;
+            if (tensor_size + skipped_size <= TensorFusionThresholdBytes()) {
+              // Skip response and look ahead for more to fuse.
+              skipped_responses.push_back(std::move(responses.front()));
+              responses.pop_front();
+            } else {
+              break;
+            }
+          }
+        }
+
+        // Replace any skipped responses.
+        while (!skipped_responses.empty()) {
+          responses.push_front(std::move(skipped_responses.back()));
+          skipped_responses.pop_back();
+        }
+
+      } else if (response.response_type() ==
+                 Response::ResponseType::ALLGATHER) {
+        // Attempt to add more responses to this fused response.
+        auto& entry = state.tensor_table[response.tensor_names()[0]];
+
+        // This is size of first dimension.
+        int64_t total_byte_size_of_output =
+            TotalByteSizeOfAllgatherOutput(response.tensor_sizes(), entry, ctx);
+
+        std::deque<Response> skipped_responses;
+        int64_t skipped_size = 0;
+        while (!responses.empty()) {
+
+          auto new_response = responses.front();
+          assert(new_response.tensor_names().size() == 1);
+          auto& new_entry =
+              state.tensor_table[new_response.tensor_names()[0]];
+
+          int64_t new_total_byte_size_of_output =
+              TotalByteSizeOfAllgatherOutput(new_response.tensor_sizes(),
+                                             new_entry, ctx);
+
+          if (response.response_type() == new_response.response_type() &&
+              response.devices() == new_response.devices() &&
+              entry.tensor->dtype() == new_entry.tensor->dtype() &&
+              total_byte_size_of_output + new_total_byte_size_of_output <=
+                  TensorFusionThresholdBytes()) {
+
+            // These tensors will fuse together well.
+            total_byte_size_of_output += new_total_byte_size_of_output;
+            response.add_allgather_response(new_response);
+            responses.pop_front();
+
+          } else {
+            // In general, don't try to fuse additional tensors since they are usually
+            // computed in order of requests and skipping tensors may mean
+            // that the batch will have to wait longer while skipped tensors
+            // could be reduced at that time. However, mixed-precision training may yield
+            // requests of various dtype in a mixed-up sequence causing breakups
+            // in fusion. To counter this some look ahead is allowed.
+
+            skipped_size += new_total_byte_size_of_output;
+            if (total_byte_size_of_output + skipped_size <=
+                    TensorFusionThresholdBytes()) {
+              // Skip response and look ahead for more to fuse.
+              skipped_responses.push_back(std::move(responses.front()));
+              responses.pop_front();
+            } else {
+              break;
+            }
+          }
+        }
+
+        // Replace any skipped responses.
+        while (!skipped_responses.empty()) {
+          responses.push_front(std::move(skipped_responses.back()));
+          skipped_responses.pop_back();
+        }
+
+      }
+
+      response_list.add_response(response);
+      LOG(DEBUG) << "Created response of size " << tensor_size;
+    }
+  }
+}
+
 // Process a Response by doing a reduction, a gather, a broadcast, or
 // raising an error.
 void PerformOperation(TensorTable& tensor_table, Response response) {
@@ -638,6 +768,91 @@ void set_int_from_env(const char* env, int& val) {
   }
 }
 
+// Routine to intersect cache hits across workers. Also determines global
+// shutdown state and whether uncached requests exist on any worker.
+std::set<int> GetCommonCacheAndState(std::set<int>& cache_hits,
+                                     bool& uncached_in_queue,
+                                     bool& should_shut_down,
+                                     HorovodGlobalState& state,
+                                     MPIContext& ctx) {
+  // Resize and reset bit vector.
+  int nbits = state.response_cache.current_size() + RESERVED_CACHE_BITS;
+  int count = (nbits + sizeof(long long) * CHAR_BIT - 1) /
+              (sizeof(long long) * CHAR_BIT);
+
+  // Allocate additional bits for timeline states if required.
+  int fullcount = count;
+  if (state.timeline_enabled) fullcount *= 2;
+
+  state.cache_mask.resize(fullcount);
+
+  std::memset(&state.cache_mask[0], 0, count * sizeof(long long));
+  if (state.timeline_enabled) {
+    std::memset(&state.cache_mask[count], -1, count * sizeof(long long));
+  }
+
+  // Set reserved bits for additional states.
+  if (!should_shut_down) state.cache_mask[0] |= (1ull);
+  if (!uncached_in_queue) state.cache_mask[0] |= (1ull << 1);
+
+  // For each cache hit on this worker, flip associated bit.
+  for(auto bit : cache_hits) {
+    int shift = bit / (sizeof(long long) * CHAR_BIT);
+    state.cache_mask[shift] |= (1ull <<
+                               (bit % (sizeof(long long) * CHAR_BIT)));
+    if (state.timeline_enabled) {
+      state.cache_mask[count + shift] ^= (1ull <<
+                                         (bit % (sizeof(long long) * CHAR_BIT)));
+    }
+  }
+
+  // Global MPI AND operation to get intersected bit array.
+  MPI_Allreduce(MPI_IN_PLACE, state.cache_mask.data(), fullcount,
+                MPI_LONG_LONG_INT, MPI_BAND, ctx.mpi_comm);
+
+  // Search for flipped bits to populate common cache hit set.
+  std::set<int> common_cache_hits;
+  for (int i = 0; i < count; ++i) {
+    int shift = i * sizeof(long long) * CHAR_BIT;
+    long long ll = state.cache_mask[i];
+    while (ll) {
+      int idx = __builtin_ffsll(ll);
+      int bit = shift + idx - 1;
+      common_cache_hits.insert(bit);
+      ll &= ~(1ull << (idx - 1));
+    }
+
+    // For timeline, check for entries with cache hits on *any* worker to
+    // mark start of negotiation phase.
+    if (state.timeline_enabled) {
+      ll = ~state.cache_mask[count + i];
+      while (ll) {
+        int idx = __builtin_ffsll(ll);
+        int bit = shift + idx - 1;
+        auto response = state.response_cache.peek_response(bit);
+        state.timeline.NegotiateStart(response.tensor_names()[0],
+                                      (Request::RequestType)
+                                      response.response_type());
+        ll &= ~(1ull << (idx - 1));
+      }
+    }
+  }
+
+  // Set states from reserved state bits.
+  if (!common_cache_hits.erase(0)) should_shut_down = true;
+  if (!common_cache_hits.erase(1)) uncached_in_queue = true;
+
+  // For timeline, end negotation for fully  populated cached responses.
+  if (state.timeline_enabled) {
+    for (auto bit : common_cache_hits) {
+      auto response = state.response_cache.peek_response(bit);
+      state.timeline.NegotiateEnd(response.tensor_names()[0]);
+    }
+  }
+
+  return common_cache_hits;
+}
+
 // The MPI background thread loop coordinates all the MPI processes and the
 // tensor reductions. The design of the communicator mechanism is limited by a
 // few considerations:
@@ -794,6 +1009,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
     state.timeline.Initialize(std::string(horovod_timeline),
                               static_cast<unsigned int>(size));
   }
+  if (horovod_timeline != nullptr) {
+    state.timeline_enabled = true;
+  }
 
   set_bool_from_env(HOROVOD_TIMELINE_MARK_CYCLES, state.mark_cycles_in_timeline, true);
 
@@ -818,6 +1036,15 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
     state.param_manager.SetCycleTimeMs(std::strtof(horovod_cycle_time, nullptr),
                                        true);
   }
+
+  // Override response cache capacity, if it's set.
+  // TODO: Put in param manager?
+  int cache_capacity = 1024;
+  auto horovod_cache_capacity = std::getenv(HOROVOD_CACHE_CAPACITY);
+  if (horovod_cache_capacity != nullptr) {
+    cache_capacity = std::strtol(horovod_cache_capacity, nullptr, 10);
+  }
+  state.response_cache.set_capacity(cache_capacity);
 
   // Set flag for hierarchical allgather. Ignore if Horovod is running on a
   // single node.
@@ -954,6 +1181,65 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
   }
 }
 
+// If all messages in queue have responses in cache, use fast path with
+// no additional MPI coordination.
+void RunBypass(std::queue<Request>& message_queue, std::set<int>& cache_hits,
+               HorovodGlobalState& state, MPIContext& ctx) {
+
+  // Clear message queue.
+  message_queue = std::queue<Request>();
+
+  // Convert cache hits to responses. Populate so that least
+  // recently used responses get priority.
+  std::deque<Response> responses;
+  for (auto bit : cache_hits) {
+    responses.push_back(state.response_cache.get_response(bit));
+  }
+
+  // Fuse responses as normal.
+  ResponseList response_list;
+  PopulateResponseList(response_list, responses, state, ctx);
+
+  if (!response_list.responses().empty()) {
+    std::string tensors_ready;
+    for (auto r : response_list.responses()) {
+      tensors_ready += r.tensor_names_string() + "; " ;
+    }
+    LOG(TRACE) << "Sending ready responses as " << tensors_ready;
+  }
+
+  std::vector<std::string> tensor_names;
+  int64_t total_tensor_size = 0;
+  if (state.param_manager.IsAutoTuning()) {
+    for (auto& response : response_list.responses()) {
+      if (response.response_type() == Response::ResponseType::ALLREDUCE) {
+        for (auto& tensor_name : response.tensor_names()) {
+          tensor_names.push_back(tensor_name);
+          // TODO: Shouldn't there be a lock here to protect tensor_table?
+          auto& entry = state.tensor_table[tensor_name];
+          total_tensor_size += entry.tensor->size();
+        }
+      }
+    }
+  }
+
+  // Perform the collective operation. All nodes should end up performing
+  // the same operation.
+  for (auto& response : response_list.responses()) {
+    LOG(TRACE, state.rank) << "Performing " << response.tensor_names_string();
+    LOG(DEBUG, state.rank) << "Processing " << response.tensor_names().size() << " tensors";
+    PerformOperation(state.tensor_table, response);
+    LOG(TRACE, state.rank) << "Finished performing " << response.tensor_names_string();
+  }
+
+  // Reassign cache bits based on current cache state.
+  state.response_cache.update_cache_bits();
+
+  if (state.param_manager.IsAutoTuning()) {
+    state.param_manager.Update(tensor_names, total_tensor_size);
+  }
+}
+
 // The coordinator currently follows a master-worker paradigm. Rank zero acts
 // as the master (the "coordinator"), whereas all other ranks are simply
 // workers. Each rank runs its own background thread which progresses in ticks.
@@ -1003,6 +1289,10 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
   // Copy the data structures from global state under this lock.
   // However, don't keep the lock for the rest of the loop, so that
   // enqueued stream callbacks can continue.
+
+  bool uncached_in_queue = false;
+  std::set<int> cache_hits;
+
   std::queue<Request> message_queue;
   {
     std::lock_guard<std::mutex> guard(state.mutex);
@@ -1010,6 +1300,45 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       Request message = state.message_queue.front();
       state.message_queue.pop();
       message_queue.push(message);
+
+      // Keep track of cache hits
+      if (state.response_cache.capacity() > 0 &&
+          state.response_cache.cached(message)) {
+        int cache_bit = state.response_cache.peek_cache_bit(message);
+        cache_hits.insert(cache_bit);
+      } else {
+        uncached_in_queue = true;
+      }
+    }
+  }
+
+  // Flag indicating that the background thread should shut down.
+  bool should_shut_down = state.shut_down;
+
+  if (state.response_cache.capacity() > 0) {
+    // Obtain global intersection of cache hits across workers. Also, determine
+    // if any worker has uncached messages in queue or requests a shutdown.
+    cache_hits = GetCommonCacheAndState(cache_hits, uncached_in_queue,
+                                        should_shut_down, state, ctx);
+
+    {
+      // Get lock in order to safely replace messages to global queue
+      std::lock_guard<std::mutex> guard(state.mutex);
+
+      // Remove uncommon cached tensors from queue and replace to state
+      // queue for next cycle.
+      size_t num_messages = message_queue.size();
+      for (size_t i = 0; i < num_messages; ++i) {
+        auto message = message_queue.front();
+        if (!state.response_cache.cached(message) ||
+            cache_hits.find(state.response_cache.peek_cache_bit(message)) !=
+            cache_hits.end()) {
+          message_queue.push(std::move(message));
+        } else {
+          state.message_queue.push(std::move(message));
+        }
+        message_queue.pop();
+      }
     }
   }
 
@@ -1017,8 +1346,16 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     LOG(DEBUG, state.rank) << "Sent " << message_queue.size() << " messages";
   }
 
-  // Flag indicating that the background thread should shut down.
-  bool should_shut_down = state.shut_down;
+  if (state.response_cache.capacity() > 0) {
+    if (cache_hits.size() > 0 && !uncached_in_queue) {
+      // If only cached messages in queue, use fast coordination path.
+      RunBypass(message_queue, cache_hits, state, ctx);
+      return !should_shut_down;
+    } else if (!uncached_in_queue) {
+      // Quick return if there are no uncached messages in any worker queue.
+      return !should_shut_down;
+    }
+  }
 
   // Collect all tensors that are ready to be reduced. Record them in the
   // tensor count table (rank zero) or send them to rank zero to be
@@ -1026,6 +1363,13 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
   std::vector<std::string> ready_to_reduce;
   if (is_coordinator) {
     while (!message_queue.empty()) {
+      // Skip cached messages.
+      if (state.response_cache.capacity() > 0 &&
+          state.response_cache.cached(message_queue.front())) {
+        message_queue.pop();
+        continue;
+      }
+
       // Pop the first available message message
       Request message = message_queue.front();
       message_queue.pop();
@@ -1096,6 +1440,15 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     // choose which ones and in what order, and will notify the other ranks
     // before doing each reduction.
     std::deque<Response> responses;
+
+    if (state.response_cache.capacity() > 0) {
+      // Prepopulate response list with cached responses. Populate in reverse
+      // order so that least recently used responses get priority.
+      for (auto bit : cache_hits) {
+        responses.push_front(state.response_cache.peek_response(bit));
+      }
+    }
+
     for (auto& tensor_name : ready_to_reduce) {
       Response response =
           ConstructResponse(state.message_table, tensor_name);
@@ -1112,127 +1465,8 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
 
     ResponseList response_list;
     response_list.set_shutdown(should_shut_down);
-    {
-      // Protect access to tensor table.
-      std::lock_guard<std::mutex> guard(horovod_global.mutex);
-      while (!responses.empty()) {
 
-        auto response = responses.front();
-        assert(response.tensor_names().size() == 1);
-        responses.pop_front();
-        int64_t tensor_size = 0;
-        if (response.response_type() == Response::ResponseType::ALLREDUCE) {
-          // Attempt to add more responses to this fused response.
-          auto& entry = state.tensor_table[response.tensor_names()[0]];
-          tensor_size = entry.tensor->size();
-
-          std::deque<Response> skipped_responses;
-          int64_t skipped_size = 0;
-          while (!responses.empty()) {
-            auto new_response = responses.front();
-            assert(new_response.tensor_names().size() == 1);
-            auto& new_entry =
-                state.tensor_table[new_response.tensor_names()[0]];
-            int64_t new_tensor_size = new_entry.tensor->size();
-
-            if (response.response_type() == new_response.response_type() &&
-                response.devices() == new_response.devices() &&
-                entry.tensor->dtype() == new_entry.tensor->dtype() &&
-                tensor_size + new_tensor_size <= TensorFusionThresholdBytes()) {
-              // These tensors will fuse together well.
-              tensor_size += new_tensor_size;
-              response.add_tensor_name(new_response.tensor_names()[0]);
-              responses.pop_front();
-            } else {
-              // In general, don't try to fuse additional tensors since they are usually
-              // computed in order of requests and skipping tensors may mean
-              // that the batch will have to wait longer while skipped tensors
-              // could be reduced at that time. However, mixed-precision training may yield
-              // requests of various dtype in a mixed-up sequence causing breakups
-              // in fusion. To counter this some look ahead is allowed.
-
-              skipped_size += new_tensor_size;
-              if (tensor_size + skipped_size <= TensorFusionThresholdBytes()) {
-                // Skip response and look ahead for more to fuse.
-                skipped_responses.push_back(std::move(responses.front()));
-                responses.pop_front();
-              } else {
-                break;
-              }
-            }
-          }
-
-          // Replace any skipped responses.
-          while (!skipped_responses.empty()) {
-            responses.push_front(std::move(skipped_responses.back()));
-            skipped_responses.pop_back();
-          }
-
-        } else if (response.response_type() ==
-                   Response::ResponseType::ALLGATHER) {
-          // Attempt to add more responses to this fused response.
-          auto& entry = state.tensor_table[response.tensor_names()[0]];
-
-          // This is size of first dimension.
-          int64_t total_byte_size_of_output =
-              TotalByteSizeOfAllgatherOutput(response.tensor_sizes(), entry, ctx);
-
-          std::deque<Response> skipped_responses;
-          int64_t skipped_size = 0;
-          while (!responses.empty()) {
-
-            auto new_response = responses.front();
-            assert(new_response.tensor_names().size() == 1);
-            auto& new_entry =
-                state.tensor_table[new_response.tensor_names()[0]];
-
-            int64_t new_total_byte_size_of_output =
-                TotalByteSizeOfAllgatherOutput(new_response.tensor_sizes(),
-                                               new_entry, ctx);
-
-            if (response.response_type() == new_response.response_type() &&
-                response.devices() == new_response.devices() &&
-                entry.tensor->dtype() == new_entry.tensor->dtype() &&
-                total_byte_size_of_output + new_total_byte_size_of_output <=
-                    TensorFusionThresholdBytes()) {
-
-              // These tensors will fuse together well.
-              total_byte_size_of_output += new_total_byte_size_of_output;
-              response.add_allgather_response(new_response);
-              responses.pop_front();
-
-            } else {
-              // In general, don't try to fuse additional tensors since they are usually
-              // computed in order of requests and skipping tensors may mean
-              // that the batch will have to wait longer while skipped tensors
-              // could be reduced at that time. However, mixed-precision training may yield
-              // requests of various dtype in a mixed-up sequence causing breakups
-              // in fusion. To counter this some look ahead is allowed.
-
-              skipped_size += new_total_byte_size_of_output;
-              if (total_byte_size_of_output + skipped_size <=
-                      TensorFusionThresholdBytes()) {
-                // Skip response and look ahead for more to fuse.
-                skipped_responses.push_back(std::move(responses.front()));
-                responses.pop_front();
-              } else {
-                break;
-              }
-            }
-          }
-
-          // Replace any skipped responses.
-          while (!skipped_responses.empty()) {
-            responses.push_front(std::move(skipped_responses.back()));
-            skipped_responses.pop_back();
-          }
-
-        }
-
-        response_list.add_response(response);
-        LOG(DEBUG) << "Created response of size " << tensor_size;
-      }
-    }
+    PopulateResponseList(response_list, responses, state, ctx);
 
     if (!response_list.responses().empty()) {
       std::string tensors_ready;
@@ -1272,6 +1506,18 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       LOG(DEBUG, state.rank) << "Processing " << response.tensor_names().size() << " tensors";
       PerformOperation(state.tensor_table, response);
       LOG(TRACE, state.rank) << "Finished performing " << response.tensor_names_string();
+
+      // Add supported responses to cache.
+      if (state.response_cache.capacity() > 0 &&
+          response.response_type() == Response::ResponseType::ALLREDUCE &&
+          (int)response.devices().size() == state.size) {
+        state.response_cache.put(response);
+      }
+    }
+
+    if (state.response_cache.capacity() > 0) {
+      // Reassign cache bits based on current cache state.
+      state.response_cache.update_cache_bits();
     }
 
     if (state.param_manager.IsAutoTuning()) {
@@ -1282,6 +1528,11 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     RequestList message_list;
     message_list.set_shutdown(should_shut_down);
     while (!message_queue.empty()) {
+      // Skip cached messages.
+      if (state.response_cache.cached(message_queue.front())) {
+        message_queue.pop();
+        continue;
+      }
       message_list.add_request(message_queue.front());
       message_queue.pop();
     }
@@ -1323,6 +1574,18 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       LOG(DEBUG, state.rank) << "Processing " << response.tensor_names().size() << " tensors";
       PerformOperation(state.tensor_table, response);
       LOG(TRACE, state.rank) << "Finished performing " << response.tensor_names_string();
+
+      // Add supported responses to cache.
+      if (state.response_cache.capacity() > 0 &&
+          response.response_type() == Response::ResponseType::ALLREDUCE &&
+          (int)response.devices().size() == state.size) {
+        state.response_cache.put(response);
+      }
+    }
+
+    if (state.response_cache.capacity() > 0) {
+      // Reassign cache bits based on current cache state.
+      state.response_cache.update_cache_bits();
     }
 
     if (state.param_manager.IsAutoTuning()) {

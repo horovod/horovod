@@ -186,6 +186,11 @@ void Timeline::NegotiateStart(const std::string& tensor_name,
   if (!initialized_) {
     return;
   }
+  // Note: Need to enable repeated calls to this routine during negotiate
+  // phase. First call takes precedence.
+  if (tensor_states_[tensor_name] == TimelineState::NEGOTIATING) {
+    return;
+  }
 
   std::lock_guard<std::recursive_mutex> guard(mutex_);
   assert(tensor_states_[tensor_name] == TimelineState::UNKNOWN);
