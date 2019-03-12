@@ -30,7 +30,7 @@ class IGlooAlgorithms {
 public:
   virtual void Allreduce(void* buffer_data, int num_elements) = 0;
 
-  virtual void Allgather(void* buffer_data, void* buffer_out, int num_elements) = 0;
+  virtual void Allgather(void* buffer_data, void* buffer_out, int* recvcounts) = 0;
 
   virtual void Broadcast(void* buffer_data, int num_elements, int root_rank) = 0;
 
@@ -40,13 +40,13 @@ public:
 template <typename T>
 class GlooAlgorithms : public IGlooAlgorithms {
 public:
-  GlooAlgorithms(GlooContext* gloo_context, int element_size);
+  GlooAlgorithms(GlooContext* gloo_context);
 
   ~GlooAlgorithms() = default;
 
   void Allreduce(void* buffer_data, int num_elements) override;
 
-  void Allgather(void* buffer_data, void* buffer_out, int num_elements) override;
+  void Allgather(void* buffer_data, void* buffer_out, int* recvcounts) override;
 
   void Broadcast(void* buffer_data, int num_elements, int root_rank) override;
 
@@ -54,7 +54,6 @@ public:
 
 private:
   GlooContext* gloo_context_;
-  int element_size_;
 };
 
 class GlooAllreduce : public AllreduceOp {
