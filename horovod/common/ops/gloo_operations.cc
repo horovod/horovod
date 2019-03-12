@@ -15,7 +15,7 @@
 
 #include "gloo_operations.h"
 
-#include "gloo/allgather_ring.h"
+#include "gloo/allgatherv_ring.h"
 #include "gloo/allreduce_ring.h"
 #include "gloo/broadcast_one_to_all.h"
 #include "gloo/types.h"
@@ -26,25 +26,25 @@ namespace common {
 IGlooAlgorithms* GetAlgorithmsForType(DataType dtype, GlooContext* gloo_context) {
   switch (dtype) {
     case HOROVOD_UINT8:
-      return new GlooAlgorithms<u_int8_t>(gloo_context, 1);
+      return new GlooAlgorithms<u_int8_t>(gloo_context);
     case HOROVOD_INT8:
-      return new GlooAlgorithms<int8_t>(gloo_context, 1);
+      return new GlooAlgorithms<int8_t>(gloo_context);
     case HOROVOD_UINT16:
-      return new GlooAlgorithms<u_int16_t>(gloo_context, 2);
+      return new GlooAlgorithms<u_int16_t>(gloo_context);
     case HOROVOD_INT16:
-      return new GlooAlgorithms<int16_t>(gloo_context, 2);
+      return new GlooAlgorithms<int16_t>(gloo_context);
     case HOROVOD_INT32:
-      return new GlooAlgorithms<int32_t>(gloo_context, 4);
+      return new GlooAlgorithms<int32_t>(gloo_context);
     case HOROVOD_INT64:
-      return new GlooAlgorithms<int64_t>(gloo_context, 8);
+      return new GlooAlgorithms<int64_t>(gloo_context);
     case HOROVOD_FLOAT16:
-      return new GlooAlgorithms<gloo::float16>(gloo_context, 2);
+      return new GlooAlgorithms<gloo::float16>(gloo_context);
     case HOROVOD_FLOAT32:
-      return new GlooAlgorithms<float_t>(gloo_context, 4);
+      return new GlooAlgorithms<float_t>(gloo_context);
     case HOROVOD_FLOAT64:
-      return new GlooAlgorithms<double_t>(gloo_context, 8);
+      return new GlooAlgorithms<double_t>(gloo_context);
     case HOROVOD_BOOL:
-      return new GlooAlgorithms<bool>(gloo_context, 1);
+      return new GlooAlgorithms<bool>(gloo_context);
     default:
       throw std::logic_error("Type " + DataType_Name(dtype) +
                              " is not supported in Gloo mode.");
@@ -52,8 +52,8 @@ IGlooAlgorithms* GetAlgorithmsForType(DataType dtype, GlooContext* gloo_context)
 }
 
 template<typename T>
-GlooAlgorithms<T>::GlooAlgorithms(GlooContext* gloo_context, int element_size)
-    : gloo_context_(gloo_context), element_size_(element_size) {}
+GlooAlgorithms<T>::GlooAlgorithms(GlooContext* gloo_context)
+    : gloo_context_(gloo_context) {}
 
 
 template<typename T>
@@ -66,12 +66,13 @@ void GlooAlgorithms<T>::Allreduce(void* buffer_data, int num_elements) {
 }
 
 template<typename T>
-void GlooAlgorithms<T>::Allgather(void* buffer_data, void* buffer_out, int num_elements) {
+void GlooAlgorithms<T>::Allgather(void* buffer_data, void* buffer_out, int* recvcounts) {
   std::vector<const T*> ptrs;
   ptrs.push_back((T*) buffer_data);
 
-  gloo::AllgatherRing<T> allgather(gloo_context_->ctx, ptrs, (T*) buffer_out, num_elements);
-  allgather.run();
+  std::vector<int> counts(recvcounts, recvcounts + gloo_context_->ctx->size);
+  gloo::AllgathervRing<T> allgatherv(gloo_context_->ctx, ptrs, (T*) buffer_out, counts);
+  allgatherv.run();
 }
 
 template<typename T>
@@ -85,7 +86,7 @@ void GlooAlgorithms<T>::Broadcast(void* buffer_data, int num_elements, int root_
 
 template<typename T>
 int GlooAlgorithms<T>::ElementSize() const {
-  return element_size_;
+  return sizeof(T);
 }
 
 GlooAllreduce::GlooAllreduce(GlooContext* gloo_context, HorovodGlobalState* global_state)
@@ -175,22 +176,21 @@ Status GlooAllgather::Execute(std::vector<TensorTableEntry>& entries, const Resp
   std::unique_ptr<IGlooAlgorithms> gloo_algos(GetAlgorithmsForType(first_entry.tensor->dtype(), gloo_context_));
   int element_size = gloo_algos->ElementSize();
 
-  const void* sendbuf = nullptr;
+  void* sendbuf = nullptr;
   void* buffer_data;
-  int64_t total_num_elements = NumElements(entries);
 
   if (entries.size() > 1) {
     timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
     MemcpyInFusionBuffer(entries, displcmnts, element_size, buffer_data);
+    sendbuf = buffer_data;
     timeline.ActivityEndAll(entries);
   } else {
-    sendbuf = first_entry.tensor->data();
+    sendbuf = (void*) first_entry.tensor->data();
     buffer_data = (void*) first_entry.output->data();
   }
 
-  // TODO(travis): this will not work, need allgatherv implementation
   global_state_->timeline.ActivityStartAll(entries, GLOO_ALLGATHER);
-  gloo_algos->Allgather(buffer_data, buffer_data, (int) total_num_elements);
+  gloo_algos->Allgather(sendbuf, buffer_data, recvcounts);
   global_state_->timeline.ActivityEndAll(entries);
 
   if (entries.size() > 1) {
