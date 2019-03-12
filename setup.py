@@ -1024,7 +1024,7 @@ class custom_build_ext(build_ext):
             os.makedirs(lib_output_dir)
         options['LIBRARY_DIRS'] += [lib_output_dir]
 
-        # Bild CMake libraries first so they can be statically linked against extensions
+        # Build CMake libraries first so they can be statically linked against extensions
         for ext in self.extensions:
             if isinstance(ext, CMakeExtension):
                 build_cmake(self, ext, lib_output_dir, options)
