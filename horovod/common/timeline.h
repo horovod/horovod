@@ -16,6 +16,7 @@
 #ifndef HOROVOD_TIMELINE_H
 #define HOROVOD_TIMELINE_H
 
+#include <atomic>
 #include <boost/lockfree/spsc_queue.hpp>
 #include <chrono>
 #include <fstream>
