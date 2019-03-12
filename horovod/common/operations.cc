@@ -1210,6 +1210,7 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     std::vector<std::string> tensor_names;
     int64_t total_tensor_size = 0;
     if (state.param_manager.IsAutoTuning()) {
+      std::lock_guard<std::mutex> guard(state.mutex);
       for (auto& response : response_list.responses()) {
         if (response.response_type() == Response::ResponseType::ALLREDUCE) {
           for (auto& tensor_name : response.tensor_names()) {
@@ -1268,6 +1269,7 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     std::vector<std::string> tensor_names;
     int64_t total_tensor_size = 0;
     if (state.param_manager.IsAutoTuning()) {
+      std::lock_guard<std::mutex> guard(state.mutex);
       for (auto& response : response_list.responses()) {
         if (response.response_type() == Response::ResponseType::ALLREDUCE) {
           for (auto& tensor_name : response.tensor_names()) {
