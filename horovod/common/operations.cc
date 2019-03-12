@@ -154,6 +154,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #endif
 
   allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new GlooAllreduce(&gloo_context, &state)));
+  allgather_ops.push_back(std::shared_ptr<AllgatherOp>(new GlooAllgather(&gloo_context, &state)));
   broadcast_ops.push_back(std::shared_ptr<BroadcastOp>(new GlooBroadcast(&gloo_context, &state)));
 
   // Default operations, always enabled but last to be checked.
