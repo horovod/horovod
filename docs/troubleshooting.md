@@ -313,7 +313,7 @@ memory, use:
 
 ### libcudart.so.X.Y: cannot open shared object file: No such file or directory
 
-If you notice that your program crashes with `libcudart.so.X.Y: cannot open shared object file: No such file or directory` error, it's likely that your framework and Horovod were build with a different version of CUDA.
+If you notice that your program crashes with a `libcudart.so.X.Y: cannot open shared object file: No such file or directory` error, it's likely that your framework and Horovod were build with different versions of CUDA.
 
 To build Horovod with a specific CUDA version, use the `HOROVOD_CUDA_HOME` environment variable during installation:
 
@@ -322,7 +322,7 @@ $ pip uninstall -y horovod
 $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_HOME=/path/to/nccl HOROVOD_CUDA_HOME=/path/to/cuda pip install --no-cache-dir horovod
 ```
 
-Alternatively, you can use the `HOROVOD_CUDA_INCLUDE` and `HOROVOD_CUDA_LIB` environment variables to specify CUDA library to use:
+Alternatively, you can use the `HOROVOD_CUDA_INCLUDE` and `HOROVOD_CUDA_LIB` environment variables to specify the CUDA library to use:
 
 ```bash
 $ pip uninstall -y horovod
