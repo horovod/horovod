@@ -321,3 +321,10 @@ To build Horovod with a specific CUDA version, use the `HOROVOD_CUDA_HOME` envir
 $ pip uninstall -y horovod
 $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_HOME=/path/to/nccl HOROVOD_CUDA_HOME=/path/to/cuda pip install --no-cache-dir horovod
 ```
+
+Alternatively, you can use the `HOROVOD_CUDA_INCLUDE` and `HOROVOD_CUDA_LIB` environment variables to specify CUDA library to use:
+
+```bash
+$ pip uninstall -y horovod
+$ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_HOME=/path/to/nccl HOROVOD_CUDA_INCLUDE=/path/to/cuda/include HOROVOD_CUDA_LIB=/path/to/cuda/lib64 pip install --no-cache-dir horovod
+```
