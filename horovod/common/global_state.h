@@ -22,6 +22,7 @@
 
 #include "fusion_buffer_manager.h"
 #include "parameter_manager.h"
+#include "response_cache.h"
 #include "timeline.h"
 
 namespace horovod {

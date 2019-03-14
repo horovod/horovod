@@ -770,11 +770,13 @@ void set_int_from_env(const char* env, int& val) {
 
 // Routine to intersect cache hits across workers. Also determines global
 // shutdown state and whether uncached requests exist on any worker.
-std::set<int> GetCommonCacheAndState(std::set<int>& cache_hits,
-                                     bool& uncached_in_queue,
-                                     bool& should_shut_down,
-                                     HorovodGlobalState& state,
-                                     MPIContext& ctx) {
+void GetCommonCacheAndState(std::set<int>& cache_hits,
+                            std::set<int>& invalid_bits,
+                            bool& uncached_in_queue,
+                            bool& invalid_in_queue,
+                            bool& should_shut_down,
+                            HorovodGlobalState& state,
+                            MPIContext& ctx) {
   // Resize and reset bit vector.
   int nbits = state.response_cache.current_size() + RESERVED_CACHE_BITS;
   int count = (nbits + sizeof(long long) * CHAR_BIT - 1) /
@@ -794,6 +796,7 @@ std::set<int> GetCommonCacheAndState(std::set<int>& cache_hits,
   // Set reserved bits for additional states.
   if (!should_shut_down) state.cache_mask[0] |= (1ull);
   if (!uncached_in_queue) state.cache_mask[0] |= (1ull << 1);
+  if (!invalid_in_queue) state.cache_mask[0] |= (1ull << 2);
 
   // For each cache hit on this worker, flip associated bit.
   for(auto bit : cache_hits) {
@@ -810,47 +813,84 @@ std::set<int> GetCommonCacheAndState(std::set<int>& cache_hits,
   MPI_Allreduce(MPI_IN_PLACE, state.cache_mask.data(), fullcount,
                 MPI_LONG_LONG_INT, MPI_BAND, ctx.mpi_comm);
 
-  // Search for flipped bits to populate common cache hit set.
-  std::set<int> common_cache_hits;
+  // Search for flipped bits to populate common cache hit set. There will never
+  // be invalid bits in this set.
+  cache_hits.clear();
   for (int i = 0; i < count; ++i) {
     int shift = i * sizeof(long long) * CHAR_BIT;
     long long ll = state.cache_mask[i];
     while (ll) {
       int idx = __builtin_ffsll(ll);
       int bit = shift + idx - 1;
-      common_cache_hits.insert(bit);
+      cache_hits.insert(bit);
       ll &= ~(1ull << (idx - 1));
-    }
-
-    // For timeline, check for entries with cache hits on *any* worker to
-    // mark start of negotiation phase.
-    if (state.timeline_enabled) {
-      ll = ~state.cache_mask[count + i];
-      while (ll) {
-        int idx = __builtin_ffsll(ll);
-        int bit = shift + idx - 1;
-        auto response = state.response_cache.peek_response(bit);
-        state.timeline.NegotiateStart(response.tensor_names()[0],
-                                      (Request::RequestType)
-                                      response.response_type());
-        ll &= ~(1ull << (idx - 1));
-      }
     }
   }
 
   // Set states from reserved state bits.
-  if (!common_cache_hits.erase(0)) should_shut_down = true;
-  if (!common_cache_hits.erase(1)) uncached_in_queue = true;
+  if (!cache_hits.erase(0)) should_shut_down = true;
+  if (!cache_hits.erase(1)) uncached_in_queue = true;
+  if (!cache_hits.erase(2)) invalid_in_queue = true;
 
-  // For timeline, end negotation for fully  populated cached responses.
+  // If any worker has invalid cache entries, communicate invalid bits across workers
+  // using a second allreduce.
+  if (invalid_in_queue) {
+    std::memset(&state.cache_mask[0], 0, count * sizeof(long long));
+    for(auto bit : invalid_bits) {
+      int shift = bit / (sizeof(long long) * CHAR_BIT);
+      state.cache_mask[shift] |= (1ull <<
+                                 (bit % (sizeof(long long) * CHAR_BIT)));
+    }
+
+    // Global MPI OR operation to get common invalid bits.
+    MPI_Allreduce(MPI_IN_PLACE, state.cache_mask.data(), count,
+                  MPI_LONG_LONG_INT, MPI_BOR, ctx.mpi_comm);
+
+    // Search for flipped bits to populate common invalid bit set.
+    invalid_bits.clear();
+    for (int i = 0; i < count; ++i) {
+      int shift = i * sizeof(long long) * CHAR_BIT;
+      long long ll = state.cache_mask[i];
+      while (ll) {
+        int idx = __builtin_ffsll(ll);
+        int bit = shift + idx - 1;
+        invalid_bits.insert(bit);
+        ll &= ~(1ull << (idx - 1));
+      }
+    }
+
+    // Erase cache entries associated with invalid bits.
+    for (auto bit : invalid_bits) {
+      state.response_cache.erase_response(bit);
+    }
+  }
+
   if (state.timeline_enabled) {
-    for (auto bit : common_cache_hits) {
+    // For timeline, check for entries with cache hits on *any* worker to
+    // mark start of negotiation phase.
+    for (int i = 0; i < count; ++i) {
+      int shift = i * sizeof(long long) * CHAR_BIT;
+      long long ll = ~state.cache_mask[count + i];
+      while (ll) {
+        int idx = __builtin_ffsll(ll);
+        int bit = shift + idx - 1;
+        // If bit is invalid, timeline handling will be carried out in the
+        // usual way. Otherwise, mark negotiate start here.
+        if (invalid_bits.find(bit) == invalid_bits.end()) {
+          auto response = state.response_cache.peek_response(bit);
+          state.timeline.NegotiateStart(response.tensor_names()[0],
+                                        (Request::RequestType)
+                                        response.response_type());
+        }
+        ll &= ~(1ull << (idx - 1));
+      }
+    }
+    // For timeline, end negotation for fully populated cached responses.
+    for (auto bit : cache_hits) {
       auto response = state.response_cache.peek_response(bit);
       state.timeline.NegotiateEnd(response.tensor_names()[0]);
     }
   }
-
-  return common_cache_hits;
 }
 
 // The MPI background thread loop coordinates all the MPI processes and the
@@ -1291,7 +1331,9 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
   // enqueued stream callbacks can continue.
 
   bool uncached_in_queue = false;
+  bool invalid_in_queue = false;
   std::set<int> cache_hits;
+  std::set<int> invalid_bits;
 
   std::queue<Request> message_queue;
   {
@@ -1302,12 +1344,19 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       message_queue.push(message);
 
       // Keep track of cache hits
-      if (state.response_cache.capacity() > 0 &&
-          state.response_cache.cached(message)) {
-        int cache_bit = state.response_cache.peek_cache_bit(message);
-        cache_hits.insert(cache_bit);
-      } else {
-        uncached_in_queue = true;
+      if (state.response_cache.capacity() > 0) {
+        auto cache_state = state.response_cache.cached(message);
+        if (cache_state == ResponseCache::CacheState::HIT) {
+          int cache_bit = state.response_cache.peek_cache_bit(message);
+          cache_hits.insert(cache_bit);
+        } else if (cache_state == ResponseCache::CacheState::INVALIDATE) {
+          int cache_bit = state.response_cache.peek_cache_bit(message);
+          invalid_bits.insert(cache_bit);
+          invalid_in_queue = true;
+          uncached_in_queue = true;
+        } else {
+          uncached_in_queue = true;
+        }
       }
     }
   }
@@ -1316,10 +1365,11 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
   bool should_shut_down = state.shut_down;
 
   if (state.response_cache.capacity() > 0) {
-    // Obtain global intersection of cache hits across workers. Also, determine
-    // if any worker has uncached messages in queue or requests a shutdown.
-    cache_hits = GetCommonCacheAndState(cache_hits, uncached_in_queue,
-                                        should_shut_down, state, ctx);
+    // Obtain common cache hits and cache invalidations across workers. Also, determine
+    // if any worker has uncached messages in queue or requests a shutdown. This function
+    // removes any invalid cache entries, if they exist.
+    GetCommonCacheAndState(cache_hits, invalid_bits, uncached_in_queue,
+                           invalid_in_queue, should_shut_down, state, ctx);
 
     {
       // Get lock in order to safely replace messages to global queue
@@ -1330,7 +1380,7 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       size_t num_messages = message_queue.size();
       for (size_t i = 0; i < num_messages; ++i) {
         auto message = message_queue.front();
-        if (!state.response_cache.cached(message) ||
+        if (!(state.response_cache.cached(message) == ResponseCache::CacheState::HIT) ||
             cache_hits.find(state.response_cache.peek_cache_bit(message)) !=
             cache_hits.end()) {
           message_queue.push(std::move(message));
@@ -1365,7 +1415,7 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     while (!message_queue.empty()) {
       // Skip cached messages.
       if (state.response_cache.capacity() > 0 &&
-          state.response_cache.cached(message_queue.front())) {
+          state.response_cache.cached(message_queue.front()) == ResponseCache::CacheState::HIT) {
         message_queue.pop();
         continue;
       }
@@ -1499,6 +1549,19 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       }
     }
 
+    // Add supported responses to cache.
+    if (state.response_cache.capacity() > 0) {
+      {
+        std::lock_guard<std::mutex> guard(horovod_global.mutex);
+        for (auto& response : response_list.responses()) {
+          if (response.response_type() == Response::ResponseType::ALLREDUCE &&
+              (int)response.devices().size() == state.size) {
+            state.response_cache.put(response, state.tensor_table);
+          }
+        }
+      }
+    }
+
     // Perform the collective operation. All nodes should end up performing
     // the same operation.
     for (auto& response : response_list.responses()) {
@@ -1506,13 +1569,6 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       LOG(DEBUG, state.rank) << "Processing " << response.tensor_names().size() << " tensors";
       PerformOperation(state.tensor_table, response);
       LOG(TRACE, state.rank) << "Finished performing " << response.tensor_names_string();
-
-      // Add supported responses to cache.
-      if (state.response_cache.capacity() > 0 &&
-          response.response_type() == Response::ResponseType::ALLREDUCE &&
-          (int)response.devices().size() == state.size) {
-        state.response_cache.put(response);
-      }
     }
 
     if (state.response_cache.capacity() > 0) {
@@ -1529,7 +1585,7 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     message_list.set_shutdown(should_shut_down);
     while (!message_queue.empty()) {
       // Skip cached messages.
-      if (state.response_cache.cached(message_queue.front())) {
+      if (state.response_cache.cached(message_queue.front()) == ResponseCache::CacheState::HIT) {
         message_queue.pop();
         continue;
       }
@@ -1567,6 +1623,19 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       }
     }
 
+    // Add supported responses to cache.
+    if (state.response_cache.capacity() > 0) {
+      {
+        std::lock_guard<std::mutex> guard(horovod_global.mutex);
+        for (auto& response : response_list.responses()) {
+          if (response.response_type() == Response::ResponseType::ALLREDUCE &&
+              (int)response.devices().size() == state.size) {
+            state.response_cache.put(response, state.tensor_table);
+          }
+        }
+      }
+    }
+
     // Perform the collective operation. All nodes should end up performing
     // the same operation.
     for (auto& response : response_list.responses()) {
@@ -1574,13 +1643,6 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       LOG(DEBUG, state.rank) << "Processing " << response.tensor_names().size() << " tensors";
       PerformOperation(state.tensor_table, response);
       LOG(TRACE, state.rank) << "Finished performing " << response.tensor_names_string();
-
-      // Add supported responses to cache.
-      if (state.response_cache.capacity() > 0 &&
-          response.response_type() == Response::ResponseType::ALLREDUCE &&
-          (int)response.devices().size() == state.size) {
-        state.response_cache.put(response);
-      }
     }
 
     if (state.response_cache.capacity() > 0) {

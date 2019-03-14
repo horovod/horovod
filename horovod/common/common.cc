@@ -109,5 +109,10 @@ int64_t TensorShape::num_elements() const {
   return result;
 }
 
+// TODO: Better name for this?
+const std::vector<int64_t>& TensorShape::shape() const {
+  return shape_;
+}
+
 } // namespace common
 } // namespace horovod

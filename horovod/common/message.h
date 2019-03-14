@@ -1,6 +1,5 @@
 // Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 // Modifications copyright (C) 2019 Uber Technologies, Inc.
-// Modifications copyright (C) 2019, NVIDIA CORPORATION. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +22,6 @@
 #include <unordered_map>
 #include <vector>
 
-#define RESERVED_CACHE_BITS 2
 
 namespace horovod {
 namespace common {
@@ -212,32 +210,6 @@ public:
 private:
   std::vector<Response> responses_;
   bool shutdown_ = false;
-};
-
-// LRU cache of Responses
-class ResponseCache {
-public:
-  void set_capacity(uint32_t capacity);
-  uint32_t capacity() const;
-  size_t current_size() const;
-  bool cached(const Request& message) const;
-  bool cached(const Response& response) const;
-  void put(const Response& response);
-  const Response& get_response(const Request& message);
-  const Response& get_response(uint32_t cache_bit);
-  const Response& peek_response(const Request& message) const;
-  const Response& peek_response(uint32_t cache_bit) const;
-  uint32_t peek_cache_bit(const Request& message) const;
-  void update_cache_bits();
-
-private:
-  void put_(const Response& response);
-  uint32_t counter_ = RESERVED_CACHE_BITS; // Leave room for status bits
-  uint32_t capacity_;
-  std::list<Response> cache_;
-  std::vector<std::list<Response>::iterator> iters_;
-  std::unordered_map<std::string, uint32_t> table_;
-  bool bits_outdated_ = false;
 };
 
 } // namespace common
