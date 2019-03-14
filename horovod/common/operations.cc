@@ -1251,11 +1251,11 @@ void RunBypass(std::queue<Request>& message_queue, std::set<int>& cache_hits,
   std::vector<std::string> tensor_names;
   int64_t total_tensor_size = 0;
   if (state.param_manager.IsAutoTuning()) {
+    std::lock_guard<std::mutex> guard(state.mutex);
     for (auto& response : response_list.responses()) {
       if (response.response_type() == Response::ResponseType::ALLREDUCE) {
         for (auto& tensor_name : response.tensor_names()) {
           tensor_names.push_back(tensor_name);
-          // TODO: Shouldn't there be a lock here to protect tensor_table?
           auto& entry = state.tensor_table[tensor_name];
           total_tensor_size += entry.tensor->size();
         }
@@ -1394,6 +1394,16 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
 
   if (!message_queue.empty()) {
     LOG(DEBUG, state.rank) << "Sent " << message_queue.size() << " messages";
+  }
+
+  if (is_coordinator) {
+    // Check for stalled tensors.
+    if (state.perform_stall_check &&
+        std::chrono::steady_clock::now() - state.last_stall_check >
+            STALL_WARNING_TIME) {
+      CheckForStalledTensors(state, ctx);
+      state.last_stall_check = std::chrono::steady_clock::now();
+    }
   }
 
   if (state.response_cache.capacity() > 0) {
