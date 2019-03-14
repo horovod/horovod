@@ -1492,10 +1492,10 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     std::deque<Response> responses;
 
     if (state.response_cache.capacity() > 0) {
-      // Prepopulate response list with cached responses. Populate in reverse
-      // order so that least recently used responses get priority.
+      // Prepopulate response list with cached responses. Populate so that
+      // least recently used responses get priority.
       for (auto bit : cache_hits) {
-        responses.push_front(state.response_cache.peek_response(bit));
+        responses.push_back(state.response_cache.peek_response(bit));
       }
     }
 
