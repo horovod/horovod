@@ -53,11 +53,7 @@ def terminate_executor_shell_and_children(pid):
 
 
 def forward_stream(src_fd, dst_stream):
-    if hasattr(dst_stream, 'buffer'):
-        # If dst stream is a text buffer, we need to get its binary buffer.
-        dst_stream = dst_stream.buffer
-
-    with os.fdopen(src_fd, 'rb') as src:
+    with os.fdopen(src_fd, 'r') as src:
         while True:
             line = src.readline()
             if not line:
