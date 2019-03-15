@@ -411,7 +411,7 @@ def run():
                     nccl_socket_intf_arg=nccl_socket_intf_arg,
                     ssh_port_arg=ssh_port_arg,
                     env=' '.join('-x %s' % key for key in env.keys()),
-                    command=shlex.quote(' '.join(par for par in args.command)))
+                    command=' '.join(shlex.quote(par) for par in args.command))
     )
 
     if args.verbose:
