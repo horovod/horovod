@@ -20,7 +20,9 @@
 #include <queue>
 #include <sstream>
 #include <thread>
+#include <map>
 #include <unordered_map>
+#include <set>
 #include <unordered_set>
 
 #define OMPI_SKIP_MPICXX
@@ -107,6 +109,10 @@ std::unique_ptr<OperationManager> op_manager;
 
 // Stall-check warning time
 #define STALL_WARNING_TIME std::chrono::seconds(60)
+
+// Stall-check shutdown time. If any rank is stalled for longer than this
+// horovod will shutdown
+#define STALL_SHUTDOWN_TIME std::chrono::seconds(180)
 
 const Status NOT_INITIALIZED_ERROR = Status::PreconditionError(
     "Horovod has not been initialized; use hvd.init().");
@@ -541,53 +547,78 @@ void PerformOperation(TensorTable& tensor_table, Response response) {
 
 // Report Tensors that were submitted to be reduced, gathered or broadcasted by
 // some ranks but not others and are waiting for long time to get processed.
-void CheckForStalledTensors(HorovodGlobalState& state, MPIContext& ctx) {
-  bool preamble = false;
+bool CheckForStalledTensors(HorovodGlobalState& state, MPIContext& ctx) {
+  bool should_shut_down = false;
   auto now = std::chrono::steady_clock::now();
+  std::map<int32_t, std::set<std::string>> missing_ranks;
+  std::unordered_set<int32_t> shutdown_ranks;
+
   for (auto& m : *state.message_table) {
     auto tensor_name = m.first;
     std::vector<Request>& messages = std::get<0>(m.second);
     std::chrono::steady_clock::time_point start_at = std::get<1>(m.second);
+    auto lag = now - start_at;
 
-    if (now - start_at > STALL_WARNING_TIME) {
-      std::stringstream message;
-      if (!preamble) {
-       message << "One or more tensors were submitted to be "
-                  "reduced, gathered or broadcasted by subset of ranks and "
-                  "are waiting for remainder of ranks for more than "
-               << std::chrono::duration_cast<std::chrono::seconds>(
-                   STALL_WARNING_TIME)
-                   .count()
-               << " seconds. "
-               << "This may indicate that different ranks are trying to "
-                  "submit different tensors or that only subset of ranks is "
-                  "submitting tensors, which will cause deadlock. "
-               << std::endl << "Stalled ops:" ;
-        preamble = true;
-      }
-      message << tensor_name;
-      message << " [missing ranks:";
+    if (lag > STALL_WARNING_TIME) {
       std::unordered_set<int32_t> ready_ranks;
-      bool missing_preamble = false;
       for (auto msg_iter = messages.begin(); msg_iter != messages.end();
            ++msg_iter) {
         ready_ranks.insert(msg_iter->request_rank());
       }
+
       for (int32_t rank = 0; rank < state.size; ++rank) {
         if (ready_ranks.find(rank) == ready_ranks.end()) {
-          if (!missing_preamble) {
-            message << " ";
-            missing_preamble = true;
-          } else {
-            message << ", ";
+          missing_ranks[rank].insert(tensor_name);
+          if (lag > STALL_SHUTDOWN_TIME) {
+            shutdown_ranks.insert(rank);
+            should_shut_down = true;
           }
-          message << rank;
         }
       }
+    }
+  }
+
+  if (!missing_ranks.empty()) {
+    std::stringstream message;
+    message << "One or more tensors were submitted to be "
+               "reduced, gathered or broadcasted by subset of ranks and "
+               "are waiting for remainder of ranks for more than "
+            << std::chrono::duration_cast<std::chrono::seconds>(
+                STALL_WARNING_TIME).count()
+            << " seconds. "
+            << "This may indicate that different ranks are trying to "
+               "submit different tensors or that only subset of ranks is "
+               "submitting tensors, which will cause deadlock. "
+            << std::endl << "Stalled ranks:";
+    for (auto& kv: missing_ranks) {
+      message << std::endl << kv.first;
+      if (shutdown_ranks.find(kv.first) != shutdown_ranks.end()) {
+        message << "!";
+      }
+
+      message << ": [";
+      auto it = kv.second.begin();
+      message << *it;
+      while (++it != kv.second.end()) {
+        message << ", " << *it;
+      }
+
       message << "]";
+    }
+
+    if (should_shut_down) {
+      message << std::endl
+              << "One or more rank (marked by \"!\") is stalled for longer than "
+              << std::chrono::duration_cast<std::chrono::seconds>(
+                  STALL_SHUTDOWN_TIME).count()
+              << " seconds. Will shutdown.";
+      LOG(ERROR) << message.str();
+    } else {
       LOG(WARNING) << message.str();
     }
   }
+
+  return should_shut_down;
 }
 
 // The MPI background thread loop coordinates all the MPI processes and the
@@ -1235,7 +1266,9 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     if (state.perform_stall_check &&
         std::chrono::steady_clock::now() - state.last_stall_check >
             STALL_WARNING_TIME) {
-      CheckForStalledTensors(state, ctx);
+      // I would prefer to do "should_shut_down |= CheckForStalledTensors(state, ctx);"
+      // but for some reason it leaves the program hanging instead of quitting
+      state.shut_down = should_shut_down || CheckForStalledTensors(state, ctx);
       state.last_stall_check = std::chrono::steady_clock::now();
     }
 
