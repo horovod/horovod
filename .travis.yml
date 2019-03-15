@@ -124,6 +124,9 @@ script:
   # run TensorFlow MNIST example
   - docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/examples/tensorflow_mnist.py"
 
+  # run TensorFlow MNIST example with horovodrun
+  - docker exec ${CONTAINER} /bin/sh -c "horovodrun -np 2 python /horovod/examples/tensorflow_mnist.py"
+
   # hack TensorFlow Eager MNIST example to be smaller
   - docker exec ${CONTAINER} /bin/sh -c "sed -i \"s/dataset.take(20000/dataset.take(100/\" /horovod/examples/tensorflow_mnist_eager.py"
 

@@ -243,7 +243,8 @@ def _driver_fn(key, host_addresses, tmout, ssh_port=None,
             print("Waiting for the hosts to acknowledge.")
         driver.wait_for_initial_registration(tmout)
         task_clients = [horovod_task_service.HorovodRunTaskClient(index,
-                                                                  driver.task_addresses_for_driver(index),
+                                                                  driver.task_addresses_for_driver(
+                                                                      index),
                                                                   key)
                         for index in range(num_hosts)]
         # Notify all the drivers that the initial registration is complete.
