@@ -15,9 +15,9 @@
 
 import sys
 
-from horovod.run.task import task_service
-from horovod.run.driver import driver_service
 from horovod.run.common.util import codec, host_hash
+from horovod.run.driver import driver_service
+from horovod.run.task import task_service
 
 
 def _task_fn(index, driver_addresses, num_hosts, tmout, key):
@@ -26,8 +26,8 @@ def _task_fn(index, driver_addresses, num_hosts, tmout, key):
         driver = driver_service.HorovodRunDriverClient(
             driver_addresses, key)
         driver.register_task(index,
-                                    task.addresses(),
-                                    host_hash.host_hash())
+                             task.addresses(),
+                             host_hash.host_hash())
         task.wait_for_initial_registration(tmout)
         # Tasks ping each other in a circular fashion to determine interfaces
         # reachable within the cluster.
@@ -41,7 +41,7 @@ def _task_fn(index, driver_addresses, num_hosts, tmout, key):
             match_intf=True,
             retries=10)
         driver.register_task_to_task_addresses(next_task_index,
-                                                      next_task.addresses())
+                                               next_task.addresses())
         # Notify the next task that the address checks are completed.
         next_task.task_to_task_address_check_completed()
         # Wait to get a notification from previous task that its address checks
@@ -54,8 +54,9 @@ def _task_fn(index, driver_addresses, num_hosts, tmout, key):
 
 if __name__ == '__main__':
     if len(sys.argv) != 6:
-        print('Usage: %s <index> <service addresses> <num_hosts> <tmout> <key>' %
-              sys.argv[0])
+        print(
+                'Usage: %s <index> <service addresses> <num_hosts> <tmout> <key>' %
+                sys.argv[0])
         sys.exit(1)
 
     index = codec.loads_base64(sys.argv[1])

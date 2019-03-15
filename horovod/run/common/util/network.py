@@ -13,13 +13,14 @@
 # limitations under the License.
 # ==============================================================================
 
-import cloudpickle
-from six.moves import queue, socketserver
-import psutil
 import random
 import socket
 import struct
 import threading
+
+import cloudpickle
+import psutil
+from six.moves import queue, socketserver
 
 from horovod.run.common.util import secret
 
@@ -149,7 +150,8 @@ class BasicService(object):
 
 
 class BasicClient(object):
-    def __init__(self, service_name, addresses, key, match_intf=False, probe_timeout=20, retries=3):
+    def __init__(self, service_name, addresses, key, match_intf=False,
+                 probe_timeout=20, retries=3):
         # Note: because of retry logic, ALL RPC calls are REQUIRED to be idempotent.
         self._service_name = service_name
         self._wire = Wire(key)
@@ -158,8 +160,9 @@ class BasicClient(object):
         self._retries = retries
         self._addresses = self._probe(addresses)
         if not self._addresses:
-            raise NoValidAddressesFound('Unable to connect to the %s on any of the addresses: %s'
-                                        % (service_name, addresses))
+            raise NoValidAddressesFound(
+                'Unable to connect to the %s on any of the addresses: %s'
+                % (service_name, addresses))
 
     def _probe(self, addresses):
         result_queue = queue.Queue()

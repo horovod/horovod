@@ -15,15 +15,16 @@
 
 import argparse
 import os
-import sys
-import horovod
-import six
 import shlex
+import sys
 
+import six
+
+import horovod
 from horovod.run.common.util import codec, safe_shell_exec, timeout, secret
-from horovod.run.util import cache, threads
-from horovod.run.task import task_service
 from horovod.run.driver import driver_service
+from horovod.run.task import task_service
+from horovod.run.util import cache, threads
 
 # Cached information of horovodrun functions be stored in this directory
 CACHE_FOLDER = os.path.join(os.path.expanduser('~'), '.horovod')
@@ -246,10 +247,9 @@ def _driver_fn(key, host_addresses, tmout, ssh_port=None,
             print("Waiting for the hosts to acknowledge.")
         driver.wait_for_initial_registration(tmout)
         tasks = [task_service.HorovodRunTaskClient(index,
-                                                          driver.task_addresses_for_driver(
-                                                                      index),
-                                                          key)
-                        for index in range(num_hosts)]
+                                                   driver.task_addresses_for_driver(index),
+                                                   key)
+                 for index in range(num_hosts)]
         # Notify all the drivers that the initial registration is complete.
         for task in tasks:
             task.notify_initial_registration_complete()

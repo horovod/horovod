@@ -13,10 +13,10 @@
 # limitations under the License.
 # ==============================================================================
 
-import os
-import datetime
 import cloudpickle
+import datetime
 import errno
+import os
 import threading
 
 
@@ -64,7 +64,7 @@ class Cache(object):
         self._lock.acquire()
         timestamp, val = self._content.get(key, (None, None))
         self._lock.release()
-        
+
         if timestamp:
             if timestamp >= datetime.datetime.now() - self._cache_staleness_threshold:
                 return val

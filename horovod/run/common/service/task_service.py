@@ -16,8 +16,8 @@
 import threading
 import time
 
-from horovod.run.common.util import safe_shell_exec
 from horovod.run.common.util import network
+from horovod.run.common.util import safe_shell_exec
 
 
 class RunCommandRequest(object):

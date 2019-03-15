@@ -17,7 +17,6 @@ import hashlib
 import os
 import socket
 
-
 NAMESPACE_PATH = '/proc/self/ns'
 
 
