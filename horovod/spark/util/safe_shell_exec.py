@@ -78,7 +78,7 @@ def execute(command, env=None, stdout=None, stderr=None):
     if middleman_pid == 0:
         # Close unused file descriptors to enforce PIPE behavior.
         os.close(w)
-        os.setpgid(0, 0)
+        os.setsid()
 
         executor_shell = subprocess.Popen(command, shell=True, env=env,
                                           stdout=stdout_w, stderr=stderr_w)
