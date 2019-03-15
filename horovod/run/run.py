@@ -18,11 +18,12 @@ import os
 import sys
 import horovod
 import six
+import shlex
 
 from horovod.run.common.util import codec, safe_shell_exec, timeout, secret
 from horovod.run.util import cache, threads
-from horovod.run.task import horovod_task_service
-from horovod.run.driver import horovod_driver_service
+from horovod.run.task import task_service
+from horovod.run.driver import driver_service
 
 # Cached information of horovodrun functions be stored in this directory
 CACHE_FOLDER = os.path.join(os.path.expanduser('~'), '.horovod')
@@ -181,7 +182,9 @@ def _launch_task_servers(host_addresses, driver_addresses, num_hosts, tmout,
         ssh_port_arg = ""
 
     command_format = \
-        'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} \'{python} -m horovod.run.horovod_task_fn {index} {driver_addresses} {num_hosts} {timeout} {key}\''
+        'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} ' \
+        '\'{python} -m horovod.run.horovod_task_fn {index} ' \
+        '{driver_addresses} {num_hosts} {timeout} {key}\''
     args_list = [
         [command_format.format(
             host=host_addresses[index],
@@ -229,7 +232,7 @@ def _driver_fn(key, host_addresses, tmout, ssh_port=None,
     """
     num_hosts = len(host_addresses)
     # Launch a TCP server called service service on the host running horovodrun.
-    driver = horovod_driver_service.HorovodRunDriverService(num_hosts, key)
+    driver = driver_service.HorovodRunDriverService(num_hosts, key)
     if verbose:
         print("Launched horovodrun server.")
     # Have all the workers register themselves with the service service.
@@ -242,14 +245,14 @@ def _driver_fn(key, host_addresses, tmout, ssh_port=None,
         if verbose:
             print("Waiting for the hosts to acknowledge.")
         driver.wait_for_initial_registration(tmout)
-        task_clients = [horovod_task_service.HorovodRunTaskClient(index,
-                                                                  driver.task_addresses_for_driver(
+        tasks = [task_service.HorovodRunTaskClient(index,
+                                                          driver.task_addresses_for_driver(
                                                                       index),
-                                                                  key)
+                                                          key)
                         for index in range(num_hosts)]
         # Notify all the drivers that the initial registration is complete.
-        for task_client in task_clients:
-            task_client.notify_initial_registration_complete()
+        for task in tasks:
+            task.notify_initial_registration_complete()
         if verbose:
             print("Notified all the hosts that the registration is complete.")
         # Each worker should probe the interfaces of the next worker in a ring
@@ -397,6 +400,7 @@ def run():
         '-np {num_proc} {hosts_arg} '
         '-bind-to none -map-by slot '
         '-mca pml ob1 -mca btl ^openib '
+        '{ssh_port_arg} '
         '{tcp_intf_arg} '
         '-x NCCL_DEBUG=INFO '
         '{nccl_socket_intf_arg} '
@@ -407,7 +411,7 @@ def run():
                     nccl_socket_intf_arg=nccl_socket_intf_arg,
                     ssh_port_arg=ssh_port_arg,
                     env=' '.join('-x %s' % key for key in env.keys()),
-                    command=' '.join(par for par in args.command))
+                    command=shlex.quote(' '.join(par for par in args.command)))
     )
 
     if args.verbose:
