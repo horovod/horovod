@@ -25,8 +25,6 @@
 #include "common.h"
 #include "message.h"
 
-#define RESERVED_CACHE_BITS 3
-
 namespace horovod {
 namespace common {
 
@@ -73,7 +71,6 @@ public:
 private:
   void put_(const Response& response, TensorParams& params);
 
-  uint32_t counter_ = RESERVED_CACHE_BITS; // Leave room for status bits
   uint32_t capacity_;
   std::list<std::pair<Response, TensorParams>> cache_;
   std::vector<std::list<std::pair<Response, TensorParams>>::iterator> iters_;

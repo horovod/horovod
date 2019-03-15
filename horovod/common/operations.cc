@@ -56,6 +56,8 @@
 #include "ops/ddl_operations.h"
 #endif
 
+#define NUM_STATUS_BITS 3
+
 /*
  * Allreduce, Allgather and Broadcast Ops.
  *
@@ -778,7 +780,7 @@ void GetCommonCacheAndState(std::set<int>& cache_hits,
                             HorovodGlobalState& state,
                             MPIContext& ctx) {
   // Resize and reset bit vector.
-  int nbits = state.response_cache.current_size() + RESERVED_CACHE_BITS;
+  int nbits = state.response_cache.current_size() + NUM_STATUS_BITS;
   int count = (nbits + sizeof(long long) * CHAR_BIT - 1) /
               (sizeof(long long) * CHAR_BIT);
 
@@ -800,12 +802,13 @@ void GetCommonCacheAndState(std::set<int>& cache_hits,
 
   // For each cache hit on this worker, flip associated bit.
   for(auto bit : cache_hits) {
-    int shift = bit / (sizeof(long long) * CHAR_BIT);
+    int shifted_bit = bit + NUM_STATUS_BITS;
+    int shift = shifted_bit / (sizeof(long long) * CHAR_BIT);
     state.cache_mask[shift] |= (1ull <<
-                               (bit % (sizeof(long long) * CHAR_BIT)));
+                               (shifted_bit % (sizeof(long long) * CHAR_BIT)));
     if (state.timeline_enabled) {
       state.cache_mask[count + shift] ^= (1ull <<
-                                         (bit % (sizeof(long long) * CHAR_BIT)));
+                                         (shifted_bit % (sizeof(long long) * CHAR_BIT)));
     }
   }
 
@@ -821,16 +824,16 @@ void GetCommonCacheAndState(std::set<int>& cache_hits,
     long long ll = state.cache_mask[i];
     while (ll) {
       int idx = __builtin_ffsll(ll);
-      int bit = shift + idx - 1;
-      cache_hits.insert(bit);
+      int shifted_bit = shift + idx - 1;
+      cache_hits.insert(shifted_bit - NUM_STATUS_BITS);
       ll &= ~(1ull << (idx - 1));
     }
   }
 
   // Set states from reserved state bits.
-  if (!cache_hits.erase(0)) should_shut_down = true;
-  if (!cache_hits.erase(1)) uncached_in_queue = true;
-  if (!cache_hits.erase(2)) invalid_in_queue = true;
+  if (!cache_hits.erase(0 - NUM_STATUS_BITS)) should_shut_down = true;
+  if (!cache_hits.erase(1 - NUM_STATUS_BITS)) uncached_in_queue = true;
+  if (!cache_hits.erase(2 - NUM_STATUS_BITS)) invalid_in_queue = true;
 
   // If any worker has invalid cache entries, communicate invalid bits across workers
   // using a second allreduce.
@@ -873,11 +876,11 @@ void GetCommonCacheAndState(std::set<int>& cache_hits,
       long long ll = ~state.cache_mask[count + i];
       while (ll) {
         int idx = __builtin_ffsll(ll);
-        int bit = shift + idx - 1;
+        int shifted_bit = shift + idx - 1;
         // If bit is invalid, timeline handling will be carried out in the
         // usual way. Otherwise, mark negotiate start here.
-        if (invalid_bits.find(bit) == invalid_bits.end()) {
-          auto response = state.response_cache.peek_response(bit);
+        if (invalid_bits.find(shifted_bit - NUM_STATUS_BITS) == invalid_bits.end()) {
+          auto response = state.response_cache.peek_response(shifted_bit - NUM_STATUS_BITS);
           state.timeline.NegotiateStart(response.tensor_names()[0],
                                         (Request::RequestType)
                                         response.response_type());

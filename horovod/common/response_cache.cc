@@ -21,7 +21,7 @@ namespace common {
 
 void ResponseCache::set_capacity(uint32_t capacity) {
   capacity_ = capacity;
-  iters_.reserve(capacity + RESERVED_CACHE_BITS);
+  iters_.reserve(capacity);
 }
 
 uint32_t ResponseCache::capacity() const {return capacity_;}
@@ -83,8 +83,8 @@ void ResponseCache::put_(const Response& response, TensorParams& params) {
     cache_.pop_back();
     cache_.push_front(std::make_pair(response, std::move(params)));
   } else {
-    cache_bit = counter_++;
-    iters_.resize(counter_);
+    cache_bit = iters_.size();
+    iters_.resize(cache_bit + 1);
     cache_.push_front(std::make_pair(response, std::move(params)));
   }
 
@@ -181,13 +181,13 @@ void ResponseCache::update_cache_bits() {
   // used get lower cache positions.
   auto it = --cache_.end();
   for (int i = 0; i < (int)cache_.size(); ++i) {
-    iters_[i + RESERVED_CACHE_BITS] = it;
-    table_[it->first.tensor_names()[0]] =  i + RESERVED_CACHE_BITS;
+    iters_[i] = it;
+    table_[it->first.tensor_names()[0]] =  i;
     --it;
   }
 
-  // Set counter to minimum available cache bit value for new entries.
-  counter_ = cache_.size() + RESERVED_CACHE_BITS;
+  // Resize iters_ vector to contain only valid bit positions.
+  iters_.resize(cache_.size());
 
   bits_outdated_ = false;
 }
