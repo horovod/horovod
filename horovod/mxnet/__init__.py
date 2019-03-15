@@ -68,6 +68,21 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
         self._optimizer.set_wd_mult(args_wd_mult)
 
 
+# DistributedInitializer wraps MXNet Initializer which initializes and broadcasts parameter.
+class DistributedInitializer(mx.initializer.Initializer):
+    def __init__(self, init, root_rank=0):
+        self._init = init
+        self._root_rank = root_rank
+
+    def __call__(self, desc, arr):
+        self._init(desc, arr)
+        broadcast_(arr, self._root_rank, desc)
+        arr.wait_to_read()
+
+    def _init_weight(self, name, arr):
+        self._init._init_weight(name, arr)
+
+
 def broadcast_parameters(params, root_rank=0):
     """
     Broadcasts the parameters from root rank to all other processes.
