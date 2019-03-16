@@ -14,10 +14,13 @@
 # ==============================================================================
 
 import argparse
+import hashlib
 import os
 import sys
 
 import six
+
+from horovod.run.util.cache import use_cache
 
 try:
     from shlex import quote
@@ -41,38 +44,6 @@ MAX_CONCURRENT_EXECUTIONS = 20
 
 # Number of retries for sshing into the hosts
 SSH_RETRIES = 5
-
-
-def use_cache():
-    """
-    If decorates a function, and if cache_disabled is set, it will store the
-        output of the function if it not None. If a function output is None, the
-    execution will not be cached.
-    :return:
-    """
-
-    def wrap(func):
-        def wrap_f(*args, **kwargs):
-            fn_cache = kwargs.pop('fn_cache')
-            if fn_cache is None:
-                results = func(*args, **kwargs)
-            else:
-                cached_result = fn_cache.get(
-                    (func.__name__, tuple(args[0]), frozenset(kwargs.items())))
-                if cached_result is not None:
-                    return cached_result
-                else:
-                    results = func(*args, **kwargs)
-                    if results is not None:
-                        fn_cache.put(
-                            (func.__name__, tuple(args[0]),
-                             frozenset(kwargs.items())),
-                            results)
-            return results
-
-        return wrap_f
-
-    return wrap
 
 
 @use_cache()
@@ -122,7 +93,7 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
     for index, ssh_status in six.iteritems(ssh_exit_codes):
         exit_code, output_msg = ssh_status[0], ssh_status[1]
         if exit_code != 0:
-            print("ssh not successful for host {host}:{msg_output}".format(
+            print("ssh not successful for host {host}:{msg_output}\n".format(
                 host=host_addresses[index],
                 msg_output=output_msg
             ))
@@ -167,7 +138,7 @@ def _launch_task_servers(host_addresses, driver_addresses, num_hosts, tmout,
             if exit_code != 0:
                 print(
                     "Launching horovodrun task function was not "
-                    "successful:{host_output}"
+                    "successful:{host_output}\n"
                         .format(host_output=host_output.getvalue()))
                 os._exit(exit_code)
         finally:
@@ -336,7 +307,9 @@ def run():
     # --disable-cache flag.
     fn_cache = None
     if not args.disable_cache:
-        parameters_hash = str(hash(str(args.host) + str(args.np)))
+        parameters_hash = hashlib.md5((' '.join([str(args.host),
+                                                 str(args.np),
+                                                 str(args.ssh_port)]))).hexdigest()
         fn_cache = cache.Cache(CACHE_FOLDER, CACHE_STALENESS_THRESHOLD_MINUTES,
                                parameters_hash)
 

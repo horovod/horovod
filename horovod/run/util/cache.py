@@ -79,3 +79,35 @@ class Cache(object):
                 cloudpickle.dump(self._content, cf)
         finally:
             self._lock.release()
+
+
+def use_cache():
+    """
+    If decorates a function and if fn_cache is set, it will store the
+    output of the function if the output is not None. If a function output
+    is None, the execution result will not be cached.
+    :return:
+    """
+
+    def wrap(func):
+        def wrap_f(*args, **kwargs):
+            fn_cache = kwargs.pop('fn_cache')
+            if fn_cache is None:
+                results = func(*args, **kwargs)
+            else:
+                cached_result = fn_cache.get(
+                    (func.__name__, tuple(args[0]), frozenset(kwargs.items())))
+                if cached_result is not None:
+                    return cached_result
+                else:
+                    results = func(*args, **kwargs)
+                    if results is not None:
+                        fn_cache.put(
+                            (func.__name__, tuple(args[0]),
+                             frozenset(kwargs.items())),
+                            results)
+            return results
+
+        return wrap_f
+
+    return wrap
