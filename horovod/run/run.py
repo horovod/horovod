@@ -15,10 +15,13 @@
 
 import argparse
 import os
-import shlex
 import sys
-
 import six
+try:
+    from shlex import quote
+except ImportError:
+    from pipes import quote
+
 
 import horovod
 from horovod.run.common.util import codec, safe_shell_exec, timeout, secret
@@ -411,7 +414,7 @@ def run():
                     nccl_socket_intf_arg=nccl_socket_intf_arg,
                     ssh_port_arg=ssh_port_arg,
                     env=' '.join('-x %s' % key for key in env.keys()),
-                    command=' '.join(shlex.quote(par) for par in args.command))
+                    command=' '.join(quote(par) for par in args.command))
     )
 
     if args.verbose:
