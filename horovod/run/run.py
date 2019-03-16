@@ -161,23 +161,19 @@ def _launch_task_servers(host_addresses, driver_addresses, num_hosts, tmout,
     """
 
     def _exec_command(command):
-        stdout_w = six.StringIO()
-        stderr_w = six.StringIO()
+        host_output = six.StringIO()
         try:
             exit_code = safe_shell_exec.execute(command,
-                                                stdout=stdout_w,
-                                                stderr=stderr_w)
+                                                stdout=host_output,
+                                                stderr=host_output)
             if exit_code != 0:
                 print(
                     "Launching horovodrun task function was not successful.")
-                print("stderr from host:\n {stderr}".format(
-                    stderr=stderr_w.getvalue()))
-                print("stdout from host:\n {stdout}".format(
-                    stdout=stdout_w.getvalue()))
+                print("host output:\n {host_output}".format(
+                    host_output=host_output.getvalue()))
                 os._exit(exit_code)
         finally:
-            stdout_w.close()
-            stderr_w.close()
+            host_output.close()
         return exit_code
 
     if ssh_port:
