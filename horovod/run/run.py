@@ -16,12 +16,13 @@
 import argparse
 import os
 import sys
+
 import six
+
 try:
     from shlex import quote
 except ImportError:
     from pipes import quote
-
 
 import horovod
 from horovod.run.common.util import codec, safe_shell_exec, timeout, secret
@@ -87,26 +88,22 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
 
     def exec_command(command):
         exit_code = 1
-        msg_stdout = ""
-        msg_stderr = ""
+        output_msg = ""
 
         # Try ssh 5 times
         for i in range(SSH_RETRIES):
-            stdout_w = six.StringIO()
-            stderr_w = six.StringIO()
+            output = six.StringIO()
             try:
                 exit_code = safe_shell_exec.execute(command,
-                                                    stdout=stdout_w,
-                                                    stderr=stderr_w)
+                                                    stdout=output,
+                                                    stderr=output)
                 if exit_code == 0:
                     break
                 else:
-                    msg_stderr = stderr_w.getvalue()
-                    msg_stdout = stdout_w.getvalue()
+                    output_msg = output.getvalue()
             finally:
-                stdout_w.close()
-                stderr_w.close()
-        return exit_code, msg_stderr, msg_stdout
+                output.close()
+        return exit_code, output_msg
 
     if ssh_port:
         ssh_port_arg = "-p {ssh_port}".format(ssh_port=ssh_port)
@@ -123,12 +120,13 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
 
     ssh_successful_to_all_hosts = True
     for index, ssh_status in six.iteritems(ssh_exit_codes):
-        exit_code, stderr, stdout = ssh_status[0], ssh_status[1], ssh_status[2]
+        exit_code, output_msg = ssh_status[0], ssh_status[1]
         if exit_code != 0:
-            print("ssh not successful for host {host}.".format(
-                host=host_addresses[index]))
-            print("stderr:\n{stderr}\nstdout:\n{stdout}".format(stdout=stdout,
-                                                                stderr=stderr))
+            print("ssh not successful for host {host}:{msg_output}".format(
+                host=host_addresses[index],
+                msg_output=output_msg
+            ))
+
             ssh_successful_to_all_hosts = False
     if not ssh_successful_to_all_hosts:
         exit(1)
@@ -168,9 +166,9 @@ def _launch_task_servers(host_addresses, driver_addresses, num_hosts, tmout,
                                                 stderr=host_output)
             if exit_code != 0:
                 print(
-                    "Launching horovodrun task function was not successful.")
-                print("host output:\n {host_output}".format(
-                    host_output=host_output.getvalue()))
+                    "Launching horovodrun task function was not "
+                    "successful:{host_output}"
+                        .format(host_output=host_output.getvalue()))
                 os._exit(exit_code)
         finally:
             host_output.close()
@@ -246,7 +244,8 @@ def _driver_fn(key, host_addresses, tmout, ssh_port=None,
             print("Waiting for the hosts to acknowledge.")
         driver.wait_for_initial_registration(tmout)
         tasks = [task_service.HorovodRunTaskClient(index,
-                                                   driver.task_addresses_for_driver(index),
+                                                   driver.task_addresses_for_driver(
+                                                       index),
                                                    key)
                  for index in range(num_hosts)]
         # Notify all the drivers that the initial registration is complete.
