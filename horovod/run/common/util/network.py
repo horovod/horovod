@@ -17,9 +17,9 @@ import random
 import socket
 import struct
 import threading
-
 import cloudpickle
 import psutil
+
 from six.moves import queue, socketserver
 
 from horovod.run.common.util import secret

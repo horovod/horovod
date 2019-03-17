@@ -1,5 +1,4 @@
 import socket
-
 import psutil
 
 from horovod.run.util import threads
