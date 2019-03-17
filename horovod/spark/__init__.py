@@ -166,7 +166,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, std
             '-mca pml ob1 -mca btl ^openib -mca btl_tcp_if_include {common_intfs} '
             '-x NCCL_DEBUG=INFO -x NCCL_SOCKET_IFNAME={common_intfs} '
             '{env} '  # expect a lot of environment variables
-            '-mca plm_rsh_agent "{python} -m horovod.spark.service.mpirun_rsh {encoded_driver_addresses}" '
+            '-mca plm_rsh_agent "{python} -m horovod.spark.driver.mpirun_rsh {encoded_driver_addresses}" '
             '{python} -m horovod.spark.task.mpirun_exec_fn {encoded_driver_addresses} '
             .format(num_proc=num_proc,
                     hosts=','.join('%s:%d' % (host_hash, len(driver.task_host_hash_indices()[host_hash]))
