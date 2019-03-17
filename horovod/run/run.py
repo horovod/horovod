@@ -18,6 +18,7 @@ import argparse
 import hashlib
 import os
 import sys
+import traceback
 import six
 try:
     from shlex import quote
@@ -272,8 +273,8 @@ def _is_open_mpi_installed():
         exit_code = safe_shell_exec.execute(command, stdout=output,
                                             stderr=output)
         output_msg = output.getvalue()
-    except Exception as e:
-        print(e)
+    except Exception:
+        print(traceback.format_exc(), file=sys.stderr)
         return False
     finally:
         output.close()
