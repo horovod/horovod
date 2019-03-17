@@ -27,10 +27,11 @@ except ImportError:
 
 import horovod
 from horovod.run.common.util import codec, safe_shell_exec, timeout, secret
-from horovod.run.common.util.network import NoValidAddressesFound
 from horovod.run.driver import driver_service
 from horovod.run.task import task_service
 from horovod.run.util import cache, threads, network
+
+from horovod.run.common.util.network import NoValidAddressesFound
 
 # Cached information of horovodrun functions be stored in this directory
 CACHE_FOLDER = os.path.join(os.path.expanduser('~'), '.horovod')
@@ -309,8 +310,7 @@ def run():
     if not args.disable_cache:
         parameters_hash = hashlib.md5((' '.join([str(args.host),
                                                  str(args.np),
-                                                 str(
-                                                     args.ssh_port)]))).hexdigest()
+                                                 str(args.ssh_port)]))).hexdigest()
         fn_cache = cache.Cache(CACHE_FOLDER, CACHE_STALENESS_THRESHOLD_MINUTES,
                                parameters_hash)
 
