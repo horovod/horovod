@@ -13,11 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
-import cloudpickle
 import datetime
 import errno
 import os
 import threading
+
+import cloudpickle
 
 
 class Cache(object):

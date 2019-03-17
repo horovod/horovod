@@ -20,8 +20,6 @@ import sys
 
 import six
 
-from horovod.run.util.cache import use_cache
-
 try:
     from shlex import quote
 except ImportError:
@@ -29,9 +27,10 @@ except ImportError:
 
 import horovod
 from horovod.run.common.util import codec, safe_shell_exec, timeout, secret
+from horovod.run.common.util.network import NoValidAddressesFound
 from horovod.run.driver import driver_service
 from horovod.run.task import task_service
-from horovod.run.util import cache, threads
+from horovod.run.util import cache, threads, network
 
 # Cached information of horovodrun functions be stored in this directory
 CACHE_FOLDER = os.path.join(os.path.expanduser('~'), '.horovod')
@@ -46,7 +45,7 @@ MAX_CONCURRENT_EXECUTIONS = 20
 SSH_RETRIES = 5
 
 
-@use_cache()
+@cache.use_cache()
 def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
     """
     checks if ssh can successfully be performed to all the hosts.
@@ -82,6 +81,7 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
         ssh_port_arg = ""
 
     ssh_command_format = 'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} date'
+
     args_list = [[ssh_command_format.format(host=host_address,
                                             ssh_port_arg=ssh_port_arg)]
                  for host_address in host_addresses]
@@ -93,7 +93,7 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
     for index, ssh_status in six.iteritems(ssh_exit_codes):
         exit_code, output_msg = ssh_status[0], ssh_status[1]
         if exit_code != 0:
-            print("ssh not successful for host {host}:{msg_output}\n".format(
+            print("ssh not successful for host {host}:\n{msg_output}".format(
                 host=host_addresses[index],
                 msg_output=output_msg
             ))
@@ -138,7 +138,7 @@ def _launch_task_servers(host_addresses, driver_addresses, num_hosts, tmout,
             if exit_code != 0:
                 print(
                     "Launching horovodrun task function was not "
-                    "successful:{host_output}\n"
+                    "successful:\n{host_output}"
                         .format(host_output=host_output.getvalue()))
                 os._exit(exit_code)
         finally:
@@ -177,7 +177,7 @@ def _launch_task_servers(host_addresses, driver_addresses, num_hosts, tmout,
                                            block_until_all_done=False)
 
 
-@use_cache()
+@cache.use_cache()
 def _driver_fn(key, host_addresses, tmout, ssh_port=None,
                verbose=False):
     """
@@ -297,10 +297,10 @@ def run():
         exit(0)
 
     if args.host:
-        host_addresses = [x for x in
-                          [y.split(':')[0] for y in args.host.split(',')]]
+        host_names = [x for x in
+                      [y.split(':')[0] for y in args.host.split(',')]]
     else:
-        host_addresses = []
+        host_names = []
 
     # This cache stores the results of checks performed by horovodrun
     # during the initialization step. It can be disabled by setting
@@ -309,7 +309,8 @@ def run():
     if not args.disable_cache:
         parameters_hash = hashlib.md5((' '.join([str(args.host),
                                                  str(args.np),
-                                                 str(args.ssh_port)]))).hexdigest()
+                                                 str(
+                                                     args.ssh_port)]))).hexdigest()
         fn_cache = cache.Cache(CACHE_FOLDER, CACHE_STALENESS_THRESHOLD_MINUTES,
                                parameters_hash)
 
@@ -322,35 +323,61 @@ def run():
     tmout = timeout.Timeout(start_timeout)
 
     key = secret.make_secret_key()
+    remote_host_names = []
     if args.host:
         if args.verbose:
-            print("Checking ssh on all hosts.")
-        # Check if we can ssh into all hosts successfully. This is required for
-        _check_all_hosts_ssh_successful(host_addresses, args.ssh_port,
+            print("Rresolving remote host names.")
+        remote_host_names = network.filter_local_addresses(host_names)
+
+        if args.verbose:
+            print("Checking ssh on all remote hosts.")
+        # Check if we can ssh into all remote hosts successfully.
+        _check_all_hosts_ssh_successful(remote_host_names, args.ssh_port,
                                         fn_cache=fn_cache)
         if args.verbose:
-            print("SSH was successful into all the hosts.")
-
-        if args.verbose:
-            print("Testing interfaces on all the hosts.")
-        # Find the set of common, routed interfaces on all the hosts and specify
-        # it to be used by NCCL.
-        common_intfs = _driver_fn(key, host_addresses, tmout,
-                                  args.ssh_port,
-                                  args.verbose,
-                                  fn_cache=fn_cache)
-        if args.verbose:
-            print("Interfaces on all the hosts were successfully checked.")
+            print("SSH was successful into all the remote hosts.")
 
         hosts_arg = "-H {hosts}".format(hosts=args.host)
-        tcp_intf_arg = "-mca btl_tcp_if_include {common_intfs}".format(
-            common_intfs=','.join(common_intfs))
-        nccl_socket_intf_arg = "-x NCCL_SOCKET_IFNAME={common_intfs}".format(
-            common_intfs=','.join(common_intfs))
     else:
         # if user does not specify any hosts, mpirun by default uses local host.
         # There is no need to specify localhost.
         hosts_arg = ""
+
+    if args.host and len(remote_host_names) > 0:
+        if args.verbose:
+            print("Testing interfaces on all the hosts.")
+        # If there is at least one remote host name, find the set of common,
+        # routed interfaces on all the hosts and specify it in the args to be
+        # used by NCCL. It is expected that the following function will find
+        # at least one interface otherwise, it will raise an exception.
+        common_intfs = _driver_fn(key,
+                                  remote_host_names,
+                                  tmout,
+                                  args.ssh_port,
+                                  args.verbose,
+                                  fn_cache=fn_cache)
+
+        if len(remote_host_names) != len(host_names):
+            # If there are both local and remote host names in the list of
+            # given hosts, first, find the interfaces of the local node and get
+            # the intersection with the interfaces of the remote nodes.
+            local_intfs = network.get_local_host_intfs()
+            common_intfs.intersection_update(local_intfs)
+
+        if len(common_intfs) == 0:
+            raise NoValidAddressesFound("No common interface found between the "
+                                        "local and remote hosts.")
+
+        tcp_intf_arg = "-mca btl_tcp_if_include {common_intfs}".format(
+            common_intfs=','.join(common_intfs))
+        nccl_socket_intf_arg = "-x NCCL_SOCKET_IFNAME={common_intfs}".format(
+            common_intfs=','.join(common_intfs))
+
+        if args.verbose:
+            print("Interfaces on all the hosts were successfully checked.")
+    else:
+        # If all the given hosts are local, no need to specify the interfaces
+        # because MPI does not use network for local execution.
         tcp_intf_arg = ""
         nccl_socket_intf_arg = ""
 
