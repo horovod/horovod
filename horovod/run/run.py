@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+from __future__ import print_function
 import argparse
 import hashlib
 import os
@@ -22,8 +23,8 @@ try:
     from shlex import quote
 except ImportError:
     from pipes import quote
-
 import horovod
+
 from horovod.run.common.util import codec, safe_shell_exec, timeout, secret
 from horovod.run.driver import driver_service
 from horovod.run.task import task_service
@@ -270,16 +271,24 @@ def _is_open_mpi_installed():
     try:
         exit_code = safe_shell_exec.execute(command, stdout=output,
                                             stderr=output)
-        if exit_code == 0:
-            output_msg = output.getvalue()
-            if 'Open MPI' not in output_msg:
-                return False
-            else:
-                return True
-        else:
-            raise Exception("Was not able to run: %s." % command)
+        output_msg = output.getvalue()
+    except Exception as e:
+        print(e)
+        return False
     finally:
         output.close()
+
+    if exit_code == 0:
+        if 'Open MPI' not in output_msg:
+            print('Open MPI not found in output of mpirun --version.',
+                  file=sys.stderr)
+            return False
+        else:
+            return True
+    else:
+        print("Was not able to run %s:\n%s" % (command, output_msg),
+              file=sys.stderr)
+        return False
 
 
 def parse_args():
