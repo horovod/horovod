@@ -331,7 +331,7 @@ def run():
             params += str(args.host)
         if args.ssh_port:
             params += str(args.ssh_port)
-        parameters_hash = hashlib.md5(params).hexdigest()
+        parameters_hash = hashlib.md5(params.encode('utf-8')).hexdigest()
         fn_cache = cache.Cache(CACHE_FOLDER, CACHE_STALENESS_THRESHOLD_MINUTES,
                                parameters_hash)
 
