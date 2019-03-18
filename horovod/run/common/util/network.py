@@ -1,4 +1,4 @@
-# Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
+# Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,18 +13,23 @@
 # limitations under the License.
 # ==============================================================================
 
-import cloudpickle
-from six.moves import queue, socketserver
-import psutil
 import random
 import socket
 import struct
 import threading
+import cloudpickle
+import psutil
 
-from horovod.spark.util import secret
+from six.moves import queue, socketserver
+
+from horovod.run.common.util import secret
 
 
 class PingRequest(object):
+    pass
+
+
+class NoValidAddressesFound(Exception):
     pass
 
 
@@ -140,9 +145,13 @@ class BasicService(object):
         self._server.server_close()
         self._thread.join()
 
+    def get_port(self):
+        return self._port
+
 
 class BasicClient(object):
-    def __init__(self, service_name, addresses, key, match_intf=False, probe_timeout=20, retries=3):
+    def __init__(self, service_name, addresses, key, match_intf=False,
+                 probe_timeout=20, retries=3):
         # Note: because of retry logic, ALL RPC calls are REQUIRED to be idempotent.
         self._service_name = service_name
         self._wire = Wire(key)
@@ -151,8 +160,9 @@ class BasicClient(object):
         self._retries = retries
         self._addresses = self._probe(addresses)
         if not self._addresses:
-            raise Exception('Unable to connect to the %s on any of the addresses: %s'
-                            % (service_name, addresses))
+            raise NoValidAddressesFound(
+                'Unable to connect to the %s on any of the addresses: %s'
+                % (service_name, addresses))
 
     def _probe(self, addresses):
         result_queue = queue.Queue()

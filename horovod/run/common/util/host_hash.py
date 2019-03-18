@@ -1,4 +1,4 @@
-# Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
+# Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,15 +13,24 @@
 # limitations under the License.
 # ==============================================================================
 
-import base64
-import cloudpickle
+import hashlib
+import os
+import socket
+
+NAMESPACE_PATH = '/proc/self/ns'
 
 
-def loads_base64(encoded):
-    decoded = base64.b64decode(encoded)
-    return cloudpickle.loads(decoded)
+def _namespaces():
+    hash = ''
+    if os.path.exists(NAMESPACE_PATH):
+        for file in os.listdir(NAMESPACE_PATH):
+            if hash != '':
+                hash += ' '
+            hash += os.readlink(os.path.join(NAMESPACE_PATH, file))
+    return hash
 
 
-def dumps_base64(obj):
-    serialized = cloudpickle.dumps(obj)
-    return base64.b64encode(serialized).decode('ascii')
+def host_hash():
+    hostname = socket.gethostname()
+    ns = _namespaces()
+    return '%s-%s' % (hostname, hashlib.md5(ns.encode('ascii')).hexdigest())

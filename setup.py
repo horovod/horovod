@@ -970,4 +970,5 @@ setup(name='horovod',
       # so it's only necessary for `build*` or `bdist*` actions.
       setup_requires=['cffi>=1.4.0', 'cloudpickle', 'psutil', 'six'] if is_build_action() else [],
       install_requires=['cffi>=1.4.0', 'cloudpickle', 'psutil', 'six'],
-      zip_safe=False)
+      zip_safe=False,
+      scripts=['bin/horovodrun'])

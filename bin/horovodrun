@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,15 +15,7 @@
 # limitations under the License.
 # ==============================================================================
 
-import threading
+from horovod.run import run
 
-
-LOCK = threading.Lock()
-JOB_ID = -1
-
-
-def next_job_id():
-    global LOCK, JOB_ID
-    with LOCK:
-        JOB_ID += 1
-        return JOB_ID
+if __name__ == '__main__':
+    run.run()

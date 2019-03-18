@@ -1,4 +1,4 @@
-# Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
+# Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,14 +20,15 @@ import sys
 import threading
 
 from horovod.spark.task import task_service
-from horovod.spark.util import host_hash, codec, network, safe_shell_exec, secret, timeout
+from horovod.run.common.util import codec, safe_shell_exec, timeout, host_hash, \
+    secret
 from horovod.spark.driver import driver_service, job_id
 
 
 def _task_fn(index, driver_addresses, num_proc, tmout, key):
-    task = task_service.TaskService(index, key)
+    task = task_service.SparkTaskService(index, key)
     try:
-        driver_client = driver_service.DriverClient(driver_addresses, key)
+        driver_client = driver_service.SparkDriverClient(driver_addresses, key)
         driver_client.register_task(index, task.addresses(), host_hash.host_hash())
         task.wait_for_initial_registration(tmout)
         # Tasks ping each other in a circular fashion to determine interfaces reachable within
@@ -35,9 +36,10 @@ def _task_fn(index, driver_addresses, num_proc, tmout, key):
         next_task_index = (index + 1) % num_proc
         next_task_addresses = driver_client.all_task_addresses(next_task_index)
         # We request interface matching to weed out all the NAT'ed interfaces.
-        next_task_client = task_service.TaskClient(next_task_index, next_task_addresses, key, match_intf=True)
+        next_task_client = task_service.SparkTaskClient(next_task_index, next_task_addresses, key, match_intf=True)
         driver_client.register_task_to_task_addresses(next_task_index, next_task_client.addresses())
-        task_indices_on_this_host = driver_client.task_host_hash_indices(host_hash.host_hash())
+        task_indices_on_this_host = driver_client.task_host_hash_indices(
+            host_hash.host_hash())
         if task_indices_on_this_host[0] == index:
             # Task with first index will execute orted that will run mpirun_exec_fn for all tasks.
             task.wait_for_command_start(tmout)
@@ -45,7 +47,7 @@ def _task_fn(index, driver_addresses, num_proc, tmout, key):
         else:
             # The rest of tasks need to wait for the first task to finish.
             first_task_addresses = driver_client.all_task_addresses(task_indices_on_this_host[0])
-            first_task_client = task_service.TaskClient(task_indices_on_this_host[0], first_task_addresses, key)
+            first_task_client = task_service.SparkTaskClient(task_indices_on_this_host[0], first_task_addresses, key)
             first_task_client.wait_for_command_termination()
         return task.fn_result()
     finally:
@@ -117,13 +119,13 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, std
     tmout = timeout.Timeout(start_timeout)
     key = secret.make_secret_key()
     spark_job_group = 'horovod.spark.run.%d' % job_id.next_job_id()
-    driver = driver_service.DriverService(num_proc, fn, args, kwargs, key)
+    driver = driver_service.SparkDriverService(num_proc, fn, args, kwargs, key)
     spark_thread = _make_spark_thread(spark_context, spark_job_group, num_proc, driver, tmout, key, result_queue)
     try:
         driver.wait_for_initial_registration(tmout)
         if verbose >= 2:
             print('Initial Spark task registration is complete.')
-        task_clients = [task_service.TaskClient(index, driver.task_addresses_for_driver(index), key)
+        task_clients = [task_service.SparkTaskClient(index, driver.task_addresses_for_driver(index), key)
                         for index in range(num_proc)]
         for task_client in task_clients:
             task_client.notify_initial_registration_complete()
