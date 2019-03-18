@@ -299,7 +299,7 @@ def parse_args():
                         help="Shows horovod version.")
 
     parser.add_argument('-np', '--num-proc', action="store", dest="np",
-                        type=int,
+                        type=int, required=True,
                         help="Total number of training processes.")
 
     parser.add_argument('-p', '--ssh-port', action="store", dest="ssh_port",
