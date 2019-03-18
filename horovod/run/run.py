@@ -328,10 +328,10 @@ def parse_args():
                         dest="start_timeout",
                         help="Horovodrun has to perform all the checks and "
                              "start the processes before the specified "
-                             "timeout. The default value is 600 seconds. You "
-                             "can also use the environment variable "
-                             "HOROVOD_START_TIMEOUT to specify"
-                             " initialization timeout.")
+                             "timeout. The default value is 600 seconds. The "
+                             "environment variable HOROVOD_START_TIMEOUT can "
+                             "also be used to specify the initialization "
+                             "timeout.")
 
     parser.add_argument('--verbose', action="store_true",
                         dest="verbose",
