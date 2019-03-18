@@ -623,6 +623,8 @@ def build_tf_extension(build_ext, options):
 
 
 def parse_version(version_str):
+    if "dev" in version_str:
+        return 9999999999
     m = re.match('^(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:\.(\d+))?', version_str)
     if m is None:
         return None
