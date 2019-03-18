@@ -220,28 +220,6 @@ For example:
 $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_HOME=/path/to/nccl pip install --no-cache-dir horovod
 ```
 
-### ncclCommInitRank failed: unhandled cuda error
-
-If you see the error message below during the training, it means that NCCL is not able to initialize correctly. You can
-set the `NCCL_DEBUG` environment variable to `INFO` to have NCCL print debugging information which may reveal the reason.
-
-```
-UnknownError (see above for traceback): ncclCommInitRank failed: unhandled cuda error
-         [[Node: training/TFOptimizer/DistributedAdadeltaOptimizer_Allreduce/HorovodAllreduce_training_TFOptimizer_gradients_dense_2_BiasAdd_grad_tuple_control_dependency_1_0 = HorovodAllreduce[T=DT_FLOAT, _device="/job:localhost/replica:0/task:0/gpu:0"](training/TFOptimizer/gradients/dense_2/BiasAdd_grad/tuple/control_dependency_1)]]
-         [[Node: training/TFOptimizer/DistributedAdadeltaOptimizer/update/_94 = _Recv[client_terminated=false, recv_device="/job:localhost/replica:0/task:0/cpu:0", send_device="/job:localhost/replica:0/task:0/gpu:0", send_device_incarnation=1, tensor_name="edge_583_training/TFOptimizer/DistributedAdadeltaOptimizer/update", tensor_type=DT_FLOAT, _device="/job:localhost/replica:0/task:0/cpu:0"]()]]
-```
-
-For example:
-
-```bash
-$ export NCCL_DEBUG=INFO
-$ mpirun -np 4 \
-    -H localhost:4 \
-    -bind-to none -map-by slot \
-    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
-    python train.py
-```
-
 ### ncclAllReduce failed: invalid data type
 
 If you see the error message below during the training, it means that Horovod was linked to the wrong version of NCCL

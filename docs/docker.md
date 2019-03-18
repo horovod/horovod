@@ -25,13 +25,8 @@ Docker container with Horovod instead of building it by yourself
 
 ```bash
 $ nvidia-docker run -it horovod:latest
-root@c278c88dd552:/examples# mpirun -np 4 -H localhost:4 python keras_mnist_advanced.py
+root@c278c88dd552:/examples# horovodrun -np 4 -H localhost:4 python keras_mnist_advanced.py
 ```
-
-This command does not have options recommended in other parts of the documentation. 
-`-bind-to none -map-by slot -x NCCL_DEBUG=INFO` options are already set by default in the Docker container so
-you don't need to repeat them in the command.  Options `-x LD_LIBRARY_PATH -x PATH` are not necessary because we assume
-that all the software is installed in the default system location in this Docker image.
 
 If you don't run your container in privileged mode, you may see the following message:
 
@@ -55,8 +50,7 @@ Primary worker:
 
 ```bash
 host1$ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh horovod:latest
-root@c278c88dd552:/examples# mpirun -np 16 -H host1:4,host2:4,host3:4,host4:4 \
-    -mca plm_rsh_args "-p 12345" python keras_mnist_advanced.py
+root@c278c88dd552:/examples# horovodrun -np 16 -H host1:4,host2:4,host3:4,host4:4 -p 12345 python keras_mnist_advanced.py
 ```
 
 Secondary workers:

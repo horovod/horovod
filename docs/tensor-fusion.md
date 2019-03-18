@@ -18,17 +18,17 @@ one reduction operation. The algorithm of Tensor Fusion is as follows:
 The fusion buffer size can be tweaked using the `HOROVOD_FUSION_THRESHOLD` environment variable:
 
 ```bash
-$ HOROVOD_FUSION_THRESHOLD=33554432 mpirun -np 4 -x HOROVOD_FUSION_THRESHOLD python train.py
+$ HOROVOD_FUSION_THRESHOLD=33554432 horovodrun -np 4 python train.py
 ```
 
 Setting the `HOROVOD_FUSION_THRESHOLD` environment variable to zero disables Tensor Fusion:
 
 ```bash
-$ HOROVOD_FUSION_THRESHOLD=0 mpirun -np 4 -x HOROVOD_FUSION_THRESHOLD python train.py
+$ HOROVOD_FUSION_THRESHOLD=0 horovodrun -np 4 python train.py
 ```
 
 You can tweak time between cycles (defined in milliseconds) using the `HOROVOD_CYCLE_TIME` environment variable:
 
 ```bash
-$ HOROVOD_CYCLE_TIME=3.5 mpirun -np 4 -x HOROVOD_FUSION_THRESHOLD python train.py
+$ HOROVOD_CYCLE_TIME=3.5 horovodrun -np 4 python train.py
 ```
