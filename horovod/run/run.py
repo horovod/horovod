@@ -426,7 +426,7 @@ def run():
     if not _is_open_mpi_installed():
         raise Exception(
             'horovodrun convenience script currently only supports '
-            'Open MPI.\n'
+            'Open MPI.\n\n'
             'Choose one of:\n'
             '1. Install Open MPI 4.0.0+ and re-install Horovod '
             '(use --no-cache-dir pip option).\n'
