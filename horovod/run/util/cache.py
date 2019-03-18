@@ -83,7 +83,7 @@ class Cache(object):
 
 def use_cache():
     """
-    If decorates a function and if fn_cache is set, it will store the
+    If used to decorate a function and if fn_cache is set, it will store the
     output of the function if the output is not None. If a function output
     is None, the execution result will not be cached.
     :return:

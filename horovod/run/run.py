@@ -296,34 +296,47 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Horovod Runner')
 
     parser.add_argument('-v', '--version', action="store_true", dest="version",
-                        help="Show Horovod version.")
+                        help="Shows horovod version.")
 
     parser.add_argument('-np', '--num-proc', action="store", dest="np",
-                        type=int,
-                        help="Number of processes which should be equal to "
-                             "the total number of available GPUs.")
+                        type=int, required=True,
+                        help="Total number of training processes.")
 
     parser.add_argument('-p', '--ssh-port', action="store", dest="ssh_port",
                         type=int,
-                        help="SSH port on all the workers.")
+                        help="SSH port on all the hosts.")
 
     parser.add_argument('-H', '--host', action="store", dest="host",
-                        help="To specify the list of hosts on which "
-                             "to invoke processes. Takes a comma-delimited "
-                             "list of hosts.")
+                        help="To specify the list of host names as well as the "
+                             "number of available slots on each host for "
+                             "training processes using the following format: "
+                             "<hostname>:<number of slots>,... . "
+                             "E.g., host1:2,host2:4,host3:1 "
+                             "indicates that 2 processes can run on "
+                             "host1, 4 processes on host2, and 1 process "
+                             "on host3.")
 
     parser.add_argument('--disable-cache', action="store_true",
                         dest="disable_cache",
-                        help="If flag is set, horovod run will not cache the "
-                             "initial checks and execute them every time.")
+                        help="If the flag is not set, horovodrun will perform "
+                             "the initialization checks only once every 60 "
+                             "minutes -- if the checks successfully pass. "
+                             "Otherwise, all the checks will run every time "
+                             "horovodrun is called.")
+
     parser.add_argument('--horovod-start-timeout', action="store",
                         dest="start_timeout",
-                        help="Horovodrun has to perform all the checks and and "
-                             "start before specified timeout.")
+                        help="Horovodrun has to perform all the checks and "
+                             "start the processes before the specified "
+                             "timeout. The default value is 600 seconds. "
+                             "Alternatively, The environment variable "
+                             "HOROVOD_START_TIMEOUT can also be used to "
+                             "specify the initialization timeout.")
 
     parser.add_argument('--verbose', action="store_true",
                         dest="verbose",
-                        help="If this flag is set, extra messages will printed.")
+                        help="If this flag is set, extra messages will "
+                             "printed.")
 
     parser.add_argument('command', nargs=argparse.REMAINDER,
                         help="Command to be executed.")
