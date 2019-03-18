@@ -316,10 +316,12 @@ def parse_args():
                         dest="disable_cache",
                         help="If flag is set, horovod run will not cache the "
                              "initial checks and execute them every time.")
+
     parser.add_argument('--horovod-start-timeout', action="store",
                         dest="start_timeout",
-                        help="Horovodrun has to perform all the checks and and "
-                             "start before specified timeout.")
+                        help="Horovodrun has to perform all the checks and "
+                             "start the processes before the specified "
+                             "timeout.")
 
     parser.add_argument('--verbose', action="store_true",
                         dest="verbose",
