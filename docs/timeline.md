@@ -8,7 +8,7 @@ To record a Horovod Timeline, set the `HOROVOD_TIMELINE` environment variable to
 file to be created.  This file is only recorded on rank 0, but it contains information about activity of all workers.
 
 ```bash
-$ HOROVOD_TIMELINE=/path/to/timeline.json mpirun -np 4 -x HOROVOD_TIMELINE python train.py
+$ HOROVOD_TIMELINE=/path/to/timeline.json horovodrun -np 4 python train.py
 ```
 
 You can then open the timeline file using the `chrome://tracing` facility of the [Chrome](https://www.google.com/chrome/browser/) browser.
@@ -56,5 +56,5 @@ To add cycle markers to the timeline, set the `HOROVOD_TIMELINE_MARK_CYCLES` env
 
 ```bash
 $ HOROVOD_TIMELINE=/path/to/timeline.json HOROVOD_TIMELINE_MARK_CYCLES=1 \
-    mpirun -np 4 -x HOROVOD_TIMELINE python train.py
+    horovodrun -np 4 python train.py
 ```

@@ -19,12 +19,7 @@ $ cd benchmarks
 3. Run the benchmark. Examples below are for Open MPI.
 
     ```bash
-    $ mpirun -np 16 \
-        -H server1:4,server2:4,server3:4,server4:4 \
-        -bind-to none -map-by slot \
-        -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
-        -mca pml ob1 -mca btl ^openib \
-        \
+    $ horovodrun -np 16 -H server1:4,server2:4,server3:4,server4:4 \
         python scripts/tf_cnn_benchmarks/tf_cnn_benchmarks.py \
             --model resnet101 \
             --batch_size 64 \
@@ -47,12 +42,7 @@ and convert it using the TFRecord [preprocessing script](https://github.com/tens
 Now, simply add `--data_dir /path/to/imagenet/tfrecords --data_name imagenet --num_batches=2000` to your training command:
 
 ```bash
-$ mpirun -np 16 \
-    -H server1:4,server2:4,server3:4,server4:4 \
-    -bind-to none -map-by slot \
-    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
-    -mca pml ob1 -mca btl ^openib \
-    \
+$ horovodrun -np 16 -H server1:4,server2:4,server3:4,server4:4 \
     python scripts/tf_cnn_benchmarks/tf_cnn_benchmarks.py \
         --model resnet101 \
         --batch_size 64 \

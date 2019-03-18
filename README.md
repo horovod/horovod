@@ -164,23 +164,13 @@ page for more instructions, including RoCE/InfiniBand tweaks and tips for dealin
 1. To run on a machine with 4 GPUs:
 
 ```bash
-$ mpirun -np 4 \
-    -H localhost:4 \
-    -bind-to none -map-by slot \
-    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
-    -mca pml ob1 -mca btl ^openib \
-    python train.py
+$ horovodrun -np 4 -H localhost:4 python train.py
 ```
 
 2. To run on 4 machines with 4 GPUs each:
 
 ```bash
-$ mpirun -np 16 \
-    -H server1:4,server2:4,server3:4,server4:4 \
-    -bind-to none -map-by slot \
-    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
-    -mca pml ob1 -mca btl ^openib \
-    python train.py
+$ horovodrun -np 16 -H server1:4,server2:4,server3:4,server4:4 python train.py
 ```
 
 3. To run in Docker, see the [Horovod in Docker](docs/docker.md) page.
