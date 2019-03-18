@@ -310,7 +310,7 @@ def parse_args():
                         help="To specify the list of host names as well as the "
                              "number of available slots on each host for "
                              "training processes using the following format: "
-                             "<hostname>:<number of training processes>,... . "
+                             "<hostname>:<number of slots>,... . "
                              "E.g., host1:2,host2:4,host3:1 "
                              "indicates that 2 processes can run on "
                              "host1, 4 processes on host2, and 1 process "
