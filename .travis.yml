@@ -71,6 +71,8 @@ install:
       docker exec ${CONTAINER} /bin/sh -c "apt-get install -y mpich"
     fi
 
+  - docker exec ${CONTAINER} /bin/sh -c "pip install mpi4py"
+
   # TensorFlow
   - docker exec ${CONTAINER} /bin/sh -c "pip install ${TF_PACKAGE}"
 
