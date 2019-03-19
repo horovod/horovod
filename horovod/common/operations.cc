@@ -848,6 +848,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
   // Signal that shutdown has been requested.
   state.shut_down = true;
 
+#if HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
+  nccl_context.ShutDown();
+#endif
   // TODO: init.cu:645 WARN Cuda failure 'driver shutting down'
   //#if HAVE_NCCL
   //  for (auto it = horovod_global.streams.begin();
