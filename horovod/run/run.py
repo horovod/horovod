@@ -475,10 +475,7 @@ def run():
     if args.verbose:
         print(mpirun_command)
     # Execute the mpirun command.
-    exit_code = safe_shell_exec.execute(mpirun_command, env)
-    if exit_code != 0:
-        raise Exception(
-            'mpirun exited with code %d, see the error above.' % exit_code)
+    os.execve('/bin/sh', ['/bin/sh', '-c', mpirun_command], env)
 
 
 if __name__ == "__main__":
