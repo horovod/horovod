@@ -156,7 +156,7 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
         host_name = all_host_names[index]
         if host_name in local_host_names:
             command = \
-                '{python} -m horovod.run.horovod_task_fn {index} ' \
+                '{python} -m horovod.run.task_fn {index} ' \
                 '{driver_addresses} {num_hosts} {timeout} {key}'.format(
                     python=sys.executable,
                     index=codec.dumps_base64(index),
@@ -168,7 +168,7 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
         else:
             command = \
                 'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} ' \
-                '\'{python} -m horovod.run.horovod_task_fn {index} ' \
+                '\'{python} -m horovod.run.task_fn {index} ' \
                 '{driver_addresses} {num_hosts} {timeout} {key}\''.format(
                     host=host_name,
                     ssh_port_arg=ssh_port_arg,
