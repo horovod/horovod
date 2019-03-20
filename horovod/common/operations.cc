@@ -20,7 +20,9 @@
 #include <queue>
 #include <sstream>
 #include <thread>
+#include <map>
 #include <unordered_map>
+#include <set>
 #include <unordered_set>
 
 #define OMPI_SKIP_MPICXX
@@ -104,9 +106,6 @@ std::unique_ptr<OperationManager> op_manager;
 
 // For clarify in argument lists.
 #define RANK_ZERO 0
-
-// Stall-check warning time
-#define STALL_WARNING_TIME std::chrono::seconds(60)
 
 const Status NOT_INITIALIZED_ERROR = Status::PreconditionError(
     "Horovod has not been initialized; use hvd.init().");
@@ -541,52 +540,101 @@ void PerformOperation(TensorTable& tensor_table, Response response) {
 
 // Report Tensors that were submitted to be reduced, gathered or broadcasted by
 // some ranks but not others and are waiting for long time to get processed.
-void CheckForStalledTensors(HorovodGlobalState& state, MPIContext& ctx) {
-  bool preamble = false;
+bool CheckForStalledTensors(HorovodGlobalState& state, MPIContext& ctx) {
+  bool should_shut_down = false;
   auto now = std::chrono::steady_clock::now();
+  std::map<int32_t, std::set<std::string>> missing_ranks;
+  std::unordered_set<int32_t> shutdown_ranks;
+  std::chrono::seconds stall_warning_time(state.stall_warning_time_seconds);
+  std::chrono::seconds stall_shutdown_time(state.stall_shutdown_time_seconds);
+
+  if (stall_shutdown_time > std::chrono::seconds(0) &&
+    stall_shutdown_time < stall_warning_time) {
+    LOG(WARNING) << "HOROVOD_STALL_SHUTDOWN_TIME_SECONDS is less than HOROVOD_STALL_CHECK_TIME_SECONDS, will not shutdown.";
+    stall_shutdown_time = std::chrono::seconds(0);
+  }
+
   for (auto& m : *state.message_table) {
     auto tensor_name = m.first;
     std::vector<Request>& messages = std::get<0>(m.second);
     std::chrono::steady_clock::time_point start_at = std::get<1>(m.second);
+    auto lag = now - start_at;
 
-    if (now - start_at > STALL_WARNING_TIME) {
-      std::stringstream message;
-      if (!preamble) {
-       message << "One or more tensors were submitted to be "
-                  "reduced, gathered or broadcasted by subset of ranks and "
-                  "are waiting for remainder of ranks for more than "
-               << std::chrono::duration_cast<std::chrono::seconds>(
-                   STALL_WARNING_TIME)
-                   .count()
-               << " seconds. "
-               << "This may indicate that different ranks are trying to "
-                  "submit different tensors or that only subset of ranks is "
-                  "submitting tensors, which will cause deadlock. "
-               << std::endl << "Stalled ops:" ;
-        preamble = true;
-      }
-      message << tensor_name;
-      message << " [missing ranks:";
+    if (lag > stall_warning_time) {
       std::unordered_set<int32_t> ready_ranks;
-      bool missing_preamble = false;
       for (auto msg_iter = messages.begin(); msg_iter != messages.end();
            ++msg_iter) {
         ready_ranks.insert(msg_iter->request_rank());
       }
+
       for (int32_t rank = 0; rank < state.size; ++rank) {
         if (ready_ranks.find(rank) == ready_ranks.end()) {
-          if (!missing_preamble) {
-            message << " ";
-            missing_preamble = true;
-          } else {
-            message << ", ";
+          missing_ranks[rank].insert(tensor_name);
+          if (stall_shutdown_time > std::chrono::seconds(0) && lag > stall_shutdown_time) {
+            shutdown_ranks.insert(rank);
+            should_shut_down = true;
           }
-          message << rank;
         }
       }
+    }
+  }
+
+  if (!missing_ranks.empty()) {
+    std::stringstream message;
+    message << "One or more tensors were submitted to be "
+               "reduced, gathered or broadcasted by subset of ranks and "
+               "are waiting for remainder of ranks for more than "
+            << stall_warning_time.count() << " seconds. "
+            << "This may indicate that different ranks are trying to "
+               "submit different tensors or that only subset of ranks is "
+               "submitting tensors, which will cause deadlock. "
+            << std::endl << "Stalled ranks:";
+    for (auto& kv: missing_ranks) {
+      message << std::endl << kv.first;
+      if (shutdown_ranks.find(kv.first) != shutdown_ranks.end()) {
+        message << "!";
+      }
+
+      message << ": [";
+      auto it = kv.second.begin();
+      message << *it;
+      int count = 0;
+      while (++it != kv.second.end()) {
+        message << ", " << *it;
+        if (++count == 5) {
+          message << " ...";
+          break;
+        }
+      }
+
       message << "]";
+    }
+
+    if (should_shut_down) {
+      message << std::endl
+              << "One or more rank (marked by \"!\") is stalled for longer than "
+              << stall_shutdown_time.count() << " seconds. Will shutdown.";
+      LOG(ERROR) << message.str();
+    } else {
       LOG(WARNING) << message.str();
     }
+  }
+
+  return should_shut_down;
+}
+
+void set_bool_from_env(const char* env, bool& val, bool value_if_set) {
+  auto env_value = std::getenv(env);
+  if (env_value != nullptr &&
+      std::strtol(env_value, nullptr, 10) > 0) {
+    val = value_if_set;
+  }
+}
+
+void set_int_from_env(const char* env, int& val) {
+  auto env_value = std::getenv(env);
+  if (env_value != nullptr) {
+    val = std::strtol(env_value, nullptr, 10);
   }
 }
 
@@ -747,11 +795,13 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
                               static_cast<unsigned int>(size));
   }
 
-  auto horovod_timeline_mark_cycles = std::getenv(HOROVOD_TIMELINE_MARK_CYCLES);
-  if (horovod_timeline_mark_cycles != nullptr &&
-      std::strtol(horovod_timeline_mark_cycles, nullptr, 10) > 0) {
-    state.mark_cycles_in_timeline = true;
-  }
+  set_bool_from_env(HOROVOD_TIMELINE_MARK_CYCLES, state.mark_cycles_in_timeline, true);
+
+  set_bool_from_env(HOROVOD_STALL_CHECK_DISABLE, state.perform_stall_check, false);
+
+  set_int_from_env(HOROVOD_STALL_CHECK_TIME_SECONDS, state.stall_warning_time_seconds);
+
+  set_int_from_env(HOROVOD_STALL_SHUTDOWN_TIME_SECONDS, state.stall_shutdown_time_seconds);
 
   // Override Tensor Fusion threshold, if it's set.
   state.param_manager.SetTensorFusionThresholdBytes(64 * 1024 * 1024);
@@ -767,13 +817,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
   if (horovod_cycle_time != nullptr) {
     state.param_manager.SetCycleTimeMs(std::strtof(horovod_cycle_time, nullptr),
                                        true);
-  }
-
-  // Disable stall check.
-  auto horovod_stall_check_disable = std::getenv(HOROVOD_STALL_CHECK_DISABLE);
-  if (horovod_stall_check_disable != nullptr &&
-      std::strtol(horovod_stall_check_disable, nullptr, 10) > 0) {
-    state.perform_stall_check = false;
   }
 
   // Set flag for hierarchical allgather. Ignore if Horovod is running on a
@@ -1067,6 +1110,14 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       responses.push_back(std::move(response));
     }
 
+    // Check for stalled tensors.
+    if (state.perform_stall_check &&
+        std::chrono::steady_clock::now() - state.last_stall_check >
+            std::chrono::seconds(state.stall_warning_time_seconds)) {
+      should_shut_down |= CheckForStalledTensors(state, ctx);
+      state.last_stall_check = std::chrono::steady_clock::now();
+    }
+
     ResponseList response_list;
     response_list.set_shutdown(should_shut_down);
     {
@@ -1229,14 +1280,6 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       LOG(DEBUG, state.rank) << "Processing " << response.tensor_names().size() << " tensors";
       PerformOperation(state.tensor_table, response);
       LOG(TRACE, state.rank) << "Finished performing " << response.tensor_names_string();
-    }
-
-    // Check for stalled tensors.
-    if (state.perform_stall_check &&
-        std::chrono::steady_clock::now() - state.last_stall_check >
-            STALL_WARNING_TIME) {
-      CheckForStalledTensors(state, ctx);
-      state.last_stall_check = std::chrono::steady_clock::now();
     }
 
     if (state.param_manager.IsAutoTuning()) {

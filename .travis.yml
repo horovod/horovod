@@ -71,6 +71,8 @@ install:
       docker exec ${CONTAINER} /bin/sh -c "apt-get install -y mpich"
     fi
 
+  - docker exec ${CONTAINER} /bin/sh -c "pip install mpi4py"
+
   # TensorFlow
   - docker exec ${CONTAINER} /bin/sh -c "pip install ${TF_PACKAGE}"
 
@@ -111,6 +113,9 @@ script:
 
   # run unit tests
   - docker exec ${CONTAINER} /bin/sh -c "pip install pytest && cd /horovod/test && (echo test_*.py | xargs -n 1 ${MPIRUN} pytest -v)"
+
+  # run stall test
+  - docker exec ${CONTAINER} /bin/sh -c "${MPIRUN} python /horovod/test/test_stall.py"
 
   # hack for compatibility of MNIST example with tf 1.1.0
   - |

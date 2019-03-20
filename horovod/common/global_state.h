@@ -66,6 +66,14 @@ struct HorovodGlobalState {
   // Flag indicating whether to perform stall tensor check.
   bool perform_stall_check = true;
 
+  // Stall-check warning time
+  int stall_warning_time_seconds = 60;
+
+  // Stall-check shutdown time. If perform_stall_check==true and this value
+  // is set to be greater than stall_warning_time_seconds, horovod will shut
+  // itself down if any rank is stalled for longer than this time.
+  int stall_shutdown_time_seconds = 0;
+
   // Timeline writer.
   Timeline timeline;
 
