@@ -123,12 +123,15 @@ opt = hvd.DistributedOptimizer(opt)
 # Initialize parameters
 initializer = mx.init.Xavier(rnd_type='gaussian', factor_type="in",
                              magnitude=2)
-# Horovod: wrap initializer with DistributedInitializer
-initializer = hvd.DistributedInitializer(initializer)
 model.initialize(initializer, ctx=context)
 
+# Fetch and broadcast parameters
+params = model.collect_params()
+if params is not None:
+    hvd.broadcast_parameters(params, root_rank=0)
+
 # Create trainer, loss function and train metric
-trainer = gluon.Trainer(model.collect_params(), opt, kvstore=None)
+trainer = gluon.Trainer(params, opt, kvstore=None)
 loss_fn = gluon.loss.SoftmaxCrossEntropyLoss()
 metric = mx.metric.Accuracy()
 
