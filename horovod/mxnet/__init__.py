@@ -31,6 +31,7 @@ from horovod.mxnet.mpi_ops import mpi_threads_supported
 
 import mxnet as mx
 import types
+import warnings
 
 
 # This is where Horovod's DistributedOptimizer wrapper for MXNet goes
@@ -71,6 +72,11 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
 
 class DistributedTrainer(mx.gluon.Trainer):
     def __init__(self, params, optimizer, optimizer_params=None):
+        if isinstance(optimizer, DistributedOptimizer):
+            optimizer = optimizer._optimizer
+            warnings.warn("DistributedTrainer does not take DistributedOptimizer "
+                          "as its optimizer. We have unwrapped it for you.")
+
         super(DistributedTrainer, self).__init__(
             params, optimizer, optimizer_params=optimizer_params, kvstore=None)
 
