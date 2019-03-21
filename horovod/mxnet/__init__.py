@@ -69,6 +69,17 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
         self._optimizer.set_wd_mult(args_wd_mult)
 
 
+class DistributedTrainer(mx.gluon.Trainer):
+    def __init__(self, params, optimizer, optimizer_params=None):
+        super(DistributedTrainer, self).__init__(
+            params, optimizer, optimizer_params=optimizer_params, kvstore=None)
+
+    def _allreduce_grads(self):
+        for i, param in enumerate(self._params):
+            if param.grad_req != 'null':
+                allreduce_(param.list_grad()[0], average=True, name=str(i))
+
+
 # Wrapper to inject Horovod broadcast after parameter initialization
 def _append_broadcast_init(param, root_rank):
     init_impl = getattr(param, '_init_impl')
