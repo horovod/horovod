@@ -88,7 +88,7 @@ Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
     auto cuda_result = cudaMemcpyAsync(buffer_data, fused_input_data, buffer_len,
                                        cudaMemcpyDeviceToDevice, *stream_);
     cuda_context_->ErrorCheck("cudaMemcpyAsync", cuda_result);
-    cuda_context_->RecordEvent(event_queue, MEMCPY_IN_FUSION_BUFFER, *stream_);
+    cuda_context_->RecordEvent(event_queue_, MEMCPY_IN_FUSION_BUFFER, *stream_);
   }
 
   // Synchronize.
