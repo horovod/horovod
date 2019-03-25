@@ -202,7 +202,7 @@ See a full training [example](examples/tensorflow_mnist_estimator.py).
 
 Horovod supports MXNet and regular TensorFlow in similar ways.
 
-See full training [MNIST](examples/mxnet_mnist.py) and [ImageNet](examples/mxnet_imagenet_resnet50.py) examples.
+See full training [MNIST](examples/mxnet_mnist.py) and [ImageNet](examples/mxnet_imagenet_resnet50.py) examples. The script below provides a simple skeleton of code block based on MXNet Gluon API.
 
 ```python
 import mxnet as mx
