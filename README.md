@@ -175,7 +175,7 @@ $ horovodrun -np 16 -H server1:4,server2:4,server3:4,server4:4 python train.py
 
 3. To run in Docker, see the [Horovod in Docker](docs/docker.md) page.
 
-4. To run in Kubernetes, see [Kubeflow](https://github.com/kubeflow/kubeflow/blob/master/kubeflow/openmpi/),
+4. To run in Kubernetes, see [Kubeflow](https://github.com/kubeflow/kubeflow/tree/master/kubeflow/mpi-job),
 [MPI Operator](https://github.com/kubeflow/mpi-operator/), 
 [Helm Chart](https://github.com/kubernetes/charts/tree/master/stable/horovod/), and 
 [FfDL](https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/).
