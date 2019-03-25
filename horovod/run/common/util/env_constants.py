@@ -13,4 +13,4 @@
 # limitations under the License.
 # ==============================================================================
 
-ENV_IGNORE = {'BASH_FUNC_module()'}
+IGNORE_LIST = {'BASH_FUNC_module()'}
