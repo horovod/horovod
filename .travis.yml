@@ -23,7 +23,7 @@ before_install:
   - export CONTAINER=$(docker ps -q | head -n 1)
   - docker exec ${CONTAINER} /bin/sh -c "apt-get update -qq"
   # install necessary network tools
-  - docker exec ${CONTAINER} /bin/sh -c "apt-get install -y wget openssh-client git build-essential"
+  - docker exec ${CONTAINER} /bin/sh -c "apt-get install -y --no-install-recommends wget openssh-client git build-essential gcc-4.8 g++-4.8 gcc-4.8-base"
   # install OpenJDK 8 for PySpark
   - docker exec ${CONTAINER} /bin/sh -c "apt install -y openjdk-8-jdk-headless"
   # install Python and add a proper symlink
@@ -96,8 +96,12 @@ install:
   - docker exec ${CONTAINER} /bin/sh -c "pip install ${MXNET_PACKAGE}"
 
   # Horovod
+  # Pin GCC to 4.8 to compile correctly against TensorFlow
+  - docker exec ${CONTAINER} /bin/sh -c "update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 100 && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 100"
   - docker exec ${CONTAINER} /bin/sh -c "cd /horovod && python setup.py sdist"
   - docker exec ${CONTAINER} /bin/sh -c "pip install -v /horovod/dist/horovod-*.tar.gz"
+  # Remove GCC pinning
+  - docker exec ${CONTAINER} /bin/sh -c "update-alternatives --remove gcc /usr/bin/gcc-4.8 && update-alternatives --remove g++ /usr/bin/g++-4.8"
 
 script:
   - |
