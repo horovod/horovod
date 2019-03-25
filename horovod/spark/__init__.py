@@ -172,7 +172,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, std
                     hosts=','.join('%s:%d' % (host_hash, len(driver.task_host_hash_indices()[host_hash]))
                                    for host_hash in host_hashes),
                     common_intfs=','.join(common_intfs),
-                    env=' '.join('-x %s' % key for key in env.keys()),
+                    env=' '.join('-x %s' % key for key in env.keys() if key not in env.ENV_IGNORE),
                     python=sys.executable,
                     encoded_driver_addresses=codec.dumps_base64(driver.addresses())))
         if verbose >= 2:
