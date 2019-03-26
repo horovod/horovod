@@ -26,7 +26,7 @@ except ImportError:
     from pipes import quote
 import horovod
 
-from horovod.run.common.util import codec, safe_shell_exec, timeout, secret
+from horovod.run.common.util import codec, env_constants, safe_shell_exec, timeout, secret
 from horovod.run.driver import driver_service
 from horovod.run.task import task_service
 from horovod.run.util import cache, threads, network
@@ -468,7 +468,8 @@ def run():
                     tcp_intf_arg=tcp_intf_arg,
                     nccl_socket_intf_arg=nccl_socket_intf_arg,
                     ssh_port_arg=ssh_port_arg,
-                    env=' '.join('-x %s' % key for key in env.keys()),
+                    env=' '.join('-x %s' % key for key in env.keys()
+                                 if key not in env_constants.IGNORE_LIST),
                     command=' '.join(quote(par) for par in args.command))
     )
 
