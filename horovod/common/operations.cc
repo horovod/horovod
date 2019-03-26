@@ -891,17 +891,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
   // Signal that shutdown has been requested.
   state.shut_down = true;
 
-  // TODO: init.cu:645 WARN Cuda failure 'driver shutting down'
-  //#if HAVE_NCCL
-  //  for (auto it = horovod_global.streams.begin();
-  //       it != horovod_global.streams.end(); ++it) {
-  //    cudaStreamSynchronize(it->second);
-  //  }
-  //  for (auto it = horovod_global.nccl_comms.begin();
-  //       it != horovod_global.nccl_comms.end(); ++it) {
-  //    ncclCommDestroy(it->second);
-  //  }
-  //#endif
+#if HAVE_NCCL
+  nccl_context.ShutDown();
+#endif
 
   // Notify all outstanding operations that Horovod has been shut down
   // and clear up the tensor table and message queue.
