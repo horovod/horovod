@@ -95,13 +95,19 @@ install:
   # MXNet
   - docker exec ${CONTAINER} /bin/sh -c "pip install ${MXNET_PACKAGE}"
 
-  # Horovod
   # Pin GCC to 4.8 to compile correctly against TensorFlow
-  - docker exec ${CONTAINER} /bin/sh -c "update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 100 && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 100"
+  - docker exec ${CONTAINER} /bin/sh -c "update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 100"
+  - docker exec ${CONTAINER} /bin/sh -c "update-alternatives --install /usr/bin/x86_64-linux-gnu-gcc x86_64-linux-gnu-gcc /usr/bin/gcc-4.8 100"
+  - docker exec ${CONTAINER} /bin/sh -c "update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 100"
+  - docker exec ${CONTAINER} /bin/sh -c "update-alternatives --install /usr/bin/x86_64-linux-gnu-g++ x86_64-linux-gnu-g++ /usr/bin/g++-4.8 100"
+  # Horovod
   - docker exec ${CONTAINER} /bin/sh -c "cd /horovod && python setup.py sdist"
   - docker exec ${CONTAINER} /bin/sh -c "pip install -v /horovod/dist/horovod-*.tar.gz"
   # Remove GCC pinning
-  - docker exec ${CONTAINER} /bin/sh -c "update-alternatives --remove gcc /usr/bin/gcc-4.8 && update-alternatives --remove g++ /usr/bin/g++-4.8"
+  - docker exec ${CONTAINER} /bin/sh -c "update-alternatives --remove gcc /usr/bin/gcc-4.8"
+  - docker exec ${CONTAINER} /bin/sh -c "update-alternatives --remove x86_64-linux-gnu-gcc /usr/bin/gcc-4.8"
+  - docker exec ${CONTAINER} /bin/sh -c "update-alternatives --remove g++ /usr/bin/g++-4.8"
+  - docker exec ${CONTAINER} /bin/sh -c "update-alternatives --remove x86_64-linux-gnu-g++ /usr/bin/g++-4.8"
 
 script:
   - |
