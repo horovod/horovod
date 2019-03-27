@@ -8,13 +8,7 @@ services:
   - docker
 
 before_install:
-  # force latest Ubuntu for Python 3.6 and nightly TensorFlow which requires new glibc
-  - |
-    if [[ ${TRAVIS_PYTHON_VERSION} == "3.6" || ${TF_PACKAGE} == "tf-nightly" ]]; then
-      export UBUNTU=18.04
-    else
-      export UBUNTU=16.04
-    fi
+  - export UBUNTU=16.04
   - docker pull ubuntu:${UBUNTU}
   # run docker container for an hour
   - docker run -v `pwd`:/horovod ubuntu:${UBUNTU} /bin/sh -c "sleep 3600" &
@@ -23,16 +17,16 @@ before_install:
   - export CONTAINER=$(docker ps -q | head -n 1)
   - docker exec ${CONTAINER} /bin/sh -c "apt-get update -qq"
   # install necessary network tools
-  - docker exec ${CONTAINER} /bin/sh -c "apt-get install -y wget openssh-client git build-essential"
+  - docker exec ${CONTAINER} /bin/sh -c "apt-get install -y --no-install-recommends wget ca-certificates openssh-client git build-essential gcc-4.9 g++-4.9 gcc-4.9-base software-properties-common"
   # install OpenJDK 8 for PySpark
   - docker exec ${CONTAINER} /bin/sh -c "apt install -y openjdk-8-jdk-headless"
-  # install Python and add a proper symlink
   - |
     if [[ ${TRAVIS_PYTHON_VERSION} == "3.6" ]]; then
-      docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev python3-distutils"
-    else
-      docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev"
+      docker exec ${CONTAINER} /bin/sh -c "add-apt-repository ppa:deadsnakes/ppa"
+      docker exec ${CONTAINER} /bin/sh -c "apt-get update -qq"
     fi
+  # install Python and add a proper symlink
+  - docker exec ${CONTAINER} /bin/sh -c "apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev"
   - docker exec ${CONTAINER} /bin/sh -c "ln -s /usr/bin/python${TRAVIS_PYTHON_VERSION} /usr/bin/python"
   - docker exec ${CONTAINER} /bin/sh -c "wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py"
   - docker exec ${CONTAINER} /bin/sh -c "pip install -U --force pip setuptools requests"
@@ -41,25 +35,25 @@ before_install:
 
 env:
   matrix:
-    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=mxnet-gcc5 MPI=OpenMPI PYSPARK=2.1.2
-    - TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet-gcc5 MPI=OpenMPI PYSPARK=2.3.2
-    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet-gcc5 MPI=OpenMPI PYSPARK=2.4.0
-    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet-gcc5 MPI=OpenMPI PYSPARK=2.4.0
-    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet-gcc5 MPI=MPICH PYSPARK=2.4.0
+    - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=mxnet==1.4.0.post0 MPI=OpenMPI PYSPARK=2.1.2
+    - TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet==1.4.0.post0 MPI=OpenMPI PYSPARK=2.3.2
+    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet==1.4.0.post0 MPI=OpenMPI PYSPARK=2.4.0
+    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet==1.4.0.post0 MPI=OpenMPI PYSPARK=2.4.0
+    - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet==1.4.0.post0 MPI=MPICH PYSPARK=2.4.0
 
 matrix:
   fast_finish: true
   exclude:
     - python: "3.5"
-      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=mxnet-gcc5 MPI=OpenMPI PYSPARK=2.3.2
+      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=mxnet==1.4.0.post0 MPI=OpenMPI PYSPARK=2.3.2
     - python: "3.6"
-      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet-gcc5 MPI=OpenMPI PYSPARK=2.3.2
+      env: TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet==1.4.0.post0 MPI=OpenMPI PYSPARK=2.3.2
     - python: "3.5"
-      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet-gcc5 MPI=MPICH PYSPARK=2.4.0
+      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet==1.4.0.post0 MPI=MPICH PYSPARK=2.4.0
     - python: "3.6"
-      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet-gcc5 MPI=MPICH PYSPARK=2.4.0
+      env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet==1.4.0.post0 MPI=MPICH PYSPARK=2.4.0
     - python: "3.5"
-      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet-gcc5 MPI=OpenMPI PYSPARK=2.4.0
+      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet==1.4.0.post0 MPI=OpenMPI PYSPARK=2.4.0
 
 install:
   - |
@@ -95,9 +89,19 @@ install:
   # MXNet
   - docker exec ${CONTAINER} /bin/sh -c "pip install ${MXNET_PACKAGE}"
 
+  # Pin GCC to 4.9 to compile correctly against TensorFlow, PyTorch, and MXNet
+  - docker exec ${CONTAINER} /bin/sh -c "update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 100"
+  - docker exec ${CONTAINER} /bin/sh -c "update-alternatives --install /usr/bin/x86_64-linux-gnu-gcc x86_64-linux-gnu-gcc /usr/bin/gcc-4.9 100"
+  - docker exec ${CONTAINER} /bin/sh -c "update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.9 100"
+  - docker exec ${CONTAINER} /bin/sh -c "update-alternatives --install /usr/bin/x86_64-linux-gnu-g++ x86_64-linux-gnu-g++ /usr/bin/g++-4.9 100"
   # Horovod
   - docker exec ${CONTAINER} /bin/sh -c "cd /horovod && python setup.py sdist"
   - docker exec ${CONTAINER} /bin/sh -c "pip install -v /horovod/dist/horovod-*.tar.gz"
+  # Remove GCC pinning
+  - docker exec ${CONTAINER} /bin/sh -c "update-alternatives --remove gcc /usr/bin/gcc-4.9"
+  - docker exec ${CONTAINER} /bin/sh -c "update-alternatives --remove x86_64-linux-gnu-gcc /usr/bin/gcc-4.9"
+  - docker exec ${CONTAINER} /bin/sh -c "update-alternatives --remove g++ /usr/bin/g++-4.9"
+  - docker exec ${CONTAINER} /bin/sh -c "update-alternatives --remove x86_64-linux-gnu-g++ /usr/bin/g++-4.9"
 
 script:
   - |
