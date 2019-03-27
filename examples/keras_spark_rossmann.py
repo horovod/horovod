@@ -189,7 +189,10 @@ def prepare_df(df):
 def build_vocabulary(df, cols):
     vocab = {}
     for col in cols:
-        vocab[col] = sorted([r[0] for r in df.select(col).distinct().collect()])
+        values = [r[0] for r in df.select(col).distinct().collect()]
+        col_type = type([x for x in values if x is not None][0])
+        default_value = col_type()
+        vocab[col] = sorted(values, key=lambda x: x or default_value)
     return vocab
 
 
