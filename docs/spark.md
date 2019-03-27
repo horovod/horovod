@@ -63,7 +63,7 @@ a submission file.
 
 To run the example, please install the following dependencies:
 * `pyspark`
-* `petastorm >= 0.5.1`
+* `petastorm >= 0.7.0`
 * `h5py >= 2.9.0`
 * `tensorflow-gpu >= 1.12.0` (or `tensorflow >= 1.12.0`)
 * `horovod >= 0.15.3`
