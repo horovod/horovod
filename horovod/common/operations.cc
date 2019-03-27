@@ -1403,8 +1403,8 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     // Check for stalled tensors.
     if (state.perform_stall_check &&
         std::chrono::steady_clock::now() - state.last_stall_check >
-            STALL_WARNING_TIME) {
-      CheckForStalledTensors(state, ctx);
+            std::chrono::seconds(state.stall_warning_time_seconds)) {
+      should_shut_down |= CheckForStalledTensors(state, ctx);
       state.last_stall_check = std::chrono::steady_clock::now();
     }
   }
@@ -1516,14 +1516,6 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       Response response =
           ConstructResponse(state.message_table, tensor_name);
       responses.push_back(std::move(response));
-    }
-
-    // Check for stalled tensors.
-    if (state.perform_stall_check &&
-        std::chrono::steady_clock::now() - state.last_stall_check >
-            std::chrono::seconds(state.stall_warning_time_seconds)) {
-      should_shut_down |= CheckForStalledTensors(state, ctx);
-      state.last_stall_check = std::chrono::steady_clock::now();
     }
 
     ResponseList response_list;

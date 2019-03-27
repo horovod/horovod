@@ -17,11 +17,8 @@
 #ifndef HOROVOD_MESSAGE_H
 #define HOROVOD_MESSAGE_H
 
-#include <list>
 #include <string>
-#include <unordered_map>
 #include <vector>
-
 
 namespace horovod {
 namespace common {
