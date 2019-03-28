@@ -668,12 +668,44 @@ def is_mx_mkldnn():
                 return os.environ.get('MXNET_USE_MKLDNN', '0') == '1'
 
 
+def is_mx_cuda():
+    try:
+        from mxnet import runtime
+        features = runtime.Features()
+        return features.is_enabled('CUDA')
+    except Exception:
+        if 'linux' in sys.platform:
+            try:
+                import mxnet as mx
+                mx_libs = mx.libinfo.find_lib_path()
+                for mx_lib in mx_libs:
+                    output = subprocess.check_output(['readelf', '-d', mx_lib])
+                    if 'cuda' in str(output):
+                        return True
+                return False
+            except Exception:
+                return False
+    return False
+
+
 def build_mx_extension(build_ext, options):
     check_mx_version()
     mx_compile_flags, mx_link_flags = get_mx_flags(
         build_ext, options['COMPILE_FLAGS'])
 
-    mxnet_mpi_lib.define_macros = options['MACROS']
+    have_cuda = is_mx_cuda()
+    if not have_cuda and check_macro(options['MACROS'], 'HAVE_CUDA'):
+        raise DistutilsPlatformError(
+            'Horovod build with GPU support was requested, but this MXNet '
+            'installation does not support CUDA.')
+
+    # Update HAVE_CUDA to mean that PyTorch supports CUDA. Internally, we will be checking
+    # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
+    # version or transfer tensors to CPU memory for those operations.
+    updated_macros = set_macro(
+        options['MACROS'], 'HAVE_CUDA', str(int(have_cuda)))
+
+    mxnet_mpi_lib.define_macros = updated_macros
     if check_macro(options['MACROS'], 'HAVE_CUDA'):
         mxnet_mpi_lib.define_macros += [('MSHADOW_USE_CUDA', '1')]
     else:
