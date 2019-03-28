@@ -161,16 +161,15 @@ void DoBroadcast(NDArray* tensor, NDArray* output, int root_rank,
 
 #if HAVE_CUDA
 void DoBroadcastCudaOnCPU(
-    std::shared_ptr<MXTemporaryBuffer<NDArray>>& hvd_cpu_buffer, int root_rank,
+    MXTempBufferShared& hvd_cpu_buffer, int root_rank,
     std::string& name, CallbackOnComplete on_complete) {
-  // Make async copy of input tensor to CPU tensor and record completion event.
+  ThrowIfError(common::CheckInitialized());
+
   auto hvd_context = std::make_shared<MXOpContext<NDArray>>(
       CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
-  auto ready_event =
-      std::make_shared<MXReadyEvent<NDArray>>(hvd_cpu_buffer->tensor());
 
   auto enqueue_result = EnqueueTensorBroadcast(
-      hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, root_rank, ready_event,
+      hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, root_rank, nullptr,
       name, CPU_DEVICE_ID,
       [on_complete](const Status& status) {
         InvokeCompleteCallback(on_complete, status);
@@ -284,48 +283,44 @@ extern "C" int horovod_mxnet_broadcast_async(NDArray* input, NDArray* output,
   MX_API_BEGIN();
 
   std::string op_name = GetOpName("broadcast", name);
-  auto broadcast_async_fn = [input, output, op_name,
-                             root_rank](RunContext rctx,
-                                        CallbackOnComplete on_complete) mutable {
-    DoBroadcast(input, output, root_rank, op_name, on_complete);
-  };
 
-#if HAVE_CUDA && HOROVOD_GPU_BROADCAST != 'M'
-  ThrowIfError(common::CheckInitialized());
-  // Make async copy of input tensor to CPU tensor and record completion event.
+#if HAVE_CUDA && !HOROVOD_GPU_BROADCAST
+  // Make async copy of input tensor to CPU tensor.
   auto hvd_cpu_buffer = std::make_shared<MXTemporaryBuffer<NDArray>>(
       CPU_DEVICE_ID, input->dtype());
-  TensorUtil::AsyncCopyCudaToCPU(input, hvd_cpu_buffer->tensor());
+  auto cpu_tensor = hvd_cpu_buffer->tensor();
+  TensorUtil::AsyncCopyCudaToCPU(input, cpu_tensor);
+
   auto broadcast_async_cpu_fn =
         [hvd_cpu_buffer, op_name, root_rank]
         (RunContext rctx, CallbackOnComplete on_complete) mutable {
           DoBroadcastCudaOnCPU(hvd_cpu_buffer, root_rank, op_name, on_complete);
         };
 
+  // In-place
+  Engine::Get()->PushAsync(broadcast_async_cpu_fn, cpu_tensor->ctx(),
+                           {}, {cpu_tensor->var()},
+                           FnProperty::kNormal, 0, "HorovodBroadcast");
+
+  // Make async copy of CPU tensor to output tensor.
+  TensorUtil::AsyncCopyCPUToCuda(cpu_tensor, output);
+#else
+  auto broadcast_async_fn = [input, output, op_name,
+                             root_rank](RunContext rctx,
+                                        CallbackOnComplete on_complete) mutable {
+    DoBroadcast(input, output, root_rank, op_name, on_complete);
+  };
+
   // Not in-place
   if (input->var() != output->var()) {
-    Engine::Get()->PushAsync(broadcast_async_cpu_fn, input->ctx(),
+    Engine::Get()->PushAsync(broadcast_async_fn, input->ctx(),
                              {input->var()}, {output->var()},
                              FnProperty::kNormal, 0, "HorovodBroadcast");
   // In-place
   } else {
-    Engine::Get()->PushAsync(broadcast_async_cpu_fn, input->ctx(), {},
-                             {output->var()}, FnProperty::kNormal, 0,
-                             "HorovodBroadcast");
-  }
-
-  TensorUtil::AsyncCopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
-#else
-  // Not in-place
-  if (input->var() != output->var()) {
-    Engine::Get()->PushAsync(broadcast_async_fn, input->ctx(), {input->var()},
-                             {output->var()}, FnProperty::kNormal, 0,
-                             "HorovodBroadcast");
-  // In-place
-  } else {
-    Engine::Get()->PushAsync(broadcast_async_fn, input->ctx(), {},
-                             {output->var()}, FnProperty::kNormal, 0,
-                             "HorovodBroadcast");
+    Engine::Get()->PushAsync(broadcast_async_fn, input->ctx(),
+                             {}, {output->var()},
+                             FnProperty::kNormal, 0, "HorovodBroadcast");
   }
 #endif
 

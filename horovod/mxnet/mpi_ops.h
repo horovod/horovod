@@ -30,6 +30,7 @@ using namespace horovod::common;
 typedef ::mxnet::Engine Engine;
 typedef ::mxnet::NDArray NDArray;
 typedef ::mxnet::engine::CallbackOnComplete CallbackOnComplete;
+typedef std::shared_ptr<MXTemporaryBuffer<NDArray>> MXTempBufferShared;
 
 extern "C" int horovod_mxnet_allreduce_async(NDArray* input, NDArray* output,
                                              char* name, bool average);
