@@ -693,19 +693,26 @@ def build_mx_extension(build_ext, options):
     mx_compile_flags, mx_link_flags = get_mx_flags(
         build_ext, options['COMPILE_FLAGS'])
 
-    have_cuda = is_mx_cuda()
-    if not have_cuda and check_macro(options['MACROS'], 'HAVE_CUDA'):
+    mx_have_cuda = is_mx_cuda()
+    macro_have_cuda = check_macro(options['MACROS'], 'HAVE_CUDA')
+    if not mx_have_cuda and macro_have_cuda:
         raise DistutilsPlatformError(
             'Horovod build with GPU support was requested, but this MXNet '
             'installation does not support CUDA.')
 
-    # Update HAVE_CUDA to mean that PyTorch supports CUDA. Internally, we will be checking
+    # Update HAVE_CUDA to mean that MXNet supports CUDA. Internally, we will be checking
     # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
     # version or transfer tensors to CPU memory for those operations.
-    updated_macros = set_macro(
-        options['MACROS'], 'HAVE_CUDA', str(int(have_cuda)))
+    if mx_have_cuda and not macro_have_cuda:
+        cuda_include_dirs, cuda_lib_dirs = get_cuda_dirs(build_ext, options['COMPILE_FLAGS'])
+        options['MACROS'] += [('HAVE_CUDA', '1')]
+        options['INCLUDES'] += cuda_include_dirs
+        options['SOURCES'] += ['horovod/common/ops/cuda_operations.cc',
+                               'horovod/common/ops/mpi_cuda_operations.cc']
+        options['LIBRARY_DIRS'] += cuda_lib_dirs
+        options['LIBRARIES'] += ['cudart']
 
-    mxnet_mpi_lib.define_macros = updated_macros
+    mxnet_mpi_lib.define_macros = options['MACROS']
     if check_macro(options['MACROS'], 'HAVE_CUDA'):
         mxnet_mpi_lib.define_macros += [('MSHADOW_USE_CUDA', '1')]
     else:
