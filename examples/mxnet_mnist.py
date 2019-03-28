@@ -128,7 +128,7 @@ params = model.collect_params()
 if params is not None:
     hvd.broadcast_parameters(params, root_rank=0)
 
-# Horovod: create DistributedTrainer which is a subclass of gluon.Trainer
+# Horovod: create DistributedTrainer, a subclass of gluon.Trainer
 trainer = hvd.DistributedTrainer(params, opt)
 
 # Create loss function and train metric
