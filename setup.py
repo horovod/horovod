@@ -725,7 +725,6 @@ def build_mx_extension(build_ext, options):
     mxnet_mpi_lib.include_dirs = options['INCLUDES']
     mxnet_mpi_lib.sources = options['SOURCES'] + \
         ['horovod/mxnet/mpi_ops.cc',
-         'horovod/mxnet/ready_event.cc',
          'horovod/mxnet/tensor_util.cc',
          'horovod/mxnet/cuda_util.cc',
          'horovod/mxnet/adapter.cc']

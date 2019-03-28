@@ -19,7 +19,6 @@
 #include "adapter.h"
 #include "cuda_util.h"
 #include "mpi_ops.h"
-#include "ready_event.h"
 #include "tensor_util.h"
 
 namespace horovod {
