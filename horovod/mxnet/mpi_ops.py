@@ -177,10 +177,10 @@ def broadcast(tensor, root_rank, name=None):
     c_out = output.handle
     if isinstance(name, string_types):
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(c_in,
-                   c_out, ctypes.c_int(root_rank), c_str(name)))
+                   c_out, c_str(name), ctypes.c_int(root_rank)))
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(c_in,
-                   c_out, ctypes.c_int(root_rank), name))
+                   c_out, name, ctypes.c_int(root_rank)))
     return output
 
 
@@ -207,8 +207,8 @@ def broadcast_(tensor, root_rank, name=None):
     c_out = tensor.handle
     if isinstance(name, string_types):
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(c_in,
-                   c_out, ctypes.c_int(root_rank), c_str(name)))
+                   c_out, c_str(name), ctypes.c_int(root_rank)))
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(c_in,
-                   c_out, ctypes.c_int(root_rank), name))
+                   c_out, name, ctypes.c_int(root_rank)))
     return tensor
