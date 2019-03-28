@@ -112,13 +112,12 @@ model = conv_nets()
 model.cast(args.dtype)
 model.hybridize()
 
-# Define hyper parameters
+# Create optimizer
 optimizer_params = {'momentum': args.momentum,
                     'learning_rate': args.lr * hvd.size(),
                     'rescale_grad': 1.0 / args.batch_size}
-
-# Add Horovod Distributed Optimizer
 opt = mx.optimizer.create('sgd', **optimizer_params)
+# Horovod: wrap optimizer with DistributedOptimizer
 opt = hvd.DistributedOptimizer(opt)
 
 # Initialize parameters

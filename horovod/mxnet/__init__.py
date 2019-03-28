@@ -30,6 +30,7 @@ from horovod.mxnet.mpi_ops import size, local_size, rank, local_rank
 from horovod.mxnet.mpi_ops import mpi_threads_supported
 
 import mxnet as mx
+import types
 
 
 # This is where Horovod's DistributedOptimizer wrapper for MXNet goes
@@ -68,6 +69,16 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
         self._optimizer.set_wd_mult(args_wd_mult)
 
 
+# Wrapper to inject Horovod broadcast after parameter initialization
+def _append_broadcast_init(param, root_rank):
+    init_impl = getattr(param, '_init_impl')
+    def wrapped_init_impl(self, *args, **kwargs):
+        init_impl(*args, **kwargs)
+        broadcast_(self.data(), root_rank=root_rank)
+        self.data().wait_to_read()
+    return wrapped_init_impl
+
+
 def broadcast_parameters(params, root_rank=0):
     """
     Broadcasts the parameters from root rank to all other processes.
@@ -89,8 +100,10 @@ def broadcast_parameters(params, root_rank=0):
             try:
                 tensors.append(p.data())
             except mx.gluon.parameter.DeferredInitializationError:
-                # skip broadcasting deferred init param
-                pass
+                # Inject wrapper method with post-initialization broadcast to
+                # handle parameters with deferred initialization
+                new_init = _append_broadcast_init(p, root_rank)
+                p._init_impl = types.MethodType(new_init, p)
     else:
         raise ValueError('invalid params of type: %s' % type(params))
 

@@ -355,7 +355,6 @@ class MXTests(unittest.TestCase):
         shapes = [(), (17), (17, 17), (17, 17, 17)]
         root_rank = 1
         tensor_dict = {}
-        broadcast_dict = {}
         root_dict = {}
         for dtype, dim, in itertools.product(dtypes, dims):
             tensor_dict[count] = mx.nd.ones(shapes[dim], ctx=ctx) * rank
@@ -444,6 +443,33 @@ class MXTests(unittest.TestCase):
             assert False, 'hvd.broadcast did not throw rank error'
         except (MXNetError, RuntimeError):
             pass
+
+    def test_horovod_broadcast_deferred_init_parameters(self):
+        """Test that the deferred initialized parameters are broadcasted."""
+        hvd.init()
+        root_rank = 0
+        rank = hvd.rank()
+
+        # This test does not apply if there is only one worker.
+        if hvd.size() == 1:
+            return
+
+        mx.random.seed(rank)
+        layer = mx.gluon.nn.Conv2D(10, 2)
+        layer.initialize()
+        hvd.broadcast_parameters(layer.collect_params(), root_rank=root_rank)
+
+        x = mx.nd.ones((5, 4, 10, 10))
+        layer(x)
+        tensors = [p.data() for _, p in sorted(layer.collect_params().items())]
+        root_tensors = []
+        for tensor in tensors:
+            root_tensors.append(hvd.broadcast(tensor, root_rank=root_rank))
+
+        for tensor, root_tensor in zip(tensors, root_tensors):
+            assert same(tensor.asnumpy(), root_tensor.asnumpy()), \
+                'horovod did not broadcast deferred initialized parameter correctly'
+
 
 if __name__ == '__main__':
     unittest.main()
