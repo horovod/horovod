@@ -202,12 +202,12 @@ See a full training [example](examples/tensorflow_mnist_estimator.py).
 
 Horovod supports MXNet and regular TensorFlow in similar ways.
 
-See full training [MNIST](examples/mxnet_mnist.py) and [ImageNet](examples/mxnet_imagenet_resnet50.py) examples.
+See full training [MNIST](examples/mxnet_mnist.py) and [ImageNet](examples/mxnet_imagenet_resnet50.py) examples. The script below provides a simple skeleton of code block based on MXNet Gluon API.
 
 ```python
 import mxnet as mx
 import horovod.mxnet as hvd
-from mxnet import autograd, gluon
+from mxnet import autograd
 
 # Initialize Horovod
 hvd.init()
@@ -220,12 +220,9 @@ num_workers = hvd.size()
 model = ...
 model.hybridize()
 
-# Define hyper parameters
+# Create optimizer
 optimizer_params = ...
-
-# Add Horovod Distributed Optimizer
 opt = mx.optimizer.create('sgd', **optimizer_params)
-opt = hvd.DistributedOptimizer(opt)
 
 # Initialize parameters
 model.initialize(initializer, ctx=context)
@@ -235,8 +232,10 @@ params = model.collect_params()
 if params is not None:
     hvd.broadcast_parameters(params, root_rank=0)
 
-# Create trainer and loss function
-trainer = gluon.Trainer(params, opt, kvstore=None)
+# Create DistributedTrainer, a subclass of gluon.Trainer
+trainer = hvd.DistributedTrainer(params, opt)
+
+# Create loss function
 loss_fn = ...
 
 # Train model

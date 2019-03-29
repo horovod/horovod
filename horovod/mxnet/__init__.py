@@ -31,6 +31,7 @@ from horovod.mxnet.mpi_ops import mpi_threads_supported
 
 import mxnet as mx
 import types
+import warnings
 
 
 # This is where Horovod's DistributedOptimizer wrapper for MXNet goes
@@ -67,6 +68,28 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
 
     def set_wd_mult(self, args_wd_mult):
         self._optimizer.set_wd_mult(args_wd_mult)
+
+
+# DistributedTrainer, a subclass of MXNet gluon.Trainer.
+# There are two differences between DistributedTrainer and Trainer:
+# 1. DistributedTrainer calculates gradients using Horovod allreduce
+#    API while Trainer does it using kvstore push/pull APIs;
+# 2. DistributedTrainer performs allreduce(summation) and average
+#    while Trainer only performs allreduce(summation).
+class DistributedTrainer(mx.gluon.Trainer):
+    def __init__(self, params, optimizer, optimizer_params=None):
+        if isinstance(optimizer, DistributedOptimizer):
+            optimizer = optimizer._optimizer
+            warnings.warn("DistributedTrainer does not take DistributedOptimizer "
+                          "as its optimizer. We have unwrapped it for you.")
+
+        super(DistributedTrainer, self).__init__(
+            params, optimizer, optimizer_params=optimizer_params, kvstore=None)
+
+    def _allreduce_grads(self):
+        for i, param in enumerate(self._params):
+            if param.grad_req != 'null':
+                allreduce_(param.list_grad()[0], average=True, name=str(i))
 
 
 # Wrapper to inject Horovod broadcast after parameter initialization

@@ -117,21 +117,21 @@ optimizer_params = {'momentum': args.momentum,
                     'learning_rate': args.lr * hvd.size(),
                     'rescale_grad': 1.0 / args.batch_size}
 opt = mx.optimizer.create('sgd', **optimizer_params)
-# Horovod: wrap optimizer with DistributedOptimizer
-opt = hvd.DistributedOptimizer(opt)
 
 # Initialize parameters
 initializer = mx.init.Xavier(rnd_type='gaussian', factor_type="in",
                              magnitude=2)
 model.initialize(initializer, ctx=context)
 
-# Fetch and broadcast parameters
+# Horovod: fetch and broadcast parameters
 params = model.collect_params()
 if params is not None:
     hvd.broadcast_parameters(params, root_rank=0)
 
-# Create trainer, loss function and train metric
-trainer = gluon.Trainer(params, opt, kvstore=None)
+# Horovod: create DistributedTrainer, a subclass of gluon.Trainer
+trainer = hvd.DistributedTrainer(params, opt)
+
+# Create loss function and train metric
 loss_fn = gluon.loss.SoftmaxCrossEntropyLoss()
 metric = mx.metric.Accuracy()
 
