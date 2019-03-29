@@ -38,9 +38,7 @@ struct TensorParams {
 // LRU cache of Responses
 class ResponseCache {
 public:
-  enum CacheState {
-    MISS = 0, HIT = 1, INVALIDATE = 2
-  };
+  enum CacheState { MISS = 0, HIT = 1, INVALID = 2 };
 
   void set_capacity(uint32_t capacity);
 
@@ -72,9 +70,18 @@ private:
   void put_(const Response& response, TensorParams& params);
 
   uint32_t capacity_;
+
+  // List containing cached entries. Each entry in the cache is a pair
+  // of a Response and a TensorParams struct.
   std::list<std::pair<Response, TensorParams>> cache_;
-  std::vector<std::list<std::pair<Response, TensorParams>>::iterator> iters_;
-  std::unordered_map<std::string, uint32_t> table_;
+
+  // Vector of iterators to cache entries. Indexed by cache bit.
+  std::vector<std::list<std::pair<Response, TensorParams>>::iterator>
+      cache_iters_;
+
+  // Lookup table mapping tensor names to assigned cache bits.
+  std::unordered_map<std::string, uint32_t> tensor_name_to_bit_;
+
   bool bits_outdated_ = false;
 };
 

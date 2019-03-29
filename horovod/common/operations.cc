@@ -18,13 +18,12 @@
 #include <atomic>
 #include <cassert>
 #include <cstring>
+#include <map>
 #include <queue>
 #include <set>
 #include <sstream>
 #include <thread>
-#include <map>
 #include <unordered_map>
-#include <set>
 #include <unordered_set>
 
 #define OMPI_SKIP_MPICXX
@@ -451,9 +450,8 @@ int64_t TensorFusionThresholdBytes() {
 
 // Populates provided ResponseList with responses from deque.
 void PopulateResponseList(ResponseList& response_list,
-                             std::deque<Response>& responses,
-                             HorovodGlobalState& state,
-                             MPIContext& ctx) {
+                          std::deque<Response>& responses,
+                          HorovodGlobalState& state, MPIContext& ctx) {
   {
     // Protect access to tensor table.
     std::lock_guard<std::mutex> guard(horovod_global.mutex);
@@ -473,8 +471,7 @@ void PopulateResponseList(ResponseList& response_list,
         while (!responses.empty()) {
           auto new_response = responses.front();
           assert(new_response.tensor_names().size() == 1);
-          auto& new_entry =
-              state.tensor_table[new_response.tensor_names()[0]];
+          auto& new_entry = state.tensor_table[new_response.tensor_names()[0]];
           int64_t new_tensor_size = new_entry.tensor->size();
 
           if (response.response_type() == new_response.response_type() &&
@@ -486,12 +483,12 @@ void PopulateResponseList(ResponseList& response_list,
             response.add_tensor_name(new_response.tensor_names()[0]);
             responses.pop_front();
           } else {
-            // In general, don't try to fuse additional tensors since they are usually
-            // computed in order of requests and skipping tensors may mean
+            // In general, don't try to fuse additional tensors since they are
+            // usually computed in order of requests and skipping tensors may mean
             // that the batch will have to wait longer while skipped tensors
-            // could be reduced at that time. However, mixed-precision training may yield
-            // requests of various dtype in a mixed-up sequence causing breakups
-            // in fusion. To counter this some look ahead is allowed.
+            // could be reduced at that time. However, mixed-precision training
+            // may yield requests of various dtype in a mixed-up sequence causing
+            // breakups in fusion. To counter this some look ahead is allowed.
 
             skipped_size += new_tensor_size;
             if (tensor_size + skipped_size <= TensorFusionThresholdBytes()) {
@@ -525,8 +522,7 @@ void PopulateResponseList(ResponseList& response_list,
 
           auto new_response = responses.front();
           assert(new_response.tensor_names().size() == 1);
-          auto& new_entry =
-              state.tensor_table[new_response.tensor_names()[0]];
+          auto& new_entry = state.tensor_table[new_response.tensor_names()[0]];
 
           int64_t new_total_byte_size_of_output =
               TotalByteSizeOfAllgatherOutput(new_response.tensor_sizes(),
@@ -544,16 +540,16 @@ void PopulateResponseList(ResponseList& response_list,
             responses.pop_front();
 
           } else {
-            // In general, don't try to fuse additional tensors since they are usually
-            // computed in order of requests and skipping tensors may mean
+            // In general, don't try to fuse additional tensors since they are
+            // usually computed in order of requests and skipping tensors may mean
             // that the batch will have to wait longer while skipped tensors
-            // could be reduced at that time. However, mixed-precision training may yield
-            // requests of various dtype in a mixed-up sequence causing breakups
-            // in fusion. To counter this some look ahead is allowed.
+            // could be reduced at that time. However, mixed-precision training
+            // may yield requests of various dtype in a mixed-up sequence causing
+            // breakups in fusion. To counter this some look ahead is allowed.
 
             skipped_size += new_total_byte_size_of_output;
             if (total_byte_size_of_output + skipped_size <=
-                    TensorFusionThresholdBytes()) {
+                TensorFusionThresholdBytes()) {
               // Skip response and look ahead for more to fuse.
               skipped_responses.push_back(std::move(responses.front()));
               responses.pop_front();
@@ -568,7 +564,6 @@ void PopulateResponseList(ResponseList& response_list,
           responses.push_front(std::move(skipped_responses.back()));
           skipped_responses.pop_back();
         }
-
       }
 
       response_list.add_response(response);
@@ -774,10 +769,8 @@ void set_int_from_env(const char* env, int& val) {
 // shutdown state and whether uncached requests exist on any worker.
 void GetCommonCacheAndState(std::set<int>& cache_hits,
                             std::set<int>& invalid_bits,
-                            bool& uncached_in_queue,
-                            bool& invalid_in_queue,
-                            bool& should_shut_down,
-                            HorovodGlobalState& state,
+                            bool& uncached_in_queue, bool& invalid_in_queue,
+                            bool& should_shut_down, HorovodGlobalState& state,
                             MPIContext& ctx) {
   // Resize and reset bit vector.
   int nbits = state.response_cache.current_size() + NUM_STATUS_BITS;
@@ -786,7 +779,9 @@ void GetCommonCacheAndState(std::set<int>& cache_hits,
 
   // Allocate additional bits for timeline states if required.
   int fullcount = count;
-  if (state.timeline_enabled) fullcount *= 2;
+  if (state.timeline_enabled) {
+    fullcount *= 2;
+  }
 
   state.cache_mask.resize(fullcount);
 
@@ -795,20 +790,26 @@ void GetCommonCacheAndState(std::set<int>& cache_hits,
     std::memset(&state.cache_mask[count], -1, count * sizeof(long long));
   }
 
-  // Set reserved bits for additional states.
-  if (!should_shut_down) state.cache_mask[0] |= (1ull);
-  if (!uncached_in_queue) state.cache_mask[0] |= (1ull << 1);
-  if (!invalid_in_queue) state.cache_mask[0] |= (1ull << 2);
+  // Set reserved status bits for additional states.
+  if (!should_shut_down) {
+    state.cache_mask[0] |= (1ull << StatusBit::SHOULD_SHUT_DOWN);
+  }
+  if (!uncached_in_queue) {
+    state.cache_mask[0] |= (1ull << StatusBit::UNCACHED_IN_QUEUE);
+  }
+  if (!invalid_in_queue) {
+    state.cache_mask[0] |= (1ull << StatusBit::INVALID_IN_QUEUE);
+  }
 
   // For each cache hit on this worker, flip associated bit.
-  for(auto bit : cache_hits) {
+  for (auto bit : cache_hits) {
     int shifted_bit = bit + NUM_STATUS_BITS;
     int shift = shifted_bit / (sizeof(long long) * CHAR_BIT);
-    state.cache_mask[shift] |= (1ull <<
-                               (shifted_bit % (sizeof(long long) * CHAR_BIT)));
+    state.cache_mask[shift] |=
+        (1ull << (shifted_bit % (sizeof(long long) * CHAR_BIT)));
     if (state.timeline_enabled) {
-      state.cache_mask[count + shift] ^= (1ull <<
-                                         (shifted_bit % (sizeof(long long) * CHAR_BIT)));
+      state.cache_mask[count + shift] ^=
+          (1ull << (shifted_bit % (sizeof(long long) * CHAR_BIT)));
     }
   }
 
@@ -830,19 +831,25 @@ void GetCommonCacheAndState(std::set<int>& cache_hits,
     }
   }
 
-  // Set states from reserved state bits.
-  if (!cache_hits.erase(0 - NUM_STATUS_BITS)) should_shut_down = true;
-  if (!cache_hits.erase(1 - NUM_STATUS_BITS)) uncached_in_queue = true;
-  if (!cache_hits.erase(2 - NUM_STATUS_BITS)) invalid_in_queue = true;
+  // Set states from reserved status bits.
+  if (!cache_hits.erase(StatusBit::SHOULD_SHUT_DOWN - NUM_STATUS_BITS)) {
+    should_shut_down = true;
+  }
+  if (!cache_hits.erase(StatusBit::UNCACHED_IN_QUEUE - NUM_STATUS_BITS)) {
+    uncached_in_queue = true;
+  }
+  if (!cache_hits.erase(StatusBit::INVALID_IN_QUEUE - NUM_STATUS_BITS)) {
+    invalid_in_queue = true;
+  }
 
-  // If any worker has invalid cache entries, communicate invalid bits across workers
-  // using a second allreduce.
+  // If any worker has invalid cache entries, communicate invalid bits across
+  // workers using a second allreduce.
   if (invalid_in_queue) {
     std::memset(&state.cache_mask[0], 0, count * sizeof(long long));
-    for(auto bit : invalid_bits) {
+    for (auto bit : invalid_bits) {
       int shift = bit / (sizeof(long long) * CHAR_BIT);
-      state.cache_mask[shift] |= (1ull <<
-                                 (bit % (sizeof(long long) * CHAR_BIT)));
+      state.cache_mask[shift] |=
+          (1ull << (bit % (sizeof(long long) * CHAR_BIT)));
     }
 
     // Global MPI OR operation to get common invalid bits.
@@ -879,11 +886,13 @@ void GetCommonCacheAndState(std::set<int>& cache_hits,
         int shifted_bit = shift + idx - 1;
         // If bit is invalid, timeline handling will be carried out in the
         // usual way. Otherwise, mark negotiate start here.
-        if (invalid_bits.find(shifted_bit - NUM_STATUS_BITS) == invalid_bits.end()) {
-          auto response = state.response_cache.peek_response(shifted_bit - NUM_STATUS_BITS);
-          state.timeline.NegotiateStart(response.tensor_names()[0],
-                                        (Request::RequestType)
-                                        response.response_type());
+        if (invalid_bits.find(shifted_bit - NUM_STATUS_BITS) ==
+            invalid_bits.end()) {
+          auto response =
+              state.response_cache.peek_response(shifted_bit - NUM_STATUS_BITS);
+          state.timeline.NegotiateStart(
+              response.tensor_names()[0],
+              (Request::RequestType)response.response_type());
         }
         ll &= ~(1ull << (idx - 1));
       }
@@ -1352,7 +1361,7 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
         if (cache_state == ResponseCache::CacheState::HIT) {
           int cache_bit = state.response_cache.peek_cache_bit(message);
           cache_hits.insert(cache_bit);
-        } else if (cache_state == ResponseCache::CacheState::INVALIDATE) {
+        } else if (cache_state == ResponseCache::CacheState::INVALID) {
           int cache_bit = state.response_cache.peek_cache_bit(message);
           invalid_bits.insert(cache_bit);
           invalid_in_queue = true;
@@ -1378,9 +1387,10 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
   }
 
   if (state.response_cache.capacity() > 0) {
-    // Obtain common cache hits and cache invalidations across workers. Also, determine
-    // if any worker has uncached messages in queue or requests a shutdown. This function
-    // removes any invalid cache entries, if they exist.
+    // Obtain common cache hits and cache invalidations across workers. Also,
+    // determine if any worker has uncached messages in queue or requests
+    // a shutdown. This function removes any invalid cache entries, if they
+    // exist.
     GetCommonCacheAndState(cache_hits, invalid_bits, uncached_in_queue,
                            invalid_in_queue, should_shut_down, state, ctx);
 
@@ -1393,9 +1403,10 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       size_t num_messages = message_queue.size();
       for (size_t i = 0; i < num_messages; ++i) {
         auto message = message_queue.front();
-        if (!(state.response_cache.cached(message) == ResponseCache::CacheState::HIT) ||
+        if (!(state.response_cache.cached(message) ==
+              ResponseCache::CacheState::HIT) ||
             cache_hits.find(state.response_cache.peek_cache_bit(message)) !=
-            cache_hits.end()) {
+                cache_hits.end()) {
           message_queue.push(std::move(message));
         } else {
           state.message_queue.push(std::move(message));
@@ -1428,7 +1439,8 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     while (!message_queue.empty()) {
       // Skip cached messages.
       if (state.response_cache.capacity() > 0 &&
-          state.response_cache.cached(message_queue.front()) == ResponseCache::CacheState::HIT) {
+          state.response_cache.cached(message_queue.front()) ==
+              ResponseCache::CacheState::HIT) {
         message_queue.pop();
         continue;
       }
@@ -1556,13 +1568,11 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
 
     // Add supported responses to cache.
     if (state.response_cache.capacity() > 0) {
-      {
-        std::lock_guard<std::mutex> guard(horovod_global.mutex);
-        for (auto& response : response_list.responses()) {
-          if (response.response_type() == Response::ResponseType::ALLREDUCE &&
-              (int)response.devices().size() == state.size) {
-            state.response_cache.put(response, state.tensor_table);
-          }
+      std::lock_guard<std::mutex> guard(horovod_global.mutex);
+      for (auto& response : response_list.responses()) {
+        if (response.response_type() == Response::ResponseType::ALLREDUCE &&
+            (int)response.devices().size() == state.size) {
+          state.response_cache.put(response, state.tensor_table);
         }
       }
     }
@@ -1590,7 +1600,8 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     message_list.set_shutdown(should_shut_down);
     while (!message_queue.empty()) {
       // Skip cached messages.
-      if (state.response_cache.cached(message_queue.front()) == ResponseCache::CacheState::HIT) {
+      if (state.response_cache.cached(message_queue.front()) ==
+          ResponseCache::CacheState::HIT) {
         message_queue.pop();
         continue;
       }
@@ -1630,13 +1641,11 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
 
     // Add supported responses to cache.
     if (state.response_cache.capacity() > 0) {
-      {
-        std::lock_guard<std::mutex> guard(horovod_global.mutex);
-        for (auto& response : response_list.responses()) {
-          if (response.response_type() == Response::ResponseType::ALLREDUCE &&
-              (int)response.devices().size() == state.size) {
-            state.response_cache.put(response, state.tensor_table);
-          }
+      std::lock_guard<std::mutex> guard(horovod_global.mutex);
+      for (auto& response : response_list.responses()) {
+        if (response.response_type() == Response::ResponseType::ALLREDUCE &&
+            (int)response.devices().size() == state.size) {
+          state.response_cache.put(response, state.tensor_table);
         }
       }
     }

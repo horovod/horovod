@@ -66,6 +66,12 @@ enum Communicator {
   CROSS = 2
 };
 
+enum StatusBit {
+  SHOULD_SHUT_DOWN = 0,
+  UNCACHED_IN_QUEUE = 1,
+  INVALID_IN_QUEUE = 2
+};
+
 inline std::string CommunicatorName(Communicator comm) {
   switch (comm) {
     case GLOBAL:
@@ -108,7 +114,7 @@ public:
   int dims() const;
   int64_t dim_size(int idx) const;
   int64_t num_elements() const;
-  const std::vector<int64_t>& shape() const;
+  const std::vector<int64_t>& to_vector() const;
 
   inline bool operator==(const TensorShape& rhs) const {
     return shape_ == rhs.shape_;
