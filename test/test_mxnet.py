@@ -221,6 +221,34 @@ class MXTests(unittest.TestCase):
         except (MXNetError, RuntimeError):
             pass
 
+    # TODO: Enable this test when we have a way to know the Horovod build flags.
+    # It currently fails if we do allrecude on CPU when CUDA is supported.
+    @unittest.skip("fails when performing allreduce on CPU when CUDA is supported")
+    def test_horovod_allreduce_cpu_gpu_error(self):
+        """Test that the allreduce raises an error if different ranks try to
+           perform reduction on CPU and GPU."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        shape = (17, 17, 17)
+        if rank % 2 == 0:
+            ctx = mx.gpu(hvd.rank())
+        else:
+            ctx = mx.cpu(hvd.rank())
+        tensor = mx.nd.ones(shape=shape, ctx=ctx)
+
+        try:
+            output = hvd.allreduce(tensor)
+            output.wait_to_read()
+            assert False, 'hvd.allreduce did not throw cpu-gpu error'
+        except (MXNetError, RuntimeError):
+            pass
+
     def test_horovod_broadcast(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
         hvd.init()
