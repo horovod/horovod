@@ -154,8 +154,8 @@ void TensorUtil::DivideTensorInPlace(NDArray* tensor, int value) {
   *tensor /= value;
 }
 
-#ifdef HAVE_CUDA
-void TensorUtil::CopyCPUToCuda(NDArray* cpu, NDArray* cuda) {
+#if HAVE_CUDA
+void TensorUtil::AsyncCopyCPUToCuda(NDArray* cpu, NDArray* cuda) {
   TensorUtil::Copy(cuda, cpu);
 }
 

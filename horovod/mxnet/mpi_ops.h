@@ -29,14 +29,15 @@ using namespace horovod::common;
 
 typedef ::mxnet::Engine Engine;
 typedef ::mxnet::NDArray NDArray;
-typedef ::mxnet::Engine::CallbackOnComplete Callback;
+typedef ::mxnet::engine::CallbackOnComplete CallbackOnComplete;
+typedef std::shared_ptr<MXTemporaryBuffer<NDArray>> MXTempBufferShared;
 
-extern "C" int horovod_mxnet_allreduce_async(NDArray* tensor, NDArray* output,
+extern "C" int horovod_mxnet_allreduce_async(NDArray* input, NDArray* output,
                                              char* name, bool average);
-extern "C" int horovod_mxnet_allgather_async(NDArray* tensor, NDArray* output,
+extern "C" int horovod_mxnet_allgather_async(NDArray* input, NDArray* output,
                                              char* name);
-extern "C" int horovod_mxnet_broadcast_async(NDArray* tensor, NDArray* output,
-                                             int root_rank, char* name);
+extern "C" int horovod_mxnet_broadcast_async(NDArray* input, NDArray* output,
+                                             char* name, int root_rank);
 
 } // namespace mxnet
 } // namespace horovod

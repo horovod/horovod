@@ -668,10 +668,49 @@ def is_mx_mkldnn():
                 return os.environ.get('MXNET_USE_MKLDNN', '0') == '1'
 
 
+def is_mx_cuda():
+    try:
+        from mxnet import runtime
+        features = runtime.Features()
+        return features.is_enabled('CUDA')
+    except Exception:
+        if 'linux' in sys.platform:
+            try:
+                import mxnet as mx
+                mx_libs = mx.libinfo.find_lib_path()
+                for mx_lib in mx_libs:
+                    output = subprocess.check_output(['readelf', '-d', mx_lib])
+                    if 'cuda' in str(output):
+                        return True
+                return False
+            except Exception:
+                return False
+    return False
+
+
 def build_mx_extension(build_ext, options):
     check_mx_version()
     mx_compile_flags, mx_link_flags = get_mx_flags(
         build_ext, options['COMPILE_FLAGS'])
+
+    mx_have_cuda = is_mx_cuda()
+    macro_have_cuda = check_macro(options['MACROS'], 'HAVE_CUDA')
+    if not mx_have_cuda and macro_have_cuda:
+        raise DistutilsPlatformError(
+            'Horovod build with GPU support was requested, but this MXNet '
+            'installation does not support CUDA.')
+
+    # Update HAVE_CUDA to mean that MXNet supports CUDA. Internally, we will be checking
+    # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
+    # version or transfer tensors to CPU memory for those operations.
+    if mx_have_cuda and not macro_have_cuda:
+        cuda_include_dirs, cuda_lib_dirs = get_cuda_dirs(build_ext, options['COMPILE_FLAGS'])
+        options['MACROS'] += [('HAVE_CUDA', '1')]
+        options['INCLUDES'] += cuda_include_dirs
+        options['SOURCES'] += ['horovod/common/ops/cuda_operations.cc',
+                               'horovod/common/ops/mpi_cuda_operations.cc']
+        options['LIBRARY_DIRS'] += cuda_lib_dirs
+        options['LIBRARIES'] += ['cudart']
 
     mxnet_mpi_lib.define_macros = options['MACROS']
     if check_macro(options['MACROS'], 'HAVE_CUDA'):
@@ -686,7 +725,6 @@ def build_mx_extension(build_ext, options):
     mxnet_mpi_lib.include_dirs = options['INCLUDES']
     mxnet_mpi_lib.sources = options['SOURCES'] + \
         ['horovod/mxnet/mpi_ops.cc',
-         'horovod/mxnet/ready_event.cc',
          'horovod/mxnet/tensor_util.cc',
          'horovod/mxnet/cuda_util.cc',
          'horovod/mxnet/adapter.cc']
