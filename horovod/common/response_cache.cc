@@ -18,15 +18,20 @@
 namespace horovod {
 namespace common {
 
-void ResponseCache::reset() {
+void ResponseCache::clear() {
+  capacity_ = 0;
+  bits_outdated_ = false;
   cache_.clear();
   cache_iters_.clear();
   tensor_name_to_bit_.clear();
 }
 
 void ResponseCache::set_capacity(uint32_t capacity) {
-  // Reset cache in case set_capacity is called multiple times if autotuning.
-  this->reset();
+  // Clear cache in case set_capacity is called multiple times if autotuning.
+  // Only clear if capacity is modified.
+  if (capacity != capacity_) {
+    this->clear();
+  }
 
   capacity_ = capacity;
   cache_iters_.reserve(capacity);

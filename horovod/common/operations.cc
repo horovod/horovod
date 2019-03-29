@@ -1090,13 +1090,13 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
   }
 
   // Override response cache capacity, if it's set.
-  // TODO: Put in param manager?
-  int cache_capacity = 1024;
+  state.param_manager.SetCacheCapacity(1024);
   auto horovod_cache_capacity = std::getenv(HOROVOD_CACHE_CAPACITY);
   if (horovod_cache_capacity != nullptr) {
-    cache_capacity = std::strtol(horovod_cache_capacity, nullptr, 10);
+    uint32_t cache_capacity = std::strtol(horovod_cache_capacity, nullptr, 10);
+    state.param_manager.SetCacheCapacity(cache_capacity, true);
   }
-  state.response_cache.set_capacity(cache_capacity);
+  state.response_cache.set_capacity(state.param_manager.CacheCapacity());
 
   // Set flag for hierarchical allgather. Ignore if Horovod is running on a
   // single node.
@@ -1336,6 +1336,11 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
   if (state.mark_cycles_in_timeline) {
     // Mark start of the new cycle.
     state.timeline.MarkCycleStart();
+  }
+
+  // Update cache capacity if autotuning is active.
+  if (state.param_manager.IsAutoTuning()) {
+    state.response_cache.set_capacity(state.param_manager.CacheCapacity());
   }
 
   // Copy the data structures from global state under this lock.

@@ -40,7 +40,7 @@ class ResponseCache {
 public:
   enum CacheState { MISS = 0, HIT = 1, INVALID = 2 };
 
-  void reset();
+  void clear();
 
   void set_capacity(uint32_t capacity);
 
@@ -73,7 +73,7 @@ public:
 private:
   void put_(const Response& response, TensorParams& params);
 
-  uint32_t capacity_;
+  uint32_t capacity_ = 0;
 
   // List containing cached entries. Each entry in the cache is a pair
   // of a Response and a TensorParams struct.
