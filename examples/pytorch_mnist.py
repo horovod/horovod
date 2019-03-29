@@ -90,8 +90,9 @@ if args.cuda:
     # Move model to GPU.
     model.cuda()
 
-# Horovod: broadcast parameters.
+# Horovod: broadcast parameters & optimizer state.
 hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+hvd.broadcast_optimizer_state(optimizer, root_rank=0)
 
 # Horovod: scale learning rate by the number of GPUs.
 optimizer = optim.SGD(model.parameters(), lr=args.lr * hvd.size(),
