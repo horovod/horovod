@@ -40,11 +40,15 @@ class ResponseCache {
 public:
   enum CacheState { MISS = 0, HIT = 1, INVALID = 2 };
 
+  void reset();
+
   void set_capacity(uint32_t capacity);
 
   uint32_t capacity() const;
 
   size_t current_size() const;
+
+  size_t num_active_bits() const;
 
   CacheState cached(const Request& message) const;
 

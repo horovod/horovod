@@ -773,7 +773,7 @@ void GetCommonCacheAndState(std::set<int>& cache_hits,
                             bool& should_shut_down, HorovodGlobalState& state,
                             MPIContext& ctx) {
   // Resize and reset bit vector.
-  int nbits = state.response_cache.current_size() + NUM_STATUS_BITS;
+  int nbits = state.response_cache.num_active_bits() + NUM_STATUS_BITS;
   int count = (nbits + sizeof(long long) * CHAR_BIT - 1) /
               (sizeof(long long) * CHAR_BIT);
 

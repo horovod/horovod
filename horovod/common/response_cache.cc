@@ -18,7 +18,16 @@
 namespace horovod {
 namespace common {
 
+void ResponseCache::reset() {
+  cache_.clear();
+  cache_iters_.clear();
+  tensor_name_to_bit_.clear();
+}
+
 void ResponseCache::set_capacity(uint32_t capacity) {
+  // Reset cache in case set_capacity is called multiple times if autotuning.
+  this->reset();
+
   capacity_ = capacity;
   cache_iters_.reserve(capacity);
 }
@@ -26,6 +35,8 @@ void ResponseCache::set_capacity(uint32_t capacity) {
 uint32_t ResponseCache::capacity() const { return capacity_; }
 
 size_t ResponseCache::current_size() const { return cache_.size(); }
+
+size_t ResponseCache::num_active_bits() const { return cache_iters_.size(); }
 
 ResponseCache::CacheState ResponseCache::cached(const Request& message) const {
   auto it = tensor_name_to_bit_.find(message.tensor_name());
@@ -173,13 +184,17 @@ void ResponseCache::erase_response(uint32_t cache_bit) {
   auto it = cache_iters_[cache_bit];
   tensor_name_to_bit_.erase(it->first.tensor_names()[0]);
   cache_.erase(it);
-  // When erasing entry, do not resize cache_iters_ vector. Positions
-  // are reset when update_cache_bits function is called.
+  // When erasing entry, do not resize cache_iters_ vector to ensure previously
+  // returned cache bit positions remain valid. cache_iters_ is resized and bit
+  // posiions are reset *only* when update_cache_bits function is called.
+
   cache_iters_[cache_bit] = cache_.end();
   bits_outdated_ = true;
 }
 
 void ResponseCache::update_cache_bits() {
+  // Note: This method invalidates all previously returned cache bit positions.
+
   if (!bits_outdated_) {
     return;
   }
