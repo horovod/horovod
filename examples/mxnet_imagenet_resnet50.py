@@ -279,15 +279,6 @@ net.cast(args.dtype)
 initializer = mx.init.Xavier(rnd_type='gaussian', factor_type="in",
                              magnitude=2)
 
-# Create optimizer
-optimizer_params = {'wd': args.wd,
-                    'momentum': args.momentum,
-                    'rescale_grad': 1.0 / batch_size,
-                    'lr_scheduler': lr_sched}
-if args.dtype == 'float16':
-    optimizer_params['multi_precision'] = True
-opt = mx.optimizer.create('sgd', **optimizer_params)
-
 
 def train_gluon():
     def evaluate(epoch):
@@ -316,6 +307,14 @@ def train_gluon():
     params = net.collect_params()
     if params is not None:
         hvd.broadcast_parameters(params, root_rank=0)
+
+    # Create optimizer
+    optimizer_params = {'wd': args.wd,
+                        'momentum': args.momentum,
+                        'lr_scheduler': lr_sched}
+    if args.dtype == 'float16':
+        optimizer_params['multi_precision'] = True
+    opt = mx.optimizer.create('sgd', **optimizer_params)
 
     # Horovod: create DistributedTrainer, a subclass of gluon.Trainer
     trainer = hvd.DistributedTrainer(params, opt)
@@ -408,6 +407,15 @@ def train_module():
     if aux_params is not None:
         hvd.broadcast_parameters(aux_params, root_rank=0)
     mod.set_params(arg_params=arg_params, aux_params=aux_params)
+
+    # Create optimizer
+    optimizer_params = {'wd': args.wd,
+                        'momentum': args.momentum,
+                        'rescale_grad': 1.0 / batch_size,
+                        'lr_scheduler': lr_sched}
+    if args.dtype == 'float16':
+        optimizer_params['multi_precision'] = True
+    opt = mx.optimizer.create('sgd', **optimizer_params)
 
     # Horovod: wrap optimizer with DistributedOptimizer
     dist_opt = hvd.DistributedOptimizer(opt)

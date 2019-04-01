@@ -114,8 +114,7 @@ model.hybridize()
 
 # Create optimizer
 optimizer_params = {'momentum': args.momentum,
-                    'learning_rate': args.lr * hvd.size(),
-                    'rescale_grad': 1.0 / args.batch_size}
+                    'learning_rate': args.lr * hvd.size()}
 opt = mx.optimizer.create('sgd', **optimizer_params)
 
 # Initialize parameters

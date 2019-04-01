@@ -38,6 +38,9 @@ import warnings
 class DistributedOptimizer(mx.optimizer.Optimizer):
     def __init__(self, optimizer):
         self._optimizer = optimizer
+        # Normalizing rescale_grad by Horovod size, which is equivalent to
+        # performing average in allreduce, has better performance.
+        self._optimizer.rescale_grad /= size()
 
     def __getattr__(self, item):
         return getattr(self._optimizer, item)
@@ -48,9 +51,9 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
     def _do_allreduce(self, index, grad):
         if isinstance(index, (tuple, list)):
             for i in range(len(index)):
-                allreduce_(grad[i], average=True, name=str(index[i]))
+                allreduce_(grad[i], average=False, name=str(index[i]))
         else:
-            allreduce_(grad, average=True, name=str(index))
+            allreduce_(grad, average=False, name=str(index))
 
     def update(self, index, weight, grad, state):
         self._do_allreduce(index, grad)
@@ -86,10 +89,15 @@ class DistributedTrainer(mx.gluon.Trainer):
         super(DistributedTrainer, self).__init__(
             params, optimizer, optimizer_params=optimizer_params, kvstore=None)
 
+        # _scale is used to check and set rescale_grad for optimizer in Trainer.step()
+        # function. Normalizing it by Horovod size, which is equivalent to performing
+        # average in allreduce, has better performance. 
+        self._scale /= size()
+
     def _allreduce_grads(self):
         for i, param in enumerate(self._params):
             if param.grad_req != 'null':
-                allreduce_(param.list_grad()[0], average=True, name=str(i))
+                allreduce_(param.list_grad()[0], average=False, name=str(i))
 
 
 # Wrapper to inject Horovod broadcast after parameter initialization
