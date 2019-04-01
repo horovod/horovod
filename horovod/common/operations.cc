@@ -449,9 +449,9 @@ int64_t TensorFusionThresholdBytes() {
 }
 
 // Populates provided ResponseList with responses from deque.
-void PopulateResponseList(ResponseList& response_list,
-                          std::deque<Response>& responses,
-                          HorovodGlobalState& state, MPIContext& ctx) {
+ResponseList FuseResponses(std::deque<Response>& responses,
+                           HorovodGlobalState& state, MPIContext& ctx) {
+  ResponseList response_list;
   {
     // Protect access to tensor table.
     std::lock_guard<std::mutex> guard(horovod_global.mutex);
@@ -570,6 +570,8 @@ void PopulateResponseList(ResponseList& response_list,
       LOG(DEBUG) << "Created response of size " << tensor_size;
     }
   }
+
+  return response_list;
 }
 
 // Process a Response by doing a reduction, a gather, a broadcast, or
@@ -767,11 +769,11 @@ void set_int_from_env(const char* env, int& val) {
 
 // Routine to intersect cache hits across workers. Also determines global
 // shutdown state and whether uncached requests exist on any worker.
-void GetCommonCacheAndState(std::set<int>& cache_hits,
-                            std::set<int>& invalid_bits,
-                            bool& uncached_in_queue, bool& invalid_in_queue,
-                            bool& should_shut_down, HorovodGlobalState& state,
-                            MPIContext& ctx) {
+void CoordinateCacheAndState(std::set<int>& cache_hits,
+                             std::set<int>& invalid_bits,
+                             bool& uncached_in_queue, bool& invalid_in_queue,
+                             bool& should_shut_down, HorovodGlobalState& state,
+                             MPIContext& ctx) {
   // Resize and reset bit vector.
   int nbits = state.response_cache.num_active_bits() + NUM_STATUS_BITS;
   int count = (nbits + sizeof(long long) * CHAR_BIT - 1) /
@@ -1238,9 +1240,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
 void RunBypass(std::queue<Request>& message_queue, std::set<int>& cache_hits,
                HorovodGlobalState& state, MPIContext& ctx) {
 
-  // Clear message queue.
-  message_queue = std::queue<Request>();
-
   // Convert cache hits to responses. Populate so that least
   // recently used responses get priority.
   std::deque<Response> responses;
@@ -1249,8 +1248,7 @@ void RunBypass(std::queue<Request>& message_queue, std::set<int>& cache_hits,
   }
 
   // Fuse responses as normal.
-  ResponseList response_list;
-  PopulateResponseList(response_list, responses, state, ctx);
+  auto response_list = FuseResponses(responses, state, ctx);
 
   if (!response_list.responses().empty()) {
     std::string tensors_ready;
@@ -1396,25 +1394,27 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     // determine if any worker has uncached messages in queue or requests
     // a shutdown. This function removes any invalid cache entries, if they
     // exist.
-    GetCommonCacheAndState(cache_hits, invalid_bits, uncached_in_queue,
-                           invalid_in_queue, should_shut_down, state, ctx);
+    CoordinateCacheAndState(cache_hits, invalid_bits, uncached_in_queue,
+                            invalid_in_queue, should_shut_down, state, ctx);
 
     {
       // Get lock in order to safely replace messages to global queue
       std::lock_guard<std::mutex> guard(state.mutex);
 
       // Remove uncommon cached tensors from queue and replace to state
-      // queue for next cycle.
+      // queue for next cycle. Skip adding common cached tensors to
+      // queue as they are handled separately.
       size_t num_messages = message_queue.size();
       for (size_t i = 0; i < num_messages; ++i) {
         auto message = message_queue.front();
-        if (!(state.response_cache.cached(message) ==
-              ResponseCache::CacheState::HIT) ||
-            cache_hits.find(state.response_cache.peek_cache_bit(message)) !=
-                cache_hits.end()) {
-          message_queue.push(std::move(message));
+        if (state.response_cache.cached(message) == ResponseCache::CacheState::HIT) {
+          if (cache_hits.find(state.response_cache.peek_cache_bit(message)) ==
+              cache_hits.end()) {
+              // Try to process again in next cycle.
+              state.message_queue.push(std::move(message));
+          }
         } else {
-          state.message_queue.push(std::move(message));
+          message_queue.push(std::move(message));
         }
         message_queue.pop();
       }
@@ -1425,15 +1425,12 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     LOG(DEBUG, state.rank) << "Sent " << message_queue.size() << " messages";
   }
 
-  if (state.response_cache.capacity() > 0) {
-    if (cache_hits.size() > 0 && !uncached_in_queue) {
-      // If only cached messages in queue, use fast coordination path.
+  if (state.response_cache.capacity() > 0 && !uncached_in_queue) {
+    // If only cached messages in queue, use fast coordination path.
+    if (cache_hits.size() > 0) {
       RunBypass(message_queue, cache_hits, state, ctx);
-      return !should_shut_down;
-    } else if (!uncached_in_queue) {
-      // Quick return if there are no uncached messages in any worker queue.
-      return !should_shut_down;
     }
+    return !should_shut_down;
   }
 
   // Collect all tensors that are ready to be reduced. Record them in the
@@ -1442,14 +1439,6 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
   std::vector<std::string> ready_to_reduce;
   if (is_coordinator) {
     while (!message_queue.empty()) {
-      // Skip cached messages.
-      if (state.response_cache.capacity() > 0 &&
-          state.response_cache.cached(message_queue.front()) ==
-              ResponseCache::CacheState::HIT) {
-        message_queue.pop();
-        continue;
-      }
-
       // Pop the first available message message
       Request message = message_queue.front();
       message_queue.pop();
@@ -1535,10 +1524,8 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       responses.push_back(std::move(response));
     }
 
-    ResponseList response_list;
+    auto response_list = FuseResponses(responses, state, ctx);
     response_list.set_shutdown(should_shut_down);
-
-    PopulateResponseList(response_list, responses, state, ctx);
 
     if (!response_list.responses().empty()) {
       std::string tensors_ready;
@@ -1580,6 +1567,9 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
           state.response_cache.put(response, state.tensor_table);
         }
       }
+
+      // Reassign cache bits based on current cache state.
+      state.response_cache.update_cache_bits();
     }
 
     // Perform the collective operation. All nodes should end up performing
@@ -1591,11 +1581,6 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       LOG(TRACE, state.rank) << "Finished performing " << response.tensor_names_string();
     }
 
-    if (state.response_cache.capacity() > 0) {
-      // Reassign cache bits based on current cache state.
-      state.response_cache.update_cache_bits();
-    }
-
     if (state.param_manager.IsAutoTuning()) {
       state.param_manager.Update(tensor_names, total_tensor_size);
     }
@@ -1604,12 +1589,6 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     RequestList message_list;
     message_list.set_shutdown(should_shut_down);
     while (!message_queue.empty()) {
-      // Skip cached messages.
-      if (state.response_cache.cached(message_queue.front()) ==
-          ResponseCache::CacheState::HIT) {
-        message_queue.pop();
-        continue;
-      }
       message_list.add_request(message_queue.front());
       message_queue.pop();
     }
@@ -1653,6 +1632,9 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
           state.response_cache.put(response, state.tensor_table);
         }
       }
+
+      // Reassign cache bits based on current cache state.
+      state.response_cache.update_cache_bits();
     }
 
     // Perform the collective operation. All nodes should end up performing
@@ -1662,11 +1644,6 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       LOG(DEBUG, state.rank) << "Processing " << response.tensor_names().size() << " tensors";
       PerformOperation(state.tensor_table, response);
       LOG(TRACE, state.rank) << "Finished performing " << response.tensor_names_string();
-    }
-
-    if (state.response_cache.capacity() > 0) {
-      // Reassign cache bits based on current cache state.
-      state.response_cache.update_cache_bits();
     }
 
     if (state.param_manager.IsAutoTuning()) {

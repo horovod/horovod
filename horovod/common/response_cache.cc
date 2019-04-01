@@ -113,13 +113,13 @@ void ResponseCache::put_(const Response& response, TensorParams& params) {
   bits_outdated_ = true;
 }
 
-void ResponseCache::put(const Response& response, TensorTable& tensor_table) {
+void ResponseCache::put(const Response& response, const TensorTable& tensor_table) {
   if (capacity_ == 0) {
     return;
   }
 
   // If response is fused, split back into individual responses
-  if (response.tensor_names().size() > 0) {
+  if (response.tensor_names().size() > 1) {
     for (auto& name : response.tensor_names()) {
       Response new_response;
       new_response.add_tensor_name(name);
@@ -128,7 +128,7 @@ void ResponseCache::put(const Response& response, TensorTable& tensor_table) {
       new_response.set_tensor_sizes(response.tensor_sizes());
 
       // Populate tensor parameters from tensor_table entry
-      auto& tensor_entry = tensor_table[name];
+      auto& tensor_entry = tensor_table.at(name);
       TensorParams params;
       params.device = tensor_entry.device;
       params.dtype = tensor_entry.tensor->dtype();
@@ -137,7 +137,7 @@ void ResponseCache::put(const Response& response, TensorTable& tensor_table) {
       this->put_(new_response, params);
     }
   } else {
-    auto& tensor_entry = tensor_table[response.tensor_names()[0]];
+    auto& tensor_entry = tensor_table.at(response.tensor_names()[0]);
     TensorParams params;
     params.device = tensor_entry.device;
     params.dtype = tensor_entry.tensor->dtype();

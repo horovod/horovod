@@ -54,7 +54,7 @@ public:
 
   CacheState cached(const Response& response, const TensorParams& params) const;
 
-  void put(const Response& response, TensorTable& tensor_table);
+  void put(const Response& response, const TensorTable& tensor_table);
 
   const Response& get_response(const Request& message);
 
