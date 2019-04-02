@@ -50,8 +50,6 @@ public:
 
   uint32_t capacity() const;
 
-  size_t current_size() const;
-
   size_t num_active_bits() const;
 
   CacheState cached(const Request& message) const;
@@ -60,11 +58,7 @@ public:
 
   void put(const Response& response, const TensorTable& tensor_table);
 
-  const Response& get_response(const Request& message);
-
   const Response& get_response(uint32_t cache_bit);
-
-  const Response& peek_response(const Request& message) const;
 
   const Response& peek_response(uint32_t cache_bit) const;
 

@@ -42,8 +42,6 @@ void ResponseCache::set_capacity(uint32_t capacity) {
 
 uint32_t ResponseCache::capacity() const { return capacity_; }
 
-size_t ResponseCache::current_size() const { return cache_.size(); }
-
 size_t ResponseCache::num_active_bits() const { return cache_iters_.size(); }
 
 ResponseCache::CacheState ResponseCache::cached(const Request& message) const {
@@ -150,17 +148,6 @@ void ResponseCache::put(const Response& response, const TensorTable& tensor_tabl
   }
 }
 
-const Response& ResponseCache::get_response(const Request& message) {
-  assert(this->cached(message));
-  uint32_t cache_bit = tensor_name_to_bit_[message.tensor_name()];
-  auto it = cache_iters_[cache_bit];
-  cache_.push_front(std::move(*it));
-  cache_.erase(it);
-  cache_iters_[cache_bit] = cache_.begin();
-  bits_outdated_ = true;
-  return cache_.front().first;
-}
-
 const Response& ResponseCache::get_response(uint32_t cache_bit) {
   assert(cache_bit < cache_iters_.size());
   auto it = cache_iters_[cache_bit];
@@ -169,12 +156,6 @@ const Response& ResponseCache::get_response(uint32_t cache_bit) {
   cache_iters_[cache_bit] = cache_.begin();
   bits_outdated_ = true;
   return cache_.front().first;
-}
-
-const Response& ResponseCache::peek_response(const Request& message) const {
-  assert(this->cached(message));
-  uint32_t cache_bit = tensor_name_to_bit_.at(message.tensor_name());
-  return std::get<0>(*cache_iters_[cache_bit]);
 }
 
 const Response& ResponseCache::peek_response(uint32_t cache_bit) const {
