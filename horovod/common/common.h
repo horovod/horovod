@@ -66,12 +66,6 @@ enum Communicator {
   CROSS = 2
 };
 
-enum StatusBit {
-  SHOULD_SHUT_DOWN = 0,
-  UNCACHED_IN_QUEUE = 1,
-  INVALID_IN_QUEUE = 2
-};
-
 inline std::string CommunicatorName(Communicator comm) {
   switch (comm) {
     case GLOBAL:

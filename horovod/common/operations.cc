@@ -55,8 +55,6 @@
 #include "ops/ddl_operations.h"
 #endif
 
-#define NUM_STATUS_BITS 3
-
 /*
  * Allreduce, Allgather and Broadcast Ops.
  *
@@ -767,140 +765,33 @@ void set_int_from_env(const char* env, int& val) {
   }
 }
 
-// Routine to intersect cache hits across workers. Also determines global
-// shutdown state and whether uncached requests exist on any worker.
-void CoordinateCacheAndState(std::set<int>& cache_hits,
-                             std::set<int>& invalid_bits,
-                             bool& uncached_in_queue, bool& invalid_in_queue,
-                             bool& should_shut_down, HorovodGlobalState& state,
+// Routine to sync cache hit and invalid bit sets across workers.
+// Also determines global shutdown state and whether uncached requests
+// exist on any worker.
+void CoordinateCacheAndState(CacheCoordinator& cache_coordinator,
+                             HorovodGlobalState& state,
                              MPIContext& ctx) {
-  // Resize and reset bit vector.
-  int nbits = state.response_cache.num_active_bits() + NUM_STATUS_BITS;
-  int count = (nbits + sizeof(long long) * CHAR_BIT - 1) /
-              (sizeof(long long) * CHAR_BIT);
 
-  // Allocate additional bits for timeline states if required.
-  int fullcount = count;
-  if (state.timeline_enabled) {
-    fullcount *= 2;
-  }
+  // Sync cache and state information across workers.
+  cache_coordinator.sync(ctx, state.timeline_enabled);
 
-  state.cache_mask.resize(fullcount);
-
-  std::memset(&state.cache_mask[0], 0, count * sizeof(long long));
-  if (state.timeline_enabled) {
-    std::memset(&state.cache_mask[count], -1, count * sizeof(long long));
-  }
-
-  // Set reserved status bits for additional states.
-  if (!should_shut_down) {
-    state.cache_mask[0] |= (1ull << StatusBit::SHOULD_SHUT_DOWN);
-  }
-  if (!uncached_in_queue) {
-    state.cache_mask[0] |= (1ull << StatusBit::UNCACHED_IN_QUEUE);
-  }
-  if (!invalid_in_queue) {
-    state.cache_mask[0] |= (1ull << StatusBit::INVALID_IN_QUEUE);
-  }
-
-  // For each cache hit on this worker, flip associated bit.
-  for (auto bit : cache_hits) {
-    int shifted_bit = bit + NUM_STATUS_BITS;
-    int shift = shifted_bit / (sizeof(long long) * CHAR_BIT);
-    state.cache_mask[shift] |=
-        (1ull << (shifted_bit % (sizeof(long long) * CHAR_BIT)));
-    if (state.timeline_enabled) {
-      state.cache_mask[count + shift] ^=
-          (1ull << (shifted_bit % (sizeof(long long) * CHAR_BIT)));
-    }
-  }
-
-  // Global MPI AND operation to get intersected bit array.
-  MPI_Allreduce(MPI_IN_PLACE, state.cache_mask.data(), fullcount,
-                MPI_LONG_LONG_INT, MPI_BAND, ctx.mpi_comm);
-
-  // Search for flipped bits to populate common cache hit set. There will never
-  // be invalid bits in this set.
-  cache_hits.clear();
-  for (int i = 0; i < count; ++i) {
-    int shift = i * sizeof(long long) * CHAR_BIT;
-    long long ll = state.cache_mask[i];
-    while (ll) {
-      int idx = __builtin_ffsll(ll);
-      int shifted_bit = shift + idx - 1;
-      cache_hits.insert(shifted_bit - NUM_STATUS_BITS);
-      ll &= ~(1ull << (idx - 1));
-    }
-  }
-
-  // Set states from reserved status bits.
-  if (!cache_hits.erase(StatusBit::SHOULD_SHUT_DOWN - NUM_STATUS_BITS)) {
-    should_shut_down = true;
-  }
-  if (!cache_hits.erase(StatusBit::UNCACHED_IN_QUEUE - NUM_STATUS_BITS)) {
-    uncached_in_queue = true;
-  }
-  if (!cache_hits.erase(StatusBit::INVALID_IN_QUEUE - NUM_STATUS_BITS)) {
-    invalid_in_queue = true;
-  }
-
-  // If any worker has invalid cache entries, communicate invalid bits across
-  // workers using a second allreduce.
-  if (invalid_in_queue) {
-    std::memset(&state.cache_mask[0], 0, count * sizeof(long long));
-    for (auto bit : invalid_bits) {
-      int shift = bit / (sizeof(long long) * CHAR_BIT);
-      state.cache_mask[shift] |=
-          (1ull << (bit % (sizeof(long long) * CHAR_BIT)));
-    }
-
-    // Global MPI OR operation to get common invalid bits.
-    MPI_Allreduce(MPI_IN_PLACE, state.cache_mask.data(), count,
-                  MPI_LONG_LONG_INT, MPI_BOR, ctx.mpi_comm);
-
-    // Search for flipped bits to populate common invalid bit set.
-    invalid_bits.clear();
-    for (int i = 0; i < count; ++i) {
-      int shift = i * sizeof(long long) * CHAR_BIT;
-      long long ll = state.cache_mask[i];
-      while (ll) {
-        int idx = __builtin_ffsll(ll);
-        int bit = shift + idx - 1;
-        invalid_bits.insert(bit);
-        ll &= ~(1ull << (idx - 1));
-      }
-    }
-
-    // Erase cache entries associated with invalid bits.
-    for (auto bit : invalid_bits) {
+  // If invalid cache entries exist, erase associated entries.
+  if (!cache_coordinator.invalid_bits().empty()) {
+    for (auto bit : cache_coordinator.invalid_bits()) {
       state.response_cache.erase_response(bit);
     }
   }
 
   if (state.timeline_enabled) {
-    // For timeline, check for entries with cache hits on *any* worker to
-    // mark start of negotiation phase.
-    for (int i = 0; i < count; ++i) {
-      int shift = i * sizeof(long long) * CHAR_BIT;
-      long long ll = ~state.cache_mask[count + i];
-      while (ll) {
-        int idx = __builtin_ffsll(ll);
-        int shifted_bit = shift + idx - 1;
-        // If bit is invalid, timeline handling will be carried out in the
-        // usual way. Otherwise, mark negotiate start here.
-        if (invalid_bits.find(shifted_bit - NUM_STATUS_BITS) ==
-            invalid_bits.end()) {
-          auto response =
-              state.response_cache.peek_response(shifted_bit - NUM_STATUS_BITS);
-          state.timeline.NegotiateStart(
-              response.tensor_names()[0],
-              (Request::RequestType)response.response_type());
-        }
-        ll &= ~(1ull << (idx - 1));
-      }
+    // Start/continue negotiation phase on timeline bit entries.
+    for (auto bit : cache_coordinator.timeline_bits()) {
+      auto response = state.response_cache.peek_response(bit);
+      state.timeline.NegotiateStart(response.tensor_names()[0],
+          (Request::RequestType)response.response_type());
     }
-    // For timeline, end negotation for fully populated cached responses.
-    for (auto bit : cache_hits) {
+
+    // End negotation phase for synced cache hit set entries.
+    for (auto bit : cache_coordinator.cache_hits()) {
       auto response = state.response_cache.peek_response(bit);
       state.timeline.NegotiateEnd(response.tensor_names()[0]);
     }
@@ -1237,13 +1128,13 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
 
 // If all messages in queue have responses in cache, use fast path with
 // no additional MPI coordination.
-void RunBypass(std::queue<Request>& message_queue, std::set<int>& cache_hits,
+void RunBypass(std::queue<Request>& message_queue, CacheCoordinator& cache_coordinator,
                HorovodGlobalState& state, MPIContext& ctx) {
 
   // Convert cache hits to responses. Populate so that least
   // recently used responses get priority.
   std::deque<Response> responses;
-  for (auto bit : cache_hits) {
+  for (auto bit : cache_coordinator.cache_hits()) {
     responses.push_back(state.response_cache.get_response(bit));
   }
 
@@ -1345,10 +1236,7 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
   // However, don't keep the lock for the rest of the loop, so that
   // enqueued stream callbacks can continue.
 
-  bool uncached_in_queue = false;
-  bool invalid_in_queue = false;
-  std::set<int> cache_hits;
-  std::set<int> invalid_bits;
+  CacheCoordinator cache_coordinator(state.response_cache.num_active_bits());
 
   std::queue<Request> message_queue;
   {
@@ -1363,14 +1251,13 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
         auto cache_state = state.response_cache.cached(message);
         if (cache_state == ResponseCache::CacheState::HIT) {
           int cache_bit = state.response_cache.peek_cache_bit(message);
-          cache_hits.insert(cache_bit);
+          cache_coordinator.record_hit(cache_bit);
         } else if (cache_state == ResponseCache::CacheState::INVALID) {
           int cache_bit = state.response_cache.peek_cache_bit(message);
-          invalid_bits.insert(cache_bit);
-          invalid_in_queue = true;
-          uncached_in_queue = true;
+          cache_coordinator.record_invalid_bit(cache_bit);
+          cache_coordinator.set_uncached_in_queue(true);
         } else {
-          uncached_in_queue = true;
+          cache_coordinator.set_uncached_in_queue(true);
         }
       }
     }
@@ -1378,6 +1265,7 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
 
   // Flag indicating that the background thread should shut down.
   bool should_shut_down = state.shut_down;
+  cache_coordinator.set_should_shut_down(should_shut_down);
 
   if (is_coordinator) {
     // Check for stalled tensors.
@@ -1394,8 +1282,7 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     // determine if any worker has uncached messages in queue or requests
     // a shutdown. This function removes any invalid cache entries, if they
     // exist.
-    CoordinateCacheAndState(cache_hits, invalid_bits, uncached_in_queue,
-                            invalid_in_queue, should_shut_down, state, ctx);
+    CoordinateCacheAndState(cache_coordinator, state, ctx);
 
     {
       // Get lock in order to safely replace messages to global queue
@@ -1408,8 +1295,9 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       for (size_t i = 0; i < num_messages; ++i) {
         auto message = message_queue.front();
         if (state.response_cache.cached(message) == ResponseCache::CacheState::HIT) {
-          if (cache_hits.find(state.response_cache.peek_cache_bit(message)) ==
-              cache_hits.end()) {
+          int cache_bit = state.response_cache.peek_cache_bit(message);
+          if (cache_coordinator.cache_hits().find(cache_bit) ==
+              cache_coordinator.cache_hits().end()) {
               // Try to process again in next cycle.
               state.message_queue.push(std::move(message));
           }
@@ -1425,10 +1313,10 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     LOG(DEBUG, state.rank) << "Sent " << message_queue.size() << " messages";
   }
 
-  if (state.response_cache.capacity() > 0 && !uncached_in_queue) {
+  if (state.response_cache.capacity() > 0 && !cache_coordinator.uncached_in_queue()) {
     // If only cached messages in queue, use fast coordination path.
-    if (cache_hits.size() > 0) {
-      RunBypass(message_queue, cache_hits, state, ctx);
+    if (!cache_coordinator.cache_hits().empty()) {
+      RunBypass(message_queue, cache_coordinator, state, ctx);
     }
     return !should_shut_down;
   }
@@ -1513,7 +1401,7 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     if (state.response_cache.capacity() > 0) {
       // Prepopulate response list with cached responses. Populate so that
       // least recently used responses get priority.
-      for (auto bit : cache_hits) {
+      for (auto bit : cache_coordinator.cache_hits()) {
         responses.push_back(state.response_cache.peek_response(bit));
       }
     }
