@@ -71,11 +71,16 @@ RUN pip install future typing
 # Install MXNet.
 RUN pip install ${MXNET_PACKAGE}
 
-# Pin GCC to 4.9 to compile correctly against TensorFlow, PyTorch, and MXNet
-RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 100 && \
-    update-alternatives --install /usr/bin/x86_64-linux-gnu-gcc x86_64-linux-gnu-gcc /usr/bin/gcc-4.9 100 && \
-    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.9 100 && \
-    update-alternatives --install /usr/bin/x86_64-linux-gnu-g++ x86_64-linux-gnu-g++ /usr/bin/g++-4.9 100
+# Pin GCC to 4.9 (priority 200) to compile correctly against TensorFlow, PyTorch, and MXNet.
+# Backup existing GCC installation as priority 100, so that it can be recovered later.
+RUN update-alternatives --install /usr/bin/gcc gcc $(readlink -f $(which gcc)) 100 && \
+    update-alternatives --install /usr/bin/x86_64-linux-gnu-gcc x86_64-linux-gnu-gcc $(readlink -f $(which gcc)) 100 && \
+    update-alternatives --install /usr/bin/g++ g++ $(readlink -f $(which g++)) 100 && \
+    update-alternatives --install /usr/bin/x86_64-linux-gnu-g++ x86_64-linux-gnu-g++ $(readlink -f $(which g++)) 100
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 200 && \
+    update-alternatives --install /usr/bin/x86_64-linux-gnu-gcc x86_64-linux-gnu-gcc /usr/bin/gcc-4.9 200 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.9 200 && \
+    update-alternatives --install /usr/bin/x86_64-linux-gnu-g++ x86_64-linux-gnu-g++ /usr/bin/g++-4.9 200
 
 # Install Horovod.
 COPY . /horovod
