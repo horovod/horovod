@@ -1265,8 +1265,6 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
 
   // Flag indicating that the background thread should shut down.
   bool should_shut_down = state.shut_down;
-  cache_coordinator.set_should_shut_down(should_shut_down);
-
   if (is_coordinator) {
     // Check for stalled tensors.
     if (state.perform_stall_check &&
@@ -1276,6 +1274,8 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       state.last_stall_check = std::chrono::steady_clock::now();
     }
   }
+
+  cache_coordinator.set_should_shut_down(should_shut_down);
 
   if (state.response_cache.capacity() > 0) {
     // Obtain common cache hits and cache invalidations across workers. Also,
@@ -1318,7 +1318,7 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     if (!cache_coordinator.cache_hits().empty()) {
       RunBypass(message_queue, cache_coordinator, state, ctx);
     }
-    return !should_shut_down;
+    return !cache_coordinator.should_shut_down();
   }
 
   // Collect all tensors that are ready to be reduced. Record them in the
