@@ -32,7 +32,7 @@ RUN apt-get install -y --no-install-recommends \
 RUN if [[ "${PYTHON_VERSION}" == "3.6" ]]; then \
         add-apt-repository ppa:deadsnakes/ppa && apt-get update -qq; \
     fi
-RUN apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev
+RUN apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
 RUN pip install -U --force pip setuptools requests pytest
