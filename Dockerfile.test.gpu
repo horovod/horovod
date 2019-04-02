@@ -60,6 +60,12 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
 # Set default NCCL parameters
 RUN echo NCCL_DEBUG=INFO >> /etc/nccl.conf
 
+# Install mpi4py.
+RUN pip install mpi4py
+
+### END OF CACHE ###
+COPY . /horovod
+
 # Install TensorFlow.
 RUN pip install ${TENSORFLOW_PACKAGE}
 
@@ -95,7 +101,6 @@ RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 200 && \
     update-alternatives --install /usr/bin/x86_64-linux-gnu-g++ x86_64-linux-gnu-g++ /usr/bin/g++-4.9 200
 
 # Install Horovod.
-COPY . /horovod
 RUN cd /horovod && python setup.py sdist
 RUN ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
     bash -c "${HOROVOD_BUILD_FLAGS} pip install -v /horovod/dist/horovod-*.tar.gz" && \
@@ -106,9 +111,6 @@ RUN update-alternatives --remove gcc /usr/bin/gcc-4.9 && \
     update-alternatives --remove x86_64-linux-gnu-gcc /usr/bin/gcc-4.9 && \
     update-alternatives --remove g++ /usr/bin/g++-4.9 && \
     update-alternatives --remove x86_64-linux-gnu-g++ /usr/bin/g++-4.9
-
-# Install mpi4py.
-RUN pip install mpi4py
 
 # Hack for compatibility of MNIST example with TensorFlow 1.1.0.
 RUN if [[ ${TENSORFLOW_PACKAGE} == "tensorflow-gpu==1.1.0" ]]; then \

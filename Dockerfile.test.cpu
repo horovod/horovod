@@ -51,6 +51,12 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
             echo "mpirun -np 2" > /mpirun_command; \
     fi
 
+# Install mpi4py.
+RUN pip install mpi4py
+
+### END OF CACHE ###
+COPY . /horovod
+
 # Install TensorFlow.
 RUN pip install ${TENSORFLOW_PACKAGE}
 
@@ -83,7 +89,6 @@ RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 200 && \
     update-alternatives --install /usr/bin/x86_64-linux-gnu-g++ x86_64-linux-gnu-g++ /usr/bin/g++-4.9 200
 
 # Install Horovod.
-COPY . /horovod
 RUN cd /horovod && python setup.py sdist
 RUN pip install -v /horovod/dist/horovod-*.tar.gz
 
@@ -92,9 +97,6 @@ RUN update-alternatives --remove gcc /usr/bin/gcc-4.9 && \
     update-alternatives --remove x86_64-linux-gnu-gcc /usr/bin/gcc-4.9 && \
     update-alternatives --remove g++ /usr/bin/g++-4.9 && \
     update-alternatives --remove x86_64-linux-gnu-g++ /usr/bin/g++-4.9
-
-# Install mpi4py.
-RUN pip install mpi4py
 
 # Hack for compatibility of MNIST example with TensorFlow 1.1.0.
 RUN if [[ ${TENSORFLOW_PACKAGE} == "tensorflow==1.1.0" ]]; then \
