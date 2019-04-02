@@ -67,6 +67,8 @@ ResponseCache::cached(const Response& response,
   assert(response.tensor_names().size() == 1);
   auto it = tensor_name_to_bit_.find(response.tensor_names()[0]);
   if (it != tensor_name_to_bit_.end()) {
+    // If entry associated with this response already exists in cache, check
+    // if tensor parameters match. If not, return that entry is invalid.
     uint32_t cache_bit = it->second;
     auto& cache_params = std::get<1>(*cache_iters_[cache_bit]);
     return (cache_params.device == params.device &&
@@ -80,6 +82,8 @@ ResponseCache::cached(const Response& response,
 }
 
 void ResponseCache::put_(const Response& response, TensorParams& params) {
+  // Note: This method invalidates all previously returned cache bit positions.
+
   uint32_t cache_bit;
   auto cache_state = this->cached(response, params);
 
@@ -92,17 +96,26 @@ void ResponseCache::put_(const Response& response, TensorParams& params) {
   }
 
   if (this->cached(response, params) == CacheState::HIT) {
+    // If entry already exists, move entry to front of cache_
+    // (most recently used) and update iterator in cache_iters_
+    // at the existing cache bit position.
     cache_bit = tensor_name_to_bit_[response.tensor_names()[0]];
     auto it = cache_iters_[cache_bit];
     cache_.push_front(std::move(*it));
     cache_.erase(it);
   } else if (cache_.size() == capacity_) {
+    // If this is a new entry but cache is at capacity, evict entry at
+    // the back of cache_ (least recently used) and add new entry to front
+    // of cache_. New entry inherits cache bit position from evicted entry
+    // and sets iterator in cache_iters_ accordingly.
     auto& entry = cache_.back().first;
     cache_bit = tensor_name_to_bit_[entry.tensor_names()[0]];
     tensor_name_to_bit_.erase(entry.tensor_names()[0]);
     cache_.pop_back();
     cache_.push_front(std::make_pair(response, std::move(params)));
   } else {
+    // New entry added to front of cache_. Entry is associated with
+    // the next available position in cache_iters_ vector.
     cache_bit = cache_iters_.size();
     cache_iters_.resize(cache_bit + 1);
     cache_.push_front(std::make_pair(response, std::move(params)));
@@ -111,10 +124,14 @@ void ResponseCache::put_(const Response& response, TensorParams& params) {
   cache_iters_[cache_bit] = cache_.begin();
   tensor_name_to_bit_[response.tensor_names()[0]] = cache_bit;
 
+  // Cache is mutated, mark that bit assignments are stale.
   bits_outdated_ = true;
 }
 
 void ResponseCache::put(const Response& response, const TensorTable& tensor_table) {
+  // Note: This method invalidates all previously returned cache bit positions if
+  // evictions occur.
+
   if (capacity_ == 0) {
     return;
   }
@@ -150,11 +167,18 @@ void ResponseCache::put(const Response& response, const TensorTable& tensor_tabl
 
 const Response& ResponseCache::get_response(uint32_t cache_bit) {
   assert(cache_bit < cache_iters_.size());
+
+  // Access entry from iterator at cache_bit position. Entry
+  // is moved to front of cache and iterator at the cache_bit
+  // position is updated.
   auto it = cache_iters_[cache_bit];
   cache_.push_front(std::move(*it));
   cache_.erase(it);
   cache_iters_[cache_bit] = cache_.begin();
+
+  // Cache is mutated, mark that bit assignments are stale.
   bits_outdated_ = true;
+
   return cache_.front().first;
 }
 
@@ -170,26 +194,35 @@ uint32_t ResponseCache::peek_cache_bit(const Request& message) const {
 
 void ResponseCache::erase_response(uint32_t cache_bit) {
   assert(cache_bit < cache_iters_.size());
+
+  // Erase entry from iterator at cache_bit position and set
+  // iterator at cache_bit position to a null value.
+  // We do not resize/compact cache_iters_ vector here to preserve
+  // cache bit positions of existing entries. cache_iters_ is resized
+  // and cache bit posiions are reset *only* when update_cache_bits
+  // function is called.
   auto it = cache_iters_[cache_bit];
   tensor_name_to_bit_.erase(it->first.tensor_names()[0]);
   cache_.erase(it);
-  // When erasing entry, do not resize cache_iters_ vector to ensure previously
-  // returned cache bit positions remain valid. cache_iters_ is resized and bit
-  // posiions are reset *only* when update_cache_bits function is called.
 
   cache_iters_[cache_bit] = cache_.end();
+
+  // Cache is mutated, mark that bit assignments are stale.
   bits_outdated_ = true;
 }
 
 void ResponseCache::update_cache_bits() {
   // Note: This method invalidates all previously returned cache bit positions.
 
+  // If bit assignments are not stale, do nothing.
   if (!bits_outdated_) {
     return;
   }
 
-  // Iterate over current cache state and reassign cache bits. Least recently
-  // used get lower cache positions.
+  // Iterate over current cache_ list and reassign cache bits by current
+  // position. This is done by updating iterators in cache_iters_ vector
+  // and tensor name to cache bit pairings in tensor_name_to_bit_ map.
+  // Cache bits are assigned to least recently used get lower indices.
   auto it = --cache_.end();
   for (int i = 0; i < (int)cache_.size(); ++i) {
     cache_iters_[i] = it;
@@ -197,7 +230,8 @@ void ResponseCache::update_cache_bits() {
     --it;
   }
 
-  // Resize cache_iters_ vector to contain only valid bit positions.
+  // Erased entries may result in unused positions in cache_iters_ vector.
+  // Resize to contain only valid bit positions.
   cache_iters_.resize(cache_.size());
 
   bits_outdated_ = false;
