@@ -409,6 +409,10 @@ def train_module():
     mod.set_params(arg_params=arg_params, aux_params=aux_params)
 
     # Create optimizer
+    # Note that when using Module API, we need to specify rescale_grad since
+    # we create optimizer first and wrap it with DistributedOptimizer. For
+    # Gluon API, it is handled in Trainer.step() function so there is no need
+    # to specify rescale_grad (see above train_gluon() function). 
     optimizer_params = {'wd': args.wd,
                         'momentum': args.momentum,
                         'rescale_grad': 1.0 / batch_size,
