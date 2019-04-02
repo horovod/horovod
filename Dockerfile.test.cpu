@@ -9,7 +9,7 @@ ARG PYTHON_VERSION=2.7
 ARG TENSORFLOW_PACKAGE=tensorflow==1.12.0
 ARG KERAS_PACKAGE=keras==2.2.2
 ARG PYTORCH_PACKAGE=torch==1.0.0
-ARG MXNET_PACKAGE=mxnet-gcc5
+ARG MXNET_PACKAGE=mxnet==1.4.0.post0
 ARG PYSPARK_PACKAGE=pyspark==2.4.0
 
 # Set default shell to /bin/bash
@@ -17,14 +17,22 @@ SHELL ["/bin/bash", "-cu"]
 
 # Install essential packages.
 RUN apt-get update -qq
-RUN apt-get install -y wget openssh-client git build-essential
+RUN apt-get install -y --no-install-recommends \
+        wget \
+        ca-certificates \
+        openssh-client \
+        git \
+        build-essential \
+        gcc-4.9 \
+        g++-4.9 \
+        gcc-4.9-base \
+        software-properties-common
 
 # Install Python.
 RUN if [[ "${PYTHON_VERSION}" == "3.6" ]]; then \
-        apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python3-distutils; \
-    else \
-        apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev; \
+        add-apt-repository ppa:deadsnakes/ppa && apt-get update -qq; \
     fi
+RUN apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
 RUN pip install -U --force pip setuptools requests pytest
@@ -63,10 +71,25 @@ RUN pip install future typing
 # Install MXNet.
 RUN pip install ${MXNET_PACKAGE}
 
+# Pin GCC to 4.9 to compile correctly against TensorFlow, PyTorch, and MXNet
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 100 && \
+    update-alternatives --install /usr/bin/x86_64-linux-gnu-gcc x86_64-linux-gnu-gcc /usr/bin/gcc-4.9 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.9 100 && \
+    update-alternatives --install /usr/bin/x86_64-linux-gnu-g++ x86_64-linux-gnu-g++ /usr/bin/g++-4.9 100
+
 # Install Horovod.
 COPY . /horovod
 RUN cd /horovod && python setup.py sdist
 RUN pip install -v /horovod/dist/horovod-*.tar.gz
+
+# Remove GCC pinning
+RUN update-alternatives --remove gcc /usr/bin/gcc-4.9 && \
+    update-alternatives --remove x86_64-linux-gnu-gcc /usr/bin/gcc-4.9 && \
+    update-alternatives --remove g++ /usr/bin/g++-4.9 && \
+    update-alternatives --remove x86_64-linux-gnu-g++ /usr/bin/g++-4.9
+
+# Install mpi4py.
+RUN pip install mpi4py
 
 # Hack for compatibility of MNIST example with TensorFlow 1.1.0.
 RUN if [[ ${TENSORFLOW_PACKAGE} == "tensorflow==1.1.0" ]]; then \

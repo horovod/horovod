@@ -11,7 +11,7 @@ ARG PYTHON_VERSION=2.7
 ARG TENSORFLOW_PACKAGE=tensorflow-gpu==1.12.0
 ARG KERAS_PACKAGE=keras==2.2.2
 ARG PYTORCH_PACKAGE=torch==1.0.0
-ARG MXNET_PACKAGE=https://s3-us-west-2.amazonaws.com/mxnet-python-packages-gcc5/mxnet_cu90_gcc5-1.4.0-py2.py3-none-manylinux1_x86_64.whl
+ARG MXNET_PACKAGE=mxnet-cu90==1.4.0.post0
 ARG PYSPARK_PACKAGE=pyspark==2.4.0
 ARG HOROVOD_BUILD_FLAGS=HOROVOD_GPU_ALLREDUCE=NCCL
 
@@ -22,19 +22,23 @@ SHELL ["/bin/bash", "-cu"]
 RUN apt-get update -qq
 RUN apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
         wget \
+        ca-certificates \
         openssh-client \
         git \
         build-essential \
+        gcc-4.9 \
+        g++-4.9 \
+        gcc-4.9-base \
+        software-properties-common \
         libcudnn7=${CUDNN_VERSION} \
         libnccl2=${NCCL_VERSION_OVERRIDE} \
         libnccl-dev=${NCCL_VERSION_OVERRIDE}
 
 # Install Python.
-RUN if [[ ${PYTHON_VERSION} == "3.6" ]]; then \
-        apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python3-distutils; \
-    else \
-        apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev; \
+RUN if [[ "${PYTHON_VERSION}" == "3.6" ]]; then \
+        add-apt-repository ppa:deadsnakes/ppa && apt-get update -qq; \
     fi
+RUN apt-get install -y python${TRAVIS_PYTHON_VERSION} python${TRAVIS_PYTHON_VERSION}-dev
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
 RUN pip install -U --force pip setuptools requests pytest
@@ -79,12 +83,27 @@ RUN pip install future typing
 # Install MXNet.
 RUN pip install ${MXNET_PACKAGE}
 
+# Pin GCC to 4.9 to compile correctly against TensorFlow, PyTorch, and MXNet
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 100 && \
+    update-alternatives --install /usr/bin/x86_64-linux-gnu-gcc x86_64-linux-gnu-gcc /usr/bin/gcc-4.9 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.9 100 && \
+    update-alternatives --install /usr/bin/x86_64-linux-gnu-g++ x86_64-linux-gnu-g++ /usr/bin/g++-4.9 100
+
 # Install Horovod.
 COPY . /horovod
 RUN cd /horovod && python setup.py sdist
 RUN ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
     bash -c "${HOROVOD_BUILD_FLAGS} pip install -v /horovod/dist/horovod-*.tar.gz" && \
     ldconfig
+
+# Remove GCC pinning
+RUN update-alternatives --remove gcc /usr/bin/gcc-4.9 && \
+    update-alternatives --remove x86_64-linux-gnu-gcc /usr/bin/gcc-4.9 && \
+    update-alternatives --remove g++ /usr/bin/g++-4.9 && \
+    update-alternatives --remove x86_64-linux-gnu-g++ /usr/bin/g++-4.9
+
+# Install mpi4py.
+RUN pip install mpi4py
 
 # Hack for compatibility of MNIST example with TensorFlow 1.1.0.
 RUN if [[ ${TENSORFLOW_PACKAGE} == "tensorflow-gpu==1.1.0" ]]; then \
