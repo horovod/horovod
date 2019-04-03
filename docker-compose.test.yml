@@ -227,3 +227,4 @@ services:
         PYTORCH_PACKAGE: torch==1.0.0
         PYSPARK_PACKAGE: pyspark==2.4.0
         HOROVOD_BUILD_FLAGS: ""
+        HOROVOD_MIXED_INSTALL: 1

@@ -22,6 +22,7 @@ from __future__ import print_function
 
 import itertools
 import numpy as np
+import os
 import tensorflow as tf
 from horovod.tensorflow.util import _executing_eagerly, _has_eager
 from tensorflow.python.framework import ops
@@ -305,6 +306,10 @@ class MPITests(tf.test.TestCase):
         perform reduction on CPU and GPU."""
         # Only do this test if there are GPUs available.
         if not tf.test.is_gpu_available(cuda_only=True):
+            return
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
             return
 
         hvd.init()

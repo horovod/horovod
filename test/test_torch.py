@@ -337,6 +337,10 @@ class TorchTests(unittest.TestCase):
         if not torch.cuda.is_available():
             return
 
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
+            return
+
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
