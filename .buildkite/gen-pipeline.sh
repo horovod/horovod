@@ -102,8 +102,7 @@ done
 echo "- wait"
 
 # cache test containers if built from master
-# TODO: replace with master
-if [[ "${BUILDKITE_BRANCH}" == "buildkite" ]]; then
+if [[ "${BUILDKITE_BRANCH}" == "master" ]]; then
   for test in ${tests[@]}; do
     cache_test "${test}"
   done
