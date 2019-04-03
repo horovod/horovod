@@ -140,6 +140,10 @@ class MPITests(tf.test.TestCase):
         if not tf.test.is_gpu_available(cuda_only=True):
             return
 
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
+            return
+
         hvd.init()
         local_rank = hvd.local_rank()
         size = hvd.size()
@@ -178,6 +182,10 @@ class MPITests(tf.test.TestCase):
         a GPU data pointer."""
         # Only do this test if there are GPUs available.
         if not tf.test.is_gpu_available(cuda_only=True):
+            return
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
             return
 
         hvd.init()
@@ -367,6 +375,10 @@ class MPITests(tf.test.TestCase):
         """Test the correctness of the allreduce gradient on GPU."""
         # Only do this test if there are GPUs available.
         if not tf.test.is_gpu_available(cuda_only=True):
+            return
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
             return
 
         hvd.init()
@@ -686,6 +698,10 @@ class MPITests(tf.test.TestCase):
         if not tf.test.is_gpu_available(cuda_only=True):
             return
 
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLGATHER.
+            return
+
         hvd.init()
         rank = hvd.rank()
         local_rank = hvd.local_rank()
@@ -866,6 +882,10 @@ class MPITests(tf.test.TestCase):
         """Test the correctness of the broadcast gradient on GPU."""
         # Only do this test if there are GPUs available.
         if not tf.test.is_gpu_available(cuda_only=True):
+            return
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_BROADCAST.
             return
 
         hvd.init()
