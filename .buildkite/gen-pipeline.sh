@@ -43,7 +43,7 @@ build_test() {
   echo "      push-retries: 3"
   echo "  - ecr#v1.2.0:"
   echo "      login: true"
-  echo "  timeout_in_minutes: 15"
+  echo "  timeout_in_minutes: 20"
   echo "  retry:"
   echo "    automatic: true"
   echo "  agents:"
