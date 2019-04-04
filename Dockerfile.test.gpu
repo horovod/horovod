@@ -80,11 +80,11 @@ RUN ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
 # Install PyTorch.
 RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
         PYTORCH_CUDA=$(echo ${CUDA_DOCKER_VERSION} | awk -F- '{print $1}' | sed 's/\.//'); \
-        pip install torch_nightly -v -f https://download.pytorch.org/whl/nightly/cu${PYTORCH_CUDA}/torch_nightly.html && \
-            pip install torchvision_nightly; \
+        pip install torch_nightly -v -f https://download.pytorch.org/whl/nightly/cu${PYTORCH_CUDA}/torch_nightly.html; \
     else \
-        pip install ${PYTORCH_PACKAGE} torchvision; \
+        pip install ${PYTORCH_PACKAGE}; \
     fi
+RUN pip install torchvision --no-deps
 RUN pip install future typing
 
 # Install MXNet.
