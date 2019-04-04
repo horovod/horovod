@@ -230,6 +230,10 @@ class MPITests(tf.test.TestCase):
         if not tf.test.is_gpu_available(cuda_only=True):
             return
 
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
+            return
+
         hvd.init()
         local_rank = hvd.local_rank()
         size = hvd.size()
