@@ -84,7 +84,7 @@ RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
     else \
         pip install ${PYTORCH_PACKAGE}; \
     fi
-RUN pip install torchvision --no-deps
+RUN pip install torchvision Pillow --no-deps
 RUN pip install future typing
 
 # Install MXNet.

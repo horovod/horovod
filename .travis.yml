@@ -83,7 +83,7 @@ install:
     else
       docker exec ${CONTAINER} /bin/sh -c "pip install ${PYTORCH_PACKAGE}"
     fi
-    docker exec ${CONTAINER} /bin/sh -c "pip install torchvision --no-deps"
+    docker exec ${CONTAINER} /bin/sh -c "pip install torchvision Pillow --no-deps"
 
   # MXNet
   - docker exec ${CONTAINER} /bin/sh -c "pip install ${MXNET_PACKAGE}"
