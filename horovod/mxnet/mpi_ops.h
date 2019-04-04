@@ -33,11 +33,13 @@ typedef ::mxnet::engine::CallbackOnComplete CallbackOnComplete;
 typedef std::shared_ptr<MXTemporaryBuffer<NDArray>> MXTempBufferShared;
 
 extern "C" int horovod_mxnet_allreduce_async(NDArray* input, NDArray* output,
-                                             char* name, bool average);
+                                             const char* name, bool average,
+                                             int priority);
 extern "C" int horovod_mxnet_allgather_async(NDArray* input, NDArray* output,
-                                             char* name);
+                                             const char* name, int priority);
 extern "C" int horovod_mxnet_broadcast_async(NDArray* input, NDArray* output,
-                                             char* name, int root_rank);
+                                             const char* name, int root_rank,
+                                             int priority);
 
 } // namespace mxnet
 } // namespace horovod

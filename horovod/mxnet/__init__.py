@@ -51,7 +51,8 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
     def _do_allreduce(self, index, grad):
         if isinstance(index, (tuple, list)):
             for i in range(len(index)):
-                allreduce_(grad[i], average=False, name=str(index[i]))
+                allreduce_(grad[i], average=False,
+                           name=str(index[i]), priority=-i)
         else:
             allreduce_(grad, average=False, name=str(index))
 
@@ -97,7 +98,8 @@ class DistributedTrainer(mx.gluon.Trainer):
     def _allreduce_grads(self):
         for i, param in enumerate(self._params):
             if param.grad_req != 'null':
-                allreduce_(param.list_grad()[0], average=False, name=str(i))
+                allreduce_(param.list_grad()[0], average=False,
+                           name=str(i), priority=-i)
 
 
 # Wrapper to inject Horovod broadcast after parameter initialization
