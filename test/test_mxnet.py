@@ -20,7 +20,7 @@ from __future__ import print_function
 import horovod.mxnet as hvd
 import itertools
 import mxnet as mx
-import numpy as np
+import os
 import unittest
 from mxnet.base import MXNetError
 from mxnet.test_utils import same
@@ -221,12 +221,14 @@ class MXTests(unittest.TestCase):
         except (MXNetError, RuntimeError):
             pass
 
-    # TODO: Enable this test when we have a way to know the Horovod build flags.
-    # It currently fails if we do allrecude on CPU when CUDA is supported.
-    @unittest.skip("fails when performing allreduce on CPU when CUDA is supported")
+    @unittest.skipUnless(has_gpu, "no gpu detected")
     def test_horovod_allreduce_cpu_gpu_error(self):
         """Test that the allreduce raises an error if different ranks try to
            perform reduction on CPU and GPU."""
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
+            return
+
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()

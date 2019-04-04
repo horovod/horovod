@@ -38,7 +38,7 @@ env:
     - TF_PACKAGE=tensorflow==1.1.0 KERAS_PACKAGE=keras==2.0.0 PYTORCH_PACKAGE=torch==0.4.0 MXNET_PACKAGE=mxnet==1.4.0.post0 MPI=OpenMPI PYSPARK=2.1.2
     - TF_PACKAGE=tensorflow==1.6.0 KERAS_PACKAGE=keras==2.1.2 PYTORCH_PACKAGE=torch==0.4.1 MXNET_PACKAGE=mxnet==1.4.0.post0 MPI=OpenMPI PYSPARK=2.3.2
     - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet==1.4.0.post0 MPI=OpenMPI PYSPARK=2.4.0
-    - TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet==1.4.0.post0 MPI=OpenMPI PYSPARK=2.4.0
+    - TF_PACKAGE=tf-nightly==1.14.1.dev20190401 KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet==1.4.0.post0 MPI=OpenMPI PYSPARK=2.4.0
     - TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet==1.4.0.post0 MPI=MPICH PYSPARK=2.4.0
 
 matrix:
@@ -53,7 +53,7 @@ matrix:
     - python: "3.6"
       env: TF_PACKAGE=tensorflow==1.12.0 KERAS_PACKAGE=keras==2.2.2 PYTORCH_PACKAGE=torch==1.0.0 MXNET_PACKAGE=mxnet==1.4.0.post0 MPI=MPICH PYSPARK=2.4.0
     - python: "3.5"
-      env: TF_PACKAGE=tf-nightly KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet==1.4.0.post0 MPI=OpenMPI PYSPARK=2.4.0
+      env: TF_PACKAGE=tf-nightly==1.14.1.dev20190401 KERAS_PACKAGE=git+https://github.com/keras-team/keras.git PYTORCH_PACKAGE=torch-nightly MXNET_PACKAGE=mxnet==1.4.0.post0 MPI=OpenMPI PYSPARK=2.4.0
 
 install:
   - |
@@ -79,12 +79,11 @@ install:
   # PyTorch
   - |
     if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then
-      docker exec ${CONTAINER} /bin/sh -c "pip install torchvision"
-      docker exec ${CONTAINER} /bin/sh -c "pip uninstall -y torch"
       docker exec ${CONTAINER} /bin/sh -c "pip install torch_nightly -v -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html"
     else
-      docker exec ${CONTAINER} /bin/sh -c "pip install ${PYTORCH_PACKAGE} torchvision"
+      docker exec ${CONTAINER} /bin/sh -c "pip install ${PYTORCH_PACKAGE}"
     fi
+    docker exec ${CONTAINER} /bin/sh -c "pip install torchvision Pillow --no-deps"
 
   # MXNet
   - docker exec ${CONTAINER} /bin/sh -c "pip install ${MXNET_PACKAGE}"

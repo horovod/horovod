@@ -1,0 +1,230 @@
+version: '2.3'
+services:
+  test-cpu-base:
+    build:
+      context: .
+      dockerfile: Dockerfile.test.cpu
+    privileged: true
+  test-cpu-openmpi-py2_7-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_0-pyspark2_1_2:
+    extends: test-cpu-base
+    build:
+      args:
+        MPI_KIND: OpenMPI
+        PYTHON_VERSION: 2.7
+        TENSORFLOW_PACKAGE: tensorflow==1.1.0
+        KERAS_PACKAGE: keras==2.0.0
+        PYTORCH_PACKAGE: torch==0.4.0
+        PYSPARK_PACKAGE: pyspark==2.1.2
+  test-cpu-openmpi-py3_5-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_0-pyspark2_1_2:
+    extends: test-cpu-base
+    build:
+      args:
+        MPI_KIND: OpenMPI
+        PYTHON_VERSION: 3.5
+        TENSORFLOW_PACKAGE: tensorflow==1.1.0
+        KERAS_PACKAGE: keras==2.0.0
+        PYTORCH_PACKAGE: torch==0.4.0
+        PYSPARK_PACKAGE: pyspark==2.1.2
+  test-cpu-openmpi-py3_6-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_0-pyspark2_1_2:
+    extends: test-cpu-base
+    build:
+      args:
+        MPI_KIND: OpenMPI
+        PYTHON_VERSION: 3.6
+        TENSORFLOW_PACKAGE: tensorflow==1.1.0
+        KERAS_PACKAGE: keras==2.0.0
+        PYTORCH_PACKAGE: torch==0.4.0
+        PYSPARK_PACKAGE: pyspark==2.1.2
+  test-cpu-openmpi-py2_7-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_0-pyspark2_3_2:
+    extends: test-cpu-base
+    build:
+      args:
+        MPI_KIND: OpenMPI
+        PYTHON_VERSION: 2.7
+        TENSORFLOW_PACKAGE: tensorflow==1.6.0
+        KERAS_PACKAGE: keras==2.1.2
+        PYTORCH_PACKAGE: torch==0.4.1
+        PYSPARK_PACKAGE: pyspark==2.3.2
+  test-cpu-openmpi-py3_5-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_0-pyspark2_3_2:
+    extends: test-cpu-base
+    build:
+      args:
+        MPI_KIND: OpenMPI
+        PYTHON_VERSION: 3.5
+        TENSORFLOW_PACKAGE: tensorflow==1.6.0
+        KERAS_PACKAGE: keras==2.1.2
+        PYTORCH_PACKAGE: torch==0.4.1
+        PYSPARK_PACKAGE: pyspark==2.3.2
+  test-cpu-openmpi-py3_6-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_0-pyspark2_3_2:
+    extends: test-cpu-base
+    build:
+      args:
+        MPI_KIND: OpenMPI
+        PYTHON_VERSION: 3.6
+        TENSORFLOW_PACKAGE: tensorflow==1.6.0
+        KERAS_PACKAGE: keras==2.1.2
+        PYTORCH_PACKAGE: torch==0.4.1
+        PYSPARK_PACKAGE: pyspark==2.3.2
+  test-cpu-openmpi-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_0-pyspark2_4_0:
+    extends: test-cpu-base
+    build:
+      args:
+        MPI_KIND: OpenMPI
+        PYTHON_VERSION: 2.7
+        TENSORFLOW_PACKAGE: tensorflow==1.12.0
+        KERAS_PACKAGE: keras==2.2.2
+        PYTORCH_PACKAGE: torch==1.0.0
+        PYSPARK_PACKAGE: pyspark==2.4.0
+  test-cpu-openmpi-py3_5-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_0-pyspark2_4_0:
+    extends: test-cpu-base
+    build:
+      args:
+        MPI_KIND: OpenMPI
+        PYTHON_VERSION: 3.5
+        TENSORFLOW_PACKAGE: tensorflow==1.12.0
+        KERAS_PACKAGE: keras==2.2.2
+        PYTORCH_PACKAGE: torch==1.0.0
+        PYSPARK_PACKAGE: pyspark==2.4.0
+  test-cpu-openmpi-py3_6-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_0-pyspark2_4_0:
+    extends: test-cpu-base
+    build:
+      args:
+        MPI_KIND: OpenMPI
+        PYTHON_VERSION: 3.6
+        TENSORFLOW_PACKAGE: tensorflow==1.12.0
+        KERAS_PACKAGE: keras==2.2.2
+        PYTORCH_PACKAGE: torch==1.0.0
+        PYSPARK_PACKAGE: pyspark==2.4.0
+  test-cpu-openmpi-py2_7-tfhead-kerashead-torchhead-mxnet1_4_0-pyspark2_4_0:
+    extends: test-cpu-base
+    build:
+      args:
+        MPI_KIND: OpenMPI
+        PYTHON_VERSION: 2.7
+        TENSORFLOW_PACKAGE: tf-nightly==1.14.1.dev20190401
+        KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
+        PYTORCH_PACKAGE: torch-nightly
+        PYSPARK_PACKAGE: pyspark==2.4.0
+  test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnet1_4_0-pyspark2_4_0:
+    extends: test-cpu-base
+    build:
+      args:
+        MPI_KIND: OpenMPI
+        PYTHON_VERSION: 3.6
+        TENSORFLOW_PACKAGE: tf-nightly==1.14.1.dev20190401
+        KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
+        PYTORCH_PACKAGE: torch-nightly
+        PYSPARK_PACKAGE: pyspark==2.4.0
+  test-cpu-mpich-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_0-pyspark2_4_0:
+    extends: test-cpu-base
+    build:
+      args:
+        MPI_KIND: MPICH
+        PYTHON_VERSION: 2.7
+        TENSORFLOW_PACKAGE: tensorflow==1.12.0
+        KERAS_PACKAGE: keras==2.2.2
+        PYTORCH_PACKAGE: torch==1.0.0
+        PYSPARK_PACKAGE: pyspark==2.4.0
+
+  test-gpu-base:
+    build:
+      context: .
+      dockerfile: Dockerfile.test.gpu
+    runtime: nvidia
+    # We plumb CUDA_VISIBLE_DEVICES instead of NVIDIA_VISIBLE_DEVICES because
+    # the latter does not work in privileged mode that we use in the containers.
+    environment:
+      - CUDA_VISIBLE_DEVICES
+    privileged: true
+  test-gpu-openmpi-py2_7-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_0-pyspark2_3_2:
+    extends: test-gpu-base
+    build:
+      args:
+        CUDNN_VERSION: 7.0.5.15-1+cuda9.0
+        MPI_KIND: OpenMPI
+        PYTHON_VERSION: 2.7
+        TENSORFLOW_PACKAGE: tensorflow-gpu==1.6.0
+        KERAS_PACKAGE: keras==2.1.2
+        PYTORCH_PACKAGE: torch==0.4.1
+        PYSPARK_PACKAGE: pyspark==2.3.2
+  test-gpu-openmpi-py3_5-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_0-pyspark2_3_2:
+    extends: test-gpu-base
+    build:
+      args:
+        CUDNN_VERSION: 7.0.5.15-1+cuda9.0
+        MPI_KIND: OpenMPI
+        PYTHON_VERSION: 3.5
+        TENSORFLOW_PACKAGE: tensorflow-gpu==1.6.0
+        KERAS_PACKAGE: keras==2.1.2
+        PYTORCH_PACKAGE: torch==0.4.1
+        PYSPARK_PACKAGE: pyspark==2.3.2
+  test-gpu-openmpi-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_0-pyspark2_4_0:
+    extends: test-gpu-base
+    build:
+      args:
+        MPI_KIND: OpenMPI
+        PYTHON_VERSION: 2.7
+        TENSORFLOW_PACKAGE: tensorflow-gpu==1.12.0
+        KERAS_PACKAGE: keras==2.2.2
+        PYTORCH_PACKAGE: torch==1.0.0
+        PYSPARK_PACKAGE: pyspark==2.4.0
+  test-gpu-openmpi-py3_5-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_0-pyspark2_4_0:
+    extends: test-gpu-base
+    build:
+      args:
+        MPI_KIND: OpenMPI
+        PYTHON_VERSION: 3.5
+        TENSORFLOW_PACKAGE: tensorflow-gpu==1.12.0
+        KERAS_PACKAGE: keras==2.2.2
+        PYTORCH_PACKAGE: torch==1.0.0
+        PYSPARK_PACKAGE: pyspark==2.4.0
+  test-gpu-openmpi-py2_7-tfhead-kerashead-torchhead-mxnet1_4_0-pyspark2_4_0:
+    extends: test-gpu-base
+    build:
+      args:
+        CUDA_DOCKER_VERSION: 10.0-devel-ubuntu16.04
+        CUDNN_VERSION: 7.4.1.5-1+cuda10.0
+        NCCL_VERSION_OVERRIDE: 2.3.7-1+cuda10.0
+        MPI_KIND: OpenMPI
+        PYTHON_VERSION: 2.7
+        TENSORFLOW_PACKAGE: tf-nightly-gpu==1.14.1.dev20190401
+        KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
+        PYTORCH_PACKAGE: torch-nightly
+        MXNET_PACKAGE: mxnet-cu100==1.4.0.post0
+        PYSPARK_PACKAGE: pyspark==2.4.0
+  test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnet1_4_0-pyspark2_4_0:
+    extends: test-gpu-base
+    build:
+      args:
+        CUDA_DOCKER_VERSION: 10.0-devel-ubuntu16.04
+        CUDNN_VERSION: 7.4.1.5-1+cuda10.0
+        NCCL_VERSION_OVERRIDE: 2.3.7-1+cuda10.0
+        MPI_KIND: OpenMPI
+        PYTHON_VERSION: 3.6
+        TENSORFLOW_PACKAGE: tf-nightly-gpu==1.14.1.dev20190401
+        KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
+        PYTORCH_PACKAGE: torch-nightly
+        MXNET_PACKAGE: mxnet-cu100==1.4.0.post0
+        PYSPARK_PACKAGE: pyspark==2.4.0
+  test-gpu-mpich-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_0-pyspark2_4_0:
+    extends: test-gpu-base
+    build:
+      args:
+        MPI_KIND: MPICH
+        PYTHON_VERSION: 2.7
+        TENSORFLOW_PACKAGE: tensorflow-gpu==1.12.0
+        KERAS_PACKAGE: keras==2.2.2
+        PYTORCH_PACKAGE: torch==1.0.0
+        PYSPARK_PACKAGE: pyspark==2.4.0
+  test-mixed-openmpi-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_0-pyspark2_4_0:
+    extends: test-gpu-base
+    build:
+      args:
+        MPI_KIND: OpenMPI
+        PYTHON_VERSION: 2.7
+        TENSORFLOW_PACKAGE: tensorflow-gpu==1.12.0
+        KERAS_PACKAGE: keras==2.2.2
+        PYTORCH_PACKAGE: torch==1.0.0
+        PYSPARK_PACKAGE: pyspark==2.4.0
+        HOROVOD_BUILD_FLAGS: ""
+        HOROVOD_MIXED_INSTALL: 1
