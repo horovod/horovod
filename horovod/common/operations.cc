@@ -572,6 +572,24 @@ ResponseList FuseResponses(std::deque<Response>& responses,
   return response_list;
 }
 
+// Helper function to get list of allreduced tensor names and total size for
+// use with the autotuner.
+int64_t GetTensorDataForAutotuner(const ResponseList& response_list,
+                                  const TensorTable& tensor_table,
+                                  std::vector<std::string>& tensor_names) {
+  int64_t total_tensor_size = 0;
+  for (auto& response : response_list.responses()) {
+    if (response.response_type() == Response::ResponseType::ALLREDUCE) {
+      for (auto& tensor_name : response.tensor_names()) {
+        tensor_names.push_back(tensor_name);
+        auto& entry = tensor_table.at(tensor_name);
+        total_tensor_size += entry.tensor->size();
+      }
+    }
+  }
+  return total_tensor_size;
+}
+
 // Process a Response by doing a reduction, a gather, a broadcast, or
 // raising an error.
 void PerformOperation(TensorTable& tensor_table, Response response) {
@@ -1132,7 +1150,9 @@ void RunBypass(std::queue<Request>& message_queue, CacheCoordinator& cache_coord
                HorovodGlobalState& state, MPIContext& ctx) {
 
   // Convert cache hits to responses. Populate so that least
-  // recently used responses get priority.
+  // recently used responses get priority. All workers call the code
+  // here so we use the get method here to consistently update the cache
+  // order.
   std::deque<Response> responses;
   for (auto bit : cache_coordinator.cache_hits()) {
     responses.push_back(state.response_cache.get_response(bit));
@@ -1149,19 +1169,13 @@ void RunBypass(std::queue<Request>& message_queue, CacheCoordinator& cache_coord
     LOG(TRACE) << "Sending ready responses as " << tensors_ready;
   }
 
+  // Get tensor name and size data for autotuning.
+  int64_t total_tensor_size;
   std::vector<std::string> tensor_names;
-  int64_t total_tensor_size = 0;
   if (state.param_manager.IsAutoTuning()) {
     std::lock_guard<std::mutex> guard(state.mutex);
-    for (auto& response : response_list.responses()) {
-      if (response.response_type() == Response::ResponseType::ALLREDUCE) {
-        for (auto& tensor_name : response.tensor_names()) {
-          tensor_names.push_back(tensor_name);
-          auto& entry = state.tensor_table[tensor_name];
-          total_tensor_size += entry.tensor->size();
-        }
-      }
-    }
+    total_tensor_size = GetTensorDataForAutotuner(response_list, state.tensor_table,
+                                                  tensor_names);
   }
 
   // Perform the collective operation. All nodes should end up performing
@@ -1173,7 +1187,7 @@ void RunBypass(std::queue<Request>& message_queue, CacheCoordinator& cache_coord
     LOG(TRACE, state.rank) << "Finished performing " << response.tensor_names_string();
   }
 
-  // Reassign cache bits based on current cache state.
+  // Reassign cache bits based on current cache order.
   state.response_cache.update_cache_bits();
 
   if (state.param_manager.IsAutoTuning()) {
@@ -1325,6 +1339,7 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
   // tensor count table (rank zero) or send them to rank zero to be
   // recorded (everyone else).
   std::vector<std::string> ready_to_reduce;
+  ResponseList response_list;
   if (is_coordinator) {
     while (!message_queue.empty()) {
       // Pop the first available message message
@@ -1400,7 +1415,9 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
 
     if (state.response_cache.capacity() > 0) {
       // Prepopulate response list with cached responses. Populate so that
-      // least recently used responses get priority.
+      // least recently used responses get priority. Since only the coordinator
+      // rank calls this code, use peek instead of get here to preserve cache
+      // order across workers.
       for (auto bit : cache_coordinator.cache_hits()) {
         responses.push_back(state.response_cache.peek_response(bit));
       }
@@ -1412,7 +1429,7 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       responses.push_back(std::move(response));
     }
 
-    auto response_list = FuseResponses(responses, state, ctx);
+    response_list = FuseResponses(responses, state, ctx);
     response_list.set_shutdown(should_shut_down);
 
     if (!response_list.responses().empty()) {
@@ -1431,47 +1448,6 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     MPI_Bcast((void*)encoded_response.c_str(), encoded_response_length,
               MPI_BYTE, RANK_ZERO, ctx.mpi_comm);
 
-    std::vector<std::string> tensor_names;
-    int64_t total_tensor_size = 0;
-    if (state.param_manager.IsAutoTuning()) {
-      std::lock_guard<std::mutex> guard(state.mutex);
-      for (auto& response : response_list.responses()) {
-        if (response.response_type() == Response::ResponseType::ALLREDUCE) {
-          for (auto& tensor_name : response.tensor_names()) {
-            tensor_names.push_back(tensor_name);
-            auto& entry = state.tensor_table[tensor_name];
-            total_tensor_size += entry.tensor->size();
-          }
-        }
-      }
-    }
-
-    // Add supported responses to cache.
-    if (state.response_cache.capacity() > 0) {
-      std::lock_guard<std::mutex> guard(horovod_global.mutex);
-      for (auto& response : response_list.responses()) {
-        if (response.response_type() == Response::ResponseType::ALLREDUCE &&
-            (int)response.devices().size() == state.size) {
-          state.response_cache.put(response, state.tensor_table);
-        }
-      }
-
-      // Reassign cache bits based on current cache state.
-      state.response_cache.update_cache_bits();
-    }
-
-    // Perform the collective operation. All nodes should end up performing
-    // the same operation.
-    for (auto& response : response_list.responses()) {
-      LOG(TRACE, state.rank) << "Performing " << response.tensor_names_string();
-      LOG(DEBUG, state.rank) << "Processing " << response.tensor_names().size() << " tensors";
-      PerformOperation(state.tensor_table, response);
-      LOG(TRACE, state.rank) << "Finished performing " << response.tensor_names_string();
-    }
-
-    if (state.param_manager.IsAutoTuning()) {
-      state.param_manager.Update(tensor_names, total_tensor_size);
-    }
   } else {
     std::string encoded_message;
     RequestList message_list;
@@ -1492,55 +1468,49 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     MPI_Bcast(&msg_length, 1, MPI_INT, RANK_ZERO, ctx.mpi_comm);
     auto buffer = new uint8_t[msg_length];
     MPI_Bcast(buffer, msg_length, MPI_BYTE, RANK_ZERO, ctx.mpi_comm);
-    ResponseList response_list;
     ResponseList::ParseFromBytes(response_list, buffer);
     delete[] buffer;
+  }
 
-    std::vector<std::string> tensor_names;
-    int64_t total_tensor_size = 0;
-    if (state.param_manager.IsAutoTuning()) {
-      std::lock_guard<std::mutex> guard(state.mutex);
-      for (auto& response : response_list.responses()) {
-        if (response.response_type() == Response::ResponseType::ALLREDUCE) {
-          for (auto& tensor_name : response.tensor_names()) {
-            tensor_names.push_back(tensor_name);
-            auto& entry = state.tensor_table[tensor_name];
-            total_tensor_size += entry.tensor->size();
-          }
-        }
-      }
-    }
+  // Get tensor name and size data for autotuning.
+  int64_t total_tensor_size;
+  std::vector<std::string> tensor_names;
+  if (state.param_manager.IsAutoTuning()) {
+    std::lock_guard<std::mutex> guard(state.mutex);
+    total_tensor_size = GetTensorDataForAutotuner(response_list, state.tensor_table,
+                                                  tensor_names);
+  }
 
-    // Add supported responses to cache.
-    if (state.response_cache.capacity() > 0) {
-      std::lock_guard<std::mutex> guard(horovod_global.mutex);
-      for (auto& response : response_list.responses()) {
-        if (response.response_type() == Response::ResponseType::ALLREDUCE &&
-            (int)response.devices().size() == state.size) {
-          state.response_cache.put(response, state.tensor_table);
-        }
-      }
-
-      // Reassign cache bits based on current cache state.
-      state.response_cache.update_cache_bits();
-    }
-
-    // Perform the collective operation. All nodes should end up performing
-    // the same operation.
+  if (state.response_cache.capacity() > 0) {
+    std::lock_guard<std::mutex> guard(horovod_global.mutex);
+    // All workers add supported responses to cache. This updates the cache order
+    // consistently across workers.
     for (auto& response : response_list.responses()) {
-      LOG(TRACE, state.rank) << "Performing " << response.tensor_names_string();
-      LOG(DEBUG, state.rank) << "Processing " << response.tensor_names().size() << " tensors";
-      PerformOperation(state.tensor_table, response);
-      LOG(TRACE, state.rank) << "Finished performing " << response.tensor_names_string();
+      if (response.response_type() == Response::ResponseType::ALLREDUCE &&
+          (int)response.devices().size() == state.size) {
+        state.response_cache.put(response, state.tensor_table);
+      }
     }
 
-    if (state.param_manager.IsAutoTuning()) {
-      state.param_manager.Update(tensor_names, total_tensor_size);
-    }
+    // Reassign cache bits based on current cache order.
+    state.response_cache.update_cache_bits();
+  }
 
-    if (response_list.shutdown()) {
-      should_shut_down = true;
-    }
+  // Perform the collective operation. All nodes should end up performing
+  // the same operation.
+  for (auto& response : response_list.responses()) {
+    LOG(TRACE, state.rank) << "Performing " << response.tensor_names_string();
+    LOG(DEBUG, state.rank) << "Processing " << response.tensor_names().size() << " tensors";
+    PerformOperation(state.tensor_table, response);
+    LOG(TRACE, state.rank) << "Finished performing " << response.tensor_names_string();
+  }
+
+  if (state.param_manager.IsAutoTuning()) {
+    state.param_manager.Update(tensor_names, total_tensor_size);
+  }
+
+  if (response_list.shutdown()) {
+    should_shut_down = true;
   }
 
   return !should_shut_down;
