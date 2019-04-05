@@ -261,8 +261,14 @@ extern "C" int horovod_mxnet_allreduce_async(NDArray* input, NDArray* output,
   MX_API_BEGIN();
 
 #if HAVE_CUDA && !HOROVOD_GPU_ALLREDUCE
-  PushHorovodOperationOnCPU(OperationType::ALLREDUCE, input, output,
-                            name, priority);
+  if (input->ctx().dev_mask() == cpu::kDevMask &&
+      output->ctx().dev_mask() == cpu::kDevMask) {
+    PushHorovodOperation(OperationType::ALLREDUCE, input, output,
+                         name, priority);
+  } else {
+    PushHorovodOperationOnCPU(OperationType::ALLREDUCE, input, output,
+                              name, priority);
+  }
 #else
   PushHorovodOperation(OperationType::ALLREDUCE, input, output,
                        name, priority);
@@ -280,8 +286,14 @@ extern "C" int horovod_mxnet_allgather_async(NDArray* input, NDArray* output,
   MX_API_BEGIN();
 
 #if HAVE_CUDA && !HOROVOD_GPU_ALLGATHER
-  PushHorovodOperationOnCPU(OperationType::ALLGATHER, input, output,
-                            name, priority);
+  if (input->ctx().dev_mask() == cpu::kDevMask &&
+      output->ctx().dev_mask() == cpu::kDevMask) {
+    PushHorovodOperation(OperationType::ALLGATHER, input, output,
+                         name, priority);
+  } else {
+    PushHorovodOperationOnCPU(OperationType::ALLGATHER, input, output,
+                              name, priority);
+  }
 #else
   PushHorovodOperation(OperationType::ALLGATHER, input, output,
                        name, priority);
@@ -296,8 +308,15 @@ extern "C" int horovod_mxnet_broadcast_async(NDArray* input, NDArray* output,
   MX_API_BEGIN();
 
 #if HAVE_CUDA && !HOROVOD_GPU_BROADCAST
-  PushHorovodOperationOnCPU(OperationType::BROADCAST, input, output,
-                            name, priority, root_rank);
+  if (input->ctx().dev_mask() == cpu::kDevMask &&
+      output->ctx().dev_mask() == cpu::kDevMask) {
+    PushHorovodOperation(OperationType::BROADCAST, input, output,
+                         name, priority, root_rank);
+
+  } else {
+    PushHorovodOperationOnCPU(OperationType::BROADCAST, input, output,
+                              name, priority, root_rank);
+  }
 #else
   PushHorovodOperation(OperationType::BROADCAST, input, output,
                        name, priority, root_rank);
