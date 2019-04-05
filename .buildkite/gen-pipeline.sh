@@ -142,13 +142,17 @@ for test in ${tests[@]}; do
     ":muscle: Test MXNet MNIST (${test})" \
     "bash -c \"OMP_NUM_THREADS=1 \\\$(cat /mpirun_command) python /horovod/examples/mxnet_mnist.py\""
 
-  run_test "${test}" "${queue}" \
-    ":muscle: Test Stall (${test})" \
-    "bash -c \"\\\$(cat /mpirun_command) python /horovod/test/test_stall.py\""
-
-  if [[ ${test} == *"openmpi"* ]]; then
+  # tests that should be executed only with the latest release since they don't test
+  # a framework-specific functionality
+  if [[ ${test} == *"tf1_12_0"* ]]; then
     run_test "${test}" "${queue}" \
-      ":muscle: Test Horovodrun (${test})" \
-      "horovodrun -np 2 -H localhost:2 python /horovod/examples/tensorflow_mnist.py"
+      ":muscle: Test Stall (${test})" \
+      "bash -c \"\\\$(cat /mpirun_command) python /horovod/test/test_stall.py\""
+
+    if [[ ${test} == *"openmpi"* ]]; then
+      run_test "${test}" "${queue}" \
+        ":muscle: Test Horovodrun (${test})" \
+        "horovodrun -np 2 -H localhost:2 python /horovod/examples/tensorflow_mnist.py"
+    fi
   fi
 done
