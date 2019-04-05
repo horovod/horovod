@@ -61,8 +61,8 @@ def allreduce(tensor, average=True, name=None, priority=0):
         average: A flag indicating whether to compute average or summation,
                  defaults to average.
         name: A name of the reduction operation.
-        priority: The priority of this operation. Higher priority operations are
-                  likely to be executed before other actions.
+        priority: The priority of this operation. Higher priority operations
+                  are likely to be executed before other operations.
 
     Returns:
         A tensor of the same shape and type as `tensor`, averaged or summed
@@ -99,8 +99,8 @@ def allreduce_(tensor, average=True, name=None, priority=0):
         average: A flag indicating whether to compute average or summation,
                  defaults to average.
         name: A name of the reduction operation.
-        priority: The priority of this operation. Higher priority operations are
-                  likely to be executed before other actions.
+        priority: The priority of this operation. Higher priority operations
+                  are likely to be executed before other operations.
 
     Returns:
         A tensor of the same shape and type as `tensor`, averaged or summed
@@ -135,8 +135,8 @@ def allgather(tensor, name=None, priority=0):
     Arguments:
         tensor: A tensor to allgather.
         name: A name of the allgather operation.
-        priority: The priority of this operation. Higher priority operations are
-                  likely to be executed before other actions.
+        priority: The priority of this operation. Higher priority operations
+                  are likely to be executed before other operations.
 
     Returns:
         A tensor of the same type as `tensor`, concatenated on dimension zero
@@ -176,8 +176,8 @@ def broadcast(tensor, root_rank, name=None, priority=0):
         tensor: A tensor to broadcast.
         root_rank: The rank to broadcast the value from.
         name: A name of the broadcast operation.
-        priority: The priority of this operation. Higher priority operations are
-                  likely to be executed before other actions.
+        priority: The priority of this operation. Higher priority operations
+                  are likely to be executed before other operations.
 
     Returns:
         A tensor of the same shape and type as `tensor`, with the value
@@ -212,8 +212,8 @@ def broadcast_(tensor, root_rank, name=None, priority=0):
         tensor: A tensor to broadcast.
         root_rank: The rank to broadcast the value from.
         name: A name of the broadcast operation.
-        priority: The priority of this operation. Higher priority operations are
-                  likely to be executed before other actions.
+        priority: The priority of this operation. Higher priority operations
+                  are likely to be executed before other operations.
 
     Returns:
         A tensor of the same shape and type as `tensor`, with the value
