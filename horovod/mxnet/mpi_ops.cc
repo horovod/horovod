@@ -28,7 +28,7 @@ namespace {
 
 std::atomic_int op_count;
 
-std::string GetOpName(std::string prefix, char* name) {
+std::string GetOpName(const std::string& prefix, const char* name) {
   if (name != nullptr) {
     return prefix + "." + std::string(name);
   }
@@ -37,6 +37,8 @@ std::string GetOpName(std::string prefix, char* name) {
   return prefix + ".noname." + std::to_string(op_count);
 }
 } // namespace
+
+const auto EXEC_CTX = Context::CPU();
 
 inline void InvokeCompleteCallback(CallbackOnComplete on_complete, const Status& status) {
   if (status.ok()) {
@@ -162,7 +164,8 @@ void DoBroadcastCudaOnCPU(MXTempBufferShared& hvd_cpu_buffer, int root_rank,
 #endif
 
 extern "C" int horovod_mxnet_allreduce_async(NDArray* input, NDArray* output,
-                                             char* name, bool average) {
+                                             const char* name, bool average,
+                                             int priority) {
   MX_API_BEGIN();
 
   std::string op_name = GetOpName("allreduce", name);
@@ -181,9 +184,10 @@ extern "C" int horovod_mxnet_allreduce_async(NDArray* input, NDArray* output,
     DoAllreduceCudaOnCPU(hvd_cpu_buffer, op_name, on_complete);
   };
 
-  Engine::Get()->PushAsync(allreduce_async_cpu_fn, cpu_tensor->ctx(),
+  Engine::Get()->PushAsync(allreduce_async_cpu_fn, EXEC_CTX,
                            {}, {cpu_tensor->var()},
-                           FnProperty::kNormal, 0, "HorovodAllreduce");
+                           FnProperty::kCPUPrioritized, priority,
+                           "HorovodAllreduce");
 
   // Make async copy of CPU tensor to output tensor.
   TensorUtil::AsyncCopyCPUToCuda(cpu_tensor, output);
@@ -196,14 +200,16 @@ extern "C" int horovod_mxnet_allreduce_async(NDArray* input, NDArray* output,
 
   // Not in-place
   if (input->var() != output->var()) {
-    Engine::Get()->PushAsync(allreduce_async_fn, input->ctx(),
+    Engine::Get()->PushAsync(allreduce_async_fn, EXEC_CTX,
                              {input->var()}, {output->var()},
-                             FnProperty::kNormal, 0, "HorovodAllreduce");
+                             FnProperty::kCPUPrioritized, priority,
+                             "HorovodAllreduce");
   // In-place
   } else {
-    Engine::Get()->PushAsync(allreduce_async_fn, input->ctx(),
+    Engine::Get()->PushAsync(allreduce_async_fn, EXEC_CTX,
                              {}, {output->var()},
-                             FnProperty::kNormal, 0, "HorovodAllreduce");
+                             FnProperty::kCPUPrioritized, priority,
+                             "HorovodAllreduce");
   }
 #endif
 
@@ -215,7 +221,7 @@ extern "C" int horovod_mxnet_allreduce_async(NDArray* input, NDArray* output,
 }
 
 extern "C" int horovod_mxnet_allgather_async(NDArray* input, NDArray* output,
-                                             char* name) {
+                                             const char* name, int priority) {
   MX_API_BEGIN();
 
   std::string op_name = GetOpName("allgather", name);
@@ -234,9 +240,10 @@ extern "C" int horovod_mxnet_allgather_async(NDArray* input, NDArray* output,
     DoAllgatherCudaOnCPU(hvd_cpu_buffer, op_name, on_complete);
   };
 
-  Engine::Get()->PushAsync(allgather_async_cpu_fn, cpu_tensor->ctx(),
+  Engine::Get()->PushAsync(allgather_async_cpu_fn, EXEC_CTX,
                            {}, {cpu_tensor->var()},
-                           FnProperty::kNormal, 0, "HorovodAllgather");
+                           FnProperty::kCPUPrioritized, priority,
+                           "HorovodAllgather");
 
   // Make async copy of CPU tensor to output tensor.
   TensorUtil::AsyncCopyCPUToCuda(cpu_tensor, output);
@@ -249,14 +256,16 @@ extern "C" int horovod_mxnet_allgather_async(NDArray* input, NDArray* output,
 
   // Not in-place
   if (input->var() != output->var()) {
-    Engine::Get()->PushAsync(allgather_async_fn, input->ctx(),
+    Engine::Get()->PushAsync(allgather_async_fn, EXEC_CTX,
                              {input->var()}, {output->var()},
-                             FnProperty::kNormal, 0, "HorovodAllgather");
+                             FnProperty::kCPUPrioritized, priority,
+                             "HorovodAllgather");
   // In-place
   } else {
-    Engine::Get()->PushAsync(allgather_async_fn, input->ctx(),
+    Engine::Get()->PushAsync(allgather_async_fn, EXEC_CTX,
                              {}, {output->var()},
-                             FnProperty::kNormal, 0, "HorovodAllgather");
+                             FnProperty::kCPUPrioritized, priority,
+                             "HorovodAllgather");
   }
 #endif
 
@@ -264,7 +273,8 @@ extern "C" int horovod_mxnet_allgather_async(NDArray* input, NDArray* output,
 }
 
 extern "C" int horovod_mxnet_broadcast_async(NDArray* input, NDArray* output,
-                                             char* name, int root_rank) {
+                                             const char* name, int root_rank,
+                                             int priority) {
   MX_API_BEGIN();
 
   std::string op_name = GetOpName("broadcast", name);
@@ -283,9 +293,10 @@ extern "C" int horovod_mxnet_broadcast_async(NDArray* input, NDArray* output,
     DoBroadcastCudaOnCPU(hvd_cpu_buffer, root_rank, op_name, on_complete);
   };
 
-  Engine::Get()->PushAsync(broadcast_async_cpu_fn, cpu_tensor->ctx(),
+  Engine::Get()->PushAsync(broadcast_async_cpu_fn, EXEC_CTX,
                            {}, {cpu_tensor->var()},
-                           FnProperty::kNormal, 0, "HorovodBroadcast");
+                           FnProperty::kCPUPrioritized, priority,
+                           "HorovodBroadcast");
 
   // Make async copy of CPU tensor to output tensor.
   TensorUtil::AsyncCopyCPUToCuda(cpu_tensor, output);
@@ -298,14 +309,16 @@ extern "C" int horovod_mxnet_broadcast_async(NDArray* input, NDArray* output,
 
   // Not in-place
   if (input->var() != output->var()) {
-    Engine::Get()->PushAsync(broadcast_async_fn, input->ctx(),
+    Engine::Get()->PushAsync(broadcast_async_fn, EXEC_CTX,
                              {input->var()}, {output->var()},
-                             FnProperty::kNormal, 0, "HorovodBroadcast");
+                             FnProperty::kCPUPrioritized, priority,
+                             "HorovodBroadcast");
   // In-place
   } else {
-    Engine::Get()->PushAsync(broadcast_async_fn, input->ctx(),
+    Engine::Get()->PushAsync(broadcast_async_fn, EXEC_CTX,
                              {}, {output->var()},
-                             FnProperty::kNormal, 0, "HorovodBroadcast");
+                             FnProperty::kCPUPrioritized, priority,
+                             "HorovodBroadcast");
   }
 #endif
 

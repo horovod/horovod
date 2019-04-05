@@ -42,7 +42,7 @@ dll_path = os.path.join(os.path.dirname(__file__),
 MPI_MXNET_LIB_CTYPES = ctypes.CDLL(dll_path, ctypes.RTLD_GLOBAL)
 
 
-def allreduce(tensor, average=True, name=None):
+def allreduce(tensor, average=True, name=None, priority=0):
     """
     A function that performs averaging or summation of the input tensor over
     all the Horovod processes. The input tensor is not modified.
@@ -61,6 +61,8 @@ def allreduce(tensor, average=True, name=None):
         average: A flag indicating whether to compute average or summation,
                  defaults to average.
         name: A name of the reduction operation.
+        priority: The priority of this operation. Higher priority operations
+                  are likely to be executed before other operations.
 
     Returns:
         A tensor of the same shape and type as `tensor`, averaged or summed
@@ -71,16 +73,18 @@ def allreduce(tensor, average=True, name=None):
     c_in = tensor.handle
     c_out = output.handle
     if isinstance(name, string_types):
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in,
-                   c_out, c_str(name), ctypes.c_bool(average)))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(
+            c_in, c_out, c_str(name), ctypes.c_bool(average),
+            ctypes.c_int(priority)))
     else:
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in,
-                   c_out, name, ctypes.c_bool(average)))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(
+            c_in, c_out, name, ctypes.c_bool(average),
+            ctypes.c_int(priority)))
 
     return output
 
 
-def allreduce_(tensor, average=True, name=None):
+def allreduce_(tensor, average=True, name=None, priority=0):
     """
     A function that performs in-place averaging or summation of the input
     tensor over all the Horovod processes.
@@ -95,6 +99,8 @@ def allreduce_(tensor, average=True, name=None):
         average: A flag indicating whether to compute average or summation,
                  defaults to average.
         name: A name of the reduction operation.
+        priority: The priority of this operation. Higher priority operations
+                  are likely to be executed before other operations.
 
     Returns:
         A tensor of the same shape and type as `tensor`, averaged or summed
@@ -103,15 +109,17 @@ def allreduce_(tensor, average=True, name=None):
     c_in = tensor.handle
     c_out = tensor.handle
     if isinstance(name, string_types):
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in,
-                   c_out, c_str(name), ctypes.c_bool(average)))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(
+            c_in, c_out, c_str(name), ctypes.c_bool(average),
+            ctypes.c_int(priority)))
     else:
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(c_in,
-                   c_out, name, ctypes.c_bool(average)))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allreduce_async(
+            c_in, c_out, name, ctypes.c_bool(average),
+            ctypes.c_int(priority)))
     return tensor
 
 
-def allgather(tensor, name=None):
+def allgather(tensor, name=None, priority=0):
     """
     A function that concatenates the input tensor with the same input tensor on
     all other Horovod processes. The input tensor is not modified.
@@ -127,6 +135,8 @@ def allgather(tensor, name=None):
     Arguments:
         tensor: A tensor to allgather.
         name: A name of the allgather operation.
+        priority: The priority of this operation. Higher priority operations
+                  are likely to be executed before other operations.
 
     Returns:
         A tensor of the same type as `tensor`, concatenated on dimension zero
@@ -140,15 +150,15 @@ def allgather(tensor, name=None):
     c_in = tensor.handle
     c_out = output.handle
     if isinstance(name, string_types):
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allgather_async(c_in,
-                   c_out, c_str(name)))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allgather_async(
+            c_in, c_out, c_str(name), ctypes.c_int(priority)))
     else:
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allgather_async(c_in,
-                   c_out, name))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_allgather_async(
+            c_in, c_out, name, ctypes.c_int(priority)))
     return output
 
 
-def broadcast(tensor, root_rank, name=None):
+def broadcast(tensor, root_rank, name=None, priority=0):
     """
     A function that broadcasts the input tensor on root rank to the same input
     tensor on all other Horovod processes. The input tensor is not modified.
@@ -166,6 +176,8 @@ def broadcast(tensor, root_rank, name=None):
         tensor: A tensor to broadcast.
         root_rank: The rank to broadcast the value from.
         name: A name of the broadcast operation.
+        priority: The priority of this operation. Higher priority operations
+                  are likely to be executed before other operations.
 
     Returns:
         A tensor of the same shape and type as `tensor`, with the value
@@ -176,15 +188,17 @@ def broadcast(tensor, root_rank, name=None):
     c_in = tensor.handle
     c_out = output.handle
     if isinstance(name, string_types):
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(c_in,
-                   c_out, c_str(name), ctypes.c_int(root_rank)))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(
+            c_in, c_out, c_str(name), ctypes.c_int(root_rank),
+            ctypes.c_int(priority)))
     else:
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(c_in,
-                   c_out, name, ctypes.c_int(root_rank)))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(
+            c_in, c_out, name, ctypes.c_int(root_rank),
+            ctypes.c_int(priority)))
     return output
 
 
-def broadcast_(tensor, root_rank, name=None):
+def broadcast_(tensor, root_rank, name=None, priority=0):
     """
     A function that broadcasts the input tensor on root rank to the same input
     tensor on all other Horovod processes. The operation is performed in-place.
@@ -198,6 +212,8 @@ def broadcast_(tensor, root_rank, name=None):
         tensor: A tensor to broadcast.
         root_rank: The rank to broadcast the value from.
         name: A name of the broadcast operation.
+        priority: The priority of this operation. Higher priority operations
+                  are likely to be executed before other operations.
 
     Returns:
         A tensor of the same shape and type as `tensor`, with the value
@@ -206,9 +222,11 @@ def broadcast_(tensor, root_rank, name=None):
     c_in = tensor.handle
     c_out = tensor.handle
     if isinstance(name, string_types):
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(c_in,
-                   c_out, c_str(name), ctypes.c_int(root_rank)))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(
+            c_in, c_out, c_str(name), ctypes.c_int(root_rank),
+            ctypes.c_int(priority)))
     else:
-        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(c_in,
-                   c_out, name, ctypes.c_int(root_rank)))
+        check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_broadcast_async(
+            c_in, c_out, name, ctypes.c_int(root_rank),
+            ctypes.c_int(priority)))
     return tensor
