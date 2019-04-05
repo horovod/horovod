@@ -38,7 +38,7 @@ std::string GetOpName(const std::string& prefix, const char* name) {
 }
 } // namespace
 
-const auto EXEC_CTX = Context::CPU();
+static const auto MX_EXEC_CTX = Context::CPU();
 
 inline void InvokeCompleteCallback(CallbackOnComplete on_complete, const Status& status) {
   if (status.ok()) {
@@ -143,13 +143,13 @@ inline void PushHorovodOperation(OperationType op_type, NDArray* input,
 
   // Not in-place
   if (input->var() != output->var()) {
-    Engine::Get()->PushAsync(exec_fn, EXEC_CTX,
+    Engine::Get()->PushAsync(exec_fn, MX_EXEC_CTX,
                              {input->var()}, {output->var()},
                              FnProperty::kCPUPrioritized, priority,
                              op_type_name.c_str());
   // In-place
   } else {
-    Engine::Get()->PushAsync(exec_fn, EXEC_CTX,
+    Engine::Get()->PushAsync(exec_fn, MX_EXEC_CTX,
                              {}, {output->var()},
                              FnProperty::kCPUPrioritized, priority,
                              op_type_name.c_str());
@@ -245,7 +245,7 @@ inline void PushHorovodOperationOnCPU(OperationType op_type, NDArray* input,
   TensorUtil::AsyncCopyCudaToCPU(input, cpu_tensor);
 
   // In-place
-  Engine::Get()->PushAsync(exec_fn, EXEC_CTX,
+  Engine::Get()->PushAsync(exec_fn, MX_EXEC_CTX,
                            {}, {cpu_tensor->var()},
                            FnProperty::kCPUPrioritized, priority,
                            op_type_name.c_str());
