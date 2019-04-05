@@ -20,8 +20,8 @@ import sys
 import threading
 
 from horovod.spark.task import task_service
-from horovod.run.common.util import codec, env_constants, safe_shell_exec, timeout, \
-    host_hash, secret
+from horovod.run.common.util import codec, env_constants, safe_shell_exec, \
+    timeout, host_hash, secret, settings
 from horovod.spark.driver import driver_service, job_id
 
 
@@ -99,16 +99,21 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, std
     Returns:
         List of results returned by running `fn` on each rank.
     """
+
+    # setting.verbose is a global variable that can be used across the project
+    # to determine the level of verbosity.
+    settings.verbose = verbose
+
     spark_context = pyspark.SparkContext._active_spark_context
     if spark_context is None:
         raise Exception('Could not find an active SparkContext, are you running in a PySpark session?')
 
     if num_proc is None:
         num_proc = spark_context.defaultParallelism
-        if verbose >= 1:
+        if settings.verbose >= 1:
             print('Running %d processes (inferred from spark.default.parallelism)...' % num_proc)
     else:
-        if verbose >= 1:
+        if settings.verbose >= 1:
             print('Running %d processes...' % num_proc)
 
     if start_timeout is None:
@@ -123,14 +128,14 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, std
     spark_thread = _make_spark_thread(spark_context, spark_job_group, num_proc, driver, tmout, key, result_queue)
     try:
         driver.wait_for_initial_registration(tmout)
-        if verbose >= 2:
+        if settings.verbose >= 2:
             print('Initial Spark task registration is complete.')
         task_clients = [task_service.SparkTaskClient(index, driver.task_addresses_for_driver(index), key)
                         for index in range(num_proc)]
         for task_client in task_clients:
             task_client.notify_initial_registration_complete()
         driver.wait_for_task_to_task_address_updates(tmout)
-        if verbose >= 2:
+        if settings.verbose >= 2:
             print('Spark task-to-task address registration is complete.')
 
         # Determine a set of common interfaces for task-to-task communication.
@@ -176,7 +181,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, std
                                  if key not in env_constants.IGNORE_LIST),
                     python=sys.executable,
                     encoded_driver_addresses=codec.dumps_base64(driver.addresses())))
-        if verbose >= 2:
+        if settings.verbose >= 2:
             print('+ %s' % mpirun_command)
         exit_code = safe_shell_exec.execute(mpirun_command, env, stdout, stderr)
         if exit_code != 0:
