@@ -1,6 +1,6 @@
 # Horovod
 
-[![Build Status](https://badge.buildkite.com/6f976bc161c69d9960fc00de01b69deb6199b25680a09e5e26.svg?branch=master)](https://buildkite.com/horovod/horovod) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE) [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fuber%2Fhorovod.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fuber%2Fhorovod?ref=badge_shield) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2373/badge)](https://bestpractices.coreinfrastructure.org/projects/2373) [![Downloads](https://pepy.tech/badge/horovod)](https://pepy.tech/project/horovod)
+[![Build Status](https://badge.buildkite.com/6f976bc161c69d9960fc00de01b69deb6199b25680a09e5e26.svg?branch=master)](https://buildkite.com/horovod/horovod) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE) [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fhorovod%2Fhorovod.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fhorovod%2Fhorovod?ref=badge_shield) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2373/badge)](https://bestpractices.coreinfrastructure.org/projects/2373) [![Downloads](https://pepy.tech/badge/horovod)](https://pepy.tech/project/horovod)
 
 <p align="center"><img src="https://user-images.githubusercontent.com/16640218/34506318-84d0c06c-efe0-11e7-8831-0425772ed8f2.png" alt="Logo" width="200"/></p>
 
