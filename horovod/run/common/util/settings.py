@@ -13,5 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+# setting.verbose is a global variable that can be used across the project
+# to determine the level of verbosity.
 global verbose
 verbose = 0
