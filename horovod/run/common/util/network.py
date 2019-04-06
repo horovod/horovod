@@ -223,7 +223,7 @@ class BasicClient(object):
                                     key_intf_addrs = [x.address
                                                       for x in psutil.net_if_addrs().get(key, [])]
                                     if resp.source_address in key_intf_addrs:
-                                        resp_intf = key_intf_addrs
+                                        resp_intf = key
                                         break
                                 print('WARNING: Expected to connect the host '
                                       '{addr} using interface '
