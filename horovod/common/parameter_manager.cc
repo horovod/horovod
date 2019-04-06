@@ -492,6 +492,10 @@ Eigen::VectorXd ParameterManager::BayesianParameter::FilterTestPoint(int i) {
 }
 
 Eigen::VectorXd ParameterManager::BayesianParameter::Remove(const Eigen::VectorXd& v, int index) {
+  if (v.size() == 0) {
+    return v;
+  }
+
   Eigen::VectorXd filtered_point(v.size() - 1);
 
   int k = 0;
