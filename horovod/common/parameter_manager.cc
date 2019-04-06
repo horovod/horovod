@@ -405,7 +405,7 @@ ParameterManager::BayesianParameter::BayesianParameter(
 void ParameterManager::BayesianParameter::SetValue(BayesianVariable variable, double value, bool fixed) {
   if (fixed) {
     // Only remove this variable if it hasn't already been fixed
-    if (fixed_values_.find(variable) != fixed_values_.end()) {
+    if (fixed_values_.find(variable) == fixed_values_.end()) {
       // Fixed parameter values cannot be changed, and will be removed from the Bayesian optimization
       // process so the search space can be reduced. To remove the parameter from the optimizer, we need
       // to also remove it from the vector outputs of the optimization process. First we find the index
