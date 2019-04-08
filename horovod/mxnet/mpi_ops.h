@@ -22,6 +22,9 @@
 #include <mxnet/engine.h>
 #include <mxnet/ndarray.h>
 
+#include "adapter.h"
+#include "tensor_util.h"
+
 namespace horovod {
 namespace mxnet {
 
@@ -30,9 +33,41 @@ using namespace horovod::common;
 typedef ::mxnet::Engine Engine;
 typedef ::mxnet::NDArray NDArray;
 typedef ::mxnet::engine::CallbackOnComplete CallbackOnComplete;
-typedef ::mxnet::Engine::AsyncFn ExecFn;
+typedef ::mxnet::Engine::AsyncFnPtr ExecFnPtr;
 typedef Request::RequestType OperationType;
-typedef std::shared_ptr<MXTemporaryBuffer<NDArray>> MXTempBufferShared;
+
+struct MpiOpsParam {
+  NDArray* input;
+  NDArray* output;
+  NDArray* cpu_tensor;
+  std::string op_name;
+  int root_rank;
+
+  MpiOpsParam(NDArray* input, NDArray* output, NDArray* cpu_tensor,
+              std::string op_name, int root_rank)
+      : input(input),
+        output(output),
+        cpu_tensor(cpu_tensor),
+        op_name(op_name),
+        root_rank(root_rank) {
+  }
+};
+
+inline MpiOpsParam* CreateMpiOpsParam(NDArray* input, NDArray* output,
+                                      const std::string& op_name,
+                                      bool cuda_on_cpu, int root_rank = -1) {
+  if (cuda_on_cpu) {
+    auto cpu_tensor = TensorUtil::New(CPU_DEVICE_ID, input->dtype());
+    return new MpiOpsParam(nullptr, nullptr, cpu_tensor, op_name, root_rank);
+  }
+
+  return new MpiOpsParam(input, output, nullptr, op_name, root_rank);
+}
+
+void DeleteMpiOpsParam(void* param) {
+  auto ops_param = static_cast<MpiOpsParam*>(param);
+  delete ops_param;
+}
 
 extern "C" int horovod_mxnet_allreduce_async(NDArray* input, NDArray* output,
                                              const char* name, bool average,
