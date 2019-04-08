@@ -217,6 +217,8 @@ def _driver_fn(key, all_host_names, local_host_names, tmout, settings,
     :type local_host_names: set
     :param tmout:
     :type tmout: horovod.spark.util.timeout.Timeout
+    :param settings: the object that contains the setting for running horovod
+    :type settings: Horovod.run.common.util.settings.Settings
     :return: example: ['eth0', 'eth1']
     :rtype: list[string]
     """
