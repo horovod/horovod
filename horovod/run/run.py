@@ -14,12 +14,15 @@
 # ==============================================================================
 
 from __future__ import print_function
+
 import argparse
 import hashlib
 import os
 import sys
 import traceback
+
 import six
+
 try:
     from shlex import quote
 except ImportError:
@@ -27,7 +30,8 @@ except ImportError:
 import horovod
 
 from horovod.run.common.util import codec, env_constants, safe_shell_exec, \
-    timeout, secret, settings
+    timeout, secret
+from horovod.run.common.util import settings as hvd_settings
 from horovod.run.driver import driver_service
 from horovod.run.task import task_service
 from horovod.run.util import cache, threads, network
@@ -103,7 +107,7 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
 
 def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
                          num_hosts, tmout,
-                         key, ssh_port=None):
+                         key, settings, ssh_port=None):
     """
     executes the task server and service client task for registration on the
     hosts.
@@ -158,21 +162,21 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
             command = \
                 '{python} -m horovod.run.task_fn {index} ' \
                 '{driver_addresses} {num_hosts} {timeout} {key} ' \
-                '{verbose_string}'.format(
+                '{settings}'.format(
                     python=sys.executable,
                     index=codec.dumps_base64(index),
                     driver_addresses=codec.dumps_base64(driver_addresses),
                     num_hosts=codec.dumps_base64(num_hosts),
                     timeout=codec.dumps_base64(tmout),
                     key=codec.dumps_base64(key),
-                    verbose_string=codec.dumps_base64(settings.verbose)
+                    settings=codec.dumps_base64(settings)
                 )
         else:
             command = \
                 'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} ' \
                 '\'{python} -m horovod.run.task_fn {index} ' \
                 '{driver_addresses} {num_hosts} {timeout} ' \
-                '{key} {verbose_string}\''.format(
+                '{key} {settings}\''.format(
                     host=host_name,
                     ssh_port_arg=ssh_port_arg,
                     python=sys.executable,
@@ -181,7 +185,7 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
                     num_hosts=codec.dumps_base64(num_hosts),
                     timeout=codec.dumps_base64(tmout),
                     key=codec.dumps_base64(key),
-                    verbose_string=codec.dumps_base64(settings.verbose)
+                    settings=codec.dumps_base64(settings)
                 )
         args_list.append([command])
     # Each thread will use ssh command to launch the server on one task. If an
@@ -195,7 +199,8 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
 
 
 @cache.use_cache()
-def _driver_fn(key, all_host_names, local_host_names, tmout, ssh_port=None):
+def _driver_fn(key, all_host_names, local_host_names, tmout, settings,
+               ssh_port=None):
     """
     launches the service service, launches the task service on each worker and
     have them register with the service service. Each worker probes all the
@@ -223,7 +228,7 @@ def _driver_fn(key, all_host_names, local_host_names, tmout, ssh_port=None):
     # Have all the workers register themselves with the service service.
     _launch_task_servers(all_host_names, local_host_names,
                          driver.addresses(), num_hosts, tmout,
-                         key, ssh_port)
+                         key, settings, ssh_port)
     if settings.verbose >= 1:
         print("Attempted to launch horovod task servers.")
     try:
@@ -234,7 +239,8 @@ def _driver_fn(key, all_host_names, local_host_names, tmout, ssh_port=None):
         tasks = [task_service.HorovodRunTaskClient(index,
                                                    driver.task_addresses_for_driver(
                                                        index),
-                                                   key)
+                                                   key,
+                                                   settings)
                  for index in range(num_hosts)]
         # Notify all the drivers that the initial registration is complete.
         for task in tasks:
@@ -346,18 +352,10 @@ def parse_args():
     parsed_args = parser.parse_args()
 
     if parsed_args.verbose is None:
-        # This happens if user does "horovodrun --verbose" without specifying
-        # specific value to verbose. We set the default level of verbosity to 2.
-        parsed_args.verbose = 2
-    elif parsed_args.verbose == 0:
-        # This happens if the user does use the --verbose flag at all. To make the
-        # parse_args function outputs more intuitive, we set the
-        # parsed_args.verbose to None if the flag is not used at all.
-        parsed_args.verbose = 0
-    else:
-        # If user specifies a verbosity level, the level will be used as the
-        # value of the flag.
-        pass
+        # This happens if the user does "horovodrun --verbose" without
+        # specifying any value to verbose. For the sake of consistency, we set
+        # the verbosity here to the default value of 2.
+        parsed_args.verbose = 1
 
     return parsed_args
 
@@ -377,7 +375,7 @@ def run():
 
     # setting.verbose is a global variable that can be used across the project
     # to determine the level of verbosity.
-    settings.verbose = args.verbose
+    settings = hvd_settings.Settings(verbose=args.verbose)
 
     # This cache stores the results of checks performed by horovodrun
     # during the initialization step. It can be disabled by setting
@@ -436,6 +434,7 @@ def run():
         # otherwise, it will raise an exception.
         common_intfs = _driver_fn(key,
                                   all_host_names, local_host_names, tmout,
+                                  settings,
                                   args.ssh_port,
                                   fn_cache=fn_cache)
 

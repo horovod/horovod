@@ -22,7 +22,7 @@ import psutil
 
 from six.moves import queue, socketserver
 
-from horovod.run.common.util import secret, settings
+from horovod.run.common.util import secret
 
 
 class PingRequest(object):
@@ -150,9 +150,10 @@ class BasicService(object):
 
 
 class BasicClient(object):
-    def __init__(self, service_name, addresses, key, match_intf=False,
+    def __init__(self, service_name, addresses, key, settings, match_intf=False,
                  probe_timeout=20, retries=3):
         # Note: because of retry logic, ALL RPC calls are REQUIRED to be idempotent.
+        self._settings = settings
         self._service_name = service_name
         self._wire = Wire(key)
         self._match_intf = match_intf
@@ -214,7 +215,7 @@ class BasicClient(object):
                                              for x in psutil.net_if_addrs().get(intf, [])
                                              if x.family == socket.AF_INET]
                         if resp.source_address not in client_intf_addrs:
-                            if settings.verbose >= 2:
+                            if self._settings.verbose >= 2:
                                 # Need to find the local interface name whose
                                 # adderss was visible to the target
                                 # host's server.

@@ -13,7 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-# setting.verbose is a global variable that can be used across the project
-# to determine the level of verbosity.
-global verbose
-verbose = 0
+class Settings(object):
+
+    def __init__(self, verbose=False):
+        """
+        :param verbose: level of verbosity
+        :type verbose: int
+        """
+        self.verbose = verbose

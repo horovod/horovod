@@ -20,11 +20,11 @@ from horovod.run.driver import driver_service
 from horovod.run.task import task_service
 
 
-def _task_fn(index, driver_addresses, num_hosts, tmout, key):
+def _task_fn(index, driver_addresses, num_hosts, tmout, key, settings):
     task = task_service.HorovodRunTaskService(index, key)
     try:
         driver = driver_service.HorovodRunDriverClient(
-            driver_addresses, key)
+            driver_addresses, key, settings)
         driver.register_task(index,
                              task.addresses(),
                              host_hash.host_hash())
@@ -38,6 +38,7 @@ def _task_fn(index, driver_addresses, num_hosts, tmout, key):
             next_task_index,
             next_task_addresses,
             key,
+            settings,
             match_intf=True,
             retries=10)
         driver.register_task_to_task_addresses(next_task_index,
@@ -56,7 +57,7 @@ if __name__ == '__main__':
     if len(sys.argv) != 7:
         print(
                 'Usage: %s <index> <service addresses> <num_hosts> <tmout> '
-                '<key> <verbose>' %
+                '<key> <settings>' %
                 sys.argv[0])
         sys.exit(1)
 
@@ -65,9 +66,6 @@ if __name__ == '__main__':
     num_hosts = codec.loads_base64(sys.argv[3])
     tmout = codec.loads_base64(sys.argv[4])
     key = codec.loads_base64(sys.argv[5])
-    verbose = codec.loads_base64(sys.argv[6])
+    settings = codec.loads_base64(sys.argv[6])
 
-    # Setting this make the verbose value available globally in the project
-    settings.verbose = verbose
-
-    _task_fn(index, driver_addresses, num_hosts, tmout, key)
+    _task_fn(index, driver_addresses, num_hosts, tmout, key, settings)
