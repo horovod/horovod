@@ -203,9 +203,9 @@ void DoBroadcastCudaOnCPU(MXTempBufferShared& hvd_cpu_buffer, std::string& name,
   ThrowIfError(enqueue_result);
 }
 
-inline void PushHorovodOperationOnCPU(OperationType op_type, NDArray* input,
-                                      NDArray* output, const char* name,
-                                      int priority, int root_rank = -1) {
+inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
+                                          NDArray* output, const char* name,
+                                          int priority, int root_rank = -1) {
   auto hvd_cpu_buffer = std::make_shared<MXTemporaryBuffer<NDArray>>(
       CPU_DEVICE_ID, input->dtype());
   auto cpu_tensor = hvd_cpu_buffer->tensor();
@@ -266,8 +266,8 @@ extern "C" int horovod_mxnet_allreduce_async(NDArray* input, NDArray* output,
     PushHorovodOperation(OperationType::ALLREDUCE, input, output,
                          name, priority);
   } else {
-    PushHorovodOperationOnCPU(OperationType::ALLREDUCE, input, output,
-                              name, priority);
+    PushHorovodOperationCudaOnCPU(OperationType::ALLREDUCE, input, output,
+                                  name, priority);
   }
 #else
   PushHorovodOperation(OperationType::ALLREDUCE, input, output,
@@ -291,8 +291,8 @@ extern "C" int horovod_mxnet_allgather_async(NDArray* input, NDArray* output,
     PushHorovodOperation(OperationType::ALLGATHER, input, output,
                          name, priority);
   } else {
-    PushHorovodOperationOnCPU(OperationType::ALLGATHER, input, output,
-                              name, priority);
+    PushHorovodOperationCudaOnCPU(OperationType::ALLGATHER, input, output,
+                                  name, priority);
   }
 #else
   PushHorovodOperation(OperationType::ALLGATHER, input, output,
@@ -314,8 +314,8 @@ extern "C" int horovod_mxnet_broadcast_async(NDArray* input, NDArray* output,
                          name, priority, root_rank);
 
   } else {
-    PushHorovodOperationOnCPU(OperationType::BROADCAST, input, output,
-                              name, priority, root_rank);
+    PushHorovodOperationCudaOnCPU(OperationType::BROADCAST, input, output,
+                                  name, priority, root_rank);
   }
 #else
   PushHorovodOperation(OperationType::BROADCAST, input, output,
