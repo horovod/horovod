@@ -16,6 +16,7 @@
 #include<climits>
 #include<cstring>
 
+#include "logging.h"
 #include "response_cache.h"
 
 namespace horovod {
@@ -104,6 +105,13 @@ void ResponseCache::put_(const Response& response, TensorParams& params) {
     cache_.push_front(std::move(*it));
     cache_.erase(it);
   } else if (cache_.size() == capacity_) {
+    if (print_warning_) {
+      LOG(WARNING) << "A response has been evicted from cache which may indicate reduced "
+                      "performance. Better performance may be obtained by disabling caching "
+                      "(HOROVOD_CACHE_CAPACITY=0) or increasing the cache capacity "
+                      "(HOROVOD_CACHE_CAPACITY>"+ std::to_string(capacity_) + ").";
+      print_warning_ = false;
+    }
     // If this is a new entry but cache is at capacity, evict entry at
     // the back of cache_ (least recently used) and add new entry to front
     // of cache_. New entry inherits cache bit position from evicted entry

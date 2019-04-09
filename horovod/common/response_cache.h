@@ -85,6 +85,8 @@ private:
   std::unordered_map<std::string, uint32_t> tensor_name_to_bit_;
 
   bool bits_outdated_ = false;
+
+  bool print_warning_ = true;
 };
 
 // Helper class to coordinate cache and state information

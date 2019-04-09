@@ -131,8 +131,8 @@ struct HorovodGlobalState {
   // LRU cache of Responses
   ResponseCache response_cache;
 
-  // Bit array used for cache intersection
-  std::vector<long long> cache_mask;
+  // Number of responses that can be cached
+  uint32_t cache_capacity = 1024;
 
   ~HorovodGlobalState() {
     // Make sure that the destructor of the background thread is safe to

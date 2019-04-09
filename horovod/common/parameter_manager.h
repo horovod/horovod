@@ -80,9 +80,9 @@ public:
   double CycleTimeMs() const;
   void SetCycleTimeMs(double cycle_time_ms, bool fixed=false);
 
-  // Maximum number of entries to store in the response cache.
-  uint32_t CacheCapacity() const;
-  void SetCacheCapacity(uint32_t capacity, bool fixed=false);
+  // Enable response caching.
+  bool CacheEnabled() const;
+  void SetCacheEnabled (bool enabled, bool fixed=false);
 
   // Observes that the given tensors have been processed (e.g., allreduced) over the given number of microseconds.
   //
@@ -170,7 +170,7 @@ private:
     uint32_t index_;
   };
 
-  enum BayesianVariable { fusion_buffer_threshold_mb, cycle_time_ms, cache_capacity_num };
+  enum BayesianVariable { fusion_buffer_threshold_mb, cycle_time_ms };
 
   struct BayesianVariableConfig {
     BayesianVariable variable;
@@ -212,6 +212,7 @@ private:
 
   CategoricalParameter<bool> hierarchical_allreduce_;
   CategoricalParameter<bool> hierarchical_allgather_;
+  CategoricalParameter<bool> cache_enabled_;
   BayesianParameter joint_params_;
 
   std::vector<ITunableParameter*> parameter_chain_;
@@ -234,9 +235,9 @@ private:
   struct Params {
     bool hierarchical_allreduce;
     bool hierarchical_allgather;
+    bool cache_enabled;
     double tensor_fusion_threshold;
     double cycle_time;
-    double cache_capacity;
     bool active;
   };
 

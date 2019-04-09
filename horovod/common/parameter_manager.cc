@@ -30,11 +30,10 @@ namespace common {
 #define BAYES_OPT_MAX_SAMPLES 20
 #define GAUSSIAN_PROCESS_NOISE 0.8
 
-Eigen::VectorXd CreateVector(double x1, double x2, double x3) {
-  Eigen::VectorXd v(3);
+Eigen::VectorXd CreateVector(double x1, double x2) {
+  Eigen::VectorXd v(2);
   v(0) = x1;
   v(1) = x2;
-  v(2) = x3;
   return v;
 }
 
@@ -42,18 +41,19 @@ Eigen::VectorXd CreateVector(double x1, double x2, double x3) {
 ParameterManager::ParameterManager() :
     hierarchical_allreduce_(CategoricalParameter<bool>(std::vector<bool>{false, true})),
     hierarchical_allgather_(CategoricalParameter<bool>(std::vector<bool>{false, true})),
+    cache_enabled_(CategoricalParameter<bool>(std::vector<bool>{false, true})),
     joint_params_(BayesianParameter(
       std::vector<BayesianVariableConfig>{
         { BayesianVariable::fusion_buffer_threshold_mb, std::pair<double, double>(0, 64) },
-        { BayesianVariable::cycle_time_ms, std::pair<double, double>(1, 100) },
-        { BayesianVariable::cache_capacity_num, std::pair<double, double>(0, 4096) }
+        { BayesianVariable::cycle_time_ms, std::pair<double, double>(1, 100) }
       }, std::vector<Eigen::VectorXd>{
-        CreateVector(4, 5, 1000),
-        CreateVector(32, 50, 3000),
-        CreateVector(16, 25, 500),
-        CreateVector(8, 10, 100)
+        CreateVector(4, 5),
+        CreateVector(32, 50),
+        CreateVector(16, 25),
+        CreateVector(8, 10)
       })),
-    parameter_chain_(std::vector<ITunableParameter*>{&joint_params_, &hierarchical_allreduce_, &hierarchical_allgather_}),
+    parameter_chain_(std::vector<ITunableParameter*>{&joint_params_, &hierarchical_allreduce_, &hierarchical_allgather_,
+                                                     &cache_enabled_}),
     active_(false),
     warmup_remaining_(WARMUPS),
     sample_(0),
@@ -66,14 +66,14 @@ ParameterManager::ParameterManager() :
 void ParameterManager::CreateMpiTypes() {
   const int nitems = 6;
   int blocklengths[6] = {1, 1, 1, 1, 1, 1};
-  MPI_Datatype types[6] = {MPI_CXX_BOOL, MPI_CXX_BOOL, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_CXX_BOOL};
+  MPI_Datatype types[6] = {MPI_CXX_BOOL, MPI_CXX_BOOL, MPI_CXX_BOOL, MPI_DOUBLE, MPI_DOUBLE, MPI_CXX_BOOL};
 
   MPI_Aint offsets[6];
   offsets[0] = offsetof(Params, hierarchical_allreduce);
   offsets[1] = offsetof(Params, hierarchical_allgather);
-  offsets[2] = offsetof(Params, tensor_fusion_threshold);
-  offsets[3] = offsetof(Params, cycle_time);
-  offsets[4] = offsetof(Params, cache_capacity);
+  offsets[2] = offsetof(Params, cache_enabled);
+  offsets[3] = offsetof(Params, tensor_fusion_threshold);
+  offsets[4] = offsetof(Params, cycle_time);
   offsets[5] = offsetof(Params, active);
 
   MPI_Type_create_struct(nitems, blocklengths, offsets, types, &mpi_params_type_);
@@ -91,12 +91,12 @@ void ParameterManager::Initialize(int32_t rank, int32_t root_rank, MPI_Comm mpi_
   root_rank_ = root_rank;
   mpi_comm_ = mpi_comm;
   if (rank_ == root_rank) {
-    LOG(INFO) << "Autotuner: Tunable params [hierarchical_allreduce,hierarchical_allgather,cache_capacity,cycle_time_ms,tensor_fusion_threshold] score";
+    LOG(INFO) << "Autotuner: Tunable params [hierarchical_allreduce,hierarchical_allgather,cache_enabled,cycle_time_ms,tensor_fusion_threshold] score";
   }
   if (rank_ == root_rank && !file_name.empty()) {
     file_.open(file_name, std::ios::out | std::ios::trunc);
     if (file_.good()) {
-      file_ << "hierarchical_allreduce,hierarchical_allgather,cache_capacity,cycle_time_ms,tensor_fusion_threshold,score" << std::endl;
+      file_ << "hierarchical_allreduce,hierarchical_allgather,cache_enabled,cycle_time_ms,tensor_fusion_threshold,score" << std::endl;
       writing_ = true;
     }
   }
@@ -125,6 +125,13 @@ void ParameterManager::SetHierarchicalAllgather(bool value, bool fixed) {
   hierarchical_allgather_.SetValue(value, fixed);
 }
 
+bool ParameterManager::CacheEnabled() const {
+  return active_ ? cache_enabled_.Value() : cache_enabled_.BestValue();
+};
+
+void ParameterManager::SetCacheEnabled(bool enabled, bool fixed) {
+  cache_enabled_.SetValue(enabled, fixed);
+}
 
 int64_t ParameterManager::TensorFusionThresholdBytes() const {
   double b = active_ ?
@@ -143,17 +150,6 @@ double ParameterManager::CycleTimeMs() const {
 
 void ParameterManager::SetCycleTimeMs(double value, bool fixed) {
   joint_params_.SetValue(cycle_time_ms, value, fixed);
-}
-
-uint32_t ParameterManager::CacheCapacity() const {
-  double n = active_ ?
-      joint_params_.Value(cache_capacity_num) :
-      joint_params_.BestValue(cache_capacity_num);
-  return uint32_t(n);
-};
-
-void ParameterManager::SetCacheCapacity(uint32_t capacity, bool fixed) {
-  joint_params_.SetValue(cache_capacity_num, double(capacity), fixed);
 }
 
 void ParameterManager::Update(const std::vector<std::string>& tensor_names, int64_t bytes) {
@@ -233,16 +229,16 @@ void ParameterManager::SyncParams() {
       // We're actively tuning, so send the current value.
       params.hierarchical_allreduce = hierarchical_allreduce_.Value();
       params.hierarchical_allgather = hierarchical_allgather_.Value();
+      params.cache_enabled = cache_enabled_.Value();
       params.tensor_fusion_threshold = joint_params_.Value(fusion_buffer_threshold_mb);
       params.cycle_time = joint_params_.Value(cycle_time_ms);
-      params.cache_capacity = joint_params_.Value(cache_capacity_num);
     } else {
       // Tuning has completed, so send the best value.
       params.hierarchical_allreduce = hierarchical_allreduce_.BestValue();
       params.hierarchical_allgather = hierarchical_allgather_.BestValue();
+      params.cache_enabled = cache_enabled_.BestValue();
       params.tensor_fusion_threshold = joint_params_.BestValue(fusion_buffer_threshold_mb);
       params.cycle_time = joint_params_.BestValue(cycle_time_ms);
-      params.cache_capacity = joint_params_.BestValue(cache_capacity_num);
     }
 
     params.active = active_;
@@ -255,9 +251,9 @@ void ParameterManager::SyncParams() {
   if (rank_ != root_rank_) {
     hierarchical_allreduce_.SetValue(params.hierarchical_allreduce, true);
     hierarchical_allgather_.SetValue(params.hierarchical_allgather, true);
+    cache_enabled_.SetValue(params.cache_enabled, true);
     joint_params_.SetValue(fusion_buffer_threshold_mb, params.tensor_fusion_threshold, true);
     joint_params_.SetValue(cycle_time_ms, params.cycle_time, true);
-    joint_params_.SetValue(cache_capacity_num, params.cache_capacity, true);
     active_ = params.active;
   }
 }
@@ -274,14 +270,14 @@ void ParameterManager::LogParameters(double score) {
     LOG(INFO) << "Autotuner: ["
               << hierarchical_allreduce_.Value() << ", "
               << hierarchical_allgather_.Value() << ", "
-              << joint_params_.Value(cache_capacity_num) << ", "
+              << cache_enabled_.Value() << ", "
               << joint_params_.Value(cycle_time_ms) << " ms, "
               << joint_params_.Value(fusion_buffer_threshold_mb) << " mb] "
               << score;
     if (writing_ && file_.good()) {
       file_ << hierarchical_allreduce_.Value() << ","
             << hierarchical_allgather_.Value() << ","
-            << joint_params_.Value(cache_capacity_num) << ","
+            << cache_enabled_.Value() << ","
             << joint_params_.Value(cycle_time_ms) << ","
             << joint_params_.Value(fusion_buffer_threshold_mb) << ","
             << score
@@ -295,14 +291,14 @@ void ParameterManager::LogBestParameters() {
     LOG(INFO) << "Autotuner: Best params ["
               << hierarchical_allreduce_.BestValue() << ", "
               << hierarchical_allgather_.BestValue() << ", "
-              << joint_params_.BestValue(cache_capacity_num) << ", "
+              << cache_enabled_.BestValue() << ", "
               << joint_params_.BestValue(cycle_time_ms) << " ms, "
               << joint_params_.BestValue(fusion_buffer_threshold_mb) << " mb] "
               << hierarchical_allreduce_.BestScore();
     if (writing_ && file_.good()) {
       file_ << hierarchical_allreduce_.BestValue() << ","
             << hierarchical_allgather_.BestValue() << ","
-            << joint_params_.BestValue(cache_capacity_num) << ","
+            << cache_enabled_.BestValue() << ","
             << joint_params_.BestValue(cycle_time_ms) << ","
             << joint_params_.BestValue(fusion_buffer_threshold_mb) << ","
             << hierarchical_allreduce_.BestScore()
