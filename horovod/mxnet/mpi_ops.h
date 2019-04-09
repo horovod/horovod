@@ -40,28 +40,31 @@ struct MpiOpsParam {
   NDArray* input;
   NDArray* output;
   NDArray* cpu_tensor;
+  OperationType op_type;
   std::string op_name;
   int root_rank;
 
   MpiOpsParam(NDArray* input, NDArray* output, NDArray* cpu_tensor,
-              std::string op_name, int root_rank)
+              OperationType op_type, std::string op_name, int root_rank)
       : input(input),
         output(output),
         cpu_tensor(cpu_tensor),
+        op_type(op_type),
         op_name(op_name),
         root_rank(root_rank) {
   }
 };
 
 inline MpiOpsParam* CreateMpiOpsParam(NDArray* input, NDArray* output,
+                                      OperationType op_type,
                                       const std::string& op_name,
-                                      bool cuda_on_cpu, int root_rank = -1) {
+                                      int root_rank, bool cuda_on_cpu) {
   if (cuda_on_cpu) {
     auto cpu_tensor = TensorUtil::New(CPU_DEVICE_ID, input->dtype());
-    return new MpiOpsParam(nullptr, nullptr, cpu_tensor, op_name, root_rank);
+    return new MpiOpsParam(nullptr, nullptr, cpu_tensor, op_type, op_name, root_rank);
   }
 
-  return new MpiOpsParam(input, output, nullptr, op_name, root_rank);
+  return new MpiOpsParam(input, output, nullptr, op_type, op_name, root_rank);
 }
 
 void DeleteMpiOpsParam(void* param) {
