@@ -101,7 +101,7 @@ services:
       args:
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 2.7
-        TENSORFLOW_PACKAGE: tf-nightly
+        TENSORFLOW_PACKAGE: tf-nightly==1.14.1-dev20190408
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
         PYSPARK_PACKAGE: pyspark==2.4.0
@@ -111,7 +111,7 @@ services:
       args:
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tf-nightly
+        TENSORFLOW_PACKAGE: tf-nightly==1.14.1-dev20190408
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
         PYSPARK_PACKAGE: pyspark==2.4.0
@@ -187,7 +187,7 @@ services:
         NCCL_VERSION_OVERRIDE: 2.3.7-1+cuda10.0
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 2.7
-        TENSORFLOW_PACKAGE: tf-nightly-gpu
+        TENSORFLOW_PACKAGE: tf-nightly-gpu==1.14.1-dev20190408
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
         MXNET_PACKAGE: mxnet-cu100==1.4.0.post0
@@ -201,7 +201,7 @@ services:
         NCCL_VERSION_OVERRIDE: 2.3.7-1+cuda10.0
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tf-nightly-gpu
+        TENSORFLOW_PACKAGE: tf-nightly-gpu==1.14.1-dev20190408
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
         MXNET_PACKAGE: mxnet-cu100==1.4.0.post0
