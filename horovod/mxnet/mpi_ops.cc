@@ -26,18 +26,21 @@ namespace {
 
 std::atomic_int op_count;
 
-std::string GetOpName(const std::string& prefix, const char* name) {
+std::string GetOpName(const char* prefix, const char* name) {
   if (name != nullptr) {
-    return prefix + "." + std::string(name);
+    return std::string(prefix) + "." + std::string(name);
   }
 
   op_count.fetch_add(1);
-  return prefix + ".noname." + std::to_string(op_count);
+  return std::string(prefix) + ".noname." + std::to_string(op_count);
 }
 } // namespace
 
 static const auto MX_EXEC_CTX = Context::CPU();
 static const auto MX_FUNC_PROP = FnProperty::kCPUPrioritized;
+static const char* ALLREDUCE_OP_TYPE_NAME = "horovod_allreduce";
+static const char* ALLGATHER_OP_TYPE_NAME = "horovod_allgather";
+static const char* BROADCAST_OP_TYPE_NAME = "horovod_broadcast";
 
 inline void InvokeCompleteCallback(CallbackOnComplete on_complete, const Status& status) {
   if (status.ok()) {
@@ -48,20 +51,20 @@ inline void InvokeCompleteCallback(CallbackOnComplete on_complete, const Status&
   }
 }
 
-inline std::string GetOpTypeName(OperationType op_type) {
+inline const char* GetOpTypeName(OperationType op_type) {
   switch (op_type) {
     case OperationType::ALLREDUCE:
-      return "horovod_allreduce";
+      return ALLREDUCE_OP_TYPE_NAME;
     case OperationType::ALLGATHER:
-      return "horovod_allgather";
+      return ALLGATHER_OP_TYPE_NAME;
     case OperationType::BROADCAST:
-      return "horovod_broadcast";
+      return BROADCAST_OP_TYPE_NAME;
     default:
       throw std::logic_error("Unsupported Horovod operation type.");
   }
 }
 
-void DoHorovodOperation(void* rctx_ptr, void* on_complete_ptr, void* param) {
+void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
   ThrowIfError(common::CheckInitialized());
 
   auto on_complete = *static_cast<CallbackOnComplete*>(on_complete_ptr);
@@ -128,17 +131,17 @@ inline void PushHorovodOperation(OperationType op_type, NDArray* input,
   if (input_var != output_var) {
     MXEnginePushAsync(DoHorovodOperation, ops_param, DeleteMpiOpsParam,
                       &MX_EXEC_CTX, &input_var, 1, &output_var, 1,
-                      &MX_FUNC_PROP, priority, op_type_name.c_str(), false);
+                      &MX_FUNC_PROP, priority, op_type_name);
   // In-place
   } else {
     MXEnginePushAsync(DoHorovodOperation, ops_param, DeleteMpiOpsParam,
                       &MX_EXEC_CTX, nullptr, 0, &output_var, 1,
-                      &MX_FUNC_PROP, priority, op_type_name.c_str(), false);
+                      &MX_FUNC_PROP, priority, op_type_name);
   }
 }
 
 #if HAVE_CUDA
-void DoHorovodOperationCudaOnCPU(void* rctx_ptr, void* on_complete_ptr, void* param) {
+void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
   ThrowIfError(common::CheckInitialized());
 
   auto on_complete = *static_cast<CallbackOnComplete*>(on_complete_ptr);
@@ -195,7 +198,7 @@ inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
   auto cpu_tensor_var = cpu_tensor->var();
   MXEnginePushAsync(DoHorovodOperationCudaOnCPU, ops_param, DeleteMpiOpsParam,
                     &MX_EXEC_CTX, nullptr, 0, &cpu_tensor_var, 1,
-                    &MX_FUNC_PROP, priority, op_type_name.c_str(), false);
+                    &MX_FUNC_PROP, priority, op_type_name);
 
   // Make async copy of CPU tensor to output tensor.
   TensorUtil::AsyncCopyCPUToCuda(cpu_tensor, output);
