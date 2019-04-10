@@ -65,6 +65,6 @@ if __name__ == '__main__':
     driver_addresses = codec.loads_base64(sys.argv[2])
     num_hosts = codec.loads_base64(sys.argv[3])
     tmout = codec.loads_base64(sys.argv[4])
-    settings = codec.loads_base64(sys.argv[6])
+    settings = codec.loads_base64(sys.argv[5])
 
     _task_fn(index, driver_addresses, num_hosts, tmout, settings)
