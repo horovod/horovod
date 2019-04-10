@@ -685,7 +685,7 @@ void PerformOperation(TensorTable& tensor_table, Response response) {
 
 // Report Tensors that were submitted to be reduced, gathered or broadcasted by
 // some ranks but not others and are waiting for long time to get processed.
-bool CheckForStalledTensors(HorovodGlobalState& state, MPIContext& ctx) {
+bool CheckForStalledTensors(HorovodGlobalState& state) {
   bool should_shut_down = false;
   auto now = std::chrono::steady_clock::now();
   std::map<int32_t, std::set<std::string>> missing_ranks;
@@ -766,6 +766,23 @@ bool CheckForStalledTensors(HorovodGlobalState& state, MPIContext& ctx) {
   }
 
   return should_shut_down;
+}
+
+// Check for cached tensors that have been pending for a long time.
+void CheckForStalledCachedTensors(HorovodGlobalState& state,
+                                  CacheCoordinator& cache_coordinator) {
+  auto now = std::chrono::steady_clock::now();
+  std::chrono::seconds stall_warning_time(state.stall_warning_time_seconds);
+
+  for (auto& entry : state.cache_tensor_start) {
+    // If pending time for cached tensor exceeds stall_warning_time, mark entry
+    // for global removal from cache to trigger stall messaging.
+    if (now - entry.second > stall_warning_time) {
+       uint32_t cache_bit = state.response_cache.peek_cache_bit(entry.first);
+       cache_coordinator.record_invalid_bit(cache_bit);
+       cache_coordinator.set_uncached_in_queue(true);
+    }
+  }
 }
 
 void set_bool_from_env(const char* env, bool& val, bool value_if_set) {
@@ -1267,14 +1284,27 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       if (state.response_cache.capacity() > 0) {
         auto cache_state = state.response_cache.cached(message);
         if (cache_state == ResponseCache::CacheState::HIT) {
-          int cache_bit = state.response_cache.peek_cache_bit(message);
+          uint32_t cache_bit = state.response_cache.peek_cache_bit(message);
           cache_coordinator.record_hit(cache_bit);
-        } else if (cache_state == ResponseCache::CacheState::INVALID) {
-          int cache_bit = state.response_cache.peek_cache_bit(message);
-          cache_coordinator.record_invalid_bit(cache_bit);
-          cache_coordinator.set_uncached_in_queue(true);
+
+          // Record initial time cached tensor is encountered in queue.
+          if (state.perform_stall_check &&
+              state.cache_tensor_start.find(message.tensor_name()) == state.cache_tensor_start.end()) {
+            state.cache_tensor_start[message.tensor_name()] = std::chrono::steady_clock::now();
+          }
+
         } else {
+          if (cache_state == ResponseCache::CacheState::INVALID) {
+            uint32_t cache_bit = state.response_cache.peek_cache_bit(message);
+            cache_coordinator.record_invalid_bit(cache_bit);
+          }
           cache_coordinator.set_uncached_in_queue(true);
+
+          // Remove timing entry if uncached or marked invalid.
+          if (state.perform_stall_check) {
+            state.cache_tensor_start.erase(message.tensor_name());
+          }
+
         }
       }
     }
@@ -1282,14 +1312,19 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
 
   // Flag indicating that the background thread should shut down.
   bool should_shut_down = state.shut_down;
-  if (is_coordinator) {
-    // Check for stalled tensors.
-    if (state.perform_stall_check &&
-        std::chrono::steady_clock::now() - state.last_stall_check >
-            std::chrono::seconds(state.stall_warning_time_seconds)) {
-      should_shut_down |= CheckForStalledTensors(state, ctx);
-      state.last_stall_check = std::chrono::steady_clock::now();
+
+  // Check for stalled tensors.
+  if (state.perform_stall_check &&
+       std::chrono::steady_clock::now() - state.last_stall_check >
+           std::chrono::seconds(state.stall_warning_time_seconds)) {
+    if (is_coordinator) {
+      should_shut_down |= CheckForStalledTensors(state);
     }
+
+    if (state.response_cache.capacity() > 0) {
+      CheckForStalledCachedTensors(state, cache_coordinator);
+    }
+    state.last_stall_check = std::chrono::steady_clock::now();
   }
 
   cache_coordinator.set_should_shut_down(should_shut_down);
@@ -1312,13 +1347,20 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       for (size_t i = 0; i < num_messages; ++i) {
         auto message = message_queue.front();
         if (state.response_cache.cached(message) == ResponseCache::CacheState::HIT) {
-          int cache_bit = state.response_cache.peek_cache_bit(message);
+          uint32_t cache_bit = state.response_cache.peek_cache_bit(message);
           if (cache_coordinator.cache_hits().find(cache_bit) ==
               cache_coordinator.cache_hits().end()) {
-              // Try to process again in next cycle.
-              state.message_queue.push(std::move(message));
+            // Try to process again in next cycle.
+            state.message_queue.push(std::move(message));
+          } else if (state.perform_stall_check) {
+            // Remove timing entry for messages being handled this cycle.
+            state.cache_tensor_start.erase(message.tensor_name());
           }
         } else {
+          // Remove timing entry for messages being handled this cycle.
+          if (state.perform_stall_check) {
+            state.cache_tensor_start.erase(message.tensor_name());
+          }
           message_queue.push(std::move(message));
         }
         message_queue.pop();

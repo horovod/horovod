@@ -134,6 +134,9 @@ struct HorovodGlobalState {
   // Number of responses that can be cached
   uint32_t cache_capacity = 1024;
 
+  // Initial time cached tensors are seen in queue. Used for stall message handling.
+  std::unordered_map<std::string, std::chrono::steady_clock::time_point> cache_tensor_start;
+
   ~HorovodGlobalState() {
     // Make sure that the destructor of the background thread is safe to
     // call. If a thread is still joinable (not detached or complete) its

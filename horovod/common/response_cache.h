@@ -64,6 +64,8 @@ public:
 
   uint32_t peek_cache_bit(const Request& message) const;
 
+  uint32_t peek_cache_bit(const std::string& tensor_name) const;
+
   void erase_response(uint32_t cache_bit);
 
   void update_cache_bits();

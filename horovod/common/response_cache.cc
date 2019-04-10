@@ -23,7 +23,6 @@ namespace horovod {
 namespace common {
 
 void ResponseCache::clear() {
-  capacity_ = 0;
   bits_outdated_ = false;
   cache_.clear();
   cache_iters_.clear();
@@ -106,10 +105,12 @@ void ResponseCache::put_(const Response& response, TensorParams& params) {
     cache_.erase(it);
   } else if (cache_.size() == capacity_) {
     if (print_warning_) {
-      LOG(WARNING) << "A response has been evicted from cache which may indicate reduced "
-                      "performance. Better performance may be obtained by disabling caching "
-                      "(HOROVOD_CACHE_CAPACITY=0) or increasing the cache capacity "
-                      "(HOROVOD_CACHE_CAPACITY>"+ std::to_string(capacity_) + ").";
+      std::stringstream message;
+      message << "A response has been evicted from cache which may indicate reduced "
+                 "performance. Better performance may be obtained by disabling caching "
+                 "(HOROVOD_CACHE_CAPACITY=0) or increasing the cache capacity "
+                 "(HOROVOD_CACHE_CAPACITY>" <<std::to_string(capacity_) << ").";
+      LOG(WARNING) << message.str();
       print_warning_ = false;
     }
     // If this is a new entry but cache is at capacity, evict entry at
@@ -198,6 +199,10 @@ const Response& ResponseCache::peek_response(uint32_t cache_bit) const {
 uint32_t ResponseCache::peek_cache_bit(const Request& message) const {
   assert(this->cached(message));
   return tensor_name_to_bit_.at(message.tensor_name());
+}
+
+uint32_t ResponseCache::peek_cache_bit(const std::string& tensor_name) const {
+  return tensor_name_to_bit_.at(tensor_name);
 }
 
 void ResponseCache::erase_response(uint32_t cache_bit) {
@@ -324,6 +329,11 @@ void CacheCoordinator::sync(MPIContext& ctx, bool timeline_enabled) {
   }
   if (!invalid_in_queue_) {
     bitvector_[0] |= (1ull << StatusBit::INVALID_IN_QUEUE);
+  }
+
+  // Before communication, remove any invalid bits from cache hit set.
+  for (auto bit : invalid_bits_) {
+    cache_hits_.erase(bit);
   }
 
   // For each cache hit on this worker, flip associated bit in bit vector.
