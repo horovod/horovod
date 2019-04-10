@@ -162,7 +162,7 @@ class BasicClient(object):
         self._addresses = self._probe(addresses)
         if not self._addresses:
             raise NoValidAddressesFound(
-                'Horovodrun was unable to connect to the {service_name} on any '
+                'Horovodrun was unable to connect to {service_name} on any '
                 'of the following addresses: {addresses}.\n\n'
                 'One possible cause of this problem is that '
                 'horovodrun currently requires every host to have at '
@@ -171,8 +171,8 @@ class BasicClient(object):
                 'You can run \"ifconfig -a\" '
                 'on every host and check for the common '
                 'routable interface. '
-                'Interfaces on Linux can be renamed to fix the problem.'.format(
-                    service_name=service_name, addresses=addresses))
+                'To fix the problem, you can rename interfaces on '
+                'Linux.'.format(service_name=service_name, addresses=addresses))
 
     def _probe(self, addresses):
         result_queue = queue.Queue()

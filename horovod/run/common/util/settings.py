@@ -15,9 +15,15 @@
 
 class Settings(object):
 
-    def __init__(self, verbose=0):
+    def __init__(self, verbose=0, ssh_port=None, key=None):
         """
         :param verbose: level of verbosity
         :type verbose: int
+        :param ssh_port: SSH port on all the hosts
+        :type ssh_port: int
+        :param key: used for encryption of parameters passed across the hosts
+        :type key: str
         """
         self.verbose = verbose
+        self.ssh_port = ssh_port
+        self.key = key

@@ -20,11 +20,11 @@ from horovod.run.driver import driver_service
 from horovod.run.task import task_service
 
 
-def _task_fn(index, driver_addresses, num_hosts, tmout, key, settings):
-    task = task_service.HorovodRunTaskService(index, key)
+def _task_fn(index, driver_addresses, num_hosts, tmout, settings):
+    task = task_service.HorovodRunTaskService(index, settings.key)
     try:
         driver = driver_service.HorovodRunDriverClient(
-            driver_addresses, key, settings.verbose)
+            driver_addresses, settings.key, settings.verbose)
         driver.register_task(index,
                              task.addresses(),
                              host_hash.host_hash())
@@ -37,7 +37,7 @@ def _task_fn(index, driver_addresses, num_hosts, tmout, key, settings):
         next_task = task_service.HorovodRunTaskClient(
             next_task_index,
             next_task_addresses,
-            key,
+            settings.key,
             settings.verbose,
             match_intf=True,
             retries=10)
@@ -54,10 +54,10 @@ def _task_fn(index, driver_addresses, num_hosts, tmout, key, settings):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 7:
+    if len(sys.argv) != 6:
         print(
                 'Usage: %s <index> <service addresses> <num_hosts> <tmout> '
-                '<key> <settings>' %
+                '<settings>' %
                 sys.argv[0])
         sys.exit(1)
 
@@ -65,7 +65,6 @@ if __name__ == '__main__':
     driver_addresses = codec.loads_base64(sys.argv[2])
     num_hosts = codec.loads_base64(sys.argv[3])
     tmout = codec.loads_base64(sys.argv[4])
-    key = codec.loads_base64(sys.argv[5])
     settings = codec.loads_base64(sys.argv[6])
 
-    _task_fn(index, driver_addresses, num_hosts, tmout, key, settings)
+    _task_fn(index, driver_addresses, num_hosts, tmout, settings)

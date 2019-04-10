@@ -26,10 +26,10 @@ from horovod.run.common.util import settings as hvd_settings
 from horovod.spark.driver import driver_service, job_id
 
 
-def _task_fn(index, driver_addresses, num_proc, tmout, key, settings):
-    task = task_service.SparkTaskService(index, key)
+def _task_fn(index, driver_addresses, num_proc, tmout, settings):
+    task = task_service.SparkTaskService(index, settings.key)
     try:
-        driver_client = driver_service.SparkDriverClient(driver_addresses, key, settings.verbose)
+        driver_client = driver_service.SparkDriverClient(driver_addresses, settings.key, settings.verbose)
         driver_client.register_task(index, task.addresses(), host_hash.host_hash())
         task.wait_for_initial_registration(tmout)
         # Tasks ping each other in a circular fashion to determine interfaces reachable within
@@ -39,7 +39,8 @@ def _task_fn(index, driver_addresses, num_proc, tmout, key, settings):
         # We request interface matching to weed out all the NAT'ed interfaces.
         next_task_client = \
             task_service.SparkTaskClient(next_task_index, next_task_addresses,
-                                         key, settings.verbose, match_intf=True)
+                                         settings.key, settings.verbose,
+                                         match_intf=True)
         driver_client.register_task_to_task_addresses(next_task_index, next_task_client.addresses())
         task_indices_on_this_host = driver_client.task_host_hash_indices(
             host_hash.host_hash())
@@ -52,7 +53,7 @@ def _task_fn(index, driver_addresses, num_proc, tmout, key, settings):
             first_task_addresses = driver_client.all_task_addresses(task_indices_on_this_host[0])
             first_task_client = \
                 task_service.SparkTaskClient(task_indices_on_this_host[0],
-                                             first_task_addresses, key,
+                                             first_task_addresses, settings.key,
                                              settings.verbose)
             first_task_client.wait_for_command_termination()
         return task.fn_result()
@@ -60,14 +61,14 @@ def _task_fn(index, driver_addresses, num_proc, tmout, key, settings):
         task.shutdown()
 
 
-def _make_mapper(driver_addresses, num_proc, tmout, key, settings):
+def _make_mapper(driver_addresses, num_proc, tmout, settings):
     def _mapper(index, _):
-        yield _task_fn(index, driver_addresses, num_proc, tmout, key, settings)
+        yield _task_fn(index, driver_addresses, num_proc, tmout, settings)
     return _mapper
 
 
 def _make_spark_thread(spark_context, spark_job_group, num_proc, driver,
-                       tmout, key, result_queue, settings):
+                       tmout, result_queue, settings):
     def run_spark():
         try:
             spark_context.setJobGroup(spark_job_group,
@@ -77,7 +78,7 @@ def _make_spark_thread(spark_context, spark_job_group, num_proc, driver,
             # We assume that folks caring about security will enable Spark RPC
             # encryption, thus ensuring that key that is passed here remains
             # secret.
-            result = procs.mapPartitionsWithIndex(_make_mapper(driver.addresses(), num_proc, tmout, key, settings)).collect()
+            result = procs.mapPartitionsWithIndex(_make_mapper(driver.addresses(), num_proc, tmout, settings)).collect()
             result_queue.put(result)
         except:
             driver.notify_spark_job_failed()
@@ -109,7 +110,8 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, std
         List of results returned by running `fn` on each rank.
     """
 
-    settings = hvd_settings.Settings(verbose)
+    settings = hvd_settings.Settings(verbose=verbose,
+                                     key=secret.make_secret_key())
 
     spark_context = pyspark.SparkContext._active_spark_context
     if spark_context is None:
@@ -129,10 +131,12 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, std
 
     result_queue = queue.Queue(1)
     tmout = timeout.Timeout(start_timeout)
-    key = secret.make_secret_key()
+
     spark_job_group = 'horovod.spark.run.%d' % job_id.next_job_id()
-    driver = driver_service.SparkDriverService(num_proc, fn, args, kwargs, key)
-    spark_thread = _make_spark_thread(spark_context, spark_job_group, num_proc, driver, tmout, key, result_queue, settings)
+    driver = driver_service.SparkDriverService(num_proc, fn, args, kwargs,
+                                               settings.key)
+    spark_thread = _make_spark_thread(spark_context, spark_job_group, num_proc,
+                                      driver, tmout, result_queue, settings)
     try:
         driver.wait_for_initial_registration(tmout)
         if settings.verbose >= 2:
@@ -140,7 +144,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, std
         task_clients = [
             task_service.SparkTaskClient(index,
                                          driver.task_addresses_for_driver(index),
-                                         key, settings.verbose)
+                                         settings.key, settings.verbose)
             for index in range(num_proc)]
         for task_client in task_clients:
             task_client.notify_initial_registration_complete()
@@ -172,7 +176,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, std
             env = os.environ.copy()
 
         # Pass secret key through the environment variables.
-        env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(key)
+        env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(settings.key)
 
         mpirun_command = (
             'mpirun --allow-run-as-root --tag-output '
