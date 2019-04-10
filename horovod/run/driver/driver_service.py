@@ -26,10 +26,10 @@ class HorovodRunDriverService(driver_service.BasicDriverService):
 
 
 class HorovodRunDriverClient(driver_service.BasicDriverClient):
-    def __init__(self, driver_addresses, key, settings, match_intf=False):
+    def __init__(self, driver_addresses, key, verbose, match_intf=False):
         super(HorovodRunDriverClient, self).__init__(
             HorovodRunDriverService.NAME,
             driver_addresses,
             key,
-            settings,
+            verbose,
             match_intf=match_intf)

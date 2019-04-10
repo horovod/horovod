@@ -242,7 +242,7 @@ def _driver_fn(key, all_host_names, local_host_names, tmout, settings,
                                                    driver.task_addresses_for_driver(
                                                        index),
                                                    key,
-                                                   settings)
+                                                   settings.verbose)
                  for index in range(num_hosts)]
         # Notify all the drivers that the initial registration is complete.
         for task in tasks:
@@ -345,8 +345,8 @@ def parse_args():
     parser.add_argument('--verbose', action="store",
                         dest="verbose",
                         default=0, nargs='?', type=int,
-                        help="Can use 1 or 2 to set the verbosity level of "
-                             "debugging messages.")
+                        help="Can use 0, 1, or 2 to set the verbosity level of "
+                             "debug messages.")
 
     parser.add_argument('command', nargs=argparse.REMAINDER,
                         help="Command to be executed.")
@@ -356,7 +356,7 @@ def parse_args():
     if parsed_args.verbose is None:
         # This happens if the user does "horovodrun --verbose" without
         # specifying any value to verbose. For the sake of consistency, we set
-        # the verbosity here to the default value of 2.
+        # the verbosity here to the default value of 1.
         parsed_args.verbose = 1
 
     return parsed_args

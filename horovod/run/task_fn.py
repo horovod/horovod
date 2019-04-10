@@ -15,7 +15,7 @@
 
 import sys
 
-from horovod.run.common.util import codec, host_hash, settings
+from horovod.run.common.util import codec, host_hash
 from horovod.run.driver import driver_service
 from horovod.run.task import task_service
 
@@ -24,7 +24,7 @@ def _task_fn(index, driver_addresses, num_hosts, tmout, key, settings):
     task = task_service.HorovodRunTaskService(index, key)
     try:
         driver = driver_service.HorovodRunDriverClient(
-            driver_addresses, key, settings)
+            driver_addresses, key, settings.verbose)
         driver.register_task(index,
                              task.addresses(),
                              host_hash.host_hash())
@@ -38,7 +38,7 @@ def _task_fn(index, driver_addresses, num_hosts, tmout, key, settings):
             next_task_index,
             next_task_addresses,
             key,
-            settings,
+            settings.verbose,
             match_intf=True,
             retries=10)
         driver.register_task_to_task_addresses(next_task_index,

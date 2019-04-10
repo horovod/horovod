@@ -29,7 +29,7 @@ from horovod.spark.driver import driver_service, job_id
 def _task_fn(index, driver_addresses, num_proc, tmout, key, settings):
     task = task_service.SparkTaskService(index, key)
     try:
-        driver_client = driver_service.SparkDriverClient(driver_addresses, key, settings)
+        driver_client = driver_service.SparkDriverClient(driver_addresses, key, settings.verbose)
         driver_client.register_task(index, task.addresses(), host_hash.host_hash())
         task.wait_for_initial_registration(tmout)
         # Tasks ping each other in a circular fashion to determine interfaces reachable within
@@ -37,7 +37,9 @@ def _task_fn(index, driver_addresses, num_proc, tmout, key, settings):
         next_task_index = (index + 1) % num_proc
         next_task_addresses = driver_client.all_task_addresses(next_task_index)
         # We request interface matching to weed out all the NAT'ed interfaces.
-        next_task_client = task_service.SparkTaskClient(next_task_index, next_task_addresses, key, settings, match_intf=True)
+        next_task_client = \
+            task_service.SparkTaskClient(next_task_index, next_task_addresses,
+                                         key, settings.verbose, match_intf=True)
         driver_client.register_task_to_task_addresses(next_task_index, next_task_client.addresses())
         task_indices_on_this_host = driver_client.task_host_hash_indices(
             host_hash.host_hash())
@@ -48,7 +50,10 @@ def _task_fn(index, driver_addresses, num_proc, tmout, key, settings):
         else:
             # The rest of tasks need to wait for the first task to finish.
             first_task_addresses = driver_client.all_task_addresses(task_indices_on_this_host[0])
-            first_task_client = task_service.SparkTaskClient(task_indices_on_this_host[0], first_task_addresses, key, settings)
+            first_task_client = \
+                task_service.SparkTaskClient(task_indices_on_this_host[0],
+                                             first_task_addresses, key,
+                                             settings.verbose)
             first_task_client.wait_for_command_termination()
         return task.fn_result()
     finally:
@@ -61,15 +66,18 @@ def _make_mapper(driver_addresses, num_proc, tmout, key, settings):
     return _mapper
 
 
-def _make_spark_thread(spark_context, spark_job_group, num_proc, driver, tmout, key, result_queue, settings):
+def _make_spark_thread(spark_context, spark_job_group, num_proc, driver,
+                       tmout, key, result_queue, settings):
     def run_spark():
         try:
-            spark_context.setJobGroup(spark_job_group, "Horovod Spark Run", interruptOnCancel=True)
+            spark_context.setJobGroup(spark_job_group,
+                                      "Horovod Spark Run",
+                                      interruptOnCancel=True)
             procs = spark_context.range(0, numSlices=num_proc)
-            # We assume that folks caring about security will enable Spark RPC encryption,
-            # thus ensuring that key that is passed here remains secret.
-            result = procs.mapPartitionsWithIndex(
-                _make_mapper(driver.addresses(), num_proc, tmout, key, settings)).collect()
+            # We assume that folks caring about security will enable Spark RPC
+            # encryption, thus ensuring that key that is passed here remains
+            # secret.
+            result = procs.mapPartitionsWithIndex(_make_mapper(driver.addresses(), num_proc, tmout, key, settings)).collect()
             result_queue.put(result)
         except:
             driver.notify_spark_job_failed()
@@ -129,8 +137,11 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, std
         driver.wait_for_initial_registration(tmout)
         if settings.verbose >= 2:
             print('Initial Spark task registration is complete.')
-        task_clients = [task_service.SparkTaskClient(index, driver.task_addresses_for_driver(index), key)
-                        for index in range(num_proc)]
+        task_clients = [
+            task_service.SparkTaskClient(index,
+                                         driver.task_addresses_for_driver(index),
+                                         key, settings.verbose)
+            for index in range(num_proc)]
         for task_client in task_clients:
             task_client.notify_initial_registration_complete()
         driver.wait_for_task_to_task_address_updates(tmout)

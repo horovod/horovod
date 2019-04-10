@@ -15,7 +15,7 @@
 
 class Settings(object):
 
-    def __init__(self, verbose=False):
+    def __init__(self, verbose=0):
         """
         :param verbose: level of verbosity
         :type verbose: int

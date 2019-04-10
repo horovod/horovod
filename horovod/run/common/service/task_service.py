@@ -125,10 +125,10 @@ class BasicTaskService(network.BasicService):
 
 
 class BasicTaskClient(network.BasicClient):
-    def __init__(self, service_name, task_addresses, key, settings,
+    def __init__(self, service_name, task_addresses, key, verbose,
                  match_intf=False, retries=3):
         super(BasicTaskClient, self).__init__(service_name,
-                                              task_addresses, key, settings,
+                                              task_addresses, key, verbose,
                                               match_intf=match_intf,
                                               retries=retries)
 
