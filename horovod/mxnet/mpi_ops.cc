@@ -37,6 +37,7 @@ std::string GetOpName(const std::string& prefix, const char* name) {
 } // namespace
 
 static const auto MX_EXEC_CTX = Context::CPU();
+static const auto MX_FUNC_PROP = FnProperty::kCPUPrioritized;
 
 inline void InvokeCompleteCallback(CallbackOnComplete on_complete, const Status& status) {
   if (status.ok()) {
@@ -56,14 +57,14 @@ inline std::string GetOpTypeName(OperationType op_type) {
     case OperationType::BROADCAST:
       return "horovod_broadcast";
     default:
-      return "horovod_unknown";
+      throw std::logic_error("Unsupported Horovod operation type.");
   }
 }
 
-void DoHorovodOperation(RunContext rctx, CallbackOnComplete on_complete,
-                        void* param) {
+void DoHorovodOperation(void* rctx_ptr, void* on_complete_ptr, void* param) {
   ThrowIfError(common::CheckInitialized());
 
+  auto on_complete = *static_cast<CallbackOnComplete*>(on_complete_ptr);
   auto ops_param = static_cast<MpiOpsParam*>(param);
   auto tensor = ops_param->input;
   auto output = ops_param->output;
@@ -108,7 +109,7 @@ void DoHorovodOperation(RunContext rctx, CallbackOnComplete on_complete,
       });
       break;
     default:
-      LOG(FATAL) << "Unsupported Horovod operation type.";
+      throw std::logic_error("Unsupported Horovod operation type.");
   }
 
   ThrowIfError(enqueue_result);
@@ -122,25 +123,25 @@ inline void PushHorovodOperation(OperationType op_type, NDArray* input,
   auto ops_param = CreateMpiOpsParam(input, output, op_type, op_name, root_rank, false);
 
   // Not in-place
-  if (input->var() != output->var()) {
-    Engine::Get()->PushAsyncPtr(DoHorovodOperation, ops_param, DeleteMpiOpsParam,
-                                MX_EXEC_CTX, {input->var()}, {output->var()},
-                                FnProperty::kCPUPrioritized, priority,
-                                op_type_name.c_str());
+  auto input_var = input->var();
+  auto output_var = output->var();
+  if (input_var != output_var) {
+    MXEnginePushAsync(DoHorovodOperation, ops_param, DeleteMpiOpsParam,
+                      &MX_EXEC_CTX, &input_var, 1, &output_var, 1,
+                      &MX_FUNC_PROP, priority, op_type_name.c_str(), false);
   // In-place
   } else {
-    Engine::Get()->PushAsyncPtr(DoHorovodOperation, ops_param, DeleteMpiOpsParam,
-                                MX_EXEC_CTX, {}, {output->var()},
-                                FnProperty::kCPUPrioritized, priority,
-                                op_type_name.c_str());
+    MXEnginePushAsync(DoHorovodOperation, ops_param, DeleteMpiOpsParam,
+                      &MX_EXEC_CTX, nullptr, 0, &output_var, 1,
+                      &MX_FUNC_PROP, priority, op_type_name.c_str(), false);
   }
 }
 
 #if HAVE_CUDA
-void DoHorovodOperationCudaOnCPU(RunContext rctx, CallbackOnComplete on_complete,
-                                 void* param) {
+void DoHorovodOperationCudaOnCPU(void* rctx_ptr, void* on_complete_ptr, void* param) {
   ThrowIfError(common::CheckInitialized());
 
+  auto on_complete = *static_cast<CallbackOnComplete*>(on_complete_ptr);
   auto ops_param = static_cast<MpiOpsParam*>(param);
   auto name = ops_param->op_name;
   auto hvd_cpu_buffer = std::make_shared<MXTemporaryBuffer<NDArray>>(
@@ -173,7 +174,7 @@ void DoHorovodOperationCudaOnCPU(RunContext rctx, CallbackOnComplete on_complete
       });
       break;
     default:
-      LOG(FATAL) << "Unsupported Horovod operation type.";
+      throw std::logic_error("Unsupported Horovod operation type.");
   }
 
   ThrowIfError(enqueue_result);
@@ -191,10 +192,10 @@ inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
   TensorUtil::AsyncCopyCudaToCPU(input, cpu_tensor);
 
   // In-place
-  Engine::Get()->PushAsyncPtr(DoHorovodOperationCudaOnCPU, ops_param, DeleteMpiOpsParam,
-                              MX_EXEC_CTX, {}, {cpu_tensor->var()},
-                              FnProperty::kCPUPrioritized, priority,
-                              op_type_name.c_str());
+  auto cpu_tensor_var = cpu_tensor->var();
+  MXEnginePushAsync(DoHorovodOperationCudaOnCPU, ops_param, DeleteMpiOpsParam,
+                    &MX_EXEC_CTX, nullptr, 0, &cpu_tensor_var, 1,
+                    &MX_FUNC_PROP, priority, op_type_name.c_str(), false);
 
   // Make async copy of CPU tensor to output tensor.
   TensorUtil::AsyncCopyCPUToCuda(cpu_tensor, output);

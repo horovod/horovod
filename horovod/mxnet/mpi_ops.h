@@ -30,10 +30,8 @@ namespace mxnet {
 
 using namespace horovod::common;
 
-typedef ::mxnet::Engine Engine;
 typedef ::mxnet::NDArray NDArray;
-typedef ::mxnet::engine::CallbackOnComplete CallbackOnComplete;
-typedef ::mxnet::Engine::AsyncFnPtr ExecFnPtr;
+typedef ::mxnet::Engine::CallbackOnComplete CallbackOnComplete;
 typedef Request::RequestType OperationType;
 
 struct MpiOpsParam {
