@@ -768,8 +768,8 @@ bool CheckForStalledTensors(HorovodGlobalState& state) {
   return should_shut_down;
 }
 
-// Check for cached tensors that have been pending for a long time.
-void CheckForStalledCachedTensors(HorovodGlobalState& state,
+// Invalidate cached tensors that have been pending for a long time.
+void InvalidateStalledCachedTensors(HorovodGlobalState& state,
                                   CacheCoordinator& cache_coordinator) {
   auto now = std::chrono::steady_clock::now();
   std::chrono::seconds stall_warning_time(state.stall_warning_time_seconds);
@@ -1322,7 +1322,7 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     }
 
     if (state.response_cache.capacity() > 0) {
-      CheckForStalledCachedTensors(state, cache_coordinator);
+      InvalidateStalledCachedTensors(state, cache_coordinator);
     }
     state.last_stall_check = std::chrono::steady_clock::now();
   }
