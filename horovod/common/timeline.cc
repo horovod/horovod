@@ -188,6 +188,16 @@ void Timeline::NegotiateStart(const std::string& tensor_name,
   }
 
   std::lock_guard<std::recursive_mutex> guard(mutex_);
+  // Note: Need to enable repeated calls to this routine during negotiate
+  // phase. Repeated calls can occur if a cached response initiates the
+  // negotiation phase, either due to multiple cycles with cache misses on
+  // some worker, or if the response is evicted from the cache before
+  // completion and its handling proceeds to the default communication path.
+  // First call takes precedence.
+  if (tensor_states_[tensor_name] == TimelineState::NEGOTIATING) {
+    return;
+  }
+
   assert(tensor_states_[tensor_name] == TimelineState::UNKNOWN);
   auto event_category =
       "NEGOTIATE_" + Request::RequestType_Name(request_type);

@@ -22,6 +22,7 @@
 
 #include "fusion_buffer_manager.h"
 #include "parameter_manager.h"
+#include "response_cache.h"
 #include "timeline.h"
 
 namespace horovod {
@@ -77,6 +78,9 @@ struct HorovodGlobalState {
   // Timeline writer.
   Timeline timeline;
 
+  // Flag indicating whether timeline enabled.
+  bool timeline_enabled = false;
+
   // Flag indicating whether to mark cycles in the timeline.
   bool mark_cycles_in_timeline = false;
 
@@ -123,6 +127,15 @@ struct HorovodGlobalState {
   // how many nodes are ready to allreduce every tensor (keyed by tensor
   // name) and time point when tensor started allreduce op.
   std::unique_ptr<MessageTable> message_table;
+
+  // LRU cache of Responses
+  ResponseCache response_cache;
+
+  // Number of responses that can be cached
+  uint32_t cache_capacity = 1024;
+
+  // Initial time cached tensors are seen in queue. Used for stall message handling.
+  std::unordered_map<std::string, std::chrono::steady_clock::time_point> cache_tensor_start;
 
   ~HorovodGlobalState() {
     // Make sure that the destructor of the background thread is safe to
