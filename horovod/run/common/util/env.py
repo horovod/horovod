@@ -13,4 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
-IGNORE_LIST = {'BASH_FUNC_module()'}
+import re
+
+
+# List of regular expressions to ignore environment variables by.
+IGNORE_REGEXES = {'BASH_FUNC_.*\(\)'}
+
+
+def is_exportable(v):
+    return not any(re.match(r, v) for r in IGNORE_REGEXES)
