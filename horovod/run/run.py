@@ -17,6 +17,7 @@ from __future__ import print_function
 import argparse
 import hashlib
 import os
+import re
 import sys
 import traceback
 import six
@@ -26,7 +27,7 @@ except ImportError:
     from pipes import quote
 import horovod
 
-from horovod.run.common.util import codec, env_constants, safe_shell_exec, timeout, secret
+from horovod.run.common.util import codec, env as env_util, safe_shell_exec, timeout, secret
 from horovod.run.driver import driver_service
 from horovod.run.task import task_service
 from horovod.run.util import cache, threads, network
@@ -469,7 +470,7 @@ def run():
                     nccl_socket_intf_arg=nccl_socket_intf_arg,
                     ssh_port_arg=ssh_port_arg,
                     env=' '.join('-x %s' % key for key in env.keys()
-                                 if key not in env_constants.IGNORE_LIST),
+                                 if env_util.is_exportable(key)),
                     command=' '.join(quote(par) for par in args.command))
     )
 
