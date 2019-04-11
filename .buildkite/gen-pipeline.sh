@@ -90,31 +90,9 @@ run_test() {
   echo "    queue: ${queue}"
 }
 
-# begin the pipeline.yml file
-echo "steps:"
-
-# build every test container
-for test in ${tests[@]}; do
-  build_test "${test}"
-done
-
-# wait for all builds to finish
-echo "- wait"
-
-# cache test containers if built from master
-if [[ "${BUILDKITE_BRANCH}" == "master" ]]; then
-  for test in ${tests[@]}; do
-    cache_test "${test}"
-  done
-fi
-
-# run all the tests
-for test in ${tests[@]}; do
-  if [[ ${test} == *-cpu-* ]]; then
-    queue=cpu
-  else
-    queue=gpu
-  fi
+run_all() {
+  local test=$1
+  local queue=$2
 
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
@@ -154,5 +132,40 @@ for test in ${tests[@]}; do
         ":muscle: Test Horovodrun (${test})" \
         "horovodrun -np 2 -H localhost:2 python /horovod/examples/tensorflow_mnist.py"
     fi
+  fi
+}
+
+# begin the pipeline.yml file
+echo "steps:"
+
+# build every test container
+for test in ${tests[@]}; do
+  build_test "${test}"
+done
+
+# wait for all builds to finish
+echo "- wait"
+
+# cache test containers if built from master
+if [[ "${BUILDKITE_BRANCH}" == "master" ]]; then
+  for test in ${tests[@]}; do
+    cache_test "${test}"
+  done
+fi
+
+# run all the cpu tests
+for test in ${tests[@]}; do
+  if [[ ${test} == *-cpu-* ]]; then
+    run_all ${test} "cpu"
+  fi
+done
+
+# wait for all builds to finish
+echo "- wait"
+
+# run all the gpu tests
+for test in ${tests[@]}; do
+  if [[ ${test} == *-gpu-* ]]; then
+    run_all ${test} "gpu"
   fi
 done
