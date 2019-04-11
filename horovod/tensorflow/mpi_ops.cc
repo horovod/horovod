@@ -15,6 +15,7 @@
 // =============================================================================
 
 #include <queue>
+#include <stdlib.h>
 #include <thread>
 #include <unordered_map>
 
@@ -110,6 +111,8 @@ typedef struct {
   GPU_EVENT_IF_CUDA ready_event;
   // GPU to do reduction on, or CPU_DEVICE_ID in case of CPU.
   int device;
+  // Information for NCCL profiling
+  ncclProf_t* nccl_prof;
   // A callback to call with the status.
   StatusCallback callback;
 } TensorTableEntry;
@@ -871,7 +874,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                  ncclAllGather((const void*)(e.output->tensor_data().data() + per_rank_size_with_padding * horovod_global.rank),
                                (void*)e.output->tensor_data().data(),
                                (size_t)(e.output->NumElements() / horovod_global.size), dtype,
-                               nccl_comm, stream))
+                               nccl_comm, stream, e.nccl_prof))
       if (timeline.Initialized()) {
         RECORD_EVENT(entries, after_allgather_event, stream)
       }
@@ -1167,10 +1170,12 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         for (auto it = entries.begin(); it != entries.end(); it++) {
           num_elements += it->tensor.NumElements();
         }
+        // TODO(HJ): For now, I just merge all the nccl_prof result into the 
+        //          first_entry in the case of fusion buffer. We should fix this.
         NCCL_CHECK(entries, "ncclAllReduce",
                    ncclAllReduce((const void*)buffer_data, (void*)buffer_data,
                                  num_elements, dtype, ncclSum, nccl_comm,
-                                 stream))
+                                 stream, first_entry.nccl_prof))
         if (timeline.Initialized()) {
           RECORD_EVENT(entries, after_reduce_event, stream)
         }
@@ -1194,7 +1199,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
                    ncclAllReduce((const void*)e.tensor.tensor_data().data(),
                                  (void*)e.output->tensor_data().data(),
                                  (size_t)e.tensor.NumElements(), dtype, ncclSum,
-                                 nccl_comm, stream))
+                                 nccl_comm, stream, e.nccl_prof))
         if (timeline.Initialized()) {
           RECORD_EVENT(entries, after_reduce_event, stream)
         }
@@ -1759,6 +1764,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     delete it->second;
   }
 
+  ncclStatCollectorEnd();
+
   // TODO: init.cu:645 WARN Cuda failure 'driver shutting down'
   //#if HAVE_NCCL
   //  for (auto it = horovod_global.streams.begin();
@@ -1867,7 +1874,7 @@ Status DataTypeToMPIType(DataType tf_dtype, MPIDataType* mpi_dtype) {
 void EnqueueTensorAllreduce(OpKernelContext* context, const Tensor& tensor,
                             Tensor* output, GPU_EVENT_IF_CUDA ready_event,
                             const std::string name, const int device,
-                            StatusCallback callback) {
+                            ncclProf_t* nccl_prof, StatusCallback callback) {
   MPIDataType dtype;
   Status status = DataTypeToMPIType(tensor.dtype(), &dtype);
   if (!status.ok()) {
@@ -1895,6 +1902,7 @@ void EnqueueTensorAllreduce(OpKernelContext* context, const Tensor& tensor,
   e.output = output;
   e.ready_event = ready_event;
   e.device = device;
+  e.nccl_prof = nccl_prof;
   e.callback = callback;
 
   std::lock_guard<std::mutex> guard(horovod_global.mutex);
@@ -1907,7 +1915,7 @@ void EnqueueTensorAllreduce(OpKernelContext* context, const Tensor& tensor,
 void EnqueueTensorAllgather(OpKernelContext* context, const Tensor& tensor,
                             GPU_EVENT_IF_CUDA ready_event,
                             const std::string name, const int device,
-                            StatusCallback callback) {
+                            ncclProf_t* nccl_prof, StatusCallback callback) {
   MPIDataType dtype;
   Status status = DataTypeToMPIType(tensor.dtype(), &dtype);
   if (!status.ok()) {
@@ -1934,6 +1942,7 @@ void EnqueueTensorAllgather(OpKernelContext* context, const Tensor& tensor,
   e.tensor = tensor;
   e.ready_event = ready_event;
   e.device = device;
+  e.nccl_prof = nccl_prof;
   e.callback = callback;
 
   std::lock_guard<std::mutex> guard(horovod_global.mutex);
@@ -1946,7 +1955,7 @@ void EnqueueTensorAllgather(OpKernelContext* context, const Tensor& tensor,
 void EnqueueTensorAllgatherv(OpKernelContext* context, const Tensor& tensor,
                              GPU_EVENT_IF_CUDA ready_event,
                              const std::string name, const int device,
-                             StatusCallback callback) {
+                             ncclProf_t* nccl_prof, StatusCallback callback) {
   MPIDataType dtype;
   Status status = DataTypeToMPIType(tensor.dtype(), &dtype);
   if (!status.ok()) {
@@ -1973,6 +1982,7 @@ void EnqueueTensorAllgatherv(OpKernelContext* context, const Tensor& tensor,
   e.tensor = tensor;
   e.ready_event = ready_event;
   e.device = device;
+  e.nccl_prof = nccl_prof;
   e.callback = callback;
 
   std::lock_guard<std::mutex> guard(horovod_global.mutex);
@@ -1986,7 +1996,7 @@ void EnqueueTensorBroadcast(OpKernelContext* context, const Tensor& tensor,
                             Tensor* output, int root_rank,
                             GPU_EVENT_IF_CUDA ready_event,
                             const std::string name, const int device,
-                            StatusCallback callback) {
+                            ncclProf_t* nccl_prof, StatusCallback callback) {
   MPIDataType dtype;
   Status status = DataTypeToMPIType(tensor.dtype(), &dtype);
   if (!status.ok()) {
@@ -2016,6 +2026,7 @@ void EnqueueTensorBroadcast(OpKernelContext* context, const Tensor& tensor,
   e.root_rank = root_rank;
   e.ready_event = ready_event;
   e.device = device;
+  e.nccl_prof = nccl_prof;
   e.callback = callback;
 
   std::lock_guard<std::mutex> guard(horovod_global.mutex);
@@ -2050,6 +2061,15 @@ GPU_EVENT_IF_CUDA RecordReadyEvent(OpKernelContext* context) {
 
 } // namespace tensorflow
 
+ncclProf_t* get_prof_info(OpKernelContext* context, const string& name) {
+  ncclProf_t* nccl_prof = (ncclProf_t*) malloc(sizeof(ncclProf_t));
+  nccl_prof->do_profile = true;
+  nccl_prof->step = context->step_id();
+  nccl_prof->tensor_name = name;
+  nccl_prof->stat_vector = NULL;
+  return nccl_prof;
+}
+
 class HorovodAllreduceOp : public AsyncOpKernel {
 public:
   explicit HorovodAllreduceOp(OpKernelConstruction* context)
@@ -2065,8 +2085,11 @@ public:
     OP_REQUIRES_OK(context,
                    context->allocate_output(0, tensor.shape(), &output));
     GPU_EVENT_IF_CUDA ready_event = RecordReadyEvent(context);
+
+    ncclProf_t* nccl_prof = get_prof_info(context, node_name);
+
     EnqueueTensorAllreduce(context, tensor, output, ready_event, node_name,
-                           device, [context, done](const Status& status) {
+                           device, nccl_prof, [context, done](const Status& status) {
                              context->SetStatus(status);
                              done();
                            });
@@ -2113,8 +2136,11 @@ public:
     auto device = GetDeviceID(context);
     auto tensor = context->input(0);
     GPU_EVENT_IF_CUDA ready_event = RecordReadyEvent(context);
+
+    ncclProf_t* nccl_prof = get_prof_info(context, node_name);
+
     EnqueueTensorAllgather(context, tensor, ready_event, node_name, device,
-                           [context, done](const Status& status) {
+                           nccl_prof, [context, done](const Status& status) {
                              context->SetStatus(status);
                              done();
                            });
@@ -2165,8 +2191,11 @@ public:
     // We cannot pre-allocate output for allgatherv, since shape of result
     // is only known after all ranks make a request.
     GPU_EVENT_IF_CUDA ready_event = RecordReadyEvent(context);
+
+    ncclProf_t* nccl_prof = get_prof_info(context, node_name);
+
     EnqueueTensorAllgatherv(context, tensor, ready_event, node_name, device,
-                            [context, done](const Status& status) {
+                            nccl_prof, [context, done](const Status& status) {
                               context->SetStatus(status);
                               done();
                             });
@@ -2224,9 +2253,12 @@ public:
                      context->allocate_output(0, tensor.shape(), &output));
     }
     GPU_EVENT_IF_CUDA ready_event = RecordReadyEvent(context);
+
+    ncclProf_t* nccl_prof = get_prof_info(context, node_name);
+
     EnqueueTensorBroadcast(context, tensor, output, root_rank_, ready_event,
                            node_name, device,
-                           [context, done](const Status& status) {
+                           nccl_prof, [context, done](const Status& status) {
                              context->SetStatus(status);
                              done();
                            });
