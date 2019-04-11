@@ -14,15 +14,12 @@
 # ==============================================================================
 
 from __future__ import print_function
-
 import argparse
 import hashlib
 import os
 import sys
 import traceback
-
 import six
-
 try:
     from shlex import quote
 except ImportError:
@@ -158,8 +155,7 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
         if host_name in local_host_names:
             command = \
                 '{python} -m horovod.run.task_fn {index} ' \
-                '{driver_addresses} ' \
-                '{settings}'.format(
+                '{driver_addresses} {settings}'.format(
                     python=sys.executable,
                     index=codec.dumps_base64(index),
                     driver_addresses=codec.dumps_base64(driver_addresses),
@@ -168,9 +164,8 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
         else:
             command = \
                 'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} ' \
-                '\'{python} -m horovod.run.task_fn {index} ' \
-                '{driver_addresses} ' \
-                '{settings}\''.format(
+                '\'{python} -m horovod.run.task_fn {index} {driver_addresses}' \
+                ' {settings}\''.format(
                     host=host_name,
                     ssh_port_arg=ssh_port_arg,
                     python=sys.executable,
