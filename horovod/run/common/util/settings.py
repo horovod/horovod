@@ -15,7 +15,8 @@
 
 class Settings(object):
 
-    def __init__(self, verbose=0, ssh_port=None, key=None):
+    def __init__(self, verbose=0, ssh_port=None, key=None, timeout=None,
+                 num_hosts=None, num_proc=None):
         """
         :param verbose: level of verbosity
         :type verbose: int
@@ -23,7 +24,17 @@ class Settings(object):
         :type ssh_port: int
         :param key: used for encryption of parameters passed across the hosts
         :type key: str
+        :param timeout: has to finish all the checks before this timeout runs
+        out.
+        :type timeout: horovod.run.common.util.timeout.Timeout
+        :param num_hosts: number of horovod hosts
+        :type num_hosts: int
+        :param num_proc: number of horovod processes (-np)
+        :type num_proc: int
         """
         self.verbose = verbose
         self.ssh_port = ssh_port
         self.key = key
+        self.timeout = timeout
+        self.num_hosts = num_hosts
+        self.num_proc = num_proc
