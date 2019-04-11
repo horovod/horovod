@@ -188,8 +188,8 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None,
             '-mca pml ob1 -mca btl ^openib -mca btl_tcp_if_include {common_intfs} '
             '-x NCCL_DEBUG=INFO -x NCCL_SOCKET_IFNAME={common_intfs} '
             '{env} '  # expect a lot of environment variables
-            '-mca plm_rsh_agent "{python} -m horovod.spark.driver.mpirun_rsh {encoded_driver_addresses}" '
-            '{python} -m horovod.spark.task.mpirun_exec_fn {encoded_driver_addresses} '
+            '-mca plm_rsh_agent "{python} -m horovod.spark.driver.mpirun_rsh {encoded_driver_addresses} {settings}" '
+            '{python} -m horovod.spark.task.mpirun_exec_fn {encoded_driver_addresses} {settings}'
                 .format(num_proc=settings.num_proc,
                         hosts=','.join('%s:%d' % (host_hash, len(driver.task_host_hash_indices()[host_hash]))
                                        for host_hash in host_hashes),
@@ -197,7 +197,8 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None,
                         env=' '.join('-x %s' % key for key in env.keys()
                                      if key not in env_constants.IGNORE_LIST),
                         python=sys.executable,
-                        encoded_driver_addresses=codec.dumps_base64(driver.addresses())))
+                        encoded_driver_addresses=codec.dumps_base64(driver.addresses()),
+                        settings=codec.dumps_base64(settings)))
         if settings.verbose >= 2:
             print('+ %s' % mpirun_command)
         exit_code = safe_shell_exec.execute(mpirun_command, env, stdout, stderr)
