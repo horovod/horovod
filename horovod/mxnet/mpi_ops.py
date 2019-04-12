@@ -24,8 +24,8 @@ import os
 import mxnet as mx
 from mxnet.base import c_str, check_call, string_types
 
-from horovod.common import get_ext_suffix
-from horovod.common import HorovodBasics as _HorovodBasics
+from horovod.common.util import get_ext_suffix
+from horovod.common.basics import HorovodBasics as _HorovodBasics
 _basics = _HorovodBasics(__file__, 'mpi_lib')
 
 # import basic methods

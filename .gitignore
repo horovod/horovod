@@ -4,6 +4,7 @@
 horovod.egg-info
 dist
 build
+docs/_build
 .vscode/
 env
 examples/checkpoint*

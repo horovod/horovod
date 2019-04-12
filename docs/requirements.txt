@@ -1,0 +1,3 @@
+git+https://github.com/alsrgv/sphinx@horovod
+sphinxcontrib-napoleon
+alabaster

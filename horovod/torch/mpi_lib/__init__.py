@@ -14,7 +14,7 @@
 # ==============================================================================
 
 from torch.utils.ffi import _wrap_function
-from horovod.common import get_ext_suffix as _get_ext_suffix
+from horovod.common.util import get_ext_suffix as _get_ext_suffix
 from ._mpi_lib import ffi as _ffi
 import os as _os
 
