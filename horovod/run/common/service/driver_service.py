@@ -135,10 +135,11 @@ class RegisterTaskRequest(object):
 
 
 class BasicDriverClient(network.BasicClient):
-    def __init__(self, name, driver_addresses, key, match_intf=False):
+    def __init__(self, name, driver_addresses, key, verbose, match_intf=False):
         super(BasicDriverClient, self).__init__(name,
                                                 driver_addresses,
                                                 key,
+                                                verbose,
                                                 match_intf=match_intf)
 
     def register_task(self, index, task_addresses, host_hash):

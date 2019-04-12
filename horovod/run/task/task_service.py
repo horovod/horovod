@@ -64,10 +64,10 @@ class HorovodRunTaskService(task_service.BasicTaskService):
 
 class HorovodRunTaskClient(task_service.BasicTaskClient):
 
-    def __init__(self, index, task_addresses, key, match_intf=False, retries=3):
+    def __init__(self, index, task_addresses, key, verbose, match_intf=False, retries=3):
         super(HorovodRunTaskClient, self).__init__(
             HorovodRunTaskService.NAME_FORMAT % index,
-            task_addresses, key,
+            task_addresses, key, verbose,
             match_intf=match_intf,
             retries=retries)
         self.index = index

@@ -21,55 +21,65 @@ import sys
 import threading
 
 from horovod.spark.task import task_service
-from horovod.run.common.util import codec, env as env_util, safe_shell_exec, timeout, \
-    host_hash, secret
+from horovod.run.common.util import codec, env as env_util, safe_shell_exec, \
+    timeout, host_hash, secret
+from horovod.run.common.util import settings as hvd_settings
 from horovod.spark.driver import driver_service, job_id
 
 
-def _task_fn(index, driver_addresses, num_proc, tmout, key):
-    task = task_service.SparkTaskService(index, key)
+def _task_fn(index, driver_addresses, settings):
+    task = task_service.SparkTaskService(index, settings.key)
     try:
-        driver_client = driver_service.SparkDriverClient(driver_addresses, key)
+        driver_client = driver_service.SparkDriverClient(driver_addresses, settings.key, settings.verbose)
         driver_client.register_task(index, task.addresses(), host_hash.host_hash())
-        task.wait_for_initial_registration(tmout)
+        task.wait_for_initial_registration(settings.timeout)
         # Tasks ping each other in a circular fashion to determine interfaces reachable within
         # the cluster.
-        next_task_index = (index + 1) % num_proc
+        next_task_index = (index + 1) % settings.num_proc
         next_task_addresses = driver_client.all_task_addresses(next_task_index)
         # We request interface matching to weed out all the NAT'ed interfaces.
-        next_task_client = task_service.SparkTaskClient(next_task_index, next_task_addresses, key, match_intf=True)
+        next_task_client = \
+            task_service.SparkTaskClient(next_task_index, next_task_addresses,
+                                         settings.key, settings.verbose,
+                                         match_intf=True)
         driver_client.register_task_to_task_addresses(next_task_index, next_task_client.addresses())
         task_indices_on_this_host = driver_client.task_host_hash_indices(
             host_hash.host_hash())
         if task_indices_on_this_host[0] == index:
             # Task with first index will execute orted that will run mpirun_exec_fn for all tasks.
-            task.wait_for_command_start(tmout)
+            task.wait_for_command_start(settings.timeout)
             task.wait_for_command_termination()
         else:
             # The rest of tasks need to wait for the first task to finish.
             first_task_addresses = driver_client.all_task_addresses(task_indices_on_this_host[0])
-            first_task_client = task_service.SparkTaskClient(task_indices_on_this_host[0], first_task_addresses, key)
+            first_task_client = \
+                task_service.SparkTaskClient(task_indices_on_this_host[0],
+                                             first_task_addresses, settings.key,
+                                             settings.verbose)
             first_task_client.wait_for_command_termination()
         return task.fn_result()
     finally:
         task.shutdown()
 
 
-def _make_mapper(driver_addresses, num_proc, tmout, key):
+def _make_mapper(driver_addresses, settings):
     def _mapper(index, _):
-        yield _task_fn(index, driver_addresses, num_proc, tmout, key)
+        yield _task_fn(index, driver_addresses, settings)
     return _mapper
 
 
-def _make_spark_thread(spark_context, spark_job_group, num_proc, driver, tmout, key, result_queue):
+def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
+                       settings):
     def run_spark():
         try:
-            spark_context.setJobGroup(spark_job_group, "Horovod Spark Run", interruptOnCancel=True)
-            procs = spark_context.range(0, numSlices=num_proc)
-            # We assume that folks caring about security will enable Spark RPC encryption,
-            # thus ensuring that key that is passed here remains secret.
-            result = procs.mapPartitionsWithIndex(
-                _make_mapper(driver.addresses(), num_proc, tmout, key)).collect()
+            spark_context.setJobGroup(spark_job_group,
+                                      "Horovod Spark Run",
+                                      interruptOnCancel=True)
+            procs = spark_context.range(0, numSlices=settings.num_proc)
+            # We assume that folks caring about security will enable Spark RPC
+            # encryption, thus ensuring that key that is passed here remains
+            # secret.
+            result = procs.mapPartitionsWithIndex(_make_mapper(driver.addresses(), settings)).collect()
             result_queue.put(result)
         except:
             driver.notify_spark_job_failed()
@@ -80,7 +90,8 @@ def _make_spark_thread(spark_context, spark_job_group, num_proc, driver, tmout, 
     return spark_thread
 
 
-def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, stdout=None, stderr=None, verbose=1):
+def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None,
+        stdout=None, stderr=None, verbose=1):
     """
     Runs Horovod in Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
 
@@ -100,47 +111,58 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, std
     Returns:
         List of results returned by running `fn` on each rank.
     """
-    spark_context = pyspark.SparkContext._active_spark_context
-    if spark_context is None:
-        raise Exception('Could not find an active SparkContext, are you running in a PySpark session?')
-
-    if num_proc is None:
-        num_proc = spark_context.defaultParallelism
-        if verbose >= 1:
-            print('Running %d processes (inferred from spark.default.parallelism)...' % num_proc)
-    else:
-        if verbose >= 1:
-            print('Running %d processes...' % num_proc)
 
     if start_timeout is None:
         # Lookup default timeout from the environment variable.
         start_timeout = int(os.getenv('HOROVOD_SPARK_START_TIMEOUT', '600'))
 
+    settings = hvd_settings.Settings(verbose=verbose,
+                                     key=secret.make_secret_key(),
+                                     timeout=timeout.Timeout(start_timeout))
+
+    spark_context = pyspark.SparkContext._active_spark_context
+    if spark_context is None:
+        raise Exception('Could not find an active SparkContext, are you '
+                        'running in a PySpark session?')
+
+    if num_proc is None:
+        num_proc = spark_context.defaultParallelism
+        if settings.verbose >= 1:
+            print('Running %d processes (inferred from spark.default.parallelism)...' % num_proc)
+    else:
+        if settings.verbose >= 1:
+            print('Running %d processes...' % num_proc)
+    settings.num_proc = num_proc
+
     result_queue = queue.Queue(1)
-    tmout = timeout.Timeout(start_timeout)
-    key = secret.make_secret_key()
+
     spark_job_group = 'horovod.spark.run.%d' % job_id.next_job_id()
-    driver = driver_service.SparkDriverService(num_proc, fn, args, kwargs, key)
-    spark_thread = _make_spark_thread(spark_context, spark_job_group, num_proc, driver, tmout, key, result_queue)
+    driver = driver_service.SparkDriverService(settings.num_proc, fn, args, kwargs,
+                                               settings.key)
+    spark_thread = _make_spark_thread(spark_context, spark_job_group, driver,
+                                      result_queue, settings)
     try:
-        driver.wait_for_initial_registration(tmout)
-        if verbose >= 2:
+        driver.wait_for_initial_registration(settings.timeout)
+        if settings.verbose >= 2:
             print('Initial Spark task registration is complete.')
-        task_clients = [task_service.SparkTaskClient(index, driver.task_addresses_for_driver(index), key)
-                        for index in range(num_proc)]
+        task_clients = [
+            task_service.SparkTaskClient(index,
+                                         driver.task_addresses_for_driver(index),
+                                         settings.key, settings.verbose)
+            for index in range(settings.num_proc)]
         for task_client in task_clients:
             task_client.notify_initial_registration_complete()
-        driver.wait_for_task_to_task_address_updates(tmout)
-        if verbose >= 2:
+        driver.wait_for_task_to_task_address_updates(settings.timeout)
+        if settings.verbose >= 2:
             print('Spark task-to-task address registration is complete.')
 
         # Determine a set of common interfaces for task-to-task communication.
         common_intfs = set(driver.task_addresses_for_tasks(0).keys())
-        for index in range(1, num_proc):
+        for index in range(1, settings.num_proc):
             common_intfs.intersection_update(driver.task_addresses_for_tasks(index).keys())
         if not common_intfs:
             raise Exception('Unable to find a set of common task-to-task communication interfaces: %s'
-                            % [(index, driver.task_addresses_for_tasks(index)) for index in range(num_proc)])
+                            % [(index, driver.task_addresses_for_tasks(index)) for index in range(settings.num_proc)])
 
         # Determine the index grouping based on host hashes.
         # Barrel shift until index 0 is in the first host.
@@ -158,7 +180,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, std
             env = os.environ.copy()
 
         # Pass secret key through the environment variables.
-        env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(key)
+        env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(settings.key)
 
         mpirun_command = (
             'mpirun --allow-run-as-root --tag-output '
@@ -167,16 +189,17 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None, std
             '-mca pml ob1 -mca btl ^openib -mca btl_tcp_if_include {common_intfs} '
             '-x NCCL_DEBUG=INFO -x NCCL_SOCKET_IFNAME={common_intfs} '
             '{env} '  # expect a lot of environment variables
-            '-mca plm_rsh_agent "{python} -m horovod.spark.driver.mpirun_rsh {encoded_driver_addresses}" '
-            '{python} -m horovod.spark.task.mpirun_exec_fn {encoded_driver_addresses} '
-            .format(num_proc=num_proc,
-                    hosts=','.join('%s:%d' % (host_hash, len(driver.task_host_hash_indices()[host_hash]))
-                                   for host_hash in host_hashes),
-                    common_intfs=','.join(common_intfs),
-                    env=' '.join('-x %s' % key for key in env.keys() if env_util.is_exportable(key)),
-                    python=sys.executable,
-                    encoded_driver_addresses=codec.dumps_base64(driver.addresses())))
-        if verbose >= 2:
+            '-mca plm_rsh_agent "{python} -m horovod.spark.driver.mpirun_rsh {encoded_driver_addresses} {settings}" '
+            '{python} -m horovod.spark.task.mpirun_exec_fn {encoded_driver_addresses} {settings}'
+                .format(num_proc=settings.num_proc,
+                        hosts=','.join('%s:%d' % (host_hash, len(driver.task_host_hash_indices()[host_hash]))
+                                       for host_hash in host_hashes),
+                        common_intfs=','.join(common_intfs),
+                        env=' '.join('-x %s' % key for key in env.keys() if env_util.is_exportable(key)),
+                        python=sys.executable,
+                        encoded_driver_addresses=codec.dumps_base64(driver.addresses()),
+                        settings=codec.dumps_base64(settings)))
+        if settings.verbose >= 2:
             print('+ %s' % mpirun_command)
         exit_code = safe_shell_exec.execute(mpirun_command, env, stdout, stderr)
         if exit_code != 0:

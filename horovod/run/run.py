@@ -27,7 +27,9 @@ except ImportError:
     from pipes import quote
 import horovod
 
-from horovod.run.common.util import codec, env as env_util, safe_shell_exec, timeout, secret
+from horovod.run.common.util import codec, env as env_util, safe_shell_exec, \
+    timeout, secret
+from horovod.run.common.util import settings as hvd_settings
 from horovod.run.driver import driver_service
 from horovod.run.task import task_service
 from horovod.run.util import cache, threads, network
@@ -102,8 +104,7 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
 
 
 def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
-                         num_hosts, tmout,
-                         key, ssh_port=None):
+                         settings):
     """
     executes the task server and service client task for registration on the
     hosts.
@@ -123,10 +124,8 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
             'eth0': [('11.111.33.73', 34588)]
         }
     :type driver_addresses: map
-    :param num_hosts:
-    :type num_hosts: int
-    :param tmout:
-    :type tmout: horovod.spark.util.timeout.Timeout
+    :param settings: the object that contains the setting for running horovod
+    :type settings: Horovod.run.common.util.settings.Settings
     :return:
     :rtype:
     """
@@ -147,38 +146,33 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
             host_output.close()
         return exit_code
 
-    if ssh_port:
-        ssh_port_arg = "-p {ssh_port}".format(ssh_port=ssh_port)
+    if settings.ssh_port:
+        ssh_port_arg = "-p {ssh_port}".format(ssh_port=settings.ssh_port)
     else:
         ssh_port_arg = ""
-
     args_list = []
     for index in range(len(all_host_names)):
         host_name = all_host_names[index]
         if host_name in local_host_names:
             command = \
                 '{python} -m horovod.run.task_fn {index} ' \
-                '{driver_addresses} {num_hosts} {timeout} {key}'.format(
+                '{driver_addresses} {settings}'.format(
                     python=sys.executable,
                     index=codec.dumps_base64(index),
                     driver_addresses=codec.dumps_base64(driver_addresses),
-                    num_hosts=codec.dumps_base64(num_hosts),
-                    timeout=codec.dumps_base64(tmout),
-                    key=codec.dumps_base64(key)
+                    settings=codec.dumps_base64(settings)
                 )
         else:
             command = \
                 'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} ' \
-                '\'{python} -m horovod.run.task_fn {index} ' \
-                '{driver_addresses} {num_hosts} {timeout} {key}\''.format(
+                '\'{python} -m horovod.run.task_fn {index} {driver_addresses}' \
+                ' {settings}\''.format(
                     host=host_name,
                     ssh_port_arg=ssh_port_arg,
                     python=sys.executable,
                     index=codec.dumps_base64(index),
                     driver_addresses=codec.dumps_base64(driver_addresses),
-                    num_hosts=codec.dumps_base64(num_hosts),
-                    timeout=codec.dumps_base64(tmout),
-                    key=codec.dumps_base64(key)
+                    settings=codec.dumps_base64(settings)
                 )
         args_list.append([command])
     # Each thread will use ssh command to launch the server on one task. If an
@@ -192,8 +186,7 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
 
 
 @cache.use_cache()
-def _driver_fn(key, all_host_names, local_host_names, tmout, ssh_port=None,
-               verbose=False):
+def _driver_fn(all_host_names, local_host_names, settings):
     """
     launches the service service, launches the task service on each worker and
     have them register with the service service. Each worker probes all the
@@ -208,52 +201,49 @@ def _driver_fn(key, all_host_names, local_host_names, tmout, ssh_port=None,
     :type all_host_names: list(string)
     :param local_host_names: host names that resolve into a local addresses.
     :type local_host_names: set
-    :param tmout:
-    :type tmout: horovod.spark.util.timeout.Timeout
-    :param verbose:
-    :type verbose: bool
+    :param settings: the object that contains the setting for running horovod
+    :type settings: Horovod.run.common.util.settings.Settings
     :return: example: ['eth0', 'eth1']
     :rtype: list[string]
     """
-    num_hosts = len(all_host_names)
     # Launch a TCP server called service service on the host running horovodrun.
-    driver = driver_service.HorovodRunDriverService(num_hosts, key)
-    if verbose:
+    driver = driver_service.HorovodRunDriverService(settings.num_hosts, settings.key)
+    if settings.verbose >= 1:
         print("Launched horovodrun server.")
     # Have all the workers register themselves with the service service.
     _launch_task_servers(all_host_names, local_host_names,
-                         driver.addresses(), num_hosts, tmout,
-                         key, ssh_port)
-    if verbose:
+                         driver.addresses(), settings)
+    if settings.verbose >= 1:
         print("Attempted to launch horovod task servers.")
     try:
         # wait for all the hosts to register with the service service.
-        if verbose:
+        if settings.verbose >= 1:
             print("Waiting for the hosts to acknowledge.")
-        driver.wait_for_initial_registration(tmout)
+        driver.wait_for_initial_registration(settings.timeout)
         tasks = [task_service.HorovodRunTaskClient(index,
                                                    driver.task_addresses_for_driver(
                                                        index),
-                                                   key)
-                 for index in range(num_hosts)]
+                                                   settings.key,
+                                                   settings.verbose)
+                 for index in range(settings.num_hosts)]
         # Notify all the drivers that the initial registration is complete.
         for task in tasks:
             task.notify_initial_registration_complete()
-        if verbose:
+        if settings.verbose >= 1:
             print("Notified all the hosts that the registration is complete.")
         # Each worker should probe the interfaces of the next worker in a ring
         # manner and filter only the routed ones -- it should filter out
         # interfaces that are not really connected to any external networks
         # such as lo0 with address 127.0.0.1.
-        if verbose:
+        if settings.verbose >= 1:
             print("Waiting for hosts to perform host-to-host "
                   "interface checking.")
-        driver.wait_for_task_to_task_address_updates(tmout)
-        if verbose:
+        driver.wait_for_task_to_task_address_updates(settings.timeout)
+        if settings.verbose >= 1:
             print("Host-to-host interface checking successful.")
         # Determine a set of common interfaces for task-to-task communication.
         common_intfs = set(driver.task_addresses_for_tasks(0).keys())
-        for index in range(1, num_hosts):
+        for index in range(1, settings.num_hosts):
             common_intfs.intersection_update(
                 driver.task_addresses_for_tasks(index).keys())
         if not common_intfs:
@@ -261,7 +251,7 @@ def _driver_fn(key, all_host_names, local_host_names, tmout, ssh_port=None,
                 'Unable to find a set of common task-to-task communication '
                 'interfaces: %s'
                 % [(index, driver.task_addresses_for_tasks(index))
-                   for index in range(num_hosts)])
+                   for index in range(settings.num_hosts)])
         return common_intfs
     finally:
         driver.shutdown()
@@ -304,8 +294,7 @@ def parse_args():
                         help="Total number of training processes.")
 
     parser.add_argument('-p', '--ssh-port', action="store", dest="ssh_port",
-                        type=int,
-                        help="SSH port on all the hosts.")
+                        type=int, help="SSH port on all the hosts.")
 
     parser.add_argument('-H', '--host', action="store", dest="host",
                         help="To specify the list of host names as well as the "
@@ -334,15 +323,24 @@ def parse_args():
                              "HOROVOD_START_TIMEOUT can also be used to "
                              "specify the initialization timeout.")
 
-    parser.add_argument('--verbose', action="store_true",
+    parser.add_argument('--verbose', action="store",
                         dest="verbose",
-                        help="If this flag is set, extra messages will "
-                             "printed.")
+                        default=0, nargs='?', type=int,
+                        help="Can use 0, 1, or 2 to set the verbosity level of "
+                             "debug messages.")
 
     parser.add_argument('command', nargs=argparse.REMAINDER,
                         help="Command to be executed.")
 
-    return parser.parse_args()
+    parsed_args = parser.parse_args()
+
+    if parsed_args.verbose is None:
+        # This happens if the user does "horovodrun --verbose" without
+        # specifying any value to verbose. For the sake of consistency, we set
+        # the verbosity here to the default value of 1.
+        parsed_args.verbose = 1
+
+    return parsed_args
 
 
 def run():
@@ -357,6 +355,20 @@ def run():
                           [y.split(':')[0] for y in args.host.split(',')]]
     else:
         all_host_names = []
+
+    # horovodrun has to finish all the checks before this timeout runs out.
+    if args.start_timeout:
+        start_timeout = args.start_timeout
+    else:
+        # Lookup default timeout from the environment variable.
+        start_timeout = int(os.getenv('HOROVOD_START_TIMEOUT', '600'))
+
+    settings = hvd_settings.Settings(verbose=args.verbose,
+                                     ssh_port=args.ssh_port,
+                                     key=secret.make_secret_key(),
+                                     timeout=timeout.Timeout(start_timeout),
+                                     num_hosts=len(all_host_names),
+                                     num_proc=args.np)
 
     # This cache stores the results of checks performed by horovodrun
     # during the initialization step. It can be disabled by setting
@@ -374,28 +386,19 @@ def run():
         fn_cache = cache.Cache(CACHE_FOLDER, CACHE_STALENESS_THRESHOLD_MINUTES,
                                parameters_hash)
 
-    # horovodrun has to finish all the checks before this timeout runs out.
-    if args.start_timeout:
-        start_timeout = args.start_timeout
-    else:
-        # Lookup default timeout from the environment variable.
-        start_timeout = int(os.getenv('HOROVOD_START_TIMEOUT', '600'))
-    tmout = timeout.Timeout(start_timeout)
-
-    key = secret.make_secret_key()
     remote_host_names = []
     if args.host:
-        if args.verbose:
+        if settings.verbose >= 1:
             print("Filtering local host names.")
         remote_host_names = network.filter_local_addresses(all_host_names)
 
         if len(remote_host_names) > 0:
-            if args.verbose:
+            if settings.verbose >= 1:
                 print("Checking ssh on all remote hosts.")
             # Check if we can ssh into all remote hosts successfully.
             _check_all_hosts_ssh_successful(remote_host_names, args.ssh_port,
                                             fn_cache=fn_cache)
-            if args.verbose:
+            if settings.verbose >= 1:
                 print("SSH was successful into all the remote hosts.")
 
         hosts_arg = "-H {hosts}".format(hosts=args.host)
@@ -405,7 +408,7 @@ def run():
         hosts_arg = ""
 
     if args.host and len(remote_host_names) > 0:
-        if args.verbose:
+        if settings.verbose >= 1:
             print("Testing interfaces on all the hosts.")
 
         local_host_names = set(all_host_names) - set(remote_host_names)
@@ -413,17 +416,15 @@ def run():
         # and local) and specify it in the args to be used by NCCL. It is
         # expected that the following function will find at least one interface
         # otherwise, it will raise an exception.
-        common_intfs = _driver_fn(key,
-                                  all_host_names, local_host_names, tmout,
-                                  args.ssh_port, args.verbose,
-                                  fn_cache=fn_cache)
+        common_intfs = _driver_fn(all_host_names, local_host_names,
+                                  settings, fn_cache=fn_cache)
 
         tcp_intf_arg = "-mca btl_tcp_if_include {common_intfs}".format(
             common_intfs=','.join(common_intfs))
         nccl_socket_intf_arg = "-x NCCL_SOCKET_IFNAME={common_intfs}".format(
             common_intfs=','.join(common_intfs))
 
-        if args.verbose:
+        if settings.verbose >= 1:
             print("Interfaces on all the hosts were successfully checked.")
     else:
         # If all the given hosts are local, no need to specify the interfaces
@@ -435,7 +436,7 @@ def run():
     env = os.environ.copy()
 
     # Pass secret key through the environment variables.
-    env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(key)
+    env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(settings.key)
 
     if not _is_open_mpi_installed():
         raise Exception(
@@ -464,7 +465,7 @@ def run():
         '-x NCCL_DEBUG=INFO '
         '{nccl_socket_intf_arg} '
         '{env} {command}'  # expect a lot of environment variables
-            .format(num_proc=args.np,
+            .format(num_proc=settings.num_proc,
                     hosts_arg=hosts_arg,
                     tcp_intf_arg=tcp_intf_arg,
                     nccl_socket_intf_arg=nccl_socket_intf_arg,
@@ -474,7 +475,7 @@ def run():
                     command=' '.join(quote(par) for par in args.command))
     )
 
-    if args.verbose:
+    if settings.verbose >= 1:
         print(mpirun_command)
     # Execute the mpirun command.
     os.execve('/bin/sh', ['/bin/sh', '-c', mpirun_command], env)

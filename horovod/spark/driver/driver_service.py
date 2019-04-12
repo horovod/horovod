@@ -120,10 +120,11 @@ class SparkDriverService(driver_service.BasicDriverService):
 
 
 class SparkDriverClient(driver_service.BasicDriverClient):
-    def __init__(self, driver_addresses, key, match_intf=False):
+    def __init__(self, driver_addresses, key, verbose, match_intf=False):
         super(SparkDriverClient, self).__init__(SparkDriverService.NAME,
                                                 driver_addresses,
                                                 key,
+                                                verbose,
                                                 match_intf=match_intf)
 
     def task_host_hash_indices(self, host_hash):

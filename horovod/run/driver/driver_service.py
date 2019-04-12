@@ -19,16 +19,17 @@ from horovod.run.common.service import driver_service
 class HorovodRunDriverService(driver_service.BasicDriverService):
     NAME = 'horovodrun driver service'
 
-    def __init__(self, num_proc, key):
-        super(HorovodRunDriverService, self).__init__(num_proc,
+    def __init__(self, num_hosts, key):
+        super(HorovodRunDriverService, self).__init__(num_hosts,
                                                       HorovodRunDriverService.NAME,
                                                       key)
 
 
 class HorovodRunDriverClient(driver_service.BasicDriverClient):
-    def __init__(self, driver_addresses, key, match_intf=False):
+    def __init__(self, driver_addresses, key, verbose, match_intf=False):
         super(HorovodRunDriverClient, self).__init__(
             HorovodRunDriverService.NAME,
             driver_addresses,
             key,
+            verbose,
             match_intf=match_intf)

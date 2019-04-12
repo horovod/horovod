@@ -21,23 +21,27 @@ from horovod.spark.driver import driver_service
 from horovod.run.common.util import codec, secret
 
 
-def main(driver_addresses, host_hash, command):
+def main(driver_addresses, settings, host_hash, command):
     if ':' in host_hash:
         raise Exception('Illegal host hash provided. Are you using Open MPI 4.0.0+?')
 
     key = codec.loads_base64(os.environ[secret.HOROVOD_SECRET_KEY])
-    driver_client = driver_service.SparkDriverClient(driver_addresses, key)
+    driver_client = driver_service.SparkDriverClient(driver_addresses, key,
+                                                     verbose=settings.verbose)
     task_indices = driver_client.task_host_hash_indices(host_hash)
     # Since tasks with the same host hash have shared memory, we will run only
     # one ORTED process on the first task.
     first_task_index = task_indices[0]
     task_addresses = driver_client.all_task_addresses(first_task_index)
-    task_client = task_service.SparkTaskClient(first_task_index, task_addresses, key)
+    task_client = task_service.SparkTaskClient(first_task_index, task_addresses,
+                                               key, verbose=settings.verbose)
     task_client.run_command(command, os.environ)
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 4:
-        print('Usage: %s <service addresses> <host hash> <command...>' % sys.argv[0])
+    if len(sys.argv) < 5:
+        print('Usage: %s <service addresses> <settings> <host hash> '
+              '<command...>' % sys.argv[0])
         sys.exit(1)
-    main(codec.loads_base64(sys.argv[1]), sys.argv[2], " ".join(sys.argv[3:]))
+    main(codec.loads_base64(sys.argv[1]), codec.loads_base64(sys.argv[2]),
+         sys.argv[3], " ".join(sys.argv[4:]))

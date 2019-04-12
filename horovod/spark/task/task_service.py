@@ -25,6 +25,7 @@ class SparkTaskService(task_service.BasicTaskService):
 
 class SparkTaskClient(task_service.BasicTaskClient):
 
-    def __init__(self, index, task_addresses, key, match_intf=False):
-        super(SparkTaskClient, self).__init__(SparkTaskService.NAME_FORMAT % index, task_addresses, key,
+    def __init__(self, index, task_addresses, key, verbose, match_intf=False):
+        super(SparkTaskClient, self).__init__(SparkTaskService.NAME_FORMAT % index,
+                                              task_addresses, key, verbose,
                                               match_intf=match_intf)
