@@ -1,4 +1,4 @@
-# Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
+# Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # ==============================================================================
 
 from torch.utils.ffi import _wrap_function
-from horovod.common import get_ext_suffix as _get_ext_suffix
+from horovod.common.util import get_ext_suffix as _get_ext_suffix
 from ._mpi_lib import ffi as _ffi
 import os as _os
 

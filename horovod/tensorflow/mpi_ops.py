@@ -1,5 +1,5 @@
 # Copyright 2016 The TensorFlow Authors. All Rights Reserved.
-# Modifications copyright (C) 2017 Uber Technologies, Inc.
+# Modifications copyright (C) 2019 Uber Technologies, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,38 +25,26 @@ from tensorflow.python.framework import load_library
 from tensorflow.python.framework import ops
 from tensorflow.python.platform import resource_loader
 
-from horovod.common import get_ext_suffix
-from horovod.common import HorovodBasics as _HorovodBasics
+from horovod.common.util import get_ext_suffix
+from horovod.common.basics import HorovodBasics as _HorovodBasics
 from horovod.tensorflow.util import _executing_eagerly
 
 
-def _load_library(name, op_list=None):
+def _load_library(name):
     """Loads a .so file containing the specified operators.
 
     Args:
       name: The name of the .so file to load.
-      op_list: A list of names of operators that the library should have. If None
-          then the .so file's contents will not be verified.
 
     Raises:
-      NameError if one of the required ops is missing.
       NotFoundError if were not able to load .so file.
     """
     filename = resource_loader.get_path_to_datafile(name)
     library = load_library.load_op_library(filename)
-    for expected_op in (op_list or []):
-        for lib_op in library.OP_LIST.op:
-            if lib_op.name == expected_op:
-                break
-        else:
-            raise NameError(
-                'Could not find operator %s in dynamic library %s' %
-                (expected_op, name))
     return library
 
 
-MPI_LIB = _load_library('mpi_lib' + get_ext_suffix(),
-                        ['HorovodAllgather', 'HorovodAllreduce'])
+MPI_LIB = _load_library('mpi_lib' + get_ext_suffix())
 
 _basics = _HorovodBasics(__file__, 'mpi_lib')
 

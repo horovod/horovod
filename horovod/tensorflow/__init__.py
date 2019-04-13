@@ -1,5 +1,5 @@
 # Copyright 2016 The TensorFlow Authors. All Rights Reserved.
-# Modifications copyright (C) 2017 Uber Technologies, Inc.
+# Modifications copyright (C) 2019 Uber Technologies, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,23 +14,13 @@
 # limitations under the License.
 # ==============================================================================
 # pylint: disable=g-short-docstring-punctuation
-"""## Communicating Between Processes with MPI
-
-TensorFlow natively provides inter-device communication through send and
-receive ops and inter-node communication through Distributed TensorFlow, based
-on the same send and receive abstractions. On HPC clusters where Infiniband or
-other high-speed node interconnects are available, these can end up being
-insufficient for synchronous data-parallel training (without asynchronous
-gradient descent). This module implements a variety of MPI ops which can take
-advantage of hardware-specific MPI libraries for efficient communication.
-"""
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
 
-from horovod.common import check_extension
+from horovod.common.util import check_extension
 
 check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
 
