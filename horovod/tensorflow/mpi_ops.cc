@@ -1764,8 +1764,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     delete it->second;
   }
 
-  ncclStatCollectorEnd();
-
   // TODO: init.cu:645 WARN Cuda failure 'driver shutting down'
   //#if HAVE_NCCL
   //  for (auto it = horovod_global.streams.begin();
@@ -2061,12 +2059,16 @@ GPU_EVENT_IF_CUDA RecordReadyEvent(OpKernelContext* context) {
 
 } // namespace tensorflow
 
-ncclProf_t* get_prof_info(OpKernelContext* context, const string& name) {
+ncclProf_t* get_prof_info(OpKernelContext* context, const string name) {
   ncclProf_t* nccl_prof = (ncclProf_t*) malloc(sizeof(ncclProf_t));
   nccl_prof->do_profile = true;
   nccl_prof->step = context->step_id();
-  nccl_prof->tensor_name = name;
-  nccl_prof->stat_vector = NULL;
+  const std::string::size_type size = name.size();
+  char* tmp = new char[size + 1];
+  memcpy(tmp, name.c_str(), size + 1);
+  nccl_prof->tensor_name = tmp;
+  nccl_prof->stat_vector = nullptr;
+  nccl_prof->saved = 0;
   return nccl_prof;
 }
 
