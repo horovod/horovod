@@ -43,7 +43,8 @@ struct MpiOpsParam {
   int root_rank;
 
   MpiOpsParam(NDArray* input, NDArray* output, NDArray* cpu_tensor,
-              OperationType op_type, std::string op_name, int root_rank)
+              const OperationType& op_type, const std::string& op_name,
+              int root_rank)
       : input(input),
         output(output),
         cpu_tensor(cpu_tensor),
@@ -54,7 +55,7 @@ struct MpiOpsParam {
 };
 
 inline MpiOpsParam* CreateMpiOpsParam(NDArray* input, NDArray* output,
-                                      OperationType op_type,
+                                      const OperationType& op_type,
                                       const std::string& op_name,
                                       int root_rank, bool cuda_on_cpu) {
   if (cuda_on_cpu) {
