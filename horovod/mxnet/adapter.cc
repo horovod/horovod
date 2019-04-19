@@ -84,6 +84,12 @@ MXTemporaryBuffer<T>::MXTemporaryBuffer(int device, int dtype)
   this->tensor_ = TensorUtil::New(device, dtype);
 }
 
+template <class T>
+MXTemporaryBuffer<T>::MXTemporaryBuffer(T* tensor)
+    : MXTensor<T>(nullptr) {
+  this->tensor_ = tensor;
+}
+
 template <class T> MXTemporaryBuffer<T>::~MXTemporaryBuffer() {
   TensorUtil::Free(this->tensor_);
 }
