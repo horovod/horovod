@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <thread>
 #include <unordered_map>
+#include <iostream>
 
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/op_kernel.h"
@@ -2062,11 +2063,16 @@ GPU_EVENT_IF_CUDA RecordReadyEvent(OpKernelContext* context) {
 ncclProf_t* get_prof_info(OpKernelContext* context, const string name) {
   ncclProf_t* nccl_prof = (ncclProf_t*) malloc(sizeof(ncclProf_t));
   nccl_prof->do_profile = true;
-  nccl_prof->step = context->step_id();
+
+  const Tensor* global_step = &context->input(1);
+  const int64* global_step_ptr = (const int64*) global_step->tensor_data().data();
+  nccl_prof->step = *global_step_ptr;
+  
   const std::string::size_type size = name.size();
   char* tmp = new char[size + 1];
   memcpy(tmp, name.c_str(), size + 1);
   nccl_prof->tensor_name = tmp;
+  
   nccl_prof->stat_vector = nullptr;
   nccl_prof->saved = 0;
   return nccl_prof;
@@ -2098,16 +2104,17 @@ public:
   }
 };
 
-REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_CPU),
+REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_CPU).HostMemory("global_step"),
                         HorovodAllreduceOp);
 #if HOROVOD_GPU_ALLREDUCE
-REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_GPU),
+REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_GPU).HostMemory("global_step"),
                         HorovodAllreduceOp);
 #endif
 
 REGISTER_OP("HorovodAllreduce")
     .Attr("T: {int32, int64, float32, float64}")
     .Input("tensor: T")
+    .Input("global_step: int64")
     .Output("sum: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       c->set_output(0, c->input(0));
@@ -2149,16 +2156,17 @@ public:
   }
 }; // namespace tensorflow
 
-REGISTER_KERNEL_BUILDER(Name("HorovodAllgather").Device(DEVICE_CPU),
+REGISTER_KERNEL_BUILDER(Name("HorovodAllgather").Device(DEVICE_CPU).HostMemory("global_step"),
                         HorovodAllgatherOp);
 #if HOROVOD_GPU_ALLGATHER
-REGISTER_KERNEL_BUILDER(Name("HorovodAllgather").Device(DEVICE_GPU),
+REGISTER_KERNEL_BUILDER(Name("HorovodAllgather").Device(DEVICE_GPU).HostMemory("global_step"),
                         HorovodAllgatherOp);
 #endif
 
 REGISTER_OP("HorovodAllgather")
     .Attr("T: {uint8, int8, uint16, int16, int32, int64, float32, float64, bool}")
     .Input("tensor: T")
+    .Input("global_step: int64")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       shape_inference::ShapeHandle output;
@@ -2204,16 +2212,17 @@ public:
   }
 }; // namespace tensorflow
 
-REGISTER_KERNEL_BUILDER(Name("HorovodAllgatherv").Device(DEVICE_CPU),
+REGISTER_KERNEL_BUILDER(Name("HorovodAllgatherv").Device(DEVICE_CPU).HostMemory("global_step"),
                         HorovodAllgathervOp);
 #if HOROVOD_GPU_ALLGATHERV
-REGISTER_KERNEL_BUILDER(Name("HorovodAllgatherv").Device(DEVICE_GPU),
+REGISTER_KERNEL_BUILDER(Name("HorovodAllgatherv").Device(DEVICE_GPU).HostMemory("global_step"),
                         HorovodAllgathervOp);
 #endif
 
 REGISTER_OP("HorovodAllgatherv")
     .Attr("T: {uint8, int8, uint16, int16, int32, int64, float32, float64, bool}")
     .Input("tensor: T")
+    .Input("global_step: int64")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       shape_inference::ShapeHandle output;
@@ -2270,10 +2279,10 @@ private:
   int root_rank_;
 };
 
-REGISTER_KERNEL_BUILDER(Name("HorovodBroadcast").Device(DEVICE_CPU),
+REGISTER_KERNEL_BUILDER(Name("HorovodBroadcast").Device(DEVICE_CPU).HostMemory("global_step"),
                         HorovodBroadcastOp);
 #if HOROVOD_GPU_BROADCAST
-REGISTER_KERNEL_BUILDER(Name("HorovodBroadcast").Device(DEVICE_GPU),
+REGISTER_KERNEL_BUILDER(Name("HorovodBroadcast").Device(DEVICE_GPU).HostMemory("global_step"),
                         HorovodBroadcastOp);
 #endif
 
@@ -2281,6 +2290,7 @@ REGISTER_OP("HorovodBroadcast")
     .Attr("T: {uint8, int8, uint16, int16, int32, int64, float32, float64, bool}")
     .Attr("root_rank: int")
     .Input("tensor: T")
+    .Input("global_step: int64")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       c->set_output(0, c->input(0));
