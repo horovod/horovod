@@ -2062,11 +2062,16 @@ GPU_EVENT_IF_CUDA RecordReadyEvent(OpKernelContext* context) {
 
 ncclProf_t* get_prof_info(OpKernelContext* context, const string name) {
   ncclProf_t* nccl_prof = (ncclProf_t*) malloc(sizeof(ncclProf_t));
+
   nccl_prof->do_profile = true;
 
   const Tensor* global_step = &context->input(1);
   const int64* global_step_ptr = (const int64*) global_step->tensor_data().data();
   nccl_prof->step = *global_step_ptr;
+
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  nccl_prof->worker_id = rank;
   
   const std::string::size_type size = name.size();
   char* tmp = new char[size + 1];
@@ -2074,7 +2079,9 @@ ncclProf_t* get_prof_info(OpKernelContext* context, const string name) {
   nccl_prof->tensor_name = tmp;
   
   nccl_prof->stat_vector = nullptr;
+
   nccl_prof->saved = 0;
+
   return nccl_prof;
 }
 
