@@ -18,7 +18,6 @@
 #include <stdlib.h>
 #include <thread>
 #include <unordered_map>
-#include <iostream>
 
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/op_kernel.h"
