@@ -18,6 +18,10 @@
 #define HOROVOD_COLLECTIVE_OPERATIONS_H
 
 #include <iostream>
+#include <condition_variable>
+#include <queue>
+#include <atomic>
+#include <thread>
 
 #include "../common.h"
 #include "../global_state.h"
@@ -25,6 +29,55 @@
 
 namespace horovod {
 namespace common {
+
+// a simple queue, create a background thread will loop to get task from queue and run it
+class HorovodSingleQueue {
+private:
+  // the queue name
+  std::string name_;
+
+  // the worker thread
+  std::thread worker_;
+
+  // the task queue
+  std::queue<std::function<void()>> tasks_;
+
+  // queue mutes
+  std::mutex mutex_;
+
+  // condition variable
+  std::condition_variable cond_var_;
+
+  // if will stop this thread
+  std::atomic<bool> stopped_;
+
+public:
+  HorovodSingleQueue(std::string name);
+
+  void run();
+
+  // stop this queue
+  void stop();
+
+  template <class F, class... Args> 
+  void enqueue(F&& f, Args&&... args) {
+    if (stopped_) {
+      throw std:runtime_error("The single queue <" + name_ + "> haa been stopped! can not enqueue task");
+    }
+
+    auto task = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
+
+    std::unique_lock<std::mutex> lock(mutex_);
+
+    tasks_.emplace([task]() {
+      task();
+    });
+
+    lock.unlock();
+
+    cond_var_.notify_one();
+  }
+}
 
 class HorovodOp {
 public:

@@ -50,6 +50,15 @@ void NCCLContext::ShutDown(){
   nccl_comms.clear();
 }
 
+void ParallelNCCLContext::ShutDown(){
+  NCCLContext::ShutDown();
+
+  for (auto it = end_nccl_comms.begin(); it != end_nccl_comms.end(); ++it) {
+    ncclCommDestroy(it->second);
+  }
+  end_nccl_comms.clear();
+}
+
 NCCLAllreduce::NCCLAllreduce(NCCLContext* nccl_context,
                              MPIContext* mpi_context,
                              CUDAContext* cuda_context,
@@ -377,6 +386,159 @@ void NCCLHierarchicalAllreduce::PopulateNCCLCommStrategy(int& nccl_rank, int& nc
   nccl_size = global_state_->local_size;
   nccl_id_bcast_comm = Communicator::LOCAL;
 }
+
+// for ParallelNCCLHierarchicalAllreduce 
+ParallelNCCLHierarchicalAllreduce::ParallelNCCLHierarchicalAllreduce(ParallelNCCLContext* parallel_nccl_context, 
+                                                                    MPIContext* mpi_context,
+                                                                    ParallelCUDAContext* parallel_cuda_context, 
+                                                                    HorovodGlobalState* global_state): 
+      NCCLHierarchicalAllreduce(parallel_nccl_context, mpi_context, parallel_cuda_context, global_state), 
+      parallel_nccl_context_(parallel_nccl_context), parallel_cuda_context_(parallel_cuda_context), mpi_queue_("mpi_queue"), end_queue_("end_queue") {
+}
+
+bool ParallelNCCLHierarchicalAllreduce::Enabled(const ParameterManager& param_manager,
+                                                const std::vector<TensorTableEntry>& entries,
+                                                const Response& response) {
+  if (!NCCLHierarchicalAllreduce::Enabled(param_manager, entries, response)) {
+    return false;
+  }
+
+  // for test
+  return true;
+}
+
+// init the parallel nccl_commm
+void ParallelNCCLHierarchicalAllreduce::InitParallelNCCLComm(const std::vector<TensorTableEntry>& entries, 
+                                                            const std::vector<int32_t>& nccl_device_map) {
+  // first should init nccl_comm
+  ncclComm_t& nccl_comm     = parallel_nccl_context_->nccl_comms[nccl_device_map];
+  ncclComm_t& end_nccl_comm = parallel_nccl_context_->end_nccl_comms[nccl_device_map];
+
+  if (nullptr == nccl_comm || nullptr == end_nccl_comm) {
+    auto& timeline = global_state_->timeline;
+    timeline.ActivityStartAll(entries, INIT_NCCL);
+
+    int nccl_rank, nccl_size;
+    Communicator nccl_id_bcast_comm;
+    PopulateNCCLCommStrategy(nccl_rank, nccl_size, nccl_id_bcast_comm);
+
+    if (nullptr == nccl_comm) {
+      ncclUniqueId nccl_id;
+      if (nccl_rank == 0) {
+        parallel_nccl_context_->ErrorCheck("ncclGetUniqueId", ncclGetUniqueId(&nccl_id));
+      }
+
+      int bcast_op = MPI_Bcast((void*) &nccl_id,
+                              sizeof(nccl_id),
+                              mpi_context_->GetMPIDataType(HOROVOD_BYTE),
+                              0,
+                              mpi_context_->GetMPICommunicator(nccl_id_bcast_comm));
+      if (bcast_op != MPI_SUCCESS) {
+        throw std::logic_error("MPI_Broadcast failed, see MPI output for details.");
+      }
+
+      ncclComm_t new_nccl_comm;
+      auto nccl_result = ncclCommInitRank(&new_nccl_comm, nccl_size, nccl_id, nccl_rank);
+      parallel_nccl_context_->ErrorCheck("ncclCommInitRank", nccl_result);
+      nccl_comm = new_nccl_comm;
+    }
+
+    if (nullptr == end_nccl_comm) {
+      // same like nccl_comm
+      ncclUniqueId end_nccl_id;
+      if (nccl_rank == 0) {
+        parallel_nccl_context_->ErrorCheck("ncclGetUniqueId", ncclGetUniqueId(&end_nccl_id));
+      }
+
+      int bcast_op = MPI_Bcast((void*) &end_nccl_id,
+                              sizeof(end_nccl_id),
+                              mpi_context_->GetMPIDataType(HOROVOD_BYTE),
+                              0,
+                              mpi_context_->GetMPICommunicator(nccl_id_bcast_comm));
+      if (bcast_op != MPI_SUCCESS) {
+        throw std::logic_error("MPI_Broadcast failed, see MPI output for details.");
+      }
+
+      ncclComm_t new_end_nccl_comm;
+      auto nccl_result = ncclCommInitRank(&new_end_nccl_comm, nccl_size, end_nccl_id, nccl_rank);
+      parallel_nccl_context_->ErrorCheck("ncclCommInitRank", nccl_result);
+      end_nccl_comm = new_end_nccl_comm;
+    }
+
+    // Barrier helps NCCL to synchronize after initialization and avoid
+    // deadlock that we've been seeing without it.
+    int barrier_op = MPI_Barrier(mpi_context_->GetMPICommunicator(Communicator::GLOBAL));
+    if (barrier_op != MPI_SUCCESS) {
+      throw std::logic_error("MPI_Barrier failed, see MPI output for details.");
+    }
+
+    timeline.ActivityEndAll(entries);
+  }
+
+  nccl_comm_ = &nccl_comm;
+  end_nccl_comm_ = &end_nccl_comm;
+}
+
+// init parallel cuda context
+void ParallelNCCLHierarchicalAllreduce::InitParallelCUDA(const std::vector<TensorTableEntry>& entries) {
+  auto& first_entry = entries[0];
+
+  parallel_cuda_context_->ErrorCheck("cudaSetDevice", cudaSetDevice(first_entry.device));
+
+  // Ensure stream is in the map before executing reduction.
+  cudaStream_t& stream = parallel_cuda_context_->streams[first_entry.device];
+  cudaStream_t& end_stream = parallel_cuda_context_->streams[first_entry.device];
+
+  if (nullptr == stream || nullptr == end_stream) {
+    int greatest_priority;
+    parallel_cuda_context_->ErrorCheck("cudaDeviceGetStreamPriorityRange",
+                              cudaDeviceGetStreamPriorityRange(NULL, &greatest_priority));
+
+    if (nullptr == stream) {
+      parallel_cuda_context_->ErrorCheck("cudaStreamCreateWithPriority",
+                              cudaStreamCreateWithPriority(&stream, cudaStreamNonBlocking, greatest_priority));
+    }
+
+    if (nullptr == end_stream) {
+      parallel_cuda_context_->ErrorCheck("cudaStreamCreateWithPriority",
+                              cudaStreamCreateWithPriority(&end_stream, cudaStreamNonBlocking, greatest_priority));
+    }
+  }
+}
+
+// parallel execute is make the NCCLHierarchicalAllreduce to parallel
+// the NCCLHierarchicalAllreduce can be devide to 3 step
+// step1: copy data to fusion buffer, ncclReduceScatter/ncclReduce, copy data to CPU
+// step2: use MPI do allreduce in CPU
+// step3: copy data from CPU back to GPU, ncclAllGather/ncclBcast, copy data back to tensor
+//
+// set this 3 step is: a, b, c and suppose we need n allReduce and the step in NCCLHierarchicalAllreduce is serial,
+// so we can think the whole process of NCCLHierarchicalAllreduce is below:
+//
+// a1, b1, c1, a2, b2, c2, ..., an, bn, cn
+//
+// So the total time is: sum[a1..n] + sum[b1..n] + sum[c1..n]
+//
+// in ParallelNCCLHierarchicalAllreduce use 3 thread to do the same thing (horovod background thread, MPI thread, End thread)
+// than the whole process can be
+//
+// a1, a2, ..., an
+//     b1, b2, ..., bn
+//         c1, c2, ..., cn
+// 
+// So total time will be: max(sum[a1..n], sum[b1..n], sum[c1..n])
+// 
+// Memory usage:
+// split allReduce to 3 thread will need more memory
+// GPU memory: because task[a] and task[c] in it's own queue is running serial; So only need 2 fusion buffer for every thread (in NCCLHierarchicalAllreduce need 1)
+// CPU memory: when task[a] finish, it will copy data to CPU and stay in CPU until task[c] running So it will need much more CPU memory to store the data,
+// when global_state_->is_homogeneous is true: max need model_size / local_size in every rank
+// whne global_state_->is_homogeneous is false: max need model_size in every rank
+// model size is the size of training model, local_rank is the count of rank in current hosts
+Status ParallelNCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+  
+}
+
 
 } // namespace common
 } // namespace horovod

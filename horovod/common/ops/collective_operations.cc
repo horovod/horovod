@@ -19,6 +19,42 @@
 namespace horovod {
 namespace common {
 
+HorovodSingleQueue::HorovodSingleQueue(std::string name): name_(name), stopped_(false) {
+  worker_ = std::thread(&HorovodSingleQueue::run, this);
+}
+
+void ::run() {
+  while (!stopped_) {
+    std::unique_lock<std::mutex> lock(mutex_);
+
+    cond_var_.wait(lock, [this] {
+      return this->stopped_.load() || !this->tasks_.empty();
+    });
+
+    if (stopped_) {
+      break;
+    }
+
+    if (tasks_.empty()) {
+      continue;
+    }
+    
+    auto task = std::move(tasks_.front());
+    tasks_.pop();
+
+    lock.unlock();
+
+    // run task
+    task();
+  }
+}
+
+void HorovodSingleQueue::stop() {
+  stopped_ = true;
+  cond_var_.notify_all();
+  worker_.join();
+}
+
 HorovodOp::HorovodOp(HorovodGlobalState* global_state) : global_state_(global_state) {}
 
 int64_t HorovodOp::NumElements(std::vector<TensorTableEntry>& entries) {
