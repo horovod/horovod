@@ -17,7 +17,6 @@ from __future__ import print_function
 import argparse
 import hashlib
 import os
-import re
 import sys
 import traceback
 import six
@@ -314,11 +313,11 @@ def parse_args():
                              "Otherwise, all the checks will run every time "
                              "horovodrun is called.")
 
-    parser.add_argument('--horovod-start-timeout', action="store",
+    parser.add_argument('--start-timeout', action="store",
                         dest="start_timeout",
                         help="Horovodrun has to perform all the checks and "
                              "start the processes before the specified "
-                             "timeout. The default value is 600 seconds. "
+                             "timeout. The default value is 30 seconds. "
                              "Alternatively, The environment variable "
                              "HOROVOD_START_TIMEOUT can also be used to "
                              "specify the initialization timeout.")
@@ -361,12 +360,17 @@ def run():
         start_timeout = args.start_timeout
     else:
         # Lookup default timeout from the environment variable.
-        start_timeout = int(os.getenv('HOROVOD_START_TIMEOUT', '600'))
+        start_timeout = int(os.getenv('HOROVOD_START_TIMEOUT', '30'))
 
+    tmout = timeout.Timeout(start_timeout,
+                            message='Timed out waiting for {activity}. Please '
+                                    'check connectivity between servers. You '
+                                    'may need to increase the --start-timeout '
+                                    'parameter if you have too many servers.')
     settings = hvd_settings.Settings(verbose=args.verbose,
                                      ssh_port=args.ssh_port,
                                      key=secret.make_secret_key(),
-                                     timeout=timeout.Timeout(start_timeout),
+                                     timeout=tmout,
                                      num_hosts=len(all_host_names),
                                      num_proc=args.np)
 
