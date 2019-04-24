@@ -24,11 +24,15 @@ from horovod.run.common.util import codec, secret
 
 
 def parent_process_monitor(initial_ppid):
-    while True:
-        if initial_ppid != os.getppid():
-            # Parent process died, terminate
-            os._exit(1)
-        time.sleep(1)
+    try:
+        while True:
+            if initial_ppid != os.getppid():
+                # Parent process died, terminate
+                os._exit(1)
+            time.sleep(1)
+    except:
+        # Avoids an error message during Python interpreter shutdown.
+        pass
 
 
 def main(driver_addresses, settings):
