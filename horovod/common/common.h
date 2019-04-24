@@ -28,6 +28,7 @@ namespace common {
 
 // Activity names, see Horovod Timeline for more details.
 #define INIT_FUSION_BUFFER "INIT_FUSION_BUFFER"
+#define INIT_END_FUSION_BUFFER "INIT_END_FUSION_BUFFER"
 #define WAIT_FOR_DATA "WAIT_FOR_DATA"
 #define WAIT_FOR_OTHER_TENSOR_DATA "WAIT_FOR_OTHER_TENSOR_DATA"
 #define ALLOCATE_OUTPUT "ALLOCATE_OUTPUT"

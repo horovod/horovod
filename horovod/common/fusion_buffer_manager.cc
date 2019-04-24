@@ -48,5 +48,38 @@ std::shared_ptr<PersistentBuffer>& FusionBufferManager::GetBuffer(int device, Fr
   return tensor_fusion_buffers_[std::make_tuple(device, framework)].first;
 }
 
+Status FusionBufferManager::InitializeEndBuffer(int64_t threshold,
+                                                int device, std::shared_ptr<OpContext> context,
+                                                std::function<void()> on_start_init,
+                                                std::function<void()> on_end_init) {
+  auto& elem = end_tensor_fusion_buffers_[std::make_tuple(device, context->framework())];
+  auto& buffer = elem.first;
+  int64_t& size = elem.second;
+
+  if (size != threshold) {
+    buffer.reset();
+    size = 0;
+  }
+
+  if (buffer == nullptr) {
+    on_start_init();
+    size = threshold;
+
+    // Lazily allocate persistent buffer for Tensor Fusion and keep it
+    // forever per device.
+    Status status = context->AllocatePersistent(threshold, &buffer);
+    on_end_init();
+
+    return status;
+  }
+
+  return Status::OK();
+}
+  
+// Returns the buffer associated with the given device and framework, or null.
+std::shared_ptr<PersistentBuffer>& GetEndBuffer(int device, Framework framework) {
+  return end_tensor_fusion_buffers_[std::make_tuple(device, framework)].first;
+}
+
 } // namespace common
 } // namespace horovod

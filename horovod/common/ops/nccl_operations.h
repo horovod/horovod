@@ -83,14 +83,32 @@ protected:
 };
 
 // like NCCLHierarchicalAllreduce, but use 3 thread to do allreduce
-class ParallelNCCLHierarchicalAllreduce : public NCCLHierarchicalAllreduce {
+class ParallelNCCLHierarchicalAllreduce : public NCCLAllreduce {
 public:
-  ParallelNCCLHierarchicalAllreduce(ParallelNCCLContext *parallel_nccl_context, 
-                                    MPIContext *parallel_mpi_context,
-                                    ParallelCUDAContext *parallel_cuda_context, 
+  ParallelNCCLHierarchicalAllreduce(ParallelNCCLContext *nccl_context, 
+                                    MPIContext *mpi_context,
+                                    ParallelCUDAContext *cuda_context, 
                                     HorovodGlobalState* global_state);
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+
+  Status ExecuteMPIAllReduce(std::vector<TensorTableEntry> &entries, 
+                          void *host_buffer, 
+                          void *end_buffer_data, 
+                          cudaStream_t end_stream,
+                          ncclComm_t end_nccl_comm,
+                          int64_t num_elements_per_rank,
+                          int64_t num_elements_remain,
+                          int element_size);
+                          
+  Status ExecuteEnd(std::vector<TensorTableEntry> &entries, 
+                  void *host_buffer, 
+                  void *end_buffer_data, 
+                  cudaStream_t end_stream,
+                  ncclComm_t end_nccl_comm,
+                  int64_t num_elements_per_rank,
+                  int64_t num_elements_remain,
+                  int element_size);
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
@@ -103,6 +121,18 @@ protected:
   // init parallel cuda context
   void InitParallelCUDA(const std::vector<TensorTableEntry>& entries);
 
+  void PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
+                                Communicator& nccl_id_bcast_comm) override;
+
+  // copy tensor data to fusion buffer
+  // cpoy in/out of fusion buffer will use different stream, so will override this 2 function
+  void MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                const TensorTableEntry& e, 
+                                void* buffer_data_at_offset) override;
+
+  void MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                  const void* buffer_data_at_offset, 
+                                  TensorTableEntry& e) override;
 private:
   // in parallel alleduce it will use 3 thread, the main thread (horovod background thread), mpi thread and end thread
   // mpi_queue used for do MPI all reduce
@@ -114,9 +144,7 @@ private:
   // for seperatd from NCCLHierarchicalAllreduce, use prefix "parallel"
   ParallelNCCLContext parallel_nccl_context_;  
   ParallelCUDAContext parallel_cuda_context_;
-
-  ncclComm_t* end_nccl_comm_;
-  cudaStream_t* end_stream_;
+  MPIContext *parallel_mpi_context_;
 }
 
 } // namespace common

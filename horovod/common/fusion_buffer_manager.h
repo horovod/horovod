@@ -45,6 +45,14 @@ public:
 
   // Returns the buffer associated with the given device and framework, or null.
   std::shared_ptr<PersistentBuffer>& GetBuffer(int device, Framework framework);
+  
+  Status InitializeEndBuffer(int64_t threshold,
+                            int device, std::shared_ptr<OpContext> context,
+                            std::function<void()> on_start_init,
+                            std::function<void()> on_end_init);
+  
+  // Returns the buffer associated with the given device and framework, or null.
+  std::shared_ptr<PersistentBuffer>& GetEndBuffer(int device, Framework framework);
 
 private:
   // Memory buffers for Tensor Fusion.  They are keyed off device ID and
@@ -53,6 +61,11 @@ private:
   std::unordered_map<
       std::tuple<int, Framework>,
       std::pair<std::shared_ptr<PersistentBuffer>, int64_t>> tensor_fusion_buffers_;
+
+  // like tensor_fusion_buffers_ add a end buffer for end thread in parallel alreduce
+  std::unordered_map<
+      std::tuple<int, Framework>,
+      std::pair<std::shared_ptr<PersistentBuffer>, int64_t>> end_tensor_fusion_buffers_;
 };
 
 } // namespace common

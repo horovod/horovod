@@ -62,7 +62,7 @@ public:
   template <class F, class... Args> 
   void enqueue(F&& f, Args&&... args) {
     if (stopped_) {
-      throw std:runtime_error("The single queue <" + name_ + "> haa been stopped! can not enqueue task");
+      throw std::logic_error("The single queue <" + name_ + "> haa been stopped! can not enqueue task!");
     }
 
     auto task = std::bind(std::forward<F>(f), std::forward<Args>(args)...);

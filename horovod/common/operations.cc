@@ -639,6 +639,24 @@ void PerformOperation(TensorTable& tensor_table, Response response) {
       }
       return;
     }
+
+    // same like fusion buffer, at here create end fusion buffer
+    //todo check if need to init end fusion buffer 
+    Status end_status = horovod_global.fusion_buffer.InitializeEndBuffer(
+      TensorFusionThresholdBytes(),
+      first_entry.device, 
+      first_entry.context,
+      [&](){timeline.ActivityStartAll(entries, INIT_END_FUSION_BUFFER);},
+      [&](){timeline.ActivityEndAll(entries);}
+    );
+
+    if (!end_status.ok()) {
+      for (auto& e : entries) {
+        timeline.End(e.tensor_name, nullptr);
+        e.callback(status);
+      }
+      return;
+    }
   }
 
   // On GPU data readiness is signalled by ready_event.
