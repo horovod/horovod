@@ -93,22 +93,22 @@ public:
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
   Status ExecuteMPIAllReduce(std::vector<TensorTableEntry> &entries, 
-                          void *host_buffer, 
-                          void *end_buffer_data, 
-                          cudaStream_t end_stream,
-                          ncclComm_t end_nccl_comm,
-                          int64_t num_elements_per_rank,
-                          int64_t num_elements_remain,
-                          int element_size);
+                              void *host_buffer, 
+                              void *end_fusion_buffer, 
+                              cudaStream_t end_stream,
+                              ncclComm_t end_nccl_comm,
+                              int64_t num_elements_per_rank,
+                              int64_t num_elements_remaining,
+                              int element_size);
                           
   Status ExecuteEnd(std::vector<TensorTableEntry> &entries, 
-                  void *host_buffer, 
-                  void *end_buffer_data, 
-                  cudaStream_t end_stream,
-                  ncclComm_t end_nccl_comm,
-                  int64_t num_elements_per_rank,
-                  int64_t num_elements_remain,
-                  int element_size);
+                    void *host_buffer, 
+                    void *end_fusion_buffer, 
+                    cudaStream_t end_stream,
+                    ncclComm_t end_nccl_comm,
+                    int64_t num_elements_per_rank,
+                    int64_t num_elements_remaining,
+                    int element_size);
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
