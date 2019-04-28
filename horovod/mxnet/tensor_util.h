@@ -40,6 +40,7 @@ public:
 
   static NDArray* New(int device, int dtype);
   static void Free(NDArray* tensor);
+  static void ResizeNd(NDArray* tensor, int nDimension, int64_t* size);
   static void Copy(NDArray* output, NDArray* tensor);
   static void DivideTensorInPlace(NDArray* tensor, int value);
 

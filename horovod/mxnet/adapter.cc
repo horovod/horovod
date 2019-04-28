@@ -118,9 +118,7 @@ Status MXOpContext<T>::AllocateOutput(TensorShape shape,
   for (int idx = 0; idx < shape.dims(); idx++) {
     shape_array[idx] = shape.dim_size(idx);
   }
-  void* temp_out;
-  MXNDArrayReshape64(output_, shape.dims(), shape_array, false, &temp_out);
-  output_ = static_cast<NDArray*>(temp_out);
+  TensorUtil::ResizeNd(output_, shape.dims(), shape_array);
   delete[] shape_array;
   *tensor = std::make_shared<MXTensor<T>>(output_);
   return Status::OK();

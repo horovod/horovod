@@ -133,6 +133,13 @@ NDArray* TensorUtil::New(int device, int dtype) {
 
 void TensorUtil::Free(NDArray* tensor) { delete tensor; }
 
+// Resize tensor to nDimension with length size[i] in dimension i
+void TensorUtil::ResizeNd(NDArray* tensor, int nDimension, int64_t* size) {
+  void* temp_out;
+  MXNDArrayReshape64(tensor, nDimension, size, false, &temp_out);
+  tensor = static_cast<NDArray*>(temp_out);
+}
+
 // Copy from tensor to output
 void TensorUtil::Copy(NDArray* output, NDArray* tensor) {
   if (tensor->shape() != output->shape())
