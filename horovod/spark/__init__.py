@@ -15,7 +15,6 @@
 
 import os
 import pyspark
-import re
 from six.moves import queue
 import sys
 import threading
@@ -116,9 +115,15 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None,
         # Lookup default timeout from the environment variable.
         start_timeout = int(os.getenv('HOROVOD_SPARK_START_TIMEOUT', '600'))
 
+    tmout = timeout.Timeout(start_timeout,
+                            message='Timed out waiting for {activity}. Please check that you have '
+                                    'enough resources to run all Horovod processes. Each Horovod '
+                                    'process runs in a Spark task. You may need to increase the '
+                                    'start_timeout parameter to a larger value if your Spark resources '
+                                    'are allocated on-demand.')
     settings = hvd_settings.Settings(verbose=verbose,
                                      key=secret.make_secret_key(),
-                                     timeout=timeout.Timeout(start_timeout))
+                                     timeout=tmout)
 
     spark_context = pyspark.SparkContext._active_spark_context
     if spark_context is None:

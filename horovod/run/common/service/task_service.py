@@ -107,7 +107,7 @@ class BasicTaskService(network.BasicService):
         try:
             while not self._initial_registration_complete:
                 self._wait_cond.wait(timeout.remaining())
-                timeout.check_time_out_for('Spark tasks to start')
+                timeout.check_time_out_for('tasks to start')
         finally:
             self._wait_cond.release()
 

@@ -17,8 +17,9 @@ import time
 
 
 class Timeout(object):
-    def __init__(self, timeout):
+    def __init__(self, timeout, message):
         self._timeout_at = time.time() + timeout
+        self._message = message
 
     def remaining(self):
         return max(0, self._timeout_at - time.time())
@@ -28,7 +29,4 @@ class Timeout(object):
 
     def check_time_out_for(self, activity):
         if self.timed_out():
-            raise Exception('Timed out waiting for %s. Please check that you have enough resources '
-                            'to run all Horovod processes. Each Horovod process runs in a Spark task. '
-                            'You may need to increase the start_timeout parameter to a larger value '
-                            'if your Spark resources are allocated on-demand.' % activity)
+            raise Exception(self._message.format(activity=activity))
