@@ -101,22 +101,22 @@ services:
       args:
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 2.7
-        TENSORFLOW_PACKAGE: tf-nightly==1.14.1-dev20190408
+        TENSORFLOW_PACKAGE: tf-nightly
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
         PYSPARK_PACKAGE: pyspark==2.4.0
-        MXNET_PACKAGE: mxnet --pre
+        MXNET_PACKAGE: mxnet==1.5.0b20190412 --pre
   test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0:
     extends: test-cpu-base
     build:
       args:
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tf-nightly==1.14.1-dev20190408
+        TENSORFLOW_PACKAGE: tf-nightly
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
         PYSPARK_PACKAGE: pyspark==2.4.0
-        MXNET_PACKAGE: mxnet --pre
+        MXNET_PACKAGE: mxnet==1.5.0b20190412 --pre
   test-cpu-mpich-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_5_0-pyspark2_4_0:
     extends: test-cpu-base
     build:
@@ -189,10 +189,10 @@ services:
         NCCL_VERSION_OVERRIDE: 2.3.7-1+cuda10.0
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 2.7
-        TENSORFLOW_PACKAGE: tf-nightly-gpu==1.14.1-dev20190408
+        TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
-        MXNET_PACKAGE: mxnet-cu100 --pre
+        MXNET_PACKAGE: mxnet-cu100==1.5.0b20190413 --pre
         PYSPARK_PACKAGE: pyspark==2.4.0
   test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0:
     extends: test-gpu-base
@@ -203,10 +203,10 @@ services:
         NCCL_VERSION_OVERRIDE: 2.3.7-1+cuda10.0
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tf-nightly-gpu==1.14.1-dev20190408
+        TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
-        MXNET_PACKAGE: mxnet-cu100 --pre
+        MXNET_PACKAGE: mxnet-cu100==1.5.0b20190413 --pre
         PYSPARK_PACKAGE: pyspark==2.4.0
   test-gpu-mpich-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_5_0-pyspark2_4_0:
     extends: test-gpu-base
