@@ -45,7 +45,7 @@ const DataType TensorUtil::GetDType(NDArray* tensor) {
 const TensorShape TensorUtil::GetShape(NDArray* tensor) {
   TensorShape shape;
   TShape mx_shape = tensor->shape();
-  for (unsigned idx = 0; idx < mx_shape.ndim(); idx++) {
+  for (int idx = 0; idx < (int)mx_shape.ndim(); idx++) {
     shape.AddDim(mx_shape[idx]);
   }
   return shape;
