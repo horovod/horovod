@@ -45,7 +45,7 @@ const DataType TensorUtil::GetDType(NDArray* tensor) {
 const TensorShape TensorUtil::GetShape(NDArray* tensor) {
   TensorShape shape;
   TShape mx_shape = tensor->shape();
-  for (unsigned idx = 0; idx < mx_shape.ndim(); idx++) {
+  for (int idx = 0; idx < (int)mx_shape.ndim(); idx++) {
     shape.AddDim(mx_shape[idx]);
   }
   return shape;
@@ -135,11 +135,9 @@ void TensorUtil::Free(NDArray* tensor) { delete tensor; }
 
 // Resize tensor to nDimension with length size[i] in dimension i
 void TensorUtil::ResizeNd(NDArray* tensor, int nDimension, int64_t* size) {
-  TShape mx_shape(nDimension);
-  for (int idx = 0; idx < nDimension; ++idx) {
-    mx_shape[idx] = size[idx];
-  }
-  tensor->Reshape(mx_shape);
+  void* temp_out;
+  MXNDArrayReshape64(tensor, nDimension, size, false, &temp_out);
+  tensor = static_cast<NDArray*>(temp_out);
 }
 
 // Copy from tensor to output
