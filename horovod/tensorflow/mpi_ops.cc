@@ -1167,11 +1167,20 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
         // Perform the reduction on the fusion buffer.
         size_t num_elements = 0;
+        size_t str_size = 0;
         for (auto it = entries.begin(); it != entries.end(); it++) {
           num_elements += it->tensor.NumElements();
+          str_size += strlen(it->nccl_prof->tensor_name) + 1;
         }
-        // TODO(HJ): For now, I just merge all the nccl_prof result into the 
-        //          first_entry in the case of fusion buffer. We should fix this.
+        char* tmp = new char[str_size];
+        strcpy(tmp, first_entry.nccl_prof->tensor_name);
+        for (auto it = entries.begin(); it != entries.end(); it++) {
+          if (it != entries.begin()) {
+            strcat(tmp, ";");
+            strcat(tmp, it->nccl_prof->tensor_name);
+          }
+        }
+        first_entry.nccl_prof->tensor_name = tmp;
         NCCL_CHECK(entries, "ncclAllReduce",
                    ncclAllReduce((const void*)buffer_data, (void*)buffer_data,
                                  num_elements, dtype, ncclSum, nccl_comm,
