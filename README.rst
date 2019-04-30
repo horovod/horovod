@@ -1,39 +1,44 @@
 .. raw:: html
 
-    <img src="docs/images/logo-120.png" width="120px">
+    <p align="center"><img src="https://user-images.githubusercontent.com/16640218/34506318-84d0c06c-efe0-11e7-8831-0425772ed8f2.png" alt="Logo" width="200"/></p>
     <br/>
 
-Petastorm
+Horovod
 =========
 
-.. image:: https://travis-ci.com/uber/petastorm.svg?branch=master
-   :target: https://travis-ci.com/uber/petastorm
-   :alt: Build Status (Travis CI)
-
-.. image:: https://codecov.io/gh/uber/petastorm/branch/master/graph/badge.svg
-   :target: https://codecov.io/gh/uber/petastorm/branch/master
-   :alt: Code coverage
+.. image:: https://badge.buildkite.com/6f976bc161c69d9960fc00de01b69deb6199b25680a09e5e26.svg?branch=master
+   :target: https://buildkite.com/horovod/horovod
+   :alt: Build Status
 
 .. image:: https://img.shields.io/badge/License-Apache%202.0-blue.svg
    :target: https://img.shields.io/badge/License-Apache%202.0-blue.svg
    :alt: License
 
-.. image:: https://badge.fury.io/py/petastorm.svg
-   :target: https://pypi.org/project/petastorm
-   :alt: Latest Version
+.. image:: https://app.fossa.com/api/projects/git%2Bgithub.com%2Fhorovod%2Fhorovod.svg?type=shield
+   :target: https://app.fossa.com/projects/git%2Bgithub.com%2Fhorovod%2Fhorovod?ref=badge_shield
+   :alt: FOSSA Status
+
+.. image:: https://bestpractices.coreinfrastructure.org/projects/2373/badge
+   :target: https://bestpractices.coreinfrastructure.org/projects/2373
+   :alt: CII Best Practices
+
+.. image:: https://pepy.tech/badge/horovod
+   :target: https://pepy.tech/project/horovod
+   :alt: Downloads
 
 .. inclusion-marker-start-do-not-remove
 
 .. contents::
 
 
-Petastorm is an open source data access library developed at Uber ATG. This library enables single machine or
-distributed training and evaluation of deep learning models directly from datasets in Apache Parquet
-format. Petastorm supports popular Python-based machine learning (ML) frameworks such as
-`Tensorflow <http://www.tensorflow.org/>`_, `PyTorch <https://pytorch.org/>`_, and
-`PySpark <http://spark.apache.org/docs/latest/api/python/pyspark.html>`_. It can also be used from pure Python code.
+Horovod is a distributed training framework for TensorFlow, Keras, PyTorch, and MXNet. The goal of Horovod is to make
+distributed Deep Learning fast and easy to use.
 
-Documentation web site: `<https://petastorm.readthedocs.io>`_
+
+Horovod is hosted by the `Linux Foundation Deep Learning <https://lfdl.io>`_ (LF DL). If you are a company that is deeply
+committed to using open source technologies in artificial intelligence, machine and deep learning, and wanting to support
+the communities of open source projects in these domains, consider joining the LF Deep Learning Foundation. For details
+about who's involved and how Horovod plays a role, read the LF DL `announcement <https://lfdl.io/press/2018/12/13/lf-deep-learning-welcomes-horovod-distributed-training-framework-as-newest-project/>`_.
 
 
 
