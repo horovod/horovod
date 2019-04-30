@@ -41,7 +41,7 @@ from horovod.tensorflow.mpi_ops import _allreduce
 from horovod.tensorflow.mpi_ops import init
 
 
-def allreduce(tensor, average_dense=True, average_sparse=True, use_allgatherv=False, device_dense='', device_sparse=''):
+def allreduce(tensor, global_step, average_dense=True, average_sparse=True, use_allgatherv=False, device_dense='', device_sparse=''):
     """Perform an allreduce on a tf.Tensor or tf.IndexedSlices.
 
     Arguments:
@@ -65,11 +65,11 @@ def allreduce(tensor, average_dense=True, average_sparse=True, use_allgatherv=Fa
         with tf.device(device_sparse):
             # For IndexedSlices, do two allgathers intead of an allreduce.
             if use_allgatherv:
-                values = allgatherv(tensor.values)
-                indices = allgatherv(tensor.indices)
+                values = allgatherv(tensor.values, global_step)
+                indices = allgatherv(tensor.indices, global_step)
             else:
-                values = allgather(tensor.values)
-                indices = allgather(tensor.indices)
+                values = allgather(tensor.values, global_step)
+                indices = allgather(tensor.indices, global_step)
             # To make this operation into an average, divide all gathered values by
             # the Horovod size.
             horovod_size = tf.cast(size(), tensor.values.dtype)
@@ -79,7 +79,7 @@ def allreduce(tensor, average_dense=True, average_sparse=True, use_allgatherv=Fa
     else:
         with tf.device(device_dense):
             horovod_size = tf.cast(size(), tensor.dtype)
-            summed_tensor = _allreduce(tensor)
+            summed_tensor = _allreduce(tensor, global_step)
             new_tensor = (tf.div(summed_tensor, horovod_size)
                           if average_dense else summed_tensor)
         return new_tensor
