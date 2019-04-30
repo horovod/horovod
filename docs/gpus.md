@@ -19,7 +19,7 @@ $ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/nccl-<version>/lib
 ```
 
 2. (Optional) If you're using an NVIDIA Tesla GPU and NIC with GPUDirect RDMA support, you can further speed up NCCL 2
-by installing an [nv_peer_memory](http://www.mellanox.com/page/products_dyn?product_family=116) driver.
+by installing an [nv_peer_memory](https://github.com/Mellanox/nv_peer_memory) driver.
 
 [GPUDirect](https://developer.nvidia.com/gpudirect) allows GPUs to transfer memory among each other without CPU
 involvement, which significantly reduces latency and load on CPU.  NCCL 2 is able to use GPUDirect automatically for
