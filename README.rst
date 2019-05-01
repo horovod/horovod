@@ -34,6 +34,9 @@ Horovod
 Horovod is a distributed training framework for TensorFlow, Keras, PyTorch, and MXNet. The goal of Horovod is to make
 distributed Deep Learning fast and easy to use.
 
+.. image:: https://github.com/LFDLFoundation/artwork/raw/master/lfdl/horizontal/color/lfdl-horizontal-color.png
+   :width: 200px
+   :alt: LF DL
 
 Horovod is hosted by the `Linux Foundation Deep Learning <https://lfdl.io>`_ (LF DL). If you are a company that is deeply
 committed to using open source technologies in artificial intelligence, machine and deep learning, and wanting to support
@@ -56,7 +59,8 @@ Distributed TensorFlow with parameter servers. See the [Usage](#usage) section f
 In addition to being easy to use, Horovod is fast. Below is a chart representing the benchmark that was done on 128
 servers with 4 Pascal GPUs each connected by RoCE-capable 25 Gbit/s network:
 
-![512-GPU Benchmark](https://user-images.githubusercontent.com/16640218/38965607-bf5c46ca-4332-11e8-895a-b9c137e86013.png)
+.. image:: https://user-images.githubusercontent.com/16640218/38965607-bf5c46ca-4332-11e8-895a-b9c137e86013.png
+   :alt: 512-GPU Benchmark
 
 Horovod achieves 90% scaling efficiency for both Inception V3 and ResNet-101, and 68% scaling efficiency for VGG-16.
 See the [Benchmarks](docs/benchmarks.md) page to find out how to reproduce these numbers.
@@ -360,7 +364,8 @@ Analyzing Horovod Performance
 -----------------------------
 Horovod has the ability to record the timeline of its activity, called Horovod Timeline.
 
-![Horovod Timeline](https://user-images.githubusercontent.com/16640218/29735271-9e148da0-89ac-11e7-9ae0-11d7a099ac89.png)
+.. image:: https://user-images.githubusercontent.com/16640218/29735271-9e148da0-89ac-11e7-9ae0-11d7a099ac89.png
+   :alt: Horovod Timeline
 
 See `here <docs/timeline.md>`_ for full details and usage instructions.
 
@@ -379,14 +384,14 @@ Citation
 --------
 Please cite Horovod in your publications if it helps your research:
 
-```
-@article{sergeev2018horovod,
-  Author = {Alexander Sergeev and Mike Del Balso},
-  Journal = {arXiv preprint arXiv:1802.05799},
-  Title = {Horovod: fast and easy distributed deep learning in {TensorFlow}},
-  Year = {2018}
-}
-```
+.. code-block:: bash
+
+    @article{sergeev2018horovod,
+      Author = {Alexander Sergeev and Mike Del Balso},
+      Journal = {arXiv preprint arXiv:1802.05799},
+      Title = {Horovod: fast and easy distributed deep learning in {TensorFlow}},
+      Year = {2018}
+    }
 
 
 Publications
