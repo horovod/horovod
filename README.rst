@@ -41,288 +41,368 @@ the communities of open source projects in these domains, consider joining the L
 about who's involved and how Horovod plays a role, read the LF DL `announcement <https://lfdl.io/press/2018/12/13/lf-deep-learning-welcomes-horovod-distributed-training-framework-as-newest-project/>`_.
 
 
+Why not traditional Distributed TensorFlow?
+-------------------------------------------
 
-Installation
+The primary motivation for this project is to make it easy to take a single-GPU TensorFlow program and successfully train
+it on many GPUs faster. This has two aspects:
+
+1. How much modification does one have to make to a program to make it distributed, and how easy is it to run it.
+2. How much faster would it run in distributed mode?
+
+Internally at Uber we found the MPI model to be much more straightforward and require far less code changes than the
+Distributed TensorFlow with parameter servers. See the [Usage](#usage) section for more details.
+
+In addition to being easy to use, Horovod is fast. Below is a chart representing the benchmark that was done on 128
+servers with 4 Pascal GPUs each connected by RoCE-capable 25 Gbit/s network:
+
+![512-GPU Benchmark](https://user-images.githubusercontent.com/16640218/38965607-bf5c46ca-4332-11e8-895a-b9c137e86013.png)
+
+Horovod achieves 90% scaling efficiency for both Inception V3 and ResNet-101, and 68% scaling efficiency for VGG-16.
+See the [Benchmarks](docs/benchmarks.md) page to find out how to reproduce these numbers.
+
+While installing MPI and NCCL itself may seem like an extra hassle, it only needs to be done once by the team dealing
+with infrastructure, while everyone else in the company who builds the models can enjoy the simplicity of training them at
+scale.
+
+
+Install
 ------------
 
-.. code-block:: bash
+To install Horovod:
 
-    pip install petastorm
+1. Install `Open MPI <https://www.open-mpi.org/>`_ or another MPI implementation.
 
+Steps to install Open MPI are listed `on this page <https://www.open-mpi.org/faq/?category=building#easy-build>`_.
 
-There are several extra dependencies that are defined by the ``petastorm`` package that are not installed automatically.
-The extras are: ``tf``, ``tf_gpu``, ``torch``, ``opencv``, ``docs``, ``test``.
+**Note**: Open MPI 3.1.3 has an issue that may cause hangs.  It is recommended
+to downgrade to Open MPI 3.1.2 or upgrade to Open MPI 4.0.0.
 
-For example to trigger installation of GPU version of tensorflow and opencv, use the following pip command:
-
-.. code-block:: bash
-
-    pip install petastorm[opencv,tf_gpu]
-
-
-
-Generating a dataset
---------------------
-
-A dataset created using Petastorm is stored in `Apache Parquet <https://parquet.apache.org/>`_ format.
-On top of a Parquet schema, petastorm also stores higher-level schema information that makes multidimensional arrays into a native part of a petastorm dataset.
-
-Petastorm supports extensible data codecs. These enable a user to use one of the standard data compressions (jpeg, png) or implement her own.
-
-Generating a dataset is done using PySpark.
-PySpark natively supports Parquet format, making it easy to run on a single machine or on a Spark compute cluster.
-Here is a minimalistic example writing out a table with some random data.
-
-
-.. code-block:: python
-
-    HelloWorldSchema = Unischema('HelloWorldSchema', [
-       UnischemaField('id', np.int32, (), ScalarCodec(IntegerType()), False),
-       UnischemaField('image1', np.uint8, (128, 256, 3), CompressedImageCodec('png'), False),
-       UnischemaField('other_data', np.uint8, (None, 128, 30, None), NdarrayCodec(), False),
-    ])
-
-
-    def row_generator(x):
-       """Returns a single entry in the generated dataset. Return a bunch of random values as an example."""
-       return {'id': x,
-               'image1': np.random.randint(0, 255, dtype=np.uint8, size=(128, 256, 3)),
-               'other_data': np.random.randint(0, 255, dtype=np.uint8, size=(4, 128, 30, 3))}
-
-
-    def generate_hello_world_dataset(output_url='file:///tmp/hello_world_dataset'):
-       rows_count = 10
-       rowgroup_size_mb = 256
-
-       spark = SparkSession.builder.config('spark.driver.memory', '2g').master('local[2]').getOrCreate()
-       sc = spark.sparkContext
-
-       # Wrap dataset materialization portion. Will take care of setting up spark environment variables as
-       # well as save petastorm specific metadata
-       with materialize_dataset(spark, output_url, HelloWorldSchema, rowgroup_size_mb):
-
-           rows_rdd = sc.parallelize(range(rows_count))\
-               .map(row_generator)\
-               .map(lambda x: dict_to_spark_row(HelloWorldSchema, x))
-
-           spark.createDataFrame(rows_rdd, HelloWorldSchema.as_spark_schema()) \
-               .coalesce(10) \
-               .write \
-               .mode('overwrite') \
-               .parquet(output_url)
-
-- ``HelloWorldSchema`` is an instance of a ``Unischema`` object.
-  ``Unischema`` is capable of rendering types of its fields into different
-  framework specific formats, such as: Spark ``StructType``, Tensorflow
-  ``tf.DType`` and numpy ``numpy.dtype``.
-- To define a dataset field, you need to specify a ``type``, ``shape``, a
-  ``codec`` instance and whether the field is nullable for each field of the
-  ``Unischema``.
-- We use PySpark for writing output Parquet files. In this example, we launch
-  PySpark on a local box (``.master('local[2]')``). Of course for a larger
-  scale dataset generation we would need a real compute cluster.
-- We wrap spark dataset generation code with the ``materialize_dataset``
-  context manager.  The context manager is responsible for configuring row
-  group size at the beginning and write out petastorm specific metadata at the
-  end.
-- The row generating code is expected to return a Python dictionary indexed by
-  a field name. We use ``row_generator`` function for that.
-- ``dict_to_spark_row`` converts the dictionary into a ``pyspark.Row``
-  object while ensuring schema ``HelloWorldSchema`` compliance (shape,
-  type and is-nullable condition are tested).
-- Once we have a ``pyspark.DataFrame`` we write it out to a parquet
-  storage. The parquet schema is automatically derived from
-  ``HelloWorldSchema``.
-
-Plain Python API
-----------------
-The ``petastorm.reader.Reader`` class is the main entry point for user
-code that accesses the data from an ML framework such as Tensorflow or Pytorch.
-The reader has multiple features such as:
-
-- Selective column readout
-- Multiple parallelism strategies: thread, process, single-threaded (for debug)
-- N-grams readout support
-- Row filtering (row predicates)
-- Shuffling
-- Partitioning for multi-GPU training
-- Local caching
-
-Reading a dataset is simple using the ``petastorm.reader.Reader`` class which can be created using the
-``petastorm.make_reader`` factory method:
-
-.. code-block:: python
-
-   from petastorm import make_reader
-
-    with make_reader('hdfs://myhadoop/some_dataset') as reader:
-       for row in reader:
-           print(row)
-
-``hdfs://...`` and ``file://...`` are supported URL protocols.
-
-Once a ``Reader`` is instantiated, you can use it as an iterator.
-
-Tensorflow API
---------------
-
-To hookup the reader into a tensorflow graph, you can use the ``tf_tensors``
-function:
-
-.. code-block:: python
-
-    with make_reader('file:///some/localpath/a_dataset') as reader:
-       row_tensors = tf_tensors(reader)
-       with tf.Session() as session:
-           for _ in range(3):
-               print(session.run(row_tensors))
-
-Alternatively, you can use new ``tf.data.Dataset`` API;
-
-.. code-block:: python
-
-    with make_reader('file:///some/localpath/a_dataset') as reader:
-        dataset = make_petastorm_dataset(reader)
-        iterator = dataset.make_one_shot_iterator()
-        tensor = iterator.get_next()
-        with tf.Session() as sess:
-            sample = sess.run(tensor)
-            print(sample.id)
-
-Pytorch API
------------
-
-As illustrated in
-`pytorch_example.py <https://github.com/uber/petastorm/blob/master/examples/mnist/pytorch_example.py>`_,
-reading a petastorm dataset from pytorch
-can be done via the adapter class ``petastorm.pytorch.DataLoader``,
-which allows custom pytorch collating function and transforms to be supplied.
-
-Be sure you have ``torch`` and ``torchvision`` installed:
+2. Install the ``horovod`` pip package.
 
 .. code-block:: bash
 
-    pip install torchvision
+    pip install horovod
 
-The minimalist example below assumes the definition of a ``Net`` class and
-``train`` and ``test`` functions, included in ``pytorch_example``:
-
-.. code-block:: python
-
-    import torch
-    from petastorm.pytorch import DataLoader
-
-    torch.manual_seed(1)
-    device = torch.device('cpu')
-    model = Net().to(device)
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
-
-    def _transform_row(mnist_row):
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,))
-        ])
-        return (transform(mnist_row['image']), mnist_row['digit'])
+This basic installation is good for laptops and for getting to know Horovod.
+If you're installing Horovod on a server with GPUs, read the `Horovod on GPU <docs/gpus.md>`_ page.
+If you want to use Docker, read the `Horovod in Docker <docs/docker.md>`_ page.
 
 
-    transform = TransformSpec(_transform_row, removed_fields=['idx'])
+Concepts
+------------
 
-    with DataLoader(make_reader('file:///localpath/mnist/train', num_epochs=10,
-                                transform_spec=transform), batch_size=64) as train_loader:
-        train(model, device, train_loader, 10, optimizer, 1)
-    with DataLoader(make_reader('file:///localpath/mnist/test', num_epochs=10,
-                                transform_spec=transform), batch_size=1000) as test_loader:
-        test(model, device, test_loader)
+Horovod core principles are based on `MPI <http://mpi-forum.org/>`_ concepts such as *size*, *rank*,
+*local rank*, *allreduce*, *allgather* and *broadcast*. See `this page <docs/concepts.md>`_ for more details.
 
-PySpark and SQL
+
+Usage
+-----
+
+To use Horovod, make the following additions to your program:
+
+1. Run ``hvd.init()``.
+
+2. Pin a server GPU to be used by this process using ``config.gpu_options.visible_device_list``.
+    With the typical setup of one GPU per process, this can be set to *local rank*. In that case, the first process on
+    the server will be allocated the first GPU, second process will be allocated the second GPU and so forth.
+
+3. Scale the learning rate by number of workers. Effective batch size in synchronous distributed training is scaled by
+    the number of workers. An increase in learning rate compensates for the increased batch size.
+
+4. Wrap optimizer in ``hvd.DistributedOptimizer``.  The distributed optimizer delegates gradient computation
+    to the original optimizer, averages gradients using *allreduce* or *allgather*, and then applies those averaged
+    gradients.
+
+5. Add ``hvd.BroadcastGlobalVariablesHook(0)`` to broadcast initial variable states from rank 0 to all other processes.
+    This is necessary to ensure consistent initialization of all workers when training is started with random weights or
+    restored from a checkpoint. Alternatively, if you're not using ``MonitoredTrainingSession``, you can simply execute
+    the ``hvd.broadcast_global_variables`` op after global variables have been initialized.
+
+6. Modify your code to save checkpoints only on worker 0 to prevent other workers from corrupting them.
+    This can be accomplished by passing ``checkpoint_dir=None`` to ``tf.train.MonitoredTrainingSession`` if
+    ``hvd.rank() != 0``.
+
+Example (see the `examples <examples/>`_ directory for full training examples):
+
+.. code-block:: bash
+
+    import tensorflow as tf
+    import horovod.tensorflow as hvd
+
+
+    # Initialize Horovod
+    hvd.init()
+
+    # Pin GPU to be used to process local rank (one GPU per process)
+    config = tf.ConfigProto()
+    config.gpu_options.visible_device_list = str(hvd.local_rank())
+
+    # Build model...
+    loss = ...
+    opt = tf.train.AdagradOptimizer(0.01 * hvd.size())
+
+    # Add Horovod Distributed Optimizer
+    opt = hvd.DistributedOptimizer(opt)
+
+    # Add hook to broadcast variables from rank 0 to all other processes during
+    # initialization.
+    hooks = [hvd.BroadcastGlobalVariablesHook(0)]
+
+    # Make training operation
+    train_op = opt.minimize(loss)
+
+    # Save checkpoints only on worker 0 to prevent other workers from corrupting them.
+    checkpoint_dir = '/tmp/train_logs' if hvd.rank() == 0 else None
+
+    # The MonitoredTrainingSession takes care of session initialization,
+    # restoring from a checkpoint, saving to a checkpoint, and closing when done
+    # or an error occurs.
+    with tf.train.MonitoredTrainingSession(checkpoint_dir=checkpoint_dir,
+                                           config=config,
+                                           hooks=hooks) as mon_sess:
+      while not mon_sess.should_stop():
+        # Perform synchronous training.
+        mon_sess.run(train_op)
+
+
+Running Horovod
 ---------------
 
-Using the Parquet data format, which is natively supported by Spark, makes it possible to use a wide range of Spark
-tools to analyze and manipulate the dataset. The example below shows how to read a Petastorm dataset
-as a Spark RDD object:
+The example commands below show how to run distributed training. See the `Running Horovod <docs/running.md>`_
+page for more instructions, including RoCE/InfiniBand tweaks and tips for dealing with hangs.
 
-.. code-block:: python
+1. To run on a machine with 4 GPUs:
 
-   # Create a dataframe object from a parquet file
-   dataframe = spark.read.parquet(dataset_url)
+.. code-block:: bash
 
-   # Show a schema
-   dataframe.printSchema()
-
-   # Count all
-   dataframe.count()
-
-   # Show a single column
-   dataframe.select('id').show()
-
-SQL can be used to query a Petastorm dataset:
-
-.. code-block:: python
-
-   spark.sql(
-      'SELECT count(id) '
-      'from parquet.`file:///tmp/hello_world_dataset`').collect()
-
-You can find a full code sample here: `pyspark_hello_world.py <https://github.com/uber/petastorm/blob/master/examples/hello_world/pyspark_hello_world.py>`_,
-
-Non Petastorm Parquet Stores
-----------------------------
-Petastorm can also be used to read data directly from Apache Parquet stores. To achieve that, use
-``make_batch_reader`` (and not ``make_reader``). The following table summarizes the differences
-``make_batch_reader`` and ``make_reader`` functions.
+    horovodrun -np 4 -H localhost:4 python train.py
 
 
-==================================================================  =====================================================
-``make_reader``                                                     ``make_batch_reader``
-==================================================================  =====================================================
-Only Petastorm datasets (created using materializes_dataset)        Any Parquet store (some native Parquet column types
-                                                                    are not supported yet.
-------------------------------------------------------------------  -----------------------------------------------------
-The reader returns one record at a time.                            The reader returns batches of records. The size of the
-                                                                    batch is not fixed and defined by Parquet row-group
-                                                                    size.
-------------------------------------------------------------------  -----------------------------------------------------
-Predicates passed to ``make_reader`` are evaluated per single row.  Predicates passed to ``make_batch_reader`` are evaluated per batch.
-==================================================================  =====================================================
+2. To run on 4 machines with 4 GPUs each:
 
+.. code-block:: bash
+
+    horovodrun -np 16 -H server1:4,server2:4,server3:4,server4:4 python train.py
+
+
+3. To run in Docker, see the `Horovod in Docker <docs/docker.md>`_ page.
+
+4. To run in Kubernetes, see `Kubeflow <https://github.com/kubeflow/kubeflow/tree/master/kubeflow/mpi-job>`_,
+`MPI Operator <https://github.com/kubeflow/mpi-operator/>`_,
+`Helm Chart <https://github.com/kubernetes/charts/tree/master/stable/horovod/>`_, and
+`FfDL <https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/>`_.
+
+5. To run in Spark, see the `Spark <docs/spark.md>`_ page.
+
+Keras
+-----
+Horovod supports Keras and regular TensorFlow in similar ways.
+
+See full training `simple <examples/keras_mnist.py>`_ and `advanced <examples/keras_mnist_advanced.py>`_ examples.
+
+**Note**: Keras 2.0.9 has a `known issue <https://github.com/fchollet/keras/issues/8353>`_ that makes each worker allocate
+all GPUs on the server, instead of the GPU assigned by the *local rank*. If you have multiple GPUs per server, upgrade
+to Keras 2.1.2, or downgrade to Keras 2.0.8.
+
+
+Estimator API
+-------------
+Horovod supports Estimator API and regular TensorFlow in similar ways.
+
+See a full training `example <examples/tensorflow_mnist_estimator.py>`_.
+
+MXNet
+-----
+Horovod supports MXNet and regular TensorFlow in similar ways.
+
+See full training `MNIST <examples/mxnet_mnist.py>`_ and `ImageNet <examples/mxnet_imagenet_resnet50.py>`_ examples. The script below provides a simple skeleton of code block based on MXNet Gluon API.
+
+.. code-block:: bash
+
+    import mxnet as mx
+    import horovod.mxnet as hvd
+    from mxnet import autograd
+
+    # Initialize Horovod
+    hvd.init()
+
+    # Pin GPU to be used to process local rank
+    context = mx.gpu(hvd.local_rank())
+    num_workers = hvd.size()
+
+    # Build model
+    model = ...
+    model.hybridize()
+
+    # Create optimizer
+    optimizer_params = ...
+    opt = mx.optimizer.create('sgd', **optimizer_params)
+
+    # Initialize parameters
+    model.initialize(initializer, ctx=context)
+
+    # Fetch and broadcast parameters
+    params = model.collect_params()
+    if params is not None:
+        hvd.broadcast_parameters(params, root_rank=0)
+
+    # Create DistributedTrainer, a subclass of gluon.Trainer
+    trainer = hvd.DistributedTrainer(params, opt)
+
+    # Create loss function
+    loss_fn = ...
+
+    # Train model
+    for epoch in range(num_epoch):
+        train_data.reset()
+        for nbatch, batch in enumerate(train_data, start=1):
+            data = batch.data[0].as_in_context(context)
+            label = batch.label[0].as_in_context(context)
+            with autograd.record():
+                output = model(data.astype(dtype, copy=False))
+                loss = loss_fn(output, label)
+            loss.backward()
+            trainer.step(batch_size)
+
+
+
+**Note**: There is a `known issue <https://github.com/horovod/horovod/issues/884>`_ when running Horovod with MXNet on a Linux system with GCC version 5.X and above. We recommend users to build MXNet from source following this `guide <https://mxnet.incubator.apache.org/install/build_from_source.html>`_ as a workaround for now.
+
+
+PyTorch
+-------
+Horovod supports PyTorch and TensorFlow in similar ways.
+
+Example (also see a full training `example <examples/pytorch_mnist.py>`_)):
+
+.. code-block:: bash
+
+    import torch
+    import horovod.torch as hvd
+
+    # Initialize Horovod
+    hvd.init()
+
+    # Pin GPU to be used to process local rank (one GPU per process)
+    torch.cuda.set_device(hvd.local_rank())
+
+    # Define dataset...
+    train_dataset = ...
+
+    # Partition dataset among workers using DistributedSampler
+    train_sampler = torch.utils.data.distributed.DistributedSampler(
+        train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
+
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=..., sampler=train_sampler)
+
+    # Build model...
+    model = ...
+    model.cuda()
+
+    optimizer = optim.SGD(model.parameters())
+
+    # Add Horovod Distributed Optimizer
+    optimizer = hvd.DistributedOptimizer(optimizer, named_parameters=model.named_parameters())
+
+    # Broadcast parameters from rank 0 to all other processes.
+    hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+
+    for epoch in range(100):
+       for batch_idx, (data, target) in enumerate(train_loader):
+           optimizer.zero_grad()
+           output = model(data)
+           loss = F.nll_loss(output, target)
+           loss.backward()
+           optimizer.step()
+           if batch_idx % args.log_interval == 0:
+               print('Train Epoch: {} [{}/{}]\tLoss: {}'.format(
+                   epoch, batch_idx * len(data), len(train_sampler), loss.item()))
+
+
+**Note**: PyTorch support requires NCCL 2.2 or later. It also works with NCCL 2.1.15 if you are not using RoCE or InfiniBand.
+
+mpi4py
+------
+Horovod supports mixing and matching Horovod collectives with other MPI libraries, such as `mpi4py <https://mpi4py.scipy.org>`_,
+provided that the MPI was built with multi-threading support.
+
+You can check for MPI multi-threading support by querying the ``hvd.mpi_threads_supported()`` function.
+
+.. code-block:: bash
+
+    import horovod.tensorflow as hvd
+
+    # Initialize Horovod
+    hvd.init()
+
+    # Verify that MPI multi-threading is supported.
+    assert hvd.mpi_threads_supported()
+
+    from mpi4py import MPI
+    assert hvd.size() == MPI.COMM_WORLD.Get_size()
+
+
+Inference
+---------
+Learn how to optimize your model for inference and remove Horovod operations from the graph `here <docs/inference.md>`_.
+
+
+Tensor Fusion
+-------------
+One of the unique things about Horovod is its ability to interleave communication and computation coupled with the ability
+to batch small *allreduce* operations, which results in improved performance. We call this batching feature Tensor Fusion.
+
+See `here <docs/tensor-fusion.md>`_ for full details and tweaking instructions.
+
+
+Analyzing Horovod Performance
+-----------------------------
+Horovod has the ability to record the timeline of its activity, called Horovod Timeline.
+
+![Horovod Timeline](https://user-images.githubusercontent.com/16640218/29735271-9e148da0-89ac-11e7-9ae0-11d7a099ac89.png)
+
+See `here <docs/timeline.md>`_ for full details and usage instructions.
+
+
+Guides
+------
+1. Run distributed training in Microsoft Azure using `Batch AI and Horovod <https://github.com/Azure/BatchAI/tree/master/recipes/Horovod>`_.
 
 Troubleshooting
 ---------------
+See the `Troubleshooting <docs/troubleshooting.md>`_ page and please submit the `ticket <https://github.com/uber/horovod/issues/new>`_
+if you can't find an answer.
 
-See the Troubleshooting_ page and please submit a ticket_ if you can't find an
-answer.
+
+Citation
+--------
+Please cite Horovod in your publications if it helps your research:
+
+```
+@article{sergeev2018horovod,
+  Author = {Alexander Sergeev and Mike Del Balso},
+  Journal = {arXiv preprint arXiv:1802.05799},
+  Title = {Horovod: fast and easy distributed deep learning in {TensorFlow}},
+  Year = {2018}
+}
+```
 
 
 Publications
 ------------
-
-1. Gruener, R., Cheng, O., and Litvin, Y. (2018) *Introducing Petastorm: Uber ATG's Data Access Library for Deep Learning*. URL: https://eng.uber.com/petastorm/
-
-
-.. _Troubleshooting: docs/troubleshoot.rst
-.. _ticket: https://github.com/uber/petastorm/issues/new
-.. _Development: docs/development.rst
-
-How to Contribute
-=================
-
-We prefer to receive contributions in the form of GitHub pull requests. Please send pull requests against the ``github.com/uber/petastorm`` repository.
-
-- If you are looking for some ideas on what to contribute, check out `github issues <https://github.com/uber/petastorm/issues>`_ and comment on the issue.
-- If you have an idea for an improvement, or you'd like to report a bug but don't have time to fix it please a `create a github issue <https://github.com/uber/petastorm/issues/new>`_.
-
-To contribute a patch:
-
-- Break your work into small, single-purpose patches if possible. It's much harder to merge in a large change with a lot of disjoint features.
-- Submit the patch as a GitHub pull request against the master branch. For a tutorial, see the GitHub guides on forking a repo and sending a pull request.
-- Include a detailed describtion of the proposed change in the pull request.
-- Make sure that your code passes the unit tests. You can find instructions how to run the unit tests `here <https://github.com/uber/petastorm/blob/master/docs/development.rst>`_.
-- Add new unit tests for your code.
-
-Thank you in advance for your contributions!
+1. Sergeev, A., Del Balso, M. (2017) *Meet Horovod: Uber’s Open Source Distributed Deep Learning Framework for TensorFlow*.
+Retrieved from `https://eng.uber.com/horovod/ <https://eng.uber.com/horovod/>`_
+2. Sergeev, A. (2017) *Horovod - Distributed TensorFlow Made Easy*. Retrieved from
+`https://www.slideshare.net/AlexanderSergeev4/horovod-distributed-tensorflow-made-easy <https://www.slideshare.net/AlexanderSergeev4/horovod-distributed-tensorflow-made-easy>`_
+3. Sergeev, A., Del Balso, M. (2018) *Horovod: fast and easy distributed deep learning in TensorFlow*. `arXiv:1802.05799 <https://arxiv.org/abs/1802.05799>`_
 
 
-See the Development_ for development related information.
+References
+----------
+The Horovod source code was based off the Baidu `tensorflow-allreduce <https://github.com/baidu-research/tensorflow-allreduce>`_
+repository written by Andrew Gibiansky and Joel Hestness. Their original work is described in the article
+`Bringing HPC Techniques to Deep Learning <http://andrew.gibiansky.com/blog/machine-learning/baidu-allreduce/>`_.
 
 
 .. inclusion-marker-end-do-not-remove
