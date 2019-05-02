@@ -13,6 +13,8 @@
 // limitations under the License.
 // =============================================================================
 
+#include <mxnet/c_api.h>
+
 #include "tensor_util.h"
 
 namespace horovod {
