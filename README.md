@@ -281,7 +281,7 @@ train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=..., sample
 model = ...
 model.cuda()
 
-optimizer = optim.SGD(model.parameters())
+optimizer = torch.optim.SGD(model.parameters())
 
 # Add Horovod Distributed Optimizer
 optimizer = hvd.DistributedOptimizer(optimizer, named_parameters=model.named_parameters())
