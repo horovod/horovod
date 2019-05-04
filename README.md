@@ -260,6 +260,7 @@ Example (also see a full training [example](examples/pytorch_mnist.py)):
 
 ```python
 import torch
+import torch.nn.functional as F
 import horovod.torch as hvd
 
 # Initialize Horovod
