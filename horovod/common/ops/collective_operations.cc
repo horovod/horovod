@@ -23,7 +23,7 @@ HorovodSingleQueue::HorovodSingleQueue(std::string name): name_(name), stopped_(
   worker_ = std::thread(&HorovodSingleQueue::run, this);
 }
 
-void ::run() {
+void HorovodSingleQueue::run() {
   while (!stopped_) {
     std::unique_lock<std::mutex> lock(mutex_);
 
