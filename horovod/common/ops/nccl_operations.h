@@ -136,8 +136,8 @@ private:
 
   // special context used for parallel allreduce
   // for seperatd from NCCLHierarchicalAllreduce, use prefix "parallel"
-  ParallelNCCLContext parallel_nccl_context_;  
-  ParallelCUDAContext parallel_cuda_context_;
+  ParallelNCCLContext *parallel_nccl_context_;
+  ParallelCUDAContext *parallel_cuda_context_;
   MPIContext *parallel_mpi_context_;
 };
 
