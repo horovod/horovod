@@ -93,10 +93,16 @@ MPIContext mpi_context;
 
 #if HAVE_CUDA
 CUDAContext cuda_context;
+
+// special cuda context for parallel
+ParallelCUDAContext parallel_cuda_context;
 #endif
 
 #if HAVE_NCCL
 NCCLContext nccl_context;
+
+// special nccl context for parallel
+ParallelNCCLContext parallel_nccl_context;
 #endif
 
 #if HAVE_DDL
@@ -138,8 +144,12 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   #if HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
     allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
         new NCCLHierarchicalAllreduce(&nccl_context, &mpi_context, &cuda_context, &state)));
+
     allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
-        new NCCLAllreduce(&nccl_context, &mpi_context, &cuda_context, &state)));
+        new ParallelNCCLHierarchicalAllreduce(&parallel_nccl_context, &mpi_context, &parallel_cuda_context, &state)));
+
+    allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
+        new NCCLAllreduce(&nccl_context, &mpi_context, &cuda_context, &state))); 
 
   #elif HAVE_DDL && HOROVOD_GPU_ALLREDUCE == 'D'
     allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new DDLAllreduce(&ddl_context, &cuda_context, &state)));
@@ -430,7 +440,8 @@ int64_t TensorFusionThresholdBytes() {
   // adjust buffer size to make sure it is divisible by local_size to improve
   // performance.
   if (horovod_global.is_homogeneous &&
-      horovod_global.param_manager.HierarchicalAllreduce()) {
+      (horovod_global.param_manager.HierarchicalAllreduce() || 
+       horovod_global.param_manager.ParallelHierarchicalAllreduce())) {
     // Assume the worst-case data type float64, since if it is divisible with
     // float64, it will be divisible for other types too.
 
@@ -642,20 +653,22 @@ void PerformOperation(TensorTable& tensor_table, Response response) {
 
     // same like fusion buffer, at here create end fusion buffer
     //todo check if need to init end fusion buffer 
-    Status end_status = horovod_global.fusion_buffer.InitializeEndBuffer(
-      TensorFusionThresholdBytes(),
-      first_entry.device, 
-      first_entry.context,
-      [&](){timeline.ActivityStartAll(entries, INIT_END_FUSION_BUFFER);},
-      [&](){timeline.ActivityEndAll(entries);}
-    );
+    if (horovod_global.param_manager.ParallelHierarchicalAllreduce()) {
+      Status end_status = horovod_global.fusion_buffer.InitializeEndBuffer(
+        TensorFusionThresholdBytes(),
+        first_entry.device,
+        first_entry.context,
+        [&](){ timeline.ActivityStartAll(entries, INIT_END_FUSION_BUFFER); },
+        [&](){ timeline.ActivityEndAll(entries); }
+      );
 
-    if (!end_status.ok()) {
-      for (auto& e : entries) {
-        timeline.End(e.tensor_name, nullptr);
-        e.callback(status);
+      if (!end_status.ok()) {
+        for (auto& e : entries) {
+          timeline.End(e.tensor_name, nullptr);
+          e.callback(status);
+        }
+        return;
       }
-      return;
     }
   }
 
@@ -1067,15 +1080,27 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
     state.param_manager.SetHierarchicalAllreduce(value, true);
   }
 
+  // ParallelHierarchicalAllreduce like HierarchicalAllreduce
+  auto parallel_horovod_hierarchical_allreduce = 
+      std::getenv(PARALLEL_HOROVOD_HIERARCHICAL_ALLREDUCE);
+  state.param_manager.SetParallelHierarchicalAllreduce(false);
+  if (parallel_horovod_hierarchical_allreduce != nullptr) {
+    bool value = std::strtol(parallel_horovod_hierarchical_allreduce, nullptr, 10) > 0 &&
+                 (size != local_size);
+    state.param_manager.SetParallelHierarchicalAllreduce(value, true);
+  }
+
 #if HOROVOD_GPU_ALLREDUCE != 'N' && HOROVOD_GPU_ALLREDUCE != 'D'
   // Hierarchical allreduce is not supported without NCCL or DDL
   state.param_manager.SetHierarchicalAllreduce(false, true);
+  state.param_manager.SetParallelHierarchicalAllreduce(false, true);
 #endif
 
   // Issue warning if hierarchical allreduce is enabled in heterogeneous cluster
   if (is_coordinator &&
       (state.param_manager.HierarchicalAllreduce() ||
-       state.param_manager.HierarchicalAllgather()) &&
+       state.param_manager.HierarchicalAllgather() ||
+       state.param_manager.ParallelHierarchicalAllreduce()) &&
       !state.is_homogeneous) {
     std::cerr
         << "WARNING: Using different number of ranks per node might cause "

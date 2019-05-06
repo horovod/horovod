@@ -61,6 +61,12 @@ struct CUDAContext {
                      const std::vector<TensorTableEntry>& entries, Timeline& timeline);
 };
 
+// a multi-thread cuda context, will add a new stream for end-thread
+struct ParallelCUDAContext : public CUDAContext {
+  // cuda sream used for end thread
+  std::unordered_map<int, cudaStream_t> end_streams;
+}
+
 class CUDAAllreduce : public AllreduceOp {
 public:
   CUDAAllreduce(CUDAContext* context,

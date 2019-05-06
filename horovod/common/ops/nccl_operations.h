@@ -41,12 +41,6 @@ struct ParallelNCCLContext : public NCCLContext {
   void ShutDown() override;
 }
 
-// a multi-thread cuda context, will add a new stream for end-thread
-struct ParallelCUDAContext : public CUDAContext {
-  // cuda sream used for end thread
-  std::unordered_map<int, cudaStream_t> end_streams;
-}
-
 class NCCLAllreduce : public CUDAAllreduce {
 public:
   NCCLAllreduce(NCCLContext* nccl_context, MPIContext* mpi_context,

@@ -406,9 +406,8 @@ bool ParallelNCCLHierarchicalAllreduce::Enabled(const ParameterManager& param_ma
   if (!NCCLHierarchicalAllreduce::NCCLAllreduce(param_manager, entries, response)) {
     return false;
   }
-
-  // for test
-  return true;
+  
+  return param_manager.ParallelHierarchicalAllreduce();
 }
 
 // init the parallel nccl_commm

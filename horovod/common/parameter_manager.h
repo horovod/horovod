@@ -66,6 +66,10 @@ public:
   bool HierarchicalAllreduce() const;
   void SetHierarchicalAllreduce(bool value, bool fixed=false);
 
+  // like hierarchical allreduce
+  bool ParallelHierarchicalAllreduce() const;
+  void SetParallelHierarchicalAllreduce(bool value, bool fixed=false);
+
   // Do hierarchical allgather.
   bool HierarchicalAllgather() const;
   void SetHierarchicalAllgather(bool value, bool fixed=false);
@@ -211,6 +215,7 @@ private:
   };
 
   CategoricalParameter<bool> hierarchical_allreduce_;
+  CategoricalParameter<bool> parallel_hierarchical_allreduce_;
   CategoricalParameter<bool> hierarchical_allgather_;
   CategoricalParameter<bool> cache_enabled_;
   BayesianParameter joint_params_;
@@ -234,6 +239,7 @@ private:
 
   struct Params {
     bool hierarchical_allreduce;
+    bool parallel_hierarchical_allreduce;
     bool hierarchical_allgather;
     bool cache_enabled;
     double tensor_fusion_threshold;
