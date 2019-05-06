@@ -39,13 +39,7 @@ struct ParallelNCCLContext : public NCCLContext {
   std::unordered_map<std::vector<int32_t>, ncclComm_t> end_nccl_comms;
 
   void ShutDown() override;
-}
-
-// a multi-thread cuda context, will add a new stream for end-thread
-struct ParallelCUDAContext : public CUDAContext {
-  // cuda sream used for end thread
-  std::unordered_map<int, cudaStream_t> end_streams;
-}
+};
 
 class NCCLAllreduce : public CUDAAllreduce {
 public:
@@ -92,23 +86,23 @@ public:
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
-  Status ExecuteMPIAllReduce(std::vector<TensorTableEntry> &entries, 
-                          void *host_buffer, 
-                          void *end_buffer_data, 
-                          cudaStream_t end_stream,
-                          ncclComm_t end_nccl_comm,
-                          int64_t num_elements_per_rank,
-                          int64_t num_elements_remain,
-                          int element_size);
+  Status ExecuteMPIAllReduce(std::vector<TensorTableEntry> entries, 
+                              void *host_buffer, 
+                              void *end_fusion_buffer, 
+                              cudaStream_t end_stream,
+                              ncclComm_t end_nccl_comm,
+                              int64_t num_elements_per_rank,
+                              int64_t num_elements_remaining,
+                              int element_size);
                           
-  Status ExecuteEnd(std::vector<TensorTableEntry> &entries, 
-                  void *host_buffer, 
-                  void *end_buffer_data, 
-                  cudaStream_t end_stream,
-                  ncclComm_t end_nccl_comm,
-                  int64_t num_elements_per_rank,
-                  int64_t num_elements_remain,
-                  int element_size);
+  Status ExecuteEnd(std::vector<TensorTableEntry> entries, 
+                    void *host_buffer, 
+                    void *end_fusion_buffer, 
+                    cudaStream_t end_stream,
+                    ncclComm_t end_nccl_comm,
+                    int64_t num_elements_per_rank,
+                    int64_t num_elements_remaining,
+                    int element_size);
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
@@ -142,10 +136,10 @@ private:
 
   // special context used for parallel allreduce
   // for seperatd from NCCLHierarchicalAllreduce, use prefix "parallel"
-  ParallelNCCLContext parallel_nccl_context_;  
-  ParallelCUDAContext parallel_cuda_context_;
+  ParallelNCCLContext *parallel_nccl_context_;
+  ParallelCUDAContext *parallel_cuda_context_;
   MPIContext *parallel_mpi_context_;
-}
+};
 
 } // namespace common
 } // namespace horovod
