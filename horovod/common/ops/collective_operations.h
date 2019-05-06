@@ -77,7 +77,7 @@ public:
 
     cond_var_.notify_one();
   }
-}
+};
 
 class HorovodOp {
 public:

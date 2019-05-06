@@ -77,7 +77,7 @@ Status FusionBufferManager::InitializeEndBuffer(int64_t threshold,
 }
   
 // Returns the buffer associated with the given device and framework, or null.
-std::shared_ptr<PersistentBuffer>& GetEndBuffer(int device, Framework framework) {
+std::shared_ptr<PersistentBuffer>& FusionBufferManager::GetEndBuffer(int device, Framework framework) {
   return end_tensor_fusion_buffers_[std::make_tuple(device, framework)].first;
 }
 

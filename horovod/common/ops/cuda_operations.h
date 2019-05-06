@@ -65,7 +65,7 @@ struct CUDAContext {
 struct ParallelCUDAContext : public CUDAContext {
   // cuda sream used for end thread
   std::unordered_map<int, cudaStream_t> end_streams;
-}
+};
 
 class CUDAAllreduce : public AllreduceOp {
 public:

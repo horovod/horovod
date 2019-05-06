@@ -1081,11 +1081,11 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
   }
 
   // ParallelHierarchicalAllreduce like HierarchicalAllreduce
-  auto parallel_horovod_hierarchical_allreduce = 
-      std::getenv(PARALLEL_HOROVOD_HIERARCHICAL_ALLREDUCE);
+  auto horovod_parallel_hierarchical_allreduce = 
+      std::getenv(HOROVOD_PARALLEL_HIERARCHICAL_ALLREDUCE);
   state.param_manager.SetParallelHierarchicalAllreduce(false);
-  if (parallel_horovod_hierarchical_allreduce != nullptr) {
-    bool value = std::strtol(parallel_horovod_hierarchical_allreduce, nullptr, 10) > 0 &&
+  if (horovod_parallel_hierarchical_allreduce != nullptr) {
+    bool value = std::strtol(horovod_parallel_hierarchical_allreduce, nullptr, 10) > 0 &&
                  (size != local_size);
     state.param_manager.SetParallelHierarchicalAllreduce(value, true);
   }

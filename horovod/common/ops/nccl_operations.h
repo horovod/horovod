@@ -39,7 +39,7 @@ struct ParallelNCCLContext : public NCCLContext {
   std::unordered_map<std::vector<int32_t>, ncclComm_t> end_nccl_comms;
 
   void ShutDown() override;
-}
+};
 
 class NCCLAllreduce : public CUDAAllreduce {
 public:
@@ -139,7 +139,7 @@ private:
   ParallelNCCLContext parallel_nccl_context_;  
   ParallelCUDAContext parallel_cuda_context_;
   MPIContext *parallel_mpi_context_;
-}
+};
 
 } // namespace common
 } // namespace horovod
