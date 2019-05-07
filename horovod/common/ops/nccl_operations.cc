@@ -570,13 +570,13 @@ void ParallelNCCLHierarchicalAllreduce::MemcpyEntryOutFusionBuffer(const std::ve
 // Memory usage:
 // split allReduce to 3 thread will need more memory
 // GPU memory: because task[a] and task[c] in it's own queue is running serial;
-// So only need 2 fusion buffer for every thread (in NCCLHierarchicalAllreduce
-// need 1) CPU memory: when task[a] finish, it will copy data to CPU and stay in
-// CPU until task[c] running So it will need much more CPU memory to store the
-// data, when global_state_->is_homogeneous is true: max need model_size /
-// local_size in every rank whne global_state_->is_homogeneous is false: max
-// need model_size in every rank model size is the size of training model,
-// local_rank is the count of rank in current hosts
+// So only need 2 fusion buffer for 2 thread (in NCCLHierarchicalAllreduce need 1) 
+// CPU memory: when task[a] finish, it will copy data to CPU and stay in
+// CPU until task[c] running, So it will need much more CPU memory to store the
+// data, when global_state_->is_homogeneous is true: max need (model_size / local_size) in every rank 
+// when global_state_->is_homogeneous is false: max need (model_size) in every rank 
+// model_size is the size of training model,
+// local_size is the count of rank in current hosts
 Status ParallelNCCLHierarchicalAllreduce::Execute(
     std::vector<TensorTableEntry>& entries, const Response& response) {
   auto& first_entry = entries[0];
@@ -633,7 +633,7 @@ Status ParallelNCCLHierarchicalAllreduce::Execute(
     fusion_buffer_len = (size_t)first_entry.output->size();
   }
 
-  // get the total element cout
+  // get the total element count
   int64_t total_num_elements = 0;
   for (auto& e : entries) {
     total_num_elements += e.tensor->shape().num_elements();
@@ -681,8 +681,9 @@ Status ParallelNCCLHierarchicalAllreduce::Execute(
           : total_num_elements;
 
   // use the last rank to do the reduce
-  int last_rank = global_state_->local_size - 1;
-  bool is_last_rank = (global_state_->local_rank == last_rank);
+  int root_rank = 
+       global_state_->is_homogeneous ? global_state_->local_size - 1 : 0;
+  bool is_root_rank = (global_state_->local_rank == root_rank);
 
   if (num_elements_remaining > 0) {
     void* fused_input_data_remainder =
@@ -694,10 +695,14 @@ Status ParallelNCCLHierarchicalAllreduce::Execute(
         buffer_len_per_rank * global_state_->local_size;
 
     // reduce to last rank
-    auto nccl_result = ncclReduce(
-        fused_input_data_remainder, fusion_buffer_remainder,
-        (size_t)num_elements_remaining, GetNCCLDataType(first_entry.tensor),
-        ncclSum, last_rank, nccl_comm, stream);
+    auto nccl_result = ncclReduce(fused_input_data_remainder, 
+                                  fusion_buffer_remainder,
+                                  (size_t)num_elements_remaining, 
+                                  GetNCCLDataType(first_entry.tensor),
+                                  ncclSum, 
+                                  root_rank, 
+                                  nccl_comm, 
+                                  stream);
 
     parallel_nccl_context_->ErrorCheck("ncclReduce", nccl_result);
 
@@ -712,9 +717,9 @@ Status ParallelNCCLHierarchicalAllreduce::Execute(
   // malloc host buffer to store the mpi allreduce result
   void* host_buffer = nullptr;
 
-  if (global_state_->is_homogeneous || is_last_rank) {
+  if (global_state_->is_homogeneous || is_root_rank) {
     int64_t host_buffer_len =
-        is_last_rank
+        is_root_rank
             ? ((num_elements_per_rank + num_elements_remaining) * element_size)
             : (num_elements_per_rank * element_size);
 
@@ -763,21 +768,25 @@ Status ParallelNCCLHierarchicalAllreduce::Execute(
   return Status::InProgress();
 }
 
-Status ParallelNCCLHierarchicalAllreduce::ExecuteMPIAllReduce(
-    std::vector<TensorTableEntry> entries, void* host_buffer,
-    void* end_fusion_buffer, cudaStream_t end_stream, ncclComm_t end_nccl_comm,
-    int64_t num_elements_per_rank, int64_t num_elements_remaining,
-    int element_size) {
+Status ParallelNCCLHierarchicalAllreduce::ExecuteMPIAllReduce(std::vector<TensorTableEntry> entries, 
+                                                              void* host_buffer,
+                                                              void* end_fusion_buffer, 
+                                                              cudaStream_t end_stream, 
+                                                              ncclComm_t end_nccl_comm,
+                                                              int64_t num_elements_per_rank, 
+                                                              int64_t num_elements_remaining, 
+                                                              int element_size) {
+  int root_rank = 
+       global_state_->is_homogeneous ? global_state_->local_size - 1 : 0;
+  bool is_root_rank =
+      (root_rank == global_state_->local_rank);
 
-  bool is_last_rank =
-      (global_state_->local_size - 1 == global_state_->local_rank);
-
-  if (global_state_->is_homogeneous || is_last_rank) {
+  if (global_state_->is_homogeneous || is_root_rank) {
     auto& timeline = global_state_->timeline;
     auto& first_entry = entries[0];
 
     int64_t num_elements =
-        is_last_rank ? (num_elements_per_rank + num_elements_remaining)
+        is_root_rank ? (num_elements_per_rank + num_elements_remaining)
                      : num_elements_per_rank;
 
     timeline.ActivityStartAll(entries, MPI_ALLREDUCE);
@@ -808,11 +817,14 @@ Status ParallelNCCLHierarchicalAllreduce::ExecuteMPIAllReduce(
   return Status::InProgress();
 }
 
-Status ParallelNCCLHierarchicalAllreduce::ExecuteEnd(
-    std::vector<TensorTableEntry> entries, void* host_buffer,
-    void* end_fusion_buffer, cudaStream_t end_stream, ncclComm_t end_nccl_comm,
-    int64_t num_elements_per_rank, int64_t num_elements_remaining,
-    int element_size) {
+Status ParallelNCCLHierarchicalAllreduce::ExecuteEnd(std::vector<TensorTableEntry> entries, 
+                                                    void* host_buffer,
+                                                    void* end_fusion_buffer, 
+                                                    cudaStream_t end_stream, 
+                                                    ncclComm_t end_nccl_comm,
+                                                    int64_t num_elements_per_rank, 
+                                                    int64_t num_elements_remaining,
+                                                    int element_size) {
   auto& timeline = global_state_->timeline;
   auto& first_entry = entries[0];
 
@@ -823,12 +835,13 @@ Status ParallelNCCLHierarchicalAllreduce::ExecuteEnd(
   // create a end event queue to record timeline
   auto end_event_queue = std::queue<std::pair<std::string, cudaEvent_t>>();
 
-  int last_rank = global_state_->local_size - 1;
-  bool is_last_rank = (last_rank == global_state_->local_rank);
+  int root_rank = 
+       global_state_->is_homogeneous ? global_state_->local_size - 1 : 0;
+  bool is_root_rank = (root_rank == global_state_->local_rank);
 
-  if (global_state_->is_homogeneous || is_last_rank) {
+  if (global_state_->is_homogeneous || is_root_rank) {
     int64_t host_buffer_len =
-        is_last_rank
+        is_root_rank
             ? ((num_elements_per_rank + num_elements_remaining) * element_size)
             : (num_elements_per_rank * element_size);
 
@@ -840,8 +853,11 @@ Status ParallelNCCLHierarchicalAllreduce::ExecuteEnd(
     timeline.ActivityStartAll(entries, MEMCPY_OUT_HOST_BUFFER);
     cuda_context_->ErrorCheck(
         "cudaMemcpyAsync",
-        cudaMemcpyAsync(end_fusion_buffer_at_offset, host_buffer,
-                        host_buffer_len, cudaMemcpyHostToDevice, end_stream));
+        cudaMemcpyAsync(end_fusion_buffer_at_offset, 
+                        host_buffer,
+                        host_buffer_len, 
+                        cudaMemcpyHostToDevice, 
+                        end_stream));
     timeline.ActivityEndAll(entries);
 
     // free host memory
@@ -855,9 +871,11 @@ Status ParallelNCCLHierarchicalAllreduce::ExecuteEnd(
 
     parallel_nccl_context_->ErrorCheck(
         "ncclAllGather",
-        ncclAllGather(end_fusion_buffer_at_offset, end_fusion_buffer,
+        ncclAllGather(end_fusion_buffer_at_offset, 
+                      end_fusion_buffer,
                       (size_t)num_elements_per_rank,
-                      GetNCCLDataType(first_entry.tensor), end_nccl_comm,
+                      GetNCCLDataType(first_entry.tensor), 
+                      end_nccl_comm,
                       end_stream));
 
     if (global_state_->timeline.Initialized()) {
@@ -873,8 +891,11 @@ Status ParallelNCCLHierarchicalAllreduce::ExecuteEnd(
 
     parallel_nccl_context_->ErrorCheck(
         "ncclBcast",
-        ncclBcast(end_fusion_buffer_remainder, (size_t)num_elements_remaining,
-                  GetNCCLDataType(first_entry.tensor), last_rank, end_nccl_comm,
+        ncclBcast(end_fusion_buffer_remainder, 
+                  (size_t)num_elements_remaining,
+                  GetNCCLDataType(first_entry.tensor),
+                  root_rank, 
+                  end_nccl_comm,
                   end_stream));
 
     if (global_state_->timeline.Initialized()) {
@@ -907,25 +928,3 @@ Status ParallelNCCLHierarchicalAllreduce::ExecuteEnd(
 
 } // namespace common
 } // namespace horovod
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
