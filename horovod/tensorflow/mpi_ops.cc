@@ -19,6 +19,7 @@
 #include <thread>
 #include <unordered_map>
 
+#include "tensorflow/core/common_runtime/step_stats_collector.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/shape_inference.h"
@@ -111,8 +112,10 @@ typedef struct {
   GPU_EVENT_IF_CUDA ready_event;
   // GPU to do reduction on, or CPU_DEVICE_ID in case of CPU.
   int device;
+#if HAVE_NCCL
   // Information for NCCL profiling
   ncclProf_t* nccl_prof;
+#endif
   // A callback to call with the status.
   StatusCallback callback;
 } TensorTableEntry;
@@ -630,6 +633,59 @@ cudaError_t ReleaseCudaEvent(cudaEvent_t event) {
   return cudaSuccess;
 }
 
+#if HAVE_NCCL
+std::string CommTypeToString(commType_t comm_type) {
+  switch (comm_type) {
+    case P2P_SEND:  return std::string("P2P_SEND");
+    case P2P_RECV:  return std::string("P2P_RECV");
+    case SHM_SEND:  return std::string("SHM_SEND");
+    case SHM_RECV:  return std::string("SHM_RECV");
+    case NET_SEND:  return std::string("NET_SEND");
+    case NET_RECV:  return std::string("NET_RECV");
+    default:        return std::string("UndefinedType");
+  }
+}
+
+const std::string ncclprof_tostring(ncclProf_t* nccl_prof) {
+  std::string ret = "";
+  ret += std::string("\"CommStatList\": [\n");
+  std::vector<commStat_t>::iterator iter;
+  for (iter = nccl_prof->stat_vector.begin(); iter != nccl_prof->stat_vector.end(); iter++) {
+    if (iter != nccl_prof->stat_vector.begin()) {
+      ret += std::string(",\n");
+    }
+    ret += std::string("    { \"CommType\": \"") + CommTypeToString((*iter).comm_type) + std::string("\"");
+    ret += std::string(", \"FromRank\": ") + std::to_string((*iter).from_rank);
+    ret += std::string(", \"ToRank\": ") + std::to_string((*iter).to_rank);
+    ret += std::string(", \"StartMicros\": ") + std::to_string((*iter).start_micros);
+    ret += std::string(", \"EndMicros\": ") + std::to_string((*iter).end_micros);
+    ret += std::string(", \"CommBytes\": ") + std::to_string((*iter).comm_bytes) + std::string(" }");
+  }
+  ret += std::string("\n  ]\n");
+  ret += std::string("},\n");
+  return ret;
+}
+
+void save_data(StepStatsCollectorInterface* stats_collector, int64 start_usecs, int64 end_usecs, ncclProf_t* nccl_prof) {
+  if (stats_collector == nullptr) {
+    return;
+  }
+  
+  NodeExecStats* ns = new NodeExecStats;
+  ns->set_node_name(nccl_prof->tensor_name);
+  int64 elapsed_usecs = end_usecs - start_usecs;
+  ns->set_timeline_label(ncclprof_tostring(nccl_prof));
+  ns->set_all_start_micros(start_usecs);
+  ns->set_op_start_rel_micros(0);
+  ns->set_op_end_rel_micros(elapsed_usecs);
+  ns->set_all_end_rel_micros(elapsed_usecs);
+  static_cast<StepStatsCollector*>(stats_collector)->Save("NCCL", ns);
+  
+  free(nccl_prof->tensor_name);
+  free(nccl_prof);
+}
+#endif
+
 #define RECORD_EVENT(entries, event, stream)                                   \
   CUDA_CHECK(entries, "GetCudaEvent", GetCudaEvent(&event))                    \
   CUDA_CHECK(entries, "cudaEventRecord", cudaEventRecord(event, stream))
@@ -796,9 +852,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 #endif
     ACTIVITY_END_ALL(entries, timeline)
 
-
 #if HOROVOD_GPU_ALLGATHER == 'N' // 'N' stands for NCCL
-    if (on_gpu) {
+    int64 start_micros = Env::Default()->NowNanos() / EnvTime::kMicrosToNanos;
+    if (on_gpu) 
       auto stream = horovod_global.streams[e.device];
 
       // Ensure NCCL communicator is in the map before executing reduction.
@@ -940,6 +996,9 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         RELEASE_EVENT(entries, done_event);
       });
       finalizer_thread.detach();
+
+      int64 end_micros = Env::Default()->NowNanos() / EnvTime::kMicrosToNanos;
+      save_data(e.context->stats_collector, start_micros, end_micros, e.nccl_prof);
       return;
     }
 #endif
@@ -1092,6 +1151,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 #endif
 
 #if HOROVOD_GPU_ALLREDUCE == 'N' // 'N' stands for NCCL
+    int64 start_micros = Env::Default()->NowNanos() / EnvTime::kMicrosToNanos;
     if (on_gpu) {
       auto stream = horovod_global.streams[first_entry.device];
 
@@ -1275,6 +1335,8 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         RELEASE_EVENT(entries, done_event);
       });
       finalizer_thread.detach();
+      int64 end_micros = Env::Default()->NowNanos() / EnvTime::kMicrosToNanos;
+      save_data(first_entry.context->stats_collector(), start_micros, end_micros, first_entry.nccl_prof);
       return;
     }
 #endif
@@ -2069,26 +2131,16 @@ GPU_EVENT_IF_CUDA RecordReadyEvent(OpKernelContext* context) {
 } // namespace tensorflow
 
 ncclProf_t* get_prof_info(OpKernelContext* context, const string name) {
+  if (context->stats_collector() == nullptr) {
+    return nullptr;
+  }
+
   ncclProf_t* nccl_prof = (ncclProf_t*) malloc(sizeof(ncclProf_t));
-
-  nccl_prof->do_profile = true;
-
-  const Tensor* global_step = &context->input(1);
-  const int64* global_step_ptr = (const int64*) global_step->tensor_data().data();
-  nccl_prof->step = *global_step_ptr;
-
-  int rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  nccl_prof->worker_id = rank;
   
   const std::string::size_type size = name.size();
   char* tmp = new char[size + 1];
   memcpy(tmp, name.c_str(), size + 1);
   nccl_prof->tensor_name = tmp;
-  
-  nccl_prof->stat_vector = nullptr;
-
-  nccl_prof->saved = 0;
 
   return nccl_prof;
 }
@@ -2119,17 +2171,16 @@ public:
   }
 };
 
-REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_CPU).HostMemory("global_step"),
+REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_CPU),
                         HorovodAllreduceOp);
 #if HOROVOD_GPU_ALLREDUCE
-REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_GPU).HostMemory("global_step"),
+REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_GPU),
                         HorovodAllreduceOp);
 #endif
 
 REGISTER_OP("HorovodAllreduce")
     .Attr("T: {int32, int64, float32, float64}")
     .Input("tensor: T")
-    .Input("global_step: int64")
     .Output("sum: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       c->set_output(0, c->input(0));
@@ -2171,17 +2222,16 @@ public:
   }
 }; // namespace tensorflow
 
-REGISTER_KERNEL_BUILDER(Name("HorovodAllgather").Device(DEVICE_CPU).HostMemory("global_step"),
+REGISTER_KERNEL_BUILDER(Name("HorovodAllgather").Device(DEVICE_CPU),
                         HorovodAllgatherOp);
 #if HOROVOD_GPU_ALLGATHER
-REGISTER_KERNEL_BUILDER(Name("HorovodAllgather").Device(DEVICE_GPU).HostMemory("global_step"),
+REGISTER_KERNEL_BUILDER(Name("HorovodAllgather").Device(DEVICE_GPU),
                         HorovodAllgatherOp);
 #endif
 
 REGISTER_OP("HorovodAllgather")
     .Attr("T: {uint8, int8, uint16, int16, int32, int64, float32, float64, bool}")
     .Input("tensor: T")
-    .Input("global_step: int64")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       shape_inference::ShapeHandle output;
@@ -2227,17 +2277,16 @@ public:
   }
 }; // namespace tensorflow
 
-REGISTER_KERNEL_BUILDER(Name("HorovodAllgatherv").Device(DEVICE_CPU).HostMemory("global_step"),
+REGISTER_KERNEL_BUILDER(Name("HorovodAllgatherv").Device(DEVICE_CPU),
                         HorovodAllgathervOp);
 #if HOROVOD_GPU_ALLGATHERV
-REGISTER_KERNEL_BUILDER(Name("HorovodAllgatherv").Device(DEVICE_GPU).HostMemory("global_step"),
+REGISTER_KERNEL_BUILDER(Name("HorovodAllgatherv").Device(DEVICE_GPU),
                         HorovodAllgathervOp);
 #endif
 
 REGISTER_OP("HorovodAllgatherv")
     .Attr("T: {uint8, int8, uint16, int16, int32, int64, float32, float64, bool}")
     .Input("tensor: T")
-    .Input("global_step: int64")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       shape_inference::ShapeHandle output;
@@ -2294,10 +2343,10 @@ private:
   int root_rank_;
 };
 
-REGISTER_KERNEL_BUILDER(Name("HorovodBroadcast").Device(DEVICE_CPU).HostMemory("global_step"),
+REGISTER_KERNEL_BUILDER(Name("HorovodBroadcast").Device(DEVICE_CPU),
                         HorovodBroadcastOp);
 #if HOROVOD_GPU_BROADCAST
-REGISTER_KERNEL_BUILDER(Name("HorovodBroadcast").Device(DEVICE_GPU).HostMemory("global_step"),
+REGISTER_KERNEL_BUILDER(Name("HorovodBroadcast").Device(DEVICE_GPU),
                         HorovodBroadcastOp);
 #endif
 
@@ -2305,7 +2354,6 @@ REGISTER_OP("HorovodBroadcast")
     .Attr("T: {uint8, int8, uint16, int16, int32, int64, float32, float64, bool}")
     .Attr("root_rank: int")
     .Input("tensor: T")
-    .Input("global_step: int64")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       c->set_output(0, c->input(0));

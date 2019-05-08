@@ -129,7 +129,7 @@ def _normalize_name(name):
     return re.sub('[^a-zA-Z0-9_]', '_', name)
 
 
-def _allreduce(tensor, global_step, name=None):
+def _allreduce(tensor, name=None):
     """An op which sums an input tensor over all the Horovod processes.
 
     The reduction operation is keyed by the name of the op. The tensor type and
@@ -142,13 +142,13 @@ def _allreduce(tensor, global_step, name=None):
     """
     if name is None:
         name = 'HorovodAllreduce_%s' % _normalize_name(tensor.name)
-    return MPI_LIB.horovod_allreduce(tensor, global_step, name=name)
+    return MPI_LIB.horovod_allreduce(tensor, name=name)
 
 
 ops.NotDifferentiable('HorovodAllreduce')
 
 
-def allgather(tensor, global_step, name=None):
+def allgather(tensor, name=None):
     """An op which concatenates the input tensor with the same input tensor on
     all other Horovod processes.
 
@@ -163,13 +163,13 @@ def allgather(tensor, global_step, name=None):
     """
     if name is None:
         name = 'HorovodAllgather_%s' % _normalize_name(tensor.name)
-    return MPI_LIB.horovod_allgather(tensor, global_step, name=name)
+    return MPI_LIB.horovod_allgather(tensor, name=name)
 
 
 ops.NotDifferentiable('HorovodAllgather')
 
 
-def allgatherv(tensor, global_step, name=None):
+def allgatherv(tensor, name=None):
     """An op which concatenates the input tensor with the same input tensor on
     all other Horovod processes.
 
@@ -185,13 +185,13 @@ def allgatherv(tensor, global_step, name=None):
     """
     if name is None:
         name = 'HorovodAllgatherv_%s' % _normalize_name(tensor.name)
-    return MPI_LIB.horovod_allgatherv(tensor, global_step, name=name)
+    return MPI_LIB.horovod_allgatherv(tensor, name=name)
 
 
 ops.NotDifferentiable('HorovodAllgatherv')
 
 
-def broadcast(tensor, global_step, root_rank, name=None):
+def broadcast(tensor, root_rank, name=None):
     """An op which broadcasts the input tensor on root rank to the same input tensor
     on all other Horovod processes.
 
@@ -205,7 +205,7 @@ def broadcast(tensor, global_step, root_rank, name=None):
     """
     if name is None:
         name = 'HorovodBroadcast_%s' % _normalize_name(tensor.name)
-    return MPI_LIB.horovod_broadcast(tensor, global_step, name=name, root_rank=root_rank)
+    return MPI_LIB.horovod_broadcast(tensor, name=name, root_rank=root_rank)
 
 
 ops.NotDifferentiable('HorovodBroadcast')
