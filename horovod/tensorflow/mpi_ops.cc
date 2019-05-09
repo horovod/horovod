@@ -636,10 +636,6 @@ cudaError_t ReleaseCudaEvent(cudaEvent_t event) {
 #if HAVE_NCCL
 std::string CommTypeToString(commType_t comm_type) {
   switch (comm_type) {
-    case P2P_SEND:  return std::string("P2P_SEND");
-    case P2P_RECV:  return std::string("P2P_RECV");
-    case SHM_SEND:  return std::string("SHM_SEND");
-    case SHM_RECV:  return std::string("SHM_RECV");
     case NET_SEND:  return std::string("NET_SEND");
     case NET_RECV:  return std::string("NET_RECV");
     default:        return std::string("UndefinedType");
@@ -648,21 +644,16 @@ std::string CommTypeToString(commType_t comm_type) {
 
 const std::string ncclprof_tostring(ncclProf_t* nccl_prof) {
   std::string ret = "";
-  ret += std::string("\"CommStatList\": [\n");
-  std::vector<commStat_t>::iterator iter;
-  for (iter = nccl_prof->stat_vector.begin(); iter != nccl_prof->stat_vector.end(); iter++) {
-    if (iter != nccl_prof->stat_vector.begin()) {
-      ret += std::string(",\n");
+  auto stat_vector = nccl_prof->stat_vector;
+  for (auto iter = stat_vector->begin(); iter != stat_vector->end(); iter++) {
+    if (iter != nccl_prof->stat_vector->begin()) {
+      ret += std::string(", ");
     }
-    ret += std::string("    { \"CommType\": \"") + CommTypeToString((*iter).comm_type) + std::string("\"");
-    ret += std::string(", \"FromRank\": ") + std::to_string((*iter).from_rank);
-    ret += std::string(", \"ToRank\": ") + std::to_string((*iter).to_rank);
-    ret += std::string(", \"StartMicros\": ") + std::to_string((*iter).start_micros);
-    ret += std::string(", \"EndMicros\": ") + std::to_string((*iter).end_micros);
-    ret += std::string(", \"CommBytes\": ") + std::to_string((*iter).comm_bytes) + std::string(" }");
+    ret += std::string("{ CommType: ") + CommTypeToString((*iter)->comm_type);
+    ret += std::string(", StartMicros: ") + std::to_string((*iter)->start_micros);
+    ret += std::string(", EndMicros: ") + std::to_string((*iter)->end_micros);
+    ret += std::string(", CommBytes: ") + std::to_string((*iter)->comm_bytes) + std::string(" }");
   }
-  ret += std::string("\n  ]\n");
-  ret += std::string("},\n");
   return ret;
 }
 
@@ -670,19 +661,20 @@ void save_data(StepStatsCollectorInterface* stats_collector, int64 start_usecs, 
   if (stats_collector == nullptr) {
     return;
   }
-  
+ 
+  assert(nccl_prof != nullptr);
+  pthread_mutex_lock(&nccl_prof->mu_);
   NodeExecStats* ns = new NodeExecStats;
   ns->set_node_name(nccl_prof->tensor_name);
   int64 elapsed_usecs = end_usecs - start_usecs;
-  ns->set_timeline_label(ncclprof_tostring(nccl_prof));
+  auto label = ncclprof_tostring(nccl_prof);
+  ns->set_timeline_label(label);
   ns->set_all_start_micros(start_usecs);
   ns->set_op_start_rel_micros(0);
   ns->set_op_end_rel_micros(elapsed_usecs);
   ns->set_all_end_rel_micros(elapsed_usecs);
   static_cast<StepStatsCollector*>(stats_collector)->Save("NCCL", ns);
-  
-  free(nccl_prof->tensor_name);
-  free(nccl_prof);
+  pthread_mutex_unlock(&nccl_prof->mu_);
 }
 #endif
 
@@ -727,7 +719,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
              response.response_type() == MPIResponse::ALLGATHER ||
              response.response_type() == MPIResponse::ALLGATHERV ||
              response.response_type() == MPIResponse::BROADCAST ||
-             response.response_type() == MPIResponse::ERROR);
+       /      response.response_type() == MPIResponse::ERROR);
 
       entries.push_back(iter->second);
 
@@ -947,7 +939,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       std::thread finalizer_thread([entries, e, done_event,
                                     queue_end_event, after_memcpy_in_event,
                                     after_memset_zero_event, after_allgather_event,
-                                    response, &timeline] {
+                                    response, &timeline, start_micros] {
         CUDA_CHECK(entries, "cudaSetDevice", cudaSetDevice(e.device))
         if (queue_end_event != nullptr) {
           CUDA_CHECK(entries, "cudaEventSynchronize",
@@ -989,16 +981,24 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
         CUDA_CHECK(entries, "cudaEventSynchronize",
                    cudaEventSynchronize(done_event))
+        int64 end_micros = Env::Default()->NowNanos() / EnvTime::kMicrosToNanos;
+        save_data(e.context->stats_collector, start_micros, end_micros, e.nccl_prof);
         for (auto it = entries.begin(); it != entries.end(); it++) {
           timeline.End(it->tensor_name, it->output);
           it->callback(Status::OK());
+          if (it->nccl_prof) {
+            free(it->nccl_prof->tensor_name);
+            free(it->nccl_prof);
+            for (auto it2 = it->nccl_prof->stat_vector->begin(); it2 != it->nccl_prof->stat_vector->end(); it2++) {
+              free(*it2);
+            }
+            free(it->nccl_prof->stat_vector);
+          }
         }
         RELEASE_EVENT(entries, done_event);
       });
       finalizer_thread.detach();
 
-      int64 end_micros = Env::Default()->NowNanos() / EnvTime::kMicrosToNanos;
-      save_data(e.context->stats_collector, start_micros, end_micros, e.nccl_prof);
       return;
     }
 #endif
@@ -1230,17 +1230,21 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
         size_t str_size = 0;
         for (auto it = entries.begin(); it != entries.end(); it++) {
           num_elements += it->tensor.NumElements();
-          str_size += strlen(it->nccl_prof->tensor_name) + 1;
-        }
-        char* tmp = new char[str_size];
-        strcpy(tmp, first_entry.nccl_prof->tensor_name);
-        for (auto it = entries.begin(); it != entries.end(); it++) {
-          if (it != entries.begin()) {
-            strcat(tmp, ";");
-            strcat(tmp, it->nccl_prof->tensor_name);
+          if (it->nccl_prof) {
+            str_size += strlen(it->nccl_prof->tensor_name) + 1;
           }
         }
-        first_entry.nccl_prof->tensor_name = tmp;
+        if (first_entry.nccl_prof) {
+          char* tmp = new char[str_size];
+          strcpy(tmp, first_entry.nccl_prof->tensor_name);
+          for (auto it = entries.begin(); it != entries.end(); it++) {
+            if (it != entries.begin()) {
+              strcat(tmp, ";");
+              strcat(tmp, it->nccl_prof->tensor_name);
+            }
+          }
+          first_entry.nccl_prof->tensor_name = tmp;
+        }
         NCCL_CHECK(entries, "ncclAllReduce",
                    ncclAllReduce((const void*)buffer_data, (void*)buffer_data,
                                  num_elements, dtype, ncclSum, nccl_comm,
@@ -1286,7 +1290,7 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
       std::thread finalizer_thread([entries, first_entry, done_event,
                                     queue_end_event, after_memcpy_in_event,
                                     after_reduce_event, after_memcpy_out_event,
-                                    response, &timeline] {
+                                    response, &timeline, start_micros] {
         CUDA_CHECK(entries, "cudaSetDevice", cudaSetDevice(first_entry.device))
         if (queue_end_event != nullptr) {
           CUDA_CHECK(entries, "cudaEventSynchronize",
@@ -1328,15 +1332,23 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
 
         CUDA_CHECK(entries, "cudaEventSynchronize",
                    cudaEventSynchronize(done_event))
+        int64 end_micros = Env::Default()->NowNanos() / EnvTime::kMicrosToNanos;
+        save_data(first_entry.context->stats_collector(), start_micros, end_micros, first_entry.nccl_prof);
         for (auto it = entries.begin(); it != entries.end(); it++) {
           timeline.End(it->tensor_name, it->output);
           it->callback(Status::OK());
+          if (it->nccl_prof) {
+            free(it->nccl_prof->tensor_name);
+            free(it->nccl_prof);
+            for (auto it2 = it->nccl_prof->stat_vector->begin(); it2 != it->nccl_prof->stat_vector->end(); it2++) {
+              free(*it2);
+            }
+            free(it->nccl_prof->stat_vector);
+          }
         }
         RELEASE_EVENT(entries, done_event);
       });
       finalizer_thread.detach();
-      int64 end_micros = Env::Default()->NowNanos() / EnvTime::kMicrosToNanos;
-      save_data(first_entry.context->stats_collector(), start_micros, end_micros, first_entry.nccl_prof);
       return;
     }
 #endif
@@ -2141,7 +2153,8 @@ ncclProf_t* get_prof_info(OpKernelContext* context, const string name) {
   char* tmp = new char[size + 1];
   memcpy(tmp, name.c_str(), size + 1);
   nccl_prof->tensor_name = tmp;
-
+  nccl_prof->mu_ = PTHREAD_MUTEX_INITIALIZER;
+  nccl_prof->stat_vector = new std::vector<commStat_t*>();
   return nccl_prof;
 }
 
