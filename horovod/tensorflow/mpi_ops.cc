@@ -645,7 +645,7 @@ std::string CommTypeToString(commType_t comm_type) {
 const std::string ncclprof_tostring(ncclProf_t* nccl_prof) {
   std::string ret = "";
   auto stat_vector = nccl_prof->stat_vector;
-  for (auto iter = stat_vector->begin(); iter != stat_vector->end(); iter++) {
+  for (auto iter = stat_vector->begin(); iter != stat_vector->end(); ++iter) {
     if (iter != nccl_prof->stat_vector->begin()) {
       ret += std::string(", ");
     }
@@ -669,7 +669,7 @@ void save_data(StepStatsCollectorInterface* stats_collector, int64 start_usecs, 
   ns->set_node_name(tensor_name);
   int64 elapsed_usecs = end_usecs - start_usecs;
   auto label = ncclprof_tostring(nccl_prof);
-  ns->set_timeline_label(label);
+  ns->set_timeline_label("");
   ns->set_all_start_micros(start_usecs);
   ns->set_op_start_rel_micros(0);
   ns->set_op_end_rel_micros(elapsed_usecs);
@@ -989,11 +989,12 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           it->callback(Status::OK());
           if (it->nccl_prof) {
             free(it->nccl_prof->tensor_name);
-            free(it->nccl_prof);
-            for (auto it2 = it->nccl_prof->stat_vector->begin(); it2 != it->nccl_prof->stat_vector->end(); it2++) {
+            for (auto it2 = it->nccl_prof->stat_vector->begin(); it2 != it->nccl_prof->stat_vector->end(); ++it2) {
               free(*it2);
             }
-            free(it->nccl_prof->stat_vector);
+            it->nccl_prof->stat_vector->clear();
+            delete it->nccl_prof->stat_vector;
+            free(it->nccl_prof);
           }
         }
         RELEASE_EVENT(entries, done_event);
@@ -1340,11 +1341,12 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
           it->callback(Status::OK());
           if (it->nccl_prof) {
             free(it->nccl_prof->tensor_name);
-            free(it->nccl_prof);
-            for (auto it2 = it->nccl_prof->stat_vector->begin(); it2 != it->nccl_prof->stat_vector->end(); it2++) {
+            for (auto it2 = it->nccl_prof->stat_vector->begin(); it2 != it->nccl_prof->stat_vector->end(); ++it2) {
               free(*it2);
             }
-            free(it->nccl_prof->stat_vector);
+            it->nccl_prof->stat_vector->clear();
+            delete it->nccl_prof->stat_vector;
+            free(it->nccl_prof);
           }
         }
         RELEASE_EVENT(entries, done_event);
