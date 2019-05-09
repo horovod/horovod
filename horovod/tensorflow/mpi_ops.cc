@@ -665,7 +665,8 @@ void save_data(StepStatsCollectorInterface* stats_collector, int64 start_usecs, 
   assert(nccl_prof != nullptr);
   pthread_mutex_lock(&nccl_prof->mu_);
   NodeExecStats* ns = new NodeExecStats;
-  ns->set_node_name(nccl_prof->tensor_name);
+  std::string tensor_name(nccl_prof->tensor_name);
+  ns->set_node_name(tensor_name);
   int64 elapsed_usecs = end_usecs - start_usecs;
   auto label = ncclprof_tostring(nccl_prof);
   ns->set_timeline_label(label);
