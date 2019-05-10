@@ -669,7 +669,7 @@ void save_data(StepStatsCollectorInterface* stats_collector, int64 start_usecs, 
   ns->set_node_name(tensor_name);
   int64 elapsed_usecs = end_usecs - start_usecs;
   auto label = ncclprof_tostring(nccl_prof);
-  ns->set_timeline_label("");
+  ns->set_timeline_label(label);
   ns->set_all_start_micros(start_usecs);
   ns->set_op_start_rel_micros(0);
   ns->set_op_end_rel_micros(elapsed_usecs);
@@ -992,7 +992,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
             for (auto it2 = it->nccl_prof->stat_vector->begin(); it2 != it->nccl_prof->stat_vector->end(); ++it2) {
               free(*it2);
             }
-            it->nccl_prof->stat_vector->clear();
             delete it->nccl_prof->stat_vector;
             free(it->nccl_prof);
           }
@@ -1344,7 +1343,6 @@ void PerformOperation(TensorTable& tensor_table, MPIResponse response) {
             for (auto it2 = it->nccl_prof->stat_vector->begin(); it2 != it->nccl_prof->stat_vector->end(); ++it2) {
               free(*it2);
             }
-            it->nccl_prof->stat_vector->clear();
             delete it->nccl_prof->stat_vector;
             free(it->nccl_prof);
           }
