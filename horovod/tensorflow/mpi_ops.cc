@@ -650,6 +650,8 @@ const std::string ncclprof_tostring(ncclProf_t* nccl_prof) {
       ret += std::string(", ");
     }
     ret += std::string("{ CommType: ") + CommTypeToString((*iter)->comm_type);
+    ret += std::string(", From Rank: ") + std::to_string((*iter)->from_rank);
+    ret += std::string(", To Rank: ") + std::to_string((*iter)->to_rank);
     ret += std::string(", StartMicros: ") + std::to_string((*iter)->start_micros);
     ret += std::string(", EndMicros: ") + std::to_string((*iter)->end_micros);
     ret += std::string(", CommBytes: ") + std::to_string((*iter)->comm_bytes) + std::string(" }");
