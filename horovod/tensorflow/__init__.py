@@ -73,8 +73,11 @@ def allreduce(tensor, average=True, device_dense='', device_sparse='',
         with tf.device(device_sparse):
             # For IndexedSlices, do two allgathers instead of an allreduce.
             horovod_size = tf.cast(size(), tensor.values.dtype)
-            values = allgather(tensor.values)
-            indices = allgather(tensor.indices)
+            tensor_indices, tensor_segments = tf.unique(tensor.indices)
+            tensor_values = tf.unsorted_segment_sum(tensor.values, tensor_segments, tf.shape(tensor_indices)[0])
+
+            values = allgather(tensor_values)
+            indices = allgather(tensor_indices)
 
             # To make this operation into an average, divide allgathered values by
             # the Horovod size.
