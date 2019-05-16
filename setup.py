@@ -84,7 +84,8 @@ def check_mx_version():
 def check_avx_supported():
     try:
         flags_output = subprocess.check_output(
-            'gcc -march=native -E -v - </dev/null 2>&1 | grep cc1', shell=True).strip()
+            'gcc -march=native -E -v - </dev/null 2>&1 | grep cc1',
+            shell=True, universal_newlines=True).strip()
         flags = shlex.split(flags_output)
         return '+f16c' in flags and '+avx' in flags
     except subprocess.CalledProcessError:
