@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile.test.cpu
     privileged: true
-  test-cpu-openmpi-py2_7-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_5_0-pyspark2_1_2:
+  test-cpu-openmpi-py2_7-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_1_2:
     extends: test-cpu-base
     build:
       args:
@@ -15,7 +15,7 @@ services:
         KERAS_PACKAGE: keras==2.0.0
         PYTORCH_PACKAGE: torch==0.4.0
         PYSPARK_PACKAGE: pyspark==2.1.2
-  test-cpu-openmpi-py3_5-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_5_0-pyspark2_1_2:
+  test-cpu-openmpi-py3_5-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_1_2:
     extends: test-cpu-base
     build:
       args:
@@ -25,7 +25,7 @@ services:
         KERAS_PACKAGE: keras==2.0.0
         PYTORCH_PACKAGE: torch==0.4.0
         PYSPARK_PACKAGE: pyspark==2.1.2
-  test-cpu-openmpi-py3_6-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_5_0-pyspark2_1_2:
+  test-cpu-openmpi-py3_6-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_1_2:
     extends: test-cpu-base
     build:
       args:
@@ -35,7 +35,7 @@ services:
         KERAS_PACKAGE: keras==2.0.0
         PYTORCH_PACKAGE: torch==0.4.0
         PYSPARK_PACKAGE: pyspark==2.1.2
-  test-cpu-openmpi-py2_7-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_5_0-pyspark2_3_2:
+  test-cpu-openmpi-py2_7-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2:
     extends: test-cpu-base
     build:
       args:
@@ -45,7 +45,7 @@ services:
         KERAS_PACKAGE: keras==2.1.2
         PYTORCH_PACKAGE: torch==0.4.1
         PYSPARK_PACKAGE: pyspark==2.3.2
-  test-cpu-openmpi-py3_5-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_5_0-pyspark2_3_2:
+  test-cpu-openmpi-py3_5-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2:
     extends: test-cpu-base
     build:
       args:
@@ -55,7 +55,7 @@ services:
         KERAS_PACKAGE: keras==2.1.2
         PYTORCH_PACKAGE: torch==0.4.1
         PYSPARK_PACKAGE: pyspark==2.3.2
-  test-cpu-openmpi-py3_6-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_5_0-pyspark2_3_2:
+  test-cpu-openmpi-py3_6-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2:
     extends: test-cpu-base
     build:
       args:
@@ -65,7 +65,7 @@ services:
         KERAS_PACKAGE: keras==2.1.2
         PYTORCH_PACKAGE: torch==0.4.1
         PYSPARK_PACKAGE: pyspark==2.3.2
-  test-cpu-openmpi-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_5_0-pyspark2_4_0:
+  test-cpu-openmpi-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_1-pyspark2_4_0:
     extends: test-cpu-base
     build:
       args:
@@ -75,7 +75,7 @@ services:
         KERAS_PACKAGE: keras==2.2.2
         PYTORCH_PACKAGE: torch==1.0.0
         PYSPARK_PACKAGE: pyspark==2.4.0
-  test-cpu-openmpi-py3_5-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_5_0-pyspark2_4_0:
+  test-cpu-openmpi-py3_5-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_1-pyspark2_4_0:
     extends: test-cpu-base
     build:
       args:
@@ -85,7 +85,7 @@ services:
         KERAS_PACKAGE: keras==2.2.2
         PYTORCH_PACKAGE: torch==1.0.0
         PYSPARK_PACKAGE: pyspark==2.4.0
-  test-cpu-openmpi-py3_6-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_5_0-pyspark2_4_0:
+  test-cpu-openmpi-py3_6-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_1-pyspark2_4_0:
     extends: test-cpu-base
     build:
       args:
@@ -117,7 +117,7 @@ services:
         PYTORCH_PACKAGE: torch-nightly
         PYSPARK_PACKAGE: pyspark==2.4.0
         MXNET_PACKAGE: mxnet --pre
-  test-cpu-mpich-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_5_0-pyspark2_4_0:
+  test-cpu-mpich-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_1-pyspark2_4_0:
     extends: test-cpu-base
     build:
       args:
@@ -138,7 +138,7 @@ services:
     environment:
       - CUDA_VISIBLE_DEVICES
     privileged: true
-  test-gpu-openmpi-py2_7-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_5_0-pyspark2_3_2:
+  test-gpu-openmpi-py2_7-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2:
     extends: test-gpu-base
     build:
       args:
@@ -149,7 +149,7 @@ services:
         KERAS_PACKAGE: keras==2.1.2
         PYTORCH_PACKAGE: torch==0.4.1
         PYSPARK_PACKAGE: pyspark==2.3.2
-  test-gpu-openmpi-py3_5-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_5_0-pyspark2_3_2:
+  test-gpu-openmpi-py3_5-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2:
     extends: test-gpu-base
     build:
       args:
@@ -160,7 +160,7 @@ services:
         KERAS_PACKAGE: keras==2.1.2
         PYTORCH_PACKAGE: torch==0.4.1
         PYSPARK_PACKAGE: pyspark==2.3.2
-  test-gpu-openmpi-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_5_0-pyspark2_4_0:
+  test-gpu-openmpi-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_1-pyspark2_4_0:
     extends: test-gpu-base
     build:
       args:
@@ -170,7 +170,7 @@ services:
         KERAS_PACKAGE: keras==2.2.2
         PYTORCH_PACKAGE: torch==1.0.0
         PYSPARK_PACKAGE: pyspark==2.4.0
-  test-gpu-openmpi-py3_5-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_5_0-pyspark2_4_0:
+  test-gpu-openmpi-py3_5-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_1-pyspark2_4_0:
     extends: test-gpu-base
     build:
       args:
@@ -208,7 +208,7 @@ services:
         PYTORCH_PACKAGE: torch-nightly
         MXNET_PACKAGE: mxnet-cu100 --pre
         PYSPARK_PACKAGE: pyspark==2.4.0
-  test-gpu-mpich-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_5_0-pyspark2_4_0:
+  test-gpu-mpich-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_1-pyspark2_4_0:
     extends: test-gpu-base
     build:
       args:
@@ -218,7 +218,7 @@ services:
         KERAS_PACKAGE: keras==2.2.2
         PYTORCH_PACKAGE: torch==1.0.0
         PYSPARK_PACKAGE: pyspark==2.4.0
-  test-mixed-openmpi-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_5_0-pyspark2_4_0:
+  test-mixed-openmpi-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_1-pyspark2_4_0:
     extends: test-gpu-base
     build:
       args:
