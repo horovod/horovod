@@ -59,6 +59,15 @@ class BasicDriverService(network.BasicService):
                 # Just use source address for service for fast probing.
                 self._task_addresses_for_driver[req.index] = \
                     self._filter_by_ip(req.task_addresses, client_address[0])
+                if not self._task_addresses_for_driver[req.index]:
+                    # No match is possible if one of the servers is behind NAT.
+                    # We don't throw exception here, but will allow the following
+                    # code fail with NoValidAddressesFound.
+                    print('ERROR: Task {index} declared addresses {task_addresses}, '
+                          'but has connected from a different address {source}. '
+                          'This is not supported. Is the server behind NAT?'
+                          ''.format(index=req.index, task_addresses=req.task_addresses,
+                                    source=client_address[0]))
                 # Make host hash -> indices map.
                 if req.host_hash not in self._task_host_hash_indices:
                     self._task_host_hash_indices[req.host_hash] = []
@@ -89,6 +98,7 @@ class BasicDriverService(network.BasicService):
             for ip, port in intf_addresses:
                 if ip == target_ip:
                     return {intf: [(ip, port)]}
+        return {}
 
     def task_addresses_for_driver(self, index):
         return self._task_addresses_for_driver[index]

@@ -217,8 +217,7 @@ class BasicClient(object):
                         if resp.source_address not in client_intf_addrs:
                             if self._verbose >= 2:
                                 # Need to find the local interface name whose
-                                # adderss was visible to the target
-                                # host's server.
+                                # address was visible to the target host's server.
                                 resp_intf = ''
                                 for key in psutil.net_if_addrs().keys():
                                     key_intf_addrs = [x.address

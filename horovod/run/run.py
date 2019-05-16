@@ -207,16 +207,16 @@ def _driver_fn(all_host_names, local_host_names, settings):
     """
     # Launch a TCP server called service service on the host running horovodrun.
     driver = driver_service.HorovodRunDriverService(settings.num_hosts, settings.key)
-    if settings.verbose >= 1:
+    if settings.verbose >= 2:
         print("Launched horovodrun server.")
     # Have all the workers register themselves with the service service.
     _launch_task_servers(all_host_names, local_host_names,
                          driver.addresses(), settings)
-    if settings.verbose >= 1:
+    if settings.verbose >= 2:
         print("Attempted to launch horovod task servers.")
     try:
         # wait for all the hosts to register with the service service.
-        if settings.verbose >= 1:
+        if settings.verbose >= 2:
             print("Waiting for the hosts to acknowledge.")
         driver.wait_for_initial_registration(settings.timeout)
         tasks = [task_service.HorovodRunTaskClient(index,
@@ -228,17 +228,17 @@ def _driver_fn(all_host_names, local_host_names, settings):
         # Notify all the drivers that the initial registration is complete.
         for task in tasks:
             task.notify_initial_registration_complete()
-        if settings.verbose >= 1:
+        if settings.verbose >= 2:
             print("Notified all the hosts that the registration is complete.")
         # Each worker should probe the interfaces of the next worker in a ring
         # manner and filter only the routed ones -- it should filter out
         # interfaces that are not really connected to any external networks
         # such as lo0 with address 127.0.0.1.
-        if settings.verbose >= 1:
+        if settings.verbose >= 2:
             print("Waiting for hosts to perform host-to-host "
                   "interface checking.")
         driver.wait_for_task_to_task_address_updates(settings.timeout)
-        if settings.verbose >= 1:
+        if settings.verbose >= 2:
             print("Host-to-host interface checking successful.")
         # Determine a set of common interfaces for task-to-task communication.
         common_intfs = set(driver.task_addresses_for_tasks(0).keys())
@@ -289,8 +289,7 @@ def parse_args():
                         help="Shows horovod version.")
 
     parser.add_argument('-np', '--num-proc', action="store", dest="np",
-                        type=int, required=True,
-                        help="Total number of training processes.")
+                        type=int, help="Total number of training processes.")
 
     parser.add_argument('-p', '--ssh-port', action="store", dest="ssh_port",
                         type=int, help="SSH port on all the hosts.")
@@ -314,7 +313,7 @@ def parse_args():
                              "horovodrun is called.")
 
     parser.add_argument('--start-timeout', action="store",
-                        dest="start_timeout",
+                        dest="start_timeout", type=int,
                         help="Horovodrun has to perform all the checks and "
                              "start the processes before the specified "
                              "timeout. The default value is 30 seconds. "
@@ -322,11 +321,10 @@ def parse_args():
                              "HOROVOD_START_TIMEOUT can also be used to "
                              "specify the initialization timeout.")
 
-    parser.add_argument('--verbose', action="store",
+    parser.add_argument('--verbose', action="store_true",
                         dest="verbose",
-                        default=0, nargs='?', type=int,
-                        help="Can use 0, 1, or 2 to set the verbosity level of "
-                             "debug messages.")
+                        help="If this flag is set, extra messages will "
+                             "printed.")
 
     parser.add_argument('command', nargs=argparse.REMAINDER,
                         help="Command to be executed.")
@@ -338,6 +336,9 @@ def parse_args():
         # specifying any value to verbose. For the sake of consistency, we set
         # the verbosity here to the default value of 1.
         parsed_args.verbose = 1
+
+    if not parsed_args.version and not parsed_args.np:
+        parser.error('argument -np/--num-proc is required')
 
     return parsed_args
 
@@ -367,7 +368,7 @@ def run():
                                     'check connectivity between servers. You '
                                     'may need to increase the --start-timeout '
                                     'parameter if you have too many servers.')
-    settings = hvd_settings.Settings(verbose=args.verbose,
+    settings = hvd_settings.Settings(verbose=2 if args.verbose else 0,
                                      ssh_port=args.ssh_port,
                                      key=secret.make_secret_key(),
                                      timeout=tmout,
@@ -392,17 +393,17 @@ def run():
 
     remote_host_names = []
     if args.host:
-        if settings.verbose >= 1:
+        if settings.verbose >= 2:
             print("Filtering local host names.")
         remote_host_names = network.filter_local_addresses(all_host_names)
 
         if len(remote_host_names) > 0:
-            if settings.verbose >= 1:
+            if settings.verbose >= 2:
                 print("Checking ssh on all remote hosts.")
             # Check if we can ssh into all remote hosts successfully.
             _check_all_hosts_ssh_successful(remote_host_names, args.ssh_port,
                                             fn_cache=fn_cache)
-            if settings.verbose >= 1:
+            if settings.verbose >= 2:
                 print("SSH was successful into all the remote hosts.")
 
         hosts_arg = "-H {hosts}".format(hosts=args.host)
@@ -412,7 +413,7 @@ def run():
         hosts_arg = ""
 
     if args.host and len(remote_host_names) > 0:
-        if settings.verbose >= 1:
+        if settings.verbose >= 2:
             print("Testing interfaces on all the hosts.")
 
         local_host_names = set(all_host_names) - set(remote_host_names)
@@ -428,7 +429,7 @@ def run():
         nccl_socket_intf_arg = "-x NCCL_SOCKET_IFNAME={common_intfs}".format(
             common_intfs=','.join(common_intfs))
 
-        if settings.verbose >= 1:
+        if settings.verbose >= 2:
             print("Interfaces on all the hosts were successfully checked.")
     else:
         # If all the given hosts are local, no need to specify the interfaces
@@ -479,7 +480,7 @@ def run():
                     command=' '.join(quote(par) for par in args.command))
     )
 
-    if settings.verbose >= 1:
+    if settings.verbose >= 2:
         print(mpirun_command)
     # Execute the mpirun command.
     os.execve('/bin/sh', ['/bin/sh', '-c', mpirun_command], env)
