@@ -275,8 +275,7 @@ See full training `MNIST <examples/mxnet_mnist.py>`_ and `ImageNet <examples/mxn
 
 
 
-**Note**: There is a `known issue <https://github.com/horovod/horovod/issues/884>`__ when running Horovod with MXNet on a Linux system with GCC version 5.X and above. We recommend that you build MXNet from source following this `guide <https://mxnet.incubator.apache.org/install/build_from_source.html>`_ as a workaround for now.
-
+**Note**: The `known issue <https://github.com/horovod/horovod/issues/884>`__ when running Horovod with MXNet on a Linux system with GCC version 5.X and above has been resolved. Please use MXNet 1.4.1 or later releases with Horovod 0.16.2 or later releases to avoid the GCC incompatibility issue. MXNet 1.4.0 release works with Horovod 0.16.0 and 0.16.1 releases with the GCC incompatibility issue unsolved.
 
 PyTorch
 -------
