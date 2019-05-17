@@ -192,7 +192,7 @@ page for more instructions, including RoCE/InfiniBand tweaks and tips for dealin
 
     horovodrun -np 16 -H server1:4,server2:4,server3:4,server4:4 python train.py
 
-3. To run using Open MPI without ``horovodrun`` wrapper, see the `Running Horovod with Open MPI <docs/mpirun.rst>`_ page.
+3. To run using Open MPI without the ``horovodrun`` wrapper, see the `Running Horovod with Open MPI <docs/mpirun.rst>`_ page.
 
 4. To run in Docker, see the `Horovod in Docker <docs/docker.md>`_ page.
 
