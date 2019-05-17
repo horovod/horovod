@@ -17,7 +17,7 @@ import re
 
 
 # List of regular expressions to ignore environment variables by.
-IGNORE_REGEXES = {'BASH_FUNC_.*\(\)'}
+IGNORE_REGEXES = {'BASH_FUNC_.*\(\)', 'OLDPWD'}
 
 
 def is_exportable(v):
