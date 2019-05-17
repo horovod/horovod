@@ -1,9 +1,9 @@
 Running Horovod with Open MPI
 =============================
 
-``horovodrun`` introduces a convenient wrapper for running Horovod scripts, that is currently based on Open MPI.
+``horovodrun`` introduces a convenient, Open MPI-based wrapper for running Horovod scripts.
 
-In some cases it is desirable to have a fine-grained control over options passed to Open MPI.  This page describes
+In some cases it is desirable to have fine-grained control over options passed to Open MPI.  This page describes
 running Horovod training directly using Open MPI.
 
 1. Run on a machine with 4 GPUs:
@@ -46,7 +46,7 @@ Starting with the Open MPI 3, it's important to add the ``-bind-to none`` and ``
 to the socket.
 
 ``-mca pml ob1`` and ``-mca btl ^openib`` flags force the use of TCP for MPI communication.  This avoids many
-multiprocessing issues that Open MPI has with RDMA which typically result in segmentation faults.  Using TCP for MPI
+multiprocessing issues that Open MPI has with RDMA which typically results in segmentation faults.  Using TCP for MPI
 does not have noticeable performance impact since most of the heavy communication is done by NCCL, which will use RDMA
 via RoCE or InfiniBand if they're available (see `Horovod on GPU <gpus.md>`_).  Notable exceptions from this rule are
 models that heavily use ``hvd.broadcast()`` and ``hvd.allgather()`` operations.  To make those operations use RDMA,
@@ -79,7 +79,7 @@ As noted above, using TCP for MPI communication does not have any significant ef
 cases. Models that make heavy use of ``hvd.broadcast()`` and ``hvd.allgather()`` operations are exceptions to that rule.
 
 Default Open MPI ``openib`` BTL that provides RDMA functionality does not work well with MPI multithreading.  In order
-to use RDMA with ``openib``, multithreading must be disabled via ``-x HOROVOD_MPI_THREADS_DISABLE=1`` option.  See the
+to use RDMA with ``openib``, multithreading must be disabled via the ``-x HOROVOD_MPI_THREADS_DISABLE=1`` option.  See the
 example below:
 
 .. code-block:: bash
