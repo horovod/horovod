@@ -36,13 +36,13 @@ distributed Deep Learning fast and easy to use.
 
 .. raw:: html
 
-   <p><img src="https://github.com/LFDLFoundation/artwork/raw/master/lfdl/horizontal/color/lfdl-horizontal-color.png" alt="LF DL" width="200"/></p>
+   <p><img src="https://raw.githubusercontent.com/lfai/artwork/master/lfai/horizontal/color/lfai-color.png" alt="LF AI" width="200"/></p>
 
 
-Horovod is hosted by the `Linux Foundation Deep Learning <https://lfdl.io>`_ (LF DL). If you are a company that is deeply
+Horovod is hosted by the `LF AI Foundation <https://lfdl.io>`_ (LF AI). If you are a company that is deeply
 committed to using open source technologies in artificial intelligence, machine and deep learning, and wanting to support
-the communities of open source projects in these domains, consider joining the LF Deep Learning Foundation. For details
-about who's involved and how Horovod plays a role, read the LF DL `announcement <https://lfdl.io/press/2018/12/13/lf-deep-learning-welcomes-horovod-distributed-training-framework-as-newest-project/>`_.
+the communities of open source projects in these domains, consider joining the LF AI Foundation. For details
+about who's involved and how Horovod plays a role, read the LF AI `announcement <https://lfdl.io/press/2018/12/13/lf-deep-learning-welcomes-horovod-distributed-training-framework-as-newest-project/>`_.
 
 |
 
