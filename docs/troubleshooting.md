@@ -127,7 +127,7 @@ $ sudo ldconfig
 ### Error during installation: invalid conversion from ‘const void*’ to ‘void*’ [-fpermissive]
 
 If you see the error message below, it means that your MPI is likely outdated. We recommend installing
-[Open MPI >=3.0.0](https://www.open-mpi.org/faq/?category=building#easy-build).
+[Open MPI >=4.0.0](https://www.open-mpi.org/faq/?category=building#easy-build).
 
 **Note**: Prior to installing a new version of Open MPI, don't forget to remove your existing MPI installation.
 
@@ -306,3 +306,28 @@ Alternatively, you can use the `HOROVOD_CUDA_INCLUDE` and `HOROVOD_CUDA_LIB` env
 $ pip uninstall -y horovod
 $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_HOME=/path/to/nccl HOROVOD_CUDA_INCLUDE=/path/to/cuda/include HOROVOD_CUDA_LIB=/path/to/cuda/lib64 pip install --no-cache-dir horovod
 ```
+
+### FORCE-TERMINATE AT Data unpack would read past end of buffer
+
+If you see the error message below during the training, it's likely that you have a wrong version of `hwloc` installed in your system.
+
+```
+--------------------------------------------------------------------------
+An internal error has occurred in ORTE:
+
+[[25215,0],1] FORCE-TERMINATE AT Data unpack would read past end of buffer:-26 - error grpcomm_direct.c(359)
+
+This is something that should be reported to the developers.
+--------------------------------------------------------------------------
+[future5.stanford.edu:12508] [[25215,0],1] ORTE_ERROR_LOG: Data unpack would read past end of buffer in file grpcomm_direct.c at line 355
+```
+
+Purge `hwloc` from your system:
+
+```bash
+$ apt purge hwloc-nox libhwloc-dev libhwloc-plugins libhwloc5
+```
+
+After `hwloc` is purged, [re-install Open MPI](https://www.open-mpi.org/faq/?category=building#easy-build).
+
+See [this issue](https://github.com/open-mpi/ompi/issues/4437) for more details.
