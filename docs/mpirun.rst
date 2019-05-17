@@ -104,6 +104,7 @@ use them via the ``-mca btl_tcp_if_exclude <interface>[,<interface>]`` and ``NCC
 parameters.
 
 .. code-block:: bash
+
     ifconfig
 
 Produces output like this::
