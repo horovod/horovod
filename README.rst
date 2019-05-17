@@ -4,7 +4,7 @@
     <br/>
 
 Horovod
-=========
+=======
 
 .. image:: https://badge.buildkite.com/6f976bc161c69d9960fc00de01b69deb6199b25680a09e5e26.svg?branch=master
    :target: https://buildkite.com/horovod/horovod
@@ -77,7 +77,7 @@ scale.
 
 
 Install
-------------
+-------
 
 To install Horovod:
 
@@ -98,7 +98,7 @@ If you want to use Docker, read the `Horovod in Docker <docs/docker.md>`_ page.
 
 
 Concepts
-------------
+--------
 
 Horovod core principles are based on `MPI <http://mpi-forum.org/>`_ concepts such as *size*, *rank*,
 *local rank*, *allreduce*, *allgather* and, *broadcast*. See `this page <docs/concepts.md>`_ for more details.
@@ -182,26 +182,23 @@ page for more instructions, including RoCE/InfiniBand tweaks and tips for dealin
 
 1. To run on a machine with 4 GPUs:
 
-.. code-block:: python
+.. code-block:: bash
 
     horovodrun -np 4 -H localhost:4 python train.py
 
-
 2. To run on 4 machines with 4 GPUs each:
 
-.. code-block:: python
+.. code-block:: bash
 
     horovodrun -np 16 -H server1:4,server2:4,server3:4,server4:4 python train.py
 
+3. To run using Open MPI without ``horovodrun`` wrapper, see the `Running Horovod with Open MPI <docs/mpirun.rst>`_ page.
 
-3. To run in Docker, see the `Horovod in Docker <docs/docker.md>`_ page.
+4. To run in Docker, see the `Horovod in Docker <docs/docker.md>`_ page.
 
+5. To run in Kubernetes, see `Kubeflow <https://github.com/kubeflow/kubeflow/tree/master/kubeflow/mpi-job>`_, `MPI Operator <https://github.com/kubeflow/mpi-operator/>`_, `Helm Chart <https://github.com/kubernetes/charts/tree/master/stable/horovod/>`_, and `FfDL <https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/>`_.
 
-4. To run in Kubernetes, see `Kubeflow <https://github.com/kubeflow/kubeflow/tree/master/kubeflow/mpi-job>`_, `MPI Operator <https://github.com/kubeflow/mpi-operator/>`_, `Helm Chart <https://github.com/kubernetes/charts/tree/master/stable/horovod/>`_, and `FfDL <https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/>`_.
-
-
-
-5. To run in Spark, see the `Spark <docs/spark.md>`_ page.
+6. To run in Spark, see the `Spark <docs/spark.md>`_ page.
 
 Keras
 -----
@@ -387,7 +384,7 @@ Citation
 --------
 Please cite Horovod in your publications if it helps your research:
 
-.. code-block:: python
+::
 
     @article{sergeev2018horovod,
       Author = {Alexander Sergeev and Mike Del Balso},
