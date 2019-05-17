@@ -363,7 +363,7 @@ This usually is caused by:
 --------------------------------------------------------------------------
 ```
 
-We recommended reinstalling Open MPI with `--enable-orterun-prefix-by-default` flag, like so:
+We recommended reinstalling Open MPI with the `--enable-orterun-prefix-by-default` flag, like so:
 
 ```bash
 $ wget https://www.open-mpi.org/software/ompi/v4.0/downloads/openmpi-4.0.0.tar.gz
