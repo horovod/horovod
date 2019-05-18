@@ -6,6 +6,8 @@ Welcome to Horovod's documentation!
 
    readme_include
 
+   mpirun
+
    api
 
 Indices and tables
