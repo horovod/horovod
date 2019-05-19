@@ -349,7 +349,7 @@ You can check for MPI multi-threading support by querying the ``hvd.mpi_threads_
 
 Inference
 ---------
-Learn how to optimize your model for inference and remove Horovod operations from the graph `here <docs/inference.md>`_.
+Learn how to optimize your model for inference and remove Horovod operations from the graph `here <inference_include.html>`_.
 
 
 Tensor Fusion

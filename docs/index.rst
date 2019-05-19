@@ -20,6 +20,8 @@ Welcome to Horovod's documentation!
 
    gpus_include
 
+   inference_include
+
 Indices and tables
 ==================
 
