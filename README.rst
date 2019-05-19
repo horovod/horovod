@@ -357,7 +357,7 @@ Tensor Fusion
 One of the unique things about Horovod is its ability to interleave communication and computation coupled with the ability
 to batch small *allreduce* operations, which results in improved performance. We call this batching feature Tensor Fusion.
 
-See `here <docs/tensor-fusion.md>`__ for full details and tweaking instructions.
+See `here <tensor-fusion_include.html>`__ for full details and tweaking instructions.
 
 
 Analyzing Horovod Performance

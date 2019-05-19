@@ -24,6 +24,8 @@ Welcome to Horovod's documentation!
 
    spark_include
 
+   tensor-fusion_include
+
 Indices and tables
 ==================
 
