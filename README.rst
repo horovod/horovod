@@ -198,7 +198,7 @@ page for more instructions, including RoCE/InfiniBand tweaks and tips for dealin
 
 5. To run in Kubernetes, see `Kubeflow <https://github.com/kubeflow/kubeflow/tree/master/kubeflow/mpi-job>`_, `MPI Operator <https://github.com/kubeflow/mpi-operator/>`_, `Helm Chart <https://github.com/kubernetes/charts/tree/master/stable/horovod/>`_, and `FfDL <https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/>`_.
 
-6. To run in Spark, see the `Spark <docs/spark.md>`_ page.
+6. To run in Spark, see the `Spark <spark_include.html>`_ page.
 
 Keras
 -----

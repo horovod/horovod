@@ -22,6 +22,8 @@ Welcome to Horovod's documentation!
 
    inference_include
 
+   spark_include
+
 Indices and tables
 ==================
 
