@@ -10,6 +10,8 @@ Welcome to Horovod's documentation!
 
    api
 
+   concepts_include
+
 Indices and tables
 ==================
 

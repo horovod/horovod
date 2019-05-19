@@ -101,7 +101,7 @@ Concepts
 --------
 
 Horovod core principles are based on `MPI <http://mpi-forum.org/>`_ concepts such as *size*, *rank*,
-*local rank*, *allreduce*, *allgather* and, *broadcast*. See `this page <docs/concepts.md>`_ for more details.
+*local rank*, *allreduce*, *allgather* and, *broadcast*. See `this page <concepts_include.html>`_ for more details.
 
 
 Usage
