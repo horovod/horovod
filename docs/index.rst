@@ -26,6 +26,8 @@ Welcome to Horovod's documentation!
 
    tensor-fusion_include
 
+   timeline_include
+
 Indices and tables
 ==================
 
