@@ -93,7 +93,7 @@ downgrade to Open MPI 3.1.2 or upgrade to Open MPI 4.0.0.
     pip install horovod
 
 This basic installation is good for laptops and for getting to know Horovod.
-If you're installing Horovod on a server with GPUs, read the `Horovod on GPU <docs/gpus.md>`_ page.
+If you're installing Horovod on a server with GPUs, read the `Horovod on GPU <gpus_include.html>`_ page.
 If you want to use Docker, read the `Horovod in Docker <docker_include.html>`_ page.
 
 

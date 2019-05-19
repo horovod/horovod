@@ -18,6 +18,8 @@ Welcome to Horovod's documentation!
 
    docker_include
 
+   gpus_include
+
 Indices and tables
 ==================
 
