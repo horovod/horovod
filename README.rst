@@ -94,7 +94,7 @@ downgrade to Open MPI 3.1.2 or upgrade to Open MPI 4.0.0.
 
 This basic installation is good for laptops and for getting to know Horovod.
 If you're installing Horovod on a server with GPUs, read the `Horovod on GPU <docs/gpus.md>`_ page.
-If you want to use Docker, read the `Horovod in Docker <docs/docker.md>`_ page.
+If you want to use Docker, read the `Horovod in Docker <docker_include.html>`_ page.
 
 
 Concepts
@@ -194,7 +194,7 @@ page for more instructions, including RoCE/InfiniBand tweaks and tips for dealin
 
 3. To run using Open MPI without the ``horovodrun`` wrapper, see the `Running Horovod with Open MPI <docs/mpirun.rst>`_ page.
 
-4. To run in Docker, see the `Horovod in Docker <docs/docker.md>`_ page.
+4. To run in Docker, see the `Horovod in Docker <docker_include.html>`_ page.
 
 5. To run in Kubernetes, see `Kubeflow <https://github.com/kubeflow/kubeflow/tree/master/kubeflow/mpi-job>`_, `MPI Operator <https://github.com/kubeflow/mpi-operator/>`_, `Helm Chart <https://github.com/kubernetes/charts/tree/master/stable/horovod/>`_, and `FfDL <https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/>`_.
 

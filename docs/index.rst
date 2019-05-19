@@ -16,6 +16,8 @@ Welcome to Horovod's documentation!
 
    benchmarks_include
 
+   docker_include
+
 Indices and tables
 ==================
 
