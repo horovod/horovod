@@ -14,6 +14,8 @@ Welcome to Horovod's documentation!
 
    running_include
 
+   benchmarks_include
+
 Indices and tables
 ==================
 

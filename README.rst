@@ -69,7 +69,7 @@ servers with 4 Pascal GPUs each connected by RoCE-capable 25 Gbit/s network:
    :alt: 512-GPU Benchmark
 
 Horovod achieves 90% scaling efficiency for both Inception V3 and ResNet-101, and 68% scaling efficiency for VGG-16.
-See the `Benchmarks <docs/benchmarks.md>`_ page to find out how to reproduce these numbers.
+See the `Benchmarks <benchmarks_include.html>`_ page to find out how to reproduce these numbers.
 
 While installing MPI and NCCL itself may seem like an extra hassle, it only needs to be done once by the team dealing
 with infrastructure, while everyone else in the company who builds the models can enjoy the simplicity of training them at
