@@ -12,6 +12,8 @@ Welcome to Horovod's documentation!
 
    concepts_include
 
+   running_include
+
 Indices and tables
 ==================
 
