@@ -883,7 +883,13 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
                       "likely cause a segmentation fault.";
     }
   } else {
+#if HAVE_DDL
+    // DDL comes with IBM Spectrum MPI
+    // and needs to initialize MPI with the proper license.
+    DDLAllreduce::DDLInit(&ddl_context, &cuda_context);
+#else
     MPI_Init_thread(NULL, NULL, required, &provided);
+#endif
     state.should_finalize = true;
   }
 
