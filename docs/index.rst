@@ -28,6 +28,8 @@ Welcome to Horovod's documentation!
 
    timeline_include
 
+   troubleshooting_include
+
 Indices and tables
 ==================
 

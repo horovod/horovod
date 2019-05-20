@@ -376,7 +376,7 @@ Guides
 
 Troubleshooting
 ---------------
-See the `Troubleshooting <docs/troubleshooting.md>`_ page and please submit a `ticket <https://github.com/uber/horovod/issues/new>`_
+See the `Troubleshooting <troubleshooting_include.html>`_ page and please submit a `ticket <https://github.com/uber/horovod/issues/new>`_
 if you can't find an answer.
 
 

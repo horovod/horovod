@@ -43,7 +43,7 @@ In the example above, you can see few tensors being reduced. There are two major
 
 **Adding cycle markers**
 
-Horovod performs work in cycles.  These cycles are used to aid `Tensor Fusion <tensor-fusio-include.html). Horovod has the ability to record the moment when each cycle starts for debugging of Tensor Fusion.
+Horovod performs work in cycles.  These cycles are used to aid `Tensor Fusion <tensor-fusion_include.html>`__. Horovod has the ability to record the moment when each cycle starts for debugging of Tensor Fusion.
 
 .. image:: https://user-images.githubusercontent.com/16640218/51659458-64806100-1f5f-11e9-9a27-ba934ceec75f.png
    :alt: Cycle Markers
