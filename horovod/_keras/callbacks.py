@@ -38,11 +38,11 @@ class MetricAverageCallbackImpl(object):
         self.allreduce_ops = {}
         self.device = device
 
-    def _make_variable(self, metric, value):
+    def _make_variable(self, metric, value, average=True):
         with tf.name_scope('MetricAverageCallback'):
             var = tf.Variable(value, name=metric)
             self.backend.get_session().run(var.initializer)
-            allreduce_op = hvd.allreduce(var, device_dense=self.device)
+            allreduce_op = hvd.allreduce(var, device_dense=self.device, average=average)
             return var, allreduce_op
 
     def _average_metrics_in_place(self, logs):
@@ -52,8 +52,9 @@ class MetricAverageCallbackImpl(object):
         # to ensure consistent order.
         for metric, value in sorted(logs.items()):
             if metric not in self.variables:
+                average = metric != 'size'
                 self.variables[metric], self.allreduce_ops[metric] = \
-                    self._make_variable(metric, value)
+                    self._make_variable(metric, value, average=average)
             else:
                 self.backend.set_value(self.variables[metric], value)
             reduced_logs[metric] = \
