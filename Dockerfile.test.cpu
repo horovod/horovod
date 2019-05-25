@@ -9,6 +9,7 @@ ARG PYTHON_VERSION=2.7
 ARG TENSORFLOW_PACKAGE=tensorflow==1.12.0
 ARG KERAS_PACKAGE=keras==2.2.2
 ARG PYTORCH_PACKAGE=torch==1.0.0
+ARG TORCHVISION_PACKAGE=torchvision==0.2.2.post3
 ARG MXNET_PACKAGE=mxnet==1.4.1
 ARG PYSPARK_PACKAGE=pyspark==2.4.0
 
@@ -71,7 +72,7 @@ RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
     else \
         pip install ${PYTORCH_PACKAGE}; \
     fi
-RUN pip install torchvision Pillow --no-deps
+RUN pip install ${TORCHVISION_PACKAGE} Pillow --no-deps
 RUN pip install future typing
 
 # Install MXNet.
