@@ -3,16 +3,15 @@
 Horovod in Docker
 =================
 
-To streamline the installation process on GPU machines, we have published the reference `Dockerfile <../Dockerfile>`__ so
-
-you can get started with Horovod in minutes. The container includes `Examples <../examples>`__ in the `/examples`
+To streamline the installation process on GPU machines, we have published the reference `Dockerfile <https://github.com/horovod/horovod/blob/master/Dockerfile>`__ so
+you can get started with Horovod in minutes. The container includes `Examples <https://github.com/horovod/horovod/tree/master/examples>`__ in the ``/examples``
 directory.
 
-Pre-built docker containers with Horovod are available on `DockerHub <https://hub.docker.com/r/horovod/horovod>`__.
+Pre-built Docker containers with Horovod are available on `DockerHub <https://hub.docker.com/r/horovod/horovod>`__.
 
 **Building**
 
-Before building, you can modify `Dockerfile` to your liking, e.g. select a different CUDA, TensorFlow or Python version.
+Before building, you can modify ``Dockerfile`` to your liking, e.g. select a different CUDA, TensorFlow or Python version.
 
 .. code-block:: bash
 
@@ -25,8 +24,8 @@ Before building, you can modify `Dockerfile` to your liking, e.g. select a diffe
 
 After the container is built, run it using `nvidia-docker <https://github.com/NVIDIA/nvidia-docker>`__.
 
-**Note**: you can replace `horovod:latest` with the `specific <https://hub.docker.com/r/horovod/horovod/tags>`__ pre-build
-Docker container with Horovod instead of building it by yourself
+**Note**: You can replace ``horovod:latest`` with the `specific <https://hub.docker.com/r/horovod/horovod/tags>`__ pre-build
+Docker container with Horovod instead of building it by yourself.
 
 .. code-block:: bash
 
@@ -45,13 +44,13 @@ You can ignore this message.
 
 **Running on multiple machines**
 
-Here we describe a simple example involving a shared filesystem `/mnt/share` using a common port number `12345` for the SSH
-daemon that will be run on all the containers. `/mnt/share/ssh` would contain a typical `id_rsa` and `authorized_keys`
+Here we describe a simple example involving a shared filesystem ``/mnt/share`` using a common port number ``12345`` for the SSH
+daemon that will be run on all the containers. ``/mnt/share/ssh`` would contain a typical ``id_rsa`` and ``authorized_keys``
 pair that allows `passwordless authentication <http://www.linuxproblem.org/art_9.html>`__.
 
-**Note**: These are not hard requirements but they make the example more concise. A shared filesystem can be replaced by
-`rsync`ing SSH configuration and code across machines, and a common SSH port can be replaced by machine-specific ports
-defined in `/root/.ssh/ssh_config` file.
+**Note**: These are not hard requirements but they make the example more concise. A shared filesystem can be replaced by ``rsyncing``
+SSH configuration and code across machines, and a common SSH port can be replaced by machine-specific ports
+defined in ``/root/.ssh/ssh_config`` file.
 
 Primary worker:
 

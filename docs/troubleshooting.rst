@@ -67,8 +67,8 @@ To use CUDA stub drivers:
 
 1. Is MPI in PATH?
 
-If you see the error message below, it means `mpicxx` was not found in PATH. Typically `mpicxx` is located in the same
-directory as `mpirun`. Please add a directory containing `mpicxx` to PATH before installing Horovod.
+If you see the error message below, it means ``mpicxx`` was not found in PATH. Typically ``mpicxx`` is located in the same
+directory as ``mpirun``. Please add a directory containing ``mpicxx`` to PATH before installing Horovod.
 
 .. code-block:: bash
 
@@ -94,11 +94,11 @@ To use custom MPI directory:
     $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_HOME=/path/to/nccl pip install --no-cache-dir horovod
 
 
-2. Are MPI libraries added to `$LD_LIBRARY_PATH` or `ld.so.conf`?
+2. Are MPI libraries added to ``$LD_LIBRARY_PATH`` or ``ld.so.conf``?
 
-If you see the error message below, it means `mpicxx` was not able to load some of the MPI libraries. If you recently
-installed MPI, make sure that the path to MPI libraries is present the `$LD_LIBRARY_PATH` environment variable, or in the
-`/etc/ld.so.conf` file.
+If you see the error message below, it means ``mpicxx`` was not able to load some of the MPI libraries. If you recently
+installed MPI, make sure that the path to MPI libraries is present the ``$LD_LIBRARY_PATH`` environment variable, or in the
+``/etc/ld.so.conf`` file.
 
 .. code-block:: bash
 
@@ -114,22 +114,22 @@ installed MPI, make sure that the path to MPI libraries is present the `$LD_LIBR
     CalledProcessError: Command '['mpicxx', '-show']' returned non-zero exit status 127
 
 
-If you have installed MPI in a user directory, you can add the MPI library directory to `$LD_LIBRARY_PATH`:
+If you have installed MPI in a user directory, you can add the MPI library directory to ``$LD_LIBRARY_PATH``:
 
 .. code-block:: bash
 
     $ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path/to/mpi/lib
 
 
-If you have installed MPI in a non-standard system location (i.e. not `/usr` or `/usr/local`), you should add it to the
-`/etc/ld.so.conf` file:
+If you have installed MPI in a non-standard system location (i.e. not ``/usr`` or ``/usr/local``), you should add it to the
+``/etc/ld.so.conf`` file:
 
 .. code-block:: bash
 
     $ echo /path/to/mpi/lib | sudo tee -a /etc/ld.so.conf
 
 
-Additionally, if you have installed MPI in a system location, you should run `sudo ldconfig` after installation to
+Additionally, if you have installed MPI in a system location, you should run ``sudo ldconfig`` after installation to
 register libraries in the cache:
 
 .. code-block:: bash
@@ -171,7 +171,7 @@ If you see the error message below, it means that you need to install Python hea
     compilation terminated.
 
 
-You can do this by installing a `python-dev` or `python3-dev` package.  For example, on a Debian or Ubuntu system:
+You can do this by installing a ``python-dev`` or ``python3-dev`` package.  For example, on a Debian or Ubuntu system:
 
 .. code-block:: bash
 
@@ -181,9 +181,9 @@ You can do this by installing a `python-dev` or `python3-dev` package.  For exam
 **NCCL 2 is not found during installation**
 
 If you see the error message below, it means NCCL 2 was not found in the standard libraries location. If you have a directory
-where you installed NCCL 2 which has both `include` and `lib` directories containing `nccl.h` and `libnccl.so`
-respectively, you can pass it via `HOROVOD_NCCL_HOME` environment variable. Otherwise you can specify them separately
-via `HOROVOD_NCCL_INCLUDE` and `HOROVOD_NCCL_LIB` environment variables.
+where you installed NCCL 2 which has both ``include`` and ``lib`` directories containing ``nccl.h`` and ``libnccl.so``
+respectively, you can pass it via ``HOROVOD_NCCL_HOME`` environment variable. Otherwise you can specify them separately
+via ``HOROVOD_NCCL_INCLUDE`` and ``HOROVOD_NCCL_LIB`` environment variables.
 
 .. code-block:: bash
 
@@ -215,8 +215,8 @@ Or:
 
 **Pip install: no such option: --no-cache-dir**
 
-If you see the error message below, it means that your version of pip is out of date. You can remove the `--no-cache-dir` flag
-since your version of pip does not do caching. The `--no-cache-dir` flag is added to all examples to ensure that when you
+If you see the error message below, it means that your version of pip is out of date. You can remove the ``--no-cache-dir`` flag
+since your version of pip does not do caching. The ``--no-cache-dir`` flag is added to all examples to ensure that when you
 change Horovod compilation flags, it will be rebuilt from source and not just reinstalled from the pip cache, which is
 modern pip's `default behavior <https://pip.pypa.io/en/stable/reference/pip_install/#caching>`__.
 
@@ -254,7 +254,7 @@ library.
     0"]()]]
 
 
-If you're using Anaconda or Miniconda, you most likely have the `nccl` package installed. The solution is to remove
+If you're using Anaconda or Miniconda, you most likely have the ``nccl`` package installed. The solution is to remove
 the package and reinstall Horovod:
 
 .. code-block:: bash
@@ -266,8 +266,8 @@ the package and reinstall Horovod:
 
 **transport/p2p.cu:431 WARN failed to open CUDA IPC handle : 30 unknown error**
 
-If you see the error message below during the training with `-x NCCL_DEBUG=INFO`, it likely means that multiple servers
-share the same `hostname`.
+If you see the error message below during the training with ``-x NCCL_DEBUG=INFO``, it likely means that multiple servers
+share the same ``hostname``.
 
 .. code-block:: bash
 
@@ -281,7 +281,7 @@ hostname.
 
 If you notice that your program is running out of GPU memory and multiple processes
 are being placed on the same GPU, it's likely that your program (or its dependencies)
-create a `tf.Session` that does not use the `config` that pins specific GPU.
+create a ``tf.Session`` that does not use the ``config`` that pins specific GPU.
 
 If possible, track down the part of program that uses these additional tf.Sessions and pass the same configuration.
 
@@ -296,7 +296,7 @@ to minimize the amount of memory it will pre-allocate on each GPU:
         pass
 
 
-As a last resort, you can **replace** setting `config.gpu_options.visible_device_list`
+As a last resort, you can **replace** setting ``config.gpu_options.visible_device_list``
 with different code:
 
 .. code-block:: python
@@ -306,19 +306,19 @@ with different code:
     os.environ['CUDA_VISIBLE_DEVICES'] = str(hvd.local_rank())
 
 
-**Note**: Setting `CUDA_VISIBLE_DEVICES` is incompatible with `config.gpu_options.visible_device_list`.
+**Note**: Setting ``CUDA_VISIBLE_DEVICES`` is incompatible with ``config.gpu_options.visible_device_list``.
 
-Setting `CUDA_VISIBLE_DEVICES` has additional disadvantage for GPU version - CUDA will not be able to use IPC, which
+Setting ``CUDA_VISIBLE_DEVICES`` has additional disadvantage for GPU version - CUDA will not be able to use IPC, which
 will likely cause NCCL and MPI to fail.  In order to disable IPC in NCCL and MPI and allow it to fallback to shared
 memory, use:
-* `export NCCL_P2P_DISABLE=1` for NCCL.
-* `--mca btl_smcuda_use_cuda_ipc 0` flag for OpenMPI and similar flags for other vendors.
+* ``export NCCL_P2P_DISABLE=1`` for NCCL.
+* ``--mca btl_smcuda_use_cuda_ipc 0`` flag for OpenMPI and similar flags for other vendors.
 
 **libcudart.so.X.Y: cannot open shared object file: No such file or directory**
 
-If you notice that your program crashes with a `libcudart.so.X.Y: cannot open shared object file: No such file or directory` error, it's likely that your framework and Horovod were build with different versions of CUDA.
+If you notice that your program crashes with a ``libcudart.so.X.Y: cannot open shared object file: No such file or directory`` error, it's likely that your framework and Horovod were build with different versions of CUDA.
 
-To build Horovod with a specific CUDA version, use the `HOROVOD_CUDA_HOME` environment variable during installation:
+To build Horovod with a specific CUDA version, use the ``HOROVOD_CUDA_HOME`` environment variable during installation:
 
 .. code-block:: bash
 
@@ -326,7 +326,7 @@ To build Horovod with a specific CUDA version, use the `HOROVOD_CUDA_HOME` envir
     $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_HOME=/path/to/nccl HOROVOD_CUDA_HOME=/path/to/cuda pip install --no-cache-dir horovod
 
 
-Alternatively, you can use the `HOROVOD_CUDA_INCLUDE` and `HOROVOD_CUDA_LIB` environment variables to specify the CUDA library to use:
+Alternatively, you can use the ``HOROVOD_CUDA_INCLUDE`` and ``HOROVOD_CUDA_LIB`` environment variables to specify the CUDA library to use:
 
 .. code-block:: bash
 
@@ -336,7 +336,7 @@ Alternatively, you can use the `HOROVOD_CUDA_INCLUDE` and `HOROVOD_CUDA_LIB` env
 
 **FORCE-TERMINATE AT Data unpack would read past end of buffer**
 
-If you see the error message below during the training, it's likely that you have a wrong version of `hwloc` installed in your system.
+If you see the error message below during the training, it's likely that you have a wrong version of ``hwloc`` installed in your system.
 
 .. code-block:: bash
 
@@ -350,14 +350,14 @@ If you see the error message below during the training, it's likely that you hav
     [future5.stanford.edu:12508] [[25215,0],1] ORTE_ERROR_LOG: Data unpack would read past end of buffer in file grpcomm_direct.c at line 355
 
 
-Purge `hwloc` from your system:
+Purge ``hwloc`` from your system:
 
 .. code-block:: bash
 
     $ apt purge hwloc-nox libhwloc-dev libhwloc-plugins libhwloc5
 
 
-After `hwloc` is purged, `re-install Open MPI <https://www.open-mpi.org/faq/?category=building#easy-build>`__.
+After ``hwloc`` is purged, `re-install Open MPI <https://www.open-mpi.org/faq/?category=building#easy-build>`__.
 
 See `this issue <https://github.com/open-mpi/ompi/issues/4437>`__ for more details.
 
@@ -393,7 +393,7 @@ If you see the error message below during the training, it's likely that Open MP
     --------------------------------------------------------------------------
 
 
-We recommended reinstalling Open MPI with the `--enable-orterun-prefix-by-default` flag, like so:
+We recommended reinstalling Open MPI with the ``--enable-orterun-prefix-by-default`` flag, like so:
 
 .. code-block:: bash
 

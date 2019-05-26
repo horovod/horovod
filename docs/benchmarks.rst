@@ -10,12 +10,12 @@ Benchmarks
    :alt: 512-GPU Benchmark
 
 
-The above benchmark was done on 128 servers with 4 Pascal GPUs each connected by RoCE-capable 25 Gbit/s network. Horovod
+The above benchmark was done on 128 servers with 4 Pascal GPUs each connected by a RoCE-capable 25 Gbit/s network. Horovod
 achieves 90% scaling efficiency for both Inception V3 and ResNet-101, and 68% scaling efficiency for VGG-16.
 
 To reproduce the benchmarks:
 
-1. Install Horovod using the instructions provided on the `Horovod on GPU <gpus.md>`__ page.
+1. Install Horovod using the instructions provided on the `Horovod on GPU <https://github.com/horovod/horovod/blob/master/docs/gpus.rst>`__ page.
 
 2. Clone `https://github.com/tensorflow/benchmarks <https://github.com/tensorflow/benchmarks>`__
 
@@ -50,7 +50,7 @@ The benchmark instructions above are for the synthetic data benchmark.
 To run the benchmark on a real data, you need to download the `ImageNet dataset <http://image-net.org/download-images>`__
 and convert it using the TFRecord `preprocessing script <https://github.com/tensorflow/models/blob/master/research/inception/inception/data/download_and_preprocess_imagenet.sh>`__.
 
-Now, simply add `--data_dir /path/to/imagenet/tfrecords --data_name imagenet --num_batches=2000` to your training command:
+Now, simply add ``--data_dir /path/to/imagenet/tfrecords --data_name imagenet --num_batches=2000`` to your training command:
 
 .. code-block:: bash
 

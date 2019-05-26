@@ -3,7 +3,7 @@
 Horovod in Spark
 ================
 
-The `horovod.spark` package provides a convenient wrapper around Open
+The ``horovod.spark`` package provides a convenient wrapper around Open
 MPI that makes running Horovod jobs in Spark clusters easy.
 
 In situations where training data originates from Spark, this enables
@@ -51,25 +51,20 @@ A toy example of running a Horovod job in Spark is provided below:
 `keras_spark_rossmann.py script <../examples/keras_spark_rossmann.py>`__ provides
 an example of end-to-end data preparation and training of a model for the
 `Rossmann Store Sales <https://www.kaggle.com/c/rossmann-store-sales>`__ Kaggle
-competition.
+competition. It is inspired by an article `An Introduction to Deep Learning for Tabular Data <https://www.fast.ai/2018/04/29/categorical-embeddings/>`__
+and leverages the code of the notebook referenced in the article. The example is split into three parts:
 
-It is inspired by an article `An Introduction to Deep Learning for Tabular Data <https://www.fast.ai/2018/04/29/categorical-embeddings/>`__
-and leverages the code of the notebook referenced in the article.
-
-The example is split into three parts:
-1. The first part performs complicated data preprocessing over an initial set
-of CSV files provided by the competition and gathered by the community.
-2. The second part defines a Keras model and performs a distributed training
-of the model using Horovod in Spark.
-3. The third part performs prediction using the best model and creates
-a submission file.
+#. The first part performs complicated data preprocessing over an initial set of CSV files provided by the competition and gathered by the community.
+#. The second part defines a Keras model and performs a distributed training of the model using Horovod in Spark.
+#. The third part performs prediction using the best model and creates a submission file.
 
 To run the example, please install the following dependencies:
-* `pyspark`
-* `petastorm >= 0.7.0`
-* `h5py >= 2.9.0`
-* `tensorflow-gpu >= 1.12.0` (or `tensorflow >= 1.12.0`)
-* `horovod >= 0.15.3`
+
+*  ``pyspark``
+*  ``petastorm >= 0.7.0``
+*  ``h5py >= 2.9.0``
+*  ``tensorflow-gpu >= 1.12.0`` (or ``tensorflow >= 1.12.0``)
+*  ``horovod >= 0.15.3``
 
 Run the example:
 
@@ -90,7 +85,7 @@ for DL Spark cluster setup.
 **GPU training**
 
 For GPU training, one approach is to set up a separate GPU Spark cluster
-and configure each executor with `# of CPU cores` = `# of GPUs`. This can
+and configure each executor with ``# of CPU cores`` = ``# of GPUs``. This can
 be accomplished in standalone mode as follows:
 
 .. code-block:: bash
@@ -99,7 +94,7 @@ be accomplished in standalone mode as follows:
     $ /path/to/spark/sbin/start-all.sh
 
 
-This approach turns the `spark.task.cpus` setting to control # of GPUs
+This approach turns the ``spark.task.cpus`` setting to control # of GPUs
 requested per process (defaults to 1).
 
 The ongoing `SPARK-24615 <https://issues.apache.org/jira/browse/SPARK-24615>`__ effort aims to
@@ -107,7 +102,7 @@ introduce GPU-aware resource scheduling in future versions of Spark.
 
 **CPU training**
 
-For CPU training, one approach is to specify the `spark.task.cpus` setting
+For CPU training, one approach is to specify the ``spark.task.cpus`` setting
 during the training session creation:
 
 .. code-block:: python
@@ -132,7 +127,7 @@ security to isolate Horovod jobs from potential attackers**.
 
 **Environment knobs**
 
-* `HOROVOD_SPARK_START_TIMEOUT` - sets the default timeout for Spark tasks to spawn, register, and start running the code.  If executors for Spark tasks are scheduled on-demand and can take a long time to start, it may be useful to increase this timeout on a system level.
+* ``HOROVOD_SPARK_START_TIMEOUT`` - sets the default timeout for Spark tasks to spawn, register, and start running the code.  If executors for Spark tasks are scheduled on-demand and can take a long time to start, it may be useful to increase this timeout on a system level.
 
 
 .. inclusion-marker-end-do-not-remove

@@ -69,7 +69,7 @@ servers with 4 Pascal GPUs each connected by RoCE-capable 25 Gbit/s network:
    :alt: 512-GPU Benchmark
 
 Horovod achieves 90% scaling efficiency for both Inception V3 and ResNet-101, and 68% scaling efficiency for VGG-16.
-See the `Benchmarks <benchmarks_include.html>`_ page to find out how to reproduce these numbers.
+See the `Benchmarks <https://github.com/horovod/horovod/blob/master/docs/benchmarks.rst>`_ page to find out how to reproduce these numbers.
 
 While installing MPI and NCCL itself may seem like an extra hassle, it only needs to be done once by the team dealing
 with infrastructure, while everyone else in the company who builds the models can enjoy the simplicity of training them at
@@ -88,20 +88,20 @@ downgrade to Open MPI 3.1.2 or upgrade to Open MPI 4.0.0.
 
 2. Install the ``horovod`` pip package.
 
-.. code-block:: python
+.. code-block:: bash
 
-    pip install horovod
+    $ pip install horovod
 
 This basic installation is good for laptops and for getting to know Horovod.
-If you're installing Horovod on a server with GPUs, read the `Horovod on GPU <gpus_include.html>`_ page.
-If you want to use Docker, read the `Horovod in Docker <docker_include.html>`_ page.
+If you're installing Horovod on a server with GPUs, read the `Horovod on GPU <https://github.com/horovod/horovod/blob/master/docs/gpus.rst>`_ page.
+If you want to use Docker, read the `Horovod in Docker <https://github.com/horovod/horovod/blob/master/docs/docker.rst>`_ page.
 
 
 Concepts
 --------
 
 Horovod core principles are based on `MPI <http://mpi-forum.org/>`_ concepts such as *size*, *rank*,
-*local rank*, *allreduce*, *allgather* and, *broadcast*. See `this page <concepts_include.html>`_ for more details.
+*local rank*, *allreduce*, *allgather* and, *broadcast*. See `this page <https://github.com/horovod/horovod/blob/master/docs/concepts.rst>`_ for more details.
 
 
 Usage
@@ -177,28 +177,28 @@ Example (see the `examples <examples/>`_ directory for full training examples):
 Running Horovod
 ---------------
 
-The example commands below show how to run distributed training. See the `Running Horovod <running_include.html>`_
+The example commands below show how to run distributed training. See the `Running Horovod <https://github.com/horovod/horovod/blob/master/docs/running.rst>`_
 page for more instructions, including RoCE/InfiniBand tweaks and tips for dealing with hangs.
 
 1. To run on a machine with 4 GPUs:
 
 .. code-block:: bash
 
-    horovodrun -np 4 -H localhost:4 python train.py
+     $ horovodrun -np 4 -H localhost:4 python train.py
 
 2. To run on 4 machines with 4 GPUs each:
 
 .. code-block:: bash
 
-    horovodrun -np 16 -H server1:4,server2:4,server3:4,server4:4 python train.py
+    $ horovodrun -np 16 -H server1:4,server2:4,server3:4,server4:4 python train.py
 
 3. To run using Open MPI without the ``horovodrun`` wrapper, see the `Running Horovod with Open MPI <docs/mpirun.rst>`_ page.
 
-4. To run in Docker, see the `Horovod in Docker <docker_include.html>`_ page.
+4. To run in Docker, see the `Horovod in Docker <https://github.com/horovod/horovod/blob/master/docs/docker.rst>`_ page.
 
 5. To run in Kubernetes, see `Kubeflow <https://github.com/kubeflow/kubeflow/tree/master/kubeflow/mpi-job>`_, `MPI Operator <https://github.com/kubeflow/mpi-operator/>`_, `Helm Chart <https://github.com/kubernetes/charts/tree/master/stable/horovod/>`_, and `FfDL <https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/>`_.
 
-6. To run in Spark, see the `Spark <spark_include.html>`_ page.
+6. To run in Spark, see the `Spark <https://github.com/horovod/horovod/blob/master/docs/spark.rst>`_ page.
 
 Keras
 -----
@@ -349,7 +349,7 @@ You can check for MPI multi-threading support by querying the ``hvd.mpi_threads_
 
 Inference
 ---------
-Learn how to optimize your model for inference and remove Horovod operations from the graph `here <inference_include.html>`_.
+Learn how to optimize your model for inference and remove Horovod operations from the graph `here <https://github.com/horovod/horovod/blob/master/docs/inference.rst>`_.
 
 
 Tensor Fusion
@@ -357,7 +357,7 @@ Tensor Fusion
 One of the unique things about Horovod is its ability to interleave communication and computation coupled with the ability
 to batch small *allreduce* operations, which results in improved performance. We call this batching feature Tensor Fusion.
 
-See `here <tensor-fusion_include.html>`__ for full details and tweaking instructions.
+See `here <https://github.com/horovod/horovod/blob/master/docs/tensor-fusion.rst>`__ for full details and tweaking instructions.
 
 
 Analyzing Horovod Performance
@@ -376,7 +376,7 @@ Guides
 
 Troubleshooting
 ---------------
-See the `Troubleshooting <troubleshooting_include.html>`_ page and please submit a `ticket <https://github.com/uber/horovod/issues/new>`_
+See the `Troubleshooting <https://github.com/horovod/horovod/blob/master/docs/troubleshooting.rst>`_ page and please submit a `ticket <https://github.com/uber/horovod/issues/new>`_
 if you can't find an answer.
 
 
