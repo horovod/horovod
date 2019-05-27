@@ -4,7 +4,7 @@ Welcome to Horovod's documentation!
 .. toctree::
    :maxdepth: 2
 
-   readme_include
+   summary_include
 
    mpirun
 
