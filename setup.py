@@ -81,10 +81,22 @@ def check_mx_version():
             'Your MXNet version is outdated.  Horovod requires mxnet>1.3.0')
 
 
+def check_avx_supported():
+    try:
+        flags_output = subprocess.check_output(
+            'gcc -march=native -E -v - </dev/null 2>&1 | grep cc1',
+            shell=True, universal_newlines=True).strip()
+        flags = shlex.split(flags_output)
+        return '+f16c' in flags and '+avx' in flags
+    except subprocess.CalledProcessError:
+        # Fallback to non-AVX if were not able to get flag information.
+        return False
+
+
 def get_cpp_flags(build_ext):
     last_err = None
     default_flags = ['-std=c++11', '-fPIC', '-O2', '-Wall']
-    avx_flags = ['-mf16c', '-mavx']
+    avx_flags = ['-mf16c', '-mavx'] if check_avx_supported() else []
     if sys.platform == 'darwin':
         # Darwin most likely will have Clang, which has libc++.
         flags_to_try = [default_flags + ['-stdlib=libc++'] + avx_flags,
@@ -592,6 +604,7 @@ def get_common_options(build_ext):
                'horovod/common/mpi_context.cc',
                'horovod/common/operations.cc',
                'horovod/common/parameter_manager.cc',
+               'horovod/common/response_cache.cc',
                'horovod/common/timeline.cc',
                'horovod/common/ops/collective_operations.cc',
                'horovod/common/ops/mpi_operations.cc',
@@ -669,6 +682,8 @@ def build_tf_extension(build_ext, options):
 
 
 def parse_version(version_str):
+    if "dev" in version_str:
+        return 9999999999
     m = re.match('^(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:\.(\d+))?', version_str)
     if m is None:
         return None
@@ -712,10 +727,49 @@ def is_mx_mkldnn():
                 return os.environ.get('MXNET_USE_MKLDNN', '0') == '1'
 
 
+def is_mx_cuda():
+    try:
+        from mxnet import runtime
+        features = runtime.Features()
+        return features.is_enabled('CUDA')
+    except Exception:
+        if 'linux' in sys.platform:
+            try:
+                import mxnet as mx
+                mx_libs = mx.libinfo.find_lib_path()
+                for mx_lib in mx_libs:
+                    output = subprocess.check_output(['readelf', '-d', mx_lib])
+                    if 'cuda' in str(output):
+                        return True
+                return False
+            except Exception:
+                return False
+    return False
+
+
 def build_mx_extension(build_ext, options):
     check_mx_version()
     mx_compile_flags, mx_link_flags = get_mx_flags(
         build_ext, options['COMPILE_FLAGS'])
+
+    mx_have_cuda = is_mx_cuda()
+    macro_have_cuda = check_macro(options['MACROS'], 'HAVE_CUDA')
+    if not mx_have_cuda and macro_have_cuda:
+        raise DistutilsPlatformError(
+            'Horovod build with GPU support was requested, but this MXNet '
+            'installation does not support CUDA.')
+
+    # Update HAVE_CUDA to mean that MXNet supports CUDA. Internally, we will be checking
+    # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
+    # version or transfer tensors to CPU memory for those operations.
+    if mx_have_cuda and not macro_have_cuda:
+        cuda_include_dirs, cuda_lib_dirs = get_cuda_dirs(build_ext, options['COMPILE_FLAGS'])
+        options['MACROS'] += [('HAVE_CUDA', '1')]
+        options['INCLUDES'] += cuda_include_dirs
+        options['SOURCES'] += ['horovod/common/ops/cuda_operations.cc',
+                               'horovod/common/ops/mpi_cuda_operations.cc']
+        options['LIBRARY_DIRS'] += cuda_lib_dirs
+        options['LIBRARIES'] += ['cudart']
 
     mxnet_mpi_lib.define_macros = options['MACROS']
     if check_macro(options['MACROS'], 'HAVE_CUDA'):
@@ -730,7 +784,6 @@ def build_mx_extension(build_ext, options):
     mxnet_mpi_lib.include_dirs = options['INCLUDES']
     mxnet_mpi_lib.sources = options['SOURCES'] + \
         ['horovod/mxnet/mpi_ops.cc',
-         'horovod/mxnet/ready_event.cc',
          'horovod/mxnet/tensor_util.cc',
          'horovod/mxnet/cuda_util.cc',
          'horovod/mxnet/adapter.cc']
@@ -992,14 +1045,18 @@ class custom_build_ext(build_ext):
             raise DistutilsError(
                 'None of TensorFlow, PyTorch, or MXNet plugins were built. See errors above.')
 
+require_list = ['cloudpickle', 'psutil', 'six']
+# Skip cffi if pytorch extension explicitly disabled
+if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
+  require_list.append('cffi>=1.4.0')
 
 setup(name='horovod',
       version=__version__,
       packages=find_packages(),
-      description='Distributed training framework for TensorFlow, Keras, PyTorch, and MXNet.',
-      author='Uber Technologies, Inc.',
+      description='Distributed training framework for TensorFlow, Keras, PyTorch, and Apache MXNet.',
+      author='The Horovod Authors',
       long_description=textwrap.dedent('''\
-          Horovod is a distributed training framework for TensorFlow, Keras, PyTorch, and MXNet.
+          Horovod is a distributed training framework for TensorFlow, Keras, PyTorch, and Apache MXNet.
           The goal of Horovod is to make distributed Deep Learning fast and easy to use.'''),
       url='https://github.com/uber/horovod',
       classifiers=[
@@ -1012,6 +1069,7 @@ setup(name='horovod',
       # If cffi is specified in setup_requires, it will need libffi to be installed on the machine,
       # which is undesirable.  Luckily, `install` action will install cffi before executing build,
       # so it's only necessary for `build*` or `bdist*` actions.
-      setup_requires=['cffi>=1.4.0', 'cloudpickle', 'psutil', 'six'] if is_build_action() else [],
-      install_requires=['cffi>=1.4.0', 'cloudpickle', 'psutil', 'six'],
-      zip_safe=False)
+      setup_requires=require_list if is_build_action() else [],
+      install_requires=require_list,
+      zip_safe=False,
+      scripts=['bin/horovodrun'])

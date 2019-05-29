@@ -25,8 +25,6 @@ namespace horovod {
 namespace common {
 
 struct DDLContext {
-  // Will be set to true after initialization when ddl is used
-  bool ddl_initialized = false;
   int32_t ddl_local_device_id = 0;
 };
 
@@ -37,6 +35,8 @@ public:
                HorovodGlobalState* global_state);
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+
+  static void DDLInit(DDLContext* ddl_context, CUDAContext* cuda_context);
 
 protected:
   DDLContext* ddl_context_;

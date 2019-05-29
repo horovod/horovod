@@ -42,20 +42,7 @@ Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
   InitCUDAQueue(entries, response);
 
   auto& timeline = global_state_->timeline;
-  if (!ddl_context_->ddl_initialized) {
-    // Initialize DDL
-    auto ddl_options = std::getenv("DDL_OPTIONS");
-    if (ddl_options == nullptr) {
-      throw std::logic_error("DDL_OPTIONS env variable needs to be set to use DDL.");
-    }
-
-    auto ddl_result = ddl_init(ddl_options);
-    if (ddl_result != DDL_SUCCESS) {
-      throw std::logic_error("ddl_init failed.");
-    }
-    ddl_context_->ddl_initialized = true;
-    ddl_context_->ddl_local_device_id = first_entry.device;
-  } else if (ddl_context_->ddl_local_device_id != first_entry.device) {
+  if (ddl_context_->ddl_local_device_id != first_entry.device) {
     throw std::logic_error("DDL does not support more than one GPU device per process.");
   }
 
@@ -88,7 +75,7 @@ Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
     auto cuda_result = cudaMemcpyAsync(buffer_data, fused_input_data, buffer_len,
                                        cudaMemcpyDeviceToDevice, *stream_);
     cuda_context_->ErrorCheck("cudaMemcpyAsync", cuda_result);
-    cuda_context_->RecordEvent(event_queue, MEMCPY_IN_FUSION_BUFFER, *stream_);
+    cuda_context_->RecordEvent(event_queue_, MEMCPY_IN_FUSION_BUFFER, *stream_);
   }
 
   // Synchronize.
@@ -111,6 +98,18 @@ Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
   }
 
   return FinalizeCUDAQueue(entries);
+}
+
+void DDLAllreduce::DDLInit(DDLContext* ddl_context, CUDAContext* cuda_context) {
+  auto ddl_options = std::getenv("DDL_OPTIONS");
+  if (ddl_options == nullptr) {
+    throw std::logic_error("DDL_OPTIONS env variable needs to be set to use DDL.");
+  }
+  auto ddl_result = ddl_init(ddl_options);
+  if (ddl_result != DDL_SUCCESS) {
+    throw std::logic_error("ddl_init failed.");
+  }
+  cuda_context->ErrorCheck("cudaGetDevice", cudaGetDevice(&ddl_context->ddl_local_device_id));
 }
 
 } // namespace common

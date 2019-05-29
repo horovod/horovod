@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from horovod.common import check_extension
+from horovod.common.util import check_extension
 
 check_extension('horovod.mxnet', 'HOROVOD_WITH_MXNET',
                 __file__, 'mpi_lib')
@@ -30,12 +30,17 @@ from horovod.mxnet.mpi_ops import size, local_size, rank, local_rank
 from horovod.mxnet.mpi_ops import mpi_threads_supported
 
 import mxnet as mx
+import types
+import warnings
 
 
 # This is where Horovod's DistributedOptimizer wrapper for MXNet goes
 class DistributedOptimizer(mx.optimizer.Optimizer):
     def __init__(self, optimizer):
         self._optimizer = optimizer
+        # Normalizing rescale_grad by Horovod size, which is equivalent to
+        # performing average in allreduce, has better performance.
+        self._optimizer.rescale_grad /= size()
 
     def __getattr__(self, item):
         return getattr(self._optimizer, item)
@@ -46,9 +51,10 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
     def _do_allreduce(self, index, grad):
         if isinstance(index, (tuple, list)):
             for i in range(len(index)):
-                allreduce_(grad[i], average=True, name=str(index[i]))
+                allreduce_(grad[i], average=False,
+                           name=str(index[i]), priority=-i)
         else:
-            allreduce_(grad, average=True, name=str(index))
+            allreduce_(grad, average=False, name=str(index))
 
     def update(self, index, weight, grad, state):
         self._do_allreduce(index, grad)
@@ -66,6 +72,44 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
 
     def set_wd_mult(self, args_wd_mult):
         self._optimizer.set_wd_mult(args_wd_mult)
+
+
+# DistributedTrainer, a subclass of MXNet gluon.Trainer.
+# There are two differences between DistributedTrainer and Trainer:
+# 1. DistributedTrainer calculates gradients using Horovod allreduce
+#    API while Trainer does it using kvstore push/pull APIs;
+# 2. DistributedTrainer performs allreduce(summation) and average
+#    while Trainer only performs allreduce(summation).
+class DistributedTrainer(mx.gluon.Trainer):
+    def __init__(self, params, optimizer, optimizer_params=None):
+        if isinstance(optimizer, DistributedOptimizer):
+            optimizer = optimizer._optimizer
+            warnings.warn("DistributedTrainer does not take DistributedOptimizer "
+                          "as its optimizer. We have unwrapped it for you.")
+
+        super(DistributedTrainer, self).__init__(
+            params, optimizer, optimizer_params=optimizer_params, kvstore=None)
+
+        # _scale is used to check and set rescale_grad for optimizer in Trainer.step()
+        # function. Normalizing it by Horovod size, which is equivalent to performing
+        # average in allreduce, has better performance. 
+        self._scale /= size()
+
+    def _allreduce_grads(self):
+        for i, param in enumerate(self._params):
+            if param.grad_req != 'null':
+                allreduce_(param.list_grad()[0], average=False,
+                           name=str(i), priority=-i)
+
+
+# Wrapper to inject Horovod broadcast after parameter initialization
+def _append_broadcast_init(param, root_rank):
+    init_impl = getattr(param, '_init_impl')
+    def wrapped_init_impl(self, *args, **kwargs):
+        init_impl(*args, **kwargs)
+        broadcast_(self.data(), root_rank=root_rank)
+        self.data().wait_to_read()
+    return wrapped_init_impl
 
 
 def broadcast_parameters(params, root_rank=0):
@@ -89,8 +133,10 @@ def broadcast_parameters(params, root_rank=0):
             try:
                 tensors.append(p.data())
             except mx.gluon.parameter.DeferredInitializationError:
-                # skip broadcasting deferred init param
-                pass
+                # Inject wrapper method with post-initialization broadcast to
+                # handle parameters with deferred initialization
+                new_init = _append_broadcast_init(p, root_rank)
+                p._init_impl = types.MethodType(new_init, p)
     else:
         raise ValueError('invalid params of type: %s' % type(params))
 

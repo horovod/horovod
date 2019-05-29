@@ -43,6 +43,13 @@ void NCCLContext::ErrorCheck(std::string op_name, ncclResult_t nccl_result) {
   }
 }
 
+void NCCLContext::ShutDown(){
+  for(auto it = nccl_comms.begin(); it != nccl_comms.end(); ++it){
+    ncclCommDestroy(it->second);
+  }
+  nccl_comms.clear();
+}
+
 NCCLAllreduce::NCCLAllreduce(NCCLContext* nccl_context,
                              MPIContext* mpi_context,
                              CUDAContext* cuda_context,

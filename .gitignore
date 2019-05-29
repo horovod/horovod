@@ -4,4 +4,10 @@
 horovod.egg-info
 dist
 build
+docs/_build
 .vscode/
+env
+examples/checkpoint*
+examples/checkpoints/
+horovod/tensorflow/mpi_lib.so
+horovod/torch/test_cuda/

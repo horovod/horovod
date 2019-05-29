@@ -80,6 +80,10 @@ public:
   double CycleTimeMs() const;
   void SetCycleTimeMs(double cycle_time_ms, bool fixed=false);
 
+  // Enable response caching.
+  bool CacheEnabled() const;
+  void SetCacheEnabled (bool enabled, bool fixed=false);
+
   // Observes that the given tensors have been processed (e.g., allreduced) over the given number of microseconds.
   //
   // Args:
@@ -208,6 +212,7 @@ private:
 
   CategoricalParameter<bool> hierarchical_allreduce_;
   CategoricalParameter<bool> hierarchical_allgather_;
+  CategoricalParameter<bool> cache_enabled_;
   BayesianParameter joint_params_;
 
   std::vector<ITunableParameter*> parameter_chain_;
@@ -230,6 +235,7 @@ private:
   struct Params {
     bool hierarchical_allreduce;
     bool hierarchical_allgather;
+    bool cache_enabled;
     double tensor_fusion_threshold;
     double cycle_time;
     bool active;
