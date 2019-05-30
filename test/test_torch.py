@@ -1223,3 +1223,64 @@ class TorchTests(unittest.TestCase):
 
             # Step 2: train discriminator.
             train_step(train_discriminator=True)
+
+    def test_gradient_clipping(self):
+        """Test gradient clipping example."""
+        hvd.init()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        x = torch.ones(1, 1).requires_grad_()
+        y = torch.ones(1, 1).requires_grad_()
+
+        model = torch.nn.Linear(1, 1)
+        model.weight = torch.nn.Parameter(torch.zeros(1, 1) + 0.5)
+        model.bias = torch.nn.Parameter(torch.zeros(1))
+        hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+        optimizer = hvd.DistributedOptimizer(
+            optimizer, named_parameters=model.named_parameters())
+
+        y_pred = model(x)
+        loss = F.mse_loss(y_pred, y)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.synchronize()
+        prior_grad = model.weight.grad.item()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+        clipped_grad = model.weight.grad.item()
+        assert abs(prior_grad) > abs(clipped_grad)
+        optimizer.step(synchronize=False)
+
+    def test_synchronize_step_warning(self):
+        """Test that .synchronize() followed by .step(synchronize=True) will produce a warning."""
+        hvd.init()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        x = torch.zeros(1, 1).requires_grad_()
+        y = torch.ones(1, 1).requires_grad_()
+
+        model = torch.nn.Linear(1, 1)
+        hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+        optimizer = hvd.DistributedOptimizer(
+            optimizer, named_parameters=model.named_parameters())
+
+        y_pred = model(x)
+        loss = F.mse_loss(y_pred, y)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.synchronize()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+        with warnings.catch_warnings(record=True) as ws:
+            optimizer.step(synchronize=True)
+            assert len(ws) == 1
+            assert 'optimizer.step(synchronize=True) called after optimizer.synchronize()' \
+                in str(ws[0].message)
