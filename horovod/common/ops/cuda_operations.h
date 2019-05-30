@@ -22,7 +22,7 @@
 
 #if HAVE_CUDA
 #include <cuda_runtime.h>
-#elif HAVE_HIP
+#elif HAVE_ROCM
 #include <hip/hip_runtime_api.h>
 // local hipify
 #define cudaDeviceGetStreamPriorityRange hipDeviceGetStreamPriorityRange
@@ -37,6 +37,8 @@
 #define cudaGetErrorString hipGetErrorString
 #define cudaMemcpyAsync hipMemcpyAsync
 #define cudaMemcpyDeviceToDevice hipMemcpyDeviceToDevice
+#define cudaMemcpyDeviceToHost hipMemcpyDeviceToHost
+#define cudaMemcpyHostToDevice hipMemcpyHostToDevice
 #define cudaSetDevice hipSetDevice
 #define cudaStreamCreateWithPriority hipStreamCreateWithPriority
 #define cudaStreamNonBlocking hipStreamNonBlocking
@@ -44,7 +46,7 @@
 #define cudaStream_t hipStream_t
 #define cudaSuccess hipSuccess
 #else
-#error Must define either HAVE_CUDA or HAVE_HIP
+#error Must define either HAVE_CUDA or HAVE_ROCM
 #endif
 
 #include "collective_operations.h"

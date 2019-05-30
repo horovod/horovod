@@ -42,7 +42,7 @@
 #include "timeline.h"
 #include "logging.h"
 
-#if HAVE_CUDA || HAVE_HIP
+#if HAVE_CUDA || HAVE_ROCM
 #include "ops/cuda_operations.h"
 #include "ops/mpi_cuda_operations.h"
 #endif
@@ -91,7 +91,7 @@ HorovodGlobalState horovod_global;
 
 MPIContext mpi_context;
 
-#if HAVE_CUDA || HAVE_HIP
+#if HAVE_CUDA || HAVE_ROCM
 CUDAContext cuda_context;
 #endif
 
@@ -130,7 +130,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   std::vector<std::shared_ptr<AllgatherOp>> allgather_ops;
   std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops;
 
-#if HAVE_CUDA || HAVE_HIP
+#if HAVE_CUDA || HAVE_ROCM
 #if HOROVOD_GPU_ALLREDUCE == 'M'
   allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new MPI_CUDAAllreduce(&mpi_context, &cuda_context, &state)));
 

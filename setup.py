@@ -327,21 +327,6 @@ def get_mpi_flags():
             '%s' % (show_command, traceback.format_exc()))
 
 
-def get_hip_cpp_flags():
-    hipconfig_command = os.environ.get('HOROVOD_HIPCONFIG_CPP_CONFIG', 'hipconfig --cpp_config')
-    try:
-        hipconfig_output = subprocess.check_output(
-            shlex.split(hipconfig_command), universal_newlines=True).strip()
-        hipconfig_args = shlex.split(hipconfig_output)
-        return hipconfig_args
-    except Exception:
-        raise DistutilsPlatformError(
-            '%s failed (see error below), is hipconfig in $PATH?\n'
-            'Note: If your version of HIP has a custom command to show platform flags, '
-            'please specify it with the HOROVOD_HIPCONFIG_PLATFORM environment variable.\n\n'
-            '%s' % (platform_command, traceback.format_exc()))
-
-
 def test_compile(build_ext, name, code, libraries=None, include_dirs=None, library_dirs=None,
                  macros=None, extra_compile_preargs=None, extra_link_preargs=None):
     test_compile_dir = os.path.join(build_ext.build_temp, 'test_compile')
@@ -410,16 +395,27 @@ def get_cuda_dirs(build_ext, cpp_flags):
     return cuda_include_dirs, cuda_lib_dirs
 
 
-def test_hip_compile(build_ext, cpp_flags):
-    hip_include_dirs = []
-    hip_lib_dirs = []
-    hip_cpp_flags = cpp_flags[:]
-    hip_cpp_flags.extend(get_hip_cpp_flags())
-    hip_libraries = []
+def get_rocm_dirs(build_ext, cpp_flags):
+    rocm_include_dirs = []
+    rocm_lib_dirs = []
+    rocm_libs = ['hip_hcc']
+    rocm_macros = [('__HIP_PLATFORM_HCC__',1)]
+
+    rocm_path = os.environ.get('HOROVOD_ROCM_PATH', '/opt/rocm')
+    rocm_include_dirs += [
+            '%s/include' % rocm_path,
+            '%s/hcc/include' % rocm_path,
+            '%s/hip/include' % rocm_path,
+            '%s/hsa/include' % rocm_path,
+            ]
+    rocm_lib_dirs += [
+            '%s/lib' % rocm_path,
+            ]
 
     try:
-        test_compile(build_ext, 'test_hip', libraries=hip_libraries, include_dirs=hip_include_dirs,
-                     library_dirs=hip_lib_dirs, extra_compile_preargs=hip_cpp_flags, code=textwrap.dedent('''\
+        test_compile(build_ext, 'test_hip', libraries=rocm_libs, include_dirs=rocm_include_dirs,
+                     library_dirs=rocm_lib_dirs, extra_compile_preargs=cpp_flags, macros=rocm_macros,
+                     code=textwrap.dedent('''\
             #include <hip/hip_runtime.h>
             void test() {
                 hipSetDevice(0);
@@ -427,11 +423,13 @@ def test_hip_compile(build_ext, cpp_flags):
             '''))
     except (CompileError, LinkError):
         raise DistutilsPlatformError(
-            'HIP library was not found (see error above).\n'
-            'Please specify correct hipconfig location in your PATH')
+            'HIP library and/or ROCm header files not found (see error above).\n'
+            'Please specify correct ROCm location with the HOROVOD_ROCM_PATH environment variable')
+
+    return rocm_include_dirs, rocm_lib_dirs, rocm_macros
 
 
-def get_nccl_vals(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
+def get_nccl_vals(build_ext, cuda_include_dirs, cuda_lib_dirs, cuda_macros, cpp_flags, have_rocm):
     nccl_include_dirs = []
     nccl_lib_dirs = []
     nccl_libs = []
@@ -449,17 +447,22 @@ def get_nccl_vals(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
     if nccl_lib_dir:
         nccl_lib_dirs += [nccl_lib_dir]
 
-    nccl_link_mode = os.environ.get('HOROVOD_NCCL_LINK', 'STATIC')
+    nccl_link_mode = os.environ.get('HOROVOD_NCCL_LINK', have_rocm and 'SHARED' or 'STATIC')
     if nccl_link_mode.upper() == 'SHARED':
-        nccl_libs += ['nccl']
+        if have_rocm:
+            nccl_libs += ['rccl']
+        else:
+            nccl_libs += ['nccl']
     else:
         nccl_libs += ['nccl_static']
+        if have_rocm:
+            raise DistutilsPlatformError('RCCL must be a shared library')
 
     try:
         test_compile(build_ext, 'test_nccl', libraries=nccl_libs, include_dirs=nccl_include_dirs + cuda_include_dirs,
-                     library_dirs=nccl_lib_dirs + cuda_lib_dirs, extra_compile_preargs=cpp_flags,
+                     library_dirs=nccl_lib_dirs + cuda_lib_dirs, extra_compile_preargs=cpp_flags, macros=cuda_macros,
                      code=textwrap.dedent('''\
-            #include <nccl.h>
+            #include <%s>
             #if NCCL_MAJOR < 2
             #error Horovod requires NCCL 2.0 or later version, please upgrade.
             #endif
@@ -467,7 +470,7 @@ def get_nccl_vals(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
                 ncclUniqueId nccl_id;
                 ncclGetUniqueId(&nccl_id);
             }
-            '''))
+            '''%(have_rocm and 'rccl.h' or 'nccl.h')))
     except (CompileError, LinkError):
         raise DistutilsPlatformError(
             'NCCL 2.0 library or its later version was not found (see error above).\n'
@@ -548,12 +551,12 @@ def get_common_options(build_ext):
                              'values are "", "MPI".' % gpu_broadcast)
 
     have_cuda = False
-    have_hip = False
-    cuda_include_dirs = cuda_lib_dirs = []
+    have_rocm = False
+    cuda_include_dirs = cuda_lib_dirs = cuda_macros = []
     if gpu_allreduce or gpu_allgather or gpu_broadcast:
-        if os.environ.get('HOROVOD_GPU_HIP'):
-            have_hip = True
-            test_hip_compile(build_ext, cpp_flags)
+        if os.environ.get('HOROVOD_GPU_ROCM'):
+            have_rocm = True
+            cuda_include_dirs, cuda_lib_dirs, cuda_macros = get_rocm_dirs(build_ext, cpp_flags)
         else:
             have_cuda = True
             cuda_include_dirs, cuda_lib_dirs = get_cuda_dirs(build_ext, cpp_flags)
@@ -561,7 +564,7 @@ def get_common_options(build_ext):
     if gpu_allreduce == 'NCCL':
         have_nccl = True
         nccl_include_dirs, nccl_lib_dirs, nccl_libs = get_nccl_vals(
-            build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags)
+            build_ext, cuda_include_dirs, cuda_lib_dirs, cuda_macros, cpp_flags, have_rocm)
     else:
         have_nccl = False
         nccl_include_dirs = nccl_lib_dirs = nccl_libs = []
@@ -625,11 +628,13 @@ def get_common_options(build_ext):
         LIBRARY_DIRS += cuda_lib_dirs
         LIBRARIES += ['cudart']
 
-    if have_hip:
-        MACROS += [('HAVE_HIP', '1')]
+    if have_rocm:
+        MACROS += [('HAVE_ROCM', '1')] + cuda_macros
+        INCLUDES += cuda_include_dirs
         SOURCES += ['horovod/common/ops/cuda_operations.cc',
                     'horovod/common/ops/mpi_cuda_operations.cc']
-        COMPILE_FLAGS += get_hip_cpp_flags()
+        LIBRARY_DIRS += cuda_lib_dirs
+        LIBRARIES += ['hip_hcc']
 
     if have_nccl:
         MACROS += [('HAVE_NCCL', '1')]
