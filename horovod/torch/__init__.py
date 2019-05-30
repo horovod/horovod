@@ -70,6 +70,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             self._parameter_names = {v: 'allreduce.noname.%s' % i
                                      for param_group in self.param_groups
                                      for i, v in enumerate(param_group['params'])}
+            # named_parameters = [(k, v) for v, k in self._parameter_names.items()]
         self.backward_passes_per_step = backward_passes_per_step
         self._allreduce_delay = {v: self.backward_passes_per_step
                                  for _, v in sorted(named_parameters)}
