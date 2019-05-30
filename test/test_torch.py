@@ -1301,13 +1301,11 @@ class TorchTests(unittest.TestCase):
             def __init__(self):
                 super(Net, self).__init__()
                 # Place parts of model on different GPUs.
-                self.conv1 = torch.nn.Conv2d(1, 100, 1).cuda(first_device)
-                self.conv2 = torch.nn.Conv2d(100, 1, 1).cuda(second_device)
+                self.conv1 = torch.nn.Conv2d(1, 100, 1)
+                self.conv2 = torch.nn.Conv2d(100, 1, 1)
 
             def forward(self, x):
-                x = x.cuda(first_device)
                 x = self.conv1(x)
-                x = x.cuda(second_device)
                 x = self.conv2(x)
                 return x
 
