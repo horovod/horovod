@@ -1300,7 +1300,6 @@ class TorchTests(unittest.TestCase):
         class Net(torch.nn.Module):
             def __init__(self):
                 super(Net, self).__init__()
-                # Place parts of model on different GPUs.
                 self.conv1 = torch.nn.Conv2d(1, 100, 1)
                 self.conv2 = torch.nn.Conv2d(100, 1, 1)
 
