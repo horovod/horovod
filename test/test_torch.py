@@ -1,4 +1,5 @@
 # Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
+# Modifications copyright (C) 2019 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,6 +36,8 @@ from common import mpi_env_rank_and_size
 
 _fp16_supported = LooseVersion(torch.__version__) >= LooseVersion('1.0.0')
 
+# MLSL supports only byte, float and double data types
+mlsl_supported_types = set([torch.FloatTensor, torch.DoubleTensor])
 
 class TorchTests(unittest.TestCase):
     """
@@ -61,6 +64,11 @@ class TorchTests(unittest.TestCase):
             return tensor.cuda(hvd.local_rank()).type(dtype)
         return tensor.type(dtype)
 
+    def filter_supported_types(self, types):
+        if 'MLSL_ROOT' in os.environ:
+           types = [t for t in types if t in mlsl_supported_types]
+        return types
+
     def test_horovod_rank(self):
         """Test that the rank returned by hvd.rank() is correct."""
         true_rank, _ = mpi_env_rank_and_size()
@@ -79,10 +87,10 @@ class TorchTests(unittest.TestCase):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        dtypes = [torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor]
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                     torch.FloatTensor, torch.DoubleTensor])
         if _fp16_supported:
-            dtypes += [torch.HalfTensor]
+            dtypes += self.filter_supported_types([torch.HalfTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -116,8 +124,8 @@ class TorchTests(unittest.TestCase):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        dtypes = [torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor]
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                     torch.FloatTensor, torch.DoubleTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -149,10 +157,10 @@ class TorchTests(unittest.TestCase):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        dtypes = [torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor]
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                     torch.FloatTensor, torch.DoubleTensor])
         if _fp16_supported:
-            dtypes += [torch.HalfTensor]
+            dtypes += self.filter_supported_types([torch.HalfTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -187,10 +195,10 @@ class TorchTests(unittest.TestCase):
         with Tensor Fusion."""
         hvd.init()
         size = hvd.size()
-        dtypes = [torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor]
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                  torch.FloatTensor, torch.DoubleTensor])
         if _fp16_supported:
-            dtypes += [torch.HalfTensor]
+            dtypes += self.filter_supported_types([torch.HalfTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -1284,3 +1292,6 @@ class TorchTests(unittest.TestCase):
             assert len(ws) == 1
             assert 'optimizer.step(synchronize=True) called after optimizer.synchronize()' \
                 in str(ws[0].message)
+
+if __name__ == "__main__":
+   unittest.main()

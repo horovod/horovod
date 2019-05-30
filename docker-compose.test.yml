@@ -129,6 +129,16 @@ services:
         KERAS_PACKAGE: keras==2.2.2
         PYTORCH_PACKAGE: torch==1.0.0
         PYSPARK_PACKAGE: pyspark==2.4.0
+  test-cpu-mlsl-py3_6-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_0-pyspark2_4_0:
+    extends: test-cpu-base
+    build:
+      args:
+        MPI_KIND: MLSL
+        PYTHON_VERSION: 3.6
+        TENSORFLOW_PACKAGE: tensorflow==1.12.0
+        KERAS_PACKAGE: keras==2.2.2
+        PYTORCH_PACKAGE: torch==1.0.0
+        PYSPARK_PACKAGE: pyspark==2.4.0
 
   test-gpu-base:
     build:

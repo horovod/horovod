@@ -1,5 +1,6 @@
 # Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 # Modifications copyright (C) 2018 Uber Technologies, Inc.
+# Modifications copyright (C) 2019 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +28,7 @@ import tensorflow as tf
 from horovod.tensorflow.util import _executing_eagerly, _has_eager
 from tensorflow.python.framework import ops
 import warnings
+import os
 
 import horovod.tensorflow as hvd
 
@@ -34,6 +36,9 @@ from common import mpi_env_rank_and_size
 
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
+
+# MLSL supports only byte, float and double data types
+mlsl_supported_types = set([tf.float32, tf.float64])
 
 
 class MPITests(tf.test.TestCase):
@@ -57,6 +62,11 @@ class MPITests(tf.test.TestCase):
         else:
             return sess.run(tensors)
 
+    def filter_supported_types(self, types):
+        if 'MLSL_ROOT' in os.environ:
+           types = [t for t in types if t in mlsl_supported_types]
+        return types
+
     def test_horovod_rank(self):
         """Test that the rank returned by hvd.rank() is correct."""
         true_rank, _ = mpi_env_rank_and_size()
@@ -75,7 +85,7 @@ class MPITests(tf.test.TestCase):
         """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
@@ -106,7 +116,7 @@ class MPITests(tf.test.TestCase):
         with Tensor Fusion."""
         hvd.init()
         size = hvd.size()
-        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
         dims = [1, 2, 3]
         tests = []
         for dtype, dim in itertools.product(dtypes, dims):

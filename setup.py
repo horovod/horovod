@@ -35,6 +35,8 @@ torch_mpi_lib_impl = Extension('horovod.torch.mpi_lib_impl', [])
 torch_mpi_lib_v2 = Extension('horovod.torch.mpi_lib_v2', [])
 mxnet_mpi_lib = Extension('horovod.mxnet.mpi_lib', [])
 
+mlsl_root = os.environ.get('MLSL_ROOT')
+have_mlsl = mlsl_root is not None
 
 def is_build_action():
     if len(sys.argv) <= 1:
@@ -576,6 +578,13 @@ def get_common_options(build_ext):
     LINK_FLAGS = link_flags + shlex.split(mpi_flags)
     LIBRARY_DIRS = []
     LIBRARIES = []
+
+    if have_mlsl:
+        MACROS += [('HAVE_MLSL', '1')]
+        INCLUDES += [mlsl_root + '/intel64/include/']
+        SOURCES += ['horovod/common/ops/mlsl_operations.cc']
+        LIBRARY_DIRS += [mlsl_root + '/intel64/lib/']
+        LINK_FLAGS += ['-lmlsl']
 
     if have_cuda:
         MACROS += [('HAVE_CUDA', '1')]

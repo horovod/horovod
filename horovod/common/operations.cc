@@ -1,6 +1,7 @@
 // Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 // Modifications copyright (C) 2019 Uber Technologies, Inc.
 // Modifications copyright (C) 2019, NVIDIA CORPORATION. All rights reserved.
+// Modifications copyright (C) 2019 Intel Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -55,6 +56,10 @@
 #include "ops/ddl_operations.h"
 #endif
 
+#if HAVE_MLSL
+#include "ops/mlsl_operations.h"
+#endif
+
 /*
  * Allreduce, Allgather and Broadcast Ops.
  *
@@ -103,6 +108,10 @@ NCCLContext nccl_context;
 DDLContext ddl_context;
 #endif
 
+#if HAVE_MLSL
+MLSLContext mlsl_context;
+#endif
+
 std::unique_ptr<OperationManager> op_manager;
 
 // For clarify in argument lists.
@@ -149,10 +158,16 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #endif
 #endif
 
+#if HAVE_MLSL
+  allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new MLSLAllreduce(&mlsl_context, &state)));
+  allgather_ops.push_back(std::shared_ptr<AllgatherOp>(new MLSLAllgather(&mlsl_context, &mpi_context, &state)));
+  broadcast_ops.push_back(std::shared_ptr<BroadcastOp>(new MLSLBroadcast(&mlsl_context, &state)));
+#else
   // Default operations, always enabled but last to be checked.
   allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpi_context, &state)));
   allgather_ops.push_back(std::shared_ptr<AllgatherOp>(new MPIAllgather(&mpi_context, &state)));
   broadcast_ops.push_back(std::shared_ptr<BroadcastOp>(new MPIBroadcast(&mpi_context, &state)));
+#endif
   std::shared_ptr<ErrorOp> error_op(new ErrorOp(&state));
 
   return new OperationManager(&state.param_manager, allreduce_ops, allgather_ops, broadcast_ops, error_op);
@@ -854,6 +869,7 @@ void CoordinateCacheAndState(CacheCoordinator& cache_coordinator,
 //      otherwise we may end up dispatching many blocked threads and never make
 //      progress if we have a thread pool limit.
 bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator);
+
 void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
   // Initialize MPI if it was not initialized. This must happen on the
   // background thread, since not all MPI implementations support being called
@@ -921,6 +937,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
   // Get MPI size to determine how many tensors to wait for before reducing.
   int size;
   MPI_Comm_size(ctx.mpi_comm, &size);
+#if HAVE_MLSL
+  mlsl_context.Init(size);
+#endif
   if (is_coordinator) {
     LOG(INFO) << "Started Horovod with " << size << " processes";
   }
@@ -1101,6 +1120,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
   while (RunLoopOnce(state, ctx, is_coordinator))
     ;
 
+#if HAVE_MLSL
+  mlsl_context.Finalize();
+#endif
   LOG(DEBUG, rank) << "Shutting down background thread";
 
   // Signal that shutdown has been requested.
@@ -1587,6 +1609,8 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
   while (!horovod_global.initialization_done) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
+
+  LOG(DEBUG) << "Background thread init done";
 }
 
 } // namespace

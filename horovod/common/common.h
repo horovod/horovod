@@ -1,4 +1,5 @@
 // Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
+// Modifications copyright (C) 2019 Intel Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,6 +50,9 @@ namespace common {
 #define NCCL_BCAST "NCCL_BCAST"
 #define COPY_ALLGATHER_OUTPUT "COPY_ALLGATHER_OUTPUT"
 #define ALLOCATE_SHARED_BUFFER "ALLOCATE_SHARED_BUFFER"
+#define MLSL_ALLREDUCE "MLSL_ALLREDUCE"
+#define MLSL_ALLGATHER "MLSL_ALLGATHER"
+#define MLSL_BCAST "MLSL_BCAST"
 
 // Device ID used for CPU.
 #define CPU_DEVICE_ID (-1)
