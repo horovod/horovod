@@ -1283,4 +1283,4 @@ class TorchTests(unittest.TestCase):
             optimizer.step(synchronize=True)
             assert len(ws) == 1
             assert 'optimizer.step(synchronize=True) called after optimizer.synchronize()' \
-                in ws[0].message.message
+                in str(ws[0].message)
