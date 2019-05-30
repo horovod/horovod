@@ -19,8 +19,8 @@ assignees: ''
 
 **Checklist:**
 1. Did you search issues to find if somebody asked this question before?
-2. If your question is about hang, did you read [this doc](https://github.com/horovod/horovod/blob/master/docs/running.md)?
-3. If your question is about docker, did you read [this doc](https://github.com/horovod/horovod/blob/master/docs/docker.md)?
+2. If your question is about hang, did you read [this doc](https://github.com/horovod/horovod/blob/master/docs/running.rst)?
+3. If your question is about docker, did you read [this doc](https://github.com/horovod/horovod/blob/master/docs/docker.rst)?
 
 **Your question:**
 Please ask your question here.
