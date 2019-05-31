@@ -28,6 +28,8 @@ from mxnet.test_utils import same
 
 has_gpu = mx.context.num_gpus() > 0
 
+# MLSL supports only byte, float and double data types
+mlsl_supported_types = set(['float32', 'float64'])
 
 class MXTests(unittest.TestCase):
     """
@@ -40,12 +42,17 @@ class MXTests(unittest.TestCase):
         else:
             return mx.current_context()
 
+    def filter_supported_types(self, types):
+        if 'MLSL_ROOT' in os.environ:
+           types = [t for t in types if t in mlsl_supported_types]
+        return types
+
     def test_horovod_allreduce(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        dtypes = ['int32',   'int64',
-                  'float32', 'float64']
+        dtypes = self.filter_supported_types(['int32',   'int64',
+                                              'float32', 'float64'])
         dims = [1, 2, 3]
         ctx = self._current_context()
         count = 0
@@ -86,8 +93,8 @@ class MXTests(unittest.TestCase):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        dtypes = ['int32',   'int64',
-                  'float32', 'float64']
+        dtypes = self.filter_supported_types(['int32',   'int64',
+                                              'float32', 'float64'])
         dims = [1, 2, 3]
         ctx = self._current_context()
         count = 0
@@ -125,8 +132,8 @@ class MXTests(unittest.TestCase):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        dtypes = ['int32',   'int64',
-                  'float32', 'float64'] 
+        dtypes = self.filter_supported_types(['int32',   'int64',
+                                              'float32', 'float64'])
         dims = [1, 2, 3]
         ctx = self._current_context()
         count = 0

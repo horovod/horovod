@@ -1,4 +1,5 @@
 # Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
+# Modifications copyright (C) 2019 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,6 +36,8 @@ from common import mpi_env_rank_and_size
 
 _fp16_supported = LooseVersion(torch.__version__) >= LooseVersion('1.0.0')
 
+# MLSL supports only byte, float and double data types
+mlsl_supported_types = set([torch.FloatTensor, torch.DoubleTensor])
 
 class TorchTests(unittest.TestCase):
     """
@@ -61,6 +64,11 @@ class TorchTests(unittest.TestCase):
             return tensor.cuda(hvd.local_rank()).type(dtype)
         return tensor.type(dtype)
 
+    def filter_supported_types(self, types):
+        if 'MLSL_ROOT' in os.environ:
+           types = [t for t in types if t in mlsl_supported_types]
+        return types
+
     def test_horovod_rank(self):
         """Test that the rank returned by hvd.rank() is correct."""
         true_rank, _ = mpi_env_rank_and_size()
@@ -79,10 +87,10 @@ class TorchTests(unittest.TestCase):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        dtypes = [torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor]
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                     torch.FloatTensor, torch.DoubleTensor])
         if _fp16_supported:
-            dtypes += [torch.HalfTensor]
+            dtypes += self.filter_supported_types([torch.HalfTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -116,8 +124,8 @@ class TorchTests(unittest.TestCase):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        dtypes = [torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor]
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                     torch.FloatTensor, torch.DoubleTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -149,10 +157,10 @@ class TorchTests(unittest.TestCase):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        dtypes = [torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor]
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                     torch.FloatTensor, torch.DoubleTensor])
         if _fp16_supported:
-            dtypes += [torch.HalfTensor]
+            dtypes += self.filter_supported_types([torch.HalfTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -187,10 +195,10 @@ class TorchTests(unittest.TestCase):
         with Tensor Fusion."""
         hvd.init()
         size = hvd.size()
-        dtypes = [torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor]
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                  torch.FloatTensor, torch.DoubleTensor])
         if _fp16_supported:
-            dtypes += [torch.HalfTensor]
+            dtypes += self.filter_supported_types([torch.HalfTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -1223,3 +1231,67 @@ class TorchTests(unittest.TestCase):
 
             # Step 2: train discriminator.
             train_step(train_discriminator=True)
+
+    def test_gradient_clipping(self):
+        """Test gradient clipping example."""
+        hvd.init()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        x = torch.ones(1, 1).requires_grad_()
+        y = torch.ones(1, 1).requires_grad_()
+
+        model = torch.nn.Linear(1, 1)
+        model.weight = torch.nn.Parameter(torch.zeros(1, 1) + 0.5)
+        model.bias = torch.nn.Parameter(torch.zeros(1))
+        hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+        optimizer = hvd.DistributedOptimizer(
+            optimizer, named_parameters=model.named_parameters())
+
+        y_pred = model(x)
+        loss = F.mse_loss(y_pred, y)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.synchronize()
+        prior_grad = model.weight.grad.item()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+        clipped_grad = model.weight.grad.item()
+        assert abs(prior_grad) > abs(clipped_grad)
+        optimizer.step(synchronize=False)
+
+    def test_synchronize_step_warning(self):
+        """Test that .synchronize() followed by .step(synchronize=True) will produce a warning."""
+        hvd.init()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        x = torch.zeros(1, 1).requires_grad_()
+        y = torch.ones(1, 1).requires_grad_()
+
+        model = torch.nn.Linear(1, 1)
+        hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+        optimizer = hvd.DistributedOptimizer(
+            optimizer, named_parameters=model.named_parameters())
+
+        y_pred = model(x)
+        loss = F.mse_loss(y_pred, y)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.synchronize()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+        with warnings.catch_warnings(record=True) as ws:
+            optimizer.step(synchronize=True)
+            assert len(ws) == 1
+            assert 'optimizer.step(synchronize=True) called after optimizer.synchronize()' \
+                in str(ws[0].message)
+
+if __name__ == "__main__":
+   unittest.main()

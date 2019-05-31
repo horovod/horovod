@@ -3,6 +3,7 @@ FROM nvidia/cuda:9.0-devel-ubuntu16.04
 # TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
 ENV TENSORFLOW_VERSION=1.12.0
 ENV PYTORCH_VERSION=1.1.0
+ENV TORCHVISION_VERSION=0.2.2.post3
 ENV CUDNN_VERSION=7.4.1.5-1+cuda9.0
 ENV NCCL_VERSION=2.3.7-1+cuda9.0
 ENV MXNET_VERSION=1.4.1
@@ -34,7 +35,7 @@ RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
     rm get-pip.py
 
 # Install TensorFlow, Keras, PyTorch and MXNet
-RUN pip install 'numpy<1.15.0' tensorflow-gpu==${TENSORFLOW_VERSION} keras h5py torch==${PYTORCH_VERSION} torchvision mxnet-cu90==${MXNET_VERSION}
+RUN pip install 'numpy<1.15.0' tensorflow-gpu==${TENSORFLOW_VERSION} keras h5py torch==${PYTORCH_VERSION} torchvision==${TORCHVISION_VERSION} mxnet-cu90==${MXNET_VERSION}
 
 # Install Open MPI
 RUN mkdir /tmp/openmpi && \

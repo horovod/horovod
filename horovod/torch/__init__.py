@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import warnings
+
 from horovod.common.util import check_extension
 
 try:
@@ -74,6 +76,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         self._handles = {}
         self._grad_accs = []
         self._requires_update = set()
+        self._synchronized = False
         if size() > 1:
             self._register_hooks()
 
@@ -146,8 +149,18 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             p.grad.set_(self._compression.decompress(output, ctx))
         self._handles.clear()
 
-    def step(self, closure=None):
-        self.synchronize()
+        self._synchronized = True
+
+    def step(self, closure=None, synchronize=True):
+        if synchronize:
+            if self._synchronized:
+                warnings.warn("optimizer.step(synchronize=True) called after "
+                              "optimizer.synchronize(). This can cause training "
+                              "slowdown. You may want to consider using "
+                              "optimizer.step(synchronize=False) if you use "
+                              "optimizer.synchronize() in your code.")
+            self.synchronize()
+        self._synchronized = False
         return super(self.__class__, self).step(closure)
 
 
@@ -165,6 +178,8 @@ def DistributedOptimizer(optimizer, named_parameters=None,
     DistributedOptimizer exposes the `synchronize()` method, which forces allreduce operations
     to finish before continuing the execution. It's useful in conjunction with gradient
     clipping, or other operations that modify gradients in place before `step()` is executed.
+    Make sure to pass `synchronize=False` to `step()` method if you're calling `synchronize()`
+    in your code.
 
     Example of gradient clipping:
     ```
@@ -172,8 +187,8 @@ def DistributedOptimizer(optimizer, named_parameters=None,
     loss = F.nll_loss(output, target)
     loss.backward()
     optimizer.synchronize()
-    torch.nn.utils.clip_grad_norm(model.parameters(), args.clip)
-    optimizer.step()
+    torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
+    optimizer.step(synchronize=False)
     ```
 
     Arguments:
