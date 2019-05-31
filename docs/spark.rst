@@ -46,8 +46,8 @@ A toy example of running a Horovod job in Spark is provided below:
     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
     >>>
 
-**End-to-end example**
-
+End-to-end example
+~~~~~~~~~~~~~~~~~~
 `keras_spark_rossmann.py script <../examples/keras_spark_rossmann.py>`__ provides
 an example of end-to-end data preparation and training of a model for the
 `Rossmann Store Sales <https://www.kaggle.com/c/rossmann-store-sales>`__ Kaggle
@@ -76,14 +76,14 @@ Run the example:
     $ python keras_spark_rossmann.py
 
 
-**Spark cluster setup**
-
+Spark cluster setup
+~~~~~~~~~~~~~~~~~~~
 As deep learning workloads tend to have very different resource requirements
 from typical data processing workloads, there are certain considerations
 for DL Spark cluster setup.
 
-**GPU training**
-
+GPU training
+~~~~~~~~~~~~
 For GPU training, one approach is to set up a separate GPU Spark cluster
 and configure each executor with ``# of CPU cores`` = ``# of GPUs``. This can
 be accomplished in standalone mode as follows:
@@ -100,8 +100,8 @@ requested per process (defaults to 1).
 The ongoing `SPARK-24615 <https://issues.apache.org/jira/browse/SPARK-24615>`__ effort aims to
 introduce GPU-aware resource scheduling in future versions of Spark.
 
-**CPU training**
-
+CPU training
+~~~~~~~~~~~~
 For CPU training, one approach is to specify the ``spark.task.cpus`` setting
 during the training session creation:
 
@@ -116,8 +116,8 @@ during the training session creation:
 This approach allows you to reuse the same Spark cluster for data preparation
 and training.
 
-**Security**
-
+Security
+~~~~~~~~
 Horovod in Spark uses Open MPI to run the Horovod jobs in Spark, so
 it's as secure as the Open MPI implementation itself.
 
@@ -125,8 +125,8 @@ Since Open MPI does not use encrypted communication and is capable of
 launching new processes, it's recommended to **use network level
 security to isolate Horovod jobs from potential attackers**.
 
-**Environment knobs**
-
+Environment knobs
+~~~~~~~~~~~~~~~~~
 * ``HOROVOD_SPARK_START_TIMEOUT`` - sets the default timeout for Spark tasks to spawn, register, and start running the code.  If executors for Spark tasks are scheduled on-demand and can take a long time to start, it may be useful to increase this timeout on a system level.
 
 
