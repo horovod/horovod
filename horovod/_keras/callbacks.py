@@ -37,7 +37,7 @@ class MetricAverageCallbackImpl(object):
         self.variables = {}
         self.allreduce_ops = {}
         self.device = device
-        self.avereage_every_batch = avereage_every_batch
+        self.avereage_once_per_epcoh = avereage_once_per_epcoh
 
     def _make_variable(self, metric, value, average=True):
         with tf.name_scope('MetricAverageCallback'):
