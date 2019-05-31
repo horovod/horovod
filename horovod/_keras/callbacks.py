@@ -31,12 +31,13 @@ class BroadcastGlobalVariablesCallbackImpl(object):
 
 
 class MetricAverageCallbackImpl(object):
-    def __init__(self, backend, device='', *args):
+    def __init__(self, backend, device='', avereage_once_per_epcoh=True, *args):
         super(MetricAverageCallbackImpl, self).__init__(*args)
         self.backend = backend
         self.variables = {}
         self.allreduce_ops = {}
         self.device = device
+        self.avereage_every_batch = avereage_every_batch
 
     def _make_variable(self, metric, value, average=True):
         with tf.name_scope('MetricAverageCallback'):
@@ -66,6 +67,10 @@ class MetricAverageCallbackImpl(object):
 
     def on_epoch_end(self, epoch, logs=None):
         self._average_metrics_in_place(logs)
+
+    def on_batch_end(self, batch, logs=None):
+        if not self.avereage_once_per_epcoh:
+            self._average_metrics_in_place(logs)
 
 
 class LearningRateScheduleCallbackImpl(object):
