@@ -50,7 +50,9 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         if named_parameters is not None:
             named_parameters = list(named_parameters)
         else:
-            named_parameters = []
+            named_parameters = [('allreduce.noname.%s' % i, v)
+                                for param_group in self.param_groups
+                                for i, v in enumerate(param_group['params'])]
 
         # make sure that named_parameters are tuples
         if any([not isinstance(p, tuple) for p in named_parameters]):
@@ -63,13 +65,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             raise ValueError('Parameter names in named_parameters must be unique. '
                              'Found duplicates: %s' % ', '.join(dups))
 
-        if len(named_parameters) > 0:
-            self._parameter_names = {v: k for k, v
-                                     in sorted(named_parameters)}
-        else:
-            self._parameter_names = {v: 'allreduce.noname.%s' % i
-                                     for param_group in self.param_groups
-                                     for i, v in enumerate(param_group['params'])}
+        self._parameter_names = {v: k for k, v in sorted(named_parameters)}
         self.backward_passes_per_step = backward_passes_per_step
         self._allreduce_delay = {v: self.backward_passes_per_step
                                  for _, v in sorted(named_parameters)}

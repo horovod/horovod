@@ -1293,5 +1293,31 @@ class TorchTests(unittest.TestCase):
             assert 'optimizer.step(synchronize=True) called after optimizer.synchronize()' \
                 in str(ws[0].message)
 
+    def test_no_named_parameters(self):
+        """Test that leaving the default named_parameters=None will not throw an error."""
+        hvd.init()
+
+        class Net(torch.nn.Module):
+            def __init__(self):
+                super(Net, self).__init__()
+                self.conv1 = torch.nn.Conv2d(1, 100, 1)
+                self.conv2 = torch.nn.Conv2d(100, 1, 1)
+
+            def forward(self, x):
+                x = self.conv1(x)
+                x = self.conv2(x)
+                return x
+
+        model = Net()
+        inp = torch.rand([1, 1, 1000, 1000])
+
+        opt = torch.optim.SGD(model.parameters(), lr=0.1)
+        opt = hvd.DistributedOptimizer(opt)
+
+        loss = model(inp).sum()
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+
 if __name__ == "__main__":
    unittest.main()
