@@ -43,7 +43,6 @@
 #include "timeline.h"
 #include "logging.h"
 
-#include "ops/gloo_operations.h"
 
 #if HAVE_CUDA
 #include "ops/cuda_operations.h"
@@ -60,6 +59,11 @@
 
 #if HAVE_MLSL
 #include "ops/mlsl_operations.h"
+#endif
+
+#if USE_GLOO_CPU
+
+#include "ops/gloo_operations.h"
 #endif
 
 /*
@@ -98,7 +102,9 @@ HorovodGlobalState horovod_global;
 
 MPIContext mpi_context;
 
+#if USE_GLOO_CPU
 GlooContext gloo_context;
+#endif
 
 #if HAVE_CUDA
 CUDAContext cuda_context;
@@ -162,9 +168,11 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #endif
 #endif
 
+#if USE_GLOO_CPU
   allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new GlooAllreduce(&gloo_context, &state)));
   allgather_ops.push_back(std::shared_ptr<AllgatherOp>(new GlooAllgather(&gloo_context, &state)));
   broadcast_ops.push_back(std::shared_ptr<BroadcastOp>(new GlooBroadcast(&gloo_context, &state)));
+#endif
 
 #if HAVE_MLSL
   allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new MLSLAllreduce(&mlsl_context, &state)));
@@ -1117,7 +1125,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
     state.message_table = std::unique_ptr<MessageTable>(new MessageTable());
   }
 
+#if USE_GLOO_CPU
   gloo_context.InitializeFromMPI(ctx.mpi_comm);
+#endif
 
   op_manager.reset(CreateOperationManager(state));
 
@@ -1159,7 +1169,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
     cb(SHUT_DOWN_ERROR);
   }
 
+#if USE_GLOO_CPU
   gloo_context.Finalize();
+#endif
 
   if (horovod_global.shared_buffer != nullptr) {
     MPI_Win_free(&ctx.window);
@@ -1229,7 +1241,7 @@ void RunBypass(std::queue<Request>& message_queue, CacheCoordinator& cache_coord
   }
 
   // Get tensor name and size data for autotuning.
-  int64_t total_tensor_size;
+  int64_t total_tensor_size = 0;
   std::vector<std::string> tensor_names;
   if (state.param_manager.IsAutoTuning()) {
     std::lock_guard<std::mutex> guard(state.mutex);
@@ -1558,7 +1570,7 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
   }
 
   // Get tensor name and size data for autotuning.
-  int64_t total_tensor_size;
+  int64_t total_tensor_size = 0;
   std::vector<std::string> tensor_names;
   if (state.param_manager.IsAutoTuning()) {
     std::lock_guard<std::mutex> guard(state.mutex);

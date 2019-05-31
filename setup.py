@@ -557,6 +557,8 @@ def get_common_options(build_ext):
                              'If you\'re sure you want to mix them, set the '
                              'HOROVOD_ALLOW_MIXED_GPU_IMPL environment variable to \'1\'.')
 
+    use_gloo_cpu = os.environ.get('HOROVOD_GLOO_CPU')
+
     MACROS = [('EIGEN_MPL2_ONLY', 1)]
     INCLUDES = ['third_party/boost/assert/include',
                 'third_party/boost/config/include',
@@ -594,8 +596,9 @@ def get_common_options(build_ext):
     LIBRARY_DIRS = []
     LIBRARIES = []
 
-    use_gloo = True
-    if use_gloo:
+    if use_gloo_cpu and use_gloo_cpu != '0':
+        print('Using gloo cpu')
+        MACROS += [('USE_GLOO_CPU', '1')]
         INCLUDES += ['third_party/gloo']
         SOURCES += ['horovod/common/gloo_context.cc',
                     'horovod/common/ops/gloo_operations.cc']
@@ -978,9 +981,13 @@ def build_torch_extension_v2(build_ext, options, torch_version):
 
 def build_cmake(build_ext, ext, output_dir, options):
     # CMake should come with pip requirement 'cmake', but let's verify
+
     try:
-        subprocess.check_output(['cmake', '--version'])
+        import cmake
+        cmake_bin = os.path.join(cmake.CMAKE_BIN_DIR, 'cmake')
+        subprocess.check_output([cmake_bin, '--version'])
     except OSError:
+
         raise RuntimeError('Cannot find CMake executable')
 
     # Statically linked archive files go into the provided output directory
@@ -1003,9 +1010,9 @@ def build_cmake(build_ext, ext, output_dir, options):
         os.makedirs(build_temp)
 
     # Config and build the extension
-    subprocess.check_call(['cmake', ext.cmake_lists_dir] + cmake_args,
+    subprocess.check_call([cmake_bin, ext.cmake_lists_dir] + cmake_args,
                           cwd=build_temp)
-    subprocess.check_call(['cmake', '--build', '.'] + cmake_build_args,
+    subprocess.check_call([cmake_bin, '--build', '.'] + cmake_build_args,
                           cwd=build_temp)
 
     # Add the library so other extensions will link against it during compilation

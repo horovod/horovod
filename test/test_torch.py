@@ -71,6 +71,7 @@ class TorchTests(unittest.TestCase):
 
     def test_horovod_rank(self):
         """Test that the rank returned by hvd.rank() is correct."""
+        print('test_horovod_rank begin')
         true_rank, _ = mpi_env_rank_and_size()
         hvd.init()
         rank = hvd.rank()
@@ -1343,5 +1344,5 @@ class TorchTests(unittest.TestCase):
         except ValueError:
             pass
 
-if __name__ == "__main__":
-   unittest.main()
+if __name__ == '__main__':
+    unittest.main()
