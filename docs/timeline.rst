@@ -41,8 +41,8 @@ In the example above, you can see few tensors being reduced. There are two major
 
 * In case of ``HOROVOD_HIERARCHICAL_ALLREDUCE=1``, ``NCCL_ALLREDUCE`` will become a sequence or a subsequence of ``NCCL_REDUCESCATTER``, ``NCCL_REDUCE``, ``MEMCPY_IN_HOST_BUFFER``, ``MPI_ALLREDUCE``, ``MEMCPY_OUT_HOST_BUFFER``, ``NCCL_ALLGATHER``, ``NCCL_BCAST``.
 
-**Adding cycle markers**
-
+Adding cycle markers
+~~~~~~~~~~~~~~~~~~~~
 Horovod performs work in cycles.  These cycles are used to aid `Tensor Fusion <https://github.com/horovod/horovod/blob/master/docs/tensor-fusion.rst>`__. Horovod has the ability to record the moment when each cycle starts for debugging of Tensor Fusion.
 
 .. image:: https://user-images.githubusercontent.com/16640218/51659458-64806100-1f5f-11e9-9a27-ba934ceec75f.png

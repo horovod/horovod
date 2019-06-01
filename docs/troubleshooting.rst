@@ -4,8 +4,8 @@ Troubleshooting
 ===============
 
 
-**Import TensorFlow failed during installation**
-
+Import TensorFlow failed during installation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 1. Is TensorFlow installed?
 
 If you see the error message below, it means that TensorFlow is not installed.  Please install TensorFlow before installing
@@ -63,8 +63,8 @@ To use CUDA stub drivers:
     $ ldconfig
 
 
-**MPI is not found during installation**
-
+MPI is not found during installation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 1. Is MPI in PATH?
 
 If you see the error message below, it means ``mpicxx`` was not found in PATH. Typically ``mpicxx`` is located in the same
@@ -137,8 +137,8 @@ register libraries in the cache:
     $ sudo ldconfig
 
 
-**Error during installation: invalid conversion from ‘const void*’ to ‘void*’ [-fpermissive]**
-
+Error during installation: invalid conversion from ‘const void*’ to ‘void*’ [-fpermissive]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 If you see the error message below, it means that your MPI is likely outdated. We recommend installing
 `Open MPI >=4.0.0 <https://www.open-mpi.org/faq/?category=building#easy-build>`__.
 
@@ -159,8 +159,8 @@ If you see the error message below, it means that your MPI is likely outdated. W
                                                  ^
 
 
-**Error during installation: fatal error: pyconfig.h: No such file or directory**
-
+Error during installation: fatal error: pyconfig.h: No such file or directory
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 If you see the error message below, it means that you need to install Python headers.
 
 .. code-block:: bash
@@ -178,8 +178,8 @@ You can do this by installing a ``python-dev`` or ``python3-dev`` package.  For 
     $ sudo apt-get install python-dev
 
 
-**NCCL 2 is not found during installation**
-
+NCCL 2 is not found during installation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 If you see the error message below, it means NCCL 2 was not found in the standard libraries location. If you have a directory
 where you installed NCCL 2 which has both ``include`` and ``lib`` directories containing ``nccl.h`` and ``libnccl.so``
 respectively, you can pass it via ``HOROVOD_NCCL_HOME`` environment variable. Otherwise you can specify them separately
@@ -213,8 +213,8 @@ Or:
     $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_INCLUDE=/path/to/nccl/include HOROVOD_NCCL_LIB=/path/to/nccl/lib pip install --no-cache-dir horovod
 
 
-**Pip install: no such option: --no-cache-dir**
-
+Pip install: no such option: --no-cache-dir
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 If you see the error message below, it means that your version of pip is out of date. You can remove the ``--no-cache-dir`` flag
 since your version of pip does not do caching. The ``--no-cache-dir`` flag is added to all examples to ensure that when you
 change Horovod compilation flags, it will be rebuilt from source and not just reinstalled from the pip cache, which is
@@ -241,8 +241,8 @@ For example:
     $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_HOME=/path/to/nccl pip install --no-cache-dir horovod
 
 
-**ncclAllReduce failed: invalid data type**
-
+ncclAllReduce failed: invalid data type
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 If you see the error message below during the training, it means that Horovod was linked to the wrong version of NCCL
 library.
 
@@ -264,8 +264,8 @@ the package and reinstall Horovod:
     $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_HOME=/path/to/nccl pip install --no-cache-dir horovod
 
 
-**transport/p2p.cu:431 WARN failed to open CUDA IPC handle : 30 unknown error**
-
+transport/p2p.cu:431 WARN failed to open CUDA IPC handle : 30 unknown error
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 If you see the error message below during the training with ``-x NCCL_DEBUG=INFO``, it likely means that multiple servers
 share the same ``hostname``.
 
@@ -277,8 +277,8 @@ share the same ``hostname``.
 MPI and NCCL rely on hostnames to distinguish between servers, so you should make sure that every server has a unique
 hostname.
 
-**Running out of memory**
-
+Running out of memory
+~~~~~~~~~~~~~~~~~~~~~
 If you notice that your program is running out of GPU memory and multiple processes
 are being placed on the same GPU, it's likely that your program (or its dependencies)
 create a ``tf.Session`` that does not use the ``config`` that pins specific GPU.
@@ -314,8 +314,8 @@ memory, use:
 * ``export NCCL_P2P_DISABLE=1`` for NCCL.
 * ``--mca btl_smcuda_use_cuda_ipc 0`` flag for OpenMPI and similar flags for other vendors.
 
-**libcudart.so.X.Y: cannot open shared object file: No such file or directory**
-
+libcudart.so.X.Y: cannot open shared object file: No such file or directory
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 If you notice that your program crashes with a ``libcudart.so.X.Y: cannot open shared object file: No such file or directory`` error, it's likely that your framework and Horovod were build with different versions of CUDA.
 
 To build Horovod with a specific CUDA version, use the ``HOROVOD_CUDA_HOME`` environment variable during installation:
@@ -334,8 +334,8 @@ Alternatively, you can use the ``HOROVOD_CUDA_INCLUDE`` and ``HOROVOD_CUDA_LIB``
     $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_NCCL_HOME=/path/to/nccl HOROVOD_CUDA_INCLUDE=/path/to/cuda/include HOROVOD_CUDA_LIB=/path/to/cuda/lib64 pip install --no-cache-dir horovod
 
 
-**FORCE-TERMINATE AT Data unpack would read past end of buffer**
-
+FORCE-TERMINATE AT Data unpack would read past end of buffer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 If you see the error message below during the training, it's likely that you have a wrong version of ``hwloc`` installed in your system.
 
 .. code-block:: bash
@@ -361,8 +361,8 @@ After ``hwloc`` is purged, `re-install Open MPI <https://www.open-mpi.org/faq/?c
 
 See `this issue <https://github.com/open-mpi/ompi/issues/4437>`__ for more details.
 
-**bash: orted: command not found**
-
+bash: orted: command not found
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 If you see the error message below during the training, it's likely that Open MPI cannot find one of its components in PATH.
 
 .. code-block:: bash

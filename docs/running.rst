@@ -23,8 +23,8 @@ the number of processes is specified with the ``-np`` flag.
     $ horovodrun -np 16 -H server1:4,server2:4,server3:4,server4:4 python train.py
 
 
-**Failures due to SSH issues**
-
+Failures due to SSH issues
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 The host where ``horovodrun`` is executed must be able to SSH to all other hosts without any prompts.
 
 If ``horovodrun`` fails with permission error, verify that you can ssh to every other server without entering a password or

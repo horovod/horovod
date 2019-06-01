@@ -6,8 +6,8 @@ Horovod on GPU
 
 To use Horovod on GPU, read the options below and see which one applies to you best.
 
-**Have GPUs?**
-
+Have GPUs?
+~~~~~~~~~~
 In most situations, using NCCL 2 will significantly improve performance over the CPU version.  NCCL 2 provides the **allreduce**
 operation optimized for NVIDIA GPUs and a variety of networking devices, such as RoCE or InfiniBand.
 
@@ -62,8 +62,8 @@ GPU version is available. To force allreduce to happen on CPU, pass ``device_den
     opt = hvd.DistributedOptimizer(opt, device_dense='/cpu:0')
 
 
-**Advanced: Have a proprietary MPI implementation with GPU support optimized for your network?**
-
+Advanced: Have a proprietary MPI implementation with GPU support optimized for your network?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 This section is only relevant if you have a proprietary MPI implementation with GPU support, i.e. not Open MPI or MPICH.
 Most users should follow one of the sections above.
 
