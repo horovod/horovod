@@ -985,10 +985,12 @@ def build_cmake(build_ext, ext, output_dir, options):
     try:
         import cmake
         cmake_bin = os.path.join(cmake.CMAKE_BIN_DIR, 'cmake')
-        subprocess.check_output([cmake_bin, '--version'])
-    except OSError:
+        subprocess.check_call([ 'chmod',  '+x',  cmake_bin ])
 
-        raise RuntimeError('Cannot find CMake executable')
+        subprocess.check_output([cmake_bin, '--version'])
+    except OSError as e:
+
+        raise RuntimeError('Check CMAKE executable failed: {}'.format(str(e)))
 
     # Statically linked archive files go into the provided output directory
     extdir = os.path.abspath(os.path.dirname(build_ext.get_ext_fullpath(ext.name)))
@@ -1010,11 +1012,13 @@ def build_cmake(build_ext, ext, output_dir, options):
         os.makedirs(build_temp)
 
     # Config and build the extension
-    subprocess.check_call([cmake_bin, ext.cmake_lists_dir] + cmake_args,
-                          cwd=build_temp)
-    subprocess.check_call([cmake_bin, '--build', '.'] + cmake_build_args,
-                          cwd=build_temp)
-
+    try:
+        subprocess.check_call([cmake_bin, ext.cmake_lists_dir] + cmake_args,
+                              cwd=build_temp)
+        subprocess.check_call([cmake_bin, '--build', '.'] + cmake_build_args,
+                              cwd=build_temp)
+    except OSError as e:
+        raise RuntimeError('CMAKE failed: {}'.format(str(e)))
     # Add the library so other extensions will link against it during compilation
     options['LIBRARIES'] += [ext.name]
 
