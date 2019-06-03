@@ -5,6 +5,9 @@ prune .eggs
 
 # prune eigen LGPL2
 graft third_party/eigen/Eigen
+graft third_party/gloo/cmake
+recursive-include third_party/gloo CMakeLists.txt
+recursive-include third_party/gloo *.in
 exclude third_party/eigen/Eigen/Eigen
 exclude third_party/eigen/Eigen/IterativeLinearSolvers
 exclude third_party/eigen/Eigen/MetisSupport
