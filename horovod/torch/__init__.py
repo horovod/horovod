@@ -169,6 +169,13 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         self._synchronized = False
         return super(self.__class__, self).step(closure)
 
+    def zero_grad(self):
+        if self._handles:
+            raise AssertionError("optimizer.zero_grad() was called after loss.backward() "
+                                 "but before optimizer.step() or optimizer.synchronize(). "
+                                 "This is prohibited as it can cause a race condition.")
+        return super(self.__class__, self).zero_grad()
+
 
 def DistributedOptimizer(optimizer, named_parameters=None,
                          compression=Compression.none,
