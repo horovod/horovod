@@ -1319,5 +1319,29 @@ class TorchTests(unittest.TestCase):
         loss.backward()
         opt.step()
 
+    def test_missing_named_parameters(self):
+        """Test that naming half of the model parameters will throw an error."""
+        hvd.init()
+
+        class Net(torch.nn.Module):
+            def __init__(self):
+                super(Net, self).__init__()
+                self.conv1 = torch.nn.Conv2d(1, 100, 1)
+                self.conv2 = torch.nn.Conv2d(100, 1, 1)
+
+            def forward(self, x):
+                x = self.conv1(x)
+                x = self.conv2(x)
+                return x
+
+        model = Net()
+        opt = torch.optim.SGD(model.parameters(), lr=0.1)
+        try:
+            hvd.DistributedOptimizer(opt,
+                named_parameters=list(model.named_parameters())[0:1])
+            assert False, 'hvd.DistributedOptimizer did not throw error'
+        except ValueError:
+            pass
+
 if __name__ == "__main__":
    unittest.main()
