@@ -65,6 +65,16 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             raise ValueError('Parameter names in named_parameters must be unique. '
                              'Found duplicates: %s' % ', '.join(dups))
 
+        all_param_ids = {id(v)
+                         for param_group in self.param_groups
+                         for v in param_group['params']}
+        named_param_ids = {id(v) for k, v in named_parameters}
+        unnamed_param_ids = all_param_ids - named_param_ids
+        if len(unnamed_param_ids):
+            raise ValueError('named_parameters was specified, but one or more model '
+                             'parameters were not named. Python object ids: '
+                             '%s' % ', '.join(str(id) for id in unnamed_param_ids))
+
         self._parameter_names = {v: k for k, v in sorted(named_parameters)}
         self.backward_passes_per_step = backward_passes_per_step
         self._allreduce_delay = {v: self.backward_passes_per_step
