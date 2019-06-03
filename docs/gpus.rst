@@ -11,43 +11,38 @@ Have GPUs?
 In most situations, using NCCL 2 will significantly improve performance over the CPU version.  NCCL 2 provides the **allreduce**
 operation optimized for NVIDIA GPUs and a variety of networking devices, such as RoCE or InfiniBand.
 
-1. Install `NCCL 2 <https://developer.nvidia.com/nccl>`__.
+1. Install `NCCL 2 <https://developer.nvidia.com/nccl>`__ following `these steps <http://docs.nvidia.com/deeplearning/sdk/nccl-install-guide/index.html>`__.
 
-Steps to install NCCL 2 are listed `here <http://docs.nvidia.com/deeplearning/sdk/nccl-install-guide/index.html>`__.
+   If you have installed NCCL 2 using the ``nccl-<version>.txz`` package, you should add the library path to ``LD_LIBRARY_PATH``
+   environment variable or register it in ``/etc/ld.so.conf``.
 
-If you have installed NCCL 2 using the ``nccl-<version>.txz`` package, you should add the library path to ``LD_LIBRARY_PATH``
-environment variable or register it in ``/etc/ld.so.conf``.
+   .. code-block:: bash
 
-.. code-block:: bash
-
-    $ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/nccl-<version>/lib
+       $ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/nccl-<version>/lib
 
 
 2. (Optional) If you're using an NVIDIA Tesla GPU and NIC with GPUDirect RDMA support, you can further speed up NCCL 2
 by installing an `nv_peer_memory <https://github.com/Mellanox/nv_peer_memory>`__ driver.
 
-`GPUDirect <https://developer.nvidia.com/gpudirect>`__ allows GPUs to transfer memory among each other without CPU
-involvement, which significantly reduces latency and load on CPU.  NCCL 2 is able to use GPUDirect automatically for
-**allreduce** operation if it detects it.
+   `GPUDirect <https://developer.nvidia.com/gpudirect>`__ allows GPUs to transfer memory among each other without CPU
+   involvement, which significantly reduces latency and load on CPU.  NCCL 2 is able to use GPUDirect automatically for
+   **allreduce** operation if it detects it.
 
-3. Install `Open MPI <https://www.open-mpi.org/>`__ or another MPI implementation.
+3. Install `Open MPI <https://www.open-mpi.org/>`__ or another MPI implementation following `these steps <https://www.open-mpi.org/faq/?category=building#easy-build>`__.
 
-Steps to install Open MPI are listed `here <https://www.open-mpi.org/faq/?category=building#easy-build>`__.
-
-**Note**: Open MPI 3.1.3 has an issue that may cause hangs.  It is recommended
-to downgrade to Open MPI 3.1.2 or upgrade to Open MPI 4.0.0.
+   **Note**: Open MPI 3.1.3 has an issue that may cause hangs.  The recommended fix is to downgrade to Open MPI 3.1.2 or upgrade to Open MPI 4.0.0.
 
 4. Install the ``horovod`` pip package.
 
-If you have installed NCCL 2 using the ``nccl-<version>.txz`` package, you should specify the path to NCCL 2 using the ``HOROVOD_NCCL_HOME``
-environment variable.
+   If you have installed NCCL 2 using the ``nccl-<version>.txz`` package, you should specify the path to NCCL 2 using the ``HOROVOD_NCCL_HOME``
+   environment variable.
 
-.. code-block:: bash
+   .. code-block:: bash
 
-    $ HOROVOD_NCCL_HOME=/usr/local/nccl-<version> HOROVOD_GPU_ALLREDUCE=NCCL pip install --no-cache-dir horovod
+       $ HOROVOD_NCCL_HOME=/usr/local/nccl-<version> HOROVOD_GPU_ALLREDUCE=NCCL pip install --no-cache-dir horovod
 
 
-If you have installed NCCL 2 using the Ubuntu package, you can simply run:
+If you have installed NCCL 2 using the Ubuntu package, you can run:
 
 .. code-block:: bash
 

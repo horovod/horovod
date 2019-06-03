@@ -8,8 +8,7 @@ Import TensorFlow failed during installation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 1. Is TensorFlow installed?
 
-If you see the error message below, it means that TensorFlow is not installed.  Please install TensorFlow before installing
-Horovod.
+If you see the error message below, it means that TensorFlow is not installed.  Please install TensorFlow before installing Horovod.
 
 .. code-block:: bash
 
@@ -23,8 +22,8 @@ Horovod.
 
 2. Are the CUDA libraries available?
 
-If you see the error message below, it means that TensorFlow cannot be loaded.  If you're installing Horovod into a container
-on a machine without GPUs, you may use CUDA stub drivers to work around the issue.
+If you see the error message below, it means that TensorFlow cannot be loaded.
+If you're installing Horovod into a container on a machine without GPUs, you may use CUDA stub drivers to work around the issue.
 
 .. code-block:: bash
 
@@ -67,8 +66,8 @@ MPI is not found during installation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 1. Is MPI in PATH?
 
-If you see the error message below, it means ``mpicxx`` was not found in PATH. Typically ``mpicxx`` is located in the same
-directory as ``mpirun``. Please add a directory containing ``mpicxx`` to PATH before installing Horovod.
+If you see the error message below, it means ``mpicxx`` was not found in PATH. Typically ``mpicxx`` is located in the same directory as ``mpirun``.
+Add a directory containing ``mpicxx`` to PATH before installing Horovod.
 
 .. code-block:: bash
 

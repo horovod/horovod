@@ -1,4 +1,4 @@
-User guide
+User Guide
 ==========
 .. include:: ./summary.rst
    :start-after: inclusion-marker-start-do-not-remove
