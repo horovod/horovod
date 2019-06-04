@@ -61,8 +61,7 @@
 #include "ops/mlsl_operations.h"
 #endif
 
-#if USE_GLOO_CPU
-
+#if COMPILE_WITH_GLOO
 #include "ops/gloo_operations.h"
 #endif
 
@@ -102,7 +101,7 @@ HorovodGlobalState horovod_global;
 
 MPIContext mpi_context;
 
-#if USE_GLOO_CPU
+#if COMPILE_WITH_GLOO
 GlooContext gloo_context;
 #endif
 
@@ -168,11 +167,19 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #endif
 #endif
 
-#if USE_GLOO_CPU
+#if COMPILE_WITH_GLOO
+  auto use_gloo = std::getenv("USE_GLOO");
+  if (use_gloo == nullptr){
+    std::cout<<"GLOO disabled.\n";
+  }
+  else{
+  std::cout<<"GLOO enabled.\n";
   allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new GlooAllreduce(&gloo_context, &state)));
   allgather_ops.push_back(std::shared_ptr<AllgatherOp>(new GlooAllgather(&gloo_context, &state)));
   broadcast_ops.push_back(std::shared_ptr<BroadcastOp>(new GlooBroadcast(&gloo_context, &state)));
+  }
 #endif
+
 
 #if HAVE_MLSL
   allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new MLSLAllreduce(&mlsl_context, &state)));
@@ -1125,7 +1132,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
     state.message_table = std::unique_ptr<MessageTable>(new MessageTable());
   }
 
-#if USE_GLOO_CPU
+#if COMPILE_WITH_GLOO
   gloo_context.InitializeFromMPI(ctx.mpi_comm);
 #endif
 
@@ -1169,7 +1176,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
     cb(SHUT_DOWN_ERROR);
   }
 
-#if USE_GLOO_CPU
+#if COMPILE_WITH_GLOO
   gloo_context.Finalize();
 #endif
 

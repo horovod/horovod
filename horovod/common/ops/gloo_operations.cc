@@ -66,7 +66,7 @@ namespace horovod {
         }
       });
 
-      opts.setMaxSegmentSize(128);
+//      opts.setMaxSegmentSize(128);
       gloo::allreduce(opts);
 
     }
