@@ -179,8 +179,8 @@ Example (see the `examples <examples/>`_ directory for full training examples):
 Running Horovod
 ---------------
 
-The example commands below show how to run distributed training. See `Running Horovod <running.rst>`_
- for more instructions, including RoCE/InfiniBand tweaks and tips for dealing with hangs.
+The example commands below show how to run distributed training.
+See `Running Horovod <running.rst>`_ for more instructions, including RoCE/InfiniBand tweaks and tips for dealing with hangs.
 
 1. To run on a machine with 4 GPUs:
 

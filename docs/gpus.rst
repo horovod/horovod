@@ -42,11 +42,11 @@ by installing an `nv_peer_memory <https://github.com/Mellanox/nv_peer_memory>`__
        $ HOROVOD_NCCL_HOME=/usr/local/nccl-<version> HOROVOD_GPU_ALLREDUCE=NCCL pip install --no-cache-dir horovod
 
 
-If you have installed NCCL 2 using the Ubuntu package, you can run:
+   If you have installed NCCL 2 using the Ubuntu package, you can run:
 
-.. code-block:: bash
+   .. code-block:: bash
 
-    $ HOROVOD_GPU_ALLREDUCE=NCCL pip install --no-cache-dir horovod
+       $ HOROVOD_GPU_ALLREDUCE=NCCL pip install --no-cache-dir horovod
 
 
 **Note**: Some models with a high computation to communication ratio benefit from doing allreduce on CPU, even if a
