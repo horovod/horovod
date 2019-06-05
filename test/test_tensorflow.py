@@ -28,7 +28,6 @@ import tensorflow as tf
 from horovod.tensorflow.util import _executing_eagerly, _has_eager
 from tensorflow.python.framework import ops
 import warnings
-import os
 
 import horovod.tensorflow as hvd
 
@@ -36,6 +35,11 @@ from common import mpi_env_rank_and_size
 
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
+
+if _has_eager:
+    # Specifies the config to use with eager execution. Does not preclude
+    # tests from running in the graph mode.
+    tf.enable_eager_execution(config=config)
 
 # MLSL supports only byte, float and double data types
 mlsl_supported_types = set([tf.float32, tf.float64])
