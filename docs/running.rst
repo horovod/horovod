@@ -4,19 +4,19 @@
 Running Horovod
 ===============
 
-The examples below are for Open MPI and use ``horovodrun``. Check your MPI documentation for arguments to the ``mpirun``
+This page includes examples for Open MPI that use ``horovodrun``. Check your MPI documentation for arguments to the ``mpirun``
 command on your system.
 
 Typically one GPU will be allocated per process, so if a server has 4 GPUs, you would run 4 processes. In ``horovodrun``,
 the number of processes is specified with the ``-np`` flag.
 
-1. To run on a machine with 4 GPUs:
+To run on a machine with 4 GPUs:
 
 .. code-block:: bash
 
     $ horovodrun -np 4 -H localhost:4 python train.py
 
-2. To run on 4 machines with 4 GPUs each:
+To run on 4 machines with 4 GPUs each:
 
 .. code-block:: bash
 

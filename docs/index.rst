@@ -1,5 +1,6 @@
-Welcome to Horovod's documentation!
-===================================
+Horovod documentation
+=====================
+Horovod improves the speed, scale, and resource utilization of deep learning training.
 
 .. toctree::
    :maxdepth: 2

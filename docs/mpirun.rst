@@ -8,44 +8,44 @@ running Horovod training directly using Open MPI.
 
 1. Run on a machine with 4 GPUs:
 
-.. code-block:: bash
+   .. code-block:: bash
 
-    horovodrun -np 16 -H server1:4,server2:4,server3:4,server4:4 python train.py
+       horovodrun -np 16 -H server1:4,server2:4,server3:4,server4:4 python train.py
 
-Equivalent Open MPI command:
+   Equivalent Open MPI command:
 
-.. code-block:: bash
+   .. code-block:: bash
 
-    mpirun -np 4 \
-        -H localhost:4 \
-        -bind-to none -map-by slot \
-        -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
-        -mca pml ob1 -mca btl ^openib \
-        python train.py
+       mpirun -np 4 \
+           -H localhost:4 \
+           -bind-to none -map-by slot \
+           -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
+           -mca pml ob1 -mca btl ^openib \
+           python train.py
 
 2. Run on 4 machines with 4 GPUs each:
 
-.. code-block:: bash
+   .. code-block:: bash
 
-    horovodrun -np 16 -H server1:4,server2:4,server3:4,server4:4 python train.py
+      horovodrun -np 16 -H server1:4,server2:4,server3:4,server4:4 python train.py
 
-Equivalent Open MPI command:
+   Equivalent Open MPI command:
 
-.. code-block:: bash
+   .. code-block:: bash
 
-    mpirun -np 16 \
-        -H server1:4,server2:4,server3:4,server4:4 \
-        -bind-to none -map-by slot \
-        -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
-        -mca pml ob1 -mca btl ^openib \
-        python train.py
+       mpirun -np 16 \
+           -H server1:4,server2:4,server3:4,server4:4 \
+           -bind-to none -map-by slot \
+           -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
+           -mca pml ob1 -mca btl ^openib \
+           python train.py
 
 Starting with the Open MPI 3, it's important to add the ``-bind-to none`` and ``-map-by slot`` arguments.
 ``-bind-to none`` specifies Open MPI to not bind a training process to a single CPU core (which would hurt performance).
 ``-map-by slot`` allows you to have a mixture of different NUMA configurations because the default behavior is to bind
 to the socket.
 
-``-mca pml ob1`` and ``-mca btl ^openib`` flags force the use of TCP for MPI communication.  This avoids many
+The ``-mca pml ob1`` and ``-mca btl ^openib`` flags force the use of TCP for MPI communication.  This avoids many
 multiprocessing issues that Open MPI has with RDMA which typically results in segmentation faults.  Using TCP for MPI
 does not have noticeable performance impact since most of the heavy communication is done by NCCL, which will use RDMA
 via RoCE or InfiniBand if they're available (see `Horovod on GPU <gpus.md>`_).  Notable exceptions from this rule are
@@ -58,7 +58,7 @@ all the workers.
 Custom SSH ports
 ----------------
 
-Custom SSH ports can be specified by ``-mca plm_rsh_args "-p <port>"`` as follows:
+Specify custom SSH ports with ``-mca plm_rsh_args "-p <port>"`` as follows:
 
 .. code-block:: bash
 
