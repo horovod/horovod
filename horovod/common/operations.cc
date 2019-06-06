@@ -645,6 +645,7 @@ void PerformOperation(TensorTable& tensor_table, Response response) {
     Status status = horovod_global.fusion_buffer.InitializeBuffer(
         TensorFusionThresholdBytes(),
         first_entry.device, first_entry.context,
+        horovod_global.current_stream,
         [&](){timeline.ActivityStartAll(entries, INIT_FUSION_BUFFER);},
         [&](){timeline.ActivityEndAll(entries);});
     if (!status.ok()) {
@@ -1091,6 +1092,17 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
            "number of ranks to each node, or disabling hierarchical "
            "allgather and hierarchical allreduce.";
   }
+
+  // Set number of CUDA streams to use
+  auto horovod_num_streams =
+      std::getenv("HOROVOD_NUM_STREAMS");
+  if (horovod_num_streams != nullptr &&
+      std::stol(horovod_num_streams, nullptr, 10) > 0) {
+    state.num_streams = std::atoi(horovod_num_streams);
+  }
+
+  nccl_context.nccl_comms.resize(state.num_streams);
+  cuda_context.streams.resize(state.num_streams);
 
   // Enable auto-tuning.
   auto horovod_autotune = std::getenv(HOROVOD_AUTOTUNE);

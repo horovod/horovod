@@ -60,6 +60,19 @@ template <typename U, typename V> struct hash<std::tuple<U, V>> {
   }
 };
 
+template <typename U, typename V, typename W> struct hash<std::tuple<U, V, W>> {
+  using argument_type = std::tuple<U, V, W>;
+  using result_type = std::size_t;
+
+  result_type operator()(argument_type const& in) const {
+    result_type seed = 0;
+    seed = hash_one<U>(std::get<0>(in), seed);
+    seed = hash_one<V>(std::get<1>(in), seed);
+    seed = hash_one<W>(std::get<2>(in), seed);
+    return seed;
+  }
+};
+
 template <> struct hash<horovod::common::Framework> {
   std::size_t operator()(horovod::common::Framework const& in) const {
     return (std::size_t)in;
