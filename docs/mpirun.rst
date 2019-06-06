@@ -10,7 +10,7 @@ running Horovod training directly using Open MPI.
 
    .. code-block:: bash
 
-       horovodrun -np 16 -H server1:4,server2:4,server3:4,server4:4 python train.py
+       horovodrun -np 4 -H localhost:4 python train.py
 
    Equivalent Open MPI command:
 
