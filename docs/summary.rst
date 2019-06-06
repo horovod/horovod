@@ -188,9 +188,8 @@ Example (see the `examples <https://github.com/horovod/horovod/blob/master/examp
 
 Running Horovod
 ---------------
-
 The example commands below show how to run distributed training.
-See `Run Horovod <running.rst>`_ for more instructions, including RoCE/InfiniBand tweaks and tips for dealing with hangs.
+See `Run Horovod <running.rst>`_ for more details, including RoCE/InfiniBand tweaks and tips for dealing with hangs.
 
 1. To run on a machine with 4 GPUs:
 
@@ -211,6 +210,8 @@ See `Run Horovod <running.rst>`_ for more instructions, including RoCE/InfiniBan
 5. To run in Kubernetes, see `Kubeflow <https://github.com/kubeflow/kubeflow/tree/master/kubeflow/mpi-job>`_, `MPI Operator <https://github.com/kubeflow/mpi-operator/>`_, `Helm Chart <https://github.com/kubernetes/charts/tree/master/stable/horovod/>`_, and `FfDL <https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/>`_.
 
 6. To run in Spark, see `Spark <spark.rst>`_.
+
+7. To run in Singularity, see `Singularity <https://github.com/sylabs/examples/tree/master/machinelearning/horovod>`_.
 
 Estimator API
 -------------
