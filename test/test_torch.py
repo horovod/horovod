@@ -1343,5 +1343,5 @@ class TorchTests(unittest.TestCase):
         except ValueError:
             pass
 
-if __name__ == '__main__':
-    unittest.main()
+if __name__ == "__main__":
+   unittest.main()
