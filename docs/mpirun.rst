@@ -2,7 +2,6 @@
 
 Run Horovod with Open MPI
 =========================
-
 ``horovodrun`` introduces a convenient, Open MPI-based wrapper for running Horovod scripts.
 
 In some cases it is desirable to have fine-grained control over options passed to Open MPI.  This page describes
