@@ -25,11 +25,18 @@ namespace horovod {
 namespace common {
 
 struct GlooContext {
-  void InitializeFromMPI(const MPI_Comm& mpi_comm);
+  void InitializeFromMPI(const MPI_Comm &mpi_comm, const char* gloo_iface);
 
   void Finalize();
 
+  void Initialize(const MPI_Comm &mpi_comm, bool gloo_data, bool
+  gloo_control, const char* gloo_iface);
+
   std::shared_ptr<gloo::Context> ctx;
+
+  bool data_transfer_enabled;
+
+  bool control_transfer_enabled;
 };
 
 } // namespace common

@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-// =============================================================================
+// ============================================================================
 
 #include "gloo_context.h"
 
@@ -21,9 +21,10 @@
 namespace horovod {
 namespace common {
 
-void GlooContext::InitializeFromMPI(const MPI_Comm& mpi_comm) {
+void GlooContext::InitializeFromMPI(const MPI_Comm &mpi_comm, const char*
+gloo_iface) {
   gloo::transport::tcp::attr attr;
-  attr.iface = "eth0";
+  attr.iface = gloo_iface;
   attr.ai_family = AF_UNSPEC;
   auto dev = gloo::transport::tcp::CreateDevice(attr);
 
@@ -33,7 +34,19 @@ void GlooContext::InitializeFromMPI(const MPI_Comm& mpi_comm) {
 }
 
 void GlooContext::Finalize() {
-  ctx.reset();
+  if (data_transfer_enabled || control_transfer_enabled) {
+    ctx.reset();
+  }
+}
+
+void GlooContext::Initialize(const MPI_Comm &mpi_comm, bool gloo_data,
+                             bool gloo_control, const char* gloo_iface) {
+  if (gloo_data || gloo_control) {
+    InitializeFromMPI(mpi_comm, gloo_iface);
+  }
+
+  data_transfer_enabled = gloo_data;
+  control_transfer_enabled = gloo_control;
 }
 
 } // namespace common
