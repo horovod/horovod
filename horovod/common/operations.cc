@@ -1093,6 +1093,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
            "allgather and hierarchical allreduce.";
   }
 
+#if HAVE_CUDA
   // Set number of CUDA streams to use
   auto horovod_num_streams =
       std::getenv("HOROVOD_NUM_STREAMS");
@@ -1101,8 +1102,11 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
     state.num_streams = std::atoi(horovod_num_streams);
   }
 
+#if HAVE_NCCL
   nccl_context.nccl_comms.resize(state.num_streams);
+#endif
   cuda_context.streams.resize(state.num_streams);
+#endif
 
   // Enable auto-tuning.
   auto horovod_autotune = std::getenv(HOROVOD_AUTOTUNE);
