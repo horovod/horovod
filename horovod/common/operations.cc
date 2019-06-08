@@ -1201,7 +1201,7 @@ void BackgroundThreadLoop(HorovodGlobalState &state, MPIContext &ctx) {
   } else{
     gloo_control = false;
   }
-  auto gloo_iface = std::env("HOROVOD_GLOO_IFACE");
+  auto gloo_iface = std::getenv("HOROVOD_GLOO_IFACE");
   if (gloo_iface == nullptr){
     gloo_iface = "eth0";
   }
