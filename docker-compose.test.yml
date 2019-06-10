@@ -101,10 +101,10 @@ services:
       args:
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 2.7
-        TENSORFLOW_PACKAGE: tf-nightly
+        TENSORFLOW_PACKAGE: tf-nightly==1.14.1.dev20190606
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
-        TORCHVISION_PACKAGE: torchvision_nightly
+        TORCHVISION_PACKAGE: torchvision==0.2.2.post3
         PYSPARK_PACKAGE: pyspark==2.4.0
         MXNET_PACKAGE: mxnet --pre
   test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0:
@@ -113,10 +113,10 @@ services:
       args:
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tf-nightly
+        TENSORFLOW_PACKAGE: tf-nightly==1.14.1.dev20190606
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
-        TORCHVISION_PACKAGE: torchvision_nightly
+        TORCHVISION_PACKAGE: torchvision==0.2.2.post3
         PYSPARK_PACKAGE: pyspark==2.4.0
         MXNET_PACKAGE: mxnet --pre
   test-cpu-mpich-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_1-pyspark2_4_0:
@@ -201,10 +201,10 @@ services:
         NCCL_VERSION_OVERRIDE: 2.3.7-1+cuda10.0
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 2.7
-        TENSORFLOW_PACKAGE: tf-nightly-gpu
+        TENSORFLOW_PACKAGE: tf-nightly-gpu==1.14.1.dev20190606
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
-        TORCHVISION_PACKAGE: torchvision_nightly
+        TORCHVISION_PACKAGE: torchvision==0.2.2.post3
         MXNET_PACKAGE: mxnet-cu100 --pre
         PYSPARK_PACKAGE: pyspark==2.4.0
   test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0:
@@ -216,10 +216,10 @@ services:
         NCCL_VERSION_OVERRIDE: 2.3.7-1+cuda10.0
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tf-nightly-gpu
+        TENSORFLOW_PACKAGE: tf-nightly-gpu==1.14.1.dev20190606
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
-        TORCHVISION_PACKAGE: torchvision_nightly
+        TORCHVISION_PACKAGE: torchvision==0.2.2.post3
         MXNET_PACKAGE: mxnet-cu100 --pre
         PYSPARK_PACKAGE: pyspark==2.4.0
   test-gpu-mpich-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_1-pyspark2_4_0:
