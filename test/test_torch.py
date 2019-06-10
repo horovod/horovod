@@ -1261,13 +1261,13 @@ class TorchTests(unittest.TestCase):
         torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
         clipped_grad = model.weight.grad.item()
         assert abs(prior_grad) > abs(clipped_grad)
-        with optimizer.already_synchronized():
+        with optimizer.skip_synchronize():
             optimizer.step()
 
     def test_synchronize_step_warning(self):
         """
         Test that .synchronize() followed by .step() without
-        optimizer.already_synchronized() context will produce a warning.
+        optimizer.skip_synchronize() context will produce a warning.
         """
         hvd.init()
         size = hvd.size()
@@ -1292,10 +1292,9 @@ class TorchTests(unittest.TestCase):
         optimizer.synchronize()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
         with warnings.catch_warnings(record=True) as ws:
-            with optimizer.already_synchronized():
-                optimizer.step()
+            optimizer.step()
             assert len(ws) == 1
-            assert 'optimizer.step() called without optimizer.already_synchronized()' \
+            assert 'optimizer.step() called without optimizer.skip_synchronize()' \
                 in str(ws[0].message)
 
     def test_no_named_parameters(self):

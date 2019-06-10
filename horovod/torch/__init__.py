@@ -160,7 +160,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         self._synchronized = True
 
     @contextmanager
-    def already_synchronized(self):
+    def skip_synchronize(self):
         """
         A context manager used to specify that optimizer.step() should
         not perform synchronization.
@@ -170,7 +170,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         .. code-block:: python
 
             optimizer.synchronize()
-            with optimizer.already_synchronized():
+            with optimizer.skip_synchronize():
                 optimizer.step()
         """
         self._should_synchronize = False
@@ -181,10 +181,10 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         if self._should_synchronize:
             if self._synchronized:
                 warnings.warn("optimizer.step() called without "
-                              "optimizer.already_synchronized() context after "
+                              "optimizer.skip_synchronize() context after "
                               "optimizer.synchronize(). This can cause training "
                               "slowdown. You may want to consider using "
-                              "optimizer.already_synchronized() context if you use "
+                              "optimizer.skip_synchronize() context if you use "
                               "optimizer.synchronize() in your code.")
             self.synchronize()
         self._synchronized = False
@@ -212,7 +212,7 @@ def DistributedOptimizer(optimizer, named_parameters=None,
     DistributedOptimizer exposes the ``synchronize()`` method, which forces allreduce operations
     to finish before continuing the execution. It's useful in conjunction with gradient
     clipping, or other operations that modify gradients in place before ``step()`` is executed.
-    Make sure to use ``optimizer.already_synchronized()`` if you're calling ``synchronize()``
+    Make sure to use ``optimizer.skip_synchronize()`` if you're calling ``synchronize()``
     in your code.
 
     Example of gradient clipping:
@@ -224,7 +224,7 @@ def DistributedOptimizer(optimizer, named_parameters=None,
         loss.backward()
         optimizer.synchronize()
         torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
-        with optimizer.already_synchronized():
+        with optimizer.skip_synchronize():
             optimizer.step()
 
     Arguments:
