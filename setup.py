@@ -557,8 +557,6 @@ def get_common_options(build_ext):
                              'If you\'re sure you want to mix them, set the '
                              'HOROVOD_ALLOW_MIXED_GPU_IMPL environment variable to \'1\'.')
 
-    use_gloo_cpu = os.environ.get('HOROVOD_WITH_GLOO')
-
     MACROS = [('EIGEN_MPL2_ONLY', 1)]
     INCLUDES = ['third_party/boost/assert/include',
                 'third_party/boost/config/include',
@@ -596,9 +594,13 @@ def get_common_options(build_ext):
     LIBRARY_DIRS = []
     LIBRARIES = []
 
-    if use_gloo_cpu and use_gloo_cpu != '0':
-        print('Compiling with Gloo')
-        MACROS += [('COMPILE_WITH_GLOO', '1')]
+    is_mac = os.uname()[0] == 'Darwin'
+
+    if is_mac:
+        print('Submodule Gloo cannot compile on MacOS, skip compiling Gloo.')
+    else:
+        print('Compiling Gloo.')
+        MACROS += [('HAVE_GLOO', '1')]
         INCLUDES += ['third_party/gloo']
         SOURCES += ['horovod/common/gloo_context.cc',
                     'horovod/common/ops/gloo_operations.cc']
