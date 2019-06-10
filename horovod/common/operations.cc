@@ -61,7 +61,7 @@
 #include "ops/mlsl_operations.h"
 #endif
 
-#if COMPILE_WITH_GLOO
+#if HAVE_GLOO
 #include "ops/gloo_operations.h"
 #endif
 
@@ -101,7 +101,7 @@ HorovodGlobalState horovod_global;
 
 MPIContext mpi_context;
 
-#if COMPILE_WITH_GLOO
+#if HAVE_GLOO
 GlooContext gloo_context;
 #endif
 
@@ -167,7 +167,7 @@ OperationManager *CreateOperationManager(HorovodGlobalState &state) {
 #endif
 #endif
 
-#if COMPILE_WITH_GLOO
+#if HAVE_GLOO
   if (!gloo_context.data_transfer_enabled){
     std::cout<<"GLOO disabled.\n";
   }
@@ -1186,7 +1186,7 @@ void BackgroundThreadLoop(HorovodGlobalState &state, MPIContext &ctx) {
         new MessageTable());
   }
 
-#if COMPILE_WITH_GLOO
+#if HAVE_GLOO
   auto data_layer = std::getenv("HOROVOD_CPU_OPERATIONS");
   auto control_layer = std::getenv("HOROVOD_CONTROL_OPERATIONS");
 
@@ -1247,7 +1247,7 @@ void BackgroundThreadLoop(HorovodGlobalState &state, MPIContext &ctx) {
     cb(SHUT_DOWN_ERROR);
   }
 
-#if COMPILE_WITH_GLOO
+#if HAVE_GLOO
   gloo_context.Finalize();
 #endif
 
