@@ -21,8 +21,8 @@
 namespace horovod {
 namespace common {
 
-void GlooContext::InitializeFromMPI(const MPI_Comm &mpi_comm, const char*
-gloo_iface) {
+void GlooContext::InitializeFromMPI(const MPI_Comm& mpi_comm,
+                                    const char* gloo_iface) {
   gloo::transport::tcp::attr attr;
   attr.iface = gloo_iface;
   attr.ai_family = AF_UNSPEC;
@@ -39,7 +39,7 @@ void GlooContext::Finalize() {
   }
 }
 
-void GlooContext::Initialize(const MPI_Comm &mpi_comm, bool gloo_data,
+void GlooContext::Initialize(const MPI_Comm& mpi_comm, bool gloo_data,
                              bool gloo_control, const char* gloo_iface) {
   if (gloo_data || gloo_control) {
     InitializeFromMPI(mpi_comm, gloo_iface);
