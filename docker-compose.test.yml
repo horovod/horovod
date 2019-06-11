@@ -101,7 +101,7 @@ services:
       args:
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 2.7
-        TENSORFLOW_PACKAGE: tf-nightly==1.14.1.dev20190606
+        TENSORFLOW_PACKAGE: tf-nightly
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision==0.2.2.post3
@@ -113,7 +113,7 @@ services:
       args:
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tf-nightly==1.14.1.dev20190606
+        TENSORFLOW_PACKAGE: tf-nightly
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision==0.2.2.post3
@@ -201,7 +201,7 @@ services:
         NCCL_VERSION_OVERRIDE: 2.3.7-1+cuda10.0
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 2.7
-        TENSORFLOW_PACKAGE: tf-nightly-gpu==1.14.1.dev20190606
+        TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision==0.2.2.post3
@@ -216,7 +216,7 @@ services:
         NCCL_VERSION_OVERRIDE: 2.3.7-1+cuda10.0
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tf-nightly-gpu==1.14.1.dev20190606
+        TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision==0.2.2.post3
