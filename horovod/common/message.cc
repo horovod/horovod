@@ -53,6 +53,9 @@ const std::string& DataType_Name(DataType value) {
     case HOROVOD_BOOL:
       static const std::string bool_("bool");
       return bool_;
+    case HOROVOD_NULL:
+      static const std::string null_("bool");
+      return null_;
     default:
       static const std::string unknown("<unknown>");
       return unknown;
