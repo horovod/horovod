@@ -34,19 +34,7 @@ void GlooContext::InitializeFromMPI(const MPI_Comm& mpi_comm,
 }
 
 void GlooContext::Finalize() {
-  if (data_transfer_enabled || control_transfer_enabled) {
     ctx.reset();
-  }
-}
-
-void GlooContext::Initialize(const MPI_Comm& mpi_comm, bool gloo_data,
-                             bool gloo_control, const char* gloo_iface) {
-  if (gloo_data || gloo_control) {
-    InitializeFromMPI(mpi_comm, gloo_iface);
-  }
-
-  data_transfer_enabled = gloo_data;
-  control_transfer_enabled = gloo_control;
 }
 
 } // namespace common

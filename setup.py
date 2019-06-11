@@ -594,6 +594,11 @@ def get_common_options(build_ext):
     LIBRARY_DIRS = []
     LIBRARIES = []
 
+    cpu_operation = os.environ.get('HOROVOD_CPU_OPERATIONS')
+    if cpu_operation:
+        print('INFO: Set default cpu operation to '+cpu_operation)
+        MACROS += [('HOROVOD_CPU_OPERATIONS', "'%s'" % cpu_operation)]
+
     is_mac = os.uname()[0] == 'Darwin'
 
     if is_mac:

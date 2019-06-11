@@ -29,14 +29,7 @@ struct GlooContext {
 
   void Finalize();
 
-  void Initialize(const MPI_Comm &mpi_comm, bool gloo_data, bool
-  gloo_control, const char* gloo_iface);
-
   std::shared_ptr<gloo::Context> ctx;
-
-  bool data_transfer_enabled;
-
-  bool control_transfer_enabled;
 };
 
 } // namespace common
