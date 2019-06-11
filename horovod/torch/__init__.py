@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from contextlib import contextmanager
 import warnings
 
 from horovod.common.util import check_extension
@@ -83,6 +84,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         self._grad_accs = []
         self._requires_update = set()
         self._synchronized = False
+        self._should_synchronize = True
         if size() > 1:
             self._register_hooks()
 
@@ -157,13 +159,32 @@ class _DistributedOptimizer(torch.optim.Optimizer):
 
         self._synchronized = True
 
-    def step(self, closure=None, synchronize=True):
-        if synchronize:
+    @contextmanager
+    def skip_synchronize(self):
+        """
+        A context manager used to specify that optimizer.step() should
+        not perform synchronization.
+
+        It's typically used in a following pattern:
+
+        .. code-block:: python
+
+            optimizer.synchronize()
+            with optimizer.skip_synchronize():
+                optimizer.step()
+        """
+        self._should_synchronize = False
+        yield
+        self._should_synchronize = True
+
+    def step(self, closure=None):
+        if self._should_synchronize:
             if self._synchronized:
-                warnings.warn("optimizer.step(synchronize=True) called after "
+                warnings.warn("optimizer.step() called without "
+                              "optimizer.skip_synchronize() context after "
                               "optimizer.synchronize(). This can cause training "
                               "slowdown. You may want to consider using "
-                              "optimizer.step(synchronize=False) if you use "
+                              "optimizer.skip_synchronize() context if you use "
                               "optimizer.synchronize() in your code.")
             self.synchronize()
         self._synchronized = False
@@ -184,30 +205,32 @@ def DistributedOptimizer(optimizer, named_parameters=None,
     An optimizer that wraps another torch.optim.Optimizer, using an allreduce to
     average gradient values before applying gradients to model weights.
 
-    Allreduce operations are executed after each gradient is computed by `loss.backward()`
-    in parallel with each other. The `step()` method ensures that all allreduce operations are
+    Allreduce operations are executed after each gradient is computed by ``loss.backward()``
+    in parallel with each other. The ``step()`` method ensures that all allreduce operations are
     finished before applying gradients to the model.
 
-    DistributedOptimizer exposes the `synchronize()` method, which forces allreduce operations
+    DistributedOptimizer exposes the ``synchronize()`` method, which forces allreduce operations
     to finish before continuing the execution. It's useful in conjunction with gradient
-    clipping, or other operations that modify gradients in place before `step()` is executed.
-    Make sure to pass `synchronize=False` to `step()` method if you're calling `synchronize()`
+    clipping, or other operations that modify gradients in place before ``step()`` is executed.
+    Make sure to use ``optimizer.skip_synchronize()`` if you're calling ``synchronize()``
     in your code.
 
     Example of gradient clipping:
-    ```
-    output = model(data)
-    loss = F.nll_loss(output, target)
-    loss.backward()
-    optimizer.synchronize()
-    torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
-    optimizer.step(synchronize=False)
-    ```
+
+    .. code-block:: python
+
+        output = model(data)
+        loss = F.nll_loss(output, target)
+        loss.backward()
+        optimizer.synchronize()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
+        with optimizer.skip_synchronize():
+            optimizer.step()
 
     Arguments:
         optimizer: Optimizer to use for computing gradients and applying updates.
         named_parameters: A mapping between parameter names and values. Used for naming of
-                          allreduce operations. Typically just `model.named_parameters()`.
+                          allreduce operations. Typically just ``model.named_parameters()``.
         compression: Compression algorithm used during allreduce to reduce the amount
                      of data sent during the each parameter update step.  Defaults to
                      not using compression.
@@ -228,8 +251,8 @@ def DistributedOptimizer(optimizer, named_parameters=None,
 def broadcast_parameters(params, root_rank):
     """
     Broadcasts the parameters from root rank to all other processes.
-    Typical usage is to broadcast the `model.state_dict()`,
-    `model.named_parameters()`, or `model.parameters()`.
+    Typical usage is to broadcast the ``model.state_dict()``,
+    ``model.named_parameters()``, or ``model.parameters()``.
 
     Arguments:
         params: One of the following:
