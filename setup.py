@@ -744,6 +744,7 @@ def build_mx_extension(build_ext, options):
     else:
         mxnet_mpi_lib.define_macros += [('MXNET_USE_MKLDNN', '0')]
     mxnet_mpi_lib.define_macros += [('MSHADOW_USE_MKL', '0')]
+    mxnet_mpi_lib.define_macros += [('MSHADOW_USE_F16C', '0')]
     mxnet_mpi_lib.include_dirs = options['INCLUDES']
     mxnet_mpi_lib.sources = options['SOURCES'] + \
         ['horovod/mxnet/mpi_ops.cc',
