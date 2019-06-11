@@ -18,68 +18,68 @@
 namespace horovod {
 namespace common {
 
-IGlooAlgorithms *
-GetAlgorithmsForType(DataType dtype, GlooContext *gloo_context) {
+IGlooAlgorithms* GetAlgorithmsForType(DataType dtype,
+                                      GlooContext* gloo_context) {
   switch (dtype) {
-    case HOROVOD_UINT8:
-      return new GlooAlgorithms<u_int8_t>(gloo_context);
-    case HOROVOD_INT8:
-      return new GlooAlgorithms<int8_t>(gloo_context);
-    case HOROVOD_UINT16:
-      return new GlooAlgorithms<u_int16_t>(gloo_context);
-    case HOROVOD_INT16:
-      return new GlooAlgorithms<int16_t>(gloo_context);
-    case HOROVOD_INT32:
-      return new GlooAlgorithms<int32_t>(gloo_context);
-    case HOROVOD_INT64:
-      return new GlooAlgorithms<int64_t>(gloo_context);
-    case HOROVOD_FLOAT16:
-      return new GlooAlgorithms<gloo::float16>(gloo_context);
-    case HOROVOD_FLOAT32:
-      return new GlooAlgorithms<float>(gloo_context);
-    case HOROVOD_FLOAT64:
-      return new GlooAlgorithms<double>(gloo_context);
-    case HOROVOD_BOOL:
-      return new GlooAlgorithms<bool>(gloo_context);
-    default:
-      throw std::logic_error("Type " + DataType_Name(dtype) +
-                             " is not supported in Gloo mode.");
+  case HOROVOD_UINT8:
+    return new GlooAlgorithms<u_int8_t>(gloo_context);
+  case HOROVOD_INT8:
+    return new GlooAlgorithms<int8_t>(gloo_context);
+  case HOROVOD_UINT16:
+    return new GlooAlgorithms<u_int16_t>(gloo_context);
+  case HOROVOD_INT16:
+    return new GlooAlgorithms<int16_t>(gloo_context);
+  case HOROVOD_INT32:
+    return new GlooAlgorithms<int32_t>(gloo_context);
+  case HOROVOD_INT64:
+    return new GlooAlgorithms<int64_t>(gloo_context);
+  case HOROVOD_FLOAT16:
+    return new GlooAlgorithms<gloo::float16>(gloo_context);
+  case HOROVOD_FLOAT32:
+    return new GlooAlgorithms<float>(gloo_context);
+  case HOROVOD_FLOAT64:
+    return new GlooAlgorithms<double>(gloo_context);
+  case HOROVOD_BOOL:
+    return new GlooAlgorithms<bool>(gloo_context);
+  default:
+    throw std::logic_error("Type " + DataType_Name(dtype) +
+                           " is not supported in Gloo mode.");
   }
 }
 
-template<typename T>
-GlooAlgorithms<T>::GlooAlgorithms(GlooContext *gloo_context)
+template <typename T>
+GlooAlgorithms<T>::GlooAlgorithms(GlooContext* gloo_context)
     : gloo_context_(gloo_context) {}
 
-template<typename T>
-void GlooAlgorithms<T>::Allreduce(void *buffer_data, int num_elements) {
+template <typename T>
+void GlooAlgorithms<T>::Allreduce(void* buffer_data, int num_elements) {
   gloo::AllreduceOptions opts(gloo_context_->ctx);
-  opts.setOutput((T *) buffer_data, num_elements);
+  opts.setOutput((T*)buffer_data, num_elements);
 
-  void (*func)(void *, const void *, const void *, size_t) = &::gloo::sum<T>;
+  void (*func)(void*, const void*, const void*, size_t) = &::gloo::sum<T>;
   // set allreduce function
   opts.setReduceFunction(gloo::AllreduceOptions::Func(func));
 
   gloo::allreduce(opts);
 }
 
-template<typename T>
-void GlooAlgorithms<T>::Allgather(void *buffer_data, void *buffer_out,
-                                  int *recvcounts, int *displcmnts) {
+template <typename T>
+void GlooAlgorithms<T>::Allgather(void* buffer_data, void* buffer_out,
+                                  int* recvcounts, int* displcmnts) {
   // create count index
   std::vector<size_t> counts(recvcounts, recvcounts + gloo_context_->ctx->size);
 
   gloo::AllgathervOptions opts(gloo_context_->ctx);
-  opts.setInput<T>(
-      static_cast<T *>(buffer_data) + displcmnts[gloo_context_->ctx->rank],
-      counts[gloo_context_->ctx->rank]);
-  opts.setOutput<T>(static_cast<T *>(buffer_out), counts);
+  opts.setInput<T>(static_cast<T*>(buffer_data) +
+                       displcmnts[gloo_context_->ctx->rank],
+                   counts[gloo_context_->ctx->rank]);
+  opts.setOutput<T>(static_cast<T*>(buffer_out), counts);
 
   gloo::allgatherv(opts);
 }
 
-template<typename T>
-void GlooAlgorithms<T>::Broadcast(void *buffer_data, int num_elements,
+template <typename T>
+void GlooAlgorithms<T>::Broadcast(void* buffer_data, int num_elements,
                                   int root_rank) {
   gloo::BroadcastOptions opts(gloo_context_->ctx);
   opts.setRoot(root_rank);
@@ -87,34 +87,33 @@ void GlooAlgorithms<T>::Broadcast(void *buffer_data, int num_elements,
   gloo::broadcast(opts);
 }
 
-template<typename T>
-int GlooAlgorithms<T>::ElementSize() const {
+template <typename T> int GlooAlgorithms<T>::ElementSize() const {
   return sizeof(T);
 }
 
-GlooAllreduce::GlooAllreduce(GlooContext *gloo_context,
-                             HorovodGlobalState *global_state)
+GlooAllreduce::GlooAllreduce(GlooContext* gloo_context,
+                             HorovodGlobalState* global_state)
     : AllreduceOp(global_state), gloo_context_(gloo_context) {}
 
-Status GlooAllreduce::Execute(std::vector<TensorTableEntry> &entries,
-                              const Response &response) {
-  auto &first_entry = entries[0];
+Status GlooAllreduce::Execute(std::vector<TensorTableEntry>& entries,
+                              const Response& response) {
+  auto& first_entry = entries[0];
 
-  void *buffer_data;
-  int num_elements = (int) NumElements(entries);
+  void* buffer_data;
+  int num_elements = (int)NumElements(entries);
 
   // Copy memory into the fusion buffer.
-  auto &timeline = global_state_->timeline;
+  auto& timeline = global_state_->timeline;
   if (entries.size() > 1) {
     timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
-    const void *fused_input_data;
+    const void* fused_input_data;
     size_t buffer_len;
     MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
     timeline.ActivityEndAll(entries);
   } else {
-    buffer_data = (void *) first_entry.output->data();
+    buffer_data = (void*)first_entry.output->data();
     std::memcpy(buffer_data, first_entry.tensor->data(),
-                (size_t) first_entry.tensor->size());
+                (size_t)first_entry.tensor->size());
   }
 
   // Do allreduce.
@@ -134,46 +133,46 @@ Status GlooAllreduce::Execute(std::vector<TensorTableEntry> &entries,
   return Status::OK();
 }
 
-bool GlooAllreduce::Enabled(const ParameterManager &param_manager,
-                            const std::vector<TensorTableEntry> &entries,
-                            const Response &response) const {
+bool GlooAllreduce::Enabled(const ParameterManager& param_manager,
+                            const std::vector<TensorTableEntry>& entries,
+                            const Response& response) const {
   return true;
 }
 
-GlooAllgather::GlooAllgather(GlooContext *gloo_context,
-                             HorovodGlobalState *global_state)
+GlooAllgather::GlooAllgather(GlooContext* gloo_context,
+                             HorovodGlobalState* global_state)
     : AllgatherOp(global_state), gloo_context_(gloo_context) {}
 
-bool GlooAllgather::Enabled(const ParameterManager &param_manager,
-                            const std::vector<TensorTableEntry> &entries,
-                            const Response &response) const {
+bool GlooAllgather::Enabled(const ParameterManager& param_manager,
+                            const std::vector<TensorTableEntry>& entries,
+                            const Response& response) const {
   return true;
 }
 
-Status GlooAllgather::Execute(std::vector<TensorTableEntry> &entries,
-                              const Response &response) {
-  auto &timeline = global_state_->timeline;
+Status GlooAllgather::Execute(std::vector<TensorTableEntry>& entries,
+                              const Response& response) {
+  auto& timeline = global_state_->timeline;
 
   // Sizes of subcomponents of each entry from all ranks
-  auto **entry_component_sizes = new int64_t *[entries.size()];
+  auto** entry_component_sizes = new int64_t*[entries.size()];
 
   // Offset of each subcomponent of every entry in the final buffer after
   // allgatherv
-  auto **entry_component_offsets = new int64_t *[entries.size()];
+  auto** entry_component_offsets = new int64_t*[entries.size()];
 
-  auto *recvcounts = new int[global_state_->size]();
-  auto *displcmnts = new int[global_state_->size]();
+  auto* recvcounts = new int[global_state_->size]();
+  auto* displcmnts = new int[global_state_->size]();
 
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     entry_component_sizes[ec] = new int64_t[global_state_->size]();
     entry_component_offsets[ec] = new int64_t[global_state_->size]();
   }
 
-  auto &first_entry = entries[0];
+  auto& first_entry = entries[0];
 
   timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
-  Status status = AllocateOutput(entries, response, entry_component_sizes,
-                                 recvcounts);
+  Status status =
+      AllocateOutput(entries, response, entry_component_sizes, recvcounts);
   if (!status.ok()) {
     return status;
   }
@@ -187,8 +186,8 @@ Status GlooAllgather::Execute(std::vector<TensorTableEntry> &entries,
       GetAlgorithmsForType(first_entry.tensor->dtype(), gloo_context_));
   int element_size = gloo_algos->ElementSize();
 
-  void *sendbuf = nullptr;
-  void *buffer_data;
+  void* sendbuf = nullptr;
+  void* buffer_data;
 
   if (entries.size() > 1) {
     timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
@@ -197,11 +196,11 @@ Status GlooAllgather::Execute(std::vector<TensorTableEntry> &entries,
     timeline.ActivityEndAll(entries);
   } else {
     // need to move input data to its corresponding location in the output
-    sendbuf = (void *) first_entry.tensor->data();
-    buffer_data = (void *) first_entry.output->data();
+    sendbuf = (void*)first_entry.tensor->data();
+    buffer_data = (void*)first_entry.output->data();
     int buffer_offset = displcmnts[gloo_context_->ctx->rank] * element_size;
-    std::memcpy((uint8_t *) buffer_data + buffer_offset, sendbuf,
-                (size_t) first_entry.tensor->size());
+    std::memcpy((uint8_t*)buffer_data + buffer_offset, sendbuf,
+                (size_t)first_entry.tensor->size());
     sendbuf = buffer_data;
   }
 
@@ -231,38 +230,38 @@ Status GlooAllgather::Execute(std::vector<TensorTableEntry> &entries,
   return Status::OK();
 }
 
-GlooBroadcast::GlooBroadcast(GlooContext *gloo_context,
-                             HorovodGlobalState *global_state)
+GlooBroadcast::GlooBroadcast(GlooContext* gloo_context,
+                             HorovodGlobalState* global_state)
     : BroadcastOp(global_state), gloo_context_(gloo_context) {}
 
-Status GlooBroadcast::Execute(std::vector<TensorTableEntry> &entries,
-                              const Response &response) {
+Status GlooBroadcast::Execute(std::vector<TensorTableEntry>& entries,
+                              const Response& response) {
   assert(entries.size() == 1);
   auto e = entries[0];
 
   // On root rank, MPI_Bcast sends data, on other ranks it receives data.
   // for gloo broadcast, only output needs to be set if inplace
 
-  void *data_ptr;
+  void* data_ptr;
   if (global_state_->rank == e.root_rank) {
-    data_ptr = (void *) e.tensor->data();
+    data_ptr = (void*)e.tensor->data();
   } else {
-    data_ptr = (void *) e.output->data();
+    data_ptr = (void*)e.output->data();
   }
 
   global_state_->timeline.ActivityStartAll(entries, GLOO_BCAST);
   std::unique_ptr<IGlooAlgorithms> gloo_algos(
       GetAlgorithmsForType(e.tensor->dtype(), gloo_context_));
-  gloo_algos->Broadcast(data_ptr, (int) e.tensor->shape().num_elements(),
+  gloo_algos->Broadcast(data_ptr, (int)e.tensor->shape().num_elements(),
                         e.root_rank);
   global_state_->timeline.ActivityEndAll(entries);
 
   return Status::OK();
 }
 
-bool GlooBroadcast::Enabled(const ParameterManager &param_manager,
-                            const std::vector<TensorTableEntry> &entries,
-                            const Response &response) const {
+bool GlooBroadcast::Enabled(const ParameterManager& param_manager,
+                            const std::vector<TensorTableEntry>& entries,
+                            const Response& response) const {
   return true;
 }
 
