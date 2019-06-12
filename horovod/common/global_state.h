@@ -24,6 +24,7 @@
 #include "parameter_manager.h"
 #include "response_cache.h"
 #include "timeline.h"
+#include "control_manager.h"
 
 namespace horovod {
 namespace common {
@@ -95,24 +96,28 @@ struct HorovodGlobalState {
   // Whether MPI_Init has been completed on the background thread.
   std::atomic_bool initialization_done {false};
 
-  // The MPI rank, local rank, size, local size, flag indicating whether MPI
-  // multi-threading is supported, ranks from which the MPI communicator will
-  // be made and the communicator itself.
-  int rank = 0;
-  int local_rank = 0;
-  int cross_rank = 0;
-  int size = 1;
-  int local_size = 1;
-  int cross_size = 1;
-  bool mpi_threads_supported = false;
-  bool is_homogeneous = false;
-  std::vector<int> ranks;
+//  // The MPI rank, local rank, size, local size, flag indicating whether MPI
+//  // multi-threading is supported, ranks from which the MPI communicator will
+//  // be made and the communicator itself.
+//  int rank = 0;
+//  int local_rank = 0;
+//  int cross_rank = 0;
+//  int size = 1;
+//  int local_size = 1;
+//  int cross_size = 1;
+//  bool mpi_threads_supported = false;
+//  bool is_homogeneous = false;
+//  std::vector<int> ranks;
+//
+//  // COMM_WORLD ranks of processes running on this node.
+//  std::vector<int> local_comm_ranks;
+//
+//  // Numbers of ranks running per node
+//  std::vector<int> local_sizes;
+//
+//  std::string cpu_operation;
 
-  // COMM_WORLD ranks of processes running on this node.
-  std::vector<int> local_comm_ranks;
-
-  // Numbers of ranks running per node
-  std::vector<int> local_sizes;
+  std::unique_ptr<Controller> controller;
 
   // Pointer to shared buffer for allgather
   void* shared_buffer = nullptr;

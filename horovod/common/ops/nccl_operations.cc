@@ -154,8 +154,8 @@ void NCCLAllreduce::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
 
 void NCCLAllreduce::PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
                                              Communicator& nccl_id_bcast_comm) {
-  nccl_rank = global_state_->rank;
-  nccl_size = global_state_->size;
+  nccl_rank = global_state_->controller->GetRank();
+  nccl_size = global_state_->controller->GetSize();
   nccl_id_bcast_comm = Communicator::GLOBAL;
 }
 
@@ -169,8 +169,8 @@ Status NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries
 
   // Determine GPU IDs of the devices participating in this communicator.
   std::vector<int32_t> nccl_device_map;
-  nccl_device_map.reserve(global_state_->local_comm_ranks.size());
-  for (int rank : global_state_->local_comm_ranks) {
+  nccl_device_map.reserve(global_state_->controller->get_local_comm_ranks().size());
+  for (int rank : global_state_->controller->get_local_comm_ranks()) {
     nccl_device_map.push_back(response.devices()[rank]);
   }
 
@@ -207,10 +207,10 @@ Status NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries
   // dummy elements from the buffer (if necessary) to make sure the data
   // is divisible by local_size. This is always possible since we
   // set the fusion buffer size divisible by local_size.
-  if (global_state_->is_homogeneous && entries.size() > 1) {
+  if (global_state_->controller->isHomogeneous() && entries.size() > 1) {
     // Making sure the number of elements is divisible by
     // FUSION_BUFFER_ATOMIC_UNIT for improved performance
-    int div = global_state_->local_size * FUSION_BUFFER_ATOMIC_UNIT;
+    int div = global_state_->controller->GetLocalSize() * FUSION_BUFFER_ATOMIC_UNIT;
     num_elements = ((num_elements + div - 1) / div) * div;
     buffer_len = num_elements * element_size;
   }
@@ -228,34 +228,34 @@ Status NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries
   // MPI Allreduce (across rank (local_size-1)'s), and NCCL Bcast
 
   int64_t num_elements_per_rank =
-      global_state_->is_homogeneous
-      ? num_elements / global_state_->local_size
+      global_state_->controller->isHomogeneous()
+      ? num_elements / global_state_->controller->GetLocalSize()
       : 0;
 
   size_t buffer_len_per_rank = element_size * num_elements_per_rank;
 
   void* buffer_data_at_rank_offset =
       (uint8_t*) buffer_data +
-      buffer_len_per_rank * global_state_->local_rank;
+      buffer_len_per_rank * global_state_->controller->GetLocalRank();
 
   int64_t num_elements_remaining =
-      global_state_->is_homogeneous
-      ? num_elements % global_state_->local_size
+      global_state_->controller->isHomogeneous()
+      ? num_elements % global_state_->controller->GetLocalSize()
       : num_elements;
 
   size_t buffer_len_remaining = element_size * num_elements_remaining;
 
   void* buffer_data_remainder =
       (uint8_t*) buffer_data +
-      buffer_len_per_rank * global_state_->local_size;
+      buffer_len_per_rank * global_state_->controller->GetLocalSize();
 
   void* fused_input_data_remainder =
       (uint8_t*) fused_input_data +
-      buffer_len_per_rank * global_state_->local_size;
+      buffer_len_per_rank * global_state_->controller->GetLocalSize();
 
   int root_rank =
-      global_state_->is_homogeneous ? global_state_->local_size - 1 : 0;
-  bool is_root_rank = global_state_->local_rank == root_rank;
+      global_state_->controller->isHomogeneous() ? global_state_->controller->GetLocalSize() - 1 : 0;
+  bool is_root_rank = global_state_->controller->GetLocalRank() == root_rank;
 
   int64_t total_num_elements =
       is_root_rank ? num_elements_per_rank + num_elements_remaining
@@ -291,7 +291,7 @@ Status NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries
     }
   }
 
-  if (global_state_->is_homogeneous || is_root_rank) {
+  if (global_state_->controller->isHomogeneous() || is_root_rank) {
     // cudaHostAlloc is significantly slower than malloc.  Pre-allocating
     // a buffer is not safe since the tensor can be arbitrarily large.
     host_buffer_ = malloc(total_buffer_len);
@@ -373,8 +373,8 @@ bool NCCLHierarchicalAllreduce::Enabled(const ParameterManager& param_manager,
 
 void NCCLHierarchicalAllreduce::PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
                                                          Communicator& nccl_id_bcast_comm) {
-  nccl_rank = global_state_->local_rank;
-  nccl_size = global_state_->local_size;
+  nccl_rank = global_state_->controller->GetLocalRank();
+  nccl_size = global_state_->controller->GetLocalSize();
   nccl_id_bcast_comm = Communicator::LOCAL;
 }
 

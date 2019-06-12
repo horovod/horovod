@@ -26,6 +26,7 @@
 #include "common.h"
 #include "message.h"
 #include "mpi_context.h"
+#include "control_manager.h"
 
 #define NUM_STATUS_BITS 3
 
@@ -118,7 +119,7 @@ public:
 
   // Method to sync state and bit sets across workers
   // with MPI.
-  void sync(MPIContext& ctx, bool timeline_enabled);
+  void sync(std::unique_ptr<Controller> &controller, bool timeline_enabled);
 
 private:
   enum StatusBit {

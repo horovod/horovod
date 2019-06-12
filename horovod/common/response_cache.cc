@@ -300,7 +300,8 @@ bool CacheCoordinator::uncached_in_queue() const {
   return uncached_in_queue_;
 }
 
-void CacheCoordinator::sync(MPIContext& ctx, bool timeline_enabled) {
+void CacheCoordinator::sync(std::unique_ptr<Controller> &controller, bool
+    timeline_enabled) {
   assert(!synced_);
 
   // Resize and initialize bit vector.
@@ -350,8 +351,11 @@ void CacheCoordinator::sync(MPIContext& ctx, bool timeline_enabled) {
   }
 
   // Global MPI AND operation to get intersected bit array.
-  MPI_Allreduce(MPI_IN_PLACE, bitvector_.data(), fullcount,
-                MPI_LONG_LONG_INT, MPI_BAND, ctx.mpi_comm);
+//  MPI_Allreduce(MPI_IN_PLACE, bitvector_.data(), fullcount,
+//                MPI_LONG_LONG_INT, MPI_BAND, ctx.mpi_comm);
+
+  controller->AllReduce(IN_PLACE, bitvector_.data(), fullcount,
+      HOROVOD_LONG_LONG_INT, HOROVOD_BAND, Communicator::GLOBAL);
 
   // Search for flipped bits to populate common cache hit set. There will never
   // be invalid bits in this set.
@@ -389,9 +393,12 @@ void CacheCoordinator::sync(MPIContext& ctx, bool timeline_enabled) {
     }
 
     // Global MPI OR operation to get common invalid bits.
-    MPI_Allreduce(MPI_IN_PLACE, bitvector_.data(), count,
-                  MPI_LONG_LONG_INT, MPI_BOR, ctx.mpi_comm);
+//    MPI_Allreduce(MPI_IN_PLACE, bitvector_.data(), count,
+//                  MPI_LONG_LONG_INT, MPI_BOR, ctx.mpi_comm);
 
+
+    controller->AllReduce(IN_PLACE, bitvector_.data(), count,
+        HOROVOD_LONG_LONG_INT, HOROVOD_BOR, Communicator::GLOBAL);
     // Search for flipped bits to populate common invalid bit set.
     invalid_bits_.clear();
     for (int i = 0; i < count; ++i) {

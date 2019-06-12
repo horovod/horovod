@@ -36,6 +36,7 @@ enum DataType {
   HOROVOD_BOOL = 9,
   HOROVOD_BYTE = 10,
   HOROVOD_NULL = 11,
+  HOROVOD_LONG_LONG_INT = 12,
 };
 
 const std::string& DataType_Name(DataType value);

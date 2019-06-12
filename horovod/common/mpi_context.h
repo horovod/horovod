@@ -24,6 +24,9 @@ namespace horovod {
 namespace common {
 
 struct MPIContext {
+
+  MPIContext();
+
   MPI_Datatype GetMPIDataType(std::shared_ptr<Tensor> tensor);
 
   MPI_Datatype GetMPIDataType(DataType dtype);

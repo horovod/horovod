@@ -90,12 +90,12 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
   // allgatherv
   auto** entry_component_offsets = new int64_t* [entries.size()];
 
-  auto* recvcounts = new int[global_state_->size]();
-  auto* displcmnts = new int[global_state_->size]();
+  auto* recvcounts = new int[global_state_->controller->GetSize()]();
+  auto* displcmnts = new int[global_state_->controller->GetSize()]();
 
   for (size_t ec = 0; ec < entries.size(); ++ec) {
-    entry_component_sizes[ec] = new int64_t[global_state_->size]();
-    entry_component_offsets[ec] = new int64_t[global_state_->size]();
+    entry_component_sizes[ec] = new int64_t[global_state_->controller->GetSize()]();
+    entry_component_offsets[ec] = new int64_t[global_state_->controller->GetSize()]();
   }
 
   auto& first_entry = entries[0];
@@ -174,12 +174,12 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   // allgatherv
   auto** entry_component_offsets = new int64_t* [entries.size()];
 
-  auto* recvcounts = new int[global_state_->size]();
-  auto* displcmnts = new int[global_state_->size]();
+  auto* recvcounts = new int[global_state_->controller->GetSize()]();
+  auto* displcmnts = new int[global_state_->controller->GetSize()]();
 
   for (size_t ec = 0; ec < entries.size(); ++ec) {
-    entry_component_sizes[ec] = new int64_t[global_state_->size]();
-    entry_component_offsets[ec] = new int64_t[global_state_->size]();
+    entry_component_sizes[ec] = new int64_t[global_state_->controller->GetSize()]();
+    entry_component_offsets[ec] = new int64_t[global_state_->controller->GetSize()]();
   }
 
   auto& first_entry = entries[0];
@@ -196,8 +196,8 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
 
   int element_size = mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
 
-  int64_t total_size = displcmnts[global_state_->size - 1] +
-                       recvcounts[global_state_->size - 1];
+  int64_t total_size = displcmnts[global_state_->controller->GetSize() - 1] +
+                       recvcounts[global_state_->controller->GetSize() - 1];
 
   // If shared buffer is not initialized or is not large enough, reallocate
   int64_t total_size_in_bytes = total_size * element_size;
@@ -210,14 +210,14 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
 
     // Allocate shared memory, give each rank their respective pointer
     timeline.ActivityStartAll(entries, ALLOCATE_SHARED_BUFFER);
-    int64_t window_size = global_state_->local_rank == 0 ? total_size_in_bytes : 0;
+    int64_t window_size = global_state_->controller->GetLocalRank() == 0 ? total_size_in_bytes : 0;
     MPI_Win_allocate_shared(window_size,
                             element_size,
                             MPI_INFO_NULL,
                             mpi_context_->GetMPICommunicator(Communicator::LOCAL),
                             &global_state_->shared_buffer,
                             &mpi_context_->window);
-    if (global_state_->local_rank != 0) {
+    if (global_state_->controller->GetLocalRank() != 0) {
       int disp_unit;
       MPI_Aint winsize;
       MPI_Win_shared_query(mpi_context_->window,
@@ -232,26 +232,27 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
 
   // Compute cross-node allgather displacements and recvcounts for
   // homogeneous/parallelized case
-  auto* cross_recvcounts = new int[global_state_->cross_size]();
-  auto* cross_displcmnts = new int[global_state_->cross_size]();
+  auto* cross_recvcounts = new int[global_state_->controller->get_cross_size()]();
+  auto* cross_displcmnts = new int[global_state_->controller->get_cross_size()]();
 
-  if (global_state_->is_homogeneous) {
-    for (int i = 0; i < global_state_->cross_size; ++i) {
-      cross_recvcounts[i] = recvcounts[global_state_->local_size * i +
-                                       global_state_->local_rank];
-      cross_displcmnts[i] = displcmnts[global_state_->local_size * i +
-                                       global_state_->local_rank];
+  if (global_state_->controller->isHomogeneous()) {
+    for (int i = 0; i < global_state_->controller->get_cross_size(); ++i) {
+      cross_recvcounts[i] = recvcounts[global_state_->controller->GetLocalSize() * i +
+                                       global_state_->controller->GetLocalRank()];
+      cross_displcmnts[i] = displcmnts[global_state_->controller->GetLocalSize() * i +
+                                       global_state_->controller->GetLocalRank()];
     }
-  } else if (global_state_->local_rank == 0) {
+  } else if (global_state_->controller->GetLocalRank() == 0) {
     // In this case local rank 0 will allgather with all local data
     int offset = 0;
-    for (int i = 0; i < global_state_->cross_size; ++i) {
-      for (int j = offset; j < offset + global_state_->local_sizes[i];
+    for (int i = 0; i < global_state_->controller->get_cross_size(); ++i) {
+      for (int j = offset; j < offset +
+      global_state_->controller->get_ith_node_local_size(i);
            ++j) {
         cross_recvcounts[i] += recvcounts[j];
       }
       cross_displcmnts[i] = displcmnts[offset];
-      offset += global_state_->local_sizes[i];
+      offset += global_state_->controller->get_ith_node_local_size(i);
     }
   }
 
@@ -260,11 +261,11 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
     auto& e = entries[ec];
     void* shared_buffer_at_offset =
         (uint8_t*) global_state_->shared_buffer +
-        entry_component_offsets[ec][global_state_->rank] * element_size;
+        entry_component_offsets[ec][global_state_->controller->GetRank()] * element_size;
 
     // CPU copy to shared buffer
     memcpy(shared_buffer_at_offset, e.tensor->data(),
-           (size_t) (entry_component_sizes[ec][global_state_->rank] *
+           (size_t) (entry_component_sizes[ec][global_state_->controller->GetRank()] *
                      element_size));
   }
   Barrier();
@@ -273,7 +274,7 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   // Perform the cross-node allgather. If the cluster is homogeneous all
   // local ranks participate, otherwise local rank 0 handles all data
   global_state_->timeline.ActivityStartAll(entries, MPI_CROSS_ALLGATHER);
-  if (global_state_->is_homogeneous || global_state_->local_rank == 0) {
+  if (global_state_->controller->isHomogeneous() || global_state_->controller->GetLocalRank() == 0) {
     int op = MPI_Allgatherv(MPI_IN_PLACE,
                             0,
                             MPI_DATATYPE_NULL,
@@ -325,7 +326,7 @@ Status MPIBroadcast::Execute(std::vector<TensorTableEntry>& entries, const Respo
 
   // On root rank, MPI_Bcast sends data, on other ranks it receives data.
   void* data_ptr;
-  if (global_state_->rank == e.root_rank) {
+  if (global_state_->controller->GetRank() == e.root_rank) {
     data_ptr = (void*) e.tensor->data();
   } else {
     data_ptr = (void*) e.output->data();

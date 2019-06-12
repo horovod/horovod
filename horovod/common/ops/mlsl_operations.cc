@@ -167,12 +167,12 @@ Status MLSLAllgather::Execute(std::vector<TensorTableEntry>& entries, const Resp
   // allgatherv
   auto** entry_component_offsets = new int64_t* [entries.size()];
 
-  auto* recvcounts = new int[global_state_->size]();
-  auto* displcmnts = new int[global_state_->size]();
+  auto* recvcounts = new int[global_state_->controller->GetSize()]();
+  auto* displcmnts = new int[global_state_->controller->GetSize()]();
 
   for (size_t ec = 0; ec < entries.size(); ++ec) {
-    entry_component_sizes[ec] = new int64_t[global_state_->size]();
-    entry_component_offsets[ec] = new int64_t[global_state_->size]();
+    entry_component_sizes[ec] = new int64_t[global_state_->controller->GetSize()]();
+    entry_component_offsets[ec] = new int64_t[global_state_->controller->GetSize()]();
   }
 
   auto& first_entry = entries[0];
@@ -202,8 +202,8 @@ Status MLSLAllgather::Execute(std::vector<TensorTableEntry>& entries, const Resp
     buffer_data = (void*) first_entry.output->data();
   }
 
-  auto* rcounts = new uint64_t[global_state_->size]();
-  for (unsigned int rc = 0; rc < global_state_->size; rc++) {
+  auto* rcounts = new uint64_t[global_state_->controller->GetSize()]();
+  for (unsigned int rc = 0; rc < global_state_->controller->GetSize(); rc++) {
     rcounts[rc] = recvcounts[rc] * element_size;
   }
 
@@ -250,7 +250,7 @@ Status MLSLBroadcast::Execute(std::vector<TensorTableEntry>& entries, const Resp
   // On root rank, MLSL_Bcast sends data, on other ranks it receives data.
   void* data_ptr;
   size_t size;
-  if (global_state_->rank == e.root_rank) {
+  if (global_state_->controller->GetRank() == e.root_rank) {
     data_ptr = (void*) e.tensor->data();
     size = e.tensor->size();
   } else {
