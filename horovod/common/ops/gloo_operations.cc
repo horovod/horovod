@@ -57,7 +57,6 @@ void GlooAlgorithms<T>::Allreduce(void* buffer_data, int num_elements) {
   opts.setOutput((T*)buffer_data, num_elements);
 
   void (*func)(void*, const void*, const void*, size_t) = &::gloo::sum<T>;
-  // set allreduce function
   opts.setReduceFunction(gloo::AllreduceOptions::Func(func));
 
   gloo::allreduce(opts);

@@ -155,15 +155,15 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 
 #else
 #if HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
-  LOG(INFO)<<"NCCL enabled.\n";
-  allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
-      new NCCLHierarchicalAllreduce(&nccl_context, &mpi_context,
-          &cuda_context, &state)));
+  LOG(INFO) << "NCCL enabled.";
+  allreduce_ops.push_back(
+      std::shared_ptr<AllreduceOp>(new NCCLHierarchicalAllreduce(
+          &nccl_context, &mpi_context, &cuda_context, &state)));
   allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
       new NCCLAllreduce(&nccl_context, &mpi_context, &cuda_context, &state)));
 
 #elif HAVE_DDL && HOROVOD_GPU_ALLREDUCE == 'D'
-  LOG(INFO)<<"DDL enabled.\n";
+  LOG(INFO) << "DDL enabled.";
   allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
       new DDLAllreduce(&ddl_context, &cuda_context, &state)));
 #endif
@@ -174,8 +174,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #endif
 
 #if HAVE_GLOO
-  if (strcasecmp(state.cpu_operation.c_str(), "gloo")==0) {
-    LOG(INFO) << "GLOO enabled.\n";
+  if (strcasecmp(state.cpu_operation.c_str(), "gloo") == 0) {
+    LOG(INFO) << "GLOO enabled.";
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new GlooAllreduce(&gloo_context, &state)));
     allgather_ops.push_back(
@@ -186,8 +186,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #endif
 
 #if HAVE_MLSL
-  if (strcasecmp(state.cpu_operation.c_str(), "mlsl")==0) {
-    LOG(INFO) << "MLSL enabled.\n";
+  if (strcasecmp(state.cpu_operation.c_str(), "mlsl") == 0) {
+    LOG(INFO) << "MLSL enabled.";
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new MLSLAllreduce(&mlsl_context, &state)));
     allgather_ops.push_back(std::shared_ptr<AllgatherOp>(
@@ -198,7 +198,6 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #endif
 
   // Default operations, always enabled but last to be checked.
-  LOG(INFO)<<"If no enabled operations shown above, use MPI by default.\n";
   allreduce_ops.push_back(
       std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpi_context, &state)));
   allgather_ops.push_back(
@@ -1177,30 +1176,39 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
 
   state.cpu_operation = HOROVOD_MPI;
 
-#if HAVE_GLOO
-  state.cpu_operation = HOROVOD_GLOO;
-#endif
-
 #if HAVE_MLSL
   state.cpu_operation = HOROVOD_MLSL;
 #endif
 
   // If specified by admin during compiling
-#if HOROVOD_CPU_OPERATIONS
-  state.cpu_operation = HOROVOD_CPU_OPERATIONS;
+#if HOROVOD_CPU_OPERATIONS_DEFAULT == 'P'
+  state.cpu_operation = HOROVOD_MPI;
+#elif HOROVOD_CPU_OPERATIONS_DEFAULT == 'G'
+  LOG(INFO) << "Gloo!!!!!!";
+  state.cpu_operation = HOROVOD_GLOO;
+#elif HOROVOD_CPU_OPERATIONS_DEFAULT == 'M'
+  state.cpu_operation = HOROVOD_MLSL;
 #endif
 
   // If specified by user during runtime
-  auto user_cpu_operation = std::getenv(HOROVOD_CPU_RUNTIME);
-  if (user_cpu_operation != nullptr){
-    state.cpu_operation = user_cpu_operation;
+  const char* user_cpu_operation = std::getenv(HOROVOD_CPU_OPERATIONS);
+  if (user_cpu_operation != nullptr) {
+    if (strcasecmp(user_cpu_operation, HOROVOD_MPI) == 0) {
+      state.cpu_operation = HOROVOD_MPI;
+    }
+    else if (strcasecmp(user_cpu_operation, HOROVOD_GLOO) == 0) {
+      state.cpu_operation = HOROVOD_GLOO;
+    }
+    else if (strcasecmp(user_cpu_operation, HOROVOD_MLSL) == 0) {
+      state.cpu_operation = HOROVOD_MLSL;
+    }
   }
 
 #if HAVE_GLOO
-  if (strcasecmp(state.cpu_operation.c_str(), "gloo") == 0){
-    auto gloo_iface = std::getenv("HOROVOD_GLOO_IFACE");
+  if (strcasecmp(state.cpu_operation.c_str(), "gloo") == 0) {
+    auto gloo_iface = std::getenv(HOROVOD_GLOO_IFACE);
     if (gloo_iface == nullptr) {
-      gloo_iface = "eth0";
+      gloo_iface = GLOO_DEFAULT_IFACE;
     }
     gloo_context.InitializeFromMPI(ctx.mpi_comm, gloo_iface);
   }

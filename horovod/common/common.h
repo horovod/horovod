@@ -57,6 +57,9 @@ namespace common {
 #define GLOO_ALLGATHER "GLOO_ALLGATHER"
 #define GLOO_BCAST "GLOO_BCAST"
 
+// String constant for gloo interface.
+#define GLOO_DEFAULT_IFACE "eth0"
+
 // Device ID used for CPU.
 #define CPU_DEVICE_ID (-1)
 

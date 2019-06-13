@@ -143,6 +143,7 @@ struct HorovodGlobalState {
   // Index of current CUDA stream to use
   int current_nccl_stream = 0;
 
+  // A string indicating what framework we are using to perform CPU operations.
   std::string cpu_operation;
 
   ~HorovodGlobalState() {
