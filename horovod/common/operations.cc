@@ -930,9 +930,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // installed.
   state.controller->Initialize();
 
-  // Create custom datatypes for the parameter manager.
-  state.param_manager.CreateMpiTypes();
-
   // Open the timeline file on coordinator.
   auto horovod_timeline = std::getenv(HOROVOD_TIMELINE);
 
@@ -1041,7 +1038,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   // Initialize the tensor count table. No tensors are available yet.
   if (is_coordinator) {
-    state.message_table = std::make_unique<MessageTable>(new MessageTable());
+    state.message_table = std::unique_ptr<MessageTable>(new MessageTable());
   }
 
   state.controller->set_cpu_operation(HOROVOD_MPI);
@@ -1051,12 +1048,12 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 #endif
 
   // If specified by admin during compiling
-#if HOROVOD_CPU_OPERATIONS_DEFAULT == 'P'
-  state.cpu_operation = HOROVOD_MPI;
-#elif HOROVOD_CPU_OPERATIONS_DEFAULT == 'G'
-  state.cpu_operation = HOROVOD_GLOO;
-#elif HOROVOD_CPU_OPERATIONS_DEFAULT == 'M'
-  state.cpu_operation = HOROVOD_MLSL;
+#if HOROVOD_CPU_OPERATIONS == 'P'
+  state.controller->set_cpu_operation(HOROVOD_MPI);
+#elif HOROVOD_CPU_OPERATIONS == 'G'
+  state.controller->set_cpu_operation(HOROVOD_GLOO);
+#elif HOROVOD_CPU_OPERATIONS == 'M'
+  state.controller->set_cpu_operation(HOROVOD_MLSL);
 #endif
 
   // If specified by user during runtime
@@ -1072,12 +1069,19 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 
 #if HAVE_GLOO
-  if (strcasecmp(state.cpu_operation.c_str(), "gloo") == 0) {
-    auto gloo_iface = std::getenv(HOROVOD_GLOO_IFACE);
+  if (strcasecmp(state.cpu_operation.c_str(), "gloo") == 0){
+    const char* gloo_iface = std::getenv(HOROVOD_GLOO_IFACE);
     if (gloo_iface == nullptr) {
       gloo_iface = GLOO_DEFAULT_IFACE;
     }
-    gloo_context.InitializeFromMPI(ctx.mpi_comm, gloo_iface);
+
+    if (horovod_global.controller->GetControllerType() ==
+    Controller::ControllerType::MPI){
+      MPIController *mpiController = (MPIController*)horovod_global
+          .controller.get();
+      gloo_context.InitializeFromMPI(mpiController->GetMPIContext().mpi_comm,
+          gloo_iface);
+    }
   }
 #endif
 

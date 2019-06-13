@@ -14,11 +14,8 @@
 #include "operations.h"
 #include "parameter_manager.h"
 
-#if HAVE_MPI
 #define IN_PLACE MPI_IN_PLACE
-#else
-#define IN_PLACE ((void *) 1)
-#endif
+//#define IN_PLACE ((void *) 1)
 
 namespace horovod{
 namespace common{

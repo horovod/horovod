@@ -33,6 +33,7 @@
 namespace horovod {
 namespace common {
 
+class Controller;
 // ParameterManager encapsulates the various tunable "knobs" in Horovod including the cycle time
 // between iterations of the background thread, and the size of the fusion buffer.
 //
@@ -244,7 +245,7 @@ private:
     bool active;
   };
 
-  std::shared_ptr<Controller> &controller_;
+  std::shared_ptr<Controller> controller_;
 
 };
 
