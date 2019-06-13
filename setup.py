@@ -42,14 +42,6 @@ torch_mpi_lib_v2 = Extension('horovod.torch.mpi_lib_v2', [])
 mxnet_mpi_lib = Extension('horovod.mxnet.mpi_lib', [])
 gloo_lib = CMakeExtension('gloo', cmake_lists_dir='third_party/gloo', sources=[])
 
-
-def find_files(base_dir, ext):
-    matches = []
-    for root, dirnames, filenames in os.walk(base_dir):
-        for filename in fnmatch.filter(filenames, ext):
-            matches.append(os.path.join(root, filename))
-    return matches
-
 mlsl_root = os.environ.get('MLSL_ROOT')
 have_mlsl = mlsl_root is not None
 
@@ -596,10 +588,18 @@ def get_common_options(build_ext):
 
     cpu_operation = os.environ.get('HOROVOD_CPU_OPERATIONS')
     if cpu_operation:
-        print('INFO: Set default cpu operation to '+cpu_operation)
-        MACROS += [('HOROVOD_CPU_OPERATIONS', "'%s'" % cpu_operation)]
+        print('INFO: Set default cpu operation to ' + cpu_operation)
+        if cpu_operation.upper() == 'MPI':
+            MACROS += [('HOROVOD_CPU_OPERATIONS_DEFAULT', "'P'")]
+        elif cpu_operation.upper() == 'MLSL':
+            MACROS += [('HOROVOD_CPU_OPERATIONS_DEFAULT', "'M'")]
+        elif cpu_operation.upper() == 'GLOO':
+            MACROS += [('HOROVOD_CPU_OPERATIONS_DEFAULT', "'G'")]
 
     is_mac = os.uname()[0] == 'Darwin'
+
+    # TODO: remove system check if gloo support MacOX in the future
+    #  https://github.com/facebookincubator/gloo/issues/182
 
     if is_mac:
         print('Submodule Gloo cannot compile on MacOS, skip compiling Gloo.')
@@ -993,12 +993,9 @@ def build_cmake(build_ext, ext, output_dir, options):
         import cmake
         cmake_bin = os.path.join(cmake.CMAKE_BIN_DIR, 'cmake')
         subprocess.check_call([ 'chmod',  '+x',  cmake_bin ])
-
         subprocess.check_output([cmake_bin, '--version'])
     except OSError as e:
-
-        raise RuntimeError('Check CMAKE executable failed: {}'.format(str(e)))
-
+        raise RuntimeError('Check CMake executable failed: {}'.format(str(e)))
     # Statically linked archive files go into the provided output directory
     extdir = os.path.abspath(os.path.dirname(build_ext.get_ext_fullpath(ext.name)))
     config = 'Debug' if build_ext.debug else 'Release'
@@ -1025,7 +1022,7 @@ def build_cmake(build_ext, ext, output_dir, options):
         subprocess.check_call([cmake_bin, '--build', '.'] + cmake_build_args,
                               cwd=build_temp)
     except OSError as e:
-        raise RuntimeError('CMAKE failed: {}'.format(str(e)))
+        raise RuntimeError('CMake failed: {}'.format(str(e)))
     # Add the library so other extensions will link against it during compilation
     options['LIBRARIES'] += [ext.name]
 

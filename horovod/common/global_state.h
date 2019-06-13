@@ -137,6 +137,7 @@ struct HorovodGlobalState {
   // Initial time cached tensors are seen in queue. Used for stall message handling.
   std::unordered_map<std::string, std::chrono::steady_clock::time_point> cache_tensor_start;
 
+  // A string indicating what framework we are using to perform CPU operations.
   std::string cpu_operation;
 
   ~HorovodGlobalState() {
