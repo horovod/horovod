@@ -45,7 +45,7 @@ int Controller::GetLocalSize() {return local_size_;}
 int Controller::get_cross_size() {return cross_size_;}
 std::string Controller::get_cpu_operation() {return cpu_operation_;}
 
-Controller::ControllerType Controller::GetCommunicatorType(){
+Controller::ControllerType Controller::GetControllerType(){
   return type_;
 }
 
@@ -63,6 +63,9 @@ bool Controller::isMpiThreadsSupported() const {
   return mpi_threads_supported_;
 }
 
+MPIController::MPIController(){
+  type_ = MPI;
+}
 void MPIController::Initialize() {
   auto mpi_threads_disable = std::getenv(HOROVOD_MPI_THREADS_DISABLE);
   int required = MPI_THREAD_MULTIPLE;
@@ -301,6 +304,8 @@ MPI_Datatype MPIController::GetMPIDataType(DataType data_type){
       return MPI_LONG_LONG_INT;
     case HOROVOD_NULL:
       return MPI_DATATYPE_NULL;
+  case HOROVOD_PARAM:
+    retrun mpi_ctx_.para
     default:
       throw std::logic_error("Type not supported in MPI mode.");
   }

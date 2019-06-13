@@ -196,12 +196,18 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #endif
 
   // Default operations, always enabled but last to be checked.
-  allreduce_ops.push_back(
-      std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpi_context, &state)));
-  allgather_ops.push_back(
-      std::shared_ptr<AllgatherOp>(new MPIAllgather(&mpi_context, &state)));
-  broadcast_ops.push_back(
-      std::shared_ptr<BroadcastOp>(new MPIBroadcast(&mpi_context, &state)));
+  if (state.controller->GetControllerType() == Controller::ControllerType::MPI)
+  {
+    Controller* base = state.controller.get();
+    MPIController* mpiController = (MPIController*)base;
+    allreduce_ops.push_back(
+        std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpiController->GetMPIContext(),
+            &state)));
+    allgather_ops.push_back(
+        std::shared_ptr<AllgatherOp>(new MPIAllgather(&mpiController->GetMPIContext(), &state)));
+    broadcast_ops.push_back(
+        std::shared_ptr<BroadcastOp>(new MPIBroadcast(&mpiController->GetMPIContext(), &state)));
+  }
 
   std::shared_ptr<ErrorOp> error_op(new ErrorOp(&state));
 
@@ -213,13 +219,13 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 // Requests for that tensor is now equal to the MPI size (and thus we are
 // ready to reduce the tensor).
 bool IncrementTensorCount(std::unique_ptr<MessageTable>& message_table,
-                          const Request& msg, int mpi_size) {
+                          const Request& msg, int global_size) {
   auto& name = msg.tensor_name();
   auto& timeline = horovod_global.timeline;
   auto table_iter = message_table->find(name);
   if (table_iter == message_table->end()) {
     std::vector<Request> messages = {msg};
-    messages.reserve(static_cast<unsigned long>(mpi_size));
+    messages.reserve(static_cast<unsigned long>(global_size));
     auto now = std::chrono::steady_clock::now();
     message_table->emplace(name, std::make_tuple(std::move(messages), now));
     table_iter = message_table->find(name);
@@ -233,7 +239,7 @@ bool IncrementTensorCount(std::unique_ptr<MessageTable>& message_table,
 
   std::vector<Request>& messages = std::get<0>(table_iter->second);
   int count = (int)messages.size();
-  bool ready_to_reduce = count == mpi_size;
+  bool ready_to_reduce = count == global_size;
   if (ready_to_reduce) {
     timeline.NegotiateEnd(name);
   }
@@ -488,9 +494,8 @@ int64_t TensorFusionThresholdBytes() {
 
     // Ensuring that fusion buffer can hold a number of elements divisible by
     // FUSION_BUFFER_ATOMIC_UNIT for performance
-    int mpi_double_size;
-    MPI_Type_size(MPI_DOUBLE, &mpi_double_size);
-    int64_t div = horovod_global.controller->GetLocalSize() * mpi_double_size *
+    int double_size = horovod_global.controller->GetTypeSize(HOROVOD_FLOAT64);
+    int64_t div = horovod_global.controller->GetLocalSize() * double_size *
         FUSION_BUFFER_ATOMIC_UNIT;
     return ((proposed_fusion_threshold + div - 1) / div) * div;
   }
@@ -1293,7 +1298,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     // determine if any worker has uncached messages in queue or requests
     // a shutdown. This function removes any invalid cache entries, if they
     // exist.
-    CoordinateCacheAndState(cache_coordinator, state, ctx);
+    CoordinateCacheAndState(cache_coordinator, state);
 
     {
       // Get lock in order to safely replace messages to global queue
@@ -1367,8 +1372,11 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     // 1. Get message lengths from every rank.
     auto recvcounts = new int[state.controller->GetSize()];
     recvcounts[0] = 0;
-    MPI_Gather(MPI_IN_PLACE, 1, MPI_INT, recvcounts, 1, MPI_INT, RANK_ZERO,
-               ctx.mpi_comm);
+//    MPI_Gather(MPI_IN_PLACE, 1, MPI_INT, recvcounts, 1, MPI_INT, RANK_ZERO,
+//               ctx.mpi_comm);
+
+    state.controller->Gather(IN_PLACE, 1, HOROVOD_INT32, recvcounts, 1,
+        HOROVOD_INT32, RANK_ZERO, Communicator::GLOBAL);
 
     // 2. Compute displacements.
     auto displcmnts = new int[state.controller->GetSize()];
@@ -1384,8 +1392,11 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 
     // 3. Collect messages from every rank.
     auto buffer = new uint8_t[total_size];
-    MPI_Gatherv(nullptr, 0, MPI_BYTE, buffer, recvcounts, displcmnts, MPI_BYTE,
-                RANK_ZERO, ctx.mpi_comm);
+//    MPI_Gatherv(nullptr, 0, MPI_BYTE, buffer, recvcounts, displcmnts, MPI_BYTE,
+//                RANK_ZERO, ctx.mpi_comm);
+
+    state.controller->Gatherv(nullptr, 0, HOROVOD_BYTE, buffer, recvcounts,
+        displcmnts, HOROVOD_BYTE, RANK_ZERO, Communicator::GLOBAL);
 
     // 4. Process messages.
     for (int i = 1; i < state.controller->GetSize(); ++i) {
@@ -1435,7 +1446,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
       responses.push_back(std::move(response));
     }
 
-    response_list = FuseResponses(responses, state, ctx);
+    response_list = FuseResponses(responses, state);
     response_list.set_shutdown(should_shut_down);
 
     if (!response_list.responses().empty()) {
@@ -1450,9 +1461,15 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     std::string encoded_response;
     ResponseList::SerializeToString(response_list, encoded_response);
     int encoded_response_length = (int)encoded_response.length() + 1;
-    MPI_Bcast(&encoded_response_length, 1, MPI_INT, RANK_ZERO, ctx.mpi_comm);
-    MPI_Bcast((void*)encoded_response.c_str(), encoded_response_length,
-              MPI_BYTE, RANK_ZERO, ctx.mpi_comm);
+//    MPI_Bcast(&encoded_response_length, 1, MPI_INT, RANK_ZERO, ctx.mpi_comm);
+//    MPI_Bcast((void*)encoded_response.c_str(), encoded_response_length,
+//              MPI_BYTE, RANK_ZERO, ctx.mpi_comm);
+
+    state.controller->Brodcast(&encoded_response_length, 1, HOROVOD_INT32,
+        RANK_ZERO, Communicator::GLOBAL);
+
+    state.controller->Brodcast((void*)encoded_response.c_str(),
+        encoded_response_length, HOROVOD_BYTE, RANK_ZERO, Communicator::GLOBAL);
 
   } else {
     std::string encoded_message;
@@ -1464,16 +1481,27 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     }
     RequestList::SerializeToString(message_list, encoded_message);
     int encoded_message_length = (int)encoded_message.length() + 1;
-    MPI_Gather(&encoded_message_length, 1, MPI_INT, nullptr, 1, MPI_INT,
-               RANK_ZERO, ctx.mpi_comm);
-    MPI_Gatherv((void*)encoded_message.c_str(), encoded_message_length,
-                MPI_BYTE, nullptr, nullptr, nullptr, MPI_BYTE, RANK_ZERO,
-                ctx.mpi_comm);
+//    MPI_Gather(&encoded_message_length, 1, MPI_INT, nullptr, 1, MPI_INT,
+//               RANK_ZERO, ctx.mpi_comm);
+//    MPI_Gatherv((void*)encoded_message.c_str(), encoded_message_length,
+//                MPI_BYTE, nullptr, nullptr, nullptr, MPI_BYTE, RANK_ZERO,
+//                ctx.mpi_comm);
+
+    state.controller->Gather(&encoded_message_length, 1, HOROVOD_INT32, nullptr, 1,
+        HOROVOD_INT32, RANK_ZERO, Communicator::GLOBAL);
+    state.controller->Gatherv((void*)encoded_message.c_str(), encoded_message_length,
+                HOROVOD_BYTE, nullptr, nullptr, nullptr, HOROVOD_BYTE, RANK_ZERO,
+                Communicator::GLOBAL);
 
     int msg_length;
-    MPI_Bcast(&msg_length, 1, MPI_INT, RANK_ZERO, ctx.mpi_comm);
+//    MPI_Bcast(&msg_length, 1, MPI_INT, RANK_ZERO, ctx.mpi_comm);
+    state.controller->Brodcast(&msg_length, 1, HOROVOD_INT32,
+                               RANK_ZERO, Communicator::GLOBAL);
+
     auto buffer = new uint8_t[msg_length];
-    MPI_Bcast(buffer, msg_length, MPI_BYTE, RANK_ZERO, ctx.mpi_comm);
+//    MPI_Bcast(buffer, msg_length, MPI_BYTE, RANK_ZERO, ctx.mpi_comm);
+    state.controller->Brodcast(buffer,msg_length , HOROVOD_BYTE, RANK_ZERO,
+        Communicator::GLOBAL);
     ResponseList::ParseFromBytes(response_list, buffer);
     delete[] buffer;
   }
@@ -1561,6 +1589,9 @@ comm) {
                                                                 ());
 
     horovod_global.controller->SetRank(ranks, nranks);
+
+    if (horovod_global.controller->GetControllerType() ==
+    Controller::ControllerType::MPI)
     {
       Controller* temp_base = horovod_global.controller.get();
       ((MPIController*)temp_base)->SetMPIComm(comm);

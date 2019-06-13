@@ -46,7 +46,7 @@ public:
   ParameterManager();
 
   // Creates MPI data types used for sending and receiving optimization state across workers.
-  void CreateMpiTypes();
+  void static CreateMpiTypes(MPI_Datatype &mpi_params_type_);
 
   // Frees MPI data types during Horovod MPI shutdown.
   void FreeMpiTypes();

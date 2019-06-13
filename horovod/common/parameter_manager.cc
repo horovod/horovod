@@ -63,7 +63,7 @@ ParameterManager::ParameterManager() :
   Reset();
 }
 
-void ParameterManager::CreateMpiTypes() {
+void static ParameterManager::CreateMpiTypes(MPI_Datatype &mpi_params_type_) {
   const int nitems = 6;
   int blocklengths[6] = {1, 1, 1, 1, 1, 1};
   MPI_Datatype types[6] = {MPI_CXX_BOOL, MPI_CXX_BOOL, MPI_CXX_BOOL, MPI_DOUBLE, MPI_DOUBLE, MPI_CXX_BOOL};

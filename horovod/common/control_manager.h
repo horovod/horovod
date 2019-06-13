@@ -68,8 +68,7 @@ class Controller{
   std::string get_cpu_operation();
   void set_cpu_operation(const char* string);
 
-  ControllerType GetCommunicatorType();
-
+  ControllerType GetControllerType();
 
 protected:
 
@@ -101,6 +100,7 @@ protected:
 
 class MPIController : public Controller{
   public:
+  MPIController();
   void Initialize() override;
   void Finalize() override;
 
