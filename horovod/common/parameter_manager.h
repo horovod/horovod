@@ -25,6 +25,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "control_manager.h"
 #include "mpi.h"
 
 #include <Eigen/Core>
@@ -49,10 +50,10 @@ public:
   void static CreateMpiTypes(MPI_Datatype &mpi_params_type_);
 
   // Frees MPI data types during Horovod MPI shutdown.
-  void FreeMpiTypes();
+  void static FreeMpiTypes(MPI_Datatype &mpi_params_type_);
 
   // Initializes this manager if auto tuning was requested.
-  void Initialize(int32_t rank, int32_t root_rank, MPI_Comm mpi_comm, std::string file_name);
+  void Initialize(int32_t rank, int32_t root_rank, std::string file_name);
 
   // Starts or stop the auto tuning procedure.
   void SetAutoTuning(bool active);
@@ -97,7 +98,7 @@ private:
   void Tune(double score);
 
   // Broadcasts updated parameter values from the coordinator to the other workers.
-  void SyncParams();
+  void SyncParams(std::unique_ptr<Controller> &controller);
 
   // Resets the tuning state in preparation for evaluating a new set of parameter values.
   void Reset();
@@ -241,8 +242,7 @@ private:
     bool active;
   };
 
-  MPI_Datatype mpi_params_type_;
-  MPI_Comm mpi_comm_;
+
 };
 
 

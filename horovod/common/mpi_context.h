@@ -41,6 +41,9 @@ struct MPIContext {
   MPI_Datatype mpi_float16_t;
   MPI_Op mpi_float16_sum;
 
+  // MPI custom data type for param
+  MPI_Datatype mpi_param_t;
+
   // Private MPI communicator for Horovod to ensure no collisions with other
   // threads using MPI.
   MPI_Comm mpi_comm;

@@ -1033,8 +1033,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       std::strtol(horovod_autotune, nullptr, 10) > 0) {
     auto horovod_autotune_log = std::getenv(HOROVOD_AUTOTUNE_LOG);
     state.param_manager.Initialize(
-        state.controller->GetRank(), RANK_ZERO, ctx
-    .mpi_comm,horovod_autotune_log != nullptr ? std::string
+        state.controller->GetRank(), RANK_ZERO,horovod_autotune_log != nullptr ? std::string
     (horovod_autotune_log) : "");
     state.param_manager.SetAutoTuning(true);
   }

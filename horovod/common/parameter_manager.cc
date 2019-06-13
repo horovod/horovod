@@ -20,8 +20,6 @@
 #include <cmath>
 #include <limits>
 
-#include "mpi.h"
-
 namespace horovod {
 namespace common {
 
@@ -63,7 +61,7 @@ ParameterManager::ParameterManager() :
   Reset();
 }
 
-void static ParameterManager::CreateMpiTypes(MPI_Datatype &mpi_params_type_) {
+void ParameterManager::CreateMpiTypes(MPI_Datatype &mpi_params_type_) {
   const int nitems = 6;
   int blocklengths[6] = {1, 1, 1, 1, 1, 1};
   MPI_Datatype types[6] = {MPI_CXX_BOOL, MPI_CXX_BOOL, MPI_CXX_BOOL, MPI_DOUBLE, MPI_DOUBLE, MPI_CXX_BOOL};
@@ -80,16 +78,15 @@ void static ParameterManager::CreateMpiTypes(MPI_Datatype &mpi_params_type_) {
   MPI_Type_commit(&mpi_params_type_);
 }
 
-void ParameterManager::FreeMpiTypes() {
+void ParameterManager::FreeMpiTypes(MPI_Datatype &mpi_params_type_) {
   if (mpi_params_type_ != MPI_DATATYPE_NULL) {
     MPI_Type_free(&mpi_params_type_);
   }
 }
 
-void ParameterManager::Initialize(int32_t rank, int32_t root_rank, MPI_Comm mpi_comm, std::string file_name) {
+void ParameterManager::Initialize(int32_t rank, int32_t root_rank, std::string file_name) {
   rank_ = rank;
   root_rank_ = root_rank;
-  mpi_comm_ = mpi_comm;
   if (rank_ == root_rank) {
     LOG(INFO) << "Autotuner: Tunable params [hierarchical_allreduce,hierarchical_allgather,cache_enabled,cycle_time_ms,tensor_fusion_threshold] score";
   }
@@ -220,7 +217,7 @@ void ParameterManager::Tune(double score) {
   Reset();
 }
 
-void ParameterManager::SyncParams() {
+void ParameterManager::SyncParams(std::unique_ptr<Controller> &controller) {
   Params params;
 
   // Coordinator send the updated parameters.
@@ -245,8 +242,9 @@ void ParameterManager::SyncParams() {
   }
 
   // Broadcast the parameter struct to other workers.
-  MPI_Bcast(&params, 1, mpi_params_type_, root_rank_, mpi_comm_);
-
+//  MPI_Bcast(&params, 1, mpi_params_type_, root_rank_, mpi_comm_);
+  controller->Brodcast(&params, 1, HOROVOD_PARAM, root_rank_,
+      Communicator::GLOBAL);
   // The other workers receive the broadcasted parameters and update their internal state in response.
   if (rank_ != root_rank_) {
     hierarchical_allreduce_.SetValue(params.hierarchical_allreduce, true);

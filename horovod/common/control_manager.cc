@@ -94,6 +94,8 @@ void MPIController::Initialize() {
     should_finalize_ = true;
   }
 
+  mpi_threads_supported_ = (provided == MPI_THREAD_MULTIPLE);
+
   if (ranks_.size() > 0) {
     MPI_Group world_group;
     MPI_Comm_group(MPI_COMM_WORLD, &world_group);
@@ -161,21 +163,23 @@ void MPIController::Initialize() {
   MPI_Comm_split(mpi_ctx_.mpi_comm, local_rank_, rank_, &cross_comm);
   MPI_Comm_rank(cross_comm, &cross_rank_);
   MPI_Comm_size(cross_comm, &cross_size_);
+  mpi_ctx_.local_comm = local_comm;
+  mpi_ctx_.cross_comm = cross_comm;
 
   // Create custom MPI float16 data type.
   MPI_Datatype mpi_float16_t;
   MPI_Type_contiguous(2, MPI_BYTE, &mpi_float16_t);
   MPI_Type_commit(&mpi_float16_t);
+  mpi_ctx_.mpi_float16_t = mpi_float16_t;
+
+  // Create custom MPI param struct data type.
+  ParameterManager::CreateMpiTypes(mpi_ctx_.mpi_param_t);
 
   // Create custom MPI float16 summation op.
   MPI_Op mpi_float16_sum;
   MPI_Op_create(&float16_sum, 1, &mpi_float16_sum);
-
-  mpi_ctx_.local_comm = local_comm;
-  mpi_ctx_.cross_comm = cross_comm;
-  mpi_ctx_.mpi_float16_t = mpi_float16_t;
   mpi_ctx_.mpi_float16_sum = mpi_float16_sum;
-  mpi_threads_supported_ = (provided == MPI_THREAD_MULTIPLE);
+
 }
 
 MPIContext& MPIController::GetMPIContext(){
@@ -202,6 +206,10 @@ void MPIController::Finalize(){
 
   if (mpi_ctx_.mpi_float16_sum != MPI_OP_NULL) {
     MPI_Op_free(&mpi_ctx_.mpi_float16_sum);
+  }
+
+  if (mpi_ctx_.mpi_param_t != MPI_DATATYPE_NULL){
+    MPI_Type_free(&mpi_ctx_.mpi_param_t);
   }
 
   if (should_finalize_) {
@@ -304,8 +312,8 @@ MPI_Datatype MPIController::GetMPIDataType(DataType data_type){
       return MPI_LONG_LONG_INT;
     case HOROVOD_NULL:
       return MPI_DATATYPE_NULL;
-  case HOROVOD_PARAM:
-    retrun mpi_ctx_.para
+    case HOROVOD_PARAM:
+      return mpi_ctx_.mpi_param_t;
     default:
       throw std::logic_error("Type not supported in MPI mode.");
   }
