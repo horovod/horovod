@@ -300,7 +300,7 @@ bool CacheCoordinator::uncached_in_queue() const {
   return uncached_in_queue_;
 }
 
-void CacheCoordinator::sync(std::unique_ptr<Controller> &controller, bool
+void CacheCoordinator::sync(std::shared_ptr<Controller> &controller, bool
     timeline_enabled) {
   assert(!synced_);
 

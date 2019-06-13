@@ -84,7 +84,9 @@ void ParameterManager::FreeMpiTypes(MPI_Datatype &mpi_params_type_) {
   }
 }
 
-void ParameterManager::Initialize(int32_t rank, int32_t root_rank, std::string file_name) {
+void ParameterManager::Initialize(int32_t rank, int32_t root_rank,
+                                  const std::string& file_name,
+                                  std::shared_ptr<Controller>& controller) {
   rank_ = rank;
   root_rank_ = root_rank;
   if (rank_ == root_rank) {
@@ -97,6 +99,8 @@ void ParameterManager::Initialize(int32_t rank, int32_t root_rank, std::string f
       writing_ = true;
     }
   }
+
+  controller_ = controller;
 }
 
 void ParameterManager::SetAutoTuning(bool active) {
@@ -217,7 +221,7 @@ void ParameterManager::Tune(double score) {
   Reset();
 }
 
-void ParameterManager::SyncParams(std::unique_ptr<Controller> &controller) {
+void ParameterManager::SyncParams() {
   Params params;
 
   // Coordinator send the updated parameters.
@@ -243,7 +247,7 @@ void ParameterManager::SyncParams(std::unique_ptr<Controller> &controller) {
 
   // Broadcast the parameter struct to other workers.
 //  MPI_Bcast(&params, 1, mpi_params_type_, root_rank_, mpi_comm_);
-  controller->Brodcast(&params, 1, HOROVOD_PARAM, root_rank_,
+  controller_->Brodcast(&params, 1, HOROVOD_PARAM, root_rank_,
       Communicator::GLOBAL);
   // The other workers receive the broadcasted parameters and update their internal state in response.
   if (rank_ != root_rank_) {

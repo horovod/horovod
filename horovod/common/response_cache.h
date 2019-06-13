@@ -119,7 +119,7 @@ public:
 
   // Method to sync state and bit sets across workers
   // with MPI.
-  void sync(std::unique_ptr<Controller> &controller, bool timeline_enabled);
+  void sync(std::shared_ptr<Controller> &controller, bool timeline_enabled);
 
 private:
   enum StatusBit {

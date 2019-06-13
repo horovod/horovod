@@ -117,7 +117,7 @@ struct HorovodGlobalState {
 //
 //  std::string cpu_operation;
 
-  std::unique_ptr<Controller> controller;
+  std::shared_ptr<Controller> controller;
 
   // Pointer to shared buffer for allgather
   void* shared_buffer = nullptr;

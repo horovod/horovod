@@ -53,7 +53,8 @@ public:
   void static FreeMpiTypes(MPI_Datatype &mpi_params_type_);
 
   // Initializes this manager if auto tuning was requested.
-  void Initialize(int32_t rank, int32_t root_rank, std::string file_name);
+  void Initialize(int32_t rank, int32_t root_rank, const std::string& file_name,
+                  std::shared_ptr<Controller>& controller);
 
   // Starts or stop the auto tuning procedure.
   void SetAutoTuning(bool active);
@@ -98,7 +99,7 @@ private:
   void Tune(double score);
 
   // Broadcasts updated parameter values from the coordinator to the other workers.
-  void SyncParams(std::unique_ptr<Controller> &controller);
+  void SyncParams();
 
   // Resets the tuning state in preparation for evaluating a new set of parameter values.
   void Reset();
@@ -154,6 +155,7 @@ private:
     double best_score_;
 
     bool tunable_;
+
   };
 
   // A parameter that optimizes over a finite set of discrete values to be tried sequentially.
@@ -242,10 +244,9 @@ private:
     bool active;
   };
 
+  std::shared_ptr<Controller> &controller_;
 
 };
-
-
 
 } // namespace common
 } // namespace horovod
