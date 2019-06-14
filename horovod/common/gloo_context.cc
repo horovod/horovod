@@ -24,6 +24,8 @@ namespace common {
 void GlooContext::InitializeFromMPI(const MPI_Comm& mpi_comm,
                                     const char* gloo_iface) {
   gloo::transport::tcp::attr attr;
+  // TODO(sihan): add interface load balancing after
+  //  https://github.com/facebookincubator/gloo/issues/183 is resolved
   attr.iface = gloo_iface;
   attr.ai_family = AF_UNSPEC;
   auto dev = gloo::transport::tcp::CreateDevice(attr);
