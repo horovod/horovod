@@ -113,7 +113,7 @@ Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Resp
 void NCCLAllreduce::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
                                  const std::vector<int32_t>& nccl_device_map) {
   // Ensure NCCL communicator is in the map before executing reduction.
-  ncclComm_t& nccl_comm = nccl_context_->nccl_comms[global_state_->current_stream][nccl_device_map];
+  ncclComm_t& nccl_comm = nccl_context_->nccl_comms[global_state_->current_nccl_stream][nccl_device_map];
   if (nccl_comm == nullptr) {
     auto& timeline = global_state_->timeline;
     timeline.ActivityStartAll(entries, INIT_NCCL);
