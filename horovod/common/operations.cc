@@ -1184,7 +1184,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
 #if HOROVOD_CPU_OPERATIONS_DEFAULT == 'P'
   state.cpu_operation = HOROVOD_MPI;
 #elif HOROVOD_CPU_OPERATIONS_DEFAULT == 'G'
-  LOG(INFO) << "Gloo!!!!!!";
   state.cpu_operation = HOROVOD_GLOO;
 #elif HOROVOD_CPU_OPERATIONS_DEFAULT == 'M'
   state.cpu_operation = HOROVOD_MLSL;
@@ -1195,11 +1194,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
   if (user_cpu_operation != nullptr) {
     if (strcasecmp(user_cpu_operation, HOROVOD_MPI) == 0) {
       state.cpu_operation = HOROVOD_MPI;
-    }
-    else if (strcasecmp(user_cpu_operation, HOROVOD_GLOO) == 0) {
+    } else if (strcasecmp(user_cpu_operation, HOROVOD_GLOO) == 0) {
       state.cpu_operation = HOROVOD_GLOO;
-    }
-    else if (strcasecmp(user_cpu_operation, HOROVOD_MLSL) == 0) {
+    } else if (strcasecmp(user_cpu_operation, HOROVOD_MLSL) == 0) {
       state.cpu_operation = HOROVOD_MLSL;
     }
   }

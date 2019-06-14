@@ -14,7 +14,7 @@
 # ==============================================================================
 from __future__ import print_function
 
-import os
+import os, stat
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
 from distutils.errors import CompileError, DistutilsError, DistutilsPlatformError, LinkError
@@ -602,9 +602,10 @@ def get_common_options(build_ext):
     #  https://github.com/facebookincubator/gloo/issues/182
 
     if is_mac:
-        print('Submodule Gloo cannot compile on MacOS, skip compiling Gloo.')
+        print('INFO: Submodule Gloo cannot compile on MacOS, skip compiling '
+              'Gloo.')
     else:
-        print('Compiling Gloo.')
+        print('INFO: Compiling Gloo.')
         MACROS += [('HAVE_GLOO', '1')]
         INCLUDES += ['third_party/gloo']
         SOURCES += ['horovod/common/gloo_context.cc',
@@ -990,13 +991,22 @@ def build_torch_extension_v2(build_ext, options, torch_version):
 def build_cmake(build_ext, ext, output_dir, options):
     # CMake should come with pip requirement 'cmake', but let's verify
 
-    try:
+    cmake_bin = 'cmake'
+    if not have_cmake:
+        # if the system doesn't have cmake before, we need to check the newly
+        # installed cmake binary is executable.
         import cmake
         cmake_bin = os.path.join(cmake.CMAKE_BIN_DIR, 'cmake')
-        subprocess.check_call([ 'chmod',  '+x',  cmake_bin ])
+        if not os.access(cmake_bin, os.X_OK):
+            # if not executable, +x to the binary
+            os.chmod(cmake_bin, stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+    # check again if the cmake binary is usable
+    try:
         subprocess.check_output([cmake_bin, '--version'])
     except OSError as e:
         raise RuntimeError('Check CMake executable failed: {}'.format(str(e)))
+
     # Statically linked archive files go into the provided output directory
     extdir = os.path.abspath(os.path.dirname(build_ext.get_ext_fullpath(ext.name)))
     config = 'Debug' if build_ext.debug else 'Release'
@@ -1093,10 +1103,20 @@ class custom_build_ext(build_ext):
             raise DistutilsError(
                 'None of TensorFlow, PyTorch, or MXNet plugins were built. See errors above.')
 
-require_list = ['cmake', 'cloudpickle', 'psutil', 'six']
+require_list = ['cloudpickle', 'psutil', 'six']
 # Skip cffi if pytorch extension explicitly disabled
 if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
   require_list.append('cffi>=1.4.0')
+
+# determining if the system has cmake installed
+have_cmake = True
+try:
+    subprocess.check_output(['cmake', '--version'])
+except :
+    have_cmake = False
+# if cmake is not installed, add cmake to require_list
+if not have_cmake:
+    require_list.append('cmake')
 
 setup(name='horovod',
       version=__version__,
