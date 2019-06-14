@@ -7,12 +7,9 @@
 
 #include <iostream>
 #include <vector>
-#include "logging.h"
 #include "gloo_context.h"
 #include "half.h"
 #include "mpi_context.h"
-#include "operations.h"
-#include "parameter_manager.h"
 
 #define IN_PLACE MPI_IN_PLACE
 //#define IN_PLACE ((void *) 1)

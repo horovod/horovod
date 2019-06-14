@@ -605,6 +605,7 @@ def get_common_options(build_ext):
                'horovod/common/mpi_context.cc',
                'horovod/common/operations.cc',
                'horovod/common/parameter_manager.cc',
+               'horovod/common/control_manager.cc',
                'horovod/common/response_cache.cc',
                'horovod/common/timeline.cc',
                'horovod/common/ops/collective_operations.cc',

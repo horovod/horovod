@@ -3,6 +3,9 @@
 //
 
 #include "control_manager.h"
+#include "operations.h"
+#include "parameter_manager.h"
+#include "logging.h"
 
 namespace horovod{
 namespace common{
@@ -314,7 +317,10 @@ MPI_Datatype MPIController::GetMPIDataType(DataType data_type){
       return MPI_DATATYPE_NULL;
     case HOROVOD_PARAM:
       return mpi_ctx_.mpi_param_t;
+    case HOROVOD_BYTE:
+      return MPI_BYTE;
     default:
+      LOG(INFO) << data_type;
       throw std::logic_error("Type not supported in MPI mode.");
   }
 }
@@ -325,6 +331,8 @@ MPI_Op MPIController::GetMPIOp(OpType op_type, DataType data_type){
       return data_type == HOROVOD_FLOAT16 ? mpi_ctx_.mpi_float16_sum : MPI_SUM;
     case HOROVOD_BAND:
       return MPI_BAND;
+    case HOROVOD_BOR:
+      return MPI_BOR;
     default:
       throw std::logic_error("Op not supported buy MPI.");
   }

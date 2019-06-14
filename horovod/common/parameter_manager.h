@@ -34,6 +34,7 @@ namespace horovod {
 namespace common {
 
 class Controller;
+class MPIController;
 // ParameterManager encapsulates the various tunable "knobs" in Horovod including the cycle time
 // between iterations of the background thread, and the size of the fusion buffer.
 //

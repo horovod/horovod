@@ -29,7 +29,6 @@
 
 #define OMPI_SKIP_MPICXX
 
-#include "fusion_buffer_manager.h"
 #include "global_state.h"
 #include "half.h"
 #include "hashes.h"
@@ -1048,11 +1047,11 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 #endif
 
   // If specified by admin during compiling
-#if HOROVOD_CPU_OPERATIONS == 'P'
+#if HOROVOD_CPU_OPERATIONS_DEFAULT == 'P'
   state.controller->set_cpu_operation(HOROVOD_MPI);
-#elif HOROVOD_CPU_OPERATIONS == 'G'
+#elif HOROVOD_CPU_OPERATIONS_DEFAULT == 'G'
   state.controller->set_cpu_operation(HOROVOD_GLOO);
-#elif HOROVOD_CPU_OPERATIONS == 'M'
+#elif HOROVOD_CPU_OPERATIONS_DEFAULT == 'M'
   state.controller->set_cpu_operation(HOROVOD_MLSL);
 #endif
 
@@ -1629,10 +1628,12 @@ Status CheckInitialized() {
 extern "C" {
 
 void horovod_init(const int* ranks, int nranks) {
+  LOG(DEBUG) << "Init started.";
   InitializeHorovodOnce(ranks, nranks);
 }
 
 void horovod_init_comm(MPI_Comm comm) {
+  LOG(DEBUG) << "Init started.";
   InitializeHorovodOnceWithMPIComm(nullptr, 0, comm);
 }
 
