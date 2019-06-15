@@ -1162,7 +1162,6 @@ class custom_build_ext(build_ext):
 
 
 require_list = ['cloudpickle', 'psutil', 'six']
-setup_require_list = require_list
 # Skip cffi if pytorch extension explicitly disabled
 if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
     require_list.append('cffi>=1.4.0')
@@ -1186,7 +1185,7 @@ setup(name='horovod',
       # If cffi is specified in setup_requires, it will need libffi to be installed on the machine,
       # which is undesirable.  Luckily, `install` action will install cffi before executing build,
       # so it's only necessary for `build*` or `bdist*` actions.
-      setup_requires=setup_require_list if is_build_action() else [],
+      setup_requires=require_list if is_build_action() else [],
       install_requires=require_list,
       zip_safe=False,
       scripts=['bin/horovodrun'])

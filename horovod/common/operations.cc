@@ -1194,9 +1194,11 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
   if (user_cpu_operation != nullptr) {
     if (strcasecmp(user_cpu_operation, HOROVOD_MPI) == 0) {
       state.cpu_operation = HOROVOD_MPI;
-    } else if (strcasecmp(user_cpu_operation, HOROVOD_GLOO) == 0) {
+    }
+    else if (strcasecmp(user_cpu_operation, HOROVOD_GLOO) == 0) {
       state.cpu_operation = HOROVOD_GLOO;
-    } else if (strcasecmp(user_cpu_operation, HOROVOD_MLSL) == 0) {
+    }
+    else if (strcasecmp(user_cpu_operation, HOROVOD_MLSL) == 0) {
       state.cpu_operation = HOROVOD_MLSL;
     }
   }
