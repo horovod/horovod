@@ -19,9 +19,10 @@ namespace horovod {
 namespace common {
 
 Status FusionBufferManager::InitializeBuffer(int64_t threshold, int device, std::shared_ptr<OpContext> context,
+                                             int stream_id,
                                              std::function<void()> on_start_init,
                                              std::function<void()> on_end_init) {
-  auto& elem = tensor_fusion_buffers_[std::make_tuple(device, context->framework())];
+  auto& elem = tensor_fusion_buffers_[std::make_tuple(device, context->framework(), stream_id)];
   auto& buffer = elem.first;
   int64_t& size = elem.second;
   if (size != threshold) {
@@ -44,8 +45,8 @@ Status FusionBufferManager::InitializeBuffer(int64_t threshold, int device, std:
   return Status::OK();
 }
 
-std::shared_ptr<PersistentBuffer>& FusionBufferManager::GetBuffer(int device, Framework framework) {
-  return tensor_fusion_buffers_[std::make_tuple(device, framework)].first;
+std::shared_ptr<PersistentBuffer>& FusionBufferManager::GetBuffer(int device, Framework framework, int stream_id) {
+  return tensor_fusion_buffers_[std::make_tuple(device, framework, stream_id)].first;
 }
 
 } // namespace common
