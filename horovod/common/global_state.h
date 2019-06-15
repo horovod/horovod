@@ -137,6 +137,12 @@ struct HorovodGlobalState {
   // Initial time cached tensors are seen in queue. Used for stall message handling.
   std::unordered_map<std::string, std::chrono::steady_clock::time_point> cache_tensor_start;
 
+  // Number of CUDA streams to use
+  int num_nccl_streams = 1;
+
+  // Index of current CUDA stream to use
+  int current_nccl_stream = 0;
+
   ~HorovodGlobalState() {
     // Make sure that the destructor of the background thread is safe to
     // call. If a thread is still joinable (not detached or complete) its

@@ -107,7 +107,7 @@ void CUDAAllreduce::MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry
   auto& first_entry = entries[0];
   auto cuda_result = cudaMemcpyAsync(buffer_data_at_offset, e.tensor->data(),
                                      (size_t) e.tensor->size(), cudaMemcpyDeviceToDevice,
-                                     cuda_context_->streams[first_entry.device]);
+                                     cuda_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
   cuda_context_->ErrorCheck("cudaMemcpyAsync", cuda_result);
 }
 
@@ -116,7 +116,7 @@ void CUDAAllreduce::MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntr
   auto& first_entry = entries[0];
   auto cuda_result = cudaMemcpyAsync((void*) e.output->data(), buffer_data_at_offset,
                                      (size_t) e.tensor->size(), cudaMemcpyDeviceToDevice,
-                                     cuda_context_->streams[first_entry.device]);
+                                     cuda_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
   cuda_context_->ErrorCheck("cudaMemcpyAsync", cuda_result);
 }
 
@@ -125,7 +125,7 @@ void CUDAAllreduce::InitCUDA(const std::vector<TensorTableEntry>& entries) {
   cuda_context_->ErrorCheck("cudaSetDevice", cudaSetDevice(first_entry.device));
 
   // Ensure stream is in the map before executing reduction.
-  cudaStream_t& stream = cuda_context_->streams[first_entry.device];
+  cudaStream_t& stream = cuda_context_->streams[global_state_->current_nccl_stream][first_entry.device];
   if (stream == nullptr) {
     int greatest_priority;
     cuda_context_->ErrorCheck("cudaDeviceGetStreamPriorityRange",
@@ -137,7 +137,7 @@ void CUDAAllreduce::InitCUDA(const std::vector<TensorTableEntry>& entries) {
 
 void CUDAAllreduce::InitCUDAQueue(const std::vector<TensorTableEntry>& entries, const Response& response) {
   event_queue_ = std::queue<std::pair<std::string, cudaEvent_t>>();
-  stream_ = &cuda_context_->streams[entries[0].device];
+  stream_ = &cuda_context_->streams[global_state_->current_nccl_stream][entries[0].device];
   host_buffer_ = nullptr;
 
   if (global_state_->timeline.Initialized()) {
@@ -174,6 +174,10 @@ Status CUDAAllreduce::FinalizeCUDAQueue(const std::vector<TensorTableEntry>& ent
   });
 
   finalizer_thread.detach();
+
+  // Update current stream
+  global_state_->current_nccl_stream = (global_state_->current_nccl_stream + 1) %
+                                  global_state_->num_nccl_streams;
 
   return Status::InProgress();
 }
