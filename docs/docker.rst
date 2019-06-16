@@ -20,6 +20,25 @@ Before building, you can modify ``Dockerfile`` to your liking, e.g. select a dif
     $ docker build -t horovod:latest horovod-docker
 
 
+Adding Mellanox RDMA support
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+If you have Mellanox NICs, it is recommended to add Mellanox OFED (MOFED) drivers in the container for best performance. Add the following to your ``Dockerfile``:
+
+.. code-block:: bash
+
+    RUN apt-get update && apt-get install -y lsb-core
+    
+    RUN wget http://www.mellanox.com/downloads/ofed/MLNX_OFED-4.4-2.0.7.0/MLNX_OFED_LINUX-4.4-2.0.7.0-ubuntu16.04-x86_64.tgz && \
+        tar zxvf MLNX_OFED_LINUX-4.4-2.0.7.0-ubuntu16.04-x86_64.tgz && \
+        cd MLNX_OFED_LINUX-4.4-2.0.7.0-ubuntu16.04-x86_64 && ./mlnxofedinstall --force --dpdk --without-mlnx-ofed-kernel-utils --without-fw-update && cd .. && \
+        rm -rf MLNX_OFED_LINUX-4.4-2.0.7.0-ubuntu16.04-x86_64 && \
+        rm -f MLNX_OFED_LINUX-4.4-2.0.7.0-ubuntu16.04-x86_64.tgz
+
+The commands above will add MOFED version 4.4 to the container, which is compatible with MOFED 4.4+ installed on the host.
+
+You should run the container in privileged mode (with ``--privileged`` flag) for NIC RDMA devices to be plumbed into the container.
+
+
 Running on a single machine
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 After the container is built, run it using `nvidia-docker <https://github.com/NVIDIA/nvidia-docker>`__.
