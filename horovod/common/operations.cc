@@ -145,19 +145,23 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   std::vector<std::shared_ptr<AllgatherOp>> allgather_ops;
   std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops;
 
+  if (state.controller->GetControllerType() == Controller::ControllerType::MPI){
+    Controller* base = state.controller.get();
+    MPIController* mpiController = (MPIController*) base;
+
 #if HAVE_CUDA
 #if HOROVOD_GPU_ALLREDUCE == 'M'
   allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
-      new MPI_CUDAAllreduce(&mpi_context, &cuda_context, &state)));
+      new MPI_CUDAAllreduce(&mpiController->GetMPIContext(), &cuda_context, &state)));
 
 #else
 #if HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
   LOG(INFO) << "NCCL enabled.";
   allreduce_ops.push_back(
       std::shared_ptr<AllreduceOp>(new NCCLHierarchicalAllreduce(
-          &nccl_context, &mpi_context, &cuda_context, &state)));
+          &nccl_context, &mpiController->GetMPIContext(), &cuda_context, &state)));
   allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
-      new NCCLAllreduce(&nccl_context, &mpi_context, &cuda_context, &state)));
+      new NCCLAllreduce(&nccl_context, &mpiController->GetMPIContext(), &cuda_context, &state)));
 
 #elif HAVE_DDL && HOROVOD_GPU_ALLREDUCE == 'D'
   LOG(INFO) << "DDL enabled.";
@@ -166,7 +170,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #endif
 
   allgather_ops.push_back(std::shared_ptr<AllgatherOp>(
-      new MPIHierarchicalAllgather(&mpi_context, &state)));
+      new MPIHierarchicalAllgather(&mpiController->GetMPIContext(), &state)));
 #endif
 #endif
 
@@ -195,10 +199,6 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #endif
 
   // Default operations, always enabled but last to be checked.
-  if (state.controller->GetControllerType() == Controller::ControllerType::MPI)
-  {
-    Controller* base = state.controller.get();
-    MPIController* mpiController = (MPIController*)base;
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpiController->GetMPIContext(),
             &state)));
@@ -207,7 +207,6 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
     broadcast_ops.push_back(
         std::shared_ptr<BroadcastOp>(new MPIBroadcast(&mpiController->GetMPIContext(), &state)));
   }
-
   std::shared_ptr<ErrorOp> error_op(new ErrorOp(&state));
 
   return new OperationManager(&state.param_manager, allreduce_ops,
@@ -486,7 +485,7 @@ int64_t TensorFusionThresholdBytes() {
   // If the cluster is homogeneous and hierarchical allreduce is enabled,
   // adjust buffer size to make sure it is divisible by local_size to improve
   // performance.
-  if (horovod_global.controller->isHomogeneous() &&
+  if (horovod_global.controller->IsHomogeneous() &&
       horovod_global.param_manager.HierarchicalAllreduce()) {
     // Assume the worst-case data type float64, since if it is divisible with
     // float64, it will be divisible for other types too.
@@ -927,16 +926,16 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // By default, we will ask for multiple threads, so other libraries like
   // mpi4py can be used together with Horovod if multi-threaded MPI is
   // installed.
+
   state.controller->Initialize();
 
-  // Open the timeline file on coordinator.
-  auto horovod_timeline = std::getenv(HOROVOD_TIMELINE);
-
-  bool is_coordinator = state.controller->isCoordinator();
-  bool is_homogeneous = state.controller->isHomogeneous();
+  bool is_coordinator = state.controller->IsCoordinator();
+  bool is_homogeneous = state.controller->IsHomogeneous();
   int size = state.controller->GetSize();
   int local_size = state.controller->GetLocalSize();
 
+  // Open the timeline file on coordinator.
+  auto horovod_timeline = std::getenv(HOROVOD_TIMELINE);
   if (is_coordinator && horovod_timeline != nullptr) {
     state.timeline.Initialize(std::string(horovod_timeline),
                               static_cast<unsigned int>(state.controller->GetSize()));
@@ -947,13 +946,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   set_bool_from_env(HOROVOD_TIMELINE_MARK_CYCLES, state.mark_cycles_in_timeline,
                     true);
-
   set_bool_from_env(HOROVOD_STALL_CHECK_DISABLE, state.perform_stall_check,
                     false);
-
   set_int_from_env(HOROVOD_STALL_CHECK_TIME_SECONDS,
                    state.stall_warning_time_seconds);
-
   set_int_from_env(HOROVOD_STALL_SHUTDOWN_TIME_SECONDS,
                    state.stall_shutdown_time_seconds);
 
@@ -1040,19 +1036,19 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     state.message_table = std::unique_ptr<MessageTable>(new MessageTable());
   }
 
-  state.controller->set_cpu_operation(HOROVOD_MPI);
+  state.cpu_operation = HOROVOD_MPI;
 
 #if HAVE_MLSL
-  state.controller->set_cpu_operation(HOROVOD_MLSL);
+  state.cpu_operation = HOROVOD_MLSL;
 #endif
 
   // If specified by admin during compiling
 #if HOROVOD_CPU_OPERATIONS_DEFAULT == 'P'
-  state.controller->set_cpu_operation(HOROVOD_MPI);
+  state.cpu_operation = HOROVOD_MPI;
 #elif HOROVOD_CPU_OPERATIONS_DEFAULT == 'G'
-  state.controller->set_cpu_operation(HOROVOD_GLOO);
+  state.cpu_operation = HOROVOD_GLOO;
 #elif HOROVOD_CPU_OPERATIONS_DEFAULT == 'M'
-  state.controller->set_cpu_operation(HOROVOD_MLSL);
+  state.cpu_operation = HOROVOD_MLSL;
 #endif
 
   // If specified by user during runtime
@@ -1469,11 +1465,12 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 //    MPI_Bcast((void*)encoded_response.c_str(), encoded_response_length,
 //              MPI_BYTE, RANK_ZERO, ctx.mpi_comm);
 
-    state.controller->Brodcast(&encoded_response_length, 1, HOROVOD_INT32,
-        RANK_ZERO, Communicator::GLOBAL);
+    state.controller->Bcast(&encoded_response_length, 1, HOROVOD_INT32,
+                            RANK_ZERO, Communicator::GLOBAL);
 
-    state.controller->Brodcast((void*)encoded_response.c_str(),
-        encoded_response_length, HOROVOD_BYTE, RANK_ZERO, Communicator::GLOBAL);
+    state.controller->Bcast((void*)encoded_response.c_str(),
+                            encoded_response_length, HOROVOD_BYTE, RANK_ZERO,
+                            Communicator::GLOBAL);
 
   } else {
     std::string encoded_message;
@@ -1499,13 +1496,13 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 
     int msg_length;
 //    MPI_Bcast(&msg_length, 1, MPI_INT, RANK_ZERO, ctx.mpi_comm);
-    state.controller->Brodcast(&msg_length, 1, HOROVOD_INT32,
-                               RANK_ZERO, Communicator::GLOBAL);
+    state.controller->Bcast(&msg_length, 1, HOROVOD_INT32, RANK_ZERO,
+                            Communicator::GLOBAL);
 
     auto buffer = new uint8_t[msg_length];
 //    MPI_Bcast(buffer, msg_length, MPI_BYTE, RANK_ZERO, ctx.mpi_comm);
-    state.controller->Brodcast(buffer,msg_length , HOROVOD_BYTE, RANK_ZERO,
-        Communicator::GLOBAL);
+    state.controller->Bcast(buffer, msg_length, HOROVOD_BYTE, RANK_ZERO,
+                            Communicator::GLOBAL);
     ResponseList::ParseFromBytes(response_list, buffer);
     delete[] buffer;
   }
@@ -1679,7 +1676,7 @@ int horovod_mpi_threads_supported() {
   if (!horovod_global.initialization_done) {
     return -1;
   }
-  return horovod_global.controller->isMpiThreadsSupported() ? 1 : 0;
+  return horovod_global.controller->IsMpiThreadsSupported() ? 1 : 0;
 }
 }
 

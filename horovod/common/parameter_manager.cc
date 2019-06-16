@@ -247,8 +247,8 @@ void ParameterManager::SyncParams() {
 
   // Broadcast the parameter struct to other workers.
 //  MPI_Bcast(&params, 1, mpi_params_type_, root_rank_, mpi_comm_);
-  controller_->Brodcast(&params, 1, HOROVOD_PARAM, root_rank_,
-      Communicator::GLOBAL);
+  controller_->Bcast(&params, 1, HOROVOD_PARAM, root_rank_,
+                     Communicator::GLOBAL);
   // The other workers receive the broadcasted parameters and update their internal state in response.
   if (rank_ != root_rank_) {
     hierarchical_allreduce_.SetValue(params.hierarchical_allreduce, true);

@@ -5,28 +5,23 @@
 #ifndef HOROVOD_CONTROL_MANAGER_H
 #define HOROVOD_CONTROL_MANAGER_H
 
-#include <iostream>
-#include <vector>
 #include "gloo_context.h"
 #include "half.h"
 #include "mpi_context.h"
+#include <iostream>
+#include <vector>
 
 #define IN_PLACE MPI_IN_PLACE
 //#define IN_PLACE ((void *) 1)
 
-namespace horovod{
-namespace common{
+namespace horovod {
+namespace common {
 
-enum OpType {
-  HOROVOD_SUM = 0,
-  HOROVOD_BAND = 1,
-  HOROVOD_BOR= 2
-};
+enum OpType { HOROVOD_SUM = 0, HOROVOD_BAND = 1, HOROVOD_BOR = 2 };
 
-class Controller{
-  public:
-
-  enum ControllerType {MPI, GLOO};
+class Controller {
+public:
+  enum ControllerType { MPI, GLOO };
 
   virtual void Initialize() = 0;
   virtual void Finalize() = 0;
@@ -34,16 +29,19 @@ class Controller{
   virtual int GetTypeSize(DataType dtype) = 0;
 
   virtual void AllReduce(const void* sendbuf, void* recvbuf, int count,
-      DataType datatype, OpType optype, Communicator comm) = 0;
-  virtual void Gather(const void* sendbuf, int sendcount, DataType
-      sendtype, void* recvbuf, int recvcount, DataType recvtype, int root, Communicator comm) = 0;
-  virtual void AllGather(const void* sendbuf, int sendcount, DataType
-      sendtype, void* recvbuf, int recvcount, DataType recvtype, Communicator comm) = 0;
-  virtual void Gatherv(const void* sendbuf, int sendcount, DataType
-      sendtype, void* recvbuf, const int recvcount[], const int displs[], DataType
-      recvtype, int root, Communicator comm) = 0;
-  virtual void Brodcast(void *buffer, int count, DataType datatype, int root, Communicator comm)
-  = 0;
+                         DataType datatype, OpType optype,
+                         Communicator comm) = 0;
+  virtual void Gather(const void* sendbuf, int sendcount, DataType sendtype,
+                      void* recvbuf, int recvcount, DataType recvtype, int root,
+                      Communicator comm) = 0;
+  virtual void AllGather(const void* sendbuf, int sendcount, DataType sendtype,
+                         void* recvbuf, int recvcount, DataType recvtype,
+                         Communicator comm) = 0;
+  virtual void Gatherv(const void* sendbuf, int sendcount, DataType sendtype,
+                       void* recvbuf, const int recvcount[], const int displs[],
+                       DataType recvtype, int root, Communicator comm) = 0;
+  virtual void Bcast(void* buffer, int count, DataType datatype, int root,
+                     Communicator comm) = 0;
   virtual void Barrier(Communicator comm) = 0;
 
   // communicator related funcitons
@@ -53,20 +51,16 @@ class Controller{
   int GetCrossRank();
   int GetSize();
   int GetLocalSize();
-  int get_cross_size();
-  int get_ith_node_local_size(int i);
-  const std::vector<int>& get_local_comm_ranks();
-  bool isCoordinator() const;
-  bool isHomogeneous() const;
-  bool isMpiThreadsSupported() const;
-
-  std::string get_cpu_operation();
-  void set_cpu_operation(const char* string);
+  int GetCrossSize();
+  int GetIthNodeLocalSize(int i);
+  const std::vector<int>& GetLocalCommRanks();
+  bool IsCoordinator() const;
+  bool IsHomogeneous() const;
+  bool IsMpiThreadsSupported() const;
 
   ControllerType GetControllerType();
 
 protected:
-
   bool should_finalize_ = false;
   int rank_ = 0;
   int local_rank_ = 0;
@@ -87,14 +81,11 @@ protected:
   // Numbers of ranks running per node
   std::vector<int> local_sizes_;
 
-  std::string cpu_operation_;
-
   ControllerType type_ = MPI;
-
 };
 
-class MPIController : public Controller{
-  public:
+class MPIController : public Controller {
+public:
   MPIController();
   void Initialize() override;
   void Finalize() override;
@@ -102,27 +93,31 @@ class MPIController : public Controller{
   int GetTypeSize(DataType dtype) override;
 
   void AllReduce(const void* sendbuf, void* recvbuf, int count,
-                        DataType datatype, OpType optype, Communicator comm) override ;
-  void Gather(const void* sendbuf, int sendcount, DataType
-  sendtype, void* recvbuf, int recvcount, DataType recvtype, int root, Communicator comm) override;
-  void AllGather(const void* sendbuf, int sendcount, DataType
-  sendtype, void* recvbuf, int recvcount, DataType recvtype, Communicator comm) override;
-  void Gatherv(const void* sendbuf, int sendcount, DataType
-  sendtype, void* recvbuf, const int recvcount[], const int displs[], DataType
-                      recvtype, int root, Communicator comm) override;
-  void Brodcast(void *buffer, int count, DataType datatype, int root, Communicator comm) override;
+                 DataType datatype, OpType optype, Communicator comm) override;
+  void Gather(const void* sendbuf, int sendcount, DataType sendtype,
+              void* recvbuf, int recvcount, DataType recvtype, int root,
+              Communicator comm) override;
+  void AllGather(const void* sendbuf, int sendcount, DataType sendtype,
+                 void* recvbuf, int recvcount, DataType recvtype,
+                 Communicator comm) override;
+  void Gatherv(const void* sendbuf, int sendcount, DataType sendtype,
+               void* recvbuf, const int recvcount[], const int displs[],
+               DataType recvtype, int root, Communicator comm) override;
+  void Bcast(void* buffer, int count, DataType datatype, int root,
+             Communicator comm) override;
   void Barrier(Communicator comm) override;
-
-  MPI_Datatype GetMPIDataType(DataType data_type);
-  MPI_Op GetMPIOp(OpType op_type, DataType data_type);
 
   MPIContext& GetMPIContext();
   void SetMPIComm(MPI_Comm comm);
+
 protected:
   MPIContext mpi_ctx_;
+
+  MPI_Datatype GetMPIDataType(DataType data_type);
+  MPI_Op GetMPIOp(OpType op_type, DataType data_type);
 };
 
-}
-}
+} // namespace common
+} // namespace horovod
 
-#endif //HOROVOD_CONTROL_MANAGER_H
+#endif // HOROVOD_CONTROL_MANAGER_H

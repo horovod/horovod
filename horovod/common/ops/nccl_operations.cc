@@ -169,8 +169,9 @@ Status NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries
 
   // Determine GPU IDs of the devices participating in this communicator.
   std::vector<int32_t> nccl_device_map;
-  nccl_device_map.reserve(global_state_->controller->get_local_comm_ranks().size());
-  for (int rank : global_state_->controller->get_local_comm_ranks()) {
+  nccl_device_map.reserve(
+      global_state_->controller->GetLocalCommRanks().size());
+  for (int rank : global_state_->controller->GetLocalCommRanks()) {
     nccl_device_map.push_back(response.devices()[rank]);
   }
 
@@ -207,7 +208,7 @@ Status NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries
   // dummy elements from the buffer (if necessary) to make sure the data
   // is divisible by local_size. This is always possible since we
   // set the fusion buffer size divisible by local_size.
-  if (global_state_->controller->isHomogeneous() && entries.size() > 1) {
+  if (global_state_->controller->IsHomogeneous() && entries.size() > 1) {
     // Making sure the number of elements is divisible by
     // FUSION_BUFFER_ATOMIC_UNIT for improved performance
     int div = global_state_->controller->GetLocalSize() * FUSION_BUFFER_ATOMIC_UNIT;
@@ -228,7 +229,7 @@ Status NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries
   // MPI Allreduce (across rank (local_size-1)'s), and NCCL Bcast
 
   int64_t num_elements_per_rank =
-      global_state_->controller->isHomogeneous()
+      global_state_->controller->IsHomogeneous()
       ? num_elements / global_state_->controller->GetLocalSize()
       : 0;
 
@@ -239,7 +240,7 @@ Status NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries
       buffer_len_per_rank * global_state_->controller->GetLocalRank();
 
   int64_t num_elements_remaining =
-      global_state_->controller->isHomogeneous()
+      global_state_->controller->IsHomogeneous()
       ? num_elements % global_state_->controller->GetLocalSize()
       : num_elements;
 
@@ -253,8 +254,7 @@ Status NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries
       (uint8_t*) fused_input_data +
       buffer_len_per_rank * global_state_->controller->GetLocalSize();
 
-  int root_rank =
-      global_state_->controller->isHomogeneous() ? global_state_->controller->GetLocalSize() - 1 : 0;
+  int root_rank = global_state_->controller->IsHomogeneous() ? global_state_->controller->GetLocalSize() - 1 : 0;
   bool is_root_rank = global_state_->controller->GetLocalRank() == root_rank;
 
   int64_t total_num_elements =
@@ -291,7 +291,7 @@ Status NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries
     }
   }
 
-  if (global_state_->controller->isHomogeneous() || is_root_rank) {
+  if (global_state_->controller->IsHomogeneous() || is_root_rank) {
     // cudaHostAlloc is significantly slower than malloc.  Pre-allocating
     // a buffer is not safe since the tensor can be arbitrarily large.
     host_buffer_ = malloc(total_buffer_len);

@@ -232,11 +232,11 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
 
   // Compute cross-node allgather displacements and recvcounts for
   // homogeneous/parallelized case
-  auto* cross_recvcounts = new int[global_state_->controller->get_cross_size()]();
-  auto* cross_displcmnts = new int[global_state_->controller->get_cross_size()]();
+  auto* cross_recvcounts = new int[global_state_->controller->GetCrossSize()]();
+  auto* cross_displcmnts = new int[global_state_->controller->GetCrossSize()]();
 
-  if (global_state_->controller->isHomogeneous()) {
-    for (int i = 0; i < global_state_->controller->get_cross_size(); ++i) {
+  if (global_state_->controller->IsHomogeneous()) {
+    for (int i = 0; i < global_state_->controller->GetCrossSize(); ++i) {
       cross_recvcounts[i] = recvcounts[global_state_->controller->GetLocalSize() * i +
                                        global_state_->controller->GetLocalRank()];
       cross_displcmnts[i] = displcmnts[global_state_->controller->GetLocalSize() * i +
@@ -245,14 +245,14 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   } else if (global_state_->controller->GetLocalRank() == 0) {
     // In this case local rank 0 will allgather with all local data
     int offset = 0;
-    for (int i = 0; i < global_state_->controller->get_cross_size(); ++i) {
+    for (int i = 0; i < global_state_->controller->GetCrossSize(); ++i) {
       for (int j = offset; j < offset +
-      global_state_->controller->get_ith_node_local_size(i);
+      global_state_->controller->GetIthNodeLocalSize(i);
            ++j) {
         cross_recvcounts[i] += recvcounts[j];
       }
       cross_displcmnts[i] = displcmnts[offset];
-      offset += global_state_->controller->get_ith_node_local_size(i);
+      offset += global_state_->controller->GetIthNodeLocalSize(i);
     }
   }
 
@@ -274,7 +274,7 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   // Perform the cross-node allgather. If the cluster is homogeneous all
   // local ranks participate, otherwise local rank 0 handles all data
   global_state_->timeline.ActivityStartAll(entries, MPI_CROSS_ALLGATHER);
-  if (global_state_->controller->isHomogeneous() || global_state_->controller->GetLocalRank() == 0) {
+  if (global_state_->controller->IsHomogeneous() || global_state_->controller->GetLocalRank() == 0) {
     int op = MPI_Allgatherv(MPI_IN_PLACE,
                             0,
                             MPI_DATATYPE_NULL,

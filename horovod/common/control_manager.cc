@@ -3,12 +3,33 @@
 //
 
 #include "control_manager.h"
+#include "logging.h"
 #include "operations.h"
 #include "parameter_manager.h"
-#include "logging.h"
 
-namespace horovod{
-namespace common{
+#if HAVE_CUDA
+#include "ops/cuda_operations.h"
+#include "ops/mpi_cuda_operations.h"
+#endif
+
+#if HAVE_NCCL
+#include "ops/nccl_operations.h"
+#endif
+
+#if HAVE_DDL
+#include "ops/ddl_operations.h"
+#endif
+
+#if HAVE_MLSL
+#include "ops/mlsl_operations.h"
+#endif
+
+#if HAVE_GLOO
+#include "ops/gloo_operations.h"
+#endif
+
+namespace horovod {
+namespace common {
 
 #if HAVE_GLOO
 extern GlooContext gloo_context;
@@ -30,45 +51,7 @@ extern DDLContext ddl_context;
 extern MLSLContext mlsl_context;
 #endif
 
-void Controller::SetRank(const int* ranks, int nrank){
-  for (auto i = 0; i < nrank; ++i){
-    ranks_.push_back(ranks[i]);
-  }
-}
-
-void Controller::set_cpu_operation(const char* string){
-  cpu_operation_ = std::string(string);
-}
-
-int Controller::GetRank() {return rank_;}
-int Controller::GetLocalRank() {return local_rank_;}
-int Controller::GetCrossRank() {return cross_rank_;}
-int Controller::GetSize() {return size_;}
-int Controller::GetLocalSize() {return local_size_;}
-int Controller::get_cross_size() {return cross_size_;}
-std::string Controller::get_cpu_operation() {return cpu_operation_;}
-
-Controller::ControllerType Controller::GetControllerType(){
-  return type_;
-}
-
-int Controller::get_ith_node_local_size(int i){
-  return local_sizes_[i];
-}
-
-const std::vector<int>& Controller::get_local_comm_ranks(){
-  return local_comm_ranks_;
-}
-
-bool Controller::isCoordinator() const { return is_coordinator_; }
-bool Controller::isHomogeneous() const { return is_homogeneous_; }
-bool Controller::isMpiThreadsSupported() const {
-  return mpi_threads_supported_;
-}
-
-MPIController::MPIController(){
-  type_ = MPI;
-}
+// Controller
 void MPIController::Initialize() {
   auto mpi_threads_disable = std::getenv(HOROVOD_MPI_THREADS_DISABLE);
   int required = MPI_THREAD_MULTIPLE;
@@ -82,9 +65,10 @@ void MPIController::Initialize() {
   if (is_mpi_initialized) {
     MPI_Query_thread(&provided);
     if (provided < MPI_THREAD_MULTIPLE) {
-      LOG(WARNING) << "MPI has already been initialized without "
-                      "multi-threading support (MPI_THREAD_MULTIPLE). This will "
-                      "likely cause a segmentation fault.";
+      LOG(WARNING)
+          << "MPI has already been initialized without "
+             "multi-threading support (MPI_THREAD_MULTIPLE). This will "
+             "likely cause a segmentation fault.";
     }
   } else {
 #if HAVE_DDL
@@ -103,8 +87,7 @@ void MPIController::Initialize() {
     MPI_Group world_group;
     MPI_Comm_group(MPI_COMM_WORLD, &world_group);
     MPI_Group work_group;
-    MPI_Group_incl(world_group, ranks_.size(), &(ranks_[0]),
-                   &work_group);
+    MPI_Group_incl(world_group, ranks_.size(), &(ranks_[0]), &work_group);
     MPI_Comm_create_group(MPI_COMM_WORLD, work_group, 0, &(mpi_ctx_.mpi_comm));
     if (mpi_ctx_.mpi_comm == MPI_COMM_NULL) {
       LOG(WARNING) << "Unable to create Horovod communicator, using "
@@ -134,15 +117,13 @@ void MPIController::Initialize() {
 
   // Determine local rank by querying the local communicator.
   MPI_Comm local_comm;
-  MPI_Comm_split_type(mpi_ctx_.mpi_comm, MPI_COMM_TYPE_SHARED, 0,
-                      MPI_INFO_NULL,
+  MPI_Comm_split_type(mpi_ctx_.mpi_comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
                       &local_comm);
   MPI_Comm_rank(local_comm, &local_rank_);
   MPI_Comm_size(local_comm, &local_size_);
-  local_comm_ranks_ = std::vector<int> ((size_t) local_size_);
+  local_comm_ranks_ = std::vector<int>((size_t)local_size_);
   local_comm_ranks_[local_rank_] = rank_;
-  MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
-                local_comm_ranks_.data(), 1,
+  MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, local_comm_ranks_.data(), 1,
                 MPI_INT, local_comm);
 
   // Determine if cluster is homogeneous, i.e., if every node has the same
@@ -182,14 +163,9 @@ void MPIController::Initialize() {
   MPI_Op mpi_float16_sum;
   MPI_Op_create(&float16_sum, 1, &mpi_float16_sum);
   mpi_ctx_.mpi_float16_sum = mpi_float16_sum;
-
 }
 
-MPIContext& MPIController::GetMPIContext(){
-  return mpi_ctx_;
-}
-
-void MPIController::Finalize(){
+void MPIController::Finalize() {
   if (mpi_ctx_.mpi_comm != MPI_COMM_NULL &&
       mpi_ctx_.mpi_comm != MPI_COMM_WORLD) {
     MPI_Comm_free(&mpi_ctx_.mpi_comm);
@@ -211,9 +187,7 @@ void MPIController::Finalize(){
     MPI_Op_free(&mpi_ctx_.mpi_float16_sum);
   }
 
-  if (mpi_ctx_.mpi_param_t != MPI_DATATYPE_NULL){
-    MPI_Type_free(&mpi_ctx_.mpi_param_t);
-  }
+  ParameterManager::FreeMpiTypes(mpi_ctx_.mpi_param_t);
 
   if (should_finalize_) {
 #if HAVE_DDL
@@ -229,118 +203,158 @@ void MPIController::Finalize(){
   }
 }
 
-int MPIController::GetTypeSize(DataType dtype){
+void Controller::SetRank(const int* ranks, int nrank) {
+  for (auto i = 0; i < nrank; ++i) {
+    ranks_.push_back(ranks[i]);
+  }
+}
+
+int Controller::GetRank() { return rank_; }
+int Controller::GetLocalRank() { return local_rank_; }
+int Controller::GetCrossRank() { return cross_rank_; }
+int Controller::GetSize() { return size_; }
+int Controller::GetLocalSize() { return local_size_; }
+int Controller::GetCrossSize() { return cross_size_; }
+
+Controller::ControllerType Controller::GetControllerType() { return type_; }
+
+int Controller::GetIthNodeLocalSize(int i) { return local_sizes_[i]; }
+
+const std::vector<int>& Controller::GetLocalCommRanks() {
+  return local_comm_ranks_;
+}
+
+bool Controller::IsCoordinator() const { return is_coordinator_; }
+bool Controller::IsHomogeneous() const { return is_homogeneous_; }
+bool Controller::IsMpiThreadsSupported() const {
+  return mpi_threads_supported_;
+}
+
+// MPIController
+MPIController::MPIController() { type_ = MPI; }
+
+MPIContext& MPIController::GetMPIContext() { return mpi_ctx_; }
+
+int MPIController::GetTypeSize(DataType dtype) {
   return mpi_ctx_.GetMPITypeSize(dtype);
 }
 
 void MPIController::AllReduce(const void* sendbuf, void* recvbuf, int count,
-              DataType datatype, OpType optype, Communicator comm) {
-  int ret_code = MPI_Allreduce(sendbuf, recvbuf, count, GetMPIDataType
-  (datatype), GetMPIOp(optype, datatype), mpi_ctx_.GetMPICommunicator(comm));
+                              DataType datatype, OpType optype,
+                              Communicator comm) {
+  int ret_code = MPI_Allreduce(
+      sendbuf, recvbuf, count, GetMPIDataType(datatype),
+      GetMPIOp(optype, datatype), mpi_ctx_.GetMPICommunicator(comm));
 
-  if (ret_code != MPI_SUCCESS){
+  if (ret_code != MPI_SUCCESS) {
     throw std::logic_error("MPI_AllReduce failed, see MPI output for details.");
   }
 }
 
-void MPIController::Gather(const void* sendbuf, int sendcount, DataType
-sendtype, void* recvbuf, int recvcount, DataType recvtype, int root, Communicator comm){
+void MPIController::Gather(const void* sendbuf, int sendcount,
+                           DataType sendtype, void* recvbuf, int recvcount,
+                           DataType recvtype, int root, Communicator comm) {
   int ret_code = MPI_Gather(sendbuf, sendcount, GetMPIDataType(sendtype),
-      recvbuf, recvcount, GetMPIDataType(recvtype), root, mpi_ctx_.GetMPICommunicator(comm));
+                            recvbuf, recvcount, GetMPIDataType(recvtype), root,
+                            mpi_ctx_.GetMPICommunicator(comm));
 
-  if (ret_code != MPI_SUCCESS){
+  if (ret_code != MPI_SUCCESS) {
     throw std::logic_error("MPI_Gather failed, see MPI output for details.");
   }
 }
 
-void MPIController::AllGather(const void* sendbuf, int sendcount, DataType
-sendtype, void* recvbuf, int recvcount, DataType recvtype, Communicator comm){
+void MPIController::AllGather(const void* sendbuf, int sendcount,
+                              DataType sendtype, void* recvbuf, int recvcount,
+                              DataType recvtype, Communicator comm) {
   int ret_code = MPI_Allgather(sendbuf, sendcount, GetMPIDataType(sendtype),
-      recvbuf, recvcount, GetMPIDataType(recvtype), mpi_ctx_.GetMPICommunicator(comm));
-  if (ret_code != MPI_SUCCESS){
+                               recvbuf, recvcount, GetMPIDataType(recvtype),
+                               mpi_ctx_.GetMPICommunicator(comm));
+  if (ret_code != MPI_SUCCESS) {
     throw std::logic_error("MPI_AllGather failed, see MPI output for details.");
   }
 }
 
-void MPIController::Gatherv(const void* sendbuf, int sendcount, DataType
-sendtype, void* recvbuf, const int recvcount[], const int displs[], DataType
-            recvtype, int root, Communicator comm){
+void MPIController::Gatherv(const void* sendbuf, int sendcount,
+                            DataType sendtype, void* recvbuf,
+                            const int recvcount[], const int displs[],
+                            DataType recvtype, int root, Communicator comm) {
 
-  int ret_code = MPI_Gatherv(sendbuf, sendcount, GetMPIDataType(sendtype),
-      recvbuf, recvcount, displs, GetMPIDataType(recvtype), root, mpi_ctx_
-      .GetMPICommunicator(comm));
-  if (ret_code != MPI_SUCCESS){
+  int ret_code = MPI_Gatherv(
+      sendbuf, sendcount, GetMPIDataType(sendtype), recvbuf, recvcount, displs,
+      GetMPIDataType(recvtype), root, mpi_ctx_.GetMPICommunicator(comm));
+  if (ret_code != MPI_SUCCESS) {
     throw std::logic_error("MPI_Gatherv failed, see MPI output for details.");
   }
 }
-void MPIController::Brodcast(void *buffer, int count, DataType datatype, int
-root, Communicator comm){
-  int ret_code = MPI_Bcast(buffer, count, GetMPIDataType(datatype),root,
-      mpi_ctx_.GetMPICommunicator(comm));
-  if (ret_code != MPI_SUCCESS){
+
+void MPIController::Bcast(void* buffer, int count, DataType datatype, int root,
+                          Communicator comm) {
+  int ret_code = MPI_Bcast(buffer, count, GetMPIDataType(datatype), root,
+                           mpi_ctx_.GetMPICommunicator(comm));
+  if (ret_code != MPI_SUCCESS) {
     throw std::logic_error("MPI_Bcast failed, see MPI output for details.");
   }
 }
 
 void MPIController::Barrier(Communicator comm) {
   int ret_code = MPI_Barrier(mpi_ctx_.GetMPICommunicator(comm));
-  if (ret_code != MPI_SUCCESS){
+  if (ret_code != MPI_SUCCESS) {
     throw std::logic_error("MPI_Barrier failed, see MPI output for details.");
   }
 }
 
-MPI_Datatype MPIController::GetMPIDataType(DataType data_type){
+MPI_Datatype MPIController::GetMPIDataType(DataType data_type) {
   switch (data_type) {
-    case HOROVOD_UINT8:
-      return MPI_UINT8_T;
-    case HOROVOD_INT8:
-      return MPI_INT8_T;
-    case HOROVOD_UINT16:
-      return MPI_UINT16_T;
-    case HOROVOD_INT16:
-      return MPI_INT32_T;
-    case HOROVOD_INT32:
-      return MPI_INT32_T;
-    case HOROVOD_INT64:
-      return MPI_INT64_T;
-    case HOROVOD_FLOAT16:
-      return mpi_ctx_.mpi_float16_t;
-    case HOROVOD_FLOAT32:
-      return MPI_FLOAT;
-    case HOROVOD_FLOAT64:
-      return MPI_DOUBLE;
-    case HOROVOD_BOOL:
-      return MPI_CXX_BOOL;
-    case HOROVOD_LONG_LONG_INT:
-      return MPI_LONG_LONG_INT;
-    case HOROVOD_NULL:
-      return MPI_DATATYPE_NULL;
-    case HOROVOD_PARAM:
-      return mpi_ctx_.mpi_param_t;
-    case HOROVOD_BYTE:
-      return MPI_BYTE;
-    default:
-      LOG(INFO) << data_type;
-      throw std::logic_error("Type not supported in MPI mode.");
+  case HOROVOD_UINT8:
+    return MPI_UINT8_T;
+  case HOROVOD_INT8:
+    return MPI_INT8_T;
+  case HOROVOD_UINT16:
+    return MPI_UINT16_T;
+  case HOROVOD_INT16:
+    return MPI_INT32_T;
+  case HOROVOD_INT32:
+    return MPI_INT32_T;
+  case HOROVOD_INT64:
+    return MPI_INT64_T;
+  case HOROVOD_FLOAT16:
+    return mpi_ctx_.mpi_float16_t;
+  case HOROVOD_FLOAT32:
+    return MPI_FLOAT;
+  case HOROVOD_FLOAT64:
+    return MPI_DOUBLE;
+  case HOROVOD_BOOL:
+    return MPI_CXX_BOOL;
+  case HOROVOD_LONG_LONG_INT:
+    return MPI_LONG_LONG_INT;
+  case HOROVOD_NULL:
+    return MPI_DATATYPE_NULL;
+  case HOROVOD_PARAM:
+    return mpi_ctx_.mpi_param_t;
+  case HOROVOD_BYTE:
+    return MPI_BYTE;
+  default:
+    LOG(INFO) << data_type;
+    throw std::logic_error("Type not supported in MPI mode.");
   }
 }
 
-MPI_Op MPIController::GetMPIOp(OpType op_type, DataType data_type){
-  switch (op_type){
-    case HOROVOD_SUM:
-      return data_type == HOROVOD_FLOAT16 ? mpi_ctx_.mpi_float16_sum : MPI_SUM;
-    case HOROVOD_BAND:
-      return MPI_BAND;
-    case HOROVOD_BOR:
-      return MPI_BOR;
-    default:
-      throw std::logic_error("Op not supported buy MPI.");
+MPI_Op MPIController::GetMPIOp(OpType op_type, DataType data_type) {
+  switch (op_type) {
+  case HOROVOD_SUM:
+    return data_type == HOROVOD_FLOAT16 ? mpi_ctx_.mpi_float16_sum : MPI_SUM;
+  case HOROVOD_BAND:
+    return MPI_BAND;
+  case HOROVOD_BOR:
+    return MPI_BOR;
+  default:
+    throw std::logic_error("Op not supported by MPI.");
   }
 }
 
-void MPIController::SetMPIComm(MPI_Comm comm){
+void MPIController::SetMPIComm(MPI_Comm comm) {
   MPI_Comm_dup(comm, &mpi_ctx_.mpi_comm);
 }
 
-}
-}
+} // namespace common
+} // namespace horovod
