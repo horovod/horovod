@@ -175,7 +175,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 
 #if HAVE_GLOO
   if (strcasecmp(state.cpu_operation.c_str(), "gloo") == 0) {
-    LOG(INFO) << "GLOO enabled.";
+    LOG(INFO) << "Gloo enabled.";
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new GlooAllreduce(&gloo_context, &state)));
     allgather_ops.push_back(

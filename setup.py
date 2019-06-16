@@ -31,12 +31,10 @@ from setuptools.command.build_ext import build_ext
 
 from horovod import __version__
 
-
 class CMakeExtension(Extension):
     def __init__(self, name, cmake_lists_dir='.', sources=[], **kwa):
         Extension.__init__(self, name, sources=sources, **kwa)
         self.cmake_lists_dir = os.path.abspath(cmake_lists_dir)
-
 
 tensorflow_mpi_lib = Extension('horovod.tensorflow.mpi_lib', [])
 torch_mpi_lib = Extension('horovod.torch.mpi_lib', [])
@@ -55,12 +53,10 @@ try:
     subprocess.check_output(['cmake', '--version'])
 except:
     have_cmake = False
-    print('DEBUG: CMake not installed.')
 
 # TODO: remove system check if gloo support MacOX in the future
 #  https://github.com/facebookincubator/gloo/issues/182
 is_mac = os.uname()[0] == 'Darwin'
-
 
 def is_build_action():
     if len(sys.argv) <= 1:
@@ -620,18 +616,18 @@ def get_common_options(build_ext):
 
     cpu_operation = os.environ.get('HOROVOD_CPU_OPERATIONS')
     if cpu_operation:
-        print('INFO: Set default cpu operation to ' + cpu_operation)
+        print('INFO: Set default CPU operation to ' + cpu_operation)
         if cpu_operation.upper() == 'MPI':
             MACROS += [('HOROVOD_CPU_OPERATIONS_DEFAULT', "'P'")]
         elif cpu_operation.upper() == 'MLSL':
             MACROS += [('HOROVOD_CPU_OPERATIONS_DEFAULT', "'M'")]
         elif cpu_operation.upper() == 'GLOO':
             if is_mac:
-                raise RuntimeError('GLOO cannot compile on MacOS, please do '
-                                   'not set it as default cpu operation.')
+                raise RuntimeError('Gloo cannot compile on MacOS, please do '
+                                   'not set it as default CPU operation.')
             elif not have_cmake:
-                raise RuntimeError('GLOO cannot compile without cmake, '
-                                   'please install cmake first.')
+                raise RuntimeError('Gloo cannot compile without CMake, '
+                                   'please install CMake first.')
             else:
                 MACROS += [('HOROVOD_CPU_OPERATIONS_DEFAULT', "'G'")]
 
@@ -1025,26 +1021,8 @@ def build_torch_extension_v2(build_ext, options, torch_version):
 
 
 def build_cmake(build_ext, ext, output_dir, options):
-    # CMake should come with pip requirement 'cmake', but let's verify
 
     cmake_bin = 'cmake'
-    if not have_cmake:
-        # if the system doesn't have cmake before, we need to check the newly
-        # installed cmake binary is executable.
-        import cmake
-        cmake_bin = os.path.join(cmake.CMAKE_BIN_DIR, 'cmake')
-        if not os.access(cmake_bin, os.X_OK):
-            # if not executable, +x to the binary
-            user_mode = stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR
-            group_mode = stat.S_IRGRP | stat.S_IWGRP | stat.S_IXGRP
-            other_mode = stat.S_IROTH | stat.S_IXOTH
-            os.chmod(cmake_bin, user_mode | group_mode | other_mode)
-
-    # check again if the cmake binary is usable
-    try:
-        subprocess.check_output([cmake_bin, '--version'])
-    except OSError as e:
-        raise RuntimeError('Check CMake executable failed: {}'.format(str(e)))
 
     # Statically linked archive files go into the provided output directory
     extdir = os.path.abspath(
@@ -1075,6 +1053,7 @@ def build_cmake(build_ext, ext, output_dir, options):
                               cwd=build_temp)
     except OSError as e:
         raise RuntimeError('CMake failed: {}'.format(str(e)))
+
     # Add the library so other extensions will link against it during compilation
     options['LIBRARIES'] += [ext.name]
 
@@ -1091,23 +1070,17 @@ class custom_build_ext(build_ext):
             os.makedirs(lib_output_dir)
         options['LIBRARY_DIRS'] += [lib_output_dir]
 
-        # Build CMake libraries first so they can be statically linked against extensions
-        for ext in self.extensions:
-            if isinstance(ext, CMakeExtension):
-                # TODO: install cmake in local environment after entry point issue
-                #  has some updates.
-                #  https://github.com/scikit-build/cmake-python-distributions/issues/80
-                if ext.name == 'gloo':
-                    if is_mac:
-                        print(
-                            'INFO: Submodule Gloo cannot compile on MacOS, skip compiling '
-                            'Gloo.')
-                    elif not have_cmake:
-                        print(
-                            'INFO: Submodule Gloo cannot compile without cmake, '
-                            'skip compiling Gloo.')
-                    else:
-                        build_cmake(self, ext, lib_output_dir, options)
+        if is_mac:
+            print('INFO: Submodule Gloo cannot compile on MacOS, skip compiling'
+                ' Gloo.')
+        elif not have_cmake:
+            # TODO: install cmake in local environment after entry point issue
+            #  has some updates.
+            #  https://github.com/scikit-build/cmake-python-distributions/issues/80
+            print('INFO: Submodule Gloo cannot compile without CMake, '
+                'skip compiling Gloo.')
+        else:
+            build_cmake(self, gloo_lib, lib_output_dir, options)
 
         # If PyTorch is installed, it must be imported before TensorFlow, otherwise
         # we may get an error: dlopen: cannot load any more object with static TLS
@@ -1160,8 +1133,8 @@ class custom_build_ext(build_ext):
             raise DistutilsError(
                 'None of TensorFlow, PyTorch, or MXNet plugins were built. See errors above.')
 
-
 require_list = ['cloudpickle', 'psutil', 'six']
+
 # Skip cffi if pytorch extension explicitly disabled
 if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
     require_list.append('cffi>=1.4.0')
