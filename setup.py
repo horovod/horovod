@@ -1021,7 +1021,6 @@ def build_torch_extension_v2(build_ext, options, torch_version):
 
 
 def build_cmake(build_ext, ext, output_dir, options):
-
     cmake_bin = 'cmake'
 
     # Statically linked archive files go into the provided output directory
