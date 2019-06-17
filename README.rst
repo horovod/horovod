@@ -200,6 +200,8 @@ page for more instructions, including RoCE/InfiniBand tweaks and tips for dealin
 
 6. To run in Spark, see the `Spark <docs/spark.rst>`_ page.
 
+7. To run in Singularity, see `Singularity <https://github.com/sylabs/examples/tree/master/machinelearning/horovod>`_.
+
 Keras
 -----
 Horovod supports Keras and regular TensorFlow in similar ways.
