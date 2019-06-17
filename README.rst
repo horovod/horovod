@@ -210,7 +210,6 @@ page for more instructions, including RoCE/InfiniBand tweaks and tips for dealin
 
 7. To run in Singularity, see `Singularity <https://github.com/sylabs/examples/tree/master/machinelearning/horovod>`_.
 
-
 Estimator API
 -------------
 Horovod supports Estimator API and regular TensorFlow in similar ways.
