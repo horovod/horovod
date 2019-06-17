@@ -350,10 +350,7 @@ void CacheCoordinator::sync(std::shared_ptr<Controller> &controller, bool
     }
   }
 
-  // Global MPI AND operation to get intersected bit array.
-//  MPI_Allreduce(MPI_IN_PLACE, bitvector_.data(), fullcount,
-//                MPI_LONG_LONG_INT, MPI_BAND, ctx.mpi_comm);
-
+  // Global AND operation to get intersected bit array.
   controller->AllReduce(IN_PLACE, bitvector_.data(), fullcount,
       HOROVOD_LONG_LONG_INT, HOROVOD_BAND, Communicator::GLOBAL);
 
@@ -383,7 +380,7 @@ void CacheCoordinator::sync(std::shared_ptr<Controller> &controller, bool
   }
 
   // If any worker has invalid cache entries, communicate invalid bits across
-  // workers using a second MPI allreduce operation.
+  // workers using a second allreduce operation.
   if (invalid_in_queue_) {
     std::memset(&bitvector_[0], 0, count * sizeof(long long));
     for (auto bit : invalid_bits_) {
@@ -392,11 +389,7 @@ void CacheCoordinator::sync(std::shared_ptr<Controller> &controller, bool
           (1ull << (bit % (sizeof(long long) * CHAR_BIT)));
     }
 
-    // Global MPI OR operation to get common invalid bits.
-//    MPI_Allreduce(MPI_IN_PLACE, bitvector_.data(), count,
-//                  MPI_LONG_LONG_INT, MPI_BOR, ctx.mpi_comm);
-
-
+    // Global OR operation to get common invalid bits.
     controller->AllReduce(IN_PLACE, bitvector_.data(), count,
         HOROVOD_LONG_LONG_INT, HOROVOD_BOR, Communicator::GLOBAL);
     // Search for flipped bits to populate common invalid bit set.

@@ -96,27 +96,6 @@ struct HorovodGlobalState {
   // Whether MPI_Init has been completed on the background thread.
   std::atomic_bool initialization_done {false};
 
-//  // The MPI rank, local rank, size, local size, flag indicating whether MPI
-//  // multi-threading is supported, ranks from which the MPI communicator will
-//  // be made and the communicator itself.
-//  int rank = 0;
-//  int local_rank = 0;
-//  int cross_rank = 0;
-//  int size = 1;
-//  int local_size = 1;
-//  int cross_size = 1;
-//  bool mpi_threads_supported = false;
-//  bool is_homogeneous = false;
-//  std::vector<int> ranks;
-//
-//  // COMM_WORLD ranks of processes running on this node.
-//  std::vector<int> local_comm_ranks;
-//
-//  // Numbers of ranks running per node
-//  std::vector<int> local_sizes;
-//
-//  std::string cpu_operation;
-
   std::shared_ptr<Controller> controller;
 
   // Pointer to shared buffer for allgather
@@ -141,6 +120,12 @@ struct HorovodGlobalState {
 
   // Initial time cached tensors are seen in queue. Used for stall message handling.
   std::unordered_map<std::string, std::chrono::steady_clock::time_point> cache_tensor_start;
+
+  // Number of CUDA streams to use
+  int num_nccl_streams = 1;
+
+  // Index of current CUDA stream to use
+  int current_nccl_stream = 0;
 
   // A string indicating what framework we are using to perform CPU operations.
   std::string cpu_operation;

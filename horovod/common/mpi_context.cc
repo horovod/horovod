@@ -71,15 +71,6 @@ MPI_Comm MPIContext::GetMPICommunicator(Communicator comm) {
   }
 }
 
-MPIContext::MPIContext(){
-  mpi_float16_t = nullptr;
-  mpi_float16_sum = nullptr;
-  mpi_comm = nullptr;
-  local_comm = nullptr;
-  cross_comm = nullptr;
-  window = nullptr;
-}
-
 int MPIContext::GetMPITypeSize(DataType dtype) {
   int out;
   MPI_Type_size(GetMPIDataType(dtype), &out);

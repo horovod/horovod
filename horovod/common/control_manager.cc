@@ -7,21 +7,12 @@
 #include "operations.h"
 #include "parameter_manager.h"
 
-#if HAVE_CUDA
-#include "ops/cuda_operations.h"
-#include "ops/mpi_cuda_operations.h"
-#endif
-
-#if HAVE_NCCL
-#include "ops/nccl_operations.h"
-#endif
-
 #if HAVE_DDL
 #include "ops/ddl_operations.h"
 #endif
 
-#if HAVE_MLSL
-#include "ops/mlsl_operations.h"
+#if HAVE_CUDA
+#include "ops/cuda_operations.h"
 #endif
 
 #if HAVE_GLOO
@@ -36,22 +27,42 @@ extern GlooContext gloo_context;
 #endif
 
 #if HAVE_CUDA
-extern CUDAContext cuda_context;
-#endif
-
-#if HAVE_NCCL
-extern NCCLContext nccl_context;
+CUDAContext cuda_context;
 #endif
 
 #if HAVE_DDL
 extern DDLContext ddl_context;
 #endif
 
-#if HAVE_MLSL
-extern MLSLContext mlsl_context;
-#endif
-
 // Controller
+void Controller::SetRank(const int* ranks, int nrank) {
+  for (auto i = 0; i < nrank; ++i) {
+    ranks_.push_back(ranks[i]);
+  }
+}
+
+int Controller::GetRank() { return rank_; }
+int Controller::GetLocalRank() { return local_rank_; }
+int Controller::GetCrossRank() { return cross_rank_; }
+int Controller::GetSize() { return size_; }
+int Controller::GetLocalSize() { return local_size_; }
+int Controller::GetCrossSize() { return cross_size_; }
+
+Controller::ControllerType Controller::GetControllerType() { return type_; }
+
+int Controller::GetIthNodeLocalSize(int i) { return local_sizes_[i]; }
+
+const std::vector<int>& Controller::GetLocalCommRanks() {
+  return local_comm_ranks_;
+}
+
+bool Controller::IsCoordinator() const { return is_coordinator_; }
+bool Controller::IsHomogeneous() const { return is_homogeneous_; }
+bool Controller::IsMpiThreadsSupported() const {
+  return mpi_threads_supported_;
+}
+
+// MPIController
 void MPIController::Initialize() {
   auto mpi_threads_disable = std::getenv(HOROVOD_MPI_THREADS_DISABLE);
   int required = MPI_THREAD_MULTIPLE;
@@ -108,9 +119,7 @@ void MPIController::Initialize() {
 
   // Get MPI size to determine how many tensors to wait for before reducing.
   MPI_Comm_size(mpi_ctx_.mpi_comm, &size_);
-#if HAVE_MLSL
-  mlsl_context.Init(size_);
-#endif
+
   if (is_coordinator_) {
     LOG(INFO) << "Started Horovod with " << size_ << " processes";
   }
@@ -203,34 +212,6 @@ void MPIController::Finalize() {
   }
 }
 
-void Controller::SetRank(const int* ranks, int nrank) {
-  for (auto i = 0; i < nrank; ++i) {
-    ranks_.push_back(ranks[i]);
-  }
-}
-
-int Controller::GetRank() { return rank_; }
-int Controller::GetLocalRank() { return local_rank_; }
-int Controller::GetCrossRank() { return cross_rank_; }
-int Controller::GetSize() { return size_; }
-int Controller::GetLocalSize() { return local_size_; }
-int Controller::GetCrossSize() { return cross_size_; }
-
-Controller::ControllerType Controller::GetControllerType() { return type_; }
-
-int Controller::GetIthNodeLocalSize(int i) { return local_sizes_[i]; }
-
-const std::vector<int>& Controller::GetLocalCommRanks() {
-  return local_comm_ranks_;
-}
-
-bool Controller::IsCoordinator() const { return is_coordinator_; }
-bool Controller::IsHomogeneous() const { return is_homogeneous_; }
-bool Controller::IsMpiThreadsSupported() const {
-  return mpi_threads_supported_;
-}
-
-// MPIController
 MPIController::MPIController() { type_ = MPI; }
 
 MPIContext& MPIController::GetMPIContext() { return mpi_ctx_; }

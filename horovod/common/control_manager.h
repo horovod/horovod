@@ -5,14 +5,13 @@
 #ifndef HOROVOD_CONTROL_MANAGER_H
 #define HOROVOD_CONTROL_MANAGER_H
 
+#include <iostream>
+#include <vector>
 #include "gloo_context.h"
 #include "half.h"
 #include "mpi_context.h"
-#include <iostream>
-#include <vector>
 
 #define IN_PLACE MPI_IN_PLACE
-//#define IN_PLACE ((void *) 1)
 
 namespace horovod {
 namespace common {
@@ -62,6 +61,7 @@ public:
 
 protected:
   bool should_finalize_ = false;
+
   int rank_ = 0;
   int local_rank_ = 0;
   int cross_rank_ = 0;
@@ -70,6 +70,8 @@ protected:
   int cross_size_ = 1;
   bool is_coordinator_ = false;
   bool is_homogeneous_ = false;
+
+  // flag indicating whether MPI multi-threading is supported
   bool mpi_threads_supported_;
 
   // ranks of the mpi world

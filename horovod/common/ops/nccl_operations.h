@@ -26,7 +26,7 @@ namespace horovod {
 namespace common {
 
 struct NCCLContext {
-  std::unordered_map<std::vector<int32_t>, ncclComm_t> nccl_comms;
+  std::vector<std::unordered_map<std::vector<int32_t>, ncclComm_t>> nccl_comms;
 
   void ErrorCheck(std::string op_name, ncclResult_t nccl_result);
 

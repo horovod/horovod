@@ -29,6 +29,7 @@
 
 #define OMPI_SKIP_MPICXX
 
+#include "fusion_buffer_manager.h"
 #include "global_state.h"
 #include "half.h"
 #include "hashes.h"
@@ -146,8 +147,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops;
 
   if (state.controller->GetControllerType() == Controller::ControllerType::MPI){
-    Controller* base = state.controller.get();
-    MPIController* mpiController = (MPIController*) base;
+    MPIController* mpiController = dynamic_cast<MPIController*>(state.controller.get());
+    assert(mpiController);
 
 #if HAVE_CUDA
 #if HOROVOD_GPU_ALLREDUCE == 'M'
@@ -176,7 +177,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 
 #if HAVE_GLOO
   if (strcasecmp(state.cpu_operation.c_str(), "gloo") == 0) {
-    LOG(INFO) << "GLOO enabled.";
+    LOG(INFO) << "Gloo enabled.";
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new GlooAllreduce(&gloo_context, &state)));
     allgather_ops.push_back(
@@ -687,6 +688,7 @@ void PerformOperation(TensorTable& tensor_table, Response response) {
     // end of this operation.
     Status status = horovod_global.fusion_buffer.InitializeBuffer(
         TensorFusionThresholdBytes(), first_entry.device, first_entry.context,
+        horovod_global.current_nccl_stream,
         [&]() { timeline.ActivityStartAll(entries, INIT_FUSION_BUFFER); },
         [&]() { timeline.ActivityEndAll(entries); });
     if (!status.ok()) {
@@ -934,6 +936,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   int size = state.controller->GetSize();
   int local_size = state.controller->GetLocalSize();
 
+#if HAVE_MLSL
+  mlsl_context.Init(size);
+#endif
+
   // Open the timeline file on coordinator.
   auto horovod_timeline = std::getenv(HOROVOD_TIMELINE);
   if (is_coordinator && horovod_timeline != nullptr) {
@@ -946,10 +952,13 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   set_bool_from_env(HOROVOD_TIMELINE_MARK_CYCLES, state.mark_cycles_in_timeline,
                     true);
+
   set_bool_from_env(HOROVOD_STALL_CHECK_DISABLE, state.perform_stall_check,
                     false);
+
   set_int_from_env(HOROVOD_STALL_CHECK_TIME_SECONDS,
                    state.stall_warning_time_seconds);
+
   set_int_from_env(HOROVOD_STALL_SHUTDOWN_TIME_SECONDS,
                    state.stall_shutdown_time_seconds);
 
@@ -1019,6 +1028,21 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
            "allgather and hierarchical allreduce.";
   }
 
+#if HAVE_CUDA
+  // Set number of CUDA streams to use
+  auto horovod_num_nccl_streams =
+      std::getenv(HOROVOD_NUM_NCCL_STREAMS);
+  if (horovod_num_nccl_streams != nullptr &&
+      std::stol(horovod_num_nccl_streams, nullptr, 10) > 0) {
+    state.num_nccl_streams = std::atoi(horovod_num_nccl_streams);
+  }
+
+#if HAVE_NCCL
+  nccl_context.nccl_comms.resize(state.num_nccl_streams);
+#endif
+  cuda_context.streams.resize(state.num_nccl_streams);
+#endif
+
   // Enable auto-tuning.
   auto horovod_autotune = std::getenv(HOROVOD_AUTOTUNE);
   if (horovod_autotune != nullptr &&
@@ -1036,50 +1060,53 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     state.message_table = std::unique_ptr<MessageTable>(new MessageTable());
   }
 
-  state.cpu_operation = HOROVOD_MPI;
+  // set cpu operations for data transferring
+  {
+    state.cpu_operation = HOROVOD_MPI;
 
 #if HAVE_MLSL
-  state.cpu_operation = HOROVOD_MLSL;
+    state.cpu_operation = HOROVOD_MLSL;
 #endif
 
-  // If specified by admin during compiling
+    // If specified by admin during compiling
 #if HOROVOD_CPU_OPERATIONS_DEFAULT == 'P'
-  state.cpu_operation = HOROVOD_MPI;
+    state.cpu_operation = HOROVOD_MPI;
 #elif HOROVOD_CPU_OPERATIONS_DEFAULT == 'G'
-  state.cpu_operation = HOROVOD_GLOO;
+    state.cpu_operation = HOROVOD_GLOO;
 #elif HOROVOD_CPU_OPERATIONS_DEFAULT == 'M'
-  state.cpu_operation = HOROVOD_MLSL;
+    state.cpu_operation = HOROVOD_MLSL;
 #endif
 
-  // If specified by user during runtime
-  const char* user_cpu_operation = std::getenv(HOROVOD_CPU_OPERATIONS);
-  if (user_cpu_operation != nullptr) {
-    if (strcasecmp(user_cpu_operation, HOROVOD_MPI) == 0) {
-      state.cpu_operation = HOROVOD_MPI;
-    } else if (strcasecmp(user_cpu_operation, HOROVOD_GLOO) == 0) {
-      state.cpu_operation = HOROVOD_GLOO;
-    } else if (strcasecmp(user_cpu_operation, HOROVOD_MLSL) == 0) {
-      state.cpu_operation = HOROVOD_MLSL;
+    // If specified by user during runtime
+    const char* user_cpu_operation = std::getenv(HOROVOD_CPU_OPERATIONS);
+    if (user_cpu_operation != nullptr) {
+      if (strcasecmp(user_cpu_operation, HOROVOD_MPI) == 0) {
+        state.cpu_operation = HOROVOD_MPI;
+      } else if (strcasecmp(user_cpu_operation, HOROVOD_GLOO) == 0) {
+        state.cpu_operation = HOROVOD_GLOO;
+      } else if (strcasecmp(user_cpu_operation, HOROVOD_MLSL) == 0) {
+        state.cpu_operation = HOROVOD_MLSL;
+      }
     }
-  }
 
 #if HAVE_GLOO
-  if (strcasecmp(state.cpu_operation.c_str(), "gloo") == 0){
-    const char* gloo_iface = std::getenv(HOROVOD_GLOO_IFACE);
-    if (gloo_iface == nullptr) {
-      gloo_iface = GLOO_DEFAULT_IFACE;
-    }
+    if (strcasecmp(state.cpu_operation.c_str(), "gloo") == 0) {
+      const char* gloo_iface = std::getenv(HOROVOD_GLOO_IFACE);
+      if (gloo_iface == nullptr) {
+        gloo_iface = GLOO_DEFAULT_IFACE;
+      }
 
-    if (horovod_global.controller->GetControllerType() ==
-    Controller::ControllerType::MPI){
-      MPIController *mpiController = (MPIController*)horovod_global
-          .controller.get();
-      gloo_context.InitializeFromMPI(mpiController->GetMPIContext().mpi_comm,
-          gloo_iface);
+      if (horovod_global.controller->GetControllerType() ==
+          Controller::ControllerType::MPI) {
+        MPIController* mpiController =
+            dynamic_cast<MPIController*>(horovod_global.controller.get());
+        assert(mpiController);
+        gloo_context.InitializeFromMPI(mpiController->GetMPIContext().mpi_comm,
+                                       gloo_iface);
+      }
     }
-  }
 #endif
-
+  }
   op_manager.reset(CreateOperationManager(state));
 
   // Signal that initialization is completed.
@@ -1371,8 +1398,6 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     // 1. Get message lengths from every rank.
     auto recvcounts = new int[state.controller->GetSize()];
     recvcounts[0] = 0;
-//    MPI_Gather(MPI_IN_PLACE, 1, MPI_INT, recvcounts, 1, MPI_INT, RANK_ZERO,
-//               ctx.mpi_comm);
 
     state.controller->Gather(IN_PLACE, 1, HOROVOD_INT32, recvcounts, 1,
         HOROVOD_INT32, RANK_ZERO, Communicator::GLOBAL);
@@ -1391,8 +1416,6 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 
     // 3. Collect messages from every rank.
     auto buffer = new uint8_t[total_size];
-//    MPI_Gatherv(nullptr, 0, MPI_BYTE, buffer, recvcounts, displcmnts, MPI_BYTE,
-//                RANK_ZERO, ctx.mpi_comm);
 
     state.controller->Gatherv(nullptr, 0, HOROVOD_BYTE, buffer, recvcounts,
         displcmnts, HOROVOD_BYTE, RANK_ZERO, Communicator::GLOBAL);
@@ -1461,9 +1484,6 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     std::string encoded_response;
     ResponseList::SerializeToString(response_list, encoded_response);
     int encoded_response_length = (int)encoded_response.length() + 1;
-//    MPI_Bcast(&encoded_response_length, 1, MPI_INT, RANK_ZERO, ctx.mpi_comm);
-//    MPI_Bcast((void*)encoded_response.c_str(), encoded_response_length,
-//              MPI_BYTE, RANK_ZERO, ctx.mpi_comm);
 
     state.controller->Bcast(&encoded_response_length, 1, HOROVOD_INT32,
                             RANK_ZERO, Communicator::GLOBAL);
@@ -1482,11 +1502,6 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     }
     RequestList::SerializeToString(message_list, encoded_message);
     int encoded_message_length = (int)encoded_message.length() + 1;
-//    MPI_Gather(&encoded_message_length, 1, MPI_INT, nullptr, 1, MPI_INT,
-//               RANK_ZERO, ctx.mpi_comm);
-//    MPI_Gatherv((void*)encoded_message.c_str(), encoded_message_length,
-//                MPI_BYTE, nullptr, nullptr, nullptr, MPI_BYTE, RANK_ZERO,
-//                ctx.mpi_comm);
 
     state.controller->Gather(&encoded_message_length, 1, HOROVOD_INT32, nullptr, 1,
         HOROVOD_INT32, RANK_ZERO, Communicator::GLOBAL);
@@ -1495,12 +1510,10 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
                 Communicator::GLOBAL);
 
     int msg_length;
-//    MPI_Bcast(&msg_length, 1, MPI_INT, RANK_ZERO, ctx.mpi_comm);
     state.controller->Bcast(&msg_length, 1, HOROVOD_INT32, RANK_ZERO,
                             Communicator::GLOBAL);
 
     auto buffer = new uint8_t[msg_length];
-//    MPI_Bcast(buffer, msg_length, MPI_BYTE, RANK_ZERO, ctx.mpi_comm);
     state.controller->Bcast(buffer, msg_length, HOROVOD_BYTE, RANK_ZERO,
                             Communicator::GLOBAL);
     ResponseList::ParseFromBytes(response_list, buffer);
@@ -1625,12 +1638,10 @@ Status CheckInitialized() {
 extern "C" {
 
 void horovod_init(const int* ranks, int nranks) {
-  LOG(DEBUG) << "Init started.";
   InitializeHorovodOnce(ranks, nranks);
 }
 
 void horovod_init_comm(MPI_Comm comm) {
-  LOG(DEBUG) << "Init started.";
   InitializeHorovodOnceWithMPIComm(nullptr, 0, comm);
 }
 
