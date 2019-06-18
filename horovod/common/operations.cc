@@ -28,20 +28,20 @@
 #include <unordered_set>
 
 #define OMPI_SKIP_MPICXX
+
 #include "fusion_buffer_manager.h"
+#include "global_state.h"
 #include "half.h"
 #include "hashes.h"
-#include "global_state.h"
-#include "fusion_buffer_manager.h"
-#include "mpi.h"
+#include "logging.h"
 #include "message.h"
+#include "mpi.h"
 #include "mpi_context.h"
 #include "operations.h"
 #include "ops/mpi_operations.h"
 #include "ops/operation_manager.h"
 #include "parameter_manager.h"
 #include "timeline.h"
-#include "logging.h"
 
 #if HAVE_CUDA
 #include "ops/cuda_operations.h"
@@ -58,6 +58,10 @@
 
 #if HAVE_MLSL
 #include "ops/mlsl_operations.h"
+#endif
+
+#if HAVE_GLOO
+#include "ops/gloo_operations.h"
 #endif
 
 /*
@@ -96,6 +100,10 @@ HorovodGlobalState horovod_global;
 
 MPIContext mpi_context;
 
+#if HAVE_GLOO
+GlooContext gloo_context;
+#endif
+
 #if HAVE_CUDA
 CUDAContext cuda_context;
 #endif
@@ -133,44 +141,74 @@ const Status DUPLICATE_NAME_ERROR = Status::InvalidArgument(
     "to request another tensor, use a different tensor name.");
 
 OperationManager* CreateOperationManager(HorovodGlobalState& state) {
-  // Order of these operations is very important. Operations will be checked sequentially from the first
-  // to the last. The first 'Enabled' operation will be executed.
+  // Order of these operations is very important. Operations will be checked
+  // sequentially from the first to the last. The first 'Enabled' operation will
+  // be executed.
   std::vector<std::shared_ptr<AllreduceOp>> allreduce_ops;
   std::vector<std::shared_ptr<AllgatherOp>> allgather_ops;
   std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops;
 
 #if HAVE_CUDA
 #if HOROVOD_GPU_ALLREDUCE == 'M'
-  allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new MPI_CUDAAllreduce(&mpi_context, &cuda_context, &state)));
+  allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
+      new MPI_CUDAAllreduce(&mpi_context, &cuda_context, &state)));
 
 #else
-  #if HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
-    allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
-        new NCCLHierarchicalAllreduce(&nccl_context, &mpi_context, &cuda_context, &state)));
-    allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
-        new NCCLAllreduce(&nccl_context, &mpi_context, &cuda_context, &state)));
+#if HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
+  LOG(INFO) << "NCCL enabled.";
+  allreduce_ops.push_back(
+      std::shared_ptr<AllreduceOp>(new NCCLHierarchicalAllreduce(
+          &nccl_context, &mpi_context, &cuda_context, &state)));
+  allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
+      new NCCLAllreduce(&nccl_context, &mpi_context, &cuda_context, &state)));
 
-  #elif HAVE_DDL && HOROVOD_GPU_ALLREDUCE == 'D'
-    allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new DDLAllreduce(&ddl_context, &cuda_context, &state)));
-  #endif
-
-  allgather_ops.push_back(std::shared_ptr<AllgatherOp>(new MPIHierarchicalAllgather(&mpi_context, &state)));
+#elif HAVE_DDL && HOROVOD_GPU_ALLREDUCE == 'D'
+  LOG(INFO) << "DDL enabled.";
+  allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
+      new DDLAllreduce(&ddl_context, &cuda_context, &state)));
 #endif
+
+  allgather_ops.push_back(std::shared_ptr<AllgatherOp>(
+      new MPIHierarchicalAllgather(&mpi_context, &state)));
+#endif
+#endif
+
+#if HAVE_GLOO
+  if (strcasecmp(state.cpu_operation.c_str(), "gloo") == 0) {
+    LOG(INFO) << "Gloo enabled.";
+    allreduce_ops.push_back(
+        std::shared_ptr<AllreduceOp>(new GlooAllreduce(&gloo_context, &state)));
+    allgather_ops.push_back(
+        std::shared_ptr<AllgatherOp>(new GlooAllgather(&gloo_context, &state)));
+    broadcast_ops.push_back(
+        std::shared_ptr<BroadcastOp>(new GlooBroadcast(&gloo_context, &state)));
+  }
 #endif
 
 #if HAVE_MLSL
-  allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new MLSLAllreduce(&mlsl_context, &state)));
-  allgather_ops.push_back(std::shared_ptr<AllgatherOp>(new MLSLAllgather(&mlsl_context, &mpi_context, &state)));
-  broadcast_ops.push_back(std::shared_ptr<BroadcastOp>(new MLSLBroadcast(&mlsl_context, &state)));
-#else
-  // Default operations, always enabled but last to be checked.
-  allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpi_context, &state)));
-  allgather_ops.push_back(std::shared_ptr<AllgatherOp>(new MPIAllgather(&mpi_context, &state)));
-  broadcast_ops.push_back(std::shared_ptr<BroadcastOp>(new MPIBroadcast(&mpi_context, &state)));
+  if (strcasecmp(state.cpu_operation.c_str(), "mlsl") == 0) {
+    LOG(INFO) << "MLSL enabled.";
+    allreduce_ops.push_back(
+        std::shared_ptr<AllreduceOp>(new MLSLAllreduce(&mlsl_context, &state)));
+    allgather_ops.push_back(std::shared_ptr<AllgatherOp>(
+        new MLSLAllgather(&mlsl_context, &mpi_context, &state)));
+    broadcast_ops.push_back(
+        std::shared_ptr<BroadcastOp>(new MLSLBroadcast(&mlsl_context, &state)));
+  }
 #endif
+
+  // Default operations, always enabled but last to be checked.
+  allreduce_ops.push_back(
+      std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpi_context, &state)));
+  allgather_ops.push_back(
+      std::shared_ptr<AllgatherOp>(new MPIAllgather(&mpi_context, &state)));
+  broadcast_ops.push_back(
+      std::shared_ptr<BroadcastOp>(new MPIBroadcast(&mpi_context, &state)));
+
   std::shared_ptr<ErrorOp> error_op(new ErrorOp(&state));
 
-  return new OperationManager(&state.param_manager, allreduce_ops, allgather_ops, broadcast_ops, error_op);
+  return new OperationManager(&state.param_manager, allreduce_ops,
+                              allgather_ops, broadcast_ops, error_op);
 }
 
 // Store the Request for a name, and return whether the total count of
@@ -415,8 +453,9 @@ Response ConstructResponse(std::unique_ptr<MessageTable>& message_table,
 }
 
 // Return the total byte size of the final allgathered output tensor
-int64_t TotalByteSizeOfAllgatherOutput(const std::vector<int64_t> &tensor_sizes,
-                                       const TensorTableEntry entry, MPIContext& ctx) {
+int64_t TotalByteSizeOfAllgatherOutput(const std::vector<int64_t>& tensor_sizes,
+                                       const TensorTableEntry entry,
+                                       MPIContext& ctx) {
   int64_t total_dimension_size = 0;
   for (auto sz : tensor_sizes) {
     total_dimension_size += sz;
@@ -497,11 +536,12 @@ ResponseList FuseResponses(std::deque<Response>& responses,
             responses.pop_front();
           } else {
             // In general, don't try to fuse additional tensors since they are
-            // usually computed in order of requests and skipping tensors may mean
-            // that the batch will have to wait longer while skipped tensors
-            // could be reduced at that time. However, mixed-precision training
-            // may yield requests of various dtype in a mixed-up sequence causing
-            // breakups in fusion. To counter this some look ahead is allowed.
+            // usually computed in order of requests and skipping tensors may
+            // mean that the batch will have to wait longer while skipped
+            // tensors could be reduced at that time. However, mixed-precision
+            // training may yield requests of various dtype in a mixed-up
+            // sequence causing breakups in fusion. To counter this some look
+            // ahead is allowed.
 
             skipped_size += new_tensor_size;
             if (tensor_size + skipped_size <= TensorFusionThresholdBytes()) {
@@ -554,11 +594,12 @@ ResponseList FuseResponses(std::deque<Response>& responses,
 
           } else {
             // In general, don't try to fuse additional tensors since they are
-            // usually computed in order of requests and skipping tensors may mean
-            // that the batch will have to wait longer while skipped tensors
-            // could be reduced at that time. However, mixed-precision training
-            // may yield requests of various dtype in a mixed-up sequence causing
-            // breakups in fusion. To counter this some look ahead is allowed.
+            // usually computed in order of requests and skipping tensors may
+            // mean that the batch will have to wait longer while skipped
+            // tensors could be reduced at that time. However, mixed-precision
+            // training may yield requests of various dtype in a mixed-up
+            // sequence causing breakups in fusion. To counter this some look
+            // ahead is allowed.
 
             skipped_size += new_total_byte_size_of_output;
             if (total_byte_size_of_output + skipped_size <=
@@ -696,7 +737,6 @@ void PerformOperation(TensorTable& tensor_table, Response response) {
       e.callback(status);
     }
   }
-
 }
 
 // Report Tensors that were submitted to be reduced, gathered or broadcasted by
@@ -710,8 +750,9 @@ bool CheckForStalledTensors(HorovodGlobalState& state) {
   std::chrono::seconds stall_shutdown_time(state.stall_shutdown_time_seconds);
 
   if (stall_shutdown_time > std::chrono::seconds(0) &&
-    stall_shutdown_time < stall_warning_time) {
-    LOG(WARNING) << "HOROVOD_STALL_SHUTDOWN_TIME_SECONDS is less than HOROVOD_STALL_CHECK_TIME_SECONDS, will not shutdown.";
+      stall_shutdown_time < stall_warning_time) {
+    LOG(WARNING) << "HOROVOD_STALL_SHUTDOWN_TIME_SECONDS is less than "
+                    "HOROVOD_STALL_CHECK_TIME_SECONDS, will not shutdown.";
     stall_shutdown_time = std::chrono::seconds(0);
   }
 
@@ -731,7 +772,8 @@ bool CheckForStalledTensors(HorovodGlobalState& state) {
       for (int32_t rank = 0; rank < state.size; ++rank) {
         if (ready_ranks.find(rank) == ready_ranks.end()) {
           missing_ranks[rank].insert(tensor_name);
-          if (stall_shutdown_time > std::chrono::seconds(0) && lag > stall_shutdown_time) {
+          if (stall_shutdown_time > std::chrono::seconds(0) &&
+              lag > stall_shutdown_time) {
             shutdown_ranks.insert(rank);
             should_shut_down = true;
           }
@@ -749,8 +791,9 @@ bool CheckForStalledTensors(HorovodGlobalState& state) {
             << "This may indicate that different ranks are trying to "
                "submit different tensors or that only subset of ranks is "
                "submitting tensors, which will cause deadlock. "
-            << std::endl << "Stalled ranks:";
-    for (auto& kv: missing_ranks) {
+            << std::endl
+            << "Stalled ranks:";
+    for (auto& kv : missing_ranks) {
       message << std::endl << kv.first;
       if (shutdown_ranks.find(kv.first) != shutdown_ranks.end()) {
         message << "!";
@@ -772,9 +815,10 @@ bool CheckForStalledTensors(HorovodGlobalState& state) {
     }
 
     if (should_shut_down) {
-      message << std::endl
-              << "One or more rank (marked by \"!\") is stalled for longer than "
-              << stall_shutdown_time.count() << " seconds. Will shutdown.";
+      message
+          << std::endl
+          << "One or more rank (marked by \"!\") is stalled for longer than "
+          << stall_shutdown_time.count() << " seconds. Will shutdown.";
       LOG(ERROR) << message.str();
     } else {
       LOG(WARNING) << message.str();
@@ -786,7 +830,7 @@ bool CheckForStalledTensors(HorovodGlobalState& state) {
 
 // Invalidate cached tensors that have been pending for a long time.
 void InvalidateStalledCachedTensors(HorovodGlobalState& state,
-                                  CacheCoordinator& cache_coordinator) {
+                                    CacheCoordinator& cache_coordinator) {
   auto now = std::chrono::steady_clock::now();
   std::chrono::seconds stall_warning_time(state.stall_warning_time_seconds);
 
@@ -794,17 +838,16 @@ void InvalidateStalledCachedTensors(HorovodGlobalState& state,
     // If pending time for cached tensor exceeds stall_warning_time, mark entry
     // for global removal from cache to trigger stall messaging.
     if (now - entry.second > stall_warning_time) {
-       uint32_t cache_bit = state.response_cache.peek_cache_bit(entry.first);
-       cache_coordinator.record_invalid_bit(cache_bit);
-       cache_coordinator.set_uncached_in_queue(true);
+      uint32_t cache_bit = state.response_cache.peek_cache_bit(entry.first);
+      cache_coordinator.record_invalid_bit(cache_bit);
+      cache_coordinator.set_uncached_in_queue(true);
     }
   }
 }
 
 void set_bool_from_env(const char* env, bool& val, bool value_if_set) {
   auto env_value = std::getenv(env);
-  if (env_value != nullptr &&
-      std::strtol(env_value, nullptr, 10) > 0) {
+  if (env_value != nullptr && std::strtol(env_value, nullptr, 10) > 0) {
     val = value_if_set;
   }
 }
@@ -820,8 +863,7 @@ void set_int_from_env(const char* env, int& val) {
 // Also determines global shutdown state and whether uncached requests
 // exist on any worker.
 void CoordinateCacheAndState(CacheCoordinator& cache_coordinator,
-                             HorovodGlobalState& state,
-                             MPIContext& ctx) {
+                             HorovodGlobalState& state, MPIContext& ctx) {
 
   // Sync cache and state information across workers.
   cache_coordinator.sync(ctx, state.timeline_enabled);
@@ -837,7 +879,8 @@ void CoordinateCacheAndState(CacheCoordinator& cache_coordinator,
     // Start/continue negotiation phase on timeline bit entries.
     for (auto bit : cache_coordinator.timeline_bits()) {
       auto response = state.response_cache.peek_response(bit);
-      state.timeline.NegotiateStart(response.tensor_names()[0],
+      state.timeline.NegotiateStart(
+          response.tensor_names()[0],
           (Request::RequestType)response.response_type());
     }
 
@@ -869,7 +912,8 @@ void CoordinateCacheAndState(CacheCoordinator& cache_coordinator,
 //      in the same order, so we cannot dispatch one thread per tensor,
 //      otherwise we may end up dispatching many blocked threads and never make
 //      progress if we have a thread pool limit.
-bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator);
+bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx,
+                 bool is_coordinator);
 
 void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
   // Initialize MPI if it was not initialized. This must happen on the
@@ -895,9 +939,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
   if (is_mpi_initialized) {
     MPI_Query_thread(&provided);
     if (provided < MPI_THREAD_MULTIPLE) {
-      LOG(WARNING) << "MPI has already been initialized without "
-                      "multi-threading support (MPI_THREAD_MULTIPLE). This will "
-                      "likely cause a segmentation fault.";
+      LOG(WARNING)
+          << "MPI has already been initialized without "
+             "multi-threading support (MPI_THREAD_MULTIPLE). This will "
+             "likely cause a segmentation fault.";
     }
   } else {
 #if HAVE_DDL
@@ -960,8 +1005,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
   // Determine if cluster is homogeneous, i.e., if every node has the same
   // local_size
   auto local_sizes = new int[size];
-  MPI_Allgather(&local_size, 1, MPI_INT, local_sizes, 1, MPI_INT,
-                ctx.mpi_comm);
+  MPI_Allgather(&local_size, 1, MPI_INT, local_sizes, 1, MPI_INT, ctx.mpi_comm);
 
   bool is_homogeneous = true;
   for (int i = 0; i < size; ++i) {
@@ -1019,13 +1063,17 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
     state.timeline_enabled = true;
   }
 
-  set_bool_from_env(HOROVOD_TIMELINE_MARK_CYCLES, state.mark_cycles_in_timeline, true);
+  set_bool_from_env(HOROVOD_TIMELINE_MARK_CYCLES, state.mark_cycles_in_timeline,
+                    true);
 
-  set_bool_from_env(HOROVOD_STALL_CHECK_DISABLE, state.perform_stall_check, false);
+  set_bool_from_env(HOROVOD_STALL_CHECK_DISABLE, state.perform_stall_check,
+                    false);
 
-  set_int_from_env(HOROVOD_STALL_CHECK_TIME_SECONDS, state.stall_warning_time_seconds);
+  set_int_from_env(HOROVOD_STALL_CHECK_TIME_SECONDS,
+                   state.stall_warning_time_seconds);
 
-  set_int_from_env(HOROVOD_STALL_SHUTDOWN_TIME_SECONDS, state.stall_shutdown_time_seconds);
+  set_int_from_env(HOROVOD_STALL_SHUTDOWN_TIME_SECONDS,
+                   state.stall_shutdown_time_seconds);
 
   // Override Tensor Fusion threshold, if it's set.
   state.param_manager.SetTensorFusionThresholdBytes(64 * 1024 * 1024);
@@ -1049,7 +1097,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
   if (horovod_cache_capacity != nullptr) {
     uint32_t cache_capacity = std::strtol(horovod_cache_capacity, nullptr, 10);
     state.cache_capacity = cache_capacity;
-    state.param_manager.SetCacheEnabled((cache_capacity > 0) ? true : false, true);
+    state.param_manager.SetCacheEnabled((cache_capacity > 0) ? true : false,
+                                        true);
   }
   state.response_cache.set_capacity((int)state.param_manager.CacheEnabled() *
                                     state.cache_capacity);
@@ -1125,6 +1174,45 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
     state.message_table = std::unique_ptr<MessageTable>(new MessageTable());
   }
 
+  state.cpu_operation = HOROVOD_MPI;
+
+#if HAVE_MLSL
+  state.cpu_operation = HOROVOD_MLSL;
+#endif
+
+  // If specified by admin during compiling
+#if HOROVOD_CPU_OPERATIONS_DEFAULT == 'P'
+  state.cpu_operation = HOROVOD_MPI;
+#elif HOROVOD_CPU_OPERATIONS_DEFAULT == 'G'
+  state.cpu_operation = HOROVOD_GLOO;
+#elif HOROVOD_CPU_OPERATIONS_DEFAULT == 'M'
+  state.cpu_operation = HOROVOD_MLSL;
+#endif
+
+  // If specified by user during runtime
+  const char* user_cpu_operation = std::getenv(HOROVOD_CPU_OPERATIONS);
+  if (user_cpu_operation != nullptr) {
+    if (strcasecmp(user_cpu_operation, HOROVOD_MPI) == 0) {
+      state.cpu_operation = HOROVOD_MPI;
+    }
+    else if (strcasecmp(user_cpu_operation, HOROVOD_GLOO) == 0) {
+      state.cpu_operation = HOROVOD_GLOO;
+    }
+    else if (strcasecmp(user_cpu_operation, HOROVOD_MLSL) == 0) {
+      state.cpu_operation = HOROVOD_MLSL;
+    }
+  }
+
+#if HAVE_GLOO
+  if (strcasecmp(state.cpu_operation.c_str(), "gloo") == 0) {
+    auto gloo_iface = std::getenv(HOROVOD_GLOO_IFACE);
+    if (gloo_iface == nullptr) {
+      gloo_iface = GLOO_DEFAULT_IFACE;
+    }
+    gloo_context.InitializeFromMPI(ctx.mpi_comm, gloo_iface);
+  }
+#endif
+
   op_manager.reset(CreateOperationManager(state));
 
   // Signal that initialization is completed.
@@ -1165,13 +1253,16 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
     cb(SHUT_DOWN_ERROR);
   }
 
+#if HAVE_GLOO
+  gloo_context.Finalize();
+#endif
+
   if (horovod_global.shared_buffer != nullptr) {
     MPI_Win_free(&ctx.window);
     horovod_global.shared_buffer = nullptr;
   }
 
-  if (ctx.mpi_comm != MPI_COMM_NULL &&
-      ctx.mpi_comm != MPI_COMM_WORLD) {
+  if (ctx.mpi_comm != MPI_COMM_NULL && ctx.mpi_comm != MPI_COMM_WORLD) {
     MPI_Comm_free(&ctx.mpi_comm);
   }
 
@@ -1209,8 +1300,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
 
 // If all messages in queue have responses in cache, use fast path with
 // no additional MPI coordination.
-void RunBypass(std::queue<Request>& message_queue, CacheCoordinator& cache_coordinator,
-               HorovodGlobalState& state, MPIContext& ctx) {
+void RunBypass(std::queue<Request>& message_queue,
+               CacheCoordinator& cache_coordinator, HorovodGlobalState& state,
+               MPIContext& ctx) {
 
   // Convert cache hits to responses. Populate so that least
   // recently used responses get priority. All workers call the code
@@ -1227,27 +1319,29 @@ void RunBypass(std::queue<Request>& message_queue, CacheCoordinator& cache_coord
   if (!response_list.responses().empty()) {
     std::string tensors_ready;
     for (auto r : response_list.responses()) {
-      tensors_ready += r.tensor_names_string() + "; " ;
+      tensors_ready += r.tensor_names_string() + "; ";
     }
     LOG(TRACE) << "Sending ready responses as " << tensors_ready;
   }
 
   // Get tensor name and size data for autotuning.
-  int64_t total_tensor_size;
+  int64_t total_tensor_size = 0;
   std::vector<std::string> tensor_names;
   if (state.param_manager.IsAutoTuning()) {
     std::lock_guard<std::mutex> guard(state.mutex);
-    total_tensor_size = GetTensorDataForAutotuner(response_list, state.tensor_table,
-                                                  tensor_names);
+    total_tensor_size = GetTensorDataForAutotuner(
+        response_list, state.tensor_table, tensor_names);
   }
 
   // Perform the collective operation. All nodes should end up performing
   // the same operation.
   for (auto& response : response_list.responses()) {
     LOG(TRACE, state.rank) << "Performing " << response.tensor_names_string();
-    LOG(DEBUG, state.rank) << "Processing " << response.tensor_names().size() << " tensors";
+    LOG(DEBUG, state.rank) << "Processing " << response.tensor_names().size()
+                           << " tensors";
     PerformOperation(state.tensor_table, response);
-    LOG(TRACE, state.rank) << "Finished performing " << response.tensor_names_string();
+    LOG(TRACE, state.rank) << "Finished performing "
+                           << response.tensor_names_string();
   }
 
   // Reassign cache bits based on current cache order.
@@ -1287,7 +1381,8 @@ void RunBypass(std::queue<Request>& message_queue, CacheCoordinator& cache_coord
 //      response from the coordinator. At that point, the tick ends.
 //      If instead of "DONE" they receive "SHUTDOWN", they exit their background
 //      loop.
-bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator) {
+bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx,
+                 bool is_coordinator) {
   // This delay determines thread frequency and MPI message latency
   auto start_time = std::chrono::steady_clock::now();
   auto sleep_duration = state.last_cycle_start +
@@ -1333,8 +1428,10 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
 
           // Record initial time cached tensor is encountered in queue.
           if (state.perform_stall_check &&
-              state.cache_tensor_start.find(message.tensor_name()) == state.cache_tensor_start.end()) {
-            state.cache_tensor_start[message.tensor_name()] = std::chrono::steady_clock::now();
+              state.cache_tensor_start.find(message.tensor_name()) ==
+                  state.cache_tensor_start.end()) {
+            state.cache_tensor_start[message.tensor_name()] =
+                std::chrono::steady_clock::now();
           }
 
         } else {
@@ -1348,7 +1445,6 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
           if (state.perform_stall_check) {
             state.cache_tensor_start.erase(message.tensor_name());
           }
-
         }
       }
     }
@@ -1359,8 +1455,8 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
 
   // Check for stalled tensors.
   if (state.perform_stall_check &&
-       std::chrono::steady_clock::now() - state.last_stall_check >
-           std::chrono::seconds(state.stall_warning_time_seconds)) {
+      std::chrono::steady_clock::now() - state.last_stall_check >
+          std::chrono::seconds(state.stall_warning_time_seconds)) {
     if (is_coordinator) {
       should_shut_down |= CheckForStalledTensors(state);
     }
@@ -1390,7 +1486,8 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
       size_t num_messages = message_queue.size();
       for (size_t i = 0; i < num_messages; ++i) {
         auto message = message_queue.front();
-        if (state.response_cache.cached(message) == ResponseCache::CacheState::HIT) {
+        if (state.response_cache.cached(message) ==
+            ResponseCache::CacheState::HIT) {
           uint32_t cache_bit = state.response_cache.peek_cache_bit(message);
           if (cache_coordinator.cache_hits().find(cache_bit) ==
               cache_coordinator.cache_hits().end()) {
@@ -1416,7 +1513,8 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     LOG(DEBUG, state.rank) << "Sent " << message_queue.size() << " messages";
   }
 
-  if (state.response_cache.capacity() > 0 && !cache_coordinator.uncached_in_queue()) {
+  if (state.response_cache.capacity() > 0 &&
+      !cache_coordinator.uncached_in_queue()) {
     // If only cached messages in queue, use fast coordination path.
     if (!cache_coordinator.cache_hits().empty()) {
       RunBypass(message_queue, cache_coordinator, state, ctx);
@@ -1513,8 +1611,7 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     }
 
     for (auto& tensor_name : ready_to_reduce) {
-      Response response =
-          ConstructResponse(state.message_table, tensor_name);
+      Response response = ConstructResponse(state.message_table, tensor_name);
       responses.push_back(std::move(response));
     }
 
@@ -1524,7 +1621,7 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
     if (!response_list.responses().empty()) {
       std::string tensors_ready;
       for (auto r : response_list.responses()) {
-        tensors_ready += r.tensor_names_string() + "; " ;
+        tensors_ready += r.tensor_names_string() + "; ";
       }
       LOG(TRACE) << "Sending ready responses as " << tensors_ready;
     }
@@ -1562,18 +1659,18 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
   }
 
   // Get tensor name and size data for autotuning.
-  int64_t total_tensor_size;
+  int64_t total_tensor_size = 0;
   std::vector<std::string> tensor_names;
   if (state.param_manager.IsAutoTuning()) {
     std::lock_guard<std::mutex> guard(state.mutex);
-    total_tensor_size = GetTensorDataForAutotuner(response_list, state.tensor_table,
-                                                  tensor_names);
+    total_tensor_size = GetTensorDataForAutotuner(
+        response_list, state.tensor_table, tensor_names);
   }
 
   if (state.response_cache.capacity() > 0) {
     std::lock_guard<std::mutex> guard(horovod_global.mutex);
-    // All workers add supported responses to cache. This updates the cache order
-    // consistently across workers.
+    // All workers add supported responses to cache. This updates the cache
+    // order consistently across workers.
     for (auto& response : response_list.responses()) {
       if (response.response_type() == Response::ResponseType::ALLREDUCE &&
           (int)response.devices().size() == state.size) {
@@ -1589,9 +1686,11 @@ bool RunLoopOnce(HorovodGlobalState& state, MPIContext& ctx, bool is_coordinator
   // the same operation.
   for (auto& response : response_list.responses()) {
     LOG(TRACE, state.rank) << "Performing " << response.tensor_names_string();
-    LOG(DEBUG, state.rank) << "Processing " << response.tensor_names().size() << " tensors";
+    LOG(DEBUG, state.rank) << "Processing " << response.tensor_names().size()
+                           << " tensors";
     PerformOperation(state.tensor_table, response);
-    LOG(TRACE, state.rank) << "Finished performing " << response.tensor_names_string();
+    LOG(TRACE, state.rank) << "Finished performing "
+                           << response.tensor_names_string();
   }
 
   if (state.param_manager.IsAutoTuning()) {
@@ -1617,8 +1716,8 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
     // Reset initialization flag
     horovod_global.initialization_done = false;
 
-    horovod_global.background_thread =
-        std::thread(BackgroundThreadLoop, std::ref(horovod_global), std::ref(mpi_context));
+    horovod_global.background_thread = std::thread(
+        BackgroundThreadLoop, std::ref(horovod_global), std::ref(mpi_context));
   }
 
   // Wait to ensure that the background thread has finished initializing MPI.

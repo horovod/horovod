@@ -30,7 +30,8 @@ class HorovodOp {
 public:
   HorovodOp(HorovodGlobalState* global_state);
 
-  virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) = 0;
+  virtual Status Execute(std::vector<TensorTableEntry>& entries,
+                         const Response& response) = 0;
 
 protected:
   int64_t NumElements(std::vector<TensorTableEntry>& entries);
@@ -44,23 +45,31 @@ public:
 
   virtual ~AllreduceOp() = default;
 
-  virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) = 0;
+  virtual Status Execute(std::vector<TensorTableEntry>& entries,
+                         const Response& response) = 0;
 
   virtual bool Enabled(const ParameterManager& param_manager,
                        const std::vector<TensorTableEntry>& entries,
                        const Response& response) const = 0;
 
 protected:
-  virtual void MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries, const void*& fused_input_data,
-                                    void*& buffer_data, size_t& buffer_len);
+  virtual void
+  MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                       const void*& fused_input_data, void*& buffer_data,
+                       size_t& buffer_len);
 
-  virtual void MemcpyOutFusionBuffer(const void* buffer_data, std::vector<TensorTableEntry>& entries);
+  virtual void MemcpyOutFusionBuffer(const void* buffer_data,
+                                     std::vector<TensorTableEntry>& entries);
 
-  virtual void MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                         const TensorTableEntry& e, void* buffer_data_at_offset) = 0;
+  virtual void
+  MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                            const TensorTableEntry& e,
+                            void* buffer_data_at_offset);
 
-  virtual void MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                          const void* buffer_data_at_offset, TensorTableEntry& e) = 0;
+  virtual void
+  MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                             const void* buffer_data_at_offset,
+                             TensorTableEntry& e);
 };
 
 class AllgatherOp : public HorovodOp {
@@ -69,29 +78,37 @@ public:
 
   virtual ~AllgatherOp() = default;
 
-  virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) = 0;
+  virtual Status Execute(std::vector<TensorTableEntry>& entries,
+                         const Response& response) = 0;
 
   virtual bool Enabled(const ParameterManager& param_manager,
                        const std::vector<TensorTableEntry>& entries,
                        const Response& response) const = 0;
 
 protected:
-  virtual Status AllocateOutput(std::vector<TensorTableEntry>& entries, const Response& response,
-                                int64_t**& entry_component_sizes, int*& recvcounts);
+  virtual Status AllocateOutput(std::vector<TensorTableEntry>& entries,
+                                const Response& response,
+                                int64_t**& entry_component_sizes,
+                                int*& recvcounts);
 
   virtual void SetDisplacements(const int* recvcounts, int*& displcmnts);
 
-  virtual void SetEntryComponentOffsets(const std::vector<TensorTableEntry>& entries,
-                                        const int64_t* const* entry_component_sizes,
-                                        const int* recvcounts,
-                                        int64_t**& entry_component_offsets);
+  virtual void
+  SetEntryComponentOffsets(const std::vector<TensorTableEntry>& entries,
+                           const int64_t* const* entry_component_sizes,
+                           const int* recvcounts,
+                           int64_t**& entry_component_offsets);
 
-  virtual void MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                    const int* displcmnts, int element_size, void*& buffer_data);
+  virtual void
+  MemcpyInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                       const int* displcmnts, int element_size,
+                       void*& buffer_data);
 
-  virtual void MemcpyOutFusionBuffer(const int64_t* const* entry_component_offsets,
-                                     const int64_t* const* entry_component_sizes, const void* buffer_data,
-                                     int element_size, std::vector<TensorTableEntry>& entries);
+  virtual void
+  MemcpyOutFusionBuffer(const int64_t* const* entry_component_offsets,
+                        const int64_t* const* entry_component_sizes,
+                        const void* buffer_data, int element_size,
+                        std::vector<TensorTableEntry>& entries);
 };
 
 class BroadcastOp : public HorovodOp {
@@ -100,7 +117,8 @@ public:
 
   virtual ~BroadcastOp() = default;
 
-  virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) = 0;
+  virtual Status Execute(std::vector<TensorTableEntry>& entries,
+                         const Response& response) = 0;
 
   virtual bool Enabled(const ParameterManager& param_manager,
                        const std::vector<TensorTableEntry>& entries,
@@ -113,10 +131,11 @@ public:
 
   virtual ~ErrorOp() = default;
 
-  virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response);
+  virtual Status Execute(std::vector<TensorTableEntry>& entries,
+                         const Response& response);
 };
 
 } // namespace common
 } // namespace horovod
 
-#endif //HOROVOD_COLLECTIVE_OPERATIONS_H
+#endif // HOROVOD_COLLECTIVE_OPERATIONS_H

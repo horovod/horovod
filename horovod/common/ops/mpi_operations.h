@@ -42,12 +42,6 @@ public:
                const Response& response) const override;
 
 protected:
-  void MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                 const TensorTableEntry& e, void* buffer_data_at_offset) override;
-
-  void MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                  const void* buffer_data_at_offset, TensorTableEntry& e) override;
-
   MPIContext* mpi_context_;
 };
 
