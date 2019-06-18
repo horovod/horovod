@@ -143,6 +143,9 @@ struct HorovodGlobalState {
   // Index of current CUDA stream to use
   int current_nccl_stream = 0;
 
+  // A string indicating what framework we are using to perform CPU operations.
+  std::string cpu_operation;
+
   ~HorovodGlobalState() {
     // Make sure that the destructor of the background thread is safe to
     // call. If a thread is still joinable (not detached or complete) its

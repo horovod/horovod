@@ -71,18 +71,6 @@ bool MPIAllreduce::Enabled(const ParameterManager& param_manager,
   return true;
 }
 
-void MPIAllreduce::MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                             const TensorTableEntry& e, void* buffer_data_at_offset) {
-  std::memcpy(buffer_data_at_offset, e.tensor->data(),
-              (size_t) e.tensor->size());
-}
-
-void MPIAllreduce::MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                                              const void* buffer_data_at_offset, TensorTableEntry& e) {
-  std::memcpy((void*) e.output->data(), buffer_data_at_offset,
-              (size_t) e.tensor->size());
-}
-
 MPIAllgather::MPIAllgather(MPIContext* mpi_context, HorovodGlobalState* global_state)
     : AllgatherOp(global_state), mpi_context_(mpi_context) {}
 
