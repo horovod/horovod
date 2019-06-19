@@ -90,6 +90,7 @@ html_theme_options = {
     'github_count': 'true',
     'fixed_sidebar': True,
     'sidebar_collapse': True,
+    'font_family': 'Helvetica Neue'
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
