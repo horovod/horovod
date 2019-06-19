@@ -1146,7 +1146,7 @@ setup(name='horovod',
       long_description=textwrap.dedent('''\
           Horovod is a distributed training framework for TensorFlow, Keras, PyTorch, and Apache MXNet.
           The goal of Horovod is to make distributed Deep Learning fast and easy to use.'''),
-      url='https://github.com/uber/horovod',
+      url='https://github.com/horovod/horovod',
       classifiers=[
           'License :: OSI Approved :: Apache Software License'
       ],

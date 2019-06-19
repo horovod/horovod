@@ -70,7 +70,7 @@ Run the example:
 
 .. code-block:: bash
 
-    $ wget https://raw.githubusercontent.com/uber/horovod/master/examples/keras_spark_rossmann.py
+    $ wget https://raw.githubusercontent.com/horovod/horovod/master/examples/keras_spark_rossmann.py
     $ wget http://files.fast.ai/part2/lesson14/rossmann.tgz
     $ tar zxvf rossmann.tgz
     $ python keras_spark_rossmann.py
