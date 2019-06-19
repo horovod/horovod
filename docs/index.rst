@@ -93,8 +93,6 @@ Guides
 
    mxnet
 
-   mpirun
-
    running_include
 
    benchmarks_include
