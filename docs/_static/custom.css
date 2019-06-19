@@ -1,4 +1,6 @@
 /* Custom CSS for landing page accordion */
+
+/*Accordion open/close button style */
 .accordion {
   background-color: #eee;
   color: #444;
@@ -13,7 +15,7 @@
   font-size: 16px;
 }
 
-/* Background button color if it is clicked on */
+/* Active button style*/
 .active, .accordion:hover {
   background-color: #ccc;
 }
@@ -28,8 +30,9 @@
   font-size: 16px;
 }
 
+/* Plus sign */
 .accordion:after {
-  content: '\02795'; /* Unicode character for "plus" sign (+) */
+  content: '\02795';
   font-size: 16px;
   color: #777;
   float: right;
@@ -37,6 +40,7 @@
   font-family: 'Helvetica Neue';
 }
 
+/* Minus sign */
 .active:after {
-  content: "\2796"; /* Unicode character for "minus" sign (-) */
+  content: "\2796";
 }
