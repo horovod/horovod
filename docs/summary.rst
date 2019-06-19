@@ -212,20 +212,6 @@ See `Run Horovod <running.rst>`_ for more details, including RoCE/InfiniBand twe
 6. To run in Spark, see `Spark <spark.rst>`_.
 
 7. To run in Singularity, see `Singularity <https://github.com/sylabs/examples/tree/master/machinelearning/horovod>`_.
-<<<<<<< HEAD
-=======
-
-Keras
------
-Horovod supports Keras and regular TensorFlow in similar ways.
-
-See full training `simple <examples/keras_mnist.py>`_ and `advanced <examples/keras_mnist_advanced.py>`_ examples.
-
-**Note**: Keras 2.0.9 has a `known issue <https://github.com/fchollet/keras/issues/8353>`_ that makes each worker allocate
-all GPUs on the server, instead of the GPU assigned by the *local rank*. If you have multiple GPUs per server, upgrade
-to Keras 2.1.2 or downgrade to Keras 2.0.8.
-
->>>>>>> Add Singularity example page (#1149)
 
 Estimator API
 -------------
@@ -265,7 +251,6 @@ One of the unique things about Horovod is its ability to interleave communicatio
 to batch small *allreduce* operations, which results in improved performance. We call this batching feature Tensor Fusion.
 
 See `here <tensor-fusion.rst>`__ for full details and tweaking instructions.
-
 
 Horovod Timeline
 ----------------
