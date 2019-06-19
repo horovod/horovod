@@ -58,7 +58,7 @@ void server_affinity_set(int affinity) {
   }
 }
 
-void MLSLContext::Init(int size) {
+void MLSLContext::Init() {
   char* hvd_mlsl_bg_thread_env = NULL;
   int bg_thread_affinity = 0;
   if ((hvd_mlsl_bg_thread_env = getenv("HOROVOD_MLSL_BGT_AFFINITY")) != NULL)
@@ -71,7 +71,9 @@ void MLSLContext::Init(int size) {
 
   // Initialize MLSL
   MLSL::Environment::GetEnv().Init(NULL, NULL);
+}
 
+void MLSLContext::Setup(int size) {
   dist = MLSL::Environment::GetEnv().CreateDistribution(size, 1);
 }
 
@@ -81,6 +83,9 @@ void MLSLContext::Finalize() {
 
   // Destroy MLSL communicators
   MLSL::Environment::GetEnv().DeleteDistribution(dist);
+
+  // Finalize MLSL
+  MLSL::Environment::GetEnv().Finalize();
 }
 
 MLSLAllreduce::MLSLAllreduce(MLSLContext* mlsl_context, HorovodGlobalState* global_state)
