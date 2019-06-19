@@ -382,7 +382,7 @@ Send us links to any user guides you want to publish on this site
 
 Troubleshooting
 ---------------
-See `Troubleshooting <troubleshooting.rst>`_ and submit a `ticket <https://github.com/uber/horovod/issues/new>`_
+See `Troubleshooting <troubleshooting.rst>`_ and submit a `ticket <https://github.com/horovod/horovod/issues/new>`_
 if you can't find an answer.
 
 
