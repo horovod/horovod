@@ -14,7 +14,7 @@ Choose your deep learning framework to learn how to get started with Horovod.
          <ol>
             <li><a href="https://www.open-mpi.org/faq/?category=building#easy-build">Install Open MPI 3.1.2 or 4.0.0</a>, or another MPI implementation. </li>
             <li>Install the Horovod pip package: <code>pip install horovod</code></li>
-            <li>Read <a href="https://horovod.readthedocs.io/en/latest/summary_include.html#usage">Horovod with TensorFlow</a> for best practices and examples. </li>
+            <li>Read <a href="https://horovod.readthedocs.io/en/latest/tensorflow.html">Horovod with TensorFlow</a> for best practices and examples. </li>
          </ol>
          Or, use <a href="https://horovod.readthedocs.io/en/latest/gpus_include.html">Horovod on GPUs</a>, in <a href="https://horovod.readthedocs.io/en/latest/spark_include.html">Spark</a>, <a href="https://horovod.readthedocs.io/en/latest/docker_include.html">Docker</a>, <a href="https://github.com/sylabs/examples/tree/master/machinelearning/horovod">Singularity</a>, or Kubernetes (<a href="https://github.com/kubeflow/kubeflow/tree/master/kubeflow/mpi-job">Kubeflow</a>, <a href="https://github.com/kubeflow/mpi-operator/">MPI Operator</a>, <a href="https://github.com/helm/charts/tree/master/stable/horovod">Helm Chart</a>, and <a href="https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/">FfDL</a>).
       </p>
@@ -26,7 +26,7 @@ Choose your deep learning framework to learn how to get started with Horovod.
          <ol>
             <li><a href="https://www.open-mpi.org/faq/?category=building#easy-build">Install Open MPI 3.1.2 or 4.0.0</a>, or another MPI implementation. </li>
             <li>Install the Horovod pip package: <code>pip install horovod</code></li>
-            <li>Read <a href="https://horovod.readthedocs.io/en/latest/summary_include.html#keras">Horovod with Keras</a> for best practices and examples. </li>
+            <li>Read <a href="https://horovod.readthedocs.io/en/latest/keras.html">Horovod with Keras</a> for best practices and examples. </li>
          </ol>
          Or, use <a href="https://horovod.readthedocs.io/en/latest/gpus_include.html">Horovod on GPUs</a>, in <a href="https://horovod.readthedocs.io/en/latest/spark_include.html">Spark</a>, <a href="https://horovod.readthedocs.io/en/latest/docker_include.html">Docker</a>, <a href="https://github.com/sylabs/examples/tree/master/machinelearning/horovod">Singularity</a>, or Kubernetes (<a href="https://github.com/kubeflow/kubeflow/tree/master/kubeflow/mpi-job">Kubeflow</a>, <a href="https://github.com/kubeflow/mpi-operator/">MPI Operator</a>, <a href="https://github.com/helm/charts/tree/master/stable/horovod">Helm Chart</a>, and <a href="https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/">FfDL</a>).
       </p>
@@ -38,19 +38,19 @@ Choose your deep learning framework to learn how to get started with Horovod.
          <ol>
             <li><a href="https://www.open-mpi.org/faq/?category=building#easy-build">Install Open MPI 3.1.2 or 4.0.0</a>, or another MPI implementation. </li>
             <li>Install the Horovod pip package: <code>pip install horovod</code></li>
-            <li>Read <a href="https://horovod.readthedocs.io/en/latest/summary_include.html#pytorch">Horovod with PyTorch</a> for best practices and examples. </li>
+            <li>Read <a href="https://horovod.readthedocs.io/en/latest/pytorch.html">Horovod with PyTorch</a> for best practices and examples. </li>
          </ol>
          Or, use <a href="https://horovod.readthedocs.io/en/latest/gpus_include.html">Horovod on GPUs</a>, in <a href="https://horovod.readthedocs.io/en/latest/spark_include.html">Spark</a>, <a href="https://horovod.readthedocs.io/en/latest/docker_include.html">Docker</a>, <a href="https://github.com/sylabs/examples/tree/master/machinelearning/horovod">Singularity</a>, or Kubernetes (<a href="https://github.com/kubeflow/kubeflow/tree/master/kubeflow/mpi-job">Kubeflow</a>, <a href="https://github.com/kubeflow/mpi-operator/">MPI Operator</a>, <a href="https://github.com/helm/charts/tree/master/stable/horovod">Helm Chart</a>, and <a href="https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/">FfDL</a>).
       </p>
     </div>
 
-    <button class="accordion">MXNet</button>
+    <button class="accordion">Apache MXNet</button>
     <div class="panel">
-      <p>To use Horovod with MXNet on your laptop:
+      <p>To use Horovod with Apache MXNet on your laptop:
          <ol>
             <li><a href="https://www.open-mpi.org/faq/?category=building#easy-build">Install Open MPI 3.1.2 or 4.0.0</a>, or another MPI implementation. </li>
             <li>Install the Horovod pip package: <code>pip install horovod</code></li>
-            <li>Read <a href="https://horovod.readthedocs.io/en/latest/summary_include.html#mxnet">Horovod with MXNet</a> for best practices and examples. </li>
+            <li>Read <a href="https://horovod.readthedocs.io/en/latest/mxnet.html">Horovod with MXNet</a> for best practices and examples. </li>
          </ol>
          Or, use <a href="https://horovod.readthedocs.io/en/latest/gpus_include.html">Horovod on GPUs</a>, in <a href="https://horovod.readthedocs.io/en/latest/spark_include.html">Spark</a>, <a href="https://horovod.readthedocs.io/en/latest/docker_include.html">Docker</a>, <a href="https://github.com/sylabs/examples/tree/master/machinelearning/horovod">Singularity</a>, or Kubernetes (<a href="https://github.com/kubeflow/kubeflow/tree/master/kubeflow/mpi-job">Kubeflow</a>, <a href="https://github.com/kubeflow/mpi-operator/">MPI Operator</a>, <a href="https://github.com/helm/charts/tree/master/stable/horovod">Helm Chart</a>, and <a href="https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/">FfDL</a>).
       </p>
@@ -84,6 +84,14 @@ Guides
    concepts_include
 
    api
+
+   tensorflow
+
+   keras
+
+   pytorch
+
+   mxnet
 
    mpirun
 
