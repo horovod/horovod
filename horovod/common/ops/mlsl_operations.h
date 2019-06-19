@@ -34,7 +34,9 @@ namespace common {
 struct MLSLContext {
   MLSL::Distribution *dist;
 
-  void Init(int size);
+  void Init();
+
+  void Setup(int size);
 
   void Finalize();
 };
