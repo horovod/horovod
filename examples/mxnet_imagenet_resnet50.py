@@ -137,8 +137,6 @@ else:
     raise ValueError('Invalid lr mode')
 
 
-
-
 # Function for reading data from record file
 # For more details about data loading in MXNet, please refer to
 # https://mxnet.incubator.apache.org/tutorials/basic/data.html?highlight=imagerecorditer
@@ -152,8 +150,7 @@ def get_data_rec(rec_train, rec_train_idx, rec_val, rec_val_idx, batch_size,
     lighting_param = 0.1
     mean_rgb = [123.68, 116.779, 103.939]
 
-
-    train_data = mx.io.ImageRecordIter(
+    train_iter = mx.io.ImageRecordIter(
         path_imgrec=rec_train,
         path_imgidx=rec_train_idx,
         preprocess_threads=data_nthreads,
@@ -181,7 +178,7 @@ def get_data_rec(rec_train, rec_train_idx, rec_val, rec_val_idx, batch_size,
         device_id=local_rank
     )
     # Kept each node to use full val data to make it easy to monitor results
-    val_data = mx.io.ImageRecordIter(
+    val_iter = mx.io.ImageRecordIter(
         path_imgrec=rec_val,
         path_imgidx=rec_val_idx,
         preprocess_threads=data_nthreads,
@@ -198,7 +195,7 @@ def get_data_rec(rec_train, rec_train_idx, rec_val, rec_val_idx, batch_size,
         device_id=local_rank
     )
 
-    return train_data, val_data
+    return train_iter, val_iter
 
 
 # Return data and label from batch data
