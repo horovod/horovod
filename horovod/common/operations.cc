@@ -933,6 +933,11 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
       std::strtol(mpi_threads_disable, nullptr, 10) > 0) {
     required = MPI_THREAD_SINGLE;
   }
+#if HAVE_MLSL
+  // MLSL comes with Intel MPI
+  // and needs to initialize MPI with the proper configuration.
+  mlsl_context.Init();
+#endif
   int provided;
   int is_mpi_initialized = 0;
   MPI_Initialized(&is_mpi_initialized);
@@ -984,7 +989,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
   int size;
   MPI_Comm_size(ctx.mpi_comm, &size);
 #if HAVE_MLSL
-  mlsl_context.Init(size);
+  mlsl_context.Setup(size);
 #endif
   if (is_coordinator) {
     LOG(INFO) << "Started Horovod with " << size << " processes";
@@ -1224,9 +1229,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
   while (RunLoopOnce(state, ctx, is_coordinator))
     ;
 
-#if HAVE_MLSL
-  mlsl_context.Finalize();
-#endif
   LOG(DEBUG, rank) << "Shutting down background thread";
 
   // Signal that shutdown has been requested.
@@ -1296,6 +1298,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state, MPIContext& ctx) {
     }
 #endif
   }
+
+#if HAVE_MLSL
+  mlsl_context.Finalize();
+#endif
 }
 
 // If all messages in queue have responses in cache, use fast path with
