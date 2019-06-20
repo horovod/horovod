@@ -105,9 +105,4 @@ RUN apt-get install -y --no-install-recommends subversion && \
     svn checkout https://github.com/horovod/horovod/trunk/examples && \
     rm -rf /examples/.svn
 
-LABEL com.nvidia.volumes.needed="nvidia_driver"
-ENV NVIDIA_VISIBLE_DEVICES=all
-ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
-ENV NVIDIA_REQUIRE_CUDA=cuda>=10.0
-
 WORKDIR "/examples"
