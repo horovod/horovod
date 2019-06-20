@@ -82,6 +82,7 @@ RUN ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
     ldconfig
 
 # Install PyTorch.
+RUN pip install future typing
 RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
         PYTORCH_CUDA=$(echo ${CUDA_DOCKER_VERSION} | awk -F- '{print $1}' | sed 's/\.//'); \
         pip install torch_nightly -v -f https://download.pytorch.org/whl/nightly/cu${PYTORCH_CUDA}/torch_nightly.html; \
@@ -89,7 +90,6 @@ RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
         pip install ${PYTORCH_PACKAGE}; \
     fi
 RUN pip install ${TORCHVISION_PACKAGE} Pillow --no-deps
-RUN pip install future typing
 
 # Install MXNet.
 RUN pip install ${MXNET_PACKAGE}

@@ -48,6 +48,7 @@ RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
     rm get-pip.py
 
 # Install TensorFlow, Keras, PyTorch and MXNet
+RUN pip install future typing
 RUN pip install numpy \
         tensorflow-gpu==${TENSORFLOW_VERSION} \
         keras \
