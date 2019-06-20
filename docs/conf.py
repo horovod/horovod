@@ -89,7 +89,7 @@ html_theme_options = {
     'github_button': True,
     'github_type': 'star',
     'github_count': 'true',
-    'fixed_sidebar': True,
+    'fixed_sidebar': False,
     'sidebar_collapse': True,
     'font_family': 'Helvetica Neue'
 }
