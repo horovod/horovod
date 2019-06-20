@@ -106,7 +106,7 @@ for test in ${tests[@]}; do
 done
 
 # build documentation
-#build_docs
+build_docs
 
 # wait for all builds to finish
 echo "- wait"
