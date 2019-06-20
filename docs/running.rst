@@ -1,8 +1,8 @@
 .. inclusion-marker-start-do-not-remove
 
 
-Running Horovod
-===============
+Run Horovod
+===========
 
 This page includes examples for Open MPI that use ``horovodrun``. Check your MPI documentation for arguments to the ``mpirun``
 command on your system.
@@ -45,5 +45,10 @@ the ``~/.ssh/known_hosts`` file using ``ssh-keyscan``:
 
     $ ssh-keyscan -t rsa,dsa server1 server2 > ~/.ssh/known_hosts
 
+
+Advanced: Run Horovod with Open MPI
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In some advanced cases you might want fine-grained control over options passed to Open MPI.
+To learn how run Horovod training directly using Open MPI, read `Run Horovod with Open MPI <mpirun.rst>`_.
 
 .. inclusion-marker-end-do-not-remove

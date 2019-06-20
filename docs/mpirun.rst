@@ -1,6 +1,7 @@
-Running Horovod with Open MPI
-=============================
+:orphan:
 
+Run Horovod with Open MPI
+=========================
 ``horovodrun`` introduces a convenient, Open MPI-based wrapper for running Horovod scripts.
 
 In some cases it is desirable to have fine-grained control over options passed to Open MPI.  This page describes
@@ -10,14 +11,13 @@ running Horovod training directly using Open MPI.
 
    .. code-block:: bash
 
-       horovodrun -np 4 -H localhost:4 python train.py
+       horovodrun -np 4 python train.py
 
    Equivalent Open MPI command:
 
    .. code-block:: bash
 
        mpirun -np 4 \
-           -H localhost:4 \
            -bind-to none -map-by slot \
            -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
            -mca pml ob1 -mca btl ^openib \

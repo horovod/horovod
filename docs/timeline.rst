@@ -1,7 +1,7 @@
 .. inclusion-marker-start-do-not-remove
 
-Analyzing Horovod Performance
-=============================
+Analyze Performance
+===================
 
 Horovod has the ability to record the timeline of its activity, called Horovod Timeline.
 

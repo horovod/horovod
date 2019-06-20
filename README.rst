@@ -103,11 +103,19 @@ Concepts
 Horovod core principles are based on `MPI <http://mpi-forum.org/>`_ concepts such as *size*, *rank*,
 *local rank*, **allreduce**, **allgather** and, *broadcast*. See `this page <docs/concepts.rst>`_ for more details.
 
+Supported frameworks
+--------------------
+See these pages for Horovod examples and best practices:
+
+- `Horovod with TensorFlow <#usage>`__ (Usage section below)
+- `Horovod with Keras <docs/keras.rst>`_
+- `Horovod with PyTorch <docs/pytorch.rst>`_
+- `Horovod with MXNet <docs/mxnet.rst>`_
 
 Usage
 -----
 
-To use Horovod, make the following additions to your program:
+To use Horovod, make the following additions to your program. This example uses TensorFlow.
 
 1. Run ``hvd.init()``.
 
@@ -202,131 +210,11 @@ page for more instructions, including RoCE/InfiniBand tweaks and tips for dealin
 
 7. To run in Singularity, see `Singularity <https://github.com/sylabs/examples/tree/master/machinelearning/horovod>`_.
 
-Keras
------
-Horovod supports Keras and regular TensorFlow in similar ways.
-
-See full training `simple <https://github.com/horovod/horovod/blob/master/examples/keras_mnist.py>`_ and `advanced <https://github.com/horovod/horovod/blob/master/examples/keras_mnist_advanced.py>`_ examples.
-
-**Note**: Keras 2.0.9 has a `known issue <https://github.com/fchollet/keras/issues/8353>`_ that makes each worker allocate
-all GPUs on the server, instead of the GPU assigned by the *local rank*. If you have multiple GPUs per server, upgrade
-to Keras 2.1.2 or downgrade to Keras 2.0.8.
-
-
 Estimator API
 -------------
 Horovod supports Estimator API and regular TensorFlow in similar ways.
 
 See a full training `example <examples/tensorflow_mnist_estimator.py>`_.
-
-MXNet
------
-Horovod supports MXNet and regular TensorFlow in similar ways.
-
-See full training `MNIST <https://github.com/horovod/horovod/blob/master/examples/mxnet_mnist.py>`_ and `ImageNet <https://github.com/horovod/horovod/blob/master/examples/mxnet_imagenet_resnet50.py>`_ examples. The script below provides a simple skeleton of code block based on MXNet Gluon API.
-
-.. code-block:: python
-
-    import mxnet as mx
-    import horovod.mxnet as hvd
-    from mxnet import autograd
-
-    # Initialize Horovod
-    hvd.init()
-
-    # Pin GPU to be used to process local rank
-    context = mx.gpu(hvd.local_rank())
-    num_workers = hvd.size()
-
-    # Build model
-    model = ...
-    model.hybridize()
-
-    # Create optimizer
-    optimizer_params = ...
-    opt = mx.optimizer.create('sgd', **optimizer_params)
-
-    # Initialize parameters
-    model.initialize(initializer, ctx=context)
-
-    # Fetch and broadcast parameters
-    params = model.collect_params()
-    if params is not None:
-        hvd.broadcast_parameters(params, root_rank=0)
-
-    # Create DistributedTrainer, a subclass of gluon.Trainer
-    trainer = hvd.DistributedTrainer(params, opt)
-
-    # Create loss function
-    loss_fn = ...
-
-    # Train model
-    for epoch in range(num_epoch):
-        train_data.reset()
-        for nbatch, batch in enumerate(train_data, start=1):
-            data = batch.data[0].as_in_context(context)
-            label = batch.label[0].as_in_context(context)
-            with autograd.record():
-                output = model(data.astype(dtype, copy=False))
-                loss = loss_fn(output, label)
-            loss.backward()
-            trainer.step(batch_size)
-
-
-
-**Note**: The `known issue <https://github.com/horovod/horovod/issues/884>`__ when running Horovod with MXNet on a Linux system with GCC version 5.X and above has been resolved. Please use MXNet 1.4.1 or later releases with Horovod 0.16.2 or later releases to avoid the GCC incompatibility issue. MXNet 1.4.0 release works with Horovod 0.16.0 and 0.16.1 releases with the GCC incompatibility issue unsolved.
-
-PyTorch
--------
-Horovod supports PyTorch and TensorFlow in similar ways.
-
-Example (also see a full training `example <examples/pytorch_mnist.py>`__):
-
-.. code-block:: python
-
-    import torch
-    import horovod.torch as hvd
-
-    # Initialize Horovod
-    hvd.init()
-
-    # Pin GPU to be used to process local rank (one GPU per process)
-    torch.cuda.set_device(hvd.local_rank())
-
-    # Define dataset...
-    train_dataset = ...
-
-    # Partition dataset among workers using DistributedSampler
-    train_sampler = torch.utils.data.distributed.DistributedSampler(
-        train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
-
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=..., sampler=train_sampler)
-
-    # Build model...
-    model = ...
-    model.cuda()
-
-    optimizer = optim.SGD(model.parameters())
-
-    # Add Horovod Distributed Optimizer
-    optimizer = hvd.DistributedOptimizer(optimizer, named_parameters=model.named_parameters())
-
-    # Broadcast parameters from rank 0 to all other processes.
-    hvd.broadcast_parameters(model.state_dict(), root_rank=0)
-
-    for epoch in range(100):
-       for batch_idx, (data, target) in enumerate(train_loader):
-           optimizer.zero_grad()
-           output = model(data)
-           loss = F.nll_loss(output, target)
-           loss.backward()
-           optimizer.step()
-           if batch_idx % args.log_interval == 0:
-               print('Train Epoch: {} [{}/{}]\tLoss: {}'.format(
-                   epoch, batch_idx * len(data), len(train_sampler), loss.item()))
-
-
-**Note**: PyTorch support requires NCCL 2.2 or later. It also works with NCCL 2.1.15 if you are not using RoCE or InfiniBand.
 
 mpi4py
 ------
