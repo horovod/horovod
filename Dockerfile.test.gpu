@@ -10,8 +10,8 @@ ARG MPI_KIND=OpenMPI
 ARG PYTHON_VERSION=2.7
 ARG TENSORFLOW_PACKAGE=tensorflow-gpu==1.14.0
 ARG KERAS_PACKAGE=keras==2.2.4
-ARG PYTORCH_PACKAGE=torch==1.1.0
-ARG TORCHVISION_PACKAGE=torchvision==0.3.0
+ARG PYTORCH_PACKAGE=https://download.pytorch.org/whl/cu100/torch-1.1.0-cp27-cp27mu-linux_x86_64.whl
+ARG TORCHVISION_PACKAGE=https://download.pytorch.org/whl/cu100/torchvision-0.3.0-cp27-cp27mu-linux_x86_64.whl
 ARG MXNET_PACKAGE=mxnet-cu100==1.4.1
 ARG PYSPARK_PACKAGE=pyspark==2.4.0
 ARG HOROVOD_BUILD_FLAGS=HOROVOD_GPU_ALLREDUCE=NCCL
