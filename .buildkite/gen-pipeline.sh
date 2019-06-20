@@ -82,38 +82,6 @@ run_all() {
   run_test "${test}" "${queue}" \
     ":muscle: Test TensorFlow MNIST (${test})" \
     "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist.py\""
-
-  if [[ ${test} != *"tf1_1_0"* && ${test} != *"tf1_6_0"* ]]; then
-    run_test "${test}" "${queue}" \
-      ":muscle: Test TensorFlow Eager MNIST (${test})" \
-      "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist_eager.py\""
-  fi
-
-  run_test "${test}" "${queue}" \
-    ":muscle: Test Keras MNIST (${test})" \
-    "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/keras_mnist_advanced.py\""
-
-  run_test "${test}" "${queue}" \
-    ":muscle: Test PyTorch MNIST (${test})" \
-    "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/pytorch_mnist.py\""
-
-  run_test "${test}" "${queue}" \
-    ":muscle: Test MXNet MNIST (${test})" \
-    "bash -c \"OMP_NUM_THREADS=1 \\\$(cat /mpirun_command) python /horovod/examples/mxnet_mnist.py\""
-
-  # tests that should be executed only with the latest release since they don't test
-  # a framework-specific functionality
-  if [[ ${test} == *"tf1_12_0"* ]]; then
-    run_test "${test}" "${queue}" \
-      ":muscle: Test Stall (${test})" \
-      "bash -c \"\\\$(cat /mpirun_command) python /horovod/test/test_stall.py\""
-
-    if [[ ${test} == *"openmpi"* ]]; then
-      run_test "${test}" "${queue}" \
-        ":muscle: Test Horovodrun (${test})" \
-        "horovodrun -np 2 -H localhost:2 python /horovod/examples/tensorflow_mnist.py"
-    fi
-  fi
 }
 
 build_docs() {
@@ -138,7 +106,7 @@ for test in ${tests[@]}; do
 done
 
 # build documentation
-build_docs
+#build_docs
 
 # wait for all builds to finish
 echo "- wait"
