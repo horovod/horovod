@@ -70,7 +70,7 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
             #chmod +x /usr/local/bin/mpicxx && \
             #wget https://raw.githubusercontent.com/AlekseyMarchuk/MLSL/master/mpirt_2019/bin/mpigcc -P /usr/local/bin && \
             #chmod +x /usr/local/bin/mpigcc && \
-            echo ". /usr/local/mlsl/intel64/bin/mlslvars.sh \"thread\"; \
+            echo "source /usr/local/mlsl/intel64/bin/mlslvars.sh \"thread\"; \
                    echo \"mpirun is \$(which mpirun)\"; \
                    echo \"this file is \$(cat /mpirun_command_script)\"; \
                    echo \"LD_LIBRARY_PATH is \$(echo \$LD_LIBRARY_PATH)\"; \
