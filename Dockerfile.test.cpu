@@ -72,7 +72,8 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
             chmod +x /mpirun_command_script && \
             echo "-L/usr/local/mlsl/intel64/lib/thread -lmpi -I/usr/local/mlsl/intel64/include" > /mpicc_mlsl && \
             chmod +x /mpicc_mlsl && \
-            cp /mpirun_command_script /mpirun_command; \
+            echo "this file is \$(cat /mpirun_command_script)" && \
+            echo "/mpirun_command_script" > /mpirun_command; \
     else \
         apt-get install -y mpich && \
             echo "mpirun -np 2" > /mpirun_command; \
