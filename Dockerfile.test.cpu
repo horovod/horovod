@@ -68,7 +68,7 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
                    echo \'LD_LIBRARY_PATH is \$(echo \$LD_LIBRARY_PATH)\'; \
                    echo \'mpirun is \$(which mpirun)\'; \
                    echo \'mlsl links with \$(ldd /usr/local/mlsl/intel64/lib/libmlsl.so)\'; \
-                   mpirun -np 2 -ppn 2 -hosts localhost \$@\"" > /mpirun_command_script && \
+                   mpirun -np 2 -ppn 2 -hosts localhost\"" > /mpirun_command_script && \
             chmod +x /mpirun_command_script && \
             echo "-L/usr/local/mlsl/intel64/lib/thread -lmpi -I/usr/local/mlsl/intel64/include" > /mpicc_mlsl && \
             chmod +x /mpicc_mlsl && \
