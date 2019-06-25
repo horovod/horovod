@@ -65,9 +65,9 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
             wget https://raw.githubusercontent.com/AlekseyMarchuk/MLSL/master/mpirt_2019/lib/libmpicxx.so -P /usr/local/mlsl/intel64/lib && \
             chmod +x /usr/local/mlsl/intel64/lib/libmpicxx.so && \
             echo "sh -c \". /usr/local/mlsl/intel64/bin/mlslvars.sh thread; \
-                   echo \'LD_LIBRARY_PATH is \$(echo \$LD_LIBRARY_PATH)\'; \
-                   echo \'mpirun is \$(which mpirun)\'; \
-                   echo \'mlsl links with \$(ldd /usr/local/mlsl/intel64/lib/libmlsl.so)\'; \
+                   echo \"LD_LIBRARY_PATH is \$(echo \$LD_LIBRARY_PATH)\"; \
+                   echo \"mpirun is \$(which mpirun)\"; \
+                   echo \"mlsl links with \$(ldd /usr/local/mlsl/intel64/lib/libmlsl.so)\"; \
                    mpirun -np 2 -ppn 2 -hosts localhost\"" > /mpirun_command_script && \
             chmod +x /mpirun_command_script && \
             echo "-L/usr/local/mlsl/intel64/lib/thread -lmpi -I/usr/local/mlsl/intel64/include" > /mpicc_mlsl && \
