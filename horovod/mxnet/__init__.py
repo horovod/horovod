@@ -96,7 +96,8 @@ class DistributedTrainer(mx.gluon.Trainer):
         self._scale /= size()
 
     def _allreduce_grads(self):
-        for i, param in enumerate(self._params):
+        # sort needed for Python < 3.6 is not guaranteed
+        for i, param in enumerate(sorted(self._params, key=lambda p: p.name)):
             if param.grad_req != 'null':
                 allreduce_(param.list_grad()[0], average=False,
                            name=str(i), priority=-i)
