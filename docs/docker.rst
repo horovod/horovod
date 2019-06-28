@@ -80,4 +80,18 @@ Secondary workers:
         bash -c "/usr/sbin/sshd -p 12345; sleep infinity"
 
 
+Adding Mellanox RDMA support
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+If you have Mellanox NICs, we recommend that you mount your Mellanox devices (``/dev/infiniband``) in the container
+and enable the IPC_LOCK capability for memory registration:
+
+.. code-block:: bash
+
+   $ nvidia-docker run -it --network=host -v /mnt/share/ssh:/root/.ssh --cap-add=IPC_LOCK --device=/dev/infiniband horovod:latest 
+   root@c278c88dd552:/examples# ...
+
+
+You need to specify these additional configuration options on primary and secondary workers.
+
+
 .. inclusion-marker-end-do-not-remove
