@@ -1,24 +1,27 @@
-ARG CUDA_DOCKER_VERSION=9.0-devel-ubuntu16.04
+ARG CUDA_DOCKER_VERSION=10.0-devel-ubuntu16.04
 FROM nvidia/cuda:${CUDA_DOCKER_VERSION}
 
-# Arguments for the build. CUDA_DOCKER_VERSION needs to be repeated becaus
+# Arguments for the build. CUDA_DOCKER_VERSION needs to be repeated because
 # the first usage only applies to the FROM tag.
-ARG CUDA_DOCKER_VERSION=9.0-devel-ubuntu16.04
-ARG CUDNN_VERSION=7.4.1.5-1+cuda9.0
-ARG NCCL_VERSION_OVERRIDE=2.3.7-1+cuda9.0
+ARG CUDA_DOCKER_VERSION=10.0-devel-ubuntu16.04
+ARG CUDNN_VERSION=7.6.0.64-1+cuda10.0
+ARG NCCL_VERSION_OVERRIDE=2.4.7-1+cuda10.0
 ARG MPI_KIND=OpenMPI
 ARG PYTHON_VERSION=2.7
-ARG TENSORFLOW_PACKAGE=tensorflow-gpu==1.12.0
-ARG KERAS_PACKAGE=keras==2.2.2
-ARG PYTORCH_PACKAGE=torch==1.0.0
-ARG TORCHVISION_PACKAGE=torchvision==0.2.2.post3
-ARG MXNET_PACKAGE=mxnet-cu90==1.4.1
+ARG TENSORFLOW_PACKAGE=tensorflow-gpu==1.14.0
+ARG KERAS_PACKAGE=keras==2.2.4
+ARG PYTORCH_PACKAGE=https://download.pytorch.org/whl/cu100/torch-1.1.0-cp27-cp27mu-linux_x86_64.whl
+ARG TORCHVISION_PACKAGE=https://download.pytorch.org/whl/cu100/torchvision-0.3.0-cp27-cp27mu-linux_x86_64.whl
+ARG MXNET_PACKAGE=mxnet-cu100==1.4.1
 ARG PYSPARK_PACKAGE=pyspark==2.4.0
 ARG HOROVOD_BUILD_FLAGS=HOROVOD_GPU_ALLREDUCE=NCCL
 ARG HOROVOD_MIXED_INSTALL=0
 
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-cu"]
+
+# We need gcc-4.9 to build plugins for TensorFlow & PyTorch, which is only available in Ubuntu Xenial
+RUN echo deb http://archive.ubuntu.com/ubuntu xenial main universe | tee -a /etc/apt/sources.list
 
 # Install essential packages.
 RUN apt-get update -qq
@@ -37,10 +40,10 @@ RUN apt-get install -y --allow-downgrades --allow-change-held-packages --no-inst
         libnccl-dev=${NCCL_VERSION_OVERRIDE}
 
 # Install Python.
-RUN if [[ "${PYTHON_VERSION}" == "3.6" ]]; then \
-        add-apt-repository ppa:deadsnakes/ppa && apt-get update -qq; \
-    fi
 RUN apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev
+RUN if [[ "${PYTHON_VERSION}" == "3.6" ]]; then \
+        apt-get install -y python${PYTHON_VERSION}-distutils; \
+    fi
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
 RUN pip install -U --force pip setuptools requests pytest
@@ -79,6 +82,7 @@ RUN ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
     ldconfig
 
 # Install PyTorch.
+RUN pip install future typing
 RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
         PYTORCH_CUDA=$(echo ${CUDA_DOCKER_VERSION} | awk -F- '{print $1}' | sed 's/\.//'); \
         pip install torch_nightly -v -f https://download.pytorch.org/whl/nightly/cu${PYTORCH_CUDA}/torch_nightly.html; \
@@ -86,7 +90,6 @@ RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
         pip install ${PYTORCH_PACKAGE}; \
     fi
 RUN pip install ${TORCHVISION_PACKAGE} Pillow --no-deps
-RUN pip install future typing
 
 # Install MXNet.
 RUN pip install ${MXNET_PACKAGE}

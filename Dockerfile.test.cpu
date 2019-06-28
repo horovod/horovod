@@ -6,15 +6,18 @@ FROM ubuntu:${UBUNTU_VERSION}
 ARG UBUNTU_VERSION=16.04
 ARG MPI_KIND=OpenMPI
 ARG PYTHON_VERSION=2.7
-ARG TENSORFLOW_PACKAGE=tensorflow==1.12.0
-ARG KERAS_PACKAGE=keras==2.2.2
-ARG PYTORCH_PACKAGE=torch==1.0.0
-ARG TORCHVISION_PACKAGE=torchvision==0.2.2.post3
+ARG TENSORFLOW_PACKAGE=tensorflow==1.14.0
+ARG KERAS_PACKAGE=keras==2.2.4
+ARG PYTORCH_PACKAGE=torch==1.1.0
+ARG TORCHVISION_PACKAGE=https://download.pytorch.org/whl/cpu/torchvision-0.3.0-cp27-cp27mu-linux_x86_64.whl
 ARG MXNET_PACKAGE=mxnet==1.4.1
 ARG PYSPARK_PACKAGE=pyspark==2.4.0
 
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-cu"]
+
+# We need gcc-4.9 to build plugins for TensorFlow & PyTorch, which is only available in Ubuntu Xenial
+RUN echo deb http://archive.ubuntu.com/ubuntu xenial main universe | tee -a /etc/apt/sources.list
 
 # Install essential packages.
 RUN apt-get update -qq
@@ -30,10 +33,10 @@ RUN apt-get install -y --no-install-recommends \
         software-properties-common
 
 # Install Python.
-RUN if [[ "${PYTHON_VERSION}" == "3.6" ]]; then \
-        add-apt-repository ppa:deadsnakes/ppa && apt-get update -qq; \
-    fi
 RUN apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev
+RUN if [[ "${PYTHON_VERSION}" == "3.6" ]]; then \
+        apt-get install -y python${PYTHON_VERSION}-distutils; \
+    fi
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
 RUN pip install -U --force pip setuptools requests pytest
@@ -64,12 +67,6 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
             chmod +x /usr/local/mlsl/intel64/bin/mpigxx && \
             wget https://raw.githubusercontent.com/AlekseyMarchuk/MLSL/master/mpirt_2019/lib/libmpicxx.so -P /usr/local/mlsl/intel64/lib && \
             chmod +x /usr/local/mlsl/intel64/lib/libmpicxx.so && \
-            #wget https://raw.githubusercontent.com/AlekseyMarchuk/MLSL/master/mpirt_2019/bin/mpicc -P /usr/local/bin && \
-            #chmod +x /usr/local/bin/mpicc && \
-            #wget https://raw.githubusercontent.com/AlekseyMarchuk/MLSL/master/mpirt_2019/bin/mpicxx -P /usr/local/bin && \
-            #chmod +x /usr/local/bin/mpicxx && \
-            #wget https://raw.githubusercontent.com/AlekseyMarchuk/MLSL/master/mpirt_2019/bin/mpigcc -P /usr/local/bin && \
-            #chmod +x /usr/local/bin/mpigcc && \
             echo ". /usr/local/mlsl/intel64/bin/mlslvars.sh \"thread\"; \
                    echo \"mpirun is \$(which mpirun)\"; \
                    echo \"this file is \$(cat /mpirun_command_script)\"; \
@@ -104,13 +101,13 @@ RUN mkdir -p ~/.keras
 RUN python -c "from keras.datasets import mnist; mnist.load_data()"
 
 # Install PyTorch.
+RUN pip install future typing
 RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
         pip install torch_nightly -v -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html; \
     else \
         pip install ${PYTORCH_PACKAGE}; \
     fi
 RUN pip install ${TORCHVISION_PACKAGE} Pillow --no-deps
-RUN pip install future typing
 
 # Install MXNet.
 RUN pip install ${MXNET_PACKAGE}
@@ -142,11 +139,6 @@ RUN if [[ ${MPI_KIND} == "MLSL" ]]; then \
     else \
       cd /horovod && python setup.py sdist; \
     fi
-
-#RUN if [[ ${MPI_KIND} == "MLSL" ]]; then \
-#        source /usr/local/mlsl/intel64/bin/mlslvars.sh "thread"; \
-#    fi; \
-#    pip install -v /horovod/dist/horovod-*.tar.gz
 
 RUN if [[ ${MPI_KIND} == "MLSL" ]]; then \
       if [ -z "${LD_LIBRARY_PATH:-}" ]; then \

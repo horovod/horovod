@@ -14,21 +14,21 @@ tests=( \
        test-cpu-openmpi-py2_7-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
        test-cpu-openmpi-py3_5-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
        test-cpu-openmpi-py3_6-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
-       test-cpu-openmpi-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_1-pyspark2_4_0 \
-       test-cpu-openmpi-py3_5-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_1-pyspark2_4_0 \
-       test-cpu-openmpi-py3_6-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_1-pyspark2_4_0 \
+       test-cpu-openmpi-py2_7-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0 \
+       test-cpu-openmpi-py3_5-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0 \
+       test-cpu-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0 \
        test-cpu-openmpi-py2_7-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
        test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
-       test-cpu-mpich-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_1-pyspark2_4_0 \
-       test-cpu-mlsl-py3_6-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_0-pyspark2_4_0 \
+       test-cpu-mpich-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0 \
+       test-cpu-mlsl-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0 \
        test-gpu-openmpi-py2_7-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
        test-gpu-openmpi-py3_5-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
-       test-gpu-openmpi-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_1-pyspark2_4_0 \
-       test-gpu-openmpi-py3_5-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_1-pyspark2_4_0 \
+       test-gpu-openmpi-py2_7-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0 \
+       test-gpu-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0 \
        test-gpu-openmpi-py2_7-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
        test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
-       test-gpu-mpich-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_1-pyspark2_4_0 \
-       test-mixed-openmpi-py2_7-tf1_12_0-keras2_2_2-torch1_0_0-mxnet1_4_1-pyspark2_4_0 \
+       test-gpu-mpich-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0 \
+       test-mixed-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0 \
 )
 
 build_test() {
@@ -123,7 +123,7 @@ run_all() {
 
   # tests that should be executed only with the latest release since they don't test
   # a framework-specific functionality
-  if [[ ${test} == *"tf1_12_0"* ]]; then
+  if [[ ${test} == *"tf1_14_0"* ]]; then
     run_test "${test}" "${queue}" \
       ":muscle: Test Stall (${test})" \
       "bash -c \"\\\$(cat /mpirun_command) python /horovod/test/test_stall.py\""

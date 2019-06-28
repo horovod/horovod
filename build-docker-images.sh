@@ -22,7 +22,7 @@ docker rmi $(cat Dockerfile | grep FROM | awk '{print $2}') || true
 
 # build for py2 and py3
 build_one 2.7
-build_one 3.5
+build_one 3.6
 
 # print recent images
 docker images horovod/horovod
