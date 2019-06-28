@@ -82,8 +82,8 @@ Secondary workers:
 
 Adding Mellanox RDMA support
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-If you have Mellanox NICs, we recommend that you ensure that Mellanox devices (``/dev/infiniband``) are mounted into the container
-and that IPC_LOCK capability is enabled for memory registration:
+If you have Mellanox NICs, we recommend that you mount your Mellanox devices (``/dev/infiniband``) in the container
+and enable the IPC_LOCK capability for memory registration:
 
 .. code-block:: bash
 
@@ -91,7 +91,7 @@ and that IPC_LOCK capability is enabled for memory registration:
    root@c278c88dd552:/examples# ...
 
 
-You need to specify these additional configuration options on both primary and secondary workers.
+You need to specify these additional configuration options on primary and secondary workers.
 
 
 .. inclusion-marker-end-do-not-remove
