@@ -18,16 +18,17 @@ Horovod supports Keras and regular TensorFlow in similar ways. To use Horovod wi
 
    The distributed optimizer delegates gradient computation to the original optimizer, averages gradients using *allreduce* or *allgather*, and then applies those averaged gradients.
 
-5. Add ``hvd.BroadcastGlobalVariablesHook(0)`` to broadcast initial variable states from rank 0 to all other processes.
+5. Add ``hvd.callbacks.BroadcastGlobalVariablesCallback(0)`` to broadcast initial variable states from rank 0 to all other processes.
 
    This is necessary to ensure consistent initialization of all workers when training is started with random weights or restored from a checkpoint.
-   Alternatively, if you're not using ``MonitoredTrainingSession``, you can execute the ``hvd.broadcast_global_variables`` op after global variables have been initialized.
 
 6. Modify your code to save checkpoints only on worker 0 to prevent other workers from corrupting them.
 
-   Accomplish this by passing ``checkpoint_dir=None`` to ``tf.train.MonitoredTrainingSession`` if ``hvd.rank() != 0``.
+   Accomplish this by guarding model checkpointing code with ``hvd.rank() != 0``.
 
-.. NOTE:: Keras 2.0.9 has a `known issue <https://github.com/fchollet/keras/issues/8353>`_ that makes each worker allocate all GPUs on the server, instead of the GPU assigned by the *local rank*. If you have multiple GPUs per server, upgrade to Keras 2.1.2 or downgrade to Keras 2.0.8.
+.. NOTE:: - Keras 2.0.9 has a `known issue <https://github.com/fchollet/keras/issues/8353>`_ that makes each worker allocate all GPUs on the server, instead of the GPU assigned by the *local rank*. If you have multiple GPUs per server, upgrade to Keras 2.1.2 or downgrade to Keras 2.0.8.
+
+          - To use ``tensorflow`` with ``keras`` you must use ``from tensorflow import keras`` instead of ``import keras`` and ``import horovod.tensorflow.keras as hvd`` instead of ``import horovod.keras as hvd`` in the import statements.
 
 See full training `simple <https://github.com/horovod/horovod/blob/master/examples/keras_mnist.py>`_ (shown below) and `advanced <https://github.com/horovod/horovod/blob/master/examples/keras_mnist_advanced.py>`_ examples.
 
