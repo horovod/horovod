@@ -12,6 +12,9 @@ ENV MXNET_VERSION=1.4.1
 ARG python=2.7
 ENV PYTHON_VERSION=${python}
 
+# Set default shell to /bin/bash
+SHELL ["/bin/bash", "-cu"]
+
 # We need gcc-4.9 to build plugins for TensorFlow & PyTorch, which is only available in Ubuntu Xenial
 RUN echo deb http://archive.ubuntu.com/ubuntu xenial main universe | tee -a /etc/apt/sources.list
 
