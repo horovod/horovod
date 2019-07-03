@@ -2,8 +2,8 @@
 .. inclusion-marker-start-do-not-remove
 
 
-Developer Guide
-===============
+Contributor Guide
+=================
 
 This guide covers the process of contributing to Horovod as a developer.
 
@@ -17,7 +17,7 @@ Clone the repository locally:
 
     $ git clone --recursive https://github.com/horovod/horovod.git
 
-Be sure to run within a virtual environment to avoid dependency issues:
+Develop within a virtual environment to avoid dependency issues:
 
 .. code-block:: bash
 
@@ -80,7 +80,7 @@ Adding Custom Operations
 
 Operations in Horovod are used to transform Tensors across workers.  Horovod currently supports operations that
 implement Broadcast, Allreduce, and Allgather interfaces.  Gradients in Horovod are aggregated through
-Allreduce operations (with the exception of sparse gradients which use Allgather).
+Allreduce operations (with the exception of sparse gradients, which use Allgather).
 
 All data transfer operations are implemented in the
 `horovod/common/ops <https://github.com/horovod/horovod/tree/master/horovod/common/ops>`__ directory.  Implementations
@@ -88,7 +88,7 @@ are organized by the collective communication library used to perform the operat
 `mpi_operations.cc <https://github.com/horovod/horovod/blob/master/horovod/common/ops/mpi_operations.cc>`__ for MPI).
 
 To create a new custom operation, start by defining a new class that inherits from the base operation, in the file
-corresponding to the library you'll be using to implement the operation:
+corresponding to the library you'll use to implement the operation:
 
 .. code-block:: c++
 
@@ -114,8 +114,8 @@ current parameter settings and response metadata.
 Once you've written the implementation for your operation, add it to the ``OperationManager`` in the
 ``CreateOperationManager`` function of
 `operations.cc <https://github.com/horovod/horovod/blob/master/horovod/common/operations.cc>`__.  Because more than one
-operation may be *enabled* at a time, but only one will be performed on a given vector of Tensor entries, the order of
-your operation in the ``OperationManager`` vector needs to be considered.
+operation may be *enabled* at a time, but only one will be performed on a given vector of Tensor entries, consider the
+order of your operation in the ``OperationManager`` vector before adding it in.
 
 The first operations in the vector will be checked before those at the end, and the first operation that is *enabled*
 will be performed. Broadly, the order of operations should be:
