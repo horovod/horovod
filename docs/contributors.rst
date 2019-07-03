@@ -22,7 +22,7 @@ Develop within a virtual environment to avoid dependency issues:
 .. code-block:: bash
 
     $ virtualenv env
-    $ ./env/bin/activate
+    $ . env/bin/activate
 
 We recommend installing package versions that match with those under test in
 `Buildkite <https://github.com/horovod/horovod/blob/master/.buildkite/gen-pipeline.sh>`__.
@@ -171,3 +171,6 @@ Finally, you can start using your new compressor by passing it to the ``Distribu
 .. code-block:: python
 
     opt = hvd.DistributedOptimizer(opt, compression=hvd.Compression.custom)
+
+
+.. inclusion-marker-end-do-not-remove
