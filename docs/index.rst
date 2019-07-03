@@ -111,6 +111,9 @@ Guides
 
    troubleshooting_include
 
+   contributors_include
+
+
 
 Indices and tables
 ------------------
