@@ -2,8 +2,8 @@
 .. inclusion-marker-start-do-not-remove
 
 
-Development Guide
-=================
+Developer Guide
+===============
 
 This guide covers the process of contributing to Horovod as a developer.
 
@@ -56,7 +56,7 @@ From *inside* the Horovod root directory, remove any previous build artifacts an
     $ rm -rf build/ dist/
     $ HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 python setup.py install
 
-Set ```HOROVOD_WITHOUT_[FRAMEWORK]=1`` to disable building Horovod plugins for that framework.
+Set ``HOROVOD_WITHOUT_[FRAMEWORK]=1`` to disable building Horovod plugins for that framework.
 This is useful when you’re testing a feature of one framework in particular and wish to save time.
 
 
@@ -110,7 +110,7 @@ and the ``response`` parameter contains additional metadata including which devi
 current parameter settings and response metadata.
 
 Once you've written the implementation for your operation, add it to the ``OperationManager`` in the
-``CreateOperationManager`` function of ```operations.cc``.  Because more than one operation may be *enabled* at a
+``CreateOperationManager`` function of ``operations.cc``.  Because more than one operation may be *enabled* at a
 time, but only one will be performed on a given vector of Tensor entries, the order of your operation in the
 ``OperationManager`` vector needs to be considered.
 
