@@ -104,19 +104,22 @@ run_all() {
     ":pytest: Run PyTests (${test})" \
     "bash -c \"cd /horovod/test && (echo test_*.py | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no)\""
 
-  run_test "${test}" "${queue}" \
-    ":muscle: Test TensorFlow MNIST (${test})" \
-    "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist.py\""
-
-  if [[ ${test} != *"tf1_1_0"* && ${test} != *"tf1_6_0"* ]]; then
+  # Legacy TensorFlow tests
+  if [[ ${test} != *"tf2_"* ]]; then
     run_test "${test}" "${queue}" \
-      ":muscle: Test TensorFlow Eager MNIST (${test})" \
-      "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist_eager.py\""
-  fi
+      ":muscle: Test TensorFlow MNIST (${test})" \
+      "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist.py\""
 
-  run_test "${test}" "${queue}" \
-    ":muscle: Test Keras MNIST (${test})" \
-    "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/keras_mnist_advanced.py\""
+    if [[ ${test} != *"tf1_1_0"* && ${test} != *"tf1_6_0"* ]]; then
+      run_test "${test}" "${queue}" \
+        ":muscle: Test TensorFlow Eager MNIST (${test})" \
+        "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist_eager.py\""
+    fi
+
+    run_test "${test}" "${queue}" \
+      ":muscle: Test Keras MNIST (${test})" \
+      "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/keras_mnist_advanced.py\""
+  fi
 
   run_test "${test}" "${queue}" \
     ":muscle: Test PyTorch MNIST (${test})" \
@@ -141,7 +144,7 @@ run_all() {
   fi
 
   # TensorFlow 2.0 tests
-  if [[ ${test} == *"tf2_*" ]]; then
+  if [[ ${test} == *"tf2_"* ]]; then
     run_test "${test}" "${queue}" \
       ":muscle: Test TensorFlow 2.0 MNIST (${test})" \
       "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow_20_mnist.py\""

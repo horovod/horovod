@@ -57,18 +57,18 @@ def training_step(images, labels, first_batch):
         logits = mnist_model(images, training=True)
         loss_value = loss(labels, logits)
 
+    # Horovod: add Horovod Distributed GradientTape.
+    tape = hvd.DistributedGradientTape(tape)
+
+    grads = tape.gradient(loss_value, mnist_model.trainable_variables)
+    opt.apply_gradients(zip(grads, mnist_model.trainable_variables))
+
     # Horovod: broadcast initial variable states from rank 0 to all other processes.
     # This is necessary to ensure consistent initialization of all workers when
     # training is started with random weights or restored from a checkpoint.
     if first_batch:
         hvd.broadcast_variables(mnist_model.variables, root_rank=0)
         hvd.broadcast_variables(opt.variables(), root_rank=0)
-
-    # Horovod: add Horovod Distributed GradientTape.
-    tape = hvd.DistributedGradientTape(tape)
-
-    grads = tape.gradient(loss_value, mnist_model.trainable_variables)
-    opt.apply_gradients(zip(grads, mnist_model.trainable_variables))
 
     return loss_value
 

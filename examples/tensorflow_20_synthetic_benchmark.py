@@ -67,11 +67,9 @@ opt = tf.optimizers.SGD(0.01)
 data = tf.random.uniform([args.batch_size, 224, 224, 3])
 target = tf.random.uniform([args.batch_size, 1], minval=0, maxval=999, dtype=tf.int64)
 
-batch = tf.Variable(0, dtype=tf.int32, name='batch')
-
 
 @tf.function
-def benchmark_step(batch):
+def benchmark_step(first_batch):
     # Horovod: (optional) compression algorithm.
     compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
 
@@ -80,20 +78,18 @@ def benchmark_step(batch):
         logits = model(data, training=True)
         loss = tf.losses.categorical_crossentropy(target, logits)
 
-    # Horovod: broadcast initial variable states from rank 0 to all other processes.
-    # This is necessary to ensure consistent initialization of all workers when
-    # training is started with random weights or restored from a checkpoint.
-    if tf.equal(batch, 0):
-        hvd.broadcast_variables(model.variables, root_rank=0)
-        hvd.broadcast_variables(opt.variables(), root_rank=0)
-
     # Horovod: add Horovod Distributed GradientTape.
     tape = hvd.DistributedGradientTape(tape, compression=compression)
 
     gradients = tape.gradient(loss, model.trainable_variables)
     opt.apply_gradients(zip(gradients, model.trainable_variables))
 
-    batch.assign_add(1)
+    # Horovod: broadcast initial variable states from rank 0 to all other processes.
+    # This is necessary to ensure consistent initialization of all workers when
+    # training is started with random weights or restored from a checkpoint.
+    if first_batch:
+        hvd.broadcast_variables(model.variables, root_rank=0)
+        hvd.broadcast_variables(opt.variables(), root_rank=0)
 
 
 def log(s, nl=True):
@@ -108,16 +104,19 @@ device = 'GPU' if args.cuda else 'CPU'
 log('Number of %ss: %d' % (device, hvd.size()))
 
 
-def run(benchmark_step):
+with tf.device(device):
     # Warm-up
     log('Running warmup...')
-    timeit.timeit(benchmark_step, number=args.num_warmup_batches)
+    benchmark_step(first_batch=True)
+    timeit.timeit(lambda: benchmark_step(first_batch=False),
+                  number=args.num_warmup_batches)
 
     # Benchmark
     log('Running benchmark...')
     img_secs = []
     for x in range(args.num_iters):
-        time = timeit.timeit(benchmark_step, number=args.num_batches_per_iter)
+        time = timeit.timeit(lambda: benchmark_step(first_batch=False),
+                             number=args.num_batches_per_iter)
         img_sec = args.batch_size * args.num_batches_per_iter / time
         log('Iter #%d: %.1f img/sec per %s' % (x, img_sec, device))
         img_secs.append(img_sec)
@@ -128,7 +127,3 @@ def run(benchmark_step):
     log('Img/sec per %s: %.1f +-%.1f' % (device, img_sec_mean, img_sec_conf))
     log('Total img/sec on %d %s(s): %.1f +-%.1f' %
         (hvd.size(), device, hvd.size() * img_sec_mean, hvd.size() * img_sec_conf))
-
-
-with tf.device(device):
-    run(lambda: benchmark_step(batch))
