@@ -34,8 +34,10 @@ def run_func(
 
     if ssh_port:
         ssh_port_opt = "-p " + str(ssh_port)
+        scp_port_opt = "-P " + str(ssh_port)
     else:
         ssh_port_opt = ""
+        scp_port_opt = ""
 
     # Invokes proc_fn with args. So we don't need to pickle them separately.
     def wrapped_proc_fn(rank=0):
@@ -62,12 +64,12 @@ def run_func(
         rank=${{OMPI_COMM_WORLD_RANK:-0}}
         {exec} -c "import cloudpickle; cloudpickle.load(open('{fn_file}', 'rb'))(rank=$rank)"
         if [[ "$rank" -eq 0 ]]; then
-        scp -q {ssh_port_opt} -o StrictHostKeyChecking=no \
+        scp -q {scp_port_opt} -o StrictHostKeyChecking=no \
         {wdir}/{local_result} {local_ip}:{wdir}/{result}
         fi
         """.format(wdir=wdir,
                    exec=sys.executable,
-                   ssh_port_opt=ssh_port_opt,
+                   scp_port_opt=scp_port_opt,
                    fn_file=_PICKLED_PROC_FN_FILENAME,
                    local_ip=local_ip,
                    local_result=_LOCAL_PICKLED_RESULT_FILENAME,
@@ -82,9 +84,9 @@ def run_func(
         scp_cmd = textwrap.dedent(
             """
             ssh {ssh_port_opt} -o StrictHostKeyChecking=no {remote_host} mkdir -p {wdir_par} && \
-            scp -r -q {ssh_port_opt} -o StrictHostKeyChecking=no \
+            scp -r -q {scp_port_opt} -o StrictHostKeyChecking=no \
             {wdir} {remote_host}:{wdir_par}
-            """).format(ssh_port_opt=ssh_port_opt, wdir=wdir,
+            """).format(ssh_port_opt=ssh_port_opt, scp_port_opt=scp_port_opt, wdir=wdir,
                         remote_host=remote_host, wdir_par=wdir_par)
         output = six.StringIO()
         exit_code = safe_shell_exec.execute(scp_cmd, stdout=output, stderr=output)
@@ -107,6 +109,9 @@ def run_func(
         cmd += ["--verbose"]
 
     cmd += ["bash", launcher_path]
+
+    if verbose:
+        print("Run command: " + " ".join(cmd))
 
     # Use `os.environ` to preserve the environ to support nested MPI jobs
     task = subprocess.Popen(cmd,
