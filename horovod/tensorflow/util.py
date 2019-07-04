@@ -29,11 +29,24 @@ def _executing_eagerly():
     return _has_eager and context.in_eager_mode()
 
 
-def _make_subgraph_if_eager(f):
-    if _executing_eagerly():
-        if hasattr(tf, 'function'):
-            return tf.function(f)
-        else:
-            return tf.contrib.eager.defun(f)
+def _make_subgraph(f):
+    if hasattr(tf, 'function'):
+        return tf.function(f)
     else:
-        return f
+        return tf.contrib.eager.defun(f)
+
+
+def _cache(f):
+    cache = dict()
+
+    def wrapper(*args):
+        key = (args, _executing_eagerly())
+
+        if key in cache:
+            return cache[key]
+        else:
+            retval = f(*args)
+            cache[key] = retval
+            return retval
+
+    return wrapper

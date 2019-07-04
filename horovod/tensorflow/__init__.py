@@ -29,7 +29,7 @@ from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce
 from horovod.tensorflow.mpi_ops import init, shutdown
 from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank
 from horovod.tensorflow.mpi_ops import mpi_threads_supported
-from horovod.tensorflow.util import _make_subgraph_if_eager
+from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache
 
 import tensorflow as tf
 
@@ -81,6 +81,22 @@ def allreduce(tensor, average=True, device_dense='', device_sparse='',
         return new_tensor
 
 
+@_cache
+def _make_broadcast_group_fn():
+    if _executing_eagerly():
+        def broadcast_group(variables, root_rank):
+            for var in variables:
+                var.assign(broadcast(var, root_rank))
+
+        return _make_subgraph(broadcast_group)
+    else:
+        def broadcast_group(variables, root_rank):
+            return tf.group(*[var.assign(broadcast(var, root_rank))
+                            for var in variables])
+
+        return broadcast_group
+
+
 def broadcast_variables(variables, root_rank):
     """Broadcasts variables from root rank to all other processes.
 
@@ -89,16 +105,8 @@ def broadcast_variables(variables, root_rank):
         root_rank: rank of the process from which global variables will be broadcasted
                    to all other processes.
     """
-    def assign(var, val):
-        if hasattr(var, 'assign'):
-            return var.assign(val)
-        else:
-            tf.assign(var, val)
-
-    def broadcast_all(vars, root_rank):
-        return tf.group(*[assign(var, broadcast(var, root_rank)) for var in vars])
-
-    return _make_subgraph_if_eager(broadcast_all)
+    broadcast_group = _make_broadcast_group_fn()
+    return broadcast_group(variables, root_rank)
 
 
 if hasattr(tf, 'global_variables'):
@@ -156,7 +164,9 @@ if hasattr(tf, 'train') and hasattr(tf.train, 'SessionRunHook'):
             session.run(self.bcast_op)
 
 
-def _allreduce_grads_fn(name, device_dense, device_sparse, compression, sparse_as_dense):
+@_cache
+def _make_allreduce_grads_fn(name, device_dense, device_sparse,
+                             compression, sparse_as_dense):
     def allreduce_grads(grads):
         with tf.name_scope(name + "_Allreduce"):
             if sparse_as_dense:
@@ -171,7 +181,10 @@ def _allreduce_grads_fn(name, device_dense, device_sparse, compression, sparse_a
                     if grad is not None else grad
                     for grad in grads]
 
-    return _make_subgraph_if_eager(allreduce_grads)
+    if _executing_eagerly():
+        return _make_subgraph(allreduce_grads)
+    else:
+        return allreduce_grads
 
 
 if hasattr(tf, 'compat') and hasattr(tf.compat, 'v1') and \
@@ -193,13 +206,11 @@ if _LegacyOptimizer:
                     sparse_as_dense=False):
             if name is None:
                 name = "Distributed{}".format(type(optimizer).__name__)
+            super(_DistributedOptimizer, self).__init__(name=name, use_locking=use_locking)
 
             self._optimizer = optimizer
-            self._allreduce_grads = _allreduce_grads_fn(name, device_dense, device_sparse,
-                                                        compression, sparse_as_dense)
-
-            super(DistributedOptimizer, self).__init__(
-                name=name, use_locking=use_locking)
+            self._allreduce_grads = _make_allreduce_grads_fn(
+                name, device_dense, device_sparse, compression, sparse_as_dense)
 
         def compute_gradients(self, *args, **kwargs):
             """Compute gradients of all trainable variables.
@@ -281,17 +292,17 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
 
 if hasattr(tf, 'GradientTape'):
     class _DistributedGradientTape(tf.GradientTape):
-
         def __init__(self, tape, device_dense, device_sparse, compression, sparse_as_dense,
                      persistent=False, watch_accessed_variables=True):
             if hasattr(tape, '_watch_accessed_variables'):
                 super(self.__class__, self).__init__(persistent, watch_accessed_variables)
             else:
                 super(self.__class__, self).__init__(persistent)
+
             self._tape = tape
-            self._allreduce_grads = _allreduce_grads_fn('DistributedGradientTape',
-                                                        device_dense, device_sparse,
-                                                        compression, sparse_as_dense)
+            self._allreduce_grads = _make_allreduce_grads_fn(
+                'DistributedGradientTape', device_dense, device_sparse, compression,
+                sparse_as_dense)
 
         def gradient(self, target, sources, output_gradients=None):
             gradients = super(self.__class__, self).gradient(target, sources, output_gradients)
@@ -325,7 +336,7 @@ if hasattr(tf, 'GradientTape'):
             has high density.  Defaults to false.
         """
         cls = type(gradtape.__class__.__name__, (gradtape.__class__,),
-                dict(_DistributedGradientTape.__dict__))
+                   dict(_DistributedGradientTape.__dict__))
         if hasattr(gradtape, '_watch_accessed_variables'):
             return cls(gradtape._tape, device_dense, device_sparse, compression,
                        sparse_as_dense, gradtape._persistent,
