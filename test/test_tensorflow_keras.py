@@ -52,7 +52,7 @@ class TfKerasTests(tf.test.TestCase):
         with self.test_session(config=self.config) as sess:
             K.set_session(sess)
 
-            opt = keras.optimizers.Adam(lr=0.0001)
+            opt = keras.optimizers.RMSprop(lr=0.0001)
             opt = hvd.DistributedOptimizer(opt)
 
             model = keras.models.Sequential()
@@ -85,7 +85,7 @@ class TfKerasTests(tf.test.TestCase):
         with self.test_session(config=self.config) as sess:
             K.set_session(sess)
 
-            opt = keras.optimizers.Adam(lr=0.0001)
+            opt = keras.optimizers.RMSprop(lr=0.0001)
             opt = hvd.DistributedOptimizer(opt, sparse_as_dense=True)
 
             model = keras.models.Sequential()

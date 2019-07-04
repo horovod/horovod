@@ -1,4 +1,4 @@
-# Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+# Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ class KerasTests(tf.test.TestCase):
         with self.test_session(config=self.config) as sess:
             K.set_session(sess)
 
-            opt = keras.optimizers.Adam(lr=0.0001)
+            opt = keras.optimizers.RMSprop(lr=0.0001)
             opt = hvd.DistributedOptimizer(opt, sparse_as_dense=True)
 
             model = keras.models.Sequential()
@@ -66,7 +66,7 @@ class KerasTests(tf.test.TestCase):
         with self.test_session(config=self.config) as sess:
             K.set_session(sess)
 
-            opt = keras.optimizers.Adam(lr=0.0001)
+            opt = keras.optimizers.RMSprop(lr=0.0001)
             opt = hvd.DistributedOptimizer(opt)
 
             model = keras.models.Sequential()
@@ -90,7 +90,7 @@ class KerasTests(tf.test.TestCase):
             os.remove(fname)
 
             self.assertEqual(type(new_opt).__module__, 'horovod._keras')
-            self.assertEqual(type(new_opt).__name__, 'Adam')
+            self.assertEqual(type(new_opt).__name__, 'RMSprop')
             self.assertEqual(K.get_value(opt.lr), K.get_value(new_opt.lr))
             self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))
             for weights, new_weights in zip(opt.get_weights(),
@@ -98,7 +98,7 @@ class KerasTests(tf.test.TestCase):
                 self.assertListEqual(weights.tolist(), new_weights.tolist())
 
     def test_load_model_custom_optimizers(self):
-        class TestOptimizer(keras.optimizers.Adam):
+        class TestOptimizer(keras.optimizers.RMSprop):
             def __init__(self, **kwargs):
                 super(TestOptimizer, self).__init__(**kwargs)
 
@@ -138,7 +138,7 @@ class KerasTests(tf.test.TestCase):
                 self.assertListEqual(weights.tolist(), new_weights.tolist())
 
     def test_load_model_custom_objects(self):
-        class TestOptimizer(keras.optimizers.Adam):
+        class TestOptimizer(keras.optimizers.RMSprop):
             def __init__(self, **kwargs):
                 super(TestOptimizer, self).__init__(**kwargs)
 
