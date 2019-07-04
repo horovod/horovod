@@ -147,7 +147,7 @@ run_all() {
   if [[ ${test} == *"tf2_"* ]]; then
     run_test "${test}" "${queue}" \
       ":muscle: Test TensorFlow 2.0 MNIST (${test})" \
-      "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow_20_mnist.py\""
+      "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow2_mnist.py\""
   fi
 }
 
