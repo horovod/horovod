@@ -1,4 +1,4 @@
-# Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
+# Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,3 +27,13 @@ else:
 def _executing_eagerly():
     """Returns true if eager execution is supported and enabled."""
     return _has_eager and context.in_eager_mode()
+
+
+def _make_subgraph_if_eager(f):
+    if _executing_eagerly():
+        if hasattr(tf, 'function'):
+            return tf.function(f)
+        else:
+            return tf.contrib.eager.defun(f)
+    else:
+        return f
