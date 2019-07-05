@@ -103,7 +103,7 @@ run_all() {
   local exclude_keras_if_needed=""
   if [[ ${test} == *"tf2_"* ]]; then
     # TODO: support for Keras + TF 2.0 and TF-Keras 2.0
-    exclude_keras_if_needed="| grep -v keras"
+    exclude_keras_if_needed="| sed 's/[a-z_]*keras[a-z_.]*//g'"
   fi
 
   run_test "${test}" "${queue}" \
