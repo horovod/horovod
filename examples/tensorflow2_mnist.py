@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,7 +42,7 @@ opt = tf.optimizers.Adam(0.001 * hvd.size())
 
 dataset = tf.data.Dataset.from_tensor_slices(
     (tf.cast(mnist_images[..., tf.newaxis] / 255.0, tf.float32),
-        tf.cast(mnist_labels, tf.int64))
+             tf.cast(mnist_labels, tf.int64))
 )
 dataset = dataset.repeat().shuffle(1000).batch(32)
 
@@ -66,6 +65,9 @@ def training_step(images, labels, first_batch):
     # Horovod: broadcast initial variable states from rank 0 to all other processes.
     # This is necessary to ensure consistent initialization of all workers when
     # training is started with random weights or restored from a checkpoint.
+    #
+    # Note: broadcast should be done after the first gradient step to ensure optimizer
+    # initialization.
     if first_batch:
         hvd.broadcast_variables(mnist_model.variables, root_rank=0)
         hvd.broadcast_variables(opt.variables(), root_rank=0)

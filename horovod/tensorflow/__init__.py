@@ -143,7 +143,7 @@ if hasattr(tf, 'train') and hasattr(tf.train, 'SessionRunHook'):
                 Rank that will send data, other ranks will receive data.
               device:
                 Device to be used for broadcasting. Uses GPU by default
-                if Horovod was build with HOROVOD_GPU_BROADCAST.
+                if Horovod was built with HOROVOD_GPU_BROADCAST.
             """
             super(BroadcastGlobalVariablesHook, self).__init__()
             self.root_rank = root_rank
@@ -184,10 +184,13 @@ def _make_allreduce_grads_fn(name, device_dense, device_sparse,
 
 if hasattr(tf, 'compat') and hasattr(tf.compat, 'v1') and \
         hasattr(tf.compat.v1, 'train') and hasattr(tf.compat.v1.train, 'Optimizer'):
+    # TensorFlow 2.x
     _LegacyOptimizer = tf.compat.v1.train.Optimizer
 elif hasattr(tf, 'train') and hasattr(tf.train, 'Optimizer'):
+    # TensorFlow 1.x
     _LegacyOptimizer = tf.train.Optimizer
 else:
+    # Future TensorFlow versions
     _LegacyOptimizer = None
 
 
@@ -260,13 +263,13 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
         See Optimizer.__init__ for more info.
       device_dense:
         Device to be used for dense tensors. Uses GPU by default
-        if Horovod was build with HOROVOD_GPU_ALLREDUCE.
+        if Horovod was built with HOROVOD_GPU_ALLREDUCE.
       device_sparse:
         Device to be used for sparse tensors. Uses GPU by default
-        if Horovod was build with HOROVOD_GPU_ALLGATHER.
+        if Horovod was built with HOROVOD_GPU_ALLGATHER.
       compression:
         Compression algorithm used during allreduce to reduce the amount
-        of data sent during the each parameter update step.  Defaults to
+        of data sent during each parameter update step.  Defaults to
         not using compression.
       sparse_as_dense:
         Treat all sparse gradients as dense tensors.  This can help improve
@@ -309,7 +312,7 @@ if hasattr(tf, 'GradientTape'):
 
     def DistributedGradientTape(gradtape, device_dense='', device_sparse='',
                                 compression=Compression.none, sparse_as_dense=False):
-        """An tape that wraps another tf.GradientTape, using an allreduce to
+        """A tape that wraps another tf.GradientTape, using an allreduce to
         average gradient values before applying gradients to model weights.
 
         Args:
@@ -317,13 +320,13 @@ if hasattr(tf, 'GradientTape'):
             GradientTape to use for computing gradients and applying updates.
           device_dense:
             Device to be used for dense tensors. Uses GPU by default
-            if Horovod was build with HOROVOD_GPU_ALLREDUCE.
+            if Horovod was built with HOROVOD_GPU_ALLREDUCE.
           device_sparse:
             Device to be used for sparse tensors. Uses GPU by default
-            if Horovod was build with HOROVOD_GPU_ALLGATHER.
+            if Horovod was built with HOROVOD_GPU_ALLGATHER.
           compression:
             Compression algorithm used during allreduce to reduce the amount
-            of data sent during the each parameter update step.  Defaults to
+            of data sent during each parameter update step.  Defaults to
             not using compression.
           sparse_as_dense:
             Treat all sparse gradients as dense tensors.  This can help improve

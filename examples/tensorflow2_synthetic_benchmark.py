@@ -87,6 +87,9 @@ def benchmark_step(first_batch):
     # Horovod: broadcast initial variable states from rank 0 to all other processes.
     # This is necessary to ensure consistent initialization of all workers when
     # training is started with random weights or restored from a checkpoint.
+    #
+    # Note: broadcast should be done after the first gradient step to ensure optimizer
+    # initialization.
     if first_batch:
         hvd.broadcast_variables(model.variables, root_rank=0)
         hvd.broadcast_variables(opt.variables(), root_rank=0)
