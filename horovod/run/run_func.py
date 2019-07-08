@@ -20,13 +20,43 @@ _PROC_LAUNCHER_FILENAME = "launch.sh"
 
 
 def run_func(
-        proc_fn,
-        num_proc,
-        host,
+        fn,
+        args=None,
+        kwargs=None,
+        num_proc=None,
+        host=None,
         ssh_port=None,
         disable_cache=False,
         start_timeout=None,
+        env=None,
         verbose=False):
+    """
+    Run horovod inside python program.
+    Run `num_proc` processes executing `fn` on specified hosts.
+
+    :param fn: Function to run.
+    :param args: Arguments to pass to `fn`.
+    :param kwargs: Keyword arguments to pass to `fn`.
+    :param num_proc: Number of Horovod processes. Default to be number of all host slots.
+    :param host: To specify the list of host names as well as the
+                 number of available slots on each host for
+                 training processes using the following format:
+                 <hostname>:<number of slots>,... .
+                 E.g., host1:2,host2:4,host3:1 indicates that 2 processes can run on
+                 host1, 4 processes on host2, and 1 process on host3.
+    :param ssh_port: SSH port on all the hosts.
+    :param disable_cache: The same argument with horovodrun command.
+    :param start_timeout: Horovodrun has to perform all the checks and
+                          start the processes before the specified
+                          timeout. The default value is 30 seconds.
+                          Alternatively, The environment variable
+                          HOROVOD_START_TIMEOUT can also be used to
+                          specify the initialization timeout.
+    :param env: Environment dictionary to use in Horovod run.  Defaults to `os.environ`.
+    :param verbose: If this flag is set, extra messages will be printed.
+    :return: The returned value of rank 0 process.
+    """
+
     wdir = tempfile.mkdtemp()
     wdir_par = os.path.dirname(wdir)
     if verbose:
@@ -40,8 +70,13 @@ def run_func(
         scp_port_opt = ""
 
     # Invokes proc_fn with args. So we don't need to pickle them separately.
+    if args is None
+        args = ()
+    if kwargs is None:
+        kwargs = {}
+
     def wrapped_proc_fn(rank=0):
-        return_value = proc_fn()
+        return_value = fn(*args, **kwargs)
         if rank == 0:
             with open(_LOCAL_PICKLED_RESULT_FILENAME, 'wb') as f:
                 try:
@@ -76,6 +111,14 @@ def run_func(
                    result=_PICKLED_RESULT_FILENAME)))
 
     os.chmod(launcher_path, 0o777)
+
+    if host is None and num_proc is None:
+        num_proc = 1
+        host = "localhost:1"
+    elif host is None:
+        host = "localhost:{np}".format(np=num_proc)
+    elif num_proc is None:
+        num_proc = sum(int(x.split(':')[1]) for x in host.split(','))
 
     all_host_names = list(set(x.split(':')[0] for x in host.split(',')))
     remote_host_names = network.filter_local_addresses(all_host_names)
@@ -113,12 +156,13 @@ def run_func(
     if verbose:
         print("Run command: " + " ".join(cmd))
 
-    # Use `os.environ` to preserve the environ to support nested MPI jobs
+    if env is None:
+        env = os.environ
     task = subprocess.Popen(cmd,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT,
                             stdin=subprocess.PIPE,
-                            env=os.environ)
+                            env=env)
     task.stdin.close()
 
     tail = collections.deque(maxlen=_TAIL_LINES_TO_KEEP)
