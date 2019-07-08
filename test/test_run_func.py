@@ -46,4 +46,4 @@ class RunFuncTests(unittest.TestCase):
                 return res, hvd.rank()
 
         res = run_func(fn, num_proc=3, host='localhost:3')
-        self.assertListEqual(([0, 1, 2], 0), res)
+        self.assertEqual(([0, 1, 2], 0), res)

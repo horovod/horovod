@@ -86,7 +86,7 @@ def run_func(
         scp_port_opt = ""
 
     # Invokes proc_fn with args. So we don't need to pickle them separately.
-    if args is None
+    if args is None:
         args = ()
     if kwargs is None:
         kwargs = {}
