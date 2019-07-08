@@ -64,7 +64,7 @@ autodoc_default_options = {
     'special-members': '__init__',
     'imported-members': None,
     'undoc-members': None,
-    'exclude-members': 'contextmanager',
+    'exclude-members': 'contextmanager, LooseVersion, tf, keras, torch, mx, pyspark',
 }
 
 
