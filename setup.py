@@ -30,6 +30,7 @@ from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
 
 from horovod import __version__
+from horovod.common.util import env
 
 class CMakeExtension(Extension):
     def __init__(self, name, cmake_lists_dir='.', sources=[], **kwa):
@@ -684,6 +685,18 @@ def get_common_options(build_ext):
                 LIBRARIES=LIBRARIES)
 
 
+def find_gxx_in_path():
+    candidate_compilers = []
+
+    for path_dir in os.getenv('PATH', '').split(':'):
+        for bin_file in os.listdir(path_dir):
+            if re.match('^g\\+\\+(?:-\\d+(?:\\.\\d+)?)?$', bin_file):
+                # g++, or g++-7, or g++-4.9
+                candidate_compilers.append(os.path.join(path_dir, bin_file))
+
+    return candidate_compilers
+
+
 def build_tf_extension(build_ext, options):
     check_tf_version()
     tf_compile_flags, tf_link_flags = get_tf_flags(
@@ -699,7 +712,46 @@ def build_tf_extension(build_ext, options):
     tensorflow_mpi_lib.library_dirs = options['LIBRARY_DIRS']
     tensorflow_mpi_lib.libraries = options['LIBRARIES']
 
-    build_ext.build_extension(tensorflow_mpi_lib)
+    compiler = None
+    if sys.platform.startswith('linux') and not os.getenv('CC') and not os.getenv('CXX'):
+        # Determine g++ version compatible with this TensorFlow installation
+        import tensorflow as tf
+        if hasattr(tf, 'version'):
+            tf_compiler_version = LooseVersion(tf.version.COMPILER_VERSION)
+        else:
+            tf_compiler_version = LooseVersion(tf.COMPILER_VERSION)
+
+        if tf_compiler_version.version[0] == 4:
+            # g++ 4.x is ABI-incompatible with g++ 5.x+
+            maximum_compiler_version = LooseVersion('4.999')
+        else:
+            maximum_compiler_version = LooseVersion('999')
+
+        for candidate_compiler in find_gxx_in_path():
+            try:
+                candidate_compiler_version = LooseVersion(
+                        subprocess.check_output([compiler, '-dumpfullversion', '-dumpversion']))
+            except Exception:
+                print('INFO: Unable to determine version of compiler %s.\n%s'
+                        '' % (candidate_compiler, traceback.format_exc()))
+                continue
+
+            if candidate_compiler_version >= tf_compiler_version and \
+                    candidate_compiler_version <= maximum_compiler_version:
+                compiler = candidate_compiler
+                break
+            else:
+                print('INFO: Compiler %s is not usable for this TensorFlow installation, '
+                      'see the warning above.' % candidate_compiler)
+
+        if not compiler:
+            raise DistutilsPlatformError(
+                'Could not find compiler compatible with this TensorFlow installation.\n'
+                'Please check Horovod website for recommended compiler versions.\n'
+                'To force a specific compiler version, set CC and CXX environment variables.')
+
+    with env(CC=compiler or os.getenv('CC'), CXX=compiler or os.getenv('CXX')):
+        build_ext.build_extension(tensorflow_mpi_lib)
 
 
 def parse_version(version_str):
@@ -1000,24 +1052,44 @@ def build_torch_extension_v2(build_ext, options, torch_version):
     else:
         # CUDAExtension fails with `ld: library not found for -lcudart` if CUDA is not present
         from torch.utils.cpp_extension import CppExtension as TorchExtension
-    ext = TorchExtension(torch_mpi_lib_v2.name,
-                         define_macros=updated_macros,
-                         include_dirs=options['INCLUDES'],
-                         sources=options['SOURCES'] + [
-                             'horovod/torch/mpi_ops_v2.cc',
-                             'horovod/torch/handle_manager.cc',
-                             'horovod/torch/ready_event.cc',
-                             'horovod/torch/cuda_util.cc',
-                             'horovod/torch/adapter_v2.cc'],
-                         extra_compile_args=options['COMPILE_FLAGS'],
-                         extra_link_args=options['LINK_FLAGS'],
-                         library_dirs=options['LIBRARY_DIRS'],
-                         libraries=options['LIBRARIES'])
 
-    # Patch an existing torch_mpi_lib_v2 extension object.
-    for k, v in ext.__dict__.items():
-        torch_mpi_lib_v2.__dict__[k] = v
-    build_ext.build_extension(torch_mpi_lib_v2)
+    compiler = None
+    if sys.platform.startswith('linux') and not os.getenv('CC') and not os.getenv('CXX'):
+        # Determine g++ version compatible with this PyTorch installation
+        from torch.utils.cpp_extension import check_compiler_abi_compatibility
+        for candidate_compiler in find_gxx_in_path():
+            if check_compiler_abi_compatibility(candidate_compiler):
+                compiler = candidate_compiler
+                break
+            else:
+                print('INFO: Compiler %s is not usable for this PyTorch installation, '
+                      'see the warning above.' % candidate_compiler)
+
+        if not compiler:
+            raise DistutilsPlatformError(
+                'Could not find compiler compatible with this PyTorch installation.\n'
+                'Please check Horovod website for recommended compiler versions.\n'
+                'To force a specific compiler version, set CC and CXX environment variables.')
+
+    with env(CC=compiler or os.getenv('CC'), CXX=compiler or os.getenv('CXX')):
+        ext = TorchExtension(torch_mpi_lib_v2.name,
+                            define_macros=updated_macros,
+                            include_dirs=options['INCLUDES'],
+                            sources=options['SOURCES'] + [
+                                'horovod/torch/mpi_ops_v2.cc',
+                                'horovod/torch/handle_manager.cc',
+                                'horovod/torch/ready_event.cc',
+                                'horovod/torch/cuda_util.cc',
+                                'horovod/torch/adapter_v2.cc'],
+                            extra_compile_args=options['COMPILE_FLAGS'],
+                            extra_link_args=options['LINK_FLAGS'],
+                            library_dirs=options['LIBRARY_DIRS'],
+                            libraries=options['LIBRARIES'])
+
+        # Patch an existing torch_mpi_lib_v2 extension object.
+        for k, v in ext.__dict__.items():
+            torch_mpi_lib_v2.__dict__[k] = v
+        build_ext.build_extension(torch_mpi_lib_v2)
 
 
 def build_cmake(build_ext, ext, output_dir, options):
