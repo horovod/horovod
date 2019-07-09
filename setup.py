@@ -737,7 +737,7 @@ def remove_offensive_gxx_compiler_options(compiler_version):
 
         return cflags, cppflags, ldshared
 
-    return None, None
+    return None, None, None
 
 
 def build_tf_extension(build_ext, options):
