@@ -33,4 +33,5 @@ def _namespaces():
 def host_hash():
     hostname = socket.gethostname()
     ns = _namespaces()
-    return '%s-%s' % (hostname, hashlib.md5(ns.encode('ascii')).hexdigest())
+    hash = hashlib.md5(hostname + '-' + ns.encode('ascii')).hexdigest()
+    return '%s-%s' % (hostname.split('.')[0], hash)
