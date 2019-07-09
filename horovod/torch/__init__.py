@@ -174,8 +174,10 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                 optimizer.step()
         """
         self._should_synchronize = False
-        yield
-        self._should_synchronize = True
+        try:
+            yield
+        finally:
+            self._should_synchronize = True
 
     def step(self, closure=None):
         if self._should_synchronize:
