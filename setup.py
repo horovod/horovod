@@ -737,6 +737,7 @@ def remove_offensive_gxx_compiler_options(compiler_version):
 
         return cflags, cppflags, ldshared
 
+    # Use defaults
     return None, None, None
 
 
@@ -766,7 +767,8 @@ def build_tf_extension(build_ext, options):
             tf_compiler_version = LooseVersion(tf.COMPILER_VERSION)
 
         if tf_compiler_version.version[0] == 4:
-            # g++ 4.x is ABI-incompatible with g++ 5.x+
+            # g++ 4.x is ABI-incompatible with g++ 5.x+ due to std::function change
+            # See: https://github.com/tensorflow/tensorflow/issues/27067
             maximum_compiler_version = LooseVersion('5')
         else:
             maximum_compiler_version = LooseVersion('999')
