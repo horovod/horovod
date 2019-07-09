@@ -20,65 +20,65 @@ import os
 import sys
 import six
 import subprocess
-import collections
 import textwrap
-import time
 
-from horovod.run.util import network
 from horovod.run.common.util import safe_shell_exec
 
-_TAIL_LINES_TO_KEEP = 100
+_PICKLED_RESULT_PREFIX = "result.pkl"
 
-_LOCAL_PICKLED_RESULT_FILENAME = "local_result.pkl"
-_PICKLED_RESULT_FILENAME = "result.pkl"
+_LOCAL_PICKLED_PROC_FN_FILENAME = "local_proc_fn.pkl"
 _PICKLED_PROC_FN_FILENAME = "proc_fn.pkl"
+
+_LOCAL_PROC_LAUNCHER_FILENAME = "local_launch.sh"
 _PROC_LAUNCHER_FILENAME = "launch.sh"
 
 
 def run_func(
         fn,
-        args=None,
-        kwargs=None,
-        num_proc=None,
+        num_proc,
         host=None,
         ssh_port=None,
         disable_cache=False,
         start_timeout=None,
         env=None,
-        verbose=False,
-        driver_host=None):
+        verbose=False):
     """
     Run horovod inside python program.
     Run `num_proc` processes executing `fn` on specified hosts.
 
     :param fn: Function to run.
-    :param args: Arguments to pass to `fn`.
-    :param kwargs: Keyword arguments to pass to `fn`.
-    :param num_proc: Number of Horovod processes. Default to be number of all host slots.
+    :param num_proc: Number of Horovod processes.
     :param host: To specify the list of host names as well as the
                  number of available slots on each host for
                  training processes using the following format:
                  <hostname>:<number of slots>,... .
                  E.g., host1:2,host2:4,host3:1 indicates that 2 processes can run on
                  host1, 4 processes on host2, and 1 process on host3.
+                 If None, launch all mpi processes on local node.
     :param ssh_port: SSH port on all the hosts.
-    :param disable_cache: The same argument with horovodrun command.
+                     If None, use default SSH port.
+    :param disable_cache: If the flag is not set, horovodrun will perform
+                          the initialization checks only once every 60
+                          minutes -- if the checks successfully pass.
+                          Otherwise, all the checks will run every time
+                          horovodrun is called."
     :param start_timeout: Horovodrun has to perform all the checks and
                           start the processes before the specified
                           timeout. The default value is 30 seconds.
                           Alternatively, The environment variable
                           HOROVOD_START_TIMEOUT can also be used to
                           specify the initialization timeout.
-    :param env: Environment dictionary to use in Horovod run.  Defaults to `os.environ`.
+    :param env: Environment dictionary to use in Horovod run.
+                If None, use `os.environ`.
     :param verbose: If this flag is set, extra messages will be printed.
-    :param driver_host: The host of node `run_func` running on.
-    :return: The returned value of rank 0 process.
+
+    :return: A list contains returned result from each MPI process. The ith value of the list
+             corresponds to the returned result of rank i process.
     """
 
     wdir = tempfile.mkdtemp()
-    wdir_par = os.path.dirname(wdir)
     if verbose:
-        print("mpirun working dir is " + wdir)
+        print("horovod.run_func working dir is " + wdir)
 
     if ssh_port:
         ssh_port_opt = "-p " + str(ssh_port)
@@ -87,77 +87,62 @@ def run_func(
         ssh_port_opt = ""
         scp_port_opt = ""
 
-    # Invokes proc_fn with args. So we don't need to pickle them separately.
-    if args is None:
-        args = ()
-    if kwargs is None:
-        kwargs = {}
-
     def wrapped_proc_fn(rank=0):
-        return_value = fn(*args, **kwargs)
-        if rank == 0:
-            with open(_LOCAL_PICKLED_RESULT_FILENAME, 'wb') as f:
-                try:
-                    cloudpickle.dump(return_value, f)
-                except Exception as e:
-                    raise RuntimeError("Caught an excpetion while pickling "
-                                       "return value: {}".format(repr(e)))
+        return_value = fn()
+
+        result_file = "{prefix}.{rank}".format(prefix=_PICKLED_RESULT_PREFIX, rank=rank)
+        with open(result_file, 'wb') as fp:
+            try:
+                cloudpickle.dump(return_value, fp)
+            except Exception as e:
+                raise RuntimeError("Caught an excpetion while pickling "
+                                   "return value: {}".format(type(e)), e)
 
     pickled_proc_fn_str = cloudpickle.dumps(wrapped_proc_fn)
-    pickled_proc_fn_path = os.path.join(wdir, _PICKLED_PROC_FN_FILENAME)
-    with open(pickled_proc_fn_path, 'wb') as f:
+    local_pickled_proc_fn_path = os.path.join(wdir, _LOCAL_PICKLED_PROC_FN_FILENAME)
+    with open(local_pickled_proc_fn_path, 'wb') as f:
         f.write(pickled_proc_fn_str)
 
-    if driver_host is None:
-        driver_host = network.get_local_ip_addr()
-
-    launcher_path = os.path.join(wdir, _PROC_LAUNCHER_FILENAME)
-    with open(launcher_path, 'w') as f:
+    local_launcher_path = os.path.join(wdir, _LOCAL_PROC_LAUNCHER_FILENAME)
+    with open(local_launcher_path, 'w') as f:
         f.write(textwrap.dedent("""
         set -e
         cd {wdir}
         rank=${{OMPI_COMM_WORLD_RANK:-0}}
-        {exec} -c "import cloudpickle; cloudpickle.load(open('{fn_file}', 'rb'))(rank=$rank)"
-        if [[ "$rank" -eq 0 ]]; then
-        scp -q {scp_port_opt} -o StrictHostKeyChecking=no \
-        {wdir}/{local_result} {driver_host}:{wdir}/{result}
-        fi
+        {exec_path} -c "import cloudpickle; cloudpickle.load(open('{fn_file}', 'rb'))(rank=$rank)"
         """.format(wdir=wdir,
-                   exec=sys.executable,
-                   scp_port_opt=scp_port_opt,
-                   fn_file=_PICKLED_PROC_FN_FILENAME,
-                   driver_host=driver_host,
-                   local_result=_LOCAL_PICKLED_RESULT_FILENAME,
-                   result=_PICKLED_RESULT_FILENAME)))
+                   exec_path=sys.executable,
+                   fn_file=_PICKLED_PROC_FN_FILENAME)))
 
-    os.chmod(launcher_path, 0o777)
-
-    if host is None and num_proc is None:
-        num_proc = 1
-        host = "localhost:1"
-    elif host is None:
+    if host is None:
         host = "localhost:{np}".format(np=num_proc)
-    elif num_proc is None:
-        num_proc = sum(int(x.split(':')[1]) for x in host.split(','))
 
-    all_host_names = list(set(x.split(':')[0] for x in host.split(',')))
-    remote_host_names = network.filter_local_addresses(all_host_names)
+    all_host_names = set(x.split(':')[0] for x in host.split(','))
 
-    for remote_host in remote_host_names:
+    # copy pickled function and launcher script to all hosts via scp
+    # TODO: parallelize the scp copy
+    for hostname in all_host_names:
         scp_cmd = textwrap.dedent(
             """
-            ssh {ssh_port_opt} -o StrictHostKeyChecking=no {remote_host} mkdir -p {wdir_par} && \
+            ssh {ssh_port_opt} -o StrictHostKeyChecking=no {hostname} mkdir -p {wdir} && \
             scp -r -q {scp_port_opt} -o StrictHostKeyChecking=no \
-            {wdir} {remote_host}:{wdir_par}
-            """).format(ssh_port_opt=ssh_port_opt, scp_port_opt=scp_port_opt, wdir=wdir,
-                        remote_host=remote_host, wdir_par=wdir_par)
+            {wdir}/{local_fn_file} {hostname}:{wdir}/{fn_file} && \
+            scp -r -q {scp_port_opt} -o StrictHostKeyChecking=no \
+            {wdir}/{local_launcher} {hostname}:{wdir}/{launcher}
+            """).format(ssh_port_opt=ssh_port_opt, scp_port_opt=scp_port_opt,
+                        wdir=wdir, hostname=hostname,
+                        local_fn_file=_LOCAL_PICKLED_PROC_FN_FILENAME,
+                        fn_file=_PICKLED_PROC_FN_FILENAME,
+                        local_launcher=_LOCAL_PROC_LAUNCHER_FILENAME,
+                        launcher=_PROC_LAUNCHER_FILENAME)
+
         output = six.StringIO()
         exit_code = safe_shell_exec.execute(scp_cmd, stdout=output, stderr=output)
         if exit_code != 0:
             output_msg = output.getvalue()
-            raise RuntimeError("Copy working dir to remote host {remote_host} failed."
-                               "Error message is {msg}"
-                               .format(remote_host=remote_host, msg=output_msg))
+            raise RuntimeError("Copy pickled function and launcher script to host "
+                               "{hostname} failed. Error message is {msg}."
+                               .format(hostname=hostname, msg=output_msg))
 
     cmd = ["horovodrun", "-np", str(num_proc)]
     if ssh_port:
@@ -171,50 +156,44 @@ def run_func(
     if verbose:
         cmd += ["--verbose"]
 
-    cmd += ["bash", launcher_path]
+    cmd += ["bash", os.path.join(wdir, _PROC_LAUNCHER_FILENAME)]
 
     if verbose:
         print("Run command: " + " ".join(cmd))
 
     if env is None:
         env = os.environ
-    task = subprocess.Popen(cmd,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT,
-                            stdin=subprocess.PIPE,
-                            env=env)
-    task.stdin.close()
 
-    tail = collections.deque(maxlen=_TAIL_LINES_TO_KEEP)
-    try:
-        for line in task.stdout:
-            decoded = line.decode()
-            tail.append(decoded)
-            sys.stdout.write(decoded)
-        task.wait()
-    finally:
-        if task.poll() is None:
-            try:
-                task.terminate()  # SIGTERM
-                time.sleep(0.5)
-                if task.poll() is None:
-                    task.kill()  # SIGKILL
-            except OSError:
-                pass
+    # close stdin for sub-process, avoid sub-process to read data from stdin.
+    subprocess.check_call(cmd, stdin=subprocess.DEVNULL, env=env)
 
-    if task.returncode != os.EX_OK:
-        if len(tail) == _TAIL_LINES_TO_KEEP:
-            last_n_msg = "last %d lines of the task output are" % _TAIL_LINES_TO_KEEP
-        else:
-            last_n_msg = "task output is"
-        raise RuntimeError(
-            "Command %s failed with return code %d.\n" % (cmd, task.returncode) +
+    # copy result file back via scp
+    # TODO: parallelize the scp copy
+    for hostname in all_host_names:
+        scp_cmd = textwrap.dedent(
             """
-            The %s included below.
-            """ % last_n_msg + "\n%s\n" % "".join(tail))
+            mkdir -p {wdir}/result
+            scp -r -q {scp_port_opt} -o StrictHostKeyChecking=no \
+            {hostname}:{wdir}/{prefix}.* {wdir}/result/
+            """).format(scp_port_opt=scp_port_opt, wdir=wdir,
+                        hostname=hostname, prefix=_PICKLED_RESULT_PREFIX)
 
-    result_path = os.path.join(wdir, _PICKLED_RESULT_FILENAME)
-    with open(result_path, 'rb') as f:
-        result_bytes = f.read()
+        output = six.StringIO()
+        exit_code = safe_shell_exec.execute(scp_cmd, stdout=output, stderr=output)
+        if exit_code != 0:
+            output_msg = output.getvalue()
+            raise RuntimeError("Copy result file from host {hostname} failed."
+                               "Error message is {msg}."
+                               .format(hostname=hostname, msg=output_msg))
 
-    return cloudpickle.loads(result_bytes)
+    results = [None] * num_proc
+
+    for i in range(num_proc):
+        result_path = "{wdir}/result/{prefix}.{rank}".format(
+            wdir=wdir, prefix=_PICKLED_RESULT_PREFIX, rank=i)
+        with open(result_path, 'rb') as f:
+            result_bytes = f.read()
+        results[i] = cloudpickle.loads(result_bytes)
+
+    return results
+

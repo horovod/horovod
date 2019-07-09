@@ -41,11 +41,9 @@ class RunFuncTests(unittest.TestCase):
 
         def fn():
             hvd.init()
-            res = hvd.allgather(torch.tensor([hvd.rank()])).tolist()
-            if hvd.rank() == 0:
-                return res, hvd.rank()
+            res = hvd.allgather(torch.tensor([hvd.rank()])) + hvd.rank() * 10
+            return res.tolist(), hvd.rank()
 
-        res = run_func(fn, num_proc=3, host='localhost:3',
-                       env={'PATH': os.environ.get('PATH')},
-                       driver_host='localhost')
-        self.assertEqual(([0, 1, 2], 0), res)
+        results = run_func(fn, num_proc=3, host='127.0.0.1:3',
+                           env={'PATH': os.environ.get('PATH')})
+        self.assertListEqual([([0, 1, 2], 0), ([10, 11, 12], 1), ([20, 21, 22], 2)], results)

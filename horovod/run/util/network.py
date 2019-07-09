@@ -40,12 +40,3 @@ def filter_local_addresses(all_host_names):
             remote_host_names.append(host_name)
 
     return remote_host_names
-
-
-def get_local_ip_addr():
-    """ Returns the IP address of the current machine. """
-    import socket
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect(("8.8.8.8", 80))
-    host_ip = s.getsockname()[0]
-    return host_ip
