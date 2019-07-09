@@ -115,7 +115,7 @@ def run_func(
         rank=${{OMPI_COMM_WORLD_RANK:-0}}
         {exec} -c "import cloudpickle; cloudpickle.load(open('{fn_file}', 'rb'))(rank=$rank)"
         if [[ "$rank" -eq 0 ]]; then
-        scp -q {scp_port_opt} -o StrictHostKeyChecking=no \
+        scp -v -q {scp_port_opt} -o StrictHostKeyChecking=no \
         {wdir}/{local_result} {local_ip}:{wdir}/{result}
         fi
         """.format(wdir=wdir,
