@@ -45,7 +45,8 @@ def run_func(
         disable_cache=False,
         start_timeout=None,
         env=None,
-        verbose=False):
+        verbose=False,
+        driver_host=None):
     """
     Run horovod inside python program.
     Run `num_proc` processes executing `fn` on specified hosts.
@@ -70,6 +71,7 @@ def run_func(
                           specify the initialization timeout.
     :param env: Environment dictionary to use in Horovod run.  Defaults to `os.environ`.
     :param verbose: If this flag is set, extra messages will be printed.
+    :param driver_host: The host of node `run_func` running on.
     :return: The returned value of rank 0 process.
     """
 
@@ -106,7 +108,9 @@ def run_func(
     with open(pickled_proc_fn_path, 'wb') as f:
         f.write(pickled_proc_fn_str)
 
-    local_ip = network.get_local_ip_addr()
+    if driver_host is None:
+        driver_host = network.get_local_ip_addr()
+
     launcher_path = os.path.join(wdir, _PROC_LAUNCHER_FILENAME)
     with open(launcher_path, 'w') as f:
         f.write(textwrap.dedent("""
@@ -115,14 +119,14 @@ def run_func(
         rank=${{OMPI_COMM_WORLD_RANK:-0}}
         {exec} -c "import cloudpickle; cloudpickle.load(open('{fn_file}', 'rb'))(rank=$rank)"
         if [[ "$rank" -eq 0 ]]; then
-        scp -v -q {scp_port_opt} -o StrictHostKeyChecking=no \
-        {wdir}/{local_result} {local_ip}:{wdir}/{result}
+        scp -q {scp_port_opt} -o StrictHostKeyChecking=no \
+        {wdir}/{local_result} {driver_host}:{wdir}/{result}
         fi
         """.format(wdir=wdir,
                    exec=sys.executable,
                    scp_port_opt=scp_port_opt,
                    fn_file=_PICKLED_PROC_FN_FILENAME,
-                   local_ip=local_ip,
+                   driver_host=driver_host,
                    local_result=_LOCAL_PICKLED_RESULT_FILENAME,
                    result=_PICKLED_RESULT_FILENAME)))
 

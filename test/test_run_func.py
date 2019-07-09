@@ -46,5 +46,6 @@ class RunFuncTests(unittest.TestCase):
                 return res, hvd.rank()
 
         res = run_func(fn, num_proc=3, host='localhost:3',
-                       env={'PATH': os.environ.get('PATH')})
+                       env={'PATH': os.environ.get('PATH')},
+                       driver_host='localhost')
         self.assertEqual(([0, 1, 2], 0), res)
