@@ -90,11 +90,11 @@ To install Horovod:
 
     <p/>
 
-2. If you've installed TensorFlow from `PyPI <https://pypi.org/project/tensorflow>`__, make sure that ``g++-4.8.5`` or ``g++-4.9`` is installed.
+2. If you've installed TensorFlow from `PyPI <https://pypi.org/project/tensorflow>`__, make sure that the ``g++-4.8.5`` or ``g++-4.9`` is installed.
 
-   If you've installed PyTorch from `PyPI <https://pypi.org/project/torch>`__, make sure that ``g++-4.9`` or above is installed.
+   If you've installed PyTorch from `PyPI <https://pypi.org/project/torch>`__, make sure that the ``g++-4.9`` or above is installed.
 
-   If you've installed either package from `Conda <https://conda.io>`_, make sure that ``gxx_linux-64`` Conda package is installed.
+   If you've installed either package from `Conda <https://conda.io>`_, make sure that the ``gxx_linux-64`` Conda package is installed.
 
 .. raw:: html
 

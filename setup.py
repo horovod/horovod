@@ -793,7 +793,7 @@ def build_tf_extension(build_ext, options):
         else:
             raise DistutilsPlatformError(
                 'Could not find compiler compatible with this TensorFlow installation.\n'
-                'Please check Horovod website for recommended compiler versions.\n'
+                'Please check the Horovod website for recommended compiler versions.\n'
                 'To force a specific compiler version, set CC and CXX environment variables.')
 
         cflags, cppflags, ldshared = remove_offensive_gxx_compiler_options(compiler_version)
@@ -1147,7 +1147,7 @@ def build_torch_extension_v2(build_ext, options, torch_version):
         else:
             raise DistutilsPlatformError(
                 'Could not find compiler compatible with this PyTorch installation.\n'
-                'Please check Horovod website for recommended compiler versions.\n'
+                'Please check the Horovod website for recommended compiler versions.\n'
                 'To force a specific compiler version, set CC and CXX environment variables.')
 
         cflags, cppflags, ldshared = remove_offensive_gxx_compiler_options(compiler_version)
