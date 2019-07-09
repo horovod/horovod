@@ -728,12 +728,14 @@ def remove_offensive_gxx_compiler_options(compiler_version):
         from sysconfig import get_config_var
         cflags = get_config_var('CONFIGURE_CFLAGS')
         cppflags = get_config_var('CONFIGURE_CPPFLAGS')
+        ldshared = get_config_var('LDSHARED')
 
         for k, v in offensive_replacements.items():
             cflags = cflags.replace(k, v)
             cppflags = cppflags.replace(k, v)
+            ldshared = ldshared.replace(k, v)
 
-        return cflags, cppflags
+        return cflags, cppflags, ldshared
 
     return None, None
 
@@ -791,10 +793,11 @@ def build_tf_extension(build_ext, options):
                 'Please check Horovod website for recommended compiler versions.\n'
                 'To force a specific compiler version, set CC and CXX environment variables.')
 
-        cflags, cppflags = remove_offensive_gxx_compiler_options(compiler_version)
+        cflags, cppflags, ldshared = remove_offensive_gxx_compiler_options(compiler_version)
 
     try:
-        with env(CC=compiler, CXX=compiler, CFLAGS=cflags, CPPFLAGS=cppflags):
+        with env(CC=compiler, CXX=compiler, CFLAGS=cflags, CPPFLAGS=cppflags,
+                 LDSHARED=ldshared):
             customize_compiler(build_ext.compiler)
             build_ext.build_extension(tensorflow_mpi_lib)
     finally:
@@ -1144,10 +1147,11 @@ def build_torch_extension_v2(build_ext, options, torch_version):
                 'Please check Horovod website for recommended compiler versions.\n'
                 'To force a specific compiler version, set CC and CXX environment variables.')
 
-        cflags, cppflags = remove_offensive_gxx_compiler_options(compiler_version)
+        cflags, cppflags, ldshared = remove_offensive_gxx_compiler_options(compiler_version)
 
     try:
-        with env(CC=compiler, CXX=compiler, CFLAGS=cflags, CPPFLAGS=cppflags):
+        with env(CC=compiler, CXX=compiler, CFLAGS=cflags, CPPFLAGS=cppflags,
+                 LDSHARED=ldshared):
             customize_compiler(build_ext.compiler)
             build_ext.build_extension(torch_mpi_lib_v2)
     finally:
