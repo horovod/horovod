@@ -15,16 +15,10 @@ ENV PYTHON_VERSION=${python}
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-cu"]
 
-# We need gcc-4.9 to build plugins for TensorFlow & PyTorch, which is only available in Ubuntu Xenial
-RUN echo deb http://archive.ubuntu.com/ubuntu xenial main universe | tee -a /etc/apt/sources.list
-
 RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
         build-essential \
         cmake \
-        gcc-4.9 \
-        g++-4.9 \
-        gcc-4.9-base \
-        software-properties-common \
+        g++-4.8 \
         git \
         curl \
         vim \
@@ -72,27 +66,11 @@ RUN mkdir /tmp/openmpi && \
     ldconfig && \
     rm -rf /tmp/openmpi
 
-# Pin GCC to 4.9 (priority 200) to compile correctly against TensorFlow, PyTorch, and MXNet.
-# Backup existing GCC installation as priority 100, so that it can be recovered later.
-RUN update-alternatives --install /usr/bin/gcc gcc $(readlink -f $(which gcc)) 100 && \
-    update-alternatives --install /usr/bin/x86_64-linux-gnu-gcc x86_64-linux-gnu-gcc $(readlink -f $(which gcc)) 100 && \
-    update-alternatives --install /usr/bin/g++ g++ $(readlink -f $(which g++)) 100 && \
-    update-alternatives --install /usr/bin/x86_64-linux-gnu-g++ x86_64-linux-gnu-g++ $(readlink -f $(which g++)) 100
-RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 200 && \
-    update-alternatives --install /usr/bin/x86_64-linux-gnu-gcc x86_64-linux-gnu-gcc /usr/bin/gcc-4.9 200 && \
-    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.9 200 && \
-    update-alternatives --install /usr/bin/x86_64-linux-gnu-g++ x86_64-linux-gnu-g++ /usr/bin/g++-4.9 200
-
 # Install Horovod, temporarily using CUDA stubs
 RUN ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
-    HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir horovod && \
+    HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 \
+         pip install --no-cache-dir horovod && \
     ldconfig
-
-# Remove GCC pinning
-RUN update-alternatives --remove gcc /usr/bin/gcc-4.9 && \
-    update-alternatives --remove x86_64-linux-gnu-gcc /usr/bin/gcc-4.9 && \
-    update-alternatives --remove g++ /usr/bin/g++-4.9 && \
-    update-alternatives --remove x86_64-linux-gnu-g++ /usr/bin/g++-4.9
 
 # Install OpenSSH for MPI to communicate between containers
 RUN apt-get install -y --no-install-recommends openssh-client openssh-server && \

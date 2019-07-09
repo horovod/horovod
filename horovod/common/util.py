@@ -14,6 +14,7 @@
 # limitations under the License.
 # =============================================================================
 
+from contextlib import contextmanager
 import os
 import sysconfig
 
@@ -44,3 +45,30 @@ def check_extension(ext_name, ext_env_var, pkg_path, *args):
         raise ImportError(
             'Extension %s has not been built.  If this is not expected, reinstall '
             'Horovod with %s=1 to debug the build error.' % (ext_name, ext_env_var))
+
+
+@contextmanager
+def env(**kwargs):
+    # ignore args with None values
+    for k in list(kwargs.keys()):
+        if kwargs[k] is None:
+            del kwargs[k]
+
+    # backup environment
+    backup = {}
+    for k in kwargs.keys():
+        backup[k] = os.environ.get(k)
+
+    # set new values & yield
+    for k, v in kwargs.items():
+        os.environ[k] = v
+
+    try:
+        yield
+    finally:
+        # restore environment
+        for k in kwargs.keys():
+            if backup[k] is not None:
+                os.environ[k] = backup[k]
+            else:
+                del os.environ[k]

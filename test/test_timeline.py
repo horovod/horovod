@@ -25,8 +25,7 @@ import unittest
 import warnings
 
 import horovod.torch as hvd
-
-from common import env
+from horovod.common.util import env
 
 
 class TimelineTests(unittest.TestCase):
