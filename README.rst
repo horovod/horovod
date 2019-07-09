@@ -83,14 +83,22 @@ To install Horovod:
 
 1. Install `Open MPI <https://www.open-mpi.org/>`_ or another MPI implementation. Learn how to install Open MPI `on this page <https://www.open-mpi.org/faq/?category=building#easy-build>`_.
 
-**Note**: Open MPI 3.1.3 has an issue that may cause hangs.  The recommended fix is to
-downgrade to Open MPI 3.1.2 or upgrade to Open MPI 4.0.0.
+   **Note**: Open MPI 3.1.3 has an issue that may cause hangs.  The recommended fix is to
+   downgrade to Open MPI 3.1.2 or upgrade to Open MPI 4.0.0.
+
+.. raw:: html
+
+    <p/>
 
 2. If you've installed TensorFlow from `PyPI <https://pypi.org/project/tensorflow>`__, make sure that ``g++-4.8.5`` or ``g++-4.9`` is installed.
 
-If you've installed PyTorch from `PyPI <https://pypi.org/project/torch>`__, make sure that ``g++-4.9`` or above is installed.
+   If you've installed PyTorch from `PyPI <https://pypi.org/project/torch>`__, make sure that ``g++-4.9`` or above is installed.
 
-If you've installed either package from `Conda <https://conda.io>`_, make sure that ``gxx_linux-64`` Conda package is installed.
+   If you've installed either package from `Conda <https://conda.io>`_, make sure that ``gxx_linux-64`` Conda package is installed.
+
+.. raw:: html
+
+    <p/>
 
 3. Install the ``horovod`` pip package.
 

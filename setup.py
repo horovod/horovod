@@ -698,14 +698,6 @@ def find_gxx_in_path():
                     compiler_version = None
 
                     try:
-                        version_string = subprocess.check_output(
-                            [compiler, '-dumpfullversion'],
-                            universal_newlines=True).strip()
-                        compiler_version = LooseVersion(version_string)
-                    except subprocess.CalledProcessError:
-                        pass
-
-                    try:
                         compiler_macros = subprocess.check_output(
                             [compiler, '-dM', '-E', '-'],
                             stdin=subprocess.DEVNULL,
@@ -716,9 +708,6 @@ def find_gxx_in_path():
                                 compiler_version = LooseVersion(version_string)
                                 break
                     except subprocess.CalledProcessError:
-                        pass
-
-                    if not compiler_version:
                         print('INFO: Unable to determine version of the compiler %s.\n%s'
                               '' % (compiler, traceback.format_exc()))
                         continue
@@ -726,6 +715,23 @@ def find_gxx_in_path():
                     compilers.append((compiler, compiler_version))
 
     return compilers
+
+
+def remove_offensive_gxx_compiler_options(compiler_version):
+    offensive_replacements = dict()
+    if compiler_version < LooseVersion('4.9'):
+        offensive_replacements = {'-Wdate-time': ''}
+
+    if offensive_replacements:
+        from sysconfig import get_config_vars
+        # Assert that config vars are cached and thus can be mutated
+        assert id(get_config_vars()) == id(get_config_vars())
+
+        config_vars = get_config_vars()
+        for rep_key, rep_value in offensive_replacements.items():
+            for var_key, var_value in config_vars.items():
+                if type(var_value) == str:
+                    config_vars[var_key] = var_value.replace(rep_key, rep_value)
 
 
 def build_tf_extension(build_ext, options):
@@ -781,12 +787,15 @@ def build_tf_extension(build_ext, options):
                 'Please check Horovod website for recommended compiler versions.\n'
                 'To force a specific compiler version, set CC and CXX environment variables.')
 
-    with env(CC=compiler or os.getenv('CC'), CXX=compiler or os.getenv('CXX')):
-        customize_compiler(build_ext.compiler)
-        build_ext.build_extension(tensorflow_mpi_lib)
+        remove_offensive_gxx_compiler_options(compiler_version)
 
-    # Revert to the default compiler settings
-    customize_compiler(build_ext.compiler)
+    try:
+        with env(CC=compiler or os.getenv('CC'), CXX=compiler or os.getenv('CXX')):
+            customize_compiler(build_ext.compiler)
+            build_ext.build_extension(tensorflow_mpi_lib)
+    finally:
+        # Revert to the default compiler settings
+        customize_compiler(build_ext.compiler)
 
 
 def parse_version(version_str):
@@ -1131,12 +1140,15 @@ def build_torch_extension_v2(build_ext, options, torch_version):
                 'Please check Horovod website for recommended compiler versions.\n'
                 'To force a specific compiler version, set CC and CXX environment variables.')
 
-    with env(CC=compiler or os.getenv('CC'), CXX=compiler or os.getenv('CXX')):
-        customize_compiler(build_ext.compiler)
-        build_ext.build_extension(torch_mpi_lib_v2)
+        remove_offensive_gxx_compiler_options(compiler_version)
 
-    # Revert to the default compiler settings
-    customize_compiler(build_ext.compiler)
+    try:
+        with env(CC=compiler or os.getenv('CC'), CXX=compiler or os.getenv('CXX')):
+            customize_compiler(build_ext.compiler)
+            build_ext.build_extension(torch_mpi_lib_v2)
+    finally:
+        # Revert to the default compiler settings
+        customize_compiler(build_ext.compiler)
 
 
 def build_cmake(build_ext, ext, output_dir, options):
