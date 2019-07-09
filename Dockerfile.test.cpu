@@ -16,9 +16,6 @@ ARG PYSPARK_PACKAGE=pyspark==2.4.0
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-cu"]
 
-# We need g++-4.9 to build plugins for TensorFlow & PyTorch, which is only available in Ubuntu Xenial
-RUN echo deb http://archive.ubuntu.com/ubuntu xenial main universe | tee -a /etc/apt/sources.list
-
 # Install essential packages.
 RUN apt-get update -qq
 RUN apt-get install -y --no-install-recommends \
@@ -27,7 +24,7 @@ RUN apt-get install -y --no-install-recommends \
         openssh-client \
         git \
         build-essential \
-        g++-4.9
+        g++-4.8.5
 
 # Install Python.
 RUN apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev

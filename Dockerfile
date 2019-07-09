@@ -15,13 +15,10 @@ ENV PYTHON_VERSION=${python}
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-cu"]
 
-# We need g++-4.9 to build plugins for TensorFlow & PyTorch, which is only available in Ubuntu Xenial
-RUN echo deb http://archive.ubuntu.com/ubuntu xenial main universe | tee -a /etc/apt/sources.list
-
 RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
         build-essential \
         cmake \
-        g++-4.9 \
+        g++-4.8.5 \
         git \
         curl \
         vim \

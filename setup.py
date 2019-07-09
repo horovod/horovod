@@ -686,15 +686,27 @@ def get_common_options(build_ext):
 
 
 def find_gxx_in_path():
-    candidate_compilers = []
+    compilers = []
 
     for path_dir in os.getenv('PATH', '').split(':'):
         for bin_file in os.listdir(path_dir):
             if re.match('^g\\+\\+(?:-\\d+(?:\\.\\d+)?)?$', bin_file):
                 # g++, or g++-7, or g++-4.9
-                candidate_compilers.append(os.path.join(path_dir, bin_file))
+                compiler = os.path.join(path_dir, bin_file)
 
-    return candidate_compilers
+                try:
+                    version_string = subprocess.check_output(
+                        [compiler, '-dumpfullversion', '-dumpversion'],
+                        universal_newlines=True).strip()
+                    compiler_version = LooseVersion(version_string)
+                except subprocess.CalledProcessError:
+                    print('INFO: Unable to determine version of the compiler %s.\n%s'
+                          '' % (compiler, traceback.format_exc()))
+                    continue
+
+                compilers.append((compiler, compiler_version))
+
+    return compilers
 
 
 def build_tf_extension(build_ext, options):
@@ -727,19 +739,14 @@ def build_tf_extension(build_ext, options):
         else:
             maximum_compiler_version = LooseVersion('999')
 
-        for candidate_compiler in find_gxx_in_path():
-            try:
-                candidate_compiler_version = LooseVersion(
-                        subprocess.check_output([compiler, '-dumpfullversion', '-dumpversion']))
-            except Exception:
-                print('INFO: Unable to determine version of compiler %s.\n%s'
-                        '' % (candidate_compiler, traceback.format_exc()))
-                continue
-
+        # Find the compatible compiler of the highest version
+        compiler_version = LooseVersion('0')
+        for candidate_compiler, candidate_compiler_version in find_gxx_in_path():
             if candidate_compiler_version >= tf_compiler_version and \
-                    candidate_compiler_version <= maximum_compiler_version:
+                    candidate_compiler_version <= maximum_compiler_version and \
+                    candidate_compiler_version > compiler_version:
                 compiler = candidate_compiler
-                break
+                compiler_version = candidate_compiler_version
             else:
                 print('INFO: Compiler %s is not usable for this TensorFlow installation, '
                       'see the warning above.' % candidate_compiler)
@@ -1055,12 +1062,15 @@ def build_torch_extension_v2(build_ext, options, torch_version):
 
     compiler = None
     if sys.platform.startswith('linux') and not os.getenv('CC') and not os.getenv('CXX'):
-        # Determine g++ version compatible with this PyTorch installation
         from torch.utils.cpp_extension import check_compiler_abi_compatibility
-        for candidate_compiler in find_gxx_in_path():
-            if check_compiler_abi_compatibility(candidate_compiler):
+
+        # Find the compatible compiler of the highest version
+        compiler_version = LooseVersion('0')
+        for candidate_compiler, candidate_compiler_version in find_gxx_in_path():
+            if check_compiler_abi_compatibility(candidate_compiler) and \
+                    candidate_compiler_version > compiler_version:
                 compiler = candidate_compiler
-                break
+                compiler_version = candidate_compiler_version
             else:
                 print('INFO: Compiler %s is not usable for this PyTorch installation, '
                       'see the warning above.' % candidate_compiler)
