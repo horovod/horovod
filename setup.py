@@ -695,15 +695,32 @@ def find_gxx_in_path():
                 if re.match('^g\\+\\+(?:-\\d+(?:\\.\\d+)?)?$', bin_file):
                     # g++, or g++-7, or g++-4.9
                     compiler = os.path.join(path_dir, bin_file)
+                    compiler_version = None
 
                     try:
                         version_string = subprocess.check_output(
-                            [compiler, '-dumpfullversion', '-dumpversion'],
+                            [compiler, '-dumpfullversion'],
                             universal_newlines=True).strip()
                         compiler_version = LooseVersion(version_string)
                     except subprocess.CalledProcessError:
+                        pass
+
+                    try:
+                        compiler_macros = subprocess.check_output(
+                            [compiler, '-dM', '-E', '-'],
+                            stdin=subprocess.DEVNULL,
+                            universal_newlines=True).split('\n')
+                        for m in compiler_macros:
+                            if m.startswith('#define __VERSION__ '):
+                                version_string = m.split(' ')[-1].strip('"')
+                                compiler_version = LooseVersion(version_string)
+                                break
+                    except subprocess.CalledProcessError:
+                        pass
+
+                    if not compiler_version:
                         print('INFO: Unable to determine version of the compiler %s.\n%s'
-                            '' % (compiler, traceback.format_exc()))
+                              '' % (compiler, traceback.format_exc()))
                         continue
 
                     compilers.append((compiler, compiler_version))
