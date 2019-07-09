@@ -760,6 +760,7 @@ def build_tf_extension(build_ext, options):
         # Determine g++ version compatible with this TensorFlow installation
         import tensorflow as tf
         if hasattr(tf, 'version'):
+            # Since TensorFlow 1.13.0
             tf_compiler_version = LooseVersion(tf.version.COMPILER_VERSION)
         else:
             tf_compiler_version = LooseVersion(tf.COMPILER_VERSION)
