@@ -24,6 +24,7 @@ import textwrap
 import traceback
 from distutils.errors import CompileError, DistutilsError, \
     DistutilsPlatformError, LinkError
+from distutils.sysconfig import customize_compiler
 from distutils.version import LooseVersion
 
 from setuptools import setup, Extension, find_packages
@@ -736,7 +737,7 @@ def build_tf_extension(build_ext, options):
 
         if tf_compiler_version.version[0] == 4:
             # g++ 4.x is ABI-incompatible with g++ 5.x+
-            maximum_compiler_version = LooseVersion('4.999')
+            maximum_compiler_version = LooseVersion('5')
         else:
             maximum_compiler_version = LooseVersion('999')
 
@@ -744,22 +745,31 @@ def build_tf_extension(build_ext, options):
         compiler_version = LooseVersion('0')
         for candidate_compiler, candidate_compiler_version in find_gxx_in_path():
             if candidate_compiler_version >= tf_compiler_version and \
-                    candidate_compiler_version <= maximum_compiler_version and \
+                    candidate_compiler_version < maximum_compiler_version and \
                     candidate_compiler_version > compiler_version:
                 compiler = candidate_compiler
                 compiler_version = candidate_compiler_version
             else:
-                print('INFO: Compiler %s is not usable for this TensorFlow installation, '
-                      'see the warning above.' % candidate_compiler)
+                print('INFO: Compiler %s (version %s) is not usable for this TensorFlow '
+                      'installation. Require g++ (version >=%s, <%s).' %
+                      (candidate_compiler, candidate_compiler_version,
+                       tf_compiler_version, maximum_compiler_version))
 
-        if not compiler:
+        if compiler:
+            print('INFO: Compiler %s (version %s) selected for TensorFlow plugin build.'
+                  '' % (compiler, compiler_version))
+        else:
             raise DistutilsPlatformError(
                 'Could not find compiler compatible with this TensorFlow installation.\n'
                 'Please check Horovod website for recommended compiler versions.\n'
                 'To force a specific compiler version, set CC and CXX environment variables.')
 
     with env(CC=compiler or os.getenv('CC'), CXX=compiler or os.getenv('CXX')):
+        customize_compiler(build_ext.compiler)
         build_ext.build_extension(tensorflow_mpi_lib)
+
+    # Revert to the default compiler settings
+    customize_compiler(build_ext.compiler)
 
 
 def parse_version(version_str):
@@ -1061,6 +1071,24 @@ def build_torch_extension_v2(build_ext, options, torch_version):
         # CUDAExtension fails with `ld: library not found for -lcudart` if CUDA is not present
         from torch.utils.cpp_extension import CppExtension as TorchExtension
 
+    ext = TorchExtension(torch_mpi_lib_v2.name,
+                        define_macros=updated_macros,
+                        include_dirs=options['INCLUDES'],
+                        sources=options['SOURCES'] + [
+                            'horovod/torch/mpi_ops_v2.cc',
+                            'horovod/torch/handle_manager.cc',
+                            'horovod/torch/ready_event.cc',
+                            'horovod/torch/cuda_util.cc',
+                            'horovod/torch/adapter_v2.cc'],
+                        extra_compile_args=options['COMPILE_FLAGS'],
+                        extra_link_args=options['LINK_FLAGS'],
+                        library_dirs=options['LIBRARY_DIRS'],
+                        libraries=options['LIBRARIES'])
+
+    # Patch an existing torch_mpi_lib_v2 extension object.
+    for k, v in ext.__dict__.items():
+        torch_mpi_lib_v2.__dict__[k] = v
+
     compiler = None
     if sys.platform.startswith('linux') and not os.getenv('CC') and not os.getenv('CXX'):
         from torch.utils.cpp_extension import check_compiler_abi_compatibility
@@ -1073,34 +1101,25 @@ def build_torch_extension_v2(build_ext, options, torch_version):
                 compiler = candidate_compiler
                 compiler_version = candidate_compiler_version
             else:
-                print('INFO: Compiler %s is not usable for this PyTorch installation, '
-                      'see the warning above.' % candidate_compiler)
+                print('INFO: Compiler %s (version %s) is not usable for this PyTorch '
+                      'installation, see the warning above.' %
+                      (candidate_compiler, candidate_compiler_version))
 
-        if not compiler:
+        if compiler:
+            print('INFO: Compiler %s (version %s) selected for PyTorch plugin build.'
+                  '' % (compiler, compiler_version))
+        else:
             raise DistutilsPlatformError(
                 'Could not find compiler compatible with this PyTorch installation.\n'
                 'Please check Horovod website for recommended compiler versions.\n'
                 'To force a specific compiler version, set CC and CXX environment variables.')
 
     with env(CC=compiler or os.getenv('CC'), CXX=compiler or os.getenv('CXX')):
-        ext = TorchExtension(torch_mpi_lib_v2.name,
-                            define_macros=updated_macros,
-                            include_dirs=options['INCLUDES'],
-                            sources=options['SOURCES'] + [
-                                'horovod/torch/mpi_ops_v2.cc',
-                                'horovod/torch/handle_manager.cc',
-                                'horovod/torch/ready_event.cc',
-                                'horovod/torch/cuda_util.cc',
-                                'horovod/torch/adapter_v2.cc'],
-                            extra_compile_args=options['COMPILE_FLAGS'],
-                            extra_link_args=options['LINK_FLAGS'],
-                            library_dirs=options['LIBRARY_DIRS'],
-                            libraries=options['LIBRARIES'])
-
-        # Patch an existing torch_mpi_lib_v2 extension object.
-        for k, v in ext.__dict__.items():
-            torch_mpi_lib_v2.__dict__[k] = v
+        customize_compiler(build_ext.compiler)
         build_ext.build_extension(torch_mpi_lib_v2)
+
+    # Revert to the default compiler settings
+    customize_compiler(build_ext.compiler)
 
 
 def build_cmake(build_ext, ext, output_dir, options):
@@ -1153,14 +1172,14 @@ class custom_build_ext(build_ext):
         options['LIBRARY_DIRS'] += [lib_output_dir]
 
         if is_mac:
-            print('INFO: Submodule Gloo cannot compile on MacOS, skip compiling'
-                ' Gloo.')
+            print('INFO: Submodule Gloo cannot compile on MacOS, skip compiling '
+                  'Gloo.')
         elif not have_cmake:
             # TODO: install cmake in local environment after entry point issue
             #  has some updates.
             #  https://github.com/scikit-build/cmake-python-distributions/issues/80
             print('INFO: Submodule Gloo cannot compile without CMake, '
-                'skip compiling Gloo.')
+                  'skip compiling Gloo.')
         else:
             build_cmake(self, gloo_lib, lib_output_dir, options)
 
