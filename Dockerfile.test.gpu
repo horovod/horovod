@@ -28,7 +28,7 @@ RUN apt-get install -y --allow-downgrades --allow-change-held-packages --no-inst
         openssh-client \
         git \
         build-essential \
-        g++-4.8.5 \
+        g++-4.8 \
         libcudnn7=${CUDNN_VERSION} \
         libnccl2=${NCCL_VERSION_OVERRIDE} \
         libnccl-dev=${NCCL_VERSION_OVERRIDE}

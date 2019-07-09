@@ -24,7 +24,7 @@ RUN apt-get install -y --no-install-recommends \
         openssh-client \
         git \
         build-essential \
-        g++-4.8.5
+        g++-4.8
 
 # Install Python.
 RUN apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev
