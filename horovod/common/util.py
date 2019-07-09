@@ -49,6 +49,11 @@ def check_extension(ext_name, ext_env_var, pkg_path, *args):
 
 @contextmanager
 def env(**kwargs):
+    # ignore args with None values
+    for k in list(kwargs.keys()):
+        if kwargs[k] is None:
+            del kwargs[k]
+
     # backup environment
     backup = {}
     for k in kwargs.keys():
@@ -57,11 +62,13 @@ def env(**kwargs):
     # set new values & yield
     for k, v in kwargs.items():
         os.environ[k] = v
-    yield
 
-    # restore environment
-    for k in kwargs.keys():
-        if backup[k] is not None:
-            os.environ[k] = backup[k]
-        else:
-            del os.environ[k]
+    try:
+        yield
+    finally:
+        # restore environment
+        for k in kwargs.keys():
+            if backup[k] is not None:
+                os.environ[k] = backup[k]
+            else:
+                del os.environ[k]

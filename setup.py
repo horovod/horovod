@@ -699,13 +699,12 @@ def find_gxx_in_path():
 
                     try:
                         compiler_macros = subprocess.check_output(
-                            [compiler, '-dM', '-E', '-'],
-                            stdin=subprocess.DEVNULL,
-                            universal_newlines=True).split('\n')
+                            '%s -dM -E - </dev/null' % compiler,
+                            shell=True, universal_newlines=True).split('\n')
                         for m in compiler_macros:
-                            if m.startswith('#define __VERSION__ '):
-                                version_string = m.split(' ')[-1].strip('"')
-                                compiler_version = LooseVersion(version_string)
+                            version_match = re.match('^#define __VERSION__ "(.*?)"$', m)
+                            if version_match:
+                                compiler_version = LooseVersion(version_match.group(1))
                                 break
                     except subprocess.CalledProcessError:
                         print('INFO: Unable to determine version of the compiler %s.\n%s'
@@ -720,18 +719,23 @@ def find_gxx_in_path():
 def remove_offensive_gxx_compiler_options(compiler_version):
     offensive_replacements = dict()
     if compiler_version < LooseVersion('4.9'):
-        offensive_replacements = {'-Wdate-time': ''}
+        offensive_replacements = {
+            '-Wdate-time': '',
+            '-fstack-protector-strong': '-fstack-protector'
+        }
 
     if offensive_replacements:
-        from sysconfig import get_config_vars
-        # Assert that config vars are cached and thus can be mutated
-        assert id(get_config_vars()) == id(get_config_vars())
+        from sysconfig import get_config_var
+        cflags = get_config_var('CONFIGURE_CFLAGS')
+        cppflags = get_config_var('CONFIGURE_CPPFLAGS')
 
-        config_vars = get_config_vars()
-        for rep_key, rep_value in offensive_replacements.items():
-            for var_key, var_value in config_vars.items():
-                if type(var_value) == str:
-                    config_vars[var_key] = var_value.replace(rep_key, rep_value)
+        for k, v in offensive_replacements.items():
+            cflags = cflags.replace(k, v)
+            cppflags = cppflags.replace(k, v)
+
+        return cflags, cppflags
+
+    return None, None
 
 
 def build_tf_extension(build_ext, options):
@@ -749,7 +753,7 @@ def build_tf_extension(build_ext, options):
     tensorflow_mpi_lib.library_dirs = options['LIBRARY_DIRS']
     tensorflow_mpi_lib.libraries = options['LIBRARIES']
 
-    compiler = None
+    compiler = cflags = cppflags = None
     if sys.platform.startswith('linux') and not os.getenv('CC') and not os.getenv('CXX'):
         # Determine g++ version compatible with this TensorFlow installation
         import tensorflow as tf
@@ -768,10 +772,10 @@ def build_tf_extension(build_ext, options):
         compiler_version = LooseVersion('0')
         for candidate_compiler, candidate_compiler_version in find_gxx_in_path():
             if candidate_compiler_version >= tf_compiler_version and \
-                    candidate_compiler_version < maximum_compiler_version and \
-                    candidate_compiler_version > compiler_version:
-                compiler = candidate_compiler
-                compiler_version = candidate_compiler_version
+                    candidate_compiler_version < maximum_compiler_version:
+                if candidate_compiler_version > compiler_version:
+                    compiler = candidate_compiler
+                    compiler_version = candidate_compiler_version
             else:
                 print('INFO: Compiler %s (version %s) is not usable for this TensorFlow '
                       'installation. Require g++ (version >=%s, <%s).' %
@@ -787,10 +791,10 @@ def build_tf_extension(build_ext, options):
                 'Please check Horovod website for recommended compiler versions.\n'
                 'To force a specific compiler version, set CC and CXX environment variables.')
 
-        remove_offensive_gxx_compiler_options(compiler_version)
+        cflags, cppflags = remove_offensive_gxx_compiler_options(compiler_version)
 
     try:
-        with env(CC=compiler or os.getenv('CC'), CXX=compiler or os.getenv('CXX')):
+        with env(CC=compiler, CXX=compiler, CFLAGS=cflags, CPPFLAGS=cppflags):
             customize_compiler(build_ext.compiler)
             build_ext.build_extension(tensorflow_mpi_lib)
     finally:
@@ -1115,17 +1119,17 @@ def build_torch_extension_v2(build_ext, options, torch_version):
     for k, v in ext.__dict__.items():
         torch_mpi_lib_v2.__dict__[k] = v
 
-    compiler = None
+    compiler = cflags = cppflags = None
     if sys.platform.startswith('linux') and not os.getenv('CC') and not os.getenv('CXX'):
         from torch.utils.cpp_extension import check_compiler_abi_compatibility
 
         # Find the compatible compiler of the highest version
         compiler_version = LooseVersion('0')
         for candidate_compiler, candidate_compiler_version in find_gxx_in_path():
-            if check_compiler_abi_compatibility(candidate_compiler) and \
-                    candidate_compiler_version > compiler_version:
-                compiler = candidate_compiler
-                compiler_version = candidate_compiler_version
+            if check_compiler_abi_compatibility(candidate_compiler):
+                if candidate_compiler_version > compiler_version:
+                    compiler = candidate_compiler
+                    compiler_version = candidate_compiler_version
             else:
                 print('INFO: Compiler %s (version %s) is not usable for this PyTorch '
                       'installation, see the warning above.' %
@@ -1140,10 +1144,10 @@ def build_torch_extension_v2(build_ext, options, torch_version):
                 'Please check Horovod website for recommended compiler versions.\n'
                 'To force a specific compiler version, set CC and CXX environment variables.')
 
-        remove_offensive_gxx_compiler_options(compiler_version)
+        cflags, cppflags = remove_offensive_gxx_compiler_options(compiler_version)
 
     try:
-        with env(CC=compiler or os.getenv('CC'), CXX=compiler or os.getenv('CXX')):
+        with env(CC=compiler, CXX=compiler, CFLAGS=cflags, CPPFLAGS=cppflags):
             customize_compiler(build_ext.compiler)
             build_ext.build_extension(torch_mpi_lib_v2)
     finally:
