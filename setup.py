@@ -686,61 +686,53 @@ def get_common_options(build_ext):
                 LIBRARIES=LIBRARIES)
 
 
-def find_gxx_compiler_in_path():
-    compilers = []
-
+def enumerate_binaries_in_path():
     for path_dir in os.getenv('PATH', '').split(':'):
         if os.path.isdir(path_dir):
             for bin_file in sorted(os.listdir(path_dir)):
-                if re.match('^g\\+\\+(?:-\\d+(?:\\.\\d+)?)?$', bin_file):
-                    # g++, or g++-7, or g++-4.9
-                    compiler = os.path.join(path_dir, bin_file)
-                    compiler_version = None
+                yield path_dir, bin_file
 
-                    try:
-                        compiler_macros = subprocess.check_output(
-                            '%s -dM -E - </dev/null' % compiler,
-                            shell=True, universal_newlines=True).split('\n')
-                        for m in compiler_macros:
-                            version_match = re.match('^#define __VERSION__ "(.*?)"$', m)
-                            if version_match:
-                                compiler_version = LooseVersion(version_match.group(1))
-                                break
-                    except subprocess.CalledProcessError:
-                        print('INFO: Unable to determine version of the compiler %s.\n%s'
-                              '' % (compiler, traceback.format_exc()))
-                        continue
 
-                    compilers.append((compiler, compiler_version))
+def determine_gcc_version(compiler):
+    try:
+        compiler_macros = subprocess.check_output(
+            '%s -dM -E - </dev/null' % compiler,
+            shell=True, universal_newlines=True).split('\n')
+        for m in compiler_macros:
+            version_match = re.match('^#define __VERSION__ "(.*?)"$', m)
+            if version_match:
+                return LooseVersion(version_match.group(1))
+        print('INFO: Unable to determine version of the compiler %s.' % compiler)
+
+    except subprocess.CalledProcessError:
+        print('INFO: Unable to determine version of the compiler %s.\n%s'
+              '' % (compiler, traceback.format_exc()))
+
+    return None
+
+
+def find_gxx_compiler_in_path():
+    compilers = []
+
+    for path_dir, bin_file in enumerate_binaries_in_path():
+        if re.match('^g\\+\\+(?:-\\d+(?:\\.\\d+)?)?$', bin_file):
+            # g++, or g++-7, or g++-4.9
+            compiler = os.path.join(path_dir, bin_file)
+            compiler_version = determine_gcc_version(compiler)
+            if compiler_version:
+                compilers.append((compiler, compiler_version))
 
     return compilers
 
 
 def find_matching_gcc_compiler_path(gxx_compiler_version):
-    for path_dir in os.getenv('PATH', '').split(':'):
-        if os.path.isdir(path_dir):
-            for bin_file in sorted(os.listdir(path_dir)):
-                if re.match('^gcc(?:-\\d+(?:\\.\\d+)?)?$', bin_file):
-                    # gcc, or gcc-7, or gcc-4.9
-                    compiler = os.path.join(path_dir, bin_file)
-                    compiler_version = None
-
-                    try:
-                        compiler_macros = subprocess.check_output(
-                            '%s -dM -E - </dev/null' % compiler,
-                            shell=True, universal_newlines=True).split('\n')
-                        for m in compiler_macros:
-                            version_match = re.match('^#define __VERSION__ "(.*?)"$', m)
-                            if version_match:
-                                compiler_version = LooseVersion(version_match.group(1))
-                                break
-                    except subprocess.CalledProcessError:
-                        print('INFO: Unable to determine version of the compiler %s.\n%s'
-                              '' % (compiler, traceback.format_exc()))
-                        continue
-
-                    if compiler_version == gxx_compiler_version:
-                        return compiler
+    for path_dir, bin_file in enumerate_binaries_in_path():
+        if re.match('^gcc(?:-\\d+(?:\\.\\d+)?)?$', bin_file):
+            # gcc, or gcc-7, or gcc-4.9
+            compiler = os.path.join(path_dir, bin_file)
+            compiler_version = determine_gcc_version(compiler)
+            if compiler_version == gxx_compiler_version:
+                return compiler
 
     print('INFO: Unable to find gcc compiler (version %s).'  % gxx_compiler_version)
     return None
@@ -810,7 +802,7 @@ def build_tf_extension(build_ext, options):
                     candidate_compiler_version < maximum_compiler_version:
                 candidate_cc_compiler = \
                     find_matching_gcc_compiler_path(candidate_compiler_version)
-                if candidate_compiler_version > compiler_version:
+                if candidate_cc_compiler and candidate_compiler_version > compiler_version:
                     cc_compiler = candidate_cc_compiler
                     cxx_compiler = candidate_cxx_compiler
                     compiler_version = candidate_compiler_version
@@ -1165,10 +1157,10 @@ def build_torch_extension_v2(build_ext, options, torch_version):
         # Find the compatible compiler of the highest version
         compiler_version = LooseVersion('0')
         for candidate_cxx_compiler, candidate_compiler_version in find_gxx_compiler_in_path():
-            if check_compiler_abi_compatibility(candidate_compiler):
+            if check_compiler_abi_compatibility(candidate_cxx_compiler):
                 candidate_cc_compiler = \
                     find_matching_gcc_compiler_path(candidate_compiler_version)
-                if candidate_compiler_version > compiler_version:
+                if candidate_cc_compiler and candidate_compiler_version > compiler_version:
                     cc_compiler = candidate_cc_compiler
                     cxx_compiler = candidate_cxx_compiler
                     compiler_version = candidate_compiler_version
