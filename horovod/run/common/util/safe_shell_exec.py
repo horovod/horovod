@@ -20,7 +20,7 @@ import subprocess
 import sys
 import threading
 import time
-
+import six
 
 GRACEFUL_TERMINATION_TIME_S = 5
 
@@ -62,7 +62,7 @@ def forward_stream(src_fd, dst_stream):
             dst_stream.flush()
 
 
-def execute(command, env=None, stdout=None, stderr=None):
+def execute(command, env=None, stdout=None, stderr=None, disable_stdin=False):
     # Make a pipe for the subprocess stdout/stderr.
     (stdout_r, stdout_w) = os.pipe()
     (stderr_r, stderr_w) = os.pipe()
@@ -76,8 +76,9 @@ def execute(command, env=None, stdout=None, stderr=None):
         os.close(w)
         os.setsid()
 
+        subproc_stdin = subprocess.DEVNULL if disable_stdin else None
         executor_shell = subprocess.Popen(command, shell=True, env=env,
-                                          stdout=stdout_w, stderr=stderr_w)
+                                          stdin=subproc_stdin, stdout=stdout_w, stderr=stderr_w)
 
         sigterm_received = threading.Event()
 
@@ -142,3 +143,16 @@ def execute(command, env=None, stdout=None, stderr=None):
     stderr_fwd.join()
     exit_code = status >> 8
     return exit_code
+
+
+def execute_swallow_output(command, env=None, swallow_exception=False):
+    output = six.StringIO()
+    exit_code = execute(command, stdout=output, stderr=output, env=env,
+                        disable_stdin=True)
+    if exit_code != 0 and not swallow_exception:
+        output_msg = output.getvalue()
+        if not isinstance(command, six.string_types):
+            command = " ".join(command)
+        raise RuntimeError("Run command {cmd} failed, exit code is {exit_code},"
+                           "output message is {msg}"
+                           .format(cmd=command, exit_code=exit_code, msg=output_msg))

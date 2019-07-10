@@ -19,7 +19,7 @@ import tempfile
 import os
 import sys
 import six
-import subprocess
+import shutil
 import textwrap
 
 from horovod.run.common.util import safe_shell_exec
@@ -46,7 +46,10 @@ def run_func(
     Run horovod inside python program.
     Run `num_proc` processes executing `fn` on specified hosts.
 
-    :param fn: Function to run.
+    :param fn: Function to run. The function take no arguments and its return value will be
+               collected and return by `run_func`.
+               We can use a lambda function to wrap functions with arguments, such as:
+               `run_func(fn=lambda: fn1(arg1, arg2, ..), num_proc=2, ...)`
     :param num_proc: Number of Horovod processes.
     :param host: To specify the list of host names as well as the
                  number of available slots on each host for
@@ -76,124 +79,133 @@ def run_func(
              corresponds to the returned result of rank i process.
     """
 
-    wdir = tempfile.mkdtemp()
-    if verbose:
-        print("horovod.run_func working dir is " + wdir)
+    try:
+        wdir = tempfile.mkdtemp()
+        if verbose:
+            print("horovod.run_func working dir is " + wdir)
 
-    if ssh_port:
-        ssh_port_opt = "-p " + str(ssh_port)
-        scp_port_opt = "-P " + str(ssh_port)
-    else:
-        ssh_port_opt = ""
-        scp_port_opt = ""
+        if ssh_port:
+            ssh_port_opt = "-p " + str(ssh_port)
+            scp_port_opt = "-P " + str(ssh_port)
+        else:
+            ssh_port_opt = ""
+            scp_port_opt = ""
 
-    def wrapped_proc_fn(rank=0):
-        return_value = fn()
+        def wrapped_proc_fn(rank=0):
+            return_value = fn()
 
-        result_file = "{prefix}.{rank}".format(prefix=_PICKLED_RESULT_PREFIX, rank=rank)
-        with open(result_file, 'wb') as fp:
+            result_file = "{prefix}.{rank}".format(prefix=_PICKLED_RESULT_PREFIX, rank=rank)
+            with open(result_file, 'wb') as fp:
+                try:
+                    cloudpickle.dump(return_value, fp)
+                except Exception as e:
+                    raise RuntimeError("Caught an excpetion while pickling "
+                                       "return value: {}".format(str(return_value)), e)
+
+        local_pickled_proc_fn_path = os.path.join(wdir, _LOCAL_PICKLED_PROC_FN_FILENAME)
+        with open(local_pickled_proc_fn_path, 'wb') as fp:
             try:
-                cloudpickle.dump(return_value, fp)
+                cloudpickle.dump(wrapped_proc_fn, fp)
             except Exception as e:
                 raise RuntimeError("Caught an excpetion while pickling "
-                                   "return value: {}".format(type(e)), e)
+                                   "wrapped fn: {}".format(str(wrapped_proc_fn)), e)
 
-    pickled_proc_fn_str = cloudpickle.dumps(wrapped_proc_fn)
-    local_pickled_proc_fn_path = os.path.join(wdir, _LOCAL_PICKLED_PROC_FN_FILENAME)
-    with open(local_pickled_proc_fn_path, 'wb') as f:
-        f.write(pickled_proc_fn_str)
+        local_launcher_path = os.path.join(wdir, _LOCAL_PROC_LAUNCHER_FILENAME)
+        with open(local_launcher_path, 'w') as f:
+            f.write(textwrap.dedent("""
+            set -e
+            cd "{wdir}"
+            rank=${{OMPI_COMM_WORLD_RANK:-0}}
+            {python_exec} -c \
+            "import cloudpickle; cloudpickle.load(open('{fn_file}', 'rb'))(rank=$rank)"
+            """.format(wdir=wdir,
+                       python_exec=sys.executable,
+                       fn_file=_PICKLED_PROC_FN_FILENAME)))
 
-    local_launcher_path = os.path.join(wdir, _LOCAL_PROC_LAUNCHER_FILENAME)
-    with open(local_launcher_path, 'w') as f:
-        f.write(textwrap.dedent("""
-        set -e
-        cd {wdir}
-        rank=${{OMPI_COMM_WORLD_RANK:-0}}
-        {exec_path} -c "import cloudpickle; cloudpickle.load(open('{fn_file}', 'rb'))(rank=$rank)"
-        """.format(wdir=wdir,
-                   exec_path=sys.executable,
-                   fn_file=_PICKLED_PROC_FN_FILENAME)))
+        if host is not None:
+            all_host_names = set(x.split(':')[0] for x in host.split(','))
+        else:
+            # If host is None, launch all MPI processes on local node.
+            all_host_names = ['127.0.0.1']
 
-    if host is None:
-        host = "localhost:{np}".format(np=num_proc)
+        # copy pickled function and launcher script to all hosts via scp
+        # TODO: parallelize the scp copy, note that when scp in parallel, there could be
+        #       race conditions because different hosts might have the same NFS mount.
+        for hostname in all_host_names:
+            scp_cmd = textwrap.dedent(
+                """
+                ssh {ssh_port_opt} -o StrictHostKeyChecking=no {hostname} mkdir -p {wdir} && \
+                scp -r -q {scp_port_opt} -o StrictHostKeyChecking=no \
+                {wdir}/{local_fn_file} {hostname}:{wdir}/{fn_file} && \
+                scp -r -q {scp_port_opt} -o StrictHostKeyChecking=no \
+                {wdir}/{local_launcher} {hostname}:{wdir}/{launcher}
+                """).format(ssh_port_opt=ssh_port_opt, scp_port_opt=scp_port_opt,
+                            wdir=wdir, hostname=hostname,
+                            local_fn_file=_LOCAL_PICKLED_PROC_FN_FILENAME,
+                            fn_file=_PICKLED_PROC_FN_FILENAME,
+                            local_launcher=_LOCAL_PROC_LAUNCHER_FILENAME,
+                            launcher=_PROC_LAUNCHER_FILENAME)
 
-    all_host_names = set(x.split(':')[0] for x in host.split(','))
+            safe_shell_exec.execute_swallow_output(scp_cmd)
 
-    # copy pickled function and launcher script to all hosts via scp
-    # TODO: parallelize the scp copy
-    for hostname in all_host_names:
-        scp_cmd = textwrap.dedent(
-            """
-            ssh {ssh_port_opt} -o StrictHostKeyChecking=no {hostname} mkdir -p {wdir} && \
-            scp -r -q {scp_port_opt} -o StrictHostKeyChecking=no \
-            {wdir}/{local_fn_file} {hostname}:{wdir}/{fn_file} && \
-            scp -r -q {scp_port_opt} -o StrictHostKeyChecking=no \
-            {wdir}/{local_launcher} {hostname}:{wdir}/{launcher}
-            """).format(ssh_port_opt=ssh_port_opt, scp_port_opt=scp_port_opt,
-                        wdir=wdir, hostname=hostname,
-                        local_fn_file=_LOCAL_PICKLED_PROC_FN_FILENAME,
-                        fn_file=_PICKLED_PROC_FN_FILENAME,
-                        local_launcher=_LOCAL_PROC_LAUNCHER_FILENAME,
-                        launcher=_PROC_LAUNCHER_FILENAME)
+        cmd = ["horovodrun", "-np", str(num_proc)]
+        if ssh_port:
+            cmd += ["-p", str(ssh_port)]
+        if host:
+            cmd += ["-H", str(host)]
+        if disable_cache:
+            cmd += ["--disable-cache"]
+        if start_timeout:
+            cmd += ["--start-timeout", str(start_timeout)]
+        if verbose:
+            cmd += ["--verbose"]
 
-        output = six.StringIO()
-        exit_code = safe_shell_exec.execute(scp_cmd, stdout=output, stderr=output)
+        cmd += ["bash", os.path.join(wdir, _PROC_LAUNCHER_FILENAME)]
+
+        if verbose:
+            print("Run command: " + " ".join(cmd))
+
+        if env is None:
+            env = os.environ
+
+        exit_code = safe_shell_exec.execute(cmd, stdout=sys.stdout, stderr=sys.stderr,
+                                            env=env, disable_stdin=True)
         if exit_code != 0:
-            output_msg = output.getvalue()
-            raise RuntimeError("Copy pickled function and launcher script to host "
-                               "{hostname} failed. Error message is {msg}."
-                               .format(hostname=hostname, msg=output_msg))
+            raise RuntimeError("Executing command {cmd} failed, exit code is {exit_code}"
+                               .format(cmd=" ".join(cmd), exit_code=exit_code))
 
-    cmd = ["horovodrun", "-np", str(num_proc)]
-    if ssh_port:
-        cmd += ["-p", str(ssh_port)]
-    if host:
-        cmd += ["-H", str(host)]
-    if disable_cache:
-        cmd += ["--disable-cache"]
-    if start_timeout:
-        cmd += ["--start-timeout", str(start_timeout)]
-    if verbose:
-        cmd += ["--verbose"]
+        # copy result file back via scp
+        # TODO: parallelize the scp copy, and if different hosts might have the same NFS mount,
+        #       avoid copying back the same result files multiple times.
+        for hostname in all_host_names:
+            scp_cmd = textwrap.dedent(
+                """
+                mkdir -p {wdir}/result
+                scp -r -q {scp_port_opt} -o StrictHostKeyChecking=no \
+                {hostname}:{wdir}/{prefix}.* {wdir}/result/
+                """).format(scp_port_opt=scp_port_opt, wdir=wdir,
+                            hostname=hostname, prefix=_PICKLED_RESULT_PREFIX)
 
-    cmd += ["bash", os.path.join(wdir, _PROC_LAUNCHER_FILENAME)]
+            safe_shell_exec.execute_swallow_output(scp_cmd)
 
-    if verbose:
-        print("Run command: " + " ".join(cmd))
-
-    if env is None:
-        env = os.environ
-
-    # close stdin for sub-process, avoid sub-process to read data from stdin.
-    subprocess.check_call(cmd, stdin=subprocess.DEVNULL, env=env)
-
-    # copy result file back via scp
-    # TODO: parallelize the scp copy
-    for hostname in all_host_names:
-        scp_cmd = textwrap.dedent(
-            """
-            mkdir -p {wdir}/result
-            scp -r -q {scp_port_opt} -o StrictHostKeyChecking=no \
-            {hostname}:{wdir}/{prefix}.* {wdir}/result/
-            """).format(scp_port_opt=scp_port_opt, wdir=wdir,
-                        hostname=hostname, prefix=_PICKLED_RESULT_PREFIX)
-
-        output = six.StringIO()
-        exit_code = safe_shell_exec.execute(scp_cmd, stdout=output, stderr=output)
-        if exit_code != 0:
-            output_msg = output.getvalue()
-            raise RuntimeError("Copy result file from host {hostname} failed."
-                               "Error message is {msg}."
-                               .format(hostname=hostname, msg=output_msg))
-
-    results = [None] * num_proc
-
-    for i in range(num_proc):
-        result_path = "{wdir}/result/{prefix}.{rank}".format(
-            wdir=wdir, prefix=_PICKLED_RESULT_PREFIX, rank=i)
-        with open(result_path, 'rb') as f:
-            result_bytes = f.read()
-        results[i] = cloudpickle.loads(result_bytes)
-
-    return results
+        results = [None] * num_proc
+        for i in range(num_proc):
+            result_path = "{wdir}/result/{prefix}.{rank}".format(
+                wdir=wdir, prefix=_PICKLED_RESULT_PREFIX, rank=i)
+            try:
+                with open(result_path, 'rb') as fp:
+                    results[i] = cloudpickle.loads(fp)
+            except Exception as e:
+                raise RuntimeError("Caught an excpetion while loading pickled results file: "
+                                   "{}".format(result_path), e)
+        return results
+    finally:
+        # cleanup working dir on each node.
+        # do local cleanup first.
+        # In case ssh broken we can cleanup locally.
+        shutil.rmtree(wdir)
+        for hostname in all_host_names:
+            ssh_del_cmd = "ssh {ssh_port_opt} -o StrictHostKeyChecking=no " \
+                          "{hostname} rm -rf {wdir}".format(hostname=hostname, wdir=wdir)
+            safe_shell_exec.execute_swallow_output(ssh_del_cmd, swallow_exception=True)
 
