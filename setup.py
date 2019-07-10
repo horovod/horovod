@@ -715,8 +715,8 @@ def find_gxx_compiler_in_path():
     compilers = []
 
     for path_dir, bin_file in enumerate_binaries_in_path():
-        if re.match('^g\\+\\+(?:-\\d+(?:\\.\\d+)?)?$', bin_file):
-            # g++, or g++-7, or g++-4.9
+        if re.match('^g\\+\\+(?:-\\d+(?:\\.\\d+)*)?$', bin_file):
+            # g++, or g++-7, g++-4.9, or g++-4.8.5
             compiler = os.path.join(path_dir, bin_file)
             compiler_version = determine_gcc_version(compiler)
             if compiler_version:
@@ -727,8 +727,8 @@ def find_gxx_compiler_in_path():
 
 def find_matching_gcc_compiler_path(gxx_compiler_version):
     for path_dir, bin_file in enumerate_binaries_in_path():
-        if re.match('^gcc(?:-\\d+(?:\\.\\d+)?)?$', bin_file):
-            # gcc, or gcc-7, or gcc-4.9
+        if re.match('^gcc(?:-\\d+(?:\\.\\d+)*)?$', bin_file):
+            # gcc, or gcc-7, gcc-4.9, or gcc-4.8.5
             compiler = os.path.join(path_dir, bin_file)
             compiler_version = determine_gcc_version(compiler)
             if compiler_version == gxx_compiler_version:
