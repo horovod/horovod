@@ -686,37 +686,59 @@ def get_common_options(build_ext):
                 LIBRARIES=LIBRARIES)
 
 
-def find_gxx_in_path():
-    compilers = []
-
+def enumerate_binaries_in_path():
     for path_dir in os.getenv('PATH', '').split(':'):
         if os.path.isdir(path_dir):
-            for bin_file in os.listdir(path_dir):
-                if re.match('^g\\+\\+(?:-\\d+(?:\\.\\d+)?)?$', bin_file):
-                    # g++, or g++-7, or g++-4.9
-                    compiler = os.path.join(path_dir, bin_file)
-                    compiler_version = None
+            for bin_file in sorted(os.listdir(path_dir)):
+                yield path_dir, bin_file
 
-                    try:
-                        compiler_macros = subprocess.check_output(
-                            '%s -dM -E - </dev/null' % compiler,
-                            shell=True, universal_newlines=True).split('\n')
-                        for m in compiler_macros:
-                            version_match = re.match('^#define __VERSION__ "(.*?)"$', m)
-                            if version_match:
-                                compiler_version = LooseVersion(version_match.group(1))
-                                break
-                    except subprocess.CalledProcessError:
-                        print('INFO: Unable to determine version of the compiler %s.\n%s'
-                              '' % (compiler, traceback.format_exc()))
-                        continue
 
-                    compilers.append((compiler, compiler_version))
+def determine_gcc_version(compiler):
+    try:
+        compiler_macros = subprocess.check_output(
+            '%s -dM -E - </dev/null' % compiler,
+            shell=True, universal_newlines=True).split('\n')
+        for m in compiler_macros:
+            version_match = re.match('^#define __VERSION__ "(.*?)"$', m)
+            if version_match:
+                return LooseVersion(version_match.group(1))
+        print('INFO: Unable to determine version of the compiler %s.' % compiler)
+
+    except subprocess.CalledProcessError:
+        print('INFO: Unable to determine version of the compiler %s.\n%s'
+              '' % (compiler, traceback.format_exc()))
+
+    return None
+
+
+def find_gxx_compiler_in_path():
+    compilers = []
+
+    for path_dir, bin_file in enumerate_binaries_in_path():
+        if re.match('^g\\+\\+(?:-\\d+(?:\\.\\d+)*)?$', bin_file):
+            # g++, or g++-7, g++-4.9, or g++-4.8.5
+            compiler = os.path.join(path_dir, bin_file)
+            compiler_version = determine_gcc_version(compiler)
+            if compiler_version:
+                compilers.append((compiler, compiler_version))
 
     return compilers
 
 
-def remove_offensive_gxx_compiler_options(compiler_version):
+def find_matching_gcc_compiler_path(gxx_compiler_version):
+    for path_dir, bin_file in enumerate_binaries_in_path():
+        if re.match('^gcc(?:-\\d+(?:\\.\\d+)*)?$', bin_file):
+            # gcc, or gcc-7, gcc-4.9, or gcc-4.8.5
+            compiler = os.path.join(path_dir, bin_file)
+            compiler_version = determine_gcc_version(compiler)
+            if compiler_version == gxx_compiler_version:
+                return compiler
+
+    print('INFO: Unable to find gcc compiler (version %s).'  % gxx_compiler_version)
+    return None
+
+
+def remove_offensive_gcc_compiler_options(compiler_version):
     offensive_replacements = dict()
     if compiler_version < LooseVersion('4.9'):
         offensive_replacements = {
@@ -756,7 +778,7 @@ def build_tf_extension(build_ext, options):
     tensorflow_mpi_lib.library_dirs = options['LIBRARY_DIRS']
     tensorflow_mpi_lib.libraries = options['LIBRARIES']
 
-    compiler = cflags = cppflags = None
+    cc_compiler = cxx_compiler = cflags = cppflags = None
     if sys.platform.startswith('linux') and not os.getenv('CC') and not os.getenv('CXX'):
         # Determine g++ version compatible with this TensorFlow installation
         import tensorflow as tf
@@ -775,31 +797,34 @@ def build_tf_extension(build_ext, options):
 
         # Find the compatible compiler of the highest version
         compiler_version = LooseVersion('0')
-        for candidate_compiler, candidate_compiler_version in find_gxx_in_path():
+        for candidate_cxx_compiler, candidate_compiler_version in find_gxx_compiler_in_path():
             if candidate_compiler_version >= tf_compiler_version and \
                     candidate_compiler_version < maximum_compiler_version:
-                if candidate_compiler_version > compiler_version:
-                    compiler = candidate_compiler
+                candidate_cc_compiler = \
+                    find_matching_gcc_compiler_path(candidate_compiler_version)
+                if candidate_cc_compiler and candidate_compiler_version > compiler_version:
+                    cc_compiler = candidate_cc_compiler
+                    cxx_compiler = candidate_cxx_compiler
                     compiler_version = candidate_compiler_version
             else:
                 print('INFO: Compiler %s (version %s) is not usable for this TensorFlow '
                       'installation. Require g++ (version >=%s, <%s).' %
-                      (candidate_compiler, candidate_compiler_version,
+                      (candidate_cxx_compiler, candidate_compiler_version,
                        tf_compiler_version, maximum_compiler_version))
 
-        if compiler:
-            print('INFO: Compiler %s (version %s) selected for TensorFlow plugin build.'
-                  '' % (compiler, compiler_version))
+        if cc_compiler:
+            print('INFO: Compilers %s and %s (version %s) selected for TensorFlow plugin build.'
+                  '' % (cc_compiler, cxx_compiler, compiler_version))
         else:
             raise DistutilsPlatformError(
                 'Could not find compiler compatible with this TensorFlow installation.\n'
                 'Please check the Horovod website for recommended compiler versions.\n'
                 'To force a specific compiler version, set CC and CXX environment variables.')
 
-        cflags, cppflags, ldshared = remove_offensive_gxx_compiler_options(compiler_version)
+        cflags, cppflags, ldshared = remove_offensive_gcc_compiler_options(compiler_version)
 
     try:
-        with env(CC=compiler, CXX=compiler, CFLAGS=cflags, CPPFLAGS=cppflags,
+        with env(CC=cc_compiler, CXX=cxx_compiler, CFLAGS=cflags, CPPFLAGS=cppflags,
                  LDSHARED=ldshared):
             customize_compiler(build_ext.compiler)
             build_ext.build_extension(tensorflow_mpi_lib)
@@ -1125,35 +1150,38 @@ def build_torch_extension_v2(build_ext, options, torch_version):
     for k, v in ext.__dict__.items():
         torch_mpi_lib_v2.__dict__[k] = v
 
-    compiler = cflags = cppflags = None
+    cc_compiler = cxx_compiler = cflags = cppflags = None
     if sys.platform.startswith('linux') and not os.getenv('CC') and not os.getenv('CXX'):
         from torch.utils.cpp_extension import check_compiler_abi_compatibility
 
         # Find the compatible compiler of the highest version
         compiler_version = LooseVersion('0')
-        for candidate_compiler, candidate_compiler_version in find_gxx_in_path():
-            if check_compiler_abi_compatibility(candidate_compiler):
-                if candidate_compiler_version > compiler_version:
-                    compiler = candidate_compiler
+        for candidate_cxx_compiler, candidate_compiler_version in find_gxx_compiler_in_path():
+            if check_compiler_abi_compatibility(candidate_cxx_compiler):
+                candidate_cc_compiler = \
+                    find_matching_gcc_compiler_path(candidate_compiler_version)
+                if candidate_cc_compiler and candidate_compiler_version > compiler_version:
+                    cc_compiler = candidate_cc_compiler
+                    cxx_compiler = candidate_cxx_compiler
                     compiler_version = candidate_compiler_version
             else:
                 print('INFO: Compiler %s (version %s) is not usable for this PyTorch '
                       'installation, see the warning above.' %
-                      (candidate_compiler, candidate_compiler_version))
+                      (candidate_cxx_compiler, candidate_compiler_version))
 
-        if compiler:
-            print('INFO: Compiler %s (version %s) selected for PyTorch plugin build.'
-                  '' % (compiler, compiler_version))
+        if cc_compiler:
+            print('INFO: Compilers %s and %s (version %s) selected for PyTorch plugin build.'
+                  '' % (cc_compiler, cxx_compiler, compiler_version))
         else:
             raise DistutilsPlatformError(
                 'Could not find compiler compatible with this PyTorch installation.\n'
                 'Please check the Horovod website for recommended compiler versions.\n'
                 'To force a specific compiler version, set CC and CXX environment variables.')
 
-        cflags, cppflags, ldshared = remove_offensive_gxx_compiler_options(compiler_version)
+        cflags, cppflags, ldshared = remove_offensive_gcc_compiler_options(compiler_version)
 
     try:
-        with env(CC=compiler, CXX=compiler, CFLAGS=cflags, CPPFLAGS=cppflags,
+        with env(CC=cc_compiler, CXX=cxx_compiler, CFLAGS=cflags, CPPFLAGS=cppflags,
                  LDSHARED=ldshared):
             customize_compiler(build_ext.compiler)
             build_ext.build_extension(torch_mpi_lib_v2)
