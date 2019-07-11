@@ -828,7 +828,6 @@ def build_tf_extension(build_ext, options):
     try:
         with env(CC=cc_compiler, CXX=cxx_compiler, CFLAGS=cflags, CPPFLAGS=cppflags,
                  LDSHARED=ldshared):
-
             if options['BUILD_GLOO']:
                 build_cmake(build_ext, gloo_lib, 'tf', tensorflow_mpi_lib)
             customize_compiler(build_ext.compiler)
@@ -905,13 +904,11 @@ def is_mx_cuda():
 
 
 def build_mx_extension(build_ext, global_options):
-
     # Backup the options, preventing other plugins access libs that
     # compiled with compiler of this plugin
     options = deepcopy(global_options)
 
     # First build gloo
-
     if options['BUILD_GLOO']:
         build_cmake(build_ext, gloo_lib, 'mxnet', options=options)
 
@@ -1052,7 +1049,6 @@ class protect_files(object):
 
 
 def build_torch_extension(build_ext, global_options, torch_version):
-
     # Backup the options, preventing other plugins access libs that
     # compiled with compiler of this plugin
     options = deepcopy(global_options)
