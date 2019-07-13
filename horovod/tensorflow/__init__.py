@@ -92,7 +92,7 @@ def _make_broadcast_group_fn():
     else:
         # Graph mode requires an Op
         def broadcast_group(variables, root_rank):
-            return tf.group(*[tf.assign(var, broadcast(var, root_rank))
+            return tf.group(*[var.assign(broadcast(var, root_rank))
                               for var in variables])
 
         return broadcast_group
