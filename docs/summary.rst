@@ -284,6 +284,23 @@ You can check for MPI multi-threading support by querying the ``hvd.mpi_threads_
     from mpi4py import MPI
     assert hvd.size() == MPI.COMM_WORLD.Get_size()
 
+You can also initialize Horovod with an `mpi4py` sub-communicator, in which case each sub-communicator
+will run an independent Horovod training.
+
+.. code-block:: python
+
+    from mpi4py import MPI
+    import horovod.tensorflow as hvd
+
+    # Split COMM_WORLD into subcommunicators
+    subcomm = MPI.COMM_WORLD.Split(color=MPI.COMM_WORLD.rank % 2,
+                                   key=MPI.COMM_WORLD.rank)
+
+    # Initialize Horovod
+    hvd.init(comm=subcomm)
+
+    print('COMM_WORLD rank: %d, Horovod rank: %d' % (MPI.COMM_WORLD.rank, hvd.rank()))
+
 
 Inference
 ---------
