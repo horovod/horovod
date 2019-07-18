@@ -13,6 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
+# Workaround for https://issues.apache.org/jira/browse/SPARK-22674
+# This fix also requires the user to make this same change at the top of their
+# training script before importing pyspark (on serialization).
+import collections
+collections.namedtuple.__hijack = 1
+
 import os
 import pyspark
 from six.moves import queue
