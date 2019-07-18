@@ -284,7 +284,7 @@ You can check for MPI multi-threading support by querying the ``hvd.mpi_threads_
     from mpi4py import MPI
     assert hvd.size() == MPI.COMM_WORLD.Get_size()
 
-Horovod can also be initialized with an `mpi4py` sub-communicator, in which case each sub-communicator
+You can also initialize Horovod with an `mpi4py` sub-communicator, in which case each sub-communicator
 will run an independent Horovod training.
 
 .. code-block:: python
