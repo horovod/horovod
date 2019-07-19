@@ -99,7 +99,7 @@ Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
       single_slice_shape.AddDim(e.tensor->shape().dim_size(i));
     }
 
-    // Copy tensor sizes from the MPI response into a vector of int64_t
+    // Copy tensor sizes from the response into a vector of int64_t
     // and compute total size.  This is size of first dimension.
     int64_t total_entry_dimension_size = 0;
     const auto& tensor_sizes = response.tensor_sizes();

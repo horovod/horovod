@@ -11,33 +11,22 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-// ============================================================================
+// =============================================================================
 
-#ifndef HOROVOD_HOROVOD_COMMON_UTILS_ENV_PARSER_H_
-#define HOROVOD_HOROVOD_COMMON_UTILS_ENV_PARSER_H_
-
-#include "../controller.h"
+#include "ddl_mpi_context_manager.h"
 
 namespace horovod {
 namespace common {
 
-enum class LibType { MPI = 0, MLSL = 1, GLOO = 2 };
+void DDL_MPIContextManager::EnvInitialize(int required) {
+  // DDLInit calls MPI_Init
+  DDLAllreduce::DDLInit(&ddl_context_, &cuda_context_);
+}
 
-std::string TypeName(LibType type);
-
-LibType ParseCPUOpsFromEnv();
-
-LibType ParseControllerOpsFromEnv();
-
-const char* ParseGlooIface();
-
-void ParseStallInspectorFromEnv(StallInspector& stall_inspector);
-
-void SetBoolFromEnv(const char* env, bool& val, bool value_if_set);
-
-void SetIntFromEnv(const char* env, int& val);
+void DDL_MPIContextManager::EnvFinalize() {
+  // ddl_finalize calls MPI_Finalize
+  ddl_finalize();
+}
 
 } // namespace common
 } // namespace horovod
-
-#endif // HOROVOD_HOROVOD_COMMON_UTILS_ENV_PARSER_H_

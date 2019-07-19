@@ -249,13 +249,12 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
     // In this case local rank 0 will allgather with all local data
     int offset = 0;
     for (int i = 0; i < cross_size; ++i) {
-      for (int j = offset; j < offset +
-      global_state_->controller->GetLocalSizeAtNode(i);
+      for (int j = offset; j < offset + global_state_->controller->GetLocalSizeAtCrossRank(i);
            ++j) {
         cross_recvcounts[i] += recvcounts[j];
       }
       cross_displcmnts[i] = displcmnts[offset];
-      offset += global_state_->controller->GetLocalSizeAtNode(i);
+      offset += global_state_->controller->GetLocalSizeAtCrossRank(i);
     }
   }
 

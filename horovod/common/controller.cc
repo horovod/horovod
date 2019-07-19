@@ -20,11 +20,22 @@
 #include <unordered_set>
 
 #include "controller.h"
+#include "global_state.h"
 #include "logging.h"
 #include "operations.h"
 
 namespace horovod {
 namespace common {
+
+Controller::Controller(HorovodGlobalState& global_state)
+    : timeline_enabled_(global_state.timeline_enabled),
+      timeline_(global_state.timeline),
+      response_cache_(global_state.response_cache),
+      parameter_manager_(global_state.parameter_manager),
+      message_queue_(global_state.message_queue), mutex_(global_state.mutex),
+      shut_down_(global_state.shut_down),
+      message_table_(global_state.message_table),
+      tensor_table_(global_state.tensor_table) {}
 
 // This function performs all the preparation work for workers to agree
 // on what tensors to be all-reduced or all-gathered. The output is a
@@ -63,93 +74,80 @@ namespace common {
 //      response from the coordinator. At that point, the tick ends.
 //      If instead of "DONE" they receive "SHUTDOWN", they mark it in the
 //      response list.
-ResponseList Controller::PrepareForOps(
-    bool timeline_enabled, Timeline& timeline, ResponseCache& response_cache,
-    ParameterManager& param_manager, std::queue<Request>& state_message_queue,
-    std::mutex& mutex, std::atomic_bool& shut_down,
-    std::shared_ptr<MessageTable> message_table, TensorTable& tensor_table) {
-
+ResponseList Controller::ComputeResponseList() {
   // Update cache capacity if autotuning is active.
-  if (param_manager.IsAutoTuning()) {
-    response_cache.set_capacity((int)param_manager.CacheEnabled() *
-                                cache_capacity_);
+  if (parameter_manager_.IsAutoTuning()) {
+    response_cache_.set_capacity((int)parameter_manager_.CacheEnabled() *
+                                 cache_capacity_);
   }
 
   // Copy the data structures out from parameters.
   // However, don't keep the lock for the rest of the loop, so that
   // enqueued stream callbacks can continue.
 
-  CacheCoordinator cache_coordinator(response_cache.num_active_bits());
+  CacheCoordinator cache_coordinator(response_cache_.num_active_bits());
 
   std::queue<Request> message_queue;
   {
-    std::lock_guard<std::mutex> guard(mutex);
-    while (!state_message_queue.empty()) {
-      Request message = state_message_queue.front();
-      state_message_queue.pop();
+    std::lock_guard<std::mutex> guard(mutex_);
+    while (!message_queue.empty()) {
+      Request message = message_queue.front();
+      message_queue.pop();
       message_queue.push(message);
 
       // Keep track of cache hits
-      if (response_cache.capacity() > 0) {
-        auto cache_ = response_cache.cached(message);
+      if (response_cache_.capacity() > 0) {
+        auto cache_ = response_cache_.cached(message);
         if (cache_ == ResponseCache::CacheState::HIT) {
-          uint32_t cache_bit = response_cache.peek_cache_bit(message);
+          uint32_t cache_bit = response_cache_.peek_cache_bit(message);
           cache_coordinator.record_hit(cache_bit);
 
           // Record initial time cached tensor is encountered in queue.
-          if (stall_inspector_.perform_stall_check &&
-              stall_inspector_.cache_tensor_start.find(message.tensor_name()) ==
-                  stall_inspector_.cache_tensor_start.end()) {
-            stall_inspector_.cache_tensor_start[message.tensor_name()] =
-                std::chrono::steady_clock::now();
-          }
+          stall_inspector_.RecordInitialTime(message.tensor_name());
 
         } else {
           if (cache_ == ResponseCache::CacheState::INVALID) {
-            uint32_t cache_bit = response_cache.peek_cache_bit(message);
+            uint32_t cache_bit = response_cache_.peek_cache_bit(message);
             cache_coordinator.record_invalid_bit(cache_bit);
           }
           cache_coordinator.set_uncached_in_queue(true);
 
           // Remove timing entry if uncached or marked invalid.
-          if (stall_inspector_.perform_stall_check) {
-            stall_inspector_.cache_tensor_start.erase(message.tensor_name());
-          }
+          stall_inspector_.RemoveEntry(message.tensor_name());
         }
       }
     }
   }
 
   // Flag indicating that the background thread should shut down.
-  bool should_shut_down = shut_down;
+  bool should_shut_down = shut_down_;
 
   // Check for stalled tensors.
-  if (stall_inspector_.perform_stall_check &&
-      std::chrono::steady_clock::now() - stall_inspector_.last_stall_check >
-          std::chrono::seconds(stall_inspector_.stall_warning_time_seconds)) {
+  if (stall_inspector_.ShouldPerformCheck()) {
     if (is_coordinator_) {
-      should_shut_down |= CheckForStalledTensors(message_table);
+      should_shut_down |=
+          stall_inspector_.CheckForStalledTensors(message_table_, size_);
     }
 
-    if (response_cache.capacity() > 0) {
-      InvalidateStalledCachedTensors(cache_coordinator, response_cache);
+    if (response_cache_.capacity() > 0) {
+      stall_inspector_.InvalidateStalledCachedTensors(cache_coordinator,
+                                                      response_cache_);
     }
-    stall_inspector_.last_stall_check = std::chrono::steady_clock::now();
+    stall_inspector_.UpdateCheckTime();
   }
 
   cache_coordinator.set_should_shut_down(should_shut_down);
 
-  if (response_cache.capacity() > 0) {
+  if (response_cache_.capacity() > 0) {
     // Obtain common cache hits and cache invalidations across workers. Also,
     // determine if any worker has uncached messages in queue or requests
     // a shutdown. This function removes any invalid cache entries, if they
     // exist.
-    CoordinateCacheAndState(cache_coordinator, timeline_enabled, timeline,
-                            response_cache);
+    CoordinateCacheAndState(cache_coordinator);
 
     {
       // Get lock in order to safely replace messages to global queue
-      std::lock_guard<std::mutex> guard(mutex);
+      std::lock_guard<std::mutex> guard(mutex_);
 
       // Remove uncommon cached tensors from queue and replace to state
       // queue for next cycle. Skip adding common cached tensors to
@@ -157,21 +155,19 @@ ResponseList Controller::PrepareForOps(
       size_t num_messages = message_queue.size();
       for (size_t i = 0; i < num_messages; ++i) {
         auto message = message_queue.front();
-        if (response_cache.cached(message) == ResponseCache::CacheState::HIT) {
-          uint32_t cache_bit = response_cache.peek_cache_bit(message);
+        if (response_cache_.cached(message) == ResponseCache::CacheState::HIT) {
+          uint32_t cache_bit = response_cache_.peek_cache_bit(message);
           if (cache_coordinator.cache_hits().find(cache_bit) ==
               cache_coordinator.cache_hits().end()) {
             // Try to process again in next cycle.
-            state_message_queue.push(std::move(message));
-          } else if (stall_inspector_.perform_stall_check) {
+            message_queue.push(std::move(message));
+          } else {
             // Remove timing entry for messages being handled this cycle.
-            stall_inspector_.cache_tensor_start.erase(message.tensor_name());
+            stall_inspector_.RemoveEntry(message.tensor_name());
           }
         } else {
           // Remove timing entry for messages being handled this cycle.
-          if (stall_inspector_.perform_stall_check) {
-            stall_inspector_.cache_tensor_start.erase(message.tensor_name());
-          }
+          stall_inspector_.RemoveEntry(message.tensor_name());
           message_queue.push(std::move(message));
         }
         message_queue.pop();
@@ -188,7 +184,8 @@ ResponseList Controller::PrepareForOps(
   response_list.set_shutdown(cache_coordinator.should_shut_down());
 
   bool need_communication = true;
-  if (response_cache.capacity() > 0 && !cache_coordinator.uncached_in_queue()) {
+  if (response_cache_.capacity() > 0 &&
+      !cache_coordinator.uncached_in_queue()) {
     // if cache is enabled and no uncached new message coming in, no need for
     // additional communications
     need_communication = false;
@@ -210,12 +207,11 @@ ResponseList Controller::PrepareForOps(
     // here so we use the get method here to consistently update the cache
     // order.
     for (auto bit : cache_coordinator.cache_hits()) {
-      responses.push_back(response_cache.get_response(bit));
+      responses.push_back(response_cache_.get_response(bit));
     }
 
     // Fuse responses as normal.
-    response_list =
-        FuseResponses(responses, mutex, tensor_table, param_manager);
+    response_list = FuseResponses(responses);
   } else {
     // There are uncached messages coming in, need communication to figure out
     // whether those are ready to be reduced.
@@ -232,15 +228,14 @@ ResponseList Controller::PrepareForOps(
         message_queue.pop();
 
         bool reduce =
-            IncrementTensorCount(message_table, message, size_, timeline);
+            IncrementTensorCount(message_table_, message, size_, timeline_);
         if (reduce) {
           ready_to_reduce.push_back(message.tensor_name());
         }
       }
 
       // Receive ready tensors from other ranks
-      bool others_shut_down =
-          RecvReadyTensors(ready_to_reduce, message_table, timeline);
+      bool others_shut_down = RecvReadyTensors(ready_to_reduce);
       should_shut_down |= others_shut_down;
 
       // At this point, rank zero should have a fully updated tensor count
@@ -251,26 +246,25 @@ ResponseList Controller::PrepareForOps(
       // before doing each reduction.
       std::deque<Response> responses;
 
-      if (response_cache.capacity() > 0) {
+      if (response_cache_.capacity() > 0) {
         // Prepopulate response list with cached responses. Populate so that
         // least recently used responses get priority. Since only the
         // coordinator rank calls this code, use peek instead of get here to
         // preserve cache order across workers.
         for (auto bit : cache_coordinator.cache_hits()) {
-          responses.push_back(response_cache.peek_response(bit));
+          responses.push_back(response_cache_.peek_response(bit));
         }
       }
 
       for (auto& tensor_name : ready_to_reduce) {
-        Response response = ConstructResponse(message_table, tensor_name);
+        Response response = ConstructResponse(tensor_name);
         responses.push_back(std::move(response));
       }
 
-      response_list =
-          FuseResponses(responses, mutex, tensor_table, param_manager);
+      response_list = FuseResponses(responses);
       response_list.set_shutdown(should_shut_down);
 
-      // Broadcast final results to other tensors
+      // Broadcast final results to other ranks.
       SendFinalTensors(response_list);
 
     } else {
@@ -299,33 +293,32 @@ ResponseList Controller::PrepareForOps(
 
   // If need_communication is false, meaning no uncached message coming in,
   // thus no need to update cache.
-  if (need_communication && response_cache.capacity() > 0) {
-    std::lock_guard<std::mutex> guard(mutex);
+  if (need_communication && response_cache_.capacity() > 0) {
+    std::lock_guard<std::mutex> guard(mutex_);
     // All workers add supported responses to cache. This updates the cache
     // order consistently across workers.
     for (auto& response : response_list.responses()) {
       if (response.response_type() == Response::ResponseType::ALLREDUCE &&
           (int)response.devices().size() == size_) {
-        response_cache.put(response, tensor_table);
+        response_cache_.put(response, tensor_table_);
       }
     }
   }
 
   // Reassign cache bits based on current cache order.
-  response_cache.update_cache_bits();
+  response_cache_.update_cache_bits();
 
   return response_list;
 }
 
-int64_t
-Controller::TensorFusionThresholdBytes(ParameterManager& param_manager) {
+int64_t Controller::TensorFusionThresholdBytes() {
   int64_t proposed_fusion_threshold =
-      param_manager.TensorFusionThresholdBytes();
+      parameter_manager_.TensorFusionThresholdBytes();
 
   // If the cluster is homogeneous and hierarchical allreduce is enabled,
   // adjust buffer size to make sure it is divisible by local_size to improve
   // performance.
-  if (is_homogeneous_ && param_manager.HierarchicalAllreduce()) {
+  if (is_homogeneous_ && parameter_manager_.HierarchicalAllreduce()) {
     // Assume the worst-case data type float64, since if it is divisible with
     // float64, it will be divisible for other types too.
 
@@ -344,12 +337,10 @@ Controller::TensorFusionThresholdBytes(ParameterManager& param_manager) {
 // valid (for example, contained mismatched shapes or types).
 //
 // Constructing the Response, thus, requires a whole lot of error checking.
-Response
-Controller::ConstructResponse(std::shared_ptr<MessageTable> message_table,
-                              std::string& name) {
+Response Controller::ConstructResponse(std::string& name) {
   bool error = false;
-  auto it = message_table->find(name);
-  assert(it != message_table->end());
+  auto it = message_table_->find(name);
+  assert(it != message_table_->end());
 
   std::vector<Request>& requests = std::get<0>(it->second);
   assert(!requests.empty());
@@ -544,163 +535,46 @@ Controller::ConstructResponse(std::shared_ptr<MessageTable> message_table,
 
   // Clear all queued up requests for this name. They are now taken care of
   // by the constructed response.
-  message_table->erase(it);
+  message_table_->erase(it);
 
   return response;
-}
-
-// Report Tensors that were submitted to be reduced, gathered or broadcasted by
-// some ranks but not others and are waiting for long time to get processed.
-bool Controller::CheckForStalledTensors(
-    std::shared_ptr<MessageTable> message_table) {
-  bool should_shut_down = false;
-  auto now = std::chrono::steady_clock::now();
-  std::map<int32_t, std::set<std::string>> missing_ranks;
-  std::unordered_set<int32_t> shutdown_ranks;
-  std::chrono::seconds stall_warning_time(
-      stall_inspector_.stall_warning_time_seconds);
-  std::chrono::seconds stall_shutdown_time(
-      stall_inspector_.stall_shutdown_time_seconds);
-
-  if (stall_shutdown_time > std::chrono::seconds(0) &&
-      stall_shutdown_time < stall_warning_time) {
-    LOG(WARNING) << "HOROVOD_STALL_SHUTDOWN_TIME_SECONDS is less than "
-                    "HOROVOD_STALL_CHECK_TIME_SECONDS, will not shutdown.";
-    stall_shutdown_time = std::chrono::seconds(0);
-  }
-
-  for (auto& m : *message_table) {
-    auto tensor_name = m.first;
-    std::vector<Request>& messages = std::get<0>(m.second);
-    std::chrono::steady_clock::time_point start_at = std::get<1>(m.second);
-    auto lag = now - start_at;
-
-    if (lag > stall_warning_time) {
-      std::unordered_set<int32_t> ready_ranks;
-      for (auto msg_iter = messages.begin(); msg_iter != messages.end();
-           ++msg_iter) {
-        ready_ranks.insert(msg_iter->request_rank());
-      }
-
-      for (int32_t rank = 0; rank < size_; ++rank) {
-        if (ready_ranks.find(rank) == ready_ranks.end()) {
-          missing_ranks[rank].insert(tensor_name);
-          if (stall_shutdown_time > std::chrono::seconds(0) &&
-              lag > stall_shutdown_time) {
-            shutdown_ranks.insert(rank);
-            should_shut_down = true;
-          }
-        }
-      }
-    }
-  }
-
-  if (!missing_ranks.empty()) {
-    std::stringstream message;
-    message << "One or more tensors were submitted to be "
-               "reduced, gathered or broadcasted by subset of ranks and "
-               "are waiting for remainder of ranks for more than "
-            << stall_warning_time.count() << " seconds. "
-            << "This may indicate that different ranks are trying to "
-               "submit different tensors or that only subset of ranks is "
-               "submitting tensors, which will cause deadlock. "
-            << std::endl
-            << "Stalled ranks:";
-    for (auto& kv : missing_ranks) {
-      message << std::endl << kv.first;
-      if (shutdown_ranks.find(kv.first) != shutdown_ranks.end()) {
-        message << "!";
-      }
-
-      message << ": [";
-      auto it = kv.second.begin();
-      message << *it;
-      int count = 0;
-      while (++it != kv.second.end()) {
-        message << ", " << *it;
-        if (++count == 5) {
-          message << " ...";
-          break;
-        }
-      }
-
-      message << "]";
-    }
-
-    if (should_shut_down) {
-      message
-          << std::endl
-          << "One or more rank (marked by \"!\") is stalled for longer than "
-          << stall_shutdown_time.count() << " seconds. Will shutdown.";
-      LOG(ERROR) << message.str();
-    } else {
-      LOG(WARNING) << message.str();
-    }
-  }
-
-  return should_shut_down;
 }
 
 // Routine to sync cache hit and invalid bit sets across workers.
 // Also determines global shutdown state and whether uncached requests
 // exist on any worker.
-void Controller::CoordinateCacheAndState(CacheCoordinator& cache_coordinator,
-                                         bool timeline_enabled,
-                                         Timeline& timeline,
-                                         ResponseCache& response_cache) {
-
+void Controller::CoordinateCacheAndState(CacheCoordinator& cache_coordinator) {
   // Sync cache and state information across workers.
-  cache_coordinator.sync(this, timeline_enabled);
+  cache_coordinator.sync(shared_from_this(), timeline_enabled_);
 
   // If invalid cache entries exist, erase associated entries.
   if (!cache_coordinator.invalid_bits().empty()) {
     for (auto bit : cache_coordinator.invalid_bits()) {
-      response_cache.erase_response(bit);
+      response_cache_.erase_response(bit);
     }
   }
 
-  if (timeline_enabled) {
+  if (timeline_enabled_) {
     // Start/continue negotiation phase on timeline bit entries.
     for (auto bit : cache_coordinator.timeline_bits()) {
-      auto& response = response_cache.peek_response(bit);
-      timeline.NegotiateStart(response.tensor_names()[0],
-                              (Request::RequestType)response.response_type());
+      auto& response = response_cache_.peek_response(bit);
+      timeline_.NegotiateStart(response.tensor_names()[0],
+                               (Request::RequestType)response.response_type());
     }
 
     // End negotation phase for synced cache hit set entries.
     for (auto bit : cache_coordinator.cache_hits()) {
-      auto& response = response_cache.peek_response(bit);
-      timeline.NegotiateEnd(response.tensor_names()[0]);
+      auto& response = response_cache_.peek_response(bit);
+      timeline_.NegotiateEnd(response.tensor_names()[0]);
     }
   }
 }
 
-// Invalidate cached tensors that have been pending for a long time.
-void Controller::InvalidateStalledCachedTensors(
-    CacheCoordinator& cache_coordinator, ResponseCache& response_cache) {
-  auto now = std::chrono::steady_clock::now();
-  std::chrono::seconds stall_warning_time(
-      stall_inspector_.stall_warning_time_seconds);
-
-  for (auto& entry : stall_inspector_.cache_tensor_start) {
-    // If pending time for cached tensor exceeds stall_warning_time, mark entry
-    // for global removal from cache to trigger stall messaging.
-    if (now - entry.second > stall_warning_time) {
-      uint32_t cache_bit = response_cache.peek_cache_bit(entry.first);
-      cache_coordinator.record_invalid_bit(cache_bit);
-      cache_coordinator.set_uncached_in_queue(true);
-    }
-  }
-}
-
-ResponseList Controller::FuseResponses(std::deque<Response>& responses,
-                                       std::mutex& mutex,
-                                       TensorTable& tensor_table,
-                                       ParameterManager& param_manager) {
+ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
   ResponseList response_list;
   {
     // Protect access to tensor table.
-    std::lock_guard<std::mutex> guard(mutex);
+    std::lock_guard<std::mutex> guard(mutex_);
     while (!responses.empty()) {
 
       auto response = responses.front();
@@ -709,7 +583,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses,
       int64_t tensor_size = 0;
       if (response.response_type() == Response::ResponseType::ALLREDUCE) {
         // Attempt to add more responses to this fused response.
-        auto& entry = tensor_table[response.tensor_names()[0]];
+        auto& entry = tensor_table_[response.tensor_names()[0]];
         tensor_size = entry.tensor->size();
 
         std::deque<Response> skipped_responses;
@@ -717,14 +591,14 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses,
         while (!responses.empty()) {
           auto new_response = responses.front();
           assert(new_response.tensor_names().size() == 1);
-          auto& new_entry = tensor_table[new_response.tensor_names()[0]];
+          auto& new_entry = tensor_table_[new_response.tensor_names()[0]];
           int64_t new_tensor_size = new_entry.tensor->size();
 
           if (response.response_type() == new_response.response_type() &&
               response.devices() == new_response.devices() &&
               entry.tensor->dtype() == new_entry.tensor->dtype() &&
               tensor_size + new_tensor_size <=
-                  TensorFusionThresholdBytes(param_manager)) {
+                  TensorFusionThresholdBytes()) {
             // These tensors will fuse together well.
             tensor_size += new_tensor_size;
             response.add_tensor_name(new_response.tensor_names()[0]);
@@ -740,7 +614,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses,
 
             skipped_size += new_tensor_size;
             if (tensor_size + skipped_size <=
-                TensorFusionThresholdBytes(param_manager)) {
+                TensorFusionThresholdBytes()) {
               // Skip response and look ahead for more to fuse.
               skipped_responses.push_back(std::move(responses.front()));
               responses.pop_front();
@@ -759,7 +633,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses,
       } else if (response.response_type() ==
                  Response::ResponseType::ALLGATHER) {
         // Attempt to add more responses to this fused response.
-        auto& entry = tensor_table[response.tensor_names()[0]];
+        auto& entry = tensor_table_[response.tensor_names()[0]];
 
         // This is size of first dimension.
         int64_t total_byte_size_of_output =
@@ -771,7 +645,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses,
 
           auto new_response = responses.front();
           assert(new_response.tensor_names().size() == 1);
-          auto& new_entry = tensor_table[new_response.tensor_names()[0]];
+          auto& new_entry = tensor_table_[new_response.tensor_names()[0]];
 
           int64_t new_total_byte_size_of_output =
               TotalByteSizeOfAllgatherOutput(new_response.tensor_sizes(),
@@ -781,7 +655,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses,
               response.devices() == new_response.devices() &&
               entry.tensor->dtype() == new_entry.tensor->dtype() &&
               total_byte_size_of_output + new_total_byte_size_of_output <=
-                  TensorFusionThresholdBytes(param_manager)) {
+                  TensorFusionThresholdBytes()) {
 
             // These tensors will fuse together well.
             total_byte_size_of_output += new_total_byte_size_of_output;
@@ -799,7 +673,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses,
 
             skipped_size += new_total_byte_size_of_output;
             if (total_byte_size_of_output + skipped_size <=
-                TensorFusionThresholdBytes(param_manager)) {
+                TensorFusionThresholdBytes()) {
               // Skip response and look ahead for more to fuse.
               skipped_responses.push_back(std::move(responses.front()));
               responses.pop_front();
@@ -845,6 +719,11 @@ int64_t Controller::TotalByteSizeOfAllgatherOutput(
       total_count_of_output_entries * element_size;
 
   return total_byte_size_of_output;
+}
+
+
+int Controller::GetLocalSizeAtCrossRank(int i) {
+  return local_sizes_for_cross_rank_[i];
 }
 
 } // namespace common

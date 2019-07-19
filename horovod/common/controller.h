@@ -24,6 +24,7 @@
 #include "message_table.h"
 #include "parameter_manager.h"
 #include "response_cache.h"
+#include "stall_inspector.h"
 
 #if HAVE_GLOO
 #include "gloo_context.h"
@@ -32,8 +33,13 @@
 namespace horovod {
 namespace common {
 
-class Controller {
+// Forward declaration
+class HorovodGlobalState;
+
+class Controller : public std::enable_shared_from_this<Controller> {
 public:
+  Controller(HorovodGlobalState& global_state);
+
   // Functions must be overridden by concrete controller
   virtual void Initialize() = 0;
 
@@ -45,24 +51,20 @@ public:
   virtual void CrossRankBitwiseOr(std::vector<long long>& bitvector,
                                   int count) = 0;
 
-  virtual void SynchronizeParameters(ParameterManager& para_manager) = 0;
+  virtual void SynchronizeParameters() = 0;
 
-  // General controller functions
+  // Concrete controller functions
+  ResponseList ComputeResponseList();
 
-  ResponseList PrepareForOps(bool timeline_enabled, Timeline& timeline,
-                             ResponseCache& response_cache,
-                             ParameterManager& param_manager,
-                             std::queue<Request>& state_message_queue,
-                             std::mutex& mutex, std::atomic_bool& shut_down,
-                             std::shared_ptr<MessageTable> message_table,
-                             TensorTable& tensor_table);
-  int64_t TensorFusionThresholdBytes(ParameterManager& parameter_manager);
+  int64_t TensorFusionThresholdBytes();
 
   void SetRank(const int* ranks, int nrank) {
     for (auto i = 0; i < nrank; ++i) {
       ranks_.push_back(ranks[i]);
     }
   };
+
+  int GetLocalSizeAtCrossRank(int i);
 
   std::vector<int>& GetRanks() { return ranks_; };
   int GetRank() { return rank_; };
@@ -71,40 +73,14 @@ public:
   int GetSize() { return size_; };
   int GetLocalSize() { return local_size_; };
   int GetCrossSize() { return cross_size_; };
-  int GetLocalSizeAtNode(int i) { return local_sizes_[i]; };
   const std::vector<int>& GetLocalCommRanks() { return local_comm_ranks_; };
   bool IsCoordinator() const { return is_coordinator_; };
   bool IsHomogeneous() const { return is_homogeneous_; };
 
-  // Struct for stall checking related variables.
-  struct StallInspector {
-    // Time point when coordinator last checked for stalled tensors.
-    std::chrono::steady_clock::time_point last_stall_check;
-
-    // Flag indicating whether to perform stall tensor check.
-    bool perform_stall_check = true;
-
-    // Stall-check warning time
-    int stall_warning_time_seconds = 60;
-
-    // Stall-check shutdown time. If perform_stall_check==true and this value
-    // is set to be greater than stall_warning_time_seconds, horovod will shut
-    // itself down if any rank is stalled for longer than this time.
-    int stall_shutdown_time_seconds = 0;
-
-    // Initial time cached tensors are seen in queue. Used for stall message
-    // handling.
-    std::unordered_map<std::string, std::chrono::steady_clock::time_point>
-        cache_tensor_start;
-
-  };
-
-  struct StallInspector& GetStallInspector() { return stall_inspector_; };
+  StallInspector& GetStallInspector() { return stall_inspector_; };
 
 protected:
-  virtual bool RecvReadyTensors(std::vector<std::string>& ready_to_reduce,
-                                std::shared_ptr<MessageTable> message_table,
-                                Timeline& timeline) = 0;
+  virtual bool RecvReadyTensors(std::vector<std::string>& ready_to_reduce) = 0;
 
   virtual void SendFinalTensors(ResponseList& response_list) = 0;
 
@@ -112,21 +88,11 @@ protected:
 
   virtual void RecvFinalTensors(ResponseList& response_list) = 0;
 
-  Response ConstructResponse(std::shared_ptr<MessageTable> message_table,
-                             std::string& name);
+  Response ConstructResponse(std::string& name);
 
-  bool CheckForStalledTensors(std::shared_ptr<MessageTable> message_table);
+  void CoordinateCacheAndState(CacheCoordinator& cache_coordinator);
 
-  void CoordinateCacheAndState(CacheCoordinator& cache_coordinator,
-                               bool timeline_enabled, Timeline& timeline,
-                               ResponseCache& response_cache);
-
-  void InvalidateStalledCachedTensors(CacheCoordinator& cache_coordinator,
-                                      ResponseCache& response_cache);
-
-  ResponseList FuseResponses(std::deque<Response>& responses, std::mutex& mutex,
-                             TensorTable& tensor_table,
-                             ParameterManager& param_manager);
+  ResponseList FuseResponses(std::deque<Response>& responses);
 
   int64_t
   TotalByteSizeOfAllgatherOutput(const std::vector<int64_t>& tensor_sizes,
@@ -141,18 +107,37 @@ protected:
   bool is_coordinator_ = false;
   bool is_homogeneous_ = false;
 
-  // ranks of the mpi world
+  // ranks of the horovod world
   std::vector<int> ranks_;
 
   // COMM_WORLD ranks of processes running on this node.
   std::vector<int> local_comm_ranks_;
 
   // Numbers of ranks running per node
-  std::vector<int> local_sizes_;
+  std::vector<int> local_sizes_for_cross_rank_;
 
   uint32_t cache_capacity_ = 1024;
 
-  struct StallInspector stall_inspector_;
+  // Following variables are used for computing ready tensor list
+  StallInspector stall_inspector_;
+
+  bool& timeline_enabled_;
+
+  Timeline& timeline_;
+
+  ResponseCache& response_cache_;
+
+  ParameterManager& parameter_manager_;
+
+  std::queue<Request>& message_queue_;
+
+  std::mutex& mutex_;
+
+  std::atomic_bool& shut_down_;
+
+  std::shared_ptr<MessageTable> message_table_;
+
+  TensorTable& tensor_table_;
 };
 
 } // namespace common

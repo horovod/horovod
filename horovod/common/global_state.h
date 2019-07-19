@@ -20,7 +20,7 @@
 #include <queue>
 #include <thread>
 
-#include "controller.h"
+//#include "controller.h"
 #include "fusion_buffer_manager.h"
 #include "parameter_manager.h"
 #include "response_cache.h"
@@ -30,7 +30,10 @@
 namespace horovod {
 namespace common {
 
-// The global state required for the MPI ops.
+// Forward declaration
+class Controller;
+
+// The global state shared by threads.
 //
 // MPI is a library that stores a lot of global per-program state and often
 // requires running on a single thread. As a result, we have to have a single
@@ -41,7 +44,7 @@ struct HorovodGlobalState {
   // This ensures that only one background thread is spawned.
   std::atomic_flag initialize_flag = ATOMIC_FLAG_INIT;
 
-  // A mutex that needs to be used whenever MPI operations are done.
+  // A mutex that needs to be used whenever operations are done.
   std::mutex mutex;
 
   // Tensors waiting to be allreduced or allgathered.
@@ -62,7 +65,7 @@ struct HorovodGlobalState {
   // Flag indicating whether to mark cycles in the timeline.
   bool mark_cycles_in_timeline = false;
 
-  ParameterManager param_manager;
+  ParameterManager parameter_manager;
 
   // Encapsulates the fusion buffers, handles resizing and auto-tuning of buffer
   // size.
@@ -71,7 +74,7 @@ struct HorovodGlobalState {
   // Time point when last cycle started.
   std::chrono::steady_clock::time_point last_cycle_start;
 
-  // Whether MPI_Init has been completed on the background thread.
+  // Whether collective context has been completed on the background thread.
   std::atomic_bool initialization_done{false};
 
   std::shared_ptr<Controller> controller;

@@ -118,7 +118,7 @@ public:
   bool uncached_in_queue() const;
 
   // Method to sync state and bit sets across workers.
-  void sync(Controller* controller, bool timeline_enabled);
+  void sync(std::shared_ptr<Controller> controller, bool timeline_enabled);
 
 private:
   enum StatusBit {

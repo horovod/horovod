@@ -57,8 +57,8 @@
 #endif
 
 #if HAVE_DDL
-#include "ops/ddl_operations.h"
 #include "ddl_mpi_context_manager.h"
+#include "ops/ddl_operations.h"
 #endif
 
 #if HAVE_MLSL
@@ -72,19 +72,20 @@
 /*
  * Allreduce, Allgather and Broadcast Ops.
  *
- * This module implements MPI ops for allgather, allreduce and broadcast, which
+ * This module implements ops for allgather, allreduce and broadcast, which
  * do optimized gathers, reductions and broadcasts and can take advantage of
- * hardware-optimized communication libraries through the MPI implementation.
+ * whichever hardware-optimized communication libraries enabled.
  *
- * The primary logic of the allreduce, allgather and broadcast are in MPI and
- * NCCL implementations. The background thread which facilitates MPI operations
- * is run in BackgroundThreadLoop(). The provided ops are:
+ * The primary logic of the allreduce, allgather and broadcast currently
+ * support in MPI, NCCL, CUDA, Gloo, MLSL, DDL. The background thread which
+ * facilitates controller operations is run in BackgroundThreadLoop().
+ * The provided ops are:
  *      – HorovodAllreduce:
  *          Perform an allreduce on a Tensor, returning the sum
- *          across all MPI processes in the global communicator.
+ *          across all processes in the global communicator.
  *      – HorovodAllgather:
  *          Perform an allgather on a Tensor, returning the concatenation of
- *          the tensor on the first dimension across all MPI processes in the
+ *          the tensor on the first dimension across all processes in the
  *          global communicator.
  *      - HorovodBroadcast:
  *          Perform a broadcast on a Tensor, broadcasting Tensor
@@ -200,16 +201,16 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #endif
 
   // Default operations, always enabled but last to be checked.
-    allreduce_ops.push_back(
-        std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpi_context,&state)));
-    allgather_ops.push_back(
-        std::shared_ptr<AllgatherOp>(new MPIAllgather(&mpi_context, &state)));
-    broadcast_ops.push_back(
-        std::shared_ptr<BroadcastOp>(new MPIBroadcast(&mpi_context, &state)));
+  allreduce_ops.push_back(
+      std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpi_context, &state)));
+  allgather_ops.push_back(
+      std::shared_ptr<AllgatherOp>(new MPIAllgather(&mpi_context, &state)));
+  broadcast_ops.push_back(
+      std::shared_ptr<BroadcastOp>(new MPIBroadcast(&mpi_context, &state)));
 
   std::shared_ptr<ErrorOp> error_op(new ErrorOp(&state));
 
-  return new OperationManager(&state.param_manager, allreduce_ops,
+  return new OperationManager(&state.parameter_manager, allreduce_ops,
                               allgather_ops, broadcast_ops, error_op);
 }
 
@@ -271,8 +272,7 @@ void PerformOperation(TensorTable& tensor_table, Response response) {
     // since buffer allocated here is guaranteed to survive at least till the
     // end of this operation.
     Status status = horovod_global.fusion_buffer.InitializeBuffer(
-        horovod_global.controller->TensorFusionThresholdBytes(horovod_global
-        .param_manager),
+        horovod_global.controller->TensorFusionThresholdBytes(),
         first_entry.device, first_entry.context,
         horovod_global.current_nccl_stream,
         [&]() { timeline.ActivityStartAll(entries, INIT_FUSION_BUFFER); },
@@ -335,27 +335,26 @@ void PerformOperation(TensorTable& tensor_table, Response response) {
 //      single thread. Since TensorFlow may use several threads for graph
 //      processing, this means we must have our own dedicated thread for dealing
 //      with MPI.
-//      2. We want to gracefully handle errors, when MPI processes do not
+//      2. We want to gracefully handle errors, when all processes do not
 //      properly agree upon what should happen (such as mismatched types or
-//      shapes). To do so requires the MPI processes to know about the shapes
+//      shapes). To do so requires the every process to know about the shapes
 //      and types of the relevant tensors on the other processes.
-//      3. The MPI reductions and gathers should be able to happen in parallel
+//      3. The reductions and gathers should be able to happen in parallel
 //      with other ongoing operations. This means that they cannot be blocking
 //      ops, but rather must be async ops, the execution of which happens on a
 //      separate thread.
-//      4. We cannot guarantee that all the MPI processes reduce their tensors
+//      4. We cannot guarantee that all the processes reduce their tensors
 //      in the same order, so we cannot dispatch one thread per tensor,
 //      otherwise we may end up dispatching many blocked threads and never make
 //      progress if we have a thread pool limit.
 bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator);
 
 void BackgroundThreadLoop(HorovodGlobalState& state) {
-
   state.cpu_operation = ParseCPUOpsFromEnv();
 
   // Initialize mlsl context
 #if HAVE_MLSL
-  if (state.cpu_operation == LibType::MLSL){
+  if (state.cpu_operation == LibType::MLSL) {
     mlsl_context.Init();
   }
 #endif
@@ -365,11 +364,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // If DDL is enabled, let DDL ops manage MPI environment.
   auto mpi_ctx_manager = DDL_MPIContextManager(ddl_context, cuda_context);
 #else
-  // Otherwise, let MPI ops be in charge.
+  // Otherwise, let MPI manager be in charge.
   auto mpi_ctx_manager = MPIContextManager();
 #endif
-  MPIContextManager* mpi_ctx_manager_ptr = &mpi_ctx_manager;
-  mpi_context.Initialize(state.controller->GetRanks(), mpi_ctx_manager_ptr);
+  mpi_context.Initialize(state.controller->GetRanks(), mpi_ctx_manager);
 
   // Initialize controller
   state.controller->Initialize();
@@ -385,8 +383,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
 #if HAVE_CUDA
   // Set number of CUDA streams to use
-  auto horovod_num_nccl_streams =
-      std::getenv(HOROVOD_NUM_NCCL_STREAMS);
+  auto horovod_num_nccl_streams = std::getenv(HOROVOD_NUM_NCCL_STREAMS);
   if (horovod_num_nccl_streams != nullptr &&
       std::stol(horovod_num_nccl_streams, nullptr, 10) > 0) {
     state.num_nccl_streams = std::atoi(horovod_num_nccl_streams);
@@ -399,7 +396,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 #endif
 
 #if HAVE_GLOO
-  if (state.cpu_operation == LibType::GLOO){
+  if (state.cpu_operation == LibType::GLOO) {
     gloo_context.InitializeFromMPI(mpi_context.mpi_comm, ParseGlooIface());
   }
 #endif
@@ -415,66 +412,67 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 
   ParseStallInspectorFromEnv(state.controller->GetStallInspector());
+
   SetBoolFromEnv(HOROVOD_TIMELINE_MARK_CYCLES, state.mark_cycles_in_timeline,
-                    true);
+                 true);
 
   // Override Tensor Fusion threshold, if it's set.
-  state.param_manager.SetTensorFusionThresholdBytes(64 * 1024 * 1024);
+  state.parameter_manager.SetTensorFusionThresholdBytes(64 * 1024 * 1024);
   auto horovod_fusion_threshold = std::getenv(HOROVOD_FUSION_THRESHOLD);
   if (horovod_fusion_threshold != nullptr) {
     int64_t threshold = std::strtol(horovod_fusion_threshold, nullptr, 10);
-    state.param_manager.SetTensorFusionThresholdBytes(threshold, true);
+    state.parameter_manager.SetTensorFusionThresholdBytes(threshold, true);
   }
 
   // Override the cycle time.
-  state.param_manager.SetCycleTimeMs(5);
+  state.parameter_manager.SetCycleTimeMs(5);
   auto horovod_cycle_time = std::getenv(HOROVOD_CYCLE_TIME);
   if (horovod_cycle_time != nullptr) {
-    state.param_manager.SetCycleTimeMs(std::strtof(horovod_cycle_time, nullptr),
-                                       true);
+    state.parameter_manager.SetCycleTimeMs(
+        std::strtof(horovod_cycle_time, nullptr), true);
   }
 
   // Override response cache capacity, if it's set.
-  state.param_manager.SetCacheEnabled(true);
+  state.parameter_manager.SetCacheEnabled(true);
   auto horovod_cache_capacity = std::getenv(HOROVOD_CACHE_CAPACITY);
   if (horovod_cache_capacity != nullptr) {
     uint32_t cache_capacity = std::strtol(horovod_cache_capacity, nullptr, 10);
     state.cache_capacity = cache_capacity;
-    state.param_manager.SetCacheEnabled(cache_capacity > 0, true);
+    state.parameter_manager.SetCacheEnabled(cache_capacity > 0, true);
   }
-  state.response_cache.set_capacity((int)state.param_manager.CacheEnabled() *
-                                    state.cache_capacity);
+  state.response_cache.set_capacity(
+      (int)state.parameter_manager.CacheEnabled() * state.cache_capacity);
 
   // Set flag for hierarchical allgather. Ignore if Horovod is running on a
   // single node.
   auto horovod_hierarchical_allgather =
       std::getenv(HOROVOD_HIERARCHICAL_ALLGATHER);
-  state.param_manager.SetHierarchicalAllgather(false);
+  state.parameter_manager.SetHierarchicalAllgather(false);
   if (horovod_hierarchical_allgather != nullptr) {
     bool value = std::strtol(horovod_hierarchical_allgather, nullptr, 10) > 0 &&
                  (size != local_size);
-    state.param_manager.SetHierarchicalAllgather(value, true);
+    state.parameter_manager.SetHierarchicalAllgather(value, true);
   }
   // Set flag for hierarchical allreduce. Ignore if Horovod is running on a
   // single node.
   auto horovod_hierarchical_allreduce =
       std::getenv(HOROVOD_HIERARCHICAL_ALLREDUCE);
-  state.param_manager.SetHierarchicalAllreduce(false);
+  state.parameter_manager.SetHierarchicalAllreduce(false);
   if (horovod_hierarchical_allreduce != nullptr) {
     bool value = std::strtol(horovod_hierarchical_allreduce, nullptr, 10) > 0 &&
                  (size != local_size);
-    state.param_manager.SetHierarchicalAllreduce(value, true);
+    state.parameter_manager.SetHierarchicalAllreduce(value, true);
   }
 
 #if HOROVOD_GPU_ALLREDUCE != 'N' && HOROVOD_GPU_ALLREDUCE != 'D'
   // Hierarchical allreduce is not supported without NCCL or DDL
-  state.param_manager.SetHierarchicalAllreduce(false, true);
+  state.parameter_manager.SetHierarchicalAllreduce(false, true);
 #endif
 
   // Issue warning if hierarchical allreduce is enabled in heterogeneous cluster
   if (is_coordinator &&
-      (state.param_manager.HierarchicalAllreduce() ||
-       state.param_manager.HierarchicalAllgather()) &&
+      (state.parameter_manager.HierarchicalAllreduce() ||
+       state.parameter_manager.HierarchicalAllgather()) &&
       !is_homogeneous) {
     std::cerr
         << "WARNING: Using different number of ranks per node might cause "
@@ -489,11 +487,11 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   if (horovod_autotune != nullptr &&
       std::strtol(horovod_autotune, nullptr, 10) > 0) {
     auto horovod_autotune_log = std::getenv(HOROVOD_AUTOTUNE_LOG);
-    state.param_manager.Initialize(state.controller->GetRank(), RANK_ZERO,
-                                   horovod_autotune_log != nullptr
-                                       ? std::string(horovod_autotune_log) :
-                                       "");
-    state.param_manager.SetAutoTuning(true);
+    state.parameter_manager.Initialize(state.controller->GetRank(), RANK_ZERO,
+                                       horovod_autotune_log != nullptr
+                                           ? std::string(horovod_autotune_log)
+                                           : "");
+    state.parameter_manager.SetAutoTuning(true);
   }
 
   // Initialize the tensor count table. No tensors are available yet.
@@ -511,18 +509,18 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   while (RunLoopOnce(state, is_coordinator))
     ;
 
-  //Finalize all contexts
+    // Finalize all contexts
 #if HAVE_NCCL
   nccl_context.ShutDown();
 #endif
 
 #if HAVE_GLOO
-  if (state.cpu_operation == LibType::GLOO){
+  if (state.cpu_operation == LibType::GLOO) {
     gloo_context.Finalize();
   }
 #endif
 
-  LOG(DEBUG, horovod_global.controller->GetRank()) << "Shutting down background thread";
+  LOG(DEBUG, state.controller->GetRank()) << "Shutting down background thread";
 
   // Signal that shutdown has been requested.
   state.shut_down = true;
@@ -544,22 +542,21 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     cb(SHUT_DOWN_ERROR);
   }
 
-  mpi_context.Finalize(mpi_ctx_manager_ptr);
+  mpi_context.Finalize(mpi_ctx_manager);
 
 #if HAVE_MLSL
-  if (state.cpu_operation == LibType::MLSL){
+  if (state.cpu_operation == LibType::MLSL) {
     mlsl_context.Finalize();
   }
 #endif
-
 }
 
 bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
-  // This delay determines thread frequency and MPI message latency
+  // This delay determines thread frequency and communication message latency
   auto start_time = std::chrono::steady_clock::now();
   auto sleep_duration = state.last_cycle_start +
-                        std::chrono::microseconds(
-                            long(state.param_manager.CycleTimeMs() * 1000.)) -
+                        std::chrono::microseconds(long(
+                            state.parameter_manager.CycleTimeMs() * 1000.)) -
                         start_time;
   if (sleep_duration > std::chrono::steady_clock::duration::zero()) {
     std::this_thread::sleep_for(sleep_duration);
@@ -571,17 +568,12 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     state.timeline.MarkCycleStart();
   }
 
-  auto response_list = state.controller->PrepareForOps(
-      horovod_global.timeline_enabled, horovod_global.timeline,
-      horovod_global.response_cache, horovod_global.param_manager,
-      horovod_global.message_queue, horovod_global.mutex,
-      horovod_global.shut_down, horovod_global.message_table,
-      horovod_global.tensor_table);
+  auto response_list = state.controller->ComputeResponseList();
 
   // Get tensor name and size data for autotuning.
   int64_t total_tensor_size = 0;
   std::vector<std::string> tensor_names;
-  if (state.param_manager.IsAutoTuning()) {
+  if (state.parameter_manager.IsAutoTuning()) {
     std::lock_guard<std::mutex> guard(state.mutex);
     total_tensor_size = GetTensorDataForAutotuner(
         response_list, state.tensor_table, tensor_names);
@@ -593,18 +585,18 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
   for (auto& response : response_list.responses()) {
     LOG(TRACE, rank) << "Performing " << response.tensor_names_string();
     LOG(DEBUG, rank) << "Processing " << response.tensor_names().size()
-                           << " tensors";
+                     << " tensors";
     PerformOperation(state.tensor_table, response);
     LOG(TRACE, rank) << "Finished performing "
-                           << response.tensor_names_string();
+                     << response.tensor_names_string();
   }
 
-  if (state.param_manager.IsAutoTuning()) {
-    bool should_sync = state.param_manager.Update(tensor_names,
-                                                  total_tensor_size);
+  if (state.parameter_manager.IsAutoTuning()) {
+    bool should_sync =
+        state.parameter_manager.Update(tensor_names, total_tensor_size);
 
-    if (should_sync){
-      state.controller->SynchronizeParameters(state.param_manager);
+    if (should_sync) {
+      state.controller->SynchronizeParameters();
     }
   }
 
@@ -616,14 +608,14 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 void InitializeHorovodOnce(const int* ranks, int nranks) {
   // Ensure background thread is only started once.
   if (!horovod_global.initialize_flag.test_and_set()) {
-    horovod_global.controller = std::shared_ptr<Controller>(new
-        MPIController(&mpi_context));
+    horovod_global.controller = std::shared_ptr<Controller>(
+        new MPIController(horovod_global, mpi_context));
     horovod_global.controller->SetRank(ranks, nranks);
 
     // Reset initialization flag
     horovod_global.initialization_done = false;
-    horovod_global.background_thread = std::thread(
-        BackgroundThreadLoop, std::ref(horovod_global));
+    horovod_global.background_thread =
+        std::thread(BackgroundThreadLoop, std::ref(horovod_global));
   }
 
   // Wait to ensure that the background thread has finished initializing MPI.
@@ -696,13 +688,13 @@ int horovod_mpi_threads_supported() {
     return -1;
   }
   auto mpiController =
-      dynamic_cast<MPIController*>(horovod_global.controller.get());
+      std::dynamic_pointer_cast<MPIController>(horovod_global.controller);
   return mpiController->IsMpiThreadsSupported() ? 1 : 0;
 }
 }
 
-// MPI must be initialized and the background thread must be running before
-// this function is called.
+// Contexts and controller must be initialized and the background thread
+// must be running before this function is called.
 Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<Tensor> output,
@@ -742,8 +734,8 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   return Status::OK();
 }
 
-// MPI must be initialized and the background thread must be running before
-// this function is called.
+// Contexts and controller must be initialized and the background thread
+// must be running before this function is called.
 Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<ReadyEvent> ready_event,
@@ -781,8 +773,8 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
   return Status::OK();
 }
 
-// MPI must be initialized and the background thread must be running before
-// this function is called.
+// Contexts and controller must be initialized and the background thread
+// must be running before this function is called.
 Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,
                               std::shared_ptr<Tensor> output, int root_rank,

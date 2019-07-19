@@ -37,7 +37,7 @@ using MessageTable = std::unordered_map<
     std::tuple<std::vector<Request>, std::chrono::steady_clock::time_point>>;
 
 // Store the Request for a name, and return whether the total count of
-// Requests for that tensor is now equal to the MPI size (and thus we are
+// Requests for that tensor is now equal to the HOROVOD size (and thus we are
 // ready to reduce the tensor).
 bool IncrementTensorCount(std::shared_ptr<MessageTable> message_table,
                           const Request& msg, int global_size,

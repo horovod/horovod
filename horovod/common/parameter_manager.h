@@ -95,10 +95,10 @@ public:
     bool active;
   };
 
-  void GetParam(Params& params);
+  Params GetParams();
 
   // Using given params to update its own params.
-  void UpdataParam(const Params& newParams);
+  void SetParams(const Params& newParams);
 
   // Resets the tuning state in preparation for evaluating a new set of parameter values.
   void Reset();

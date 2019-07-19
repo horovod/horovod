@@ -108,11 +108,9 @@ void ResponseCache::put_(const Response& response, TensorParams& params) {
     if (print_warning_) {
       std::stringstream message;
       message << "A response has been evicted from cache which may indicate "
-                 "reduced "
-                 "performance. Better performance may be obtained by disabling "
-                 "caching "
-                 "(HOROVOD_CACHE_CAPACITY=0) or increasing the cache capacity "
-                 "(HOROVOD_CACHE_CAPACITY>"
+                 "reduced performance. Better performance may be obtained by "
+                 "disabling caching (HOROVOD_CACHE_CAPACITY=0) or increasing "
+                 "the cache capacity (HOROVOD_CACHE_CAPACITY>"
               << std::to_string(capacity_) << ").";
       LOG(WARNING) << message.str();
       print_warning_ = false;
@@ -305,7 +303,8 @@ bool CacheCoordinator::uncached_in_queue() const {
   return uncached_in_queue_;
 }
 
-void CacheCoordinator::sync(Controller* controller, bool timeline_enabled) {
+void CacheCoordinator::sync(std::shared_ptr<Controller> controller,
+                            bool timeline_enabled) {
   assert(!synced_);
 
   // Resize and initialize bit vector.

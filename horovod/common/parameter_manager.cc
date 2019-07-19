@@ -127,6 +127,11 @@ void ParameterManager::SetCycleTimeMs(double value, bool fixed) {
   joint_params_.SetValue(cycle_time_ms, value, fixed);
 }
 
+/// Using the tensors information to update score and tune parameters.
+/// \param tensor_names A vector of names of the tensors being processed in the
+/// current timestamp.
+/// \param bytes Total size of the tensors.
+/// \return Whether the new parameters need to be broadcasted.
 bool ParameterManager::Update(const std::vector<std::string>& tensor_names,
                               int64_t bytes) {
   if (!active_) {
@@ -158,6 +163,9 @@ bool ParameterManager::Update(const std::vector<std::string>& tensor_names,
   return false;
 }
 
+/// Tune the parameters based on the score
+/// \param score The score for current timestamp
+/// \return Whether the parameter should be broadcast to other ranks.
 bool ParameterManager::Tune(double score) {
   if (warmup_remaining_ > 0) {
     // Ignore this score as we're still warming up.
@@ -199,7 +207,8 @@ bool ParameterManager::Tune(double score) {
   return false;
 }
 
-void ParameterManager::GetParam(Params& params) {
+ParameterManager::Params ParameterManager::GetParams() {
+  Params params;
   if (active_) {
     // We're actively tuning, so send the current value.
     params.hierarchical_allreduce = hierarchical_allreduce_.Value();
@@ -217,9 +226,11 @@ void ParameterManager::GetParam(Params& params) {
   }
 
   params.active = active_;
+
+  return params;
 }
 
-void ParameterManager::UpdataParam(const Params& newParams){
+void ParameterManager::SetParams(const Params& newParams) {
   hierarchical_allreduce_.SetValue(newParams.hierarchical_allreduce, true);
   hierarchical_allgather_.SetValue(newParams.hierarchical_allgather, true);
   cache_enabled_.SetValue(newParams.cache_enabled, true);

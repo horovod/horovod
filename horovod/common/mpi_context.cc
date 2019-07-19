@@ -86,7 +86,7 @@ int MPIContext::GetMPITypeSize(DataType dtype) {
 }
 
 void MPIContext::Initialize(const std::vector<int>& ranks,
-                            MPIContextManager* ctx_manager) {
+                            MPIContextManager& ctx_manager) {
   // Initialize MPI if it was not initialized. This must happen on the
   // background thread, since not all MPI implementations support being called
   // from multiple threads.
@@ -117,7 +117,7 @@ void MPIContext::Initialize(const std::vector<int>& ranks,
     }
   } else {
     // MPI environment has not been created, using manager to initialize.
-    ctx_manager->EnvInitialize(required);
+    ctx_manager.EnvInitialize(required);
     should_finalize = true;
   }
 
@@ -137,7 +137,7 @@ void MPIContext::Initialize(const std::vector<int>& ranks,
   } else if (!mpi_comm) {
     // No ranks were given and no communicator provided to horovod_init() so use
     // MPI_COMM_WORLD
-    LOG(INFO) << "using mpi world";
+    LOG(DEBUG) << "Using MPI_COMM_WORLD as a communicator.";
     MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm);
   }
 
@@ -161,7 +161,7 @@ void MPIContext::Initialize(const std::vector<int>& ranks,
   MPI_Op_create(&float16_sum, 1, &mpi_float16_sum);
 }
 
-void MPIContext::Finalize(MPIContextManager* ctx_manager) {
+void MPIContext::Finalize(MPIContextManager& ctx_manager) {
   if (mpi_comm != MPI_COMM_NULL && mpi_comm != MPI_COMM_WORLD) {
     MPI_Comm_free(&mpi_comm);
   }
@@ -183,13 +183,14 @@ void MPIContext::Finalize(MPIContextManager* ctx_manager) {
   }
 
   if (should_finalize) {
-    ctx_manager->EnvFinalize();
+    ctx_manager.EnvFinalize();
   }
 }
 
-void MPIContextManager::EnvInitialize(int required) {
-  int provided;
-  MPI_Init_thread(nullptr, nullptr, required, &provided);
+void MPIContextManager::EnvInitialize(int mpi_threads_required) {
+  int mpi_threads_provided;
+  MPI_Init_thread(nullptr, nullptr, mpi_threads_required,
+                  &mpi_threads_provided);
 }
 
 void MPIContextManager::EnvFinalize() {

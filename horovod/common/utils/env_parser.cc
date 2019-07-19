@@ -20,11 +20,12 @@
 
 #include "../logging.h"
 #include "../operations.h"
+#include "../stall_inspector.h"
 
 namespace horovod {
 namespace common {
 
-std::string type_name(LibType type) {
+std::string TypeName(LibType type) {
   switch (type) {
   case LibType::MPI:
     return std::string(HOROVOD_MPI);
@@ -63,12 +64,12 @@ LibType ParseCPUOpsFromEnv() {
     } else if (strcasecmp(user_cpu_operation, HOROVOD_MLSL) == 0) {
       cpu_operation = LibType::MLSL;
     } else {
-      throw std::runtime_error("Unsupported cpu operation type, only MPI, "
+      throw std::runtime_error("Unsupported CPU operation type, only MPI, "
                                "MLSL and Gloo are supported");
     }
   }
 
-  LOG(INFO) << "Using " << type_name(cpu_operation)
+  LOG(INFO) << "Using " << TypeName(cpu_operation)
             << " to perform CPU operations.";
   return cpu_operation;
 }
@@ -97,7 +98,7 @@ LibType ParseControllerOpsFromEnv() {
     }
   }
 
-  LOG(INFO) << "Using " << type_name(controller)
+  LOG(INFO) << "Using " << TypeName(controller)
             << " to perform controller operations.";
   return controller;
 }
@@ -116,16 +117,23 @@ void SetIntFromEnv(const char* env, int& val) {
   }
 }
 
-void ParseStallInspectorFromEnv(Controller::StallInspector& stall_inspector) {
+void ParseStallInspectorFromEnv(StallInspector& stall_inspector) {
+  auto env_value = std::getenv(HOROVOD_STALL_CHECK_DISABLE);
+  if (env_value != nullptr && std::strtol(env_value, nullptr, 10) > 0) {
+    stall_inspector.SetPerformStallCheck(false);
+  }
 
-  SetBoolFromEnv(HOROVOD_STALL_CHECK_DISABLE,
-                 stall_inspector.perform_stall_check, false);
+  env_value = std::getenv(HOROVOD_STALL_CHECK_TIME_SECONDS);
+  if (env_value != nullptr) {
+    stall_inspector.SetStallWarningTimeSeconds(
+        std::strtol(env_value, nullptr, 10));
+  }
 
-  SetIntFromEnv(HOROVOD_STALL_CHECK_TIME_SECONDS,
-                stall_inspector.stall_warning_time_seconds);
-
-  SetIntFromEnv(HOROVOD_STALL_SHUTDOWN_TIME_SECONDS,
-                stall_inspector.stall_shutdown_time_seconds);
+  env_value = std::getenv(HOROVOD_STALL_SHUTDOWN_TIME_SECONDS);
+  if (env_value != nullptr) {
+    stall_inspector.SetStallShutdownTimeSeconds(
+        std::strtol(env_value, nullptr, 10));
+  }
 }
 
 const char* ParseGlooIface() {

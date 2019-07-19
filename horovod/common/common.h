@@ -167,7 +167,7 @@ public:
   virtual ~OpContext() = default;
 };
 
-// A callback to call after the MPI communication completes. Since the
+// A callback to call after the communication completes. Since the
 // allreduce and allgather ops are asynchronous, this callback is what resumes
 // computation after the reduction is completed.
 using StatusCallback = std::function<void(const Status&)>;

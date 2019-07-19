@@ -35,22 +35,22 @@ namespace common {
 class MPIContextManager {
 public:
   // Initialize MPI environment with required multi-threads support level.
-  virtual void EnvInitialize(int required);
+  virtual void EnvInitialize(int mpi_threads_required);
 
   // Finalize MPI environment.
   virtual void EnvFinalize();
 };
 
 struct MPIContext {
-
   // Take an argument of context manager pointer that will take care of
   // initialization of MPI environment.
   void Initialize(const std::vector<int>& ranks,
-                  MPIContextManager* ctx_manager);
+                  MPIContextManager& ctx_manager);
 
   // Take an argument of context manager pointer that will take care of
   // finalization of MPI environment.
-  void Finalize(MPIContextManager* ctx_manager);
+  void Finalize(MPIContextManager& ctx_manager);
+
   MPI_Datatype GetMPIDataType(std::shared_ptr<Tensor> tensor);
 
   MPI_Datatype GetMPIDataType(DataType dtype);

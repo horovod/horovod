@@ -24,7 +24,8 @@ namespace common {
 
 class MPIController : public Controller {
 public:
-  MPIController(MPIContext* mpi_ctx) : mpi_ctx_(mpi_ctx) {}
+  MPIController(HorovodGlobalState& global_state, MPIContext& mpi_ctx)
+      : Controller(global_state), mpi_ctx_(mpi_ctx) {}
 
   void Initialize() override;
 
@@ -36,9 +37,7 @@ public:
   void CrossRankBitwiseOr(std::vector<long long>& bitvector,
                           int count) override;
 
-  bool RecvReadyTensors(std::vector<std::string>& ready_to_reduce,
-                        std::shared_ptr<MessageTable> message_table,
-                        Timeline& timeline) override;
+  bool RecvReadyTensors(std::vector<std::string>& ready_to_reduce) override;
 
   void SendFinalTensors(ResponseList& response_list) override;
 
@@ -46,12 +45,12 @@ public:
 
   void RecvFinalTensors(ResponseList& response_list) override;
 
-  void SynchronizeParameters(ParameterManager& para_manager) override;
+  void SynchronizeParameters() override;
 
   bool IsMpiThreadsSupported() const { return mpi_threads_supported_; }
 
 protected:
-  MPIContext* mpi_ctx_ = nullptr;
+  MPIContext& mpi_ctx_;
 
   // flag indicating whether MPI multi-threading is supported
   bool mpi_threads_supported_ = false;
