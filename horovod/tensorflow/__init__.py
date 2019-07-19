@@ -83,12 +83,18 @@ def allreduce(tensor, average=True, device_dense='', device_sparse='',
 
 @_cache
 def _make_broadcast_group_fn():
-    def broadcast_group(variables, root_rank):
-        return [var.assign(broadcast(var, root_rank)) for var in variables]
-
     if _executing_eagerly():
+        # Eager mode requires Tensor
+        def broadcast_group(variables, root_rank):
+            return [var.assign(broadcast(var, root_rank)) for var in variables]
+
         return _make_subgraph(broadcast_group)
     else:
+        # Graph mode requires an Op
+        def broadcast_group(variables, root_rank):
+            return tf.group(*[var.assign(broadcast(var, root_rank))
+                              for var in variables])
+
         return broadcast_group
 
 
