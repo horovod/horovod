@@ -148,10 +148,18 @@ RUN sed -i "s/last_step=20000/last_step=100/" /horovod/examples/tensorflow_mnist
 # Hack TensorFlow Eager MNIST example to be smaller.
 RUN sed -i "s/dataset.take(20000/dataset.take(100/" /horovod/examples/tensorflow_mnist_eager.py
 
+# Hack TensorFlow 2.0 example to be smaller.
+RUN sed -i "s/dataset.take(10000/dataset.take(100/" /horovod/examples/tensorflow2_mnist.py
+
 # Hack Keras MNIST advanced example to be smaller.
 RUN sed -i "s/epochs = .*/epochs = 9/" /horovod/examples/keras_mnist_advanced.py
 RUN sed -i "s/model.add(Conv2D(32, kernel_size=(3, 3),/model.add(Conv2D(1, kernel_size=(3, 3),/" /horovod/examples/keras_mnist_advanced.py
 RUN sed -i "s/model.add(Conv2D(64, (3, 3), activation='relu'))//" /horovod/examples/keras_mnist_advanced.py
+
+# Hack TensorFlow 2.0 Keras MNIST advanced example to be smaller.
+RUN sed -i "s/epochs = .*/epochs = 9/" /horovod/examples/tensorflow2_keras_mnist.py
+RUN sed -i "s/tf.keras.layers.Conv2D(32, \\[3, 3\\],/tf.keras.layers.Conv2D(1, [3, 3],/" /horovod/examples/tensorflow2_keras_mnist.py
+RUN sed -i "s/tf.keras.layers.Conv2D(64, \\[3, 3\\], activation='relu')),//" /horovod/examples/tensorflow2_keras_mnist.py
 
 # Hack PyTorch MNIST example to be smaller.
 RUN sed -i "s/'--epochs', type=int, default=10,/'--epochs', type=int, default=2,/" /horovod/examples/pytorch_mnist.py

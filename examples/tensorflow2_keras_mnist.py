@@ -14,7 +14,7 @@
 # ==============================================================================
 
 import tensorflow as tf
-import horovod.tensorflow as hvd
+import horovod.tensorflow.keras as hvd
 
 # Horovod: initialize Horovod.
 hvd.init()
@@ -45,48 +45,42 @@ mnist_model = tf.keras.Sequential([
     tf.keras.layers.Dropout(0.5),
     tf.keras.layers.Dense(10, activation='softmax')
 ])
-loss = tf.losses.SparseCategoricalCrossentropy(from_logits=True)
 
 # Horovod: adjust learning rate based on number of GPUs.
 opt = tf.optimizers.Adam(0.001 * hvd.size())
 
-checkpoint_dir = './checkpoints'
-checkpoint = tf.train.Checkpoint(model=mnist_model, optimizer=opt)
+# Horovod: add Horovod DistributedOptimizer.
+opt = hvd.DistributedOptimizer(opt)
 
+mnist_model.compile(loss=tf.losses.SparseCategoricalCrossentropy(),
+                    optimizer=opt,
+                    metrics=['accuracy'])
 
-@tf.function
-def training_step(images, labels, first_batch):
-    with tf.GradientTape() as tape:
-        logits = mnist_model(images, training=True)
-        loss_value = loss(labels, logits)
-
-    # Horovod: add Horovod Distributed GradientTape.
-    tape = hvd.DistributedGradientTape(tape)
-
-    grads = tape.gradient(loss_value, mnist_model.trainable_variables)
-    opt.apply_gradients(zip(grads, mnist_model.trainable_variables))
-
+callbacks = [
     # Horovod: broadcast initial variable states from rank 0 to all other processes.
     # This is necessary to ensure consistent initialization of all workers when
     # training is started with random weights or restored from a checkpoint.
+    hvd.callbacks.BroadcastGlobalVariablesCallback(0),
+
+    # Horovod: average metrics among workers at the end of every epoch.
     #
-    # Note: broadcast should be done after the first gradient step to ensure optimizer
-    # initialization.
-    if first_batch:
-        hvd.broadcast_variables(mnist_model.variables, root_rank=0)
-        hvd.broadcast_variables(opt.variables(), root_rank=0)
+    # Note: This callback must be in the list before the ReduceLROnPlateau,
+    # TensorBoard or other metrics-based callbacks.
+    hvd.callbacks.MetricAverageCallback(),
 
-    return loss_value
+    # Horovod: using `lr = 1.0 * hvd.size()` from the very beginning leads to worse final
+    # accuracy. Scale the learning rate `lr = 1.0` ---> `lr = 1.0 * hvd.size()` during
+    # the first three epochs. See https://arxiv.org/abs/1706.02677 for details.
+    hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=3, verbose=1),
+]
 
-
-# Horovod: adjust number of steps based on number of GPUs.
-for batch, (images, labels) in enumerate(dataset.take(10000 // hvd.size())):
-    loss_value = training_step(images, labels, batch == 0)
-
-    if batch % 10 == 0 and hvd.local_rank() == 0:
-        print('Step #%d\tLoss: %.6f' % (batch, loss_value))
-
-# Horovod: save checkpoints only on worker 0 to prevent other workers from
-# corrupting it.
+# Horovod: save checkpoints only on worker 0 to prevent other workers from corrupting them.
 if hvd.rank() == 0:
-    checkpoint.save(checkpoint_dir)
+    callbacks.append(tf.keras.callbacks.ModelCheckpoint('./checkpoint-{epoch}.h5'))
+
+# Horovod: write logs on worker 0.
+verbose = 1 if hvd.rank() == 0 else 0
+
+# Train the model.
+# Horovod: adjust number of steps based on number of GPUs.
+mnist_model.fit(dataset, steps_per_epoch=500 // hvd.size(), callbacks=callbacks, epochs=24, verbose=verbose)

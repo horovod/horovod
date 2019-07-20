@@ -84,9 +84,10 @@ def allreduce(tensor, average=True, device_dense='', device_sparse='',
 @_cache
 def _make_broadcast_group_fn():
     if _executing_eagerly():
-        # Eager mode requires Tensor
+        # Eager mode will parallelize independent control flow
         def broadcast_group(variables, root_rank):
-            return [var.assign(broadcast(var, root_rank)) for var in variables]
+            for var in variables:
+                var.assign(broadcast(var, root_rank))
 
         return _make_subgraph(broadcast_group)
     else:
