@@ -21,6 +21,7 @@ RUN apt-get update -qq
 RUN apt-get install -y --no-install-recommends \
         wget \
         ca-certificates \
+        cmake \
         openssh-client \
         git \
         build-essential \
