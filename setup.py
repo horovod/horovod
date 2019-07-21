@@ -754,9 +754,12 @@ def remove_offensive_gcc_compiler_options(compiler_version):
         ldshared = get_config_var('LDSHARED')
 
         for k, v in offensive_replacements.items():
-            cflags = cflags.replace(k, v)
-            cppflags = cppflags.replace(k, v)
-            ldshared = ldshared.replace(k, v)
+            if cflags:
+                cflags = cflags.replace(k, v)
+            if cppflags:
+                cppflags = cppflags.replace(k, v)
+            if ldshared:
+                ldshared = ldshared.replace(k, v)
 
         return cflags, cppflags, ldshared
 
