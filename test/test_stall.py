@@ -2,13 +2,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from mpi4py import MPI
 import horovod.torch as hvd
 from horovod.common.util import env
 import torch
 import time
-import os
 import signal
+
 
 def test():
     signal.alarm(45)
@@ -24,6 +23,7 @@ def test():
             pass
         finally:
             hvd.shutdown()
+
 
 if __name__ == "__main__":
     test()
