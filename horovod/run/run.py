@@ -294,16 +294,21 @@ def parse_args():
     parser.add_argument('-p', '--ssh-port', action="store", dest="ssh_port",
                         type=int, help="SSH port on all the hosts.")
 
-    parser.add_argument('-H', '--host', action="store", dest="host",
-                        help="To specify the list of host names as well as the "
-                             "number of available slots on each host for "
-                             "training processes using the following format: "
-                             "<hostname>:<number of slots>,... . "
-                             "E.g., host1:2,host2:4,host3:1 "
-                             "indicates that 2 processes can run on "
-                             "host1, 4 processes on host2, and 1 process "
-                             "on host3.")
-
+    host_group = parser.add_argument_group("Use one of the following options "
+                                           "to specify which hosts (nodes) of "
+                                           "the cluster to run on")
+    host_group.add_argument('-H', '--host', action="store", dest="host",
+                            help="To specify the list of host names as well "
+                                 "as the number of available slots on each "
+                                 "host for training processes using the "
+                                 "following format: <hostname>:<number of "
+                                 "slots>,... . E.g., host1:2,host2:4,host3:1 "
+                                 "indicates that 2 processes can run on "
+                                 "host1, 4 processes on host2, and 1 process "
+                                 "on host3.")
+    host_group.add_argument('-hostfile', '--hostfile', action="store",
+                            dest="hostfile",
+                            help="Provide a hostfile to use")
     parser.add_argument('--disable-cache', action="store_true",
                         dest="disable_cache",
                         help="If the flag is not set, horovodrun will perform "
@@ -353,6 +358,9 @@ def run():
     if args.host:
         all_host_names = [x for x in
                           [y.split(':')[0] for y in args.host.split(',')]]
+    elif args.hostfile:
+        all_host_names = [x for x in
+                          [line.split()[0] for line in open(args.hostfile)]]
     else:
         all_host_names = []
 
@@ -407,6 +415,8 @@ def run():
                 print("SSH was successful into all the remote hosts.")
 
         hosts_arg = "-H {hosts}".format(hosts=args.host)
+    elif args.hostfile:
+        hosts_arg = "-hostfile {hostfile}".format(hostfile=args.hostfile)
     else:
         # if user does not specify any hosts, mpirun by default uses local host.
         # There is no need to specify localhost.
