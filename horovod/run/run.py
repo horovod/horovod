@@ -400,7 +400,7 @@ def run():
                                parameters_hash)
 
     remote_host_names = []
-    if args.host:
+    if args.host or args.hostfile:
         if settings.verbose >= 2:
             print("Filtering local host names.")
         remote_host_names = network.filter_local_addresses(all_host_names)
@@ -414,15 +414,16 @@ def run():
             if settings.verbose >= 2:
                 print("SSH was successful into all the remote hosts.")
 
-        hosts_arg = "-H {hosts}".format(hosts=args.host)
-    elif args.hostfile:
-        hosts_arg = "-hostfile {hostfile}".format(hostfile=args.hostfile)
+        if args.host:
+            hosts_arg = "-H {hosts}".format(hosts=args.host)
+        else:
+            hosts_arg = "-hostfile {hostfile}".format(hostfile=args.hostfile)
     else:
         # if user does not specify any hosts, mpirun by default uses local host.
         # There is no need to specify localhost.
         hosts_arg = ""
 
-    if args.host and len(remote_host_names) > 0:
+    if len(remote_host_names) > 0:
         if settings.verbose >= 2:
             print("Testing interfaces on all the hosts.")
 
