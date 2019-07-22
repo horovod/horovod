@@ -36,7 +36,7 @@ std::string GetOpName(const char* prefix, const char* name) {
 }
 } // namespace
 
-static const auto MX_EXEC_CTX = Context::CPU();
+static const auto MX_EXEC_CTX = Context();
 static const auto MX_FUNC_PROP = FnProperty::kCPUPrioritized;
 static const char* ALLREDUCE_OP_TYPE_NAME = "horovod_allreduce";
 static const char* ALLGATHER_OP_TYPE_NAME = "horovod_allgather";
