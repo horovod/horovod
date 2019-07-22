@@ -22,6 +22,7 @@ import subprocess
 import sys
 import textwrap
 import traceback
+import pipes
 from copy import deepcopy
 from distutils.errors import CompileError, DistutilsError, \
     DistutilsPlatformError, LinkError
@@ -772,7 +773,7 @@ def remove_offensive_gcc_compiler_options(compiler_version):
 def filter_compile_macros(compile_flags):
     res = []
     for flag in compile_flags:
-        if flag[:2] == '-D':
+        if flag.startswith('-D'):
             res.append(flag)
     return res
 
@@ -786,7 +787,7 @@ def build_tf_extension(build_ext, global_options):
     tf_compile_flags, tf_link_flags = get_tf_flags(
         build_ext, options['COMPILE_FLAGS'])
 
-    gloo_compile_flag = filter_compile_macros(tf_compile_flags)
+    gloo_compile_macros = filter_compile_macros(tf_compile_flags)
 
     tensorflow_mpi_lib.define_macros = options['MACROS']
     tensorflow_mpi_lib.include_dirs = options['INCLUDES']
@@ -848,7 +849,7 @@ def build_tf_extension(build_ext, global_options):
         with env(CC=cc_compiler, CXX=cxx_compiler, CFLAGS=cflags, CPPFLAGS=cppflags,
                  LDSHARED=ldshared):
             if options['BUILD_GLOO']:
-                build_cmake(build_ext, gloo_lib, 'tf', gloo_compile_flag, tensorflow_mpi_lib)
+                build_cmake(build_ext, gloo_lib, 'tf', gloo_compile_macros, tensorflow_mpi_lib)
             customize_compiler(build_ext.compiler)
             build_ext.build_extension(tensorflow_mpi_lib)
     finally:
@@ -1257,10 +1258,12 @@ def build_cmake(build_ext, ext, prefix, additional_flags, plugin_ext=None, optio
 
     # Pass additional compiler flags by setting CMAKE_CXX_FLAGS_[DEBUG/RELEASE]
     # so that cmake will append these flags to CMAKE_CXX_FLAGS
-    additional_cxx_flags = ' '.join(additional_flags)
+    additional_cxx_flags = pipes.quote(' '.join(additional_flags))
+    cmake_cxx_flag = '-DCMAKE_CXX_FLAGS_{type}:STRING={flags}'.format(
+        type=config.upper(), flags=additional_cxx_flags)
     cmake_args = ['-DUSE_MPI=ON',
                   '-DCMAKE_BUILD_TYPE=' + config,
-                  '-DCMAKE_CXX_FLAGS_'+config.upper()+':STRING='+additional_cxx_flags,
+                  cmake_cxx_flag,
                   '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}'.format(config.upper(), extdir),
                   '-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{}={}'.format(config.upper(),
                                                                   lib_output_dir),
