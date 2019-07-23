@@ -25,6 +25,7 @@ RUN apt-get update -qq
 RUN apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
         wget \
         ca-certificates \
+        cmake \
         openssh-client \
         git \
         build-essential \
