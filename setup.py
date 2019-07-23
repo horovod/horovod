@@ -800,7 +800,7 @@ def build_tf_extension(build_ext, global_options):
     tensorflow_mpi_lib.library_dirs = options['LIBRARY_DIRS']
     tensorflow_mpi_lib.libraries = options['LIBRARIES']
 
-    cc_compiler = cxx_compiler = cflags = cppflags = None
+    cc_compiler = cxx_compiler = cflags = cppflags = ldshared = None
     if sys.platform.startswith('linux') and not os.getenv('CC') and not os.getenv('CXX'):
         # Determine g++ version compatible with this TensorFlow installation
         import tensorflow as tf
@@ -1142,7 +1142,7 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
     # Backup the options, preventing other plugins access libs that
     # compiled with compiler of this plugin
     options = deepcopy(global_options)
-    
+
     have_cuda = is_torch_cuda_v2(build_ext, include_dirs=options['INCLUDES'],
                                  extra_compile_args=options['COMPILE_FLAGS'])
     if not have_cuda and check_macro(options['MACROS'], 'HAVE_CUDA'):
@@ -1196,7 +1196,7 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
     for k, v in ext.__dict__.items():
         torch_mpi_lib_v2.__dict__[k] = v
 
-    cc_compiler = cxx_compiler = cflags = cppflags = None
+    cc_compiler = cxx_compiler = cflags = cppflags = ldshared = None
     if sys.platform.startswith('linux') and not os.getenv('CC') and not os.getenv('CXX'):
         from torch.utils.cpp_extension import check_compiler_abi_compatibility
 
