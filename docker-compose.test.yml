@@ -301,7 +301,7 @@ services:
       args:
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 2.7
-        TENSORFLOW_PACKAGE: tf-nightly-gpu==1.15.0.dev20190709 tf-estimator-nightly==1.14.0.dev2019070901
+        TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: git+https://github.com/pytorch/vision.git
@@ -314,7 +314,7 @@ services:
         CUDA_DOCKER_VERSION: 10.0-devel-ubuntu18.04
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tf-nightly-gpu==1.15.0.dev20190709 tf-estimator-nightly==1.14.0.dev2019070901
+        TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: git+https://github.com/pytorch/vision.git
