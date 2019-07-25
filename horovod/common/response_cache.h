@@ -44,6 +44,9 @@ struct TensorParams {
 // LRU cache of Responses
 class ResponseCache {
 public:
+  ResponseCache() = default;
+  ResponseCache(const ResponseCache&) = delete;
+
   enum CacheState { MISS = 0, HIT = 1, INVALID = 2 };
 
   void clear();

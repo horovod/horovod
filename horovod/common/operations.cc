@@ -351,7 +351,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
                               static_cast<unsigned int>(size));
   }
   if (horovod_timeline != nullptr) {
-    state.timeline_enabled = true;
+    state.controller->SetTimelineEnabled(true);
   }
 
   ParseStallInspectorFromEnv(state.controller->GetStallInspector());
@@ -497,7 +497,8 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     state.timeline.MarkCycleStart();
   }
 
-  auto response_list = state.controller->ComputeResponseList(horovod_global.shut_down);
+  auto response_list =
+      state.controller->ComputeResponseList(horovod_global.shut_down);
 
   // Get tensor name and size data for autotuning.
   int64_t total_tensor_size = 0;
@@ -536,10 +537,10 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 void InitializeHorovodOnce(const int* ranks, int nranks) {
   // Ensure background thread is only started once.
   if (!horovod_global.initialize_flag.test_and_set()) {
-    horovod_global.controller = std::shared_ptr<Controller>(new MPIController(
-        horovod_global.response_cache, horovod_global.tensor_queue,
-        horovod_global.timeline_enabled, horovod_global.timeline,
-        horovod_global.parameter_manager, mpi_context));
+    horovod_global.controller = std::shared_ptr<Controller>(
+        new MPIController(horovod_global.response_cache,
+                          horovod_global.tensor_queue, horovod_global.timeline,
+                          horovod_global.parameter_manager, mpi_context));
 
     horovod_global.controller->SetRank(ranks, nranks);
 

@@ -25,10 +25,9 @@ namespace common {
 class MPIController : public Controller {
 public:
   MPIController(ResponseCache& response_cache, TensorQueue& tensor_queue,
-                bool timeline_enabled, Timeline& timeline,
-                ParameterManager& parameter_manager, MPIContext& mpi_ctx)
-      : Controller(response_cache, tensor_queue, timeline_enabled, timeline,
-                   parameter_manager),
+                Timeline& timeline, ParameterManager& parameter_manager,
+                MPIContext& mpi_ctx)
+      : Controller(response_cache, tensor_queue, timeline, parameter_manager),
         mpi_ctx_(mpi_ctx) {}
 
   void Initialize() override;

@@ -27,6 +27,8 @@ namespace common {
 
 class TensorQueue {
 public:
+  TensorQueue() = default;
+  TensorQueue(const TensorQueue&) = delete;
   Status AddToTensorQueue(TensorTableEntry& e, Request& message);
 
   void FinalizeTensorQueue(std::vector<StatusCallback>& callbacks_buffer);

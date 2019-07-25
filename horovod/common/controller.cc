@@ -27,12 +27,12 @@
 namespace horovod {
 namespace common {
 
-Controller::Controller(ResponseCache& response_cache, TensorQueue& tensor_queue,
-                       bool& timeline_enabled, Timeline& timeline,
+Controller::Controller(ResponseCache& response_cache,
+                       TensorQueue& tensor_queue, Timeline& timeline,
                        ParameterManager& parameter_manager)
     : stall_inspector_(response_cache), tensor_queue_(tensor_queue),
-      timeline_enabled_(timeline_enabled), timeline_(timeline),
-      response_cache_(response_cache), parameter_manager_(parameter_manager) {}
+      timeline_(timeline), response_cache_(response_cache),
+      parameter_manager_(parameter_manager) {}
 
 // This function performs all the preparation work for workers to agree
 // on what tensors to be all-reduced or all-gathered. The output is a
@@ -127,9 +127,6 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down) {
   }
 
   cache_coordinator.set_should_shut_down(should_shut_down);
-  if(should_shut_down){
-    LOG(DEBUG) << "Have stalled tensors, will shut down.";
-  }
 
   if (response_cache_.capacity() > 0) {
     // Obtain common cache hits and cache invalidations across workers. Also,

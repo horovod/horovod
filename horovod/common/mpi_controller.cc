@@ -16,8 +16,6 @@
 #include "mpi_controller.h"
 #include "logging.h"
 #include "operations.h"
-#include <stdio.h>      /* printf, scanf, puts, NULL */
-#include <stdlib.h>
 
 #if HAVE_GLOO
 #include "ops/gloo_operations.h"
@@ -91,11 +89,8 @@ int MPIController::GetTypeSize(DataType dtype) {
 
 void MPIController::CrossRankBitwiseAnd(std::vector<long long>& bitvector,
                                         int count) {
-  int ms = rand();
-  LOG(TRACE) << "Perform "<<ms;
   int ret_code = MPI_Allreduce(MPI_IN_PLACE, bitvector.data(), count,
                                MPI_LONG_LONG_INT, MPI_BAND, mpi_ctx_.mpi_comm);
-  LOG(TRACE) << "Finish "<<ms;
   if (ret_code != MPI_SUCCESS) {
     throw std::logic_error("MPI_AllReduce failed, see MPI output for details.");
   }
@@ -103,12 +98,8 @@ void MPIController::CrossRankBitwiseAnd(std::vector<long long>& bitvector,
 
 void MPIController::CrossRankBitwiseOr(std::vector<long long>& bitvector,
                                        int count) {
-  int ms = rand();
-  LOG(TRACE) << "Perform "<<ms;
   int ret_code = MPI_Allreduce(MPI_IN_PLACE, bitvector.data(), count,
                                MPI_LONG_LONG_INT, MPI_BOR, mpi_ctx_.mpi_comm);
-
-  LOG(TRACE) << "Finish "<<ms;
   if (ret_code != MPI_SUCCESS) {
     throw std::logic_error("MPI_AllReduce failed, see MPI output for details.");
   }

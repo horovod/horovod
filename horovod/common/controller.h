@@ -41,10 +41,11 @@ using MessageTable = std::unordered_map<std::string, std::vector<Request>>;
 
 class Controller : public std::enable_shared_from_this<Controller> {
 public:
-  Controller(ResponseCache& response_cache, TensorQueue& tensor_queue,
-             bool& timeline_enabled, Timeline& timeline,
+  Controller(ResponseCache& response_cache,
+             TensorQueue& tensor_queue, Timeline& timeline,
              ParameterManager& parameter_manager);
 
+  Controller(const Controller&) = delete;
   // Functions must be overridden by concrete controller
   virtual void Initialize() = 0;
 
@@ -69,8 +70,8 @@ public:
     }
   };
 
+  void SetTimelineEnabled(bool value) { timeline_enabled_ = value; }
   int GetLocalSizeAtCrossRank(int i);
-
   std::vector<int>& GetRanks() { return ranks_; };
   int GetRank() { return rank_; };
   int GetLocalRank() { return local_rank_; };
@@ -136,10 +137,10 @@ protected:
   // name) and time point when tensor started allreduce op.
   MessageTable message_table_;
 
+  bool timeline_enabled_ = false;
+
   // Outside dependencies
   TensorQueue& tensor_queue_;
-
-  bool& timeline_enabled_;
 
   Timeline& timeline_;
 

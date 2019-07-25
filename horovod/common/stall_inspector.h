@@ -29,9 +29,10 @@ class ResponseCache;
 
 class StallInspector {
 public:
+  StallInspector() = default;
   StallInspector(ResponseCache& response_cache)
       : response_cache_(response_cache) {}
-
+  StallInspector(const StallInspector&) = delete;
   bool CheckForStalledTensors(int global_size);
 
   void InvalidateStalledCachedTensors(CacheCoordinator& cache_coordinator);

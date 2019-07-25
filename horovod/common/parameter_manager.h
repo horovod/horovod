@@ -42,6 +42,7 @@ namespace common {
 class ParameterManager {
 public:
   ParameterManager();
+  ParameterManager(const ParameterManager&) = delete;
 
   // Initializes this manager if auto tuning was requested.
   void Initialize(int32_t rank, int32_t root_rank, const std::string& file_name);
