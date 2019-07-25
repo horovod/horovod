@@ -116,7 +116,7 @@ services:
         TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cpu/torchvision-0.3.0-cp36-cp36m-linux_x86_64.whl
         MXNET_PACKAGE: mxnet==1.4.1
         PYSPARK_PACKAGE: pyspark==2.4.0
-  test-cpu-openmpi-py2_7-tf2_0_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0:
+  test-cpu-openmpi-py2_7-tf2_0_0-keras2_2_4-torch1_1_0-mxnet1_5_0-pyspark2_4_0:
     extends: test-cpu-base
     build:
       args:
@@ -126,9 +126,9 @@ services:
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: torch==1.1.0
         TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cpu/torchvision-0.3.0-cp27-cp27mu-linux_x86_64.whl
-        MXNET_PACKAGE: mxnet==1.4.1
+        MXNET_PACKAGE: mxnet==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.0
-  test-cpu-openmpi-py3_5-tf2_0_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0:
+  test-cpu-openmpi-py3_5-tf2_0_0-keras2_2_4-torch1_1_0-mxnet1_5_0-pyspark2_4_0:
     extends: test-cpu-base
     build:
       args:
@@ -138,9 +138,9 @@ services:
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: torch==1.1.0
         TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cpu/torchvision-0.3.0-cp35-cp35m-linux_x86_64.whl
-        MXNET_PACKAGE: mxnet==1.4.1
+        MXNET_PACKAGE: mxnet==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.0
-  test-cpu-openmpi-py3_6-tf2_0_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0:
+  test-cpu-openmpi-py3_6-tf2_0_0-keras2_2_4-torch1_1_0-mxnet1_5_0-pyspark2_4_0:
     extends: test-cpu-base
     build:
       args:
@@ -151,7 +151,7 @@ services:
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: torch==1.1.0
         TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cpu/torchvision-0.3.0-cp36-cp36m-linux_x86_64.whl
-        MXNET_PACKAGE: mxnet==1.4.1
+        MXNET_PACKAGE: mxnet==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.0
   test-cpu-openmpi-py2_7-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0:
     extends: test-cpu-base
@@ -178,7 +178,7 @@ services:
         TORCHVISION_PACKAGE: git+https://github.com/pytorch/vision.git
         MXNET_PACKAGE: mxnet --pre
         PYSPARK_PACKAGE: pyspark==2.4.0
-  test-cpu-mpich-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0:
+  test-cpu-mpich-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_5_0-pyspark2_4_0:
     extends: test-cpu-base
     build:
       args:
@@ -189,9 +189,9 @@ services:
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: torch==1.1.0
         TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cpu/torchvision-0.3.0-cp36-cp36m-linux_x86_64.whl
-        MXNET_PACKAGE: mxnet==1.4.1
+        MXNET_PACKAGE: mxnet==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.0
-  test-cpu-mlsl-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0:
+  test-cpu-mlsl-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_5_0-pyspark2_4_0:
     extends: test-cpu-base
     build:
       args:
@@ -202,7 +202,7 @@ services:
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: torch==1.1.0
         TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cpu/torchvision-0.3.0-cp36-cp36m-linux_x86_64.whl
-        MXNET_PACKAGE: mxnet==1.4.1
+        MXNET_PACKAGE: mxnet==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.0
 
   test-gpu-base:
@@ -270,7 +270,7 @@ services:
         TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cu100/torchvision-0.3.0-cp36-cp36m-linux_x86_64.whl
         MXNET_PACKAGE: mxnet-cu100==1.4.1
         PYSPARK_PACKAGE: pyspark==2.4.0
-  test-gpu-openmpi-py2_7-tf2_0_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0:
+  test-gpu-openmpi-py2_7-tf2_0_0-keras2_2_4-torch1_1_0-mxnet1_5_0-pyspark2_4_0:
     extends: test-gpu-base
     build:
       args:
@@ -280,9 +280,9 @@ services:
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: https://download.pytorch.org/whl/cu100/torch-1.1.0-cp27-cp27mu-linux_x86_64.whl
         TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cu100/torchvision-0.3.0-cp27-cp27mu-linux_x86_64.whl
-        MXNET_PACKAGE: mxnet-cu100==1.4.1
+        MXNET_PACKAGE: mxnet-cu100==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.0
-  test-gpu-openmpi-py3_6-tf2_0_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0:
+  test-gpu-openmpi-py3_6-tf2_0_0-keras2_2_4-torch1_1_0-mxnet1_5_0-pyspark2_4_0:
     extends: test-gpu-base
     build:
       args:
@@ -293,7 +293,7 @@ services:
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: https://download.pytorch.org/whl/cu100/torch-1.1.0-cp36-cp36m-linux_x86_64.whl
         TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cu100/torchvision-0.3.0-cp36-cp36m-linux_x86_64.whl
-        MXNET_PACKAGE: mxnet-cu100==1.4.1
+        MXNET_PACKAGE: mxnet-cu100==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.0
   test-gpu-openmpi-py2_7-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0:
     extends: test-gpu-base
@@ -320,7 +320,7 @@ services:
         TORCHVISION_PACKAGE: git+https://github.com/pytorch/vision.git
         MXNET_PACKAGE: mxnet-cu100 --pre
         PYSPARK_PACKAGE: pyspark==2.4.0
-  test-gpu-mpich-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0:
+  test-gpu-mpich-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_5_0-pyspark2_4_0:
     extends: test-gpu-base
     build:
       args:
@@ -331,9 +331,9 @@ services:
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: https://download.pytorch.org/whl/cu100/torch-1.1.0-cp36-cp36m-linux_x86_64.whl
         TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cu100/torchvision-0.3.0-cp36-cp36m-linux_x86_64.whl
-        MXNET_PACKAGE: mxnet-cu100==1.4.1
+        MXNET_PACKAGE: mxnet-cu100==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.0
-  test-mixed-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0:
+  test-mixed-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_5_0-pyspark2_4_0:
     extends: test-gpu-base
     build:
       args:
@@ -344,7 +344,7 @@ services:
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: https://download.pytorch.org/whl/cu100/torch-1.1.0-cp36-cp36m-linux_x86_64.whl
         TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cu100/torchvision-0.3.0-cp36-cp36m-linux_x86_64.whl
-        MXNET_PACKAGE: mxnet-cu100==1.4.1
+        MXNET_PACKAGE: mxnet-cu100==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.0
         HOROVOD_BUILD_FLAGS: ""
         HOROVOD_MIXED_INSTALL: 1
