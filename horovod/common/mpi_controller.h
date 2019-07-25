@@ -24,8 +24,12 @@ namespace common {
 
 class MPIController : public Controller {
 public:
-  MPIController(HorovodGlobalState& global_state, MPIContext& mpi_ctx)
-      : Controller(global_state), mpi_ctx_(mpi_ctx) {}
+  MPIController(ResponseCache& response_cache, TensorQueue& tensor_queue,
+                bool timeline_enabled, Timeline& timeline,
+                ParameterManager& parameter_manager, MPIContext& mpi_ctx)
+      : Controller(response_cache, tensor_queue, timeline_enabled, timeline,
+                   parameter_manager),
+        mpi_ctx_(mpi_ctx) {}
 
   void Initialize() override;
 
@@ -37,7 +41,8 @@ public:
   void CrossRankBitwiseOr(std::vector<long long>& bitvector,
                           int count) override;
 
-  bool RecvReadyTensors(std::vector<std::string>& ready_to_reduce) override;
+  void RecvReadyTensors(std::vector<std::string>& ready_to_reduce,
+                        std::vector<RequestList>& ready_list) override;
 
   void SendFinalTensors(ResponseList& response_list) override;
 

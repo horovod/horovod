@@ -21,10 +21,11 @@
 #include <vector>
 
 #include "half.h"
-#include "message_table.h"
 #include "parameter_manager.h"
 #include "response_cache.h"
 #include "stall_inspector.h"
+#include "tensor_queue.h"
+#include "timeline.h"
 
 #if HAVE_GLOO
 #include "gloo_context.h"
@@ -36,9 +37,13 @@ namespace common {
 // Forward declaration
 class HorovodGlobalState;
 
+using MessageTable = std::unordered_map<std::string, std::vector<Request>>;
+
 class Controller : public std::enable_shared_from_this<Controller> {
 public:
-  Controller(HorovodGlobalState& global_state);
+  Controller(ResponseCache& response_cache, TensorQueue& tensor_queue,
+             bool& timeline_enabled, Timeline& timeline,
+             ParameterManager& parameter_manager);
 
   // Functions must be overridden by concrete controller
   virtual void Initialize() = 0;
@@ -54,7 +59,7 @@ public:
   virtual void SynchronizeParameters() = 0;
 
   // Concrete controller functions
-  ResponseList ComputeResponseList();
+  ResponseList ComputeResponseList(std::atomic_bool& shut_down);
 
   int64_t TensorFusionThresholdBytes();
 
@@ -80,7 +85,8 @@ public:
   StallInspector& GetStallInspector() { return stall_inspector_; };
 
 protected:
-  virtual bool RecvReadyTensors(std::vector<std::string>& ready_to_reduce) = 0;
+  virtual void RecvReadyTensors(std::vector<std::string>& ready_to_reduce,
+                                std::vector<RequestList>& ready_list) = 0;
 
   virtual void SendFinalTensors(ResponseList& response_list) = 0;
 
@@ -97,6 +103,11 @@ protected:
   int64_t
   TotalByteSizeOfAllgatherOutput(const std::vector<int64_t>& tensor_sizes,
                                  const TensorTableEntry& entry);
+
+  // Store the Request for a name, and return whether the total count of
+  // Requests for that tensor is now equal to the HOROVOD size (and thus we are
+  // ready to reduce the tensor).
+  bool IncrementTensorCount(const Request& msg);
 
   int rank_ = 0;
   int local_rank_ = 0;
@@ -118,8 +129,15 @@ protected:
 
   uint32_t cache_capacity_ = 1024;
 
-  // Following variables are used for computing ready tensor list
   StallInspector stall_inspector_;
+
+  // Only exists on the coordinator node (rank zero). Maintains a count of
+  // how many nodes are ready to allreduce every tensor (keyed by tensor
+  // name) and time point when tensor started allreduce op.
+  MessageTable message_table_;
+
+  // Outside dependencies
+  TensorQueue& tensor_queue_;
 
   bool& timeline_enabled_;
 
@@ -128,16 +146,6 @@ protected:
   ResponseCache& response_cache_;
 
   ParameterManager& parameter_manager_;
-
-  std::queue<Request>& message_queue_;
-
-  std::mutex& mutex_;
-
-  std::atomic_bool& shut_down_;
-
-  std::shared_ptr<MessageTable> message_table_;
-
-  TensorTable& tensor_table_;
 };
 
 } // namespace common

@@ -19,6 +19,7 @@
 #include "controller.h"
 #include "logging.h"
 #include "response_cache.h"
+#include "tensor_queue.h"
 
 namespace horovod {
 namespace common {
@@ -139,8 +140,7 @@ void ResponseCache::put_(const Response& response, TensorParams& params) {
   bits_outdated_ = true;
 }
 
-void ResponseCache::put(const Response& response,
-                        const TensorTable& tensor_table) {
+void ResponseCache::put(const Response& response, TensorQueue& tensor_queue) {
   // Note: This method invalidates all previously returned cache bit positions
   // if evictions occur.
 
@@ -157,8 +157,8 @@ void ResponseCache::put(const Response& response,
       new_response.set_devices(response.devices());
       new_response.set_tensor_sizes(response.tensor_sizes());
 
-      // Populate tensor parameters from tensor_table entry
-      auto& tensor_entry = tensor_table.at(name);
+      // Populate tensor parameters from tensor_queue entry
+      const auto& tensor_entry = tensor_queue.GetTensorEntry(name);
       TensorParams params;
       params.device = tensor_entry.device;
       params.dtype = tensor_entry.tensor->dtype();
@@ -167,7 +167,8 @@ void ResponseCache::put(const Response& response,
       this->put_(new_response, params);
     }
   } else {
-    auto& tensor_entry = tensor_table.at(response.tensor_names()[0]);
+    const auto& tensor_entry =
+        tensor_queue.GetTensorEntry(response.tensor_names()[0]);
     TensorParams params;
     params.device = tensor_entry.device;
     params.dtype = tensor_entry.tensor->dtype();
@@ -352,9 +353,12 @@ void CacheCoordinator::sync(std::shared_ptr<Controller> controller,
           (1ull << (shifted_bit % (sizeof(long long) * CHAR_BIT)));
     }
   }
-
+  LOG(TRACE) << "Perform bit wise and operations "<<bitvector_
+      .size() << "with count " << count;
   // Global AND operation to get intersected bit array.
   controller->CrossRankBitwiseAnd(bitvector_, fullcount);
+  LOG(TRACE) << "Finished bit wise and operations "<<bitvector_
+      .size() << "with count " << count;
 
   // Search for flipped bits to populate common cache hit set. There will never
   // be invalid bits in this set.
@@ -390,8 +394,12 @@ void CacheCoordinator::sync(std::shared_ptr<Controller> controller,
       bitvector_[shift] |= (1ull << (bit % (sizeof(long long) * CHAR_BIT)));
     }
 
+    LOG(TRACE) << "Perform bit wise or operations on length "<<bitvector_
+    .size() << "with count " << count;
     // Global OR operation to get common invalid bits.
     controller->CrossRankBitwiseOr(bitvector_, count);
+    LOG(TRACE) << "Finished bit wise or operations "<<bitvector_
+        .size() << "with count " << count;
     // Search for flipped bits to populate common invalid bit set.
     invalid_bits_.clear();
     for (int i = 0; i < count; ++i) {

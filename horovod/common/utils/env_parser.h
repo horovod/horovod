@@ -16,7 +16,9 @@
 #ifndef HOROVOD_HOROVOD_COMMON_UTILS_ENV_PARSER_H_
 #define HOROVOD_HOROVOD_COMMON_UTILS_ENV_PARSER_H_
 
-#include "../controller.h"
+#include <iostream>
+
+#include "../stall_inspector.h"
 
 namespace horovod {
 namespace common {

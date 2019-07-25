@@ -16,34 +16,42 @@
 #ifndef HOROVOD_STALL_INSPECTOR_H_
 #define HOROVOD_STALL_INSPECTOR_H_
 
+#include <chrono>
 #include <iostream>
 #include <unordered_map>
 
-#include "message_table.h"
 #include "response_cache.h"
 
 namespace horovod {
 namespace common {
 
+class ResponseCache;
+
 class StallInspector {
 public:
-  bool CheckForStalledTensors(std::shared_ptr<MessageTable> message_table,
-                              int global_size);
+  StallInspector(ResponseCache& response_cache)
+      : response_cache_(response_cache) {}
 
-  void InvalidateStalledCachedTensors(CacheCoordinator& cache_coordinator,
-                                      ResponseCache& response_cache);
+  bool CheckForStalledTensors(int global_size);
 
-  void RecordInitialTime(const std::string& tensor_name);
+  void InvalidateStalledCachedTensors(CacheCoordinator& cache_coordinator);
 
-  void RemoveEntry(const std::string& tensor_name);
+  void RecordCachedTensorStart(const std::string& tensor_name);
+
+  void RecordUncachedTensorStart(const std::string& tensor_name, int rank,
+                                 int global_size);
+
+  void RemoveCachedTensor(const std::string& tensor_name);
+
+  void RemoveUncachedTensor(const std::string& tensor_name);
 
   bool ShouldPerformCheck();
 
   void UpdateCheckTime();
 
-  void SetPerformStallCheck(bool perform_stall_check);
-  void SetStallWarningTimeSeconds(int stall_warning_time_seconds);
-  void SetStallShutdownTimeSeconds(int stall_shutdown_time_seconds);
+  void SetPerformStallCheck(bool value);
+  void SetStallWarningTimeSeconds(int value);
+  void SetStallShutdownTimeSeconds(int value);
 
 protected:
   // Time point when coordinator last checked for stalled tensors.
@@ -55,7 +63,6 @@ protected:
   // Stall-check warning time
   int stall_warning_time_seconds = 60;
 
-protected:
   // Stall-check shutdown time. If perform_stall_check==true and this value
   // is set to be greater than stall_warning_time_seconds, horovod will shut
   // itself down if any rank is stalled for longer than this time.
@@ -64,7 +71,17 @@ protected:
   // Initial time cached tensors are seen in queue. Used for stall message
   // handling.
   std::unordered_map<std::string, std::chrono::steady_clock::time_point>
-      cache_tensor_start;
+      cached_tensor_table;
+
+  // Initial time that tensors are seen in the normal message queue. The value
+  // consists of a list of ready ranks and the starting point.
+  std::unordered_map<
+      std::string,
+      std::tuple<std::vector<int>, std::chrono::steady_clock::time_point>>
+      uncached_tensor_table;
+
+  // Outside dependencies
+  ResponseCache& response_cache_;
 };
 
 } // namespace common

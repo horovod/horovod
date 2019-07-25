@@ -25,8 +25,7 @@ namespace common {
 
 // Report Tensors that were submitted to be reduced, gathered or broadcasted by
 // some ranks but not others and are waiting for long time to get processed.
-bool StallInspector::CheckForStalledTensors(
-    std::shared_ptr<MessageTable> message_table, int global_size) {
+bool StallInspector::CheckForStalledTensors(int global_size) {
   bool should_shut_down = false;
   auto now = std::chrono::steady_clock::now();
   std::map<int32_t, std::set<std::string>> missing_ranks;
@@ -41,17 +40,16 @@ bool StallInspector::CheckForStalledTensors(
     stall_shutdown_time = std::chrono::seconds(0);
   }
 
-  for (auto& m : *message_table) {
+  for (auto& m : uncached_tensor_table) {
     auto tensor_name = m.first;
-    std::vector<Request>& messages = std::get<0>(m.second);
+    std::vector<int>& ranks = std::get<0>(m.second);
     std::chrono::steady_clock::time_point start_at = std::get<1>(m.second);
     auto lag = now - start_at;
 
     if (lag > stall_warning_time) {
       std::unordered_set<int32_t> ready_ranks;
-      for (auto msg_iter = messages.begin(); msg_iter != messages.end();
-           ++msg_iter) {
-        ready_ranks.insert(msg_iter->request_rank());
+      for (auto rank : ranks) {
+        ready_ranks.insert(rank);
       }
 
       for (int32_t rank = 0; rank < global_size; ++rank) {
@@ -115,34 +113,54 @@ bool StallInspector::CheckForStalledTensors(
 
 // Invalidate cached tensors that have been pending for a long time.
 void StallInspector::InvalidateStalledCachedTensors(
-    CacheCoordinator& cache_coordinator, ResponseCache& response_cache) {
+    CacheCoordinator& cache_coordinator) {
   auto now = std::chrono::steady_clock::now();
   std::chrono::seconds stall_warning_time(stall_warning_time_seconds);
 
-  for (auto& entry : cache_tensor_start) {
+  for (auto& entry : cached_tensor_table) {
     // If pending time for cached tensor exceeds stall_warning_time, mark entry
     // for global removal from cache to trigger stall messaging.
     if (now - entry.second > stall_warning_time) {
-      uint32_t cache_bit = response_cache.peek_cache_bit(entry.first);
+      uint32_t cache_bit = response_cache_.peek_cache_bit(entry.first);
       cache_coordinator.record_invalid_bit(cache_bit);
       cache_coordinator.set_uncached_in_queue(true);
     }
   }
 }
 
+// Record initial time for an uncached tensor is encountered in queue.
+void StallInspector::RecordUncachedTensorStart(const std::string& tensor_name,
+                                               int rank, int global_size) {
+  auto table_iter = uncached_tensor_table.find(tensor_name);
+  if (table_iter == uncached_tensor_table.end()) {
+    std::vector<int> ranks = {rank};
+    ranks.reserve(static_cast<unsigned long>(global_size));
+    auto now = std::chrono::steady_clock::now();
+    uncached_tensor_table.emplace(tensor_name,
+                                  std::make_tuple(std::move(ranks), now));
+  } else {
+    std::vector<int>& ranks = std::get<0>(table_iter->second);
+    ranks.push_back(rank);
+  }
+}
+
 // Record initial time cached tensor is encountered in queue.
-void StallInspector::RecordInitialTime(const std::string& tensor_name) {
+void StallInspector::RecordCachedTensorStart(const std::string& tensor_name) {
   if (perform_stall_check &&
-      cache_tensor_start.find(tensor_name) == cache_tensor_start.end()) {
-    cache_tensor_start[tensor_name] = std::chrono::steady_clock::now();
+      cached_tensor_table.find(tensor_name) == cached_tensor_table.end()) {
+    cached_tensor_table[tensor_name] = std::chrono::steady_clock::now();
   }
 }
 
 // Remove timing entry if uncached or marked invalid.
-void StallInspector::RemoveEntry(const std::string& tensor_name) {
+void StallInspector::RemoveCachedTensor(const std::string& tensor_name) {
   if (perform_stall_check) {
-    cache_tensor_start.erase(tensor_name);
+    cached_tensor_table.erase(tensor_name);
   }
+}
+
+void StallInspector::RemoveUncachedTensor(const std::string& tensor_name) {
+  uncached_tensor_table.erase(tensor_name);
 }
 
 bool StallInspector::ShouldPerformCheck() {
@@ -158,9 +176,11 @@ void StallInspector::UpdateCheckTime() {
 void StallInspector::SetPerformStallCheck(bool value) {
   perform_stall_check = value;
 }
+
 void StallInspector::SetStallWarningTimeSeconds(int value) {
   stall_warning_time_seconds = value;
 }
+
 void StallInspector::SetStallShutdownTimeSeconds(int value) {
   stall_shutdown_time_seconds = value;
 }

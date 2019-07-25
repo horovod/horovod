@@ -32,6 +32,7 @@ namespace horovod {
 namespace common {
 
 class Controller;
+class TensorQueue;
 
 // Structure to store relevant tensor parameters to deal with name collisions
 struct TensorParams {
@@ -57,7 +58,7 @@ public:
 
   CacheState cached(const Response& response, const TensorParams& params) const;
 
-  void put(const Response& response, const TensorTable& tensor_table);
+  void put(const Response& response, TensorQueue& tensor_queue);
 
   const Response& get_response(uint32_t cache_bit);
 

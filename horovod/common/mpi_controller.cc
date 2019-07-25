@@ -16,6 +16,8 @@
 #include "mpi_controller.h"
 #include "logging.h"
 #include "operations.h"
+#include <stdio.h>      /* printf, scanf, puts, NULL */
+#include <stdlib.h>
 
 #if HAVE_GLOO
 #include "ops/gloo_operations.h"
@@ -79,6 +81,8 @@ void MPIController::Initialize() {
     local_sizes_for_cross_rank_[cross_rank] = local_sizes[displacement];
     displacement += local_sizes[displacement];
   }
+
+  LOG(DEBUG) << "MPI controller initialized.";
 }
 
 int MPIController::GetTypeSize(DataType dtype) {
@@ -87,8 +91,11 @@ int MPIController::GetTypeSize(DataType dtype) {
 
 void MPIController::CrossRankBitwiseAnd(std::vector<long long>& bitvector,
                                         int count) {
+  int ms = rand();
+  LOG(TRACE) << "Perform "<<ms;
   int ret_code = MPI_Allreduce(MPI_IN_PLACE, bitvector.data(), count,
                                MPI_LONG_LONG_INT, MPI_BAND, mpi_ctx_.mpi_comm);
+  LOG(TRACE) << "Finish "<<ms;
   if (ret_code != MPI_SUCCESS) {
     throw std::logic_error("MPI_AllReduce failed, see MPI output for details.");
   }
@@ -96,16 +103,19 @@ void MPIController::CrossRankBitwiseAnd(std::vector<long long>& bitvector,
 
 void MPIController::CrossRankBitwiseOr(std::vector<long long>& bitvector,
                                        int count) {
+  int ms = rand();
+  LOG(TRACE) << "Perform "<<ms;
   int ret_code = MPI_Allreduce(MPI_IN_PLACE, bitvector.data(), count,
                                MPI_LONG_LONG_INT, MPI_BOR, mpi_ctx_.mpi_comm);
+
+  LOG(TRACE) << "Finish "<<ms;
   if (ret_code != MPI_SUCCESS) {
     throw std::logic_error("MPI_AllReduce failed, see MPI output for details.");
   }
 }
 
-bool MPIController::RecvReadyTensors(
-    std::vector<std::string>& ready_to_reduce) {
-  bool should_shut_down = false;
+void MPIController::RecvReadyTensors(std::vector<std::string>& ready_to_reduce,
+                                     std::vector<RequestList>& ready_list) {
   // Rank zero has put all its own tensors in the tensor count table.
   // Now, it should count all the tensors that are coming from other
   // ranks at this tick.
@@ -134,32 +144,19 @@ bool MPIController::RecvReadyTensors(
               RANK_ZERO, mpi_ctx_.mpi_comm);
 
   // 4. Process messages.
+  // create a dummy list for rank 0
+  ready_list.emplace_back();
   for (int i = 1; i < size_; ++i) {
     auto rank_buffer_ptr = buffer + displcmnts[i];
     RequestList received_message_list;
     RequestList::ParseFromBytes(received_message_list, rank_buffer_ptr);
-    for (auto& received_message : received_message_list.requests()) {
-      auto& received_name = received_message.tensor_name();
-
-      bool reduce = IncrementTensorCount(message_table_, received_message,
-                                         size_, timeline_);
-
-      if (reduce) {
-        ready_to_reduce.push_back(received_name);
-      }
-    }
-    if (received_message_list.shutdown()) {
-      // Received SHUTDOWN request from one of the workers.
-      should_shut_down = true;
-    }
+    ready_list.push_back(std::move(received_message_list));
   }
 
   // 5. Free buffers.
   delete[] recvcounts;
   delete[] displcmnts;
   delete[] buffer;
-
-  return should_shut_down;
 }
 
 void MPIController::SendFinalTensors(ResponseList& response_list) {

@@ -20,10 +20,10 @@
 #include <queue>
 #include <thread>
 
-//#include "controller.h"
 #include "fusion_buffer_manager.h"
 #include "parameter_manager.h"
 #include "response_cache.h"
+#include "tensor_queue.h"
 #include "timeline.h"
 #include "utils/env_parser.h"
 
@@ -43,12 +43,6 @@ struct HorovodGlobalState {
   // An atomic boolean which is set to true when background thread is started.
   // This ensures that only one background thread is spawned.
   std::atomic_flag initialize_flag = ATOMIC_FLAG_INIT;
-
-  // A mutex that needs to be used whenever operations are done.
-  std::mutex mutex;
-
-  // Tensors waiting to be allreduced or allgathered.
-  TensorTable tensor_table;
 
   // Background thread running MPI communication.
   std::thread background_thread;
@@ -79,19 +73,13 @@ struct HorovodGlobalState {
 
   std::shared_ptr<Controller> controller;
 
+  TensorQueue tensor_queue;
+
   // Pointer to shared buffer for allgather
   void* shared_buffer = nullptr;
 
   // Current shared buffer size
   int64_t shared_buffer_size = 0;
-
-  // Queue of MPI requests waiting to be sent to the coordinator node.
-  std::queue<Request> message_queue;
-
-  // Only exists on the coordinator node (rank zero). Maintains a count of
-  // how many nodes are ready to allreduce every tensor (keyed by tensor
-  // name) and time point when tensor started allreduce op.
-  std::shared_ptr<MessageTable> message_table;
 
   // LRU cache of Responses
   ResponseCache response_cache;

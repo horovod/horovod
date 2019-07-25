@@ -36,7 +36,6 @@
 #include "hashes.h"
 #include "logging.h"
 #include "message.h"
-#include "message_table.h"
 #include "mpi.h"
 #include "mpi_context.h"
 #include "mpi_controller.h"
@@ -128,21 +127,6 @@ MLSLContext mlsl_context;
 
 std::unique_ptr<OperationManager> op_manager;
 
-const Status NOT_INITIALIZED_ERROR = Status::PreconditionError(
-    "Horovod has not been initialized; use hvd.init().");
-
-const Status SHUT_DOWN_ERROR = Status::UnknownError(
-    "Horovod has been shut down. This was caused by an exception on one of the "
-    "ranks or an attempt to allreduce, allgather or broadcast a tensor after "
-    "one of the ranks finished execution. If the shutdown was caused by an "
-    "exception, you should see the exception in the log before the first "
-    "shutdown message.");
-
-const Status DUPLICATE_NAME_ERROR = Status::InvalidArgument(
-    "Requested to allreduce, allgather, or broadcast a tensor with the same "
-    "name as another tensor that is currently being processed.  If you want "
-    "to request another tensor, use a different tensor name.");
-
 OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   // Order of these operations is very important. Operations will be checked
   // sequentially from the first to the last. The first 'Enabled' operation will
@@ -214,52 +198,11 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
                               allgather_ops, broadcast_ops, error_op);
 }
 
-// Helper function to get list of allreduced tensor names and total size for
-// use with the autotuner.
-int64_t GetTensorDataForAutotuner(const ResponseList& response_list,
-                                  const TensorTable& tensor_table,
-                                  std::vector<std::string>& tensor_names) {
-  int64_t total_tensor_size = 0;
-  for (auto& response : response_list.responses()) {
-    if (response.response_type() == Response::ResponseType::ALLREDUCE) {
-      for (auto& tensor_name : response.tensor_names()) {
-        tensor_names.push_back(tensor_name);
-        LOG(TRACE) << "Looking for tensor with name " << tensor_name;
-        auto& entry = tensor_table.at(tensor_name);
-        LOG(TRACE) << "Found tensor with name " << tensor_name;
-        total_tensor_size += entry.tensor->size();
-      }
-    }
-  }
-  return total_tensor_size;
-}
-
 // Process a Response by doing a reduction, a gather, a broadcast, or
 // raising an error.
-void PerformOperation(TensorTable& tensor_table, Response response) {
+void PerformOperation(Response response) {
   std::vector<TensorTableEntry> entries;
-  // Reserve to save re-allocation costs, as we know the size before.
-  entries.reserve(response.tensor_names().size());
-  {
-    // Lock on the tensor table.
-    std::lock_guard<std::mutex> guard(horovod_global.mutex);
-    for (auto& name : response.tensor_names()) {
-      // We should never fail at finding this key in the tensor table.
-      auto iter = tensor_table.find(name);
-      assert(iter != tensor_table.end());
-
-      assert(response.response_type() == Response::ALLREDUCE ||
-             response.response_type() == Response::ALLGATHER ||
-             response.response_type() == Response::BROADCAST ||
-             response.response_type() == Response::ERROR);
-
-      entries.push_back(iter->second);
-
-      // Clear the tensor table of this tensor and its callbacks; the rest of
-      // this function takes care of it.
-      tensor_table.erase(iter);
-    }
-  }
+  horovod_global.tensor_queue.GetTensorEntriesFromResponse(response, entries);
 
   auto& timeline = horovod_global.timeline;
   for (auto& e : entries) {
@@ -494,11 +437,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     state.parameter_manager.SetAutoTuning(true);
   }
 
-  // Initialize the tensor count table. No tensors are available yet.
-  if (is_coordinator) {
-    state.message_table = std::shared_ptr<MessageTable>(new MessageTable());
-  }
-
   op_manager.reset(CreateOperationManager(state));
 
   // Signal that initialization is completed.
@@ -526,18 +464,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.shut_down = true;
 
   // Notify all outstanding operations that Horovod has been shut down
-  // and clear up the tensor table and message queue.
+  // and finalize tensor queue.
   std::vector<StatusCallback> callbacks;
-  {
-    std::lock_guard<std::mutex> guard(state.mutex);
-    for (auto& e : state.tensor_table) {
-      callbacks.emplace_back(e.second.callback);
-    }
-    state.tensor_table.clear();
-    while (!state.message_queue.empty()) {
-      state.message_queue.pop();
-    }
-  }
+  horovod_global.tensor_queue.FinalizeTensorQueue(callbacks);
   for (auto& cb : callbacks) {
     cb(SHUT_DOWN_ERROR);
   }
@@ -568,15 +497,14 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     state.timeline.MarkCycleStart();
   }
 
-  auto response_list = state.controller->ComputeResponseList();
+  auto response_list = state.controller->ComputeResponseList(horovod_global.shut_down);
 
   // Get tensor name and size data for autotuning.
   int64_t total_tensor_size = 0;
   std::vector<std::string> tensor_names;
   if (state.parameter_manager.IsAutoTuning()) {
-    std::lock_guard<std::mutex> guard(state.mutex);
-    total_tensor_size = GetTensorDataForAutotuner(
-        response_list, state.tensor_table, tensor_names);
+    total_tensor_size = horovod_global.tensor_queue.GetTensorDataForAutotuner(
+        response_list, tensor_names);
   }
 
   // Perform the collective operation. All nodes should end up performing
@@ -586,7 +514,7 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
     LOG(TRACE, rank) << "Performing " << response.tensor_names_string();
     LOG(DEBUG, rank) << "Processing " << response.tensor_names().size()
                      << " tensors";
-    PerformOperation(state.tensor_table, response);
+    PerformOperation(response);
     LOG(TRACE, rank) << "Finished performing "
                      << response.tensor_names_string();
   }
@@ -608,8 +536,11 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 void InitializeHorovodOnce(const int* ranks, int nranks) {
   // Ensure background thread is only started once.
   if (!horovod_global.initialize_flag.test_and_set()) {
-    horovod_global.controller = std::shared_ptr<Controller>(
-        new MPIController(horovod_global, mpi_context));
+    horovod_global.controller = std::shared_ptr<Controller>(new MPIController(
+        horovod_global.response_cache, horovod_global.tensor_queue,
+        horovod_global.timeline_enabled, horovod_global.timeline,
+        horovod_global.parameter_manager, mpi_context));
+
     horovod_global.controller->SetRank(ranks, nranks);
 
     // Reset initialization flag
@@ -720,18 +651,14 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   e.device = device;
   e.callback = callback;
 
-  std::lock_guard<std::mutex> guard(horovod_global.mutex);
   if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
   }
-  if (horovod_global.tensor_table.find(name) !=
-      horovod_global.tensor_table.end()) {
-    return DUPLICATE_NAME_ERROR;
+  Status status = horovod_global.tensor_queue.AddToTensorQueue(e, message);
+  if (status.ok()) {
+    LOG(TRACE, horovod_global.controller->GetRank()) << "Enqueued " << name;
   }
-  horovod_global.tensor_table.emplace(name, std::move(e));
-  horovod_global.message_queue.push(message);
-  LOG(TRACE, horovod_global.controller->GetRank()) << "Enqueued " << name;
-  return Status::OK();
+  return status;
 }
 
 // Contexts and controller must be initialized and the background thread
@@ -759,18 +686,14 @@ Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
   e.device = device;
   e.callback = callback;
 
-  std::lock_guard<std::mutex> guard(horovod_global.mutex);
   if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
   }
-  if (horovod_global.tensor_table.find(name) !=
-      horovod_global.tensor_table.end()) {
-    return DUPLICATE_NAME_ERROR;
+  Status status = horovod_global.tensor_queue.AddToTensorQueue(e, message);
+  if (status.ok()) {
+    LOG(TRACE, horovod_global.controller->GetRank()) << "Enqueued " << name;
   }
-  horovod_global.tensor_table.emplace(name, std::move(e));
-  horovod_global.message_queue.push(message);
-  LOG(TRACE, horovod_global.controller->GetRank()) << "Enqueued " << name;
-  return Status::OK();
+  return status;
 }
 
 // Contexts and controller must be initialized and the background thread
@@ -802,18 +725,14 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   e.device = device;
   e.callback = callback;
 
-  std::lock_guard<std::mutex> guard(horovod_global.mutex);
   if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
   }
-  if (horovod_global.tensor_table.find(name) !=
-      horovod_global.tensor_table.end()) {
-    return DUPLICATE_NAME_ERROR;
+  Status status = horovod_global.tensor_queue.AddToTensorQueue(e, message);
+  if (status.ok()) {
+    LOG(TRACE, horovod_global.controller->GetRank()) << "Enqueued " << name;
   }
-  horovod_global.tensor_table.emplace(name, std::move(e));
-  horovod_global.message_queue.push(message);
-  LOG(TRACE, horovod_global.controller->GetRank()) << "Enqueued " << name;
-  return Status::OK();
+  return status;
 }
 
 } // namespace common
