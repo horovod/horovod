@@ -33,21 +33,31 @@ public:
   StallInspector(ResponseCache& response_cache)
       : response_cache_(response_cache) {}
   StallInspector(const StallInspector&) = delete;
+
+  // Report Tensors that were submitted to be reduced, gathered or broadcasted by
+  // some ranks but not others and are waiting for long time to get processed.
   bool CheckForStalledTensors(int global_size);
 
+  // Invalidate cached tensors that have been pending for a long time.
   void InvalidateStalledCachedTensors(CacheCoordinator& cache_coordinator);
 
+  // Record initial time cached tensor is encountered in queue.
   void RecordCachedTensorStart(const std::string& tensor_name);
 
+  // Record initial time for an uncached tensor is encountered in queue.
   void RecordUncachedTensorStart(const std::string& tensor_name, int rank,
                                  int global_size);
 
+  // Remove timing entry if cached or marked invalid.
   void RemoveCachedTensor(const std::string& tensor_name);
 
+  // Remove timing entry if uncached or marked invalid.
   void RemoveUncachedTensor(const std::string& tensor_name);
 
+  // return whether we should check for stalled tensors.
   bool ShouldPerformCheck();
 
+  // Update last check time.
   void UpdateCheckTime();
 
   void SetPerformStallCheck(bool value);

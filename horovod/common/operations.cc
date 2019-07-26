@@ -73,7 +73,7 @@
  *
  * This module implements ops for allgather, allreduce and broadcast, which
  * do optimized gathers, reductions and broadcasts and can take advantage of
- * whichever hardware-optimized communication libraries enabled.
+ * whichever hardware-optimized communication libraries are enabled.
  *
  * The primary logic of the allreduce, allgather and broadcast currently
  * support in MPI, NCCL, CUDA, Gloo, MLSL, DDL. The background thread which
@@ -280,7 +280,7 @@ void PerformOperation(Response response) {
 //      with MPI.
 //      2. We want to gracefully handle errors, when all processes do not
 //      properly agree upon what should happen (such as mismatched types or
-//      shapes). To do so requires the every process to know about the shapes
+//      shapes). To do so requires every process to know about the shapes
 //      and types of the relevant tensors on the other processes.
 //      3. The reductions and gathers should be able to happen in parallel
 //      with other ongoing operations. This means that they cannot be blocking
@@ -542,7 +542,7 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
                           horovod_global.tensor_queue, horovod_global.timeline,
                           horovod_global.parameter_manager, mpi_context));
 
-    horovod_global.controller->SetRank(ranks, nranks);
+    horovod_global.controller->SetRanks(ranks, nranks);
 
     // Reset initialization flag
     horovod_global.initialization_done = false;

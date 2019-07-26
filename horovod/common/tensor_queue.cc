@@ -95,7 +95,7 @@ void TensorQueue::GetTensorEntriesFromResponse(
 
 // Get tensor entry given a tensor name
 const TensorTableEntry&
-TensorQueue::GetTensorEntry(const std::string& tensor_name) {
+TensorQueue::GetTensorEntry(const std::string& tensor_name) const{
   // Lock on the tensor table.
   std::lock_guard<std::mutex> guard(mutex_);
   auto& iter = tensor_table_.at(tensor_name);

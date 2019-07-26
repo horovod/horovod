@@ -23,8 +23,6 @@
 namespace horovod {
 namespace common {
 
-// Report Tensors that were submitted to be reduced, gathered or broadcasted by
-// some ranks but not others and are waiting for long time to get processed.
 bool StallInspector::CheckForStalledTensors(int global_size) {
   bool should_shut_down = false;
   auto now = std::chrono::steady_clock::now();
@@ -111,7 +109,6 @@ bool StallInspector::CheckForStalledTensors(int global_size) {
   return should_shut_down;
 }
 
-// Invalidate cached tensors that have been pending for a long time.
 void StallInspector::InvalidateStalledCachedTensors(
     CacheCoordinator& cache_coordinator) {
   auto now = std::chrono::steady_clock::now();
@@ -128,7 +125,6 @@ void StallInspector::InvalidateStalledCachedTensors(
   }
 }
 
-// Record initial time for an uncached tensor is encountered in queue.
 void StallInspector::RecordUncachedTensorStart(const std::string& tensor_name,
                                                int rank, int global_size) {
   auto table_iter = uncached_tensor_table.find(tensor_name);
@@ -144,7 +140,6 @@ void StallInspector::RecordUncachedTensorStart(const std::string& tensor_name,
   }
 }
 
-// Record initial time cached tensor is encountered in queue.
 void StallInspector::RecordCachedTensorStart(const std::string& tensor_name) {
   if (perform_stall_check &&
       cached_tensor_table.find(tensor_name) == cached_tensor_table.end()) {
@@ -152,7 +147,6 @@ void StallInspector::RecordCachedTensorStart(const std::string& tensor_name) {
   }
 }
 
-// Remove timing entry if uncached or marked invalid.
 void StallInspector::RemoveCachedTensor(const std::string& tensor_name) {
   if (perform_stall_check) {
     cached_tensor_table.erase(tensor_name);

@@ -39,7 +39,7 @@ public:
   void GetTensorEntriesFromResponse(Response& response,
                                     std::vector<TensorTableEntry>& entries);
 
-  const TensorTableEntry& GetTensorEntry(const std::string& tensor_name);
+  const TensorTableEntry& GetTensorEntry(const std::string& tensor_name) const;
 
   void PopMessagesFromQueue(std::deque<Request>& message_queue_buffer);
 
@@ -54,7 +54,7 @@ protected:
 
   // A mutex that needs to be used whenever operations on message queue are
   // done.
-  std::mutex mutex_;
+  mutable std::mutex mutex_;
 };
 
 } // namespace common

@@ -60,18 +60,60 @@ public:
   virtual void SynchronizeParameters() = 0;
 
   // Concrete controller functions
+
+  // This function performs all the preparation work for workers to agree
+  // on what tensors to be all-reduced or all-gathered. The output is a
+  // response list that includes all tensors that are ready.
+  //
+  // The coordinator follows a master-worker paradigm. Rank zero acts
+  // as the master (the "coordinator"), whereas all other ranks are simply
+  // workers. Each worker maintains a cache of tensors that are previously
+  // broadcasted as ready by other ranks. If the cache covers all incoming
+  // messages, there's no need for workers to do additional communications.
+  // Otherwise, workers will communicate with each other to agree on what
+  // tensors to be processed. The communication performs as following:
+  //
+  //      a) The workers send a Request to the coordinator, indicating what
+  //      they would like to do (which tensor they would like to gather and
+  //      reduce, as well as their shape and type). They repeat this for every
+  //      tensor that they would like to operate on.
+  //
+  //      b) The workers send an empty "DONE" message to the coordinator to
+  //      indicate that there are no more tensors they wish to operate on.
+  //
+  //      c) The coordinator receives the Requests from the workers, as well
+  //      as from its own TensorFlow ops, and stores them in a request table.
+  //      The coordinator continues to receive Request messages until it has
+  //      received GLOBAL_SIZE number of empty "DONE" messages.
+  //
+  //      d) The coordinator finds all tensors that are ready to be reduced,
+  //      gathered, or all operations that result in an error. For each of
+  //      those, it sends a Response to all the workers. When no more
+  //      Responses are available, it sends a "DONE" response to the workers.
+  //      If the process is being shutdown, it instead sends a "SHUTDOWN"
+  //      response.
+  //
+  //      e) The workers listen for Response messages, processing each one by
+  //      doing the required reduce or gather, until they receive a "DONE"
+  //      response from the coordinator. At that point, the tick ends.
+  //      If instead of "DONE" they receive "SHUTDOWN", they mark it in the
+  //      response list.
   ResponseList ComputeResponseList(std::atomic_bool& shut_down);
 
+  // Get current tensors fusion threshold.
   int64_t TensorFusionThresholdBytes();
 
-  void SetRank(const int* ranks, int nrank) {
+  int GetLocalSizeAtCrossRank(int i);
+
+  // Set ranks that will be used to create global communicator.
+  void SetRanks(const int* ranks, int nrank) {
+    ranks_.clear();
     for (auto i = 0; i < nrank; ++i) {
       ranks_.push_back(ranks[i]);
     }
   };
 
   void SetTimelineEnabled(bool value) { timeline_enabled_ = value; }
-  int GetLocalSizeAtCrossRank(int i);
   std::vector<int>& GetRanks() { return ranks_; };
   int GetRank() { return rank_; };
   int GetLocalRank() { return local_rank_; };
@@ -86,21 +128,34 @@ public:
   StallInspector& GetStallInspector() { return stall_inspector_; };
 
 protected:
+  // For rank 0 to receive other ranks' ready tensors.
   virtual void RecvReadyTensors(std::vector<std::string>& ready_to_reduce,
                                 std::vector<RequestList>& ready_list) = 0;
 
-  virtual void SendFinalTensors(ResponseList& response_list) = 0;
-
+  // For other ranks to send their ready tensors to rank 0
   virtual void SendReadyTensors(RequestList& message_list) = 0;
 
+  // For rank 0 to send final ready tensors to be allreaduce/allgather to other ranks.
+  virtual void SendFinalTensors(ResponseList& response_list) = 0;
+
+  // For other ranks to receive to final ready tensors.
   virtual void RecvFinalTensors(ResponseList& response_list) = 0;
 
+  // Once a tensor is ready to be reduced, the coordinator sends a Response
+  // instructing all ranks to start the reduction to all ranks. The Response
+  // also contains error messages in case the submitted Requests were not
+  // valid (for example, contained mismatched shapes or types).
+  // Constructing the Response, thus, requires a whole lot of error checking.
   Response ConstructResponse(std::string& name);
 
+  // Routine to sync cache hit and invalid bit sets across workers.
+  // Also determines global shutdown state and whether uncached requests
+  // exist on any worker.
   void CoordinateCacheAndState(CacheCoordinator& cache_coordinator);
 
   ResponseList FuseResponses(std::deque<Response>& responses);
 
+  // Return the total byte size of the final allgathered output tensor
   int64_t
   TotalByteSizeOfAllgatherOutput(const std::vector<int64_t>& tensor_sizes,
                                  const TensorTableEntry& entry);
