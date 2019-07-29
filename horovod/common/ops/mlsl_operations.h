@@ -25,7 +25,6 @@
 
 #include "../common.h"
 #include "../global_state.h"
-#include "../mpi_context.h"
 #include "collective_operations.h"
 
 namespace horovod {
@@ -65,7 +64,7 @@ protected:
 
 class MLSLAllgather : public AllgatherOp {
 public:
-  MLSLAllgather(MLSLContext* mlsl_context, MPIContext* mpi_context, HorovodGlobalState* global_state);
+  MLSLAllgather(MLSLContext* mlsl_context, HorovodGlobalState* global_state);
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
@@ -75,7 +74,6 @@ public:
 
 protected:
   MLSLContext* mlsl_context_;
-  MPIContext* mpi_context_;
 };
 
 class MLSLBroadcast : public BroadcastOp {

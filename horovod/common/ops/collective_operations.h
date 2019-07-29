@@ -20,7 +20,9 @@
 #include <iostream>
 
 #include "../common.h"
+#include "../controller.h"
 #include "../global_state.h"
+#include "../operations.h"
 #include "../parameter_manager.h"
 
 namespace horovod {

@@ -28,6 +28,7 @@ namespace common {
 // The number of elements held by fusion buffer and hierarchical
 // allreduce size is always a multiple of FUSION_BUFFER_ATOMIC_UNIT
 #define FUSION_BUFFER_ATOMIC_UNIT 64
+#define RANK_ZERO 0
 
 // Horovod knobs.
 #define HOROVOD_MPI_THREADS_DISABLE "HOROVOD_MPI_THREADS_DISABLE"
@@ -46,6 +47,7 @@ namespace common {
 #define HOROVOD_MLSL_BGT_AFFINITY "HOROVOD_MLSL_BGT_AFFINITY"
 #define HOROVOD_NUM_NCCL_STREAMS "HOROVOD_NUM_NCCL_STREAMS"
 #define HOROVOD_CPU_OPERATIONS "HOROVOD_CPU_OPERATIONS"
+#define HOROVOD_CONTROLLER "HOROVOD_CONTROLLER"
 #define HOROVOD_GLOO_IFACE "HOROVOD_GLOO_IFACE"
 #define HOROVOD_MPI "MPI"
 #define HOROVOD_MLSL "MLSL"

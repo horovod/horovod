@@ -25,8 +25,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "mpi.h"
-
 #include <Eigen/Core>
 
 namespace horovod {
@@ -44,15 +42,10 @@ namespace common {
 class ParameterManager {
 public:
   ParameterManager();
-
-  // Creates MPI data types used for sending and receiving optimization state across workers.
-  void CreateMpiTypes();
-
-  // Frees MPI data types during Horovod MPI shutdown.
-  void FreeMpiTypes();
+  ParameterManager(const ParameterManager&) = delete;
 
   // Initializes this manager if auto tuning was requested.
-  void Initialize(int32_t rank, int32_t root_rank, MPI_Comm mpi_comm, std::string file_name);
+  void Initialize(int32_t rank, int32_t root_rank, const std::string& file_name);
 
   // Starts or stop the auto tuning procedure.
   void SetAutoTuning(bool active);
@@ -62,7 +55,7 @@ public:
     return active_;
   }
 
-  // Do hierarchical allreduce with MPI + NCCL.
+  // Do hierarchical allreduce.
   bool HierarchicalAllreduce() const;
   void SetHierarchicalAllreduce(bool value, bool fixed=false);
 
@@ -89,23 +82,35 @@ public:
   // Args:
   //  tensor_names: The names of the tensors that have been processed.
   //  bytes: The number of bytes that were processed per worker.
-  //  microseconds: The number of microseconds taken to process the bytes on this worker.
-  void Update(const std::vector<std::string>& tensor_names, int64_t bytes);
+  //
+  // Return:
+  //  Whether the parameters need to be broadcasted to all ranks.
+  bool Update(const std::vector<std::string>& tensor_names, int64_t bytes);
 
-private:
-  // Adjusts the parameter values based on the last observed score.
-  void Tune(double score);
+  struct Params {
+    bool hierarchical_allreduce;
+    bool hierarchical_allgather;
+    bool cache_enabled;
+    double tensor_fusion_threshold;
+    double cycle_time;
+    bool active;
+  };
 
-  // Broadcasts updated parameter values from the coordinator to the other workers.
-  void SyncParams();
+  Params GetParams();
+
+  // Using given params to update its own params.
+  void SetParams(const Params& newParams);
 
   // Resets the tuning state in preparation for evaluating a new set of parameter values.
   void Reset();
 
+private:
+  // Adjusts the parameter values based on the last observed score.
+  bool Tune(double score);
+
   // Outputs parameter values and writes results to a log file (if provided).
   void LogParameters(double score);
   void LogBestParameters();
-
 
   // Interface used to represent a parameter (or group of parameters) being tuned.
   class ITunableParameter {
@@ -232,20 +237,7 @@ private:
   std::ofstream file_;
   bool writing_;
 
-  struct Params {
-    bool hierarchical_allreduce;
-    bool hierarchical_allgather;
-    bool cache_enabled;
-    double tensor_fusion_threshold;
-    double cycle_time;
-    bool active;
-  };
-
-  MPI_Datatype mpi_params_type_;
-  MPI_Comm mpi_comm_;
 };
-
-
 
 } // namespace common
 } // namespace horovod

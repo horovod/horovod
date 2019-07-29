@@ -109,6 +109,22 @@ private:
   Status(StatusType type, std::string reason);
 };
 
+// Common error status
+const Status NOT_INITIALIZED_ERROR = Status::PreconditionError(
+    "Horovod has not been initialized; use hvd.init().");
+
+const Status SHUT_DOWN_ERROR = Status::UnknownError(
+    "Horovod has been shut down. This was caused by an exception on one of the "
+    "ranks or an attempt to allreduce, allgather or broadcast a tensor after "
+    "one of the ranks finished execution. If the shutdown was caused by an "
+    "exception, you should see the exception in the log before the first "
+    "shutdown message.");
+
+const Status DUPLICATE_NAME_ERROR = Status::InvalidArgument(
+    "Requested to allreduce, allgather, or broadcast a tensor with the same "
+    "name as another tensor that is currently being processed.  If you want "
+    "to request another tensor, use a different tensor name.");
+
 class TensorShape {
 public:
   void AddDim(int64_t dim);
@@ -167,7 +183,7 @@ public:
   virtual ~OpContext() = default;
 };
 
-// A callback to call after the MPI communication completes. Since the
+// A callback to call after the communication completes. Since the
 // allreduce and allgather ops are asynchronous, this callback is what resumes
 // computation after the reduction is completed.
 using StatusCallback = std::function<void(const Status&)>;

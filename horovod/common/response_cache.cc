@@ -13,11 +13,13 @@
 // limitations under the License.
 // =============================================================================
 
-#include<climits>
-#include<cstring>
+#include <climits>
+#include <cstring>
 
+#include "controller.h"
 #include "logging.h"
 #include "response_cache.h"
+#include "tensor_queue.h"
 
 namespace horovod {
 namespace common {
@@ -106,10 +108,11 @@ void ResponseCache::put_(const Response& response, TensorParams& params) {
   } else if (cache_.size() == capacity_) {
     if (print_warning_) {
       std::stringstream message;
-      message << "A response has been evicted from cache which may indicate reduced "
-                 "performance. Better performance may be obtained by disabling caching "
-                 "(HOROVOD_CACHE_CAPACITY=0) or increasing the cache capacity "
-                 "(HOROVOD_CACHE_CAPACITY>" <<std::to_string(capacity_) << ").";
+      message << "A response has been evicted from cache which may indicate "
+                 "reduced performance. Better performance may be obtained by "
+                 "disabling caching (HOROVOD_CACHE_CAPACITY=0) or increasing "
+                 "the cache capacity (HOROVOD_CACHE_CAPACITY>"
+              << std::to_string(capacity_) << ").";
       LOG(WARNING) << message.str();
       print_warning_ = false;
     }
@@ -137,9 +140,9 @@ void ResponseCache::put_(const Response& response, TensorParams& params) {
   bits_outdated_ = true;
 }
 
-void ResponseCache::put(const Response& response, const TensorTable& tensor_table) {
-  // Note: This method invalidates all previously returned cache bit positions if
-  // evictions occur.
+void ResponseCache::put(const Response& response, TensorQueue& tensor_queue) {
+  // Note: This method invalidates all previously returned cache bit positions
+  // if evictions occur.
 
   if (capacity_ == 0) {
     return;
@@ -154,8 +157,8 @@ void ResponseCache::put(const Response& response, const TensorTable& tensor_tabl
       new_response.set_devices(response.devices());
       new_response.set_tensor_sizes(response.tensor_sizes());
 
-      // Populate tensor parameters from tensor_table entry
-      auto& tensor_entry = tensor_table.at(name);
+      // Populate tensor parameters from tensor_queue entry
+      const auto& tensor_entry = tensor_queue.GetTensorEntry(name);
       TensorParams params;
       params.device = tensor_entry.device;
       params.dtype = tensor_entry.tensor->dtype();
@@ -164,7 +167,8 @@ void ResponseCache::put(const Response& response, const TensorTable& tensor_tabl
       this->put_(new_response, params);
     }
   } else {
-    auto& tensor_entry = tensor_table.at(response.tensor_names()[0]);
+    const auto& tensor_entry =
+        tensor_queue.GetTensorEntry(response.tensor_names()[0]);
     TensorParams params;
     params.device = tensor_entry.device;
     params.dtype = tensor_entry.tensor->dtype();
@@ -300,7 +304,8 @@ bool CacheCoordinator::uncached_in_queue() const {
   return uncached_in_queue_;
 }
 
-void CacheCoordinator::sync(MPIContext& ctx, bool timeline_enabled) {
+void CacheCoordinator::sync(std::shared_ptr<Controller> controller,
+                            bool timeline_enabled) {
   assert(!synced_);
 
   // Resize and initialize bit vector.
@@ -348,10 +353,12 @@ void CacheCoordinator::sync(MPIContext& ctx, bool timeline_enabled) {
           (1ull << (shifted_bit % (sizeof(long long) * CHAR_BIT)));
     }
   }
-
-  // Global MPI AND operation to get intersected bit array.
-  MPI_Allreduce(MPI_IN_PLACE, bitvector_.data(), fullcount,
-                MPI_LONG_LONG_INT, MPI_BAND, ctx.mpi_comm);
+  LOG(TRACE) << "Perform bit wise and operations "<<bitvector_
+      .size() << "with count " << count;
+  // Global AND operation to get intersected bit array.
+  controller->CrossRankBitwiseAnd(bitvector_, fullcount);
+  LOG(TRACE) << "Finished bit wise and operations "<<bitvector_
+      .size() << "with count " << count;
 
   // Search for flipped bits to populate common cache hit set. There will never
   // be invalid bits in this set.
@@ -379,19 +386,20 @@ void CacheCoordinator::sync(MPIContext& ctx, bool timeline_enabled) {
   }
 
   // If any worker has invalid cache entries, communicate invalid bits across
-  // workers using a second MPI allreduce operation.
+  // workers using a second bit-wise allreduce operation.
   if (invalid_in_queue_) {
     std::memset(&bitvector_[0], 0, count * sizeof(long long));
     for (auto bit : invalid_bits_) {
       int shift = bit / (sizeof(long long) * CHAR_BIT);
-      bitvector_[shift] |=
-          (1ull << (bit % (sizeof(long long) * CHAR_BIT)));
+      bitvector_[shift] |= (1ull << (bit % (sizeof(long long) * CHAR_BIT)));
     }
 
-    // Global MPI OR operation to get common invalid bits.
-    MPI_Allreduce(MPI_IN_PLACE, bitvector_.data(), count,
-                  MPI_LONG_LONG_INT, MPI_BOR, ctx.mpi_comm);
-
+    LOG(TRACE) << "Perform bit wise or operations on length "<<bitvector_
+    .size() << "with count " << count;
+    // Global OR operation to get common invalid bits.
+    controller->CrossRankBitwiseOr(bitvector_, count);
+    LOG(TRACE) << "Finished bit wise or operations "<<bitvector_
+        .size() << "with count " << count;
     // Search for flipped bits to populate common invalid bit set.
     invalid_bits_.clear();
     for (int i = 0; i < count; ++i) {

@@ -21,7 +21,6 @@
 
 #include "common.h"
 #include "hashes.h"
-#include "operations.h"
 
 namespace horovod {
 namespace common {

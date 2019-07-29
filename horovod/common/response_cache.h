@@ -25,12 +25,14 @@
 
 #include "common.h"
 #include "message.h"
-#include "mpi_context.h"
 
 #define NUM_STATUS_BITS 3
 
 namespace horovod {
 namespace common {
+
+class Controller;
+class TensorQueue;
 
 // Structure to store relevant tensor parameters to deal with name collisions
 struct TensorParams {
@@ -42,6 +44,9 @@ struct TensorParams {
 // LRU cache of Responses
 class ResponseCache {
 public:
+  ResponseCache() = default;
+  ResponseCache(const ResponseCache&) = delete;
+
   enum CacheState { MISS = 0, HIT = 1, INVALID = 2 };
 
   void clear();
@@ -56,7 +61,7 @@ public:
 
   CacheState cached(const Response& response, const TensorParams& params) const;
 
-  void put(const Response& response, const TensorTable& tensor_table);
+  void put(const Response& response, TensorQueue& tensor_queue);
 
   const Response& get_response(uint32_t cache_bit);
 
@@ -92,7 +97,7 @@ private:
 };
 
 // Helper class to coordinate cache and state information
-// across workers. Uses global MPI operations on a bit vector
+// across workers. Uses global controller operations on a bit vector
 // for cheaper coordination.
 class CacheCoordinator {
 public:
@@ -116,9 +121,8 @@ public:
 
   bool uncached_in_queue() const;
 
-  // Method to sync state and bit sets across workers
-  // with MPI.
-  void sync(MPIContext& ctx, bool timeline_enabled);
+  // Method to sync state and bit sets across workers.
+  void sync(std::shared_ptr<Controller> controller, bool timeline_enabled);
 
 private:
   enum StatusBit {
