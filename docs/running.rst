@@ -22,20 +22,22 @@ To run on 4 machines with 4 GPUs each:
 
     $ horovodrun -np 16 -H server1:4,server2:4,server3:4,server4:4 python train.py
 
-Host nodes can also be specified in a host file:
+You can also specify host nodes in a host file:
 For example, 
 
-$ cat myhostfile
+.. code-block:: bash
+    $ cat myhostfile
+
 aa slots=2
 bb slots=2
 cc slots=2
 
-Here, we list both the host names (aa, bb, and cc) but also how many "slots" there are for each.
+This example lists the host names (aa, bb, and cc) and how many "slots" there are for each.
 Slots indicate how many processes can potentially execute on a node.
-This format is the same as in mpirun command,
-see `this page <https://www.open-mpi.org/doc/v4.0/man1/mpirun.1.php#toc6>`_.
+This format is the same as in `mpirun command <https://www.open-mpi.org/doc/v4.0/man1/mpirun.1.php#toc6>`__.
 
 To run on hosts specified in a hostfile:
+
 .. code-block:: bash
     $ horovodrun -np 6 -hostfile myhostfile python train.py
 

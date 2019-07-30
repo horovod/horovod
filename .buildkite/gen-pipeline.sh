@@ -135,13 +135,6 @@ run_all() {
     ":muscle: Test MXNet MNIST (${test})" \
     "bash -c \"OMP_NUM_THREADS=1 \\\$(cat /mpirun_command) python /horovod/examples/mxnet_mnist.py\""
 
-  if [[ ${test} == *"openmpi"* ]]; then
-    run_test "${test}" "${queue}" \
-      ":muscle: Test Horovodrun (${test})" \
-      "echo 'localhost slots=2' > hostfile" \
-      "horovodrun -np 2 -hostfile hostfile python /horovod/examples/mxnet_mnist.py"
-  fi
-
   # tests that should be executed only with the latest release since they don't test
   # a framework-specific functionality
   if [[ ${test} == *"tf1_14_0"* ]]; then
@@ -153,6 +146,10 @@ run_all() {
       run_test "${test}" "${queue}" \
         ":muscle: Test Horovodrun (${test})" \
         "horovodrun -np 2 -H localhost:2 python /horovod/examples/tensorflow_mnist.py"
+      run_test "${test}" "${queue}" \
+        ":muscle: Test Horovodrun (${test})" \
+        "echo 'localhost slots=2' > hostfile" \
+        "horovodrun -np 2 -hostfile hostfile python /horovod/examples/mxnet_mnist.py"
     fi
   fi
 

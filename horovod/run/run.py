@@ -308,7 +308,11 @@ def parse_args():
                                  "on host3.")
     host_group.add_argument('-hostfile', '--hostfile', action="store",
                             dest="hostfile",
-                            help="Provide a hostfile to use")
+                            help="To specify a host file with the list of "
+                                  "host names as well as the number of "
+                                  "available slots on each host. "
+                                  "Each line of the host file is formatted "
+                                  "as <hostname> slots=<number of slots")
     parser.add_argument('--disable-cache', action="store_true",
                         dest="disable_cache",
                         help="If the flag is not set, horovodrun will perform "
@@ -419,7 +423,8 @@ def run():
         else:
             hosts_arg = "-hostfile {hostfile}".format(hostfile=args.hostfile)
     else:
-        # if user does not specify any hosts, mpirun by default uses local host.
+        # if none of --host  of --hostfile is specified, localhost will be
+        # used by default
         # There is no need to specify localhost.
         hosts_arg = ""
 
