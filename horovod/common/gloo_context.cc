@@ -105,8 +105,9 @@ void GlooContext::Initialize(const char* gloo_iface) {
 
   // Local rendezvous
   std::string local_scope = std::string("local") + std::to_string(cross_rank);
-  auto local_rendezvous = HTTPStore(
-      rendezvous_server_addr, rendezvous_server_port, local_scope.c_str(), rank);
+  auto local_rendezvous =
+      HTTPStore(rendezvous_server_addr, rendezvous_server_port,
+                local_scope.c_str(), rank);
   LOG(DEBUG) << "Local Rendezvous started for rank " << rank
              << ", total size of " << local_size;
   auto local_context =
@@ -117,8 +118,9 @@ void GlooContext::Initialize(const char* gloo_iface) {
 
   // Cross rendezvous
   std::string cross_scope = std::string("cross") + std::to_string(local_rank);
-  auto cross_rendezvous = HTTPStore(
-      rendezvous_server_addr, rendezvous_server_port, cross_scope.c_str(), rank);
+  auto cross_rendezvous =
+      HTTPStore(rendezvous_server_addr, rendezvous_server_port,
+                cross_scope.c_str(), rank);
   LOG(DEBUG) << "Cross Rendezvous started for rank " << rank
              << ", total size of " << size;
   auto cross_context =
@@ -126,8 +128,8 @@ void GlooContext::Initialize(const char* gloo_iface) {
   cross_context->connectFullMesh(cross_rendezvous, dev);
   cross_ctx = cross_context;
   LOG(DEBUG) << "Cross-node Gloo context initialized.";
-
 }
+
 std::shared_ptr<gloo::Context>
 GlooContext::GetGlooContext(Communicator communicator) {
   switch (communicator) {

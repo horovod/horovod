@@ -62,8 +62,7 @@ def mpi_run(args, settings, common_intfs):
             '2. Run distributed '
             'training script using the standard way provided by your'
             ' MPI distribution (usually mpirun, srun, or jsrun).\n'
-            '3. Use built-in gloo option (horovodrun --gloo ...).'
-        )
+            '3. Use built-in gloo option (horovodrun --gloo ...).')
 
     # Pass all the env variables to the mpirun command.
     env = os.environ.copy()
@@ -77,7 +76,8 @@ def mpi_run(args, settings, common_intfs):
     else:
         ssh_port_arg = ""
 
-    log_level_arg = '-x HOROVOD_LOG_LEVEL=' + env_util.LOG_LEVEL_STR[args.verbose]
+    log_level_arg = '-x HOROVOD_LOG_LEVEL=' + \
+        env_util.LOG_LEVEL_STR[args.verbose]
 
     if args.host:
         hosts_arg = "-H {hosts}".format(hosts=args.host)
@@ -101,15 +101,15 @@ def mpi_run(args, settings, common_intfs):
         '{log_level} '
         '{nccl_socket_intf_arg} '
         '{env} {command}'  # expect a lot of environment variables
-            .format(num_proc=settings.num_proc,
-                    hosts_arg=hosts_arg,
-                    tcp_intf_arg=tcp_intf_arg,
-                    log_level=log_level_arg,
-                    nccl_socket_intf_arg=nccl_socket_intf_arg,
-                    ssh_port_arg=ssh_port_arg,
-                    env=' '.join('-x %s' % key for key in env.keys()
-                                 if env_util.is_exportable(key)),
-                    command=' '.join(quote(par) for par in args.command))
+        .format(num_proc=settings.num_proc,
+                hosts_arg=hosts_arg,
+                tcp_intf_arg=tcp_intf_arg,
+                log_level=log_level_arg,
+                nccl_socket_intf_arg=nccl_socket_intf_arg,
+                ssh_port_arg=ssh_port_arg,
+                env=' '.join('-x %s' % key for key in env.keys()
+                             if env_util.is_exportable(key)),
+                command=' '.join(quote(par) for par in args.command))
     )
 
     if settings.verbose >= 2:

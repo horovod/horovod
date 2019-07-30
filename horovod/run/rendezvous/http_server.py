@@ -22,7 +22,7 @@ import socket
 # Timeout for reading from a single request
 SINGLE_REQUEST_TIMEOUT = 3
 
-# Timeout for the server listening for new request
+# Timeout for accepting new request
 TOTAL_TIMEOUT = 60
 
 
@@ -36,16 +36,26 @@ class MyHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         paths = self.path.split('/')
 
         if len(paths) < 3:
-            raise Exception('Invalid request path: {path}.'.format(path=self.path))
+            print(
+                'Rendezvous ERROR: Invalid request path: {path}.'.format(
+                    path=self.path))
+            self.send_status_code(400)
+            return
+
         if self.server.verbose >= 5:
-            print('Receive reqeust to url ' + self.path)
+            print('Rendezvous TEACE: Receive reqeust to url ' + self.path)
 
         if paths[2] == 'get':
             self.handle_get(paths[1])
         elif paths[2] == 'set':
             self.handle_set(paths[1])
+        elif paths[2] == 'finalize':
+            self.handle_finalize(paths[1])
         else:
-            raise Exception('Unsupported request type: {type}.'.format(type=paths[2]))
+            print(
+                'Rendezvous ERROR: Unsupported request type: {type}.'.format(
+                    type=paths[2]))
+            self.send_status_code(400)
 
     def read_from_socket(self, sock_input, content_bytes):
         try:
@@ -53,26 +63,46 @@ class MyHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             return value
         except socket.timeout:
             if self.server.verbose >= 2:
-                print('Rendezvous WARNING: Timeout when receiving {content_bytes} '
-                      'bytes, aborting this incomplete request.'
-                      .format(content_bytes=content_bytes))
+                print(
+                    'Rendezvous WARNING: Timeout when receiving {content_bytes} '
+                    'bytes, aborting this incomplete request.' .format(
+                        content_bytes=content_bytes))
+            self.send_status_code(408)
             return bytes('')
+
+    def send_status_code(self, status_code):
+        self.send_response(status_code)
+        self.send_header("Content-Length", 0)
+        self.end_headers()
 
     def handle_get(self, namespace):
         key_len = int(self.headers.get('Key-Length', '-1'))
-        if key_len < 0:
-            raise Exception('Invalid Get request with no Key-Length header line.')
+        if key_len <= -1:
+            if self.server.verbose >= 2:
+                print(
+                    'Rendezvous WARNING: Invalid get request with no Key-Length '
+                    'header line, aborting this incomplete request.')
+            self.send_status_code(400)
+            return
+
         key = self.read_from_socket(self.rfile, key_len)
-        # if not key:
-        #     print('Request does not have Key-Length header line, response 408.')
-        #     self.send_response(408)
-        #     self.end_headers()
-        #     return
+        if len(key) != key_len:
+            if self.server.verbose >= 5:
+                print(
+                    'Rendezvous TRACE: Key-Length is specified as {key_len}, '
+                    'but read {true_len} from socket without timeout, '
+                    'aborting this incomplete request.' .format(
+                        key_len=key_len, true_len=len(key)))
+            self.send_status_code(400)
+            return
 
         if self.server.verbose >= 5:
             rank = self.headers.get('Rank')
-            print('Receive a get request from {namespace}:{rank} with key: {key}.'
-                  .format(namespace=namespace, rank=rank, key=key))
+            print('Rendezvous TEACE: Receive a get request from '
+                  '{namespace}:{rank} with key: {key}.' .format(
+                      namespace=namespace,
+                      rank=rank,
+                      key=key))
 
         with self.server.cache_lock:
             value = self.server.cache.get(namespace, {}).get(key, '')
@@ -85,36 +115,68 @@ class MyHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
         if self.server.verbose >= 5:
             rank = self.headers.get('Rank')
-            print('Respond a get request from {namespace}:{rank} with value length {val_len}.'
-                  .format(namespace=namespace, rank=rank, val_len=len(value)))
+            print(
+                'Rendezvous TRACE: Respond a get request from '
+                '{namespace}:{rank} with value length {val_len}.' .format(
+                    namespace=namespace,
+                    rank=rank,
+                    val_len=len(value)))
 
     def handle_set(self, namespace):
         key_len = int(self.headers.get('Key-Length', '-1'))
-        if key_len < 0:
-            raise Exception('Invalid Set request with no Key-Length header line.')
+        if key_len <= -1:
+            if self.server.verbose >= 2:
+                print(
+                    'Rendezvous WARNING: Invalid Set request with no Key-Length '
+                    'header line, aborting this incomplete request.')
+            self.send_status_code(400)
+            return
 
         key = self.read_from_socket(self.rfile, key_len)
 
         value_len = int(self.headers.get('Value-Length', '-1'))
-        if value_len < 0:
-            raise Exception('Invalid Set request with no Value-Length header line.')
+        if value_len <= -1:
+            if self.server.verbose >= 2:
+                print(
+                    'Rendezvous WARNING: Invalid Set request with no Value-Length '
+                    'header line, aborting this incomplete request.')
+            self.send_status_code(400)
+            return
+
         if self.server.verbose >= 5:
             rank = self.headers.get('Rank')
-            print('Receive a set request from {namespace}:{rank} with key: {key}, '
-                  'value length: {val_len}.'
-                  .format(namespace=namespace, rank=rank, key=key, val_len=value_len))
+            print(
+                'Rendezvous TRACE: Receive a set request from '
+                '{namespace}:{rank} with key: {key}, '
+                'value length: {val_len}.' .format(
+                    namespace=namespace,
+                    rank=rank,
+                    key=key,
+                    val_len=value_len))
 
         value = self.read_from_socket(self.rfile, value_len)
 
-        # if not key or not value:
-        #     print()
-        #     self.send_response(408)
-        #     self.end_headers()
-        #     return
+        if len(key) < key_len:
+            if self.server.verbose >= 2:
+                print(
+                    'Rendezvous WARNING: Key-Length is specified as {len}, '
+                    'but read {true_len} from socket without timeout, '
+                    'aborting this incomplete request.' .format(
+                        len=key_len, true_len=len(key)))
+            self.send_status_code(400)
+            return
 
-        self.send_response(200)
-        self.send_header("Content-Length", 0)
-        self.end_headers()
+        if len(value) < value_len:
+            if self.server.verbose >= 2:
+                print(
+                    'Rendezvous WARNING: Value-Length is specified as {len}, '
+                    'but read {true_len} from socket without timeout, '
+                    'aborting this incomplete request.' .format(
+                        len=value_len, true_len=len(value)))
+            self.send_status_code(400)
+            return
+
+        self.send_status_code(200)
 
         with self.server.cache_lock:
             namespace_dict = self.server.cache.setdefault(namespace, {})
@@ -122,36 +184,34 @@ class MyHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             if self.server.verbose >= 5:
                 print(self.server.cache.keys())
 
-    # TODO: do we need finish here?
-    # def handle_finish(self, namespace):
-    #     if self.server.verbose >= 5:
-    #         rank = self.headers.get('Rank')
-    #         print('Receive a set request from {namespace}:{rank} with key: {key}, '
-    #               'value length: {val_len}.'
-    #               .format(namespace=namespace, rank=rank, key=key, val_len=value_len))
-    #     self.send_response(200)
-    #     self.end_headers()
-    #
-    #     with self.server.cache_lock:
-    #         namespace_dict = self.server.cache.setdefault(namespace, {})
-    #         namespace_dict[key] = value
+    def handle_finalize(self, namespace):
+        if self.server.verbose >= 4:
+            rank = self.headers.get('Rank')
+            print(
+                'Rendezvous DEBUG: Receive a finalize request from '
+                '{namespace}:{rank}.' .format(
+                    namespace=namespace, rank=rank))
+        self.send_status_code(200)
 
-    # Override this function to prevent SimpleHTTPServer printing every request out.
+        with self.server.finished_cnt_lock:
+            self.server.finished_cnt[namespace] += 1
+
+    # Override this function to prevent SimpleHTTPServer printing every
+    # request out.
     def log_message(self, format, *args):
         pass
 
 
 class MyHTTPServer(BaseHTTPServer.HTTPServer, object):
-
-    def __init__(self, addr, handler, size, verbose):
+    def __init__(self, addr, handler, alloc_plan, verbose):
         super(MyHTTPServer, self).__init__(addr, handler)
-        # Total size of the context
-        self.size = size
         self.httpd = None
 
         # Count for finished rendezvous workers
         self.finished_cnt_lock = threading.Lock()
         self.finished_cnt = collections.defaultdict(int)
+        self.comm_size = {}
+        self.extract_comm_size(alloc_plan)
 
         # Cache that provides the store
         self.cache_lock = threading.Lock()
@@ -159,25 +219,39 @@ class MyHTTPServer(BaseHTTPServer.HTTPServer, object):
 
         self.verbose = verbose
 
+    def extract_comm_size(self, alloc_plan):
+        # print(alloc_plan)
+        for rank, info in enumerate(alloc_plan):
+            # print(rank, info)
+            self.comm_size['global'] = info['Size']
+            cross_rank = info['Cross_rank']
+            self.comm_size['local' + str(cross_rank)] = info['Local_size']
+            local_rank = info['Local_rank']
+            self.comm_size['cross' + str(local_rank)] = info['Cross_size']
+
     # Decide whether all ranks have confirmed rendezvous completion.
     def should_continue(self):
+        should_continue = False
         with self.finished_cnt_lock:
-            finished_cnt = self.finished_cnt
-        return finished_cnt < self.size
+            for scope, cnt in self.comm_size.items():
+                if cnt > self.finished_cnt[scope]:
+                    should_continue = True
+        return should_continue
 
     def handle_timeout(self):
-        raise Exception('Rendezvous TIMEOUT: Rendezvous server timeout after '
-                        '{time} seconds while waiting for all the ranks to send finished '
-                        'messages. Received {recv}, expecting {expect}. '
-                        'Please make sure number of process set by -np is correct.'
-                        .format(time=TOTAL_TIMEOUT, recv=self.finished_cnt, expect=self.size))
+        raise Exception(
+            'Rendezvous ERROR: Rendezvous server timeout after '
+            '{time} seconds while waiting for all the ranks to send finalize '
+            'messages. Received {recv}, expecting {expect}. '
+            'Please make sure number of process set by -np is correct.' .format(
+                time=TOTAL_TIMEOUT, recv=self.finished_cnt, expect=self.comm_size))
 
 
 class RendezvousServer:
-    def __init__(self, size, verbose):
+    def __init__(self, alloc_plan, verbose):
         self.httpd = None
         self.listen_thread = None
-        self.size = size
+        self.alloc_plan = alloc_plan
         self.verbose = verbose
 
     def _find_port(self):
@@ -190,7 +264,8 @@ class RendezvousServer:
             try:
                 port = min_port + (start_port + port_offset) % num_ports
                 addr = ('', port)
-                self.httpd = MyHTTPServer(addr, MyHandler, self.size, self.verbose)
+                self.httpd = MyHTTPServer(
+                    addr, MyHandler, self.alloc_plan, self.verbose)
                 return port
             except Exception as e:
                 pass
@@ -201,7 +276,6 @@ class RendezvousServer:
     # and start listening loop to handle request
     def rendezvous(self):
         port = self._find_port()
-        self.httpd.timeout = TOTAL_TIMEOUT
 
         if self.verbose >= 3:
             print('Rendezvous INFO: HTTP rendezvous server started.')
@@ -215,63 +289,15 @@ class RendezvousServer:
 
     # Listening loop for handle request
     def listen_loop(self):
-        # while self.httpd.should_continue():
-        while True:
+        while self.httpd.should_continue():
             self.httpd.handle_request()
+
         if self.verbose >= 3:
             print('Rendezvous INFO: Rendezvous finishes.')
+        # Because this thread is daemonized, it can destroy itself
 
     # Finalize rendezvous server
     def finalize(self):
         while self.listen_thread.is_alive():
             # wait for the listening loop thread to join
             self.listen_thread.join(1)
-
-
-# Test
-if __name__ == '__main__':
-
-    import requests
-    rendez = RendezvousServer(2, 5)
-    port = rendez.rendezvous()
-    print(port)
-
-    headers = {'Key-Length': str(6), 'Value-Length':str(6), 'Finished':str(0)}
-    requests.post(url='http://localhost:'+str(port)+'/global/set',
-                        data='asdada123456', headers=headers)
-    headers = {'Key-Length': str(6), 'Value-Length':str(0), 'Finished':str(0)}
-    res = requests.post(url='http://localhost:'+str(port)+'/global/get',
-                        data='asdada', headers=headers)
-    assert(res.content == '123456')
-    headers = {'Key-Length': str(6), 'Value-Length':str(6), 'Finished':str(0)}
-    requests.post(url='http://localhost:'+str(port)+'/local/set',
-                  data='asdada654321', headers=headers)
-    headers = {'Key-Length': str(6), 'Value-Length':str(0), 'Finished':str(0)}
-    res = requests.post(url='http://localhost:'+str(port)+'/local/get',
-                        data='asdada', headers=headers)
-    assert(res.content == '654321')
-    headers = {'Key-Length': str(6), 'Value-Length':str(0), 'Finished':str(0)}
-    res = requests.post(url='http://localhost:'+str(port)+'/local/get',
-                        data='asdada', headers=headers)
-    assert(res.content == '654321')
-    headers = {'Key-Length': str(6), 'Value-Length':str(0), 'Finished':str(0)}
-    res = requests.post(url='http://localhost:'+str(port)+'/local/get',
-                        data='asdada', headers=headers)
-    assert(res.content == '654321')
-    headers = {'Key-Length': str(6), 'Value-Length':str(0), 'Finished':str(0)}
-    res = requests.post(url='http://localhost:'+str(port)+'/global/get',
-                        data='asdada', headers=headers)
-    assert(res.content == '123456')
-    # headers = {'Key-Length': str(6), 'Value-Length':str(0), 'Finished':str(1)}
-    # res = requests.post(url='http://localhost:'+str(port),
-    #                     data='asdbda', headers=headers)
-    # print('Got response:', res.content)
-    # headers = {'Key-Length': str(6), 'Value-Length':str(0), 'Finished':str(0)}
-    # res = requests.post(url='http://localhost:'+str(port),
-    #                     data='asdbda', headers=headers)
-    # print('Got response:', res.content)
-    # headers = {'Key-Length': str(6), 'Value-Length':str(0), 'Finished':str(1)}
-    # res = requests.post(url='http://localhost:'+str(port),
-    #                     data='asdbda', headers=headers)
-    # print('Got response:', res.content)
-

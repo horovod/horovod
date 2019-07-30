@@ -18,7 +18,7 @@ import netifaces as ni
 from horovod.run.rendezvous.http_server import RendezvousServer
 from horovod.run.common.util import env as env_util, safe_shell_exec
 from horovod.run.util import threads
-import time
+import collections
 
 try:
     from shlex import quote
@@ -55,7 +55,7 @@ def _allocate(hosts, np):
     local_rank = 0
     rank = 0
     local_sizes = []
-    cross_size = 0
+    cross_sizes = collections.defaultdict(int)
 
     # place one process at each iteration
     while rank < np and idx < len(hosts_split):
@@ -73,8 +73,7 @@ def _allocate(hosts, np):
                       'Size': np}
 
         # If this is the first process on the host, increase host count
-        if alloc_item['Local_rank'] == 0:
-            cross_size += 1
+        cross_sizes[local_rank] += 1
         alloc_item['Cross_rank'] = idx
 
         res.append(alloc_item)
@@ -89,7 +88,7 @@ def _allocate(hosts, np):
 
     for item in res:
         item['Local_size'] = local_sizes[item['Cross_rank']]
-        item['Cross_size'] = cross_size
+        item['Cross_size'] = cross_sizes[item['Local_rank']]
 
     return res
 
@@ -177,7 +176,7 @@ def gloo_run(args, remote_host_names, common_intfs):
     host_alloc = _allocate(args.host, args.np)
 
     # create global rendezvous server
-    global_rendezv = RendezvousServer(args.np, args.verbose)
+    global_rendezv = RendezvousServer(host_alloc, args.verbose)
     # Start rendezvous server and get port that it is listening
     global_rendezv_port = global_rendezv.rendezvous()
 
@@ -204,14 +203,14 @@ def gloo_run(args, remote_host_names, common_intfs):
         '{log_level_arg} '
         'NCCL_SOCKET_IFNAME={common_intfs} '
         '{env} {command}'  # expect a lot of environment variables
-            .format(addr=server_ip,
-                    port=global_rendezv_port,
-                    iface=iface,  # TODO: add multiple ifaces in future
-                    log_level_arg=log_level_arg,
-                    common_intfs=','.join(common_intfs),
-                    env=' '.join('%s=%s' % (key, value) for key, value in env.items()
-                                 if env_util.is_exportable(key) and env_util.is_exportable(value)),
-                    command=' '.join(quote(par) for par in args.command))
+        .format(addr=server_ip,
+                port=global_rendezv_port,
+                iface=iface,  # TODO: add multiple ifaces in future
+                log_level_arg=log_level_arg,
+                common_intfs=','.join(common_intfs),
+                env=' '.join('%s=%s' % (key, value) for key, value in env.items()
+                             if env_util.is_exportable(key) and env_util.is_exportable(value)),
+                command=' '.join(quote(par) for par in args.command))
     )
 
     _launch_job(args, host_alloc, remote_host_names, run_command)

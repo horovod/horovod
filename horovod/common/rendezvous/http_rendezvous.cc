@@ -36,15 +36,19 @@ HTTPStore::HTTPStore(const char* server_addr, int port, const char* scope,
   rank_ = rank;
 }
 
+
+HTTPStore::~HTTPStore() {
+  PerformHTTP(std::string(), std::vector<char>(), FINALIZE);
+}
+
 // Performing a single http request using given args,
 // throw runtime_errors when exceptions occur. Does not have the retry logic.
 std::vector<char> HTTPStore::PerformSingleHTTP(const std::string& key,
                                                const std::vector<char>& data,
-                                               bool is_get) {
-  std::string endpoint = is_get ? "get" : "set";
+                                               Type type) {
   std::string url = "http://" + server_ip_ + ":" +
                     std::to_string(server_port_) + "/" + scope_ + "/" +
-                    endpoint;
+                    GetEndpoint(type);
   LOG(DEBUG) << "Send request to " << url;
   http::Request request(url);
 
@@ -75,11 +79,11 @@ std::vector<char> HTTPStore::PerformSingleHTTP(const std::string& key,
 }
 
 void HTTPStore::set(const std::string& key, const std::vector<char>& data) {
-  PerformHTTP(key, data, false);
+  PerformHTTP(key, data, SET);
 }
 
 std::vector<char> HTTPStore::get(const std::string& key) {
-  return PerformHTTP(key, std::vector<char>(), true);
+  return PerformHTTP(key, std::vector<char>(), GET);
 }
 
 void HTTPStore::wait(const std::vector<std::string>& keys,
@@ -100,7 +104,7 @@ void HTTPStore::wait(const std::vector<std::string>& keys,
 
 bool HTTPStore::CheckKeys(const std::vector<std::string>& keys) {
   for (const auto& key : keys) {
-    if (PerformHTTP(key, std::vector<char>(), true).empty()) {
+    if (PerformHTTP(key, std::vector<char>(), GET).empty()) {
       return false;
     }
   }
@@ -110,12 +114,12 @@ bool HTTPStore::CheckKeys(const std::vector<std::string>& keys) {
 // Perform http request to rendezvous server with retry logic
 std::vector<char> HTTPStore::PerformHTTP(const std::string& key,
                                          const std::vector<char>& data,
-                                         bool is_get) {
+                                         Type type) {
   int retry_cnt = 0;
 
   while (retry_cnt < 3) {
     try {
-      return PerformSingleHTTP(key, data, is_get);
+      return PerformSingleHTTP(key, data, type);
     } catch (std::runtime_error& e) {
       retry_cnt++;
       LOG(DEBUG) << "Exception: " << e.what();
@@ -131,6 +135,17 @@ std::vector<char> HTTPStore::PerformHTTP(const std::string& key,
 
 std::string HTTPStore::GenerateHeaderLine(const char* key, int value) {
   return std::string(key) + ": " + std::to_string(value);
+}
+
+std::string HTTPStore::GetEndpoint(Type type) {
+  switch (type){
+  case GET:
+    return std::string("get");
+  case SET:
+    return std::string("set");
+  case FINALIZE:
+    return std::string("finalize");
+  }
 }
 
 } // namespace common

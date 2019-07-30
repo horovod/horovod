@@ -16,8 +16,8 @@
 #ifndef HOROVOD_RENDEZVOUS_HTTP_RENDEZVOUS_H_
 #define HOROVOD_RENDEZVOUS_HTTP_RENDEZVOUS_H_
 
-#include "gloo/rendezvous/store.h"
 #include "HTTPRequest.hpp"
+#include "gloo/rendezvous/store.h"
 
 namespace horovod {
 namespace common {
@@ -25,6 +25,8 @@ namespace common {
 class HTTPStore : public gloo::rendezvous::Store {
 public:
   HTTPStore(const char* server_addr, int port, const char* scope, int rank);
+
+  ~HTTPStore();
 
   void set(const std::string& key, const std::vector<char>& data) override;
 
@@ -40,16 +42,18 @@ public:
   bool CheckKeys(const std::vector<std::string>& keys);
 
 protected:
+  enum Type { GET, SET, FINALIZE };
+
   std::vector<char> PerformHTTP(const std::string& key,
-                                const std::vector<char>& data, bool is_get);
+                                const std::vector<char>& data, Type type);
 
   std::vector<char> PerformSingleHTTP(const std::string& key,
-                                      const std::vector<char>& data,
-                                      bool is_get);
+                                      const std::vector<char>& data, Type type);
 
-  std::string GenerateHeaderLine(const char* key, int value);
+  static std::string GenerateHeaderLine(const char* key, int value);
 
-protected:
+  static std::string GetEndpoint(Type type);
+
   std::string server_ip_;
   int server_port_;
   std::string scope_;
