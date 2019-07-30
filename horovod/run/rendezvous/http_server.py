@@ -30,15 +30,15 @@ class MyHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
     # Set timeout
     timeout = SINGLE_REQUEST_TIMEOUT
-    # Override POST HTTP request handler
 
+    # Override POST HTTP request handler
     def do_POST(self):
         paths = self.path.split('/')
 
         if len(paths) < 3:
             raise Exception('Invalid request path: {path}.'.format(path=self.path))
         if self.server.verbose >= 5:
-            print('Receive reqeust to url '+ self.path)
+            print('Receive reqeust to url ' + self.path)
 
         if paths[2] == 'get':
             self.handle_get(paths[1])
@@ -56,17 +56,18 @@ class MyHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 print('Rendezvous WARNING: Timeout when receiving {content_bytes} '
                       'bytes, aborting this incomplete request.'
                       .format(content_bytes=content_bytes))
-            return ''
+            return bytes('')
 
     def handle_get(self, namespace):
         key_len = int(self.headers.get('Key-Length', '-1'))
         if key_len < 0:
             raise Exception('Invalid Get request with no Key-Length header line.')
         key = self.read_from_socket(self.rfile, key_len)
-        if not key:
-            self.send_response(408)
-            self.end_headers()
-            return
+        # if not key:
+        #     print('Request does not have Key-Length header line, response 408.')
+        #     self.send_response(408)
+        #     self.end_headers()
+        #     return
 
         if self.server.verbose >= 5:
             rank = self.headers.get('Rank')
@@ -105,13 +106,15 @@ class MyHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
         value = self.read_from_socket(self.rfile, value_len)
 
-        if not key or not value:
-            self.send_response(408)
-            self.end_headers()
-            return
-        else:
-            self.send_response(200)
-            self.end_headers()
+        # if not key or not value:
+        #     print()
+        #     self.send_response(408)
+        #     self.end_headers()
+        #     return
+
+        self.send_response(200)
+        self.send_header("Content-Length", 0)
+        self.end_headers()
 
         with self.server.cache_lock:
             namespace_dict = self.server.cache.setdefault(namespace, {})

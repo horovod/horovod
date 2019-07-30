@@ -60,7 +60,9 @@ std::vector<char> HTTPStore::PerformSingleHTTP(const std::string& key,
 
   http::Response response = request.send("POST", body, headers);
   if (response.status != 200){
-    throw std::runtime_error("HTTP response not OK.");
+    std::string msg("HTTP response not OK, got ");
+    msg += std::to_string(response.status);
+    throw std::runtime_error(msg);
   }
 
   if (response.body.size() == 0){
