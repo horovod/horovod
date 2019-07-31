@@ -31,9 +31,9 @@ For example,
 
     $ cat myhostfile
 
-   aa slots=2
-   bb slots=2
-   cc slots=2
+    aa slots=2
+    bb slots=2
+    cc slots=2
 
 This example lists the host names (aa, bb, and cc) and how many "slots" there
 are for each.
