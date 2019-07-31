@@ -294,10 +294,4 @@ class RendezvousServer:
 
         if self.verbose >= 3:
             print('Rendezvous INFO: Rendezvous finishes.')
-        # Because this thread is daemonized, it can destroy itself
-
-    # Finalize rendezvous server
-    def finalize(self):
-        while self.listen_thread.is_alive():
-            # wait for the listening loop thread to join
-            self.listen_thread.join(1)
+        # Because this thread is daemonized, no need to join.

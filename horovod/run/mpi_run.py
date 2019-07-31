@@ -86,10 +86,14 @@ def mpi_run(args, settings, common_intfs):
         # There is no need to specify localhost.
         hosts_arg = ""
 
-    tcp_intf_arg = "-mca btl_tcp_if_include {common_intfs}".format(
-        common_intfs=','.join(common_intfs))
-    nccl_socket_intf_arg = "-x NCCL_SOCKET_IFNAME={common_intfs}".format(
-        common_intfs=','.join(common_intfs))
+    if common_intfs:
+        tcp_intf_arg = "-mca btl_tcp_if_include {common_intfs}".format(
+            common_intfs=','.join(common_intfs))
+        nccl_socket_intf_arg = "-x NCCL_SOCKET_IFNAME={common_intfs}".format(
+            common_intfs=','.join(common_intfs))
+    else:
+        tcp_intf_arg = ""
+        nccl_socket_intf_arg = ""
 
     mpirun_command = (
         'mpirun --allow-run-as-root --tag-output '

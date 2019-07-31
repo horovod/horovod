@@ -93,7 +93,7 @@ def _allocate(hosts, np):
     return res
 
 
-def _launch_job(args, hosts_alloc, remote_host_names, _run_command):
+def _launch_jobs(args, hosts_alloc, remote_host_names, _run_command):
     """
     executes the jobs defined by run command on hosts.
     :param hosts_alloc: list of dict indicating the allocating info.
@@ -181,12 +181,12 @@ def gloo_run(args, remote_host_names, common_intfs):
     global_rendezv_port = global_rendezv.rendezvous()
 
     # get the server address
-    if remote_host_names:
-        # if remote hosts exist, need to use the address of common interface
+    if common_intfs:
+        # if common intfs exist, use the address of common interface
         iface = list(common_intfs)[0]
         server_ip = ni.ifaddresses(iface)[ni.AF_INET][0]['addr']
     else:
-        # if all hosts are local, use 'lo' as common interface
+        # otherwise means we are running in localhost, use 'lo' as common interface
         iface = 'lo'
         server_ip = ni.ifaddresses(iface)[ni.AF_INET][0]['addr']
 
@@ -213,9 +213,5 @@ def gloo_run(args, remote_host_names, common_intfs):
                 command=' '.join(quote(par) for par in args.command))
     )
 
-    _launch_job(args, host_alloc, remote_host_names, run_command)
-
-    # Finalize
-    # global_rendezv.finalize()
-    # cross_rendezv.finalize()
+    _launch_jobs(args, host_alloc, remote_host_names, run_command)
     return

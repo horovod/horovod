@@ -427,7 +427,7 @@ def run():
         if settings.verbose >= 2:
             print("Interfaces on all the hosts were successfully checked.")
 
-        if settings.verbose >= 4:
+        if settings.verbose >= 3:
             print("Remote host found: " + " ".join(remote_host_names))
             print("Common interface found: " + " ".join(common_intfs))
     else:

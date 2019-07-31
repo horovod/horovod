@@ -19,6 +19,3 @@ exclude third_party/eigen/Eigen/src/SparseCholesky/*
 graft third_party/gloo/cmake
 recursive-include third_party/gloo CMakeLists.txt
 recursive-include third_party/gloo *.in
-
-# include .ipp files for boost.asio
-recursive-include third_party/boost/asio *.ipp

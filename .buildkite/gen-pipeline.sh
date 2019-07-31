@@ -175,7 +175,15 @@ run_gloo() {
   local test=$1
   local queue=$2
 
-  # Only test TensorFlow under 1.14.0
+  # Seems that spark tests depend on MPI, do not test those when mpi is not available
+  local exclude_spark_if_needed=""
+  if [[ ${test} != *"mpi"* ]]; then
+    exclude_spark_if_needed="| sed 's/[a-z_]*spark[a-z_.]*//g'"
+  fi
+
+  run_test "${test}" "${queue}" \
+    ":pytest: Run PyTests (${test})" \
+    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_spark_if_needed} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no)\""
 
   run_test "${test}" "${queue}" \
     ":muscle: Test Keras MNIST (${test})" \
@@ -188,11 +196,6 @@ run_gloo() {
   run_test "${test}" "${queue}" \
     ":muscle: Test MXNet MNIST (${test})" \
     "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet_mnist.py"
-
-  run_test "${test}" "${queue}" \
-    ":muscle: Test Stall (${test})" \
-    "horovodrun -np 2 -H localhost:2 --gloo python /horovod/test/test_stall.py"
-
 }
 
 build_docs() {
@@ -237,7 +240,7 @@ for test in ${tests[@]}; do
       run_gloo ${test} "cpu"
     fi
     # if mpi is specified, run mpi cpu_test
-    if [[ ${test} == *-mpi* ]]; then
+    if [[ ${test} == *mpi* ]]; then
       run_all ${test} "cpu"
     fi
   fi
@@ -254,7 +257,7 @@ for test in ${tests[@]}; do
       run_gloo ${test} "gpu"
     fi
     # if mpi is specified, run mpi gpu_test
-    if [[ ${test} == *-mpi* ]]; then
+    if [[ ${test} == *mpi* ]]; then
       run_all ${test} "gpu"
     fi
   fi
