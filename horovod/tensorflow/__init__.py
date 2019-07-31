@@ -132,6 +132,14 @@ if _global_variables is not None:
         return broadcast_variables(_global_variables(), root_rank)
 
 try:
+    _get_default_graph = tf.get_default_graph
+except AttributeError:
+    try:
+        _get_default_graph = tf.compat.v1.get_default_graph
+    except AttributeError:
+        _get_default_graph = None
+
+try:
     _SessionRunHook = tf.estimator.SessionRunHook
 except AttributeError:
     try:
@@ -139,7 +147,7 @@ except AttributeError:
     except AttributeError:
         _SessionRunHook = None
 
-if _SessionRunHook is not None:
+if _SessionRunHook is not None and _get_default_graph is not None:
 
     class BroadcastGlobalVariablesHook(_SessionRunHook):
         """
@@ -169,7 +177,8 @@ if _SessionRunHook is not None:
             self.device = device
 
         def begin(self):
-            if not self.bcast_op or self.bcast_op.graph != tf.get_default_graph():
+            if not self.bcast_op or self.bcast_op.graph != _get_default_graph():
+
                 with tf.device(self.device):
                     self.bcast_op = broadcast_global_variables(self.root_rank)
 
