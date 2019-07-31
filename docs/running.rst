@@ -9,7 +9,7 @@ MPI documentation for arguments to the ``mpirun``
 command on your system.
 
 Typically one GPU will be allocated per process, so if a server has 4 GPUs,
-you would run 4 processes. In ``horovodrun``,
+you will run 4 processes. In ``horovodrun``,
 the number of processes is specified with the ``-np`` flag.
 
 To run on a machine with 4 GPUs:
@@ -31,9 +31,9 @@ For example,
 
     $ cat myhostfile
 
-aa slots=2
-bb slots=2
-cc slots=2
+   aa slots=2
+   bb slots=2
+   cc slots=2
 
 This example lists the host names (aa, bb, and cc) and how many "slots" there
 are for each.
@@ -52,7 +52,7 @@ Failures due to SSH issues
 The host where ``horovodrun`` is executed must be able to SSH to all other
 hosts without any prompts.
 
-If ``horovodrun`` fails with permission error, verify that you can ssh to
+If ``horovodrun`` fails with a permission error, verify that you can ssh to
 every other server without entering a password or
 answering questions like this:
 
@@ -76,7 +76,7 @@ the ``~/.ssh/known_hosts`` file using ``ssh-keyscan``:
 Advanced: Run Horovod with Open MPI
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 In some advanced cases you might want fine-grained control over options passed to Open MPI.
-To learn how run Horovod training directly using Open MPI,
+To learn how to run Horovod training directly using Open MPI,
 read `Run Horovod with Open MPI <mpirun.rst>`_.
 
 .. inclusion-marker-end-do-not-remove
