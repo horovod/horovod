@@ -111,7 +111,15 @@ def broadcast_variables(variables, root_rank):
     return broadcast_group(variables, root_rank)
 
 
-if hasattr(tf, 'global_variables'):
+try:
+    _global_variables = tf.global_variables
+except AttributeError:
+    try:
+        _global_variables = tf.compat.v1.global_variables
+    except AttributeError:
+        _global_variables = None
+
+if _global_variables is not None:
     def broadcast_global_variables(root_rank):
         """Broadcasts all global variables from root rank to all other processes.
 
@@ -121,16 +129,15 @@ if hasattr(tf, 'global_variables'):
             root_rank: rank of the process from which global variables will be broadcasted
                        to all other processes.
         """
-        return broadcast_variables(tf.global_variables(), root_rank)
+        return broadcast_variables(_global_variables(), root_rank)
 
-if hasattr(tf, 'estimator') and hasattr(tf.estimator, 'SessionRunHook'):
+try:
     _SessionRunHook = tf.estimator.SessionRunHook
-
-elif hasattr(tf, 'train') and hasattr(tf.train, 'SessionRunHook'):
-    _SessionRunHook = tf.train.SessionRunHook
-
-else:
-    _SessionRunHook = None
+except AttributeError:
+    try:
+        _SessionRunHook = tf.train.SessionRunHook
+    except AttributeError:
+        _SessionRunHook = None
 
 if _SessionRunHook is not None:
 
@@ -193,19 +200,18 @@ def _make_allreduce_grads_fn(name, device_dense, device_sparse,
         return allreduce_grads
 
 
-if hasattr(tf, 'compat') and hasattr(tf.compat, 'v1') and \
-        hasattr(tf.compat.v1, 'train') and hasattr(tf.compat.v1.train, 'Optimizer'):
+try:
     # TensorFlow 2.x
     _LegacyOptimizer = tf.compat.v1.train.Optimizer
-elif hasattr(tf, 'train') and hasattr(tf.train, 'Optimizer'):
-    # TensorFlow 1.x
-    _LegacyOptimizer = tf.train.Optimizer
-else:
-    # Future TensorFlow versions
-    _LegacyOptimizer = None
+except AttributeError:
+    try:
+        # TensorFlow 1.x
+        _LegacyOptimizer = tf.train.Optimizer
+    except AttributeError:
+        # Future TensorFlow versions
+        _LegacyOptimizer = None
 
-
-if _LegacyOptimizer:
+if _LegacyOptimizer is not None:
     class _DistributedOptimizer(_LegacyOptimizer):
         """An optimizer that wraps another tf.Optimizer, using an allreduce to
         average gradient values before applying gradients to model weights."""
