@@ -123,12 +123,16 @@ if hasattr(tf, 'global_variables'):
         """
         return broadcast_variables(tf.global_variables(), root_rank)
 
+if hasattr(tf, 'estimator') and hasattr(tf.estimator, 'SessionRunHook'):
+    _SessionRunHook = tf.estimator.SessionRunHook
 
-if hasattr(tf, 'train') and hasattr(tf.train, 'SessionRunHook'):
-    if hasattr(tf, 'estimator') and hasattr(tf.estimator, 'SessionRunHook'):
-        _SessionRunHook = tf.estimator.SessionRunHook
-    else:
-        _SessionRunHook = tf.train.SessionRunHook
+elif hasattr(tf, 'train') and hasattr(tf.train, 'SessionRunHook'):
+    _SessionRunHook = tf.train.SessionRunHook
+
+else:
+    _SessionRunHook = None
+
+if _SessionRunHook is not None:
 
     class BroadcastGlobalVariablesHook(_SessionRunHook):
         """
