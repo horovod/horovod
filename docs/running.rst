@@ -24,8 +24,7 @@ To run on 4 machines with 4 GPUs each:
 
     $ horovodrun -np 16 -H server1:4,server2:4,server3:4,server4:4 python train.py
 
-You can also specify host nodes in a host file:
-For example,
+You can also specify host nodes in a host file. For example:
 
 .. code-block:: bash
 
