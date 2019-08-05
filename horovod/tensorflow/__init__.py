@@ -19,6 +19,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from distutils.version import LooseVersion
 
 from horovod.common.util import check_extension
 
@@ -177,11 +178,13 @@ if _SessionRunHook is not None and _get_default_graph is not None:
             self.device = device
 
         def begin(self):
-            if tf.compat.v1.executing_eagerly():
-                raise RuntimeError(
-                    "Eager Execution is not supported by `hvd.BroadcastGlobalVariablesHook`\n"
-                    "We recommend using `hvd.DistributedGradientTape` instead"
-                )
+            if LooseVersion(tf.__version__) >= LooseVersion('1.7.0'):  # Eager Mode has been introduced in TF 1.7.0
+                from tensorflow.python.eager import context
+                if context._context is not None and context.executing_eagerly():
+                    raise RuntimeError(
+                        "Eager Execution is not supported by `hvd.BroadcastGlobalVariablesHook`\n"
+                        "We recommend using `hvd.DistributedGradientTape` instead"
+                    )
 
             if not self.bcast_op or self.bcast_op.graph != _get_default_graph():
 
