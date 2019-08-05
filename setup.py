@@ -673,7 +673,7 @@ def get_common_options(build_ext):
         MACROS += [('HAVE_DDL', '1')]
         INCLUDES += ddl_include_dirs
         SOURCES += ['horovod/common/ops/ddl_operations.cc',
-                    'horovod/common/ops/ddl_mpi_context_manager.cc']
+                    'horovod/common/ddl_mpi_context_manager.cc']
         LIBRARY_DIRS += ddl_lib_dirs
         LIBRARIES += ['ddl', 'ddl_pack']
 
