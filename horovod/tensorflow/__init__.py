@@ -177,6 +177,12 @@ if _SessionRunHook is not None and _get_default_graph is not None:
             self.device = device
 
         def begin(self):
+            if tf.executing_eagerly():
+                raise RuntimeError(
+                    "Eager Execution is not supported by `hvd.BroadcastGlobalVariablesHook`\n"
+                    "We recommend using `hvd.DistributedGradientTape` instead"
+                )
+            
             if not self.bcast_op or self.bcast_op.graph != _get_default_graph():
 
                 with tf.device(self.device):
