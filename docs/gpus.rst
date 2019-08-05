@@ -54,7 +54,7 @@ by installing an `nv_peer_memory <https://github.com/Mellanox/nv_peer_memory>`__
 
        $ HOROVOD_GPU_ALLREDUCE=NCCL pip install --no-cache-dir horovod
    
-   If you have installed NCCL 2 using the CentOS / RHEL package, you can run:
+   If you have installed NCCL 2 using the `CentOS / RHEL package <https://docs.nvidia.com/deeplearning/sdk/nccl-install-guide/index.html#rhel_centos>`__, you can run:
 
    .. code-block:: bash
 
