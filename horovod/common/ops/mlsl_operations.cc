@@ -153,8 +153,8 @@ void MLSLAllreduce::MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntr
               (size_t) e.tensor->size());
 }
 
-MLSLAllgather::MLSLAllgather(MLSLContext* mlsl_context, MPIContext* mpi_context, HorovodGlobalState* global_state)
-    : AllgatherOp(global_state), mlsl_context_(mlsl_context), mpi_context_(mpi_context) {}
+MLSLAllgather::MLSLAllgather(MLSLContext* mlsl_context, HorovodGlobalState* global_state)
+    : AllgatherOp(global_state), mlsl_context_(mlsl_context) {}
 
 bool MLSLAllgather::Enabled(const ParameterManager& param_manager,
                            const std::vector<TensorTableEntry>& entries,
@@ -172,12 +172,13 @@ Status MLSLAllgather::Execute(std::vector<TensorTableEntry>& entries, const Resp
   // allgatherv
   auto** entry_component_offsets = new int64_t* [entries.size()];
 
-  auto* recvcounts = new int[global_state_->size]();
-  auto* displcmnts = new int[global_state_->size]();
+  int global_size = global_state_->controller->GetSize();
+  auto* recvcounts = new int[global_size]();
+  auto* displcmnts = new int[global_size]();
 
   for (size_t ec = 0; ec < entries.size(); ++ec) {
-    entry_component_sizes[ec] = new int64_t[global_state_->size]();
-    entry_component_offsets[ec] = new int64_t[global_state_->size]();
+    entry_component_sizes[ec] = new int64_t[global_size]();
+    entry_component_offsets[ec] = new int64_t[global_size]();
   }
 
   auto& first_entry = entries[0];
@@ -192,7 +193,7 @@ Status MLSLAllgather::Execute(std::vector<TensorTableEntry>& entries, const Resp
   SetDisplacements(recvcounts, displcmnts);
   SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets);
 
-  int element_size = mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
+  int element_size = global_state_->controller->GetTypeSize(first_entry.tensor->dtype());
 
   const void* sendbuf = nullptr;
   void* buffer_data;
@@ -207,8 +208,8 @@ Status MLSLAllgather::Execute(std::vector<TensorTableEntry>& entries, const Resp
     buffer_data = (void*) first_entry.output->data();
   }
 
-  auto* rcounts = new uint64_t[global_state_->size]();
-  for (unsigned int rc = 0; rc < global_state_->size; rc++) {
+  auto* rcounts = new uint64_t[global_size]();
+  for (unsigned int rc = 0; rc < global_size; rc++) {
     rcounts[rc] = recvcounts[rc] * element_size;
   }
 
@@ -255,7 +256,7 @@ Status MLSLBroadcast::Execute(std::vector<TensorTableEntry>& entries, const Resp
   // On root rank, MLSL_Bcast sends data, on other ranks it receives data.
   void* data_ptr;
   size_t size;
-  if (global_state_->rank == e.root_rank) {
+  if (global_state_->controller->GetRank() == e.root_rank) {
     data_ptr = (void*) e.tensor->data();
     size = e.tensor->size();
   } else {

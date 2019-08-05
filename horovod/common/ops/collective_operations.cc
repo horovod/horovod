@@ -88,6 +88,7 @@ Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
                                    const Response& response,
                                    int64_t**& entry_component_sizes,
                                    int*& recvcounts) {
+  int global_size = global_state_->controller->GetSize();
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     auto& e = entries[ec];
     // Every tensor participating in Allgather operation may have different
@@ -98,12 +99,12 @@ Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
       single_slice_shape.AddDim(e.tensor->shape().dim_size(i));
     }
 
-    // Copy tensor sizes from the MPI response into a vector of int64_t
+    // Copy tensor sizes from the response into a vector of int64_t
     // and compute total size.  This is size of first dimension.
     int64_t total_entry_dimension_size = 0;
     const auto& tensor_sizes = response.tensor_sizes();
-    for (int rc = 0; rc < global_state_->size; ++rc) {
-      auto component_size = tensor_sizes[ec * global_state_->size + rc];
+    for (int rc = 0; rc < global_size; ++rc) {
+      auto component_size = tensor_sizes[ec * global_size + rc];
       total_entry_dimension_size += component_size;
       recvcounts[rc] += component_size * single_slice_shape.num_elements();
       entry_component_sizes[ec][rc] =
@@ -126,7 +127,8 @@ Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
 }
 
 void AllgatherOp::SetDisplacements(const int* recvcounts, int*& displcmnts) {
-  for (int rc = 0; rc < global_state_->size; ++rc) {
+  int global_size = global_state_->controller->GetSize();
+  for (int rc = 0; rc < global_size; ++rc) {
     if (rc == 0) {
       displcmnts[rc] = 0;
     } else {
@@ -140,7 +142,8 @@ void AllgatherOp::SetEntryComponentOffsets(
     const int64_t* const* entry_component_sizes, const int* recvcounts,
     int64_t**& entry_component_offsets) {
   unsigned int rank_displacement = 0;
-  for (int rc = 0; rc < global_state_->size; ++rc) {
+  int global_size = global_state_->controller->GetSize();
+  for (int rc = 0; rc < global_size; ++rc) {
     for (size_t ec = 0; ec < entries.size(); ++ec) {
       if (ec == 0) {
         entry_component_offsets[ec][rc] = rank_displacement;
@@ -162,7 +165,7 @@ void AllgatherOp::MemcpyInFusionBuffer(
       first_entry.device, first_entry.context->framework(), global_state_->current_nccl_stream);
   buffer_data = const_cast<void*>(buffer->AccessData(first_entry.context));
 
-  int64_t offset = displcmnts[global_state_->rank] * element_size;
+  int64_t offset = displcmnts[global_state_->controller->GetRank()] * element_size;
   for (auto& e : entries) {
     void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
     std::memcpy(buffer_data_at_offset, e.tensor->data(),
@@ -176,10 +179,11 @@ void AllgatherOp::MemcpyOutFusionBuffer(
     const int64_t* const* entry_component_sizes, const void* buffer_data,
     int element_size, std::vector<TensorTableEntry>& entries) {
   // Copy memory out of the fusion buffer.
+  int global_size = global_state_->controller->GetSize();
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     auto& e = entries[ec];
     int64_t copy_offset = 0;
-    for (int rc = 0; rc < global_state_->size; ++rc) {
+    for (int rc = 0; rc < global_size; ++rc) {
       int64_t entry_offset = entry_component_offsets[ec][rc] * element_size;
       int64_t entry_size = entry_component_sizes[ec][rc] * element_size;
       std::memcpy((void*)((uint8_t*)e.output->data() + copy_offset),

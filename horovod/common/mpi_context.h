@@ -17,13 +17,40 @@
 #ifndef HOROVOD_MPI_CONTEXT_H
 #define HOROVOD_MPI_CONTEXT_H
 
+#include <iostream>
+#include <memory>
+#include <vector>
+
 #include "common.h"
-#include "mpi.h"
+#include "half.h"
+#include "logging.h"
+#include "mpi_context.h"
+#include "operations.h"
 
 namespace horovod {
 namespace common {
 
+// Base class for managing MPI environment. Can be derived if other frameworks
+// (like DDL) are able to manage MPI environment.
+class MPIContextManager {
+public:
+  // Initialize MPI environment with required multi-threads support level.
+  virtual void EnvInitialize(int mpi_threads_required);
+
+  // Finalize MPI environment.
+  virtual void EnvFinalize();
+};
+
 struct MPIContext {
+  // Take an argument of context manager pointer that will take care of
+  // initialization of MPI environment.
+  void Initialize(const std::vector<int>& ranks,
+                  MPIContextManager& ctx_manager);
+
+  // Take an argument of context manager pointer that will take care of
+  // finalization of MPI environment.
+  void Finalize(MPIContextManager& ctx_manager);
+
   MPI_Datatype GetMPIDataType(std::shared_ptr<Tensor> tensor);
 
   MPI_Datatype GetMPIDataType(DataType dtype);
@@ -50,9 +77,12 @@ struct MPIContext {
 
   // MPI Window used for shared memory allgather
   MPI_Win window;
+
+  // Whether mpi context should be finalize.
+  bool should_finalize = false;
 };
 
 } // namespace common
 } // namespace horovod
 
-#endif //HOROVOD_MPI_CONTEXT_H
+#endif // HOROVOD_MPI_CONTEXT_H

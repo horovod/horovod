@@ -100,7 +100,7 @@ corresponding to the library you'll use to implement the operation:
 
       Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
-      bool Enabled(const ParameterManager& param_manager,
+      bool Enabled(const ParameterManager& parameter_manager,
                    const std::vector<TensorTableEntry>& entries,
                    const Response& response) const override;
 

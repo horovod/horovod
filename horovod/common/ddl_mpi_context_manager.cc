@@ -13,25 +13,20 @@
 // limitations under the License.
 // =============================================================================
 
-#ifndef HOROVOD_GLOO_CONTEXT_H
-#define HOROVOD_GLOO_CONTEXT_H
-
-#include "common.h"
-#include "gloo/context.h"
-#include "mpi.h"
+#include "ddl_mpi_context_manager.h"
 
 namespace horovod {
 namespace common {
 
-struct GlooContext {
-  void InitializeFromMPI(const MPI_Comm& mpi_comm, const char* gloo_iface);
+void DDL_MPIContextManager::EnvInitialize(int required) {
+  // DDLInit calls MPI_Init
+  DDLAllreduce::DDLInit(&ddl_context_, &cuda_context_);
+}
 
-  void Finalize();
-
-  std::shared_ptr<gloo::Context> ctx;
-};
+void DDL_MPIContextManager::EnvFinalize() {
+  // ddl_finalize calls MPI_Finalize
+  ddl_finalize();
+}
 
 } // namespace common
 } // namespace horovod
-
-#endif // HOROVOD_GLOO_CONTEXT_H

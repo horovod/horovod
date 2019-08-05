@@ -13,28 +13,33 @@
 // limitations under the License.
 // ============================================================================
 
-#include "gloo_context.h"
-#include "gloo/mpi/context.h"
-#include "gloo/transport/tcp/device.h"
+#ifndef HOROVOD_HOROVOD_COMMON_UTILS_ENV_PARSER_H_
+#define HOROVOD_HOROVOD_COMMON_UTILS_ENV_PARSER_H_
+
+#include <iostream>
+
+#include "../stall_inspector.h"
 
 namespace horovod {
 namespace common {
 
-void GlooContext::InitializeFromMPI(const MPI_Comm& mpi_comm,
-                                    const char* gloo_iface) {
-  gloo::transport::tcp::attr attr;
-  // TODO(sihan): add interface load balancing after
-  //  https://github.com/facebookincubator/gloo/issues/183 is resolved
-  attr.iface = gloo_iface;
-  attr.ai_family = AF_UNSPEC;
-  auto dev = gloo::transport::tcp::CreateDevice(attr);
+enum class LibType { MPI = 0, MLSL = 1, GLOO = 2 };
 
-  auto context = std::make_shared<gloo::mpi::Context>(mpi_comm);
-  context->connectFullMesh(dev);
-  ctx = context;
-}
+std::string TypeName(LibType type);
 
-void GlooContext::Finalize() { ctx.reset(); }
+LibType ParseCPUOpsFromEnv();
+
+LibType ParseControllerOpsFromEnv();
+
+const char* ParseGlooIface();
+
+void ParseStallInspectorFromEnv(StallInspector& stall_inspector);
+
+void SetBoolFromEnv(const char* env, bool& val, bool value_if_set);
+
+void SetIntFromEnv(const char* env, int& val);
 
 } // namespace common
 } // namespace horovod
+
+#endif // HOROVOD_HOROVOD_COMMON_UTILS_ENV_PARSER_H_
