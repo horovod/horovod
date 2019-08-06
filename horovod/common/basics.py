@@ -44,6 +44,7 @@ class HorovodBasics(object):
             if not bool(mpi_enabled):
                 raise ValueError(
                     'Horovod MPI is not enabled; Please make sure it\'s installed and enabled.')
+
             from mpi4py import MPI
             if MPI._sizeof(MPI.Comm) == ctypes.sizeof(ctypes.c_int):
                 MPI_Comm = ctypes.c_int
@@ -126,6 +127,7 @@ class HorovodBasics(object):
         if not bool(mpi_enabled):
             raise ValueError(
                 'Horovod MPI is not enabled; Please make sure it\'s installed and enabled.')
+
         mpi_threads_supported = self.MPI_LIB_CTYPES.horovod_mpi_threads_supported()
         if mpi_threads_supported == -1:
             raise ValueError(

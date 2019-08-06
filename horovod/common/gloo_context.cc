@@ -29,7 +29,7 @@ namespace common {
 
 #if HAVE_MPI
 void GlooContext::InitializeFromMPI(MPIContext& mpi_ctx,
-                                    const char* gloo_iface) {
+                                    const std::string& gloo_iface) {
   if (!enabled_) {
     return;
   }
@@ -67,7 +67,7 @@ void GlooContext::Finalize() {
   local_ctx.reset();
 }
 
-void GlooContext::Initialize(const char* gloo_iface) {
+void GlooContext::Initialize(const std::string& gloo_iface) {
   if (!enabled_) {
     return;
   }
@@ -79,23 +79,25 @@ void GlooContext::Initialize(const char* gloo_iface) {
   attr.ai_family = AF_UNSPEC;
   auto dev = gloo::transport::tcp::CreateDevice(attr);
 
-  auto rendezvous_server_addr = std::getenv("HOROVOD_RENDEZVOUS_ADDR");
+  const std::string rendezvous_server_addr = std::getenv
+      (HOROVOD_GLOO_RENDEZVOUS_ADDR);
   auto rendezvous_server_port =
-      std::atoi(std::getenv("HOROVOD_RENDEZVOUS_PORT"));
+      std::strtol(std::getenv(HOROVOD_GLOO_RENDEZVOUS_PORT), nullptr, 10);
 
-  LOG(DEBUG) << "Rendezvous server addr " << rendezvous_server_addr;
+  LOG(DEBUG) << "Rendezvous server address " << rendezvous_server_addr;
 
   // Get rendezvous info from env
-  int rank = std::atoi(getenv("HOROVOD_RANK"));
-  int size = std::atoi(getenv("HOROVOD_SIZE"));
-  int local_rank = std::atoi(getenv("HOROVOD_LOCAL_RANK"));
-  int local_size = std::atoi(getenv("HOROVOD_LOCAL_SIZE"));
-  int cross_rank = std::atoi(getenv("HOROVOD_CROSS_RANK"));
-  int cross_size = std::atoi(getenv("HOROVOD_CROSS_SIZE"));
+  int rank = std::strtol(getenv(HOROVOD_RANK), nullptr, 10);
+  int size = std::strtol(getenv(HOROVOD_SIZE), nullptr, 10);
+  int local_rank = std::strtol(getenv(HOROVOD_LOCAL_RANK), nullptr, 10);
+  int local_size = std::strtol(getenv(HOROVOD_LOCAL_SIZE), nullptr, 10);
+  int cross_rank = std::strtol(getenv(HOROVOD_CROSS_RANK), nullptr, 10);
+  int cross_size = std::strtol(getenv(HOROVOD_CROSS_SIZE), nullptr, 10);
 
   // Global rendezvous
-  auto rendezvous =
-      HTTPStore(rendezvous_server_addr, rendezvous_server_port, "global", rank);
+  const std::string global_scope(HOROVOD_GLOO_GLOBAL_PREFIX);
+  auto rendezvous = HTTPStore(rendezvous_server_addr, rendezvous_server_port,
+                              global_scope, rank);
   LOG(DEBUG) << "Global Rendezvous started for rank " << rank
              << ", total size of " << size;
   auto context = std::make_shared<gloo::rendezvous::Context>(rank, size);
@@ -104,10 +106,10 @@ void GlooContext::Initialize(const char* gloo_iface) {
   LOG(DEBUG) << "Global Gloo context initialized.";
 
   // Local rendezvous
-  std::string local_scope = std::string("local") + std::to_string(cross_rank);
-  auto local_rendezvous =
-      HTTPStore(rendezvous_server_addr, rendezvous_server_port,
-                local_scope.c_str(), rank);
+  const std::string local_scope =
+      std::string(HOROVOD_GLOO_LOCAL_PREFIX) + std::to_string(cross_rank);
+  auto local_rendezvous = HTTPStore(rendezvous_server_addr,
+                                    rendezvous_server_port, local_scope, rank);
   LOG(DEBUG) << "Local Rendezvous started for rank " << rank
              << ", total size of " << local_size;
   auto local_context =
@@ -117,11 +119,11 @@ void GlooContext::Initialize(const char* gloo_iface) {
   LOG(DEBUG) << "Local Gloo context initialized.";
 
   // Cross rendezvous
-  std::string cross_scope = std::string("cross") + std::to_string(local_rank);
-  auto cross_rendezvous =
-      HTTPStore(rendezvous_server_addr, rendezvous_server_port,
-                cross_scope.c_str(), rank);
-  LOG(DEBUG) << "Cross Rendezvous started for rank " << rank
+  const std::string cross_scope =
+      std::string(HOROVOD_GLOO_CROSS_PREFIX) + std::to_string(local_rank);
+  auto cross_rendezvous = HTTPStore(rendezvous_server_addr,
+                                    rendezvous_server_port, cross_scope, rank);
+  LOG(DEBUG) << "Cross-node Rendezvous started for rank " << rank
              << ", total size of " << size;
   auto cross_context =
       std::make_shared<gloo::rendezvous::Context>(cross_rank, cross_size);

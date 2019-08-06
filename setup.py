@@ -1397,8 +1397,7 @@ class custom_build_ext(build_ext):
                 'None of TensorFlow, PyTorch, or MXNet plugins were built. See errors above.')
 
 
-# need netifaces to figure out the ip address if we want to send http request.
-require_list = ['cloudpickle', 'psutil', 'six', 'netifaces']
+require_list = ['cloudpickle', 'psutil', 'six']
 
 # Skip cffi if pytorch extension explicitly disabled
 if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):

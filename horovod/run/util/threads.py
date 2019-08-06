@@ -68,12 +68,16 @@ def execute_function_multithreaded(fn,
         thread.start()
         threads.append(thread)
 
+    # TODO: Using threading.Event() to communicate with child threads
+    #  when main thread receives term signals, it should inform child
+    #  threads using the event, and wait for child threads to join
+    #  before itself exits.
     # Returns the results only if block_until_all_done is set.
     results = None
     if block_until_all_done:
 
         # Because join() cannot be interrupted by signal, so we need
-        # to change a single join() into join() with timeout in a while loop.
+        # to change a single join() into join()s with timeout in a while loop.
         have_alive_child = True
         while have_alive_child:
             have_alive_child = False

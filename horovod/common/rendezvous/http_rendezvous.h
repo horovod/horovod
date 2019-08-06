@@ -24,9 +24,10 @@ namespace common {
 
 class HTTPStore : public gloo::rendezvous::Store {
 public:
-  HTTPStore(const char* server_addr, int port, const char* scope, int rank);
+  HTTPStore(const std::string server_ip, int port, const std::string scope, int rank)
+      : server_ip_(server_ip), server_port_(port), scope_(scope), rank_(rank) {}
 
-  ~HTTPStore();
+  ~HTTPStore() override;
 
   void set(const std::string& key, const std::vector<char>& data) override;
 
@@ -47,12 +48,11 @@ protected:
   std::vector<char> PerformHTTP(const std::string& key,
                                 const std::vector<char>& data, Type type);
 
-  std::vector<char> PerformSingleHTTP(const std::string& key,
-                                      const std::vector<char>& data, Type type);
+  std::vector<char> HTTPGET(const std::string& key);
 
-  static std::string GenerateHeaderLine(const char* key, int value);
+  void HTTPPUT(const std::string& key, const std::vector<char>& data);
 
-  static std::string GetEndpoint(Type type);
+  void HTTPDELETE(const std::string& key);
 
   std::string server_ip_;
   int server_port_;

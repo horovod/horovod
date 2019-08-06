@@ -51,7 +51,7 @@ Status MPIAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
                          mpi_context_->GetMPISumOp(first_entry.tensor->dtype()),
                          mpi_context_->GetMPICommunicator(Communicator::GLOBAL));
   if (op != MPI_SUCCESS) {
-    throw std::logic_error("MPI_Allreduce failed, see MPI output for details.");
+    throw std::runtime_error("MPI_Allreduce failed, see MPI output for details.");
   }
   timeline.ActivityEndAll(entries);
 
@@ -137,7 +137,7 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
                           dtype,
                           mpi_context_->GetMPICommunicator(Communicator::GLOBAL));
   if (op != MPI_SUCCESS) {
-    throw std::logic_error("MPI_Allgatherv failed, see MPI output for details.");
+    throw std::runtime_error("MPI_Allgatherv failed, see MPI output for details.");
   }
   global_state_->timeline.ActivityEndAll(entries);
 
@@ -287,7 +287,7 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
                             mpi_context_->GetMPIDataType(first_entry.tensor->dtype()),
                             mpi_context_->GetMPICommunicator(Communicator::CROSS));
     if (op != MPI_SUCCESS) {
-      throw std::logic_error("MPI_Allgatherv failed, see MPI output for details.");
+      throw std::runtime_error("MPI_Allgatherv failed, see MPI output for details.");
     }
   }
   Barrier();
@@ -316,7 +316,7 @@ bool MPIHierarchicalAllgather::Enabled(const ParameterManager& param_manager,
 void MPIHierarchicalAllgather::Barrier() {
   int op = MPI_Barrier(mpi_context_->GetMPICommunicator(Communicator::GLOBAL));
   if (op != MPI_SUCCESS) {
-    throw std::logic_error("MPI_Barrier failed, see MPI output for details.");
+    throw std::runtime_error("MPI_Barrier failed, see MPI output for details.");
   }
 }
 
@@ -342,7 +342,7 @@ Status MPIBroadcast::Execute(std::vector<TensorTableEntry>& entries, const Respo
                      e.root_rank,
                      mpi_context_->GetMPICommunicator(Communicator::GLOBAL));
   if (op != MPI_SUCCESS) {
-    throw std::logic_error("MPI_Broadcast failed, see MPI output for details.");
+    throw std::runtime_error("MPI_Broadcast failed, see MPI output for details.");
   }
   global_state_->timeline.ActivityEndAll(entries);
 

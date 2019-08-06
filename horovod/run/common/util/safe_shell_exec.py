@@ -59,14 +59,19 @@ def forward_stream(src_fd, dst_stream, prefix, index):
             if not line:
                 break
 
-            if index >= 0:
+            if index is not None:
                 localtime = time.asctime(time.localtime(time.time()))
-                line = localtime + '[' + str(index) + ']<' + prefix + '>:' + line
+                line = '{time}[{rank}]<{prefix}>:{line}'.format(
+                    time=localtime,
+                    rank=str(index),
+                    prefix=prefix,
+                    line=line
+                )
             dst_stream.write(line)
             dst_stream.flush()
 
 
-def execute(command, env=None, stdout=None, stderr=None, index=-1):
+def execute(command, env=None, stdout=None, stderr=None, index=None):
     # Make a pipe for the subprocess stdout/stderr.
     (stdout_r, stdout_w) = os.pipe()
     (stderr_r, stderr_w) = os.pipe()

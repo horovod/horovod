@@ -28,54 +28,8 @@
 namespace horovod {
 namespace common {
 
-HTTPStore::HTTPStore(const char* server_addr, int port, const char* scope,
-                     int rank) {
-  server_ip_ = std::string(server_addr);
-  server_port_ = port;
-  scope_ = scope;
-  rank_ = rank;
-}
-
-
 HTTPStore::~HTTPStore() {
-  PerformHTTP(std::string(), std::vector<char>(), FINALIZE);
-}
-
-// Performing a single http request using given args,
-// throw runtime_errors when exceptions occur. Does not have the retry logic.
-std::vector<char> HTTPStore::PerformSingleHTTP(const std::string& key,
-                                               const std::vector<char>& data,
-                                               Type type) {
-  std::string url = "http://" + server_ip_ + ":" +
-                    std::to_string(server_port_) + "/" + scope_ + "/" +
-                    GetEndpoint(type);
-  LOG(DEBUG) << "Send request to " << url;
-  http::Request request(url);
-
-  // pass parameters as a map
-  std::vector<std::string> headers;
-  headers.push_back(GenerateHeaderLine("Key-Length", key.size()));
-  headers.push_back(GenerateHeaderLine("Value-Length", data.size()));
-  headers.push_back(GenerateHeaderLine("Rank", rank_));
-  headers.emplace_back("Content-Type: application/octet-stream");
-
-  std::string body(key);
-  body.insert(body.size(), data.data(), data.size());
-
-  http::Response response = request.send("POST", body, headers);
-  if (response.status != 200){
-    std::string msg("HTTP response not OK, got ");
-    msg += std::to_string(response.status);
-    throw std::runtime_error(msg);
-  }
-
-  if (response.body.size() == 0){
-    LOG(DEBUG) << "Receive empty body, with status code " << response.status;
-  }
-  std::vector<char> result(response.body.begin(), response.body.end());
-
-  LOG(DEBUG) << "Got response with length " << response.body.size();
-  return result;
+  PerformHTTP(std::to_string(rank_), std::vector<char>(), FINALIZE);
 }
 
 void HTTPStore::set(const std::string& key, const std::vector<char>& data) {
@@ -119,33 +73,84 @@ std::vector<char> HTTPStore::PerformHTTP(const std::string& key,
 
   while (retry_cnt < 3) {
     try {
-      return PerformSingleHTTP(key, data, type);
+      switch (type){
+      case GET:
+        return HTTPGET(key);
+      case SET:
+        HTTPPUT(key, data);
+        return std::vector<char>();
+      case FINALIZE:
+        HTTPDELETE(key);
+        return std::vector<char>();
+      }
     } catch (std::runtime_error& e) {
       retry_cnt++;
       LOG(DEBUG) << "Exception: " << e.what();
       if (retry_cnt >= 3) {
-        std::cout << "HTTP request failed too many times, aborting. See "
+        std::cerr << "HTTP request failed too many times, aborting. See "
                      "exception message above.";
         throw e;
       }
+
+      // sleep for 500ms before another try.
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
   }
   return std::vector<char>();
 }
 
-std::string HTTPStore::GenerateHeaderLine(const char* key, int value) {
-  return std::string(key) + ": " + std::to_string(value);
+std::vector<char> HTTPStore::HTTPGET(const std::string& key) {
+  std::string url = "http://" + server_ip_ + ":" +
+                    std::to_string(server_port_) + "/" + scope_ + "/" + key;
+  LOG(DEBUG) << "Send GET request to " << url;
+  http::Request request(url);
+  http::Response response = request.send("GET");
+
+  if (response.status != 200) {
+    std::string msg("HTTP response not OK, got ");
+    msg += std::to_string(response.status);
+    throw std::runtime_error(msg);
+  }
+
+  if (response.body.size() == 0) {
+    LOG(DEBUG) << "Receive empty body, with status code " << response.status;
+  }
+  std::vector<char> result(response.body.begin(), response.body.end());
+
+  LOG(DEBUG) << "Got response with length " << response.body.size();
+  return result;
 }
 
-std::string HTTPStore::GetEndpoint(Type type) {
-  switch (type){
-  case GET:
-    return std::string("get");
-  case SET:
-    return std::string("set");
-  case FINALIZE:
-    return std::string("finalize");
+void HTTPStore::HTTPPUT(const std::string& key, const std::vector<char>& data) {
+  std::string url = "http://" + server_ip_ + ":" +
+                    std::to_string(server_port_) + "/" + scope_ + "/" + key;
+  LOG(DEBUG) << "Send PUT request to " << url;
+  http::Request request(url);
+
+  std::string body;
+  body.insert(body.size(), data.data(), data.size());
+
+  http::Response response = request.send("PUT", body);
+  if (response.status != 200) {
+    std::string msg("HTTP response not OK, got ");
+    msg += std::to_string(response.status);
+    throw std::runtime_error(msg);
   }
+}
+
+void HTTPStore::HTTPDELETE(const std::string& key) {
+  std::string url = "http://" + server_ip_ + ":" +
+                    std::to_string(server_port_) + "/" + scope_ + "/" + key;
+  LOG(DEBUG) << "Send GET request to " << url;
+  http::Request request(url);
+  http::Response response = request.send("DELETE");
+
+  if (response.status != 200) {
+    std::string msg("HTTP response not OK, got ");
+    msg += std::to_string(response.status);
+    throw std::runtime_error(msg);
+  }
+
 }
 
 } // namespace common

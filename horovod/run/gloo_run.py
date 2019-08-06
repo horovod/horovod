@@ -14,16 +14,35 @@
 # ==============================================================================
 
 import os
-import netifaces as ni
+import collections
+
 from horovod.run.rendezvous.http_server import RendezvousServer
 from horovod.run.common.util import env as env_util, safe_shell_exec
 from horovod.run.util import threads
-import collections
+from psutil import net_if_addrs
+from socket import AF_INET
 
 try:
     from shlex import quote
 except ImportError:
     from pipes import quote
+
+
+class HostInfo:
+    def __init__(self, host_item):
+        self.hostname, slots = host_item.strip().split(':')
+        self.slots = int(slots)
+
+
+class SlotInfo:
+    def __init__(self, hostname, rank, local_rank, cross_rank, size):
+        self.hostname = hostname
+        self.rank = rank
+        self.size = size
+        self.local_rank = local_rank
+        self.local_size = None
+        self.cross_rank = cross_rank
+        self.cross_size = None
 
 
 def _allocate(hosts, np):
@@ -38,62 +57,56 @@ def _allocate(hosts, np):
     :type hosts: string
     :param np: total number of processes to be allocated
     :type np: int
-    :return: a list of the allocation of process on hosts in a dictionary.
-            Keys in the dict includes: hostname, rank, local_rank, cross_rank,
+    :return: a list of the allocation of process on hosts in a AllocInfo object.
+            Members in the object include: hostname, rank, local_rank, cross_rank,
             total_size, local_size, cross_size
     :rtype: list[dict()]
     """
-    res = []
-    hosts_split = []
 
+    host_list = []
     # split the host string to host list
-    for item in hosts.split(','):
-        tmp = item.split(':')
-        hosts_split.append([tmp[0], int(tmp[1])])
+    for host_item in hosts.split(','):
+        host_list.append(HostInfo(host_item))
 
-    idx = 0
-    local_rank = 0
     rank = 0
-    local_sizes = []
+    alloc_list = []
+
+    # key: local_rank; value: cross_size for this local_rank
+    local_sizes = collections.defaultdict(int)
+    # key: cross_rank; value: local_size for this cross_rank
     cross_sizes = collections.defaultdict(int)
 
-    # place one process at each iteration
-    while rank < np and idx < len(hosts_split):
-
-        # current host is full, go to the next one
-        if local_rank >= hosts_split[idx][1]:
-            local_sizes.append(local_rank)
-            idx += 1
-            local_rank = 0
-            continue
-
-        alloc_item = {'Hostname': hosts_split[idx][0],
-                      'Rank': rank,
-                      'Local_rank': local_rank,
-                      'Size': np}
-
-        # If this is the first process on the host, increase host count
-        cross_sizes[local_rank] += 1
-        alloc_item['Cross_rank'] = idx
-
-        res.append(alloc_item)
-        local_rank += 1
-        rank += 1
+    # allocate processes into slots
+    for host_idx, host_info in enumerate(host_list):
+        for local_rank in range(host_info.slots):
+            if rank == np:
+                break
+            cross_rank = host_idx
+            alloc_list.append(
+                SlotInfo(
+                    host_info.hostname,
+                    rank,
+                    local_rank,
+                    cross_rank,
+                    np))
+            cross_sizes[local_rank] += 1
+            local_sizes[cross_rank] += 1
+            rank += 1
 
     if rank < np:
-        raise Exception("Process number should not be larger than "
-                        "total available slots.")
+        raise ValueError("Process number should not be larger than "
+                         "total available slots.")
 
-    local_sizes.append(local_rank)
+    # Fill in the local_size and cross_size because we can only know these number after
+    # allocation is done.
+    for alloc_item in alloc_list:
+        alloc_item.local_size = local_sizes[alloc_item.cross_rank]
+        alloc_item.cross_size = cross_sizes[alloc_item.local_rank]
 
-    for item in res:
-        item['Local_size'] = local_sizes[item['Cross_rank']]
-        item['Cross_size'] = cross_sizes[item['Local_rank']]
-
-    return res
+    return alloc_list
 
 
-def _launch_jobs(args, hosts_alloc, remote_host_names, _run_command):
+def _launch_jobs(args, host_alloc_plan, remote_host_names, _run_command):
     """
     executes the jobs defined by run command on hosts.
     :param hosts_alloc: list of dict indicating the allocating info.
@@ -114,7 +127,7 @@ def _launch_jobs(args, hosts_alloc, remote_host_names, _run_command):
     """
 
     def _exec_command(_command, _index):
-        if args.verbose >= 3:
+        if args.verbose:
             print(_command)
         try:
             exit_code = safe_shell_exec.execute(_command, index=_index)
@@ -131,18 +144,16 @@ def _launch_jobs(args, hosts_alloc, remote_host_names, _run_command):
         ssh_port_arg = ""
 
     args_list = []
-    for index in range(len(hosts_alloc)):
-        alloc_item = hosts_alloc[index]
-
+    for alloc_info in host_alloc_plan:
         # generate env for rendezvous
         horovod_rendez_env = 'HOROVOD_RANK={rank} HOROVOD_SIZE={size} ' \
                              'HOROVOD_LOCAL_RANK={local_rank} HOROVOD_LOCAL_SIZE={local_size} ' \
                              'HOROVOD_CROSS_RANK={cross_rank} HOROVOD_CROSS_SIZE={cross_size} ' \
-            .format(rank=alloc_item['Rank'], size=alloc_item['Size'],
-                    local_rank=alloc_item['Local_rank'], local_size=alloc_item['Local_size'],
-                    cross_rank=alloc_item['Cross_rank'], cross_size=alloc_item['Cross_size'], )
+            .format(rank=alloc_info.rank, size=alloc_info.size,
+                    local_rank=alloc_info.local_rank, local_size=alloc_info.local_size,
+                    cross_rank=alloc_info.cross_rank, cross_size=alloc_info.cross_size)
 
-        host_name = alloc_item['Hostname']
+        host_name = alloc_info.hostname
         if host_name not in remote_host_names:
             command = \
                 '{horovod_env} ' \
@@ -160,7 +171,7 @@ def _launch_jobs(args, hosts_alloc, remote_host_names, _run_command):
                     horovod_env=horovod_rendez_env,
                     run_command=_run_command
                 )
-        args_list.append([command, index])
+        args_list.append([command, alloc_info.rank])
     # Each thread will use ssh command to launch the job on each remote host. If an
     # error occurs in one thread, entire process will be terminated. Otherwise,
     # threads will keep running and ssh session -- and the the task server --
@@ -173,45 +184,41 @@ def _launch_jobs(args, hosts_alloc, remote_host_names, _run_command):
 
 def gloo_run(args, remote_host_names, common_intfs):
     # allocate processes into slots
-    host_alloc = _allocate(args.host, args.np)
+    host_alloc_plan = _allocate(args.host, args.np)
 
     # create global rendezvous server
-    global_rendezv = RendezvousServer(host_alloc, args.verbose)
+    global_rendezv = RendezvousServer(args.verbose)
     # Start rendezvous server and get port that it is listening
-    global_rendezv_port = global_rendezv.rendezvous()
+    global_rendezv_port = global_rendezv.start_server(host_alloc_plan)
 
     # get the server address
-    if common_intfs:
-        # if common intfs exist, use the address of common interface
-        iface = list(common_intfs)[0]
-        server_ip = ni.ifaddresses(iface)[ni.AF_INET][0]['addr']
-    else:
-        # otherwise means we are running in localhost, use 'lo' as common interface
-        iface = 'lo'
-        server_ip = ni.ifaddresses(iface)[ni.AF_INET][0]['addr']
+    iface = list(common_intfs)[0]
+    server_ip = None
+    for addr in net_if_addrs()[iface]:
+        if addr.family == AF_INET:
+            server_ip = addr.address
 
-    # env for horovod logging level
-    log_level_arg = 'HOROVOD_LOG_LEVEL=' + env_util.LOG_LEVEL_STR[args.verbose]
+    if not server_ip:
+        raise RuntimeError(
+            'Cannot find an ipv4 address of the common interface.')
 
     env = os.environ.copy()
     run_command = (
-        'HOROVOD_RENDEZVOUS_ADDR={addr} '
-        'HOROVOD_RENDEZVOUS_PORT={port} '
+        'HOROVOD_GLOO_RENDEZVOUS_ADDR={addr} '
+        'HOROVOD_GLOO_RENDEZVOUS_PORT={port} '
         'HOROVOD_CONTROLLER=gloo '
         'HOROVOD_CPU_OPERATIONS=gloo '
         'HOROVOD_IFACE={iface} '
-        '{log_level_arg} '
         'NCCL_SOCKET_IFNAME={common_intfs} '
         '{env} {command}'  # expect a lot of environment variables
         .format(addr=server_ip,
                 port=global_rendezv_port,
                 iface=iface,  # TODO: add multiple ifaces in future
-                log_level_arg=log_level_arg,
                 common_intfs=','.join(common_intfs),
-                env=' '.join('%s=%s' % (key, value) for key, value in env.items()
-                             if env_util.is_exportable(key) and env_util.is_exportable(value)),
+                env=' '.join(quote('%s=%s' % (quote(key), quote(value))) for key, value in env.items()
+                             if env_util.is_exportable(key)),
                 command=' '.join(quote(par) for par in args.command))
     )
 
-    _launch_jobs(args, host_alloc, remote_host_names, run_command)
+    _launch_jobs(args, host_alloc_plan, remote_host_names, run_command)
     return

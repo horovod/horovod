@@ -26,13 +26,26 @@
 namespace horovod {
 namespace common {
 
+// Horovod Gloo rendezvous knobs.
+#define HOROVOD_GLOO_RENDEZVOUS_ADDR "HOROVOD_GLOO_RENDEZVOUS_ADDR"
+#define HOROVOD_GLOO_RENDEZVOUS_PORT "HOROVOD_GLOO_RENDEZVOUS_PORT"
+#define HOROVOD_GLOO_GLOBAL_PREFIX "global"
+#define HOROVOD_GLOO_LOCAL_PREFIX "local"
+#define HOROVOD_GLOO_CROSS_PREFIX "cross"
+#define HOROVOD_RANK "HOROVOD_RANK"
+#define HOROVOD_SIZE "HOROVOD_SIZE"
+#define HOROVOD_LOCAL_RANK "HOROVOD_LOCAL_RANK"
+#define HOROVOD_LOCAL_SIZE "HOROVOD_LOCAL_SIZE"
+#define HOROVOD_CROSS_RANK "HOROVOD_CROSS_RANK"
+#define HOROVOD_CROSS_SIZE "HOROVOD_CROSS_SIZE"
+
 struct GlooContext {
 
 #if HAVE_MPI
-  void InitializeFromMPI(MPIContext& mpi_ctx, const char* gloo_iface);
+  void InitializeFromMPI(MPIContext& mpi_ctx, const std::string& gloo_iface);
 #endif
 
-  void Initialize(const char* gloo_iface);
+  void Initialize(const std::string& gloo_iface);
 
   void Finalize();
 

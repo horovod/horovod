@@ -20,6 +20,7 @@ import os
 import sys
 import traceback
 import six
+import re
 try:
     from shlex import quote
 except ImportError:
@@ -34,7 +35,8 @@ from horovod.run.task import task_service
 from horovod.run.util import cache, threads, network
 from horovod.run.gloo_run import gloo_run
 from horovod.run.mpi_run import mpi_run
-
+from socket import AF_INET
+from psutil import net_if_addrs
 
 # Cached information of horovodrun functions be stored in this directory
 CACHE_FOLDER = os.path.join(os.path.expanduser('~'), '.horovod')
@@ -280,7 +282,8 @@ def parse_args():
                                  "slots>,... . E.g., host1:2,host2:4,host3:1 "
                                  "indicates that 2 processes can run on "
                                  "host1, 4 processes on host2, and 1 process "
-                                 "on host3.")
+                                 "on host3. If not specified, use localhost:np "
+                                 "by default.")
     host_group.add_argument('-hostfile', '--hostfile', action="store",
                             dest="hostfile",
                             help="To specify a host file with the list of "
@@ -320,16 +323,20 @@ def parse_args():
 
     parsed_args = parser.parse_args()
 
-    if parsed_args.verbose is None:
-        # This happens if the user does "horovodrun --verbose" without
-        # specifying any value to verbose. For the sake of consistency, we set
-        # the verbosity here to the default value of 1.
-        parsed_args.verbose = 1
-
     if not parsed_args.version and not parsed_args.np:
         parser.error('argument -np/--num-proc is required')
 
     return parsed_args
+
+
+def parse_host_files(filename):
+    hosts = []
+    for line in open(filename):
+        hostname = line.split()[0]
+        slots = line.split('=')[1]
+        hosts.append('{name}:{slots}'.format(name=hostname, slots=slots))
+
+    return ','.join(hosts)
 
 
 def run():
@@ -339,18 +346,25 @@ def run():
         print(horovod.__version__)
         exit(0)
 
-    if args.use_gloo and (not args.host or not args.np):
-        raise Exception("Host and process number need to be specified if "
+    if args.use_gloo and not args.np:
+        raise Exception("Process number need to be specified if "
                         "using gloo.")
 
-    if args.host:
-        all_host_names = [x for x in
-                          [y.split(':')[0] for y in args.host.split(',')]]
-    elif args.hostfile:
-        all_host_names = [x for x in
-                          [line.split()[0] for line in open(args.hostfile)]]
-    else:
-        all_host_names = []
+    if not args.host:
+        if args.hostfiles:
+            args.host = parse_host_files(args.hostfiles)
+        else:
+            # Set hosts to localhost if not specified
+            args.host = 'localhost:{np}'.format(np=str(args.np))
+
+    host_list = args.host.split(',')
+    all_host_names = []
+    pattern = re.compile(r'^[\w-]+:\d+$')
+    for host in host_list:
+        if not pattern.match(host.strip()):
+            raise ValueError('Invalid host input, please make sure it has '
+                             'format as : worker-0:2,worker-1:2  .')
+        all_host_names.append(host.strip().split(':')[0])
 
     # horovodrun has to finish all the checks before this timeout runs out.
     if args.start_timeout:
@@ -387,30 +401,18 @@ def run():
         fn_cache = cache.Cache(CACHE_FOLDER, CACHE_STALENESS_THRESHOLD_MINUTES,
                                parameters_hash)
 
-    remote_host_names = []
-    if args.host or args.hostfile:
+    if settings.verbose >= 2:
+        print("Filtering local host names.")
+    remote_host_names = network.filter_local_addresses(all_host_names)
+
+    if len(remote_host_names) > 0:
         if settings.verbose >= 2:
-            print("Filtering local host names.")
-        remote_host_names = network.filter_local_addresses(all_host_names)
-
-        if len(remote_host_names) > 0:
-            if settings.verbose >= 2:
-                print("Checking ssh on all remote hosts.")
-            # Check if we can ssh into all remote hosts successfully.
-            _check_all_hosts_ssh_successful(remote_host_names, args.ssh_port,
-                                            fn_cache=fn_cache)
-            if settings.verbose >= 2:
-                print("SSH was successful into all the remote hosts.")
-
-        if args.host:
-            hosts_arg = "-H {hosts}".format(hosts=args.host)
-        else:
-            hosts_arg = "-hostfile {hostfile}".format(hostfile=args.hostfile)
-    else:
-        # if none of --host  of --hostfile is specified, localhost will be
-        # used by default
-        # There is no need to specify localhost.
-        hosts_arg = ""
+            print("Checking ssh on all remote hosts.")
+        # Check if we can ssh into all remote hosts successfully.
+        _check_all_hosts_ssh_successful(remote_host_names, args.ssh_port,
+                                        fn_cache=fn_cache)
+        if settings.verbose >= 2:
+            print("SSH was successful into all the remote hosts.")
 
     if len(remote_host_names) > 0:
         if settings.verbose >= 2:
@@ -426,14 +428,16 @@ def run():
 
         if settings.verbose >= 2:
             print("Interfaces on all the hosts were successfully checked.")
-
-        if settings.verbose >= 3:
             print("Remote host found: " + " ".join(remote_host_names))
             print("Common interface found: " + " ".join(common_intfs))
     else:
-        # If all the given hosts are local, no need to specify the interfaces
-        # because MPI does not use network for local execution.
+        # If all the given hosts are local, find the iface with address 127.0.0.1
         common_intfs = set()
+        for iface, addrs in net_if_addrs().items():
+            for addr in addrs:
+                if addr.family == AF_INET and addr.address == '127.0.0.1':
+                    common_intfs.add(iface)
+                    break
 
     if args.use_gloo:
         gloo_run(args, remote_host_names, common_intfs)

@@ -76,9 +76,6 @@ def mpi_run(args, settings, common_intfs):
     else:
         ssh_port_arg = ""
 
-    log_level_arg = '-x HOROVOD_LOG_LEVEL=' + \
-        env_util.LOG_LEVEL_STR[args.verbose]
-
     if args.host:
         hosts_arg = "-H {hosts}".format(hosts=args.host)
     else:
@@ -102,13 +99,11 @@ def mpi_run(args, settings, common_intfs):
         '-mca pml ob1 -mca btl ^openib '
         '{ssh_port_arg} '
         '{tcp_intf_arg} '
-        '{log_level} '
         '{nccl_socket_intf_arg} '
         '{env} {command}'  # expect a lot of environment variables
         .format(num_proc=settings.num_proc,
                 hosts_arg=hosts_arg,
                 tcp_intf_arg=tcp_intf_arg,
-                log_level=log_level_arg,
                 nccl_socket_intf_arg=nccl_socket_intf_arg,
                 ssh_port_arg=ssh_port_arg,
                 env=' '.join('-x %s' % key for key in env.keys()
