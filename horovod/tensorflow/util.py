@@ -26,7 +26,7 @@ else:
 
 def _executing_eagerly():
     """Returns true if eager execution is supported and enabled."""
-    return _has_eager and context.executing_eagerly()()
+    return _has_eager and context.executing_eagerly()
 
 
 def _make_subgraph(f):
