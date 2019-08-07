@@ -130,6 +130,12 @@ if _global_variables is not None:
             root_rank: rank of the process from which global variables will be broadcasted
                        to all other processes.
         """
+        if _executing_eagerly():
+            raise RuntimeError(
+                "Eager Execution is not supported by `hvd.BroadcastGlobalVariablesHook`\n"
+                "We recommend using `hvd.DistributedGradientTape` instead"
+            )
+
         return broadcast_variables(_global_variables(), root_rank)
 
 try:
@@ -178,13 +184,6 @@ if _SessionRunHook is not None and _get_default_graph is not None:
             self.device = device
 
         def begin(self):
-            if LooseVersion(tf.__version__) >= LooseVersion('1.7.0'):  # Eager Mode has been introduced in TF 1.7.0
-                from tensorflow.python.eager import context
-                if context._context is not None and context.executing_eagerly():
-                    raise RuntimeError(
-                        "Eager Execution is not supported by `hvd.BroadcastGlobalVariablesHook`\n"
-                        "We recommend using `hvd.DistributedGradientTape` instead"
-                    )
 
             if not self.bcast_op or self.bcast_op.graph != _get_default_graph():
 
