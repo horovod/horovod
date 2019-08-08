@@ -46,12 +46,16 @@ class RendezvousHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
         _, scope, key = paths
         with self.server.cache_lock:
-            value = self.server.cache.get(scope, {}).get(key, bytes(''))
+            value = self.server.cache.get(scope, {}).get(key, None)
 
-        self.send_response(200)
-        self.send_header("Content-Length", str(len(value)))
-        self.end_headers()
-        self.wfile.write(value)
+        if value is None:
+            self.send_status_code(404)
+
+        else:
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(value)))
+            self.end_headers()
+            self.wfile.write(value)
 
     # Override PUT handler
     def do_PUT(self):

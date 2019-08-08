@@ -162,13 +162,16 @@ def _launch_jobs(args, host_alloc_plan, remote_host_names, _run_command):
                     run_command=_run_command
                 )
         else:
+            env = os.environ.copy()
             command = \
                 'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} ' \
-                '\'{horovod_env} ' \
+                '\'{horovod_env} {env} ' \
                 '{run_command}\''.format(
                     host=host_name,
                     ssh_port_arg=ssh_port_arg,
                     horovod_env=horovod_rendez_env,
+                    env=' '.join(quote('%s=%s' % (quote(key), quote(value))) for key, value in env.items()
+                                 if env_util.is_exportable(key)),
                     run_command=_run_command
                 )
         args_list.append([command, alloc_info.rank])
@@ -191,7 +194,7 @@ def gloo_run(args, remote_host_names, common_intfs):
     # Start rendezvous server and get port that it is listening
     global_rendezv_port = global_rendezv.start_server(host_alloc_plan)
 
-    # get the server address
+    # get the server ipv4 address
     iface = list(common_intfs)[0]
     server_ip = None
     for addr in net_if_addrs()[iface]:
@@ -202,7 +205,6 @@ def gloo_run(args, remote_host_names, common_intfs):
         raise RuntimeError(
             'Cannot find an ipv4 address of the common interface.')
 
-    env = os.environ.copy()
     run_command = (
         'HOROVOD_GLOO_RENDEZVOUS_ADDR={addr} '
         'HOROVOD_GLOO_RENDEZVOUS_PORT={port} '
@@ -210,13 +212,11 @@ def gloo_run(args, remote_host_names, common_intfs):
         'HOROVOD_CPU_OPERATIONS=gloo '
         'HOROVOD_IFACE={iface} '
         'NCCL_SOCKET_IFNAME={common_intfs} '
-        '{env} {command}'  # expect a lot of environment variables
+        '{command}'  # expect a lot of environment variables
         .format(addr=server_ip,
                 port=global_rendezv_port,
                 iface=iface,  # TODO: add multiple ifaces in future
                 common_intfs=','.join(common_intfs),
-                env=' '.join(quote('%s=%s' % (quote(key), quote(value))) for key, value in env.items()
-                             if env_util.is_exportable(key)),
                 command=' '.join(quote(par) for par in args.command))
     )
 

@@ -109,7 +109,8 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
   const std::string local_scope =
       std::string(HOROVOD_GLOO_LOCAL_PREFIX) + std::to_string(cross_rank);
   auto local_rendezvous = HTTPStore(rendezvous_server_addr,
-                                    rendezvous_server_port, local_scope, rank);
+                                    rendezvous_server_port, local_scope,
+                                    local_rank);
   LOG(DEBUG) << "Local Rendezvous started for rank " << rank
              << ", total size of " << local_size;
   auto local_context =
@@ -122,7 +123,8 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
   const std::string cross_scope =
       std::string(HOROVOD_GLOO_CROSS_PREFIX) + std::to_string(local_rank);
   auto cross_rendezvous = HTTPStore(rendezvous_server_addr,
-                                    rendezvous_server_port, cross_scope, rank);
+                                    rendezvous_server_port, cross_scope,
+                                    cross_rank);
   LOG(DEBUG) << "Cross-node Rendezvous started for rank " << rank
              << ", total size of " << size;
   auto cross_context =

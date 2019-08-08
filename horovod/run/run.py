@@ -1,13 +1,13 @@
 # Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
+# Licensed under the Apache License, Version 2.0 (the 'License');
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an 'AS IS' BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -50,18 +50,18 @@ SSH_RETRIES = 5
 
 @cache.use_cache()
 def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
-    """
+    '''
     checks if ssh can successfully be performed to all the hosts.
     :param host_addresses: list of addresses to ssh into. for example,
         ['worker-0','worker-1']
         ['10.11.11.11', '10.11.11.12']
     :type host_addresses: list(strings)
     :return: Returns True if all ssh was successful into all the addresses.
-    """
+    '''
 
     def exec_command(command):
         exit_code = 1
-        output_msg = ""
+        output_msg = ''
 
         # Try ssh 5 times
         for i in range(SSH_RETRIES):
@@ -79,9 +79,9 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
         return exit_code, output_msg
 
     if ssh_port:
-        ssh_port_arg = "-p {ssh_port}".format(ssh_port=ssh_port)
+        ssh_port_arg = '-p {ssh_port}'.format(ssh_port=ssh_port)
     else:
-        ssh_port_arg = ""
+        ssh_port_arg = ''
 
     ssh_command_format = 'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} date'
 
@@ -96,7 +96,7 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
     for index, ssh_status in six.iteritems(ssh_exit_codes):
         exit_code, output_msg = ssh_status[0], ssh_status[1]
         if exit_code != 0:
-            print("ssh not successful for host {host}:\n{msg_output}".format(
+            print('ssh not successful for host {host}:\n{msg_output}'.format(
                 host=host_addresses[index],
                 msg_output=output_msg
             ))
@@ -109,7 +109,7 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
 
 def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
                          settings):
-    """
+    '''
     executes the task server and service client task for registration on the
     hosts.
     :param all_host_names: list of addresses. for example,
@@ -132,7 +132,7 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
     :type settings: Horovod.run.common.util.settings.Settings
     :return:
     :rtype:
-    """
+    '''
 
     def _exec_command(command):
         host_output = six.StringIO()
@@ -142,8 +142,8 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
                                                 stderr=host_output)
             if exit_code != 0:
                 print(
-                    "Launching horovodrun task function was not "
-                    "successful:\n{host_output}"
+                    'Launching horovodrun task function was not '
+                    'successful:\n{host_output}'
                         .format(host_output=host_output.getvalue()))
                 os._exit(exit_code)
         finally:
@@ -151,9 +151,9 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
         return exit_code
 
     if settings.ssh_port:
-        ssh_port_arg = "-p {ssh_port}".format(ssh_port=settings.ssh_port)
+        ssh_port_arg = '-p {ssh_port}'.format(ssh_port=settings.ssh_port)
     else:
-        ssh_port_arg = ""
+        ssh_port_arg = ''
     args_list = []
     for index in range(len(all_host_names)):
         host_name = all_host_names[index]
@@ -191,7 +191,7 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
 
 @cache.use_cache()
 def _driver_fn(all_host_names, local_host_names, settings):
-    """
+    '''
     launches the service service, launches the task service on each worker and
     have them register with the service service. Each worker probes all the
     interfaces of the worker index + 1 (in a ring manner) and only keeps the
@@ -207,20 +207,20 @@ def _driver_fn(all_host_names, local_host_names, settings):
     :type settings: Horovod.run.common.util.settings.Settings
     :return: example: ['eth0', 'eth1']
     :rtype: list[string]
-    """
+    '''
     # Launch a TCP server called service service on the host running horovodrun.
     driver = driver_service.HorovodRunDriverService(settings.num_hosts, settings.key)
     if settings.verbose >= 2:
-        print("Launched horovodrun server.")
+        print('Launched horovodrun server.')
     # Have all the workers register themselves with the service service.
     _launch_task_servers(all_host_names, local_host_names,
                          driver.addresses(), settings)
     if settings.verbose >= 2:
-        print("Attempted to launch horovod task servers.")
+        print('Attempted to launch horovod task servers.')
     try:
         # wait for all the hosts to register with the service service.
         if settings.verbose >= 2:
-            print("Waiting for the hosts to acknowledge.")
+            print('Waiting for the hosts to acknowledge.')
         driver.wait_for_initial_registration(settings.timeout)
         tasks = [task_service.HorovodRunTaskClient(index,
                                                    driver.task_addresses_for_driver(
@@ -232,17 +232,17 @@ def _driver_fn(all_host_names, local_host_names, settings):
         for task in tasks:
             task.notify_initial_registration_complete()
         if settings.verbose >= 2:
-            print("Notified all the hosts that the registration is complete.")
+            print('Notified all the hosts that the registration is complete.')
         # Each worker should probe the interfaces of the next worker in a ring
         # manner and filter only the routed ones -- it should filter out
         # interfaces that are not really connected to any external networks
         # such as lo0 with address 127.0.0.1.
         if settings.verbose >= 2:
-            print("Waiting for hosts to perform host-to-host "
-                  "interface checking.")
+            print('Waiting for hosts to perform host-to-host '
+                  'interface checking.')
         driver.wait_for_task_to_task_address_updates(settings.timeout)
         if settings.verbose >= 2:
-            print("Host-to-host interface checking successful.")
+            print('Host-to-host interface checking successful.')
         # Determine a set of common interfaces for task-to-task communication.
         common_intfs = set(driver.task_addresses_for_tasks(0).keys())
         for index in range(1, settings.num_hosts):
@@ -262,64 +262,64 @@ def _driver_fn(all_host_names, local_host_names, settings):
 def parse_args():
     parser = argparse.ArgumentParser(description='Horovod Runner')
 
-    parser.add_argument('-v', '--version', action="store_true", dest="version",
-                        help="Shows horovod version.")
+    parser.add_argument('-v', '--version', action='store_true', dest='version',
+                        help='Shows horovod version.')
 
-    parser.add_argument('-np', '--num-proc', action="store", dest="np",
-                        type=int, help="Total number of training processes.")
+    parser.add_argument('-np', '--num-proc', action='store', dest='np',
+                        type=int, help='Total number of training processes.')
 
-    parser.add_argument('-p', '--ssh-port', action="store", dest="ssh_port",
-                        type=int, help="SSH port on all the hosts.")
+    parser.add_argument('-p', '--ssh-port', action='store', dest='ssh_port',
+                        type=int, help='SSH port on all the hosts.')
 
-    host_group = parser.add_argument_group("Use one of the following options "
-                                           "to specify which hosts (nodes) of "
-                                           "the cluster to run on")
-    host_group.add_argument('-H', '--host', action="store", dest="host",
-                            help="To specify the list of host names as well "
-                                 "as the number of available slots on each "
-                                 "host for training processes using the "
-                                 "following format: <hostname>:<number of "
-                                 "slots>,... . E.g., host1:2,host2:4,host3:1 "
-                                 "indicates that 2 processes can run on "
-                                 "host1, 4 processes on host2, and 1 process "
-                                 "on host3. If not specified, use localhost:np "
-                                 "by default.")
-    host_group.add_argument('-hostfile', '--hostfile', action="store",
-                            dest="hostfile",
-                            help="To specify a host file with the list of "
-                                  "host names as well as the number of "
-                                  "available slots on each host. "
-                                  "Each line of the host file is formatted "
-                                  "as <hostname> slots=<number of slots")
-    parser.add_argument('--disable-cache', action="store_true",
-                        dest="disable_cache",
-                        help="If the flag is not set, horovodrun will perform "
-                             "the initialization checks only once every 60 "
-                             "minutes -- if the checks successfully pass. "
-                             "Otherwise, all the checks will run every time "
-                             "horovodrun is called.")
+    host_group = parser.add_argument_group('Use one of the following options '
+                                           'to specify which hosts (nodes) of '
+                                           'the cluster to run on')
+    host_group.add_argument('-H', '--host', action='store', dest='host',
+                            help='To specify the list of host names as well '
+                                 'as the number of available slots on each '
+                                 'host for training processes using the '
+                                 'following format: <hostname>:<number of '
+                                 'slots>,... . E.g., host1:2,host2:4,host3:1 '
+                                 'indicates that 2 processes can run on '
+                                 'host1, 4 processes on host2, and 1 process '
+                                 'on host3. If not specified, use localhost:np '
+                                 'by default.')
+    host_group.add_argument('-hostfile', '--hostfile', action='store',
+                            dest='hostfile',
+                            help='To specify a host file with the list of '
+                                  'host names as well as the number of '
+                                  'available slots on each host. '
+                                  'Each line of the host file is formatted '
+                                  'as <hostname> slots=<number of slots')
+    parser.add_argument('--disable-cache', action='store_true',
+                        dest='disable_cache',
+                        help='If the flag is not set, horovodrun will perform '
+                             'the initialization checks only once every 60 '
+                             'minutes -- if the checks successfully pass. '
+                             'Otherwise, all the checks will run every time '
+                             'horovodrun is called.')
 
-    parser.add_argument('--gloo', action="store_true", dest="use_gloo",
-                        help="If this flag is set, horovod will be "
-                             "independent from mpi and use gloo "
-                             "controller instead.")
+    parser.add_argument('--gloo', action='store_true', dest='use_gloo',
+                        help='If this flag is set, horovod will be '
+                             'independent from mpi and use gloo '
+                             'controller instead.')
 
-    parser.add_argument('--start-timeout', action="store",
-                        dest="start_timeout", type=int,
-                        help="Horovodrun has to perform all the checks and "
-                             "start the processes before the specified "
-                             "timeout. The default value is 30 seconds. "
-                             "Alternatively, The environment variable "
-                             "HOROVOD_START_TIMEOUT can also be used to "
-                             "specify the initialization timeout.")
+    parser.add_argument('--start-timeout', action='store',
+                        dest='start_timeout', type=int,
+                        help='Horovodrun has to perform all the checks and '
+                             'start the processes before the specified '
+                             'timeout. The default value is 30 seconds. '
+                             'Alternatively, The environment variable '
+                             'HOROVOD_START_TIMEOUT can also be used to '
+                             'specify the initialization timeout.')
 
-    parser.add_argument('--verbose', action="store_true",
-                        dest="verbose",
-                        help="If this flag is set, extra messages will "
-                             "printed.")
+    parser.add_argument('--verbose', action='store_true',
+                        dest='verbose',
+                        help='If this flag is set, extra messages will '
+                             'printed.')
 
     parser.add_argument('command', nargs=argparse.REMAINDER,
-                        help="Command to be executed.")
+                        help='Command to be executed.')
 
     parsed_args = parser.parse_args()
 
@@ -347,11 +347,12 @@ def run():
         exit(0)
 
     if args.use_gloo and not args.np:
-        raise Exception("Process number need to be specified if "
-                        "using gloo.")
+        raise Exception('Process number need to be specified if '
+                        'using gloo.')
 
+    # if hosts are not specified, either parse from hostfile, or default as localhost
     if not args.host:
-        if args.hostfiles:
+        if args.hostfile:
             args.host = parse_host_files(args.hostfiles)
         else:
             # Set hosts to localhost if not specified
@@ -402,21 +403,23 @@ def run():
                                parameters_hash)
 
     if settings.verbose >= 2:
-        print("Filtering local host names.")
+        print('Filtering local host names.')
     remote_host_names = network.filter_local_addresses(all_host_names)
+    if settings.verbose >= 2:
+        print('Remote host found: ' + ' '.join(remote_host_names))
 
     if len(remote_host_names) > 0:
         if settings.verbose >= 2:
-            print("Checking ssh on all remote hosts.")
+            print('Checking ssh on all remote hosts.')
         # Check if we can ssh into all remote hosts successfully.
         _check_all_hosts_ssh_successful(remote_host_names, args.ssh_port,
                                         fn_cache=fn_cache)
         if settings.verbose >= 2:
-            print("SSH was successful into all the remote hosts.")
+            print('SSH was successful into all the remote hosts.')
 
     if len(remote_host_names) > 0:
         if settings.verbose >= 2:
-            print("Testing interfaces on all the hosts.")
+            print('Testing interfaces on all the hosts.')
 
         local_host_names = set(all_host_names) - set(remote_host_names)
         # Find the set of common, routed interfaces on all the hosts (remote
@@ -427,24 +430,27 @@ def run():
                                   settings, fn_cache=fn_cache)
 
         if settings.verbose >= 2:
-            print("Interfaces on all the hosts were successfully checked.")
-            print("Remote host found: " + " ".join(remote_host_names))
-            print("Common interface found: " + " ".join(common_intfs))
+            print('Interfaces on all the hosts were successfully checked.')
+            print('Common interface found: ' + ' '.join(common_intfs))
+
     else:
-        # If all the given hosts are local, find the iface with address 127.0.0.1
+        if settings.verbose >= 2:
+            print('All hosts are local, finding the interfaces with address 127.0.0.1')
+        # If all the given hosts are local, find the interfaces with address 127.0.0.1
         common_intfs = set()
         for iface, addrs in net_if_addrs().items():
             for addr in addrs:
                 if addr.family == AF_INET and addr.address == '127.0.0.1':
                     common_intfs.add(iface)
                     break
+        if settings.verbose >= 2:
+            print('Local interface found ' + ' '.join(common_intfs))
 
     if args.use_gloo:
         gloo_run(args, remote_host_names, common_intfs)
-
     else:
         mpi_run(args, settings, common_intfs)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     run()

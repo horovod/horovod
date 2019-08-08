@@ -22,9 +22,17 @@
 namespace horovod {
 namespace common {
 
+#define MAX_RETRY_TIME 3
+#define RETRY_WAITING_TIME_MILLSEC 500
+#define HTTP_GET "GET"
+#define HTTP_PUT "PUT"
+#define HTTP_DELETE "DELETE"
+#define HTTP_OK 200
+#define HTTP_NOT_FOUND 404
 class HTTPStore : public gloo::rendezvous::Store {
 public:
-  HTTPStore(const std::string server_ip, int port, const std::string scope, int rank)
+  HTTPStore(const std::string server_ip, int port, const std::string scope,
+            int rank)
       : server_ip_(server_ip), server_port_(port), scope_(scope), rank_(rank) {}
 
   ~HTTPStore() override;
@@ -43,15 +51,22 @@ public:
   bool CheckKeys(const std::vector<std::string>& keys);
 
 protected:
-  enum Type { GET, SET, FINALIZE };
+  // Send HTTP request to server, retry if the status code is not 200 (OK) or
+  // 404 (Key not found).
+  http::Response PerformHTTP(http::Request& request, const std::string& method,
+                             const std::string& body);
 
-  std::vector<char> PerformHTTP(const std::string& key,
-                                const std::vector<char>& data, Type type);
+  // HTTP GET: result is an out parameter for retrieved value for the key.
+  // Return a bool representing whether the key is found in the store.
+  bool HTTPGET(const std::string& key, std::vector<char>& result);
 
-  std::vector<char> HTTPGET(const std::string& key);
-
+  // HTTP PUT: send HTTP PUT request to server with the key and value data.
+  // The key is a string and will be embed into the url; the data is
+  // the PUT body.
   void HTTPPUT(const std::string& key, const std::vector<char>& data);
 
+  // HTTP DELETE: send HTTP DELETE request to server, informing the server that
+  // this rank has finished.
   void HTTPDELETE(const std::string& key);
 
   std::string server_ip_;
