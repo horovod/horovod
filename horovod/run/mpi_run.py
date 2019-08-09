@@ -52,7 +52,7 @@ def _is_open_mpi_installed():
         return False
 
 
-def mpi_run(args, settings, common_intfs):
+def mpi_run(settings, common_intfs):
     if not _is_open_mpi_installed():
         raise Exception(
             'horovodrun convenience script does not find an installed OpenMPI.\n\n'
@@ -67,17 +67,14 @@ def mpi_run(args, settings, common_intfs):
     # Pass all the env variables to the mpirun command.
     env = os.environ.copy()
 
-    # Pass secret key through the environment variables.
-    env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(settings.key)
-
-    if args.ssh_port:
+    if settings.ssh_port:
         ssh_port_arg = "-mca plm_rsh_args \"-p {ssh_port}\"".format(
-            ssh_port=args.ssh_port)
+            ssh_port=settings.ssh_port)
     else:
         ssh_port_arg = ""
 
-    if args.host:
-        hosts_arg = "-H {hosts}".format(hosts=args.host)
+    if settings.host:
+        hosts_arg = "-H {hosts}".format(hosts=settings.host)
     else:
         # if user does not specify any hosts, mpirun by default uses local host.
         # There is no need to specify localhost.
@@ -108,7 +105,7 @@ def mpi_run(args, settings, common_intfs):
                 ssh_port_arg=ssh_port_arg,
                 env=' '.join('-x %s' % key for key in env.keys()
                              if env_util.is_exportable(key)),
-                command=' '.join(quote(par) for par in args.command))
+                command=' '.join(quote(par) for par in settings.command))
     )
 
     if settings.verbose >= 2:

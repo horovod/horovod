@@ -88,7 +88,9 @@ class BasicService(object):
     def __init__(self, service_name, key):
         self._service_name = service_name
         self._wire = Wire(key)
-        self._server, _ = find_port(socketserver.ThreadingTCPServer, self._make_handler())
+        self._server, _ = find_port(
+            lambda addr: socketserver.ThreadingTCPServer(
+                addr, self._make_handler()))
         self._port = self._server.socket.getsockname()[1]
         self._thread = threading.Thread(target=self._server.serve_forever)
         self._thread.daemon = True

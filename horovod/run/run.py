@@ -109,8 +109,8 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
 
 def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
                          settings):
-    '''
-    executes the task server and service client task for registration on the
+    """
+    Executes the task server and service client task for registration on the
     hosts.
     :param all_host_names: list of addresses. for example,
         ['worker-0','worker-1']
@@ -132,7 +132,7 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
     :type settings: Horovod.run.common.util.settings.Settings
     :return:
     :rtype:
-    '''
+    """
 
     def _exec_command(command):
         host_output = six.StringIO()
@@ -191,7 +191,7 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
 
 @cache.use_cache()
 def _driver_fn(all_host_names, local_host_names, settings):
-    '''
+    """
     launches the service service, launches the task service on each worker and
     have them register with the service service. Each worker probes all the
     interfaces of the worker index + 1 (in a ring manner) and only keeps the
@@ -207,7 +207,7 @@ def _driver_fn(all_host_names, local_host_names, settings):
     :type settings: Horovod.run.common.util.settings.Settings
     :return: example: ['eth0', 'eth1']
     :rtype: list[string]
-    '''
+    """
     # Launch a TCP server called service service on the host running horovodrun.
     driver = driver_service.HorovodRunDriverService(settings.num_hosts, settings.key)
     if settings.verbose >= 2:
@@ -282,7 +282,7 @@ def parse_args():
                                  'slots>,... . E.g., host1:2,host2:4,host3:1 '
                                  'indicates that 2 processes can run on '
                                  'host1, 4 processes on host2, and 1 process '
-                                 'on host3. If not specified, use localhost:np '
+                                 'on host3. If not specified, use localhost:<np> '
                                  'by default.')
     host_group.add_argument('-hostfile', '--hostfile', action='store',
                             dest='hostfile',
@@ -346,17 +346,13 @@ def run():
         print(horovod.__version__)
         exit(0)
 
-    if args.use_gloo and not args.np:
-        raise Exception('Process number need to be specified if '
-                        'using gloo.')
-
     # if hosts are not specified, either parse from hostfile, or default as localhost
     if not args.host:
         if args.hostfile:
             args.host = parse_host_files(args.hostfiles)
         else:
             # Set hosts to localhost if not specified
-            args.host = 'localhost:{np}'.format(np=str(args.np))
+            args.host = 'localhost:{np}'.format(np=args.np)
 
     host_list = args.host.split(',')
     all_host_names = []
@@ -364,7 +360,7 @@ def run():
     for host in host_list:
         if not pattern.match(host.strip()):
             raise ValueError('Invalid host input, please make sure it has '
-                             'format as : worker-0:2,worker-1:2  .')
+                             'format as : worker-0:2,worker-1:2.')
         all_host_names.append(host.strip().split(':')[0])
 
     # horovodrun has to finish all the checks before this timeout runs out.
@@ -384,7 +380,9 @@ def run():
                                      key=secret.make_secret_key(),
                                      timeout=tmout,
                                      num_hosts=len(all_host_names),
-                                     num_proc=args.np)
+                                     num_proc=args.np,
+                                     host=args.host,
+                                     command=args.command)
 
     # This cache stores the results of checks performed by horovodrun
     # during the initialization step. It can be disabled by setting
@@ -443,13 +441,17 @@ def run():
                 if addr.family == AF_INET and addr.address == '127.0.0.1':
                     common_intfs.add(iface)
                     break
+
+        if len(common_intfs) == 0:
+            raise ValueError('No interface is found for address 127.0.0.1.')
+
         if settings.verbose >= 2:
             print('Local interface found ' + ' '.join(common_intfs))
 
     if args.use_gloo:
-        gloo_run(args, remote_host_names, common_intfs)
+        gloo_run(settings, remote_host_names, common_intfs)
     else:
-        mpi_run(args, settings, common_intfs)
+        mpi_run(settings, common_intfs)
 
 
 if __name__ == '__main__':

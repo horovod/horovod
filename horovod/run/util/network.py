@@ -43,8 +43,8 @@ def filter_local_addresses(all_host_names):
     return remote_host_names
 
 
-# Given server factory and handler, find a usable port
-def find_port(server_factory, handler):
+# Given server factory, find a usable port
+def find_port(server_factory):
     min_port = 1024
     max_port = 65536
     num_ports = max_port - min_port
@@ -53,9 +53,9 @@ def find_port(server_factory, handler):
         try:
             port = min_port + (start_port + port_offset) % num_ports
             addr = ('', port)
-            server = server_factory(addr, handler)
+            server = server_factory(addr)
             return server, port
         except Exception as e:
             pass
 
-    raise Exception('Rendezvous ERROR: Unable to find a port to bind to.')
+    raise Exception('Unable to find a port to bind to.')

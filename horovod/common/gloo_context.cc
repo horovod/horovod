@@ -103,6 +103,7 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
   auto context = std::make_shared<gloo::rendezvous::Context>(rank, size);
   context->connectFullMesh(rendezvous, dev);
   ctx = context;
+  rendezvous.Finalize();
   LOG(DEBUG) << "Global Gloo context initialized.";
 
   // Local rendezvous
@@ -117,6 +118,7 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
       std::make_shared<gloo::rendezvous::Context>(local_rank, local_size);
   local_context->connectFullMesh(local_rendezvous, dev);
   local_ctx = local_context;
+  local_rendezvous.Finalize();
   LOG(DEBUG) << "Local Gloo context initialized.";
 
   // Cross rendezvous
@@ -131,6 +133,7 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
       std::make_shared<gloo::rendezvous::Context>(cross_rank, cross_size);
   cross_context->connectFullMesh(cross_rendezvous, dev);
   cross_ctx = cross_context;
+  cross_rendezvous.Finalize();
   LOG(DEBUG) << "Cross-node Gloo context initialized.";
 }
 

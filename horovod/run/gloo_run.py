@@ -15,6 +15,8 @@
 
 import os
 import collections
+import threading
+import signal
 
 from horovod.run.rendezvous.http_server import RendezvousServer
 from horovod.run.common.util import env as env_util, safe_shell_exec
@@ -30,7 +32,8 @@ except ImportError:
 
 class HostInfo:
     def __init__(self, host_item):
-        self.hostname, slots = host_item.strip().split(':')
+        hostname, slots = host_item.strip().split(':')
+        self.hostname = hostname
         self.slots = int(slots)
 
 
@@ -106,7 +109,7 @@ def _allocate(hosts, np):
     return alloc_list
 
 
-def _launch_jobs(args, host_alloc_plan, remote_host_names, _run_command):
+def _launch_jobs(settings, host_alloc_plan, remote_host_names, _run_command):
     """
     executes the jobs defined by run command on hosts.
     :param hosts_alloc: list of dict indicating the allocating info.
@@ -126,11 +129,12 @@ def _launch_jobs(args, host_alloc_plan, remote_host_names, _run_command):
     :rtype:
     """
 
-    def _exec_command(_command, _index):
-        if args.verbose:
+    def _exec_command(_command, _index, event_):
+        if settings.verbose:
             print(_command)
         try:
-            exit_code = safe_shell_exec.execute(_command, index=_index)
+            exit_code = safe_shell_exec.execute(
+                _command, index=_index, event=event_)
             if exit_code != 0:
                 os._exit(exit_code)
         except Exception as e:
@@ -138,10 +142,19 @@ def _launch_jobs(args, host_alloc_plan, remote_host_names, _run_command):
                   'message: {message}'.format(message=e))
         return 0
 
-    if args.ssh_port:
-        ssh_port_arg = "-p {ssh_port}".format(ssh_port=args.ssh_port)
+    if settings.ssh_port:
+        ssh_port_arg = "-p {ssh_port}".format(ssh_port=settings.ssh_port)
     else:
         ssh_port_arg = ""
+
+    # Create a event for communication between threads
+    event = threading.Event()
+
+    def set_event_on_sigterm(signum, frame):
+        event.set()
+
+    signal.signal(signal.SIGINT, set_event_on_sigterm)
+    signal.signal(signal.SIGTERM, set_event_on_sigterm)
 
     args_list = []
     for alloc_info in host_alloc_plan:
@@ -154,47 +167,46 @@ def _launch_jobs(args, host_alloc_plan, remote_host_names, _run_command):
                     cross_rank=alloc_info.cross_rank, cross_size=alloc_info.cross_size)
 
         host_name = alloc_info.hostname
+
+        env = os.environ.copy()
+        local_command = '{horovod_env} {env} {run_command}' .format(
+            horovod_env=horovod_rendez_env,
+            env=' '.join('%s=%s' % (key, quote(value)) for key, value in env.items()
+                         if env_util.is_exportable(key)),
+            run_command=_run_command)
+
         if host_name not in remote_host_names:
-            command = \
-                '{horovod_env} ' \
-                '{run_command}'.format(
-                    horovod_env=horovod_rendez_env,
-                    run_command=_run_command
-                )
+            command = local_command
         else:
-            env = os.environ.copy()
-            command = \
-                'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} ' \
-                '\'{horovod_env} {env} ' \
-                '{run_command}\''.format(
+            command = 'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} ' \
+                '{local_command}'.format(
                     host=host_name,
                     ssh_port_arg=ssh_port_arg,
-                    horovod_env=horovod_rendez_env,
-                    env=' '.join(quote('%s=%s' % (quote(key), quote(value))) for key, value in env.items()
-                                 if env_util.is_exportable(key)),
-                    run_command=_run_command
+                    local_command=quote(local_command)
                 )
-        args_list.append([command, alloc_info.rank])
+        args_list.append([command, alloc_info.rank, event])
+
     # Each thread will use ssh command to launch the job on each remote host. If an
     # error occurs in one thread, entire process will be terminated. Otherwise,
-    # threads will keep running and ssh session -- and the the task server --
-    # will be bound to the thread. In case, the horovodrun process dies, all
-    # the ssh sessions and all the task servers will die as well.
+    # threads will keep running and ssh session. In case, the main thread receives
+    # a SIGINT, the event will be set and the spawned threads will kill their
+    # corresponding middleman processes and thus the jobs will be killed as
+    # well.
     threads.execute_function_multithreaded(_exec_command,
                                            args_list,
                                            block_until_all_done=True)
 
 
-def gloo_run(args, remote_host_names, common_intfs):
+def gloo_run(settings, remote_host_names, common_intfs):
     # allocate processes into slots
-    host_alloc_plan = _allocate(args.host, args.np)
+    host_alloc_plan = _allocate(settings.host, settings.num_proc)
 
     # create global rendezvous server
-    global_rendezv = RendezvousServer(args.verbose)
+    global_rendezv = RendezvousServer(settings.verbose)
     # Start rendezvous server and get port that it is listening
     global_rendezv_port = global_rendezv.start_server(host_alloc_plan)
 
-    # get the server ipv4 address
+    # get the server IPv4 address
     iface = list(common_intfs)[0]
     server_ip = None
     for addr in net_if_addrs()[iface]:
@@ -203,7 +215,7 @@ def gloo_run(args, remote_host_names, common_intfs):
 
     if not server_ip:
         raise RuntimeError(
-            'Cannot find an ipv4 address of the common interface.')
+            'Cannot find an IPv4 address of the common interface.')
 
     run_command = (
         'HOROVOD_GLOO_RENDEZVOUS_ADDR={addr} '
@@ -217,8 +229,8 @@ def gloo_run(args, remote_host_names, common_intfs):
                 port=global_rendezv_port,
                 iface=iface,  # TODO: add multiple ifaces in future
                 common_intfs=','.join(common_intfs),
-                command=' '.join(quote(par) for par in args.command))
+                command=' '.join(quote(par) for par in settings.command))
     )
 
-    _launch_jobs(args, host_alloc_plan, remote_host_names, run_command)
+    _launch_jobs(settings, host_alloc_plan, remote_host_names, run_command)
     return

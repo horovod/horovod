@@ -22,20 +22,22 @@
 namespace horovod {
 namespace common {
 
-#define MAX_RETRY_TIME 3
+#define MAX_RETRY_TIMES 3
 #define RETRY_WAITING_TIME_MILLSEC 500
-#define HTTP_GET "GET"
-#define HTTP_PUT "PUT"
-#define HTTP_DELETE "DELETE"
+#define HTTP_GET_METHOD "GET"
+#define HTTP_PUT_METHOD "PUT"
+#define HTTP_DELETE_METHOD "DELETE"
 #define HTTP_OK 200
 #define HTTP_NOT_FOUND 404
+
 class HTTPStore : public gloo::rendezvous::Store {
 public:
-  HTTPStore(const std::string server_ip, int port, const std::string scope,
+  HTTPStore(const std::string& server_ip, int port, const std::string& scope,
             int rank)
-      : server_ip_(server_ip), server_port_(port), scope_(scope), rank_(rank) {}
-
-  ~HTTPStore() override;
+      : rank_(rank) {
+    url_prefix_ +=
+        "http://" + server_ip + ":" + std::to_string(port) + "/" + scope + "/";
+  }
 
   void set(const std::string& key, const std::vector<char>& data) override;
 
@@ -50,6 +52,8 @@ public:
 
   bool CheckKeys(const std::vector<std::string>& keys);
 
+  void Finalize();
+
 protected:
   // Send HTTP request to server, retry if the status code is not 200 (OK) or
   // 404 (Key not found).
@@ -58,20 +62,18 @@ protected:
 
   // HTTP GET: result is an out parameter for retrieved value for the key.
   // Return a bool representing whether the key is found in the store.
-  bool HTTPGET(const std::string& key, std::vector<char>& result);
+  bool HTTP_GET(const std::string& key, std::vector<char>& result);
 
   // HTTP PUT: send HTTP PUT request to server with the key and value data.
   // The key is a string and will be embed into the url; the data is
   // the PUT body.
-  void HTTPPUT(const std::string& key, const std::vector<char>& data);
+  void HTTP_PUT(const std::string& key, const std::vector<char>& data);
 
   // HTTP DELETE: send HTTP DELETE request to server, informing the server that
   // this rank has finished.
-  void HTTPDELETE(const std::string& key);
+  void HTTP_DELETE(const std::string& key);
 
-  std::string server_ip_;
-  int server_port_;
-  std::string scope_;
+  std::string url_prefix_;
   int rank_;
 };
 

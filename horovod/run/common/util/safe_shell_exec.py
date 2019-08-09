@@ -26,7 +26,11 @@ GRACEFUL_TERMINATION_TIME_S = 5
 
 
 def terminate_executor_shell_and_children(pid):
-    p = psutil.Process(pid)
+    # If the shell already ends, no need to terminate its child.
+    try:
+        p = psutil.Process(pid)
+    except psutil.NoSuchProcess:
+        return
 
     # Terminate children gracefully.
     for child in p.children():
@@ -71,7 +75,7 @@ def forward_stream(src_fd, dst_stream, prefix, index):
             dst_stream.flush()
 
 
-def execute(command, env=None, stdout=None, stderr=None, index=None):
+def execute(command, env=None, stdout=None, stderr=None, index=None, event=None):
     # Make a pipe for the subprocess stdout/stderr.
     (stdout_r, stdout_w) = os.pipe()
     (stderr_r, stderr_w) = os.pipe()
@@ -134,8 +138,20 @@ def execute(command, env=None, stdout=None, stderr=None, index=None):
     stdout_fwd.start()
     stderr_fwd.start()
 
+    def kill_middleman_if_master_thread_terminate():
+        event.wait()
+        os.kill(middleman_pid, signal.SIGTERM)
+
+    # TODO: Currently this requires explicitly declaration of the event and signal handler to set
+    #  the event (gloo_run.py:151). Need to figure out a generalized way to hide this behind
+    #  interfaces.
+    if event is not None:
+        bg_thread = threading.Thread(target=kill_middleman_if_master_thread_terminate)
+        bg_thread.daemon = True
+        bg_thread.start()
+
     try:
-        _, status = os.waitpid(middleman_pid, 0)
+        res, status = os.waitpid(middleman_pid, 0)
     except:
         # interrupted, send middleman TERM signal which will terminate children
         os.kill(middleman_pid, signal.SIGTERM)

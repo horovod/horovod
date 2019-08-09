@@ -46,7 +46,7 @@ class RendezvousHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
         _, scope, key = paths
         with self.server.cache_lock:
-            value = self.server.cache.get(scope, {}).get(key, None)
+            value = self.server.cache.get(scope, {}).get(key)
 
         if value is None:
             self.send_status_code(404)
@@ -120,9 +120,11 @@ class RendezvousHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         pass
 
 
-class RendezvousHTTPServer(BaseHTTPServer.HTTPServer):
-    def __init__(self, addr, handler):
-        BaseHTTPServer.HTTPServer.__init__(self, addr, handler)
+class RendezvousHTTPServer(BaseHTTPServer.HTTPServer, object):
+    def __init__(self, addr, handler, verbose):
+        # This class has to inherit from object since HTTPServer is an old-style
+        # class that does not inherit from object.
+        super(RendezvousHTTPServer, self).__init__(addr, handler)
 
         # Lists for finished rendezvous workers
         self.finished_list_lock = threading.Lock()
@@ -135,10 +137,7 @@ class RendezvousHTTPServer(BaseHTTPServer.HTTPServer):
         self.cache_lock = threading.Lock()
         self.cache = {}
 
-        self.verbose = 0
-
-    def set_verbose(self, verbose_level):
-        self.verbose = verbose_level
+        self.verbose = verbose
 
     def extract_scope_size(self, host_alloc_plan):
         for slot_info in host_alloc_plan:
@@ -158,9 +157,9 @@ class RendezvousHTTPServer(BaseHTTPServer.HTTPServer):
         return should_continue
 
     def handle_timeout(self):
-        error_msg = 'Rendezvous ERROR: Rendezvous server timeout after '
-        '{time} seconds while waiting for all the ranks to send finalize '
-        'messages.\n'.format(time=TOTAL_TIMEOUT)
+        error_msg = 'Rendezvous ERROR: Rendezvous server timeout after ' \
+                    '{time} seconds while waiting for all the ranks to send finalize ' \
+                    'messages.\n'.format(time=TOTAL_TIMEOUT)
 
         for scope, finished_list in self.finished_list:
             if self.scope_size[scope] > len(finished_list):
@@ -182,11 +181,12 @@ class RendezvousServer:
     # Rendezvous function finds a available port, create http socket,
     # and start listening loop to handle request
     def start_server(self, host_alloc_plan):
-        self.httpd, port = find_port(RendezvousHTTPServer, RendezvousHandler)
+        self.httpd, port = find_port(
+            lambda addr: RendezvousHTTPServer(
+                addr, RendezvousHandler, self.verbose))
         self.httpd.extract_scope_size(host_alloc_plan)
         if self.verbose:
             print('Rendezvous INFO: HTTP rendezvous server started.')
-            self.httpd.set_verbose(True)
 
         # start the listening loop
         self.listen_thread = threading.Thread(target=self.listen_loop)
