@@ -17,7 +17,7 @@
 class Settings(object):
 
     def __init__(self, verbose=0, ssh_port=None, key=None, timeout=None,
-                 num_hosts=None, num_proc=None, host=None, command=None):
+                 num_hosts=None, num_proc=None, hosts=None, command=None):
         """
         :param verbose: level of verbosity
         :type verbose: int
@@ -43,5 +43,5 @@ class Settings(object):
         self.timeout = timeout
         self.num_hosts = num_hosts
         self.num_proc = num_proc
-        self.host = host
+        self.hosts = hosts
         self.command = command

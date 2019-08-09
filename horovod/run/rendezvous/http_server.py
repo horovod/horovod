@@ -50,7 +50,6 @@ class RendezvousHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
         if value is None:
             self.send_status_code(404)
-
         else:
             self.send_response(200)
             self.send_header("Content-Length", str(len(value)))

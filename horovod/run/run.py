@@ -50,14 +50,14 @@ SSH_RETRIES = 5
 
 @cache.use_cache()
 def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
-    '''
+    """
     checks if ssh can successfully be performed to all the hosts.
     :param host_addresses: list of addresses to ssh into. for example,
         ['worker-0','worker-1']
         ['10.11.11.11', '10.11.11.12']
     :type host_addresses: list(strings)
     :return: Returns True if all ssh was successful into all the addresses.
-    '''
+    """
 
     def exec_command(command):
         exit_code = 1
@@ -78,10 +78,8 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
                 output.close()
         return exit_code, output_msg
 
-    if ssh_port:
-        ssh_port_arg = '-p {ssh_port}'.format(ssh_port=ssh_port)
-    else:
-        ssh_port_arg = ''
+    ssh_port_arg = '-p {ssh_port}'.format(
+        ssh_port=ssh_port) if ssh_port else ''
 
     ssh_command_format = 'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} date'
 
@@ -96,10 +94,9 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
     for index, ssh_status in six.iteritems(ssh_exit_codes):
         exit_code, output_msg = ssh_status[0], ssh_status[1]
         if exit_code != 0:
-            print('ssh not successful for host {host}:\n{msg_output}'.format(
-                host=host_addresses[index],
-                msg_output=output_msg
-            ))
+            print('ssh not successful for host {host}:\n{msg_output}'
+                  .format(host=host_addresses[index],
+                          msg_output=output_msg))
 
             ssh_successful_to_all_hosts = False
     if not ssh_successful_to_all_hosts:
@@ -144,7 +141,7 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
                 print(
                     'Launching horovodrun task function was not '
                     'successful:\n{host_output}'
-                        .format(host_output=host_output.getvalue()))
+                    .format(host_output=host_output.getvalue()))
                 os._exit(exit_code)
         finally:
             host_output.close()
@@ -160,24 +157,22 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
         if host_name in local_host_names:
             command = \
                 '{python} -m horovod.run.task_fn {index} ' \
-                '{driver_addresses} {settings}'.format(
-                    python=sys.executable,
-                    index=codec.dumps_base64(index),
-                    driver_addresses=codec.dumps_base64(driver_addresses),
-                    settings=codec.dumps_base64(settings)
-                )
+                '{driver_addresses} {settings}'\
+                .format(python=sys.executable,
+                        index=codec.dumps_base64(index),
+                        driver_addresses=codec.dumps_base64(driver_addresses),
+                        settings=codec.dumps_base64(settings))
         else:
             command = \
                 'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} ' \
                 '\'{python} -m horovod.run.task_fn {index} {driver_addresses}' \
-                ' {settings}\''.format(
-                    host=host_name,
-                    ssh_port_arg=ssh_port_arg,
-                    python=sys.executable,
-                    index=codec.dumps_base64(index),
-                    driver_addresses=codec.dumps_base64(driver_addresses),
-                    settings=codec.dumps_base64(settings)
-                )
+                ' {settings}\''\
+                .format(host=host_name,
+                        ssh_port_arg=ssh_port_arg,
+                        python=sys.executable,
+                        index=codec.dumps_base64(index),
+                        driver_addresses=codec.dumps_base64(driver_addresses),
+                        settings=codec.dumps_base64(settings))
         args_list.append([command])
     # Each thread will use ssh command to launch the server on one task. If an
     # error occurs in one thread, entire process will be terminated. Otherwise,
@@ -208,8 +203,10 @@ def _driver_fn(all_host_names, local_host_names, settings):
     :return: example: ['eth0', 'eth1']
     :rtype: list[string]
     """
-    # Launch a TCP server called service service on the host running horovodrun.
-    driver = driver_service.HorovodRunDriverService(settings.num_hosts, settings.key)
+    # Launch a TCP server called service service on the host running
+    # horovodrun.
+    driver = driver_service.HorovodRunDriverService(
+        settings.num_hosts, settings.key)
     if settings.verbose >= 2:
         print('Launched horovodrun server.')
     # Have all the workers register themselves with the service service.
@@ -222,12 +219,13 @@ def _driver_fn(all_host_names, local_host_names, settings):
         if settings.verbose >= 2:
             print('Waiting for the hosts to acknowledge.')
         driver.wait_for_initial_registration(settings.timeout)
-        tasks = [task_service.HorovodRunTaskClient(index,
-                                                   driver.task_addresses_for_driver(
-                                                       index),
-                                                   settings.key,
-                                                   settings.verbose)
-                 for index in range(settings.num_hosts)]
+        tasks = [
+            task_service.HorovodRunTaskClient(
+                index,
+                driver.task_addresses_for_driver(index),
+                settings.key,
+                settings.verbose) for index in range(
+                settings.num_hosts)]
         # Notify all the drivers that the initial registration is complete.
         for task in tasks:
             task.notify_initial_registration_complete()
@@ -274,23 +272,23 @@ def parse_args():
     host_group = parser.add_argument_group('Use one of the following options '
                                            'to specify which hosts (nodes) of '
                                            'the cluster to run on')
-    host_group.add_argument('-H', '--host', action='store', dest='host',
+    host_group.add_argument('-H', '--hosts', action='store', dest='hosts',
                             help='To specify the list of host names as well '
-                                 'as the number of available slots on each '
-                                 'host for training processes using the '
-                                 'following format: <hostname>:<number of '
-                                 'slots>,... . E.g., host1:2,host2:4,host3:1 '
-                                 'indicates that 2 processes can run on '
-                                 'host1, 4 processes on host2, and 1 process '
-                                 'on host3. If not specified, use localhost:<np> '
-                                 'by default.')
+                            'as the number of available slots on each '
+                            'host for training processes using the '
+                            'following format: <hostname>:<number of '
+                            'slots>,... . E.g., host1:2,host2:4,host3:1 '
+                            'indicates that 2 processes can run on '
+                            'host1, 4 processes on host2, and 1 process '
+                            'on host3. If not specified, use localhost:<np> '
+                            'by default.')
     host_group.add_argument('-hostfile', '--hostfile', action='store',
                             dest='hostfile',
                             help='To specify a host file with the list of '
-                                  'host names as well as the number of '
-                                  'available slots on each host. '
-                                  'Each line of the host file is formatted '
-                                  'as <hostname> slots=<number of slots')
+                            'host names as well as the number of '
+                            'available slots on each host. '
+                            'Each line of the host file is formatted '
+                            'as <hostname> slots=<number of slots')
     parser.add_argument('--disable-cache', action='store_true',
                         dest='disable_cache',
                         help='If the flag is not set, horovodrun will perform '
@@ -346,15 +344,16 @@ def run():
         print(horovod.__version__)
         exit(0)
 
-    # if hosts are not specified, either parse from hostfile, or default as localhost
-    if not args.host:
+    # if hosts are not specified, either parse from hostfile, or default as
+    # localhost
+    if not args.hosts:
         if args.hostfile:
-            args.host = parse_host_files(args.hostfiles)
+            args.hosts = parse_host_files(args.hostfiles)
         else:
             # Set hosts to localhost if not specified
-            args.host = 'localhost:{np}'.format(np=args.np)
+            args.hosts = 'localhost:{np}'.format(np=args.np)
 
-    host_list = args.host.split(',')
+    host_list = args.hosts.split(',')
     all_host_names = []
     pattern = re.compile(r'^[\w-]+:\d+$')
     for host in host_list:
@@ -381,7 +380,7 @@ def run():
                                      timeout=tmout,
                                      num_hosts=len(all_host_names),
                                      num_proc=args.np,
-                                     host=args.host,
+                                     hosts=args.hosts,
                                      command=args.command)
 
     # This cache stores the results of checks performed by horovodrun
@@ -392,8 +391,8 @@ def run():
         params = ''
         if args.np:
             params += str(args.np) + ' '
-        if args.host:
-            params += str(args.host) + ' '
+        if args.hosts:
+            params += str(args.hosts) + ' '
         if args.ssh_port:
             params += str(args.ssh_port)
         parameters_hash = hashlib.md5(params.encode('utf-8')).hexdigest()
@@ -433,8 +432,10 @@ def run():
 
     else:
         if settings.verbose >= 2:
-            print('All hosts are local, finding the interfaces with address 127.0.0.1')
-        # If all the given hosts are local, find the interfaces with address 127.0.0.1
+            print('All hosts are local, finding the interfaces '
+                  'with address 127.0.0.1')
+        # If all the given hosts are local, find the interfaces with address
+        # 127.0.0.1
         common_intfs = set()
         for iface, addrs in net_if_addrs().items():
             for addr in addrs:

@@ -103,11 +103,11 @@ bool HTTPStore::HTTP_GET(const std::string& key, std::vector<char>& result) {
   // If the key is not present, return false.
   if (response.status == HTTP_NOT_FOUND) {
     return false;
-  } else {
-    result.clear();
-    result.insert(result.begin(), response.body.begin(), response.body.end());
-    return true;
   }
+
+  result.clear();
+  result.insert(result.begin(), response.body.begin(), response.body.end());
+  return true;
 }
 
 void HTTPStore::HTTP_PUT(const std::string& key,

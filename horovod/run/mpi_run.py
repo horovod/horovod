@@ -67,27 +67,17 @@ def mpi_run(settings, common_intfs):
     # Pass all the env variables to the mpirun command.
     env = os.environ.copy()
 
-    if settings.ssh_port:
-        ssh_port_arg = "-mca plm_rsh_args \"-p {ssh_port}\"".format(
-            ssh_port=settings.ssh_port)
-    else:
-        ssh_port_arg = ""
+    ssh_port_arg = '-mca plm_rsh_args \"-p {ssh_port}\"'.format(
+            ssh_port=settings.ssh_port) if settings.ssh_port else ''
 
-    if settings.host:
-        hosts_arg = "-H {hosts}".format(hosts=settings.host)
-    else:
-        # if user does not specify any hosts, mpirun by default uses local host.
-        # There is no need to specify localhost.
-        hosts_arg = ""
+    # if user does not specify any hosts, mpirun by default uses local host.
+    # There is no need to specify localhost.
+    hosts_arg = '-H {hosts}'.format(hosts=settings.hosts)
 
-    if common_intfs:
-        tcp_intf_arg = "-mca btl_tcp_if_include {common_intfs}".format(
-            common_intfs=','.join(common_intfs))
-        nccl_socket_intf_arg = "-x NCCL_SOCKET_IFNAME={common_intfs}".format(
-            common_intfs=','.join(common_intfs))
-    else:
-        tcp_intf_arg = ""
-        nccl_socket_intf_arg = ""
+    tcp_intf_arg = '-mca btl_tcp_if_include {common_intfs}'.format(
+        common_intfs=','.join(common_intfs)) if common_intfs else ''
+    nccl_socket_intf_arg = '-x NCCL_SOCKET_IFNAME={common_intfs}'.format(
+        common_intfs=','.join(common_intfs)) if common_intfs else ''
 
     mpirun_command = (
         'mpirun --allow-run-as-root --tag-output '

@@ -133,10 +133,9 @@ def _launch_jobs(settings, host_alloc_plan, remote_host_names, _run_command):
         if settings.verbose:
             print(_command)
         try:
-            exit_code = safe_shell_exec.execute(
-                _command, index=_index, event=event_)
+            exit_code = safe_shell_exec.execute(_command, index=_index, event=event_)
             if exit_code != 0:
-                os._exit(exit_code)
+                print('Process {idx} exit with status code {ec}.'.format(idx=_index, ec=exit_code))
         except Exception as e:
             print('Exception happened during safe_shell_exec, exception '
                   'message: {message}'.format(message=e))
@@ -171,8 +170,8 @@ def _launch_jobs(settings, host_alloc_plan, remote_host_names, _run_command):
         env = os.environ.copy()
         local_command = '{horovod_env} {env} {run_command}' .format(
             horovod_env=horovod_rendez_env,
-            env=' '.join('%s=%s' % (key, quote(value)) for key, value in env.items()
-                         if env_util.is_exportable(key)),
+            env=' '.join(['%s=%s' % (key, quote(value)) for key, value in env.items()
+                                    if env_util.is_exportable(key)]),
             run_command=_run_command)
 
         if host_name not in remote_host_names:
@@ -199,7 +198,7 @@ def _launch_jobs(settings, host_alloc_plan, remote_host_names, _run_command):
 
 def gloo_run(settings, remote_host_names, common_intfs):
     # allocate processes into slots
-    host_alloc_plan = _allocate(settings.host, settings.num_proc)
+    host_alloc_plan = _allocate(settings.hosts, settings.num_proc)
 
     # create global rendezvous server
     global_rendezv = RendezvousServer(settings.verbose)
@@ -229,8 +228,7 @@ def gloo_run(settings, remote_host_names, common_intfs):
                 port=global_rendezv_port,
                 iface=iface,  # TODO: add multiple ifaces in future
                 common_intfs=','.join(common_intfs),
-                command=' '.join(quote(par) for par in settings.command))
-    )
+                command=' '.join(quote(par) for par in settings.command)))
 
     _launch_jobs(settings, host_alloc_plan, remote_host_names, run_command)
     return

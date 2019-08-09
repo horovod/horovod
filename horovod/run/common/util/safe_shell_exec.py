@@ -143,7 +143,7 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, event=None)
         os.kill(middleman_pid, signal.SIGTERM)
 
     # TODO: Currently this requires explicitly declaration of the event and signal handler to set
-    #  the event (gloo_run.py:151). Need to figure out a generalized way to hide this behind
+    #  the event (gloo_run.py:_launch_jobs()). Need to figure out a generalized way to hide this behind
     #  interfaces.
     if event is not None:
         bg_thread = threading.Thread(target=kill_middleman_if_master_thread_terminate)
