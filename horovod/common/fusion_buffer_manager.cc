@@ -45,7 +45,7 @@ Status FusionBufferManager::InitializeBuffer(int64_t threshold, int device, std:
   return Status::OK();
 }
 
-std::shared_ptr<PersistentBuffer>& FusionBufferManager::GetBuffer(int device, Framework framework, int stream_id) {
+std::shared_ptr<PersistentBuffer> FusionBufferManager::GetBuffer(int device, Framework framework, int stream_id) {
   return tensor_fusion_buffers_[std::make_tuple(device, framework, stream_id)].first;
 }
 

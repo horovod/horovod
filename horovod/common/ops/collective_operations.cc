@@ -39,7 +39,7 @@ void AllreduceOp::MemcpyInFusionBuffer(
     void*& buffer_data, size_t& buffer_len) {
   // Access the fusion buffer.
   auto& first_entry = entries[0];
-  auto& buffer = global_state_->fusion_buffer.GetBuffer(
+  auto buffer = global_state_->fusion_buffer.GetBuffer(
       first_entry.device, first_entry.context->framework(), global_state_->current_nccl_stream);
   buffer_data = const_cast<void*>(buffer->AccessData(first_entry.context));
 

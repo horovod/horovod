@@ -156,8 +156,13 @@ Status CUDAAllreduce::FinalizeCUDAQueue(const std::vector<TensorTableEntry>& ent
   auto& timeline = global_state_->timeline;
   auto& cuda_context = cuda_context_;
 
+  // Claim a std::shared_ptr to the fusion buffer to prevent its memory from being reclaimed
+  // during finalization.
+  auto fusion_buffer = global_state_->fusion_buffer.GetBuffer(
+      first_entry.device, first_entry.context->framework(), global_state_->current_nccl_stream);
+
   // TODO: use thread pool or single thread for callbacks
-  std::thread finalizer_thread([entries, first_entry, host_buffer,
+  std::thread finalizer_thread([entries, first_entry, host_buffer, fusion_buffer,
                                 event_queue, &timeline, &cuda_context]() mutable {
     auto cuda_result = cudaSetDevice(first_entry.device);
     cuda_context->ErrorCheck("cudaSetDevice", cuda_result);
