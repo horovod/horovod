@@ -63,7 +63,7 @@ GlooAlgorithms<T>::GlooAlgorithms(GlooContext* gloo_context)
 template <typename T>
 void GlooAlgorithms<T>::Allreduce(void* buffer_data, int num_elements) {
   gloo::AllreduceOptions opts(gloo_context_->ctx);
-  opts.setOutput((T*)buffer_data, num_elements);
+  opts.setOutput<T>(static_cast<T*>(buffer_data), num_elements);
 
   void (*func)(void*, const void*, const void*, size_t) = &::gloo::sum<T>;
   opts.setReduceFunction(gloo::AllreduceOptions::Func(func));
@@ -91,7 +91,7 @@ void GlooAlgorithms<T>::Broadcast(void* buffer_data, int num_elements,
                                   int root_rank) {
   gloo::BroadcastOptions opts(gloo_context_->ctx);
   opts.setRoot(root_rank);
-  opts.setOutput(buffer_data, num_elements * sizeof(T));
+  opts.setOutput<T>(static_cast<T*>(buffer_data), num_elements);
   gloo::broadcast(opts);
 }
 

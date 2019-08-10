@@ -75,17 +75,20 @@ LibType ParseCPUOpsFromEnv() {
 }
 
 LibType ParseControllerOpsFromEnv() {
-  LibType controller = LibType::MPI;
-#if HAVE_GLOO
-  controller = LibType::GLOO;
+  // Always default to MPI
+  LibType controller;
+#if HAVE_MPI
+  controller = LibType::MPI;
 #endif
 
+  // If specified during compilation
 #if HOROVOD_CONTROLLER_DEFAULT == 'G'
   controller = LibType::GLOO;
 #elif HOROVOD_CONTROLLER_DEFAULT == 'M'
   controller = LibType::MPI;
 #endif
 
+  // If specified during runtime
   const char* user_cpu_operation = std::getenv(HOROVOD_CONTROLLER);
   if (user_cpu_operation != nullptr) {
     if (strcasecmp(user_cpu_operation, HOROVOD_MPI) == 0) {

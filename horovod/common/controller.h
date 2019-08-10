@@ -20,7 +20,6 @@
 #include <queue>
 #include <vector>
 
-#include "half.h"
 #include "parameter_manager.h"
 #include "response_cache.h"
 #include "stall_inspector.h"
@@ -41,9 +40,8 @@ using MessageTable = std::unordered_map<std::string, std::vector<Request>>;
 
 class Controller : public std::enable_shared_from_this<Controller> {
 public:
-  Controller(ResponseCache& response_cache,
-             TensorQueue& tensor_queue, Timeline& timeline,
-             ParameterManager& parameter_manager);
+  Controller(ResponseCache& response_cache, TensorQueue& tensor_queue,
+             Timeline& timeline, ParameterManager& parameter_manager);
 
   Controller(const Controller&) = delete;
   // Functions must be overridden by concrete controller
@@ -57,9 +55,14 @@ public:
   virtual void CrossRankBitwiseOr(std::vector<long long>& bitvector,
                                   int count) = 0;
 
-  virtual void SynchronizeParameters() = 0;
+
+  virtual void Bcast(void* buffer, size_t size, int root_rank, Communicator
+  communicator) = 0;
+
+  virtual void Barrier(Communicator communicator) = 0;
 
   // Concrete controller functions
+  void SynchronizeParameters();
 
   // This function performs all the preparation work for workers to agree
   // on what tensors to be all-reduced or all-gathered. The output is a
@@ -187,9 +190,8 @@ protected:
 
   StallInspector stall_inspector_;
 
-  // Only exists on the coordinator node (rank zero). Maintains a count of
-  // how many nodes are ready to allreduce every tensor (keyed by tensor
-  // name) and time point when tensor started allreduce op.
+  // Only exists on the coordinator node (rank zero). Maintains a vector of
+  // requests to allreduce every tensor (keyed by tensor name).
   MessageTable message_table_;
 
   bool timeline_enabled_ = false;

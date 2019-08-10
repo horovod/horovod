@@ -85,7 +85,7 @@ void TensorQueue::GetTensorEntriesFromResponse(
              response.response_type() == Response::BROADCAST ||
              response.response_type() == Response::ERROR);
 
-      entries.push_back(iter->second);
+      entries.push_back(std::move(iter->second));
 
       // Clear the tensor table of this tensor.
       tensor_table_.erase(iter);

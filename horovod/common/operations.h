@@ -19,8 +19,11 @@
 #include <functional>
 
 #include "common.h"
+
+#if HAVE_MPI
 #define OMPI_SKIP_MPICXX
 #include "mpi.h"
+#endif
 
 namespace horovod {
 namespace common {
@@ -61,8 +64,10 @@ extern "C" {
 // C interface to initialize Horovod.
 void horovod_init(const int *ranks, int nranks);
 
+#if HAVE_MPI
 // C interface to initialize Horovod with the given MPI communicator.
 void horovod_init_comm(MPI_Comm comm);
+#endif
 
 // C interface to shut down Horovod.
 void horovod_shutdown();
@@ -86,6 +91,13 @@ int horovod_local_size();
 // C interface to return flag indicating whether MPI multi-threading is
 // supported. Returns -1 if Horovod is not initialized.
 int horovod_mpi_threads_supported();
+
+// C interface to return flag indicating whether Gloo is enabled.
+bool gloo_enabled();
+
+// C interface to return flag indicating whether MPI is enabled.
+bool mpi_enabled();
+
 }
 
 Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,

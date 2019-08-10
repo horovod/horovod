@@ -353,12 +353,9 @@ void CacheCoordinator::sync(std::shared_ptr<Controller> controller,
           (1ull << (shifted_bit % (sizeof(long long) * CHAR_BIT)));
     }
   }
-  LOG(TRACE) << "Perform bit wise and operations "<<bitvector_
-      .size() << "with count " << count;
+
   // Global AND operation to get intersected bit array.
   controller->CrossRankBitwiseAnd(bitvector_, fullcount);
-  LOG(TRACE) << "Finished bit wise and operations "<<bitvector_
-      .size() << "with count " << count;
 
   // Search for flipped bits to populate common cache hit set. There will never
   // be invalid bits in this set.
@@ -394,12 +391,8 @@ void CacheCoordinator::sync(std::shared_ptr<Controller> controller,
       bitvector_[shift] |= (1ull << (bit % (sizeof(long long) * CHAR_BIT)));
     }
 
-    LOG(TRACE) << "Perform bit wise or operations on length "<<bitvector_
-    .size() << "with count " << count;
     // Global OR operation to get common invalid bits.
     controller->CrossRankBitwiseOr(bitvector_, count);
-    LOG(TRACE) << "Finished bit wise or operations "<<bitvector_
-        .size() << "with count " << count;
     // Search for flipped bits to populate common invalid bit set.
     invalid_bits_.clear();
     for (int i = 0; i < count; ++i) {

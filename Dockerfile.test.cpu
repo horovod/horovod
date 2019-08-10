@@ -78,17 +78,19 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
             echo "-L/usr/local/mlsl/intel64/lib/thread -lmpi -I/usr/local/mlsl/intel64/include" > /mpicc_mlsl && \
             chmod +x /mpicc_mlsl && \
             echo "/mpirun_command_script" > /mpirun_command; \
-    else \
+    elif [[ ${MPI_KIND} == "MPICH" ]]; then \
         apt-get install -y mpich && \
             echo "mpirun -np 2" > /mpirun_command; \
     fi
 
 # Install mpi4py.
-RUN if [[ ${MPI_KIND} == "MLSL" ]]; then \
-        export I_MPI_ROOT=/usr/local/mlsl; \
-        export MPICC=/usr/local/mlsl/intel64/bin/mpicc; \
-    fi; \
-    pip install mpi4py
+RUN if [[ ${MPI_KIND} != "None" ]]; then \
+        if [[ ${MPI_KIND} == "MLSL" ]]; then \
+            export I_MPI_ROOT=/usr/local/mlsl; \
+            export MPICC=/usr/local/mlsl/intel64/bin/mpicc; \
+        fi; \
+        pip install mpi4py; \
+    fi
 
 ### END OF CACHE ###
 COPY . /horovod

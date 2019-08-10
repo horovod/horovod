@@ -17,6 +17,7 @@
 #define HOROVOD_GLOO_OPERATIONS_H
 
 #include "collective_operations.h"
+#include "../gloo_context.h"
 
 namespace horovod {
 namespace common {
