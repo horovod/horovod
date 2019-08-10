@@ -57,17 +57,9 @@ def terminate_executor_shell_and_children(pid):
     p.kill()
 
 
-def get_prefix_for_rank(prefix, index):
-    if index >= 0:
-        localtime = time.asctime(time.localtime(time.time()))
-        return localtime + '[' + str(index) + ']<' + prefix + '>:'
-    return ''
-
-
-def forward_stream(src_fd, dst_stream, prefix, index):
 def forward_stream(src_fd, dst_stream, prefix, index):
     with os.fdopen(src_fd, 'r') as src:
-        line_buffer = get_prefix_for_rank(prefix, index)
+        line_buffer = ''
         while True:
             text = os.read(src.fileno(), 1000)
             if not isinstance(text, str):
@@ -75,23 +67,21 @@ def forward_stream(src_fd, dst_stream, prefix, index):
             if not text:
                 break
 
-            if index is not None:
-                localtime = time.asctime(time.localtime(time.time()))
-                line = '{time}[{rank}]<{prefix}>:{line}'.format(
-                    time=localtime,
-                    rank=str(index),
-                    prefix=prefix,
-                    line=line
-                )
-            dst_stream.write(line)
-            dst_stream.flush()
-
             for line in re.split('([\r\n])', text):
                 line_buffer += line
                 if line == '\r' or line == '\n':
+                    if index is not None:
+                        localtime = time.asctime(time.localtime(time.time()))
+                        line_buffer = '{time}[{rank}]<{prefix}>:{line}'.format(
+                            time=localtime,
+                            rank=str(index),
+                            prefix=prefix,
+                            line=line_buffer
+                        )
+
                     dst_stream.write(line_buffer)
                     dst_stream.flush()
-                    line_buffer = get_prefix_for_rank(prefix, index)
+                    line_buffer = ''
 
 
 def execute(command, env=None, stdout=None, stderr=None, index=None, event=None):
