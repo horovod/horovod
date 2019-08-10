@@ -44,7 +44,7 @@ public:
                           std::function<void()> on_end_init);
 
   // Returns the buffer associated with the given device and framework, or null.
-  std::shared_ptr<PersistentBuffer>& GetBuffer(int device, Framework framework, int stream_id);
+  std::shared_ptr<PersistentBuffer> GetBuffer(int device, Framework framework, int stream_id);
 
 private:
   // Memory buffers for Tensor Fusion.  They are keyed off device ID and
