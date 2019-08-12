@@ -17,10 +17,6 @@
 #include "logging.h"
 #include "operations.h"
 
-#if HAVE_GLOO
-#include "ops/gloo_operations.h"
-#endif
-
 namespace horovod {
 namespace common {
 
@@ -92,7 +88,8 @@ void MPIController::CrossRankBitwiseAnd(std::vector<long long>& bitvector,
   int ret_code = MPI_Allreduce(MPI_IN_PLACE, bitvector.data(), count,
                                MPI_LONG_LONG_INT, MPI_BAND, mpi_ctx_.mpi_comm);
   if (ret_code != MPI_SUCCESS) {
-    throw std::logic_error("MPI_AllReduce failed, see MPI output for details.");
+    throw std::runtime_error(
+        "MPI_AllReduce failed, see MPI output for details.");
   }
 }
 
@@ -101,7 +98,8 @@ void MPIController::CrossRankBitwiseOr(std::vector<long long>& bitvector,
   int ret_code = MPI_Allreduce(MPI_IN_PLACE, bitvector.data(), count,
                                MPI_LONG_LONG_INT, MPI_BOR, mpi_ctx_.mpi_comm);
   if (ret_code != MPI_SUCCESS) {
-    throw std::logic_error("MPI_AllReduce failed, see MPI output for details.");
+    throw std::runtime_error(
+        "MPI_AllReduce failed, see MPI output for details.");
   }
 }
 
@@ -165,37 +163,56 @@ void MPIController::SendReadyTensors(RequestList& message_list) {
   std::string encoded_message;
   RequestList::SerializeToString(message_list, encoded_message);
   int encoded_message_length = (int)encoded_message.length() + 1;
-  MPI_Gather(&encoded_message_length, 1, MPI_INT, nullptr, 1, MPI_INT,
-             RANK_ZERO, mpi_ctx_.mpi_comm);
-  MPI_Gatherv((void*)encoded_message.c_str(), encoded_message_length, MPI_BYTE,
-              nullptr, nullptr, nullptr, MPI_BYTE, RANK_ZERO,
-              mpi_ctx_.mpi_comm);
+  int ret_code = MPI_Gather(&encoded_message_length, 1, MPI_INT, nullptr, 1,
+                            MPI_INT, RANK_ZERO, mpi_ctx_.mpi_comm);
+  if (ret_code != MPI_SUCCESS) {
+    throw std::runtime_error("MPI_Gather failed, see MPI output for details.");
+  }
+
+  ret_code = MPI_Gatherv((void*)encoded_message.c_str(), encoded_message_length,
+                         MPI_BYTE, nullptr, nullptr, nullptr, MPI_BYTE,
+                         RANK_ZERO, mpi_ctx_.mpi_comm);
+  if (ret_code != MPI_SUCCESS) {
+    throw std::runtime_error("MPI_Gather failed, see MPI output for details.");
+  }
 }
 
 void MPIController::RecvFinalTensors(ResponseList& response_list) {
   int msg_length;
-  MPI_Bcast(&msg_length, 1, MPI_INT, RANK_ZERO, mpi_ctx_.mpi_comm);
+  int ret_code =
+      MPI_Bcast(&msg_length, 1, MPI_INT, RANK_ZERO, mpi_ctx_.mpi_comm);
+  if (ret_code != MPI_SUCCESS) {
+    throw std::runtime_error(
+        "MPI_Broadcast failed, see MPI output for details.");
+  }
 
   auto buffer = new uint8_t[msg_length];
-  MPI_Bcast(buffer, msg_length, MPI_BYTE, RANK_ZERO, mpi_ctx_.mpi_comm);
+  ret_code =
+      MPI_Bcast(buffer, msg_length, MPI_BYTE, RANK_ZERO, mpi_ctx_.mpi_comm);
+  if (ret_code != MPI_SUCCESS) {
+    throw std::runtime_error(
+        "MPI_Broadcast failed, see MPI output for details.");
+  }
   ResponseList::ParseFromBytes(response_list, buffer);
   delete[] buffer;
 }
 
-void MPIController::SynchronizeParameters() {
-  ParameterManager::Params param;
-  if (is_coordinator_) {
-    param = parameter_manager_.GetParams();
+void MPIController::Bcast(void* buffer, size_t size, int root_rank,
+                          Communicator communicator) {
+  MPI_Comm comm = mpi_ctx_.GetMPICommunicator(communicator);
+  int ret_code = MPI_Bcast(buffer, size, MPI_BYTE, root_rank, comm);
+  if (ret_code != MPI_SUCCESS) {
+    throw std::runtime_error(
+        "MPI_Broadcast failed, see MPI output for details.");
   }
+}
 
-  void* buffer = (void*)(&param);
-  int param_size = sizeof(param);
-  MPI_Bcast(buffer, param_size, MPI_BYTE, RANK_ZERO, mpi_ctx_.mpi_comm);
-
-  if (!is_coordinator_) {
-    parameter_manager_.SetParams(param);
+void MPIController::Barrier(Communicator communicator) {
+  MPI_Comm comm = mpi_ctx_.GetMPICommunicator(communicator);
+  int ret_code = MPI_Barrier(comm);
+  if (ret_code != MPI_SUCCESS) {
+    throw std::runtime_error("MPI_Barrier failed, see MPI output for details.");
   }
-  parameter_manager_.Reset();
 }
 
 } // namespace common

@@ -13,10 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
+
 class Settings(object):
 
     def __init__(self, verbose=0, ssh_port=None, key=None, timeout=None,
-                 num_hosts=None, num_proc=None):
+                 num_hosts=None, num_proc=None, hosts=None, command=None):
         """
         :param verbose: level of verbosity
         :type verbose: int
@@ -31,6 +32,10 @@ class Settings(object):
         :type num_hosts: int
         :param num_proc: number of horovod processes (-np)
         :type num_proc: int
+        :param hosts: string of hostname with slots number
+        :type hosts: string
+        :param command: number of horovod processes (-np)
+        :type num_proc: int
         """
         self.verbose = verbose
         self.ssh_port = ssh_port
@@ -38,3 +43,5 @@ class Settings(object):
         self.timeout = timeout
         self.num_hosts = num_hosts
         self.num_proc = num_proc
+        self.hosts = hosts
+        self.command = command

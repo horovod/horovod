@@ -40,6 +40,11 @@ class HorovodBasics(object):
         atexit.register(self.shutdown)
 
         if not isinstance(comm, list):
+            mpi_enabled = self.MPI_LIB_CTYPES.horovod_mpi_enabled()
+            if not bool(mpi_enabled):
+                raise ValueError(
+                    'Horovod MPI is not enabled; Please make sure it\'s installed and enabled.')
+
             from mpi4py import MPI
             if MPI._sizeof(MPI.Comm) == ctypes.sizeof(ctypes.c_int):
                 MPI_Comm = ctypes.c_int
@@ -118,8 +123,35 @@ class HorovodBasics(object):
         Returns:
           A boolean value indicating whether MPI multi-threading is supported.
         """
+        mpi_enabled = self.MPI_LIB_CTYPES.horovod_mpi_enabled()
+        if not bool(mpi_enabled):
+            raise ValueError(
+                'Horovod MPI is not enabled; Please make sure it\'s installed and enabled.')
+
         mpi_threads_supported = self.MPI_LIB_CTYPES.horovod_mpi_threads_supported()
         if mpi_threads_supported == -1:
             raise ValueError(
                 'Horovod has not been initialized; use hvd.init().')
         return bool(mpi_threads_supported)
+
+    def gloo_enabled(self):
+        """A function that returns a flag indicating whether Gloo is enabled.
+
+        If Gloo is enabled, users can use it for controller or data transfer operations.
+
+        Returns:
+          A boolean value indicating whether Gloo is enabled.
+        """
+        gloo_enabled = self.MPI_LIB_CTYPES.horovod_gloo_enabled()
+        return bool(gloo_enabled)
+
+    def mpi_enabled(self):
+        """A function that returns a flag indicating whether MPI is enabled.
+
+        If MPI is enabled, users can use it for controller or data transfer operations.
+
+        Returns:
+          A boolean value indicating whether MPI is enabled.
+        """
+        mpi_enabled = self.MPI_LIB_CTYPES.horovod_mpi_enabled()
+        return bool(mpi_enabled)

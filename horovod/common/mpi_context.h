@@ -42,6 +42,14 @@ public:
 };
 
 struct MPIContext {
+
+  void Enable() {
+    enabled_ = true;
+    LOG(INFO) << "MPI context enabled.";
+  };
+
+  bool IsEnabled() { return enabled_; }
+
   // Take an argument of context manager pointer that will take care of
   // initialization of MPI environment.
   void Initialize(const std::vector<int>& ranks,
@@ -50,7 +58,6 @@ struct MPIContext {
   // Take an argument of context manager pointer that will take care of
   // finalization of MPI environment.
   void Finalize(MPIContextManager& ctx_manager);
-
   MPI_Datatype GetMPIDataType(std::shared_ptr<Tensor> tensor);
 
   MPI_Datatype GetMPIDataType(DataType dtype);
@@ -60,6 +67,9 @@ struct MPIContext {
   MPI_Comm GetMPICommunicator(Communicator comm);
 
   int GetMPITypeSize(DataType dtype);
+
+  // Flag indicating whether mpi is enabled.
+  bool enabled_ = false;
 
   // MPI custom data type for float16.
   MPI_Datatype mpi_float16_t;

@@ -1,5 +1,6 @@
 import socket
 import psutil
+import random
 
 from horovod.run.util import threads
 
@@ -40,3 +41,21 @@ def filter_local_addresses(all_host_names):
             remote_host_names.append(host_name)
 
     return remote_host_names
+
+
+# Given server factory, find a usable port
+def find_port(server_factory):
+    min_port = 1024
+    max_port = 65536
+    num_ports = max_port - min_port
+    start_port = random.randrange(0, num_ports)
+    for port_offset in range(num_ports):
+        try:
+            port = min_port + (start_port + port_offset) % num_ports
+            addr = ('', port)
+            server = server_factory(addr)
+            return server, port
+        except Exception as e:
+            pass
+
+    raise Exception('Unable to find a port to bind to.')

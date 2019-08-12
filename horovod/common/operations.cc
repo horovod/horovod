@@ -27,37 +27,41 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#define OMPI_SKIP_MPICXX
 
 #include "common.h"
 #include "fusion_buffer_manager.h"
 #include "global_state.h"
-#include "half.h"
 #include "hashes.h"
 #include "logging.h"
 #include "message.h"
-#include "mpi.h"
-#include "mpi_context.h"
-#include "mpi_controller.h"
 #include "operations.h"
-#include "ops/mpi_operations.h"
 #include "ops/operation_manager.h"
 #include "parameter_manager.h"
 #include "timeline.h"
 #include "utils/env_parser.h"
 
+#if HAVE_MPI
+#define OMPI_SKIP_MPICXX
+#include "mpi.h"
+#include "mpi_context.h"
+#include "mpi_controller.h"
+#include "ops/mpi_operations.h"
+#endif
+
 #if HAVE_CUDA
 #include "ops/cuda_operations.h"
+#if HAVE_MPI
 #include "ops/mpi_cuda_operations.h"
+#endif
 #endif
 
 #if HAVE_NCCL
 #include "ops/nccl_operations.h"
 #endif
 
-#if HAVE_DDL
-#include "ddl_mpi_context_manager.h"
+#if HAVE_DDL && HAVE_MPI
 #include "ops/ddl_operations.h"
+#include "ddl_mpi_context_manager.h"
 #endif
 
 #if HAVE_MLSL
@@ -66,6 +70,7 @@
 
 #if HAVE_GLOO
 #include "ops/gloo_operations.h"
+#include "gloo_controller.h"
 #endif
 
 /*
@@ -103,7 +108,9 @@ namespace {
 // All the Horovod state that must be stored globally per-process.
 HorovodGlobalState horovod_global;
 
+#if HAVE_MPI
 MPIContext mpi_context;
+#endif
 
 #if HAVE_GLOO
 GlooContext gloo_context;
@@ -135,34 +142,33 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   std::vector<std::shared_ptr<AllgatherOp>> allgather_ops;
   std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops;
 
-#if HAVE_CUDA
-#if HOROVOD_GPU_ALLREDUCE == 'M'
-  allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
-      new MPI_CUDAAllreduce(&mpi_context, &cuda_context, &state)));
-
-#else
 #if HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
-  LOG(INFO) << "NCCL enabled.";
-  allreduce_ops.push_back(
-      std::shared_ptr<AllreduceOp>(new NCCLHierarchicalAllreduce(
-          &nccl_context, &mpi_context, &cuda_context, &state)));
   allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
-      new NCCLAllreduce(&nccl_context, &mpi_context, &cuda_context, &state)));
+      new NCCLAllreduce(&nccl_context, &cuda_context, &state)));
+#endif
+
+#if HAVE_MPI && HAVE_CUDA
+  if (mpi_context.IsEnabled()) {
+#if HOROVOD_GPU_ALLREDUCE == 'M'
+    allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
+        new MPI_CUDAAllreduce(&mpi_context, &cuda_context, &state)));
+
+#elif HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
+    allreduce_ops.push_back(
+        std::shared_ptr<AllreduceOp>(new NCCLHierarchicalAllreduce(
+            &nccl_context, &mpi_context, &cuda_context, &state)));
 
 #elif HAVE_DDL && HOROVOD_GPU_ALLREDUCE == 'D'
-  LOG(INFO) << "DDL enabled.";
-  allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
-      new DDLAllreduce(&ddl_context, &cuda_context, &state)));
+    allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
+        new DDLAllreduce(&ddl_context, &cuda_context, &state)));
 #endif
-
-  allgather_ops.push_back(std::shared_ptr<AllgatherOp>(
-      new MPIHierarchicalAllgather(&mpi_context, &state)));
-#endif
+    allgather_ops.push_back(std::shared_ptr<AllgatherOp>(
+        new MPIHierarchicalAllgather(&mpi_context, &state)));
+  }
 #endif
 
 #if HAVE_GLOO
-  if (state.cpu_operation == LibType::GLOO) {
-    LOG(INFO) << "Gloo enabled.";
+  if (gloo_context.IsEnabled()) {
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new GlooAllreduce(&gloo_context, &state)));
     allgather_ops.push_back(
@@ -174,7 +180,6 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 
 #if HAVE_MLSL
   if (state.cpu_operation == LibType::MLSL) {
-    LOG(INFO) << "MLSL enabled.";
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new MLSLAllreduce(&mlsl_context, &state)));
     allgather_ops.push_back(
@@ -184,13 +189,16 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   }
 #endif
 
-  // Default operations, always enabled but last to be checked.
-  allreduce_ops.push_back(
-      std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpi_context, &state)));
-  allgather_ops.push_back(
-      std::shared_ptr<AllgatherOp>(new MPIAllgather(&mpi_context, &state)));
-  broadcast_ops.push_back(
-      std::shared_ptr<BroadcastOp>(new MPIBroadcast(&mpi_context, &state)));
+#if HAVE_MPI
+  if (mpi_context.IsEnabled()){
+    allreduce_ops.push_back(
+        std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpi_context,&state)));
+    allgather_ops.push_back(
+        std::shared_ptr<AllgatherOp>(new MPIAllgather(&mpi_context, &state)));
+    broadcast_ops.push_back(
+        std::shared_ptr<BroadcastOp>(new MPIBroadcast(&mpi_context, &state)));
+  }
+#endif
 
   std::shared_ptr<ErrorOp> error_op(new ErrorOp(&state));
 
@@ -290,11 +298,9 @@ void PerformOperation(Response response) {
 //      in the same order, so we cannot dispatch one thread per tensor,
 //      otherwise we may end up dispatching many blocked threads and never make
 //      progress if we have a thread pool limit.
-bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator);
+bool RunLoopOnce(HorovodGlobalState& state);
 
 void BackgroundThreadLoop(HorovodGlobalState& state) {
-  state.cpu_operation = ParseCPUOpsFromEnv();
-
   // Initialize mlsl context
 #if HAVE_MLSL
   if (state.cpu_operation == LibType::MLSL) {
@@ -302,15 +308,30 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 #endif
 
+#if HAVE_MPI
   // Initialize mpi context
 #if HAVE_DDL
   // If DDL is enabled, let DDL ops manage MPI environment.
   auto mpi_ctx_manager = DDL_MPIContextManager(ddl_context, cuda_context);
 #else
-  // Otherwise, let MPI manager be in charge.
+  // Otherwise, let MPI ops be in charge.
   auto mpi_ctx_manager = MPIContextManager();
 #endif
   mpi_context.Initialize(state.controller->GetRanks(), mpi_ctx_manager);
+#endif
+
+#if HAVE_GLOO
+#if HAVE_MPI
+    if (mpi_context.IsEnabled()) {
+      // Initialize gloo context if mpi context is available
+      gloo_context.InitializeFromMPI(mpi_context, ParseGlooIface());
+    }
+    else
+#endif
+    {
+      gloo_context.Initialize(ParseGlooIface());
+    }
+#endif
 
   // Initialize controller
   state.controller->Initialize();
@@ -326,7 +347,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
 #if HAVE_CUDA
   // Set number of CUDA streams to use
-  auto horovod_num_nccl_streams = std::getenv(HOROVOD_NUM_NCCL_STREAMS);
+  auto horovod_num_nccl_streams =
+      std::getenv(HOROVOD_NUM_NCCL_STREAMS);
   if (horovod_num_nccl_streams != nullptr &&
       std::stol(horovod_num_nccl_streams, nullptr, 10) > 0) {
     state.num_nccl_streams = std::atoi(horovod_num_nccl_streams);
@@ -336,12 +358,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   nccl_context.nccl_comms.resize(state.num_nccl_streams);
 #endif
   cuda_context.streams.resize(state.num_nccl_streams);
-#endif
-
-#if HAVE_GLOO
-  if (state.cpu_operation == LibType::GLOO) {
-    gloo_context.InitializeFromMPI(mpi_context.mpi_comm, ParseGlooIface());
-  }
 #endif
 
   // Open the timeline file on coordinator.
@@ -444,7 +460,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   LOG(INFO, horovod_global.controller->GetRank()) << "Horovod Initialized";
 
   // Iterate until shutdown.
-  while (RunLoopOnce(state, is_coordinator))
+  while (RunLoopOnce(state))
     ;
 
     // Finalize all contexts
@@ -453,12 +469,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 #endif
 
 #if HAVE_GLOO
-  if (state.cpu_operation == LibType::GLOO) {
-    gloo_context.Finalize();
-  }
+  gloo_context.Finalize();
 #endif
 
-  LOG(DEBUG, state.controller->GetRank()) << "Shutting down background thread";
+  LOG(DEBUG, horovod_global.controller->GetRank()) << "Shutting down background thread";
 
   // Signal that shutdown has been requested.
   state.shut_down = true;
@@ -471,16 +485,19 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     cb(SHUT_DOWN_ERROR);
   }
 
+#if HAVE_MPI
   mpi_context.Finalize(mpi_ctx_manager);
+#endif
 
 #if HAVE_MLSL
-  if (state.cpu_operation == LibType::MLSL) {
+  if (state.cpu_operation == LibType::MLSL){
     mlsl_context.Finalize();
   }
 #endif
+
 }
 
-bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
+bool RunLoopOnce(HorovodGlobalState& state) {
   // This delay determines thread frequency and communication message latency
   auto start_time = std::chrono::steady_clock::now();
   auto sleep_duration = state.last_cycle_start +
@@ -537,17 +554,42 @@ bool RunLoopOnce(HorovodGlobalState& state, bool is_coordinator) {
 void InitializeHorovodOnce(const int* ranks, int nranks) {
   // Ensure background thread is only started once.
   if (!horovod_global.initialize_flag.test_and_set()) {
-    horovod_global.controller = std::shared_ptr<Controller>(
-        new MPIController(horovod_global.response_cache,
-                          horovod_global.tensor_queue, horovod_global.timeline,
-                          horovod_global.parameter_manager, mpi_context));
+    horovod_global.control_operation = ParseControllerOpsFromEnv();
+    horovod_global.cpu_operation = ParseCPUOpsFromEnv();
+#if HAVE_MPI
+    // Enable mpi is it's used either in cpu data transfer or controller
+    if (horovod_global.cpu_operation == LibType::MPI ||
+        horovod_global.control_operation == LibType::MPI) {
+      mpi_context.Enable();
+    }
 
-    horovod_global.controller->SetRanks(ranks, nranks);
+    if (horovod_global.control_operation == LibType::MPI){
+      horovod_global.controller = std::shared_ptr<Controller>(new
+          MPIController(horovod_global.response_cache,
+                        horovod_global.tensor_queue, horovod_global.timeline,
+                        horovod_global.parameter_manager, mpi_context));
+      horovod_global.controller->SetRanks(ranks, nranks);
+    }
+#endif
 
+#if HAVE_GLOO
+    // Enable gloo is it's used either in cpu data transfer or controller
+    if (horovod_global.cpu_operation == LibType::GLOO ||
+        horovod_global.control_operation == LibType::GLOO) {
+      gloo_context.Enable();
+    }
+
+    if (horovod_global.control_operation == LibType::GLOO) {
+      horovod_global.controller = std::shared_ptr<Controller>(new
+          GlooController(horovod_global.response_cache,
+                         horovod_global.tensor_queue, horovod_global.timeline,
+                         horovod_global.parameter_manager, gloo_context));
+    }
+#endif
     // Reset initialization flag
     horovod_global.initialization_done = false;
-    horovod_global.background_thread =
-        std::thread(BackgroundThreadLoop, std::ref(horovod_global));
+    horovod_global.background_thread = std::thread(
+        BackgroundThreadLoop, std::ref(horovod_global));
   }
 
   // Wait to ensure that the background thread has finished initializing MPI.
@@ -572,10 +614,12 @@ void horovod_init(const int* ranks, int nranks) {
   InitializeHorovodOnce(ranks, nranks);
 }
 
+#if HAVE_MPI
 void horovod_init_comm(MPI_Comm comm) {
   MPI_Comm_dup(comm, &mpi_context.mpi_comm);
   InitializeHorovodOnce(nullptr, 0);
 }
+#endif
 
 void horovod_shutdown() {
   if (horovod_global.background_thread.joinable()) {
@@ -619,9 +663,29 @@ int horovod_mpi_threads_supported() {
   if (!horovod_global.initialization_done) {
     return -1;
   }
+
+#if HAVE_MPI
   auto mpiController =
       std::dynamic_pointer_cast<MPIController>(horovod_global.controller);
   return mpiController->IsMpiThreadsSupported() ? 1 : 0;
+#endif
+
+  return -1;
+}
+
+
+bool gloo_enabled(){
+#if HAVE_GLOO
+  return gloo_context.IsEnabled();
+#endif
+  return false;
+}
+
+bool mpi_enabled(){
+#if HAVE_MPI
+  return mpi_context.IsEnabled();
+#endif
+  return false;
 }
 }
 
