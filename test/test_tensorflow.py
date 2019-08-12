@@ -1005,10 +1005,16 @@ class MPITests(tf.test.TestCase):
             except AttributeError:
                 tf.compat.v1.disable_eager_execution()
 
+            from tensorflow.python.eager import context
+            graph_mode_scope = context.graph_mode
+
+        else:
+            from contextlib import suppress
+            graph_mode_scope = suppress  # No-Op context manager
+
         hvd.init()
 
-        from tensorflow.python.eager import context
-        with context.graph_mode():
+        with graph_mode_scope():
             hvd.broadcast_global_variables(root_rank=0)
 
     def test_compression_fp16(self):
