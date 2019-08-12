@@ -982,12 +982,7 @@ class MPITests(tf.test.TestCase):
         if not hvd.util._has_eager:
             return
 
-        try:
-            tf.enable_eager_execution()
-        except AttributeError:
-            tf.compat.v1.enable_eager_execution()
-        finally:
-            hvd.init()
+        hvd.init()
 
         from tensorflow.python.eager import context
         with context.eager_mode():
@@ -1000,11 +995,6 @@ class MPITests(tf.test.TestCase):
         in graph execution mode. This call should not raise any exception."""
 
         if hvd.util._has_eager:
-            try:
-                tf.disable_eager_execution()
-            except AttributeError:
-                tf.compat.v1.disable_eager_execution()
-
             from tensorflow.python.eager import context
             graph_mode_scope = context.graph_mode
 
