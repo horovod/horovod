@@ -10,6 +10,10 @@ Horovod
    :target: https://buildkite.com/horovod/horovod
    :alt: Build Status
 
+.. image:: https://readthedocs.org/projects/horovod/badge/?version=latest
+   :target: https://horovod.readthedocs.io/en/latest/
+   :alt: Documentation Status
+
 .. image:: https://img.shields.io/badge/License-Apache%202.0-blue.svg
    :target: https://img.shields.io/badge/License-Apache%202.0-blue.svg
    :alt: License
