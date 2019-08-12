@@ -14,11 +14,13 @@
 // ============================================================================
 
 #include "gloo_context.h"
+
 #include "gloo/rendezvous/context.h"
 #include "gloo/rendezvous/file_store.h"
 #include "gloo/rendezvous/prefix_store.h"
 #include "gloo/transport/tcp/device.h"
-#include "rendezvous/http_rendezvous.h"
+
+#include "http_store.h"
 
 #if HAVE_MPI
 #include "gloo/mpi/context.h"
@@ -33,9 +35,10 @@ void GlooContext::InitializeFromMPI(MPIContext& mpi_ctx,
   if (!enabled_) {
     return;
   }
+
+  // TODO(sihan): Add support for multiple interfaces:
+  //  https://github.com/facebookincubator/gloo/issues/190
   gloo::transport::tcp::attr attr;
-  // TODO(sihan): add interface load balancing after
-  //  https://github.com/facebookincubator/gloo/issues/183 is resolved
   attr.iface = gloo_iface;
   attr.ai_family = AF_UNSPEC;
   auto dev = gloo::transport::tcp::CreateDevice(attr);
@@ -71,8 +74,10 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
   if (!enabled_) {
     return;
   }
-  // create a tcp device for communication
-  // TODO: Add support for interface multiplex
+
+  // Create a tcp device for communication
+  // TODO(sihan): Add support for multiple interfaces:
+  //  https://github.com/facebookincubator/gloo/issues/190
   gloo::transport::tcp::attr attr;
   attr.iface = gloo_iface;
 

@@ -14,15 +14,16 @@
 // =============================================================================
 
 #include "gloo_operations.h"
-#include "../common.h"
-#include "../global_state.h"
-#include "../gloo_context.h"
+
 #include "gloo/allgather.h"
 #include "gloo/allgatherv.h"
 #include "gloo/allreduce.h"
 #include "gloo/broadcast.h"
 #include "gloo/math.h"
 #include "gloo/types.h"
+
+#include "../common.h"
+#include "../global_state.h"
 
 namespace horovod {
 namespace common {

@@ -13,7 +13,7 @@
 // limitations under the License.
 // ============================================================================
 
-#include "http_rendezvous.h"
+#include "http_store.h"
 
 #include <cstring>
 #include <iostream>
@@ -22,8 +22,9 @@
 #include <string>
 #include <thread>
 
-#include "../logging.h"
 #include "gloo/common/error.h"
+
+#include "../logging.h"
 
 namespace horovod {
 namespace common {

@@ -20,7 +20,7 @@
 #include <nccl.h>
 
 #if HAVE_MPI
-#include "../mpi_context.h"
+#include "../mpi/mpi_context.h"
 #endif
 
 #include "cuda_operations.h"

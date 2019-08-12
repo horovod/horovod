@@ -16,13 +16,15 @@
 #ifndef HOROVOD_GLOO_CONTEXT_H
 #define HOROVOD_GLOO_CONTEXT_H
 
-#include "common.h"
 #include "gloo/context.h"
-#include "logging.h"
+
+#include "../common.h"
+#include "../logging.h"
 
 #if HAVE_MPI
-#include "mpi_context.h"
+#include "../mpi/mpi_context.h"
 #endif
+
 namespace horovod {
 namespace common {
 
@@ -51,18 +53,20 @@ struct GlooContext {
 
   void Enable() {
     enabled_ = true;
-    LOG(INFO) << "Gloo context enabled.";
+    LOG(DEBUG) << "Gloo context enabled.";
   }
 
   bool IsEnabled() { return enabled_; }
 
   std::shared_ptr<gloo::Context> GetGlooContext(Communicator communicator);
 
-  // Flag indicating whether gloo is enabled.
-  bool enabled_ = false;
   std::shared_ptr<gloo::Context> ctx = nullptr; // Global context
   std::shared_ptr<gloo::Context> cross_ctx = nullptr;
   std::shared_ptr<gloo::Context> local_ctx = nullptr;
+
+private:
+  // Flag indicating whether gloo is enabled.
+  bool enabled_ = false;
 };
 
 } // namespace common

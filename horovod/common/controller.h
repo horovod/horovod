@@ -26,15 +26,8 @@
 #include "tensor_queue.h"
 #include "timeline.h"
 
-#if HAVE_GLOO
-#include "gloo_context.h"
-#endif
-
 namespace horovod {
 namespace common {
-
-// Forward declaration
-class HorovodGlobalState;
 
 using MessageTable = std::unordered_map<std::string, std::vector<Request>>;
 

@@ -13,9 +13,9 @@
 // limitations under the License.
 // =============================================================================
 
-#include <cstring>
-
 #include "gloo_controller.h"
+
+#include <cstring>
 
 #include "gloo/allgather.h"
 #include "gloo/allgatherv.h"
@@ -23,10 +23,10 @@
 #include "gloo/barrier.h"
 #include "gloo/broadcast.h"
 #include "gloo/gather.h"
+
 #include "gloo_context.h"
-#include "logging.h"
-#include "operations.h"
-#include "ops/gloo_operations.h"
+#include "../logging.h"
+#include "../ops/gloo_operations.h"
 
 namespace horovod {
 namespace common {
@@ -36,7 +36,7 @@ void GlooController::Initialize() {
   size_ = gloo_context_.ctx->size;
   is_coordinator_ = rank_ == 0;
   if (is_coordinator_) {
-    LOG(INFO) << "Started Horovod with " << size_ << " processes";
+    LOG(DEBUG) << "Started Horovod with " << size_ << " processes";
   }
 
   // Determine local rank by if local context is presented.

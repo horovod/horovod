@@ -14,15 +14,15 @@
 // limitations under the License.
 // =============================================================================
 
+#include "mpi_context.h"
+
 #include <iostream>
 #include <memory>
 #include <vector>
 
-#include "common.h"
-#include "half.h"
-#include "logging.h"
-#include "mpi_context.h"
-#include "operations.h"
+#include "../common.h"
+#include "../half.h"
+#include "../logging.h"
 
 namespace horovod {
 namespace common {
