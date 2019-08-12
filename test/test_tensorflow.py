@@ -975,6 +975,33 @@ class MPITests(tf.test.TestCase):
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
 
+    def test_horovod_broadcast_eager_mode_error(self):
+        """Test that tries to broadcast tensorflow global variables
+        in eager execution mode. This call should raise a RuntimeError."""
+
+        try:
+            tf.enable_eager_execution()
+        except AttributeError:
+            pass
+        finally:
+            hvd.init()
+
+        with self.assertRaises(RuntimeError):
+            hvd.broadcast_global_variables(root_rank=0)
+
+    def test_horovod_broadcast_graph_mode(self):
+        """Test that tries to broadcast tensorflow global variables
+        in graph execution mode. This call should not raise any exception."""
+
+        try:
+            tf.disable_eager_execution()
+        except AttributeError:
+            tf.compat.v1.disable_eager_execution()
+        finally:
+            hvd.init()
+
+        hvd.broadcast_global_variables(root_rank=0)
+
     def test_compression_fp16(self):
         valid_dtypes = [tf.float16, tf.float32, tf.float64]
         invalid_dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
