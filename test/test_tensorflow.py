@@ -1009,8 +1009,8 @@ class MPITests(tf.test.TestCase):
             graph_mode_scope = context.graph_mode
 
         else:
-            from contextlib import suppress
-            graph_mode_scope = suppress  # No-Op context manager
+            from contextlib import contextmanager
+            graph_mode_scope = contextmanager(lambda: (yield))  # No-Op context manager
 
         hvd.init()
 
