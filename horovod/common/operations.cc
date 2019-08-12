@@ -579,10 +579,10 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
     }
 
     if (horovod_global.control_operation == LibType::GLOO) {
-      horovod_global.controller = std::shared_ptr<Controller>(new
-          GlooController(horovod_global.response_cache,
-                         horovod_global.tensor_queue, horovod_global.timeline,
-                         horovod_global.parameter_manager, gloo_context));
+      horovod_global.controller.reset(new GlooController(
+          horovod_global.response_cache,
+          horovod_global.tensor_queue, horovod_global.timeline,
+          horovod_global.parameter_manager, gloo_context));
     }
 #endif
     // Reset initialization flag
