@@ -979,6 +979,9 @@ class MPITests(tf.test.TestCase):
         """Test that tries to broadcast tensorflow global variables
         in eager execution mode. This call should raise a RuntimeError."""
 
+        if not hvd.util._has_eager:
+            return
+
         try:
             tf.enable_eager_execution()
         except AttributeError:
@@ -996,12 +999,13 @@ class MPITests(tf.test.TestCase):
         """Test that tries to broadcast tensorflow global variables
         in graph execution mode. This call should not raise any exception."""
 
-        try:
-            tf.disable_eager_execution()
-        except AttributeError:
-            tf.compat.v1.disable_eager_execution()
-        finally:
-            hvd.init()
+        if hvd.util._has_eager:
+            try:
+                tf.disable_eager_execution()
+            except AttributeError:
+                tf.compat.v1.disable_eager_execution()
+
+        hvd.init()
 
         from tensorflow.python.eager import context
         with context.graph_mode():
