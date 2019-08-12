@@ -982,12 +982,15 @@ class MPITests(tf.test.TestCase):
         try:
             tf.enable_eager_execution()
         except AttributeError:
-            pass
+            tf.compat.v1.enable_eager_execution()
         finally:
             hvd.init()
 
-        with self.assertRaises(RuntimeError):
-            hvd.broadcast_global_variables(root_rank=0)
+        from tensorflow.python.eager import context
+        with context.eager_mode():
+
+            with self.assertRaises(RuntimeError):
+                hvd.broadcast_global_variables(root_rank=0)
 
     def test_horovod_broadcast_graph_mode(self):
         """Test that tries to broadcast tensorflow global variables
@@ -1000,7 +1003,9 @@ class MPITests(tf.test.TestCase):
         finally:
             hvd.init()
 
-        hvd.broadcast_global_variables(root_rank=0)
+        from tensorflow.python.eager import context
+        with context.graph_mode():
+            hvd.broadcast_global_variables(root_rank=0)
 
     def test_compression_fp16(self):
         valid_dtypes = [tf.float16, tf.float32, tf.float64]
