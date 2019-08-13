@@ -979,33 +979,20 @@ class MPITests(tf.test.TestCase):
         """Test that tries to broadcast tensorflow global variables
         in eager execution mode. This call should raise a RuntimeError."""
 
-        if not hvd.util._has_eager:
+        if not hvd.util._executing_eagerly():
             return
 
-        hvd.init()
-
-        from tensorflow.python.eager import context
-        with context.eager_mode():
-
-            with self.assertRaises(RuntimeError):
-                hvd.broadcast_global_variables(root_rank=0)
+        with self.assertRaises(RuntimeError):
+            hvd.broadcast_global_variables(root_rank=0)
 
     def test_horovod_broadcast_graph_mode(self):
         """Test that tries to broadcast tensorflow global variables
         in graph execution mode. This call should not raise any exception."""
 
-        if hvd.util._has_eager:
-            from tensorflow.python.eager import context
-            graph_mode_scope = context.graph_mode
+        if hvd.util._executing_eagerly():
+            return
 
-        else:
-            from contextlib import contextmanager
-            graph_mode_scope = contextmanager(lambda: (yield))  # No-Op context manager
-
-        hvd.init()
-
-        with graph_mode_scope():
-            hvd.broadcast_global_variables(root_rank=0)
+        hvd.broadcast_global_variables(root_rank=0)
 
     def test_compression_fp16(self):
         valid_dtypes = [tf.float16, tf.float32, tf.float64]
