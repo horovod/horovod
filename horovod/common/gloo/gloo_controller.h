@@ -16,8 +16,9 @@
 #ifndef HOROVOD_GLOO_CONTROLLER_H
 #define HOROVOD_GLOO_CONTROLLER_H
 
-#include "controller.h"
-#include "logging.h"
+#include "../controller.h"
+#include "../logging.h"
+#include "gloo_context.h"
 
 namespace horovod {
 namespace common {
@@ -29,7 +30,7 @@ public:
                  GlooContext& gloo_context)
       : Controller(response_cache, tensor_queue, timeline, parameter_manager),
         gloo_context_(gloo_context) {
-    LOG(INFO) << "GLOO Controller Initialized.";
+    LOG(DEBUG) << "GLOO Controller Initialized.";
   };
 
   void Initialize() override;

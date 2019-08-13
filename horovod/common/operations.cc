@@ -27,7 +27,6 @@
 #include <unordered_map>
 #include <unordered_set>
 
-
 #include "common.h"
 #include "fusion_buffer_manager.h"
 #include "global_state.h"
@@ -43,8 +42,8 @@
 #if HAVE_MPI
 #define OMPI_SKIP_MPICXX
 #include "mpi.h"
-#include "mpi_context.h"
-#include "mpi_controller.h"
+#include "mpi/mpi_context.h"
+#include "mpi/mpi_controller.h"
 #include "ops/mpi_operations.h"
 #endif
 
@@ -60,8 +59,8 @@
 #endif
 
 #if HAVE_DDL && HAVE_MPI
+#include "mpi/ddl_mpi_context_manager.h"
 #include "ops/ddl_operations.h"
-#include "ddl_mpi_context_manager.h"
 #endif
 
 #if HAVE_MLSL
@@ -69,8 +68,8 @@
 #endif
 
 #if HAVE_GLOO
+#include "gloo/gloo_controller.h"
 #include "ops/gloo_operations.h"
-#include "gloo_controller.h"
 #endif
 
 /*
@@ -142,11 +141,6 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   std::vector<std::shared_ptr<AllgatherOp>> allgather_ops;
   std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops;
 
-#if HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
-  allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
-      new NCCLAllreduce(&nccl_context, &cuda_context, &state)));
-#endif
-
 #if HAVE_MPI && HAVE_CUDA
   if (mpi_context.IsEnabled()) {
 #if HOROVOD_GPU_ALLREDUCE == 'M'
@@ -165,6 +159,11 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
     allgather_ops.push_back(std::shared_ptr<AllgatherOp>(
         new MPIHierarchicalAllgather(&mpi_context, &state)));
   }
+#endif
+
+#if HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
+  allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
+      new NCCLAllreduce(&nccl_context, &cuda_context, &state)));
 #endif
 
 #if HAVE_GLOO
@@ -564,10 +563,10 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
     }
 
     if (horovod_global.control_operation == LibType::MPI){
-      horovod_global.controller = std::shared_ptr<Controller>(new
-          MPIController(horovod_global.response_cache,
-                        horovod_global.tensor_queue, horovod_global.timeline,
-                        horovod_global.parameter_manager, mpi_context));
+      horovod_global.controller.reset(new MPIController(
+          horovod_global.response_cache,
+          horovod_global.tensor_queue, horovod_global.timeline,
+          horovod_global.parameter_manager, mpi_context));
       horovod_global.controller->SetRanks(ranks, nranks);
     }
 #endif
@@ -580,10 +579,10 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
     }
 
     if (horovod_global.control_operation == LibType::GLOO) {
-      horovod_global.controller = std::shared_ptr<Controller>(new
-          GlooController(horovod_global.response_cache,
-                         horovod_global.tensor_queue, horovod_global.timeline,
-                         horovod_global.parameter_manager, gloo_context));
+      horovod_global.controller.reset(new GlooController(
+          horovod_global.response_cache,
+          horovod_global.tensor_queue, horovod_global.timeline,
+          horovod_global.parameter_manager, gloo_context));
     }
 #endif
     // Reset initialization flag

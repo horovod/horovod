@@ -13,8 +13,8 @@
 // limitations under the License.
 // ============================================================================
 
-#ifndef HOROVOD_RENDEZVOUS_HTTP_RENDEZVOUS_H_
-#define HOROVOD_RENDEZVOUS_HTTP_RENDEZVOUS_H_
+#ifndef HOROVOD_GLOO_HTTP_STORE_H
+#define HOROVOD_GLOO_HTTP_STORE_H
 
 #include "HTTPRequest.hpp"
 #include "gloo/rendezvous/store.h"
@@ -80,4 +80,4 @@ protected:
 } // namespace common
 } // namespace horovod
 
-#endif // HOROVOD_RENDEZVOUS_HTTP_RENDEZVOUS_H_
+#endif // HOROVOD_GLOO_HTTP_STORE_H

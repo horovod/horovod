@@ -69,7 +69,7 @@ LibType ParseCPUOpsFromEnv() {
     }
   }
 
-  LOG(INFO) << "Using " << TypeName(cpu_operation)
+  LOG(DEBUG) << "Using " << TypeName(cpu_operation)
             << " to perform CPU operations.";
   return cpu_operation;
 }
@@ -101,7 +101,7 @@ LibType ParseControllerOpsFromEnv() {
     }
   }
 
-  LOG(INFO) << "Using " << TypeName(controller)
+  LOG(DEBUG) << "Using " << TypeName(controller)
             << " to perform controller operations.";
   return controller;
 }

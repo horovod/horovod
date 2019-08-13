@@ -21,11 +21,9 @@
 #include <memory>
 #include <vector>
 
-#include "common.h"
-#include "half.h"
-#include "logging.h"
-#include "mpi_context.h"
-#include "operations.h"
+#include "../common.h"
+#include "../half.h"
+#include "../logging.h"
 
 namespace horovod {
 namespace common {
@@ -45,7 +43,7 @@ struct MPIContext {
 
   void Enable() {
     enabled_ = true;
-    LOG(INFO) << "MPI context enabled.";
+    LOG(DEBUG) << "MPI context enabled.";
   };
 
   bool IsEnabled() { return enabled_; }
