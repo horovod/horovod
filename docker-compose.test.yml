@@ -196,7 +196,7 @@ services:
       args:
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 2.7
-        TENSORFLOW_PACKAGE: tensorflow==2.0.0b1
+        TENSORFLOW_PACKAGE: tf-nightly-2.0-preview
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: torch==1.1.0
         TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cpu/torchvision-0.3.0-cp27-cp27mu-linux_x86_64.whl
@@ -208,7 +208,7 @@ services:
       args:
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.5
-        TENSORFLOW_PACKAGE: tensorflow==2.0.0b1
+        TENSORFLOW_PACKAGE: tf-nightly-2.0-preview
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: torch==1.1.0
         TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cpu/torchvision-0.3.0-cp35-cp35m-linux_x86_64.whl
@@ -221,7 +221,7 @@ services:
         UBUNTU_VERSION: 18.04
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tensorflow==2.0.0b1
+        TENSORFLOW_PACKAGE: tf-nightly-2.0-preview
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: torch==1.1.0
         TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cpu/torchvision-0.3.0-cp36-cp36m-linux_x86_64.whl
@@ -400,7 +400,7 @@ services:
       args:
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 2.7
-        TENSORFLOW_PACKAGE: tensorflow-gpu==2.0.0b1
+        TENSORFLOW_PACKAGE: tf-nightly-gpu-2.0-preview
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: https://download.pytorch.org/whl/cu100/torch-1.1.0-cp27-cp27mu-linux_x86_64.whl
         TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cu100/torchvision-0.3.0-cp27-cp27mu-linux_x86_64.whl
@@ -413,7 +413,7 @@ services:
         CUDA_DOCKER_VERSION: 10.0-devel-ubuntu18.04
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tensorflow-gpu==2.0.0b1
+        TENSORFLOW_PACKAGE: tf-nightly-gpu-2.0-preview
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: https://download.pytorch.org/whl/cu100/torch-1.1.0-cp36-cp36m-linux_x86_64.whl
         TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cu100/torchvision-0.3.0-cp36-cp36m-linux_x86_64.whl
