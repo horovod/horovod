@@ -29,7 +29,8 @@ from horovod.tensorflow import size
 from horovod.tensorflow import local_size
 from horovod.tensorflow import rank
 from horovod.tensorflow import local_rank
-from horovod.tensorflow import mpi_threads_supported
+from horovod.tensorflow import mpi_threads_supported, mpi_enabled, mpi_built
+from horovod.tensorflow import gloo_enabled, gloo_built
 from horovod.tensorflow import Compression
 
 import horovod._keras as _impl

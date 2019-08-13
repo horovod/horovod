@@ -65,10 +65,16 @@ int horovod_local_size();
 int horovod_mpi_threads_supported();
 
 // C interface to return flag indicating whether Gloo is enabled.
-bool gloo_enabled();
+bool horovod_gloo_enabled();
+
+// C interface to return flag indicating whether Horovod was compiled with Gloo support.
+bool horovod_gloo_built();
 
 // C interface to return flag indicating whether MPI is enabled.
-bool mpi_enabled();
+bool horovod_mpi_enabled();
+
+// C interface to return flag indicating whether Horovod was compiled with MPI support.
+bool horovod_mpi_built();
 
 }
 

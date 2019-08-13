@@ -27,6 +27,7 @@ except ImportError:
     from pipes import quote
 import horovod
 
+from horovod.common.util import gloo_built, mpi_built
 from horovod.run.common.util import codec, env as env_util, safe_shell_exec, \
     timeout, secret
 from horovod.run.common.util import settings as hvd_settings
@@ -450,8 +451,14 @@ def run():
             print('Local interface found ' + ' '.join(common_intfs))
 
     if args.use_gloo:
+        if not gloo_built():
+            raise ValueError('Gloo support has not been built.  If this is not expected, ensure cmake is installed '
+                             'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
         gloo_run(settings, remote_host_names, common_intfs)
     else:
+        if not mpi_built():
+            raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
+                             'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.')
         mpi_run(settings, common_intfs)
 
 
