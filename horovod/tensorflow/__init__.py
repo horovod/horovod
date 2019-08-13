@@ -153,7 +153,6 @@ except AttributeError:
         _SessionRunHook = None
 
 if _SessionRunHook is not None and _get_default_graph is not None:
-
     class BroadcastGlobalVariablesHook(_SessionRunHook):
         """
         SessionRunHook that will broadcast all global variables from root rank
@@ -182,9 +181,7 @@ if _SessionRunHook is not None and _get_default_graph is not None:
             self.device = device
 
         def begin(self):
-
             if not self.bcast_op or self.bcast_op.graph != _get_default_graph():
-
                 with tf.device(self.device):
                     self.bcast_op = broadcast_global_variables(self.root_rank)
 
