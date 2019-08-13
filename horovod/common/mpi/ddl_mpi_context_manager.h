@@ -17,8 +17,8 @@
 #define HOROVOD_HOROVOD_COMMON_DDL_MPI_CONTEXT_MANAGER_H_
 
 #include "mpi_context.h"
-#include "ops/cuda_operations.h"
-#include "ops/ddl_operations.h"
+#include "../ops/cuda_operations.h"
+#include "../ops/ddl_operations.h"
 
 namespace horovod {
 namespace common {

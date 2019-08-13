@@ -646,8 +646,8 @@ def get_common_options(build_ext):
     if have_mpi:
         MACROS += [('HAVE_MPI', '1')]
         SOURCES += ['horovod/common/half.cc',
-                    'horovod/common/mpi_context.cc',
-                    'horovod/common/mpi_controller.cc',
+                    'horovod/common/mpi/mpi_context.cc',
+                    'horovod/common/mpi/mpi_controller.cc',
                     'horovod/common/ops/mpi_operations.cc']
         COMPILE_FLAGS += shlex.split(mpi_flags)
         LINK_FLAGS += shlex.split(mpi_flags)
@@ -675,9 +675,9 @@ def get_common_options(build_ext):
     if not is_mac and have_cmake:
         MACROS += [('HAVE_GLOO', '1')]
         INCLUDES += ['third_party/gloo']
-        SOURCES += ['horovod/common/gloo_context.cc',
-                    'horovod/common/gloo_controller.cc',
-                    'horovod/common/rendezvous/http_rendezvous.cc',
+        SOURCES += ['horovod/common/gloo/gloo_context.cc',
+                    'horovod/common/gloo/gloo_controller.cc',
+                    'horovod/common/gloo/http_store.cc',
                     'horovod/common/ops/gloo_operations.cc']
 
     if have_mlsl:
@@ -706,8 +706,8 @@ def get_common_options(build_ext):
     if have_ddl and have_mpi:
         MACROS += [('HAVE_DDL', '1')]
         INCLUDES += ddl_include_dirs
-        SOURCES += ['horovod/common/ops/ddl_operations.cc',
-                    'horovod/common/ddl_mpi_context_manager.cc']
+        SOURCES += ['horovod/common/mpi/ddl_mpi_context_manager.cc',
+                    'horovod/common/ops/ddl_operations.cc']
         LIBRARY_DIRS += ddl_lib_dirs
         LIBRARIES += ['ddl', 'ddl_pack']
 

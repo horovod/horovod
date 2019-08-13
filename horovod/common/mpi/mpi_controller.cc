@@ -14,8 +14,9 @@
 // =============================================================================
 
 #include "mpi_controller.h"
-#include "logging.h"
-#include "operations.h"
+
+#include "../common.h"
+#include "../logging.h"
 
 namespace horovod {
 namespace common {
@@ -35,7 +36,7 @@ void MPIController::Initialize() {
   MPI_Comm_size(mpi_ctx_.mpi_comm, &size_);
 
   if (is_coordinator_) {
-    LOG(INFO) << "Started Horovod with " << size_ << " processes";
+    LOG(DEBUG) << "Started Horovod with " << size_ << " processes";
   }
 
   // Determine local rank by querying the local communicator.

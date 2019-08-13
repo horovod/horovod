@@ -21,10 +21,10 @@
 
 #include "mpi.h"
 
+#include "collective_operations.h"
 #include "../common.h"
 #include "../global_state.h"
-#include "../mpi_context.h"
-#include "collective_operations.h"
+#include "../mpi/mpi_context.h"
 
 namespace horovod {
 namespace common {

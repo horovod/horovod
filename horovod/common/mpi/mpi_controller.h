@@ -16,8 +16,8 @@
 #ifndef HOROVOD_MPI_CONTROLLER_H
 #define HOROVOD_MPI_CONTROLLER_H
 
-#include "controller.h"
 #include "mpi_context.h"
+#include "../controller.h"
 
 namespace horovod {
 namespace common {
@@ -29,7 +29,7 @@ public:
                 MPIContext& mpi_ctx)
       : Controller(response_cache, tensor_queue, timeline, parameter_manager),
         mpi_ctx_(mpi_ctx) {
-    LOG(INFO) << "MPI Controller Initialized.";
+    LOG(DEBUG) << "MPI Controller Initialized.";
   }
 
   void Initialize() override;
