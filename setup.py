@@ -525,6 +525,7 @@ def get_common_options(build_ext):
 
     compile_without_gloo = os.environ.get('HOROVOD_WITHOUT_GLOO')
     if compile_without_gloo:
+        print('INFO: HOROVOD_WITHOUT_GLOO detected, skip compiling Horovod with Gloo.')
         have_gloo = False
         is_mac = False
         have_cmake = False
@@ -547,14 +548,15 @@ def get_common_options(build_ext):
         is_mac = os.uname()[0] == 'Darwin'
         if is_mac:
             if compile_with_gloo:
-                raise RuntimeError('Gloo cannot be compiled on MacOS. Unset HOROVOD_WITH_GLOO to use MPI')
-            print('INFO: Gloo cannot be compiled on MacOS, will skip compiling horovod with gloo.')
+                raise RuntimeError('Gloo cannot be compiled on MacOS. Unset HOROVOD_WITH_GLOO to use MPI.')
+            print('INFO: Gloo cannot be compiled on MacOS, will skip compiling Horovod with Gloo.')
 
         have_gloo = not is_mac and have_cmake
 
     compile_without_mpi = os.environ.get('HOROVOD_WITHOUT_MPI')
     mpi_flags = ''
     if compile_without_mpi:
+        print('INFO: HOROVOD_WITHOUT_MPI detected, skip compiling Horovod with MPI.')
         have_mpi = False
     else:
         # If without_mpi flag is not set by user, try to get mpi flags
@@ -568,8 +570,11 @@ def get_common_options(build_ext):
 
             # If exceptions happen, will not use mpi during compilation.
             print(traceback.format_exc(), file=sys.stderr)
-            print('INFO: Cannot find mpi compile flag, will skip compiling horovod with mpi.')
+            print('INFO: Cannot find MPI compilation flags, will skip compiling with MPI.')
             have_mpi = False
+
+    if not have_gloo and not have_mpi:
+        raise RuntimeError('One of Gloo or MPI are required for Horovod to run. Check the logs above for more info.')
 
     gpu_allreduce = os.environ.get('HOROVOD_GPU_ALLREDUCE')
     if gpu_allreduce and gpu_allreduce != 'MPI' and gpu_allreduce != 'NCCL' and \
@@ -659,15 +664,6 @@ def get_common_options(build_ext):
     LIBRARY_DIRS = []
     LIBRARIES = []
 
-    if have_mpi:
-        MACROS += [('HAVE_MPI', '1')]
-        SOURCES += ['horovod/common/half.cc',
-                    'horovod/common/mpi/mpi_context.cc',
-                    'horovod/common/mpi/mpi_controller.cc',
-                    'horovod/common/ops/mpi_operations.cc']
-        COMPILE_FLAGS += shlex.split(mpi_flags)
-        LINK_FLAGS += shlex.split(mpi_flags)
-
     cpu_operation = os.environ.get('HOROVOD_CPU_OPERATIONS')
     if cpu_operation:
         print('INFO: Set default CPU operation to ' + cpu_operation)
@@ -687,6 +683,15 @@ def get_common_options(build_ext):
             elif not have_cmake:
                 raise RuntimeError('Cannot compile Gloo without CMake, try installing CMake first.')
             MACROS += [('HOROVOD_CPU_OPERATIONS_DEFAULT', "'G'")]
+
+    if have_mpi:
+        MACROS += [('HAVE_MPI', '1')]
+        SOURCES += ['horovod/common/half.cc',
+                    'horovod/common/mpi/mpi_context.cc',
+                    'horovod/common/mpi/mpi_controller.cc',
+                    'horovod/common/ops/mpi_operations.cc']
+        COMPILE_FLAGS += shlex.split(mpi_flags)
+        LINK_FLAGS += shlex.split(mpi_flags)
 
     if have_gloo:
         MACROS += [('HAVE_GLOO', '1')]
