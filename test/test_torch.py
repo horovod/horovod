@@ -968,6 +968,15 @@ class TorchTests(unittest.TestCase):
                 else:
                     self.assertEqual(opt_param_value, opt_param_value_after)
 
+    def test_broadcast_state_gpu(self):
+        # Only do this test if there are GPUs available.
+        if not torch.cuda.is_available():
+            return
+        # Set default tensor type, ensuring optimizer tensor-wrapping is robust
+        # to this setting.
+        torch.set_default_tensor_type(torch.cuda.FloatTensor)
+        self.test_broadcast_state()
+
     def test_broadcast_state_options(self):
         hvd.init()
 
