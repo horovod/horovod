@@ -704,6 +704,30 @@ bool horovod_gloo_built() {
 #endif
 }
 
+bool horovod_nccl_built() {
+#if HAVE_NCCL
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool horovod_ddl_built() {
+#if HAVE_DDL
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool horovod_mlsl_built() {
+#if HAVE_MLSL
+  return true;
+#else
+  return false;
+#endif
+}
+
 }
 
 // Contexts and controller must be initialized and the background thread

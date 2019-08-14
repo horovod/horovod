@@ -29,6 +29,7 @@ from horovod.mxnet.mpi_ops import init, shutdown
 from horovod.mxnet.mpi_ops import size, local_size, rank, local_rank
 from horovod.mxnet.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.mxnet.mpi_ops import gloo_enabled, gloo_built
+from horovod.mxnet.mpi_ops import nccl_built, ddl_built, mlsl_built
 
 import mxnet as mx
 import types

@@ -171,3 +171,27 @@ class HorovodBasics(object):
           A boolean value indicating whether Gloo support was compiled.
         """
         return bool(self.MPI_LIB_CTYPES.horovod_gloo_built())
+
+    def nccl_built(self):
+        """Returns True if Horovod was compiled with NCCL support.
+
+        Returns:
+          A boolean value indicating whether NCCL support was compiled.
+        """
+        return bool(self.MPI_LIB_CTYPES.horovod_nccl_built())
+
+    def ddl_built(self):
+        """Returns True if Horovod was compiled with DDL support.
+
+        Returns:
+          A boolean value indicating whether DDL support was compiled.
+        """
+        return bool(self.MPI_LIB_CTYPES.horovod_ddl_built())
+
+    def mlsl_built(self):
+        """Returns True if Horovod was compiled with MLSL support.
+
+        Returns:
+          A boolean value indicating whether MLSL support was compiled.
+        """
+        return bool(self.MPI_LIB_CTYPES.horovod_mlsl_built())

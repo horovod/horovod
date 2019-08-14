@@ -38,6 +38,7 @@ from horovod.torch.mpi_ops import init, shutdown
 from horovod.torch.mpi_ops import size, local_size, rank, local_rank
 from horovod.torch.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.torch.mpi_ops import gloo_enabled, gloo_built
+from horovod.torch.mpi_ops import nccl_built, ddl_built, mlsl_built
 
 import torch
 import collections

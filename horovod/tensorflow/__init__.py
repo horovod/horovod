@@ -29,6 +29,7 @@ from horovod.tensorflow.mpi_ops import init, shutdown
 from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank
 from horovod.tensorflow.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.tensorflow.mpi_ops import gloo_enabled, gloo_built
+from horovod.tensorflow.mpi_ops import nccl_built, ddl_built, mlsl_built
 from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache
 
 import tensorflow as tf
