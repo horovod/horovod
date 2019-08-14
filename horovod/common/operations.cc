@@ -672,20 +672,38 @@ int horovod_mpi_threads_supported() {
   return -1;
 }
 
-
-bool gloo_enabled(){
-#if HAVE_GLOO
-  return gloo_context.IsEnabled();
-#endif
-  return false;
-}
-
-bool mpi_enabled(){
+bool horovod_mpi_enabled() {
 #if HAVE_MPI
   return mpi_context.IsEnabled();
-#endif
+#else
   return false;
+#endif
 }
+
+bool horovod_mpi_built() {
+#if HAVE_MPI
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool horovod_gloo_enabled() {
+#if HAVE_GLOO
+  return gloo_context.IsEnabled();
+#else
+  return false;
+#endif
+}
+
+bool horovod_gloo_built() {
+#if HAVE_GLOO
+  return true;
+#else
+  return false;
+#endif
+}
+
 }
 
 // Contexts and controller must be initialized and the background thread

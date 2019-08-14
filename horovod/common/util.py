@@ -15,8 +15,11 @@
 # =============================================================================
 
 from contextlib import contextmanager
+import importlib
 import os
 import sysconfig
+
+EXTENSIONS = ['tensorflow', 'torch', 'mxnet']
 
 
 def get_ext_suffix():
@@ -45,6 +48,34 @@ def check_extension(ext_name, ext_env_var, pkg_path, *args):
         raise ImportError(
             'Extension %s has not been built.  If this is not expected, reinstall '
             'Horovod with %s=1 to debug the build error.' % (ext_name, ext_env_var))
+
+
+def get_extension_module(ext_base_name):
+    try:
+        return importlib.import_module('.' + ext_base_name, 'horovod')
+    except:
+        return None
+
+
+def extension_available(ext_base_name):
+    return get_extension_module(ext_base_name) is not None
+
+
+def get_available_extensions():
+    exts = [get_extension_module(ext_base_name) for ext_base_name in EXTENSIONS]
+    return [ext for ext in exts if ext is not None]
+
+
+def mpi_built():
+    for ext in get_available_extensions():
+        return ext.mpi_built()
+    return False
+
+
+def gloo_built():
+    for ext in get_available_extensions():
+        return ext.gloo_built()
+    return False
 
 
 @contextmanager

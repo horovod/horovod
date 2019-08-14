@@ -46,6 +46,10 @@ local_size = _basics.local_size
 rank = _basics.rank
 local_rank = _basics.local_rank
 mpi_threads_supported = _basics.mpi_threads_supported
+mpi_enabled = _basics.mpi_enabled
+mpi_built = _basics.mpi_built
+gloo_enabled = _basics.gloo_enabled
+gloo_built = _basics.gloo_built
 
 
 # Schema: handle -> input, output

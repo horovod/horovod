@@ -27,6 +27,7 @@ except ImportError:
     from pipes import quote
 import horovod
 
+from horovod.common.util import gloo_built, mpi_built
 from horovod.run.common.util import codec, env as env_util, safe_shell_exec, \
     timeout, secret
 from horovod.run.common.util import settings as hvd_settings
@@ -260,35 +261,16 @@ def _driver_fn(all_host_names, local_host_names, settings):
 def parse_args():
     parser = argparse.ArgumentParser(description='Horovod Runner')
 
-    parser.add_argument('-v', '--version', action='store_true', dest='version',
+    parser.add_argument('-v', '--version', action='version', version=horovod.__version__,
                         help='Shows horovod version.')
 
     parser.add_argument('-np', '--num-proc', action='store', dest='np',
-                        type=int, help='Total number of training processes.')
+                        type=int, required=True,
+                        help='Total number of training processes.')
 
     parser.add_argument('-p', '--ssh-port', action='store', dest='ssh_port',
                         type=int, help='SSH port on all the hosts.')
 
-    host_group = parser.add_argument_group('Use one of the following options '
-                                           'to specify which hosts (nodes) of '
-                                           'the cluster to run on')
-    host_group.add_argument('-H', '--hosts', action='store', dest='hosts',
-                            help='To specify the list of host names as well '
-                            'as the number of available slots on each '
-                            'host for training processes using the '
-                            'following format: <hostname>:<number of '
-                            'slots>,... . E.g., host1:2,host2:4,host3:1 '
-                            'indicates that 2 processes can run on '
-                            'host1, 4 processes on host2, and 1 process '
-                            'on host3. If not specified, use localhost:<np> '
-                            'by default.')
-    host_group.add_argument('-hostfile', '--hostfile', action='store',
-                            dest='hostfile',
-                            help='To specify a host file with the list of '
-                            'host names as well as the number of '
-                            'available slots on each host. '
-                            'Each line of the host file is formatted '
-                            'as <hostname> slots=<number of slots')
     parser.add_argument('--disable-cache', action='store_true',
                         dest='disable_cache',
                         help='If the flag is not set, horovodrun will perform '
@@ -296,11 +278,6 @@ def parse_args():
                              'minutes -- if the checks successfully pass. '
                              'Otherwise, all the checks will run every time '
                              'horovodrun is called.')
-
-    parser.add_argument('--gloo', action='store_true', dest='use_gloo',
-                        help='If this flag is set, horovod will be '
-                             'independent from mpi and use gloo '
-                             'controller instead.')
 
     parser.add_argument('--start-timeout', action='store',
                         dest='start_timeout', type=int,
@@ -319,10 +296,29 @@ def parse_args():
     parser.add_argument('command', nargs=argparse.REMAINDER,
                         help='Command to be executed.')
 
-    parsed_args = parser.parse_args()
+    group_hosts_parent = parser.add_argument_group('host arguments')
+    group_hosts = group_hosts_parent.add_mutually_exclusive_group()
+    group_hosts.add_argument('-H', '--hosts', action='store', dest='hosts',
+                             help='List of host names and the number of available slots '
+                                  'for running processes on each, of the form: <hostname>:<slots> '
+                                  '(e.g.: host1:2,host2:4,host3:1 indicating 2 processes can run on host1, '
+                                  '4 on host2, and 1 on host3). If not specified, defaults to using '
+                                  'localhost:<np>')
+    group_hosts.add_argument('-hostfile', '--hostfile', action='store', dest='hostfile',
+                             help='Path to a host file containing the list of host names and the number of '
+                                  'available slots. Each line of the file must be of the form: '
+                                  '<hostname> slots=<slots>')
 
-    if not parsed_args.version and not parsed_args.np:
-        parser.error('argument -np/--num-proc is required')
+    group_controller_parent = parser.add_argument_group('controller arguments')
+    group_controller = group_controller_parent.add_mutually_exclusive_group()
+    group_controller.add_argument('--gloo', action='store_true', dest='use_gloo',
+                                  help='Run Horovod using the Gloo controller. This will '
+                                       'be the default if Horovod was not built with MPI support.')
+    group_controller.add_argument('--mpi', action='store_true', dest='use_mpi',
+                                  help='Run Horovod using the MPI controller. This will '
+                                       'be the default if Horovod was built with MPI support.')
+
+    parsed_args = parser.parse_args()
 
     return parsed_args
 
@@ -339,10 +335,6 @@ def parse_host_files(filename):
 
 def run():
     args = parse_args()
-
-    if args.version:
-        print(horovod.__version__)
-        exit(0)
 
     # if hosts are not specified, either parse from hostfile, or default as
     # localhost
@@ -449,9 +441,27 @@ def run():
         if settings.verbose >= 2:
             print('Local interface found ' + ' '.join(common_intfs))
 
+    have_mpi = mpi_built()
+    have_gloo = gloo_built()
+
+    if not args.use_gloo and not args.use_mpi:
+        if have_mpi:
+            args.use_mpi = True
+        elif have_gloo:
+            args.use_gloo = True
+        else:
+            raise ValueError('Neither MPI nor Gloo support has been built. Try reinstalling Horovod ensuring that '
+                             'either MPI is installed (MPI) or CMake is installed (Gloo).')
+
     if args.use_gloo:
+        if not have_gloo:
+            raise ValueError('Gloo support has not been built.  If this is not expected, ensure CMake is installed '
+                             'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
         gloo_run(settings, remote_host_names, common_intfs)
-    else:
+    elif args.use_mpi:
+        if not have_mpi:
+            raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
+                             'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.')
         mpi_run(settings, common_intfs)
 
 

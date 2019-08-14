@@ -27,10 +27,12 @@ from horovod.tensorflow.compression import Compression
 from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce
 from horovod.tensorflow.mpi_ops import init, shutdown
 from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank
-from horovod.tensorflow.mpi_ops import mpi_threads_supported
+from horovod.tensorflow.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
+from horovod.tensorflow.mpi_ops import gloo_enabled, gloo_built
 from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache
 
 import tensorflow as tf
+
 
 def allreduce(tensor, average=True, device_dense='', device_sparse='',
               compression=Compression.none):

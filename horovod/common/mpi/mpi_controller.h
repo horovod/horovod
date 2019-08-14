@@ -32,6 +32,8 @@ public:
     LOG(DEBUG) << "MPI Controller Initialized.";
   }
 
+  virtual ~MPIController()=default;
+
   void Initialize() override;
 
   int GetTypeSize(DataType dtype) override;

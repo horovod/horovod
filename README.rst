@@ -230,11 +230,20 @@ page for more instructions, including RoCE/InfiniBand tweaks and tips for dealin
 
 7. To run in Singularity, see `Singularity <https://github.com/sylabs/examples/tree/master/machinelearning/horovod>`_.
 
-Estimator API
--------------
-Horovod supports Estimator API and regular TensorFlow in similar ways.
+Gloo
+----
+`Gloo <https://github.com/facebookincubator/gloo>`_ is an open source collective communications library developed by Facebook.
 
-See a full training `example <examples/tensorflow_mnist_estimator.py>`_.
+Gloo comes included with Horovod, and allows users to run Horovod without requiring MPI to be installed. Gloo support only requires
+that you have `CMake <https://cmake.org/>`_ installed, and is only supported on Linux at this time.
+
+For environments that have support both MPI and Gloo, you can choose to use Gloo at runtime by passing the ``--gloo`` argument to ``horovodrun``:
+
+.. code-block:: bash
+
+     $ horovodrun --gloo -np 2 python train.py
+
+Gloo support is still early in its development, and more features are coming soon.
 
 mpi4py
 ------
