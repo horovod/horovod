@@ -65,7 +65,7 @@ LibType ParseCPUOpsFromEnv() {
       cpu_operation = LibType::MLSL;
     } else {
       throw std::runtime_error("Unsupported CPU operation type, only MPI, "
-                               "MLSL and Gloo are supported");
+                               "MLSL, and Gloo are supported");
     }
   }
 
@@ -75,10 +75,12 @@ LibType ParseCPUOpsFromEnv() {
 }
 
 LibType ParseControllerOpsFromEnv() {
-  // Always default to MPI
+  // Always default to MPI if available.
   LibType controller;
 #if HAVE_MPI
   controller = LibType::MPI;
+#elif HAVE_GLOO
+  controller = LibType::GLOO;
 #endif
 
   // If specified during compilation
