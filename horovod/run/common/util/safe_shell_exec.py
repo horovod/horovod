@@ -15,6 +15,7 @@
 
 import os
 import psutil
+import re
 import signal
 import subprocess
 import sys
@@ -58,21 +59,29 @@ def terminate_executor_shell_and_children(pid):
 
 def forward_stream(src_fd, dst_stream, prefix, index):
     with os.fdopen(src_fd, 'r') as src:
+        line_buffer = ''
         while True:
-            line = src.readline()
-            if not line:
+            text = os.read(src.fileno(), 1000)
+            if not isinstance(text, str):
+                text = text.decode('utf-8')
+            if not text:
                 break
 
-            if index is not None:
-                localtime = time.asctime(time.localtime(time.time()))
-                line = '{time}[{rank}]<{prefix}>:{line}'.format(
-                    time=localtime,
-                    rank=str(index),
-                    prefix=prefix,
-                    line=line
-                )
-            dst_stream.write(line)
-            dst_stream.flush()
+            for line in re.split('([\r\n])', text):
+                line_buffer += line
+                if line == '\r' or line == '\n':
+                    if index is not None:
+                        localtime = time.asctime(time.localtime(time.time()))
+                        line_buffer = '{time}[{rank}]<{prefix}>:{line}'.format(
+                            time=localtime,
+                            rank=str(index),
+                            prefix=prefix,
+                            line=line_buffer
+                        )
+
+                    dst_stream.write(line_buffer)
+                    dst_stream.flush()
+                    line_buffer = ''
 
 
 def execute(command, env=None, stdout=None, stderr=None, index=None, event=None):
