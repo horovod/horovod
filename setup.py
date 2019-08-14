@@ -698,6 +698,7 @@ def get_common_options(build_ext):
         SOURCES += ['horovod/common/gloo/gloo_context.cc',
                     'horovod/common/gloo/gloo_controller.cc',
                     'horovod/common/gloo/http_store.cc',
+                    'horovod/common/gloo/memory_store.cc',
                     'horovod/common/ops/gloo_operations.cc']
 
     if have_mlsl:
