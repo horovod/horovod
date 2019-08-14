@@ -35,7 +35,8 @@ public:
 
   void wait(const std::vector<std::string>& keys) override;
 
-  void wait(const std::vector<std::string>& keys) override;
+  void wait(const std::vector<std::string>& keys,
+            const std::chrono::milliseconds& timeout) override;
 
   void Finalize() override;
 

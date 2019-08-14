@@ -15,6 +15,8 @@
 
 #include "gloo_context.h"
 
+#include <memory>
+
 #include "gloo/rendezvous/context.h"
 #include "gloo/rendezvous/file_store.h"
 #include "gloo/rendezvous/prefix_store.h"
@@ -47,7 +49,7 @@ namespace common {
 std::shared_ptr<gloo::Context> Rendezvous(const std::string& prefix,
                                           const char* server_addr_env, int server_port,
                                           int rank, int size,
-                                          std::shared_ptr<transport::Device>& dev) {
+                                          std::shared_ptr<gloo::transport::Device>& dev) {
   std::unique_ptr<GlooStore> store;
   if (server_addr_env != nullptr) {
     std::string server_addr = server_addr_env;
@@ -59,7 +61,7 @@ std::shared_ptr<gloo::Context> Rendezvous(const std::string& prefix,
 
   auto context = std::make_shared<gloo::rendezvous::Context>(rank, size);
   context->connectFullMesh(*store, dev);
-  store.Finalize();
+  store->Finalize();
   return context;
 }
 
