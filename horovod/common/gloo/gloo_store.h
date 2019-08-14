@@ -13,35 +13,22 @@
 // limitations under the License.
 // ============================================================================
 
-#ifndef HOROVOD_HOROVOD_COMMON_UTILS_ENV_PARSER_H_
-#define HOROVOD_HOROVOD_COMMON_UTILS_ENV_PARSER_H_
+#ifndef HOROVOD_GLOO_STORE_H
+#define HOROVOD_GLOO_STORE_H
 
-#include <iostream>
-
-#include "../stall_inspector.h"
+#include "gloo/rendezvous/store.h"
 
 namespace horovod {
 namespace common {
 
-enum class LibType { MPI = 0, MLSL = 1, GLOO = 2 };
+class GlooStore : public gloo::rendezvous::Store {
+public:
+  virtual ~GlooStore()=default;
 
-std::string TypeName(LibType type);
-
-LibType ParseCPUOpsFromEnv();
-
-LibType ParseControllerOpsFromEnv();
-
-const char* ParseGlooIface();
-
-void ParseStallInspectorFromEnv(StallInspector& stall_inspector);
-
-void SetBoolFromEnv(const char* env, bool& val, bool value_if_set);
-
-void SetIntFromEnv(const char* env, int& val);
-
-int GetIntEnvOrDefault(const char* env_variable, int default_value);
+  virtual void Finalize() = 0;
+};
 
 } // namespace common
 } // namespace horovod
 
-#endif // HOROVOD_HOROVOD_COMMON_UTILS_ENV_PARSER_H_
+#endif //HOROVOD_GLOO_STORE_H

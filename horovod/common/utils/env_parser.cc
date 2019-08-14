@@ -65,7 +65,7 @@ LibType ParseCPUOpsFromEnv() {
       cpu_operation = LibType::MLSL;
     } else {
       throw std::runtime_error("Unsupported CPU operation type, only MPI, "
-                               "MLSL and Gloo are supported");
+                               "MLSL, and Gloo are supported");
     }
   }
 
@@ -75,10 +75,12 @@ LibType ParseCPUOpsFromEnv() {
 }
 
 LibType ParseControllerOpsFromEnv() {
-  // Always default to MPI
+  // Always default to MPI if available.
   LibType controller;
 #if HAVE_MPI
   controller = LibType::MPI;
+#elif HAVE_GLOO
+  controller = LibType::GLOO;
 #endif
 
   // If specified during compilation
@@ -106,18 +108,12 @@ LibType ParseControllerOpsFromEnv() {
   return controller;
 }
 
-void SetBoolFromEnv(const char* env, bool& val, bool value_if_set) {
-  auto env_value = std::getenv(env);
-  if (env_value != nullptr && std::strtol(env_value, nullptr, 10) > 0) {
-    val = value_if_set;
+const char* ParseGlooIface() {
+  const char* gloo_iface = std::getenv(HOROVOD_GLOO_IFACE);
+  if (gloo_iface == nullptr) {
+    gloo_iface = GLOO_DEFAULT_IFACE;
   }
-}
-
-void SetIntFromEnv(const char* env, int& val) {
-  auto env_value = std::getenv(env);
-  if (env_value != nullptr) {
-    val = std::strtol(env_value, nullptr, 10);
-  }
+  return gloo_iface;
 }
 
 void ParseStallInspectorFromEnv(StallInspector& stall_inspector) {
@@ -139,12 +135,23 @@ void ParseStallInspectorFromEnv(StallInspector& stall_inspector) {
   }
 }
 
-const char* ParseGlooIface() {
-  const char* gloo_iface = std::getenv(HOROVOD_GLOO_IFACE);
-  if (gloo_iface == nullptr) {
-    gloo_iface = GLOO_DEFAULT_IFACE;
+void SetBoolFromEnv(const char* env, bool& val, bool value_if_set) {
+  auto env_value = std::getenv(env);
+  if (env_value != nullptr && std::strtol(env_value, nullptr, 10) > 0) {
+    val = value_if_set;
   }
-  return gloo_iface;
+}
+
+void SetIntFromEnv(const char* env, int& val) {
+  auto env_value = std::getenv(env);
+  if (env_value != nullptr) {
+    val = std::strtol(env_value, nullptr, 10);
+  }
+}
+
+int GetIntEnvOrDefault(const char* env_variable, int default_value) {
+  auto env_value = std::getenv(env_variable);
+  return env_value != nullptr ? std::strtol(env_value, nullptr, 10) : default_value;
 }
 
 } // namespace common

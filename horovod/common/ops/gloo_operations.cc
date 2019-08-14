@@ -63,8 +63,12 @@ GlooAlgorithms<T>::GlooAlgorithms(GlooContext* gloo_context)
 
 template <typename T>
 void GlooAlgorithms<T>::Allreduce(void* buffer_data, int num_elements) {
+  if (gloo_context_->ctx->size == 1) {
+    return;
+  }
+
   gloo::AllreduceOptions opts(gloo_context_->ctx);
-  opts.setOutput<T>(static_cast<T*>(buffer_data), num_elements);
+  opts.setOutput<T>(static_cast<T*>(buffer_data), (size_t) num_elements);
 
   void (*func)(void*, const void*, const void*, size_t) = &::gloo::sum<T>;
   opts.setReduceFunction(gloo::AllreduceOptions::Func(func));
@@ -75,6 +79,10 @@ void GlooAlgorithms<T>::Allreduce(void* buffer_data, int num_elements) {
 template <typename T>
 void GlooAlgorithms<T>::Allgather(void* buffer_data, void* buffer_out,
                                   int* recvcounts, int* displcmnts) {
+  if (gloo_context_->ctx->size == 1) {
+    return;
+  }
+
   // create count index
   std::vector<size_t> counts(recvcounts, recvcounts + gloo_context_->ctx->size);
 
@@ -90,9 +98,13 @@ void GlooAlgorithms<T>::Allgather(void* buffer_data, void* buffer_out,
 template <typename T>
 void GlooAlgorithms<T>::Broadcast(void* buffer_data, int num_elements,
                                   int root_rank) {
+  if (gloo_context_->ctx->size == 1) {
+    return;
+  }
+
   gloo::BroadcastOptions opts(gloo_context_->ctx);
   opts.setRoot(root_rank);
-  opts.setOutput<T>(static_cast<T*>(buffer_data), num_elements);
+  opts.setOutput<T>(static_cast<T*>(buffer_data), (size_t) num_elements);
   gloo::broadcast(opts);
 }
 

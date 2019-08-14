@@ -15,12 +15,16 @@
 
 #include "gloo_context.h"
 
+#include <memory>
+
 #include "gloo/rendezvous/context.h"
 #include "gloo/rendezvous/file_store.h"
 #include "gloo/rendezvous/prefix_store.h"
 #include "gloo/transport/tcp/device.h"
 
 #include "http_store.h"
+#include "memory_store.h"
+#include "../utils/env_parser.h"
 
 #if HAVE_MPI
 #include "gloo/mpi/context.h"
@@ -28,6 +32,38 @@
 
 namespace horovod {
 namespace common {
+
+// Horovod Gloo rendezvous knobs.
+#define HOROVOD_GLOO_RENDEZVOUS_ADDR "HOROVOD_GLOO_RENDEZVOUS_ADDR"
+#define HOROVOD_GLOO_RENDEZVOUS_PORT "HOROVOD_GLOO_RENDEZVOUS_PORT"
+#define HOROVOD_GLOO_GLOBAL_PREFIX "global_"
+#define HOROVOD_GLOO_LOCAL_PREFIX "local_"
+#define HOROVOD_GLOO_CROSS_PREFIX "cross_"
+#define HOROVOD_RANK "HOROVOD_RANK"
+#define HOROVOD_SIZE "HOROVOD_SIZE"
+#define HOROVOD_LOCAL_RANK "HOROVOD_LOCAL_RANK"
+#define HOROVOD_LOCAL_SIZE "HOROVOD_LOCAL_SIZE"
+#define HOROVOD_CROSS_RANK "HOROVOD_CROSS_RANK"
+#define HOROVOD_CROSS_SIZE "HOROVOD_CROSS_SIZE"
+
+std::shared_ptr<gloo::Context> Rendezvous(const std::string& prefix,
+                                          const char* server_addr_env, int server_port,
+                                          int rank, int size,
+                                          std::shared_ptr<gloo::transport::Device>& dev) {
+  std::unique_ptr<GlooStore> store;
+  if (server_addr_env != nullptr) {
+    std::string server_addr = server_addr_env;
+    store.reset(new HTTPStore(server_addr, server_port, prefix, rank));
+  } else {
+    store.reset(new MemoryStore());
+  }
+  LOG(DEBUG) << prefix << " rendezvous started for rank=" << rank << ", size=" << size;
+
+  auto context = std::make_shared<gloo::rendezvous::Context>(rank, size);
+  context->connectFullMesh(*store, dev);
+  store->Finalize();
+  return context;
+}
 
 #if HAVE_MPI
 void GlooContext::InitializeFromMPI(MPIContext& mpi_ctx,
@@ -60,16 +96,6 @@ void GlooContext::InitializeFromMPI(MPIContext& mpi_ctx,
 }
 #endif
 
-void GlooContext::Finalize() {
-  if (!enabled_) {
-    return;
-  }
-
-  ctx.reset();
-  cross_ctx.reset();
-  local_ctx.reset();
-}
-
 void GlooContext::Initialize(const std::string& gloo_iface) {
   if (!enabled_) {
     return;
@@ -84,62 +110,45 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
   attr.ai_family = AF_UNSPEC;
   auto dev = gloo::transport::tcp::CreateDevice(attr);
 
-  const std::string rendezvous_server_addr = std::getenv
-      (HOROVOD_GLOO_RENDEZVOUS_ADDR);
-  auto rendezvous_server_port =
-      std::strtol(std::getenv(HOROVOD_GLOO_RENDEZVOUS_PORT), nullptr, 10);
+  int rank = GetIntEnvOrDefault(HOROVOD_RANK, 0);
+  int size = GetIntEnvOrDefault(HOROVOD_SIZE, 1);
+  int local_rank = GetIntEnvOrDefault(HOROVOD_LOCAL_RANK, 0);
+  int local_size = GetIntEnvOrDefault(HOROVOD_LOCAL_SIZE, 1);
+  int cross_rank = GetIntEnvOrDefault(HOROVOD_CROSS_RANK, 0);
+  int cross_size = GetIntEnvOrDefault(HOROVOD_CROSS_SIZE, 1);
 
-  LOG(DEBUG) << "Rendezvous server address " << rendezvous_server_addr;
+  auto rendezvous_addr_env = std::getenv(HOROVOD_GLOO_RENDEZVOUS_ADDR);
+  auto rendezvous_port = GetIntEnvOrDefault(HOROVOD_GLOO_RENDEZVOUS_PORT, -1);
+  if (rendezvous_addr_env != nullptr) {
+    LOG(DEBUG) << "rendezvous server address: " << rendezvous_addr_env;
+  } else {
+    LOG(DEBUG) << "no rendezvous server provided, assuming single process execution";
+  }
 
-  // Get rendezvous info from env
-  int rank = std::strtol(getenv(HOROVOD_RANK), nullptr, 10);
-  int size = std::strtol(getenv(HOROVOD_SIZE), nullptr, 10);
-  int local_rank = std::strtol(getenv(HOROVOD_LOCAL_RANK), nullptr, 10);
-  int local_size = std::strtol(getenv(HOROVOD_LOCAL_SIZE), nullptr, 10);
-  int cross_rank = std::strtol(getenv(HOROVOD_CROSS_RANK), nullptr, 10);
-  int cross_size = std::strtol(getenv(HOROVOD_CROSS_SIZE), nullptr, 10);
-
-  // Global rendezvous
-  const std::string global_scope(HOROVOD_GLOO_GLOBAL_PREFIX);
-  auto rendezvous = HTTPStore(rendezvous_server_addr, rendezvous_server_port,
-                              global_scope, rank);
-  LOG(DEBUG) << "Global Rendezvous started for rank " << rank
-             << ", total size of " << size;
-  auto context = std::make_shared<gloo::rendezvous::Context>(rank, size);
-  context->connectFullMesh(rendezvous, dev);
-  ctx = context;
-  rendezvous.Finalize();
+  ctx = Rendezvous(HOROVOD_GLOO_GLOBAL_PREFIX,
+                   rendezvous_addr_env, rendezvous_port,
+                   rank, size, dev);
   LOG(DEBUG) << "Global Gloo context initialized.";
 
-  // Local rendezvous
-  const std::string local_scope =
-      std::string(HOROVOD_GLOO_LOCAL_PREFIX) + std::to_string(cross_rank);
-  auto local_rendezvous = HTTPStore(rendezvous_server_addr,
-                                    rendezvous_server_port, local_scope,
-                                    local_rank);
-  LOG(DEBUG) << "Local Rendezvous started for rank " << rank
-             << ", total size of " << local_size;
-  auto local_context =
-      std::make_shared<gloo::rendezvous::Context>(local_rank, local_size);
-  local_context->connectFullMesh(local_rendezvous, dev);
-  local_ctx = local_context;
-  local_rendezvous.Finalize();
+  local_ctx = Rendezvous(HOROVOD_GLOO_LOCAL_PREFIX,
+                         rendezvous_addr_env, rendezvous_port,
+                         local_rank, local_size, dev);
   LOG(DEBUG) << "Local Gloo context initialized.";
 
-  // Cross rendezvous
-  const std::string cross_scope =
-      std::string(HOROVOD_GLOO_CROSS_PREFIX) + std::to_string(local_rank);
-  auto cross_rendezvous = HTTPStore(rendezvous_server_addr,
-                                    rendezvous_server_port, cross_scope,
-                                    cross_rank);
-  LOG(DEBUG) << "Cross-node Rendezvous started for rank " << rank
-             << ", total size of " << size;
-  auto cross_context =
-      std::make_shared<gloo::rendezvous::Context>(cross_rank, cross_size);
-  cross_context->connectFullMesh(cross_rendezvous, dev);
-  cross_ctx = cross_context;
-  cross_rendezvous.Finalize();
+  cross_ctx = Rendezvous(HOROVOD_GLOO_CROSS_PREFIX,
+                         rendezvous_addr_env, rendezvous_port,
+                         cross_rank, cross_size, dev);
   LOG(DEBUG) << "Cross-node Gloo context initialized.";
+}
+
+void GlooContext::Finalize() {
+  if (!enabled_) {
+    return;
+  }
+
+  ctx.reset();
+  cross_ctx.reset();
+  local_ctx.reset();
 }
 
 std::shared_ptr<gloo::Context>

@@ -13,35 +13,38 @@
 // limitations under the License.
 // ============================================================================
 
-#ifndef HOROVOD_HOROVOD_COMMON_UTILS_ENV_PARSER_H_
-#define HOROVOD_HOROVOD_COMMON_UTILS_ENV_PARSER_H_
+#ifndef HOROVOD_GLOO_MEMORY_STORE_H
+#define HOROVOD_GLOO_MEMORY_STORE_H
 
-#include <iostream>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
-#include "../stall_inspector.h"
+#include "gloo_store.h"
 
 namespace horovod {
 namespace common {
 
-enum class LibType { MPI = 0, MLSL = 1, GLOO = 2 };
+class MemoryStore : public GlooStore {
+public:
+  virtual ~MemoryStore()=default;
 
-std::string TypeName(LibType type);
+  void set(const std::string& key, const std::vector<char>& data) override;
 
-LibType ParseCPUOpsFromEnv();
+  std::vector<char> get(const std::string& key) override;
 
-LibType ParseControllerOpsFromEnv();
+  void wait(const std::vector<std::string>& keys) override;
 
-const char* ParseGlooIface();
+  void wait(const std::vector<std::string>& keys,
+            const std::chrono::milliseconds& timeout) override;
 
-void ParseStallInspectorFromEnv(StallInspector& stall_inspector);
+  void Finalize() override;
 
-void SetBoolFromEnv(const char* env, bool& val, bool value_if_set);
-
-void SetIntFromEnv(const char* env, int& val);
-
-int GetIntEnvOrDefault(const char* env_variable, int default_value);
+private:
+  std::unordered_map<std::string, std::vector<char>> map_;
+};
 
 } // namespace common
 } // namespace horovod
 
-#endif // HOROVOD_HOROVOD_COMMON_UTILS_ENV_PARSER_H_
+#endif //HOROVOD_GLOO_MEMORY_STORE_H

@@ -538,9 +538,9 @@ def get_common_options(build_ext):
         except Exception:
             if compile_with_gloo:
                 # Require Gloo to succeed, otherwise fail the install.
-                raise
+                raise RuntimeError('Cannot find CMake. CMake is required to build Horovod with Gloo.')
 
-            print('INFO: Cannot find cmake, will skip compiling horovod with gloo.')
+            print('INFO: Cannot find CMake, will skip compiling Horovod with Gloo.')
             have_cmake = False
 
         # TODO: remove system check if gloo support MacOX in the future
@@ -698,6 +698,7 @@ def get_common_options(build_ext):
         SOURCES += ['horovod/common/gloo/gloo_context.cc',
                     'horovod/common/gloo/gloo_controller.cc',
                     'horovod/common/gloo/http_store.cc',
+                    'horovod/common/gloo/memory_store.cc',
                     'horovod/common/ops/gloo_operations.cc']
 
     if have_mlsl:
