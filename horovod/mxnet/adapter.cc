@@ -78,6 +78,10 @@ template <class T> int64_t MXTensor<T>::size() const {
   return TensorUtil::GetSize(tensor_);
 }
 
+template <class T> T* MXTensor<T>::tensor() const {
+  return this->tensor_;
+}
+
 template <class T>
 MXTemporaryBuffer<T>::MXTemporaryBuffer(int device, int dtype)
     : MXTensor<T>(nullptr) {
@@ -92,10 +96,6 @@ MXTemporaryBuffer<T>::MXTemporaryBuffer(T* tensor)
 
 template <class T> MXTemporaryBuffer<T>::~MXTemporaryBuffer() {
   TensorUtil::Free(this->tensor_);
-}
-
-template <class T> T* MXTemporaryBuffer<T>::tensor() const {
-  return this->tensor_;
 }
 
 template <class T>
