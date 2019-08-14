@@ -56,6 +56,7 @@ void MemoryStore::wait(const std::vector<std::string>& keys,
 }
 
 void MemoryStore::Finalize() {
+  map_.clear();
 }
 
 } // namespace common
