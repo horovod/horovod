@@ -32,22 +32,26 @@ std::vector<char> MemoryStore::get(const std::string& key) {
 }
 
 void MemoryStore::wait(const std::vector<std::string>& keys) {
-  while (map_.find(key) == map_.end()) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  for (auto& key : keys) {
+    while (map_.find(key) == map_.end()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
   }
 }
 
 void MemoryStore::wait(const std::vector<std::string>& keys,
                        const std::chrono::milliseconds& timeout) {
   const auto start = std::chrono::steady_clock::now();
-  while (map_.find(key) == map_.end()) {
-    auto now = std::chrono::steady_clock::now();
-    const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - start);
-    if (timeout != gloo::kNoTimeout && elapsed > timeout) {
-      GLOO_THROW_IO_EXCEPTION(GLOO_ERROR_MSG("Wait timeout for key(s): ",
-                                             ::gloo::MakeString(keys)));
+  for (auto& key : keys) {
+    while (map_.find(key) == map_.end()) {
+      auto now = std::chrono::steady_clock::now();
+      const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - start);
+      if (timeout != gloo::kNoTimeout && elapsed > timeout) {
+        GLOO_THROW_IO_EXCEPTION(GLOO_ERROR_MSG("Wait timeout for key(s): ",
+                                               ::gloo::MakeString(keys)));
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
 }
 
