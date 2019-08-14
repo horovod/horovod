@@ -17,7 +17,8 @@
 #define HOROVOD_GLOO_HTTP_STORE_H
 
 #include "HTTPRequest.hpp"
-#include "gloo/rendezvous/store.h"
+
+#include "gloo_store.h"
 
 namespace horovod {
 namespace common {
@@ -30,7 +31,7 @@ namespace common {
 #define HTTP_OK 200
 #define HTTP_NOT_FOUND 404
 
-class HTTPStore : public gloo::rendezvous::Store {
+class HTTPStore : public GlooStore {
 public:
   HTTPStore(const std::string& server_ip, int port, const std::string& scope,
             int rank)
@@ -52,7 +53,7 @@ public:
 
   bool CheckKeys(const std::vector<std::string>& keys);
 
-  void Finalize();
+  void Finalize() override;
 
 protected:
   // Send HTTP request to server, retry if the status code is not 200 (OK) or

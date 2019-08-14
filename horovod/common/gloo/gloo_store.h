@@ -13,37 +13,22 @@
 // limitations under the License.
 // ============================================================================
 
-#ifndef HOROVOD_GLOO_MEMORY_STORE_H
-#define HOROVOD_GLOO_MEMORY_STORE_H
+#ifndef HOROVOD_GLOO_STORE_H
+#define HOROVOD_GLOO_STORE_H
 
-#include <string>
-#include <unordered_map>
-#include <vector>
-
-#include "gloo_store.h"
+#include "gloo/rendezvous/store.h"
 
 namespace horovod {
 namespace common {
 
-class MemoryStore : public GlooStore {
+class GlooStore : public gloo::rendezvous::Store {
 public:
-  virtual ~MemoryStore()=default;
+  virtual ~GlooStore()=default;
 
-  void set(const std::string& key, const std::vector<char>& data) override;
-
-  std::vector<char> get(const std::string& key) override;
-
-  void wait(const std::vector<std::string>& keys) override;
-
-  void wait(const std::vector<std::string>& keys) override;
-
-  void Finalize() override;
-
-private:
-  std::unordered_map<std::string, std::vector<char>> map_;
+  virtual void Finalize() = 0;
 };
 
 } // namespace common
 } // namespace horovod
 
-#endif //HOROVOD_GLOO_MEMORY_STORE_H
+#endif //HOROVOD_GLOO_STORE_H

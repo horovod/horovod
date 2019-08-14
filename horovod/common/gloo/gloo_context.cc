@@ -48,18 +48,18 @@ std::shared_ptr<gloo::Context> Rendezvous(const std::string& prefix,
                                           const char* server_addr_env, int server_port,
                                           int rank, int size,
                                           std::shared_ptr<transport::Device>& dev) {
-  std::unique_ptr<gloo::rendezvous::Store> store;
+  std::unique_ptr<GlooStore> store;
   if (server_addr_env != nullptr) {
     std::string server_addr = server_addr_env;
-    store.reset(new HTTPStore(server_addr, server_port, prefix, rank));
+    store = std::make_unique<HTTPStore>(server_addr, server_port, prefix, rank);
   } else {
-    store.reset(new MemoryStore());
+    store = std::make_unique<MemoryStore>();
   }
   LOG(DEBUG) << prefix << " rendezvous started for rank=" << rank << ", size=" << size;
 
   auto context = std::make_shared<gloo::rendezvous::Context>(rank, size);
   context->connectFullMesh(*store, dev);
-  rendezvous.Finalize();
+  store.Finalize();
   return context;
 }
 
@@ -110,10 +110,10 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
 
   int rank = GetIntEnvOrDefault(HOROVOD_RANK, 0);
   int size = GetIntEnvOrDefault(HOROVOD_SIZE, 1);
-  int local_rank = GetIntEnvOrDefault(HOROVOD_LOCAL_RANK), 0);
-  int local_size = GetIntEnvOrDefault(HOROVOD_LOCAL_SIZE), 1);
-  int cross_rank = GetIntEnvOrDefault(HOROVOD_CROSS_RANK), 0);
-  int cross_size = GetIntEnvOrDefault(HOROVOD_CROSS_SIZE), 1);
+  int local_rank = GetIntEnvOrDefault(HOROVOD_LOCAL_RANK, 0);
+  int local_size = GetIntEnvOrDefault(HOROVOD_LOCAL_SIZE, 1);
+  int cross_rank = GetIntEnvOrDefault(HOROVOD_CROSS_RANK, 0);
+  int cross_size = GetIntEnvOrDefault(HOROVOD_CROSS_SIZE, 1);
 
   auto rendezvous_addr_env = std::getenv(HOROVOD_GLOO_RENDEZVOUS_ADDR);
   auto rendezvous_port = GetIntEnvOrDefault(HOROVOD_GLOO_RENDEZVOUS_PORT, -1);

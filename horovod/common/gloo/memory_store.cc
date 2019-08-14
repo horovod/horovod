@@ -31,6 +31,12 @@ std::vector<char> MemoryStore::get(const std::string& key) {
   return map_[key];
 }
 
+void MemoryStore::wait(const std::vector<std::string>& keys) {
+  while (map_.find(key) == map_.end()) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+}
+
 void MemoryStore::wait(const std::vector<std::string>& keys,
                        const std::chrono::milliseconds& timeout) {
   const auto start = std::chrono::steady_clock::now();
@@ -43,6 +49,9 @@ void MemoryStore::wait(const std::vector<std::string>& keys,
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
+}
+
+void MemoryStore::Finalize() {
 }
 
 } // namespace common
