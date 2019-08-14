@@ -53,9 +53,9 @@ std::shared_ptr<gloo::Context> Rendezvous(const std::string& prefix,
   std::unique_ptr<GlooStore> store;
   if (server_addr_env != nullptr) {
     std::string server_addr = server_addr_env;
-    store = std::make_unique<HTTPStore>(server_addr, server_port, prefix, rank);
+    store.reset(new HTTPStore(server_addr, server_port, prefix, rank));
   } else {
-    store = std::make_unique<MemoryStore>();
+    store.reset(new MemoryStore());
   }
   LOG(DEBUG) << prefix << " rendezvous started for rank=" << rank << ", size=" << size;
 
