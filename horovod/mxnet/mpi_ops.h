@@ -33,18 +33,18 @@ using namespace horovod::common;
 typedef ::mxnet::NDArray NDArray;
 typedef ::mxnet::Engine::CallbackOnComplete CallbackOnComplete;
 typedef Request::RequestType OperationType;
-typedef std::shared_ptr<MXTensor<NDArray>> MXTensor_sh_ptr;
+typedef std::shared_ptr<MXTensor<NDArray>> MXTensorSharedPtr;
 
 struct MpiOpsParam {
   NDArray* input;
   NDArray* output;
-  MXTensor_sh_ptr cpu_tensor;
+  MXTensorSharedPtr cpu_tensor;
   OperationType op_type;
   std::string op_name;
   int root_rank;
 
   MpiOpsParam(NDArray* input, NDArray* output,
-              MXTensor_sh_ptr cpu_tensor,
+              MXTensorSharedPtr cpu_tensor,
               const OperationType& op_type, const std::string& op_name,
               int root_rank)
       : input(input),
@@ -57,7 +57,7 @@ struct MpiOpsParam {
 };
 
 inline MpiOpsParam* CreateMpiOpsParam(NDArray* input, NDArray* output,
-                                      MXTensor_sh_ptr cpu_tensor,
+                                      MXTensorSharedPtr cpu_tensor,
                                       const OperationType& op_type,
                                       const std::string& op_name,
                                       int root_rank) {
