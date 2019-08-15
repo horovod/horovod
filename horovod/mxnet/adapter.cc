@@ -71,6 +71,7 @@ template <class T> const TensorShape MXTensor<T>::shape() const {
 }
 
 template <class T> const void* MXTensor<T>::data() const {
+  // returns the raw data instead of NDArray Tensor
   return TensorUtil::GetData(tensor_);
 }
 
