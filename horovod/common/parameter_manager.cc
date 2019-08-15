@@ -14,11 +14,12 @@
 // =============================================================================
 
 #include "parameter_manager.h"
-#include "logging.h"
 
 #include <algorithm>
 #include <cmath>
 #include <limits>
+
+#include "logging.h"
 
 namespace horovod {
 namespace common {

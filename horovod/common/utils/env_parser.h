@@ -13,8 +13,8 @@
 // limitations under the License.
 // ============================================================================
 
-#ifndef HOROVOD_HOROVOD_COMMON_UTILS_ENV_PARSER_H_
-#define HOROVOD_HOROVOD_COMMON_UTILS_ENV_PARSER_H_
+#ifndef HOROVOD_ENV_PARSER_H
+#define HOROVOD_ENV_PARSER_H
 
 #include <iostream>
 
@@ -44,4 +44,4 @@ int GetIntEnvOrDefault(const char* env_variable, int default_value);
 } // namespace common
 } // namespace horovod
 
-#endif // HOROVOD_HOROVOD_COMMON_UTILS_ENV_PARSER_H_
+#endif // HOROVOD_ENV_PARSER_H

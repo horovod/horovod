@@ -1,9 +1,9 @@
+#include "logging.h"
+
 #include <chrono>
 #include <algorithm>
 #include <iostream>
 #include <iomanip>
-
-#include "logging.h"
 
 namespace horovod {
 namespace common {

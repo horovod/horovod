@@ -16,6 +16,8 @@
 // limitations under the License.
 // =============================================================================
 
+#include "operations.h"
+
 #include <atomic>
 #include <cassert>
 #include <cstring>
@@ -33,7 +35,6 @@
 #include "hashes.h"
 #include "logging.h"
 #include "message.h"
-#include "operations.h"
 #include "ops/operation_manager.h"
 #include "parameter_manager.h"
 #include "timeline.h"

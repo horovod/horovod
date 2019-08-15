@@ -24,7 +24,6 @@
 #include "../global_state.h"
 #include "../operations.h"
 #include "../parameter_manager.h"
-#include "../operations.h"
 
 namespace horovod {
 namespace common {

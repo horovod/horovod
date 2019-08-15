@@ -13,8 +13,8 @@
 // limitations under the License.
 // =============================================================================
 
-#ifndef HOROVOD_TENSOR_QUEUE_H_
-#define HOROVOD_TENSOR_QUEUE_H_
+#ifndef HOROVOD_TENSOR_QUEUE_H
+#define HOROVOD_TENSOR_QUEUE_H
 
 #include <iostream>
 #include <mutex>
@@ -60,4 +60,4 @@ protected:
 } // namespace common
 } // namespace horovod
 
-#endif // HOROVOD_TENSOR_QUEUE_H_
+#endif // HOROVOD_TENSOR_QUEUE_H

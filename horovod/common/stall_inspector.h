@@ -13,8 +13,8 @@
 // limitations under the License.
 // =============================================================================
 
-#ifndef HOROVOD_STALL_INSPECTOR_H_
-#define HOROVOD_STALL_INSPECTOR_H_
+#ifndef HOROVOD_STALL_INSPECTOR_H
+#define HOROVOD_STALL_INSPECTOR_H
 
 #include <chrono>
 #include <iostream>
@@ -97,4 +97,4 @@ protected:
 
 } // namespace common
 } // namespace horovod
-#endif // HOROVOD_STALL_INSPECTOR_H_
+#endif // HOROVOD_STALL_INSPECTOR_H

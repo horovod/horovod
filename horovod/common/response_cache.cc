@@ -13,12 +13,13 @@
 // limitations under the License.
 // =============================================================================
 
+#include "response_cache.h"
+
 #include <climits>
 #include <cstring>
 
 #include "controller.h"
 #include "logging.h"
-#include "response_cache.h"
 #include "tensor_queue.h"
 
 namespace horovod {

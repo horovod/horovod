@@ -22,13 +22,13 @@
 #include "gloo/rendezvous/prefix_store.h"
 #include "gloo/transport/tcp/device.h"
 
-#include "http_store.h"
-#include "memory_store.h"
-#include "../utils/env_parser.h"
-
 #if HAVE_MPI
 #include "gloo/mpi/context.h"
 #endif
+
+#include "http_store.h"
+#include "memory_store.h"
+#include "../utils/env_parser.h"
 
 namespace horovod {
 namespace common {

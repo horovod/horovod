@@ -17,8 +17,8 @@
 #ifndef HOROVOD_MPI_CUDA_OPERATIONS_H
 #define HOROVOD_MPI_CUDA_OPERATIONS_H
 
-#include "../mpi/mpi_context.h"
 #include "cuda_operations.h"
+#include "../mpi/mpi_context.h"
 
 namespace horovod {
 namespace common {

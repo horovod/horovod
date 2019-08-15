@@ -15,8 +15,9 @@
 // limitations under the License.
 // =============================================================================
 
-#include "../logging.h"
 #include "mlsl_operations.h"
+
+#include "../logging.h"
 
 namespace horovod {
 namespace common {

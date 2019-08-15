@@ -13,13 +13,14 @@
 // limitations under the License.
 // =============================================================================
 
+#include "controller.h"
+
 #include <atomic>
 #include <map>
 #include <queue>
 #include <set>
 #include <unordered_set>
 
-#include "controller.h"
 #include "global_state.h"
 #include "logging.h"
 #include "operations.h"

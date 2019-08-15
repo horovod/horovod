@@ -17,13 +17,14 @@
 #define HOROVOD_TIMELINE_H
 
 #include <atomic>
-#include <boost/lockfree/spsc_queue.hpp>
 #include <chrono>
 #include <fstream>
 #include <iostream>
 #include <mutex>
 #include <unordered_map>
 #include <vector>
+
+#include <boost/lockfree/spsc_queue.hpp>
 
 #include "common.h"
 #include "message.h"

@@ -18,8 +18,9 @@
 #ifndef HOROVOD_GAUSSIAN_PROCESS_H
 #define HOROVOD_GAUSSIAN_PROCESS_H
 
-#include <Eigen/Cholesky>
 #include <vector>
+
+#include <Eigen/Cholesky>
 
 namespace horovod {
 namespace common {

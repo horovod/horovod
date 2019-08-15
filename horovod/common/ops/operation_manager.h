@@ -16,8 +16,8 @@
 #ifndef HOROVOD_OPERATION_MANAGER_H
 #define HOROVOD_OPERATION_MANAGER_H
 
-#include "../parameter_manager.h"
 #include "collective_operations.h"
+#include "../parameter_manager.h"
 
 namespace horovod {
 namespace common {

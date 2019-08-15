@@ -16,8 +16,6 @@
 #ifndef HOROVOD_PARAMETER_MANAGER_H
 #define HOROVOD_PARAMETER_MANAGER_H
 
-#include "optim/bayesian_optimization.h"
-
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -26,6 +24,8 @@
 #include <vector>
 
 #include <Eigen/Core>
+
+#include "optim/bayesian_optimization.h"
 
 namespace horovod {
 namespace common {
