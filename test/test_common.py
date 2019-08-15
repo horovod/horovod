@@ -36,14 +36,14 @@ class CommonTests(unittest.TestCase):
     def test_mpi_built(self):
         """Test that MPI has been built if env is set."""
         gloo_rank = int(os.getenv('HOROVOD_RANK', -1))
-        is_mpi = gloo_rank == -1
-        self.assertEqual(is_mpi, mpi_built())
+        if gloo_rank == -1:
+            self.assertTrue(mpi_built())
 
     def test_gloo_built(self):
         """Test that Gloo has been built if env is set."""
         gloo_rank = int(os.getenv('HOROVOD_RANK', -1))
-        is_gloo = gloo_rank >= 0
-        self.assertEqual(is_gloo, gloo_built())
+        if gloo_rank >= 0:
+            self.assertEqual(gloo_built())
 
     def test_tensorflow_available(self):
         """Test that TensorFLow support has been built."""
