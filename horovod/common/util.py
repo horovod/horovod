@@ -78,6 +78,24 @@ def gloo_built():
     return False
 
 
+def nccl_built():
+    for ext in get_available_extensions():
+        return ext.nccl_built()
+    return False
+
+
+def ddl_built():
+    for ext in get_available_extensions():
+        return ext.ddl_built()
+    return False
+
+
+def mlsl_built():
+    for ext in get_available_extensions():
+        return ext.mlsl_built()
+    return False
+
+
 @contextmanager
 def env(**kwargs):
     # ignore args with None values

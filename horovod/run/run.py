@@ -18,18 +18,19 @@ import argparse
 import hashlib
 import os
 import sys
-import traceback
 import six
 import re
+import textwrap
 try:
     from shlex import quote
 except ImportError:
     from pipes import quote
 import horovod
 
-from horovod.common.util import gloo_built, mpi_built
-from horovod.run.common.util import codec, env as env_util, safe_shell_exec, \
-    timeout, secret
+from horovod.common.util import (extension_available,
+                                 gloo_built, mpi_built,
+                                 nccl_built, ddl_built, mlsl_built)
+from horovod.run.common.util import codec, safe_shell_exec, timeout, secret
 from horovod.run.common.util import settings as hvd_settings
 from horovod.run.driver import driver_service
 from horovod.run.task import task_service
@@ -258,11 +259,53 @@ def _driver_fn(all_host_names, local_host_names, settings):
         driver.shutdown()
 
 
+class CheckBuildAction(argparse.Action):
+    def __call__(self, parser, args, values, option_string=None):
+        output = '''\
+        Horovod v{version}:
+        
+        Available Frameworks:
+          [{tensorflow}] TensorFlow
+          [{torch}] PyTorch
+          [{mxnet}] MXNet
+        
+        Available Controllers:
+          [{mpi}] MPI
+          [{gloo}] Gloo
+          
+        Available Tensor Operations:
+          [{nccl_ops}] NCCL
+          [{ddl_ops}] DDL
+          [{mlsl_ops}] MLSL
+          [{mpi_ops}] MPI
+          [{gloo_ops}] Gloo\
+        '''.format(version=horovod.__version__,
+                   tensorflow=CheckBuildAction.get_check(extension_available('tensorflow')),
+                   torch=CheckBuildAction.get_check(extension_available('torch')),
+                   mxnet=CheckBuildAction.get_check(extension_available('mxnet')),
+                   mpi=CheckBuildAction.get_check(mpi_built()),
+                   gloo=CheckBuildAction.get_check(gloo_built()),
+                   nccl_ops=CheckBuildAction.get_check(nccl_built()),
+                   ddl_ops=CheckBuildAction.get_check(ddl_built()),
+                   mpi_ops=CheckBuildAction.get_check(mpi_built()),
+                   mlsl_ops=CheckBuildAction.get_check(mlsl_built()),
+                   gloo_ops=CheckBuildAction.get_check(gloo_built()))
+        print(textwrap.dedent(output))
+        os._exit(0)
+
+    @staticmethod
+    def get_check(value):
+        return 'X' if value else ' '
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Horovod Runner')
 
     parser.add_argument('-v', '--version', action='version', version=horovod.__version__,
-                        help='Shows horovod version.')
+                        help='Shows Horovod version.')
+
+    parser.add_argument('-cb', '--check-build', action=CheckBuildAction, nargs=0,
+                        help='Shows which frameworks and libraries have been built into Horovod.')
 
     parser.add_argument('-np', '--num-proc', action='store', dest='np',
                         type=int, required=True,
