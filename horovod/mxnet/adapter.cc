@@ -71,11 +71,16 @@ template <class T> const TensorShape MXTensor<T>::shape() const {
 }
 
 template <class T> const void* MXTensor<T>::data() const {
+  // returns the raw data instead of NDArray Tensor
   return TensorUtil::GetData(tensor_);
 }
 
 template <class T> int64_t MXTensor<T>::size() const {
   return TensorUtil::GetSize(tensor_);
+}
+
+template <class T> T* MXTensor<T>::tensor() const {
+  return this->tensor_;
 }
 
 template <class T>
@@ -92,10 +97,6 @@ MXTemporaryBuffer<T>::MXTemporaryBuffer(T* tensor)
 
 template <class T> MXTemporaryBuffer<T>::~MXTemporaryBuffer() {
   TensorUtil::Free(this->tensor_);
-}
-
-template <class T> T* MXTemporaryBuffer<T>::tensor() const {
-  return this->tensor_;
 }
 
 template <class T>

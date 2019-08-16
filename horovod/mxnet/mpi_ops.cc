@@ -123,7 +123,7 @@ inline void PushHorovodOperation(OperationType op_type, NDArray* input,
                                  int priority, int root_rank = -1) {
   auto op_type_name = GetOpTypeName(op_type);
   auto op_name = GetOpName(op_type_name, name);
-  auto ops_param = CreateMpiOpsParam(input, output, op_type, op_name, root_rank, false);
+  auto ops_param = CreateMpiOpsParam(input, output, nullptr, op_type, op_name, root_rank);
 
   // Not in-place
   auto input_var = input->var();
@@ -147,8 +147,7 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
   auto on_complete = *static_cast<CallbackOnComplete*>(on_complete_ptr);
   auto ops_param = static_cast<MpiOpsParam*>(param);
   auto name = ops_param->op_name;
-  auto hvd_cpu_buffer = std::make_shared<MXTemporaryBuffer<NDArray>>(
-      ops_param->cpu_tensor);
+  auto hvd_cpu_buffer = ops_param->cpu_tensor;
   auto hvd_context = std::make_shared<MXOpContext<NDArray>>(
       CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
 
@@ -188,20 +187,22 @@ inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
                                           int priority, int root_rank = -1) {
   auto op_type_name = GetOpTypeName(op_type);
   auto op_name = GetOpName(op_type_name, name);
-  auto ops_param = CreateMpiOpsParam(input, output, op_type, op_name, root_rank, true);
-  auto cpu_tensor = ops_param->cpu_tensor;
+  auto hvd_cpu_buffer = std::make_shared<MXTemporaryBuffer<NDArray>>(
+      CPU_DEVICE_ID, input->dtype());
+  auto ops_param = CreateMpiOpsParam(nullptr, nullptr, hvd_cpu_buffer,
+                                     op_type, op_name, root_rank);
 
   // Make async copy of input tensor to CPU tensor.
-  TensorUtil::AsyncCopyCudaToCPU(input, cpu_tensor);
+  TensorUtil::AsyncCopyCudaToCPU(input, hvd_cpu_buffer->tensor());
 
   // In-place
-  auto cpu_tensor_var = cpu_tensor->var();
+  auto cpu_tensor_var = hvd_cpu_buffer->tensor()->var();
   MXEnginePushAsync(DoHorovodOperationCudaOnCPU, ops_param, DeleteMpiOpsParam,
                     &MX_EXEC_CTX, nullptr, 0, &cpu_tensor_var, 1,
                     &MX_FUNC_PROP, priority, op_type_name);
 
   // Make async copy of CPU tensor to output tensor.
-  TensorUtil::AsyncCopyCPUToCuda(cpu_tensor, output);
+  TensorUtil::AsyncCopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
 }
 #endif
 

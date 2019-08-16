@@ -43,6 +43,7 @@ public:
   virtual const TensorShape shape() const override;
   virtual const void* data() const override;
   virtual int64_t size() const override;
+  virtual T* tensor() const;
 
 protected:
   T* tensor_;
@@ -53,7 +54,6 @@ public:
   MXTemporaryBuffer(int device, int dtype);
   MXTemporaryBuffer(T* tensor);
   ~MXTemporaryBuffer();
-  virtual T* tensor() const;
 };
 
 template <class T> class MXOpContext : public OpContext {
