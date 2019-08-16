@@ -16,9 +16,9 @@
 #ifndef HOROVOD_GLOO_CONTROLLER_H
 #define HOROVOD_GLOO_CONTROLLER_H
 
+#include "gloo_context.h"
 #include "../controller.h"
 #include "../logging.h"
-#include "gloo_context.h"
 
 namespace horovod {
 namespace common {

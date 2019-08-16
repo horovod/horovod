@@ -23,9 +23,9 @@
 
 #include "mlsl.hpp"
 
+#include "collective_operations.h"
 #include "../common.h"
 #include "../global_state.h"
-#include "collective_operations.h"
 
 namespace horovod {
 namespace common {

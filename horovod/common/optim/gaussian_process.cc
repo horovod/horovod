@@ -21,7 +21,6 @@
 #include <iostream>
 
 #include <Eigen/LU>
-
 #include "LBFGS.h"
 
 using Eigen::VectorXd;

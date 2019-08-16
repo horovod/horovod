@@ -13,12 +13,12 @@
 // limitations under the License.
 // =============================================================================
 
+#include "half.h"
+
 #if __AVX__ && __F16C__
 #include <cpuid.h>
 #include <immintrin.h>
 #endif
-
-#include "half.h"
 
 namespace horovod {
 namespace common {

@@ -13,13 +13,14 @@
 // limitations under the License.
 // =============================================================================
 
+#include "timeline.h"
+
 #include <cassert>
 #include <chrono>
 #include <sstream>
 #include <thread>
 
 #include "logging.h"
-#include "timeline.h"
 
 namespace horovod {
 namespace common {

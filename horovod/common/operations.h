@@ -18,12 +18,12 @@
 
 #include <functional>
 
-#include "common.h"
-
 #if HAVE_MPI
 #define OMPI_SKIP_MPICXX
 #include "mpi.h"
 #endif
+
+#include "common.h"
 
 namespace horovod {
 namespace common {
