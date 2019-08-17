@@ -168,6 +168,10 @@ run_all() {
     run_test "${test}" "${queue}" \
       ":muscle: Test TensorFlow 2.0 MNIST (${test})" \
       "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow2_mnist.py\""
+
+    run_test "${test}" "${queue}" \
+      ":muscle: Test TensorFlow 2.0 Keras MNIST (${test})" \
+      "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow2_keras_mnist.py\""
   fi
 }
 
