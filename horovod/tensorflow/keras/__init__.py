@@ -33,6 +33,7 @@ from horovod.tensorflow import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.tensorflow import gloo_enabled, gloo_built
 from horovod.tensorflow import nccl_built, ddl_built, mlsl_built
 from horovod.tensorflow import Compression
+from horovod.tensorflow import HorovodDistributionStrategy
 
 import horovod._keras as _impl
 from horovod.tensorflow.keras import callbacks
