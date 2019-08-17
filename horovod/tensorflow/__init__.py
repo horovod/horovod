@@ -33,6 +33,7 @@ from horovod.tensorflow.mpi_ops import nccl_built, ddl_built, mlsl_built
 from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache
 
 import tensorflow as tf
+import warnings
 
 
 def allreduce(tensor, average=True, device_dense='', device_sparse='',
@@ -133,8 +134,8 @@ if _global_variables is not None:
         """
         if _executing_eagerly():
             raise RuntimeError(
-                "Eager Execution is not supported by `hvd.BroadcastGlobalVariablesHook`\n"
-                "We recommend using `hvd.DistributedGradientTape` instead"
+                "Eager Execution is not supported by `hvd.BroadcastGlobalVariablesHook()`. "
+                "Please use `hvd.broadcast_variables(<model/optimizer variables>)` instead."
             )
 
         return broadcast_variables(_global_variables(), root_rank)
@@ -242,25 +243,23 @@ if _LegacyOptimizer is not None:
             self._allreduce_grads = _make_allreduce_grads_fn(
                 name, device_dense, device_sparse, compression, sparse_as_dense)
 
-        def compute_gradients(self, *args, **kwargs):
-            """Compute gradients of all trainable variables.
+        def apply_gradients(self, grads_and_vars, **kwargs):
+            """Apply gradients to provided variables.
 
-            See Optimizer.compute_gradients() for more info.
+            See Optimizer.apply_gradients() for more info.
 
-            In DistributedOptimizer, compute_gradients() is overriden to also
-            allreduce the gradients before returning them.
+            In DistributedOptimizer, apply_gradients() is overriden to also
+            allreduce the gradients before applying them.
             """
-            gradients = self._optimizer.compute_gradients(*args, **kwargs)
             if size() > 1:
-                grads, vars = zip(*gradients)
+                grads, vars = zip(*grads_and_vars)
                 avg_grads = self._allreduce_grads(grads)
-                return list(zip(avg_grads, vars))
-            else:
-                return gradients
+                grads_and_vars = list(zip(avg_grads, vars))
+            return self._optimizer.apply_gradients(grads_and_vars, **kwargs)
 
-        def apply_gradients(self, *args, **kwargs):
+        def compute_gradients(self, *args, **kwargs):
             """Calls this same method on the underlying optimizer."""
-            return self._optimizer.apply_gradients(*args, **kwargs)
+            return self._optimizer.compute_gradients(*args, **kwargs)
 
         def get_slot(self, *args, **kwargs):
             """Calls this same method on the underlying optimizer."""
@@ -365,6 +364,8 @@ if hasattr(tf, 'GradientTape'):
             performance and memory utilization if the original sparse gradient
             has high density.  Defaults to false.
         """
+        warnings.warn('`hvd.DistributedGradientTape()` has been deprecated. '
+                      'Please use `hvd.DistributedOptimizer()` instead.')
         cls = type(gradtape.__class__.__name__, (gradtape.__class__,),
                    dict(_DistributedGradientTape.__dict__))
         if hasattr(gradtape, '_watch_accessed_variables'):
