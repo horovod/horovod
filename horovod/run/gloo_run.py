@@ -165,6 +165,8 @@ def _launch_jobs(settings, host_alloc_plan, remote_host_names, _run_command):
         host_name = alloc_info.hostname
 
         env = os.environ.copy()
+        # TODO: Workaround for over-buffered outputs. Investigate how mpirun avoids this problem.
+        env['PYTHONUNBUFFERED'] = '1'
         local_command = '{horovod_env} {env} {run_command}' .format(
             horovod_env=horovod_rendez_env,
             env=' '.join(['%s=%s' % (key, quote(value)) for key, value in env.items()
