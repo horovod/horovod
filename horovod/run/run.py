@@ -383,7 +383,7 @@ def run():
     # localhost
     if not args.hosts:
         if args.hostfile:
-            args.hosts = parse_host_files(args.hostfiles)
+            args.hosts = parse_host_files(args.hostfile)
         else:
             # Set hosts to localhost if not specified
             args.hosts = 'localhost:{np}'.format(np=args.np)
