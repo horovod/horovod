@@ -968,14 +968,121 @@ class TorchTests(unittest.TestCase):
                 else:
                     self.assertEqual(opt_param_value, opt_param_value_after)
 
-    def test_broadcast_state_gpu(self):
+    def test_broadcast_state_adam_gpu(self):
         # Only do this test if there are GPUs available.
         if not torch.cuda.is_available():
             return
         # Set default tensor type, ensuring optimizer tensor-wrapping is robust
         # to this setting.
         torch.set_default_tensor_type(torch.cuda.FloatTensor)
-        self.test_broadcast_state()
+        hvd.init()
+
+        N, D_in, H, D_out = 64, 100, 10, 10
+        x = torch.randn(N, D_in).requires_grad_()
+        y = torch.randn(N, D_out).requires_grad_()
+
+        def create_model():
+            model = torch.nn.Sequential(
+                torch.nn.Linear(D_in, H),
+                torch.nn.ReLU(),
+                torch.nn.Linear(H, D_out),
+            )
+            model.cuda()
+            optimizer = create_optimizer(model)
+            return model, optimizer
+
+        def create_optimizer(model):
+            optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+            optimizer = hvd.DistributedOptimizer(
+                optimizer, named_parameters=model.named_parameters())
+            return optimizer
+
+        def get_model_param_values(model):
+            params = sorted(model.state_dict().items())
+            return [(k, v.clone()) for k, v in params]
+
+        def get_optimizer_param_values(optimizer):
+            results = []
+            state_dict = optimizer.state_dict()
+            for group in state_dict['param_groups']:
+                for param_id in group['params']:
+                    if param_id not in state_dict['state']:
+                        continue
+                    params = sorted(state_dict['state'][param_id].items())
+                    for k, v in params:
+                        results.append(
+                            (k, v.clone() if torch.is_tensor(v) else v))
+            return results
+
+        model, optimizer = create_model()
+        y_pred = model(x)
+        loss = F.mse_loss(y_pred, y, size_average=False)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        model_param_values = get_model_param_values(model)
+        for name, model_param_value in model_param_values:
+            hvd.broadcast_(model_param_value, root_rank=0)
+
+        opt_param_values_updated = []
+        opt_param_values = get_optimizer_param_values(optimizer)
+        for name, opt_param_value in opt_param_values:
+            is_tensor = torch.is_tensor(opt_param_value)
+            if not is_tensor:
+                t = type(opt_param_value)
+                opt_param_value = torch.Tensor([opt_param_value])
+            hvd.broadcast_(opt_param_value, root_rank=0)
+            if not is_tensor:
+                opt_param_value = t(opt_param_value.cpu().numpy()[0])
+            opt_param_values_updated.append((name, opt_param_value))
+        opt_param_values = opt_param_values_updated
+
+        if hvd.rank() == 0:
+            state = {
+                'model': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+            }
+            _, fname = tempfile.mkstemp('.pt')
+            torch.save(state, fname)
+
+        model, optimizer = create_model()
+        if hvd.rank() == 0:
+            checkpoint = torch.load(fname)
+            model.load_state_dict(checkpoint['model'])
+            optimizer.load_state_dict(checkpoint['optimizer'])
+            os.remove(fname)
+
+        hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+        model_param_value_after = get_model_param_values(model)
+        for before, after in zip(model_param_values,
+                                 model_param_value_after):
+            name, model_param_value = before
+            name_after, model_param_value_after = after
+            self.assertEqual(name, name_after)
+            self.assertEqual(type(model_param_value),
+                             type(model_param_value_after))
+            self.assertTrue(
+                (model_param_value == model_param_value_after).all())
+
+        hvd.broadcast_optimizer_state(optimizer, root_rank=0)
+
+        expected_tensors = 4
+        self.assertEqual(len(optimizer.state_dict()['state'].values()), expected_tensors)
+
+        opt_param_values_after = get_optimizer_param_values(optimizer)
+        for before, after in zip(opt_param_values, opt_param_values_after):
+            name, opt_param_value = before
+            name_after, opt_param_value_after = after
+            self.assertEqual(name, name_after)
+            self.assertEqual(type(opt_param_value),
+                             type(opt_param_value_after))
+            if torch.is_tensor(opt_param_value):
+                self.assertTrue(
+                    (opt_param_value == opt_param_value_after).all())
+            else:
+                self.assertEqual(opt_param_value, opt_param_value_after)
+                
         torch.set_default_tensor_type(torch.FloatTensor)
 
     def test_broadcast_state_options(self):
