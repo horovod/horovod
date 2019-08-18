@@ -976,6 +976,7 @@ class TorchTests(unittest.TestCase):
         # to this setting.
         torch.set_default_tensor_type(torch.cuda.FloatTensor)
         self.test_broadcast_state()
+        torch.set_default_tensor_type(torch.FloatTensor)
 
     def test_broadcast_state_options(self):
         hvd.init()
