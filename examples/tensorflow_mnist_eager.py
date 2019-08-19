@@ -37,6 +37,9 @@ def main(_):
     # Horovod: adjust learning rate based on number of GPUs.
     opt = tf.train.AdamOptimizer(0.001 * hvd.size())
 
+    # Horovod: add Horovod Distributed Optimizer.
+    opt = hvd.DistributedOptimizer(opt)
+
     (mnist_images, mnist_labels), _ = \
         tf.keras.datasets.mnist.load_data(path='mnist-%d.npz' % hvd.rank())
 
@@ -57,9 +60,6 @@ def main(_):
         with tf.GradientTape() as tape:
             logits = mnist_model(images, training=True)
             loss_value = tf.losses.sparse_softmax_cross_entropy(labels, logits)
-
-        # Horovod: add Horovod Distributed GradientTape.
-        tape = hvd.DistributedGradientTape(tape)
 
         grads = tape.gradient(loss_value, mnist_model.variables)
         opt.apply_gradients(zip(grads, mnist_model.variables),
