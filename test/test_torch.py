@@ -968,6 +968,8 @@ class TorchTests(unittest.TestCase):
                 else:
                     self.assertEqual(opt_param_value, opt_param_value_after)
 
+    # TODO: investigate why this hangs on K80s
+    @unittest.skip
     def test_broadcast_state_gpu(self):
         # Only do this test if there are GPUs available.
         if not torch.cuda.is_available():
