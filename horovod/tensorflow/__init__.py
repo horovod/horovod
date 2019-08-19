@@ -243,7 +243,7 @@ if _LegacyOptimizer is not None:
             self._allreduce_grads = _make_allreduce_grads_fn(
                 name, device_dense, device_sparse, compression, sparse_as_dense)
 
-        def apply_gradients(self, grads_and_vars, **kwargs):
+        def apply_gradients(self, grads_and_vars, *args, **kwargs):
             """Apply gradients to provided variables.
 
             See Optimizer.apply_gradients() for more info.
@@ -255,7 +255,7 @@ if _LegacyOptimizer is not None:
                 grads, vars = zip(*grads_and_vars)
                 avg_grads = self._allreduce_grads(grads)
                 grads_and_vars = list(zip(avg_grads, vars))
-            return self._optimizer.apply_gradients(grads_and_vars, **kwargs)
+            return self._optimizer.apply_gradients(grads_and_vars, *args, **kwargs)
 
         def compute_gradients(self, *args, **kwargs):
             """Calls this same method on the underlying optimizer."""

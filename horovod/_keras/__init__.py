@@ -28,7 +28,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                 name, device_dense, device_sparse, compression, sparse_as_dense)
             super(self.__class__, self).__init__(**config)
 
-        def apply_gradients(self, grads_and_vars, **kwargs):
+        def apply_gradients(self, grads_and_vars, *args, **kwargs):
             """Apply gradients to provided variables.
 
             See Optimizer.apply_gradients() for more info.
@@ -40,7 +40,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                 grads, vars = zip(*grads_and_vars)
                 avg_grads = self._allreduce_grads(grads)
                 grads_and_vars = list(zip(avg_grads, vars))
-            return super(self.__class__, self).apply_gradients(grads_and_vars, **kwargs)
+            return super(self.__class__, self).apply_gradients(grads_and_vars, *args, **kwargs)
 
     class _DistributedOptimizerWithGetGradients(keras.optimizers.Optimizer):
         def __init__(self, name, device_dense, device_sparse, compression, sparse_as_dense,
