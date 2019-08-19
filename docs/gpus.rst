@@ -32,15 +32,15 @@ by installing an `nv_peer_memory <https://github.com/Mellanox/nv_peer_memory>`__
 
    **Note**: Open MPI 3.1.3 has an issue that may cause hangs.  The recommended fix is to downgrade to Open MPI 3.1.2 or upgrade to Open MPI 4.0.0.
 
-4. If you've installed TensorFlow from `PyPI <https://pypi.org/project/tensorflow>`__, make sure that the ``g++-4.8.5`` or ``g++-4.9`` is installed.
+4. If you installed TensorFlow from `PyPI <https://pypi.org/project/tensorflow>`__, make sure that the ``g++-4.8.5`` or ``g++-4.9`` is installed.
 
-   If you've installed PyTorch from `PyPI <https://pypi.org/project/torch>`__, make sure that the ``g++-4.9`` or above is installed.
+   If you installed PyTorch from `PyPI <https://pypi.org/project/torch>`__, make sure that the ``g++-4.9`` or above is installed.
 
-   If you've installed either package from `Conda <https://conda.io>`_, make sure that the ``gxx_linux-64`` Conda package is installed.
+   If you installed either package from `Conda <https://conda.io>`_, make sure that the ``gxx_linux-64`` Conda package is installed.
 
 5. Install the ``horovod`` pip package.
 
-   If you have installed NCCL 2 using the ``nccl-<version>.txz`` package, you should specify the path to NCCL 2 using the ``HOROVOD_NCCL_HOME``
+   If you installed NCCL 2 using the ``nccl-<version>.txz`` package, you should specify the path to NCCL 2 using the ``HOROVOD_NCCL_HOME``
    environment variable.
 
    .. code-block:: bash
@@ -48,11 +48,17 @@ by installing an `nv_peer_memory <https://github.com/Mellanox/nv_peer_memory>`__
        $ HOROVOD_NCCL_HOME=/usr/local/nccl-<version> HOROVOD_GPU_ALLREDUCE=NCCL pip install --no-cache-dir horovod
 
 
-   If you have installed NCCL 2 using the Ubuntu package, you can run:
+   If you installed NCCL 2 using the Ubuntu package, you can run:
 
    .. code-block:: bash
 
        $ HOROVOD_GPU_ALLREDUCE=NCCL pip install --no-cache-dir horovod
+   
+   If you installed NCCL 2 using the `CentOS / RHEL package <https://docs.nvidia.com/deeplearning/sdk/nccl-install-guide/index.html#rhel_centos>`__, you can run:
+
+   .. code-block:: bash
+
+       $ HOROVOD_NCCL_INCLUDE=/usr/include HOROVOD_NCCL_LIB=/usr/lib64 HOROVOD_GPU_ALLREDUCE=NCCL pip install --no-cache-dir horovod
 
 
 **Note**: Some models with a high computation to communication ratio benefit from doing allreduce on CPU, even if a
