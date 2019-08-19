@@ -381,7 +381,7 @@ repository written by Andrew Gibiansky and Joel Hestness. Their original work is
 Mailing lists
 -------------
 Subscribe to `Horovod Announce <https://lists.lfai.foundation/g/horovod-announce>`_ and 
-`Horovod Technical-Discuss <https://lists.lfai.foundation/g/horovod-technical-discuss>`_ to stay up-to-date.
+`Horovod Technical-Discuss <https://lists.lfai.foundation/g/horovod-technical-discuss>`_ to stay up to date.
 
 
 .. inclusion-marker-end-do-not-remove
