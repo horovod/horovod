@@ -625,6 +625,7 @@ def get_common_options(build_ext):
 
     MACROS = [('EIGEN_MPL2_ONLY', 1)]
     INCLUDES = ['third_party/HTTPRequest/include',
+                'third_party/ThreadPool',
                 'third_party/boost/assert/include',
                 'third_party/boost/config/include',
                 'third_party/boost/core/include',

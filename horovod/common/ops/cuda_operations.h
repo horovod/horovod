@@ -17,11 +17,13 @@
 #ifndef HOROVOD_CUDA_OPERATIONS_H
 #define HOROVOD_CUDA_OPERATIONS_H
 
+#include <memory>
 #include <queue>
 #include <unordered_map>
 #include <vector>
 
 #include <cuda_runtime.h>
+#include <ThreadPool.h>
 
 #include "collective_operations.h"
 
@@ -99,6 +101,7 @@ protected:
   void* host_buffer_;
 
   struct CUDAContext* cuda_context_;
+  std::unique_ptr<ThreadPool> finalizer_pool_;
 };
 
 } // namespace common

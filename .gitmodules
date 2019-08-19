@@ -52,3 +52,6 @@
 [submodule "third_party/HTTPRequest"]
 	path = third_party/HTTPRequest
 	url = https://github.com/elnormous/HTTPRequest
+[submodule "third_party/ThreadPool"]
+	path = third_party/ThreadPool
+	url = https://github.com/progschj/ThreadPool

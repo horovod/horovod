@@ -94,7 +94,8 @@ void CUDAContext::WaitForEvents(std::queue<std::pair<std::string, cudaEvent_t>>&
 
 CUDAAllreduce::CUDAAllreduce(CUDAContext* context,
                              HorovodGlobalState* global_state)
-    : AllreduceOp(global_state), cuda_context_(context) {}
+    : AllreduceOp(global_state), cuda_context_(context),
+      finalizer_pool_(std::unique_ptr<ThreadPool>(new ThreadPool(1))) {}
 
 bool CUDAAllreduce::Enabled(const ParameterManager& param_manager,
                             const std::vector<TensorTableEntry>& entries,
@@ -161,9 +162,8 @@ Status CUDAAllreduce::FinalizeCUDAQueue(const std::vector<TensorTableEntry>& ent
   auto fusion_buffer = global_state_->fusion_buffer.GetBuffer(
       first_entry.device, first_entry.context->framework(), global_state_->current_nccl_stream);
 
-  // TODO: use thread pool or single thread for callbacks
-  std::thread finalizer_thread([entries, first_entry, host_buffer, fusion_buffer,
-                                event_queue, &timeline, &cuda_context]() mutable {
+  finalizer_pool_->enqueue([entries, first_entry, host_buffer, fusion_buffer,
+                            event_queue, &timeline, &cuda_context]() mutable {
     auto cuda_result = cudaSetDevice(first_entry.device);
     cuda_context->ErrorCheck("cudaSetDevice", cuda_result);
 
@@ -177,8 +177,6 @@ Status CUDAAllreduce::FinalizeCUDAQueue(const std::vector<TensorTableEntry>& ent
       e.callback(Status::OK());
     }
   });
-
-  finalizer_thread.detach();
 
   // Update current stream
   global_state_->current_nccl_stream = (global_state_->current_nccl_stream + 1) %
