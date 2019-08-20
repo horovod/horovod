@@ -93,6 +93,9 @@ struct HorovodGlobalState {
   // Index of current CUDA stream to use
   int current_nccl_stream = 0;
 
+  // Chunk size to use when pipelining hierarchical allreduce operations in kilobytes
+  int64_t hierarchical_allreduce_chunk_size_kb = 0;
+
   // A LibType indicating what framework we are using to perform CPU operations.
   LibType cpu_operation;
 

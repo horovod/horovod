@@ -423,6 +423,13 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     state.parameter_manager.SetHierarchicalAllreduce(value, true);
   }
 
+  auto horovod_hierarchical_allreduce_chunk_size_kb =
+      std::getenv(HOROVOD_HIERARCHICAL_ALLREDUCE_CHUNK_SIZE_KB);
+  if (horovod_hierarchical_allreduce_chunk_size_kb != nullptr) {
+    int64_t value = std::strtol(horovod_hierarchical_allreduce_chunk_size_kb, nullptr, 10);
+    state.hierarchical_allreduce_chunk_size_kb = value;
+  }
+
 #if HOROVOD_GPU_ALLREDUCE != 'N' && HOROVOD_GPU_ALLREDUCE != 'D'
   // Hierarchical allreduce is not supported without NCCL or DDL
   state.parameter_manager.SetHierarchicalAllreduce(false, true);
