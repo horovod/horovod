@@ -90,9 +90,9 @@ RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
         PYTORCH_CUDA=$(echo ${CUDA_DOCKER_VERSION} | awk -F- '{print $1}' | sed 's/\.//'); \
         pip install torch_nightly -v -f https://download.pytorch.org/whl/nightly/cu${PYTORCH_CUDA}/torch_nightly.html; \
     else \
-        pip install ${PYTORCH_PACKAGE} -f https://download.pytorch.org/whl/torch_stable.html; \
+        pip install ${PYTORCH_PACKAGE}; \
     fi
-RUN pip install ${TORCHVISION_PACKAGE} Pillow --no-deps -f https://download.pytorch.org/whl/torch_stable.html
+RUN pip install ${TORCHVISION_PACKAGE} Pillow --no-deps
 
 # Install MXNet.
 RUN pip install ${MXNET_PACKAGE}

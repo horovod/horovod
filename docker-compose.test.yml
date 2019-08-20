@@ -198,8 +198,8 @@ services:
         PYTHON_VERSION: 2.7
         TENSORFLOW_PACKAGE: tf-nightly-2.0-preview
         KERAS_PACKAGE: keras==2.2.4
-        PYTORCH_PACKAGE: torch==1.2.0+cpu
-        TORCHVISION_PACKAGE: torchvision==0.4.0+cpu
+        PYTORCH_PACKAGE: https://download.pytorch.org/whl/cpu/torch-1.2.0%2Bcpu-cp27-cp27mu-manylinux1_x86_64.whl
+        TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cpu/torchvision-0.4.0%2Bcpu-cp27-cp27mu-manylinux1_x86_64.whl
         MXNET_PACKAGE: mxnet==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.0
   test-cpu-openmpi-py3_5-tf2_0_0-keras2_2_4-torch1_2_0-mxnet1_5_0-pyspark2_4_0:
@@ -210,8 +210,8 @@ services:
         PYTHON_VERSION: 3.5
         TENSORFLOW_PACKAGE: tf-nightly-2.0-preview
         KERAS_PACKAGE: keras==2.2.4
-        PYTORCH_PACKAGE: torch==1.2.0+cpu
-        TORCHVISION_PACKAGE: torchvision==0.4.0+cpu
+        PYTORCH_PACKAGE: https://download.pytorch.org/whl/cpu/torch-1.2.0%2Bcpu-cp35-cp35m-manylinux1_x86_64.whl
+        TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cpu/torchvision-0.4.0%2Bcpu-cp35-cp35m-manylinux1_x86_64.whl
         MXNET_PACKAGE: mxnet==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.0
   test-cpu-openmpi-py3_6-tf2_0_0-keras2_2_4-torch1_2_0-mxnet1_5_0-pyspark2_4_0:
@@ -223,8 +223,8 @@ services:
         PYTHON_VERSION: 3.6
         TENSORFLOW_PACKAGE: tf-nightly-2.0-preview
         KERAS_PACKAGE: keras==2.2.4
-        PYTORCH_PACKAGE: torch==1.2.0+cpu
-        TORCHVISION_PACKAGE: torchvision==0.4.0+cpu
+        PYTORCH_PACKAGE: https://download.pytorch.org/whl/cpu/torch-1.2.0%2Bcpu-cp36-cp36m-manylinux1_x86_64.whl
+        TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cpu/torchvision-0.4.0%2Bcpu-cp36-cp36m-manylinux1_x86_64.whl
         MXNET_PACKAGE: mxnet==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.0
   test-cpu-openmpi-py2_7-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0:
@@ -402,8 +402,8 @@ services:
         PYTHON_VERSION: 2.7
         TENSORFLOW_PACKAGE: tf-nightly-gpu-2.0-preview
         KERAS_PACKAGE: keras==2.2.4
-        PYTORCH_PACKAGE: torch==1.2.0
-        TORCHVISION_PACKAGE: torchvision==0.4.0
+        PYTORCH_PACKAGE: https://download.pytorch.org/whl/cu100/torch-1.2.0-cp27-cp27mu-manylinux1_x86_64.whl
+        TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cu100/torchvision-0.4.0-cp27-cp27mu-manylinux1_x86_64.whl
         MXNET_PACKAGE: mxnet-cu100==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.0
   test-gpu-openmpi-py3_6-tf2_0_0-keras2_2_4-torch1_2_0-mxnet1_5_0-pyspark2_4_0:
@@ -415,8 +415,8 @@ services:
         PYTHON_VERSION: 3.6
         TENSORFLOW_PACKAGE: tf-nightly-gpu-2.0-preview
         KERAS_PACKAGE: keras==2.2.4
-        PYTORCH_PACKAGE: torch==1.2.0
-        TORCHVISION_PACKAGE: torchvision==0.4.0
+        PYTORCH_PACKAGE: https://download.pytorch.org/whl/cu100/torch-1.2.0-cp36-cp36m-manylinux1_x86_64.whl
+        TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cu100/torchvision-0.4.0-cp36-cp36m-manylinux1_x86_64.whl
         MXNET_PACKAGE: mxnet-cu100==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.0
   test-gpu-openmpi-py2_7-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0:

@@ -108,9 +108,9 @@ RUN pip install future typing
 RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
         pip install torch_nightly -v -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html; \
     else \
-        pip install ${PYTORCH_PACKAGE} -f https://download.pytorch.org/whl/torch_stable.html; \
+        pip install ${PYTORCH_PACKAGE}; \
     fi
-RUN pip install ${TORCHVISION_PACKAGE} Pillow --no-deps -f https://download.pytorch.org/whl/torch_stable.html
+RUN pip install ${TORCHVISION_PACKAGE} Pillow --no-deps
 
 # Install MXNet.
 RUN pip install ${MXNET_PACKAGE}
