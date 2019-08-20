@@ -8,9 +8,9 @@ ARG MPI_KIND=OpenMPI
 ARG PYTHON_VERSION=2.7
 ARG TENSORFLOW_PACKAGE=tensorflow==1.14.0
 ARG KERAS_PACKAGE=keras==2.2.4
-ARG PYTORCH_PACKAGE=torch==1.1.0
-ARG TORCHVISION_PACKAGE=https://download.pytorch.org/whl/cpu/torchvision-0.3.0-cp27-cp27mu-linux_x86_64.whl
-ARG MXNET_PACKAGE=mxnet==1.4.1
+ARG PYTORCH_PACKAGE=torch==1.2.0+cpu
+ARG TORCHVISION_PACKAGE=torchvision==0.4.0+cpu
+ARG MXNET_PACKAGE=mxnet==1.5.0
 ARG PYSPARK_PACKAGE=pyspark==2.4.0
 
 # Set default shell to /bin/bash
@@ -108,9 +108,9 @@ RUN pip install future typing
 RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
         pip install torch_nightly -v -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html; \
     else \
-        pip install ${PYTORCH_PACKAGE}; \
+        pip install ${PYTORCH_PACKAGE} -f https://download.pytorch.org/whl/torch_stable.html; \
     fi
-RUN pip install ${TORCHVISION_PACKAGE} Pillow --no-deps
+RUN pip install ${TORCHVISION_PACKAGE} Pillow --no-deps -f https://download.pytorch.org/whl/torch_stable.html
 
 # Install MXNet.
 RUN pip install ${MXNET_PACKAGE}

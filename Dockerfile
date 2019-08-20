@@ -2,8 +2,8 @@ FROM nvidia/cuda:10.0-devel-ubuntu18.04
 
 # TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
 ENV TENSORFLOW_VERSION=1.14.0
-ENV PYTORCH_VERSION=1.1.0
-ENV TORCHVISION_VERSION=0.3.0
+ENV PYTORCH_VERSION=1.2.0
+ENV TORCHVISION_VERSION=0.4.0
 ENV CUDNN_VERSION=7.6.0.64-1+cuda10.0
 ENV NCCL_VERSION=2.4.7-1+cuda10.0
 ENV MXNET_VERSION=1.5.0
@@ -50,8 +50,7 @@ RUN pip install numpy \
         tensorflow-gpu==${TENSORFLOW_VERSION} \
         keras \
         h5py
-RUN pip install https://download.pytorch.org/whl/cu100/torch-${PYTORCH_VERSION}-$(python -c "import wheel.pep425tags as w; print('-'.join(w.get_supported()[0]))").whl \
-        https://download.pytorch.org/whl/cu100/torchvision-${TORCHVISION_VERSION}-$(python -c "import wheel.pep425tags as w; print('-'.join(w.get_supported()[0]))").whl
+RUN pip install -f https://download.pytorch.org/whl/torch_stable.html torch==${PYTORCH_VERSION} torchvision==${TORCHVISION_VERSION}
 RUN pip install mxnet-cu100==${MXNET_VERSION}
 
 # Install Open MPI
