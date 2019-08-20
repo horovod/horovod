@@ -263,16 +263,16 @@ class CheckBuildAction(argparse.Action):
     def __call__(self, parser, args, values, option_string=None):
         output = '''\
         Horovod v{version}:
-        
+
         Available Frameworks:
           [{tensorflow}] TensorFlow
           [{torch}] PyTorch
           [{mxnet}] MXNet
-        
+
         Available Controllers:
           [{mpi}] MPI
           [{gloo}] Gloo
-          
+
         Available Tensor Operations:
           [{nccl_ops}] NCCL
           [{ddl_ops}] DDL
@@ -484,28 +484,24 @@ def run():
         if settings.verbose >= 2:
             print('Local interface found ' + ' '.join(common_intfs))
 
-    have_mpi = mpi_built()
-    have_gloo = gloo_built()
-
-    if not args.use_gloo and not args.use_mpi:
-        if have_mpi:
-            args.use_mpi = True
-        elif have_gloo:
-            args.use_gloo = True
-        else:
-            raise ValueError('Neither MPI nor Gloo support has been built. Try reinstalling Horovod ensuring that '
-                             'either MPI is installed (MPI) or CMake is installed (Gloo).')
-
     if args.use_gloo:
-        if not have_gloo:
+        if not gloo_built():
             raise ValueError('Gloo support has not been built.  If this is not expected, ensure CMake is installed '
                              'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
         gloo_run(settings, remote_host_names, common_intfs)
     elif args.use_mpi:
-        if not have_mpi:
+        if not mpi_built():
             raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
                              'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.')
         mpi_run(settings, common_intfs)
+    else:
+        if mpi_built():
+            mpi_run(settings, common_intfs)
+        elif gloo_built():
+            gloo_run(settings, remote_host_names, common_intfs)
+        else:
+            raise ValueError('Neither MPI nor Gloo support has been built. Try reinstalling Horovod ensuring that '
+                             'either MPI is installed (MPI) or CMake is installed (Gloo).')
 
 
 if __name__ == '__main__':

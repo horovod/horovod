@@ -16,6 +16,7 @@
 
 from contextlib import contextmanager
 import importlib
+from multiprocessing import Process, Queue
 import os
 import sysconfig
 
@@ -50,49 +51,77 @@ def check_extension(ext_name, ext_env_var, pkg_path, *args):
             'Horovod with %s=1 to debug the build error.' % (ext_name, ext_env_var))
 
 
-def get_extension_module(ext_base_name):
+def _get_extension_module(ext_base_name):
     try:
         return importlib.import_module('.' + ext_base_name, 'horovod')
     except:
         return None
 
 
+def _check_extension_lambda(ext_base_name, fn):
+    """
+    Tries to load the extension in a new process.  If successful, puts fn(ext)
+    to the queue or False otherwise.  Mutes all stdout/stderr.
+    """
+    def _target_fn(ext_base_name, fn, queue):
+        import importlib
+        import sys
+
+        # Suppress output
+        sys.stdout = open(os.devnull, 'w')
+        sys.stderr = open(os.devnull, 'w')
+
+        try:
+            ext = _get_extension_module(ext_base_name)
+            queue.put(fn(ext))
+        except:
+            queue.put(False)
+
+    queue = Queue()
+    p = Process(target=_target_fn, args=(ext_base_name, fn, queue))
+    p.daemon = True
+    p.start()
+    p.join()
+    return queue.get_nowait() or False
+
+
 def extension_available(ext_base_name):
-    return get_extension_module(ext_base_name) is not None
-
-
-def get_available_extensions():
-    exts = [get_extension_module(ext_base_name) for ext_base_name in EXTENSIONS]
-    return [ext for ext in exts if ext is not None]
+    available_fn = lambda ext: True
+    return _check_extension_lambda(ext_base_name, available_fn)
 
 
 def mpi_built():
-    for ext in get_available_extensions():
-        return ext.mpi_built()
+    for ext_base_name in EXTENSIONS:
+        built_fn = lambda ext: ext.mpi_built()
+        return _check_extension_lambda(ext_base_name, built_fn)
     return False
 
 
 def gloo_built():
-    for ext in get_available_extensions():
-        return ext.gloo_built()
+    for ext_base_name in EXTENSIONS:
+        built_fn = lambda ext: ext.gloo_built()
+        return _check_extension_lambda(ext_base_name, built_fn)
     return False
 
 
 def nccl_built():
-    for ext in get_available_extensions():
-        return ext.nccl_built()
+    for ext_base_name in EXTENSIONS:
+        built_fn = lambda ext: ext.nccl_built()
+        return _check_extension_lambda(ext_base_name, built_fn)
     return False
 
 
 def ddl_built():
-    for ext in get_available_extensions():
-        return ext.ddl_built()
+    for ext_base_name in EXTENSIONS:
+        built_fn = lambda ext: ext.ddl_built()
+        return _check_extension_lambda(ext_base_name, built_fn)
     return False
 
 
 def mlsl_built():
-    for ext in get_available_extensions():
-        return ext.mlsl_built()
+    for ext_base_name in EXTENSIONS:
+        built_fn = lambda ext: ext.mlsl_built()
+        return _check_extension_lambda(ext_base_name, built_fn)
     return False
 
 
