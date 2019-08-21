@@ -390,7 +390,7 @@ def run():
 
     host_list = args.hosts.split(',')
     all_host_names = []
-    pattern = re.compile(r'^[\w-]+:\d+$')
+    pattern = re.compile(r'^[\w.-]+:\d+$')
     for host in host_list:
         if not pattern.match(host.strip()):
             raise ValueError('Invalid host input, please make sure it has '
