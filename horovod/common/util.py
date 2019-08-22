@@ -51,77 +51,100 @@ def check_extension(ext_name, ext_env_var, pkg_path, *args):
             'Horovod with %s=1 to debug the build error.' % (ext_name, ext_env_var))
 
 
-def _get_extension_module(ext_base_name):
-    try:
-        return importlib.import_module('.' + ext_base_name, 'horovod')
-    except:
-        return None
-
-
-def _check_extension_lambda(ext_base_name, fn):
+def _check_extension_lambda(ext_base_name, fn, fn_desc, verbose):
     """
     Tries to load the extension in a new process.  If successful, puts fn(ext)
     to the queue or False otherwise.  Mutes all stdout/stderr.
     """
-    def _target_fn(ext_base_name, fn, queue):
+    def _target_fn(ext_base_name, fn, fn_desc, queue, verbose):
         import importlib
         import sys
+        import traceback
 
-        # Suppress output
-        sys.stdout = open(os.devnull, 'w')
-        sys.stderr = open(os.devnull, 'w')
+        if verbose:
+            print('Checking whether extension {ext_base_name} was {fn_desc}.'.format(
+                ext_base_name=ext_base_name, fn_desc=fn_desc))
+        else:
+            # Suppress output
+            sys.stdout = open(os.devnull, 'w')
+            sys.stderr = open(os.devnull, 'w')
 
         try:
-            ext = _get_extension_module(ext_base_name)
-            queue.put(fn(ext))
+            ext = importlib.import_module('.' + ext_base_name, 'horovod')
+            result = fn(ext)
         except:
-            queue.put(False)
+            traceback.print_exc()
+            result = None
+
+        if verbose:
+            print('Extension {ext_base_name} {flag} {fn_desc}.'.format(
+                ext_base_name=ext_base_name, flag=('was' if result else 'was NOT'),
+                fn_desc=fn_desc))
+
+        queue.put(result)
 
     queue = Queue()
-    p = Process(target=_target_fn, args=(ext_base_name, fn, queue))
+    p = Process(target=_target_fn,
+                args=(ext_base_name, fn, fn_desc, queue, verbose))
     p.daemon = True
     p.start()
     p.join()
-    return queue.get_nowait() or False
+    return queue.get_nowait()
 
 
-def extension_available(ext_base_name):
-    available_fn = lambda ext: True
-    return _check_extension_lambda(ext_base_name, available_fn)
+def extension_available(ext_base_name, verbose=False):
+    available_fn = lambda ext: ext is not None
+    return _check_extension_lambda(
+        ext_base_name, available_fn, 'built', verbose) or False
 
 
-def mpi_built():
+def mpi_built(verbose=False):
     for ext_base_name in EXTENSIONS:
         built_fn = lambda ext: ext.mpi_built()
-        return _check_extension_lambda(ext_base_name, built_fn)
+        result = _check_extension_lambda(
+            ext_base_name, built_fn, 'built with MPI', verbose)
+        if result is not None:
+            return result
     return False
 
 
-def gloo_built():
+def gloo_built(verbose=False):
     for ext_base_name in EXTENSIONS:
         built_fn = lambda ext: ext.gloo_built()
-        return _check_extension_lambda(ext_base_name, built_fn)
+        result = _check_extension_lambda(
+            ext_base_name, built_fn, 'built with Gloo', verbose)
+        if result is not None:
+            return result
     return False
 
 
-def nccl_built():
+def nccl_built(verbose=False):
     for ext_base_name in EXTENSIONS:
         built_fn = lambda ext: ext.nccl_built()
-        return _check_extension_lambda(ext_base_name, built_fn)
+        result = _check_extension_lambda(
+            ext_base_name, built_fn, 'built with NCCL', verbose)
+        if result is not None:
+            return result
     return False
 
 
-def ddl_built():
+def ddl_built(verbose=False):
     for ext_base_name in EXTENSIONS:
         built_fn = lambda ext: ext.ddl_built()
-        return _check_extension_lambda(ext_base_name, built_fn)
+        result = _check_extension_lambda(
+            ext_base_name, built_fn, 'built with DDL', verbose)
+        if result is not None:
+            return result
     return False
 
 
-def mlsl_built():
+def mlsl_built(verbose=False):
     for ext_base_name in EXTENSIONS:
         built_fn = lambda ext: ext.mlsl_built()
-        return _check_extension_lambda(ext_base_name, built_fn)
+        result = _check_extension_lambda(
+            ext_base_name, built_fn, 'built with MLSL', verbose)
+        if result is not None:
+            return result
     return False
 
 
