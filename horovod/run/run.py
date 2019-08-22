@@ -258,44 +258,52 @@ def _driver_fn(all_host_names, local_host_names, settings):
     finally:
         driver.shutdown()
 
-
-class CheckBuildAction(argparse.Action):
-    def __call__(self, parser, args, values, option_string=None):
-        output = '''\
-        Horovod v{version}:
-
-        Available Frameworks:
-          [{tensorflow}] TensorFlow
-          [{torch}] PyTorch
-          [{mxnet}] MXNet
-
-        Available Controllers:
-          [{mpi}] MPI
-          [{gloo}] Gloo
-
-        Available Tensor Operations:
-          [{nccl_ops}] NCCL
-          [{ddl_ops}] DDL
-          [{mlsl_ops}] MLSL
-          [{mpi_ops}] MPI
-          [{gloo_ops}] Gloo\
-        '''.format(version=horovod.__version__,
-                   tensorflow=CheckBuildAction.get_check(extension_available('tensorflow')),
-                   torch=CheckBuildAction.get_check(extension_available('torch')),
-                   mxnet=CheckBuildAction.get_check(extension_available('mxnet')),
-                   mpi=CheckBuildAction.get_check(mpi_built()),
-                   gloo=CheckBuildAction.get_check(gloo_built()),
-                   nccl_ops=CheckBuildAction.get_check(nccl_built()),
-                   ddl_ops=CheckBuildAction.get_check(ddl_built()),
-                   mpi_ops=CheckBuildAction.get_check(mpi_built()),
-                   mlsl_ops=CheckBuildAction.get_check(mlsl_built()),
-                   gloo_ops=CheckBuildAction.get_check(gloo_built()))
-        print(textwrap.dedent(output))
-        os._exit(0)
-
-    @staticmethod
+def check_build(verbose):
     def get_check(value):
         return 'X' if value else ' '
+
+    output = '''{verbose_newline}\
+    Horovod v{version}:
+
+    Available Frameworks:
+        [{tensorflow}] TensorFlow
+        [{torch}] PyTorch
+        [{mxnet}] MXNet
+
+    Available Controllers:
+        [{mpi}] MPI
+        [{gloo}] Gloo
+
+    Available Tensor Operations:
+        [{nccl_ops}] NCCL
+        [{ddl_ops}] DDL
+        [{mlsl_ops}] MLSL
+        [{mpi_ops}] MPI
+        [{gloo_ops}] Gloo\
+    '''.format(verbose_newline='\n' if verbose else '',
+               version=horovod.__version__,
+               tensorflow=get_check(extension_available('tensorflow', verbose=verbose)),
+               torch=get_check(extension_available('torch', verbose=verbose)),
+               mxnet = get_check(extension_available('mxnet', verbose=verbose)),
+               mpi=get_check(mpi_built(verbose=verbose)),
+               gloo=get_check(gloo_built(verbose=verbose)),
+               nccl_ops=get_check(nccl_built(verbose=verbose)),
+               ddl_ops=get_check(ddl_built(verbose=verbose)),
+               mpi_ops=get_check(mpi_built(verbose=verbose)),
+               mlsl_ops=get_check(mlsl_built(verbose=verbose)),
+               gloo_ops=get_check(gloo_built(verbose=verbose)))
+    print(textwrap.dedent(output))
+    os._exit(0)
+
+
+def make_check_build_action(np_arg):
+    class CheckBuildAction(argparse.Action):
+        def __call__(self, parser, args, values, option_string=None):
+            # If -cb is specified, make -np optional
+            np_arg.required = False
+            args.check_build = True
+
+    return CheckBuildAction
 
 
 def parse_args():
@@ -304,12 +312,12 @@ def parse_args():
     parser.add_argument('-v', '--version', action='version', version=horovod.__version__,
                         help='Shows Horovod version.')
 
-    parser.add_argument('-cb', '--check-build', action=CheckBuildAction, nargs=0,
-                        help='Shows which frameworks and libraries have been built into Horovod.')
+    np_arg = parser.add_argument('-np', '--num-proc', action='store', dest='np',
+                                 type=int, required=True,
+                                 help='Total number of training processes.')
 
-    parser.add_argument('-np', '--num-proc', action='store', dest='np',
-                        type=int, required=True,
-                        help='Total number of training processes.')
+    parser.add_argument('-cb', '--check-build', action=make_check_build_action(np_arg), nargs=0,
+                        help='Shows which frameworks and libraries have been built into Horovod.')
 
     parser.add_argument('-p', '--ssh-port', action='store', dest='ssh_port',
                         type=int, help='SSH port on all the hosts.')
@@ -361,9 +369,7 @@ def parse_args():
                                   help='Run Horovod using the MPI controller. This will '
                                        'be the default if Horovod was built with MPI support.')
 
-    parsed_args = parser.parse_args()
-
-    return parsed_args
+    return parser.parse_args()
 
 
 def parse_host_files(filename):
@@ -378,6 +384,9 @@ def parse_host_files(filename):
 
 def run():
     args = parse_args()
+
+    if args.check_build:
+        check_build(args.verbose)
 
     # if hosts are not specified, either parse from hostfile, or default as
     # localhost
@@ -485,19 +494,19 @@ def run():
             print('Local interface found ' + ' '.join(common_intfs))
 
     if args.use_gloo:
-        if not gloo_built():
+        if not gloo_built(verbose=(settings.verbose >= 2)):
             raise ValueError('Gloo support has not been built.  If this is not expected, ensure CMake is installed '
                              'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
         gloo_run(settings, remote_host_names, common_intfs)
     elif args.use_mpi:
-        if not mpi_built():
+        if not mpi_built(verbose=(settings.verbose >= 2)):
             raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
                              'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.')
         mpi_run(settings, common_intfs)
     else:
-        if mpi_built():
+        if mpi_built(verbose=(settings.verbose >= 2)):
             mpi_run(settings, common_intfs)
-        elif gloo_built():
+        elif gloo_built(verbose=(settings.verbose >= 2)):
             gloo_run(settings, remote_host_names, common_intfs)
         else:
             raise ValueError('Neither MPI nor Gloo support has been built. Try reinstalling Horovod ensuring that '
