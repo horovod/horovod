@@ -57,7 +57,7 @@ def set_args_from_config(args, config):
     # Autotune
     autotune = config.get('autotune')
     if autotune:
-        _set_arg_from_config(args, 'autotune', autotune)
+        args.autotune = autotune.get('enabled', False)
         _set_arg_from_config(args, 'log_file', autotune, arg_prefix='autotune_')
         _set_arg_from_config(args, 'warmup_samples', autotune, arg_prefix='autotune_')
         _set_arg_from_config(args, 'batches_per_sample', autotune, arg_prefix='autotune_')
@@ -74,22 +74,39 @@ def set_args_from_config(args, config):
     stall_check = config.get('stall_check')
     if stall_check:
         args.stall_check_disable = not stall_check.get('enabled', True)
-        _set_arg_from_config(args, 'stall_check_warning_time_seconds', stall_check,
-                             arg_prefix='stall_check_')
-        _set_arg_from_config(args, 'stall_check_shutdown_time_seconds', stall_check,
-                             arg_prefix='stall_check_')
+        _set_arg_from_config(args, 'warning_time_seconds', stall_check, arg_prefix='stall_check_')
+        _set_arg_from_config(args, 'shutdown_time_seconds', stall_check, arg_prefix='stall_check_')
 
     # Library Options
     library_options = config.get('library_options')
     if library_options:
-        _set_arg_from_config(args, 'mpi_threads_enabled', library_options)
+        _set_arg_from_config(args, 'mpi_threads_disable', library_options)
         _set_arg_from_config(args, 'num_nccl_streams', library_options)
         _set_arg_from_config(args, 'mlsl_bgt_affinity', library_options)
 
 
+def _validate_arg_nonnegative(args, arg_name):
+    value = getattr(args, arg_name)
+    if value < 0:
+        raise ValueError('{}={} must be >= 0'.format(arg_name, value))
+
+
 def validate_config_args(args):
-    if args.fusion_threshold_mb < 0:
-        raise ValueError('fusion_threshold_mb {} must be > 0'.format(args.fusion_threshold_mb))
+    _validate_arg_nonnegative(args, 'fusion_threshold_mb')
+    _validate_arg_nonnegative(args, 'cycle_time_ms')
+    _validate_arg_nonnegative(args, 'cache_capacity')
+    _validate_arg_nonnegative(args, 'autotune_warmup_samples')
+    _validate_arg_nonnegative(args, 'autotune_batches_per_sample')
+    _validate_arg_nonnegative(args, 'autotune_bayes_opt_max_samples')
+
+    if args.autotune_gaussian_process_noise < 0 or args.autotune_gaussian_process_noise > 1:
+        raise ValueError('{}={} must be in [0, 1]'.format('autotune_gaussian_process_noise',
+                                                          args.autotune_gaussian_process_noise))
+
+    _validate_arg_nonnegative(args, 'stall_check_warning_time_seconds')
+    _validate_arg_nonnegative(args, 'stall_check_shutdown_time_seconds')
+    _validate_arg_nonnegative(args, 'num_nccl_streams')
+    _validate_arg_nonnegative(args, 'mlsl_bgt_affinity')
 
 
 def _add_arg_to_env(env, env_key, arg_value, transform_fn=None):
@@ -103,9 +120,6 @@ def _add_arg_to_env(env, env_key, arg_value, transform_fn=None):
 def set_env_from_args(env, args):
     def identity(value):
         return 1 if value else 0
-
-    def complement(value):
-        return 0 if value else 1
 
     # Params
     _add_arg_to_env(env, HOROVOD_FUSION_THRESHOLD, args.fusion_threshold_mb, lambda v: v * 1024 * 1024)
@@ -129,12 +143,12 @@ def set_env_from_args(env, args):
         _add_arg_to_env(env, HOROVOD_TIMELINE_MARK_CYCLES, args.timeline_mark_cycles)
 
     # Stall Check
-    _add_arg_to_env(env, HOROVOD_STALL_CHECK_DISABLE, args.stall_check_enabled, complement)
+    _add_arg_to_env(env, HOROVOD_STALL_CHECK_DISABLE, args.stall_check_disable, identity)
     _add_arg_to_env(env, HOROVOD_STALL_CHECK_TIME_SECONDS, args.stall_check_warning_time_seconds)
     _add_arg_to_env(env, HOROVOD_STALL_SHUTDOWN_TIME_SECONDS, args.stall_check_shutdown_time_seconds)
 
     # Library Options
-    _add_arg_to_env(env, HOROVOD_MPI_THREADS_DISABLE, args.mpi_threads_enabled, complement)
+    _add_arg_to_env(env, HOROVOD_MPI_THREADS_DISABLE, args.mpi_threads_disable, identity)
     _add_arg_to_env(env, HOROVOD_NUM_NCCL_STREAMS, args.num_nccl_streams)
     _add_arg_to_env(env, HOROVOD_MLSL_BGT_AFFINITY, args.mlsl_bgt_affinity)
 

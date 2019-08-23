@@ -354,7 +354,7 @@ def parse_args():
     group_params.add_argument('--fusion-threshold-mb', action='store', type=int, default=64,
                               help='Fusion buffer threshold in MB. This is the maximum amount of '
                                    'tensor data that can be fused together into a single batch '
-                                   'during allreduce / allgather.')
+                                   'during allreduce / allgather. Setting 0 disables tensor fusion.')
     group_params.add_argument('--cycle-time-ms', action='store', type=float, default=5,
                               help='Cycle time in ms. This is the delay between each tensor fusion '
                                    'cycle. The larger the cycle time, the more batching, but the '
@@ -415,7 +415,7 @@ def parse_args():
                                         'place if this value is greater than the warning time.')
 
     group_library_options = parser.add_argument_group('library arguments')
-    group_library_options.add_argument('--mpi-threads-disabled', action='store_true',
+    group_library_options.add_argument('--mpi-threads-disable', action='store_true',
                                        help='Disable MPI threading support. Only applies when running in MPI '
                                             'mode. In some cases, multi-threaded MPI can slow down other components, '
                                             'but is necessary if you wish to run mpi4py on top of Horovod.')
@@ -450,7 +450,15 @@ def parse_args():
                                   help='Run Horovod using the MPI controller. This will '
                                        'be the default if Horovod was built with MPI support.')
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if args.param_file:
+        with open(args.param_file, 'r') as f:
+            config = yaml.load(f, Loader=yaml.FullLoader)
+        config_parser.set_args_from_config(args, config)
+    config_parser.validate_config_args(args)
+
+    return args
 
 
 def parse_host_files(filename):
@@ -573,12 +581,6 @@ def run():
 
         if settings.verbose >= 2:
             print('Local interface found ' + ' '.join(common_intfs))
-
-    if args.param_file:
-        with open(args.param_file, 'r') as f:
-            config = yaml.load(f)
-        config_parser.set_args_from_config(args, config)
-    config_parser.validate_config_args(args)
 
     env = os.environ.copy()
     config_parser.set_env_from_args(env, args)
