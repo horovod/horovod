@@ -221,7 +221,7 @@ def gloo_run(settings, remote_host_names, common_intfs):
         'HOROVOD_GLOO_RENDEZVOUS_PORT={port} '
         'HOROVOD_CONTROLLER=gloo '
         'HOROVOD_CPU_OPERATIONS=gloo '
-        'HOROVOD_IFACE={iface} '
+        'HOROVOD_GLOO_IFACE={iface} '
         'NCCL_SOCKET_IFNAME={common_intfs} '
         '{command}'  # expect a lot of environment variables
         .format(addr=server_ip,
