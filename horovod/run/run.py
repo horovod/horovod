@@ -27,6 +27,7 @@ except ImportError:
 import horovod
 
 import six
+import yaml
 
 from horovod.common.util import (extension_available,
                                  gloo_built, mpi_built,
@@ -381,13 +382,18 @@ def parse_args():
                                      'score of the trial. The last row will always contain the best value '
                                      'found.')
     group_autotune.add_argument('--autotune-warmup-samples', action='store', type=int, default=3,
-                                help='')
-    group_autotune.add_argument('--autotune-cycles-per-sample', action='store', type=int, default=10,
-                                help='')
+                                help='Number of samples to discard before beginning the optimization process '
+                                     'during autotuning. Performance during the first few batches can be '
+                                     'affected by initialization and cache warmups.')
+    group_autotune.add_argument('--autotune-batches-per-sample', action='store', type=int, default=10,
+                                help='Number of batches (approximate) to record before observing a sample. The sample '
+                                     'score is defined to be the median score over all batches within the sample. The '
+                                     'more batches per sample, the less variance in sample scores, but the longer '
+                                     'autotuning will take.')
     group_autotune.add_argument('--autotune-bayes-opt-max-samples', action='store', type=int, default=20,
-                                help='')
+                                help='Maximum number of samples to collect for each Bayesian optimization process.')
     group_autotune.add_argument('--autotune-gaussian-process-noise', action='store', type=float, default=0.8,
-                                help='')
+                                help='Regularization value [0, 1] applied to account for noise in samples.')
 
     group_timeline = parser.add_argument_group('timeline arguments')
     group_timeline.add_argument('--timeline-filename', action='store',
@@ -399,12 +405,25 @@ def parse_args():
                                      'is provided.')
 
     group_stall_check = parser.add_argument_group('stall check arguments')
-    group_stall_check.add_argument('--stall-check-disable', action='store_false',
-                                   help='Disable the stall check.')
+    group_stall_check.add_argument('--stall-check-disable', action='store_true',
+                                   help='Disable the stall check. The stall check will log a warning when workers '
+                                        'have stalled waiting for other ranks to submit tensors.')
     group_stall_check.add_argument('--stall-check-warning-time-seconds', type=int, default=60,
-                                   help='')
+                                   help='Seconds until the stall warning is logged to stderr.')
     group_stall_check.add_argument('--stall-check-shutdown-time-seconds', type=int, default=0,
-                                   help='')
+                                   help='Seconds until Horovod is shutdown due to stall. Shutdown will only take '
+                                        'place if this value is greater than the warning time.')
+
+    group_library_options = parser.add_argument_group('library arguments')
+    group_library_options.add_argument('--mpi-threads-disabled', action='store_true',
+                                       help='Disable MPI threading support. Only applies when running in MPI '
+                                            'mode. In some cases, multi-threaded MPI can slow down other components, '
+                                            'but is necessary if you wish to run mpi4py on top of Horovod.')
+    group_library_options.add_argument('--num-nccl-streams', type=int, default=1,
+                                       help='Number of NCCL streams. Only applies when running with NCCL support.')
+    group_library_options.add_argument('--mlsl-bgt-affinity', type=int, default=0,
+                                       help='MLSL background thread affinity. Only applies when running with MLSL '
+                                            'support.')
 
     parser.add_argument('--param-file', action='store', dest='param_file',
                         help='Path to YAML file containing runtime parameter configuration for Horovod.')
@@ -556,24 +575,29 @@ def run():
             print('Local interface found ' + ' '.join(common_intfs))
 
     if args.param_file:
-        config_parser.config_yaml_to_args(args)
+        with open(args.param_file, 'r') as f:
+            config = yaml.load(f)
+        config_parser.set_args_from_config(args, config)
     config_parser.validate_config_args(args)
+
+    env = os.environ.copy()
+    config_parser.set_env_from_args(env, args)
 
     if args.use_gloo:
         if not gloo_built(verbose=(settings.verbose >= 2)):
             raise ValueError('Gloo support has not been built.  If this is not expected, ensure CMake is installed '
                              'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
-        gloo_run(settings, remote_host_names, common_intfs)
+        gloo_run(settings, remote_host_names, common_intfs, env)
     elif args.use_mpi:
         if not mpi_built(verbose=(settings.verbose >= 2)):
             raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
                              'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.')
-        mpi_run(settings, common_intfs)
+        mpi_run(settings, common_intfs, env)
     else:
         if mpi_built(verbose=(settings.verbose >= 2)):
-            mpi_run(settings, common_intfs)
+            mpi_run(settings, common_intfs, env)
         elif gloo_built(verbose=(settings.verbose >= 2)):
-            gloo_run(settings, remote_host_names, common_intfs)
+            gloo_run(settings, remote_host_names, common_intfs, env)
         else:
             raise ValueError('Neither MPI nor Gloo support has been built. Try reinstalling Horovod ensuring that '
                              'either MPI is installed (MPI) or CMake is installed (Gloo).')

@@ -11,7 +11,7 @@ autotune:
   enabled: false
   log_file: 'horovod_autotune_log.txt'
   warmup_samples: 3
-  cycles_per_sample: 10
+  batches_per_sample: 10
   bayes_opt_max_samples: 20
   gaussian_process_noise: 0.8
 

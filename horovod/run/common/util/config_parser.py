@@ -1,5 +1,3 @@
-import yaml
-
 # Parameter knobs
 HOROVOD_FUSION_THRESHOLD = 'HOROVOD_FUSION_THRESHOLD'
 HOROVOD_CYCLE_TIME = 'HOROVOD_CYCLE_TIME'
@@ -30,16 +28,13 @@ HOROVOD_NUM_NCCL_STREAMS = 'HOROVOD_NUM_NCCL_STREAMS'
 HOROVOD_MLSL_BGT_AFFINITY = 'HOROVOD_MLSL_BGT_AFFINITY'
 
 
-def _set_arg_from_config(args, arg_name, config):
-    value = config.get(arg_name)
+def _set_arg_from_config(args, arg_base_name, config, arg_prefix=''):
+    value = config.get(arg_base_name)
     if value is not None:
-        setattr(args, arg_name, value)
+        setattr(args, arg_prefix + arg_base_name, value)
 
 
-def config_yaml_to_args(args):
-    with open(args.param_file, 'r') as f:
-        config = yaml.load(f)
-
+def set_args_from_config(args, config):
     # Controller
     controller = config.get('controller')
     if controller:
@@ -63,31 +58,33 @@ def config_yaml_to_args(args):
     autotune = config.get('autotune')
     if autotune:
         _set_arg_from_config(args, 'autotune', autotune)
-        _set_arg_from_config(args, 'autotune_log_file', autotune)
-        _set_arg_from_config(args, 'autotune_warmup_samples', autotune)
-        _set_arg_from_config(args, 'autotune_cycles_per_sample', autotune)
-        _set_arg_from_config(args, 'autotune_bayes_opt_max_samples', autotune)
-        _set_arg_from_config(args, 'autotune_gaussian_process_noise', autotune)
+        _set_arg_from_config(args, 'log_file', autotune, arg_prefix='autotune_')
+        _set_arg_from_config(args, 'warmup_samples', autotune, arg_prefix='autotune_')
+        _set_arg_from_config(args, 'batches_per_sample', autotune, arg_prefix='autotune_')
+        _set_arg_from_config(args, 'bayes_opt_max_samples', autotune, arg_prefix='autotune_')
+        _set_arg_from_config(args, 'gaussian_process_noise', autotune, arg_prefix='autotune_')
 
     # Timeline
     timeline = config.get('timeline')
-    if timeline:
-        _set_arg_from_config(args, 'timeline_filename', timeline)
-        _set_arg_from_config(args, 'timeline_mark_cycles', timeline)
+    if timeline and timeline.get('enabled'):
+        _set_arg_from_config(args, 'filename', timeline, arg_prefix='timeline_')
+        _set_arg_from_config(args, 'mark_cycles', timeline, arg_prefix='timeline_')
 
     # Stall Check
     stall_check = config.get('stall_check')
     if stall_check:
-        _set_arg_from_config(args, 'stall_check_enabled', stall_check)
-        _set_arg_from_config(args, 'stall_check_warning_time_seconds', stall_check)
-        _set_arg_from_config(args, 'stall_check_shutdown_time_seconds', stall_check)
+        args.stall_check_disable = not stall_check.get('enabled', True)
+        _set_arg_from_config(args, 'stall_check_warning_time_seconds', stall_check,
+                             arg_prefix='stall_check_')
+        _set_arg_from_config(args, 'stall_check_shutdown_time_seconds', stall_check,
+                             arg_prefix='stall_check_')
 
     # Library Options
     library_options = config.get('library_options')
     if library_options:
-        _set_arg_from_config(args, 'mpi_threads_enabled', stall_check)
-        _set_arg_from_config(args, 'num_nccl_streams', stall_check)
-        _set_arg_from_config(args, 'mlsl_bgt_affinity', stall_check)
+        _set_arg_from_config(args, 'mpi_threads_enabled', library_options)
+        _set_arg_from_config(args, 'num_nccl_streams', library_options)
+        _set_arg_from_config(args, 'mlsl_bgt_affinity', library_options)
 
 
 def validate_config_args(args):
@@ -103,9 +100,7 @@ def _add_arg_to_env(env, env_key, arg_value, transform_fn=None):
         env[env_key] = value
 
 
-def to_env(args):
-    env = {}
-
+def set_env_from_args(env, args):
     def identity(value):
         return 1 if value else 0
 
@@ -124,7 +119,7 @@ def to_env(args):
         _add_arg_to_env(env, HOROVOD_AUTOTUNE, args.autotune, identity)
         _add_arg_to_env(env, HOROVOD_AUTOTUNE_LOG, args.autotune_log_file)
         _add_arg_to_env(env, HOROVOD_AUTOTUNE_WARMUP_SAMPLES, args.autotune_warmup_samples)
-        _add_arg_to_env(env, HOROVOD_AUTOTUNE_CYCLES_PER_SAMPLE, args.autotune_cycles_per_sample)
+        _add_arg_to_env(env, HOROVOD_AUTOTUNE_CYCLES_PER_SAMPLE, args.autotune_batches_per_sample)
         _add_arg_to_env(env, HOROVOD_AUTOTUNE_BAYES_OPT_MAX_SAMPLES, args.autotune_bayes_opt_max_samples)
         _add_arg_to_env(env, HOROVOD_AUTOTUNE_GAUSSIAN_PROCESS_NOISE, args.autotune_gaussian_process_noise)
 
