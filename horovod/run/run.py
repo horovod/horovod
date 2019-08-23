@@ -18,7 +18,6 @@ import argparse
 import hashlib
 import os
 import sys
-import six
 import re
 import textwrap
 try:
@@ -27,10 +26,12 @@ except ImportError:
     from pipes import quote
 import horovod
 
+import six
+
 from horovod.common.util import (extension_available,
                                  gloo_built, mpi_built,
                                  nccl_built, ddl_built, mlsl_built)
-from horovod.run.common.util import codec, safe_shell_exec, timeout, secret
+from horovod.run.common.util import codec, config_parser, safe_shell_exec, timeout, secret
 from horovod.run.common.util import settings as hvd_settings
 from horovod.run.driver import driver_service
 from horovod.run.task import task_service
@@ -258,6 +259,7 @@ def _driver_fn(all_host_names, local_host_names, settings):
     finally:
         driver.shutdown()
 
+
 def check_build(verbose):
     def get_check(value):
         return 'X' if value else ' '
@@ -346,6 +348,66 @@ def parse_args():
 
     parser.add_argument('command', nargs=argparse.REMAINDER,
                         help='Command to be executed.')
+
+    group_params = parser.add_argument_group('parameter arguments')
+    group_params.add_argument('--fusion-threshold-mb', action='store', type=int, default=64,
+                              help='Fusion buffer threshold in MB. This is the maximum amount of '
+                                   'tensor data that can be fused together into a single batch '
+                                   'during allreduce / allgather.')
+    group_params.add_argument('--cycle-time-ms', action='store', type=float, default=5,
+                              help='Cycle time in ms. This is the delay between each tensor fusion '
+                                   'cycle. The larger the cycle time, the more batching, but the '
+                                   'greater latency between each allreduce / allgather operations.')
+    group_params.add_argument('--cache-capacity', action='store', type=int, default=1024,
+                              help='Maximum number of tensor names that will be cached to reduce amount '
+                                   'of coordination required between workers before performing allreduce / '
+                                   'allgather.')
+    group_params.add_argument('--hierarchical-allreduce', action='store_true',
+                              help='Perform hierarchical allreduce between workers instead of ring allreduce. '
+                                   'Hierarchical allreduce performs a local allreduce / gather within a host, then '
+                                   'a parallel cross allreduce between equal local ranks across workers, and '
+                                   'finally a local gather.')
+    group_params.add_argument('--hierarchical-allgather', action='store_true',
+                              help='Perform hierarchical allgather between workers instead of ring allgather. See '
+                                   'hierarchical allreduce for algorithm details.')
+
+    group_autotune = parser.add_argument_group('autotune arguments')
+    group_autotune.add_argument('--autotune', action='store_true',
+                                help='Perform autotuning to select parameter argument values that maximimize '
+                                     'throughput for allreduce / allgather. Any parameter explicitly set will '
+                                     'be held constant during tuning.')
+    group_autotune.add_argument('--autotune-log-file', action='store',
+                                help='Comma-separated log of trials containing each hyperparameter and the '
+                                     'score of the trial. The last row will always contain the best value '
+                                     'found.')
+    group_autotune.add_argument('--autotune-warmup-samples', action='store', type=int, default=3,
+                                help='')
+    group_autotune.add_argument('--autotune-cycles-per-sample', action='store', type=int, default=10,
+                                help='')
+    group_autotune.add_argument('--autotune-bayes-opt-max-samples', action='store', type=int, default=20,
+                                help='')
+    group_autotune.add_argument('--autotune-gaussian-process-noise', action='store', type=float, default=0.8,
+                                help='')
+
+    group_timeline = parser.add_argument_group('timeline arguments')
+    group_timeline.add_argument('--timeline-filename', action='store',
+                                help='JSON file containing timeline of Horovod events used for debugging '
+                                     'performance. If this is provided, timeline events will be recorded, '
+                                     'which can have a negative impact on training performance.')
+    group_timeline.add_argument('--timeline-mark-cycles', action='store_true',
+                                help='Mark cycles on the timeline. Only enabled if the timeline filename '
+                                     'is provided.')
+
+    group_stall_check = parser.add_argument_group('stall check arguments')
+    group_stall_check.add_argument('--stall-check-disable', action='store_false',
+                                   help='Disable the stall check.')
+    group_stall_check.add_argument('--stall-check-warning-time-seconds', type=int, default=60,
+                                   help='')
+    group_stall_check.add_argument('--stall-check-shutdown-time-seconds', type=int, default=0,
+                                   help='')
+
+    parser.add_argument('--param-file', action='store', dest='param_file',
+                        help='Path to YAML file containing runtime parameter configuration for Horovod.')
 
     group_hosts_parent = parser.add_argument_group('host arguments')
     group_hosts = group_hosts_parent.add_mutually_exclusive_group()
@@ -492,6 +554,10 @@ def run():
 
         if settings.verbose >= 2:
             print('Local interface found ' + ' '.join(common_intfs))
+
+    if args.param_file:
+        config_parser.config_yaml_to_args(args)
+    config_parser.validate_config_args(args)
 
     if args.use_gloo:
         if not gloo_built(verbose=(settings.verbose >= 2)):
