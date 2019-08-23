@@ -216,6 +216,38 @@ int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
 }
 #endif
 
+void WaitAndClear(int handle) {
+  while (!handle_manager.PollHandle(handle)) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  auto status = handle_manager.ReleaseHandle(handle);
+  ThrowIfError(*status);
+}
+
+int DoJoin(int device) {
+  ThrowIfError(common::CheckInitialized());
+
+  auto handle = handle_manager.AllocateHandle();
+  auto ready_event = RecordReadyEvent(device);
+
+  auto hvd_cpu_buffer =
+      std::make_shared<TorchTemporaryBuffer<DataType::HOROVOD_INT64, DeviceType::CPU, THLongTensor>>(
+          CPU_DEVICE_ID);
+  auto hvd_context = std::make_shared<TorchOpContext<DataType::HOROVOD_INT64, DeviceType::CPU, THLongTensor>>(
+      CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
+
+  auto enqueue_result = EnqueueJoin(
+      hvd_context, ready_event,
+      "join.noname", device,
+      [handle](const Status& status) mutable {
+        handle_manager.MarkDone(handle, status);
+      });
+  ThrowIfError(enqueue_result);
+
+  WaitAndClear(handle);
+  return handle;
+}
+
 #define ALLREDUCE(torch_Tensor, HorovodType, DeviceType, THTensor)             \
   extern "C" int horovod_torch_allreduce_async_##torch_Tensor(                 \
       THTensor* tensor, THTensor* output, int average, char* name) {           \
@@ -385,6 +417,10 @@ BROADCAST_CUDA_ON_CPU(torch_cuda_FloatTensor, DataType::HOROVOD_FLOAT32,
 BROADCAST_CUDA_ON_CPU(torch_cuda_DoubleTensor, DataType::HOROVOD_FLOAT64,
                       THCudaDoubleTensor, THDoubleTensor)
 #endif
+
+extern "C" int horovod_torch_join(int device) {
+  return DoJoin(device);
+}
 
 extern "C" int horovod_torch_poll(int handle) {
   return handle_manager.PollHandle(handle) ? 1 : 0;

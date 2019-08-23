@@ -95,6 +95,9 @@ namespace common {
 // Device ID used for CPU.
 #define CPU_DEVICE_ID (-1)
 
+// Temporary tensor name for ranks that did Join().
+#define JOIN_TENSOR_NAME "join.noname"
+
 // List of supported frameworks.
 enum Framework { TENSORFLOW, PYTORCH, MXNET };
 

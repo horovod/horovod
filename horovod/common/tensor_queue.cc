@@ -69,26 +69,80 @@ TensorQueue::GetTensorDataForAutotuner(const ResponseList& response_list,
 // Parse tensor names from response and generate a vector of corresponding
 // tensor entries.
 void TensorQueue::GetTensorEntriesFromResponse(
-    Response& response, std::vector<TensorTableEntry>& entries) {
+    Response& response, std::vector<TensorTableEntry>& entries,
+    int rank, bool joined, int join_device) {
   // Reserve to save re-allocation costs, as we know the size before.
   entries.reserve(response.tensor_names().size());
   {
     // Lock on the tensor table.
     std::lock_guard<std::mutex> guard(mutex_);
     for (auto& name : response.tensor_names()) {
-      // We should never fail at finding this key in the tensor table.
-      auto iter = tensor_table_.find(name);
-      assert(iter != tensor_table_.end());
-
       assert(response.response_type() == Response::ALLREDUCE ||
              response.response_type() == Response::ALLGATHER ||
              response.response_type() == Response::BROADCAST ||
              response.response_type() == Response::ERROR);
 
-      entries.push_back(std::move(iter->second));
+      if (!joined) {
+        // We should never fail at finding this key in the tensor table.
+        auto iter = tensor_table_.find(name);
+        assert(iter != tensor_table_.end());
 
-      // Clear the tensor table of this tensor.
-      tensor_table_.erase(iter);
+        entries.push_back(std::move(iter->second));
+
+        // Clear the tensor table of this tensor.
+        tensor_table_.erase(iter);
+      } else {
+        TensorTableEntry entry;
+        switch (response.tensor_type()) {
+        case HOROVOD_UINT8:
+          entry.tensor = std::make_shared<JoinTensor<HOROVOD_UINT8, uint8_t>>(
+              join_device, response.tensor_sizes()[0]);
+          break;
+        case HOROVOD_INT8:
+          entry.tensor = std::make_shared<JoinTensor<HOROVOD_INT8, int8_t>>(
+              join_device, response.tensor_sizes()[0]);
+          break;
+        case HOROVOD_UINT16:
+          entry.tensor = std::make_shared<JoinTensor<HOROVOD_UINT16, uint16_t>>(
+              join_device, response.tensor_sizes()[0]);
+          break;
+        case HOROVOD_INT16:
+          entry.tensor = std::make_shared<JoinTensor<HOROVOD_INT16, int16_t>>(
+              join_device, response.tensor_sizes()[0]);
+          break;
+        case HOROVOD_INT32:
+          entry.tensor = std::make_shared<JoinTensor<HOROVOD_INT32, int32_t>>(
+              join_device, response.tensor_sizes()[0]);
+          break;
+        case HOROVOD_INT64:
+          entry.tensor = std::make_shared<JoinTensor<HOROVOD_INT64, int64_t>>(
+              join_device, response.tensor_sizes()[0]);
+          break;
+        case HOROVOD_FLOAT16:
+          entry.tensor = std::make_shared<JoinTensor<HOROVOD_FLOAT16, float>>(
+              join_device, response.tensor_sizes()[0]);
+          break;
+        case HOROVOD_FLOAT32:
+          entry.tensor = std::make_shared<JoinTensor<HOROVOD_FLOAT32, float>>(
+              join_device, response.tensor_sizes()[0]);
+          break;
+        case HOROVOD_FLOAT64:
+          entry.tensor = std::make_shared<JoinTensor<HOROVOD_FLOAT64, double>>(
+              join_device, response.tensor_sizes()[0]);
+          break;
+        case HOROVOD_BOOL:
+          entry.tensor = std::make_shared<JoinTensor<HOROVOD_BOOL, bool>>(
+              join_device, response.tensor_sizes()[0]);
+          break;
+        default:
+          throw std::logic_error("Unknown tensor data type");
+        }
+
+        entry.output = entry.tensor;
+        entry.device = join_device;
+        entry.tensor_name = name;
+        entries.push_back(std::move(entry));
+      }
     }
   }
 }
@@ -114,10 +168,81 @@ void TensorQueue::PopMessagesFromQueue(
   }
 }
 
-// Push a message to massage queue
+// Push a message to message queue
 void TensorQueue::PushMessageToQueue(Request& message) {
   std::lock_guard<std::mutex> guard(mutex_);
   message_queue_.push(std::move(message));
+}
+
+// Remove JoinOp tensor from the table and execute the callback
+void TensorQueue::RemoveJoinTensor() {
+  // Lock on the tensor table.
+  std::lock_guard<std::mutex> guard(mutex_);
+  auto iter = tensor_table_.find(JOIN_TENSOR_NAME);
+  assert(iter != tensor_table_.end());
+  auto& e = iter->second;
+  Status status;
+  e.callback(status);
+  tensor_table_.erase(iter);
+}
+
+template <DataType DT, class T>
+JoinTensor<DT, T>::JoinTensor(int device, int64_t num_elements) {
+  num_elements_ = num_elements;
+  device_ = device;
+  if (device_ == CPU_DEVICE_ID) {
+    buffer_data_ = new T[num_elements_];
+    for (int i = 0; i < num_elements_; i++) {
+      buffer_data_[i] = 0;
+    }
+  } else {
+#if HAVE_CUDA
+    cudaSetDevice(device_);
+    cudaMalloc(&buffer_data_, size());
+    auto tmp = new T[num_elements_];
+    for (int i = 0; i < num_elements_; i++) {
+      tmp[i] = 0;
+    }
+    cudaMemcpy(buffer_data_, tmp, size(), cudaMemcpyHostToDevice);
+    delete[] tmp;
+#else
+    throw std::logic_error("Internal error. Requested Join "
+                           "with GPU device but not compiled with CUDA.");
+#endif
+  }
+}
+
+template <DataType DT, class T> JoinTensor<DT, T>::~JoinTensor() {
+  if (device_ == CPU_DEVICE_ID) {
+    delete[] buffer_data_;
+  } else {
+#if HAVE_CUDA
+    cudaFree(buffer_data_);
+#else
+    throw std::logic_error("Internal error. Requested Join "
+                           "with GPU device but not compiled with CUDA.");
+#endif
+  }
+}
+
+template <DataType DT, class T>
+const DataType JoinTensor<DT, T>::dtype() const {
+  return DT;
+}
+
+template <DataType DT, class T>
+const TensorShape JoinTensor<DT, T>::shape() const {
+  TensorShape shape;
+  shape.AddDim(num_elements_);
+  return shape;
+}
+
+template <DataType DT, class T> const void* JoinTensor<DT, T>::data() const {
+  return (void*)buffer_data_;
+}
+
+template <DataType DT, class T> int64_t JoinTensor<DT, T>::size() const {
+  return num_elements_ * sizeof(T);
 }
 
 } // namespace common

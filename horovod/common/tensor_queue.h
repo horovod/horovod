@@ -22,6 +22,10 @@
 
 #include "common.h"
 
+#if HAVE_CUDA
+#include <cuda_runtime.h>
+#endif
+
 namespace horovod {
 namespace common {
 
@@ -37,13 +41,17 @@ public:
                                     std::vector<std::string>& tensor_names);
 
   void GetTensorEntriesFromResponse(Response& response,
-                                    std::vector<TensorTableEntry>& entries);
+                                    std::vector<TensorTableEntry>& entries,
+                                    int rank = 0, bool joined = false,
+                                    int join_device = CPU_DEVICE_ID);
 
   const TensorTableEntry& GetTensorEntry(const std::string& tensor_name) const;
 
   void PopMessagesFromQueue(std::deque<Request>& message_queue_buffer);
 
   void PushMessageToQueue(Request& message);
+
+  void RemoveJoinTensor();
 
 protected:
   // Tensors waiting to be allreduced or allgathered.
@@ -55,6 +63,22 @@ protected:
   // A mutex that needs to be used whenever operations on message queue are
   // done.
   mutable std::mutex mutex_;
+};
+
+template <DataType DT, class T>
+class JoinTensor : public Tensor {
+public:
+  JoinTensor(int device, int64_t num_elements);
+  ~JoinTensor();
+  virtual const DataType dtype() const override;
+  virtual const TensorShape shape() const override;
+  virtual const void* data() const override;
+  virtual int64_t size() const override;
+
+private:
+  int64_t num_elements_;
+  int device_;
+  T* buffer_data_;
 };
 
 } // namespace common

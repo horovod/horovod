@@ -138,7 +138,7 @@ class TorchTests(unittest.TestCase):
             assert max_difference <= threshold, 'hvd.allreduce produces incorrect results'
 
     def test_horovod_allreduce_average(self):
-        """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
+        """Test that the allreduce correctly averages 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
         dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
@@ -1385,6 +1385,51 @@ class TorchTests(unittest.TestCase):
             assert False, 'hvd.DistributedOptimizer did not throw error'
         except ValueError:
             pass
+
+    def test_horovod_join_allreduce(self):
+        """Test Join op with allreduce."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                     torch.FloatTensor, torch.DoubleTensor])
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
+            if _fp16_supported:
+                dtypes += [torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        first_join_ranks = [0, 1]
+        for dtype, dim, first_join_rank in itertools.product(dtypes, dims, first_join_ranks):
+            if rank == first_join_rank:
+                if dtype.is_cuda:
+                    ret = hvd.join(hvd.local_rank())
+                else:
+                    ret = hvd.join()
+            else:
+                torch.manual_seed(1234)
+                tensor = torch.FloatTensor(*([17] * dim)).random_(-100, 100)
+                tensor = self.cast_and_place(tensor, dtype)
+                averaged = hvd.allreduce(tensor, average=True)
+                if dtype.is_cuda:
+                    ret = hvd.join(hvd.local_rank())
+                else:
+                    ret = hvd.join()
+
+                max_difference = averaged.data.sub(tensor * (size - 1) / size).max()
+                # Threshold for floating point equality depends on number of
+                # ranks, since we're comparing against precise multiplication.
+                if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
+                                        torch.cuda.IntTensor, torch.cuda.LongTensor]:
+                    threshold = 0
+                elif size < 10:
+                    threshold = 1e-4
+                elif size < 15:
+                    threshold = 5e-4
+                else:
+                    break
+                assert max_difference <= threshold, 'hovd.join with hvd.allreduce produces incorrect results'
 
 if __name__ == "__main__":
    unittest.main()

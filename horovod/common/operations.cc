@@ -200,17 +200,28 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   }
 #endif
 
+  std::shared_ptr<JoinOp> join_op(new JoinOp(&state));
   std::shared_ptr<ErrorOp> error_op(new ErrorOp(&state));
 
   return new OperationManager(&state.parameter_manager, allreduce_ops,
-                              allgather_ops, broadcast_ops, error_op);
+                              allgather_ops, broadcast_ops, join_op, error_op);
 }
 
 // Process a Response by doing a reduction, a gather, a broadcast, or
 // raising an error.
-void PerformOperation(Response response) {
+void PerformOperation(Response response, HorovodGlobalState& state) {
+  if (response.response_type() == Response::JOIN) {
+    if (!state.joined) {
+      return;
+    } else {
+      horovod_global.tensor_queue.RemoveJoinTensor();
+      state.joined = false;
+      return;
+    }
+  }
+
   std::vector<TensorTableEntry> entries;
-  horovod_global.tensor_queue.GetTensorEntriesFromResponse(response, entries);
+  horovod_global.tensor_queue.GetTensorEntriesFromResponse(response, entries, state.controller->GetRank(), state.joined, state.join_device);
 
   auto& timeline = horovod_global.timeline;
   for (auto& e : entries) {
@@ -231,7 +242,9 @@ void PerformOperation(Response response) {
     if (!status.ok()) {
       for (auto& e : entries) {
         timeline.End(e.tensor_name, nullptr);
-        e.callback(status);
+        if (!state.joined) {
+          e.callback(status);
+        }
       }
       return;
     }
@@ -273,7 +286,9 @@ void PerformOperation(Response response) {
   if (!status.in_progress()) {
     for (auto& e : entries) {
       timeline.End(e.tensor_name, status.ok() ? e.output : nullptr);
-      e.callback(status);
+      if (!state.joined) {
+        e.callback(status);
+      }
     }
   }
 }
@@ -515,7 +530,7 @@ bool RunLoopOnce(HorovodGlobalState& state) {
   }
 
   auto response_list =
-      state.controller->ComputeResponseList(horovod_global.shut_down);
+      state.controller->ComputeResponseList(horovod_global.shut_down, state);
 
   // Get tensor name and size data for autotuning.
   int64_t total_tensor_size = 0;
@@ -532,7 +547,7 @@ bool RunLoopOnce(HorovodGlobalState& state) {
     LOG(TRACE, rank) << "Performing " << response.tensor_names_string();
     LOG(DEBUG, rank) << "Processing " << response.tensor_names().size()
                      << " tensors";
-    PerformOperation(response);
+    PerformOperation(response, horovod_global);
     LOG(TRACE, rank) << "Finished performing "
                      << response.tensor_names_string();
   }
@@ -828,6 +843,34 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   e.tensor = tensor;
   e.output = output;
   e.root_rank = root_rank;
+  e.ready_event = ready_event;
+  e.device = device;
+  e.callback = callback;
+
+  if (horovod_global.shut_down) {
+    return SHUT_DOWN_ERROR;
+  }
+  Status status = horovod_global.tensor_queue.AddToTensorQueue(e, message);
+  if (status.ok()) {
+    LOG(TRACE, horovod_global.controller->GetRank()) << "Enqueued " << name;
+  }
+  return status;
+}
+
+// MPI must be initialized and the background thread must be running before
+// this function is called.
+Status EnqueueJoin(std::shared_ptr<OpContext> context,
+                   std::shared_ptr<ReadyEvent> ready_event,
+                   const std::string name, const int device,
+                   StatusCallback callback) {
+  Request message;
+  message.set_request_rank(horovod_global.controller->GetRank());
+  message.set_device(device);
+  message.set_request_type(Request::JOIN);
+
+  TensorTableEntry e;
+  e.tensor_name = name;
+  e.context = context;
   e.ready_event = ready_event;
   e.device = device;
   e.callback = callback;
