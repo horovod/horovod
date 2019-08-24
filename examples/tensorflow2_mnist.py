@@ -45,7 +45,7 @@ mnist_model = tf.keras.Sequential([
     tf.keras.layers.Dropout(0.5),
     tf.keras.layers.Dense(10, activation='softmax')
 ])
-loss = tf.losses.SparseCategoricalCrossentropy(from_logits=True)
+loss = tf.losses.SparseCategoricalCrossentropy()
 
 # Horovod: adjust learning rate based on number of GPUs.
 opt = tf.optimizers.Adam(0.001 * hvd.size())
@@ -57,8 +57,8 @@ checkpoint = tf.train.Checkpoint(model=mnist_model, optimizer=opt)
 @tf.function
 def training_step(images, labels, first_batch):
     with tf.GradientTape() as tape:
-        logits = mnist_model(images, training=True)
-        loss_value = loss(labels, logits)
+        probs = mnist_model(images, training=True)
+        loss_value = loss(labels, probs)
 
     # Horovod: add Horovod Distributed GradientTape.
     tape = hvd.DistributedGradientTape(tape)

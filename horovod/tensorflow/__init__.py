@@ -133,8 +133,8 @@ if _global_variables is not None:
         """
         if _executing_eagerly():
             raise RuntimeError(
-                "Eager Execution is not supported by `hvd.BroadcastGlobalVariablesHook`\n"
-                "We recommend using `hvd.DistributedGradientTape` instead"
+                "Eager Execution is not supported by `hvd.BroadcastGlobalVariablesHook`. "
+                "Please use `hvd.broadcast_variables(<model/optimizer variables>)` instead."
             )
 
         return broadcast_variables(_global_variables(), root_rank)
