@@ -69,8 +69,8 @@ target = tf.random_uniform([args.batch_size, 1], minval=0, maxval=999, dtype=tf.
 
 
 def loss_function():
-    probs = model(data, training=True)
-    return tf.losses.sparse_softmax_cross_entropy(target, probs)
+    logits = model(data, training=True)
+    return tf.losses.sparse_softmax_cross_entropy(target, logits)
 
 
 def log(s, nl=True):
