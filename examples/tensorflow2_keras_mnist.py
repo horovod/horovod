@@ -52,9 +52,11 @@ opt = tf.optimizers.Adam(0.001 * hvd.size())
 # Horovod: add Horovod DistributedOptimizer.
 opt = hvd.DistributedOptimizer(opt)
 
+# Horovod: Specify `run_eagerly=False` to ensure model is trained in graph mode.
 mnist_model.compile(loss=tf.losses.SparseCategoricalCrossentropy(),
                     optimizer=opt,
-                    metrics=['accuracy'])
+                    metrics=['accuracy'],
+                    run_eagerly=False)
 
 callbacks = [
     # Horovod: broadcast initial variable states from rank 0 to all other processes.
@@ -81,8 +83,6 @@ if hvd.rank() == 0:
 # Horovod: write logs on worker 0.
 verbose = 1 if hvd.rank() == 0 else 0
 
-# Horovod:
-# 1. Adjust number of steps based on number of GPUs.
-# 2. Specify `run_eagerly=False` to ensure model is trained in graph mode.
-mnist_model.fit(dataset, steps_per_epoch=500 // hvd.size(), callbacks=callbacks, epochs=24,
-                verbose=verbose, run_eagerly=False)
+# Train the model.
+# Horovod: adjust number of steps based on number of GPUs.
+mnist_model.fit(dataset, steps_per_epoch=500 // hvd.size(), callbacks=callbacks, epochs=24, verbose=verbose)

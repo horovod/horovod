@@ -68,7 +68,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
         def _fail_if_executing_eagerly(self):
             if hvd._executing_eagerly():
                   raise Exception('hvd.DistributedOptimizer() does not support eager '
-                                'execution. Please specify `run_eagerly=False` in `fit()`.')
+                                'execution. Please specify `run_eagerly=False` in `compile()`.')
 
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override get_gradients() method with an allreduce implementation.
