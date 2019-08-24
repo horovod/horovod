@@ -40,6 +40,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
             In DistributedOptimizer, get_gradients() is overriden to also
             allreduce the gradients before returning them.
             """
+            self._fail_if_executing_eagerly()
             gradients = super(self.__class__, self).get_gradients(loss, params)
             if hvd.size() > 1:
                 averaged_gradients = []
@@ -59,6 +60,15 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                     return averaged_gradients
             else:
                 return gradients
+
+        def apply_gradients(self, *args, **kwargs):
+            self._fail_if_executing_eagerly()
+            return super(self.__class__, self).apply_gradients(*args, **kwargs)
+
+        def _fail_if_executing_eagerly(self):
+            if hvd._executing_eagerly():
+                  raise Exception('hvd.DistributedOptimizer() does not support eager '
+                                'execution. Please specify `run_eagerly=False` in `fit()`.')
 
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override get_gradients() method with an allreduce implementation.
