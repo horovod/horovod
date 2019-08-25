@@ -250,7 +250,6 @@ if _LegacyOptimizer is not None:
             In DistributedOptimizer, compute_gradients() is overriden to also
             allreduce the gradients before returning them.
             """
-            self._fail_if_executing_eagerly()
             gradients = self._optimizer.compute_gradients(*args, **kwargs)
             if size() > 1:
                 grads, vars = zip(*gradients)
@@ -261,7 +260,6 @@ if _LegacyOptimizer is not None:
 
         def apply_gradients(self, *args, **kwargs):
             """Calls this same method on the underlying optimizer."""
-            self._fail_if_executing_eagerly()
             return self._optimizer.apply_gradients(*args, **kwargs)
 
         def get_slot(self, *args, **kwargs):
@@ -275,12 +273,6 @@ if _LegacyOptimizer is not None:
         def variables(self, *args, **kwargs):
             """Calls this same method on the underlying optimizer."""
             return self._optimizer.variables(*args, **kwargs)
-
-        def _fail_if_executing_eagerly(self):
-            if _executing_eagerly():
-                  raise Exception('hvd.DistributedOptimizer() does not support eager '
-                                'execution. Please use `hvd.DistributedGradientTape()` '
-                                'instead.')
 
 
 def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='',
