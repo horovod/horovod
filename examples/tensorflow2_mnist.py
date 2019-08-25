@@ -50,9 +50,6 @@ loss = tf.losses.SparseCategoricalCrossentropy()
 # Horovod: adjust learning rate based on number of GPUs.
 opt = tf.optimizers.Adam(0.001 * hvd.size())
 
-# Horovod: add Horovod Distributed Optimizer.
-opt = hvd.DistributedOptimizer(opt)
-
 checkpoint_dir = './checkpoints'
 checkpoint = tf.train.Checkpoint(model=mnist_model, optimizer=opt)
 
@@ -62,6 +59,9 @@ def training_step(images, labels, first_batch):
     with tf.GradientTape() as tape:
         probs = mnist_model(images, training=True)
         loss_value = loss(labels, probs)
+
+    # Horovod: add Horovod Distributed GradientTape.
+    tape = hvd.DistributedGradientTape(tape)
 
     grads = tape.gradient(loss_value, mnist_model.trainable_variables)
     opt.apply_gradients(zip(grads, mnist_model.trainable_variables))

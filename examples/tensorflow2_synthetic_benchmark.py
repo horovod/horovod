@@ -64,21 +64,22 @@ else:
 model = getattr(applications, args.model)(weights=None)
 opt = tf.optimizers.SGD(0.01)
 
-# Horovod: (optional) compression algorithm.
-compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
-
-# Horovod: add Horovod Distributed Optimizer.
-opt = hvd.DistributedOptimizer(opt, compression=compression)
-
 data = tf.random.uniform([args.batch_size, 224, 224, 3])
 target = tf.random.uniform([args.batch_size, 1], minval=0, maxval=999, dtype=tf.int64)
 
 
 @tf.function
 def benchmark_step(first_batch):
+    # Horovod: (optional) compression algorithm.
+    compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
+
+    # Horovod: use DistributedGradientTape
     with tf.GradientTape() as tape:
         probs = model(data, training=True)
         loss = tf.losses.categorical_crossentropy(target, probs)
+
+    # Horovod: add Horovod Distributed GradientTape.
+    tape = hvd.DistributedGradientTape(tape, compression=compression)
 
     gradients = tape.gradient(loss, model.trainable_variables)
     opt.apply_gradients(zip(gradients, model.trainable_variables))

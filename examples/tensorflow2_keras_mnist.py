@@ -52,9 +52,12 @@ opt = tf.optimizers.Adam(0.001 * hvd.size())
 # Horovod: add Horovod DistributedOptimizer.
 opt = hvd.DistributedOptimizer(opt)
 
+# Horovod: Specify `experimental_run_tf_function=False` to ensure TensorFlow
+# uses hvd.DistributedOptimizer() to compute gradients.
 mnist_model.compile(loss=tf.losses.SparseCategoricalCrossentropy(),
                     optimizer=opt,
-                    metrics=['accuracy'])
+                    metrics=['accuracy'],
+                    experimental_run_tf_function=False)
 
 callbacks = [
     # Horovod: broadcast initial variable states from rank 0 to all other processes.
