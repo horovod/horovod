@@ -94,6 +94,26 @@ example below:
 Other MPI RDMA implementations may or may not benefit from disabling multithreading, so please consult vendor
 documentation.
 
+Horovod Parameter Knobs
+-----------------------
+
+Many of the configurable parameters available as command line arguments to ``horovodrun`` can be used with ``mpirun``
+through the use of environment variables.
+
+Tensor Fusion:
+
+.. code-block:: bash
+
+    $ mpirun -x HOROVOD_FUSION_THRESHOLD=33554432 -x HOROVOD_CYCLE_TIME=3.5 ... python train.py
+
+Timeline:
+
+.. code-block:: bash
+
+    $ mpirun -x HOROVOD_TIMELINE=/path/to/timeline.json -x HOROVOD_TIMELINE_MARK_CYCLES=1 ... python train.py
+
+Note that when using ``horovodrun``, any command line arguments will override values set in the environment.
+
 Hangs due to non-routed network interfaces
 ------------------------------------------
 

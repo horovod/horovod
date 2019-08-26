@@ -9,12 +9,12 @@ Horovod has the ability to record the timeline of its activity, called Horovod T
    :alt: Horovod Timeline
 
 
-To record a Horovod Timeline, set the ``HOROVOD_TIMELINE`` environment variable to the location of the timeline
+To record a Horovod Timeline, set the ``--timeline-filename`` command line argument to the location of the timeline
 file to be created.  This file is only recorded on rank 0, but it contains information about activity of all workers.
 
 .. code-block:: bash
 
-    $ HOROVOD_TIMELINE=/path/to/timeline.json horovodrun -np 4 python train.py
+    $ horovodrun -np 4 --timeline-filename /path/to/timeline.json python train.py
 
 
 You can then open the timeline file using the ``chrome://tracing`` facility of the `Chrome <https://www.google.com/chrome/browser/>`__ browser.
@@ -49,13 +49,10 @@ Horovod performs work in cycles.  These cycles are used to aid `Tensor Fusion <h
    :alt: Cycle Markers
 
 
-Since this information makes timeline view very crowded, it is not enabled by default. To add cycle markers to the timeline, set the ``HOROVOD_TIMELINE_MARK_CYCLES`` environment variable to ``1``:
+Since this information makes timeline view very crowded, it is not enabled by default. To add cycle markers to the timeline, set the ``--timeline-mark-cycles`` flag:
 
 .. code-block:: bash
 
-    $ HOROVOD_TIMELINE=/path/to/timeline.json HOROVOD_TIMELINE_MARK_CYCLES=1 \
-    horovodrun -np 4 python train.py
-
-
+    $ horovodrun -np 4 --timeline-filename /path/to/timeline.json --timeline-mark-cycles python train.py
 
 .. inclusion-marker-end-do-not-remove

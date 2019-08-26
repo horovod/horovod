@@ -70,7 +70,7 @@ def set_args_from_config(args, config, override_args):
 
     # Timeline
     timeline = config.get('timeline')
-    if timeline and timeline.get('enabled'):
+    if timeline:
         _set_arg_from_config(args, 'filename', override_args, timeline, arg_prefix='timeline_')
         _set_arg_from_config(args, 'mark_cycles', override_args, timeline, arg_prefix='timeline_')
 

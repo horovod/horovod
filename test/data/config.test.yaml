@@ -16,7 +16,6 @@ autotune:
   gaussian_process_noise: 0.9
 
 timeline:
-  enabled: true
   filename: 'horovod_timeline.json'
   mark_cycles: true
 
