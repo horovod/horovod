@@ -130,10 +130,10 @@ class RunTests(unittest.TestCase):
             self.assertEqual(env[config_parser.HOROVOD_NUM_NCCL_STREAMS], 2)
             self.assertEqual(env[config_parser.HOROVOD_MLSL_BGT_AFFINITY], 1)
 
-    def test_param_file(self):
-        param_filename = os.path.join(os.path.dirname(__file__), 'data/config.test.yaml')
+    def test_config_file(self):
+        config_filename = os.path.join(os.path.dirname(__file__), 'data/config.test.yaml')
         with override_args('horovodrun', '-np', '2',
-                           '--param-file', param_filename):
+                           '--config-file', config_filename):
             args = run.parse_args()
 
             self.assertTrue(args.use_gloo)
@@ -166,6 +166,16 @@ class RunTests(unittest.TestCase):
             self.assertTrue(args.mpi_threads_disable)
             self.assertEqual(args.num_nccl_streams, 2)
             self.assertEqual(args.mlsl_bgt_affinity, 1)
+
+    def test_config_file_override_args(self):
+        config_filename = os.path.join(os.path.dirname(__file__), 'data/config.test.yaml')
+        with override_args('horovodrun', '-np', '2',
+                           '--fusion-threshold-mb', '128',
+                           '--config-file', config_filename,
+                           '--cycle-time-ms', '20',):
+            args = run.parse_args()
+            self.assertEqual(args.fusion_threshold_mb, 32)
+            self.assertEqual(args.cycle_time_ms, 20)
 
     def test_validate_config_args(self):
         with override_args('horovodrun', '-np', '2',

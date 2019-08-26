@@ -309,6 +309,13 @@ def make_check_build_action(np_arg):
     return CheckBuildAction
 
 
+class ParseConfigAction(argparse.Action):
+    def __call__(self, parser, args, values, option_string=None):
+        with open(values[0], 'r') as f:
+            config = yaml.load(f, Loader=yaml.FullLoader)
+        config_parser.set_args_from_config(args, config)
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Horovod Runner')
 
@@ -350,7 +357,12 @@ def parse_args():
     parser.add_argument('command', nargs=argparse.REMAINDER,
                         help='Command to be executed.')
 
-    group_params = parser.add_argument_group('parameter arguments')
+    parser.add_argument('--config-file', action=ParseConfigAction, dest='config_file', nargs=1,
+                        help='Path to YAML file containing runtime parameter configuration for Horovod. '
+                             'Note that this will override any command line arguments provided before '
+                             'this argument, and will be overridden by any arguments that come after it.')
+
+    group_params = parser.add_argument_group('tuneable parameter arguments')
     group_params.add_argument('--fusion-threshold-mb', action='store', type=int, default=64,
                               help='Fusion buffer threshold in MB. This is the maximum amount of '
                                    'tensor data that can be fused together into a single batch '
@@ -425,9 +437,6 @@ def parse_args():
                                        help='MLSL background thread affinity. Only applies when running with MLSL '
                                             'support.')
 
-    parser.add_argument('--param-file', action='store', dest='param_file',
-                        help='Path to YAML file containing runtime parameter configuration for Horovod.')
-
     group_hosts_parent = parser.add_argument_group('host arguments')
     group_hosts = group_hosts_parent.add_mutually_exclusive_group()
     group_hosts.add_argument('-H', '--hosts', action='store', dest='hosts',
@@ -452,10 +461,6 @@ def parse_args():
 
     args = parser.parse_args()
 
-    if args.param_file:
-        with open(args.param_file, 'r') as f:
-            config = yaml.load(f, Loader=yaml.FullLoader)
-        config_parser.set_args_from_config(args, config)
     config_parser.validate_config_args(args)
 
     return args
