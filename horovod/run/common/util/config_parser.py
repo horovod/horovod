@@ -28,16 +28,20 @@ HOROVOD_NUM_NCCL_STREAMS = 'HOROVOD_NUM_NCCL_STREAMS'
 HOROVOD_MLSL_BGT_AFFINITY = 'HOROVOD_MLSL_BGT_AFFINITY'
 
 
-def _set_arg_from_config(args, arg_base_name, config, arg_prefix=''):
+def _set_arg_from_config(args, arg_base_name, override_args, config, arg_prefix=''):
+    arg_name = arg_prefix + arg_base_name
+    if arg_name in override_args:
+        return
+
     value = config.get(arg_base_name)
     if value is not None:
-        setattr(args, arg_prefix + arg_base_name, value)
+        setattr(args, arg_name, value)
 
 
-def set_args_from_config(args, config):
+def set_args_from_config(args, config, override_args):
     # Controller
     controller = config.get('controller')
-    if controller:
+    if controller and not args.use_gloo and not args.use_mpi:
         if controller.lower() == 'gloo':
             args.use_gloo = True
         elif controller.lower() == 'mpi':
@@ -48,41 +52,42 @@ def set_args_from_config(args, config):
     # Params
     params = config.get('params')
     if params:
-        _set_arg_from_config(args, 'fusion_threshold_mb', params)
-        _set_arg_from_config(args, 'cycle_time_ms', params)
-        _set_arg_from_config(args, 'cache_capacity', params)
-        _set_arg_from_config(args, 'hierarchical_allreduce', params)
-        _set_arg_from_config(args, 'hierarchical_allgather', params)
+        _set_arg_from_config(args, 'fusion_threshold_mb', override_args, params)
+        _set_arg_from_config(args, 'cycle_time_ms', override_args, params)
+        _set_arg_from_config(args, 'cache_capacity', override_args, params)
+        _set_arg_from_config(args, 'hierarchical_allreduce', override_args, params)
+        _set_arg_from_config(args, 'hierarchical_allgather', override_args, params)
 
     # Autotune
     autotune = config.get('autotune')
     if autotune:
-        args.autotune = autotune.get('enabled', False)
-        _set_arg_from_config(args, 'log_file', autotune, arg_prefix='autotune_')
-        _set_arg_from_config(args, 'warmup_samples', autotune, arg_prefix='autotune_')
-        _set_arg_from_config(args, 'batches_per_sample', autotune, arg_prefix='autotune_')
-        _set_arg_from_config(args, 'bayes_opt_max_samples', autotune, arg_prefix='autotune_')
-        _set_arg_from_config(args, 'gaussian_process_noise', autotune, arg_prefix='autotune_')
+        args.autotune = autotune.get('enabled', False) if 'autotune' not in override_args else args.autotune
+        _set_arg_from_config(args, 'log_file', override_args, autotune, arg_prefix='autotune_')
+        _set_arg_from_config(args, 'warmup_samples', override_args, autotune, arg_prefix='autotune_')
+        _set_arg_from_config(args, 'batches_per_sample', override_args, autotune, arg_prefix='autotune_')
+        _set_arg_from_config(args, 'bayes_opt_max_samples', override_args, autotune, arg_prefix='autotune_')
+        _set_arg_from_config(args, 'gaussian_process_noise', override_args, autotune, arg_prefix='autotune_')
 
     # Timeline
     timeline = config.get('timeline')
     if timeline and timeline.get('enabled'):
-        _set_arg_from_config(args, 'filename', timeline, arg_prefix='timeline_')
-        _set_arg_from_config(args, 'mark_cycles', timeline, arg_prefix='timeline_')
+        _set_arg_from_config(args, 'filename', override_args, timeline, arg_prefix='timeline_')
+        _set_arg_from_config(args, 'mark_cycles', override_args, timeline, arg_prefix='timeline_')
 
     # Stall Check
     stall_check = config.get('stall_check')
     if stall_check:
-        args.stall_check_disable = not stall_check.get('enabled', True)
-        _set_arg_from_config(args, 'warning_time_seconds', stall_check, arg_prefix='stall_check_')
-        _set_arg_from_config(args, 'shutdown_time_seconds', stall_check, arg_prefix='stall_check_')
+        args.stall_check_disable = not stall_check.get('enabled', True) \
+            if 'stall_check_disable' not in override_args else args.stall_check_disable
+        _set_arg_from_config(args, 'warning_time_seconds', override_args, stall_check, arg_prefix='stall_check_')
+        _set_arg_from_config(args, 'shutdown_time_seconds', override_args, stall_check, arg_prefix='stall_check_')
 
     # Library Options
     library_options = config.get('library_options')
     if library_options:
-        _set_arg_from_config(args, 'mpi_threads_disable', library_options)
-        _set_arg_from_config(args, 'num_nccl_streams', library_options)
-        _set_arg_from_config(args, 'mlsl_bgt_affinity', library_options)
+        _set_arg_from_config(args, 'mpi_threads_disable', override_args, library_options)
+        _set_arg_from_config(args, 'num_nccl_streams', override_args, library_options)
+        _set_arg_from_config(args, 'mlsl_bgt_affinity', override_args, library_options)
 
 
 def _validate_arg_nonnegative(args, arg_name):
@@ -140,7 +145,7 @@ def set_env_from_args(env, args):
     # Timeline
     if args.timeline_filename:
         _add_arg_to_env(env, HOROVOD_TIMELINE, args.timeline_filename)
-        _add_arg_to_env(env, HOROVOD_TIMELINE_MARK_CYCLES, args.timeline_mark_cycles)
+        _add_arg_to_env(env, HOROVOD_TIMELINE_MARK_CYCLES, args.timeline_mark_cycles, identity)
 
     # Stall Check
     _add_arg_to_env(env, HOROVOD_STALL_CHECK_DISABLE, args.stall_check_disable, identity)
