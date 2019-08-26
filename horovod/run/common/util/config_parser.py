@@ -114,7 +114,7 @@ def _add_arg_to_env(env, env_key, arg_value, transform_fn=None):
         value = arg_value
         if transform_fn:
             value = transform_fn(value)
-        env[env_key] = value
+        env[env_key] = str(value)
 
 
 def set_env_from_args(env, args):
