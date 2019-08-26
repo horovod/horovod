@@ -26,7 +26,7 @@ namespace horovod {
 namespace common {
 
 #define DEFAULT_WARMUPS 3
-#define DEFAULT_CYCLES_PER_SAMPLE 10
+#define DEFAULT_STEPS_PER_SAMPLE 10
 #define DEFAULT_BAYES_OPT_MAX_SAMPLES 20
 #define DEFAULT_GAUSSIAN_PROCESS_NOISE 0.8
 
@@ -40,7 +40,7 @@ Eigen::VectorXd CreateVector(double x1, double x2) {
 // ParameterManager
 ParameterManager::ParameterManager() :
     warmups_(GetIntEnvOrDefault(HOROVOD_AUTOTUNE_WARMUP_SAMPLES, DEFAULT_WARMUPS)),
-    cycles_per_sample_(GetIntEnvOrDefault(HOROVOD_AUTOTUNE_CYCLES_PER_SAMPLE, DEFAULT_CYCLES_PER_SAMPLE)),
+    steps_per_sample_(GetIntEnvOrDefault(HOROVOD_AUTOTUNE_STEPS_PER_SAMPLE, DEFAULT_STEPS_PER_SAMPLE)),
     hierarchical_allreduce_(CategoricalParameter<bool>(std::vector<bool>{false, true})),
     hierarchical_allgather_(CategoricalParameter<bool>(std::vector<bool>{false, true})),
     cache_enabled_(CategoricalParameter<bool>(std::vector<bool>{false, true})),
@@ -146,8 +146,8 @@ bool ParameterManager::Update(const std::vector<std::string>& tensor_names,
   }
 
   for (const std::string& tensor_name : tensor_names) {
-    int32_t cycle = tensor_counts_[tensor_name]++;
-    if (cycle >= (sample_ + 1) * cycles_per_sample_) {
+    int32_t step = tensor_counts_[tensor_name]++;
+    if (step >= (sample_ + 1) * steps_per_sample_) {
       auto now = std::chrono::steady_clock::now();
       double duration = std::chrono::duration_cast<std::chrono::microseconds>(now - last_sample_start_).count();
       scores_[sample_] = total_bytes_ / duration;

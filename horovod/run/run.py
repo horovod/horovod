@@ -444,9 +444,9 @@ def parse_args():
                                 help='Number of samples to discard before beginning the optimization process '
                                      'during autotuning. Performance during the first few batches can be '
                                      'affected by initialization and cache warmups. (default: %(default)s)')
-    group_autotune.add_argument('--autotune-batches-per-sample', action=make_override_action(override_args),
+    group_autotune.add_argument('--autotune-steps-per-sample', action=make_override_action(override_args),
                                 type=int, default=10,
-                                help='Number of batches (approximate) to record before observing a sample. The sample '
+                                help='Number of steps (approximate) to record before observing a sample. The sample '
                                      'score is defined to be the median score over all batches within the sample. The '
                                      'more batches per sample, the less variance in sample scores, but the longer '
                                      'autotuning will take. (default: %(default)s)')

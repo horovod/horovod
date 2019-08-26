@@ -72,7 +72,7 @@ class RunTests(unittest.TestCase):
                            '--autotune',
                            '--autotune-log-file', '/tmp/autotune.txt',
                            '--autotune-warmup-samples', '1',
-                           '--autotune-batches-per-sample', '5',
+                           '--autotune-steps-per-sample', '5',
                            '--autotune-bayes-opt-max-samples', '10',
                            '--autotune-gaussian-process-noise', '0.2'):
             args = run.parse_args()
@@ -82,7 +82,7 @@ class RunTests(unittest.TestCase):
             self.assertEqual(env[config_parser.HOROVOD_AUTOTUNE], '1')
             self.assertEqual(env[config_parser.HOROVOD_AUTOTUNE_LOG], '/tmp/autotune.txt')
             self.assertEqual(env[config_parser.HOROVOD_AUTOTUNE_WARMUP_SAMPLES], '1')
-            self.assertEqual(env[config_parser.HOROVOD_AUTOTUNE_CYCLES_PER_SAMPLE], '5')
+            self.assertEqual(env[config_parser.HOROVOD_AUTOTUNE_STEPS_PER_SAMPLE], '5')
             self.assertEqual(env[config_parser.HOROVOD_AUTOTUNE_BAYES_OPT_MAX_SAMPLES], '10')
             self.assertEqual(env[config_parser.HOROVOD_AUTOTUNE_GAUSSIAN_PROCESS_NOISE], '0.2')
 
@@ -149,7 +149,7 @@ class RunTests(unittest.TestCase):
             self.assertTrue(args.autotune)
             self.assertEqual(args.autotune_log_file, 'horovod_autotune_log.txt')
             self.assertEqual(args.autotune_warmup_samples, 5)
-            self.assertEqual(args.autotune_batches_per_sample, 20)
+            self.assertEqual(args.autotune_steps_per_sample, 20)
             self.assertEqual(args.autotune_bayes_opt_max_samples, 50)
             self.assertEqual(args.autotune_gaussian_process_noise, 0.9)
 

@@ -9,7 +9,7 @@ HOROVOD_HIERARCHICAL_ALLGATHER = 'HOROVOD_HIERARCHICAL_ALLGATHER'
 HOROVOD_AUTOTUNE = 'HOROVOD_AUTOTUNE'
 HOROVOD_AUTOTUNE_LOG = 'HOROVOD_AUTOTUNE_LOG'
 HOROVOD_AUTOTUNE_WARMUP_SAMPLES = 'HOROVOD_AUTOTUNE_WARMUP_SAMPLES'
-HOROVOD_AUTOTUNE_CYCLES_PER_SAMPLE = 'HOROVOD_AUTOTUNE_CYCLES_PER_SAMPLE'
+HOROVOD_AUTOTUNE_STEPS_PER_SAMPLE = 'HOROVOD_AUTOTUNE_STEPS_PER_SAMPLE'
 HOROVOD_AUTOTUNE_BAYES_OPT_MAX_SAMPLES = 'HOROVOD_AUTOTUNE_BAYES_OPT_MAX_SAMPLES'
 HOROVOD_AUTOTUNE_GAUSSIAN_PROCESS_NOISE = 'HOROVOD_AUTOTUNE_GAUSSIAN_PROCESS_NOISE'
 
@@ -64,7 +64,7 @@ def set_args_from_config(args, config, override_args):
         args.autotune = autotune.get('enabled', False) if 'autotune' not in override_args else args.autotune
         _set_arg_from_config(args, 'log_file', override_args, autotune, arg_prefix='autotune_')
         _set_arg_from_config(args, 'warmup_samples', override_args, autotune, arg_prefix='autotune_')
-        _set_arg_from_config(args, 'batches_per_sample', override_args, autotune, arg_prefix='autotune_')
+        _set_arg_from_config(args, 'steps_per_sample', override_args, autotune, arg_prefix='autotune_')
         _set_arg_from_config(args, 'bayes_opt_max_samples', override_args, autotune, arg_prefix='autotune_')
         _set_arg_from_config(args, 'gaussian_process_noise', override_args, autotune, arg_prefix='autotune_')
 
@@ -101,7 +101,7 @@ def validate_config_args(args):
     _validate_arg_nonnegative(args, 'cycle_time_ms')
     _validate_arg_nonnegative(args, 'cache_capacity')
     _validate_arg_nonnegative(args, 'autotune_warmup_samples')
-    _validate_arg_nonnegative(args, 'autotune_batches_per_sample')
+    _validate_arg_nonnegative(args, 'autotune_steps_per_sample')
     _validate_arg_nonnegative(args, 'autotune_bayes_opt_max_samples')
 
     if args.autotune_gaussian_process_noise < 0 or args.autotune_gaussian_process_noise > 1:
@@ -138,7 +138,7 @@ def set_env_from_args(env, args):
         _add_arg_to_env(env, HOROVOD_AUTOTUNE, args.autotune, identity)
         _add_arg_to_env(env, HOROVOD_AUTOTUNE_LOG, args.autotune_log_file)
         _add_arg_to_env(env, HOROVOD_AUTOTUNE_WARMUP_SAMPLES, args.autotune_warmup_samples)
-        _add_arg_to_env(env, HOROVOD_AUTOTUNE_CYCLES_PER_SAMPLE, args.autotune_batches_per_sample)
+        _add_arg_to_env(env, HOROVOD_AUTOTUNE_STEPS_PER_SAMPLE, args.autotune_steps_per_sample)
         _add_arg_to_env(env, HOROVOD_AUTOTUNE_BAYES_OPT_MAX_SAMPLES, args.autotune_bayes_opt_max_samples)
         _add_arg_to_env(env, HOROVOD_AUTOTUNE_GAUSSIAN_PROCESS_NOISE, args.autotune_gaussian_process_noise)
 

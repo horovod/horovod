@@ -220,7 +220,7 @@ private:
   };
 
   int warmups_;
-  int cycles_per_sample_;
+  int steps_per_sample_;
 
   CategoricalParameter<bool> hierarchical_allreduce_;
   CategoricalParameter<bool> hierarchical_allgather_;
