@@ -469,7 +469,7 @@ def parse_args():
                                      'is provided.')
 
     group_stall_check = parser.add_argument_group('stall check arguments')
-    group_stall_check.add_argument('--stall-check-disable', action=make_override_true_action(override_args),
+    group_stall_check.add_argument('--no-stall-check', action=make_override_true_action(override_args),
                                    help='Disable the stall check. The stall check will log a warning when workers '
                                         'have stalled waiting for other ranks to submit tensors.')
     group_stall_check.add_argument('--stall-check-warning-time-seconds', action=make_override_action(override_args),

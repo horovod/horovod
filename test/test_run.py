@@ -99,7 +99,7 @@ class RunTests(unittest.TestCase):
 
     def test_stall_check_args(self):
         with override_args('horovodrun', '-np', '2',
-                           '--stall-check-disable'):
+                           '--no-stall-check'):
             args = run.parse_args()
             env = {}
             config_parser.set_env_from_args(env, args)
@@ -158,7 +158,7 @@ class RunTests(unittest.TestCase):
             self.assertTrue(args.timeline_mark_cycles)
 
             # Stall Check
-            self.assertFalse(args.stall_check_disable)
+            self.assertFalse(args.no_stall_check)
             self.assertEqual(args.stall_check_warning_time_seconds, 120)
             self.assertEqual(args.stall_check_shutdown_time_seconds, 240)
 

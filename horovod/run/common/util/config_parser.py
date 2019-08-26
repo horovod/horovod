@@ -77,8 +77,8 @@ def set_args_from_config(args, config, override_args):
     # Stall Check
     stall_check = config.get('stall_check')
     if stall_check:
-        args.stall_check_disable = not stall_check.get('enabled', True) \
-            if 'stall_check_disable' not in override_args else args.stall_check_disable
+        args.no_stall_check = not stall_check.get('enabled', True) \
+            if 'no_stall_check' not in override_args else args.no_stall_check
         _set_arg_from_config(args, 'warning_time_seconds', override_args, stall_check, arg_prefix='stall_check_')
         _set_arg_from_config(args, 'shutdown_time_seconds', override_args, stall_check, arg_prefix='stall_check_')
 
@@ -148,7 +148,7 @@ def set_env_from_args(env, args):
         _add_arg_to_env(env, HOROVOD_TIMELINE_MARK_CYCLES, args.timeline_mark_cycles, identity)
 
     # Stall Check
-    _add_arg_to_env(env, HOROVOD_STALL_CHECK_DISABLE, args.stall_check_disable, identity)
+    _add_arg_to_env(env, HOROVOD_STALL_CHECK_DISABLE, args.no_stall_check, identity)
     _add_arg_to_env(env, HOROVOD_STALL_CHECK_TIME_SECONDS, args.stall_check_warning_time_seconds)
     _add_arg_to_env(env, HOROVOD_STALL_SHUTDOWN_TIME_SECONDS, args.stall_check_shutdown_time_seconds)
 
