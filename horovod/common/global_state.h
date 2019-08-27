@@ -21,6 +21,7 @@
 #include <thread>
 
 #include "fusion_buffer_manager.h"
+#include "group_table.h"
 #include "parameter_manager.h"
 #include "response_cache.h"
 #include "tensor_queue.h"
@@ -92,6 +93,12 @@ struct HorovodGlobalState {
 
   // Index of current CUDA stream to use
   int current_nccl_stream = 0;
+
+  // Perform allreduces in fixed groups (set by framework).
+  bool grouped_allreduces = false;
+
+  // Information on registered groups.
+  GroupTable group_table;
 
   // A LibType indicating what framework we are using to perform CPU operations.
   LibType cpu_operation;

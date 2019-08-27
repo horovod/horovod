@@ -148,6 +148,19 @@ class HorovodBasics(object):
                 'Horovod has not been initialized; use hvd.init().')
         return bool(mpi_threads_supported)
 
+    def register_group(self, group_size, group_name):
+        """A function that registers a group and returns associated group id.
+
+        Returns:
+          An integer scalar with the group id to be used for this group.
+        """
+        group_id = self.MPI_LIB_CTYPES.horovod_register_group(ctypes.c_int(group_size),
+            ctypes.c_char_p(group_name.encode()))
+        if group_id == -1:
+            raise ValueError(
+                'Horovod has not been initialized; use hvd.init().')
+        return group_id
+
     def mpi_enabled(self):
         """Returns True if MPI is mode is currently enabled at runtime.
 

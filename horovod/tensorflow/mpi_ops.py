@@ -64,6 +64,7 @@ gloo_built = _basics.gloo_built
 nccl_built = _basics.nccl_built
 ddl_built = _basics.ddl_built
 mlsl_built = _basics.mlsl_built
+register_group = _basics.register_group
 
 # import reduction op values
 Average = _basics.Average
@@ -87,7 +88,7 @@ def _normalize_name(name):
     return re.sub('[^a-zA-Z0-9_]', '_', name)
 
 
-def _allreduce(tensor, name=None, op=Sum):
+def _allreduce(tensor, name=None, op=Sum, group_id=-1):
     """An op which reduces an input tensor over all the Horovod processes. The
     default reduction is a sum.
 
@@ -101,7 +102,12 @@ def _allreduce(tensor, name=None, op=Sum):
     """
     if name is None and not _executing_eagerly():
         name = 'HorovodAllreduce_%s' % _normalize_name(tensor.name)
-    return MPI_LIB.horovod_allreduce(tensor, name=name, reduce_op=op)
+
+    if group_id != -1:
+        return MPI_LIB.horovod_allreduce(tensor, name=name, reduce_op=op,
+                                         group_id=group_id)
+    else:
+        return MPI_LIB.horovod_allreduce(tensor, name=name)
 
 
 @ops.RegisterGradient('HorovodAllreduce')

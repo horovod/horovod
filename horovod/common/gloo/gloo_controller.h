@@ -27,9 +27,11 @@ class GlooController : public Controller {
 public:
   GlooController(ResponseCache& response_cache, TensorQueue& tensor_queue,
                  Timeline& timeline, ParameterManager& parameter_manager,
-                 GlooContext& gloo_context)
-      : Controller(response_cache, tensor_queue, timeline, parameter_manager),
-        gloo_context_(gloo_context) {};
+                 GroupTable& group_table, GlooContext& gloo_context)
+      : Controller(response_cache, tensor_queue, timeline, parameter_manager,
+                   group_table),
+        gloo_context_(gloo_context) {
+  };
 
   void Initialize() override;
 

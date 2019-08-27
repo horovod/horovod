@@ -21,6 +21,9 @@
 #include <string>
 #include <vector>
 
+// Null group ID used when no group is provided.
+#define NULL_GROUP_ID -1
+
 namespace horovod {
 namespace common {
 
@@ -78,6 +81,8 @@ public:
 
   void set_device(int32_t value);
 
+  int32_t group_id() const;
+  void set_group_id(int32_t value);
   const std::vector<int64_t>& tensor_shape() const;
 
   void set_tensor_shape(const std::vector<int64_t>& value);
@@ -94,6 +99,9 @@ private:
   DataType tensor_type_ = DataType::HOROVOD_UINT8;
   int32_t root_rank_ = 0;
   int32_t device_ = 0;
+  // group_id is not included in flatbuffer as it does not
+  // need to be shared between workers
+  int32_t group_id_ = NULL_GROUP_ID;
   std::string tensor_name_;
   std::vector<int64_t> tensor_shape_;
 };

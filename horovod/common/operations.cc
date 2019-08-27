@@ -427,6 +427,15 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.response_cache.set_capacity(
       (int)state.parameter_manager.CacheEnabled() * state.cache_capacity);
 
+  // Set flag for grouped allreduces
+  // TODO: Put in param manager?
+  auto horovod_grouped_allreduces =
+      std::getenv(HOROVOD_GROUPED_ALLREDUCES);
+  if (horovod_grouped_allreduces != nullptr &&
+      std::strtol(horovod_grouped_allreduces, nullptr, 10) > 0) {
+    state.grouped_allreduces = true;
+  }
+
   // Set flag for hierarchical allgather. Ignore if Horovod is running on a
   // single node.
   auto horovod_hierarchical_allgather =
@@ -598,7 +607,8 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
       horovod_global.controller.reset(new MPIController(
           horovod_global.response_cache,
           horovod_global.tensor_queue, horovod_global.timeline,
-          horovod_global.parameter_manager, mpi_context));
+          horovod_global.parameter_manager, horovod_global.group_table,
+          mpi_context));
       horovod_global.controller->SetRanks(ranks, nranks);
     }
 #endif
@@ -614,7 +624,8 @@ void InitializeHorovodOnce(const int* ranks, int nranks) {
       horovod_global.controller.reset(new GlooController(
           horovod_global.response_cache,
           horovod_global.tensor_queue, horovod_global.timeline,
-          horovod_global.parameter_manager, gloo_context));
+          horovod_global.parameter_manager, horovod_global.group_table,
+          gloo_context));
     }
 #endif
     // Reset initialization flag
@@ -708,6 +719,23 @@ int horovod_mpi_threads_supported() {
   return -1;
 }
 
+int horovod_register_group(int group_size, const char* group_name_c) {
+  if (!horovod_global.initialization_done) {
+    return -1;
+  }
+
+  auto group_name = std::string(group_name_c);
+
+  if (horovod_global.group_table.IsNameRegistered(group_name)) {
+    int group_id = horovod_global.group_table.GetGroupIDFromName(group_name);
+    assert(group_size == horovod_global.group_table.GetGroupSize(group_id));
+    // Note: Can add more error checking here.
+    return group_id;
+  } else {
+    return horovod_global.group_table.AddEntry(group_name, group_size);
+  }
+}
+
 bool horovod_mpi_enabled() {
 #if HAVE_MPI
   return mpi_context.IsEnabled();
@@ -786,7 +814,8 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string name, const int device,
                               StatusCallback callback,
-                              ReduceOp reduce_op) {
+                              ReduceOp reduce_op,
+                              const int group_id) {
   Status status;
 
   // AVERAGE should be taken care of in the framework layer. Equeuing it here directly is not allowed.
@@ -820,6 +849,15 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   e.ready_event = ready_event;
   e.device = device;
   e.callback = callback;
+
+  // Only set group_id if feature is active
+  if (horovod_global.grouped_allreduces) {
+    if (group_id != NULL_GROUP_ID &&
+        !horovod_global.group_table.IsIDRegistered(group_id)) {
+        return UNREGISTERED_GROUP_ERROR;
+    }
+    message.set_group_id(group_id);
+  }
 
   if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;

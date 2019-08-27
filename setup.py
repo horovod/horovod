@@ -646,6 +646,7 @@ def get_common_options(build_ext):
     SOURCES = ['horovod/common/common.cc',
                'horovod/common/controller.cc',
                'horovod/common/fusion_buffer_manager.cc',
+               'horovod/common/group_table.cc',
                'horovod/common/logging.cc',
                'horovod/common/message.cc',
                'horovod/common/operations.cc',

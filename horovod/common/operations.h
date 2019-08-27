@@ -72,6 +72,10 @@ int horovod_local_size();
 // supported. Returns -1 if Horovod is not initialized.
 int horovod_mpi_threads_supported();
 
+// C interface to register group for allreduce grouping. Returns next
+// available group id or -1 if Horovod is not initialized.
+int horovod_register_group(int group_size, const char* group_name);
+
 // C interface to return flag indicating whether MPI is enabled.
 bool horovod_mpi_enabled();
 
@@ -110,7 +114,8 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string name, const int device,
                               StatusCallback callback,
-                              ReduceOp reduce_op = ReduceOp::SUM);
+                              ReduceOp reduce_op = ReduceOp::SUM,
+                              const int group_id = NULL_GROUP_ID);
 
 Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,

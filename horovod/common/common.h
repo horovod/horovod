@@ -76,6 +76,7 @@ namespace common {
 #define HOROVOD_HIERARCHICAL_ALLREDUCE "HOROVOD_HIERARCHICAL_ALLREDUCE"
 #define HOROVOD_HIERARCHICAL_ALLGATHER "HOROVOD_HIERARCHICAL_ALLGATHER"
 #define HOROVOD_CACHE_CAPACITY "HOROVOD_CACHE_CAPACITY"
+#define HOROVOD_GROUPED_ALLREDUCES "HOROVOD_GROUPED_ALLREDUCES"
 #define HOROVOD_MLSL_BGT_AFFINITY "HOROVOD_MLSL_BGT_AFFINITY"
 #define HOROVOD_NUM_NCCL_STREAMS "HOROVOD_NUM_NCCL_STREAMS"
 #define HOROVOD_CPU_OPERATIONS "HOROVOD_CPU_OPERATIONS"
@@ -161,6 +162,11 @@ const Status DUPLICATE_NAME_ERROR = Status::InvalidArgument(
     "Requested to allreduce, allgather, or broadcast a tensor with the same "
     "name as another tensor that is currently being processed.  If you want "
     "to request another tensor, use a different tensor name.");
+
+const Status UNREGISTERED_GROUP_ERROR = Status::InvalidArgument(
+    "Requested to assign an allreduce to a group that has not been "
+    "registered. A valid group id can be obtained via the register_group "
+    "function called prior to submitting the allreduce operation.");
 
 class TensorShape {
 public:

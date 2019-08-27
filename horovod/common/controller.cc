@@ -47,10 +47,11 @@ void Controller::SynchronizeParameters() {
 }
 
 Controller::Controller(ResponseCache& response_cache, TensorQueue& tensor_queue,
-                       Timeline& timeline, ParameterManager& parameter_manager)
+                       Timeline& timeline, ParameterManager& parameter_manager,
+                       GroupTable& group_table)
     : stall_inspector_(response_cache), tensor_queue_(tensor_queue),
       timeline_(timeline), response_cache_(response_cache),
-      parameter_manager_(parameter_manager) {}
+      parameter_manager_(parameter_manager), group_table_(group_table) {}
 
 ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
                                              HorovodGlobalState& state) {
@@ -65,6 +66,9 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
   // enqueued stream callbacks can continue.
 
   CacheCoordinator cache_coordinator(response_cache_.num_active_bits());
+
+  std::unordered_set<int> ready_groups;
+  std::unordered_map<int, int> group_message_count;
 
   // message queue used only in this cycle
   std::deque<Request> message_queue_tmp;
@@ -96,6 +100,35 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
         stall_inspector_.RemoveCachedTensor(message.tensor_name());
       }
     }
+
+    // Keep track of group message counts, mark complete groups ready.
+    if (!group_table_.empty()) {
+      int group_id = message.group_id();
+      int count = ++group_message_count[group_id];
+      if (group_id != NULL_GROUP_ID &&
+          count == group_table_.GetGroupSize(group_id)) {
+        ready_groups.insert(group_id);
+      }
+    }
+  }
+
+  // Remove tensors from incomplete groups from queue and replace to state
+  // queue for next cycle.
+  size_t num_messages = message_queue_tmp.size();
+  for (size_t i = 0; i < num_messages; ++i) {
+    auto message = message_queue_tmp.front();
+    if (message.group_id() == NULL_GROUP_ID ||
+        ready_groups.find(message.group_id()) != ready_groups.end()) {
+      message_queue_tmp.push_back(std::move(message));
+    } else {
+      if (response_cache_.capacity() > 0 &&
+          response_cache_.cached(message) == ResponseCache::CacheState::HIT) {
+        int cache_bit = response_cache_.peek_cache_bit(message);
+        cache_coordinator.erase_hit(cache_bit);
+      }
+      tensor_queue_.PushMessageToQueue(message);
+    }
+    message_queue_tmp.pop_front();
   }
 
   // Flag indicating that the background thread should shut down.

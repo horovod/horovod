@@ -32,6 +32,10 @@
 
 #define OMPI_SKIP_MPICXX
 #include "../common/operations.h"
+#include "../common/message.h"
+
+#define STRING_EXPAND(x) #x
+#define TOSTRING(x) STRING_EXPAND(x)
 
 using namespace tensorflow;
 using namespace horovod;
@@ -289,6 +293,7 @@ public:
   explicit HorovodAllreduceOp(OpKernelConstruction* context)
       : AsyncOpKernel(context) {
     OP_REQUIRES_OK(context, context->GetAttr("reduce_op", &reduce_op_));
+    OP_REQUIRES_OK(context, context->GetAttr("group_id", &group_id_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -312,12 +317,13 @@ public:
         [context, done](const common::Status& status) {
           context->SetStatus(ConvertStatus(status));
           done();
-        }, reduce_op);
+        }, reduce_op, group_id_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 
 private:
   int reduce_op_;
+  int group_id_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_CPU),
@@ -330,6 +336,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_GPU),
 REGISTER_OP("HorovodAllreduce")
     .Attr("T: {int32, int64, float16, float32, float64}")
     .Attr("reduce_op: int")
+    .Attr("group_id: int = " TOSTRING(NULL_GROUP_ID))
     .Input("tensor: T")
     .Output("sum: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {

@@ -113,6 +113,10 @@ int32_t Request::device() const { return device_; }
 
 void Request::set_device(int32_t value) { device_ = value; }
 
+int32_t Request::group_id() const { return group_id_; }
+
+void Request::set_group_id(int32_t value) { group_id_ = value; }
+
 const std::vector<int64_t>& Request::tensor_shape() const {
   return tensor_shape_;
 }
