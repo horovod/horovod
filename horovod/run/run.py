@@ -504,11 +504,11 @@ def parse_args():
 
     group_stall_check = parser.add_argument_group('stall check arguments')
     group_stall_check_enabled = group_stall_check.add_mutually_exclusive_group()
-    group_stall_check_enabled.add_argument('--stall-check', dest='stall_check',
-                                           action=make_override_false_action(override_args), help=argparse.SUPPRESS)
     group_stall_check_enabled.add_argument('--no-stall-check', action=make_override_true_action(override_args),
                                            help='Disable the stall check. The stall check will log a warning when '
                                                 'workers have stalled waiting for other ranks to submit tensors.')
+    group_stall_check_enabled.add_argument('--stall-check', dest='no_stall_check',
+                                           action=make_override_false_action(override_args), help=argparse.SUPPRESS)
     group_stall_check.add_argument('--stall-check-warning-time-seconds', action=make_override_action(override_args),
                                    type=int, default=60,
                                    help='Seconds until the stall warning is logged to stderr. (default: %(default)s)')
