@@ -27,6 +27,8 @@ HOROVOD_MPI_THREADS_DISABLE = 'HOROVOD_MPI_THREADS_DISABLE'
 HOROVOD_NUM_NCCL_STREAMS = 'HOROVOD_NUM_NCCL_STREAMS'
 HOROVOD_MLSL_BGT_AFFINITY = 'HOROVOD_MLSL_BGT_AFFINITY'
 
+LOG_LEVELS = ['TRACE', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'FATAL']
+
 
 def _set_arg_from_config(args, arg_base_name, override_args, config, arg_prefix=''):
     arg_name = arg_prefix + arg_base_name

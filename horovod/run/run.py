@@ -14,20 +14,25 @@
 # ==============================================================================
 
 from __future__ import print_function
+
 import argparse
 import hashlib
 import os
 import sys
 import re
 import textwrap
+
+from socket import AF_INET
+from psutil import net_if_addrs
 try:
     from shlex import quote
 except ImportError:
     from pipes import quote
-import horovod
 
 import six
 import yaml
+
+import horovod
 
 from horovod.common.util import (extension_available,
                                  gloo_built, mpi_built,
@@ -39,8 +44,7 @@ from horovod.run.task import task_service
 from horovod.run.util import cache, threads, network
 from horovod.run.gloo_run import gloo_run
 from horovod.run.mpi_run import mpi_run
-from socket import AF_INET
-from psutil import net_if_addrs
+
 
 # Cached information of horovodrun functions be stored in this directory
 CACHE_FOLDER = os.path.join(os.path.expanduser('~'), '.horovod')
@@ -515,6 +519,10 @@ def parse_args():
                                        type=int, default=0,
                                        help='MLSL background thread affinity. Only applies when running with MLSL '
                                             'support. (default: %(default)s)')
+
+    group_logging = parser.add_argument_group('logging arguments')
+    group_logging.add_argument('--log-level', choices=config_parser.LOG_LEVELS,
+                               help='Minimum level to log to stderr from the Horovod backend. (default: WARNING).')
 
     group_hosts_parent = parser.add_argument_group('host arguments')
     group_hosts = group_hosts_parent.add_mutually_exclusive_group()
