@@ -61,11 +61,11 @@ class RunTests(unittest.TestCase):
             env = {}
             config_parser.set_env_from_args(env, args)
 
-            self.assertEqual(env[config_parser.HOROVOD_FUSION_THRESHOLD], str(10 * 1024 * 1024))
-            self.assertEqual(env[config_parser.HOROVOD_CYCLE_TIME], '20.0')
-            self.assertEqual(env[config_parser.HOROVOD_CACHE_CAPACITY], '512')
-            self.assertEqual(env[config_parser.HOROVOD_HIERARCHICAL_ALLREDUCE], '1')
-            self.assertEqual(env[config_parser.HOROVOD_HIERARCHICAL_ALLGATHER], '1')
+            self.assertEqual(env.get(config_parser.HOROVOD_FUSION_THRESHOLD), str(10 * 1024 * 1024))
+            self.assertEqual(env.get(config_parser.HOROVOD_CYCLE_TIME), '20.0')
+            self.assertEqual(env.get(config_parser.HOROVOD_CACHE_CAPACITY), '512')
+            self.assertEqual(env.get(config_parser.HOROVOD_HIERARCHICAL_ALLREDUCE), '1')
+            self.assertEqual(env.get(config_parser.HOROVOD_HIERARCHICAL_ALLGATHER), '1')
 
     def test_autotune_args(self):
         with override_args('horovodrun', '-np', '2',
@@ -79,12 +79,27 @@ class RunTests(unittest.TestCase):
             env = {}
             config_parser.set_env_from_args(env, args)
 
-            self.assertEqual(env[config_parser.HOROVOD_AUTOTUNE], '1')
-            self.assertEqual(env[config_parser.HOROVOD_AUTOTUNE_LOG], '/tmp/autotune.txt')
-            self.assertEqual(env[config_parser.HOROVOD_AUTOTUNE_WARMUP_SAMPLES], '1')
-            self.assertEqual(env[config_parser.HOROVOD_AUTOTUNE_STEPS_PER_SAMPLE], '5')
-            self.assertEqual(env[config_parser.HOROVOD_AUTOTUNE_BAYES_OPT_MAX_SAMPLES], '10')
-            self.assertEqual(env[config_parser.HOROVOD_AUTOTUNE_GAUSSIAN_PROCESS_NOISE], '0.2')
+            self.assertEqual(env.get(config_parser.HOROVOD_AUTOTUNE), '1')
+            self.assertEqual(env.get(config_parser.HOROVOD_AUTOTUNE_LOG), '/tmp/autotune.txt')
+            self.assertEqual(env.get(config_parser.HOROVOD_AUTOTUNE_WARMUP_SAMPLES), '1')
+            self.assertEqual(env.get(config_parser.HOROVOD_AUTOTUNE_STEPS_PER_SAMPLE), '5')
+            self.assertEqual(env.get(config_parser.HOROVOD_AUTOTUNE_BAYES_OPT_MAX_SAMPLES), '10')
+            self.assertEqual(env.get(config_parser.HOROVOD_AUTOTUNE_GAUSSIAN_PROCESS_NOISE), '0.2')
+
+    def test_autotuning_with_fixed_param(self):
+        with override_args('horovodrun', '-np', '2',
+                           '--autotune',
+                           '--cache-capacity', '1024',
+                           '--no-hierarchical-allgather'):
+            args = run.parse_args()
+            env = {}
+            config_parser.set_env_from_args(env, args)
+
+            self.assertNotIn(config_parser.HOROVOD_FUSION_THRESHOLD, env)
+            self.assertNotIn(config_parser.HOROVOD_CYCLE_TIME, env)
+            self.assertEqual(env.get(config_parser.HOROVOD_CACHE_CAPACITY), '1024')
+            self.assertNotIn(config_parser.HOROVOD_HIERARCHICAL_ALLREDUCE, env)
+            self.assertEqual(env.get(config_parser.HOROVOD_HIERARCHICAL_ALLGATHER), '0')
 
     def test_timeline_args(self):
         with override_args('horovodrun', '-np', '2',
@@ -94,8 +109,8 @@ class RunTests(unittest.TestCase):
             env = {}
             config_parser.set_env_from_args(env, args)
 
-            self.assertEqual(env[config_parser.HOROVOD_TIMELINE], '/tmp/timeline.json')
-            self.assertEqual(env[config_parser.HOROVOD_TIMELINE_MARK_CYCLES], '1')
+            self.assertEqual(env.get(config_parser.HOROVOD_TIMELINE), '/tmp/timeline.json')
+            self.assertEqual(env.get(config_parser.HOROVOD_TIMELINE_MARK_CYCLES), '1')
 
     def test_stall_check_args(self):
         with override_args('horovodrun', '-np', '2',
@@ -104,7 +119,7 @@ class RunTests(unittest.TestCase):
             env = {}
             config_parser.set_env_from_args(env, args)
 
-            self.assertEqual(env[config_parser.HOROVOD_STALL_CHECK_DISABLE], '1')
+            self.assertEqual(env.get(config_parser.HOROVOD_STALL_CHECK_DISABLE), '1')
 
         with override_args('horovodrun', '-np', '2',
                            '--stall-check-warning-time-seconds', '10',
@@ -113,9 +128,9 @@ class RunTests(unittest.TestCase):
             env = {}
             config_parser.set_env_from_args(env, args)
 
-            self.assertEqual(env[config_parser.HOROVOD_STALL_CHECK_DISABLE], '0')
-            self.assertEqual(env[config_parser.HOROVOD_STALL_CHECK_TIME_SECONDS], '10')
-            self.assertEqual(env[config_parser.HOROVOD_STALL_SHUTDOWN_TIME_SECONDS], '20')
+            self.assertNotIn(config_parser.HOROVOD_STALL_CHECK_DISABLE, env)
+            self.assertEqual(env.get(config_parser.HOROVOD_STALL_CHECK_TIME_SECONDS), '10')
+            self.assertEqual(env.get(config_parser.HOROVOD_STALL_SHUTDOWN_TIME_SECONDS), '20')
 
     def test_library_args(self):
         with override_args('horovodrun', '-np', '2',
@@ -126,9 +141,9 @@ class RunTests(unittest.TestCase):
             env = {}
             config_parser.set_env_from_args(env, args)
 
-            self.assertEqual(env[config_parser.HOROVOD_MPI_THREADS_DISABLE], '1')
-            self.assertEqual(env[config_parser.HOROVOD_NUM_NCCL_STREAMS], '2')
-            self.assertEqual(env[config_parser.HOROVOD_MLSL_BGT_AFFINITY], '1')
+            self.assertEqual(env.get(config_parser.HOROVOD_MPI_THREADS_DISABLE), '1')
+            self.assertEqual(env.get(config_parser.HOROVOD_NUM_NCCL_STREAMS), '2')
+            self.assertEqual(env.get(config_parser.HOROVOD_MLSL_BGT_AFFINITY), '1')
 
     def test_config_file(self):
         config_filename = os.path.join(os.path.dirname(__file__), 'data/config.test.yaml')
