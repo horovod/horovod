@@ -314,7 +314,7 @@ def make_override_action(override_args):
         def __init__(self,
                      option_strings,
                      dest,
-                     default=False,
+                     default=None,
                      type=None,
                      required=False,
                      help=None):
@@ -334,20 +334,19 @@ def make_override_action(override_args):
     return StoreOverrideAction
 
 
-def make_override_true_action(override_args):
-    class StoreOverrideTrueAction(argparse.Action):
+def make_override_bool_action(override_args, bool_value):
+    class StoreOverrideBoolAction(argparse.Action):
         def __init__(self,
                      option_strings,
                      dest,
-                     default=False,
                      required=False,
                      help=None):
-            super(StoreOverrideTrueAction, self).__init__(
+            super(StoreOverrideBoolAction, self).__init__(
                 option_strings=option_strings,
                 dest=dest,
-                const=True,
+                const=bool_value,
                 nargs=0,
-                default=default,
+                default=None,
                 required=required,
                 help=help)
 
@@ -355,7 +354,15 @@ def make_override_true_action(override_args):
             override_args.add(self.dest)
             setattr(args, self.dest, self.const)
 
-    return StoreOverrideTrueAction
+    return StoreOverrideBoolAction
+
+
+def make_override_true_action(override_args):
+    return make_override_bool_action(override_args, True)
+
+
+def make_override_false_action(override_args):
+    return make_override_bool_action(override_args, False)
 
 
 def parse_args():
@@ -407,28 +414,43 @@ def parse_args():
                              'this argument, and will be overridden by any arguments that come after it.')
 
     group_params = parser.add_argument_group('tuneable parameter arguments')
-    group_params.add_argument('--fusion-threshold-mb', action=make_override_action(override_args), type=int, default=64,
+    group_params.add_argument('--fusion-threshold-mb', action=make_override_action(override_args),type=int,
                               help='Fusion buffer threshold in MB. This is the maximum amount of '
                                    'tensor data that can be fused together into a single batch '
                                    'during allreduce / allgather. Setting 0 disables tensor fusion. '
-                                   '(default: %(default)s)')
-    group_params.add_argument('--cycle-time-ms', action=make_override_action(override_args), type=float, default=5,
+                                   '(default: 64)')
+    group_params.add_argument('--cycle-time-ms', action=make_override_action(override_args), type=float,
                               help='Cycle time in ms. This is the delay between each tensor fusion '
                                    'cycle. The larger the cycle time, the more batching, but the '
                                    'greater latency between each allreduce / allgather operations. '
-                                   '(default: %(default)s)')
-    group_params.add_argument('--cache-capacity', action=make_override_action(override_args), type=int, default=1024,
+                                   '(default: 5')
+    group_params.add_argument('--cache-capacity', action=make_override_action(override_args), type=int,
                               help='Maximum number of tensor names that will be cached to reduce amount '
                                    'of coordination required between workers before performing allreduce / '
-                                   'allgather. (default: %(default)s)')
-    group_params.add_argument('--hierarchical-allreduce', action=make_override_true_action(override_args),
-                              help='Perform hierarchical allreduce between workers instead of ring allreduce. '
-                                   'Hierarchical allreduce performs a local allreduce / gather within a host, then '
-                                   'a parallel cross allreduce between equal local ranks across workers, and '
-                                   'finally a local gather.')
-    group_params.add_argument('--hierarchical-allgather', action=make_override_true_action(override_args),
-                              help='Perform hierarchical allgather between workers instead of ring allgather. See '
-                                   'hierarchical allreduce for algorithm details.')
+                                   'allgather. (default: 1024')
+
+    group_hierarchical_allreduce = group_params.add_mutually_exclusive_group()
+    group_hierarchical_allreduce.add_argument('--hierarchical-allreduce',
+                                              action=make_override_true_action(override_args),
+                                              help='Perform hierarchical allreduce between workers instead of '
+                                                   'ring allreduce. Hierarchical allreduce performs a local '
+                                                   'allreduce / gather within a host, then a parallel cross allreduce '
+                                                   'between equal local ranks across workers, and finally a '
+                                                   'local gather.')
+    group_hierarchical_allreduce.add_argument('--no-hierarchical-allreduce', dest='hierarchical_allreduce',
+                                              action=make_override_false_action(override_args),
+                                              help='Explicitly disable hierarchical allreduce to prevent autotuning '
+                                                   'from adjusting it.')
+
+    group_hierarchical_allgather = group_params.add_mutually_exclusive_group()
+    group_hierarchical_allgather.add_argument('--hierarchical-allgather',
+                                              action=make_override_true_action(override_args),
+                                              help='Perform hierarchical allgather between workers instead of '
+                                                   'ring allgather. See hierarchical allreduce for algorithm details.')
+    group_hierarchical_allgather.add_argument('--no-hierarchical-allgather', dest='hierarchical_allgather',
+                                              action=make_override_false_action(override_args),
+                                              help='Explicitly disable hierarchical allgather to prevent autotuning '
+                                                   'from adjusting it.')
 
     group_autotune = parser.add_argument_group('autotune arguments')
     group_autotune.add_argument('--autotune', action=make_override_true_action(override_args),

@@ -92,7 +92,7 @@ def set_args_from_config(args, config, override_args):
 
 def _validate_arg_nonnegative(args, arg_name):
     value = getattr(args, arg_name)
-    if value < 0:
+    if value is not None and value < 0:
         raise ValueError('{}={} must be >= 0'.format(arg_name, value))
 
 
@@ -104,7 +104,8 @@ def validate_config_args(args):
     _validate_arg_nonnegative(args, 'autotune_steps_per_sample')
     _validate_arg_nonnegative(args, 'autotune_bayes_opt_max_samples')
 
-    if args.autotune_gaussian_process_noise < 0 or args.autotune_gaussian_process_noise > 1:
+    noise = args.autotune_gaussian_process_noise
+    if noise is not None and (noise < 0 or noise > 1):
         raise ValueError('{}={} must be in [0, 1]'.format('autotune_gaussian_process_noise',
                                                           args.autotune_gaussian_process_noise))
 

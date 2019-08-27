@@ -306,6 +306,15 @@ Horovod has the ability to record the timeline of its activity, called Horovod T
 See `here <docs/timeline.rst>`__ for full details and usage instructions.
 
 
+Automated Performance Tuning
+----------------------------
+Selecting the right values to efficiently make use of Tensor Fusion and other advanced Horovod features can involve
+a good amount of trial and error. We provide a system to automate this performance optimization process called
+**autotuning**, which you can enable with a single command line argument to ``horovodrun``.
+
+See `here <docs/autotune.rst>`__ for full details and usage instructions.
+
+
 Guides
 ------
 1. Run distributed training in Microsoft Azure using `Batch AI and Horovod <https://github.com/Azure/BatchAI/tree/master/recipes/Horovod>`_. Send us links to any user guides you want to publish on this site

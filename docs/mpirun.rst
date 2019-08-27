@@ -112,6 +112,12 @@ Timeline:
 
     $ mpirun -x HOROVOD_TIMELINE=/path/to/timeline.json -x HOROVOD_TIMELINE_MARK_CYCLES=1 ... python train.py
 
+Autotuning:
+
+.. code-block:: bash
+
+    $ mpirun -x HOROVOD_AUTOTUNE=1 -x HOROVOD_AUTOTUNE_LOG=/tmp/autotune_log.csv ... python train.py
+
 Note that when using ``horovodrun``, any command line arguments will override values set in the environment.
 
 Hangs due to non-routed network interfaces
