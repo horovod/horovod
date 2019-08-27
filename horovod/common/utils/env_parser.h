@@ -41,6 +41,8 @@ void SetIntFromEnv(const char* env, int& val);
 
 int GetIntEnvOrDefault(const char* env_variable, int default_value);
 
+double GetDoubleEnvOrDefault(const char* env_variable, double default_value);
+
 } // namespace common
 } // namespace horovod
 

@@ -1,0 +1,30 @@
+controller: gloo
+
+params:
+  fusion_threshold_mb: 32
+  cycle_time_ms: 10
+  cache_capacity: 2048
+  hierarchical_allreduce: true
+  hierarchical_allgather: true
+
+autotune:
+  enabled: true
+  log_file: 'horovod_autotune_log.txt'
+  warmup_samples: 5
+  steps_per_sample: 20
+  bayes_opt_max_samples: 50
+  gaussian_process_noise: 0.9
+
+timeline:
+  filename: 'horovod_timeline.json'
+  mark_cycles: true
+
+stall_check:
+  enabled: true
+  warning_time_seconds: 120
+  shutdown_time_seconds: 240
+
+library_options:
+  mpi_threads_disable: true
+  num_nccl_streams: 2
+  mlsl_bgt_affinity: 1

@@ -52,7 +52,7 @@ def _is_open_mpi_installed():
         return False
 
 
-def mpi_run(settings, common_intfs):
+def mpi_run(settings, common_intfs, env):
     if not _is_open_mpi_installed():
         raise Exception(
             'horovodrun convenience script does not find an installed OpenMPI.\n\n'
@@ -63,9 +63,6 @@ def mpi_run(settings, common_intfs):
             'training script using the standard way provided by your'
             ' MPI distribution (usually mpirun, srun, or jsrun).\n'
             '3. Use built-in gloo option (horovodrun --gloo ...).')
-
-    # Pass all the env variables to the mpirun command.
-    env = os.environ.copy()
 
     ssh_port_arg = '-mca plm_rsh_args \"-p {ssh_port}\"'.format(
             ssh_port=settings.ssh_port) if settings.ssh_port else ''
@@ -79,6 +76,7 @@ def mpi_run(settings, common_intfs):
     nccl_socket_intf_arg = '-x NCCL_SOCKET_IFNAME={common_intfs}'.format(
         common_intfs=','.join(common_intfs)) if common_intfs else ''
 
+    # Pass all the env variables to the mpirun command.
     mpirun_command = (
         'mpirun --allow-run-as-root --tag-output '
         '-np {num_proc} {hosts_arg} '

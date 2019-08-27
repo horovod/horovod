@@ -1418,7 +1418,7 @@ class custom_build_ext(build_ext):
                 'None of TensorFlow, PyTorch, or MXNet plugins were built. See errors above.')
 
 
-require_list = ['cloudpickle', 'psutil', 'six']
+require_list = ['cloudpickle', 'psutil', 'pyyaml', 'six']
 
 # Skip cffi if pytorch extension explicitly disabled
 if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):

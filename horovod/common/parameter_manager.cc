@@ -20,14 +20,15 @@
 #include <limits>
 
 #include "logging.h"
+#include "utils/env_parser.h"
 
 namespace horovod {
 namespace common {
 
-#define WARMUPS 3
-#define CYCLES_PER_SAMPLE 10
-#define BAYES_OPT_MAX_SAMPLES 20
-#define GAUSSIAN_PROCESS_NOISE 0.8
+#define DEFAULT_WARMUPS 3
+#define DEFAULT_STEPS_PER_SAMPLE 10
+#define DEFAULT_BAYES_OPT_MAX_SAMPLES 20
+#define DEFAULT_GAUSSIAN_PROCESS_NOISE 0.8
 
 Eigen::VectorXd CreateVector(double x1, double x2) {
   Eigen::VectorXd v(2);
@@ -38,6 +39,8 @@ Eigen::VectorXd CreateVector(double x1, double x2) {
 
 // ParameterManager
 ParameterManager::ParameterManager() :
+    warmups_(GetIntEnvOrDefault(HOROVOD_AUTOTUNE_WARMUP_SAMPLES, DEFAULT_WARMUPS)),
+    steps_per_sample_(GetIntEnvOrDefault(HOROVOD_AUTOTUNE_STEPS_PER_SAMPLE, DEFAULT_STEPS_PER_SAMPLE)),
     hierarchical_allreduce_(CategoricalParameter<bool>(std::vector<bool>{false, true})),
     hierarchical_allgather_(CategoricalParameter<bool>(std::vector<bool>{false, true})),
     cache_enabled_(CategoricalParameter<bool>(std::vector<bool>{false, true})),
@@ -45,16 +48,19 @@ ParameterManager::ParameterManager() :
       std::vector<BayesianVariableConfig>{
         { BayesianVariable::fusion_buffer_threshold_mb, std::pair<double, double>(0, 64) },
         { BayesianVariable::cycle_time_ms, std::pair<double, double>(1, 100) }
-      }, std::vector<Eigen::VectorXd>{
+      },
+      std::vector<Eigen::VectorXd>{
         CreateVector(4, 5),
         CreateVector(32, 50),
         CreateVector(16, 25),
         CreateVector(8, 10)
-      })),
+      },
+      GetIntEnvOrDefault(HOROVOD_AUTOTUNE_BAYES_OPT_MAX_SAMPLES, DEFAULT_BAYES_OPT_MAX_SAMPLES),
+      GetDoubleEnvOrDefault(HOROVOD_AUTOTUNE_GAUSSIAN_PROCESS_NOISE, DEFAULT_GAUSSIAN_PROCESS_NOISE))),
     parameter_chain_(std::vector<ITunableParameter*>{&joint_params_, &hierarchical_allreduce_, &hierarchical_allgather_,
                                                      &cache_enabled_}),
     active_(false),
-    warmup_remaining_(WARMUPS),
+    warmup_remaining_(warmups_),
     sample_(0),
     rank_(-1),
     root_rank_(0),
@@ -80,7 +86,7 @@ void ParameterManager::Initialize(int32_t rank, int32_t root_rank,
 
 void ParameterManager::SetAutoTuning(bool active) {
   if (active != active_) {
-    warmup_remaining_ = WARMUPS;
+    warmup_remaining_ = warmups_;
   }
   active_ = active;
 };
@@ -140,8 +146,8 @@ bool ParameterManager::Update(const std::vector<std::string>& tensor_names,
   }
 
   for (const std::string& tensor_name : tensor_names) {
-    int32_t cycle = tensor_counts_[tensor_name]++;
-    if (cycle >= (sample_ + 1) * CYCLES_PER_SAMPLE) {
+    int32_t step = tensor_counts_[tensor_name]++;
+    if (step >= (sample_ + 1) * steps_per_sample_) {
       auto now = std::chrono::steady_clock::now();
       double duration = std::chrono::duration_cast<std::chrono::microseconds>(now - last_sample_start_).count();
       scores_[sample_] = total_bytes_ / duration;
@@ -391,10 +397,14 @@ void ParameterManager::CategoricalParameter<T>::ResetState() {
 // BayesianParameter
 ParameterManager::BayesianParameter::BayesianParameter(
     std::vector<BayesianVariableConfig> variables,
-    std::vector<Eigen::VectorXd> test_points) :
+    std::vector<Eigen::VectorXd> test_points,
+    int max_samples,
+    double gaussian_process_noise) :
     TunableParameter<Eigen::VectorXd>(test_points[0]),
     variables_(variables),
     test_points_(test_points),
+    max_samples_(max_samples),
+    gaussian_process_noise_(gaussian_process_noise),
     iteration_(0) {
   ResetBayes();
   Reinitialize(FilterTestPoint(0));
@@ -453,7 +463,7 @@ void ParameterManager::BayesianParameter::OnTune(double score, Eigen::VectorXd& 
 }
 
 bool ParameterManager::BayesianParameter::IsDoneTuning() const {
-  return iteration_ > BAYES_OPT_MAX_SAMPLES;
+  return iteration_ > max_samples_;
 }
 
 void ParameterManager::BayesianParameter::ResetState() {
@@ -474,7 +484,7 @@ void ParameterManager::BayesianParameter::ResetBayes() {
     }
   }
 
-  bayes_.reset(new BayesianOptimization(bounds, GAUSSIAN_PROCESS_NOISE));
+  bayes_.reset(new BayesianOptimization(bounds, gaussian_process_noise_));
 }
 
 Eigen::VectorXd ParameterManager::BayesianParameter::FilterTestPoint(int i) {

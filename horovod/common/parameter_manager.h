@@ -185,7 +185,8 @@ private:
   // A set of numerical parameters optimized jointly using Bayesian Optimization.
   class BayesianParameter : public TunableParameter<Eigen::VectorXd> {
   public:
-    BayesianParameter(std::vector<BayesianVariableConfig> variables, std::vector<Eigen::VectorXd> test_points);
+    BayesianParameter(std::vector<BayesianVariableConfig> variables, std::vector<Eigen::VectorXd> test_points,
+                      int max_samples, double gaussian_process_noise);
 
     void SetValue(BayesianVariable variable, double value, bool fixed);
     double Value(BayesianVariable variable) const;
@@ -201,6 +202,9 @@ private:
 
     std::vector<BayesianVariableConfig> variables_;
     std::vector<Eigen::VectorXd> test_points_;
+    int max_samples_;
+    double gaussian_process_noise_;
+
     uint32_t iteration_;
 
     struct EnumClassHash {
@@ -214,6 +218,9 @@ private:
     std::unordered_map<BayesianVariable, double, EnumClassHash> fixed_values_;
     std::unordered_map<BayesianVariable, int32_t, EnumClassHash> index_;
   };
+
+  int warmups_;
+  int steps_per_sample_;
 
   CategoricalParameter<bool> hierarchical_allreduce_;
   CategoricalParameter<bool> hierarchical_allgather_;
@@ -236,7 +243,6 @@ private:
   int32_t root_rank_;
   std::ofstream file_;
   bool writing_;
-
 };
 
 } // namespace common
