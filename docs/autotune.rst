@@ -50,7 +50,7 @@ by ``--config-file``:
 
 .. code-block:: bash
 
-    $ horovodrun -np 4 --autotune --cache-capcity 1024 --no-hierarchical-allgather python train.py
+    $ horovodrun -np 4 --autotune --cache-capacity 1024 --no-hierarchical-allgather python train.py
 
 In the above example, parameters ``cache-capacity`` and ``hierarchical-allgather`` will not be adjusted by
 autotuning.
@@ -71,7 +71,7 @@ steps per sample, and maximum samples:
 
     $ horovodrun -np 4 --autotune \
     --autotune-warmup-samples 5 --autotune-steps-per-sample 20 --autotune-bayes-opt-max-samples 40 \
-    /tmp/autotune_log.csv python train.py
+    python train.py
 
 Increasing these values will generally improve the accuracy of the autotuning process at the cost of greater time
 spent in the autotuning process with degraded performance.
