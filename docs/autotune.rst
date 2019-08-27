@@ -21,9 +21,9 @@ space of parameter combinations during training. This feature can be enabled by 
 
     $ horovodrun -np 4 --autotune python train.py
 
-When autotuning is enabled, Horovod will spend the first few steps or epochs of training experimenting with different
-parameter values and collecting metrics on performance (measured in tensors allreduced / allgathered per unit of time).
-Once the system reaches convergence, or a set number of samples have been collected, the system will record the best
+When autotuning is enabled, Horovod will spend the first steps / epochs of training experimenting with different
+parameter values and collecting metrics on performance (measured in bytes allreduced / allgathered per unit of time).
+Once the experiment reaches convergence, or a set number of samples have been collected, the system will record the best
 combination of parameters discovered and continue to use them for the duration of training.
 
 A log of all parameter combinations explored (and the best values selected) can be recorded by providing
@@ -33,7 +33,7 @@ the ``--autotune-log-file`` option to ``horovodrun``:
 
     $ horovodrun -np 4 --autotune --autotune-log-file /tmp/autotune_log.csv python train.py
 
-By logging the best parameters to a file, users can opt to set the best parameters discovered on the command line
+By logging the best parameters to a file, you can opt to set the best parameters discovered on the command line
 instead of re-running autotuning if training is paused and later resumed.
 
 Note that some configurable parameters, like tensor compression, are not included as part of the autotuning process
