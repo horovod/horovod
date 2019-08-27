@@ -28,3 +28,7 @@ library_options:
   mpi_threads_disable: true
   num_nccl_streams: 2
   mlsl_bgt_affinity: 1
+
+logging:
+  level: INFO
+  hide_timestamp: true

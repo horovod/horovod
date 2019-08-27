@@ -320,6 +320,7 @@ def make_override_action(override_args):
                      dest,
                      default=None,
                      type=None,
+                     choices=None,
                      required=False,
                      help=None):
             super(StoreOverrideAction, self).__init__(
@@ -328,6 +329,7 @@ def make_override_action(override_args):
                 nargs=1,
                 default=default,
                 type=type,
+                choices=choices,
                 required=required,
                 help=help)
 
@@ -521,8 +523,11 @@ def parse_args():
                                             'support. (default: %(default)s)')
 
     group_logging = parser.add_argument_group('logging arguments')
-    group_logging.add_argument('--log-level', choices=config_parser.LOG_LEVELS,
+    group_logging.add_argument('--log-level', action=make_override_action(override_args),
+                               choices=config_parser.LOG_LEVELS,
                                help='Minimum level to log to stderr from the Horovod backend. (default: WARNING).')
+    group_logging.add_argument('--log-hide-timestamp', action=make_override_true_action(override_args),
+                               help='Hide the timestamp from Horovod log messages.')
 
     group_hosts_parent = parser.add_argument_group('host arguments')
     group_hosts = group_hosts_parent.add_mutually_exclusive_group()

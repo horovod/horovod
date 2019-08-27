@@ -145,6 +145,17 @@ class RunTests(unittest.TestCase):
             self.assertEqual(env.get(config_parser.HOROVOD_NUM_NCCL_STREAMS), '2')
             self.assertEqual(env.get(config_parser.HOROVOD_MLSL_BGT_AFFINITY), '1')
 
+    def test_logging_args(self):
+        with override_args('horovodrun', '-np', '2',
+                           '--log-level', 'INFO',
+                           '--log-hide-timestamp'):
+            args = run.parse_args()
+            env = {}
+            config_parser.set_env_from_args(env, args)
+
+            self.assertEqual(env.get(config_parser.HOROVOD_LOG_LEVEL), 'INFO')
+            self.assertEqual(env.get(config_parser.HOROVOD_LOG_HIDE_TIME), '1')
+
     def test_config_file(self):
         config_filename = os.path.join(os.path.dirname(__file__), 'data/config.test.yaml')
         with override_args('horovodrun', '-np', '2',
@@ -181,6 +192,10 @@ class RunTests(unittest.TestCase):
             self.assertTrue(args.mpi_threads_disable)
             self.assertEqual(args.num_nccl_streams, 2)
             self.assertEqual(args.mlsl_bgt_affinity, 1)
+
+            # Logging
+            self.assertEqual(args.log_level, 'INFO')
+            self.assertTrue(args.log_hide_timestamp)
 
     def test_config_file_override_args(self):
         config_filename = os.path.join(os.path.dirname(__file__), 'data/config.test.yaml')
