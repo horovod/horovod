@@ -14,20 +14,25 @@
 # ==============================================================================
 
 from __future__ import print_function
+
 import argparse
 import hashlib
 import os
 import sys
 import re
 import textwrap
+
+from socket import AF_INET
+from psutil import net_if_addrs
 try:
     from shlex import quote
 except ImportError:
     from pipes import quote
-import horovod
 
 import six
 import yaml
+
+import horovod
 
 from horovod.common.util import (extension_available,
                                  gloo_built, mpi_built,
@@ -39,8 +44,7 @@ from horovod.run.task import task_service
 from horovod.run.util import cache, threads, network
 from horovod.run.gloo_run import gloo_run
 from horovod.run.mpi_run import mpi_run
-from socket import AF_INET
-from psutil import net_if_addrs
+
 
 # Cached information of horovodrun functions be stored in this directory
 CACHE_FOLDER = os.path.join(os.path.expanduser('~'), '.horovod')
@@ -316,6 +320,7 @@ def make_override_action(override_args):
                      dest,
                      default=None,
                      type=None,
+                     choices=None,
                      required=False,
                      help=None):
             super(StoreOverrideAction, self).__init__(
@@ -324,6 +329,7 @@ def make_override_action(override_args):
                 nargs=1,
                 default=default,
                 type=type,
+                choices=choices,
                 required=required,
                 help=help)
 
@@ -453,10 +459,13 @@ def parse_args():
                                                    'from adjusting it.')
 
     group_autotune = parser.add_argument_group('autotune arguments')
-    group_autotune.add_argument('--autotune', action=make_override_true_action(override_args),
-                                help='Perform autotuning to select parameter argument values that maximimize '
-                                     'throughput for allreduce / allgather. Any parameter explicitly set will '
-                                     'be held constant during tuning.')
+    group_autotune_enabled = group_autotune.add_mutually_exclusive_group()
+    group_autotune_enabled.add_argument('--autotune', action=make_override_true_action(override_args),
+                                        help='Perform autotuning to select parameter argument values that maximimize '
+                                             'throughput for allreduce / allgather. Any parameter explicitly set will '
+                                             'be held constant during tuning.')
+    group_autotune_enabled.add_argument('--no-autotune', dest='autotune',
+                                        action=make_override_false_action(override_args), help=argparse.SUPPRESS)
     group_autotune.add_argument('--autotune-log-file', action=make_override_action(override_args),
                                 help='Comma-separated log of trials containing each hyperparameter and the '
                                      'score of the trial. The last row will always contain the best value '
@@ -486,14 +495,20 @@ def parse_args():
                                 help='JSON file containing timeline of Horovod events used for debugging '
                                      'performance. If this is provided, timeline events will be recorded, '
                                      'which can have a negative impact on training performance.')
-    group_timeline.add_argument('--timeline-mark-cycles', action=make_override_true_action(override_args),
-                                help='Mark cycles on the timeline. Only enabled if the timeline filename '
-                                     'is provided.')
+    group_timeline_cycles = group_timeline.add_mutually_exclusive_group()
+    group_timeline_cycles.add_argument('--timeline-mark-cycles', action=make_override_true_action(override_args),
+                                       help='Mark cycles on the timeline. Only enabled if the timeline filename '
+                                            'is provided.')
+    group_timeline_cycles.add_argument('--no-timeline-mark-cycles', dest='timeline_mark_cycles',
+                                       action=make_override_false_action(override_args), help=argparse.SUPPRESS)
 
     group_stall_check = parser.add_argument_group('stall check arguments')
-    group_stall_check.add_argument('--no-stall-check', action=make_override_true_action(override_args),
-                                   help='Disable the stall check. The stall check will log a warning when workers '
-                                        'have stalled waiting for other ranks to submit tensors.')
+    group_stall_check_enabled = group_stall_check.add_mutually_exclusive_group()
+    group_stall_check_enabled.add_argument('--no-stall-check', action=make_override_true_action(override_args),
+                                           help='Disable the stall check. The stall check will log a warning when '
+                                                'workers have stalled waiting for other ranks to submit tensors.')
+    group_stall_check_enabled.add_argument('--stall-check', dest='no_stall_check',
+                                           action=make_override_false_action(override_args), help=argparse.SUPPRESS)
     group_stall_check.add_argument('--stall-check-warning-time-seconds', action=make_override_action(override_args),
                                    type=int, default=60,
                                    help='Seconds until the stall warning is logged to stderr. (default: %(default)s)')
@@ -503,10 +518,14 @@ def parse_args():
                                         'place if this value is greater than the warning time. (default: %(default)s)')
 
     group_library_options = parser.add_argument_group('library arguments')
-    group_library_options.add_argument('--mpi-threads-disable', action=make_override_true_action(override_args),
-                                       help='Disable MPI threading support. Only applies when running in MPI '
-                                            'mode. In some cases, multi-threaded MPI can slow down other components, '
-                                            'but is necessary if you wish to run mpi4py on top of Horovod.')
+    group_mpi_threads_disable = group_library_options.add_mutually_exclusive_group()
+    group_mpi_threads_disable.add_argument('--mpi-threads-disable', action=make_override_true_action(override_args),
+                                           help='Disable MPI threading support. Only applies when running in MPI '
+                                                'mode. In some cases, multi-threaded MPI can slow down other '
+                                                'components, but is necessary if you wish to run mpi4py on top '
+                                                'of Horovod.')
+    group_mpi_threads_disable.add_argument('--no-mpi-threads-disable', dest='mpi_threads_disable',
+                                           action=make_override_false_action(override_args), help=argparse.SUPPRESS)
     group_library_options.add_argument('--num-nccl-streams', action=make_override_action(override_args),
                                        type=int, default=1,
                                        help='Number of NCCL streams. Only applies when running with NCCL support. '
@@ -515,6 +534,16 @@ def parse_args():
                                        type=int, default=0,
                                        help='MLSL background thread affinity. Only applies when running with MLSL '
                                             'support. (default: %(default)s)')
+
+    group_logging = parser.add_argument_group('logging arguments')
+    group_logging.add_argument('--log-level', action=make_override_action(override_args),
+                               choices=config_parser.LOG_LEVELS,
+                               help='Minimum level to log to stderr from the Horovod backend. (default: WARNING).')
+    group_logging_timestamp = group_logging.add_mutually_exclusive_group()
+    group_logging_timestamp.add_argument('--log-hide-timestamp', action=make_override_true_action(override_args),
+                                         help='Hide the timestamp from Horovod log messages.')
+    group_logging_timestamp.add_argument('--no-log-hide-timestamp', dest='log_hide_timestamp',
+                                         action=make_override_false_action(override_args), help=argparse.SUPPRESS)
 
     group_hosts_parent = parser.add_argument_group('host arguments')
     group_hosts = group_hosts_parent.add_mutually_exclusive_group()

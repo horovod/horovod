@@ -27,6 +27,11 @@ HOROVOD_MPI_THREADS_DISABLE = 'HOROVOD_MPI_THREADS_DISABLE'
 HOROVOD_NUM_NCCL_STREAMS = 'HOROVOD_NUM_NCCL_STREAMS'
 HOROVOD_MLSL_BGT_AFFINITY = 'HOROVOD_MLSL_BGT_AFFINITY'
 
+# Logging knobs
+HOROVOD_LOG_LEVEL = 'HOROVOD_LOG_LEVEL'
+HOROVOD_LOG_HIDE_TIME = 'HOROVOD_LOG_HIDE_TIME'
+LOG_LEVELS = ['TRACE', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'FATAL']
+
 
 def _set_arg_from_config(args, arg_base_name, override_args, config, arg_prefix=''):
     arg_name = arg_prefix + arg_base_name
@@ -88,6 +93,12 @@ def set_args_from_config(args, config, override_args):
         _set_arg_from_config(args, 'mpi_threads_disable', override_args, library_options)
         _set_arg_from_config(args, 'num_nccl_streams', override_args, library_options)
         _set_arg_from_config(args, 'mlsl_bgt_affinity', override_args, library_options)
+
+    # Logging
+    logging = config.get('logging')
+    if logging:
+        _set_arg_from_config(args, 'level', override_args, logging, arg_prefix='log_')
+        _set_arg_from_config(args, 'hide_timestamp', override_args, logging, arg_prefix='log_')
 
 
 def _validate_arg_nonnegative(args, arg_name):
@@ -157,5 +168,9 @@ def set_env_from_args(env, args):
     _add_arg_to_env(env, HOROVOD_MPI_THREADS_DISABLE, args.mpi_threads_disable, identity)
     _add_arg_to_env(env, HOROVOD_NUM_NCCL_STREAMS, args.num_nccl_streams)
     _add_arg_to_env(env, HOROVOD_MLSL_BGT_AFFINITY, args.mlsl_bgt_affinity)
+
+    # Logging
+    _add_arg_to_env(env, HOROVOD_LOG_LEVEL, args.log_level)
+    _add_arg_to_env(env, HOROVOD_LOG_HIDE_TIME, args.log_hide_timestamp, identity)
 
     return env
