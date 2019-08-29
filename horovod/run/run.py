@@ -31,6 +31,8 @@ except ImportError:
 
 import six
 import yaml
+import cloudpickle
+from collections import namedtuple
 
 import horovod
 
@@ -44,6 +46,8 @@ from horovod.run.task import task_service
 from horovod.run.util import cache, threads, network
 from horovod.run.gloo_run import gloo_run
 from horovod.run.mpi_run import mpi_run
+from horovod.run.rendezvous.http_client import read_data_from_kvstore, put_data_into_kvstore
+from horovod.run.rendezvous.http_server import KVStoreServer
 
 
 # Cached information of horovodrun functions be stored in this directory
@@ -263,6 +267,18 @@ def _driver_fn(all_host_names, local_host_names, settings):
         return common_intfs
     finally:
         driver.shutdown()
+
+
+def _get_driver_ip(common_intfs):
+    iface = list(common_intfs)[0]
+    server_ip = None
+    for addr in net_if_addrs()[iface]:
+        if addr.family == AF_INET:
+            server_ip = addr.address
+
+    if not server_ip:
+        raise RuntimeError(
+            'Cannot find an IPv4 address of the common interface.')
 
 
 def check_build(verbose):
@@ -588,9 +604,7 @@ def parse_host_files(filename):
     return ','.join(hosts)
 
 
-def run():
-    args = parse_args()
-
+def _run(args):
     if args.check_build:
         check_build(args.verbose)
 
@@ -630,8 +644,7 @@ def run():
                                      timeout=tmout,
                                      num_hosts=len(all_host_names),
                                      num_proc=args.np,
-                                     hosts=args.hosts,
-                                     command=args.command)
+                                     hosts=args.hosts)
 
     # This cache stores the results of checks performed by horovodrun
     # during the initialization step. It can be disabled by setting
@@ -699,6 +712,21 @@ def run():
         if settings.verbose >= 2:
             print('Local interface found ' + ' '.join(common_intfs))
 
+    # get the driver IPv4 address
+    driver_ip = _get_driver_ip(common_intfs)
+
+    if args.run_func:
+        run_func_server = KVStoreServer(verbose=settings.verbose)
+        run_func_server_port = run_func_server.start_server()
+        pickled_exec_func = cloudpickle.dumps(args.run_func)
+        put_data_into_kvstore(driver_ip, run_func_server_port,
+                              'runfunc', 'func', pickled_exec_func)
+
+        command = [sys.executable, "-m horovod.run.run_task", str(driver_ip), str(run_func_server_port)]
+        settings.set_command(command, run_func_mode=True)
+    else:
+        settings.set_command(args.command, run_func_mode=False)
+
     env = os.environ.copy()
     config_parser.set_env_from_args(env, args)
 
@@ -706,7 +734,7 @@ def run():
         if not gloo_built(verbose=(settings.verbose >= 2)):
             raise ValueError('Gloo support has not been built.  If this is not expected, ensure CMake is installed '
                              'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
-        gloo_run(settings, remote_host_names, common_intfs, env)
+        gloo_run(settings, remote_host_names, common_intfs, env, driver_ip)
     elif args.use_mpi:
         if not mpi_built(verbose=(settings.verbose >= 2)):
             raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
@@ -716,11 +744,90 @@ def run():
         if mpi_built(verbose=(settings.verbose >= 2)):
             mpi_run(settings, common_intfs, env)
         elif gloo_built(verbose=(settings.verbose >= 2)):
-            gloo_run(settings, remote_host_names, common_intfs, env)
+            gloo_run(settings, remote_host_names, common_intfs, env, driver_ip)
         else:
             raise ValueError('Neither MPI nor Gloo support has been built. Try reinstalling Horovod ensuring that '
                              'either MPI is installed (MPI) or CMake is installed (Gloo).')
 
+    if args.run_func:
+        pickled_result = read_data_from_kvstore(driver_ip, run_func_server_port,
+                                                'runfunc', 'result')
+        result = cloudpickle.loads(pickled_result)
+        run_func_server.shutdown_server()
+        # return the rank-0 process returned value
+        return result
+    else:
+        return None
+
+
+def run_commandline():
+    args = parse_args()
+    _run(args)
+
+
+def run(
+        func,
+        args=(),
+        kwargs={},
+        np=1,
+        hosts=None,
+        hostfile=None,
+        start_timeout=None,
+        ssh_port=None,
+        disable_cache=None,
+        verbose=None,
+        use_gloo=None):
+
+    def wrapped_func():
+        return func(*args, **kwargs)
+
+    arg_keys = [
+        # basic args
+        'np', 'check_build', 'ssh_port', 'disable_cache', 'start_timeout', 'verbose',
+        'command', 'config_file', 'run_func',
+        # tuneable parameter arguments
+        'fusion_threshold_mb', 'cycle_time_ms', 'cache_capacity',
+        # hierrachy
+        'hierarchical_allreduce', 'hierarchical_allgather',
+        # autotune arguments
+        'autotune', 'autotune_log_file', 'autotune_warmup_samples', 'autotune_steps_per_sample',
+        'autotune_bayes_opt_max_samples', 'autotune_gaussian_process_noise',
+        # timeline arguments
+        'timeline_filename', 'timeline_mark_cycles',
+        # stall check arguments
+        'no_stall_check', 'stall_check_warning_time_seconds', 'stall_check_shutdown_time_seconds',
+        # library arguments
+        'mpi_threads_disable', 'num_nccl_streams', 'mlsl_bgt_affinity',
+        # logging arguments
+        'log_level', 'log_hide_timestamp',
+        # host arguments
+        'hosts', 'hostfile',
+        # controller arguments
+        'use_gloo', 'use_mpi'
+    ]
+
+    HorovodArgs = namedtuple('HorovodArgs', arg_keys)
+    arg_map = {}
+    for key in arg_keys:
+        arg_map[key] = None
+
+    arg_map.np = np
+    arg_map.hosts = hosts
+    arg_map.hostfile = hostfile
+    arg_map.start_timeout = start_timeout
+    arg_map.ssh_port = ssh_port
+    arg_map.disable_cache = disable_cache
+    arg_map.verbose = verbose
+    if use_gloo:
+        arg_map.use_gloo = True
+    else:
+        arg_map.use_mpi = True
+
+    arg_map.run_func = wrapped_func
+
+    args = HorovodArgs(**arg_map)
+    _run(args)
+
 
 if __name__ == '__main__':
-    run()
+    run_commandline()

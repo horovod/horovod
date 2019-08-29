@@ -195,7 +195,7 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command
                                            block_until_all_done=True)
 
 
-def gloo_run(settings, remote_host_names, common_intfs, env):
+def gloo_run(settings, remote_host_names, common_intfs, env, server_ip):
     # allocate processes into slots
     host_alloc_plan = _allocate(settings.hosts, settings.num_proc)
 
@@ -204,16 +204,7 @@ def gloo_run(settings, remote_host_names, common_intfs, env):
     # Start rendezvous server and get port that it is listening
     global_rendezv_port = global_rendezv.start_server(host_alloc_plan)
 
-    # get the server IPv4 address
     iface = list(common_intfs)[0]
-    server_ip = None
-    for addr in net_if_addrs()[iface]:
-        if addr.family == AF_INET:
-            server_ip = addr.address
-
-    if not server_ip:
-        raise RuntimeError(
-            'Cannot find an IPv4 address of the common interface.')
 
     run_command = (
         'HOROVOD_GLOO_RENDEZVOUS_ADDR={addr} '
