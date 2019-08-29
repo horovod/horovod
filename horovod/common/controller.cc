@@ -114,7 +114,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down) {
     // a shutdown. This function removes any invalid cache entries, if they
     // exist.
     CoordinateCacheAndState(cache_coordinator);
-    LOG(DEBUG) << "Cache coordinated.";
+    LOG(TRACE) << "Cache coordinated.";
     // Remove uncommon cached tensors from queue and replace to state
     // queue for next cycle. Skip adding common cached tensors to
     // queue as they are handled separately.
