@@ -1,4 +1,3 @@
-
 .. inclusion-marker-start-do-not-remove
 
 
@@ -9,7 +8,7 @@ This guide covers the process of contributing to Horovod as a developer.
 
 
 Environment Setup
-~~~~~~~~~~~~~~~~~
+-----------------
 
 Clone the repository locally:
 
@@ -39,7 +38,7 @@ For example:
 
 
 Build and Install
-~~~~~~~~~~~~~~~~~
+-----------------
 
 First, uninstall any existing version of Horovod.  Be sure to do this *outside* the Horovod root directory:
 
@@ -61,7 +60,7 @@ This is useful when you’re testing a feature of one framework in particular an
 
 
 Testing
-~~~~~~~
+-------
 
 Horovod has unit tests for all frameworks you can run from the tests directory:
 
@@ -76,7 +75,7 @@ Horovod has unit tests for all frameworks you can run from the tests directory:
 
 
 Adding Custom Operations
-~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------
 
 Operations in Horovod are used to transform Tensors across workers.  Horovod currently supports operations that
 implement Broadcast, Allreduce, and Allgather interfaces.  Gradients in Horovod are aggregated through
@@ -128,7 +127,7 @@ Most custom operations that require preconditions such as runtime flags will fal
 
 
 Adding Compression Algorithms
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------
 
 Gradient compression is used to reduce the amount of data sent over the network during an Allreduce operation.  Such
 compression algorithms are implemented per framework (TensorFlow, PyTorch, MXNet, etc.) in
@@ -172,5 +171,88 @@ Finally, you can start using your new compressor by passing it to the ``Distribu
 
     opt = hvd.DistributedOptimizer(opt, compression=hvd.Compression.custom)
 
+
+Release Process
+---------------
+
+This section applies to contributors with permissions to release new versions of Horovod to the public.
+
+
+Version Bump
+~~~~~~~~~~~~
+
+Make a PR that changes ``__version__ in horovod/__init__.py``.  Example:
+`#1352 <https://github.com/horovod/horovod/pull/1352>`_.
+
+
+Tag
+~~~
+
+.. code-block:: bash
+
+    $ git tag -a v0.18.0 -m "Horovodrun config file, bugfixes"
+    $ git push origin v0.18.0
+
+
+Upload to PyPI
+~~~~~~~~~~~~~~
+
+Make a clean recursive clone of the horovod repo:
+
+.. code-block:: bash
+
+    $ cd /tmp
+    $ rm -rf horovod
+    $ git clone --recursive https://github.com/horovod/horovod.git
+    $ cd horovod
+
+Build the source dist:
+
+.. code-block:: bash
+
+    $ python setup.py sdist
+
+Upload to PyPI using `Twine <https://pypi.org/project/twine>`_:
+
+.. code-block:: bash
+
+    $ pip install twine
+    $ twine upload -r pypi dist/horovod-0.18.0.tar.gz
+
+Create a `PyPI <https://pypi.org>`_ account if you don’t have one. Then ask someone from the Horovod TSC
+to add you to the horovod project.
+
+Verify that the latest version of Horovod is now available:
+
+.. code-block:: bash
+
+    $ pip install --upgrade horovod
+
+
+Build Docker Images
+~~~~~~~~~~~~~~~~~~~
+
+Create a `Docker Hub <https://cloud.docker.com>`_.  Ask someone from the Horovod TSC to add you to the
+horovod project.
+
+From a clean copy of the ``horovod`` repository on a Linux machine:
+
+.. code-block:: bash
+
+    $ ./build-docker-images.sh
+
+If you have trouble connecting to external URLs, try changing ``docker build ...`` to
+``docker build --network host ...`` in ``build-docker-images.sh``.
+
+Upload artifacts for both Python 2.7 and Python 3.6:
+
+.. code-block:: bash
+
+    $ docker login
+    $ docker push horovod/horovod:0.18.1-tf1.14.0-torch1.2.0-mxnet1.5.0-py2.7
+    $ docker push horovod/horovod:0.18.1-tf1.14.0-torch1.2.0-mxnet1.5.0-py3.6
+
+Check the horovod `Docker Hub project <https://cloud.docker.com/u/horovod/repository/docker/horovod/horovod>`_
+to verify that the image artifacts were successfully uploaded.
 
 .. inclusion-marker-end-do-not-remove
