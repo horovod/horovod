@@ -149,7 +149,11 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, event=None)
 
     def kill_middleman_if_master_thread_terminate():
         event.wait()
-        os.kill(middleman_pid, signal.SIGTERM)
+        try:
+            os.kill(middleman_pid, signal.SIGTERM)
+        except:
+            # The process has already been killed elsewhere
+            pass
 
     # TODO: Currently this requires explicitly declaration of the event and signal handler to set
     #  the event (gloo_run.py:_launch_jobs()). Need to figure out a generalized way to hide this behind
