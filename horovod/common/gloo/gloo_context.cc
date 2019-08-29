@@ -58,7 +58,7 @@ std::shared_ptr<gloo::Context> Rendezvous(const std::string& prefix,
     store.reset(new MemoryStore());
   }
   LOG(DEBUG) << prefix << " rendezvous started for rank=" << rank << ", size=" << size
-             << ", dev={" << dev.str() << "}";
+             << ", dev={" << dev->str() << "}";
 
   auto context = std::make_shared<gloo::rendezvous::Context>(rank, size);
   context->connectFullMesh(*store, dev);
