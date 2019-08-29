@@ -39,17 +39,6 @@ void GlooController::Initialize() {
     LOG(DEBUG) << "Started Horovod with " << size_ << " processes";
   }
 
-  // TODO(travis): Gloo doesn't handle running with size=1 for all ops at this time.
-  //  Remove this after https://github.com/facebookincubator/gloo/issues/209
-  if (size_ == 1) {
-    local_rank_ = 0;
-    cross_rank_ = 0;
-    local_size_ = 1;
-    cross_size_ = 1;
-    is_homogeneous_ = true;
-    return;
-  }
-
   // Determine local rank by if local context is presented.
   if (gloo_context_.local_ctx != nullptr) {
     local_rank_ = gloo_context_.local_ctx->rank;
@@ -132,10 +121,6 @@ int GlooController::GetTypeSize(DataType dtype) {
 
 void GlooController::CrossRankBitwiseAnd(std::vector<long long>& bitvector,
                                          int count) {
-  if (size_ == 1) {
-    return;
-  }
-
   gloo::AllreduceOptions opts(gloo_context_.ctx);
   opts.setOutput(bitvector.data(), count);
   void (*func)(void*, const void*, const void*, size_t) = &BitAnd<long long>;
@@ -145,10 +130,6 @@ void GlooController::CrossRankBitwiseAnd(std::vector<long long>& bitvector,
 
 void GlooController::CrossRankBitwiseOr(std::vector<long long>& bitvector,
                                         int count) {
-  if (size_ == 1) {
-    return;
-  }
-
   gloo::AllreduceOptions opts(gloo_context_.ctx);
   opts.setOutput(bitvector.data(), count);
   void (*func)(void*, const void*, const void*, size_t) = &BitOr<long long>;
@@ -158,10 +139,6 @@ void GlooController::CrossRankBitwiseOr(std::vector<long long>& bitvector,
 
 void GlooController::RecvReadyTensors(std::vector<std::string>& ready_to_reduce,
                                       std::vector<RequestList>& ready_list) {
-  if (size_ == 1) {
-    return;
-  }
-
   // Rank zero has put all its own tensors in the tensor count table.
   // Now, it should count all the tensors that are coming from other
   // ranks at this tick.
@@ -221,10 +198,6 @@ void GlooController::RecvReadyTensors(std::vector<std::string>& ready_to_reduce,
 }
 
 void GlooController::SendFinalTensors(ResponseList& response_list) {
-  if (size_ == 1) {
-    return;
-  }
-
   // Notify all nodes which tensors we'd like to reduce at this step.
   std::string encoded_response;
   ResponseList::SerializeToString(response_list, encoded_response);
@@ -249,10 +222,6 @@ void GlooController::SendFinalTensors(ResponseList& response_list) {
 }
 
 void GlooController::SendReadyTensors(RequestList& message_list) {
-  if (size_ == 1) {
-    return;
-  }
-
   std::string encoded_message;
   RequestList::SerializeToString(message_list, encoded_message);
 
@@ -296,10 +265,6 @@ void GlooController::SendReadyTensors(RequestList& message_list) {
 }
 
 void GlooController::RecvFinalTensors(ResponseList& response_list) {
-  if (size_ == 1) {
-    return;
-  }
-
   int msg_length;
   // root broadcast final message length to others
   {
@@ -324,10 +289,6 @@ void GlooController::RecvFinalTensors(ResponseList& response_list) {
 
 void GlooController::Bcast(void* buffer, size_t size, int root_rank,
                            Communicator communicator) {
-  if (size_ == 1) {
-    return;
-  }
-
   gloo::BroadcastOptions opts(gloo_context_.GetGlooContext(communicator));
   opts.setOutput((uint8_t*)buffer, size);
   opts.setRoot(root_rank);
@@ -335,10 +296,6 @@ void GlooController::Bcast(void* buffer, size_t size, int root_rank,
 }
 
 void GlooController::Barrier(Communicator communicator) {
-  if (size_ == 1) {
-    return;
-  }
-
   gloo::BarrierOptions opts(gloo_context_.GetGlooContext(communicator));
   gloo::barrier(opts);
 }
