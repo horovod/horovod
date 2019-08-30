@@ -14,7 +14,7 @@
 # =============================================================================
 import cloudpickle
 import sys
-from horovod.run.rendezvous.http_client import read_data_from_kvstore, put_data_into_kvstore
+from horovod.run.http.http_client import read_data_from_kvstore, put_data_into_kvstore
 
 
 def main(addr, port):

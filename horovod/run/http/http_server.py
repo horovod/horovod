@@ -127,7 +127,7 @@ class RendezvousHTTPServer(BaseHTTPServer.HTTPServer, object):
         # class that does not inherit from object.
         super(RendezvousHTTPServer, self).__init__(addr, handler)
 
-        # Lists for finished rendezvous workers
+        # Lists for finished http workers
         self.finished_list_lock = threading.Lock()
         self.finished_list = collections.defaultdict(list)
 
@@ -148,7 +148,7 @@ class RendezvousHTTPServer(BaseHTTPServer.HTTPServer, object):
             local_rank = slot_info.local_rank
             self.scope_size['cross_' + str(local_rank)] = slot_info.cross_size
 
-    # Decide whether all ranks have confirmed rendezvous completion.
+    # Decide whether all ranks have confirmed http completion.
     def should_continue(self):
         should_continue = False
         with self.finished_list_lock:
@@ -187,7 +187,7 @@ class RendezvousServer:
                 addr, RendezvousHandler, self.verbose))
         self.httpd.extract_scope_size(host_alloc_plan)
         if self.verbose:
-            print('Rendezvous INFO: HTTP rendezvous server started.')
+            print('Rendezvous INFO: HTTP http server started.')
 
         # start the listening loop
         self.listen_thread = threading.Thread(target=self.listen_loop)

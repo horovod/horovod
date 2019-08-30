@@ -46,8 +46,8 @@ from horovod.run.task import task_service
 from horovod.run.util import cache, threads, network
 from horovod.run.gloo_run import gloo_run
 from horovod.run.mpi_run import mpi_run
-from horovod.run.rendezvous.http_client import read_data_from_kvstore, put_data_into_kvstore
-from horovod.run.rendezvous.http_server import KVStoreServer
+from horovod.run.http.http_client import read_data_from_kvstore, put_data_into_kvstore
+from horovod.run.http.http_server import KVStoreServer
 
 
 # Cached information of horovodrun functions be stored in this directory
@@ -594,6 +594,63 @@ def parse_args():
     return args
 
 
+class HorovodArgs(object):
+
+    def __init__(self):
+        self.np = 1
+        self.check_build = None
+        self.ssh_port = None
+        self.disable_cache = None
+        self.start_timeout = None
+        self.verbose = None
+        self.command = None
+        self.run_func = None
+        self.config_file = None
+
+        # tuneable parameter arguments
+        self.fusion_threshold_mb = None
+        self.cycle_time_ms = None,
+        self.cache_capacity = None,
+
+        # hierrachy
+        self.hierarchical_allreduce = None
+        self.hierarchical_allgather = None
+
+        # autotune arguments
+        self.autotune = None
+        self.autotune_log_file = None
+        self.autotune_warmup_samples = None
+        self.autotune_steps_per_sample = None
+        self.autotune_bayes_opt_max_samples = None
+        self.autotune_gaussian_process_noise = None
+
+        # timeline arguments
+        self.timeline_filename = None
+        self.timeline_mark_cycles = None
+
+        # stall check arguments
+        self.no_stall_check = None
+        self.stall_check_warning_time_seconds = None
+        self.stall_check_shutdown_time_seconds = None
+
+        # library arguments
+        self.mpi_threads_disable = None
+        self.num_nccl_streams = None
+        self.mlsl_bgt_affinity = None
+
+        # logging arguments
+        self.log_level = None
+        self.log_hide_timestamp = None
+
+        # host arguments
+        self.hosts = None
+        self.hostfile = None
+
+        # controller arguments
+        self.use_gloo = None
+        self.use_mpi = None
+
+
 def parse_host_files(filename):
     hosts = []
     for line in open(filename):
@@ -781,51 +838,23 @@ def run(
     def wrapped_func():
         return func(*args, **kwargs)
 
-    arg_keys = [
-        # basic args
-        'np', 'check_build', 'ssh_port', 'disable_cache', 'start_timeout', 'verbose',
-        'command', 'config_file', 'run_func',
-        # tuneable parameter arguments
-        'fusion_threshold_mb', 'cycle_time_ms', 'cache_capacity',
-        # hierrachy
-        'hierarchical_allreduce', 'hierarchical_allgather',
-        # autotune arguments
-        'autotune', 'autotune_log_file', 'autotune_warmup_samples', 'autotune_steps_per_sample',
-        'autotune_bayes_opt_max_samples', 'autotune_gaussian_process_noise',
-        # timeline arguments
-        'timeline_filename', 'timeline_mark_cycles',
-        # stall check arguments
-        'no_stall_check', 'stall_check_warning_time_seconds', 'stall_check_shutdown_time_seconds',
-        # library arguments
-        'mpi_threads_disable', 'num_nccl_streams', 'mlsl_bgt_affinity',
-        # logging arguments
-        'log_level', 'log_hide_timestamp',
-        # host arguments
-        'hosts', 'hostfile',
-        # controller arguments
-        'use_gloo', 'use_mpi'
-    ]
+    args = HorovodArgs()
 
-    HorovodArgs = namedtuple('HorovodArgs', arg_keys)
-    arg_map = {}
-    for key in arg_keys:
-        arg_map[key] = None
-
-    arg_map.np = np
-    arg_map.hosts = hosts
-    arg_map.hostfile = hostfile
-    arg_map.start_timeout = start_timeout
-    arg_map.ssh_port = ssh_port
-    arg_map.disable_cache = disable_cache
-    arg_map.verbose = verbose
+    args.np = np
+    args.hosts = hosts
+    args.hostfile = hostfile
+    args.start_timeout = start_timeout
+    args.ssh_port = ssh_port
+    args.disable_cache = disable_cache
+    args.verbose = verbose
     if use_gloo:
-        arg_map.use_gloo = True
+        args.use_gloo = True
     else:
-        arg_map.use_mpi = True
+        args.use_mpi = True
 
-    arg_map.run_func = wrapped_func
+    args.run_func = wrapped_func
 
-    args = HorovodArgs(**arg_map)
+    args = HorovodArgs(args)
     _run(args)
 
 

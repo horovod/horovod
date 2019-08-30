@@ -18,7 +18,7 @@ import collections
 import threading
 import signal
 
-from horovod.run.rendezvous.http_server import RendezvousServer
+from horovod.run.http.http_server import RendezvousServer
 from horovod.run.common.util import env as env_util, safe_shell_exec
 from horovod.run.util import threads
 from psutil import net_if_addrs
@@ -154,7 +154,7 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command
 
     args_list = []
     for alloc_info in host_alloc_plan:
-        # generate env for rendezvous
+        # generate env for http
         horovod_rendez_env = 'HOROVOD_RANK={rank} HOROVOD_SIZE={size} ' \
                              'HOROVOD_LOCAL_RANK={local_rank} HOROVOD_LOCAL_SIZE={local_size} ' \
                              'HOROVOD_CROSS_RANK={cross_rank} HOROVOD_CROSS_SIZE={cross_size} ' \
@@ -199,9 +199,9 @@ def gloo_run(settings, remote_host_names, common_intfs, env, server_ip):
     # allocate processes into slots
     host_alloc_plan = _allocate(settings.hosts, settings.num_proc)
 
-    # create global rendezvous server
+    # create global http server
     global_rendezv = RendezvousServer(settings.verbose)
-    # Start rendezvous server and get port that it is listening
+    # Start http server and get port that it is listening
     global_rendezv_port = global_rendezv.start_server(host_alloc_plan)
 
     iface = list(common_intfs)[0]
