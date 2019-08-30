@@ -131,12 +131,12 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
                    rank, size, dev);
   LOG(DEBUG) << "Global Gloo context initialized.";
 
-  local_ctx = Rendezvous(HOROVOD_GLOO_LOCAL_PREFIX,
+  local_ctx = Rendezvous(HOROVOD_GLOO_LOCAL_PREFIX + std::to_string(cross_rank),
                          rendezvous_addr_env, rendezvous_port,
                          local_rank, local_size, dev);
   LOG(DEBUG) << "Local Gloo context initialized.";
 
-  cross_ctx = Rendezvous(HOROVOD_GLOO_CROSS_PREFIX,
+  cross_ctx = Rendezvous(HOROVOD_GLOO_CROSS_PREFIX + std::to_string(local_rank),
                          rendezvous_addr_env, rendezvous_port,
                          cross_rank, cross_size, dev);
   LOG(DEBUG) << "Cross-node Gloo context initialized.";
