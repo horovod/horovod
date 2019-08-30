@@ -29,9 +29,7 @@ public:
                  Timeline& timeline, ParameterManager& parameter_manager,
                  GlooContext& gloo_context)
       : Controller(response_cache, tensor_queue, timeline, parameter_manager),
-        gloo_context_(gloo_context) {
-    LOG(DEBUG) << "GLOO Controller Initialized.";
-  };
+        gloo_context_(gloo_context) {};
 
   void Initialize() override;
 
