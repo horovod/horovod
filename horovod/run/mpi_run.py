@@ -98,5 +98,10 @@ def mpi_run(settings, common_intfs, env):
 
     if settings.verbose >= 2:
         print(mpirun_command)
+
     # Execute the mpirun command.
-    os.execve('/bin/sh', ['/bin/sh', '-c', mpirun_command], env)
+    if settings.run_func_mode:
+        safe_shell_exec.execute(settings.command, env=env)
+    else:
+        os.execve('/bin/sh', ['/bin/sh', '-c', mpirun_command], env)
+
