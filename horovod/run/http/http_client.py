@@ -24,7 +24,7 @@ else:
     from urllib.error import HTTPError, URLError
 
 
- def read_data_from_kvstore(addr, port, scope, key):
+def read_data_from_kvstore(addr, port, scope, key):
     try:
         url = "http://{addr}:{port}/{scope}/{key}".format(
             addr=addr, port=str(port), scope=scope, key=key
@@ -33,10 +33,10 @@ else:
         resp = urlopen(req)
         return base64.b64decode(resp.read())
     except (HTTPError, URLError) as e:
-        raise RuntimeError("Read data from KVStore server failed.", e)
+                raise RuntimeError("Read data from KVStore server failed.", e)
 
 
- def put_data_into_kvstore(addr, port, scope, key, value):
+def put_data_into_kvstore(addr, port, scope, key, value):
     try:
         url = "http://{addr}:{port}/{scope}/{key}".format(
             addr=addr, port=str(port), scope=scope, key=key

@@ -280,6 +280,8 @@ def _get_driver_ip(common_intfs):
         raise RuntimeError(
             'Cannot find an IPv4 address of the common interface.')
 
+    return server_ip
+
 
 def check_build(verbose):
     def get_check(value):
@@ -819,6 +821,7 @@ def _run(args):
 
 def run_commandline():
     args = parse_args()
+    args.run_func = None
     _run(args)
 
 
@@ -854,7 +857,6 @@ def run(
 
     args.run_func = wrapped_func
 
-    args = HorovodArgs(args)
     _run(args)
 
 
