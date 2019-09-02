@@ -783,11 +783,25 @@ def _run(args):
 
         command = [sys.executable, "-m horovod.run.run_task", str(driver_ip), str(run_func_server_port)]
         settings.set_command(command, run_func_mode=True)
+
+        try:
+            _launch_job(args, remote_host_names, settings, common_intfs)
+            pickled_result = read_data_from_kvstore(driver_ip, run_func_server_port,
+                                                    'runfunc', 'result')
+            result = cloudpickle.loads(pickled_result)
+            return result
+        finally:
+            run_func_server.shutdown_server()
     else:
         settings.set_command(args.command, run_func_mode=False)
+        _launch_job(args, remote_host_names, settings, common_intfs)
+        return None
 
+
+def _launch_job(args, remote_host_names, settings, common_intfs):
     env = os.environ.copy()
     config_parser.set_env_from_args(env, args)
+    driver_ip = _get_driver_ip(common_intfs)
 
     if args.use_gloo:
         if not gloo_built(verbose=(settings.verbose >= 2)):
@@ -807,16 +821,6 @@ def _run(args):
         else:
             raise ValueError('Neither MPI nor Gloo support has been built. Try reinstalling Horovod ensuring that '
                              'either MPI is installed (MPI) or CMake is installed (Gloo).')
-
-    if args.run_func:
-        pickled_result = read_data_from_kvstore(driver_ip, run_func_server_port,
-                                                'runfunc', 'result')
-        result = cloudpickle.loads(pickled_result)
-        run_func_server.shutdown_server()
-        # return the rank-0 process returned value
-        return result
-    else:
-        return None
 
 
 def run_commandline():

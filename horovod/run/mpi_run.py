@@ -101,7 +101,9 @@ def mpi_run(settings, common_intfs, env):
 
     # Execute the mpirun command.
     if settings.run_func_mode:
-        safe_shell_exec.execute(settings.command, env=env)
+        exit_code = safe_shell_exec.execute(settings.command, env=env)
+        if exit_code != 0:
+            raise RuntimeError("mpirun failed with exit code {exit_code}".format(exit_code=exit_code))
     else:
         os.execve('/bin/sh', ['/bin/sh', '-c', mpirun_command], env)
 

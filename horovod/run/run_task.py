@@ -20,7 +20,11 @@ from horovod.run.http.http_client import read_data_from_kvstore, put_data_into_k
 def main(addr, port):
     pickled_func = read_data_from_kvstore(addr, port, 'runfunc', 'func')
     func = cloudpickle.loads(pickled_func)
-    ret_val = func()
+    try:
+        ret_val = func()
+    except BaseException as e:
+        sys.stderr.write("User function raise error: {error}".format(error=str(e)))
+        raise e
     if ret_val:
         pickled_ret_val = cloudpickle.dumps(ret_val)
         put_data_into_kvstore(addr, port, 'runfunc', 'result', pickled_ret_val)
