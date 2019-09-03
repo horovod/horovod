@@ -781,7 +781,7 @@ def _run(args):
         put_data_into_kvstore(driver_ip, run_func_server_port,
                               'runfunc', 'func', pickled_exec_func)
 
-        command = [sys.executable, "-m horovod.run.run_task", str(driver_ip), str(run_func_server_port)]
+        command = [sys.executable, "-m", "horovod.run.run_task", str(driver_ip), str(run_func_server_port)]
         settings.set_command(command, run_func_mode=True)
 
         try:
@@ -845,23 +845,23 @@ def run(
     def wrapped_func():
         return func(*args, **kwargs)
 
-    args = HorovodArgs()
+    hargs = HorovodArgs()
 
-    args.np = np
-    args.hosts = hosts
-    args.hostfile = hostfile
-    args.start_timeout = start_timeout
-    args.ssh_port = ssh_port
-    args.disable_cache = disable_cache
-    args.verbose = verbose
+    hargs.np = np
+    hargs.hosts = hosts
+    hargs.hostfile = hostfile
+    hargs.start_timeout = start_timeout
+    hargs.ssh_port = ssh_port
+    hargs.disable_cache = disable_cache
+    hargs.verbose = verbose
     if use_gloo:
-        args.use_gloo = True
+        hargs.use_gloo = True
     else:
-        args.use_mpi = True
+        hargs.use_mpi = True
 
-    args.run_func = wrapped_func
+    hargs.run_func = wrapped_func
 
-    _run(args)
+    return _run(hargs)
 
 
 if __name__ == '__main__':
