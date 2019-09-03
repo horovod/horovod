@@ -247,9 +247,12 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command
     # a SIGINT, the event will be set and the spawned threads will kill their
     # corresponding middleman processes and thus the jobs will be killed as
     # well.
-    threads.execute_function_multithreaded(_exec_command,
-                                           args_list,
-                                           block_until_all_done=True)
+    res = threads.execute_function_multithreaded(_exec_command,
+                                                 args_list,
+                                                 block_until_all_done=True)
+    for k in res:
+        if res[k] != 0:
+            raise RuntimeError("Run gloo job failed.")
 
 
 def gloo_run(settings, remote_host_names, common_intfs, env):
