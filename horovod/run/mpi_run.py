@@ -102,4 +102,7 @@ def mpi_run(settings, common_intfs, env):
     if settings.verbose >= 2:
         print(mpirun_command)
     # Execute the mpirun command.
-    os.execve('/bin/sh', ['/bin/sh', '-c', mpirun_command], env)
+    exit_code = safe_shell_exec.execute(mpirun_command, env)
+    if exit_code != 0:
+        raise RuntimeError("Run mpi job failed with exit code {e}".format(e=exit_code))
+
