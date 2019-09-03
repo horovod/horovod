@@ -36,7 +36,7 @@ class InteractiveRunTests(unittest.TestCase):
         super(InteractiveRunTests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
 
-    def happy_run(self):
+    def test_happy_run(self):
 
         def fn(a, b, c, d):
             hvd.init()
@@ -46,9 +46,9 @@ class InteractiveRunTests(unittest.TestCase):
             if rank == 0:
                 return res
 
-            for use_gloo in [False, True]:
-                res1 = run(fn, (1, 20), {"c": 300, "d": 4000}, np=1, use_gloo=use_gloo)
-                self.assertListEqual([0, 4321], res1)
-                res1 = run(fn, (1, 20), {"c": 300, "d": 4000}, np=2, use_gloo=use_gloo)
-                self.assertListEqual([0, 4321, 1, 4321], res1)
+        for use_gloo in [False, True]:
+            res1 = run(fn, (1, 20), {"c": 300, "d": 4000}, np=1, use_gloo=use_gloo)
+            self.assertListEqual([0, 4321], res1)
+            res1 = run(fn, (1, 20), {"c": 300, "d": 4000}, np=2, use_gloo=use_gloo)
+            self.assertListEqual([0, 4321, 1, 4321], res1)
 
