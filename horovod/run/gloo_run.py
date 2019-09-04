@@ -118,7 +118,7 @@ def _pad_rank(rank, size):
     return str(rank).zfill(width)
 
 
-def mkdir_p(path):
+def _mkdir_p(path):
     try:
         os.makedirs(path)
     except OSError as exc:
@@ -239,7 +239,7 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command
 
     # Make the output directory if it does not exist
     if settings.output_filename:
-        mkdir_p(settings.output_filename)
+        _mkdir_p(settings.output_filename)
 
     # Each thread will use ssh command to launch the job on each remote host. If an
     # error occurs in one thread, entire process will be terminated. Otherwise,
