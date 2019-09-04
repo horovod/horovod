@@ -407,9 +407,9 @@ def parse_args():
                              'specify the initialization timeout.')
 
     parser.add_argument('--output-filename', action='store',
-                        help='Redirects stdout / stderr of all processes to a filename of the form '
-                             '<output_filename>.<rank>. The <rank> will be padded with 0 characters to ensure '
-                             'lexicographical order.')
+                        help='For Gloo, writes stdout / stderr of all processes to a filename of the form '
+                             '<output_filename>/rank.<rank>/<stdout | stderr>. The <rank> will be padded with 0 '
+                             'characters to ensure lexicographical order. For MPI, delegates its behavior to mpirun.')
 
     parser.add_argument('--verbose', action='store_true',
                         dest='verbose',

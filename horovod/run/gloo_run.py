@@ -14,9 +14,11 @@
 # ==============================================================================
 
 import collections
+import errno
 import math
 import os
 import signal
+import sys
 import threading
 
 from psutil import net_if_addrs
@@ -116,6 +118,29 @@ def _pad_rank(rank, size):
     return str(rank).zfill(width)
 
 
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
+
+class MultiFile(object):
+    def __init__(self, files):
+        self._files = files
+
+    def write(self, text):
+        for f in self._files:
+            f.write(text)
+
+    def flush(self):
+        for f in self._files:
+            f.flush()
+
+
 def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command):
     """
     executes the jobs defined by run command on hosts.
@@ -141,23 +166,32 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command
             print(command)
 
         # Redirect output if requested
-        output_file = None
+        stdout = stderr = None
+        stdout_file = stderr_file = None
         if settings.output_filename:
             padded_rank = _pad_rank(index, settings.num_proc)
-            output_filename_rank = settings.output_filename + '.{rank}'.format(rank=padded_rank)
-            output_file = open(output_filename_rank, 'w')
+            output_dir_rank = os.path.join(settings.output_filename, 'rank.{rank}'.format(rank=padded_rank))
+            if not os.path.exists(output_dir_rank):
+                os.mkdir(output_dir_rank)
+
+            stdout_file = open(os.path.join(output_dir_rank, 'stdout'), 'w')
+            stderr_file = open(os.path.join(output_dir_rank, 'stderr'), 'w')
+
+            stdout = MultiFile([sys.stdout, stdout_file])
+            stderr = MultiFile([sys.stderr, stderr_file])
 
         try:
-            exit_code = safe_shell_exec.execute(command, index=index, event=event,
-                                                stdout=output_file, stderr=output_file)
+            exit_code = safe_shell_exec.execute(command, index=index, event=event, stdout=stdout, stderr=stderr)
             if exit_code != 0:
                 print('Process {idx} exit with status code {ec}.'.format(idx=index, ec=exit_code))
         except Exception as e:
             print('Exception happened during safe_shell_exec, exception '
                   'message: {message}'.format(message=e))
         finally:
-            if output_file:
-                output_file.close()
+            if stdout_file:
+                stdout_file.close()
+            if stderr_file:
+                stderr_file.close()
         return 0
 
     ssh_port_arg = '-p {ssh_port}'.format(ssh_port=settings.ssh_port) if settings.ssh_port else ''
@@ -202,6 +236,10 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command
                                         .format(pwd=os.getcwd(), local_command=local_command))
                 )
         args_list.append([command, alloc_info.rank, event])
+
+    # Make the output directory if it does not exist
+    if settings.output_filename:
+        mkdir_p(settings.output_filename)
 
     # Each thread will use ssh command to launch the job on each remote host. If an
     # error occurs in one thread, entire process will be terminated. Otherwise,
