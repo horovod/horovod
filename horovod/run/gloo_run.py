@@ -250,9 +250,12 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command
     res = threads.execute_function_multithreaded(_exec_command,
                                                  args_list,
                                                  block_until_all_done=True)
-    for k in res:
-        if res[k] != 0:
-            raise RuntimeError("Run gloo job failed.")
+    for name in res:
+        if res[name] != 0:
+            raise RuntimeError("Gloo job detected that one or more processes exited with non-zero "
+                               "status, thus causing the job to be terminated. The first process "
+                               "to do so was:\nProcess name: {name}\nExit code: {code}\n"
+                               .format(name=name, code=res[name]))
 
 
 def gloo_run(settings, remote_host_names, common_intfs, env):
