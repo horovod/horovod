@@ -116,9 +116,16 @@ run_all() {
     exclude_keras_if_needed="| sed 's/[a-z_]*keras[a-z_.]*//g'"
   fi
 
+  local exclude_interactiverun="| sed 's/test_interactiverun.py//g'"
+
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras_if_needed} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no)\""
+    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras_if_needed} ${exclude_interactiverun} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no)\""
+
+  # Run test_interactiverun.py
+  run_test "${test}" "${queue}" \
+    ":pytest: Run PyTests test_interactiverun (${test})" \
+    "bash -c \"cd /horovod/test && pytest -v --capture=no test_interactiverun.py\""
 
   # Legacy TensorFlow tests
   if [[ ${test} != *"tf2_"* ]]; then
