@@ -114,7 +114,7 @@ def _allocate(hosts, np):
 
 
 def _pad_rank(rank, size):
-    width = int(math.log10(size - 1))
+    width = int(math.log10(size - 1)) + 1
     return str(rank).zfill(width)
 
 
