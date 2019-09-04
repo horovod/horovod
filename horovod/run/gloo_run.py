@@ -13,14 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
-import os
 import collections
-import threading
+import math
+import os
 import signal
+import threading
 
-from horovod.run.rendezvous.http_server import RendezvousServer
-from horovod.run.common.util import env as env_util, safe_shell_exec
-from horovod.run.util import threads
 from psutil import net_if_addrs
 from socket import AF_INET
 
@@ -28,6 +26,10 @@ try:
     from shlex import quote
 except ImportError:
     from pipes import quote
+
+from horovod.run.common.util import env as env_util, safe_shell_exec
+from horovod.run.rendezvous.http_server import RendezvousServer
+from horovod.run.util import threads
 
 
 class HostInfo:
@@ -109,6 +111,11 @@ def _allocate(hosts, np):
     return alloc_list
 
 
+def _pad_rank(rank, size):
+    width = int(math.log10(size - 1))
+    return str(rank).zfill(width)
+
+
 def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command):
     """
     executes the jobs defined by run command on hosts.
@@ -129,16 +136,28 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command
     :rtype:
     """
 
-    def _exec_command(_command, _index, event_):
+    def _exec_command(command, index, event):
         if settings.verbose:
-            print(_command)
+            print(command)
+
+        # Redirect output if requested
+        output_file = None
+        if settings.output_filename:
+            padded_rank = _pad_rank(index, settings.num_proc)
+            output_filename_rank = settings.output_filename + '.{rank}'.format(rank=padded_rank)
+            output_file = open(output_filename_rank, 'w')
+
         try:
-            exit_code = safe_shell_exec.execute(_command, index=_index, event=event_)
+            exit_code = safe_shell_exec.execute(command, index=index, event=event,
+                                                stdout=output_file, stderr=output_file)
             if exit_code != 0:
-                print('Process {idx} exit with status code {ec}.'.format(idx=_index, ec=exit_code))
+                print('Process {idx} exit with status code {ec}.'.format(idx=index, ec=exit_code))
         except Exception as e:
             print('Exception happened during safe_shell_exec, exception '
                   'message: {message}'.format(message=e))
+        finally:
+            if output_file:
+                output_file.close()
         return 0
 
     ssh_port_arg = '-p {ssh_port}'.format(ssh_port=settings.ssh_port) if settings.ssh_port else ''
