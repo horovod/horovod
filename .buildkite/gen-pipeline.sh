@@ -192,9 +192,11 @@ run_gloo() {
     exclude_spark_if_needed="| sed 's/[a-z_]*spark[a-z_.]*//g'"
   fi
 
+  local exclude_interactiverun="| sed 's/test_interactiverun.py//g'"
+
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_spark_if_needed} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no)\""
+    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_spark_if_needed} ${exclude_interactiverun} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no)\""
 
   run_test "${test}" "${queue}" \
     ":muscle: Test Keras MNIST (${test})" \

@@ -46,7 +46,8 @@ class InteractiveRunTests(unittest.TestCase):
             if rank == 0:
                 return res
 
-        res1 = run(fn, (1, 20), {"c": 300, "d": 4000}, np=1)
-        self.assertListEqual([0, 4321], res1)
-        res1 = run(fn, (1, 20), {"c": 300, "d": 4000}, np=2)
-        self.assertListEqual([0, 4321, 1, 4321], res1)
+        for use_gloo, use_mpi in [(True, False), (False, True)]:
+            res1 = run(fn, (1, 20), {"c": 300, "d": 4000}, np=1, use_gloo=use_gloo, use_mpi=use_mpi)
+            self.assertListEqual([0, 4321], res1)
+            res1 = run(fn, (1, 20), {"c": 300, "d": 4000}, np=2, use_gloo=use_gloo, use_mpi=use_mpi)
+            self.assertListEqual([0, 4321, 1, 4321], res1)

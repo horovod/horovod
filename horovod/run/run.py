@@ -839,7 +839,9 @@ def run(
         start_timeout=None,
         ssh_port=None,
         disable_cache=None,
-        verbose=None):
+        verbose=None,
+        use_gloo=None,
+        use_mpi=None):
 
     def wrapped_func():
         return func(*args, **kwargs)
@@ -853,6 +855,8 @@ def run(
     hargs.ssh_port = ssh_port
     hargs.disable_cache = disable_cache
     hargs.verbose = verbose
+    hargs.use_gloo = use_gloo
+    hargs.use_mpi = use_mpi
 
     hargs.run_func = wrapped_func
 
