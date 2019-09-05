@@ -85,12 +85,15 @@ def mpi_run(settings, common_intfs, env):
         '{ssh_port_arg} '
         '{tcp_intf_arg} '
         '{nccl_socket_intf_arg} '
+        '{output_filename_arg} '
         '{env} {command}'  # expect a lot of environment variables
         .format(num_proc=settings.num_proc,
                 hosts_arg=hosts_arg,
                 tcp_intf_arg=tcp_intf_arg,
                 nccl_socket_intf_arg=nccl_socket_intf_arg,
                 ssh_port_arg=ssh_port_arg,
+                output_filename_arg='--output-filename ' + settings.output_filename
+                                    if settings.output_filename else '',
                 env=' '.join('-x %s' % key for key in env.keys()
                              if env_util.is_exportable(key)),
                 command=' '.join(quote(par) for par in settings.command))

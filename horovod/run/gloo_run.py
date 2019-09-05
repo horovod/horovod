@@ -13,14 +13,14 @@
 # limitations under the License.
 # ==============================================================================
 
-import os
 import collections
-import threading
+import errno
+import math
+import os
 import signal
+import sys
+import threading
 
-from horovod.run.rendezvous.http_server import RendezvousServer
-from horovod.run.common.util import env as env_util, safe_shell_exec
-from horovod.run.util import threads
 from psutil import net_if_addrs
 from socket import AF_INET
 
@@ -28,6 +28,10 @@ try:
     from shlex import quote
 except ImportError:
     from pipes import quote
+
+from horovod.run.common.util import env as env_util, safe_shell_exec
+from horovod.run.rendezvous.http_server import RendezvousServer
+from horovod.run.util import threads
 
 
 class HostInfo:
@@ -109,6 +113,34 @@ def _allocate(hosts, np):
     return alloc_list
 
 
+def _pad_rank(rank, size):
+    width = int(math.log10(size - 1)) + 1
+    return str(rank).zfill(width)
+
+
+def _mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
+
+class MultiFile(object):
+    def __init__(self, files):
+        self._files = files
+
+    def write(self, text):
+        for f in self._files:
+            f.write(text)
+
+    def flush(self):
+        for f in self._files:
+            f.flush()
+
+
 def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command):
     """
     executes the jobs defined by run command on hosts.
@@ -129,16 +161,37 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command
     :rtype:
     """
 
-    def _exec_command(_command, _index, event_):
+    def _exec_command(command, index, event):
         if settings.verbose:
-            print(_command)
+            print(command)
+
+        # Redirect output if requested
+        stdout = stderr = None
+        stdout_file = stderr_file = None
+        if settings.output_filename:
+            padded_rank = _pad_rank(index, settings.num_proc)
+            output_dir_rank = os.path.join(settings.output_filename, 'rank.{rank}'.format(rank=padded_rank))
+            if not os.path.exists(output_dir_rank):
+                os.mkdir(output_dir_rank)
+
+            stdout_file = open(os.path.join(output_dir_rank, 'stdout'), 'w')
+            stderr_file = open(os.path.join(output_dir_rank, 'stderr'), 'w')
+
+            stdout = MultiFile([sys.stdout, stdout_file])
+            stderr = MultiFile([sys.stderr, stderr_file])
+
         try:
-            exit_code = safe_shell_exec.execute(_command, index=_index, event=event_)
+            exit_code = safe_shell_exec.execute(command, index=index, event=event, stdout=stdout, stderr=stderr)
             if exit_code != 0:
-                print('Process {idx} exit with status code {ec}.'.format(idx=_index, ec=exit_code))
+                print('Process {idx} exit with status code {ec}.'.format(idx=index, ec=exit_code))
         except Exception as e:
             print('Exception happened during safe_shell_exec, exception '
                   'message: {message}'.format(message=e))
+        finally:
+            if stdout_file:
+                stdout_file.close()
+            if stderr_file:
+                stderr_file.close()
         return 0
 
     ssh_port_arg = '-p {ssh_port}'.format(ssh_port=settings.ssh_port) if settings.ssh_port else ''
@@ -183,6 +236,10 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command
                                         .format(pwd=os.getcwd(), local_command=local_command))
                 )
         args_list.append([command, alloc_info.rank, event])
+
+    # Make the output directory if it does not exist
+    if settings.output_filename:
+        _mkdir_p(settings.output_filename)
 
     # Each thread will use ssh command to launch the job on each remote host. If an
     # error occurs in one thread, entire process will be terminated. Otherwise,

@@ -15,6 +15,7 @@
 
 #include "gloo_context.h"
 
+#include <chrono>
 #include <memory>
 
 #include "gloo/rendezvous/context.h"
@@ -34,6 +35,7 @@ namespace horovod {
 namespace common {
 
 // Horovod Gloo rendezvous knobs.
+#define HOROVOD_GLOO_TIMEOUT_SECONDS "HOROVOD_GLOO_TIMEOUT_SECONDS"
 #define HOROVOD_GLOO_RENDEZVOUS_ADDR "HOROVOD_GLOO_RENDEZVOUS_ADDR"
 #define HOROVOD_GLOO_RENDEZVOUS_PORT "HOROVOD_GLOO_RENDEZVOUS_PORT"
 #define HOROVOD_GLOO_GLOBAL_PREFIX "global_"
@@ -46,10 +48,16 @@ namespace common {
 #define HOROVOD_CROSS_RANK "HOROVOD_CROSS_RANK"
 #define HOROVOD_CROSS_SIZE "HOROVOD_CROSS_SIZE"
 
+std::chrono::milliseconds GetTimeoutFromEnv() {
+  auto s = std::chrono::seconds(GetIntEnvOrDefault(HOROVOD_GLOO_TIMEOUT_SECONDS, 30));
+  return std::chrono::duration_cast<std::chrono::milliseconds>(s);
+}
+
 std::shared_ptr<gloo::Context> Rendezvous(const std::string& prefix,
                                           const char* server_addr_env, int server_port,
                                           int rank, int size,
-                                          std::shared_ptr<gloo::transport::Device>& dev) {
+                                          std::shared_ptr<gloo::transport::Device>& dev,
+                                          std::chrono::milliseconds timeout) {
   std::unique_ptr<GlooStore> store;
   if (server_addr_env != nullptr) {
     std::string server_addr = server_addr_env;
@@ -61,6 +69,7 @@ std::shared_ptr<gloo::Context> Rendezvous(const std::string& prefix,
              << ", dev={" << dev->str() << "}";
 
   auto context = std::make_shared<gloo::rendezvous::Context>(rank, size);
+  context->setTimeout(timeout);
   context->connectFullMesh(*store, dev);
   store->Finalize();
   return context;
@@ -79,19 +88,23 @@ void GlooContext::InitializeFromMPI(MPIContext& mpi_ctx,
   attr.iface = gloo_iface;
   attr.ai_family = AF_UNSPEC;
   auto dev = gloo::transport::tcp::CreateDevice(attr);
+  auto timeout = GetTimeoutFromEnv();
 
   auto context =
       std::make_shared<gloo::mpi::Context>(mpi_ctx.GetMPICommunicator(GLOBAL));
+  context->setTimeout(timeout);
   context->connectFullMesh(dev);
   ctx = context;
 
   auto cross_context =
       std::make_shared<gloo::mpi::Context>(mpi_ctx.GetMPICommunicator(CROSS));
+  cross_context->setTimeout(timeout);
   cross_context->connectFullMesh(dev);
   cross_ctx = cross_context;
 
   auto local_context =
       std::make_shared<gloo::mpi::Context>(mpi_ctx.GetMPICommunicator(LOCAL));
+  local_context->setTimeout(timeout);
   local_context->connectFullMesh(dev);
   local_ctx = local_context;
 }
@@ -110,6 +123,7 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
 
   attr.ai_family = AF_UNSPEC;
   auto dev = gloo::transport::tcp::CreateDevice(attr);
+  auto timeout = GetTimeoutFromEnv();
 
   int rank = GetIntEnvOrDefault(HOROVOD_RANK, 0);
   int size = GetIntEnvOrDefault(HOROVOD_SIZE, 1);
@@ -128,17 +142,17 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
 
   ctx = Rendezvous(HOROVOD_GLOO_GLOBAL_PREFIX,
                    rendezvous_addr_env, rendezvous_port,
-                   rank, size, dev);
+                   rank, size, dev, timeout);
   LOG(DEBUG) << "Global Gloo context initialized.";
 
   local_ctx = Rendezvous(HOROVOD_GLOO_LOCAL_PREFIX + std::to_string(cross_rank),
                          rendezvous_addr_env, rendezvous_port,
-                         local_rank, local_size, dev);
+                         local_rank, local_size, dev, timeout);
   LOG(DEBUG) << "Local Gloo context initialized.";
 
   cross_ctx = Rendezvous(HOROVOD_GLOO_CROSS_PREFIX + std::to_string(local_rank),
                          rendezvous_addr_env, rendezvous_port,
-                         cross_rank, cross_size, dev);
+                         cross_rank, cross_size, dev, timeout);
   LOG(DEBUG) << "Cross-node Gloo context initialized.";
 }
 

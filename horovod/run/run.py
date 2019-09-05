@@ -406,6 +406,11 @@ def parse_args():
                              'HOROVOD_START_TIMEOUT can also be used to '
                              'specify the initialization timeout.')
 
+    parser.add_argument('--output-filename', action='store',
+                        help='For Gloo, writes stdout / stderr of all processes to a filename of the form '
+                             '<output_filename>/rank.<rank>/<stdout | stderr>. The <rank> will be padded with 0 '
+                             'characters to ensure lexicographical order. For MPI, delegates its behavior to mpirun.')
+
     parser.add_argument('--verbose', action='store_true',
                         dest='verbose',
                         help='If this flag is set, extra messages will '
@@ -534,6 +539,10 @@ def parse_args():
                                        type=int, default=0,
                                        help='MLSL background thread affinity. Only applies when running with MLSL '
                                             'support. (default: %(default)s)')
+    group_library_options.add_argument('--gloo-timeout-seconds', action=make_override_action(override_args),
+                                       type=int, default=30,
+                                       help='Timeout in seconds for Gloo operations to complete. '
+                                            '(default: %(default)s)')
 
     group_logging = parser.add_argument_group('logging arguments')
     group_logging.add_argument('--log-level', action=make_override_action(override_args),
@@ -631,6 +640,7 @@ def run():
                                      num_hosts=len(all_host_names),
                                      num_proc=args.np,
                                      hosts=args.hosts,
+                                     output_filename=args.output_filename,
                                      command=args.command)
 
     # This cache stores the results of checks performed by horovodrun
