@@ -17,7 +17,7 @@
 class Settings(object):
 
     def __init__(self, verbose=0, ssh_port=None, key=None, timeout=None,
-                 num_hosts=None, num_proc=None, hosts=None):
+                 num_hosts=None, num_proc=None, hosts=None, output_filename=None):
         """
         :param verbose: level of verbosity
         :type verbose: int
@@ -34,6 +34,8 @@ class Settings(object):
         :type num_proc: int
         :param hosts: string of hostname with slots number
         :type hosts: string
+        :param output_filename: optional filename to redirect stdout / stderr by process
+        :try output_filename: string
         :param command: number of horovod processes (-np)
         :type num_proc: int
         """
@@ -44,6 +46,7 @@ class Settings(object):
         self.num_hosts = num_hosts
         self.num_proc = num_proc
         self.hosts = hosts
+        self.output_filename = output_filename
         self.command = None
         self.run_func_mode = None
 
