@@ -33,7 +33,7 @@ def read_data_from_kvstore(addr, port, scope, key):
         resp = urlopen(req)
         return base64.b64decode(resp.read())
     except (HTTPError, URLError) as e:
-                raise RuntimeError("Read data from KVStore server failed.", e)
+        raise RuntimeError("Read data from KVStore server failed.", e)
 
 
 def put_data_into_kvstore(addr, port, scope, key, value):
