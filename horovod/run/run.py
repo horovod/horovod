@@ -612,6 +612,7 @@ class HorovodArgs(object):
         self.ssh_port = None
         self.disable_cache = None
         self.start_timeout = None
+        self.output_filename = None
         self.verbose = None
         self.command = None
         self.run_func = None
@@ -647,6 +648,7 @@ class HorovodArgs(object):
         self.mpi_threads_disable = None
         self.num_nccl_streams = None
         self.mlsl_bgt_affinity = None
+        self.gloo_timeout_seconds = None
 
         # logging arguments
         self.log_level = None
@@ -848,6 +850,7 @@ def run(
         start_timeout=None,
         ssh_port=None,
         disable_cache=None,
+        output_filename=None,
         verbose=None,
         use_gloo=None,
         use_mpi=None):
@@ -863,6 +866,7 @@ def run(
     hargs.start_timeout = start_timeout
     hargs.ssh_port = ssh_port
     hargs.disable_cache = disable_cache
+    hargs.output_filename = output_filename
     hargs.verbose = verbose
     hargs.use_gloo = use_gloo
     hargs.use_mpi = use_mpi
