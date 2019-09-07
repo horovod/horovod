@@ -27,4 +27,4 @@ This mailing list can also be utilized to reach out to the TSC.
 ### Code of Conduct
 
 Please be mindful of and adhere to the Linux Foundation's
-[Code of Conduct](https://lfprojects.org/policies/code-of-conduct>) when contributing to Horovod.
+[Code of Conduct](https://lfprojects.org/policies/code-of-conduct) when contributing to Horovod.
