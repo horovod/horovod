@@ -20,6 +20,7 @@ import os
 import signal
 import sys
 import threading
+import time
 
 from psutil import net_if_addrs
 from socket import AF_INET
@@ -187,12 +188,13 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command
         except Exception as e:
             print('Exception happened during safe_shell_exec, exception '
                   'message: {message}'.format(message=e))
+            exit_code = 1
         finally:
             if stdout_file:
                 stdout_file.close()
             if stderr_file:
                 stderr_file.close()
-        return 0
+        return exit_code, time.time()
 
     ssh_port_arg = '-p {ssh_port}'.format(ssh_port=settings.ssh_port) if settings.ssh_port else ''
 
@@ -247,9 +249,17 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command
     # a SIGINT, the event will be set and the spawned threads will kill their
     # corresponding middleman processes and thus the jobs will be killed as
     # well.
-    threads.execute_function_multithreaded(_exec_command,
-                                           args_list,
-                                           block_until_all_done=True)
+    res = threads.execute_function_multithreaded(_exec_command,
+                                                 args_list,
+                                                 block_until_all_done=True)
+
+    for name, value in sorted(res.items(), key=lambda item: item[1][1]):
+        exit_code, timestamp = value
+        if exit_code != 0:
+            raise RuntimeError('Gloo job detected that one or more processes exited with non-zero '
+                               'status, thus causing the job to be terminated. The first process '
+                               'to do so was:\nProcess name: {name}\nExit code: {code}\n'
+                               .format(name=name, code=exit_code))
 
 
 def gloo_run(settings, remote_host_names, common_intfs, env):
