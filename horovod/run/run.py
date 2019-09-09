@@ -431,7 +431,7 @@ def parse_args():
     parser.add_argument('--verbose', action='store_true',
                         dest='verbose',
                         help='If this flag is set, extra messages will '
-                             'printed.')
+                             'be printed.')
 
     parser.add_argument('command', nargs=argparse.REMAINDER,
                         help='Command to be executed.')
@@ -854,6 +854,46 @@ def run(
         verbose=None,
         use_gloo=None,
         use_mpi=None):
+    """
+    Launch a Horovod job to run the specified process function and get the return value.
+
+    :param func: The function to be run in Horovod job processes.
+                 If the function is run in rank 0 process, it should return the job result,
+                 otherwise it should return None.
+    :param args: Arguments to pass to `func`.
+    :param kwargs: Keyword arguments to pass to `func`.
+    :param np: Number of Horovod processes.
+    :param hosts: List of host names and the number of available slots
+                  for running processes on each, of the form: <hostname>:<slots>
+                  (e.g.: host1:2,host2:4,host3:1 indicating 2 processes can run on host1,
+                  4 on host2, and 1 on host3). If not specified, defaults to using localhost:<np>
+    :param hostfile: Path to a host file containing the list of host names and the number of
+                     available slots. Each line of the file must be of the form:
+                     <hostname> slots=<slots>
+    :param start_timeout: Horovodrun has to perform all the checks and
+                          start the processes before the specified
+                          timeout. The default value is 30 seconds.
+                          Alternatively, The environment variable
+                          HOROVOD_START_TIMEOUT can also be used to
+                          specify the initialization timeout.
+    :param ssh_port: SSH port on all the hosts.
+    :param disable_cache: If the flag is not set, horovodrun will perform
+                          the initialization checks only once every 60
+                          minutes -- if the checks successfully pass.
+                          Otherwise, all the checks will run every time
+                          horovodrun is called.'
+    :param output_filename: For Gloo, writes stdout / stderr of all processes to a filename of the form
+                            <output_filename>/rank.<rank>/<stdout | stderr>. The <rank> will be padded with 0
+                            characters to ensure lexicographical order.
+                            For MPI, delegates its behavior to mpirun.
+    :param verbose: If this flag is set, extra messages will be printed.
+    :param use_gloo: Run Horovod using the Gloo controller. This will
+                     be the default if Horovod was not built with MPI support.
+    :param use_mpi: Run Horovod using the MPI controller. This will
+                    be the default if Horovod was built with MPI support.
+
+    :return: Return the value which rank 0 Horovod process returned. See the doc of argument `func`.
+    """
 
     def wrapped_func():
         return func(*args, **kwargs)

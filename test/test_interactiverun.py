@@ -51,3 +51,26 @@ class InteractiveRunTests(unittest.TestCase):
             self.assertListEqual([0, 4321], res1)
             res1 = run(fn, (1, 20), {"c": 300, "d": 4000}, np=2, use_gloo=use_gloo, use_mpi=use_mpi)
             self.assertListEqual([0, 4321, 1, 4321], res1)
+
+    def test_failed_run(self):
+
+        def fn():
+            hvd.init()
+            rank = hvd.rank()
+            if rank == 1:
+                raise RuntimeError()
+
+        try:
+            run(fn, np=2, use_gloo=True)
+        except RuntimeError as e:
+            self.assertTrue('Gloo job detected that one or more processes exited' in e.args[0])
+        else:
+            self.fail('Expected error was not raised')
+
+        try:
+            run(fn, np=2, use_mpi=True)
+        except RuntimeError as e:
+            self.assertTrue('mpirun failed' in e.args[0])
+        else:
+            self.fail('Expected error was not raised')
+
