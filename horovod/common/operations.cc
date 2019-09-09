@@ -345,7 +345,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   mlsl_context.Setup(size);
 #endif
 
-#if HAVE_CUDA
+#if HAVE_CUDA || HAVE_ROCM
   // Set number of CUDA streams to use
   auto horovod_num_nccl_streams =
       std::getenv(HOROVOD_NUM_NCCL_STREAMS);
