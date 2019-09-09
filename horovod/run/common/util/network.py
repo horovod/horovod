@@ -23,6 +23,7 @@ import psutil
 from six.moves import queue, socketserver
 
 from horovod.run.common.util import secret
+from horovod.run.util.network import find_port
 
 
 class PingRequest(object):
@@ -87,25 +88,13 @@ class BasicService(object):
     def __init__(self, service_name, key):
         self._service_name = service_name
         self._wire = Wire(key)
-        self._server = self._make_server()
+        self._server, _ = find_port(
+            lambda addr: socketserver.ThreadingTCPServer(
+                addr, self._make_handler()))
         self._port = self._server.socket.getsockname()[1]
         self._thread = threading.Thread(target=self._server.serve_forever)
         self._thread.daemon = True
         self._thread.start()
-
-    def _make_server(self):
-        min_port = 1024
-        max_port = 65536
-        num_ports = max_port - min_port
-        start_port = random.randrange(0, num_ports)
-        for port_offset in range(num_ports):
-            try:
-                port = min_port + (start_port + port_offset) % num_ports
-                return socketserver.ThreadingTCPServer(('0.0.0.0', port), self._make_handler())
-            except:
-                pass
-
-        raise Exception('Unable to find a port to bind to.')
 
     def _make_handler(self):
         server = self

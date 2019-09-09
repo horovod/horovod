@@ -45,10 +45,13 @@ MOCK_MODULES = [
 
 MOCK_TREE = {
     'tensorflow': {
-        '__version__': '1.12.0',
+        '__version__': '1.14.0',
         'train': {
             'Optimizer': MagicMock,
-            'SessionRunMock': MagicMock,
+            'SessionRunHook': MagicMock,
+        },
+        'estimator': {
+            'SessionRunHook': MagicMock,
         },
         'keras': {
             'callbacks': {

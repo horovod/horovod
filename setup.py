@@ -15,18 +15,30 @@
 from __future__ import print_function
 
 import os
-from setuptools import setup, Extension, find_packages
-from setuptools.command.build_ext import build_ext
-from distutils.errors import CompileError, DistutilsError, DistutilsPlatformError, LinkError
-from distutils.version import LooseVersion
+import re
 import shlex
 import subprocess
 import sys
 import textwrap
 import traceback
-import re
+import pipes
+from copy import deepcopy
+from distutils.errors import CompileError, DistutilsError, \
+    DistutilsPlatformError, LinkError
+from distutils.sysconfig import customize_compiler
+from distutils.version import LooseVersion
+
+from setuptools import setup, Extension, find_packages
+from setuptools.command.build_ext import build_ext
 
 from horovod import __version__
+from horovod.common.util import env
+
+
+class CMakeExtension(Extension):
+    def __init__(self, name, cmake_lists_dir='.', sources=[], **kwa):
+        Extension.__init__(self, name, sources=sources, **kwa)
+        self.cmake_lists_dir = os.path.abspath(cmake_lists_dir)
 
 
 tensorflow_mpi_lib = Extension('horovod.tensorflow.mpi_lib', [])
@@ -34,6 +46,11 @@ torch_mpi_lib = Extension('horovod.torch.mpi_lib', [])
 torch_mpi_lib_impl = Extension('horovod.torch.mpi_lib_impl', [])
 torch_mpi_lib_v2 = Extension('horovod.torch.mpi_lib_v2', [])
 mxnet_mpi_lib = Extension('horovod.mxnet.mpi_lib', [])
+gloo_lib = CMakeExtension('gloo', cmake_lists_dir='third_party/gloo',
+                          sources=[])
+
+mlsl_root = os.environ.get('MLSL_ROOT')
+have_mlsl = mlsl_root is not None
 
 
 def is_build_action():
@@ -110,7 +127,8 @@ def get_cpp_flags(build_ext):
                         default_flags + ['-stdlib=libc++']]
     for cpp_flags in flags_to_try:
         try:
-            test_compile(build_ext, 'test_cpp_flags', extra_compile_preargs=cpp_flags,
+            test_compile(build_ext, 'test_cpp_flags',
+                         extra_compile_preargs=cpp_flags,
                          code=textwrap.dedent('''\
                     #include <unordered_map>
                     void test() {
@@ -137,7 +155,8 @@ def get_link_flags(build_ext):
         flags_to_try = [ld_flags, libtool_flags]
     for link_flags in flags_to_try:
         try:
-            test_compile(build_ext, 'test_link_flags', extra_link_preargs=link_flags,
+            test_compile(build_ext, 'test_link_flags',
+                         extra_link_preargs=link_flags,
                          code=textwrap.dedent('''\
                     void test() {
                     }
@@ -197,8 +216,10 @@ def get_tf_abi(build_ext, include_dirs, lib_dirs, libs, cpp_flags):
         try:
             lib_file = test_compile(build_ext, 'test_tensorflow_abi',
                                     macros=[(cxx11_abi_macro, cxx11_abi)],
-                                    include_dirs=include_dirs, library_dirs=lib_dirs,
-                                    libraries=libs, extra_compile_preargs=cpp_flags,
+                                    include_dirs=include_dirs,
+                                    library_dirs=lib_dirs,
+                                    libraries=libs,
+                                    extra_compile_preargs=cpp_flags,
                                     code=textwrap.dedent('''\
                 #include <string>
                 #include "tensorflow/core/framework/op.h"
@@ -327,8 +348,10 @@ def get_mpi_flags():
             '%s' % (show_command, traceback.format_exc()))
 
 
-def test_compile(build_ext, name, code, libraries=None, include_dirs=None, library_dirs=None,
-                 macros=None, extra_compile_preargs=None, extra_link_preargs=None):
+def test_compile(build_ext, name, code, libraries=None, include_dirs=None,
+                 library_dirs=None,
+                 macros=None, extra_compile_preargs=None,
+                 extra_link_preargs=None):
     test_compile_dir = os.path.join(build_ext.build_temp, 'test_compile')
     if not os.path.exists(test_compile_dir):
         os.makedirs(test_compile_dir)
@@ -345,7 +368,8 @@ def test_compile(build_ext, name, code, libraries=None, include_dirs=None, libra
     compiler.compile([source_file], extra_preargs=extra_compile_preargs,
                      include_dirs=include_dirs, macros=macros)
     compiler.link_shared_object(
-        [object_file], shared_object_file, libraries=libraries, library_dirs=library_dirs,
+        [object_file], shared_object_file, libraries=libraries,
+        library_dirs=library_dirs,
         extra_preargs=extra_link_preargs)
 
     return shared_object_file
@@ -374,8 +398,10 @@ def get_cuda_dirs(build_ext, cpp_flags):
         cuda_lib_dirs += ['/usr/local/cuda/lib', '/usr/local/cuda/lib64']
 
     try:
-        test_compile(build_ext, 'test_cuda', libraries=['cudart'], include_dirs=cuda_include_dirs,
-                     library_dirs=cuda_lib_dirs, extra_compile_preargs=cpp_flags,
+        test_compile(build_ext, 'test_cuda', libraries=['cudart'],
+                     include_dirs=cuda_include_dirs,
+                     library_dirs=cuda_lib_dirs,
+                     extra_compile_preargs=cpp_flags,
                      code=textwrap.dedent('''\
             #include <cuda_runtime.h>
             void test() {
@@ -459,8 +485,11 @@ def get_nccl_vals(build_ext, cuda_include_dirs, cuda_lib_dirs, cuda_macros, cpp_
             raise DistutilsPlatformError('RCCL must be a shared library')
 
     try:
-        test_compile(build_ext, 'test_nccl', libraries=nccl_libs, include_dirs=nccl_include_dirs + cuda_include_dirs,
-                     library_dirs=nccl_lib_dirs + cuda_lib_dirs, extra_compile_preargs=cpp_flags, macros=cuda_macros,
+        test_compile(build_ext, 'test_nccl', libraries=nccl_libs,
+                     include_dirs=nccl_include_dirs + cuda_include_dirs,
+                     library_dirs=nccl_lib_dirs + cuda_lib_dirs,
+                     extra_compile_preargs=cpp_flags,
+                     macros=cuda_macros,
                      code=textwrap.dedent('''\
             #include <%s>
             #if NCCL_MAJOR < 2
@@ -510,7 +539,8 @@ def get_ddl_dirs(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
     try:
         test_compile(build_ext, 'test_ddl', libraries=['ddl', 'ddl_pack'],
                      include_dirs=ddl_include_dirs + cuda_include_dirs,
-                     library_dirs=ddl_lib_dirs + cuda_lib_dirs, extra_compile_preargs=cpp_flags,
+                     library_dirs=ddl_lib_dirs + cuda_lib_dirs,
+                     extra_compile_preargs=cpp_flags,
                      code=textwrap.dedent('''\
                      #include <ddl.hpp>
                      void test() {
@@ -532,11 +562,62 @@ def get_ddl_dirs(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
 def get_common_options(build_ext):
     cpp_flags = get_cpp_flags(build_ext)
     link_flags = get_link_flags(build_ext)
-    mpi_flags = get_mpi_flags()
+
+    is_mac = os.uname()[0] == 'Darwin'
+    compile_without_gloo = os.environ.get('HOROVOD_WITHOUT_GLOO')
+    if compile_without_gloo:
+        print('INFO: HOROVOD_WITHOUT_GLOO detected, skip compiling Horovod with Gloo.')
+        have_gloo = False
+        have_cmake = False
+    else:
+        # determining if system has cmake installed
+        compile_with_gloo = os.environ.get('HOROVOD_WITH_GLOO')
+        try:
+            subprocess.check_output(['cmake', '--version'])
+            have_cmake = True
+        except Exception:
+            if compile_with_gloo:
+                # Require Gloo to succeed, otherwise fail the install.
+                raise RuntimeError('Cannot find CMake. CMake is required to build Horovod with Gloo.')
+
+            print('INFO: Cannot find CMake, will skip compiling Horovod with Gloo.')
+            have_cmake = False
+
+        # TODO: remove system check if gloo support MacOX in the future
+        #  https://github.com/facebookincubator/gloo/issues/182
+        if is_mac:
+            if compile_with_gloo:
+                raise RuntimeError('Gloo cannot be compiled on MacOS. Unset HOROVOD_WITH_GLOO to use MPI.')
+            print('INFO: Gloo cannot be compiled on MacOS, will skip compiling Horovod with Gloo.')
+
+        have_gloo = not is_mac and have_cmake
+
+    compile_without_mpi = os.environ.get('HOROVOD_WITHOUT_MPI')
+    mpi_flags = ''
+    if compile_without_mpi:
+        print('INFO: HOROVOD_WITHOUT_MPI detected, skip compiling Horovod with MPI.')
+        have_mpi = False
+    else:
+        # If without_mpi flag is not set by user, try to get mpi flags
+        try:
+            mpi_flags = get_mpi_flags()
+            have_mpi = True
+        except Exception:
+            if os.environ.get('HOROVOD_WITH_MPI'):
+                # Require MPI to succeed, otherwise fail the install.
+                raise
+
+            # If exceptions happen, will not use mpi during compilation.
+            print(traceback.format_exc(), file=sys.stderr)
+            print('INFO: Cannot find MPI compilation flags, will skip compiling with MPI.')
+            have_mpi = False
+
+    if not have_gloo and not have_mpi:
+        raise RuntimeError('One of Gloo or MPI are required for Horovod to run. Check the logs above for more info.')
 
     gpu_allreduce = os.environ.get('HOROVOD_GPU_ALLREDUCE')
     if gpu_allreduce and gpu_allreduce != 'MPI' and gpu_allreduce != 'NCCL' and \
-       gpu_allreduce != 'DDL':
+        gpu_allreduce != 'DDL':
         raise DistutilsError('HOROVOD_GPU_ALLREDUCE=%s is invalid, supported '
                              'values are "", "MPI", "NCCL", "DDL".' % gpu_allreduce)
 
@@ -571,21 +652,23 @@ def get_common_options(build_ext):
 
     if gpu_allreduce == 'DDL':
         have_ddl = True
-        ddl_include_dirs, ddl_lib_dirs = get_ddl_dirs(build_ext, cuda_include_dirs,
+        ddl_include_dirs, ddl_lib_dirs = get_ddl_dirs(build_ext,
+                                                      cuda_include_dirs,
                                                       cuda_lib_dirs, cpp_flags)
     else:
         have_ddl = False
         ddl_include_dirs = ddl_lib_dirs = []
 
-    if (gpu_allreduce == 'NCCL' and (gpu_allgather == 'MPI' or gpu_broadcast == 'MPI')
-            and not os.environ.get('HOROVOD_ALLOW_MIXED_GPU_IMPL')):
-        raise DistutilsError('You should not mix NCCL and MPI GPU due to a possible deadlock.\n'
-                             'If you\'re sure you want to mix them, set the '
-                             'HOROVOD_ALLOW_MIXED_GPU_IMPL environment variable to \'1\'.')
+    if gpu_allreduce == 'NCCL' \
+            and (gpu_allgather == 'MPI' or gpu_broadcast == 'MPI') \
+            and not os.environ.get('HOROVOD_ALLOW_MIXED_GPU_IMPL'):
+        raise DistutilsError(
+            'You should not mix NCCL and MPI GPU due to a possible deadlock.\n'
+            'If you\'re sure you want to mix them, set the '
+            'HOROVOD_ALLOW_MIXED_GPU_IMPL environment variable to \'1\'.')
 
     MACROS = [('EIGEN_MPL2_ONLY', 1)]
-    INCLUDES = ['third_party/eigen',
-                'third_party/lbfgs/include',
+    INCLUDES = ['third_party/HTTPRequest/include',
                 'third_party/boost/assert/include',
                 'third_party/boost/config/include',
                 'third_party/boost/core/include',
@@ -599,32 +682,82 @@ def get_common_options(build_ext):
                 'third_party/boost/static_assert/include',
                 'third_party/boost/type_traits/include',
                 'third_party/boost/utility/include',
-                'third_party/flatbuffers/include']
+                'third_party/eigen',
+                'third_party/flatbuffers/include',
+                'third_party/lbfgs/include']
     SOURCES = ['horovod/common/common.cc',
+               'horovod/common/controller.cc',
                'horovod/common/fusion_buffer_manager.cc',
-               'horovod/common/half.cc',
+               'horovod/common/logging.cc',
                'horovod/common/message.cc',
-               'horovod/common/mpi_context.cc',
                'horovod/common/operations.cc',
                'horovod/common/parameter_manager.cc',
                'horovod/common/response_cache.cc',
+               'horovod/common/stall_inspector.cc',
                'horovod/common/timeline.cc',
+               'horovod/common/tensor_queue.cc',
                'horovod/common/ops/collective_operations.cc',
-               'horovod/common/ops/mpi_operations.cc',
                'horovod/common/ops/operation_manager.cc',
                'horovod/common/optim/bayesian_optimization.cc',
                'horovod/common/optim/gaussian_process.cc',
-               'horovod/common/logging.cc']
+               'horovod/common/utils/env_parser.cc'
+               ]
     COMPILE_FLAGS = cpp_flags + shlex.split(mpi_flags)
     LINK_FLAGS = link_flags + shlex.split(mpi_flags)
     LIBRARY_DIRS = []
     LIBRARIES = []
 
+    cpu_operation = os.environ.get('HOROVOD_CPU_OPERATIONS')
+    if cpu_operation:
+        print('INFO: Set default CPU operation to ' + cpu_operation)
+        if cpu_operation.upper() == 'MPI':
+            if not have_mpi:
+                raise RuntimeError('MPI is not installed, try changing HOROVOD_CPU_OPERATIONS.')
+            MACROS += [('HOROVOD_CPU_OPERATIONS_DEFAULT', "'P'")]
+        elif cpu_operation.upper() == 'MLSL':
+            if not have_mlsl:
+                raise RuntimeError('MLSL is not installed, try changing HOROVOD_CPU_OPERATIONS.')
+            MACROS += [('HOROVOD_CPU_OPERATIONS_DEFAULT', "'M'")]
+        elif cpu_operation.upper() == 'GLOO':
+            if compile_without_gloo:
+                raise ValueError('Cannot set both HOROVOD_WITHOUT_GLOO and HOROVOD_CPU_OPERATIONS=GLOO.')
+            if is_mac:
+                raise RuntimeError('Cannot compile Gloo on MacOS, try changing HOROVOD_CPU_OPERATIONS.')
+            elif not have_cmake:
+                raise RuntimeError('Cannot compile Gloo without CMake, try installing CMake first.')
+            MACROS += [('HOROVOD_CPU_OPERATIONS_DEFAULT', "'G'")]
+
+    if have_mpi:
+        MACROS += [('HAVE_MPI', '1')]
+        SOURCES += ['horovod/common/half.cc',
+                    'horovod/common/mpi/mpi_context.cc',
+                    'horovod/common/mpi/mpi_controller.cc',
+                    'horovod/common/ops/mpi_operations.cc']
+        COMPILE_FLAGS += shlex.split(mpi_flags)
+        LINK_FLAGS += shlex.split(mpi_flags)
+
+    if have_gloo:
+        MACROS += [('HAVE_GLOO', '1')]
+        INCLUDES += ['third_party/gloo']
+        SOURCES += ['horovod/common/gloo/gloo_context.cc',
+                    'horovod/common/gloo/gloo_controller.cc',
+                    'horovod/common/gloo/http_store.cc',
+                    'horovod/common/gloo/memory_store.cc',
+                    'horovod/common/ops/gloo_operations.cc']
+
+    if have_mlsl:
+        MACROS += [('HAVE_MLSL', '1')]
+        INCLUDES += [mlsl_root + '/intel64/include/']
+        SOURCES += ['horovod/common/ops/mlsl_operations.cc']
+        LIBRARY_DIRS += [mlsl_root + '/intel64/lib/']
+        LINK_FLAGS += ['-lmlsl']
+
     if have_cuda:
         MACROS += [('HAVE_CUDA', '1')]
         INCLUDES += cuda_include_dirs
-        SOURCES += ['horovod/common/ops/cuda_operations.cc',
-                    'horovod/common/ops/mpi_cuda_operations.cc']
+        SOURCES += ['horovod/common/ops/cuda_operations.cc']
+        if have_mpi:
+            SOURCES += ['horovod/common/ops/mpi_cuda_operations.cc']
         LIBRARY_DIRS += cuda_lib_dirs
         LIBRARIES += ['cudart']
 
@@ -643,10 +776,11 @@ def get_common_options(build_ext):
         LIBRARY_DIRS += nccl_lib_dirs
         LIBRARIES += nccl_libs
 
-    if have_ddl:
+    if have_ddl and have_mpi:
         MACROS += [('HAVE_DDL', '1')]
         INCLUDES += ddl_include_dirs
-        SOURCES += ['horovod/common/ops/ddl_operations.cc']
+        SOURCES += ['horovod/common/mpi/ddl_mpi_context_manager.cc',
+                    'horovod/common/ops/ddl_operations.cc']
         LIBRARY_DIRS += ddl_lib_dirs
         LIBRARIES += ['ddl', 'ddl_pack']
 
@@ -665,25 +799,179 @@ def get_common_options(build_ext):
                 COMPILE_FLAGS=COMPILE_FLAGS,
                 LINK_FLAGS=LINK_FLAGS,
                 LIBRARY_DIRS=LIBRARY_DIRS,
-                LIBRARIES=LIBRARIES)
+                LIBRARIES=LIBRARIES,
+                BUILD_GLOO=have_gloo,
+                BUILD_MPI=have_mpi,
+                )
 
 
-def build_tf_extension(build_ext, options):
+def enumerate_binaries_in_path():
+    for path_dir in os.getenv('PATH', '').split(':'):
+        if os.path.isdir(path_dir):
+            for bin_file in sorted(os.listdir(path_dir)):
+                yield path_dir, bin_file
+
+
+def determine_gcc_version(compiler):
+    try:
+        compiler_macros = subprocess.check_output(
+            '%s -dM -E - </dev/null' % compiler,
+            shell=True, universal_newlines=True).split('\n')
+        for m in compiler_macros:
+            version_match = re.match('^#define __VERSION__ "(.*?)"$', m)
+            if version_match:
+                return LooseVersion(version_match.group(1))
+        print('INFO: Unable to determine version of the compiler %s.' % compiler)
+
+    except subprocess.CalledProcessError:
+        print('INFO: Unable to determine version of the compiler %s.\n%s'
+              '' % (compiler, traceback.format_exc()))
+
+    return None
+
+
+def find_gxx_compiler_in_path():
+    compilers = []
+
+    for path_dir, bin_file in enumerate_binaries_in_path():
+        if re.match('^g\\+\\+(?:-\\d+(?:\\.\\d+)*)?$', bin_file):
+            # g++, or g++-7, g++-4.9, or g++-4.8.5
+            compiler = os.path.join(path_dir, bin_file)
+            compiler_version = determine_gcc_version(compiler)
+            if compiler_version:
+                compilers.append((compiler, compiler_version))
+
+    return compilers
+
+
+def find_matching_gcc_compiler_path(gxx_compiler_version):
+    for path_dir, bin_file in enumerate_binaries_in_path():
+        if re.match('^gcc(?:-\\d+(?:\\.\\d+)*)?$', bin_file):
+            # gcc, or gcc-7, gcc-4.9, or gcc-4.8.5
+            compiler = os.path.join(path_dir, bin_file)
+            compiler_version = determine_gcc_version(compiler)
+            if compiler_version and compiler_version == gxx_compiler_version:
+                return compiler
+
+    print('INFO: Unable to find gcc compiler (version %s).' % gxx_compiler_version)
+    return None
+
+
+def remove_offensive_gcc_compiler_options(compiler_version):
+    offensive_replacements = dict()
+    if compiler_version < LooseVersion('4.9'):
+        offensive_replacements = {
+            '-Wdate-time': '',
+            '-fstack-protector-strong': '-fstack-protector'
+        }
+
+    if offensive_replacements:
+        from sysconfig import get_config_var
+        cflags = get_config_var('CONFIGURE_CFLAGS')
+        cppflags = get_config_var('CONFIGURE_CPPFLAGS')
+        ldshared = get_config_var('LDSHARED')
+
+        for k, v in offensive_replacements.items():
+            if cflags:
+                cflags = cflags.replace(k, v)
+            if cppflags:
+                cppflags = cppflags.replace(k, v)
+            if ldshared:
+                ldshared = ldshared.replace(k, v)
+
+        return cflags, cppflags, ldshared
+
+    # Use defaults
+    return None, None, None
+
+
+# Filter out all the compiler macros (starts with -D)
+# that need to be passed to compiler
+def filter_compile_macros(compile_flags):
+    res = []
+    for flag in compile_flags:
+        if flag.startswith('-D'):
+            res.append(flag)
+    return res
+
+
+def build_tf_extension(build_ext, global_options):
+    # Backup the options, preventing other plugins access libs that
+    # compiled with compiler of this plugin
+    options = deepcopy(global_options)
+
     check_tf_version()
     tf_compile_flags, tf_link_flags = get_tf_flags(
         build_ext, options['COMPILE_FLAGS'])
 
+    gloo_compile_macros = filter_compile_macros(tf_compile_flags)
+
     tensorflow_mpi_lib.define_macros = options['MACROS']
     tensorflow_mpi_lib.include_dirs = options['INCLUDES']
     tensorflow_mpi_lib.sources = options['SOURCES'] + \
-        ['horovod/tensorflow/mpi_ops.cc']
+                                 ['horovod/tensorflow/mpi_ops.cc']
     tensorflow_mpi_lib.extra_compile_args = options['COMPILE_FLAGS'] + \
-        tf_compile_flags
+                                            tf_compile_flags
     tensorflow_mpi_lib.extra_link_args = options['LINK_FLAGS'] + tf_link_flags
+
     tensorflow_mpi_lib.library_dirs = options['LIBRARY_DIRS']
     tensorflow_mpi_lib.libraries = options['LIBRARIES']
 
-    build_ext.build_extension(tensorflow_mpi_lib)
+    cc_compiler = cxx_compiler = cflags = cppflags = ldshared = None
+    if sys.platform.startswith('linux') and not os.getenv('CC') and not os.getenv('CXX'):
+        # Determine g++ version compatible with this TensorFlow installation
+        import tensorflow as tf
+        if hasattr(tf, 'version'):
+            # Since TensorFlow 1.13.0
+            tf_compiler_version = LooseVersion(tf.version.COMPILER_VERSION)
+        else:
+            tf_compiler_version = LooseVersion(tf.COMPILER_VERSION)
+
+        if tf_compiler_version.version[0] == 4:
+            # g++ 4.x is ABI-incompatible with g++ 5.x+ due to std::function change
+            # See: https://github.com/tensorflow/tensorflow/issues/27067
+            maximum_compiler_version = LooseVersion('5')
+        else:
+            maximum_compiler_version = LooseVersion('999')
+
+        # Find the compatible compiler of the highest version
+        compiler_version = LooseVersion('0')
+        for candidate_cxx_compiler, candidate_compiler_version in find_gxx_compiler_in_path():
+            if candidate_compiler_version >= tf_compiler_version and \
+                    candidate_compiler_version < maximum_compiler_version:
+                candidate_cc_compiler = \
+                    find_matching_gcc_compiler_path(candidate_compiler_version)
+                if candidate_cc_compiler and candidate_compiler_version > compiler_version:
+                    cc_compiler = candidate_cc_compiler
+                    cxx_compiler = candidate_cxx_compiler
+                    compiler_version = candidate_compiler_version
+            else:
+                print('INFO: Compiler %s (version %s) is not usable for this TensorFlow '
+                      'installation. Require g++ (version >=%s, <%s).' %
+                      (candidate_cxx_compiler, candidate_compiler_version,
+                       tf_compiler_version, maximum_compiler_version))
+
+        if cc_compiler:
+            print('INFO: Compilers %s and %s (version %s) selected for TensorFlow plugin build.'
+                  '' % (cc_compiler, cxx_compiler, compiler_version))
+        else:
+            raise DistutilsPlatformError(
+                'Could not find compiler compatible with this TensorFlow installation.\n'
+                'Please check the Horovod website for recommended compiler versions.\n'
+                'To force a specific compiler version, set CC and CXX environment variables.')
+
+        cflags, cppflags, ldshared = remove_offensive_gcc_compiler_options(compiler_version)
+
+    try:
+        with env(CC=cc_compiler, CXX=cxx_compiler, CFLAGS=cflags, CPPFLAGS=cppflags,
+                 LDSHARED=ldshared):
+            if options['BUILD_GLOO']:
+                build_cmake(build_ext, gloo_lib, 'tf', gloo_compile_macros, options, tensorflow_mpi_lib)
+            customize_compiler(build_ext.compiler)
+            build_ext.build_extension(tensorflow_mpi_lib)
+    finally:
+        # Revert to the default compiler settings
+        customize_compiler(build_ext.compiler)
 
 
 def parse_version(version_str):
@@ -752,7 +1040,15 @@ def is_mx_cuda():
     return False
 
 
-def build_mx_extension(build_ext, options):
+def build_mx_extension(build_ext, global_options):
+    # Backup the options, preventing other plugins access libs that
+    # compiled with compiler of this plugin
+    options = deepcopy(global_options)
+
+    # First build gloo
+    if options['BUILD_GLOO']:
+        build_cmake(build_ext, gloo_lib, 'mxnet', [], options=options)
+
     check_mx_version()
     mx_compile_flags, mx_link_flags = get_mx_flags(
         build_ext, options['COMPILE_FLAGS'])
@@ -768,11 +1064,13 @@ def build_mx_extension(build_ext, options):
     # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
     # version or transfer tensors to CPU memory for those operations.
     if mx_have_cuda and not macro_have_cuda:
-        cuda_include_dirs, cuda_lib_dirs = get_cuda_dirs(build_ext, options['COMPILE_FLAGS'])
+        cuda_include_dirs, cuda_lib_dirs = get_cuda_dirs(build_ext, options[
+            'COMPILE_FLAGS'])
         options['MACROS'] += [('HAVE_CUDA', '1')]
         options['INCLUDES'] += cuda_include_dirs
-        options['SOURCES'] += ['horovod/common/ops/cuda_operations.cc',
-                               'horovod/common/ops/mpi_cuda_operations.cc']
+        options['SOURCES'] += ['horovod/common/ops/cuda_operations.cc']
+        if options['BUILD_MPI']:
+            options['SOURCES'] += ['horovod/common/ops/mpi_cuda_operations.cc']
         options['LIBRARY_DIRS'] += cuda_lib_dirs
         options['LIBRARIES'] += ['cudart']
 
@@ -786,14 +1084,15 @@ def build_mx_extension(build_ext, options):
     else:
         mxnet_mpi_lib.define_macros += [('MXNET_USE_MKLDNN', '0')]
     mxnet_mpi_lib.define_macros += [('MSHADOW_USE_MKL', '0')]
+    mxnet_mpi_lib.define_macros += [('MSHADOW_USE_F16C', '0')]
     mxnet_mpi_lib.include_dirs = options['INCLUDES']
     mxnet_mpi_lib.sources = options['SOURCES'] + \
-        ['horovod/mxnet/mpi_ops.cc',
-         'horovod/mxnet/tensor_util.cc',
-         'horovod/mxnet/cuda_util.cc',
-         'horovod/mxnet/adapter.cc']
+                            ['horovod/mxnet/mpi_ops.cc',
+                             'horovod/mxnet/tensor_util.cc',
+                             'horovod/mxnet/cuda_util.cc',
+                             'horovod/mxnet/adapter.cc']
     mxnet_mpi_lib.extra_compile_args = options['COMPILE_FLAGS'] + \
-        mx_compile_flags
+                                       mx_compile_flags
     mxnet_mpi_lib.extra_link_args = options['LINK_FLAGS'] + mx_link_flags
     mxnet_mpi_lib.library_dirs = options['LIBRARY_DIRS']
     mxnet_mpi_lib.libraries = options['LIBRARIES']
@@ -840,22 +1139,26 @@ def is_torch_cuda():
         cuda_test_ext.build()
         return True
     except:
-        print('INFO: Above error indicates that this PyTorch installation does not support CUDA.')
+        print(
+            'INFO: Above error indicates that this PyTorch installation does not support CUDA.')
         return False
 
 
 def is_torch_cuda_v2(build_ext, include_dirs, extra_compile_args):
     try:
         from torch.utils.cpp_extension import include_paths
-        test_compile(build_ext, 'test_torch_cuda', include_dirs=include_dirs + include_paths(cuda=True),
-                     extra_compile_preargs=extra_compile_args, code=textwrap.dedent('''\
+        test_compile(build_ext, 'test_torch_cuda',
+                     include_dirs=include_dirs + include_paths(cuda=True),
+                     extra_compile_preargs=extra_compile_args,
+                     code=textwrap.dedent('''\
             #include <THC/THC.h>
             void test() {
             }
             '''))
         return True
     except (CompileError, LinkError, EnvironmentError):
-        print('INFO: Above error indicates that this PyTorch installation does not support CUDA.')
+        print(
+            'INFO: Above error indicates that this PyTorch installation does not support CUDA.')
         return False
 
 
@@ -883,12 +1186,20 @@ class protect_files(object):
             os.rename(file + '.protected', file)
 
 
-def build_torch_extension(build_ext, options, torch_version):
+def build_torch_extension(build_ext, global_options, torch_version):
+    # Backup the options, preventing other plugins access libs that
+    # compiled with compiler of this plugin
+    options = deepcopy(global_options)
+
     have_cuda = is_torch_cuda()
     if not have_cuda and check_macro(options['MACROS'], 'HAVE_CUDA'):
         raise DistutilsPlatformError(
             'Horovod build with GPU support was requested, but this PyTorch '
             'installation does not support CUDA.')
+
+    # Build gloo
+    if options['BUILD_GLOO']:
+        build_cmake(build_ext, gloo_lib, 'torch', [], options)
 
     # Update HAVE_CUDA to mean that PyTorch supports CUDA. Internally, we will be checking
     # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
@@ -908,7 +1219,7 @@ def build_torch_extension(build_ext, options, torch_version):
         ffi_iface = create_extension(
             name='horovod.torch.mpi_lib',
             headers=['horovod/torch/interface.h'] +
-            (['horovod/torch/interface_cuda.h'] if have_cuda else []),
+                    (['horovod/torch/interface_cuda.h'] if have_cuda else []),
             with_cuda=have_cuda,
             language='c',
             package=True,
@@ -945,7 +1256,11 @@ def build_torch_extension(build_ext, options, torch_version):
         build_ext.build_extension(setuptools_ext)
 
 
-def build_torch_extension_v2(build_ext, options, torch_version):
+def build_torch_extension_v2(build_ext, global_options, torch_version):
+    # Backup the options, preventing other plugins access libs that
+    # compiled with compiler of this plugin
+    options = deepcopy(global_options)
+
     have_cuda = is_torch_cuda_v2(build_ext, include_dirs=options['INCLUDES'],
                                  extra_compile_args=options['COMPILE_FLAGS'])
     if not have_cuda and check_macro(options['MACROS'], 'HAVE_CUDA'):
@@ -969,6 +1284,8 @@ def build_torch_extension_v2(build_ext, options, torch_version):
     updated_macros = set_macro(updated_macros, '_GLIBCXX_USE_CXX11_ABI',
                                str(int(torch.compiled_with_cxx11_abi())))
 
+    gloo_abi_flag = ['-D_GLIBCXX_USE_CXX11_ABI=' + str(int(torch.compiled_with_cxx11_abi()))]
+
     # PyTorch requires -DTORCH_API_INCLUDE_EXTENSION_H
     updated_macros = set_macro(
         updated_macros, 'TORCH_API_INCLUDE_EXTENSION_H', '1')
@@ -978,23 +1295,121 @@ def build_torch_extension_v2(build_ext, options, torch_version):
     else:
         # CUDAExtension fails with `ld: library not found for -lcudart` if CUDA is not present
         from torch.utils.cpp_extension import CppExtension as TorchExtension
+
     ext = TorchExtension(torch_mpi_lib_v2.name,
-                         define_macros=updated_macros,
-                         include_dirs=options['INCLUDES'],
-                         sources=options['SOURCES'] + ['horovod/torch/mpi_ops_v2.cc',
-                                                       'horovod/torch/handle_manager.cc',
-                                                       'horovod/torch/ready_event.cc',
-                                                       'horovod/torch/cuda_util.cc',
-                                                       'horovod/torch/adapter_v2.cc'],
-                         extra_compile_args=options['COMPILE_FLAGS'],
-                         extra_link_args=options['LINK_FLAGS'],
-                         library_dirs=options['LIBRARY_DIRS'],
-                         libraries=options['LIBRARIES'])
+                        define_macros=updated_macros,
+                        include_dirs=options['INCLUDES'],
+                        sources=options['SOURCES'] + [
+                            'horovod/torch/mpi_ops_v2.cc',
+                            'horovod/torch/handle_manager.cc',
+                            'horovod/torch/ready_event.cc',
+                            'horovod/torch/cuda_util.cc',
+                            'horovod/torch/adapter_v2.cc'],
+                        extra_compile_args=options['COMPILE_FLAGS'],
+                        extra_link_args=options['LINK_FLAGS'],
+                        library_dirs=options['LIBRARY_DIRS'],
+                        libraries=options['LIBRARIES'])
 
     # Patch an existing torch_mpi_lib_v2 extension object.
     for k, v in ext.__dict__.items():
         torch_mpi_lib_v2.__dict__[k] = v
-    build_ext.build_extension(torch_mpi_lib_v2)
+
+    cc_compiler = cxx_compiler = cflags = cppflags = ldshared = None
+    if sys.platform.startswith('linux') and not os.getenv('CC') and not os.getenv('CXX'):
+        from torch.utils.cpp_extension import check_compiler_abi_compatibility
+
+        # Find the compatible compiler of the highest version
+        compiler_version = LooseVersion('0')
+        for candidate_cxx_compiler, candidate_compiler_version in find_gxx_compiler_in_path():
+            if check_compiler_abi_compatibility(candidate_cxx_compiler):
+                candidate_cc_compiler = \
+                    find_matching_gcc_compiler_path(candidate_compiler_version)
+                if candidate_cc_compiler and candidate_compiler_version > compiler_version:
+                    cc_compiler = candidate_cc_compiler
+                    cxx_compiler = candidate_cxx_compiler
+                    compiler_version = candidate_compiler_version
+            else:
+                print('INFO: Compiler %s (version %s) is not usable for this PyTorch '
+                      'installation, see the warning above.' %
+                      (candidate_cxx_compiler, candidate_compiler_version))
+
+        if cc_compiler:
+            print('INFO: Compilers %s and %s (version %s) selected for PyTorch plugin build.'
+                  '' % (cc_compiler, cxx_compiler, compiler_version))
+        else:
+            raise DistutilsPlatformError(
+                'Could not find compiler compatible with this PyTorch installation.\n'
+                'Please check the Horovod website for recommended compiler versions.\n'
+                'To force a specific compiler version, set CC and CXX environment variables.')
+
+        cflags, cppflags, ldshared = remove_offensive_gcc_compiler_options(compiler_version)
+
+    try:
+        with env(CC=cc_compiler, CXX=cxx_compiler, CFLAGS=cflags, CPPFLAGS=cppflags,
+                 LDSHARED=ldshared):
+            if options['BUILD_GLOO']:
+                build_cmake(build_ext, gloo_lib, 'torchv2', gloo_abi_flag, options, torch_mpi_lib_v2)
+            customize_compiler(build_ext.compiler)
+            build_ext.build_extension(torch_mpi_lib_v2)
+    finally:
+        # Revert to the default compiler settings
+        customize_compiler(build_ext.compiler)
+
+
+def build_cmake(build_ext, ext, prefix, additional_flags, options, plugin_ext=None):
+    cmake_bin = 'cmake'
+
+    # All statically linked libraries will be placed here
+    lib_output_dir = os.path.abspath(os.path.join(build_ext.build_temp, 'lib', prefix))
+    if not os.path.exists(lib_output_dir):
+        os.makedirs(lib_output_dir)
+
+    if plugin_ext:
+        plugin_ext.library_dirs.append(lib_output_dir)
+    options['LIBRARY_DIRS'].append(lib_output_dir)
+
+    extdir = os.path.abspath(
+        os.path.dirname(build_ext.get_ext_fullpath(ext.name)))
+    config = 'Debug' if build_ext.debug else 'Release'
+
+    # Pass additional compiler flags by setting CMAKE_CXX_FLAGS_[DEBUG/RELEASE]
+    # so that cmake will append these flags to CMAKE_CXX_FLAGS
+    additional_cxx_flags = pipes.quote(' '.join(additional_flags))
+    cmake_cxx_flag = '-DCMAKE_CXX_FLAGS_{type}:STRING={flags}'.format(
+        type=config.upper(), flags=additional_cxx_flags)
+
+    use_mpi_flag = 'ON' if options['BUILD_MPI'] else 'OFF'
+    cmake_args = ['-DUSE_MPI=' + use_mpi_flag,
+                  '-DCMAKE_BUILD_TYPE=' + config,
+                  cmake_cxx_flag,
+                  '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}'.format(config.upper(), extdir),
+                  '-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{}={}'.format(config.upper(),
+                                                                  lib_output_dir),
+                  ]
+
+    cmake_build_args = [
+        '--config', config,
+        '--', '-j4',
+    ]
+
+    # Keep temp build files within a unique subdirectory
+    build_temp = os.path.abspath(os.path.join(build_ext.build_temp, ext.name, prefix))
+    if not os.path.exists(build_temp):
+        os.makedirs(build_temp)
+
+    # Config and build the extension
+    try:
+        subprocess.check_call([cmake_bin, ext.cmake_lists_dir] + cmake_args,
+                              cwd=build_temp)
+        subprocess.check_call([cmake_bin, '--build', '.'] + cmake_build_args,
+                              cwd=build_temp)
+    except OSError as e:
+        raise RuntimeError('CMake failed: {}'.format(str(e)))
+
+    # Add the library so the plugin will link against it during compilation
+    options['LIBRARIES'].append(ext.name)
+    if plugin_ext:
+        plugin_ext.libraries.append(ext.name)
 
 
 # run the customize_compiler
@@ -1002,6 +1417,7 @@ class custom_build_ext(build_ext):
     def build_extensions(self):
         options = get_common_options(self)
         built_plugins = []
+
         # If PyTorch is installed, it must be imported before TensorFlow, otherwise
         # we may get an error: dlopen: cannot load any more object with static TLS
         if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
@@ -1012,8 +1428,9 @@ class custom_build_ext(build_ext):
                 built_plugins.append(True)
             except:
                 if not os.environ.get('HOROVOD_WITH_TENSORFLOW'):
-                    print('INFO: Unable to build TensorFlow plugin, will skip it.\n\n'
-                          '%s' % traceback.format_exc(), file=sys.stderr)
+                    print(
+                        'INFO: Unable to build TensorFlow plugin, will skip it.\n\n'
+                        '%s' % traceback.format_exc(), file=sys.stderr)
                     built_plugins.append(False)
                 else:
                     raise
@@ -1027,8 +1444,9 @@ class custom_build_ext(build_ext):
                 built_plugins.append(True)
             except:
                 if not os.environ.get('HOROVOD_WITH_PYTORCH'):
-                    print('INFO: Unable to build PyTorch plugin, will skip it.\n\n'
-                          '%s' % traceback.format_exc(), file=sys.stderr)
+                    print(
+                        'INFO: Unable to build PyTorch plugin, will skip it.\n\n'
+                        '%s' % traceback.format_exc(), file=sys.stderr)
                     built_plugins.append(False)
                 else:
                     raise
@@ -1038,8 +1456,9 @@ class custom_build_ext(build_ext):
                 built_plugins.append(True)
             except:
                 if not os.environ.get('HOROVOD_WITH_MXNET'):
-                    print('INFO: Unable to build MXNet plugin, will skip it.\n\n'
-                          '%s' % traceback.format_exc(), file=sys.stderr)
+                    print(
+                        'INFO: Unable to build MXNet plugin, will skip it.\n\n'
+                        '%s' % traceback.format_exc(), file=sys.stderr)
                     built_plugins.append(False)
                 else:
                     raise
@@ -1050,10 +1469,12 @@ class custom_build_ext(build_ext):
             raise DistutilsError(
                 'None of TensorFlow, PyTorch, or MXNet plugins were built. See errors above.')
 
-require_list = ['cloudpickle', 'psutil', 'six']
+
+require_list = ['cloudpickle', 'psutil', 'pyyaml', 'six']
+
 # Skip cffi if pytorch extension explicitly disabled
 if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
-  require_list.append('cffi>=1.4.0')
+    require_list.append('cffi>=1.4.0')
 
 setup(name='horovod',
       version=__version__,
@@ -1063,12 +1484,12 @@ setup(name='horovod',
       long_description=textwrap.dedent('''\
           Horovod is a distributed training framework for TensorFlow, Keras, PyTorch, and Apache MXNet.
           The goal of Horovod is to make distributed Deep Learning fast and easy to use.'''),
-      url='https://github.com/uber/horovod',
+      url='https://github.com/horovod/horovod',
       classifiers=[
           'License :: OSI Approved :: Apache Software License'
       ],
       ext_modules=[tensorflow_mpi_lib, torch_mpi_lib, torch_mpi_lib_impl,
-                   torch_mpi_lib_v2, mxnet_mpi_lib],
+                   torch_mpi_lib_v2, mxnet_mpi_lib, gloo_lib],
       cmdclass={'build_ext': custom_build_ext},
       # cffi is required for PyTorch
       # If cffi is specified in setup_requires, it will need libffi to be installed on the machine,

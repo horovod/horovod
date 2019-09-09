@@ -41,7 +41,7 @@ Status MPI_CUDAAllreduce::Execute(std::vector<TensorTableEntry>& entries, const 
     const void* fused_input_data;
     MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
 
-    auto cuda_result = cudaStreamSynchronize(cuda_context_->streams[entries[0].device]);
+    auto cuda_result = cudaStreamSynchronize(cuda_context_->streams[global_state_->current_nccl_stream][entries[0].device]);
     cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_result);
 
     timeline.ActivityEndAll(entries);
@@ -60,7 +60,7 @@ Status MPI_CUDAAllreduce::Execute(std::vector<TensorTableEntry>& entries, const 
                          mpi_context_->GetMPISumOp(first_entry.tensor->dtype()),
                          mpi_context_->GetMPICommunicator(Communicator::GLOBAL));
   if (op != MPI_SUCCESS) {
-    throw std::logic_error("MPI_Allreduce failed, see MPI output for details.");
+    throw std::runtime_error("MPI_Allreduce failed, see MPI output for details.");
   }
   timeline.ActivityEndAll(entries);
 
@@ -69,7 +69,7 @@ Status MPI_CUDAAllreduce::Execute(std::vector<TensorTableEntry>& entries, const 
     timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
     MemcpyOutFusionBuffer(buffer_data, entries);
 
-    auto cuda_result = cudaStreamSynchronize(cuda_context_->streams[entries[0].device]);
+    auto cuda_result = cudaStreamSynchronize(cuda_context_->streams[global_state_->current_nccl_stream][entries[0].device]);
     cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_result);
 
     timeline.ActivityEndAll(entries);

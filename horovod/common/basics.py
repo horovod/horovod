@@ -40,6 +40,11 @@ class HorovodBasics(object):
         atexit.register(self.shutdown)
 
         if not isinstance(comm, list):
+            mpi_enabled = self.MPI_LIB_CTYPES.horovod_mpi_enabled()
+            if not bool(mpi_enabled):
+                raise ValueError(
+                    'Horovod MPI is not enabled; Please make sure it\'s installed and enabled.')
+
             from mpi4py import MPI
             if MPI._sizeof(MPI.Comm) == ctypes.sizeof(ctypes.c_int):
                 MPI_Comm = ctypes.c_int
@@ -48,15 +53,15 @@ class HorovodBasics(object):
                 self.MPI_LIB_CTYPES.horovod_init_comm.argtypes = [MPI_Comm]
 
             comm_obj = MPI_Comm.from_address(MPI._addressof(comm))
-            return self.MPI_LIB_CTYPES.horovod_init_comm(comm_obj)
+            self.MPI_LIB_CTYPES.horovod_init_comm(comm_obj)
         else:
             comm_size = len(comm)
-            return self.MPI_LIB_CTYPES.horovod_init(
+            self.MPI_LIB_CTYPES.horovod_init(
                 (ctypes.c_int * comm_size)(*comm), ctypes.c_int(comm_size))
 
     def shutdown(self):
         """A function that shuts Horovod down."""
-        return self.MPI_LIB_CTYPES.horovod_shutdown()
+        self.MPI_LIB_CTYPES.horovod_shutdown()
 
     def size(self):
         """A function that returns the number of Horovod processes.
@@ -118,8 +123,75 @@ class HorovodBasics(object):
         Returns:
           A boolean value indicating whether MPI multi-threading is supported.
         """
+        mpi_enabled = self.MPI_LIB_CTYPES.horovod_mpi_enabled()
+        if not bool(mpi_enabled):
+            raise ValueError(
+                'Horovod MPI is not enabled; Please make sure it\'s installed and enabled.')
+
         mpi_threads_supported = self.MPI_LIB_CTYPES.horovod_mpi_threads_supported()
         if mpi_threads_supported == -1:
             raise ValueError(
                 'Horovod has not been initialized; use hvd.init().')
         return bool(mpi_threads_supported)
+
+    def mpi_enabled(self):
+        """Returns True if MPI is mode is currently enabled at runtime.
+
+        If MPI is enabled, users can use it for controller or data transfer operations.
+
+        Returns:
+          A boolean value indicating whether MPI is enabled.
+        """
+        mpi_enabled = self.MPI_LIB_CTYPES.horovod_mpi_enabled()
+        return bool(mpi_enabled)
+
+    def mpi_built(self):
+        """Returns True if Horovod was compiled with MPI support.
+
+        Returns:
+          A boolean value indicating whether MPI support was compiled.
+        """
+        return bool(self.MPI_LIB_CTYPES.horovod_mpi_built())
+
+    def gloo_enabled(self):
+        """Returns True if Gloo is mode is currently enabled at runtime.
+
+        If Gloo is enabled, users can use it for controller or data transfer operations.
+
+        Returns:
+          A boolean value indicating whether Gloo is enabled.
+        """
+        gloo_enabled = self.MPI_LIB_CTYPES.horovod_gloo_enabled()
+        return bool(gloo_enabled)
+
+    def gloo_built(self):
+        """Returns True if Horovod was compiled with Gloo support.
+
+        Returns:
+          A boolean value indicating whether Gloo support was compiled.
+        """
+        return bool(self.MPI_LIB_CTYPES.horovod_gloo_built())
+
+    def nccl_built(self):
+        """Returns True if Horovod was compiled with NCCL support.
+
+        Returns:
+          A boolean value indicating whether NCCL support was compiled.
+        """
+        return bool(self.MPI_LIB_CTYPES.horovod_nccl_built())
+
+    def ddl_built(self):
+        """Returns True if Horovod was compiled with DDL support.
+
+        Returns:
+          A boolean value indicating whether DDL support was compiled.
+        """
+        return bool(self.MPI_LIB_CTYPES.horovod_ddl_built())
+
+    def mlsl_built(self):
+        """Returns True if Horovod was compiled with MLSL support.
+
+        Returns:
+          A boolean value indicating whether MLSL support was compiled.
+        """
+        return bool(self.MPI_LIB_CTYPES.horovod_mlsl_built())

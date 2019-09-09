@@ -1,5 +1,6 @@
 # Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 # Modifications copyright (C) 2018 Uber Technologies, Inc.
+# Modifications copyright (C) 2019 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,8 +33,23 @@ import horovod.tensorflow as hvd
 
 from common import mpi_env_rank_and_size
 
-config = tf.ConfigProto()
-config.gpu_options.allow_growth = True
+if hasattr(tf, 'ConfigProto'):
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+
+if hasattr(tf, 'config') and hasattr(tf.config, 'experimental') \
+        and hasattr(tf.config.experimental, 'set_memory_growth'):
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    for gpu in gpus:
+        tf.config.experimental.set_memory_growth(gpu, True)
+else:
+    if _has_eager:
+        # Specifies the config to use with eager execution. Does not preclude
+        # tests from running in the graph mode.
+        tf.enable_eager_execution(config=config)
+
+# MLSL supports only byte, float and double data types
+mlsl_supported_types = set([tf.float32, tf.float64])
 
 
 class MPITests(tf.test.TestCase):
@@ -45,7 +61,10 @@ class MPITests(tf.test.TestCase):
         super(MPITests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
         if _has_eager:
-            self.tfe = tf.contrib.eager
+            if hasattr(tf, 'contrib') and hasattr(tf.contrib, 'eager'):
+                self.tfe = tf.contrib.eager
+            else:
+                self.tfe = tf
 
     def evaluate(self, tensors):
         if _executing_eagerly():
@@ -57,30 +76,59 @@ class MPITests(tf.test.TestCase):
         else:
             return sess.run(tensors)
 
+    def random_uniform(self, *args, **kwargs):
+        if hasattr(tf, 'random') and hasattr(tf.random, 'set_seed'):
+            tf.random.set_seed(1234)
+            return tf.random.uniform(*args, **kwargs)
+        else:
+            tf.set_random_seed(1234)
+            return tf.random_uniform(*args, **kwargs)
+
+    def filter_supported_types(self, types):
+        if 'MLSL_ROOT' in os.environ:
+           types = [t for t in types if t in mlsl_supported_types]
+        return types
+
     def test_horovod_rank(self):
         """Test that the rank returned by hvd.rank() is correct."""
-        true_rank, _ = mpi_env_rank_and_size()
+        mpi_rank, _ = mpi_env_rank_and_size()
+        gloo_rank = int(os.getenv('HOROVOD_RANK', -1))
+
+        # The mpi rank does not match gloo rank, we need to figure which one
+        # we are using to run the test.
+        is_mpi = gloo_rank == -1
         hvd.init()
         rank = hvd.rank()
-        assert true_rank == rank
+
+        if is_mpi:
+            assert mpi_rank == rank
+        else:
+            assert gloo_rank == rank
 
     def test_horovod_size(self):
         """Test that the size returned by hvd.size() is correct."""
-        _, true_size = mpi_env_rank_and_size()
+        _, mpi_size = mpi_env_rank_and_size()
+        gloo_size = int(os.getenv('HOROVOD_SIZE', -1))
+
+        # The mpi size does not match gloo size, we need to figure which one
+        # we are using to run the test.
+        is_mpi = gloo_size == -1
         hvd.init()
         size = hvd.size()
-        assert true_size == size
+        if is_mpi:
+            assert mpi_size == size
+        else:
+            assert gloo_size == size
 
     def test_horovod_allreduce_cpu(self):
         """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
-                tf.set_random_seed(1234)
-                tensor = tf.random_uniform(
+                tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False)
             multiplied = tensor * size
@@ -106,13 +154,12 @@ class MPITests(tf.test.TestCase):
         with Tensor Fusion."""
         hvd.init()
         size = hvd.size()
-        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
         dims = [1, 2, 3]
         tests = []
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
-                tf.set_random_seed(1234)
-                tensor = tf.random_uniform(
+                tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False)
             multiplied = tensor * size
@@ -152,8 +199,7 @@ class MPITests(tf.test.TestCase):
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%d" % local_rank):
-                tf.set_random_seed(1234)
-                tensor = tf.random_uniform(
+                tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False)
             multiplied = tensor * size
@@ -197,8 +243,7 @@ class MPITests(tf.test.TestCase):
         tests = []
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%d" % local_rank):
-                tf.set_random_seed(1234)
-                tensor = tf.random_uniform(
+                tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False)
             multiplied = tensor * size
@@ -245,8 +290,7 @@ class MPITests(tf.test.TestCase):
         for dtype, dim in itertools.product(dtypes, dims):
             iter += 1
             with tf.device("/gpu:%d" % gpu_ids[(iter + local_rank) % 2]):
-                tf.set_random_seed(1234)
-                tensor = tf.random_uniform(
+                tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
                 summed = hvd.allreduce(tensor, average=False)
             multiplied = tensor * size
@@ -279,19 +323,17 @@ class MPITests(tf.test.TestCase):
             return
 
         # Same rank, different dimension
-        tf.set_random_seed(1234)
         dims = [17 + rank] * 3
-        tensor = tf.random_uniform(dims, -1.0, 1.0)
+        tensor = self.random_uniform(dims, -1.0, 1.0)
         with self.assertRaises(tf.errors.FailedPreconditionError):
             self.evaluate(hvd.allreduce(tensor))
 
         # Same number of elements, different rank
-        tf.set_random_seed(1234)
         if rank == 0:
             dims = [17, 23 * 57]
         else:
             dims = [17, 23, 57]
-        tensor = tf.random_uniform(dims, -1.0, 1.0)
+        tensor = self.random_uniform(dims, -1.0, 1.0)
         with self.assertRaises(tf.errors.FailedPreconditionError):
             self.evaluate(hvd.allreduce(tensor))
 
@@ -351,14 +393,13 @@ class MPITests(tf.test.TestCase):
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
-                tf.set_random_seed(1234)
                 if _executing_eagerly():
-                    tensor = self.tfe.Variable(tf.random_uniform(
+                    tensor = self.tfe.Variable(self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype))
                     with tf.GradientTape() as tape:
                         summed = hvd.allreduce(tensor, average=False)
                 else:
-                    tensor = tf.random_uniform(
+                    tensor = self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype)
                     summed = hvd.allreduce(tensor, average=False)
 
@@ -395,14 +436,13 @@ class MPITests(tf.test.TestCase):
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/gpu:%d" % local_rank):
-                tf.set_random_seed(1234)
                 if _executing_eagerly():
                     tensor = self.tfe.Variable(
-                        tf.random_uniform([5] * dim, -100, 100, dtype=dtype))
+                        self.random_uniform([5] * dim, -100, 100, dtype=dtype))
                     with tf.GradientTape() as tape:
                         summed = hvd.allreduce(tensor, average=False)
                 else:
-                    tensor = tf.random_uniform([5] * dim, -100, 100, dtype=dtype)
+                    tensor = self.random_uniform([5] * dim, -100, 100, dtype=dtype)
                     summed = hvd.allreduce(tensor, average=False)
 
                 grad_ys = tf.ones([5] * dim)
@@ -934,6 +974,25 @@ class MPITests(tf.test.TestCase):
             self.assertLess(err, 0.00000001,
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
+
+    def test_horovod_broadcast_eager_mode_error(self):
+        """Test that tries to broadcast tensorflow global variables
+        in eager execution mode. This call should raise a RuntimeError."""
+
+        if not hvd.util._executing_eagerly():
+            return
+
+        with self.assertRaises(RuntimeError):
+            hvd.broadcast_global_variables(root_rank=0)
+
+    def test_horovod_broadcast_graph_mode(self):
+        """Test that tries to broadcast tensorflow global variables
+        in graph execution mode. This call should not raise any exception."""
+
+        if hvd.util._executing_eagerly():
+            return
+
+        hvd.broadcast_global_variables(root_rank=0)
 
     def test_compression_fp16(self):
         valid_dtypes = [tf.float16, tf.float32, tf.float64]

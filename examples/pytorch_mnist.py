@@ -40,6 +40,9 @@ if args.cuda:
     torch.cuda.manual_seed(args.seed)
 
 
+# Horovod: limit # of CPU threads to be used per worker.
+torch.set_num_threads(1)
+
 kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
 train_dataset = \
     datasets.MNIST('data-%d' % hvd.rank(), train=True, download=True,

@@ -29,6 +29,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
             self._device_sparse = device_sparse
             self._compression = compression
             self._sparse_as_dense = sparse_as_dense
+            self._get_gradients_used = False
             super(self.__class__, self).__init__(**config)
 
         def get_gradients(self, loss, params):
@@ -40,6 +41,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
             In DistributedOptimizer, get_gradients() is overriden to also
             allreduce the gradients before returning them.
             """
+            self._get_gradients_used = True
             gradients = super(self.__class__, self).get_gradients(loss, params)
             if hvd.size() > 1:
                 averaged_gradients = []
@@ -60,6 +62,14 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
             else:
                 return gradients
 
+        def apply_gradients(self, *args, **kwargs):
+            if not self._get_gradients_used:
+                  raise Exception('`apply_gradients()` was called without a call to '
+                                  '`get_gradients()`. If you\'re using TensorFlow 2.0, '
+                                  'please specify `experimental_run_tf_function=False` in '
+                                  '`compile()`.')
+            return super(self.__class__, self).apply_gradients(*args, **kwargs)
+
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override get_gradients() method with an allreduce implementation.
     # This class will have the same name as the optimizer it's wrapping, so that the saved
@@ -70,24 +80,28 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                optimizer.get_config())
 
 
-def broadcast_global_variables(backend, root_rank):
-    bcast_op = hvd.broadcast_global_variables(root_rank)
-    return backend.get_session().run(bcast_op)
+def _eval(backend, op_or_result):
+    if hvd._executing_eagerly():
+        return op_or_result
+    else:
+        return backend.get_session().run(op_or_result)
+
+
+if hasattr(hvd, 'broadcast_global_variables'):
+    def broadcast_global_variables(backend, root_rank):
+        return _eval(backend, hvd.broadcast_global_variables(root_rank))
 
 
 def allreduce(backend, value, name, average):
-    allreduce_op = hvd.allreduce(tf.constant(value, name=name), average=average)
-    return backend.get_session().run(allreduce_op)
+    return _eval(backend, hvd.allreduce(tf.constant(value, name=name), average=average))
 
 
 def allgather(backend, value, name):
-    allgather_op = hvd.allgather(tf.constant(value, name=name))
-    return backend.get_session().run(allgather_op)
+    return _eval(backend, hvd.allgather(tf.constant(value, name=name)))
 
 
 def broadcast(backend, value, root_rank, name):
-    bcast_op = hvd.broadcast(tf.constant(value, name=name), root_rank)
-    return backend.get_session().run(bcast_op)
+    return _eval(backend, hvd.broadcast(tf.constant(value, name=name), root_rank))
 
 
 def load_model(keras, wrap_optimizer, filepath, custom_optimizers, custom_objects):

@@ -136,6 +136,7 @@ elif args.lr_mode == 'cosine':
 else:
     raise ValueError('Invalid lr mode')
 
+
 # Function for reading data from record file
 # For more details about data loading in MXNet, please refer to
 # https://mxnet.incubator.apache.org/tutorials/basic/data.html?highlight=imagerecorditer
@@ -149,12 +150,7 @@ def get_data_rec(rec_train, rec_train_idx, rec_val, rec_val_idx, batch_size,
     lighting_param = 0.1
     mean_rgb = [123.68, 116.779, 103.939]
 
-    def batch_fn(batch, ctx):
-        data = batch.data[0].as_in_context(ctx)
-        label = batch.label[0].as_in_context(ctx)
-        return data, label
-
-    train_data = mx.io.ImageRecordIter(
+    train_iter = mx.io.ImageRecordIter(
         path_imgrec=rec_train,
         path_imgidx=rec_train_idx,
         preprocess_threads=data_nthreads,
@@ -182,7 +178,7 @@ def get_data_rec(rec_train, rec_train_idx, rec_val, rec_val_idx, batch_size,
         device_id=local_rank
     )
     # Kept each node to use full val data to make it easy to monitor results
-    val_data = mx.io.ImageRecordIter(
+    val_iter = mx.io.ImageRecordIter(
         path_imgrec=rec_val,
         path_imgidx=rec_val_idx,
         preprocess_threads=data_nthreads,
@@ -199,7 +195,15 @@ def get_data_rec(rec_train, rec_train_idx, rec_val, rec_val_idx, batch_size,
         device_id=local_rank
     )
 
-    return train_data, val_data, batch_fn
+    return train_iter, val_iter
+
+
+# Return data and label from batch data
+def get_data_label(batch, ctx):
+    data = batch.data[0].as_in_context(ctx)
+    label = batch.label[0].as_in_context(ctx)
+    return data, label
+
 
 # Create data iterator for synthetic data
 class SyntheticDataIter(DataIter):
@@ -245,17 +249,18 @@ class SyntheticDataIter(DataIter):
     def reset(self):
         self.cur_iter = 0
 
+
 # Horovod: pin GPU to local rank
 context = mx.cpu(local_rank) if args.no_cuda else mx.gpu(local_rank)
 
 if args.use_rec:
     # Fetch training and validation data if present
-    train_data, val_data, batch_fn = get_data_rec(args.rec_train,
-                                                  args.rec_train_idx,
-                                                  args.rec_val,
-                                                  args.rec_val_idx,
-                                                  batch_size,
-                                                  args.data_nthreads)
+    train_data, val_data = get_data_rec(args.rec_train,
+                                        args.rec_train_idx,
+                                        args.rec_val,
+                                        args.rec_val_idx,
+                                        batch_size,
+                                        args.data_nthreads)
 else:
     # Otherwise use synthetic data
     image_shape = (3, 224, 224)
@@ -289,7 +294,7 @@ def train_gluon():
         acc_top1 = mx.metric.Accuracy()
         acc_top5 = mx.metric.TopKAccuracy(5)
         for _, batch in enumerate(val_data):
-            data, label = batch_fn(batch, context)
+            data, label = get_data_label(batch, context)
             output = net(data.astype(args.dtype, copy=False))
             acc_top1.update([label], [output])
             acc_top5.update([label], [output])
@@ -332,7 +337,7 @@ def train_gluon():
 
         btic = time.time()
         for nbatch, batch in enumerate(train_data, start=1):
-            data, label = batch_fn(batch, context)
+            data, label = get_data_label(batch, context)
             with autograd.record():
                 output = net(data.astype(args.dtype, copy=False))
                 loss = loss_fn(output, label)

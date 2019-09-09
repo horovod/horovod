@@ -64,6 +64,7 @@ autodoc_default_options = {
     'special-members': '__init__',
     'imported-members': None,
     'undoc-members': None,
+    'exclude-members': 'contextmanager, LooseVersion, tf, keras, torch, mx, pyspark',
 }
 
 
@@ -88,8 +89,9 @@ html_theme_options = {
     'github_button': True,
     'github_type': 'star',
     'github_count': 'true',
-    'fixed_sidebar': True,
+    'fixed_sidebar': False,
     'sidebar_collapse': True,
+    'font_family': 'Helvetica Neue'
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,

@@ -13,10 +13,10 @@
 // limitations under the License.
 // =============================================================================
 
+#include "common.h"
+
 #include <sstream>
 #include <cassert>
-
-#include "common.h"
 
 namespace horovod {
 namespace common {

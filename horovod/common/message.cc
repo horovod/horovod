@@ -15,8 +15,10 @@
 // =============================================================================
 
 #include "message.h"
-#include "wire/message_generated.h"
+
 #include <iostream>
+
+#include "wire/message_generated.h"
 
 namespace horovod {
 namespace common {

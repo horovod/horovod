@@ -43,8 +43,8 @@ To reproduce the benchmarks:
     total images/sec: 1656.82
 
 
-**Real data benchmarks**
-
+Real data benchmarks
+~~~~~~~~~~~~~~~~~~~~
 The benchmark instructions above are for the synthetic data benchmark.
 
 To run the benchmark on a real data, you need to download the `ImageNet dataset <http://image-net.org/download-images>`__

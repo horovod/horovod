@@ -27,7 +27,9 @@ from horovod.mxnet.mpi_ops import allreduce, allreduce_
 from horovod.mxnet.mpi_ops import broadcast, broadcast_
 from horovod.mxnet.mpi_ops import init, shutdown
 from horovod.mxnet.mpi_ops import size, local_size, rank, local_rank
-from horovod.mxnet.mpi_ops import mpi_threads_supported
+from horovod.mxnet.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
+from horovod.mxnet.mpi_ops import gloo_enabled, gloo_built
+from horovod.mxnet.mpi_ops import nccl_built, ddl_built, mlsl_built
 
 import mxnet as mx
 import types
@@ -96,7 +98,8 @@ class DistributedTrainer(mx.gluon.Trainer):
         self._scale /= size()
 
     def _allreduce_grads(self):
-        for i, param in enumerate(self._params):
+        # sort needed for Python < 3.6 is not guaranteed
+        for i, param in enumerate(sorted(self._params, key=lambda p: p.name)):
             if param.grad_req != 'null':
                 allreduce_(param.list_grad()[0], average=False,
                            name=str(i), priority=-i)

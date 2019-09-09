@@ -15,6 +15,7 @@
 
 import os
 import psutil
+import re
 import signal
 import subprocess
 import sys
@@ -26,7 +27,11 @@ GRACEFUL_TERMINATION_TIME_S = 5
 
 
 def terminate_executor_shell_and_children(pid):
-    p = psutil.Process(pid)
+    # If the shell already ends, no need to terminate its child.
+    try:
+        p = psutil.Process(pid)
+    except psutil.NoSuchProcess:
+        return
 
     # Terminate children gracefully.
     for child in p.children():
@@ -52,17 +57,34 @@ def terminate_executor_shell_and_children(pid):
     p.kill()
 
 
-def forward_stream(src_fd, dst_stream):
+def forward_stream(src_fd, dst_stream, prefix, index):
     with os.fdopen(src_fd, 'r') as src:
+        line_buffer = ''
         while True:
-            line = src.readline()
-            if not line:
+            text = os.read(src.fileno(), 1000)
+            if not isinstance(text, str):
+                text = text.decode('utf-8')
+            if not text:
                 break
-            dst_stream.write(line)
-            dst_stream.flush()
+
+            for line in re.split('([\r\n])', text):
+                line_buffer += line
+                if line == '\r' or line == '\n':
+                    if index is not None:
+                        localtime = time.asctime(time.localtime(time.time()))
+                        line_buffer = '{time}[{rank}]<{prefix}>:{line}'.format(
+                            time=localtime,
+                            rank=str(index),
+                            prefix=prefix,
+                            line=line_buffer
+                        )
+
+                    dst_stream.write(line_buffer)
+                    dst_stream.flush()
+                    line_buffer = ''
 
 
-def execute(command, env=None, stdout=None, stderr=None):
+def execute(command, env=None, stdout=None, stderr=None, index=None, event=None):
     # Make a pipe for the subprocess stdout/stderr.
     (stdout_r, stdout_w) = os.pipe()
     (stderr_r, stderr_w) = os.pipe()
@@ -120,13 +142,29 @@ def execute(command, env=None, stdout=None, stderr=None):
         stdout = sys.stdout
     if stderr is None:
         stderr = sys.stderr
-    stdout_fwd = threading.Thread(target=forward_stream, args=(stdout_r, stdout))
-    stderr_fwd = threading.Thread(target=forward_stream, args=(stderr_r, stderr))
+    stdout_fwd = threading.Thread(target=forward_stream, args=(stdout_r, stdout, 'stdout', index))
+    stderr_fwd = threading.Thread(target=forward_stream, args=(stderr_r, stderr, 'stderr', index))
     stdout_fwd.start()
     stderr_fwd.start()
 
+    def kill_middleman_if_master_thread_terminate():
+        event.wait()
+        try:
+            os.kill(middleman_pid, signal.SIGTERM)
+        except:
+            # The process has already been killed elsewhere
+            pass
+
+    # TODO: Currently this requires explicitly declaration of the event and signal handler to set
+    #  the event (gloo_run.py:_launch_jobs()). Need to figure out a generalized way to hide this behind
+    #  interfaces.
+    if event is not None:
+        bg_thread = threading.Thread(target=kill_middleman_if_master_thread_terminate)
+        bg_thread.daemon = True
+        bg_thread.start()
+
     try:
-        _, status = os.waitpid(middleman_pid, 0)
+        res, status = os.waitpid(middleman_pid, 0)
     except:
         # interrupted, send middleman TERM signal which will terminate children
         os.kill(middleman_pid, signal.SIGTERM)

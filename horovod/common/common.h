@@ -1,4 +1,5 @@
 // Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
+// Modifications copyright (C) 2019 Intel Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,6 +50,47 @@ namespace common {
 #define NCCL_BCAST "NCCL_BCAST"
 #define COPY_ALLGATHER_OUTPUT "COPY_ALLGATHER_OUTPUT"
 #define ALLOCATE_SHARED_BUFFER "ALLOCATE_SHARED_BUFFER"
+#define MLSL_ALLREDUCE "MLSL_ALLREDUCE"
+#define MLSL_ALLGATHER "MLSL_ALLGATHER"
+#define MLSL_BCAST "MLSL_BCAST"
+#define GLOO_ALLREDUCE "GLOO_ALLREDUCE"
+#define GLOO_ALLGATHER "GLOO_ALLGATHER"
+#define GLOO_BCAST "GLOO_BCAST"
+
+// Horovod knobs.
+#define HOROVOD_MPI_THREADS_DISABLE "HOROVOD_MPI_THREADS_DISABLE"
+#define HOROVOD_TIMELINE "HOROVOD_TIMELINE"
+#define HOROVOD_TIMELINE_MARK_CYCLES "HOROVOD_TIMELINE_MARK_CYCLES"
+#define HOROVOD_AUTOTUNE "HOROVOD_AUTOTUNE"
+#define HOROVOD_AUTOTUNE_LOG "HOROVOD_AUTOTUNE_LOG"
+#define HOROVOD_AUTOTUNE_WARMUP_SAMPLES "HOROVOD_AUTOTUNE_WARMUP_SAMPLES"
+#define HOROVOD_AUTOTUNE_STEPS_PER_SAMPLE "HOROVOD_AUTOTUNE_STEPS_PER_SAMPLE"
+#define HOROVOD_AUTOTUNE_BAYES_OPT_MAX_SAMPLES "HOROVOD_AUTOTUNE_BAYES_OPT_MAX_SAMPLES"
+#define HOROVOD_AUTOTUNE_GAUSSIAN_PROCESS_NOISE "HOROVOD_AUTOTUNE_GAUSSIAN_PROCESS_NOISE"
+#define HOROVOD_FUSION_THRESHOLD "HOROVOD_FUSION_THRESHOLD"
+#define HOROVOD_CYCLE_TIME "HOROVOD_CYCLE_TIME"
+#define HOROVOD_STALL_CHECK_DISABLE "HOROVOD_STALL_CHECK_DISABLE"
+#define HOROVOD_STALL_CHECK_TIME_SECONDS "HOROVOD_STALL_CHECK_TIME_SECONDS"
+#define HOROVOD_STALL_SHUTDOWN_TIME_SECONDS "HOROVOD_STALL_SHUTDOWN_TIME_SECONDS"
+#define HOROVOD_HIERARCHICAL_ALLREDUCE "HOROVOD_HIERARCHICAL_ALLREDUCE"
+#define HOROVOD_HIERARCHICAL_ALLGATHER "HOROVOD_HIERARCHICAL_ALLGATHER"
+#define HOROVOD_CACHE_CAPACITY "HOROVOD_CACHE_CAPACITY"
+#define HOROVOD_MLSL_BGT_AFFINITY "HOROVOD_MLSL_BGT_AFFINITY"
+#define HOROVOD_NUM_NCCL_STREAMS "HOROVOD_NUM_NCCL_STREAMS"
+#define HOROVOD_CPU_OPERATIONS "HOROVOD_CPU_OPERATIONS"
+#define HOROVOD_CONTROLLER "HOROVOD_CONTROLLER"
+#define HOROVOD_GLOO_IFACE "HOROVOD_GLOO_IFACE"
+#define HOROVOD_MPI "MPI"
+#define HOROVOD_MLSL "MLSL"
+#define HOROVOD_GLOO "GLOO"
+
+// String constant for gloo interface.
+#define GLOO_DEFAULT_IFACE "eth0"
+
+// The number of elements held by fusion buffer and hierarchical
+// allreduce size is always a multiple of FUSION_BUFFER_ATOMIC_UNIT
+#define FUSION_BUFFER_ATOMIC_UNIT 64
+#define RANK_ZERO 0
 
 // Device ID used for CPU.
 #define CPU_DEVICE_ID (-1)
@@ -98,6 +140,22 @@ private:
   std::string reason_ = "";
   Status(StatusType type, std::string reason);
 };
+
+// Common error status
+const Status NOT_INITIALIZED_ERROR = Status::PreconditionError(
+    "Horovod has not been initialized; use hvd.init().");
+
+const Status SHUT_DOWN_ERROR = Status::UnknownError(
+    "Horovod has been shut down. This was caused by an exception on one of the "
+    "ranks or an attempt to allreduce, allgather or broadcast a tensor after "
+    "one of the ranks finished execution. If the shutdown was caused by an "
+    "exception, you should see the exception in the log before the first "
+    "shutdown message.");
+
+const Status DUPLICATE_NAME_ERROR = Status::InvalidArgument(
+    "Requested to allreduce, allgather, or broadcast a tensor with the same "
+    "name as another tensor that is currently being processed.  If you want "
+    "to request another tensor, use a different tensor name.");
 
 class TensorShape {
 public:
@@ -157,7 +215,7 @@ public:
   virtual ~OpContext() = default;
 };
 
-// A callback to call after the MPI communication completes. Since the
+// A callback to call after the communication completes. Since the
 // allreduce and allgather ops are asynchronous, this callback is what resumes
 // computation after the reduction is completed.
 using StatusCallback = std::function<void(const Status&)>;

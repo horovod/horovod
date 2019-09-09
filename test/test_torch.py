@@ -1,4 +1,5 @@
 # Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
+# Modifications copyright (C) 2019 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,6 +36,8 @@ from common import mpi_env_rank_and_size
 
 _fp16_supported = LooseVersion(torch.__version__) >= LooseVersion('1.0.0')
 
+# MLSL supports only byte, float and double data types
+mlsl_supported_types = set([torch.FloatTensor, torch.DoubleTensor])
 
 class TorchTests(unittest.TestCase):
     """
@@ -61,28 +64,50 @@ class TorchTests(unittest.TestCase):
             return tensor.cuda(hvd.local_rank()).type(dtype)
         return tensor.type(dtype)
 
+    def filter_supported_types(self, types):
+        if 'MLSL_ROOT' in os.environ:
+           types = [t for t in types if t in mlsl_supported_types]
+        return types
+
     def test_horovod_rank(self):
         """Test that the rank returned by hvd.rank() is correct."""
-        true_rank, _ = mpi_env_rank_and_size()
+        mpi_rank, _ = mpi_env_rank_and_size()
+        gloo_rank = int(os.getenv('HOROVOD_RANK', -1))
+
+        # The mpi rank does not match gloo rank, we need to figure which one
+        # we are using to run the test.
+        is_mpi = gloo_rank == -1
         hvd.init()
         rank = hvd.rank()
-        assert true_rank == rank
+
+        if is_mpi:
+            assert mpi_rank == rank
+        else:
+            assert gloo_rank == rank
 
     def test_horovod_size(self):
         """Test that the size returned by hvd.size() is correct."""
-        _, true_size = mpi_env_rank_and_size()
+        _, mpi_size = mpi_env_rank_and_size()
+        gloo_size = int(os.getenv('HOROVOD_SIZE', -1))
+
+        # The mpi size does not match gloo size, we need to figure which one
+        # we are using to run the test.
+        is_mpi = gloo_size == -1
         hvd.init()
         size = hvd.size()
-        assert true_size == size
+        if is_mpi:
+            assert mpi_size == size
+        else:
+            assert gloo_size == size
 
     def test_horovod_allreduce(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        dtypes = [torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor]
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                     torch.FloatTensor, torch.DoubleTensor])
         if _fp16_supported:
-            dtypes += [torch.HalfTensor]
+            dtypes += self.filter_supported_types([torch.HalfTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -116,8 +141,8 @@ class TorchTests(unittest.TestCase):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        dtypes = [torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor]
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                     torch.FloatTensor, torch.DoubleTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -149,10 +174,10 @@ class TorchTests(unittest.TestCase):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
         hvd.init()
         size = hvd.size()
-        dtypes = [torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor]
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                     torch.FloatTensor, torch.DoubleTensor])
         if _fp16_supported:
-            dtypes += [torch.HalfTensor]
+            dtypes += self.filter_supported_types([torch.HalfTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -187,10 +212,10 @@ class TorchTests(unittest.TestCase):
         with Tensor Fusion."""
         hvd.init()
         size = hvd.size()
-        dtypes = [torch.IntTensor, torch.LongTensor,
-                  torch.FloatTensor, torch.DoubleTensor]
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                  torch.FloatTensor, torch.DoubleTensor])
         if _fp16_supported:
-            dtypes += [torch.HalfTensor]
+            dtypes += self.filter_supported_types([torch.HalfTensor])
         if torch.cuda.is_available():
             dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
@@ -943,6 +968,20 @@ class TorchTests(unittest.TestCase):
                 else:
                     self.assertEqual(opt_param_value, opt_param_value_after)
 
+    # TODO: investigate why this hangs on K80s
+    @unittest.skip
+    def test_broadcast_state_gpu(self):
+        # Only do this test if there are GPUs available.
+        if not torch.cuda.is_available():
+            return
+        # Set default tensor type, ensuring optimizer tensor-wrapping is robust
+        # to this setting.
+        try:
+            torch.set_default_tensor_type(torch.cuda.FloatTensor)
+            self.test_broadcast_state()
+        finally:
+            torch.set_default_tensor_type(torch.FloatTensor)
+
     def test_broadcast_state_options(self):
         hvd.init()
 
@@ -1223,3 +1262,121 @@ class TorchTests(unittest.TestCase):
 
             # Step 2: train discriminator.
             train_step(train_discriminator=True)
+
+    def test_gradient_clipping(self):
+        """Test gradient clipping example."""
+        hvd.init()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        x = torch.ones(1, 1).requires_grad_()
+        y = torch.ones(1, 1).requires_grad_()
+
+        model = torch.nn.Linear(1, 1)
+        model.weight = torch.nn.Parameter(torch.zeros(1, 1) + 0.5)
+        model.bias = torch.nn.Parameter(torch.zeros(1))
+        hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+        optimizer = hvd.DistributedOptimizer(
+            optimizer, named_parameters=model.named_parameters())
+
+        y_pred = model(x)
+        loss = F.mse_loss(y_pred, y)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.synchronize()
+        prior_grad = model.weight.grad.item()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+        clipped_grad = model.weight.grad.item()
+        assert abs(prior_grad) > abs(clipped_grad)
+        with optimizer.skip_synchronize():
+            optimizer.step()
+
+    def test_synchronize_step_warning(self):
+        """
+        Test that .synchronize() followed by .step() without
+        optimizer.skip_synchronize() context will produce a warning.
+        """
+        hvd.init()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        x = torch.zeros(1, 1).requires_grad_()
+        y = torch.ones(1, 1).requires_grad_()
+
+        model = torch.nn.Linear(1, 1)
+        hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+        optimizer = hvd.DistributedOptimizer(
+            optimizer, named_parameters=model.named_parameters())
+
+        y_pred = model(x)
+        loss = F.mse_loss(y_pred, y)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.synchronize()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+        with warnings.catch_warnings(record=True) as ws:
+            optimizer.step()
+            assert len(ws) == 1
+            assert 'optimizer.step() called without optimizer.skip_synchronize()' \
+                in str(ws[0].message)
+
+    def test_no_named_parameters(self):
+        """Test that leaving the default named_parameters=None will not throw an error."""
+        hvd.init()
+
+        class Net(torch.nn.Module):
+            def __init__(self):
+                super(Net, self).__init__()
+                self.conv1 = torch.nn.Conv2d(1, 100, 1)
+                self.conv2 = torch.nn.Conv2d(100, 1, 1)
+
+            def forward(self, x):
+                x = self.conv1(x)
+                x = self.conv2(x)
+                return x
+
+        model = Net()
+        inp = torch.rand([1, 1, 1000, 1000])
+
+        opt = torch.optim.SGD(model.parameters(), lr=0.1)
+        opt = hvd.DistributedOptimizer(opt)
+
+        loss = model(inp).sum()
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+
+    def test_missing_named_parameters(self):
+        """Test that naming half of the model parameters will throw an error."""
+        hvd.init()
+
+        class Net(torch.nn.Module):
+            def __init__(self):
+                super(Net, self).__init__()
+                self.conv1 = torch.nn.Conv2d(1, 100, 1)
+                self.conv2 = torch.nn.Conv2d(100, 1, 1)
+
+            def forward(self, x):
+                x = self.conv1(x)
+                x = self.conv2(x)
+                return x
+
+        model = Net()
+        opt = torch.optim.SGD(model.parameters(), lr=0.1)
+        try:
+            hvd.DistributedOptimizer(opt,
+                named_parameters=list(model.named_parameters())[0:1])
+            assert False, 'hvd.DistributedOptimizer did not throw error'
+        except ValueError:
+            pass
+
+if __name__ == "__main__":
+   unittest.main()

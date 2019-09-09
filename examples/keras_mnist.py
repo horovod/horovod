@@ -88,7 +88,7 @@ model.fit(x_train, y_train,
           batch_size=batch_size,
           callbacks=callbacks,
           epochs=epochs,
-          verbose=1,
+          verbose=1 if hvd.rank() == 0 else 0,
           validation_data=(x_test, y_test))
 score = model.evaluate(x_test, y_test, verbose=0)
 print('Test loss:', score[0])

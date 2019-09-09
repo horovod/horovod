@@ -44,20 +44,16 @@ void NCCLContext::ErrorCheck(std::string op_name, ncclResult_t nccl_result) {
 }
 
 void NCCLContext::ShutDown(){
-  for(auto it = nccl_comms.begin(); it != nccl_comms.end(); ++it){
-    ncclCommDestroy(it->second);
+  for(auto it = nccl_comms.begin(); it != nccl_comms.end(); ++it) {
+    for (auto entry = it->begin(); entry != it->end(); ++entry) {
+      ncclCommDestroy(entry->second);
+    }
   }
   nccl_comms.clear();
 }
 
-NCCLAllreduce::NCCLAllreduce(NCCLContext* nccl_context,
-                             MPIContext* mpi_context,
-                             CUDAContext* cuda_context,
-                             HorovodGlobalState* global_state)
-    : CUDAAllreduce(cuda_context, global_state),
-      nccl_context_(nccl_context), mpi_context_(mpi_context) {}
-
-Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
+                              const Response& response) {
   auto& first_entry = entries[0];
 
   InitCUDA(entries);
@@ -111,7 +107,7 @@ Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Resp
 void NCCLAllreduce::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
                                  const std::vector<int32_t>& nccl_device_map) {
   // Ensure NCCL communicator is in the map before executing reduction.
-  ncclComm_t& nccl_comm = nccl_context_->nccl_comms[nccl_device_map];
+  ncclComm_t& nccl_comm = nccl_context_->nccl_comms[global_state_->current_nccl_stream][nccl_device_map];
   if (nccl_comm == nullptr) {
     auto& timeline = global_state_->timeline;
     timeline.ActivityStartAll(entries, INIT_NCCL);
@@ -125,14 +121,8 @@ void NCCLAllreduce::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
       nccl_context_->ErrorCheck("ncclGetUniqueId", ncclGetUniqueId(&nccl_id));
     }
 
-    int bcast_op = MPI_Bcast((void*) &nccl_id,
-                             sizeof(nccl_id),
-                             mpi_context_->GetMPIDataType(HOROVOD_BYTE),
-                             0,
-                             mpi_context_->GetMPICommunicator(nccl_id_bcast_comm));
-    if (bcast_op != MPI_SUCCESS) {
-      throw std::logic_error("MPI_Broadcast failed, see MPI output for details.");
-    }
+    global_state_->controller->Bcast((void*)&nccl_id, sizeof(nccl_id), 0,
+                                     nccl_id_bcast_comm);
 
     ncclComm_t new_nccl_comm;
     auto nccl_result = ncclCommInitRank(&new_nccl_comm, nccl_size, nccl_id, nccl_rank);
@@ -141,10 +131,7 @@ void NCCLAllreduce::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
 
     // Barrier helps NCCL to synchronize after initialization and avoid
     // deadlock that we've been seeing without it.
-    int barrier_op = MPI_Barrier(mpi_context_->GetMPICommunicator(Communicator::GLOBAL));
-    if (barrier_op != MPI_SUCCESS) {
-      throw std::logic_error("MPI_Barrier failed, see MPI output for details.");
-    }
+    global_state_->controller->Barrier(Communicator::GLOBAL);
 
     timeline.ActivityEndAll(entries);
   }
@@ -154,23 +141,22 @@ void NCCLAllreduce::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
 
 void NCCLAllreduce::PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
                                              Communicator& nccl_id_bcast_comm) {
-  nccl_rank = global_state_->rank;
-  nccl_size = global_state_->size;
+  nccl_rank = global_state_->controller->GetRank();
+  nccl_size = global_state_->controller->GetSize();
   nccl_id_bcast_comm = Communicator::GLOBAL;
 }
 
-NCCLHierarchicalAllreduce::NCCLHierarchicalAllreduce(NCCLContext* nccl_context, MPIContext* mpi_context,
-                                                     CUDAContext* cuda_context, HorovodGlobalState* global_state)
-    : NCCLAllreduce(nccl_context, mpi_context,
-                    cuda_context, global_state) {}
-
-Status NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+#if HAVE_MPI
+Status
+NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
+                                   const Response& response) {
   auto& first_entry = entries[0];
 
   // Determine GPU IDs of the devices participating in this communicator.
   std::vector<int32_t> nccl_device_map;
-  nccl_device_map.reserve(global_state_->local_comm_ranks.size());
-  for (int rank : global_state_->local_comm_ranks) {
+  nccl_device_map.reserve(
+      global_state_->controller->GetLocalCommRanks().size());
+  for (int rank : global_state_->controller->GetLocalCommRanks()) {
     nccl_device_map.push_back(response.devices()[rank]);
   }
 
@@ -202,15 +188,17 @@ Status NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries
 
   // Do allreduce.
   int element_size = mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
+  int local_size = global_state_->controller->GetLocalSize();
+  int local_rank = global_state_->controller->GetLocalRank();
 
   // If cluster is homogeneous and we are using fusion buffer, include
   // dummy elements from the buffer (if necessary) to make sure the data
   // is divisible by local_size. This is always possible since we
   // set the fusion buffer size divisible by local_size.
-  if (global_state_->is_homogeneous && entries.size() > 1) {
+  if (global_state_->controller->IsHomogeneous() && entries.size() > 1) {
     // Making sure the number of elements is divisible by
     // FUSION_BUFFER_ATOMIC_UNIT for improved performance
-    int div = global_state_->local_size * FUSION_BUFFER_ATOMIC_UNIT;
+    int div = local_size * FUSION_BUFFER_ATOMIC_UNIT;
     num_elements = ((num_elements + div - 1) / div) * div;
     buffer_len = num_elements * element_size;
   }
@@ -227,42 +215,37 @@ Status NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries
   // non-divisible part (if any), do NCCL Reduce (at rank local_size-1),
   // MPI Allreduce (across rank (local_size-1)'s), and NCCL Bcast
 
-  int64_t num_elements_per_rank =
-      global_state_->is_homogeneous
-      ? num_elements / global_state_->local_size
-      : 0;
+  int64_t num_elements_per_rank = global_state_->controller->IsHomogeneous()
+                                      ? num_elements / local_size
+                                      : 0;
 
   size_t buffer_len_per_rank = element_size * num_elements_per_rank;
 
   void* buffer_data_at_rank_offset =
-      (uint8_t*) buffer_data +
-      buffer_len_per_rank * global_state_->local_rank;
+      (uint8_t*)buffer_data + buffer_len_per_rank * local_rank;
 
-  int64_t num_elements_remaining =
-      global_state_->is_homogeneous
-      ? num_elements % global_state_->local_size
-      : num_elements;
+  int64_t num_elements_remaining = global_state_->controller->IsHomogeneous()
+                                       ? num_elements % local_size
+                                       : num_elements;
 
   size_t buffer_len_remaining = element_size * num_elements_remaining;
 
   void* buffer_data_remainder =
-      (uint8_t*) buffer_data +
-      buffer_len_per_rank * global_state_->local_size;
+      (uint8_t*)buffer_data + buffer_len_per_rank * local_size;
 
   void* fused_input_data_remainder =
-      (uint8_t*) fused_input_data +
-      buffer_len_per_rank * global_state_->local_size;
+      (uint8_t*)fused_input_data + buffer_len_per_rank * local_size;
 
   int root_rank =
-      global_state_->is_homogeneous ? global_state_->local_size - 1 : 0;
-  bool is_root_rank = global_state_->local_rank == root_rank;
+      global_state_->controller->IsHomogeneous() ? local_size - 1 : 0;
+  bool is_root_rank = local_rank == root_rank;
 
   int64_t total_num_elements =
       is_root_rank ? num_elements_per_rank + num_elements_remaining
                    : num_elements_per_rank;
-  int64_t total_buffer_len =
-      is_root_rank ? buffer_len_per_rank + buffer_len_remaining
-                   : buffer_len_per_rank;
+  int64_t total_buffer_len = is_root_rank
+                                 ? buffer_len_per_rank + buffer_len_remaining
+                                 : buffer_len_per_rank;
 
   auto& timeline = global_state_->timeline;
   if (num_elements_per_rank > 0) {
@@ -291,7 +274,7 @@ Status NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries
     }
   }
 
-  if (global_state_->is_homogeneous || is_root_rank) {
+  if (global_state_->controller->IsHomogeneous() || is_root_rank) {
     // cudaHostAlloc is significantly slower than malloc.  Pre-allocating
     // a buffer is not safe since the tensor can be arbitrarily large.
     host_buffer_ = malloc(total_buffer_len);
@@ -317,7 +300,7 @@ Status NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries
                            mpi_context_->GetMPISumOp(first_entry.tensor->dtype()),
                            mpi_context_->GetMPICommunicator(Communicator::CROSS));
     if (op != MPI_SUCCESS) {
-      throw std::logic_error("MPI_Allreduce failed, see MPI output for details.");
+      throw std::runtime_error("MPI_Allreduce failed, see MPI output for details.");
     }
     timeline.ActivityEndAll(entries);
 
@@ -373,10 +356,10 @@ bool NCCLHierarchicalAllreduce::Enabled(const ParameterManager& param_manager,
 
 void NCCLHierarchicalAllreduce::PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
                                                          Communicator& nccl_id_bcast_comm) {
-  nccl_rank = global_state_->local_rank;
-  nccl_size = global_state_->local_size;
+  nccl_rank = global_state_->controller->GetLocalRank();
+  nccl_size = global_state_->controller->GetLocalSize();
   nccl_id_bcast_comm = Communicator::LOCAL;
 }
-
+#endif
 } // namespace common
 } // namespace horovod

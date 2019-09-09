@@ -16,25 +16,22 @@ one reduction operation. The algorithm of Tensor Fusion is as follows:
 5. Copy data from the fusion buffer into the output tensors.
 6. Repeat until there are no more tensors to reduce in this cycle.
 
-The fusion buffer size can be tweaked using the ``HOROVOD_FUSION_THRESHOLD`` environment variable:
+The fusion buffer size can be adjusted using the ``--fusion-threshold-mb`` command line argument to ``horovodrun``:
 
 .. code-block:: bash
 
-    $ HOROVOD_FUSION_THRESHOLD=33554432 horovodrun -np 4 python train.py
+    $ horovodrun -np 4 --fusion-threshold-mb 32 python train.py
 
-
-Setting the ``HOROVOD_FUSION_THRESHOLD`` environment variable to zero disables Tensor Fusion:
-
-.. code-block:: bash
-
-    $ HOROVOD_FUSION_THRESHOLD=0 horovodrun -np 4 python train.py
-
-
-You can tweak time between cycles (defined in milliseconds) using the ``HOROVOD_CYCLE_TIME`` environment variable:
+Setting ``--fusion-threshold-mb`` to zero disables Tensor Fusion:
 
 .. code-block:: bash
 
-    $ HOROVOD_CYCLE_TIME=3.5 horovodrun -np 4 python train.py
+    $ horovodrun -np 4 --fusion-threshold-mb 0 python train.py
 
+You can tweak time between cycles (defined in milliseconds) using the ``--cycle-time-ms`` command line argument:
+
+.. code-block:: bash
+
+    $ horovodrun -np 4 --cycle-time-ms 3.5 python train.py
 
 .. inclusion-marker-end-do-not-remove

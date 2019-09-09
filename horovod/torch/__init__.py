@@ -17,6 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from contextlib import contextmanager
+import warnings
+
 from horovod.common.util import check_extension
 
 try:
@@ -33,7 +36,9 @@ from horovod.torch.mpi_ops import broadcast, broadcast_async, broadcast_, broadc
 from horovod.torch.mpi_ops import poll, synchronize
 from horovod.torch.mpi_ops import init, shutdown
 from horovod.torch.mpi_ops import size, local_size, rank, local_rank
-from horovod.torch.mpi_ops import mpi_threads_supported
+from horovod.torch.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
+from horovod.torch.mpi_ops import gloo_enabled, gloo_built
+from horovod.torch.mpi_ops import nccl_built, ddl_built, mlsl_built
 
 import torch
 import collections
@@ -48,7 +53,9 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         if named_parameters is not None:
             named_parameters = list(named_parameters)
         else:
-            named_parameters = []
+            named_parameters = [('allreduce.noname.%s' % i, v)
+                                for param_group in self.param_groups
+                                for i, v in enumerate(param_group['params'])]
 
         # make sure that named_parameters are tuples
         if any([not isinstance(p, tuple) for p in named_parameters]):
@@ -61,19 +68,25 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             raise ValueError('Parameter names in named_parameters must be unique. '
                              'Found duplicates: %s' % ', '.join(dups))
 
-        if len(named_parameters) > 0:
-            self._parameter_names = {v: k for k, v
-                                     in sorted(named_parameters)}
-        else:
-            self._parameter_names = {v: 'allreduce.noname.%s' % i
-                                     for param_group in self.param_groups
-                                     for i, v in enumerate(param_group['params'])}
+        all_param_ids = {id(v)
+                         for param_group in self.param_groups
+                         for v in param_group['params']}
+        named_param_ids = {id(v) for k, v in named_parameters}
+        unnamed_param_ids = all_param_ids - named_param_ids
+        if len(unnamed_param_ids):
+            raise ValueError('named_parameters was specified, but one or more model '
+                             'parameters were not named. Python object ids: '
+                             '%s' % ', '.join(str(id) for id in unnamed_param_ids))
+
+        self._parameter_names = {v: k for k, v in sorted(named_parameters)}
         self.backward_passes_per_step = backward_passes_per_step
         self._allreduce_delay = {v: self.backward_passes_per_step
                                  for _, v in sorted(named_parameters)}
         self._handles = {}
         self._grad_accs = []
         self._requires_update = set()
+        self._synchronized = False
+        self._should_synchronize = True
         if size() > 1:
             self._register_hooks()
 
@@ -146,9 +159,47 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             p.grad.set_(self._compression.decompress(output, ctx))
         self._handles.clear()
 
+        self._synchronized = True
+
+    @contextmanager
+    def skip_synchronize(self):
+        """
+        A context manager used to specify that optimizer.step() should
+        not perform synchronization.
+
+        It's typically used in a following pattern:
+
+        .. code-block:: python
+
+            optimizer.synchronize()
+            with optimizer.skip_synchronize():
+                optimizer.step()
+        """
+        self._should_synchronize = False
+        try:
+            yield
+        finally:
+            self._should_synchronize = True
+
     def step(self, closure=None):
-        self.synchronize()
+        if self._should_synchronize:
+            if self._synchronized:
+                warnings.warn("optimizer.step() called without "
+                              "optimizer.skip_synchronize() context after "
+                              "optimizer.synchronize(). This can cause training "
+                              "slowdown. You may want to consider using "
+                              "optimizer.skip_synchronize() context if you use "
+                              "optimizer.synchronize() in your code.")
+            self.synchronize()
+        self._synchronized = False
         return super(self.__class__, self).step(closure)
+
+    def zero_grad(self):
+        if self._handles:
+            raise AssertionError("optimizer.zero_grad() was called after loss.backward() "
+                                 "but before optimizer.step() or optimizer.synchronize(). "
+                                 "This is prohibited as it can cause a race condition.")
+        return super(self.__class__, self).zero_grad()
 
 
 def DistributedOptimizer(optimizer, named_parameters=None,
@@ -158,28 +209,32 @@ def DistributedOptimizer(optimizer, named_parameters=None,
     An optimizer that wraps another torch.optim.Optimizer, using an allreduce to
     average gradient values before applying gradients to model weights.
 
-    Allreduce operations are executed after each gradient is computed by `loss.backward()`
-    in parallel with each other. The `step()` method ensures that all allreduce operations are
+    Allreduce operations are executed after each gradient is computed by ``loss.backward()``
+    in parallel with each other. The ``step()`` method ensures that all allreduce operations are
     finished before applying gradients to the model.
 
-    DistributedOptimizer exposes the `synchronize()` method, which forces allreduce operations
+    DistributedOptimizer exposes the ``synchronize()`` method, which forces allreduce operations
     to finish before continuing the execution. It's useful in conjunction with gradient
-    clipping, or other operations that modify gradients in place before `step()` is executed.
+    clipping, or other operations that modify gradients in place before ``step()`` is executed.
+    Make sure to use ``optimizer.skip_synchronize()`` if you're calling ``synchronize()``
+    in your code.
 
     Example of gradient clipping:
-    ```
-    output = model(data)
-    loss = F.nll_loss(output, target)
-    loss.backward()
-    optimizer.synchronize()
-    torch.nn.utils.clip_grad_norm(model.parameters(), args.clip)
-    optimizer.step()
-    ```
+
+    .. code-block:: python
+
+        output = model(data)
+        loss = F.nll_loss(output, target)
+        loss.backward()
+        optimizer.synchronize()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
+        with optimizer.skip_synchronize():
+            optimizer.step()
 
     Arguments:
         optimizer: Optimizer to use for computing gradients and applying updates.
         named_parameters: A mapping between parameter names and values. Used for naming of
-                          allreduce operations. Typically just `model.named_parameters()`.
+                          allreduce operations. Typically just ``model.named_parameters()``.
         compression: Compression algorithm used during allreduce to reduce the amount
                      of data sent during the each parameter update step.  Defaults to
                      not using compression.
@@ -200,8 +255,8 @@ def DistributedOptimizer(optimizer, named_parameters=None,
 def broadcast_parameters(params, root_rank):
     """
     Broadcasts the parameters from root rank to all other processes.
-    Typical usage is to broadcast the `model.state_dict()`,
-    `model.named_parameters()`, or `model.parameters()`.
+    Typical usage is to broadcast the ``model.state_dict()``,
+    ``model.named_parameters()``, or ``model.parameters()``.
 
     Arguments:
         params: One of the following:
@@ -296,12 +351,12 @@ def broadcast_optimizer_state(optimizer, root_rank):
     # new unwrapped scalar value via a callback.
     def _create_callback(pid, name, t, p):
         def _from_tensor():
-            state_dict['state'][pid][name] = t(p.numpy()[0])
+            state_dict['state'][pid][name] = t(p.cpu().numpy()[0])
         return _from_tensor
 
     def _create_option_callback(index, option_key, option_tensor, dtypes):
         def _from_tensor():
-            optimizer.param_groups[index][option_key] = _recursive_cast(option_tensor.numpy()[0], dtypes)
+            optimizer.param_groups[index][option_key] = _recursive_cast(option_tensor.cpu().numpy()[0], dtypes)
         return _from_tensor
 
     # Param groups are an ordered list, normally there is only one per model,

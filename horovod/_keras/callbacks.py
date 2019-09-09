@@ -23,11 +23,24 @@ class BroadcastGlobalVariablesCallbackImpl(object):
         self.backend = backend
         self.root_rank = root_rank
         self.device = device
+        self.broadcast_done = False
 
-    def on_train_begin(self, logs=None):
+    def on_batch_end(self, batch, logs=None):
+        if self.broadcast_done:
+            return
+
         with tf.device(self.device):
-            bcast_op = hvd.broadcast_global_variables(self.root_rank)
-            self.backend.get_session().run(bcast_op)
+            if hvd._executing_eagerly() and hasattr(self.model, 'variables'):
+                # TensorFlow 2.0 or TensorFlow eager
+                hvd.broadcast_variables(self.model.variables,
+                                        root_rank=self.root_rank)
+                hvd.broadcast_variables(self.model.optimizer.variables(),
+                                        root_rank=self.root_rank)
+            else:
+                bcast_op = hvd.broadcast_global_variables(self.root_rank)
+                self.backend.get_session().run(bcast_op)
+
+        self.broadcast_done = True
 
 
 class MetricAverageCallbackImpl(object):
@@ -51,13 +64,17 @@ class MetricAverageCallbackImpl(object):
         # Reduce every metric among workers. Sort metrics by name
         # to ensure consistent order.
         for metric, value in sorted(logs.items()):
-            if metric not in self.variables:
-                self.variables[metric], self.allreduce_ops[metric] = \
-                    self._make_variable(metric, value)
+            if hvd._executing_eagerly():
+                reduced_logs[metric] = \
+                    hvd.allreduce(tf.constant(value, name=metric)).numpy()
             else:
-                self.backend.set_value(self.variables[metric], value)
-            reduced_logs[metric] = \
-                self.backend.get_session().run(self.allreduce_ops[metric])
+                if metric not in self.variables:
+                    self.variables[metric], self.allreduce_ops[metric] = \
+                        self._make_variable(metric, value)
+                else:
+                    self.backend.set_value(self.variables[metric], value)
+                reduced_logs[metric] = \
+                    self.backend.get_session().run(self.allreduce_ops[metric])
         # Override the reduced values back into logs dictionary
         # for other callbacks to use.
         for metric, value in reduced_logs.items():
@@ -109,7 +126,7 @@ class LearningRateScheduleCallbackImpl(object):
             # See the paper cited above for more information about momentum correction.
             self.restore_momentum = self.backend.get_value(self.model.optimizer.momentum)
             self.backend.set_value(self.model.optimizer.momentum,
-                        self.restore_momentum * new_lr / old_lr)
+                                   self.restore_momentum * new_lr / old_lr)
 
     def _restore_momentum_if_needed(self):
         if self.restore_momentum:

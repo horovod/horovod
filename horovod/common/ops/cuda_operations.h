@@ -19,6 +19,7 @@
 
 #include <queue>
 #include <unordered_map>
+#include <vector>
 
 #if HAVE_CUDA
 #include <cuda_runtime.h>
@@ -73,7 +74,7 @@ struct CUDAContext {
   // other parts of the graph. Overlaying memory transfers and compute during
   // backpropagation is crucial for good performance, so we cannot use the
   // TensorFlow stream, and must use our own stream.
-  std::unordered_map<int, cudaStream_t> streams;
+  std::vector<std::unordered_map<int, cudaStream_t>> streams;
 
   // We reuse CUDA events as it appears that their creation carries non-zero cost.
   std::unordered_map<int, std::queue<cudaEvent_t>> cuda_events;

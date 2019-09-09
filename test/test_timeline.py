@@ -17,7 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import os
 import tempfile
 import time
 import torch
@@ -25,8 +24,7 @@ import unittest
 import warnings
 
 import horovod.torch as hvd
-
-from common import env
+from horovod.common.util import env
 
 
 class TimelineTests(unittest.TestCase):
@@ -44,7 +42,7 @@ class TimelineTests(unittest.TestCase):
                 hvd.init()
 
                 # Perform a simple allreduce operation
-                hvd.allreduce(torch.tensor([1, 2, 3]), name='test_allreduce')
+                hvd.allreduce(torch.tensor([1, 2, 3], dtype=torch.float32), name='test_allreduce')
 
                 # Wait for it to register in the timeline.
                 time.sleep(0.1)

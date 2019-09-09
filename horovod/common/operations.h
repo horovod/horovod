@@ -18,31 +18,15 @@
 
 #include <functional>
 
-#include "common.h"
+#if HAVE_MPI
 #define OMPI_SKIP_MPICXX
 #include "mpi.h"
+#endif
+
+#include "common.h"
 
 namespace horovod {
 namespace common {
-
-// The number of elements held by fusion buffer and hierarchical
-// allreduce size is always a multiple of FUSION_BUFFER_ATOMIC_UNIT
-#define FUSION_BUFFER_ATOMIC_UNIT 64
-
-// Horovod knobs.
-#define HOROVOD_MPI_THREADS_DISABLE "HOROVOD_MPI_THREADS_DISABLE"
-#define HOROVOD_TIMELINE "HOROVOD_TIMELINE"
-#define HOROVOD_TIMELINE_MARK_CYCLES "HOROVOD_TIMELINE_MARK_CYCLES"
-#define HOROVOD_AUTOTUNE "HOROVOD_AUTOTUNE"
-#define HOROVOD_AUTOTUNE_LOG "HOROVOD_AUTOTUNE_LOG"
-#define HOROVOD_FUSION_THRESHOLD "HOROVOD_FUSION_THRESHOLD"
-#define HOROVOD_CYCLE_TIME "HOROVOD_CYCLE_TIME"
-#define HOROVOD_STALL_CHECK_DISABLE "HOROVOD_STALL_CHECK_DISABLE"
-#define HOROVOD_STALL_CHECK_TIME_SECONDS "HOROVOD_STALL_CHECK_TIME_SECONDS"
-#define HOROVOD_STALL_SHUTDOWN_TIME_SECONDS "HOROVOD_STALL_SHUTDOWN_TIME_SECONDS"
-#define HOROVOD_HIERARCHICAL_ALLREDUCE "HOROVOD_HIERARCHICAL_ALLREDUCE"
-#define HOROVOD_HIERARCHICAL_ALLGATHER "HOROVOD_HIERARCHICAL_ALLGATHER"
-#define HOROVOD_CACHE_CAPACITY "HOROVOD_CACHE_CAPACITY"
 
 // Check that Horovod is initialized.
 Status CheckInitialized();
@@ -52,8 +36,10 @@ extern "C" {
 // C interface to initialize Horovod.
 void horovod_init(const int *ranks, int nranks);
 
+#if HAVE_MPI
 // C interface to initialize Horovod with the given MPI communicator.
 void horovod_init_comm(MPI_Comm comm);
+#endif
 
 // C interface to shut down Horovod.
 void horovod_shutdown();
@@ -77,6 +63,28 @@ int horovod_local_size();
 // C interface to return flag indicating whether MPI multi-threading is
 // supported. Returns -1 if Horovod is not initialized.
 int horovod_mpi_threads_supported();
+
+// C interface to return flag indicating whether MPI is enabled.
+bool horovod_mpi_enabled();
+
+// C interface to return flag indicating whether Horovod was compiled with MPI support.
+bool horovod_mpi_built();
+
+// C interface to return flag indicating whether Gloo is enabled.
+bool horovod_gloo_enabled();
+
+// C interface to return flag indicating whether Horovod was compiled with Gloo support.
+bool horovod_gloo_built();
+
+// C interface to return flag indicating whether Horovod was compiled with NCCL support.
+bool horovod_nccl_built();
+
+// C interface to return flag indicating whether Horovod was compiled with DDL support.
+bool horovod_ddl_built();
+
+// C interface to return flag indicating whether Horovod was compiled with MLSL support.
+bool horovod_mlsl_built();
+
 }
 
 Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,

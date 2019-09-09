@@ -16,8 +16,6 @@
 #ifndef HOROVOD_PARAMETER_MANAGER_H
 #define HOROVOD_PARAMETER_MANAGER_H
 
-#include "optim/bayesian_optimization.h"
-
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -25,9 +23,9 @@
 #include <unordered_map>
 #include <vector>
 
-#include "mpi.h"
-
 #include <Eigen/Core>
+
+#include "optim/bayesian_optimization.h"
 
 namespace horovod {
 namespace common {
@@ -44,15 +42,10 @@ namespace common {
 class ParameterManager {
 public:
   ParameterManager();
-
-  // Creates MPI data types used for sending and receiving optimization state across workers.
-  void CreateMpiTypes();
-
-  // Frees MPI data types during Horovod MPI shutdown.
-  void FreeMpiTypes();
+  ParameterManager(const ParameterManager&) = delete;
 
   // Initializes this manager if auto tuning was requested.
-  void Initialize(int32_t rank, int32_t root_rank, MPI_Comm mpi_comm, std::string file_name);
+  void Initialize(int32_t rank, int32_t root_rank, const std::string& file_name);
 
   // Starts or stop the auto tuning procedure.
   void SetAutoTuning(bool active);
@@ -62,7 +55,7 @@ public:
     return active_;
   }
 
-  // Do hierarchical allreduce with MPI + NCCL.
+  // Do hierarchical allreduce.
   bool HierarchicalAllreduce() const;
   void SetHierarchicalAllreduce(bool value, bool fixed=false);
 
@@ -89,23 +82,35 @@ public:
   // Args:
   //  tensor_names: The names of the tensors that have been processed.
   //  bytes: The number of bytes that were processed per worker.
-  //  microseconds: The number of microseconds taken to process the bytes on this worker.
-  void Update(const std::vector<std::string>& tensor_names, int64_t bytes);
+  //
+  // Return:
+  //  Whether the parameters need to be broadcasted to all ranks.
+  bool Update(const std::vector<std::string>& tensor_names, int64_t bytes);
 
-private:
-  // Adjusts the parameter values based on the last observed score.
-  void Tune(double score);
+  struct Params {
+    bool hierarchical_allreduce;
+    bool hierarchical_allgather;
+    bool cache_enabled;
+    double tensor_fusion_threshold;
+    double cycle_time;
+    bool active;
+  };
 
-  // Broadcasts updated parameter values from the coordinator to the other workers.
-  void SyncParams();
+  Params GetParams();
+
+  // Using given params to update its own params.
+  void SetParams(const Params& newParams);
 
   // Resets the tuning state in preparation for evaluating a new set of parameter values.
   void Reset();
 
+private:
+  // Adjusts the parameter values based on the last observed score.
+  bool Tune(double score);
+
   // Outputs parameter values and writes results to a log file (if provided).
   void LogParameters(double score);
   void LogBestParameters();
-
 
   // Interface used to represent a parameter (or group of parameters) being tuned.
   class ITunableParameter {
@@ -180,7 +185,8 @@ private:
   // A set of numerical parameters optimized jointly using Bayesian Optimization.
   class BayesianParameter : public TunableParameter<Eigen::VectorXd> {
   public:
-    BayesianParameter(std::vector<BayesianVariableConfig> variables, std::vector<Eigen::VectorXd> test_points);
+    BayesianParameter(std::vector<BayesianVariableConfig> variables, std::vector<Eigen::VectorXd> test_points,
+                      int max_samples, double gaussian_process_noise);
 
     void SetValue(BayesianVariable variable, double value, bool fixed);
     double Value(BayesianVariable variable) const;
@@ -196,6 +202,9 @@ private:
 
     std::vector<BayesianVariableConfig> variables_;
     std::vector<Eigen::VectorXd> test_points_;
+    int max_samples_;
+    double gaussian_process_noise_;
+
     uint32_t iteration_;
 
     struct EnumClassHash {
@@ -209,6 +218,9 @@ private:
     std::unordered_map<BayesianVariable, double, EnumClassHash> fixed_values_;
     std::unordered_map<BayesianVariable, int32_t, EnumClassHash> index_;
   };
+
+  int warmups_;
+  int steps_per_sample_;
 
   CategoricalParameter<bool> hierarchical_allreduce_;
   CategoricalParameter<bool> hierarchical_allgather_;
@@ -231,21 +243,7 @@ private:
   int32_t root_rank_;
   std::ofstream file_;
   bool writing_;
-
-  struct Params {
-    bool hierarchical_allreduce;
-    bool hierarchical_allgather;
-    bool cache_enabled;
-    double tensor_fusion_threshold;
-    double cycle_time;
-    bool active;
-  };
-
-  MPI_Datatype mpi_params_type_;
-  MPI_Comm mpi_comm_;
 };
-
-
 
 } // namespace common
 } // namespace horovod

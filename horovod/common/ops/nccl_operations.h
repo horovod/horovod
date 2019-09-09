@@ -23,14 +23,19 @@
 #include <nccl.h>
 #endif
 
-#include "../mpi_context.h"
+#if HAVE_MPI
+#include "../mpi/mpi_context.h"
+#endif
+
 #include "cuda_operations.h"
 
 namespace horovod {
 namespace common {
 
+ncclDataType_t GetNCCLDataType(const std::shared_ptr<Tensor> tensor);
+
 struct NCCLContext {
-  std::unordered_map<std::vector<int32_t>, ncclComm_t> nccl_comms;
+  std::vector<std::unordered_map<std::vector<int32_t>, ncclComm_t>> nccl_comms;
 
   void ErrorCheck(std::string op_name, ncclResult_t nccl_result);
 
@@ -39,29 +44,36 @@ struct NCCLContext {
 
 class NCCLAllreduce : public CUDAAllreduce {
 public:
-  NCCLAllreduce(NCCLContext* nccl_context, MPIContext* mpi_context,
-                CUDAContext* cuda_context, HorovodGlobalState* global_state);
+  NCCLAllreduce(NCCLContext* nccl_context, CUDAContext* cuda_context,
+                HorovodGlobalState* global_state)
+      : CUDAAllreduce(cuda_context, global_state),
+        nccl_context_(nccl_context){};
 
-  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
 
 protected:
-  void InitNCCLComm(const std::vector<TensorTableEntry>& entries, const std::vector<int32_t>& nccl_device_map);
+  void InitNCCLComm(const std::vector<TensorTableEntry>& entries,
+                    const std::vector<int32_t>& nccl_device_map);
 
   virtual void PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
                                         Communicator& nccl_id_bcast_comm);
 
   NCCLContext* nccl_context_;
   ncclComm_t* nccl_comm_;
-
-  MPIContext* mpi_context_;
 };
 
+#if HAVE_MPI
 class NCCLHierarchicalAllreduce : public NCCLAllreduce {
 public:
   NCCLHierarchicalAllreduce(NCCLContext* nccl_context, MPIContext* mpi_context,
-                            CUDAContext* cuda_context, HorovodGlobalState* global_state);
+                            CUDAContext* cuda_context,
+                            HorovodGlobalState* global_state)
+      : NCCLAllreduce(nccl_context, cuda_context, global_state),
+        mpi_context_(mpi_context){};
 
-  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
@@ -70,9 +82,12 @@ public:
 private:
   void PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
                                 Communicator& nccl_id_bcast_comm) override;
+
+  MPIContext* mpi_context_;
 };
+#endif
 
 } // namespace common
 } // namespace horovod
 
-#endif //HOROVOD_NCCL_OPERATIONS_H
+#endif // HOROVOD_NCCL_OPERATIONS_H
