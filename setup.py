@@ -764,8 +764,9 @@ def get_common_options(build_ext):
     if have_rocm:
         MACROS += [('HAVE_ROCM', '1')] + cuda_macros
         INCLUDES += cuda_include_dirs
-        SOURCES += ['horovod/common/ops/cuda_operations.cc',
-                    'horovod/common/ops/mpi_cuda_operations.cc']
+        SOURCES += ['horovod/common/ops/cuda_operations.cc']
+        if have_mpi:
+            SOURCES += ['horovod/common/ops/mpi_cuda_operations.cc']
         LIBRARY_DIRS += cuda_lib_dirs
         LIBRARIES += ['hip_hcc']
 
