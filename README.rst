@@ -235,7 +235,7 @@ Gloo
 `Gloo <https://github.com/facebookincubator/gloo>`_ is an open source collective communications library developed by Facebook.
 
 Gloo comes included with Horovod, and allows users to run Horovod without requiring MPI to be installed. Gloo support only requires
-that you have `CMake <https://cmake.org/>`_ installed, and is only supported on Linux at this time.
+that you have `CMake <https://cmake.org/>`_ installed.
 
 For environments that have support both MPI and Gloo, you can choose to use Gloo at runtime by passing the ``--gloo`` argument to ``horovodrun``:
 

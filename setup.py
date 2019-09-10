@@ -523,7 +523,6 @@ def get_common_options(build_ext):
     cpp_flags = get_cpp_flags(build_ext)
     link_flags = get_link_flags(build_ext)
 
-    is_mac = os.uname()[0] == 'Darwin'
     compile_without_gloo = os.environ.get('HOROVOD_WITHOUT_GLOO')
     if compile_without_gloo:
         print('INFO: HOROVOD_WITHOUT_GLOO detected, skip compiling Horovod with Gloo.')
@@ -543,14 +542,7 @@ def get_common_options(build_ext):
             print('INFO: Cannot find CMake, will skip compiling Horovod with Gloo.')
             have_cmake = False
 
-        # TODO: remove system check if gloo support MacOX in the future
-        #  https://github.com/facebookincubator/gloo/issues/182
-        if is_mac:
-            if compile_with_gloo:
-                raise RuntimeError('Gloo cannot be compiled on MacOS. Unset HOROVOD_WITH_GLOO to use MPI.')
-            print('INFO: Gloo cannot be compiled on MacOS, will skip compiling Horovod with Gloo.')
-
-        have_gloo = not is_mac and have_cmake
+        have_gloo = have_cmake
 
     compile_without_mpi = os.environ.get('HOROVOD_WITHOUT_MPI')
     mpi_flags = ''
@@ -677,8 +669,6 @@ def get_common_options(build_ext):
         elif cpu_operation.upper() == 'GLOO':
             if compile_without_gloo:
                 raise ValueError('Cannot set both HOROVOD_WITHOUT_GLOO and HOROVOD_CPU_OPERATIONS=GLOO.')
-            if is_mac:
-                raise RuntimeError('Cannot compile Gloo on MacOS, try changing HOROVOD_CPU_OPERATIONS.')
             elif not have_cmake:
                 raise RuntimeError('Cannot compile Gloo without CMake, try installing CMake first.')
             MACROS += [('HOROVOD_CPU_OPERATIONS_DEFAULT', "'G'")]
