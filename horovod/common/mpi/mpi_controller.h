@@ -57,13 +57,8 @@ public:
 
   void Barrier(Communicator communicator) override;
 
-  bool IsMpiThreadsSupported() const { return mpi_threads_supported_; }
-
 protected:
   MPIContext& mpi_ctx_;
-
-  // flag indicating whether MPI multi-threading is supported
-  bool mpi_threads_supported_ = false;
 };
 
 } // namespace common

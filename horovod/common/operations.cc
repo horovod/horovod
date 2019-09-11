@@ -665,9 +665,9 @@ int horovod_mpi_threads_supported() {
   }
 
 #if HAVE_MPI
-  auto mpiController =
-      std::dynamic_pointer_cast<MPIController>(horovod_global.controller);
-  return mpiController->IsMpiThreadsSupported() ? 1 : 0;
+  if (mpi_context.IsEnabled()) {
+    return mpi_context.ThreadsSupported() ? 1 : 0;
+  }
 #endif
 
   return -1;

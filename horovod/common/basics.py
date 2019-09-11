@@ -124,15 +124,21 @@ class HorovodBasics(object):
         Returns:
           A boolean value indicating whether MPI multi-threading is supported.
         """
-        mpi_enabled = self.MPI_LIB_CTYPES.horovod_mpi_enabled()
-        if not bool(mpi_enabled):
+        if not self.mpi_built():
             raise ValueError(
-                'Horovod MPI is not enabled; Please make sure it\'s installed and enabled.')
+                'Horovod has not been built with MPI support. Ensure MPI is installed and '
+                'reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.')
+
+        if not self.mpi_enabled():
+            raise ValueError(
+                'MPI has not been initialized in Horovod.  Try running horovodrun --mpi '
+                'and use hvd.init().')
 
         mpi_threads_supported = self.MPI_LIB_CTYPES.horovod_mpi_threads_supported()
         if mpi_threads_supported == -1:
             raise ValueError(
                 'Horovod has not been initialized; use hvd.init().')
+
         return bool(mpi_threads_supported)
 
     def mpi_enabled(self):

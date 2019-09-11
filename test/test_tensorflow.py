@@ -52,13 +52,13 @@ else:
 mlsl_supported_types = set([tf.float32, tf.float64])
 
 
-class MPITests(tf.test.TestCase):
+class TensorFlowTests(tf.test.TestCase):
     """
     Tests for ops in horovod.tensorflow.
     """
 
     def __init__(self, *args, **kwargs):
-        super(MPITests, self).__init__(*args, **kwargs)
+        super(TensorFlowTests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
         if _has_eager:
             if hasattr(tf, 'contrib') and hasattr(tf.contrib, 'eager'):

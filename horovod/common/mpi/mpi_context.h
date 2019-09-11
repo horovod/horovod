@@ -40,14 +40,6 @@ public:
 };
 
 struct MPIContext {
-
-  void Enable() {
-    enabled_ = true;
-    LOG(DEBUG) << "MPI context enabled.";
-  };
-
-  bool IsEnabled() { return enabled_; }
-
   // Take an argument of context manager pointer that will take care of
   // initialization of MPI environment.
   void Initialize(const std::vector<int>& ranks,
@@ -56,18 +48,26 @@ struct MPIContext {
   // Take an argument of context manager pointer that will take care of
   // finalization of MPI environment.
   void Finalize(MPIContextManager& ctx_manager);
-  MPI_Datatype GetMPIDataType(std::shared_ptr<Tensor> tensor);
 
-  MPI_Datatype GetMPIDataType(DataType dtype);
+  MPI_Datatype GetMPIDataType(std::shared_ptr<Tensor> tensor) const;
 
-  MPI_Op GetMPISumOp(DataType dtype);
+  MPI_Datatype GetMPIDataType(DataType dtype) const;
 
-  MPI_Comm GetMPICommunicator(Communicator comm);
+  MPI_Op GetMPISumOp(DataType dtype) const;
 
-  int GetMPITypeSize(DataType dtype);
+  MPI_Comm GetMPICommunicator(Communicator comm) const;
 
-  // Flag indicating whether mpi is enabled.
-  bool enabled_ = false;
+  int GetMPITypeSize(DataType dtype) const;
+
+  // True if MPI multi-threading is supported in this context.
+  bool ThreadsSupported() const;
+
+  void Enable() {
+    enabled_ = true;
+    LOG(DEBUG) << "MPI context enabled.";
+  };
+
+  bool IsEnabled() const { return enabled_; }
 
   // MPI custom data type for float16.
   MPI_Datatype mpi_float16_t;
@@ -88,6 +88,10 @@ struct MPIContext {
 
   // Whether mpi context should be finalize.
   bool should_finalize = false;
+
+private:
+  // True if MPI is enabled.
+  bool enabled_ = false;
 };
 
 } // namespace common

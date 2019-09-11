@@ -23,11 +23,6 @@ namespace common {
 
 // MPIController
 void MPIController::Initialize() {
-  // Check if multi-thread is supported.
-  int provided;
-  MPI_Query_thread(&provided);
-  mpi_threads_supported_ = (provided == MPI_THREAD_MULTIPLE);
-
   // Get MPI rank to determine if we are rank zero.
   MPI_Comm_rank(mpi_ctx_.mpi_comm, &rank_);
   is_coordinator_ = rank_ == 0;

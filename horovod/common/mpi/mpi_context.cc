@@ -27,64 +27,6 @@
 namespace horovod {
 namespace common {
 
-MPI_Datatype MPIContext::GetMPIDataType(const std::shared_ptr<Tensor> tensor) {
-  return GetMPIDataType(tensor->dtype());
-}
-
-MPI_Datatype MPIContext::GetMPIDataType(const DataType dtype) {
-  switch (dtype) {
-  case HOROVOD_UINT8:
-    return MPI_UINT8_T;
-  case HOROVOD_INT8:
-    return MPI_INT8_T;
-  case HOROVOD_UINT16:
-    return MPI_UINT16_T;
-  case HOROVOD_INT16:
-    return MPI_INT16_T;
-  case HOROVOD_INT32:
-    return MPI_INT32_T;
-  case HOROVOD_INT64:
-    return MPI_INT64_T;
-  case HOROVOD_FLOAT16:
-    return mpi_float16_t;
-  case HOROVOD_FLOAT32:
-    return MPI_FLOAT;
-  case HOROVOD_FLOAT64:
-    return MPI_DOUBLE;
-  case HOROVOD_BOOL:
-    return MPI_C_BOOL;
-  case HOROVOD_BYTE:
-    return MPI_BYTE;
-  default:
-    throw std::logic_error("Type " + DataType_Name(dtype) +
-                           " is not supported in MPI mode.");
-  }
-}
-
-MPI_Op MPIContext::GetMPISumOp(DataType dtype) {
-  return dtype == HOROVOD_FLOAT16 ? mpi_float16_sum : MPI_SUM;
-}
-
-MPI_Comm MPIContext::GetMPICommunicator(Communicator comm) {
-  switch (comm) {
-  case GLOBAL:
-    return mpi_comm;
-  case LOCAL:
-    return local_comm;
-  case CROSS:
-    return cross_comm;
-  default:
-    throw std::logic_error("Communicator " + CommunicatorName(comm) +
-                           " is not supported in MPI mode.");
-  }
-}
-
-int MPIContext::GetMPITypeSize(DataType dtype) {
-  int out;
-  MPI_Type_size(GetMPIDataType(dtype), &out);
-  return out;
-}
-
 void MPIContext::Initialize(const std::vector<int>& ranks,
                             MPIContextManager& ctx_manager) {
 
@@ -192,6 +134,70 @@ void MPIContext::Finalize(MPIContextManager& ctx_manager) {
   if (should_finalize) {
     ctx_manager.EnvFinalize();
   }
+}
+
+MPI_Datatype MPIContext::GetMPIDataType(const std::shared_ptr<Tensor> tensor) const {
+  return GetMPIDataType(tensor->dtype());
+}
+
+MPI_Datatype MPIContext::GetMPIDataType(const DataType dtype) const {
+  switch (dtype) {
+  case HOROVOD_UINT8:
+    return MPI_UINT8_T;
+  case HOROVOD_INT8:
+    return MPI_INT8_T;
+  case HOROVOD_UINT16:
+    return MPI_UINT16_T;
+  case HOROVOD_INT16:
+    return MPI_INT16_T;
+  case HOROVOD_INT32:
+    return MPI_INT32_T;
+  case HOROVOD_INT64:
+    return MPI_INT64_T;
+  case HOROVOD_FLOAT16:
+    return mpi_float16_t;
+  case HOROVOD_FLOAT32:
+    return MPI_FLOAT;
+  case HOROVOD_FLOAT64:
+    return MPI_DOUBLE;
+  case HOROVOD_BOOL:
+    return MPI_C_BOOL;
+  case HOROVOD_BYTE:
+    return MPI_BYTE;
+  default:
+    throw std::logic_error("Type " + DataType_Name(dtype) +
+                           " is not supported in MPI mode.");
+  }
+}
+
+MPI_Op MPIContext::GetMPISumOp(DataType dtype) const {
+  return dtype == HOROVOD_FLOAT16 ? mpi_float16_sum : MPI_SUM;
+}
+
+MPI_Comm MPIContext::GetMPICommunicator(Communicator comm) const {
+  switch (comm) {
+  case GLOBAL:
+    return mpi_comm;
+  case LOCAL:
+    return local_comm;
+  case CROSS:
+    return cross_comm;
+  default:
+    throw std::logic_error("Communicator " + CommunicatorName(comm) +
+                           " is not supported in MPI mode.");
+  }
+}
+
+int MPIContext::GetMPITypeSize(DataType dtype) const {
+  int out;
+  MPI_Type_size(GetMPIDataType(dtype), &out);
+  return out;
+}
+
+bool MPIContext::ThreadsSupported() const {
+  int provided;
+  MPI_Query_thread(&provided);
+  return provided == MPI_THREAD_MULTIPLE;
 }
 
 void MPIContextManager::EnvInitialize(int mpi_threads_required) {
