@@ -1033,7 +1033,7 @@ class TensorFlowTests(tf.test.TestCase):
 
 if _has_eager:
     from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
-    run_all_in_graph_and_eager_modes(MPITests)
+    run_all_in_graph_and_eager_modes(TensorFlowTests)
 
 if __name__ == '__main__':
     tf.test.main()
