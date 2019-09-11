@@ -20,9 +20,13 @@ from __future__ import print_function
 import unittest
 import warnings
 
-from mpi4py import MPI
-
 import horovod.torch as hvd
+import pytest
+
+try:
+    from mpi4py import MPI
+except:
+    pytestmark = pytest.mark.skip
 
 
 class MPITests(unittest.TestCase):
