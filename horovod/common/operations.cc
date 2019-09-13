@@ -84,10 +84,10 @@
  * support in MPI, NCCL, CUDA, Gloo, MLSL, DDL. The background thread which
  * facilitates controller operations is run in BackgroundThreadLoop().
  * The provided ops are:
- *      – HorovodAllreduce:
+ *       HorovodAllreduce:
  *          Perform an allreduce on a Tensor, returning the sum
  *          across all processes in the global communicator.
- *      – HorovodAllgather:
+ *       HorovodAllgather:
  *          Perform an allgather on a Tensor, returning the concatenation of
  *          the tensor on the first dimension across all processes in the
  *          global communicator.

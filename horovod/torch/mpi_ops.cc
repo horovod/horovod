@@ -42,7 +42,7 @@ std::string GetOpName(const std::string& prefix, char* name, int handle) {
 } // namespace
 
 template <DataType DT, DeviceType Dev, class T>
-int DoAllreduce(T* tensor, T* output, int average, char* name) {
+int DoAllreduce(T* tensor, T* output, int average, char* name, int allreduce_type_int) {
   ThrowIfError(common::CheckInitialized());
 
   auto handle = handle_manager.AllocateHandle();
@@ -53,6 +53,11 @@ int DoAllreduce(T* tensor, T* output, int average, char* name) {
       std::make_shared<TorchOpContext<DT, Dev, T>>(device, output);
   auto hvd_output = std::make_shared<TorchTensor<DT, Dev, T>>(output);
 
+  AllreduceType allreduce_type = static_cast<AllreduceType>(allreduce_type_int);
+  if (allreduce_type != AllreduceType::SUM_ALLREDUCE) {
+    average = 0;
+  }
+
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_tensor, hvd_output, ready_event,
       GetOpName("allreduce", name, handle), device,
@@ -61,7 +66,7 @@ int DoAllreduce(T* tensor, T* output, int average, char* name) {
           TensorUtil::DivideTensorInPlace<DT, Dev, T>(output, horovod_size());
         }
         handle_manager.MarkDone(handle, status);
-      });
+      }, allreduce_type);
   ThrowIfError(enqueue_result);
 
   return handle;
@@ -69,7 +74,7 @@ int DoAllreduce(T* tensor, T* output, int average, char* name) {
 
 #if HAVE_CUDA
 template <DataType DT, class TC, class T>
-int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
+int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name, int allreduce_type_int) {
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
@@ -83,6 +88,10 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
   auto hvd_context = std::make_shared<TorchOpContext<DT, DeviceType::CPU, T>>(
       CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
 
+  AllreduceType allreduce_type = static_cast<AllreduceType>(allreduce_type_int);
+  if (allreduce_type != AllreduceType::SUM_ALLREDUCE) {
+    average = 0;
+  }
   auto handle = handle_manager.AllocateHandle();
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, ready_event,
@@ -94,7 +103,7 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
                                                                horovod_size());
         }
         handle_manager.MarkDone(handle, status);
-      });
+      }, allreduce_type);
   ThrowIfError(enqueue_result);
 
   return handle;

@@ -19,6 +19,8 @@
 
 #include <queue>
 #include <thread>
+#include <boost/asio/thread_pool.hpp>
+#include <boost/asio/post.hpp>
 
 #include "fusion_buffer_manager.h"
 #include "parameter_manager.h"
@@ -26,6 +28,9 @@
 #include "tensor_queue.h"
 #include "timeline.h"
 #include "utils/env_parser.h"
+#include "logging.h"
+// TODO: This will need to be moved somewhere else to remove dependency on MPI
+#include "mpi.h"
 
 namespace horovod {
 namespace common {
@@ -44,8 +49,72 @@ struct HorovodGlobalState {
   // This ensures that only one background thread is spawned.
   std::atomic_flag initialize_flag = ATOMIC_FLAG_INIT;
 
+  // Tensors waiting to be allreduced or allgathered.
+  TensorTable tensor_table;  
+
+  // Thread pool
+  boost::asio::thread_pool* background_thread_pool;
+  
+  //flag to indicate usage of ms allreduce algorithm
+  bool msallreduce_enabled = false;
+  
+  // Counter used to keep track of how many of the parallel reductions finished
+  // TODO do we need this?
+  std::atomic_int finished_parallel_reductions;
+
+  // Encapsulates the temp buffers used for msallreduce.
+  std::queue<FusionBufferManager> temp_buffers;
+
+  // Mutex to be used when accessing the queue of temp buffers
+  std::mutex buffer_lock;
+
+  // threads to be used for msallreduce operations
+  int num_msallreduce_threads;
+
+  HorovodGlobalState() {
+    auto horovod_number_of_threads = std::getenv(HOROVOD_NUMBER_OF_MPI_THREADS);
+    auto msallreduce = std::getenv(HOROVOD_MSALLREDUCE_ENABLE);
+    if (msallreduce != nullptr) {
+      int msallreduce_value = std::strtol(msallreduce, nullptr, 10);
+      msallreduce_enabled = msallreduce_value == 1;
+    }
+    if (msallreduce_enabled == true) {
+      int num_threads;
+      if (horovod_number_of_threads != nullptr){
+        num_threads = std::strtol(horovod_number_of_threads, nullptr, 10);
+        LOG(INFO)<<"HOROVOD_NUMBER_OF_MPI_THREADS is set to "<<num_threads;
+        if (num_threads <= 0){
+          throw std::logic_error("Number of threads must be greater or equal to 1 when msallreduce is used.");
+        }
+      }
+      else {
+        LOG(INFO)<<"HOROVOD_NUMBER_OF_MPI_THREADS is not set. Creating threadpool with 1 thread by default. ";
+        num_threads = 1;
+      }
+      //Making this static so that this pool is preverved throughout the lifetime of the program
+      LOG(INFO)<<"Starting "<<num_threads<<" MPI threads for threadpool.";
+      static boost::asio::thread_pool pool(num_threads);
+      num_msallreduce_threads = num_threads;
+      // Create a buffer manager for temp buffers for each thread
+      for (int i = 0; i < num_threads; ++i) {
+        temp_buffers.emplace();
+      }
+      background_thread_pool = &pool;
+    }
+  }
+  
   // Background thread running MPI communication.
   std::thread background_thread;
+
+  // MPI communicators used to do msallreduction
+  // TODO put this in a better place
+  MPI_Comm* reduction_comms;
+
+  //TODO find a better place
+  int rank_log_size = 0;
+  
+  // TODO find a better place
+  MPI_Comm local_comm;
 
   // Whether the background thread should shutdown.
   std::atomic_bool shut_down{false};
@@ -64,7 +133,7 @@ struct HorovodGlobalState {
   // Encapsulates the fusion buffers, handles resizing and auto-tuning of buffer
   // size.
   FusionBufferManager fusion_buffer;
-
+  
   // Time point when last cycle started.
   std::chrono::steady_clock::time_point last_cycle_start;
 
@@ -108,6 +177,12 @@ struct HorovodGlobalState {
       shut_down = true;
       background_thread.join();
     }
+    //TODO merge this with background thread
+    if(background_thread_pool != nullptr){
+      background_thread_pool->stop();
+    }
+
+    delete reduction_comms;
   }
 };
 

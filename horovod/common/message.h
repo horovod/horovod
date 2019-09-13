@@ -45,7 +45,7 @@ const std::string& DataType_Name(DataType value);
 class Request {
 public:
   enum RequestType {
-    ALLREDUCE = 0, ALLGATHER = 1, BROADCAST = 2
+    ALLREDUCE = 0, ALLGATHER = 1, BROADCAST = 2, MSALLREDUCE = 3
   };
 
   static const std::string& RequestType_Name(RequestType value);
@@ -130,7 +130,7 @@ private:
 class Response {
 public:
   enum ResponseType {
-    ALLREDUCE = 0, ALLGATHER = 1, BROADCAST = 2, ERROR = 3
+    ALLREDUCE = 0, ALLGATHER = 1, BROADCAST = 2, ERROR = 3, MSALLREDUCE = 4
   };
 
   static const std::string& ResponseType_Name(ResponseType value);

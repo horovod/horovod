@@ -53,7 +53,7 @@ struct CUDAContext {
   std::unordered_map<int, std::queue<cudaEvent_t>> cuda_events;
   std::mutex cuda_events_mutex;
 
-  void ErrorCheck(std::string op_name, cudaError_t cuda_result);
+  void static ErrorCheck(std::string op_name, cudaError_t cuda_result);
 
   void RecordEvent(std::queue<std::pair<std::string, cudaEvent_t>>& event_queue, std::string name,
                    cudaStream_t& stream);

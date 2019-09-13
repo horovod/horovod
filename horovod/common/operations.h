@@ -31,6 +31,11 @@ namespace common {
 // Check that Horovod is initialized.
 Status CheckInitialized();
 
+enum AllreduceType {
+    SUM_ALLREDUCE = 0,
+    MS_ALLREDUCE = 1
+};
+
 extern "C" {
 
 // C interface to initialize Horovod.
@@ -92,7 +97,8 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> output,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string name, const int device,
-                              StatusCallback callback);
+                              StatusCallback callback,
+                              AllreduceType allreduce_type = AllreduceType::SUM_ALLREDUCE);
 
 Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,

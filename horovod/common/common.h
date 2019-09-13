@@ -28,6 +28,9 @@ namespace horovod {
 namespace common {
 
 // Activity names, see Horovod Timeline for more details.
+#define HOROVOD_MPI_P2P_MESSAGE_CHUNK_ENABLE "HOROVOD_MPI_P2P_MESSAGE_CHUNK_ENABLE"
+#define HOROVOD_MSALLREDUCE_ENABLE "HOROVOD_MSALLREDUCE_ENABLE"
+#define HOROVOD_NUMBER_OF_MPI_THREADS "HOROVOD_NUMBER_OF_MPI_THREADS"
 #define INIT_FUSION_BUFFER "INIT_FUSION_BUFFER"
 #define WAIT_FOR_DATA "WAIT_FOR_DATA"
 #define WAIT_FOR_OTHER_TENSOR_DATA "WAIT_FOR_OTHER_TENSOR_DATA"
@@ -56,6 +59,8 @@ namespace common {
 #define GLOO_ALLREDUCE "GLOO_ALLREDUCE"
 #define GLOO_ALLGATHER "GLOO_ALLGATHER"
 #define GLOO_BCAST "GLOO_BCAST"
+#define POINT_TO_POINT_SEND "POINT_TO_POINT_SEND"
+#define POINT_TO_POINT_RECEIVE "POINT_TO_POINT_RECEIVE"
 
 // Horovod knobs.
 #define HOROVOD_MPI_THREADS_DISABLE "HOROVOD_MPI_THREADS_DISABLE"
@@ -94,6 +99,9 @@ namespace common {
 
 // Device ID used for CPU.
 #define CPU_DEVICE_ID (-1)
+
+// Point-to-Point communication message chunk size for RDMA
+#define P2P_MESSAGE_CHUNK_SIZE (1 << 15)
 
 // List of supported frameworks.
 enum Framework { TENSORFLOW, PYTORCH, MXNET };

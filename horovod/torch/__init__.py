@@ -39,7 +39,9 @@ from horovod.torch.mpi_ops import size, local_size, rank, local_rank
 from horovod.torch.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.torch.mpi_ops import gloo_enabled, gloo_built
 from horovod.torch.mpi_ops import nccl_built, ddl_built, mlsl_built
+from horovod.torch.mpi_ops import AllreduceType
 
+import os
 import torch
 import collections
 
@@ -121,7 +123,12 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         tensor = p.grad
         tensor_compressed, ctx = self._compression.compress(tensor)
 
-        handle = allreduce_async_(tensor_compressed, average=True, name=name)
+        msallreduce_enable = False
+        if 'HOROVOD_MSALLREDUCE_ENABLE' in os.environ:
+            msallreduce_enable = os.environ['HOROVOD_MSALLREDUCE_ENABLE']
+        allreduce_type = AllreduceType.MsAllreduce if msallreduce_enable is not None and msallreduce_enable == '1' else AllreduceType.SumAllreduce
+
+        handle = allreduce_async_(tensor_compressed, average=True, name=name, allreduce_type=allreduce_type)
         return handle, ctx
 
     def _make_hook(self, p):
