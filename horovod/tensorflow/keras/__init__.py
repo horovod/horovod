@@ -49,7 +49,9 @@ def DistributedOptimizer(optimizer, name=None,
                          device_dense='', device_sparse='',
                          compression=Compression.none,
                          sparse_as_dense=False,
-                         gradient_predivide_factor=1.0):
+                         gradient_predivide_factor=1.0,
+                         backward_passes_per_step=1,
+                         average_aggregated_gradients=True):
     """
     An optimizer that wraps another keras.optimizers.Optimizer, using an allreduce to
     average gradient values before applying gradients to model weights.
@@ -74,13 +76,30 @@ def DistributedOptimizer(optimizer, name=None,
                                    before and after the sum. Gradients are scaled by
                                    1.0 / gradient_predivide_factor before the sum and
                                    gradient_predivide_factor / size after the sum.
+        backward_passes_per_step: Number of backward passes to perform before calling
+                                  hvd.allreduce. This allows accumulating updates over
+                                  multiple mini-batches before reducing and applying them.
+        average_aggregated_gradients: Whether to average the aggregated gradients that
+                                      have been accumulated over multiple mini-batches.
+                                      If true divides gradient updates by
+                                      backward_passes_per_step
+                                      Only applicable for backward_passes_per_step > 1.
     """
     if gradient_predivide_factor != 1.0 and rocm_built():
             raise ValueError('gradient_predivide_factor not supported yet with ROCm')
 
-    return _impl.create_distributed_optimizer(keras, optimizer, name,
-                                              device_dense, device_sparse, compression,
-                                              sparse_as_dense, gradient_predivide_factor)
+    return _impl.create_distributed_optimizer(
+        keras=keras,
+        optimizer=optimizer,
+        name=name,
+        device_dense=device_dense,
+        device_sparse=device_sparse,
+        compression=compression,
+        sparse_as_dense=sparse_as_dense,
+        gradient_predivide_factor=gradient_predivide_factor,
+        backward_passes_per_step=backward_passes_per_step,
+        average_aggregated_gradients=average_aggregated_gradients
+    )
 
 
 def broadcast_global_variables(root_rank):
