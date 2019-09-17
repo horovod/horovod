@@ -70,7 +70,7 @@ model.add(Dense(num_classes, activation='softmax'))
 opt = keras.optimizers.Adadelta(1.0 * hvd.size())
 
 # Horovod: add Horovod Distributed Optimizer.
-opt = hvd.DistributedOptimizer(opt)
+opt = hvd.DistributedOptimizer(opt, aggregation_frequency=1)
 
 model.compile(loss=keras.losses.categorical_crossentropy,
               optimizer=opt,
