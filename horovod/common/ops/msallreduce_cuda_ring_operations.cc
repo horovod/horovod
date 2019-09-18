@@ -39,14 +39,12 @@ MsCudaRingAllreduceOp::MsCudaRingAllreduceOp(MPIContext* mpi_context, CUDAContex
 void MsCudaRingAllreduceOp::InitCUDA(const TensorTableEntry& entry, int layerid) {
   cuda_context_->ErrorCheck("cudaSetDevice", cudaSetDevice(entry.device));
 
-  LOG(INFO, global_state_->rank)<<"Checking for existing stream for layer "<<layerid<<" "<<std::this_thread::get_id();
   // Ensure stream is in the map before executing reduction.
   cudaStream_t& stream = cuda_context_->streams[global_state_->current_nccl_stream][layerid];
   if (stream == nullptr) {
 
     std::lock_guard<std::mutex> guard(global_state_->mutex);
     if (stream == nullptr) {
-      LOG(INFO, global_state_->rank)<<"Stream is null, creating new stream "<<std::this_thread::get_id();
       int greatest_priority;
       cuda_context_->ErrorCheck("cudaDeviceGetStreamPriorityRange",
                                 cudaDeviceGetStreamPriorityRange(NULL, &greatest_priority));
@@ -58,7 +56,6 @@ void MsCudaRingAllreduceOp::InitCUDA(const TensorTableEntry& entry, int layerid)
   if (device_stream == nullptr) {
     std::lock_guard<std::mutex> guard(global_state_->mutex);
     if (device_stream == nullptr) {
-      LOG(INFO, global_state_->rank)<<"device Stream is null, creating new device stream "<<std::this_thread::get_id();
       int greatest_priority;
       cuda_context_->ErrorCheck("cudaDeviceGetStreamPriorityRange",
                                 cudaDeviceGetStreamPriorityRange(NULL, &greatest_priority));
@@ -79,7 +76,6 @@ Status MsCudaRingAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
 	AllRings all_rings(global_state_->local_rank, global_state_->local_size);
   std::deque<FusionBufferManager> used_buffer_managers;
   std::deque<void*> recv_buffers;
-  LOG(INFO, global_state_->rank)<<"Ready to process "<<num_reductions<<" tensors in gpu";
   for (size_t layerid = 0; layerid < entries.size(); ++layerid) {
     auto& entry = entries.at(layerid);
     void* buffer_data;
@@ -91,7 +87,6 @@ Status MsCudaRingAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
     buffer_len = entry.output->size();
 
     if(entry.tensor->data() == entry.output->data()) {
-        LOG(INFO, global_state_->rank)<<"Output and input pointing to same data. Creating temp buffer "<<std::this_thread::get_id();
 
         // Get the temp buffer to be used for the Op
         FusionBufferManager buffer_manager;
@@ -120,11 +115,9 @@ Status MsCudaRingAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
         recv_buffer = (void*) entry.output->data();
     }
     recv_buffers.push_back(recv_buffer);
-    LOG(INFO, global_state_->rank)<<"Begin to process gpu tensor with size "<<entry.tensor->size()<<" into output buffer with size "<<entry.output->size()<<" "<<std::this_thread::get_id();
   
     // This will create a stream per layer.
     InitCUDA(entry, layerid);
-    LOG(INFO, global_state_->rank)<<"Begin processing gpu tensor in layer "<<layerid<<" "<<std::this_thread::get_id();
     all_rings.InitMessageInRing(new ReduceMessage(mpi_context_),
                       buffer_data,
                       recv_buffer,
@@ -235,11 +228,9 @@ Status MsCudaRingAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
 
     buffer_len = entry.output->size();
 
-    LOG(INFO, global_state_->rank)<<"Begin to process gpu tensor with size "<<entry.tensor->size()<<" into output buffer with size "<<entry.output->size()<<" "<<std::this_thread::get_id();
   
     // This will create a stream per layer.
     InitCUDA(entry, layerid);
-    LOG(INFO, global_state_->rank)<<"Begin processing gpu tensor in layer "<<layerid<<" "<<std::this_thread::get_id();
     all_rings.InitMessageInRing(new BroadcastMessage(mpi_context_),
                       buffer_data,
                       nullptr,
@@ -263,8 +254,7 @@ Status MsCudaRingAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
 void MsCudaRingAllreduceOp::memcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) {
     assert(dest != nullptr);
     assert(src != nullptr);
-    LOG(INFO, global_state_->rank)<<"memcpyUtil GPU. "<<std::this_thread::get_id();
-    auto cuda_result = cudaMemcpyAsync(dest, src,
+   auto cuda_result = cudaMemcpyAsync(dest, src,
                                     buffer_len, 
                                     cudaMemcpyDeviceToDevice,
                                     cuda_context_->streams[global_state_->current_nccl_stream][entry.device]);

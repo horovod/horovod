@@ -116,6 +116,9 @@ struct HorovodGlobalState {
   // TODO find a better place
   MPI_Comm local_comm;
 
+  // TODO better place
+  bool msg_chunk_enabled = false;
+
   // Whether the background thread should shutdown.
   std::atomic_bool shut_down{false};
 

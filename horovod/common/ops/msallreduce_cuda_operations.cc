@@ -36,14 +36,12 @@ void MsCudaAllreduceOp::InitCUDA(const TensorTableEntry& entry, int layerid) {
   auto thread_id = std::this_thread::get_id();
   cuda_context_->ErrorCheck("cudaSetDevice", cudaSetDevice(entry.device));
 
-  LOG(INFO, global_state_->rank)<<"Checking for existing stream for layer "<<layerid<<" "<<thread_id;
   // Ensure stream is in the map before executing reduction.
   cudaStream_t& stream = cuda_context_->streams[global_state_->current_nccl_stream][layerid % global_state_->num_msallreduce_threads];
   if (stream == nullptr) {
 
     std::lock_guard<std::mutex> guard(global_state_->mutex);
     if (stream == nullptr) {
-      LOG(INFO, global_state_->rank)<<"Stream is null, creating new stream "<<thread_id;
       int greatest_priority;
       cuda_context_->ErrorCheck("cudaDeviceGetStreamPriorityRange",
                                 cudaDeviceGetStreamPriorityRange(NULL, &greatest_priority));
@@ -55,7 +53,6 @@ void MsCudaAllreduceOp::InitCUDA(const TensorTableEntry& entry, int layerid) {
   if (device_stream == nullptr) {
     std::lock_guard<std::mutex> guard(global_state_->mutex);
     if (stream == nullptr) {
-      LOG(INFO, global_state_->rank)<<"device Stream is null, creating new device stream "<<thread_id;
       int greatest_priority;
       cuda_context_->ErrorCheck("cudaDeviceGetStreamPriorityRange",
                                 cudaDeviceGetStreamPriorityRange(NULL, &greatest_priority));
@@ -103,7 +100,6 @@ Status MsCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const 
   std::map<int, Status> return_statuses;
   int layerid = 0;
   int num_reductions = entries.size();
-  LOG(INFO, global_state_->rank)<<"Ready to process "<<num_reductions<<" tensors in gpu";
   global_state_->finished_parallel_reductions = 0;
   for (auto& entry : entries) {
     boost::asio::post(*global_state_->background_thread_pool,
@@ -120,7 +116,6 @@ Status MsCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const 
       FusionBufferManager buffer_manager;
 
       if(entry.tensor->data() == entry.output->data()) {
-          LOG(INFO, global_state_->rank)<<"Output and input pointing to same data. Creating temp buffer "<<std::this_thread::get_id();
 
           // Get the temp buffer to be used for the Op
           global_state_->buffer_lock.lock();
@@ -148,7 +143,6 @@ Status MsCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const 
       else {
           recv_buffer = (void*) entry.output->data();
       }
-      LOG(INFO, global_state_->rank)<<"Begin to process gpu tensor with size "<<entry.tensor->size()<<" into output buffer with size "<<entry.output->size()<<" "<<std::this_thread::get_id();
       
       MPI_Comm* node_comm = NULL;
       if (global_state_->rank_log_size != 0) {
@@ -157,7 +151,6 @@ Status MsCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const 
     
       // This will create a stream per layer.
       InitCUDA(entry, layerid);
-      LOG(INFO, global_state_->rank)<<"Begin processing gpu tensor in layer "<<layerid<<" "<<std::this_thread::get_id();
       switch (entry.output->dtype()) {
           case HOROVOD_FLOAT16:
             MsAllreduce_Internal((uint16_t*) buffer_data,
@@ -193,7 +186,6 @@ Status MsCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const 
           default:
             throw std::logic_error("MsAllreduceOp::Execute: Unsupported data type.");
       }
-      LOG(INFO, global_state_->rank)<<"Done processing tensor in layer "<<layerid;
       if(entry.tensor->data() == entry.output->data()) {
         // Return the buffer back into the pool of available buffers
         global_state_->buffer_lock.lock();
@@ -203,7 +195,6 @@ Status MsCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const 
       else {
         memcpyUtil(entry, (void *) entry.output->data(), (void *) entry.tensor->data(), (size_t) entry.tensor->size(), layerid);
       }
-      LOG(INFO, global_state_->rank)<<"Finished ms gpu allreduction, exiting operation";
       global_state_->finished_parallel_reductions++;
     });
     layerid++;
@@ -218,7 +209,6 @@ Status MsCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const 
 void MsCudaAllreduceOp::memcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) {
     assert(dest != nullptr);
     assert(src != nullptr);
-    LOG(INFO, global_state_->rank)<<"memcpyUtil GPU. "<<std::this_thread::get_id()<<" for entry device "<<entry.device;
     auto cuda_result = cudaMemcpyAsync(dest, src,
                                     buffer_len, 
                                     cudaMemcpyDeviceToDevice,

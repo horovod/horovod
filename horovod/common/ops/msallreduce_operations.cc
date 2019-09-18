@@ -31,7 +31,6 @@ Status MsAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const Resp
   std::map<int, Status> return_statuses;
   int layerid = 0;
   int num_reductions = entries.size();
-  LOG(INFO, global_state_->rank)<<"Ready to process "<<num_reductions<<" tensors";
   global_state_->finished_parallel_reductions = 0;
   for (auto& entry : entries) {
     boost::asio::post(*global_state_->background_thread_pool,
@@ -67,20 +66,18 @@ Status MsAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const Resp
               return;
           }
 
-          auto& buffer = buffer_manager.GetBuffer(entry.device, entry.context->framework(), global_state_->current_nccl_stream);
+          auto buffer = buffer_manager.GetBuffer(entry.device, entry.context->framework(), global_state_->current_nccl_stream);
           recv_buffer = const_cast<void*>(buffer->AccessData(entry.context));
       }
       else {
           recv_buffer = (void*) entry.output->data();
       }
-    LOG(INFO, global_state_->rank)<<"Begin to process tensor with size "<<entry.tensor->size()<<" into output buffer with size "<<entry.output->size();
         
     MPI_Comm* node_comm = NULL;
     if (global_state_->rank_log_size != 0) {
         node_comm = &global_state_->reduction_comms[global_state_->rank_log_size-1];
     }
 
-    LOG(INFO, global_state_->rank)<<"Begin processing tensor in layer "<<layerid;
     switch (entry.output->dtype()) {
         case HOROVOD_FLOAT16:
         //TODO new parasail
@@ -119,7 +116,6 @@ Status MsAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const Resp
         default:
             throw std::logic_error("MsAllreduceOp::Execute: Unsupported data type.");
     }
-    LOG(INFO, global_state_->rank)<<"Done processing tensor in layer "<<layerid;
     if(entry.tensor->data() == entry.output->data()) {
     // Return the buffer back into the pool of available buffers
     global_state_->buffer_lock.lock();
@@ -129,7 +125,6 @@ Status MsAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const Resp
     else {
       memcpyUtil(entry, (void *) entry.output->data(), (void *) entry.tensor->data(), (size_t) entry.tensor->size(), layerid);
     }
-    LOG(INFO, global_state_->rank)<<"Finished ms allreduction, exiting operation";
 
     global_state_->finished_parallel_reductions++;
     });
@@ -144,7 +139,6 @@ Status MsAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const Resp
 void MsAllreduceOp::memcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) {
     assert(dest != nullptr);
     assert(src != nullptr);
-    LOG(INFO, global_state_->rank)<<"memcpyUtil CPU.";
     memcpy(dest, src, buffer_len);
 }
 
@@ -163,7 +157,6 @@ void MsAllreduceOp::MsAllreduce_Internal(T* grad_buffer, T* recv_buffer, int buf
   MPI_Datatype mpi_type = mpi_context_->GetMPIDataType(entry.tensor);
   SyncLocalReduce(grad_buffer, recv_buffer, count, mpi_type, global_state_->local_comm, layerid, entry, dotProdFunc, scaleAddFunc);
   if (local_rank == 0 && node_comm != NULL) {
-    LOG(INFO, global_state_->rank)<<"Begin vhdd reduce "<<" "<<std::this_thread::get_id();
     SyncAllreduce(grad_buffer, recv_buffer, count, *node_comm, global_state_->reduction_comms, layerid, entry, dotProdFunc, scaleAddFunc);
   }
   SyncLocalBroadcast(grad_buffer, count, mpi_type, global_state_->local_comm, layerid);
@@ -174,14 +167,12 @@ void MsAllreduceOp::ComputeDotAndNormSqrds(const T* __restrict__  a, const T* __
     dotProduct = 0.;
     anormsq = 0.;
     bnormsq = 0.;
-    LOG(INFO, global_state->rank)<<"Entering ComputeDotAndNormSqrds";
 
     for (int i = 0; i < n; i++) {
         dotProduct += a[i] * b[i];
         anormsq += a[i] * a[i];
         bnormsq += b[i] * b[i];
     }
-    LOG(INFO, global_state->rank)<<"Returning ComputeDotAndNormSqrds";
 }
 
 template<typename T>
@@ -197,9 +188,7 @@ void MsAllreduceOp::PairwiseReduceWithComm(T* a, T* b, int count, int layerid, M
     double anormsq = 0.;
     double bnormsq = 0.;
 
-    LOG(INFO, global_state_->rank)<<"Computing dot product.";
     dotProdFunc(a, b, count, dotProduct, anormsq, bnormsq, global_state_, layerid);
-    LOG(INFO, global_state_->rank)<<"Computed dot product.";
     double reduce_vals[3];
     if (isLeftNeighbor) { 
         reduce_vals[0] = anormsq;
@@ -211,7 +200,6 @@ void MsAllreduceOp::PairwiseReduceWithComm(T* a, T* b, int count, int layerid, M
     reduce_vals[2] = dotProduct;
     // TODO replace this with something else
     MPI_Allreduce(MPI_IN_PLACE, reduce_vals, 3, MPI_DOUBLE, MPI_SUM, comm);
-    LOG(INFO, global_state_->rank)<<"Performed mpi allreduce.";
 
     if (isLeftNeighbor) { 
         anormsq = reduce_vals[0];
@@ -231,7 +219,6 @@ void MsAllreduceOp::PairwiseReduceWithComm(T* a, T* b, int count, int layerid, M
 
     // a = acoeff * a + bcoeff * b
     scaleAddFunc(count, acoeff, a, bcoeff, b, global_state_, layerid);
-    LOG(INFO, global_state_->rank)<<"Performed ScaledAdd.";
 }
 
 template <typename T>
@@ -278,7 +265,6 @@ void MsAllreduceOp::SyncLocalReduce(T *grad_buffer, T *recv_buffer, int count, M
 
   int root_node_rotation = false ? (layerid % size) : 0;
   redn_rank = (true_rank ^ root_node_rotation);
-  LOG(INFO, global_state_->rank)<<"In local tree reduce "<<" "<<std::this_thread::get_id();
 
   // Do a tree reduction
   // The reduction ranks used are a permutation of true ranks (permuted based on layerid)
@@ -302,7 +288,6 @@ void MsAllreduceOp::SyncLocalReduce(T *grad_buffer, T *recv_buffer, int count, M
       
       double anormsq = 0, bnormsq = 0, dotProduct = 0;
       dotProdFunc(grad_buffer, recv_buffer, count, dotProduct, anormsq, bnormsq, global_state_, layerid);
-      LOG(INFO,global_state_->rank)<<dotProduct<<" "<<anormsq<<" "<<bnormsq;
       double acoeff = 1;
       double bcoeff = 1;
       if (anormsq >= 1e-8)
@@ -459,6 +444,5 @@ void MsAllreduceOp::SyncAllreduce(T* grad_buffer, T* recv_buffer, int count, MPI
     }
 
 }
-// TODO new parasail algo end
 } // namespace common
 } // namespace horovod

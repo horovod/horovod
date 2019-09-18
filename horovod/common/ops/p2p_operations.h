@@ -23,7 +23,7 @@
 
 #include "../common.h"
 #include "../global_state.h"
-#include "../mpi_context.h"
+#include "../mpi/mpi_context.h"
 #include "collective_operations.h"
 
 
@@ -50,14 +50,12 @@ protected:
                         Communicator communicator) {
     int status;                       
     if (!global_state_->msg_chunk_enabled) {
-        LOG(INFO, global_state_->rank)<<std::this_thread::get_id()<<" begin p2p send for tag: "<<tag;
         status = MPI_Send(input_data_buffer,
                           (int)buffer_length,
                           MPI_CHAR,
                           dest_rank,
                           tag,
                           mpi_context_->GetMPICommunicator(communicator));
-        LOG(INFO, global_state_->rank)<<std::this_thread::get_id()<<" end p2p send for tag: "<<tag;
 
     }
     else {
@@ -86,7 +84,6 @@ protected:
                         Communicator communicator) {
     int status;
     if (!global_state_->msg_chunk_enabled) {
-        LOG(INFO, global_state_->rank)<<std::this_thread::get_id()<<" begin p2p recv for tag: "<<tag;
         status = MPI_Recv(output_data_buffer,
                           (int)buffer_length,
                           MPI_CHAR,
@@ -94,7 +91,6 @@ protected:
                           tag,
                           mpi_context_->GetMPICommunicator(communicator),
                           MPI_STATUS_IGNORE);
-        LOG(INFO, global_state_->rank)<<std::this_thread::get_id()<<" end p2p recv for tag: "<<tag;
     }
     else {
           const int chunk_size = P2P_MESSAGE_CHUNK_SIZE / sizeof(T);

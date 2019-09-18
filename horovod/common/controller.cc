@@ -363,6 +363,7 @@ Response Controller::ConstructResponse(std::string& name) {
   // If we are doing an allreduce or broadcast, check that all tensor shapes are
   // identical.
   if (message_type == Request::ALLREDUCE ||
+      message_type == Request::MSALLREDUCE ||
       message_type == Request::BROADCAST) {
     TensorShape tensor_shape;
     for (auto dim : requests[0].tensor_shape()) {
@@ -510,6 +511,8 @@ Response Controller::ConstructResponse(std::string& name) {
     response.set_response_type(Response::ALLREDUCE);
   } else if (message_type == Request::BROADCAST) {
     response.set_response_type(Response::BROADCAST);
+  } else if (message_type == Request::MSALLREDUCE) {
+    response.set_response_type(Response::MSALLREDUCE);
   }
   response.set_devices(devices);
 
@@ -549,7 +552,44 @@ void Controller::CoordinateCacheAndState(CacheCoordinator& cache_coordinator) {
 }
 
 ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
+  
   ResponseList response_list;
+  auto queue_size = responses.size();
+  // we will merge all tensor names into the first response.
+  Response first_response;
+  bool allreduce_merged = false;
+  for (int itr = 0; itr < queue_size; itr++) {
+    first_response = responses.front();
+    assert(first_response.tensor_names().size() == 1);
+    responses.pop_front();
+    // we find the first allreduce response and make it the host for all subsequent to-be-reduced tensors
+    if (first_response.response_type() == Response::ResponseType::MSALLREDUCE) {
+      // increment iterator since we have found one allreduce
+      allreduce_merged = true;
+      itr++;
+      while(itr < queue_size) {
+        auto next_response = responses.front();
+        assert(next_response.tensor_names().size() == 1);
+        responses.pop_front();
+        if(next_response.response_type() == first_response.response_type()) {
+          first_response.add_tensor_name(next_response.tensor_names_string());
+        }
+        else {
+          responses.push_back(next_response);
+        }
+        itr++;
+      }
+    }
+    else {
+      // if response type is not allreduce, we push it back to queue
+      responses.push_back(first_response);
+    }
+  }
+  // we add it to response_list only if we have merged allreduce requests.
+  // For other requests, they will be processed in the following section.
+  if(allreduce_merged == true) {
+    response_list.add_response(first_response);
+  }
   while (!responses.empty()) {
 
     auto response = responses.front();
