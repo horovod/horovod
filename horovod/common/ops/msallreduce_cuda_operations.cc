@@ -40,7 +40,7 @@ void MsCudaAllreduceOp::InitCUDA(const TensorTableEntry& entry, int layerid) {
   cudaStream_t& stream = cuda_context_->streams[global_state_->current_nccl_stream][layerid % global_state_->num_msallreduce_threads];
   if (stream == nullptr) {
 
-    std::lock_guard<std::mutex> guard(global_state_->mutex);
+    std::lock_guard<std::mutex> guard(global_state_->buffer_lock);
     if (stream == nullptr) {
       int greatest_priority;
       cuda_context_->ErrorCheck("cudaDeviceGetStreamPriorityRange",
@@ -51,7 +51,7 @@ void MsCudaAllreduceOp::InitCUDA(const TensorTableEntry& entry, int layerid) {
   }
   cudaStream_t& device_stream = cuda_context_->streams[global_state_->current_nccl_stream][entry.device];
   if (device_stream == nullptr) {
-    std::lock_guard<std::mutex> guard(global_state_->mutex);
+    std::lock_guard<std::mutex> guard(global_state_->buffer_lock);
     if (stream == nullptr) {
       int greatest_priority;
       cuda_context_->ErrorCheck("cudaDeviceGetStreamPriorityRange",
@@ -72,7 +72,7 @@ void MsCudaAllreduceOp::InitCUDA(const TensorTableEntry& entry, int layerid) {
                             cudaMalloc(&device_normsq_memory_b, sizeof(double)));
     cuda_context_->ErrorCheck("cudaMalloc",
                             cudaMalloc(&device_dot_product_memory, sizeof(double)));
-    std::lock_guard<std::mutex> guard(global_state_->mutex);
+    std::lock_guard<std::mutex> guard(global_state_->buffer_lock);
     thread_to_device_variable_map[thread_id][0] = device_normsq_memory_a;
     thread_to_device_variable_map[thread_id][1] = device_normsq_memory_b;
     thread_to_device_variable_map[thread_id][2] = device_dot_product_memory;
@@ -137,7 +137,7 @@ Status MsCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const 
               throw std::logic_error("MsAllreduceOp::Execute_helper: Initialize buffer failed.");
               return;
           }
-          auto& buffer = buffer_manager.GetBuffer(entry.device, entry.context->framework(), global_state_->current_nccl_stream);
+          auto buffer = buffer_manager.GetBuffer(entry.device, entry.context->framework(), global_state_->current_nccl_stream);
           recv_buffer = const_cast<void*>(buffer->AccessData(entry.context));
       }
       else {
