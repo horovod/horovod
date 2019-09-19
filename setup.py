@@ -1388,7 +1388,7 @@ class custom_build_ext(build_ext):
         if check_macro(options['MACROS'], 'HAVE_CUDA'):
             cuda_include_dirs, cuda_lib_dirs, cuda_bin_dir = get_cuda_dirs(self, options['COMPILE_FLAGS'])
             os.environ['CUDA_BIN_PATH'] = cuda_bin_dir
-            build_cmake(self, msallreduce_cuda_lib, lib_output_dir, options)
+            build_cmake(self, ext=msallreduce_cuda_lib, prefix='msallreduce_cuda', additional_flags=[], options=options)
 
         # If PyTorch is installed, it must be imported before TensorFlow, otherwise
         # we may get an error: dlopen: cannot load any more object with static TLS

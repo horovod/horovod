@@ -392,11 +392,7 @@ void MsAllreduceOp::SyncAllreduce(T* grad_buffer, T* recv_buffer, int count, MPI
                 grad_buffer = &grad_buffer[nghrCount];
                 recv_buffer = &recv_buffer[nghrCount];
             }
-            if (level == 1) {
-                scaleAddFunc(myCount, 0.5, grad_buffer , 0.5, recv_buffer, global_state_, layerid);
-            } else {
-                PairwiseReduceWithComm(grad_buffer, recv_buffer, myCount, layerid, reduction_comms[comm_index], (rank & level) == 0, dotProdFunc, scaleAddFunc);
-            }
+             PairwiseReduceWithComm(grad_buffer, recv_buffer, myCount, layerid, reduction_comms[comm_index], (rank & level) == 0, dotProdFunc, scaleAddFunc);        
         }
 
             for (level = (size >> 1); level > 0; level = (level >> 1)) {

@@ -43,7 +43,7 @@ void MsCudaRingAllreduceOp::InitCUDA(const TensorTableEntry& entry, int layerid)
   cudaStream_t& stream = cuda_context_->streams[global_state_->current_nccl_stream][layerid];
   if (stream == nullptr) {
 
-    std::lock_guard<std::mutex> guard(global_state_->mutex);
+    std::lock_guard<std::mutex> guard(global_state_->buffer_lock);
     if (stream == nullptr) {
       int greatest_priority;
       cuda_context_->ErrorCheck("cudaDeviceGetStreamPriorityRange",
@@ -54,7 +54,7 @@ void MsCudaRingAllreduceOp::InitCUDA(const TensorTableEntry& entry, int layerid)
   }
   cudaStream_t& device_stream = cuda_context_->streams[global_state_->current_nccl_stream][entry.device];
   if (device_stream == nullptr) {
-    std::lock_guard<std::mutex> guard(global_state_->mutex);
+    std::lock_guard<std::mutex> guard(global_state_->buffer_lock);
     if (device_stream == nullptr) {
       int greatest_priority;
       cuda_context_->ErrorCheck("cudaDeviceGetStreamPriorityRange",
@@ -73,7 +73,7 @@ Status MsCudaRingAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
   //TODO how do we report statuses?
   std::map<int, Status> return_statuses;
   int num_reductions = entries.size();
-	AllRings all_rings(global_state_->local_rank, global_state_->local_size);
+	AllRings all_rings(global_state_->controller->GetLocalRank(), global_state_->controller->GetLocalSize());
   std::deque<FusionBufferManager> used_buffer_managers;
   std::deque<void*> recv_buffers;
   for (size_t layerid = 0; layerid < entries.size(); ++layerid) {
@@ -108,7 +108,7 @@ Status MsCudaRingAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
         if (!status.ok()) {
             throw std::logic_error("MsAllreduceOp::Execute_helper: Initialize buffer failed.");
         }
-        auto& buffer = buffer_manager.GetBuffer(entry.device, entry.context->framework(), global_state_->current_nccl_stream);
+        auto buffer = buffer_manager.GetBuffer(entry.device, entry.context->framework(), global_state_->current_nccl_stream);
         recv_buffer = const_cast<void*>(buffer->AccessData(entry.context));
     }
     else {
@@ -125,7 +125,7 @@ Status MsCudaRingAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
                       entry.tensor->dtype(),
                       global_state_->local_comm,
                       layerid,
-                      global_state_->local_rank);
+                      global_state_->controller->GetLocalRank());
   }
   all_rings.WaitAllMessages();
   // Return used buffer managers to the queue
@@ -238,7 +238,7 @@ Status MsCudaRingAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
                       entry.output->dtype(),
                       global_state_->local_comm,
                       layerid,
-                      global_state_->local_rank);
+                      global_state_->controller->GetLocalRank());
   }
   all_rings.WaitAllMessages();
   for (size_t layerid = 0; layerid < entries.size(); ++layerid) {
