@@ -55,46 +55,46 @@ struct HorovodGlobalState {
   // Thread pool
   boost::asio::thread_pool* background_thread_pool;
   
-  //flag to indicate usage of ms allreduce algorithm
-  bool msallreduce_enabled = false;
+  //flag to indicate usage of parasail reduction algorithm
+  bool parasail_enabled = false;
   
   // Counter used to keep track of how many of the parallel reductions finished
   // TODO do we need this?
   std::atomic_int finished_parallel_reductions;
 
-  // Encapsulates the temp buffers used for msallreduce.
+  // Encapsulates the temp buffers used for parasail.
   std::queue<FusionBufferManager> temp_buffers;
 
   // Mutex to be used when accessing the queue of temp buffers
   std::mutex buffer_lock;
 
-  // threads to be used for msallreduce operations
-  int num_msallreduce_threads;
+  // threads to be used for parasail operations
+  int num_parasail_threads;
 
   HorovodGlobalState() {
-    auto horovod_number_of_threads = std::getenv(HOROVOD_NUMBER_OF_MPI_THREADS);
-    auto msallreduce = std::getenv(HOROVOD_MSALLREDUCE_ENABLE);
-    if (msallreduce != nullptr) {
-      int msallreduce_value = std::strtol(msallreduce, nullptr, 10);
-      msallreduce_enabled = msallreduce_value == 1;
+    auto horovod_number_of_threads = std::getenv(HOROVOD_NUM_OF_PARASAIL_REDUCTION_THREADS);
+    auto parasail = std::getenv(HOROVOD_PARASAIL_ENABLE);
+    if (parasail != nullptr) {
+      int parasail_value = std::strtol(parasail, nullptr, 10);
+      parasail_enabled = parasail_value == 1;
     }
-    if (msallreduce_enabled == true) {
+    if (parasail_enabled == true) {
       int num_threads;
       if (horovod_number_of_threads != nullptr){
         num_threads = std::strtol(horovod_number_of_threads, nullptr, 10);
-        LOG(INFO)<<"HOROVOD_NUMBER_OF_MPI_THREADS is set to "<<num_threads;
+        LOG(INFO)<<"HOROVOD_NUM_OF_PARASAIL_REDUCTION_THREADS is set to "<<num_threads;
         if (num_threads <= 0){
-          throw std::logic_error("Number of threads must be greater or equal to 1 when msallreduce is used.");
+          throw std::logic_error("Number of threads must be greater or equal to 1 when parasail is used.");
         }
       }
       else {
-        LOG(INFO)<<"HOROVOD_NUMBER_OF_MPI_THREADS is not set. Creating threadpool with 1 thread by default. ";
+        LOG(INFO)<<"HOROVOD_NUM_OF_PARASAIL_REDUCTION_THREADS is not set. Creating threadpool with 1 thread by default. ";
         num_threads = 1;
       }
       //Making this static so that this pool is preverved throughout the lifetime of the program
       LOG(INFO)<<"Starting "<<num_threads<<" MPI threads for threadpool.";
       static boost::asio::thread_pool pool(num_threads);
-      num_msallreduce_threads = num_threads;
+      num_parasail_threads = num_threads;
       // Create a buffer manager for temp buffers for each thread
       for (int i = 0; i < num_threads; ++i) {
         temp_buffers.emplace();

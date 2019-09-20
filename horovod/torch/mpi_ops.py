@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from distutils.version import LooseVersion
+from enum import Enum
 
 # Load all the necessary PyTorch C types.
 import torch
@@ -64,9 +65,9 @@ _handle_map = {}
 # Only support fp16 allreduce for PyTorch versions using v2 API.
 _fp16_supported = _v2_api
 
-class AllreduceType:
+class AllreduceType(Enum):
     SumAllreduce = 0
-    MsAllreduce = 1  
+    Parasail = 1  
 
 def _check_function(function_factory, tensor):
     function = function_factory(tensor)

@@ -1,19 +1,4 @@
-// Copyright 2016 The TensorFlow Authors. All Rights Reserved.
-// Modifications copyright (C) 2019 Microsoft Corp.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-// =============================================================================
-
+//TODO license
 #ifndef HOROVOD_P2P_OPERATIONS_H
 #define HOROVOD_P2P_OPERATIONS_H
 
@@ -33,17 +18,15 @@ namespace common {
 class PointToPointOp : public AllreduceOp {
 public:
   PointToPointOp(MPIContext* mpi_context, HorovodGlobalState* global_state);
-
-  virtual ~PointToPointOp() = default;
-
   bool Enabled(const ParameterManager& param_manager,
-               const std::vector<TensorTableEntry>& entries,
-               const Response& response) const override;
+                           const std::vector<TensorTableEntry>& entries,
+                           const Response& response) const override;
+  virtual ~PointToPointOp() = default;
 
 protected:
   MPIContext* mpi_context_;
   template<class T>
-  void PointToPointSend(T* input_data_buffer,
+  void PointToPointSend(void* input_data_buffer,
                         int64_t buffer_length,
                         int dest_rank,
                         int tag,

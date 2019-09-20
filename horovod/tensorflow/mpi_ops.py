@@ -20,6 +20,7 @@ from __future__ import division
 from __future__ import print_function
 
 import re
+from enum import Enum
 import tensorflow as tf
 from tensorflow.python.framework import load_library
 from tensorflow.python.framework import ops
@@ -30,9 +31,9 @@ from horovod.common.basics import HorovodBasics as _HorovodBasics
 from horovod.tensorflow.util import _executing_eagerly
 
 
-class AllreduceType:
+class AllreduceType(Enum):
     SumAllreduce = 0
-    MsAllreduce = 1  
+    Parasail = 1  
 
 def _load_library(name):
     """Loads a .so file containing the specified operators.

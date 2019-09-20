@@ -123,10 +123,10 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         tensor = p.grad
         tensor_compressed, ctx = self._compression.compress(tensor)
 
-        msallreduce_enable = False
-        if 'HOROVOD_MSALLREDUCE_ENABLE' in os.environ:
-            msallreduce_enable = os.environ['HOROVOD_MSALLREDUCE_ENABLE']
-        allreduce_type = AllreduceType.MsAllreduce if msallreduce_enable is not None and msallreduce_enable == '1' else AllreduceType.SumAllreduce
+        parasail_enable = False
+        if 'HOROVOD_PARASAIL_ENABLE' in os.environ:
+            parasail_enable = os.environ['HOROVOD_PARASAIL_ENABLE']
+        allreduce_type = AllreduceType.Parasail if parasail_enable is not None and parasail_enable == '1' else AllreduceType.SumAllreduce
 
         handle = allreduce_async_(tensor_compressed, average=True, name=name, allreduce_type=allreduce_type)
         return handle, ctx

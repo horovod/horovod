@@ -46,15 +46,15 @@
 #include "mpi/mpi_controller.h"
 #include "ops/mpi_operations.h"
 #include "ops/p2p_operations.h"
-#include "ops/msallreduce_operations.h"
+#include "ops/parasail_operations.h"
 #endif
 
 #if HAVE_CUDA
 #include "ops/cuda_operations.h"
 #if HAVE_MPI
 #include "ops/mpi_cuda_operations.h"
-#include "ops/msallreduce_cuda_operations.h"
-#include "ops/msallreduce_cuda_ring_operations.h"
+#include "ops/parasail_cuda_operations.h"
+#include "ops/parasail_cuda_ring_operations.h"
 #endif
 #endif
 
@@ -144,14 +144,14 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   std::vector<std::shared_ptr<AllreduceOp>> allreduce_ops;
   std::vector<std::shared_ptr<AllgatherOp>> allgather_ops;
   std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops;
-  std::vector<std::shared_ptr<AllreduceOp>> msallreduce_ops;
+  std::vector<std::shared_ptr<AllreduceOp>> parasail_ops;
 
 #if HAVE_MPI && HAVE_CUDA
   if (mpi_context.IsEnabled()) {
 #if HOROVOD_GPU_ALLREDUCE == 'M'
-    if (state.msallreduce_enabled == true){
-        LOG(INFO) << "msallGpureduce enabled.";
-        msallreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new MsCudaRingAllreduceOp(&mpi_context, &cuda_context, &state)));
+    if (state.parasail_enabled == true){
+        LOG(INFO) << "Parasail allreduce GPU enabled.";
+        parasail_ops.push_back(std::shared_ptr<AllreduceOp>(new ParasailCudaRingAllreduceOp(&mpi_context, &cuda_context, &state)));
     }
     allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
         new MPI_CUDAAllreduce(&mpi_context, &cuda_context, &state)));
@@ -199,9 +199,9 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 
 #if HAVE_MPI
   if (mpi_context.IsEnabled()){
-    if (state.msallreduce_enabled == true){
-      LOG(INFO) << "msallreduce enabled.";
-      msallreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new MsAllreduceOp(&mpi_context, &state)));
+    if (state.parasail_enabled == true){
+      LOG(INFO) << "parasail enabled.";
+      parasail_ops.push_back(std::shared_ptr<AllreduceOp>(new ParasailOp(&mpi_context, &state)));
     }
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpi_context,&state)));
@@ -215,7 +215,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   std::shared_ptr<ErrorOp> error_op(new ErrorOp(&state));
 
   return new OperationManager(&state.parameter_manager, allreduce_ops,
-                              allgather_ops, broadcast_ops, msallreduce_ops, error_op);
+                              allgather_ops, broadcast_ops, parasail_ops, error_op);
 }
 
 // Process a Response by doing a reduction, a gather, a broadcast, or
@@ -331,7 +331,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   auto mpi_ctx_manager = MPIContextManager();
 #endif
   mpi_context.Initialize(state.controller->GetRanks(), mpi_ctx_manager);
-  if(state.msallreduce_enabled == true) {
+  if(state.parasail_enabled == true) {
     MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &state.local_comm);
     int ms_local_rank, ms_local_size;
     MPI_Comm_size(state.local_comm, &ms_local_size);
@@ -803,9 +803,9 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   message.set_tensor_type(tensor->dtype());
   message.set_device(device);
   
-  if (allreduce_type == AllreduceType::MS_ALLREDUCE) {
-    LOG(INFO, "Queued up an msallreduce request");
-    message.set_request_type(Request::MSALLREDUCE);
+  if (allreduce_type == AllreduceType::PARASAIL) {
+    LOG(INFO, "Queued up an parasail request");
+    message.set_request_type(Request::PARASAIL);
   } else {
     message.set_request_type(Request::ALLREDUCE);
   }

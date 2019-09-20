@@ -1,26 +1,11 @@
-// Copyright 2016 The TensorFlow Authors. All Rights Reserved.
-// Modifications copyright (C) 2019 Microsoft Corp.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-// =============================================================================
-
-#include "msallreduce_cuda_ring_operations.h"
-#include "msallreduce_cuda_kernels.h"
+//TODO license
+#include "parasail_cuda_ring_operations.h"
+#include "parasail_cuda_kernels.h"
 
 namespace horovod {
 namespace common {
 
-using namespace msallreduce;
+using namespace parasail;
 
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
@@ -32,11 +17,11 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 	} 
 }
 
-MsCudaRingAllreduceOp::MsCudaRingAllreduceOp(MPIContext* mpi_context, CUDAContext* cuda_context, HorovodGlobalState* global_state)
-    : MsAllreduceOp(mpi_context, global_state), mpi_context_(mpi_context), cuda_context_(cuda_context) {
+ParasailCudaRingAllreduceOp::ParasailCudaRingAllreduceOp(MPIContext* mpi_context, CUDAContext* cuda_context, HorovodGlobalState* global_state)
+    : ParasailOp(mpi_context, global_state), mpi_context_(mpi_context), cuda_context_(cuda_context) {
     }
 
-void MsCudaRingAllreduceOp::InitCUDA(const TensorTableEntry& entry, int layerid) {
+void ParasailCudaRingAllreduceOp::InitCUDA(const TensorTableEntry& entry, int layerid) {
   cuda_context_->ErrorCheck("cudaSetDevice", cudaSetDevice(entry.device));
 
   // Ensure stream is in the map before executing reduction.
@@ -66,7 +51,7 @@ void MsCudaRingAllreduceOp::InitCUDA(const TensorTableEntry& entry, int layerid)
   }
 }
 
-Status MsCudaRingAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+Status ParasailCudaRingAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   if(entries.size() < 1) {
       return Status::OK();
   }
@@ -106,7 +91,7 @@ Status MsCudaRingAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
             [](int64_t& size, int64_t& threshold) {return size >= threshold;});
 
         if (!status.ok()) {
-            throw std::logic_error("MsAllreduceOp::Execute_helper: Initialize buffer failed.");
+            throw std::logic_error("parasailOp::Execute_helper: Initialize buffer failed.");
         }
         auto buffer = buffer_manager.GetBuffer(entry.device, entry.context->framework(), global_state_->current_nccl_stream);
         recv_buffer = const_cast<void*>(buffer->AccessData(entry.context));
@@ -200,7 +185,7 @@ Status MsCudaRingAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
               ScaledAdd<double>);
           break;
           default:
-            throw std::logic_error("MsAllreduceOp::Execute: Unsupported data type.");
+            throw std::logic_error("parasailOp::Execute: Unsupported data type.");
       }
 
       // start the copy back to device
@@ -244,14 +229,14 @@ Status MsCudaRingAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
   for (size_t layerid = 0; layerid < entries.size(); ++layerid) {
     auto& entry = entries.at(layerid);
     if(entry.tensor->data() != entry.output->data()) {
-      memcpyUtil(entry, (void *) entry.output->data(), (void *) entry.tensor->data(), (size_t) entry.tensor->size(), layerid);
+      MemcpyUtil(entry, (void *) entry.output->data(), (void *) entry.tensor->data(), (size_t) entry.tensor->size(), layerid);
     }
   }
 
   return Status::OK();
 }
 
-void MsCudaRingAllreduceOp::memcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) {
+void ParasailCudaRingAllreduceOp::MemcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) {
     assert(dest != nullptr);
     assert(src != nullptr);
    auto cuda_result = cudaMemcpyAsync(dest, src,
@@ -263,13 +248,13 @@ void MsCudaRingAllreduceOp::memcpyUtil(TensorTableEntry entry, void* dest, void*
     cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_sync_result);
 }
 
-bool MsCudaRingAllreduceOp::Enabled(const ParameterManager& param_manager,
+bool ParasailCudaRingAllreduceOp::Enabled(const ParameterManager& param_manager,
                             const std::vector<TensorTableEntry>& entries,
                             const Response& response) const {
   return entries[0].device != CPU_DEVICE_ID;
 }
 
-namespace msallreduce{
+namespace parasail{
 
 void Ring::InitRing(int tmp[], bool _isFat, int rank, int size) {
   load = 0;

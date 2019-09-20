@@ -1,3 +1,4 @@
+//TODO license
 #include <stdint.h>
 
 void CudaDotProductImpl(int count, const double* device_a, const double* device_b, 

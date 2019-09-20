@@ -72,9 +72,9 @@ const std::string& Request::RequestType_Name(RequestType value) {
     case RequestType::BROADCAST:
       static const std::string broadcast("BROADCAST");
       return broadcast;
-    case RequestType::MSALLREDUCE:
-      static const std::string msallreduce("MSALLREDUCE");
-      return msallreduce;
+    case RequestType::PARASAIL:
+      static const std::string parasail("PARASAIL");
+      return parasail;
     default:
       static const std::string unknown("<unknown>");
       return unknown;
@@ -239,9 +239,9 @@ const std::string& Response::ResponseType_Name(ResponseType value) {
     case ResponseType::BROADCAST:
       static const std::string broadcast("BROADCAST");
       return broadcast;
-    case ResponseType::MSALLREDUCE:
-      static const std::string msallreduce("MSALLREDUCE");
-      return msallreduce;
+    case ResponseType::PARASAIL:
+      static const std::string parasail("PARASAIL");
+      return parasail;
     case ResponseType::ERROR:
       static const std::string error("ERROR");
       return error;
