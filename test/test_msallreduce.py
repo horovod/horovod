@@ -15,11 +15,11 @@ from horovod.tensorflow import AllreduceType
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 
-def parasail_reference_operation(a,b):
+def adasum_reference_operation(a,b):
     assert a.size == b.size
     assert a.size > 0 and b.size > 0
     assert a.dtype == b.dtype
-    # parasail logic in numpy
+    # AdaSum logic in numpy
     anormsq = np.inner(a.ravel(), a.ravel())
     bnormsq = np.inner(b.ravel(), b.ravel())
     dotProduct = np.dot(a.ravel(), b.ravel())
@@ -57,7 +57,7 @@ class MPITests(tf.test.TestCase):
 
     #     expected = []
     #     for a,b in zip(rank0_tensors, rank1_tensors):
-    #         answer = parasail_reference_operation(a, b)
+    #         answer = AdaSum_reference_operation(a, b)
     #         expected.append(answer)
 
     #     for dtype in [tf.float16, tf.float32, tf.float64]:
@@ -95,7 +95,7 @@ class MPITests(tf.test.TestCase):
 
         expected = all_tensors[0]
         for i in [3, 2, 1, 5, 6, 7, 4]:
-            answer0 = parasail_reference_operation(expected[0], all_tensors[i][0])
+            answer0 = adasum_reference_operation(expected[0], all_tensors[i][0])
             expected = [answer0]
         rank_num = hvd.local_rank()
         for dtype in [tf.float32]:

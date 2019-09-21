@@ -55,46 +55,46 @@ struct HorovodGlobalState {
   // Thread pool
   boost::asio::thread_pool* background_thread_pool;
   
-  //flag to indicate usage of parasail reduction algorithm
-  bool parasail_enabled = false;
+  //flag to indicate usage of AdaSum reduction algorithm
+  bool adasum_enabled = false;
   
   // Counter used to keep track of how many of the parallel reductions finished
   // TODO do we need this?
   std::atomic_int finished_parallel_reductions;
 
-  // Encapsulates the temp buffers used for parasail.
+  // Encapsulates the temp buffers used for AdaSum.
   std::queue<FusionBufferManager> temp_buffers;
 
   // Mutex to be used when accessing the queue of temp buffers
   std::mutex buffer_lock;
 
-  // threads to be used for parasail operations
-  int num_parasail_threads;
+  // threads to be used for AdaSum operations
+  int num_adasum_threads;
 
   HorovodGlobalState() {
-    auto horovod_number_of_threads = std::getenv(HOROVOD_NUM_OF_PARASAIL_REDUCTION_THREADS);
-    auto parasail = std::getenv(HOROVOD_PARASAIL_ENABLE);
-    if (parasail != nullptr) {
-      int parasail_value = std::strtol(parasail, nullptr, 10);
-      parasail_enabled = parasail_value == 1;
+    auto horovod_number_of_threads = std::getenv(HOROVOD_NUM_OF_ADASUM_REDUCTION_THREADS);
+    auto adasum = std::getenv(HOROVOD_ADASUM_ENABLE);
+    if (adasum != nullptr) {
+      int adasum_value = std::strtol(adasum, nullptr, 10);
+      adasum_enabled = adasum_value == 1;
     }
-    if (parasail_enabled == true) {
+    if (adasum_enabled == true) {
       int num_threads;
       if (horovod_number_of_threads != nullptr){
         num_threads = std::strtol(horovod_number_of_threads, nullptr, 10);
-        LOG(INFO)<<"HOROVOD_NUM_OF_PARASAIL_REDUCTION_THREADS is set to "<<num_threads;
+        LOG(INFO)<<"HOROVOD_NUM_OF_ADASUM_REDUCTION_THREADS is set to "<<num_threads;
         if (num_threads <= 0){
-          throw std::logic_error("Number of threads must be greater or equal to 1 when parasail is used.");
+          throw std::logic_error("Number of threads must be greater or equal to 1 when AdaSum is used.");
         }
       }
       else {
-        LOG(INFO)<<"HOROVOD_NUM_OF_PARASAIL_REDUCTION_THREADS is not set. Creating threadpool with 1 thread by default. ";
+        LOG(INFO)<<"HOROVOD_NUM_OF_ADASUM_REDUCTION_THREADS is not set. Creating threadpool with 1 thread by default. ";
         num_threads = 1;
       }
       //Making this static so that this pool is preverved throughout the lifetime of the program
       LOG(INFO)<<"Starting "<<num_threads<<" MPI threads for threadpool.";
       static boost::asio::thread_pool pool(num_threads);
-      num_parasail_threads = num_threads;
+      num_adasum_threads = num_threads;
       // Create a buffer manager for temp buffers for each thread
       for (int i = 0; i < num_threads; ++i) {
         temp_buffers.emplace();

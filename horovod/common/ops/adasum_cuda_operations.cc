@@ -1,28 +1,28 @@
 //TODO license
-#include "parasail_cuda_operations.h"
-#include "parasail_cuda_kernels.h"
+#include "adasum_cuda_operations.h"
+#include "adasum_cuda_kernels.h"
 #include <boost/asio/post.hpp>
 
 namespace horovod {
 namespace common {
 
-std::unordered_map<std::thread::id, std::array<double*, 3>> ParasailCudaAllreduceOp::thread_to_device_variable_map;
+std::unordered_map<std::thread::id, std::array<double*, 3>> AdasumCudaAllreduceOp::thread_to_device_variable_map;
 
-ParasailCudaAllreduceOp::ParasailCudaAllreduceOp(MPIContext* mpi_context, CUDAContext* cuda_context, HorovodGlobalState* global_state)
-    : ParasailOp(mpi_context, global_state), cuda_context_(cuda_context) {
+AdasumCudaAllreduceOp::AdasumCudaAllreduceOp(MPIContext* mpi_context, CUDAContext* cuda_context, HorovodGlobalState* global_state)
+    : AdasumOp(mpi_context, global_state), cuda_context_(cuda_context) {
 }
 
-ParasailCudaAllreduceOp::~ParasailCudaAllreduceOp() {
+AdasumCudaAllreduceOp::~AdasumCudaAllreduceOp() {
   FinalizeCUDA();
 }
 
-void ParasailCudaAllreduceOp::InitCUDA(const TensorTableEntry& entry, int layerid) {
+void AdasumCudaAllreduceOp::InitCUDA(const TensorTableEntry& entry, int layerid) {
 
   auto thread_id = std::this_thread::get_id();
   cuda_context_->ErrorCheck("cudaSetDevice", cudaSetDevice(entry.device));
 
   // Ensure stream is in the map before executing reduction.
-  cudaStream_t& stream = cuda_context_->streams[global_state_->current_nccl_stream][layerid % global_state_->num_parasail_threads];
+  cudaStream_t& stream = cuda_context_->streams[global_state_->current_nccl_stream][layerid % global_state_->num_adasum_threads];
   if (stream == nullptr) {
 
     std::lock_guard<std::mutex> guard(global_state_->buffer_lock);
@@ -64,7 +64,7 @@ void ParasailCudaAllreduceOp::InitCUDA(const TensorTableEntry& entry, int layeri
   }
 }
 
-void ParasailCudaAllreduceOp::FinalizeCUDA() {
+void AdasumCudaAllreduceOp::FinalizeCUDA() {
   if (!thread_to_device_variable_map.empty()){
     for (auto it = thread_to_device_variable_map.begin(); it != thread_to_device_variable_map.end(); ++it)
     {
@@ -77,7 +77,7 @@ void ParasailCudaAllreduceOp::FinalizeCUDA() {
   }
 }
 
-Status ParasailCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
       if(entries.size() < 1) {
       return Status::OK();
   }
@@ -117,7 +117,7 @@ Status ParasailCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, 
               [](int64_t& size, int64_t& threshold){return size >= threshold;});
 
           if (!status.ok()) {
-              throw std::logic_error("ParasailCudaAllreduceOp::Execute: Initialize buffer failed.");
+              throw std::logic_error("AdaSumCudaAllreduceOp::Execute: Initialize buffer failed.");
               return;
           }
           auto buffer = buffer_manager.GetBuffer(entry.device, entry.context->framework(), global_state_->current_nccl_stream);
@@ -136,7 +136,7 @@ Status ParasailCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, 
       InitCUDA(entry, layerid);
       switch (entry.output->dtype()) {
           case HOROVOD_FLOAT16:
-            ParasailInternal((uint16_t*) buffer_data,
+            AdasumInternal((uint16_t*) buffer_data,
                             (uint16_t*) recv_buffer,
                             buffer_len,
                             node_comm,
@@ -146,7 +146,7 @@ Status ParasailCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, 
                             ScaleAddImpl<uint16_t>);  
           break;
           case HOROVOD_FLOAT32:
-            ParasailInternal((float*) buffer_data,
+            AdasumInternal((float*) buffer_data,
                             (float*) recv_buffer,
                             buffer_len,
                             node_comm,
@@ -156,7 +156,7 @@ Status ParasailCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, 
                             ScaleAddImpl<float>);  
           break;
           case HOROVOD_FLOAT64:
-            ParasailInternal((double*) buffer_data,
+            AdasumInternal((double*) buffer_data,
                             (double*) recv_buffer,
                             buffer_len,
                             node_comm,
@@ -167,7 +167,7 @@ Status ParasailCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, 
           
           break;
           default:
-            throw std::logic_error("parasailOp::Execute: Unsupported data type.");
+            throw std::logic_error("AdaSumOp::Execute: Unsupported data type.");
       }
       if(entry.tensor->data() == entry.output->data()) {
         // Return the buffer back into the pool of available buffers
@@ -189,7 +189,7 @@ Status ParasailCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, 
 
 }
 
-void ParasailCudaAllreduceOp::MemcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) {
+void AdasumCudaAllreduceOp::MemcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) {
     assert(dest != nullptr);
     assert(src != nullptr);
     auto cuda_result = cudaMemcpyAsync(dest, src,
@@ -202,7 +202,7 @@ void ParasailCudaAllreduceOp::MemcpyUtil(TensorTableEntry entry, void* dest, voi
 }
 
 template<typename T>
-void ParasailCudaAllreduceOp::DotProductImpl(const T* __restrict__  a, 
+void AdasumCudaAllreduceOp::DotProductImpl(const T* __restrict__  a, 
                                        const T* __restrict__ b, 
                                        int n, 
                                        double& dotProduct, 
@@ -215,11 +215,11 @@ void ParasailCudaAllreduceOp::DotProductImpl(const T* __restrict__  a,
 }
 
 template<typename T>
-void ParasailCudaAllreduceOp::ScaleAddImpl(int n, double acoeff, T* __restrict__ a, double bcoeff, T* __restrict__ b, HorovodGlobalState *global_state, int layerid) {
+void AdasumCudaAllreduceOp::ScaleAddImpl(int n, double acoeff, T* __restrict__ a, double bcoeff, T* __restrict__ b, HorovodGlobalState *global_state, int layerid) {
   CudaScaleAddImpl(n, a, b, acoeff, bcoeff);
 }
 
-bool ParasailCudaAllreduceOp::Enabled(const ParameterManager& param_manager,
+bool AdasumCudaAllreduceOp::Enabled(const ParameterManager& param_manager,
                             const std::vector<TensorTableEntry>& entries,
                             const Response& response) const {
   return entries[0].device != CPU_DEVICE_ID;

@@ -1,20 +1,20 @@
 //TODO license
-#ifndef HOROVOD_PARASAIL_CUDA_RING_OPERATIONS_H
-#define HOROVOD_PARASAIL_CUDA_RING_OPERATIONS_H
+#ifndef HOROVOD_ADASUM_CUDA_RING_OPERATIONS_H
+#define HOROVOD_ADASUM_CUDA_RING_OPERATIONS_H
 
 #include <deque>
 #include <typeinfo>
 
-#include "parasail_operations.h"
+#include "adasum_operations.h"
 #include "cuda_operations.h"
 #include "cuda_fp16.h"
 
 namespace horovod {
 namespace common {
 
-class ParasailCudaRingAllreduceOp : public ParasailOp {
+class AdasumCudaRingAllreduceOp : public AdasumOp {
   public:
-  ParasailCudaRingAllreduceOp(MPIContext* mpi_context, CUDAContext* cuda_context,
+  AdasumCudaRingAllreduceOp(MPIContext* mpi_context, CUDAContext* cuda_context,
                 HorovodGlobalState* global_state);
 
   bool Enabled(const ParameterManager& param_manager,
@@ -33,7 +33,7 @@ class ParasailCudaRingAllreduceOp : public ParasailOp {
   void MemcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) override;
 };
 
-namespace parasail {
+namespace Adasum {
 
 struct Ring {
   int loop[8];
@@ -102,7 +102,7 @@ struct AllRings {
   void WaitAllMessages();
 };
 
-} // namespace parasail
+} // namespace AdaSum
 } // namespace common
 } // namespace horovod
-#endif // HOROVOD_PARASAIL_CUDA_RING_OPERATIONS_H
+#endif // HOROVOD_ADASUM_CUDA_RING_OPERATIONS_H

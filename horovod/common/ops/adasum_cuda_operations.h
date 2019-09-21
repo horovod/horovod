@@ -1,20 +1,20 @@
 //TODO license
-#ifndef HOROVOD_PARASAIL_CUDA_OPERATIONS_H
-#define HOROVOD_PARASAIL_CUDA_OPERATIONS_H
+#ifndef HOROVOD_ADASUM_CUDA_OPERATIONS_H
+#define HOROVOD_ADASUM_CUDA_OPERATIONS_H
 
 #include <array>
-#include "parasail_operations.h"
+#include "adasum_operations.h"
 #include "cuda_operations.h"
 #include "cuda_fp16.h"
 
 namespace horovod {
 namespace common {
 
-class ParasailCudaAllreduceOp : public ParasailOp {
+class AdasumCudaAllreduceOp : public AdasumOp {
   public:
-  ParasailCudaAllreduceOp(MPIContext* mpi_context, CUDAContext* cuda_context,
+  AdasumCudaAllreduceOp(MPIContext* mpi_context, CUDAContext* cuda_context,
                 HorovodGlobalState* global_state);
-  ~ParasailCudaAllreduceOp();
+  ~AdasumCudaAllreduceOp();
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
@@ -25,7 +25,7 @@ class ParasailCudaAllreduceOp : public ParasailOp {
   protected:
   struct CUDAContext* cuda_context_;
 
-  // This map stores variables we will use to do parasail reduction on GPU with
+  // This map stores variables we will use to do AdaSum reduction on GPU with
   // elements in tuple being:
   // 1: anormsq
   // 2: bnormsq
@@ -53,4 +53,4 @@ class ParasailCudaAllreduceOp : public ParasailOp {
 };
 } // namespace common
 } // namespace horovod
-#endif // HOROVOD_PARASAIL_CUDA_OPERATIONS_H
+#endif // HOROVOD_ADASUM_CUDA_OPERATIONS_H

@@ -33,7 +33,7 @@ from horovod.tensorflow.util import _executing_eagerly
 
 class AllreduceType(Enum):
     SumAllreduce = 0
-    Parasail = 1  
+    Adasum = 1  
 
 def _load_library(name):
     """Loads a .so file containing the specified operators.

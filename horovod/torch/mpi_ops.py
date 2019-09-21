@@ -67,7 +67,7 @@ _fp16_supported = _v2_api
 
 class AllreduceType(Enum):
     SumAllreduce = 0
-    Parasail = 1  
+    Adasum = 1  
 
 def _check_function(function_factory, tensor):
     function = function_factory(tensor)

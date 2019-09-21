@@ -1,6 +1,6 @@
 //TODO license
-#ifndef HOROVOD_PARASAIL_OPERATIONS_H
-#define HOROVOD_PARASAIL_OPERATIONS_H
+#ifndef HOROVOD_ADASUM_OPERATIONS_H
+#define HOROVOD_ADASUM_OPERATIONS_H
 
 #include <iostream>
 #include <cstring>
@@ -18,9 +18,9 @@
 namespace horovod {
 namespace common {
 
-class ParasailOp : public PointToPointOp {
+class AdasumOp : public PointToPointOp {
 public:
-  ParasailOp(MPIContext* mpi_context, HorovodGlobalState* global_state);
+  AdasumOp(MPIContext* mpi_context, HorovodGlobalState* global_state);
 
   Status Execute(std::vector<TensorTableEntry>& entries,
                          const Response& response) override;
@@ -32,7 +32,7 @@ public:
 protected:
   // TODO improve this API
   template<typename T, typename F, typename S>
-  void ParasailInternal(T* gradient_buffer, T* result_buffer, int buffer_length, MPI_Comm* node_comm, int layerid, TensorTableEntry entry, F dotProdFunc, S scaleAddFunc);
+  void AdasumInternal(T* gradient_buffer, T* result_buffer, int buffer_length, MPI_Comm* node_comm, int layerid, TensorTableEntry entry, F dotProdFunc, S scaleAddFunc);
   
   template<typename T, typename F, typename S>
   void SyncLocalReduce(T *grad_buffer, T *recv_buffer, int count, MPI_Datatype mpi_type, MPI_Comm communicator, int layerid, TensorTableEntry entry, F dotProdFunc, S scaleAddFunc);
@@ -165,4 +165,4 @@ private:
 } // namespace common
 } // namespace horovod
 
-#endif // HOROVOD_PARASAIL_OPERATIONS_H
+#endif // HOROVOD_ADASUM_OPERATIONS_H

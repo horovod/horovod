@@ -28,7 +28,7 @@ public:
                    std::vector<std::shared_ptr<AllreduceOp>> allreduce_ops,
                    std::vector<std::shared_ptr<AllgatherOp>> allgather_ops,
                    std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops,
-                   std::vector<std::shared_ptr<AllreduceOp>> parasail_ops,
+                   std::vector<std::shared_ptr<AllreduceOp>> adasum_ops,
                    std::shared_ptr<ErrorOp> error_op);
 
   virtual ~OperationManager() = default;
@@ -41,7 +41,7 @@ public:
 
   Status ExecuteError(std::vector<TensorTableEntry>& entries, const Response& response) const;
 
-  Status ExecuteParasail(std::vector<TensorTableEntry>& entries, const Response& response) const;
+  Status ExecuteAdasum(std::vector<TensorTableEntry>& entries, const Response& response) const;
 
   Status ExecuteOperation(std::vector<TensorTableEntry>& entries, const Response& response) const;
 
@@ -51,7 +51,7 @@ private:
   std::vector<std::shared_ptr<AllreduceOp>> allreduce_ops_;
   std::vector<std::shared_ptr<AllgatherOp>> allgather_ops_;
   std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops_;
-  std::vector<std::shared_ptr<AllreduceOp>> parasail_ops_;
+  std::vector<std::shared_ptr<AllreduceOp>> adasum_ops_;
   std::shared_ptr<ErrorOp> error_op_;
 };
 

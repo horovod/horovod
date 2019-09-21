@@ -1,11 +1,11 @@
 //TODO license
-#include "parasail_cuda_ring_operations.h"
-#include "parasail_cuda_kernels.h"
+#include "adasum_cuda_ring_operations.h"
+#include "adasum_cuda_kernels.h"
 
 namespace horovod {
 namespace common {
 
-using namespace parasail;
+using namespace Adasum;
 
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
@@ -17,11 +17,11 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 	} 
 }
 
-ParasailCudaRingAllreduceOp::ParasailCudaRingAllreduceOp(MPIContext* mpi_context, CUDAContext* cuda_context, HorovodGlobalState* global_state)
-    : ParasailOp(mpi_context, global_state), mpi_context_(mpi_context), cuda_context_(cuda_context) {
+AdasumCudaRingAllreduceOp::AdasumCudaRingAllreduceOp(MPIContext* mpi_context, CUDAContext* cuda_context, HorovodGlobalState* global_state)
+    : AdasumOp(mpi_context, global_state), mpi_context_(mpi_context), cuda_context_(cuda_context) {
     }
 
-void ParasailCudaRingAllreduceOp::InitCUDA(const TensorTableEntry& entry, int layerid) {
+void AdasumCudaRingAllreduceOp::InitCUDA(const TensorTableEntry& entry, int layerid) {
   cuda_context_->ErrorCheck("cudaSetDevice", cudaSetDevice(entry.device));
 
   // Ensure stream is in the map before executing reduction.
@@ -51,7 +51,7 @@ void ParasailCudaRingAllreduceOp::InitCUDA(const TensorTableEntry& entry, int la
   }
 }
 
-Status ParasailCudaRingAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+Status AdasumCudaRingAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   if(entries.size() < 1) {
       return Status::OK();
   }
@@ -91,7 +91,7 @@ Status ParasailCudaRingAllreduceOp::Execute(std::vector<TensorTableEntry>& entri
             [](int64_t& size, int64_t& threshold) {return size >= threshold;});
 
         if (!status.ok()) {
-            throw std::logic_error("parasailOp::Execute_helper: Initialize buffer failed.");
+            throw std::logic_error("AdaSumOp::Execute_helper: Initialize buffer failed.");
         }
         auto buffer = buffer_manager.GetBuffer(entry.device, entry.context->framework(), global_state_->current_nccl_stream);
         recv_buffer = const_cast<void*>(buffer->AccessData(entry.context));
@@ -185,7 +185,7 @@ Status ParasailCudaRingAllreduceOp::Execute(std::vector<TensorTableEntry>& entri
               ScaledAdd<double>);
           break;
           default:
-            throw std::logic_error("parasailOp::Execute: Unsupported data type.");
+            throw std::logic_error("AdaSumOp::Execute: Unsupported data type.");
       }
 
       // start the copy back to device
@@ -236,7 +236,7 @@ Status ParasailCudaRingAllreduceOp::Execute(std::vector<TensorTableEntry>& entri
   return Status::OK();
 }
 
-void ParasailCudaRingAllreduceOp::MemcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) {
+void AdasumCudaRingAllreduceOp::MemcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) {
     assert(dest != nullptr);
     assert(src != nullptr);
    auto cuda_result = cudaMemcpyAsync(dest, src,
@@ -248,13 +248,13 @@ void ParasailCudaRingAllreduceOp::MemcpyUtil(TensorTableEntry entry, void* dest,
     cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_sync_result);
 }
 
-bool ParasailCudaRingAllreduceOp::Enabled(const ParameterManager& param_manager,
+bool AdasumCudaRingAllreduceOp::Enabled(const ParameterManager& param_manager,
                             const std::vector<TensorTableEntry>& entries,
                             const Response& response) const {
   return entries[0].device != CPU_DEVICE_ID;
 }
 
-namespace parasail{
+namespace Adasum{
 
 void Ring::InitRing(int tmp[], bool _isFat, int rank, int size) {
   load = 0;
@@ -336,13 +336,13 @@ bool AllreduceMessage::Test() {
         // call the cuda kernel
         switch(datatype) {
           case HOROVOD_FLOAT16:
-            MsCudaPairwiseReduce(count, (uint16_t*)grad_buf, (uint16_t*)recv_buf);
+            AdasumCudaPairwiseReduce(count, (uint16_t*)grad_buf, (uint16_t*)recv_buf);
             break;
           case HOROVOD_FLOAT32:
-            MsCudaPairwiseReduce(count, (float*)grad_buf, (float*)recv_buf);
+            AdasumCudaPairwiseReduce(count, (float*)grad_buf, (float*)recv_buf);
             break;
           case HOROVOD_FLOAT64:
-            MsCudaPairwiseReduce(count, (double*)grad_buf, (double*)recv_buf);
+            AdasumCudaPairwiseReduce(count, (double*)grad_buf, (double*)recv_buf);
             break;
           default:
             throw std::logic_error("Message::Test: Unsupported data type.");
@@ -401,13 +401,13 @@ bool ReduceMessage::Test() {
         // call the cuda kernel
         switch(datatype) {
           case HOROVOD_FLOAT16:
-            MsCudaPairwiseReduce(count, (uint16_t*)grad_buf, (uint16_t*)recv_buf);
+            AdasumCudaPairwiseReduce(count, (uint16_t*)grad_buf, (uint16_t*)recv_buf);
             break;
           case HOROVOD_FLOAT32:
-            MsCudaPairwiseReduce(count, (float*)grad_buf, (float*)recv_buf);
+            AdasumCudaPairwiseReduce(count, (float*)grad_buf, (float*)recv_buf);
             break;
           case HOROVOD_FLOAT64:
-            MsCudaPairwiseReduce(count, (double*)grad_buf, (double*)recv_buf);
+            AdasumCudaPairwiseReduce(count, (double*)grad_buf, (double*)recv_buf);
             break;
           default:
             throw std::logic_error("Message::Test: Unsupported data type.");

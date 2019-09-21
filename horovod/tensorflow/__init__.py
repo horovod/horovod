@@ -68,7 +68,7 @@ def allreduce(tensor, average=True, device_dense='', device_sparse='',
         with tf.device(device_sparse):
             # For IndexedSlices, do two allgathers instead of an allreduce.
             horovod_size = tf.cast(size(), tensor.values.dtype)
-            # TODO: Need to fix this to actuall call parasail
+            # TODO: Need to fix this to actuall call AdaSum
             values = allgather(tensor.values)
             indices = allgather(tensor.indices)
 
@@ -248,10 +248,10 @@ if _LegacyOptimizer is not None:
             super(_DistributedOptimizer, self).__init__(name=name, use_locking=use_locking)
 
             self._optimizer = optimizer
-            parasail_enable = False
-            if 'HOROVOD_PARASAIL_ENABLE' in os.environ:
-                parasail_enable = os.environ['HOROVOD_PARASAIL_ENABLE']
-            allreduce_type = AllreduceType.Parasail if parasail_enable is not None and parasail_enable == '1' else AllreduceType.SumAllreduce
+            adasum_enable = False
+            if 'HOROVOD_ADASUM_ENABLE' in os.environ:
+                adasum_enable = os.environ['HOROVOD_ADASUM_ENABLE']
+            allreduce_type = AllreduceType.Adasum if adasum_enable is not None and adasum_enable == '1' else AllreduceType.SumAllreduce
             self._allreduce_grads = _make_allreduce_grads_fn(
                 name, device_dense, device_sparse, compression, sparse_as_dense, allreduce_type)
 
@@ -326,7 +326,7 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
                                      device_sparse, compression, sparse_as_dense)
     elif isinstance(optimizer, tf.keras.optimizers.Optimizer):
         import horovod.tensorflow.keras as hvd_k
-        # TODO: Add parasail, this is a part of Keras
+        # TODO: Add AdaSum, this is a part of Keras
         return hvd_k.DistributedOptimizer(optimizer, name, device_dense, device_sparse,
                                           compression, sparse_as_dense)
     else:
@@ -344,10 +344,10 @@ if hasattr(tf, 'GradientTape'):
                 super(self.__class__, self).__init__(persistent)
 
             self._tape = tape
-            parasail_enable = False
-            if 'HOROVOD_PARASAIL_ENABLE' in os.environ:
-                parasail_enable = os.environ['HOROVOD_PARASAIL_ENABLE']
-            allreduce_type = AllreduceType.Parasail if parasail_enable is not None and parasail_enable == '1' else AllreduceType.SumAllreduce
+            adasum_enable = False
+            if 'HOROVOD_ADASUM_ENABLE' in os.environ:
+                adasum_enable = os.environ['HOROVOD_ADASUM_ENABLE']
+            allreduce_type = AllreduceType.Adasum if adasum_enable is not None and adasum_enable == '1' else AllreduceType.SumAllreduce
             self._allreduce_grads = _make_allreduce_grads_fn(
                 'DistributedGradientTape', device_dense, device_sparse, compression,
                 sparse_as_dense, allreduce_type)

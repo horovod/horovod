@@ -363,7 +363,7 @@ Response Controller::ConstructResponse(std::string& name) {
   // If we are doing an allreduce or broadcast, check that all tensor shapes are
   // identical.
   if (message_type == Request::ALLREDUCE ||
-      message_type == Request::PARASAIL ||
+      message_type == Request::ADASUM ||
       message_type == Request::BROADCAST) {
     TensorShape tensor_shape;
     for (auto dim : requests[0].tensor_shape()) {
@@ -511,8 +511,8 @@ Response Controller::ConstructResponse(std::string& name) {
     response.set_response_type(Response::ALLREDUCE);
   } else if (message_type == Request::BROADCAST) {
     response.set_response_type(Response::BROADCAST);
-  } else if (message_type == Request::PARASAIL) {
-    response.set_response_type(Response::PARASAIL);
+  } else if (message_type == Request::ADASUM) {
+    response.set_response_type(Response::ADASUM);
   }
   response.set_devices(devices);
 
@@ -563,7 +563,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
     assert(first_response.tensor_names().size() == 1);
     responses.pop_front();
     // we find the first allreduce response and make it the host for all subsequent to-be-reduced tensors
-    if (first_response.response_type() == Response::ResponseType::PARASAIL) {
+    if (first_response.response_type() == Response::ResponseType::ADASUM) {
       // increment iterator since we have found one allreduce
       allreduce_merged = true;
       itr++;

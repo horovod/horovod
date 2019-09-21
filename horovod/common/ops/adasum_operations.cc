@@ -1,14 +1,14 @@
 //TODO license
-#include "parasail_operations.h"
+#include "adasum_operations.h"
 #include <boost/asio/post.hpp>
 
 namespace horovod {
 namespace common {
 
-ParasailOp::ParasailOp(MPIContext* mpi_context, HorovodGlobalState* global_state)
+AdasumOp::AdasumOp(MPIContext* mpi_context, HorovodGlobalState* global_state)
     : PointToPointOp(mpi_context, global_state) {}
 
-Status ParasailOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+Status AdasumOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   if(entries.size() < 1) {
       return Status::OK();
   }
@@ -45,7 +45,7 @@ Status ParasailOp::Execute(std::vector<TensorTableEntry>& entries, const Respons
               [](int64_t& size, int64_t& threshold){return size >= threshold;});
 
           if (!status.ok()) {
-              throw std::logic_error("ParasailOp::Execute_helper: Initialize buffer failed.");
+              throw std::logic_error("AdaSumOp::Execute_helper: Initialize buffer failed.");
               return;
           }
 
@@ -63,7 +63,7 @@ Status ParasailOp::Execute(std::vector<TensorTableEntry>& entries, const Respons
 
     switch (entry.output->dtype()) {
         case HOROVOD_FLOAT16:
-        ParasailInternal((uint16_t*) buffer_data,
+        AdasumInternal((uint16_t*) buffer_data,
                         (uint16_t*) recv_buffer,
                         buffer_len,
                         node_comm,
@@ -73,7 +73,7 @@ Status ParasailOp::Execute(std::vector<TensorTableEntry>& entries, const Respons
                         ScaledAddfp16);  
         break;
         case HOROVOD_FLOAT32:
-        ParasailInternal((float*) buffer_data,
+        AdasumInternal((float*) buffer_data,
                         (float*) recv_buffer,
                         buffer_len,
                         node_comm,
@@ -83,7 +83,7 @@ Status ParasailOp::Execute(std::vector<TensorTableEntry>& entries, const Respons
                         ScaledAdd<float>);  
         break;
         case HOROVOD_FLOAT64:
-        ParasailInternal((double*) buffer_data,
+        AdasumInternal((double*) buffer_data,
                         (double*) recv_buffer,
                         buffer_len,
                         node_comm,
@@ -94,7 +94,7 @@ Status ParasailOp::Execute(std::vector<TensorTableEntry>& entries, const Respons
         
         break;
         default:
-            throw std::logic_error("ParasailOp::Execute: Unsupported data type.");
+            throw std::logic_error("AdaSumOp::Execute: Unsupported data type.");
     }
     if(entry.tensor->data() == entry.output->data()) {
     // Return the buffer back into the pool of available buffers
@@ -116,20 +116,20 @@ Status ParasailOp::Execute(std::vector<TensorTableEntry>& entries, const Respons
   return Status::OK();
 }
 
-void ParasailOp::MemcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) {
+void AdasumOp::MemcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) {
     assert(dest != nullptr);
     assert(src != nullptr);
     memcpy(dest, src, buffer_len);
 }
 
-bool ParasailOp::Enabled(const ParameterManager& param_manager,
+bool AdasumOp::Enabled(const ParameterManager& param_manager,
                            const std::vector<TensorTableEntry>& entries,
                            const Response& response) const {
   return true;
 }
 
 template<typename T, typename F, typename S>
-void ParasailOp::ParasailInternal(T* grad_buffer, T* recv_buffer, int buffer_length, MPI_Comm* node_comm, int layerid, TensorTableEntry entry, F dotProdFunc, S scaleAddFunc) {
+void AdasumOp::AdasumInternal(T* grad_buffer, T* recv_buffer, int buffer_length, MPI_Comm* node_comm, int layerid, TensorTableEntry entry, F dotProdFunc, S scaleAddFunc) {
   int count = buffer_length / sizeof(T);
   int local_rank = 0;
   MPI_Comm_rank(global_state_->local_comm, &local_rank);
@@ -142,7 +142,7 @@ void ParasailOp::ParasailInternal(T* grad_buffer, T* recv_buffer, int buffer_len
 }
 
 template<typename T>
-void ParasailOp::ComputeDotAndNormSqrds(const T* __restrict__  a, const T* __restrict__ b, int n, double& dotProduct, double& anormsq, double& bnormsq, HorovodGlobalState *global_state, int layerid) {
+void AdasumOp::ComputeDotAndNormSqrds(const T* __restrict__  a, const T* __restrict__ b, int n, double& dotProduct, double& anormsq, double& bnormsq, HorovodGlobalState *global_state, int layerid) {
     dotProduct = 0.;
     anormsq = 0.;
     bnormsq = 0.;
@@ -155,14 +155,14 @@ void ParasailOp::ComputeDotAndNormSqrds(const T* __restrict__  a, const T* __res
 }
 
 template<typename T>
-void ParasailOp::ScaledAdd(int n, double acoeff, T* __restrict__ a, double bcoeff, T* __restrict__ b, HorovodGlobalState *global_state, int layerid) {
+void AdasumOp::ScaledAdd(int n, double acoeff, T* __restrict__ a, double bcoeff, T* __restrict__ b, HorovodGlobalState *global_state, int layerid) {
     for (int i = 0; i < n; i++) {
         a[i] = acoeff * a[i] + bcoeff * b[i];
     }
 }
 
 template<typename T, typename F, typename S>
-void ParasailOp::PairwiseReduceWithComm(T* a, T* b, int count, int layerid, MPI_Comm& comm, bool isLeftNeighbor, F dotProdFunc, S scaleAddFunc) {
+void AdasumOp::PairwiseReduceWithComm(T* a, T* b, int count, int layerid, MPI_Comm& comm, bool isLeftNeighbor, F dotProdFunc, S scaleAddFunc) {
     double dotProduct = 0.;
     double anormsq = 0.;
     double bnormsq = 0.;
@@ -201,7 +201,7 @@ void ParasailOp::PairwiseReduceWithComm(T* a, T* b, int count, int layerid, MPI_
 }
 
 template <typename T>
-void ParasailOp::SyncLocalBroadcast(T *grad_buffer, int count, MPI_Datatype mpi_type, MPI_Comm communicator, int layerid)
+void AdasumOp::SyncLocalBroadcast(T *grad_buffer, int count, MPI_Datatype mpi_type, MPI_Comm communicator, int layerid)
 {
   // assumes broadcast from 0
   int redn_rank, true_rank;
@@ -235,7 +235,7 @@ void ParasailOp::SyncLocalBroadcast(T *grad_buffer, int count, MPI_Datatype mpi_
 }
 
 template<typename T, typename F, typename S>
-void ParasailOp::SyncLocalReduce(T *grad_buffer, T *recv_buffer, int count, MPI_Datatype mpi_type, MPI_Comm communicator, int layerid, TensorTableEntry entry, F dotProdFunc, S scaleAddFunc)
+void AdasumOp::SyncLocalReduce(T *grad_buffer, T *recv_buffer, int count, MPI_Datatype mpi_type, MPI_Comm communicator, int layerid, TensorTableEntry entry, F dotProdFunc, S scaleAddFunc)
 {
   int redn_rank, true_rank;
   int size;
@@ -289,7 +289,7 @@ static bool IsPowerOfTwo(ulong x)
 }
   
 template<typename T, typename F, typename S>
-void ParasailOp::SyncAllreduce(T* grad_buffer, T* recv_buffer, int count, MPI_Comm communicator, MPI_Comm* reduction_comms, int layerid, TensorTableEntry entry, F dotProdFunc, S scaleAddFunc) {
+void AdasumOp::SyncAllreduce(T* grad_buffer, T* recv_buffer, int count, MPI_Comm communicator, MPI_Comm* reduction_comms, int layerid, TensorTableEntry entry, F dotProdFunc, S scaleAddFunc) {
     int rank;
     int size;
     MPI_Comm_rank(communicator, &rank);

@@ -33,7 +33,7 @@ Status CheckInitialized();
 
 enum AllreduceType {
     SUM_ALLREDUCE = 0,
-    PARASAIL = 1
+    ADASUM = 1
 };
 
 extern "C" {
