@@ -3,11 +3,11 @@
 #define HOROVOD_ADASUM_CUDA_OPERATIONS_H
 
 #include <array>
-#include <nccl.h>
 #include "adasum_mpi_operations.h"
 #include "cuda_operations.h"
 #include "cuda_fp16.h"
 #include "adasum_cuda_kernels.h"
+#include "nccl_operations.h"
 
 namespace horovod {
 namespace common {
@@ -52,7 +52,10 @@ class AdasumCudaAllreduceOp : public AdasumMPIOp {
                       int layerid,
                       TensorTableEntry entry) override;
 
-  void NcclHierarchical(std::vector<TensorTableEntry>& entries);
+  void NcclHierarchical(std::vector<TensorTableEntry>& entries,
+                        const Response& response,
+                        MPI_Comm* node_comm,
+                        MPI_Comm* reduction_comm_pool);
 
   void MemcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) override;
 

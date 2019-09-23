@@ -195,27 +195,6 @@ Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
   return Status::OK();
 }
 
-void DispatchSyncAllreduce(void* gradient_buffer,
-                    void* recv_buffer,
-                    MPI_Comm* node_comm,
-                    MPI_Comm* reduction_comm_pool,
-                    int layerid,
-                    TensorTableEntry entry) {
-    switch(entry.tensor->dtype()) {
-        case DataType::HOROVOD_FLOAT16:
-          SyncAllreduce((uint16_t*)gradient_buffer, (uint16_t*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
-          break;
-        case DataType::HOROVOD_FLOAT32:
-          SyncAllreduce((float*)gradient_buffer, (float*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
-          break;
-        case DataType::HOROVOD_FLOAT64:
-          SyncAllreduce((double*)gradient_buffer, (double*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
-          break;
-        default:
-          throw std::logic_error("Unsupported data type");
-    }
-}
-
 void AdasumCudaAllreduceOp::AdasumInternal(void* gradient_buffer,
                     void* recv_buffer,
                     MPI_Comm* node_comm,
@@ -255,10 +234,10 @@ void AdasumCudaAllreduceOp::AdasumInternal(void* gradient_buffer,
 
 }
 
-void AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries
+void AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
+                    const Response& response,
                     MPI_Comm* node_comm,
                     MPI_Comm* reduction_comm_pool) {
-  auto& first_entry = entries[0];
 
   // Determine GPU IDs of the devices participating in this communicator.
   std::vector<int32_t> nccl_device_map;
@@ -268,53 +247,55 @@ void AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entr
     nccl_device_map.push_back(response.devices()[rank]);
   }
 
-  InitCUDA(entries);
   InitNCCLComm(entries, nccl_device_map);
-  InitCUDAQueue(entries, response);
 
   bool is_root_rank = global_state_->controller->GetLocalRank() == 0;
 
-  std::vector<std::unique<char[]>> host_buffers;
+  std::vector<std::unique_ptr<char[]>> host_buffers;
   std::vector<cudaEvent_t> events(entries.size());
 
-  for (size_t i = 0; i < entries.size(); ++i) {
+  for (int i = 0; i < entries.size(); ++i) {
     auto& entry = entries.at(i);
     const void* input_data = entry.tensor->data();
     void* buffer_data = (void*) entry.output->data();
     size_t buffer_len = (size_t) entry.output->size();
     int num_elements = entry.tensor->shape().num_elements();
 
+    InitCUDA(entry, i);
+
     auto nccl_result = ncclReduce(input_data,
                                   buffer_data,
                                   (size_t) num_elements,
                                   GetNCCLDataType(entry.tensor),
-                                  ncclSum, 0, *nccl_comm_, *stream_);
+                                  ncclSum, 0, *nccl_comm_, 
+                                  cuda_context_->streams[global_state_->current_nccl_stream][entry.device]);
     nccl_context_->ErrorCheck("ncclReduce", nccl_result);
 
     if (is_root_rank) {
       host_buffers.emplace_back(new char[buffer_len]);
-      void* host_buffer = (void*)host_buffers[i].data();
+      void* host_buffer = (void*)host_buffers.at(i).get();
 
       cuda_context_->ErrorCheck("cudaMemcpyAsync",
                                 cudaMemcpyAsync(host_buffer, buffer_data,
                                                 buffer_len, cudaMemcpyDeviceToHost,
-                                                *stream_));
+                                                cuda_context_->streams[global_state_->current_nccl_stream][entry.device]));
 
       auto& event = events[i];
       cuda_context_->ErrorCheck("GetCudaEvent", cuda_context_->GetCudaEvent(&event));
-      cuda_context_->ErrorCheck("cudaEventRecord", cudaEventRecord(event, *stream_));
+      cuda_context_->ErrorCheck("cudaEventRecord", cudaEventRecord(event, 
+      cuda_context_->streams[global_state_->current_nccl_stream][entry.device]));
     }
   }
 
   if (is_root_rank) {
     std::vector<char> recv_buffer;
-    for (size_t i = 0; i < entries.size(); ++i) {
+    for (int i = 0; i < entries.size(); ++i) {
       auto& entry = entries.at(i);
       void* buffer_data = (void*) entry.output->data();
       size_t buffer_len = (size_t) entry.output->size();
       int num_elements = entry.tensor->shape().num_elements();
-      auto host_buffer = (void*)host_buffers[i].data();
-      auto& event = events[i];
+      auto host_buffer = (void*)host_buffers.at(i).get();
+      auto& event = events.at(i);
 
       cuda_context_->ErrorCheck("cudaEventSynchronize", cudaEventSynchronize(event));
       cuda_context_->ErrorCheck("ReleaseCudaEvent", cuda_context_->ReleaseCudaEvent(event));
@@ -325,11 +306,11 @@ void AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entr
       cuda_context_->ErrorCheck("cudaMemcpyAsync",
                                 cudaMemcpyAsync(buffer_data, host_buffer,
                                                 buffer_len, cudaMemcpyHostToDevice,
-                                                *stream_));
+                                                cuda_context_->streams[global_state_->current_nccl_stream][entry.device]));
     }
   }
 
-  for (size_t i = 0; i < entries.size(); ++i) {
+  for (int i = 0; i < entries.size(); ++i) {
     auto& entry = entries.at(i);
     void* buffer_data = (void*) entry.output->data();
     int num_elements = entry.tensor->shape().num_elements();
@@ -339,10 +320,9 @@ void AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entr
                                         (size_t) num_elements,
                                         GetNCCLDataType(entry.tensor),
                                         0,
-                                        *nccl_comm_, *stream_));
+                                        *nccl_comm_, 
+                                        cuda_context_->streams[global_state_->current_nccl_stream][entry.device]));
   }
-
-  FinalizeCUDAQueue(entries);
 }
 
 void AdasumCudaAllreduceOp::MemcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) {

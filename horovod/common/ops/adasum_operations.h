@@ -405,19 +405,13 @@ protected:
 
     this->ScaledAddWrapper(horovod_datatype, count, acoeff, (uint16_t*)a, bcoeff, (uint16_t*)b, this->global_state_, layerid);
   }
-  // TODO improve this API
-  virtual void AdasumInternal(void* gradient_buffer,
+
+  void DispatchSyncAllreduce(void* gradient_buffer,
                       void* recv_buffer,
                       Communicator_type* node_comm,
                       Communicator_type* reduction_comm_pool,
-                      Communicator_type local_comm,
                       int layerid,
-                      TensorTableEntry entry)  {
-    int count = entry.tensor->size() / GetPerElementSize(entry);
-    int local_rank = 0;
-    local_rank = GetLocalRankWithComm(local_comm);
-    SyncLocalReduce(gradient_buffer, recv_buffer, local_comm, layerid, entry);
-    if (local_rank == 0 && node_comm != NULL) {
+                      TensorTableEntry entry) {
       switch(entry.tensor->dtype()) {
           case DataType::HOROVOD_FLOAT16:
             SyncAllreduce((uint16_t*)gradient_buffer, (uint16_t*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
@@ -431,6 +425,22 @@ protected:
           default:
             throw std::logic_error("Unsupported data type");
       }
+  }
+
+  // TODO improve this API
+  virtual void AdasumInternal(void* gradient_buffer,
+                      void* recv_buffer,
+                      Communicator_type* node_comm,
+                      Communicator_type* reduction_comm_pool,
+                      Communicator_type local_comm,
+                      int layerid,
+                      TensorTableEntry entry)  {
+    int count = entry.tensor->size() / GetPerElementSize(entry);
+    int local_rank = 0;
+    local_rank = GetLocalRankWithComm(local_comm);
+    SyncLocalReduce(gradient_buffer, recv_buffer, local_comm, layerid, entry);
+    if (local_rank == 0 && node_comm != NULL) {
+      DispatchSyncAllreduce(gradient_buffer, recv_buffer, node_comm, reduction_comm_pool, layerid, entry);
     }
     SyncLocalBroadcast(gradient_buffer, local_comm, entry, layerid);
   }
