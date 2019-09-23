@@ -130,7 +130,7 @@ protected:
         this->PointToPointRecv(recv_buffer, (int64_t)buffer_len, data_type, neighbor_true_rank, layerid, communicator);
         
         double anormsq = 0, bnormsq = 0, dotProduct = 0;
-        this->ComputeDotAndNormSqrdsWrapper(grad_buffer, recv_buffer, data_type, count, dotProduct, anormsq, bnormsq, AdasumOp<Communicator_type>::global_state_, layerid);
+        ComputeDotAndNormSqrdsWrapper(grad_buffer, recv_buffer, data_type, count, dotProduct, anormsq, bnormsq, AdasumOp<Communicator_type>::global_state_, layerid);
         double acoeff = 1;
         double bcoeff = 1;
         if (anormsq >= 1e-8)
@@ -138,7 +138,7 @@ protected:
         if (bnormsq >= 1e-8)
   	    bcoeff = 1.0 - dotProduct / bnormsq * 0.5;
   
-        this->ScaledAddWrapper(data_type, count, acoeff, grad_buffer, bcoeff, recv_buffer, AdasumOp<Communicator_type>::global_state_, layerid);
+        ScaledAddWrapper(data_type, count, acoeff, grad_buffer, bcoeff, recv_buffer, AdasumOp<Communicator_type>::global_state_, layerid);
       }
       else {
         // send grad_buffer to neighbor

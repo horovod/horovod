@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 from distutils.version import LooseVersion
-from enum import Enum
 
 # Load all the necessary PyTorch C types.
 import torch
@@ -65,9 +64,11 @@ _handle_map = {}
 # Only support fp16 allreduce for PyTorch versions using v2 API.
 _fp16_supported = _v2_api
 
-class AllreduceType(Enum):
+class AllreduceType:
     SumAllreduce = 0
     Adasum = 1  
+
+adasum_algorithms = ["ADASUM_CPU_TREE","ADASUM_GPU_TREE","ADASUM_GPU_RING","ADASUM_GPU_NCCL_RING","ADASUM_GPU_AUTO"]
 
 def _check_function(function_factory, tensor):
     function = function_factory(tensor)

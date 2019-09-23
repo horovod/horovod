@@ -20,7 +20,6 @@ from __future__ import division
 from __future__ import print_function
 
 import re
-from enum import Enum
 import tensorflow as tf
 from tensorflow.python.framework import load_library
 from tensorflow.python.framework import ops
@@ -31,7 +30,9 @@ from horovod.common.basics import HorovodBasics as _HorovodBasics
 from horovod.tensorflow.util import _executing_eagerly
 
 
-class AllreduceType(Enum):
+adasum_algorithms = ["ADASUM_CPU_TREE","ADASUM_GPU_TREE","ADASUM_GPU_RING","ADASUM_GPU_NCCL_RING","ADASUM_GPU_AUTO"]
+
+class AllreduceType:
     SumAllreduce = 0
     Adasum = 1  
 

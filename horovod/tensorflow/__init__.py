@@ -33,6 +33,8 @@ from horovod.tensorflow.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_b
 from horovod.tensorflow.mpi_ops import gloo_enabled, gloo_built
 from horovod.tensorflow.mpi_ops import nccl_built, ddl_built, mlsl_built
 from horovod.tensorflow.mpi_ops import AllreduceType
+from horovod.tensorflow.mpi_ops import adasum_algorithms
+
 from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache
 
 import tensorflow as tf
@@ -249,8 +251,8 @@ if _LegacyOptimizer is not None:
 
             self._optimizer = optimizer
             adasum_enable = False
-            if 'HOROVOD_ADASUM_ENABLE' in os.environ:
-                adasum_enable = os.environ['HOROVOD_ADASUM_ENABLE']
+            if 'HOROVOD_ADASUM' in os.environ:
+                adasum_enable = os.environ['HOROVOD_ADASUM'] in adasum_algorithms
             allreduce_type = AllreduceType.Adasum if adasum_enable is not None and adasum_enable == '1' else AllreduceType.SumAllreduce
             self._allreduce_grads = _make_allreduce_grads_fn(
                 name, device_dense, device_sparse, compression, sparse_as_dense, allreduce_type)
@@ -345,8 +347,8 @@ if hasattr(tf, 'GradientTape'):
 
             self._tape = tape
             adasum_enable = False
-            if 'HOROVOD_ADASUM_ENABLE' in os.environ:
-                adasum_enable = os.environ['HOROVOD_ADASUM_ENABLE']
+            if 'HOROVOD_ADASUM' in os.environ:
+                adasum_enable = os.environ['HOROVOD_ADASUM'] in adasum_algorithms
             allreduce_type = AllreduceType.Adasum if adasum_enable is not None and adasum_enable == '1' else AllreduceType.SumAllreduce
             self._allreduce_grads = _make_allreduce_grads_fn(
                 'DistributedGradientTape', device_dense, device_sparse, compression,

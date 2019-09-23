@@ -160,6 +160,57 @@ Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
   return Status::OK();
 }
 
+void AdasumCudaAllreduceOp::AdasumInternal(void* gradient_buffer,
+                    void* recv_buffer,
+                    MPI_Comm* node_comm,
+                    MPI_Comm* reduction_comm_pool,
+                    MPI_Comm local_comm,
+                    int layerid,
+                    TensorTableEntry entry) {
+  int count = entry.tensor->size() / GetPerElementSize(entry);
+  int local_rank = 0;
+  local_rank = GetLocalRankWithComm(local_comm);
+  // TODO factor ring local reduce in here and choose algorithms based on tensor size, topology and etc
+  if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_TREE){
+    SyncLocalReduce(gradient_buffer, recv_buffer, local_comm, layerid, entry);
+  }
+  else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_RING)
+  {
+    throw std::logic_error("GPU Ring is not supportedf yet. Coming soon.");
+  }
+  else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_RING)
+  {
+    throw std::logic_error("GPU Ring is not supportedf yet. Coming soon.");
+  }
+  else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_NCCL_RING)
+  {
+    throw std::logic_error("GPU NCCL Ring is not supportedf yet. Coming soon.");
+  }
+  else
+  {
+    throw std::logic_error("Unsupported adasum reduction algorithm");
+  }
+
+  // TODO have a version of VHDD that performs asynchronously
+  if (local_rank == 0 && node_comm != NULL) {
+    switch(entry.tensor->dtype()) {
+        case DataType::HOROVOD_FLOAT16:
+          SyncAllreduce((uint16_t*)gradient_buffer, (uint16_t*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
+          break;
+        case DataType::HOROVOD_FLOAT32:
+          SyncAllreduce((float*)gradient_buffer, (float*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
+          break;
+        case DataType::HOROVOD_FLOAT64:
+          SyncAllreduce((double*)gradient_buffer, (double*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
+          break;
+        default:
+          throw std::logic_error("Unsupported data type");
+    }
+  }
+  SyncLocalBroadcast(gradient_buffer, local_comm, entry, layerid);
+
+}
+
 void AdasumCudaAllreduceOp::MemcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) {
     assert(dest != nullptr);
     assert(src != nullptr);

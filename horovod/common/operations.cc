@@ -151,7 +151,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #if HOROVOD_GPU_ALLREDUCE == 'M'
     if (state.adasum_algorithm != AdasumAlgorithm::NONE){
         LOG(INFO) << "AdaSum allreduce GPU enabled.";
-        adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumCudaRingAllreduceOp(&mpi_context, &cuda_context, &state)));
+        adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumCudaAllreduceOp(&mpi_context, &cuda_context, &state)));
     }
     allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
         new MPI_CUDAAllreduce(&mpi_context, &cuda_context, &state)));

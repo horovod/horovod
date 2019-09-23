@@ -37,6 +37,14 @@ class AdasumCudaAllreduceOp : public AdasumMPIOp {
   virtual void InitCUDA(const TensorTableEntry& entry, int layerid);
 
   void FinalizeCUDA();
+  
+  void AdasumInternal(void* gradient_buffer,
+                      void* recv_buffer,
+                      MPI_Comm* node_comm,
+                      MPI_Comm* reduction_comm_pool,
+                      MPI_Comm local_comm,
+                      int layerid,
+                      TensorTableEntry entry) override;
 
   void MemcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) override;
 
