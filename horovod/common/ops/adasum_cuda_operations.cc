@@ -76,6 +76,41 @@ void AdasumCudaAllreduceOp::FinalizeCUDA() {
   }
 }
 
+void AdasumCudaAllreduceOp::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
+                                 const std::vector<int32_t>& nccl_device_map) {
+  // Ensure NCCL communicator is in the map before executing reduction.
+  ncclComm_t& nccl_comm = nccl_context_->nccl_comms[global_state_->current_nccl_stream][nccl_device_map];
+  if (nccl_comm == nullptr) {
+    auto& timeline = global_state_->timeline;
+    timeline.ActivityStartAll(entries, INIT_NCCL);
+
+    int nccl_rank = global_state_->controller->GetLocalRank();
+    int nccl_size = global_state_->controller->GetLocalSize();
+    Communicator nccl_id_bcast_comm = Communicator::LOCAL;
+
+    ncclUniqueId nccl_id;
+    if (nccl_rank == 0) {
+      nccl_context_->ErrorCheck("ncclGetUniqueId", ncclGetUniqueId(&nccl_id));
+    }
+
+    global_state_->controller->Bcast((void*)&nccl_id, sizeof(nccl_id), 0,
+                                     nccl_id_bcast_comm);
+
+    ncclComm_t new_nccl_comm;
+    auto nccl_result = ncclCommInitRank(&new_nccl_comm, nccl_size, nccl_id, nccl_rank);
+    nccl_context_->ErrorCheck("ncclCommInitRank", nccl_result);
+    nccl_comm = new_nccl_comm;
+
+    // Barrier helps NCCL to synchronize after initialization and avoid
+    // deadlock that we've been seeing without it.
+    global_state_->controller->Barrier(Communicator::GLOBAL);
+
+    timeline.ActivityEndAll(entries);
+  }
+
+  nccl_comm_ = &nccl_comm;
+}
+
 Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
       if(entries.size() < 1) {
       return Status::OK();
@@ -209,6 +244,96 @@ void AdasumCudaAllreduceOp::AdasumInternal(void* gradient_buffer,
   }
   SyncLocalBroadcast(gradient_buffer, local_comm, entry, layerid);
 
+}
+
+void AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries
+                    MPI_Comm* node_comm,
+                    MPI_Comm* reduction_comm_pool) {
+  auto& first_entry = entries[0];
+
+  // Determine GPU IDs of the devices participating in this communicator.
+  std::vector<int32_t> nccl_device_map;
+  nccl_device_map.reserve(
+      global_state_->controller->GetLocalCommRanks().size());
+  for (int rank : global_state_->controller->GetLocalCommRanks()) {
+    nccl_device_map.push_back(response.devices()[rank]);
+  }
+
+  InitCUDA(entries);
+  InitNCCLComm(entries, nccl_device_map);
+  InitCUDAQueue(entries, response);
+
+  bool is_root_rank = global_state_->controller->GetLocalRank() == 0;
+
+  std::vector<std::unique<char[]>> host_buffers;
+  std::vector<cudaEvent_t> events(entries.size());
+
+  for (size_t i = 0; i < entries.size(); ++i) {
+    auto& entry = entries.at(i);
+    const void* input_data = entry.tensor->data();
+    void* buffer_data = (void*) entry.output->data();
+    size_t buffer_len = (size_t) entry.output->size();
+    int num_elements = entry.tensor->shape().num_elements();
+
+    auto nccl_result = ncclReduce(input_data,
+                                  buffer_data,
+                                  (size_t) num_elements,
+                                  GetNCCLDataType(entry.tensor),
+                                  ncclSum, 0, *nccl_comm_, *stream_);
+    nccl_context_->ErrorCheck("ncclReduce", nccl_result);
+
+    if (is_root_rank) {
+      host_buffers.emplace_back(new char[buffer_len]);
+      void* host_buffer = (void*)host_buffers[i].data();
+
+      cuda_context_->ErrorCheck("cudaMemcpyAsync",
+                                cudaMemcpyAsync(host_buffer, buffer_data,
+                                                buffer_len, cudaMemcpyDeviceToHost,
+                                                *stream_));
+
+      auto& event = events[i];
+      cuda_context_->ErrorCheck("GetCudaEvent", cuda_context_->GetCudaEvent(&event));
+      cuda_context_->ErrorCheck("cudaEventRecord", cudaEventRecord(event, *stream_));
+    }
+  }
+
+  if (is_root_rank) {
+    std::vector<char> recv_buffer;
+    for (size_t i = 0; i < entries.size(); ++i) {
+      auto& entry = entries.at(i);
+      void* buffer_data = (void*) entry.output->data();
+      size_t buffer_len = (size_t) entry.output->size();
+      int num_elements = entry.tensor->shape().num_elements();
+      auto host_buffer = (void*)host_buffers[i].data();
+      auto& event = events[i];
+
+      cuda_context_->ErrorCheck("cudaEventSynchronize", cudaEventSynchronize(event));
+      cuda_context_->ErrorCheck("ReleaseCudaEvent", cuda_context_->ReleaseCudaEvent(event));
+
+      recv_buffer.resize(buffer_len);
+      DispatchSyncAllreduce(host_buffer, recv_buffer.data(), node_comm, reduction_comm_pool, i, entry);
+
+      cuda_context_->ErrorCheck("cudaMemcpyAsync",
+                                cudaMemcpyAsync(buffer_data, host_buffer,
+                                                buffer_len, cudaMemcpyHostToDevice,
+                                                *stream_));
+    }
+  }
+
+  for (size_t i = 0; i < entries.size(); ++i) {
+    auto& entry = entries.at(i);
+    void* buffer_data = (void*) entry.output->data();
+    int num_elements = entry.tensor->shape().num_elements();
+
+    nccl_context_->ErrorCheck("ncclBcast",
+                              ncclBcast(buffer_data,
+                                        (size_t) num_elements,
+                                        GetNCCLDataType(entry.tensor),
+                                        0,
+                                        *nccl_comm_, *stream_));
+  }
+
+  FinalizeCUDAQueue(entries);
 }
 
 void AdasumCudaAllreduceOp::MemcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) {

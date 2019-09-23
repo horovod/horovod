@@ -3,6 +3,7 @@
 #define HOROVOD_ADASUM_CUDA_OPERATIONS_H
 
 #include <array>
+#include <nccl.h>
 #include "adasum_mpi_operations.h"
 #include "cuda_operations.h"
 #include "cuda_fp16.h"
@@ -26,6 +27,8 @@ class AdasumCudaAllreduceOp : public AdasumMPIOp {
 
   protected:
   struct CUDAContext* cuda_context_;
+  NCCLContext* nccl_context_;
+  ncclComm_t* nccl_comm_;
 
   // This map stores variables we will use to do AdaSum reduction on GPU with
   // elements in tuple being:
@@ -38,6 +41,9 @@ class AdasumCudaAllreduceOp : public AdasumMPIOp {
 
   void FinalizeCUDA();
   
+  void InitNCCLComm(const std::vector<TensorTableEntry>& entries,
+                    const std::vector<int32_t>& nccl_device_map);
+
   void AdasumInternal(void* gradient_buffer,
                       void* recv_buffer,
                       MPI_Comm* node_comm,
@@ -45,6 +51,8 @@ class AdasumCudaAllreduceOp : public AdasumMPIOp {
                       MPI_Comm local_comm,
                       int layerid,
                       TensorTableEntry entry) override;
+
+  void NcclHierarchical(std::vector<TensorTableEntry>& entries);
 
   void MemcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) override;
 
