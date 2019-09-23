@@ -5,14 +5,14 @@
 #include <deque>
 #include <typeinfo>
 
-#include "adasum_operations.h"
+#include "adasum_cuda_operations.h"
 #include "cuda_operations.h"
 #include "cuda_fp16.h"
 
 namespace horovod {
 namespace common {
 
-class AdasumCudaRingAllreduceOp : public AdasumOp {
+class AdasumCudaRingAllreduceOp : public AdasumCudaAllreduceOp {
   public:
   AdasumCudaRingAllreduceOp(MPIContext* mpi_context, CUDAContext* cuda_context,
                 HorovodGlobalState* global_state);
@@ -29,7 +29,7 @@ class AdasumCudaRingAllreduceOp : public AdasumOp {
   struct CUDAContext* cuda_context_;
   std::deque<FusionBufferManager> buffer_managers_;
 
-  void InitCUDA(const TensorTableEntry& entry, int layerid);
+  void InitCUDA(const TensorTableEntry& entry, int layerid) override;
   void MemcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) override;
 };
 

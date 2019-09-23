@@ -1,6 +1,5 @@
 //TODO license
 #include "adasum_cuda_operations.h"
-#include "adasum_cuda_kernels.h"
 #include <boost/asio/post.hpp>
 
 namespace horovod {
@@ -9,7 +8,7 @@ namespace common {
 std::unordered_map<std::thread::id, std::array<double*, 3>> AdasumCudaAllreduceOp::thread_to_device_variable_map;
 
 AdasumCudaAllreduceOp::AdasumCudaAllreduceOp(MPIContext* mpi_context, CUDAContext* cuda_context, HorovodGlobalState* global_state)
-    : AdasumOp(mpi_context, global_state), cuda_context_(cuda_context) {
+    : AdasumMPIOp(mpi_context, global_state), cuda_context_(cuda_context) {
 }
 
 AdasumCudaAllreduceOp::~AdasumCudaAllreduceOp() {
@@ -134,41 +133,14 @@ Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
     
       // This will create a stream per layer.
       InitCUDA(entry, layerid);
-      switch (entry.output->dtype()) {
-          case HOROVOD_FLOAT16:
-            AdasumInternal((uint16_t*) buffer_data,
-                            (uint16_t*) recv_buffer,
-                            buffer_len,
-                            node_comm,
-                            layerid,
-                            entry,
-                            DotProductImpl<uint16_t>,
-                            ScaleAddImpl<uint16_t>);  
-          break;
-          case HOROVOD_FLOAT32:
-            AdasumInternal((float*) buffer_data,
-                            (float*) recv_buffer,
-                            buffer_len,
-                            node_comm,
-                            layerid,
-                            entry,
-                            DotProductImpl<float>,
-                            ScaleAddImpl<float>);  
-          break;
-          case HOROVOD_FLOAT64:
-            AdasumInternal((double*) buffer_data,
-                            (double*) recv_buffer,
-                            buffer_len,
-                            node_comm,
-                            layerid,
-                            entry,
-                            DotProductImpl<double>,
-                            ScaleAddImpl<double>);  
-          
-          break;
-          default:
-            throw std::logic_error("AdaSumOp::Execute: Unsupported data type.");
-      }
+      AdasumInternal(buffer_data,
+                     recv_buffer,
+                     node_comm,
+                     global_state_->reduction_comms,
+                     global_state_->local_comm,
+                     layerid,
+                     entry);  
+
       if(entry.tensor->data() == entry.output->data()) {
         // Return the buffer back into the pool of available buffers
         global_state_->buffer_lock.lock();
@@ -186,7 +158,6 @@ Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
     std::this_thread::sleep_for(std::chrono::nanoseconds(50));
   }
   return Status::OK();
-
 }
 
 void AdasumCudaAllreduceOp::MemcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) {
@@ -201,22 +172,51 @@ void AdasumCudaAllreduceOp::MemcpyUtil(TensorTableEntry entry, void* dest, void*
     cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_sync_result);
 }
 
-template<typename T>
-void AdasumCudaAllreduceOp::DotProductImpl(const T* __restrict__  a, 
-                                       const T* __restrict__ b, 
-                                       int n, 
-                                       double& dotProduct, 
-                                       double& anormsq, 
-                                       double& bnormsq, 
-                                       HorovodGlobalState *global_state,
-                                       int layerid) {
-  auto thread_id = std::this_thread::get_id();
-  CudaDotProductImpl(n, a, b, thread_to_device_variable_map[thread_id][0], thread_to_device_variable_map[thread_id][1], thread_to_device_variable_map[thread_id][2], anormsq, bnormsq, dotProduct);
+void AdasumCudaAllreduceOp::ComputeDotAndNormSqrdsWrapper(const void* __restrict__ a,
+                                                          const void* __restrict__ b,
+                                                          DataType horovod_datatype,
+                                                          int count,
+                                                          double& dotProduct,
+                                                          double& anormsq,
+                                                          double& bnormsq,
+                                                          HorovodGlobalState *global_state,
+                                                          int layerid) {
+  if (horovod_datatype == DataType::HOROVOD_FLOAT16) {
+    DotProductImpl((uint16_t*)a, (uint16_t*)b, count, dotProduct, anormsq, bnormsq, global_state_, layerid);
+  }
+  else if (horovod_datatype == DataType::HOROVOD_FLOAT32) {
+    DotProductImpl((float*)a, (float*)b, count, dotProduct, anormsq, bnormsq, global_state_, layerid);
+  }
+  else if (horovod_datatype == DataType::HOROVOD_FLOAT32) {
+    DotProductImpl((double*)a, (double*)b, count, dotProduct, anormsq, bnormsq, global_state_, layerid);      
+  }
+  else {
+      throw std::logic_error("Unsupported data type.");
+  }
+
 }
 
-template<typename T>
-void AdasumCudaAllreduceOp::ScaleAddImpl(int n, double acoeff, T* __restrict__ a, double bcoeff, T* __restrict__ b, HorovodGlobalState *global_state, int layerid) {
-  CudaScaleAddImpl(n, a, b, acoeff, bcoeff);
+void AdasumCudaAllreduceOp::ScaledAddWrapper(DataType horovod_datatype,
+                                             int count,
+                                             double acoeff,
+                                             void* __restrict__ a,
+                                             double bcoeff,
+                                             void* __restrict__ b,
+                                             HorovodGlobalState *global_state,
+                                             int layerid) {
+  if (horovod_datatype == DataType::HOROVOD_FLOAT16) {
+    ScaleAddImpl(count, acoeff, (uint16_t*)a, bcoeff, (uint16_t*)b, global_state_, layerid);
+  }
+  else if (horovod_datatype == DataType::HOROVOD_FLOAT32) {
+    ScaleAddImpl(count, acoeff, (float*)a, bcoeff, (float*)b, global_state_, layerid);
+  }
+  else if (horovod_datatype == DataType::HOROVOD_FLOAT32) {
+    ScaleAddImpl(count, acoeff, (double*)a, bcoeff, (double*)b, global_state_, layerid);
+  }
+  else {
+      throw std::logic_error("Unsupported data type.");
+  }
+  
 }
 
 bool AdasumCudaAllreduceOp::Enabled(const ParameterManager& param_manager,

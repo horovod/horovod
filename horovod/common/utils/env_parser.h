@@ -43,6 +43,8 @@ int GetIntEnvOrDefault(const char* env_variable, int default_value);
 
 double GetDoubleEnvOrDefault(const char* env_variable, double default_value);
 
+AdasumAlgorithm ParseAdasumAlgorithm(const char* env_variable);
+
 } // namespace common
 } // namespace horovod
 

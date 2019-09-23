@@ -15,85 +15,45 @@
 namespace horovod {
 namespace common {
 
+template<typename Communicator_type>
 class PointToPointOp : public AllreduceOp {
 public:
-  PointToPointOp(MPIContext* mpi_context, HorovodGlobalState* global_state);
-  bool Enabled(const ParameterManager& param_manager,
-                           const std::vector<TensorTableEntry>& entries,
-                           const Response& response) const override;
+  PointToPointOp(HorovodGlobalState* global_state) : AllreduceOp(global_state) {};
   virtual ~PointToPointOp() = default;
 
 protected:
-  MPIContext* mpi_context_;
-  template<class T>
-  void PointToPointSend(void* input_data_buffer,
-                        int64_t buffer_length,
-                        int dest_rank,
-                        int tag,
-                        Communicator communicator) {
-    int status;                       
-    if (!global_state_->msg_chunk_enabled) {
-        status = MPI_Send(input_data_buffer,
-                          (int)buffer_length,
-                          MPI_CHAR,
-                          dest_rank,
-                          tag,
-                          mpi_context_->GetMPICommunicator(communicator));
+  virtual void PointToPointSend(void* input_data_buffer,
+                                int64_t buffer_length,
+                                DataType horovod_datatype,
+                                int dest_rank,
+                                int tag,
+                                Communicator_type communicator) = 0;
 
-    }
-    else {
-          const int chunk_size = P2P_MESSAGE_CHUNK_SIZE / sizeof(T);
-          for (int buf_index = 0; buf_index < buffer_length; buf_index += chunk_size) {
-            status = MPI_Send((uint8_t *)input_data_buffer + buf_index,
-                              std::min((int)buffer_length - buf_index, chunk_size) * sizeof(T),
-                              MPI_CHAR,
-                              dest_rank,
-                              tag,
-                              mpi_context_->GetMPICommunicator(communicator));
-            status &= status;
-          }
-    }
+  virtual void PointToPointRecv(void* output_data_buffer,
+                                int64_t buffer_length,
+                                DataType horovod_datatype,
+                                int src_rank,
+                                int tag,
+                                Communicator_type communicator) = 0;
 
-    if (status != MPI_SUCCESS) {
-      throw std::logic_error("MPI_Send failed, see MPI output for details.");
-    }
-  }
+  virtual void PointToPointSendRecv(void* input_data_buffer,
+                                    int64_t input_buffer_length,
+                                    DataType input_horovod_datatype,
+                                    int dst_rank,
+                                    int send_tag,
+                                    void* output_data_buffer,
+                                    int64_t output_buffer_length,
+                                    DataType output_horovod_datatype,
+                                    int src_rank,
+                                    int recv_tag,
+                                    Communicator_type communicator) = 0;
 
-  template<class T>
-  void PointToPointRecv(T* output_data_buffer,
-                        int64_t buffer_length,
-                        int src_rank,
-                        int tag,
-                        Communicator communicator) {
-    int status;
-    if (!global_state_->msg_chunk_enabled) {
-        status = MPI_Recv(output_data_buffer,
-                          (int)buffer_length,
-                          MPI_CHAR,
-                          src_rank,
-                          tag,
-                          mpi_context_->GetMPICommunicator(communicator),
-                          MPI_STATUS_IGNORE);
-    }
-    else {
-          const int chunk_size = P2P_MESSAGE_CHUNK_SIZE / sizeof(T);
-          for (int buf_index = 0; buf_index < buffer_length; buf_index += chunk_size) {
-            status = MPI_Recv((uint8_t *)output_data_buffer + buf_index,
-                              std::min((int)buffer_length - buf_index, chunk_size) * sizeof(T),
-                              MPI_CHAR,
-                              src_rank,
-                              tag,
-                              mpi_context_->GetMPICommunicator(communicator),
-                              MPI_STATUS_IGNORE);
-            status &= status;
-          }
-    }
-
-    if (status != MPI_SUCCESS) {
-      throw std::logic_error("MPI_Recv failed, see MPI output for details.");
-    }
-  }
-
+  virtual void P2pAllreduce(void *grad_buffer, 
+                            void *recv_buffer, 
+                            int64_t buffer_length, 
+                            DataType horovod_datatype,
+                            Communicator_type communicator,
+                            int message_tag) = 0;
 };
 
 } // namespace common

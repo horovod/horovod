@@ -3,17 +3,19 @@
 #define HOROVOD_ADASUM_CUDA_OPERATIONS_H
 
 #include <array>
-#include "adasum_operations.h"
+#include "adasum_mpi_operations.h"
 #include "cuda_operations.h"
 #include "cuda_fp16.h"
+#include "adasum_cuda_kernels.h"
 
 namespace horovod {
 namespace common {
 
-class AdasumCudaAllreduceOp : public AdasumOp {
+class AdasumCudaAllreduceOp : public AdasumMPIOp {
   public:
-  AdasumCudaAllreduceOp(MPIContext* mpi_context, CUDAContext* cuda_context,
-                HorovodGlobalState* global_state);
+  AdasumCudaAllreduceOp(MPIContext* mpi_context,
+                        CUDAContext* cuda_context,
+                        HorovodGlobalState* global_state);
   ~AdasumCudaAllreduceOp();
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
@@ -32,11 +34,21 @@ class AdasumCudaAllreduceOp : public AdasumOp {
   // 3: dotproduct
   static std::unordered_map<std::thread::id, std::array<double*, 3>> thread_to_device_variable_map;
 
-  void InitCUDA(const TensorTableEntry& entry, int layerid);
+  virtual void InitCUDA(const TensorTableEntry& entry, int layerid);
 
   void FinalizeCUDA();
 
   void MemcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) override;
+
+  void ComputeDotAndNormSqrdsWrapper(const void* __restrict__ a,
+                                     const void* __restrict__ b,
+                                     DataType horovod_datatype,
+                                     int count,
+                                     double& dotProduct,
+                                     double& anormsq,
+                                     double& bnormsq,
+                                     HorovodGlobalState *global_state,
+                                     int layerid) override;
 
   template<typename T>
   void static DotProductImpl(const T* __restrict__  a,
@@ -46,10 +58,25 @@ class AdasumCudaAllreduceOp : public AdasumOp {
                              double& anormsq, 
                              double& bnormsq, 
                              HorovodGlobalState *global_state,
-                             int layerid);
-  
+                             int layerid) {
+    auto thread_id = std::this_thread::get_id();
+    CudaDotProductImpl(n, a, b, thread_to_device_variable_map[thread_id][0], thread_to_device_variable_map[thread_id][1], thread_to_device_variable_map[thread_id][2], anormsq, bnormsq, dotProduct);
+
+  }
+
+  void ScaledAddWrapper(DataType horovod_datatype,
+                        int count,
+                        double acoeff,
+                        void* __restrict__ a,
+                        double bcoeff,
+                        void* __restrict__ b,
+                        HorovodGlobalState *global_state,
+                        int layerid) override;
+
   template<typename T>
-  void static ScaleAddImpl(int n, double acoeff, T* __restrict__ a, double bcoeff, T* __restrict__ b, HorovodGlobalState *global_state, int layerid);
+  void static ScaleAddImpl(int n, double acoeff, T* __restrict__ a, double bcoeff, T* __restrict__ b, HorovodGlobalState *global_state, int layerid) {
+    CudaScaleAddImpl(n, a, b, acoeff, bcoeff);
+  }
 };
 } // namespace common
 } // namespace horovod

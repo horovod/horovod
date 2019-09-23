@@ -28,9 +28,6 @@ namespace horovod {
 namespace common {
 
 // Activity names, see Horovod Timeline for more details.
-#define HOROVOD_MPI_P2P_MESSAGE_CHUNK_ENABLE "HOROVOD_MPI_P2P_MESSAGE_CHUNK_ENABLE"
-#define HOROVOD_ADASUM_ENABLE "HOROVOD_ADASUM_ENABLE"
-#define HOROVOD_NUM_OF_ADASUM_REDUCTION_THREADS "HOROVOD_NUM_OF_ADASUM_REDUCTION_THREADS"
 #define INIT_FUSION_BUFFER "INIT_FUSION_BUFFER"
 #define WAIT_FOR_DATA "WAIT_FOR_DATA"
 #define WAIT_FOR_OTHER_TENSOR_DATA "WAIT_FOR_OTHER_TENSOR_DATA"
@@ -61,6 +58,12 @@ namespace common {
 #define GLOO_BCAST "GLOO_BCAST"
 #define POINT_TO_POINT_SEND "POINT_TO_POINT_SEND"
 #define POINT_TO_POINT_RECEIVE "POINT_TO_POINT_RECEIVE"
+#define ADASUM_CPU_TREE "ADASUM_CPU_TREE"
+#define ADASUM_GPU_TREE "ADASUM_GPU_TREE"
+#define ADASUM_GPU_RING "ADASUM_GPU_RING"
+#define ADASUM_GPU_NCCL_RING "ADASUM_GPU_NCCL_RING"
+#define ADASUM_GPU_AUTO "ADASUM_GPU_AUTO"
+
 
 // Horovod knobs.
 #define HOROVOD_MPI_THREADS_DISABLE "HOROVOD_MPI_THREADS_DISABLE"
@@ -88,6 +91,10 @@ namespace common {
 #define HOROVOD_MPI "MPI"
 #define HOROVOD_MLSL "MLSL"
 #define HOROVOD_GLOO "GLOO"
+#define HOROVOD_MPI_P2P_MESSAGE_CHUNK_ENABLE "HOROVOD_MPI_P2P_MESSAGE_CHUNK_ENABLE"
+#define HOROVOD_ADASUM "HOROVOD_ADASUM"
+#define HOROVOD_NUM_OF_ADASUM_REDUCTION_THREADS "HOROVOD_NUM_OF_ADASUM_REDUCTION_THREADS"
+
 
 // String constant for gloo interface.
 #define GLOO_DEFAULT_IFACE "eth0"
@@ -103,6 +110,16 @@ namespace common {
 // Point-to-Point communication message chunk size for RDMA
 #define P2P_MESSAGE_CHUNK_SIZE (1 << 15)
 
+// Lis of algorithms supported by adasum reduction
+enum AdasumAlgorithm {
+  NONE = 0,
+  CPU_TREE = 1,
+  GPU_TREE = 2,
+  GPU_RING = 3,
+  GPU_NCCL_RING = 4,
+  GPU_AUTO = 5
+};
+
 // List of supported frameworks.
 enum Framework { TENSORFLOW, PYTORCH, MXNET };
 
@@ -113,7 +130,8 @@ enum DeviceType { CPU, GPU };
 enum Communicator {
   GLOBAL = 0,
   LOCAL = 1,
-  CROSS = 2
+  CROSS = 2,
+  COMM_POOL=3
 };
 
 inline std::string CommunicatorName(Communicator comm) {

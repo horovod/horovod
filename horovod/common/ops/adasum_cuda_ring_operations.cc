@@ -1,6 +1,5 @@
 //TODO license
 #include "adasum_cuda_ring_operations.h"
-#include "adasum_cuda_kernels.h"
 
 namespace horovod {
 namespace common {
@@ -18,7 +17,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 }
 
 AdasumCudaRingAllreduceOp::AdasumCudaRingAllreduceOp(MPIContext* mpi_context, CUDAContext* cuda_context, HorovodGlobalState* global_state)
-    : AdasumOp(mpi_context, global_state), mpi_context_(mpi_context), cuda_context_(cuda_context) {
+    : AdasumCudaAllreduceOp(mpi_context, cuda_context, global_state) {
     }
 
 void AdasumCudaRingAllreduceOp::InitCUDA(const TensorTableEntry& entry, int layerid) {
@@ -147,47 +146,19 @@ Status AdasumCudaRingAllreduceOp::Execute(std::vector<TensorTableEntry>& entries
       cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_result);
 
       MPI_Comm* node_comm = &global_state_->reduction_comms[global_state_->rank_log_size-1];
-      switch (entry.output->dtype()) {
-          case HOROVOD_FLOAT16:
-            SyncAllreduce(
-              (uint16_t*) buffer_data,
-              (uint16_t*) recv_buffer.get(),
-              buffer_len / sizeof(uint16_t),
-              *node_comm,
-              global_state_->reduction_comms,
-              layerid,
-              entry,
-              ComputeDotAndNormSqrdsfp16,
-              ScaledAddfp16);
+      switch(entry.tensor->dtype()) {
+        case DataType::HOROVOD_FLOAT16:
+          SyncAllreduce((uint16_t*)buffer_data, (uint16_t*)recv_buffer.get(), *node_comm, global_state_->reduction_comms, layerid, entry);
           break;
-          case HOROVOD_FLOAT32:
-            SyncAllreduce(
-              (float*) buffer_data,
-              (float*) recv_buffer.get(),
-              buffer_len / sizeof(float),
-              *node_comm,
-              global_state_->reduction_comms,
-              layerid,
-              entry,
-              ComputeDotAndNormSqrds<float>,
-              ScaledAdd<float>);
+        case DataType::HOROVOD_FLOAT32:
+          SyncAllreduce((float*)buffer_data, (float*)recv_buffer.get(), *node_comm, global_state_->reduction_comms, layerid, entry);
           break;
-          case HOROVOD_FLOAT64:
-            SyncAllreduce(
-              (double*) buffer_data,
-              (double*) recv_buffer.get(),
-              buffer_len / sizeof(double),
-              *node_comm,
-              global_state_->reduction_comms,
-              layerid,
-              entry,
-              ComputeDotAndNormSqrds<double>,
-              ScaledAdd<double>);
+        case DataType::HOROVOD_FLOAT64:
+          SyncAllreduce((double*)buffer_data, (double*)recv_buffer.get(), *node_comm, global_state_->reduction_comms, layerid, entry);
           break;
-          default:
-            throw std::logic_error("AdaSumOp::Execute: Unsupported data type.");
+        default:
+          throw std::logic_error("Unsupported data type");
       }
-
       // start the copy back to device
       cuda_result = cudaMemcpyAsync(
         (void*) entry.tensor->data(), buffer_data,
