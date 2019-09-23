@@ -195,6 +195,27 @@ Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
   return Status::OK();
 }
 
+void DispatchSyncAllreduce(void* gradient_buffer,
+                    void* recv_buffer,
+                    MPI_Comm* node_comm,
+                    MPI_Comm* reduction_comm_pool,
+                    int layerid,
+                    TensorTableEntry entry) {
+    switch(entry.tensor->dtype()) {
+        case DataType::HOROVOD_FLOAT16:
+          SyncAllreduce((uint16_t*)gradient_buffer, (uint16_t*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
+          break;
+        case DataType::HOROVOD_FLOAT32:
+          SyncAllreduce((float*)gradient_buffer, (float*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
+          break;
+        case DataType::HOROVOD_FLOAT64:
+          SyncAllreduce((double*)gradient_buffer, (double*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
+          break;
+        default:
+          throw std::logic_error("Unsupported data type");
+    }
+}
+
 void AdasumCudaAllreduceOp::AdasumInternal(void* gradient_buffer,
                     void* recv_buffer,
                     MPI_Comm* node_comm,
@@ -228,19 +249,7 @@ void AdasumCudaAllreduceOp::AdasumInternal(void* gradient_buffer,
 
   // TODO have a version of VHDD that performs asynchronously
   if (local_rank == 0 && node_comm != NULL) {
-    switch(entry.tensor->dtype()) {
-        case DataType::HOROVOD_FLOAT16:
-          SyncAllreduce((uint16_t*)gradient_buffer, (uint16_t*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
-          break;
-        case DataType::HOROVOD_FLOAT32:
-          SyncAllreduce((float*)gradient_buffer, (float*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
-          break;
-        case DataType::HOROVOD_FLOAT64:
-          SyncAllreduce((double*)gradient_buffer, (double*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
-          break;
-        default:
-          throw std::logic_error("Unsupported data type");
-    }
+    DispatchSyncAllreduce(gradient_buffer, recv_buffer, node_comm, reduction_comm_pool, layerid, entry);
   }
   SyncLocalBroadcast(gradient_buffer, local_comm, entry, layerid);
 
