@@ -12,9 +12,6 @@ from datetime import datetime
 import horovod.tensorflow as hvd
 from horovod.tensorflow import AllreduceType
 
-config = tf.ConfigProto()
-config.gpu_options.allow_growth = True
-
 def adasum_reference_operation(a,b):
     assert a.size == b.size
     assert a.size > 0 and b.size > 0
@@ -39,25 +36,29 @@ class MPITests(tf.test.TestCase):
     def __init__(self, *args, **kwargs):
         super(MPITests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
+        hvd.init()
+        self.config = tf.ConfigProto()
+        self.config.gpu_options.allow_growth = True
+        self.config.gpu_options.visible_device_list = str(hvd.local_rank())
+
     def evaluate(self, tensors):
         sess = ops.get_default_session()
         if sess is None:
-            with self.test_session(config=config) as sess:
+            with self.test_session(config=self.config) as sess:
                 return sess.run(tensors)
         else:
             return sess.run(tensors)
 
 
     def test_horovod_multiple_allreduce_cpu(self):
-        """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors."""
-        hvd.init()
+        """Test on CPU that the Adasum correctly computes 2D tensors."""
         size = hvd.size()
         rank0_tensors = [np.asarray([[1.0, 2.0], [3.0, 4.0]]), np.asarray([[9.0, 10.0], [11.0, 12.0]])]
         rank1_tensors = [np.asarray([[5.0, 6.0], [7.0, 8.0]]), np.asarray([[13.0, 14.0], [15.0, 16.0]])]
 
         expected = []
         for a,b in zip(rank0_tensors, rank1_tensors):
-            answer = AdaSum_reference_operation(a, b)
+            answer = adasum_reference_operation(a, b)
             expected.append(answer)
 
         for dtype in [tf.float16, tf.float32, tf.float64]:
@@ -76,32 +77,20 @@ class MPITests(tf.test.TestCase):
                 self.assertAllClose(tmp, reduced_tensors)
 
     def test_horovod_multiple_allreduce_gpu(self):
-        """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors."""
-        hvd.init()
+        """Test on GPU that the Adasum correctly computes 2D tensors."""
         size = hvd.size()
         print("Testing with {} ranks.".format(size))
-        all_tensors = []
-        for i in range(8):
-            # all_tensors.append([np.asarray([[(1.0), (2.0)], [(3.0), (4.0)]]), np.asarray([[(5.0), (6.0)], [(7.0), (8.0)]])])
-            # all_tensors.append([np.asarray([[(1.0+i), (2.0+i)], [(3.0+i), (4.0+i)]]), np.asarray([[(5.0+i), (6.0+i)], [(7.0+i), (8.0+i)]])])
-            all_tensors.append([np.asarray([(1.0+i), (1.0+i)])])
-            # all_tensors.append([np.asarray([[(1.0+i)*(i==0), (2.0+i)*(i==1)], [(3.0+i)*(i==2), (4.0+i)*(i==3)]]), np.asarray([[(5.0+i)*(i==0), (6.0+i)*(i==1)], [(7.0+i)*(i==2), (8.0+i)*(i==3)]])])
 
-
-        # rank0_tensors = [np.asarray([[1.0, 2.0], [3.0, 4.0]]), np.asarray([[9.0, 10.0], [11.0, 12.0]])]
-        # rank1_tensors = [np.asarray([[1.0, 2.0], [3.0, 4.0]]), np.asarray([[9.0, 10.0], [11.0, 12.0]])]
-        # rank0_tensors = [np.asarray([[9.0, 10.0], [11.0, 12.0]])]
-        # rank1_tensors = [np.asarray([[9.0, 10.0], [11.0, 12.0]])]
-
-        expected = all_tensors[0]
-        for i in [3, 2, 1, 5, 6, 7, 4]:
-            answer0 = adasum_reference_operation(expected[0], all_tensors[i][0])
-            expected = [answer0]
+        rank0_tensors = [np.asarray([[1.0, 2.0], [3.0, 4.0]]), np.asarray([[9.0, 10.0], [11.0, 12.0]])]
+        rank1_tensors = [np.asarray([[1.0, 2.0], [3.0, 4.0]]), np.asarray([[9.0, 10.0], [11.0, 12.0]])]
+        expected = []
+        for a,b in zip(rank0_tensors, rank1_tensors):
+            answer = adasum_reference_operation(a, b)
+            expected.append(answer)
         rank_num = hvd.local_rank()
-        for dtype in [tf.float32]:
-            with tf.device("/gpu:{}".format(rank_num)):
-                tensors = map(tf.constant, all_tensors[hvd.rank()])
-                # tensors = map(tf.constant, rank0_tensors if hvd.rank() == 0 else rank1_tensors)
+        for dtype in [tf.float16, tf.float32, tf.float64]:
+            #with tf.device("/gpu:%d" % rank_num):
+                tensors = map(tf.constant, rank0_tensors if rank_num == 0 else rank1_tensors)
                 # cast to the corresponding dtype
                 tensors = map(lambda tensor: tf.cast(tensor, dtype), tensors)
                 # and away we go: do reduction
@@ -113,10 +102,6 @@ class MPITests(tf.test.TestCase):
                 np_type = dtype.as_numpy_dtype
                 tmp = [t.astype(np_type) for t in expected]
                 self.assertAllClose(tmp, reduced_tensors)
-
-    def test_horovod_multithread_init(self):
-        """Test thread pool init"""
-        hvd.init()
 
 if __name__ == '__main__':
     tf.test.main()

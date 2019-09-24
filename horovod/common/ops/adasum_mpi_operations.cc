@@ -5,7 +5,54 @@
 namespace horovod {
 namespace common {
 AdasumMPIOp::AdasumMPIOp(MPIContext* mpi_context, HorovodGlobalState* global_state)
-    : AdasumOp(global_state), mpi_context_(mpi_context) {}
+    : AdasumOp(global_state), mpi_context_(mpi_context) {
+  int local_rank, local_size;
+  MPI_Comm_size(mpi_context_->local_comm, &local_size);
+  MPI_Comm_rank(mpi_context_->local_comm, &local_rank);
+  if (local_rank == 0)
+  {
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    // converting to node-based rank and size
+    rank /= local_size;
+    size /= local_size;
+
+    MPI_Group world_group;
+    MPI_Comm_group(MPI_COMM_WORLD, &world_group);
+    int nearest_power_2 = 1;
+    int log_size;
+    for (nearest_power_2 = 1, log_size = 0; (nearest_power_2 << 1) <= size; nearest_power_2 = (nearest_power_2 << 1), log_size++)
+    {
+    }
+    int shift_val;
+    int level;
+    rank_log_size_ = log_size;
+    reduction_comms_ = new MPI_Comm[log_size];
+    int *node_rank = new int[size];
+    for (level = 1, shift_val = 1; level < nearest_power_2; level = (level << 1), shift_val++)
+    {
+        int base_rank = ((rank >> shift_val) << shift_val);
+        for (int i = 0; i < (level << 1); i++)
+        {
+            // converting back to world rank
+            node_rank[i] = (base_rank + i) * local_size;
+        }
+        MPI_Group red_group;
+        MPI_Group_incl(world_group, (level << 1), node_rank, &red_group);
+        MPI_Comm_create_group(MPI_COMM_WORLD, red_group, 0, &reduction_comms_[shift_val - 1]);
+        MPI_Group_free(&red_group);
+    }
+    delete[] node_rank;
+  }
+}
+
+AdasumMPIOp::~AdasumMPIOp() {
+  if(reduction_comms_ != nullptr) {
+    LOG(INFO,global_state_->controller->GetRank())<<"Preparing to delete reduction comms.";
+    delete reduction_comms_;
+  }
+}
 
 bool AdasumMPIOp::Enabled(const ParameterManager& param_manager,
                            const std::vector<TensorTableEntry>& entries,
@@ -29,9 +76,18 @@ Status AdasumMPIOp::Execute(std::vector<TensorTableEntry>& entries, const Respon
   if(entries.size() < 1) {
       return Status::OK();
   }
+  if (global_state_->adasum_algorithm == AdasumAlgorithm::CPU_TREE) {
+    return TreeHierarchical(entries, response);
+  }
+  else {
+      throw std::logic_error("Unsupported Adasum MPI op. To use Adasum_GPU_* algorithms, please re-build Horovod with HOROVOD_GPU_ALLREDUCE=NCCL");
+  }
+}
+
+Status AdasumMPIOp::TreeHierarchical(std::vector<TensorTableEntry>& entries, const Response& response) {
   int layerid = 0;
   int num_reductions = entries.size();
-  global_state_->finished_parallel_reductions = 0;
+  finished_parallel_reductions_ = 0;
   for (auto& entry : entries) {
     boost::asio::post(*global_state_->background_thread_pool,
     [this, &entry, response, layerid, &entries]
@@ -40,70 +96,110 @@ Status AdasumMPIOp::Execute(std::vector<TensorTableEntry>& entries, const Respon
       int buffer_len;
       void* recv_buffer;
 
+      InitDeviceVariables();
+
       buffer_data = (void*) entry.tensor->data();
 
       buffer_len = entry.output->size();
+
       FusionBufferManager buffer_manager;
+
       if(entry.tensor->data() == entry.output->data()) {
-          // Get the temp buffer to be used for the Op
-          global_state_->buffer_lock.lock();
-          assert(!global_state_->temp_buffers.empty());
-          buffer_manager = global_state_->temp_buffers.front();
-          global_state_->temp_buffers.pop();
-          global_state_->buffer_lock.unlock();
 
-          // TODO: Maybe add before and after callbacks to timeline?
-          Status status = buffer_manager.InitializeBuffer(
-              buffer_len,
-              entry.device, entry.context,
-              global_state_->current_nccl_stream,
-              [](){},
-              [](){},
-              [](int64_t& size, int64_t& threshold){return size >= threshold;});
+        // Get the temp buffer to be used for the Op
+        {
+          std::lock_guard<std::mutex> guard(buffer_lock_);
+          assert(!temp_buffers_.empty());
+          buffer_manager = temp_buffers_.front();
+          temp_buffers_.pop_front();
+        }
 
-          if (!status.ok()) {
-              throw std::logic_error("AdaSumOp::Execute_helper: Initialize buffer failed.");
-              return;
-          }
+        // TODO: Maybe add before and after callbacks to timeline?
+        Status status = buffer_manager.InitializeBuffer(
+            buffer_len,
+            entry.device, entry.context,
+            global_state_->current_nccl_stream,
+            [](){},
+            [](){},
+            [](int64_t& size, int64_t& threshold){return size >= threshold;});
 
-          auto buffer = buffer_manager.GetBuffer(entry.device, entry.context->framework(), global_state_->current_nccl_stream);
-          recv_buffer = const_cast<void*>(buffer->AccessData(entry.context));
+        if (!status.ok()) {
+            throw std::logic_error("AdaSumCudaAllreduceOp::Execute: Initialize buffer failed.");
+            return;
+        }
+        auto buffer = buffer_manager.GetBuffer(entry.device, entry.context->framework(), global_state_->current_nccl_stream);
+        recv_buffer = const_cast<void*>(buffer->AccessData(entry.context));
       }
       else {
           recv_buffer = (void*) entry.output->data();
       }
-        
+      
+      MPI_Comm local_comm = mpi_context_->local_comm;
       MPI_Comm* node_comm = NULL;
       if (global_state_->rank_log_size != 0) {
-          node_comm = &global_state_->reduction_comms[global_state_->rank_log_size-1];
+          node_comm = &reduction_comms_[global_state_->rank_log_size-1];
       }
-  
-      AdasumInternal(buffer_data,
-                     recv_buffer,
-                     node_comm,
-                     global_state_->reduction_comms,
-                     global_state_->local_comm,
-                     layerid,
-                     entry);  
-  
+    
+      int local_rank = 0;
+
+      local_rank = GetLocalRankWithComm(local_comm);
+      SyncLocalReduce(buffer_data, recv_buffer, local_comm, layerid, entry);
+      // TODO have a version of VHDD that performs asynchronously
+      if (local_rank == 0 && node_comm != NULL) {
+        DispatchSyncAllreduce(buffer_data, recv_buffer, node_comm, reduction_comms_, layerid, entry);
+      }
+      SyncLocalBroadcast(buffer_data, local_comm, entry, layerid);
+
       if(entry.tensor->data() == entry.output->data()) {
         // Return the buffer back into the pool of available buffers
-        global_state_->buffer_lock.lock();
-        global_state_->temp_buffers.push(buffer_manager);
-        global_state_->buffer_lock.unlock();
+        std::lock_guard<std::mutex> guard(buffer_lock_);
+        temp_buffers_.emplace_back(buffer_manager);
       }
       else {
         MemcpyUtil(entry, (void *) entry.output->data(), (void *) entry.tensor->data(), (size_t) entry.tensor->size(), layerid);
       }
-  
-      global_state_->finished_parallel_reductions++;
+      finished_parallel_reductions_++;
     });
     layerid++;
   }
-  while (global_state_->finished_parallel_reductions.load() < num_reductions) {
+  while (finished_parallel_reductions_ < num_reductions) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(50));
   }
   return Status::OK();
+}
+
+void AdasumMPIOp::DispatchComputeDotAndNormSqrds(const void* __restrict__  a, const void* __restrict__ b, DataType horovod_datatype, int count, double& dotProduct, double& anormsq, double& bnormsq, HorovodGlobalState *global_state, int layerid) {
+  if (horovod_datatype == DataType::HOROVOD_FLOAT16) {
+    ComputeDotAndNormSqrdsfp16((uint16_t*)a, (uint16_t*)b, count, dotProduct, anormsq, bnormsq, global_state, layerid);
+  }
+  else if (horovod_datatype == DataType::HOROVOD_FLOAT32) {
+    ComputeDotAndNormSqrds((float*)a, (float*)b, count, dotProduct, anormsq, bnormsq, global_state, layerid);
+  }
+  else if (horovod_datatype == DataType::HOROVOD_FLOAT64) {
+    ComputeDotAndNormSqrds((double*)a, (double*)b, count, dotProduct, anormsq, bnormsq, global_state, layerid);      
+  }
+  else {
+      throw std::logic_error("Unsupported data type.");
+  }
+}
+
+void AdasumMPIOp::DispatchScaledAdd(DataType horovod_datatype, int count, double acoeff, void* __restrict__ a, double bcoeff, void* __restrict__ b, HorovodGlobalState *global_state, int layerid) {
+  if (horovod_datatype == DataType::HOROVOD_FLOAT16) {
+    ScaledAddfp16(count, acoeff, (uint16_t*)a, bcoeff, (uint16_t*)b, global_state, layerid);
+  }
+  else if (horovod_datatype == DataType::HOROVOD_FLOAT32) {
+    ScaledAdd(count, acoeff, (float*)a, bcoeff, (float*)b, global_state, layerid);
+  }
+  else if (horovod_datatype == DataType::HOROVOD_FLOAT64) {
+    ScaledAdd(count, acoeff, (double*)a, bcoeff, (double*)b, global_state, layerid);
+  }
+  else {
+      throw std::logic_error("Unsupported data type.");
+  }
+}
+
+void AdasumMPIOp::InitDeviceVariables() {
+    // nothing to do here since we only operate on host memory
 }
 
 void AdasumMPIOp::PointToPointSend(void* input_data_buffer,

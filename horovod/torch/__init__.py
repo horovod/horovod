@@ -126,7 +126,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         adasum_enable = False
         if 'HOROVOD_ADASUM' in os.environ:
             adasum_enable = os.environ['HOROVOD_ADASUM'] in adasum_algorithms
-        allreduce_type = AllreduceType.Adasum if adasum_enable is not None and adasum_enable == '1' else AllreduceType.SumAllreduce
+        allreduce_type = AllreduceType.Adasum if adasum_enable == True else AllreduceType.SumAllreduce
 
         handle = allreduce_async_(tensor_compressed, average=True, name=name, allreduce_type=allreduce_type)
         return handle, ctx

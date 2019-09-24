@@ -15,7 +15,9 @@ namespace common {
 class AdasumMPIOp : public AdasumOp<MPI_Comm> {
 public:
   AdasumMPIOp(MPIContext* mpi_context, HorovodGlobalState* global_state);
-
+  
+  ~AdasumMPIOp();
+  
   Status Execute(std::vector<TensorTableEntry>& entries,
                          const Response& response) override;
 
@@ -62,13 +64,39 @@ protected:
       grad_buffer[i] += recv_buffer[i];
     }
   }
-  
+
   int GetLocalRankWithComm(MPI_Comm local_comm) override;
 
   int GetSizeWithComm(MPI_Comm comm) override;
 
+  virtual void InitDeviceVariables();
+
+  Status TreeHierarchical(std::vector<TensorTableEntry>& entries,
+                          const Response& response);
+
+  void DispatchComputeDotAndNormSqrds(const void* __restrict__  a,
+                                      const void* __restrict__ b,
+                                      DataType horovod_datatype,
+                                      int count,
+                                      double& dotProduct,
+                                      double& anormsq,
+                                      double& bnormsq,
+                                      HorovodGlobalState *global_state,
+                                      int layerid) override;
+
+  void DispatchScaledAdd(DataType horovod_datatype,
+                         int count,
+                         double acoeff,
+                         void* __restrict__ a,
+                         double bcoeff,
+                         void* __restrict__ b,
+                         HorovodGlobalState *global_state,
+                         int layerid) override;
 protected:
   MPIContext* mpi_context_;
+  int rank_log_size_;
+  // MPI communicators used to do adasum
+  MPI_Comm* reduction_comms_ = nullptr;
 };
 
 } // namespace common

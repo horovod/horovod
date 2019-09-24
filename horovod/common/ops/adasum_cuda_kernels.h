@@ -1,6 +1,5 @@
 //TODO license
 #include <stdint.h>
-
 void CudaDotProductImpl(int count, const double* device_a, const double* device_b, 
 						double* device_normsq_a, double* device_normsq_b, double* device_dot, double& host_normsq_a, double& host_normsq_b, double& host_dot);
 
@@ -42,5 +41,3 @@ void AdasumCudaPairwiseReduce(int count, T* device_a, T* device_b){
 
 		CudaScaleAddImpl(count, device_a, device_b, a_coeff, b_coeff);
 }
-
-

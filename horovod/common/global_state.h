@@ -62,27 +62,11 @@ struct HorovodGlobalState {
   // TODO do we need this?
   std::atomic_int finished_parallel_reductions;
 
-  // Encapsulates the temp buffers used for AdaSum.
-  std::queue<FusionBufferManager> temp_buffers;
-
-  // Mutex to be used when accessing the queue of temp buffers
-  std::mutex buffer_lock;
-
   // threads to be used for AdaSum operations
   int num_adasum_threads;
   
   // Background thread running MPI communication.
   std::thread background_thread;
-
-  // MPI communicators used to do adasum
-  // TODO put this in a better place
-  MPI_Comm* reduction_comms;
-
-  //TODO find a better place
-  int rank_log_size = 0;
-  
-  // TODO find a better place
-  MPI_Comm local_comm;
 
   // TODO better place
   bool msg_chunk_enabled = false;
@@ -152,8 +136,6 @@ struct HorovodGlobalState {
     if(background_thread_pool != nullptr){
       background_thread_pool->stop();
     }
-
-    delete reduction_comms;
   }
 };
 

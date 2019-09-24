@@ -331,50 +331,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   auto mpi_ctx_manager = MPIContextManager();
 #endif
   mpi_context.Initialize(state.controller->GetRanks(), mpi_ctx_manager);
-  if(state.adasum_algorithm != AdasumAlgorithm::NONE) {
-    MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &state.local_comm);
-    int ms_local_rank, ms_local_size;
-    MPI_Comm_size(state.local_comm, &ms_local_size);
-    MPI_Comm_rank(state.local_comm, &ms_local_rank);
-    if (ms_local_rank == 0)
-    {
-        int rank, size;
-        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-        MPI_Comm_size(MPI_COMM_WORLD, &size);
-        // converting to node-based rank and size
-        rank /= ms_local_size;
-        size /= ms_local_size;
-
-        MPI_Group world_group;
-        MPI_Comm_group(MPI_COMM_WORLD, &world_group);
-        int nearest_power_2 = 1;
-        int log_size;
-        for (nearest_power_2 = 1, log_size = 0; (nearest_power_2 << 1) <= size; nearest_power_2 = (nearest_power_2 << 1), log_size++)
-        {
-        }
-        int shift_val;
-        int level;
-        state.rank_log_size = log_size;
-        state.reduction_comms = new MPI_Comm[log_size];
-        int *node_rank = new int[size];
-        for (level = 1, shift_val = 1; level < nearest_power_2; level = (level << 1), shift_val++)
-        {
-            int base_rank = ((rank >> shift_val) << shift_val);
-            for (int i = 0; i < (level << 1); i++)
-            {
-                // converting back to world rank
-                node_rank[i] = (base_rank + i) * ms_local_size;
-            }
-            MPI_Group red_group;
-            MPI_Group_incl(world_group, (level << 1), node_rank, &red_group);
-            MPI_Comm_create_group(MPI_COMM_WORLD, red_group, 0, &state.reduction_comms[shift_val - 1]);
-            MPI_Group_free(&red_group);
-        }
-        delete[] node_rank;
-    }
-    // TODO AdaSum new algo end
-  }
-
 #endif
 
 #if HAVE_GLOO
@@ -531,10 +487,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     LOG(INFO)<<"Starting "<<num_threads<<" threads for threadpool.";
     static boost::asio::thread_pool pool(num_threads);
     state.num_adasum_threads = num_threads;
-    // Create a buffer manager for temp buffers for each thread
-    for (int i = 0; i < num_threads; ++i) {
-      state.temp_buffers.emplace();
-    }
     state.background_thread_pool = &pool;
   }
 

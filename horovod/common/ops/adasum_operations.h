@@ -25,9 +25,21 @@ static bool IsPowerOfTwo(ulong x)
 template <typename Communicator_type>
 class AdasumOp : public PointToPointOp<Communicator_type> {
 public:
-  AdasumOp(HorovodGlobalState* global_state) : PointToPointOp<Communicator_type>(global_state) {};
+  AdasumOp(HorovodGlobalState* global_state) : PointToPointOp<Communicator_type>(global_state) {
+    if (this->global_state_->num_adasum_threads > 0) {
+      for (int i = 0; i < this->global_state_->num_adasum_threads; i++) {
+          temp_buffers_.emplace_back();
+      }
+    }
+  };
 
 protected:
+  std::atomic_int finished_parallel_reductions_;
+
+  std::mutex buffer_lock_;
+
+  std::deque<FusionBufferManager> temp_buffers_;
+
   virtual int GetLocalRankWithComm(Communicator_type communicator) = 0;
 
   virtual int GetSizeWithComm(Communicator_type communicator) = 0;
@@ -49,20 +61,15 @@ protected:
     }
   }
 
-  virtual void ComputeDotAndNormSqrdsWrapper(const void* __restrict__  a, const void* __restrict__ b, DataType horovod_datatype, int count, double& dotProduct, double& anormsq, double& bnormsq, HorovodGlobalState *global_state, int layerid) {
-    if (horovod_datatype == DataType::HOROVOD_FLOAT16) {
-      ComputeDotAndNormSqrdsfp16((uint16_t*)a, (uint16_t*)b, count, dotProduct, anormsq, bnormsq, global_state, layerid);
-    }
-    else if (horovod_datatype == DataType::HOROVOD_FLOAT32) {
-      ComputeDotAndNormSqrds((float*)a, (float*)b, count, dotProduct, anormsq, bnormsq, global_state, layerid);
-    }
-    else if (horovod_datatype == DataType::HOROVOD_FLOAT32) {
-      ComputeDotAndNormSqrds((double*)a, (double*)b, count, dotProduct, anormsq, bnormsq, global_state, layerid);      
-    }
-    else {
-        throw std::logic_error("Unsupported data type.");
-    }
-  }
+  virtual void DispatchComputeDotAndNormSqrds(const void* __restrict__  a,
+                                              const void* __restrict__ b,
+                                              DataType horovod_datatype,
+                                              int count,
+                                              double& dotProduct,
+                                              double& anormsq,
+                                              double& bnormsq,
+                                              HorovodGlobalState *global_state,
+                                              int layerid) = 0;
   
   template<typename T>
   void ComputeDotAndNormSqrds(const T* __restrict__  a, const T* __restrict__ b, int count, double& dotProduct, double& anormsq, double& bnormsq, HorovodGlobalState *global_state, int layerid) {
@@ -77,20 +84,14 @@ protected:
       }
   }
   
-  virtual void ScaledAddWrapper(DataType horovod_datatype, int count, double acoeff, void* __restrict__ a, double bcoeff, void* __restrict__ b, HorovodGlobalState *global_state, int layerid) {
-    if (horovod_datatype == DataType::HOROVOD_FLOAT16) {
-      ScaledAddfp16(count, acoeff, (uint16_t*)a, bcoeff, (uint16_t*)b, global_state, layerid);
-    }
-    else if (horovod_datatype == DataType::HOROVOD_FLOAT32) {
-      ScaledAdd(count, acoeff, (float*)a, bcoeff, (float*)b, global_state, layerid);
-    }
-    else if (horovod_datatype == DataType::HOROVOD_FLOAT32) {
-      ScaledAdd(count, acoeff, (double*)a, bcoeff, (double*)b, global_state, layerid);
-    }
-    else {
-        throw std::logic_error("Unsupported data type.");
-    }
-  }
+  virtual void DispatchScaledAdd(DataType horovod_datatype,
+                                 int count,
+                                 double acoeff,
+                                 void* __restrict__ a,
+                                 double bcoeff,
+                                 void* __restrict__ b,
+                                 HorovodGlobalState *global_state,
+                                 int layerid) = 0;
   
   template<typename T>
   void ScaledAdd(int n, double acoeff, T* __restrict__ a, double bcoeff, T* __restrict__ b, HorovodGlobalState *global_state, int layerid) {
@@ -130,7 +131,7 @@ protected:
         this->PointToPointRecv(recv_buffer, (int64_t)buffer_len, data_type, neighbor_true_rank, layerid, communicator);
         
         double anormsq = 0, bnormsq = 0, dotProduct = 0;
-        ComputeDotAndNormSqrdsWrapper(grad_buffer, recv_buffer, data_type, count, dotProduct, anormsq, bnormsq, AdasumOp<Communicator_type>::global_state_, layerid);
+        DispatchComputeDotAndNormSqrds(grad_buffer, recv_buffer, data_type, count, dotProduct, anormsq, bnormsq, AdasumOp<Communicator_type>::global_state_, layerid);
         double acoeff = 1;
         double bcoeff = 1;
         if (anormsq >= 1e-8)
@@ -138,7 +139,7 @@ protected:
         if (bnormsq >= 1e-8)
   	    bcoeff = 1.0 - dotProduct / bnormsq * 0.5;
   
-        ScaledAddWrapper(data_type, count, acoeff, grad_buffer, bcoeff, recv_buffer, AdasumOp<Communicator_type>::global_state_, layerid);
+        DispatchScaledAdd(data_type, count, acoeff, grad_buffer, bcoeff, recv_buffer, AdasumOp<Communicator_type>::global_state_, layerid);
       }
       else {
         // send grad_buffer to neighbor
@@ -237,7 +238,7 @@ protected:
                                  level * 1000 + layerid,
                                  communicator);
         }
-        this->ScaledAddWrapper(horovod_datatype, myCount, 1.0, &grad_buffer[recvOffset] , 1.0, &recv_buffer[recvOffset], AdasumOp<Communicator_type>::global_state_, layerid);
+        this->DispatchScaledAdd(horovod_datatype, myCount, 1.0, &grad_buffer[recvOffset] , 1.0, &recv_buffer[recvOffset], AdasumOp<Communicator_type>::global_state_, layerid);
 
         if (rank < nearest_power_2) {
             for (int i = 0; i < nghrCount; i += chunk_size) {
@@ -373,7 +374,7 @@ protected:
     double anormsq = 0.;
     double bnormsq = 0.;
     
-    this->ComputeDotAndNormSqrdsWrapper(a, b, horovod_datatype, count, dotProduct, anormsq, bnormsq, this->global_state_, layerid);
+    this->DispatchComputeDotAndNormSqrds(a, b, horovod_datatype, count, dotProduct, anormsq, bnormsq, this->global_state_, layerid);
 
     double reduce_vals[3], temp_buffer[3];
     if (isLeftNeighbor) { 
@@ -403,36 +404,7 @@ protected:
     if (bnormsq >= 1e-8f)
         bcoeff = 1.0 - dotProduct / bnormsq * 0.5;
 
-    this->ScaledAddWrapper(horovod_datatype, count, acoeff, (uint16_t*)a, bcoeff, (uint16_t*)b, this->global_state_, layerid);
-  }
-  // TODO improve this API
-  virtual void AdasumInternal(void* gradient_buffer,
-                      void* recv_buffer,
-                      Communicator_type* node_comm,
-                      Communicator_type* reduction_comm_pool,
-                      Communicator_type local_comm,
-                      int layerid,
-                      TensorTableEntry entry)  {
-    int count = entry.tensor->size() / GetPerElementSize(entry);
-    int local_rank = 0;
-    local_rank = GetLocalRankWithComm(local_comm);
-    SyncLocalReduce(gradient_buffer, recv_buffer, local_comm, layerid, entry);
-    if (local_rank == 0 && node_comm != NULL) {
-      switch(entry.tensor->dtype()) {
-          case DataType::HOROVOD_FLOAT16:
-            SyncAllreduce((uint16_t*)gradient_buffer, (uint16_t*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
-            break;
-          case DataType::HOROVOD_FLOAT32:
-            SyncAllreduce((float*)gradient_buffer, (float*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
-            break;
-          case DataType::HOROVOD_FLOAT64:
-            SyncAllreduce((double*)gradient_buffer, (double*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
-            break;
-          default:
-            throw std::logic_error("Unsupported data type");
-      }
-    }
-    SyncLocalBroadcast(gradient_buffer, local_comm, entry, layerid);
+    this->DispatchScaledAdd(horovod_datatype, count, acoeff, (uint16_t*)a, bcoeff, (uint16_t*)b, this->global_state_, layerid);
   }
 
   // over-write ComputeDotAndNormSqrds for float16
