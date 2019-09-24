@@ -15,6 +15,7 @@ namespace common {
 class AdasumCudaAllreduceOp : public AdasumMPIOp {
   public:
   AdasumCudaAllreduceOp(MPIContext* mpi_context,
+                        NCCLContext* nccl_context,
                         CUDAContext* cuda_context,
                         HorovodGlobalState* global_state);
   ~AdasumCudaAllreduceOp();
@@ -44,18 +45,11 @@ class AdasumCudaAllreduceOp : public AdasumMPIOp {
   void InitNCCLComm(const std::vector<TensorTableEntry>& entries,
                     const std::vector<int32_t>& nccl_device_map);
 
-  void AdasumInternal(void* gradient_buffer,
-                      void* recv_buffer,
-                      MPI_Comm* node_comm,
-                      MPI_Comm* reduction_comm_pool,
-                      MPI_Comm local_comm,
-                      int layerid,
-                      TensorTableEntry entry) override;
+  Status TreeHierarchical(std::vector<TensorTableEntry>& entries,
+                          const Response& response);
 
-  void NcclHierarchical(std::vector<TensorTableEntry>& entries,
-                        const Response& response,
-                        MPI_Comm* node_comm,
-                        MPI_Comm* reduction_comm_pool);
+  Status NcclHierarchical(std::vector<TensorTableEntry>& entries,
+                          const Response& response);
 
   void MemcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) override;
 

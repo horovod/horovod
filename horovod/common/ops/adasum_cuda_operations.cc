@@ -7,8 +7,8 @@ namespace common {
 
 std::unordered_map<std::thread::id, std::array<double*, 3>> AdasumCudaAllreduceOp::thread_to_device_variable_map;
 
-AdasumCudaAllreduceOp::AdasumCudaAllreduceOp(MPIContext* mpi_context, CUDAContext* cuda_context, HorovodGlobalState* global_state)
-    : AdasumMPIOp(mpi_context, global_state), cuda_context_(cuda_context) {
+AdasumCudaAllreduceOp::AdasumCudaAllreduceOp(MPIContext* mpi_context, NCCLContext* nccl_context, CUDAContext* cuda_context, HorovodGlobalState* global_state)
+    : AdasumMPIOp(mpi_context, global_state), nccl_context_(nccl_context), cuda_context_(cuda_context) {
 }
 
 AdasumCudaAllreduceOp::~AdasumCudaAllreduceOp() {
@@ -112,9 +112,27 @@ void AdasumCudaAllreduceOp::InitNCCLComm(const std::vector<TensorTableEntry>& en
 }
 
 Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
-      if(entries.size() < 1) {
+  if(entries.size() < 1) {
       return Status::OK();
   }
+  if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_TREE) {
+    return TreeHierarchical(entries, response);
+
+  } else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_RING) {
+    throw std::logic_error("GPU Ring is not supportedf yet. Coming soon.");
+
+  } else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_RING) {
+    throw std::logic_error("GPU Ring is not supportedf yet. Coming soon.");
+
+  } else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_NCCL_RING) {
+    return NcclHierarchical(entries, response);
+
+  } else {
+    throw std::logic_error("Unsupported adasum reduction algorithm");
+  }
+}
+
+Status AdasumCudaAllreduceOp::TreeHierarchical(std::vector<TensorTableEntry>& entries, const Response& response) {
   int layerid = 0;
   int num_reductions = entries.size();
   global_state_->finished_parallel_reductions = 0;
@@ -161,6 +179,7 @@ Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
           recv_buffer = (void*) entry.output->data();
       }
       
+      MPI_Comm local_comm = global_state_->local_comm;
       MPI_Comm* node_comm = NULL;
       if (global_state_->rank_log_size != 0) {
           node_comm = &global_state_->reduction_comms[global_state_->rank_log_size-1];
@@ -168,13 +187,15 @@ Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
     
       // This will create a stream per layer.
       InitCUDA(entry, layerid);
-      AdasumInternal(buffer_data,
-                     recv_buffer,
-                     node_comm,
-                     global_state_->reduction_comms,
-                     global_state_->local_comm,
-                     layerid,
-                     entry);  
+      int local_rank = 0;
+
+      local_rank = GetLocalRankWithComm(local_comm);
+      SyncLocalReduce(buffer_data, recv_buffer, local_comm, layerid, entry);
+      // TODO have a version of VHDD that performs asynchronously
+      if (local_rank == 0 && node_comm != NULL) {
+        DispatchSyncAllreduce(buffer_data, recv_buffer, node_comm, global_state_->reduction_comms, layerid, entry);
+      }
+      SyncLocalBroadcast(buffer_data, local_comm, entry, layerid);
 
       if(entry.tensor->data() == entry.output->data()) {
         // Return the buffer back into the pool of available buffers
@@ -195,49 +216,12 @@ Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
   return Status::OK();
 }
 
-void AdasumCudaAllreduceOp::AdasumInternal(void* gradient_buffer,
-                    void* recv_buffer,
-                    MPI_Comm* node_comm,
-                    MPI_Comm* reduction_comm_pool,
-                    MPI_Comm local_comm,
-                    int layerid,
-                    TensorTableEntry entry) {
-  int count = entry.tensor->size() / GetPerElementSize(entry);
-  int local_rank = 0;
-  local_rank = GetLocalRankWithComm(local_comm);
-  // TODO factor ring local reduce in here and choose algorithms based on tensor size, topology and etc
-  if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_TREE){
-    SyncLocalReduce(gradient_buffer, recv_buffer, local_comm, layerid, entry);
-  }
-  else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_RING)
-  {
-    throw std::logic_error("GPU Ring is not supportedf yet. Coming soon.");
-  }
-  else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_RING)
-  {
-    throw std::logic_error("GPU Ring is not supportedf yet. Coming soon.");
-  }
-  else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_NCCL_RING)
-  {
-    throw std::logic_error("GPU NCCL Ring is not supportedf yet. Coming soon.");
-  }
-  else
-  {
-    throw std::logic_error("Unsupported adasum reduction algorithm");
-  }
+Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries, const Response& response) {
 
-  // TODO have a version of VHDD that performs asynchronously
-  if (local_rank == 0 && node_comm != NULL) {
-    DispatchSyncAllreduce(gradient_buffer, recv_buffer, node_comm, reduction_comm_pool, layerid, entry);
+  MPI_Comm* node_comm = NULL;
+  if (global_state_->rank_log_size != 0) {
+    node_comm = &global_state_->reduction_comms[global_state_->rank_log_size-1];
   }
-  SyncLocalBroadcast(gradient_buffer, local_comm, entry, layerid);
-
-}
-
-void AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
-                    const Response& response,
-                    MPI_Comm* node_comm,
-                    MPI_Comm* reduction_comm_pool) {
 
   // Determine GPU IDs of the devices participating in this communicator.
   std::vector<int32_t> nccl_device_map;
@@ -249,7 +233,7 @@ void AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entr
 
   InitNCCLComm(entries, nccl_device_map);
 
-  bool is_root_rank = global_state_->controller->GetLocalRank() == 0;
+  bool do_cross_comm = global_state_->controller->GetLocalRank() == 0 && node_comm != NULL;
 
   std::vector<std::unique_ptr<char[]>> host_buffers;
   std::vector<cudaEvent_t> events(entries.size());
@@ -271,7 +255,7 @@ void AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entr
                                   cuda_context_->streams[global_state_->current_nccl_stream][entry.device]);
     nccl_context_->ErrorCheck("ncclReduce", nccl_result);
 
-    if (is_root_rank) {
+    if (do_cross_comm) {
       host_buffers.emplace_back(new char[buffer_len]);
       void* host_buffer = (void*)host_buffers.at(i).get();
 
@@ -280,14 +264,14 @@ void AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entr
                                                 buffer_len, cudaMemcpyDeviceToHost,
                                                 cuda_context_->streams[global_state_->current_nccl_stream][entry.device]));
 
-      auto& event = events[i];
+      auto& event = events.at(i);
       cuda_context_->ErrorCheck("GetCudaEvent", cuda_context_->GetCudaEvent(&event));
       cuda_context_->ErrorCheck("cudaEventRecord", cudaEventRecord(event, 
-      cuda_context_->streams[global_state_->current_nccl_stream][entry.device]));
+                                cuda_context_->streams[global_state_->current_nccl_stream][entry.device]));
     }
   }
 
-  if (is_root_rank) {
+  if (do_cross_comm) {
     std::vector<char> recv_buffer;
     for (int i = 0; i < entries.size(); ++i) {
       auto& entry = entries.at(i);
@@ -301,7 +285,7 @@ void AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entr
       cuda_context_->ErrorCheck("ReleaseCudaEvent", cuda_context_->ReleaseCudaEvent(event));
 
       recv_buffer.resize(buffer_len);
-      DispatchSyncAllreduce(host_buffer, recv_buffer.data(), node_comm, reduction_comm_pool, i, entry);
+      DispatchSyncAllreduce(host_buffer, recv_buffer.data(), node_comm, global_state_->reduction_comms, i, entry);
 
       cuda_context_->ErrorCheck("cudaMemcpyAsync",
                                 cudaMemcpyAsync(buffer_data, host_buffer,
@@ -323,6 +307,8 @@ void AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entr
                                         *nccl_comm_, 
                                         cuda_context_->streams[global_state_->current_nccl_stream][entry.device]));
   }
+
+  return Status::OK();
 }
 
 void AdasumCudaAllreduceOp::MemcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) {
