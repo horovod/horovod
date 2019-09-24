@@ -210,69 +210,63 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 // Process a Response by doing a reduction, a gather, a broadcast, or
 // raising an error.
 void PerformOperation(Response response, HorovodGlobalState& state) {
-  if (response.response_type() == Response::JOIN) {
-    if (!state.joined) {
-      return;
-    } else {
-      horovod_global.tensor_queue.RemoveJoinTensor();
-      state.joined = false;
-      return;
-    }
-  }
-
   std::vector<TensorTableEntry> entries;
-  horovod_global.tensor_queue.GetTensorEntriesFromResponse(response, entries, state.controller->GetRank(), state.joined, state.join_device);
-
   auto& timeline = horovod_global.timeline;
-  for (auto& e : entries) {
-    timeline.Start(e.tensor_name, response.response_type());
-  }
+  if (response.response_type() != Response::JOIN) {
+    horovod_global.tensor_queue.GetTensorEntriesFromResponse(
+        response, entries, state.joined, state.join_device);
 
-  if (entries.size() > 1) {
-    auto first_entry = entries[0];
-    // Note: it is OK for different entries to come from different frameworks
-    // since buffer allocated here is guaranteed to survive at least till the
-    // end of this operation.
-    Status status = horovod_global.fusion_buffer.InitializeBuffer(
-        horovod_global.controller->TensorFusionThresholdBytes(),
-        first_entry.device, first_entry.context,
-        horovod_global.current_nccl_stream,
-        [&]() { timeline.ActivityStartAll(entries, INIT_FUSION_BUFFER); },
-        [&]() { timeline.ActivityEndAll(entries); });
-    if (!status.ok()) {
-      for (auto& e : entries) {
-        timeline.End(e.tensor_name, nullptr);
-        if (!state.joined) {
-          e.callback(status);
+    for (auto& e : entries) {
+      timeline.Start(e.tensor_name, response.response_type());
+    }
+
+    if (entries.size() > 1) {
+      auto first_entry = entries[0];
+      // Note: it is OK for different entries to come from different frameworks
+      // since buffer allocated here is guaranteed to survive at least till the
+      // end of this operation.
+      Status status = horovod_global.fusion_buffer.InitializeBuffer(
+          horovod_global.controller->TensorFusionThresholdBytes(),
+          first_entry.device, first_entry.context,
+          horovod_global.current_nccl_stream,
+          [&]() { timeline.ActivityStartAll(entries, INIT_FUSION_BUFFER); },
+          [&]() { timeline.ActivityEndAll(entries); });
+      if (!status.ok()) {
+        for (auto& e : entries) {
+          timeline.End(e.tensor_name, nullptr);
+          // Callback can be null if the rank sent Join request.
+          if (e.callback != nullptr) {
+            e.callback(status);
+          }
+        }
+        return;
+      }
+    }
+
+    // On GPU data readiness is signalled by ready_event.
+    std::vector<TensorTableEntry> waiting_tensors;
+    for (auto& e : entries) {
+      if (e.ready_event != nullptr) {
+        timeline.ActivityStart(e.tensor_name, WAIT_FOR_DATA);
+        waiting_tensors.push_back(e);
+      }
+    }
+    while (!waiting_tensors.empty()) {
+      for (auto it = waiting_tensors.begin(); it != waiting_tensors.end();) {
+        if (it->ready_event->Ready()) {
+          timeline.ActivityEnd(it->tensor_name);
+          timeline.ActivityStart(it->tensor_name, WAIT_FOR_OTHER_TENSOR_DATA);
+          it = waiting_tensors.erase(it);
+        } else {
+          ++it;
         }
       }
-      return;
+      std::this_thread::sleep_for(std::chrono::nanoseconds(100));
     }
-  }
-
-  // On GPU data readiness is signalled by ready_event.
-  std::vector<TensorTableEntry> waiting_tensors;
-  for (auto& e : entries) {
-    if (e.ready_event != nullptr) {
-      timeline.ActivityStart(e.tensor_name, WAIT_FOR_DATA);
-      waiting_tensors.push_back(e);
-    }
-  }
-  while (!waiting_tensors.empty()) {
-    for (auto it = waiting_tensors.begin(); it != waiting_tensors.end();) {
-      if (it->ready_event->Ready()) {
-        timeline.ActivityEnd(it->tensor_name);
-        timeline.ActivityStart(it->tensor_name, WAIT_FOR_OTHER_TENSOR_DATA);
-        it = waiting_tensors.erase(it);
-      } else {
-        ++it;
+    for (auto& e : entries) {
+      if (e.ready_event != nullptr) {
+        timeline.ActivityEnd(e.tensor_name);
       }
-    }
-    std::this_thread::sleep_for(std::chrono::nanoseconds(100));
-  }
-  for (auto& e : entries) {
-    if (e.ready_event != nullptr) {
-      timeline.ActivityEnd(e.tensor_name);
     }
   }
 
@@ -286,7 +280,8 @@ void PerformOperation(Response response, HorovodGlobalState& state) {
   if (!status.in_progress()) {
     for (auto& e : entries) {
       timeline.End(e.tensor_name, status.ok() ? e.output : nullptr);
-      if (!state.joined) {
+      // Callback can be null if the rank sent Join request.
+      if (e.callback != nullptr) {
         e.callback(status);
       }
     }
@@ -299,8 +294,8 @@ void PerformOperation(Response response, HorovodGlobalState& state) {
 //
 //      1. Some MPI implementations require all MPI calls to happen from a
 //      single thread. Since TensorFlow may use several threads for graph
-//      processing, this means we must have our own dedicated thread for dealing
-//      with MPI.
+//      processing, this means we must have our own dedicated thread for
+//      dealing with MPI.
 //      2. We want to gracefully handle errors, when all processes do not
 //      properly agree upon what should happen (such as mismatched types or
 //      shapes). To do so requires every process to know about the shapes
@@ -311,8 +306,8 @@ void PerformOperation(Response response, HorovodGlobalState& state) {
 //      separate thread.
 //      4. We cannot guarantee that all the processes reduce their tensors
 //      in the same order, so we cannot dispatch one thread per tensor,
-//      otherwise we may end up dispatching many blocked threads and never make
-//      progress if we have a thread pool limit.
+//      otherwise we may end up dispatching many blocked threads and never
+//      make progress if we have a thread pool limit.
 bool RunLoopOnce(HorovodGlobalState& state);
 
 void BackgroundThreadLoop(HorovodGlobalState& state) {

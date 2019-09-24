@@ -69,8 +69,8 @@ TensorQueue::GetTensorDataForAutotuner(const ResponseList& response_list,
 // Parse tensor names from response and generate a vector of corresponding
 // tensor entries.
 void TensorQueue::GetTensorEntriesFromResponse(
-    Response& response, std::vector<TensorTableEntry>& entries,
-    int rank, bool joined, int join_device) {
+    Response& response, std::vector<TensorTableEntry>& entries, bool joined,
+    int join_device) {
   // Reserve to save re-allocation costs, as we know the size before.
   entries.reserve(response.tensor_names().size());
   {
@@ -172,6 +172,21 @@ void TensorQueue::PopMessagesFromQueue(
 void TensorQueue::PushMessageToQueue(Request& message) {
   std::lock_guard<std::mutex> guard(mutex_);
   message_queue_.push(std::move(message));
+}
+
+// Get tensor size and type given a tensor name.
+// Return false if the tensor not found.
+bool TensorQueue::GetTensorSizeAndType(const std::string& tensor_name,
+                                       int64_t& size, DataType& dtype) {
+  std::lock_guard<std::mutex> guard(mutex_);
+  auto it = tensor_table_.find(tensor_name);
+  if (it != tensor_table_.end()) {
+    const auto& entry = it->second;
+    size = entry.tensor->size();
+    dtype = entry.tensor->dtype();
+    return true;
+  }
+  return false;
 }
 
 // Remove JoinOp tensor from the table and execute the callback

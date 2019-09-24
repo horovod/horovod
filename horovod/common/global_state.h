@@ -102,9 +102,10 @@ struct HorovodGlobalState {
 
   // Number of ranks that did Join()
   int joined_size = 0;
+  // If a rank is Joined, AllReduce uses temporary 0 tensors for it.
   bool joined = false;
   // ID of the device to create temporary tensors while Joined
-  int join_device = -1;
+  int join_device = CPU_DEVICE_ID;
 
   ~HorovodGlobalState() {
     // Make sure that the destructor of the background thread is safe to

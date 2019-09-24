@@ -42,7 +42,7 @@ public:
 
   void GetTensorEntriesFromResponse(Response& response,
                                     std::vector<TensorTableEntry>& entries,
-                                    int rank = 0, bool joined = false,
+                                    bool joined = false,
                                     int join_device = CPU_DEVICE_ID);
 
   const TensorTableEntry& GetTensorEntry(const std::string& tensor_name) const;
@@ -50,6 +50,9 @@ public:
   void PopMessagesFromQueue(std::deque<Request>& message_queue_buffer);
 
   void PushMessageToQueue(Request& message);
+
+  bool GetTensorSizeAndType(const std::string& tensor_name, int64_t& size,
+                             DataType& dtype);
 
   void RemoveJoinTensor();
 

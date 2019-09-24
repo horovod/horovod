@@ -247,7 +247,7 @@ int DoJoin(int device) {
 
   auto enqueue_result = EnqueueJoin(
       hvd_context, ready_event,
-      "join.noname", device,
+      JOIN_TENSOR_NAME, device,
       [handle](const Status& status) mutable {
         handle_manager.MarkDone(handle, status);
       });

@@ -278,6 +278,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
         responses.push_back(std::move(response));
       }
       if (state.joined_size == size_) {
+        // All ranks did Join(). Send the response, reset joined size.
         Response join_response;
         join_response.set_response_type(Response::JOIN);
         join_response.add_tensor_name(JOIN_TENSOR_NAME);
@@ -613,14 +614,9 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
 
     if (response.response_type() == Response::ResponseType::ALLREDUCE) {
       // Attempt to add more responses to this fused response.
-      try {
-        const auto& entry =
-            tensor_queue_.GetTensorEntry(response.tensor_names()[0]);
-        tensor_size = entry.tensor->size();
-        dtype = entry.tensor->dtype();
-      } catch (std::out_of_range& e) {
-        // Ranks that did Join don't have the tensor entry.
-      }
+
+      // found_tensor can be false for ranks that did Join.
+      bool found_tensor = tensor_queue_.GetTensorSizeAndType(response.tensor_names()[0], tensor_size, dtype);
 
       std::deque<Response> skipped_responses;
       int64_t skipped_size = 0;
@@ -631,7 +627,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
             tensor_queue_.GetTensorEntry(new_response.tensor_names()[0]);
         int64_t new_tensor_size = new_entry.tensor->size();
 
-        if (tensor_size > 0 &&
+        if (found_tensor &&
             response.response_type() == new_response.response_type() &&
             response.devices() == new_response.devices() &&
             dtype == new_entry.tensor->dtype() &&
