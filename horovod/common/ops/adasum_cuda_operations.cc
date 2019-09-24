@@ -116,6 +116,7 @@ Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
       return Status::OK();
   }
   if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_TREE) {
+    LOG(TRACE) << "Reducing with Adasum algorithm GPU_TREE.";
     return TreeHierarchical(entries, response);
 
   } else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_RING) {
@@ -125,6 +126,7 @@ Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
     throw std::logic_error("GPU Ring is not supportedf yet. Coming soon.");
 
   } else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_NCCL_RING) {
+    LOG(TRACE) << "Reducing with Adasum algorithm GPU_NCCL_RING.";
     return NcclHierarchical(entries, response);
 
   } else {
@@ -306,6 +308,18 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
                                         0,
                                         *nccl_comm_, 
                                         cuda_context_->streams[global_state_->current_nccl_stream][entry.device]));
+         
+    auto& event = events.at(i);
+    cuda_context_->ErrorCheck("GetCudaEvent", cuda_context_->GetCudaEvent(&event));
+    cuda_context_->ErrorCheck("cudaEventRecord", cudaEventRecord(event, 
+                              cuda_context_->streams[global_state_->current_nccl_stream][entry.device]));
+  }
+
+  for (int i = 0; i < entries.size(); ++i) {
+    auto& entry = entries.at(i);
+    auto& event = events.at(i);
+    cuda_context_->ErrorCheck("cudaEventSynchronize", cudaEventSynchronize(event));
+    cuda_context_->ErrorCheck("ReleaseCudaEvent", cuda_context_->ReleaseCudaEvent(event));
   }
 
   return Status::OK();
