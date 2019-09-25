@@ -73,7 +73,7 @@ int AdasumMPIOp::GetSizeWithComm(MPI_Comm comm) {
 }
 
 Status AdasumMPIOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
-  if(entries.size() < 1) {
+  if(entries.empty()) {
       return Status::OK();
   }
   if (global_state_->adasum_algorithm == AdasumAlgorithm::CPU_TREE) {
@@ -164,7 +164,7 @@ Status AdasumMPIOp::TreeHierarchical(std::vector<TensorTableEntry>& entries, con
         TreeHierarchicalInternal(entry, layerid, response);
     }
     else {
-        boost::asio::post(*global_state_->background_thread_pool,
+        boost::asio::post(*global_state_->adasum_background_thread_pool,
         [this, &entry, response, layerid, &entries] {
           TreeHierarchicalInternal(entry, layerid, response);
           finished_parallel_reductions_++;
@@ -325,6 +325,8 @@ void AdasumMPIOp::P2pAllreduce(void *grad_buffer,
     // recv buffer from neighbor
       PointToPointRecv(recv_buffer, buffer_length, horovod_datatype, neighbor_true_rank, message_tag, communicator);
       // do reduction
+      // TODO the switch here will likely introduce overhead since this is our hot path
+      // replace it with something else.
       switch(horovod_datatype) {
           case DataType::HOROVOD_FLOAT16:
             ElementwiseAdd((uint16_t*)grad_buffer, (uint16_t*)recv_buffer, count);

@@ -124,16 +124,18 @@ enum ResponseType {
   ResponseType_ALLREDUCE = 0,
   ResponseType_ALLGATHER = 1,
   ResponseType_BROADCAST = 2,
-  ResponseType_ERROR = 3,
+  ResponseType_ADASUM = 3,
+  ResponseType_ERROR = 4,
   ResponseType_MIN = ResponseType_ALLREDUCE,
   ResponseType_MAX = ResponseType_ERROR
 };
 
-inline const ResponseType (&EnumValuesResponseType())[4] {
+inline const ResponseType (&EnumValuesResponseType())[5] {
   static const ResponseType values[] = {
     ResponseType_ALLREDUCE,
     ResponseType_ALLGATHER,
     ResponseType_BROADCAST,
+    ResponseType_ADASUM,
     ResponseType_ERROR
   };
   return values;

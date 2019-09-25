@@ -563,7 +563,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
     assert(first_response.tensor_names().size() == 1);
     responses.pop_front();
     // we find the first allreduce response and make it the host for all subsequent to-be-reduced tensors
-    if (first_response.response_type() == Response::ResponseType::ADASUM) {
+    if (first_response.response_type() == Response::ADASUM) {
       // increment iterator since we have found one allreduce
       allreduce_merged = true;
       itr++;

@@ -470,7 +470,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.adasum_algorithm = ParseAdasumAlgorithm(HOROVOD_ADASUM);
 
   if (state.adasum_algorithm != AdasumAlgorithm::NONE) {
-    int num_threads;
+    // default value for number of reduction threads
+    int num_threads = 1;
     auto horovod_number_of_threads = std::getenv(HOROVOD_ADASUM_NUM_REDUCTION_THREADS);
     if (horovod_number_of_threads != nullptr){
       num_threads = std::strtol(horovod_number_of_threads, nullptr, 10);
@@ -479,15 +480,18 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
         throw std::logic_error("Number of threads must be greater or equal to 1 when Adasum is used.");
       }
     }
-    else {
-      LOG(INFO)<<"HOROVOD_ADASUM_NUM_REDUCTION_THREADS is not set. Creating threadpool with 1 thread by default. ";
-      num_threads = 1;
-    }
-    //Making this static so that this pool is preverved throughout the lifetime of the program
-    LOG(INFO)<<"Starting "<<num_threads<<" threads for threadpool.";
-    static boost::asio::thread_pool pool(num_threads);
     state.adasum_num_threads = num_threads;
-    state.background_thread_pool = &pool;
+
+    // If tree algorithm is selected and num_thread is set to 1, we skip threadpool creation
+    // and use main thread to do Adasum reduction.
+    if((state.adasum_algorithm != AdasumAlgorithm::CPU_TREE &&
+        state.adasum_algorithm != AdasumAlgorithm::GPU_TREE) ||
+        state.adasum_num_threads > 1) {
+        //Making this static so that this pool is preverved throughout the lifetime of the program
+        LOG(INFO)<<"Starting "<<state.adasum_num_threads<<" threads for threadpool.";
+        static boost::asio::thread_pool pool(state.adasum_num_threads);
+        state.adasum_background_thread_pool = &pool;
+    }
   }
 
   op_manager.reset(CreateOperationManager(state));
@@ -784,7 +788,6 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   message.set_device(device);
   
   if (allreduce_type == AllreduceType::ADASUM) {
-    LOG(INFO, "Queued up an Adasum request");
     message.set_request_type(Request::ADASUM);
   } else {
     message.set_request_type(Request::ALLREDUCE);

@@ -13,6 +13,8 @@
 
 namespace horovod {
 namespace common {
+namespace adasumring {
+
 struct Ring {
   int loop[8];
   int nextGPU;
@@ -80,6 +82,7 @@ struct AllRings {
   void WaitAllMessages();
 };
 
+} // adasumring
 } // common
 } // horovod
 #endif // HOROVOD_ADASUM_CUDA_RING_H

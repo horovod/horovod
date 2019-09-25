@@ -13,6 +13,8 @@
 namespace horovod {
 namespace common {
 
+using namespace adasumring;
+
 class AdasumCudaAllreduceOp : public AdasumMPIOp {
   public:
 #if HAVE_NCCL

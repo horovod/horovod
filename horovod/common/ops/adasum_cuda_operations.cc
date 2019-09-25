@@ -83,7 +83,7 @@ void AdasumCudaAllreduceOp::FreeDeviceVariables() {
 }
 
 Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
-  if(entries.size() < 1) {
+  if(entries.empty()) {
     return Status::OK();
   }
   InitCUDAStreams(entries);
@@ -256,7 +256,7 @@ int local_rank = 0;
 MPI_Comm_rank(mpi_context_->local_comm, &local_rank);
 bool do_cross_node = local_rank == 0 && rank_log_size_ != 0;
 
-size_t unroll_size = 8 ? do_cross_node : num_reductions;
+size_t unroll_size = do_cross_node ? 8 : num_reductions;
 size_t layerid = 0;
 size_t elements_left = num_reductions;
 finished_parallel_reductions_ = 0;
@@ -312,7 +312,7 @@ while(elements_left > 0) {
   temp_buffers_.insert(temp_buffers_.end(), used_buffer_managers.begin(), used_buffer_managers.end());
 
   if (do_cross_node) {
-    boost::asio::post(*global_state_->background_thread_pool,
+    boost::asio::post(*global_state_->adasum_background_thread_pool,
     [this,&entries, start_index, increment_count]
     {
       std::vector<std::unique_ptr<char[]>> allreduce_buffers;

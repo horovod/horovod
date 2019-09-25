@@ -3,6 +3,7 @@
 
 namespace horovod {
 namespace common {
+namespace adasumring{
 
 void Ring::InitRing(int tmp[], bool _isFat, int rank, int size) {
   load = 0;
@@ -285,6 +286,6 @@ void AllRings::WaitAllMessages() {
     delete messages[i];
   messages.clear();
 }
-
+} // adasumring
 } // common
 } // horovod

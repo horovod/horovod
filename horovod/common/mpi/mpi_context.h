@@ -24,7 +24,6 @@
 #include "../common.h"
 #include "../half.h"
 #include "../logging.h"
-#include "../global_state.h"
 
 namespace horovod {
 namespace common {
