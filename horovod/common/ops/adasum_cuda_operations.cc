@@ -7,8 +7,8 @@ namespace common {
 
 std::unordered_map<std::thread::id, std::array<double*, 3>> AdasumCudaAllreduceOp::thread_to_device_variable_map;
 
-AdasumCudaAllreduceOp::AdasumCudaAllreduceOp(MPIContext* mpi_context, CUDAContext* cuda_context, HorovodGlobalState* global_state)
-    : AdasumMPIOp(mpi_context, global_state), cuda_context_(cuda_context) {
+AdasumCudaAllreduceOp::AdasumCudaAllreduceOp(MPIContext* mpi_context, NCCLContext* nccl_context, CUDAContext* cuda_context, HorovodGlobalState* global_state)
+    : AdasumMPIOp(mpi_context, global_state), nccl_context_(nccl_context), cuda_context_(cuda_context) {
 }
 
 AdasumCudaAllreduceOp::~AdasumCudaAllreduceOp() {
@@ -17,7 +17,8 @@ AdasumCudaAllreduceOp::~AdasumCudaAllreduceOp() {
 
 void AdasumCudaAllreduceOp::InitCUDAStreams(const std::vector<TensorTableEntry> entries) {
 
-  cuda_context_->ErrorCheck("cudaSetDevice", cudaSetDevice(entry.device));
+  auto first_entry = entries[0];
+  cuda_context_->ErrorCheck("cudaSetDevice", cudaSetDevice(first_entry.device));
 
   // Ensure streams are in the map before executing reduction.
   for(int i = 0; i < entries.size(); i++) {
@@ -31,7 +32,7 @@ void AdasumCudaAllreduceOp::InitCUDAStreams(const std::vector<TensorTableEntry> 
                                 cudaStreamCreateWithPriority(&stream, cudaStreamNonBlocking, greatest_priority));
     }
   }
-  cudaStream_t& device_stream = cuda_context_->streams[global_state_->current_nccl_stream][entry.device];
+  cudaStream_t& device_stream = cuda_context_->streams[global_state_->current_nccl_stream][first_entry.device];
   if (device_stream == nullptr) {
     int greatest_priority;
     cuda_context_->ErrorCheck("cudaDeviceGetStreamPriorityRange",
@@ -121,7 +122,7 @@ Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
   else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_RING) {
     return RingHierarchical(entries, response);
   }
-  else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_NCCL_RING) {
+  else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_NCCL_SUM_RING) {
     return NcclHierarchical(entries, response);
   }
   else {
@@ -133,7 +134,7 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
 
   MPI_Comm* node_comm = NULL;
   if (rank_log_size_ != 0) {
-    node_comm = &reduction_comms_[global_state_->rank_log_size-1];
+    node_comm = &reduction_comms_[rank_log_size_-1];
   }
 
   // Determine GPU IDs of the devices participating in this communicator.
@@ -217,12 +218,22 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
                                         0,
                                         *nccl_comm_, 
                                         cuda_context_->streams[global_state_->current_nccl_stream][entry.device]));
+    auto& event = events.at(i);
+    cuda_context_->ErrorCheck("GetCudaEvent", cuda_context_->GetCudaEvent(&event));
+    cuda_context_->ErrorCheck("cudaEventRecord", cudaEventRecord(event,
+                              cuda_context_->streams[global_state_->current_nccl_stream][entry.device]));
+  }
+
+  for (int i = 0; i < entries.size(); ++i) {
+    auto& event = events.at(i);
+    cuda_context_->ErrorCheck("cudaEventSynchronize", cudaEventSynchronize(event));
+    cuda_context_->ErrorCheck("ReleaseCudaEvent", cuda_context_->ReleaseCudaEvent(event));
   }
 
   return Status::OK();
 }
 
-Status RingHierarchical(std::vector<TensorTableEntry>& entries,
+Status AdasumCudaAllreduceOp::RingHierarchical(std::vector<TensorTableEntry>& entries,
                         const Response& response) {
 
   int num_reductions = entries.size();
@@ -258,7 +269,7 @@ Status RingHierarchical(std::vector<TensorTableEntry>& entries,
             [](int64_t& size, int64_t& threshold) {return size >= threshold;});
 
         if (!status.ok()) {
-            throw std::logic_error("AdaSumOp::Execute_helper: Initialize buffer failed.");
+            throw std::logic_error("AdasumOp::Execute_helper: Initialize buffer failed.");
         }
         auto buffer = buffer_manager.GetBuffer(entry.device, entry.context->framework(), global_state_->current_nccl_stream);
         recv_buffer = const_cast<void*>(buffer->AccessData(entry.context));
@@ -311,7 +322,7 @@ Status RingHierarchical(std::vector<TensorTableEntry>& entries,
       cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_result);
 
       MPI_Comm* node_comm = &reduction_comms_[rank_log_size_-1];
-      DispatchSyncAllreduce(host_buffer, recv_buffer.data(), node_comm, reduction_comms_, layerid, entry);
+      DispatchSyncAllreduce(buffer_data, recv_buffer.get(), node_comm, reduction_comms_, layerid, entry);
       // start the copy back to device
       cuda_result = cudaMemcpyAsync(
         (void*) entry.tensor->data(), buffer_data,
@@ -337,9 +348,6 @@ Status RingHierarchical(std::vector<TensorTableEntry>& entries,
 
     buffer_len = entry.output->size();
 
-  
-    // This will create a stream per layer.
-    InitCUDA(entry, layerid);
     all_rings.InitMessageInRing(new BroadcastMessage(mpi_context_),
                       buffer_data,
                       nullptr,
@@ -422,7 +430,8 @@ void AdasumCudaAllreduceOp::DispatchScaledAdd(DataType horovod_datatype,
 bool AdasumCudaAllreduceOp::Enabled(const ParameterManager& param_manager,
                             const std::vector<TensorTableEntry>& entries,
                             const Response& response) const {
-  return entries[0].device != CPU_DEVICE_ID;
+  return entries[0].device != CPU_DEVICE_ID && global_state_->adasum_algorithm != AdasumAlgorithm::NONE;
+
 }
 }
 }

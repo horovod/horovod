@@ -30,7 +30,7 @@ from horovod.common.basics import HorovodBasics as _HorovodBasics
 from horovod.tensorflow.util import _executing_eagerly
 
 
-adasum_algorithms = ["ADASUM_CPU_TREE","ADASUM_GPU_TREE","ADASUM_GPU_RING","ADASUM_GPU_NCCL_RING","ADASUM_GPU_AUTO"]
+adasum_algorithms = ["ADASUM_CPU_TREE","ADASUM_GPU_TREE","ADASUM_GPU_RING","ADASUM_GPU_NCCL_SUM_RING","ADASUM_GPU_AUTO"]
 
 class AllreduceType:
     SumAllreduce = 0

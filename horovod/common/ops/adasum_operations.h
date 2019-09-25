@@ -26,8 +26,8 @@ template <typename Communicator_type>
 class AdasumOp : public PointToPointOp<Communicator_type> {
 public:
   AdasumOp(HorovodGlobalState* global_state) : PointToPointOp<Communicator_type>(global_state) {
-    if (this->global_state_->num_adasum_threads > 0) {
-      for (int i = 0; i < this->global_state_->num_adasum_threads; i++) {
+    if (this->global_state_->adasum_num_threads > 0) {
+      for (int i = 0; i < this->global_state_->adasum_num_threads; i++) {
           temp_buffers_.emplace_back();
       }
     }
@@ -238,7 +238,7 @@ protected:
                                  level * 1000 + layerid,
                                  communicator);
         }
-        this->DispatchScaledAdd(horovod_datatype, myCount, 1.0, &grad_buffer[recvOffset] , 1.0, &recv_buffer[recvOffset], AdasumOp<Communicator_type>::global_state_, layerid);
+        DispatchScaledAdd(horovod_datatype, myCount, 1.0, &grad_buffer[recvOffset] , 1.0, &recv_buffer[recvOffset], AdasumOp<Communicator_type>::global_state_, layerid);
 
         if (rank < nearest_power_2) {
             for (int i = 0; i < nghrCount; i += chunk_size) {
@@ -374,7 +374,7 @@ protected:
     double anormsq = 0.;
     double bnormsq = 0.;
     
-    this->DispatchComputeDotAndNormSqrds(a, b, horovod_datatype, count, dotProduct, anormsq, bnormsq, this->global_state_, layerid);
+    DispatchComputeDotAndNormSqrds(a, b, horovod_datatype, count, dotProduct, anormsq, bnormsq, this->global_state_, layerid);
 
     double reduce_vals[3], temp_buffer[3];
     if (isLeftNeighbor) { 
@@ -404,7 +404,28 @@ protected:
     if (bnormsq >= 1e-8f)
         bcoeff = 1.0 - dotProduct / bnormsq * 0.5;
 
-    this->DispatchScaledAdd(horovod_datatype, count, acoeff, (uint16_t*)a, bcoeff, (uint16_t*)b, this->global_state_, layerid);
+    DispatchScaledAdd(horovod_datatype, count, acoeff, (uint16_t*)a, bcoeff, (uint16_t*)b, this->global_state_, layerid);
+  }
+
+  void DispatchSyncAllreduce(void* gradient_buffer,
+                      void* recv_buffer,
+                      Communicator_type* node_comm,
+                      Communicator_type* reduction_comm_pool,
+                      int layerid,
+                      TensorTableEntry entry) {
+      switch(entry.tensor->dtype()) {
+          case DataType::HOROVOD_FLOAT16:
+            SyncAllreduce((uint16_t*)gradient_buffer, (uint16_t*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
+            break;
+          case DataType::HOROVOD_FLOAT32:
+            SyncAllreduce((float*)gradient_buffer, (float*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
+            break;
+          case DataType::HOROVOD_FLOAT64:
+            SyncAllreduce((double*)gradient_buffer, (double*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
+            break;
+          default:
+            throw std::logic_error("Unsupported data type");
+      }
   }
 
   // over-write ComputeDotAndNormSqrds for float16

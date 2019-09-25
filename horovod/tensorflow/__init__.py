@@ -70,7 +70,7 @@ def allreduce(tensor, average=True, device_dense='', device_sparse='',
         with tf.device(device_sparse):
             # For IndexedSlices, do two allgathers instead of an allreduce.
             horovod_size = tf.cast(size(), tensor.values.dtype)
-            # TODO: Need to fix this to actuall call AdaSum
+            # TODO: Need to fix this to actuall call Adasum
             values = allgather(tensor.values)
             indices = allgather(tensor.indices)
 
@@ -253,7 +253,7 @@ if _LegacyOptimizer is not None:
             adasum_enable = False
             if 'HOROVOD_ADASUM' in os.environ:
                 adasum_enable = os.environ['HOROVOD_ADASUM'] in adasum_algorithms
-            allreduce_type = AllreduceType.Adasum if adasum_enable ==True else AllreduceType.SumAllreduce
+            allreduce_type = AllreduceType.Adasum if adasum_enable else AllreduceType.SumAllreduce
             self._allreduce_grads = _make_allreduce_grads_fn(
                 name, device_dense, device_sparse, compression, sparse_as_dense, allreduce_type)
 
@@ -328,7 +328,7 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
                                      device_sparse, compression, sparse_as_dense)
     elif isinstance(optimizer, tf.keras.optimizers.Optimizer):
         import horovod.tensorflow.keras as hvd_k
-        # TODO: Add AdaSum, this is a part of Keras
+        # TODO: Add Adasum, this is a part of Keras
         return hvd_k.DistributedOptimizer(optimizer, name, device_dense, device_sparse,
                                           compression, sparse_as_dense)
     else:

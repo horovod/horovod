@@ -54,7 +54,6 @@
 #if HAVE_MPI
 #include "ops/mpi_cuda_operations.h"
 #include "ops/adasum_cuda_operations.h"
-#include "ops/adasum_cuda_ring_operations.h"
 #endif
 #endif
 
@@ -149,14 +148,12 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #if HAVE_MPI && HAVE_CUDA
   if (mpi_context.IsEnabled()) {
 #if HOROVOD_GPU_ALLREDUCE == 'M'
-    if (state.adasum_algorithm != AdasumAlgorithm::NONE){
-        LOG(INFO) << "AdaSum allreduce GPU enabled.";
-        adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumCudaAllreduceOp(&mpi_context, &cuda_context, &state)));
-    }
     allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
         new MPI_CUDAAllreduce(&mpi_context, &cuda_context, &state)));
 
 #elif HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
+    LOG(INFO) << "Adasum allreduce GPU enabled.";
+    adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumCudaAllreduceOp(&mpi_context, &nccl_context, &cuda_context, &state)));
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new NCCLHierarchicalAllreduce(
             &nccl_context, &mpi_context, &cuda_context, &state)));
@@ -199,10 +196,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 
 #if HAVE_MPI
   if (mpi_context.IsEnabled()){
-    if (state.adasum_algorithm != AdasumAlgorithm::NONE){
-      LOG(INFO) << "AdaSum enabled.";
-      adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumMPIOp(&mpi_context, &state)));
-    }
+    LOG(INFO) << "Adasum enabled.";
+    adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumMPIOp(&mpi_context, &state)));
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpi_context,&state)));
     allgather_ops.push_back(
@@ -471,22 +466,22 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
   if (state.adasum_algorithm != AdasumAlgorithm::NONE) {
     int num_threads;
-    auto horovod_number_of_threads = std::getenv(HOROVOD_NUM_OF_ADASUM_REDUCTION_THREADS);
+    auto horovod_number_of_threads = std::getenv(HOROVOD_ADASUM_NUM_REDUCTION_THREADS);
     if (horovod_number_of_threads != nullptr){
       num_threads = std::strtol(horovod_number_of_threads, nullptr, 10);
-      LOG(INFO)<<"HOROVOD_NUM_OF_ADASUM_REDUCTION_THREADS is set to "<<num_threads;
+      LOG(INFO)<<"HOROVOD_ADASUM_NUM_REDUCTION_THREADS is set to "<<num_threads;
       if (num_threads <= 0){
-        throw std::logic_error("Number of threads must be greater or equal to 1 when AdaSum is used.");
+        throw std::logic_error("Number of threads must be greater or equal to 1 when Adasum is used.");
       }
     }
     else {
-      LOG(INFO)<<"HOROVOD_NUM_OF_ADASUM_REDUCTION_THREADS is not set. Creating threadpool with 1 thread by default. ";
+      LOG(INFO)<<"HOROVOD_ADASUM_NUM_REDUCTION_THREADS is not set. Creating threadpool with 1 thread by default. ";
       num_threads = 1;
     }
     //Making this static so that this pool is preverved throughout the lifetime of the program
     LOG(INFO)<<"Starting "<<num_threads<<" threads for threadpool.";
     static boost::asio::thread_pool pool(num_threads);
-    state.num_adasum_threads = num_threads;
+    state.adasum_num_threads = num_threads;
     state.background_thread_pool = &pool;
   }
 
@@ -784,7 +779,7 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   message.set_device(device);
   
   if (allreduce_type == AllreduceType::ADASUM) {
-    LOG(INFO, "Queued up an AdaSum request");
+    LOG(INFO, "Queued up an Adasum request");
     message.set_request_type(Request::ADASUM);
   } else {
     message.set_request_type(Request::ALLREDUCE);

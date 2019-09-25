@@ -55,21 +55,18 @@ struct HorovodGlobalState {
   // Thread pool
   boost::asio::thread_pool* background_thread_pool;
   
-  //flag to indicate the algorithm used by AdaSum reduction algorithm
+  //flag to indicate the algorithm used by Adasum reduction algorithm
   AdasumAlgorithm adasum_algorithm = AdasumAlgorithm::NONE;
   
   // Counter used to keep track of how many of the parallel reductions finished
   // TODO do we need this?
   std::atomic_int finished_parallel_reductions;
 
-  // threads to be used for AdaSum operations
-  int num_adasum_threads;
+  // threads to be used for Adasum operations
+  int adasum_num_threads;
   
   // Background thread running MPI communication.
   std::thread background_thread;
-
-  // TODO better place
-  bool msg_chunk_enabled = false;
 
   // Whether the background thread should shutdown.
   std::atomic_bool shut_down{false};

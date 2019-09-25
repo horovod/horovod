@@ -16,7 +16,7 @@ def adasum_reference_operation(a,b):
     assert a.size == b.size
     assert a.size > 0 and b.size > 0
     assert a.dtype == b.dtype
-    # AdaSum logic in numpy
+    # Adasum logic in numpy
     anormsq = np.inner(a.ravel(), a.ravel())
     bnormsq = np.inner(b.ravel(), b.ravel())
     dotProduct = np.dot(a.ravel(), b.ravel())

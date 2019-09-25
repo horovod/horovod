@@ -728,8 +728,7 @@ def get_common_options(build_ext):
         if have_mpi:
             SOURCES += ['horovod/common/ops/mpi_cuda_operations.cc']
         INCLUDES += ['horovod/common/ops/cuda']
-        SOURCES += ['horovod/common/ops/adasum_cuda_operations.cc',
-                    'horovod/common/ops/adasum_cuda_ring_operations.cc']
+        SOURCES += ['horovod/common/ops/adasum_cuda_operations.cc','horovod/common/ops/adasum_cuda_ring.cc']
         LIBRARY_DIRS += cuda_lib_dirs
         LIBRARIES += ['cudart', 'cublas']
 

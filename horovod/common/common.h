@@ -61,7 +61,7 @@ namespace common {
 #define ADASUM_CPU_TREE "ADASUM_CPU_TREE"
 #define ADASUM_GPU_TREE "ADASUM_GPU_TREE"
 #define ADASUM_GPU_RING "ADASUM_GPU_RING"
-#define ADASUM_GPU_NCCL_RING "ADASUM_GPU_NCCL_RING"
+#define ADASUM_GPU_NCCL_SUM_RING "ADASUM_GPU_NCCL_SUM_RING"
 #define ADASUM_GPU_AUTO "ADASUM_GPU_AUTO"
 
 
@@ -91,9 +91,8 @@ namespace common {
 #define HOROVOD_MPI "MPI"
 #define HOROVOD_MLSL "MLSL"
 #define HOROVOD_GLOO "GLOO"
-#define HOROVOD_MPI_P2P_MESSAGE_CHUNK_ENABLE "HOROVOD_MPI_P2P_MESSAGE_CHUNK_ENABLE"
 #define HOROVOD_ADASUM "HOROVOD_ADASUM"
-#define HOROVOD_NUM_OF_ADASUM_REDUCTION_THREADS "HOROVOD_NUM_OF_ADASUM_REDUCTION_THREADS"
+#define HOROVOD_ADASUM_NUM_REDUCTION_THREADS "HOROVOD_ADASUM_NUM_REDUCTION_THREADS"
 
 
 // String constant for gloo interface.
@@ -107,16 +106,13 @@ namespace common {
 // Device ID used for CPU.
 #define CPU_DEVICE_ID (-1)
 
-// Point-to-Point communication message chunk size for RDMA
-#define P2P_MESSAGE_CHUNK_SIZE (1 << 15)
-
-// Lis of algorithms supported by adasum reduction
+// List of algorithms supported by adasum reduction
 enum AdasumAlgorithm {
   NONE = 0,
   CPU_TREE = 1,
   GPU_TREE = 2,
   GPU_RING = 3,
-  GPU_NCCL_RING = 4,
+  GPU_NCCL_SUM_RING = 4,
   GPU_AUTO = 5
 };
 
@@ -130,8 +126,7 @@ enum DeviceType { CPU, GPU };
 enum Communicator {
   GLOBAL = 0,
   LOCAL = 1,
-  CROSS = 2,
-  COMM_POOL=3
+  CROSS = 2
 };
 
 inline std::string CommunicatorName(Communicator comm) {

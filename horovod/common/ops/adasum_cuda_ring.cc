@@ -84,13 +84,13 @@ bool AllreduceMessage::Test() {
         // call the cuda kernel
         switch(datatype) {
           case HOROVOD_FLOAT16:
-            AdasumCudaPairwiseReduce(count, (uint16_t*)grad_buf, (uint16_t*)recv_buf);
+            AdasumCudaReduce(count, (uint16_t*)grad_buf, (uint16_t*)recv_buf);
             break;
           case HOROVOD_FLOAT32:
-            AdasumCudaPairwiseReduce(count, (float*)grad_buf, (float*)recv_buf);
+            AdasumCudaReduce(count, (float*)grad_buf, (float*)recv_buf);
             break;
           case HOROVOD_FLOAT64:
-            AdasumCudaPairwiseReduce(count, (double*)grad_buf, (double*)recv_buf);
+            AdasumCudaReduce(count, (double*)grad_buf, (double*)recv_buf);
             break;
           default:
             throw std::logic_error("Message::Test: Unsupported data type.");
@@ -149,13 +149,13 @@ bool ReduceMessage::Test() {
         // call the cuda kernel
         switch(datatype) {
           case HOROVOD_FLOAT16:
-            AdasumCudaPairwiseReduce(count, (uint16_t*)grad_buf, (uint16_t*)recv_buf);
+            AdasumCudaReduce(count, (uint16_t*)grad_buf, (uint16_t*)recv_buf);
             break;
           case HOROVOD_FLOAT32:
-            AdasumCudaPairwiseReduce(count, (float*)grad_buf, (float*)recv_buf);
+            AdasumCudaReduce(count, (float*)grad_buf, (float*)recv_buf);
             break;
           case HOROVOD_FLOAT64:
-            AdasumCudaPairwiseReduce(count, (double*)grad_buf, (double*)recv_buf);
+            AdasumCudaReduce(count, (double*)grad_buf, (double*)recv_buf);
             break;
           default:
             throw std::logic_error("Message::Test: Unsupported data type.");
@@ -286,5 +286,5 @@ void AllRings::WaitAllMessages() {
   messages.clear();
 }
 
-}
-}
+} // common
+} // horovod

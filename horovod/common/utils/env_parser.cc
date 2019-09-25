@@ -171,15 +171,15 @@ AdasumAlgorithm ParseAdasumAlgorithm(const char* env_variable) {
     else if (strcasecmp(env_value, ADASUM_GPU_RING) == 0) {
       return AdasumAlgorithm::GPU_RING;
     }
-    else if (strcasecmp(env_value, ADASUM_GPU_NCCL_RING) == 0) {
-      return AdasumAlgorithm::GPU_NCCL_RING;
+    else if (strcasecmp(env_value, ADASUM_GPU_NCCL_SUM_RING) == 0) {
+      return AdasumAlgorithm::GPU_NCCL_SUM_RING;
     }
     else if (strcasecmp(env_value, ADASUM_GPU_AUTO) == 0) {
       return AdasumAlgorithm::GPU_AUTO;
     }
     else {
       throw std::runtime_error("Unsupported Adasum algorithm, supported values are: "
-                               "ADASUM_CPU_TREE, ADASUM_GPU_TREE, ADASUM_GPU_RING, ADASUM_GPU_NCCL_RING, ADASUM_GPU_AUTO");
+                               "ADASUM_CPU_TREE, ADASUM_GPU_TREE, ADASUM_GPU_RING, ADASUM_GPU_NCCL_SUM_RING, ADASUM_GPU_AUTO");
     }
   }
   return AdasumAlgorithm::NONE;

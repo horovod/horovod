@@ -57,7 +57,7 @@ AdasumMPIOp::~AdasumMPIOp() {
 bool AdasumMPIOp::Enabled(const ParameterManager& param_manager,
                            const std::vector<TensorTableEntry>& entries,
                            const Response& response) const {
-  return true;
+  return global_state_->adasum_algorithm != AdasumAlgorithm::NONE;
 }
 
 int AdasumMPIOp::GetLocalRankWithComm(MPI_Comm local_comm) {
@@ -84,86 +84,99 @@ Status AdasumMPIOp::Execute(std::vector<TensorTableEntry>& entries, const Respon
   }
 }
 
+void AdasumMPIOp::TreeHierarchicalInternal(TensorTableEntry& entry, int layerid, const Response& response) {
+  void* buffer_data;
+  int buffer_len;
+  void* recv_buffer;
+
+  InitDeviceVariables();
+
+  buffer_data = (void*) entry.tensor->data();
+
+  buffer_len = entry.output->size();
+
+  FusionBufferManager buffer_manager;
+
+  if(entry.tensor->data() == entry.output->data()) {
+
+    // Get the temp buffer to be used for the Op
+    {
+      std::lock_guard<std::mutex> guard(buffer_lock_);
+      assert(!temp_buffers_.empty());
+      buffer_manager = temp_buffers_.front();
+      temp_buffers_.pop_front();
+    }
+
+    // TODO: Maybe add before and after callbacks to timeline?
+    Status status = buffer_manager.InitializeBuffer(
+        buffer_len,
+        entry.device, entry.context,
+        global_state_->current_nccl_stream,
+        [](){},
+        [](){},
+        [](int64_t& size, int64_t& threshold){return size >= threshold;});
+
+    if (!status.ok()) {
+        throw std::logic_error("AdasumCudaAllreduceOp::Execute: Initialize buffer failed.");
+        return;
+    }
+    auto buffer = buffer_manager.GetBuffer(entry.device, entry.context->framework(), global_state_->current_nccl_stream);
+    recv_buffer = const_cast<void*>(buffer->AccessData(entry.context));
+  }
+  else {
+      recv_buffer = (void*) entry.output->data();
+  }
+  
+  MPI_Comm local_comm = mpi_context_->local_comm;
+  MPI_Comm* node_comm = NULL;
+  if (rank_log_size_ != 0) {
+      node_comm = &reduction_comms_[rank_log_size_-1];
+  }
+  
+  int local_rank = 0;
+
+  local_rank = GetLocalRankWithComm(local_comm);
+  SyncLocalReduce(buffer_data, recv_buffer, local_comm, layerid, entry);
+  // TODO have a version of VHDD that performs asynchronously
+  if (local_rank == 0 && node_comm != NULL) {
+    DispatchSyncAllreduce(buffer_data, recv_buffer, node_comm, reduction_comms_, layerid, entry);
+  }
+  SyncLocalBroadcast(buffer_data, local_comm, entry, layerid);
+
+  if(entry.tensor->data() == entry.output->data()) {
+    // Return the buffer back into the pool of available buffers
+    std::lock_guard<std::mutex> guard(buffer_lock_);
+    temp_buffers_.emplace_back(buffer_manager);
+  }
+  else {
+    MemcpyUtil(entry, (void *) entry.output->data(), (void *) entry.tensor->data(), (size_t) entry.tensor->size(), layerid);
+  }
+}
+
 Status AdasumMPIOp::TreeHierarchical(std::vector<TensorTableEntry>& entries, const Response& response) {
   int layerid = 0;
   int num_reductions = entries.size();
   finished_parallel_reductions_ = 0;
+  bool use_main_thread = global_state_->adasum_num_threads == 1;
   for (auto& entry : entries) {
-    boost::asio::post(*global_state_->background_thread_pool,
-    [this, &entry, response, layerid, &entries]
-    {
-      void* buffer_data;
-      int buffer_len;
-      void* recv_buffer;
-
-      InitDeviceVariables();
-
-      buffer_data = (void*) entry.tensor->data();
-
-      buffer_len = entry.output->size();
-
-      FusionBufferManager buffer_manager;
-
-      if(entry.tensor->data() == entry.output->data()) {
-
-        // Get the temp buffer to be used for the Op
-        {
-          std::lock_guard<std::mutex> guard(buffer_lock_);
-          assert(!temp_buffers_.empty());
-          buffer_manager = temp_buffers_.front();
-          temp_buffers_.pop_front();
-        }
-
-        // TODO: Maybe add before and after callbacks to timeline?
-        Status status = buffer_manager.InitializeBuffer(
-            buffer_len,
-            entry.device, entry.context,
-            global_state_->current_nccl_stream,
-            [](){},
-            [](){},
-            [](int64_t& size, int64_t& threshold){return size >= threshold;});
-
-        if (!status.ok()) {
-            throw std::logic_error("AdaSumCudaAllreduceOp::Execute: Initialize buffer failed.");
-            return;
-        }
-        auto buffer = buffer_manager.GetBuffer(entry.device, entry.context->framework(), global_state_->current_nccl_stream);
-        recv_buffer = const_cast<void*>(buffer->AccessData(entry.context));
-      }
-      else {
-          recv_buffer = (void*) entry.output->data();
-      }
-      
-      MPI_Comm local_comm = mpi_context_->local_comm;
-      MPI_Comm* node_comm = NULL;
-      if (global_state_->rank_log_size != 0) {
-          node_comm = &reduction_comms_[global_state_->rank_log_size-1];
-      }
-    
-      int local_rank = 0;
-
-      local_rank = GetLocalRankWithComm(local_comm);
-      SyncLocalReduce(buffer_data, recv_buffer, local_comm, layerid, entry);
-      // TODO have a version of VHDD that performs asynchronously
-      if (local_rank == 0 && node_comm != NULL) {
-        DispatchSyncAllreduce(buffer_data, recv_buffer, node_comm, reduction_comms_, layerid, entry);
-      }
-      SyncLocalBroadcast(buffer_data, local_comm, entry, layerid);
-
-      if(entry.tensor->data() == entry.output->data()) {
-        // Return the buffer back into the pool of available buffers
-        std::lock_guard<std::mutex> guard(buffer_lock_);
-        temp_buffers_.emplace_back(buffer_manager);
-      }
-      else {
-        MemcpyUtil(entry, (void *) entry.output->data(), (void *) entry.tensor->data(), (size_t) entry.tensor->size(), layerid);
-      }
-      finished_parallel_reductions_++;
-    });
+    // skip threadpool if we only have 1 thread in there
+    if (use_main_thread) {
+        TreeHierarchicalInternal(entry, layerid, response);
+    }
+    else {
+        boost::asio::post(*global_state_->background_thread_pool,
+        [this, &entry, response, layerid, &entries] {
+          TreeHierarchicalInternal(entry, layerid, response);
+          finished_parallel_reductions_++;
+        });
+    }
     layerid++;
   }
-  while (finished_parallel_reductions_ < num_reductions) {
-    std::this_thread::sleep_for(std::chrono::nanoseconds(50));
+
+  if(!use_main_thread) {
+    while (finished_parallel_reductions_ < num_reductions) {
+      std::this_thread::sleep_for(std::chrono::nanoseconds(50));
+    }
   }
   return Status::OK();
 }
@@ -209,27 +222,14 @@ void AdasumMPIOp::PointToPointSend(void* input_data_buffer,
                                    int tag,
                                    MPI_Comm communicator) {
   int status;           
-  int element_size = GetPerElementSize(horovod_datatype);            
-  if (!global_state_->msg_chunk_enabled) {
-      status = MPI_Send(input_data_buffer,
-                        (int)buffer_length,
-                        MPI_CHAR,
-                        dest_rank,
-                        tag,
-                        communicator);
-  }
-  else {
-        const int chunk_size = P2P_MESSAGE_CHUNK_SIZE / element_size;
-        for (int buf_index = 0; buf_index < buffer_length; buf_index += chunk_size) {
-          status = MPI_Send((uint8_t *)input_data_buffer + buf_index,
-                            std::min((int)buffer_length - buf_index, chunk_size) * element_size,
-                            MPI_CHAR,
-                            dest_rank,
-                            tag,
-                            communicator);
-          status &= status;
-        }
-  }
+  int element_size = GetPerElementSize(horovod_datatype);
+  int count = buffer_length / element_size;       
+  status = MPI_Send(input_data_buffer,
+                    count,
+                    mpi_context_->GetMPIDataType(horovod_datatype),
+                    dest_rank,
+                    tag,
+                    communicator);
   if (status != MPI_SUCCESS) {
     throw std::logic_error("MPI_Send failed, see MPI output for details.");
   }
@@ -244,28 +244,14 @@ void AdasumMPIOp::PointToPointRecv(void* output_data_buffer,
 {
   int status;
   int element_size = GetPerElementSize(horovod_datatype);
-  if (!global_state_->msg_chunk_enabled) {
-      status = MPI_Recv(output_data_buffer,
-                        (int)buffer_length,
-                        MPI_CHAR,
-                        src_rank,
-                        tag,
-                        communicator,
-                        MPI_STATUS_IGNORE);
-  }
-  else {
-        const int chunk_size = P2P_MESSAGE_CHUNK_SIZE / element_size;
-        for (int buf_index = 0; buf_index < buffer_length; buf_index += chunk_size) {
-          status = MPI_Recv((uint8_t *)output_data_buffer + buf_index,
-                            std::min((int)buffer_length - buf_index, chunk_size) * element_size,
-                            MPI_CHAR,
-                            src_rank,
-                            tag,
-                            communicator,
-                            MPI_STATUS_IGNORE);
-          status &= status;
-        }
-  }
+  int count = buffer_length / element_size;
+  status = MPI_Recv(output_data_buffer,
+                    count,
+                    mpi_context_->GetMPIDataType(horovod_datatype),
+                    src_rank,
+                    tag,
+                    communicator,
+                    MPI_STATUS_IGNORE);
 
   if (status != MPI_SUCCESS) {
     throw std::logic_error("MPI_Recv failed, see MPI output for details.");
@@ -283,40 +269,23 @@ void AdasumMPIOp::PointToPointSendRecv(void* input_data_buffer,
                                        int recv_tag,
                                        MPI_Comm communicator) {
   int status;       
-  int element_size = GetPerElementSize(input_horovod_datatype);
-                
-  if (!global_state_->msg_chunk_enabled) {
-      status = MPI_Sendrecv(input_data_buffer,
-                            (int)input_buffer_length,
-                            MPI_CHAR,
-                            dst_rank,
-                            send_tag,
-                            output_data_buffer,
-                            (int)output_buffer_length,
-                            MPI_CHAR, 
-                            src_rank,
-                            recv_tag,
-                            communicator,
-                            MPI_STATUS_IGNORE);
-  }
-  else {
-        const int chunk_size = P2P_MESSAGE_CHUNK_SIZE / element_size;
-        for (int buf_index = 0; buf_index < input_buffer_length; buf_index += chunk_size) {
-          status = MPI_Sendrecv((uint8_t *)input_data_buffer + buf_index,
-                            std::min((int)input_buffer_length - buf_index, chunk_size) * element_size,
-                            MPI_CHAR,
-                            dst_rank,
-                            send_tag,
-                            (uint8_t *)output_data_buffer + buf_index,
-                            std::min((int)output_buffer_length - buf_index, chunk_size) * element_size,
-                            MPI_CHAR, 
-                            src_rank,
-                            recv_tag,
-                            communicator,
-                            MPI_STATUS_IGNORE);
-          status &= status;
-        }
-  }
+  int input_element_size = GetPerElementSize(input_horovod_datatype);
+  int output_element_size = GetPerElementSize(output_horovod_datatype);
+  int input_count = input_buffer_length / input_element_size;
+  int output_count = output_buffer_length / output_element_size;
+ 
+  status = MPI_Sendrecv(input_data_buffer,
+                        input_count,
+                        mpi_context_->GetMPIDataType(input_horovod_datatype),
+                        dst_rank,
+                        send_tag,
+                        output_data_buffer,
+                        output_count,
+                        mpi_context_->GetMPIDataType(output_horovod_datatype), 
+                        src_rank,
+                        recv_tag,
+                        communicator,
+                        MPI_STATUS_IGNORE);
   if (status != MPI_SUCCESS) {
     throw std::logic_error("MPI_SendRecv failed, see MPI output for details.");
   }

@@ -59,7 +59,7 @@ protected:
                     int message_tag) override;
 
   template<typename T> 
-  void ElementwiseAdd(T *grad_buffer, T *recv_buffer, int count) {
+  inline void ElementwiseAdd(T *grad_buffer, T *recv_buffer, int count) {
     for(int i = 0; i < count; i++) {
       grad_buffer[i] += recv_buffer[i];
     }
@@ -97,6 +97,8 @@ protected:
   int rank_log_size_;
   // MPI communicators used to do adasum
   MPI_Comm* reduction_comms_ = nullptr;
+private:
+  void TreeHierarchicalInternal(TensorTableEntry& entry, int layerid, const Response& response);
 };
 
 } // namespace common

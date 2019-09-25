@@ -13,6 +13,7 @@ namespace common {
 class AdasumCudaAllreduceOp : public AdasumMPIOp {
   public:
   AdasumCudaAllreduceOp(MPIContext* mpi_context,
+                        NCCLContext* nccl_context,
                         CUDAContext* cuda_context,
                         HorovodGlobalState* global_state);
   ~AdasumCudaAllreduceOp();
@@ -27,7 +28,7 @@ class AdasumCudaAllreduceOp : public AdasumMPIOp {
   struct CUDAContext* cuda_context_;
   NCCLContext* nccl_context_;
   ncclComm_t* nccl_comm_;
-  // This map stores variables we will use to do AdaSum reduction on GPU with
+  // This map stores variables we will use to do Adasum reduction on GPU with
   // elements in tuple being:
   // 1: anormsq
   // 2: bnormsq

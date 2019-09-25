@@ -16,7 +16,7 @@ void CudaScaleAddImpl(int count, float* a_device, const float* b_device, double 
 void CudaScaleAddImpl(int count, uint16_t* a_device, const uint16_t* b_device, double host_a_coeff, double host_b_coeff);
 
 template<typename T>
-void AdasumCudaPairwiseReduce(int count, T* device_a, T* device_b){
+void AdasumCudaReduce(int count, T* device_a, T* device_b){
 		double normsq_a = 0.f;
 		double normsq_b = 0.f;
 		double dot = 0.f;

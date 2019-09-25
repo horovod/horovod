@@ -68,7 +68,7 @@ Status OperationManager::ExecuteAdasum(std::vector<TensorTableEntry>& entries,
       return op->Execute(entries, response);
     }
   }
-  throw std::logic_error("No AdaSum operation enabled");
+  throw std::logic_error("No Adasum operation enabled");
 }
 
 Status OperationManager::ExecuteError(std::vector<TensorTableEntry>& entries,
