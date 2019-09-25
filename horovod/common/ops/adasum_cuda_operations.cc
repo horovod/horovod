@@ -7,8 +7,14 @@ namespace common {
 
 std::unordered_map<std::thread::id, std::array<double*, 3>> AdasumCudaAllreduceOp::thread_to_device_variable_map;
 
+#if HAVE_NCCL
 AdasumCudaAllreduceOp::AdasumCudaAllreduceOp(MPIContext* mpi_context, NCCLContext* nccl_context, CUDAContext* cuda_context, HorovodGlobalState* global_state)
     : AdasumMPIOp(mpi_context, global_state), nccl_context_(nccl_context), cuda_context_(cuda_context) {
+}
+#endif
+
+AdasumCudaAllreduceOp::AdasumCudaAllreduceOp(MPIContext* mpi_context, CUDAContext* cuda_context, HorovodGlobalState* global_state)
+    : AdasumMPIOp(mpi_context, global_state), cuda_context_(cuda_context) {
 }
 
 AdasumCudaAllreduceOp::~AdasumCudaAllreduceOp() {
@@ -76,6 +82,31 @@ void AdasumCudaAllreduceOp::FreeDeviceVariables() {
   }
 }
 
+Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+  if(entries.size() < 1) {
+    return Status::OK();
+  }
+  InitCUDAStreams(entries);
+  if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_TREE) {
+    LOG(TRACE) << "Reducing with Adasum algorithm GPU_TREE.";
+    return TreeHierarchical(entries, response);
+  }
+  else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_RING) {
+    return RingHierarchical(entries, response);
+  }
+  else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_NCCL_SUM_RING) {
+#if HAVE_NCCL
+    return NcclHierarchical(entries, response);
+#else
+    throw std::logic_error("GPU_NCCL_SUM_RING needs NCCL to be installed in the system.");
+#endif
+  }
+  else {
+    throw std::logic_error("Unsupported adasum reduction algorithm");
+  }  
+}
+
+#if HAVE_NCCL
 void AdasumCudaAllreduceOp::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
                                          const std::vector<int32_t>& nccl_device_map) {
   // Ensure NCCL communicator is in the map before executing reduction.
@@ -109,25 +140,6 @@ void AdasumCudaAllreduceOp::InitNCCLComm(const std::vector<TensorTableEntry>& en
   }
 
   nccl_comm_ = &nccl_comm;
-}
-
-Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
-  if(entries.size() < 1) {
-    return Status::OK();
-  }
-  InitCUDAStreams(entries);
-  if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_TREE) {
-    return TreeHierarchical(entries, response);
-  }
-  else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_RING) {
-    return RingHierarchical(entries, response);
-  }
-  else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_NCCL_SUM_RING) {
-    return NcclHierarchical(entries, response);
-  }
-  else {
-    throw std::logic_error("Unsupported adasum reduction algorithm");
-  }  
 }
 
 Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries, const Response& response) {
@@ -232,6 +244,7 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
 
   return Status::OK();
 }
+#endif
 
 Status AdasumCudaAllreduceOp::RingHierarchical(std::vector<TensorTableEntry>& entries,
                         const Response& response) {

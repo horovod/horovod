@@ -5,17 +5,26 @@
 #include <array>
 #include "adasum_mpi_operations.h"
 #include "adasum_cuda_ring.h"
+
+#if HAVE_NCCL
 #include "nccl_operations.h"
+#endif
 
 namespace horovod {
 namespace common {
 
 class AdasumCudaAllreduceOp : public AdasumMPIOp {
   public:
+#if HAVE_NCCL
   AdasumCudaAllreduceOp(MPIContext* mpi_context,
                         NCCLContext* nccl_context,
                         CUDAContext* cuda_context,
                         HorovodGlobalState* global_state);
+#endif
+  AdasumCudaAllreduceOp(MPIContext* mpi_context,
+                        CUDAContext* cuda_context,
+                        HorovodGlobalState* global_state);
+
   ~AdasumCudaAllreduceOp();
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
@@ -26,8 +35,6 @@ class AdasumCudaAllreduceOp : public AdasumMPIOp {
 
   protected:
   struct CUDAContext* cuda_context_;
-  NCCLContext* nccl_context_;
-  ncclComm_t* nccl_comm_;
   // This map stores variables we will use to do Adasum reduction on GPU with
   // elements in tuple being:
   // 1: anormsq
@@ -41,12 +48,17 @@ class AdasumCudaAllreduceOp : public AdasumMPIOp {
 
   void FreeDeviceVariables();
 
+#if HAVE_NCCL
+  NCCLContext* nccl_context_;
+  ncclComm_t* nccl_comm_;
+
   void InitNCCLComm(const std::vector<TensorTableEntry>& entries,
                     const std::vector<int32_t>& nccl_device_map);
 
   Status NcclHierarchical(std::vector<TensorTableEntry>& entries,
                           const Response& response);
-  
+#endif
+
   Status RingHierarchical(std::vector<TensorTableEntry>& entries,
                           const Response& response);
 
