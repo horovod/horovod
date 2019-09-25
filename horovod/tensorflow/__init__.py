@@ -349,7 +349,7 @@ if hasattr(tf, 'GradientTape'):
             adasum_enable = False
             if 'HOROVOD_ADASUM' in os.environ:
                 adasum_enable = os.environ['HOROVOD_ADASUM'] in adasum_algorithms
-            allreduce_type = AllreduceType.Adasum if adasum_enable is not None and adasum_enable == '1' else AllreduceType.SumAllreduce
+            allreduce_type = AllreduceType.Adasum if adasum_enable else AllreduceType.SumAllreduce
             self._allreduce_grads = _make_allreduce_grads_fn(
                 'DistributedGradientTape', device_dense, device_sparse, compression,
                 sparse_as_dense, allreduce_type)
