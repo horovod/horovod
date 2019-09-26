@@ -277,8 +277,8 @@ void AllRings::WaitAllMessages() {
   bool all_done = false;
   while (!all_done) {
     all_done = true;
-    for (auto& message : messages) {
-      if (!message->Test())
+    for (int i = 0; i < messages.size(); i++) {
+      if (!messages.at(i)->Test())
         all_done = false;
     }
   }

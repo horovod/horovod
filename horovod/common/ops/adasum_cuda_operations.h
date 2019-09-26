@@ -110,6 +110,8 @@ class AdasumCudaAllreduceOp : public AdasumMPIOp {
   void static ScaleAddImpl(int n, double acoeff, T* __restrict__ a, double bcoeff, T* __restrict__ b, HorovodGlobalState *global_state, int layerid) {
     CudaScaleAddImpl(n, a, b, acoeff, bcoeff);
   }
+
+  bool CheckPointerLocation(const void* ptr);
 };
 } // namespace common
 } // namespace horovod

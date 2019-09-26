@@ -284,7 +284,8 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down) {
     // All workers add supported responses to cache. This updates the cache
     // order consistently across workers.
     for (auto& response : response_list.responses()) {
-      if (response.response_type() == Response::ResponseType::ALLREDUCE &&
+      if ((response.response_type() == Response::ResponseType::ALLREDUCE ||
+           response.response_type() == Response::ResponseType::ADASUM) &&
           (int)response.devices().size() == size_) {
         response_cache_.put(response, tensor_queue_);
       }

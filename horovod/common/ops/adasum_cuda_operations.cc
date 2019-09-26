@@ -24,10 +24,10 @@ AdasumCudaAllreduceOp::~AdasumCudaAllreduceOp() {
 void AdasumCudaAllreduceOp::InitCUDAStreams(const std::vector<TensorTableEntry> entries) {
 
   auto first_entry = entries[0];
-  cuda_context_->ErrorCheck("cudaSetDevice", cudaSetDevice(first_entry.device));
 
   // Ensure streams are in the map before executing reduction.
   for(int i = 0; i < entries.size(); i++) {
+    cuda_context_->ErrorCheck("cudaSetDevice", cudaSetDevice(entries[i].device));
     cudaStream_t& stream = cuda_context_->streams[global_state_->current_nccl_stream][i];
     if (stream == nullptr) {
 
@@ -254,10 +254,13 @@ AllRings all_rings(global_state_->controller->GetLocalRank(), global_state_->con
 std::deque<FusionBufferManager> used_buffer_managers;
 
 int local_rank = 0;
+
+bool need_pipeline = global_state_->controller->GetSize() > global_state_->controller->GetLocalSize();
+
 MPI_Comm_rank(mpi_context_->local_comm, &local_rank);
 bool do_cross_node = local_rank == 0 && rank_log_size_ != 0;
 
-size_t unroll_size = do_cross_node ? 8 : num_reductions;
+size_t unroll_size = need_pipeline ? 8 : num_reductions;
 size_t layerid = 0;
 size_t elements_left = num_reductions;
 finished_parallel_reductions_ = 0;
@@ -297,7 +300,8 @@ while(elements_left > 0) {
     else {
       recv_buffer = (void*) entry.output->data();
     }
-  
+    cuda_context_->ErrorCheck("cudaSetDevice", cudaSetDevice(entry.device));
+
     all_rings.InitMessageInRing(new ReduceMessage(mpi_context_),
                       buffer_data,
                       recv_buffer,
@@ -328,7 +332,7 @@ while(elements_left > 0) {
           buffer_data, (void*) entry.tensor->data(),
           buffer_len, 
           cudaMemcpyDeviceToHost,
-          cuda_context_->streams[global_state_->current_nccl_stream][i]);
+          cuda_context_->streams[global_state_->current_nccl_stream][index]);
         cuda_context_->ErrorCheck("cudaMemcpyAsync", cuda_result);
       }
       for (size_t index = start_index, i = 0; index < start_index + increment_count; ++index, ++i) {
@@ -337,7 +341,7 @@ while(elements_left > 0) {
         char* buffer_data = allreduce_buffers.at(i).get();
         std::unique_ptr<char[]> recv_buffer(new char[buffer_len]);
         // wait for this layer to finish copying to host
-        auto cuda_result = cudaStreamSynchronize(cuda_context_->streams[global_state_->current_nccl_stream][i]);
+        auto cuda_result = cudaStreamSynchronize(cuda_context_->streams[global_state_->current_nccl_stream][index]);
         cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_result);
         MPI_Comm* node_comm = &reduction_comms_[rank_log_size_-1];
         DispatchSyncAllreduce(buffer_data, recv_buffer.get(), node_comm, reduction_comms_, index, entry);
@@ -346,25 +350,25 @@ while(elements_left > 0) {
           (void*) entry.tensor->data(), buffer_data,
           buffer_len, 
           cudaMemcpyHostToDevice,
-          cuda_context_->streams[global_state_->current_nccl_stream][i]);
+          cuda_context_->streams[global_state_->current_nccl_stream][index]);
         cuda_context_->ErrorCheck("cudaMemcpyAsync", cuda_result);
       }
       // wait for all copies to device to finish
       for (size_t index = start_index, i = 0; index < start_index + increment_count; ++index, ++i) {
-        auto cuda_result = cudaStreamSynchronize(cuda_context_->streams[global_state_->current_nccl_stream][i]);
+        auto cuda_result = cudaStreamSynchronize(cuda_context_->streams[global_state_->current_nccl_stream][index]);
         cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_result);
       }
-      finished_parallel_reductions_ += increment_count;
+      finished_parallel_reductions_.fetch_add(increment_count, std::memory_order_relaxed);
     });
   }
   // for ranks that are not doing vhdd, increment finished_parallel_reductions right away
   else {
-    finished_parallel_reductions_ += increment_count;
+    finished_parallel_reductions_.fetch_add(increment_count, std::memory_order_relaxed);
   }
   elements_left -= increment_count;
 }
 // wait for all vhdd to finish
-while (finished_parallel_reductions_.load() < num_reductions) {
+while (finished_parallel_reductions_ < num_reductions) {
   std::this_thread::sleep_for(std::chrono::nanoseconds(25));
 }
 //ring broadcast
@@ -385,13 +389,16 @@ for (size_t layerid = 0; layerid < entries.size(); ++layerid) {
                     layerid,
                     global_state_->controller->GetLocalRank());
 }
+
 all_rings.WaitAllMessages();
+
 for (size_t layerid = 0; layerid < entries.size(); ++layerid) {
   auto& entry = entries.at(layerid);
   if(entry.tensor->data() != entry.output->data()) {
     MemcpyUtil(entry, (void *) entry.output->data(), (void *) entry.tensor->data(), (size_t) entry.tensor->size(), layerid);
   }
 }
+
 return Status::OK();
 }
 
@@ -407,6 +414,21 @@ void AdasumCudaAllreduceOp::MemcpyUtil(TensorTableEntry entry, void* dest, void*
     cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_sync_result);
 }
 
+bool AdasumCudaAllreduceOp::CheckPointerLocation(const void* ptr) {
+  cudaPointerAttributes attributes;
+  auto cuda_result = cudaPointerGetAttributes(&attributes, ptr);
+  if(attributes.type == cudaMemoryType::cudaMemoryTypeHost || 
+    attributes.type == cudaMemoryType::cudaMemoryTypeUnregistered || 
+    cuda_result == cudaErrorInvalidValue) {
+    LOG(INFO, global_state_->controller->GetRank())<<"Got a host pointer!";
+    return true;
+  }
+  else {
+    LOG(INFO, global_state_->controller->GetRank())<<"Got a device pointer!";
+    return false;
+  }
+}
+
 void AdasumCudaAllreduceOp::DispatchComputeDotAndNormSqrds(const void* __restrict__ a,
                                                           const void* __restrict__ b,
                                                           DataType horovod_datatype,
@@ -416,19 +438,26 @@ void AdasumCudaAllreduceOp::DispatchComputeDotAndNormSqrds(const void* __restric
                                                           double& bnormsq,
                                                           HorovodGlobalState *global_state,
                                                           int layerid) {
-  if (horovod_datatype == DataType::HOROVOD_FLOAT16) {
-    DotProductImpl((uint16_t*)a, (uint16_t*)b, count, dotProduct, anormsq, bnormsq, global_state_, layerid);
-  }
-  else if (horovod_datatype == DataType::HOROVOD_FLOAT32) {
-    DotProductImpl((float*)a, (float*)b, count, dotProduct, anormsq, bnormsq, global_state_, layerid);
-  }
-  else if (horovod_datatype == DataType::HOROVOD_FLOAT64) {
-    DotProductImpl((double*)a, (double*)b, count, dotProduct, anormsq, bnormsq, global_state_, layerid);      
+  bool use_cpu = CheckPointerLocation(a);
+
+  // we pass through to the cpu dispatcher
+  if(use_cpu) {
+    AdasumMPIOp::DispatchComputeDotAndNormSqrds(a, b, horovod_datatype, count, dotProduct, anormsq, bnormsq, global_state_, layerid);
   }
   else {
-      throw std::logic_error("Unsupported data type.");
+    if (horovod_datatype == DataType::HOROVOD_FLOAT16) {
+      DotProductImpl((uint16_t*)a, (uint16_t*)b, count, dotProduct, anormsq, bnormsq, global_state_, layerid);
+    }
+    else if (horovod_datatype == DataType::HOROVOD_FLOAT32) {
+      DotProductImpl((float*)a, (float*)b, count, dotProduct, anormsq, bnormsq, global_state_, layerid);
+    }
+    else if (horovod_datatype == DataType::HOROVOD_FLOAT64) {
+      DotProductImpl((double*)a, (double*)b, count, dotProduct, anormsq, bnormsq, global_state_, layerid);      
+    }
+    else {
+        throw std::logic_error("Unsupported data type.");
+    }
   }
-
 }
 
 void AdasumCudaAllreduceOp::DispatchScaledAdd(DataType horovod_datatype,
@@ -439,19 +468,25 @@ void AdasumCudaAllreduceOp::DispatchScaledAdd(DataType horovod_datatype,
                                              void* __restrict__ b,
                                              HorovodGlobalState *global_state,
                                              int layerid) {
-  if (horovod_datatype == DataType::HOROVOD_FLOAT16) {
-    ScaleAddImpl(count, acoeff, (uint16_t*)a, bcoeff, (uint16_t*)b, global_state_, layerid);
-  }
-  else if (horovod_datatype == DataType::HOROVOD_FLOAT32) {
-    ScaleAddImpl(count, acoeff, (float*)a, bcoeff, (float*)b, global_state_, layerid);
-  }
-  else if (horovod_datatype == DataType::HOROVOD_FLOAT64) {
-    ScaleAddImpl(count, acoeff, (double*)a, bcoeff, (double*)b, global_state_, layerid);
+  bool use_cpu = CheckPointerLocation(a);
+  // we pass through to the cpu dispatcher
+  if(use_cpu) {
+    AdasumMPIOp::DispatchScaledAdd(horovod_datatype, count, acoeff, a, bcoeff, b, global_state_, layerid);
   }
   else {
-      throw std::logic_error("Unsupported data type.");
+    if (horovod_datatype == DataType::HOROVOD_FLOAT16) {
+      ScaleAddImpl(count, acoeff, (uint16_t*)a, bcoeff, (uint16_t*)b, global_state_, layerid);
+    }
+    else if (horovod_datatype == DataType::HOROVOD_FLOAT32) {
+      ScaleAddImpl(count, acoeff, (float*)a, bcoeff, (float*)b, global_state_, layerid);
+    }
+    else if (horovod_datatype == DataType::HOROVOD_FLOAT64) {
+      ScaleAddImpl(count, acoeff, (double*)a, bcoeff, (double*)b, global_state_, layerid);
+    }
+    else {
+        throw std::logic_error("Unsupported data type.");
+    }
   }
-  
 }
 
 bool AdasumCudaAllreduceOp::Enabled(const ParameterManager& param_manager,
