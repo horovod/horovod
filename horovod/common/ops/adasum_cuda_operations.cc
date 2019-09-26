@@ -48,8 +48,9 @@ void AdasumCudaAllreduceOp::InitCUDAStreams(const std::vector<TensorTableEntry> 
   }
 }
 
-void AdasumCudaAllreduceOp::InitDeviceVariables() {
+void AdasumCudaAllreduceOp::InitDeviceVariables(TensorTableEntry entry) {
   auto thread_id = std::this_thread::get_id();
+  cuda_context_->ErrorCheck("cudaSetDevice", cudaSetDevice(entry.device));
   if (thread_to_device_variable_map.find(thread_id) == thread_to_device_variable_map.end() &&
       thread_to_device_variable_map[thread_id][0] == nullptr)
   {

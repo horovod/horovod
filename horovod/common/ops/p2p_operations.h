@@ -4,8 +4,6 @@
 
 #include <iostream>
 
-#include "mpi.h"
-
 #include "../common.h"
 #include "../global_state.h"
 #include "../mpi/mpi_context.h"

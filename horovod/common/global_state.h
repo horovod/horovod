@@ -53,7 +53,7 @@ struct HorovodGlobalState {
   TensorTable tensor_table;  
 
   // Thread pool
-  boost::asio::thread_pool* adasum_background_thread_pool;
+  boost::asio::thread_pool* adasum_background_thread_pool = nullptr;
   
   //flag to indicate the algorithm used by Adasum reduction algorithm
   AdasumAlgorithm adasum_algorithm = AdasumAlgorithm::NONE;
@@ -131,7 +131,7 @@ struct HorovodGlobalState {
     }
 
     if(adasum_background_thread_pool != nullptr){
-      adasum_background_thread_pool->stop();
+      adasum_background_thread_pool->join();
     }
   }
 };

@@ -46,7 +46,7 @@ class AdasumCudaAllreduceOp : public AdasumMPIOp {
 
   virtual void InitCUDAStreams(const std::vector<TensorTableEntry> entries);
   
-  void InitDeviceVariables() override;
+  void InitDeviceVariables(TensorTableEntry entry) override;
 
   void FreeDeviceVariables();
 

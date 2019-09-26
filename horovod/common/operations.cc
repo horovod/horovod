@@ -45,8 +45,7 @@
 #include "mpi/mpi_context.h"
 #include "mpi/mpi_controller.h"
 #include "ops/mpi_operations.h"
-#include "ops/p2p_operations.h"
-#include "ops/adasum_operations.h"
+#include "ops/adasum_mpi_operations.h"
 #endif
 
 #if HAVE_CUDA
@@ -201,8 +200,9 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 
 #if HAVE_MPI
   if (mpi_context.IsEnabled()){
-    LOG(INFO) << "Adasum queued.";
-    adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumMPIOp(&mpi_context, &state)));
+    LOG(INFO)<<"Adasum queued.";
+    adasum_ops.push_back(
+        std::shared_ptr<AllreduceOp>(new AdasumMPIOp(&mpi_context, &state)));
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpi_context,&state)));
     allgather_ops.push_back(

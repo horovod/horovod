@@ -89,7 +89,7 @@ void AdasumMPIOp::TreeHierarchicalInternal(TensorTableEntry& entry, int layerid,
   int buffer_len;
   void* recv_buffer;
 
-  InitDeviceVariables();
+  InitDeviceVariables(entry);
 
   buffer_data = (void*) entry.tensor->data();
 
@@ -211,7 +211,7 @@ void AdasumMPIOp::DispatchScaledAdd(DataType horovod_datatype, int count, double
   }
 }
 
-void AdasumMPIOp::InitDeviceVariables() {
+void AdasumMPIOp::InitDeviceVariables(TensorTableEntry entry) {
     // nothing to do here since we only operate on host memory
 }
 

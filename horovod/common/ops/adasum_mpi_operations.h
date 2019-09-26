@@ -69,7 +69,7 @@ protected:
 
   int GetSizeWithComm(MPI_Comm comm) override;
 
-  virtual void InitDeviceVariables();
+  virtual void InitDeviceVariables(TensorTableEntry entry);
 
   Status TreeHierarchical(std::vector<TensorTableEntry>& entries,
                           const Response& response);
