@@ -15,7 +15,7 @@ import unittest
 import warnings
 
 import horovod.torch as hvd
-
+from horovod.torch import AllreduceType
 class TorchTests(unittest.TestCase):
 
     def __init__(self, *args, **kwargs):
@@ -31,7 +31,7 @@ class TorchTests(unittest.TestCase):
             tensors = [torch.FloatTensor([[5.0, 6.0], [7.0, 8.0]]), torch.FloatTensor([[13.0, 14.0], [15.0, 16.0]])]
         summed = 0
         for tensor in tensors:
-            summed += hvd.allreduce(tensor, average=False)
+            summed += hvd.allreduce(tensor, average=False, allreduce_type=AllreduceType.Adasum)
         print(summed)
 
     def test_horovod_single_allreduce_cpu(self):
@@ -41,7 +41,7 @@ class TorchTests(unittest.TestCase):
             tensor = torch.FloatTensor([[1.0, 2.0], [3.0, 4.0]])
         else:
             tensor = torch.FloatTensor([[5.0, 6.0], [7.0, 8.0]])
-        summed = hvd.allreduce(tensor, average=False)
+        summed = hvd.allreduce(tensor, average=False, allreduce_type=AllreduceType.Adasum)
         print(summed)
 
 if __name__ == "__main__":

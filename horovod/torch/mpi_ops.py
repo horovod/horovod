@@ -66,7 +66,9 @@ _fp16_supported = _v2_api
 
 class AllreduceType:
     SumAllreduce = 0
-    MsAllreduce = 1  
+    Adasum = 1  
+
+adasum_algorithms = ["ADASUM_CPU_TREE","ADASUM_GPU_TREE","ADASUM_GPU_RING","ADASUM_GPU_NCCL_SUM_RING","ADASUM_GPU_AUTO"]
 
 def _check_function(function_factory, tensor):
     function = function_factory(tensor)

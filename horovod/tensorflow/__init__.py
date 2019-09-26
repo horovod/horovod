@@ -33,6 +33,8 @@ from horovod.tensorflow.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_b
 from horovod.tensorflow.mpi_ops import gloo_enabled, gloo_built
 from horovod.tensorflow.mpi_ops import nccl_built, ddl_built, mlsl_built
 from horovod.tensorflow.mpi_ops import AllreduceType
+from horovod.tensorflow.mpi_ops import adasum_algorithms
+
 from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache
 
 import tensorflow as tf
@@ -68,7 +70,7 @@ def allreduce(tensor, average=True, device_dense='', device_sparse='',
         with tf.device(device_sparse):
             # For IndexedSlices, do two allgathers instead of an allreduce.
             horovod_size = tf.cast(size(), tensor.values.dtype)
-            # TODO: Need to fix this to actuall call MSALLREDUCE
+            # TODO: Need to fix this to actuall call Adasum
             values = allgather(tensor.values)
             indices = allgather(tensor.indices)
 
@@ -248,10 +250,10 @@ if _LegacyOptimizer is not None:
             super(_DistributedOptimizer, self).__init__(name=name, use_locking=use_locking)
 
             self._optimizer = optimizer
-            msallreduce_enable = False
-            if 'HOROVOD_MSALLREDUCE_ENABLE' in os.environ:
-                msallreduce_enable = os.environ['HOROVOD_MSALLREDUCE_ENABLE']
-            allreduce_type = AllreduceType.MsAllreduce if msallreduce_enable is not None and msallreduce_enable == '1' else AllreduceType.SumAllreduce
+            adasum_enable = False
+            if 'HOROVOD_ADASUM' in os.environ:
+                adasum_enable = os.environ['HOROVOD_ADASUM'] in adasum_algorithms
+            allreduce_type = AllreduceType.Adasum if adasum_enable else AllreduceType.SumAllreduce
             self._allreduce_grads = _make_allreduce_grads_fn(
                 name, device_dense, device_sparse, compression, sparse_as_dense, allreduce_type)
 
@@ -326,7 +328,7 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
                                      device_sparse, compression, sparse_as_dense)
     elif isinstance(optimizer, tf.keras.optimizers.Optimizer):
         import horovod.tensorflow.keras as hvd_k
-        # TODO: Add MSALLREDUCE, this is a part of Keras
+        # TODO: Add Adasum, this is a part of Keras
         return hvd_k.DistributedOptimizer(optimizer, name, device_dense, device_sparse,
                                           compression, sparse_as_dense)
     else:
@@ -344,10 +346,10 @@ if hasattr(tf, 'GradientTape'):
                 super(self.__class__, self).__init__(persistent)
 
             self._tape = tape
-            msallreduce_enable = False
-            if 'HOROVOD_MSALLREDUCE_ENABLE' in os.environ:
-                msallreduce_enable = os.environ['HOROVOD_MSALLREDUCE_ENABLE']
-            allreduce_type = AllreduceType.MsAllreduce if msallreduce_enable is not None and msallreduce_enable == '1' else AllreduceType.SumAllreduce
+            adasum_enable = False
+            if 'HOROVOD_ADASUM' in os.environ:
+                adasum_enable = os.environ['HOROVOD_ADASUM'] in adasum_algorithms
+            allreduce_type = AllreduceType.Adasum if adasum_enable else AllreduceType.SumAllreduce
             self._allreduce_grads = _make_allreduce_grads_fn(
                 'DistributedGradientTape', device_dense, device_sparse, compression,
                 sparse_as_dense, allreduce_type)

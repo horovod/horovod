@@ -45,16 +45,14 @@
 #include "mpi/mpi_context.h"
 #include "mpi/mpi_controller.h"
 #include "ops/mpi_operations.h"
-#include "ops/p2p_operations.h"
-#include "ops/msallreduce_operations.h"
+#include "ops/adasum_mpi_operations.h"
 #endif
 
 #if HAVE_CUDA
 #include "ops/cuda_operations.h"
 #if HAVE_MPI
 #include "ops/mpi_cuda_operations.h"
-#include "ops/msallreduce_cuda_operations.h"
-#include "ops/msallreduce_cuda_ring_operations.h"
+#include "ops/adasum_cuda_operations.h"
 #endif
 #endif
 
@@ -144,19 +142,22 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   std::vector<std::shared_ptr<AllreduceOp>> allreduce_ops;
   std::vector<std::shared_ptr<AllgatherOp>> allgather_ops;
   std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops;
-  std::vector<std::shared_ptr<AllreduceOp>> msallreduce_ops;
+  std::vector<std::shared_ptr<AllreduceOp>> adasum_ops;
 
 #if HAVE_MPI && HAVE_CUDA
   if (mpi_context.IsEnabled()) {
 #if HOROVOD_GPU_ALLREDUCE == 'M'
-    if (state.msallreduce_enabled == true){
-        LOG(INFO) << "msallGpureduce enabled.";
-        msallreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new MsCudaRingAllreduceOp(&mpi_context, &cuda_context, &state)));
-    }
+
+    LOG(INFO) << "Adasum allreduce GPU queued.";
+    adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumCudaAllreduceOp(&mpi_context, &cuda_context, &state)));
+
     allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
         new MPI_CUDAAllreduce(&mpi_context, &cuda_context, &state)));
 
 #elif HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
+    LOG(INFO) << "Adasum allreduce GPU with NCCL queued.";
+    adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumCudaAllreduceOp(&mpi_context, &nccl_context, &cuda_context, &state)));
+
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new NCCLHierarchicalAllreduce(
             &nccl_context, &mpi_context, &cuda_context, &state)));
@@ -199,10 +200,9 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 
 #if HAVE_MPI
   if (mpi_context.IsEnabled()){
-    if (state.msallreduce_enabled == true){
-      LOG(INFO) << "msallreduce enabled.";
-      msallreduce_ops.push_back(std::shared_ptr<AllreduceOp>(new MsAllreduceOp(&mpi_context, &state)));
-    }
+    LOG(INFO)<<"Adasum queued.";
+    adasum_ops.push_back(
+        std::shared_ptr<AllreduceOp>(new AdasumMPIOp(&mpi_context, &state)));
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpi_context,&state)));
     allgather_ops.push_back(
@@ -215,7 +215,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   std::shared_ptr<ErrorOp> error_op(new ErrorOp(&state));
 
   return new OperationManager(&state.parameter_manager, allreduce_ops,
-                              allgather_ops, broadcast_ops, msallreduce_ops, error_op);
+                              allgather_ops, broadcast_ops, adasum_ops, error_op);
 }
 
 // Process a Response by doing a reduction, a gather, a broadcast, or
@@ -331,50 +331,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   auto mpi_ctx_manager = MPIContextManager();
 #endif
   mpi_context.Initialize(state.controller->GetRanks(), mpi_ctx_manager);
-  if(state.msallreduce_enabled == true) {
-    MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &state.local_comm);
-    int ms_local_rank, ms_local_size;
-    MPI_Comm_size(state.local_comm, &ms_local_size);
-    MPI_Comm_rank(state.local_comm, &ms_local_rank);
-    if (ms_local_rank == 0)
-    {
-        int rank, size;
-        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-        MPI_Comm_size(MPI_COMM_WORLD, &size);
-        // converting to node-based rank and size
-        rank /= ms_local_size;
-        size /= ms_local_size;
-
-        MPI_Group world_group;
-        MPI_Comm_group(MPI_COMM_WORLD, &world_group);
-        int nearest_power_2 = 1;
-        int log_size;
-        for (nearest_power_2 = 1, log_size = 0; (nearest_power_2 << 1) <= size; nearest_power_2 = (nearest_power_2 << 1), log_size++)
-        {
-        }
-        int shift_val;
-        int level;
-        state.rank_log_size = log_size;
-        state.reduction_comms = new MPI_Comm[log_size];
-        int *node_rank = new int[size];
-        for (level = 1, shift_val = 1; level < nearest_power_2; level = (level << 1), shift_val++)
-        {
-            int base_rank = ((rank >> shift_val) << shift_val);
-            for (int i = 0; i < (level << 1); i++)
-            {
-                // converting back to world rank
-                node_rank[i] = (base_rank + i) * ms_local_size;
-            }
-            MPI_Group red_group;
-            MPI_Group_incl(world_group, (level << 1), node_rank, &red_group);
-            MPI_Comm_create_group(MPI_COMM_WORLD, red_group, 0, &state.reduction_comms[shift_val - 1]);
-            MPI_Group_free(&red_group);
-        }
-        delete[] node_rank;
-    }
-    // TODO parasail new algo end
-  }
-
 #endif
 
 #if HAVE_GLOO
@@ -508,6 +464,34 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
                                            ? std::string(horovod_autotune_log)
                                            : "");
     state.parameter_manager.SetAutoTuning(true);
+  }
+
+  // Enable adasum reduction
+  state.adasum_algorithm = ParseAdasumAlgorithm(HOROVOD_ADASUM);
+
+  if (state.adasum_algorithm != AdasumAlgorithm::NONE) {
+    // default value for number of reduction threads
+    int num_threads = 1;
+    auto horovod_number_of_threads = std::getenv(HOROVOD_ADASUM_NUM_REDUCTION_THREADS);
+    if (horovod_number_of_threads != nullptr){
+      num_threads = std::strtol(horovod_number_of_threads, nullptr, 10);
+      LOG(INFO)<<"HOROVOD_ADASUM_NUM_REDUCTION_THREADS is set to "<<num_threads;
+      if (num_threads <= 0){
+        throw std::logic_error("Number of threads must be greater or equal to 1 when Adasum is used.");
+      }
+    }
+    state.adasum_num_threads = num_threads;
+
+    // If tree algorithm is selected and num_thread is set to 1, we skip threadpool creation
+    // and use main thread to do Adasum reduction.
+    if((state.adasum_algorithm != AdasumAlgorithm::CPU_TREE &&
+        state.adasum_algorithm != AdasumAlgorithm::GPU_TREE) ||
+        state.adasum_num_threads > 1) {
+        //Making this static so that this pool is preverved throughout the lifetime of the program
+        LOG(INFO)<<"Starting "<<state.adasum_num_threads<<" threads for threadpool.";
+        static boost::asio::thread_pool pool(state.adasum_num_threads);
+        state.adasum_background_thread_pool = &pool;
+    }
   }
 
   op_manager.reset(CreateOperationManager(state));
@@ -803,9 +787,8 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   message.set_tensor_type(tensor->dtype());
   message.set_device(device);
   
-  if (allreduce_type == AllreduceType::MS_ALLREDUCE) {
-    LOG(INFO, "Queued up an msallreduce request");
-    message.set_request_type(Request::MSALLREDUCE);
+  if (allreduce_type == AllreduceType::ADASUM) {
+    message.set_request_type(Request::ADASUM);
   } else {
     message.set_request_type(Request::ALLREDUCE);
   }

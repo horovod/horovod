@@ -20,5 +20,5 @@ graft third_party/gloo/cmake
 recursive-include third_party/gloo CMakeLists.txt
 recursive-include third_party/gloo *.in
 
-# include cmake related files for msallreduce kernel
+# include cmake related files for adasum kernel
 graft horovod/common/ops/cuda/

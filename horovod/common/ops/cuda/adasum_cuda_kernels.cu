@@ -1,3 +1,4 @@
+//TODO license
 #include <iostream>
 #include <stdio.h>
 #include <cuda_fp16.h>

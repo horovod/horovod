@@ -40,7 +40,7 @@ from horovod.torch.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.torch.mpi_ops import gloo_enabled, gloo_built
 from horovod.torch.mpi_ops import nccl_built, ddl_built, mlsl_built
 from horovod.torch.mpi_ops import AllreduceType
-
+from horovod.torch.mpi_ops import adasum_algorithms
 import os
 import torch
 import collections
@@ -123,10 +123,10 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         tensor = p.grad
         tensor_compressed, ctx = self._compression.compress(tensor)
 
-        msallreduce_enable = False
-        if 'HOROVOD_MSALLREDUCE_ENABLE' in os.environ:
-            msallreduce_enable = os.environ['HOROVOD_MSALLREDUCE_ENABLE']
-        allreduce_type = AllreduceType.MsAllreduce if msallreduce_enable is not None and msallreduce_enable == '1' else AllreduceType.SumAllreduce
+        adasum_enable = False
+        if 'HOROVOD_ADASUM' in os.environ:
+            adasum_enable = os.environ['HOROVOD_ADASUM'] in adasum_algorithms
+        allreduce_type = AllreduceType.Adasum if adasum_enable == True else AllreduceType.SumAllreduce
 
         handle = allreduce_async_(tensor_compressed, average=True, name=name, allreduce_type=allreduce_type)
         return handle, ctx

@@ -28,9 +28,6 @@ namespace horovod {
 namespace common {
 
 // Activity names, see Horovod Timeline for more details.
-#define HOROVOD_MPI_P2P_MESSAGE_CHUNK_ENABLE "HOROVOD_MPI_P2P_MESSAGE_CHUNK_ENABLE"
-#define HOROVOD_MSALLREDUCE_ENABLE "HOROVOD_MSALLREDUCE_ENABLE"
-#define HOROVOD_NUMBER_OF_MPI_THREADS "HOROVOD_NUMBER_OF_MPI_THREADS"
 #define INIT_FUSION_BUFFER "INIT_FUSION_BUFFER"
 #define WAIT_FOR_DATA "WAIT_FOR_DATA"
 #define WAIT_FOR_OTHER_TENSOR_DATA "WAIT_FOR_OTHER_TENSOR_DATA"
@@ -59,8 +56,12 @@ namespace common {
 #define GLOO_ALLREDUCE "GLOO_ALLREDUCE"
 #define GLOO_ALLGATHER "GLOO_ALLGATHER"
 #define GLOO_BCAST "GLOO_BCAST"
-#define POINT_TO_POINT_SEND "POINT_TO_POINT_SEND"
-#define POINT_TO_POINT_RECEIVE "POINT_TO_POINT_RECEIVE"
+#define ADASUM_CPU_TREE "ADASUM_CPU_TREE"
+#define ADASUM_GPU_TREE "ADASUM_GPU_TREE"
+#define ADASUM_GPU_RING "ADASUM_GPU_RING"
+#define ADASUM_GPU_NCCL_SUM_RING "ADASUM_GPU_NCCL_SUM_RING"
+#define ADASUM_GPU_AUTO "ADASUM_GPU_AUTO"
+
 
 // Horovod knobs.
 #define HOROVOD_MPI_THREADS_DISABLE "HOROVOD_MPI_THREADS_DISABLE"
@@ -88,6 +89,9 @@ namespace common {
 #define HOROVOD_MPI "MPI"
 #define HOROVOD_MLSL "MLSL"
 #define HOROVOD_GLOO "GLOO"
+#define HOROVOD_ADASUM "HOROVOD_ADASUM"
+#define HOROVOD_ADASUM_NUM_REDUCTION_THREADS "HOROVOD_ADASUM_NUM_REDUCTION_THREADS"
+
 
 // String constant for gloo interface.
 #define GLOO_DEFAULT_IFACE "eth0"
@@ -100,8 +104,15 @@ namespace common {
 // Device ID used for CPU.
 #define CPU_DEVICE_ID (-1)
 
-// Point-to-Point communication message chunk size for RDMA
-#define P2P_MESSAGE_CHUNK_SIZE (1 << 15)
+// List of algorithms supported by adasum reduction
+enum AdasumAlgorithm {
+  NONE = 0,
+  CPU_TREE = 1,
+  GPU_TREE = 2,
+  GPU_RING = 3,
+  GPU_NCCL_SUM_RING = 4,
+  GPU_AUTO = 5
+};
 
 // List of supported frameworks.
 enum Framework { TENSORFLOW, PYTORCH, MXNET };
