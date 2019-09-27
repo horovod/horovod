@@ -80,6 +80,12 @@ struct AllRings {
   Ring* PickRing(int count);
   void InitMessageInRing(Message* message, void* grad_buf, void* recv_buf, int size, DataType datatype, MPI_Comm comm, int grad_tag, int rank);
   void WaitAllMessages();
+
+  // private:
+  static std::vector<std::vector<int>> GetTopologyMatrix(int size);
+  static std::vector<int> GetRingFromTopologyMatrix(
+      int size, const std::vector<std::vector<int>>& topology_matrix,
+      int performance_rank);
 };
 
 } // adasumring

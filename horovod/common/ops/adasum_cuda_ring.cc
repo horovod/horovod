@@ -206,6 +206,67 @@ bool BroadcastMessage::Test() {
   return false;
 }
 
+std::vector<std::vector<int>> AllRings::GetTopologyMatrix(int size) {
+  std::vector<std::vector<int>> topology_matrix(size, std::vector<int>(size));
+  for (int i = 0; i < size; i++) {
+    for (int j = 0; j < size; j++) {
+      if (i == j) {
+        topology_matrix[i][j] = -1;
+        continue;
+      }
+      int accessSupported = 0;
+      cudaDeviceGetP2PAttribute(&accessSupported, cudaDevP2PAttrAccessSupported,
+                                i, j);
+      if (!accessSupported) {
+        topology_matrix[i][j] = -1;
+        continue;
+      }
+      int perfRank = 0;
+      cudaDeviceGetP2PAttribute(&perfRank, cudaDevP2PAttrPerformanceRank, i, j);
+      topology_matrix[i][j] = perfRank;
+    }
+  }
+  return topology_matrix;
+}
+
+std::vector<int>
+AllRings::GetRingFromTopologyMatrix(int size,
+                                    const std::vector<std::vector<int>>& topology_matrix,
+                                    int performance_rank) {
+  // Every node in topology matrix
+  // must have 2 connections for each performance rank.
+  //
+  // Typical topology matrix example:
+  //
+  // {{-1, 1, 1, 0, 0, -1, -1, -1},
+  //  {1, -1, 0, 1, -1, 0, -1, -1},
+  //  {1, 0, -1, 0, -1, -1, 1, -1},
+  //  {0, 1, 0, -1, -1, -1, -1, 1},
+  //  {0, -1, -1, -1, -1, 1, 1, 0},
+  //  {-1, 0, -1, -1, 1, -1, 0, 1},
+  //  {-1, -1, 1, -1, 1, 0, -1, 0},
+  //  {-1, -1, -1, 1, 0, 1, 0, -1}}
+
+  assert(topology_matrix.size() == size);
+  assert(topology_matrix[0].size() == size);
+
+  // Start point doesn't matter, let's start with 0.
+  std::vector<int> ring;
+  int curr = 0;
+  int prev = -1;
+  do {
+    for (int i = 0; i < size; i++) {
+      if (i != prev && topology_matrix[curr][i] == performance_rank) {
+        ring.push_back(curr);
+        prev = curr;
+        curr = i;
+        break;
+      }
+    }
+  } while (curr != 0);
+  return ring;
+}
+
 AllRings::~AllRings() {
   for (int i = 0; i < messages.size(); i++)
     delete messages[i];
@@ -214,25 +275,41 @@ AllRings::~AllRings() {
 
 AllRings::AllRings(int rank, int size) {
   rings = new Ring[num_rings];
-  {
-    // fat ring 1
-    int tmp[8] = {0, 3, 2, 1, 5, 6, 7, 4};
-    rings[0].InitRing(tmp, true, rank, size);
-  }
-  {
-    // fat ring 2
-    int tmp[8] = {0, 4, 7, 6, 5, 1, 2, 3};
-    rings[1].InitRing(tmp, true, rank, size);
-  }
-  {
-    // skinny ring 1
-    int tmp[8] = {0, 2, 6, 4, 5, 7, 3, 1};
-    rings[2].InitRing(tmp, false, rank, size);
-  }
-  {
-    // skinny ring 2
-    int tmp[8] = {0, 1, 3, 7, 5, 4, 6, 2};
-    rings[3].InitRing(tmp, false, rank, size);
+  auto topology_matrix = GetTopologyMatrix(size);
+
+  auto fat_ring = GetRingFromTopologyMatrix(size, topology_matrix, 0);
+  if (fat_ring.empty()) {
+    LOG(INFO) << "No rings created from topology matrix, use defaults.";
+    {
+      // fat ring 1
+      int tmp[8] = {0, 3, 2, 1, 5, 6, 7, 4};
+      rings[0].InitRing(tmp, true, rank, size);
+    }
+    {
+      // fat ring 2
+      int tmp[8] = {0, 4, 7, 6, 5, 1, 2, 3};
+      rings[1].InitRing(tmp, true, rank, size);
+    }
+    {
+      // skinny ring 1
+      int tmp[8] = {0, 2, 6, 4, 5, 7, 3, 1};
+      rings[2].InitRing(tmp, false, rank, size);
+    }
+    {
+      // skinny ring 2
+      int tmp[8] = {0, 1, 3, 7, 5, 4, 6, 2};
+      rings[3].InitRing(tmp, false, rank, size);
+    }
+  } else {
+    rings[0].InitRing(fat_ring.data(), true, rank, size);
+    std::reverse(fat_ring.begin(), fat_ring.end());
+    rings[1].InitRing(fat_ring.data(), true, rank, size);
+
+    auto skinny_ring = GetRingFromTopologyMatrix(size, topology_matrix, 1);
+    assert(!skinny_ring.empty());
+    rings[2].InitRing(skinny_ring.data(), false, rank, size);
+    std::reverse(skinny_ring.begin(), skinny_ring.end());
+    rings[3].InitRing(skinny_ring.data(), false, rank, size);
   }
 };
 
