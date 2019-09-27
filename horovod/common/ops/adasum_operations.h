@@ -180,6 +180,184 @@ protected:
     }
   }
 
+  template <typename T>
+  void FusedAllreduce(T* grad_buffer, T* recv_buffer, DataType horovod_datatype, std::vector<int>& tensor_counts,
+                      int start_level, MPI_Comm communicator,
+                      int tag, MPI_Comm* reduction_comms) {
+    int rank;
+    int size;
+    MPI_Comm_rank(communicator, &rank);
+    MPI_Comm_size(communicator, &size);
+
+    if (IsPowerOfTwo(size) == false) {
+      throw std::logic_error(
+          "BUGBUG: need to implement logic for non power of two ranks");
+    }
+
+    std::vector<std::vector<int>> nghrCountVec;
+    std::vector<double> normAndDots(tensor_counts.size()*3 * 2);
+
+    int chunk_size = (1 << 29);
+    int nearest_power_2 = 1;
+    for (nearest_power_2 = 1; (nearest_power_2 << 1) <= size;
+        nearest_power_2 = (nearest_power_2 << 1)) {
+    }
+    int remaining_non_power_2 = size - nearest_power_2;
+    int level;
+    if (rank >= size - 2 * remaining_non_power_2) {
+      // TODO: what to do here?
+    }
+
+    int nghrCountVec_index = 0;
+    int orgSize = size;
+    size = nearest_power_2;
+    if (rank < nearest_power_2) {
+
+      int total_counts_sum = 0;
+      for (int i = 0; i < tensor_counts.size(); i++)
+        total_counts_sum += tensor_counts[i];
+      int myCount = total_counts_sum;
+      int comm_index;
+      for (level = 1, comm_index = 0; level < size;
+          level = (level << 1), comm_index++) {
+        if (level < start_level) {
+          continue;
+        }
+
+        int neighbor_rank = rank ^ level;
+        int nghrCount = 0;
+        int sendOffset = 0;
+        int recvOffset = 0;
+        int firstHalfMyCount = (myCount >> 1);
+        int secondHalfMyCount = myCount - firstHalfMyCount;
+
+        nghrCountVec.emplace_back();
+        nghrCountVec[nghrCountVec_index].resize(tensor_counts.size());
+
+        int myCountSoFar = 0;
+        int nghrCountSoFar = 0;
+        if ((rank & level) != 0) {
+          myCount = secondHalfMyCount;
+          nghrCount = firstHalfMyCount;
+          sendOffset = 0;
+          recvOffset = nghrCount;
+
+          for (int i = 0; i < tensor_counts.size(); i++){
+            if (nghrCountSoFar <= nghrCount){
+              if (nghrCountSoFar+tensor_counts[i] <= nghrCount){
+                nghrCountVec[nghrCountVec_index][i] = tensor_counts[i];
+                tensor_counts[i] = 0;
+              } else {
+                nghrCountVec[nghrCountVec_index][i] = nghrCount - nghrCountSoFar; // should not be negative
+                tensor_counts[i] = tensor_counts[i] - (nghrCount - nghrCountSoFar); // should not be negative
+              }
+            } else {
+              tensor_counts[i] = tensor_counts[i];
+              nghrCountVec[nghrCountVec_index][i] = 0;
+            }
+            nghrCountSoFar += nghrCountVec[nghrCountVec_index][i];
+            myCountSoFar += tensor_counts[i];
+          }
+        } else {
+          myCount = firstHalfMyCount;
+          nghrCount = secondHalfMyCount;
+          sendOffset = myCount;
+          recvOffset = 0;
+
+          for (int i = 0; i < tensor_counts.size(); i++){
+            if (myCountSoFar <= myCount){
+              if (myCountSoFar+tensor_counts[i] <= myCount){
+                tensor_counts[i] = tensor_counts[i];
+                nghrCountVec[nghrCountVec_index][i] = 0;
+              } else {
+                nghrCountVec[nghrCountVec_index][i] = tensor_counts[i] - (myCount - myCountSoFar); // should not be negative
+                tensor_counts[i] = myCount - myCountSoFar; // should not be negative
+              }
+            } else {
+              nghrCountVec[nghrCountVec_index][i] = tensor_counts[i];
+              tensor_counts[i] = 0;
+            }
+            nghrCountSoFar += nghrCountVec[nghrCountVec_index][i];
+            myCountSoFar += tensor_counts[i];
+          }
+        }
+
+        nghrCountVec_index++;
+
+        for (int i = 0; i < std::max(myCount, nghrCount); i += chunk_size)
+          MPI_Sendrecv(
+              (char*)(&grad_buffer[i + sendOffset]),
+              std::min(chunk_size, nghrCount - i) * sizeof(T) / sizeof(char),
+              MPI_CHAR, neighbor_rank, tag,
+              (char*)(&recv_buffer[i + recvOffset]),
+              std::min(chunk_size, myCount - i) * sizeof(T) / sizeof(char),
+              MPI_CHAR, neighbor_rank, tag, communicator, MPI_STATUS_IGNORE);
+        if ((rank & level) != 0) {
+          grad_buffer = &grad_buffer[nghrCount];
+          recv_buffer = &recv_buffer[nghrCount];
+        }
+        FusedPairwiseReduceWithComm(grad_buffer, recv_buffer, horovod_datatype, tensor_counts, tag,
+                                  reduction_comms[comm_index],
+                                  (rank & level) == 0,
+                                  normAndDots);
+      }
+
+      for (level = (size >> 1); level > 0; level = (level >> 1)) {
+        if (level < start_level){
+          continue;
+        }
+        int neighbor_rank = rank ^ level;
+
+        nghrCountVec_index--;
+        int nghrCount = 0;
+        for (int i = 0; i < tensor_counts.size(); i++){
+          nghrCount += nghrCountVec[nghrCountVec_index][i];
+          tensor_counts[i] += nghrCountVec[nghrCountVec_index][i];
+        }
+
+        if ((rank & level) == 0) {
+          recv_buffer = &grad_buffer[myCount];
+        } else {
+          recv_buffer = &grad_buffer[-nghrCount];
+        }
+        for (int i = 0; i < std::max(myCount, nghrCount); i += chunk_size)
+          MPI_Sendrecv(
+              (char*)(&grad_buffer[i]),
+              std::min(chunk_size, myCount - i) * sizeof(T) / sizeof(char),
+              MPI_CHAR, neighbor_rank, tag, (char*)(&recv_buffer[i]),
+              std::min(chunk_size, nghrCount - i) * sizeof(T) / sizeof(char),
+              MPI_CHAR, neighbor_rank, tag, communicator, MPI_STATUS_IGNORE);
+        if ((rank & level) != 0) {
+          grad_buffer = &grad_buffer[-nghrCount];
+        }
+        myCount += nghrCount;
+      }
+    }
+    size = orgSize;
+
+    if (rank >= size - 2 * remaining_non_power_2) {
+      // TODO: what to do here?
+    }
+  }
+
+  void DispatchFusedAllreduce(void* grad_buffer, void* recv_buffer, std::vector<int>& tensor_counts,
+                                int start_level, MPI_Comm communicator,
+                                int tag, MPI_Comm* reduction_comms, DataType type) {
+      switch(type) {
+          case DataType::HOROVOD_FLOAT16:
+            FusedAllreduce((uint16_t*)grad_buffer, (uint16_t*)recv_buffer, type, tensor_counts, start_level, communicator, tag, reduction_comms);
+            break;
+          case DataType::HOROVOD_FLOAT32:
+            FusedAllreduce((float*)grad_buffer, (float*)recv_buffer, type, tensor_counts, start_level, communicator, tag, reduction_comms);
+            break;
+          case DataType::HOROVOD_FLOAT64:
+            FusedAllreduce((double*)grad_buffer, (double*)recv_buffer, type, tensor_counts, start_level, communicator, tag, reduction_comms);
+            break;
+          default:
+            throw std::logic_error("Unsupported data type");
+      }
+  }
+
   template<typename T>
   void SyncAllreduce(T* grad_buffer,
                      T* recv_buffer, 
@@ -367,6 +545,54 @@ protected:
         }
     }
 
+  }
+
+  template <typename T>
+  void FusedPairwiseReduceWithComm(T* a, T* b, DataType horovod_datatype, std::vector<int>& tensor_counts, int layerid,
+                                   MPI_Comm& comm, bool isLeftNeighbor, std::vector<double>& normAndDots) {
+    int countSoFar = 0;
+    for (size_t i = 0; i < tensor_counts.size(); i++){
+      double dotProduct = 0.;
+      double anormsq = 0.;
+      double bnormsq = 0.;
+
+      DispatchComputeDotAndNormSqrds(&a[countSoFar], &b[countSoFar], horovod_datatype, tensor_counts[i], dotProduct, anormsq, bnormsq, this->global_state_, layerid);
+      normAndDots[i*3] = dotProduct;
+      if (isLeftNeighbor) {
+        normAndDots[i*3+1] = anormsq;
+        normAndDots[i*3+2] = bnormsq;
+      } else {
+        normAndDots[i*3+1] = bnormsq;
+        normAndDots[i*3+2] = anormsq;
+      }
+      countSoFar += tensor_counts[i];
+    }
+
+    this->P2pAllreduce(normAndDots.data(), normAndDots.data() + 3*tensor_counts.size(), 3*tensor_counts.size(), DataType::HOROVOD_FLOAT64, comm, layerid);
+
+    countSoFar = 0;
+    for (size_t i = 0; i < tensor_counts.size(); i++){
+      double dotProduct = normAndDots[i*3];
+      double anormsq;
+      double bnormsq;
+      if (isLeftNeighbor) {
+        anormsq = normAndDots[i*3+1];
+        bnormsq = normAndDots[i*3+2];
+      } else {
+        bnormsq = normAndDots[i*3+1];
+        anormsq = normAndDots[i*3+2];
+      }
+
+      double acoeff = 1;
+      double bcoeff = 1;
+      if (anormsq >= 1e-8)
+        acoeff = 1.0 - dotProduct / anormsq * 0.5;
+      if (bnormsq >= 1e-8)
+        bcoeff = 1.0 - dotProduct / bnormsq * 0.5;
+
+      DispatchScaledAdd(horovod_datatype, tensor_counts[i], acoeff, &a[countSoFar], bcoeff, &b[countSoFar], this->global_state_, layerid);
+      countSoFar += tensor_counts[i];
+    }
   }
 
   void PairwiseReduceWithComm(void* a, void* b, int count, int layerid, DataType horovod_datatype, Communicator_type& comm, bool isLeftNeighbor){

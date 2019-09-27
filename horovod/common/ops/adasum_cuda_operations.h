@@ -51,8 +51,21 @@ class AdasumCudaAllreduceOp : public AdasumMPIOp {
   void FreeDeviceVariables();
 
 #if HAVE_NCCL
+  // TODO: All of the following is closely replicated in ncc_operations.h/cc.
+  //       Separate the Adasum NcclHierarchical into a new op that inherits
+  //       from NCCLAllreduce (like NCCLHierarchicalAllreduce does).
+
+  std::queue<std::pair<std::string, cudaEvent_t>> event_queue_;
+
+  cudaStream_t* stream_;
+  void* host_buffer_;
+
   NCCLContext* nccl_context_;
   ncclComm_t* nccl_comm_;
+
+  void InitCUDAQueue(const std::vector<TensorTableEntry>& entries, const Response& response);
+
+  Status FinalizeCUDAQueue(const std::vector<TensorTableEntry>& entries);
 
   void InitNCCLComm(const std::vector<TensorTableEntry>& entries,
                     const std::vector<int32_t>& nccl_device_map);
