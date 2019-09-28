@@ -18,6 +18,7 @@
 #include "../common/operations.h"
 #include "cuda_util.h"
 #include "mpi_ops.h"
+#include "../common/logging.h"
 
 namespace horovod {
 namespace mxnet {
@@ -114,16 +115,17 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
     default:
       throw std::logic_error("Unsupported Horovod operation type.");
   }
-
+  LOG(TRACE)<<"enqueue results: "<<enqueue_result.ok()<< " reason: "<<enqueue_result.reason();
   ThrowIfError(enqueue_result);
 }
 
 inline void PushHorovodOperation(OperationType op_type, NDArray* input,
                                  NDArray* output, const char* name,
                                  int priority, int root_rank = -1) {
+  LOG(TRACE)<<"PushHorovodOperation";
   auto op_type_name = GetOpTypeName(op_type);
   auto op_name = GetOpName(op_type_name, name);
-  auto ops_param = CreateMpiOpsParam(input, output, nullptr, op_type, op_name, root_rank);
+  auto ops_param = CreateMpiOpsParam(input, output, nullptr, nullptr, op_type, op_name, root_rank);
 
   // Not in-place
   auto input_var = input->var();
@@ -138,6 +140,9 @@ inline void PushHorovodOperation(OperationType op_type, NDArray* input,
                       &MX_EXEC_CTX, nullptr, 0, &output_var, 1,
                       &MX_FUNC_PROP, priority, op_type_name);
   }
+
+  // Preventing exiting the API call prematurely and causing shape issue.
+  output->WaitToRead();
 }
 
 #if HAVE_CUDA
@@ -148,9 +153,11 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
   auto ops_param = static_cast<MpiOpsParam*>(param);
   auto name = ops_param->op_name;
   auto hvd_cpu_buffer = ops_param->cpu_tensor;
+  auto hvd_output_buffer = ops_param->output_tensor;
   auto hvd_context = std::make_shared<MXOpContext<NDArray>>(
-      CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
+      CPU_DEVICE_ID, hvd_output_buffer->tensor());
 
+  LOG(TRACE)<<"start CUDAonCPU enqueueing";
   Status enqueue_result;
   switch (ops_param->op_type) {
     case OperationType::ALLREDUCE:
@@ -185,11 +192,15 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
 inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
                                           NDArray* output, const char* name,
                                           int priority, int root_rank = -1) {
+                                            
+  LOG(TRACE)<<"PushHorovodOperationCudaOnCPU";
   auto op_type_name = GetOpTypeName(op_type);
   auto op_name = GetOpName(op_type_name, name);
   auto hvd_cpu_buffer = std::make_shared<MXTemporaryBuffer<NDArray>>(
       CPU_DEVICE_ID, input->dtype());
-  auto ops_param = CreateMpiOpsParam(nullptr, nullptr, hvd_cpu_buffer,
+  auto hvd_output_buffer = std::make_shared<MXTemporaryBuffer<NDArray>>(
+      CPU_DEVICE_ID, input->dtype());
+  auto ops_param = CreateMpiOpsParam(nullptr, nullptr, hvd_cpu_buffer, hvd_output_buffer, 
                                      op_type, op_name, root_rank);
 
   // Make async copy of input tensor to CPU tensor.
@@ -197,12 +208,33 @@ inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
 
   // In-place
   auto cpu_tensor_var = hvd_cpu_buffer->tensor()->var();
+  auto output_tensor_var = hvd_output_buffer->tensor()->var();
+  auto input_var = input->var();
+  auto output_var = output->var();
+
+  std::vector<Engine::VarHandle> const_vars;
+  std::vector<Engine::VarHandle> mutable_vars;
+
+  const_vars.push_back(input_var);
+  const_vars.push_back(cpu_tensor_var);
+
+  mutable_vars.push_back(output_tensor_var);
+  mutable_vars.push_back(output_var);
+
   MXEnginePushAsync(DoHorovodOperationCudaOnCPU, ops_param, DeleteMpiOpsParam,
-                    &MX_EXEC_CTX, nullptr, 0, &cpu_tensor_var, 1,
-                    &MX_FUNC_PROP, priority, op_type_name);
+                    &MX_EXEC_CTX, const_vars.data(), 2, mutable_vars.data(), 2,
+                    &MX_FUNC_PROP, priority, op_type_name, true);
 
   // Make async copy of CPU tensor to output tensor.
-  TensorUtil::AsyncCopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
+  if (op_type == OperationType::ALLGATHER){
+    hvd_output_buffer->tensor()->WaitToRead();
+    // Preventing exiting the API call prematurely and causing shape issue.
+    TensorUtil::AsyncCopyCPUToCuda(hvd_output_buffer->tensor(), output);
+  }else{
+    hvd_cpu_buffer->tensor()->WaitToRead();
+    // Preventing exiting the API call prematurely and causing shape issue.
+    TensorUtil::AsyncCopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
+  }
 }
 #endif
 

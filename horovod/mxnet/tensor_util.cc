@@ -16,6 +16,7 @@
 #include <mxnet/c_api.h>
 
 #include "tensor_util.h"
+#include "../common/logging.h"
 
 namespace horovod {
 namespace mxnet {
@@ -137,13 +138,14 @@ void TensorUtil::Free(NDArray* tensor) { delete tensor; }
 
 // Resize tensor to nDimension with length size[i] in dimension i
 void TensorUtil::ResizeNd(NDArray* tensor, int nDimension, int64_t* size) {
-  void* temp_out;
-  MXNDArrayReshape64(tensor, nDimension, size, false, &temp_out);
-  tensor = static_cast<NDArray*>(temp_out);
+  mxnet::Tuple<dim_t> shape(size, size+nDimension);
+  tensor->ReshapeAndAlloc(shape);
 }
 
 // Copy from tensor to output
 void TensorUtil::Copy(NDArray* output, NDArray* tensor) {
+  LOG(TRACE)<<"Copy Dst Shape"<<output->shape();
+  LOG(TRACE)<<"Copy Src Shape"<<tensor->shape();
   if (tensor->shape() != output->shape())
     output->ReshapeAndAlloc(tensor->shape());
   CopyFromTo(*tensor, output, 0);

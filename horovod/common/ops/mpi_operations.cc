@@ -15,6 +15,7 @@
 // =============================================================================
 
 #include "mpi_operations.h"
+#include "../logging.h"
 
 namespace horovod {
 namespace common {
@@ -28,6 +29,8 @@ Status MPIAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
   void* buffer_data;
   size_t buffer_len;
   int64_t num_elements = NumElements(entries);
+
+  
 
   // Copy memory into the fusion buffer.
   auto& timeline = global_state_->timeline;
@@ -54,6 +57,7 @@ Status MPIAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
     throw std::runtime_error("MPI_Allreduce failed, see MPI output for details.");
   }
   timeline.ActivityEndAll(entries);
+  
 
   // Copy memory out of the fusion buffer.
   if (entries.size() > 1) {
@@ -110,12 +114,12 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
 
   SetDisplacements(recvcounts, displcmnts);
   SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets);
-
   int element_size = mpi_context_->GetMPITypeSize(first_entry.tensor->dtype());
 
   const void* sendbuf = nullptr;
   void* buffer_data;
   int64_t total_num_elements = NumElements(entries);
+  LOG(TRACE)<<"total send amount: "<<total_num_elements;
 
   if (entries.size() > 1) {
     timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
@@ -123,7 +127,9 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
     timeline.ActivityEndAll(entries);
   } else {
     sendbuf = first_entry.tensor->data();
+    LOG(TRACE)<<"send size "<<first_entry.tensor->shape().DebugString();
     buffer_data = (void*) first_entry.output->data();
+    LOG(TRACE)<<"buffer size "<<first_entry.output->shape().DebugString();
   }
 
   global_state_->timeline.ActivityStartAll(entries, MPI_ALLGATHER);
@@ -293,6 +299,7 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   Barrier();
   global_state_->timeline.ActivityEndAll(entries);
 
+  LOG(INFO)<< "hierarchical all gather finished";
   // Copy memory out of the fusion buffer.
   timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
   MemcpyOutFusionBuffer(entry_component_offsets, entry_component_sizes,
