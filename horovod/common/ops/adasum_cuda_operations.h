@@ -52,8 +52,11 @@ class AdasumCudaAllreduceOp : public AdasumMPIOp {
 
 #if HAVE_NCCL
   // TODO: All of the following is closely replicated in ncc_operations.h/cc.
-  //       Separate the Adasum NcclHierarchical into a new op that inherits
-  //       from NCCLAllreduce (like NCCLHierarchicalAllreduce does).
+  //       Find a fix for this. One option is to add friend declarations and instantiate
+  //       the NcclAllreduce class inside here. Another is to restructure the adasum
+  //       code to not require inheritance (mostly now required for the Dispatch* calls
+  //       that launch Cuda kernels for GPU reductions) and inherit from the existing
+  //       classes.
 
   std::queue<std::pair<std::string, cudaEvent_t>> event_queue_;
 

@@ -182,12 +182,11 @@ protected:
 
   template <typename T>
   void FusedAllreduce(T* grad_buffer, T* recv_buffer, DataType horovod_datatype, std::vector<int>& tensor_counts,
-                      int start_level, MPI_Comm communicator,
-                      int tag, MPI_Comm* reduction_comms) {
-    int rank;
-    int size;
-    MPI_Comm_rank(communicator, &rank);
-    MPI_Comm_size(communicator, &size);
+                      int start_level, Communicator_type communicator,
+                      int tag, Communicator_type* reduction_comms) {
+    int per_element_size = GetPerElementSize(horovod_datatype);
+    int rank = GetLocalRankWithComm(communicator);
+    int size = GetSizeWithComm(communicator);
 
     if (IsPowerOfTwo(size) == false) {
       throw std::logic_error(
@@ -204,9 +203,6 @@ protected:
     }
     int remaining_non_power_2 = size - nearest_power_2;
     int level;
-    if (rank >= size - 2 * remaining_non_power_2) {
-      // TODO: what to do here?
-    }
 
     int nghrCountVec_index = 0;
     int orgSize = size;
@@ -285,18 +281,22 @@ protected:
         nghrCountVec_index++;
 
         for (int i = 0; i < std::max(myCount, nghrCount); i += chunk_size)
-          MPI_Sendrecv(
-              (char*)(&grad_buffer[i + sendOffset]),
-              std::min(chunk_size, nghrCount - i) * sizeof(T) / sizeof(char),
-              MPI_CHAR, neighbor_rank, tag,
-              (char*)(&recv_buffer[i + recvOffset]),
-              std::min(chunk_size, myCount - i) * sizeof(T) / sizeof(char),
-              MPI_CHAR, neighbor_rank, tag, communicator, MPI_STATUS_IGNORE);
+          this->PointToPointSendRecv((char*)(&grad_buffer[i+sendOffset]),
+                                std::min(chunk_size, nghrCount-i) * per_element_size / sizeof(char),
+                                horovod_datatype,
+                                neighbor_rank,
+                                tag,
+                                (char*)(&recv_buffer[i+recvOffset]),
+                                std::min(chunk_size, myCount-i) * per_element_size / sizeof(char),
+                                horovod_datatype,
+                                neighbor_rank,
+                                tag,
+                                communicator);
         if ((rank & level) != 0) {
           grad_buffer = &grad_buffer[nghrCount];
           recv_buffer = &recv_buffer[nghrCount];
         }
-        FusedPairwiseReduceWithComm(grad_buffer, recv_buffer, horovod_datatype, tensor_counts, tag,
+        FusedPairwiseReduceWithComm((char*)grad_buffer, (char*)recv_buffer, horovod_datatype, tensor_counts, tag,
                                   reduction_comms[comm_index],
                                   (rank & level) == 0,
                                   normAndDots);
@@ -321,12 +321,17 @@ protected:
           recv_buffer = &grad_buffer[-nghrCount];
         }
         for (int i = 0; i < std::max(myCount, nghrCount); i += chunk_size)
-          MPI_Sendrecv(
-              (char*)(&grad_buffer[i]),
-              std::min(chunk_size, myCount - i) * sizeof(T) / sizeof(char),
-              MPI_CHAR, neighbor_rank, tag, (char*)(&recv_buffer[i]),
-              std::min(chunk_size, nghrCount - i) * sizeof(T) / sizeof(char),
-              MPI_CHAR, neighbor_rank, tag, communicator, MPI_STATUS_IGNORE);
+          this->PointToPointSendRecv((char*)(&grad_buffer[i]),
+                    std::min(chunk_size, myCount-i) * per_element_size / sizeof(char),
+                    horovod_datatype,
+                    neighbor_rank,
+                    tag,
+                    (char*)(&recv_buffer[i]),
+                    std::min(chunk_size, nghrCount-i) * per_element_size / sizeof(char),
+                    horovod_datatype,
+                    neighbor_rank,
+                    tag,
+                    communicator);
         if ((rank & level) != 0) {
           grad_buffer = &grad_buffer[-nghrCount];
         }
@@ -334,28 +339,6 @@ protected:
       }
     }
     size = orgSize;
-
-    if (rank >= size - 2 * remaining_non_power_2) {
-      // TODO: what to do here?
-    }
-  }
-
-  void DispatchFusedAllreduce(void* grad_buffer, void* recv_buffer, std::vector<int>& tensor_counts,
-                                int start_level, MPI_Comm communicator,
-                                int tag, MPI_Comm* reduction_comms, DataType type) {
-      switch(type) {
-          case DataType::HOROVOD_FLOAT16:
-            FusedAllreduce((uint16_t*)grad_buffer, (uint16_t*)recv_buffer, type, tensor_counts, start_level, communicator, tag, reduction_comms);
-            break;
-          case DataType::HOROVOD_FLOAT32:
-            FusedAllreduce((float*)grad_buffer, (float*)recv_buffer, type, tensor_counts, start_level, communicator, tag, reduction_comms);
-            break;
-          case DataType::HOROVOD_FLOAT64:
-            FusedAllreduce((double*)grad_buffer, (double*)recv_buffer, type, tensor_counts, start_level, communicator, tag, reduction_comms);
-            break;
-          default:
-            throw std::logic_error("Unsupported data type");
-      }
   }
 
   template<typename T>
@@ -547,16 +530,16 @@ protected:
 
   }
 
-  template <typename T>
-  void FusedPairwiseReduceWithComm(T* a, T* b, DataType horovod_datatype, std::vector<int>& tensor_counts, int layerid,
-                                   MPI_Comm& comm, bool isLeftNeighbor, std::vector<double>& normAndDots) {
-    int countSoFar = 0;
+  void FusedPairwiseReduceWithComm(char* a, char* b, DataType horovod_datatype, std::vector<int>& tensor_counts, int layerid,
+                                   Communicator_type& comm, bool isLeftNeighbor, std::vector<double>& normAndDots) {
+    int per_element_size = GetPerElementSize(horovod_datatype);
+    int bytesSoFar = 0;
     for (size_t i = 0; i < tensor_counts.size(); i++){
       double dotProduct = 0.;
       double anormsq = 0.;
       double bnormsq = 0.;
 
-      DispatchComputeDotAndNormSqrds(&a[countSoFar], &b[countSoFar], horovod_datatype, tensor_counts[i], dotProduct, anormsq, bnormsq, this->global_state_, layerid);
+      DispatchComputeDotAndNormSqrds(&a[bytesSoFar], &b[bytesSoFar], horovod_datatype, tensor_counts[i], dotProduct, anormsq, bnormsq, this->global_state_, layerid);
       normAndDots[i*3] = dotProduct;
       if (isLeftNeighbor) {
         normAndDots[i*3+1] = anormsq;
@@ -565,12 +548,12 @@ protected:
         normAndDots[i*3+1] = bnormsq;
         normAndDots[i*3+2] = anormsq;
       }
-      countSoFar += tensor_counts[i];
+      bytesSoFar += tensor_counts[i] * per_element_size;
     }
 
     this->P2pAllreduce(normAndDots.data(), normAndDots.data() + 3*tensor_counts.size(), 3*tensor_counts.size(), DataType::HOROVOD_FLOAT64, comm, layerid);
 
-    countSoFar = 0;
+    bytesSoFar = 0;
     for (size_t i = 0; i < tensor_counts.size(); i++){
       double dotProduct = normAndDots[i*3];
       double anormsq;
@@ -590,8 +573,8 @@ protected:
       if (bnormsq >= 1e-8)
         bcoeff = 1.0 - dotProduct / bnormsq * 0.5;
 
-      DispatchScaledAdd(horovod_datatype, tensor_counts[i], acoeff, &a[countSoFar], bcoeff, &b[countSoFar], this->global_state_, layerid);
-      countSoFar += tensor_counts[i];
+      DispatchScaledAdd(horovod_datatype, tensor_counts[i], acoeff, &a[bytesSoFar], bcoeff, &b[bytesSoFar], this->global_state_, layerid);
+      bytesSoFar += tensor_counts[i] * per_element_size;
     }
   }
 
@@ -631,6 +614,24 @@ protected:
         bcoeff = 1.0 - dotProduct / bnormsq * 0.5;
 
     DispatchScaledAdd(horovod_datatype, count, acoeff, (uint16_t*)a, bcoeff, (uint16_t*)b, this->global_state_, layerid);
+  }
+
+  void DispatchFusedAllreduce(void* grad_buffer, void* recv_buffer, std::vector<int>& tensor_counts,
+                                int start_level, Communicator_type communicator,
+                                int tag, Communicator_type* reduction_comms, DataType type) {
+      switch(type) {
+          case DataType::HOROVOD_FLOAT16:
+            FusedAllreduce((uint16_t*)grad_buffer, (uint16_t*)recv_buffer, type, tensor_counts, start_level, communicator, tag, reduction_comms);
+            break;
+          case DataType::HOROVOD_FLOAT32:
+            FusedAllreduce((float*)grad_buffer, (float*)recv_buffer, type, tensor_counts, start_level, communicator, tag, reduction_comms);
+            break;
+          case DataType::HOROVOD_FLOAT64:
+            FusedAllreduce((double*)grad_buffer, (double*)recv_buffer, type, tensor_counts, start_level, communicator, tag, reduction_comms);
+            break;
+          default:
+            throw std::logic_error("Unsupported data type");
+      }
   }
 
   void DispatchSyncAllreduce(void* gradient_buffer,
