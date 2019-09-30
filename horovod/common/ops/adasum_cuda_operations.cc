@@ -195,6 +195,24 @@ Status AdasumCudaAllreduceOp::FinalizeCUDAQueue(const std::vector<TensorTableEnt
   return Status::InProgress();
 }
 
+void AdasumCudaAllreduceOp::MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                              const TensorTableEntry& e, void* buffer_data_at_offset) {
+  auto& first_entry = entries[0];
+  auto cuda_result = cudaMemcpyAsync(buffer_data_at_offset, e.tensor->data(),
+                                     (size_t) e.tensor->size(), cudaMemcpyDeviceToDevice,
+                                     cuda_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
+  cuda_context_->ErrorCheck("cudaMemcpyAsync", cuda_result);
+}
+
+void AdasumCudaAllreduceOp::MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                               const void* buffer_data_at_offset, TensorTableEntry& e) {
+  auto& first_entry = entries[0];
+  auto cuda_result = cudaMemcpyAsync((void*) e.output->data(), buffer_data_at_offset,
+                                     (size_t) e.tensor->size(), cudaMemcpyDeviceToDevice,
+                                     cuda_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
+  cuda_context_->ErrorCheck("cudaMemcpyAsync", cuda_result);
+}
+
 Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
                                                const Response& response) {
   auto& first_entry = entries[0];
@@ -386,7 +404,7 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
                         MPI_COMM_WORLD :
                         mpi_context_->GetMPICommunicator(Communicator::CROSS),
                       0,
-                      reduction_comms_,
+                      world_reduction_comms_,
                       first_entry.tensor->dtype());
     timeline.ActivityEndAll(entries);
 

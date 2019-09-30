@@ -70,6 +70,12 @@ class AdasumCudaAllreduceOp : public AdasumMPIOp {
   void InitNCCLComm(const std::vector<TensorTableEntry>& entries,
                     const std::vector<int32_t>& nccl_device_map);
 
+  void MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                 const TensorTableEntry& e, void* buffer_data_at_offset) override;
+
+  void MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                  const void* buffer_data_at_offset, TensorTableEntry& e) override;
+
   Status NcclHierarchical(std::vector<TensorTableEntry>& entries,
                           const Response& response);
 #endif
