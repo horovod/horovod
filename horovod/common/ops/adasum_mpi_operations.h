@@ -97,9 +97,6 @@ protected:
   int rank_log_size_;
   // MPI communicators used to do adasum
   MPI_Comm* reduction_comms_ = nullptr;
-  int world_rank_log_size_;
-  // MPI communicators used to do adasum
-  MPI_Comm* world_reduction_comms_ = nullptr;
 private:
   void TreeHierarchicalInternal(TensorTableEntry& entry, int layerid, const Response& response);
 };

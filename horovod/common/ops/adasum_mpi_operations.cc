@@ -6,10 +6,17 @@ namespace horovod {
 namespace common {
 AdasumMPIOp::AdasumMPIOp(MPIContext* mpi_context, HorovodGlobalState* global_state)
     : AdasumOp(global_state), mpi_context_(mpi_context) {
+  int local_rank, local_size;
+  MPI_Comm_size(mpi_context_->local_comm, &local_size);
+  MPI_Comm_rank(mpi_context_->local_comm, &local_rank);
+  if (local_rank == 0)
   {
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
+    // converting to node-based rank and size
+    rank /= local_size;
+    size /= local_size;
 
     MPI_Group world_group;
     MPI_Comm_group(MPI_COMM_WORLD, &world_group);
@@ -20,64 +27,23 @@ AdasumMPIOp::AdasumMPIOp(MPIContext* mpi_context, HorovodGlobalState* global_sta
     }
     int shift_val;
     int level;
-    world_rank_log_size_ = log_size;
-    world_reduction_comms_ = new MPI_Comm[log_size];
+    rank_log_size_ = log_size;
+    reduction_comms_ = new MPI_Comm[log_size];
     int *node_rank = new int[size];
     for (level = 1, shift_val = 1; level < nearest_power_2; level = (level << 1), shift_val++)
     {
         int base_rank = ((rank >> shift_val) << shift_val);
         for (int i = 0; i < (level << 1); i++)
         {
-            node_rank[i] = (base_rank + i);
+            // converting back to world rank
+            node_rank[i] = (base_rank + i) * local_size;
         }
         MPI_Group red_group;
         MPI_Group_incl(world_group, (level << 1), node_rank, &red_group);
-        MPI_Comm_create_group(MPI_COMM_WORLD, red_group, 0, &world_reduction_comms_[shift_val - 1]);
+        MPI_Comm_create_group(MPI_COMM_WORLD, red_group, 0, &reduction_comms_[shift_val - 1]);
         MPI_Group_free(&red_group);
     }
     delete[] node_rank;
-  }
-  // TODO: merge these
-  {
-    int local_rank, local_size;
-    MPI_Comm_size(mpi_context_->local_comm, &local_size);
-    MPI_Comm_rank(mpi_context_->local_comm, &local_rank);
-    if (local_rank == 0)
-    {
-      int rank, size;
-      MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-      MPI_Comm_size(MPI_COMM_WORLD, &size);
-      // converting to node-based rank and size
-      rank /= local_size;
-      size /= local_size;
-
-      MPI_Group world_group;
-      MPI_Comm_group(MPI_COMM_WORLD, &world_group);
-      int nearest_power_2 = 1;
-      int log_size;
-      for (nearest_power_2 = 1, log_size = 0; (nearest_power_2 << 1) <= size; nearest_power_2 = (nearest_power_2 << 1), log_size++)
-      {
-      }
-      int shift_val;
-      int level;
-      rank_log_size_ = log_size;
-      reduction_comms_ = new MPI_Comm[log_size];
-      int *node_rank = new int[size];
-      for (level = 1, shift_val = 1; level < nearest_power_2; level = (level << 1), shift_val++)
-      {
-          int base_rank = ((rank >> shift_val) << shift_val);
-          for (int i = 0; i < (level << 1); i++)
-          {
-              // converting back to world rank
-              node_rank[i] = (base_rank + i) * local_size;
-          }
-          MPI_Group red_group;
-          MPI_Group_incl(world_group, (level << 1), node_rank, &red_group);
-          MPI_Comm_create_group(MPI_COMM_WORLD, red_group, 0, &reduction_comms_[shift_val - 1]);
-          MPI_Group_free(&red_group);
-      }
-      delete[] node_rank;
-    }
   }
 }
 
@@ -85,11 +51,6 @@ AdasumMPIOp::~AdasumMPIOp() {
   if(reduction_comms_ != nullptr) {
     LOG(INFO,global_state_->controller->GetRank())<<"Preparing to delete reduction comms.";
     delete reduction_comms_;
-  }
-  // TODO: merge these
-  if(world_reduction_comms_ != nullptr) {
-    LOG(INFO,global_state_->controller->GetRank())<<"Preparing to delete reduction comms.";
-    delete world_reduction_comms_;
   }
 }
 
