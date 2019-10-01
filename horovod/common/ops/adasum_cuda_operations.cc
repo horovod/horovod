@@ -411,14 +411,14 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
     }
 
     auto recv_buffer = std::unique_ptr<char[]>(new char[total_buffer_len]);
-    DispatchFusedAllreduce(host_buffer_, recv_buffer.get(), tensor_counts,
-                      local_size, // start_level
-                      global_state_->controller->IsHomogeneous() ?
-                        MPI_COMM_WORLD :
-                        mpi_context_->GetMPICommunicator(Communicator::CROSS),
-                      0,
-                      world_reduction_comms_,
-                      first_entry.tensor->dtype());
+    // DispatchFusedAllreduce(host_buffer_, recv_buffer.get(), tensor_counts,
+    //                   local_size, // start_level
+    //                   global_state_->controller->IsHomogeneous() ?
+    //                     MPI_COMM_WORLD :
+    //                     mpi_context_->GetMPICommunicator(Communicator::CROSS),
+    //                   0,
+    //                   world_reduction_comms_,
+    //                   first_entry.tensor->dtype());
     timeline.ActivityEndAll(entries);
 
     timeline.ActivityStartAll(entries, MEMCPY_OUT_HOST_BUFFER);
