@@ -398,27 +398,27 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
 		}
     switch(first_entry.tensor->dtype()) {
       case DataType::HOROVOD_FLOAT16:
-        ElementwiseAverage((uint16_t*)host_buffer_, total_buffer_len / element_size, (double)local_size);
+        ElementwiseAverage((uint16_t*)host_buffer_, total_num_elements, (double)local_size);
         break;
       case DataType::HOROVOD_FLOAT32:
-        ElementwiseAverage((float*)host_buffer_,  total_buffer_len / element_size, (double)local_size);
+        ElementwiseAverage((float*)host_buffer_,  total_num_elements, (double)local_size);
         break;
       case DataType::HOROVOD_FLOAT64:
-        ElementwiseAverage((double*)host_buffer_,  total_buffer_len / element_size, (double)local_size);
+        ElementwiseAverage((double*)host_buffer_,  total_num_elements, (double)local_size);
         break;
       default:
         throw std::logic_error("Unsupported data type.");
     }
 
     auto recv_buffer = std::unique_ptr<char[]>(new char[total_buffer_len]);
-    // DispatchFusedAllreduce(host_buffer_, recv_buffer.get(), tensor_counts,
-    //                   local_size, // start_level
-    //                   global_state_->controller->IsHomogeneous() ?
-    //                     MPI_COMM_WORLD :
-    //                     mpi_context_->GetMPICommunicator(Communicator::CROSS),
-    //                   0,
-    //                   world_reduction_comms_,
-    //                   first_entry.tensor->dtype());
+    DispatchFusedAllreduce(host_buffer_, recv_buffer.get(), tensor_counts,
+                      local_size, // start_level
+                      global_state_->controller->IsHomogeneous() ?
+                        MPI_COMM_WORLD :
+                        mpi_context_->GetMPICommunicator(Communicator::CROSS),
+                      0,
+                      world_reduction_comms_,
+                      first_entry.tensor->dtype());
     timeline.ActivityEndAll(entries);
 
     timeline.ActivityStartAll(entries, MEMCPY_OUT_HOST_BUFFER);
