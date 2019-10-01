@@ -397,17 +397,17 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
 			}
 		}
     switch(first_entry.tensor->dtype()) {
-        case DataType::HOROVOD_FLOAT16:
-          ElementwiseAverage((uint16_t*)host_buffer_, tensor_counts.size(), (double)local_size);
-          break;
-        case DataType::HOROVOD_FLOAT32:
-          ElementwiseAverage((float*)host_buffer_,  tensor_counts.size(), (double)local_size);
-          break;
-        case DataType::HOROVOD_FLOAT64:
-          ElementwiseAverage((double*)host_buffer_,  tensor_counts.size(), (double)local_size);
-          break;
-        default:
-          throw std::logic_error("Unsupported data type.");
+      case DataType::HOROVOD_FLOAT16:
+        ElementwiseAverage((uint16_t*)host_buffer_, total_buffer_len / element_size, (double)local_size);
+        break;
+      case DataType::HOROVOD_FLOAT32:
+        ElementwiseAverage((float*)host_buffer_,  total_buffer_len / element_size, (double)local_size);
+        break;
+      case DataType::HOROVOD_FLOAT64:
+        ElementwiseAverage((double*)host_buffer_,  total_buffer_len / element_size, (double)local_size);
+        break;
+      default:
+        throw std::logic_error("Unsupported data type.");
     }
 
     auto recv_buffer = std::unique_ptr<char[]>(new char[total_buffer_len]);
