@@ -68,7 +68,7 @@ class AllreduceType:
     SumAllreduce = 0
     Adasum = 1  
 
-adasum_algorithms = ["ADASUM_CPU_TREE","ADASUM_GPU_TREE","ADASUM_GPU_RING","ADASUM_GPU_NCCL_SUM_RING","ADASUM_GPU_AUTO"]
+adasum_algorithms = ["CPU_TREE","GPU_TREE","GPU_RING","GPU_NCCL_LOCAL_AVG","GPU_AUTO"]
 
 def _check_function(function_factory, tensor):
     function = function_factory(tensor)
@@ -88,6 +88,14 @@ def _allreduce_async(tensor, output, average, name, allreduce_type):
         raise NotImplementedError(
             'float16 allreduce is not supported for PyTorch version {} < 1.0.0'
             .format(torch.__version__))
+
+    # Check again in case users call all_reduce api directly
+    if 'HOROVOD_ADASUM' not in os.environ or os.environ['HOROVOD_ADASUM'] not in adasum_algorithms:
+        raise ValueError('Please set HOROVOD_ADASUM in environment to one of {}'.format(','.join(adasum_algorithms)))
+    if os.environ['HOROVOD_ADASUM'].lower() != 'GPU_NCCL_LOCAL_AVG'.lower():
+        average = False
+    elif average == False:
+        raise ValueError('GPU_NCCL_LOCAL_AVG must be used with average flag set to True.')
 
     function = _check_function(_allreduce_function_factory, tensor)
     handle = getattr(mpi_lib, function)(tensor, output, average,

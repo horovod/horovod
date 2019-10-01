@@ -61,9 +61,7 @@ int DoAllreduce(::torch::Tensor tensor, ::torch::Tensor output, int average,
   auto hvd_output = std::make_shared<TorchTensor>(output);
 
   AllreduceType allreduce_type = static_cast<AllreduceType>(allreduce_type_int);
-  if (allreduce_type != AllreduceType::SUM_ALLREDUCE) {
-    average = 0;
-  }
+  
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_tensor, hvd_output, ready_event,
       GetOpName("allreduce", name, handle), device,
@@ -94,9 +92,6 @@ int DoAllreduceCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int ave
       std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_buffer);
 
   AllreduceType allreduce_type = static_cast<AllreduceType>(allreduce_type_int);
-  if (allreduce_type != AllreduceType::SUM_ALLREDUCE) {
-    average = 0;
-  }
   auto handle = handle_manager.AllocateHandle();
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, ready_event,

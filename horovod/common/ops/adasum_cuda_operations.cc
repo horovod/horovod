@@ -88,18 +88,18 @@ Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
     return Status::OK();
   }
   InitCUDAStreams(entries);
-  if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_TREE) {
+  if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU__TREE) {
     LOG(TRACE) << "Reducing with Adasum algorithm GPU_TREE.";
     return TreeHierarchical(entries, response);
   }
-  else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_RING) {
+  else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU__RING) {
     return RingHierarchical(entries, response);
   }
-  else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU_NCCL_SUM_RING) {
+  else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU__NCCL__LOCAL__AVG) {
 #if HAVE_NCCL
     return NcclHierarchical(entries, response);
 #else
-    throw std::logic_error("GPU_NCCL_SUM_RING needs NCCL to be available. PLease re-build Horovod with HOROVOD_GPU_ALLREDUCE=NCCL.");
+    throw std::logic_error("GPU_NCCL_LOCAL_AVG needs NCCL to be available. PLease re-build Horovod with HOROVOD_GPU_ALLREDUCE=NCCL.");
 #endif
   }
   else {
@@ -698,7 +698,7 @@ bool AdasumCudaAllreduceOp::Enabled(const ParameterManager& param_manager,
                             const Response& response) const {
   return entries[0].device != CPU_DEVICE_ID 
          && global_state_->adasum_algorithm != AdasumAlgorithm::NONE 
-         && global_state_->adasum_algorithm != AdasumAlgorithm::CPU_TREE;
+         && global_state_->adasum_algorithm != AdasumAlgorithm::CPU__TREE;
 
 }
 }

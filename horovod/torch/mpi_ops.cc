@@ -54,9 +54,6 @@ int DoAllreduce(T* tensor, T* output, int average, char* name, int allreduce_typ
   auto hvd_output = std::make_shared<TorchTensor<DT, Dev, T>>(output);
 
   AllreduceType allreduce_type = static_cast<AllreduceType>(allreduce_type_int);
-  if (allreduce_type != AllreduceType::SUM_ALLREDUCE) {
-    average = 0;
-  }
 
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_tensor, hvd_output, ready_event,
@@ -89,9 +86,6 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name, int al
       CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
 
   AllreduceType allreduce_type = static_cast<AllreduceType>(allreduce_type_int);
-  if (allreduce_type != AllreduceType::SUM_ALLREDUCE) {
-    average = 0;
-  }
   auto handle = handle_manager.AllocateHandle();
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, ready_event,

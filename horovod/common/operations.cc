@@ -484,8 +484,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
     // If tree algorithm is selected and num_thread is set to 1, we skip threadpool creation
     // and use main thread to do Adasum reduction.
-    if((state.adasum_algorithm != AdasumAlgorithm::CPU_TREE &&
-        state.adasum_algorithm != AdasumAlgorithm::GPU_TREE) ||
+    if((state.adasum_algorithm != AdasumAlgorithm::CPU__TREE &&
+        state.adasum_algorithm != AdasumAlgorithm::GPU__TREE) ||
         state.adasum_num_threads > 1) {
         //Making this static so that this pool is preverved throughout the lifetime of the program
         LOG(INFO)<<"Starting "<<state.adasum_num_threads<<" threads for threadpool.";
