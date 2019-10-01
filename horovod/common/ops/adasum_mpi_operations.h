@@ -65,13 +65,6 @@ protected:
     }
   }
 
-  template<typename T> 
-  inline void ElementwiseAverage(T *grad_buffer, int count, double denominator) {
-    for(int i = 0; i < count; i++) {
-      grad_buffer[i] = grad_buffer[i] / (T)denominator;
-    }
-  }
-
   int GetLocalRankWithComm(MPI_Comm local_comm) override;
 
   int GetSizeWithComm(MPI_Comm comm) override;

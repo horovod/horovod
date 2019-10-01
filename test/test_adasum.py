@@ -82,7 +82,7 @@ class MPITests(tf.test.TestCase):
         print("Testing with {} ranks.".format(size))
 
         rank0_tensors = [np.asarray([[1.0, 2.0], [3.0, 4.0]]), np.asarray([[9.0, 10.0], [11.0, 12.0]])]
-        rank1_tensors = [np.asarray([[1.0, 2.0], [3.0, 4.0]]), np.asarray([[9.0, 10.0], [11.0, 12.0]])]
+        rank1_tensors = [np.asarray([[5.0, 6.0], [7.0, 8.0]]), np.asarray([[13.0, 14.0], [15.0, 16.0]])]
         expected = []
         for a,b in zip(rank0_tensors, rank1_tensors):
             answer = adasum_reference_operation(a, b)
