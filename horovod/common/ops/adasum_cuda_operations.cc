@@ -235,7 +235,8 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
   // Copy memory into the fusion buffer.
   if (entries.size() > 1) {
     MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
-
+    //BUGBUG
+    cudaStreamSynchronize(cuda_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
     if (global_state_->timeline.Initialized()) {
       cuda_context_->RecordEvent(event_queue_, MEMCPY_IN_FUSION_BUFFER, *stream_);
     }
@@ -318,6 +319,9 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
                                          (size_t) num_elements_per_rank,
                                          GetNCCLDataType(first_entry.tensor),
                                          ncclSum, *nccl_comm_, *stream_);
+  //BUGBUG
+  cudaStreamSynchronize(cuda_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
+
     nccl_context_->ErrorCheck("ncclReduceScatter", nccl_result);
     if (global_state_->timeline.Initialized()) {
       cuda_context_->RecordEvent(event_queue_, NCCL_REDUCESCATTER, *stream_);
@@ -332,6 +336,9 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
                                   (size_t) num_elements_remaining,
                                   GetNCCLDataType(first_entry.tensor), ncclSum,
                                   root_rank, *nccl_comm_, *stream_);
+    //BUGBUG
+    cudaStreamSynchronize(cuda_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
+
     nccl_context_->ErrorCheck("ncclReduce", nccl_result);
     if (global_state_->timeline.Initialized()) {
       cuda_context_->RecordEvent(event_queue_, NCCL_REDUCE, *stream_);
@@ -440,6 +447,8 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
   // Copy memory out of the fusion buffer.
   if (entries.size() > 1) {
     MemcpyOutFusionBuffer(buffer_data, entries);
+    //BUGBUG
+    cudaStreamSynchronize(cuda_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
 
     if (global_state_->timeline.Initialized()) {
       cuda_context_->RecordEvent(event_queue_, MEMCPY_OUT_FUSION_BUFFER, *stream_);

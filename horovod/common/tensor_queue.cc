@@ -83,6 +83,7 @@ void TensorQueue::GetTensorEntriesFromResponse(
       assert(response.response_type() == Response::ALLREDUCE ||
              response.response_type() == Response::ALLGATHER ||
              response.response_type() == Response::BROADCAST ||
+             response.response_type() == Response::ADASUM ||
              response.response_type() == Response::ERROR);
 
       entries.push_back(std::move(iter->second));
