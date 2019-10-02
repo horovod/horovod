@@ -91,12 +91,13 @@ def allreduce(tensor, average=True, device_dense='', device_sparse='',
                 # Check again in case users call this api directly
                 if 'HOROVOD_ADASUM' not in os.environ or os.environ['HOROVOD_ADASUM'] not in adasum_algorithms:
                     raise ValueError('Please set HOROVOD_ADASUM in environment to one of {}'.format(','.join(adasum_algorithms)))
-                if os.environ['HOROVOD_ADASUM'].lower() != 'GPU_NCCL_LOCAL_AVG'.lower():
-                    average = False
-                elif average == False:
-                    raise ValueError('GPU_NCCL_LOCAL_AVG must be used with average flag set to True.')
-
-            new_tensor = (summed_tensor / horovod_size) if average else summed_tensor
+                if os.environ['HOROVOD_ADASUM'].lower() == 'GPU_NCCL_LOCAL_AVG'.lower():
+                    horovod_local_size = tf.cast(local_size(), dtype=tensor.dtype)
+                    new_tensor = summed_tensor / horovod_local_size
+                else:
+                    new_tensor = summed_tensor
+            else:
+                new_tensor = (summed_tensor / horovod_size) if average else summed_tensor
         return new_tensor
 
 

@@ -42,7 +42,7 @@ std::string GetOpName(const std::string& prefix, char* name, int handle) {
 } // namespace
 
 template <DataType DT, DeviceType Dev, class T>
-int DoAllreduce(T* tensor, T* output, int average, char* name, int allreduce_type_int) {
+int DoAllreduce(T* tensor, T* output, int divisor, char* name, int allreduce_type_int) {
   ThrowIfError(common::CheckInitialized());
 
   auto handle = handle_manager.AllocateHandle();
@@ -58,9 +58,9 @@ int DoAllreduce(T* tensor, T* output, int average, char* name, int allreduce_typ
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_tensor, hvd_output, ready_event,
       GetOpName("allreduce", name, handle), device,
-      [handle, average, output](const Status& status) {
-        if (average) {
-          TensorUtil::DivideTensorInPlace<DT, Dev, T>(output, horovod_size());
+      [handle, divisor, output](const Status& status) {
+        if (divisor > 1) {
+          TensorUtil::DivideTensorInPlace<DT, Dev, T>(output, divisor);
         }
         handle_manager.MarkDone(handle, status);
       }, allreduce_type);
@@ -71,7 +71,7 @@ int DoAllreduce(T* tensor, T* output, int average, char* name, int allreduce_typ
 
 #if HAVE_CUDA
 template <DataType DT, class TC, class T>
-int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name, int allreduce_type_int) {
+int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int divisor, char* name, int allreduce_type_int) {
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
@@ -90,11 +90,11 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int average, char* name, int al
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, ready_event,
       GetOpName("allreduce", name, handle), CPU_DEVICE_ID,
-      [handle, average, hvd_cpu_buffer, output](const Status& status) {
+      [handle, divisor, hvd_cpu_buffer, output](const Status& status) {
         TensorUtil::CopyCPUToCuda<DT>(hvd_cpu_buffer->tensor(), output);
-        if (average) {
+        if (divisor > 1) {
           TensorUtil::DivideTensorInPlace<DT, DeviceType::GPU>(output,
-                                                               horovod_size());
+                                                               divisor);
         }
         handle_manager.MarkDone(handle, status);
       }, allreduce_type);
@@ -221,8 +221,8 @@ int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
 
 #define ALLREDUCE(torch_Tensor, HorovodType, DeviceType, THTensor)             \
   extern "C" int horovod_torch_allreduce_async_##torch_Tensor(                 \
-      THTensor* tensor, THTensor* output, int average, char* name) {           \
-    return DoAllreduce<HorovodType, DeviceType>(tensor, output, average,       \
+      THTensor* tensor, THTensor* output, int divisor, char* name) {           \
+    return DoAllreduce<HorovodType, DeviceType>(tensor, output, divisor,       \
                                                 name);                         \
   }
 
@@ -248,9 +248,9 @@ ALLREDUCE(torch_cuda_DoubleTensor, DataType::HOROVOD_FLOAT64,
 
 #define ALLREDUCE_CUDA_ON_CPU(torch_Tensor, HorovodType, THCTensor, THTensor)  \
   extern "C" int horovod_torch_allreduce_async_##torch_Tensor(                 \
-      THCTensor* tensor, THCTensor* output, int average, char* name) {         \
+      THCTensor* tensor, THCTensor* output, int divisor, char* name) {         \
     return DoAllreduceCudaOnCPU<HorovodType, THCTensor, THTensor>(             \
-        tensor, output, average, name);                                        \
+        tensor, output, divisor, name);                                        \
   }
 
 #if !HOROVOD_GPU_ALLREDUCE && HAVE_CUDA
