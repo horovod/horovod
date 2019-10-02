@@ -49,7 +49,7 @@ int GetDeviceID(const ::torch::Tensor& tensor) {
 
 } // namespace
 
-int DoAllreduce(::torch::Tensor tensor, ::torch::Tensor output, int average,
+int DoAllreduce(::torch::Tensor tensor, ::torch::Tensor output, int divisor,
                 const std::string& name, int allreduce_type_int) {
   ThrowIfError(common::CheckInitialized());
 
@@ -65,10 +65,10 @@ int DoAllreduce(::torch::Tensor tensor, ::torch::Tensor output, int average,
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_tensor, hvd_output, ready_event,
       GetOpName("allreduce", name, handle), device,
-      [handle, average, output](const Status& status) mutable {
+      [handle, divisor, output](const Status& status) mutable {
         // Will execute in the `device` context.
-        if (average) {
-          output.div_(horovod_size());
+        if (divisor > 1) {
+          output.div_(divisor);
         }
         handle_manager.MarkDone(handle, status);
       }, allreduce_type);
@@ -77,7 +77,7 @@ int DoAllreduce(::torch::Tensor tensor, ::torch::Tensor output, int average,
   return handle;
 }
 
-int DoAllreduceCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int average,
+int DoAllreduceCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int divisor,
                          const std::string& name, int allreduce_type_int) {
   ThrowIfError(common::CheckInitialized());
 
@@ -96,14 +96,14 @@ int DoAllreduceCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int ave
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, ready_event,
       GetOpName("allreduce", name, handle), CPU_DEVICE_ID,
-      [handle, average, cpu_buffer, output,
+      [handle, divisor, cpu_buffer, output,
        device](const Status& status) mutable {
         // Since the operation was on CPU, need to perform copy with the GPU
         // device guard.
         with_device device_guard(device);
         output.copy_(cpu_buffer);
-        if (average) {
-          output.div_(horovod_size());
+        if (divisor > 1) {
+          output.div_(divisor);
         }
         handle_manager.MarkDone(handle, status);
       }, allreduce_type);
