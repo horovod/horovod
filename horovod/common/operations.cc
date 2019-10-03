@@ -441,7 +441,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.parameter_manager.SetAdasumAlgorithmType(adasum_algorithm);
   if (state.parameter_manager.AdasumAlgorithmType() != AdasumAlgorithm::NONE) {
     // If GPU__NCCL_LOCAL_AVG is used, we turn on HierarchicalAllreduce so that fusion buffer can be auto-tuned.
-    if (state.parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::GPU__NCCL__LOCAL__AVG) {
+    if (state.parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::GPU_NCCL_LOCAL_AVG) {
       state.parameter_manager.SetHierarchicalAllreduce(true, true);
     }
 
@@ -459,8 +459,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 
     // If tree algorithm is selected and num_thread is set to 1, we skip threadpool creation
     // and use main thread to do Adasum reduction.
-    if((state.parameter_manager.AdasumAlgorithmType() != AdasumAlgorithm::CPU__TREE &&
-        state.parameter_manager.AdasumAlgorithmType() != AdasumAlgorithm::GPU__TREE) ||
+    if((state.parameter_manager.AdasumAlgorithmType() != AdasumAlgorithm::CPU_TREE &&
+        state.parameter_manager.AdasumAlgorithmType() != AdasumAlgorithm::GPU_TREE) ||
         state.parameter_manager.NumAdasumReductionThreads() > 1) {
         //Making this static so that this pool is preverved throughout the lifetime of the program
         LOG(INFO)<<"Starting "<<state.parameter_manager.NumAdasumReductionThreads()<<" threads for threadpool.";

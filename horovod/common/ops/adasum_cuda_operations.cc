@@ -88,14 +88,14 @@ Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
     return Status::OK();
   }
   InitCUDAStreams(entries);
-  if(global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::GPU__TREE) {
+  if(global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::GPU_TREE) {
     LOG(TRACE) << "Reducing with Adasum algorithm GPU_TREE.";
     return TreeHierarchical(entries, response);
   }
-  else if(global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::GPU__RING) {
+  else if(global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::GPU_RING) {
     return RingHierarchical(entries, response);
   }
-  else if(global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::GPU__NCCL__LOCAL__AVG) {
+  else if(global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::GPU_NCCL_LOCAL_AVG) {
 #if HAVE_NCCL
     return NcclHierarchical(entries, response);
 #else
@@ -700,7 +700,7 @@ bool AdasumCudaAllreduceOp::Enabled(const ParameterManager& param_manager,
                             const Response& response) const {
   return entries[0].device != CPU_DEVICE_ID 
          && global_state_->parameter_manager.AdasumAlgorithmType() != AdasumAlgorithm::NONE 
-         && global_state_->parameter_manager.AdasumAlgorithmType() != AdasumAlgorithm::CPU__TREE;
+         && global_state_->parameter_manager.AdasumAlgorithmType() != AdasumAlgorithm::CPU_TREE;
 
 }
 }

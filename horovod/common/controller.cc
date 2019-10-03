@@ -559,7 +559,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
 
   // If NCCL_LOCAL_AVG is used which requires fusion, we will not merge all tensors into one response but instead follow the same
   // logic as normal ALLREDUCE
-  if(parameter_manager_.AdasumAlgorithmType() != AdasumAlgorithm::GPU__NCCL__LOCAL__AVG) {
+  if(parameter_manager_.AdasumAlgorithmType() != AdasumAlgorithm::GPU_NCCL_LOCAL_AVG) {
     Response first_response;
     bool allreduce_merged = false;
     for (int itr = 0; itr < queue_size; itr++) {
