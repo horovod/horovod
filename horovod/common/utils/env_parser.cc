@@ -162,24 +162,24 @@ double GetDoubleEnvOrDefault(const char* env_variable, double default_value) {
 AdasumAlgorithm ParseAdasumAlgorithm(const char* env_variable) {
   auto env_value = std::getenv(env_variable);
   if (env_value != nullptr) {
-    if (strcasecmp(env_value, ADASUM_CPU_TREE) == 0) {
-      return AdasumAlgorithm::CPU_TREE;
+    if (strcasecmp(env_value, CPU_TREE) == 0) {
+      return AdasumAlgorithm::CPU__TREE;
     }
-    else if (strcasecmp(env_value, ADASUM_GPU_TREE) == 0) {
-      return AdasumAlgorithm::GPU_TREE;
+    else if (strcasecmp(env_value, GPU_TREE) == 0) {
+      return AdasumAlgorithm::GPU__TREE;
     }
-    else if (strcasecmp(env_value, ADASUM_GPU_RING) == 0) {
-      return AdasumAlgorithm::GPU_RING;
+    else if (strcasecmp(env_value, GPU_RING) == 0) {
+      return AdasumAlgorithm::GPU__RING;
     }
-    else if (strcasecmp(env_value, ADASUM_GPU_NCCL_SUM_RING) == 0) {
-      return AdasumAlgorithm::GPU_NCCL_SUM_RING;
+    else if (strcasecmp(env_value, GPU_NCCL_LOCAL_AVG) == 0) {
+      return AdasumAlgorithm::GPU__NCCL__LOCAL__AVG;
     }
-    else if (strcasecmp(env_value, ADASUM_GPU_AUTO) == 0) {
-      return AdasumAlgorithm::GPU_AUTO;
+    else if (strcasecmp(env_value, GPU_AUTO) == 0) {
+      return AdasumAlgorithm::GPU__AUTO;
     }
     else {
       throw std::runtime_error("Unsupported Adasum algorithm, supported values are: "
-                               "ADASUM_CPU_TREE, ADASUM_GPU_TREE, ADASUM_GPU_RING, ADASUM_GPU_NCCL_SUM_RING, ADASUM_GPU_AUTO");
+                               "CPU_TREE, GPU_TREE, GPU_RING, GPU_NCCL_LOCAL_AVG, GPU_AUTO");
     }
   }
   return AdasumAlgorithm::NONE;

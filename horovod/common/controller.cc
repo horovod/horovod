@@ -556,40 +556,44 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
   
   ResponseList response_list;
   auto queue_size = responses.size();
-  // we will merge all tensor names into the first response.
-  Response first_response;
-  bool allreduce_merged = false;
-  for (int itr = 0; itr < queue_size; itr++) {
-    first_response = responses.front();
-    assert(first_response.tensor_names().size() == 1);
-    responses.pop_front();
-    // we find the first allreduce response and make it the host for all subsequent to-be-reduced tensors
-    if (first_response.response_type() == Response::ADASUM) {
-      // increment iterator since we have found one allreduce
-      allreduce_merged = true;
-      itr++;
-      while(itr < queue_size) {
-        auto next_response = responses.front();
-        assert(next_response.tensor_names().size() == 1);
-        responses.pop_front();
-        if(next_response.response_type() == first_response.response_type()) {
-          first_response.add_tensor_name(next_response.tensor_names_string());
-        }
-        else {
-          responses.push_back(next_response);
-        }
+
+  // If NCCL_LOCAL_AVG is used which requires fusion, we will not merge all tensors into one response but instead follow the same
+  // logic as normal ALLREDUCE
+  if(parameter_manager_.AdasumAlgorithmType() != AdasumAlgorithm::GPU__NCCL__LOCAL__AVG) {
+    Response first_response;
+    bool allreduce_merged = false;
+    for (int itr = 0; itr < queue_size; itr++) {
+      first_response = responses.front();
+      assert(first_response.tensor_names().size() == 1);
+      responses.pop_front();
+      // we find the first allreduce response and make it the host for all subsequent to-be-reduced tensors
+      if (first_response.response_type() == Response::ADASUM) {
+        // increment iterator since we have found one allreduce
+        allreduce_merged = true;
         itr++;
+        while(itr < queue_size) {
+          auto next_response = responses.front();
+          assert(next_response.tensor_names().size() == 1);
+          responses.pop_front();
+          if(next_response.response_type() == first_response.response_type()) {
+            first_response.add_tensor_name(next_response.tensor_names_string());
+          }
+          else {
+            responses.push_back(next_response);
+          }
+          itr++;
+        }
+      }
+      else {
+        // if response type is not allreduce, we push it back to queue
+        responses.push_back(first_response);
       }
     }
-    else {
-      // if response type is not allreduce, we push it back to queue
-      responses.push_back(first_response);
+    // we add it to response_list only if we have merged allreduce requests.
+    // For other requests, they will be processed in the following section.
+    if(allreduce_merged == true) {
+      response_list.add_response(first_response);
     }
-  }
-  // we add it to response_list only if we have merged allreduce requests.
-  // For other requests, they will be processed in the following section.
-  if(allreduce_merged == true) {
-    response_list.add_response(first_response);
   }
   while (!responses.empty()) {
 
@@ -597,7 +601,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
     assert(response.tensor_names().size() == 1);
     responses.pop_front();
     int64_t tensor_size = 0;
-    if (response.response_type() == Response::ResponseType::ALLREDUCE) {
+    if (response.response_type() == Response::ResponseType::ALLREDUCE || response.response_type() == Response::ResponseType::ADASUM) {
       // Attempt to add more responses to this fused response.
       const auto& entry =
           tensor_queue_.GetTensorEntry(response.tensor_names()[0]);

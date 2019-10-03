@@ -26,6 +26,7 @@
 #include <Eigen/Core>
 
 #include "optim/bayesian_optimization.h"
+#include "common.h"
 
 namespace horovod {
 namespace common {
@@ -77,6 +78,14 @@ public:
   bool CacheEnabled() const;
   void SetCacheEnabled (bool enabled, bool fixed=false);
 
+  // Number of reduction threads for Adasum.
+  int NumAdasumReductionThreads() const;
+  void SetNumAdasumReductionThreads (int thread_count);
+
+  // Type of Adasum algorithm used.
+  AdasumAlgorithm AdasumAlgorithmType() const;
+  void SetAdasumAlgorithmType (AdasumAlgorithm adasum_algorithm);
+
   // Observes that the given tensors have been processed (e.g., allreduced) over the given number of microseconds.
   //
   // Args:
@@ -94,6 +103,8 @@ public:
     double tensor_fusion_threshold;
     double cycle_time;
     bool active;
+    int num_adasum_reduction_threads;
+    AdasumAlgorithm adasum_algorithm;
   };
 
   Params GetParams();
@@ -229,6 +240,11 @@ private:
 
   std::vector<ITunableParameter*> parameter_chain_;
   bool active_;
+  
+  //TODO add these two to auto-tuning in the future
+  int num_adasum_reduction_threads_ = 0;
+  AdasumAlgorithm adasum_algorithm_;
+
   int32_t warmup_remaining_;
 
   static constexpr int SAMPLES = 5;
