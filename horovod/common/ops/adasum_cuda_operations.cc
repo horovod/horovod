@@ -88,14 +88,14 @@ Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
     return Status::OK();
   }
   InitCUDAStreams(entries);
-  if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU__TREE) {
+  if(global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::GPU__TREE) {
     LOG(TRACE) << "Reducing with Adasum algorithm GPU_TREE.";
     return TreeHierarchical(entries, response);
   }
-  else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU__RING) {
+  else if(global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::GPU__RING) {
     return RingHierarchical(entries, response);
   }
-  else if(global_state_->adasum_algorithm == AdasumAlgorithm::GPU__NCCL__LOCAL__AVG) {
+  else if(global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::GPU__NCCL__LOCAL__AVG) {
 #if HAVE_NCCL
     return NcclHierarchical(entries, response);
 #else
@@ -356,6 +356,7 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
                               cudaMemcpyAsync(host_buffer_, buffer_data_at_rank_offset,
                                               total_buffer_len, cudaMemcpyDeviceToHost,
                                               *stream_));
+                                              
     timeline.ActivityEndAll(entries);
 
     timeline.ActivityStartAll(entries, MPI_ALLREDUCE);
@@ -698,8 +699,8 @@ bool AdasumCudaAllreduceOp::Enabled(const ParameterManager& param_manager,
                             const std::vector<TensorTableEntry>& entries,
                             const Response& response) const {
   return entries[0].device != CPU_DEVICE_ID 
-         && global_state_->adasum_algorithm != AdasumAlgorithm::NONE 
-         && global_state_->adasum_algorithm != AdasumAlgorithm::CPU__TREE;
+         && global_state_->parameter_manager.AdasumAlgorithmType() != AdasumAlgorithm::NONE 
+         && global_state_->parameter_manager.AdasumAlgorithmType() != AdasumAlgorithm::CPU__TREE;
 
 }
 }

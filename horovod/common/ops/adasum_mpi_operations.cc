@@ -96,7 +96,7 @@ AdasumMPIOp::~AdasumMPIOp() {
 bool AdasumMPIOp::Enabled(const ParameterManager& param_manager,
                            const std::vector<TensorTableEntry>& entries,
                            const Response& response) const {
-  return global_state_->adasum_algorithm == AdasumAlgorithm::CPU__TREE;
+  return global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::CPU__TREE;
 }
 
 int AdasumMPIOp::GetLocalRankWithComm(MPI_Comm local_comm) {
@@ -115,7 +115,7 @@ Status AdasumMPIOp::Execute(std::vector<TensorTableEntry>& entries, const Respon
   if(entries.empty()) {
       return Status::OK();
   }
-  if (global_state_->adasum_algorithm == AdasumAlgorithm::CPU__TREE) {
+  if (global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::CPU__TREE) {
     return TreeHierarchical(entries, response);
   }
   else {
@@ -196,7 +196,7 @@ Status AdasumMPIOp::TreeHierarchical(std::vector<TensorTableEntry>& entries, con
   int layerid = 0;
   int num_reductions = entries.size();
   finished_parallel_reductions_ = 0;
-  bool use_main_thread = global_state_->adasum_num_threads == 1;
+  bool use_main_thread = global_state_->parameter_manager.NumAdasumReductionThreads() == 1;
   for (auto& entry : entries) {
     // skip threadpool if we only have 1 thread in there
     if (use_main_thread) {

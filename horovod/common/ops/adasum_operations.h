@@ -26,8 +26,8 @@ template <typename Communicator_type>
 class AdasumOp : public PointToPointOp<Communicator_type> {
 public:
   AdasumOp(HorovodGlobalState* global_state) : PointToPointOp<Communicator_type>(global_state) {
-    if (this->global_state_->adasum_num_threads > 0) {
-      for (int i = 0; i < this->global_state_->adasum_num_threads; i++) {
+    if (this->global_state_->parameter_manager.NumAdasumReductionThreads() > 0) {
+      for (int i = 0; i < this->global_state_->parameter_manager.NumAdasumReductionThreads(); i++) {
           temp_buffers_.emplace_back();
       }
     }
@@ -207,136 +207,134 @@ protected:
     int nghrCountVec_index = 0;
     int orgSize = size;
     size = nearest_power_2;
-    if (rank < nearest_power_2) {
 
-      int total_counts_sum = 0;
-      for (int i = 0; i < tensor_counts.size(); i++)
-        total_counts_sum += tensor_counts[i];
-      int myCount = total_counts_sum;
-      int comm_index;
-      for (level = 1, comm_index = 0; level < size;
-          level = (level << 1), comm_index++) {
-        if (level < start_level) {
-          continue;
-        }
+    int total_counts_sum = 0;
+    for (int i = 0; i < tensor_counts.size(); i++)
+      total_counts_sum += tensor_counts[i];
+    int myCount = total_counts_sum;
+    int comm_index;
+    for (level = 1, comm_index = 0; level < size;
+        level = (level << 1), comm_index++) {
+      if (level < start_level) {
+        continue;
+      }
 
-        int neighbor_rank = rank ^ level;
-        int nghrCount = 0;
-        int sendOffset = 0;
-        int recvOffset = 0;
-        int firstHalfMyCount = (myCount >> 1);
-        int secondHalfMyCount = myCount - firstHalfMyCount;
+      int neighbor_rank = rank ^ level;
+      int nghrCount = 0;
+      int sendOffset = 0;
+      int recvOffset = 0;
+      int firstHalfMyCount = (myCount >> 1);
+      int secondHalfMyCount = myCount - firstHalfMyCount;
 
-        nghrCountVec.emplace_back();
-        nghrCountVec[nghrCountVec_index].resize(tensor_counts.size());
+      nghrCountVec.emplace_back();
+      nghrCountVec[nghrCountVec_index].resize(tensor_counts.size());
 
-        int myCountSoFar = 0;
-        int nghrCountSoFar = 0;
-        if ((rank & level) != 0) {
-          myCount = secondHalfMyCount;
-          nghrCount = firstHalfMyCount;
-          sendOffset = 0;
-          recvOffset = nghrCount;
+      int myCountSoFar = 0;
+      int nghrCountSoFar = 0;
+      if ((rank & level) != 0) {
+        myCount = secondHalfMyCount;
+        nghrCount = firstHalfMyCount;
+        sendOffset = 0;
+        recvOffset = nghrCount;
 
-          for (int i = 0; i < tensor_counts.size(); i++){
-            if (nghrCountSoFar <= nghrCount){
-              if (nghrCountSoFar+tensor_counts[i] <= nghrCount){
-                nghrCountVec[nghrCountVec_index][i] = tensor_counts[i];
-                tensor_counts[i] = 0;
-              } else {
-                nghrCountVec[nghrCountVec_index][i] = nghrCount - nghrCountSoFar; // should not be negative
-                tensor_counts[i] = tensor_counts[i] - (nghrCount - nghrCountSoFar); // should not be negative
-              }
-            } else {
-              tensor_counts[i] = tensor_counts[i];
-              nghrCountVec[nghrCountVec_index][i] = 0;
-            }
-            nghrCountSoFar += nghrCountVec[nghrCountVec_index][i];
-            myCountSoFar += tensor_counts[i];
-          }
-        } else {
-          myCount = firstHalfMyCount;
-          nghrCount = secondHalfMyCount;
-          sendOffset = myCount;
-          recvOffset = 0;
-
-          for (int i = 0; i < tensor_counts.size(); i++){
-            if (myCountSoFar <= myCount){
-              if (myCountSoFar+tensor_counts[i] <= myCount){
-                tensor_counts[i] = tensor_counts[i];
-                nghrCountVec[nghrCountVec_index][i] = 0;
-              } else {
-                nghrCountVec[nghrCountVec_index][i] = tensor_counts[i] - (myCount - myCountSoFar); // should not be negative
-                tensor_counts[i] = myCount - myCountSoFar; // should not be negative
-              }
-            } else {
+        for (int i = 0; i < tensor_counts.size(); i++){
+          if (nghrCountSoFar <= nghrCount){
+            if (nghrCountSoFar+tensor_counts[i] <= nghrCount){
               nghrCountVec[nghrCountVec_index][i] = tensor_counts[i];
               tensor_counts[i] = 0;
+            } else {
+              nghrCountVec[nghrCountVec_index][i] = nghrCount - nghrCountSoFar; // should not be negative
+              tensor_counts[i] = tensor_counts[i] - (nghrCount - nghrCountSoFar); // should not be negative
             }
-            nghrCountSoFar += nghrCountVec[nghrCountVec_index][i];
-            myCountSoFar += tensor_counts[i];
+          } else {
+            tensor_counts[i] = tensor_counts[i];
+            nghrCountVec[nghrCountVec_index][i] = 0;
           }
+          nghrCountSoFar += nghrCountVec[nghrCountVec_index][i];
+          myCountSoFar += tensor_counts[i];
         }
+      } else {
+        myCount = firstHalfMyCount;
+        nghrCount = secondHalfMyCount;
+        sendOffset = myCount;
+        recvOffset = 0;
 
-        nghrCountVec_index++;
-
-        for (int i = 0; i < std::max(myCount, nghrCount); i += chunk_size)
-          this->PointToPointSendRecv((char*)(&grad_buffer[i+sendOffset]),
-                                std::min(chunk_size, nghrCount-i) * per_element_size / sizeof(char),
-                                horovod_datatype,
-                                neighbor_rank,
-                                tag,
-                                (char*)(&recv_buffer[i+recvOffset]),
-                                std::min(chunk_size, myCount-i) * per_element_size / sizeof(char),
-                                horovod_datatype,
-                                neighbor_rank,
-                                tag,
-                                communicator);
-        if ((rank & level) != 0) {
-          grad_buffer = &grad_buffer[nghrCount];
-          recv_buffer = &recv_buffer[nghrCount];
-        }
-        FusedPairwiseReduceWithComm((char*)grad_buffer, (char*)recv_buffer, horovod_datatype, tensor_counts, tag,
-                                  reduction_comms[comm_index],
-                                  (rank & level) == 0,
-                                  normAndDots);
-      }
-
-      for (level = (size >> 1); level > 0; level = (level >> 1)) {
-        if (level < start_level){
-          continue;
-        }
-        int neighbor_rank = rank ^ level;
-
-        nghrCountVec_index--;
-        int nghrCount = 0;
         for (int i = 0; i < tensor_counts.size(); i++){
-          nghrCount += nghrCountVec[nghrCountVec_index][i];
-          tensor_counts[i] += nghrCountVec[nghrCountVec_index][i];
+          if (myCountSoFar <= myCount){
+            if (myCountSoFar+tensor_counts[i] <= myCount){
+              tensor_counts[i] = tensor_counts[i];
+              nghrCountVec[nghrCountVec_index][i] = 0;
+            } else {
+              nghrCountVec[nghrCountVec_index][i] = tensor_counts[i] - (myCount - myCountSoFar); // should not be negative
+              tensor_counts[i] = myCount - myCountSoFar; // should not be negative
+            }
+          } else {
+            nghrCountVec[nghrCountVec_index][i] = tensor_counts[i];
+            tensor_counts[i] = 0;
+          }
+          nghrCountSoFar += nghrCountVec[nghrCountVec_index][i];
+          myCountSoFar += tensor_counts[i];
         }
-
-        if ((rank & level) == 0) {
-          recv_buffer = &grad_buffer[myCount];
-        } else {
-          recv_buffer = &grad_buffer[-nghrCount];
-        }
-        for (int i = 0; i < std::max(myCount, nghrCount); i += chunk_size)
-          this->PointToPointSendRecv((char*)(&grad_buffer[i]),
-                    std::min(chunk_size, myCount-i) * per_element_size / sizeof(char),
-                    horovod_datatype,
-                    neighbor_rank,
-                    tag,
-                    (char*)(&recv_buffer[i]),
-                    std::min(chunk_size, nghrCount-i) * per_element_size / sizeof(char),
-                    horovod_datatype,
-                    neighbor_rank,
-                    tag,
-                    communicator);
-        if ((rank & level) != 0) {
-          grad_buffer = &grad_buffer[-nghrCount];
-        }
-        myCount += nghrCount;
       }
+
+      nghrCountVec_index++;
+
+      for (int i = 0; i < std::max(myCount, nghrCount); i += chunk_size)
+        this->PointToPointSendRecv((char*)(&grad_buffer[i+sendOffset]),
+                              std::min(chunk_size, nghrCount-i) * per_element_size / sizeof(char),
+                              horovod_datatype,
+                              neighbor_rank,
+                              tag,
+                              (char*)(&recv_buffer[i+recvOffset]),
+                              std::min(chunk_size, myCount-i) * per_element_size / sizeof(char),
+                              horovod_datatype,
+                              neighbor_rank,
+                              tag,
+                              communicator);
+      if ((rank & level) != 0) {
+        grad_buffer = &grad_buffer[nghrCount];
+        recv_buffer = &recv_buffer[nghrCount];
+      }
+      FusedPairwiseReduceWithComm((char*)grad_buffer, (char*)recv_buffer, horovod_datatype, tensor_counts, tag,
+                                reduction_comms[comm_index],
+                                (rank & level) == 0,
+                                normAndDots);
+    }
+
+    for (level = (size >> 1); level > 0; level = (level >> 1)) {
+      if (level < start_level){
+        continue;
+      }
+      int neighbor_rank = rank ^ level;
+
+      nghrCountVec_index--;
+      int nghrCount = 0;
+      for (int i = 0; i < tensor_counts.size(); i++){
+        nghrCount += nghrCountVec[nghrCountVec_index][i];
+        tensor_counts[i] += nghrCountVec[nghrCountVec_index][i];
+      }
+
+      if ((rank & level) == 0) {
+        recv_buffer = &grad_buffer[myCount];
+      } else {
+        recv_buffer = &grad_buffer[-nghrCount];
+      }
+      for (int i = 0; i < std::max(myCount, nghrCount); i += chunk_size)
+        this->PointToPointSendRecv((char*)(&grad_buffer[i]),
+                  std::min(chunk_size, myCount-i) * per_element_size / sizeof(char),
+                  horovod_datatype,
+                  neighbor_rank,
+                  tag,
+                  (char*)(&recv_buffer[i]),
+                  std::min(chunk_size, nghrCount-i) * per_element_size / sizeof(char),
+                  horovod_datatype,
+                  neighbor_rank,
+                  tag,
+                  communicator);
+      if ((rank & level) != 0) {
+        grad_buffer = &grad_buffer[-nghrCount];
+      }
+      myCount += nghrCount;
     }
     size = orgSize;
   }
