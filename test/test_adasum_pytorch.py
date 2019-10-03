@@ -3,7 +3,6 @@ import horovod.torch as hvd
 import numpy as np
 import time
 from horovod.torch.mpi_ops import synchronize
-from horovod.torch.mpi_ops import AllreduceType
 import os
 
 device = None
@@ -29,7 +28,7 @@ def initialize(dtype=np.float32):
 
   data_type = dtype
   
-def test_orthogonal(do_average, denominator):
+def test_orthogonal(denominator):
   all_Ns = [size*20 - 17, size*2+1, size+2]
   tensors = []
   all_qs = []
@@ -43,7 +42,7 @@ def test_orthogonal(do_average, denominator):
   tensors = list(map(lambda x: torch.from_numpy(x).to(device), tensors))
 
   handles = [
-    hvd.allreduce_async(tensor, average=do_average, allreduce_type=AllreduceType.Adasum)
+    hvd.allreduce_async(tensor, op=hvd.Adasum)
     for tensor in tensors
   ]
 
@@ -60,7 +59,7 @@ def test_orthogonal(do_average, denominator):
         print('expected: ', e)
         print(np.isclose(e, rt.cpu().numpy()))
   
-def test_parallel(do_average):
+def test_parallel():
   all_Ns = [size*20 - 13, size*2+1, size+2]
   tensors = []
   all_qs = []
@@ -75,7 +74,7 @@ def test_parallel(do_average):
   tensors = list(map(lambda x: torch.from_numpy(x).to(device), tensors))
 
   handles = [
-    hvd.allreduce_async(tensor, average=do_average, allreduce_type=AllreduceType.Adasum)
+    hvd.allreduce_async(tensor, op=hvd.Adasum)
     for tensor in tensors
   ]
 
@@ -93,13 +92,9 @@ def test_parallel(do_average):
         print(np.isclose(e, rt.cpu().numpy()))
   
 if __name__ == '__main__':
-  if 'HOROVOD_ADASUM' not in os.environ:
-    raise ValueError('Please set HOROVOD_ADASUM env variable.')
   initialize()
-  do_average = False
   denominator = 1
-  if os.environ['HOROVOD_ADASUM'] == 'GPU_NCCL_LOCAL_AVG':
-    do_average = True
-    denominator = size
-  test_orthogonal(do_average, denominator)
-  test_parallel(do_average)
+  if 'HOROVOD_ADASUM' in os.environ and os.environ['HOROVOD_ADASUM'] == 'GPU_NCCL_LOCAL_AVG':
+    denominator = local_size
+  test_orthogonal(denominator)
+  test_parallel()

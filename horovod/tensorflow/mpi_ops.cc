@@ -277,7 +277,7 @@ class HorovodAllreduceOp : public AsyncOpKernel {
 public:
   explicit HorovodAllreduceOp(OpKernelConstruction* context)
       : AsyncOpKernel(context) {
-    OP_REQUIRES_OK(context, context->GetAttr("allreduce_type", &allreduce_type_));
+    OP_REQUIRES_OK(context, context->GetAttr("reduce_op", &reduce_op_));
   }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
@@ -287,7 +287,7 @@ public:
     auto node_name = name();
     auto device = GetDeviceID(context);
     auto tensor = context->input(0);
-    horovod::common::AllreduceType allreduce_type = static_cast<horovod::common::AllreduceType>(allreduce_type_);
+    horovod::common::ReduceOp reduce_op = static_cast<horovod::common::ReduceOp>(reduce_op_);
     Tensor* output;
     OP_REQUIRES_OK_ASYNC(
         context, context->allocate_output(0, tensor.shape(), &output), done);
@@ -301,12 +301,12 @@ public:
         [context, done](const common::Status& status) {
           context->SetStatus(ConvertStatus(status));
           done();
-        }, allreduce_type);
+        }, reduce_op);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
 
 private:
-  int allreduce_type_;
+  int reduce_op_;
 };
 
 REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_CPU),
@@ -318,7 +318,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodAllreduce").Device(DEVICE_GPU),
 
 REGISTER_OP("HorovodAllreduce")
     .Attr("T: {int32, int64, float16, float32, float64}")
-    .Attr("allreduce_type: int")
+    .Attr("reduce_op: int")
     .Input("tensor: T")
     .Output("sum: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {

@@ -31,9 +31,11 @@ namespace common {
 // Check that Horovod is initialized.
 Status CheckInitialized();
 
-enum AllreduceType {
-    SUM_ALLREDUCE = 0,
-    ADASUM = 1
+// Please keep these values in sync with horovod/common/reduce_op.py
+enum ReduceOp {
+    // AVERAGE would be 0, but framework code handles averaging.
+    SUM = 1,
+    ADASUM = 2
 };
 
 extern "C" {
@@ -98,7 +100,7 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string name, const int device,
                               StatusCallback callback,
-                              AllreduceType allreduce_type = AllreduceType::SUM_ALLREDUCE);
+                              ReduceOp reduce_op = ReduceOp::SUM);
 
 Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,

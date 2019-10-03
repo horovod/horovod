@@ -50,7 +50,7 @@ int GetDeviceID(const ::torch::Tensor& tensor) {
 } // namespace
 
 int DoAllreduce(::torch::Tensor tensor, ::torch::Tensor output, int divisor,
-                const std::string& name, int allreduce_type_int) {
+                const std::string& name, int reduce_op_int) {
   ThrowIfError(common::CheckInitialized());
 
   auto handle = handle_manager.AllocateHandle();
@@ -60,7 +60,7 @@ int DoAllreduce(::torch::Tensor tensor, ::torch::Tensor output, int divisor,
   auto hvd_context = std::make_shared<TorchOpContext>(device, output);
   auto hvd_output = std::make_shared<TorchTensor>(output);
 
-  AllreduceType allreduce_type = static_cast<AllreduceType>(allreduce_type_int);
+  ReduceOp reduce_op = static_cast<ReduceOp>(reduce_op_int);
   
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_tensor, hvd_output, ready_event,
@@ -71,14 +71,14 @@ int DoAllreduce(::torch::Tensor tensor, ::torch::Tensor output, int divisor,
           output.div_(divisor);
         }
         handle_manager.MarkDone(handle, status);
-      }, allreduce_type);
+      }, reduce_op);
   ThrowIfError(enqueue_result);
 
   return handle;
 }
 
 int DoAllreduceCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int divisor,
-                         const std::string& name, int allreduce_type_int) {
+                         const std::string& name, int reduce_op_int) {
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
@@ -91,7 +91,7 @@ int DoAllreduceCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int div
   auto hvd_context =
       std::make_shared<TorchOpContext>(CPU_DEVICE_ID, cpu_buffer);
 
-  AllreduceType allreduce_type = static_cast<AllreduceType>(allreduce_type_int);
+  ReduceOp reduce_op = static_cast<ReduceOp>(reduce_op_int);
   auto handle = handle_manager.AllocateHandle();
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, ready_event,
@@ -106,7 +106,7 @@ int DoAllreduceCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int div
           output.div_(divisor);
         }
         handle_manager.MarkDone(handle, status);
-      }, allreduce_type);
+      }, reduce_op);
   ThrowIfError(enqueue_result);
 
   return handle;

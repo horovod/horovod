@@ -42,7 +42,7 @@ std::string GetOpName(const std::string& prefix, char* name, int handle) {
 } // namespace
 
 template <DataType DT, DeviceType Dev, class T>
-int DoAllreduce(T* tensor, T* output, int divisor, char* name, int allreduce_type_int) {
+int DoAllreduce(T* tensor, T* output, int divisor, char* name, int reduce_op_int) {
   ThrowIfError(common::CheckInitialized());
 
   auto handle = handle_manager.AllocateHandle();
@@ -53,7 +53,7 @@ int DoAllreduce(T* tensor, T* output, int divisor, char* name, int allreduce_typ
       std::make_shared<TorchOpContext<DT, Dev, T>>(device, output);
   auto hvd_output = std::make_shared<TorchTensor<DT, Dev, T>>(output);
 
-  AllreduceType allreduce_type = static_cast<AllreduceType>(allreduce_type_int);
+  ReduceOp reduce_op = static_cast<ReduceOp>(reduce_op_int);
 
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_tensor, hvd_output, ready_event,
@@ -63,7 +63,7 @@ int DoAllreduce(T* tensor, T* output, int divisor, char* name, int allreduce_typ
           TensorUtil::DivideTensorInPlace<DT, Dev, T>(output, divisor);
         }
         handle_manager.MarkDone(handle, status);
-      }, allreduce_type);
+      }, reduce_op);
   ThrowIfError(enqueue_result);
 
   return handle;
@@ -71,7 +71,7 @@ int DoAllreduce(T* tensor, T* output, int divisor, char* name, int allreduce_typ
 
 #if HAVE_CUDA
 template <DataType DT, class TC, class T>
-int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int divisor, char* name, int allreduce_type_int) {
+int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int divisor, char* name, int reduce_op_int) {
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
@@ -85,7 +85,7 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int divisor, char* name, int al
   auto hvd_context = std::make_shared<TorchOpContext<DT, DeviceType::CPU, T>>(
       CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
 
-  AllreduceType allreduce_type = static_cast<AllreduceType>(allreduce_type_int);
+  ReduceOp reduce_op = static_cast<ReduceOp>(reduce_op_int);
   auto handle = handle_manager.AllocateHandle();
   auto enqueue_result = EnqueueTensorAllreduce(
       hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, ready_event,
@@ -97,7 +97,7 @@ int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int divisor, char* name, int al
                                                                divisor);
         }
         handle_manager.MarkDone(handle, status);
-      }, allreduce_type);
+      }, reduce_op);
   ThrowIfError(enqueue_result);
 
   return handle;
@@ -219,11 +219,11 @@ int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
 }
 #endif
 
-#define ALLREDUCE(torch_Tensor, HorovodType, DeviceType, THTensor)             \
-  extern "C" int horovod_torch_allreduce_async_##torch_Tensor(                 \
-      THTensor* tensor, THTensor* output, int divisor, char* name) {           \
-    return DoAllreduce<HorovodType, DeviceType>(tensor, output, divisor,       \
-                                                name);                         \
+#define ALLREDUCE(torch_Tensor, HorovodType, DeviceType, THTensor)                    \
+  extern "C" int horovod_torch_allreduce_async_##torch_Tensor(                        \
+      THTensor* tensor, THTensor* output, int divisor, char* name, int reduce_op) {   \
+    return DoAllreduce<HorovodType, DeviceType>(tensor, output, divisor,              \
+                                                name, reduce_op);                     \
   }
 
 ALLREDUCE(torch_IntTensor, DataType::HOROVOD_INT32, DeviceType::CPU,
@@ -246,11 +246,11 @@ ALLREDUCE(torch_cuda_DoubleTensor, DataType::HOROVOD_FLOAT64,
           DeviceType::GPU, THCudaDoubleTensor)
 #endif
 
-#define ALLREDUCE_CUDA_ON_CPU(torch_Tensor, HorovodType, THCTensor, THTensor)  \
-  extern "C" int horovod_torch_allreduce_async_##torch_Tensor(                 \
-      THCTensor* tensor, THCTensor* output, int divisor, char* name) {         \
-    return DoAllreduceCudaOnCPU<HorovodType, THCTensor, THTensor>(             \
-        tensor, output, divisor, name);                                        \
+#define ALLREDUCE_CUDA_ON_CPU(torch_Tensor, HorovodType, THCTensor, THTensor)         \
+  extern "C" int horovod_torch_allreduce_async_##torch_Tensor(                        \
+      THCTensor* tensor, THCTensor* output, int divisor, char* name, int reduce_op) { \
+    return DoAllreduceCudaOnCPU<HorovodType, THCTensor, THTensor>(                    \
+        tensor, output, divisor, name, reduce_op);                                    \
   }
 
 #if !HOROVOD_GPU_ALLREDUCE && HAVE_CUDA

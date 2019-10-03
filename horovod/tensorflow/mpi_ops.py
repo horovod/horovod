@@ -27,14 +27,9 @@ from tensorflow.python.platform import resource_loader
 
 from horovod.common.util import get_ext_suffix
 from horovod.common.basics import HorovodBasics as _HorovodBasics
+from horovod.common.reduce_op import Average, Sum, Adasum
 from horovod.tensorflow.util import _executing_eagerly
 
-
-adasum_algorithms = ["CPU_TREE","GPU_TREE","GPU_RING","GPU_NCCL_LOCAL_AVG","GPU_AUTO"]
-
-class AllreduceType:
-    SumAllreduce = 0
-    Adasum = 1  
 
 def _load_library(name):
     """Loads a .so file containing the specified operators.
@@ -76,8 +71,9 @@ def _normalize_name(name):
     return re.sub('[^a-zA-Z0-9_]', '_', name)
 
 
-def _allreduce(tensor, name=None, allreduce_type=AllreduceType.SumAllreduce):
-    """An op which sums an input tensor over all the Horovod processes.
+def _allreduce(tensor, name=None, op=Sum):
+    """An op which reduces an input tensor over all the Horovod processes. The
+    default reduction is a sum.
 
     The reduction operation is keyed by the name of the op. The tensor type and
     shape must be the same on all Horovod processes for a given name. The reduction
@@ -89,7 +85,7 @@ def _allreduce(tensor, name=None, allreduce_type=AllreduceType.SumAllreduce):
     """
     if name is None and not _executing_eagerly():
         name = 'HorovodAllreduce_%s' % _normalize_name(tensor.name)
-    return MPI_LIB.horovod_allreduce(tensor, name=name, allreduce_type=allreduce_type)
+    return MPI_LIB.horovod_allreduce(tensor, name=name, reduce_op=op)
 
 
 @ops.RegisterGradient('HorovodAllreduce')

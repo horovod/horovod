@@ -21,6 +21,7 @@ from contextlib import contextmanager
 import warnings
 
 from horovod.common.util import check_extension
+from horovod.common.reduce_op import Average, Sum, Adasum
 
 try:
     check_extension('horovod.torch', 'HOROVOD_WITH_PYTORCH',
@@ -39,8 +40,6 @@ from horovod.torch.mpi_ops import size, local_size, rank, local_rank
 from horovod.torch.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.torch.mpi_ops import gloo_enabled, gloo_built
 from horovod.torch.mpi_ops import nccl_built, ddl_built, mlsl_built
-from horovod.torch.mpi_ops import AllreduceType
-from horovod.torch.mpi_ops import adasum_algorithms
 import os
 import torch
 import collections
@@ -48,7 +47,7 @@ import collections
 
 class _DistributedOptimizer(torch.optim.Optimizer):
     def __init__(self, params, named_parameters, compression,
-                 backward_passes_per_step=1):
+                 backward_passes_per_step=1, op=Average):
         super(self.__class__, self).__init__(params)
         self._compression = compression
 
@@ -84,6 +83,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         self.backward_passes_per_step = backward_passes_per_step
         self._allreduce_delay = {v: self.backward_passes_per_step
                                  for _, v in sorted(named_parameters)}
+        self.op = op
         self._handles = {}
         self._grad_accs = []
         self._requires_update = set()
@@ -123,12 +123,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         tensor = p.grad
         tensor_compressed, ctx = self._compression.compress(tensor)
 
-        adasum_enable = False
-        if 'HOROVOD_ADASUM' in os.environ:
-            adasum_enable = os.environ['HOROVOD_ADASUM'] in adasum_algorithms
-        allreduce_type = AllreduceType.Adasum if adasum_enable == True else AllreduceType.SumAllreduce
-
-        handle = allreduce_async_(tensor_compressed, average=True, name=name, allreduce_type=allreduce_type)
+        handle = allreduce_async_(tensor_compressed, name=name, op=self.op)
         return handle, ctx
 
     def _make_hook(self, p):
@@ -211,10 +206,11 @@ class _DistributedOptimizer(torch.optim.Optimizer):
 
 def DistributedOptimizer(optimizer, named_parameters=None,
                          compression=Compression.none,
-                         backward_passes_per_step=1):
+                         backward_passes_per_step=1,
+                         op=Average):
     """
     An optimizer that wraps another torch.optim.Optimizer, using an allreduce to
-    average gradient values before applying gradients to model weights.
+    combine gradient values before applying gradients to model weights.
 
     Allreduce operations are executed after each gradient is computed by ``loss.backward()``
     in parallel with each other. The ``step()`` method ensures that all allreduce operations are
@@ -248,15 +244,15 @@ def DistributedOptimizer(optimizer, named_parameters=None,
         backward_passes_per_step: Number of expected backward passes to perform
                                   before calling step()/synchronize(). This
                                   allows accumulating gradients over multiple
-                                  mini-batches before executing averaging and
-                                  applying them.
+                                  mini-batches before reducing and applying them.
+        op: The reduction operation to use when combining gradients across different ranks.
     """
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override the `step()` method with an allreduce implementation.
     cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                dict(_DistributedOptimizer.__dict__))
     return cls(optimizer.param_groups, named_parameters,
-               compression, backward_passes_per_step)
+               compression, backward_passes_per_step, op)
 
 
 def broadcast_parameters(params, root_rank):

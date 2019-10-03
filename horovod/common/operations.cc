@@ -785,14 +785,14 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string name, const int device,
                               StatusCallback callback,
-                              AllreduceType allreduce_type) {
+                              ReduceOp reduce_op) {
   Request message;
   message.set_request_rank(horovod_global.controller->GetRank());
   message.set_tensor_name(name);
   message.set_tensor_type(tensor->dtype());
   message.set_device(device);
   
-  if (allreduce_type == AllreduceType::ADASUM) {
+  if (reduce_op == ReduceOp::ADASUM) {
     message.set_request_type(Request::ADASUM);
   } else {
     message.set_request_type(Request::ALLREDUCE);

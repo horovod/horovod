@@ -10,7 +10,6 @@ from tensorflow.python.framework import ops
 import warnings
 from datetime import datetime
 import horovod.tensorflow as hvd
-from horovod.tensorflow import AllreduceType
 import math
 
 def adasum_reference_operation(a,b):
@@ -80,7 +79,7 @@ class MPITests(tf.test.TestCase):
                 tensors = map(lambda tensor: tf.cast(tensor, dtype), tensors)
                 # and away we go: do reduction
                 reduced_tensors = [
-                    self.evaluate(hvd.allreduce(tensor, average=False, allreduce_type=AllreduceType.Adasum))
+                    self.evaluate(hvd.allreduce(tensor, op=hvd.Adasum))
                     for tensor in tensors
                 ]
                 # cast expected result to the type of the tensorflow values
@@ -106,7 +105,7 @@ class MPITests(tf.test.TestCase):
                 tensors = map(lambda tensor: tf.cast(tensor, dtype), tensors)
                 # and away we go: do reduction
                 reduced_tensors = [
-                    self.evaluate(hvd.allreduce(tensor, average=False, allreduce_type=AllreduceType.Adasum))
+                    self.evaluate(hvd.allreduce(tensor, op=hvd.Adasum))
                     for tensor in tensors
                 ]
                 # cast expected result to the type of the tensorflow values

@@ -15,16 +15,20 @@
 
 int horovod_torch_allreduce_async_torch_IntTensor(THIntTensor* tensor,
                                                   THIntTensor* output,
-                                                  int average, char* name);
+                                                  int divisor, char* name,
+                                                  int reduce_op);
 int horovod_torch_allreduce_async_torch_LongTensor(THLongTensor* tensor,
                                                    THLongTensor* output,
-                                                   int average, char* name);
+                                                   int divisor, char* name,
+                                                   int reduce_op);
 int horovod_torch_allreduce_async_torch_FloatTensor(THFloatTensor* tensor,
                                                     THFloatTensor* output,
-                                                    int average, char* name);
+                                                    int divisor, char* name,
+                                                    int reduce_op);
 int horovod_torch_allreduce_async_torch_DoubleTensor(THDoubleTensor* tensor,
                                                      THDoubleTensor* output,
-                                                     int average, char* name);
+                                                     int divisor, char* name,
+                                                     int reduce_op);
 
 int horovod_torch_allgather_async_torch_ByteTensor(THByteTensor* tensor,
                                                    THByteTensor* output,
