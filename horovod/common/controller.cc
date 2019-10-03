@@ -552,20 +552,24 @@ void Controller::CoordinateCacheAndState(CacheCoordinator& cache_coordinator) {
   }
 }
 
-ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
-  
-  ResponseList response_list;
+void Controller::FuseAllAdasumResponses(std::deque<Response>& responses, ResponseList& response_list) {
+  // perform nothing if algorithm selected is GPU_NCCL_LOCAL_AVG or NONE
+  // for GPU_NCCL_LOCAL_AVG we rely on the fusion logic for ALLREDUCE
+  if (parameter_manager_.AdasumAlgorithmType() == AdasumAlgorithm::GPU_NCCL_LOCAL_AVG ||
+      parameter_manager_.AdasumAlgorithmType() == AdasumAlgorithm::NONE) {
+        return;
+  }
   auto queue_size = responses.size();
-  // we will merge all tensor names into the first response.
+
   Response first_response;
   bool allreduce_merged = false;
   for (int itr = 0; itr < queue_size; itr++) {
     first_response = responses.front();
     assert(first_response.tensor_names().size() == 1);
     responses.pop_front();
-    // we find the first allreduce response and make it the host for all subsequent to-be-reduced tensors
+    // we find the first Adasum response and make it the host for all subsequent to-be-reduced tensors
     if (first_response.response_type() == Response::ADASUM) {
-      // increment iterator since we have found one allreduce
+      // increment iterator since we have found one Adasum
       allreduce_merged = true;
       itr++;
       while(itr < queue_size) {
@@ -582,22 +586,35 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
       }
     }
     else {
-      // if response type is not allreduce, we push it back to queue
+      // if response type is not Adasum, we push it back to queue
       responses.push_back(first_response);
     }
   }
-  // we add it to response_list only if we have merged allreduce requests.
-  // For other requests, they will be processed in the following section.
+  // we add it to response_list only if we have merged Adasum responses.
+  // For other responses, they will be processed as normal.
   if(allreduce_merged == true) {
     response_list.add_response(first_response);
   }
+}
+
+ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
+  
+  ResponseList response_list;
+
+  // To fully parallelize Adasum reductions, 
+  // we will fuse all Adasum responses into one large response and send it to Adasum Op to be reduced.
+  // When this function returns, responses will not contain any Adasum response except for GPU_NCCL_LOCAL_AVG
+  // which will follow the normal response fusion below.
+  FuseAllAdasumResponses(responses, response_list);
+
   while (!responses.empty()) {
 
     auto response = responses.front();
     assert(response.tensor_names().size() == 1);
     responses.pop_front();
     int64_t tensor_size = 0;
-    if (response.response_type() == Response::ResponseType::ALLREDUCE) {
+    if (response.response_type() == Response::ResponseType::ALLREDUCE || 
+        response.response_type() == Response::ResponseType::ADASUM) {
       // Attempt to add more responses to this fused response.
       const auto& entry =
           tensor_queue_.GetTensorEntry(response.tensor_names()[0]);

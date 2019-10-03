@@ -6,17 +6,10 @@ namespace horovod {
 namespace common {
 AdasumMPIOp::AdasumMPIOp(MPIContext* mpi_context, HorovodGlobalState* global_state)
     : AdasumOp(global_state), mpi_context_(mpi_context) {
-  int local_rank, local_size;
-  MPI_Comm_size(mpi_context_->local_comm, &local_size);
-  MPI_Comm_rank(mpi_context_->local_comm, &local_rank);
-  if (local_rank == 0)
   {
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-    // converting to node-based rank and size
-    rank /= local_size;
-    size /= local_size;
 
     MPI_Group world_group;
     MPI_Comm_group(MPI_COMM_WORLD, &world_group);
@@ -27,23 +20,64 @@ AdasumMPIOp::AdasumMPIOp(MPIContext* mpi_context, HorovodGlobalState* global_sta
     }
     int shift_val;
     int level;
-    rank_log_size_ = log_size;
-    reduction_comms_ = new MPI_Comm[log_size];
+    world_rank_log_size_ = log_size;
+    world_reduction_comms_ = new MPI_Comm[log_size];
     int *node_rank = new int[size];
     for (level = 1, shift_val = 1; level < nearest_power_2; level = (level << 1), shift_val++)
     {
         int base_rank = ((rank >> shift_val) << shift_val);
         for (int i = 0; i < (level << 1); i++)
         {
-            // converting back to world rank
-            node_rank[i] = (base_rank + i) * local_size;
+            node_rank[i] = (base_rank + i);
         }
         MPI_Group red_group;
         MPI_Group_incl(world_group, (level << 1), node_rank, &red_group);
-        MPI_Comm_create_group(MPI_COMM_WORLD, red_group, 0, &reduction_comms_[shift_val - 1]);
+        MPI_Comm_create_group(MPI_COMM_WORLD, red_group, 0, &world_reduction_comms_[shift_val - 1]);
         MPI_Group_free(&red_group);
     }
     delete[] node_rank;
+  }
+  // TODO: merge these
+  {
+    int local_rank, local_size;
+    MPI_Comm_size(mpi_context_->local_comm, &local_size);
+    MPI_Comm_rank(mpi_context_->local_comm, &local_rank);
+    if (local_rank == 0)
+    {
+      int rank, size;
+      MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+      MPI_Comm_size(MPI_COMM_WORLD, &size);
+      // converting to node-based rank and size
+      rank /= local_size;
+      size /= local_size;
+
+      MPI_Group world_group;
+      MPI_Comm_group(MPI_COMM_WORLD, &world_group);
+      int nearest_power_2 = 1;
+      int log_size;
+      for (nearest_power_2 = 1, log_size = 0; (nearest_power_2 << 1) <= size; nearest_power_2 = (nearest_power_2 << 1), log_size++)
+      {
+      }
+      int shift_val;
+      int level;
+      rank_log_size_ = log_size;
+      reduction_comms_ = new MPI_Comm[log_size];
+      int *node_rank = new int[size];
+      for (level = 1, shift_val = 1; level < nearest_power_2; level = (level << 1), shift_val++)
+      {
+          int base_rank = ((rank >> shift_val) << shift_val);
+          for (int i = 0; i < (level << 1); i++)
+          {
+              // converting back to world rank
+              node_rank[i] = (base_rank + i) * local_size;
+          }
+          MPI_Group red_group;
+          MPI_Group_incl(world_group, (level << 1), node_rank, &red_group);
+          MPI_Comm_create_group(MPI_COMM_WORLD, red_group, 0, &reduction_comms_[shift_val - 1]);
+          MPI_Group_free(&red_group);
+      }
+      delete[] node_rank;
+    }
   }
 }
 
@@ -52,12 +86,17 @@ AdasumMPIOp::~AdasumMPIOp() {
     LOG(INFO,global_state_->controller->GetRank())<<"Preparing to delete reduction comms.";
     delete reduction_comms_;
   }
+  // TODO: merge these
+  if(world_reduction_comms_ != nullptr) {
+    LOG(INFO,global_state_->controller->GetRank())<<"Preparing to delete reduction comms.";
+    delete world_reduction_comms_;
+  }
 }
 
 bool AdasumMPIOp::Enabled(const ParameterManager& param_manager,
                            const std::vector<TensorTableEntry>& entries,
                            const Response& response) const {
-  return global_state_->adasum_algorithm == AdasumAlgorithm::CPU_TREE;
+  return global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::CPU_TREE;
 }
 
 int AdasumMPIOp::GetLocalRankWithComm(MPI_Comm local_comm) {
@@ -76,7 +115,7 @@ Status AdasumMPIOp::Execute(std::vector<TensorTableEntry>& entries, const Respon
   if(entries.empty()) {
       return Status::OK();
   }
-  if (global_state_->adasum_algorithm == AdasumAlgorithm::CPU_TREE) {
+  if (global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::CPU_TREE) {
     return TreeHierarchical(entries, response);
   }
   else {
@@ -157,7 +196,7 @@ Status AdasumMPIOp::TreeHierarchical(std::vector<TensorTableEntry>& entries, con
   int layerid = 0;
   int num_reductions = entries.size();
   finished_parallel_reductions_ = 0;
-  bool use_main_thread = global_state_->adasum_num_threads == 1;
+  bool use_main_thread = global_state_->parameter_manager.NumAdasumReductionThreads() == 1;
   for (auto& entry : entries) {
     // skip threadpool if we only have 1 thread in there
     if (use_main_thread) {
@@ -371,4 +410,4 @@ void AdasumMPIOp::P2pAllreduce(void *grad_buffer,
   }
 }
 } // namespace common
-} // namespace horovod
+} // namespace horovod 
