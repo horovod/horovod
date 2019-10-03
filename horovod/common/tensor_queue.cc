@@ -91,7 +91,7 @@ void TensorQueue::GetTensorEntriesFromResponse(
 
         // Clear the tensor table of this tensor.
         tensor_table_.erase(iter);
-      } else {
+      } else if (response.response_type() != Response::ERROR) {
         TensorTableEntry entry;
         switch (response.tensor_type()) {
         case HOROVOD_UINT8:

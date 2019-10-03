@@ -1431,5 +1431,65 @@ class TorchTests(unittest.TestCase):
                     break
                 assert max_difference <= threshold, 'hovd.join with hvd.allreduce produces incorrect results'
 
+    def test_horovod_join_allgather(self):
+        """Test Join op with allgather."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        dims = [17] * 3
+        tensor = torch.FloatTensor(*dims)
+
+        if rank == 0:
+            if torch.cuda.is_available():
+                ret = hvd.join(hvd.local_rank())
+            else:
+                ret = hvd.join()
+        else:
+            try:
+                hvd.allgather(tensor)
+                assert False, 'hvd.allgather did not throw error'
+            except (torch.FatalError, RuntimeError):
+                pass
+
+            if torch.cuda.is_available():
+                ret = hvd.join(hvd.local_rank())
+            else:
+                ret = hvd.join()
+
+    def test_horovod_join_broadcast(self):
+        """Test Join op with allgather."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        dims = [17] * 3
+        tensor = torch.FloatTensor(*dims)
+
+        if rank == 0:
+            if torch.cuda.is_available():
+                ret = hvd.join(hvd.local_rank())
+            else:
+                ret = hvd.join()
+        else:
+            try:
+                broadcasted_tensor = hvd.broadcast(tensor, 1)
+                assert False, 'hvd.broadcast did not throw error'
+            except (torch.FatalError, RuntimeError):
+                pass
+
+            if torch.cuda.is_available():
+                ret = hvd.join(hvd.local_rank())
+            else:
+                ret = hvd.join()
+
 if __name__ == "__main__":
    unittest.main()

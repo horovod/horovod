@@ -428,10 +428,16 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
   }
 
   std::vector<int64_t> tensor_sizes;
-  // If we are doing an allgather, make sure all but the first dimension are
-  // the same. The first dimension may be different and the output tensor is
-  // the sum of the first dimension. Collect the sizes by rank.
   if (message_type == Request::ALLGATHER) {
+    if (joined_size > 0) {
+      error = true;
+      error_message_stream << "Allgather is not supported with Join at this time. "
+                           << "Specify sparse_to_dense=True if using DistributedOptimizer";
+    }
+
+    // If we are doing an allgather, make sure all but the first dimension are
+    // the same. The first dimension may be different and the output tensor is
+    // the sum of the first dimension. Collect the sizes by rank.
     tensor_sizes.resize(requests.size());
     TensorShape tensor_shape;
     for (auto dim : requests[0].tensor_shape()) {
@@ -499,8 +505,13 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
     tensor_sizes.push_back(tensor_shape.num_elements());
   }
 
-  // If we are doing a broadcast, check that all root ranks are identical.
   if (message_type == Request::BROADCAST) {
+    if (joined_size > 0) {
+      error = true;
+      error_message_stream << "Broadcast is not supported with Join at this time.";
+    }
+
+    // If we are doing a broadcast, check that all root ranks are identical.
     int first_root_rank = requests[0].root_rank();
     for (unsigned int i = 1; i < requests.size(); ++i) {
       if (error) {
