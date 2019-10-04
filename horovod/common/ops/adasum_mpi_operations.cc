@@ -96,7 +96,7 @@ AdasumMPIOp::~AdasumMPIOp() {
 bool AdasumMPIOp::Enabled(const ParameterManager& param_manager,
                            const std::vector<TensorTableEntry>& entries,
                            const Response& response) const {
-  return global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::CPU_TREE;
+  return true;
 }
 
 int AdasumMPIOp::GetLocalRankWithComm(MPI_Comm local_comm) {
@@ -115,12 +115,7 @@ Status AdasumMPIOp::Execute(std::vector<TensorTableEntry>& entries, const Respon
   if(entries.empty()) {
       return Status::OK();
   }
-  if (global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::CPU_TREE) {
-    return TreeHierarchical(entries, response);
-  }
-  else {
-      throw std::logic_error("Unsupported Adasum MPI op. To use Adasum_GPU_* algorithms, please re-build Horovod with HOROVOD_GPU_ALLREDUCE=NCCL");
-  }
+  return TreeHierarchical(entries, response);
 }
 
 void AdasumMPIOp::TreeHierarchicalInternal(TensorTableEntry& entry, int layerid, const Response& response) {

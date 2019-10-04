@@ -94,7 +94,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             summed_tensor_compressed = _allreduce(tensor_compressed, op=true_op)
             summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
             if op == Adasum:
-                if 'HOROVOD_ADASUM' in os.environ and os.environ['HOROVOD_ADASUM'].upper() == 'GPU_NCCL_LOCAL_AVG':
+                if 'HOROVOD_ADASUM_GPU' in os.environ and os.environ['HOROVOD_ADASUM_GPU'].upper() == 'NCCL_LOCAL_AVG':
                     horovod_local_size = tf.cast(local_size(), dtype=tensor.dtype)
                     new_tensor = summed_tensor / horovod_local_size
                 else:

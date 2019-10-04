@@ -88,18 +88,19 @@ Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
     return Status::OK();
   }
   InitCUDAStreams(entries);
-  if(global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::GPU_TREE) {
-    LOG(TRACE) << "Reducing with Adasum algorithm GPU_TREE.";
+  if(global_state_->parameter_manager.AdasumGpuAlgorithmType() == AdasumGpuAlgorithm::TREE ||
+     global_state_->parameter_manager.AdasumGpuAlgorithmType() == AdasumGpuAlgorithm::AUTO) {
+    LOG(TRACE) << "Reducing with Adasum algorithm TREE.";
     return TreeHierarchical(entries, response);
   }
-  else if(global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::GPU_RING) {
+  else if(global_state_->parameter_manager.AdasumGpuAlgorithmType() == AdasumGpuAlgorithm::RING) {
     return RingHierarchical(entries, response);
   }
-  else if(global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::GPU_NCCL_LOCAL_AVG) {
+  else if(global_state_->parameter_manager.AdasumGpuAlgorithmType() == AdasumGpuAlgorithm::NCCL_LOCAL_AVG) {
 #if HAVE_NCCL
     return NcclHierarchical(entries, response);
 #else
-    throw std::logic_error("GPU_NCCL_LOCAL_AVG needs NCCL to be available. PLease re-build Horovod with HOROVOD_GPU_ALLREDUCE=NCCL.");
+    throw std::logic_error("Adasum NCCL_LOCAL_AVG needs NCCL to be available. Please re-build Horovod with HOROVOD_GPU_ALLREDUCE=NCCL.");
 #endif
   }
   else {
@@ -698,10 +699,8 @@ void AdasumCudaAllreduceOp::DispatchScaledAdd(DataType horovod_datatype,
 bool AdasumCudaAllreduceOp::Enabled(const ParameterManager& param_manager,
                             const std::vector<TensorTableEntry>& entries,
                             const Response& response) const {
-  return entries[0].device != CPU_DEVICE_ID 
-         && global_state_->parameter_manager.AdasumAlgorithmType() != AdasumAlgorithm::NONE 
-         && global_state_->parameter_manager.AdasumAlgorithmType() != AdasumAlgorithm::CPU_TREE;
-
+  return entries[0].device != CPU_DEVICE_ID;
 }
+
 }
 }

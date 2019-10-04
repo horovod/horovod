@@ -94,7 +94,7 @@ def test_parallel():
 if __name__ == '__main__':
   initialize()
   denominator = 1
-  if 'HOROVOD_ADASUM' in os.environ and os.environ['HOROVOD_ADASUM'] == 'GPU_NCCL_LOCAL_AVG':
+  if 'HOROVOD_ADASUM_GPU' in os.environ and os.environ['HOROVOD_ADASUM_GPU'] == 'NCCL_LOCAL_AVG':
     denominator = local_size
   test_orthogonal(denominator)
   test_parallel()

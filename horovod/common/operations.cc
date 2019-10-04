@@ -437,36 +437,31 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   }
 
   // Enable adasum reduction
-  auto adasum_algorithm = ParseAdasumAlgorithm(HOROVOD_ADASUM);
-  state.parameter_manager.SetAdasumAlgorithmType(adasum_algorithm);
-  if (state.parameter_manager.AdasumAlgorithmType() != AdasumAlgorithm::NONE) {
-    // If GPU__NCCL_LOCAL_AVG is used, we turn on HierarchicalAllreduce so that fusion buffer can be auto-tuned.
-    if (state.parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::GPU_NCCL_LOCAL_AVG) {
-      state.parameter_manager.SetHierarchicalAllreduce(true, true);
-    }
+  auto adasum_gpu_algorithm = ParseAdasumGpuAlgorithm(HOROVOD_ADASUM_GPU);
+  state.parameter_manager.SetAdasumGpuAlgorithmType(adasum_gpu_algorithm);
+  // If GPU__NCCL_LOCAL_AVG is used, we turn on HierarchicalAllreduce so that fusion buffer can be auto-tuned.
+  if (state.parameter_manager.AdasumGpuAlgorithmType() == AdasumGpuAlgorithm::NCCL_LOCAL_AVG) {
+    state.parameter_manager.SetHierarchicalAllreduce(true, true);
+  }
 
-    // default value for number of reduction threads
-    int num_threads = 1;
-    auto horovod_number_of_threads = std::getenv(HOROVOD_ADASUM_NUM_REDUCTION_THREADS);
-    if (horovod_number_of_threads != nullptr){
-      num_threads = std::strtol(horovod_number_of_threads, nullptr, 10);
-      LOG(INFO)<<"HOROVOD_ADASUM_NUM_REDUCTION_THREADS is set to "<<num_threads;
-      if (num_threads <= 0){
-        throw std::logic_error("Number of threads must be greater or equal to 1 when Adasum is used.");
-      }
+  // default value for number of reduction threads
+  int num_threads = 1;
+  auto horovod_number_of_threads = std::getenv(HOROVOD_ADASUM_NUM_REDUCTION_THREADS);
+  if (horovod_number_of_threads != nullptr){
+    num_threads = std::strtol(horovod_number_of_threads, nullptr, 10);
+    LOG(INFO)<<"HOROVOD_ADASUM_NUM_REDUCTION_THREADS is set to "<<num_threads;
+    if (num_threads <= 0){
+      throw std::logic_error("Number of threads must be greater or equal to 1 when Adasum is used.");
     }
-    state.parameter_manager.SetNumAdasumReductionThreads(num_threads);
+  }
+  state.parameter_manager.SetNumAdasumReductionThreads(num_threads);
 
-    // If tree algorithm is selected and num_thread is set to 1, we skip threadpool creation
-    // and use main thread to do Adasum reduction.
-    if((state.parameter_manager.AdasumAlgorithmType() != AdasumAlgorithm::CPU_TREE &&
-        state.parameter_manager.AdasumAlgorithmType() != AdasumAlgorithm::GPU_TREE) ||
-        state.parameter_manager.NumAdasumReductionThreads() > 1) {
-        //Making this static so that this pool is preverved throughout the lifetime of the program
-        LOG(INFO)<<"Starting "<<state.parameter_manager.NumAdasumReductionThreads()<<" threads for threadpool.";
-        static boost::asio::thread_pool pool(state.parameter_manager.NumAdasumReductionThreads());
-        state.adasum_background_thread_pool = &pool;
-    }
+  // If num_thread is set to 1, we skip threadpool creation and use main thread to do Adasum reduction.
+  if(state.parameter_manager.NumAdasumReductionThreads() > 1) {
+      //Making this static so that this pool is preverved throughout the lifetime of the program
+      LOG(INFO)<<"Starting "<<state.parameter_manager.NumAdasumReductionThreads()<<" threads for threadpool.";
+      static boost::asio::thread_pool pool(state.parameter_manager.NumAdasumReductionThreads());
+      state.adasum_background_thread_pool = &pool;
   }
 
 #if HOROVOD_GPU_ALLREDUCE != 'N' && HOROVOD_GPU_ALLREDUCE != 'D'

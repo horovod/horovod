@@ -142,11 +142,11 @@ void ParameterManager::SetNumAdasumReductionThreads(int thread_count) {
   num_adasum_reduction_threads_ = thread_count;
 }
 
-AdasumAlgorithm ParameterManager::AdasumAlgorithmType() const {
-  return adasum_algorithm_;
+AdasumGpuAlgorithm ParameterManager::AdasumGpuAlgorithmType() const {
+  return adasum_gpu_algorithm_;
 }
-void ParameterManager::SetAdasumAlgorithmType(AdasumAlgorithm adasum_algorithm) {
-  adasum_algorithm_ = adasum_algorithm;
+void ParameterManager::SetAdasumGpuAlgorithmType(AdasumGpuAlgorithm adasum_gpu_algorithm) {
+  adasum_gpu_algorithm_ = adasum_gpu_algorithm;
 }
 
 /// Using the tensors information to update score and tune parameters.
@@ -249,7 +249,7 @@ ParameterManager::Params ParameterManager::GetParams() {
 
   params.active = active_;
   // TODO add these to tunable parameters in the future
-  params.adasum_algorithm = adasum_algorithm_;
+  params.adasum_gpu_algorithm = adasum_gpu_algorithm_;
   params.num_adasum_reduction_threads = num_adasum_reduction_threads_;
   return params;
 }
@@ -263,7 +263,7 @@ void ParameterManager::SetParams(const Params& newParams) {
   active_ = newParams.active;
   // TODO add these to tunable parameters in the future
   num_adasum_reduction_threads_ = newParams.num_adasum_reduction_threads;
-  adasum_algorithm_ = newParams.adasum_algorithm;
+  adasum_gpu_algorithm_ = newParams.adasum_gpu_algorithm;
 }
 
 void ParameterManager::Reset() {

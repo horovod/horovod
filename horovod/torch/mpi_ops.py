@@ -87,8 +87,8 @@ def _allreduce_async(tensor, output, name, op):
     if op == Average:
         divisor = size()
     elif (op == Adasum and
-            'HOROVOD_ADASUM' in os.environ and
-            os.environ['HOROVOD_ADASUM'].upper() == 'GPU_NCCL_LOCAL_AVG'):
+            'HOROVOD_ADASUM_GPU' in os.environ and
+            os.environ['HOROVOD_ADASUM_GPU'].upper() == 'NCCL_LOCAL_AVG'):
         divisor = local_size()
     else:
         divisor = 1

@@ -83,8 +83,8 @@ public:
   void SetNumAdasumReductionThreads (int thread_count);
 
   // Type of Adasum algorithm used.
-  AdasumAlgorithm AdasumAlgorithmType() const;
-  void SetAdasumAlgorithmType (AdasumAlgorithm adasum_algorithm);
+  AdasumGpuAlgorithm AdasumGpuAlgorithmType() const;
+  void SetAdasumGpuAlgorithmType (AdasumGpuAlgorithm adasum_gpu_algorithm);
 
   // Observes that the given tensors have been processed (e.g., allreduced) over the given number of microseconds.
   //
@@ -104,7 +104,7 @@ public:
     double cycle_time;
     bool active;
     int num_adasum_reduction_threads;
-    AdasumAlgorithm adasum_algorithm;
+    AdasumGpuAlgorithm adasum_gpu_algorithm;
   };
 
   Params GetParams();
@@ -243,7 +243,7 @@ private:
   
   //TODO add these two to auto-tuning in the future
   int num_adasum_reduction_threads_ = 0;
-  AdasumAlgorithm adasum_algorithm_;
+  AdasumGpuAlgorithm adasum_gpu_algorithm_;
 
   int32_t warmup_remaining_;
 

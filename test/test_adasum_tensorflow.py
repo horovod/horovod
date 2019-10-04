@@ -62,7 +62,6 @@ class MPITests(tf.test.TestCase):
 
     def test_horovod_adasum_multiple_allreduce_cpu(self):
         """Test on CPU that the Adasum correctly computes 2D tensors."""
-        os.environ['HOROVOD_ADASUM'] = 'CPU_TREE'
         hvd.init()
         os.environ['CUDA_VISIBLE_DEVICES'] = str(hvd.local_rank())
         size = hvd.size()
@@ -89,7 +88,7 @@ class MPITests(tf.test.TestCase):
 
     def test_horovod_adasum_multiple_allreduce_gpu_tree(self):
         """Test on GPU that the Adasum correctly computes 2D tensors."""
-        os.environ['HOROVOD_ADASUM'] = 'GPU_TREE'
+        os.environ['HOROVOD_ADASUM_GPU'] = 'TREE'
         hvd.init()
         rank = hvd.rank()
         rank_tensors = []

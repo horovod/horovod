@@ -159,30 +159,24 @@ double GetDoubleEnvOrDefault(const char* env_variable, double default_value) {
   return env_value != nullptr ? std::strtod(env_value, nullptr) : default_value;
 }
 
-AdasumAlgorithm ParseAdasumAlgorithm(const char* env_variable) {
+AdasumGpuAlgorithm ParseAdasumGpuAlgorithm(const char* env_variable) {
   auto env_value = std::getenv(env_variable);
   if (env_value != nullptr) {
-    if (strcasecmp(env_value, ADASUM_CPU_TREE) == 0) {
-      return AdasumAlgorithm::CPU_TREE;
-    }
     else if (strcasecmp(env_value, ADASUM_GPU_TREE) == 0) {
-      return AdasumAlgorithm::GPU_TREE;
+      return AdasumGpuAlgorithm::TREE;
     }
     else if (strcasecmp(env_value, ADASUM_GPU_RING) == 0) {
-      return AdasumAlgorithm::GPU_RING;
+      return AdasumGpuAlgorithm::RING;
     }
     else if (strcasecmp(env_value, ADASUM_GPU_NCCL_LOCAL_AVG) == 0) {
-      return AdasumAlgorithm::GPU_NCCL_LOCAL_AVG;
-    }
-    else if (strcasecmp(env_value, ADASUM_GPU_AUTO) == 0) {
-      return AdasumAlgorithm::GPU_AUTO;
+      return AdasumGpuAlgorithm::NCCL_LOCAL_AVG;
     }
     else {
       throw std::runtime_error("Unsupported Adasum algorithm, supported values are: "
-                               "CPU_TREE, GPU_TREE, GPU_RING, GPU_NCCL_LOCAL_AVG, GPU_AUTO");
+                               "TREE, RING, NCCL_LOCAL_AVG");
     }
   }
-  return AdasumAlgorithm::NONE;
+  return AdasumGpuAlgorithm::AUTO;
 }
 
 } // namespace common

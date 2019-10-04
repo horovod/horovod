@@ -56,11 +56,9 @@ namespace common {
 #define GLOO_ALLREDUCE "GLOO_ALLREDUCE"
 #define GLOO_ALLGATHER "GLOO_ALLGATHER"
 #define GLOO_BCAST "GLOO_BCAST"
-#define ADASUM_CPU_TREE "CPU_TREE"
-#define ADASUM_GPU_TREE "GPU_TREE"
-#define ADASUM_GPU_RING "GPU_RING"
-#define ADASUM_GPU_NCCL_LOCAL_AVG "GPU_NCCL_LOCAL_AVG"
-#define ADASUM_GPU_AUTO "GPU_AUTO"
+#define ADASUM_GPU_TREE "TREE"
+#define ADASUM_GPU_RING "RING"
+#define ADASUM_GPU_NCCL_LOCAL_AVG "NCCL_LOCAL_AVG"
 
 
 // Horovod knobs.
@@ -89,7 +87,7 @@ namespace common {
 #define HOROVOD_MPI "MPI"
 #define HOROVOD_MLSL "MLSL"
 #define HOROVOD_GLOO "GLOO"
-#define HOROVOD_ADASUM "HOROVOD_ADASUM"
+#define HOROVOD_ADASUM_GPU "HOROVOD_ADASUM_GPU"
 #define HOROVOD_ADASUM_NUM_REDUCTION_THREADS "HOROVOD_ADASUM_NUM_REDUCTION_THREADS"
 
 
@@ -105,13 +103,11 @@ namespace common {
 #define CPU_DEVICE_ID (-1)
 
 // List of algorithms supported by adasum reduction
-enum AdasumAlgorithm {
-  NONE = 0,
-  CPU_TREE = 1,
-  GPU_TREE = 2,
-  GPU_RING = 3,
-  GPU_NCCL_LOCAL_AVG = 4,
-  GPU_AUTO = 5
+enum AdasumGpuAlgorithm {
+  AUTO = 0,
+  TREE = 1,
+  RING = 2,
+  NCCL_LOCAL_AVG = 3
 };
 
 // List of supported frameworks.
