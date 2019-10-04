@@ -162,7 +162,7 @@ double GetDoubleEnvOrDefault(const char* env_variable, double default_value) {
 AdasumGpuAlgorithm ParseAdasumGpuAlgorithm(const char* env_variable) {
   auto env_value = std::getenv(env_variable);
   if (env_value != nullptr) {
-    else if (strcasecmp(env_value, ADASUM_GPU_TREE) == 0) {
+    if (strcasecmp(env_value, ADASUM_GPU_TREE) == 0) {
       return AdasumGpuAlgorithm::TREE;
     }
     else if (strcasecmp(env_value, ADASUM_GPU_RING) == 0) {
