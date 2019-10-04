@@ -105,7 +105,7 @@ namespace common {
 #define CPU_DEVICE_ID (-1)
 
 // List of algorithms supported by adasum reduction
-enum AdasumAlgorithm {
+enum AdasumAlgorithm : short {
   NONE = 0,
   CPU_TREE = 1,
   GPU_TREE = 2,
