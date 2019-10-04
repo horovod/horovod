@@ -95,7 +95,8 @@ def _allreduce_async(tensor, output, name, op):
         divisor = size()
     elif (op == Adasum and
             'HOROVOD_ADASUM_GPU' in os.environ and
-            os.environ['HOROVOD_ADASUM_GPU'].upper() == 'NCCL_LOCAL_AVG'):
+            os.environ['HOROVOD_ADASUM_GPU'].upper() == 'NCCL_LOCAL_AVG' and
+            torch.cuda.is_available() and tensor.device.type != 'cpu'):
         divisor = local_size()
     else:
         divisor = 1
