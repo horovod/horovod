@@ -100,6 +100,6 @@ if __name__ == '__main__':
   denominator = 1
   if os.environ['HOROVOD_ADASUM'] == 'GPU_NCCL_LOCAL_AVG':
     do_average = True
-    denominator = size
+    denominator = local_size
   test_orthogonal(do_average, denominator)
   test_parallel(do_average)
