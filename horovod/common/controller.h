@@ -151,6 +151,8 @@ protected:
 
   ResponseList FuseResponses(std::deque<Response>& responses);
 
+  void FuseAllAdasumResponses(std::deque<Response>& responses, ResponseList& response_list);
+
   // Return the total byte size of the final allgathered output tensor
   int64_t
   TotalByteSizeOfAllgatherOutput(const std::vector<int64_t>& tensor_sizes,
@@ -160,7 +162,6 @@ protected:
   // Requests for that tensor is now equal to the HOROVOD size (and thus we are
   // ready to reduce the tensor).
   bool IncrementTensorCount(const Request& msg);
-
   int rank_ = 0;
   int local_rank_ = 0;
   int cross_rank_ = 0;
