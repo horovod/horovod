@@ -173,3 +173,15 @@ def env(**kwargs):
                 os.environ[k] = backup[k]
             else:
                 del os.environ[k]
+
+def get_average_backwards_compatibility_fun(reduce_ops):
+    def impl(op, average):
+        if op != None:
+            if average != None:
+                raise ValueError('The op parameter supersedes average. Please provide only one of them.')
+            return op
+        elif average != None:
+            return reduce_ops.Average if average else reduce_ops.Sum
+        else:
+            return reduce_ops.Average
+    return impl

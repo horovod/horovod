@@ -25,9 +25,8 @@ from tensorflow.python.framework import load_library
 from tensorflow.python.framework import ops
 from tensorflow.python.platform import resource_loader
 
-from horovod.common.util import get_ext_suffix
+from horovod.common.util import get_ext_suffix, get_average_backwards_compatibility_fun
 from horovod.common.basics import HorovodBasics as _HorovodBasics
-from horovod.common.reduce_op import Average, Sum, Adasum
 from horovod.tensorflow.util import _executing_eagerly
 
 
@@ -64,6 +63,13 @@ gloo_built = _basics.gloo_built
 nccl_built = _basics.nccl_built
 ddl_built = _basics.ddl_built
 mlsl_built = _basics.mlsl_built
+
+# import reduction op values
+Average = _basics.Average
+Sum = _basics.Sum
+Adasum = _basics.Adasum
+
+handle_average_backwards_compatibility = get_average_backwards_compatibility_fun(_basics)
 
 
 def _normalize_name(name):

@@ -770,6 +770,18 @@ bool horovod_mlsl_built() {
 #endif
 }
 
+int horovod_reduce_op_average() {
+  return ReduceOp::AVERAGE;
+}
+
+int horovod_reduce_op_sum() {
+  return ReduceOp::SUM;
+}
+
+int horovod_reduce_op_adasum() {
+  return ReduceOp::ADASUM;
+}
+
 }
 
 // Contexts and controller must be initialized and the background thread

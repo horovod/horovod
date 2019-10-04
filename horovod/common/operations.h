@@ -31,9 +31,9 @@ namespace common {
 // Check that Horovod is initialized.
 Status CheckInitialized();
 
-// Please keep these values in sync with horovod/common/reduce_op.py
 enum ReduceOp {
-    // AVERAGE would be 0, but framework code handles averaging.
+    AVERAGE = 0, // This value should never appear past framework code, as
+                 // averaging is taken care of there.
     SUM = 1,
     ADASUM = 2
 };
@@ -91,6 +91,15 @@ bool horovod_ddl_built();
 
 // C interface to return flag indicating whether Horovod was compiled with MLSL support.
 bool horovod_mlsl_built();
+
+// C interface to return value of the ReduceOp::AVERAGE enum field.
+int horovod_reduce_op_average();
+
+// C interface to return value of the ReduceOp::SUM enum field.
+int horovod_reduce_op_sum();
+
+// C interface to return value of the ReduceOp::ADASUM enum field.
+int horovod_reduce_op_adasum();
 
 }
 

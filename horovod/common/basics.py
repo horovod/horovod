@@ -26,6 +26,10 @@ class HorovodBasics(object):
         full_path = util.get_extension_full_path(pkg_path, *args)
         self.MPI_LIB_CTYPES = ctypes.CDLL(full_path, mode=ctypes.RTLD_GLOBAL)
 
+        self.Average = self.MPI_LIB_CTYPES.horovod_reduce_op_average()
+        self.Sum = self.MPI_LIB_CTYPES.horovod_reduce_op_sum()
+        self.Adasum = self.MPI_LIB_CTYPES.horovod_reduce_op_adasum()
+
     def init(self, comm=None):
         """A function that initializes Horovod.
 

@@ -21,7 +21,6 @@ from contextlib import contextmanager
 import warnings
 
 from horovod.common.util import check_extension
-from horovod.common.reduce_op import Average, Sum, Adasum
 
 try:
     check_extension('horovod.torch', 'HOROVOD_WITH_PYTORCH',
@@ -40,6 +39,7 @@ from horovod.torch.mpi_ops import size, local_size, rank, local_rank
 from horovod.torch.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.torch.mpi_ops import gloo_enabled, gloo_built
 from horovod.torch.mpi_ops import nccl_built, ddl_built, mlsl_built
+from horovod.torch.mpi_ops import Average, Sum, Adasum
 import os
 import torch
 import collections

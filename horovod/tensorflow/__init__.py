@@ -22,7 +22,6 @@ from __future__ import print_function
 import os
 
 from horovod.common.util import check_extension
-from horovod.common.reduce_op import Average, Sum, Adasum, handle_average_backwards_compatibility
 
 check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
 
@@ -33,6 +32,8 @@ from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank
 from horovod.tensorflow.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.tensorflow.mpi_ops import gloo_enabled, gloo_built
 from horovod.tensorflow.mpi_ops import nccl_built, ddl_built, mlsl_built
+from horovod.tensorflow.mpi_ops import Average, Sum, Adasum
+from horovod.tensorflow.mpi_ops import handle_average_backwards_compatibility
 
 from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache
 
@@ -348,7 +349,7 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
 
 if hasattr(tf, 'GradientTape'):
     class _DistributedGradientTape(tf.GradientTape):
-        def __init__(self, tape, device_dense, device_sparse, compression, sparse_as_dense, op
+        def __init__(self, tape, device_dense, device_sparse, compression, sparse_as_dense, op,
                      persistent=False, watch_accessed_variables=True):
             if hasattr(tape, '_watch_accessed_variables'):
                 super(self.__class__, self).__init__(persistent, watch_accessed_variables)

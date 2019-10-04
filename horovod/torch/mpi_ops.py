@@ -37,7 +37,7 @@ else:
     _NULL = mpi_lib._ffi.NULL
     _basics = _HorovodBasics(__file__, 'mpi_lib_impl', '_mpi_lib_impl')
 
-from horovod.common.reduce_op import Average, Sum, Adasum, handle_average_backwards_compatibility
+from horovod.common.util import get_average_backwards_compatibility_fun
 from horovod.torch.compression import Compression
 
 # import basic methods
@@ -55,6 +55,13 @@ gloo_built = _basics.gloo_built
 nccl_built = _basics.nccl_built
 ddl_built = _basics.ddl_built
 mlsl_built = _basics.mlsl_built
+
+# import reduction op values
+Average = _basics.Average
+Sum = _basics.Sum
+Adasum = _basics.Adasum
+
+handle_average_backwards_compatibility = get_average_backwards_compatibility_fun(_basics)
 
 
 # Schema: handle -> input, output
