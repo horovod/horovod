@@ -130,7 +130,7 @@ def allreduce_async(tensor, average=None, name=None, op=None):
         A handle to the allreduce operation that can be used with `poll()` or
         `synchronize()`.
     """
-    op = handle_average_backwards_compatibility(average, op)
+    op = handle_average_backwards_compatibility(op, average)
     output = tensor.new(tensor.shape)
     return _allreduce_async(tensor, output, name, op)
 
@@ -204,7 +204,7 @@ def allreduce_async_(tensor, average=None, name=None, op=None):
         A handle to the allreduce operation that can be used with `poll()` or
         `synchronize()`.
     """
-    op = handle_average_backwards_compatibility(average, op)
+    op = handle_average_backwards_compatibility(op, average)
     return _allreduce_async(tensor, tensor, name, op)
 
 
