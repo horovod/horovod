@@ -29,7 +29,7 @@
 
 namespace horovod {
 namespace common {
-enum AdasumAlgorithm : short;
+enum AdasumGpuAlgorithm : short;
 // ParameterManager encapsulates the various tunable "knobs" in Horovod including the cycle time
 // between iterations of the background thread, and the size of the fusion buffer.
 //
