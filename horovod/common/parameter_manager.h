@@ -26,11 +26,10 @@
 #include <Eigen/Core>
 
 #include "optim/bayesian_optimization.h"
-#include "common.h"
 
 namespace horovod {
 namespace common {
-
+enum AdasumAlgorithm : short;
 // ParameterManager encapsulates the various tunable "knobs" in Horovod including the cycle time
 // between iterations of the background thread, and the size of the fusion buffer.
 //
