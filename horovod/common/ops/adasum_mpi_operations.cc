@@ -239,8 +239,11 @@ Status AdasumMPIOp::FusedVHDD(std::vector<TensorTableEntry>& entries, const Resp
     MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
     timeline.ActivityEndAll(entries);
   } else {
-    buffer_data = (void*) first_entry.tensor->data();
-    buffer_len = (size_t) first_entry.tensor->size();
+    buffer_data = (void*) first_entry.output->data();
+    buffer_len = (size_t) first_entry.output->size();
+    if (first_entry.tensor->data() != first_entry.output->data()) {
+      std::memcpy(buffer_data, (void*)first_entry.tensor->data(), buffer_len);
+    }
   }
 
   // Do allreduce.
@@ -249,15 +252,8 @@ Status AdasumMPIOp::FusedVHDD(std::vector<TensorTableEntry>& entries, const Resp
   for (auto& e : entries) {
     tensor_counts.push_back(e.tensor->shape().num_elements());
   }
-  std::unique_ptr<char[]> new_recv_buffer;
-  void* recv_buffer;
-  if (entries.size() > 1 || first_entry.tensor->data() == first_entry.output->data()) {
-    new_recv_buffer = std::unique_ptr<char[]>(new char[buffer_len]);
-    recv_buffer = new_recv_buffer.get();
-  } else {
-    recv_buffer = (void*)first_entry.output->data();
-  }
-  DispatchFusedAllreduce(buffer_data, recv_buffer, tensor_counts,
+  std::unique_ptr<char[]> recv_buffer = std::unique_ptr<char[]>(new char[buffer_len]);
+  DispatchFusedAllreduce(buffer_data, recv_buffer.get(), tensor_counts,
                     1, // start_level
                     mpi_context_->GetMPICommunicator(Communicator::GLOBAL),
                     0, // tag
@@ -270,8 +266,6 @@ Status AdasumMPIOp::FusedVHDD(std::vector<TensorTableEntry>& entries, const Resp
     timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
     MemcpyOutFusionBuffer(buffer_data, entries);
     timeline.ActivityEndAll(entries);
-  } else if (first_entry.tensor->data() != first_entry.output->data()) {
-    std::memcpy((void*)first_entry.output->data(), buffer_data, buffer_len);
   }
 
   return Status::OK();
