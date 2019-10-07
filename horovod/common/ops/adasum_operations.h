@@ -549,7 +549,7 @@ protected:
       bytesSoFar += tensor_counts[i] * per_element_size;
     }
 
-    this->P2pAllreduce(normAndDots.data(), normAndDots.data() + 3*tensor_counts.size(), 3*tensor_counts.size()*per_element_size, DataType::HOROVOD_FLOAT64, comm, layerid);
+    this->P2pAllreduce(normAndDots.data(), normAndDots.data() + 3*tensor_counts.size(), 3*tensor_counts.size()*sizeof(double), DataType::HOROVOD_FLOAT64, comm, layerid);
 
     bytesSoFar = 0;
     for (size_t i = 0; i < tensor_counts.size(); i++){
