@@ -162,7 +162,10 @@ double GetDoubleEnvOrDefault(const char* env_variable, double default_value) {
 AdasumAlgorithm ParseAdasumAlgorithm(const char* env_variable) {
   auto env_value = std::getenv(env_variable);
   if (env_value != nullptr) {
-    if (strcasecmp(env_value, ADASUM_CPU_TREE) == 0) {
+    if (strcasecmp(env_value, ADASUM_CPU_VHDD) == 0) {
+      return AdasumAlgorithm::CPU_VHDD;
+    }
+    else if (strcasecmp(env_value, ADASUM_CPU_TREE) == 0) {
       return AdasumAlgorithm::CPU_TREE;
     }
     else if (strcasecmp(env_value, ADASUM_GPU_TREE) == 0) {

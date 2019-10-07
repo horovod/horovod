@@ -118,6 +118,9 @@ Status AdasumMPIOp::Execute(std::vector<TensorTableEntry>& entries, const Respon
   if (global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::CPU_TREE) {
     return TreeHierarchical(entries, response);
   }
+  else if (global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::CPU_VHDD) {
+    return FusedVHDD(entries, response);
+  }
   else {
       throw std::logic_error("Unsupported Adasum MPI op. To use Adasum_GPU_* algorithms, please re-build Horovod with HOROVOD_GPU_ALLREDUCE=NCCL");
   }
@@ -217,6 +220,59 @@ Status AdasumMPIOp::TreeHierarchical(std::vector<TensorTableEntry>& entries, con
       std::this_thread::sleep_for(std::chrono::nanoseconds(50));
     }
   }
+  return Status::OK();
+}
+
+
+Status AdasumMPIOp::FusedVHDD(std::vector<TensorTableEntry>& entries, const Response& response) {
+  auto& first_entry = entries[0];
+
+  void* buffer_data;
+  size_t buffer_len;
+
+  // Copy memory into the fusion buffer.
+  auto& timeline = global_state_->timeline;
+  if (entries.size() > 1) {
+    timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
+    const void* fused_input_data;
+    MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
+    timeline.ActivityEndAll(entries);
+  } else {
+    buffer_data = (void*) first_entry.tensor->data();
+    buffer_len = (size_t) first_entry.tensor->size();
+  }
+
+  // Do allreduce.
+  timeline.ActivityStartAll(entries, MPI_ALLREDUCE);
+	std::vector<int> tensor_counts;
+  for (auto& e : entries) {
+    tensor_counts.push_back(e.tensor->shape().num_elements());
+  }
+  std::unique_ptr<char[]> new_recv_buffer;
+  void* recv_buffer;
+  if (entries.size() > 1 || first_entry.tensor->data() == first_entry.output->data()) {
+    new_recv_buffer = std::unique_ptr<char[]>(new char[buffer_len]);
+    recv_buffer = new_recv_buffer.get();
+  } else {
+    recv_buffer = (void*)first_entry.output->data();
+  }
+  DispatchFusedAllreduce(buffer_data, recv_buffer, tensor_counts,
+                    1, // start_level
+                    mpi_context_->GetMPICommunicator(Communicator::GLOBAL),
+                    0, // tag
+                    world_reduction_comms_,
+                    first_entry.tensor->dtype());
+  timeline.ActivityEndAll(entries);
+
+  // Copy memory out of the fusion buffer.
+  if (entries.size() > 1) {
+    timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
+    MemcpyOutFusionBuffer(buffer_data, entries);
+    timeline.ActivityEndAll(entries);
+  } else if (first_entry.tensor->data() != first_entry.output->data()) {
+    std::memcpy((void*)first_entry.output->data(), buffer_data, buffer_len);
+  }
+
   return Status::OK();
 }
 
