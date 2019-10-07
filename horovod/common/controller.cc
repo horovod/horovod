@@ -556,6 +556,7 @@ void Controller::FuseAllAdasumResponses(std::deque<Response>& responses, Respons
   // perform nothing if algorithm selected is GPU_NCCL_LOCAL_AVG or NONE
   // for GPU_NCCL_LOCAL_AVG we rely on the fusion logic for ALLREDUCE
   if (parameter_manager_.AdasumAlgorithmType() == AdasumAlgorithm::GPU_NCCL_LOCAL_AVG ||
+      parameter_manager_.AdasumAlgorithmType() == AdasumAlgorithm::CPU_VHDD ||
       parameter_manager_.AdasumAlgorithmType() == AdasumAlgorithm::NONE) {
         return;
   }
@@ -604,7 +605,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
   // To fully parallelize Adasum reductions, 
   // we will fuse all Adasum responses into one large response and send it to Adasum Op to be reduced.
   // When this function returns, responses will not contain any Adasum response except for GPU_NCCL_LOCAL_AVG
-  // which will follow the normal response fusion below.
+  // and CPU_VHDD, which will follow the normal response fusion below.
   FuseAllAdasumResponses(responses, response_list);
 
   while (!responses.empty()) {

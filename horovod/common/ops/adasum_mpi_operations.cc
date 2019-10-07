@@ -96,7 +96,8 @@ AdasumMPIOp::~AdasumMPIOp() {
 bool AdasumMPIOp::Enabled(const ParameterManager& param_manager,
                            const std::vector<TensorTableEntry>& entries,
                            const Response& response) const {
-  return global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::CPU_TREE;
+  return global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::CPU_VHDD ||
+         global_state_->parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::CPU_TREE;
 }
 
 int AdasumMPIOp::GetLocalRankWithComm(MPI_Comm local_comm) {

@@ -182,7 +182,7 @@ AdasumAlgorithm ParseAdasumAlgorithm(const char* env_variable) {
     }
     else {
       throw std::runtime_error("Unsupported Adasum algorithm, supported values are: "
-                               "CPU_TREE, GPU_TREE, GPU_RING, GPU_NCCL_LOCAL_AVG, GPU_AUTO");
+                               "CPU_VHDD, CPU_TREE, GPU_TREE, GPU_RING, GPU_NCCL_LOCAL_AVG, GPU_AUTO");
     }
   }
   return AdasumAlgorithm::NONE;

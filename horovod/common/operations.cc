@@ -441,7 +441,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   state.parameter_manager.SetAdasumAlgorithmType(adasum_algorithm);
   if (state.parameter_manager.AdasumAlgorithmType() != AdasumAlgorithm::NONE) {
     // If GPU__NCCL_LOCAL_AVG is used, we turn on HierarchicalAllreduce so that fusion buffer can be auto-tuned.
-    if (state.parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::GPU_NCCL_LOCAL_AVG) {
+    if (state.parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::GPU_NCCL_LOCAL_AVG ||
+        state.parameter_manager.AdasumAlgorithmType() == AdasumAlgorithm::CPU_VHDD) {
       state.parameter_manager.SetHierarchicalAllreduce(true, true);
     }
 
