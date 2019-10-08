@@ -553,8 +553,8 @@ void Controller::CoordinateCacheAndState(CacheCoordinator& cache_coordinator) {
 }
 
 void Controller::FuseAllAdasumResponses(std::deque<Response>& responses, ResponseList& response_list) {
-  // perform nothing if algorithm selected is GPU_NCCL_LOCAL_AVG or NONE
-  // for GPU_NCCL_LOCAL_AVG we rely on the fusion logic for ALLREDUCE
+  // perform nothing if algorithm selected is GPU_NCCL_LOCAL_AVG, CPU_VHDD or NONE
+  // for GPU_NCCL_LOCAL_AVG and CPU_VHDD we rely on the fusion logic for ALLREDUCE
   if (parameter_manager_.AdasumAlgorithmType() == AdasumAlgorithm::GPU_NCCL_LOCAL_AVG ||
       parameter_manager_.AdasumAlgorithmType() == AdasumAlgorithm::CPU_VHDD ||
       parameter_manager_.AdasumAlgorithmType() == AdasumAlgorithm::NONE) {
