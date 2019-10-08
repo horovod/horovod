@@ -68,7 +68,7 @@ class AllreduceType:
     SumAllreduce = 0
     Adasum = 1  
 
-adasum_algorithms = ["CPU_TREE","GPU_TREE","GPU_RING","GPU_NCCL_LOCAL_AVG","GPU_AUTO"]
+adasum_algorithms = ["CPU_VHDD","CPU_TREE","GPU_TREE","GPU_RING","GPU_NCCL_LOCAL_AVG","GPU_AUTO"]
 
 def _check_function(function_factory, tensor):
     function = function_factory(tensor)

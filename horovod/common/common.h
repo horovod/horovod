@@ -56,6 +56,7 @@ namespace common {
 #define GLOO_ALLREDUCE "GLOO_ALLREDUCE"
 #define GLOO_ALLGATHER "GLOO_ALLGATHER"
 #define GLOO_BCAST "GLOO_BCAST"
+#define ADASUM_CPU_VHDD "CPU_VHDD"
 #define ADASUM_CPU_TREE "CPU_TREE"
 #define ADASUM_GPU_TREE "GPU_TREE"
 #define ADASUM_GPU_RING "GPU_RING"
@@ -107,11 +108,12 @@ namespace common {
 // List of algorithms supported by adasum reduction
 enum AdasumAlgorithm : short {
   NONE = 0,
-  CPU_TREE = 1,
-  GPU_TREE = 2,
-  GPU_RING = 3,
-  GPU_NCCL_LOCAL_AVG = 4,
-  GPU_AUTO = 5
+  CPU_VHDD = 1,
+  CPU_TREE = 2,
+  GPU_TREE = 3,
+  GPU_RING = 4,
+  GPU_NCCL_LOCAL_AVG = 5,
+  GPU_AUTO = 6
 };
 
 // List of supported frameworks.
