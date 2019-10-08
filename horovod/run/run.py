@@ -389,6 +389,11 @@ def parse_args():
     parser.add_argument('-p', '--ssh-port', action='store', dest='ssh_port',
                         type=int, help='SSH port on all the hosts.')
 
+    parser.add_argument('--mpi-args', action='store', dest='mpi_args',
+                        help='Extra MPI arguments to pass to mpirun. '
+                             'They need to be passed with the equal sign to avoid parsing issues. '
+                             'e.g. --mpi-args="--map-by ppr:6:node"')
+
     parser.add_argument('--disable-cache', action='store_true',
                         dest='disable_cache',
                         help='If the flag is not set, horovodrun will perform '
@@ -635,6 +640,7 @@ def run():
                                     'parameter if you have too many servers.')
     settings = hvd_settings.Settings(verbose=2 if args.verbose else 0,
                                      ssh_port=args.ssh_port,
+                                     extra_mpi_args=args.mpi_args,
                                      key=secret.make_secret_key(),
                                      timeout=tmout,
                                      num_hosts=len(all_host_names),

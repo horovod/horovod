@@ -18,7 +18,15 @@ import six
 import traceback
 import sys
 import os
+from enum import Enum
 from horovod.run.common.util import env as env_util, safe_shell_exec, secret, codec
+
+# Supported MPI implementations
+_MPI_IMPLS = Enum('MPI_IMPLS', 'OMPI SMPI')
+# Open MPI Flags
+_OMPI_FLAGS = ['-mca pml ob1', '-mca btl ^openib']
+# Spectrum MPI Flags
+_SMPI_FLAGS = ['-gpu', '-disable_gdr']
 
 try:
     from shlex import quote
@@ -35,29 +43,31 @@ def _is_open_mpi_installed():
         output_msg = output.getvalue()
     except Exception:
         print(traceback.format_exc(), file=sys.stderr)
-        return False
+        return False, None
     finally:
         output.close()
 
     if exit_code == 0:
-        if 'Open MPI' not in output_msg:
-            print('Open MPI not found in output of mpirun --version.',
-                  file=sys.stderr)
-            return False
-        else:
-            return True
+        if 'Open MPI' in output_msg:
+            return True, _MPI_IMPLS.OMPI
+        elif 'IBM Spectrum MPI' in output_msg:
+            return True, _MPI_IMPLS.SMPI
+        print('Open MPI/Spectrum MPI not found in output of mpirun --version.',
+              file=sys.stderr)
+        return False, None
     else:
         print("Was not able to run %s:\n%s" % (command, output_msg),
               file=sys.stderr)
-        return False
+        return False, None
 
 
 def mpi_run(settings, common_intfs, env):
-    if not _is_open_mpi_installed():
+    mpi_installed, mpi_impl = _is_open_mpi_installed()
+    if not mpi_installed:
         raise Exception(
             'horovodrun convenience script does not find an installed OpenMPI.\n\n'
             'Choose one of:\n'
-            '1. Install Open MPI 4.0.0+ and re-install Horovod '
+            '1. Install Open MPI 4.0.0+ or IBM Spectrum MPI and re-install Horovod '
             '(use --no-cache-dir pip option).\n'
             '2. Run distributed '
             'training script using the standard way provided by your'
@@ -76,19 +86,31 @@ def mpi_run(settings, common_intfs, env):
     nccl_socket_intf_arg = '-x NCCL_SOCKET_IFNAME={common_intfs}'.format(
         common_intfs=','.join(common_intfs)) if common_intfs else ''
 
+    # Pick MPI implementation-specific flags
+    if mpi_impl == _MPI_IMPLS.SMPI:
+        mpi_args = _SMPI_FLAGS
+    else:
+        mpi_args = _OMPI_FLAGS
+
+    # On large cluster runs (e.g. Summit), we need extra settings to work around OpenMPI issues
+    if settings.num_hosts >= 64:
+        mpi_args.append('-mca plm_rsh_no_tree_spawn true')
+        mpi_args.append('-mca plm_rsh_num_concurrent {}'.format(settings.num_proc))
+
     # Pass all the env variables to the mpirun command.
     mpirun_command = (
         'mpirun --allow-run-as-root --tag-output '
         '-np {num_proc} {hosts_arg} '
         '-bind-to none -map-by slot '
-        '-mca pml ob1 -mca btl ^openib '
+        '{mpi_args} '
         '{ssh_port_arg} '
         '{tcp_intf_arg} '
         '{nccl_socket_intf_arg} '
         '{output_filename_arg} '
-        '{env} {command}'  # expect a lot of environment variables
+        '{env} {extra_mpi_args} {command}'  # expect a lot of environment variables
         .format(num_proc=settings.num_proc,
                 hosts_arg=hosts_arg,
+                mpi_args=' '.join(mpi_args),
                 tcp_intf_arg=tcp_intf_arg,
                 nccl_socket_intf_arg=nccl_socket_intf_arg,
                 ssh_port_arg=ssh_port_arg,
@@ -96,6 +118,7 @@ def mpi_run(settings, common_intfs, env):
                                     if settings.output_filename else '',
                 env=' '.join('-x %s' % key for key in env.keys()
                              if env_util.is_exportable(key)),
+                extra_mpi_args=settings.extra_mpi_args if settings.extra_mpi_args else '',
                 command=' '.join(quote(par) for par in settings.command))
     )
 
