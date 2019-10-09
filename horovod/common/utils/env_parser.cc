@@ -158,26 +158,5 @@ double GetDoubleEnvOrDefault(const char* env_variable, double default_value) {
   auto env_value = std::getenv(env_variable);
   return env_value != nullptr ? std::strtod(env_value, nullptr) : default_value;
 }
-
-AdasumGpuAlgorithm ParseAdasumGpuAlgorithm(const char* env_variable) {
-  auto env_value = std::getenv(env_variable);
-  if (env_value != nullptr) {
-    if (strcasecmp(env_value, ADASUM_GPU_TREE) == 0) {
-      return AdasumGpuAlgorithm::TREE;
-    }
-    else if (strcasecmp(env_value, ADASUM_GPU_RING) == 0) {
-      return AdasumGpuAlgorithm::RING;
-    }
-    else if (strcasecmp(env_value, ADASUM_GPU_NCCL_LOCAL_AVG) == 0) {
-      return AdasumGpuAlgorithm::NCCL_LOCAL_AVG;
-    }
-    else {
-      throw std::runtime_error("Unsupported Adasum algorithm, supported values are: "
-                               "TREE, RING, NCCL_LOCAL_AVG");
-    }
-  }
-  return AdasumGpuAlgorithm::AUTO;
-}
-
 } // namespace common
 }

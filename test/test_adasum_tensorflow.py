@@ -30,6 +30,8 @@ def adasum_reference_operation(a,b):
     return answer
 
 def reference_tree_reduction(tensors, hvd_size):
+    if hvd_size == 1:
+        return tensors[0]
     temp = tensors.copy()
     power_of_2 = int(math.log(hvd_size, 2))
     for level in range(power_of_2):
@@ -86,18 +88,30 @@ class MPITests(tf.test.TestCase):
                 tmp = [t.astype(np_type) for t in answer]
                 self.assertAllCloseAccordingToType(tmp, reduced_tensors)
 
-    def test_horovod_adasum_multiple_allreduce_gpu_tree(self):
+    def test_horovod_adasum_multiple_allreduce_gpu(self):
         """Test on GPU that the Adasum correctly computes 2D tensors."""
-        os.environ['HOROVOD_ADASUM_GPU'] = 'TREE'
         hvd.init()
         rank = hvd.rank()
         rank_tensors = []
         size = hvd.size()
+        local_size = hvd.local_size()
         os.environ['CUDA_VISIBLE_DEVICES'] = str(hvd.local_rank())
+        is_homogeneous = size % local_size == 0
 
+        # Only run on homogeneous cluster
+        if(not is_homogeneous):
+            return
+        num_nodes = int(size / local_size)
         for _ in range(size):
             rank_tensors.append([np.random.random_sample((2,2)), np.random.random_sample((2,2))])
-        answer = reference_tree_reduction(rank_tensors, size)
+        sum_local_ranks_tensor = []
+        for i in range(num_nodes):
+            sum_local_ranks_tensor.append([np.zeros((2,2)), np.zeros((2,2))])
+            for j in range(local_size):
+                sum_local_ranks_tensor[i] = np.add(sum_local_ranks_tensor[i], rank_tensors[j])
+
+        answer = reference_tree_reduction(sum_local_ranks_tensor, num_nodes)
+        answer = np.true_divide(answer, local_size)
         for dtype in [tf.float16, tf.float32, tf.float64]:
                 tensors = map(tf.constant, rank_tensors[rank])
                 # cast to the corresponding dtype

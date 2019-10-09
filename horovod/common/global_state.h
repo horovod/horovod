@@ -19,8 +19,6 @@
 
 #include <queue>
 #include <thread>
-#include <boost/asio/thread_pool.hpp>
-#include <boost/asio/post.hpp>
 
 #include "fusion_buffer_manager.h"
 #include "parameter_manager.h"
@@ -29,8 +27,6 @@
 #include "timeline.h"
 #include "utils/env_parser.h"
 #include "logging.h"
-// TODO: This will need to be moved somewhere else to remove dependency on MPI
-#include "mpi.h"
 
 namespace horovod {
 namespace common {
@@ -51,9 +47,6 @@ struct HorovodGlobalState {
 
   // Tensors waiting to be allreduced or allgathered.
   TensorTable tensor_table;  
-
-  // Thread pool
-  boost::asio::thread_pool* adasum_background_thread_pool = nullptr;
       
   // Background thread running MPI communication.
   std::thread background_thread;
@@ -119,10 +112,6 @@ struct HorovodGlobalState {
     if (background_thread.joinable()) {
       shut_down = true;
       background_thread.join();
-    }
-
-    if(adasum_background_thread_pool != nullptr){
-      adasum_background_thread_pool->join();
     }
   }
 };

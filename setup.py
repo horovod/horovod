@@ -48,8 +48,6 @@ torch_mpi_lib_v2 = Extension('horovod.torch.mpi_lib_v2', [])
 mxnet_mpi_lib = Extension('horovod.mxnet.mpi_lib', [])
 gloo_lib = CMakeExtension('gloo', cmake_lists_dir='third_party/gloo',
                           sources=[])
-adasum_cuda_lib = CMakeExtension('adasum_cuda_kernels', cmake_lists_dir='horovod/common/ops/cuda',
-                          sources=[])
 
 mlsl_root = os.environ.get('MLSL_ROOT')
 have_mlsl = mlsl_root is not None
@@ -647,9 +645,6 @@ def get_common_options(build_ext):
                 'third_party/boost/static_assert/include',
                 'third_party/boost/type_traits/include',
                 'third_party/boost/utility/include',
-                'third_party/boost/asio/include',   
-                'third_party/boost/system/include',
-                'third_party/boost/throw_exception/include',
                 'third_party/eigen',
                 'third_party/flatbuffers/include',
                 'third_party/lbfgs/include']
@@ -665,6 +660,7 @@ def get_common_options(build_ext):
                'horovod/common/timeline.cc',
                'horovod/common/tensor_queue.cc',
                'horovod/common/ops/collective_operations.cc',
+               'horovod/common/ops/mpi_p2p_operations.cc',
                'horovod/common/ops/adasum_mpi_operations.cc',
                'horovod/common/ops/operation_manager.cc',
                'horovod/common/optim/bayesian_optimization.cc',
@@ -728,9 +724,9 @@ def get_common_options(build_ext):
         if have_mpi:
             SOURCES += ['horovod/common/ops/mpi_cuda_operations.cc']
         INCLUDES += ['horovod/common/ops/cuda']
-        SOURCES += ['horovod/common/ops/adasum_cuda_operations.cc','horovod/common/ops/adasum_cuda_ring.cc']
+        SOURCES += ['horovod/common/ops/adasum_cuda_operations.cc']
         LIBRARY_DIRS += cuda_lib_dirs
-        LIBRARIES += ['cudart', 'cublas']
+        LIBRARIES += ['cudart']
 
     if have_nccl:
         MACROS += [('HAVE_NCCL', '1')]
@@ -1034,8 +1030,7 @@ def build_mx_extension(build_ext, global_options):
         options['SOURCES'] += ['horovod/common/ops/cuda_operations.cc']
         if options['BUILD_MPI']:
             options['SOURCES'] += ['horovod/common/ops/mpi_cuda_operations.cc']
-        options['SOURCES'] += ['horovod/common/ops/adasum_cuda_operations.cc',
-                               'horovod/common/ops/adasum_cuda_ring.cc']
+        options['SOURCES'] += ['horovod/common/ops/adasum_cuda_operations.cc']
         options['LIBRARY_DIRS'] += cuda_lib_dirs
         options['LIBRARIES'] += ['cudart']
 
@@ -1383,11 +1378,6 @@ class custom_build_ext(build_ext):
         options = get_common_options(self)
         built_plugins = []
 
-        if check_macro(options['MACROS'], 'HAVE_CUDA'):
-            cuda_include_dirs, cuda_lib_dirs, cuda_bin_dir = get_cuda_dirs(self, options['COMPILE_FLAGS'])
-            os.environ['CUDA_BIN_PATH'] = cuda_bin_dir
-            build_cmake(self, ext=adasum_cuda_lib, prefix='adasum_cuda', additional_flags=[], options=options)
-
         # If PyTorch is installed, it must be imported before TensorFlow, otherwise
         # we may get an error: dlopen: cannot load any more object with static TLS
         if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
@@ -1459,7 +1449,7 @@ setup(name='horovod',
           'License :: OSI Approved :: Apache Software License'
       ],
       ext_modules=[tensorflow_mpi_lib, torch_mpi_lib, torch_mpi_lib_impl,
-                   torch_mpi_lib_v2, mxnet_mpi_lib, gloo_lib, adasum_cuda_lib],
+                   torch_mpi_lib_v2, mxnet_mpi_lib, gloo_lib],
       cmdclass={'build_ext': custom_build_ext},
       # cffi is required for PyTorch
       # If cffi is specified in setup_requires, it will need libffi to be installed on the machine,

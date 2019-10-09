@@ -56,10 +56,6 @@ namespace common {
 #define GLOO_ALLREDUCE "GLOO_ALLREDUCE"
 #define GLOO_ALLGATHER "GLOO_ALLGATHER"
 #define GLOO_BCAST "GLOO_BCAST"
-#define ADASUM_GPU_TREE "TREE"
-#define ADASUM_GPU_RING "RING"
-#define ADASUM_GPU_NCCL_LOCAL_AVG "NCCL_LOCAL_AVG"
-
 
 // Horovod knobs.
 #define HOROVOD_MPI_THREADS_DISABLE "HOROVOD_MPI_THREADS_DISABLE"
@@ -87,9 +83,6 @@ namespace common {
 #define HOROVOD_MPI "MPI"
 #define HOROVOD_MLSL "MLSL"
 #define HOROVOD_GLOO "GLOO"
-#define HOROVOD_ADASUM_GPU "HOROVOD_ADASUM_GPU"
-#define HOROVOD_ADASUM_NUM_REDUCTION_THREADS "HOROVOD_ADASUM_NUM_REDUCTION_THREADS"
-
 
 // String constant for gloo interface.
 #define GLOO_DEFAULT_IFACE "eth0"
@@ -101,14 +94,6 @@ namespace common {
 
 // Device ID used for CPU.
 #define CPU_DEVICE_ID (-1)
-
-// List of algorithms supported by adasum reduction
-enum AdasumGpuAlgorithm : short {
-  AUTO = 0,
-  TREE = 1,
-  RING = 2,
-  NCCL_LOCAL_AVG = 3
-};
 
 // List of supported frameworks.
 enum Framework { TENSORFLOW, PYTORCH, MXNET };

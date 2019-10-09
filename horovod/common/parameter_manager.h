@@ -29,7 +29,6 @@
 
 namespace horovod {
 namespace common {
-enum AdasumGpuAlgorithm : short;
 // ParameterManager encapsulates the various tunable "knobs" in Horovod including the cycle time
 // between iterations of the background thread, and the size of the fusion buffer.
 //
@@ -77,14 +76,6 @@ public:
   bool CacheEnabled() const;
   void SetCacheEnabled (bool enabled, bool fixed=false);
 
-  // Number of reduction threads for Adasum.
-  int NumAdasumReductionThreads() const;
-  void SetNumAdasumReductionThreads (int thread_count);
-
-  // Type of Adasum algorithm used.
-  AdasumGpuAlgorithm AdasumGpuAlgorithmType() const;
-  void SetAdasumGpuAlgorithmType (AdasumGpuAlgorithm adasum_gpu_algorithm);
-
   // Observes that the given tensors have been processed (e.g., allreduced) over the given number of microseconds.
   //
   // Args:
@@ -102,8 +93,6 @@ public:
     double tensor_fusion_threshold;
     double cycle_time;
     bool active;
-    int num_adasum_reduction_threads;
-    AdasumGpuAlgorithm adasum_gpu_algorithm;
   };
 
   Params GetParams();
@@ -240,10 +229,6 @@ private:
   std::vector<ITunableParameter*> parameter_chain_;
   bool active_;
   
-  //TODO add these two to auto-tuning in the future
-  int num_adasum_reduction_threads_ = 0;
-  AdasumGpuAlgorithm adasum_gpu_algorithm_;
-
   int32_t warmup_remaining_;
 
   static constexpr int SAMPLES = 5;

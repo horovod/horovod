@@ -2,21 +2,18 @@
 #ifndef HOROVOD_P2P_OPERATIONS_H
 #define HOROVOD_P2P_OPERATIONS_H
 
-#include <iostream>
-
 #include "../common.h"
-#include "../global_state.h"
 #include "../mpi/mpi_context.h"
-#include "collective_operations.h"
 
 
 namespace horovod {
 namespace common {
 
+// Abstract class to expose basic point to point communication interface
 template<typename Communicator_type>
-class PointToPointOp : public AllreduceOp {
+class PointToPointOp {
 public:
-  PointToPointOp(HorovodGlobalState* global_state) : AllreduceOp(global_state) {};
+  PointToPointOp() {};
   virtual ~PointToPointOp() = default;
 
 protected:
@@ -45,16 +42,8 @@ protected:
                                     int src_rank,
                                     int recv_tag,
                                     Communicator_type communicator) = 0;
-
-  virtual void P2pAllreduce(void *grad_buffer, 
-                            void *recv_buffer, 
-                            int64_t buffer_length, 
-                            DataType horovod_datatype,
-                            Communicator_type communicator,
-                            int message_tag) = 0;
 };
 
 } // namespace common
 } // namespace horovod
-
 #endif // HOROVOD_P2P_OPERATIONS_H

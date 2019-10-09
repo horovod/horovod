@@ -134,21 +134,6 @@ void ParameterManager::SetCycleTimeMs(double value, bool fixed) {
   joint_params_.SetValue(cycle_time_ms, value, fixed);
 }
 
-// TODO tune them
-int ParameterManager::NumAdasumReductionThreads() const {
-  return num_adasum_reduction_threads_; 
-}
-void ParameterManager::SetNumAdasumReductionThreads(int thread_count) {
-  num_adasum_reduction_threads_ = thread_count;
-}
-
-AdasumGpuAlgorithm ParameterManager::AdasumGpuAlgorithmType() const {
-  return adasum_gpu_algorithm_;
-}
-void ParameterManager::SetAdasumGpuAlgorithmType(AdasumGpuAlgorithm adasum_gpu_algorithm) {
-  adasum_gpu_algorithm_ = adasum_gpu_algorithm;
-}
-
 /// Using the tensors information to update score and tune parameters.
 /// \param tensor_names A vector of names of the tensors being processed in the
 /// current timestamp.
@@ -248,9 +233,6 @@ ParameterManager::Params ParameterManager::GetParams() {
   }
 
   params.active = active_;
-  // TODO add these to tunable parameters in the future
-  params.adasum_gpu_algorithm = adasum_gpu_algorithm_;
-  params.num_adasum_reduction_threads = num_adasum_reduction_threads_;
   return params;
 }
 
@@ -261,9 +243,6 @@ void ParameterManager::SetParams(const Params& newParams) {
   joint_params_.SetValue(fusion_buffer_threshold_mb, newParams.tensor_fusion_threshold, true);
   joint_params_.SetValue(cycle_time_ms, newParams.cycle_time, true);
   active_ = newParams.active;
-  // TODO add these to tunable parameters in the future
-  num_adasum_reduction_threads_ = newParams.num_adasum_reduction_threads;
-  adasum_gpu_algorithm_ = newParams.adasum_gpu_algorithm;
 }
 
 void ParameterManager::Reset() {

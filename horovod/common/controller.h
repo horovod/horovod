@@ -151,8 +151,6 @@ protected:
 
   ResponseList FuseResponses(std::deque<Response>& responses);
 
-  void FuseAllAdasumResponses(std::deque<Response>& responses, ResponseList& response_list);
-
   // Return the total byte size of the final allgathered output tensor
   int64_t
   TotalByteSizeOfAllgatherOutput(const std::vector<int64_t>& tensor_sizes,

@@ -552,60 +552,9 @@ void Controller::CoordinateCacheAndState(CacheCoordinator& cache_coordinator) {
   }
 }
 
-void Controller::FuseAllAdasumResponses(std::deque<Response>& responses, ResponseList& response_list) {
-  // perform nothing if algorithm selected is GPU_NCCL_LOCAL_AVG or NONE
-  // for GPU_NCCL_LOCAL_AVG we rely on the fusion logic for ALLREDUCE
-  // TODO: this check should take into account if the tensors are actually on CPU (and thus the NCCL_LOCAL_AVG wouldn't get used anyway)
-  if (parameter_manager_.AdasumGpuAlgorithmType() == AdasumGpuAlgorithm::NCCL_LOCAL_AVG) {
-    return;
-  }
-  auto queue_size = responses.size();
-
-  Response first_response;
-  bool allreduce_merged = false;
-  for (int itr = 0; itr < queue_size; itr++) {
-    first_response = responses.front();
-    assert(first_response.tensor_names().size() == 1);
-    responses.pop_front();
-    // we find the first Adasum response and make it the host for all subsequent to-be-reduced tensors
-    if (first_response.response_type() == Response::ADASUM) {
-      // increment iterator since we have found one Adasum
-      allreduce_merged = true;
-      itr++;
-      while(itr < queue_size) {
-        auto next_response = responses.front();
-        assert(next_response.tensor_names().size() == 1);
-        responses.pop_front();
-        if(next_response.response_type() == first_response.response_type()) {
-          first_response.add_tensor_name(next_response.tensor_names_string());
-        }
-        else {
-          responses.push_back(next_response);
-        }
-        itr++;
-      }
-    }
-    else {
-      // if response type is not Adasum, we push it back to queue
-      responses.push_back(first_response);
-    }
-  }
-  // we add it to response_list only if we have merged Adasum responses.
-  // For other responses, they will be processed as normal.
-  if(allreduce_merged == true) {
-    response_list.add_response(first_response);
-  }
-}
-
 ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
   
   ResponseList response_list;
-
-  // To fully parallelize Adasum reductions, 
-  // we will fuse all Adasum responses into one large response and send it to Adasum Op to be reduced.
-  // When this function returns, responses will not contain any Adasum response except for GPU_NCCL_LOCAL_AVG
-  // and CPU_VHDD, which will follow the normal response fusion below.
-  //FuseAllAdasumResponses(responses, response_list);
 
   while (!responses.empty()) {
 

@@ -2,12 +2,9 @@
 #ifndef HOROVOD_ADASUM_OPERATIONS_H
 #define HOROVOD_ADASUM_OPERATIONS_H
 
-#include <iostream>
 #include <cstring>
 #include <immintrin.h>
 #include <emmintrin.h>
-
-#include "mpi.h"
 
 #include "../common.h"
 #include "../global_state.h"
@@ -22,23 +19,13 @@ static bool IsPowerOfTwo(ulong x)
   return (x != 0) && ((x & (x - 1)) == 0);
 }
 
+// Interface for Adasum algorithm
 template <typename Communicator_type>
 class AdasumOp : public PointToPointOp<Communicator_type> {
 public:
-  AdasumOp(HorovodGlobalState* global_state) : PointToPointOp<Communicator_type>(global_state) {
-    if (this->global_state_->parameter_manager.NumAdasumReductionThreads() > 0) {
-      for (int i = 0; i < this->global_state_->parameter_manager.NumAdasumReductionThreads(); i++) {
-          temp_buffers_.emplace_back();
-      }
-    }
-  };
+  AdasumOp() : PointToPointOp<Communicator_type>() {};
 
 protected:
-  std::atomic_int finished_parallel_reductions_;
-
-  std::mutex buffer_lock_;
-
-  std::deque<FusionBufferManager> temp_buffers_;
 
   virtual int GetLocalRankWithComm(Communicator_type communicator) = 0;
 
@@ -68,11 +55,23 @@ protected:
                                               double& dotProduct,
                                               double& anormsq,
                                               double& bnormsq,
-                                              HorovodGlobalState *global_state,
-                                              int layerid) = 0;
+                                              int layerid) {
+    if (horovod_datatype == DataType::HOROVOD_FLOAT16) {
+      ComputeDotAndNormSqrdsfp16((uint16_t*)a, (uint16_t*)b, count, dotProduct, anormsq, bnormsq, layerid);
+    }
+    else if (horovod_datatype == DataType::HOROVOD_FLOAT32) {
+      ComputeDotAndNormSqrds((float*)a, (float*)b, count, dotProduct, anormsq, bnormsq, layerid);
+    }
+    else if (horovod_datatype == DataType::HOROVOD_FLOAT64) {
+      ComputeDotAndNormSqrds((double*)a, (double*)b, count, dotProduct, anormsq, bnormsq, layerid);      
+    }
+    else {
+        throw std::logic_error("Unsupported data type.");
+    }
+  }
   
   template<typename T>
-  void ComputeDotAndNormSqrds(const T* __restrict__  a, const T* __restrict__ b, int count, double& dotProduct, double& anormsq, double& bnormsq, HorovodGlobalState *global_state, int layerid) {
+  void ComputeDotAndNormSqrds(const T* __restrict__  a, const T* __restrict__ b, int count, double& dotProduct, double& anormsq, double& bnormsq, int layerid) {
       dotProduct = 0.;
       anormsq = 0.;
       bnormsq = 0.;
@@ -90,96 +89,28 @@ protected:
                                  void* __restrict__ a,
                                  double bcoeff,
                                  void* __restrict__ b,
-                                 HorovodGlobalState *global_state,
-                                 int layerid) = 0;
+                                 int layerid){
+    if (horovod_datatype == DataType::HOROVOD_FLOAT16) {
+      ScaledAddfp16(count, acoeff, (uint16_t*)a, bcoeff, (uint16_t*)b, layerid);
+    }
+    else if (horovod_datatype == DataType::HOROVOD_FLOAT32) {
+      ScaledAdd(count, acoeff, (float*)a, bcoeff, (float*)b, layerid);
+    }
+    else if (horovod_datatype == DataType::HOROVOD_FLOAT64) {
+      ScaledAdd(count, acoeff, (double*)a, bcoeff, (double*)b, layerid);
+    }
+    else {
+        throw std::logic_error("Unsupported data type.");
+    }
+  }
   
   template<typename T>
-  void ScaledAdd(int n, double acoeff, T* __restrict__ a, double bcoeff, T* __restrict__ b, HorovodGlobalState *global_state, int layerid) {
+  void ScaledAdd(int n, double acoeff, T* __restrict__ a, double bcoeff, T* __restrict__ b, int layerid) {
     for (int i = 0; i < n; i++) {
         a[i] = acoeff * a[i] + bcoeff * b[i];
     }
   }
   
-  virtual void SyncLocalReduce(void *grad_buffer, void *recv_buffer, Communicator_type communicator, int layerid, TensorTableEntry entry) {
-    int redn_rank;
-    int true_rank = GetLocalRankWithComm(communicator);
-    int size = GetSizeWithComm(communicator);
-    int buffer_len = entry.tensor->size();
-    DataType data_type = entry.tensor->dtype();
-    int count = buffer_len / GetPerElementSize(entry);
-    int root_node_rotation = false ? (layerid % size) : 0;
-    redn_rank = (true_rank ^ root_node_rotation);
-  
-    // Do a tree reduction
-    // The reduction ranks used are a permutation of true ranks (permuted based on layerid)
-    // This spreads the load of tree reduction across different true ranks
-  
-    // at each level l, node X0[0..0] receives from X1[0...],
-    // where [0..0] is l zeros in the bit representation of the rank of a node
-    int level;
-    for (level = 1; level < size; level *= 2) {
-      int neighbor_redn_rank = redn_rank ^ level;
-      int neighbor_true_rank = (neighbor_redn_rank ^ root_node_rotation);
-      if (redn_rank % level != 0)
-        continue; // stay idle at this level
-  
-      if (neighbor_redn_rank >= size)
-        continue; // no neighbor and so stay idle at this level
-      
-      if ((redn_rank & level) == 0) {
-        // recv buffer from neighbor
-        this->PointToPointRecv(recv_buffer, (int64_t)buffer_len, data_type, neighbor_true_rank, layerid, communicator);
-        
-        double anormsq = 0, bnormsq = 0, dotProduct = 0;
-        DispatchComputeDotAndNormSqrds(grad_buffer, recv_buffer, data_type, count, dotProduct, anormsq, bnormsq, AdasumOp<Communicator_type>::global_state_, layerid);
-        double acoeff = 1;
-        double bcoeff = 1;
-        if (anormsq >= 1e-8)
-  	    acoeff = 1.0 - dotProduct / anormsq * 0.5;
-        if (bnormsq >= 1e-8)
-  	    bcoeff = 1.0 - dotProduct / bnormsq * 0.5;
-  
-        DispatchScaledAdd(data_type, count, acoeff, grad_buffer, bcoeff, recv_buffer, AdasumOp<Communicator_type>::global_state_, layerid);
-      }
-      else {
-        // send grad_buffer to neighbor
-        this->PointToPointSend(grad_buffer, (int64_t)buffer_len, data_type, neighbor_true_rank, layerid, communicator);
-      }
-    }
-  }
-  
-  virtual void SyncLocalBroadcast(void *grad_buffer, Communicator_type communicator, TensorTableEntry entry, int layerid) {
-    // assumes broadcast from 0
-    int redn_rank;
-    int true_rank = GetLocalRankWithComm(communicator);
-    int size = GetSizeWithComm(communicator);
-    
-    int buffer_len = entry.tensor->size();
-    int root_node_rotation = false ? (layerid % size) : 0;
-    redn_rank = (true_rank ^ root_node_rotation);
-    int level;
-    for (level = 1; level < size; level *= 2);
-    level /= 2; // this make sure that level < size
-  
-    for(; level > 0; level /= 2) {
-      int neighbor_redn_rank = redn_rank ^ level;
-      int neighbor_true_rank = (neighbor_redn_rank ^ root_node_rotation);
-      if (redn_rank % level != 0)
-        continue;
-      if (neighbor_redn_rank >= size)
-        continue;
-      if ((redn_rank & level) == 0) {
-        // send grad_buffer to neighbor
-        // and dont wait for the send to finish
-        this->PointToPointSend(grad_buffer, buffer_len, entry.tensor->dtype(), neighbor_true_rank, layerid, communicator);
-      }
-      else {
-        // recv grad_buffer from neighbor
-        this->PointToPointRecv(grad_buffer, buffer_len, entry.tensor->dtype(), neighbor_true_rank, layerid, communicator);
-      }
-    }
-  }
-
   template <typename T>
   void FusedAllreduce(T* grad_buffer, T* recv_buffer, DataType horovod_datatype, std::vector<int>& tensor_counts,
                       int start_level, Communicator_type communicator,
@@ -339,194 +270,7 @@ protected:
     size = orgSize;
   }
 
-  template<typename T>
-  void SyncAllreduce(T* grad_buffer,
-                     T* recv_buffer, 
-                     Communicator_type communicator,
-                     Communicator_type* reduction_comms, 
-                     int layerid, 
-                     TensorTableEntry entry) {
-    int rank = GetLocalRankWithComm(communicator);
-    int size = GetSizeWithComm(communicator);
-    int per_element_size = GetPerElementSize(entry);
-    int count = entry.tensor->size() / per_element_size;
-    DataType horovod_datatype = entry.tensor->dtype();
-    //MPI_Allreduce((float*) grad_buffer, (float*) recv_buffer, count/2, MPI_FLOAT, MPI_SUM, communicator);
-
-    //return;
-    if (IsPowerOfTwo(size) == false) {
-      throw std::logic_error("BUGBUG: need to implement logic for non power of two ranks");
-    }
-    
-    //int chunk_size = (1<<15);
-    int chunk_size = (1<<29);
-    int nearest_power_2 = 1;
-    for (nearest_power_2 = 1; (nearest_power_2<<1) <= size; nearest_power_2 = (nearest_power_2 << 1)){}
-    int remaining_non_power_2 = size - nearest_power_2;
-    int level;
-    if (rank >= size - 2 * remaining_non_power_2){
-        int myCount;
-        int nghrCount;
-        level = 0;
-        int neighbor_rank;
-        int sendOffset;
-        int recvOffset;
-        if (rank < nearest_power_2){
-            neighbor_rank = rank + remaining_non_power_2;
-            myCount = (count >> 1);
-            nghrCount = count - myCount;
-            sendOffset = myCount;
-            recvOffset = 0;
-        } else {
-            nghrCount = (count >> 1);
-            myCount = count - nghrCount;
-            neighbor_rank = rank - remaining_non_power_2;
-            sendOffset = 0;
-            recvOffset = nghrCount;
-        }
-        for (int i = 0; i < std::max(nghrCount, myCount); i += chunk_size) {
-            this->PointToPointSendRecv((char*)(&grad_buffer[i+sendOffset]),
-                                 std::min(chunk_size, nghrCount-i) * per_element_size / sizeof(char),
-                                 horovod_datatype,
-                                 neighbor_rank,
-                                 level * 1000 + layerid,
-                                 (char*)(&recv_buffer[i+recvOffset]),
-                                 std::min(chunk_size, myCount-i) * per_element_size / sizeof(char),
-                                 horovod_datatype,
-                                 neighbor_rank,
-                                 level * 1000 + layerid,
-                                 communicator);
-        }
-        DispatchScaledAdd(horovod_datatype, myCount, 1.0, &grad_buffer[recvOffset] , 1.0, &recv_buffer[recvOffset], AdasumOp<Communicator_type>::global_state_, layerid);
-
-        if (rank < nearest_power_2) {
-            for (int i = 0; i < nghrCount; i += chunk_size) {
-                this->PointToPointRecv((char*)(&grad_buffer[i+sendOffset]),
-                                 std::min(chunk_size, nghrCount-i) * per_element_size / sizeof(char),
-                                 horovod_datatype,
-                                 neighbor_rank,
-                                 level * 1000 + layerid,
-                                 communicator);
-            }
-        } else {
-            for (int i = 0; i < myCount; i += chunk_size)
-                this->PointToPointSend((char*)(&grad_buffer[i+recvOffset]),
-                                 std::min(chunk_size, myCount-i) * per_element_size / sizeof(char),
-                                 horovod_datatype,
-                                 neighbor_rank,
-                                 level * 1000 + layerid,
-                                 communicator);
-        }
-    }
-
-    int orgSize = size;
-    size = nearest_power_2;
-    if (rank < nearest_power_2){
-        int myCount = count;
-        int comm_index;
-        for (level = 1, comm_index = 0; level < size; level = (level << 1), comm_index++){
-            int neighbor_rank = rank ^ level;
-            int nghrCount = 0;
-            int sendOffset = 0;
-            int recvOffset = 0;
-            int firstHalfMyCount = (myCount >> 1);
-            int secondHalfMyCount = myCount - firstHalfMyCount;
-            if ((rank & level) != 0) {
-                myCount = secondHalfMyCount;
-                nghrCount = firstHalfMyCount;
-                sendOffset = 0;
-                recvOffset = nghrCount;
-            } else {
-                myCount = firstHalfMyCount;
-                nghrCount = secondHalfMyCount;
-                sendOffset = myCount;
-                recvOffset = 0;
-            }
-            for (int i = 0; i < std::max(myCount,nghrCount); i += chunk_size)
-                this->PointToPointSendRecv((char*)(&grad_buffer[i+sendOffset]),
-                                     std::min(chunk_size, nghrCount-i) * per_element_size / sizeof(char),
-                                     horovod_datatype,
-                                     neighbor_rank,
-                                     level * 1000 + layerid,
-                                     (char*)(&recv_buffer[i+recvOffset]),
-                                     std::min(chunk_size, myCount-i) * per_element_size / sizeof(char),
-                                     horovod_datatype,
-                                     neighbor_rank,
-                                     level * 1000 + layerid,
-                                     communicator);
-
-            if ((rank & level) != 0) {
-                grad_buffer = &grad_buffer[nghrCount];
-                recv_buffer = &recv_buffer[nghrCount];
-            }
-            this->PairwiseReduceWithComm(grad_buffer, recv_buffer, myCount, layerid, horovod_datatype, reduction_comms[comm_index], (rank & level) == 0);        
-        }
-
-            for (level = (size >> 1); level > 0; level = (level >> 1)) {
-                int neighbor_rank = rank ^ level;
-                int nghrCount = myCount;
-                int levelNP = (level << 1);
-                int levelSizeDeterminer = levelNP - 1;
-                int countRemainer = (count & levelSizeDeterminer);
-                int myLevelRank = (rank & levelSizeDeterminer);
-                int nghrLevelRank = (neighbor_rank & levelSizeDeterminer);
-                if ((myLevelRank >= (levelNP - countRemainer)) && (nghrLevelRank < (levelNP - countRemainer))){
-                    nghrCount -= 1;
-                } else if ((myLevelRank < (levelNP - countRemainer)) && (nghrLevelRank >= (levelNP - countRemainer))){
-                    nghrCount += 1;
-                }
-
-                if ((rank & level) == 0) {
-                    recv_buffer = &grad_buffer[myCount];
-                } else {
-                    recv_buffer = &grad_buffer[-nghrCount];
-                }
-                for (int i = 0; i < std::max(myCount,nghrCount); i += chunk_size)
-                    this->PointToPointSendRecv((char*)(&grad_buffer[i]),
-                             std::min(chunk_size, myCount-i) * per_element_size / sizeof(char),
-                             horovod_datatype,
-                             neighbor_rank,
-                             level * 1000 + layerid,
-                             (char*)(&recv_buffer[i]),
-                             std::min(chunk_size, nghrCount-i) * per_element_size / sizeof(char),
-                             horovod_datatype,
-                             neighbor_rank,
-                             level * 1000 + layerid,
-                             communicator);
-                if ((rank & level) != 0) {
-                    grad_buffer = &grad_buffer[-nghrCount];
-                }
-                myCount += nghrCount;
-            }
-    }
-    size = orgSize;
-
-    if (rank >= size - 2 * remaining_non_power_2){
-        level = 0;
-        int neighbor_rank;
-        if (rank < nearest_power_2) {
-            neighbor_rank = rank + remaining_non_power_2;
-            for (int i = 0; i < count; i += chunk_size) {
-                this->PointToPointSend((char*)(&grad_buffer[i]),
-                std::min(chunk_size, count-i) * per_element_size / sizeof(char),
-                horovod_datatype,
-                neighbor_rank,
-                level * 1000 + layerid,
-                communicator);
-            }
-        } else {
-            neighbor_rank = rank - remaining_non_power_2;
-            for (int i = 0; i < count; i += chunk_size)
-                this->PointToPointRecv((char*)(&grad_buffer[i]),
-                std::min(chunk_size, count-i) * per_element_size / sizeof(char),
-                horovod_datatype,
-                neighbor_rank,
-                level * 1000 + layerid,
-                communicator);
-        }
-    }
-
-  }
+  virtual void SumAllreduceWithComm(void* data, int num_elements, DataType horovod_datatype, Communicator_type comm) = 0;
 
   void FusedPairwiseReduceWithComm(char* a, char* b, DataType horovod_datatype, std::vector<int>& tensor_counts, int layerid,
                                    Communicator_type& comm, bool isLeftNeighbor, std::vector<double>& normAndDots) {
@@ -537,7 +281,7 @@ protected:
       double anormsq = 0.;
       double bnormsq = 0.;
 
-      DispatchComputeDotAndNormSqrds(&a[bytesSoFar], &b[bytesSoFar], horovod_datatype, tensor_counts[i], dotProduct, anormsq, bnormsq, this->global_state_, layerid);
+      DispatchComputeDotAndNormSqrds(&a[bytesSoFar], &b[bytesSoFar], horovod_datatype, tensor_counts[i], dotProduct, anormsq, bnormsq, layerid);
       normAndDots[i*3] = dotProduct;
       if (isLeftNeighbor) {
         normAndDots[i*3+1] = anormsq;
@@ -549,7 +293,8 @@ protected:
       bytesSoFar += tensor_counts[i] * per_element_size;
     }
 
-    MPI_Allreduce(MPI_IN_PLACE, normAndDots.data(), 3*tensor_counts.size(), MPI_DOUBLE, MPI_SUM, comm);
+    SumAllreduceWithComm((void*)normAndDots.data(), 3*tensor_counts.size(), DataType::HOROVOD_FLOAT64, comm);
+    //MPI_Allreduce(MPI_IN_PLACE, normAndDots.data(), 3*tensor_counts.size(), MPI_DOUBLE, MPI_SUM, comm);
 
     bytesSoFar = 0;
     for (size_t i = 0; i < tensor_counts.size(); i++){
@@ -571,47 +316,9 @@ protected:
       if (bnormsq >= 1e-8)
         bcoeff = 1.0 - dotProduct / bnormsq * 0.5;
 
-      DispatchScaledAdd(horovod_datatype, tensor_counts[i], acoeff, &a[bytesSoFar], bcoeff, &b[bytesSoFar], this->global_state_, layerid);
+      DispatchScaledAdd(horovod_datatype, tensor_counts[i], acoeff, &a[bytesSoFar], bcoeff, &b[bytesSoFar], layerid);
       bytesSoFar += tensor_counts[i] * per_element_size;
     }
-  }
-
-  void PairwiseReduceWithComm(void* a, void* b, int count, int layerid, DataType horovod_datatype, Communicator_type& comm, bool isLeftNeighbor){
-    double dotProduct = 0.;
-    double anormsq = 0.;
-    double bnormsq = 0.;
-    
-    DispatchComputeDotAndNormSqrds(a, b, horovod_datatype, count, dotProduct, anormsq, bnormsq, this->global_state_, layerid);
-
-    double reduce_vals[3], temp_buffer[3];
-    if (isLeftNeighbor) { 
-        reduce_vals[0] = anormsq;
-        reduce_vals[1] = bnormsq;
-    } else {
-        reduce_vals[1] = anormsq;
-        reduce_vals[0] = bnormsq;
-    }
-    reduce_vals[2] = dotProduct;
-
-    this->P2pAllreduce(reduce_vals, temp_buffer, sizeof(reduce_vals), DataType::HOROVOD_FLOAT64, comm, layerid);
-
-    if (isLeftNeighbor) { 
-        anormsq = reduce_vals[0];
-        bnormsq = reduce_vals[1];
-    } else {
-        anormsq = reduce_vals[1];
-        bnormsq = reduce_vals[0];
-    }
-    dotProduct = reduce_vals[2];
-
-    double acoeff = 1;
-    double bcoeff = 1;
-    if (anormsq >= 1e-8f)
-        acoeff = 1.0 - dotProduct / anormsq * 0.5;
-    if (bnormsq >= 1e-8f)
-        bcoeff = 1.0 - dotProduct / bnormsq * 0.5;
-
-    DispatchScaledAdd(horovod_datatype, count, acoeff, (uint16_t*)a, bcoeff, (uint16_t*)b, this->global_state_, layerid);
   }
 
   void DispatchFusedAllreduce(void* grad_buffer, void* recv_buffer, std::vector<int>& tensor_counts,
@@ -632,29 +339,8 @@ protected:
       }
   }
 
-  void DispatchSyncAllreduce(void* gradient_buffer,
-                      void* recv_buffer,
-                      Communicator_type* node_comm,
-                      Communicator_type* reduction_comm_pool,
-                      int layerid,
-                      TensorTableEntry entry) {
-      switch(entry.tensor->dtype()) {
-          case DataType::HOROVOD_FLOAT16:
-            SyncAllreduce((uint16_t*)gradient_buffer, (uint16_t*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
-            break;
-          case DataType::HOROVOD_FLOAT32:
-            SyncAllreduce((float*)gradient_buffer, (float*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
-            break;
-          case DataType::HOROVOD_FLOAT64:
-            SyncAllreduce((double*)gradient_buffer, (double*)recv_buffer, *node_comm, reduction_comm_pool, layerid, entry);
-            break;
-          default:
-            throw std::logic_error("Unsupported data type");
-      }
-  }
-
   // over-write ComputeDotAndNormSqrds for float16
-  inline void static ComputeDotAndNormSqrdsfp16(const uint16_t* __restrict__ a, const uint16_t* __restrict__ b, int len, double& dotProduct, double& anormsq, double& bnormsq, HorovodGlobalState *global_state, int layerid) {
+  inline void static ComputeDotAndNormSqrdsfp16(const uint16_t* __restrict__ a, const uint16_t* __restrict__ b, int len, double& dotProduct, double& anormsq, double& bnormsq, int layerid) {
       int i;
       __m256d dotProductVec = _mm256_setzero_pd();
       __m256d anormVec = _mm256_setzero_pd();
@@ -693,7 +379,7 @@ protected:
       bnormsq = Mm256ReductionPd(bnormVec);
   }
 
-  inline void static ScaledAddfp16(int len, double acoeff, uint16_t* __restrict__ a, double bcoeff, uint16_t* __restrict__ b, HorovodGlobalState *global_state, int layerid) {
+  inline void static ScaledAddfp16(int len, double acoeff, uint16_t* __restrict__ a, double bcoeff, uint16_t* __restrict__ b, int layerid) {
       int i;
       __m256 acoeffVec = _mm256_set1_ps((float)(acoeff));
       __m256 bcoeffVec = _mm256_set1_ps((float)bcoeff);
