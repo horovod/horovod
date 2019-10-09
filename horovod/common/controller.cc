@@ -604,8 +604,8 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
   // To fully parallelize Adasum reductions, 
   // we will fuse all Adasum responses into one large response and send it to Adasum Op to be reduced.
   // When this function returns, responses will not contain any Adasum response except for GPU_NCCL_LOCAL_AVG
-  // which will follow the normal response fusion below.
-  FuseAllAdasumResponses(responses, response_list);
+  // and CPU_VHDD, which will follow the normal response fusion below.
+  //FuseAllAdasumResponses(responses, response_list);
 
   while (!responses.empty()) {
 

@@ -74,6 +74,9 @@ protected:
   Status TreeHierarchical(std::vector<TensorTableEntry>& entries,
                           const Response& response);
 
+  Status FusedVHDD(std::vector<TensorTableEntry>& entries,
+                          const Response& response);
+
   void DispatchComputeDotAndNormSqrds(const void* __restrict__  a,
                                       const void* __restrict__ b,
                                       DataType horovod_datatype,
