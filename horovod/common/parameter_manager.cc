@@ -233,6 +233,7 @@ ParameterManager::Params ParameterManager::GetParams() {
   }
 
   params.active = active_;
+
   return params;
 }
 

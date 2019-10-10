@@ -29,6 +29,7 @@
 
 namespace horovod {
 namespace common {
+
 // ParameterManager encapsulates the various tunable "knobs" in Horovod including the cycle time
 // between iterations of the background thread, and the size of the fusion buffer.
 //
@@ -228,7 +229,6 @@ private:
 
   std::vector<ITunableParameter*> parameter_chain_;
   bool active_;
-  
   int32_t warmup_remaining_;
 
   static constexpr int SAMPLES = 5;

@@ -37,8 +37,6 @@ public:
   //  context: Framework used to create the buffer and associate it.
   //  on_start_init: Callback on starting buffer initialization.
   //  on_end_init: Callback on completing buffer initialization.
-  //  validity_check: function to use to compare existing and requested buffer sizes
-  //    to see if the existing buffer can be reused.
   Status InitializeBuffer(int64_t threshold,
                           int device, std::shared_ptr<OpContext> context,
                           int stream_id,

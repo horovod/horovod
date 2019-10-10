@@ -378,13 +378,11 @@ def test_compile(build_ext, name, code, libraries=None, include_dirs=None,
 def get_cuda_dirs(build_ext, cpp_flags):
     cuda_include_dirs = []
     cuda_lib_dirs = []
-    cuda_bin_dir = None
 
     cuda_home = os.environ.get('HOROVOD_CUDA_HOME')
     if cuda_home:
         cuda_include_dirs += ['%s/include' % cuda_home]
         cuda_lib_dirs += ['%s/lib' % cuda_home, '%s/lib64' % cuda_home]
-        cuda_bin_dir = '%s/bin' % cuda_home
 
     cuda_include = os.environ.get('HOROVOD_CUDA_INCLUDE')
     if cuda_include:
@@ -394,15 +392,10 @@ def get_cuda_dirs(build_ext, cpp_flags):
     if cuda_lib:
         cuda_lib_dirs += [cuda_lib]
 
-    cuda_bin = os.environ.get('HOROVOD_CUDA_BIN')
-    if cuda_bin:
-        cuda_bin_dir = cuda_bin
-
-    if not cuda_include_dirs and not cuda_lib_dirs and not cuda_bin_dir:
+    if not cuda_include_dirs and not cuda_lib_dirs:
         # default to /usr/local/cuda
         cuda_include_dirs += ['/usr/local/cuda/include']
         cuda_lib_dirs += ['/usr/local/cuda/lib', '/usr/local/cuda/lib64']
-        cuda_bin_dir = '/usr/local/cuda/bin/'
 
     try:
         test_compile(build_ext, 'test_cuda', libraries=['cudart'],
@@ -425,7 +418,7 @@ def get_cuda_dirs(build_ext, cpp_flags):
             'HOROVOD_CUDA_INCLUDE - path to CUDA include directory\n'
             'HOROVOD_CUDA_LIB - path to CUDA lib directory')
 
-    return cuda_include_dirs, cuda_lib_dirs, cuda_bin_dir
+    return cuda_include_dirs, cuda_lib_dirs
 
 
 def get_nccl_vals(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
@@ -600,7 +593,7 @@ def get_common_options(build_ext):
 
     if gpu_allreduce or gpu_allgather or gpu_broadcast:
         have_cuda = True
-        cuda_include_dirs, cuda_lib_dirs, cuda_bin_dir = get_cuda_dirs(build_ext, cpp_flags)
+        cuda_include_dirs, cuda_lib_dirs = get_cuda_dirs(build_ext, cpp_flags)
     else:
         have_cuda = False
         cuda_include_dirs = cuda_lib_dirs = []
@@ -1023,7 +1016,7 @@ def build_mx_extension(build_ext, global_options):
     # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
     # version or transfer tensors to CPU memory for those operations.
     if mx_have_cuda and not macro_have_cuda:
-        cuda_include_dirs, cuda_lib_dirs, cuda_bin_dir = get_cuda_dirs(build_ext, options[
+        cuda_include_dirs, cuda_lib_dirs = get_cuda_dirs(build_ext, options[
             'COMPILE_FLAGS'])
         options['MACROS'] += [('HAVE_CUDA', '1')]
         options['INCLUDES'] += cuda_include_dirs

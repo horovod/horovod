@@ -294,7 +294,6 @@ protected:
     }
 
     SumAllreduceWithComm((void*)normAndDots.data(), 3*tensor_counts.size(), DataType::HOROVOD_FLOAT64, comm);
-    //MPI_Allreduce(MPI_IN_PLACE, normAndDots.data(), 3*tensor_counts.size(), MPI_DOUBLE, MPI_SUM, comm);
 
     bytesSoFar = 0;
     for (size_t i = 0; i < tensor_counts.size(); i++){

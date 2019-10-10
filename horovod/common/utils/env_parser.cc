@@ -158,5 +158,6 @@ double GetDoubleEnvOrDefault(const char* env_variable, double default_value) {
   auto env_value = std::getenv(env_variable);
   return env_value != nullptr ? std::strtod(env_value, nullptr) : default_value;
 }
+
 } // namespace common
 }
