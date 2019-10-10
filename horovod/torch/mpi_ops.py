@@ -21,7 +21,6 @@ from distutils.version import LooseVersion
 
 # Load all the necessary PyTorch C types.
 import torch
-import os
 
 # PyTorch v2 API starts with 1.0.0 (including nightly builds)
 _v2_api = LooseVersion(torch.__version__) >= LooseVersion('1.0.0')

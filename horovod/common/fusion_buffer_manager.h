@@ -43,8 +43,7 @@ public:
                           int device, std::shared_ptr<OpContext> context,
                           int stream_id,
                           std::function<void()> on_start_init,
-                          std::function<void()> on_end_init,
-                          std::function<bool(int64_t&, int64_t&)> validity_check);
+                          std::function<void()> on_end_init);
 
   // Returns the buffer associated with the given device and framework, or null.
   std::shared_ptr<PersistentBuffer> GetBuffer(int device, Framework framework, int stream_id);

@@ -43,7 +43,7 @@ struct HorovodGlobalState {
   // An atomic boolean which is set to true when background thread is started.
   // This ensures that only one background thread is spawned.
   std::atomic_flag initialize_flag = ATOMIC_FLAG_INIT;
-      
+
   // Background thread running MPI communication.
   std::thread background_thread;
 
@@ -64,7 +64,7 @@ struct HorovodGlobalState {
   // Encapsulates the fusion buffers, handles resizing and auto-tuning of buffer
   // size.
   FusionBufferManager fusion_buffer;
-  
+
   // Time point when last cycle started.
   std::chrono::steady_clock::time_point last_cycle_start;
 
