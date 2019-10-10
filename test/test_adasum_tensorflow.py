@@ -65,7 +65,6 @@ class MPITests(tf.test.TestCase):
     def test_horovod_adasum_multiple_allreduce_cpu(self):
         """Test on CPU that the Adasum correctly computes 2D tensors."""
         hvd.init()
-        os.environ['CUDA_VISIBLE_DEVICES'] = str(hvd.local_rank())
         size = hvd.size()
         rank = hvd.rank()
         rank_tensors = []
@@ -95,7 +94,6 @@ class MPITests(tf.test.TestCase):
         rank_tensors = []
         size = hvd.size()
         local_size = hvd.local_size()
-        os.environ['CUDA_VISIBLE_DEVICES'] = str(hvd.local_rank())
         is_homogeneous = size % local_size == 0
 
         # Only run on homogeneous cluster
@@ -113,6 +111,7 @@ class MPITests(tf.test.TestCase):
         answer = reference_tree_reduction(sum_local_ranks_tensor, num_nodes)
         answer = np.true_divide(answer, local_size)
         for dtype in [tf.float16, tf.float32, tf.float64]:
+            with tf.device("/gpu:{}".format(hvd.local_rank())):
                 tensors = map(tf.constant, rank_tensors[rank])
                 # cast to the corresponding dtype
                 tensors = map(lambda tensor: tf.cast(tensor, dtype), tensors)

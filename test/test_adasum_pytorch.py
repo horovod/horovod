@@ -19,7 +19,8 @@ def initialize(dtype=np.float32):
   global local_size
   global rank
   global data_type
-  device = torch.device('cuda', hvd.local_rank())
+  os.environ['CUDA_VISIBLE_DEVICES'] = str(hvd.local_rank())
+  device = torch.device('cuda')
   np.random.seed(2)
   torch.manual_seed(2)
   size = hvd.size()
