@@ -29,13 +29,16 @@ def adasum_reference_operation(a,b):
     answer = acoeff * a + bcoeff * b
     return answer
 
+def is_power2(num):
+    return num != 0 and ((num & (num -1)) == 0)
+
 def reference_tree_reduction(tensors, hvd_size):
     if hvd_size == 1:
         return tensors[0]
     temp = tensors.copy()
     power_of_2 = int(math.log(hvd_size, 2))
     for level in range(power_of_2):
-        for i in range(power_of_2 - level):
+        for i in range(int(hvd_size / pow(2, level + 1))):
             answer = []
             for a,b in zip(temp[i * 2], temp[i * 2 + 1]):
                 answer.append(adasum_reference_operation(a, b))
@@ -66,6 +69,9 @@ class MPITests(tf.test.TestCase):
         """Test on CPU that the Adasum correctly computes 2D tensors."""
         hvd.init()
         size = hvd.size()
+        # TODO support testing with non-power 2 ranks
+        if not is_power2(size):
+            return
         rank = hvd.rank()
         rank_tensors = []
         for _ in range(size):
@@ -93,6 +99,10 @@ class MPITests(tf.test.TestCase):
         rank = hvd.rank()
         rank_tensors = []
         size = hvd.size()
+        # TODO support testing with non-power 2 ranks
+        if not is_power2(size):
+            return
+
         local_size = hvd.local_size()
         is_homogeneous = size % local_size == 0
 

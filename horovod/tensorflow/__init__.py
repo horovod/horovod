@@ -95,7 +95,12 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             summed_tensor_compressed = _allreduce(tensor_compressed, op=true_op)
             summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
             if op == Adasum:
-                if (tf.test.is_gpu_available() and 'CPU' not in tensor.device):
+                # TODO using tf.test.is_gpu_available will create a default tf session which includes all visible devices.
+                # This behavior will interfere with any sessions created before or after. Also it's not stable in tf 2.0. Using nvidia-smi for now.
+                # Need to find a better way to replace this logic.
+                import subprocess
+                num_gpus = str(subprocess.check_output(["nvidia-smi", "-L"])).count('UUID')
+                if (num_gpus > 0 and 'CPU' not in tensor.device):
                     horovod_local_size = tf.cast(local_size(), dtype=tensor.dtype)
                     new_tensor = summed_tensor / horovod_local_size
                 else:
