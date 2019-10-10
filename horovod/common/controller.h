@@ -160,6 +160,7 @@ protected:
   // Requests for that tensor is now equal to the HOROVOD size (and thus we are
   // ready to reduce the tensor).
   bool IncrementTensorCount(const Request& msg);
+
   int rank_ = 0;
   int local_rank_ = 0;
   int cross_rank_ = 0;

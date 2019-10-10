@@ -26,7 +26,6 @@
 #include "tensor_queue.h"
 #include "timeline.h"
 #include "utils/env_parser.h"
-#include "logging.h"
 
 namespace horovod {
 namespace common {
@@ -44,9 +43,6 @@ struct HorovodGlobalState {
   // An atomic boolean which is set to true when background thread is started.
   // This ensures that only one background thread is spawned.
   std::atomic_flag initialize_flag = ATOMIC_FLAG_INIT;
-
-  // Tensors waiting to be allreduced or allgathered.
-  TensorTable tensor_table;  
       
   // Background thread running MPI communication.
   std::thread background_thread;
@@ -63,7 +59,6 @@ struct HorovodGlobalState {
   // Flag indicating whether to mark cycles in the timeline.
   bool mark_cycles_in_timeline = false;
 
-  // parameter manager
   ParameterManager parameter_manager;
 
   // Encapsulates the fusion buffers, handles resizing and auto-tuning of buffer

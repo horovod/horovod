@@ -553,9 +553,7 @@ void Controller::CoordinateCacheAndState(CacheCoordinator& cache_coordinator) {
 }
 
 ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
-  
   ResponseList response_list;
-
   while (!responses.empty()) {
 
     auto response = responses.front();
