@@ -19,8 +19,7 @@ AdasumMPIP2pOp::AdasumMPIP2pOp(MPIContext* mpi_context)
     }
     int shift_val;
     int level;
-    world_rank_log_size_ = log_size;
-    world_reduction_comms_ = new MPI_Comm[log_size];
+    reduction_comms_ = new MPI_Comm[log_size];
     int *node_rank = new int[size];
     for (level = 1, shift_val = 1; level < nearest_power_2; level = (level << 1), shift_val++)
     {
@@ -31,7 +30,7 @@ AdasumMPIP2pOp::AdasumMPIP2pOp(MPIContext* mpi_context)
         }
         MPI_Group red_group;
         MPI_Group_incl(world_group, (level << 1), node_rank, &red_group);
-        MPI_Comm_create_group(MPI_COMM_WORLD, red_group, 0, &world_reduction_comms_[shift_val - 1]);
+        MPI_Comm_create_group(MPI_COMM_WORLD, red_group, 0, &reduction_comms_[shift_val - 1]);
         MPI_Group_free(&red_group);
     }
     delete[] node_rank;
@@ -39,8 +38,8 @@ AdasumMPIP2pOp::AdasumMPIP2pOp(MPIContext* mpi_context)
 }
 
 AdasumMPIP2pOp::~AdasumMPIP2pOp() {
-  if(world_reduction_comms_ != nullptr) {
-    delete world_reduction_comms_;
+  if(reduction_comms_ != nullptr) {
+    delete reduction_comms_;
   }
 }
 

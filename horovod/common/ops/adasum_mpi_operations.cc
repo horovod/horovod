@@ -47,7 +47,7 @@ Status AdasumMPIAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, con
                     1, // start_level
                     mpi_context_->GetMPICommunicator(Communicator::GLOBAL),
                     0, // tag
-                    world_reduction_comms_,
+                    reduction_comms_,
                     first_entry.tensor->dtype());
   timeline.ActivityEndAll(entries);
 

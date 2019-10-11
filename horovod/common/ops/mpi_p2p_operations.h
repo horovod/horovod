@@ -51,10 +51,8 @@ protected:
   void SumAllreduceWithComm(void* data, int num_elements, DataType horovod_datatype, MPI_Comm comm) override;
 
   MPIContext* mpi_context_;
-  int rank_log_size_;
-  int world_rank_log_size_;
   // MPI communicators used to do adasum
-  MPI_Comm* world_reduction_comms_ = nullptr;
+  MPI_Comm* reduction_comms_ = nullptr;
 };
 
 } // namespace common

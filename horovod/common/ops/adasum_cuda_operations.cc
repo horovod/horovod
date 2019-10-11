@@ -208,7 +208,7 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
                         MPI_COMM_WORLD :
                         mpi_context_->GetMPICommunicator(Communicator::CROSS),
                       0,
-                      world_reduction_comms_,
+                      reduction_comms_,
                       first_entry.tensor->dtype());
     timeline.ActivityEndAll(entries);
 
