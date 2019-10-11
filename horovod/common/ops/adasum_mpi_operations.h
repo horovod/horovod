@@ -21,10 +21,6 @@ public:
   bool Enabled(const ParameterManager& param_manager,
                        const std::vector<TensorTableEntry>& entries,
                        const Response& response) const override;
-protected:
-
-  Status FusedVHDD(std::vector<TensorTableEntry>& entries,
-                          const Response& response);
 };
 
 } // namespace common

@@ -16,10 +16,6 @@ Status AdasumMPIAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, con
   if(entries.empty()) {
       return Status::OK();
   }
-  return FusedVHDD(entries, response);
-}
-
-Status AdasumMPIAllreduceOp::FusedVHDD(std::vector<TensorTableEntry>& entries, const Response& response) {
   auto& first_entry = entries[0];
 
   void* buffer_data;
