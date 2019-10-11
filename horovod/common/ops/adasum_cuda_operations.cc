@@ -166,40 +166,40 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
     // Since Adasum is not a per-element operation, an allreduce for fused
     // tensors needs to know boundaries of tensors. Calculate here the count
     // of elements for each tensor owned by this rank.
-		std::vector<int> tensor_counts(entries.size());
-		if (global_state_->controller->IsHomogeneous()) {
+    std::vector<int> tensor_counts(entries.size());
+    if (global_state_->controller->IsHomogeneous()) {
       // For homogeneous clusters each rank owns a slice of the fused tensor.
 
-			int64_t num_elements_sofar = 0;
-			int i = 0;
-			for (auto& e : entries) {
-				int64_t e_num_elements = e.tensor->shape().num_elements();
-				int64_t left_boundary  = std::max(num_elements_sofar, local_rank * num_elements_per_rank);
-				int64_t right_boundary = std::min(num_elements_sofar + e_num_elements, (local_rank+1) * num_elements_per_rank);
-				tensor_counts[i] = std::max(right_boundary - left_boundary, (int64_t)0);
-				if (is_root_rank) {
-					if (num_elements_sofar + e_num_elements >= local_size * num_elements_per_rank){
-						left_boundary  = std::max(num_elements_sofar, local_size * num_elements_per_rank);
-						right_boundary = num_elements_sofar + e_num_elements;
-						tensor_counts[i] += std::max(right_boundary - left_boundary, (int64_t)0);
-					}
-				}
+      int64_t num_elements_sofar = 0;
+      int i = 0;
+      for (auto& e : entries) {
+        int64_t e_num_elements = e.tensor->shape().num_elements();
+        int64_t left_boundary  = std::max(num_elements_sofar, local_rank * num_elements_per_rank);
+        int64_t right_boundary = std::min(num_elements_sofar + e_num_elements, (local_rank+1) * num_elements_per_rank);
+        tensor_counts[i] = std::max(right_boundary - left_boundary, (int64_t)0);
+        if (is_root_rank) {
+          if (num_elements_sofar + e_num_elements >= local_size * num_elements_per_rank){
+            left_boundary  = std::max(num_elements_sofar, local_size * num_elements_per_rank);
+            right_boundary = num_elements_sofar + e_num_elements;
+            tensor_counts[i] += std::max(right_boundary - left_boundary, (int64_t)0);
+          }
+        }
 
-				num_elements_sofar += e_num_elements;
-				i++;
-			}
-		} else {
+        num_elements_sofar += e_num_elements;
+        i++;
+      }
+    } else {
       // For non-homogeneous clusters the root rank owns everything.
 
-			if (is_root_rank) {
-				int i = 0;
-				for (auto& e : entries) {
-					int e_num_elements = e.tensor->shape().num_elements();
-					tensor_counts[i] = e_num_elements;
-					i++;
-				}
-			}
-		}
+      if (is_root_rank) {
+        int i = 0;
+        for (auto& e : entries) {
+          int e_num_elements = e.tensor->shape().num_elements();
+          tensor_counts[i] = e_num_elements;
+          i++;
+        }
+      }
+    }
 
     auto recv_buffer = std::unique_ptr<char[]>(new char[total_buffer_len]);
     DispatchFusedAllreduce(host_buffer_, recv_buffer.get(), tensor_counts,
