@@ -101,6 +101,7 @@ run_test() {
 run_all() {
   local test=$1
   local queue=$2
+  local pytest_queue=$3
 
   local exclude_keras_if_needed=""
   if [[ ${test} == *"tf2_"* ]]; then
@@ -108,7 +109,8 @@ run_all() {
     exclude_keras_if_needed="| sed 's/[a-z_]*keras[a-z_.]*//g'"
   fi
 
-  run_test "${test}" "${queue}" \
+  # pytests have 4x GPU use cases and require a separate queue
+  run_test "${test}" "${pytest_queue}" \
     ":pytest: Run PyTests (${test})" \
     "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras_if_needed} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no)\""
 
@@ -170,6 +172,7 @@ run_all() {
 run_gloo() {
   local test=$1
   local queue=$2
+  local pytest_queue=$3
 
   # Seems that spark tests depend on MPI, do not test those when mpi is not available
   local exclude_spark_if_needed=""
@@ -177,7 +180,7 @@ run_gloo() {
     exclude_spark_if_needed="| sed 's/[a-z_]*spark[a-z_.]*//g'"
   fi
 
-  run_test "${test}" "${queue}" \
+  run_test "${test}" "${pytest_queue}" \
     ":pytest: Run PyTests (${test})" \
     "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_spark_if_needed} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no)\""
 
@@ -233,11 +236,11 @@ for test in ${tests[@]}; do
   if [[ ${test} == *-cpu-* ]]; then
     # if gloo is specified, run gloo_test
     if [[ ${test} == *-gloo* ]]; then
-      run_gloo ${test} "cpu"
+      run_gloo ${test} "cpu" "cpu"
     fi
     # if mpi is specified, run mpi cpu_test
     if [[ ${test} == *mpi* ]]; then
-      run_all ${test} "cpu"
+      run_all ${test} "cpu" "cpu"
     fi
   fi
 done
@@ -250,11 +253,11 @@ for test in ${tests[@]}; do
   if [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]]; then
     # if gloo is specified, run gloo_test
     if [[ ${test} == *-gloo* ]]; then
-      run_gloo ${test} "gpu"
+      run_gloo ${test} "gpu" "4x-gpu"
     fi
     # if mpi is specified, run mpi gpu_test
     if [[ ${test} == *mpi* ]]; then
-      run_all ${test} "gpu"
+      run_all ${test} "gpu" "4x-gpu"
     fi
   fi
 done
