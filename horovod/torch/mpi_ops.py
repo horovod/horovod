@@ -92,7 +92,7 @@ def _allreduce_async(tensor, output, name, op):
 
     if op == Average:
         divisor = size()
-    elif (op == Adasum and torch.cuda.is_available() and tensor.device.type != 'cpu'):
+    elif (op == Adasum and nccl_built() and tensor.device.type != 'cpu' and torch.cuda.is_available()):
         divisor = local_size()
     else:
         divisor = 1
