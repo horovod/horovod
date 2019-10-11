@@ -97,8 +97,8 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                 # This behavior will interfere with any sessions created before or after. Also it's not stable in tf 2.0. Using nvidia-smi for now.
                 # Need to find a better way to replace this logic.
                 import subprocess
-                num_gpus = str(subprocess.check_output(["nvidia-smi", "-L"])).count('UUID')
-                if (num_gpus > 0 and 'CPU' not in tensor.device):
+                get_num_gpus = lambda: str(subprocess.check_output(["nvidia-smi", "-L"])).count('UUID')
+                if (nccl_built() and 'CPU' not in tensor.device and get_num_gpus() > 0):
                     horovod_local_size = tf.cast(local_size(), dtype=tensor.dtype)
                     new_tensor = summed_tensor / horovod_local_size
                 else:
