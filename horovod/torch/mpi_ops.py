@@ -168,8 +168,8 @@ def allreduce(tensor, average=None, name=None, compression=Compression.none, op=
         compression: Compression algorithm used during allreduce to reduce the amount
                      of data sent during the each parameter update step.  Defaults to
                      not using compression.
-        op: The reduction operation to combine tensors across different 
-                   ranks. Defaults to Average if None is given.
+        op: The reduction operation to combine tensors across different ranks. Defaults
+            to Average if None is given.
 
     Returns:
         A tensor of the same shape and type as `tensor`, averaged or summed across all
@@ -194,8 +194,8 @@ def allreduce_async_(tensor, average=None, name=None, op=None):
         tensor: A tensor to reduce.
         average: DEPRECATED, please use op instead.
         name: A name of the reduction operation.
-        op: The reduction operation to combine tensors across different 
-                   ranks. Defaults to Average if None is given.
+        op: The reduction operation to combine tensors across different ranks. Defaults to
+            Average if None is given.
 
     Returns:
         A handle to the allreduce operation that can be used with `poll()` or
@@ -219,8 +219,8 @@ def allreduce_(tensor, average=None, name=None, op=None):
         tensor: A tensor to reduce.
         average: DEPRECATED, please use op instead.
         name: A name of the reduction operation.
-        op: The reduction operation to combine tensors across different 
-                   ranks. Defaults to Average if None is given.
+        op: The reduction operation to combine tensors across different ranks. Defaults to
+            Average if None is given.
 
     Returns:
         A tensor of the same shape and type as `tensor`, averaged or summed across all
