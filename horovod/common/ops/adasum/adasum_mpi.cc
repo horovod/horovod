@@ -1,10 +1,24 @@
-//TODO license
-#include "mpi_p2p_operations.h"
+// Copyright 2019 Microsoft. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// =============================================================================
+
+#include "adasum_mpi.h"
 
 namespace horovod {
 namespace common {
-AdasumMPIP2pOp::AdasumMPIP2pOp(MPIContext* mpi_context)
-    : AdasumOp(), mpi_context_(mpi_context) {
+AdasumMPI::AdasumMPI(MPIContext* mpi_context)
+    : Adasum(), mpi_context_(mpi_context) {
   {
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -37,25 +51,25 @@ AdasumMPIP2pOp::AdasumMPIP2pOp(MPIContext* mpi_context)
   }
 }
 
-AdasumMPIP2pOp::~AdasumMPIP2pOp() {
+AdasumMPI::~AdasumMPI() {
   if(reduction_comms_ != nullptr) {
     delete reduction_comms_;
   }
 }
 
-int AdasumMPIP2pOp::GetLocalRankWithComm(MPI_Comm local_comm) {
+int AdasumMPI::GetLocalRankWithComm(MPI_Comm local_comm) {
     int local_rank = 0;
     MPI_Comm_rank(local_comm, &local_rank);
     return local_rank;
 }
 
-int AdasumMPIP2pOp::GetSizeWithComm(MPI_Comm comm) {
+int AdasumMPI::GetSizeWithComm(MPI_Comm comm) {
     int size = 0;
     MPI_Comm_size(comm, &size);
     return size;
 }
 
-void AdasumMPIP2pOp::SumAllreduceWithComm(void* data, int num_elements, DataType horovod_datatype, MPI_Comm comm) {
+void AdasumMPI::SumAllreduceWithComm(void* data, int num_elements, DataType horovod_datatype, MPI_Comm comm) {
   int status;
   status = MPI_Allreduce(MPI_IN_PLACE,
                          data,
@@ -68,7 +82,7 @@ void AdasumMPIP2pOp::SumAllreduceWithComm(void* data, int num_elements, DataType
   }
 }
 
-void AdasumMPIP2pOp::PointToPointSend(void* input_data_buffer,
+void AdasumMPI::PointToPointSend(void* input_data_buffer,
                                    int64_t buffer_length,
                                    DataType horovod_datatype,
                                    int dest_rank,
@@ -88,7 +102,7 @@ void AdasumMPIP2pOp::PointToPointSend(void* input_data_buffer,
   }
 }
 
-void AdasumMPIP2pOp::PointToPointRecv(void* output_data_buffer,
+void AdasumMPI::PointToPointRecv(void* output_data_buffer,
                                    int64_t buffer_length,
                                    DataType horovod_datatype,
                                    int src_rank,
@@ -110,7 +124,7 @@ void AdasumMPIP2pOp::PointToPointRecv(void* output_data_buffer,
     throw std::logic_error("MPI_Recv failed, see MPI output for details.");
   }
 }
-void AdasumMPIP2pOp::PointToPointSendRecv(void* input_data_buffer,
+void AdasumMPI::PointToPointSendRecv(void* input_data_buffer,
                                        int64_t input_buffer_length,
                                        DataType input_horovod_datatype,
                                        int dst_rank,

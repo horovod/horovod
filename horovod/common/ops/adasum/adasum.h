@@ -1,14 +1,27 @@
-//TODO license
-#ifndef HOROVOD_ADASUM_OPERATIONS_H
-#define HOROVOD_ADASUM_OPERATIONS_H
+// Copyright 2019 Microsoft. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// =============================================================================
+
+#ifndef HOROVOD_ADASUM_H
+#define HOROVOD_ADASUM_H
 
 #include <cstring>
 #include <immintrin.h>
 #include <emmintrin.h>
 
-#include "../common.h"
-#include "../global_state.h"
-#include "p2p_operations.h"
+#include "../../common.h"
+#include "../../global_state.h"
 
 
 namespace horovod {
@@ -21,11 +34,37 @@ static bool IsPowerOfTwo(ulong x)
 
 // Interface for Adasum algorithm
 template <typename Communicator_type>
-class AdasumOp : public PointToPointOp<Communicator_type> {
+class Adasum {
 public:
-  AdasumOp() : PointToPointOp<Communicator_type>() {};
+  Adasum() {};
 
 protected:
+  // Communication primitives required for Adasum algorithm
+  virtual void PointToPointSend(void* input_data_buffer,
+                                int64_t buffer_length,
+                                DataType horovod_datatype,
+                                int dest_rank,
+                                int tag,
+                                Communicator_type communicator) = 0;
+
+  virtual void PointToPointRecv(void* output_data_buffer,
+                                int64_t buffer_length,
+                                DataType horovod_datatype,
+                                int src_rank,
+                                int tag,
+                                Communicator_type communicator) = 0;
+
+  virtual void PointToPointSendRecv(void* input_data_buffer,
+                                    int64_t input_buffer_length,
+                                    DataType input_horovod_datatype,
+                                    int dst_rank,
+                                    int send_tag,
+                                    void* output_data_buffer,
+                                    int64_t output_buffer_length,
+                                    DataType output_horovod_datatype,
+                                    int src_rank,
+                                    int recv_tag,
+                                    Communicator_type communicator) = 0;
 
   virtual int GetLocalRankWithComm(Communicator_type communicator) = 0;
 
@@ -396,13 +435,6 @@ protected:
       }
   }
 
-  void virtual MemcpyUtil(TensorTableEntry entry, void* dest, void* src, size_t buffer_len, int layerid) {
-    assert(dest != nullptr);
-    assert(src != nullptr);
-    memcpy(dest, src, buffer_len);
-  }
-
-
 private:
 
   // reduce 4xfloat64 into one double
@@ -456,4 +488,4 @@ private:
 } // namespace common
 } // namespace horovod
 
-#endif // HOROVOD_ADASUM_OPERATIONS_H
+#endif // HOROVOD_ADASUM_H

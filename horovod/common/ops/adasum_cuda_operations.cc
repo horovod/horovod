@@ -1,11 +1,25 @@
-//TODO license
+// Copyright 2019 Microsoft. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// =============================================================================
+
 #include "adasum_cuda_operations.h"
 
 namespace horovod {
 namespace common {
 
 AdasumCudaAllreduceOp::AdasumCudaAllreduceOp(MPIContext* mpi_context, NCCLContext* nccl_context, CUDAContext* cuda_context, HorovodGlobalState* global_state)
-    : NCCLAllreduce(nccl_context, cuda_context, global_state), AdasumMPIP2pOp(mpi_context) {
+    : NCCLAllreduce(nccl_context, cuda_context, global_state), AdasumMPI(mpi_context) {
 }
 
 Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {

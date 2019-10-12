@@ -1,4 +1,5 @@
 # Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+# Modifications copyright Microsoft
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -653,7 +654,7 @@ def get_common_options(build_ext):
                'horovod/common/timeline.cc',
                'horovod/common/tensor_queue.cc',
                'horovod/common/ops/collective_operations.cc',
-               'horovod/common/ops/mpi_p2p_operations.cc',
+               'horovod/common/ops/adasum/adasum_mpi.cc',
                'horovod/common/ops/adasum_mpi_operations.cc',
                'horovod/common/ops/operation_manager.cc',
                'horovod/common/optim/bayesian_optimization.cc',
