@@ -99,12 +99,15 @@ class TfKerasTests(tf.test.TestCase):
             model.train_on_batch(x, y)
 
     def test_from_config(self):
-        opt = keras.optimizers.Adam()
-        hopt = hvd.DistributedOptimizer(opt)
-        cfg = hopt.get_config()
+        with self.test_session(config=self.config) as sess:
+            K.set_session(sess)
 
-        hopt_copy1 = hopt.from_config(cfg)
-        self.assertEqual(cfg, hopt_copy1.get_config())
+            opt = keras.optimizers.Adam()
+            hopt = hvd.DistributedOptimizer(opt)
+            cfg = hopt.get_config()
 
-        hopt_copy2 = hopt.__class__.from_config(cfg)
-        self.assertEqual(cfg, hopt_copy2.get_config())
+            hopt_copy1 = hopt.from_config(cfg)
+            self.assertEqual(cfg, hopt_copy1.get_config())
+
+            hopt_copy2 = hopt.__class__.from_config(cfg)
+            self.assertEqual(cfg, hopt_copy2.get_config())
