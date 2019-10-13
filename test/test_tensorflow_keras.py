@@ -97,3 +97,17 @@ class TfKerasTests(tf.test.TestCase):
             y = np.random.random((32, 10, 64))
             # No assertions, we just need to verify that it doesn't hang
             model.train_on_batch(x, y)
+
+    def test_from_config(self):
+        with self.test_session(config=self.config) as sess:
+            K.set_session(sess)
+
+            opt = keras.optimizers.Adam()
+            hopt = hvd.DistributedOptimizer(opt)
+            cfg = hopt.get_config()
+
+            hopt_copy1 = hopt.from_config(cfg)
+            self.assertEqual(cfg, hopt_copy1.get_config())
+
+            hopt_copy2 = hopt.__class__.from_config(cfg)
+            self.assertEqual(cfg, hopt_copy2.get_config())

@@ -15,7 +15,6 @@
 # =============================================================================
 
 from contextlib import contextmanager
-import importlib
 from multiprocessing import Process, Queue
 import os
 import sysconfig
