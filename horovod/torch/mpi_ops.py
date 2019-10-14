@@ -146,7 +146,7 @@ class HorovodAllreduce(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        return allreduce(grad_output, average=ctx.average, op=ctx.op), None, None
+        return allreduce(grad_output, average=ctx.average, op=ctx.op), None, None, None
 
 
 def allreduce(tensor, average=None, name=None, compression=Compression.none, op=None):
