@@ -91,6 +91,7 @@ def _allreduce_async(tensor, output, name, op):
             'float16 allreduce is not supported for PyTorch version {} < 1.0.0'
             .format(torch.__version__))
 
+    # Set the divisor for reduced gradients to average when necessary
     if op == Average:
         divisor = size()
     elif (op == Adasum and nccl_built() and tensor.device.type != 'cpu' and torch.cuda.is_available()):

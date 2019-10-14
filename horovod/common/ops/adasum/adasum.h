@@ -109,6 +109,7 @@ protected:
     }
   }
   
+  // Given two vectors compute their dot product and the squared norm for each.
   template<typename T>
   void ComputeDotAndNormSqrds(const T* __restrict__  a, const T* __restrict__ b, int count, double& dotProduct, double& anormsq, double& bnormsq, int layerid) {
       dotProduct = 0.;
@@ -143,6 +144,7 @@ protected:
     }
   }
   
+  // Update a vector to a linear combination of itself and another vector.
   template<typename T>
   void ScaledAdd(int n, double acoeff, T* __restrict__ a, double bcoeff, T* __restrict__ b, int layerid) {
     for (int i = 0; i < n; i++) {
@@ -150,6 +152,24 @@ protected:
     }
   }
   
+  // Perform Adasum allreduce using a vector-halving, distance-doubling (VHDD) approach.
+  // grad_buffer: holds the data to reduce and will hold the result.
+  // recv_buffer: must point to a buffer of the same size as grad_buffer.
+  // horovod_datatype: the element type of grad_buffer.
+  // tensor_counts: is a list of how many elements grad_buffer contains for each tensor
+  //                involved in the allreduce. It should contain a 0 if this rank holds
+  //                no data for the tensor (see start_level below for when this can happen).
+  // start_level: set to 1 to perform all levels of the operation. When set to n>1 the
+  //              first n-1 levels are skipped. This is useful when the communication inside
+  //              the node is implemented using another reduce-scatter algorithm, e.g. the
+  //              one in NCCL, which may be desireable on some hardware configurations. When
+  //              start_level>1, tensor_counts must be set according to the slices owned by
+  //              this rank.
+  // communicator: the communicator to reduce with.
+  // tag: a value used as the message tag for each send/recv in this algorithm. This is
+  //      useful for multithreaded scenarios. Remember to also create separate
+  //      reduction_comms instances when running with multiple threads.
+  // reduction_comms: TODO: Saeed please explain these.
   template <typename T>
   void FusedAllreduce(std::vector<TensorTableEntry>& entries, 
                       T* grad_buffer,

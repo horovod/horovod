@@ -176,6 +176,12 @@ def env(**kwargs):
                 del os.environ[k]
 
 def get_average_backwards_compatibility_fun(reduce_ops):
+    """
+    Handle backwards compatibility between the old average and the new op parameters.
+    Old code using the average parameter (e.g. hvd.allreduce(tensor, average=False))
+    gets unchanged behavior, but mixing old and new is disallowed (e.g. no
+    hvd.allreduce(tensor, average=False, op=hvd.Adasum)).
+    """
     def impl(op, average):
         if op != None:
             if average != None:
