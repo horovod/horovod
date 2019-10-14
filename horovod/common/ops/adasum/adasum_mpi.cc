@@ -69,14 +69,22 @@ int AdasumMPI::GetSizeWithComm(MPI_Comm comm) {
     return size;
 }
 
-void AdasumMPI::SumAllreduceWithComm(void* data, int num_elements, DataType horovod_datatype, MPI_Comm comm) {
+void AdasumMPI::SumAllreduceWithComm(std::vector<TensorTableEntry>& entries,
+                                     void* data,
+                                     int num_elements,
+                                     DataType horovod_datatype,
+                                     MPI_Comm comm,
+                                     HorovodGlobalState *global_state) {
   int status;
+  auto& timeline = global_state->timeline;
+  timeline.ActivityStartAll(entries, MPI_ALLREDUCE);
   status = MPI_Allreduce(MPI_IN_PLACE,
                          data,
                          num_elements,
                          mpi_context_->GetMPIDataType(horovod_datatype),
                          MPI_SUM,
                          comm);
+  timeline.ActivityEndAll(entries);
   if (status != MPI_SUCCESS) {
     throw std::logic_error("MPI_Allreduce failed, see MPI output for details.");
   }

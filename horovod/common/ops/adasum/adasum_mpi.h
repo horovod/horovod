@@ -19,7 +19,7 @@
 #include "mpi.h"
 
 #include "../../mpi/mpi_context.h"
-#include "adasum/adasum.h"
+#include "adasum.h"
 
 
 namespace horovod {
@@ -62,7 +62,12 @@ protected:
 
   int GetSizeWithComm(MPI_Comm comm) override;
 
-  void SumAllreduceWithComm(void* data, int num_elements, DataType horovod_datatype, MPI_Comm comm) override;
+  void SumAllreduceWithComm(std::vector<TensorTableEntry>& entries,
+                            void* data,
+                            int num_elements,
+                            DataType horovod_datatype,
+                            MPI_Comm comm,
+                            HorovodGlobalState *global_state) override;
 
   MPIContext* mpi_context_;
   // MPI communicators used to do adasum

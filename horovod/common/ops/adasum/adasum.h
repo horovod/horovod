@@ -151,18 +151,25 @@ protected:
   }
   
   template <typename T>
-  void FusedAllreduce(T* grad_buffer, T* recv_buffer, DataType horovod_datatype, std::vector<int>& tensor_counts,
-                      int start_level, Communicator_type communicator,
-                      int tag, Communicator_type* reduction_comms) {
+  void FusedAllreduce(std::vector<TensorTableEntry>& entries, 
+                      T* grad_buffer,
+                      T* recv_buffer,
+                      DataType horovod_datatype,
+                      std::vector<int>& tensor_counts,
+                      int start_level,
+                      Communicator_type communicator,
+                      int tag,
+                      Communicator_type* reduction_comms,
+                      HorovodGlobalState *global_state) {
     int per_element_size = GetPerElementSize(horovod_datatype);
     int rank = GetLocalRankWithComm(communicator);
     int size = GetSizeWithComm(communicator);
 
     if (IsPowerOfTwo(size) == false) {
       throw std::logic_error(
-          "BUGBUG: need to implement logic for non power of two ranks");
+          "Running Adasum with non-power-of-two ranks is not supported yet.");
     }
-
+    
     std::vector<std::vector<int>> nghrCountVec;
     std::vector<double> normAndDots(tensor_counts.size()*3 * 2);
 
@@ -265,10 +272,16 @@ protected:
         grad_buffer = &grad_buffer[nghrCount];
         recv_buffer = &recv_buffer[nghrCount];
       }
-      FusedPairwiseReduceWithComm((char*)grad_buffer, (char*)recv_buffer, horovod_datatype, tensor_counts, tag,
-                                reduction_comms[comm_index],
-                                (rank & level) == 0,
-                                normAndDots);
+      FusedPairwiseReduceWithComm(entries,
+                                  (char*)grad_buffer,
+                                  (char*)recv_buffer,
+                                  horovod_datatype,
+                                  tensor_counts,
+                                  tag,
+                                  reduction_comms[comm_index],
+                                  (rank & level) == 0,
+                                  normAndDots,
+                                  global_state);
     }
 
     for (level = (size >> 1); level > 0; level = (level >> 1)) {
@@ -309,10 +322,23 @@ protected:
     size = orgSize;
   }
 
-  virtual void SumAllreduceWithComm(void* data, int num_elements, DataType horovod_datatype, Communicator_type comm) = 0;
+  virtual void SumAllreduceWithComm(std::vector<TensorTableEntry>& entries,
+                                    void* data,
+                                    int num_elements,
+                                    DataType horovod_datatype,
+                                    Communicator_type comm,
+                                    HorovodGlobalState *global_state) = 0;
 
-  void FusedPairwiseReduceWithComm(char* a, char* b, DataType horovod_datatype, std::vector<int>& tensor_counts, int layerid,
-                                   Communicator_type& comm, bool isLeftNeighbor, std::vector<double>& normAndDots) {
+  void FusedPairwiseReduceWithComm(std::vector<TensorTableEntry>& entries,
+                                   char* a,
+                                   char* b,
+                                   DataType horovod_datatype,
+                                   std::vector<int>& tensor_counts,
+                                   int layerid,
+                                   Communicator_type& comm,
+                                   bool isLeftNeighbor,
+                                   std::vector<double>& normAndDots,
+                                   HorovodGlobalState *global_state) {
     int per_element_size = GetPerElementSize(horovod_datatype);
     int bytesSoFar = 0;
     for (size_t i = 0; i < tensor_counts.size(); i++){
@@ -332,7 +358,7 @@ protected:
       bytesSoFar += tensor_counts[i] * per_element_size;
     }
 
-    SumAllreduceWithComm((void*)normAndDots.data(), 3*tensor_counts.size(), DataType::HOROVOD_FLOAT64, comm);
+    SumAllreduceWithComm(entries, (void*)normAndDots.data(), 3*tensor_counts.size(), DataType::HOROVOD_FLOAT64, comm, global_state);
 
     bytesSoFar = 0;
     for (size_t i = 0; i < tensor_counts.size(); i++){
@@ -359,18 +385,25 @@ protected:
     }
   }
 
-  void DispatchFusedAllreduce(void* grad_buffer, void* recv_buffer, std::vector<int>& tensor_counts,
-                                int start_level, Communicator_type communicator,
-                                int tag, Communicator_type* reduction_comms, DataType type) {
-      switch(type) {
+  void DispatchFusedAllreduce(std::vector<TensorTableEntry>& entries, 
+                              void* grad_buffer,
+                              void* recv_buffer,
+                              std::vector<int>& tensor_counts,
+                              int start_level,
+                              Communicator_type communicator,
+                              int tag,
+                              Communicator_type* reduction_comms,
+                              DataType data_type,
+                              HorovodGlobalState *global_state) {
+      switch(data_type) {
           case DataType::HOROVOD_FLOAT16:
-            FusedAllreduce((uint16_t*)grad_buffer, (uint16_t*)recv_buffer, type, tensor_counts, start_level, communicator, tag, reduction_comms);
+            FusedAllreduce(entries, (uint16_t*)grad_buffer, (uint16_t*)recv_buffer, data_type, tensor_counts, start_level, communicator, tag, reduction_comms, global_state);
             break;
           case DataType::HOROVOD_FLOAT32:
-            FusedAllreduce((float*)grad_buffer, (float*)recv_buffer, type, tensor_counts, start_level, communicator, tag, reduction_comms);
+            FusedAllreduce(entries, (float*)grad_buffer, (float*)recv_buffer, data_type, tensor_counts, start_level, communicator, tag, reduction_comms, global_state);
             break;
           case DataType::HOROVOD_FLOAT64:
-            FusedAllreduce((double*)grad_buffer, (double*)recv_buffer, type, tensor_counts, start_level, communicator, tag, reduction_comms);
+            FusedAllreduce(entries, (double*)grad_buffer, (double*)recv_buffer, data_type, tensor_counts, start_level, communicator, tag, reduction_comms, global_state);
             break;
           default:
             throw std::logic_error("Unsupported data type");
@@ -378,7 +411,7 @@ protected:
   }
 
   // over-write ComputeDotAndNormSqrds for float16
-  inline void static ComputeDotAndNormSqrdsfp16(const uint16_t* __restrict__ a, const uint16_t* __restrict__ b, int len, double& dotProduct, double& anormsq, double& bnormsq, int layerid) {
+  inline void ComputeDotAndNormSqrdsfp16(const uint16_t* __restrict__ a, const uint16_t* __restrict__ b, int len, double& dotProduct, double& anormsq, double& bnormsq, int layerid) {
       int i;
       __m256d dotProductVec = _mm256_setzero_pd();
       __m256d anormVec = _mm256_setzero_pd();
@@ -417,7 +450,7 @@ protected:
       bnormsq = Mm256ReductionPd(bnormVec);
   }
 
-  inline void static ScaledAddfp16(int len, double acoeff, uint16_t* __restrict__ a, double bcoeff, uint16_t* __restrict__ b, int layerid) {
+  inline void ScaledAddfp16(int len, double acoeff, uint16_t* __restrict__ a, double bcoeff, uint16_t* __restrict__ b, int layerid) {
       int i;
       __m256 acoeffVec = _mm256_set1_ps((float)(acoeff));
       __m256 bcoeffVec = _mm256_set1_ps((float)bcoeff);
@@ -438,7 +471,7 @@ protected:
 private:
 
   // reduce 4xfloat64 into one double
-  inline double static Mm256ReductionPd(__m256d v) {
+  inline double Mm256ReductionPd(__m256d v) {
     __m128d vlow  = _mm256_castpd256_pd128(v);
     __m128d vhigh = _mm256_extractf128_pd(v, 1); // high 128
     vlow  = _mm_add_pd(vlow, vhigh);     // reduce down to 128
@@ -448,19 +481,19 @@ private:
   }
 
   // load 8 float16s from a and return the __m256 register
-  inline __m256 static MmLoaduPh(const uint16_t* a) {
+  inline __m256 MmLoaduPh(const uint16_t* a) {
       __m128i r = _mm_loadu_si128((__m128i*)(a));
       return _mm256_cvtph_ps(r);
   }
 
   // store 8 float16 from val into a 
-  inline void static MmStorePh(uint16_t* a, __m256 val) {
+  inline void MmStorePh(uint16_t* a, __m256 val) {
       __m128i r = _mm256_cvtps_ph(val, 0);
       _mm_storeu_si128((__m128i*)a, r);
   }
 
   // load len (< 8) float16s from a, fill the rest with 0s, and return the __m256 register
-  inline __m256 static MmLoaduPhPartial(const uint16_t* a, int len) {
+  inline __m256 MmLoaduPhPartial(const uint16_t* a, int len) {
       short e[8];
       std::memset(e, 0, sizeof(e));
       std::memcpy(e, a, std::min(len, 8) * sizeof(short));
@@ -469,7 +502,7 @@ private:
   }
 
   // store the first len (< 8) float16s from val and store into a
-  inline void static MmStorePhPartial(uint16_t* a, __m256 val, int len) {
+  inline void MmStorePhPartial(uint16_t* a, __m256 val, int len) {
       __m128i r = _mm256_cvtps_ph(val, 0);
       //for (int i = 0; i < std::min(len, 8); i++) 
       //    a[i].value = _mm_extract_epi16(r, i);

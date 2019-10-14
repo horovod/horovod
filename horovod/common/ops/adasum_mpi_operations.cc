@@ -51,18 +51,19 @@ Status AdasumMPIAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, con
   }
 
   // Do allreduce.
-  timeline.ActivityStartAll(entries, MPI_ALLREDUCE);
+  timeline.ActivityStartAll(entries, MPI_ADASUM_ALLREDUCE);
 	std::vector<int> tensor_counts;
   for (auto& e : entries) {
     tensor_counts.push_back(e.tensor->shape().num_elements());
   }
   std::unique_ptr<char[]> recv_buffer = std::unique_ptr<char[]>(new char[buffer_len]);
-  DispatchFusedAllreduce(buffer_data, recv_buffer.get(), tensor_counts,
-                    1, // start_level
-                    mpi_context_->GetMPICommunicator(Communicator::GLOBAL),
-                    0, // tag
-                    reduction_comms_,
-                    first_entry.tensor->dtype());
+  DispatchFusedAllreduce(entries, buffer_data, recv_buffer.get(), tensor_counts,
+                         1, // start_level
+                         mpi_context_->GetMPICommunicator(Communicator::GLOBAL),
+                         0, // tag
+                         reduction_comms_,
+                         first_entry.tensor->dtype(),
+                         global_state_);
   timeline.ActivityEndAll(entries);
 
   // Copy memory out of the fusion buffer.

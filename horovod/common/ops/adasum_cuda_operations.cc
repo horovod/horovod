@@ -175,7 +175,7 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
                                               
     timeline.ActivityEndAll(entries);
 
-    timeline.ActivityStartAll(entries, MPI_ALLREDUCE);
+    timeline.ActivityStartAll(entries, MPI_ADASUM_ALLREDUCE);
 
     // Since Adasum is not a per-element operation, an allreduce for fused
     // tensors needs to know boundaries of tensors. Calculate here the count
@@ -216,14 +216,15 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
     }
 
     auto recv_buffer = std::unique_ptr<char[]>(new char[total_buffer_len]);
-    DispatchFusedAllreduce(host_buffer_, recv_buffer.get(), tensor_counts,
-                      local_size, // start_level
-                      global_state_->controller->IsHomogeneous() ?
-                        MPI_COMM_WORLD :
-                        mpi_context_->GetMPICommunicator(Communicator::CROSS),
-                      0,
-                      reduction_comms_,
-                      first_entry.tensor->dtype());
+    DispatchFusedAllreduce(entries, host_buffer_, recv_buffer.get(), tensor_counts,
+                          local_size, // start_level
+                          global_state_->controller->IsHomogeneous() ?
+                            MPI_COMM_WORLD :
+                            mpi_context_->GetMPICommunicator(Communicator::CROSS),
+                          0,
+                          reduction_comms_,
+                          first_entry.tensor->dtype(),
+                          global_state_);
     timeline.ActivityEndAll(entries);
 
     timeline.ActivityStartAll(entries, MEMCPY_OUT_HOST_BUFFER);
