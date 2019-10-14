@@ -389,11 +389,6 @@ def parse_args():
     parser.add_argument('-p', '--ssh-port', action='store', dest='ssh_port',
                         type=int, help='SSH port on all the hosts.')
 
-    parser.add_argument('--mpi-args', action='store', dest='mpi_args',
-                        help='Extra MPI arguments to pass to mpirun. '
-                             'They need to be passed with the equal sign to avoid parsing issues. '
-                             'e.g. --mpi-args="--map-by ppr:6:node"')
-
     parser.add_argument('--disable-cache', action='store_true',
                         dest='disable_cache',
                         help='If the flag is not set, horovodrun will perform '
@@ -536,6 +531,10 @@ def parse_args():
                                                 'of Horovod.')
     group_mpi_threads_disable.add_argument('--no-mpi-threads-disable', dest='mpi_threads_disable',
                                            action=make_override_false_action(override_args), help=argparse.SUPPRESS)
+    group_library_options.add_argument('--mpi-args', action='store', dest='mpi_args',
+                                       help='Extra MPI arguments to pass to mpirun. '
+                                       'They need to be passed with the equal sign to avoid parsing issues. '
+                                       'e.g. --mpi-args="--map-by ppr:6:node"')
     group_library_options.add_argument('--num-nccl-streams', action=make_override_action(override_args),
                                        type=int, default=1,
                                        help='Number of NCCL streams. Only applies when running with NCCL support. '
