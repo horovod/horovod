@@ -36,9 +36,30 @@ static bool IsPowerOfTwo(ulong x)
 template <typename Communicator_type>
 class Adasum {
 public:
-  Adasum() {};
+  Adasum(HorovodGlobalState* global_state) {
+    // Allocate buffer size equal to the fusion buffer length
+    current_recv_buffer_length = global_state->parameter_manager.TensorFusionThresholdBytes();
+    recv_buffer = (uint8_t*)malloc(current_recv_buffer_length);
+  };
 
+  ~Adasum() {
+    if(recv_buffer != nullptr) {
+      free(recv_buffer);
+    }
+  }
 protected:
+  // Temp buffer used by Adasum operations
+  uint8_t* recv_buffer = nullptr;
+
+  // Get recv buffer
+  virtual uint8_t* GetRecvBuffer(int buffer_length) {
+    if(buffer_length <= current_recv_buffer_length) {
+      return recv_buffer;
+    }
+    recv_buffer = (uint8_t*)realloc(recv_buffer, buffer_length);
+    return recv_buffer;
+  } 
+
   // Communication primitives required for Adasum algorithm
   virtual void PointToPointSend(void* input_data_buffer,
                                 int64_t buffer_length,
@@ -277,13 +298,13 @@ protected:
       nghrCountVec_index++;
 
       for (int i = 0; i < std::max(myCount, nghrCount); i += chunk_size)
-        this->PointToPointSendRecv((char*)(&grad_buffer[i+sendOffset]),
-                              std::min(chunk_size, nghrCount-i) * per_element_size / sizeof(char),
+        this->PointToPointSendRecv((uint8_t*)(&grad_buffer[i+sendOffset]),
+                              std::min(chunk_size, nghrCount-i) * per_element_size / sizeof(uint8_t),
                               horovod_datatype,
                               neighbor_rank,
                               tag,
-                              (char*)(&recv_buffer[i+recvOffset]),
-                              std::min(chunk_size, myCount-i) * per_element_size / sizeof(char),
+                              (uint8_t*)(&recv_buffer[i+recvOffset]),
+                              std::min(chunk_size, myCount-i) * per_element_size / sizeof(uint8_t),
                               horovod_datatype,
                               neighbor_rank,
                               tag,
@@ -293,8 +314,8 @@ protected:
         recv_buffer = &recv_buffer[nghrCount];
       }
       FusedPairwiseReduceWithComm(entries,
-                                  (char*)grad_buffer,
-                                  (char*)recv_buffer,
+                                  (uint8_t*)grad_buffer,
+                                  (uint8_t*)recv_buffer,
                                   horovod_datatype,
                                   tensor_counts,
                                   tag,
@@ -323,13 +344,13 @@ protected:
         recv_buffer = &grad_buffer[-nghrCount];
       }
       for (int i = 0; i < std::max(myCount, nghrCount); i += chunk_size)
-        this->PointToPointSendRecv((char*)(&grad_buffer[i]),
-                  std::min(chunk_size, myCount-i) * per_element_size / sizeof(char),
+        this->PointToPointSendRecv((uint8_t*)(&grad_buffer[i]),
+                  std::min(chunk_size, myCount-i) * per_element_size / sizeof(uint8_t),
                   horovod_datatype,
                   neighbor_rank,
                   tag,
-                  (char*)(&recv_buffer[i]),
-                  std::min(chunk_size, nghrCount-i) * per_element_size / sizeof(char),
+                  (uint8_t*)(&recv_buffer[i]),
+                  std::min(chunk_size, nghrCount-i) * per_element_size / sizeof(uint8_t),
                   horovod_datatype,
                   neighbor_rank,
                   tag,
@@ -350,8 +371,8 @@ protected:
                                     HorovodGlobalState *global_state) = 0;
 
   void FusedPairwiseReduceWithComm(std::vector<TensorTableEntry>& entries,
-                                   char* a,
-                                   char* b,
+                                   uint8_t* a,
+                                   uint8_t* b,
                                    DataType horovod_datatype,
                                    std::vector<int>& tensor_counts,
                                    int layerid,
@@ -489,6 +510,7 @@ protected:
   }
 
 private:
+  int current_recv_buffer_length;
 
   // reduce 4xfloat64 into one double
   inline double Mm256ReductionPd(__m256d v) {

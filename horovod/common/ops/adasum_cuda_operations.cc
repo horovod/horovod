@@ -19,7 +19,7 @@ namespace horovod {
 namespace common {
 
 AdasumCudaAllreduceOp::AdasumCudaAllreduceOp(MPIContext* mpi_context, NCCLContext* nccl_context, CUDAContext* cuda_context, HorovodGlobalState* global_state)
-    : NCCLAllreduce(nccl_context, cuda_context, global_state), AdasumMPI(mpi_context) {
+    : NCCLAllreduce(nccl_context, cuda_context, global_state), AdasumMPI(mpi_context, global_state) {
 }
 
 Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
@@ -215,8 +215,8 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
       }
     }
 
-    auto recv_buffer = std::unique_ptr<char[]>(new char[total_buffer_len]);
-    DispatchFusedAllreduce(entries, host_buffer_, recv_buffer.get(), tensor_counts,
+    auto recv_buffer = GetRecvBuffer(total_buffer_len);
+    DispatchFusedAllreduce(entries, host_buffer_, recv_buffer, tensor_counts,
                           local_size, // start_level
                           global_state_->controller->IsHomogeneous() ?
                             MPI_COMM_WORLD :
