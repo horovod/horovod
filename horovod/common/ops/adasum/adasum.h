@@ -57,6 +57,7 @@ protected:
       return recv_buffer;
     }
     recv_buffer = (uint8_t*)realloc(recv_buffer, buffer_length);
+    current_recv_buffer_length = buffer_length;
     return recv_buffer;
   } 
 
