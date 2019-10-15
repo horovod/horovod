@@ -215,7 +215,7 @@ protected:
     std::vector<std::vector<int>> nghrCountVec;
     std::vector<double> normAndDots(tensor_counts.size()*3 * 2);
 
-    int chunk_size = (1 << 29);
+    int chunk_size = (1 << 15);
     int nearest_power_2 = 1;
     for (nearest_power_2 = 1; (nearest_power_2 << 1) <= size;
         nearest_power_2 = (nearest_power_2 << 1)) {
