@@ -360,6 +360,27 @@ After ``hwloc`` is purged, `re-install Open MPI <https://www.open-mpi.org/faq/?c
 
 See `this issue <https://github.com/open-mpi/ompi/issues/4437>`__ for more details.
 
+segmentation fault with tensorflow 1.14 or higher mentioning `hwloc`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you are using TensorFlow 1.14 or 1.15 and are getting a segmentation fault, check whether it mentions `hwloc`:
+
+    ...
+    Signal: Segmentation fault (11)
+    Signal code: Address not mapped (1)
+    Failing at address: 0x99
+    [ 0] /lib/x86_64-linux-gnu/libc.so.6(+0x3ef20)[0x7f309d34ff20]
+    [ 1] /usr/lib/x86_64-linux-gnu/libopen-pal.so.20(opal_hwloc_base_free_topology+0x76)[0x7f3042871ca6]
+    ...
+    
+If it does, this could be a conflict with the `hwloc` symbols explorted from TensorFlow. 
+
+To fix this, locate your hwloc library with `ldconfig -p | grep libhwloc.so`, and then set `LD_PRELOAD`. For example:
+
+    LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libhwloc.so python -c 'import horovod.tensorflow as hvd; hvd.init()'
+    
+See [this issue](https://github.com/horovod/horovod/issues/1123) for more information.
+
 bash: orted: command not found
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 If you see the error message below during the training, it's likely that Open MPI cannot find one of its components in PATH.
