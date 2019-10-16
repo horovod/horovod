@@ -101,8 +101,8 @@ struct HorovodGlobalState {
   LibType control_operation;
 
   // Chunk size for MPI send/recv in Adasum allreduce. Some versions of Intel MPI
-  // benefit from a relatively small chunk size, which is the default here.
-  int64_t adasum_mpi_chunk_size = 1<<17;
+  // benefit from a smaller chunk size.
+  int64_t adasum_mpi_chunk_size = 1<<30;
 
   ~HorovodGlobalState() {
     // Make sure that the destructor of the background thread is safe to
