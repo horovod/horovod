@@ -40,31 +40,15 @@ public:
 
 protected:
   // Communication primitives required for Adasum algorithm
-  virtual void PointToPointSend(void* input_data_buffer,
-                                int64_t buffer_length,
-                                DataType horovod_datatype,
-                                int dest_rank,
-                                int tag,
-                                Communicator_type communicator) = 0;
-
-  virtual void PointToPointRecv(void* output_data_buffer,
-                                int64_t buffer_length,
-                                DataType horovod_datatype,
-                                int src_rank,
-                                int tag,
-                                Communicator_type communicator) = 0;
-
   virtual void PointToPointSendRecv(void* input_data_buffer,
                                     int64_t input_buffer_length,
-                                    DataType input_horovod_datatype,
-                                    int dst_rank,
-                                    int send_tag,
                                     void* output_data_buffer,
                                     int64_t output_buffer_length,
-                                    DataType output_horovod_datatype,
-                                    int src_rank,
-                                    int recv_tag,
-                                    Communicator_type communicator) = 0;
+                                    DataType horovod_datatype,
+                                    int dst_src_rank,
+                                    int tag,
+                                    Communicator_type communicator,
+                                    HorovodGlobalState* global_state) = 0;
 
   virtual int GetLocalRankWithComm(Communicator_type communicator) = 0;
 
@@ -278,18 +262,15 @@ protected:
 
       nghrCountVec_index++;
 
-      for (int i = 0; i < std::max(myCount, nghrCount); i += chunk_size)
-        this->PointToPointSendRecv((char*)(&grad_buffer[i+sendOffset]),
-                              std::min(chunk_size, nghrCount-i) * per_element_size / sizeof(char),
-                              horovod_datatype,
-                              neighbor_rank,
-                              tag,
-                              (char*)(&recv_buffer[i+recvOffset]),
-                              std::min(chunk_size, myCount-i) * per_element_size / sizeof(char),
-                              horovod_datatype,
-                              neighbor_rank,
-                              tag,
-                              communicator);
+      this->PointToPointSendRecv((char*)(&grad_buffer[sendOffset]),
+                                 nghrCount * per_element_size,
+                                 (char*)(&recv_buffer[recvOffset]),
+                                 myCount * per_element_size,
+                                 horovod_datatype,
+                                 neighbor_rank,
+                                 tag,
+                                 communicator,
+                                 global_state);
       if ((rank & level) != 0) {
         grad_buffer = &grad_buffer[nghrCount];
         recv_buffer = &recv_buffer[nghrCount];
@@ -324,18 +305,15 @@ protected:
       } else {
         recv_buffer = &grad_buffer[-nghrCount];
       }
-      for (int i = 0; i < std::max(myCount, nghrCount); i += chunk_size)
-        this->PointToPointSendRecv((char*)(&grad_buffer[i]),
-                  std::min(chunk_size, myCount-i) * per_element_size / sizeof(char),
-                  horovod_datatype,
-                  neighbor_rank,
-                  tag,
-                  (char*)(&recv_buffer[i]),
-                  std::min(chunk_size, nghrCount-i) * per_element_size / sizeof(char),
-                  horovod_datatype,
-                  neighbor_rank,
-                  tag,
-                  communicator);
+      this->PointToPointSendRecv(grad_buffer,
+                                 myCount * per_element_size,
+                                 recv_buffer,
+                                 nghrCount * per_element_size,
+                                 horovod_datatype,
+                                 neighbor_rank,
+                                 tag,
+                                 communicator,
+                                 global_state);
       if ((rank & level) != 0) {
         grad_buffer = &grad_buffer[-nghrCount];
       }

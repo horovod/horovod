@@ -84,6 +84,7 @@ namespace common {
 #define HOROVOD_MPI "MPI"
 #define HOROVOD_MLSL "MLSL"
 #define HOROVOD_GLOO "GLOO"
+#define HOROVOD_ADASUM_MPI_CHUNK_SIZE "HOROVOD_ADASUM_MPI_CHUNK_SIZE"
 
 // String constant for gloo interface.
 #define GLOO_DEFAULT_IFACE "eth0"
