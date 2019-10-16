@@ -40,10 +40,9 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
   for (int rank : global_state_->controller->GetLocalCommRanks()) {
     nccl_device_map.push_back(response.devices()[rank]);
   }
-
+  InitCUDA(entries);
   InitNCCLComm(entries, nccl_device_map);
   InitCUDAQueue(entries, response);
-
   const void* fused_input_data;
   void* buffer_data;
   size_t buffer_len;

@@ -191,7 +191,10 @@ protected:
   // tag: a value used as the message tag for each send/recv in this algorithm. This is
   //      useful for multithreaded scenarios. Remember to also create separate
   //      reduction_comms instances when running with multiple threads.
-  // reduction_comms: TODO: Saeed please explain these.
+  // reduction_comms: pointer to an array of communicators for computing dot products and
+  //                  norms for Adasum. The communicators should include exactly the ranks
+  //                  that this rank has either directly or indirectly communicated with
+  //                  after each level of VHDD.
   template <typename T>
   void FusedAllreduce(std::vector<TensorTableEntry>& entries, 
                       T* grad_buffer,
@@ -211,7 +214,6 @@ protected:
       throw std::logic_error(
           "Running Adasum with non-power-of-two ranks is not supported yet.");
     }
-    
     std::vector<std::vector<int>> nghrCountVec;
     std::vector<double> normAndDots(tensor_counts.size()*3 * 2);
 

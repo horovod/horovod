@@ -32,6 +32,7 @@ from horovod.tensorflow.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_b
 from horovod.tensorflow.mpi_ops import gloo_enabled, gloo_built
 from horovod.tensorflow.mpi_ops import nccl_built, ddl_built, mlsl_built
 from horovod.tensorflow.mpi_ops import Average, Sum, Adasum
+from horovod.tensorflow.mpi_ops import has_gpu
 from horovod.tensorflow.mpi_ops import handle_average_backwards_compatibility
 
 from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache
@@ -94,12 +95,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             summed_tensor_compressed = _allreduce(tensor_compressed, op=true_op)
             summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
             if op == Adasum:
-                # TODO using tf.test.is_gpu_available will create a default tf session which includes all visible devices.
-                # This behavior will interfere with any sessions created before or after. Also it's not stable in tf 2.0. Using nvidia-smi for now.
-                # Need to find a better way to replace this logic.
-                import subprocess
-                get_num_gpus = lambda: str(subprocess.check_output(["nvidia-smi", "-L"])).count('UUID')
-                if (nccl_built() and 'CPU' not in tensor.device and get_num_gpus() > 0):
+                if (nccl_built() and 'CPU' not in tensor.device and has_gpu):
                     horovod_local_size = tf.cast(local_size(), dtype=tensor.dtype)
                     new_tensor = summed_tensor / horovod_local_size
                 else:
