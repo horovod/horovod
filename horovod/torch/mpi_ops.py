@@ -94,7 +94,7 @@ def _allreduce_async(tensor, output, name, op):
     # Set the divisor for reduced gradients to average when necessary
     if op == Average:
         divisor = size()
-    elif (op == Adasum and nccl_built() and tensor.device.type != 'cpu' and torch.cuda.is_available()):
+    elif (op == Adasum and nccl_built() and tensor.device.type != 'cpu' and _basics.has_gpu):
         divisor = local_size()
     else:
         divisor = 1

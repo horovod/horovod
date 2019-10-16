@@ -70,6 +70,8 @@ Average = _basics.Average
 Sum = _basics.Sum
 Adasum = _basics.Adasum
 
+has_gpu = _basics.has_gpu
+
 handle_average_backwards_compatibility = get_average_backwards_compatibility_fun(_basics)
 
 
