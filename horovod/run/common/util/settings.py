@@ -16,7 +16,7 @@
 
 class Settings(object):
 
-    def __init__(self, verbose=0, ssh_port=None, key=None, timeout=None,
+    def __init__(self, verbose=0, ssh_port=None, extra_mpi_args=None, key=None, timeout=None,
                  num_hosts=None, num_proc=None, hosts=None, output_filename=None,
                  command=None):
         """
@@ -24,6 +24,8 @@ class Settings(object):
         :type verbose: int
         :param ssh_port: SSH port on all the hosts
         :type ssh_port: int
+        :param extra_mpi_args: Extra MPI arguments to pass to mpirun
+        :type extra_mpi_args: string
         :param key: used for encryption of parameters passed across the hosts
         :type key: str
         :param timeout: has to finish all the checks before this timeout runs
@@ -42,6 +44,7 @@ class Settings(object):
         """
         self.verbose = verbose
         self.ssh_port = ssh_port
+        self.extra_mpi_args = extra_mpi_args
         self.key = key
         self.timeout = timeout
         self.num_hosts = num_hosts

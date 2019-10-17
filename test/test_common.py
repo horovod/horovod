@@ -49,7 +49,6 @@ class CommonTests(unittest.TestCase):
         """Test that TensorFLow support has been built."""
         available = extension_available('tensorflow')
         try:
-            import horovod.tensorflow
             self.assertTrue(available)
         except:
             self.assertFalse(available)
@@ -58,7 +57,6 @@ class CommonTests(unittest.TestCase):
         """Test that PyTorch support has been built."""
         available = extension_available('torch')
         try:
-            import horovod.torch
             self.assertTrue(available)
         except:
             self.assertFalse(available)
@@ -67,7 +65,6 @@ class CommonTests(unittest.TestCase):
         """Test that MXNet support has been built."""
         available = extension_available('mxnet')
         try:
-            import horovod.mxnet
             self.assertTrue(available)
         except:
             self.assertFalse(available)

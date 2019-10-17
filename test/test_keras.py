@@ -238,3 +238,17 @@ class KerasTests(tf.test.TestCase):
                 self.assertEqual(weights, new_weights)
             else:
                 self.assertListEqual(weights.tolist(), new_weights.tolist())
+
+    def test_from_config(self):
+        with self.test_session(config=self.config) as sess:
+            K.set_session(sess)
+
+            opt = keras.optimizers.Adam()
+            hopt = hvd.DistributedOptimizer(opt)
+            cfg = hopt.get_config()
+
+            hopt_copy1 = hopt.from_config(cfg)
+            self.assertEqual(cfg, hopt_copy1.get_config())
+
+            hopt_copy2 = hopt.__class__.from_config(cfg)
+            self.assertEqual(cfg, hopt_copy2.get_config())

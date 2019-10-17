@@ -234,7 +234,7 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command
                 '{local_command}'.format(
                     host=host_name,
                     ssh_port_arg=ssh_port_arg,
-                    local_command=quote('cd {pwd} >& /dev/null ; {local_command}'
+                    local_command=quote('cd {pwd} > /dev/null 2>&1 ; {local_command}'
                                         .format(pwd=os.getcwd(), local_command=local_command))
                 )
         args_list.append([command, alloc_info.rank, event])
