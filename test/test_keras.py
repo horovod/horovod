@@ -92,10 +92,7 @@ class KerasTests(tf.test.TestCase):
             self.assertEqual(type(new_opt).__module__, 'horovod._keras')
             self.assertEqual(type(new_opt).__name__, 'RMSprop')
             self.assertEqual(K.get_value(opt.lr), K.get_value(new_opt.lr))
-            self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))
-            for weights, new_weights in zip(opt.get_weights(),
-                                            new_opt.get_weights()):
-                self.assertListEqual(weights.tolist(), new_weights.tolist())
+            self._check_optimizer_weights(opt, new_opt)
 
     def test_load_model_custom_optimizers(self):
         class TestOptimizer(keras.optimizers.RMSprop):
@@ -131,11 +128,7 @@ class KerasTests(tf.test.TestCase):
 
             self.assertEqual(type(new_opt).__module__, 'horovod._keras')
             self.assertEqual(type(new_opt).__name__, 'TestOptimizer')
-            self.assertEqual(K.get_value(opt.lr), K.get_value(new_opt.lr))
-            self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))
-            for weights, new_weights in zip(opt.get_weights(),
-                                            new_opt.get_weights()):
-                self.assertListEqual(weights.tolist(), new_weights.tolist())
+            self._check_optimizer_weights(opt, new_opt)
 
     def test_load_model_custom_objects(self):
         class TestOptimizer(keras.optimizers.RMSprop):
@@ -175,10 +168,7 @@ class KerasTests(tf.test.TestCase):
             self.assertEqual(type(new_opt).__module__, 'horovod._keras')
             self.assertEqual(type(new_opt).__name__, 'TestOptimizer')
             self.assertEqual(K.get_value(opt.lr), K.get_value(new_opt.lr))
-            self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))
-            for weights, new_weights in zip(opt.get_weights(),
-                                            new_opt.get_weights()):
-                self.assertListEqual(weights.tolist(), new_weights.tolist())
+            self._check_optimizer_weights(opt, new_opt)
 
     def test_load_model_broadcast(self):
         def create_model():
@@ -239,3 +229,26 @@ class KerasTests(tf.test.TestCase):
                                 initial_epoch=1)
 
             self.assertEqual(len(model.optimizer.weights), 5)
+
+    def _check_optimizer_weights(self, opt, new_opt):
+        self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))
+        for weights, new_weights in zip(opt.get_weights(),
+                                        new_opt.get_weights()):
+            if np.isscalar(weights):
+                self.assertEqual(weights, new_weights)
+            else:
+                self.assertListEqual(weights.tolist(), new_weights.tolist())
+
+    def test_from_config(self):
+        with self.test_session(config=self.config) as sess:
+            K.set_session(sess)
+
+            opt = keras.optimizers.Adam()
+            hopt = hvd.DistributedOptimizer(opt)
+            cfg = hopt.get_config()
+
+            hopt_copy1 = hopt.from_config(cfg)
+            self.assertEqual(cfg, hopt_copy1.get_config())
+
+            hopt_copy2 = hopt.__class__.from_config(cfg)
+            self.assertEqual(cfg, hopt_copy2.get_config())

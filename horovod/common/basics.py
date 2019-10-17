@@ -40,10 +40,11 @@ class HorovodBasics(object):
         atexit.register(self.shutdown)
 
         if not isinstance(comm, list):
-            mpi_enabled = self.MPI_LIB_CTYPES.horovod_mpi_enabled()
-            if not bool(mpi_enabled):
+            mpi_built = self.MPI_LIB_CTYPES.horovod_mpi_built()
+            if not bool(mpi_built):
                 raise ValueError(
-                    'Horovod MPI is not enabled; Please make sure it\'s installed and enabled.')
+                    "Horovod has not been built with MPI support. Ensure MPI is installed and "
+                    "reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.")
 
             from mpi4py import MPI
             if MPI._sizeof(MPI.Comm) == ctypes.sizeof(ctypes.c_int):
