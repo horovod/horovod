@@ -30,6 +30,8 @@ class AdasumCudaAllreduceOp : public AdasumMPI, public NCCLAllreduce {
                         CUDAContext* cuda_context,
                         HorovodGlobalState* global_state);
 
+  ~AdasumCudaAllreduceOp();
+
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
@@ -44,6 +46,12 @@ class AdasumCudaAllreduceOp : public AdasumMPI, public NCCLAllreduce {
 
   Status NcclHierarchical(std::vector<TensorTableEntry>& entries,
                           const Response& response);
+  
+  // Get host buffer
+  uint8_t* GetHostBuffer(int buffer_length);
+
+  private:
+  int current_host_buffer_length;
 };
 } // namespace common
 } // namespace horovod

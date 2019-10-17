@@ -36,9 +36,36 @@ static bool IsPowerOfTwo(ulong x)
 template <typename Communicator_type>
 class Adasum {
 public:
-  Adasum() {};
+  Adasum(HorovodGlobalState* global_state) {
+    // Allocate receive buffer size equal to the fusion buffer length
+    current_recv_buffer_length = global_state->parameter_manager.TensorFusionThresholdBytes();
+    recv_buffer_ = (uint8_t*)malloc(current_recv_buffer_length);
+  };
 
+  ~Adasum() {
+    if(recv_buffer_ != nullptr) {
+      free(recv_buffer_);
+    }
+  }
 protected:
+  // Temp buffer used by Adasum operations
+  uint8_t* recv_buffer_ = nullptr;
+
+  // Get recv buffer
+  virtual uint8_t* GetRecvBuffer(int buffer_length) {
+    return CheckBufferAndReallocate(recv_buffer_, buffer_length, current_recv_buffer_length);
+  } 
+  
+  // Check buffer length and re-allocate if necessary
+  virtual uint8_t* CheckBufferAndReallocate(uint8_t* buffer, int buffer_length, int &current_length) {
+    if(buffer_length <= current_length) {
+      return buffer;
+    }
+    buffer = (uint8_t*)realloc(buffer, buffer_length);
+    current_length = buffer_length;
+    return buffer;
+  }
+
   // Communication primitives required for Adasum algorithm
   virtual void PointToPointSendRecv(void* input_data_buffer,
                                     int64_t input_buffer_length,
@@ -179,7 +206,6 @@ protected:
     std::vector<std::vector<int>> nghrCountVec;
     std::vector<double> normAndDots(tensor_counts.size()*3 * 2);
 
-    int chunk_size = (1 << 29);
     int nearest_power_2 = 1;
     for (nearest_power_2 = 1; (nearest_power_2 << 1) <= size;
         nearest_power_2 = (nearest_power_2 << 1)) {
@@ -276,8 +302,8 @@ protected:
         recv_buffer = &recv_buffer[nghrCount];
       }
       FusedPairwiseReduceWithComm(entries,
-                                  (char*)grad_buffer,
-                                  (char*)recv_buffer,
+                                  (uint8_t*)grad_buffer,
+                                  (uint8_t*)recv_buffer,
                                   horovod_datatype,
                                   tensor_counts,
                                   tag,
@@ -330,8 +356,8 @@ protected:
                                     HorovodGlobalState *global_state) = 0;
 
   void FusedPairwiseReduceWithComm(std::vector<TensorTableEntry>& entries,
-                                   char* a,
-                                   char* b,
+                                   uint8_t* a,
+                                   uint8_t* b,
                                    DataType horovod_datatype,
                                    std::vector<int>& tensor_counts,
                                    int layerid,
@@ -469,6 +495,8 @@ protected:
   }
 
 private:
+  // Keep track of current recv buffer length
+  int current_recv_buffer_length;
 
   // reduce 4xfloat64 into one double
   inline double Mm256ReductionPd(__m256d v) {

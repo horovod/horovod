@@ -27,7 +27,7 @@ namespace common {
 
 class AdasumMPI : public Adasum<MPI_Comm> {
 public:
-  AdasumMPI(MPIContext* mpi_context);
+  AdasumMPI(MPIContext* mpi_context, HorovodGlobalState* global_state);
   
   ~AdasumMPI();
   

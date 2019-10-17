@@ -17,8 +17,8 @@
 
 namespace horovod {
 namespace common {
-AdasumMPI::AdasumMPI(MPIContext* mpi_context)
-    : Adasum(), mpi_context_(mpi_context) {
+AdasumMPI::AdasumMPI(MPIContext* mpi_context, HorovodGlobalState* global_state)
+    : Adasum(global_state), mpi_context_(mpi_context) {
   {
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);

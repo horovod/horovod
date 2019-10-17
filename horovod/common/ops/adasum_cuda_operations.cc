@@ -19,14 +19,26 @@ namespace horovod {
 namespace common {
 
 AdasumCudaAllreduceOp::AdasumCudaAllreduceOp(MPIContext* mpi_context, NCCLContext* nccl_context, CUDAContext* cuda_context, HorovodGlobalState* global_state)
-    : NCCLAllreduce(nccl_context, cuda_context, global_state), AdasumMPI(mpi_context) {
+    : NCCLAllreduce(nccl_context, cuda_context, global_state), AdasumMPI(mpi_context, global_state) {
+    // Pre-allocate host buffer size equal to the fusion buffer length
+    current_host_buffer_length = global_state->parameter_manager.TensorFusionThresholdBytes();
+    host_buffer_ = (uint8_t*)malloc(current_host_buffer_length);
 }
 
+AdasumCudaAllreduceOp::~AdasumCudaAllreduceOp() {
+  if(host_buffer_ != nullptr) {
+    free(host_buffer_);
+  }
+}
 Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   if(entries.empty()) {
     return Status::OK();
   }
   return NcclHierarchical(entries, response);
+}
+
+uint8_t* AdasumCudaAllreduceOp::GetHostBuffer(int buffer_length) {
+  return CheckBufferAndReallocate((uint8_t*)host_buffer_, buffer_length, current_host_buffer_length);
 }
 
 Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
@@ -46,7 +58,7 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
   const void* fused_input_data;
   void* buffer_data;
   size_t buffer_len;
-
+  uint8_t* host_buffer;
   // Copy memory into the fusion buffer.
   if (entries.size() > 1) {
     MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
@@ -157,7 +169,7 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
   if (global_state_->controller->IsHomogeneous() || is_root_rank) {
     // cudaHostAlloc is significantly slower than malloc.  Pre-allocating
     // a buffer is not safe since the tensor can be arbitrarily large.
-    host_buffer_ = malloc(total_buffer_len);
+    host_buffer = GetHostBuffer(total_buffer_len);
 
     // Synchronize.
     cuda_context_->WaitForEvents(event_queue_, entries, timeline);
@@ -168,7 +180,7 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
     // memcpy (effectively) synchronously to generate an accurate timeline
     timeline.ActivityStartAll(entries, MEMCPY_IN_HOST_BUFFER);
     cuda_context_->ErrorCheck("cudaMemcpyAsync",
-                              cudaMemcpyAsync(host_buffer_, buffer_data_at_rank_offset,
+                              cudaMemcpyAsync((void*)host_buffer, buffer_data_at_rank_offset,
                                               total_buffer_len, cudaMemcpyDeviceToHost,
                                               *stream_));
                                               
@@ -214,9 +226,8 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
       }
     }
 
-    auto recv_buffer = std::unique_ptr<char[]>(new char[total_buffer_len]);
-
-    DispatchFusedAllreduce(entries, host_buffer_, recv_buffer.get(), tensor_counts,
+    auto recv_buffer = GetRecvBuffer(total_buffer_len);
+    DispatchFusedAllreduce(entries, (void*)host_buffer, (void*)recv_buffer, tensor_counts,
                           local_size, // start_level
                           global_state_->controller->IsHomogeneous() ?
                             MPI_COMM_WORLD :
@@ -229,7 +240,7 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
 
     timeline.ActivityStartAll(entries, MEMCPY_OUT_HOST_BUFFER);
     cuda_context_->ErrorCheck("cudaMemcpyAsync",
-                              cudaMemcpyAsync(buffer_data_at_rank_offset, host_buffer_,
+                              cudaMemcpyAsync(buffer_data_at_rank_offset, host_buffer,
                                               total_buffer_len, cudaMemcpyHostToDevice,
                                               *stream_));
     timeline.ActivityEndAll(entries);
@@ -265,7 +276,7 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
     }
   }
 
-  return FinalizeCUDAQueue(entries);
+  return FinalizeCUDAQueue(entries, false);
 }
 
 void AdasumCudaAllreduceOp::PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,

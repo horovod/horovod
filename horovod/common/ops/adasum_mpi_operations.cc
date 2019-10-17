@@ -18,7 +18,7 @@
 namespace horovod {
 namespace common {
 AdasumMPIAllreduceOp::AdasumMPIAllreduceOp(MPIContext* mpi_context, HorovodGlobalState* global_state)
-    : AllreduceOp(global_state), AdasumMPI(mpi_context) {}
+    : AllreduceOp(global_state), AdasumMPI(mpi_context, global_state) {}
 
 bool AdasumMPIAllreduceOp::Enabled(const ParameterManager& param_manager,
                            const std::vector<TensorTableEntry>& entries,
@@ -56,8 +56,9 @@ Status AdasumMPIAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, con
   for (auto& e : entries) {
     tensor_counts.push_back(e.tensor->shape().num_elements());
   }
-  std::unique_ptr<char[]> recv_buffer = std::unique_ptr<char[]>(new char[buffer_len]);
-  DispatchFusedAllreduce(entries, buffer_data, recv_buffer.get(), tensor_counts,
+
+  auto recv_buffer = GetRecvBuffer(buffer_len);
+  DispatchFusedAllreduce(entries, buffer_data, recv_buffer, tensor_counts,
                          1, // start_level
                          mpi_context_->GetMPICommunicator(Communicator::GLOBAL),
                          0, // tag
