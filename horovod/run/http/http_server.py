@@ -220,7 +220,6 @@ class KVStoreHTTPServer(BaseHTTPServer.HTTPServer, object):
 
 
 class KVStoreServer:
-
     def __init__(self, verbose):
         self.httpd = None
         self.listen_thread = None

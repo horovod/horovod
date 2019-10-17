@@ -14,7 +14,8 @@
 # =============================================================================
 import sys
 import base64
-if sys.version < '3':
+from distutils.version import LooseVersion
+if LooseVersion(sys.version) < LooseVersion('3.0.0'):
     from urllib2 import urlopen
     from urllib2 import Request
     from urllib2 import HTTPError, URLError

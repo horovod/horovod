@@ -24,6 +24,7 @@ import torch
 import traceback
 import unittest
 import warnings
+import pytest
 
 import horovod.torch as hvd
 
@@ -60,17 +61,11 @@ class InteractiveRunTests(unittest.TestCase):
             if rank == 1:
                 raise RuntimeError()
 
-        try:
+        with pytest.raises(RuntimeError, match='Gloo job detected that one or more processes exited'):
             run(fn, np=2, use_gloo=True)
-        except RuntimeError as e:
-            self.assertTrue('Gloo job detected that one or more processes exited' in e.args[0])
-        else:
-            self.fail('Expected error was not raised')
 
-        try:
+        with pytest.raises(RuntimeError, match='mpirun failed'):
             run(fn, np=2, use_mpi=True)
-        except RuntimeError as e:
-            self.assertTrue('mpirun failed' in e.args[0])
-        else:
-            self.fail('Expected error was not raised')
+
+
 

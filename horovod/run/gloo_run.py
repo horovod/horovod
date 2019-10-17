@@ -259,7 +259,7 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command
                                .format(name=name, code=exit_code))
 
 
-def gloo_run(settings, remote_host_names, common_intfs, env, server_ip):
+def gloo_run(settings, remote_host_names, common_intfs, env, server_ip, command):
     # allocate processes into slots
     host_alloc_plan = _allocate(settings.hosts, settings.num_proc)
 
@@ -282,7 +282,7 @@ def gloo_run(settings, remote_host_names, common_intfs, env, server_ip):
                 port=global_rendezv_port,
                 iface=iface,  # TODO: add multiple ifaces in future
                 common_intfs=','.join(common_intfs),
-                command=' '.join(quote(par) for par in settings.command)))
+                command=' '.join(quote(par) for par in command)))
 
     _launch_jobs(settings, env, host_alloc_plan, remote_host_names, run_command)
     return

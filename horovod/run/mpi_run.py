@@ -52,7 +52,7 @@ def _is_open_mpi_installed():
         return False
 
 
-def mpi_run(settings, common_intfs, env):
+def mpi_run(settings, common_intfs, env, command):
     if not _is_open_mpi_installed():
         raise Exception(
             'horovodrun convenience script does not find an installed OpenMPI.\n\n'
@@ -96,7 +96,7 @@ def mpi_run(settings, common_intfs, env):
                                     if settings.output_filename else '',
                 env=' '.join('-x %s' % key for key in env.keys()
                              if env_util.is_exportable(key)),
-                command=' '.join(quote(par) for par in settings.command))
+                command=' '.join(quote(par) for par in command))
     )
 
     if settings.verbose >= 2:
