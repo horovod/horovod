@@ -82,7 +82,7 @@ protected:
 
   void InitCUDAQueue(const std::vector<TensorTableEntry>& entries, const Response& response);
 
-  Status FinalizeCUDAQueue(const std::vector<TensorTableEntry>& entries);
+  Status FinalizeCUDAQueue(const std::vector<TensorTableEntry>& entries, bool free_host_buffer = true);
 
   // CUDA events are used as an alternative to host-device synchronization (which stalls the GPU pipeline)
   // for the purpose of recording timing on the Horovod timeline.
@@ -96,7 +96,7 @@ protected:
   std::queue<std::pair<std::string, cudaEvent_t>> event_queue_;
 
   cudaStream_t* stream_;
-  void* host_buffer_;
+  void* host_buffer_ = nullptr;
 
   struct CUDAContext* cuda_context_;
 };

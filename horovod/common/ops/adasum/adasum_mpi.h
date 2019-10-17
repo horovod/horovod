@@ -32,31 +32,15 @@ public:
   ~AdasumMPI();
   
 protected:
-  void PointToPointSend(void* input_data_buffer,
-                        int64_t buffer_length,
-                        DataType horovod_datatype,
-                        int dest_rank,
-                        int tag,
-                        MPI_Comm communicator) override;
-
-  void PointToPointRecv(void* output_data_buffer,
-                        int64_t buffer_length,
-                        DataType horovod_datatype,
-                        int src_rank,
-                        int tag,
-                        MPI_Comm communicator) override;
-
   void PointToPointSendRecv(void* input_data_buffer,
                             int64_t input_buffer_length,
-                            DataType input_horovod_datatype,
-                            int dst_rank,
-                            int send_tag,
                             void* output_data_buffer,
                             int64_t output_buffer_length,
-                            DataType output_horovod_datatype,
-                            int src_rank,
-                            int recv_tag,
-                            MPI_Comm communicator) override;
+                            DataType horovod_datatype,
+                            int dst_src_rank,
+                            int tag,
+                            MPI_Comm communicator,
+                            HorovodGlobalState* global_state) override;
 
   int GetLocalRankWithComm(MPI_Comm local_comm) override;
 

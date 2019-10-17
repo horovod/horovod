@@ -465,6 +465,12 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     state.parameter_manager.SetAutoTuning(true);
   }
 
+  // Set chunk size for MPI based Adasum allreduce algorithms
+  auto horovod_adasum_mpi_chunk_size = std::getenv(HOROVOD_ADASUM_MPI_CHUNK_SIZE);
+  if (horovod_adasum_mpi_chunk_size != nullptr) {
+    state.adasum_mpi_chunk_size = std::strtol(horovod_adasum_mpi_chunk_size, nullptr, 10);
+  }
+
   op_manager.reset(CreateOperationManager(state));
 
   // Signal that initialization is completed.

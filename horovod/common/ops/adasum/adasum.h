@@ -37,56 +37,45 @@ template <typename Communicator_type>
 class Adasum {
 public:
   Adasum(HorovodGlobalState* global_state) {
-    // Allocate buffer size equal to the fusion buffer length
+    // Allocate receive buffer size equal to the fusion buffer length
     current_recv_buffer_length = global_state->parameter_manager.TensorFusionThresholdBytes();
-    recv_buffer = (uint8_t*)malloc(current_recv_buffer_length);
+    recv_buffer_ = (uint8_t*)malloc(current_recv_buffer_length);
   };
 
   ~Adasum() {
-    if(recv_buffer != nullptr) {
-      free(recv_buffer);
+    if(recv_buffer_ != nullptr) {
+      free(recv_buffer_);
     }
   }
 protected:
   // Temp buffer used by Adasum operations
-  uint8_t* recv_buffer = nullptr;
+  uint8_t* recv_buffer_ = nullptr;
 
   // Get recv buffer
   virtual uint8_t* GetRecvBuffer(int buffer_length) {
-    if(buffer_length <= current_recv_buffer_length) {
-      return recv_buffer;
-    }
-    recv_buffer = (uint8_t*)realloc(recv_buffer, buffer_length);
-    current_recv_buffer_length = buffer_length;
-    return recv_buffer;
+    return CheckBufferAndReallocate(recv_buffer_, buffer_length, current_recv_buffer_length);
   } 
+  
+  // Check buffer length and re-allocate if necessary
+  virtual uint8_t* CheckBufferAndReallocate(uint8_t* buffer, int buffer_length, int &current_length) {
+    if(buffer_length <= current_length) {
+      return buffer;
+    }
+    buffer = (uint8_t*)realloc(buffer, buffer_length);
+    current_length = buffer_length;
+    return buffer;
+  }
 
   // Communication primitives required for Adasum algorithm
-  virtual void PointToPointSend(void* input_data_buffer,
-                                int64_t buffer_length,
-                                DataType horovod_datatype,
-                                int dest_rank,
-                                int tag,
-                                Communicator_type communicator) = 0;
-
-  virtual void PointToPointRecv(void* output_data_buffer,
-                                int64_t buffer_length,
-                                DataType horovod_datatype,
-                                int src_rank,
-                                int tag,
-                                Communicator_type communicator) = 0;
-
   virtual void PointToPointSendRecv(void* input_data_buffer,
                                     int64_t input_buffer_length,
-                                    DataType input_horovod_datatype,
-                                    int dst_rank,
-                                    int send_tag,
                                     void* output_data_buffer,
                                     int64_t output_buffer_length,
-                                    DataType output_horovod_datatype,
-                                    int src_rank,
-                                    int recv_tag,
-                                    Communicator_type communicator) = 0;
+                                    DataType horovod_datatype,
+                                    int dst_src_rank,
+                                    int tag,
+                                    Communicator_type communicator,
+                                    HorovodGlobalState* global_state) = 0;
 
   virtual int GetLocalRankWithComm(Communicator_type communicator) = 0;
 
@@ -300,18 +289,15 @@ protected:
 
       nghrCountVec_index++;
 
-      for (int i = 0; i < std::max(myCount, nghrCount); i += chunk_size)
-        this->PointToPointSendRecv((uint8_t*)(&grad_buffer[i+sendOffset]),
-                              std::min(chunk_size, nghrCount-i) * per_element_size / sizeof(uint8_t),
-                              horovod_datatype,
-                              neighbor_rank,
-                              tag,
-                              (uint8_t*)(&recv_buffer[i+recvOffset]),
-                              std::min(chunk_size, myCount-i) * per_element_size / sizeof(uint8_t),
-                              horovod_datatype,
-                              neighbor_rank,
-                              tag,
-                              communicator);
+      this->PointToPointSendRecv((char*)(&grad_buffer[sendOffset]),
+                                 nghrCount * per_element_size,
+                                 (char*)(&recv_buffer[recvOffset]),
+                                 myCount * per_element_size,
+                                 horovod_datatype,
+                                 neighbor_rank,
+                                 tag,
+                                 communicator,
+                                 global_state);
       if ((rank & level) != 0) {
         grad_buffer = &grad_buffer[nghrCount];
         recv_buffer = &recv_buffer[nghrCount];
@@ -346,18 +332,15 @@ protected:
       } else {
         recv_buffer = &grad_buffer[-nghrCount];
       }
-      for (int i = 0; i < std::max(myCount, nghrCount); i += chunk_size)
-        this->PointToPointSendRecv((uint8_t*)(&grad_buffer[i]),
-                  std::min(chunk_size, myCount-i) * per_element_size / sizeof(uint8_t),
-                  horovod_datatype,
-                  neighbor_rank,
-                  tag,
-                  (uint8_t*)(&recv_buffer[i]),
-                  std::min(chunk_size, nghrCount-i) * per_element_size / sizeof(uint8_t),
-                  horovod_datatype,
-                  neighbor_rank,
-                  tag,
-                  communicator);
+      this->PointToPointSendRecv(grad_buffer,
+                                 myCount * per_element_size,
+                                 recv_buffer,
+                                 nghrCount * per_element_size,
+                                 horovod_datatype,
+                                 neighbor_rank,
+                                 tag,
+                                 communicator,
+                                 global_state);
       if ((rank & level) != 0) {
         grad_buffer = &grad_buffer[-nghrCount];
       }
@@ -513,6 +496,7 @@ protected:
   }
 
 private:
+  // Keep track of current recv buffer length
   int current_recv_buffer_length;
 
   // reduce 4xfloat64 into one double

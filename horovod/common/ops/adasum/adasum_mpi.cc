@@ -98,79 +98,37 @@ void AdasumMPI::SumAllreduceWithComm(std::vector<TensorTableEntry>& entries,
   }
 }
 
-void AdasumMPI::PointToPointSend(void* input_data_buffer,
-                                   int64_t buffer_length,
-                                   DataType horovod_datatype,
-                                   int dest_rank,
-                                   int tag,
-                                   MPI_Comm communicator) {
-  int status;           
-  int element_size = GetPerElementSize(horovod_datatype);
-  int count = buffer_length / element_size;       
-  status = MPI_Send(input_data_buffer,
-                    count,
-                    mpi_context_->GetMPIDataType(horovod_datatype),
-                    dest_rank,
-                    tag,
-                    communicator);
-  if (status != MPI_SUCCESS) {
-    throw std::logic_error("MPI_Send failed, see MPI output for details.");
-  }
-}
-
-void AdasumMPI::PointToPointRecv(void* output_data_buffer,
-                                   int64_t buffer_length,
-                                   DataType horovod_datatype,
-                                   int src_rank,
-                                   int tag,
-                                   MPI_Comm communicator)
-{
-  int status;
-  int element_size = GetPerElementSize(horovod_datatype);
-  int count = buffer_length / element_size;
-  status = MPI_Recv(output_data_buffer,
-                    count,
-                    mpi_context_->GetMPIDataType(horovod_datatype),
-                    src_rank,
-                    tag,
-                    communicator,
-                    MPI_STATUS_IGNORE);
-
-  if (status != MPI_SUCCESS) {
-    throw std::logic_error("MPI_Recv failed, see MPI output for details.");
-  }
-}
 void AdasumMPI::PointToPointSendRecv(void* input_data_buffer,
-                                       int64_t input_buffer_length,
-                                       DataType input_horovod_datatype,
-                                       int dst_rank,
-                                       int send_tag,
-                                       void* output_data_buffer,
-                                       int64_t output_buffer_length,
-                                       DataType output_horovod_datatype,
-                                       int src_rank,
-                                       int recv_tag,
-                                       MPI_Comm communicator) {
+                                     int64_t input_buffer_length,
+                                     void* output_data_buffer,
+                                     int64_t output_buffer_length,
+                                     DataType horovod_datatype,
+                                     int dst_src_rank,
+                                     int tag,
+                                     MPI_Comm communicator,
+                                     HorovodGlobalState* global_state) {
   int status;       
-  int input_element_size = GetPerElementSize(input_horovod_datatype);
-  int output_element_size = GetPerElementSize(output_horovod_datatype);
-  int input_count = input_buffer_length / input_element_size;
-  int output_count = output_buffer_length / output_element_size;
+  int element_size = GetPerElementSize(horovod_datatype);
+  int input_count = input_buffer_length / element_size;
+  int output_count = output_buffer_length / element_size;
+  int chunk_count = std::max((int)(global_state->adasum_mpi_chunk_size / element_size), 1);
  
-  status = MPI_Sendrecv(input_data_buffer,
-                        input_count,
-                        mpi_context_->GetMPIDataType(input_horovod_datatype),
-                        dst_rank,
-                        send_tag,
-                        output_data_buffer,
-                        output_count,
-                        mpi_context_->GetMPIDataType(output_horovod_datatype), 
-                        src_rank,
-                        recv_tag,
-                        communicator,
-                        MPI_STATUS_IGNORE);
-  if (status != MPI_SUCCESS) {
-    throw std::logic_error("MPI_SendRecv failed, see MPI output for details.");
+  for (int i = 0; i < std::max(input_count, output_count); i += chunk_count) {
+    status = MPI_Sendrecv((char*)input_data_buffer + i*element_size,
+                          std::min(chunk_count, std::max(0, input_count-i)),
+                          mpi_context_->GetMPIDataType(horovod_datatype),
+                          dst_src_rank,
+                          tag,
+                          (char*)output_data_buffer + i*element_size,
+                          std::min(chunk_count, std::max(0, output_count-i)),
+                          mpi_context_->GetMPIDataType(horovod_datatype), 
+                          dst_src_rank,
+                          tag,
+                          communicator,
+                          MPI_STATUS_IGNORE);
+    if (status != MPI_SUCCESS) {
+      throw std::logic_error("MPI_SendRecv failed, see MPI output for details.");
+    }
   }
 }
 } // namespace common
