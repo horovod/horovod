@@ -35,7 +35,7 @@ def initialize(dtype=np.float16):
   global local_size
   global rank
   global data_type
-  device = torch.device('cuda')
+  device = torch.device('cuda:{}'.format(hvd.local_rank()))
   np.random.seed(2)
   torch.manual_seed(2)
   size = hvd.size()
@@ -143,13 +143,11 @@ def test_stability_2():
   dt_max = math.sqrt(np.finfo(data_type).max.astype(np.float64))
   a = np.random.normal(0, 1, (N, 1)).astype(np.float64)
   r = np.array([dt_max**(float(i+1)/float(size))*dt_min**(float(size-i-1)/float(size)) for i in range(size)]).reshape(size,1).astype(np.float64)
-  np.random.seed(0)
   np.random.shuffle(r)
   q = np.dot(a,r.T).astype(data_type).astype(np.float64)
   tensor = np.zeros(N,dtype=data_type)
   tensor[:] = q[:,hvd.rank()]
 
-  print('--> ', np.linalg.norm(tensor))
   tensor = torch.from_numpy(tensor).to(device)
 
   hvd.allreduce_(tensor, op=hvd.Adasum)
