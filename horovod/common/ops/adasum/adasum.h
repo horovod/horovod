@@ -48,24 +48,6 @@ public:
     }
   }
 protected:
-  // Temp buffer used by Adasum operations
-  uint8_t* recv_buffer_ = nullptr;
-
-  // Get recv buffer
-  virtual uint8_t* GetRecvBuffer(int buffer_length) {
-    return CheckBufferAndReallocate(&recv_buffer_, buffer_length, current_recv_buffer_length);
-  } 
-  
-  // Check buffer length and re-allocate if necessary
-  virtual uint8_t* CheckBufferAndReallocate(uint8_t** buffer, uint64_t buffer_length, uint64_t &current_length) {
-    if(buffer_length <= current_length) {
-      return *buffer;
-    }
-    *buffer = (uint8_t*)realloc(*buffer, buffer_length);
-    current_length = buffer_length;
-    return *buffer;
-  }
-
   // Communication primitives required for Adasum algorithm
   virtual void PointToPointSendRecv(void* input_data_buffer,
                                     int64_t input_buffer_length,
@@ -76,6 +58,13 @@ protected:
                                     int tag,
                                     Communicator_type communicator,
                                     HorovodGlobalState* global_state) = 0;
+
+  virtual void SumAllreduceWithComm(std::vector<TensorTableEntry>& entries,
+                                    void* data,
+                                    int num_elements,
+                                    DataType horovod_datatype,
+                                    Communicator_type comm,
+                                    HorovodGlobalState *global_state) = 0;
 
   virtual int GetLocalRankWithComm(Communicator_type communicator) = 0;
 
@@ -96,6 +85,31 @@ protected:
         default:
           throw std::logic_error("Unsupported data type.");
     }
+  }
+
+  void DispatchFusedAllreduce(std::vector<TensorTableEntry>& entries, 
+                              void* grad_buffer,
+                              void* recv_buffer,
+                              std::vector<int>& tensor_counts,
+                              int ranks_per_tensor,
+                              Communicator_type communicator,
+                              int tag,
+                              Communicator_type* reduction_comms,
+                              DataType data_type,
+                              HorovodGlobalState *global_state) {
+      switch(data_type) {
+          case DataType::HOROVOD_FLOAT16:
+            FusedAllreduce(entries, (uint16_t*)grad_buffer, (uint16_t*)recv_buffer, data_type, tensor_counts, ranks_per_tensor, communicator, tag, reduction_comms, global_state);
+            break;
+          case DataType::HOROVOD_FLOAT32:
+            FusedAllreduce(entries, (float*)grad_buffer, (float*)recv_buffer, data_type, tensor_counts, ranks_per_tensor, communicator, tag, reduction_comms, global_state);
+            break;
+          case DataType::HOROVOD_FLOAT64:
+            FusedAllreduce(entries, (double*)grad_buffer, (double*)recv_buffer, data_type, tensor_counts, ranks_per_tensor, communicator, tag, reduction_comms, global_state);
+            break;
+          default:
+            throw std::logic_error("Unsupported data type");
+      }
   }
 
   virtual void DispatchComputeDotAndNormSqrds(const void* __restrict__  a,
@@ -120,20 +134,6 @@ protected:
     }
   }
   
-  // Given two vectors compute their dot product and the squared norm for each.
-  template<typename T>
-  void ComputeDotAndNormSqrds(const T* __restrict__  a, const T* __restrict__ b, int count, double& dotProduct, double& anormsq, double& bnormsq, int layerid) {
-      dotProduct = 0.;
-      anormsq = 0.;
-      bnormsq = 0.;
-
-      for (int i = 0; i < count; i++) {
-          dotProduct += a[i] * b[i];
-          anormsq += a[i] * a[i];
-          bnormsq += b[i] * b[i];
-      }
-  }
-  
   virtual void DispatchScaledAdd(DataType horovod_datatype,
                                  int count,
                                  double acoeff,
@@ -154,15 +154,29 @@ protected:
         throw std::logic_error("Unsupported data type.");
     }
   }
+
+  // Get recv buffer
+  uint8_t* GetRecvBuffer(int buffer_length) {
+    return CheckBufferAndReallocate(&recv_buffer_, buffer_length, current_recv_buffer_length);
+  } 
   
-  // Update a vector to a linear combination of itself and another vector.
-  template<typename T>
-  void ScaledAdd(int n, double acoeff, T* __restrict__ a, double bcoeff, T* __restrict__ b, int layerid) {
-    for (int i = 0; i < n; i++) {
-        a[i] = acoeff * a[i] + bcoeff * b[i];
+  // Check buffer length and re-allocate if necessary
+  virtual uint8_t* CheckBufferAndReallocate(uint8_t** buffer, uint64_t buffer_length, uint64_t &current_length) {
+    if(buffer_length <= current_length) {
+      return *buffer;
     }
+    *buffer = (uint8_t*)realloc(*buffer, buffer_length);
+    current_length = buffer_length;
+    return *buffer;
   }
-  
+
+private:
+  // Temp buffer used by Adasum operations
+  uint8_t* recv_buffer_ = nullptr;
+
+  // Keep track of current recv buffer length
+  uint64_t current_recv_buffer_length;
+
   // Perform Adasum allreduce using a vector-halving, distance-doubling (VHDD) approach.
   // grad_buffer: holds the data to reduce and will hold the result.
   // recv_buffer: must point to a buffer of the same size as grad_buffer.
@@ -411,32 +425,28 @@ protected:
     }
   }
 
-  void DispatchFusedAllreduce(std::vector<TensorTableEntry>& entries, 
-                              void* grad_buffer,
-                              void* recv_buffer,
-                              std::vector<int>& tensor_counts,
-                              int start_level,
-                              Communicator_type communicator,
-                              int tag,
-                              Communicator_type* reduction_comms,
-                              DataType data_type,
-                              HorovodGlobalState *global_state) {
-      switch(data_type) {
-          case DataType::HOROVOD_FLOAT16:
-            FusedAllreduce(entries, (uint16_t*)grad_buffer, (uint16_t*)recv_buffer, data_type, tensor_counts, start_level, communicator, tag, reduction_comms, global_state);
-            break;
-          case DataType::HOROVOD_FLOAT32:
-            FusedAllreduce(entries, (float*)grad_buffer, (float*)recv_buffer, data_type, tensor_counts, start_level, communicator, tag, reduction_comms, global_state);
-            break;
-          case DataType::HOROVOD_FLOAT64:
-            FusedAllreduce(entries, (double*)grad_buffer, (double*)recv_buffer, data_type, tensor_counts, start_level, communicator, tag, reduction_comms, global_state);
-            break;
-          default:
-            throw std::logic_error("Unsupported data type");
+  // Given two vectors compute their dot product and the squared norm for each.
+  template<typename T>
+  void ComputeDotAndNormSqrds(const T* __restrict__  a, const T* __restrict__ b, int count, double& dotProduct, double& anormsq, double& bnormsq, int layerid) {
+      dotProduct = 0.;
+      anormsq = 0.;
+      bnormsq = 0.;
+
+      for (int i = 0; i < count; i++) {
+          dotProduct += a[i] * b[i];
+          anormsq += a[i] * a[i];
+          bnormsq += b[i] * b[i];
       }
   }
 
-  // over-write ComputeDotAndNormSqrds for float16
+  // Update a vector to a linear combination of itself and another vector.
+  template<typename T>
+  void ScaledAdd(int n, double acoeff, T* __restrict__ a, double bcoeff, T* __restrict__ b, int layerid) {
+    for (int i = 0; i < n; i++) {
+        a[i] = acoeff * a[i] + bcoeff * b[i];
+    }
+  }
+
   inline void ComputeDotAndNormSqrdsfp16(const uint16_t* __restrict__ a, const uint16_t* __restrict__ b, int len, double& dotProduct, double& anormsq, double& bnormsq, int layerid) {
       int i;
       __m256d dotProductVec = _mm256_setzero_pd();
@@ -493,10 +503,6 @@ protected:
           MmStorePhPartial(&a[i], _mm256_fmadd_ps(bcoeffVec, bVec, aVec), len - i);
       }
   }
-
-private:
-  // Keep track of current recv buffer length
-  uint64_t current_recv_buffer_length;
 
   // reduce 4xfloat64 into one double
   inline double Mm256ReductionPd(__m256d v) {
