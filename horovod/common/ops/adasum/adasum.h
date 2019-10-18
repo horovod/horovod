@@ -91,7 +91,7 @@ protected:
                               void* grad_buffer,
                               void* recv_buffer,
                               std::vector<int>& tensor_counts,
-                              int ranks_per_tensor,
+                              int start_level,
                               Communicator_type communicator,
                               int tag,
                               Communicator_type* reduction_comms,
@@ -99,13 +99,13 @@ protected:
                               HorovodGlobalState *global_state) {
       switch(data_type) {
           case DataType::HOROVOD_FLOAT16:
-            FusedAllreduce(entries, (uint16_t*)grad_buffer, (uint16_t*)recv_buffer, data_type, tensor_counts, ranks_per_tensor, communicator, tag, reduction_comms, global_state);
+            FusedAllreduce(entries, (uint16_t*)grad_buffer, (uint16_t*)recv_buffer, data_type, tensor_counts, start_level, communicator, tag, reduction_comms, global_state);
             break;
           case DataType::HOROVOD_FLOAT32:
-            FusedAllreduce(entries, (float*)grad_buffer, (float*)recv_buffer, data_type, tensor_counts, ranks_per_tensor, communicator, tag, reduction_comms, global_state);
+            FusedAllreduce(entries, (float*)grad_buffer, (float*)recv_buffer, data_type, tensor_counts, start_level, communicator, tag, reduction_comms, global_state);
             break;
           case DataType::HOROVOD_FLOAT64:
-            FusedAllreduce(entries, (double*)grad_buffer, (double*)recv_buffer, data_type, tensor_counts, ranks_per_tensor, communicator, tag, reduction_comms, global_state);
+            FusedAllreduce(entries, (double*)grad_buffer, (double*)recv_buffer, data_type, tensor_counts, start_level, communicator, tag, reduction_comms, global_state);
             break;
           default:
             throw std::logic_error("Unsupported data type");
