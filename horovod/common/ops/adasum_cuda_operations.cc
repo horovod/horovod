@@ -37,8 +37,8 @@ Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, co
   return NcclHierarchical(entries, response);
 }
 
-uint8_t* AdasumCudaAllreduceOp::GetHostBuffer(int buffer_length) {
-  return CheckBufferAndReallocate((uint8_t*)host_buffer_, buffer_length, current_host_buffer_length);
+uint8_t* AdasumCudaAllreduceOp::GetHostBuffer(uint64_t buffer_length) {
+  return CheckBufferAndReallocate((uint8_t**)&host_buffer_, buffer_length, current_host_buffer_length);
 }
 
 Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
@@ -169,8 +169,7 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
   if (global_state_->controller->IsHomogeneous() || is_root_rank) {
     // cudaHostAlloc is significantly slower than malloc.  Pre-allocating
     // a buffer is not safe since the tensor can be arbitrarily large.
-    host_buffer = GetHostBuffer(total_buffer_len);
-
+    host_buffer = GetHostBuffer((uint64_t)total_buffer_len);
     // Synchronize.
     cuda_context_->WaitForEvents(event_queue_, entries, timeline);
 
@@ -180,7 +179,7 @@ Status AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& en
     // memcpy (effectively) synchronously to generate an accurate timeline
     timeline.ActivityStartAll(entries, MEMCPY_IN_HOST_BUFFER);
     cuda_context_->ErrorCheck("cudaMemcpyAsync",
-                              cudaMemcpyAsync((void*)host_buffer, buffer_data_at_rank_offset,
+                              cudaMemcpyAsync(host_buffer, buffer_data_at_rank_offset,
                                               total_buffer_len, cudaMemcpyDeviceToHost,
                                               *stream_));
                                               

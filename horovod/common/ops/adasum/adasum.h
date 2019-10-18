@@ -53,17 +53,17 @@ protected:
 
   // Get recv buffer
   virtual uint8_t* GetRecvBuffer(int buffer_length) {
-    return CheckBufferAndReallocate(recv_buffer_, buffer_length, current_recv_buffer_length);
+    return CheckBufferAndReallocate(&recv_buffer_, buffer_length, current_recv_buffer_length);
   } 
   
   // Check buffer length and re-allocate if necessary
-  virtual uint8_t* CheckBufferAndReallocate(uint8_t* buffer, int buffer_length, int &current_length) {
+  virtual uint8_t* CheckBufferAndReallocate(uint8_t** buffer, uint64_t buffer_length, uint64_t &current_length) {
     if(buffer_length <= current_length) {
-      return buffer;
+      return *buffer;
     }
-    buffer = (uint8_t*)realloc(buffer, buffer_length);
+    *buffer = (uint8_t*)realloc(*buffer, buffer_length);
     current_length = buffer_length;
-    return buffer;
+    return *buffer;
   }
 
   // Communication primitives required for Adasum algorithm
@@ -496,7 +496,7 @@ protected:
 
 private:
   // Keep track of current recv buffer length
-  int current_recv_buffer_length;
+  uint64_t current_recv_buffer_length;
 
   // reduce 4xfloat64 into one double
   inline double Mm256ReductionPd(__m256d v) {

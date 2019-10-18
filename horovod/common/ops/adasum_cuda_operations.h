@@ -48,10 +48,10 @@ class AdasumCudaAllreduceOp : public AdasumMPI, public NCCLAllreduce {
                           const Response& response);
   
   // Get host buffer
-  uint8_t* GetHostBuffer(int buffer_length);
+  uint8_t* GetHostBuffer(uint64_t buffer_length);
 
   private:
-  int current_host_buffer_length;
+  uint64_t current_host_buffer_length;
 };
 } // namespace common
 } // namespace horovod
