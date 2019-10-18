@@ -129,9 +129,9 @@ protected:
       bnormsq = 0.;
 
       for (int i = 0; i < count; i++) {
-          dotProduct += a[i] * b[i];
-          anormsq += a[i] * a[i];
-          bnormsq += b[i] * b[i];
+          dotProduct += (double)a[i] * (double)b[i];
+          anormsq += (double)a[i] * (double)a[i];
+          bnormsq += (double)b[i] * (double)b[i];
       }
   }
   
@@ -403,7 +403,6 @@ protected:
 
       double acoeff = 1;
       double bcoeff = 1;
-      printf("%e,%e,%e\n", anormsq,bnormsq, sqrt_double_min);
       if (anormsq >= sqrt_double_min){
         acoeff = 1.0 - dotProduct / anormsq * 0.5;
 			}

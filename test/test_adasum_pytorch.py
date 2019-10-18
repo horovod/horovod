@@ -19,6 +19,7 @@ import numpy as np
 import time
 from horovod.torch.mpi_ops import synchronize
 import os
+import math
 
 device = None
 size = 0
@@ -27,7 +28,7 @@ rank = 0
 
 data_type = None
 
-def initialize(dtype=np.float32):
+def initialize(dtype=np.float16):
   hvd.init()
   global device
   global size
@@ -59,8 +60,8 @@ def test_orthogonal(denominator):
   for N in all_Ns:
     a = np.random.normal(0, 1, (N,size)).astype(np.float64)
     q, r = np.linalg.qr(a)
-    all_qs.append(q)
     q = q.astype(data_type)
+    all_qs.append(q.astype(np.float64))
     tensors.append(q[:,hvd.rank()])
 
   tensors = list(map(lambda x: torch.from_numpy(x).to(device), tensors))
@@ -92,8 +93,8 @@ def test_parallel():
     a = np.random.normal(0, 1, (N, 1)).astype(np.float64)
     r = np.random.normal(0, 1, (size, 1)).astype(np.float64)
     q = np.dot(a,r.T)
-    all_qs.append(q)
     q = q.astype(data_type)
+    all_qs.append(q.astype(np.float64))
     tensors.append(q[:,hvd.rank()])
 
   tensors = list(map(lambda x: torch.from_numpy(x).to(device), tensors))
@@ -120,7 +121,7 @@ def test_stability():
   N = 1024
   a = np.random.normal(0, np.finfo(data_type).tiny, (N, 1)).astype(np.float64)
   r = np.random.normal(0, 1, (size, 1)).astype(np.float64)
-  q = np.dot(a,r.T)
+  q = np.dot(a,r.T).astype(data_type).astype(np.float64)
   tensor = np.zeros(N,dtype=data_type)
   tensor[:] = q[:,hvd.rank()]
 
@@ -137,9 +138,36 @@ def test_stability():
     print('expected: ', expected)
     print('off by: ', diff_ratio(expected,tensor.cpu().numpy()))
 
+def test_stability_2():
+  N = 1024
+  dt_min = np.finfo(data_type).tiny.astype(np.float64)
+  dt_max = math.sqrt(np.finfo(data_type).max.astype(np.float64))
+  a = np.random.normal(0, 1, (N, 1)).astype(np.float64)
+  r = np.array([dt_max**(float(i+1)/float(size))*dt_min**(float(size-i-1)/float(size)) for i in range(size)]).reshape(size,1).astype(np.float64)
+  np.random.seed(0)
+  np.random.shuffle(r)
+  q = np.dot(a,r.T).astype(data_type).astype(np.float64)
+  tensor = np.zeros(N,dtype=data_type)
+  tensor[:] = q[:,hvd.rank()]
+
+  print('--> ', np.linalg.norm(tensor))
+  tensor = torch.from_numpy(tensor).to(device)
+
+  hvd.allreduce_(tensor, op=hvd.Adasum)
+
+  expected = np.sum(q,axis=1) / size
+  comp = are_close(expected, tensor.cpu().numpy()) 
+  if comp:
+    print('Stability 2 test passed')
+  else:
+    print('computed: ', tensor)
+    print('expected: ', expected)
+    print('off by: ', diff_ratio(expected,tensor.cpu().numpy()))
+
  
 if __name__ == '__main__':
   initialize()
   test_orthogonal(local_size)
   test_parallel()
   test_stability()
+  test_stability_2()
