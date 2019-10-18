@@ -363,13 +363,6 @@ private:
     size = orgSize;
   }
 
-  virtual void SumAllreduceWithComm(std::vector<TensorTableEntry>& entries,
-                                    void* data,
-                                    int num_elements,
-                                    DataType horovod_datatype,
-                                    Communicator_type comm,
-                                    HorovodGlobalState *global_state) = 0;
-
   void FusedPairwiseReduceWithComm(std::vector<TensorTableEntry>& entries,
                                    uint8_t* a,
                                    uint8_t* b,
