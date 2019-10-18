@@ -19,6 +19,7 @@ import numpy as np
 import time
 from horovod.torch.mpi_ops import synchronize
 import os
+import math
 
 device = None
 size = 0
@@ -27,7 +28,7 @@ rank = 0
 
 data_type = None
 
-def initialize(dtype=np.float32):
+def initialize(dtype=np.float16):
   hvd.init()
   global device
   global size
@@ -35,7 +36,6 @@ def initialize(dtype=np.float32):
   global rank
   global data_type
   device = torch.device('cuda:{}'.format(hvd.local_rank()))
-  torch.cuda.set_device(device)
   np.random.seed(2)
   torch.manual_seed(2)
   size = hvd.size()
@@ -43,16 +43,24 @@ def initialize(dtype=np.float32):
   rank = hvd.rank()
 
   data_type = dtype
+
+def diff_ratio(true_vec, comp_vec):
+  norm_diff = np.linalg.norm(true_vec-comp_vec)
+  norm_true = np.linalg.norm(true_vec)
+  return norm_diff/norm_true/100.
+
+def are_close(true_vec, comp_vec):
+  return diff_ratio(true_vec, comp_vec) < np.finfo(data_type).eps
   
 def test_orthogonal(denominator):
-  all_Ns = [size*20 - 17, size*2+1, size+2]
+  all_Ns = [size*20 - 17, size*2+1, size+2, 2**19]
   tensors = []
   all_qs = []
   for N in all_Ns:
     a = np.random.normal(0, 1, (N,size)).astype(np.float64)
     q, r = np.linalg.qr(a)
     q = q.astype(data_type)
-    all_qs.append(q)
+    all_qs.append(q.astype(np.float64))
     tensors.append(q[:,hvd.rank()])
 
   tensors = list(map(lambda x: torch.from_numpy(x).to(device), tensors))
@@ -65,7 +73,7 @@ def test_orthogonal(denominator):
   reduced_tensors = [synchronize(h) for h in handles]
 
   expected = [np.sum(q,axis=1) / denominator for q in all_qs]
-  all_comp = [np.alltrue(np.isclose(e, rt.cpu().numpy())) for e,rt in zip(expected,reduced_tensors)]
+  all_comp = [are_close(e, rt.cpu().numpy()) for e,rt in zip(expected,reduced_tensors)]
   if np.alltrue(all_comp):
     print('Orthogonal test passed')
   else:
@@ -73,10 +81,11 @@ def test_orthogonal(denominator):
       if c == False:
         print('computed: ', rt)
         print('expected: ', e)
-        print(np.isclose(e, rt.cpu().numpy()))
+        print('off by: ', diff_ratio(e,rt.cpu().numpy()))
+  
   
 def test_parallel():
-  all_Ns = [size*20 - 13, size*2+1, size+2]
+  all_Ns = [size*20 - 13, size*2+1, size+2, 2**19]
   tensors = []
   all_qs = []
   for N in all_Ns:
@@ -84,7 +93,7 @@ def test_parallel():
     r = np.random.normal(0, 1, (size, 1)).astype(np.float64)
     q = np.dot(a,r.T)
     q = q.astype(data_type)
-    all_qs.append(q)
+    all_qs.append(q.astype(np.float64))
     tensors.append(q[:,hvd.rank()])
 
   tensors = list(map(lambda x: torch.from_numpy(x).to(device), tensors))
@@ -97,7 +106,7 @@ def test_parallel():
   reduced_tensors = [synchronize(h) for h in handles]
 
   expected = [np.sum(q,axis=1) / size for q in all_qs]
-  all_comp = [np.alltrue(np.isclose(e, rt.cpu().numpy())) for e,rt in zip(expected,reduced_tensors)]
+  all_comp = [are_close(e, rt.cpu().numpy()) for e,rt in zip(expected,reduced_tensors)]
   if np.alltrue(all_comp):
     print('Parallel test passed')
   else:
@@ -105,9 +114,57 @@ def test_parallel():
       if c == False:
         print('computed: ', rt)
         print('expected: ', e)
-        print(np.isclose(e, rt.cpu().numpy()))
-  
+        print('off by: ', diff_ratio(e,rt.cpu().numpy()))
+ 
+def test_stability():
+  N = 1024
+  a = np.random.normal(0, np.finfo(data_type).tiny, (N, 1)).astype(np.float64)
+  r = np.random.normal(0, 1, (size, 1)).astype(np.float64)
+  q = np.dot(a,r.T).astype(data_type).astype(np.float64)
+  tensor = np.zeros(N,dtype=data_type)
+  tensor[:] = q[:,hvd.rank()]
+
+  tensor = torch.from_numpy(tensor).to(device)
+
+  hvd.allreduce_(tensor, op=hvd.Adasum)
+
+  expected = np.sum(q,axis=1) / size
+  comp = are_close(expected, tensor.cpu().numpy()) 
+  if comp:
+    print('Stability test passed')
+  else:
+    print('computed: ', tensor)
+    print('expected: ', expected)
+    print('off by: ', diff_ratio(expected,tensor.cpu().numpy()))
+
+def test_stability_2():
+  N = 1024
+  dt_min = np.finfo(data_type).tiny.astype(np.float64)
+  dt_max = math.sqrt(np.finfo(data_type).max.astype(np.float64))
+  a = np.random.normal(0, 1, (N, 1)).astype(np.float64)
+  r = np.array([dt_max**(float(i+1)/float(size))*dt_min**(float(size-i-1)/float(size)) for i in range(size)]).reshape(size,1).astype(np.float64)
+  np.random.shuffle(r)
+  q = np.dot(a,r.T).astype(data_type).astype(np.float64)
+  tensor = np.zeros(N,dtype=data_type)
+  tensor[:] = q[:,hvd.rank()]
+
+  tensor = torch.from_numpy(tensor).to(device)
+
+  hvd.allreduce_(tensor, op=hvd.Adasum)
+
+  expected = np.sum(q,axis=1) / size
+  comp = are_close(expected, tensor.cpu().numpy()) 
+  if comp:
+    print('Stability 2 test passed')
+  else:
+    print('computed: ', tensor)
+    print('expected: ', expected)
+    print('off by: ', diff_ratio(expected,tensor.cpu().numpy()))
+
+ 
 if __name__ == '__main__':
   initialize()
   test_orthogonal(local_size)
   test_parallel()
+  test_stability()
+  test_stability_2()
