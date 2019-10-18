@@ -19,6 +19,7 @@
 #include <cstring>
 #include <immintrin.h>
 #include <emmintrin.h>
+#include <float.h>
 
 #include "../../common.h"
 #include "../../global_state.h"
@@ -365,6 +366,7 @@ protected:
                                    bool isLeftNeighbor,
                                    std::vector<double>& normAndDots,
                                    HorovodGlobalState *global_state) {
+    static double sqrt_double_min = std::sqrt(DBL_MIN);
     int per_element_size = GetPerElementSize(horovod_datatype);
     int bytesSoFar = 0;
     for (size_t i = 0; i < tensor_counts.size(); i++){
@@ -401,10 +403,13 @@ protected:
 
       double acoeff = 1;
       double bcoeff = 1;
-      if (anormsq >= 1e-8)
+      printf("%e,%e,%e\n", anormsq,bnormsq, sqrt_double_min);
+      if (anormsq >= sqrt_double_min){
         acoeff = 1.0 - dotProduct / anormsq * 0.5;
-      if (bnormsq >= 1e-8)
+			}
+      if (bnormsq >= sqrt_double_min){
         bcoeff = 1.0 - dotProduct / bnormsq * 0.5;
+			}
 
       DispatchScaledAdd(horovod_datatype, tensor_counts[i], acoeff, &a[bytesSoFar], bcoeff, &b[bytesSoFar], layerid);
       bytesSoFar += tensor_counts[i] * per_element_size;
