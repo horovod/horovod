@@ -803,10 +803,12 @@ def _run(args):
 
         try:
             _launch_job(args, remote_host_names, settings, common_intfs, command)
-            pickled_result = read_data_from_kvstore(driver_ip, run_func_server_port,
-                                                    'runfunc', 'result')
-            result = cloudpickle.loads(pickled_result)
-            return result
+            results = [None] * args.np
+            for i in range(args.np):
+                pickled_result = read_data_from_kvstore(driver_ip, run_func_server_port,
+                                                        'runfunc_result', str(i))
+                results[i] = cloudpickle.loads(pickled_result)
+            return results
         finally:
             run_func_server.shutdown_server()
     else:
