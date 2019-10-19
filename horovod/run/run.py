@@ -865,9 +865,8 @@ def run(
     """
     Launch a Horovod job to run the specified process function and get the return value.
 
-    :param func: The function to be run in Horovod job processes.
-                 If the function is run in rank 0 process, it should return the job result,
-                 otherwise it should return None.
+    :param func: The function to be run in Horovod job processes. The function return value will
+                 be collected as the corresponding Horovod process return value.
     :param args: Arguments to pass to `func`.
     :param kwargs: Keyword arguments to pass to `func`.
     :param np: Number of Horovod processes.
@@ -900,7 +899,8 @@ def run(
     :param use_mpi: Run Horovod using the MPI controller. This will
                     be the default if Horovod was built with MPI support.
 
-    :return: Return the value which rank 0 Horovod process returned. See the doc of argument `func`.
+    :return: Return a list which contains values return by all Horovod processes.
+             The index of the list corresponds to the rank of each Horovod process.
     """
 
     def wrapped_func():

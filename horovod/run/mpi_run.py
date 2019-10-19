@@ -24,6 +24,8 @@ from horovod.run.common.util import env as env_util, safe_shell_exec, secret, co
 _OMPI_FLAGS = ['-mca pml ob1', '-mca btl ^openib']
 # Spectrum MPI Flags
 _SMPI_FLAGS = ['-gpu', '-disable_gdr']
+# MPICH Flags
+_MPICH_FLAGS = []
 
 try:
     from shlex import quote
@@ -49,7 +51,9 @@ def _get_mpi_implementation_flags():
             return list(_OMPI_FLAGS)
         elif 'IBM Spectrum MPI' in output_msg:
             return list(_SMPI_FLAGS)
-        print('Open MPI/Spectrum MPI not found in output of mpirun --version.',
+        elif 'MPICH' in output_msg:
+            return list(_MPICH_FLAGS)
+        print('Open MPI/Spectrum MPI/MPICH not found in output of mpirun --version.',
               file=sys.stderr)
         return None
     else:
@@ -62,9 +66,9 @@ def mpi_run(settings, common_intfs, env, command):
     mpi_impl_flags = _get_mpi_implementation_flags()
     if mpi_impl_flags is None:
         raise Exception(
-            'horovodrun convenience script does not find an installed OpenMPI.\n\n'
+            'horovodrun convenience script does not find an installed MPI.\n\n'
             'Choose one of:\n'
-            '1. Install Open MPI 4.0.0+ or IBM Spectrum MPI and re-install Horovod '
+            '1. Install Open MPI 4.0.0+ or IBM Spectrum MPI or MPICH and re-install Horovod '
             '(use --no-cache-dir pip option).\n'
             '2. Run distributed '
             'training script using the standard way provided by your'
