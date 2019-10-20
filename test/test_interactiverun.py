@@ -46,8 +46,10 @@ class InteractiveRunTests(unittest.TestCase):
             res = hvd.allgather(torch.tensor([rank, v])).tolist()
             if rank == 0:
                 return res
+            elif rank == 1:
+                return "ret_val_of_rank_1"
             else:
-                return "ret_val_of_rank_" + str(rank)
+                return None
 
         for use_gloo, use_mpi in [(True, False), (False, True)]:
             res1 = run(fn, (1, 20), {"c": 300, "d": 4000}, np=1, use_gloo=use_gloo, use_mpi=use_mpi)
@@ -55,7 +57,7 @@ class InteractiveRunTests(unittest.TestCase):
             res2 = run(fn, (1, 20), {"c": 300, "d": 4000}, np=3, use_gloo=use_gloo, use_mpi=use_mpi)
             self.assertListEqual([[0, 4321, 1, 4321, 2, 4321],
                                   "ret_val_of_rank_1",
-                                  "ret_val_of_rank_2"], res2)
+                                  None], res2)
 
     def test_failed_run(self):
 
