@@ -123,9 +123,15 @@ def mpi_run(settings, common_intfs, env, command):
 
     # Execute the mpirun command.
     if settings.run_func_mode:
-        exit_code = safe_shell_exec.execute(mpirun_command, env=env)
+        from io import StringIO
+        mpi_stdout = StringIO()
+        mpi_stderr = StringIO()
+        exit_code = safe_shell_exec.execute(mpirun_command, env=env, stdout=mpi_stdout, stderr=mpi_stderr)
         if exit_code != 0:
-            raise RuntimeError("mpirun failed with exit code {exit_code}".format(exit_code=exit_code))
+            raise RuntimeError("mpirun failed with exit code {exit_code}, stdout\n{stdout}\n, stderr\n{stderr}\n"
+                               .format(exit_code=exit_code,
+                                       stdout=mpi_stdout.getvalue(),
+                                       stderr=mpi_stderr.getvalue()))
     else:
         os.execve('/bin/sh', ['/bin/sh', '-c', mpirun_command], env)
 
