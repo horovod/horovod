@@ -1,9 +1,8 @@
 FROM ubuntu:18.04
 
-# TensorFlow version is tightly coupled to CUDA and cuDNN so it should be selected carefully
 ENV TENSORFLOW_VERSION=2.0.0
 ENV PYTORCH_VERSION=1.3.0
-ENV TORCHVISION_VERSION=0.4.0
+ENV TORCHVISION_VERSION=0.4.1
 ENV MXNET_VERSION=1.5.0
 
 # Python 2.7 or 3.6 is supported by Ubuntu Bionic out of the box
