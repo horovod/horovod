@@ -242,8 +242,8 @@ int DoJoin(int device) {
 
   auto handle = handle_manager.AllocateHandle();
   auto ready_event = RecordReadyEvent(device);
-  auto cpu_output = ::torch::empty(1);
-  auto hvd_context = std::make_shared<TorchOpContext>(device, cpu_output);
+  auto output = ::torch::empty(1);
+  auto hvd_context = std::make_shared<TorchOpContext>(device, output);
 
   auto enqueue_result = EnqueueJoin(
       hvd_context, ready_event,

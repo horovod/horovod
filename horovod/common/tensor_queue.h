@@ -68,22 +68,6 @@ protected:
   mutable std::mutex mutex_;
 };
 
-template <DataType DT, class T>
-class JoinTensor : public Tensor {
-public:
-  JoinTensor(int device, int64_t num_elements);
-  ~JoinTensor();
-  virtual const DataType dtype() const override;
-  virtual const TensorShape shape() const override;
-  virtual const void* data() const override;
-  virtual int64_t size() const override;
-
-private:
-  int64_t num_elements_;
-  int device_;
-  T* buffer_data_;
-};
-
 } // namespace common
 } // namespace horovod
 

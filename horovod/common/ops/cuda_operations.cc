@@ -159,10 +159,7 @@ Status CUDAAllreduce::FinalizeCUDAQueue(const std::vector<TensorTableEntry>& ent
   // Claim a std::shared_ptr to the fusion buffer to prevent its memory from being reclaimed
   // during finalization.
   auto fusion_buffer = global_state_->fusion_buffer.GetBuffer(
-      first_entry.device,
-      // JoinTensor doesn't have context or framework
-      first_entry.context ? first_entry.context->framework() : PYTORCH,
-      global_state_->current_nccl_stream);
+      first_entry.device, first_entry.context->framework(), global_state_->current_nccl_stream);
 
   // TODO: use thread pool or single thread for callbacks
   std::thread finalizer_thread([entries, first_entry, host_buffer, fusion_buffer,
