@@ -117,9 +117,12 @@ run_all() {
     "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras_if_needed} ${exclude_interactiverun} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no)\""
 
   # Run test_interactiverun.py
-  run_test "${test}" "${queue}" \
-    ":pytest: Run PyTests test_interactiverun (${test})" \
-    "bash -c \"cd /horovod/test && pytest -v --capture=no test_interactiverun.py\""
+  if [[ ${test} != *"mpich"* ]]; then
+    # TODO: support mpich
+    run_test "${test}" "${queue}" \
+      ":pytest: Run PyTests test_interactiverun (${test})" \
+      "bash -c \"cd /horovod/test && pytest -v --capture=no test_interactiverun.py\""
+  fi
 
   # Legacy TensorFlow tests
   if [[ ${test} != *"tf2_"* ]]; then
