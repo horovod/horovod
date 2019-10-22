@@ -44,7 +44,7 @@ RUN pip install numpy \
         tensorflow==${TENSORFLOW_VERSION} \
         keras \
         h5py
-RUN pip install torch==${TORCH_VERSION} torchvision==${TORCHVISION_VERSION}
+RUN pip install torch==${PYTORCH_VERSION} torchvision==${TORCHVISION_VERSION}
 RUN pip install mxnet==${MXNET_VERSION}
 
 # Install Open MPI
