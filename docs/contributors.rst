@@ -71,6 +71,8 @@ Horovod has unit tests for all frameworks you can run from the tests directory:
 
 **Note:** You will need PySpark and Java to run the Spark tests.
 
+**Note:** For Horovod compiled without specifiyng `HOROVOD_GPU_ALLREDUCE`, you will need to set environment variable `HOROVOD_MIXED_INSTALL=1` to prevent some tests from failing.
+
 **IMPORTANT:** Some tests contain GPU-only codepaths that will be skipped if running without GPU support.
 
 
