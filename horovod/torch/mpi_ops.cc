@@ -216,36 +216,9 @@ int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
 }
 #endif
 
-void WaitAndClear(int handle) {
-  while (!handle_manager.PollHandle(handle)) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  }
-  auto status = handle_manager.ReleaseHandle(handle);
-  ThrowIfError(*status);
-}
-
 int DoJoin(int device) {
-  ThrowIfError(common::CheckInitialized());
-
-  auto handle = handle_manager.AllocateHandle();
-  auto ready_event = RecordReadyEvent(device);
-
-  auto hvd_cpu_buffer =
-      std::make_shared<TorchTemporaryBuffer<DataType::HOROVOD_INT64, DeviceType::CPU, THLongTensor>>(
-          CPU_DEVICE_ID);
-  auto hvd_context = std::make_shared<TorchOpContext<DataType::HOROVOD_INT64, DeviceType::CPU, THLongTensor>>(
-      CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
-
-  auto enqueue_result = EnqueueJoin(
-      hvd_context, ready_event,
-      JOIN_TENSOR_NAME, device,
-      [handle](const Status& status) mutable {
-        handle_manager.MarkDone(handle, status);
-      });
-  ThrowIfError(enqueue_result);
-
-  WaitAndClear(handle);
-  return handle;
+  throw std::runtime_error("Join Op is not supported for PyTorch < 1.0");
+  return 0;
 }
 
 #define ALLREDUCE(torch_Tensor, HorovodType, DeviceType, THTensor)             \

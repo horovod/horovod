@@ -34,7 +34,8 @@ import horovod.torch as hvd
 
 from common import mpi_env_rank_and_size
 
-_fp16_supported = LooseVersion(torch.__version__) >= LooseVersion('1.0.0')
+_v2_api = LooseVersion(torch.__version__) >= LooseVersion('1.0.0')
+_fp16_supported = _v2_api
 
 # MLSL supports only byte, float and double data types
 mlsl_supported_types = set([torch.FloatTensor, torch.DoubleTensor])
@@ -1388,6 +1389,10 @@ class TorchTests(unittest.TestCase):
 
     def test_horovod_join_allreduce(self):
         """Test Join op with allreduce."""
+        # "Join Op is not supported for PyTorch < 1.0"
+        if not _v2_api:
+            return
+
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -1433,6 +1438,10 @@ class TorchTests(unittest.TestCase):
 
     def test_horovod_join_allgather(self):
         """Test Join op with allgather."""
+        # "Join Op is not supported for PyTorch < 1.0"
+        if not _v2_api:
+            return
+
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -1463,6 +1472,10 @@ class TorchTests(unittest.TestCase):
 
     def test_horovod_join_broadcast(self):
         """Test Join op with allgather."""
+        # "Join Op is not supported for PyTorch < 1.0"
+        if not _v2_api:
+            return
+
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()

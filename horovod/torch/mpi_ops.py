@@ -457,4 +457,6 @@ def join(device=-1):
     Returns:
         Id of the rank that joined last.
     """
+    if not _v2_api:
+        raise NotImplementedError("Join Op is not supported for PyTorch < 1.0")
     return mpi_lib.horovod_torch_join(device)
