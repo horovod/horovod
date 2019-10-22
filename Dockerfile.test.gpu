@@ -14,7 +14,7 @@ ARG PYTORCH_PACKAGE=torch==1.2.0
 ARG TORCHVISION_PACKAGE=torchvision==0.4.0
 ARG MXNET_PACKAGE=mxnet-cu100==1.5.0
 ARG PYSPARK_PACKAGE=pyspark==2.4.0
-ARG HOROVOD_BUILD_FLAGS=HOROVOD_GPU_ALLREDUCE=NCCL
+ARG HOROVOD_BUILD_FLAGS="HOROVOD_WITH_SPARK=1 HOROVOD_GPU_ALLREDUCE=NCCL"
 ARG HOROVOD_MIXED_INSTALL=0
 
 # Set default shell to /bin/bash
@@ -46,7 +46,7 @@ RUN if [[ "${PYTHON_VERSION}" == "3.6" ]]; then \
     fi
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
-RUN pip install -U --force pip setuptools requests pytest mock
+RUN pip install -U --force pip setuptools requests pytest mock pytest-forked
 
 # Install PySpark.
 RUN apt install -y openjdk-8-jdk-headless
@@ -106,6 +106,9 @@ RUN ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
 RUN if [[ ${TENSORFLOW_PACKAGE} == "tensorflow-gpu==1.1.0" ]]; then \
         sed -i "s/from tensorflow import keras/from tensorflow.contrib import keras/" /horovod/examples/tensorflow_mnist.py; \
     fi
+
+# Prefetch Spark MNIST dataset.
+RUN mkdir -p /work && wget https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/multiclass/mnist.bz2 -O /work/mnist.bz2
 
 # Hack TensorFlow MNIST example to be smaller.
 RUN sed -i "s/last_step=20000/last_step=100/" /horovod/examples/tensorflow_mnist.py

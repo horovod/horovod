@@ -8,9 +8,9 @@ repository=823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
 
 # list of all the tests
 tests=( \
-       test-cpu-openmpi-py2_7-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_1_2 \
-       test-cpu-openmpi-py3_5-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_1_2 \
-       test-cpu-openmpi-py3_6-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_1_2 \
+       test-cpu-openmpi-py2_7-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_3_2 \
+       test-cpu-openmpi-py3_5-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_3_2 \
+       test-cpu-openmpi-py3_6-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_3_2 \
        test-cpu-openmpi-py2_7-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
        test-cpu-openmpi-py3_5-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
        test-cpu-openmpi-py3_6-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
@@ -109,7 +109,7 @@ run_all() {
     exclude_keras_if_needed="| sed 's/[a-z_]*keras[a-z_.]*//g'"
   fi
 
-  local exclude_interactiverun="| sed 's/test_interactiverun.py//g'"
+  local exclude_interactiverun="| sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g'"
 
   # pytests have 4x GPU use cases and require a separate queue
   run_test "${test}" "${pytest_queue}" \
@@ -120,29 +120,29 @@ run_all() {
   if [[ ${test} != *"mpich"* ]]; then
     # TODO: support mpich
     run_test "${test}" "${queue}" \
-      ":pytest: Run PyTests test_interactiverun (${test})" \
+      ":jupyter: Run PyTests test_interactiverun (${test})" \
       "bash -c \"cd /horovod/test && pytest -v --capture=no test_interactiverun.py\""
   fi
 
   # Legacy TensorFlow tests
   if [[ ${test} != *"tf2_"* ]] && [[ ${test} != *"tfhead"* ]]; then
     run_test "${test}" "${queue}" \
-      ":muscle: Test TensorFlow MNIST (${test})" \
+      ":tensorflow: Test TensorFlow MNIST (${test})" \
       "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist.py\""
 
     if [[ ${test} != *"tf1_1_0"* && ${test} != *"tf1_6_0"* ]]; then
       run_test "${test}" "${queue}" \
-        ":muscle: Test TensorFlow Eager MNIST (${test})" \
+        ":tensorflow: Test TensorFlow Eager MNIST (${test})" \
         "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist_eager.py\""
     fi
 
     run_test "${test}" "${queue}" \
-      ":muscle: Test Keras MNIST (${test})" \
+      ":tensorflow: Test Keras MNIST (${test})" \
       "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/keras_mnist_advanced.py\""
   fi
 
   run_test "${test}" "${queue}" \
-    ":muscle: Test PyTorch MNIST (${test})" \
+    ":python: Test PyTorch MNIST (${test})" \
     "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/pytorch_mnist.py\""
 
   run_test "${test}" "${queue}" \
@@ -158,10 +158,10 @@ run_all() {
 
     if [[ ${test} == *"openmpi"* ]]; then
       run_test "${test}" "${queue}" \
-        ":muscle: Test Horovodrun (${test})" \
+        ":terminal: Test Horovodrun (${test})" \
         "horovodrun -np 2 -H localhost:2 python /horovod/examples/tensorflow_mnist.py"
       run_test "${test}" "${queue}" \
-        ":muscle: Test Horovodrun (${test})" \
+        ":terminal: Test Horovodrun (${test})" \
         "echo 'localhost slots=2' > hostfile" \
         "horovodrun -np 2 -hostfile hostfile python /horovod/examples/mxnet_mnist.py"
     fi
@@ -170,12 +170,27 @@ run_all() {
   # TensorFlow 2.0 tests
   if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
     run_test "${test}" "${queue}" \
-      ":muscle: Test TensorFlow 2.0 MNIST (${test})" \
+      ":tensorflow: Test TensorFlow 2.0 MNIST (${test})" \
       "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow2_mnist.py\""
 
     run_test "${test}" "${queue}" \
-      ":muscle: Test TensorFlow 2.0 Keras MNIST (${test})" \
+      ":tensorflow: Test TensorFlow 2.0 Keras MNIST (${test})" \
       "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow2_keras_mnist.py\""
+  fi
+
+  # Horovod Spark Estimator tests
+  if [[ ${test} != *"tf1_1_0"* && ${test} != *"tf1_6_0"* && ${test} != *"torch0_"* && ${test} != *"mpich"* ]]; then
+    run_test "${test}" "${queue}" \
+      ":spark: PyTests Spark Estimators (${test})" \
+      "bash -c \"cd /horovod/test && pytest --forked -v --capture=no test_spark_keras.py test_spark_torch.py\""
+
+    run_test "${test}" "${queue}" \
+      ":spark: Spark Keras MNIST (${test})" \
+      "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir /work --epochs 3\""
+
+    run_test "${test}" "${queue}" \
+      ":spark: Spark Torch MNIST (${test})" \
+      "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --epochs 3\""
   fi
 }
 
@@ -190,18 +205,18 @@ run_gloo() {
     exclude_spark_if_needed="| sed 's/[a-z_]*spark[a-z_.]*//g'"
   fi
 
-  local exclude_interactiverun="| sed 's/test_interactiverun.py//g'"
+  local exclude_interactiverun="| sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g'"
 
   run_test "${test}" "${pytest_queue}" \
     ":pytest: Run PyTests (${test})" \
     "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_spark_if_needed} ${exclude_interactiverun} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no)\""
 
   run_test "${test}" "${queue}" \
-    ":muscle: Test Keras MNIST (${test})" \
+    ":tensorflow: Test Keras MNIST (${test})" \
     "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/keras_mnist_advanced.py"
 
   run_test "${test}" "${queue}" \
-    ":muscle: Test PyTorch MNIST (${test})" \
+    ":python: Test PyTorch MNIST (${test})" \
     "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch_mnist.py"
 
   run_test "${test}" "${queue}" \

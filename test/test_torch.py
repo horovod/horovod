@@ -41,6 +41,7 @@ ccl_supported_types = set([torch.CharTensor, torch.IntTensor,
                            torch.LongTensor, torch.FloatTensor, 
                            torch.DoubleTensor])
 
+
 class TorchTests(unittest.TestCase):
     """
     Tests for ops in horovod.torch.

@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile.test.cpu
     privileged: true
-  test-cpu-openmpi-py2_7-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_1_2:
+  test-cpu-openmpi-py2_7-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_3_2:
     extends: test-cpu-base
     build:
       args:
@@ -16,8 +16,8 @@ services:
         PYTORCH_PACKAGE: torch==0.4.0
         TORCHVISION_PACKAGE: torchvision==0.2.2.post3
         MXNET_PACKAGE: mxnet==1.4.1
-        PYSPARK_PACKAGE: pyspark==2.1.2
-  test-cpu-openmpi-py3_5-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_1_2:
+        PYSPARK_PACKAGE: pyspark==2.3.2
+  test-cpu-openmpi-py3_5-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_3_2:
     extends: test-cpu-base
     build:
       args:
@@ -28,8 +28,8 @@ services:
         PYTORCH_PACKAGE: torch==0.4.0
         TORCHVISION_PACKAGE: torchvision==0.2.2.post3
         MXNET_PACKAGE: mxnet==1.4.1
-        PYSPARK_PACKAGE: pyspark==2.1.2
-  test-cpu-openmpi-py3_6-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_1_2:
+        PYSPARK_PACKAGE: pyspark==2.3.2
+  test-cpu-openmpi-py3_6-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_3_2:
     extends: test-cpu-base
     build:
       args:
@@ -41,7 +41,7 @@ services:
         PYTORCH_PACKAGE: torch==0.4.0
         TORCHVISION_PACKAGE: torchvision==0.2.2.post3
         MXNET_PACKAGE: mxnet==1.4.1
-        PYSPARK_PACKAGE: pyspark==2.1.2
+        PYSPARK_PACKAGE: pyspark==2.3.2
   test-cpu-openmpi-py2_7-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2:
     extends: test-cpu-base
     build:
@@ -369,5 +369,5 @@ services:
         TORCHVISION_PACKAGE: torchvision==0.4.1+cu100
         MXNET_PACKAGE: mxnet-cu100==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.0
-        HOROVOD_BUILD_FLAGS: ""
+        HOROVOD_BUILD_FLAGS: "HOROVOD_WITH_SPARK=1"
         HOROVOD_MIXED_INSTALL: 1

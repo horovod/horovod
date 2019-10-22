@@ -39,7 +39,7 @@ RUN if [[ "${PYTHON_VERSION}" == "3.6" ]]; then \
     fi
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
-RUN pip install -U --force pip setuptools requests pytest mock
+RUN pip install -U --force pip setuptools requests pytest mock pytest-forked
 
 # Install PySpark.
 RUN apt install -y openjdk-8-jdk-headless
@@ -139,10 +139,15 @@ RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
       fi; \
       source /usr/local/oneccl/env/setvars.sh; \
       echo "pip install horovod, mpicxx is $(which mpicxx)"; \
+      export HOROVOD_WITH_SPARK=1; \
       pip install -v /horovod/dist/horovod-*.tar.gz; \
     else \
+      export HOROVOD_WITH_SPARK=1; \
       pip install -v /horovod/dist/horovod-*.tar.gz; \
     fi
+
+# Prefetch Spark MNIST dataset.
+RUN mkdir -p /work && wget https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/multiclass/mnist.bz2 -O /work/mnist.bz2
 
 # Hack for compatibility of MNIST example with TensorFlow 1.1.0.
 RUN if [[ ${TENSORFLOW_PACKAGE} == "tensorflow==1.1.0" ]]; then \

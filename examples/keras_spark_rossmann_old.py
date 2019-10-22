@@ -1,5 +1,5 @@
 # Copyright 2017 onwards, fast.ai, Inc.
-# Modifications copyright (C) 2019 Uber Technologies, Inc.
+# Modifications copyright (C) 2018 Uber Technologies, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,25 +15,30 @@
 # ==============================================================================
 
 import datetime
+import h5py
+import io
 import os
-
+import pyarrow as pa
 from pyspark import SparkConf, Row
 from pyspark.sql import SparkSession
-
 import pyspark.sql.types as T
 import pyspark.sql.functions as F
 
 # Location of data on local filesystem (prefixed with file://) or on HDFS.
 DATA_LOCATION = 'file://' + os.getcwd()
 
-# Location of outputs.
+# Location of outputs on local filesystem (without file:// prefix).
 LOCAL_SUBMISSION_CSV = 'submission.csv'
-LOCAL_CHECKPOINT_FILE = os.path.join(DATA_LOCATION, 'checkpoint')
+LOCAL_CHECKPOINT_FILE = 'checkpoint.h5'
 
-# Spark cluster to use for training. If set to None, uses current default cluster.
+# Spark clusters to use for training. If set to None, uses current default cluster.
 #
-# Cluster should be set up to provide a Spark task per multiple CPU cores,
+# Light processing (data preparation & prediction) uses typical Spark setup of one
+# task per CPU core.
+#
+# Training cluster should be set up to provide a Spark task per multiple CPU cores,
 # or per GPU, e.g. by supplying `-c <NUM GPUs>` in Spark Standalone mode.
+LIGHT_PROCESSING_CLUSTER = None  # or 'spark://hostname:7077'
 TRAINING_CLUSTER = None  # or 'spark://hostname:7077'
 
 # The number of training processes.
@@ -47,6 +52,9 @@ SAMPLE_RATE = None  # or use 0.01
 BATCH_SIZE = 100
 LR = 1e-4
 
+# HDFS driver to use with Petastorm.
+PETASTORM_HDFS_DRIVER = 'libhdfs'
+
 # ================ #
 # DATA PREPARATION #
 # ================ #
@@ -57,8 +65,8 @@ print('================')
 
 # Create Spark session for data preparation.
 conf = SparkConf().setAppName('data_prep').set('spark.sql.shuffle.partitions', '16')
-if TRAINING_CLUSTER:
-    conf.setMaster(TRAINING_CLUSTER)
+if LIGHT_PROCESSING_CLUSTER:
+    conf.setMaster(LIGHT_PROCESSING_CLUSTER)
 spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
 train_csv = spark.read.csv('%s/train.csv' % DATA_LOCATION, header=True)
@@ -216,7 +224,7 @@ test_df = prepare_df(test_csv).cache()
 # Add elapsed times from holidays & promos, the data spanning training & test datasets.
 elapsed_cols = ['Promo', 'StateHoliday', 'SchoolHoliday']
 elapsed = add_elapsed(train_df.select('Date', 'Store', *elapsed_cols)
-                      .unionAll(test_df.select('Date', 'Store', *elapsed_cols)),
+                              .unionAll(test_df.select('Date', 'Store', *elapsed_cols)),
                       elapsed_cols)
 
 # Join with elapsed times.
@@ -255,7 +263,7 @@ test_df = test_df.select(*(all_cols + ['Id', 'Date'])).cache()
 
 # Build vocabulary of categorical columns.
 vocab = build_vocabulary(train_df.select(*categorical_cols)
-                         .unionAll(test_df.select(*categorical_cols)).cache(),
+                                 .unionAll(test_df.select(*categorical_cols)).cache(),
                          categorical_cols)
 
 # Cast continuous columns to float & lookup categorical columns.
@@ -268,9 +276,9 @@ test_df = lookup_columns(test_df, vocab)
 # Test set is in 2015, use the same period in 2014 from the training set as a validation set.
 test_min_date = test_df.agg(F.min(test_df.Date)).collect()[0][0]
 test_max_date = test_df.agg(F.max(test_df.Date)).collect()[0][0]
-one_year = datetime.timedelta(365)
-train_df = train_df.withColumn('Validation',
-                               (train_df.Date < test_min_date - one_year) | (train_df.Date >= test_max_date - one_year))
+a_year = datetime.timedelta(365)
+val_df = train_df.filter((test_min_date - a_year <= train_df.Date) & (train_df.Date < test_max_date - a_year))
+train_df = train_df.filter((train_df.Date < test_min_date - a_year) | (train_df.Date >= test_max_date - a_year))
 
 # Determine max Sales number.
 max_sales = train_df.agg(F.max(train_df.Sales)).collect()[0][0]
@@ -283,12 +291,17 @@ train_df.show()
 print('================')
 print('Data frame sizes')
 print('================')
-train_rows = train_df.filter(train_df.Validation == 0).count()
-val_rows = train_df.filter(train_df.Validation > 0).count()
-test_rows = test_df.count()
+train_rows, val_rows, test_rows = train_df.count(), val_df.count(), test_df.count()
 print('Training: %d' % train_rows)
 print('Validation: %d' % val_rows)
 print('Test: %d' % test_rows)
+
+# Save data frames as Parquet files.
+train_df.write.parquet('%s/train_df.parquet' % DATA_LOCATION, mode='overwrite')
+val_df.write.parquet('%s/val_df.parquet' % DATA_LOCATION, mode='overwrite')
+test_df.write.parquet('%s/test_df.parquet' % DATA_LOCATION, mode='overwrite')
+
+spark.stop()
 
 # ============== #
 # MODEL TRAINING #
@@ -301,7 +314,8 @@ print('==============')
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Embedding, Concatenate, Dense, Flatten, Reshape, BatchNormalization, Dropout
 import tensorflow.keras.backend as K
-import horovod.spark.keras as hvd
+import horovod.spark
+import horovod.tensorflow.keras as hvd
 
 
 def exp_rmspe(y_true, y_pred):
@@ -320,6 +334,22 @@ def act_sigmoid_scaled(x):
 
 CUSTOM_OBJECTS = {'exp_rmspe': exp_rmspe,
                   'act_sigmoid_scaled': act_sigmoid_scaled}
+
+
+def serialize_model(model):
+    """Serialize model into byte array."""
+    bio = io.BytesIO()
+    with h5py.File(bio) as f:
+        model.save(f)
+    return bio.getvalue()
+
+
+def deserialize_model(model_bytes, load_model_fn):
+    """Deserialize model from byte array."""
+    bio = io.BytesIO(model_bytes)
+    with h5py.File(bio) as f:
+        return load_model_fn(f, custom_objects=CUSTOM_OBJECTS)
+
 
 # Do not use GPU for the session creation.
 config = tf.ConfigProto(device_count={'GPU': 0})
@@ -343,31 +373,138 @@ output = Dense(1, activation=act_sigmoid_scaled)(x)
 model = tf.keras.Model([inputs[f] for f in all_cols], output)
 model.summary()
 
+# Horovod: add Distributed Optimizer.
 opt = tf.keras.optimizers.Adam(lr=LR, epsilon=1e-3)
+opt = hvd.DistributedOptimizer(opt)
+model.compile(opt, 'mae', metrics=[exp_rmspe])
+model_bytes = serialize_model(model)
+
+
+def train_fn(model_bytes):
+    # Make sure pyarrow is referenced before anything else to avoid segfault due to conflict
+    # with TensorFlow libraries.  Use `pa` package reference to ensure it's loaded before
+    # functions like `deserialize_model` which are implemented at the top level.
+    # See https://jira.apache.org/jira/browse/ARROW-3346
+    pa
+
+    import atexit
+    import horovod.tensorflow.keras as hvd
+    import os
+    from petastorm import make_batch_reader
+    from petastorm.tf_utils import make_petastorm_dataset
+    import tempfile
+    import tensorflow as tf
+    import tensorflow.keras.backend as K
+    import shutil
+
+    # Horovod: initialize Horovod inside the trainer.
+    hvd.init()
+
+    # Horovod: pin GPU to be used to process local rank (one GPU per process), if GPUs are available.
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    config.gpu_options.visible_device_list = str(hvd.local_rank())
+    K.set_session(tf.Session(config=config))
+
+    # Horovod: restore from checkpoint, use hvd.load_model under the hood.
+    model = deserialize_model(model_bytes, hvd.load_model)
+
+    # Horovod: adjust learning rate based on number of processes.
+    K.set_value(model.optimizer.lr, K.get_value(model.optimizer.lr) * hvd.size())
+
+    # Horovod: print summary logs on the first worker.
+    verbose = 2 if hvd.rank() == 0 else 0
+
+    callbacks = [
+        # Horovod: broadcast initial variable states from rank 0 to all other processes.
+        # This is necessary to ensure consistent initialization of all workers when
+        # training is started with random weights or restored from a checkpoint.
+        hvd.callbacks.BroadcastGlobalVariablesCallback(root_rank=0),
+
+        # Horovod: average metrics among workers at the end of every epoch.
+        #
+        # Note: This callback must be in the list before the ReduceLROnPlateau,
+        # TensorBoard, or other metrics-based callbacks.
+        hvd.callbacks.MetricAverageCallback(),
+
+        # Horovod: using `lr = 1.0 * hvd.size()` from the very beginning leads to worse final
+        # accuracy. Scale the learning rate `lr = 1.0` ---> `lr = 1.0 * hvd.size()` during
+        # the first five epochs. See https://arxiv.org/abs/1706.02677 for details.
+        hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=5, verbose=verbose),
+
+        # Reduce LR if the metric is not improved for 10 epochs, and stop training
+        # if it has not improved for 20 epochs.
+        tf.keras.callbacks.ReduceLROnPlateau(monitor='val_exp_rmspe', patience=10, verbose=verbose),
+        tf.keras.callbacks.EarlyStopping(monitor='val_exp_rmspe', mode='min', patience=20, verbose=verbose),
+        tf.keras.callbacks.TerminateOnNaN()
+    ]
+
+    # Model checkpoint location.
+    ckpt_dir = tempfile.mkdtemp()
+    ckpt_file = os.path.join(ckpt_dir, 'checkpoint.h5')
+    atexit.register(lambda: shutil.rmtree(ckpt_dir))
+
+    # Horovod: save checkpoints only on the first worker to prevent other workers from corrupting them.
+    if hvd.rank() == 0:
+        callbacks.append(tf.keras.callbacks.ModelCheckpoint(ckpt_file, monitor='val_exp_rmspe', mode='min',
+                                                            save_best_only=True))
+
+    # Make Petastorm readers.
+    with make_batch_reader('%s/train_df.parquet' % DATA_LOCATION, num_epochs=None,
+                           cur_shard=hvd.rank(), shard_count=hvd.size(),
+                           hdfs_driver=PETASTORM_HDFS_DRIVER) as train_reader:
+        with make_batch_reader('%s/val_df.parquet' % DATA_LOCATION, num_epochs=None,
+                               cur_shard=hvd.rank(), shard_count=hvd.size(),
+                               hdfs_driver=PETASTORM_HDFS_DRIVER) as val_reader:
+            # Convert readers to tf.data.Dataset.
+            train_ds = make_petastorm_dataset(train_reader) \
+                .apply(tf.data.experimental.unbatch()) \
+                .shuffle(int(train_rows / hvd.size())) \
+                .batch(BATCH_SIZE) \
+                .map(lambda x: (tuple(getattr(x, col) for col in all_cols), tf.log(x.Sales)))
+
+            val_ds = make_petastorm_dataset(val_reader) \
+                .apply(tf.data.experimental.unbatch()) \
+                .batch(BATCH_SIZE) \
+                .map(lambda x: (tuple(getattr(x, col) for col in all_cols), tf.log(x.Sales)))
+
+            history = model.fit(train_ds,
+                                validation_data=val_ds,
+                                steps_per_epoch=int(train_rows / BATCH_SIZE / hvd.size()),
+                                validation_steps=int(val_rows / BATCH_SIZE / hvd.size()),
+                                callbacks=callbacks,
+                                verbose=verbose,
+                                epochs=100)
+
+    # Dataset API usage currently displays a wall of errors upon termination.
+    # This global model registration ensures clean termination.
+    # Tracked in https://github.com/tensorflow/tensorflow/issues/24570
+    globals()['_DATASET_FINALIZATION_HACK'] = model
+
+    if hvd.rank() == 0:
+        with open(ckpt_file, 'rb') as f:
+            return history.history, f.read()
+
+
+# Create Spark session for training.
+conf = SparkConf().setAppName('training')
+if TRAINING_CLUSTER:
+    conf.setMaster(TRAINING_CLUSTER)
+spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
 # Horovod: run training.
-keras_estimator = hvd.KerasEstimator(num_proc=NUM_TRAINING_PROC,
-                                     model=model,
-                                     optimizer=opt,
-                                     loss='mae',
-                                     metrics=[exp_rmspe],
-                                     custom_objects=CUSTOM_OBJECTS,
-                                     feature_cols=all_cols,
-                                     label_cols=['Sales'],
-                                     validation_col='Validation',
-                                     batch_size=BATCH_SIZE,
-                                     epochs=100,
-                                     verbose=2)
+history, best_model_bytes = \
+    horovod.spark.run(train_fn, args=(model_bytes,), num_proc=NUM_TRAINING_PROC, verbose=2)[0]
 
-keras_model = keras_estimator.fit(train_df)
-
-history = keras_estimator.getHistory()
 best_val_rmspe = min(history['val_exp_rmspe'])
 print('Best RMSPE: %f' % best_val_rmspe)
 
-# Save the trained model.
-keras_model.save(LOCAL_CHECKPOINT_FILE)
+# Write checkpoint.
+with open(LOCAL_CHECKPOINT_FILE, 'wb') as f:
+    f.write(best_model_bytes)
 print('Written checkpoint to %s' % LOCAL_CHECKPOINT_FILE)
+
+spark.stop()
 
 # ================ #
 # FINAL PREDICTION #
@@ -377,7 +514,44 @@ print('================')
 print('Final prediction')
 print('================')
 
-pred_df = keras_model.transform(test_df)
+# Create Spark session for prediction.
+conf = SparkConf().setAppName('prediction') \
+    .setExecutorEnv('LD_LIBRARY_PATH', os.environ.get('LD_LIBRARY_PATH')) \
+    .setExecutorEnv('PATH', os.environ.get('PATH'))
+if LIGHT_PROCESSING_CLUSTER:
+    conf.setMaster(LIGHT_PROCESSING_CLUSTER)
+spark = SparkSession.builder.config(conf=conf).getOrCreate()
+
+
+def predict_fn(model_bytes):
+    def fn(rows):
+        import math
+        import tensorflow as tf
+        import tensorflow.keras.backend as K
+
+        # Do not use GPUs for prediction, use single CPU core per task.
+        config = tf.ConfigProto(device_count={'GPU': 0})
+        config.inter_op_parallelism_threads = 1
+        config.intra_op_parallelism_threads = 1
+        K.set_session(tf.Session(config=config))
+
+        # Restore from checkpoint.
+        model = deserialize_model(model_bytes, tf.keras.models.load_model)
+
+        # Perform predictions.
+        for row in rows:
+            fields = row.asDict().copy()
+            # Convert from log domain to real Sales numbers.
+            log_sales = model.predict_on_batch([[row[col]] for col in all_cols])[0]
+            # Add 'Sales' column with prediction results.
+            fields['Sales'] = math.exp(log_sales)
+            yield Row(**fields)
+
+    return fn
+
+
+pred_df = spark.read.parquet('%s/test_df.parquet' % DATA_LOCATION) \
+    .rdd.mapPartitions(predict_fn(best_model_bytes)).toDF()
 submission_df = pred_df.select(pred_df.Id.cast(T.IntegerType()), pred_df.Sales).toPandas()
 submission_df.sort_values(by=['Id']).to_csv(LOCAL_SUBMISSION_CSV, index=False)
 print('Saved predictions to %s' % LOCAL_SUBMISSION_CSV)

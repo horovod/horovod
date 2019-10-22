@@ -23,9 +23,11 @@ import pytest
 import re
 import subprocess
 import time
-import torch
 import unittest
 import warnings
+
+import mock
+import torch
 
 from horovod.run.common.util import secret
 from horovod.run.mpi_run import _get_mpi_implementation_flags
@@ -33,26 +35,14 @@ import horovod.spark
 from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient
 import horovod.torch as hvd
 
+from horovod.run.mpi_run import _get_mpi_implementation_flags
+from horovod.spark.common import util
+
+from spark_common import spark_session, create_xor_data, local_store
+
 from mock import MagicMock
 
 from common import tempdir
-
-
-@contextlib.contextmanager
-def spark(app, cores=2, *args):
-    from pyspark import SparkConf
-    from pyspark.sql import SparkSession
-
-    conf = SparkConf().setAppName(app).setMaster('local[{}]'.format(cores))
-    session = SparkSession \
-        .builder \
-        .config(conf=conf) \
-        .getOrCreate()
-
-    try:
-        yield session
-    finally:
-        session.stop()
 
 
 @contextlib.contextmanager
@@ -90,12 +80,12 @@ class SparkTests(unittest.TestCase):
             res = hvd.allgather(torch.tensor([hvd.rank()])).tolist()
             return res, hvd.rank()
 
-        with spark('test_happy_run'):
+        with spark_session('test_happy_run'):
             res = horovod.spark.run(fn, env={'PATH': os.environ.get('PATH')}, verbose=0)
             self.assertListEqual([([0, 1], 0), ([0, 1], 1)], res)
 
     def test_timeout(self):
-        with spark('test_timeout'):
+        with spark_session('test_timeout'):
             with pytest.raises(Exception, match='^Timed out waiting for Spark tasks to start.'):
                 horovod.spark.run(None, num_proc=4, start_timeout=5,
                                   env={'PATH': os.environ.get('PATH')},
@@ -103,7 +93,7 @@ class SparkTests(unittest.TestCase):
 
     def test_mpirun_not_found(self):
         start = time.time()
-        with spark('test_mpirun_not_found'):
+        with spark_session('test_mpirun_not_found'):
             with pytest.raises(Exception, match='^mpirun failed with exit code 127$'):
                 horovod.spark.run(None, env={'PATH': '/nonexistent'}, verbose=0)
         self.assertLessEqual(time.time() - start, 10, 'Failure propagation took too long')
@@ -144,7 +134,7 @@ class SparkTests(unittest.TestCase):
         def fn():
             return 1
 
-        with spark('test_spark_run_func', cores=4):
+        with spark_session('test_spark_run_func', cores=4):
             with pytest.raises(Exception, match='^mpirun failed with exit code 1$') as e:
                 horovod.spark.run(fn, verbose=0, run_func=run_func)
 
@@ -159,7 +149,7 @@ class SparkTests(unittest.TestCase):
 
         run_func = MagicMock(return_value=0)
 
-        with spark('test_spark_run_func', cores=cores):
+        with spark_session('test_spark_run_func', cores=cores):
             with pytest.raises(Exception) as e:
                 # we need to timeout horovod because our mocked run_func will block spark otherwise
                 # this raises above exception, but allows us to catch run_func arguments
@@ -216,6 +206,47 @@ class SparkTests(unittest.TestCase):
         self.assertTrue(len(actual_secret) > 0)
         self.assertEqual(actual_stdout, stdout)
         self.assertEqual(actual_stderr, stderr)
+
+    def test_df_cache(self):
+        # Clean the cache before starting the test
+        util.clear_training_cache()
+        util._training_cache.get = mock.Mock(side_effect=util._training_cache.get)
+
+        with spark_session('test_df_cache') as spark:
+            with local_store() as store:
+                df = create_xor_data(spark)
+
+                key = (df.__hash__(), 0, None, store.get_train_data_path(),
+                       store.get_val_data_path())
+                assert not util._training_cache.is_cached(key)
+
+                train_rows, val_rows, metadata, avg_row_size = \
+                    util.prepare_data(num_processes=2,
+                                      store=store,
+                                      df=df,
+                                      feature_columns=['features'],
+                                      label_columns=['y'])
+
+                util._training_cache.get.assert_not_called()
+                assert len(util._training_cache._entries) == 1
+                assert util._training_cache.is_cached(key)
+
+                train_rows_cached, val_rows_cached, metadata_cached, avg_row_size_cached = \
+                    util.prepare_data(num_processes=2,
+                                      store=store,
+                                      df=df,
+                                      feature_columns=['features'],
+                                      label_columns=['y'])
+
+                util._training_cache.get.assert_called()
+                assert train_rows == train_rows_cached
+                assert val_rows == val_rows_cached
+                assert metadata == metadata_cached
+                assert avg_row_size == avg_row_size_cached
+
+                bad_key = (df.__hash__(), 0.1, None, store.get_train_data_path(),
+                           store.get_val_data_path())
+                assert not util._training_cache.is_cached(bad_key)
 
     def test_spark_task_service_env(self):
         key = secret.make_secret_key()

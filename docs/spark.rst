@@ -3,12 +3,121 @@
 Horovod in Spark
 ================
 
-The ``horovod.spark`` package provides a convenient wrapper around Open
-MPI that makes running Horovod jobs in Spark clusters easy.
+The ``horovod.spark`` package provides a convenient wrapper around Horovod that makes running distributed training
+jobs in Spark clusters easy.
 
 In situations where training data originates from Spark, this enables
 a tight model design loop in which data processing, model training, and
 model evaluation are all done in Spark.
+
+We provide two APIs for running Horovod on Spark: a high level **Estimator** API and a lower level **Run** API. Both
+use the same underlying mechanism to launch Horovod on Spark executors, but the Estimator API abstracts the data
+processing (from Spark DataFrames to deep learning datasets), model training loop, model checkpointing, metrics
+collection, and distributed training.
+
+We recommend using Horovod Spark Estimators if you:
+
+* Are using Keras (``tf.keras`` or ``keras``) or PyTorch for training.
+* Want to train directly on a Spark DataFrame from ``pyspark``.
+* Are using a standard gradient descent optimization process as your training loop.
+
+If for whatever reason the Estimator API does not meet your needs, the Run API offers more find-grained control.
+
+Installation
+~~~~~~~~~~~~
+
+When installing Horovod for usage with Spark, set environment variable ``HOROVOD_WITH_SPARK=1`` to install all
+Spark dependencies as well:
+
+.. code-block:: bash
+
+    $ HOROVOD_WITH_SPARK=1 ... pip install horovod
+
+
+Horovod Spark Estimators
+------------------------
+
+Horovod Spark Estimators allow you to train your deep neural network directly on an existing Spark DataFrame,
+leveraging Horovod’s ability to scale across multiple workers, without any specialized code for distributed training:
+
+.. code-block:: python
+
+    from tensorflow import keras
+    import tensorflow as tf
+    import horovod.spark.keras as hvd
+
+    model = keras.models.Sequential()
+        .add(keras.layers.Dense(8, input_dim=2))
+        .add(keras.layers.Activation('tanh'))
+        .add(keras.layers.Dense(1))
+        .add(keras.layers.Activation('sigmoid'))
+
+    # NOTE: unscaled learning rate
+    optimizer = keras.optimizers.SGD(lr=0.1)
+    loss = 'binary_crossentropy'
+
+    store = HDFSStore('/user/username/experiments')
+    keras_estimator = hvd.KerasEstimator(
+        num_proc=4,
+        store=store,
+        model=model,
+        optimizer=optimizer,
+        loss=loss,
+        feature_cols=['features'],
+        label_cols=['y'],
+        batch_size=32,
+        epochs=10)
+
+
+    keras_model = keras_estimator.fit(train_df) \
+        .setOutputCols(['predict'])
+    predict_df = keras_model.transform(test_df)
+
+The Estimator hides the complexity of gluing Spark DataFrames to a deep learning training script, reading data into a
+format interpretable by the training framework, and distributing the training using Horovod.  The user only needs to
+provide a Keras or PyTorch model, and the Estimator will do the work of fitting it to the DataFrame.
+
+After training, the Estimator returns a Transformer representation of the trained model.  The model transformer can
+be used like any Spark ML transformer to make predictions on an input DataFrame, writing them as new columns in the
+output DataFrame.
+
+Estimators can be used to track experiment history through model checkpointing, hot-start retraining, and metric
+logging (for Tensorboard) using the Estimator ``Store`` abstraction.  Stores are used for persisting all training
+artifacts including intermediate representations of the training data.  Horovod comes included with stores for HDFS
+and local filesystems.
+
+End-to-end example
+~~~~~~~~~~~~~~~~~~
+`keras_spark_rossmann.py script <../examples/keras_spark_rossmann.py>`__ provides
+an example of end-to-end data preparation and training of a model for the
+`Rossmann Store Sales <https://www.kaggle.com/c/rossmann-store-sales>`__ Kaggle
+competition. It is inspired by an article `An Introduction to Deep Learning for Tabular Data <https://www.fast.ai/2018/04/29/categorical-embeddings/>`__
+and leverages the code of the notebook referenced in the article. The example is split into three parts:
+
+#. The first part performs complicated data preprocessing over an initial set of CSV files provided by the competition and gathered by the community.
+#. The second part defines a Keras model and performs a distributed training of the model using Horovod in Spark.
+#. The third part performs prediction using the best model and creates a submission file.
+
+To run the example, please install the following dependencies:
+
+*  ``pyspark``
+*  ``petastorm >= 0.7.0``
+*  ``h5py >= 2.9.0``
+*  ``tensorflow-gpu >= 1.12.0`` (or ``tensorflow >= 1.12.0``)
+*  ``horovod >= 0.15.3``
+
+Run the example:
+
+.. code-block:: bash
+
+    $ wget https://raw.githubusercontent.com/horovod/horovod/master/examples/keras_spark_rossmann.py
+    $ wget http://files.fast.ai/part2/lesson14/rossmann.tgz
+    $ tar zxvf rossmann.tgz
+    $ python keras_spark_rossmann.py
+
+
+Horovod Spark Run
+-----------------
 
 A toy example of running a Horovod job in Spark is provided below:
 
@@ -46,38 +155,9 @@ A toy example of running a Horovod job in Spark is provided below:
     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
     >>>
 
-End-to-end example
-~~~~~~~~~~~~~~~~~~
-`keras_spark_rossmann.py script <../examples/keras_spark_rossmann.py>`__ provides
-an example of end-to-end data preparation and training of a model for the
-`Rossmann Store Sales <https://www.kaggle.com/c/rossmann-store-sales>`__ Kaggle
-competition. It is inspired by an article `An Introduction to Deep Learning for Tabular Data <https://www.fast.ai/2018/04/29/categorical-embeddings/>`__
-and leverages the code of the notebook referenced in the article. The example is split into three parts:
-
-#. The first part performs complicated data preprocessing over an initial set of CSV files provided by the competition and gathered by the community.
-#. The second part defines a Keras model and performs a distributed training of the model using Horovod in Spark.
-#. The third part performs prediction using the best model and creates a submission file.
-
-To run the example, please install the following dependencies:
-
-*  ``pyspark``
-*  ``petastorm >= 0.7.0``
-*  ``h5py >= 2.9.0``
-*  ``tensorflow-gpu >= 1.12.0`` (or ``tensorflow >= 1.12.0``)
-*  ``horovod >= 0.15.3``
-
-Run the example:
-
-.. code-block:: bash
-
-    $ wget https://raw.githubusercontent.com/horovod/horovod/master/examples/keras_spark_rossmann.py
-    $ wget http://files.fast.ai/part2/lesson14/rossmann.tgz
-    $ tar zxvf rossmann.tgz
-    $ python keras_spark_rossmann.py
-
 
 Spark cluster setup
-~~~~~~~~~~~~~~~~~~~
+-------------------
 As deep learning workloads tend to have very different resource requirements
 from typical data processing workloads, there are certain considerations
 for DL Spark cluster setup.

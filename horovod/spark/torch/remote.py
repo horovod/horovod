@@ -1,0 +1,559 @@
+# Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
+from __future__ import absolute_import
+
+import contextlib
+import io
+import math
+import os
+
+import torch
+
+from torch.utils.tensorboard import SummaryWriter
+
+from horovod.spark.common import constants
+from horovod.spark.torch.util import deserialize_fn, serialize_fn
+
+
+PETASTORM_HDFS_DRIVER = constants.PETASTORM_HDFS_DRIVER
+METRIC_PRINT_FREQUENCY = constants.METRIC_PRINT_FREQUENCY
+TOTAL_BUFFER_MEMORY_CAP = constants.TOTAL_BUFFER_MEMORY_CAP
+ONE_GB = constants.ONE_GB
+CUSTOM_SPARSE = constants.CUSTOM_SPARSE
+
+
+def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id):
+    # Estimator parameters
+    loss_fns_pre_train = estimator.getLoss()
+    loss_constructors = estimator.getLossConstructors()
+    compression = estimator.getCompression()
+    input_shapes = estimator.getInputShapes()
+    feature_columns = estimator.getFeatureCols()
+    label_columns = estimator.getLabelCols()
+    should_validate = estimator._should_validate()
+    batch_size = estimator.getBatchSize()
+    epochs = estimator.getEpochs()
+    train_steps_per_epoch = estimator.getTrainStepsPerEpoch()
+    validation_steps_per_epoch = estimator.getValidationStepsPerEpoch()
+    sample_weight_col = estimator.getSampleWeightCol()
+    metric_fn_groups = estimator.getMetrics()
+    user_shuffle_buffer_size = estimator.getShufflingBufferSize()
+    user_verbose = estimator.getVerbose()
+    train_minibatch_fn = estimator.getTrainMinibatchFn()
+    train_minibatch = train_minibatch_fn if train_minibatch_fn else _train_minibatch_fn()
+
+    # If loss weight is not provided, use equal loss for all the labels
+    label_columns = estimator.getLabelCols()
+    loss_weights = estimator.getLossWeights()
+    if not loss_weights:
+        num_labels = len(label_columns)
+        loss_weights = [float(1) / num_labels for _ in range(num_labels)]
+
+    # Model parameters
+    optimizer = estimator._get_optimizer()
+    optimizer_cls = optimizer.__class__
+    optimizer_state = optimizer.state_dict()
+
+    # Utility functions
+    serialize = serialize_fn()
+    deserialize = deserialize_fn()
+    get_optimizer_with_unscaled_lr = _get_optimizer_with_unscaled_lr_fn()
+    calculate_shuffle_buffer_size = _calculate_shuffle_buffer_size_fn()
+    construct_metric_value_holders = _construct_metric_value_holders_fn()
+    metric_cls = _metric_cls()
+    prepare_np_data = _prepare_np_data_fn()
+    get_metric_avgs = _get_metric_avgs_fn()
+    update_metrics = _update_metrics_fn(metric_fn_groups)
+    write_metrics_summary = _write_metrics_summary_fn()
+    calculate_loss = _calculate_loss_fn()
+
+    # Storage
+    store = estimator.getStore()
+    remote_store = store.to_remote(run_id)
+
+    @contextlib.contextmanager
+    def empty_batch_reader():
+        yield None
+
+    def train(serialized_model, train_rows, val_rows, avg_row_size):
+        from petastorm import make_batch_reader
+        from petastorm.pytorch import DataLoader
+        import torch
+        import horovod.torch as hvd
+
+        # Deserializing objects
+        model = deserialize(serialized_model)
+
+        if loss_fns_pre_train:
+            loss_fns = loss_fns_pre_train
+        if loss_constructors:
+            local_vars = locals()
+            loss_fns = [loss_constructor(**local_vars) for loss_constructor in loss_constructors]
+
+        # Horovod: initialize library.
+        hvd.init()
+
+        if not user_shuffle_buffer_size:
+            shuffle_buffer_size = \
+                calculate_shuffle_buffer_size(hvd, avg_row_size, train_rows / hvd.size())
+        else:
+            shuffle_buffer_size = user_shuffle_buffer_size
+
+        cuda_available = torch.cuda.is_available()
+        if cuda_available:
+            # Horovod: pin GPU to local rank.
+            torch.cuda.set_device(hvd.local_rank())
+            # Move model to GPU.
+            model.cuda()
+
+        # Optimizer object needs to be re-instantiated. Internally, it uses memory addresses of
+        # objects as their identity and therefore it cannot be serialized and then
+        # deserialized. The deserialized optimizer object stores the names of the parameters
+        # with their old memory addresses but in reality those are different than the
+        # reconstructed deserialized object and that creates problem.
+        # Learning rate is a required parameters in SGD optimizer. It will be overridden with
+        # load_state_dict.
+        optimizer = optimizer_cls(model.parameters(), lr=1)
+
+        if last_checkpoint_state is not None:
+            model.load_state_dict(last_checkpoint_state['model'])
+            optimizer.load_state_dict(last_checkpoint_state['optimizer'])
+        else:
+            # scale the learning rate with the number of horovod workers
+            for i in range(len(optimizer_state['param_groups'])):
+                optimizer_state['param_groups'][i]['lr'] = \
+                    optimizer_state['param_groups'][i]['lr'] * hvd.size()
+
+            optimizer.load_state_dict(optimizer_state)
+
+        # Horovod: broadcast parameters & optimizer state.
+        hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+        hvd.broadcast_optimizer_state(optimizer, root_rank=0)
+
+        dist_optimizer_args = dict(optimizer=optimizer,
+                                   named_parameters=model.named_parameters())
+        if compression:
+            # Pass the compression arg only if it is specified by the user.
+            dist_optimizer_args['compression'] = compression
+        # Horovod: wrap optimizer with DistributedOptimizer.
+        optimizer = hvd.DistributedOptimizer(**dist_optimizer_args)
+
+        # This function takes the current optimizer and constructs a new optimizer with the
+        # same state except with learning rate scaled down with the number of horovod workers.
+        # This is important the retraining of the model. User may retrain the model with
+        # different number of workers and we need the raw learning rate to adjust with the
+        # new number of workers.
+
+        schema_fields = feature_columns + label_columns
+        if sample_weight_col:
+            schema_fields.append(sample_weight_col)
+
+        if train_steps_per_epoch is None:
+            steps_per_epoch = int(math.ceil(float(train_rows) / batch_size / hvd.size()))
+        else:
+            steps_per_epoch = train_steps_per_epoch
+
+        with remote_store.get_local_output_dir() as run_output_dir:
+            logs_dir = os.path.join(run_output_dir, remote_store.logs_subdir)
+            log_writer = SummaryWriter(logs_dir) if hvd.rank() == 0 else None
+            ckpt_file = os.path.join(run_output_dir, remote_store.checkpoint_filename)
+
+            def save_checkpoint():
+                model.cpu()
+                state = {
+                    'model': model.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                }
+                torch.save(state, ckpt_file)
+                if cuda_available:
+                    model.cuda()
+
+            # Petastorm: read data from the store with the correct shard for this rank
+            # setting num_epochs=None will cause an infinite iterator
+            # and enables ranks to perform training and validation with
+            # unequal number of samples
+            train_data_path = remote_store.train_data_path
+            with make_batch_reader(remote_store.get_petastorm_path(train_data_path),
+                                   num_epochs=None,
+                                   cur_shard=hvd.rank(),
+                                   shard_count=hvd.size(),
+                                   hdfs_driver=PETASTORM_HDFS_DRIVER,
+                                   schema_fields=schema_fields) as train_reader:
+                val_data_path = remote_store.val_data_path
+                with make_batch_reader(remote_store.get_petastorm_path(val_data_path),
+                                       num_epochs=None,
+                                       cur_shard=hvd.rank(),
+                                       shard_count=hvd.size(),
+                                       hdfs_driver=PETASTORM_HDFS_DRIVER,
+                                       schema_fields=schema_fields) \
+                        if should_validate else empty_batch_reader() as val_reader:
+
+                    train_loader = DataLoader(train_reader,
+                                              batch_size=batch_size,
+                                              shuffling_queue_capacity=shuffle_buffer_size)
+                    train_loader_iter = iter(train_loader)
+
+                    def prepare_batch(row):
+                        inputs = [
+                            prepare_np_data(
+                                row[col].float(), col, metadata).reshape(shape)
+                            for col, shape in zip(feature_columns, input_shapes)]
+                        labels = [
+                            prepare_np_data(
+                                row[col].float(), col, metadata)
+                            for col in label_columns]
+
+                        sample_weights = row.get(sample_weight_col, None)
+                        if cuda_available:
+                            inputs = [input.cuda() for input in inputs]
+                            labels = [label.cuda() for label in labels]
+                        return inputs, labels, sample_weights
+
+                    def transform_outputs(outputs, labels):
+                        if type(outputs) != tuple and type(outputs) != list:
+                            outputs = [outputs]
+
+                        # reshape labels to match the output shape of the model
+                        if hasattr(outputs[0], 'shape'):
+                            labels = [label.reshape(output.shape)
+                                      if output.shape.numel() == label.shape.numel() else label
+                                      for label, output in zip(labels, outputs)]
+                        return outputs, labels
+
+                    def aggregate_metrics(stage, epoch, loss, metric_value_groups):
+                        all_metric_groups_values = get_metric_avgs(metric_value_groups)
+                        if remote_store.saving_runs:
+                            write_metrics_summary(
+                                stage, epoch, loss, all_metric_groups_values, log_writer)
+                        return {
+                            loss.name: loss.avg.item(),
+                            'all_metrics': all_metric_groups_values
+                        }
+
+                    def loss_fn(outputs, labels, sample_weights):
+                        loss = calculate_loss(outputs, labels, loss_weights, loss_fns, sample_weights)
+                        return loss
+
+                    def print_metrics(batch_idx, loss, metric_value_groups, phase):
+                        if user_verbose > 0 and hvd.rank() == 0 and \
+                                batch_idx % METRIC_PRINT_FREQUENCY == 0:
+                            print("epoch:\t{epoch}\tstep\t{batch_idx}:\t{metrics}".
+                                  format(epoch=epoch,
+                                         batch_idx=batch_idx,
+                                         metrics=aggregate_metrics(phase, epoch, loss,
+                                                                   metric_value_groups)))
+
+                    def _train(epoch):
+                        model.train()
+                        train_loss = metric_cls('loss', hvd)
+                        metric_value_groups = construct_metric_value_holders(
+                            metric_cls, metric_fn_groups, label_columns, hvd)
+
+                        # iterate on one epoch
+                        for batch_idx in range(steps_per_epoch):
+                            row = next(train_loader_iter)
+                            inputs, labels, sample_weights = prepare_batch(row)
+                            outputs, loss = train_minibatch(model, optimizer, transform_outputs,
+                                                            loss_fn, inputs, labels, sample_weights)
+                            update_metrics(metric_value_groups, outputs, labels)
+                            train_loss.update(loss)
+                            print_metrics(batch_idx, train_loss, metric_value_groups, 'train')
+
+                        return aggregate_metrics('train', epoch, train_loss, metric_value_groups)
+
+                    if should_validate:
+                        val_loader = DataLoader(val_reader, batch_size=batch_size)
+                        val_loader_iter = iter(val_loader)
+                        if validation_steps_per_epoch is None:
+                            validation_steps = int(math.ceil(float(val_rows) / batch_size / hvd.size()))
+                        else:
+                            validation_steps = validation_steps_per_epoch
+
+                        def _validate(epoch):
+                            model.eval()
+                            val_loss = metric_cls('loss', hvd)
+
+                            metric_value_groups = construct_metric_value_holders(
+                                metric_cls, metric_fn_groups, label_columns, hvd)
+
+                            # iterate on one epoch
+                            for batch_idx in range(validation_steps):
+                                row = next(val_loader_iter)
+                                inputs, labels, sample_weights = prepare_batch(row)
+
+                                outputs = model(*inputs)
+                                outputs, labels = transform_outputs(outputs, labels)
+
+                                loss = calculate_loss(
+                                    outputs, labels, loss_weights, loss_fns, sample_weights)
+                                val_loss.update(loss)
+                                update_metrics(metric_value_groups, outputs, labels)
+                                print_metrics(batch_idx, val_loss, metric_value_groups, 'val')
+                            return aggregate_metrics('val', epoch, val_loss, metric_value_groups)
+
+                    history = []
+                    for epoch in range(epochs):
+                        epoch_metrics = {
+                            'epoch': epoch,
+                            'train': _train(epoch)
+                        }
+
+                        if should_validate:
+                            epoch_metrics['validation'] = _validate(epoch)
+
+                        if user_verbose > 0:
+                            print(epoch_metrics)
+
+                        history.append(epoch_metrics)
+                        if hvd.rank() == 0:
+                            # Save model after every epoch
+                            save_checkpoint()
+                            if remote_store.saving_runs:
+                                remote_store.sync(run_output_dir)
+
+            if hvd.rank() == 0:
+                best_checkpoint = torch.load(ckpt_file)
+                model.load_state_dict(best_checkpoint['model'])
+                optimizer.load_state_dict(best_checkpoint['optimizer'])
+
+                # need to move the model to cpu before serialization. Otherwise,
+                # deserialization will fail if the machine on which the deserialization
+                # is happening does not have gpu.
+                model.cpu()
+
+                optimizer_with_unscaled_lr = \
+                    get_optimizer_with_unscaled_lr(
+                        hvd, optimizer, optimizer_cls, model)
+
+                bio_opt = io.BytesIO()
+                torch.save(optimizer_with_unscaled_lr, bio_opt)
+                bio_opt.seek(0)
+
+                return history, serialize(model), serialize(bio_opt)
+    return train
+
+
+def _train_minibatch_fn():
+    def train_minibatch(model, optimizer, transform_outputs, loss_fn, inputs, labels, sample_weights):
+        optimizer.zero_grad()
+        outputs = model(*inputs)
+        outputs, labels = transform_outputs(outputs, labels)
+        loss = loss_fn(outputs, labels, sample_weights)
+        loss.backward()
+        optimizer.step()
+        return outputs, loss
+    return train_minibatch
+
+
+def _get_optimizer_with_unscaled_lr_fn():
+    def get_optimizer_with_unscaled_lr(hvd, current_optimizer, optimizer_cls, model):
+        optimizer_state = current_optimizer.state_dict()
+        # scale down the learning rate with the number of horovod workers
+        for i in range(len(optimizer_state['param_groups'])):
+            optimizer_state['param_groups'][i]['lr'] = \
+                optimizer_state['param_groups'][i]['lr'] / hvd.size()
+        optimizer = optimizer_cls(model.parameters(), lr=1)
+        optimizer.load_state_dict(optimizer_state)
+        return optimizer
+
+    return get_optimizer_with_unscaled_lr
+
+
+def _calculate_shuffle_buffer_size_fn():
+    def calculate_shuffle_buffer_size(hvd, avg_row_size, train_row_count_per_worker):
+        """
+        Determines the shuffling buffer size such that each worker gets at most 1GB for shuffling
+        buffer such that on a single machine, among all the workers on that machine, at most
+        memory_cap_gb GB are allocated for shuffling buffer. Also, it ensures that the buffer size
+        is identical among all the workers.
+
+        example 1:
+        memory_cap_gb = 4
+        machine1: 8 workers
+        machine2: 3 workers
+        shuffle_buffer_size = 0.5 GB
+
+        example 2:
+        memory_cap_gb = 4
+            machine1: 2 workers
+            machine2: 3 workers
+        shuffle_buffer_size = 1 GB
+
+        example 3:
+        memory_cap_gb = 4
+            machine1: 2 workers
+            machine2: 8 workers
+            machine3: 5 workers
+        shuffle_buffer_size = 0.5 GB
+        """
+        local_size = hvd.local_size()
+        local_sizes = hvd.allgather(torch.tensor([local_size]))
+        max_local_size = torch.max(local_sizes).item()
+
+        if max_local_size > TOTAL_BUFFER_MEMORY_CAP:
+            shuffle_buffer_size = TOTAL_BUFFER_MEMORY_CAP * ONE_GB / avg_row_size / max_local_size
+        else:
+            shuffle_buffer_size = ONE_GB / avg_row_size
+        return int(min(shuffle_buffer_size, train_row_count_per_worker))
+
+    return calculate_shuffle_buffer_size
+
+
+def _construct_metric_value_holders_fn():
+    def construct_metric_value_holders(metric_class, metric_fn_groups, label_columns, hvd):
+        metric_values = []
+        for group_number, metric_group in enumerate(metric_fn_groups):
+            metric_group_val = []
+            for label_col in label_columns:
+                metric_group_val.append(
+                    metric_class('group_' + str(group_number) + '_' + label_col, hvd))
+
+            metric_values.append(metric_group_val)
+        return metric_values
+    return construct_metric_value_holders
+
+
+def _metric_cls():
+    # Horovod: average metrics from distributed training.
+    class Metric(object):
+        def __init__(self, name, hvd):
+            self.name = name
+            self.sum = torch.tensor(0.)
+            self.n = torch.tensor(0.)
+            self.hvd = hvd
+
+        def update(self, val):
+            self.sum += self.hvd.allreduce(val.detach().cpu(), name=self.name)
+            self.n += 1
+
+        @property
+        def avg(self):
+            return self.sum / self.n
+
+    return Metric
+
+
+def _prepare_np_data_fn():
+    def prepare_np_data(rows, col_name, metadata):
+        intermediate_format = metadata[col_name]['intermediate_format']
+        if intermediate_format != CUSTOM_SPARSE:
+            return rows
+
+        shape = metadata[col_name]['shape']
+        num_rows = rows.shape[0]
+        dense_rows = torch.zeros([num_rows, shape])
+        for r in range(num_rows):
+            size = rows[r][0].long()
+            dense_rows[r][rows[r][1:size + 1].long()] = \
+                rows[r][size + 1:2 * size + 1]
+        return dense_rows
+
+    return prepare_np_data
+
+
+def _get_metric_avgs_fn():
+    def get_metric_avgs(metric_value_groups):
+        all_metric_groups_values = []
+        for metric_value_group in metric_value_groups:
+            metric_avgs = {}
+            for metric in metric_value_group:
+                metric_avgs[metric.name] = metric.avg.item()
+            all_metric_groups_values.append(metric_avgs)
+        return all_metric_groups_values
+
+    return get_metric_avgs
+
+
+def _update_metrics_fn(metric_fn_groups):
+    def update_metrics(metric_value_groups, outputs, labels):
+        """
+        metric_value_groups is a list of metric functions. For example, for a model with 3
+        outputs, we can define these two metric groups
+        [
+            [metric_fn1],
+            [metric_fn21,metric_fn22,metric_fn23],
+        ]
+
+        In this example, first metric group provides only one metric function. This
+        function will be used to calculate the metric on all of the model outputs. Second
+        metric groups, however, defines one metric function per output.
+        """
+
+        num_outputs = len(outputs)
+        for metric_fn_group, metric_value_group in zip(metric_fn_groups, metric_value_groups):
+            if len(metric_fn_group) == 1:
+                _metric_fn_group = [metric_fn_group[0] for _ in range(num_outputs)]
+            else:
+                _metric_fn_group = metric_fn_group
+
+            for metric_val, metric_fn, output_group, label_group in \
+                    zip(metric_value_group, _metric_fn_group, outputs, labels):
+                metric_val.update(metric_fn(output_group, label_group))
+
+        return metric_value_groups
+
+    return update_metrics
+
+
+def _write_metrics_summary_fn():
+    def write_metrics_summary(stage, epoch, loss_metric, metric_value_groups, log_writer):
+        if not log_writer:
+            return
+
+        log_writer.add_scalar('{}/{}'.format(stage, loss_metric.name),
+                              loss_metric.avg.item(), epoch)
+
+        for idx, metric_value_group in enumerate(metric_value_groups):
+            for metric in metric_value_group:
+                log_writer.add_scalar('{}/{}:{}'.format(stage, metric.name, idx),
+                                      metric.avg.item(), epoch)
+
+    return write_metrics_summary
+
+
+def _calculate_loss_fn():
+    def calculate_loss(outputs, labels, loss_weights, loss_fns, sample_weights=None):
+        # If only one loss function is passed by user, use it to calculate the loss on all
+        # the outputs
+        if len(loss_fns) == 1:
+            _loss_fns = [loss_fns[0] for _ in range(len(outputs))]
+        else:
+            _loss_fns = loss_fns
+        if sample_weights is not None:
+            # when reduction='none', loss function returns the value of all the losses
+            # from all the samples. We multiply each sample's weight to its loss and
+            # then take the mean of the weight adjusted losses from all the samples in the
+            # batch. Note that this approach is not "weighted average" because the sum of
+            # the sample weights in each batch does not necessarily add up to one. If we add
+            # the weights and divide the sum to the sum of weights, the impact of two
+            # samples with identical weights but in different batches will not be equal on
+            # the calculated gradients.
+            losses = []
+            for output, label, loss_fn, loss_weight in zip(outputs, labels,
+                                                           _loss_fns, loss_weights):
+                weight_adjusted_sample_losses = \
+                    loss_fn(output, label, reduction='none').flatten() * sample_weights
+                output_loss = weight_adjusted_sample_losses.mean()
+                losses.append(output_loss * loss_weight)
+        else:
+            losses = [loss_fn(output, label) * loss_weight for
+                      output, label, loss_fn, loss_weight in
+                      zip(outputs, labels, _loss_fns, loss_weights)]
+
+        loss = sum(losses)
+        return loss
+
+    return calculate_loss
