@@ -1173,6 +1173,10 @@ class TorchTests(unittest.TestCase):
         if size == 1:
             return
 
+        # Skip the test if there are not enough GPUs.
+        if torch.cuda.device_count() < hvd.local_size() * 2:
+            return
+
         first_device = local_rank * 2
         second_device = local_rank * 2 + 1
 
