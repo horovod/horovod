@@ -267,6 +267,10 @@ class TorchTests(unittest.TestCase):
         local_rank = hvd.local_rank()
         size = hvd.size()
 
+        # Skip the test if there are not enough GPUs.
+        if torch.cuda.device_count() < hvd.local_size() * 2:
+            return
+
         iter = 0
         dtypes = [torch.cuda.IntTensor, torch.cuda.LongTensor,
                   torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
