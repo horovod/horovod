@@ -269,17 +269,21 @@ def _driver_fn(all_host_names, local_host_names, settings):
 
 
 def _get_driver_ip(common_intfs):
+    """
+    :param common_intfs: object return by `_driver_fn`
+    :return: driver ip. We make sure all workers can connect to this ip.
+    """
     iface = list(common_intfs)[0]
-    server_ip = None
+    driver_ip = None
     for addr in net_if_addrs()[iface]:
         if addr.family == AF_INET:
-            server_ip = addr.address
+            driver_ip = addr.address
 
-    if not server_ip:
+    if not driver_ip:
         raise RuntimeError(
             'Cannot find an IPv4 address of the common interface.')
 
-    return server_ip
+    return driver_ip
 
 
 def check_build(verbose):
@@ -804,6 +808,7 @@ def _run(args):
         try:
             _launch_job(args, remote_host_names, settings, common_intfs, command)
             results = [None] * args.np
+            # TODO: make it parallel to improve performance
             for i in range(args.np):
                 pickled_result = read_data_from_kvstore(driver_ip, run_func_server_port,
                                                         'runfunc_result', str(i))
@@ -851,7 +856,7 @@ def run_commandline():
 def run(
         func,
         args=(),
-        kwargs={},
+        kwargs=None,
         np=1,
         hosts=None,
         hostfile=None,
@@ -867,6 +872,7 @@ def run(
 
     :param func: The function to be run in Horovod job processes. The function return value will
                  be collected as the corresponding Horovod process return value.
+                 This function must be compatible with pickle.
     :param args: Arguments to pass to `func`.
     :param kwargs: Keyword arguments to pass to `func`.
     :param np: Number of Horovod processes.
@@ -903,8 +909,17 @@ def run(
              The index of the list corresponds to the rank of each Horovod process.
     """
 
+    if kwargs is None:
+        kwargs = {}
+
     def wrapped_func():
         return func(*args, **kwargs)
+
+    if hosts is not None and hostfile is not None:
+        raise ValueError('Argument hosts and hostfile only allow one provided.')
+
+    if use_gloo is not None and use_mpi is not None:
+        raise ValueError('Argument use_gloo and use_mpi only allow one provided.')
 
     hargs = HorovodArgs()
 

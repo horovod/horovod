@@ -32,6 +32,7 @@ def read_data_from_kvstore(addr, port, scope, key):
         )
         req = Request(url)
         resp = urlopen(req)
+        # TODO: remove base64 encoding because base64 is not efficient
         return base64.b64decode(resp.read())
     except (HTTPError, URLError) as e:
         raise RuntimeError("Read data from KVStore server failed.", e)
