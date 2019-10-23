@@ -918,8 +918,8 @@ def run(
     if hosts is not None and hostfile is not None:
         raise ValueError('Argument hosts and hostfile only allow one provided.')
 
-    if use_gloo is not None and use_mpi is not None:
-        raise ValueError('Argument use_gloo and use_mpi only allow one provided.')
+    if use_gloo and use_mpi:
+        raise ValueError('Argument use_gloo and use_mpi only allow one set True.')
 
     hargs = HorovodArgs()
 
