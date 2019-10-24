@@ -1230,7 +1230,7 @@ class TorchTests(unittest.TestCase):
 
         opt = torch.optim.SGD(model.parameters(), lr=0.1)
 
-        opt = hvd.DistributedOptimizer(opt, named_parameters=model.named_parameters(), wrapper_type=WrapperType.delta, op=hvd.Adasum)
+        opt = hvd.DistributedOptimizer(opt, named_parameters=model.named_parameters(), op=hvd.Adasum)
         loss = model(inp).sum()
         opt.zero_grad()
         loss.backward()

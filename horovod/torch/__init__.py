@@ -249,7 +249,7 @@ class _DistributedDeltaOptimizer(torch.optim.Optimizer):
         for (handle, delta, ctx), start, current in zip(self._handles, self._initial_model, self._params):
             synchronize(handle)
             decompressed_delta = self._compression.decompress(delta, ctx)
-            start.data.add_(delta.type(current.dtype))
+            start.data.add_(decompressed_delta)
             current.data.copy_(start)
         if(self._is_apex_optimizer):
             super(self.__class__, self)._master_params_to_model_params()
@@ -264,6 +264,12 @@ class _DistributedDeltaOptimizer(torch.optim.Optimizer):
         for start, current in zip(self._initial_model, self._params):
                 with torch.no_grad():
                     current.data.copy_(start)
+        # Step() from the actual optimizer is called first which causes the model to be updated.
+        # Then the delta of the parameters is calculated and reduced.
+        # delta = current - start
+        # allreduce delta
+        # start += delta
+
         super(self.__class__, self).step(closure)
         with torch.no_grad():
             for start, current in zip(self._initial_model, self._params):                                
@@ -281,8 +287,7 @@ class _DistributedDeltaOptimizer(torch.optim.Optimizer):
 def DistributedOptimizer(optimizer, named_parameters=None,
                          compression=Compression.none,
                          backward_passes_per_step=1,
-                         op=Average,
-                         wrapper_type=WrapperType.default):
+                         op=Average):
     """
     An optimizer that wraps another torch.optim.Optimizer, using an allreduce to
     combine gradient values before applying gradients to model weights.
@@ -326,7 +331,7 @@ def DistributedOptimizer(optimizer, named_parameters=None,
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override the `step()` method with an allreduce implementation.
 
-    if wrapper_type == WrapperType.delta:
+    if op == Adasum:
         cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
             dict(_DistributedDeltaOptimizer.__dict__))
     else:
