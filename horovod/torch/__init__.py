@@ -19,6 +19,7 @@ from __future__ import division
 from __future__ import print_function
 
 from contextlib import contextmanager
+from enum import Enum
 import warnings
 
 from horovod.common.util import check_extension
@@ -44,6 +45,14 @@ from horovod.torch.mpi_ops import Average, Sum, Adasum
 import torch
 import collections
 
+class WrapperType(Enum):
+    """
+    The optimizer wrapper type to indicate how underlying optimizer is called.
+    default: call underlying optimizer after reducing gradients.
+    delta: call underlying optimizer and then reduce based on the delta of model change.
+    """
+    default = 1
+    delta = 2
 
 class _DistributedOptimizer(torch.optim.Optimizer):
     def __init__(self, params, named_parameters, compression,
@@ -203,11 +212,77 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                                  "This is prohibited as it can cause a race condition.")
         return super(self.__class__, self).zero_grad()
 
+class _DistributedDeltaOptimizer(torch.optim.Optimizer):
+    #TODO remove once the Apex is integrated with PyTorch
+    import apex as amp
+    def __init__(self, params, named_parameters, compression,
+                 backward_passes_per_step=1, op=Average):
+        super(self.__class__, self).__init__(params)
+        # Flag to indicate if given optimizer is initialized by apex.
+        # If so, we will use amp calls on the optimizer.
+        self._is_apex_optimizer = hasattr(self, "_amp_stash")
+        self._handles = []
+        self.backward_passes_per_step = backward_passes_per_step
+        self.op = op
+        self._compression = compression
+        # Retrieve parameters either from apex or torch optimizer
+        if named_parameters is not None:
+            named_parameters = [param for name, param in named_parameters]
+        else:
+            named_parameters = [ p for param_group in self.param_groups for p in param_group['params']]
+
+        with torch.no_grad():
+            self._params = amp.master_params(self) if self._is_apex_optimizer else named_parameters
+            self._initial_model = [
+                param.clone().detach().float()
+                for param in self._params
+            ]
+        self._allreduce_delay = {p: self.backward_passes_per_step
+                                 for p in self._params}
+
+    def set_backward_passes_per_step(self, passes):
+        self.backward_passes_per_step = passes
+        for p in self._allreduce_delay:
+            self._allreduce_delay[p] = self.backward_passes_per_step
+
+    def synchronize(self):
+        for (handle, delta, ctx), start, current in zip(self._handles, self._initial_model, self._params):
+            synchronize(handle)
+            decompressed_delta = self._compression.decompress(delta, ctx)
+            start.data.add_(delta.type(current.dtype))
+            current.data.copy_(start)
+        if(self._is_apex_optimizer):
+            super(self.__class__, self)._master_params_to_model_params()
+
+    @contextmanager
+    def skip_synchronize(self):
+        raise NotImplementedError
+
+    def step(self, closure=None):
+        #TODO implement local aggregation
+        # drop any accumulated gradients from last epoch
+        for start, current in zip(self._initial_model, self._params):
+                with torch.no_grad():
+                    current.data.copy_(start)
+        super(self.__class__, self).step(closure)
+        with torch.no_grad():
+            for start, current in zip(self._initial_model, self._params):                                
+                current.data.sub_(start)
+                delta = current.type(torch.float16)
+                compressed_delta, ctx = self._compression.compress(delta)
+                handle = allreduce_async_(compressed_delta.data, op=self.op)
+                self._handles.append((handle, delta, ctx))
+            self.zero_grad()
+            self.synchronize()
+
+    def zero_grad(self):
+        return super(self.__class__, self).zero_grad()
 
 def DistributedOptimizer(optimizer, named_parameters=None,
                          compression=Compression.none,
                          backward_passes_per_step=1,
-                         op=Average):
+                         op=Average,
+                         wrapper_type=WrapperType.default):
     """
     An optimizer that wraps another torch.optim.Optimizer, using an allreduce to
     combine gradient values before applying gradients to model weights.
@@ -246,13 +321,19 @@ def DistributedOptimizer(optimizer, named_parameters=None,
                                   allows accumulating gradients over multiple
                                   mini-batches before reducing and applying them.
         op: The reduction operation to use when combining gradients across different ranks.
+        wrapper_type: The optimizer wrapper type to indicate how underlying optimizer is called.
     """
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override the `step()` method with an allreduce implementation.
-    cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
-               dict(_DistributedOptimizer.__dict__))
-    return cls(optimizer.param_groups, named_parameters,
-               compression, backward_passes_per_step, op)
+
+    if wrapper_type == WrapperType.delta:
+        cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
+            dict(_DistributedDeltaOptimizer.__dict__))
+    else:
+        cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
+            dict(_DistributedOptimizer.__dict__))
+
+    return cls(optimizer.param_groups, named_parameters, compression, backward_passes_per_step, op)
 
 
 def broadcast_parameters(params, root_rank):

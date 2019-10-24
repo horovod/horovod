@@ -31,6 +31,7 @@ import unittest
 import warnings
 
 import horovod.torch as hvd
+from horovod.torch import WrapperType
 
 from common import mpi_env_rank_and_size
 
@@ -1192,6 +1193,44 @@ class TorchTests(unittest.TestCase):
         opt = torch.optim.SGD(model.parameters(), lr=0.1)
         opt = hvd.DistributedOptimizer(opt, named_parameters=model.named_parameters())
 
+        loss = model(inp).sum()
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+
+    def test_delta_optimizer(self):
+        """Test that delta optimizer."""
+        # Only do this test if there are GPUs available.
+        if not torch.cuda.is_available():
+            return
+
+        hvd.init()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+        torch.cuda.set_device(torch.device("cuda:{}".format(local_rank)))
+        class Net(torch.nn.Module):
+            def __init__(self):
+                super(Net, self).__init__()
+                self.conv1 = torch.nn.Conv2d(1, 100, 1).cuda()
+                self.conv2 = torch.nn.Conv2d(100, 1, 1).cuda()
+
+            def forward(self, x):
+                x = x.cuda()
+                x = self.conv1(x)
+                x = x.cuda()
+                x = self.conv2(x)
+                return x
+
+        model = Net()
+        inp = torch.rand([1, 1, 1000, 1000])
+
+        opt = torch.optim.SGD(model.parameters(), lr=0.1)
+
+        opt = hvd.DistributedOptimizer(opt, named_parameters=model.named_parameters(), wrapper_type=WrapperType.delta, op=hvd.Adasum)
         loss = model(inp).sum()
         opt.zero_grad()
         loss.backward()
