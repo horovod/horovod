@@ -23,6 +23,8 @@ DDL_Type GetDDLDataType(const std::shared_ptr<Tensor> tensor) {
   switch (tensor->dtype()) {
     case HOROVOD_FLOAT32:
       return DDL_TYPE_FLOAT;
+    case HOROVOD_FLOAT16:
+      return DDL_TYPE_HALF;
     default:
       throw std::logic_error("Type " + DataType_Name(tensor->dtype()) +
                              " is not supported in DDL mode.");
