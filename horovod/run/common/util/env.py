@@ -35,6 +35,11 @@ def get_env_rank_and_size():
         size = os.environ.get(size_var)
         if rank is not None and size is not None:
             return int(rank), int(size)
+        elif rank is not None or size is not None:
+            raise RuntimeError(
+                'Could not determine process rank and size: only one of {} and {} '
+                'found in environment'.format(rank_var, size_var))
+                                                                                                               size_var))
 
     # Default to rank zero and size one if there are no environment variables
     return 0, 1
