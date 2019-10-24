@@ -268,7 +268,7 @@ class _DistributedDeltaOptimizer(torch.optim.Optimizer):
         with torch.no_grad():
             for start, current in zip(self._initial_model, self._params):                                
                 current.data.sub_(start)
-                delta = current.type(torch.float16)
+                delta = current
                 compressed_delta, ctx = self._compression.compress(delta)
                 handle = allreduce_async_(compressed_delta.data, op=self.op)
                 self._handles.append((handle, delta, ctx))
