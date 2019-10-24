@@ -22,16 +22,13 @@ import sys
 import threading
 import time
 
-from psutil import net_if_addrs
-from socket import AF_INET
-
 try:
     from shlex import quote
 except ImportError:
     from pipes import quote
 
 from horovod.run.common.util import env as env_util, safe_shell_exec
-from horovod.run.rendezvous.http_server import RendezvousServer
+from horovod.run.http.http_server import RendezvousServer
 from horovod.run.util import threads
 
 
@@ -262,7 +259,7 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command
                                .format(name=name, code=exit_code))
 
 
-def gloo_run(settings, remote_host_names, common_intfs, env):
+def gloo_run(settings, remote_host_names, common_intfs, env, server_ip, command):
     # allocate processes into slots
     host_alloc_plan = _allocate(settings.hosts, settings.num_proc)
 
@@ -271,16 +268,7 @@ def gloo_run(settings, remote_host_names, common_intfs, env):
     # Start rendezvous server and get port that it is listening
     global_rendezv_port = global_rendezv.start_server(host_alloc_plan)
 
-    # get the server IPv4 address
     iface = list(common_intfs)[0]
-    server_ip = None
-    for addr in net_if_addrs()[iface]:
-        if addr.family == AF_INET:
-            server_ip = addr.address
-
-    if not server_ip:
-        raise RuntimeError(
-            'Cannot find an IPv4 address of the common interface.')
 
     run_command = (
         'HOROVOD_GLOO_RENDEZVOUS_ADDR={addr} '
@@ -294,7 +282,7 @@ def gloo_run(settings, remote_host_names, common_intfs, env):
                 port=global_rendezv_port,
                 iface=iface,  # TODO: add multiple ifaces in future
                 common_intfs=','.join(common_intfs),
-                command=' '.join(quote(par) for par in settings.command)))
+                command=' '.join(quote(par) for par in command)))
 
     _launch_jobs(settings, env, host_alloc_plan, remote_host_names, run_command)
     return

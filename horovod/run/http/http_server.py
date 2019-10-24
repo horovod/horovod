@@ -30,7 +30,7 @@ TIMEOUT = 408
 OK = 200
 
 
-class RendezvousHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+class KVStoreHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     # Set timeout
     timeout = SINGLE_REQUEST_TIMEOUT
 
@@ -39,7 +39,7 @@ class RendezvousHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         paths = self.path.split('/')
         if len(paths) < 3:
             print(
-                'Rendezvous ERROR: Invalid request path: {path}.'.format(
+                'KVStore ERROR: Invalid request path: {path}.'.format(
                     path=self.path))
             self.send_status_code(BAD_REQUEST)
             return
@@ -61,7 +61,7 @@ class RendezvousHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         paths = self.path.split('/')
         if len(paths) < 3:
             print(
-                'Rendezvous ERROR: Invalid request path: {path}.'.format(
+                'KVStore ERROR: Invalid request path: {path}.'.format(
                     path=self.path))
             self.send_status_code(BAD_REQUEST)
             return
@@ -75,7 +75,7 @@ class RendezvousHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         except socket.timeout:
             if self.server.verbose:
                 print(
-                    'Rendezvous ERROR: Timeout when receiving {content_bytes} '
+                    'KVStore ERROR: Timeout when receiving {content_bytes} '
                     'bytes, aborting this incomplete request.' .format(
                         content_bytes=content_length))
 
@@ -91,6 +91,18 @@ class RendezvousHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
         self.send_status_code(OK)
 
+    def send_status_code(self, status_code):
+        self.send_response(status_code)
+        self.send_header("Content-Length", 0)
+        self.end_headers()
+
+    # Override this function to prevent SimpleHTTPServer printing every
+    # request out.
+    def log_message(self, format, *args):
+        pass
+
+
+class RendezvousHandler(KVStoreHandler):
     # Override DELETE handler
     def do_DELETE(self):
         paths = self.path.split('/')
@@ -107,16 +119,6 @@ class RendezvousHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             self.server.finished_list[scope].append(key)
 
         self.send_status_code(OK)
-
-    def send_status_code(self, status_code):
-        self.send_response(status_code)
-        self.send_header("Content-Length", 0)
-        self.end_headers()
-
-    # Override this function to prevent SimpleHTTPServer printing every
-    # request out.
-    def log_message(self, format, *args):
-        pass
 
 
 class RendezvousHTTPServer(BaseHTTPServer.HTTPServer, object):
@@ -199,6 +201,52 @@ class RendezvousServer:
         while self.httpd.should_continue():
             self.httpd.handle_request()
 
+        self.httpd.server_close()
+
         if self.verbose:
             print('Rendezvous INFO: Rendezvous finishes.')
+        # Because this thread is daemonized, no need to join.
+
+
+class KVStoreHTTPServer(BaseHTTPServer.HTTPServer, object):
+    def __init__(self, addr, handler, verbose):
+        super(KVStoreHTTPServer, self).__init__(addr, handler)
+
+        # Cache that provides the store
+        self.cache_lock = threading.Lock()
+        self.cache = {}
+
+        self.verbose = verbose
+
+
+class KVStoreServer:
+    def __init__(self, verbose):
+        self.httpd = None
+        self.listen_thread = None
+        self.verbose = verbose
+
+    # KVStore server finds a available port, create http socket,
+    # and start listening loop to handle request
+    def start_server(self):
+        self.httpd, port = find_port(
+            lambda addr: KVStoreHTTPServer(
+                addr, KVStoreHandler, self.verbose))
+
+        self.listen_thread = threading.Thread(
+            target=lambda: self.httpd.serve_forever())
+        self.listen_thread.daemon = True
+        self.listen_thread.start()
+
+        if self.verbose:
+            print('KVStoreServer INFO: KVStore server started. Listen on port ' + str(port))
+
+        return port
+
+    def shutdown_server(self):
+        self.httpd.shutdown()
+
+        self.httpd.server_close()
+
+        if self.verbose:
+            print('KVStoreServer INFO: KVStore server finishes.')
         # Because this thread is daemonized, no need to join.

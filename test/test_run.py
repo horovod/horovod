@@ -25,7 +25,7 @@ import warnings
 
 import pytest
 
-from horovod.run import run
+from horovod.run.run import parse_args
 from horovod.run.common.util import config_parser
 
 
@@ -57,7 +57,7 @@ class RunTests(unittest.TestCase):
                            '--cache-capacity', '512',
                            '--hierarchical-allreduce',
                            '--hierarchical-allgather'):
-            args = run.parse_args()
+            args = parse_args()
             env = {}
             config_parser.set_env_from_args(env, args)
 
@@ -75,7 +75,7 @@ class RunTests(unittest.TestCase):
                            '--autotune-steps-per-sample', '5',
                            '--autotune-bayes-opt-max-samples', '10',
                            '--autotune-gaussian-process-noise', '0.2'):
-            args = run.parse_args()
+            args = parse_args()
             env = {}
             config_parser.set_env_from_args(env, args)
 
@@ -91,7 +91,7 @@ class RunTests(unittest.TestCase):
                            '--autotune',
                            '--cache-capacity', '1024',
                            '--no-hierarchical-allgather'):
-            args = run.parse_args()
+            args = parse_args()
             env = {}
             config_parser.set_env_from_args(env, args)
 
@@ -105,7 +105,7 @@ class RunTests(unittest.TestCase):
         with override_args('horovodrun', '-np', '2',
                            '--timeline-filename', '/tmp/timeline.json',
                            '--timeline-mark-cycles'):
-            args = run.parse_args()
+            args = parse_args()
             env = {}
             config_parser.set_env_from_args(env, args)
 
@@ -115,7 +115,7 @@ class RunTests(unittest.TestCase):
     def test_stall_check_args(self):
         with override_args('horovodrun', '-np', '2',
                            '--no-stall-check'):
-            args = run.parse_args()
+            args = parse_args()
             env = {}
             config_parser.set_env_from_args(env, args)
 
@@ -124,7 +124,7 @@ class RunTests(unittest.TestCase):
         with override_args('horovodrun', '-np', '2',
                            '--stall-check-warning-time-seconds', '10',
                            '--stall-check-shutdown-time-seconds', '20'):
-            args = run.parse_args()
+            args = parse_args()
             env = {}
             config_parser.set_env_from_args(env, args)
 
@@ -138,7 +138,7 @@ class RunTests(unittest.TestCase):
                            '--num-nccl-streams', '2',
                            '--mlsl-bgt-affinity', '1',
                            '--gloo-timeout-seconds', '60'):
-            args = run.parse_args()
+            args = parse_args()
             env = {}
             config_parser.set_env_from_args(env, args)
 
@@ -151,7 +151,7 @@ class RunTests(unittest.TestCase):
         with override_args('horovodrun', '-np', '2',
                            '--log-level', 'INFO',
                            '--log-hide-timestamp'):
-            args = run.parse_args()
+            args = parse_args()
             env = {}
             config_parser.set_env_from_args(env, args)
 
@@ -162,7 +162,7 @@ class RunTests(unittest.TestCase):
         config_filename = os.path.join(os.path.dirname(__file__), 'data/config.test.yaml')
         with override_args('horovodrun', '-np', '2',
                            '--config-file', config_filename):
-            args = run.parse_args()
+            args = parse_args()
 
             self.assertTrue(args.use_gloo)
 
@@ -206,7 +206,7 @@ class RunTests(unittest.TestCase):
                            '--fusion-threshold-mb', '128',
                            '--config-file', config_filename,
                            '--cycle-time-ms', '20',):
-            args = run.parse_args()
+            args = parse_args()
             self.assertEqual(args.fusion_threshold_mb, 128)
             self.assertEqual(args.cycle_time_ms, 20)
 
@@ -214,4 +214,4 @@ class RunTests(unittest.TestCase):
         with override_args('horovodrun', '-np', '2',
                            '--fusion-threshold-mb', '-1'):
             with pytest.raises(ValueError):
-                run.parse_args()
+                parse_args()
