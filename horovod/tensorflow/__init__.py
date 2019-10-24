@@ -299,20 +299,20 @@ if _LegacyOptimizer is not None:
             """Calls this same method on the underlying optimizer."""
             return self._optimizer.variables(*args, **kwargs)
 
-    class _DistributedDeltaOptimizer(_LegacyOptimizer):
+    class _DistributedAdasumOptimizer(_LegacyOptimizer):
         """An optimizer that wraps another tf.Optimizer, using an allreduce to
         combine model deltas after applying gradients to model weights."""
 
         def __init__(self, optimizer, name=None, use_locking=False, device_dense='',
                     device_sparse='', compression=Compression.none,
-                    sparse_as_dense=False, backward_passes_per_step=1, op=Average):
+                    sparse_as_dense=False, backward_passes_per_step=1):
             if name is None:
                 name = "DistributedDelta{}".format(type(optimizer).__name__)
-            super(_DistributedDeltaOptimizer, self).__init__(name=name, use_locking=use_locking)
+            super(_DistributedAdasumOptimizer, self).__init__(name=name, use_locking=use_locking)
 
             self._optimizer = optimizer
             self._allreduce = _make_allreduce_grads_fn(
-                name, device_dense, device_sparse, compression, sparse_as_dense, op)
+                name, device_dense, device_sparse, compression, sparse_as_dense, Adasum)
             self._backward_passes_per_step = backward_passes_per_step
 
         def _prepare(self):
@@ -376,14 +376,14 @@ if _LegacyOptimizer is not None:
 
         def get_slot(self, var, name):
             """Calls this same method on the underlying optimizer."""
-            tmp = super(_DistributedDeltaOptimizer, self).get_slot(var, name)
+            tmp = super(_DistributedAdasumOptimizer, self).get_slot(var, name)
             if tmp is not None:
                 return tmp
             return self._optimizer.get_slot(var, name)
 
         def get_slot_names(self):
             """Appends local slot names to those of the underlying optimizer."""
-            return super(_DistributedDeltaOptimizer, self).get_slot_names() +\
+            return super(_DistributedAdasumOptimizer, self).get_slot_names() +\
                 self._optimizer.get_slot_names()
 
         def variables(self, *args, **kwargs):
@@ -438,25 +438,24 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
         different ranks.
     """
     if isinstance(optimizer, _LegacyOptimizer):
-        if wrapper_type == WrapperType.default:
+        if op == Adasum:
+            return _DistributedAdasumOptimizer(optimizer, name, use_locking, device_dense,
+                                            device_sparse, compression, sparse_as_dense,
+                                            backward_passes_per_step)
+        else:
             if backward_passes_per_step > 1:
                 raise ValueError('backward_passes_per_step>1 is not supported yet with '
-                                 'wrapper_type=WrapperType.default')
+                                 'op != Adasum')
             return _DistributedOptimizer(optimizer, name, use_locking, device_dense,
                                         device_sparse, compression, sparse_as_dense, op)
-        elif wrapper_type == WrapperType.delta:
-            return _DistributedDeltaOptimizer(optimizer, name, use_locking, device_dense,
-                                        device_sparse, compression, sparse_as_dense,
-                                        backward_passes_per_step, op)
     elif isinstance(optimizer, tf.keras.optimizers.Optimizer):
-        if wrapper_type == WrapperType.delta:
-            raise ValueError('wrapper_type=WrapperType.delta is not supported yet with Keras')
+        if op == Adasum:
+            raise ValueError('op == Adasum is not supported yet with Keras')
         if backward_passes_per_step > 1:
             raise ValueError('backward_passes_per_step > 1 is not supported yet with Keras')
         import horovod.tensorflow.keras as hvd_k
-        # TODO: Add Adasum, this is a part of Keras
         return hvd_k.DistributedOptimizer(optimizer, name, device_dense, device_sparse,
-                                          compression, sparse_as_dense, op)
+                                          compression, sparse_as_dense)
     else:
         raise ValueError('Provided optimizer doesn\'t inherit from either legacy '
                          'TensorFlow or Keras optimizer: %s' % optimizer)
