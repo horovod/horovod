@@ -302,15 +302,16 @@ if _LegacyOptimizer is not None:
         combine model deltas after applying gradients to model weights."""
 
         def __init__(self, optimizer, name=None, use_locking=False, device_dense='',
-                    device_sparse='', compression=Compression.none,
-                    sparse_as_dense=False, backward_passes_per_step=1):
+                    device_sparse='', compression=Compression.none, backward_passes_per_step=1):
             if name is None:
                 name = "DistributedDelta{}".format(type(optimizer).__name__)
             super(_DistributedAdasumOptimizer, self).__init__(name=name, use_locking=use_locking)
 
             self._optimizer = optimizer
-            self._allreduce = _make_allreduce_grads_fn(
-                name, device_dense, device_sparse, compression, sparse_as_dense, Adasum)
+            self._name = name
+            self._device_dense = device_dense
+            self._device_sparse = device_sparse
+            self._compression = compression
             self._backward_passes_per_step = backward_passes_per_step
 
         def _prepare(self):
@@ -335,7 +336,11 @@ if _LegacyOptimizer is not None:
                         # delta = var - start
                         local_delta = var.assign_sub(start_slot, use_locking=self.use_locking) # reuse var's memory
                         # delta = allreduce (delta)
-                        global_delta = self._allreduce(local_delta)
+                        global_delta = allreduce(local_delta,
+                                                 device_dense=self._device_dense,
+                                                 device_sparse=self._device_sparse,
+                                                 compression=self._compression,
+                                                 op=Adasum)
                         # start = start + delta
                         new_start = start_slot.assign_add(global_delta, use_locking=self.use_locking)
                         # var = start
