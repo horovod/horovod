@@ -203,30 +203,35 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                                  "This is prohibited as it can cause a race condition.")
         return super(self.__class__, self).zero_grad()
 
-class _DistributedDeltaOptimizer(torch.optim.Optimizer):
+class _DistributedAdasumOptimizer(torch.optim.Optimizer):
     #TODO remove once the Apex is integrated with PyTorch
-    import apex as amp
+    _has_apex = True
+    try:
+        import apex as amp
+    except ImportError:
+        _has_apex = False
+    
     def __init__(self, params, named_parameters, compression,
-                 backward_passes_per_step=1, op=Average):
+                 backward_passes_per_step=1):
         super(self.__class__, self).__init__(params)
         # Flag to indicate if given optimizer is initialized by apex.
         # If so, we will use amp calls on the optimizer.
-        self._is_apex_optimizer = hasattr(self, "_amp_stash")
+        self._use_apex_optimizer = self._has_apex and hasattr(self, "_amp_stash")
         self._handles = []
         self.backward_passes_per_step = backward_passes_per_step
         self._current_backward_pass_count = 0
-        self.op = op
         self._compression = compression
         # Retrieve parameters either from apex or torch optimizer
         if named_parameters is not None:
             named_parameters = [param for name, param in named_parameters]
         else:
             named_parameters = [ p for param_group in self.param_groups for p in param_group['params']]
-
+        _get_params = lambda : named_parameters if not self._use_apex_optimizer else amp.master_params(self)
+        _clone_params = lambda param: param.clone().detach() if not self._use_apex_optimizer else param.clone().detach().float()
         with torch.no_grad():
-            self._params = amp.master_params(self) if self._is_apex_optimizer else named_parameters
+            self._params = _get_params()
             self._initial_model = [
-                param.clone().detach().float()
+                _clone_params(param)
                 for param in self._params
             ]
 
@@ -236,20 +241,11 @@ class _DistributedDeltaOptimizer(torch.optim.Optimizer):
             self._current_backward_pass_count = 0
 
     def synchronize(self):
-        if not self._handles:
-            return
-        for (handle, delta, ctx), start, current in zip(self._handles, self._initial_model, self._params):
-            synchronize(handle)
-            decompressed_delta = self._compression.decompress(delta, ctx)
-            start.data.add_(decompressed_delta)
-            current.data.copy_(start)
-        if(self._is_apex_optimizer):
-            super(self.__class__, self)._master_params_to_model_params()
-        del self._handles[:]
+        pass
 
     @contextmanager
     def skip_synchronize(self):
-        raise AssertionError("Usage of skip_synchronize is not supported in delta optimizer.")
+        pass
 
     def step(self, closure=None):
         # Step() from the actual optimizer is called first which causes the model to be updated.
@@ -265,9 +261,16 @@ class _DistributedDeltaOptimizer(torch.optim.Optimizer):
                     current.data.sub_(start)
                     delta = current
                     compressed_delta, ctx = self._compression.compress(delta)
-                    handle = allreduce_async_(compressed_delta.data, op=self.op)
+                    handle = allreduce_async_(compressed_delta.data, op=Adasum)
                     self._handles.append((handle, compressed_delta, ctx))
-                self.synchronize()
+                for (handle, delta, ctx), start, current in zip(self._handles, self._initial_model, self._params):
+                    synchronize(handle)
+                    decompressed_delta = self._compression.decompress(delta, ctx)
+                    start.data.add_(decompressed_delta)
+                    current.data.copy_(start)
+            if(self._use_apex_optimizer):
+                super(self.__class__, self)._master_params_to_model_params()
+            del self._handles[:]
             self._current_backward_pass_count = 0
         super(self.__class__, self).zero_grad()
 
@@ -319,12 +322,12 @@ def DistributedOptimizer(optimizer, named_parameters=None,
 
     if op == Adasum:
         cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
-            dict(_DistributedDeltaOptimizer.__dict__))
+            dict(_DistributedAdasumOptimizer.__dict__))
+        return cls(optimizer.param_groups, named_parameters, compression, backward_passes_per_step)
     else:
         cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
             dict(_DistributedOptimizer.__dict__))
-
-    return cls(optimizer.param_groups, named_parameters, compression, backward_passes_per_step, op)
+        return cls(optimizer.param_groups, named_parameters, compression, backward_passes_per_step, op)
 
 
 def broadcast_parameters(params, root_rank):
