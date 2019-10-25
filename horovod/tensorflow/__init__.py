@@ -20,8 +20,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from enum import Enum
-
 from horovod.common.util import check_extension
 
 check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
@@ -390,20 +388,10 @@ if _LegacyOptimizer is not None:
             """Calls this same method on the underlying optimizer."""
             return self._optimizer.variables(*args, **kwargs)
 
-class WrapperType(Enum):
-    """Represents how the optimizer wrapped by DistributedOptimizer is used.
-
-    default: first combine gradients from each rank and then apply the wrapped optimizer.
-    delta: first apply the wrapped optimizer and then combine the changes made to the model
-           on each rank.
-    """
-    default = 1
-    delta = 2
-
 def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='',
                          device_sparse='', compression=Compression.none,
-                         sparse_as_dense=False, wrapper_type=WrapperType.default,
-                         backward_passes_per_step=1, op=Average):
+                         sparse_as_dense=False, backward_passes_per_step=1,
+                         op=Average):
     """Construct a new DistributedOptimizer, which uses another optimizer
     under the hood for computing single-process gradient values and
     applying gradient updates after the gradient values have been combined
@@ -433,6 +421,10 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
         Treat all sparse gradients as dense tensors.  This can help improve
         performance and memory utilization if the original sparse gradient
         has high density.  Defaults to false.
+      backward_passes_per_step:
+        Number of backward passes to perform before calling hvd.allreduce.
+        This allows accumulating updates over multiple mini-batches before
+        reducing and applying them.
       op:
         The reduction operation to use when combining gradients across
         different ranks.

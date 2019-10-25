@@ -19,7 +19,6 @@ from __future__ import division
 from __future__ import print_function
 
 from contextlib import contextmanager
-from enum import Enum
 import warnings
 
 from horovod.common.util import check_extension
