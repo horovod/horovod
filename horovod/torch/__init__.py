@@ -258,6 +258,7 @@ class _DistributedDeltaOptimizer(torch.optim.Optimizer):
         # allreduce delta
         # start += delta
         super(self.__class__, self).step(closure)
+        self._current_backward_pass_count += 1
         if self._current_backward_pass_count == self.backward_passes_per_step:
             with torch.no_grad():
                 for start, current in zip(self._initial_model, self._params):                                
@@ -266,11 +267,9 @@ class _DistributedDeltaOptimizer(torch.optim.Optimizer):
                     compressed_delta, ctx = self._compression.compress(delta)
                     handle = allreduce_async_(compressed_delta.data, op=self.op)
                     self._handles.append((handle, compressed_delta, ctx))
-                super(self.__class__, self).zero_grad()
                 self.synchronize()
             self._current_backward_pass_count = 0
-        else:
-            self._current_backward_pass_count += 1
+        super(self.__class__, self).zero_grad()
 
 def DistributedOptimizer(optimizer, named_parameters=None,
                          compression=Compression.none,
@@ -314,7 +313,6 @@ def DistributedOptimizer(optimizer, named_parameters=None,
                                   allows accumulating gradients over multiple
                                   mini-batches before reducing and applying them.
         op: The reduction operation to use when combining gradients across different ranks.
-        wrapper_type: The optimizer wrapper type to indicate how underlying optimizer is called.
     """
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override the `step()` method with an allreduce implementation.
