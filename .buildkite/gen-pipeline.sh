@@ -109,10 +109,20 @@ run_all() {
     exclude_keras_if_needed="| sed 's/[a-z_]*keras[a-z_.]*//g'"
   fi
 
+  local exclude_interactiverun="| sed 's/test_interactiverun.py//g'"
+
   # pytests have 4x GPU use cases and require a separate queue
   run_test "${test}" "${pytest_queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras_if_needed} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no)\""
+    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras_if_needed} ${exclude_interactiverun} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no)\""
+
+  # Run test_interactiverun.py
+  if [[ ${test} != *"mpich"* ]]; then
+    # TODO: support mpich
+    run_test "${test}" "${queue}" \
+      ":pytest: Run PyTests test_interactiverun (${test})" \
+      "bash -c \"cd /horovod/test && pytest -v --capture=no test_interactiverun.py\""
+  fi
 
   # Legacy TensorFlow tests
   if [[ ${test} != *"tf2_"* ]]; then
@@ -180,9 +190,11 @@ run_gloo() {
     exclude_spark_if_needed="| sed 's/[a-z_]*spark[a-z_.]*//g'"
   fi
 
+  local exclude_interactiverun="| sed 's/test_interactiverun.py//g'"
+
   run_test "${test}" "${pytest_queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_spark_if_needed} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no)\""
+    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_spark_if_needed} ${exclude_interactiverun} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no)\""
 
   run_test "${test}" "${queue}" \
     ":muscle: Test Keras MNIST (${test})" \
