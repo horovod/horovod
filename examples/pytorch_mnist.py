@@ -170,7 +170,5 @@ def test():
 
 
 for epoch in range(1, args.epochs + 1):
-    if(args.use_adasum):
-        optimizer.initialize_epoch()
     train(epoch)
     test()

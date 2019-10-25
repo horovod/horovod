@@ -214,6 +214,7 @@ class _DistributedDeltaOptimizer(torch.optim.Optimizer):
         self._is_apex_optimizer = hasattr(self, "_amp_stash")
         self._handles = []
         self.backward_passes_per_step = backward_passes_per_step
+        self._current_backward_pass_count = 0
         self.op = op
         self._compression = compression
         # Retrieve parameters either from apex or torch optimizer
@@ -228,15 +229,15 @@ class _DistributedDeltaOptimizer(torch.optim.Optimizer):
                 param.clone().detach().float()
                 for param in self._params
             ]
-        self._allreduce_delay = {p: self.backward_passes_per_step
-                                 for p in self._params}
 
     def set_backward_passes_per_step(self, passes):
         self.backward_passes_per_step = passes
-        for p in self._allreduce_delay:
-            self._allreduce_delay[p] = self.backward_passes_per_step
+        if self._current_backward_pass_count >= self.backward_passes_per_step:
+            self._current_backward_pass_count = 0
 
     def synchronize(self):
+        if not self._handles:
+            return
         for (handle, delta, ctx), start, current in zip(self._handles, self._initial_model, self._params):
             synchronize(handle)
             decompressed_delta = self._compression.decompress(delta, ctx)
@@ -248,35 +249,28 @@ class _DistributedDeltaOptimizer(torch.optim.Optimizer):
 
     @contextmanager
     def skip_synchronize(self):
-        raise NotImplementedError
-
-    def initialize_epoch(self):
-        # drop any accumulated gradients from last epoch
-        for start, current in zip(self._initial_model, self._params):
-                with torch.no_grad():
-                    current.data.copy_(start)
+        raise AssertionError("Usage of skip_synchronize is not supported in delta optimizer.")
 
     def step(self, closure=None):
-        #TODO implement local aggregation
         # Step() from the actual optimizer is called first which causes the model to be updated.
         # Then the delta of the parameters is calculated and reduced.
         # delta = current - start
         # allreduce delta
         # start += delta
-
         super(self.__class__, self).step(closure)
-        with torch.no_grad():
-            for start, current in zip(self._initial_model, self._params):                                
-                current.data.sub_(start)
-                delta = current
-                compressed_delta, ctx = self._compression.compress(delta)
-                handle = allreduce_async_(compressed_delta.data, op=self.op)
-                self._handles.append((handle, compressed_delta, ctx))
-            self.zero_grad()
-            self.synchronize()
-
-    def zero_grad(self):
-        return super(self.__class__, self).zero_grad()
+        if self._current_backward_pass_count == self.backward_passes_per_step:
+            with torch.no_grad():
+                for start, current in zip(self._initial_model, self._params):                                
+                    current.data.sub_(start)
+                    delta = current
+                    compressed_delta, ctx = self._compression.compress(delta)
+                    handle = allreduce_async_(compressed_delta.data, op=self.op)
+                    self._handles.append((handle, compressed_delta, ctx))
+                super(self.__class__, self).zero_grad()
+                self.synchronize()
+            self._current_backward_pass_count = 0
+        else:
+            self._current_backward_pass_count += 1
 
 def DistributedOptimizer(optimizer, named_parameters=None,
                          compression=Compression.none,
