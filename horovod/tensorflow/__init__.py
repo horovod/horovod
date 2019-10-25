@@ -20,6 +20,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from enum import Enum
+
 from horovod.common.util import check_extension
 
 check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
@@ -297,10 +299,111 @@ if _LegacyOptimizer is not None:
             """Calls this same method on the underlying optimizer."""
             return self._optimizer.variables(*args, **kwargs)
 
+    class _DistributedAdasumOptimizer(_LegacyOptimizer):
+        """An optimizer that wraps another tf.Optimizer, using an allreduce to
+        combine model deltas after applying gradients to model weights."""
+
+        def __init__(self, optimizer, name=None, use_locking=False, device_dense='',
+                    device_sparse='', compression=Compression.none,
+                    sparse_as_dense=False, backward_passes_per_step=1):
+            if name is None:
+                name = "DistributedDelta{}".format(type(optimizer).__name__)
+            super(_DistributedAdasumOptimizer, self).__init__(name=name, use_locking=use_locking)
+
+            self._optimizer = optimizer
+            self._allreduce = _make_allreduce_grads_fn(
+                name, device_dense, device_sparse, compression, sparse_as_dense, Adasum)
+            self._backward_passes_per_step = backward_passes_per_step
+
+        def _prepare(self):
+            self._step_count = tf.get_variable(
+                name="step_count", shape=[], dtype=tf.int64, trainable=False,
+                initializer=tf.zeros_initializer)
+            self._is_first_step = tf.cast(tf.math.equal(self._step_count, 0), dtype=tf.bool)
+            self._is_comm_step  = tf.cast(tf.math.equal(self._step_count % self._backward_passes_per_step, self._backward_passes_per_step - 1), dtype=tf.bool)
+        
+        def _apply_shared(self, var, get_update_op):
+            start_slot = self._get_or_make_slot(var, "delta_start")
+
+            # initialize start on the first step
+            assign_op = tf.cond(self._is_first_step, 
+                lambda: start_slot.assign(var, use_locking=self.use_locking).op, 
+                tf.no_op)
+            
+            with tf.control_dependencies([assign_op]):
+                update_op = get_update_op()
+                with tf.control_dependencies([update_op]):
+                    def update():
+                        # delta = var - start
+                        local_delta = var.assign_sub(start_slot, use_locking=self.use_locking) # reuse var's memory
+                        # delta = allreduce (delta)
+                        global_delta = self._allreduce(local_delta)
+                        # start = start + delta
+                        new_start = start_slot.assign_add(global_delta, use_locking=self.use_locking)
+                        # var = start
+                        return var.assign(new_start, use_locking=self.use_locking).op
+                    
+                    # if its a communication step, then apply logic above
+                    # if its not a communication step then just have the underlying
+                    # optimizer update the model parameters according to its logic
+                    return tf.cond(self._is_comm_step, update, tf.no_op)
+
+        def _apply_dense(self, grad, var):
+            return self._apply_shared(var, lambda: self._optimizer._apply_dense(grad, var))
+
+        def _resource_apply_dense(self, grad, handle):
+            return self._apply_shared(handle, lambda: self._optimizer._resource_apply_dense(grad, handle))
+
+        def _apply_sparse(self, grad, var):
+            return self._apply_shared(var, lambda: self._optimizer._apply_sparse(grad, var))
+
+        def _resource_apply_sparse(self, grad, handle, indices):
+            return self._apply_shared(handle, lambda: self._optimizer._resource_apply_sparse(grad, handle, indices))
+
+        def _finish(self, update_ops, name_scope):
+            with tf.control_dependencies(update_ops):
+                return tf.assign_add(self._step_count, 1)
+
+        def compute_gradients(self, *args, **kwargs):
+            """Compute gradients of all trainable variables.
+            See Optimizer.compute_gradients() for more info.
+            """
+            return self._optimizer.compute_gradients(*args, **kwargs)
+
+        def apply_gradients(self, *args, **kwargs):
+            """Calls this same method on the underlying optimizer."""
+            return self._optimizer.apply_gradients(*args, **kwargs)
+
+        def get_slot(self, var, name):
+            """Calls this same method on the underlying optimizer."""
+            tmp = super(_DistributedAdasumOptimizer, self).get_slot(var, name)
+            if tmp is not None:
+                return tmp
+            return self._optimizer.get_slot(var, name)
+
+        def get_slot_names(self):
+            """Appends local slot names to those of the underlying optimizer."""
+            return super(_DistributedAdasumOptimizer, self).get_slot_names() +\
+                self._optimizer.get_slot_names()
+
+        def variables(self, *args, **kwargs):
+            """Calls this same method on the underlying optimizer."""
+            return self._optimizer.variables(*args, **kwargs)
+
+class WrapperType(Enum):
+    """Represents how the optimizer wrapped by DistributedOptimizer is used.
+
+    default: first combine gradients from each rank and then apply the wrapped optimizer.
+    delta: first apply the wrapped optimizer and then combine the changes made to the model
+           on each rank.
+    """
+    default = 1
+    delta = 2
 
 def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='',
                          device_sparse='', compression=Compression.none,
-                         sparse_as_dense=False, op=Average):
+                         sparse_as_dense=False, wrapper_type=WrapperType.default,
+                         backward_passes_per_step=1, op=Average):
     """Construct a new DistributedOptimizer, which uses another optimizer
     under the hood for computing single-process gradient values and
     applying gradient updates after the gradient values have been combined
@@ -335,13 +438,24 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
         different ranks.
     """
     if isinstance(optimizer, _LegacyOptimizer):
-        return _DistributedOptimizer(optimizer, name, use_locking, device_dense,
-                                     device_sparse, compression, sparse_as_dense, op)
+        if op == Adasum:
+            return _DistributedAdasumOptimizer(optimizer, name, use_locking, device_dense,
+                                            device_sparse, compression, sparse_as_dense,
+                                            backward_passes_per_step)
+        else:
+            if backward_passes_per_step > 1:
+                raise ValueError('backward_passes_per_step>1 is not supported yet with '
+                                 'op != Adasum')
+            return _DistributedOptimizer(optimizer, name, use_locking, device_dense,
+                                        device_sparse, compression, sparse_as_dense, op)
     elif isinstance(optimizer, tf.keras.optimizers.Optimizer):
+        if op == Adasum:
+            raise ValueError('op == Adasum is not supported yet with Keras')
+        if backward_passes_per_step > 1:
+            raise ValueError('backward_passes_per_step > 1 is not supported yet with Keras')
         import horovod.tensorflow.keras as hvd_k
-        # TODO: Add Adasum, this is a part of Keras
         return hvd_k.DistributedOptimizer(optimizer, name, device_dense, device_sparse,
-                                          compression, sparse_as_dense, op)
+                                          compression, sparse_as_dense)
     else:
         raise ValueError('Provided optimizer doesn\'t inherit from either legacy '
                          'TensorFlow or Keras optimizer: %s' % optimizer)
