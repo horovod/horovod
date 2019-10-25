@@ -233,6 +233,7 @@ class _DistributedAdasumOptimizer(torch.optim.Optimizer):
                 _clone_params(param)
                 for param in self._params
             ]
+        self._name_array = {param: "allreduce_name_{}".format(i) for i, param in enumerate(self._params) }
 
     def set_backward_passes_per_step(self, passes):
         self.backward_passes_per_step = passes
@@ -260,7 +261,7 @@ class _DistributedAdasumOptimizer(torch.optim.Optimizer):
                     current.data.sub_(start)
                     delta = current
                     compressed_delta, ctx = self._compression.compress(delta)
-                    handle = allreduce_async_(compressed_delta.data, op=Adasum)
+                    handle = allreduce_async_(compressed_delta.data, op=Adasum, name=self._name_array[current])
                     self._handles.append((handle, compressed_delta, ctx))
                 for (handle, delta, ctx), start, current in zip(self._handles, self._initial_model, self._params):
                     synchronize(handle)
@@ -325,7 +326,7 @@ def DistributedOptimizer(optimizer, named_parameters=None,
         return cls(optimizer.param_groups, named_parameters, compression, backward_passes_per_step)
     else:
         cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
-            dict(_DistributedOptimizer.__dict__))
+            dict(_DistributedAdasumOptimizer.__dict__))
         return cls(optimizer.param_groups, named_parameters, compression, backward_passes_per_step, op)
 
 
