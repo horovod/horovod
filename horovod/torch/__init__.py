@@ -45,15 +45,6 @@ from horovod.torch.mpi_ops import Average, Sum, Adasum
 import torch
 import collections
 
-class WrapperType(Enum):
-    """
-    The optimizer wrapper type to indicate how underlying optimizer is called.
-    default: call underlying optimizer after reducing gradients.
-    delta: call underlying optimizer and then reduce based on the delta of model change.
-    """
-    default = 1
-    delta = 2
-
 class _DistributedOptimizer(torch.optim.Optimizer):
     def __init__(self, params, named_parameters, compression,
                  backward_passes_per_step=1, op=Average):
@@ -253,17 +244,20 @@ class _DistributedDeltaOptimizer(torch.optim.Optimizer):
             current.data.copy_(start)
         if(self._is_apex_optimizer):
             super(self.__class__, self)._master_params_to_model_params()
+        del self._handles[:]
 
     @contextmanager
     def skip_synchronize(self):
         raise NotImplementedError
 
-    def step(self, closure=None):
-        #TODO implement local aggregation
+    def initialize_epoch(self):
         # drop any accumulated gradients from last epoch
         for start, current in zip(self._initial_model, self._params):
                 with torch.no_grad():
                     current.data.copy_(start)
+
+    def step(self, closure=None):
+        #TODO implement local aggregation
         # Step() from the actual optimizer is called first which causes the model to be updated.
         # Then the delta of the parameters is calculated and reduced.
         # delta = current - start
@@ -277,7 +271,7 @@ class _DistributedDeltaOptimizer(torch.optim.Optimizer):
                 delta = current
                 compressed_delta, ctx = self._compression.compress(delta)
                 handle = allreduce_async_(compressed_delta.data, op=self.op)
-                self._handles.append((handle, delta, ctx))
+                self._handles.append((handle, compressed_delta, ctx))
             self.zero_grad()
             self.synchronize()
 

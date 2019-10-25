@@ -31,7 +31,6 @@ import unittest
 import warnings
 
 import horovod.torch as hvd
-from horovod.torch import WrapperType
 
 from common import mpi_env_rank_and_size
 
