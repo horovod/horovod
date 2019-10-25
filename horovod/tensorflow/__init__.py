@@ -437,8 +437,7 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
     if isinstance(optimizer, _LegacyOptimizer):
         if op == Adasum:
             return _DistributedAdasumOptimizer(optimizer, name, use_locking, device_dense,
-                                            device_sparse, compression, sparse_as_dense,
-                                            backward_passes_per_step)
+                                            device_sparse, compression, backward_passes_per_step)
         else:
             if backward_passes_per_step > 1:
                 raise ValueError('backward_passes_per_step>1 is not supported yet with '
