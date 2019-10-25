@@ -44,7 +44,6 @@ from horovod.torch.mpi_ops import Average, Sum, Adasum
 import torch
 import collections
 
-
 class _DistributedOptimizer(torch.optim.Optimizer):
     def __init__(self, params, named_parameters, compression,
                  backward_passes_per_step=1, op=Average):
@@ -203,6 +202,77 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                                  "This is prohibited as it can cause a race condition.")
         return super(self.__class__, self).zero_grad()
 
+class _DistributedAdasumOptimizer(torch.optim.Optimizer):
+    #TODO remove once the Apex is integrated with PyTorch
+    _has_apex = True
+    try:
+        import apex as amp
+    except ImportError:
+        _has_apex = False
+    
+    def __init__(self, params, named_parameters, compression,
+                 backward_passes_per_step=1):
+        super(self.__class__, self).__init__(params)
+        # Flag to indicate if given optimizer is initialized by apex.
+        # If so, we will use amp calls on the optimizer.
+        self._use_apex_optimizer = self._has_apex and hasattr(self, "_amp_stash")
+        self._handles = []
+        self.backward_passes_per_step = backward_passes_per_step
+        self._current_backward_pass_count = 0
+        self._compression = compression
+        # Retrieve parameters either from apex or torch optimizer
+        if named_parameters is not None:
+            named_parameters = [param for name, param in named_parameters]
+        else:
+            named_parameters = [ p for param_group in self.param_groups for p in param_group['params']]
+        _get_params = lambda : named_parameters if not self._use_apex_optimizer else amp.master_params(self)
+        _clone_params = lambda param: param.clone().detach() if not self._use_apex_optimizer else param.clone().detach().float()
+        with torch.no_grad():
+            self._params = _get_params()
+            self._initial_model = [
+                _clone_params(param)
+                for param in self._params
+            ]
+        self._name_array = {param: "allreduce_name_{}".format(i) for i, param in enumerate(self._params) }
+
+    def set_backward_passes_per_step(self, passes):
+        self.backward_passes_per_step = passes
+        if self._current_backward_pass_count >= self.backward_passes_per_step:
+            self._current_backward_pass_count = 0
+
+    def synchronize(self):
+        pass
+
+    @contextmanager
+    def skip_synchronize(self):
+        pass
+
+    def step(self, closure=None):
+        # Step() from the actual optimizer is called first which causes the model to be updated.
+        # Then the delta of the parameters is calculated and reduced.
+        # delta = current - start
+        # allreduce delta
+        # start += delta
+        super(self.__class__, self).step(closure)
+        self._current_backward_pass_count += 1
+        if self._current_backward_pass_count == self.backward_passes_per_step:
+            with torch.no_grad():
+                for start, current in zip(self._initial_model, self._params):                                
+                    current.data.sub_(start)
+                    delta = current
+                    compressed_delta, ctx = self._compression.compress(delta)
+                    handle = allreduce_async_(compressed_delta.data, op=Adasum, name=self._name_array[current])
+                    self._handles.append((handle, compressed_delta, ctx))
+                for (handle, delta, ctx), start, current in zip(self._handles, self._initial_model, self._params):
+                    synchronize(handle)
+                    decompressed_delta = self._compression.decompress(delta, ctx)
+                    start.data.add_(decompressed_delta)
+                    current.data.copy_(start)
+            if(self._use_apex_optimizer):
+                super(self.__class__, self)._master_params_to_model_params()
+            del self._handles[:]
+            self._current_backward_pass_count = 0
+        super(self.__class__, self).zero_grad()
 
 def DistributedOptimizer(optimizer, named_parameters=None,
                          compression=Compression.none,
@@ -249,10 +319,15 @@ def DistributedOptimizer(optimizer, named_parameters=None,
     """
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override the `step()` method with an allreduce implementation.
-    cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
-               dict(_DistributedOptimizer.__dict__))
-    return cls(optimizer.param_groups, named_parameters,
-               compression, backward_passes_per_step, op)
+
+    if op == Adasum:
+        cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
+            dict(_DistributedAdasumOptimizer.__dict__))
+        return cls(optimizer.param_groups, named_parameters, compression, backward_passes_per_step)
+    else:
+        cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
+            dict(_DistributedAdasumOptimizer.__dict__))
+        return cls(optimizer.param_groups, named_parameters, compression, backward_passes_per_step, op)
 
 
 def broadcast_parameters(params, root_rank):
