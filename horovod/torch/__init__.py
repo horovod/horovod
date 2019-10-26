@@ -272,7 +272,6 @@ class _DistributedAdasumOptimizer(torch.optim.Optimizer):
                 super(self.__class__, self)._master_params_to_model_params()
             del self._handles[:]
             self._current_backward_pass_count = 0
-        super(self.__class__, self).zero_grad()
 
 def DistributedOptimizer(optimizer, named_parameters=None,
                          compression=Compression.none,
@@ -326,7 +325,7 @@ def DistributedOptimizer(optimizer, named_parameters=None,
         return cls(optimizer.param_groups, named_parameters, compression, backward_passes_per_step)
     else:
         cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
-            dict(_DistributedAdasumOptimizer.__dict__))
+            dict(_DistributedOptimizer.__dict__))
         return cls(optimizer.param_groups, named_parameters, compression, backward_passes_per_step, op)
 
 
