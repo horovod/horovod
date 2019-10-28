@@ -541,6 +541,49 @@ class TorchTests(unittest.TestCase):
                 assert rank_tensor.data.min() == i
                 assert rank_tensor.data.max() == i
 
+    def test_horovod_allgather_async_fused(self):
+        """Test that the allgather correctly gathers 1D, 2D, 3D tensors
+        with Tensor Fusion."""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
+                  torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
+        if _fp16_supported:
+            dtypes += [torch.HalfTensor]
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.ByteTensor, torch.cuda.CharTensor, torch.cuda.ShortTensor,
+                       torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
+            if _fp16_supported:
+                dtypes += [torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        tests = []
+        is_hvd_poll_false_once = False
+        for dtype, dim in itertools.product(dtypes, dims):
+            rank_shape = [17] * dim
+            tensor = torch.FloatTensor(*(rank_shape)).fill_(1).mul_(rank)
+            tensor = self.cast_and_place(tensor, dtype)
+            handle = hvd.allgather_async(tensor)
+            if not hvd.poll(handle):
+                is_hvd_poll_false_once = True
+            tests.append((handle, rank_shape))
+
+        # Make sure it's an asynchronous operation.
+        assert is_hvd_poll_false_once, 'hvd.poll() always returns True, not an async op?'
+
+        for handle, rank_shape in tests:
+            gathered = hvd.synchronize(handle)
+            gathered, = self.convert_cpu_fp16_to_fp32(gathered)
+
+            for i in range(size):
+                rank_tensor = gathered[i * 17:(i + 1) * 17]
+                assert list(rank_tensor.shape) == rank_shape, \
+                    'hvd.allgather produces incorrect gathered shape'
+                assert rank_tensor.data.min() == i, 'hvd.allgather produces incorrect gathered tensor'
+                assert rank_tensor.data.max() == i, 'hvd.allgather produces incorrect gathered tensor'
+
     def test_horovod_allgather_error(self):
         """Test that the allgather returns an error if any dimension besides
         the first is different among the tensors being gathered."""
