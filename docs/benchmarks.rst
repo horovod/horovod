@@ -64,5 +64,22 @@ Now, simply add ``--data_dir /path/to/imagenet/tfrecords --data_name imagenet --
             --num_batches=2000
 
 
+Horovod synthetic benchmarks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Horovod also comes with out-of-the-box benchmarking support for
+`TensorFlow v1 <https://github.com/horovod/horovod/tree/master/examples/tensorflow_synthetic_benchmark.py>`__,
+`TensorFlow v2 <https://github.com/horovod/horovod/tree/master/examples/tensorflow2_synthetic_benchmark.py>`__, and
+`PyTorch <https://github.com/horovod/horovod/tree/master/examples/pytorch_synthetic_benchmark.py>`__.
+
+These benchmarks allow you to measure Horovod's performance and scalability in your environment, as well as try advanced
+Horovod features like gradient compression:
+
+.. code-block:: bash
+
+    $ horovodrun -np 4 server1:2,server2:2 \
+        python --fp16-allreduce tensorflow2_synthetic_benchmark.py
+
+When diagnosing performance issues, we recommend running these synthetic benchmarks first to ensure that the issues are
+not originating from the training script itself.
 
 .. inclusion-marker-end-do-not-remove
