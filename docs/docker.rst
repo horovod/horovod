@@ -3,21 +3,25 @@
 Horovod in Docker
 =================
 
-To streamline the installation process on GPU machines, we have published the reference `Dockerfile <https://github.com/horovod/horovod/blob/master/Dockerfile>`__ so
+To streamline the installation process on GPU machines, we have published the reference `Dockerfile <https://github.com/horovod/horovod/blob/master/Dockerfile.gpu>`__ so
 you can get started with Horovod in minutes. The container includes `Examples <https://github.com/horovod/horovod/tree/master/examples>`__ in the ``/examples``
 directory.
 
 Pre-built Docker containers with Horovod are available on `DockerHub <https://hub.docker.com/r/horovod/horovod>`__.
 
+
 Building
 ~~~~~~~~
-Before building, you can modify ``Dockerfile`` to your liking, e.g. select a different CUDA, TensorFlow or Python version.
+Before building, you can modify ``Dockerfile.gpu`` to your liking, e.g. select a different CUDA, TensorFlow or Python version.
 
 .. code-block:: bash
 
-    $ mkdir horovod-docker
-    $ wget -O horovod-docker/Dockerfile https://raw.githubusercontent.com/horovod/horovod/master/Dockerfile
-    $ docker build -t horovod:latest horovod-docker
+    $ mkdir horovod-docker-gpu
+    $ wget -O horovod-docker-gpu/Dockerfile https://raw.githubusercontent.com/horovod/horovod/master/Dockerfile.gpu
+    $ docker build -t horovod:latest horovod-docker-gpu
+
+For users without GPUs available in their environments, we've also published a `CPU Dockerfile <https://github.com/horovod/horovod/blob/master/Dockerfile.cpu>`__
+you can build and run similarly.
 
 
 Running on a single machine
@@ -41,6 +45,7 @@ If you don't run your container in privileged mode, you may see the following me
 
 
 You can ignore this message.
+
 
 Running on multiple machines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

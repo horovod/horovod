@@ -62,7 +62,7 @@ void AllreduceOp::MemcpyOutFusionBuffer(
   for (auto& e : entries) {
     void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
     MemcpyEntryOutFusionBuffer(entries, buffer_data_at_offset, e);
-    offset += e.tensor->size();
+    offset += e.output->size();
   }
 }
 
@@ -77,7 +77,7 @@ void AllreduceOp::MemcpyEntryOutFusionBuffer(
     const std::vector<TensorTableEntry>& entries,
     const void* buffer_data_at_offset, TensorTableEntry& e) {
   std::memcpy((void*)e.output->data(), buffer_data_at_offset,
-              (size_t)e.tensor->size());
+              (size_t)e.output->size());
 }
 
 // Allgather

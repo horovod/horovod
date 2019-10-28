@@ -534,7 +534,8 @@ def get_common_options(build_ext):
         # determining if system has cmake installed
         compile_with_gloo = os.environ.get('HOROVOD_WITH_GLOO')
         try:
-            subprocess.check_output(['cmake', '--version'])
+            cmake_bin = get_cmake_bin()
+            subprocess.check_output([cmake_bin, '--version'])
             have_cmake = True
         except Exception:
             if compile_with_gloo:
@@ -1310,8 +1311,12 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
         customize_compiler(build_ext.compiler)
 
 
+def get_cmake_bin():
+    return os.environ.get('HOROVOD_CMAKE', 'cmake')
+
+
 def build_cmake(build_ext, ext, prefix, additional_flags, options, plugin_ext=None):
-    cmake_bin = 'cmake'
+    cmake_bin = get_cmake_bin()
 
     # All statically linked libraries will be placed here
     lib_output_dir = os.path.abspath(os.path.join(build_ext.build_temp, 'lib', prefix))
