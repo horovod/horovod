@@ -56,7 +56,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             named_parameters = [('allreduce.noname.%s' % i, v)
                                 for param_group in self.param_groups
                                 for i, v in enumerate(param_group['params'])]
-
+        
         # make sure that named_parameters are tuples
         if any([not isinstance(p, tuple) for p in named_parameters]):
             raise ValueError('named_parameters should be a sequence of '
@@ -209,69 +209,183 @@ class _DistributedAdasumOptimizer(torch.optim.Optimizer):
         import apex as amp
     except ImportError:
         _has_apex = False
-    
+
     def __init__(self, params, named_parameters, compression,
                  backward_passes_per_step=1):
         super(self.__class__, self).__init__(params)
-        # Flag to indicate if given optimizer is initialized by apex.
-        # If so, we will use amp calls on the optimizer.
+
         self._use_apex_optimizer = self._has_apex and hasattr(self, "_amp_stash")
-        self._handles = []
-        self.backward_passes_per_step = backward_passes_per_step
-        self._current_backward_pass_count = 0
+
+        _get_params = lambda : [('allreduce.noname.%s' % i, v)
+                                for param_group in self.param_groups
+                                for i, v in enumerate(param_group['params'])] if not self._use_apex_optimizer else [('allreduce.noname.%s.amp' % i, v)
+                                for i, v in enumerate(amp.master_params(self))]
+
         self._compression = compression
-        # Retrieve parameters either from apex or torch optimizer
+
         if named_parameters is not None:
-            named_parameters = [param for name, param in named_parameters]
+            named_parameters = list(named_parameters)
         else:
-            named_parameters = [ p for param_group in self.param_groups for p in param_group['params']]
-        _get_params = lambda : named_parameters if not self._use_apex_optimizer else amp.master_params(self)
+            named_parameters = _get_params
+
+        # make sure that named_parameters are tuples
+        if any([not isinstance(p, tuple) for p in named_parameters]):
+            raise ValueError('named_parameters should be a sequence of '
+                             'tuples (name, parameter), usually produced by '
+                             'model.named_parameters().')
+
+        dups = _DistributedOptimizer.find_duplicates([k for k, _ in named_parameters])
+        if len(dups) > 0:
+            raise ValueError('Parameter names in named_parameters must be unique. '
+                             'Found duplicates: %s' % ', '.join(dups))
+
+        all_param_ids = {id(v)
+                         for param_group in self.param_groups
+                         for v in param_group['params']}
+        named_param_ids = {id(v) for k, v in named_parameters}
+        unnamed_param_ids = all_param_ids - named_param_ids
+        if len(unnamed_param_ids):
+            raise ValueError('named_parameters was specified, but one or more model '
+                             'parameters were not named. Python object ids: '
+                             '%s' % ', '.join(str(id) for id in unnamed_param_ids))
+
+        self._parameter_names = {v: k for k, v in sorted(named_parameters)}
+        self.backward_passes_per_step = backward_passes_per_step
+        self._allreduce_delay = {v: self.backward_passes_per_step
+                                 for _, v in sorted(named_parameters)}
+        self._handles = {}
+        self._grad_accs = []
+        self._requires_update = set()
+        self._synchronized = False
+        self._should_synchronize = True
+
         _clone_params = lambda param: param.clone().detach() if not self._use_apex_optimizer else param.clone().detach().float()
-        with torch.no_grad():
-            self._params = _get_params()
-            self._initial_model = [
-                _clone_params(param)
-                for param in self._params
-            ]
-        self._name_array = {param: "allreduce_name_{}".format(i) for i, param in enumerate(self._params) }
+
+        self._starting_models = {
+            p : torch.zeros_like(p, requires_grad=False)
+            for _, p in named_parameters
+        }
+
+        self._register_hooks()
 
     def set_backward_passes_per_step(self, passes):
         self.backward_passes_per_step = passes
-        if self._current_backward_pass_count >= self.backward_passes_per_step:
-            self._current_backward_pass_count = 0
+        for p in self._allreduce_delay:
+            self._allreduce_delay[p] = self.backward_passes_per_step
+
+    def _register_hooks(self):
+        for param_group in self.param_groups:
+            for p in param_group['params']:
+                if p.requires_grad:
+                    p.grad = p.data.new(p.size()).zero_()
+                    self._requires_update.add(p)
+                    p_tmp = p.expand_as(p)
+                    grad_acc = p_tmp.grad_fn.next_functions[0][0]
+                    grad_acc.register_hook(self._make_hook(p))
+                    self._grad_accs.append(grad_acc)
+
+    def _allreduce_grad_async(self, p):
+        # Delta optimizer implements this logic:
+        #  start = current.copy()
+        #  step() -> computes 'current - \alpha.f(g)' where f is
+        #            optimizer logic and g is the gradient
+        #  delta = current-start
+        #  allreduce_(delta)
+        #  start += delta
+        #  current = start
+        # In order to suppport this logic using function hook to improve performance,
+        # we do:
+        # delta = (start - \alpha.f(g)) - start
+        #       = -\alpha.f(g)
+        # set start to zero and step computes -\alpha.f(g)
+        # where f is the underlying optimizer logic
+
+        name = self._parameter_names.get(p)
+        start = self._starting_models[p]
+    
+        stashed_params = []
+        for group in self.param_groups:
+            stashed_params.append(group['params'])
+            # only want to step on p
+            if any([p is v for v in group['params']]):
+                group['params'] = [p]
+            else:
+                group['params'] = []
+
+        start.data.copy_(p)
+
+        super(self.__class__, self).step()
+
+        # compute delta = curr - start
+        p.data.sub_(start)
+        
+        # allreduce as before
+        tensor_compressed, ctx = self._compression.compress(p)
+        handle = allreduce_async_(tensor_compressed.data, name=name, op=Adasum)
+
+        # reset stashed parameters
+        for stashed, group in zip(stashed_params, self.param_groups):
+            group['params'] = stashed        
+
+        return handle, ctx
+
+    def _make_hook(self, p):
+        def hook(*ignore):
+            if p in self._handles and self._handles[p][0] is not None:
+                if self._allreduce_delay[p] <= 0:
+                    raise AssertionError(
+                        "Gradients were computed more than "
+                        "backward_passes_per_step times before call "
+                        "to step(). Increase backward_passes_per_step to "
+                        "accumulate gradients locally.")
+            assert not p.grad.requires_grad
+            assert self._allreduce_delay[p] > 0
+            handle, ctx = None, None
+            self._allreduce_delay[p] -= 1
+            if self._allreduce_delay[p] == 0:
+                handle, ctx = self._allreduce_grad_async(p)
+            self._handles[p] = (handle, ctx)
+        return hook
 
     def synchronize(self):
         pass
 
     @contextmanager
     def skip_synchronize(self):
-        pass
+        raise AssertionError("Skipping synchronization is not supported when using Adasum optimizer.")
 
     def step(self, closure=None):
-        # Step() from the actual optimizer is called first which causes the model to be updated.
-        # Then the delta of the parameters is calculated and reduced.
-        # delta = current - start
-        # allreduce delta
-        # start += delta
-        super(self.__class__, self).step(closure)
-        self._current_backward_pass_count += 1
-        if self._current_backward_pass_count == self.backward_passes_per_step:
-            with torch.no_grad():
-                for start, current in zip(self._initial_model, self._params):                                
-                    current.data.sub_(start)
-                    delta = current
-                    compressed_delta, ctx = self._compression.compress(delta)
-                    handle = allreduce_async_(compressed_delta.data, op=Adasum, name=self._name_array[current])
-                    self._handles.append((handle, compressed_delta, ctx))
-                for (handle, delta, ctx), start, current in zip(self._handles, self._initial_model, self._params):
-                    synchronize(handle)
-                    decompressed_delta = self._compression.decompress(delta, ctx)
-                    start.data.add_(decompressed_delta)
-                    current.data.copy_(start)
-            if(self._use_apex_optimizer):
-                super(self.__class__, self)._master_params_to_model_params()
-            del self._handles[:]
-            self._current_backward_pass_count = 0
+        loss = None
+        if closure is not None:
+            loss = closure()
+
+        missing_p = self._requires_update - set(self._handles.keys())
+        for p in missing_p:
+            handle, ctx = self._allreduce_grad_async(p)
+            self._handles[p] = (handle, ctx)
+
+        for p, (handle, ctx) in self._handles.items():
+            if not handle:
+                raise AssertionError("optimizer.zero_grad() was called after loss.backward() "
+                                    "but before optimizer.step() or optimizer.synchronize(). "
+                                    "This is prohibited as it can cause a race condition.")
+            delta = synchronize(handle)
+            delta = self._compression.decompress(delta, ctx)            
+            start = self._starting_models[p]
+            start.data.add_(delta.data)
+            p.data.copy_(start)
+            self._allreduce_delay[p] = self.backward_passes_per_step
+        self._handles.clear()
+        if(self._use_apex_optimizer):
+            super(self.__class__, self)._master_params_to_model_params()
+        return loss
+
+    def zero_grad(self):
+        if self._handles:
+            raise AssertionError("optimizer.zero_grad() was called after loss.backward() "
+                                 "but before optimizer.step() or optimizer.synchronize(). "
+                                 "This is prohibited as it can cause a race condition.")
+        return super(self.__class__, self).zero_grad()
 
 def DistributedOptimizer(optimizer, named_parameters=None,
                          compression=Compression.none,
@@ -319,14 +433,14 @@ def DistributedOptimizer(optimizer, named_parameters=None,
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override the `step()` method with an allreduce implementation.
 
-    if op == Adasum:
-        cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
-            dict(_DistributedAdasumOptimizer.__dict__))
-        return cls(optimizer.param_groups, named_parameters, compression, backward_passes_per_step)
-    else:
+    if op != Adasum or size() == 1:
         cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
             dict(_DistributedOptimizer.__dict__))
         return cls(optimizer.param_groups, named_parameters, compression, backward_passes_per_step, op)
+    else:
+        cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
+            dict(_DistributedAdasumOptimizer.__dict__))
+        return cls(optimizer.param_groups, named_parameters, compression, backward_passes_per_step)
 
 
 def broadcast_parameters(params, root_rank):
