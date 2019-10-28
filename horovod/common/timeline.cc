@@ -29,7 +29,7 @@ void TimelineWriter::Initialize(std::string file_name) {
   file_.open(file_name, std::ios::out | std::ios::trunc);
   if (file_.good()) {
     // Initialize the timeline with '[' character.
-    file_ << "[\n";
+    file_ << "[" << std::endl;
     healthy_ = true;
 
     // Spawn writer thread.
@@ -150,6 +150,8 @@ void Timeline::Initialize(std::string file_name, unsigned int horovod_size) {
   if (initialized_) {
     return;
   }
+
+  start_time_ = std::chrono::steady_clock::now();
 
   // Start the writer.
   writer_.Initialize(std::move(file_name));
