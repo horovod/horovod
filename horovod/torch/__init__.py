@@ -56,7 +56,6 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             named_parameters = [('allreduce.noname.%s' % i, v)
                                 for param_group in self.param_groups
                                 for i, v in enumerate(param_group['params'])]
-        
         # make sure that named_parameters are tuples
         if any([not isinstance(p, tuple) for p in named_parameters]):
             raise ValueError('named_parameters should be a sequence of '
@@ -258,8 +257,6 @@ class _DistributedAdasumOptimizer(torch.optim.Optimizer):
         self._requires_update = set()
         self._synchronized = False
         self._should_synchronize = True
-
-        _clone_params = lambda param: param.clone().detach() if not self._use_apex_optimizer else param.clone().detach().float()
 
         self._starting_models = {
             p : torch.zeros_like(p, requires_grad=False)
