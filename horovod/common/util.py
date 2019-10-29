@@ -1,5 +1,6 @@
 # Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 # Modifications copyright (C) 2019 Uber Technologies, Inc.
+# Modifications copyright Microsoft
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -172,3 +173,21 @@ def env(**kwargs):
                 os.environ[k] = backup[k]
             else:
                 del os.environ[k]
+
+def get_average_backwards_compatibility_fun(reduce_ops):
+    """
+    Handle backwards compatibility between the old average and the new op parameters.
+    Old code using the average parameter (e.g. hvd.allreduce(tensor, average=False))
+    gets unchanged behavior, but mixing old and new is disallowed (e.g. no
+    hvd.allreduce(tensor, average=False, op=hvd.Adasum)).
+    """
+    def impl(op, average):
+        if op != None:
+            if average != None:
+                raise ValueError('The op parameter supersedes average. Please provide only one of them.')
+            return op
+        elif average != None:
+            return reduce_ops.Average if average else reduce_ops.Sum
+        else:
+            return reduce_ops.Average
+    return impl

@@ -1,4 +1,5 @@
 # Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+# Modifications copyright Microsoft
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -112,7 +113,7 @@ def check_avx_supported():
 
 def get_cpp_flags(build_ext):
     last_err = None
-    default_flags = ['-std=c++11', '-fPIC', '-O2', '-Wall']
+    default_flags = ['-std=c++11', '-fPIC', '-O2', '-Wall', '-mf16c', '-mavx', '-mfma', '-fassociative-math', '-ffast-math', '-fopt-info-vec-optimized', '-ftree-vectorize', '-funsafe-math-optimizations']
     avx_flags = ['-mf16c', '-mavx'] if check_avx_supported() else []
     if sys.platform == 'darwin':
         # Darwin most likely will have Clang, which has libc++.
@@ -654,6 +655,8 @@ def get_common_options(build_ext):
                'horovod/common/timeline.cc',
                'horovod/common/tensor_queue.cc',
                'horovod/common/ops/collective_operations.cc',
+               'horovod/common/ops/adasum/adasum_mpi.cc',
+               'horovod/common/ops/adasum_mpi_operations.cc',
                'horovod/common/ops/operation_manager.cc',
                'horovod/common/optim/bayesian_optimization.cc',
                'horovod/common/optim/gaussian_process.cc',
@@ -715,6 +718,8 @@ def get_common_options(build_ext):
         SOURCES += ['horovod/common/ops/cuda_operations.cc']
         if have_mpi:
             SOURCES += ['horovod/common/ops/mpi_cuda_operations.cc']
+        INCLUDES += ['horovod/common/ops/cuda']
+        SOURCES += ['horovod/common/ops/adasum_cuda_operations.cc']
         LIBRARY_DIRS += cuda_lib_dirs
         LIBRARIES += ['cudart']
 
@@ -1020,6 +1025,7 @@ def build_mx_extension(build_ext, global_options):
         options['SOURCES'] += ['horovod/common/ops/cuda_operations.cc']
         if options['BUILD_MPI']:
             options['SOURCES'] += ['horovod/common/ops/mpi_cuda_operations.cc']
+        options['SOURCES'] += ['horovod/common/ops/adasum_cuda_operations.cc']
         options['LIBRARY_DIRS'] += cuda_lib_dirs
         options['LIBRARIES'] += ['cudart']
 

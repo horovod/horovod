@@ -1,4 +1,5 @@
 // Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+// Modifications copyright Microsoft
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -321,7 +322,8 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
     // All workers add supported responses to cache. This updates the cache
     // order consistently across workers.
     for (auto& response : response_list.responses()) {
-      if (response.response_type() == Response::ResponseType::ALLREDUCE &&
+      if ((response.response_type() == Response::ResponseType::ALLREDUCE ||
+           response.response_type() == Response::ResponseType::ADASUM) &&
           (int)response.devices().size() == size_) {
         response_cache_.put(response, tensor_queue_);
       }
@@ -400,6 +402,7 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
   // If we are doing an allreduce or broadcast, check that all tensor shapes are
   // identical.
   if (message_type == Request::ALLREDUCE ||
+      message_type == Request::ADASUM ||
       message_type == Request::BROADCAST) {
     TensorShape tensor_shape;
     for (auto dim : requests[0].tensor_shape()) {
@@ -575,6 +578,8 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
     }
   } else if (message_type == Request::BROADCAST) {
     response.set_response_type(Response::BROADCAST);
+  } else if (message_type == Request::ADASUM) {
+    response.set_response_type(Response::ADASUM);
   }
   response.set_devices(devices);
 
@@ -621,9 +626,8 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
     assert(response.tensor_names().size() == 1);
     responses.pop_front();
     int64_t tensor_size = 0;
-    DataType dtype;
-
-    if (response.response_type() == Response::ResponseType::ALLREDUCE) {
+    if (response.response_type() == Response::ResponseType::ALLREDUCE || 
+        response.response_type() == Response::ResponseType::ADASUM) {
       // Attempt to add more responses to this fused response.
 
       // found_tensor can be false for ranks that did Join.
