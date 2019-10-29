@@ -202,30 +202,18 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         return super(self.__class__, self).zero_grad()
 
 class _DistributedAdasumOptimizer(torch.optim.Optimizer):
-    #TODO remove once the Apex is integrated with PyTorch
-    _has_apex = True
-    try:
-        import apex as amp
-    except ImportError:
-        _has_apex = False
-
     def __init__(self, params, named_parameters, compression,
                  backward_passes_per_step=1):
         super(self.__class__, self).__init__(params)
-
-        self._use_apex_optimizer = self._has_apex and hasattr(self, "_amp_stash")
-
-        _get_params = lambda : [('allreduce.noname.%s' % i, v)
-                                for param_group in self.param_groups
-                                for i, v in enumerate(param_group['params'])] if not self._use_apex_optimizer else [('allreduce.noname.%s.amp' % i, v)
-                                for i, v in enumerate(amp.master_params(self))]
 
         self._compression = compression
 
         if named_parameters is not None:
             named_parameters = list(named_parameters)
         else:
-            named_parameters = _get_params
+            named_parameters = [('allreduce.noname.%s' % i, v)
+                                for param_group in self.param_groups
+                                for i, v in enumerate(param_group['params'])]
 
         # make sure that named_parameters are tuples
         if any([not isinstance(p, tuple) for p in named_parameters]):
@@ -373,8 +361,6 @@ class _DistributedAdasumOptimizer(torch.optim.Optimizer):
             p.data.copy_(start)
             self._allreduce_delay[p] = self.backward_passes_per_step
         self._handles.clear()
-        if(self._use_apex_optimizer):
-            super(self.__class__, self)._master_params_to_model_params()
         return loss
 
     def zero_grad(self):
