@@ -725,7 +725,9 @@ def get_common_options(build_ext):
     if have_nccl:
         MACROS += [('HAVE_NCCL', '1')]
         INCLUDES += nccl_include_dirs
-        SOURCES += ['horovod/common/ops/nccl_operations.cc','horovod/common/ops/adasum_cuda_operations.cc']
+        SOURCES += ['horovod/common/ops/nccl_operations.cc']
+        if have_mpi:
+            SOURCES += ['horovod/common/ops/adasum_cuda_operations.cc']
         LIBRARY_DIRS += nccl_lib_dirs
         LIBRARIES += nccl_libs
 
