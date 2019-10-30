@@ -655,8 +655,6 @@ def get_common_options(build_ext):
                'horovod/common/timeline.cc',
                'horovod/common/tensor_queue.cc',
                'horovod/common/ops/collective_operations.cc',
-               'horovod/common/ops/adasum/adasum_mpi.cc',
-               'horovod/common/ops/adasum_mpi_operations.cc',
                'horovod/common/ops/operation_manager.cc',
                'horovod/common/optim/bayesian_optimization.cc',
                'horovod/common/optim/gaussian_process.cc',
@@ -692,7 +690,9 @@ def get_common_options(build_ext):
         SOURCES += ['horovod/common/half.cc',
                     'horovod/common/mpi/mpi_context.cc',
                     'horovod/common/mpi/mpi_controller.cc',
-                    'horovod/common/ops/mpi_operations.cc']
+                    'horovod/common/ops/mpi_operations.cc',
+                    'horovod/common/ops/adasum/adasum_mpi.cc',
+                    'horovod/common/ops/adasum_mpi_operations.cc']
         COMPILE_FLAGS += shlex.split(mpi_flags)
         LINK_FLAGS += shlex.split(mpi_flags)
 
@@ -719,14 +719,13 @@ def get_common_options(build_ext):
         if have_mpi:
             SOURCES += ['horovod/common/ops/mpi_cuda_operations.cc']
         INCLUDES += ['horovod/common/ops/cuda']
-        SOURCES += ['horovod/common/ops/adasum_cuda_operations.cc']
         LIBRARY_DIRS += cuda_lib_dirs
         LIBRARIES += ['cudart']
 
     if have_nccl:
         MACROS += [('HAVE_NCCL', '1')]
         INCLUDES += nccl_include_dirs
-        SOURCES += ['horovod/common/ops/nccl_operations.cc']
+        SOURCES += ['horovod/common/ops/nccl_operations.cc','horovod/common/ops/adasum_cuda_operations.cc']
         LIBRARY_DIRS += nccl_lib_dirs
         LIBRARIES += nccl_libs
 
