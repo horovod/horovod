@@ -33,6 +33,7 @@ class HorovodBasics(object):
         # This behavior will interfere with any sessions created before or after. Also it's not stable in tf 2.0. Using nvidia-smi for now.
         # Need to find a better way to replace this logic.
         import subprocess
+        import os
         get_num_gpus = lambda: str(subprocess.check_output(["nvidia-smi", "-L"])).count('UUID') if any(os.access(os.path.join(path, 'nvidia-smi'), os.X_OK) for path in os.environ["PATH"].split(os.pathsep)) else 0
         self.has_gpu = get_num_gpus() > 0
     def init(self, comm=None):
