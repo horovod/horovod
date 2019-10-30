@@ -628,6 +628,7 @@ class HorovodArgs(object):
         self.command = None
         self.run_func = None
         self.config_file = None
+        self.nic = None
 
         # tuneable parameter arguments
         self.fusion_threshold_mb = None
@@ -872,7 +873,8 @@ def run(
         output_filename=None,
         verbose=None,
         use_gloo=None,
-        use_mpi=None):
+        use_mpi=None,
+        nic=None):
     """
     Launch a Horovod job to run the specified process function and get the return value.
 
@@ -910,6 +912,7 @@ def run(
                      be the default if Horovod was not built with MPI support.
     :param use_mpi: Run Horovod using the MPI controller. This will
                     be the default if Horovod was built with MPI support.
+    :param nic: Specify the NIC for communication.
 
     :return: Return a list which contains values return by all Horovod processes.
              The index of the list corresponds to the rank of each Horovod process.
@@ -939,6 +942,7 @@ def run(
     hargs.verbose = verbose
     hargs.use_gloo = use_gloo
     hargs.use_mpi = use_mpi
+    hargs.nic = nic
 
     hargs.run_func = wrapped_func
 
