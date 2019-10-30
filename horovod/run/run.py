@@ -217,7 +217,7 @@ def _driver_fn(all_host_names, local_host_names, settings):
     # Launch a TCP server called service service on the host running
     # horovodrun.
     driver = driver_service.HorovodRunDriverService(
-        settings.num_hosts, settings.key)
+        settings.num_hosts, settings.key, settings.nic)
     if settings.verbose >= 2:
         print('Launched horovodrun server.')
     # Have all the workers register themselves with the service service.
@@ -426,6 +426,9 @@ def parse_args():
                              'Alternatively, The environment variable '
                              'HOROVOD_START_TIMEOUT can also be used to '
                              'specify the initialization timeout.')
+
+    parser.add_argument('--nic', action='store', dest='nic',
+                        help='Specify the network interface card used for communication.')
 
     parser.add_argument('--output-filename', action='store',
                         help='For Gloo, writes stdout / stderr of all processes to a filename of the form '
@@ -725,7 +728,8 @@ def _run(args):
                                      num_proc=args.np,
                                      hosts=args.hosts,
                                      output_filename=args.output_filename,
-                                     run_func_mode=args.run_func is not None)
+                                     run_func_mode=args.run_func is not None,
+                                     nic=args.nic)
 
     # This cache stores the results of checks performed by horovodrun
     # during the initialization step. It can be disabled by setting
@@ -782,6 +786,8 @@ def _run(args):
         # 127.0.0.1
         common_intfs = set()
         for iface, addrs in net_if_addrs().items():
+            if settings.nic and iface != settings.nic:
+                continue
             for addr in addrs:
                 if addr.family == AF_INET and addr.address == '127.0.0.1':
                     common_intfs.add(iface)
