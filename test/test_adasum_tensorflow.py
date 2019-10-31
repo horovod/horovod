@@ -26,6 +26,7 @@ import warnings
 from datetime import datetime
 import horovod.tensorflow as hvd
 import math
+import copy
 
 def adasum_reference_operation(a,b):
     assert a.size == b.size
@@ -50,14 +51,14 @@ def is_power2(num):
 def reference_tree_reduction(tensors, hvd_size):
     if hvd_size == 1:
         return tensors[0]
-    temp = tensors.copy()
+    temp = copy.copy(tensors)
     power_of_2 = int(math.log(hvd_size, 2))
     for level in range(power_of_2):
         for i in range(int(hvd_size / pow(2, level + 1))):
             answer = []
             for a,b in zip(temp[i * 2], temp[i * 2 + 1]):
                 answer.append(adasum_reference_operation(a, b))
-            temp[i] = answer.copy()
+            temp[i] = copy.copy(answer)
     return temp[0]
 
 class MPITests(tf.test.TestCase):

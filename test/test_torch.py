@@ -1262,17 +1262,16 @@ class TorchTests(unittest.TestCase):
         # This test does not apply if there is only one worker.
         if size == 1:
             return
-        torch.cuda.set_device(torch.device("cuda:{}".format(local_rank)))
         class Net(torch.nn.Module):
             def __init__(self):
                 super(Net, self).__init__()
-                self.conv1 = torch.nn.Conv2d(1, 100, 1).cuda()
-                self.conv2 = torch.nn.Conv2d(100, 1, 1).cuda()
+                self.conv1 = torch.nn.Conv2d(1, 100, 1).cuda(local_rank)
+                self.conv2 = torch.nn.Conv2d(100, 1, 1).cuda(local_rank)
 
             def forward(self, x):
-                x = x.cuda()
+                x = x.cuda(local_rank)
                 x = self.conv1(x)
-                x = x.cuda()
+                x = x.cuda(local_rank)
                 x = self.conv2(x)
                 return x
 

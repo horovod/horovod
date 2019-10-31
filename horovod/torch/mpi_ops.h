@@ -29,7 +29,7 @@ using namespace horovod::common;
 
 #define ALLREDUCE_H(torch_Tensor, THTensor)                                    \
   extern "C" int horovod_torch_allreduce_async_##torch_Tensor(                 \
-      THTensor* tensor, THTensor* output, int average, char* name);
+      THTensor* tensor, THTensor* output, int average, char* name, int reduce_op);
 
 ALLREDUCE_H(torch_IntTensor, THIntTensor)
 ALLREDUCE_H(torch_LongTensor, THLongTensor)
