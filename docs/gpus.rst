@@ -1,4 +1,4 @@
-**allreduce**.. inclusion-marker-start-do-not-remove
+.. inclusion-marker-start-do-not-remove
 
 Horovod on GPU
 ==============
