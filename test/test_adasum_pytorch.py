@@ -33,14 +33,6 @@ class TorchAdasumTests(unittest.TestCase):
   def __init__(self, *args, **kwargs):
     super(TorchAdasumTests, self).__init__(*args, **kwargs)
     warnings.simplefilter('module')
-    hvd.init()
-    self.device = torch.device('cuda:{}'.format(hvd.local_rank()))
-    np.random.seed(2)
-    torch.manual_seed(2)
-    self.size = hvd.size()
-    self.local_size = hvd.local_size()
-    self.rank = hvd.rank()
-
     self.data_types = [np.float32]
     if _fp16_supported:
       self.data_types.append(np.float16)
@@ -54,19 +46,30 @@ class TorchAdasumTests(unittest.TestCase):
     return self.diff_ratio(true_vec, comp_vec) < np.finfo(data_type).eps
 
   def test_orthogonal(self):
+    # Only do this test if there are GPUs available.
+    if not torch.cuda.is_available():
+        return
+    hvd.init()
+    device = torch.device('cuda:{}'.format(hvd.local_rank()))
+    np.random.seed(2)
+    torch.manual_seed(2)
+    size = hvd.size()
+    local_size = hvd.local_size()
+    rank = hvd.rank()
+
     for data_type in self.data_types:
-      denominator = self.local_size
-      all_Ns = [self.size*20 - 17, self.size*2+1, self.size+2, 2**19]
+      denominator = local_size
+      all_Ns = [size*20 - 17, size*2+1, size+2, 2**19]
       tensors = []
       all_qs = []
       for N in all_Ns:
-        a = np.random.normal(0, 1, (N,self.size)).astype(np.float64)
+        a = np.random.normal(0, 1, (N,size)).astype(np.float64)
         q, r = np.linalg.qr(a)
         q = q.astype(data_type)
         all_qs.append(q.astype(np.float64))
         tensors.append(q[:,hvd.rank()])
 
-      tensors = list(map(lambda x: torch.from_numpy(x).to(self.device), tensors))
+      tensors = list(map(lambda x: torch.from_numpy(x).to(device), tensors))
 
       handles = [
         hvd.allreduce_async(tensor, op=hvd.Adasum)
@@ -85,22 +88,34 @@ class TorchAdasumTests(unittest.TestCase):
             print('computed: ', rt)
             print('expected: ', e)
             print('off by: ', self.diff_ratio(e,rt.cpu().numpy()))
-            self.assertFalse()          
+      assert np.alltrue(all_comp)
 
   def test_parallel(self):
+    # Only do this test if there are GPUs available.
+    if not torch.cuda.is_available():
+        return
+
+    hvd.init()
+    device = torch.device('cuda:{}'.format(hvd.local_rank()))
+    np.random.seed(2)
+    torch.manual_seed(2)
+    size = hvd.size()
+    local_size = hvd.local_size()
+    rank = hvd.rank()
+
     for data_type in self.data_types:
-      all_Ns = [self.size*20 - 13, self.size*2+1, self.size+2, 2**19]
+      all_Ns = [size*20 - 13, size*2+1, size+2, 2**19]
       tensors = []
       all_qs = []
       for N in all_Ns:
         a = np.random.normal(0, 1, (N, 1)).astype(np.float64)
-        r = np.random.normal(0, 1, (self.size, 1)).astype(np.float64)
+        r = np.random.normal(0, 1, (size, 1)).astype(np.float64)
         q = np.dot(a,r.T)
         q = q.astype(data_type)
         all_qs.append(q.astype(np.float64))
         tensors.append(q[:,hvd.rank()])
 
-      tensors = list(map(lambda x: torch.from_numpy(x).to(self.device), tensors))
+      tensors = list(map(lambda x: torch.from_numpy(x).to(device), tensors))
 
       handles = [
         hvd.allreduce_async(tensor, op=hvd.Adasum)
@@ -109,7 +124,7 @@ class TorchAdasumTests(unittest.TestCase):
 
       reduced_tensors = [synchronize(h) for h in handles]
 
-      expected = [np.sum(q,axis=1) / self.size for q in all_qs]
+      expected = [np.sum(q,axis=1) / size for q in all_qs]
       all_comp = [self.are_close(data_type, e, rt.cpu().numpy()) for e,rt in zip(expected,reduced_tensors)]
       if np.alltrue(all_comp):
         print('Parallel test passed')
@@ -119,22 +134,30 @@ class TorchAdasumTests(unittest.TestCase):
             print('computed: ', rt)
             print('expected: ', e)
             print('off by: ', self.diff_ratio(e,rt.cpu().numpy()))
-            self.assertFalse()          
+      assert np.alltrue(all_comp)
 
   def test_stability(self):
+    hvd.init()
+    device = torch.device('cuda:{}'.format(hvd.local_rank())) if torch.cuda.is_available() else torch.device('cpu')
+    np.random.seed(2)
+    torch.manual_seed(2)
+    size = hvd.size()
+    local_size = hvd.local_size()
+    rank = hvd.rank()
+
     for data_type in self.data_types:
       N = 1024
       a = np.random.normal(0, np.finfo(data_type).tiny, (N, 1)).astype(np.float64)
-      r = np.random.normal(0, 1, (self.size, 1)).astype(np.float64)
+      r = np.random.normal(0, 1, (size, 1)).astype(np.float64)
       q = np.dot(a,r.T).astype(data_type).astype(np.float64)
       tensor = np.zeros(N,dtype=data_type)
       tensor[:] = q[:,hvd.rank()]
 
-      tensor = torch.from_numpy(tensor).to(self.device)
+      tensor = torch.from_numpy(tensor).to(device)
 
       hvd.allreduce_(tensor, op=hvd.Adasum)
 
-      expected = np.sum(q,axis=1) / self.size
+      expected = np.sum(q,axis=1) / size
       comp = self.are_close(data_type, expected, tensor.cpu().numpy()) 
       if comp:
         print('Stability test passed')
@@ -142,25 +165,33 @@ class TorchAdasumTests(unittest.TestCase):
         print('computed: ', tensor)
         print('expected: ', expected)
         print('off by: ', self.diff_ratio(expected,tensor.cpu().numpy()))
-        self.assertFalse()          
+      assert comp
 
   def test_stability_2(self):
+    hvd.init()
+    device = torch.device('cuda:{}'.format(hvd.local_rank())) if torch.cuda.is_available() else torch.device('cpu')
+    np.random.seed(2)
+    torch.manual_seed(2)
+    size = hvd.size()
+    local_size = hvd.local_size()
+    rank = hvd.rank()
+
     for data_type in self.data_types:
       N = 1024
       dt_min = np.finfo(data_type).tiny.astype(np.float64)
       dt_max = math.sqrt(np.finfo(data_type).max.astype(np.float64))
       a = np.random.normal(0, 1, (N, 1)).astype(np.float64)
-      r = np.array([dt_max**(float(i+1)/float(self.size))*dt_min**(float(self.size-i-1)/float(self.size)) for i in range(self.size)]).reshape(self.size,1).astype(np.float64)
+      r = np.array([dt_max**(float(i+1)/float(size))*dt_min**(float(size-i-1)/float(size)) for i in range(size)]).reshape(size,1).astype(np.float64)
       np.random.shuffle(r)
       q = np.dot(a,r.T).astype(data_type).astype(np.float64)
       tensor = np.zeros(N,dtype=data_type)
       tensor[:] = q[:,hvd.rank()]
 
-      tensor = torch.from_numpy(tensor).to(self.device)
+      tensor = torch.from_numpy(tensor).to(device)
 
       hvd.allreduce_(tensor, op=hvd.Adasum)
 
-      expected = np.sum(q,axis=1) / self.size
+      expected = np.sum(q,axis=1) / size
       comp = self.are_close(data_type, expected, tensor.cpu().numpy()) 
       if comp:
         print('Stability 2 test passed')
@@ -168,7 +199,7 @@ class TorchAdasumTests(unittest.TestCase):
         print('computed: ', tensor)
         print('expected: ', expected)
         print('off by: ', self.diff_ratio(expected,tensor.cpu().numpy()))
-        self.assertFalse()          
+      assert comp
 
 if __name__ == "__main__":
    unittest.main()
