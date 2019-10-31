@@ -115,6 +115,9 @@ public:
   virtual common::Status
   AllocateOutput(common::TensorShape shape,
                  std::shared_ptr<common::Tensor>* tensor) override;
+  virtual common::Status
+  AllocateZeros(int64_t num_elements, common::DataType dtype,
+                std::shared_ptr<common::Tensor>* tensor) override;
   virtual common::Framework framework() const override;
   OpKernelContext* GetKernelContext() const;
 
@@ -242,6 +245,13 @@ TFOpContext::AllocateOutput(common::TensorShape shape,
   }
 #endif
   return ConvertStatus(status);
+}
+
+common::Status
+TFOpContext::AllocateZeros(int64_t num_elements, common::DataType dtype,
+                           std::shared_ptr<common::Tensor>* tensor) {
+  return common::Status::PreconditionError(
+      "AllocateZeros is not supported for TensorFlow yet.");
 }
 
 common::Framework TFOpContext::framework() const {

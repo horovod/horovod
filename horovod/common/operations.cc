@@ -852,8 +852,8 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   return status;
 }
 
-// MPI must be initialized and the background thread must be running before
-// this function is called.
+// Contexts and controller must be initialized and the background thread
+// must be running before this function is called.
 Status EnqueueJoin(std::shared_ptr<OpContext> context,
                    std::shared_ptr<ReadyEvent> ready_event,
                    const std::string name, const int device,

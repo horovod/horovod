@@ -1417,10 +1417,7 @@ class TorchTests(unittest.TestCase):
                 tensor = torch.FloatTensor(*([17] * dim)).random_(-100, 100)
                 tensor = self.cast_and_place(tensor, dtype)
                 averaged = hvd.allreduce(tensor, average=True)
-                if dtype.is_cuda:
-                    ret = hvd.join(hvd.local_rank())
-                else:
-                    ret = hvd.join()
+                ret = hvd.join(hvd.local_rank())
 
                 max_difference = averaged.data.sub(tensor * (size - 1) / size).max()
                 # Threshold for floating point equality depends on number of
@@ -1465,10 +1462,7 @@ class TorchTests(unittest.TestCase):
             except (torch.FatalError, RuntimeError):
                 pass
 
-            if torch.cuda.is_available():
-                ret = hvd.join(hvd.local_rank())
-            else:
-                ret = hvd.join()
+            ret = hvd.join(hvd.local_rank())
 
     def test_horovod_join_broadcast(self):
         """Test Join op with allgather."""
@@ -1488,10 +1482,7 @@ class TorchTests(unittest.TestCase):
         tensor = torch.FloatTensor(*dims)
 
         if rank == 0:
-            if torch.cuda.is_available():
-                ret = hvd.join(hvd.local_rank())
-            else:
-                ret = hvd.join()
+            ret = hvd.join(hvd.local_rank())
         else:
             try:
                 broadcasted_tensor = hvd.broadcast(tensor, 1)

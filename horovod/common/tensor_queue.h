@@ -22,10 +22,6 @@
 
 #include "common.h"
 
-#if HAVE_CUDA
-#include <cuda_runtime.h>
-#endif
-
 namespace horovod {
 namespace common {
 

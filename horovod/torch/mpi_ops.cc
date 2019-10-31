@@ -218,7 +218,6 @@ int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
 
 int DoJoin(int device) {
   throw std::runtime_error("Join Op is not supported for PyTorch < 1.0");
-  return 0;
 }
 
 #define ALLREDUCE(torch_Tensor, HorovodType, DeviceType, THTensor)             \

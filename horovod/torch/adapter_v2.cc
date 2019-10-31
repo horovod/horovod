@@ -125,15 +125,13 @@ Status TorchOpContext::AllocateOutput(TensorShape shape,
 }
 
 Status TorchOpContext::AllocateZeros(int64_t num_elements, DataType dtype,
-                                      std::shared_ptr<Tensor>* tensor) {
+                                     std::shared_ptr<Tensor>* tensor) {
   with_device device_context(device_);
-  ::torch::Tensor zero_tensor;
   auto torch_data_type = GetTorchDataType(dtype);
-  if (device_ == CPU_DEVICE_ID) {
-    zero_tensor = ::torch::zeros(num_elements, ::torch::device(::torch::kCPU).dtype(torch_data_type));
-  } else {
-    zero_tensor = ::torch::zeros(num_elements, ::torch::device(::torch::kCUDA).dtype(torch_data_type));
-  }
+  ::torch::DeviceType device_type =
+      device_ != CPU_DEVICE_ID ? ::torch::kCUDA : ::torch::kCPU;
+  ::torch::Tensor zero_tensor = ::torch::zeros(
+      num_elements, ::torch::device(device_type).dtype(torch_data_type));
   *tensor = std::make_shared<TorchTensor>(zero_tensor);
   return Status::OK();
 }
