@@ -157,6 +157,11 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
     allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
         new DDLAllreduce(&ddl_context, &cuda_context, &state)));
 #endif
+
+#if HOROVOD_GPU_ALLGATHER == 'M'
+    allgather_ops.push_back(std::shared_ptr<AllgatherOp>(
+        new MPI_CUDAAllgather(&mpi_context, &cuda_context, &state)));
+#endif
     allgather_ops.push_back(std::shared_ptr<AllgatherOp>(
         new MPIHierarchicalAllgather(&mpi_context, &state)));
   }

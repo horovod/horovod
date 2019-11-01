@@ -92,9 +92,83 @@ void CUDAContext::WaitForEvents(std::queue<std::pair<std::string, cudaEvent_t>>&
   }
 }
 
+CUDAOpContext::CUDAOpContext(struct CUDAContext* context,
+                             HorovodGlobalState* global_state)
+    : cuda_context_(context), global_state_(global_state) {}
+
+void CUDAOpContext::InitCUDA(const std::vector<TensorTableEntry>& entries) {
+  auto& first_entry = entries[0];
+  cuda_context_->ErrorCheck("cudaSetDevice", cudaSetDevice(first_entry.device));
+
+  // Ensure stream is in the map before executing reduction.
+  cudaStream_t& stream = cuda_context_->streams[global_state_->current_nccl_stream][first_entry.device];
+  if (stream == nullptr) {
+    int greatest_priority;
+    cuda_context_->ErrorCheck("cudaDeviceGetStreamPriorityRange",
+                              cudaDeviceGetStreamPriorityRange(NULL, &greatest_priority));
+    cuda_context_->ErrorCheck("cudaStreamCreateWithPriority",
+                              cudaStreamCreateWithPriority(&stream, cudaStreamNonBlocking, greatest_priority));
+  }
+}
+
+void CUDAOpContext::InitCUDAQueue(const std::vector<TensorTableEntry>& entries, const Response& response) {
+  event_queue = std::queue<std::pair<std::string, cudaEvent_t>>();
+  stream = &cuda_context_->streams[global_state_->current_nccl_stream][entries[0].device];
+  host_buffer = nullptr;
+
+  if (global_state_->timeline.Initialized()) {
+    cuda_context_->RecordEvent(event_queue, QUEUE, *stream);
+  }
+}
+
+Status CUDAOpContext::FinalizeCUDAQueue(const std::vector<TensorTableEntry>& entries) {
+  // Use completion marker via event because it's faster than
+  // blocking cudaStreamSynchronize() in this thread.
+  cuda_context_->RecordEvent(event_queue, "", *stream);
+
+  auto& first_entry = entries[0];
+  void* cpu_buffer = host_buffer;
+  auto& evt_queue = event_queue;
+  auto& timeline = global_state_->timeline;
+  auto& cuda_context = cuda_context_;
+
+  // Claim a std::shared_ptr to the fusion buffer to prevent its memory from being reclaimed
+  // during finalization.
+  auto fusion_buffer = global_state_->fusion_buffer.GetBuffer(
+      first_entry.device, first_entry.context->framework(), global_state_->current_nccl_stream);
+
+  // TODO: use thread pool or single thread for callbacks
+  std::thread finalizer_thread([entries, first_entry, cpu_buffer, fusion_buffer,
+                                evt_queue, &timeline, &cuda_context]() mutable {
+    auto cuda_result = cudaSetDevice(first_entry.device);
+    cuda_context->ErrorCheck("cudaSetDevice", cuda_result);
+
+    cuda_context->WaitForEvents(evt_queue, entries, timeline);
+    if (cpu_buffer != nullptr) {
+      free(cpu_buffer);
+    }
+
+    for (auto& e : entries) {
+      timeline.End(e.tensor_name, e.output);
+      // Callback can be null if the rank sent Join request.
+      if (e.callback != nullptr) {
+        e.callback(Status::OK());
+      }
+    }
+  });
+
+  finalizer_thread.detach();
+
+  // Update current stream
+  global_state_->current_nccl_stream = (global_state_->current_nccl_stream + 1) %
+                                  global_state_->num_nccl_streams;
+
+  return Status::InProgress();
+}
+
 CUDAAllreduce::CUDAAllreduce(CUDAContext* context,
                              HorovodGlobalState* global_state)
-    : AllreduceOp(global_state), cuda_context_(context) {}
+    : AllreduceOp(global_state), cuda_context_(context), cuda_op_context_(context, global_state) {}
 
 bool CUDAAllreduce::Enabled(const ParameterManager& param_manager,
                             const std::vector<TensorTableEntry>& entries,
@@ -120,74 +194,33 @@ void CUDAAllreduce::MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntr
   cuda_context_->ErrorCheck("cudaMemcpyAsync", cuda_result);
 }
 
-void CUDAAllreduce::InitCUDA(const std::vector<TensorTableEntry>& entries) {
-  auto& first_entry = entries[0];
-  cuda_context_->ErrorCheck("cudaSetDevice", cudaSetDevice(first_entry.device));
+CUDAAllgather::CUDAAllgather(CUDAContext* context,
+                             HorovodGlobalState* global_state)
+    : AllgatherOp(global_state), cuda_context_(context), cuda_op_context_(context, global_state) {}
 
-  // Ensure stream is in the map before executing reduction.
-  cudaStream_t& stream = cuda_context_->streams[global_state_->current_nccl_stream][first_entry.device];
-  if (stream == nullptr) {
-    int greatest_priority;
-    cuda_context_->ErrorCheck("cudaDeviceGetStreamPriorityRange",
-                              cudaDeviceGetStreamPriorityRange(NULL, &greatest_priority));
-    cuda_context_->ErrorCheck("cudaStreamCreateWithPriority",
-                              cudaStreamCreateWithPriority(&stream, cudaStreamNonBlocking, greatest_priority));
-  }
+bool CUDAAllgather::Enabled(const ParameterManager& param_manager,
+                            const std::vector<TensorTableEntry>& entries,
+                            const Response& response) const {
+  return entries[0].device != CPU_DEVICE_ID;
 }
 
-void CUDAAllreduce::InitCUDAQueue(const std::vector<TensorTableEntry>& entries, const Response& response) {
-  event_queue_ = std::queue<std::pair<std::string, cudaEvent_t>>();
-  stream_ = &cuda_context_->streams[global_state_->current_nccl_stream][entries[0].device];
-  host_buffer_ = nullptr;
-
-  if (global_state_->timeline.Initialized()) {
-    cuda_context_->RecordEvent(event_queue_, QUEUE, *stream_);
-  }
+void CUDAAllgather::MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                              const TensorTableEntry& e, void* buffer_data_at_offset) {
+  auto& first_entry = entries[0];
+  auto cuda_result = cudaMemcpyAsync(buffer_data_at_offset, e.tensor->data(),
+                                     (size_t) e.tensor->size(), cudaMemcpyDeviceToDevice,
+                                     cuda_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
+  cuda_context_->ErrorCheck("cudaMemcpyAsync", cuda_result);
 }
 
-Status CUDAAllreduce::FinalizeCUDAQueue(const std::vector<TensorTableEntry>& entries) {
-  // Use completion marker via event because it's faster than
-  // blocking cudaStreamSynchronize() in this thread.
-  cuda_context_->RecordEvent(event_queue_, "", *stream_);
-
+void CUDAAllgather::MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                                               const void* buffer_data_at_offset, TensorTableEntry& e,
+                                               int64_t entry_offset, size_t entry_size) {
   auto& first_entry = entries[0];
-  void* host_buffer = host_buffer_;
-  auto& event_queue = event_queue_;
-  auto& timeline = global_state_->timeline;
-  auto& cuda_context = cuda_context_;
-
-  // Claim a std::shared_ptr to the fusion buffer to prevent its memory from being reclaimed
-  // during finalization.
-  auto fusion_buffer = global_state_->fusion_buffer.GetBuffer(
-      first_entry.device, first_entry.context->framework(), global_state_->current_nccl_stream);
-
-  // TODO: use thread pool or single thread for callbacks
-  std::thread finalizer_thread([entries, first_entry, host_buffer, fusion_buffer,
-                                event_queue, &timeline, &cuda_context]() mutable {
-    auto cuda_result = cudaSetDevice(first_entry.device);
-    cuda_context->ErrorCheck("cudaSetDevice", cuda_result);
-
-    cuda_context->WaitForEvents(event_queue, entries, timeline);
-    if (host_buffer != nullptr) {
-      free(host_buffer);
-    }
-
-    for (auto& e : entries) {
-      timeline.End(e.tensor_name, e.output);
-      // Callback can be null if the rank sent Join request.
-      if (e.callback != nullptr) {
-        e.callback(Status::OK());
-      }
-    }
-  });
-
-  finalizer_thread.detach();
-
-  // Update current stream
-  global_state_->current_nccl_stream = (global_state_->current_nccl_stream + 1) %
-                                  global_state_->num_nccl_streams;
-
-  return Status::InProgress();
+  auto cuda_result = cudaMemcpyAsync((int8_t*)e.output->data() + entry_offset, buffer_data_at_offset,
+                                     entry_size, cudaMemcpyDeviceToDevice,
+                                     cuda_context_->streams[global_state_->current_nccl_stream][first_entry.device]);
+  cuda_context_->ErrorCheck("cudaMemcpyAsync", cuda_result);
 }
 
 } // namespace common
