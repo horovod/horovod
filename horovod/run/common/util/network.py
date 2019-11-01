@@ -131,9 +131,9 @@ class BasicService(object):
                     if intf not in result:
                         result[intf] = []
                     result[intf].append((addr.address, self._port))
-        if not result:
+        if not result and self._nic:
             raise NoValidAddressesFound(
-                'Can not find a available NIC matches the given one: {}'.format(self._nic))
+                'No available network interface found matching user provided interface: {}'.format(self._nic))
         return result
 
     def addresses(self):

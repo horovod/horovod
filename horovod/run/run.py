@@ -427,8 +427,8 @@ def parse_args():
                              'HOROVOD_START_TIMEOUT can also be used to '
                              'specify the initialization timeout.')
 
-    parser.add_argument('--nic', action='store', dest='nic',
-                        help='Specify the network interface card used for communication.')
+    parser.add_argument('--network-interface', action='store', dest='nic',
+                        help='Specify the network interface used for communication.')
 
     parser.add_argument('--output-filename', action='store',
                         help='For Gloo, writes stdout / stderr of all processes to a filename of the form '
@@ -874,7 +874,7 @@ def run(
         verbose=None,
         use_gloo=None,
         use_mpi=None,
-        nic=None):
+        network_interface=None):
     """
     Launch a Horovod job to run the specified process function and get the return value.
 
@@ -912,7 +912,7 @@ def run(
                      be the default if Horovod was not built with MPI support.
     :param use_mpi: Run Horovod using the MPI controller. This will
                     be the default if Horovod was built with MPI support.
-    :param nic: Specify the NIC for communication.
+    :param network_interface: Specify the network interface for communication.
 
     :return: Return a list which contains values return by all Horovod processes.
              The index of the list corresponds to the rank of each Horovod process.
@@ -942,7 +942,7 @@ def run(
     hargs.verbose = verbose
     hargs.use_gloo = use_gloo
     hargs.use_mpi = use_mpi
-    hargs.nic = nic
+    hargs.nic = network_interface
 
     hargs.run_func = wrapped_func
 
