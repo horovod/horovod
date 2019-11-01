@@ -443,3 +443,20 @@ def synchronize(handle):
     mpi_lib.horovod_torch_wait_and_clear(handle)
     _, output = _handle_map.pop(handle)
     return output
+
+
+def join(device=-1):
+    """A function that indicates that the rank finished processing data.
+
+    All ranks that did not call join() continue to process allreduce operations.
+    This function blocks Python thread until all ranks join.
+
+    Arguments:
+        device: An id of the device to create temprorary zero tensors (default -1, CPU)
+
+    Returns:
+        Id of the rank that joined last.
+    """
+    if not _v2_api:
+        raise NotImplementedError("Join Op is not supported for PyTorch < 1.0")
+    return mpi_lib.horovod_torch_join(device)

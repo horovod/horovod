@@ -200,66 +200,73 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   }
 #endif
 
+  std::shared_ptr<JoinOp> join_op(new JoinOp(&state));
   std::shared_ptr<ErrorOp> error_op(new ErrorOp(&state));
 
   return new OperationManager(&state.parameter_manager, allreduce_ops,
-                              allgather_ops, broadcast_ops, error_op);
+                              allgather_ops, broadcast_ops, join_op, error_op);
 }
 
 // Process a Response by doing a reduction, a gather, a broadcast, or
 // raising an error.
-void PerformOperation(Response response) {
+void PerformOperation(Response response, HorovodGlobalState& state) {
   std::vector<TensorTableEntry> entries;
-  horovod_global.tensor_queue.GetTensorEntriesFromResponse(response, entries);
-
   auto& timeline = horovod_global.timeline;
-  for (auto& e : entries) {
-    timeline.Start(e.tensor_name, response.response_type());
-  }
+  if (response.response_type() != Response::JOIN) {
+    horovod_global.tensor_queue.GetTensorEntriesFromResponse(
+        response, entries, state.joined, state.join_device);
 
-  if (entries.size() > 1) {
-    auto first_entry = entries[0];
-    // Note: it is OK for different entries to come from different frameworks
-    // since buffer allocated here is guaranteed to survive at least till the
-    // end of this operation.
-    Status status = horovod_global.fusion_buffer.InitializeBuffer(
-        horovod_global.controller->TensorFusionThresholdBytes(),
-        first_entry.device, first_entry.context,
-        horovod_global.current_nccl_stream,
-        [&]() { timeline.ActivityStartAll(entries, INIT_FUSION_BUFFER); },
-        [&]() { timeline.ActivityEndAll(entries); });
-    if (!status.ok()) {
-      for (auto& e : entries) {
-        timeline.End(e.tensor_name, nullptr);
-        e.callback(status);
-      }
-      return;
+    for (auto& e : entries) {
+      timeline.Start(e.tensor_name, response.response_type());
     }
-  }
 
-  // On GPU data readiness is signalled by ready_event.
-  std::vector<TensorTableEntry> waiting_tensors;
-  for (auto& e : entries) {
-    if (e.ready_event != nullptr) {
-      timeline.ActivityStart(e.tensor_name, WAIT_FOR_DATA);
-      waiting_tensors.push_back(e);
-    }
-  }
-  while (!waiting_tensors.empty()) {
-    for (auto it = waiting_tensors.begin(); it != waiting_tensors.end();) {
-      if (it->ready_event->Ready()) {
-        timeline.ActivityEnd(it->tensor_name);
-        timeline.ActivityStart(it->tensor_name, WAIT_FOR_OTHER_TENSOR_DATA);
-        it = waiting_tensors.erase(it);
-      } else {
-        ++it;
+    if (entries.size() > 1) {
+      auto first_entry = entries[0];
+      // Note: it is OK for different entries to come from different frameworks
+      // since buffer allocated here is guaranteed to survive at least till the
+      // end of this operation.
+      Status status = horovod_global.fusion_buffer.InitializeBuffer(
+          horovod_global.controller->TensorFusionThresholdBytes(),
+          first_entry.device, first_entry.context,
+          horovod_global.current_nccl_stream,
+          [&]() { timeline.ActivityStartAll(entries, INIT_FUSION_BUFFER); },
+          [&]() { timeline.ActivityEndAll(entries); });
+      if (!status.ok()) {
+        for (auto& e : entries) {
+          timeline.End(e.tensor_name, nullptr);
+          // Callback can be null if the rank sent Join request.
+          if (e.callback != nullptr) {
+            e.callback(status);
+          }
+        }
+        return;
       }
     }
-    std::this_thread::sleep_for(std::chrono::nanoseconds(100));
-  }
-  for (auto& e : entries) {
-    if (e.ready_event != nullptr) {
-      timeline.ActivityEnd(e.tensor_name);
+
+    // On GPU data readiness is signalled by ready_event.
+    std::vector<TensorTableEntry> waiting_tensors;
+    for (auto& e : entries) {
+      if (e.ready_event != nullptr) {
+        timeline.ActivityStart(e.tensor_name, WAIT_FOR_DATA);
+        waiting_tensors.push_back(e);
+      }
+    }
+    while (!waiting_tensors.empty()) {
+      for (auto it = waiting_tensors.begin(); it != waiting_tensors.end();) {
+        if (it->ready_event->Ready()) {
+          timeline.ActivityEnd(it->tensor_name);
+          timeline.ActivityStart(it->tensor_name, WAIT_FOR_OTHER_TENSOR_DATA);
+          it = waiting_tensors.erase(it);
+        } else {
+          ++it;
+        }
+      }
+      std::this_thread::sleep_for(std::chrono::nanoseconds(100));
+    }
+    for (auto& e : entries) {
+      if (e.ready_event != nullptr) {
+        timeline.ActivityEnd(e.tensor_name);
+      }
     }
   }
 
@@ -273,7 +280,10 @@ void PerformOperation(Response response) {
   if (!status.in_progress()) {
     for (auto& e : entries) {
       timeline.End(e.tensor_name, status.ok() ? e.output : nullptr);
-      e.callback(status);
+      // Callback can be null if the rank sent Join request.
+      if (e.callback != nullptr) {
+        e.callback(status);
+      }
     }
   }
 }
@@ -284,8 +294,8 @@ void PerformOperation(Response response) {
 //
 //      1. Some MPI implementations require all MPI calls to happen from a
 //      single thread. Since TensorFlow may use several threads for graph
-//      processing, this means we must have our own dedicated thread for dealing
-//      with MPI.
+//      processing, this means we must have our own dedicated thread for
+//      dealing with MPI.
 //      2. We want to gracefully handle errors, when all processes do not
 //      properly agree upon what should happen (such as mismatched types or
 //      shapes). To do so requires every process to know about the shapes
@@ -296,8 +306,8 @@ void PerformOperation(Response response) {
 //      separate thread.
 //      4. We cannot guarantee that all the processes reduce their tensors
 //      in the same order, so we cannot dispatch one thread per tensor,
-//      otherwise we may end up dispatching many blocked threads and never make
-//      progress if we have a thread pool limit.
+//      otherwise we may end up dispatching many blocked threads and never
+//      make progress if we have a thread pool limit.
 bool RunLoopOnce(HorovodGlobalState& state);
 
 void BackgroundThreadLoop(HorovodGlobalState& state) {
@@ -515,7 +525,7 @@ bool RunLoopOnce(HorovodGlobalState& state) {
   }
 
   auto response_list =
-      state.controller->ComputeResponseList(horovod_global.shut_down);
+      state.controller->ComputeResponseList(horovod_global.shut_down, state);
 
   // Get tensor name and size data for autotuning.
   int64_t total_tensor_size = 0;
@@ -532,7 +542,7 @@ bool RunLoopOnce(HorovodGlobalState& state) {
     LOG(TRACE, rank) << "Performing " << response.tensor_names_string();
     LOG(DEBUG, rank) << "Processing " << response.tensor_names().size()
                      << " tensors";
-    PerformOperation(response);
+    PerformOperation(response, horovod_global);
     LOG(TRACE, rank) << "Finished performing "
                      << response.tensor_names_string();
   }
@@ -828,6 +838,34 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
   e.tensor = tensor;
   e.output = output;
   e.root_rank = root_rank;
+  e.ready_event = ready_event;
+  e.device = device;
+  e.callback = callback;
+
+  if (horovod_global.shut_down) {
+    return SHUT_DOWN_ERROR;
+  }
+  Status status = horovod_global.tensor_queue.AddToTensorQueue(e, message);
+  if (status.ok()) {
+    LOG(TRACE, horovod_global.controller->GetRank()) << "Enqueued " << name;
+  }
+  return status;
+}
+
+// Contexts and controller must be initialized and the background thread
+// must be running before this function is called.
+Status EnqueueJoin(std::shared_ptr<OpContext> context,
+                   std::shared_ptr<ReadyEvent> ready_event,
+                   const std::string name, const int device,
+                   StatusCallback callback) {
+  Request message;
+  message.set_request_rank(horovod_global.controller->GetRank());
+  message.set_device(device);
+  message.set_request_type(Request::JOIN);
+
+  TensorTableEntry e;
+  e.tensor_name = name;
+  e.context = context;
   e.ready_event = ready_event;
   e.device = device;
   e.callback = callback;

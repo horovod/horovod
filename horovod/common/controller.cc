@@ -51,7 +51,8 @@ Controller::Controller(ResponseCache& response_cache, TensorQueue& tensor_queue,
       timeline_(timeline), response_cache_(response_cache),
       parameter_manager_(parameter_manager) {}
 
-ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down) {
+ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
+                                             HorovodGlobalState& state) {
   // Update cache capacity if autotuning is active.
   if (parameter_manager_.IsAutoTuning()) {
     response_cache_.set_capacity((int)parameter_manager_.CacheEnabled() *
@@ -68,6 +69,11 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down) {
   std::deque<Request> message_queue_tmp;
   tensor_queue_.PopMessagesFromQueue(message_queue_tmp);
   for (auto& message : message_queue_tmp) {
+    if (message.request_type() == Request::JOIN) {
+      state.joined = true;
+      state.join_device = message.device();
+    }
+
     // Keep track of cache hits
     if (response_cache_.capacity() > 0) {
       auto cache_ = response_cache_.cached(message);
@@ -193,7 +199,12 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down) {
         Request message = message_queue_tmp.front();
         message_queue_tmp.pop_front();
 
-        bool reduce = IncrementTensorCount(message);
+        if (message.request_type() == Request::JOIN) {
+          state.joined_size++;
+          continue;
+        }
+
+        bool reduce = IncrementTensorCount(message, state.joined_size);
         stall_inspector_.RecordUncachedTensorStart(
             message.tensor_name(), message.request_rank(), size_);
         if (reduce) {
@@ -211,7 +222,13 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down) {
         auto received_message_list = ready_list[i];
         for (auto& received_message : received_message_list.requests()) {
           auto& received_name = received_message.tensor_name();
-          bool reduce = IncrementTensorCount(received_message);
+
+          if (received_message.request_type() == Request::JOIN) {
+            state.joined_size++;
+            continue;
+          }
+
+          bool reduce = IncrementTensorCount(received_message, state.joined_size);
           stall_inspector_.RecordUncachedTensorStart(
               received_message.tensor_name(), received_message.request_rank(),
               size_);
@@ -222,6 +239,19 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down) {
         if (received_message_list.shutdown()) {
           // Received SHUTDOWN request from one of the workers.
           should_shut_down = true;
+        }
+      }
+
+      // Check if tensors from previous ticks are ready to reduce after Joins.
+      if (state.joined_size > 0) {
+        for (auto& table_iter : message_table_) {
+          int count = (int)table_iter.second.size();
+          if (count == (size_ - state.joined_size) &&
+              std::find(ready_to_reduce.begin(), ready_to_reduce.end(),
+                        table_iter.first) == ready_to_reduce.end()) {
+            state.timeline.NegotiateEnd(table_iter.first);
+            ready_to_reduce.push_back(table_iter.first);
+          }
         }
       }
 
@@ -244,10 +274,17 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down) {
       }
 
       for (auto& tensor_name : ready_to_reduce) {
-        Response response = ConstructResponse(tensor_name);
+        Response response = ConstructResponse(tensor_name, state.joined_size);
         responses.push_back(std::move(response));
       }
-
+      if (state.joined_size == size_) {
+        // All ranks did Join(). Send the response, reset joined size.
+        Response join_response;
+        join_response.set_response_type(Response::JOIN);
+        join_response.add_tensor_name(JOIN_TENSOR_NAME);
+        responses.push_back(std::move(join_response));
+        state.joined_size = 0;
+      }
       response_list = FuseResponses(responses);
       response_list.set_shutdown(should_shut_down);
 
@@ -317,7 +354,7 @@ int64_t Controller::TensorFusionThresholdBytes() {
   return proposed_fusion_threshold;
 }
 
-Response Controller::ConstructResponse(std::string& name) {
+Response Controller::ConstructResponse(std::string& name, int joined_size) {
   bool error = false;
   auto it = message_table_.find(name);
   assert(it != message_table_.end());
@@ -390,11 +427,18 @@ Response Controller::ConstructResponse(std::string& name) {
     }
   }
 
-  // If we are doing an allgather, make sure all but the first dimension are
-  // the same. The first dimension may be different and the output tensor is
-  // the sum of the first dimension. Collect the sizes by rank.
-  std::vector<int64_t> tensor_sizes(requests.size());
+  std::vector<int64_t> tensor_sizes;
   if (message_type == Request::ALLGATHER) {
+    if (joined_size > 0) {
+      error = true;
+      error_message_stream << "Allgather is not supported with Join at this time. "
+                           << "Specify sparse_to_dense=True if using DistributedOptimizer";
+    }
+
+    // If we are doing an allgather, make sure all but the first dimension are
+    // the same. The first dimension may be different and the output tensor is
+    // the sum of the first dimension. Collect the sizes by rank.
+    tensor_sizes.resize(requests.size());
     TensorShape tensor_shape;
     for (auto dim : requests[0].tensor_shape()) {
       tensor_shape.AddDim(dim);
@@ -451,8 +495,23 @@ Response Controller::ConstructResponse(std::string& name) {
     }
   }
 
-  // If we are doing a broadcast, check that all root ranks are identical.
+  // If there is at least one rank that requested Join, communicate tensor sizes
+  // in the response, because joined ranks don't have this info.
+  if (joined_size > 0 && message_type == Request::ALLREDUCE) {
+    TensorShape tensor_shape;
+    for (auto dim : requests[0].tensor_shape()) {
+      tensor_shape.AddDim(dim);
+    }
+    tensor_sizes.push_back(tensor_shape.num_elements());
+  }
+
   if (message_type == Request::BROADCAST) {
+    if (joined_size > 0) {
+      error = true;
+      error_message_stream << "Broadcast is not supported with Join at this time.";
+    }
+
+    // If we are doing a broadcast, check that all root ranks are identical.
     int first_root_rank = requests[0].root_rank();
     for (unsigned int i = 1; i < requests.size(); ++i) {
       if (error) {
@@ -508,6 +567,12 @@ Response Controller::ConstructResponse(std::string& name) {
     }
   } else if (message_type == Request::ALLREDUCE) {
     response.set_response_type(Response::ALLREDUCE);
+    if (joined_size > 0) {
+      for (auto dim : tensor_sizes) {
+        response.add_tensor_size(dim);
+      }
+      response.set_tensor_type(data_type);
+    }
   } else if (message_type == Request::BROADCAST) {
     response.set_response_type(Response::BROADCAST);
   }
@@ -556,11 +621,13 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
     assert(response.tensor_names().size() == 1);
     responses.pop_front();
     int64_t tensor_size = 0;
+    DataType dtype;
+
     if (response.response_type() == Response::ResponseType::ALLREDUCE) {
       // Attempt to add more responses to this fused response.
-      const auto& entry =
-          tensor_queue_.GetTensorEntry(response.tensor_names()[0]);
-      tensor_size = entry.tensor->size();
+
+      // found_tensor can be false for ranks that did Join.
+      bool found_tensor = tensor_queue_.GetTensorSizeAndType(response.tensor_names()[0], tensor_size, dtype);
 
       std::deque<Response> skipped_responses;
       int64_t skipped_size = 0;
@@ -571,9 +638,10 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
             tensor_queue_.GetTensorEntry(new_response.tensor_names()[0]);
         int64_t new_tensor_size = new_entry.tensor->size();
 
-        if (response.response_type() == new_response.response_type() &&
+        if (found_tensor &&
+            response.response_type() == new_response.response_type() &&
             response.devices() == new_response.devices() &&
-            entry.tensor->dtype() == new_entry.tensor->dtype() &&
+            dtype == new_entry.tensor->dtype() &&
             tensor_size + new_tensor_size <= TensorFusionThresholdBytes()) {
           // These tensors will fuse together well.
           tensor_size += new_tensor_size;
@@ -697,7 +765,7 @@ int Controller::GetLocalSizeAtCrossRank(int i) {
   return local_sizes_for_cross_rank_[i];
 }
 
-bool Controller::IncrementTensorCount(const Request& msg) {
+bool Controller::IncrementTensorCount(const Request& msg, int joined_size) {
   auto& name = msg.tensor_name();
   auto table_iter = message_table_.find(name);
   if (table_iter == message_table_.end()) {
@@ -715,7 +783,7 @@ bool Controller::IncrementTensorCount(const Request& msg) {
 
   std::vector<Request>& messages = table_iter->second;
   int count = (int)messages.size();
-  bool ready_to_reduce = count == size_;
+  bool ready_to_reduce = count == (size_ - joined_size);
   if (ready_to_reduce) {
     timeline_.NegotiateEnd(name);
   }

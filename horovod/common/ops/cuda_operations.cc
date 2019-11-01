@@ -174,7 +174,10 @@ Status CUDAAllreduce::FinalizeCUDAQueue(const std::vector<TensorTableEntry>& ent
 
     for (auto& e : entries) {
       timeline.End(e.tensor_name, e.output);
-      e.callback(Status::OK());
+      // Callback can be null if the rank sent Join request.
+      if (e.callback != nullptr) {
+        e.callback(Status::OK());
+      }
     }
   });
 

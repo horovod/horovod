@@ -69,26 +69,44 @@ TensorQueue::GetTensorDataForAutotuner(const ResponseList& response_list,
 // Parse tensor names from response and generate a vector of corresponding
 // tensor entries.
 void TensorQueue::GetTensorEntriesFromResponse(
-    Response& response, std::vector<TensorTableEntry>& entries) {
+    Response& response, std::vector<TensorTableEntry>& entries, bool joined,
+    int join_device) {
   // Reserve to save re-allocation costs, as we know the size before.
   entries.reserve(response.tensor_names().size());
   {
     // Lock on the tensor table.
     std::lock_guard<std::mutex> guard(mutex_);
     for (auto& name : response.tensor_names()) {
-      // We should never fail at finding this key in the tensor table.
-      auto iter = tensor_table_.find(name);
-      assert(iter != tensor_table_.end());
-
       assert(response.response_type() == Response::ALLREDUCE ||
              response.response_type() == Response::ALLGATHER ||
              response.response_type() == Response::BROADCAST ||
              response.response_type() == Response::ERROR);
 
-      entries.push_back(std::move(iter->second));
+      if (!joined) {
+        // We should never fail at finding this key in the tensor table.
+        auto iter = tensor_table_.find(name);
+        assert(iter != tensor_table_.end());
 
-      // Clear the tensor table of this tensor.
-      tensor_table_.erase(iter);
+        entries.push_back(std::move(iter->second));
+
+        // Clear the tensor table of this tensor.
+        tensor_table_.erase(iter);
+      } else if (response.response_type() != Response::ERROR) {
+        // Find Join tensor to use its context.
+        auto join_iter = tensor_table_.find(JOIN_TENSOR_NAME);
+        assert(join_iter != tensor_table_.end());
+
+        TensorTableEntry entry;
+        join_iter->second.context->AllocateZeros(response.tensor_sizes()[0],
+                                                 response.tensor_type(),
+                                                 &(entry.tensor));
+
+        entry.output = entry.tensor;
+        entry.device = join_device;
+        entry.context = join_iter->second.context;
+        entry.tensor_name = name;
+        entries.push_back(std::move(entry));
+      }
     }
   }
 }
@@ -114,10 +132,37 @@ void TensorQueue::PopMessagesFromQueue(
   }
 }
 
-// Push a message to massage queue
+// Push a message to message queue
 void TensorQueue::PushMessageToQueue(Request& message) {
   std::lock_guard<std::mutex> guard(mutex_);
   message_queue_.push(std::move(message));
+}
+
+// Get tensor size and type given a tensor name.
+// Return false if the tensor not found.
+bool TensorQueue::GetTensorSizeAndType(const std::string& tensor_name,
+                                       int64_t& size, DataType& dtype) {
+  std::lock_guard<std::mutex> guard(mutex_);
+  auto it = tensor_table_.find(tensor_name);
+  if (it != tensor_table_.end()) {
+    const auto& entry = it->second;
+    size = entry.tensor->size();
+    dtype = entry.tensor->dtype();
+    return true;
+  }
+  return false;
+}
+
+// Remove JoinOp tensor from the table and execute the callback
+void TensorQueue::RemoveJoinTensor() {
+  // Lock on the tensor table.
+  std::lock_guard<std::mutex> guard(mutex_);
+  auto iter = tensor_table_.find(JOIN_TENSOR_NAME);
+  assert(iter != tensor_table_.end());
+  auto& e = iter->second;
+  Status status;
+  e.callback(status);
+  tensor_table_.erase(iter);
 }
 
 } // namespace common

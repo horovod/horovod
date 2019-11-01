@@ -197,10 +197,23 @@ void AllgatherOp::MemcpyOutFusionBuffer(
 BroadcastOp::BroadcastOp(HorovodGlobalState* global_state)
     : HorovodOp(global_state) {}
 
+// Join
+JoinOp::JoinOp(HorovodGlobalState* global_state) : HorovodOp(global_state) {}
+
+Status JoinOp::Execute(std::vector<TensorTableEntry>& entries,
+                       const Response& response) {
+  assert(entries.size() == 0);
+  if (global_state_->joined) {
+    global_state_->tensor_queue.RemoveJoinTensor();
+    global_state_->joined = false;
+  }
+  return Status::OK();
+}
+
+// Error
 ErrorOp::ErrorOp(HorovodGlobalState* global_state) : HorovodOp(global_state) {}
 
-Status ErrorOp::Execute(std::vector<TensorTableEntry>& entries,
-                        const Response& response) {
+Status ErrorOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   return Status::PreconditionError(response.error_message());
 }
 

@@ -127,14 +127,23 @@ public:
                        const Response& response) const = 0;
 };
 
+class JoinOp : public HorovodOp {
+public:
+  JoinOp(HorovodGlobalState* global_state);
+
+  virtual ~JoinOp() = default;
+
+  virtual Status Execute(std::vector<TensorTableEntry>& entries,
+                         const Response& response);
+};
+
 class ErrorOp : public HorovodOp {
 public:
   ErrorOp(HorovodGlobalState* global_state);
 
   virtual ~ErrorOp() = default;
 
-  virtual Status Execute(std::vector<TensorTableEntry>& entries,
-                         const Response& response);
+  virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response);
 };
 
 } // namespace common

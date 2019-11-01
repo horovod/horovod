@@ -216,6 +216,10 @@ int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
 }
 #endif
 
+int DoJoin(int device) {
+  throw std::runtime_error("Join Op is not supported for PyTorch < 1.0");
+}
+
 #define ALLREDUCE(torch_Tensor, HorovodType, DeviceType, THTensor)             \
   extern "C" int horovod_torch_allreduce_async_##torch_Tensor(                 \
       THTensor* tensor, THTensor* output, int average, char* name) {           \
@@ -385,6 +389,10 @@ BROADCAST_CUDA_ON_CPU(torch_cuda_FloatTensor, DataType::HOROVOD_FLOAT32,
 BROADCAST_CUDA_ON_CPU(torch_cuda_DoubleTensor, DataType::HOROVOD_FLOAT64,
                       THCudaDoubleTensor, THDoubleTensor)
 #endif
+
+extern "C" int horovod_torch_join(int device) {
+  return DoJoin(device);
+}
 
 extern "C" int horovod_torch_poll(int handle) {
   return handle_manager.PollHandle(handle) ? 1 : 0;

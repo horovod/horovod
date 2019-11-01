@@ -22,11 +22,13 @@ OperationManager::OperationManager(ParameterManager* param_manager,
                                    std::vector<std::shared_ptr<AllreduceOp>> allreduce_ops,
                                    std::vector<std::shared_ptr<AllgatherOp>> allgather_ops,
                                    std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops,
+                                   std::shared_ptr<JoinOp> join_op,
                                    std::shared_ptr<ErrorOp> error_op)
     : param_manager_(param_manager),
       allreduce_ops_(std::move(allreduce_ops)),
       allgather_ops_(std::move(allgather_ops)),
       broadcast_ops_(std::move(broadcast_ops)),
+      join_op_(std::move(join_op)),
       error_op_(std::move(error_op)) {}
 
 Status OperationManager::ExecuteAllreduce(std::vector<TensorTableEntry>& entries,
@@ -59,6 +61,11 @@ Status OperationManager::ExecuteBroadcast(std::vector<TensorTableEntry>& entries
   throw std::logic_error("No Broadcast operation enabled");
 }
 
+Status OperationManager::ExecuteJoin(std::vector<TensorTableEntry>& entries,
+                                          const Response& response) const {
+  return join_op_->Execute(entries, response);
+}
+
 Status OperationManager::ExecuteError(std::vector<TensorTableEntry>& entries,
                                       const Response& response) const {
   return error_op_->Execute(entries, response);
@@ -72,6 +79,8 @@ Status OperationManager::ExecuteOperation(std::vector<TensorTableEntry>& entries
     return ExecuteAllgather(entries, response);
   } else if (response.response_type() == Response::BROADCAST) {
     return ExecuteBroadcast(entries, response);
+  } else if (response.response_type() == Response::JOIN) {
+    return ExecuteJoin(entries, response);
   } else if (response.response_type() == Response::ERROR) {
     return ExecuteError(entries, response);
   } else {
