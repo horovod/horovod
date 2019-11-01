@@ -33,7 +33,7 @@ from horovod.spark.driver import driver_service, job_id
 
 
 def _task_fn(index, driver_addresses, settings):
-    task = task_service.SparkTaskService(index, settings.key)
+    task = task_service.SparkTaskService(index, settings.key, settings.nic)
     try:
         driver_client = driver_service.SparkDriverClient(driver_addresses, settings.key, settings.verbose)
         driver_client.register_task(index, task.addresses(), host_hash.host_hash())
@@ -96,7 +96,7 @@ def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
 
 
 def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None,
-        stdout=None, stderr=None, verbose=1):
+        stdout=None, stderr=None, verbose=1, nic=None):
     """
     Runs Horovod in Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
 
@@ -112,6 +112,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None,
         stdout: Horovod stdout is redirected to this stream. Defaults to sys.stdout.
         stderr: Horovod stderr is redirected to this stream. Defaults to sys.stderr.
         verbose: Debug output verbosity (0-2). Defaults to 1.
+        nic: specify the NIC for tcp network communication.
 
     Returns:
         List of results returned by running `fn` on each rank.
@@ -129,7 +130,8 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None,
                                     'are allocated on-demand.')
     settings = hvd_settings.Settings(verbose=verbose,
                                      key=secret.make_secret_key(),
-                                     timeout=tmout)
+                                     timeout=tmout,
+                                     nic=nic)
 
     spark_context = pyspark.SparkContext._active_spark_context
     if spark_context is None:
@@ -149,7 +151,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None,
 
     spark_job_group = 'horovod.spark.run.%d' % job_id.next_job_id()
     driver = driver_service.SparkDriverService(settings.num_proc, fn, args, kwargs,
-                                               settings.key)
+                                               settings.key, settings.nic)
     spark_thread = _make_spark_thread(spark_context, spark_job_group, driver,
                                       result_queue, settings)
     try:
