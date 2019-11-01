@@ -56,9 +56,9 @@ Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                               const Response& response) {
   auto& first_entry = entries[0];
 
-  InitCUDA(entries);
+  cuda_op_context_.InitCUDA(entries);
   InitNCCLComm(entries, response.devices());
-  InitCUDAQueue(entries, response);
+  cuda_op_context_.InitCUDAQueue(entries, response);
 
   const void* fused_input_data;
   void* buffer_data;
@@ -69,7 +69,7 @@ Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
 
     if (global_state_->timeline.Initialized()) {
-      cuda_context_->RecordEvent(event_queue_, MEMCPY_IN_FUSION_BUFFER, *stream_);
+      cuda_context_->RecordEvent(cuda_op_context_.event_queue, MEMCPY_IN_FUSION_BUFFER, *cuda_op_context_.stream);
     }
   } else {
     fused_input_data = first_entry.tensor->data();
@@ -86,10 +86,10 @@ Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   auto nccl_result = ncclAllReduce(fused_input_data, buffer_data,
                                    (size_t) num_elements,
                                    GetNCCLDataType(first_entry.tensor), ncclSum,
-                                   *nccl_comm_, *stream_);
+                                   *nccl_comm_, *cuda_op_context_.stream);
   nccl_context_->ErrorCheck("ncclAllReduce", nccl_result);
   if (global_state_->timeline.Initialized()) {
-    cuda_context_->RecordEvent(event_queue_, NCCL_ALLREDUCE, *stream_);
+    cuda_context_->RecordEvent(cuda_op_context_.event_queue, NCCL_ALLREDUCE, *cuda_op_context_.stream);
   }
 
   // Copy memory out of the fusion buffer.
@@ -97,11 +97,11 @@ Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     MemcpyOutFusionBuffer(buffer_data, entries);
 
     if (global_state_->timeline.Initialized()) {
-      cuda_context_->RecordEvent(event_queue_, MEMCPY_OUT_FUSION_BUFFER, *stream_);
+      cuda_context_->RecordEvent(cuda_op_context_.event_queue, MEMCPY_OUT_FUSION_BUFFER, *cuda_op_context_.stream);
     }
   }
 
-  return FinalizeCUDAQueue(entries);
+  return cuda_op_context_.FinalizeCUDAQueue(entries);
 }
 
 void NCCLAllreduce::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
@@ -160,9 +160,9 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     nccl_device_map.push_back(response.devices()[rank]);
   }
 
-  InitCUDA(entries);
+  cuda_op_context_.InitCUDA(entries);
   InitNCCLComm(entries, nccl_device_map);
-  InitCUDAQueue(entries, response);
+  cuda_op_context_.InitCUDAQueue(entries, response);
 
   const void* fused_input_data;
   void* buffer_data;
@@ -173,7 +173,7 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
 
     if (global_state_->timeline.Initialized()) {
-      cuda_context_->RecordEvent(event_queue_, MEMCPY_IN_FUSION_BUFFER, *stream_);
+      cuda_context_->RecordEvent(cuda_op_context_.event_queue, MEMCPY_IN_FUSION_BUFFER, *cuda_op_context_.stream);
     }
   } else {
     fused_input_data = first_entry.tensor->data();
@@ -253,10 +253,10 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                                          buffer_data_at_rank_offset,
                                          (size_t) num_elements_per_rank,
                                          GetNCCLDataType(first_entry.tensor),
-                                         ncclSum, *nccl_comm_, *stream_);
+                                         ncclSum, *nccl_comm_, *cuda_op_context_.stream);
     nccl_context_->ErrorCheck("ncclReduceScatter", nccl_result);
     if (global_state_->timeline.Initialized()) {
-      cuda_context_->RecordEvent(event_queue_, NCCL_REDUCESCATTER, *stream_);
+      cuda_context_->RecordEvent(cuda_op_context_.event_queue, NCCL_REDUCESCATTER, *cuda_op_context_.stream);
     }
   }
 
@@ -267,20 +267,20 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                                   buffer_data_remainder,
                                   (size_t) num_elements_remaining,
                                   GetNCCLDataType(first_entry.tensor), ncclSum,
-                                  root_rank, *nccl_comm_, *stream_);
+                                  root_rank, *nccl_comm_, *cuda_op_context_.stream);
     nccl_context_->ErrorCheck("ncclReduce", nccl_result);
     if (global_state_->timeline.Initialized()) {
-      cuda_context_->RecordEvent(event_queue_, NCCL_REDUCE, *stream_);
+      cuda_context_->RecordEvent(cuda_op_context_.event_queue, NCCL_REDUCE, *cuda_op_context_.stream);
     }
   }
 
   if (global_state_->controller->IsHomogeneous() || is_root_rank) {
     // cudaHostAlloc is significantly slower than malloc.  Pre-allocating
     // a buffer is not safe since the tensor can be arbitrarily large.
-    host_buffer_ = malloc(total_buffer_len);
+    cuda_op_context_.host_buffer = malloc(total_buffer_len);
 
     // Synchronize.
-    cuda_context_->WaitForEvents(event_queue_, entries, timeline);
+    cuda_context_->WaitForEvents(cuda_op_context_.event_queue, entries, timeline);
 
     // According to https://docs.nvidia.com/cuda/cuda-runtime-api/
     // api-sync-behavior.html#api-sync-behavior__memcpy-async,
@@ -288,13 +288,13 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     // memcpy (effectively) synchronously to generate an accurate timeline
     timeline.ActivityStartAll(entries, MEMCPY_IN_HOST_BUFFER);
     cuda_context_->ErrorCheck("cudaMemcpyAsync",
-                              cudaMemcpyAsync(host_buffer_, buffer_data_at_rank_offset,
+                              cudaMemcpyAsync(cuda_op_context_.host_buffer, buffer_data_at_rank_offset,
                                               total_buffer_len, cudaMemcpyDeviceToHost,
-                                              *stream_));
+                                              *cuda_op_context_.stream));
     timeline.ActivityEndAll(entries);
 
     timeline.ActivityStartAll(entries, MPI_ALLREDUCE);
-    int op = MPI_Allreduce(MPI_IN_PLACE, host_buffer_,
+    int op = MPI_Allreduce(MPI_IN_PLACE, cuda_op_context_.host_buffer,
                            (int) total_num_elements,
                            mpi_context_->GetMPIDataType(first_entry.tensor),
                            mpi_context_->GetMPISumOp(first_entry.tensor->dtype()),
@@ -306,9 +306,9 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
 
     timeline.ActivityStartAll(entries, MEMCPY_OUT_HOST_BUFFER);
     cuda_context_->ErrorCheck("cudaMemcpyAsync",
-                              cudaMemcpyAsync(buffer_data_at_rank_offset, host_buffer_,
+                              cudaMemcpyAsync(buffer_data_at_rank_offset, cuda_op_context_.host_buffer,
                                               total_buffer_len, cudaMemcpyHostToDevice,
-                                              *stream_));
+                                              *cuda_op_context_.stream));
     timeline.ActivityEndAll(entries);
   }
 
@@ -317,9 +317,9 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                               ncclAllGather(buffer_data_at_rank_offset, buffer_data,
                                             (size_t) num_elements_per_rank,
                                             GetNCCLDataType(first_entry.tensor),
-                                            *nccl_comm_, *stream_));
+                                            *nccl_comm_, *cuda_op_context_.stream));
     if (global_state_->timeline.Initialized()) {
-      cuda_context_->RecordEvent(event_queue_, NCCL_ALLGATHER, *stream_);
+      cuda_context_->RecordEvent(cuda_op_context_.event_queue, NCCL_ALLGATHER, *cuda_op_context_.stream);
     }
   }
   if (num_elements_remaining > 0) {
@@ -327,9 +327,9 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                               ncclBcast(buffer_data_remainder,
                                         (size_t) num_elements_remaining,
                                         GetNCCLDataType(first_entry.tensor), root_rank,
-                                        *nccl_comm_, *stream_));
+                                        *nccl_comm_, *cuda_op_context_.stream));
     if (global_state_->timeline.Initialized()) {
-      cuda_context_->RecordEvent(event_queue_, NCCL_BCAST, *stream_);
+      cuda_context_->RecordEvent(cuda_op_context_.event_queue, NCCL_BCAST, *cuda_op_context_.stream);
     }
   }
 
@@ -338,11 +338,11 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     MemcpyOutFusionBuffer(buffer_data, entries);
 
     if (global_state_->timeline.Initialized()) {
-      cuda_context_->RecordEvent(event_queue_, MEMCPY_OUT_FUSION_BUFFER, *stream_);
+      cuda_context_->RecordEvent(cuda_op_context_.event_queue, MEMCPY_OUT_FUSION_BUFFER, *cuda_op_context_.stream);
     }
   }
 
-  return FinalizeCUDAQueue(entries);
+  return cuda_op_context_.FinalizeCUDAQueue(entries);
 }
 
 bool NCCLHierarchicalAllreduce::Enabled(const ParameterManager& param_manager,

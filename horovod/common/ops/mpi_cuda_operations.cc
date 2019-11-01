@@ -28,7 +28,7 @@ MPI_CUDAAllreduce::MPI_CUDAAllreduce(MPIContext* mpi_context,
 Status MPI_CUDAAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   auto& first_entry = entries[0];
 
-  InitCUDA(entries);
+  cuda_op_context_.InitCUDA(entries);
 
   void* buffer_data;
   size_t buffer_len;
@@ -87,7 +87,7 @@ MPI_CUDAAllgather::MPI_CUDAAllgather(MPIContext* mpi_context,
 Status MPI_CUDAAllgather::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   auto& timeline = global_state_->timeline;
 
-  InitCUDA(entries);
+  cuda_op_context_.InitCUDA(entries);
 
   // Sizes of subcomponents of each entry from all ranks
   auto** entry_component_sizes = new int64_t* [entries.size()];
