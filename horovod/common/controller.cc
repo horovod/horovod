@@ -626,6 +626,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
     assert(response.tensor_names().size() == 1);
     responses.pop_front();
     int64_t tensor_size = 0;
+    DataType dtype;
     if (response.response_type() == Response::ResponseType::ALLREDUCE || 
         response.response_type() == Response::ResponseType::ADASUM) {
       // Attempt to add more responses to this fused response.
