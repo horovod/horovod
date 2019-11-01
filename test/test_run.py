@@ -238,7 +238,7 @@ class RunTests(unittest.TestCase):
         settings = self.minimal_settings
         run_func = MagicMock(return_value=0)
 
-        mpi_run(settings, None, {}, cmd, run_func)
+        mpi_run(settings, None, {}, cmd, run_func=run_func)
 
         expected_cmd = ('mpirun '
                         '--allow-run-as-root --tag-output '
@@ -247,7 +247,7 @@ class RunTests(unittest.TestCase):
                         '-mca pml ob1 -mca btl ^openib       '
                         'cmd')
         expected_env = {}
-        run_func.assert_called_once_with(command=expected_cmd, env=expected_env)
+        run_func.assert_called_once_with(command=expected_cmd, env=expected_env, stdout=None, stderr=None)
 
     """
     Tests mpi_run on a large cluster.
@@ -258,7 +258,7 @@ class RunTests(unittest.TestCase):
         settings.num_hosts = large_cluster_threshold
         run_func = MagicMock(return_value=0)
 
-        mpi_run(settings, None, {}, cmd, run_func)
+        mpi_run(settings, None, {}, cmd, run_func=run_func)
 
         expected_cmd = ('mpirun '
                         '--allow-run-as-root --tag-output '
@@ -268,7 +268,7 @@ class RunTests(unittest.TestCase):
                         '-mca plm_rsh_no_tree_spawn true -mca plm_rsh_num_concurrent 2       '
                         'cmd')
         expected_env = {}
-        run_func.assert_called_once_with(command=expected_cmd, env=expected_env)
+        run_func.assert_called_once_with(command=expected_cmd, env=expected_env, stdout=None, stderr=None)
 
     """
     Tests mpi_run with full settings.
@@ -277,6 +277,8 @@ class RunTests(unittest.TestCase):
         cmd = ['cmd', 'arg1', 'arg2']
         common_intfs = ['eth0', 'eth1']
         env = {'env1': 'val1', 'env2': 'val2'}
+        stdout = '<stdout>'
+        stderr = '<stderr>'
         tmout = timeout.Timeout(5, message='Timed out waiting for something.')
         settings = hvd_settings.Settings(
             verbose=0,
@@ -292,7 +294,7 @@ class RunTests(unittest.TestCase):
         )
         run_func = MagicMock(return_value=0)
 
-        mpi_run(settings, common_intfs, env, cmd, run_func)
+        mpi_run(settings, common_intfs, env, cmd, stdout=stdout, stderr=stderr, run_func=run_func)
 
         expected_cmd = ('mpirun '
                         '--allow-run-as-root --tag-output '
@@ -306,7 +308,7 @@ class RunTests(unittest.TestCase):
                         '>mpi-extra args go here< '
                         'cmd arg1 arg2')
         expected_env = {'env1': 'val1', 'env2': 'val2'}
-        run_func.assert_called_once_with(command=expected_cmd, env=expected_env)
+        run_func.assert_called_once_with(command=expected_cmd, env=expected_env, stdout=stdout, stderr=stderr)
 
     def test_mpi_run_with_non_zero_exit(self):
         cmd = ['cmd']
@@ -314,4 +316,4 @@ class RunTests(unittest.TestCase):
         run_func = MagicMock(return_value=1)
 
         with pytest.raises(RuntimeError, match="^mpirun failed with exit code 1$") as e:
-            mpi_run(settings, None, {}, cmd, run_func)
+            mpi_run(settings, None, {}, cmd, run_func=run_func)

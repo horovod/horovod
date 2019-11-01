@@ -29,6 +29,7 @@ from horovod.spark.task import task_service
 from horovod.run.common.util import codec, env as env_util, safe_shell_exec, \
     timeout, host_hash, secret
 from horovod.run.common.util import settings as hvd_settings
+from horovod.run.mpi_run import mpi_run
 from horovod.spark.driver import driver_service, job_id
 
 
@@ -131,7 +132,8 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None,
                                     'are allocated on-demand.')
     settings = hvd_settings.Settings(verbose=verbose,
                                      key=secret.make_secret_key(),
-                                     timeout=tmout)
+                                     timeout=tmout,
+                                     run_func_mode=True)
 
     spark_context = pyspark.SparkContext._active_spark_context
     if spark_context is None:
@@ -184,6 +186,9 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None,
         while 0 not in driver.task_host_hash_indices()[host_hashes[0]]:
             host_hashes = host_hashes[1:] + host_hashes[:1]
 
+        settings.hosts = ','.join('%s:%d' % (host_hash, len(driver.task_host_hash_indices()[host_hash]))
+                                  for host_hash in host_hashes)
+
         ranks_to_indices = []
         for host_hash in host_hashes:
             ranks_to_indices += driver.task_host_hash_indices()[host_hash]
@@ -195,28 +200,16 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None,
         # Pass secret key through the environment variables.
         env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(settings.key)
 
-        mpirun_command = (
-            'mpirun --allow-run-as-root --tag-output '
-            '-np {num_proc} -H {hosts} '
-            '-bind-to none -map-by slot '
-            '-mca pml ob1 -mca btl ^openib -mca btl_tcp_if_include {common_intfs} '
-            '-x NCCL_DEBUG=INFO -x NCCL_SOCKET_IFNAME={common_intfs} '
-            '{env} '  # expect a lot of environment variables
-            '-mca plm_rsh_agent "{python} -m horovod.spark.driver.mpirun_rsh {encoded_driver_addresses} {settings}" '
-            '{python} -m horovod.spark.task.mpirun_exec_fn {encoded_driver_addresses} {settings}'
-                .format(num_proc=settings.num_proc,
-                        hosts=','.join('%s:%d' % (host_hash, len(driver.task_host_hash_indices()[host_hash]))
-                                       for host_hash in host_hashes),
-                        common_intfs=','.join(common_intfs),
-                        env=' '.join('-x %s' % key for key in sorted(env.keys()) if env_util.is_exportable(key)),
-                        python=sys.executable,
-                        encoded_driver_addresses=codec.dumps_base64(driver.addresses()),
-                        settings=codec.dumps_base64(settings)))
-        if settings.verbose >= 2:
-            print('+ %s' % mpirun_command)
-        exit_code = run_func(command=mpirun_command, env=env, stdout=stdout, stderr=stderr)
-        if exit_code != 0:
-            raise Exception('mpirun exited with code %d, see the error above.' % exit_code)
+        rsh_agent = (sys.executable,
+                     '-m', 'horovod.spark.driver.mpirun_rsh',
+                     codec.dumps_base64(driver.addresses()),
+                     codec.dumps_base64(settings))
+        settings.extra_mpi_args = '-x NCCL_DEBUG=INFO -mca plm_rsh_agent "{}"'.format(' '.join(rsh_agent))
+        command = (sys.executable,
+                   '-m', 'horovod.spark.task.mpirun_exec_fn',
+                   codec.dumps_base64(driver.addresses()),
+                   codec.dumps_base64(settings))
+        mpi_run(settings, common_intfs, env, command, stdout=stdout, stderr=stderr, run_func=run_func)
     except:
         # Terminate Spark job.
         spark_context.cancelJobGroup(spark_job_group)

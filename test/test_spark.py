@@ -98,7 +98,7 @@ class SparkTests(unittest.TestCase):
     def test_mpirun_not_found(self):
         start = time.time()
         with spark('test_mpirun_not_found'):
-            with pytest.raises(Exception, match='^mpirun exited with code 127, see the error above.$'):
+            with pytest.raises(Exception, match='^mpirun failed with exit code 127$'):
                 horovod.spark.run(None, env={'PATH': '/nonexistent'}, verbose=0)
         self.assertLessEqual(time.time() - start, 10, 'Failure propagation took too long')
 
@@ -137,7 +137,7 @@ class SparkTests(unittest.TestCase):
             return 1
 
         with spark('test_spark_run_func', cores=4):
-            with pytest.raises(Exception, match='^mpirun exited with code 1, see the error above.$') as e:
+            with pytest.raises(Exception, match='^mpirun failed with exit code 1$') as e:
                 horovod.spark.run(fn, verbose=0, run_func=run_func)
 
     """
@@ -167,8 +167,9 @@ class SparkTests(unittest.TestCase):
                               '-np {expected_np} -H [^ ]+ '
                               '-bind-to none -map-by slot '
                               r'-mca pml ob1 -mca btl \^openib  '
-                              '-mca btl_tcp_if_include [^ ]+ -x NCCL_DEBUG=INFO -x NCCL_SOCKET_IFNAME=[^ ]+ '
+                              '-mca btl_tcp_if_include [^ ]+ -x NCCL_SOCKET_IFNAME=[^ ]+  '
                               '-x _HOROVOD_SECRET_KEY {expected_env}'
+                              '-x NCCL_DEBUG=INFO '
                               r'-mca plm_rsh_agent "[^"]+python[\d]* -m horovod.spark.driver.mpirun_rsh [^ ]+ [^ ]+" '
                               r'[^"]+python[\d]* -m horovod.spark.task.mpirun_exec_fn [^ ]+ [^ ]+'
                               '$'.format(expected_np=expected_np,
