@@ -104,7 +104,7 @@ run_all() {
   local pytest_queue=$3
 
   local exclude_keras_if_needed=""
-  if [[ ${test} == *"tf2_"* ]]; then
+  if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
     # TODO: support for Keras + TF 2.0 and TF-Keras 2.0
     exclude_keras_if_needed="| sed 's/[a-z_]*keras[a-z_.]*//g'"
   fi
@@ -125,7 +125,7 @@ run_all() {
   fi
 
   # Legacy TensorFlow tests
-  if [[ ${test} != *"tf2_"* ]]; then
+  if [[ ${test} != *"tf2_"* ]] && [[ ${test} != *"tfhead"* ]]; then
     run_test "${test}" "${queue}" \
       ":muscle: Test TensorFlow MNIST (${test})" \
       "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist.py\""
@@ -168,7 +168,7 @@ run_all() {
   fi
 
   # TensorFlow 2.0 tests
-  if [[ ${test} == *"tf2_"* ]]; then
+  if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
     run_test "${test}" "${queue}" \
       ":muscle: Test TensorFlow 2.0 MNIST (${test})" \
       "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow2_mnist.py\""
