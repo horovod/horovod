@@ -125,7 +125,7 @@ run_all() {
   fi
 
   # Legacy TensorFlow tests
-  if [[ ${test} != *"tf2_"* ]] || [[ ${test} != *"tfhead"* ]]; then
+  if [[ ${test} != *"tf2_"* ]] && [[ ${test} != *"tfhead"* ]]; then
     run_test "${test}" "${queue}" \
       ":muscle: Test TensorFlow MNIST (${test})" \
       "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist.py\""
