@@ -96,7 +96,7 @@ def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
 
 
 def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None,
-        stdout=None, stderr=None, verbose=1):
+        stdout=None, stderr=None, verbose=1, run_func=safe_shell_exec.execute):
     """
     Runs Horovod in Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
 
@@ -112,6 +112,8 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None,
         stdout: Horovod stdout is redirected to this stream. Defaults to sys.stdout.
         stderr: Horovod stderr is redirected to this stream. Defaults to sys.stderr.
         verbose: Debug output verbosity (0-2). Defaults to 1.
+        run_func: Run function to use. Must have arguments 'command', 'env', 'stdout', 'stderr'.
+                  Defaults to safe_shell_exec.execute.
 
     Returns:
         List of results returned by running `fn` on each rank.
@@ -206,13 +208,13 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None,
                         hosts=','.join('%s:%d' % (host_hash, len(driver.task_host_hash_indices()[host_hash]))
                                        for host_hash in host_hashes),
                         common_intfs=','.join(common_intfs),
-                        env=' '.join('-x %s' % key for key in env.keys() if env_util.is_exportable(key)),
+                        env=' '.join('-x %s' % key for key in sorted(env.keys()) if env_util.is_exportable(key)),
                         python=sys.executable,
                         encoded_driver_addresses=codec.dumps_base64(driver.addresses()),
                         settings=codec.dumps_base64(settings)))
         if settings.verbose >= 2:
             print('+ %s' % mpirun_command)
-        exit_code = safe_shell_exec.execute(mpirun_command, env, stdout, stderr)
+        exit_code = run_func(command=mpirun_command, env=env, stdout=stdout, stderr=stderr)
         if exit_code != 0:
             raise Exception('mpirun exited with code %d, see the error above.' % exit_code)
     except:
