@@ -108,7 +108,9 @@ class SparkTests(unittest.TestCase):
     def test_spark_run_func(self):
         env = {'env1': 'val1', 'env2': 'val2'}
         expected_env = '-x env1 -x env2'
-        self.do_test_spark_run_func(num_proc=2, env=env, stdout='<stdout>', stderr='<stderr>',
+        extra_mpi_args = '<extra args go here>'
+        self.do_test_spark_run_func(num_proc=2, extra_mpi_args=extra_mpi_args,
+                                    env=env, stdout='<stdout>', stderr='<stderr>',
                                     cores=4, expected_np=2, expected_env=expected_env)
 
     """
@@ -143,7 +145,7 @@ class SparkTests(unittest.TestCase):
     """
     Performs the actual horovod.spark.run test.
     """
-    def do_test_spark_run_func(self, args=(), kwargs={}, num_proc=1, env={},
+    def do_test_spark_run_func(self, args=(), kwargs={}, num_proc=1, extra_mpi_args=None, env={},
                                stdout=None, stderr=None, verbose=0,
                                cores=2, expected_np=1, expected_env=''):
         def fn():
@@ -155,8 +157,11 @@ class SparkTests(unittest.TestCase):
             with pytest.raises(Exception) as e:
                 # we need to timeout horovod because our mocked run_func will block spark otherwise
                 # this raises above exception, but allows us to catch run_func arguments
-                horovod.spark.run(fn, args=args, kwargs=kwargs, num_proc=num_proc, start_timeout=1, env=env,
-                                  stdout=stdout, stderr=stderr, verbose=verbose, run_func=run_func)
+                horovod.spark.run(fn, args=args, kwargs=kwargs,
+                                  num_proc=num_proc, start_timeout=1,
+                                  extra_mpi_args=extra_mpi_args, env=env,
+                                  stdout=stdout, stderr=stderr, verbose=verbose,
+                                  run_func=run_func)
 
         self.assertNotRegex(str(e.value), '^Timed out waiting for Spark tasks to start.',
                          'Spark timed out before mpi_run was called, test setup is broken.')
@@ -169,11 +174,13 @@ class SparkTests(unittest.TestCase):
                               r'-mca pml ob1 -mca btl \^openib  '
                               '-mca btl_tcp_if_include [^ ]+ -x NCCL_SOCKET_IFNAME=[^ ]+  '
                               '-x _HOROVOD_SECRET_KEY {expected_env}'
+                              '{extra_mpi_args} '
                               '-x NCCL_DEBUG=INFO '
                               r'-mca plm_rsh_agent "[^"]+python[\d]* -m horovod.spark.driver.mpirun_rsh [^ ]+ [^ ]+" '
                               r'[^"]+python[\d]* -m horovod.spark.task.mpirun_exec_fn [^ ]+ [^ ]+'
                               '$'.format(expected_np=expected_np,
-                                         expected_env=expected_env + ' ' if expected_env else ''))
+                                         expected_env=expected_env + ' ' if expected_env else '',
+                                         extra_mpi_args=extra_mpi_args if extra_mpi_args else ''))
 
         run_func.assert_called_once()
         run_func_args, run_func_kwargs = run_func.call_args

@@ -96,7 +96,7 @@ def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
     return spark_thread
 
 
-def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None,
+def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, extra_mpi_args=None, env=None,
         stdout=None, stderr=None, verbose=1, run_func=safe_shell_exec.execute):
     """
     Runs Horovod in Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
@@ -109,6 +109,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None,
         start_timeout: Timeout for Spark tasks to spawn, register and start running the code, in seconds.
                        If not set, falls back to `HOROVOD_SPARK_START_TIMEOUT` environment variable value.
                        If it is not set as well, defaults to 600 seconds.
+        extra_mpi_args: Extra arguments for mpi_run. Defaults to no extra args.
         env: Environment dictionary to use in Horovod run.  Defaults to `os.environ`.
         stdout: Horovod stdout is redirected to this stream. Defaults to sys.stdout.
         stderr: Horovod stderr is redirected to this stream. Defaults to sys.stderr.
@@ -131,6 +132,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None,
                                     'start_timeout parameter to a larger value if your Spark resources '
                                     'are allocated on-demand.')
     settings = hvd_settings.Settings(verbose=verbose,
+                                     extra_mpi_args=extra_mpi_args,
                                      key=secret.make_secret_key(),
                                      timeout=tmout,
                                      run_func_mode=True)
@@ -204,7 +206,9 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, env=None,
                      '-m', 'horovod.spark.driver.mpirun_rsh',
                      codec.dumps_base64(driver.addresses()),
                      codec.dumps_base64(settings))
-        settings.extra_mpi_args = '-x NCCL_DEBUG=INFO -mca plm_rsh_agent "{}"'.format(' '.join(rsh_agent))
+        settings.extra_mpi_args = ('{extra_mpi_args} -x NCCL_DEBUG=INFO -mca plm_rsh_agent "{rsh_agent}"'
+                                   .format(extra_mpi_args=settings.extra_mpi_args if settings.extra_mpi_args else '',
+                                           rsh_agent=' '.join(rsh_agent)))
         command = (sys.executable,
                    '-m', 'horovod.spark.task.mpirun_exec_fn',
                    codec.dumps_base64(driver.addresses()),
