@@ -27,6 +27,7 @@ from datetime import datetime
 import horovod.tensorflow as hvd
 import math
 import copy
+import subprocess
 
 def adasum_reference_operation(a,b):
     assert a.size == b.size
@@ -111,6 +112,8 @@ class MPITests(tf.test.TestCase):
 
     def test_horovod_adasum_multiple_allreduce_gpu(self):
         """Test on GPU that the Adasum correctly computes 2D tensors."""
+        if not tf.test.is_gpu_available(cuda_only=True):
+            return
         hvd.init()
         rank = hvd.rank()
         rank_tensors = []
