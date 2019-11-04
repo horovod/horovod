@@ -90,6 +90,8 @@ BROADCAST_H(torch_cuda_DoubleTensor, THCudaDoubleTensor)
 extern "C" int horovod_torch_poll(int handle);
 extern "C" void horovod_torch_wait_and_clear(int handle);
 
+extern "C" int horovod_torch_join(int device);
+
 } // namespace torch
 } // namespace horovod
 

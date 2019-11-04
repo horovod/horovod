@@ -125,6 +125,14 @@ Status MXOpContext<T>::AllocateOutput(TensorShape shape,
   return Status::OK();
 }
 
+template <class T>
+Status
+MXOpContext<T>::AllocateZeros(int64_t num_elements, DataType dtype,
+                                          std::shared_ptr<Tensor>* tensor) {
+  return Status::PreconditionError(
+      "AllocateZeros is not supported for MXNet yet.");
+}
+
 template <class T> Framework MXOpContext<T>::framework() const {
   return Framework::MXNET;
 }

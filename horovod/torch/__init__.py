@@ -33,6 +33,7 @@ from horovod.torch.compression import Compression
 from horovod.torch.mpi_ops import allreduce, allreduce_async, allreduce_, allreduce_async_
 from horovod.torch.mpi_ops import allgather, allgather_async
 from horovod.torch.mpi_ops import broadcast, broadcast_async, broadcast_, broadcast_async_
+from horovod.torch.mpi_ops import join
 from horovod.torch.mpi_ops import poll, synchronize
 from horovod.torch.mpi_ops import init, shutdown
 from horovod.torch.mpi_ops import size, local_size, rank, local_rank

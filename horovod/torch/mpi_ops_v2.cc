@@ -233,6 +233,31 @@ void WaitAndClear(int handle) {
   ThrowIfError(*status);
 }
 
+int DoJoin(int device) {
+  ThrowIfError(common::CheckInitialized());
+
+#if !HOROVOD_GPU_ALLREDUCE
+  device = CPU_DEVICE_ID;
+#endif
+
+  auto handle = handle_manager.AllocateHandle();
+  auto ready_event = RecordReadyEvent(device);
+  auto output = ::torch::empty(1);
+  auto hvd_context = std::make_shared<TorchOpContext>(device, output);
+
+  auto enqueue_result = EnqueueJoin(
+      hvd_context, ready_event,
+      JOIN_TENSOR_NAME, device,
+      [handle](const Status& status) mutable {
+        handle_manager.MarkDone(handle, status);
+      });
+  ThrowIfError(enqueue_result);
+
+  WaitAndClear(handle);
+  return handle;
+}
+
+
 PYBIND11_MODULE(mpi_lib_v2, m) {
   // allreduce
   m.def("horovod_torch_allreduce_async_torch_IntTensor", &DoAllreduce);
@@ -332,6 +357,9 @@ PYBIND11_MODULE(mpi_lib_v2, m) {
   m.def("horovod_torch_broadcast_async_torch_cuda_DoubleTensor",
         &DoBroadcastCudaOnCPU);
 #endif
+
+  // join
+  m.def("horovod_torch_join", &DoJoin);
 
   // basics
   m.def("horovod_torch_poll", &PollHandle);

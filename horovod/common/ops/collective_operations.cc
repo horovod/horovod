@@ -62,7 +62,7 @@ void AllreduceOp::MemcpyOutFusionBuffer(
   for (auto& e : entries) {
     void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
     MemcpyEntryOutFusionBuffer(entries, buffer_data_at_offset, e);
-    offset += e.tensor->size();
+    offset += e.output->size();
   }
 }
 
@@ -77,7 +77,7 @@ void AllreduceOp::MemcpyEntryOutFusionBuffer(
     const std::vector<TensorTableEntry>& entries,
     const void* buffer_data_at_offset, TensorTableEntry& e) {
   std::memcpy((void*)e.output->data(), buffer_data_at_offset,
-              (size_t)e.tensor->size());
+              (size_t)e.output->size());
 }
 
 // Allgather
@@ -168,8 +168,7 @@ void AllgatherOp::MemcpyInFusionBuffer(
   int64_t offset = displcmnts[global_state_->controller->GetRank()] * element_size;
   for (auto& e : entries) {
     void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
-    std::memcpy(buffer_data_at_offset, e.tensor->data(),
-                (size_t)e.tensor->size());
+    MemcpyEntryInFusionBuffer(entries, e, buffer_data_at_offset);
     offset += e.tensor->size();
   }
 }
@@ -186,21 +185,49 @@ void AllgatherOp::MemcpyOutFusionBuffer(
     for (int rc = 0; rc < global_size; ++rc) {
       int64_t entry_offset = entry_component_offsets[ec][rc] * element_size;
       int64_t entry_size = entry_component_sizes[ec][rc] * element_size;
-      std::memcpy((void*)((uint8_t*)e.output->data() + copy_offset),
-                  (void*)((uint8_t*)buffer_data + entry_offset),
-                  (size_t)entry_size);
+      const void* buffer_data_at_offset = (uint8_t*)buffer_data + entry_offset;
+      MemcpyEntryOutFusionBuffer(entries, buffer_data_at_offset, e,
+                                 copy_offset, entry_size);
       copy_offset += entry_size;
     }
   }
 }
 
+void AllgatherOp::MemcpyEntryInFusionBuffer(
+    const std::vector<TensorTableEntry>& entries, const TensorTableEntry& e,
+    void* buffer_data_at_offset) {
+  std::memcpy(buffer_data_at_offset, e.tensor->data(),
+              (size_t)e.tensor->size());
+}
+
+void AllgatherOp::MemcpyEntryOutFusionBuffer(
+    const std::vector<TensorTableEntry>& entries,
+    const void* buffer_data_at_offset, TensorTableEntry& e,
+    int64_t entry_offset, size_t entry_size) {
+  std::memcpy((uint8_t*)e.output->data() + entry_offset,
+              buffer_data_at_offset, entry_size);
+}
+
 BroadcastOp::BroadcastOp(HorovodGlobalState* global_state)
     : HorovodOp(global_state) {}
 
+// Join
+JoinOp::JoinOp(HorovodGlobalState* global_state) : HorovodOp(global_state) {}
+
+Status JoinOp::Execute(std::vector<TensorTableEntry>& entries,
+                       const Response& response) {
+  assert(entries.size() == 0);
+  if (global_state_->joined) {
+    global_state_->tensor_queue.RemoveJoinTensor();
+    global_state_->joined = false;
+  }
+  return Status::OK();
+}
+
+// Error
 ErrorOp::ErrorOp(HorovodGlobalState* global_state) : HorovodOp(global_state) {}
 
-Status ErrorOp::Execute(std::vector<TensorTableEntry>& entries,
-                        const Response& response) {
+Status ErrorOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   return Status::PreconditionError(response.error_message());
 }
 

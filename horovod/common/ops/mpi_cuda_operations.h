@@ -34,6 +34,17 @@ protected:
   MPIContext* mpi_context_;
 };
 
+class MPI_CUDAAllgather : public CUDAAllgather {
+public:
+  MPI_CUDAAllgather(MPIContext* mpi_context, CUDAContext* cuda_context, HorovodGlobalState* global_state);
+  virtual ~MPI_CUDAAllgather()=default;
+
+  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+
+protected:
+  MPIContext* mpi_context_;
+};
+
 } // namespace common
 } // namespace horovod
 

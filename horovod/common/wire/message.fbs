@@ -36,7 +36,8 @@ enum DataType:byte {
 enum RequestType:byte {
     ALLREDUCE = 0,
     ALLGATHER = 1,
-    BROADCAST = 2
+    BROADCAST = 2,
+    JOIN = 3
 }
 table Request {
     // The request rank is necessary to create a consistent ordering of results,
@@ -73,7 +74,8 @@ enum ResponseType:byte {
     ALLREDUCE = 0,
     ALLGATHER = 1,
     BROADCAST = 2,
-    ERROR = 3
+    JOIN = 3,
+    ERROR = 4
 }
 table Response {
     response_type:ResponseType;
@@ -88,10 +90,15 @@ table Response {
     // List of devices participating in this operation.
     devices:[int];
 
-    // Empty unless response_type is ALLGATHER.
-    // These tensor sizes are the dimension zero sizes of all the input matrices,
-    // indexed by the rank.
+    // Empty unless response_type is ALLGATHER or there is at least one rank
+    // that requested Join and response_type is ALLREDUCE.
+    // For ALLGATHER, these tensor sizes are the dimension zero sizes
+    // of all the input matrices, indexed by the rank.
     tensor_sizes:[long];
+
+    // Empty unless response_type is ALLREDUCE and there is at least one rank
+    // that requested Join.
+    tensor_type:DataType;
 }
 table ResponseList {
     responses:[Response];

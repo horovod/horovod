@@ -217,7 +217,7 @@ def _driver_fn(all_host_names, local_host_names, settings):
     # Launch a TCP server called service service on the host running
     # horovodrun.
     driver = driver_service.HorovodRunDriverService(
-        settings.num_hosts, settings.key)
+        settings.num_hosts, settings.key, settings.nic)
     if settings.verbose >= 2:
         print('Launched horovodrun server.')
     # Have all the workers register themselves with the service service.
@@ -427,6 +427,9 @@ def parse_args():
                              'HOROVOD_START_TIMEOUT can also be used to '
                              'specify the initialization timeout.')
 
+    parser.add_argument('--network-interface', action='store', dest='nic',
+                        help='Specify the network interface used for communication.')
+
     parser.add_argument('--output-filename', action='store',
                         help='For Gloo, writes stdout / stderr of all processes to a filename of the form '
                              '<output_filename>/rank.<rank>/<stdout | stderr>. The <rank> will be padded with 0 '
@@ -625,6 +628,7 @@ class HorovodArgs(object):
         self.command = None
         self.run_func = None
         self.config_file = None
+        self.nic = None
 
         # tuneable parameter arguments
         self.fusion_threshold_mb = None
@@ -725,7 +729,8 @@ def _run(args):
                                      num_proc=args.np,
                                      hosts=args.hosts,
                                      output_filename=args.output_filename,
-                                     run_func_mode=args.run_func is not None)
+                                     run_func_mode=args.run_func is not None,
+                                     nic=args.nic)
 
     # This cache stores the results of checks performed by horovodrun
     # during the initialization step. It can be disabled by setting
@@ -782,6 +787,8 @@ def _run(args):
         # 127.0.0.1
         common_intfs = set()
         for iface, addrs in net_if_addrs().items():
+            if settings.nic and iface != settings.nic:
+                continue
             for addr in addrs:
                 if addr.family == AF_INET and addr.address == '127.0.0.1':
                     common_intfs.add(iface)
@@ -866,7 +873,8 @@ def run(
         output_filename=None,
         verbose=None,
         use_gloo=None,
-        use_mpi=None):
+        use_mpi=None,
+        network_interface=None):
     """
     Launch a Horovod job to run the specified process function and get the return value.
 
@@ -904,6 +912,7 @@ def run(
                      be the default if Horovod was not built with MPI support.
     :param use_mpi: Run Horovod using the MPI controller. This will
                     be the default if Horovod was built with MPI support.
+    :param network_interface: Specify the network interface for communication.
 
     :return: Return a list which contains values return by all Horovod processes.
              The index of the list corresponds to the rank of each Horovod process.
@@ -933,6 +942,7 @@ def run(
     hargs.verbose = verbose
     hargs.use_gloo = use_gloo
     hargs.use_mpi = use_mpi
+    hargs.nic = network_interface
 
     hargs.run_func = wrapped_func
 

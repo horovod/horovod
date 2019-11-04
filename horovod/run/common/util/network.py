@@ -85,13 +85,15 @@ class Wire(object):
 
 
 class BasicService(object):
-    def __init__(self, service_name, key):
+    def __init__(self, service_name, key, nic):
         self._service_name = service_name
         self._wire = Wire(key)
+        self._nic = nic
         self._server, _ = find_port(
             lambda addr: socketserver.ThreadingTCPServer(
                 addr, self._make_handler()))
         self._port = self._server.socket.getsockname()[1]
+        self._addresses = self._get_local_addresses()
         self._thread = threading.Thread(target=self._server.serve_forever)
         self._thread.daemon = True
         self._thread.start()
@@ -119,15 +121,23 @@ class BasicService(object):
 
         raise NotImplementedError(req)
 
-    def addresses(self):
+    def _get_local_addresses(self):
         result = {}
         for intf, intf_addresses in psutil.net_if_addrs().items():
+            if self._nic and intf != self._nic:
+                continue
             for addr in intf_addresses:
                 if addr.family == socket.AF_INET:
                     if intf not in result:
                         result[intf] = []
                     result[intf].append((addr.address, self._port))
+        if not result and self._nic:
+            raise NoValidAddressesFound(
+                'No available network interface found matching user provided interface: {}'.format(self._nic))
         return result
+
+    def addresses(self):
+        return self._addresses
 
     def shutdown(self):
         self._server.shutdown()

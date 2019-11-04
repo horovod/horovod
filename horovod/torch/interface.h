@@ -72,3 +72,5 @@ int horovod_torch_broadcast_async_torch_DoubleTensor(THDoubleTensor* tensor,
 
 int horovod_torch_poll(int handle);
 void horovod_torch_wait_and_clear(int handle);
+
+void horovod_torch_join(int device);

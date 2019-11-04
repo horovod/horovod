@@ -111,6 +111,18 @@ protected:
                         const int64_t* const* entry_component_sizes,
                         const void* buffer_data, int element_size,
                         std::vector<TensorTableEntry>& entries);
+
+  virtual void
+  MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                            const TensorTableEntry& e,
+                            void* buffer_data_at_offset);
+
+  virtual void
+  MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
+                             const void* buffer_data_at_offset,
+                             TensorTableEntry& e,
+                             int64_t entry_offset,
+                             size_t entry_size);
 };
 
 class BroadcastOp : public HorovodOp {
@@ -127,14 +139,23 @@ public:
                        const Response& response) const = 0;
 };
 
+class JoinOp : public HorovodOp {
+public:
+  JoinOp(HorovodGlobalState* global_state);
+
+  virtual ~JoinOp() = default;
+
+  virtual Status Execute(std::vector<TensorTableEntry>& entries,
+                         const Response& response);
+};
+
 class ErrorOp : public HorovodOp {
 public:
   ErrorOp(HorovodGlobalState* global_state);
 
   virtual ~ErrorOp() = default;
 
-  virtual Status Execute(std::vector<TensorTableEntry>& entries,
-                         const Response& response);
+  virtual Status Execute(std::vector<TensorTableEntry>& entries, const Response& response);
 };
 
 } // namespace common

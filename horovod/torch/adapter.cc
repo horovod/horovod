@@ -132,6 +132,14 @@ TorchOpContext<DT, Dev, T>::AllocateOutput(TensorShape shape,
 }
 
 template <DataType DT, DeviceType Dev, class T>
+Status
+TorchOpContext<DT, Dev, T>::AllocateZeros(int64_t num_elements, DataType dtype,
+                                          std::shared_ptr<Tensor>* tensor) {
+  return Status::PreconditionError(
+      "AllocateZeros is not supported for PyTorch < 1.0");
+}
+
+template <DataType DT, DeviceType Dev, class T>
 Framework TorchOpContext<DT, Dev, T>::framework() const {
   return Framework::PYTORCH;
 }

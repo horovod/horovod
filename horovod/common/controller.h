@@ -20,6 +20,7 @@
 #include <queue>
 #include <vector>
 
+#include "global_state.h"
 #include "parameter_manager.h"
 #include "response_cache.h"
 #include "stall_inspector.h"
@@ -94,7 +95,8 @@ public:
   //      response from the coordinator. At that point, the tick ends.
   //      If instead of "DONE" they receive "SHUTDOWN", they mark it in the
   //      response list.
-  ResponseList ComputeResponseList(std::atomic_bool& shut_down);
+  ResponseList ComputeResponseList(std::atomic_bool& shut_down,
+                                   HorovodGlobalState& state);
 
   // Get current tensors fusion threshold.
   int64_t TensorFusionThresholdBytes();
@@ -142,7 +144,7 @@ protected:
   // also contains error messages in case the submitted Requests were not
   // valid (for example, contained mismatched shapes or types).
   // Constructing the Response, thus, requires a whole lot of error checking.
-  Response ConstructResponse(std::string& name);
+  Response ConstructResponse(std::string& name, int joined_size = 0);
 
   // Routine to sync cache hit and invalid bit sets across workers.
   // Also determines global shutdown state and whether uncached requests
@@ -159,7 +161,7 @@ protected:
   // Store the Request for a name, and return whether the total count of
   // Requests for that tensor is now equal to the HOROVOD size (and thus we are
   // ready to reduce the tensor).
-  bool IncrementTensorCount(const Request& msg);
+  bool IncrementTensorCount(const Request& msg, int joined_size = 0);
 
   int rank_ = 0;
   int local_rank_ = 0;

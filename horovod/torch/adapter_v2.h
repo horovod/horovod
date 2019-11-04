@@ -26,6 +26,8 @@ namespace torch {
 
 using namespace horovod::common;
 
+::torch::ScalarType GetTorchDataType(DataType dtype);
+
 class TorchPersistentBuffer : public PersistentBuffer {
 public:
   TorchPersistentBuffer(int device, int64_t size);
@@ -56,6 +58,8 @@ public:
   AllocatePersistent(int64_t size,
                      std::shared_ptr<PersistentBuffer>* tensor) override;
   virtual Status AllocateOutput(TensorShape shape,
+                                std::shared_ptr<Tensor>* tensor) override;
+  virtual Status AllocateZeros(int64_t num_elements, DataType dtype,
                                 std::shared_ptr<Tensor>* tensor) override;
   virtual Framework framework() const override;
 

@@ -19,6 +19,29 @@
 namespace horovod {
 namespace torch {
 
+::torch::ScalarType GetTorchDataType(DataType dtype) {
+  switch (dtype) {
+  case common::HOROVOD_UINT8:
+    return ::torch::kByte;
+  case common::HOROVOD_INT8:
+    return ::torch::kChar;
+  case common::HOROVOD_INT16:
+    return ::torch::kShort;
+  case common::HOROVOD_INT32:
+    return ::torch::kInt;
+  case common::HOROVOD_INT64:
+    return ::torch::kLong;
+  case common::HOROVOD_FLOAT16:
+    return ::torch::kHalf;
+  case common::HOROVOD_FLOAT32:
+    return ::torch::kFloat;
+  case common::HOROVOD_FLOAT64:
+    return ::torch::kDouble;
+  default:
+    throw std::logic_error("Invalid data type.");
+  }
+}
+
 TorchPersistentBuffer::TorchPersistentBuffer(int device, int64_t size)
     : device_(device) {
   with_device device_context(device_);
@@ -98,6 +121,18 @@ Status TorchOpContext::AllocateOutput(TensorShape shape,
   with_device device_context(device_);
   output_.resize_(shape_vector);
   *tensor = std::make_shared<TorchTensor>(output_);
+  return Status::OK();
+}
+
+Status TorchOpContext::AllocateZeros(int64_t num_elements, DataType dtype,
+                                     std::shared_ptr<Tensor>* tensor) {
+  with_device device_context(device_);
+  auto torch_data_type = GetTorchDataType(dtype);
+  ::torch::DeviceType device_type =
+      device_ != CPU_DEVICE_ID ? ::torch::kCUDA : ::torch::kCPU;
+  ::torch::Tensor zero_tensor = ::torch::zeros(
+      num_elements, ::torch::device(device_type).dtype(torch_data_type));
+  *tensor = std::make_shared<TorchTensor>(zero_tensor);
   return Status::OK();
 }
 

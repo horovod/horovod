@@ -40,8 +40,8 @@ DDLAllreduce::DDLAllreduce(DDLContext* ddl_context,
 Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   auto& first_entry = entries[0];
 
-  InitCUDA(entries);
-  InitCUDAQueue(entries, response);
+  cuda_op_context_.InitCUDA(entries);
+  cuda_op_context_.InitCUDAQueue(entries, response);
 
   auto& timeline = global_state_->timeline;
   if (ddl_context_->ddl_local_device_id != first_entry.device) {
@@ -57,7 +57,7 @@ Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
     MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
 
     if (timeline.Initialized()) {
-      cuda_context_->RecordEvent(event_queue_, MEMCPY_IN_FUSION_BUFFER, *stream_);
+      cuda_context_->RecordEvent(cuda_op_context_.event_queue, MEMCPY_IN_FUSION_BUFFER, *cuda_op_context_.stream);
     }
   } else {
     fused_input_data = first_entry.tensor->data();
@@ -75,13 +75,13 @@ Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
     // Copy input buffer content to output buffer
     // because DDL only supports in-place allreduce
     auto cuda_result = cudaMemcpyAsync(buffer_data, fused_input_data, buffer_len,
-                                       cudaMemcpyDeviceToDevice, *stream_);
+                                       cudaMemcpyDeviceToDevice, *cuda_op_context_.stream);
     cuda_context_->ErrorCheck("cudaMemcpyAsync", cuda_result);
-    cuda_context_->RecordEvent(event_queue_, MEMCPY_IN_FUSION_BUFFER, *stream_);
+    cuda_context_->RecordEvent(cuda_op_context_.event_queue, MEMCPY_IN_FUSION_BUFFER, *cuda_op_context_.stream);
   }
 
   // Synchronize.
-  cuda_context_->WaitForEvents(event_queue_, entries, timeline);
+  cuda_context_->WaitForEvents(cuda_op_context_.event_queue, entries, timeline);
 
   DDL_Type ddl_data_type = GetDDLDataType(first_entry.tensor);
   auto ddl_result = ddl_allreduce(buffer_data, (size_t) num_elements, ddl_data_type,
@@ -95,11 +95,11 @@ Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
     MemcpyOutFusionBuffer(buffer_data, entries);
 
     if (timeline.Initialized()) {
-      cuda_context_->RecordEvent(event_queue_, MEMCPY_OUT_FUSION_BUFFER, *stream_);
+      cuda_context_->RecordEvent(cuda_op_context_.event_queue, MEMCPY_OUT_FUSION_BUFFER, *cuda_op_context_.stream);
     }
   }
 
-  return FinalizeCUDAQueue(entries);
+  return cuda_op_context_.FinalizeCUDAQueue(entries);
 }
 
 void DDLAllreduce::DDLInit(DDLContext* ddl_context, CUDAContext* cuda_context) {

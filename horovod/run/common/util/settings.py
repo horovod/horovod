@@ -18,7 +18,7 @@ class Settings(object):
 
     def __init__(self, verbose=0, ssh_port=None, extra_mpi_args=None, key=None, timeout=None,
                  num_hosts=None, num_proc=None, hosts=None, output_filename=None,
-                 run_func_mode=None):
+                 run_func_mode=None, nic=None):
         """
         :param verbose: level of verbosity
         :type verbose: int
@@ -38,9 +38,11 @@ class Settings(object):
         :param hosts: string of hostname with slots number
         :type hosts: string
         :param output_filename: optional filename to redirect stdout / stderr by process
-        :try output_filename: string
+        :type output_filename: string
         :param run_func_mode: whether it is run function mode
         :type run_func_mode: boolean
+        :param nic: specify the NIC for tcp network communication.
+        :type nic: string
         """
         self.verbose = verbose
         self.ssh_port = ssh_port
@@ -52,4 +54,5 @@ class Settings(object):
         self.hosts = hosts
         self.output_filename = output_filename
         self.run_func_mode = run_func_mode
+        self.nic = nic
 
