@@ -27,6 +27,7 @@ import torch
 import unittest
 import warnings
 
+from horovod.run.mpi_run import _get_mpi_implementation_flags
 import horovod.spark
 import horovod.torch as hvd
 
@@ -164,24 +165,27 @@ class SparkTests(unittest.TestCase):
                                   stdout=stdout, stderr=stderr, verbose=verbose,
                                   run_func=run_func)
 
-        self.assertFalse(re.match('^Timed out waiting for Spark tasks to start.', str(e.value)),
+        self.assertFalse(str(e.value).startswith('Timed out waiting for Spark tasks to start.'),
                          'Spark timed out before mpi_run was called, test setup is broken.')
-        self.assertTrue(e.match('^Spark job has failed, see the error above.$'))
+        self.assertEqual(str(e.value), 'Spark job has failed, see the error above.')
 
-        expected_cmd_regex = ('^mpirun '
-                              '--allow-run-as-root --tag-output '
-                              '-np {expected_np} -H [^ ]+ '
-                              '-bind-to none -map-by slot '
-                              r'-mca pml ob1 -mca btl \^openib  '
-                              '-mca btl_tcp_if_include [^ ]+ -x NCCL_SOCKET_IFNAME=[^ ]+  '
-                              '-x _HOROVOD_SECRET_KEY {expected_env}'
-                              '{extra_mpi_args} '
-                              '-x NCCL_DEBUG=INFO '
-                              r'-mca plm_rsh_agent "[^"]+python[\d]* -m horovod.spark.driver.mpirun_rsh [^ ]+ [^ ]+" '
-                              r'[^"]+python[\d]* -m horovod.spark.task.mpirun_exec_fn [^ ]+ [^ ]+'
-                              '$'.format(expected_np=expected_np,
-                                         expected_env=expected_env + ' ' if expected_env else '',
-                                         extra_mpi_args=extra_mpi_args if extra_mpi_args else ''))
+        mpi_flags = _get_mpi_implementation_flags()
+        self.assertIsNotNone(mpi_flags)
+        expected_command = ('mpirun '
+                            '--allow-run-as-root --tag-output '
+                            '-np {expected_np} -H [^ ]+ '
+                            '-bind-to none -map-by slot '
+                            '{mpi_flags}  '
+                            '-mca btl_tcp_if_include [^ ]+ -x NCCL_SOCKET_IFNAME=[^ ]+  '
+                            '-x _HOROVOD_SECRET_KEY {expected_env}'
+                            '{extra_mpi_args} '
+                            '-x NCCL_DEBUG=INFO '
+                            r'-mca plm_rsh_agent "[^"]+python[\d]* -m horovod.spark.driver.mpirun_rsh [^ ]+ [^ ]+" '
+                            r'[^"]+python[\d]* -m horovod.spark.task.mpirun_exec_fn [^ ]+ [^ ]+'.format(
+                                expected_np=expected_np,
+                                expected_env=expected_env + ' ' if expected_env else '',
+                                mpi_flags=' '.join(mpi_flags),
+                                extra_mpi_args=extra_mpi_args if extra_mpi_args else ''))
 
         run_func.assert_called_once()
         run_func_args, run_func_kwargs = run_func.call_args
@@ -191,8 +195,15 @@ class SparkTests(unittest.TestCase):
         actual_stderr = run_func_kwargs.get('stderr')
         actual_secret = actual_env.pop('_HOROVOD_SECRET_KEY', None)
 
+        # for better comparison replace sections in actual_command that change across runs / hosts
+        for replacement in ('-H [^ ]+', '-mca btl_tcp_if_include [^ ]+', '-x NCCL_SOCKET_IFNAME=[^ ]+',
+                            r'"[^"]+python[\d]*', r' [^"]+python[\d]*',
+                            '-m horovod.spark.driver.mpirun_rsh [^ ]+ [^ ]+"',
+                            '-m horovod.spark.task.mpirun_exec_fn [^ ]+ [^ ]+'):
+            actual_command = re.sub(replacement, replacement, actual_command, 1)
+
         self.assertEqual(run_func_args, ())
-        self.assertTrue(re.match(expected_cmd_regex, actual_command))
+        self.assertEqual(actual_command, expected_command)
         if env:
             self.assertEqual(actual_env, env)
         else:

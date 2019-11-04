@@ -28,7 +28,7 @@ import pytest
 from mock import MagicMock
 
 from horovod.run.common.util import config_parser, secret, settings as hvd_settings, timeout
-from horovod.run.mpi_run import _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_run
+from horovod.run.mpi_run import _get_mpi_implementation_flags, _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_run
 from horovod.run.run import parse_args
 
 
@@ -240,12 +240,14 @@ class RunTests(unittest.TestCase):
 
         mpi_run(settings, None, {}, cmd, run_func=run_func)
 
+        mpi_flags = _get_mpi_implementation_flags()
+        self.assertIsNotNone(mpi_flags)
         expected_cmd = ('mpirun '
                         '--allow-run-as-root --tag-output '
                         '-np 2 -H host '
                         '-bind-to none -map-by slot '
-                        '-mca pml ob1 -mca btl ^openib       '
-                        'cmd')
+                        '{mpi_flags}       '
+                        'cmd').format(mpi_flags=' '.join(mpi_flags))
         expected_env = {}
         run_func.assert_called_once_with(command=expected_cmd, env=expected_env, stdout=None, stderr=None)
 
@@ -260,13 +262,16 @@ class RunTests(unittest.TestCase):
 
         mpi_run(settings, None, {}, cmd, run_func=run_func)
 
+        mpi_flags = _get_mpi_implementation_flags()
+        self.assertIsNotNone(mpi_flags)
+        mpi_flags.append('-mca plm_rsh_no_tree_spawn true')
+        mpi_flags.append('-mca plm_rsh_num_concurrent 2')
         expected_cmd = ('mpirun '
                         '--allow-run-as-root --tag-output '
                         '-np 2 -H host '
                         '-bind-to none -map-by slot '
-                        '-mca pml ob1 -mca btl ^openib '
-                        '-mca plm_rsh_no_tree_spawn true -mca plm_rsh_num_concurrent 2       '
-                        'cmd')
+                        '{mpi_flags}       '
+                        'cmd').format(mpi_flags=' '.join(mpi_flags))
         expected_env = {}
         run_func.assert_called_once_with(command=expected_cmd, env=expected_env, stdout=None, stderr=None)
 
@@ -296,19 +301,21 @@ class RunTests(unittest.TestCase):
 
         mpi_run(settings, common_intfs, env, cmd, stdout=stdout, stderr=stderr, run_func=run_func)
 
-        expected_cmd = ('mpirun '
-                        '--allow-run-as-root --tag-output '
-                        '-np 1 -H >host names go here< '
-                        '-bind-to none -map-by slot '
-                        '-mca pml ob1 -mca btl ^openib '
-                        '-mca plm_rsh_args "-p 1022" '
-                        '-mca btl_tcp_if_include eth0,eth1 -x NCCL_SOCKET_IFNAME=eth0,eth1 '
-                        '--output-filename >output filename goes here< '
-                        '-x env1 -x env2 '
-                        '>mpi-extra args go here< '
-                        'cmd arg1 arg2')
+        mpi_flags = _get_mpi_implementation_flags()
+        self.assertIsNotNone(mpi_flags)
+        expected_command = ('mpirun '
+                            '--allow-run-as-root --tag-output '
+                            '-np 1 -H >host names go here< '
+                            '-bind-to none -map-by slot '
+                            '{mpi_flags} '
+                            '-mca plm_rsh_args "-p 1022" '
+                            '-mca btl_tcp_if_include eth0,eth1 -x NCCL_SOCKET_IFNAME=eth0,eth1 '
+                            '--output-filename >output filename goes here< '
+                            '-x env1 -x env2 '
+                            '>mpi-extra args go here< '
+                            'cmd arg1 arg2').format(mpi_flags=' '.join(mpi_flags))
         expected_env = {'env1': 'val1', 'env2': 'val2'}
-        run_func.assert_called_once_with(command=expected_cmd, env=expected_env, stdout=stdout, stderr=stderr)
+        run_func.assert_called_once_with(command=expected_command, env=expected_env, stdout=stdout, stderr=stderr)
 
     def test_mpi_run_with_non_zero_exit(self):
         cmd = ['cmd']
