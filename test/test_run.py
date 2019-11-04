@@ -25,7 +25,7 @@ import unittest
 import warnings
 
 import pytest
-from unittest.mock import MagicMock
+from mock import MagicMock
 
 from horovod.run.common.util import config_parser, secret, settings as hvd_settings, timeout
 from horovod.run.mpi_run import _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_run

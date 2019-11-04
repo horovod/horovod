@@ -20,6 +20,7 @@ from __future__ import print_function
 import contextlib
 import os
 import pytest
+import re
 import subprocess
 import time
 import torch
@@ -29,7 +30,7 @@ import warnings
 import horovod.spark
 import horovod.torch as hvd
 
-from unittest.mock import MagicMock
+from mock import MagicMock
 
 
 @contextlib.contextmanager
@@ -163,7 +164,7 @@ class SparkTests(unittest.TestCase):
                                   stdout=stdout, stderr=stderr, verbose=verbose,
                                   run_func=run_func)
 
-        self.assertNotRegex(str(e.value), '^Timed out waiting for Spark tasks to start.',
+        self.assertFalse(re.match('^Timed out waiting for Spark tasks to start.', str(e.value)),
                          'Spark timed out before mpi_run was called, test setup is broken.')
         self.assertTrue(e.match('^Spark job has failed, see the error above.$'))
 
@@ -191,7 +192,7 @@ class SparkTests(unittest.TestCase):
         actual_secret = actual_env.pop('_HOROVOD_SECRET_KEY', None)
 
         self.assertEqual(run_func_args, ())
-        self.assertRegex(actual_command, expected_cmd_regex)
+        self.assertTrue(re.match(expected_cmd_regex, actual_command))
         if env:
             self.assertEqual(actual_env, env)
         else:
