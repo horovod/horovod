@@ -33,11 +33,12 @@ from horovod.tensorflow.mpi_ops import gloo_enabled, gloo_built
 from horovod.tensorflow.mpi_ops import nccl_built, ddl_built, mlsl_built
 from horovod.tensorflow.mpi_ops import Average, Sum, Adasum
 from horovod.tensorflow.mpi_ops import _check_has_gpu
-from horovod.tensorflow.mpi_ops import handle_average_backwards_compatibility
+from horovod.tensorflow.mpi_ops import handle_average_backwards_compatibility, check_num_rank_power_of_2
 
 from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache
 
 import tensorflow as tf
+import warnings
 
 has_gpu = gpu_available('tensorflow')
 def allreduce(tensor, average=None, device_dense='', device_sparse='',
@@ -97,12 +98,18 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             if op == Adasum:
                 if ('CPU' not in tensor.device and has_gpu):
                     if nccl_built():
+                        if not check_num_rank_power_of_2(size() / local_size()):
+                            raise NotImplementedError('Running GPU Adasum with non-power of 2 nodes is not supported yet.')
                         horovod_local_size = tf.cast(local_size(), dtype=tensor.dtype)
                         new_tensor = summed_tensor / horovod_local_size
                     else:
-                        raise NotImplementedError("Adasum reduction does not currently support "
-                            "GPU reduction using MPI. Please compile Horovod with HOROVOD_GPU_ALLREDUCE=NCCL.")
+                        warnings.warn("Adasum reduction does not currently support "
+                            "GPU reduction using MPI. Tensors are copied to CPU memory instead."
+                            "To use Adasum for GPU reduction, please compile Horovod with HOROVOD_GPU_ALLREDUCE=NCCL.")
+                        new_tensor = summed_tensor
                 else:
+                    if not num_rank_is_power_2(size()):
+                        raise NotImplementedError('Running Adasum with non-power of 2 ranks is not supported yet.')
                     new_tensor = summed_tensor
             else:
                 new_tensor = (summed_tensor / horovod_size) if op == Average else summed_tensor

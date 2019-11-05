@@ -138,6 +138,9 @@ class TorchAdasumTests(unittest.TestCase):
 
   def test_stability(self):
     hvd.init()
+    # TODO support non-MPI Adasum operation
+    if not hvd.mpi_enabled():
+      return
     device = torch.device('cuda:{}'.format(hvd.local_rank())) if torch.cuda.is_available() else torch.device('cpu')
     np.random.seed(2)
     torch.manual_seed(2)
@@ -169,6 +172,9 @@ class TorchAdasumTests(unittest.TestCase):
 
   def test_stability_2(self):
     hvd.init()
+    # TODO support non-MPI Adasum operation
+    if not hvd.mpi_enabled():
+      return
     device = torch.device('cuda:{}'.format(hvd.local_rank())) if torch.cuda.is_available() else torch.device('cpu')
     np.random.seed(2)
     torch.manual_seed(2)

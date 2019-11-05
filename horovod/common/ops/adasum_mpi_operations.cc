@@ -32,6 +32,12 @@ Status AdasumMPIAllreduceOp::Execute(std::vector<TensorTableEntry>& entries,
   if (entries.empty()) {
     return Status::OK();
   }
+
+  // Lazily initialize reduction communicators for VHDD algorithm when Adasum reduction is actually called.
+  if (!reduction_comms_initialized) {
+    InitializeVHDDReductionComms();
+  }
+
   auto& first_entry = entries[0];
 
   void* buffer_data;

@@ -194,10 +194,6 @@ private:
     int rank = GetLocalRankWithComm(communicator);
     int size = GetSizeWithComm(communicator);
 
-    if (!IsPowerOfTwo(size)) {
-      throw std::logic_error(
-          "Running Adasum with non-power-of-two ranks is not supported yet.");
-    }
     std::vector<std::vector<int>> nghrCountVec;
     std::vector<double> normAndDots(tensor_counts.size() * 3 * 2);
 

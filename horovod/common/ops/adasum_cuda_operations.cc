@@ -40,6 +40,11 @@ Status AdasumCudaAllreduceOp::Execute(std::vector<TensorTableEntry>& entries,
   if (entries.empty()) {
     return Status::OK();
   }
+
+  // Lazily initialize reduction communicators for VHDD algorithm when Adasum reduction is actually called.
+  if (!reduction_comms_initialized) {
+    InitializeVHDDReductionComms();
+  }
   return NcclHierarchical(entries, response);
 }
 

@@ -23,6 +23,8 @@ from distutils.version import LooseVersion
 # Load all the necessary PyTorch C types.
 import torch
 
+import warnings
+
 # PyTorch v2 API starts with 1.0.0 (including nightly builds)
 _v2_api = LooseVersion(torch.__version__) >= LooseVersion('1.0.0')
 if _v2_api:
@@ -37,10 +39,9 @@ else:
     _NULL = mpi_lib._ffi.NULL
     _basics = _HorovodBasics(__file__, 'mpi_lib_impl', '_mpi_lib_impl')
 
-from horovod.common.util import get_average_backwards_compatibility_fun
-from horovod.torch.compression import Compression
+from horovod.common.util import get_average_backwards_compatibility_fun, gpu_available, num_rank_is_power_2
 
-from horovod.common.util import gpu_available
+from horovod.torch.compression import Compression
 
 # import basic methods
 init = _basics.init
@@ -98,12 +99,21 @@ def _allreduce_async(tensor, output, name, op):
     # Set the divisor for reduced gradients to average when necessary
     if op == Average:
         divisor = size()
-    elif (op == Adasum and tensor.device.type != 'cpu' and _has_gpu):
-        if nccl_built():
-            divisor = local_size()
+    elif (op == Adasum):
+        if (tensor.device.type != 'cpu' and _has_gpu):
+            if nccl_built():
+                if not num_rank_is_power_2(size() / local_size()):
+                    raise NotImplementedError('Running GPU Adasum with non-power of 2 nodes is not supported yet.')
+                divisor = local_size()
+            else:
+                warnings.warn("Adasum reduction does not currently support "
+                    "GPU reduction using MPI. Tensors are copied to CPU memory instead."
+                    "To use Adasum for GPU reduction, please compile Horovod with HOROVOD_GPU_ALLREDUCE=NCCL.")
+                divisor = 1
         else:
-            raise NotImplementedError("Adasum reduction does not currently support "
-                "GPU reduction using MPI. Please compile Horovod with HOROVOD_GPU_ALLREDUCE=NCCL.")
+            if not num_rank_is_power_2(size()):
+                raise NotImplementedError('Running Adasum with non-power of 2 ranks is not supported yet.')
+            divisor = 1
     else:
         divisor = 1
     # Averaging happens in framework code, so translate that to Sum for the actual call

@@ -32,6 +32,8 @@ public:
   ~AdasumMPI();
 
 protected:
+  void InitializeVHDDReductionComms();
+
   void PointToPointSendRecv(void* input_data_buffer,
                             int64_t input_buffer_length,
                             void* output_data_buffer,
@@ -52,6 +54,8 @@ protected:
   MPIContext* mpi_context_;
   // MPI communicators used to do adasum
   MPI_Comm* reduction_comms_ = nullptr;
+  // Flag to indicate if reduction comms have been initialized
+  bool reduction_comms_initialized = false;
 };
 
 } // namespace common
