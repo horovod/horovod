@@ -234,6 +234,9 @@ class RunTests(unittest.TestCase):
     Tests mpi_run with minimal settings.
     """
     def test_mpi_run_minimal(self):
+        if _get_mpi_implementation_flags() is None:
+            self.skipTest("MPI is not available")
+
         cmd = ['cmd']
         settings = self.minimal_settings
         run_func = MagicMock(return_value=0)
@@ -255,6 +258,9 @@ class RunTests(unittest.TestCase):
     Tests mpi_run on a large cluster.
     """
     def test_mpi_run_on_large_cluster(self):
+        if _get_mpi_implementation_flags() is None:
+            self.skipTest("MPI is not available")
+
         cmd = ['cmd']
         settings = copy.copy(self.minimal_settings)
         settings.num_hosts = large_cluster_threshold
@@ -279,6 +285,9 @@ class RunTests(unittest.TestCase):
     Tests mpi_run with full settings.
     """
     def test_mpi_run_full(self):
+        if _get_mpi_implementation_flags() is None:
+            self.skipTest("MPI is not available")
+
         cmd = ['cmd', 'arg1', 'arg2']
         common_intfs = ['eth0', 'eth1']
         env = {'env1': 'val1', 'env2': 'val2'}
@@ -318,6 +327,9 @@ class RunTests(unittest.TestCase):
         run_func.assert_called_once_with(command=expected_command, env=expected_env, stdout=stdout, stderr=stderr)
 
     def test_mpi_run_with_non_zero_exit(self):
+        if _get_mpi_implementation_flags() is None:
+            self.skipTest("MPI is not available")
+
         cmd = ['cmd']
         settings = self.minimal_settings
         run_func = MagicMock(return_value=1)
