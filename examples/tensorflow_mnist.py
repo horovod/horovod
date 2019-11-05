@@ -18,6 +18,7 @@ import errno
 import tensorflow as tf
 import horovod.tensorflow as hvd
 import numpy as np
+import argparse
 
 from tensorflow import keras
 
@@ -25,6 +26,11 @@ layers = tf.layers
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
+# Training settings
+parser = argparse.ArgumentParser(description='Tensorflow MNIST Example')
+parser.add_argument('--use-adasum', action='store_true', default=False,
+                    help='use adasum algorithm to do reduction')
+args = parser.parse_args()
 
 def conv_model(feature, target, mode):
     """2-layer convolution model."""
@@ -111,11 +117,17 @@ def main(_):
         label = tf.placeholder(tf.float32, [None], name='label')
     predict, loss = conv_model(image, label, tf.estimator.ModeKeys.TRAIN)
 
-    # Horovod: adjust learning rate based on number of GPUs.
-    opt = tf.train.AdamOptimizer(0.001 * hvd.size())
+    lr_scaler = hvd.size()
+    # By default, Adasum doesn't need scaling when increasing batch size. If used with NCCL,
+    # scale lr by local_size
+    if args.use_adasum:
+        lr_scaler = hvd.local_size() if hvd.nccl_built() else 1
+
+    # Horovod: adjust learning rate based on lr_scaler.
+    opt = tf.train.AdamOptimizer(0.001 * lr_scaler)
 
     # Horovod: add Horovod Distributed Optimizer.
-    opt = hvd.DistributedOptimizer(opt)
+    opt = hvd.DistributedOptimizer(opt, op=hvd.Adasum if args.use_adasum else hvd.Average)
 
     global_step = tf.train.get_or_create_global_step()
     train_op = opt.minimize(loss, global_step=global_step)

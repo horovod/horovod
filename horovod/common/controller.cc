@@ -340,10 +340,10 @@ int64_t Controller::TensorFusionThresholdBytes() {
   int64_t proposed_fusion_threshold =
       parameter_manager_.TensorFusionThresholdBytes();
 
-  // If the cluster is homogeneous and hierarchical allreduce is enabled,
+  // If the cluster is homogeneous,
   // adjust buffer size to make sure it is divisible by local_size to improve
-  // performance.
-  if (is_homogeneous_ && parameter_manager_.HierarchicalAllreduce()) {
+  // performance for operations that perform local reductions by default such as Adasum.
+  if (is_homogeneous_) {
     // Assume the worst-case data type float64, since if it is divisible with
     // float64, it will be divisible for other types too.
 

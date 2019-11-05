@@ -40,6 +40,8 @@ else:
 from horovod.common.util import get_average_backwards_compatibility_fun
 from horovod.torch.compression import Compression
 
+from horovod.common.util import gpu_available
+
 # import basic methods
 init = _basics.init
 shutdown = _basics.shutdown
@@ -72,6 +74,8 @@ _handle_map = {}
 # Only support fp16 allreduce for PyTorch versions using v2 API.
 _fp16_supported = _v2_api
 
+_has_gpu = gpu_available('torch')
+
 def _check_function(function_factory, tensor):
     function = function_factory(tensor)
     if not hasattr(mpi_lib, function):
@@ -94,8 +98,12 @@ def _allreduce_async(tensor, output, name, op):
     # Set the divisor for reduced gradients to average when necessary
     if op == Average:
         divisor = size()
-    elif (op == Adasum and nccl_built() and tensor.device.type != 'cpu' and _basics.has_gpu):
-        divisor = local_size()
+    elif (op == Adasum and tensor.device.type != 'cpu' and _has_gpu):
+        if nccl_built():
+            divisor = local_size()
+        else:
+            raise NotImplementedError("Adasum reduction does not currently support "
+                "GPU reduction using MPI. Please compile Horovod with HOROVOD_GPU_ALLREDUCE=NCCL.")
     else:
         divisor = 1
     # Averaging happens in framework code, so translate that to Sum for the actual call

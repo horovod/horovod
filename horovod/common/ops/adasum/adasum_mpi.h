@@ -19,8 +19,8 @@
 #include "mpi.h"
 
 #include "../../mpi/mpi_context.h"
+#include "../../controller.h"
 #include "adasum.h"
-
 
 namespace horovod {
 namespace common {
@@ -28,30 +28,26 @@ namespace common {
 class AdasumMPI : public Adasum<MPI_Comm> {
 public:
   AdasumMPI(MPIContext* mpi_context, HorovodGlobalState* global_state);
-  
+
   ~AdasumMPI();
-  
+
 protected:
   void PointToPointSendRecv(void* input_data_buffer,
                             int64_t input_buffer_length,
                             void* output_data_buffer,
                             int64_t output_buffer_length,
-                            DataType horovod_datatype,
-                            int dst_src_rank,
-                            int tag,
-                            MPI_Comm communicator,
+                            DataType horovod_datatype, int dst_src_rank,
+                            int tag, MPI_Comm communicator,
                             HorovodGlobalState* global_state) override;
 
   int GetLocalRankWithComm(MPI_Comm local_comm) override;
 
   int GetSizeWithComm(MPI_Comm comm) override;
 
-  void SumAllreduceWithComm(std::vector<TensorTableEntry>& entries,
-                            void* data,
-                            int num_elements,
-                            DataType horovod_datatype,
+  void SumAllreduceWithComm(std::vector<TensorTableEntry>& entries, void* data,
+                            int num_elements, DataType horovod_datatype,
                             MPI_Comm comm,
-                            HorovodGlobalState *global_state) override;
+                            HorovodGlobalState* global_state) override;
 
   MPIContext* mpi_context_;
   // MPI communicators used to do adasum

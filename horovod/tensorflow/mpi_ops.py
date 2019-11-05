@@ -70,10 +70,15 @@ Average = _basics.Average
 Sum = _basics.Sum
 Adasum = _basics.Adasum
 
-has_gpu = _basics.has_gpu
+#has_gpu = _basics.has_gpu
 
 handle_average_backwards_compatibility = get_average_backwards_compatibility_fun(_basics)
 
+# This function will create a default device map which includes all visible devices.
+# Please run this function in a subprocess
+def _check_has_gpu():
+  import tensorflow as tf
+  return tf.test.is_gpu_available()
 
 def _normalize_name(name):
     """Normalizes operation name to TensorFlow rules."""

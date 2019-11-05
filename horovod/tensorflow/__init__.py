@@ -20,7 +20,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from horovod.common.util import check_extension
+from horovod.common.util import check_extension, gpu_available
 
 check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
 
@@ -32,14 +32,14 @@ from horovod.tensorflow.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_b
 from horovod.tensorflow.mpi_ops import gloo_enabled, gloo_built
 from horovod.tensorflow.mpi_ops import nccl_built, ddl_built, mlsl_built
 from horovod.tensorflow.mpi_ops import Average, Sum, Adasum
-from horovod.tensorflow.mpi_ops import has_gpu
+from horovod.tensorflow.mpi_ops import _check_has_gpu
 from horovod.tensorflow.mpi_ops import handle_average_backwards_compatibility
 
 from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache
 
 import tensorflow as tf
 
-
+has_gpu = gpu_available('tensorflow')
 def allreduce(tensor, average=None, device_dense='', device_sparse='',
               compression=Compression.none, op=None):
     """Perform an allreduce on a tf.Tensor or tf.IndexedSlices.
@@ -95,9 +95,13 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             summed_tensor_compressed = _allreduce(tensor_compressed, op=true_op)
             summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
             if op == Adasum:
-                if (nccl_built() and 'CPU' not in tensor.device and has_gpu):
-                    horovod_local_size = tf.cast(local_size(), dtype=tensor.dtype)
-                    new_tensor = summed_tensor / horovod_local_size
+                if ('CPU' not in tensor.device and has_gpu):
+                    if nccl_built():
+                        horovod_local_size = tf.cast(local_size(), dtype=tensor.dtype)
+                        new_tensor = summed_tensor / horovod_local_size
+                    else:
+                        raise NotImplementedError("Adasum reduction does not currently support "
+                            "GPU reduction using MPI. Please compile Horovod with HOROVOD_GPU_ALLREDUCE=NCCL.")
                 else:
                     new_tensor = summed_tensor
             else:

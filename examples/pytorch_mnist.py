@@ -92,12 +92,18 @@ class Net(nn.Module):
 
 model = Net()
 
+# By default, Adasum doesn't need scaling up learning rate.
+lr_scaler = hvd.size() if not args.use_adasum else 1
+
 if args.cuda:
     # Move model to GPU.
     model.cuda()
+    # If using GPU Adasum allreduce, scale learning rate by local_size.
+    if args.use_adasum and hvd.nccl_built():
+        lr_scaler = hvd.local_size()
 
-# Horovod: scale learning rate by the number of GPUs.
-optimizer = optim.SGD(model.parameters(), lr=args.lr * hvd.size(),
+# Horovod: scale learning rate by lr_scaler.
+optimizer = optim.SGD(model.parameters(), lr=args.lr * lr_scaler,
                       momentum=args.momentum)
 
 # Horovod: broadcast parameters & optimizer state.

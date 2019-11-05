@@ -787,6 +787,16 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               const std::string name, const int device,
                               StatusCallback callback,
                               ReduceOp reduce_op) {
+  Status status;
+
+  // AVERAGE should be taken care of in the framework layer. Equeuing it here directly is not allowed.
+  // For example of how to deal with op=hvd.Average in framework layer, please refer to function
+  // `def _allreduce_async(tensor, output, name, op)` in
+  // horovod/horovod/torch/mpi_ops.py
+  if (reduce_op == ReduceOp::AVERAGE) {
+    LOG(ERROR, horovod_global.controller->GetRank()) << "Enqueuing AVERAGE allreduce is not allowed.";
+    return status.Aborted("AVERAGE not allowed.");
+  }
   Request message;
   message.set_request_rank(horovod_global.controller->GetRank());
   message.set_tensor_name(name);
@@ -814,7 +824,7 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
   }
-  Status status = horovod_global.tensor_queue.AddToTensorQueue(e, message);
+  status = horovod_global.tensor_queue.AddToTensorQueue(e, message);
   if (status.ok()) {
     LOG(TRACE, horovod_global.controller->GetRank()) << "Enqueued " << name;
   }

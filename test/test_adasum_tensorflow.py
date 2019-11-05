@@ -22,6 +22,7 @@ import numpy as np
 import os
 import tensorflow as tf
 from tensorflow.python.framework import ops
+from horovod.tensorflow.util import _executing_eagerly, _has_eager
 import warnings
 from datetime import datetime
 import horovod.tensorflow as hvd
@@ -62,6 +63,20 @@ def reference_tree_reduction(tensors, hvd_size):
             temp[i] = copy.copy(answer)
     return temp[0]
 
+if hasattr(tf, 'ConfigProto'):
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+
+if hasattr(tf, 'config') and hasattr(tf.config, 'experimental') \
+        and hasattr(tf.config.experimental, 'set_memory_growth'):
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    for gpu in gpus:
+        tf.config.experimental.set_memory_growth(gpu, True)
+else:
+    if _has_eager:
+        # Specifies the config to use with eager execution. Does not preclude
+        # tests from running in the graph mode.
+        tf.enable_eager_execution(config=config)
 class MPITests(tf.test.TestCase):
     """
     Tests for ops in horovod.tensorflow.
@@ -69,14 +84,18 @@ class MPITests(tf.test.TestCase):
     def __init__(self, *args, **kwargs):
         super(MPITests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
-        self.config = tf.ConfigProto()
-        self.config.gpu_options.allow_growth = True
-        #self.config.gpu_options.visible_device_list = str(hvd.local_rank())
+        if _has_eager:
+            if hasattr(tf, 'contrib') and hasattr(tf.contrib, 'eager'):
+                self.tfe = tf.contrib.eager
+            else:
+                self.tfe = tf
 
     def evaluate(self, tensors):
+        if _executing_eagerly():
+            return self._eval_helper(tensors)
         sess = ops.get_default_session()
         if sess is None:
-            with self.test_session(config=self.config) as sess:
+            with self.test_session(config=config) as sess:
                 return sess.run(tensors)
         else:
             return sess.run(tensors)

@@ -16,17 +16,16 @@
 #ifndef HOROVOD_ADASUM_CUDA_OPERATIONS_H
 #define HOROVOD_ADASUM_CUDA_OPERATIONS_H
 
-#include <array>
 #include "adasum/adasum_mpi.h"
 #include "nccl_operations.h"
+#include <array>
 
 namespace horovod {
 namespace common {
 
 class AdasumCudaAllreduceOp : public AdasumMPI, public NCCLAllreduce {
-  public:
-  AdasumCudaAllreduceOp(MPIContext* mpi_context,
-                        NCCLContext* nccl_context,
+public:
+  AdasumCudaAllreduceOp(MPIContext* mpi_context, NCCLContext* nccl_context,
                         CUDAContext* cuda_context,
                         HorovodGlobalState* global_state);
 
@@ -39,18 +38,17 @@ class AdasumCudaAllreduceOp : public AdasumMPI, public NCCLAllreduce {
   Status Execute(std::vector<TensorTableEntry>& entries,
                  const Response& response) override;
 
-  protected:
-
+protected:
   void PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
                                 Communicator& nccl_id_bcast_comm) override;
 
   Status NcclHierarchical(std::vector<TensorTableEntry>& entries,
                           const Response& response);
-  
+
   // Get host buffer
   uint8_t* GetHostBuffer(uint64_t buffer_length);
 
-  private:
+private:
   uint64_t current_host_buffer_length;
 };
 } // namespace common

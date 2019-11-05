@@ -32,7 +32,7 @@ parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
 
 parser.add_argument('--use-adasum', action='store_true', default=False,
-                    help='disables CUDA training')
+                    help='use adasum algorithm to do reduction')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -48,11 +48,17 @@ cudnn.benchmark = True
 # Set up standard model.
 model = getattr(models, args.model)()
 
+# By default, Adasum doesn't need scaling up learning rate.
+lr_scaler = hvd.size() if not args.use_adasum else 1
+
 if args.cuda:
     # Move model to GPU.
     model.cuda()
+    # If using GPU Adasum allreduce, scale learning rate by local_size.
+    if args.use_adasum and hvd.nccl_built():
+        lr_scaler = hvd.local_size()
 
-optimizer = optim.SGD(model.parameters(), lr=0.01)
+optimizer = optim.SGD(model.parameters(), lr=0.01 * lr_scaler)
 
 # Horovod: (optional) compression algorithm.
 compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
@@ -61,7 +67,7 @@ compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.n
 optimizer = hvd.DistributedOptimizer(optimizer,
                                      named_parameters=model.named_parameters(),
                                      compression=compression,
-                                     op=hvd.Adasum if args.use_adasum == True else hvd.Average)
+                                     op=hvd.Adasum if args.use_adasum else hvd.Average)
 
 # Horovod: broadcast parameters & optimizer state.
 hvd.broadcast_parameters(model.state_dict(), root_rank=0)

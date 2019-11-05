@@ -16,8 +16,8 @@
 #ifndef HOROVOD_ADASUM_MPI_OPERATIONS_H
 #define HOROVOD_ADASUM_MPI_OPERATIONS_H
 
-#include <iostream>
 #include "mpi.h"
+#include <iostream>
 
 #include "adasum/adasum_mpi.h"
 #include "collective_operations.h"
@@ -27,14 +27,15 @@ namespace common {
 
 class AdasumMPIAllreduceOp : public AdasumMPI, public AllreduceOp {
 public:
-  AdasumMPIAllreduceOp(MPIContext* mpi_context, HorovodGlobalState* global_state);
-    
+  AdasumMPIAllreduceOp(MPIContext* mpi_context,
+                       HorovodGlobalState* global_state);
+
   Status Execute(std::vector<TensorTableEntry>& entries,
-                         const Response& response) override;
+                 const Response& response) override;
 
   bool Enabled(const ParameterManager& param_manager,
-                       const std::vector<TensorTableEntry>& entries,
-                       const Response& response) const override;
+               const std::vector<TensorTableEntry>& entries,
+               const Response& response) const override;
 };
 
 } // namespace common

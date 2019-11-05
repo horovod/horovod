@@ -29,13 +29,7 @@ class HorovodBasics(object):
         self.Average = self.MPI_LIB_CTYPES.horovod_reduce_op_average()
         self.Sum = self.MPI_LIB_CTYPES.horovod_reduce_op_sum()
         self.Adasum = self.MPI_LIB_CTYPES.horovod_reduce_op_adasum()
-        # TODO using tf.test.is_gpu_available will create a default tf session which includes all visible devices.
-        # This behavior will interfere with any sessions created before or after. Also it's not stable in tf 2.0. Using nvidia-smi for now.
-        # Need to find a better way to replace this logic.
-        import subprocess
-        import os
-        get_num_gpus = lambda: str(subprocess.check_output(["nvidia-smi", "-L"])).count('UUID') if any(os.access(os.path.join(path, 'nvidia-smi'), os.X_OK) for path in os.environ["PATH"].split(os.pathsep)) else 0
-        self.has_gpu = get_num_gpus() > 0
+
     def init(self, comm=None):
         """A function that initializes Horovod.
 

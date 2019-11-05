@@ -113,7 +113,7 @@ def check_avx_supported():
 
 def get_cpp_flags(build_ext):
     last_err = None
-    default_flags = ['-std=c++11', '-fPIC', '-O2', '-Wall', '-mf16c', '-mavx', '-mfma', '-fassociative-math', '-ffast-math', '-fopt-info-vec-optimized', '-ftree-vectorize', '-funsafe-math-optimizations']
+    default_flags = ['-std=c++11', '-fPIC', '-O2', '-Wall', '-mf16c', '-mavx', '-mfma', '-fassociative-math', '-ffast-math', '-ftree-vectorize', '-funsafe-math-optimizations']
     avx_flags = ['-mf16c', '-mavx'] if check_avx_supported() else []
     if sys.platform == 'darwin':
         # Darwin most likely will have Clang, which has libc++.
@@ -122,7 +122,7 @@ def get_cpp_flags(build_ext):
                         default_flags + ['-stdlib=libc++'],
                         default_flags]
     else:
-        flags_to_try = [default_flags + avx_flags,
+        flags_to_try = [default_flags + avx_flags + ['-fopt-info-vec-optimized'],
                         default_flags + ['-stdlib=libc++'] + avx_flags,
                         default_flags,
                         default_flags + ['-stdlib=libc++']]

@@ -17,18 +17,20 @@
 
 namespace horovod {
 namespace common {
-AdasumMPIAllreduceOp::AdasumMPIAllreduceOp(MPIContext* mpi_context, HorovodGlobalState* global_state)
-    : AllreduceOp(global_state), AdasumMPI(mpi_context, global_state) {}
+AdasumMPIAllreduceOp::AdasumMPIAllreduceOp(MPIContext* mpi_context,
+                                           HorovodGlobalState* global_state)
+    : AdasumMPI(mpi_context, global_state), AllreduceOp(global_state) {}
 
 bool AdasumMPIAllreduceOp::Enabled(const ParameterManager& param_manager,
-                           const std::vector<TensorTableEntry>& entries,
-                           const Response& response) const {
+                                   const std::vector<TensorTableEntry>& entries,
+                                   const Response& response) const {
   return true;
 }
 
-Status AdasumMPIAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
-  if(entries.empty()) {
-      return Status::OK();
+Status AdasumMPIAllreduceOp::Execute(std::vector<TensorTableEntry>& entries,
+                                     const Response& response) {
+  if (entries.empty()) {
+    return Status::OK();
   }
   auto& first_entry = entries[0];
 
@@ -43,8 +45,8 @@ Status AdasumMPIAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, con
     MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
     timeline.ActivityEndAll(entries);
   } else {
-    buffer_data = (void*) first_entry.output->data();
-    buffer_len = (size_t) first_entry.output->size();
+    buffer_data = (void*)first_entry.output->data();
+    buffer_len = (size_t)first_entry.output->size();
     if (first_entry.tensor->data() != first_entry.output->data()) {
       std::memcpy(buffer_data, (void*)first_entry.tensor->data(), buffer_len);
     }
@@ -52,7 +54,7 @@ Status AdasumMPIAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, con
 
   // Do allreduce.
   timeline.ActivityStartAll(entries, MPI_ADASUM_ALLREDUCE);
-	std::vector<int> tensor_counts;
+  std::vector<int> tensor_counts;
   for (auto& e : entries) {
     tensor_counts.push_back(e.tensor->shape().num_elements());
   }
@@ -62,8 +64,7 @@ Status AdasumMPIAllreduceOp::Execute(std::vector<TensorTableEntry>& entries, con
                          1, // start_level
                          mpi_context_->GetMPICommunicator(Communicator::GLOBAL),
                          0, // tag
-                         reduction_comms_,
-                         first_entry.tensor->dtype(),
+                         reduction_comms_, first_entry.tensor->dtype(),
                          global_state_);
   timeline.ActivityEndAll(entries);
 
