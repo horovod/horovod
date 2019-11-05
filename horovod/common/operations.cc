@@ -151,10 +151,6 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #if HAVE_MPI && HAVE_CUDA
   if (mpi_context.IsEnabled()) {
 #if HOROVOD_GPU_ALLREDUCE == 'M'
-
-    LOG(WARNING) << "Adasum GPU reduction is not supported with HOROVOD_GPU_ALLREDUCE=MPI."
-                 << "Please compile with HOROVOD_GPU_ALLREDUCE=NCCL if Adasum GPU reduction is desired.";
-
     allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
         new MPI_CUDAAllreduce(&mpi_context, &cuda_context, &state)));
 
