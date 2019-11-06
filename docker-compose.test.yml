@@ -196,7 +196,7 @@ services:
       args:
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 2.7
-        TENSORFLOW_PACKAGE: tf-nightly-2.0-preview
+        TENSORFLOW_PACKAGE: tensorflow==2.0.0
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: https://download.pytorch.org/whl/cpu/torch-1.2.0%2Bcpu-cp27-cp27mu-manylinux1_x86_64.whl
         TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cpu/torchvision-0.4.0%2Bcpu-cp27-cp27mu-manylinux1_x86_64.whl
@@ -208,7 +208,7 @@ services:
       args:
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.5
-        TENSORFLOW_PACKAGE: tf-nightly-2.0-preview
+        TENSORFLOW_PACKAGE: tensorflow==2.0.0
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: https://download.pytorch.org/whl/cpu/torch-1.2.0%2Bcpu-cp35-cp35m-manylinux1_x86_64.whl
         TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cpu/torchvision-0.4.0%2Bcpu-cp35-cp35m-manylinux1_x86_64.whl
@@ -221,7 +221,7 @@ services:
         UBUNTU_VERSION: 18.04
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tf-nightly-2.0-preview
+        TENSORFLOW_PACKAGE: tensorflow==2.0.0
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: https://download.pytorch.org/whl/cpu/torch-1.2.0%2Bcpu-cp36-cp36m-manylinux1_x86_64.whl
         TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cpu/torchvision-0.4.0%2Bcpu-cp36-cp36m-manylinux1_x86_64.whl
@@ -233,7 +233,7 @@ services:
       args:
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 2.7
-        TENSORFLOW_PACKAGE: tf-nightly
+        TENSORFLOW_PACKAGE: tf-nightly==2.1.0.dev20191104
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: git+https://github.com/pytorch/vision.git
@@ -246,7 +246,7 @@ services:
         UBUNTU_VERSION: 18.04
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tf-nightly
+        TENSORFLOW_PACKAGE: tf-nightly==2.1.0.dev20191104
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: git+https://github.com/pytorch/vision.git
@@ -335,7 +335,7 @@ services:
         CUDA_DOCKER_VERSION: 10.0-devel-ubuntu18.04
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tf-nightly-gpu-2.0-preview
+        TENSORFLOW_PACKAGE: tensorflow-gpu==2.0.0
         KERAS_PACKAGE: keras==2.2.4
         PYTORCH_PACKAGE: https://download.pytorch.org/whl/cu100/torch-1.2.0-cp36-cp36m-manylinux1_x86_64.whl
         TORCHVISION_PACKAGE: https://download.pytorch.org/whl/cu100/torchvision-0.4.0-cp36-cp36m-manylinux1_x86_64.whl
