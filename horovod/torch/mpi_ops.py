@@ -102,7 +102,9 @@ def _allreduce_async(tensor, output, name, op):
     elif (op == Adasum):
         if (tensor.device.type != 'cpu' and _has_gpu):
             if nccl_built():
-                if not num_rank_is_power_2(size() / local_size()):
+                if size() % local_size() != 0:
+                    raise NotImplementedError('Running GPU Adasum on heterogeneous cluster is not supported yet.')
+                elif not num_rank_is_power_2(int(size() / local_size())):
                     raise NotImplementedError('Running GPU Adasum with non-power of 2 nodes is not supported yet.')
                 divisor = local_size()
             else:

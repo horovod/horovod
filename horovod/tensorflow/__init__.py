@@ -98,7 +98,9 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             if op == Adasum:
                 if ('CPU' not in tensor.device and has_gpu):
                     if nccl_built():
-                        if not check_num_rank_power_of_2(size() / local_size()):
+                        if size() % local_size() != 0:
+                            raise NotImplementedError('Running GPU Adasum on heterogeneous cluster is not supported yet.')
+                        elif not check_num_rank_power_of_2(int(size() / local_size())):
                             raise NotImplementedError('Running GPU Adasum with non-power of 2 nodes is not supported yet.')
                         horovod_local_size = tf.cast(local_size(), dtype=tensor.dtype)
                         new_tensor = summed_tensor / horovod_local_size
