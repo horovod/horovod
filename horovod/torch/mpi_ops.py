@@ -64,6 +64,8 @@ Average = _basics.Average
 Sum = _basics.Sum
 Adasum = _basics.Adasum
 
+is_homogeneous = _basics.is_homogeneous
+
 handle_average_backwards_compatibility = get_average_backwards_compatibility_fun(_basics)
 
 
@@ -102,7 +104,7 @@ def _allreduce_async(tensor, output, name, op):
     elif (op == Adasum):
         if (tensor.device.type != 'cpu' and _has_gpu):
             if nccl_built():
-                if size() % local_size() != 0:
+                if not is_homogeneous():
                     raise NotImplementedError('Running GPU Adasum on heterogeneous cluster is not supported yet.')
                 elif not num_rank_is_power_2(int(size() / local_size())):
                     raise NotImplementedError('Running GPU Adasum with non-power of 2 nodes is not supported yet.')

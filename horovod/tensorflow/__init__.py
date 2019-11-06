@@ -27,7 +27,7 @@ check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_
 from horovod.tensorflow.compression import Compression
 from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce
 from horovod.tensorflow.mpi_ops import init, shutdown
-from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank
+from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank, is_homogeneous
 from horovod.tensorflow.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.tensorflow.mpi_ops import gloo_enabled, gloo_built
 from horovod.tensorflow.mpi_ops import nccl_built, ddl_built, mlsl_built
@@ -98,7 +98,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             if op == Adasum:
                 if ('CPU' not in tensor.device and has_gpu):
                     if nccl_built():
-                        if size() % local_size() != 0:
+                        if not is_homogeneous:
                             raise NotImplementedError('Running GPU Adasum on heterogeneous cluster is not supported yet.')
                         elif not check_num_rank_power_of_2(int(size() / local_size())):
                             raise NotImplementedError('Running GPU Adasum with non-power of 2 nodes is not supported yet.')

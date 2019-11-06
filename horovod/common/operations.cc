@@ -690,6 +690,10 @@ int horovod_local_size() {
   return horovod_global.controller->GetLocalSize();
 }
 
+bool horovod_is_homogeneous() {
+  return horovod_global.controller->IsHomogeneous();
+}
+
 int horovod_mpi_threads_supported() {
   if (!horovod_global.initialization_done) {
     return -1;

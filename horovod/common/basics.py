@@ -119,6 +119,15 @@ class HorovodBasics(object):
                 'Horovod has not been initialized; use hvd.init().')
         return local_rank
 
+    def is_homogeneous(self):
+        """Returns True if the cluster is homogeneous.
+
+        Returns:
+          A boolean value indicating whether every node in the cluster has same number of ranks.
+        """
+        is_homogeneous = self.MPI_LIB_CTYPES.horovod_is_homogeneous()
+        return bool(is_homogeneous)
+
     def mpi_threads_supported(self):
         """A function that returns a flag indicating whether MPI multi-threading is supported.
 

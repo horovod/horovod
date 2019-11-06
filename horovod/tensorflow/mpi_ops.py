@@ -70,6 +70,8 @@ Average = _basics.Average
 Sum = _basics.Sum
 Adasum = _basics.Adasum
 
+is_homogeneous = _basics.is_homogeneous
+
 handle_average_backwards_compatibility = get_average_backwards_compatibility_fun(_basics)
 
 check_num_rank_power_of_2 = num_rank_is_power_2
