@@ -26,6 +26,8 @@ _OMPI_FLAGS = ['-mca pml ob1', '-mca btl ^openib']
 _SMPI_FLAGS = ['-gpu', '-disable_gdr']
 # MPICH Flags
 _MPICH_FLAGS = []
+# Threshold for large cluster MPI issues:
+_LARGE_CLUSTER_THRESHOLD = 64
 
 try:
     from shlex import quote
@@ -62,7 +64,24 @@ def _get_mpi_implementation_flags():
         return None
 
 
-def mpi_run(settings, common_intfs, env, command):
+def mpi_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_func=safe_shell_exec.execute):
+    """
+    Runs mpi_run.
+
+    Args:
+        settings: Settings for running MPI.
+                  Note: settings.num_proc and settings.hosts must not be None.
+        common_intfs: Interfaces to include by MPI.
+        env: Environment dictionary to use for running MPI.
+        command: Command and arguments to run as a list of string.
+        stdout: Stdout of the mpi process.
+                Only used when settings.run_func_mode is True.
+        stderr: Stderr of the mpi process.
+                Only used when settings.run_func_mode is True.
+        run_func: Run function to use. Must have arguments 'command' and 'env'.
+                  Only used when settings.run_func_mode is True.
+                  Defaults to safe_shell_exec.execute.
+    """
     mpi_impl_flags = _get_mpi_implementation_flags()
     if mpi_impl_flags is None:
         raise Exception(
@@ -88,7 +107,7 @@ def mpi_run(settings, common_intfs, env, command):
         common_intfs=','.join(common_intfs)) if common_intfs else ''
 
     # On large cluster runs (e.g. Summit), we need extra settings to work around OpenMPI issues
-    if settings.num_hosts >= 64:
+    if settings.num_hosts and settings.num_hosts >= _LARGE_CLUSTER_THRESHOLD:
         mpi_impl_flags.append('-mca plm_rsh_no_tree_spawn true')
         mpi_impl_flags.append('-mca plm_rsh_num_concurrent {}'.format(settings.num_proc))
 
@@ -111,7 +130,7 @@ def mpi_run(settings, common_intfs, env, command):
                 ssh_port_arg=ssh_port_arg,
                 output_filename_arg='--output-filename ' + settings.output_filename
                                     if settings.output_filename else '',
-                env=' '.join('-x %s' % key for key in env.keys()
+                env=' '.join('-x %s' % key for key in sorted(env.keys())
                              if env_util.is_exportable(key)),
 
                 extra_mpi_args=settings.extra_mpi_args if settings.extra_mpi_args else '',
@@ -123,7 +142,7 @@ def mpi_run(settings, common_intfs, env, command):
 
     # Execute the mpirun command.
     if settings.run_func_mode:
-        exit_code = safe_shell_exec.execute(mpirun_command, env=env)
+        exit_code = run_func(command=mpirun_command, env=env, stdout=stdout, stderr=stderr)
         if exit_code != 0:
             raise RuntimeError("mpirun failed with exit code {exit_code}".format(exit_code=exit_code))
     else:

@@ -47,7 +47,7 @@ RUN if [[ "${PYTHON_VERSION}" == "3.6" ]]; then \
     fi
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
-RUN pip install -U --force pip setuptools requests pytest
+RUN pip install -U --force pip setuptools requests pytest mock
 
 # Install PySpark.
 RUN apt install -y openjdk-8-jdk-headless

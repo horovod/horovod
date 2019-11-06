@@ -34,7 +34,7 @@ For example:
     $ pip install keras==2.2.4
     $ pip install torch==1.1.0 torchvision
     $ pip install pytest
-    $ pip install h5py future scipy mpi4py pyspark mxnet
+    $ pip install h5py future scipy mpi4py pyspark mock mxnet
 
 
 Build and Install
