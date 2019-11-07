@@ -46,10 +46,11 @@ class TorchAdasumTests(unittest.TestCase):
     return self.diff_ratio(true_vec, comp_vec) < np.finfo(data_type).eps
 
   def test_orthogonal(self):
-    # Only do this test if there are GPUs available.
-    if not torch.cuda.is_available():
-        return
     hvd.init()
+    # TODO support non-MPI Adasum operation
+    # Only do this test if there are GPUs available.
+    if not hvd.mpi_enabled() or not torch.cuda.is_available():
+      return
     device = torch.device('cuda:{}'.format(hvd.local_rank()))
     np.random.seed(2)
     torch.manual_seed(2)
@@ -91,11 +92,12 @@ class TorchAdasumTests(unittest.TestCase):
       assert np.alltrue(all_comp)
 
   def test_parallel(self):
-    # Only do this test if there are GPUs available.
-    if not torch.cuda.is_available():
-        return
-
     hvd.init()
+    # TODO support non-MPI Adasum operation
+    # Only do this test if there are GPUs available.
+    if not hvd.mpi_enabled() or not torch.cuda.is_available():
+      return
+
     device = torch.device('cuda:{}'.format(hvd.local_rank()))
     np.random.seed(2)
     torch.manual_seed(2)

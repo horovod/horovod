@@ -103,10 +103,11 @@ class MPITests(tf.test.TestCase):
 
     def test_horovod_adasum_multiple_allreduce_cpu(self):
         """Test on CPU that the Adasum correctly computes 2D tensors."""
+        hvd.init()
         # TODO support non-MPI Adasum operation
         if not hvd.mpi_enabled():
             return
-        hvd.init()
+
         size = hvd.size()
         # TODO support testing with non-power 2 ranks
         if not is_power2(size):
@@ -134,9 +135,11 @@ class MPITests(tf.test.TestCase):
 
     def test_horovod_adasum_multiple_allreduce_gpu(self):
         """Test on GPU that the Adasum correctly computes 2D tensors."""
-        if not tf.test.is_gpu_available(cuda_only=True):
-            return
         hvd.init()
+        # TODO support non-MPI Adasum operation
+        if not hvd.mpi_enabled() or not tf.test.is_gpu_available(cuda_only=True):
+            return
+
         rank = hvd.rank()
         rank_tensors = []
         size = hvd.size()
