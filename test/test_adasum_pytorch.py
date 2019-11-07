@@ -59,7 +59,7 @@ class TorchAdasumTests(unittest.TestCase):
     rank = hvd.rank()
 
     for data_type in self.data_types:
-      denominator = local_size
+      denominator = local_size if hvd.nccl_built() else 1
       all_Ns = [size*20 - 17, size*2+1, size+2, 2**19]
       tensors = []
       all_qs = []
