@@ -14,28 +14,28 @@ tests=( \
        test-cpu-openmpi-py2_7-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
        test-cpu-openmpi-py3_5-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
        test-cpu-openmpi-py3_6-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
-       test-cpu-openmpi-py2_7-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0 \
-       test-cpu-openmpi-py3_5-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0 \
-       test-cpu-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0 \
-       test-cpu-gloo-py2_7-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0 \
-       test-cpu-gloo-py3_5-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0 \
-       test-cpu-gloo-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0 \
-       test-cpu-openmpi-gloo-py2_7-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0 \
-       test-cpu-openmpi-gloo-py3_5-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0 \
-       test-cpu-openmpi-gloo-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0 \
-       test-cpu-openmpi-py2_7-tf2_0_0-keras2_2_4-torch1_2_0-mxnet1_5_0-pyspark2_4_0 \
-       test-cpu-openmpi-py3_5-tf2_0_0-keras2_2_4-torch1_2_0-mxnet1_5_0-pyspark2_4_0 \
-       test-cpu-openmpi-py3_6-tf2_0_0-keras2_2_4-torch1_2_0-mxnet1_5_0-pyspark2_4_0 \
+       test-cpu-openmpi-py2_7-tf1_14_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_4_0 \
+       test-cpu-openmpi-py3_5-tf1_14_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_4_0 \
+       test-cpu-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_4_0 \
+       test-cpu-gloo-py2_7-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
+       test-cpu-gloo-py3_5-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
+       test-cpu-gloo-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
+       test-cpu-openmpi-gloo-py2_7-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
+       test-cpu-openmpi-gloo-py3_5-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
+       test-cpu-openmpi-gloo-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
+       test-cpu-openmpi-py2_7-tf2_0_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
+       test-cpu-openmpi-py3_5-tf2_0_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
+       test-cpu-openmpi-py3_6-tf2_0_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-openmpi-py2_7-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
        test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
-       test-cpu-mpich-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_5_0-pyspark2_4_0 \
-       test-cpu-mlsl-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_5_0-pyspark2_4_0 \
-       test-gpu-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0 \
-       test-gpu-gloo-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0 \
-       test-gpu-openmpi-gloo-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_4_1-pyspark2_4_0 \
-       test-gpu-openmpi-py3_6-tf2_0_0-keras2_2_4-torch1_2_0-mxnet1_5_0-pyspark2_4_0 \
+       test-cpu-mpich-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
+       test-cpu-mlsl-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
+       test-gpu-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
+       test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
+       test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
+       test-gpu-openmpi-py3_6-tf2_0_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
        test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
-       test-mixed-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_1_0-mxnet1_5_0-pyspark2_4_0 \
+       test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
 )
 
 build_test() {
