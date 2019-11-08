@@ -133,11 +133,11 @@ class MPITests(tf.test.TestCase):
                 tmp = [t.astype(np_type) for t in answer]
                 self.assertAllCloseAccordingToType(tmp, reduced_tensors)
 
-    def test_horovod_adasum_multiple_allreduce_gpu(self):
-        """Test on GPU that the Adasum correctly computes 2D tensors."""
+    def test_horovod_adasum_multiple_allreduce_gpu_nccl(self):
+        """Test on GPU using NCCL that the Adasum correctly computes 2D tensors."""
         hvd.init()
         # TODO support non-MPI Adasum operation
-        if not hvd.mpi_enabled() or not tf.test.is_gpu_available(cuda_only=True):
+        if not hvd.mpi_enabled() or not hvd.nccl_built():
             return
 
         rank = hvd.rank()
@@ -148,10 +148,9 @@ class MPITests(tf.test.TestCase):
             return
 
         local_size = hvd.local_size()
-        is_homogeneous = size % local_size == 0
 
         # Only run on homogeneous cluster
-        if(not is_homogeneous):
+        if(not hvd.is_homogeneous()):
             return
         num_nodes = int(size / local_size)
         for _ in range(size):

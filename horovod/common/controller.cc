@@ -500,7 +500,7 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
 
   // If there is at least one rank that requested Join, communicate tensor sizes
   // in the response, because joined ranks don't have this info.
-  if (joined_size > 0 && message_type == Request::ALLREDUCE) {
+  if (joined_size > 0 && (message_type == Request::ALLREDUCE || message_type == Request::ADASUM)) {
     TensorShape tensor_shape;
     for (auto dim : requests[0].tensor_shape()) {
       tensor_shape.AddDim(dim);
@@ -580,6 +580,12 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
     response.set_response_type(Response::BROADCAST);
   } else if (message_type == Request::ADASUM) {
     response.set_response_type(Response::ADASUM);
+    if (joined_size > 0) {
+      for (auto dim : tensor_sizes) {
+        response.add_tensor_size(dim);
+      }
+      response.set_tensor_type(data_type);
+    }
   }
   response.set_devices(devices);
 

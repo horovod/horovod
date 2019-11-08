@@ -1026,7 +1026,6 @@ def build_mx_extension(build_ext, global_options):
         options['SOURCES'] += ['horovod/common/ops/cuda_operations.cc']
         if options['BUILD_MPI']:
             options['SOURCES'] += ['horovod/common/ops/mpi_cuda_operations.cc']
-        options['SOURCES'] += ['horovod/common/ops/adasum_cuda_operations.cc']
         options['LIBRARY_DIRS'] += cuda_lib_dirs
         options['LIBRARIES'] += ['cudart']
 
