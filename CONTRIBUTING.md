@@ -23,7 +23,7 @@ Current voting members of the Horovod TSC:
 * Travis Addair (@tgaddair)
 * Can Karakus (@karakusc)
 
-Current maintainers within the Horovod TSC:
+Current non-voting members of the Horovod TSC:
 * Josh Romero (@romerojosh)
 * Yuxi Hu (@yuxihu)
 * Lin Yuan (@apeforest)
@@ -33,7 +33,7 @@ Current maintainers within the Horovod TSC:
 Non-voting members of the TSC ("maintainers") have commit access to the Horovod GitHub repository, and take part in the
 standing TSC meetings and mailing lists.
 
-The Horovod TSC meets monthly and publishes meeting notes via [mailing list](https://lists.lfai.foundation/g/horovod-tsc).
+The Horovod TSC meets monthly and publishes meeting notes via a [mailing list](https://lists.lfai.foundation/g/horovod-tsc).
 This mailing list can also be utilized to reach out to the TSC.  Major decisions regarding the technical directions of
 the Horovod project will be brought before the TSC for discussion, with an accompanying proposal document termed an RFC
 (Request for Comments).
