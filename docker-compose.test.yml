@@ -293,7 +293,7 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 10.0-devel-ubuntu18.04
+        CUDA_DOCKER_VERSION: 10.1-devel-ubuntu18.04
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
         TENSORFLOW_PACKAGE: tensorflow-gpu==1.15.0
@@ -306,7 +306,7 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 10.0-devel-ubuntu18.04
+        CUDA_DOCKER_VERSION: 10.1-devel-ubuntu18.04
         MPI_KIND: None
         PYTHON_VERSION: 3.6
         TENSORFLOW_PACKAGE: tensorflow-gpu==1.15.0
@@ -319,7 +319,7 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 10.0-devel-ubuntu18.04
+        CUDA_DOCKER_VERSION: 10.1-devel-ubuntu18.04
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
         TENSORFLOW_PACKAGE: tensorflow-gpu==1.15.0
@@ -332,7 +332,7 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 10.0-devel-ubuntu18.04
+        CUDA_DOCKER_VERSION: 10.1-devel-ubuntu18.04
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
         TENSORFLOW_PACKAGE: tensorflow-gpu==2.0.0
@@ -345,7 +345,7 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 10.0-devel-ubuntu18.04
+        CUDA_DOCKER_VERSION: 10.1-devel-ubuntu18.04
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
         TENSORFLOW_PACKAGE: tf-nightly-gpu
@@ -358,7 +358,7 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 10.0-devel-ubuntu18.04
+        CUDA_DOCKER_VERSION: 10.1-devel-ubuntu18.04
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
         TENSORFLOW_PACKAGE: tensorflow-gpu==1.15.0
