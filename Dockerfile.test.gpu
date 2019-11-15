@@ -1,11 +1,11 @@
-ARG CUDA_DOCKER_VERSION=10.1-devel-ubuntu16.04
+ARG CUDA_DOCKER_VERSION=10.0-devel-ubuntu16.04
 FROM nvidia/cuda:${CUDA_DOCKER_VERSION}
 
 # Arguments for the build. CUDA_DOCKER_VERSION needs to be repeated because
 # the first usage only applies to the FROM tag.
-ARG CUDA_DOCKER_VERSION=10.1-devel-ubuntu16.04
-ARG CUDNN_VERSION=7.6.5.32-1+cuda10.1
-ARG NCCL_VERSION_OVERRIDE=2.5.4-1+cuda10.1
+ARG CUDA_DOCKER_VERSION=10.0-devel-ubuntu16.04
+ARG CUDNN_VERSION=7.6.0.64-1+cuda10.0
+ARG NCCL_VERSION_OVERRIDE=2.4.7-1+cuda10.0
 ARG MPI_KIND=OpenMPI
 ARG PYTHON_VERSION=2.7
 ARG TENSORFLOW_PACKAGE=tensorflow-gpu==1.14.0
