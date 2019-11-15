@@ -1251,12 +1251,12 @@ class TorchTests(unittest.TestCase):
 
     def test_delta_optimizer(self):
         """Test that delta optimizer."""
+        hvd.init()
         # TODO support non-MPI Adasum operation
         # Only do this test if there are GPUs available.
         if not hvd.mpi_enabled() or not torch.cuda.is_available():
             return
 
-        hvd.init()
         local_rank = hvd.local_rank()
         size = hvd.size()
 
