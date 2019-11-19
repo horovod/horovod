@@ -36,12 +36,14 @@ def _hash(string):
 
 def host_hash():
     """
-    Computes a hash that represents this host.
+    Computes a hash that represents this host, a unit of processing power that shares memory.
 
     The hash contains the part of the hostname, e.g. `host` for hostname `host.example.com`,
     plus a hash derived from the full hostname and further information about this machine.
 
     This considers environment variable CONTAINER_ID which is present when running Spark via YARN.
+    A YARN container does not share memory with other containers on the same host,
+    so it must be considered a `host` in the sense of the `host_hash`.
     """
     hostname = socket.gethostname()
     host = hostname.split('.')[0]
