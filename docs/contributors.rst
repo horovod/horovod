@@ -178,12 +178,12 @@ Horovod in Spark
 The ``horovod.spark`` package makes it easy to run Horovod jobs in Spark clusters. The following section
 outlines how Horovod orchestrates Spark and MPI.
 
-Your Horovod job becomes the Spark driver and creates ``N`` tasks on the Spark cluster (``horovod.spark._make_spark_thread``).
+Your Horovod job becomes the Spark driver and creates ``num_proc`` tasks on the Spark cluster (``horovod.spark._make_spark_thread``).
 Each task runs ``horovod.spark._task_fn`` that registers with the driver, so that the driver knows when all
 tasks are up and which IP and port they are running at. They also send their host hash, a string that
 is treated by MPI as a hostname.
 
-Note: Horovod expects all tasks to run at the same time, so your cluster has to provide at least ``N`` cores to your Horovod job.
+Note: Horovod expects all tasks to run at the same time, so your cluster has to provide at least ``num_proc`` cores to your Horovod job.
 There can be multiple cores per executor, so an executor can process multiple tasks. Hosts can also have multiple executors.
 
 The driver signals all tasks that all other tasks are up running. Each task continues initialisation
@@ -198,6 +198,10 @@ This way, a single ``orted`` process runs per executor, even if the executor has
 MPI then uses `orted` to launch the Python function for that executor.
 There will be one Python function running per core in each executor inside the first task.
 All other tasks with the same host hash wait for the first task to terminate.
+
+The following diagram illustrates this process:
+
+.. image:: _static/spark-mpi.png
 
 
 Host Hash
