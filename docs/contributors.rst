@@ -33,8 +33,8 @@ For example:
     $ pip install tensorflow==1.14.0
     $ pip install keras==2.2.4
     $ pip install torch==1.1.0 torchvision
-    $ pip install pytest
-    $ pip install h5py future scipy mpi4py pyspark mock mxnet
+    $ pip install pytest mock
+    $ pip install h5py future scipy mpi4py pyspark mxnet
 
 
 Build and Install
@@ -170,6 +170,51 @@ Finally, you can start using your new compressor by passing it to the ``Distribu
 .. code-block:: python
 
     opt = hvd.DistributedOptimizer(opt, compression=hvd.Compression.custom)
+
+
+Horovod in Spark
+----------------
+
+The ``horovod.spark`` package makes it easy to run Horovod jobs in Spark clusters. The following section
+outlines how Horovod orchestrates Spark and MPI.
+
+Your Horovod job becomes the Spark driver and creates ``num_proc`` tasks on the Spark cluster (``horovod.spark._make_spark_thread``).
+Each task runs ``horovod.spark._task_fn`` that registers with the driver, so that the driver knows when all
+tasks are up and which IP and port they are running at. They also send their host hash, a string that
+is treated by MPI as a hostname.
+
+Note: Horovod expects all tasks to run at the same time, so your cluster has to provide at least ``num_proc`` cores to your Horovod job.
+There can be multiple cores per executor, so an executor can process multiple tasks. Hosts can also have multiple executors.
+
+The driver signals all tasks that all other tasks are up running. Each task continues initialisation
+and then waits for the RPC to terminate.
+
+After signalling all tasks are up, the driver runs ``mpi_run`` to launch the Python function in those tasks (RPC).
+Usually, MPI connects to the hosts via SSH, but this would not allow to launch the Python function inside the Spark executors.
+Therefore, MPI connects to each executor by invoking the ``horovod.spark.driver.mpirun_rsh`` method to "remote shell"
+into the executors. This method communicates with the task that has the smallest index per host hash.
+This task executes the ``orted`` command provided by MPI.
+This way, a single ``orted`` process runs per executor, even if the executor has multiple cores / tasks.
+MPI then uses `orted` to launch the Python function for that executor.
+There will be one Python function running per core in each executor inside the first task.
+All other tasks with the same host hash wait for the first task to terminate.
+
+The following diagram illustrates this process:
+
+.. image:: _static/spark-mpi.png
+
+
+Host Hash
+~~~~~~~~~
+
+The host hash represents a single unit of processing power that shares memory. Usually, this is a regular host.
+In scenarios where YARN is used to allocate cores for your Spark job, memory allocation is only shared within an executor.
+There can be multiple executors running for your Horovod job on the same host, but they have each limited memory allocation.
+Hence each executor gets its own host hash.
+
+If you require each Python function to run in their own task process within a Spark executor,
+then the index of the task has to become part of the host hash as well. This requirement hasn't been
+observed so far. This would also increase the complexity of the MPI cluster.
 
 
 Release Process

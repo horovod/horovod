@@ -76,7 +76,9 @@ def _make_mapper(driver_addresses, settings):
 
 def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
                        settings):
+    """Creates `settings.num_proc` Spark tasks in a parallel thread."""
     def run_spark():
+        """Creates `settings.num_proc` Spark tasks, each executing `_task_fn` and waits for them to terminate."""
         try:
             spark_context.setJobGroup(spark_job_group,
                                       "Horovod Spark Run",

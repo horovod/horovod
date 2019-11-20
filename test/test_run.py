@@ -28,6 +28,7 @@ import pytest
 from mock import MagicMock
 
 from horovod.run.common.util import config_parser, secret, settings as hvd_settings, timeout
+from horovod.run.common.util.host_hash import _hash, host_hash
 from horovod.run.mpi_run import _get_mpi_implementation_flags, _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_run
 from horovod.run.run import parse_args
 
@@ -42,6 +43,17 @@ def override_args(tool=None, *args):
         yield
     finally:
         sys.argv = old
+
+
+@contextlib.contextmanager
+def override_env(env):
+    old = os.environ.copy()
+    try:
+        os.environ.update(env)
+        yield
+    finally:
+        os.environ.clear()
+        os.environ.update(old)
 
 
 class RunTests(unittest.TestCase):
@@ -218,6 +230,17 @@ class RunTests(unittest.TestCase):
                            '--fusion-threshold-mb', '-1'):
             with pytest.raises(ValueError):
                 parse_args()
+
+    def test_hash(self):
+        hash = _hash("test string")
+        self.assertEqual(hash, '6f8db599de986fab7a21625b7916589c')
+
+    def test_host_hash(self):
+        hash = host_hash()
+        # host_hash should consider CONTAINER_ID environment variable
+        with override_env({'CONTAINER_ID': 'a container id'}):
+            self.assertNotEqual(host_hash(), hash)
+        self.assertEqual(host_hash(), hash)
 
     """
     Minimal mpi_run settings for tests.

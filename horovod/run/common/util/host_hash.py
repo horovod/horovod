@@ -30,9 +30,31 @@ def _namespaces():
     return hash
 
 
+def _hash(string):
+    return hashlib.md5(string.encode('ascii')).hexdigest()
+
+
 def host_hash():
+    """
+    Computes a hash that represents this host, a unit of processing power that shares memory.
+
+    The hash contains the part of the hostname, e.g. `host` for hostname `host.example.com`,
+    plus a hash derived from the full hostname and further information about this machine.
+
+    This considers environment variable CONTAINER_ID which is present when running Spark via YARN.
+    A YARN container does not share memory with other containers on the same host,
+    so it must be considered a `host` in the sense of the `host_hash`.
+    """
     hostname = socket.gethostname()
+    host = hostname.split('.')[0]
     ns = _namespaces()
-    host_ns = hostname + '-' + ns
-    hash = hashlib.md5(host_ns.encode('ascii')).hexdigest()
-    return '%s-%s' % (hostname.split('.')[0], hash)
+    host_info = '{hostname}-{ns}'.format(hostname=hostname, ns=ns)
+
+    # when running in YARN containers we need to consider a container a host
+    # otherwise we might violate resource allocation if we run all tasks of a host in one container
+    # see [issues 1497](https://github.com/horovod/horovod/issues/1497) for details
+    container = os.environ.get("CONTAINER_ID")
+    if container is not None:
+        host_info = '{host_info}-{container}'.format(host_info=host_info, container=container)
+
+    return '{host}-{hash}'.format(host=host, hash=_hash(host_info))
