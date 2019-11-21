@@ -74,6 +74,31 @@ Horovod has unit tests for all frameworks you can run from the tests directory:
 **IMPORTANT:** Some tests contain GPU-only codepaths that will be skipped if running without GPU support.
 
 
+Documentation
+-------------
+
+The Horovod documentation is available at https://horovod.readthedocs.io/.
+
+Those html pages can be rendered from ``.rst`` files located in the `docs` directory.
+You need to setup Sphinx before you compile the documentation the first time:
+
+.. code-block:: bash
+
+    $ cd docs
+    $ pip install -r requirements.txt
+    $ make clean
+
+Then you can build the html pages and open ``docs/_build/html/index.html``:
+
+.. code-block:: bash
+
+    $ cd docs
+    $ make html
+    $ open _build/html/index.html
+
+Sphinx can render the documentation in many other formats, just type ``make`` to get a list of available formats.
+
+
 Adding Custom Operations
 ------------------------
 
