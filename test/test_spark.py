@@ -22,13 +22,16 @@ import os
 import pytest
 import re
 import subprocess
+import tempfile
 import time
 import torch
 import unittest
 import warnings
 
+from horovod.run.common.util import secret
 from horovod.run.mpi_run import _get_mpi_implementation_flags
 import horovod.spark
+from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient
 import horovod.torch as hvd
 
 from mock import MagicMock
@@ -212,3 +215,28 @@ class SparkTests(unittest.TestCase):
         self.assertTrue(len(actual_secret) > 0)
         self.assertEqual(actual_stdout, stdout)
         self.assertEqual(actual_stderr, stderr)
+
+    def test_spark_task_service_env(self):
+        key = secret.make_secret_key()
+        service_env = dict([(key, '{} value'.format(key))
+                            for key in SparkTaskService.SERVICE_ENV_KEYS])
+        service_env.update({"other": "value"})
+        with os_environ(service_env):
+            service = SparkTaskService(1, key, None)
+            client = SparkTaskClient(1, service.addresses(), key, 3)
+
+            with tempfile.TemporaryDirectory() as d:
+                file = '{}/env'.format(d)
+                command = "env | grep -v '^PWD='> {}".format(file)
+                command_env = {"test": "value"}
+
+                try:
+                    client.run_command(command, command_env)
+                    client.wait_for_command_termination()
+                finally:
+                    service.shutdown()
+
+                with open(file) as f:
+                    env = sorted([line.strip() for line in f.readlines()])
+                    expected = ['HADOOP_TOKEN_FILE_LOCATION=HADOOP_TOKEN_FILE_LOCATION value', 'test=value']
+                    self.assertEqual(env, expected)
