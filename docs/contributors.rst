@@ -183,7 +183,7 @@ Each task runs ``horovod.spark._task_fn`` that registers with the driver, so tha
 tasks are up and which IP and port they are running at. They also send their host hash, a string that
 is treated by MPI as a hostname.
 
-Note: Horovod expects all tasks to run at the same time, so your cluster has to provide at least ``num_proc`` cores to your Horovod job.
+**Note:** Horovod expects all tasks to run at the same time, so your cluster has to provide at least ``num_proc`` cores to your Horovod job.
 There can be multiple cores per executor, so an executor can process multiple tasks. Hosts can also have multiple executors.
 
 The driver signals all tasks that all other tasks are up running. Each task continues initialisation
