@@ -22,7 +22,7 @@ import os
 import pytest
 import re
 import subprocess
-import tempfile
+import sys
 import time
 import torch
 import unittest
@@ -35,6 +35,11 @@ from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient
 import horovod.torch as hvd
 
 from mock import MagicMock
+
+if sys.version_info[0] < 3:
+    from backports import tempfile
+else:
+    import tempfile
 
 
 @contextlib.contextmanager
