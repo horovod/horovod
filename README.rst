@@ -35,7 +35,7 @@ Horovod
 |
 
 Horovod is a distributed training framework for TensorFlow, Keras, PyTorch, and MXNet. The goal of Horovod is to make
-distributed Deep Learning fast and easy to use. Full documentation can be found at https://horovod.readthedocs.io/en/latest.
+distributed Deep Learning fast and easy to use.
 
 
 .. raw:: html
@@ -52,7 +52,11 @@ about who's involved and how Horovod plays a role, read the LF AI `announcement 
 
 .. contents::
 
+
+See the full documentation and an API reference at https://horovod.readthedocs.io/en/latest.
+
 |
+
 
 Why not traditional Distributed TensorFlow?
 -------------------------------------------
@@ -116,12 +120,7 @@ If you're installing Horovod on a server with GPUs, read the `Horovod on GPU <do
 
 If you want to use Docker, read the `Horovod in Docker <docs/docker.rst>`_ page.
 
-
-Compiling
----------
-
-To compile Horovod from sources follow the instructions of the `Contributor Guide <docs/contributors.rst>`_ in `docs`
-or at https://horovod.readthedocs.io/en/latest/contributors_include.html.
+To compile Horovod from source, follow the instructions in the `Contributor Guide <docs/contributors.rst>`_.
 
 
 Concepts

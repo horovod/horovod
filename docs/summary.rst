@@ -111,6 +111,8 @@ If you're installing Horovod on a server with GPUs, read `Horovod on GPU <gpus.r
 
 If you want to use Docker, read `Horovod in Docker <docker.rst>`_.
 
+To compile Horovod from source, follow the instructions in the `Contributor Guide <contributors.rst>`_.
+
 
 Concepts
 --------
