@@ -22,7 +22,6 @@ import os
 import pytest
 import re
 import subprocess
-import sys
 import time
 import torch
 import unittest
@@ -36,10 +35,7 @@ import horovod.torch as hvd
 
 from mock import MagicMock
 
-if sys.version_info[0] < 3:
-    from backports import tempfile
-else:
-    import tempfile
+from common import tempdir
 
 
 @contextlib.contextmanager
@@ -230,7 +226,7 @@ class SparkTests(unittest.TestCase):
             service = SparkTaskService(1, key, None)
             client = SparkTaskClient(1, service.addresses(), key, 3)
 
-            with tempfile.TemporaryDirectory() as d:
+            with tempdir() as d:
                 file = '{}/env'.format(d)
                 command = "env | grep -v '^PWD='> {}".format(file)
                 command_env = {"test": "value"}

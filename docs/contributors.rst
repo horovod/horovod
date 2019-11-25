@@ -36,12 +36,6 @@ For example:
     $ pip install pytest mock
     $ pip install h5py future scipy mpi4py pyspark mxnet
 
-For Python2, you need to install additional packages:
-
-.. code-block:: bash
-
-    $ pip install backports.tempfile
-
 
 Build and Install
 -----------------
