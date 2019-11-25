@@ -16,7 +16,7 @@
 import atexit
 import ctypes
 
-import horovod.common.util as util
+from horovod.common import util as util
 
 
 class HorovodBasics(object):
