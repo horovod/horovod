@@ -1,5 +1,6 @@
 # Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 # Modifications copyright (C) 2019 Uber Technologies, Inc.
+# Modifications copyright Microsoft
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +26,7 @@ from tensorflow.python.framework import load_library
 from tensorflow.python.framework import ops
 from tensorflow.python.platform import resource_loader
 
-from horovod.common.util import get_ext_suffix
+from horovod.common.util import get_ext_suffix, get_average_backwards_compatibility_fun, num_rank_is_power_2
 from horovod.common.basics import HorovodBasics as _HorovodBasics
 from horovod.tensorflow.util import _executing_eagerly
 
@@ -64,14 +65,31 @@ nccl_built = _basics.nccl_built
 ddl_built = _basics.ddl_built
 mlsl_built = _basics.mlsl_built
 
+# import reduction op values
+Average = _basics.Average
+Sum = _basics.Sum
+Adasum = _basics.Adasum
+
+is_homogeneous = _basics.is_homogeneous
+
+handle_average_backwards_compatibility = get_average_backwards_compatibility_fun(_basics)
+
+check_num_rank_power_of_2 = num_rank_is_power_2
+
+# This function will create a default device map which includes all visible devices.
+# Please run this function in a subprocess
+def _check_has_gpu():
+  import tensorflow as tf
+  return tf.test.is_gpu_available()
 
 def _normalize_name(name):
     """Normalizes operation name to TensorFlow rules."""
     return re.sub('[^a-zA-Z0-9_]', '_', name)
 
 
-def _allreduce(tensor, name=None):
-    """An op which sums an input tensor over all the Horovod processes.
+def _allreduce(tensor, name=None, op=Sum):
+    """An op which reduces an input tensor over all the Horovod processes. The
+    default reduction is a sum.
 
     The reduction operation is keyed by the name of the op. The tensor type and
     shape must be the same on all Horovod processes for a given name. The reduction
@@ -83,7 +101,7 @@ def _allreduce(tensor, name=None):
     """
     if name is None and not _executing_eagerly():
         name = 'HorovodAllreduce_%s' % _normalize_name(tensor.name)
-    return MPI_LIB.horovod_allreduce(tensor, name=name)
+    return MPI_LIB.horovod_allreduce(tensor, name=name, reduce_op=op)
 
 
 @ops.RegisterGradient('HorovodAllreduce')

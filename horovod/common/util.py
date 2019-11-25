@@ -1,5 +1,6 @@
 # Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 # Modifications copyright (C) 2019 Uber Technologies, Inc.
+# Modifications copyright Microsoft
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -96,6 +97,10 @@ def extension_available(ext_base_name, verbose=False):
     return _check_extension_lambda(
         ext_base_name, available_fn, 'built', verbose) or False
 
+def gpu_available(ext_base_name, verbose=False):
+    available_fn = lambda ext: ext._check_has_gpu()
+    return _check_extension_lambda(
+        ext_base_name, available_fn, 'running with GPU', verbose) or False
 
 def mpi_built(verbose=False):
     for ext_base_name in EXTENSIONS:
@@ -172,3 +177,29 @@ def env(**kwargs):
                 os.environ[k] = backup[k]
             else:
                 del os.environ[k]
+
+def get_average_backwards_compatibility_fun(reduce_ops):
+    """
+    Handle backwards compatibility between the old average and the new op parameters.
+    Old code using the average parameter (e.g. hvd.allreduce(tensor, average=False))
+    gets unchanged behavior, but mixing old and new is disallowed (e.g. no
+    hvd.allreduce(tensor, average=False, op=hvd.Adasum)).
+    """
+    def impl(op, average):
+        if op != None:
+            if average != None:
+                raise ValueError('The op parameter supersedes average. Please provide only one of them.')
+            return op
+        elif average != None:
+            return reduce_ops.Average if average else reduce_ops.Sum
+        else:
+            return reduce_ops.Average
+    return impl
+
+def num_rank_is_power_2(num_rank):
+    """
+    Tests if the given number of ranks is of power of 2. This check is required
+    for Adasum allreduce.
+    TODO support non-power of 2 ranks.
+    """
+    return num_rank != 0 and ((num_rank & (num_rank -1)) == 0)

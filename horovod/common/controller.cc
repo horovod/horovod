@@ -1,4 +1,5 @@
 // Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+// Modifications copyright Microsoft
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -321,7 +322,8 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
     // All workers add supported responses to cache. This updates the cache
     // order consistently across workers.
     for (auto& response : response_list.responses()) {
-      if (response.response_type() == Response::ResponseType::ALLREDUCE &&
+      if ((response.response_type() == Response::ResponseType::ALLREDUCE ||
+           response.response_type() == Response::ResponseType::ADASUM) &&
           (int)response.devices().size() == size_) {
         response_cache_.put(response, tensor_queue_);
       }
@@ -338,10 +340,10 @@ int64_t Controller::TensorFusionThresholdBytes() {
   int64_t proposed_fusion_threshold =
       parameter_manager_.TensorFusionThresholdBytes();
 
-  // If the cluster is homogeneous and hierarchical allreduce is enabled,
+  // If the cluster is homogeneous,
   // adjust buffer size to make sure it is divisible by local_size to improve
-  // performance.
-  if (is_homogeneous_ && parameter_manager_.HierarchicalAllreduce()) {
+  // performance for operations that perform local reductions by default such as Adasum.
+  if (is_homogeneous_) {
     // Assume the worst-case data type float64, since if it is divisible with
     // float64, it will be divisible for other types too.
 
@@ -400,6 +402,7 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
   // If we are doing an allreduce or broadcast, check that all tensor shapes are
   // identical.
   if (message_type == Request::ALLREDUCE ||
+      message_type == Request::ADASUM ||
       message_type == Request::BROADCAST) {
     TensorShape tensor_shape;
     for (auto dim : requests[0].tensor_shape()) {
@@ -497,7 +500,7 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
 
   // If there is at least one rank that requested Join, communicate tensor sizes
   // in the response, because joined ranks don't have this info.
-  if (joined_size > 0 && message_type == Request::ALLREDUCE) {
+  if (joined_size > 0 && (message_type == Request::ALLREDUCE || message_type == Request::ADASUM)) {
     TensorShape tensor_shape;
     for (auto dim : requests[0].tensor_shape()) {
       tensor_shape.AddDim(dim);
@@ -575,6 +578,14 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
     }
   } else if (message_type == Request::BROADCAST) {
     response.set_response_type(Response::BROADCAST);
+  } else if (message_type == Request::ADASUM) {
+    response.set_response_type(Response::ADASUM);
+    if (joined_size > 0) {
+      for (auto dim : tensor_sizes) {
+        response.add_tensor_size(dim);
+      }
+      response.set_tensor_type(data_type);
+    }
   }
   response.set_devices(devices);
 
@@ -622,8 +633,8 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
     responses.pop_front();
     int64_t tensor_size = 0;
     DataType dtype;
-
-    if (response.response_type() == Response::ResponseType::ALLREDUCE) {
+    if (response.response_type() == Response::ResponseType::ALLREDUCE || 
+        response.response_type() == Response::ResponseType::ADASUM) {
       // Attempt to add more responses to this fused response.
 
       // found_tensor can be false for ranks that did Join.

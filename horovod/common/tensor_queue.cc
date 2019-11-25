@@ -1,4 +1,5 @@
 // Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+// Modifications copyright Microsoft
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -80,6 +81,7 @@ void TensorQueue::GetTensorEntriesFromResponse(
       assert(response.response_type() == Response::ALLREDUCE ||
              response.response_type() == Response::ALLGATHER ||
              response.response_type() == Response::BROADCAST ||
+             response.response_type() == Response::ADASUM ||
              response.response_type() == Response::ERROR);
 
       if (!joined) {

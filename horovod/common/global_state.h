@@ -102,10 +102,16 @@ struct HorovodGlobalState {
 
   // Number of ranks that did Join()
   int joined_size = 0;
+
   // If a rank is Joined, AllReduce uses temporary 0 tensors for it.
   bool joined = false;
+
   // ID of the device to create temporary tensors while Joined
   int join_device = CPU_DEVICE_ID;
+
+  // Chunk size for MPI send/recv in Adasum allreduce. Some versions of Intel MPI
+  // benefit from a smaller chunk size.
+  int64_t adasum_mpi_chunk_size = 1<<30;
 
   ~HorovodGlobalState() {
     // Make sure that the destructor of the background thread is safe to

@@ -2,6 +2,7 @@
 // Modifications copyright (C) 2019 Uber Technologies, Inc.
 // Modifications copyright (C) 2019, NVIDIA CORPORATION. All rights reserved.
 // Modifications copyright (C) 2019 Intel Corporation
+// Modifications copyright Microsoft
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,6 +47,7 @@
 #include "mpi/mpi_context.h"
 #include "mpi/mpi_controller.h"
 #include "ops/mpi_operations.h"
+#include "ops/adasum_mpi_operations.h"
 #endif
 
 #if HAVE_CUDA
@@ -57,6 +59,9 @@
 
 #if HAVE_NCCL
 #include "ops/nccl_operations.h"
+#if HAVE_MPI
+#include "ops/adasum_cuda_operations.h"
+#endif
 #endif
 
 #if HAVE_DDL && HAVE_MPI
@@ -84,10 +89,10 @@
  * support in MPI, NCCL, CUDA, Gloo, MLSL, DDL. The background thread which
  * facilitates controller operations is run in BackgroundThreadLoop().
  * The provided ops are:
- *      – HorovodAllreduce:
+ *      - HorovodAllreduce:
  *          Perform an allreduce on a Tensor, returning the sum
  *          across all processes in the global communicator.
- *      – HorovodAllgather:
+ *      - HorovodAllgather:
  *          Perform an allgather on a Tensor, returning the concatenation of
  *          the tensor on the first dimension across all processes in the
  *          global communicator.
@@ -141,6 +146,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   std::vector<std::shared_ptr<AllreduceOp>> allreduce_ops;
   std::vector<std::shared_ptr<AllgatherOp>> allgather_ops;
   std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops;
+  std::vector<std::shared_ptr<AllreduceOp>> adasum_ops;
 
 #if HAVE_MPI && HAVE_CUDA
   if (mpi_context.IsEnabled()) {
@@ -149,6 +155,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
         new MPI_CUDAAllreduce(&mpi_context, &cuda_context, &state)));
 
 #elif HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
+    adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumCudaAllreduceOp(&mpi_context, &nccl_context, &cuda_context, &state)));
+
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new NCCLHierarchicalAllreduce(
             &nccl_context, &mpi_context, &cuda_context, &state)));
@@ -196,6 +204,8 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 
 #if HAVE_MPI
   if (mpi_context.IsEnabled()){
+    adasum_ops.push_back(
+        std::shared_ptr<AllreduceOp>(new AdasumMPIAllreduceOp(&mpi_context, &state)));
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new MPIAllreduce(&mpi_context,&state)));
     allgather_ops.push_back(
@@ -209,7 +219,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   std::shared_ptr<ErrorOp> error_op(new ErrorOp(&state));
 
   return new OperationManager(&state.parameter_manager, allreduce_ops,
-                              allgather_ops, broadcast_ops, join_op, error_op);
+                              allgather_ops, broadcast_ops, join_op, adasum_ops, error_op);
 }
 
 // Process a Response by doing a reduction, a gather, a broadcast, or
@@ -468,6 +478,12 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     state.parameter_manager.SetAutoTuning(true);
   }
 
+  // Set chunk size for MPI based Adasum allreduce algorithms
+  auto horovod_adasum_mpi_chunk_size = std::getenv(HOROVOD_ADASUM_MPI_CHUNK_SIZE);
+  if (horovod_adasum_mpi_chunk_size != nullptr) {
+    state.adasum_mpi_chunk_size = std::strtol(horovod_adasum_mpi_chunk_size, nullptr, 10);
+  }
+
   op_manager.reset(CreateOperationManager(state));
 
   // Signal that initialization is completed.
@@ -674,6 +690,10 @@ int horovod_local_size() {
   return horovod_global.controller->GetLocalSize();
 }
 
+bool horovod_is_homogeneous() {
+  return horovod_global.controller->IsHomogeneous();
+}
+
 int horovod_mpi_threads_supported() {
   if (!horovod_global.initialization_done) {
     return -1;
@@ -744,6 +764,18 @@ bool horovod_mlsl_built() {
 #endif
 }
 
+int horovod_reduce_op_average() {
+  return ReduceOp::AVERAGE;
+}
+
+int horovod_reduce_op_sum() {
+  return ReduceOp::SUM;
+}
+
+int horovod_reduce_op_adasum() {
+  return ReduceOp::ADASUM;
+}
+
 }
 
 // Contexts and controller must be initialized and the background thread
@@ -753,13 +785,29 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> output,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string name, const int device,
-                              StatusCallback callback) {
+                              StatusCallback callback,
+                              ReduceOp reduce_op) {
+  Status status;
+
+  // AVERAGE should be taken care of in the framework layer. Equeuing it here directly is not allowed.
+  // For example of how to deal with op=hvd.Average in framework layer, please refer to function
+  // `def _allreduce_async(tensor, output, name, op)` in
+  // horovod/horovod/torch/mpi_ops.py
+  if (reduce_op == ReduceOp::AVERAGE) {
+    LOG(ERROR, horovod_global.controller->GetRank()) << "Enqueuing AVERAGE allreduce is not allowed.";
+    return status.Aborted("AVERAGE not allowed.");
+  }
   Request message;
   message.set_request_rank(horovod_global.controller->GetRank());
   message.set_tensor_name(name);
   message.set_tensor_type(tensor->dtype());
   message.set_device(device);
-  message.set_request_type(Request::ALLREDUCE);
+  
+  if (reduce_op == ReduceOp::ADASUM) {
+    message.set_request_type(Request::ADASUM);
+  } else {
+    message.set_request_type(Request::ALLREDUCE);
+  }
   for (int i = 0; i < tensor->shape().dims(); ++i) {
     message.add_tensor_shape((int64_t)tensor->shape().dim_size(i));
   }
@@ -776,7 +824,7 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   if (horovod_global.shut_down) {
     return SHUT_DOWN_ERROR;
   }
-  Status status = horovod_global.tensor_queue.AddToTensorQueue(e, message);
+  status = horovod_global.tensor_queue.AddToTensorQueue(e, message);
   if (status.ok()) {
     LOG(TRACE, horovod_global.controller->GetRank()) << "Enqueued " << name;
   }

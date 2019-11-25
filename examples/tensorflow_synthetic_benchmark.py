@@ -31,6 +31,8 @@ parser.add_argument('--eager', action='store_true', default=False,
                     help='enables eager execution')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
+parser.add_argument('--use-adasum', action='store_true', default=False,
+                    help='use adasum algorithm to do reduction')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda
@@ -53,13 +55,19 @@ if args.eager:
 # Set up standard model.
 model = getattr(applications, args.model)(weights=None)
 
-opt = tf.train.GradientDescentOptimizer(0.01)
+lr_scaler = hvd.size()
+# By default, Adasum doesn't need scaling when increasing batch size. If used with NCCL,
+# scale lr by local_size
+if args.use_adasum:
+    lr_scaler = hvd.local_size() if args.cuda and hvd.nccl_built() else 1
+
+opt = tf.train.GradientDescentOptimizer(0.01 * lr_scaler)
 
 # Horovod: (optional) compression algorithm.
 compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
 
 # Horovod: wrap optimizer with DistributedOptimizer.
-opt = hvd.DistributedOptimizer(opt, compression=compression)
+opt = hvd.DistributedOptimizer(opt, compression=compression, op=hvd.Adasum if args.use_adasum else hvd.Average)
 
 init = tf.global_variables_initializer()
 bcast_op = hvd.broadcast_global_variables(0)
