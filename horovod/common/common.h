@@ -87,7 +87,7 @@ namespace common {
 #define HOROVOD_ADASUM_MPI_CHUNK_SIZE "HOROVOD_ADASUM_MPI_CHUNK_SIZE"
 
 // String constant for gloo interface.
-#define GLOO_DEFAULT_IFACE "eth0"
+#define GLOO_DEFAULT_IFACE ""
 
 // The number of elements held by fusion buffer and hierarchical
 // allreduce size is always a multiple of FUSION_BUFFER_ATOMIC_UNIT
