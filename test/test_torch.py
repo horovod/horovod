@@ -1249,6 +1249,44 @@ class TorchTests(unittest.TestCase):
         loss.backward()
         opt.step()
 
+    def test_delta_optimizer(self):
+        """Test that delta optimizer."""
+        hvd.init()
+        # TODO support non-MPI Adasum operation
+        # Only do this test if there are GPUs available.
+        if not hvd.mpi_enabled() or not torch.cuda.is_available():
+            return
+
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+        class Net(torch.nn.Module):
+            def __init__(self):
+                super(Net, self).__init__()
+                self.conv1 = torch.nn.Conv2d(1, 100, 1).cuda(local_rank)
+                self.conv2 = torch.nn.Conv2d(100, 1, 1).cuda(local_rank)
+
+            def forward(self, x):
+                x = x.cuda(local_rank)
+                x = self.conv1(x)
+                x = x.cuda(local_rank)
+                x = self.conv2(x)
+                return x
+
+        model = Net()
+        inp = torch.rand([1, 1, 1000, 1000])
+
+        opt = torch.optim.SGD(model.parameters(), lr=0.1)
+
+        opt = hvd.DistributedOptimizer(opt, named_parameters=model.named_parameters(), op=hvd.Adasum)
+        loss = model(inp).sum()
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+
     def test_duplicate_names(self):
         """Test that passing duplicate names to optimizer will fail."""
         net1 = torch.nn.Conv2d(1, 1, 1)

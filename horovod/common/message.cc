@@ -1,5 +1,6 @@
 // Copyright 2016 The TensorFlow Authors. All Rights Reserved.
 // Modifications copyright (C) 2019 Uber Technologies, Inc.
+// Modifications copyright Microsoft
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -75,6 +76,9 @@ const std::string& Request::RequestType_Name(RequestType value) {
     case RequestType::JOIN:
       static const std::string join("JOIN");
       return join;
+    case RequestType::ADASUM:
+      static const std::string adasum("ADASUM");
+      return adasum;
     default:
       static const std::string unknown("<unknown>");
       return unknown;
@@ -242,6 +246,9 @@ const std::string& Response::ResponseType_Name(ResponseType value) {
     case ResponseType::JOIN:
       static const std::string join("JOIN");
       return join;
+    case ResponseType::ADASUM:
+      static const std::string adasum("ADASUM");
+      return adasum;
     case ResponseType::ERROR:
       static const std::string error("ERROR");
       return error;

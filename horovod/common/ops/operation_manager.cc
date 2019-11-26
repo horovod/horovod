@@ -1,4 +1,5 @@
 // Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+// Modifications copyright Microsoft
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,12 +24,14 @@ OperationManager::OperationManager(ParameterManager* param_manager,
                                    std::vector<std::shared_ptr<AllgatherOp>> allgather_ops,
                                    std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops,
                                    std::shared_ptr<JoinOp> join_op,
+                                   std::vector<std::shared_ptr<AllreduceOp>> adasum_ops,
                                    std::shared_ptr<ErrorOp> error_op)
     : param_manager_(param_manager),
       allreduce_ops_(std::move(allreduce_ops)),
       allgather_ops_(std::move(allgather_ops)),
       broadcast_ops_(std::move(broadcast_ops)),
       join_op_(std::move(join_op)),
+      adasum_ops_(std::move(adasum_ops)),
       error_op_(std::move(error_op)) {}
 
 Status OperationManager::ExecuteAllreduce(std::vector<TensorTableEntry>& entries,
@@ -66,6 +69,16 @@ Status OperationManager::ExecuteJoin(std::vector<TensorTableEntry>& entries,
   return join_op_->Execute(entries, response);
 }
 
+Status OperationManager::ExecuteAdasum(std::vector<TensorTableEntry>& entries,
+                                          const Response& response) const {
+  for (auto& op : adasum_ops_) {
+    if (op->Enabled(*param_manager_, entries, response)) {
+      return op->Execute(entries, response);
+    }
+  }
+  throw std::logic_error("No Adasum operation enabled");
+}
+
 Status OperationManager::ExecuteError(std::vector<TensorTableEntry>& entries,
                                       const Response& response) const {
   return error_op_->Execute(entries, response);
@@ -81,6 +94,8 @@ Status OperationManager::ExecuteOperation(std::vector<TensorTableEntry>& entries
     return ExecuteBroadcast(entries, response);
   } else if (response.response_type() == Response::JOIN) {
     return ExecuteJoin(entries, response);
+  } else if (response.response_type() == Response::ADASUM) {
+    return ExecuteAdasum(entries, response);
   } else if (response.response_type() == Response::ERROR) {
     return ExecuteError(entries, response);
   } else {

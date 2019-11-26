@@ -74,6 +74,31 @@ Horovod has unit tests for all frameworks you can run from the tests directory:
 **IMPORTANT:** Some tests contain GPU-only codepaths that will be skipped if running without GPU support.
 
 
+Documentation
+-------------
+
+The Horovod documentation is published to https://horovod.readthedocs.io/.
+
+Those HTML pages can be rendered from ``.rst`` files located in the `docs` directory.
+You need to set up Sphinx before you compile the documentation the first time:
+
+.. code-block:: bash
+
+    $ cd docs
+    $ pip install -r requirements.txt
+    $ make clean
+
+Then you can build the HTML pages and open ``docs/_build/html/index.html``:
+
+.. code-block:: bash
+
+    $ cd docs
+    $ make html
+    $ open _build/html/index.html
+
+Sphinx can render the documentation in many other formats. Type ``make`` to get a list of available formats.
+
+
 Adding Custom Operations
 ------------------------
 
@@ -183,7 +208,7 @@ Each task runs ``horovod.spark._task_fn`` that registers with the driver, so tha
 tasks are up and which IP and port they are running at. They also send their host hash, a string that
 is treated by MPI as a hostname.
 
-Note: Horovod expects all tasks to run at the same time, so your cluster has to provide at least ``num_proc`` cores to your Horovod job.
+**Note:** Horovod expects all tasks to run at the same time, so your cluster has to provide at least ``num_proc`` cores to your Horovod job.
 There can be multiple cores per executor, so an executor can process multiple tasks. Hosts can also have multiple executors.
 
 The driver signals all tasks that all other tasks are up running. Each task continues initialisation

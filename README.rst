@@ -52,6 +52,9 @@ about who's involved and how Horovod plays a role, read the LF AI `announcement 
 
 .. contents::
 
+
+See the full documentation and an API reference at https://horovod.readthedocs.io/en/latest.
+
 |
 
 Why not traditional distributed TensorFlow?
@@ -112,6 +115,8 @@ This basic installation is good for laptops and for getting to know Horovod.
 If you're installing Horovod on a server with GPUs, read `Horovod on GPU <docs/gpus.rst>`_.
 
 If you want to use Docker, read `Horovod in Docker <docs/docker.rst>`_.
+
+To compile Horovod from source, follow the instructions in the `Contributor Guide <docs/contributors.rst>`_.
 
 
 Concepts

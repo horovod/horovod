@@ -1,4 +1,5 @@
 # Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+# Modifications copyright Microsoft
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -112,7 +113,7 @@ def check_avx_supported():
 
 def get_cpp_flags(build_ext):
     last_err = None
-    default_flags = ['-std=c++11', '-fPIC', '-O2', '-Wall']
+    default_flags = ['-std=c++11', '-fPIC', '-O2', '-Wall', '-mf16c', '-mavx', '-mfma', '-fassociative-math', '-ffast-math', '-ftree-vectorize', '-funsafe-math-optimizations']
     avx_flags = ['-mf16c', '-mavx'] if check_avx_supported() else []
     if sys.platform == 'darwin':
         # Darwin most likely will have Clang, which has libc++.
@@ -121,7 +122,7 @@ def get_cpp_flags(build_ext):
                         default_flags + ['-stdlib=libc++'],
                         default_flags]
     else:
-        flags_to_try = [default_flags + avx_flags,
+        flags_to_try = [default_flags + avx_flags + ['-fopt-info-vec-optimized'],
                         default_flags + ['-stdlib=libc++'] + avx_flags,
                         default_flags,
                         default_flags + ['-stdlib=libc++']]
@@ -689,7 +690,9 @@ def get_common_options(build_ext):
         SOURCES += ['horovod/common/half.cc',
                     'horovod/common/mpi/mpi_context.cc',
                     'horovod/common/mpi/mpi_controller.cc',
-                    'horovod/common/ops/mpi_operations.cc']
+                    'horovod/common/ops/mpi_operations.cc',
+                    'horovod/common/ops/adasum/adasum_mpi.cc',
+                    'horovod/common/ops/adasum_mpi_operations.cc']
         COMPILE_FLAGS += shlex.split(mpi_flags)
         LINK_FLAGS += shlex.split(mpi_flags)
 
@@ -715,6 +718,7 @@ def get_common_options(build_ext):
         SOURCES += ['horovod/common/ops/cuda_operations.cc']
         if have_mpi:
             SOURCES += ['horovod/common/ops/mpi_cuda_operations.cc']
+        INCLUDES += ['horovod/common/ops/cuda']
         LIBRARY_DIRS += cuda_lib_dirs
         LIBRARIES += ['cudart']
 
@@ -722,6 +726,8 @@ def get_common_options(build_ext):
         MACROS += [('HAVE_NCCL', '1')]
         INCLUDES += nccl_include_dirs
         SOURCES += ['horovod/common/ops/nccl_operations.cc']
+        if have_mpi:
+            SOURCES += ['horovod/common/ops/adasum_cuda_operations.cc']
         LIBRARY_DIRS += nccl_lib_dirs
         LIBRARIES += nccl_libs
 
