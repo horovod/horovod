@@ -21,7 +21,34 @@
 #include <unordered_map>
 #include <vector>
 
+#if HAVE_CUDA
 #include <cuda_runtime.h>
+#elif HAVE_ROCM
+#include <hip/hip_runtime_api.h>
+// local hipify
+#define cudaDeviceGetStreamPriorityRange hipDeviceGetStreamPriorityRange
+#define cudaError_t hipError_t
+#define cudaEventBlockingSync hipEventBlockingSync
+#define cudaEventCreateWithFlags hipEventCreateWithFlags
+#define cudaEventDisableTiming hipEventDisableTiming
+#define cudaEventRecord hipEventRecord
+#define cudaEventSynchronize hipEventSynchronize
+#define cudaEvent_t hipEvent_t
+#define cudaGetDevice hipGetDevice
+#define cudaGetErrorString hipGetErrorString
+#define cudaMemcpyAsync hipMemcpyAsync
+#define cudaMemcpyDeviceToDevice hipMemcpyDeviceToDevice
+#define cudaMemcpyDeviceToHost hipMemcpyDeviceToHost
+#define cudaMemcpyHostToDevice hipMemcpyHostToDevice
+#define cudaSetDevice hipSetDevice
+#define cudaStreamCreateWithPriority hipStreamCreateWithPriority
+#define cudaStreamNonBlocking hipStreamNonBlocking
+#define cudaStreamSynchronize hipStreamSynchronize
+#define cudaStream_t hipStream_t
+#define cudaSuccess hipSuccess
+#else
+#error Must define either HAVE_CUDA or HAVE_ROCM
+#endif
 
 #include "collective_operations.h"
 #include "../thread_pool.h"

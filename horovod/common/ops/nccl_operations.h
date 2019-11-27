@@ -17,7 +17,11 @@
 #ifndef HOROVOD_NCCL_OPERATIONS_H
 #define HOROVOD_NCCL_OPERATIONS_H
 
+#if HAVE_ROCM
+#include <rccl.h>
+#else
 #include <nccl.h>
+#endif
 
 #if HAVE_MPI
 #include "../mpi/mpi_context.h"

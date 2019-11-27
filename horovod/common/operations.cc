@@ -50,7 +50,7 @@
 #include "ops/adasum_mpi_operations.h"
 #endif
 
-#if HAVE_CUDA
+#if HAVE_CUDA || HAVE_ROCM
 #include "ops/cuda_operations.h"
 #if HAVE_MPI
 #include "ops/mpi_cuda_operations.h"
@@ -121,7 +121,7 @@ MPIContext mpi_context;
 GlooContext gloo_context;
 #endif
 
-#if HAVE_CUDA
+#if HAVE_CUDA || HAVE_ROCM
 CUDAContext cuda_context;
 #endif
 
@@ -148,7 +148,7 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops;
   std::vector<std::shared_ptr<AllreduceOp>> adasum_ops;
 
-#if HAVE_MPI && HAVE_CUDA
+#if HAVE_MPI && (HAVE_CUDA || HAVE_ROCM)
   if (mpi_context.IsEnabled()) {
 #if HOROVOD_GPU_ALLREDUCE == 'M'
     allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
