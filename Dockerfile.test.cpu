@@ -17,7 +17,6 @@ ARG PYSPARK_PACKAGE=pyspark==2.4.0
 SHELL ["/bin/bash", "-cu"]
 
 # Install essential packages.
-RUN echo "Refresh cache: 2019/11/28"
 RUN apt-get update -qq
 RUN apt-get install -y --no-install-recommends \
         wget \

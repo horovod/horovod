@@ -21,7 +21,6 @@ ARG HOROVOD_MIXED_INSTALL=0
 SHELL ["/bin/bash", "-cu"]
 
 # Install essential packages.
-RUN echo "Refresh cache: 2019/11/28"
 RUN apt-get update -qq
 RUN apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
         wget \
