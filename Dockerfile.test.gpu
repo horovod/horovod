@@ -29,12 +29,9 @@ RUN apt-get update -qq && apt-get install -y --allow-downgrades --allow-change-h
         git \
         build-essential \
         g++-4.8 \
-        libcudnn7=${CUDNN_VERSION}
-#        libnccl2=${NCCL_VERSION_OVERRIDE} \
-#        libnccl-dev=${NCCL_VERSION_OVERRIDE}
-
-RUN wget https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1604/x86_64/libnccl2_2.5.4-1+cuda10.1_amd64.deb && dpkg -i libnccl2_2.5.4-1+cuda10.1_amd64.deb
-RUN wget https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1604/x86_64/libnccl-dev_2.5.4-1+cuda10.1_amd64.deb && dpkg -i libnccl-dev_2.5.4-1+cuda10.1_amd64.deb
+        libcudnn7=${CUDNN_VERSION} \
+        libnccl2=${NCCL_VERSION_OVERRIDE} \
+        libnccl-dev=${NCCL_VERSION_OVERRIDE}
 
 # install g++-7
 RUN apt-get install -y --no-install-recommends software-properties-common
@@ -90,7 +87,7 @@ RUN ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
 RUN pip install future typing
 RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
         PYTORCH_CUDA=$(echo ${CUDA_DOCKER_VERSION} | awk -F- '{print $1}' | sed 's/\.//'); \
-        pip install --pre torch ${TORCHVISION_PACKAGE} -v -f https://download.pytorch.org/whl/nightly/cu${PYTORCH_CUDA}/torch_nightly.html; \
+        pip install --pre torch==1.4.0.dev20191127 ${TORCHVISION_PACKAGE} -v -f https://download.pytorch.org/whl/nightly/cu${PYTORCH_CUDA}/torch_nightly.html; \
     else \
         pip install ${PYTORCH_PACKAGE} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/torch_stable.html; \
     fi
