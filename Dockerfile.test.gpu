@@ -30,8 +30,11 @@ RUN apt-get update -qq && apt-get install -y --allow-downgrades --allow-change-h
         build-essential \
         g++-4.8 \
         libcudnn7=${CUDNN_VERSION} \
-        libnccl2=${NCCL_VERSION_OVERRIDE} \
-        libnccl-dev=${NCCL_VERSION_OVERRIDE}
+#        libnccl2=${NCCL_VERSION_OVERRIDE} \
+#        libnccl-dev=${NCCL_VERSION_OVERRIDE}
+
+RUN wget https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1604/x86_64/./libnccl2_2.5.4-1+cuda10.1_amd64.deb -O libnccl2_2.5.4-1+cuda10.1_amd64.deb && dpkg -i libnccl2_2.5.4-1+cuda10.1_amd64.deb
+RUN wget https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1604/x86_64/./libnccl-dev_2.5.4-1+cuda10.1_amd64.deb -O libnccl-dev_2.5.4-1+cuda10.1_amd64.deb && dpkg -i libnccl-dev_2.5.4-1+cuda10.1_amd64.deb
 
 # install g++-7
 RUN apt-get install -y --no-install-recommends software-properties-common
