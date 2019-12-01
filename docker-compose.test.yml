@@ -350,7 +350,7 @@ services:
         NCCL_VERSION_OVERRIDE: 2.4.8-1+cuda10.1
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tf_nightly_gpu
+        TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision
