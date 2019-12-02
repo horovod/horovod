@@ -196,7 +196,7 @@ class SparkTorchTests(unittest.TestCase):
         shuffle_size = calculate_shuffle_buffer_size(hvd_mock, avg_row_size, train_row_count_per_worker)
 
         assert int(shuffle_size) == \
-               int(constants.TOTAL_BUFFER_MEMORY_CAP * constants.ONE_GB / avg_row_size / 5)
+               int(constants.TOTAL_BUFFER_MEMORY_CAP_GIB * constants.BYTES_PER_GIB / avg_row_size / 5)
 
     def test_metric_class(self):
         hvd_mock = mock.MagicMock()

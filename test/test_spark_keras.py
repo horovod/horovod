@@ -244,7 +244,7 @@ class SparkKerasTests(tf.test.TestCase):
         calculate_shuffle_buffer_size = remote._calculate_shuffle_buffer_size_fn()
         shuffle_size = calculate_shuffle_buffer_size(hvd_mock, avg_row_size, train_row_count_per_worker)
 
-        assert int(shuffle_size) == int(constants.TOTAL_BUFFER_MEMORY_CAP * constants.ONE_GB / avg_row_size / 5)
+        assert int(shuffle_size) == int(constants.TOTAL_BUFFER_MEMORY_CAP_GIB * constants.BYTES_PER_GIB / avg_row_size / 5)
 
     def test_custom_sparse_to_dense_fn(self):
         dense_shape = 10

@@ -30,8 +30,8 @@ from horovod.run.common.util import codec
 
 
 PETASTORM_HDFS_DRIVER = constants.PETASTORM_HDFS_DRIVER
-TOTAL_BUFFER_MEMORY_CAP = constants.TOTAL_BUFFER_MEMORY_CAP
-ONE_GB = constants.ONE_GB
+TOTAL_BUFFER_MEMORY_CAP_GIB = constants.TOTAL_BUFFER_MEMORY_CAP_GIB
+BYTES_PER_GIB = constants.BYTES_PER_GIB
 
 
 def RemoteTrainer(estimator, metadata, keras_utils, run_id):
@@ -235,10 +235,10 @@ def _calculate_shuffle_buffer_size_fn():
         local_sizes = hvd.allgather([local_size])
         max_local_size = max(local_sizes)
 
-        if max_local_size > TOTAL_BUFFER_MEMORY_CAP:
-            shuffle_buffer_size = TOTAL_BUFFER_MEMORY_CAP * ONE_GB / avg_row_size / max_local_size
+        if max_local_size > TOTAL_BUFFER_MEMORY_CAP_GIB:
+            shuffle_buffer_size = TOTAL_BUFFER_MEMORY_CAP_GIB * BYTES_PER_GIB / avg_row_size / max_local_size
         else:
-            shuffle_buffer_size = ONE_GB / avg_row_size
+            shuffle_buffer_size = BYTES_PER_GIB / avg_row_size
 
         return int(min(shuffle_buffer_size, train_row_count_per_worker))
 
