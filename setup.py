@@ -1474,8 +1474,8 @@ setup(name='horovod',
       # so it's only necessary for `build*` or `bdist*` actions.
       setup_requires=require_list if is_build_action() else [],
       install_requires=require_list,
-      test_reequires=test_require_list,
-      extra_requires={
+      test_requires=test_require_list,
+      extra_require={
           'spark':  [
               'h5py>=2.9',
               'numpy',
