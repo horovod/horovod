@@ -16,30 +16,15 @@
 from __future__ import absolute_import
 
 import threading
-from contextlib import contextmanager
 
 
 class TrainingDataCache(object):
     def __init__(self):
-        self._lock = threading.Lock()
+        self.lock = threading.Lock()
         self._reset()
 
-    @contextmanager
-    def acquire_lock_for_key(self, key):
-        with self._lock:
-            if key not in self._entries:
-                self._entry_locks[key] = threading.Lock()
-                self._entries[key] = None
-
-        lock = self._entry_locks[key]
-        lock.acquire()
-        try:
-            yield
-        finally:
-            lock.release()
-
     def get(self, key):
-        return self._entries[key]
+        return self._entries.get(key)
 
     def put(self, key, value):
         self._entries[key] = value
@@ -62,9 +47,8 @@ class TrainingDataCache(object):
         self._reset()
 
     def _reset(self):
-        with self._lock:
-            self._entry_locks = dict()
-            self._entries = dict()
+        with self.lock:
+            self._entries = {}
 
 
 class CacheEntry(object):

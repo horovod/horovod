@@ -426,7 +426,7 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
 
     global _training_cache
     key = (dataframe_hash, validation_split, validation_col, train_data_path, val_data_path)
-    with _training_cache.acquire_lock_for_key(key):
+    with _training_cache.lock:
         if _training_cache.is_cached(key):
             entry = _training_cache.get(key)
             train_rows = entry.train_rows
