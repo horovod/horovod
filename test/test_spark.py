@@ -29,18 +29,17 @@ import warnings
 import mock
 import torch
 
-from horovod.run.common.util import secret
-from horovod.run.mpi_run import _get_mpi_implementation_flags
+from mock import MagicMock
+
 import horovod.spark
-from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient
 import horovod.torch as hvd
 
+from horovod.run.common.util import secret
 from horovod.run.mpi_run import _get_mpi_implementation_flags
 from horovod.spark.common import util
+from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient
 
 from spark_common import spark_session, create_xor_data, local_store
-
-from mock import MagicMock
 
 from common import tempdir
 
