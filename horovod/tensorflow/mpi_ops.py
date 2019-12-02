@@ -107,7 +107,7 @@ def _allreduce(tensor, name=None, op=Sum, group_id=-1):
         return MPI_LIB.horovod_allreduce(tensor, name=name, reduce_op=op,
                                          group_id=group_id)
     else:
-        return MPI_LIB.horovod_allreduce(tensor, name=name)
+        return MPI_LIB.horovod_allreduce(tensor, name=name, reduce_op=op)
 
 
 @ops.RegisterGradient('HorovodAllreduce')

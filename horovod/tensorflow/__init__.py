@@ -94,8 +94,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
         with tf.device(device_dense):
             horovod_size = tf.cast(size(), dtype=tensor.dtype)
             tensor_compressed, ctx = compression.compress(tensor)
-            summed_tensor_compressed = _allreduce(tensor_compressed, op=true_op)
-            summed_tensor_compressed = _allreduce(tensor_compressed, op=true_op, group_id)
+            summed_tensor_compressed = _allreduce(tensor_compressed, op=true_op, group_id=group_id)
             summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
             if op == Adasum:
                 if ('CPU' not in tensor.device and has_gpu):
@@ -432,7 +431,6 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
                          device_sparse='', compression=Compression.none,
                          sparse_as_dense=False, backward_passes_per_step=1,
                          op=Average, num_groups=0):
-                         sparse_as_dense=False, num_groups=0):
     """Construct a new DistributedOptimizer, which uses another optimizer
     under the hood for computing single-process gradient values and
     applying gradient updates after the gradient values have been combined
