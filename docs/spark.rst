@@ -26,14 +26,13 @@ If for whatever reason the Estimator API does not meet your needs, the Run API o
 Installation
 ~~~~~~~~~~~~
 
-When installing Horovod for usage with Spark, set environment variable ``HOROVOD_WITH_SPARK=1`` to install all
-Spark dependencies as well:
+When installing Horovod for usage with Spark, use the extra ``[spark]`` to install all Spark dependencies as well:
 
 .. code-block:: bash
 
-    $ HOROVOD_WITH_SPARK=1 ... pip install horovod
+    $ ... pip install horovod[spark]
 
-Not included in the list of dependencies by ``HOROVOD_WITH_SPARK`` are deep learning frameworks (TensorFlow or PyTorch)
+Not included in the list of dependencies by ``[spark]`` are deep learning frameworks (TensorFlow or PyTorch)
 and PySpark itself.  Horovod Spark Estimators additionally require:
 
 *  ``horovod >= 0.19.0``
@@ -105,7 +104,7 @@ and leverages the code of the notebook referenced in the article. The example is
 #. The second part defines a Keras model and performs a distributed training of the model using Horovod in Spark.
 #. The third part performs prediction using the best model and creates a submission file.
 
-To run the example, be sure to install Horovod with ``HOROVOD_WITH_SPARK=1``, then:
+To run the example, be sure to install Horovod with ``[spark]``, then:
 
 .. code-block:: bash
 

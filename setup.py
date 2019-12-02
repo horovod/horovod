@@ -1453,16 +1453,6 @@ test_require_list = ['mock', 'pytest-forked']
 if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
     require_list.append('cffi>=1.4.0')
 
-# Requirements for PySpark
-if os.environ.get('HOROVOD_WITH_SPARK'):
-    require_list += [
-        'h5py>=2.9',
-        'numpy',
-        'petastorm',
-        'pyarrow>=0.15.0',  # Petastorm 0.7.7 is not compatible with < 0.15.0
-        'pyspark'
-    ]
-
 setup(name='horovod',
       version=__version__,
       packages=find_packages(),
@@ -1485,5 +1475,14 @@ setup(name='horovod',
       setup_requires=require_list if is_build_action() else [],
       install_requires=require_list,
       test_reequires=test_require_list,
+      extra_requires={
+          'spark':  [
+              'h5py>=2.9',
+              'numpy',
+              'petastorm',
+              'pyarrow>=0.15.0',  # Petastorm 0.7.7 is not compatible with < 0.15.0
+              'pyspark'
+          ],
+      },
       zip_safe=False,
       scripts=['bin/horovodrun'])

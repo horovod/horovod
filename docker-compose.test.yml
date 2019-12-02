@@ -369,5 +369,5 @@ services:
         TORCHVISION_PACKAGE: torchvision==0.4.1+cu100
         MXNET_PACKAGE: mxnet-cu100==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.0
-        HOROVOD_BUILD_FLAGS: "HOROVOD_WITH_SPARK=1"
+        HOROVOD_BUILD_FLAGS: ""
         HOROVOD_MIXED_INSTALL: 1
