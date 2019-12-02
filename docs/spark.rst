@@ -32,11 +32,14 @@ When installing Horovod for usage with Spark, use the extra ``[spark]`` to insta
 
     $ ... pip install horovod[spark]
 
-Not included in the list of dependencies by ``[spark]`` are deep learning frameworks (TensorFlow or PyTorch)
-and PySpark itself.  Horovod Spark Estimators additionally require:
+Note that Horovod Spark Estimators require the following:
 
 *  ``horovod >= 0.19.0``
 *  ``pyspark >= 2.3.2``
+
+Not included in the list of dependencies by ``[spark]`` are deep learning frameworks (TensorFlow or PyTorch).
+Horovod Spark Estimators additionally require at least one of these combinations:
+
 *  ``tensorflow-gpu >= 1.12.0`` or ``tensorflow >= 1.12.0`` (for ``KerasEstimator``)
 *  ``torch >= 1.0.0`` and ``tensorboard >= 1.14.0`` (for ``TorchEstimator``)
 

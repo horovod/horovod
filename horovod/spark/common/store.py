@@ -24,6 +24,9 @@ import tempfile
 import pyarrow as pa
 
 
+HDFS_PREFIX = 'hdfs://'
+
+
 class Store(object):
     def get_filesystem(self):
         raise NotImplementedError()
@@ -99,6 +102,13 @@ class Store(object):
             'get_local_output_dir': self.get_local_output_dir_fn(run_id),
             'sync': self.sync_fn(run_id)
         }
+
+    @staticmethod
+    def create(work_dir):
+        if work_dir.startswith(HDFS_PREFIX):
+            return HDFSStore(work_dir[len(HDFS_PREFIX):])
+        else:
+            return LocalStore(work_dir)
 
 
 class PrefixStore(Store):

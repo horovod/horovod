@@ -21,7 +21,7 @@ from tensorflow.keras.layers import Dense, Dropout, Flatten
 from tensorflow.keras.layers import Conv2D, MaxPooling2D
 
 import horovod.spark.keras as hvd
-from horovod.spark.common.store import LocalStore, HDFSStore
+from horovod.spark.common.store import Store
 
 parser = argparse.ArgumentParser(description='Keras Spark MNIST Example',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -35,6 +35,8 @@ parser.add_argument('--epochs', type=int, default=12,
                     help='number of epochs to train')
 parser.add_argument('--work-dir', default='/tmp',
                     help='temporary working directory to write intermediate files (prefix with hdfs:// to use HDFS)')
+parser.add_argument('--data-dir', default='/tmp',
+                    help='location of the training dataset in the local filesystem (will be downloaded if needed)')
 
 args = parser.parse_args()
 
@@ -47,17 +49,11 @@ elif args.num_proc:
 spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
 # Setup our store for intermediate data
-work_dir = args.work_dir
-hdfs_prefix = 'hdfs://'
-if work_dir.startswith(hdfs_prefix):
-    work_dir = work_dir[len(hdfs_prefix):]
-    store = HDFSStore(work_dir)
-else:
-    store = LocalStore(work_dir)
+store = Store.create(args.work_dir)
 
 # Download MNIST dataset
 data_url = 'https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/multiclass/mnist.bz2'
-libsvm_path = os.path.join(work_dir, 'mnist.bz2')
+libsvm_path = os.path.join(args.data_dir, 'mnist.bz2')
 if not os.path.exists(libsvm_path):
     subprocess.check_output(['wget', data_url, '-O', libsvm_path])
 
