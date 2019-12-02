@@ -1475,7 +1475,7 @@ setup(name='horovod',
       setup_requires=require_list if is_build_action() else [],
       install_requires=require_list,
       test_requires=test_require_list,
-      extra_require={
+      extras_require={
           'spark':  [
               'h5py>=2.9',
               'numpy',
