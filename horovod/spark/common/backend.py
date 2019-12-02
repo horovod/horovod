@@ -38,9 +38,18 @@ class Backend(object):
 
 
 class SparkBackend(Backend):
-    def __init__(self, num_proc=None, env=None):
+    """
+    Uses `horovod.spark.run` to execute the distributed training `fn`.
+
+    Args:
+        num_proc: Number of Horovod processes.  Defaults to `spark.default.parallelism`.
+        env: Environment dictionary to use in Horovod run.  Defaults to `os.environ`.
+        **kwargs: Additional arguments passed to `horovod.spark.run` at training time.
+    """
+    def __init__(self, num_proc=None, env=None, **kwargs):
         self._num_proc = num_proc or default_num_proc()
         self._env = env
+        self._kwargs = kwargs
 
     def run(self, fn, args=(), kwargs={}, env=None):
         full_env = self._env or os.environ.copy()
@@ -53,7 +62,8 @@ class SparkBackend(Backend):
             del full_env['CUDA_VISIBLE_DEVICES']
 
         return horovod.spark.run(fn, args=args, kwargs=kwargs,
-                                 num_proc=self._num_proc, env=full_env)
+                                 num_proc=self._num_proc, env=full_env,
+                                 **self._kwargs)
 
     def num_processes(self):
         return self._num_proc
