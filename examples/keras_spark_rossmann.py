@@ -16,6 +16,7 @@
 
 import datetime
 import os
+from distutils.version import LooseVersion
 
 from pyspark import SparkConf, Row
 from pyspark.sql import SparkSession
@@ -321,9 +322,12 @@ def act_sigmoid_scaled(x):
 CUSTOM_OBJECTS = {'exp_rmspe': exp_rmspe,
                   'act_sigmoid_scaled': act_sigmoid_scaled}
 
-# Do not use GPU for the session creation.
-config = tf.ConfigProto(device_count={'GPU': 0})
-K.set_session(tf.Session(config=config))
+# Disable GPUs when building the model to prevent memory leaks
+if LooseVersion(tf.__version__) >= LooseVersion('2.0.0'):
+    # See https://github.com/tensorflow/tensorflow/issues/33168
+    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+else:
+    K.set_session(tf.Session(config=tf.ConfigProto(device_count={'GPU': 0})))
 
 # Build the model.
 inputs = {col: Input(shape=(1,), name=col) for col in all_cols}

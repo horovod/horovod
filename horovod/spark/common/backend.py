@@ -46,6 +46,12 @@ class SparkBackend(Backend):
         full_env = self._env or os.environ.copy()
         if env:
             full_env.update(env)
+
+        if 'CUDA_VISIBLE_DEVICES' in full_env:
+            # In TensorFlow 2.0, we set this to prevent memory leaks from the client.
+            # See https://github.com/tensorflow/tensorflow/issues/33168
+            del full_env['CUDA_VISIBLE_DEVICES']
+
         return horovod.spark.run(fn, args=args, kwargs=kwargs,
                                  num_proc=self._num_proc, env=full_env)
 

@@ -33,10 +33,17 @@ Spark dependencies as well:
 
     $ HOROVOD_WITH_SPARK=1 ... pip install horovod
 
+Not included in the list of dependencies by ``HOROVOD_WITH_SPARK`` are deep learning frameworks (TensorFlow or PyTorch)
+and PySpark itself.  Horovod Spark Estimators additionally require:
+
+*  ``horovod >= 0.19.0``
+*  ``pyspark >= 2.3.2``
+*  ``tensorflow-gpu >= 1.12.0`` or ``tensorflow >= 1.12.0`` (for ``KerasEstimator``)
+*  ``torch >= 1.0.0`` and ``tensorboard >= 1.14.0`` (for ``TorchEstimator``)
+
 
 Horovod Spark Estimators
 ------------------------
-
 Horovod Spark Estimators allow you to train your deep neural network directly on an existing Spark DataFrame,
 leveraging Horovod’s ability to scale across multiple workers, without any specialized code for distributed training:
 
@@ -98,15 +105,7 @@ and leverages the code of the notebook referenced in the article. The example is
 #. The second part defines a Keras model and performs a distributed training of the model using Horovod in Spark.
 #. The third part performs prediction using the best model and creates a submission file.
 
-To run the example, please install the following dependencies:
-
-*  ``pyspark``
-*  ``petastorm >= 0.7.0``
-*  ``h5py >= 2.9.0``
-*  ``tensorflow-gpu >= 1.12.0`` (or ``tensorflow >= 1.12.0``)
-*  ``horovod >= 0.15.3``
-
-Run the example:
+To run the example, be sure to install Horovod with ``HOROVOD_WITH_SPARK=1``, then:
 
 .. code-block:: bash
 
@@ -118,6 +117,13 @@ Run the example:
 
 Horovod Spark Run
 -----------------
+You can also use Horovod on Spark to run the same code you would within an ordinary training script using any
+framework supported by Horovod.  To do so, simply write your training logic within a function, then use
+``horovod.spark.run`` to execute the function in parallel with MPI on top of Spark.
+
+Because Horovod on Spark uses ``cloudpickle`` to send the training function to workers for execution, you can capture
+local variables from your training script or notebook within the training function, similar to using a user-defined
+function in PySpark.
 
 A toy example of running a Horovod job in Spark is provided below:
 
@@ -154,6 +160,16 @@ A toy example of running a Horovod job in Spark is provided below:
     Hello, rank = 14, local_rank = 2, size = 16, local_size = 4, magic_number = 42
     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
     >>>
+
+A more complete example can be found in `keras_spark_rossmann_v0.py <../examples/keras_spark_rossmann_v0.py>`__, which
+shows how you can use the low level ``horovod.spark.run`` API to train a model end-to-end in the following steps:
+
+.. code-block:: bash
+
+    $ wget https://raw.githubusercontent.com/horovod/horovod/master/examples/keras_spark_rossmann_v0.py
+    $ wget http://files.fast.ai/part2/lesson14/rossmann.tgz
+    $ tar zxvf rossmann.tgz
+    $ python keras_spark_rossmann_v0.py
 
 
 Spark cluster setup

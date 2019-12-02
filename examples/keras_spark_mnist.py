@@ -78,7 +78,8 @@ train_df, test_df = train_df.randomSplit([0.9, 0.1])
 
 # Disable GPUs when building the model to prevent memory leaks
 if LooseVersion(tf.__version__) >= LooseVersion('2.0.0'):
-    tf.config.experimental.set_visible_devices([], 'GPU')
+    # See https://github.com/tensorflow/tensorflow/issues/33168
+    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 else:
     keras.backend.set_session(tf.Session(config=tf.ConfigProto(device_count={'GPU': 0})))
 
