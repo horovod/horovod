@@ -431,7 +431,7 @@ def get_rocm_dirs(build_ext, cpp_flags):
     rocm_libs = ['hip_hcc']
     rocm_macros = [('__HIP_PLATFORM_HCC__',1)]
 
-    rocm_path = os.environ.get('HOROVOD_ROCM_PATH', '/opt/rocm')
+    rocm_path = os.environ.get('HOROVOD_ROCM_HOME', '/opt/rocm')
     rocm_include_dirs += [
             '%s/include' % rocm_path,
             '%s/hcc/include' % rocm_path,
@@ -454,7 +454,7 @@ def get_rocm_dirs(build_ext, cpp_flags):
     except (CompileError, LinkError):
         raise DistutilsPlatformError(
             'HIP library and/or ROCm header files not found (see error above).\n'
-            'Please specify correct ROCm location with the HOROVOD_ROCM_PATH environment variable')
+            'Please specify correct ROCm location with the HOROVOD_ROCM_HOME environment variable')
 
     return rocm_include_dirs, rocm_lib_dirs, rocm_macros
 
@@ -477,7 +477,7 @@ def get_nccl_vals(build_ext, cuda_include_dirs, cuda_lib_dirs, cuda_macros, cpp_
     if nccl_lib_dir:
         nccl_lib_dirs += [nccl_lib_dir]
 
-    nccl_link_mode = os.environ.get('HOROVOD_NCCL_LINK', have_rocm and 'SHARED' or 'STATIC')
+    nccl_link_mode = os.environ.get('HOROVOD_NCCL_LINK', 'SHARED' if have_rocm else 'STATIC')
     if nccl_link_mode.upper() == 'SHARED':
         if have_rocm:
             nccl_libs += ['rccl']
@@ -503,7 +503,7 @@ def get_nccl_vals(build_ext, cuda_include_dirs, cuda_lib_dirs, cuda_macros, cpp_
                 ncclUniqueId nccl_id;
                 ncclGetUniqueId(&nccl_id);
             }
-            '''%(have_rocm and 'rccl.h' or 'nccl.h')))
+            '''%('rccl.h' if have_rocm else 'nccl.h')))
     except (CompileError, LinkError):
         raise DistutilsPlatformError(
             'NCCL 2.0 library or its later version was not found (see error above).\n'

@@ -366,7 +366,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   int size = state.controller->GetSize();
   int local_size = state.controller->GetLocalSize();
 
-#if HAVE_CUDA
+#if HAVE_CUDA || HAVE_ROCM
   // Set number of CUDA streams to use
   auto horovod_num_nccl_streams =
       std::getenv(HOROVOD_NUM_NCCL_STREAMS);
