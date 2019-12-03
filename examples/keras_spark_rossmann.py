@@ -14,39 +14,50 @@
 # limitations under the License.
 # ==============================================================================
 
+import argparse
 import datetime
 import os
 from distutils.version import LooseVersion
 
+import pyspark.sql.types as T
+import pyspark.sql.functions as F
 from pyspark import SparkConf, Row
 from pyspark.sql import SparkSession
 
-import pyspark.sql.types as T
-import pyspark.sql.functions as F
+import tensorflow as tf
+import tensorflow.keras.backend as K
+from tensorflow.keras.layers import Input, Embedding, Concatenate, Dense, Flatten, Reshape, BatchNormalization, Dropout
 
-# Location of data on local filesystem (prefixed with file://) or on HDFS.
-DATA_LOCATION = 'file://' + os.getcwd()
+import horovod.spark.keras as hvd
+from horovod.spark.common.store import Store
 
-# Location of outputs.
-LOCAL_SUBMISSION_CSV = 'submission.csv'
-LOCAL_CHECKPOINT_FILE = os.path.join(DATA_LOCATION, 'checkpoint')
+parser = argparse.ArgumentParser(description='Keras Spark Rossmann Example',
+                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('--master',
+                    help='spark cluster to use for training. If set to None, uses current default cluster. Cluster'
+                         'should be set up to provide a Spark task per multiple CPU cores, or per GPU, e.g. by'
+                         'supplying `-c <NUM_GPUS>` in Spark Standalone mode')
+parser.add_argument('--num-proc', type=int,
+                    help='number of worker processes for training, default: `spark.default.parallelism`')
+parser.add_argument('--learning_rate', type=float, default=0.0001,
+                    help='initial learning rate')
+parser.add_argument('--batch-size', type=int, default=100,
+                    help='batch size')
+parser.add_argument('--epochs', type=int, default=100,
+                    help='number of epochs to train')
+parser.add_argument('--sample-rate', type=float,
+                    help='desired sampling rate. Useful to set to low number (e.g. 0.01) to make sure that '
+                         'end-to-end process works')
+parser.add_argument('--data-location', default='file://' + os.getcwd(),
+                    help='location of data on local filesystem (prefixed with file://) or on HDFS')
+parser.add_argument('--local-submission-csv', default='submission.csv',
+                    help='output submission predictions CSV')
+parser.add_argument('--local-checkpoint-file', default='checkpoint',
+                    help='model checkpoint')
+parser.add_argument('--work-dir', default='/tmp',
+                    help='temporary working directory to write intermediate files (prefix with hdfs:// to use HDFS)')
 
-# Spark cluster to use for training. If set to None, uses current default cluster.
-#
-# Cluster should be set up to provide a Spark task per multiple CPU cores,
-# or per GPU, e.g. by supplying `-c <NUM GPUs>` in Spark Standalone mode.
-TRAINING_CLUSTER = None  # or 'spark://hostname:7077'
-
-# The number of training processes.
-NUM_TRAINING_PROC = 4
-
-# Desired sampling rate.  Useful to set to low number (e.g. 0.01) to make sure
-# that end-to-end process works.
-SAMPLE_RATE = None  # or use 0.01
-
-# Batch size & learning rate to use.
-BATCH_SIZE = 100
-LR = 1e-4
+args = parser.parse_args()
 
 # ================ #
 # DATA PREPARATION #
@@ -58,18 +69,20 @@ print('================')
 
 # Create Spark session for data preparation.
 conf = SparkConf().setAppName('data_prep').set('spark.sql.shuffle.partitions', '16')
-if TRAINING_CLUSTER:
-    conf.setMaster(TRAINING_CLUSTER)
+if args.master:
+    conf.setMaster(args.master)
+elif args.num_proc:
+    conf.setMaster('local[{}]'.format(args.num_proc))
 spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
-train_csv = spark.read.csv('%s/train.csv' % DATA_LOCATION, header=True)
-test_csv = spark.read.csv('%s/test.csv' % DATA_LOCATION, header=True)
+train_csv = spark.read.csv('%s/train.csv' % args.data_location, header=True)
+test_csv = spark.read.csv('%s/test.csv' % args.data_location, header=True)
 
-store_csv = spark.read.csv('%s/store.csv' % DATA_LOCATION, header=True)
-store_states_csv = spark.read.csv('%s/store_states.csv' % DATA_LOCATION, header=True)
-state_names_csv = spark.read.csv('%s/state_names.csv' % DATA_LOCATION, header=True)
-google_trend_csv = spark.read.csv('%s/googletrend.csv' % DATA_LOCATION, header=True)
-weather_csv = spark.read.csv('%s/weather.csv' % DATA_LOCATION, header=True)
+store_csv = spark.read.csv('%s/store.csv' % args.data_location, header=True)
+store_states_csv = spark.read.csv('%s/store_states.csv' % args.data_location, header=True)
+state_names_csv = spark.read.csv('%s/state_names.csv' % args.data_location, header=True)
+google_trend_csv = spark.read.csv('%s/googletrend.csv' % args.data_location, header=True)
+weather_csv = spark.read.csv('%s/weather.csv' % args.data_location, header=True)
 
 
 def expand_date(df):
@@ -206,9 +219,9 @@ def lookup_columns(df, vocab):
     return df
 
 
-if SAMPLE_RATE:
-    train_csv = train_csv.sample(withReplacement=False, fraction=SAMPLE_RATE)
-    test_csv = test_csv.sample(withReplacement=False, fraction=SAMPLE_RATE)
+if args.sample_rate:
+    train_csv = train_csv.sample(withReplacement=False, fraction=args.sample_rate)
+    test_csv = test_csv.sample(withReplacement=False, fraction=args.sample_rate)
 
 # Prepare data frames from CSV files.
 train_df = prepare_df(train_csv).cache()
@@ -284,8 +297,8 @@ train_df.show()
 print('================')
 print('Data frame sizes')
 print('================')
-train_rows = train_df.filter(train_df.Validation == 0).count()
-val_rows = train_df.filter(train_df.Validation > 0).count()
+train_rows = train_df.filter(~train_df.Validation).count()
+val_rows = train_df.filter(train_df.Validation).count()
 test_rows = test_df.count()
 print('Training: %d' % train_rows)
 print('Validation: %d' % val_rows)
@@ -299,11 +312,6 @@ print('==============')
 print('Model training')
 print('==============')
 
-import tensorflow as tf
-from tensorflow.keras.layers import Input, Embedding, Concatenate, Dense, Flatten, Reshape, BatchNormalization, Dropout
-import tensorflow.keras.backend as K
-import horovod.spark.keras as hvd
-
 
 def exp_rmspe(y_true, y_pred):
     """Competition evaluation metric, expects logarithic inputs."""
@@ -316,7 +324,7 @@ def exp_rmspe(y_true, y_pred):
 
 def act_sigmoid_scaled(x):
     """Sigmoid scaled to logarithm of maximum sales scaled by 20%."""
-    return tf.nn.sigmoid(x) * tf.log(max_sales) * 1.2
+    return tf.nn.sigmoid(x) * tf.math.log(max_sales) * 1.2
 
 
 CUSTOM_OBJECTS = {'exp_rmspe': exp_rmspe,
@@ -347,10 +355,12 @@ output = Dense(1, activation=act_sigmoid_scaled)(x)
 model = tf.keras.Model([inputs[f] for f in all_cols], output)
 model.summary()
 
-opt = tf.keras.optimizers.Adam(lr=LR, epsilon=1e-3)
+opt = tf.keras.optimizers.Adam(lr=args.learning_rate, epsilon=1e-3)
 
 # Horovod: run training.
-keras_estimator = hvd.KerasEstimator(num_proc=NUM_TRAINING_PROC,
+store = Store.create(args.work_dir)
+keras_estimator = hvd.KerasEstimator(num_proc=args.num_proc,
+                                     store=store,
                                      model=model,
                                      optimizer=opt,
                                      loss='mae',
@@ -359,8 +369,8 @@ keras_estimator = hvd.KerasEstimator(num_proc=NUM_TRAINING_PROC,
                                      feature_cols=all_cols,
                                      label_cols=['Sales'],
                                      validation_col='Validation',
-                                     batch_size=BATCH_SIZE,
-                                     epochs=100,
+                                     batch_size=args.batch_size,
+                                     epochs=args.epochs,
                                      verbose=2)
 
 keras_model = keras_estimator.fit(train_df)
@@ -370,8 +380,8 @@ best_val_rmspe = min(history['val_exp_rmspe'])
 print('Best RMSPE: %f' % best_val_rmspe)
 
 # Save the trained model.
-keras_model.save(LOCAL_CHECKPOINT_FILE)
-print('Written checkpoint to %s' % LOCAL_CHECKPOINT_FILE)
+keras_model.save(args.local_checkpoint_file)
+print('Written checkpoint to %s' % args.local_checkpoint_file)
 
 # ================ #
 # FINAL PREDICTION #
@@ -383,7 +393,7 @@ print('================')
 
 pred_df = keras_model.transform(test_df)
 submission_df = pred_df.select(pred_df.Id.cast(T.IntegerType()), pred_df.Sales).toPandas()
-submission_df.sort_values(by=['Id']).to_csv(LOCAL_SUBMISSION_CSV, index=False)
-print('Saved predictions to %s' % LOCAL_SUBMISSION_CSV)
+submission_df.sort_values(by=['Id']).to_csv(args.local_submission_csv, index=False)
+print('Saved predictions to %s' % args.local_submission_csv)
 
 spark.stop()

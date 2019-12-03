@@ -24,7 +24,7 @@ We recommend using Horovod Spark Estimators if you:
 If for whatever reason the Estimator API does not meet your needs, the Run API offers more find-grained control.
 
 Installation
-~~~~~~~~~~~~
+------------
 
 When installing Horovod for usage with Spark, use the extra ``[spark]`` to install all Spark dependencies as well:
 
@@ -45,7 +45,7 @@ Horovod Spark Estimators additionally require at least one of these combinations
 
 
 Horovod Spark Estimators
-------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~
 Horovod Spark Estimators allow you to train your deep neural network directly on an existing Spark DataFrame,
 leveraging Horovod’s ability to scale across multiple workers, without any specialized code for distributed training:
 
@@ -96,7 +96,7 @@ artifacts including intermediate representations of the training data.  Horovod 
 and local filesystems.
 
 End-to-end example
-~~~~~~~~~~~~~~~~~~
+------------------
 `keras_spark_rossmann.py script <../examples/keras_spark_rossmann.py>`__ provides
 an example of end-to-end data preparation and training of a model for the
 `Rossmann Store Sales <https://www.kaggle.com/c/rossmann-store-sales>`__ Kaggle
@@ -118,7 +118,7 @@ To run the example, be sure to install Horovod with ``[spark]``, then:
 
 
 Horovod Spark Run
------------------
+~~~~~~~~~~~~~~~~~
 You can also use Horovod on Spark to run the same code you would within an ordinary training script using any
 framework supported by Horovod.  To do so, simply write your training logic within a function, then use
 ``horovod.spark.run`` to execute the function in parallel with MPI on top of Spark.
@@ -175,13 +175,13 @@ shows how you can use the low level ``horovod.spark.run`` API to train a model e
 
 
 Spark cluster setup
--------------------
+~~~~~~~~~~~~~~~~~~~
 As deep learning workloads tend to have very different resource requirements
 from typical data processing workloads, there are certain considerations
 for DL Spark cluster setup.
 
 GPU training
-~~~~~~~~~~~~
+------------
 For GPU training, one approach is to set up a separate GPU Spark cluster
 and configure each executor with ``# of CPU cores`` = ``# of GPUs``. This can
 be accomplished in standalone mode as follows:
@@ -199,7 +199,7 @@ The ongoing `SPARK-24615 <https://issues.apache.org/jira/browse/SPARK-24615>`__ 
 introduce GPU-aware resource scheduling in future versions of Spark.
 
 CPU training
-~~~~~~~~~~~~
+------------
 For CPU training, one approach is to specify the ``spark.task.cpus`` setting
 during the training session creation:
 
@@ -215,7 +215,7 @@ This approach allows you to reuse the same Spark cluster for data preparation
 and training.
 
 Security
-~~~~~~~~
+--------
 Horovod in Spark uses Open MPI to run the Horovod jobs in Spark, so
 it's as secure as the Open MPI implementation itself.
 
@@ -224,7 +224,7 @@ launching new processes, it's recommended to **use network level
 security to isolate Horovod jobs from potential attackers**.
 
 Environment knobs
-~~~~~~~~~~~~~~~~~
+-----------------
 * ``HOROVOD_SPARK_START_TIMEOUT`` - sets the default timeout for Spark tasks to spawn, register, and start running the code.  If executors for Spark tasks are scheduled on-demand and can take a long time to start, it may be useful to increase this timeout on a system level.
 
 

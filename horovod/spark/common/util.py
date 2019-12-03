@@ -459,8 +459,11 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
             if validation_split > 0:
                 train_df, val_df = train_df.randomSplit([1.0 - validation_split, validation_split])
             elif validation_col:
-                val_df = train_df.filter(f.col(validation_col) > 0).drop(validation_col)
-                train_df = train_df.filter(f.col(validation_col) == 0).drop(validation_col)
+                bool_dtype = metadata[validation_col]['spark_data_type'] == BooleanType
+                val_df = train_df.filter(
+                    f.col(validation_col) if bool_dtype else f.col(validation_col) > 0).drop(validation_col)
+                train_df = train_df.filter(
+                    ~f.col(validation_col) if bool_dtype else f.col(validation_col) == 0).drop(validation_col)
 
                 # Approximate ratio of validation data to training data for proportionate scale
                 # of partitions
