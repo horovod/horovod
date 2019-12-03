@@ -53,7 +53,7 @@ about who's involved and how Horovod plays a role, read the LF AI `announcement 
 .. contents::
 
 
-See the full documentation and an API reference at https://horovod.readthedocs.io/en/latest.
+The full documentation and an API reference are published at https://horovod.readthedocs.io/en/latest.
 
 |
 
@@ -128,7 +128,7 @@ Supported frameworks
 --------------------
 See these pages for Horovod examples and best practices:
 
-- `Horovod with TensorFlow <#usage>`__ (Usage section below)
+- `Horovod with TensorFlow <docs/tensorflow.rst>`_
 - `Horovod with Keras <docs/keras.rst>`_
 - `Horovod with PyTorch <docs/pytorch.rst>`_
 - `Horovod with MXNet <docs/mxnet.rst>`_
