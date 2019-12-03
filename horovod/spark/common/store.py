@@ -24,9 +24,6 @@ import tempfile
 import pyarrow as pa
 
 
-HDFS_PREFIX = 'hdfs://'
-
-
 class Store(object):
     def get_filesystem(self):
         raise NotImplementedError()
@@ -105,18 +102,19 @@ class Store(object):
 
     @staticmethod
     def create(work_dir):
-        if work_dir.startswith(HDFS_PREFIX):
-            return HDFSStore(work_dir[len(HDFS_PREFIX):])
+        if HDFSStore.matches(work_dir):
+            return HDFSStore(work_dir)
         else:
             return LocalStore(work_dir)
 
 
 class PrefixStore(Store):
-    def __init__(self, prefix_path, train_path=None, val_path=None, test_path=None, save_runs=True):
-        self.prefix_path = prefix_path
+    def __init__(self, prefix_path, train_path=None, val_path=None, test_path=None, runs_path=None, save_runs=True):
+        self.prefix_path = self.normalize_path(prefix_path)
         self._train_path = train_path or self._get_path('train_data')
         self._val_path = val_path or self._get_path('val_data')
         self._test_path = test_path or self._get_path('test_path')
+        self._runs_path = runs_path or self._get_path('runs')
         self._save_runs = save_runs
 
     def get_train_data_path(self):
@@ -132,7 +130,7 @@ class PrefixStore(Store):
         return self._save_runs
 
     def get_runs_path(self):
-        return self._get_path('runs')
+        return self._runs_path
 
     def get_run_path(self, run_id):
         return os.path.join(self.get_runs_path(), run_id)
@@ -151,11 +149,24 @@ class PrefixStore(Store):
     def get_logs_subdir(self):
         return 'logs'
 
+    def normalize_path(self, path):
+        return path[len(self.filesystem_prefix()):] if self.matches(path) else path
+
     def _get_path(self, key):
         return os.path.join(self.prefix_path, key)
 
+    @classmethod
+    def matches(cls, path):
+        return path.startswith(cls.filesystem_prefix())
+
+    @classmethod
+    def filesystem_prefix(cls):
+        raise NotImplementedError()
+
 
 class LocalStore(PrefixStore):
+    FS_PREFIX = 'file://'
+
     def __init__(self, prefix_path, *args, **kwargs):
         super(LocalStore, self).__init__(prefix_path, *args, **kwargs)
         self._fs = pa.LocalFileSystem()
@@ -164,15 +175,17 @@ class LocalStore(PrefixStore):
         return self._fs
 
     def exists(self, path):
-        return os.path.exists(path)
+        return self._fs.exists(path)
 
     def read(self, path):
-        with open(path, 'rb') as f:
+        with self._fs.open(path, 'rb') as f:
             return f.read()
 
     def get_petastorm_path_fn(self):
+        prefix = HDFSStore.FS_PREFIX
+
         def get_path(path):
-            return 'file://' + path
+            return prefix + path
         return get_path
 
     def get_local_output_dir_fn(self, run_id):
@@ -195,11 +208,17 @@ class LocalStore(PrefixStore):
             pass
         return fn
 
+    @classmethod
+    def filesystem_prefix(cls):
+        return cls.FS_PREFIX
+
 
 class HDFSStore(PrefixStore):
+    FS_PREFIX = 'hdfs://'
+
     def __init__(self, prefix_path,
                  host='default', port=0, user=None, kerb_ticket=None,
-                 driver='libhdfs', extra_conf=None, *args, **kwargs):
+                 driver='libhdfs', extra_conf=None, temp_dir=None, *args, **kwargs):
         super(HDFSStore, self).__init__(prefix_path, *args, **kwargs)
 
         self._host = host
@@ -208,6 +227,7 @@ class HDFSStore(PrefixStore):
         self._kerb_ticket = kerb_ticket
         self._driver = driver
         self._extra_conf = extra_conf
+        self._temp_dir = temp_dir
         self._hdfs = self._get_filesystem_fn()()
 
     def get_filesystem(self):
@@ -221,14 +241,18 @@ class HDFSStore(PrefixStore):
             return f.read()
 
     def get_petastorm_path_fn(self):
+        prefix = HDFSStore.FS_PREFIX
+
         def get_path(path):
-            return 'hdfs://' + path
+            return prefix + path
         return get_path
 
     def get_local_output_dir_fn(self, run_id):
+        temp_dir = self._temp_dir
+
         @contextlib.contextmanager
         def local_run_path():
-            dirpath = tempfile.mkdtemp()
+            dirpath = tempfile.mkdtemp(dir=temp_dir)
             try:
                 yield dirpath
             finally:
@@ -291,3 +315,7 @@ class HDFSStore(PrefixStore):
                                    driver=driver,
                                    extra_conf=extra_conf)
         return fn
+
+    @classmethod
+    def filesystem_prefix(cls):
+        return cls.FS_PREFIX

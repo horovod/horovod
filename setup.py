@@ -1447,7 +1447,7 @@ class custom_build_ext(build_ext):
 
 
 require_list = ['cloudpickle', 'psutil', 'pyyaml', 'six']
-test_require_list = ['mock', 'pytest-forked']
+test_require_list = ['mock', 'pytest', 'pytest-forked']
 
 # Skip cffi if pytorch extension explicitly disabled
 if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
@@ -1479,7 +1479,7 @@ setup(name='horovod',
           'spark':  [
               'h5py>=2.9',
               'numpy',
-              'petastorm',
+              'petastorm>=0.7.7',
               'pyarrow>=0.15.0',  # Petastorm 0.7.7 is not compatible with < 0.15.0
               'pyspark>=2.3.2'
           ],

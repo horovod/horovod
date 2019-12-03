@@ -23,7 +23,6 @@ from pyspark.ml.util import DefaultParamsWriter, DefaultParamsReader
 
 
 class HorovodParamsWriter(DefaultParamsWriter):
-
     @staticmethod
     def saveMetadata(instance, path, sc, extraMetadata=None, paramMap=None,
                      param_serializer_fn=None):
@@ -67,13 +66,12 @@ class HorovodParamsWriter(DefaultParamsWriter):
 
 
 class HorovodParamsReader(DefaultParamsReader):
-
     def load(self, path):
         metadata = DefaultParamsReader.loadMetadata(path, self.sc)
         metadata['paramMap'] = self._deserialize_dict(metadata['paramMap'])
         metadata['defaultParamMap'] = self._deserialize_dict(metadata['defaultParamMap'])
+
         py_type = DefaultParamsReader._DefaultParamsReader__get_class(metadata['class'])
-        # Instantiate KerasModel class
         instance = py_type()
         instance._resetUid(metadata['uid'])
         DefaultParamsReader.getAndSetParams(instance, metadata)

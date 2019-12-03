@@ -57,7 +57,10 @@ class SparkBackend(Backend):
             full_env.update(env)
 
         if 'CUDA_VISIBLE_DEVICES' in full_env:
-            # In TensorFlow 2.0, we set this to prevent memory leaks from the client.
+            # In TensorFlow 2.0, we set this before calling `run` in order to prevent TensorFlow
+            # from allocating memory on the GPU outside the training process.  Once we submit the
+            # function for execution, we want to ensure that TensorFLow has visibility into GPUs on
+            # the device so we can use them for training, which is why we need to unset this.
             # See https://github.com/tensorflow/tensorflow/issues/33168
             del full_env['CUDA_VISIBLE_DEVICES']
 

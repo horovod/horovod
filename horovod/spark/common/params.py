@@ -47,11 +47,13 @@ class EstimatorParams(Params):
     callbacks = Param(Params._dummy(), 'callbacks', 'callbacks')
     batch_size = Param(Params._dummy(), 'batch_size', 'batch size',
                        typeConverter=TypeConverters.toInt)
-    epochs = Param(Params._dummy(), 'epochs', 'epochs')
+    epochs = Param(Params._dummy(), 'epochs', 'epochs', typeConverter=TypeConverters.toInt)
     train_steps_per_epoch = Param(Params._dummy(), 'train_steps_per_epoch',
-                                  'number of training (batches) steps per epoch')
+                                  'number of training (batches) steps per epoch',
+                                  typeConverter=TypeConverters.toInt)
     validation_steps_per_epoch = Param(Params._dummy(), 'validation_steps_per_epoch',
-                                       'number of steps (batches) for validation per epoch')
+                                       'number of steps (batches) for validation per epoch',
+                                       typeConverter=TypeConverters.toInt)
     validation_split = Param(Params._dummy(), 'validation_split', 'validation split',
                              typeConverter=TypeConverters.toFloat)
 

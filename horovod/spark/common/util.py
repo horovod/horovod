@@ -405,6 +405,13 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
     if validation_split and validation_col:
         raise ValueError("can only specify one of validation_col and validation_split")
 
+    if num_processes <= 0 or partitions_per_process <= 0:
+        raise ValueError('num_proc={} and partitions_per_process={} must both be > 0'
+                         .format(num_processes, partitions_per_process))
+
+    if not label_columns:
+        raise ValueError('Parameter label_columns cannot be None or empty')
+
     num_partitions = num_processes * partitions_per_process
     if verbose:
         print('num_partitions={}'.format(num_partitions))
@@ -424,7 +431,6 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
 
     dataframe_hash = df.__hash__()
 
-    global _training_cache
     key = (dataframe_hash, validation_split, validation_col, train_data_path, val_data_path)
     with _training_cache.lock:
         if _training_cache.is_cached(key):
@@ -474,7 +480,7 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
                 validation_ratio = val_rows / (val_rows + train_rows)
 
             train_partitions = max(int(num_partitions * (1.0 - validation_ratio)),
-                                   partitions_per_process)
+                                   num_processes)
             if verbose:
                 print('train_partitions={}'.format(train_partitions))
 
@@ -486,7 +492,7 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
 
             if val_df:
                 val_partitions = max(int(num_partitions * validation_ratio),
-                                     partitions_per_process)
+                                     num_processes)
                 if verbose:
                     print('val_partitions={}'.format(val_partitions))
 
