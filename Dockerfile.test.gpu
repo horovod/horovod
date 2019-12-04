@@ -21,8 +21,7 @@ ARG HOROVOD_MIXED_INSTALL=0
 SHELL ["/bin/bash", "-cu"]
 
 # Install essential packages.
-RUN apt-get update -qq
-RUN apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
+RUN apt-get update -qq && apt-get install -y --allow-downgrades --allow-change-held-packages --no-install-recommends \
         wget \
         ca-certificates \
         cmake \

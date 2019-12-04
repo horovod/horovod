@@ -18,9 +18,12 @@ from horovod.run.common.service import task_service
 
 class SparkTaskService(task_service.BasicTaskService):
     NAME_FORMAT = 'task service #%d'
+    SERVICE_ENV_KEYS = ['HADOOP_TOKEN_FILE_LOCATION']
 
     def __init__(self, index, key, nic):
-        super(SparkTaskService, self).__init__(SparkTaskService.NAME_FORMAT % index, key, nic)
+        super(SparkTaskService, self).__init__(SparkTaskService.NAME_FORMAT % index,
+                                               key, nic,
+                                               SparkTaskService.SERVICE_ENV_KEYS)
 
 
 class SparkTaskClient(task_service.BasicTaskClient):
