@@ -97,10 +97,12 @@ def extension_available(ext_base_name, verbose=False):
     return _check_extension_lambda(
         ext_base_name, available_fn, 'built', verbose) or False
 
+
 def gpu_available(ext_base_name, verbose=False):
     available_fn = lambda ext: ext._check_has_gpu()
     return _check_extension_lambda(
         ext_base_name, available_fn, 'running with GPU', verbose) or False
+
 
 def mpi_built(verbose=False):
     for ext_base_name in EXTENSIONS:
@@ -119,7 +121,8 @@ def gloo_built(verbose=False):
             ext_base_name, built_fn, 'built with Gloo', verbose)
         if result is not None:
             return result
-    return False
+    raise RuntimeError('Failed to determine if Gloo support has been built. '
+                       'Run again with --verbose for more details.')
 
 
 def nccl_built(verbose=False):
@@ -129,7 +132,8 @@ def nccl_built(verbose=False):
             ext_base_name, built_fn, 'built with NCCL', verbose)
         if result is not None:
             return result
-    return False
+    raise RuntimeError('Failed to determine if NCCL support has been built. '
+                       'Run again with --verbose for more details.')
 
 
 def ddl_built(verbose=False):
@@ -139,7 +143,8 @@ def ddl_built(verbose=False):
             ext_base_name, built_fn, 'built with DDL', verbose)
         if result is not None:
             return result
-    return False
+    raise RuntimeError('Failed to determine if DDL support has been built. '
+                       'Run again with --verbose for more details.')
 
 
 def mlsl_built(verbose=False):
@@ -149,7 +154,8 @@ def mlsl_built(verbose=False):
             ext_base_name, built_fn, 'built with MLSL', verbose)
         if result is not None:
             return result
-    return False
+    raise RuntimeError('Failed to determine if MLSL support has been built. '
+                       'Run again with --verbose for more details.')
 
 
 @contextmanager
@@ -178,6 +184,7 @@ def env(**kwargs):
             else:
                 del os.environ[k]
 
+
 def get_average_backwards_compatibility_fun(reduce_ops):
     """
     Handle backwards compatibility between the old average and the new op parameters.
@@ -195,6 +202,7 @@ def get_average_backwards_compatibility_fun(reduce_ops):
         else:
             return reduce_ops.Average
     return impl
+
 
 def num_rank_is_power_2(num_rank):
     """
