@@ -131,38 +131,29 @@ def check_shape_compatibility(metadata, feature_columns, label_columns,
                              'model inputs count {inputs}'
                              .format(features=feature_count, inputs=len(input_shapes)))
 
-    missing_features = [col for col in feature_columns if col not in metadata]
-    if missing_features:
-        raise ValueError('Feature columns {} not found in training DataFrame metadata'
-                         .format(missing_features))
+        for idx, col, input_shape in zip(range(feature_count), feature_columns, input_shapes):
+            col_size = metadata[col]['shape']
+            input_size = abs(np.prod(input_shape))
+            if col_size != input_size:
+                raise ValueError(
+                    'Feature column \'{col}\' with size {feature} must equal that of the '
+                    'model input at index {idx} with size {input}'
+                    .format(col=col, feature=col_size, idx=idx, input=input_size))
 
-    missing_labels = [col for col in label_columns if col not in metadata]
-    if missing_labels:
-        raise ValueError('Label columns {} not found in training DataFrame metadata'
-                         .format(missing_labels))
+    if output_shapes is not None:
+        label_count = len(label_columns)
+        if label_count != len(output_shapes):
+            raise ValueError('Label column count {labels} must equal '
+                             'model outputs count {outputs}'
+                             .format(labels=label_count, outputs=len(output_shapes)))
 
-    for idx, col, input_shape in zip(range(feature_count), feature_columns, input_shapes):
-        col_size = metadata[col]['shape']
-        input_size = abs(np.prod(input_shape))
-        if col_size != input_size:
-            raise ValueError(
-                'Feature column \'{col}\' with size {feature} must equal that of the '
-                'model input at index {idx} with size {input}'
-                .format(col=col, feature=col_size, idx=idx, input=input_size))
-
-    label_count = len(label_columns)
-    if label_count != len(output_shapes):
-        raise ValueError('Label column count {labels} must equal '
-                         'model outputs count {outputs}'
-                         .format(labels=label_count, outputs=len(output_shapes)))
-
-    for idx, col, output_shape in zip(range(label_count), label_columns, output_shapes):
-        col_size = metadata[col]['shape']
-        output_size = abs(np.prod(output_shape))
-        if col_size != output_size:
-            raise ValueError('Label column \'{col}\' with size {label} must equal that of the '
-                             'model output at index {idx} with size {output}'
-                             .format(col=col, label=col_size, idx=idx, output=output_size))
+        for idx, col, output_shape in zip(range(label_count), label_columns, output_shapes):
+            col_size = metadata[col]['shape']
+            output_size = abs(np.prod(output_shape))
+            if col_size != output_size:
+                raise ValueError('Label column \'{col}\' with size {label} must equal that of the '
+                                 'model output at index {idx} with size {output}'
+                                 .format(col=col, label=col_size, idx=idx, output=output_size))
 
 
 def _get_col_info(df):

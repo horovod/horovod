@@ -231,10 +231,7 @@ class TorchEstimator(Estimator, EstimatorParams, TorchEstimatorParamsWritable,
         return self._fit_on_prepared_data(backend, train_rows, val_rows, metadata, avg_row_size)
 
     def _fit_on_prepared_data(self, backend, train_rows, val_rows, metadata, avg_row_size):
-        model_pre_train = self.getModel()
-        if not model_pre_train:
-            raise ValueError('Model parameter is required')
-
+        self._check_params(metadata)
         self._check_model_compatibility(metadata)
 
         run_id = self.getRunId()
@@ -245,6 +242,7 @@ class TorchEstimator(Estimator, EstimatorParams, TorchEstimatorParamsWritable,
         if self._has_checkpoint(run_id):
             last_checkpoint_state = self._load_checkpoint(run_id)
 
+        model_pre_train = self.getModel()
         serialized_model = serialize_fn()(model_pre_train)
 
         trainer = remote.RemoteTrainer(self, metadata, last_checkpoint_state, run_id)

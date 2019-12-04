@@ -263,10 +263,7 @@ class KerasEstimator(Estimator, EstimatorParams, KerasEstimatorParamsReadable,
         return self._fit_on_prepared_data(backend, train_rows, val_rows, metadata, avg_row_size)
 
     def _fit_on_prepared_data(self, backend, train_rows, val_rows, metadata, avg_row_size):
-        model = self.getModel()
-        if not model:
-            raise ValueError('Model parameter is required')
-
+        self._check_params(metadata)
         self._check_model_compatibility(metadata)
         keras_utils = self._get_keras_utils()
 

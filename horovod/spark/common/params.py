@@ -105,6 +105,23 @@ class EstimatorParams(Params):
     def _should_validate(self):
         return self.getValidationCol() is not None or self.getValidationSplit() > 0
 
+    def _check_params(self, metadata):
+        model = self.getModel()
+        if not model:
+            raise ValueError('Model parameter is required')
+
+        feature_columns = self.getFeatureCols()
+        missing_features = [col for col in feature_columns if col not in metadata]
+        if missing_features:
+            raise ValueError('Feature columns {} not found in training DataFrame metadata'
+                             .format(missing_features))
+
+        label_columns = self.getLabelCols()
+        missing_labels = [col for col in label_columns if col not in metadata]
+        if missing_labels:
+            raise ValueError('Label columns {} not found in training DataFrame metadata'
+                             .format(missing_labels))
+
     @keyword_only
     def setParams(self, **kwargs):
         return self._set(**kwargs)
