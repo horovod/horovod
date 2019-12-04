@@ -182,7 +182,7 @@ class LocalStore(PrefixStore):
             return f.read()
 
     def get_petastorm_path_fn(self):
-        prefix = HDFSStore.FS_PREFIX
+        prefix = LocalStore.FS_PREFIX
 
         def get_path(path):
             return prefix + path
