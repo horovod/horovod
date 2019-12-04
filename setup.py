@@ -1142,6 +1142,8 @@ class protect_files(object):
 
 
 def build_torch_extension(build_ext, global_options, torch_version):
+    import torch
+
     # Backup the options, preventing other plugins access libs that
     # compiled with compiler of this plugin
     options = deepcopy(global_options)
@@ -1166,6 +1168,10 @@ def build_torch_extension(build_ext, global_options, torch_version):
     # used for backwards compatibility checks.
     updated_macros = set_macro(
         updated_macros, 'TORCH_VERSION', str(torch_version))
+
+    compile_flags = options['COMPILE_FLAGS']
+    if LooseVersion(torch.__version__) >= LooseVersion('1.3.0'):
+        compile_flags += ['-std=c++14']
 
     # Create_extension overwrites these files which are customized, we need to protect them.
     with protect_files('horovod/torch/mpi_lib/__init__.py',
@@ -1196,7 +1202,7 @@ def build_torch_extension(build_ext, global_options, torch_version):
                                           'horovod/torch/tensor_util.cc',
                                           'horovod/torch/cuda_util.cc',
                                           'horovod/torch/adapter.cc'],
-            extra_compile_args=options['COMPILE_FLAGS'],
+            extra_compile_args=compile_flags,
             extra_link_args=options['LINK_FLAGS'],
             library_dirs=options['LIBRARY_DIRS'],
             libraries=options['LIBRARIES']
