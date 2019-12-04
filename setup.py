@@ -1128,6 +1128,14 @@ def set_macro(macros, key, new_value):
         return macros + [(key, new_value)]
 
 
+def set_flag(flags, flag, value):
+    flag = '-' + flag
+    if any(f.split('=')[0] == flag for f in flags):
+        return [('{}={}'.format(flag, value) if f.split('=')[0] == flag else f) for f in flags]
+    else:
+        return flags + ['{}={}'.format(flag, value)]
+
+
 class protect_files(object):
     def __init__(self, *files):
         self.files = files
@@ -1142,8 +1150,6 @@ class protect_files(object):
 
 
 def build_torch_extension(build_ext, global_options, torch_version):
-    import torch
-
     # Backup the options, preventing other plugins access libs that
     # compiled with compiler of this plugin
     options = deepcopy(global_options)
@@ -1168,10 +1174,6 @@ def build_torch_extension(build_ext, global_options, torch_version):
     # used for backwards compatibility checks.
     updated_macros = set_macro(
         updated_macros, 'TORCH_VERSION', str(torch_version))
-
-    compile_flags = options['COMPILE_FLAGS']
-    if LooseVersion(torch.__version__) >= LooseVersion('1.3.0'):
-        compile_flags += ['-std=c++14']
 
     # Create_extension overwrites these files which are customized, we need to protect them.
     with protect_files('horovod/torch/mpi_lib/__init__.py',
@@ -1202,7 +1204,7 @@ def build_torch_extension(build_ext, global_options, torch_version):
                                           'horovod/torch/tensor_util.cc',
                                           'horovod/torch/cuda_util.cc',
                                           'horovod/torch/adapter.cc'],
-            extra_compile_args=compile_flags,
+            extra_compile_args=options['COMPILE_FLAGS'],
             extra_link_args=options['LINK_FLAGS'],
             library_dirs=options['LIBRARY_DIRS'],
             libraries=options['LIBRARIES']
@@ -1251,6 +1253,11 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
     updated_macros = set_macro(
         updated_macros, 'TORCH_API_INCLUDE_EXTENSION_H', '1')
 
+    # Versions of PyTorch > 1.3.0 require C++14
+    compile_flags = options['COMPILE_FLAGS']
+    if LooseVersion(torch.__version__) >= LooseVersion('1.3.0'):
+        compile_flags = set_flag(compile_flags, 'std', 'c++14')
+
     if have_cuda:
         from torch.utils.cpp_extension import CUDAExtension as TorchExtension
     else:
@@ -1266,7 +1273,7 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
                             'horovod/torch/ready_event.cc',
                             'horovod/torch/cuda_util.cc',
                             'horovod/torch/adapter_v2.cc'],
-                        extra_compile_args=options['COMPILE_FLAGS'],
+                        extra_compile_args=compile_flags,
                         extra_link_args=options['LINK_FLAGS'],
                         library_dirs=options['LIBRARY_DIRS'],
                         libraries=options['LIBRARIES'])
