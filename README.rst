@@ -135,6 +135,7 @@ See these pages for Horovod examples and best practices:
 
 Usage
 -----
+.. inclusion-marker-tensorflow-start-do-not-remove
 
 To use Horovod, make the following additions to your program. This example uses TensorFlow.
 
@@ -234,6 +235,7 @@ Example (see the `examples <https://github.com/horovod/horovod/blob/master/examp
         # Perform synchronous training.
         mon_sess.run(train_op)
 
+.. inclusion-marker-tensorflow-end-do-not-remove
 
 Running Horovod
 ---------------
