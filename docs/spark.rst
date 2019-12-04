@@ -163,15 +163,15 @@ A toy example of running a Horovod job in Spark is provided below:
     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
     >>>
 
-A more complete example can be found in `keras_spark_rossmann_v0.py <../examples/keras_spark_rossmann_v0.py>`__, which
+A more complete example can be found in `keras_spark_rossmann_advanced.py <../examples/keras_spark_rossmann_advanced.py>`__, which
 shows how you can use the low level ``horovod.spark.run`` API to train a model end-to-end in the following steps:
 
 .. code-block:: bash
 
-    $ wget https://raw.githubusercontent.com/horovod/horovod/master/examples/keras_spark_rossmann_v0.py
+    $ wget https://raw.githubusercontent.com/horovod/horovod/master/examples/keras_spark_rossmann_advanced.py
     $ wget http://files.fast.ai/part2/lesson14/rossmann.tgz
     $ tar zxvf rossmann.tgz
-    $ python keras_spark_rossmann_v0.py
+    $ python keras_spark_rossmann_advanced.py
 
 
 Spark cluster setup
