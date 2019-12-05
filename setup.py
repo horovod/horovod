@@ -1224,8 +1224,14 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
     # compiled with compiler of this plugin
     options = deepcopy(global_options)
 
+    # Versions of PyTorch > 1.3.0 require C++14
+    import torch
+    compile_flags = options['COMPILE_FLAGS']
+    if LooseVersion(torch.__version__) >= LooseVersion('1.3.0'):
+        compile_flags = set_flag(compile_flags, 'std', 'c++14')
+
     have_cuda = is_torch_cuda_v2(build_ext, include_dirs=options['INCLUDES'],
-                                 extra_compile_args=options['COMPILE_FLAGS'])
+                                 extra_compile_args=compile_flags)
     if not have_cuda and check_macro(options['MACROS'], 'HAVE_CUDA'):
         raise DistutilsPlatformError(
             'Horovod build with GPU support was requested, but this PyTorch '
@@ -1243,7 +1249,6 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
         updated_macros, 'TORCH_VERSION', str(torch_version))
 
     # Always set _GLIBCXX_USE_CXX11_ABI, since PyTorch can only detect whether it was set to 1.
-    import torch
     updated_macros = set_macro(updated_macros, '_GLIBCXX_USE_CXX11_ABI',
                                str(int(torch.compiled_with_cxx11_abi())))
 
@@ -1252,11 +1257,6 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
     # PyTorch requires -DTORCH_API_INCLUDE_EXTENSION_H
     updated_macros = set_macro(
         updated_macros, 'TORCH_API_INCLUDE_EXTENSION_H', '1')
-
-    # Versions of PyTorch > 1.3.0 require C++14
-    compile_flags = options['COMPILE_FLAGS']
-    if LooseVersion(torch.__version__) >= LooseVersion('1.3.0'):
-        compile_flags = set_flag(compile_flags, 'std', 'c++14')
 
     if have_cuda:
         from torch.utils.cpp_extension import CUDAExtension as TorchExtension
