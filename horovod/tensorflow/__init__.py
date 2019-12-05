@@ -25,7 +25,7 @@ from horovod.common.util import check_extension, gpu_available
 check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
 
 from horovod.tensorflow.compression import Compression
-from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce
+from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce, _reducescatter
 from horovod.tensorflow.mpi_ops import init, shutdown
 from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank, is_homogeneous
 from horovod.tensorflow.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
@@ -116,6 +116,37 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             else:
                 new_tensor = (summed_tensor / horovod_size) if op == Average else summed_tensor
         return new_tensor
+
+
+def reducescatter(tensor, average=True, device_dense='', compression=Compression.none):
+    """Perform a reducescatter on a tf.Tensor.
+
+    This function performs a bandwidth-optimal reduce and scatter on the input
+    tensor.
+
+    Arguments:
+        tensor: tf.Tensor or tf.Variable to reduce.
+                The shape of the input must be identical across all ranks.
+        average: If True, computes the average over all ranks.
+                 Otherwise, computes the sum over all ranks.
+        device_dense: Device to be used for dense tensors. Uses GPU by default
+                      if Horovod was built with HOROVOD_GPU_REDUCESCATTER.
+        compression: Compression algorithm used to reduce the amount of data
+                     sent and received by each worker node.  Defaults to not
+                     using compression.
+
+    Returns:
+        A tensor of the same rank and type as `tensor`, summed across all processes.
+        The shape is identical to the input shape, except for the first dimension,
+        which will be divided across the different Horovod processes.
+    """
+    with tf.device(device_dense):
+        horovod_size = tf.cast(size(), dtype=tensor.dtype)
+        tensor_compressed, ctx = compression.compress(tensor)
+        summed_tensor_compressed = _reducescatter(tensor_compressed)
+        summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
+        new_tensor = (summed_tensor / horovod_size) if average else summed_tensor
+    return new_tensor
 
 
 @_cache

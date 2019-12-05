@@ -87,6 +87,22 @@ protected:
   MPIContext* mpi_context_;
 };
 
+class MPIReducescatter : public ReducescatterOp {
+public:
+  MPIReducescatter(MPIContext* mpi_context, HorovodGlobalState* global_state);
+
+  virtual ~MPIReducescatter() = default;
+
+  Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
+
+  bool Enabled(const ParameterManager& param_manager,
+               const std::vector<TensorTableEntry>& entries,
+               const Response& response) const override;
+
+protected:
+  MPIContext* mpi_context_;
+};
+
 } // namespace common
 } // namespace horovod
 

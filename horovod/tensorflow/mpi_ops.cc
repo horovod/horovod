@@ -405,7 +405,7 @@ Arguments
     tensor:     A tensor to gather.
 
 Output
-    gathered:    A tensor with the same shape as `tensor` except for the first dimension.
+    output:     A tensor with the same shape as `tensor` except for the first dimension.
 )doc");
 
 class HorovodBroadcastOp : public AsyncOpKernel {
@@ -478,6 +478,67 @@ Arguments
 Output
     output:    A tensor with the same shape as `tensor` and same value as
                `tensor` on root rank.
+)doc");
+
+class HorovodReducescatterOp : public AsyncOpKernel {
+public:
+  explicit HorovodReducescatterOp(OpKernelConstruction* context)
+      : AsyncOpKernel(context) {}
+
+  void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(common::CheckInitialized()),
+                         done);
+
+    auto node_name = name();
+    auto device = GetDeviceID(context);
+    auto tensor = context->input(0);
+    // ReadyEvent makes sure input tensor is ready.  We cannot pre-allocate
+    // output for reducescatter, since shape of result is only known after all
+    // ranks make a request.
+    auto ready_event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context));
+    auto hvd_context = std::make_shared<TFOpContext>(context);
+    auto hvd_tensor = std::make_shared<TFTensor>(tensor);
+    auto enqueue_result = EnqueueTensorReducescatter(
+        hvd_context, hvd_tensor, ready_event, node_name, device,
+        [context, done](const common::Status& status) {
+          context->SetStatus(ConvertStatus(status));
+          done();
+        });
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
+  }
+}; // namespace tensorflow
+
+REGISTER_KERNEL_BUILDER(Name("HorovodReducescatter").Device(DEVICE_CPU),
+                        HorovodReducescatterOp);
+#if HOROVOD_GPU_REDUCESCATTER
+REGISTER_KERNEL_BUILDER(Name("HorovodReducescatter").Device(DEVICE_GPU),
+                        HorovodReducescatterOp);
+#endif
+
+REGISTER_OP("HorovodReducescatter")
+    .Attr("T: {int32, int64, float16, float32, float64}")
+    .Input("tensor: T")
+    .Output("output: T")
+    .SetShapeFn([](shape_inference::InferenceContext* c) {
+      shape_inference::ShapeHandle output;
+      TF_RETURN_IF_ERROR(
+          c->ReplaceDim(c->input(0), 0, c->UnknownDim(), &output));
+      c->set_output(0, output);
+      return Status::OK();
+    })
+    .Doc(R"doc(
+Perform an MPI Reducescatter on a tensor. All other processes that do a
+reduce scatter on a tensor with the same name must have the same shape for
+that tensor. Tensors are reduced with other tensors that have the same node
+name for the reducescatter. The output shape is identical to the input
+shape except for the first dimension, which will be divided across the
+different Horovod processes.
+
+Arguments
+    tensor:     A tensor to reduce and scatter.
+
+Output
+    output:     A tensor with the same shape as `tensor` except for the first dimension.
 )doc");
 
 } // namespace tensorflow

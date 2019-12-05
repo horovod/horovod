@@ -31,5 +31,9 @@ a training script on 4 servers, each having 4 GPUs. If we launched one copy of t
     .. image:: http://mpitutorial.com/tutorials/mpi-broadcast-and-collective-communication/broadcast_pattern.png
        :alt: Broadcast Illustration
 
+* *Reducescatter* is an operation that aggregates data among multiple processes and scatters the data across them.  *Reducescatter* is used to average dense tensors then split them across processes.  Here's an illustration from the `Nvidia developer guide <https://docs.nvidia.com/deeplearning/sdk/nccl-developer-guide/docs/usage/operations.html#reducescatter>`__:
+
+    .. image:: https://docs.nvidia.com/deeplearning/sdk/nccl-developer-guide/docs/_images/reducescatter.png
+       :alt: Reducescatter Illustration
 
 .. inclusion-marker-end-do-not-remove

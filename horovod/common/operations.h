@@ -125,6 +125,12 @@ Status EnqueueTensorBroadcast(std::shared_ptr<OpContext> context,
                               const std::string name, const int device,
                               StatusCallback callback);
 
+Status EnqueueTensorReducescatter(std::shared_ptr<OpContext> context,
+                                  std::shared_ptr<Tensor> tensor,
+                                  std::shared_ptr<ReadyEvent> ready_event,
+                                  const std::string name, const int device,
+                                  StatusCallback callback);
+
 Status EnqueueJoin(std::shared_ptr<OpContext> context,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string name, const int device,

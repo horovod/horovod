@@ -211,6 +211,125 @@ void AllgatherOp::MemcpyEntryOutFusionBuffer(
 BroadcastOp::BroadcastOp(HorovodGlobalState* global_state)
     : HorovodOp(global_state) {}
 
+// Reducescatter
+ReducescatterOp::ReducescatterOp(HorovodGlobalState* global_state)
+    : HorovodOp(global_state) {}
+
+TensorShape ReducescatterOp::ComputeOutputShapeForRank(
+    const TensorShape& tensor_shape, int rank) const {
+  int global_size = global_state_->controller->GetSize();
+
+  // The last rank may receive a larger tensor.
+  int64_t min_size = tensor_shape.dim_size(0) / global_size;
+  int64_t max_size = tensor_shape.dim_size(0) / global_size + tensor_shape.dim_size(0) % global_size;
+  int64_t component_size = rank == global_size - 1 ? max_size : min_size;
+
+  TensorShape output_shape;
+  output_shape.AddDim(component_size);
+  for (int i = 1; i < tensor_shape.dims(); ++i) {
+    output_shape.AddDim(tensor_shape.dim_size(i));
+  }
+
+  return output_shape;
+}
+
+std::vector<std::vector<TensorShape>> ReducescatterOp::ComputeOutputShapes(
+    const std::vector<TensorTableEntry>& entries) const {
+  int global_size = global_state_->controller->GetSize();
+  std::vector<std::vector<TensorShape>> output_shapes(global_size);
+  for (int rank = 0; rank < global_size; ++rank) {
+    output_shapes[rank].reserve(entries.size());
+    for (size_t ec = 0; ec < entries.size(); ++ec) {
+      const auto& e = entries[ec];
+      TensorShape shape = ComputeOutputShapeForRank(e.tensor->shape(), rank);
+      output_shapes[rank].emplace_back(std::move(shape));
+    }
+  }
+
+  return output_shapes;
+}
+
+std::vector<int> ReducescatterOp::ComputeReceiveCounts(
+    const std::vector<std::vector<TensorShape>>& output_shapes) const {
+  std::vector<int> recvcounts(output_shapes.size(), 0);
+  for (size_t rank = 0; rank < output_shapes.size(); ++rank) {
+    const auto& rank_shapes = output_shapes[rank];
+    for (const TensorShape& shape : rank_shapes) {
+      recvcounts[rank] += shape.num_elements();
+    }
+  }
+
+  return recvcounts;
+}
+
+Status ReducescatterOp::AllocateOutput(
+    std::vector<TensorTableEntry>& entries, const std::vector<TensorShape>& output_shapes) {
+  for (size_t ec = 0; ec < entries.size(); ++ec) {
+    auto& e = entries[ec];
+    const auto& output_shape = output_shapes[ec];
+    Status status = e.context->AllocateOutput(output_shape, &e.output);
+    if (!status.ok()) {
+      return status;
+    }
+  }
+
+  return Status::OK();
+}
+
+void ReducescatterOp::MemcpyInFusionBuffer(
+    const std::vector<TensorTableEntry>& entries,
+    const std::vector<std::vector<TensorShape>>& output_shapes,
+    int element_size,
+    void*& buffer_data) {
+  // Access the fusion buffer.
+  auto& first_entry = entries[0];
+  auto buffer = global_state_->fusion_buffer.GetBuffer(
+      first_entry.device, first_entry.context->framework(), global_state_->current_nccl_stream);
+  buffer_data = const_cast<void*>(buffer->AccessData(first_entry.context));
+
+  int64_t buffer_offset = 0;
+  std::vector<int64_t> entry_offsets(entries.size(), 0);
+
+  for (size_t rank = 0; rank < output_shapes.size(); ++rank) {
+    const auto& rank_shapes = output_shapes[rank];
+    for (size_t ec = 0; ec < entries.size(); ++ec) {
+      auto& e = entries[ec];
+      const auto& entry_shape = rank_shapes[ec];
+      int64_t entry_offset = entry_offsets[ec];
+      size_t entry_size = entry_shape.num_elements() * element_size;
+      void* buffer_data_at_offset = (uint8_t*)buffer_data + buffer_offset;
+      MemcpyEntryInFusionBuffer(entries, e, entry_offset, entry_size, buffer_data_at_offset);
+      entry_offsets[ec] += entry_size;
+      buffer_offset += entry_size;
+    }
+  }
+}
+
+void ReducescatterOp::MemcpyOutFusionBuffer(
+    const void* buffer_data, std::vector<TensorTableEntry>& entries) {
+  int64_t offset = 0;
+  for (auto& e : entries) {
+    void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
+    MemcpyEntryOutFusionBuffer(entries, buffer_data_at_offset, e);
+    offset += e.output->size();
+  }
+}
+
+void ReducescatterOp::MemcpyEntryInFusionBuffer(
+    const std::vector<TensorTableEntry>& entries,
+    const TensorTableEntry& e, int64_t entry_offset,
+    size_t entry_size, void* buffer_data_at_offset) {
+  void* tensor_data_at_offset = (uint8_t*)e.tensor->data() + entry_offset;
+  std::memcpy(buffer_data_at_offset, tensor_data_at_offset, entry_size);
+}
+
+void ReducescatterOp::MemcpyEntryOutFusionBuffer(
+    const std::vector<TensorTableEntry>& entries,
+    const void* buffer_data_at_offset, TensorTableEntry& e) {
+  std::memcpy((void*)e.output->data(), buffer_data_at_offset,
+              (size_t)e.output->size());
+}
+
 // Join
 JoinOp::JoinOp(HorovodGlobalState* global_state) : HorovodOp(global_state) {}
 

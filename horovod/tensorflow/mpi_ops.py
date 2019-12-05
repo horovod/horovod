@@ -199,3 +199,36 @@ def _broadcast_grad(op, grad):
     if rank() != root_rank:
         return grad_reduced * 0
     return grad_reduced
+
+
+def _reducescatter(tensor, name=None):
+    """An op which sums an input tensor over all the Horovod processes, then
+    scatters the result across all the Horovod processes.
+
+    The reduction operation is keyed by the name of the op. The tensor type and
+    shape must be the same on all Horovod processes for a given name. The reduction
+    will not start until all processes are ready to send and receive the tensor.
+
+    Returns:
+      A tensor of the same rank and type as `tensor`. The shape is identical to the
+        input shape, except for the first dimension, which will be divided across
+        the different Horovod processes.
+    """
+    if name is None and not _executing_eagerly():
+        name = 'HorovodReducescatter_%s' % _normalize_name(tensor.name)
+    return MPI_LIB.horovod_reducescatter(tensor, name=name)
+
+
+@ops.RegisterGradient('HorovodReducescatter')
+def _reducescatter_grad(op, grad):
+    """Gradient for reducescatter op.
+
+    Args:
+      op: An operation.
+      grad: `Tensor` gradient with respect to the output of the op.
+
+    Returns:
+      The gradient with respect to the input of the op.
+    """
+    grad *= size()
+    return allgather(grad)

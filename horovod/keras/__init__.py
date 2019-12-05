@@ -114,6 +114,20 @@ def broadcast(value, root_rank, name=None):
     return _impl.broadcast(K, value, root_rank, name)
 
 
+def reducescatter(value, name=None, average=True):
+    """
+    Perform a reducescatter on a tensor-compatible value.
+
+    Arguments:
+        value: A tensor-compatible value to reduce and scatter.
+               The shape of the input must be identical across all ranks.
+        name: Optional name for the constants created by this operation.
+        average: If True, computes the average over all ranks.
+                 Otherwise, computes the sum over all ranks.
+    """
+    return _impl.reducescatter(K, value, name, average)
+
+
 def load_model(filepath, custom_optimizers=None, custom_objects=None, compression=Compression.none):
     """
     Loads a saved Keras model with a Horovod DistributedOptimizer.

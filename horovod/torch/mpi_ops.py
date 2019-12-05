@@ -456,15 +456,108 @@ def broadcast_(tensor, root_rank, name=None):
     return synchronize(handle)
 
 
-def poll(handle):
+def _reducescatter_function_factory(tensor):
+    return 'horovod_torch_reducescatter_async_' + tensor.type().replace('.', '_')
+
+
+def _reducescatter_async(tensor, output, average, name):
+    if tensor.dtype == torch.float16 and not _fp16_supported:
+        raise NotImplementedError(
+            'float16 reducescatter is not supported for PyTorch version {} < 1.0.0'
+            .format(torch.__version__))
+
+    function = _check_function(_reducescatter_function_factory, tensor)
+    handle = getattr(mpi_lib, function)(tensor, output, average,
+                                        name.encode() if name is not None else _NULL)
+    _handle_map[handle] = (tensor, output)
+    return handle
+
+
+def reducescatter_async(tensor, average=True, name=None):
     """
-    Polls an allreduce, allgather or broadcast handle to determine whether underlying
-    asynchronous operation has completed. After `poll()` returns `True`, `synchronize()`
-    will return without blocking.
+    A function that performs asynchronous averaging or summation of the input tensor
+    over all the Horovod processes, then scatters the results across all Horovod
+    processes. The input tensor is not modified.
+
+    The reduction operation is keyed by the name. If name is not provided, an incremented
+    auto-generated name is used. The tensor type and shape must be the same on all
+    Horovod processes for a given name. The reduction will not start until all processes
+    are ready to send and receive the tensor.
+
+    The input tensors on the different processes must have the same rank and shape. The
+    output tensor will be the same rank on all processes, but the first dimension may
+    be different.
 
     Arguments:
-        handle: A handle returned by an allreduce, allgather or broadcast asynchronous
-                operation.
+        tensor: A tensor to average and sum.
+        average: A flag indicating whether to compute average or summation,
+                 defaults to average.
+        name: A name of the reduction operation.
+
+    Returns:
+        A handle to the reducescatter operation that can be used with `poll()` or
+        `synchronize()`.
+    """
+    output = tensor.new()
+    return _reducescatter_async(tensor, output, average, name)
+
+
+class HorovodReducescatter(torch.autograd.Function):
+    """An autograd function that performs reducescatter on a tensor."""
+
+    @staticmethod
+    def forward(ctx, tensor, average, name):
+        ctx.average = average
+        handle = reducescatter_async(tensor, average, name)
+        return synchronize(handle)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        if not ctx.average:
+            grad_output *= size()
+
+        return allgather(grad_output), None, None
+
+
+def reducescatter(tensor, average=True, name=None, compression=Compression.none):
+    """
+    A function that performs averaging or summation of the input tensor over all the
+    Horovod processes, then scatters the results across all Horovod processes. The
+    input tensor is not modified.
+
+    The reduction operation is keyed by the name. If name is not provided, an incremented
+    auto-generated name is used. The tensor type and shape must be the same on all
+    Horovod processes for a given name. The reduction will not start until all processes
+    are ready to send and receive the tensor.
+
+    Arguments:
+        tensor: A tensor to average/sum and scatter.
+        average: A flag indicating whether to compute average or summation,
+                 defaults to average.
+        name: A name of the reduction operation.
+        compression: Compression algorithm used during reducescatter to reduce the amount
+                     of data sent during the each parameter update step.  Defaults to
+                     not using compression.
+
+    Returns:
+        A tensor of the same rank and type as `tensor` across all processes. The shape
+        is identical to the input shape, except for the first dimension, which will be
+        divided across the different Horovod processes.
+    """
+    tensor_compressed, ctx = compression.compress(tensor)
+    summed_tensor_compressed = HorovodReducescatter.apply(tensor_compressed, average, name)
+    return compression.decompress(summed_tensor_compressed, ctx)
+
+
+def poll(handle):
+    """
+    Polls an allreduce, allgather, broadcast, or reducescatter handle to determine whether
+    underlying asynchronous operation has completed. After `poll()` returns `True`,
+    `synchronize()` will return without blocking.
+
+    Arguments:
+        handle: A handle returned by an allreduce, allgather, broadcast, or reducescatter
+                asynchronous operation.
 
     Returns:
         A flag indicating whether the operation has completed.
@@ -474,12 +567,12 @@ def poll(handle):
 
 def synchronize(handle):
     """
-    Synchronizes an asynchronous allreduce, allgather or broadcast operation until
-    it's completed. Returns the result of the operation.
+    Synchronizes an asynchronous allreduce, allgather, broadcast, or reducescatter operation
+    until it's completed. Returns the result of the operation.
 
     Arguments:
-        handle: A handle returned by an allreduce, allgather or broadcast asynchronous
-                operation.
+        handle: A handle returned by an allreduce, allgather, broadcast, or reducescatter
+                asynchronous operation.
 
     Returns:
         An output tensor of the operation.

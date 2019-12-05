@@ -71,3 +71,17 @@ int horovod_torch_broadcast_async_torch_cuda_FloatTensor(THCudaTensor* tensor,
 int horovod_torch_broadcast_async_torch_cuda_DoubleTensor(
     THCudaDoubleTensor* tensor, THCudaDoubleTensor* output, int root_rank,
     char* name);
+
+int horovod_torch_reducescatter_async_torch_cuda_IntTensor(THCudaIntTensor* tensor,
+                                                           THCudaIntTensor* output,
+                                                           int average, char* name);
+int horovod_torch_reducescatter_async_torch_cuda_LongTensor(
+    THCudaLongTensor* tensor, THCudaLongTensor* output, int average,
+    char* name);
+int horovod_torch_reducescatter_async_torch_cuda_FloatTensor(THCudaTensor* tensor,
+                                                             THCudaTensor* output,
+                                                             int average,
+                                                             char* name);
+int horovod_torch_reducescatter_async_torch_cuda_DoubleTensor(
+    THCudaDoubleTensor* tensor, THCudaDoubleTensor* output, int average,
+    char* name);

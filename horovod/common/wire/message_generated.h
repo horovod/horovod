@@ -92,17 +92,21 @@ enum RequestType {
   RequestType_ALLREDUCE = 0,
   RequestType_ALLGATHER = 1,
   RequestType_BROADCAST = 2,
-  RequestType_JOIN = 3,
+  RequestType_REDUCESCATTER = 3,
+  RequestType_JOIN = 4,
+  RequestType_ADASUM = 5,
   RequestType_MIN = RequestType_ALLREDUCE,
-  RequestType_MAX = RequestType_JOIN
+  RequestType_MAX = RequestType_ADASUM
 };
 
-inline const RequestType (&EnumValuesRequestType())[4] {
+inline const RequestType (&EnumValuesRequestType())[6] {
   static const RequestType values[] = {
     RequestType_ALLREDUCE,
     RequestType_ALLGATHER,
     RequestType_BROADCAST,
-    RequestType_JOIN
+    RequestType_REDUCESCATTER,
+    RequestType_JOIN,
+    RequestType_ADASUM
   };
   return values;
 }
@@ -112,14 +116,16 @@ inline const char * const *EnumNamesRequestType() {
     "ALLREDUCE",
     "ALLGATHER",
     "BROADCAST",
+    "REDUCESCATTER",
     "JOIN",
+    "ADASUM",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameRequestType(RequestType e) {
-  if (e < RequestType_ALLREDUCE || e > RequestType_JOIN) return "";
+  if (e < RequestType_ALLREDUCE || e > RequestType_ADASUM) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesRequestType()[index];
 }
@@ -128,18 +134,20 @@ enum ResponseType {
   ResponseType_ALLREDUCE = 0,
   ResponseType_ALLGATHER = 1,
   ResponseType_BROADCAST = 2,
-  ResponseType_JOIN = 3,
-  ResponseType_ADASUM = 4,
-  ResponseType_ERROR = 5,
+  ResponseType_REDUCESCATTER = 3,
+  ResponseType_JOIN = 4,
+  ResponseType_ADASUM = 5,
+  ResponseType_ERROR = 6,
   ResponseType_MIN = ResponseType_ALLREDUCE,
   ResponseType_MAX = ResponseType_ERROR
 };
 
-inline const ResponseType (&EnumValuesResponseType())[6] {
+inline const ResponseType (&EnumValuesResponseType())[7] {
   static const ResponseType values[] = {
     ResponseType_ALLREDUCE,
     ResponseType_ALLGATHER,
     ResponseType_BROADCAST,
+    ResponseType_REDUCESCATTER,
     ResponseType_JOIN,
     ResponseType_ADASUM,
     ResponseType_ERROR
@@ -152,6 +160,7 @@ inline const char * const *EnumNamesResponseType() {
     "ALLREDUCE",
     "ALLGATHER",
     "BROADCAST",
+    "REDUCESCATTER",
     "JOIN",
     "ADASUM",
     "ERROR",

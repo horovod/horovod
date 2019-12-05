@@ -82,12 +82,12 @@ use it instead:
     $ HOROVOD_GPU_ALLREDUCE=MPI pip install --no-cache-dir horovod
 
 
-Additionally, if your MPI vendor's implementation supports *allgather* and *broadcast* operations on GPU, you can
+Additionally, if your MPI vendor's implementation supports *allgather*, *broadcast*, and *reducescatter* operations on GPU, you can
 configure Horovod to use them as well:
 
 .. code-block:: bash
 
-    $ HOROVOD_GPU_ALLREDUCE=MPI HOROVOD_GPU_ALLGATHER=MPI HOROVOD_GPU_BROADCAST=MPI pip install --no-cache-dir horovod
+    $ HOROVOD_GPU_ALLREDUCE=MPI HOROVOD_GPU_ALLGATHER=MPI HOROVOD_GPU_BROADCAST=MPI HOROVOD_GPU_REDUCESCATTER=MPI pip install --no-cache-dir horovod
 
 
 **Note**: Allgather allocates an output tensor which is proportionate to the number of processes participating in the

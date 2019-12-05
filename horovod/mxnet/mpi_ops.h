@@ -84,6 +84,9 @@ extern "C" int horovod_mxnet_broadcast_async(NDArray* input,
                                              NDArray* output,
                                              const char* name, int root_rank,
                                              int priority);
+extern "C" int horovod_mxnet_reducescatter_async(NDArray* input, NDArray* output,
+                                                 const char* name, bool average,
+                                                 int priority);
 
 } // namespace mxnet
 } // namespace horovod

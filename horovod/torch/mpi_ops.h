@@ -87,6 +87,22 @@ BROADCAST_H(torch_cuda_FloatTensor, THCudaTensor)
 BROADCAST_H(torch_cuda_DoubleTensor, THCudaDoubleTensor)
 #endif
 
+#define REDUCESCATTER_H(torch_Tensor, THTensor)                                \
+  extern "C" int horovod_torch_reducescatter_async_##torch_Tensor(             \
+      THTensor* tensor, THTensor* output, int average, char* name);
+
+REDUCESCATTER_H(torch_IntTensor, THIntTensor)
+REDUCESCATTER_H(torch_LongTensor, THLongTensor)
+REDUCESCATTER_H(torch_FloatTensor, THFloatTensor)
+REDUCESCATTER_H(torch_DoubleTensor, THDoubleTensor)
+
+#if HAVE_CUDA
+REDUCESCATTER_H(torch_cuda_IntTensor, THCudaIntTensor)
+REDUCESCATTER_H(torch_cuda_LongTensor, THCudaLongTensor)
+REDUCESCATTER_H(torch_cuda_FloatTensor, THCudaTensor)
+REDUCESCATTER_H(torch_cuda_DoubleTensor, THCudaDoubleTensor)
+#endif
+
 extern "C" int horovod_torch_poll(int handle);
 extern "C" void horovod_torch_wait_and_clear(int handle);
 
