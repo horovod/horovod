@@ -77,6 +77,7 @@ void TensorQueue::GetTensorEntriesFromResponse(
   {
     // Lock on the tensor table.
     std::lock_guard<std::mutex> guard(mutex_);
+    int64_t i = 0;
     for (auto& name : response.tensor_names()) {
       assert(response.response_type() == Response::ALLREDUCE ||
              response.response_type() == Response::ALLGATHER ||
@@ -94,12 +95,13 @@ void TensorQueue::GetTensorEntriesFromResponse(
         // Clear the tensor table of this tensor.
         tensor_table_.erase(iter);
       } else if (response.response_type() != Response::ERROR) {
+
         // Find Join tensor to use its context.
         auto join_iter = tensor_table_.find(JOIN_TENSOR_NAME);
         assert(join_iter != tensor_table_.end());
 
         TensorTableEntry entry;
-        join_iter->second.context->AllocateZeros(response.tensor_sizes()[0],
+        join_iter->second.context->AllocateZeros(response.tensor_sizes()[i],
                                                  response.tensor_type(),
                                                  &(entry.tensor));
 
@@ -109,6 +111,7 @@ void TensorQueue::GetTensorEntriesFromResponse(
         entry.tensor_name = name;
         entries.push_back(std::move(entry));
       }
+      i++;
     }
   }
 }

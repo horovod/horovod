@@ -73,6 +73,8 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
     if (message.request_type() == Request::JOIN) {
       state.joined = true;
       state.join_device = message.device();
+      cache_coordinator.set_just_joined();
+      continue;
     }
 
     // Keep track of cache hits
@@ -95,6 +97,12 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
         // Remove timing entry if uncached or marked invalid.
         stall_inspector_.RemoveCachedTensor(message.tensor_name());
       }
+    }
+  }
+
+  if (state.joined && response_cache_.capacity() > 0) {
+    for (uint32_t bit : response_cache_.list_all_bits()) {
+      cache_coordinator.record_hit(bit);
     }
   }
 
@@ -156,7 +164,8 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
 
   bool need_communication = true;
   if (response_cache_.capacity() > 0 &&
-      !cache_coordinator.uncached_in_queue()) {
+      !cache_coordinator.uncached_in_queue() &&
+      !cache_coordinator.just_joined()) {
     // if cache is enabled and no uncached new message coming in, no need for
     // additional communications
     need_communication = false;
@@ -324,7 +333,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
       if ((response.response_type() == Response::ResponseType::ALLREDUCE ||
            response.response_type() == Response::ResponseType::ADASUM) &&
           (int)response.devices().size() == size_) {
-        response_cache_.put(response, tensor_queue_);
+        response_cache_.put(response, tensor_queue_, state.joined);
       }
     }
   }
@@ -499,7 +508,10 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
 
   // If there is at least one rank that requested Join, communicate tensor sizes
   // in the response, because joined ranks don't have this info.
-  if (joined_size > 0 && (message_type == Request::ALLREDUCE || message_type == Request::ADASUM)) {
+  // If caching is enabled, the sizes info needs to be communicated even if
+  // there are no currently joined ranks, for possible future use.
+  if ((joined_size > 0 || response_cache_.capacity() > 0) &&
+      (message_type == Request::ALLREDUCE || message_type == Request::ADASUM)) {
     TensorShape tensor_shape;
     for (auto dim : requests[0].tensor_shape()) {
       tensor_shape.AddDim(dim);
@@ -569,7 +581,7 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
     }
   } else if (message_type == Request::ALLREDUCE) {
     response.set_response_type(Response::ALLREDUCE);
-    if (joined_size > 0) {
+    if (joined_size > 0 || response_cache_.capacity() > 0) {
       for (auto dim : tensor_sizes) {
         response.add_tensor_size(dim);
       }
@@ -637,50 +649,50 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
       // Attempt to add more responses to this fused response.
 
       // found_tensor can be false for ranks that did Join.
-      bool found_tensor = tensor_queue_.GetTensorSizeAndType(response.tensor_names()[0], tensor_size, dtype);
+      bool found_tensor = tensor_queue_.GetTensorSizeAndType(
+          response.tensor_names()[0], tensor_size, dtype);
+      if (found_tensor) {
+        std::deque<Response> skipped_responses;
+        int64_t skipped_size = 0;
+        while (!responses.empty()) {
+          auto new_response = responses.front();
+          assert(new_response.tensor_names().size() == 1);
+          const auto& new_entry =
+              tensor_queue_.GetTensorEntry(new_response.tensor_names()[0]);
+          int64_t new_tensor_size = new_entry.tensor->size();
 
-      std::deque<Response> skipped_responses;
-      int64_t skipped_size = 0;
-      while (!responses.empty()) {
-        auto new_response = responses.front();
-        assert(new_response.tensor_names().size() == 1);
-        const auto& new_entry =
-            tensor_queue_.GetTensorEntry(new_response.tensor_names()[0]);
-        int64_t new_tensor_size = new_entry.tensor->size();
-
-        if (found_tensor &&
-            response.response_type() == new_response.response_type() &&
-            response.devices() == new_response.devices() &&
-            dtype == new_entry.tensor->dtype() &&
-            tensor_size + new_tensor_size <= TensorFusionThresholdBytes()) {
-          // These tensors will fuse together well.
-          tensor_size += new_tensor_size;
-          response.add_tensor_name(new_response.tensor_names()[0]);
-          responses.pop_front();
-        } else {
-          // In general, don't try to fuse additional tensors since they are
-          // usually computed in order of requests and skipping tensors may
-          // mean that the batch will have to wait longer while skipped
-          // tensors could be reduced at that time. However, mixed-precision
-          // training may yield requests of various dtype in a mixed-up
-          // sequence causing breakups in fusion. To counter this some look
-          // ahead is allowed.
-
-          skipped_size += new_tensor_size;
-          if (tensor_size + skipped_size <= TensorFusionThresholdBytes()) {
-            // Skip response and look ahead for more to fuse.
-            skipped_responses.push_back(std::move(responses.front()));
+          if (response.response_type() == new_response.response_type() &&
+              response.devices() == new_response.devices() &&
+              dtype == new_entry.tensor->dtype() &&
+              tensor_size + new_tensor_size <= TensorFusionThresholdBytes()) {
+            // These tensors will fuse together well.
+            tensor_size += new_tensor_size;
+            response.add_tensor_name(new_response.tensor_names()[0]);
             responses.pop_front();
           } else {
-            break;
+            // In general, don't try to fuse additional tensors since they are
+            // usually computed in order of requests and skipping tensors may
+            // mean that the batch will have to wait longer while skipped
+            // tensors could be reduced at that time. However, mixed-precision
+            // training may yield requests of various dtype in a mixed-up
+            // sequence causing breakups in fusion. To counter this some look
+            // ahead is allowed.
+
+            skipped_size += new_tensor_size;
+            if (tensor_size + skipped_size <= TensorFusionThresholdBytes()) {
+              // Skip response and look ahead for more to fuse.
+              skipped_responses.push_back(std::move(responses.front()));
+              responses.pop_front();
+            } else {
+              break;
+            }
           }
         }
-      }
-
-      // Replace any skipped responses.
-      while (!skipped_responses.empty()) {
-        responses.push_front(std::move(skipped_responses.back()));
-        skipped_responses.pop_back();
+        // Replace any skipped responses.
+        while (!skipped_responses.empty()) {
+          responses.push_front(std::move(skipped_responses.back()));
+          skipped_responses.pop_back();
+        }
       }
 
     } else if (response.response_type() == Response::ResponseType::ALLGATHER) {

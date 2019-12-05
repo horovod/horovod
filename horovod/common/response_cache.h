@@ -26,7 +26,7 @@
 #include "common.h"
 #include "message.h"
 
-#define NUM_STATUS_BITS 3
+#define NUM_STATUS_BITS 4
 
 namespace horovod {
 namespace common {
@@ -39,6 +39,7 @@ struct TensorParams {
   DataType dtype;
   std::vector<int64_t> shape;
   int32_t device;
+  bool joined;
 };
 
 // LRU cache of Responses
@@ -61,7 +62,8 @@ public:
 
   CacheState cached(const Response& response, const TensorParams& params) const;
 
-  void put(const Response& response, TensorQueue& tensor_queue);
+  void put(const Response& response, TensorQueue& tensor_queue,
+           bool joined = false);
 
   const Response& get_response(uint32_t cache_bit);
 
@@ -70,6 +72,8 @@ public:
   uint32_t peek_cache_bit(const Request& message) const;
 
   uint32_t peek_cache_bit(const std::string& tensor_name) const;
+
+  std::vector<uint32_t> list_all_bits() const;
 
   void erase_response(uint32_t cache_bit);
 
@@ -111,6 +115,8 @@ public:
 
   void set_uncached_in_queue(bool uncached_in_queue);
 
+  void set_just_joined();
+
   const std::set<uint32_t>& cache_hits() const;
 
   const std::set<uint32_t>& invalid_bits() const;
@@ -121,6 +127,8 @@ public:
 
   bool uncached_in_queue() const;
 
+  bool just_joined() const;
+
   // Method to sync state and bit sets across workers.
   void sync(std::shared_ptr<Controller> controller, bool timeline_enabled);
 
@@ -128,7 +136,8 @@ private:
   enum StatusBit {
     SHOULD_SHUT_DOWN = 0,
     UNCACHED_IN_QUEUE = 1,
-    INVALID_IN_QUEUE = 2
+    INVALID_IN_QUEUE = 2,
+    JUST_JOINED = 3  // A rank did join this cycle
   };
 
   // Number of active bits in the cache. Required to size the
@@ -151,6 +160,7 @@ private:
   // States used externally in cycle loop.
   bool should_shut_down_ = false;
   bool uncached_in_queue_ = false;
+  bool just_joined_ = false;
 
   // State used internally to trigger second bit vector communication
   // to sync invalid bits.
