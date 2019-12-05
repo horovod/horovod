@@ -27,9 +27,13 @@ import unittest
 import warnings
 
 import mock
+import numpy as np
 import torch
 
 from mock import MagicMock
+
+from pyspark.ml.linalg import DenseVector, VectorUDT
+from pyspark.sql.types import DoubleType, FloatType, IntegerType, StructField, StructType
 
 import horovod.spark
 import horovod.torch as hvd
@@ -39,7 +43,7 @@ from horovod.run.mpi_run import _get_mpi_implementation_flags
 from horovod.spark.common import util
 from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient
 
-from spark_common import spark_session, create_xor_data, local_store
+from spark_common import spark_session, create_test_data_from_schema, create_xor_data, local_store
 
 from common import tempdir
 
@@ -246,6 +250,46 @@ class SparkTests(unittest.TestCase):
                 bad_key = (df.__hash__(), 0.1, None, store.get_train_data_path(),
                            store.get_val_data_path())
                 assert not util._training_cache.is_cached(bad_key)
+
+    def test_check_shape_compatibility(self):
+        feature_columns = ['x1', 'x2', 'features']
+        label_columns = ['y1', 'y_embedding']
+
+        schema = StructType([StructField('x1', DoubleType()),
+                             StructField('x2', IntegerType()),
+                             StructField('features', VectorUDT()),
+                             StructField('y1', FloatType()),
+                             StructField('y_embedding', VectorUDT())])
+        data = [[1.0, 1, DenseVector([1.0] * 12), 1.0, DenseVector([1.0] * 12)]] * 10
+
+        with spark_session('test_df_cache') as spark:
+                df = create_test_data_from_schema(spark, data, schema)
+                metadata = util._get_metadata(df)
+
+                input_shapes = [[1], [1], [-1, 3, 4]]
+                output_shapes = [[1], [-1, 3, 4]]
+                util.check_shape_compatibility(metadata, feature_columns, label_columns,
+                                               input_shapes, output_shapes)
+
+                input_shapes = [[1], [1], [3, 2, 2]]
+                output_shapes = [[1, 1], [-1, 2, 3, 2]]
+                util.check_shape_compatibility(metadata, feature_columns, label_columns,
+                                               input_shapes, output_shapes)
+
+                bad_input_shapes = [[1], [1], [-1, 3, 5]]
+                with pytest.raises(ValueError):
+                    util.check_shape_compatibility(metadata, feature_columns, label_columns,
+                                                   bad_input_shapes, output_shapes)
+
+                bad_input_shapes = [[2], [1], [-1, 3, 4]]
+                with pytest.raises(ValueError):
+                    util.check_shape_compatibility(metadata, feature_columns, label_columns,
+                                                   bad_input_shapes, output_shapes)
+
+                bad_output_shapes = [[7], [-1, 3, 4]]
+                with pytest.raises(ValueError):
+                    util.check_shape_compatibility(metadata, feature_columns, label_columns,
+                                                   input_shapes, bad_output_shapes)
 
     def test_spark_task_service_env(self):
         key = secret.make_secret_key()

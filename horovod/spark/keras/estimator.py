@@ -194,7 +194,7 @@ class KerasEstimator(Estimator, EstimatorParams, KerasEstimatorParamsReadable,
     def getCustomObjects(self):
         return self.getOrDefault(self.custom_objects)
 
-    def _check_model_compatibility(self, metadata):
+    def _check_metadata_compatibility(self, metadata):
         input_shapes, output_shapes = self.get_model_shapes()
         util.check_shape_compatibility(metadata,
                                        self.getFeatureCols(),
@@ -260,11 +260,11 @@ class KerasEstimator(Estimator, EstimatorParams, KerasEstimatorParamsReadable,
                               sample_weight_col=sample_weight_col,
                               partitions_per_process=partitions_per_process)
 
+        self._check_metadata_compatibility(metadata)
         return self._fit_on_prepared_data(backend, train_rows, val_rows, metadata, avg_row_size)
 
     def _fit_on_prepared_data(self, backend, train_rows, val_rows, metadata, avg_row_size):
         self._check_params(metadata)
-        self._check_model_compatibility(metadata)
         keras_utils = self._get_keras_utils()
 
         run_id = self.getRunId()

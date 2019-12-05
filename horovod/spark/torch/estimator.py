@@ -172,7 +172,7 @@ class TorchEstimator(Estimator, EstimatorParams, TorchEstimatorParamsWritable,
         else:
             return self._get_optimizer()
 
-    def _check_model_compatibility(self, metadata):
+    def _check_metadata_compatibility(self, metadata):
         util.check_shape_compatibility(metadata,
                                        self.getFeatureCols(),
                                        self.getLabelCols(),
@@ -228,11 +228,11 @@ class TorchEstimator(Estimator, EstimatorParams, TorchEstimatorParamsWritable,
                               sample_weight_col=sample_weight_col,
                               partitions_per_process=partitions_per_process)
 
+        self._check_metadata_compatibility(metadata)
         return self._fit_on_prepared_data(backend, train_rows, val_rows, metadata, avg_row_size)
 
     def _fit_on_prepared_data(self, backend, train_rows, val_rows, metadata, avg_row_size):
         self._check_params(metadata)
-        self._check_model_compatibility(metadata)
 
         run_id = self.getRunId()
         if run_id is None:
