@@ -1128,6 +1128,14 @@ def set_macro(macros, key, new_value):
         return macros + [(key, new_value)]
 
 
+def set_flag(flags, flag, value):
+    flag = '-' + flag
+    if any(f.split('=')[0] == flag for f in flags):
+        return [('{}={}'.format(flag, value) if f.split('=')[0] == flag else f) for f in flags]
+    else:
+        return flags + ['{}={}'.format(flag, value)]
+
+
 class protect_files(object):
     def __init__(self, *files):
         self.files = files
@@ -1216,8 +1224,14 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
     # compiled with compiler of this plugin
     options = deepcopy(global_options)
 
+    # Versions of PyTorch > 1.3.0 require C++14
+    import torch
+    compile_flags = options['COMPILE_FLAGS']
+    if LooseVersion(torch.__version__) >= LooseVersion('1.3.0'):
+        compile_flags = set_flag(compile_flags, 'std', 'c++14')
+
     have_cuda = is_torch_cuda_v2(build_ext, include_dirs=options['INCLUDES'],
-                                 extra_compile_args=options['COMPILE_FLAGS'])
+                                 extra_compile_args=compile_flags)
     if not have_cuda and check_macro(options['MACROS'], 'HAVE_CUDA'):
         raise DistutilsPlatformError(
             'Horovod build with GPU support was requested, but this PyTorch '
@@ -1235,7 +1249,6 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
         updated_macros, 'TORCH_VERSION', str(torch_version))
 
     # Always set _GLIBCXX_USE_CXX11_ABI, since PyTorch can only detect whether it was set to 1.
-    import torch
     updated_macros = set_macro(updated_macros, '_GLIBCXX_USE_CXX11_ABI',
                                str(int(torch.compiled_with_cxx11_abi())))
 
@@ -1260,7 +1273,7 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
                             'horovod/torch/ready_event.cc',
                             'horovod/torch/cuda_util.cc',
                             'horovod/torch/adapter_v2.cc'],
-                        extra_compile_args=options['COMPILE_FLAGS'],
+                        extra_compile_args=compile_flags,
                         extra_link_args=options['LINK_FLAGS'],
                         library_dirs=options['LIBRARY_DIRS'],
                         libraries=options['LIBRARIES'])
