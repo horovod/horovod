@@ -34,8 +34,8 @@ Horovod
 
 |
 
-Horovod is a distributed training framework for TensorFlow, Keras, PyTorch, and MXNet. The goal of Horovod is to make
-distributed Deep Learning fast and easy to use.
+Horovod is a distributed deep learning training framework for TensorFlow, Keras, PyTorch, and Apache MXNet.
+The goal of Horovod is to make distributed deep learning fast and easy to use.
 
 
 .. raw:: html
@@ -44,7 +44,7 @@ distributed Deep Learning fast and easy to use.
 
 
 Horovod is hosted by the `LF AI Foundation <https://lfdl.io>`_ (LF AI). If you are a company that is deeply
-committed to using open source technologies in artificial intelligence, machine and deep learning, and wanting to support
+committed to using open source technologies in artificial intelligence, machine, and deep learning, and want to support
 the communities of open source projects in these domains, consider joining the LF AI Foundation. For details
 about who's involved and how Horovod plays a role, read the LF AI `announcement <https://lfdl.io/press/2018/12/13/lf-deep-learning-welcomes-horovod-distributed-training-framework-as-newest-project/>`_.
 
@@ -53,14 +53,12 @@ about who's involved and how Horovod plays a role, read the LF AI `announcement 
 .. contents::
 
 
-See the full documentation and an API reference at https://horovod.readthedocs.io/en/latest.
+The full documentation and an API reference are published at https://horovod.readthedocs.io/en/latest.
 
 |
 
-
-Why not traditional Distributed TensorFlow?
+Why not traditional distributed TensorFlow?
 -------------------------------------------
-
 The primary motivation for this project is to make it easy to take a single-GPU TensorFlow program and successfully train
 it on many GPUs faster. This has two aspects:
 
@@ -77,7 +75,7 @@ servers with 4 Pascal GPUs each connected by RoCE-capable 25 Gbit/s network:
    :alt: 512-GPU Benchmark
 
 Horovod achieves 90% scaling efficiency for both Inception V3 and ResNet-101, and 68% scaling efficiency for VGG-16.
-See the `Benchmarks <docs/benchmarks.rst>`_ page to find out how to reproduce these numbers.
+See `Benchmarks <docs/benchmarks.rst>`_ to find out how to reproduce these numbers.
 
 While installing MPI and NCCL itself may seem like an extra hassle, it only needs to be done once by the team dealing
 with infrastructure, while everyone else in the company who builds the models can enjoy the simplicity of training them at
@@ -86,13 +84,11 @@ scale.
 
 Install
 -------
-
 To install Horovod:
 
 1. Install `Open MPI <https://www.open-mpi.org/>`_ or another MPI implementation. Learn how to install Open MPI `on this page <https://www.open-mpi.org/faq/?category=building#easy-build>`_.
 
-   **Note**: Open MPI 3.1.3 has an issue that may cause hangs.  The recommended fix is to
-   downgrade to Open MPI 3.1.2 or upgrade to Open MPI 4.0.0.
+   **Note**: Open MPI 3.1.3 has an issue that may cause hangs. The recommended fix is to downgrade to Open MPI 3.1.2 or upgrade to Open MPI 4.0.0.
 
 .. raw:: html
 
@@ -116,16 +112,15 @@ To install Horovod:
 
 This basic installation is good for laptops and for getting to know Horovod.
 
-If you're installing Horovod on a server with GPUs, read the `Horovod on GPU <docs/gpus.rst>`_ page.
+If you're installing Horovod on a server with GPUs, read `Horovod on GPU <docs/gpus.rst>`_.
 
-If you want to use Docker, read the `Horovod in Docker <docs/docker.rst>`_ page.
+If you want to use Docker, read `Horovod in Docker <docs/docker.rst>`_.
 
 To compile Horovod from source, follow the instructions in the `Contributor Guide <docs/contributors.rst>`_.
 
 
 Concepts
 --------
-
 Horovod core principles are based on `MPI <http://mpi-forum.org/>`_ concepts such as *size*, *rank*,
 *local rank*, **allreduce**, **allgather** and, *broadcast*. See `this page <docs/concepts.rst>`_ for more details.
 
@@ -133,37 +128,70 @@ Supported frameworks
 --------------------
 See these pages for Horovod examples and best practices:
 
-- `Horovod with TensorFlow <#usage>`__ (Usage section below)
+- `Horovod with TensorFlow <docs/tensorflow.rst>`_
 - `Horovod with Keras <docs/keras.rst>`_
 - `Horovod with PyTorch <docs/pytorch.rst>`_
 - `Horovod with MXNet <docs/mxnet.rst>`_
 
 Usage
 -----
+.. inclusion-marker-tensorflow-start-do-not-remove
 
 To use Horovod, make the following additions to your program. This example uses TensorFlow.
 
 1. Run ``hvd.init()``.
 
+.. raw:: html
+
+    <p/>
+
 2. Pin a server GPU to be used by this process using ``config.gpu_options.visible_device_list``.
-   With the typical setup of one GPU per process, this can be set to *local rank*. In that case, the first process on
-   the server will be allocated the first GPU, second process will be allocated the second GPU and so forth.
 
-3. Scale the learning rate by number of workers. Effective batch size in synchronous distributed training is scaled by
-   the number of workers. An increase in learning rate compensates for the increased batch size.
+   With the typical setup of one GPU per process, you can set this to *local rank*. In that case, the first process on
+   the server will be allocated the first GPU, the second process will be allocated the second GPU, and so forth.
 
-4. Wrap optimizer in ``hvd.DistributedOptimizer``.  The distributed optimizer delegates gradient computation
-   to the original optimizer, averages gradients using **allreduce** or **allgather**, and then applies those averaged
-   gradients.
+.. raw:: html
+
+    <p/>
+
+
+3. Scale the learning rate by the number of workers.
+
+   Effective batch size in synchronous distributed training is scaled by the number of workers.
+   An increase in learning rate compensates for the increased batch size.
+
+.. raw:: html
+
+    <p/>
+
+
+4. Wrap the optimizer in ``hvd.DistributedOptimizer``.
+
+   The distributed optimizer delegates gradient computation to the original optimizer, averages gradients using **allreduce** or **allgather**, and then applies those averaged gradients.
+
+.. raw:: html
+
+    <p/>
+
 
 5. Add ``hvd.BroadcastGlobalVariablesHook(0)`` to broadcast initial variable states from rank 0 to all other processes.
-   This is necessary to ensure consistent initialization of all workers when training is started with random weights or
-   restored from a checkpoint. Alternatively, if you're not using ``MonitoredTrainingSession``, you can simply execute
-   the ``hvd.broadcast_global_variables`` op after global variables have been initialized.
+
+   This is necessary to ensure consistent initialization of all workers when training is started with random weights or restored from a checkpoint.
+   Alternatively, if you're not using ``MonitoredTrainingSession``, you can execute the ``hvd.broadcast_global_variables`` op after global variables have been initialized.
+
+.. raw:: html
+
+    <p/>
+
 
 6. Modify your code to save checkpoints only on worker 0 to prevent other workers from corrupting them.
-   This can be accomplished by passing ``checkpoint_dir=None`` to ``tf.train.MonitoredTrainingSession`` if
-   ``hvd.rank() != 0``.
+
+   Accomplish this by passing ``checkpoint_dir=None`` to ``tf.train.MonitoredTrainingSession`` if ``hvd.rank() != 0``.
+
+.. raw:: html
+
+    <p/>
+
 
 Example (see the `examples <https://github.com/horovod/horovod/blob/master/examples/>`_ directory for full training examples):
 
@@ -207,32 +235,32 @@ Example (see the `examples <https://github.com/horovod/horovod/blob/master/examp
         # Perform synchronous training.
         mon_sess.run(train_op)
 
+.. inclusion-marker-tensorflow-end-do-not-remove
 
 Running Horovod
 ---------------
-
-The example commands below show how to run distributed training. See the `Running Horovod <docs/running.rst>`_
-page for more instructions, including RoCE/InfiniBand tweaks and tips for dealing with hangs.
+The example commands below show how to run distributed training.
+See `Run Horovod <docs/running.rst>`_ for more details, including RoCE/InfiniBand tweaks and tips for dealing with hangs.
 
 1. To run on a machine with 4 GPUs:
 
-.. code-block:: bash
+   .. code-block:: bash
 
-     $ horovodrun -np 4 -H localhost:4 python train.py
+        $ horovodrun -np 4 -H localhost:4 python train.py
 
 2. To run on 4 machines with 4 GPUs each:
 
-.. code-block:: bash
+   .. code-block:: bash
 
-    $ horovodrun -np 16 -H server1:4,server2:4,server3:4,server4:4 python train.py
+       $ horovodrun -np 16 -H server1:4,server2:4,server3:4,server4:4 python train.py
 
-3. To run using Open MPI without the ``horovodrun`` wrapper, see the `Running Horovod with Open MPI <docs/mpirun.rst>`_ page.
+3. To run using Open MPI without the ``horovodrun`` wrapper, see `Running Horovod with Open MPI <docs/mpirun.rst>`_.
 
-4. To run in Docker, see the `Horovod in Docker <docs/docker.rst>`_ page.
+4. To run in Docker, see `Horovod in Docker <docs/docker.rst>`_.
 
 5. To run in Kubernetes, see `Kubeflow <https://github.com/kubeflow/kubeflow/tree/master/kubeflow/mpi-job>`_, `MPI Operator <https://github.com/kubeflow/mpi-operator/>`_, `Helm Chart <https://github.com/kubernetes/charts/tree/master/stable/horovod/>`_, and `FfDL <https://github.com/IBM/FfDL/tree/master/etc/examples/horovod/>`_.
 
-6. To run in Spark, see the `Spark <docs/spark.rst>`_ page.
+6. To run in Spark, see `Spark <docs/spark.rst>`_.
 
 7. To run in Singularity, see `Singularity <https://github.com/sylabs/examples/tree/master/machinelearning/horovod>`_.
 
@@ -302,13 +330,14 @@ to batch small **allreduce** operations, which results in improved performance. 
 See `here <docs/tensor-fusion.rst>`__ for full details and tweaking instructions.
 
 
-Analyzing Horovod Performance
------------------------------
+Horovod Timeline
+----------------
 Horovod has the ability to record the timeline of its activity, called Horovod Timeline.
 
 .. image:: https://user-images.githubusercontent.com/16640218/29735271-9e148da0-89ac-11e7-9ae0-11d7a099ac89.png
    :alt: Horovod Timeline
 
+Use Horovod timeline to analyze Horovod performance.
 See `here <docs/timeline.rst>`__ for full details and usage instructions.
 
 
@@ -323,11 +352,13 @@ See `here <docs/autotune.rst>`__ for full details and usage instructions.
 
 Guides
 ------
-1. Run distributed training in Microsoft Azure using `Batch AI and Horovod <https://github.com/Azure/BatchAI/tree/master/recipes/Horovod>`_. Send us links to any user guides you want to publish on this site
+1. Run distributed training in Microsoft Azure using `Batch AI and Horovod <https://github.com/Azure/BatchAI/tree/master/recipes/Horovod>`_.
+
+Send us links to any user guides you want to publish on this site
 
 Troubleshooting
 ---------------
-See the `Troubleshooting <docs/troubleshooting.rst>`_ page and please submit a `ticket <https://github.com/horovod/horovod/issues/new>`_
+See `Troubleshooting <docs/troubleshooting.rst>`_ and submit a `ticket <https://github.com/horovod/horovod/issues/new>`_
 if you can't find an answer.
 
 
