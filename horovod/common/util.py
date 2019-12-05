@@ -102,7 +102,7 @@ def _cache(f):
     cache = dict()
 
     def wrapper(*args, **kwargs):
-        key = (args, kwargs)
+        key = (args, frozenset(kwargs.items()))
 
         if key in cache:
             return cache[key]
