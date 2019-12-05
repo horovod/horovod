@@ -137,7 +137,7 @@ class MPITests(tf.test.TestCase):
         """Test on GPU using NCCL that the Adasum correctly computes 2D tensors."""
         hvd.init()
         # TODO support non-MPI Adasum operation
-        if not hvd.mpi_enabled() or not tf.test.is_gpu_available() or not hvd.nccl_built():
+        if not hvd.mpi_enabled() or not hvd.gpu_available('tensorflow') or not hvd.nccl_built():
             return
         rank = hvd.rank()
         rank_tensors = []
