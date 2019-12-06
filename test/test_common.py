@@ -21,7 +21,7 @@ import os
 import unittest
 import warnings
 
-from horovod.common.util import extension_available, mpi_built, gloo_built
+from horovod.common.util import _cache, extension_available, mpi_built, gloo_built
 
 
 class CommonTests(unittest.TestCase):
@@ -68,3 +68,21 @@ class CommonTests(unittest.TestCase):
             self.assertTrue(available)
         except:
             self.assertFalse(available)
+
+    def test_cache(self):
+        """Test that caching of expensive functions only computes values once."""
+        state = {}
+
+        @_cache
+        def fn():
+            return state['key']
+
+        # Not yet cached
+        state['key'] = 1
+        value = fn()
+        assert value == 1
+
+        # Cached
+        state['key'] = 2
+        value = fn()
+        assert value == 1

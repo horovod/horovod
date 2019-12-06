@@ -30,10 +30,6 @@ except:
     check_extension('horovod.torch', 'HOROVOD_WITH_PYTORCH',
                     __file__, 'mpi_lib', '_mpi_lib')
 
-# Please run this function in a subprocess
-def _check_has_gpu():
-  import torch
-  return torch.cuda.is_available()
 
 from horovod.torch.compression import Compression
 from horovod.torch.mpi_ops import allreduce, allreduce_async, allreduce_, allreduce_async_
@@ -50,6 +46,13 @@ from horovod.torch.mpi_ops import Average, Sum, Adasum
 
 import torch
 import collections
+
+
+# Please run this function in a subprocess
+def _check_has_gpu():
+    import torch
+    return torch.cuda.is_available()
+
 
 class _DistributedOptimizer(torch.optim.Optimizer):
     def __init__(self, params, named_parameters, compression,

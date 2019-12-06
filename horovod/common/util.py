@@ -98,12 +98,30 @@ def extension_available(ext_base_name, verbose=False):
         ext_base_name, available_fn, 'built', verbose) or False
 
 
+def _cache(f):
+    cache = dict()
+
+    def wrapper(*args, **kwargs):
+        key = (args, frozenset(kwargs.items()))
+
+        if key in cache:
+            return cache[key]
+        else:
+            retval = f(*args, **kwargs)
+            cache[key] = retval
+            return retval
+
+    return wrapper
+
+
+@_cache
 def gpu_available(ext_base_name, verbose=False):
     available_fn = lambda ext: ext._check_has_gpu()
     return _check_extension_lambda(
         ext_base_name, available_fn, 'running with GPU', verbose) or False
 
 
+@_cache
 def mpi_built(verbose=False):
     for ext_base_name in EXTENSIONS:
         built_fn = lambda ext: ext.mpi_built()
@@ -114,6 +132,7 @@ def mpi_built(verbose=False):
     return False
 
 
+@_cache
 def gloo_built(verbose=False):
     for ext_base_name in EXTENSIONS:
         built_fn = lambda ext: ext.gloo_built()
@@ -125,6 +144,7 @@ def gloo_built(verbose=False):
                        'Run again with --verbose for more details.')
 
 
+@_cache
 def nccl_built(verbose=False):
     for ext_base_name in EXTENSIONS:
         built_fn = lambda ext: ext.nccl_built()
@@ -136,6 +156,7 @@ def nccl_built(verbose=False):
                        'Run again with --verbose for more details.')
 
 
+@_cache
 def ddl_built(verbose=False):
     for ext_base_name in EXTENSIONS:
         built_fn = lambda ext: ext.ddl_built()
@@ -147,6 +168,7 @@ def ddl_built(verbose=False):
                        'Run again with --verbose for more details.')
 
 
+@_cache
 def mlsl_built(verbose=False):
     for ext_base_name in EXTENSIONS:
         built_fn = lambda ext: ext.mlsl_built()
