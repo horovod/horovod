@@ -591,7 +591,7 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
     response.set_response_type(Response::BROADCAST);
   } else if (message_type == Request::ADASUM) {
     response.set_response_type(Response::ADASUM);
-    if (joined_size > 0) {
+    if (joined_size > 0 || response_cache_.capacity() > 0) {
       for (auto dim : tensor_sizes) {
         response.add_tensor_size(dim);
       }
