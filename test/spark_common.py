@@ -67,8 +67,8 @@ def spark_session(app, cores=2, *args):
 def create_xor_data(spark):
     data = [[0, 0, 0.0], [0, 1, 1.0], [1, 0, 1.0], [1, 1, 0.0]]
     schema = StructType([StructField('x1', IntegerType()),
-                             StructField('x2', IntegerType()),
-                             StructField('y', FloatType())])
+                         StructField('x2', IntegerType()),
+                         StructField('y', FloatType())])
     raw_df = create_test_data_from_schema(spark, data, schema)
 
     vector_assembler = VectorAssembler().setInputCols(['x1', 'x2']).setOutputCol('features')

@@ -27,13 +27,12 @@ import unittest
 import warnings
 
 import mock
-import numpy as np
 import torch
 
 from mock import MagicMock
 
-from pyspark.ml.linalg import DenseVector, VectorUDT
-from pyspark.sql.types import DoubleType, FloatType, IntegerType, StructField, StructType
+from pyspark.ml.linalg import DenseVector, SparseVector, VectorUDT
+from pyspark.sql.types import ArrayType, DoubleType, FloatType, IntegerType, NullType, StructField, StructType
 
 import horovod.spark
 import horovod.torch as hvd
@@ -250,6 +249,55 @@ class SparkTests(unittest.TestCase):
                 bad_key = (df.__hash__(), 0.1, None, store.get_train_data_path(),
                            store.get_val_data_path())
                 assert not util._training_cache.is_cached(bad_key)
+
+    def test_get_col_info(self):
+        with spark_session('test_get_col_info') as spark:
+            data = [[
+                0,
+                0.0,
+                None,
+                [1, 1],
+                DenseVector([1.0, 1.0]),
+                SparseVector(2, {1: 1.0}),
+                DenseVector([1.0, 1.0])
+            ], [
+                1,
+                None,
+                None,
+                [1, 1],
+                DenseVector([1.0, 1.0]),
+                SparseVector(2, {1: 1.0}),
+                SparseVector(2, {1: 1.0})
+            ]]
+
+            schema = StructType([
+                StructField('int', IntegerType()),
+                StructField('float', FloatType()),
+                StructField('null', NullType()),
+                StructField('array', ArrayType(IntegerType())),
+                StructField('dense', VectorUDT()),
+                StructField('sparse', VectorUDT()),
+                StructField('mixed', VectorUDT())
+            ])
+
+            df = create_test_data_from_schema(spark, data, schema)
+            all_col_types, col_shapes, col_max_sizes = util._get_col_info(df)
+
+            expected = [
+                ('int', {int}, 1, 1),
+                ('float', {float, type(None)}, 1, 1),
+                ('null', {type(None)}, 1, 1),
+                ('array', {list}, 2, 2),
+                ('dense', {DenseVector}, 2, 2),
+                ('sparse', {SparseVector}, 2, 1),
+                ('mixed', {DenseVector, SparseVector}, 2, 2)
+            ]
+
+            for expected_col_info in expected:
+                col_name, col_types, col_shape, col_size = expected_col_info
+                assert all_col_types[col_name] == col_types, col_name
+                assert col_shapes[col_name] == col_shape, col_name
+                assert col_max_sizes[col_name] == col_size, col_name
 
     def test_check_shape_compatibility(self):
         feature_columns = ['x1', 'x2', 'features']

@@ -176,16 +176,16 @@ def _get_col_info(df):
             dtype = type(data_col)
             if dtype == DenseVector:
                 # shape and size of dense vector are the same
-                shape = data_col.array.shape[0]
-                size = shape
+                shape = size = data_col.array.shape[0]
             elif dtype == SparseVector:
                 # shape is the total size of vector
                 shape = data_col.size
                 # size is the number of nonzero elements in the sparse vector
                 size = data_col.indices.shape[0]
+            elif dtype == list:
+                shape = size = len(data_col)
             else:
-                shape = 1
-                size = 1
+                shape = size = 1
             row_schema.append((col_name, (set([dtype]), set([shape]), set([size]))))
         return row_schema
 
