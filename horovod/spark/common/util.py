@@ -401,12 +401,37 @@ def get_simple_meta_from_parquet(store, label_columns, feature_columns, sample_w
     return train_rows, val_rows, metadata, avg_row_size
 
 
-def prepare_data(num_processes, store, df, label_columns, feature_columns,
-                 validation_col=None, validation_split=0.0, sample_weight_col=None,
-                 partitions_per_process=10, verbose=False):
-    if validation_split and validation_col:
-        raise ValueError("can only specify one of validation_col and validation_split")
+def _train_val_split(df, metadata, validation):
+    train_df = df
+    val_df = None
+    validation_ratio = 0.0
 
+    if isinstance(validation, float) and validation > 0:
+        train_df, val_df = train_df.randomSplit([1.0 - validation, validation])
+        validation_ratio = validation
+    elif isinstance(validation, str):
+        bool_dtype = metadata[validation]['spark_data_type'] == BooleanType
+        val_df = train_df.filter(
+            f.col(validation) if bool_dtype else f.col(validation) > 0).drop(validation)
+        train_df = train_df.filter(
+            ~f.col(validation) if bool_dtype else f.col(validation) == 0).drop(validation)
+
+        # Approximate ratio of validation data to training data for proportionate scale
+        # of partitions
+        timeout_ms = 1000
+        confidence = 0.90
+        train_rows = train_df.rdd.countApprox(timeout=timeout_ms, confidence=confidence)
+        val_rows = val_df.rdd.countApprox(timeout=timeout_ms, confidence=confidence)
+        validation_ratio = val_rows / (val_rows + train_rows)
+    elif validation:
+        raise ValueError('Unrecognized validation type: {}'.format(type(validation)))
+
+    return train_df, val_df, validation_ratio
+
+
+def prepare_data(num_processes, store, df, label_columns, feature_columns,
+                 validation=None, sample_weight_col=None,
+                 partitions_per_process=10, verbose=False):
     if num_processes <= 0 or partitions_per_process <= 0:
         raise ValueError('num_proc={} and partitions_per_process={} must both be > 0'
                          .format(num_processes, partitions_per_process))
@@ -431,17 +456,10 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
     if feature_columns is None:
         feature_columns = [col for col in df.columns if col not in set(label_columns)]
 
-    dataframe_hash = df.__hash__()
-
-    key = (dataframe_hash, validation_split, validation_col, train_data_path, val_data_path)
+    key = _training_cache.create_key(df, store, validation)
     with _training_cache.lock:
         if _training_cache.is_cached(key):
-            entry = _training_cache.get(key)
-            train_rows = entry.train_rows
-            val_rows = entry.val_rows
-            metadata = entry.metadata
-            avg_row_size = entry.avg_row_size
-
+            train_rows, val_rows, metadata, avg_row_size = _training_cache.get(key)
             if verbose:
                 print('using cached dataframes for key: {}'.format(key))
                 print('train_rows={}'.format(train_rows))
@@ -453,33 +471,15 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
             schema_cols = feature_columns + label_columns
             if sample_weight_col:
                 schema_cols.append(sample_weight_col)
-            if validation_col:
-                schema_cols.append(validation_col)
+            if isinstance(validation, str):
+                schema_cols.append(validation)
             df = df[schema_cols]
 
             metadata = _get_metadata(df)
 
             to_petastorm = to_petastorm_fn(schema_cols, metadata)
             train_df = df.rdd.map(to_petastorm).toDF()
-
-            val_df = None
-            validation_ratio = validation_split
-            if validation_split > 0:
-                train_df, val_df = train_df.randomSplit([1.0 - validation_split, validation_split])
-            elif validation_col:
-                bool_dtype = metadata[validation_col]['spark_data_type'] == BooleanType
-                val_df = train_df.filter(
-                    f.col(validation_col) if bool_dtype else f.col(validation_col) > 0).drop(validation_col)
-                train_df = train_df.filter(
-                    ~f.col(validation_col) if bool_dtype else f.col(validation_col) == 0).drop(validation_col)
-
-                # Approximate ratio of validation data to training data for proportionate scale
-                # of partitions
-                timeout_ms = 1000
-                confidence = 0.90
-                train_rows = train_df.rdd.countApprox(timeout=timeout_ms, confidence=confidence)
-                val_rows = val_df.rdd.countApprox(timeout=timeout_ms, confidence=confidence)
-                validation_ratio = val_rows / (val_rows + train_rows)
+            train_df, val_df, validation_ratio = _train_val_split(train_df, metadata, validation)
 
             train_partitions = max(int(num_partitions * (1.0 - validation_ratio)),
                                    num_processes)
@@ -512,15 +512,12 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
             if val_df:
                 if val_rows == 0:
                     raise ValueError(
-                        "{validation_col} col does not any validation samples".format(
-                            validation_col=validation_col))
+                        'Validation DataFrame does not any samples with validation param {}'
+                        .format(validation))
                 if verbose:
                     print('val_rows={}'.format(val_rows))
 
-            _training_cache.put(key,
-                                value=cache.CacheEntry(store, dataframe_hash, validation_split,
-                                                       validation_col, train_rows,
-                                                       val_rows, metadata, avg_row_size))
+            _training_cache.put(key, (train_rows, val_rows, metadata, avg_row_size))
 
     return train_rows, val_rows, metadata, avg_row_size
 

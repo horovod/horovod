@@ -23,6 +23,9 @@ class TrainingDataCache(object):
         self.lock = threading.Lock()
         self._reset()
 
+    def create_key(self, df, store, validation):
+        return df.__hash__(), store.get_train_data_path(), store.get_val_data_path(), validation
+
     def get(self, key):
         return self._entries.get(key)
 
@@ -49,16 +52,3 @@ class TrainingDataCache(object):
     def _reset(self):
         with self.lock:
             self._entries = {}
-
-
-class CacheEntry(object):
-    def __init__(self, store, dataframe_hash, validation_split, validation_col,
-                 train_rows, val_rows, metadata, avg_row_size):
-        self.store = store
-        self.dataframe_hash = dataframe_hash
-        self.validation_split = validation_split
-        self.validation_col = validation_col
-        self.train_rows = train_rows
-        self.val_rows = val_rows
-        self.metadata = metadata
-        self.avg_row_size = avg_row_size

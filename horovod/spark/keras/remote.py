@@ -45,7 +45,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id):
     validation_steps_per_epoch = estimator.getValidationStepsPerEpoch()
     sample_weight_col = estimator.getSampleWeightCol()
     custom_objects = estimator.getCustomObjects()
-    should_validate = estimator._should_validate()
+    should_validate = estimator.getValidation()
     user_shuffle_buffer_size = estimator.getShufflingBufferSize()
     user_verbose = estimator.getVerbose()
 

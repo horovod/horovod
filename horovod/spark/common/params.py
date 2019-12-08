@@ -38,12 +38,11 @@ class EstimatorParams(Params):
                               typeConverter=TypeConverters.toString)
     feature_cols = Param(Params._dummy(), "feature_cols", "feature column names",
                          typeConverter=TypeConverters.toListString)
-    label_cols = Param(Params._dummy(), "label_cols", "label column names",
+    label_cols = Param(Params._dummy(), 'label_cols', 'label column names',
                        typeConverter=TypeConverters.toListString)
-    validation_col = Param(Params._dummy(),
-                           "validation_col",
-                           "name of a column with 0 or 1 flag to specify using sample for validation",
-                           typeConverter=TypeConverters.toString)
+    validation = Param(Params._dummy(), 'validation',
+                       'one of: float validation split [0, 1), or string validation column name',
+                       typeConverter=TypeConverters.toString)
     callbacks = Param(Params._dummy(), 'callbacks', 'callbacks')
     batch_size = Param(Params._dummy(), 'batch_size', 'batch size',
                        typeConverter=TypeConverters.toInt)
@@ -54,8 +53,6 @@ class EstimatorParams(Params):
     validation_steps_per_epoch = Param(Params._dummy(), 'validation_steps_per_epoch',
                                        'number of steps (batches) for validation per epoch',
                                        typeConverter=TypeConverters.toInt)
-    validation_split = Param(Params._dummy(), 'validation_split', 'validation split',
-                             typeConverter=TypeConverters.toFloat)
 
     shuffle_buffer_size = Param(Params._dummy(),
                                 'shuffle_buffer_size',
@@ -89,26 +86,32 @@ class EstimatorParams(Params):
             metrics=[],
             feature_cols=None,
             label_cols=None,
-            validation_col=None,
+            validation=None,
             compression=None,
             batch_size=32,
             epochs=1,
             verbose=1,
             callbacks=[],
-            validation_split=0.0,
             shuffle_buffer_size=None,
             partitions_per_process=10,
             run_id=None,
             train_steps_per_epoch=None,
             validation_steps_per_epoch=None)
 
-    def _should_validate(self):
-        return self.getValidationCol() is not None or self.getValidationSplit() > 0
-
     def _check_params(self, metadata):
         model = self.getModel()
         if not model:
             raise ValueError('Model parameter is required')
+
+        validation = self.getValidation()
+        if validation:
+            if isinstance(validation, float):
+                if validation < 0 or validation >= 1:
+                    raise ValueError('Validation split {} must be in the range: [0, 1)'
+                                     .format(validation))
+            elif not isinstance(validation, str):
+                raise ValueError('Param validation must be of type "float" or "str", found: {}'
+                                 .format(type(validation)))
 
         feature_columns = self.getFeatureCols()
         missing_features = [col for col in feature_columns if col not in metadata]
@@ -186,11 +189,11 @@ class EstimatorParams(Params):
     def getLabelCols(self):
         return self.getOrDefault(self.label_cols)
 
-    def setValidationCol(self, value):
-        return self._set(validation_col=value)
+    def setValidation(self, value):
+        return self._set(validation=value)
 
-    def getValidationCol(self):
-        return self.getOrDefault(self.validation_col)
+    def getValidation(self):
+        return self.getOrDefault(self.validation)
 
     def setCallbacks(self, value):
         return self._set(callbacks=value)
@@ -221,12 +224,6 @@ class EstimatorParams(Params):
 
     def getValidationStepsPerEpoch(self):
         return self.getOrDefault(self.validation_steps_per_epoch)
-
-    def setValidationSplit(self, value):
-        return self._set(validation_split=value)
-
-    def getValidationSplit(self):
-        return self.getOrDefault(self.validation_split)
 
     def setVerbose(self, value):
         return self._set(verbose=value)

@@ -43,7 +43,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id):
     input_shapes = estimator.getInputShapes()
     feature_columns = estimator.getFeatureCols()
     label_columns = estimator.getLabelCols()
-    should_validate = estimator._should_validate()
+    should_validate = estimator.getValidation()
     batch_size = estimator.getBatchSize()
     epochs = estimator.getEpochs()
     train_steps_per_epoch = estimator.getTrainStepsPerEpoch()

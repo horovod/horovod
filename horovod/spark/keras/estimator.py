@@ -241,11 +241,10 @@ class KerasEstimator(Estimator, EstimatorParams, KerasEstimatorParamsReadable,
 
     def _fit(self, df):
         backend = self._get_or_create_backend()
-        validation_split = self.getValidationSplit()
-        validation_col = self.getValidationCol()
         store = self.getStore()
         label_columns = self.getLabelCols()
         feature_columns = self.getFeatureCols()
+        validation = self.getValidation()
         sample_weight_col = self.getSampleWeightCol()
         partitions_per_process = self.getPartitionsPerProcess()
 
@@ -255,8 +254,7 @@ class KerasEstimator(Estimator, EstimatorParams, KerasEstimatorParamsReadable,
                               df,
                               label_columns=label_columns,
                               feature_columns=feature_columns,
-                              validation_col=validation_col,
-                              validation_split=validation_split,
+                              validation=validation,
                               sample_weight_col=sample_weight_col,
                               partitions_per_process=partitions_per_process)
 
