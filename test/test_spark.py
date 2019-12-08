@@ -32,7 +32,8 @@ import torch
 from mock import MagicMock
 
 from pyspark.ml.linalg import DenseVector, SparseVector, VectorUDT
-from pyspark.sql.types import ArrayType, DoubleType, FloatType, IntegerType, NullType, StructField, StructType
+from pyspark.sql.types import ArrayType, BooleanType, DoubleType, FloatType, IntegerType, NullType, \
+    StructField, StructType
 
 import horovod.spark
 import horovod.torch as hvd
@@ -322,6 +323,54 @@ class SparkTests(unittest.TestCase):
 
             with pytest.raises(ValueError):
                 util._get_col_info(df)
+
+    def test_train_val_split_ratio(self):
+        with spark_session('test_train_val_split_ratio') as spark:
+            data = [
+                [1.0], [1.0], [1.0], [1.0], [1.0]
+            ]
+            schema = StructType([StructField('data', FloatType())])
+            df = create_test_data_from_schema(spark, data, schema)
+            metadata = util._get_metadata(df)
+
+            validation = 0.2
+            train_df, val_df, validation_ratio = util._train_val_split(df, metadata, validation)
+
+            assert validation_ratio == validation
+            assert train_df.count() == 4
+            assert val_df.count() == 1
+
+    def test_train_val_split_col_integer(self):
+        with spark_session('test_train_val_split_col_integer') as spark:
+            data = [
+                [1.0, 0], [1.0, 0], [1.0, 0], [1.0, 0], [1.0, 1]
+            ]
+            schema = StructType([StructField('data', FloatType()), StructField('val', IntegerType())])
+            df = create_test_data_from_schema(spark, data, schema)
+            metadata = util._get_metadata(df)
+
+            validation = 'val'
+            train_df, val_df, validation_ratio = util._train_val_split(df, metadata, validation)
+
+            assert validation_ratio == 0.2
+            assert train_df.count() == 4
+            assert val_df.count() == 1
+
+    def test_train_val_split_col_boolean(self):
+        with spark_session('test_train_val_split_col_boolean') as spark:
+            data = [
+                [1.0, False], [1.0, False], [1.0, False], [1.0, False], [1.0, True]
+            ]
+            schema = StructType([StructField('data', FloatType()), StructField('val', BooleanType())])
+            df = create_test_data_from_schema(spark, data, schema)
+            metadata = util._get_metadata(df)
+
+            validation = 'val'
+            train_df, val_df, validation_ratio = util._train_val_split(df, metadata, validation)
+
+            assert validation_ratio == 0.2
+            assert train_df.count() == 4
+            assert val_df.count() == 1
 
     def test_get_metadata(self):
         expected_metadata = \
