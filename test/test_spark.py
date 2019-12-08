@@ -299,6 +299,30 @@ class SparkTests(unittest.TestCase):
                 assert col_shapes[col_name] == col_shape, col_name
                 assert col_max_sizes[col_name] == col_size, col_name
 
+    def test_get_col_info_error_bad_size(self):
+        with spark_session('test_get_col_info_error_bad_size') as spark:
+            data_bad_size = [
+                [DenseVector([1.0, 1.0])],
+                [DenseVector([1.0])]
+            ]
+            schema = StructType([StructField('data', VectorUDT())])
+            df = create_test_data_from_schema(spark, data_bad_size, schema)
+
+            with pytest.raises(ValueError):
+                util._get_col_info(df)
+
+    def test_get_col_info_error_bad_shape(self):
+        with spark_session('test_get_col_info_error_bad_shape') as spark:
+            data_bad_shape = [
+                [SparseVector(2, {0: 1.0})],
+                [SparseVector(1, {0: 1.0})]
+            ]
+            schema = StructType([StructField('data', VectorUDT())])
+            df = create_test_data_from_schema(spark, data_bad_shape, schema)
+
+            with pytest.raises(ValueError):
+                util._get_col_info(df)
+
     def test_check_shape_compatibility(self):
         feature_columns = ['x1', 'x2', 'features']
         label_columns = ['y1', 'y_embedding']
