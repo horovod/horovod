@@ -368,7 +368,7 @@ keras_estimator = hvd.KerasEstimator(num_proc=args.num_proc,
                                      custom_objects=CUSTOM_OBJECTS,
                                      feature_cols=all_cols,
                                      label_cols=['Sales'],
-                                     validation_col='Validation',
+                                     validation='Validation',
                                      batch_size=args.batch_size,
                                      epochs=args.epochs,
                                      verbose=2)

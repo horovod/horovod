@@ -219,8 +219,7 @@ class SparkTests(unittest.TestCase):
             with local_store() as store:
                 df = create_xor_data(spark)
 
-                key = (df.__hash__(), 0, None, store.get_train_data_path(),
-                       store.get_val_data_path())
+                key = util._training_cache.create_key(df, store, 0)
                 assert not util._training_cache.is_cached(key)
 
                 train_rows, val_rows, metadata, avg_row_size = \
@@ -247,8 +246,7 @@ class SparkTests(unittest.TestCase):
                 assert metadata == metadata_cached
                 assert avg_row_size == avg_row_size_cached
 
-                bad_key = (df.__hash__(), 0.1, None, store.get_train_data_path(),
-                           store.get_val_data_path())
+                bad_key = util._training_cache.create_key(df, store, 0.1)
                 assert not util._training_cache.is_cached(bad_key)
 
     def test_get_col_info(self):
