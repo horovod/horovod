@@ -265,13 +265,7 @@ def _get_metadata(df):
         col = field.name
         col_types = all_col_types[col].copy()
 
-        if DenseVector in col_types and SparseVector in col_types:
-            # If a col has DenseVector type (whether it is mixed sparse and dense vector or just
-            # DenseVector), convert all of the values to dense vector
-            is_sparse_vector_only = False
-            spark_data_type = DenseVector
-            convert_to_target = constants.ARRAY
-        elif DenseVector in col_types:
+        if DenseVector in col_types:
             # If a col has DenseVector type (whether it is mixed sparse and dense vector or just
             # DenseVector), convert all of the values to dense vector
             is_sparse_vector_only = False
@@ -325,6 +319,7 @@ def to_petastorm_fn(schema_cols, metadata):
         import numpy as np
         from pyspark import Row
 
+        # TODO(travis): lazy eval, don't copy if there are no changes
         fields = row.asDict().copy()
         for col in schema_cols:
             col_data = row[col]
