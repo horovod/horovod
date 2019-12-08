@@ -39,7 +39,7 @@ import horovod.torch as hvd
 
 from horovod.run.common.util import secret
 from horovod.run.mpi_run import _get_mpi_implementation_flags
-from horovod.spark.common import util
+from horovod.spark.common import constants, util
 from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient
 
 from spark_common import spark_session, create_test_data_from_schema, create_xor_data, local_store
@@ -299,6 +299,18 @@ class SparkTests(unittest.TestCase):
                 assert col_shapes[col_name] == col_shape, col_name
                 assert col_max_sizes[col_name] == col_size, col_name
 
+    def test_get_col_info_error_bad_shape(self):
+        with spark_session('test_get_col_info_error_bad_shape') as spark:
+            data_bad_shape = [
+                [SparseVector(2, {0: 1.0})],
+                [SparseVector(1, {0: 1.0})]
+            ]
+            schema = StructType([StructField('data', VectorUDT())])
+            df = create_test_data_from_schema(spark, data_bad_shape, schema)
+
+            with pytest.raises(ValueError):
+                util._get_col_info(df)
+
     def test_get_col_info_error_bad_size(self):
         with spark_session('test_get_col_info_error_bad_size') as spark:
             data_bad_size = [
@@ -311,17 +323,54 @@ class SparkTests(unittest.TestCase):
             with pytest.raises(ValueError):
                 util._get_col_info(df)
 
-    def test_get_col_info_error_bad_shape(self):
-        with spark_session('test_get_col_info_error_bad_shape') as spark:
-            data_bad_shape = [
-                [SparseVector(2, {0: 1.0})],
-                [SparseVector(1, {0: 1.0})]
-            ]
-            schema = StructType([StructField('data', VectorUDT())])
-            df = create_test_data_from_schema(spark, data_bad_shape, schema)
+    def test_get_metadata(self):
+        expected_metadata = \
+            {
+                'float': {
+                    'spark_data_type': FloatType,
+                    'is_sparse_vector_only': False,
+                    'intermediate_format': constants.NOCHANGE,
+                    'max_size': 1,
+                    'shape': 1
+                },
+                'dense': {
+                    'spark_data_type': DenseVector,
+                    'is_sparse_vector_only': False,
+                    'intermediate_format': constants.ARRAY,
+                    'max_size': 2,
+                    'shape': 2
+                },
+                'sparse': {
+                    'spark_data_type': SparseVector,
+                    'is_sparse_vector_only': True,
+                    'intermediate_format': constants.CUSTOM_SPARSE,
+                    'max_size': 1,
+                    'shape': 2
+                },
+                'mixed': {
+                    'spark_data_type': DenseVector,
+                    'is_sparse_vector_only': False,
+                    'intermediate_format': constants.ARRAY,
+                    'max_size': 2,
+                    'shape': 2
+                },
+            }
 
-            with pytest.raises(ValueError):
-                util._get_col_info(df)
+        with spark_session('test_get_metadata') as spark:
+            data = [
+                [1.0, DenseVector([1.0, 1.0]), SparseVector(2, {0: 1.0}), DenseVector([1.0, 1.0])],
+                [1.0, DenseVector([1.0, 1.0]), SparseVector(2, {1: 1.0}), SparseVector(2, {1: 1.0})]
+            ]
+            schema = StructType([
+                StructField('float', FloatType()),
+                StructField('dense', VectorUDT()),
+                StructField('sparse', VectorUDT()),
+                StructField('mixed', VectorUDT())
+            ])
+            df = create_test_data_from_schema(spark, data, schema)
+
+            metadata = util._get_metadata(df)
+            self.assertDictEqual(metadata, expected_metadata)
 
     def test_check_shape_compatibility(self):
         feature_columns = ['x1', 'x2', 'features']
