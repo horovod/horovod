@@ -219,8 +219,8 @@ class SparkTests(unittest.TestCase):
             with local_store() as store:
                 df = create_xor_data(spark)
 
-                key = util._training_cache.create_key(df, store, 0)
-                assert not util._training_cache.is_cached(key)
+                key = util._training_cache.create_key(df, store, None)
+                assert not util._training_cache.is_cached(key, store)
 
                 train_rows, val_rows, metadata, avg_row_size = \
                     util.prepare_data(num_processes=2,
@@ -231,7 +231,7 @@ class SparkTests(unittest.TestCase):
 
                 util._training_cache.get.assert_not_called()
                 assert len(util._training_cache._entries) == 1
-                assert util._training_cache.is_cached(key)
+                assert util._training_cache.is_cached(key, store)
 
                 train_rows_cached, val_rows_cached, metadata_cached, avg_row_size_cached = \
                     util.prepare_data(num_processes=2,
@@ -247,7 +247,7 @@ class SparkTests(unittest.TestCase):
                 assert avg_row_size == avg_row_size_cached
 
                 bad_key = util._training_cache.create_key(df, store, 0.1)
-                assert not util._training_cache.is_cached(bad_key)
+                assert not util._training_cache.is_cached(bad_key, store)
 
     def test_get_col_info(self):
         with spark_session('test_get_col_info') as spark:
@@ -334,9 +334,9 @@ class SparkTests(unittest.TestCase):
             validation = 0.2
             train_df, val_df, validation_ratio = util._train_val_split(df, metadata, validation)
 
+            # Only check validation ratio, as we can't rely on random splitting to produce an exact
+            # result of 4 training and 1 validation samples.
             assert validation_ratio == validation
-            assert train_df.count() == 4
-            assert val_df.count() == 1
 
     def test_train_val_split_col_integer(self):
         with spark_session('test_train_val_split_col_integer') as spark:

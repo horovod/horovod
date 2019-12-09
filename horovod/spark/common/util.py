@@ -458,7 +458,7 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
 
     key = _training_cache.create_key(df, store, validation)
     with _training_cache.lock:
-        if _training_cache.is_cached(key):
+        if _training_cache.is_cached(key, store):
             train_rows, val_rows, metadata, avg_row_size = _training_cache.get(key)
             if verbose:
                 print('using cached dataframes for key: {}'.format(key))

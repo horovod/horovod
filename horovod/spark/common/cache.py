@@ -32,18 +32,11 @@ class TrainingDataCache(object):
     def put(self, key, value):
         self._entries[key] = value
 
-    def is_cached(self, key):
+    def is_cached(self, key, store):
         dataframe_hash, train_data_path, val_data_path, validation = key
-
-        content = self._entries.get(key, None)
-        if not content:
-            return False
-
-        return \
-            content.dataframe_hash == dataframe_hash and \
-            content.validation == validation and \
-            content.store.exists(train_data_path) and \
-            (not validation or content.store.exists(val_data_path))
+        return key in self._entries and \
+            store.exists(train_data_path) and \
+            (not validation or store.exists(val_data_path))
 
     def clear(self):
         self._reset()
