@@ -1,0 +1,28 @@
+name: Docs Summary Sync
+
+on: [pull_request]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Diffing README.rst with docs/summary.rst
+      run: |
+        sed -e "s/docs\///g" README.rst > docs/README.rst
+        patch --quiet -p0 docs/README.rst docs/summary.rst.patch -o docs/summary.rst.as-readme
+        if ! diff -q docs/summary.rst.as-readme --label README.rst docs/summary.rst
+        then
+          echo
+          echo "Unexpected differences are:"
+          diff docs/summary.rst.as-readme --label README.rst docs/summary.rst || true
+
+          echo
+          echo "Use the following as docs/summary.rst.patch to accept those changes:"
+          diff docs/README.rst --label README.rst docs/summary.rst || true
+
+          false
+        fi
+
