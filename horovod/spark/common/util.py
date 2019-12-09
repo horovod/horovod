@@ -342,21 +342,12 @@ def to_petastorm_fn(schema_cols, metadata):
     return to_petastorm
 
 
-def get_simple_meta_from_parquet(store, label_columns, feature_columns, sample_weight_col):
-    train_data_path = store.get_train_data_path()
-    validation_data_path = store.get_val_data_path()
-
-    if not store.exists(train_data_path):
-        raise ValueError("{} path does not exist on the store".format(train_data_path))
-
-    train_data = pq.ParquetDataset(train_data_path, filesystem=store.get_filesystem())
-    schema = train_data.schema.to_arrow_schema()
-
-    train_rows = 0
+def _get_dataset_info(dataset, dataset_id, path):
+    total_rows = 0
     total_byte_size = 0
-    for piece in train_data.pieces:
+    for piece in dataset.pieces:
         metadata = piece.get_metadata()
-        train_rows += metadata.num_rows
+        total_rows += metadata.num_rows
 
         pfile = piece.open()
         file_metadata = pfile.metadata
@@ -364,22 +355,34 @@ def get_simple_meta_from_parquet(store, label_columns, feature_columns, sample_w
             row_group = file_metadata.row_group(row_group_index)
             total_byte_size += row_group.total_byte_size
 
-    if train_rows == 0:
-        raise ValueError('No rows found in training dataset: {}'.format(train_data_path))
+    if total_rows == 0:
+        raise ValueError('No rows found in {} dataset: {}'.format(dataset_id, path))
 
     if total_byte_size == 0:
-        raise ValueError('No data found in training dataset: {}'.format(train_data_path))
+        raise ValueError('No data found in {} dataset: {}'.format(dataset_id, path))
 
-    if train_rows > total_byte_size:
-        raise ValueError('Found {} bytes in {} rows.  Training dataset may be corrupted.'
-                         .format(total_byte_size, train_rows))
+    if total_rows > total_byte_size:
+        raise ValueError('Found {} bytes in {} rows; {} dataset may be corrupted.'
+                         .format(total_byte_size, total_rows, dataset_id))
+
+    return total_rows, total_byte_size
+
+
+def get_simple_meta_from_parquet(store, label_columns, feature_columns, sample_weight_col):
+    train_data_path = store.get_train_data_path()
+    validation_data_path = store.get_val_data_path()
+
+    if not store.exists(train_data_path):
+        raise ValueError("{} path does not exist in the store".format(train_data_path))
+
+    train_data = pq.ParquetDataset(train_data_path, filesystem=store.get_filesystem())
+    schema = train_data.schema.to_arrow_schema()
+    train_rows, total_byte_size = _get_dataset_info(train_data, 'training', train_data_path)
 
     val_rows = 0
     if store.exists(validation_data_path):
         val_data = pq.ParquetDataset(validation_data_path, filesystem=store.get_filesystem())
-        for piece in val_data.pieces:
-            metadata = piece.get_metadata()
-            val_rows += metadata.num_rows
+        val_rows, _ = _get_dataset_info(val_data, 'validation', validation_data_path)
 
     schema_cols = feature_columns + label_columns
     if sample_weight_col:
