@@ -350,7 +350,7 @@ class SparkTests(unittest.TestCase):
             validation = 'val'
             train_df, val_df, validation_ratio = util._train_val_split(df, metadata, validation)
 
-            assert validation_ratio == 0.2
+            # Only check counts as validation ratio cannot be guaranteed due to approx calculation
             assert train_df.count() == 4
             assert val_df.count() == 1
 
@@ -366,7 +366,7 @@ class SparkTests(unittest.TestCase):
             validation = 'val'
             train_df, val_df, validation_ratio = util._train_val_split(df, metadata, validation)
 
-            assert validation_ratio == 0.2
+            # Only check counts as validation ratio cannot be guaranteed due to approx calculation
             assert train_df.count() == 4
             assert val_df.count() == 1
 
