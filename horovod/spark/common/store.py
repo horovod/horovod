@@ -64,7 +64,7 @@ class Store(object):
     def read(self, path):
         raise NotImplementedError()
 
-    def get_petastorm_path_fn(self):
+    def get_full_path_fn(self):
         raise NotImplementedError()
 
     def get_local_output_dir_fn(self, run_id):
@@ -95,7 +95,7 @@ class Store(object):
             'logs_path': self.get_logs_path(run_id),
             'checkpoint_filename': self.get_checkpoint_filename(),
             'logs_subdir': self.get_logs_subdir(),
-            'get_petastorm_path': self.get_petastorm_path_fn(),
+            'get_full_path': self.get_full_path_fn(),
             'get_local_output_dir': self.get_local_output_dir_fn(run_id),
             'sync': self.sync_fn(run_id)
         }
@@ -110,7 +110,7 @@ class Store(object):
 
 class PrefixStore(Store):
     def __init__(self, prefix_path, train_path=None, val_path=None, test_path=None, runs_path=None, save_runs=True):
-        self.prefix_path = self.normalize_path(prefix_path)
+        self.prefix_path = self.get_normalized_path(prefix_path)
         self._train_path = train_path or self._get_path('train_data')
         self._val_path = val_path or self._get_path('val_data')
         self._test_path = test_path or self._get_path('test_path')
@@ -149,8 +149,15 @@ class PrefixStore(Store):
     def get_logs_subdir(self):
         return 'logs'
 
-    def normalize_path(self, path):
+    def get_normalized_path(self, path):
         return path[len(self.filesystem_prefix()):] if self.matches(path) else path
+
+    def get_full_path_fn(self):
+        prefix = self.filesystem_prefix()
+
+        def get_path(path):
+            return prefix + path
+        return get_path
 
     def _get_path(self, key):
         return os.path.join(self.prefix_path, key)
@@ -180,13 +187,6 @@ class LocalStore(PrefixStore):
     def read(self, path):
         with self._fs.open(path, 'rb') as f:
             return f.read()
-
-    def get_petastorm_path_fn(self):
-        prefix = LocalStore.FS_PREFIX
-
-        def get_path(path):
-            return prefix + path
-        return get_path
 
     def get_local_output_dir_fn(self, run_id):
         run_path = self.get_run_path(run_id)
@@ -239,13 +239,6 @@ class HDFSStore(PrefixStore):
     def read(self, path):
         with self._hdfs.open(path, 'rb') as f:
             return f.read()
-
-    def get_petastorm_path_fn(self):
-        prefix = HDFSStore.FS_PREFIX
-
-        def get_path(path):
-            return prefix + path
-        return get_path
 
     def get_local_output_dir_fn(self, run_id):
         temp_dir = self._temp_dir

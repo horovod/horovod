@@ -160,7 +160,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id):
             # ranks to perform training and validation with unequal number of
             # samples
             train_data_path = remote_store.train_data_path
-            with make_batch_reader(remote_store.get_petastorm_path(train_data_path),
+            with make_batch_reader(remote_store.get_full_path(train_data_path),
                                    shuffle_row_groups=True,
                                    num_epochs=None,
                                    cur_shard=hvd.rank(),
@@ -168,7 +168,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id):
                                    hdfs_driver=PETASTORM_HDFS_DRIVER,
                                    schema_fields=schema_fields) as train_reader:
                 val_data_path = remote_store.val_data_path
-                with make_batch_reader(remote_store.get_petastorm_path(val_data_path),
+                with make_batch_reader(remote_store.get_full_path(val_data_path),
                                        num_epochs=None,
                                        cur_shard=hvd.rank(),
                                        shard_count=hvd.size(),
