@@ -348,11 +348,8 @@ def _get_dataset_info(dataset, dataset_id, path):
     for piece in dataset.pieces:
         metadata = piece.get_metadata()
         total_rows += metadata.num_rows
-
-        pfile = piece.open()
-        file_metadata = pfile.metadata
-        for row_group_index in range(file_metadata.num_row_groups):
-            row_group = file_metadata.row_group(row_group_index)
+        for row_group_index in range(metadata.num_row_groups):
+            row_group = metadata.row_group(row_group_index)
             total_byte_size += row_group.total_byte_size
 
     if total_rows == 0:
