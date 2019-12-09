@@ -48,9 +48,7 @@ else:
         # tests from running in the graph mode.
         tf.enable_eager_execution(config=config)
 
-# MLSL supports only byte, float and double data types
-mlsl_supported_types = set([tf.float32, tf.float64])
-
+ccl_supported_types = set([tf.uint8, tf.int32, tf.int64, tf.float32, tf.float64])
 
 class MPITests(tf.test.TestCase):
     """
@@ -85,8 +83,8 @@ class MPITests(tf.test.TestCase):
             return tf.random_uniform(*args, **kwargs)
 
     def filter_supported_types(self, types):
-        if 'MLSL_ROOT' in os.environ:
-           types = [t for t in types if t in mlsl_supported_types]
+        if 'CCL_ROOT' in os.environ:
+           types = [t for t in types if t in ccl_supported_types]
         return types
 
     def test_horovod_rank(self):

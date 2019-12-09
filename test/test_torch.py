@@ -37,8 +37,9 @@ from common import mpi_env_rank_and_size
 _v2_api = LooseVersion(torch.__version__) >= LooseVersion('1.0.0')
 _fp16_supported = _v2_api
 
-# MLSL supports only byte, float and double data types
-mlsl_supported_types = set([torch.FloatTensor, torch.DoubleTensor])
+ccl_supported_types = set([torch.CharTensor, torch.IntTensor,
+                           torch.LongTensor, torch.FloatTensor, 
+                           torch.DoubleTensor])
 
 class TorchTests(unittest.TestCase):
     """
@@ -66,8 +67,8 @@ class TorchTests(unittest.TestCase):
         return tensor.type(dtype)
 
     def filter_supported_types(self, types):
-        if 'MLSL_ROOT' in os.environ:
-           types = [t for t in types if t in mlsl_supported_types]
+        if 'CCL_ROOT' in os.environ:
+           types = [t for t in types if t in ccl_supported_types]
         return types
 
     def test_horovod_rank(self):

@@ -50,8 +50,8 @@ mxnet_mpi_lib = Extension('horovod.mxnet.mpi_lib', [])
 gloo_lib = CMakeExtension('gloo', cmake_lists_dir='third_party/gloo',
                           sources=[])
 
-mlsl_root = os.environ.get('MLSL_ROOT')
-have_mlsl = mlsl_root is not None
+ccl_root = os.environ.get('CCL_ROOT')
+have_ccl = ccl_root is not None
 
 
 def is_build_action():
@@ -673,9 +673,9 @@ def get_common_options(build_ext):
             if not have_mpi:
                 raise RuntimeError('MPI is not installed, try changing HOROVOD_CPU_OPERATIONS.')
             MACROS += [('HOROVOD_CPU_OPERATIONS_DEFAULT', "'P'")]
-        elif cpu_operation.upper() == 'MLSL':
-            if not have_mlsl:
-                raise RuntimeError('MLSL is not installed, try changing HOROVOD_CPU_OPERATIONS.')
+        elif cpu_operation.upper() == 'CCL':
+            if not have_ccl:
+                raise RuntimeError('CCL is not installed, try changing HOROVOD_CPU_OPERATIONS.')
             MACROS += [('HOROVOD_CPU_OPERATIONS_DEFAULT', "'M'")]
         elif cpu_operation.upper() == 'GLOO':
             if compile_without_gloo:
@@ -706,12 +706,12 @@ def get_common_options(build_ext):
                     'horovod/common/gloo/memory_store.cc',
                     'horovod/common/ops/gloo_operations.cc']
 
-    if have_mlsl:
-        MACROS += [('HAVE_MLSL', '1')]
-        INCLUDES += [mlsl_root + '/intel64/include/']
-        SOURCES += ['horovod/common/ops/mlsl_operations.cc']
-        LIBRARY_DIRS += [mlsl_root + '/intel64/lib/']
-        LINK_FLAGS += ['-lmlsl']
+    if have_ccl:
+        MACROS += [('HAVE_CCL', '1')]
+        INCLUDES += [ccl_root + '/include/']
+        SOURCES += ['horovod/common/ops/ccl_operations.cc']
+        LIBRARY_DIRS += [ccl_root + '/lib/']
+        LINK_FLAGS += ['-lccl']
 
     if have_cuda:
         MACROS += [('HAVE_CUDA', '1')]

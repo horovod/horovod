@@ -169,14 +169,14 @@ def ddl_built(verbose=False):
 
 
 @_cache
-def mlsl_built(verbose=False):
+def ccl_built(verbose=False):
     for ext_base_name in EXTENSIONS:
-        built_fn = lambda ext: ext.mlsl_built()
+        built_fn = lambda ext: ext.ccl_built()
         result = _check_extension_lambda(
-            ext_base_name, built_fn, 'built with MLSL', verbose)
+            ext_base_name, built_fn, 'built with CCL', verbose)
         if result is not None:
             return result
-    raise RuntimeError('Failed to determine if MLSL support has been built. '
+    raise RuntimeError('Failed to determine if CCL support has been built. '
                        'Run again with --verbose for more details.')
 
 

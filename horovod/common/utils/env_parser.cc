@@ -31,8 +31,8 @@ std::string TypeName(LibType type) {
     return std::string(HOROVOD_MPI);
   case LibType::GLOO:
     return std::string(HOROVOD_GLOO);
-  case LibType::MLSL:
-    return std::string(HOROVOD_MLSL);
+  case LibType::CCL:
+    return std::string(HOROVOD_CCL);
   default:
     return std::string("Unknown");
   }
@@ -41,8 +41,8 @@ std::string TypeName(LibType type) {
 LibType ParseCPUOpsFromEnv() {
   // set default cpu operations for data transferring
   LibType cpu_operation = LibType::MPI;
-#if HAVE_MLSL
-  cpu_operation = LibType::MLSL;
+#if HAVE_CCL
+  cpu_operation = LibType::CCL;
 #endif
 
   // If specified by admin during compiling
@@ -51,7 +51,7 @@ LibType ParseCPUOpsFromEnv() {
 #elif HOROVOD_CPU_OPERATIONS_DEFAULT == 'G'
   cpu_operation = LibType::GLOO;
 #elif HOROVOD_CPU_OPERATIONS_DEFAULT == 'M'
-  cpu_operation = LibType::MLSL;
+  cpu_operation = LibType::CCL;
 #endif
 
   // If specified by user during runtime
@@ -61,11 +61,11 @@ LibType ParseCPUOpsFromEnv() {
       cpu_operation = LibType::MPI;
     } else if (strcasecmp(user_cpu_operation, HOROVOD_GLOO) == 0) {
       cpu_operation = LibType::GLOO;
-    } else if (strcasecmp(user_cpu_operation, HOROVOD_MLSL) == 0) {
-      cpu_operation = LibType::MLSL;
+    } else if (strcasecmp(user_cpu_operation, HOROVOD_CCL) == 0) {
+      cpu_operation = LibType::CCL;
     } else {
       throw std::runtime_error("Unsupported CPU operation type, only MPI, "
-                               "MLSL, and Gloo are supported");
+                               "CCL, and Gloo are supported");
     }
   }
 
