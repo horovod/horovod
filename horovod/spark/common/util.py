@@ -22,9 +22,8 @@ import pyarrow.parquet as pq
 import numpy as np
 import pyspark.sql.functions as f
 from pyspark.ml.linalg import DenseVector, SparseVector, VectorUDT
-from pyspark.sql.types import (IntegerType, StringType, FloatType,
-                               BinaryType, DoubleType, LongType, BooleanType,
-                               ArrayType)
+from pyspark.sql.types import ArrayType, BinaryType, BooleanType, FloatType, DoubleType, \
+    IntegerType, LongType, NullType, StringType
 from pyspark.sql.types import from_arrow_type
 
 from horovod.spark.common import cache, constants
@@ -174,28 +173,32 @@ def _get_col_info(df):
         row_schema = []
         for col_name, data_col in row_dict.items():
             dtype = type(data_col)
-            if dtype == DenseVector:
+            if isinstance(data_col, DenseVector):
                 # shape and size of dense vector are the same
                 shape = size = data_col.array.shape[0]
-            elif dtype == SparseVector:
+            elif isinstance(data_col, SparseVector):
                 # shape is the total size of vector
                 shape = data_col.size
                 # size is the number of nonzero elements in the sparse vector
                 size = data_col.indices.shape[0]
-            elif dtype == list:
+            elif isinstance(data_col, list):
                 shape = size = len(data_col)
+            elif isinstance(data_col, type(None)):
+                # Python 2.7 compat: NoneType is not pickleable
+                # see: https://bugs.python.org/issue6477
+                dtype = NullType
+                shape = size = 1
             else:
                 shape = size = 1
-            row_schema.append((col_name, (set([dtype]), set([shape]), set([size]))))
+            row_schema.append((col_name, ({dtype}, {shape}, {size})))
         return row_schema
 
     def merge(x, y):
-        dtypes = x[0]
-        dtypes.update(y[0])
-        shapes = x[1]
-        shapes.update(y[1])
-        sizes = x[2]
-        sizes.update(y[2])
+        dtypes, shapes, sizes = x
+        new_dtypes, new_shapes, new_sizes = y
+        dtypes.update(new_dtypes)
+        shapes.update(new_shapes)
+        sizes.update(new_sizes)
         return dtypes, shapes, sizes
 
     raw_col_info_list = df.rdd.flatMap(get_meta).reduceByKey(merge).collect()
@@ -205,11 +208,12 @@ def _get_col_info(df):
     col_max_sizes = {}
 
     for col_info in raw_col_info_list:
-        col_name = col_info[0]
+        col_name, col_meta = col_info
+        dtypes, shapes, sizes = col_meta
 
-        all_col_types[col_name] = col_info[1][0]
-        col_shapes[col_name] = col_info[1][1]
-        col_max_sizes[col_name] = col_info[1][2]
+        all_col_types[col_name] = dtypes
+        col_shapes[col_name] = shapes
+        col_max_sizes[col_name] = sizes
 
     # all the rows of each columns must have the same shape
     for col in df.schema.names:

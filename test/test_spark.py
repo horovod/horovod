@@ -284,8 +284,8 @@ class SparkTests(unittest.TestCase):
 
             expected = [
                 ('int', {int}, 1, 1),
-                ('float', {float, type(None)}, 1, 1),
-                ('null', {type(None)}, 1, 1),
+                ('float', {float, NullType}, 1, 1),
+                ('null', {NullType}, 1, 1),
                 ('array', {list}, 2, 2),
                 ('dense', {DenseVector}, 2, 2),
                 ('sparse', {SparseVector}, 2, 1),
