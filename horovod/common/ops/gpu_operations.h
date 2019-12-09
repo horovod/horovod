@@ -185,11 +185,11 @@ public:
 
 protected:
   void MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                            const TensorTableEntry& e, int64_t entry_offset,
-                            size_t entry_size, void* buffer_data_at_offset) override;
+                                 const TensorTableEntry& e, int64_t entry_offset,
+                                 size_t entry_size, void* buffer_data_at_offset) override;
 
   void MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
-                             const void* buffer_data_at_offset, TensorTableEntry& e) override;
+                                  const void* buffer_data_at_offset, TensorTableEntry& e) override;
 
   struct CUDAContext* cuda_context_;
   CUDAOpContext cuda_op_context_;
