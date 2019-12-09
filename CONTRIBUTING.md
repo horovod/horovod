@@ -19,16 +19,18 @@ non-voting members, in addition to a chairman responsible for running TSC meetin
 calling votes on proposals.
 
 Current voting members of the Horovod TSC:
-* Alex Sergeev (@alsrgv) - Chairman
-* Travis Addair (@tgaddair)
+* Alex Sergeev (@alsrgv)
+* Travis Addair (@tgaddair) - Chairman
 * Can Karakus (@karakusc)
+* Josh Romero (@romerojosh)
+* Jaliya Ekanayake (@jaliyae)
 
 Current non-voting members of the Horovod TSC:
-* Josh Romero (@romerojosh)
 * Yuxi Hu (@yuxihu)
 * Lin Yuan (@apeforest)
-* Jaliya Ekanayake (@jaliyae)
 * Todd Mytkowicz (@klipto)
+* Emad Barsoum (@ebarsoum)
+* Kaarthik Sivashanmugam (@skaarthik)
 
 Non-voting members of the TSC ("maintainers") have commit access to the Horovod GitHub repository, and take part in the
 standing TSC meetings and mailing lists.
