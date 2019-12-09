@@ -24,6 +24,7 @@
 #include <cuda_runtime.h>
 
 #include "collective_operations.h"
+#include "../thread_pool.h"
 
 namespace horovod {
 namespace common {
@@ -60,6 +61,9 @@ struct CUDAContext {
 
   void WaitForEvents(std::queue<std::pair<std::string, cudaEvent_t>>& event_queue,
                      const std::vector<TensorTableEntry>& entries, Timeline& timeline);
+
+  // Thread pool for finalizer threads
+  ThreadPool finalizer_thread_pool;
 };
 
 class CUDAOpContext {

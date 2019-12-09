@@ -652,6 +652,7 @@ def get_common_options(build_ext):
                'horovod/common/parameter_manager.cc',
                'horovod/common/response_cache.cc',
                'horovod/common/stall_inspector.cc',
+               'horovod/common/thread_pool.cc',
                'horovod/common/timeline.cc',
                'horovod/common/tensor_queue.cc',
                'horovod/common/ops/collective_operations.cc',

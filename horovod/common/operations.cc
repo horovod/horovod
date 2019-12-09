@@ -383,6 +383,9 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   nccl_context.nccl_comms.resize(state.num_nccl_streams);
 #endif
   cuda_context.streams.resize(state.num_nccl_streams);
+
+  // Create finalizer thread pool (one thread per stream)
+  cuda_context.finalizer_thread_pool.create(state.num_nccl_streams);
 #endif
 
   // Open the timeline file on coordinator.

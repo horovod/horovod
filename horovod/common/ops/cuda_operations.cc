@@ -136,9 +136,8 @@ Status CUDAOpContext::FinalizeCUDAQueue(const std::vector<TensorTableEntry>& ent
   auto fusion_buffer = global_state_->fusion_buffer.GetBuffer(
       first_entry.device, first_entry.context->framework(), global_state_->current_nccl_stream);
 
-  // TODO: use thread pool or single thread for callbacks
-  std::thread finalizer_thread([entries, first_entry, cpu_buffer, fusion_buffer, free_host_buffer,
-                                evt_queue, &timeline, &cuda_context]() mutable {
+  cuda_context_->finalizer_thread_pool.execute([entries, first_entry, cpu_buffer, fusion_buffer, free_host_buffer,
+                                                evt_queue, &timeline, &cuda_context]() mutable {
     auto cuda_result = cudaSetDevice(first_entry.device);
     cuda_context->ErrorCheck("cudaSetDevice", cuda_result);
 
@@ -155,8 +154,6 @@ Status CUDAOpContext::FinalizeCUDAQueue(const std::vector<TensorTableEntry>& ent
       }
     }
   });
-
-  finalizer_thread.detach();
 
   // Update current stream
   global_state_->current_nccl_stream = (global_state_->current_nccl_stream + 1) %
