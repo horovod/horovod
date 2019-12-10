@@ -228,8 +228,8 @@ void PerformOperation(Response response, HorovodGlobalState& state) {
   std::vector<TensorTableEntry> entries;
   auto& timeline = horovod_global.timeline;
   if (response.response_type() != Response::JOIN) {
-    horovod_global.tensor_queue.GetTensorEntriesFromResponse(
-        response, entries, state.joined, state.join_device);
+    horovod_global.tensor_queue.GetTensorEntriesFromResponse(response, entries,
+                                                             state.joined);
 
     for (auto& e : entries) {
       timeline.Start(e.tensor_name, response.response_type());

@@ -72,7 +72,6 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
   for (auto& message : message_queue_tmp) {
     if (message.request_type() == Request::JOIN) {
       state.joined = true;
-      state.join_device = message.device();
       cache_coordinator.set_just_joined();
       continue;
     }

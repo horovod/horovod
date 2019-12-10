@@ -70,8 +70,7 @@ TensorQueue::GetTensorDataForAutotuner(const ResponseList& response_list,
 // Parse tensor names from response and generate a vector of corresponding
 // tensor entries.
 void TensorQueue::GetTensorEntriesFromResponse(
-    Response& response, std::vector<TensorTableEntry>& entries, bool joined,
-    int join_device) {
+    Response& response, std::vector<TensorTableEntry>& entries, bool joined) {
   // Reserve to save re-allocation costs, as we know the size before.
   entries.reserve(response.tensor_names().size());
   {
@@ -106,7 +105,7 @@ void TensorQueue::GetTensorEntriesFromResponse(
                                                  &(entry.tensor));
 
         entry.output = entry.tensor;
-        entry.device = join_device;
+        entry.device = join_iter->second.device;
         entry.context = join_iter->second.context;
         entry.tensor_name = name;
         entries.push_back(std::move(entry));
