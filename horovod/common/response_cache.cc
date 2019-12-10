@@ -54,8 +54,7 @@ ResponseCache::CacheState ResponseCache::cached(const Request& message) const {
     // if tensor parameters match. If not, return that entry is invalid.
     uint32_t cache_bit = it->second;
     auto& cache_params = std::get<1>(*cache_iters_[cache_bit]);
-    return (cache_params.joined ||
-            cache_params.device == message.device() &&
+    return (cache_params.device == message.device() &&
                 cache_params.dtype == message.tensor_type() &&
                 cache_params.shape == message.tensor_shape())
                ? CacheState::HIT
@@ -67,7 +66,7 @@ ResponseCache::CacheState ResponseCache::cached(const Request& message) const {
 
 ResponseCache::CacheState
 ResponseCache::cached(const Response& response,
-                      const TensorParams& params) const {
+                      const TensorParams& params, bool joined) const {
   assert(response.tensor_names().size() == 1);
   auto it = tensor_name_to_bit_.find(response.tensor_names()[0]);
   if (it != tensor_name_to_bit_.end()) {
@@ -75,9 +74,30 @@ ResponseCache::cached(const Response& response,
     // if tensor parameters match. If not, return that entry is invalid.
     uint32_t cache_bit = it->second;
     auto& cache_params = std::get<1>(*cache_iters_[cache_bit]);
-    return (params.joined || cache_params.device == params.device &&
-            cache_params.dtype == params.dtype &&
-            cache_params.shape == params.shape)
+    std::cout << response.tensor_names()[0] << std::endl;
+    std::cout << cache_params.device << " " << params.device << std::endl
+              << cache_params.dtype << " " << params.dtype << std::endl;
+    for (auto a : cache_params.shape)
+      std::cout << a << " ";
+    std::cout << std::endl;
+    for (auto a : params.shape)
+      std::cout << a << " ";
+    std::cout << std::endl;
+
+    bool same_shape;
+    if (joined) {
+      // For Joined rank only number of elements in the tensor is known.
+      auto product = [](const std::vector<int64_t>& shape) {
+        return std::accumulate(shape.begin(), shape.end(), 1,
+                               std::multiplies<int64_t>());
+      };
+      same_shape = (product(cache_params.shape) == product(params.shape));
+    } else {
+      same_shape = (cache_params.shape == params.shape);
+    }
+
+    return (cache_params.device == params.device &&
+            cache_params.dtype == params.dtype && same_shape)
                ? CacheState::HIT
                : CacheState::INVALID;
   } else {
@@ -85,11 +105,11 @@ ResponseCache::cached(const Response& response,
   }
 }
 
-void ResponseCache::put_(const Response& response, TensorParams& params) {
+void ResponseCache::put_(const Response& response, TensorParams& params, bool joined) {
   // Note: This method invalidates all previously returned cache bit positions.
 
   uint32_t cache_bit;
-  auto cache_state = this->cached(response, params);
+  auto cache_state = this->cached(response, params, joined);
 
   // Disallow caching name-conflicted responses here. Invalid cache entries
   // must be removed prior to caching new entries.
@@ -99,7 +119,7 @@ void ResponseCache::put_(const Response& response, TensorParams& params) {
         "This is not allowed.");
   }
 
-  if (this->cached(response, params) == CacheState::HIT) {
+  if (cache_state == CacheState::HIT) {
     // If entry already exists, move entry to front of cache_
     // (most recently used) and update iterator in cache_iters_
     // at the existing cache bit position.
@@ -150,42 +170,44 @@ void ResponseCache::put(const Response& response, TensorQueue& tensor_queue, boo
     return;
   }
 
+  std::vector<TensorTableEntry> entries_for_join;
+  if (joined) {
+    tensor_queue.GetTensorEntriesFromResponse(response, entries_for_join,
+                                              joined);
+  }
+
   // If response is fused, split back into individual responses
   if (response.tensor_names().size() > 1) {
+    int64_t i = 0;
     for (auto& name : response.tensor_names()) {
       Response new_response;
       new_response.add_tensor_name(name);
       new_response.set_response_type(response.response_type());
       new_response.set_devices(response.devices());
-      new_response.set_tensor_sizes(response.tensor_sizes());
+      new_response.add_tensor_size(response.tensor_sizes()[i]);
+      new_response.set_tensor_type(response.tensor_type());
 
       // Populate tensor parameters from tensor_queue entry
       TensorParams params;
-      if (!joined) {
-        const auto& tensor_entry = tensor_queue.GetTensorEntry(name);
-        params.device = tensor_entry.device;
-        params.dtype = tensor_entry.tensor->dtype();
-        params.shape = tensor_entry.tensor->shape().to_vector();
-      } else {
-        params.joined = true;
-      }
-
-      this->put_(new_response, params);
-    }
-  } else {
-    TensorParams params;
-    if (!joined) {
       const auto& tensor_entry =
-          tensor_queue.GetTensorEntry(response.tensor_names()[0]);
-
+          joined ? entries_for_join[i] : tensor_queue.GetTensorEntry(name);
       params.device = tensor_entry.device;
       params.dtype = tensor_entry.tensor->dtype();
       params.shape = tensor_entry.tensor->shape().to_vector();
-    } else {
-      params.joined = true;
-    }
 
-    this->put_(response, params);
+      this->put_(new_response, params, joined);
+      i++;
+    }
+  } else {
+    TensorParams params;
+    const auto& tensor_entry =
+        joined ? entries_for_join[0]
+               : tensor_queue.GetTensorEntry(response.tensor_names()[0]);
+    params.device = tensor_entry.device;
+    params.dtype = tensor_entry.tensor->dtype();
+    params.shape = tensor_entry.tensor->shape().to_vector();
+
+    this->put_(response, params, joined);
   }
 }
 

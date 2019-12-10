@@ -39,7 +39,6 @@ struct TensorParams {
   DataType dtype;
   std::vector<int64_t> shape;
   int32_t device;
-  bool joined;
 };
 
 // LRU cache of Responses
@@ -60,7 +59,8 @@ public:
 
   CacheState cached(const Request& message) const;
 
-  CacheState cached(const Response& response, const TensorParams& params) const;
+  CacheState cached(const Response& response, const TensorParams& params,
+                    bool joined = false) const;
 
   void put(const Response& response, TensorQueue& tensor_queue,
            bool joined = false);
@@ -80,7 +80,8 @@ public:
   void update_cache_bits();
 
 private:
-  void put_(const Response& response, TensorParams& params);
+  void put_(const Response& response, TensorParams& params,
+            bool joined = false);
 
   uint32_t capacity_ = 0;
 

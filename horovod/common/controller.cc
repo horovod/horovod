@@ -72,7 +72,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
   for (auto& message : message_queue_tmp) {
     if (message.request_type() == Request::JOIN) {
       state.joined = true;
-      cache_coordinator.set_just_joined();
+      cache_coordinator.set_uncached_in_queue(true);
       continue;
     }
 
@@ -128,6 +128,9 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
     // a shutdown. This function removes any invalid cache entries, if they
     // exist.
     CoordinateCacheAndState(cache_coordinator);
+    if (state.joined && !cache_coordinator.invalid_bits().empty()) {
+      cache_coordinator.set_uncached_in_queue(true);
+    }
     // Remove uncommon cached tensors from queue and replace to state
     // queue for next cycle. Skip adding common cached tensors to
     // queue as they are handled separately.
@@ -163,8 +166,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
 
   bool need_communication = true;
   if (response_cache_.capacity() > 0 &&
-      !cache_coordinator.uncached_in_queue() &&
-      !cache_coordinator.just_joined()) {
+      !cache_coordinator.uncached_in_queue()) {
     // if cache is enabled and no uncached new message coming in, no need for
     // additional communications
     need_communication = false;
@@ -643,7 +645,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
     responses.pop_front();
     int64_t tensor_size = 0;
     DataType dtype;
-    if (response.response_type() == Response::ResponseType::ALLREDUCE || 
+    if (response.response_type() == Response::ResponseType::ALLREDUCE ||
         response.response_type() == Response::ResponseType::ADASUM) {
       // Attempt to add more responses to this fused response.
 
@@ -667,6 +669,8 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
             // These tensors will fuse together well.
             tensor_size += new_tensor_size;
             response.add_tensor_name(new_response.tensor_names()[0]);
+            response.add_tensor_size(new_response.tensor_sizes()[0]);
+            std::cout << "new_response.tensor_names()[0] " << new_response.tensor_names()[0] << " new_response.tensor_sizes()[0] " << new_response.tensor_sizes()[0] << std::endl;
             responses.pop_front();
           } else {
             // In general, don't try to fuse additional tensors since they are
