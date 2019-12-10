@@ -17,9 +17,12 @@
 #define HOROVOD_ADASUM_H
 
 #include <cstring>
-#include <emmintrin.h>
 #include <float.h>
+
+#if __AVX__ && __F16C__
+#include <emmintrin.h>
 #include <immintrin.h>
+#endif
 
 #include "../../common.h"
 #include "../../global_state.h"
@@ -101,10 +104,13 @@ protected:
                                               int count, double& dotProduct,
                                               double& anormsq, double& bnormsq,
                                               int layerid) {
+#if __AVX__ && __F16C__
     if (horovod_datatype == DataType::HOROVOD_FLOAT16) {
       ComputeDotAndNormSqrdsfp16((uint16_t*)a, (uint16_t*)b, count, dotProduct,
                                  anormsq, bnormsq, layerid);
-    } else if (horovod_datatype == DataType::HOROVOD_FLOAT32) {
+    } else
+#endif
+    if (horovod_datatype == DataType::HOROVOD_FLOAT32) {
       ComputeDotAndNormSqrds((float*)a, (float*)b, count, dotProduct, anormsq,
                              bnormsq, layerid);
     } else if (horovod_datatype == DataType::HOROVOD_FLOAT64) {
@@ -119,9 +125,12 @@ protected:
                                  double acoeff, void* __restrict__ a,
                                  double bcoeff, void* __restrict__ b,
                                  int layerid) {
+#if __AVX__ && __F16C__
     if (horovod_datatype == DataType::HOROVOD_FLOAT16) {
       ScaledAddfp16(count, acoeff, (uint16_t*)a, bcoeff, (uint16_t*)b, layerid);
-    } else if (horovod_datatype == DataType::HOROVOD_FLOAT32) {
+    } else
+#endif
+    if (horovod_datatype == DataType::HOROVOD_FLOAT32) {
       ScaledAdd(count, acoeff, (float*)a, bcoeff, (float*)b, layerid);
     } else if (horovod_datatype == DataType::HOROVOD_FLOAT64) {
       ScaledAdd(count, acoeff, (double*)a, bcoeff, (double*)b, layerid);
@@ -415,6 +424,8 @@ private:
     }
   }
 
+
+#if __AVX__ && __F16C__
   inline void ComputeDotAndNormSqrdsfp16(const uint16_t* __restrict__ a,
                                          const uint16_t* __restrict__ b,
                                          int len, double& dotProduct,
@@ -534,6 +545,7 @@ private:
     if (7 < len)
       a[7] = (short)_mm_extract_epi16(r, 7);
   }
+#endif
 };
 
 } // namespace common
