@@ -219,5 +219,15 @@ void CUDAAllgather::MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntr
   cuda_context_->ErrorCheck("cudaMemcpyAsync", cuda_result);
 }
 
+CUDABroadcast::CUDABroadcast(CUDAContext* context,
+                             HorovodGlobalState* global_state)
+    : BroadcastOp(global_state), cuda_context_(context), cuda_op_context_(context, global_state) {}
+
+bool CUDABroadcast::Enabled(const ParameterManager& param_manager,
+                            const std::vector<TensorTableEntry>& entries,
+                            const Response& response) const {
+  return entries[0].device != CPU_DEVICE_ID;
+}
+
 } // namespace common
 } // namespace horovod

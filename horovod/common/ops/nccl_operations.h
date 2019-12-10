@@ -38,15 +38,12 @@ struct NCCLContext {
   void ShutDown();
 };
 
-class NCCLAllreduce : public CUDAAllreduce {
+class NCCLOp {
 public:
-  NCCLAllreduce(NCCLContext* nccl_context, CUDAContext* cuda_context,
-                HorovodGlobalState* global_state)
-      : CUDAAllreduce(cuda_context, global_state),
-        nccl_context_(nccl_context){};
-
-  Status Execute(std::vector<TensorTableEntry>& entries,
-                 const Response& response) override;
+  NCCLOp(NCCLContext* nccl_context, HorovodGlobalState* global_state)
+      : nccl_context_(nccl_context),
+        nccl_comm_(nullptr),
+        hvd_global_state_(global_state){};
 
 protected:
   void InitNCCLComm(const std::vector<TensorTableEntry>& entries,
@@ -57,6 +54,31 @@ protected:
 
   NCCLContext* nccl_context_;
   ncclComm_t* nccl_comm_;
+
+private:
+  HorovodGlobalState* hvd_global_state_;
+};
+
+class NCCLAllreduce : public NCCLOp, public CUDAAllreduce {
+public:
+  NCCLAllreduce(NCCLContext* nccl_context, CUDAContext* cuda_context,
+                HorovodGlobalState* global_state)
+      : NCCLOp(nccl_context, global_state),
+        CUDAAllreduce(cuda_context, global_state){};
+
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
+};
+
+class NCCLBroadcast : public NCCLOp, public CUDABroadcast {
+public:
+  NCCLBroadcast(NCCLContext* nccl_context, CUDAContext* cuda_context,
+                HorovodGlobalState* global_state)
+      : NCCLOp(nccl_context, global_state),
+        CUDABroadcast(cuda_context, global_state){};
+
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
 };
 
 #if HAVE_MPI

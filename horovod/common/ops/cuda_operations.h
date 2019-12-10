@@ -137,6 +137,20 @@ protected:
   CUDAOpContext cuda_op_context_;
 };
 
+class CUDABroadcast : public BroadcastOp {
+public:
+  CUDABroadcast(CUDAContext* context,
+                HorovodGlobalState* global_state);
+
+  bool Enabled(const ParameterManager& param_manager,
+               const std::vector<TensorTableEntry>& entries,
+               const Response& response) const override;
+
+protected:
+  struct CUDAContext* cuda_context_;
+  CUDAOpContext cuda_op_context_;
+};
+
 } // namespace common
 } // namespace horovod
 

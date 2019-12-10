@@ -52,6 +52,48 @@ void NCCLContext::ShutDown(){
   nccl_comms.clear();
 }
 
+void NCCLOp::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
+                          const std::vector<int32_t>& nccl_device_map) {
+  // Ensure NCCL communicator is in the map before executing operation.
+  ncclComm_t& nccl_comm = nccl_context_->nccl_comms[hvd_global_state_->current_nccl_stream][nccl_device_map];
+  if (nccl_comm == nullptr) {
+    auto& timeline = hvd_global_state_->timeline;
+    timeline.ActivityStartAll(entries, INIT_NCCL);
+
+    int nccl_rank, nccl_size;
+    Communicator nccl_id_bcast_comm;
+    PopulateNCCLCommStrategy(nccl_rank, nccl_size, nccl_id_bcast_comm);
+
+    ncclUniqueId nccl_id;
+    if (nccl_rank == 0) {
+      nccl_context_->ErrorCheck("ncclGetUniqueId", ncclGetUniqueId(&nccl_id));
+    }
+
+    hvd_global_state_->controller->Bcast((void*)&nccl_id, sizeof(nccl_id), 0,
+                                         nccl_id_bcast_comm);
+
+    ncclComm_t new_nccl_comm;
+    auto nccl_result = ncclCommInitRank(&new_nccl_comm, nccl_size, nccl_id, nccl_rank);
+    nccl_context_->ErrorCheck("ncclCommInitRank", nccl_result);
+    nccl_comm = new_nccl_comm;
+
+    // Barrier helps NCCL to synchronize after initialization and avoid
+    // deadlock that we've been seeing without it.
+    hvd_global_state_->controller->Barrier(Communicator::GLOBAL);
+
+    timeline.ActivityEndAll(entries);
+  }
+
+  nccl_comm_ = &nccl_comm;
+}
+
+void NCCLOp::PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
+                                      Communicator& nccl_id_bcast_comm) {
+  nccl_rank = hvd_global_state_->controller->GetRank();
+  nccl_size = hvd_global_state_->controller->GetSize();
+  nccl_id_bcast_comm = Communicator::GLOBAL;
+}
+
 Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                               const Response& response) {
   auto& first_entry = entries[0];
@@ -102,48 +144,6 @@ Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   }
 
   return cuda_op_context_.FinalizeCUDAQueue(entries);
-}
-
-void NCCLAllreduce::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
-                                 const std::vector<int32_t>& nccl_device_map) {
-  // Ensure NCCL communicator is in the map before executing reduction.
-  ncclComm_t& nccl_comm = nccl_context_->nccl_comms[global_state_->current_nccl_stream][nccl_device_map];
-  if (nccl_comm == nullptr) {
-    auto& timeline = global_state_->timeline;
-    timeline.ActivityStartAll(entries, INIT_NCCL);
-
-    int nccl_rank, nccl_size;
-    Communicator nccl_id_bcast_comm;
-    PopulateNCCLCommStrategy(nccl_rank, nccl_size, nccl_id_bcast_comm);
-
-    ncclUniqueId nccl_id;
-    if (nccl_rank == 0) {
-      nccl_context_->ErrorCheck("ncclGetUniqueId", ncclGetUniqueId(&nccl_id));
-    }
-
-    global_state_->controller->Bcast((void*)&nccl_id, sizeof(nccl_id), 0,
-                                     nccl_id_bcast_comm);
-
-    ncclComm_t new_nccl_comm;
-    auto nccl_result = ncclCommInitRank(&new_nccl_comm, nccl_size, nccl_id, nccl_rank);
-    nccl_context_->ErrorCheck("ncclCommInitRank", nccl_result);
-    nccl_comm = new_nccl_comm;
-
-    // Barrier helps NCCL to synchronize after initialization and avoid
-    // deadlock that we've been seeing without it.
-    global_state_->controller->Barrier(Communicator::GLOBAL);
-
-    timeline.ActivityEndAll(entries);
-  }
-
-  nccl_comm_ = &nccl_comm;
-}
-
-void NCCLAllreduce::PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
-                                             Communicator& nccl_id_bcast_comm) {
-  nccl_rank = global_state_->controller->GetRank();
-  nccl_size = global_state_->controller->GetSize();
-  nccl_id_bcast_comm = Communicator::GLOBAL;
 }
 
 #if HAVE_MPI
@@ -361,5 +361,35 @@ void NCCLHierarchicalAllreduce::PopulateNCCLCommStrategy(int& nccl_rank, int& nc
   nccl_id_bcast_comm = Communicator::LOCAL;
 }
 #endif
+
+Status NCCLBroadcast::Execute(std::vector<TensorTableEntry>& entries,
+                              const Response& response) {
+  assert(entries.size() == 1);
+  auto e = entries[0];
+
+  cuda_op_context_.InitCUDA(entries);
+  InitNCCLComm(entries, response.devices());
+  cuda_op_context_.InitCUDAQueue(entries, response);
+
+  // On root rank, ncclbcast sends data, on other ranks it receives data.
+  void* data_ptr;
+  if (global_state_->controller->GetRank() == e.root_rank) {
+    data_ptr = (void*) e.tensor->data();
+  } else {
+    data_ptr = (void*) e.output->data();
+  }
+
+  nccl_context_->ErrorCheck("ncclBcast",
+                            ncclBcast(data_ptr,
+                                      (size_t) e.tensor->shape().num_elements(),
+                                      GetNCCLDataType(e.tensor), e.root_rank,
+                                      *nccl_comm_, *cuda_op_context_.stream));
+  if (global_state_->timeline.Initialized()) {
+    cuda_context_->RecordEvent(cuda_op_context_.event_queue, NCCL_BCAST, *cuda_op_context_.stream);
+  }
+
+  return cuda_op_context_.FinalizeCUDAQueue(entries);
+}
+
 } // namespace common
 } // namespace horovod
