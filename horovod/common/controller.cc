@@ -192,7 +192,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
     }
 
     // Fuse responses as normal.
-    response_list = FuseResponses(responses);
+    response_list = FuseResponses(responses, state.joined);
   } else {
     // There are uncached messages coming in, need communication to figure out
     // whether those are ready to be reduced.
@@ -295,7 +295,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
         responses.push_back(std::move(join_response));
         state.joined_size = 0;
       }
-      response_list = FuseResponses(responses);
+      response_list = FuseResponses(responses, state.joined);
       response_list.set_shutdown(should_shut_down);
 
       // Broadcast final results to other ranks.
@@ -636,7 +636,8 @@ void Controller::CoordinateCacheAndState(CacheCoordinator& cache_coordinator) {
   }
 }
 
-ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
+ResponseList Controller::FuseResponses(std::deque<Response>& responses,
+                                       bool joined) {
   ResponseList response_list;
   while (!responses.empty()) {
 
@@ -649,53 +650,60 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
         response.response_type() == Response::ResponseType::ADASUM) {
       // Attempt to add more responses to this fused response.
 
-      // found_tensor can be false for ranks that did Join.
-      bool found_tensor = tensor_queue_.GetTensorSizeAndType(
-          response.tensor_names()[0], tensor_size, dtype);
-      if (found_tensor) {
-        std::deque<Response> skipped_responses;
-        int64_t skipped_size = 0;
-        while (!responses.empty()) {
-          auto new_response = responses.front();
-          assert(new_response.tensor_names().size() == 1);
-          const auto& new_entry =
-              tensor_queue_.GetTensorEntry(new_response.tensor_names()[0]);
-          int64_t new_tensor_size = new_entry.tensor->size();
+      std::deque<Response> skipped_responses;
+      int64_t skipped_size = 0;
+      while (!responses.empty()) {
+        auto new_response = responses.front();
+        assert(new_response.tensor_names().size() == 1);
 
-          if (response.response_type() == new_response.response_type() &&
-              response.devices() == new_response.devices() &&
-              dtype == new_entry.tensor->dtype() &&
-              tensor_size + new_tensor_size <= TensorFusionThresholdBytes()) {
-            // These tensors will fuse together well.
-            tensor_size += new_tensor_size;
-            response.add_tensor_name(new_response.tensor_names()[0]);
-            response.add_tensor_size(new_response.tensor_sizes()[0]);
-            std::cout << "new_response.tensor_names()[0] " << new_response.tensor_names()[0] << " new_response.tensor_sizes()[0] " << new_response.tensor_sizes()[0] << std::endl;
+        std::vector<TensorTableEntry> entries_for_join;
+        if (joined) {
+          tensor_queue_.GetTensorEntriesFromResponse(response, entries_for_join,
+                                                     joined);
+        }
+
+        const auto& new_entry =
+            joined
+                ? entries_for_join[0]
+                : tensor_queue_.GetTensorEntry(new_response.tensor_names()[0]);
+        int64_t new_tensor_size = new_entry.tensor->size();
+
+        if (response.response_type() == new_response.response_type() &&
+            response.devices() == new_response.devices() &&
+            dtype == new_entry.tensor->dtype() &&
+            tensor_size + new_tensor_size <= TensorFusionThresholdBytes()) {
+          // These tensors will fuse together well.
+          tensor_size += new_tensor_size;
+          response.add_tensor_name(new_response.tensor_names()[0]);
+          response.add_tensor_size(new_response.tensor_sizes()[0]);
+          std::cout << "new_response.tensor_names()[0] "
+                    << new_response.tensor_names()[0]
+                    << " new_response.tensor_sizes()[0] "
+                    << new_response.tensor_sizes()[0] << std::endl;
+          responses.pop_front();
+        } else {
+          // In general, don't try to fuse additional tensors since they are
+          // usually computed in order of requests and skipping tensors may
+          // mean that the batch will have to wait longer while skipped
+          // tensors could be reduced at that time. However, mixed-precision
+          // training may yield requests of various dtype in a mixed-up
+          // sequence causing breakups in fusion. To counter this some look
+          // ahead is allowed.
+
+          skipped_size += new_tensor_size;
+          if (tensor_size + skipped_size <= TensorFusionThresholdBytes()) {
+            // Skip response and look ahead for more to fuse.
+            skipped_responses.push_back(std::move(responses.front()));
             responses.pop_front();
           } else {
-            // In general, don't try to fuse additional tensors since they are
-            // usually computed in order of requests and skipping tensors may
-            // mean that the batch will have to wait longer while skipped
-            // tensors could be reduced at that time. However, mixed-precision
-            // training may yield requests of various dtype in a mixed-up
-            // sequence causing breakups in fusion. To counter this some look
-            // ahead is allowed.
-
-            skipped_size += new_tensor_size;
-            if (tensor_size + skipped_size <= TensorFusionThresholdBytes()) {
-              // Skip response and look ahead for more to fuse.
-              skipped_responses.push_back(std::move(responses.front()));
-              responses.pop_front();
-            } else {
-              break;
-            }
+            break;
           }
         }
-        // Replace any skipped responses.
-        while (!skipped_responses.empty()) {
-          responses.push_front(std::move(skipped_responses.back()));
-          skipped_responses.pop_back();
-        }
+      }
+      // Replace any skipped responses.
+      while (!skipped_responses.empty()) {
+        responses.push_front(std::move(skipped_responses.back()));
+        skipped_responses.pop_back();
       }
 
     } else if (response.response_type() == Response::ResponseType::ALLGATHER) {
