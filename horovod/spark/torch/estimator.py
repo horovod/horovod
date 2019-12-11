@@ -33,7 +33,8 @@ from horovod.spark.common.params import EstimatorParams, ModelParams
 from horovod.spark.common.serialization import \
     HorovodParamsWriter, HorovodParamsReader
 from horovod.spark.torch import remote
-from horovod.spark.torch.util import deserialize_fn, serialize_fn
+from horovod.spark.torch.util import deserialize_fn, serialize_fn, \
+    save_into_bio
 
 import torch
 import torch.utils.data
@@ -239,12 +240,25 @@ class TorchEstimator(Estimator, EstimatorParams, TorchEstimatorParamsWritable,
         if self._has_checkpoint(run_id):
             last_checkpoint_state = self._load_checkpoint(run_id)
 
+        # Model parameters
         model_pre_train = self.getModel()
+        model_state = model_pre_train.state_dict()
         serialized_model = serialize_fn()(model_pre_train)
+
+        # Optimizer parameters
+        optimizer = self._get_optimizer()
+        optimizer_cls = optimizer.__class__
+        optimizer_state = optimizer.state_dict()
+
+        # Combine model and optimizer state
+        model_opt_state = {'model': model_state, 'optimizer': optimizer_state} \
+            if last_checkpoint_state is None else last_checkpoint_state
+        model_opt_state_serialized = save_into_bio(model_opt_state, torch.save)
 
         trainer = remote.RemoteTrainer(self, metadata, last_checkpoint_state, run_id, dataset_idx)
         handle = backend.run(trainer,
-                             args=(serialized_model, train_rows, val_rows, avg_row_size),
+                             args=(serialized_model, optimizer_cls, model_opt_state_serialized,
+                                   train_rows, val_rows, avg_row_size),
                              env={})
         return self._create_model(handle, run_id, metadata)
 

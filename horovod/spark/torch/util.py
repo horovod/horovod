@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import io
 import sys
 
 from horovod.run.common.util import codec
@@ -71,3 +72,19 @@ def deserialize_fn():
         return obj
 
     return _deserialize
+
+
+def save_into_bio_fn():
+    def save_into_bio(obj, save_obj_fn):
+        """Serialize object into byte array encoded into base 64."""
+        bio = io.BytesIO()
+        save_obj_fn(obj, bio)
+        bio.seek(0)
+        return bio
+
+    return save_into_bio
+
+
+def save_into_bio(obj, save_obj_fn):
+    _save_into_bio = save_into_bio_fn()
+    return _save_into_bio(obj, save_obj_fn)

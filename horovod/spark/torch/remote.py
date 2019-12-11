@@ -62,11 +62,6 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
         num_labels = len(label_columns)
         loss_weights = [float(1) / num_labels for _ in range(num_labels)]
 
-    # Model parameters
-    optimizer = estimator._get_optimizer()
-    optimizer_cls = optimizer.__class__
-    optimizer_state = optimizer.state_dict()
-
     # Utility functions
     serialize = serialize_fn()
     deserialize = deserialize_fn()
@@ -88,13 +83,15 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     def empty_batch_reader():
         yield None
 
-    def train(serialized_model, train_rows, val_rows, avg_row_size):
+    def train(serialized_model, optimizer_cls, model_opt_state_serialized,
+              train_rows, val_rows, avg_row_size):
         from petastorm import make_batch_reader
         from petastorm.pytorch import DataLoader
         import torch
         import horovod.torch as hvd
 
         # Deserializing objects
+        model_opt_state = torch.load(model_opt_state_serialized)
         model = deserialize(serialized_model)
 
         if loss_fns_pre_train:
@@ -127,6 +124,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
         # Learning rate is a required parameters in SGD optimizer. It will be overridden with
         # load_state_dict.
         optimizer = optimizer_cls(model.parameters(), lr=1)
+        optimizer_state = model.load_state_dict(model_opt_state['optimizer'])
 
         if last_checkpoint_state is not None:
             model.load_state_dict(last_checkpoint_state['model'])
