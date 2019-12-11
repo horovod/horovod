@@ -74,6 +74,7 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
   auto name = ops_param->op_name;
 
   auto device = TensorUtil::GetDevice(tensor);
+  LOG(INFO) << "device is " << device << " before allreduce";
   auto hvd_tensor = std::make_shared<MXTensor<NDArray>>(tensor);
   auto hvd_context = std::make_shared<MXOpContext<NDArray>>(device, output);
   std::shared_ptr<Tensor> hvd_output = nullptr;
@@ -123,11 +124,16 @@ inline void PushHorovodOperation(OperationType op_type, NDArray* input,
                                  int priority, int root_rank = -1) {
   auto op_type_name = GetOpTypeName(op_type);
   auto op_name = GetOpName(op_type_name, name);
-  auto ops_param = CreateMpiOpsParam(input, output, nullptr, op_type, op_name, root_rank);
+
+  auto input_tensor = std::make_shared<NDArray>(*input);
+  auto output_tensor = std::make_shared<NDArray>(*output);
+
+  auto ops_param = CreateMpiOpsParam(input_tensor.get(), output_tensor.get(),
+    nullptr /* cpu_buffer */, op_type, op_name, root_rank);
 
   // Not in-place
-  auto input_var = input->var();
-  auto output_var = output->var();
+  auto input_var = input_tensor->var();
+  auto output_var = output_tensor->var();
   if (input_var != output_var) {
     MXEnginePushAsync(DoHorovodOperation, ops_param, DeleteMpiOpsParam,
                       &MX_EXEC_CTX, &input_var, 1, &output_var, 1,
@@ -138,6 +144,7 @@ inline void PushHorovodOperation(OperationType op_type, NDArray* input,
                       &MX_EXEC_CTX, nullptr, 0, &output_var, 1,
                       &MX_FUNC_PROP, priority, op_type_name);
   }
+  *output = *output_tensor;
 }
 
 #if HAVE_CUDA
