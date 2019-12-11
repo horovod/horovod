@@ -258,7 +258,6 @@ class MXTests(unittest.TestCase):
         except (MXNetError, RuntimeError):
             pass
 
-
     def test_horovod_allreduce_ndarray_lifetime(self):
         """Test that the input NDArray remains valid during async allreduce"""
         hvd.init()
