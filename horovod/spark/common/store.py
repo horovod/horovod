@@ -25,16 +25,36 @@ import pyarrow as pa
 
 
 class Store(object):
+    """
+    Storage layer for intermediate files (materialized DataFrames) and training artifacts (checkpoints, logs).
+
+    Store provides an abstraction over a filesystem (e.g., local vs HDFS) or blob storage database. It provides the
+    basic semantics for reading and writing objects, and how to access objects with certain definitions.
+
+    The store exposes a generic interface that is not coupled to a specific DataFrame, model, or runtime. Every run
+    of an Estimator should result in a separate run directory containing checkpoints and logs, and every variation
+    in dataset should produce a separate intermediate data path.
+
+    In order to allow for caching but to prevent overuse of disk space on intermediate data, intermediate datasets
+    are named in a deterministic sequence. When a dataset is done being used for training, the intermediate files
+    can be reclaimed to free up disk space, but will not be automatically removed so that they can be reused as
+    needed. This is to support both parallel training processes using the same store on multiple DataFrames, as well
+    as iterative training using the same DataFrame on different model variations.
+    """
+    def __init__(self):
+        self._train_data_to_key = {}
+        self._val_data_to_key = {}
+
     def get_filesystem(self):
         raise NotImplementedError()
 
-    def get_train_data_path(self):
+    def get_train_data_path(self, idx=None):
         raise NotImplementedError()
 
-    def get_val_data_path(self):
+    def get_val_data_path(self, idx=None):
         raise NotImplementedError()
 
-    def get_test_data_path(self):
+    def get_test_data_path(self, idx=None):
         raise NotImplementedError()
 
     def saving_runs(self):
@@ -73,8 +93,8 @@ class Store(object):
     def sync_fn(self, run_id):
         raise NotImplementedError()
 
-    def to_remote(self, run_id):
-        attrs = self._remote_attrs(run_id)
+    def to_remote(self, run_id, dataset_idx):
+        attrs = self._remote_attrs(run_id, dataset_idx)
 
         class RemoteStore(object):
             def __init__(self):
@@ -83,11 +103,11 @@ class Store(object):
 
         return RemoteStore()
 
-    def _remote_attrs(self, run_id):
+    def _remote_attrs(self, run_id, dataset_idx):
         return {
-            'train_data_path': self.get_train_data_path(),
-            'val_data_path': self.get_val_data_path(),
-            'test_data_path': self.get_test_data_path(),
+            'train_data_path': self.get_train_data_path(dataset_idx),
+            'val_data_path': self.get_val_data_path(dataset_idx),
+            'test_data_path': self.get_test_data_path(dataset_idx),
             'saving_runs': self.saving_runs(),
             'runs_path': self.get_runs_path(),
             'run_path': self.get_run_path(run_id),
@@ -101,11 +121,11 @@ class Store(object):
         }
 
     @staticmethod
-    def create(work_dir):
-        if HDFSStore.matches(work_dir):
-            return HDFSStore(work_dir)
+    def create(prefix_path):
+        if HDFSStore.matches(prefix_path):
+            return HDFSStore(prefix_path)
         else:
-            return LocalStore(work_dir)
+            return LocalStore(prefix_path)
 
 
 class PrefixStore(Store):
@@ -116,15 +136,16 @@ class PrefixStore(Store):
         self._test_path = test_path or self._get_path('test_path')
         self._runs_path = runs_path or self._get_path('runs')
         self._save_runs = save_runs
+        super(PrefixStore, self).__init__()
 
-    def get_train_data_path(self):
-        return self._train_path
+    def get_train_data_path(self, idx=None):
+        return '{}.{}'.format(self._train_path, idx) if idx is not None else self._train_path
 
-    def get_val_data_path(self):
-        return self._val_path
+    def get_val_data_path(self, idx=None):
+        return '{}.{}'.format(self._val_path, idx) if idx is not None else self._val_path
 
-    def get_test_data_path(self):
-        return self._test_path
+    def get_test_data_path(self, idx=None):
+        return '{}.{}'.format(self._test_path, idx) if idx is not None else self._test_path
 
     def saving_runs(self):
         return self._save_runs

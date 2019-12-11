@@ -143,30 +143,32 @@ class SparkKerasTests(tf.test.TestCase):
 
             backend = CallbackBackend()
             with local_store() as store:
-                util.prepare_data(backend.num_processes(),
-                                  store,
-                                  df,
-                                  feature_columns=['features'],
-                                  label_columns=['y'])
+                store.get_train_data_path = lambda v=None: store._train_path
+                store.get_val_data_path = lambda v=None: store._val_path
 
-                model = create_xor_model()
-                optimizer = tf.keras.optimizers.SGD(lr=0.1)
-                loss = 'binary_crossentropy'
+                with util.prepare_data(backend.num_processes(),
+                                       store,
+                                       df,
+                                       feature_columns=['features'],
+                                       label_columns=['y']):
+                    model = create_xor_model()
+                    optimizer = tf.keras.optimizers.SGD(lr=0.1)
+                    loss = 'binary_crossentropy'
 
-                est = hvd.KerasEstimator(
-                    backend=backend,
-                    store=store,
-                    model=model,
-                    optimizer=optimizer,
-                    loss=loss,
-                    feature_cols=['features'],
-                    label_cols=['y'],
-                    batch_size=1,
-                    epochs=3,
-                    verbose=2)
+                    est = hvd.KerasEstimator(
+                        backend=backend,
+                        store=store,
+                        model=model,
+                        optimizer=optimizer,
+                        loss=loss,
+                        feature_cols=['features'],
+                        label_cols=['y'],
+                        batch_size=1,
+                        epochs=3,
+                        verbose=2)
 
-                transformer = est.fit_on_parquet()
-                predictions = transformer.transform(df)
+                    transformer = est.fit_on_parquet()
+                    predictions = transformer.transform(df)
                 assert predictions.count() == df.count()
 
     @mock.patch('horovod.spark.keras.estimator.remote.RemoteTrainer')

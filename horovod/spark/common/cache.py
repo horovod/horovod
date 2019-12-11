@@ -15,6 +15,7 @@
 
 from __future__ import absolute_import
 
+import collections
 import threading
 
 
@@ -26,6 +27,30 @@ class TrainingDataCache(object):
     def create_key(self, df, store, validation):
         return df.__hash__(), store.get_train_data_path(), store.get_val_data_path(), validation
 
+    def set_in_use(self, key, in_use):
+        if in_use:
+            self._keys_in_use[key] += 1
+        else:
+            self._keys_in_use[key] -= 1
+
+    def create_data_paths(self, key, store):
+        _, _, _, validation = key
+        idx = 0
+        while True:
+            train_data = store.get_train_data_path(idx)
+            val_data = store.get_val_data_path(idx)
+
+            last_key = self._data_to_key.get((train_data, val_data))
+            if self._keys_in_use[last_key] > 0 and \
+                    store.exists(train_data) and \
+                    (not validation or store.exists(val_data)):
+                # Paths are in use, try the next index
+                idx += 1
+                continue
+
+            self._data_to_key[(train_data, val_data)] = key
+            return train_data, val_data, idx
+
     def get(self, key):
         return self._entries.get(key)
 
@@ -33,8 +58,16 @@ class TrainingDataCache(object):
         self._entries[key] = value
 
     def is_cached(self, key, store):
-        dataframe_hash, train_data_path, val_data_path, validation = key
-        return key in self._entries and \
+        if key not in self._entries:
+            return False
+
+        _, _, _, validation = key
+        _, _, _, _, dataset_idx = self._entries.get(key)
+        train_data_path = store.get_train_data_path(dataset_idx)
+        val_data_path = store.get_val_data_path(dataset_idx)
+
+        return self._keys_in_use[key] > 0 and \
+            self._data_to_key.get((train_data_path, val_data_path)) == key and \
             store.exists(train_data_path) and \
             (not validation or store.exists(val_data_path))
 
@@ -44,3 +77,5 @@ class TrainingDataCache(object):
     def _reset(self):
         with self.lock:
             self._entries = {}
+            self._keys_in_use = collections.Counter()
+            self._data_to_key = {}

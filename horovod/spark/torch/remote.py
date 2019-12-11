@@ -35,7 +35,7 @@ BYTES_PER_GIB = constants.BYTES_PER_GIB
 CUSTOM_SPARSE = constants.CUSTOM_SPARSE
 
 
-def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id):
+def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_idx):
     # Estimator parameters
     loss_fns_pre_train = estimator.getLoss()
     loss_constructors = estimator.getLossConstructors()
@@ -82,7 +82,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id):
 
     # Storage
     store = estimator.getStore()
-    remote_store = store.to_remote(run_id)
+    remote_store = store.to_remote(run_id, dataset_idx)
 
     @contextlib.contextmanager
     def empty_batch_reader():

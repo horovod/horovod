@@ -247,20 +247,20 @@ class KerasEstimator(Estimator, EstimatorParams, KerasEstimatorParamsReadable,
         sample_weight_col = self.getSampleWeightCol()
         partitions_per_process = self.getPartitionsPerProcess()
 
-        train_rows, val_rows, metadata, avg_row_size = \
-            util.prepare_data(backend.num_processes(),
-                              store,
-                              df,
-                              label_columns=label_columns,
-                              feature_columns=feature_columns,
-                              validation=validation,
-                              sample_weight_col=sample_weight_col,
-                              partitions_per_process=partitions_per_process)
+        with util.prepare_data(backend.num_processes(),
+                               store,
+                               df,
+                               label_columns=label_columns,
+                               feature_columns=feature_columns,
+                               validation=validation,
+                               sample_weight_col=sample_weight_col,
+                               partitions_per_process=partitions_per_process) \
+                as (train_rows, val_rows, metadata, avg_row_size, dataset_idx):
+            self._check_metadata_compatibility(metadata)
+            return self._fit_on_prepared_data(
+                backend, train_rows, val_rows, metadata, avg_row_size, dataset_idx)
 
-        self._check_metadata_compatibility(metadata)
-        return self._fit_on_prepared_data(backend, train_rows, val_rows, metadata, avg_row_size)
-
-    def _fit_on_prepared_data(self, backend, train_rows, val_rows, metadata, avg_row_size):
+    def _fit_on_prepared_data(self, backend, train_rows, val_rows, metadata, avg_row_size, dataset_idx=None):
         self._check_params(metadata)
         keras_utils = self._get_keras_utils()
 
@@ -277,7 +277,7 @@ class KerasEstimator(Estimator, EstimatorParams, KerasEstimatorParamsReadable,
         # https://stackoverflow.com/questions/50583056/is-there-any-way-to-set-java-opts-for-tensorflow-process/50615570
         env = {'LIBHDFS_OPTS': '-Xms2048m -Xmx2048m'}
 
-        trainer = remote.RemoteTrainer(self, metadata, keras_utils, run_id)
+        trainer = remote.RemoteTrainer(self, metadata, keras_utils, run_id, dataset_idx)
         handle = backend.run(trainer,
                              args=(serialized_model, train_rows, val_rows, avg_row_size),
                              env=env)

@@ -218,34 +218,78 @@ class SparkTests(unittest.TestCase):
         with spark_session('test_df_cache') as spark:
             with local_store() as store:
                 df = create_xor_data(spark)
+                df2 = create_xor_data(spark)
+                df3 = create_xor_data(spark)
 
                 key = util._training_cache.create_key(df, store, None)
+                key2 = util._training_cache.create_key(df2, store, None)
+                key3 = util._training_cache.create_key(df3, store, None)
+
+                # All keys are distinct
+                assert key != key2
+                assert key != key3
+                assert key2 != key3
+
+                # The cache should be empty to start
                 assert not util._training_cache.is_cached(key, store)
+                assert not util._training_cache.is_cached(key2, store)
+                assert not util._training_cache.is_cached(key3, store)
 
-                train_rows, val_rows, metadata, avg_row_size = \
-                    util.prepare_data(num_processes=2,
-                                      store=store,
-                                      df=df,
-                                      feature_columns=['features'],
-                                      label_columns=['y'])
+                # First insertion into the cache
+                with util.prepare_data(num_processes=2,
+                                       store=store,
+                                       df=df,
+                                       feature_columns=['features'],
+                                       label_columns=['y']) \
+                        as (train_rows, val_rows, metadata, avg_row_size, dataset_idx):
+                    util._training_cache.get.assert_not_called()
+                    assert len(util._training_cache._entries) == 1
+                    assert util._training_cache.is_cached(key, store)
+                    assert dataset_idx == 0
 
-                util._training_cache.get.assert_not_called()
-                assert len(util._training_cache._entries) == 1
-                assert util._training_cache.is_cached(key, store)
+                    # The first dataset is still in use, so we assign the next integer in sequence to this
+                    # dataset
+                    assert not util._training_cache.is_cached(key2, store)
+                    with util.prepare_data(num_processes=2,
+                                           store=store,
+                                           df=df2,
+                                           feature_columns=['features'],
+                                           label_columns=['y']) \
+                            as (train_rows2, val_rows2, metadata2, avg_row_size2, dataset_idx2):
+                        util._training_cache.get.assert_not_called()
+                        assert len(util._training_cache._entries) == 2
+                        assert util._training_cache.is_cached(key2, store)
+                        assert dataset_idx2 == 1
 
-                train_rows_cached, val_rows_cached, metadata_cached, avg_row_size_cached = \
-                    util.prepare_data(num_processes=2,
-                                      store=store,
-                                      df=df,
-                                      feature_columns=['features'],
-                                      label_columns=['y'])
+                # Even though the first dataset is no longer in use, it is still cached
+                with util.prepare_data(num_processes=2,
+                                       store=store,
+                                       df=df,
+                                       feature_columns=['features'],
+                                       label_columns=['y']) \
+                        as (train_rows1, val_rows1, metadata1, avg_row_size1, dataset_idx1):
+                    util._training_cache.get.assert_called()
+                    assert train_rows == train_rows1
+                    assert val_rows == val_rows1
+                    assert metadata == metadata1
+                    assert avg_row_size == avg_row_size1
+                    assert dataset_idx1 == 0
 
-                util._training_cache.get.assert_called()
-                assert train_rows == train_rows_cached
-                assert val_rows == val_rows_cached
-                assert metadata == metadata_cached
-                assert avg_row_size == avg_row_size_cached
+                # The first dataset is no longer in use, so we can reclaim its dataset index
+                assert not util._training_cache.is_cached(key3, store)
+                with util.prepare_data(num_processes=2,
+                                       store=store,
+                                       df=df3,
+                                       feature_columns=['features'],
+                                       label_columns=['y']) \
+                        as (train_rows3, val_rows3, metadata3, avg_row_size3, dataset_idx3):
+                    assert train_rows == train_rows3
+                    assert val_rows == val_rows3
+                    assert metadata == metadata3
+                    assert avg_row_size == avg_row_size3
+                    assert dataset_idx3 == 0
 
+                # Same dataframe, different validation
                 bad_key = util._training_cache.create_key(df, store, 0.1)
                 assert not util._training_cache.is_cached(bad_key, store)
 

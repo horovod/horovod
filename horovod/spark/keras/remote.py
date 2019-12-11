@@ -34,7 +34,7 @@ TOTAL_BUFFER_MEMORY_CAP_GIB = constants.TOTAL_BUFFER_MEMORY_CAP_GIB
 BYTES_PER_GIB = constants.BYTES_PER_GIB
 
 
-def RemoteTrainer(estimator, metadata, keras_utils, run_id):
+def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     # Estimator parameters
     label_columns = estimator.getLabelCols()
     feature_columns = estimator.getFeatureCols()
@@ -70,7 +70,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id):
 
     # Storage
     store = estimator.getStore()
-    remote_store = store.to_remote(run_id)
+    remote_store = store.to_remote(run_id, dataset_idx)
 
     def SyncCallback(root_path, sync_to_store_fn, keras):
         class _SyncCallback(keras.callbacks.Callback):

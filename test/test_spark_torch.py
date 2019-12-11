@@ -326,29 +326,31 @@ class SparkTorchTests(unittest.TestCase):
 
             backend = CallbackBackend()
             with local_store() as store:
-                util.prepare_data(backend.num_processes(),
-                                  store,
-                                  df,
-                                  feature_columns=['features'],
-                                  label_columns=['y'])
+                store.get_train_data_path = lambda v=None: store._train_path
+                store.get_val_data_path = lambda v=None: store._val_path
 
-                model = create_xor_model()
-                optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
-                loss = nn.BCELoss()
+                with util.prepare_data(backend.num_processes(),
+                                       store,
+                                       df,
+                                       feature_columns=['features'],
+                                       label_columns=['y']):
+                    model = create_xor_model()
+                    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+                    loss = nn.BCELoss()
 
-                est = hvd.TorchEstimator(
-                    backend=backend,
-                    store=store,
-                    model=model,
-                    optimizer=optimizer,
-                    loss=loss,
-                    input_shapes=[[2]],
-                    feature_cols=['features'],
-                    label_cols=['y'],
-                    batch_size=1,
-                    epochs=3,
-                    verbose=2)
+                    est = hvd.TorchEstimator(
+                        backend=backend,
+                        store=store,
+                        model=model,
+                        optimizer=optimizer,
+                        loss=loss,
+                        input_shapes=[[2]],
+                        feature_cols=['features'],
+                        label_cols=['y'],
+                        batch_size=1,
+                        epochs=3,
+                        verbose=2)
 
-                transformer = est.fit_on_parquet()
-                predictions = transformer.transform(df)
-                assert predictions.count() == df.count()
+                    transformer = est.fit_on_parquet()
+                    predictions = transformer.transform(df)
+                    assert predictions.count() == df.count()

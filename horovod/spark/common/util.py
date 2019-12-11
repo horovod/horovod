@@ -17,6 +17,8 @@ from __future__ import absolute_import
 
 import horovod.spark.common._namedtuple_fix
 
+import contextlib
+
 import pyarrow as pa
 import pyarrow.parquet as pq
 import numpy as np
@@ -165,7 +167,7 @@ def _get_col_info(df):
 
     NOTE: This function processes the entire DataFrame, and can therefore be very expensive to run.
 
-    TODO(travis): Find a way to avoid running this when possible.
+    TODO(travis): Oonly run this if user sets compress_sparse param, otherwise convert all to Array.
     """
 
     def get_meta(row):
@@ -369,9 +371,9 @@ def _get_dataset_info(dataset, dataset_id, path):
     return total_rows, total_byte_size
 
 
-def get_simple_meta_from_parquet(store, label_columns, feature_columns, sample_weight_col):
-    train_data_path = store.get_train_data_path()
-    validation_data_path = store.get_val_data_path()
+def get_simple_meta_from_parquet(store, label_columns, feature_columns, sample_weight_col, dataset_idx=None):
+    train_data_path = store.get_train_data_path(dataset_idx)
+    validation_data_path = store.get_val_data_path(dataset_idx)
 
     if not store.exists(train_data_path):
         raise ValueError("{} path does not exist in the store".format(train_data_path))
@@ -433,6 +435,7 @@ def _train_val_split(df, metadata, validation):
     return train_df, val_df, validation_ratio
 
 
+@contextlib.contextmanager
 def prepare_data(num_processes, store, df, label_columns, feature_columns,
                  validation=None, sample_weight_col=None,
                  partitions_per_process=10, verbose=False):
@@ -447,12 +450,6 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
     if verbose:
         print('num_partitions={}'.format(num_partitions))
 
-    train_data_path = store.get_train_data_path()
-    val_data_path = store.get_val_data_path()
-    if verbose:
-        print('train_data_path={}'.format(train_data_path))
-        print('val_data_path={}'.format(val_data_path))
-
     for col in label_columns:
         if col not in df.columns:
             raise ValueError('Label column {} does not exist in this DataFrame'.format(col))
@@ -462,15 +459,23 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
 
     key = _training_cache.create_key(df, store, validation)
     with _training_cache.lock:
+        _training_cache.set_in_use(key, True)
         if _training_cache.is_cached(key, store):
-            train_rows, val_rows, metadata, avg_row_size = _training_cache.get(key)
+            train_rows, val_rows, metadata, avg_row_size, dataset_idx = _training_cache.get(key)
+            train_data_path = store.get_train_data_path(dataset_idx)
+            val_data_path = store.get_val_data_path(dataset_idx)
             if verbose:
                 print('using cached dataframes for key: {}'.format(key))
+                print('train_data_path={}'.format(train_data_path))
                 print('train_rows={}'.format(train_rows))
+                print('val_data_path={}'.format(val_data_path))
                 print('val_rows={}'.format(val_rows))
         else:
+            train_data_path, val_data_path, dataset_idx = _training_cache.create_data_paths(key, store)
             if verbose:
                 print('writing dataframes')
+                print('train_data_path={}'.format(train_data_path))
+                print('val_data_path={}'.format(val_data_path))
 
             schema_cols = feature_columns + label_columns
             if sample_weight_col:
@@ -509,7 +514,7 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
                     .parquet(val_data_path)
 
             train_rows, val_rows, pq_metadata, avg_row_size = get_simple_meta_from_parquet(
-                store, label_columns, feature_columns, sample_weight_col)
+                store, label_columns, feature_columns, sample_weight_col, dataset_idx)
 
             if verbose:
                 print('train_rows={}'.format(train_rows))
@@ -521,9 +526,12 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
                 if verbose:
                     print('val_rows={}'.format(val_rows))
 
-            _training_cache.put(key, (train_rows, val_rows, metadata, avg_row_size))
+            _training_cache.put(key, (train_rows, val_rows, metadata, avg_row_size, dataset_idx))
 
-    return train_rows, val_rows, metadata, avg_row_size
+    try:
+        yield train_rows, val_rows, metadata, avg_row_size, dataset_idx
+    finally:
+        _training_cache.set_in_use(key, False)
 
 
 def clear_training_cache():
