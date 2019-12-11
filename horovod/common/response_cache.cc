@@ -74,15 +74,6 @@ ResponseCache::cached(const Response& response,
     // if tensor parameters match. If not, return that entry is invalid.
     uint32_t cache_bit = it->second;
     auto& cache_params = std::get<1>(*cache_iters_[cache_bit]);
-    std::cout << response.tensor_names()[0] << std::endl;
-    std::cout << cache_params.device << " " << params.device << std::endl
-              << cache_params.dtype << " " << params.dtype << std::endl;
-    for (auto a : cache_params.shape)
-      std::cout << a << " ";
-    std::cout << std::endl;
-    for (auto a : params.shape)
-      std::cout << a << " ";
-    std::cout << std::endl;
 
     bool same_shape;
     if (joined) {
@@ -320,11 +311,6 @@ void CacheCoordinator::set_uncached_in_queue(bool uncached_in_queue) {
   uncached_in_queue_ = uncached_in_queue;
 }
 
-void CacheCoordinator::set_just_joined() {
-  assert(!synced_);
-  just_joined_ = true;
-}
-
 const std::set<uint32_t>& CacheCoordinator::cache_hits() const {
   assert(synced_);
   return cache_hits_;
@@ -348,11 +334,6 @@ bool CacheCoordinator::should_shut_down() const {
 bool CacheCoordinator::uncached_in_queue() const {
   assert(synced_);
   return uncached_in_queue_;
-}
-
-bool CacheCoordinator::just_joined() const {
-  assert(synced_);
-  return just_joined_;
 }
 
 void CacheCoordinator::sync(std::shared_ptr<Controller> controller,
@@ -385,9 +366,6 @@ void CacheCoordinator::sync(std::shared_ptr<Controller> controller,
   }
   if (!invalid_in_queue_) {
     bitvector_[0] |= (1ull << StatusBit::INVALID_IN_QUEUE);
-  }
-  if (!just_joined_) {
-    bitvector_[0] |= (1ull << StatusBit::JUST_JOINED);
   }
 
   // Before communication, remove any invalid bits from cache hit set.
@@ -434,9 +412,6 @@ void CacheCoordinator::sync(std::shared_ptr<Controller> controller,
   }
   if (!cache_hits_.erase(StatusBit::INVALID_IN_QUEUE - NUM_STATUS_BITS)) {
     invalid_in_queue_ = true;
-  }
-  if (!cache_hits_.erase(StatusBit::JUST_JOINED - NUM_STATUS_BITS)) {
-    just_joined_ = true;
   }
 
   // If any worker has invalid cache entries, communicate invalid bits across

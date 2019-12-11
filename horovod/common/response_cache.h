@@ -26,7 +26,7 @@
 #include "common.h"
 #include "message.h"
 
-#define NUM_STATUS_BITS 4
+#define NUM_STATUS_BITS 3
 
 namespace horovod {
 namespace common {
@@ -116,8 +116,6 @@ public:
 
   void set_uncached_in_queue(bool uncached_in_queue);
 
-  void set_just_joined();
-
   const std::set<uint32_t>& cache_hits() const;
 
   const std::set<uint32_t>& invalid_bits() const;
@@ -128,8 +126,6 @@ public:
 
   bool uncached_in_queue() const;
 
-  bool just_joined() const;
-
   // Method to sync state and bit sets across workers.
   void sync(std::shared_ptr<Controller> controller, bool timeline_enabled);
 
@@ -137,8 +133,7 @@ private:
   enum StatusBit {
     SHOULD_SHUT_DOWN = 0,
     UNCACHED_IN_QUEUE = 1,
-    INVALID_IN_QUEUE = 2,
-    JUST_JOINED = 3  // A rank did join this cycle
+    INVALID_IN_QUEUE = 2
   };
 
   // Number of active bits in the cache. Required to size the
@@ -161,7 +156,6 @@ private:
   // States used externally in cycle loop.
   bool should_shut_down_ = false;
   bool uncached_in_queue_ = false;
-  bool just_joined_ = false;
 
   // State used internally to trigger second bit vector communication
   // to sync invalid bits.

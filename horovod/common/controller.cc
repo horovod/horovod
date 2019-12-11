@@ -278,8 +278,11 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
         // least recently used responses get priority. Since only the
         // coordinator rank calls this code, use peek instead of get here to
         // preserve cache order across workers.
-        for (auto bit : cache_coordinator.cache_hits()) {
-          responses.push_back(response_cache_.peek_response(bit));
+        // No need to do this when all ranks did Join.
+        if (state.joined_size < size_) {
+          for (auto bit : cache_coordinator.cache_hits()) {
+            responses.push_back(response_cache_.peek_response(bit));
+          }
         }
       }
 
@@ -676,10 +679,6 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses,
           tensor_size += new_tensor_size;
           response.add_tensor_name(new_response.tensor_names()[0]);
           response.add_tensor_size(new_response.tensor_sizes()[0]);
-          std::cout << "new_response.tensor_names()[0] "
-                    << new_response.tensor_names()[0]
-                    << " new_response.tensor_sizes()[0] "
-                    << new_response.tensor_sizes()[0] << std::endl;
           responses.pop_front();
         } else {
           // In general, don't try to fuse additional tensors since they are
