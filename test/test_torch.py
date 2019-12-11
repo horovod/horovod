@@ -1504,13 +1504,19 @@ class TorchTests(unittest.TestCase):
                 averaged_b = hvd.synchronize(handle_b)
 
             if rank == first_join_rank:
-                ret = hvd.join(hvd.local_rank())
+                if dtype.is_cuda:
+                    ret = hvd.join(hvd.local_rank())
+                else:
+                    ret = hvd.join()
             else:
                 handle_a = hvd.allreduce_async(tensor_a, name="tensor_a", average=True)
                 handle_b = hvd.allreduce_async(tensor_b, name="tensor_b", average=True)
                 averaged_a = hvd.synchronize(handle_a)
                 averaged_b = hvd.synchronize(handle_b)
-                ret = hvd.join(hvd.local_rank())
+                if dtype.is_cuda:
+                    ret = hvd.join(hvd.local_rank())
+                else:
+                    ret = hvd.join()
 
                 max_difference_a = averaged_a.data.sub(tensor_a * (size - 1) / size).max()
                 max_difference_b = averaged_b.data.sub(tensor_b * (size - 1) / size).max()
