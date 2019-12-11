@@ -30,6 +30,7 @@ has_gpu = mx.context.num_gpus() > 0
 
 ccl_supported_types = set(['int32', 'int64', 'float32', 'float64'])
 
+
 class MXTests(unittest.TestCase):
     """
     Tests for ops in horovod.mxnet.
@@ -256,6 +257,22 @@ class MXTests(unittest.TestCase):
             assert False, 'hvd.allreduce did not throw cpu-gpu error'
         except (MXNetError, RuntimeError):
             pass
+
+    def test_horovod_allreduce_ndarray_lifetime(self):
+        """Test that the NDArray passed in maintains live during allreduce"""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        dims = [1, 2, 3]
+        ctx = self._current_context()
+        count = 0
+        shapes = [(), (17), (17, 17), (17, 17, 17)]
+        for i, dim in enumerate(dims):
+            tensor = mx.nd.ones(shape=shapes[dim], ctx=ctx)
+            sum = hvd.allreduce(tensor * (i + 1), average=False)
+            expected = tensor * (i + 1) * size
+            assert same(sum.asnumpy(), expected.asnumpy())
 
     def test_horovod_broadcast(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""

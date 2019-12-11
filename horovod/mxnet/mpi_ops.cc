@@ -125,15 +125,19 @@ inline void PushHorovodOperation(OperationType op_type, NDArray* input,
   auto op_type_name = GetOpTypeName(op_type);
   auto op_name = GetOpName(op_type_name, name);
 
-  auto input_tensor = std::make_shared<NDArray>(*input);
-  auto output_tensor = std::make_shared<NDArray>(*output);
+  // We need to create a shared_ptr to NDArray object with
+  // shallow copy to prevent from NDArray object being freed
+  // before MXNet engine process it
+  // See: https://github.com/horovod/horovod/issues/1533
+  auto input_copy = std::make_shared<NDArray>(*input);
+  auto output_copy = std::make_shared<NDArray>(*output);
 
-  auto ops_param = CreateMpiOpsParam(input_tensor.get(), output_tensor.get(),
+  auto ops_param = CreateMpiOpsParam(input_copy.get(), output_copy.get(),
     nullptr /* cpu_buffer */, op_type, op_name, root_rank);
 
   // Not in-place
-  auto input_var = input_tensor->var();
-  auto output_var = output_tensor->var();
+  auto input_var = input_copy->var();
+  auto output_var = output_copy->var();
   if (input_var != output_var) {
     MXEnginePushAsync(DoHorovodOperation, ops_param, DeleteMpiOpsParam,
                       &MX_EXEC_CTX, &input_var, 1, &output_var, 1,
@@ -144,7 +148,7 @@ inline void PushHorovodOperation(OperationType op_type, NDArray* input,
                       &MX_EXEC_CTX, nullptr, 0, &output_var, 1,
                       &MX_FUNC_PROP, priority, op_type_name);
   }
-  *output = *output_tensor;
+  *output = *output_copy;
 }
 
 #if HAVE_CUDA
@@ -199,8 +203,15 @@ inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
   auto ops_param = CreateMpiOpsParam(nullptr, nullptr, hvd_cpu_buffer,
                                      op_type, op_name, root_rank);
 
+  // We need to create a shared_ptr to NDArray object with
+  // shallow copy to prevent from NDArray object being freed
+  // before MXNet engine process it
+  // See: https://github.com/horovod/horovod/issues/1533
+  auto input_copy = std::make_shared<NDArray>(*input);
+  auto output_copy = std::make_shared<NDArray>(*output);
+
   // Make async copy of input tensor to CPU tensor.
-  TensorUtil::AsyncCopyCudaToCPU(input, hvd_cpu_buffer->tensor());
+  TensorUtil::AsyncCopyCudaToCPU(input_copy, hvd_cpu_buffer->tensor());
 
   // In-place
   auto cpu_tensor_var = hvd_cpu_buffer->tensor()->var();
@@ -209,7 +220,8 @@ inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
                     &MX_FUNC_PROP, priority, op_type_name);
 
   // Make async copy of CPU tensor to output tensor.
-  TensorUtil::AsyncCopyCPUToCuda(hvd_cpu_buffer->tensor(), output);
+  TensorUtil::AsyncCopyCPUToCuda(hvd_cpu_buffer->tensor(), output_copy);
+  *output = *output_copy;
 }
 #endif
 
