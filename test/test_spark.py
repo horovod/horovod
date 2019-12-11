@@ -213,7 +213,7 @@ class SparkTests(unittest.TestCase):
     def test_df_cache(self):
         # Clean the cache before starting the test
         util.clear_training_cache()
-        util._training_cache.get = mock.Mock(side_effect=util._training_cache.get)
+        util._training_cache.get_dataset = mock.Mock(side_effect=util._training_cache.get_dataset)
 
         with spark_session('test_df_cache') as spark:
             with local_store() as store:
@@ -240,10 +240,10 @@ class SparkTests(unittest.TestCase):
                                        store=store,
                                        df=df,
                                        feature_columns=['features'],
-                                       label_columns=['y']) \
-                        as (train_rows, val_rows, metadata, avg_row_size, dataset_idx):
-                    util._training_cache.get.assert_not_called()
-                    assert len(util._training_cache._entries) == 1
+                                       label_columns=['y']) as dataset_idx:
+                    train_rows, val_rows, metadata, avg_row_size = util.get_dataset_properties(dataset_idx)
+                    util._training_cache.get_dataset.assert_not_called()
+                    assert len(util._training_cache._key_to_dataset) == 1
                     assert util._training_cache.is_cached(key, store)
                     assert dataset_idx == 0
 
@@ -254,10 +254,9 @@ class SparkTests(unittest.TestCase):
                                            store=store,
                                            df=df2,
                                            feature_columns=['features'],
-                                           label_columns=['y']) \
-                            as (train_rows2, val_rows2, metadata2, avg_row_size2, dataset_idx2):
-                        util._training_cache.get.assert_not_called()
-                        assert len(util._training_cache._entries) == 2
+                                           label_columns=['y']) as dataset_idx2:
+                        util._training_cache.get_dataset.assert_not_called()
+                        assert len(util._training_cache._key_to_dataset) == 2
                         assert util._training_cache.is_cached(key2, store)
                         assert dataset_idx2 == 1
 
@@ -266,9 +265,9 @@ class SparkTests(unittest.TestCase):
                                        store=store,
                                        df=df,
                                        feature_columns=['features'],
-                                       label_columns=['y']) \
-                        as (train_rows1, val_rows1, metadata1, avg_row_size1, dataset_idx1):
-                    util._training_cache.get.assert_called()
+                                       label_columns=['y']) as dataset_idx1:
+                    train_rows1, val_rows1, metadata1, avg_row_size1 = util.get_dataset_properties(dataset_idx1)
+                    util._training_cache.get_dataset.assert_called()
                     assert train_rows == train_rows1
                     assert val_rows == val_rows1
                     assert metadata == metadata1
@@ -281,8 +280,8 @@ class SparkTests(unittest.TestCase):
                                        store=store,
                                        df=df3,
                                        feature_columns=['features'],
-                                       label_columns=['y']) \
-                        as (train_rows3, val_rows3, metadata3, avg_row_size3, dataset_idx3):
+                                       label_columns=['y']) as dataset_idx3:
+                    train_rows3, val_rows3, metadata3, avg_row_size3 = util.get_dataset_properties(dataset_idx3)
                     assert train_rows == train_rows3
                     assert val_rows == val_rows3
                     assert metadata == metadata3

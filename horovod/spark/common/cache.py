@@ -33,41 +33,50 @@ class TrainingDataCache(object):
         else:
             self._keys_in_use[key] -= 1
 
-    def create_data_paths(self, key, store):
-        _, _, _, validation = key
+    def next_dataset_index(self, key):
+        """Finds the next available `dataset_idx` given the (key, store) pair.
+
+        Indices start a 0 and go up until the first unused index is found.
+
+        Will attempt to reuse earlier indices if they are no longer in use. This balances between
+        supporting multiple concurrent datasets being trained at once (multiple dataset indices),
+        and avoiding overuse of disk space (reclaiming unused datasets when no longer needed).
+
+        NOTE: this method is not thread-safe. You must wrap usage with `cache.lock` if using
+        in a multi-threaded setting (see `prepare_data`).
+        """
         idx = 0
         while True:
-            train_data = store.get_train_data_path(idx)
-            val_data = store.get_val_data_path(idx)
-
-            last_key = self._data_to_key.get((train_data, val_data))
-            if self._keys_in_use[last_key] > 0 and \
-                    store.exists(train_data) and \
-                    (not validation or store.exists(val_data)):
+            last_key = self._dataset_to_key.get(idx)
+            if self._keys_in_use[last_key] > 0:
                 # Paths are in use, try the next index
                 idx += 1
                 continue
 
-            self._data_to_key[(train_data, val_data)] = key
-            return train_data, val_data, idx
+            self._dataset_to_key[idx] = key
+            self._key_to_dataset[key] = idx
+            return idx
 
-    def get(self, key):
-        return self._entries.get(key)
+    def get_dataset(self, key):
+        return self._key_to_dataset[key]
 
-    def put(self, key, value):
-        self._entries[key] = value
+    def get_dataset_properties(self, dataset_idx):
+        return self._dataset_properties[dataset_idx]
+
+    def set_dataset_properties(self, dataset_idx, props):
+        self._dataset_properties[dataset_idx] = props
 
     def is_cached(self, key, store):
-        if key not in self._entries:
+        if key not in self._key_to_dataset:
             return False
 
+        dataset_idx = self._key_to_dataset[key]
         _, _, _, validation = key
-        _, _, _, _, dataset_idx = self._entries.get(key)
         train_data_path = store.get_train_data_path(dataset_idx)
         val_data_path = store.get_val_data_path(dataset_idx)
 
         return self._keys_in_use[key] > 0 and \
-            self._data_to_key.get((train_data_path, val_data_path)) == key and \
+            self._dataset_to_key.get(dataset_idx) == key and \
             store.exists(train_data_path) and \
             (not validation or store.exists(val_data_path))
 
@@ -76,6 +85,7 @@ class TrainingDataCache(object):
 
     def _reset(self):
         with self.lock:
-            self._entries = {}
             self._keys_in_use = collections.Counter()
-            self._data_to_key = {}
+            self._key_to_dataset = {}
+            self._dataset_to_key = {}
+            self._dataset_properties = {}

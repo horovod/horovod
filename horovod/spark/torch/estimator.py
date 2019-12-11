@@ -222,8 +222,8 @@ class TorchEstimator(Estimator, EstimatorParams, TorchEstimatorParamsWritable,
                                feature_columns=feature_columns,
                                validation=validation,
                                sample_weight_col=sample_weight_col,
-                               partitions_per_process=partitions_per_process) \
-                as (train_rows, val_rows, metadata, avg_row_size, dataset_idx):
+                               partitions_per_process=partitions_per_process) as dataset_idx:
+            train_rows, val_rows, metadata, avg_row_size = util.get_dataset_properties(dataset_idx)
             self._check_metadata_compatibility(metadata)
             return self._fit_on_prepared_data(
                 backend, train_rows, val_rows, metadata, avg_row_size, dataset_idx)

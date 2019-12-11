@@ -461,7 +461,8 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
     with _training_cache.lock:
         _training_cache.set_in_use(key, True)
         if _training_cache.is_cached(key, store):
-            train_rows, val_rows, metadata, avg_row_size, dataset_idx = _training_cache.get(key)
+            dataset_idx = _training_cache.get_dataset(key)
+            train_rows, val_rows, metadata, avg_row_size = _training_cache.get_dataset_properties(dataset_idx)
             train_data_path = store.get_train_data_path(dataset_idx)
             val_data_path = store.get_val_data_path(dataset_idx)
             if verbose:
@@ -471,7 +472,9 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
                 print('val_data_path={}'.format(val_data_path))
                 print('val_rows={}'.format(val_rows))
         else:
-            train_data_path, val_data_path, dataset_idx = _training_cache.create_data_paths(key, store)
+            dataset_idx = _training_cache.next_dataset_index(key)
+            train_data_path = store.get_train_data_path(dataset_idx)
+            val_data_path = store.get_val_data_path(dataset_idx)
             if verbose:
                 print('writing dataframes')
                 print('train_data_path={}'.format(train_data_path))
@@ -526,12 +529,17 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
                 if verbose:
                     print('val_rows={}'.format(val_rows))
 
-            _training_cache.put(key, (train_rows, val_rows, metadata, avg_row_size, dataset_idx))
+            _training_cache.set_dataset_properties(
+                dataset_idx, (train_rows, val_rows, metadata, avg_row_size))
 
     try:
-        yield train_rows, val_rows, metadata, avg_row_size, dataset_idx
+        yield dataset_idx
     finally:
         _training_cache.set_in_use(key, False)
+
+
+def get_dataset_properties(dataset_idx):
+    return _training_cache.get_dataset_properties(dataset_idx)
 
 
 def clear_training_cache():
