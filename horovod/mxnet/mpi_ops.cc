@@ -134,8 +134,8 @@ inline void PushHorovodOperation(OperationType op_type, NDArray* input,
     nullptr /* cpu_buffer */, op_type, op_name, root_rank);
 
   // Not in-place
-  auto input_var = input->var();
-  auto output_var = output->var();
+  auto input_var = input_tensor->var();
+  auto output_var = output_tensor->var();
   if (input_var != output_var) {
     MXEnginePushAsync(DoHorovodOperation, ops_param, DeleteMpiOpsParam,
                       &MX_EXEC_CTX, &input_var, 1, &output_var, 1,
@@ -146,6 +146,7 @@ inline void PushHorovodOperation(OperationType op_type, NDArray* input,
                       &MX_EXEC_CTX, nullptr, 0, &output_var, 1,
                       &MX_FUNC_PROP, priority, op_type_name);
   }
+  *output = *output_tensor;
 }
 
 #if HAVE_CUDA
