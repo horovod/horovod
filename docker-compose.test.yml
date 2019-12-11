@@ -345,7 +345,7 @@ services:
     extends: test-gpu-base
     build:
       args:
-        CUDA_DOCKER_VERSION: 10.1-devel-ubuntu18.04
+        CUDA_DOCKER_VERSION: 10.1-devel-ubuntu18.04@sha256:68efc9bbe07715c54ff30850aeb2e6f0d0b692af3c8dd40f13c0b179bfc0bc15
         CUDNN_VERSION: 7.6.5.32-1+cuda10.1
         NCCL_VERSION_OVERRIDE: 2.4.8-1+cuda10.1
         MPI_KIND: OpenMPI
