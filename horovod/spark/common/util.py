@@ -20,7 +20,6 @@ import horovod.spark.common._namedtuple_fix
 import contextlib
 
 import pyarrow as pa
-import pyarrow.parquet as pq
 import numpy as np
 import pyspark.sql.functions as f
 from pyspark.ml.linalg import DenseVector, SparseVector, VectorUDT
@@ -378,13 +377,13 @@ def get_simple_meta_from_parquet(store, label_columns, feature_columns, sample_w
     if not store.exists(train_data_path):
         raise ValueError("{} path does not exist in the store".format(train_data_path))
 
-    train_data = pq.ParquetDataset(train_data_path, filesystem=store.get_filesystem())
+    train_data = store.get_parquet_dataset(train_data_path)
     schema = train_data.schema.to_arrow_schema()
     train_rows, total_byte_size = _get_dataset_info(train_data, 'training', train_data_path)
 
     val_rows = 0
     if store.exists(validation_data_path):
-        val_data = pq.ParquetDataset(validation_data_path, filesystem=store.get_filesystem())
+        val_data = store.get_parquet_dataset(validation_data_path)
         val_rows, _ = _get_dataset_info(val_data, 'validation', validation_data_path)
 
     schema_cols = feature_columns + label_columns

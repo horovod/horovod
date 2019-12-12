@@ -41,6 +41,7 @@ import horovod.torch as hvd
 from horovod.run.common.util import secret
 from horovod.run.mpi_run import _get_mpi_implementation_flags
 from horovod.spark.common import constants, util
+from horovod.spark.common.store import HDFSStore
 from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient
 
 from spark_common import spark_session, create_test_data_from_schema, create_xor_data, local_store
@@ -501,6 +502,45 @@ class SparkTests(unittest.TestCase):
                 with pytest.raises(ValueError):
                     util.check_shape_compatibility(metadata, feature_columns, label_columns,
                                                    input_shapes, bad_output_shapes)
+
+    @mock.patch('horovod.spark.common.store.HDFSStore._get_filesystem_fn')
+    def test_sync_hdfs_store(self, mock_get_fs_fn):
+        mock_fs = mock.Mock()
+        mock_get_fs_fn.return_value = lambda: mock_fs
+
+        hdfs_root = '/user/test/output'
+        store = HDFSStore(hdfs_root)
+
+        run_id = 'run_001'
+        get_local_output_dir = store.get_local_output_dir_fn(run_id)
+        sync_to_store = store.sync_fn(run_id)
+        run_root = store.get_run_path(run_id)
+
+        def touch(fname, times=None):
+            with open(fname, 'a'):
+                os.utime(fname, times)
+
+        with get_local_output_dir() as local_dir:
+            touch(os.path.join(local_dir, 'a.txt'), (1330712280, 1330712280))
+            sync_to_store(local_dir)
+            mock_fs.upload.assert_called_with(os.path.join(run_root, 'a.txt'), mock.ANY)
+
+            touch(os.path.join(local_dir, 'b.txt'), (1330712280, 1330712280))
+            sync_to_store(local_dir)
+            mock_fs.upload.assert_called_with(os.path.join(run_root, 'b.txt'), mock.ANY)
+
+            subdir = os.path.join(local_dir, 'subdir')
+            os.mkdir(subdir)
+            touch(os.path.join(subdir, 'c.txt'), (1330712280, 1330712280))
+            sync_to_store(local_dir)
+            mock_fs.upload.assert_called_with(os.path.join(run_root, 'subdir/c.txt'), mock.ANY)
+
+            touch(os.path.join(local_dir, 'a.txt'), (1330712292, 1330712292))
+            touch(os.path.join(local_dir, 'b.txt'), (1330712292, 1330712292))
+            assert mock_fs.upload.call_count == 3
+
+            sync_to_store(local_dir)
+            assert mock_fs.upload.call_count == 5
 
     def test_spark_task_service_env(self):
         key = secret.make_secret_key()

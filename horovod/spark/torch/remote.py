@@ -183,15 +183,13 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
             # setting num_epochs=None will cause an infinite iterator
             # and enables ranks to perform training and validation with
             # unequal number of samples
-            train_data_path = remote_store.train_data_path
-            with make_batch_reader(remote_store.get_full_path(train_data_path),
+            with make_batch_reader(remote_store.train_data_path,
                                    num_epochs=None,
                                    cur_shard=hvd.rank(),
                                    shard_count=hvd.size(),
                                    hdfs_driver=PETASTORM_HDFS_DRIVER,
                                    schema_fields=schema_fields) as train_reader:
-                val_data_path = remote_store.val_data_path
-                with make_batch_reader(remote_store.get_full_path(val_data_path),
+                with make_batch_reader(remote_store.val_data_path,
                                        num_epochs=None,
                                        cur_shard=hvd.rank(),
                                        shard_count=hvd.size(),

@@ -20,7 +20,9 @@ import contextlib
 import os
 import shutil
 import tempfile
+
 import pyarrow as pa
+import pyarrow.parquet as pq
 
 
 class Store(object):
@@ -44,7 +46,7 @@ class Store(object):
         self._train_data_to_key = {}
         self._val_data_to_key = {}
 
-    def get_filesystem(self):
+    def get_parquet_dataset(self, path):
         raise NotImplementedError()
 
     def get_train_data_path(self, idx=None):
@@ -83,9 +85,6 @@ class Store(object):
     def read(self, path):
         raise NotImplementedError()
 
-    def get_full_path_fn(self):
-        raise NotImplementedError()
-
     def get_local_output_dir_fn(self, run_id):
         raise NotImplementedError()
 
@@ -114,7 +113,6 @@ class Store(object):
             'logs_path': self.get_logs_path(run_id),
             'checkpoint_filename': self.get_checkpoint_filename(),
             'logs_subdir': self.get_logs_subdir(),
-            'get_full_path': self.get_full_path_fn(),
             'get_local_output_dir': self.get_local_output_dir_fn(run_id),
             'sync': self.sync_fn(run_id)
         }
@@ -129,13 +127,23 @@ class Store(object):
 
 class PrefixStore(Store):
     def __init__(self, prefix_path, train_path=None, val_path=None, test_path=None, runs_path=None, save_runs=True):
-        self.prefix_path = self.get_normalized_path(prefix_path)
+        self.prefix_path = self.get_full_path(prefix_path)
         self._train_path = train_path or self._get_path('train_data')
         self._val_path = val_path or self._get_path('val_data')
         self._test_path = test_path or self._get_path('test_path')
         self._runs_path = runs_path or self._get_path('runs')
         self._save_runs = save_runs
         super(PrefixStore, self).__init__()
+
+    def exists(self, path):
+        return self.get_filesystem().exists(self.get_localized_path(path))
+
+    def read(self, path):
+        with self.get_filesystem().open(self.get_localized_path(path), 'rb') as f:
+            return f.read()
+
+    def get_parquet_dataset(self, path):
+        return pq.ParquetDataset(self.get_localized_path(path), filesystem=self.get_filesystem())
 
     def get_train_data_path(self, idx=None):
         return '{}.{}'.format(self._train_path, idx) if idx is not None else self._train_path
@@ -169,8 +177,15 @@ class PrefixStore(Store):
     def get_logs_subdir(self):
         return 'logs'
 
-    def get_normalized_path(self, path):
-        return path[len(self.filesystem_prefix()):] if self.matches(path) else path
+    def get_full_path(self, path):
+        if not self.matches(path):
+            return self.filesystem_prefix() + path
+        return path
+
+    def get_localized_path(self, path):
+        if self.matches(path):
+            return path[len(self.filesystem_prefix()):]
+        return path
 
     def get_full_path_fn(self):
         prefix = self.filesystem_prefix()
@@ -181,6 +196,9 @@ class PrefixStore(Store):
 
     def _get_path(self, key):
         return os.path.join(self.prefix_path, key)
+
+    def get_filesystem(self):
+        raise NotImplementedError()
 
     @classmethod
     def matches(cls, path):
@@ -201,15 +219,8 @@ class LocalStore(PrefixStore):
     def get_filesystem(self):
         return self._fs
 
-    def exists(self, path):
-        return self._fs.exists(path)
-
-    def read(self, path):
-        with self._fs.open(path, 'rb') as f:
-            return f.read()
-
     def get_local_output_dir_fn(self, run_id):
-        run_path = self.get_run_path(run_id)
+        run_path = self.get_localized_path(self.get_run_path(run_id))
 
         @contextlib.contextmanager
         def local_run_path():
@@ -252,13 +263,6 @@ class HDFSStore(PrefixStore):
 
     def get_filesystem(self):
         return self._hdfs
-
-    def exists(self, path):
-        return self._hdfs.exists(path)
-
-    def read(self, path):
-        with self._hdfs.open(path, 'rb') as f:
-            return f.read()
 
     def get_local_output_dir_fn(self, run_id):
         temp_dir = self._temp_dir
