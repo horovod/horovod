@@ -124,7 +124,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
         # Learning rate is a required parameters in SGD optimizer. It will be overridden with
         # load_state_dict.
         optimizer = optimizer_cls(model.parameters(), lr=1)
-        optimizer_state = model.load_state_dict(model_opt_state['optimizer'])
+        optimizer_state = model_opt_state['optimizer']
 
         if last_checkpoint_state is not None:
             model.load_state_dict(last_checkpoint_state['model'])
