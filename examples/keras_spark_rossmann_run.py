@@ -18,7 +18,9 @@ import datetime
 import h5py
 import io
 import os
+from distutils.version import LooseVersion
 import pyarrow as pa
+import pyspark
 from pyspark import SparkConf, Row
 from pyspark.sql import SparkSession
 import pyspark.sql.types as T
@@ -379,6 +381,8 @@ opt = hvd.DistributedOptimizer(opt)
 model.compile(opt, 'mae', metrics=[exp_rmspe])
 model_bytes = serialize_model(model)
 
+is_spark3 = LooseVersion(pyspark.__version__) >= LooseVersion('3.0.0')
+
 
 def train_fn(model_bytes):
     # Make sure pyarrow is referenced before anything else to avoid segfault due to conflict
@@ -389,6 +393,7 @@ def train_fn(model_bytes):
 
     import atexit
     import horovod.tensorflow.keras as hvd
+    from horovod.spark.task import get_available_devices
     import os
     from petastorm import make_batch_reader
     from petastorm.tf_utils import make_petastorm_dataset
@@ -403,7 +408,7 @@ def train_fn(model_bytes):
     # Horovod: pin GPU to be used to process local rank (one GPU per process), if GPUs are available.
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
-    config.gpu_options.visible_device_list = str(hvd.local_rank())
+    config.gpu_options.visible_device_list = get_available_devices()[0] if is_spark3 else str(hvd.local_rank())
     K.set_session(tf.Session(config=config))
 
     # Horovod: restore from checkpoint, use hvd.load_model under the hood.
