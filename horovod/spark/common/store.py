@@ -128,9 +128,9 @@ class Store(object):
 class PrefixStore(Store):
     def __init__(self, prefix_path, train_path=None, val_path=None, test_path=None, runs_path=None, save_runs=True):
         self.prefix_path = self.get_full_path(prefix_path)
-        self._train_path = train_path or self._get_path('train_data')
-        self._val_path = val_path or self._get_path('val_data')
-        self._test_path = test_path or self._get_path('test_path')
+        self._train_path = train_path or self._get_path('intermediate_train_data')
+        self._val_path = val_path or self._get_path('intermediate_val_data')
+        self._test_path = test_path or self._get_path('intermediate_test_data')
         self._runs_path = runs_path or self._get_path('runs')
         self._save_runs = save_runs
         super(PrefixStore, self).__init__()
