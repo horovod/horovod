@@ -55,8 +55,8 @@ ResponseCache::CacheState ResponseCache::cached(const Request& message) const {
     uint32_t cache_bit = it->second;
     auto& cache_params = std::get<1>(*cache_iters_[cache_bit]);
     return (cache_params.device == message.device() &&
-                cache_params.dtype == message.tensor_type() &&
-                cache_params.shape == message.tensor_shape())
+            cache_params.dtype == message.tensor_type() &&
+            cache_params.shape == message.tensor_shape())
                ? CacheState::HIT
                : CacheState::INVALID;
   } else {

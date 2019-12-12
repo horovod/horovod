@@ -128,9 +128,6 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
     // a shutdown. This function removes any invalid cache entries, if they
     // exist.
     CoordinateCacheAndState(cache_coordinator);
-    if (state.joined && !cache_coordinator.invalid_bits().empty()) {
-      cache_coordinator.set_uncached_in_queue(true);
-    }
     // Remove uncommon cached tensors from queue and replace to state
     // queue for next cycle. Skip adding common cached tensors to
     // queue as they are handled separately.
