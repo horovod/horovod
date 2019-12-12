@@ -437,7 +437,7 @@ def _train_val_split(df, metadata, validation):
 @contextlib.contextmanager
 def prepare_data(num_processes, store, df, label_columns, feature_columns,
                  validation=None, sample_weight_col=None,
-                 partitions_per_process=10, verbose=False):
+                 partitions_per_process=10, verbose=0):
     if num_processes <= 0 or partitions_per_process <= 0:
         raise ValueError('num_proc={} and partitions_per_process={} must both be > 0'
                          .format(num_processes, partitions_per_process))

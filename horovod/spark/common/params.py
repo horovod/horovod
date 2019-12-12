@@ -59,7 +59,7 @@ class EstimatorParams(Params):
                                 'shuffling buffer size of data before training in number of samples',
                                 typeConverter=TypeConverters.toInt)
 
-    verbose = Param(Params._dummy(), 'verbose', 'verbose',
+    verbose = Param(Params._dummy(), 'verbose', 'verbose flag (0=silent, 1=enabled, other values used by frameworks)',
                     typeConverter=TypeConverters.toInt)
 
     partitions_per_process = Param(Params._dummy(), 'partitions_per_process',
