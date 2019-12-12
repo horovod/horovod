@@ -810,7 +810,7 @@ class SparkTests(unittest.TestCase):
                     self.assertEqual(env, expected)
 
     @pytest.mark.skipif(LooseVersion(pyspark.__version__) < LooseVersion('3.0.0'),
-                        reason='get_available_devices only support in Spark 3.0 and above')
+                        reason='get_available_devices only supported in Spark 3.0 and above')
     def test_get_available_devices(self):
         def fn():
             hvd.init()
