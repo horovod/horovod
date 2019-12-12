@@ -30,6 +30,7 @@ DATA_LOCATION = 'file://' + os.getcwd()
 # Location of outputs on local filesystem (without file:// prefix).
 LOCAL_SUBMISSION_CSV = 'submission.csv'
 LOCAL_CHECKPOINT_FILE = 'checkpoint.h5'
+DISCOVERY_SCRIPT = 'get_gpu_resources.sh'
 
 # Spark clusters to use for training. If set to None, uses current default cluster.
 #
@@ -39,7 +40,7 @@ LOCAL_CHECKPOINT_FILE = 'checkpoint.h5'
 # Training cluster should be set up to provide a Spark task per multiple CPU cores,
 # or per GPU, e.g. by supplying `-c <NUM GPUs>` in Spark Standalone mode.
 LIGHT_PROCESSING_CLUSTER = None  # or 'spark://hostname:7077'
-TRAINING_CLUSTER = None  # or 'spark://hostname:7077'
+TRAINING_CLUSTER = 'local-cluster[2,1,1024]'  # or 'spark://hostname:7077'
 
 # The number of training processes.
 NUM_TRAINING_PROC = 4
@@ -389,6 +390,7 @@ def train_fn(model_bytes):
 
     import atexit
     import horovod.tensorflow.keras as hvd
+    from horovod.spark.task import get_available_devices
     import os
     from petastorm import make_batch_reader
     from petastorm.tf_utils import make_petastorm_dataset
@@ -403,7 +405,7 @@ def train_fn(model_bytes):
     # Horovod: pin GPU to be used to process local rank (one GPU per process), if GPUs are available.
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
-    config.gpu_options.visible_device_list = str(hvd.local_rank())
+    config.gpu_options.visible_device_list = get_available_devices()[0]
     K.set_session(tf.Session(config=config))
 
     # Horovod: restore from checkpoint, use hvd.load_model under the hood.
@@ -490,6 +492,12 @@ def train_fn(model_bytes):
 conf = SparkConf().setAppName('training')
 if TRAINING_CLUSTER:
     conf.setMaster(TRAINING_CLUSTER)
+conf = conf.set("spark.test.home", os.environ.get('SPARK_HOME'))
+conf = conf.set("spark.worker.resource.gpu.discoveryScript", DISCOVERY_SCRIPT)
+conf = conf.set("spark.worker.resource.gpu.amount", 1)
+conf = conf.set("spark.task.resource.gpu.amount", "1")
+conf = conf.set("spark.executor.resource.gpu.amount", "1")
+
 spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
 # Horovod: run training.

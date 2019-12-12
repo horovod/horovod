@@ -29,10 +29,14 @@ import time
 import unittest
 import warnings
 
+from distutils.version import LooseVersion
+
 import mock
 import torch
 
 from mock import MagicMock
+
+import pyspark
 
 from pyspark.ml.linalg import DenseVector, SparseVector, VectorUDT
 from pyspark.sql.types import ArrayType, BooleanType, DoubleType, FloatType, IntegerType, NullType, \
@@ -805,6 +809,8 @@ class SparkTests(unittest.TestCase):
                     expected = ['HADOOP_TOKEN_FILE_LOCATION=HADOOP_TOKEN_FILE_LOCATION value', 'test=value']
                     self.assertEqual(env, expected)
 
+    @pytest.mark.skipif(LooseVersion(pyspark.__version__) < LooseVersion('3.0.0'),
+                        reason='get_available_devices only support in Spark 3.0 and above')
     def test_get_available_devices(self):
         def fn():
             hvd.init()
