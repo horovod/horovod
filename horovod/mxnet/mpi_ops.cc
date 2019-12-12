@@ -211,7 +211,7 @@ inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
   auto output_copy = std::make_shared<NDArray>(*output);
 
   // Make async copy of input tensor to CPU tensor.
-  TensorUtil::AsyncCopyCudaToCPU(input_copy, hvd_cpu_buffer->tensor());
+  TensorUtil::AsyncCopyCudaToCPU(input_copy.get(), hvd_cpu_buffer->tensor());
 
   // In-place
   auto cpu_tensor_var = hvd_cpu_buffer->tensor()->var();
@@ -220,7 +220,7 @@ inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
                     &MX_FUNC_PROP, priority, op_type_name);
 
   // Make async copy of CPU tensor to output tensor.
-  TensorUtil::AsyncCopyCPUToCuda(hvd_cpu_buffer->tensor(), output_copy);
+  TensorUtil::AsyncCopyCPUToCuda(hvd_cpu_buffer->tensor(), output_copy.get());
   *output = *output_copy;
 }
 #endif
