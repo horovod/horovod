@@ -18,6 +18,7 @@ from __future__ import print_function
 
 import contextlib
 import os
+import re
 import shutil
 import tempfile
 
@@ -179,16 +180,16 @@ class PrefixStore(Store):
 
     def get_full_path(self, path):
         if not self.matches(path):
-            return self.filesystem_prefix() + path
+            return self.path_prefix() + path
         return path
 
     def get_localized_path(self, path):
         if self.matches(path):
-            return path[len(self.filesystem_prefix()):]
+            return path[len(self.path_prefix()):]
         return path
 
     def get_full_path_fn(self):
-        prefix = self.filesystem_prefix()
+        prefix = self.path_prefix()
 
         def get_path(path):
             return prefix + path
@@ -196,6 +197,9 @@ class PrefixStore(Store):
 
     def _get_path(self, key):
         return os.path.join(self.prefix_path, key)
+
+    def path_prefix(self):
+        raise NotImplementedError()
 
     def get_filesystem(self):
         raise NotImplementedError()
@@ -213,8 +217,11 @@ class LocalStore(PrefixStore):
     FS_PREFIX = 'file://'
 
     def __init__(self, prefix_path, *args, **kwargs):
-        super(LocalStore, self).__init__(prefix_path, *args, **kwargs)
         self._fs = pa.LocalFileSystem()
+        super(LocalStore, self).__init__(prefix_path, *args, **kwargs)
+
+    def path_prefix(self):
+        return self.FS_PREFIX
 
     def get_filesystem(self):
         return self._fs
@@ -246,20 +253,61 @@ class LocalStore(PrefixStore):
 
 class HDFSStore(PrefixStore):
     FS_PREFIX = 'hdfs://'
+    HDFS_URL_PATTERN = '^(?:(.+://))?(?:([^/:]+))?(?:[:]([0-9]+))?(?:(.+))?$'
 
+    """Uses HDFS as a store of intermediate data and training artifacts.
+    
+    Initialized from a `prefix_path` that can take one of the following forms:
+    
+    1. "hdfs://namenode01:8020/user/test/horovod"
+    2. "hdfs:///user/test/horovod"
+    3. "/user/test/horovod"
+    
+    The full path (including prefix, host, and port) will be used for all reads and writes to HDFS through Spark. If
+    host and port are not provided, they will be omitted. If prefix is not provided (case 3), it will be prefixed to
+    the full path regardless.
+    
+    The localized path (without prefix, host, and port) will be used for interaction with PyArrow. Parsed host and port
+    information will be used to initialize PyArrow `HadoopFilesystem` if they are not provided through the `host` and
+    `port` arguments to this initializer. These parameters will default to `default` and `0` if neither the path URL
+    nor the arguments provide this information.
+    """
     def __init__(self, prefix_path,
-                 host='default', port=0, user=None, kerb_ticket=None,
+                 host=None, port=None, user=None, kerb_ticket=None,
                  driver='libhdfs', extra_conf=None, temp_dir=None, *args, **kwargs):
-        super(HDFSStore, self).__init__(prefix_path, *args, **kwargs)
+        self._temp_dir = temp_dir
 
+        prefix, url_host, url_port, path, path_offset = self.parse_url(prefix_path)
+        self._check_url(prefix_path, prefix, path)
+        self._url_prefix = prefix_path[:path_offset] if prefix else self.FS_PREFIX
+
+        host = host or url_host or 'default'
+        port = port or url_port or 0
         self._hdfs_kwargs = dict(host=host,
                                  port=port,
                                  user=user,
                                  kerb_ticket=kerb_ticket,
                                  driver=driver,
                                  extra_conf=extra_conf)
-        self._temp_dir = temp_dir
         self._hdfs = self._get_filesystem_fn()()
+
+        super(HDFSStore, self).__init__(prefix_path, *args, **kwargs)
+
+    def parse_url(self, url):
+        match = re.search(self.HDFS_URL_PATTERN, url)
+        prefix = match.group(1)
+        host = match.group(2)
+
+        port = match.group(3)
+        if port is not None:
+            port = int(port)
+
+        path = match.group(4)
+        path_offset = match.start(4)
+        return prefix, host, port, path, path_offset
+
+    def path_prefix(self):
+        return self._url_prefix
 
     def get_filesystem(self):
         return self._hdfs
@@ -322,6 +370,15 @@ class HDFSStore(PrefixStore):
         def fn():
             return pa.hdfs.connect(**hdfs_kwargs)
         return fn
+
+    def _check_url(self, url, prefix, path):
+        print('_check_url: {}'.format(prefix))
+        if prefix is not None and prefix != self.FS_PREFIX:
+            raise ValueError('Mismatched HDFS namespace for URL: {}. Found {} but expected {}'
+                             .format(url, prefix, self.FS_PREFIX))
+
+        if not path:
+            raise ValueError('Failed to parse path from URL: {}'.format(url))
 
     @classmethod
     def filesystem_prefix(cls):

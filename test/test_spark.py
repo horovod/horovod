@@ -542,6 +542,49 @@ class SparkTests(unittest.TestCase):
             sync_to_store(local_dir)
             assert mock_fs.upload.call_count == 5
 
+    @mock.patch('horovod.spark.common.store.HDFSStore._get_filesystem_fn')
+    def test_hdfs_store_parse_url(self, mock_get_filesystem_fn):
+        # Case 1: full path
+        hdfs_root = 'hdfs://namenode01:8020/user/test/output'
+        store = HDFSStore(hdfs_root)
+        assert store.path_prefix() == 'hdfs://namenode01:8020', hdfs_root
+        assert store.get_full_path('/user/test/output') == 'hdfs://namenode01:8020/user/test/output', hdfs_root
+        assert store.get_localized_path('hdfs://namenode01:8020/user/test/output') == '/user/test/output', hdfs_root
+        assert store._hdfs_kwargs['host'] == 'namenode01', hdfs_root
+        assert store._hdfs_kwargs['port'] == 8020, hdfs_root
+
+        # Case 2: no host and port
+        hdfs_root = 'hdfs:///user/test/output'
+        store = HDFSStore(hdfs_root)
+        assert store.path_prefix() == 'hdfs://', hdfs_root
+        assert store.get_full_path('/user/test/output') == 'hdfs:///user/test/output', hdfs_root
+        assert store.get_localized_path('hdfs:///user/test/output') == '/user/test/output', hdfs_root
+        assert store._hdfs_kwargs['host'] == 'default', hdfs_root
+        assert store._hdfs_kwargs['port'] == 0, hdfs_root
+
+        # Case 3: no prefix
+        hdfs_root = '/user/test/output'
+        store = HDFSStore(hdfs_root)
+        assert store.path_prefix() == 'hdfs://', hdfs_root
+        assert store.get_full_path('/user/test/output') == 'hdfs:///user/test/output', hdfs_root
+        assert store.get_localized_path('hdfs:///user/test/output') == '/user/test/output', hdfs_root
+        assert store._hdfs_kwargs['host'] == 'default', hdfs_root
+        assert store._hdfs_kwargs['port'] == 0, hdfs_root
+
+        # Case 4: no namespace
+        hdfs_root = 'hdfs://namenode01:8020/user/test/output'
+        store = HDFSStore(hdfs_root)
+        assert store.path_prefix() == 'hdfs://namenode01:8020', hdfs_root
+        assert store.get_full_path('/user/test/output') == 'hdfs://namenode01:8020/user/test/output', hdfs_root
+        assert store.get_localized_path('hdfs://namenode01:8020/user/test/output') == '/user/test/output', hdfs_root
+        assert store._hdfs_kwargs['host'] == 'namenode01', hdfs_root
+        assert store._hdfs_kwargs['port'] == 8020, hdfs_root
+
+        # Case 5: bad prefix
+        with pytest.raises(ValueError):
+            hdfs_root = 'file:///user/test/output'
+            HDFSStore(hdfs_root)
+
     def test_spark_task_service_env(self):
         key = secret.make_secret_key()
         service_env = dict([(key, '{} value'.format(key))
