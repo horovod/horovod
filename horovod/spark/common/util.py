@@ -195,12 +195,12 @@ def _get_col_info(df):
         return row_schema
 
     def merge(x, y):
-        dtypes, shapes, sizes = x
-        new_dtypes, new_shapes, new_sizes = y
-        dtypes.update(new_dtypes)
-        shapes.update(new_shapes)
-        sizes.update(new_sizes)
-        return dtypes, shapes, sizes
+        x_dtypes, x_shapes, x_sizes = x
+        y_dtypes, y_shapes, y_sizes = y
+        dtypes = x_dtypes | y_dtypes
+        shapes = x_shapes | y_shapes
+        sizes = x_sizes | y_sizes
+        return dtypes, {min(shapes), max(shapes)}, {min(sizes), max(sizes)}
 
     raw_col_info_list = df.rdd.flatMap(get_meta).reduceByKey(merge).collect()
 
