@@ -118,11 +118,11 @@ class Store(object):
         }
 
     @staticmethod
-    def create(prefix_path):
+    def create(prefix_path, *args, **kwargs):
         if HDFSStore.matches(prefix_path):
-            return HDFSStore(prefix_path)
+            return HDFSStore(prefix_path, *args, **kwargs)
         else:
-            return LocalStore(prefix_path)
+            return LocalStore(prefix_path, *args, **kwargs)
 
 
 class PrefixStore(Store):
@@ -252,12 +252,12 @@ class HDFSStore(PrefixStore):
                  driver='libhdfs', extra_conf=None, temp_dir=None, *args, **kwargs):
         super(HDFSStore, self).__init__(prefix_path, *args, **kwargs)
 
-        self._host = host
-        self._port = port
-        self._user = user
-        self._kerb_ticket = kerb_ticket
-        self._driver = driver
-        self._extra_conf = extra_conf
+        self._hdfs_kwargs = dict(host=host,
+                                 port=port,
+                                 user=user,
+                                 kerb_ticket=kerb_ticket,
+                                 driver=driver,
+                                 extra_conf=extra_conf)
         self._temp_dir = temp_dir
         self._hdfs = self._get_filesystem_fn()()
 
@@ -317,20 +317,10 @@ class HDFSStore(PrefixStore):
         return fn
 
     def _get_filesystem_fn(self):
-        host = self._host
-        port = self._port
-        user = self._user
-        kerb_ticket = self._kerb_ticket
-        driver = self._driver
-        extra_conf = self._extra_conf
+        hdfs_kwargs = self._hdfs_kwargs
 
         def fn():
-            return pa.hdfs.connect(host=host,
-                                   port=port,
-                                   user=user,
-                                   kerb_ticket=kerb_ticket,
-                                   driver=driver,
-                                   extra_conf=extra_conf)
+            return pa.hdfs.connect(**hdfs_kwargs)
         return fn
 
     @classmethod
