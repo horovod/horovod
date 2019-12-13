@@ -166,7 +166,7 @@ def _get_col_info(df):
 
     NOTE: This function processes the entire DataFrame, and can therefore be very expensive to run.
 
-    TODO(travis): Oonly run this if user sets compress_sparse param, otherwise convert all to Array.
+    TODO(travis): Only run this if user sets compress_sparse param, otherwise convert all to Array.
     """
 
     def get_meta(row):
@@ -216,21 +216,21 @@ def _get_col_info(df):
         col_shapes[col_name] = shapes
         col_max_sizes[col_name] = sizes
 
-    # all the rows of each columns must have the same shape
     for col in df.schema.names:
+        # All rows in every column must have the same shape
         shape_set = col_shapes[col]
         if len(shape_set) != 1:
             raise ValueError(
-                'col {col} does not have uniform shapes. shape set: {shapes_set}'.format(col=col,
-                                                                                         shapes_set=shape_set))
+                'Column {col} does not have uniform shape. '
+                'shape set: {shapes_set}'.format(col=col, shapes_set=shape_set))
         col_shapes[col] = shape_set.pop()
 
-    for col in df.schema.names:
+        # All rows in every column must have the same size unless they have SparseVectors
         sizes = col_max_sizes[col]
         if len(sizes) > 1 and not (SparseVector in all_col_types[col]):
             raise ValueError(
-                "rows of column {col} have varying sizes. This is only allowed if datatype is "
-                "SparseVector or a mix of Sparse and DenseVector.".format(col=col))
+                'Rows of column {col} have varying sizes. This is only allowed if datatype is '
+                'SparseVector or a mix of Sparse and DenseVector.'.format(col=col))
         col_max_sizes[col] = max(sizes)
 
     return all_col_types, col_shapes, col_max_sizes
