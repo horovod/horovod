@@ -33,7 +33,7 @@ using namespace horovod::common;
 typedef ::mxnet::NDArray NDArray;
 typedef ::mxnet::Engine::CallbackOnComplete CallbackOnComplete;
 typedef Request::RequestType OperationType;
-typedef std::shared_ptr<MXTensor<NDArray>> MXTensorSharedPtr;
+typedef std::shared_ptr<MXTensor> MXTensorSharedPtr;
 
 struct MpiOpsParam {
   NDArray* input;

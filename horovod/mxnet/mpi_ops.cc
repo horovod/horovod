@@ -75,14 +75,14 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
 
   auto device = TensorUtil::GetDevice(tensor);
   LOG(INFO) << "device is " << device << " before allreduce";
-  auto hvd_tensor = std::make_shared<MXTensor<NDArray>>(tensor);
-  auto hvd_context = std::make_shared<MXOpContext<NDArray>>(device, output);
+  auto hvd_tensor = std::make_shared<MXTensor>(tensor);
+  auto hvd_context = std::make_shared<MXOpContext>(device, output);
   std::shared_ptr<Tensor> hvd_output = nullptr;
 
   Status enqueue_result;
   switch (ops_param->op_type) {
     case OperationType::ALLREDUCE:
-      hvd_output = std::make_shared<MXTensor<NDArray>>(output);
+      hvd_output = std::make_shared<MXTensor>(output);
       enqueue_result = EnqueueTensorAllreduce(
           hvd_context, hvd_tensor, hvd_output, nullptr, name, device,
           [on_complete](const Status& status) {
@@ -102,7 +102,7 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
           TensorUtil::Copy(output, tensor);
         }
       } else {
-        hvd_output = std::make_shared<MXTensor<NDArray>>(output);
+        hvd_output = std::make_shared<MXTensor>(output);
       }
 
       enqueue_result = EnqueueTensorBroadcast(
@@ -159,8 +159,8 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
   auto ops_param = static_cast<MpiOpsParam*>(param);
   auto name = ops_param->op_name;
   auto hvd_cpu_buffer = ops_param->cpu_tensor;
-  auto hvd_context = std::make_shared<MXOpContext<NDArray>>(
-      CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
+  auto hvd_context = std::make_shared<MXOpContext>(
+    CPU_DEVICE_ID, hvd_cpu_buffer->tensor());
 
   Status enqueue_result;
   switch (ops_param->op_type) {
@@ -198,7 +198,7 @@ inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
                                           int priority, int root_rank = -1) {
   auto op_type_name = GetOpTypeName(op_type);
   auto op_name = GetOpName(op_type_name, name);
-  auto hvd_cpu_buffer = std::make_shared<MXTemporaryBuffer<NDArray>>(
+  auto hvd_cpu_buffer = std::make_shared<MXTemporaryBuffer>(
       CPU_DEVICE_ID, input->dtype());
   auto ops_param = CreateMpiOpsParam(nullptr, nullptr, hvd_cpu_buffer,
                                      op_type, op_name, root_rank);
