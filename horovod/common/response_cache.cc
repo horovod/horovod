@@ -66,7 +66,7 @@ ResponseCache::CacheState ResponseCache::cached(const Request& message) const {
 
 ResponseCache::CacheState
 ResponseCache::cached(const Response& response,
-                      const TensorParams& params) const {
+                      const TensorParams& params, bool joined) const {
   assert(response.tensor_names().size() == 1);
   auto it = tensor_name_to_bit_.find(response.tensor_names()[0]);
   if (it != tensor_name_to_bit_.end()) {
@@ -74,9 +74,21 @@ ResponseCache::cached(const Response& response,
     // if tensor parameters match. If not, return that entry is invalid.
     uint32_t cache_bit = it->second;
     auto& cache_params = std::get<1>(*cache_iters_[cache_bit]);
+
+    bool same_shape;
+    if (joined) {
+      // For Joined rank only number of elements in the tensor is known.
+      auto product = [](const std::vector<int64_t>& shape) {
+        return std::accumulate(shape.begin(), shape.end(), 1,
+                               std::multiplies<int64_t>());
+      };
+      same_shape = (product(cache_params.shape) == product(params.shape));
+    } else {
+      same_shape = (cache_params.shape == params.shape);
+    }
+
     return (cache_params.device == params.device &&
-            cache_params.dtype == params.dtype &&
-            cache_params.shape == params.shape)
+            cache_params.dtype == params.dtype && same_shape)
                ? CacheState::HIT
                : CacheState::INVALID;
   } else {
@@ -84,11 +96,11 @@ ResponseCache::cached(const Response& response,
   }
 }
 
-void ResponseCache::put_(const Response& response, TensorParams& params) {
+void ResponseCache::put_(const Response& response, TensorParams& params, bool joined) {
   // Note: This method invalidates all previously returned cache bit positions.
 
   uint32_t cache_bit;
-  auto cache_state = this->cached(response, params);
+  auto cache_state = this->cached(response, params, joined);
 
   // Disallow caching name-conflicted responses here. Invalid cache entries
   // must be removed prior to caching new entries.
@@ -98,7 +110,7 @@ void ResponseCache::put_(const Response& response, TensorParams& params) {
         "This is not allowed.");
   }
 
-  if (this->cached(response, params) == CacheState::HIT) {
+  if (cache_state == CacheState::HIT) {
     // If entry already exists, move entry to front of cache_
     // (most recently used) and update iterator in cache_iters_
     // at the existing cache bit position.
@@ -141,7 +153,7 @@ void ResponseCache::put_(const Response& response, TensorParams& params) {
   bits_outdated_ = true;
 }
 
-void ResponseCache::put(const Response& response, TensorQueue& tensor_queue) {
+void ResponseCache::put(const Response& response, TensorQueue& tensor_queue, bool joined) {
   // Note: This method invalidates all previously returned cache bit positions
   // if evictions occur.
 
@@ -149,33 +161,44 @@ void ResponseCache::put(const Response& response, TensorQueue& tensor_queue) {
     return;
   }
 
+  std::vector<TensorTableEntry> entries_for_join;
+  if (joined) {
+    tensor_queue.GetTensorEntriesFromResponse(response, entries_for_join,
+                                              joined);
+  }
+
   // If response is fused, split back into individual responses
   if (response.tensor_names().size() > 1) {
+    int64_t i = 0;
     for (auto& name : response.tensor_names()) {
       Response new_response;
       new_response.add_tensor_name(name);
       new_response.set_response_type(response.response_type());
       new_response.set_devices(response.devices());
-      new_response.set_tensor_sizes(response.tensor_sizes());
+      new_response.add_tensor_size(response.tensor_sizes()[i]);
+      new_response.set_tensor_type(response.tensor_type());
 
       // Populate tensor parameters from tensor_queue entry
-      const auto& tensor_entry = tensor_queue.GetTensorEntry(name);
       TensorParams params;
+      const auto& tensor_entry =
+          joined ? entries_for_join[i] : tensor_queue.GetTensorEntry(name);
       params.device = tensor_entry.device;
       params.dtype = tensor_entry.tensor->dtype();
       params.shape = tensor_entry.tensor->shape().to_vector();
 
-      this->put_(new_response, params);
+      this->put_(new_response, params, joined);
+      i++;
     }
   } else {
-    const auto& tensor_entry =
-        tensor_queue.GetTensorEntry(response.tensor_names()[0]);
     TensorParams params;
+    const auto& tensor_entry =
+        joined ? entries_for_join[0]
+               : tensor_queue.GetTensorEntry(response.tensor_names()[0]);
     params.device = tensor_entry.device;
     params.dtype = tensor_entry.tensor->dtype();
     params.shape = tensor_entry.tensor->shape().to_vector();
 
-    this->put_(response, params);
+    this->put_(response, params, joined);
   }
 }
 
@@ -208,6 +231,14 @@ uint32_t ResponseCache::peek_cache_bit(const Request& message) const {
 
 uint32_t ResponseCache::peek_cache_bit(const std::string& tensor_name) const {
   return tensor_name_to_bit_.at(tensor_name);
+}
+
+std::vector<uint32_t> ResponseCache::list_all_bits() const {
+  std::vector<uint32_t> result;
+  for (auto& it : tensor_name_to_bit_) {
+    result.push_back(it.second);
+  }
+  return result;
 }
 
 void ResponseCache::erase_response(uint32_t cache_bit) {

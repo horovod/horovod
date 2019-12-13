@@ -151,7 +151,8 @@ protected:
   // exist on any worker.
   void CoordinateCacheAndState(CacheCoordinator& cache_coordinator);
 
-  ResponseList FuseResponses(std::deque<Response>& responses);
+  ResponseList FuseResponses(std::deque<Response>& responses,
+                             bool joined = false);
 
   // Return the total byte size of the final allgathered output tensor
   int64_t

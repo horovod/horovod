@@ -1487,20 +1487,39 @@ class TorchTests(unittest.TestCase):
                 dtypes += [torch.cuda.HalfTensor]
         dims = [1, 2, 3]
         first_join_ranks = [0, 1]
-        for dtype, dim, first_join_rank in itertools.product(dtypes, dims, first_join_ranks):
+        cachings = [False, True]
+        for dtype, dim, first_join_rank, caching in itertools.product(dtypes, dims, first_join_ranks, cachings):
+            torch.manual_seed(1234)
+
+            # Use two tensors to test fusion
+            tensor_a = torch.FloatTensor(*([5] * dim)).random_(-100, 100)
+            tensor_a = self.cast_and_place(tensor_a, dtype)
+            tensor_b = torch.FloatTensor(*([17] * dim)).random_(-100, 100)
+            tensor_b = self.cast_and_place(tensor_b, dtype)
+
+            if caching:
+                handle_a = hvd.allreduce_async(tensor_a, name="tensor_a", average=True)
+                handle_b = hvd.allreduce_async(tensor_b, name="tensor_b", average=True)
+                averaged_a = hvd.synchronize(handle_a)
+                averaged_b = hvd.synchronize(handle_b)
+
             if rank == first_join_rank:
                 if dtype.is_cuda:
                     ret = hvd.join(hvd.local_rank())
                 else:
                     ret = hvd.join()
             else:
-                torch.manual_seed(1234)
-                tensor = torch.FloatTensor(*([17] * dim)).random_(-100, 100)
-                tensor = self.cast_and_place(tensor, dtype)
-                averaged = hvd.allreduce(tensor, average=True)
-                ret = hvd.join(hvd.local_rank())
+                handle_a = hvd.allreduce_async(tensor_a, name="tensor_a", average=True)
+                handle_b = hvd.allreduce_async(tensor_b, name="tensor_b", average=True)
+                averaged_a = hvd.synchronize(handle_a)
+                averaged_b = hvd.synchronize(handle_b)
+                if dtype.is_cuda:
+                    ret = hvd.join(hvd.local_rank())
+                else:
+                    ret = hvd.join()
 
-                max_difference = averaged.data.sub(tensor * (size - 1) / size).max()
+                max_difference_a = averaged_a.data.sub(tensor_a * (size - 1) / size).max()
+                max_difference_b = averaged_b.data.sub(tensor_b * (size - 1) / size).max()
                 # Threshold for floating point equality depends on number of
                 # ranks, since we're comparing against precise multiplication.
                 if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
@@ -1512,7 +1531,8 @@ class TorchTests(unittest.TestCase):
                     threshold = 5e-4
                 else:
                     break
-                assert max_difference <= threshold, 'hovd.join with hvd.allreduce produces incorrect results'
+                assert max_difference_a <= threshold, 'hvd.join with hvd.allreduce produces incorrect results'
+                assert max_difference_b <= threshold, 'hvd.join with hvd.allreduce produces incorrect results'
 
     def test_horovod_join_allgather(self):
         """Test Join op with allgather."""

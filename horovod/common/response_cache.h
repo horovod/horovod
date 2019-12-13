@@ -59,9 +59,11 @@ public:
 
   CacheState cached(const Request& message) const;
 
-  CacheState cached(const Response& response, const TensorParams& params) const;
+  CacheState cached(const Response& response, const TensorParams& params,
+                    bool joined = false) const;
 
-  void put(const Response& response, TensorQueue& tensor_queue);
+  void put(const Response& response, TensorQueue& tensor_queue,
+           bool joined = false);
 
   const Response& get_response(uint32_t cache_bit);
 
@@ -71,12 +73,15 @@ public:
 
   uint32_t peek_cache_bit(const std::string& tensor_name) const;
 
+  std::vector<uint32_t> list_all_bits() const;
+
   void erase_response(uint32_t cache_bit);
 
   void update_cache_bits();
 
 private:
-  void put_(const Response& response, TensorParams& params);
+  void put_(const Response& response, TensorParams& params,
+            bool joined = false);
 
   uint32_t capacity_ = 0;
 

@@ -70,13 +70,14 @@ TensorQueue::GetTensorDataForAutotuner(const ResponseList& response_list,
 // Parse tensor names from response and generate a vector of corresponding
 // tensor entries.
 void TensorQueue::GetTensorEntriesFromResponse(
-    Response& response, std::vector<TensorTableEntry>& entries, bool joined,
-    int join_device) {
+    const Response& response, std::vector<TensorTableEntry>& entries,
+    bool joined) {
   // Reserve to save re-allocation costs, as we know the size before.
   entries.reserve(response.tensor_names().size());
   {
     // Lock on the tensor table.
     std::lock_guard<std::mutex> guard(mutex_);
+    int64_t i = 0;
     for (auto& name : response.tensor_names()) {
       assert(response.response_type() == Response::ALLREDUCE ||
              response.response_type() == Response::ALLGATHER ||
@@ -94,21 +95,23 @@ void TensorQueue::GetTensorEntriesFromResponse(
         // Clear the tensor table of this tensor.
         tensor_table_.erase(iter);
       } else if (response.response_type() != Response::ERROR) {
+
         // Find Join tensor to use its context.
         auto join_iter = tensor_table_.find(JOIN_TENSOR_NAME);
         assert(join_iter != tensor_table_.end());
 
         TensorTableEntry entry;
-        join_iter->second.context->AllocateZeros(response.tensor_sizes()[0],
+        join_iter->second.context->AllocateZeros(response.tensor_sizes()[i],
                                                  response.tensor_type(),
                                                  &(entry.tensor));
 
         entry.output = entry.tensor;
-        entry.device = join_device;
+        entry.device = join_iter->second.device;
         entry.context = join_iter->second.context;
         entry.tensor_name = name;
         entries.push_back(std::move(entry));
       }
+      i++;
     }
   }
 }
