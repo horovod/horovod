@@ -119,8 +119,8 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
   ThrowIfError(enqueue_result);
 }
 
-inline void PushHorovodOperation(OperationType op_type, NDArray* input,
-                                 NDArray* output, const char* name,
+inline void PushHorovodOperation(OperationType op_type, NDArrayHandle input,
+                                 NDArrayHandle output, const char* name,
                                  int priority, int root_rank = -1) {
   auto op_type_name = GetOpTypeName(op_type);
   auto op_name = GetOpName(op_type_name, name);
@@ -133,20 +133,16 @@ inline void PushHorovodOperation(OperationType op_type, NDArray* input,
   auto ops_param = CreateMpiOpsParam(input_copy, output_copy,
     nullptr /* cpu_buffer */, op_type, op_name, root_rank);
 
-  // Not in-place
-  auto input_var = input_copy->var();
-  auto output_var = output_copy->var();
-  if (input_var != output_var) {
-    MXEnginePushAsync(DoHorovodOperation, ops_param, DeleteMpiOpsParam,
-                      &MX_EXEC_CTX, &input_var, 1, &output_var, 1,
-                      &MX_FUNC_PROP, priority, op_type_name);
-  // In-place
+  if (input_tensor->IsSame(*output_tensor)) {
+    // In-place
+    MXEnginePushAsyncND(DoHorovodOperation, ops_param, DeleteMpiOpsParam,
+                        &MX_EXEC_CTX, nullptr, 0, &output, 1,
+                        &MX_FUNC_PROP, priority, op_type_name);
   } else {
-    MXEnginePushAsync(DoHorovodOperation, ops_param, DeleteMpiOpsParam,
-                      &MX_EXEC_CTX, nullptr, 0, &output_var, 1,
-                      &MX_FUNC_PROP, priority, op_type_name);
+    MXEnginePushAsyncND(DoHorovodOperation, ops_param, DeleteMpiOpsParam,
+                        &MX_EXEC_CTX, &input, 1, &output, 1,
+                        &MX_FUNC_PROP, priority, op_type_name);
   }
-  *output = *output_copy;
 }
 
 #if HAVE_CUDA
@@ -191,8 +187,8 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
   ThrowIfError(enqueue_result);
 }
 
-inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
-                                          NDArray* output, const char* name,
+inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArrayHandle input,
+                                          NDArrayHandle output, const char* name,
                                           int priority, int root_rank = -1) {
   auto op_type_name = GetOpTypeName(op_type);
   auto op_name = GetOpName(op_type_name, name);
@@ -201,13 +197,6 @@ inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
     input->dtype());
   auto ops_param = CreateMpiOpsParam(nullptr, nullptr, cpu_buffer,
                                      op_type, op_name, root_rank);
-
-  // We need to create a shared_ptr to NDArray object with
-  // shallow copy to prevent from NDArray object being freed
-  // before MXNet engine process it
-  // See: https://github.com/horovod/horovod/issues/1533
-  auto input_copy = std::make_shared<NDArray>(*input);
-  auto output_copy = std::make_shared<NDArray>(*output);
 
   // Make async copy of input tensor to CPU tensor.
   TensorUtil::AsyncCopyCudaToCPU(input, cpu_buffer.get());
@@ -246,7 +235,7 @@ extern "C" int horovod_mxnet_allreduce_async(NDArray* input, NDArray* output,
 #endif
 
   if (average) {
-    *output /= horovod_size();
+    *(static_cast<NDArray *>(output)) /= horovod_size();
   }
 
   MX_API_END();
