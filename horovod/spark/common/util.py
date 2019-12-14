@@ -429,7 +429,7 @@ def _train_val_split(df, validation):
         train_df, val_df = train_df.randomSplit([1.0 - validation, validation])
         validation_ratio = validation
     elif isinstance(validation, str):
-        dtype = [dtype for name, dtype in df.dtypes if name == validation][0]
+        dtype = [field.dataType for field in df.schema.fields if field.name == validation][0]
         bool_dtype = isinstance(dtype, BooleanType)
         val_df = train_df.filter(
             f.col(validation) if bool_dtype else f.col(validation) > 0).drop(validation)
