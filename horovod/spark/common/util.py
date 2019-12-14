@@ -153,6 +153,10 @@ def check_shape_compatibility(metadata, feature_columns, label_columns,
 
         for idx, col, output_shape in zip(range(label_count), label_columns, output_shapes):
             col_size = metadata[col]['shape']
+            if col_size is None:
+                # When training directly on Parquet, we do not compute shape metadata
+                continue
+
             output_size = abs(np.prod(output_shape))
             if col_size != output_size:
                 raise ValueError('Label column \'{col}\' with size {label} must equal that of the '

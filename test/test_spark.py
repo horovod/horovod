@@ -388,10 +388,9 @@ class SparkTests(unittest.TestCase):
             ]
             schema = StructType([StructField('data', FloatType()), StructField('val', IntegerType())])
             df = create_test_data_from_schema(spark, data, schema)
-            metadata = util._get_metadata(df)
 
             validation = 'val'
-            train_df, val_df, validation_ratio = util._train_val_split(df, metadata, validation)
+            train_df, val_df, validation_ratio = util._train_val_split(df, validation)
 
             # Only check counts as validation ratio cannot be guaranteed due to approx calculation
             assert train_df.count() == 4
@@ -404,10 +403,9 @@ class SparkTests(unittest.TestCase):
             ]
             schema = StructType([StructField('data', FloatType()), StructField('val', BooleanType())])
             df = create_test_data_from_schema(spark, data, schema)
-            metadata = util._get_metadata(df)
 
             validation = 'val'
-            train_df, val_df, validation_ratio = util._train_val_split(df, metadata, validation)
+            train_df, val_df, validation_ratio = util._train_val_split(df, validation)
 
             # Only check counts as validation ratio cannot be guaranteed due to approx calculation
             assert train_df.count() == 4
