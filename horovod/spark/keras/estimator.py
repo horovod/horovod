@@ -240,21 +240,15 @@ class KerasEstimator(Estimator, EstimatorParams, KerasEstimatorParamsReadable,
 
     def _fit(self, df):
         backend = self._get_or_create_backend()
-        store = self.getStore()
-        label_columns = self.getLabelCols()
-        feature_columns = self.getFeatureCols()
-        validation = self.getValidation()
-        sample_weight_col = self.getSampleWeightCol()
-        partitions_per_process = self.getPartitionsPerProcess()
-
         with util.prepare_data(backend.num_processes(),
-                               store,
+                               self.getStore(),
                                df,
-                               label_columns=label_columns,
-                               feature_columns=feature_columns,
-                               validation=validation,
-                               sample_weight_col=sample_weight_col,
-                               partitions_per_process=partitions_per_process,
+                               label_columns=self.getLabelCols(),
+                               feature_columns=self.getFeatureCols(),
+                               validation=self.getValidation(),
+                               sample_weight_col=self.getSampleWeightCol(),
+                               compress_sparse=self.getCompressSparseCols(),
+                               partitions_per_process=self.getPartitionsPerProcess(),
                                verbose=self.getVerbose()) as dataset_idx:
             train_rows, val_rows, metadata, avg_row_size = util.get_dataset_properties(dataset_idx)
             self._check_metadata_compatibility(metadata)
@@ -318,12 +312,12 @@ class KerasEstimator(Estimator, EstimatorParams, KerasEstimatorParamsReadable,
                              'compiled model')
 
         metrics = self.getMetrics()
-        compression = self.getCompression()
+        gradient_compression = self.getGradientCompression()
         optimizer_weight_values = optimizer.get_weights()
 
         dist_optimizer_args = dict(optimizer=optimizer)
-        if compression:
-            dist_optimizer_args['compression'] = compression
+        if gradient_compression:
+            dist_optimizer_args['compression'] = gradient_compression
 
         # Horovod: wrap optimizer with DistributedOptimizer.
         dist_optimizer = keras_utils.get_horovod().DistributedOptimizer(**dist_optimizer_args)

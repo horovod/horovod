@@ -29,7 +29,14 @@ class EstimatorParams(Params):
     store = Param(Params._dummy(), 'store', 'store')
     metrics = Param(Params._dummy(), 'metrics', 'metrics')
     loss = Param(Params._dummy(), 'loss', 'loss')
-    compression = Param(Params._dummy(), 'compression', 'compression')
+
+    gradient_compression = Param(Params._dummy(), 'gradient_compression', 'Horovod gradient compression option')
+    compress_sparse_cols = Param(Params._dummy(),
+                                 'compress_sparse_cols',
+                                 'flag indicating whether SparseVector columns should be compressed. '
+                                 'requires additional compute time but saves intermediate disk space. '
+                                 'recommended to avoid unless using a lot of sparse data',
+                                 typeConverter=TypeConverters.toBoolean)
 
     loss_weights = Param(Params._dummy(), 'loss_weights', 'loss weights',
                          typeConverter=TypeConverters.toListFloat)
@@ -87,7 +94,8 @@ class EstimatorParams(Params):
             feature_cols=None,
             label_cols=None,
             validation=None,
-            compression=None,
+            gradient_compression=None,
+            compress_sparse_cols=False,
             batch_size=32,
             epochs=1,
             verbose=1,
@@ -231,11 +239,17 @@ class EstimatorParams(Params):
     def getVerbose(self):
         return self.getOrDefault(self.verbose)
 
-    def setCompression(self, value):
-        return self._set(compression=value)
+    def setGradientCompression(self, value):
+        return self._set(gradient_compression=value)
 
-    def getCompression(self):
-        return self.getOrDefault(self.compression)
+    def getGradientCompression(self):
+        return self.getOrDefault(self.gradient_compression)
+
+    def setCompressSparseCols(self, value):
+        return self._set(compress_sparse_cols=value)
+
+    def getCompressSparseCols(self):
+        return self.getOrDefault(self.compress_sparse_cols)
 
     def setShufflingBufferSize(self, value):
         return self._set(shuffle_buffer_size=value)

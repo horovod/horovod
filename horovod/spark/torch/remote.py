@@ -39,7 +39,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     # Estimator parameters
     loss_fns_pre_train = estimator.getLoss()
     loss_constructors = estimator.getLossConstructors()
-    compression = estimator.getCompression()
+    gradient_compression = estimator.getGradientCompression()
     input_shapes = estimator.getInputShapes()
     feature_columns = estimator.getFeatureCols()
     label_columns = estimator.getLabelCols()
@@ -143,9 +143,9 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
 
         dist_optimizer_args = dict(optimizer=optimizer,
                                    named_parameters=model.named_parameters())
-        if compression:
+        if gradient_compression:
             # Pass the compression arg only if it is specified by the user.
-            dist_optimizer_args['compression'] = compression
+            dist_optimizer_args['compression'] = gradient_compression
         # Horovod: wrap optimizer with DistributedOptimizer.
         optimizer = hvd.DistributedOptimizer(**dist_optimizer_args)
 

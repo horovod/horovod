@@ -373,10 +373,9 @@ class SparkTests(unittest.TestCase):
             ]
             schema = StructType([StructField('data', FloatType())])
             df = create_test_data_from_schema(spark, data, schema)
-            metadata = util._get_metadata(df)
 
             validation = 0.2
-            train_df, val_df, validation_ratio = util._train_val_split(df, metadata, validation)
+            train_df, val_df, validation_ratio = util._train_val_split(df, validation)
 
             # Only check validation ratio, as we can't rely on random splitting to produce an exact
             # result of 4 training and 1 validation samples.
@@ -462,6 +461,149 @@ class SparkTests(unittest.TestCase):
 
             metadata = util._get_metadata(df)
             self.assertDictEqual(metadata, expected_metadata)
+
+    def test_prepare_data_no_compression(self):
+        util.clear_training_cache()
+
+        expected_metadata = \
+            {
+                'float': {
+                    'spark_data_type': DoubleType,
+                    'is_sparse_vector_only': False,
+                    'intermediate_format': constants.NOCHANGE,
+                    'max_size': None,
+                    'shape': None
+                },
+                'dense': {
+                    'spark_data_type': DenseVector,
+                    'is_sparse_vector_only': False,
+                    'intermediate_format': constants.NOCHANGE,
+                    'max_size': None,
+                    'shape': None
+                },
+                'sparse': {
+                    'spark_data_type': DenseVector,
+                    'is_sparse_vector_only': False,
+                    'intermediate_format': constants.NOCHANGE,
+                    'max_size': None,
+                    'shape': None
+                },
+                'mixed': {
+                    'spark_data_type': DenseVector,
+                    'is_sparse_vector_only': False,
+                    'intermediate_format': constants.NOCHANGE,
+                    'max_size': None,
+                    'shape': None
+                },
+            }
+
+        with mock.patch('horovod.spark.common.util._get_metadata',
+                        side_effect=util._get_metadata) as mock_get_metadata:
+            with spark_session('test_prepare_data') as spark:
+                data = [[
+                    0.0,
+                    DenseVector([1.0, 1.0]),
+                    SparseVector(2, {1: 1.0}),
+                    DenseVector([1.0, 1.0])
+                ], [
+                    1.0,
+                    DenseVector([1.0, 1.0]),
+                    SparseVector(2, {1: 1.0}),
+                    SparseVector(2, {1: 1.0})
+                ]]
+
+                schema = StructType([
+                    StructField('float', FloatType()),
+                    StructField('dense', VectorUDT()),
+                    StructField('sparse', VectorUDT()),
+                    StructField('mixed', VectorUDT())
+                ])
+
+                df = create_test_data_from_schema(spark, data, schema)
+
+                with local_store() as store:
+                    with util.prepare_data(num_processes=2,
+                                           store=store,
+                                           df=df,
+                                           feature_columns=['dense', 'sparse', 'mixed'],
+                                           label_columns=['float']) as dataset_idx:
+                        mock_get_metadata.assert_not_called()
+                        assert dataset_idx == 0
+
+                        train_rows, val_rows, metadata, avg_row_size = util.get_dataset_properties(dataset_idx)
+                        self.assertDictEqual(metadata, expected_metadata)
+
+    def test_prepare_data_compress_sparse(self):
+        util.clear_training_cache()
+
+        expected_metadata = \
+            {
+                'float': {
+                    'spark_data_type': FloatType,
+                    'is_sparse_vector_only': False,
+                    'intermediate_format': constants.NOCHANGE,
+                    'max_size': 1,
+                    'shape': 1
+                },
+                'dense': {
+                    'spark_data_type': DenseVector,
+                    'is_sparse_vector_only': False,
+                    'intermediate_format': constants.ARRAY,
+                    'max_size': 2,
+                    'shape': 2
+                },
+                'sparse': {
+                    'spark_data_type': SparseVector,
+                    'is_sparse_vector_only': True,
+                    'intermediate_format': constants.CUSTOM_SPARSE,
+                    'max_size': 1,
+                    'shape': 2
+                },
+                'mixed': {
+                    'spark_data_type': DenseVector,
+                    'is_sparse_vector_only': False,
+                    'intermediate_format': constants.ARRAY,
+                    'max_size': 2,
+                    'shape': 2
+                },
+            }
+
+        with mock.patch('horovod.spark.common.util._get_metadata',
+                        side_effect=util._get_metadata) as mock_get_metadata:
+            with spark_session('test_prepare_data') as spark:
+                data = [[
+                    0.0,
+                    DenseVector([1.0, 1.0]),
+                    SparseVector(2, {1: 1.0}),
+                    DenseVector([1.0, 1.0])
+                ], [
+                    1.0,
+                    DenseVector([1.0, 1.0]),
+                    SparseVector(2, {1: 1.0}),
+                    SparseVector(2, {1: 1.0})
+                ]]
+
+                schema = StructType([
+                    StructField('float', FloatType()),
+                    StructField('dense', VectorUDT()),
+                    StructField('sparse', VectorUDT()),
+                    StructField('mixed', VectorUDT())
+                ])
+
+                df = create_test_data_from_schema(spark, data, schema)
+
+                with local_store() as store:
+                    with util.prepare_data(num_processes=2,
+                                           store=store,
+                                           df=df,
+                                           feature_columns=['dense', 'sparse', 'mixed'],
+                                           label_columns=['float'],
+                                           compress_sparse=True) as dataset_idx:
+                        mock_get_metadata.assert_called()
+                        assert dataset_idx == 0
+
+                        train_rows, val_rows, metadata, avg_row_size = util.get_dataset_properties(dataset_idx)
+                        self.assertDictEqual(metadata, expected_metadata)
 
     def test_check_shape_compatibility(self):
         feature_columns = ['x1', 'x2', 'features']

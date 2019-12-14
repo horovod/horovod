@@ -209,21 +209,15 @@ class TorchEstimator(Estimator, EstimatorParams, TorchEstimatorParamsWritable,
 
     def _fit(self, df):
         backend = self._get_or_create_backend()
-        store = self.getStore()
-        label_columns = self.getLabelCols()
-        feature_columns = self.getFeatureCols()
-        validation = self.getValidation()
-        sample_weight_col = self.getSampleWeightCol()
-        partitions_per_process = self.getPartitionsPerProcess()
-
         with util.prepare_data(backend.num_processes(),
-                               store,
+                               self.getStore(),
                                df,
-                               label_columns=label_columns,
-                               feature_columns=feature_columns,
-                               validation=validation,
-                               sample_weight_col=sample_weight_col,
-                               partitions_per_process=partitions_per_process,
+                               label_columns=self.getLabelCols(),
+                               feature_columns=self.getFeatureCols(),
+                               validation=self.getValidation(),
+                               sample_weight_col=self.getSampleWeightCol(),
+                               compress_sparse=self.getCompressSparseCols(),
+                               partitions_per_process=self.getPartitionsPerProcess(),
                                verbose=self.getVerbose()) as dataset_idx:
             train_rows, val_rows, metadata, avg_row_size = util.get_dataset_properties(dataset_idx)
             self._check_metadata_compatibility(metadata)

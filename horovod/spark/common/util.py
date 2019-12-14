@@ -22,7 +22,7 @@ import contextlib
 import pyarrow as pa
 import numpy as np
 import pyspark.sql.functions as f
-from pyspark.ml.linalg import DenseVector, SparseVector, VectorUDT
+from pyspark.ml.linalg import DenseVector, SparseVector, Vector, VectorUDT
 from pyspark.sql.types import ArrayType, BinaryType, BooleanType, FloatType, DoubleType, \
     IntegerType, LongType, NullType, StringType
 from pyspark.sql.types import from_arrow_type
@@ -238,7 +238,7 @@ def _get_col_info(df):
 
 def _get_metadata(df):
     """
-    Infer the type and shape of all the columns and determines if what intermedite format they
+    Infer the type and shape of all the columns and determines if what intermediate format they
     need to be converted to in case they are a vector.
 
     Example return value:
@@ -324,27 +324,37 @@ def to_petastorm_fn(schema_cols, metadata):
         import numpy as np
         from pyspark import Row
 
-        # TODO(travis): lazy eval, don't copy if there are no changes
-        fields = row.asDict().copy()
+        converted = {}
         for col in schema_cols:
             col_data = row[col]
-            intermediate_format = metadata[col]['intermediate_format']
-            if intermediate_format == ARRAY:
-                fields[col] = col_data.toArray().tolist()
-            elif intermediate_format == CUSTOM_SPARSE:
-                # Currently petastorm does not support reading pyspark sparse vector. We put
-                # the indices and values into one array. when consuming the data, we re-create
-                # the vector from this format.
-                size = len(col_data.indices)
-                padding_zeros = 2 * (metadata[col]['max_size'] - len(col_data.indices))
+            if isinstance(col_data, Vector):
+                intermediate_format = metadata[col]['intermediate_format'] if metadata else ARRAY
+                if intermediate_format == ARRAY:
+                    converted[col] = col_data.toArray().tolist()
+                elif intermediate_format == CUSTOM_SPARSE:
+                    # Currently petastorm does not support reading pyspark sparse vector. We put
+                    # the indices and values into one array. when consuming the data, we re-create
+                    # the vector from this format.
+                    size = len(col_data.indices)
+                    padding_zeros = 2 * (metadata[col]['max_size'] - len(col_data.indices))
 
-                fields[col] = np.concatenate(
-                    (np.array([size]), col_data.indices, col_data.values,
-                     np.zeros(padding_zeros))).tolist()
+                    converted[col] = np.concatenate(
+                        (np.array([size]), col_data.indices, col_data.values,
+                         np.zeros(padding_zeros))).tolist()
 
-        return Row(**fields)
+        if converted:
+            row = row.asDict().copy()
+            row.update(converted)
+        return Row(**row)
 
     return to_petastorm
+
+
+def _has_vector_column(df):
+    for field in df.schema.fields:
+        if isinstance(field.dataType, VectorUDT):
+            return True
+    return False
 
 
 def _get_dataset_info(dataset, dataset_id, path):
@@ -406,7 +416,7 @@ def get_simple_meta_from_parquet(store, label_columns, feature_columns, sample_w
     return train_rows, val_rows, metadata, avg_row_size
 
 
-def _train_val_split(df, metadata, validation):
+def _train_val_split(df, validation):
     train_df = df
     val_df = None
     validation_ratio = 0.0
@@ -415,7 +425,8 @@ def _train_val_split(df, metadata, validation):
         train_df, val_df = train_df.randomSplit([1.0 - validation, validation])
         validation_ratio = validation
     elif isinstance(validation, str):
-        bool_dtype = metadata[validation]['spark_data_type'] == BooleanType
+        dtype = [dtype for name, dtype in df.dtypes if name == validation][0]
+        bool_dtype = isinstance(dtype, BooleanType)
         val_df = train_df.filter(
             f.col(validation) if bool_dtype else f.col(validation) > 0).drop(validation)
         train_df = train_df.filter(
@@ -436,7 +447,7 @@ def _train_val_split(df, metadata, validation):
 
 @contextlib.contextmanager
 def prepare_data(num_processes, store, df, label_columns, feature_columns,
-                 validation=None, sample_weight_col=None,
+                 validation=None, sample_weight_col=None, compress_sparse=False,
                  partitions_per_process=10, verbose=0):
     if num_processes <= 0 or partitions_per_process <= 0:
         raise ValueError('num_proc={} and partitions_per_process={} must both be > 0'
@@ -486,11 +497,14 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
                 schema_cols.append(validation)
             df = df[schema_cols]
 
-            metadata = _get_metadata(df)
+            metadata = None
+            if _has_vector_column(df):
+                if compress_sparse:
+                    metadata = _get_metadata(df)
+                to_petastorm = to_petastorm_fn(schema_cols, metadata)
+                df = df.rdd.map(to_petastorm).toDF()
 
-            to_petastorm = to_petastorm_fn(schema_cols, metadata)
-            train_df = df.rdd.map(to_petastorm).toDF()
-            train_df, val_df, validation_ratio = _train_val_split(train_df, metadata, validation)
+            train_df, val_df, validation_ratio = _train_val_split(df, validation)
 
             train_partitions = max(int(num_partitions * (1.0 - validation_ratio)),
                                    num_processes)
@@ -528,6 +542,7 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
                 if verbose:
                     print('val_rows={}'.format(val_rows))
 
+            metadata = metadata or pq_metadata
             _training_cache.set_dataset_properties(
                 dataset_idx, (train_rows, val_rows, metadata, avg_row_size))
 
