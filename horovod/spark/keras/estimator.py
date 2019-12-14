@@ -489,9 +489,9 @@ class KerasModel(Model, ModelParams, KerasEstimatorParamsReadable,
                 for label_col, output_col, pred, in zip(label_cols, output_cols, preds):
                     meta = metadata[label_col]
                     col_type = meta['spark_data_type']
-                    # dtype for dense and spark tensor is always np.float64
+                    # dtype for DenseVector and SparseVector is always np.float64
                     if col_type == DenseVector:
-                        shape = np.prod(pred.shape())
+                        shape = np.prod(pred.shape)
                         flattened_pred = pred.reshape(shape, )
                         field = DenseVector(flattened_pred)
                     elif col_type == SparseVector:

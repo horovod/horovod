@@ -22,7 +22,9 @@ import mock
 import numpy as np
 import tensorflow as tf
 
+import pyspark.sql.types as T
 from pyspark.ml.linalg import DenseVector, SparseVector
+from pyspark.sql.functions import udf
 
 import horovod.spark.keras as hvd
 from horovod.spark.common import constants, util
@@ -31,7 +33,7 @@ from horovod.spark.keras.estimator import EstimatorParams
 from horovod.spark.keras.util import _custom_sparse_to_dense_fn, _serialize_param_value, BareKerasUtil, TFKerasUtil
 
 from common import temppath
-from spark_common import CallbackBackend, create_xor_data, local_store, spark_session
+from spark_common import CallbackBackend, create_mnist_data, create_xor_data, local_store, spark_session
 
 
 def create_xor_model():
@@ -40,6 +42,18 @@ def create_xor_model():
     model.add(tf.keras.layers.Activation('tanh'))
     model.add(tf.keras.layers.Dense(1))
     model.add(tf.keras.layers.Activation('sigmoid'))
+    return model
+
+
+def create_mnist_model():
+    model = tf.keras.models.Sequential()
+    model.add(tf.keras.layers.Conv2D(32, kernel_size=(3, 3),
+                                     activation='relu',
+                                     input_shape=(8, 8, 1)))
+    model.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2)))
+    model.add(tf.keras.layers.Dropout(0.25))
+    model.add(tf.keras.layers.Flatten())
+    model.add(tf.keras.layers.Dense(10, activation='softmax'))
     return model
 
 
@@ -84,6 +98,40 @@ class SparkKerasTests(tf.test.TestCase):
                 pred = trained_model.predict([np.ones([1, 2], dtype=np.float32)])
                 assert len(pred) == 1
                 assert pred.dtype == np.float32
+
+    def test_fit_model_multiclass(self):
+        model = create_mnist_model()
+        optimizer = tf.keras.optimizers.Adadelta(1.0)
+        loss = tf.keras.losses.categorical_crossentropy
+
+        with spark_session('test_fit_model_multiclass') as spark:
+            df = create_mnist_data(spark)
+
+            with local_store() as store:
+                keras_estimator = hvd.KerasEstimator(
+                    num_proc=2,
+                    store=store,
+                    model=model,
+                    optimizer=optimizer,
+                    loss=loss,
+                    feature_cols=['features'],
+                    label_cols=['label_vec'],
+                    batch_size=2,
+                    epochs=2,
+                    verbose=2)
+
+                keras_model = keras_estimator.fit(df).setOutputCols(['label_prob'])
+                pred_df = keras_model.transform(df)
+
+                argmax = udf(lambda v: float(np.argmax(v)), returnType=T.DoubleType())
+                pred_df = pred_df.withColumn('label_pred', argmax(pred_df.label_prob))
+
+                preds = pred_df.collect()
+                assert len(preds) == df.count()
+
+                row = preds[0]
+                label_prob = row.label_prob.toArray().tolist()
+                assert label_prob[int(row.label_pred)] == max(label_prob)
 
     @mock.patch('horovod.spark.keras.remote._pin_gpu_fn')
     @mock.patch('horovod.spark.keras.util.TFKerasUtil.fit_fn')

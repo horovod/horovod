@@ -21,6 +21,7 @@ import platform
 
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import VectorAssembler
+from pyspark.ml.linalg import DenseVector, VectorUDT
 from pyspark.sql.types import FloatType, IntegerType, StructField, StructType
 
 from horovod.spark.common.store import LocalStore
@@ -75,6 +76,18 @@ def create_xor_data(spark):
     pipeline = Pipeline().setStages([vector_assembler])
 
     df = pipeline.fit(raw_df).transform(raw_df)
+    return df
+
+
+def create_mnist_data(spark):
+    features = DenseVector([1.0] * 64)
+    label_vec = DenseVector([0.0, 0.0, 1.0] + [0.0] * 7)
+    label = 2.0
+    data = [[features, label_vec, label]] * 10
+    schema = StructType([StructField('features', VectorUDT()),
+                         StructField('label_vec', VectorUDT()),
+                         StructField('label', FloatType())])
+    df = create_test_data_from_schema(spark, data, schema)
     return df
 
 
