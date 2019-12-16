@@ -151,7 +151,7 @@ class RunTests(unittest.TestCase):
         with override_args('horovodrun', '-np', '2',
                            '--mpi-threads-disable',
                            '--num-nccl-streams', '2',
-                           '--mlsl-bgt-affinity', '1',
+                           '--ccl-bgt-affinity', '1',
                            '--gloo-timeout-seconds', '60'):
             args = parse_args()
             env = {}
@@ -159,7 +159,7 @@ class RunTests(unittest.TestCase):
 
             self.assertEqual(env.get(config_parser.HOROVOD_MPI_THREADS_DISABLE), '1')
             self.assertEqual(env.get(config_parser.HOROVOD_NUM_NCCL_STREAMS), '2')
-            self.assertEqual(env.get(config_parser.HOROVOD_MLSL_BGT_AFFINITY), '1')
+            self.assertEqual(env.get(config_parser.HOROVOD_CCL_BGT_AFFINITY), '1')
             self.assertEqual(env.get(config_parser.HOROVOD_GLOO_TIMEOUT_SECONDS), '60')
 
     def test_logging_args(self):
@@ -208,7 +208,7 @@ class RunTests(unittest.TestCase):
             # Library Options
             self.assertTrue(args.mpi_threads_disable)
             self.assertEqual(args.num_nccl_streams, 2)
-            self.assertEqual(args.mlsl_bgt_affinity, 1)
+            self.assertEqual(args.ccl_bgt_affinity, 1)
             self.assertEqual(args.gloo_timeout_seconds, 60)
 
             # Logging

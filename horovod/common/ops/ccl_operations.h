@@ -15,13 +15,13 @@
 // limitations under the License.
 // =============================================================================
 
-#ifndef HOROVOD_MLSL_OPERATIONS_H
-#define HOROVOD_MLSL_OPERATIONS_H
+#ifndef HOROVOD_CCL_OPERATIONS_H
+#define HOROVOD_CCL_OPERATIONS_H
 
 #include <iostream>
 #include <pthread.h>
 
-#include "mlsl.hpp"
+#include "ccl.h"
 
 #include "collective_operations.h"
 #include "../common.h"
@@ -30,21 +30,17 @@
 namespace horovod {
 namespace common {
 
-struct MLSLContext {
-  MLSL::Distribution *dist;
-
+struct CCLContext {
   void Init();
-
-  void Setup(int size);
 
   void Finalize();
 };
 
-class MLSLAllreduce : public AllreduceOp {
+class CCLAllreduce : public AllreduceOp {
 public:
-  MLSLAllreduce(MLSLContext* mlsl_context, HorovodGlobalState* global_state);
+  CCLAllreduce(CCLContext* ccl_context, HorovodGlobalState* global_state);
 
-  virtual ~MLSLAllreduce() = default;
+  virtual ~CCLAllreduce() = default;
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
@@ -59,12 +55,12 @@ protected:
   void MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
                                   const void* buffer_data_at_offset, TensorTableEntry& e) override;
 
-  MLSLContext* mlsl_context_;
+  CCLContext* ccl_context_;
 };
 
-class MLSLAllgather : public AllgatherOp {
+class CCLAllgather : public AllgatherOp {
 public:
-  MLSLAllgather(MLSLContext* mlsl_context, HorovodGlobalState* global_state);
+  CCLAllgather(CCLContext* ccl_context, HorovodGlobalState* global_state);
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
@@ -73,12 +69,12 @@ public:
                const Response& response) const override;
 
 protected:
-  MLSLContext* mlsl_context_;
+  CCLContext* ccl_context_;
 };
 
-class MLSLBroadcast : public BroadcastOp {
+class CCLBroadcast : public BroadcastOp {
 public:
-  MLSLBroadcast(MLSLContext* mlsl_context, HorovodGlobalState* global_state);
+  CCLBroadcast(CCLContext* ccl_context, HorovodGlobalState* global_state);
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
@@ -87,10 +83,10 @@ public:
                const Response& response) const override;
 
 protected:
-  MLSLContext* mlsl_context_;
+  CCLContext* ccl_context_ ;
 };
 
 } // namespace common
 } // namespace horovod
 
-#endif //HOROVOD_MLSL_OPERATIONS_H
+#endif //HOROVOD_CCL_OPERATIONS_H

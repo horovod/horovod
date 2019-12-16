@@ -23,7 +23,7 @@
 namespace horovod {
 namespace common {
 
-enum class LibType { MPI = 0, MLSL = 1, GLOO = 2 };
+enum class LibType { MPI = 0, CCL = 1, GLOO = 2 };
 
 std::string TypeName(LibType type);
 

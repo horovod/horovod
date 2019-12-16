@@ -15,24 +15,38 @@
 // limitations under the License.
 // =============================================================================
 
-#include "mlsl_operations.h"
+#include "ccl_operations.h"
 
 #include "../logging.h"
+
+#define CCL_CALL(expr)                                                      \
+  do {                                                                      \
+        ccl_status_t status = expr;                                         \
+        if (status != ccl_status_success)                                   \
+        {                                                                   \
+           throw std::runtime_error(__FUNCTION__ + std::string(" failed."));\
+        }                                                                   \
+  } while (0)
+
 
 namespace horovod {
 namespace common {
 
-MLSL::DataType GetMLSLDataType(const std::shared_ptr<Tensor> tensor) {
+ccl_datatype_t GetCCLDataType(const std::shared_ptr<Tensor>& tensor) {
   switch (tensor->dtype()) {
-  case HOROVOD_UINT8:
-    return MLSL::DT_BYTE;
+  case HOROVOD_BYTE:
+    return ccl_dtype_char;
   case HOROVOD_FLOAT32:
-    return MLSL::DT_FLOAT;
+    return ccl_dtype_float;
   case HOROVOD_FLOAT64:
-    return MLSL::DT_DOUBLE;
+    return ccl_dtype_double;
+  case HOROVOD_INT32:
+    return ccl_dtype_int;
+  case HOROVOD_INT64:
+    return ccl_dtype_int64;
   default:
     throw std::logic_error("Type " + DataType_Name(tensor->dtype()) +
-                           " is not supported in MLSL.");
+                           " is not supported in CCL.");
   }
 }
 
@@ -59,40 +73,33 @@ void server_affinity_set(int affinity) {
   }
 }
 
-void MLSLContext::Init() {
-  char* hvd_mlsl_bg_thread_env = NULL;
+void CCLContext::Init() {
+  char* hvd_ccl_bg_thread_env = NULL;
   int bg_thread_affinity = 0;
-  if ((hvd_mlsl_bg_thread_env = getenv("HOROVOD_MLSL_BGT_AFFINITY")) != NULL)
+  if ((hvd_ccl_bg_thread_env = getenv(HOROVOD_CCL_BGT_AFFINITY)) != NULL)
   {
-      bg_thread_affinity = atoi(hvd_mlsl_bg_thread_env);
+      bg_thread_affinity = atoi(hvd_ccl_bg_thread_env);
       server_affinity_set(bg_thread_affinity);
   }
 
   LOG(DEBUG) << "Background thread start";
 
-  // Initialize MLSL
-  MLSL::Environment::GetEnv().Init(NULL, NULL);
+  // Initialize CCL
+  ccl_init();
 }
 
-void MLSLContext::Setup(int size) {
-  dist = MLSL::Environment::GetEnv().CreateDistribution(size, 1);
-}
-
-void MLSLContext::Finalize() {
-  dist->Barrier(MLSL::GT_GLOBAL);
+void CCLContext::Finalize() {
+  ccl_barrier(nullptr, nullptr);
   LOG(DEBUG) << "Background thread comm destroy";
 
-  // Destroy MLSL communicators
-  MLSL::Environment::GetEnv().DeleteDistribution(dist);
-
-  // Finalize MLSL
-  MLSL::Environment::GetEnv().Finalize();
+  // Finalize CCL
+  ccl_finalize();
 }
 
-MLSLAllreduce::MLSLAllreduce(MLSLContext* mlsl_context, HorovodGlobalState* global_state)
-    : AllreduceOp(global_state), mlsl_context_(mlsl_context) {}
+CCLAllreduce::CCLAllreduce(CCLContext* ccl_context, HorovodGlobalState* global_state)
+    : AllreduceOp(global_state), ccl_context_(ccl_context) {}
 
-Status MLSLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+Status CCLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   auto& first_entry = entries[0];
 
   void* buffer_data;
@@ -112,18 +119,13 @@ Status MLSLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Resp
   }
 
   // Do allreduce.
-  timeline.ActivityStartAll(entries, MLSL_ALLREDUCE);
+  timeline.ActivityStartAll(entries, CCL_ALLREDUCE);
   const void* sendbuf = entries.size() > 1 || first_entry.tensor->data() == first_entry.output->data()
                         ? buffer_data : first_entry.tensor->data();
-  auto mlsl_req = mlsl_context_->dist->AllReduce((void*)sendbuf, buffer_data, num_elements,
-                                                 GetMLSLDataType(first_entry.tensor),
-                                                 MLSL::RT_SUM, MLSL::GT_DATA);
-
-  try {
-      MLSL::Environment::GetEnv().Wait(mlsl_req);
-  } catch (...) {
-      throw std::logic_error("MLSL_Allreduce failed.");
-  }
+  ccl_request_t ccl_req;
+  CCL_CALL(ccl_allreduce((void*)sendbuf, buffer_data, num_elements, GetCCLDataType(first_entry.tensor),
+                         ccl_reduction_sum, nullptr /*attr*/, nullptr /*comm*/, nullptr /*stream*/, &ccl_req));
+  CCL_CALL(ccl_wait(ccl_req));
   timeline.ActivityEndAll(entries);
 
   // Copy memory out of the fusion buffer.
@@ -136,34 +138,34 @@ Status MLSLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Resp
   return Status::OK();
 }
 
-bool MLSLAllreduce::Enabled(const ParameterManager& param_manager,
+bool CCLAllreduce::Enabled(const ParameterManager& param_manager,
                            const std::vector<TensorTableEntry>& entries,
                            const Response& response) const {
   return true;
 }
 
-void MLSLAllreduce::MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
+void CCLAllreduce::MemcpyEntryInFusionBuffer(const std::vector<TensorTableEntry>& entries,
                                              const TensorTableEntry& e, void* buffer_data_at_offset) {
   std::memcpy(buffer_data_at_offset, e.tensor->data(),
               (size_t) e.tensor->size());
 }
 
-void MLSLAllreduce::MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
+void CCLAllreduce::MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
                                               const void* buffer_data_at_offset, TensorTableEntry& e) {
   std::memcpy((void*) e.output->data(), buffer_data_at_offset,
               (size_t) e.tensor->size());
 }
 
-MLSLAllgather::MLSLAllgather(MLSLContext* mlsl_context, HorovodGlobalState* global_state)
-    : AllgatherOp(global_state), mlsl_context_(mlsl_context) {}
+CCLAllgather::CCLAllgather(CCLContext* ccl_context, HorovodGlobalState* global_state)
+    : AllgatherOp(global_state), ccl_context_(ccl_context) {}
 
-bool MLSLAllgather::Enabled(const ParameterManager& param_manager,
+bool CCLAllgather::Enabled(const ParameterManager& param_manager,
                            const std::vector<TensorTableEntry>& entries,
                            const Response& response) const {
   return true;
 }
 
-Status MLSLAllgather::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+Status CCLAllgather::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   auto& timeline = global_state_->timeline;
 
   // Sizes of subcomponents of each entry from all ranks
@@ -214,16 +216,12 @@ Status MLSLAllgather::Execute(std::vector<TensorTableEntry>& entries, const Resp
     rcounts[rc] = recvcounts[rc] * element_size;
   }
 
-  global_state_->timeline.ActivityStartAll(entries, MLSL_ALLGATHER);
-  auto mlsl_req = mlsl_context_->dist->AllGatherv(sendbuf != nullptr ? (void*)sendbuf : buffer_data,
-                                                  total_num_elements * element_size,
-                                                  buffer_data, rcounts,
-                                                  MLSL::DT_BYTE, MLSL::GT_DATA);
-  try {
-      MLSL::Environment::GetEnv().Wait(mlsl_req);
-  } catch (...) {
-      throw std::logic_error("MLSL_Allgather failed.");
-  }
+  global_state_->timeline.ActivityStartAll(entries, CCL_ALLGATHER);
+  ccl_request_t ccl_req;
+  CCL_CALL(ccl_allgatherv(sendbuf != nullptr ? (void*)sendbuf : buffer_data,
+           total_num_elements * element_size, buffer_data, rcounts, ccl_dtype_char,
+           nullptr /*attr*/, nullptr /*comm*/, nullptr /*stream*/, &ccl_req));
+  CCL_CALL(ccl_wait(ccl_req));
   global_state_->timeline.ActivityEndAll(entries);
 
   if (entries.size() > 1) {
@@ -247,14 +245,14 @@ Status MLSLAllgather::Execute(std::vector<TensorTableEntry>& entries, const Resp
   return Status::OK();
 }
 
-MLSLBroadcast::MLSLBroadcast(MLSLContext* mlsl_context, HorovodGlobalState* global_state)
-    : BroadcastOp(global_state), mlsl_context_(mlsl_context) {}
+CCLBroadcast::CCLBroadcast(CCLContext* ccl_context, HorovodGlobalState* global_state)
+    : BroadcastOp(global_state), ccl_context_(ccl_context) {}
 
-Status MLSLBroadcast::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+Status CCLBroadcast::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   assert(entries.size() == 1);
   auto e = entries[0];
 
-  // On root rank, MLSL_Bcast sends data, on other ranks it receives data.
+  // On root rank, CCL_Bcast sends data, on other ranks it receives data.
   void* data_ptr;
   size_t size;
   if (global_state_->controller->GetRank() == e.root_rank) {
@@ -265,20 +263,17 @@ Status MLSLBroadcast::Execute(std::vector<TensorTableEntry>& entries, const Resp
     size = e.output->size();
   }
 
-  global_state_->timeline.ActivityStartAll(entries, MLSL_BCAST);
-  auto mlsl_req = mlsl_context_->dist->Bcast(data_ptr, size, MLSL::DT_BYTE,
-                                             e.root_rank, MLSL::GT_DATA);
-  try {
-      MLSL::Environment::GetEnv().Wait(mlsl_req);
-  } catch (...) {
-      throw std::logic_error("MLSL_Bcast failed.");
-  }
+  global_state_->timeline.ActivityStartAll(entries, CCL_BCAST);
+  ccl_request_t ccl_req;
+  CCL_CALL(ccl_bcast(data_ptr, size, ccl_dtype_char, e.root_rank, nullptr /*attr*/,
+                     nullptr /*comm*/, nullptr /*stream*/, &ccl_req));
+  CCL_CALL(ccl_wait(ccl_req));
   global_state_->timeline.ActivityEndAll(entries);
 
   return Status::OK();
 }
 
-bool MLSLBroadcast::Enabled(const ParameterManager& param_manager,
+bool CCLBroadcast::Enabled(const ParameterManager& param_manager,
                            const std::vector<TensorTableEntry>& entries,
                            const Response& response) const {
   return true;

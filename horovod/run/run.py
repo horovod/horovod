@@ -37,7 +37,7 @@ import horovod
 
 from horovod.common.util import (extension_available,
                                  gloo_built, mpi_built,
-                                 nccl_built, ddl_built, mlsl_built)
+                                 nccl_built, ddl_built, ccl_built)
 from horovod.run.common.util import codec, config_parser, safe_shell_exec, timeout, secret
 from horovod.run.common.util import settings as hvd_settings
 from horovod.run.driver import driver_service
@@ -305,7 +305,7 @@ def check_build(verbose):
     Available Tensor Operations:
         [{nccl_ops}] NCCL
         [{ddl_ops}] DDL
-        [{mlsl_ops}] MLSL
+        [{ccl_ops}] CCL
         [{mpi_ops}] MPI
         [{gloo_ops}] Gloo\
     '''.format(verbose_newline='\n' if verbose else '',
@@ -318,7 +318,7 @@ def check_build(verbose):
                nccl_ops=get_check(nccl_built(verbose=verbose)),
                ddl_ops=get_check(ddl_built(verbose=verbose)),
                mpi_ops=get_check(mpi_built(verbose=verbose)),
-               mlsl_ops=get_check(mlsl_built(verbose=verbose)),
+               ccl_ops=get_check(ccl_built(verbose=verbose)),
                gloo_ops=get_check(gloo_built(verbose=verbose)))
     print(textwrap.dedent(output))
     os._exit(0)
@@ -563,9 +563,9 @@ def parse_args():
                                        type=int, default=1,
                                        help='Number of NCCL streams. Only applies when running with NCCL support. '
                                             '(default: %(default)s)')
-    group_library_options.add_argument('--mlsl-bgt-affinity', action=make_override_action(override_args),
+    group_library_options.add_argument('--ccl-bgt-affinity', action=make_override_action(override_args),
                                        type=int, default=0,
-                                       help='MLSL background thread affinity. Only applies when running with MLSL '
+                                       help='CCL background thread affinity. Only applies when running with CCL '
                                             'support. (default: %(default)s)')
     group_library_options.add_argument('--gloo-timeout-seconds', action=make_override_action(override_args),
                                        type=int, default=30,
@@ -660,7 +660,7 @@ class HorovodArgs(object):
         self.mpi_threads_disable = None
         self.mpi_args = None
         self.num_nccl_streams = None
-        self.mlsl_bgt_affinity = None
+        self.ccl_bgt_affinity = None
         self.gloo_timeout_seconds = None
 
         # logging arguments

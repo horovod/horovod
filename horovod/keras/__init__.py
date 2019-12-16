@@ -24,7 +24,7 @@ from horovod.tensorflow import rank
 from horovod.tensorflow import local_rank
 from horovod.tensorflow import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.tensorflow import gloo_enabled, gloo_built
-from horovod.tensorflow import nccl_built, ddl_built, mlsl_built
+from horovod.tensorflow import nccl_built, ddl_built, ccl_built
 from horovod.tensorflow import Compression
 
 from horovod.keras import callbacks

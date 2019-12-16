@@ -90,8 +90,8 @@ bool horovod_nccl_built();
 // C interface to return flag indicating whether Horovod was compiled with DDL support.
 bool horovod_ddl_built();
 
-// C interface to return flag indicating whether Horovod was compiled with MLSL support.
-bool horovod_mlsl_built();
+// C interface to return flag indicating whether Horovod was compiled with CCL support.
+bool horovod_ccl_built();
 
 // C interface to return value of the ReduceOp::AVERAGE enum field.
 int horovod_reduce_op_average();

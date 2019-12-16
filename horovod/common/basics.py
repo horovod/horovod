@@ -202,10 +202,10 @@ class HorovodBasics(object):
         """
         return bool(self.MPI_LIB_CTYPES.horovod_ddl_built())
 
-    def mlsl_built(self):
-        """Returns True if Horovod was compiled with MLSL support.
+    def ccl_built(self):
+        """Returns True if Horovod was compiled with oneCCL support.
 
         Returns:
-          A boolean value indicating whether MLSL support was compiled.
+          A boolean value indicating whether oneCCL support was compiled.
         """
-        return bool(self.MPI_LIB_CTYPES.horovod_mlsl_built())
+        return bool(self.MPI_LIB_CTYPES.horovod_ccl_built())

@@ -25,7 +25,7 @@ HOROVOD_STALL_SHUTDOWN_TIME_SECONDS = 'HOROVOD_STALL_SHUTDOWN_TIME_SECONDS'
 # Library options knobs
 HOROVOD_MPI_THREADS_DISABLE = 'HOROVOD_MPI_THREADS_DISABLE'
 HOROVOD_NUM_NCCL_STREAMS = 'HOROVOD_NUM_NCCL_STREAMS'
-HOROVOD_MLSL_BGT_AFFINITY = 'HOROVOD_MLSL_BGT_AFFINITY'
+HOROVOD_CCL_BGT_AFFINITY = 'HOROVOD_CCL_BGT_AFFINITY'
 HOROVOD_GLOO_TIMEOUT_SECONDS = 'HOROVOD_GLOO_TIMEOUT_SECONDS'
 
 # Logging knobs
@@ -93,7 +93,7 @@ def set_args_from_config(args, config, override_args):
     if library_options:
         _set_arg_from_config(args, 'mpi_threads_disable', override_args, library_options)
         _set_arg_from_config(args, 'num_nccl_streams', override_args, library_options)
-        _set_arg_from_config(args, 'mlsl_bgt_affinity', override_args, library_options)
+        _set_arg_from_config(args, 'ccl_bgt_affinity', override_args, library_options)
         _set_arg_from_config(args, 'gloo_timeout_seconds', override_args, library_options)
 
     # Logging
@@ -125,7 +125,7 @@ def validate_config_args(args):
     _validate_arg_nonnegative(args, 'stall_check_warning_time_seconds')
     _validate_arg_nonnegative(args, 'stall_check_shutdown_time_seconds')
     _validate_arg_nonnegative(args, 'num_nccl_streams')
-    _validate_arg_nonnegative(args, 'mlsl_bgt_affinity')
+    _validate_arg_nonnegative(args, 'ccl_bgt_affinity')
     _validate_arg_nonnegative(args, 'gloo_timeout_seconds')
 
 
@@ -170,7 +170,7 @@ def set_env_from_args(env, args):
     # Library Options
     _add_arg_to_env(env, HOROVOD_MPI_THREADS_DISABLE, args.mpi_threads_disable, identity)
     _add_arg_to_env(env, HOROVOD_NUM_NCCL_STREAMS, args.num_nccl_streams)
-    _add_arg_to_env(env, HOROVOD_MLSL_BGT_AFFINITY, args.mlsl_bgt_affinity)
+    _add_arg_to_env(env, HOROVOD_CCL_BGT_AFFINITY, args.ccl_bgt_affinity)
     _add_arg_to_env(env, HOROVOD_GLOO_TIMEOUT_SECONDS, args.gloo_timeout_seconds)
 
     # Logging
