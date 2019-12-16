@@ -92,7 +92,7 @@ output DataFrame.
 
 Estimators can be used to track experiment history through model checkpointing, hot-start retraining, and metric
 logging (for Tensorboard) using the Estimator ``Store`` abstraction.  Stores are used for persisting all training
-artifacts including intermediate representations of the training data.  Horovod comes included with stores for HDFS
+artifacts including intermediate representations of the training data.  Horovod natively supports stores for HDFS
 and local filesystems.
 
 End-to-end example

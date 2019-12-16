@@ -81,8 +81,8 @@ class TrainingDataCache(object):
 
         return self._keys_in_use[key] > 0 and \
             self._dataset_to_key.get(dataset_idx) == key and \
-            store.exists(train_data_path) and \
-            (not validation or store.exists(val_data_path))
+            store.is_parquet_dataset(train_data_path) and \
+            (not validation or store.is_parquet_dataset(val_data_path))
 
     def clear(self):
         self._reset()

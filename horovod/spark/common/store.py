@@ -48,6 +48,9 @@ class Store(object):
         self._train_data_to_key = {}
         self._val_data_to_key = {}
 
+    def is_parquet_dataset(self, path):
+        raise NotImplementedError()
+
     def get_parquet_dataset(self, path):
         raise NotImplementedError()
 
@@ -144,6 +147,13 @@ class FilesystemStore(Store):
     def read(self, path):
         with self.get_filesystem().open(self.get_localized_path(path), 'rb') as f:
             return f.read()
+
+    def is_parquet_dataset(self, path):
+        try:
+            dataset = self.get_parquet_dataset(path)
+            return dataset is not None
+        except:
+            return False
 
     def get_parquet_dataset(self, path):
         return pq.ParquetDataset(self.get_localized_path(path), filesystem=self.get_filesystem())
