@@ -21,14 +21,14 @@ import io
 import numbers
 import time
 
-from horovod.run.common.util import codec
 from pyspark import keyword_only
-from pyspark.ml import Estimator, Model
+from pyspark.ml import Model
 from pyspark.ml.param.shared import Param, Params
 from pyspark.ml.util import MLWritable, MLReadable
 
+from horovod.run.common.util import codec
 from horovod.spark.common import util
-from horovod.spark.common.backend import SparkBackend
+from horovod.spark.common.estimator import HorovodEstimator
 from horovod.spark.common.params import EstimatorParams, ModelParams
 from horovod.spark.common.serialization import \
     HorovodParamsWriter, HorovodParamsReader
@@ -82,7 +82,7 @@ class TorchEstimatorParamsReadable(MLReadable):
         return TorchEstimatorParamsReader(cls)
 
 
-class TorchEstimator(Estimator, EstimatorParams, TorchEstimatorParamsWritable,
+class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                      TorchEstimatorParamsReadable):
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')
     loss_constructors = Param(Params._dummy(), 'loss_constructors',
@@ -178,52 +178,6 @@ class TorchEstimator(Estimator, EstimatorParams, TorchEstimatorParamsWritable,
                                        self.getLabelCols(),
                                        input_shapes=self.getInputShapes())
 
-    def _get_or_create_backend(self):
-        backend = self.getBackend()
-        if backend is None:
-            backend = SparkBackend(self.getNumProc())
-        elif self.getNumProc() is not None:
-            raise ValueError('At most one of parameters "backend" and "num_proc" may be specified')
-        return backend
-
-    def fit_on_parquet(self, params=None):
-        if params:
-            return self.copy(params)._fit_on_parquet()
-        else:
-            return self._fit_on_parquet()
-
-    def _fit_on_parquet(self):
-        backend = self._get_or_create_backend()
-        store = self.getStore()
-        label_columns = self.getLabelCols()
-        feature_columns = self.getFeatureCols()
-        sample_weight_col = self.getSampleWeightCol()
-
-        train_rows, val_rows, metadata, avg_row_size = \
-            util.get_simple_meta_from_parquet(store,
-                                              label_columns=label_columns,
-                                              feature_columns=feature_columns,
-                                              sample_weight_col=sample_weight_col)
-
-        return self._fit_on_prepared_data(backend, train_rows, val_rows, metadata, avg_row_size)
-
-    def _fit(self, df):
-        backend = self._get_or_create_backend()
-        with util.prepare_data(backend.num_processes(),
-                               self.getStore(),
-                               df,
-                               label_columns=self.getLabelCols(),
-                               feature_columns=self.getFeatureCols(),
-                               validation=self.getValidation(),
-                               sample_weight_col=self.getSampleWeightCol(),
-                               compress_sparse=self.getCompressSparseCols(),
-                               partitions_per_process=self.getPartitionsPerProcess(),
-                               verbose=self.getVerbose()) as dataset_idx:
-            train_rows, val_rows, metadata, avg_row_size = util.get_dataset_properties(dataset_idx)
-            self._check_metadata_compatibility(metadata)
-            return self._fit_on_prepared_data(
-                backend, train_rows, val_rows, metadata, avg_row_size, dataset_idx)
-
     def _fit_on_prepared_data(self, backend, train_rows, val_rows, metadata, avg_row_size, dataset_idx=None):
         self._check_params(metadata)
 
@@ -256,11 +210,6 @@ class TorchEstimator(Estimator, EstimatorParams, TorchEstimatorParamsWritable,
                                    train_rows, val_rows, avg_row_size),
                              env={})
         return self._create_model(handle, run_id, metadata)
-
-    def _has_checkpoint(self, run_id):
-        store = self.getStore()
-        last_ckpt_path = store.get_checkpoint_path(run_id)
-        return last_ckpt_path is not None and store.exists(last_ckpt_path)
 
     def _load_checkpoint(self, run_id):
         store = self.getStore()
