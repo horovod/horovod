@@ -39,6 +39,7 @@ else:
     _NULL = mpi_lib._ffi.NULL
     _basics = _HorovodBasics(__file__, 'mpi_lib_impl', '_mpi_lib_impl')
 
+from horovod.common.exceptions import HorovodInternalError
 from horovod.common.util import get_average_backwards_compatibility_fun, gpu_available, num_rank_is_power_2
 
 from horovod.torch.compression import Compression
@@ -486,9 +487,13 @@ def synchronize(handle):
     """
     if handle not in _handle_map:
         return
-    mpi_lib.horovod_torch_wait_and_clear(handle)
-    _, output = _handle_map.pop(handle)
-    return output
+
+    try:
+        mpi_lib.horovod_torch_wait_and_clear(handle)
+        _, output = _handle_map.pop(handle)
+        return output
+    except RuntimeError as e:
+        raise HorovodInternalError(e)
 
 
 def join(device=-1):
@@ -505,4 +510,8 @@ def join(device=-1):
     """
     if not _v2_api:
         raise NotImplementedError("Join Op is not supported for PyTorch < 1.0")
-    return mpi_lib.horovod_torch_join(device)
+
+    try:
+        return mpi_lib.horovod_torch_join(device)
+    except RuntimeError as e:
+        raise HorovodInternalError(e)
