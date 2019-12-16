@@ -528,6 +528,7 @@ def _get_or_create_dataset(key, store, df, feature_columns, label_columns,
             metadata = metadata or pq_metadata
             _training_cache.set_dataset_properties(
                 dataset_idx, (train_rows, val_rows, metadata, avg_row_size))
+        return dataset_idx
 
 
 def check_validation(validation):
