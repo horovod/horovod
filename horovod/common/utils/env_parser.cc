@@ -46,11 +46,11 @@ LibType ParseCPUOpsFromEnv() {
 #endif
 
   // If specified by admin during compiling
-#if HOROVOD_CPU_OPERATIONS_DEFAULT == 'P'
+#if HOROVOD_CPU_OPERATIONS_DEFAULT == 'M'
   cpu_operation = LibType::MPI;
 #elif HOROVOD_CPU_OPERATIONS_DEFAULT == 'G'
   cpu_operation = LibType::GLOO;
-#elif HOROVOD_CPU_OPERATIONS_DEFAULT == 'M'
+#elif HOROVOD_CPU_OPERATIONS_DEFAULT == 'C'
   cpu_operation = LibType::CCL;
 #endif
 
@@ -65,7 +65,7 @@ LibType ParseCPUOpsFromEnv() {
       cpu_operation = LibType::CCL;
     } else {
       throw std::runtime_error("Unsupported CPU operation type, only MPI, "
-                               "CCL, and Gloo are supported");
+                               "oneCCL, and Gloo are supported");
     }
   }
 

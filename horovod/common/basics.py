@@ -203,9 +203,9 @@ class HorovodBasics(object):
         return bool(self.MPI_LIB_CTYPES.horovod_ddl_built())
 
     def ccl_built(self):
-        """Returns True if Horovod was compiled with CCL support.
+        """Returns True if Horovod was compiled with oneCCL support.
 
         Returns:
-          A boolean value indicating whether CCL support was compiled.
+          A boolean value indicating whether oneCCL support was compiled.
         """
         return bool(self.MPI_LIB_CTYPES.horovod_ccl_built())

@@ -86,7 +86,7 @@
  * whichever hardware-optimized communication libraries are enabled.
  *
  * The primary logic of the allreduce, allgather and broadcast currently
- * support in MPI, NCCL, CUDA, Gloo, CCL, DDL. The background thread which
+ * support in MPI, NCCL, CUDA, Gloo, oneCCL, DDL. The background thread which
  * facilitates controller operations is run in BackgroundThreadLoop().
  * The provided ops are:
  *      - HorovodAllreduce:

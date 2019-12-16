@@ -50,24 +50,20 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
         wget -O /tmp/openmpi-3.0.0-bin.tar.gz https://github.com/horovod/horovod/files/1596799/openmpi-3.0.0-bin.tar.gz && \
             cd /usr/local && tar -zxf /tmp/openmpi-3.0.0-bin.tar.gz && ldconfig && \
             echo "mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot -mca mpi_abort_print_stack 1" > /mpirun_command; \
-    elif [[ ${MPI_KIND} == "CCL" ]]; then \
+    elif [[ ${MPI_KIND} == "ONECCL" ]]; then \
         wget -O /tmp/oneccl.tar.gz https://github.com/intel/oneccl/archive/master.tar.gz && \
             cd /tmp && tar -zxf oneccl.tar.gz && \
             mkdir oneccl-master/build && cd oneccl-master/build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local/oneccl -DCMAKE_BUILD_TYPE=Release && make -j install && \
-            wget -O /tmp/extra_lib.tar.gz https://github.com/ksenyako/oneccl/archive/related_lib.tar.gz && \
-            cd /tmp && tar -zxf extra_lib.tar.gz && \
-            cp /tmp/oneccl-related_lib/mpi/include/mpi.h /usr/local/oneccl/include && \
-            cp /tmp/oneccl-related_lib/mpi/include/mpio.h /usr/local/oneccl/include && \
-            cp /tmp/oneccl-related_lib/mpi/include/mpicxx.h /usr/local/oneccl/include && \
-            cp /tmp/oneccl-related_lib/mpi/bin/mpicc /usr/local/oneccl/bin && \
+            cp /tmp/oneccl-master/mpi/include/*.h /usr/local/oneccl/include && \
+            cp /tmp/oneccl-master/mpi/bin/mpicc /usr/local/oneccl/bin && \
             chmod +x /usr/local/oneccl/bin/mpicc && \
-            cp /tmp/oneccl-related_lib/mpi/bin/mpicxx /usr/local/oneccl/bin && \
+            cp /tmp/oneccl-master/mpi/bin/mpicxx /usr/local/oneccl/bin && \
             chmod +x /usr/local/oneccl/bin/mpicxx && \
-            cp /tmp/oneccl-related_lib/mpi/bin/mpigcc /usr/local/oneccl/bin && \
+            cp /tmp/oneccl-master/mpi/bin/mpigcc /usr/local/oneccl/bin && \
             chmod +x /usr/local/oneccl/bin/mpigcc && \
-            cp /tmp/oneccl-related_lib/mpi/bin/mpigxx /usr/local/oneccl/bin && \
+            cp /tmp/oneccl-master/mpi/bin/mpigxx /usr/local/oneccl/bin && \
             chmod +x /usr/local/oneccl/bin/mpigxx && \
-            cp /tmp/oneccl-related_lib/mpi/lib/libmpicxx.so /usr/local/oneccl/lib && \
+            cp /tmp/oneccl-master/mpi/lib/libmpicxx.so /usr/local/oneccl/lib && \
             chmod +x /usr/local/oneccl/lib/libmpicxx.so && \
             sed -i 's/if \[ -z \"\${I_MPI_ROOT}\" \]/if [ -z \"${I_MPI_ROOT:-}\" ]/g' /usr/local/oneccl/env/setvars.sh && \
             echo "source /usr/local/oneccl/env/setvars.sh; \
@@ -87,7 +83,7 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
 
 # Install mpi4py.
 RUN if [[ ${MPI_KIND} != "None" ]]; then \
-        if [[ ${MPI_KIND} == "CCL" ]]; then \
+        if [[ ${MPI_KIND} == "ONECCL" ]]; then \
             export I_MPI_ROOT=/usr/local/oneccl; \
             export MPICC=/usr/local/oneccl/bin/mpicc; \
         fi; \
@@ -118,7 +114,7 @@ RUN pip install Pillow --no-deps
 RUN pip install ${MXNET_PACKAGE}
 
 # Install Horovod.
-RUN if [[ ${MPI_KIND} == "CCL" ]]; then \
+RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
       if [ -z "${LD_LIBRARY_PATH:-}" ]; then \
           export LD_LIBRARY_PATH=""; \
       fi; \
@@ -134,7 +130,7 @@ RUN if [[ ${MPI_KIND} == "CCL" ]]; then \
       cd /horovod && python setup.py sdist; \
     fi
 
-RUN if [[ ${MPI_KIND} == "CCL" ]]; then \
+RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
       if [ -z "${LD_LIBRARY_PATH:-}" ]; then \
           export LD_LIBRARY_PATH=""; \
       fi; \

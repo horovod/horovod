@@ -672,11 +672,13 @@ def get_common_options(build_ext):
         if cpu_operation.upper() == 'MPI':
             if not have_mpi:
                 raise RuntimeError('MPI is not installed, try changing HOROVOD_CPU_OPERATIONS.')
-            MACROS += [('HOROVOD_CPU_OPERATIONS_DEFAULT', "'P'")]
+            MACROS += [('HOROVOD_CPU_OPERATIONS_DEFAULT', "'M'")]
+        elif cpu_operation.upper() == 'MLSL':
+            raise RuntimeError('Intel(R) MLSL was deprecated. Upgrade to oneCCL and try setting HOROVOD_CPU_OPERATIONS=CCL.')
         elif cpu_operation.upper() == 'CCL':
             if not have_ccl:
-                raise RuntimeError('CCL is not installed, try changing HOROVOD_CPU_OPERATIONS.')
-            MACROS += [('HOROVOD_CPU_OPERATIONS_DEFAULT', "'M'")]
+                raise RuntimeError('oneCCL is not installed, try changing HOROVOD_CPU_OPERATIONS.')
+            MACROS += [('HOROVOD_CPU_OPERATIONS_DEFAULT', "'C'")]
         elif cpu_operation.upper() == 'GLOO':
             if compile_without_gloo:
                 raise ValueError('Cannot set both HOROVOD_WITHOUT_GLOO and HOROVOD_CPU_OPERATIONS=GLOO.')

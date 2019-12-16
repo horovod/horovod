@@ -22,7 +22,13 @@ Source the mpivars.sh script to establish the proper environment settings.
 $ source <installdir_MPI>/intel64/bin/mpivars.sh release_mt
 ```
 
-3. Install Horovod from source code
+3. Set HOROVOD_CPU_OPERATIONS variable
+
+```bash
+$ export HOROVOD_CPU_OPERATIONS=CCL
+```
+
+4. Install Horovod from source code
 
 ```bash
 $ python setup.py build

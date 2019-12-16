@@ -76,7 +76,7 @@ void server_affinity_set(int affinity) {
 void CCLContext::Init() {
   char* hvd_ccl_bg_thread_env = NULL;
   int bg_thread_affinity = 0;
-  if ((hvd_ccl_bg_thread_env = getenv("HOROVOD_CCL_BGT_AFFINITY")) != NULL)
+  if ((hvd_ccl_bg_thread_env = getenv(HOROVOD_CCL_BGT_AFFINITY)) != NULL)
   {
       bg_thread_affinity = atoi(hvd_ccl_bg_thread_env);
       server_affinity_set(bg_thread_affinity);
