@@ -16,6 +16,7 @@
 from __future__ import absolute_import
 
 import collections
+import contextlib
 import threading
 
 
@@ -27,14 +28,16 @@ class TrainingDataCache(object):
     def create_key(self, df, store, validation):
         return df.__hash__(), store.get_train_data_path(), store.get_val_data_path(), validation
 
-    def set_in_use(self, key, in_use):
-        if in_use:
-            self._keys_in_use[key] += 1
-        else:
+    @contextlib.contextmanager
+    def use_key(self, key):
+        self._keys_in_use[key] += 1
+        try:
+            yield
+        finally:
             self._keys_in_use[key] -= 1
 
     def next_dataset_index(self, key):
-        """Finds the next available `dataset_idx` given the (key, store) pair.
+        """Finds the next available `dataset_idx` given a key.
 
         Indices start a 0 and go up until the first unused index is found.
 
@@ -67,6 +70,7 @@ class TrainingDataCache(object):
         self._dataset_properties[dataset_idx] = props
 
     def is_cached(self, key, store):
+        """Returns true if the key is in the cache and its paths exist in the store already."""
         if key not in self._key_to_dataset:
             return False
 

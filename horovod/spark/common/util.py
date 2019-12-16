@@ -449,31 +449,10 @@ def _train_val_split(df, validation):
     return train_df, val_df, validation_ratio
 
 
-@contextlib.contextmanager
-def prepare_data(num_processes, store, df, label_columns, feature_columns,
-                 validation=None, sample_weight_col=None, compress_sparse=False,
-                 partitions_per_process=10, verbose=0):
-    if num_processes <= 0 or partitions_per_process <= 0:
-        raise ValueError('num_proc={} and partitions_per_process={} must both be > 0'
-                         .format(num_processes, partitions_per_process))
-
-    if not label_columns:
-        raise ValueError('Parameter label_columns cannot be None or empty')
-
-    num_partitions = num_processes * partitions_per_process
-    if verbose:
-        print('num_partitions={}'.format(num_partitions))
-
-    for col in label_columns:
-        if col not in df.columns:
-            raise ValueError('Label column {} does not exist in this DataFrame'.format(col))
-
-    if feature_columns is None:
-        feature_columns = [col for col in df.columns if col not in set(label_columns)]
-
-    key = _training_cache.create_key(df, store, validation)
+def _get_or_create_dataset(key, store, df, feature_columns, label_columns,
+                           validation, sample_weight_col, compress_sparse,
+                           num_partitions, num_processes, verbose):
     with _training_cache.lock:
-        _training_cache.set_in_use(key, True)
         if _training_cache.is_cached(key, store):
             dataset_idx = _training_cache.get_dataset(key)
             train_rows, val_rows, metadata, avg_row_size = _training_cache.get_dataset_properties(dataset_idx)
@@ -542,7 +521,7 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
                 if val_rows == 0:
                     raise ValueError(
                         'Validation DataFrame does not any samples with validation param {}'
-                        .format(validation))
+                            .format(validation))
                 if verbose:
                     print('val_rows={}'.format(val_rows))
 
@@ -550,10 +529,47 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
             _training_cache.set_dataset_properties(
                 dataset_idx, (train_rows, val_rows, metadata, avg_row_size))
 
-    try:
+
+def check_validation(validation):
+    if validation:
+        if isinstance(validation, float):
+            if validation < 0 or validation >= 1:
+                raise ValueError('Validation split {} must be in the range: [0, 1)'
+                                 .format(validation))
+        elif not isinstance(validation, str):
+            raise ValueError('Param validation must be of type "float" or "str", found: {}'
+                             .format(type(validation)))
+
+
+@contextlib.contextmanager
+def prepare_data(num_processes, store, df, label_columns, feature_columns,
+                 validation=None, sample_weight_col=None, compress_sparse=False,
+                 partitions_per_process=10, verbose=0):
+    check_validation(validation)
+    if num_processes <= 0 or partitions_per_process <= 0:
+        raise ValueError('num_proc={} and partitions_per_process={} must both be > 0'
+                         .format(num_processes, partitions_per_process))
+
+    if not label_columns:
+        raise ValueError('Parameter label_columns cannot be None or empty')
+
+    num_partitions = num_processes * partitions_per_process
+    if verbose:
+        print('num_partitions={}'.format(num_partitions))
+
+    for col in label_columns:
+        if col not in df.columns:
+            raise ValueError('Label column {} does not exist in this DataFrame'.format(col))
+
+    if feature_columns is None:
+        feature_columns = [col for col in df.columns if col not in set(label_columns)]
+
+    key = _training_cache.create_key(df, store, validation)
+    with _training_cache.use_key(key):
+        dataset_idx = _get_or_create_dataset(key, store, df, feature_columns, label_columns,
+                                             validation, sample_weight_col, compress_sparse,
+                                             num_partitions, num_processes, verbose)
         yield dataset_idx
-    finally:
-        _training_cache.set_in_use(key, False)
 
 
 def get_dataset_properties(dataset_idx):

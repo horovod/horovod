@@ -20,6 +20,8 @@ import horovod.spark.common._namedtuple_fix
 from pyspark import keyword_only
 from pyspark.ml.param.shared import HasOutputCols, Param, Params, TypeConverters
 
+from horovod.spark.common import util
+
 
 class EstimatorParams(Params):
     num_proc = Param(Params._dummy(), 'num_proc', 'number of processes')
@@ -111,15 +113,7 @@ class EstimatorParams(Params):
         if not model:
             raise ValueError('Model parameter is required')
 
-        validation = self.getValidation()
-        if validation:
-            if isinstance(validation, float):
-                if validation < 0 or validation >= 1:
-                    raise ValueError('Validation split {} must be in the range: [0, 1)'
-                                     .format(validation))
-            elif not isinstance(validation, str):
-                raise ValueError('Param validation must be of type "float" or "str", found: {}'
-                                 .format(type(validation)))
+        util.check_validation(self.getValidation())
 
         feature_columns = self.getFeatureCols()
         missing_features = [col for col in feature_columns if col not in metadata]

@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 
 import contextlib
+import errno
 import os
 import re
 import shutil
@@ -90,6 +91,7 @@ class Store(object):
         raise NotImplementedError()
 
     def sync_fn(self, run_id):
+        """Returns a function that synchronises given path recursively into run path for `run_id`."""
         raise NotImplementedError()
 
     def to_remote(self, run_id, dataset_idx):
@@ -126,7 +128,7 @@ class Store(object):
             return LocalStore(prefix_path, *args, **kwargs)
 
 
-class PrefixStore(Store):
+class FilesystemStore(Store):
     def __init__(self, prefix_path, train_path=None, val_path=None, test_path=None, runs_path=None, save_runs=True):
         self.prefix_path = self.get_full_path(prefix_path)
         self._train_path = train_path or self._get_path('intermediate_train_data')
@@ -134,7 +136,7 @@ class PrefixStore(Store):
         self._test_path = test_path or self._get_path('intermediate_test_data')
         self._runs_path = runs_path or self._get_path('runs')
         self._save_runs = save_runs
-        super(PrefixStore, self).__init__()
+        super(FilesystemStore, self).__init__()
 
     def exists(self, path):
         return self.get_filesystem().exists(self.get_localized_path(path))
@@ -213,7 +215,7 @@ class PrefixStore(Store):
         raise NotImplementedError()
 
 
-class LocalStore(PrefixStore):
+class LocalStore(FilesystemStore):
     FS_PREFIX = 'file://'
 
     def __init__(self, prefix_path, *args, **kwargs):
@@ -233,17 +235,21 @@ class LocalStore(PrefixStore):
         def local_run_path():
             if not os.path.exists(run_path):
                 try:
-                    os.makedirs(run_path)
-                except OSError:
+                    os.makedirs(run_path, mode=0o755)
+                except OSError as e:
                     # Race condition from workers on the same host: ignore
-                    pass
+                    if e.errno != errno.EEXIST:
+                        raise
             yield run_path
 
         return local_run_path
 
     def sync_fn(self, run_id):
+        run_path = self.get_localized_path(self.get_run_path(run_id))
+
         def fn(root_path):
-            pass
+            # No-op for LocalStore since the `local_run_path` is the same as the run path
+            assert run_path == root_path
         return fn
 
     @classmethod
@@ -251,9 +257,9 @@ class LocalStore(PrefixStore):
         return cls.FS_PREFIX
 
 
-class HDFSStore(PrefixStore):
+class HDFSStore(FilesystemStore):
     FS_PREFIX = 'hdfs://'
-    HDFS_URL_PATTERN = '^(?:(.+://))?(?:([^/:]+))?(?:[:]([0-9]+))?(?:(.+))?$'
+    URL_PATTERN = '^(?:(.+://))?(?:([^/:]+))?(?:[:]([0-9]+))?(?:(.+))?$'
 
     """Uses HDFS as a store of intermediate data and training artifacts.
     
@@ -294,7 +300,7 @@ class HDFSStore(PrefixStore):
         super(HDFSStore, self).__init__(prefix_path, *args, **kwargs)
 
     def parse_url(self, url):
-        match = re.search(self.HDFS_URL_PATTERN, url)
+        match = re.search(self.URL_PATTERN, url)
         prefix = match.group(1)
         host = match.group(2)
 

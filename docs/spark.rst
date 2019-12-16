@@ -21,7 +21,7 @@ We recommend using Horovod Spark Estimators if you:
 * Want to train directly on a Spark DataFrame from ``pyspark``.
 * Are using a standard gradient descent optimization process as your training loop.
 
-If for whatever reason the Estimator API does not meet your needs, the Run API offers more find-grained control.
+If for whatever reason the Estimator API does not meet your needs, the Run API offers more fine-grained control.
 
 Installation
 ------------
