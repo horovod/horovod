@@ -97,7 +97,7 @@ and local filesystems.
 
 End-to-end example
 ------------------
-`keras_spark_rossmann.py script <../examples/keras_spark_rossmann.py>`__ provides
+`keras_spark_rossmann_estimator.py script <../examples/keras_spark_rossmann_estimator.py>`__ provides
 an example of end-to-end data preparation and training of a model for the
 `Rossmann Store Sales <https://www.kaggle.com/c/rossmann-store-sales>`__ Kaggle
 competition. It is inspired by an article `An Introduction to Deep Learning for Tabular Data <https://www.fast.ai/2018/04/29/categorical-embeddings/>`__
@@ -111,10 +111,41 @@ To run the example, be sure to install Horovod with ``[spark]``, then:
 
 .. code-block:: bash
 
-    $ wget https://raw.githubusercontent.com/horovod/horovod/master/examples/keras_spark_rossmann.py
+    $ wget https://raw.githubusercontent.com/horovod/horovod/master/examples/keras_spark_rossmann_estimator.py
     $ wget http://files.fast.ai/part2/lesson14/rossmann.tgz
     $ tar zxvf rossmann.tgz
     $ python keras_spark_rossmann.py
+
+
+Training on existing Parquet datasets
+-------------------------------------
+
+If your data is already in the Parquet format and you wish to train on its with Horovod Spark Estimators, you
+can do so without needing to reprocess the data in Spark using `Estimator.fit_on_parquet()`:
+
+.. code-block:: python
+
+    store = HDFSStore(train_path='/user/username/training_dataset', val_path='/user/username/val_dataset')
+    keras_estimator = hvd.KerasEstimator(
+        num_proc=4,
+        store=store,
+        model=model,
+        optimizer=optimizer,
+        loss=loss,
+        feature_cols=['features'],
+        label_cols=['y'],
+        batch_size=32,
+        epochs=10)
+
+    keras_model = keras_estimator.fit_on_parquet()
+
+The resulting ``keras_model`` can then be used the same as any Spark Transformer, or you can extract the underlying
+Keras model and use it outside of Spark:
+
+.. code-block:: python
+
+    model = keras_model.getModel()
+    pred = model.predict([np.ones([1, 2], dtype=np.float32)])
 
 
 Horovod Spark Run
@@ -163,12 +194,12 @@ A toy example of running a Horovod job in Spark is provided below:
     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
     >>>
 
-A more complete example can be found in `keras_spark_rossmann_advanced.py <../examples/keras_spark_rossmann_advanced.py>`__, which
+A more complete example can be found in `keras_spark_rossmann_run.py <../examples/keras_spark_rossmann_run.py>`__, which
 shows how you can use the low level ``horovod.spark.run`` API to train a model end-to-end in the following steps:
 
 .. code-block:: bash
 
-    $ wget https://raw.githubusercontent.com/horovod/horovod/master/examples/keras_spark_rossmann_advanced.py
+    $ wget https://raw.githubusercontent.com/horovod/horovod/master/examples/keras_spark_rossmann_run.py
     $ wget http://files.fast.ai/part2/lesson14/rossmann.tgz
     $ tar zxvf rossmann.tgz
     $ python keras_spark_rossmann_advanced.py
