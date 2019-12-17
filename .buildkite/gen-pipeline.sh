@@ -100,7 +100,7 @@ run_all() {
   local exclude_keras_if_needed=""
   if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
     # TODO: support for Keras + TF 2.0 and TF-Keras 2.0
-    exclude_keras_if_needed="| sed 's/[a-z_]*keras[a-z_.]*//g'"
+    exclude_keras_if_needed="| sed 's/test_keras.py//g' | sed 's/test_tensorflow_keras.py//g'"
   else
     exclude_keras_if_needed="| sed 's/[a-z_]*tensorflow2[a-z_.]*//g'"
   fi
