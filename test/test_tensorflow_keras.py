@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Tests for horovod.keras."""
+"""Tests for horovod.tensorflow.keras."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -36,7 +36,7 @@ import horovod.tensorflow.keras as hvd
 
 class TfKerasTests(tf.test.TestCase):
     """
-    Tests for ops in horovod.keras.
+    Tests for ops in horovod.tensorflow.keras.
     """
 
     def __init__(self, *args, **kwargs):

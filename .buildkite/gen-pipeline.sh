@@ -101,6 +101,8 @@ run_all() {
   if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
     # TODO: support for Keras + TF 2.0 and TF-Keras 2.0
     exclude_keras_if_needed="| sed 's/[a-z_]*keras[a-z_.]*//g'"
+  else
+    exclude_keras_if_needed="| sed 's/[a-z_]*tensorflow2[a-z_.]*//g'"
   fi
 
   local exclude_interactiverun="| sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g'"
@@ -199,11 +201,12 @@ run_gloo() {
     exclude_spark_if_needed="| sed 's/[a-z_]*spark[a-z_.]*//g'"
   fi
 
-  local exclude_interactiverun="| sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g'"
+  # These tests are covered in MPI, and testing them in Gloo does not cover any new code paths
+  local excluded_tests="| sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/[a-z_]*tensorflow2[a-z_.]*//g'"
 
   run_test "${test}" "${pytest_queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_spark_if_needed} ${exclude_interactiverun} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no)\""
+    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_spark_if_needed} ${excluded_tests} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no)\""
 
   run_test "${test}" "${queue}" \
     ":tensorflow: Test Keras MNIST (${test})" \
