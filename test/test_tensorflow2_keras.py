@@ -60,25 +60,18 @@ class Tf2KerasTests(tf.test.TestCase):
         model.compile(loss=keras.losses.mean_squared_error,
                       optimizer=opt,
                       metrics=[keras.metrics.categorical_accuracy],
-                      sample_weight_mode='temporal',
                       experimental_run_tf_function=False)
 
         x = np.random.random((1, 3))
-        y = np.random.random((1, 3, 3))
+        y = np.random.random((1, 3, 2))
 
-        def generator():
-            while 1:
-                yield (x, y)
-
-        # No assertions, we just need to verify that it doesn't hang
+        # No assertions, we just need to verify that it doesn't hang or error
         callbacks = [hvd.callbacks.BroadcastGlobalVariablesCallback(0)]
-        model.fit_generator(generator(),
-                            steps_per_epoch=10,
-                            callbacks=callbacks,
-                            epochs=0,
-                            verbose=0,
-                            workers=4,
-                            initial_epoch=1)
+        model.fit(x,
+                  y,
+                  steps_per_epoch=10,
+                  callbacks=callbacks,
+                  epochs=1)
 
     def test_sparse_as_dense(self):
         opt = keras.optimizers.RMSprop(lr=0.0001)
