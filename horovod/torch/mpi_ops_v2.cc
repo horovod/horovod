@@ -227,9 +227,13 @@ int DoBroadcastCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int roo
   return handle;
 }
 
-int DoReducescatter(::torch::Tensor tensor, ::torch::Tensor output, int average,
-                    const std::string& name) {
+int DoReducescatter(::torch::Tensor tensor, ::torch::Tensor output,
+                    const std::string& name, int reduce_op_int) {
   ThrowIfError(common::CheckInitialized());
+
+  // For ReduceOp::AVERAGE, we do SUM reduction then divide on the device.
+  auto reduce_op = static_cast<ReduceOp>(reduce_op_int);
+  auto request_op = reduce_op == ReduceOp::AVERAGE ? ReduceOp::SUM : reduce_op;
 
   auto handle = handle_manager.AllocateHandle();
   auto device = GetDeviceID(tensor);
@@ -240,21 +244,25 @@ int DoReducescatter(::torch::Tensor tensor, ::torch::Tensor output, int average,
   auto enqueue_result = EnqueueTensorReducescatter(
       hvd_context, hvd_tensor, ready_event,
       GetOpName("reducescatter", name, handle), device,
-      [handle, average, output](const Status& status) mutable {
+      [handle, reduce_op, output](const Status& status) mutable {
         // Will execute in the `device` context.
-        if (average) {
+        if (reduce_op == ReduceOp::AVERAGE) {
           output.div_(horovod_size());
         }
         handle_manager.MarkDone(handle, status);
-      });
+      }, request_op);
   ThrowIfError(enqueue_result);
 
   return handle;
 }
 
-int DoReducescatterCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int average,
-                             const std::string& name) {
+int DoReducescatterCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output,
+                             const std::string& name, int reduce_op_int) {
   ThrowIfError(common::CheckInitialized());
+
+  // For ReduceOp::AVERAGE, we do SUM reduction then divide on the device.
+  auto reduce_op = static_cast<ReduceOp>(reduce_op_int);
+  auto request_op = reduce_op == ReduceOp::AVERAGE ? ReduceOp::SUM : reduce_op;
 
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto device = GetDeviceID(tensor);
@@ -271,18 +279,18 @@ int DoReducescatterCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int
   auto enqueue_result = EnqueueTensorReducescatter(
       hvd_context, hvd_cpu_tensor, ready_event,
       GetOpName("reducescatter", name, handle), CPU_DEVICE_ID,
-      [handle, average, cpu_output, output, device](const Status& status) mutable {
+      [handle, reduce_op, cpu_output, output, device](const Status& status) mutable {
         // Since the operation was on CPU, need to perform copy with the GPU
         // device guard.
         with_device device_guard(device);
         // output needs to be resized before copying in the CPU tensor.
         output.resize_(cpu_output.sizes());
         output.copy_(cpu_output);
-        if (average) {
+        if (reduce_op == ReduceOp::AVERAGE) {
           output.div_(horovod_size());
         }
         handle_manager.MarkDone(handle, status);
-      });
+      }, request_op);
   ThrowIfError(enqueue_result);
 
   return handle;

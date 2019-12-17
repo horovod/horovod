@@ -460,24 +460,25 @@ def _reducescatter_function_factory(tensor):
     return 'horovod_torch_reducescatter_async_' + tensor.type().replace('.', '_')
 
 
-def _reducescatter_async(tensor, output, average, name):
+def _reducescatter_async(tensor, output, name, op):
     if tensor.dtype == torch.float16 and not _fp16_supported:
         raise NotImplementedError(
             'float16 reducescatter is not supported for PyTorch version {} < 1.0.0'
             .format(torch.__version__))
 
     function = _check_function(_reducescatter_function_factory, tensor)
-    handle = getattr(mpi_lib, function)(tensor, output, average,
-                                        name.encode() if name is not None else _NULL)
+    handle = getattr(mpi_lib, function)(tensor, output,
+                                        name.encode() if name is not None else _NULL,
+                                        op)
     _handle_map[handle] = (tensor, output)
     return handle
 
 
-def reducescatter_async(tensor, average=True, name=None):
+def reducescatter_async(tensor, name=None, op=Average):
     """
-    A function that performs asynchronous averaging or summation of the input tensor
-    over all the Horovod processes, then scatters the results across all Horovod
-    processes. The input tensor is not modified.
+    A function that performs asynchronous reduction of the input tensor over all the
+    Horovod processes, then scatters the results across all Horovod processes. The
+    input tensor is not modified.
 
     The reduction operation is keyed by the name. If name is not provided, an incremented
     auto-generated name is used. The tensor type and shape must be the same on all
@@ -490,40 +491,40 @@ def reducescatter_async(tensor, average=True, name=None):
 
     Arguments:
         tensor: A tensor to average and sum.
-        average: A flag indicating whether to compute average or summation,
-                 defaults to average.
         name: A name of the reduction operation.
+        op: The reduction operation to combine tensors across different ranks.
+            Defaults to Average.
 
     Returns:
         A handle to the reducescatter operation that can be used with `poll()` or
         `synchronize()`.
     """
     output = tensor.new()
-    return _reducescatter_async(tensor, output, average, name)
+    return _reducescatter_async(tensor, output, name, op)
 
 
 class HorovodReducescatter(torch.autograd.Function):
     """An autograd function that performs reducescatter on a tensor."""
 
     @staticmethod
-    def forward(ctx, tensor, average, name):
-        ctx.average = average
-        handle = reducescatter_async(tensor, average, name)
+    def forward(ctx, tensor, name, op):
+        ctx.op = op
+        handle = reducescatter_async(tensor, name, op)
         return synchronize(handle)
 
     @staticmethod
     def backward(ctx, grad_output):
-        if not ctx.average:
+        if ctx.op == Sum:
             grad_output *= size()
 
         return allgather(grad_output), None, None
 
 
-def reducescatter(tensor, average=True, name=None, compression=Compression.none):
+def reducescatter(tensor, name=None, compression=Compression.none, op=Average):
     """
-    A function that performs averaging or summation of the input tensor over all the
-    Horovod processes, then scatters the results across all Horovod processes. The
-    input tensor is not modified.
+    A function that performs reduction of the input tensor over all the Horovod
+    processes, then scatters the results across all Horovod processes. The input tensor
+    is not modified.
 
     The reduction operation is keyed by the name. If name is not provided, an incremented
     auto-generated name is used. The tensor type and shape must be the same on all
@@ -532,12 +533,12 @@ def reducescatter(tensor, average=True, name=None, compression=Compression.none)
 
     Arguments:
         tensor: A tensor to average/sum and scatter.
-        average: A flag indicating whether to compute average or summation,
-                 defaults to average.
         name: A name of the reduction operation.
         compression: Compression algorithm used during reducescatter to reduce the amount
                      of data sent during the each parameter update step.  Defaults to
                      not using compression.
+        op: The reduction operation to combine tensors across different ranks.
+            Defaults to Average.
 
     Returns:
         A tensor of the same rank and type as `tensor` across all processes. The shape
@@ -545,8 +546,8 @@ def reducescatter(tensor, average=True, name=None, compression=Compression.none)
         divided across the different Horovod processes.
     """
     tensor_compressed, ctx = compression.compress(tensor)
-    summed_tensor_compressed = HorovodReducescatter.apply(tensor_compressed, average, name)
-    return compression.decompress(summed_tensor_compressed, ctx)
+    reduced_tensor_compressed = HorovodReducescatter.apply(tensor_compressed, name, op)
+    return compression.decompress(reduced_tensor_compressed, ctx)
 
 
 def poll(handle):

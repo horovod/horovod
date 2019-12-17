@@ -337,7 +337,7 @@ REGISTER_OP("HorovodAllreduce")
       return Status::OK();
     })
     .Doc(R"doc(
-Perform an MPI Allreduce on a tensor. All other processes that do a reduction
+Perform an Allreduce on a tensor. All other processes that do a reduction
 on a tensor with the same name must have the same dimension for that tensor.
 Tensors are reduced with other tensors that have the same node name for the
 allreduce.
@@ -346,7 +346,7 @@ Arguments
     tensor:     A tensor to reduce.
 
 Output
-    sum:    A tensor with the same shape as `tensor`, summed across all MPI processes.
+    sum:    A tensor with the same shape as `tensor`, summed across all processes.
 )doc");
 
 class HorovodAllgatherOp : public AsyncOpKernel {
@@ -397,7 +397,7 @@ REGISTER_OP("HorovodAllgather")
       return Status::OK();
     })
     .Doc(R"doc(
-Perform an MPI Allgather on a tensor. All other processes that do a gather on a
+Perform an Allgather on a tensor. All other processes that do a gather on a
 tensor with the same name must have the same rank for that tensor, and have the
 same dimension on all but the first dimension.
 
@@ -468,7 +468,7 @@ REGISTER_OP("HorovodBroadcast")
       return Status::OK();
     })
     .Doc(R"doc(
-Perform an MPI Broadcast on a tensor. All other processes that do a broadcast
+Perform a Broadcast on a tensor. All other processes that do a broadcast
 on a tensor with the same name must have the same dimension for that tensor.
 
 Arguments
@@ -483,7 +483,11 @@ Output
 class HorovodReducescatterOp : public AsyncOpKernel {
 public:
   explicit HorovodReducescatterOp(OpKernelConstruction* context)
-      : AsyncOpKernel(context) {}
+      : AsyncOpKernel(context) {
+    int reduce_op;
+    OP_REQUIRES_OK(context, context->GetAttr("reduce_op", &reduce_op));
+    reduce_op_ = static_cast<horovod::common::ReduceOp>(reduce_op);
+  }
 
   void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(common::CheckInitialized()),
@@ -503,9 +507,12 @@ public:
         [context, done](const common::Status& status) {
           context->SetStatus(ConvertStatus(status));
           done();
-        });
+        }, reduce_op_);
     OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
   }
+
+private:
+  horovod::common::ReduceOp reduce_op_;
 }; // namespace tensorflow
 
 REGISTER_KERNEL_BUILDER(Name("HorovodReducescatter").Device(DEVICE_CPU),
@@ -517,6 +524,7 @@ REGISTER_KERNEL_BUILDER(Name("HorovodReducescatter").Device(DEVICE_GPU),
 
 REGISTER_OP("HorovodReducescatter")
     .Attr("T: {int32, int64, float16, float32, float64}")
+    .Attr("reduce_op: int")
     .Input("tensor: T")
     .Output("output: T")
     .SetShapeFn([](shape_inference::InferenceContext* c) {
@@ -527,7 +535,7 @@ REGISTER_OP("HorovodReducescatter")
       return Status::OK();
     })
     .Doc(R"doc(
-Perform an MPI Reducescatter on a tensor. All other processes that do a
+Perform a Reducescatter on a tensor. All other processes that do a
 reduce scatter on a tensor with the same name must have the same shape for
 that tensor. Tensors are reduced with other tensors that have the same node
 name for the reducescatter. The output shape is identical to the input

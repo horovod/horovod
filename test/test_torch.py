@@ -1187,7 +1187,7 @@ class TorchTests(unittest.TestCase):
             torch.manual_seed(1234)
             tensor = torch.FloatTensor(*([size * 4] * dim)).random_(-100, 100)
             tensor = self.cast_and_place(tensor, dtype)
-            summed = hvd.reducescatter(tensor, average=False)
+            summed = hvd.reducescatter(tensor, op=hvd.Sum)
             tensor, summed = self.convert_cpu_fp16_to_fp32(tensor, summed)
             expected = tensor[rank*4:(rank+1)*4] * size
 
@@ -1227,7 +1227,7 @@ class TorchTests(unittest.TestCase):
             torch.manual_seed(1234)
             tensor = torch.FloatTensor(*([size * 4] * dim)).random_(-100, 100)
             tensor = self.cast_and_place(tensor, dtype)
-            averaged = hvd.reducescatter(tensor, average=True)
+            averaged = hvd.reducescatter(tensor, op=hvd.Average)
             expected = tensor[rank * 4:(rank + 1) * 4]
 
             # Threshold for floating point equality depends on number of
@@ -1245,6 +1245,33 @@ class TorchTests(unittest.TestCase):
             assert list(averaged.shape) == list(expected.shape)
             max_difference = averaged.data.sub(expected).max()
             assert max_difference <= threshold, 'hvd.reducescatter produces incorrect results'
+
+    def test_horovod_reducescatter_adasum(self):
+        """Test that the reducescatter raises an error if we use Adasum operation."""
+        if not hvd.mpi_enabled():
+            return # Reducescatter is not yet implemented in gloo/mlsl
+
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                     torch.FloatTensor, torch.DoubleTensor])
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
+            if _fp16_supported:
+                dtypes += [torch.cuda.HalfTensor]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            torch.manual_seed(1234)
+            tensor = torch.FloatTensor(*([size * 4] * dim)).random_(-100, 100)
+            tensor = self.cast_and_place(tensor, dtype)
+
+            try:
+                hvd.reducescatter(tensor, op=hvd.Adasum)
+                assert False, 'hvd.reducescatter did not throw error'
+            except (torch.FatalError, RuntimeError):
+                pass
 
     def test_horovod_reducescatter_async_fused(self):
         """Test that the reducescatter correctly sums 1D, 2D, 3D tensors
@@ -1271,7 +1298,7 @@ class TorchTests(unittest.TestCase):
             torch.manual_seed(1234)
             tensor = torch.FloatTensor(*([size * 4] * dim)).random_(-100, 100)
             tensor = self.cast_and_place(tensor, dtype)
-            handle = hvd.reducescatter_async(tensor, average=False)
+            handle = hvd.reducescatter_async(tensor, op=hvd.Sum)
             if not hvd.poll(handle):
                 is_hvd_poll_false_once = True
             tensor, = self.convert_cpu_fp16_to_fp32(tensor)
@@ -1408,7 +1435,7 @@ class TorchTests(unittest.TestCase):
             tensor = torch.FloatTensor(*([size * 4] * dim)).random_(-100, 100)
             tensor = self.cast_and_place(tensor, dtype)
             tensor.requires_grad_()
-            summed = hvd.reducescatter(tensor, average=False)
+            summed = hvd.reducescatter(tensor, op=hvd.Sum)
 
             grad_shape = [4] + [size * 4] * (dim - 1)
             summed.backward(self.cast_and_place(torch.ones(grad_shape), dtype))
@@ -1439,7 +1466,7 @@ class TorchTests(unittest.TestCase):
             tensor = torch.FloatTensor(*([size * 4] * dim)).random_(-100, 100)
             tensor = self.cast_and_place(tensor, dtype)
             tensor.requires_grad_()
-            summed = hvd.reducescatter(tensor, average=True)
+            summed = hvd.reducescatter(tensor, op=hvd.Average)
 
             grad_shape = [4] + [size * 4] * (dim - 1)
             summed.backward(self.cast_and_place(torch.ones(grad_shape), dtype))

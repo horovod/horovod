@@ -118,7 +118,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
         return new_tensor
 
 
-def reducescatter(tensor, average=True, device_dense='', compression=Compression.none):
+def reducescatter(tensor, device_dense='', compression=Compression.none, op=Average):
     """Perform a reducescatter on a tf.Tensor.
 
     This function performs a bandwidth-optimal reduce and scatter on the input
@@ -127,13 +127,13 @@ def reducescatter(tensor, average=True, device_dense='', compression=Compression
     Arguments:
         tensor: tf.Tensor or tf.Variable to reduce.
                 The shape of the input must be identical across all ranks.
-        average: If True, computes the average over all ranks.
-                 Otherwise, computes the sum over all ranks.
         device_dense: Device to be used for dense tensors. Uses GPU by default
                       if Horovod was built with HOROVOD_GPU_REDUCESCATTER.
         compression: Compression algorithm used to reduce the amount of data
                      sent and received by each worker node.  Defaults to not
                      using compression.
+        op: The reduction operation to combine tensors across different ranks.
+            Defaults to Average.
 
     Returns:
         A tensor of the same rank and type as `tensor`, summed across all processes.
@@ -143,9 +143,9 @@ def reducescatter(tensor, average=True, device_dense='', compression=Compression
     with tf.device(device_dense):
         horovod_size = tf.cast(size(), dtype=tensor.dtype)
         tensor_compressed, ctx = compression.compress(tensor)
-        summed_tensor_compressed = _reducescatter(tensor_compressed)
-        summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
-        new_tensor = (summed_tensor / horovod_size) if average else summed_tensor
+        reduced_tensor_compressed = _reducescatter(tensor_compressed)
+        reduced_tensor = compression.decompress(reduced_tensor_compressed, ctx)
+        new_tensor = (reduced_tensor / horovod_size) if op == Average else reduced_tensor
     return new_tensor
 
 

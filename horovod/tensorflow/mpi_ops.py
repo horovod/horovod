@@ -201,7 +201,7 @@ def _broadcast_grad(op, grad):
     return grad_reduced
 
 
-def _reducescatter(tensor, name=None):
+def _reducescatter(tensor, name=None, op=Sum):
     """An op which sums an input tensor over all the Horovod processes, then
     scatters the result across all the Horovod processes.
 
@@ -216,7 +216,7 @@ def _reducescatter(tensor, name=None):
     """
     if name is None and not _executing_eagerly():
         name = 'HorovodReducescatter_%s' % _normalize_name(tensor.name)
-    return MPI_LIB.horovod_reducescatter(tensor, name=name)
+    return MPI_LIB.horovod_reducescatter(tensor, name=name, reduce_op=op)
 
 
 @ops.RegisterGradient('HorovodReducescatter')

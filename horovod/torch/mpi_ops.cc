@@ -221,8 +221,12 @@ int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
 #endif
 
 template <DataType DT, DeviceType Dev, class T>
-int DoReducescatter(T* tensor, T* output, int average, char* name) {
+int DoReducescatter(T* tensor, T* output, char* name, int reduce_op_int) {
   ThrowIfError(common::CheckInitialized());
+
+  // For ReduceOp::AVERAGE, we do SUM reduction then divide on the device.
+  auto reduce_op = static_cast<ReduceOp>(reduce_op_int);
+  auto request_op = reduce_op == ReduceOp::AVERAGE ? ReduceOp::SUM : reduce_op;
 
   auto handle = handle_manager.AllocateHandle();
   auto device = TensorUtil::GetDevice<DT, Dev>(tensor);
@@ -234,12 +238,12 @@ int DoReducescatter(T* tensor, T* output, int average, char* name) {
   auto enqueue_result = EnqueueTensorReducescatter(
       hvd_context, hvd_tensor, ready_event,
       GetOpName("reducescatter", name, handle), device,
-      [handle, average, output](const Status& status) {
-        if (average) {
+      [handle, reduce_op, output](const Status& status) {
+        if (reduce_op == ReduceOp::AVERAGE) {
           TensorUtil::DivideTensorInPlace<DT, Dev, T>(output, horovod_size());
         }
         handle_manager.MarkDone(handle, status);
-      });
+      }, request_op);
   ThrowIfError(enqueue_result);
 
   return handle;
@@ -247,8 +251,12 @@ int DoReducescatter(T* tensor, T* output, int average, char* name) {
 
 #if HAVE_CUDA
 template <DataType DT, class TC, class T>
-int DoReducescatterCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
+int DoReducescatterCudaOnCPU(TC* tensor, TC* output, char* name, int reduce_op_int) {
   ThrowIfError(common::CheckInitialized());
+
+  // For ReduceOp::AVERAGE, we do SUM reduction then divide on the device.
+  auto reduce_op = static_cast<ReduceOp>(reduce_op_int);
+  auto request_op = reduce_op == ReduceOp::AVERAGE ? ReduceOp::SUM : reduce_op;
 
   // Make async copy of input tensor to CPU tensor and record completion event.
   auto device = TensorUtil::GetDevice<DT, DeviceType::GPU>(tensor);
@@ -268,14 +276,14 @@ int DoReducescatterCudaOnCPU(TC* tensor, TC* output, int average, char* name) {
   auto enqueue_result = EnqueueTensorReducescatter(
       hvd_context, hvd_cpu_tensor, ready_event,
       GetOpName("reducescatter", name, handle), CPU_DEVICE_ID,
-      [handle, average, hvd_cpu_output, output](const Status& status) {
+      [handle, reduce_op, hvd_cpu_output, output](const Status& status) {
         TensorUtil::CopyCPUToCuda<DT>(hvd_cpu_output->tensor(), output);
-        if (average) {
+        if (reduce_op == ReduceOp::Average) {
           TensorUtil::DivideTensorInPlace<DT, DeviceType::GPU>(output,
                                                                horovod_size());
         }
         handle_manager.MarkDone(handle, status);
-      });
+      }, request_op);
   ThrowIfError(enqueue_result);
 
   return handle;
@@ -458,9 +466,9 @@ BROADCAST_CUDA_ON_CPU(torch_cuda_DoubleTensor, DataType::HOROVOD_FLOAT64,
 
 #define REDUCESCATTER(torch_Tensor, HorovodType, DeviceType, THTensor)         \
   extern "C" int horovod_torch_reducescatter_async_##torch_Tensor(             \
-      THTensor* tensor, THTensor* output, int average, char* name) {           \
-    return DoReducescatter<HorovodType, DeviceType>(tensor, output, average,   \
-                                                    name);                     \
+      THTensor* tensor, THTensor* output, char* name, int reduce_op_int) {     \
+    return DoReducescatter<HorovodType, DeviceType>(tensor, output, name,      \
+                                                    reduce_op_int);            \
   }
 
 REDUCESCATTER(torch_IntTensor, DataType::HOROVOD_INT32, DeviceType::CPU,
@@ -485,9 +493,9 @@ REDUCESCATTER(torch_cuda_DoubleTensor, DataType::HOROVOD_FLOAT64,
 
 #define REDUCESCATTER_CUDA_ON_CPU(torch_Tensor, HorovodType, THCTensor, THTensor) \
   extern "C" int horovod_torch_reducescatter_async_##torch_Tensor(                \
-      THCTensor* tensor, THCTensor* output, int average, char* name) {            \
+      THCTensor* tensor, THCTensor* output, char* name, int reduce_op_int) {      \
     return DoReducescatterCudaOnCPU<HorovodType, THCTensor, THTensor>(            \
-        tensor, output, average, name);                                           \
+        tensor, output, name, reduce_op_int);                                     \
   }
 
 #if !HOROVOD_GPU_REDUCESCATTER && HAVE_CUDA

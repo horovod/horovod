@@ -77,16 +77,20 @@ int horovod_torch_broadcast_async_torch_DoubleTensor(THDoubleTensor* tensor,
 
 int horovod_torch_reducescatter_async_torch_IntTensor(THIntTensor* tensor,
                                                       THIntTensor* output,
-                                                      int average, char* name);
+                                                      char* name,
+                                                      int reduce_op_int);
 int horovod_torch_reducescatter_async_torch_LongTensor(THLongTensor* tensor,
                                                        THLongTensor* output,
-                                                       int average, char* name);
+                                                       char* name,
+                                                       int reduce_op_int);
 int horovod_torch_reducescatter_async_torch_FloatTensor(THFloatTensor* tensor,
                                                         THFloatTensor* output,
-                                                        int average, char* name);
+                                                        char* name,
+                                                        int reduce_op_int);
 int horovod_torch_reducescatter_async_torch_DoubleTensor(THDoubleTensor* tensor,
                                                          THDoubleTensor* output,
-                                                         int average, char* name);
+                                                         char* name,
+                                                         int reduce_op_int);
 
 int horovod_torch_poll(int handle);
 void horovod_torch_wait_and_clear(int handle);

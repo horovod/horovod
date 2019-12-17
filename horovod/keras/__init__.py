@@ -25,6 +25,7 @@ from horovod.tensorflow import local_rank
 from horovod.tensorflow import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.tensorflow import gloo_enabled, gloo_built
 from horovod.tensorflow import nccl_built, ddl_built, ccl_built
+from horovod.tensorflow import Average, Sum, Adasum
 from horovod.tensorflow import Compression
 
 from horovod.keras import callbacks
@@ -114,7 +115,7 @@ def broadcast(value, root_rank, name=None):
     return _impl.broadcast(K, value, root_rank, name)
 
 
-def reducescatter(value, name=None, average=True):
+def reducescatter(value, name=None, op=Average):
     """
     Perform a reducescatter on a tensor-compatible value.
 
@@ -122,10 +123,10 @@ def reducescatter(value, name=None, average=True):
         value: A tensor-compatible value to reduce and scatter.
                The shape of the input must be identical across all ranks.
         name: Optional name for the constants created by this operation.
-        average: If True, computes the average over all ranks.
-                 Otherwise, computes the sum over all ranks.
+        op: The reduction operation to combine tensors across different ranks.
+            Defaults to Average.
     """
-    return _impl.reducescatter(K, value, name, average)
+    return _impl.reducescatter(K, value, name, op)
 
 
 def load_model(filepath, custom_optimizers=None, custom_objects=None, compression=Compression.none):

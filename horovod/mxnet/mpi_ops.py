@@ -44,6 +44,11 @@ nccl_built = _basics.nccl_built
 ddl_built = _basics.ddl_built
 ccl_built = _basics.ccl_built
 
+# import reduction op values
+Average = _basics.Average
+Sum = _basics.Sum
+Adasum = _basics.Adasum
+
 dll_path = os.path.join(os.path.dirname(__file__),
                         'mpi_lib' + get_ext_suffix())
 MPI_MXNET_LIB_CTYPES = ctypes.CDLL(dll_path, ctypes.RTLD_GLOBAL)
@@ -239,7 +244,7 @@ def broadcast_(tensor, root_rank, name=None, priority=0):
     return tensor
 
 
-def reducescatter(tensor, average=True, name=None, priority=0):
+def reducescatter(tensor, op=Average, name=None, priority=0):
     """
     A function that performs asynchronous averaging or summation of the input tensor
     over all the Horovod processes, then scatters the results across all Horovod
@@ -256,8 +261,8 @@ def reducescatter(tensor, average=True, name=None, priority=0):
 
     Arguments:
         tensor: A tensor to average/sum and scatter.
-        average: A flag indicating whether to compute average or summation,
-                 defaults to average.
+        op: The reduction operation to combine tensors across different ranks.
+            Defaults to Average.
         name: A name of the reduction operation.
         priority: The priority of this operation. Higher priority operations
                   are likely to be executed before other operations.
@@ -274,10 +279,10 @@ def reducescatter(tensor, average=True, name=None, priority=0):
     c_out = output.handle
     if isinstance(name, string_types):
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_reducescatter_async(
-            c_in, c_out, c_str(name), ctypes.c_bool(average),
+            c_in, c_out, c_str(name), ctypes.c_int(op),
             ctypes.c_int(priority)))
     else:
         check_call(MPI_MXNET_LIB_CTYPES.horovod_mxnet_reducescatter_async(
-            c_in, c_out, name, ctypes.c_bool(average),
+            c_in, c_out, name, ctypes.c_int(op),
             ctypes.c_int(priority)))
     return output

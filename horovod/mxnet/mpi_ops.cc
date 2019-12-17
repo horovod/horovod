@@ -89,14 +89,14 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
           hvd_context, hvd_tensor, hvd_output, nullptr, name, device,
           [on_complete](const Status& status) {
             InvokeCompleteCallback(on_complete, status);
-      });
+          });
       break;
     case OperationType::ALLGATHER:
       enqueue_result = EnqueueTensorAllgather(
           hvd_context, hvd_tensor, nullptr, name, device,
           [on_complete](const Status& status) {
             InvokeCompleteCallback(on_complete, status);
-      });
+          });
       break;
     case OperationType::BROADCAST:
       if (horovod_rank() == ops_param->root_rank) {
@@ -112,14 +112,14 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
           nullptr, name, device,
           [on_complete](const Status& status) {
             InvokeCompleteCallback(on_complete, status);
-      });
+          });
       break;
     case OperationType::REDUCESCATTER:
       enqueue_result = EnqueueTensorReducescatter(
           hvd_context, hvd_tensor, nullptr, name, device,
           [on_complete](const Status& status) {
             InvokeCompleteCallback(on_complete, status);
-      });
+          });
       break;
     default:
       throw std::logic_error("Unsupported Horovod operation type.");
@@ -175,14 +175,14 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
           hvd_context, hvd_cpu_buffer, hvd_cpu_buffer, nullptr, name, CPU_DEVICE_ID,
           [on_complete](const Status& status) {
             InvokeCompleteCallback(on_complete, status);
-      });
+          });
       break;
     case OperationType::ALLGATHER:
       enqueue_result = EnqueueTensorAllgather(
           hvd_context, hvd_cpu_buffer, nullptr, name, CPU_DEVICE_ID,
           [on_complete](const Status& status) {
             InvokeCompleteCallback(on_complete, status);
-      });
+          });
       break;
     case OperationType::BROADCAST:
       enqueue_result = EnqueueTensorBroadcast(
@@ -190,14 +190,14 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
           nullptr, name, CPU_DEVICE_ID,
           [on_complete](const Status& status) {
             InvokeCompleteCallback(on_complete, status);
-      });
+          });
       break;
     case OperationType::REDUCESCATTER:
       enqueue_result = EnqueueTensorReducescatter(
           hvd_context, hvd_cpu_buffer, nullptr, name, CPU_DEVICE_ID,
           [on_complete](const Status& status) {
             InvokeCompleteCallback(on_complete, status);
-      });
+          });
       break;
     default:
       throw std::logic_error("Unsupported Horovod operation type.");
@@ -305,9 +305,11 @@ extern "C" int horovod_mxnet_broadcast_async(NDArray* input,
 }
 
 extern "C" int horovod_mxnet_reducescatter_async(NDArray* input, NDArray* output,
-                                                 const char* name, bool average,
+                                                 const char* name, int reduce_op_int,
                                                  int priority) {
   MX_API_BEGIN();
+
+  auto reduce_op = static_cast<horovod::common::ReduceOp>(reduce_op_int);
 
 #if HAVE_CUDA && !HOROVOD_GPU_REDUCESCATTER
   if (input->ctx().dev_mask() == cpu::kDevMask &&
@@ -323,7 +325,7 @@ extern "C" int horovod_mxnet_reducescatter_async(NDArray* input, NDArray* output
                        name, priority);
 #endif
 
-  if (average) {
+  if (reduce_op == horovod::common::ReduceOp::AVERAGE) {
     *output /= horovod_size();
   }
 
