@@ -140,10 +140,13 @@ def reducescatter(tensor, device_dense='', compression=Compression.none, op=Aver
         The shape is identical to the input shape, except for the first dimension,
         which will be divided across the different Horovod processes.
     """
+    # Averaging happens in framework code, so translate that to Sum for the actual call
+    true_op = Sum if op == Average else op
+
     with tf.device(device_dense):
         horovod_size = tf.cast(size(), dtype=tensor.dtype)
         tensor_compressed, ctx = compression.compress(tensor)
-        reduced_tensor_compressed = _reducescatter(tensor_compressed)
+        reduced_tensor_compressed = _reducescatter(tensor_compressed, reduce_op=true_op)
         reduced_tensor = compression.decompress(reduced_tensor_compressed, ctx)
         new_tensor = (reduced_tensor / horovod_size) if op == Average else reduced_tensor
     return new_tensor
