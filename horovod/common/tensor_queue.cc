@@ -143,21 +143,6 @@ void TensorQueue::PushMessageToQueue(Request& message) {
   message_queue_.push(std::move(message));
 }
 
-// Get tensor size and type given a tensor name.
-// Return false if the tensor not found.
-bool TensorQueue::GetTensorSizeAndType(const std::string& tensor_name,
-                                       int64_t& size, DataType& dtype) {
-  std::lock_guard<std::mutex> guard(mutex_);
-  auto it = tensor_table_.find(tensor_name);
-  if (it != tensor_table_.end()) {
-    const auto& entry = it->second;
-    size = entry.tensor->size();
-    dtype = entry.tensor->dtype();
-    return true;
-  }
-  return false;
-}
-
 // Remove JoinOp tensor from the table and execute the callback
 void TensorQueue::RemoveJoinTensor() {
   // Lock on the tensor table.

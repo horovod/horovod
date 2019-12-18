@@ -46,9 +46,6 @@ public:
 
   void PushMessageToQueue(Request& message);
 
-  bool GetTensorSizeAndType(const std::string& tensor_name, int64_t& size,
-                             DataType& dtype);
-
   void RemoveJoinTensor();
 
 protected:

@@ -507,12 +507,7 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
     }
   }
 
-  // If there is at least one rank that requested Join, communicate tensor sizes
-  // in the response, because joined ranks don't have this info.
-  // If caching is enabled, the sizes info needs to be communicated even if
-  // there are no currently joined ranks, for possible future use.
-  if ((joined_size > 0 || response_cache_.capacity() > 0) &&
-      (message_type == Request::ALLREDUCE || message_type == Request::ADASUM)) {
+  if (message_type == Request::ALLREDUCE || message_type == Request::ADASUM) {
     TensorShape tensor_shape;
     for (auto dim : requests[0].tensor_shape()) {
       tensor_shape.AddDim(dim);
@@ -582,22 +577,18 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
     }
   } else if (message_type == Request::ALLREDUCE) {
     response.set_response_type(Response::ALLREDUCE);
-    if (joined_size > 0 || response_cache_.capacity() > 0) {
-      for (auto dim : tensor_sizes) {
-        response.add_tensor_size(dim);
-      }
-      response.set_tensor_type(data_type);
+    for (auto dim : tensor_sizes) {
+      response.add_tensor_size(dim);
     }
+    response.set_tensor_type(data_type);
   } else if (message_type == Request::BROADCAST) {
     response.set_response_type(Response::BROADCAST);
   } else if (message_type == Request::ADASUM) {
     response.set_response_type(Response::ADASUM);
-    if (joined_size > 0 || response_cache_.capacity() > 0) {
-      for (auto dim : tensor_sizes) {
-        response.add_tensor_size(dim);
-      }
-      response.set_tensor_type(data_type);
+    for (auto dim : tensor_sizes) {
+      response.add_tensor_size(dim);
     }
+    response.set_tensor_type(data_type);
   }
   response.set_devices(devices);
 
@@ -645,21 +636,11 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses,
     assert(response.tensor_names().size() == 1);
     responses.pop_front();
     int64_t tensor_size = 0;
-    DataType dtype;
     if (response.response_type() == Response::ResponseType::ALLREDUCE ||
         response.response_type() == Response::ResponseType::ADASUM) {
       // Attempt to add more responses to this fused response.
 
-      if (joined) {
-        std::vector<TensorTableEntry> entries_for_join;
-        tensor_queue_.GetTensorEntriesFromResponse(response, entries_for_join,
-                                                   joined);
-        tensor_size = entries_for_join[0].tensor->size();
-        dtype = entries_for_join[0].tensor->dtype();
-      } else {
-        tensor_queue_.GetTensorSizeAndType(response.tensor_names()[0],
-                                           tensor_size, dtype);
-      }
+      tensor_size = response.tensor_sizes()[0];
       std::deque<Response> skipped_responses;
       int64_t skipped_size = 0;
       while (!responses.empty()) {
@@ -672,15 +653,10 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses,
                                                      entries_for_join, joined);
         }
 
-        const auto& new_entry =
-            joined
-                ? entries_for_join[0]
-                : tensor_queue_.GetTensorEntry(new_response.tensor_names()[0]);
-        int64_t new_tensor_size = new_entry.tensor->size();
-
+        int64_t new_tensor_size = new_response.tensor_sizes()[0];
         if (response.response_type() == new_response.response_type() &&
             response.devices() == new_response.devices() &&
-            dtype == new_entry.tensor->dtype() &&
+            response.tensor_type() == new_response.tensor_type() &&
             tensor_size + new_tensor_size <= TensorFusionThresholdBytes()) {
           // These tensors will fuse together well.
           tensor_size += new_tensor_size;
