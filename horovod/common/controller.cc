@@ -189,7 +189,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
     }
 
     // Fuse responses as normal.
-    response_list = FuseResponses(responses, state.joined);
+    response_list = FuseResponses(responses);
   } else {
     // There are uncached messages coming in, need communication to figure out
     // whether those are ready to be reduced.
@@ -295,7 +295,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
         responses.push_back(std::move(join_response));
         state.joined_size = 0;
       }
-      response_list = FuseResponses(responses, state.joined);
+      response_list = FuseResponses(responses);
       response_list.set_shutdown(should_shut_down);
 
       // Broadcast final results to other ranks.
@@ -627,8 +627,7 @@ void Controller::CoordinateCacheAndState(CacheCoordinator& cache_coordinator) {
   }
 }
 
-ResponseList Controller::FuseResponses(std::deque<Response>& responses,
-                                       bool joined) {
+ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
   ResponseList response_list;
   while (!responses.empty()) {
 
@@ -646,12 +645,6 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses,
       while (!responses.empty()) {
         auto new_response = responses.front();
         assert(new_response.tensor_names().size() == 1);
-
-        std::vector<TensorTableEntry> entries_for_join;
-        if (joined) {
-          tensor_queue_.GetTensorEntriesFromResponse(new_response,
-                                                     entries_for_join, joined);
-        }
 
         int64_t new_tensor_size = new_response.tensor_sizes()[0];
         if (response.response_type() == new_response.response_type() &&
