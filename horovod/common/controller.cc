@@ -628,7 +628,7 @@ void Controller::CoordinateCacheAndState(CacheCoordinator& cache_coordinator) {
                                (Request::RequestType)response.response_type());
     }
 
-    // End negotation phase for synced cache hit set entries.
+    // End negotiation phase for synced cache hit set entries.
     for (auto bit : cache_coordinator.cache_hits()) {
       auto& response = response_cache_.peek_response(bit);
       timeline_.NegotiateEnd(response.tensor_names()[0]);
@@ -650,6 +650,16 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses,
         response.response_type() == Response::ResponseType::ADASUM) {
       // Attempt to add more responses to this fused response.
 
+      if (joined) {
+        std::vector<TensorTableEntry> entries_for_join;
+        tensor_queue_.GetTensorEntriesFromResponse(response, entries_for_join,
+                                                   joined);
+        tensor_size = entries_for_join[0].tensor->size();
+        dtype = entries_for_join[0].tensor->dtype();
+      } else {
+        tensor_queue_.GetTensorSizeAndType(response.tensor_names()[0],
+                                           tensor_size, dtype);
+      }
       std::deque<Response> skipped_responses;
       int64_t skipped_size = 0;
       while (!responses.empty()) {
@@ -658,8 +668,8 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses,
 
         std::vector<TensorTableEntry> entries_for_join;
         if (joined) {
-          tensor_queue_.GetTensorEntriesFromResponse(response, entries_for_join,
-                                                     joined);
+          tensor_queue_.GetTensorEntriesFromResponse(new_response,
+                                                     entries_for_join, joined);
         }
 
         const auto& new_entry =
@@ -675,6 +685,8 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses,
           // These tensors will fuse together well.
           tensor_size += new_tensor_size;
           response.add_tensor_name(new_response.tensor_names()[0]);
+          LOG(DEBUG) << "Fused tensor " << new_response.tensor_names()[0]
+                     << " into response for " << response.tensor_names()[0];
           response.add_tensor_size(new_response.tensor_sizes()[0]);
           responses.pop_front();
         } else {
