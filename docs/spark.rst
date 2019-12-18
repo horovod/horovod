@@ -120,8 +120,9 @@ To run the example, be sure to install Horovod with ``[spark]``, then:
 Training on existing Parquet datasets
 -------------------------------------
 
-If your data is already in the Parquet format and you wish to train on its with Horovod Spark Estimators, you
-can do so without needing to reprocess the data in Spark using `Estimator.fit_on_parquet()`:
+If your data is already in the Parquet format and you wish to train on it with Horovod Spark Estimators, you
+can do so without needing to reprocess the data in Spark. Using `Estimator.fit_on_parquet()`, you can train directly
+on an existing Parquet dataset:
 
 .. code-block:: python
 
@@ -139,7 +140,7 @@ can do so without needing to reprocess the data in Spark using `Estimator.fit_on
 
     keras_model = keras_estimator.fit_on_parquet()
 
-The resulting ``keras_model`` can then be used the same as any Spark Transformer, or you can extract the underlying
+The resulting ``keras_model`` can then be used the same way as any Spark Transformer, or you can extract the underlying
 Keras model and use it outside of Spark:
 
 .. code-block:: python
@@ -147,6 +148,37 @@ Keras model and use it outside of Spark:
     model = keras_model.getModel()
     pred = model.predict([np.ones([1, 2], dtype=np.float32)])
 
+This approach will work on datasets created using ``horovod.spark.common.util.prepare_data``. It will also work with
+any Parquet file that contains no Spark user-defined data types (like ``DenseVector`` or ``SparseVector``).  It's
+recommended to use ``prepare_data`` to ensure the data is properly prepared for training even if you have an existing
+dataset in Parquet format.  Using ``prepare_data`` allows you to properly partition the dataset for the number of
+training processes you intend to use, as well as compress large sparse data columns:
+
+.. code-block:: python
+
+    store = HDFSStore(train_path='/user/username/training_dataset', val_path='/user/username/val_dataset')
+    with util.prepare_data(num_processes=4,
+                           store=store,
+                           df=df,
+                           feature_columns=['features'],
+                           label_columns=['y'],
+                           validation=0.1,
+                           compress_sparse=True):
+        keras_estimator = hvd.KerasEstimator(
+            num_proc=4,
+            store=store,
+            model=model,
+            optimizer=optimizer,
+            loss=loss,
+            feature_cols=['features'],
+            label_cols=['y'],
+            batch_size=32,
+            epochs=10)
+
+        keras_model = keras_estimator.fit_on_parquet()
+
+Once the data has been prepared, you can reuse it in future Spark applications without needing to call
+``util.prepare_data`` again.
 
 Horovod Spark Run
 ~~~~~~~~~~~~~~~~~
