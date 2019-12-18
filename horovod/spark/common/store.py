@@ -257,9 +257,9 @@ class LocalStore(FilesystemStore):
     def sync_fn(self, run_id):
         run_path = self.get_localized_path(self.get_run_path(run_id))
 
-        def fn(root_path):
-            # No-op for LocalStore since the `local_run_path` is the same as the run path
-            assert run_path == root_path
+        def fn(local_run_path):
+            # No-op for LocalStore since the `local_run_path` will be the same as the run path
+            assert run_path == local_run_path
         return fn
 
     @classmethod
@@ -351,7 +351,7 @@ class HDFSStore(FilesystemStore):
         get_filesystem = self._get_filesystem_fn()
         hdfs_root_path = self.get_run_path(run_id)
 
-        def fn(root_path):
+        def fn(local_run_path):
             if state.fs is None:
                 state.fs = get_filesystem()
 
@@ -360,9 +360,9 @@ class HDFSStore(FilesystemStore):
 
             # We need to swap this prefix from the local path with the absolute path, +1 due to
             # including the trailing slash
-            prefix = len(root_path) + 1
+            prefix = len(local_run_path) + 1
 
-            for local_dir, dirs, files in os.walk(root_path):
+            for local_dir, dirs, files in os.walk(local_run_path):
                 hdfs_dir = os.path.join(hdfs_root_path, local_dir[prefix:])
                 for file in files:
                     local_path = os.path.join(local_dir, file)

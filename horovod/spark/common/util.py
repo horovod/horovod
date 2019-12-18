@@ -531,13 +531,17 @@ def _get_or_create_dataset(key, store, df, feature_columns, label_columns,
         return dataset_idx
 
 
-def check_validation(validation):
+def check_validation(validation, df=None):
     if validation:
         if isinstance(validation, float):
             if validation < 0 or validation >= 1:
                 raise ValueError('Validation split {} must be in the range: [0, 1)'
                                  .format(validation))
-        elif not isinstance(validation, str):
+        elif isinstance(validation, str):
+            if df is not None and validation not in df.columns:
+                raise ValueError('Validation column {} does not exist in the DataFrame'
+                                 .format(validation))
+        else:
             raise ValueError('Param validation must be of type "float" or "str", found: {}'
                              .format(type(validation)))
 
@@ -546,7 +550,7 @@ def check_validation(validation):
 def prepare_data(num_processes, store, df, label_columns, feature_columns,
                  validation=None, sample_weight_col=None, compress_sparse=False,
                  partitions_per_process=10, verbose=0):
-    check_validation(validation)
+    check_validation(validation, df=df)
     if num_processes <= 0 or partitions_per_process <= 0:
         raise ValueError('num_proc={} and partitions_per_process={} must both be > 0'
                          .format(num_processes, partitions_per_process))
@@ -560,10 +564,14 @@ def prepare_data(num_processes, store, df, label_columns, feature_columns,
 
     for col in label_columns:
         if col not in df.columns:
-            raise ValueError('Label column {} does not exist in this DataFrame'.format(col))
+            raise ValueError('Label column {} does not exist in the DataFrame'.format(col))
 
     if feature_columns is None:
         feature_columns = [col for col in df.columns if col not in set(label_columns)]
+    else:
+        for col in feature_columns:
+            if col not in df.columns:
+                raise ValueError('Feature column {} does not exist in the DataFrame'.format(col))
 
     key = _training_cache.create_key(df, store, validation)
     with _training_cache.use_key(key):
