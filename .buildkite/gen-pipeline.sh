@@ -14,9 +14,9 @@ tests=( \
        test-cpu-openmpi-py2_7-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
        test-cpu-openmpi-py3_5-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
        test-cpu-openmpi-py3_6-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
-       test-cpu-openmpi-py2_7-tf1_14_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
-       test-cpu-openmpi-py3_5-tf1_14_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
-       test-cpu-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
+       test-cpu-openmpi-py2_7-tf1_14_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_4_0 \
+       test-cpu-openmpi-py3_5-tf1_14_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_4_0 \
+       test-cpu-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_4_0 \
        test-cpu-gloo-py2_7-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
        test-cpu-gloo-py3_5-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
        test-cpu-gloo-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
@@ -46,8 +46,7 @@ build_test() {
   echo "  - docker-compose#6b0df8a98ff97f42f4944dbb745b5b8cbf04b78c:"
   echo "      build: ${test}"
   echo "      image-repository: ${repository}"
-#  echo "      cache-from: ${test}:${repository}:${BUILDKITE_PIPELINE_SLUG}-${test}-latest"
-  echo "      no-cache: true"
+  echo "      cache-from: ${test}:${repository}:${BUILDKITE_PIPELINE_SLUG}-${test}-latest"
   echo "      config: docker-compose.test.yml"
   echo "      push-retries: 5"
   echo "  - ecr#v1.2.0:"
