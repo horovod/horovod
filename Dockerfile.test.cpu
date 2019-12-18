@@ -96,7 +96,8 @@ COPY . /horovod
 RUN pip install ${TENSORFLOW_PACKAGE}
 
 # Install Keras.
-RUN pip install ${KERAS_PACKAGE} h5py scipy pandas
+# Pin scipy<=1.4.0: https://github.com/scipy/scipy/issues/11237
+RUN pip install ${KERAS_PACKAGE} h5py "scipy<1.4.0" pandas
 RUN mkdir -p ~/.keras
 RUN python -c "from keras.datasets import mnist; mnist.load_data()"
 
