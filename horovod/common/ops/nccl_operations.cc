@@ -21,6 +21,10 @@ namespace common {
 
 ncclDataType_t GetNCCLDataType(const std::shared_ptr<Tensor> tensor) {
   switch (tensor->dtype()) {
+    case HOROVOD_UINT8:
+      return ncclUint8;
+    case HOROVOD_INT8:
+      return ncclInt8;
     case HOROVOD_INT32:
       return ncclInt32;
     case HOROVOD_INT64:
