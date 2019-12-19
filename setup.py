@@ -107,7 +107,7 @@ def get_supported_instruction_set_flags(flags_to_check):
             'gcc -march=native -E -v - </dev/null 2>&1 | grep cc1',
             shell=True, universal_newlines=True).strip()
         flags = shlex.split(flags_output)
-        supported = [x for x in flags_to_check if x or x.replace('-m', '+') in flags]
+        supported = [x for x in flags_to_check if x in flags or x.replace('-m', '+') in flags]
     except subprocess.CalledProcessError:
         # Fallback to no advanced instruction set flags if were not able to get flag information.
         pass
