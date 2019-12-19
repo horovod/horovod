@@ -139,6 +139,12 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
 
         # Horovod: broadcast parameters & optimizer state.
         hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+
+        for group in optimizer.param_groups:
+            for p in group['params']:
+                if id(p) not in optimizer.state_dict()['state']:
+                    p.grad = p.data.new(p.size()).zero_()
+        optimizer.step()
         hvd.broadcast_optimizer_state(optimizer, root_rank=0)
 
         dist_optimizer_args = dict(optimizer=optimizer,

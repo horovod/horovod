@@ -521,7 +521,7 @@ def _get_or_create_dataset(key, store, df, feature_columns, label_columns,
                 if val_rows == 0:
                     raise ValueError(
                         'Validation DataFrame does not any samples with validation param {}'
-                            .format(validation))
+                        .format(validation))
                 if verbose:
                     print('val_rows={}'.format(val_rows))
 
