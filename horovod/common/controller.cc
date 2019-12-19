@@ -646,7 +646,9 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
         auto new_response = responses.front();
         assert(new_response.tensor_names().size() == 1);
 
-        int64_t new_tensor_size = new_response.tensor_sizes()[0];
+        int64_t new_tensor_size = new_response.tensor_sizes().empty()
+                                      ? 0
+                                      : new_response.tensor_sizes()[0];
         if (response.response_type() == new_response.response_type() &&
             response.devices() == new_response.devices() &&
             response.tensor_type() == new_response.tensor_type() &&
@@ -654,8 +656,6 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
           // These tensors will fuse together well.
           tensor_size += new_tensor_size;
           response.add_tensor_name(new_response.tensor_names()[0]);
-          LOG(DEBUG) << "Fused tensor " << new_response.tensor_names()[0]
-                     << " into response for " << response.tensor_names()[0];
           response.add_tensor_size(new_response.tensor_sizes()[0]);
           responses.pop_front();
         } else {
