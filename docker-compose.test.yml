@@ -17,18 +17,6 @@ services:
         TORCHVISION_PACKAGE: torchvision==0.2.2.post3
         MXNET_PACKAGE: mxnet==1.4.1
         PYSPARK_PACKAGE: pyspark==2.3.2
-  test-cpu-openmpi-py3_5-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_3_2:
-    extends: test-cpu-base
-    build:
-      args:
-        MPI_KIND: OpenMPI
-        PYTHON_VERSION: 3.5
-        TENSORFLOW_PACKAGE: tensorflow==1.1.0
-        KERAS_PACKAGE: keras==2.0.0
-        PYTORCH_PACKAGE: torch==0.4.0
-        TORCHVISION_PACKAGE: torchvision==0.2.2.post3
-        MXNET_PACKAGE: mxnet==1.4.1
-        PYSPARK_PACKAGE: pyspark==2.3.2
   test-cpu-openmpi-py3_6-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_3_2:
     extends: test-cpu-base
     build:
@@ -48,18 +36,6 @@ services:
       args:
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 2.7
-        TENSORFLOW_PACKAGE: tensorflow==1.6.0
-        KERAS_PACKAGE: keras==2.1.2
-        PYTORCH_PACKAGE: torch==0.4.1
-        TORCHVISION_PACKAGE: torchvision==0.2.2.post3
-        MXNET_PACKAGE: mxnet==1.4.1
-        PYSPARK_PACKAGE: pyspark==2.3.2
-  test-cpu-openmpi-py3_5-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2:
-    extends: test-cpu-base
-    build:
-      args:
-        MPI_KIND: OpenMPI
-        PYTHON_VERSION: 3.5
         TENSORFLOW_PACKAGE: tensorflow==1.6.0
         KERAS_PACKAGE: keras==2.1.2
         PYTORCH_PACKAGE: torch==0.4.1
@@ -91,18 +67,6 @@ services:
         TORCHVISION_PACKAGE: torchvision==0.4.1+cpu
         MXNET_PACKAGE: mxnet==1.4.1
         PYSPARK_PACKAGE: pyspark==2.4.0
-  test-cpu-openmpi-py3_5-tf1_14_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_4_0:
-    extends: test-cpu-base
-    build:
-      args:
-        MPI_KIND: OpenMPI
-        PYTHON_VERSION: 3.5
-        TENSORFLOW_PACKAGE: tensorflow==1.14.0
-        KERAS_PACKAGE: keras==2.2.4
-        PYTORCH_PACKAGE: torch==1.2.0+cpu
-        TORCHVISION_PACKAGE: torchvision==0.4.1+cpu
-        MXNET_PACKAGE: mxnet==1.4.1
-        PYSPARK_PACKAGE: pyspark==2.4.0
   test-cpu-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_4_0:
     extends: test-cpu-base
     build:
@@ -122,18 +86,6 @@ services:
       args:
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 2.7
-        TENSORFLOW_PACKAGE: tensorflow==1.14.0
-        KERAS_PACKAGE: keras==2.3.1
-        PYTORCH_PACKAGE: torch==1.3.0+cpu
-        TORCHVISION_PACKAGE: torchvision==0.4.1+cpu
-        MXNET_PACKAGE: mxnet==1.4.1
-        PYSPARK_PACKAGE: pyspark==2.4.0
-  test-cpu-openmpi-gloo-py3_5-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0:
-    extends: test-cpu-base
-    build:
-      args:
-        MPI_KIND: OpenMPI
-        PYTHON_VERSION: 3.5
         TENSORFLOW_PACKAGE: tensorflow==1.14.0
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.3.0+cpu
@@ -165,18 +117,6 @@ services:
         TORCHVISION_PACKAGE: torchvision==0.4.1+cpu
         MXNET_PACKAGE: mxnet==1.4.1
         PYSPARK_PACKAGE: pyspark==2.4.0
-  test-cpu-gloo-py3_5-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0:
-    extends: test-cpu-base
-    build:
-      args:
-        MPI_KIND: None
-        PYTHON_VERSION: 3.5
-        TENSORFLOW_PACKAGE: tensorflow==1.14.0
-        KERAS_PACKAGE: keras==2.3.1
-        PYTORCH_PACKAGE: torch==1.3.0+cpu
-        TORCHVISION_PACKAGE: torchvision==0.4.1+cpu
-        MXNET_PACKAGE: mxnet==1.4.1
-        PYSPARK_PACKAGE: pyspark==2.4.0
   test-cpu-gloo-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0:
     extends: test-cpu-base
     build:
@@ -196,18 +136,6 @@ services:
       args:
         MPI_KIND: OpenMPI
         PYTHON_VERSION: 2.7
-        TENSORFLOW_PACKAGE: tensorflow==2.0.0
-        KERAS_PACKAGE: keras==2.3.1
-        PYTORCH_PACKAGE: torch==1.3.0+cpu
-        TORCHVISION_PACKAGE: torchvision==0.4.1+cpu
-        MXNET_PACKAGE: mxnet==1.5.0
-        PYSPARK_PACKAGE: pyspark==2.4.0
-  test-cpu-openmpi-py3_5-tf2_0_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0:
-    extends: test-cpu-base
-    build:
-      args:
-        MPI_KIND: OpenMPI
-        PYTHON_VERSION: 3.5
         TENSORFLOW_PACKAGE: tensorflow==2.0.0
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.3.0+cpu
