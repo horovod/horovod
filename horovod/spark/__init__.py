@@ -13,17 +13,15 @@
 # limitations under the License.
 # ==============================================================================
 
-# Workaround for https://issues.apache.org/jira/browse/SPARK-22674
-# This fix also requires the user to make this same change at the top of their
-# training script before importing pyspark (on serialization).
-import collections
-collections.namedtuple.__hijack = 1
+import horovod.spark.common._namedtuple_fix
 
 import os
-import pyspark
-from six.moves import queue
+import platform
 import sys
 import threading
+
+import pyspark
+from six.moves import queue
 
 from horovod.spark.task import task_service
 from horovod.run.common.util import codec, env as env_util, safe_shell_exec, \
@@ -31,6 +29,11 @@ from horovod.run.common.util import codec, env as env_util, safe_shell_exec, \
 from horovod.run.common.util import settings as hvd_settings
 from horovod.run.mpi_run import mpi_run
 from horovod.spark.driver import driver_service, job_id
+
+
+# Spark will fail to initialize correctly locally on Mac OS without this
+if platform.system() == 'Darwin':
+    os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
 
 
 def _task_fn(index, driver_addresses, settings):

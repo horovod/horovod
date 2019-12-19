@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 from __future__ import print_function
 
 import os
@@ -1446,6 +1447,7 @@ class custom_build_ext(build_ext):
 
 
 require_list = ['cloudpickle', 'psutil', 'pyyaml', 'six']
+test_require_list = ['mock', 'pytest', 'pytest-forked']
 
 # Skip cffi if pytorch extension explicitly disabled
 if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
@@ -1472,5 +1474,15 @@ setup(name='horovod',
       # so it's only necessary for `build*` or `bdist*` actions.
       setup_requires=require_list if is_build_action() else [],
       install_requires=require_list,
+      test_requires=test_require_list,
+      extras_require={
+          'spark':  [
+              'h5py>=2.9',
+              'numpy',
+              'petastorm>=0.7.7',
+              'pyarrow>=0.15.0',  # Petastorm 0.7.7 is not compatible with < 0.15.0
+              'pyspark>=2.3.2'
+          ],
+      },
       zip_safe=False,
       scripts=['bin/horovodrun'])

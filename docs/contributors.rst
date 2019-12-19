@@ -33,7 +33,7 @@ For example:
     $ pip install tensorflow==1.14.0
     $ pip install keras==2.2.4
     $ pip install torch==1.1.0 torchvision
-    $ pip install pytest mock
+    $ pip install mock pytest pytest-forked
     $ pip install h5py future scipy mpi4py pyspark mxnet
 
 
