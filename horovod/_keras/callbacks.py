@@ -43,6 +43,20 @@ class BroadcastGlobalVariablesCallbackImpl(object):
         self.broadcast_done = True
 
 
+class JoinCallbackImpl(object):
+    def __init__(self, backend, device=-1, *args):
+        super(JoinCallbackImpl, self).__init__(*args)
+        self.backend = backend
+        self.device = device
+
+    def on_epoch_end(self, epoch, logs=None):
+        join_op = hvd.join(self.device)
+
+        # TensorFlow 2.0 or TensorFlow eager
+        if not hvd._executing_eagerly():
+            self.backend.get_session().run(join_op)
+
+
 class MetricAverageCallbackImpl(object):
     def __init__(self, backend, device='', *args):
         super(MetricAverageCallbackImpl, self).__init__(*args)

@@ -199,3 +199,20 @@ def _broadcast_grad(op, grad):
     if rank() != root_rank:
         return grad_reduced * 0
     return grad_reduced
+
+
+def join(tensor, device=-1, name=None):
+    """An op which indicates that the rank finished processing data.
+
+    All ranks that did not call join() continue to process allreduce operations.
+    Running this op blocks until all other ranks haved joined.
+
+    Args:
+        device: ID of the device to create temporary zero tensors on (default -1, CPU)
+
+    Returns:
+      A scalar tensor ID of the rank that joined last.
+    """
+    if name is None and not _executing_eagerly():
+        name = 'HorovodJoin_%s' % _normalize_name(tensor.name)
+    return MPI_LIB.horovod_join(device, name=name)

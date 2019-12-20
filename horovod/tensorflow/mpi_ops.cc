@@ -480,5 +480,54 @@ Output
                `tensor` on root rank.
 )doc");
 
+class HorovodJoinOp : public AsyncOpKernel {
+public:
+  explicit HorovodJoinOp(OpKernelConstruction* context)
+      : AsyncOpKernel(context) {
+  }
+
+  void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(common::CheckInitialized()),
+                         done);
+
+    auto device = GetDeviceID(context);
+
+    // ReadyEvent makes sure input tensor is ready, and output is allocated.
+    auto ready_event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context));
+    auto hvd_context = std::make_shared<TFOpContext>(context);
+    auto enqueue_result = EnqueueJoin(
+        hvd_context, ready_event,
+        JOIN_TENSOR_NAME, device,
+        [context, done](const common::Status& status) {
+          context->SetStatus(ConvertStatus(status));
+          done();
+        });
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
+  }
+};
+
+REGISTER_KERNEL_BUILDER(Name("HorovodJoin").Device(DEVICE_CPU),
+    HorovodJoinOp);
+#if HAVE_CUDA
+REGISTER_KERNEL_BUILDER(Name("HorovodJoin").Device(DEVICE_GPU),
+                        HorovodJoinOp);
+#endif
+
+REGISTER_OP("HorovodJoin")
+.Attr(
+"T: {int32}")
+.Output("output: T")
+.SetShapeFn([](shape_inference::InferenceContext* c) {
+c->set_output(0, c->input(0));
+return Status::OK();
+})
+.Doc(R"doc(
+Indicate this this rank has finished processing data. All ranks that did not call join() continue
+to process allreduce operations. This function blocks until all ranks join.
+
+Output
+    output:    A scalar tensor ID of the rank that joined last.
+)doc");
+
 } // namespace tensorflow
 } // namespace horovod

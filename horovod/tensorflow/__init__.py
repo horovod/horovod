@@ -25,7 +25,7 @@ from horovod.common.util import check_extension, gpu_available
 check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
 
 from horovod.tensorflow.compression import Compression
-from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce
+from horovod.tensorflow.mpi_ops import allgather, broadcast, join, _allreduce
 from horovod.tensorflow.mpi_ops import init, shutdown
 from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank, is_homogeneous
 from horovod.tensorflow.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
