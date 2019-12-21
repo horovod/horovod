@@ -17,6 +17,7 @@ from __future__ import absolute_import
 
 import horovod.spark.common._namedtuple_fix
 
+import copy
 import io
 import numbers
 import time
@@ -222,16 +223,18 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         return torch.load(ckpt_file)
 
     def _create_model(self, run_results, run_id, metadata):
-        history, serialized_model, serialized_optimizer = run_results[0]
-        model = codec.loads_base64(serialized_model)
+        history, serialized_checkpoint = run_results[0]
+        serialized_checkpoint.seek(0)
+        best_checkpoint = torch.load(serialized_checkpoint, map_location=torch.device('cpu'))
 
-        # torch.load correctly moves all the optimizer state values to cpu
-        # before creating the object.
-        optimizer_bio = codec.loads_base64(serialized_optimizer)
-        opt = torch.load(optimizer_bio, map_location=torch.device('cpu'))
+        model = copy.deepcopy(self.getModel())
+        optimizer = copy.deepcopy(self.getOptimizer())
+
+        model.load_state_dict(best_checkpoint['model'])
+        optimizer.load_state_dict(best_checkpoint['optimizer'])
 
         return self.get_model_class()(**self._get_model_kwargs(
-            model, history, opt, run_id, metadata))
+            model, history, optimizer, run_id, metadata))
 
     def get_model_class(self):
         return TorchModel
