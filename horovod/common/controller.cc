@@ -639,7 +639,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
         response.response_type() == Response::ResponseType::ADASUM) {
       // Attempt to add more responses to this fused response.
 
-      tensor_size = response.tensor_sizes()[0];
+      tensor_size = response.tensor_sizes()[0] * GetTypeSize(response.tensor_type());
       std::deque<Response> skipped_responses;
       int64_t skipped_size = 0;
       while (!responses.empty()) {
@@ -648,7 +648,8 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
 
         int64_t new_tensor_size = new_response.tensor_sizes().empty()
                                       ? 0
-                                      : new_response.tensor_sizes()[0];
+                                      : new_response.tensor_sizes()[0] *
+                                        GetTypeSize(new_response.tensor_type());
         if (response.response_type() == new_response.response_type() &&
             response.devices() == new_response.devices() &&
             response.tensor_type() == new_response.tensor_type() &&
