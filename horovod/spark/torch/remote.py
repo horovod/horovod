@@ -25,7 +25,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from horovod.spark.common import constants
-from horovod.spark.torch.util import deserialize_fn, serialize_fn
+from horovod.spark.torch.util import deserialize_fn
 
 
 PETASTORM_HDFS_DRIVER = constants.PETASTORM_HDFS_DRIVER
@@ -63,7 +63,6 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
         loss_weights = [float(1) / num_labels for _ in range(num_labels)]
 
     # Utility functions
-    serialize = serialize_fn()
     deserialize = deserialize_fn()
     get_optimizer_with_unscaled_lr = _get_optimizer_with_unscaled_lr_fn()
     calculate_shuffle_buffer_size = _calculate_shuffle_buffer_size_fn()
@@ -177,9 +176,11 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
 
             def save_checkpoint():
                 model.cpu()
+                optimizer_with_scaled_down_lr = \
+                    get_optimizer_with_unscaled_lr(hvd, optimizer, optimizer_cls, model)
                 state = {
                     'model': model.state_dict(),
-                    'optimizer': optimizer.state_dict(),
+                    'optimizer': optimizer_with_scaled_down_lr.state_dict(),
                 }
                 torch.save(state, ckpt_file)
                 if cuda_available:
@@ -328,23 +329,11 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
 
             if hvd.rank() == 0:
                 best_checkpoint = torch.load(ckpt_file)
-                model.load_state_dict(best_checkpoint['model'])
-                optimizer.load_state_dict(best_checkpoint['optimizer'])
+                serialized_checkpoint = io.BytesIO()
+                torch.save(best_checkpoint, serialized_checkpoint)
+                serialized_checkpoint.seek(0)
+                return history, serialized_checkpoint
 
-                # need to move the model to cpu before serialization. Otherwise,
-                # deserialization will fail if the machine on which the deserialization
-                # is happening does not have gpu.
-                model.cpu()
-
-                optimizer_with_unscaled_lr = \
-                    get_optimizer_with_unscaled_lr(
-                        hvd, optimizer, optimizer_cls, model)
-
-                bio_opt = io.BytesIO()
-                torch.save(optimizer_with_unscaled_lr, bio_opt)
-                bio_opt.seek(0)
-
-                return history, serialize(model), serialize(bio_opt)
     return train
 
 
