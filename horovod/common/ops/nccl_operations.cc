@@ -22,6 +22,7 @@ namespace common {
 ncclDataType_t GetNCCLDataType(const std::shared_ptr<Tensor> tensor) {
   switch (tensor->dtype()) {
     case HOROVOD_UINT8:
+    case HOROVOD_BYTE:
       return ncclUint8;
     case HOROVOD_INT8:
       return ncclInt8;
@@ -383,10 +384,13 @@ Status NCCLBroadcast::Execute(std::vector<TensorTableEntry>& entries,
     data_ptr = (void*) e.output->data();
   }
 
+  // We only use 'ncclChar' for this operation because the type format does not matter for a
+  // broadcast, only the size of the data.
   nccl_context_->ErrorCheck("ncclBcast",
                             ncclBcast(data_ptr,
-                                      (size_t) e.tensor->shape().num_elements(),
-                                      GetNCCLDataType(e.tensor), e.root_rank,
+                                      e.tensor->shape().num_elements() *
+                                      DataType_Size(e.tensor->dtype()),
+                                      ncclChar, e.root_rank,
                                       *nccl_comm_, *cuda_op_context_.stream));
   if (global_state_->timeline.Initialized()) {
     cuda_context_->RecordEvent(cuda_op_context_.event_queue, NCCL_BCAST, *cuda_op_context_.stream);

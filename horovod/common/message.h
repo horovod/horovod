@@ -40,6 +40,8 @@ enum DataType {
 
 const std::string& DataType_Name(DataType value);
 
+std::size_t DataType_Size(DataType value);
+
 // A Request is a message sent from a rank greater than zero to the
 // coordinator (rank zero), informing the coordinator of an operation that
 // the rank wants to do and the tensor that it wants to apply the operation to.
