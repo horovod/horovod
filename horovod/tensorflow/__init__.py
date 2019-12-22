@@ -146,7 +146,7 @@ def reducescatter(tensor, device_dense='', compression=Compression.none, op=Aver
     with tf.device(device_dense):
         horovod_size = tf.cast(size(), dtype=tensor.dtype)
         tensor_compressed, ctx = compression.compress(tensor)
-        reduced_tensor_compressed = _reducescatter(tensor_compressed, reduce_op=true_op)
+        reduced_tensor_compressed = _reducescatter(tensor_compressed, op=true_op)
         reduced_tensor = compression.decompress(reduced_tensor_compressed, ctx)
         new_tensor = (reduced_tensor / horovod_size) if op == Average else reduced_tensor
     return new_tensor

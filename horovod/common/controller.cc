@@ -513,6 +513,12 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
       error = true;
       error_message_stream << "Reducescatter is not supported with Join at this time.";
     }
+
+    TensorShape tensor_shape;
+    for (auto dim : requests[0].tensor_shape()) {
+      tensor_shape.AddDim(dim);
+    }
+    tensor_sizes.push_back(tensor_shape.num_elements());
   }
 
   if (message_type == Request::ALLREDUCE || message_type == Request::ADASUM) {
@@ -593,6 +599,10 @@ Response Controller::ConstructResponse(std::string& name, int joined_size) {
     response.set_response_type(Response::BROADCAST);
   } else if (message_type == Request::REDUCESCATTER) {
     response.set_response_type(Response::REDUCESCATTER);
+    for (auto dim : tensor_sizes) {
+      response.add_tensor_size(dim);
+    }
+    response.set_tensor_type(data_type);
   } else if (message_type == Request::ADASUM) {
     response.set_response_type(Response::ADASUM);
     for (auto dim : tensor_sizes) {
