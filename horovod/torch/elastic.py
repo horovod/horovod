@@ -26,6 +26,7 @@ from horovod.torch.mpi_ops import init, rank, shutdown
 
 class State(object):
     def __init__(self, saved_state):
+        self._workers_available = []
         self._reset_callbacks = []
         self._saved_state = saved_state
         self.restore()
@@ -37,7 +38,7 @@ class State(object):
     def register_reset_callbacks(self, callbacks):
         self._reset_callbacks.extend(callbacks)
 
-    def checkpoint(self):
+    def commit(self):
         self.save()
         if self._workers_available:
             raise WorkersAvailableException()
@@ -56,13 +57,13 @@ class ObjectState(State):
     def __init__(self, **kwargs):
         super(ObjectState, self).__init__(kwargs)
 
-    def checkpoint(self):
+    def save(self):
         new_state = {}
         for attr in self._saved_state.keys():
             new_state[attr] = getattr(self, attr)
         self._saved_state = new_state
 
-    def save(self):
+    def restore(self):
         for attr, value in self._saved_state.items():
             setattr(self, attr, value)
 
@@ -87,7 +88,7 @@ class TorchState(ObjectState):
     def save(self):
         self._saved_model_state = copy.deepcopy(self.model.state_dict())
         self._saved_optimizer_state = copy.deepcopy(self.optimizer.state_dict())
-        super(TorchState, self).checkpoint()
+        super(TorchState, self).save()
 
     def restore(self):
         self.model.load_state_dict(self._saved_model_state)
@@ -100,7 +101,7 @@ class TorchState(ObjectState):
         super(TorchState, self).sync()
 
 
-def train(func):
+def run(func):
     @functools.wraps(func)
     def wrapper(state, *args, **kwargs):
         reset_required = False
