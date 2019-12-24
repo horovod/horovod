@@ -497,7 +497,7 @@ def broadcast_optimizer_state(optimizer, root_rank):
     if len(state_dict['state']) == 0:
         for group in optimizer.param_groups:
             for p in group['params']:
-                if p.requires_grad and id(p) not in optimizer.state_dict()['state']:
+                if p.requires_grad and id(p) not in state_dict['state']:
                     p.grad = p.data.new(p.size()).zero_()
         # This function accepts a torch.optim.Optimizer or a DistributedOptimizer
         # wrapped around a torch optimizer. Calling step() with a DistributedOptimizer
