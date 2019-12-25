@@ -284,7 +284,7 @@ test_min_date = test_df.agg(F.min(test_df.Date)).collect()[0][0]
 test_max_date = test_df.agg(F.max(test_df.Date)).collect()[0][0]
 one_year = datetime.timedelta(365)
 train_df = train_df.withColumn('Validation',
-                               (train_df.Date < test_min_date - one_year) | (train_df.Date >= test_max_date - one_year))
+                               (train_df.Date > test_min_date - one_year) & (train_df.Date <= test_max_date - one_year))
 
 # Determine max Sales number.
 max_sales = train_df.agg(F.max(train_df.Sales)).collect()[0][0]
@@ -375,7 +375,7 @@ keras_estimator = hvd.KerasEstimator(num_proc=args.num_proc,
 
 keras_model = keras_estimator.fit(train_df)
 
-history = keras_estimator.getHistory()
+history = keras_model.getHistory()
 best_val_rmspe = min(history['val_exp_rmspe'])
 print('Best RMSPE: %f' % best_val_rmspe)
 
