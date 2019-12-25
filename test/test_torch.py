@@ -24,6 +24,7 @@ import collections
 import inspect
 import itertools
 import os
+import pytest
 import tempfile
 import unittest
 import warnings
@@ -1104,6 +1105,8 @@ class TorchTests(unittest.TestCase):
             loss.backward()
             optimizer.step()
 
+    @pytest.mark.skipif(LooseVersion(torch.__version__) < LooseVersion('0.4.1'),
+                        reason='Cannot optimize parameters that do not require gradients before PyTorch 0.4.1')
     def test_broadcast_state_no_grad(self):
         class ModelNoGrad(nn.Module):
             def __init__(self, a, b):
