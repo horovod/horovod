@@ -394,7 +394,7 @@ def make_override_false_action(override_args):
 
 def parse_args():
     override_args = set()
-    
+
     parser = argparse.ArgumentParser(description='Horovod Runner')
 
     parser.add_argument('-v', '--version', action='version', version=horovod.__version__,
@@ -677,8 +677,15 @@ class HorovodArgs(object):
 
 
 def parse_host_files(filename):
+    """
+    Transform the hostfile into a format of
+    <IP address> or <host name>:<Number of GPUs>
+    :param filename: Should be in <IP address> or <host name> slots=<number of GPUs>
+    :return: Comma separated string of <IP address> or <host name>:<Number of GPUs>
+    """
     hosts = []
     for line in open(filename):
+        line = line.rstrip()
         hostname = line.split()[0]
         slots = line.split('=')[1]
         hosts.append('{name}:{slots}'.format(name=hostname, slots=slots))
