@@ -41,6 +41,7 @@ except ImportError:
     from collections import Iterable
 
 
+from horovod.torch import elastic
 from horovod.torch.compression import Compression
 from horovod.torch.mpi_ops import allreduce, allreduce_async, allreduce_, allreduce_async_
 from horovod.torch.mpi_ops import allgather, allgather_async
