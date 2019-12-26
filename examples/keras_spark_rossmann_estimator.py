@@ -289,6 +289,9 @@ train_df = train_df.withColumn('Validation',
 # Determine max Sales number.
 max_sales = train_df.agg(F.max(train_df.Sales)).collect()[0][0]
 
+# Convert Sales to log domain
+train_df = train_df.withColumn('Sales', F.log(train_df.Sales))
+
 print('===================================')
 print('Data frame with transformed columns')
 print('===================================')
@@ -373,7 +376,7 @@ keras_estimator = hvd.KerasEstimator(num_proc=args.num_proc,
                                      epochs=args.epochs,
                                      verbose=2)
 
-keras_model = keras_estimator.fit(train_df)
+keras_model = keras_estimator.fit(train_df).setOutputCols(['Sales'])
 
 history = keras_model.getHistory()
 best_val_rmspe = min(history['val_exp_rmspe'])
@@ -392,6 +395,8 @@ print('Final prediction')
 print('================')
 
 pred_df = keras_model.transform(test_df)
+# Convert from log domain to real Sales numbers
+pred_df = pred_df.withColumn('Sales', F.exp(pred_df.Sales))
 submission_df = pred_df.select(pred_df.Id.cast(T.IntegerType()), pred_df.Sales).toPandas()
 submission_df.sort_values(by=['Id']).to_csv(args.local_submission_csv, index=False)
 print('Saved predictions to %s' % args.local_submission_csv)
