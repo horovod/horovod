@@ -19,8 +19,9 @@ from __future__ import absolute_import
 import copy
 import functools
 
+import horovod.torch
+
 from horovod.common.exceptions import HorovodInternalError, WorkersAvailableException
-from horovod.torch import broadcast_object, broadcast_optimizer_state, broadcast_parameters
 from horovod.torch.mpi_ops import init, rank, shutdown
 
 
@@ -69,7 +70,7 @@ class ObjectState(State):
 
     def sync(self):
         if self._saved_state:
-            synced_state = broadcast_object(self._saved_state, root_rank=0)
+            synced_state = horovod.torch.broadcast_object(self._saved_state, root_rank=0)
             if rank() != 0:
                 self._saved_state = synced_state
                 self.restore()
@@ -96,8 +97,8 @@ class TorchState(ObjectState):
         super(TorchState, self).restore()
 
     def sync(self):
-        broadcast_parameters(self.model.state_dict(), root_rank=0)
-        broadcast_optimizer_state(self.optimizer, root_rank=0)
+        horovod.torch.broadcast_parameters(self.model.state_dict(), root_rank=0)
+        horovod.torch.broadcast_optimizer_state(self.optimizer, root_rank=0)
         super(TorchState, self).sync()
 
 

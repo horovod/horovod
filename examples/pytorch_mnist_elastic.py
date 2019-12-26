@@ -114,7 +114,6 @@ def train(state):
     model.train()
     # Horovod: set epoch to sampler for shuffling.
     train_sampler.set_epoch(state.epoch)
-    train_sampler.set_batch_idx(state.batch_idx)
     for batch_idx, (data, target) in enumerate(train_loader):
         if args.cuda:
             data, target = data.cuda(), target.cuda()
@@ -175,15 +174,19 @@ def train_loop(state):
     test()
 
 
-state = hvd.TorchState(model, optimizer, epoch=0, batch_idx=0)
-
 # Horovod: wrap optimizer with DistributedOptimizer.
 optimizer = hvd.DistributedOptimizer(optimizer,
                                      named_parameters=model.named_parameters(),
                                      compression=compression,
-                                     state=state,  # adjust learning rate on reset
                                      op=hvd.Adasum if args.use_adasum else hvd.Average)
 
-# pre-synchronized init ...
 
+# adjust learning rate on reset
+def on_state_reset():
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = args.lr * hvd.size()
+
+
+state = hvd.elastic.TorchState(model, optimizer, epoch=0, batch_idx=0)
+state.register_reset_callbacks([on_state_reset])
 train_loop(state)
