@@ -17,6 +17,7 @@
 
 #include <cstring>
 #include <iostream>
+#include <stdlib.h>
 
 #include "../logging.h"
 #include "../operations.h"
@@ -142,6 +143,11 @@ void SetBoolFromEnv(const char* env, bool& val, bool value_if_set) {
   }
 }
 
+bool GetBoolEnvOrDefault(const char* env_variable, bool default_value) {
+  auto env_value = std::getenv(env_variable);
+  return env_value != nullptr ? (bool) std::strtol(env_value, nullptr, 10) : default_value;
+}
+
 void SetIntFromEnv(const char* env, int& val) {
   auto env_value = std::getenv(env);
   if (env_value != nullptr) {
@@ -157,6 +163,10 @@ int GetIntEnvOrDefault(const char* env_variable, int default_value) {
 double GetDoubleEnvOrDefault(const char* env_variable, double default_value) {
   auto env_value = std::getenv(env_variable);
   return env_value != nullptr ? std::strtod(env_value, nullptr) : default_value;
+}
+
+void SetEnv(const char* env_variable, const char* env_value) {
+  setenv(env_variable, env_value, true);
 }
 
 } // namespace common

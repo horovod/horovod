@@ -41,12 +41,23 @@ namespace common {
 #define HOROVOD_GLOO_GLOBAL_PREFIX "global_"
 #define HOROVOD_GLOO_LOCAL_PREFIX "local_"
 #define HOROVOD_GLOO_CROSS_PREFIX "cross_"
+#define HOROVOD_GLOO_GET_RANK_AND_SIZE "rank_and_size"
 #define HOROVOD_RANK "HOROVOD_RANK"
 #define HOROVOD_SIZE "HOROVOD_SIZE"
 #define HOROVOD_LOCAL_RANK "HOROVOD_LOCAL_RANK"
 #define HOROVOD_LOCAL_SIZE "HOROVOD_LOCAL_SIZE"
 #define HOROVOD_CROSS_RANK "HOROVOD_CROSS_RANK"
 #define HOROVOD_CROSS_SIZE "HOROVOD_CROSS_SIZE"
+#define HOROVOD_ELASTIC "HOROVOD_ELASTIC"
+
+int ParseNextInt(std::stringstream& ss) {
+  assert(ss.good());
+
+  std::string substr;
+  getline(ss, substr, ',');
+
+  return (int) std::strtol(substr.c_str(), nullptr, 10);
+}
 
 std::chrono::milliseconds GetTimeoutFromEnv() {
   auto s = std::chrono::seconds(GetIntEnvOrDefault(HOROVOD_GLOO_TIMEOUT_SECONDS, 30));
@@ -138,6 +149,31 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
     LOG(DEBUG) << "rendezvous server address: " << rendezvous_addr_env;
   } else {
     LOG(DEBUG) << "no rendezvous server provided, assuming single process execution";
+  }
+
+  bool elastic = GetBoolEnvOrDefault(HOROVOD_ELASTIC, false);
+  if (elastic) {
+    std::string server_addr = rendezvous_addr_env;
+    std::string scope = HOROVOD_GLOO_GET_RANK_AND_SIZE;
+    HTTPStore init_store(server_addr, rendezvous_port, scope, rank);
+
+    std::vector<char> result = init_store.get(std::to_string(rank));
+    std::string s(result.begin(), result.end());
+    std::stringstream ss(s);
+
+    rank = ParseNextInt(ss);
+    size = ParseNextInt(ss);
+    local_rank = ParseNextInt(ss);
+    local_size = ParseNextInt(ss);
+    cross_rank = ParseNextInt(ss);
+    cross_size = ParseNextInt(ss);
+
+    SetEnv(HOROVOD_RANK, std::to_string(rank).c_str());
+    SetEnv(HOROVOD_SIZE, std::to_string(size).c_str());
+    SetEnv(HOROVOD_LOCAL_RANK, std::to_string(local_rank).c_str());
+    SetEnv(HOROVOD_LOCAL_SIZE, std::to_string(local_size).c_str());
+    SetEnv(HOROVOD_CROSS_RANK, std::to_string(cross_rank).c_str());
+    SetEnv(HOROVOD_CROSS_SIZE, std::to_string(cross_size).c_str());
   }
 
   ctx = Rendezvous(HOROVOD_GLOO_GLOBAL_PREFIX,
