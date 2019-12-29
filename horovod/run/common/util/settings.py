@@ -18,7 +18,7 @@ class Settings(object):
 
     def __init__(self, verbose=0, ssh_port=None, extra_mpi_args=None, key=None, timeout=None,
                  num_hosts=None, num_proc=None, hosts=None, output_filename=None,
-                 run_func_mode=None, nic=None):
+                 run_func_mode=None, nic=None, elastic=False):
         """
         :param verbose: level of verbosity
         :type verbose: int
@@ -43,6 +43,8 @@ class Settings(object):
         :type run_func_mode: boolean
         :param nic: specify the NIC for tcp network communication.
         :type nic: string
+        :param elastic: enable elastic auto-scaling and fault tolerance mode
+        :type elastic: boolean
         """
         self.verbose = verbose
         self.ssh_port = ssh_port
@@ -55,4 +57,5 @@ class Settings(object):
         self.output_filename = output_filename
         self.run_func_mode = run_func_mode
         self.nic = nic
+        self.elastic = elastic
 

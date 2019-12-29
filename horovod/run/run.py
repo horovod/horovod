@@ -519,6 +519,10 @@ def parse_args():
                                 help='Regularization value [0, 1] applied to account for noise in samples. '
                                      '(default: %(default)s)')
 
+    group_elastic = parser.add_argument_group('elastic arguments')
+    group_elastic.add_argument('--elastic', action=make_override_true_action(override_args),
+                               help='Enable elastic training.')
+
     group_timeline = parser.add_argument_group('timeline arguments')
     group_timeline.add_argument('--timeline-filename', action=make_override_action(override_args),
                                 help='JSON file containing timeline of Horovod events used for debugging '

@@ -45,8 +45,7 @@ class KVStoreHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             return
 
         _, scope, key = paths
-        with self.server.cache_lock:
-            value = self.server.cache.get(scope, {}).get(key)
+        value = self._get_value(scope, key)
 
         if value is None:
             self.send_status_code(404)
@@ -100,6 +99,10 @@ class KVStoreHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     # request out.
     def log_message(self, format, *args):
         pass
+
+    def _get_value(self, scope, key):
+        with self.server.cache_lock:
+            return self.server.cache.get(scope, {}).get(key)
 
 
 class RendezvousHandler(KVStoreHandler):
