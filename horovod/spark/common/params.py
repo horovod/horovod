@@ -80,9 +80,6 @@ class EstimatorParams(Params):
                    'then training will resume from last checkpoint in the store',
                    typeConverter=TypeConverters.toString)
 
-    backend_kw_args = Param(Params._dummy(), 'backend_kw_args',
-                            'kw arguments for the backend, this should be a dict')
-
     def __init__(self):
         super(EstimatorParams, self).__init__()
 
@@ -109,8 +106,7 @@ class EstimatorParams(Params):
             partitions_per_process=10,
             run_id=None,
             train_steps_per_epoch=None,
-            validation_steps_per_epoch=None,
-            backend_kw_args={})
+            validation_steps_per_epoch=None)
 
     def _check_params(self, metadata):
         model = self.getModel()
@@ -272,13 +268,6 @@ class EstimatorParams(Params):
 
     def getRunId(self):
         return self.getOrDefault(self.run_id)
-
-    def setBackendKWArgs(self, value):
-        assert isinstance(value, dict), 'backend kw arguments should be a dict'
-        return self._set(backend_kw_args=value)
-
-    def getBackendKWArgs(self):
-        return self.getOrDefault(self.backend_kw_args)
 
 
 class ModelParams(HasOutputCols):
