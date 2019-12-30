@@ -42,6 +42,7 @@ namespace common {
 #define HOROVOD_GLOO_LOCAL_PREFIX "local_"
 #define HOROVOD_GLOO_CROSS_PREFIX "cross_"
 #define HOROVOD_GLOO_GET_RANK_AND_SIZE "rank_and_size"
+#define HOROVOD_HOSTNAME "HOROVOD_HOSTNAME"
 #define HOROVOD_RANK "HOROVOD_RANK"
 #define HOROVOD_SIZE "HOROVOD_SIZE"
 #define HOROVOD_LOCAL_RANK "HOROVOD_LOCAL_RANK"
@@ -153,11 +154,13 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
 
   bool elastic = GetBoolEnvOrDefault(HOROVOD_ELASTIC, false);
   if (elastic) {
+    std::string hostname = std::getenv(HOROVOD_HOSTNAME);
     std::string server_addr = rendezvous_addr_env;
     std::string scope = HOROVOD_GLOO_GET_RANK_AND_SIZE;
     HTTPStore init_store(server_addr, rendezvous_port, scope, rank);
 
-    std::vector<char> result = init_store.get(std::to_string(rank));
+    auto key = hostname + ":" + std::to_string(local_rank);
+    std::vector<char> result = init_store.get(key);
     std::string s(result.begin(), result.end());
     std::stringstream ss(s);
 
