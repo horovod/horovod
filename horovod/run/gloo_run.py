@@ -204,6 +204,7 @@ def gloo_run(settings, local_host_names, common_intfs, env, server_ip, command):
         exec_command = _create_exec_command(settings, env, local_host_names, run_command)
 
         driver.start(exec_command)
+        res = driver.get_results()
     else:
         # allocate processes into slots
         hosts = parse_hosts(settings.hosts)
@@ -225,10 +226,10 @@ def gloo_run(settings, local_host_names, common_intfs, env, server_ip, command):
                                                      args_list,
                                                      block_until_all_done=True)
 
-        for name, value in sorted(res.items(), key=lambda item: item[1][1]):
-            exit_code, timestamp = value
-            if exit_code != 0:
-                raise RuntimeError('Gloo job detected that one or more processes exited with non-zero '
-                                   'status, thus causing the job to be terminated. The first process '
-                                   'to do so was:\nProcess name: {name}\nExit code: {code}\n'
-                                   .format(name=name, code=exit_code))
+    for name, value in sorted(res.items(), key=lambda item: item[1][1]):
+        exit_code, timestamp = value
+        if exit_code != 0:
+            raise RuntimeError('Gloo job detected that one or more processes exited with non-zero '
+                               'status, thus causing the job to be terminated. The first process '
+                               'to do so was:\nProcess name: {name}\nExit code: {code}\n'
+                               .format(name=name, code=exit_code))
