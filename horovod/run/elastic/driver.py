@@ -20,7 +20,9 @@ import threading
 
 from collections import defaultdict
 
-from horovod.run.common.util import hosts, timeout
+import six
+
+from horovod.run.common.util import hosts, safe_shell_exec, timeout
 
 
 READY = 'READY'
@@ -118,7 +120,8 @@ class Results(object):
 
 
 class ElasticDriver(object):
-    def __init__(self, min_np, max_np, slots, start_timeout=None):
+    def __init__(self, discovery_script, min_np, max_np, slots, start_timeout=None):
+        self._discovery_script = discovery_script
         self._min_np = min_np
         self._max_np = max_np
         self._slots = slots
@@ -216,8 +219,12 @@ class ElasticDriver(object):
         return prev_hosts != self._available_hosts
 
     def _find_available_hosts(self):
-        # TODO
-        return set()
+        stdout = six.StringIO()
+        exit_code = safe_shell_exec.execute(self._discovery_script, stdout=stdout)
+        if exit_code != 0:
+            raise RuntimeError('Failed to execute discovery script: {}. Exit code: {}'
+                               .format(self._discovery_script, exit_code))
+        return set(stdout.getvalue().strip().split('\n'))
 
     def _update_assigned_hosts(self):
         new_assigned_hosts = []
