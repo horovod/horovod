@@ -41,6 +41,7 @@ from horovod.common.util import (extension_available,
 from horovod.run.common.util import codec, config_parser, safe_shell_exec, timeout, secret
 from horovod.run.common.util import settings as hvd_settings
 from horovod.run.driver import driver_service
+from horovod.run.elastic import settings as elastic_settings
 from horovod.run.task import task_service
 from horovod.run.util import cache, threads, network
 from horovod.run.gloo_run import gloo_run
@@ -522,6 +523,16 @@ def parse_args():
     group_elastic = parser.add_argument_group('elastic arguments')
     group_elastic.add_argument('--elastic', action=make_override_true_action(override_args),
                                help='Enable elastic training.')
+    group_elastic.add_argument('--host-discovery-script', action=make_override_action(override_args),
+                               help='An executable script that will print to stdout every available host (one per '
+                                    'newline character) that can be used to run worker processes.')
+    group_elastic.add_argument('-min-np', '--min-num-proc', action='store', dest='min_np', type=int,
+                               help='Minimum number of hosts to discover before training can start or resume.')
+    group_elastic.add_argument('-max-np', '--max-num-proc', action='store', dest='max_np', type=int,
+                               help='Maximum number of training processes, beyond which no additional '
+                                    'processes will be created. If not specified, then will be unbounded.')
+    group_elastic.add_argument('-slots', '--slots-per-host', action='store', dest='slots', type=int,
+                               help='Number of slots for processes per host. Normally 1 slot per GPU per host.')
 
     group_timeline = parser.add_argument_group('timeline arguments')
     group_timeline.add_argument('--timeline-filename', action=make_override_action(override_args),
@@ -625,7 +636,6 @@ def parse_args():
 
 
 class HorovodArgs(object):
-
     def __init__(self):
         self.np = 1
         self.check_build = None
@@ -644,7 +654,7 @@ class HorovodArgs(object):
         self.cycle_time_ms = None,
         self.cache_capacity = None,
 
-        # hierrachy
+        # hierarchy
         self.hierarchical_allreduce = None
         self.hierarchical_allgather = None
 
@@ -849,6 +859,38 @@ def _run(args):
         return None
 
 
+def _run_elastic(args):
+    # horovodrun has to finish all the checks before this timeout runs out.
+    if args.start_timeout:
+        start_timeout = args.start_timeout
+    else:
+        # Lookup default timeout from the environment variable.
+        start_timeout = int(os.getenv('HOROVOD_START_TIMEOUT', '30'))
+
+    tmout = timeout.Timeout(start_timeout,
+                            message='Timed out waiting for {activity}. Please '
+                                    'check connectivity between servers. You '
+                                    'may need to increase the --start-timeout '
+                                    'parameter if you have too many servers.')
+    settings = elastic_settings.ElasticSettings(discovery_script=args.host_discovery_script,
+                                                min_np=args.min_np,
+                                                max_np=args.max_np,
+                                                slots=args.slots,
+                                                verbose=2 if args.verbose else 0,
+                                                ssh_port=args.ssh_port,
+                                                extra_mpi_args=args.mpi_args,
+                                                key=secret.make_secret_key(),
+                                                timeout=tmout,
+                                                output_filename=args.output_filename,
+                                                run_func_mode=args.run_func is not None,
+                                                nic=args.nic)
+
+    # TODO: infer this at runtime
+    common_intfs = [args.nic]
+    command = args.command
+    _launch_job(args, {}, settings, common_intfs, command)
+
+
 def _launch_job(args, local_host_names, settings, common_intfs, command):
     env = os.environ.copy()
     config_parser.set_env_from_args(env, args)
@@ -877,7 +919,10 @@ def _launch_job(args, local_host_names, settings, common_intfs, command):
 def run_commandline():
     args = parse_args()
     args.run_func = None
-    _run(args)
+    if args.elastic:
+        _run_elastic(args)
+    else:
+        _run(args)
 
 
 def run(
