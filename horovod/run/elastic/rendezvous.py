@@ -25,10 +25,13 @@ def create_rendezvous_handler(driver):
     class ElasticRendezvousHandler(RendezvousHandler):
         def _get_value(self, scope, key):
             if scope == GET_RANK_AND_SIZE:
-                return self._get_rank_and_size(key)
+                host, local_rank = key.split(':')
+                return self._get_rank_and_size(host, int(local_rank))
 
             return super(RendezvousHandler, self)._get_value(scope, key)
 
-        def _get_rank_and_size(self, last_rank):
-            return driver.get_rank_and_size(last_rank)
+        def _get_rank_and_size(self, host, local_rank):
+            driver.record_ready(host, local_rank)
+            slot_info = driver.get_slot_info(host, local_rank)
+            return slot_info.to_response_string()
     return ElasticRendezvousHandler

@@ -29,6 +29,7 @@ except ImportError:
 from horovod.run.common.util import env as env_util, safe_shell_exec
 from horovod.run.common.util.hosts import get_host_assignments, parse_hosts
 from horovod.run.elastic.driver import ElasticDriver
+from horovod.run.elastic.rendezvous import create_rendezvous_handler
 from horovod.run.http.http_server import RendezvousServer
 from horovod.run.util import threads
 
@@ -61,7 +62,7 @@ class MultiFile(object):
             f.flush()
 
 
-def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, run_command):
+def _create_exec_command(settings, env, local_host_names, run_command):
     """
     executes the jobs defined by run command on hosts.
     :param hosts_alloc: list of dict indicating the allocating info.
@@ -91,16 +92,24 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, run_command)
     signal.signal(signal.SIGINT, set_event_on_sigterm)
     signal.signal(signal.SIGTERM, set_event_on_sigterm)
 
-    def get_command(alloc_info):
+    def get_command(slot_info):
         # generate env for rendezvous
-        horovod_rendez_env = 'HOROVOD_RANK={rank} HOROVOD_SIZE={size} ' \
-                             'HOROVOD_LOCAL_RANK={local_rank} HOROVOD_LOCAL_SIZE={local_size} ' \
-                             'HOROVOD_CROSS_RANK={cross_rank} HOROVOD_CROSS_SIZE={cross_size} ' \
-            .format(rank=alloc_info.rank, size=alloc_info.size,
-                    local_rank=alloc_info.local_rank, local_size=alloc_info.local_size,
-                    cross_rank=alloc_info.cross_rank, cross_size=alloc_info.cross_size)
-
-        host_name = alloc_info.hostname
+        host_name = slot_info.hostname
+        horovod_rendez_env = (
+            'HOROVOD_HOSTNAME={hostname} '
+            'HOROVOD_RANK={rank} '
+            'HOROVOD_SIZE={size} '
+            'HOROVOD_LOCAL_RANK={local_rank} '
+            'HOROVOD_LOCAL_SIZE={local_size} '
+            'HOROVOD_CROSS_RANK={cross_rank} '
+            'HOROVOD_CROSS_SIZE={cross_size} '
+            .format(hostname=host_name,
+                    rank=slot_info.rank,
+                    size=slot_info.size,
+                    local_rank=slot_info.local_rank,
+                    local_size=slot_info.local_size,
+                    cross_rank=slot_info.cross_rank,
+                    cross_size=slot_info.cross_size))
 
         # TODO: Workaround for over-buffered outputs. Investigate how mpirun avoids this problem.
         env['PYTHONUNBUFFERED'] = '1'
@@ -110,7 +119,7 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, run_command)
                           if env_util.is_exportable(key)]),
             run_command=run_command)
 
-        if host_name not in remote_host_names:
+        if host_name in local_host_names:
             command = local_command
         else:
             command = 'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} ' \
@@ -157,57 +166,69 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, run_command)
                 stderr_file.close()
         return exit_code, time.time()
 
+    return exec_command
+
+
+def gloo_run(settings, local_host_names, common_intfs, env, server_ip, command):
+    def get_run_command(port):
+        iface = list(common_intfs)[0]
+        run_command = (
+            'HOROVOD_GLOO_RENDEZVOUS_ADDR={addr} '
+            'HOROVOD_GLOO_RENDEZVOUS_PORT={port} '
+            'HOROVOD_CONTROLLER=gloo '
+            'HOROVOD_CPU_OPERATIONS=gloo '
+            'HOROVOD_GLOO_IFACE={iface} '
+            'NCCL_SOCKET_IFNAME={common_intfs} '
+            '{command}'  # expect a lot of environment variables
+            .format(addr=server_ip,
+                    port=port,
+                    iface=iface,  # TODO: add multiple ifaces in future
+                    common_intfs=','.join(common_intfs),
+                    command=' '.join(quote(par) for par in command)))
+        return run_command
+
     # Make the output directory if it does not exist
     if settings.output_filename:
         _mkdir_p(settings.output_filename)
 
+    # start global rendezvous server and get port that it is listening on
+    global_rendezv = RendezvousServer(settings.verbose)
+
     if settings.elastic:
-        driver = ElasticDriver()
-        res = driver.start(exec_command)
+        driver = ElasticDriver(settings.min_np, settings.max_np, settings.slots)
+
+        # start global rendezvous server and get port that it is listening on
+        handler = create_rendezvous_handler(driver)
+        global_rendezv_port = global_rendezv.start_server(handler)
+        run_command = get_run_command(global_rendezv_port)
+        exec_command = _create_exec_command(settings, env, local_host_names, run_command)
+
+        driver.start(exec_command)
     else:
+        # allocate processes into slots
+        hosts = parse_hosts(settings.hosts)
+        host_alloc_plan = get_host_assignments(hosts, settings.num_proc)
+
+        # start global rendezvous server and get port that it is listening on
+        global_rendezv_port = global_rendezv.start_server()
+        run_command = get_run_command(global_rendezv_port)
+        exec_command = _create_exec_command(settings, env, local_host_names, run_command)
+
         # Each thread will use ssh command to launch the job on each remote host. If an
         # error occurs in one thread, entire process will be terminated. Otherwise,
         # threads will keep running and ssh session. In case, the main thread receives
         # a SIGINT, the event will be set and the spawned threads will kill their
         # corresponding middleman processes and thus the jobs will be killed as
         # well.
-        args_list = [(slot_info,) for slot_info in host_alloc_plan]
+        args_list = [[slot_info] for slot_info in host_alloc_plan]
         res = threads.execute_function_multithreaded(exec_command,
                                                      args_list,
                                                      block_until_all_done=True)
 
-    for name, value in sorted(res.items(), key=lambda item: item[1][1]):
-        exit_code, timestamp = value
-        if exit_code != 0:
-            raise RuntimeError('Gloo job detected that one or more processes exited with non-zero '
-                               'status, thus causing the job to be terminated. The first process '
-                               'to do so was:\nProcess name: {name}\nExit code: {code}\n'
-                               .format(name=name, code=exit_code))
-
-
-def gloo_run(settings, remote_host_names, common_intfs, env, server_ip, command):
-    # allocate processes into slots
-    hosts = parse_hosts(settings.hosts)
-    host_alloc_plan = get_host_assignments(hosts, settings.num_proc)
-
-    # start global rendezvous server and get port that it is listening on
-    global_rendezv = RendezvousServer(settings.verbose)
-    global_rendezv_port = global_rendezv.start_server(host_alloc_plan)
-
-    iface = list(common_intfs)[0]
-    run_command = (
-        'HOROVOD_GLOO_RENDEZVOUS_ADDR={addr} '
-        'HOROVOD_GLOO_RENDEZVOUS_PORT={port} '
-        'HOROVOD_CONTROLLER=gloo '
-        'HOROVOD_CPU_OPERATIONS=gloo '
-        'HOROVOD_GLOO_IFACE={iface} '
-        'NCCL_SOCKET_IFNAME={common_intfs} '
-        '{command}'  # expect a lot of environment variables
-        .format(addr=server_ip,
-                port=global_rendezv_port,
-                iface=iface,  # TODO: add multiple ifaces in future
-                common_intfs=','.join(common_intfs),
-                command=' '.join(quote(par) for par in command)))
-
-    _launch_jobs(settings, env, host_alloc_plan, remote_host_names, run_command)
-    return
+        for name, value in sorted(res.items(), key=lambda item: item[1][1]):
+            exit_code, timestamp = value
+            if exit_code != 0:
+                raise RuntimeError('Gloo job detected that one or more processes exited with non-zero '
+                                   'status, thus causing the job to be terminated. The first process '
+                                   'to do so was:\nProcess name: {name}\nExit code: {code}\n'
+                                   .format(name=name, code=exit_code))

@@ -783,11 +783,11 @@ def _run(args):
         if settings.verbose >= 2:
             print('SSH was successful into all the remote hosts.')
 
+    local_host_names = set(all_host_names) - set(remote_host_names)
     if len(remote_host_names) > 0:
         if settings.verbose >= 2:
             print('Testing interfaces on all the hosts.')
 
-        local_host_names = set(all_host_names) - set(remote_host_names)
         # Find the set of common, routed interfaces on all the hosts (remote
         # and local) and specify it in the args to be used by NCCL. It is
         # expected that the following function will find at least one interface
@@ -833,7 +833,7 @@ def _run(args):
         command = [sys.executable, '-m', 'horovod.run.run_task', str(driver_ip), str(run_func_server_port)]
 
         try:
-            _launch_job(args, remote_host_names, settings, common_intfs, command)
+            _launch_job(args, local_host_names, settings, common_intfs, command)
             results = [None] * args.np
             # TODO: make it parallel to improve performance
             for i in range(args.np):
@@ -845,11 +845,11 @@ def _run(args):
             run_func_server.shutdown_server()
     else:
         command = args.command
-        _launch_job(args, remote_host_names, settings, common_intfs, command)
+        _launch_job(args, local_host_names, settings, common_intfs, command)
         return None
 
 
-def _launch_job(args, remote_host_names, settings, common_intfs, command):
+def _launch_job(args, local_host_names, settings, common_intfs, command):
     env = os.environ.copy()
     config_parser.set_env_from_args(env, args)
     driver_ip = _get_driver_ip(common_intfs)
@@ -858,7 +858,7 @@ def _launch_job(args, remote_host_names, settings, common_intfs, command):
         if not gloo_built(verbose=(settings.verbose >= 2)):
             raise ValueError('Gloo support has not been built.  If this is not expected, ensure CMake is installed '
                              'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
-        gloo_run(settings, remote_host_names, common_intfs, env, driver_ip, command)
+        gloo_run(settings, local_host_names, common_intfs, env, driver_ip, command)
     elif args.use_mpi:
         if not mpi_built(verbose=(settings.verbose >= 2)):
             raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
@@ -868,7 +868,7 @@ def _launch_job(args, remote_host_names, settings, common_intfs, command):
         if mpi_built(verbose=(settings.verbose >= 2)):
             mpi_run(settings, common_intfs, env, command)
         elif gloo_built(verbose=(settings.verbose >= 2)):
-            gloo_run(settings, remote_host_names, common_intfs, env, driver_ip, command)
+            gloo_run(settings, local_host_names, common_intfs, env, driver_ip, command)
         else:
             raise ValueError('Neither MPI nor Gloo support has been built. Try reinstalling Horovod ensuring that '
                              'either MPI is installed (MPI) or CMake is installed (Gloo).')

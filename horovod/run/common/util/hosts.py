@@ -39,6 +39,11 @@ class SlotInfo:
         self.cross_rank = cross_rank
         self.cross_size = None
 
+    def to_response_string(self):
+        return ','.join([self.rank, self.size,
+                         self.local_rank, self.local_size,
+                         self.cross_rank, self.cross_size])
+
 
 def parse_hosts(hosts_string):
     """Parse a string of comma-separated hostname:slots mappings into a list of HostItem objects.

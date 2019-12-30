@@ -12,18 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # =============================================================================
-import collections
 
-from six.moves import BaseHTTPServer, SimpleHTTPServer
-from horovod.run.util.network import find_port
 import threading
 import socket
 
+from six.moves import BaseHTTPServer, SimpleHTTPServer
+
+from horovod.run.util.network import find_port
+
 # Timeout for reading from a single request
 SINGLE_REQUEST_TIMEOUT = 3
-
-# Timeout for accepting new request
-TOTAL_TIMEOUT = 60
 
 BAD_REQUEST = 400
 TIMEOUT = 408
@@ -118,8 +116,10 @@ class RendezvousHandler(KVStoreHandler):
 
         _, scope, key = paths
 
-        with self.server.finished_list_lock:
-            self.server.finished_list[scope].append(key)
+        with self.server.cache_lock:
+            scope_dict = self.server.cache.get(scope, {})
+            if key in scope_dict:
+                del scope_dict[key]
 
         self.send_status_code(OK)
 
@@ -130,50 +130,14 @@ class RendezvousHTTPServer(BaseHTTPServer.HTTPServer, object):
         # class that does not inherit from object.
         super(RendezvousHTTPServer, self).__init__(addr, handler)
 
-        # Lists for finished rendezvous workers
-        self.finished_list_lock = threading.Lock()
-        self.finished_list = collections.defaultdict(list)
-
-        # Total size for scopes
-        self.scope_size = {}
-
         # Cache that provides the store
         self.cache_lock = threading.Lock()
         self.cache = {}
 
         self.verbose = verbose
 
-    def extract_scope_size(self, host_alloc_plan):
-        for slot_info in host_alloc_plan:
-            self.scope_size['global'] = slot_info.size
-            cross_rank = slot_info.cross_rank
-            self.scope_size['local_' + str(cross_rank)] = slot_info.local_size
-            local_rank = slot_info.local_rank
-            self.scope_size['cross_' + str(local_rank)] = slot_info.cross_size
-
-    # Decide whether all ranks have confirmed rendezvous completion.
     def should_continue(self):
-        should_continue = False
-        with self.finished_list_lock:
-            for scope, cnt in self.scope_size.items():
-                if cnt > len(self.finished_list[scope]):
-                    should_continue = True
-        return should_continue
-
-    def handle_timeout(self):
-        error_msg = 'Rendezvous ERROR: Rendezvous server timeout after ' \
-                    '{time} seconds while waiting for all the ranks to send finalize ' \
-                    'messages.\n'.format(time=TOTAL_TIMEOUT)
-
-        for scope, finished_list in self.finished_list:
-            if self.scope_size[scope] > len(finished_list):
-                error_msg += 'Scope {scope} expects {size} workers, only received' \
-                    'finalized message from [{ranks}].\n'.format(
-                        scope=scope,
-                        size=self.scope_size[scope],
-                        ranks=' '.join(finished_list))
-
-        raise RuntimeError(error_msg)
+        return True
 
 
 class RendezvousServer:
@@ -184,31 +148,19 @@ class RendezvousServer:
 
     # Rendezvous function finds a available port, create http socket,
     # and start listening loop to handle request
-    def start_server(self, host_alloc_plan):
+    def start_server(self, handler_cls=RendezvousHandler):
         self.httpd, port = find_port(
             lambda addr: RendezvousHTTPServer(
-                addr, RendezvousHandler, self.verbose))
-        self.httpd.extract_scope_size(host_alloc_plan)
+                addr, handler_cls, self.verbose))
         if self.verbose:
             print('Rendezvous INFO: HTTP rendezvous server started.')
 
         # start the listening loop
-        self.listen_thread = threading.Thread(target=self.listen_loop)
+        self.listen_thread = threading.Thread(target=self.httpd.serve_forever)
         self.listen_thread.daemon = True
         self.listen_thread.start()
 
         return port
-
-    # Listening loop for handle request
-    def listen_loop(self):
-        while self.httpd.should_continue():
-            self.httpd.handle_request()
-
-        self.httpd.server_close()
-
-        if self.verbose:
-            print('Rendezvous INFO: Rendezvous finishes.')
-        # Because this thread is daemonized, no need to join.
 
 
 class KVStoreHTTPServer(BaseHTTPServer.HTTPServer, object):
@@ -235,8 +187,7 @@ class KVStoreServer:
             lambda addr: KVStoreHTTPServer(
                 addr, KVStoreHandler, self.verbose))
 
-        self.listen_thread = threading.Thread(
-            target=lambda: self.httpd.serve_forever())
+        self.listen_thread = threading.Thread(target=self.httpd.serve_forever)
         self.listen_thread.daemon = True
         self.listen_thread.start()
 
