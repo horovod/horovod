@@ -127,6 +127,8 @@ class ElasticDriver(object):
         self._slots = slots
 
         self._available_hosts = set()
+        self._available_slots = {}
+
         self._blacklisted_hosts = set()
         self._assigned_hosts = []
         self._host_assignments = {}
@@ -215,16 +217,27 @@ class ElasticDriver(object):
 
     def _update_available_hosts(self):
         prev_hosts = self._available_hosts
-        self._available_hosts = self._find_available_hosts()
-        return prev_hosts != self._available_hosts
+        prev_slots = self._available_slots
+        self._available_hosts, self._available_slots = self._find_available_hosts_and_slots()
+        return prev_hosts != self._available_hosts or prev_slots != self._available_slots
 
-    def _find_available_hosts(self):
+    def _find_available_hosts_and_slots(self):
         stdout = six.StringIO()
         exit_code = safe_shell_exec.execute(self._discovery_script, stdout=stdout)
         if exit_code != 0:
             raise RuntimeError('Failed to execute discovery script: {}. Exit code: {}'
                                .format(self._discovery_script, exit_code))
-        return set(stdout.getvalue().strip().split('\n'))
+
+        availabe_hosts = set()
+        available_slots = {}
+        hosts_and_slots = set(stdout.getvalue().strip().split('\n'))
+        for line in hosts_and_slots:
+            host = line
+            if ':' in line:
+                host, slots = line.split(':')
+                available_slots[host] = int(slots)
+            availabe_hosts.add(host)
+        return availabe_hosts, available_slots
 
     def _update_assigned_hosts(self):
         new_assigned_hosts = []
@@ -248,7 +261,8 @@ class ElasticDriver(object):
         self._world_size = len(host_assignments_list)
 
     def _get_slots(self, host):
-        # TODO: support per host slots
+        if host in self._available_slots:
+            return self._available_slots[host]
         return self._slots
 
     def _start_worker_processes(self, host):
