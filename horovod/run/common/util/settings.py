@@ -17,9 +17,11 @@ from __future__ import absolute_import
 
 
 class BaseSettings(object):
-    def __init__(self, verbose=0, ssh_port=None, extra_mpi_args=None, key=None, timeout=None,
-                 output_filename=None, run_func_mode=None, nic=None, elastic=False):
+    def __init__(self, num_proc=None, verbose=0, ssh_port=None, extra_mpi_args=None, key=None,
+                 timeout=None, output_filename=None, run_func_mode=None, nic=None, elastic=False):
         """
+        :param num_proc: number of horovod processes (-np)
+        :type num_proc: int
         :param verbose: level of verbosity
         :type verbose: int
         :param ssh_port: SSH port on all the hosts
@@ -40,6 +42,7 @@ class BaseSettings(object):
         :param elastic: enable elastic auto-scaling and fault tolerance mode
         :type elastic: boolean
         """
+        self.num_proc = num_proc
         self.verbose = verbose
         self.ssh_port = ssh_port
         self.extra_mpi_args = extra_mpi_args
@@ -52,16 +55,13 @@ class BaseSettings(object):
 
 
 class Settings(BaseSettings):
-    def __init__(self, num_hosts=None, num_proc=None, hosts=None, **kwargs):
+    def __init__(self, num_hosts=None, hosts=None, **kwargs):
         """
         :param num_hosts: number of horovod hosts
         :type num_hosts: int
-        :param num_proc: number of horovod processes (-np)
-        :type num_proc: int
         :param hosts: string of hostname with slots number
         :type hosts: string
         """
         super(Settings, self).__init__(**kwargs)
         self.num_hosts = num_hosts
-        self.num_proc = num_proc
         self.hosts = hosts

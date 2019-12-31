@@ -195,7 +195,7 @@ def gloo_run(settings, local_host_names, common_intfs, env, server_ip, command):
     global_rendezv = RendezvousServer(settings.verbose)
 
     if settings.elastic:
-        driver = ElasticDriver(settings.min_np, settings.max_np, settings.slots)
+        driver = ElasticDriver(settings.discovery_script, settings.min_np, settings.max_np, settings.slots)
 
         # start global rendezvous server and get port that it is listening on
         handler = create_rendezvous_handler(driver)
@@ -203,7 +203,7 @@ def gloo_run(settings, local_host_names, common_intfs, env, server_ip, command):
         run_command = get_run_command(global_rendezv_port)
         exec_command = _create_exec_command(settings, env, local_host_names, run_command)
 
-        driver.start(exec_command)
+        driver.start(settings.num_proc, exec_command)
         res = driver.get_results()
     else:
         # allocate processes into slots

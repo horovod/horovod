@@ -403,7 +403,8 @@ def parse_args():
 
     np_arg = parser.add_argument('-np', '--num-proc', action='store', dest='np',
                                  type=int, required=True,
-                                 help='Total number of training processes.')
+                                 help='Total number of training processes. In elastic mode, '
+                                      'number of processes required before training can start.')
 
     parser.add_argument('-cb', '--check-build', action=make_check_build_action(np_arg), nargs=0,
                         help='Shows which frameworks and libraries have been built into Horovod.')
@@ -521,18 +522,17 @@ def parse_args():
                                      '(default: %(default)s)')
 
     group_elastic = parser.add_argument_group('elastic arguments')
-    group_elastic.add_argument('--elastic', action=make_override_true_action(override_args),
-                               help='Enable elastic training.')
-    group_elastic.add_argument('--host-discovery-script', action=make_override_action(override_args),
-                               help='An executable script that will print to stdout every available host (one per '
-                                    'newline character) that can be used to run worker processes.')
-    group_elastic.add_argument('-min-np', '--min-num-proc', action='store', dest='min_np', type=int,
-                               help='Minimum number of hosts to discover before training can start or resume.')
-    group_elastic.add_argument('-max-np', '--max-num-proc', action='store', dest='max_np', type=int,
+    group_elastic.add_argument('--min-np', action='store', dest='min_np', type=int,
+                               help='Minimum number of processes running for training to continue. If number of '
+                                    'available processes dips below this threshold, then training will wait for '
+                                    'more instances to become available. Defaults to --num-proc.')
+    group_elastic.add_argument('--max-np', action='store', dest='max_np', type=int,
                                help='Maximum number of training processes, beyond which no additional '
                                     'processes will be created. If not specified, then will be unbounded.')
-    group_elastic.add_argument('-slots', '--slots-per-host', action='store', dest='slots', type=int,
-                               help='Number of slots for processes per host. Normally 1 slot per GPU per host.')
+    group_elastic.add_argument('--slots-per-host', action='store', dest='slots', type=int,
+                               help='Number of slots for processes per host. Normally 1 slot per GPU per host. '
+                                    'If slot are provided by the output of the host discovery script, then '
+                                    'that value will override this parameter.')
 
     group_timeline = parser.add_argument_group('timeline arguments')
     group_timeline.add_argument('--timeline-filename', action=make_override_action(override_args),
@@ -598,7 +598,7 @@ def parse_args():
                                          action=make_override_false_action(override_args), help=argparse.SUPPRESS)
 
     group_hosts_parent = parser.add_argument_group('host arguments')
-    group_hosts = group_hosts_parent.add_mutually_exclusive_group()
+    group_hosts = group_hosts_parent.add_mutually_exclusive_group(required=True)
     group_hosts.add_argument('-H', '--hosts', action='store', dest='hosts',
                              help='List of host names and the number of available slots '
                                   'for running processes on each, of the form: <hostname>:<slots> '
@@ -609,6 +609,11 @@ def parse_args():
                              help='Path to a host file containing the list of host names and the number of '
                                   'available slots. Each line of the file must be of the form: '
                                   '<hostname> slots=<slots>')
+    group_hosts.add_argument('--host-discovery-script', action=make_override_action(override_args),
+                             help='Used for elastic training (autoscaling and fault tolerance). '
+                                  'An executable script that will print to stdout every available host (one per '
+                                  'newline character) that can be used to run worker processes. Optionally '
+                                  'specifies number of slots on the same line as the hostname as: "hostname:slots".')
 
     group_controller_parent = parser.add_argument_group('controller arguments')
     group_controller = group_controller_parent.add_mutually_exclusive_group()
@@ -857,7 +862,8 @@ def _run_elastic(args):
                                     'may need to increase the --start-timeout '
                                     'parameter if you have too many servers.')
     settings = elastic_settings.ElasticSettings(discovery_script=args.host_discovery_script,
-                                                min_np=args.min_np,
+                                                num_proc=args.np,
+                                                min_np=args.min_np or args.np,
                                                 max_np=args.max_np,
                                                 slots=args.slots,
                                                 verbose=2 if args.verbose else 0,
@@ -900,10 +906,14 @@ def _launch_job(args, local_host_names, settings, common_intfs, command):
                              'either MPI is installed (MPI) or CMake is installed (Gloo).')
 
 
+def is_elastic(args):
+    return args.host_discovery_script is not None
+
+
 def run_commandline():
     args = parse_args()
     args.run_func = None
-    if args.elastic:
+    if is_elastic(args):
         _run_elastic(args)
     else:
         _run(args)

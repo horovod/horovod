@@ -129,6 +129,7 @@ class ElasticDriver(object):
         self._available_hosts = set()
         self._available_slots = {}
 
+        # TODO(travis): blacklisted hosts should have a timeout period that increases with each failure
         self._blacklisted_hosts = set()
         self._assigned_hosts = []
         self._host_assignments = {}
@@ -146,10 +147,10 @@ class ElasticDriver(object):
         self._results = Results(self)
         self._shutdown = threading.Event()
 
-    def start(self, create_worker_fn):
+    def start(self, np, create_worker_fn):
         self._discovery_thread.start()
         self._create_worker_fn = create_worker_fn
-        self._activate_hosts()
+        self._activate_hosts(np)
 
     def get_results(self):
         return self._results.get_results()
@@ -174,7 +175,7 @@ class ElasticDriver(object):
         for host in failed_hosts:
             self._blacklisted_hosts.add(host)
 
-        self._activate_hosts()
+        self._activate_hosts(self._min_np)
 
     def world_size(self):
         return self._world_size
@@ -185,21 +186,21 @@ class ElasticDriver(object):
     def get_slot_info(self, host, slot):
         return self._host_assignments[host][slot]
 
-    def _activate_hosts(self):
-        self._wait_for_available_hosts()
+    def _activate_hosts(self, min_np):
+        self._wait_for_available_hosts(min_np)
         new_assigned_hosts = self._update_assigned_hosts()
         for host in new_assigned_hosts:
             self._start_worker_processes(host)
 
-    def _wait_for_available_hosts(self):
+    def _wait_for_available_hosts(self, min_np):
         tmout = timeout.Timeout(
             self._start_timeout,
             message='Timed out waiting for {{activity}}. Please check that you have '
-                    'enough resources to run at least {min_np} Horovod processes.'.format(min_np=self._min_np))
+                    'enough resources to run at least {min_np} Horovod processes.'.format(min_np=min_np))
 
         self._wait_hosts_cond.acquire()
         try:
-            while len(self._available_hosts) < self._min_np:
+            while self._count_available_slots() < min_np:
                 self._wait_hosts_cond.wait(tmout.remaining())
                 tmout.check_time_out_for('minimum number of hosts to become available')
         finally:
@@ -260,6 +261,9 @@ class ElasticDriver(object):
         self._host_assignments = host_assignments
         self._world_size = len(host_assignments_list)
 
+    def _count_available_slots(self):
+        return sum([self._get_slots(host) for host in self._available_hosts])
+
     def _get_slots(self, host):
         if host in self._available_slots:
             return self._available_slots[host]
@@ -292,6 +296,6 @@ class ElasticDriver(object):
             self._barrier.record_failure(slot_info.hostname, slot_info.local_rank)
 
         if self.finished():
-            name = '{}:{}'.format(slot_info.hostname, slot_info.local_rank)
+            name = '{}[{}]'.format(slot_info.hostname, slot_info.local_rank)
             self._results.add_result(name, (exit_code, timestamp))
 
