@@ -20,7 +20,7 @@ from horovod.run.driver import driver_service
 from horovod.run.task import task_service
 
 
-def _task_fn(index, driver_addresses, settings):
+def _task_fn(index, num_hosts, driver_addresses, settings):
     task = task_service.HorovodRunTaskService(index, settings.key, settings.nic)
     try:
         driver = driver_service.HorovodRunDriverClient(
@@ -31,7 +31,7 @@ def _task_fn(index, driver_addresses, settings):
         task.wait_for_initial_registration(settings.timeout)
         # Tasks ping each other in a circular fashion to determine interfaces
         # reachable within the cluster.
-        next_task_index = (index + 1) % settings.num_hosts
+        next_task_index = (index + 1) % num_hosts
         next_task_addresses = driver.all_task_addresses(next_task_index)
         # We request interface matching to weed out all the NAT'ed interfaces.
         next_task = task_service.HorovodRunTaskClient(
@@ -54,14 +54,13 @@ def _task_fn(index, driver_addresses, settings):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 4:
-        print(
-                'Usage: %s <index> <service addresses> <settings>' %
-                sys.argv[0])
+    if len(sys.argv) != 5:
+        print('Usage: {} <index> <num_hosts> <driver_addresses> <settings>'.format(sys.argv[0]))
         sys.exit(1)
 
     index = codec.loads_base64(sys.argv[1])
-    driver_addresses = codec.loads_base64(sys.argv[2])
-    settings = codec.loads_base64(sys.argv[3])
+    num_hosts = codec.loads_base64(sys.argv[2])
+    driver_addresses = codec.loads_base64(sys.argv[3])
+    settings = codec.loads_base64(sys.argv[4])
 
-    _task_fn(index, driver_addresses, settings)
+    _task_fn(index, num_hosts, driver_addresses, settings)
