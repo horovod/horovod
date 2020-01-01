@@ -35,19 +35,19 @@ class WorkersRecordedBarrier(object):
         self._driver = driver
         self._lock = threading.Lock()
         self._states = {}
-        self._hosts = defaultdict(set)
+        self._workers = defaultdict(set)
         self._barrier = None
 
     def get(self, state):
-        return self._hosts[state]
+        return self._workers[state]
 
     def count(self, state):
-        return len(self._hosts[state])
+        return len(self._workers[state])
 
     def reset(self, size):
         with self._lock:
             self._states.clear()
-            self._hosts.clear()
+            self._workers.clear()
             self._barrier = threading.Barrier(parties=size, action=self._action)
 
     def record_ready(self, host, slot):
@@ -67,8 +67,8 @@ class WorkersRecordedBarrier(object):
         with self._lock:
             if key in self._states:
                 self._barrier.reset()
-            self._states[(host, slot)] = state
-            self._hosts[state].add(host)
+            self._states[key] = state
+            self._workers[state].add(key)
         self._wait(key, state)
 
     def _wait(self, key, state):
@@ -77,7 +77,7 @@ class WorkersRecordedBarrier(object):
                 self._barrier.wait()
                 return
             except threading.BrokenBarrierError:
-                if self._barrier.broken():
+                if self._barrier.broken:
                     # Timeout or other non-recoverable error, so exit
                     raise
 
@@ -88,7 +88,6 @@ class WorkersRecordedBarrier(object):
 
     def _action(self):
         self._driver.on_workers_recorded()
-        self.reset(self._driver.world_size())
 
 
 class Results(object):
@@ -184,9 +183,14 @@ class ElasticDriver(object):
             self.stop()
             return
 
+        # Check that all processes failed, indicating that processing should stop
+        if self._barrier.count(FAILURE) == self._world_size:
+            self.stop()
+            return
+
         # Check for failures, and add them to the blacklisted hosts list
-        failed_hosts = self._barrier.get(FAILURE)
-        for host in failed_hosts:
+        failures = self._barrier.get(FAILURE)
+        for host, slot in failures:
             self._blacklisted_hosts.add(host)
 
         self._activate_hosts(self._min_np)
@@ -208,6 +212,7 @@ class ElasticDriver(object):
         new_assigned_hosts = self._update_assigned_hosts()
         for host in new_assigned_hosts:
             self._start_worker_processes(host)
+        self._barrier.reset(self.world_size())
 
     def _discover_hosts(self):
         while not self._shutdown.is_set():
