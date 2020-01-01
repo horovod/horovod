@@ -44,7 +44,7 @@ from horovod.run.driver import driver_service
 from horovod.run.elastic import settings as elastic_settings
 from horovod.run.task import task_service
 from horovod.run.util import cache, threads, network
-from horovod.run.gloo_run import gloo_run
+from horovod.run.gloo_run import gloo_run, gloo_run_elastic
 from horovod.run.mpi_run import mpi_run
 from horovod.run.http.http_client import read_data_from_kvstore, put_data_into_kvstore
 from horovod.run.http.http_server import KVStoreServer
@@ -267,24 +267,6 @@ def _driver_fn(all_host_names, local_host_names, settings):
         return common_intfs
     finally:
         driver.shutdown()
-
-
-def _get_driver_ip(common_intfs):
-    """
-    :param common_intfs: object return by `_driver_fn`
-    :return: driver ip. We make sure all workers can connect to this ip.
-    """
-    iface = list(common_intfs)[0]
-    driver_ip = None
-    for addr in net_if_addrs()[iface]:
-        if addr.family == AF_INET:
-            driver_ip = addr.address
-
-    if not driver_ip:
-        raise RuntimeError(
-            'Cannot find an IPv4 address of the common interface.')
-
-    return driver_ip
 
 
 def check_build(verbose):
@@ -719,6 +701,61 @@ def parse_host_files(filename):
     return ','.join(hosts)
 
 
+def get_common_intfs(all_host_names, settings, fn_cache=None):
+    if settings.verbose >= 2:
+        print('Filtering local host names.')
+    remote_host_names = network.filter_local_addresses(all_host_names)
+    if settings.verbose >= 2:
+        print('Remote host found: ' + ' '.join(remote_host_names))
+
+    if len(remote_host_names) > 0:
+        if settings.verbose >= 2:
+            print('Checking ssh on all remote hosts.')
+        # Check if we can ssh into all remote hosts successfully.
+        _check_all_hosts_ssh_successful(remote_host_names, settings.ssh_port,
+                                        fn_cache=fn_cache)
+        if settings.verbose >= 2:
+            print('SSH was successful into all the remote hosts.')
+
+    local_host_names = set(all_host_names) - set(remote_host_names)
+    if len(remote_host_names) > 0:
+        if settings.verbose >= 2:
+            print('Testing interfaces on all the hosts.')
+
+        # Find the set of common, routed interfaces on all the hosts (remote
+        # and local) and specify it in the args to be used by NCCL. It is
+        # expected that the following function will find at least one interface
+        # otherwise, it will raise an exception.
+        common_intfs = _driver_fn(all_host_names, local_host_names,
+                                  settings, fn_cache=fn_cache)
+
+        if settings.verbose >= 2:
+            print('Interfaces on all the hosts were successfully checked.')
+            print('Common interface found: ' + ' '.join(common_intfs))
+
+    else:
+        if settings.verbose >= 2:
+            print('All hosts are local, finding the interfaces '
+                  'with address 127.0.0.1')
+        # If all the given hosts are local, find the interfaces with address
+        # 127.0.0.1
+        common_intfs = set()
+        for iface, addrs in net_if_addrs().items():
+            if settings.nic and iface != settings.nic:
+                continue
+            for addr in addrs:
+                if addr.family == AF_INET and addr.address == '127.0.0.1':
+                    common_intfs.add(iface)
+                    break
+
+        if len(common_intfs) == 0:
+            raise ValueError('No interface is found for address 127.0.0.1.')
+
+        if settings.verbose >= 2:
+            print('Local interface found ' + ' '.join(common_intfs))
+    return common_intfs, local_host_names
+
+
 def _run(args):
     if args.check_build:
         check_build(args.verbose)
@@ -783,60 +820,10 @@ def _run(args):
         fn_cache = cache.Cache(CACHE_FOLDER, CACHE_STALENESS_THRESHOLD_MINUTES,
                                parameters_hash)
 
-    if settings.verbose >= 2:
-        print('Filtering local host names.')
-    remote_host_names = network.filter_local_addresses(all_host_names)
-    if settings.verbose >= 2:
-        print('Remote host found: ' + ' '.join(remote_host_names))
-
-    if len(remote_host_names) > 0:
-        if settings.verbose >= 2:
-            print('Checking ssh on all remote hosts.')
-        # Check if we can ssh into all remote hosts successfully.
-        _check_all_hosts_ssh_successful(remote_host_names, args.ssh_port,
-                                        fn_cache=fn_cache)
-        if settings.verbose >= 2:
-            print('SSH was successful into all the remote hosts.')
-
-    local_host_names = set(all_host_names) - set(remote_host_names)
-    if len(remote_host_names) > 0:
-        if settings.verbose >= 2:
-            print('Testing interfaces on all the hosts.')
-
-        # Find the set of common, routed interfaces on all the hosts (remote
-        # and local) and specify it in the args to be used by NCCL. It is
-        # expected that the following function will find at least one interface
-        # otherwise, it will raise an exception.
-        common_intfs = _driver_fn(all_host_names, local_host_names,
-                                  settings, fn_cache=fn_cache)
-
-        if settings.verbose >= 2:
-            print('Interfaces on all the hosts were successfully checked.')
-            print('Common interface found: ' + ' '.join(common_intfs))
-
-    else:
-        if settings.verbose >= 2:
-            print('All hosts are local, finding the interfaces '
-                  'with address 127.0.0.1')
-        # If all the given hosts are local, find the interfaces with address
-        # 127.0.0.1
-        common_intfs = set()
-        for iface, addrs in net_if_addrs().items():
-            if settings.nic and iface != settings.nic:
-                continue
-            for addr in addrs:
-                if addr.family == AF_INET and addr.address == '127.0.0.1':
-                    common_intfs.add(iface)
-                    break
-
-        if len(common_intfs) == 0:
-            raise ValueError('No interface is found for address 127.0.0.1.')
-
-        if settings.verbose >= 2:
-            print('Local interface found ' + ' '.join(common_intfs))
+    common_intfs, local_host_names = get_common_intfs(all_host_names, settings, fn_cache)
 
     # get the driver IPv4 address
-    driver_ip = _get_driver_ip(common_intfs)
+    driver_ip = network.get_driver_ip(common_intfs)
 
     if args.run_func:
         run_func_server = KVStoreServer(verbose=settings.verbose)
@@ -891,22 +878,23 @@ def _run_elastic(args):
                                                 run_func_mode=args.run_func is not None,
                                                 nic=args.nic)
 
-    # TODO: infer this at runtime
-    common_intfs = [args.nic]
-    command = args.command
-    _launch_job(args, {}, settings, common_intfs, command)
+    if not gloo_built(verbose=(settings.verbose >= 2)):
+        raise ValueError('Gloo support is required to use elastic traiing, but has not been built.  Ensure CMake is '
+                         'installed and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
+
+    env = os.environ.copy()
+    gloo_run_elastic(settings, env, args.command, get_common_intfs)
 
 
 def _launch_job(args, local_host_names, settings, common_intfs, command):
     env = os.environ.copy()
     config_parser.set_env_from_args(env, args)
-    driver_ip = _get_driver_ip(common_intfs)
 
     if args.use_gloo:
         if not gloo_built(verbose=(settings.verbose >= 2)):
             raise ValueError('Gloo support has not been built.  If this is not expected, ensure CMake is installed '
                              'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
-        gloo_run(settings, local_host_names, common_intfs, env, driver_ip, command)
+        gloo_run(settings, local_host_names, common_intfs, env, command)
     elif args.use_mpi:
         if not mpi_built(verbose=(settings.verbose >= 2)):
             raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
@@ -916,7 +904,7 @@ def _launch_job(args, local_host_names, settings, common_intfs, command):
         if mpi_built(verbose=(settings.verbose >= 2)):
             mpi_run(settings, common_intfs, env, command)
         elif gloo_built(verbose=(settings.verbose >= 2)):
-            gloo_run(settings, local_host_names, common_intfs, env, driver_ip, command)
+            gloo_run(settings, local_host_names, common_intfs, env, command)
         else:
             raise ValueError('Neither MPI nor Gloo support has been built. Try reinstalling Horovod ensuring that '
                              'either MPI is installed (MPI) or CMake is installed (Gloo).')
