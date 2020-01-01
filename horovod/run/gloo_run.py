@@ -210,7 +210,7 @@ def gloo_run_elastic(settings, env, command, get_common_intfs):
     for name, value in sorted(res.items(), key=lambda item: item[1][1]):
         exit_code, timestamp = value
         if exit_code != 0:
-            raise RuntimeError('Gloo job detected that one or more processes exited with non-zero '
+            raise RuntimeError('Horovod detected that one or more processes exited with non-zero '
                                'status, thus causing the job to be terminated. The first process '
                                'to do so was:\nProcess name: {name}\nExit code: {code}\n'
                                .format(name=name, code=exit_code))
@@ -247,7 +247,7 @@ def gloo_run(settings, local_host_names, common_intfs, env, command):
     for name, value in sorted(res.items(), key=lambda item: item[1][1]):
         exit_code, timestamp = value
         if exit_code != 0:
-            raise RuntimeError('Gloo job detected that one or more processes exited with non-zero '
+            raise RuntimeError('Horovod detected that one or more processes exited with non-zero '
                                'status, thus causing the job to be terminated. The first process '
                                'to do so was:\nProcess name: {name}\nExit code: {code}\n'
                                .format(name=name, code=exit_code))
