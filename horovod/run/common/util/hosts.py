@@ -30,10 +30,10 @@ class HostInfo:
 
 
 class SlotInfo:
-    def __init__(self, hostname, rank, local_rank, cross_rank, size):
+    def __init__(self, hostname, rank, local_rank, cross_rank):
         self.hostname = hostname
         self.rank = rank
-        self.size = size
+        self.size = None
         self.local_rank = local_rank
         self.local_size = None
         self.cross_rank = cross_rank
@@ -92,8 +92,7 @@ def get_host_assignments(hosts, min_np, max_np=None):
                     host_info.hostname,
                     rank,
                     local_rank,
-                    cross_rank,
-                    np))
+                    cross_rank))
             cross_sizes[local_rank] += 1
             local_sizes[cross_rank] += 1
             rank += 1
@@ -107,4 +106,5 @@ def get_host_assignments(hosts, min_np, max_np=None):
     for alloc_item in alloc_list:
         alloc_item.local_size = local_sizes[alloc_item.cross_rank]
         alloc_item.cross_size = cross_sizes[alloc_item.local_rank]
+        alloc_item.size = rank
     return alloc_list

@@ -21,8 +21,9 @@ from __future__ import print_function
 from contextlib import contextmanager
 
 import io
-import pickle
 import warnings
+
+import cloudpickle
 
 from horovod.common.util import check_extension
 
@@ -596,13 +597,10 @@ def broadcast_object(obj, root_rank, name=None):
     """
     Serializes and broadcasts an object from root rank to all other processes.
     Typical usage is to broadcast the `optimizer.state_dict()`, for example:
-
     .. code-block:: python
-
         state_dict = broadcast_object(optimizer.state_dict(), 0)
         if hvd.rank() > 0:
             optimizer.load_state_dict(state_dict)
-
     Arguments:
         obj: An object capable of being serialized without losing any context.
         root_rank: The rank of the process from which parameters will be
@@ -617,19 +615,19 @@ def broadcast_object(obj, root_rank, name=None):
 
     if rank() == root_rank:
         b = io.BytesIO()
-        pickle.dump(obj, b)
+        cloudpickle.dump(obj, b)
         t = torch.ByteTensor(bytearray(b.getvalue()))
         sz = torch.IntTensor([t.shape[0]])
-        broadcast(sz, root_rank, name + '.sz')
+        broadcast_(sz, root_rank, name + '.sz')
     else:
         sz = torch.IntTensor([0])
-        broadcast(sz, root_rank, name + '.sz')
+        broadcast_(sz, root_rank, name + '.sz')
         t = torch.ByteTensor(sz.tolist()[0])
 
-    broadcast(t, root_rank, name + '.t')
+    broadcast_(t, root_rank, name + '.t')
 
     if rank() != root_rank:
         buf = io.BytesIO(t.numpy().tobytes())
-        obj = pickle.loads(buf)
+        obj = cloudpickle.load(buf)
 
     return obj
