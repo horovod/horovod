@@ -140,6 +140,7 @@ class ElasticDriver(object):
 
         self._discovery_thread = threading.Thread(target=self._discover_hosts)
         self._discovery_thread.daemon = True
+        self._discovery_thread.start()
 
         self._create_worker_fn = None
 
@@ -148,9 +149,22 @@ class ElasticDriver(object):
         self._shutdown = threading.Event()
 
     def start(self, np, create_worker_fn):
-        self._discovery_thread.start()
         self._create_worker_fn = create_worker_fn
         self._activate_hosts(np)
+
+    def wait_for_available_hosts(self, min_np):
+        tmout = timeout.Timeout(
+            self._start_timeout,
+            message='Timed out waiting for {{activity}}. Please check that you have '
+                    'enough resources to run at least {min_np} Horovod processes.'.format(min_np=min_np))
+
+        self._wait_hosts_cond.acquire()
+        try:
+            while self._count_available_slots() < min_np:
+                self._wait_hosts_cond.wait(tmout.remaining())
+                tmout.check_time_out_for('minimum number of hosts to become available')
+        finally:
+            self._wait_hosts_cond.release()
 
     def get_results(self):
         return self._results.get_results()
@@ -186,25 +200,14 @@ class ElasticDriver(object):
     def get_slot_info(self, host, slot):
         return self._host_assignments[host][slot]
 
+    def get_available_hosts(self):
+        return self._available_slots.copy()
+
     def _activate_hosts(self, min_np):
-        self._wait_for_available_hosts(min_np)
+        self.wait_for_available_hosts(min_np)
         new_assigned_hosts = self._update_assigned_hosts()
         for host in new_assigned_hosts:
             self._start_worker_processes(host)
-
-    def _wait_for_available_hosts(self, min_np):
-        tmout = timeout.Timeout(
-            self._start_timeout,
-            message='Timed out waiting for {{activity}}. Please check that you have '
-                    'enough resources to run at least {min_np} Horovod processes.'.format(min_np=min_np))
-
-        self._wait_hosts_cond.acquire()
-        try:
-            while self._count_available_slots() < min_np:
-                self._wait_hosts_cond.wait(tmout.remaining())
-                tmout.check_time_out_for('minimum number of hosts to become available')
-        finally:
-            self._wait_hosts_cond.release()
 
     def _discover_hosts(self):
         while not self._shutdown.is_set():

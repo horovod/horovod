@@ -31,7 +31,7 @@ from horovod.run.common.util.hosts import get_host_assignments, parse_hosts
 from horovod.run.elastic.driver import ElasticDriver
 from horovod.run.elastic.rendezvous import create_rendezvous_handler
 from horovod.run.http.http_server import RendezvousServer
-from horovod.run.util import threads
+from horovod.run.util import network, threads
 
 
 def _pad_rank(rank, size):
@@ -169,24 +169,54 @@ def _create_exec_command(settings, env, local_host_names, run_command):
     return exec_command
 
 
-def gloo_run(settings, local_host_names, common_intfs, env, server_ip, command):
-    def get_run_command(port):
-        iface = list(common_intfs)[0]
-        run_command = (
-            'HOROVOD_GLOO_RENDEZVOUS_ADDR={addr} '
-            'HOROVOD_GLOO_RENDEZVOUS_PORT={port} '
-            'HOROVOD_CONTROLLER=gloo '
-            'HOROVOD_CPU_OPERATIONS=gloo '
-            'HOROVOD_GLOO_IFACE={iface} '
-            'NCCL_SOCKET_IFNAME={common_intfs} '
-            '{command}'  # expect a lot of environment variables
-            .format(addr=server_ip,
-                    port=port,
-                    iface=iface,  # TODO: add multiple ifaces in future
-                    common_intfs=','.join(common_intfs),
-                    command=' '.join(quote(par) for par in command)))
-        return run_command
+def get_run_command(command, common_intfs, port):
+    server_ip = network.get_driver_ip(common_intfs)
+    iface = list(common_intfs)[0]
+    run_command = (
+        'HOROVOD_GLOO_RENDEZVOUS_ADDR={addr} '
+        'HOROVOD_GLOO_RENDEZVOUS_PORT={port} '
+        'HOROVOD_CONTROLLER=gloo '
+        'HOROVOD_CPU_OPERATIONS=gloo '
+        'HOROVOD_GLOO_IFACE={iface} '
+        'NCCL_SOCKET_IFNAME={common_intfs} '
+        '{command}'  # expect a lot of environment variables
+        .format(addr=server_ip,
+                port=port,
+                iface=iface,  # TODO: add multiple ifaces in future
+                common_intfs=','.join(common_intfs),
+                command=' '.join(quote(par) for par in command)))
+    return run_command
 
+
+def gloo_run_elastic(settings, env, command, get_common_intfs):
+    # Make the output directory if it does not exist
+    if settings.output_filename:
+        _mkdir_p(settings.output_filename)
+
+    global_rendezv = RendezvousServer(settings.verbose)
+    driver = ElasticDriver(settings.discovery_script, settings.min_np, settings.max_np, settings.slots)
+
+    handler = create_rendezvous_handler(driver)
+    global_rendezv_port = global_rendezv.start_server(handler)
+    driver.wait_for_available_hosts(settings.num_proc)
+
+    common_intfs, local_host_names = get_common_intfs(driver.get_available_hosts(), settings)
+    run_command = get_run_command(command, common_intfs, global_rendezv_port)
+    exec_command = _create_exec_command(settings, env, local_host_names, run_command)
+
+    driver.start(settings.num_proc, exec_command)
+    res = driver.get_results()
+
+    for name, value in sorted(res.items(), key=lambda item: item[1][1]):
+        exit_code, timestamp = value
+        if exit_code != 0:
+            raise RuntimeError('Gloo job detected that one or more processes exited with non-zero '
+                               'status, thus causing the job to be terminated. The first process '
+                               'to do so was:\nProcess name: {name}\nExit code: {code}\n'
+                               .format(name=name, code=exit_code))
+
+
+def gloo_run(settings, local_host_names, common_intfs, env, command):
     # Make the output directory if it does not exist
     if settings.output_filename:
         _mkdir_p(settings.output_filename)
@@ -194,37 +224,25 @@ def gloo_run(settings, local_host_names, common_intfs, env, server_ip, command):
     # start global rendezvous server and get port that it is listening on
     global_rendezv = RendezvousServer(settings.verbose)
 
-    if settings.elastic:
-        driver = ElasticDriver(settings.discovery_script, settings.min_np, settings.max_np, settings.slots)
+    # allocate processes into slots
+    hosts = parse_hosts(settings.hosts)
+    host_alloc_plan = get_host_assignments(hosts, settings.num_proc)
 
-        # start global rendezvous server and get port that it is listening on
-        handler = create_rendezvous_handler(driver)
-        global_rendezv_port = global_rendezv.start_server(handler)
-        run_command = get_run_command(global_rendezv_port)
-        exec_command = _create_exec_command(settings, env, local_host_names, run_command)
+    # start global rendezvous server and get port that it is listening on
+    global_rendezv_port = global_rendezv.start_server()
+    run_command = get_run_command(command, common_intfs, global_rendezv_port)
+    exec_command = _create_exec_command(settings, env, local_host_names, run_command)
 
-        driver.start(settings.num_proc, exec_command)
-        res = driver.get_results()
-    else:
-        # allocate processes into slots
-        hosts = parse_hosts(settings.hosts)
-        host_alloc_plan = get_host_assignments(hosts, settings.num_proc)
-
-        # start global rendezvous server and get port that it is listening on
-        global_rendezv_port = global_rendezv.start_server()
-        run_command = get_run_command(global_rendezv_port)
-        exec_command = _create_exec_command(settings, env, local_host_names, run_command)
-
-        # Each thread will use ssh command to launch the job on each remote host. If an
-        # error occurs in one thread, entire process will be terminated. Otherwise,
-        # threads will keep running and ssh session. In case, the main thread receives
-        # a SIGINT, the event will be set and the spawned threads will kill their
-        # corresponding middleman processes and thus the jobs will be killed as
-        # well.
-        args_list = [[slot_info] for slot_info in host_alloc_plan]
-        res = threads.execute_function_multithreaded(exec_command,
-                                                     args_list,
-                                                     block_until_all_done=True)
+    # Each thread will use ssh command to launch the job on each remote host. If an
+    # error occurs in one thread, entire process will be terminated. Otherwise,
+    # threads will keep running and ssh session. In case, the main thread receives
+    # a SIGINT, the event will be set and the spawned threads will kill their
+    # corresponding middleman processes and thus the jobs will be killed as
+    # well.
+    args_list = [[slot_info] for slot_info in host_alloc_plan]
+    res = threads.execute_function_multithreaded(exec_command,
+                                                 args_list,
+                                                 block_until_all_done=True)
 
     for name, value in sorted(res.items(), key=lambda item: item[1][1]):
         exit_code, timestamp = value
