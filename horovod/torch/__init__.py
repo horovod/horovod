@@ -21,7 +21,6 @@ from __future__ import print_function
 from contextlib import contextmanager
 
 import io
-import pickle
 import warnings
 
 import cloudpickle
@@ -610,13 +609,10 @@ def broadcast_object(obj, root_rank, name=None):
     """
     Serializes and broadcasts an object from root rank to all other processes.
     Typical usage is to broadcast the `optimizer.state_dict()`, for example:
-
     .. code-block:: python
-
         state_dict = broadcast_object(optimizer.state_dict(), 0)
         if hvd.rank() > 0:
             optimizer.load_state_dict(state_dict)
-
     Arguments:
         obj: An object capable of being serialized without losing any context.
         root_rank: The rank of the process from which parameters will be
