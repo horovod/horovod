@@ -13,8 +13,8 @@
 // limitations under the License.
 // =============================================================================
 
-#ifndef HOROVOD_ADASUM_CUDA_OPERATIONS_H
-#define HOROVOD_ADASUM_CUDA_OPERATIONS_H
+#ifndef HOROVOD_ADASUM_GPU_OPERATIONS_H
+#define HOROVOD_ADASUM_GPU_OPERATIONS_H
 
 #include "adasum/adasum_mpi.h"
 #include "nccl_operations.h"
@@ -23,13 +23,13 @@
 namespace horovod {
 namespace common {
 
-class AdasumCudaAllreduceOp : public AdasumMPI, public NCCLAllreduce {
+class AdasumGpuAllreduceOp : public AdasumMPI, public NCCLAllreduce {
 public:
-  AdasumCudaAllreduceOp(MPIContext* mpi_context, NCCLContext* nccl_context,
-                        CUDAContext* cuda_context,
-                        HorovodGlobalState* global_state);
+  AdasumGpuAllreduceOp(MPIContext* mpi_context, NCCLContext* nccl_context,
+                       GPUContext* gpu_context,
+                       HorovodGlobalState* global_state);
 
-  ~AdasumCudaAllreduceOp();
+  ~AdasumGpuAllreduceOp();
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
@@ -50,4 +50,4 @@ private:
 };
 } // namespace common
 } // namespace horovod
-#endif // HOROVOD_ADASUM_CUDA_OPERATIONS_H
+#endif // HOROVOD_ADASUM_GPU_OPERATIONS_H

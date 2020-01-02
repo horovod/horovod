@@ -33,16 +33,16 @@ DDL_Type GetDDLDataType(const std::shared_ptr<Tensor> tensor) {
 }
 
 DDLAllreduce::DDLAllreduce(DDLContext* ddl_context,
-                           CUDAContext* cuda_context,
+                           GPUContext* gpu_context,
                            HorovodGlobalState* global_state)
-    : CUDAAllreduce(cuda_context, global_state),
+    : GPUAllreduce(gpu_context, global_state),
       ddl_context_(ddl_context) {}
 
 Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   auto& first_entry = entries[0];
 
-  cuda_op_context_.InitCUDA(entries);
-  cuda_op_context_.InitCUDAQueue(entries, response);
+  gpu_op_context_.InitGPU(entries);
+  gpu_op_context_.InitGPUQueue(entries, response);
 
   auto& timeline = global_state_->timeline;
   if (ddl_context_->ddl_local_device_id != first_entry.device) {
@@ -58,7 +58,7 @@ Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
     MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
 
     if (timeline.Initialized()) {
-      cuda_context_->RecordEvent(cuda_op_context_.event_queue, MEMCPY_IN_FUSION_BUFFER, *cuda_op_context_.stream);
+      gpu_context_->RecordEvent(gpu_op_context_.event_queue, MEMCPY_IN_FUSION_BUFFER, *gpu_op_context_.stream);
     }
   } else {
     fused_input_data = first_entry.tensor->data();
@@ -75,14 +75,12 @@ Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
   if (entries.size() == 1) {
     // Copy input buffer content to output buffer
     // because DDL only supports in-place allreduce
-    auto cuda_result = cudaMemcpyAsync(buffer_data, fused_input_data, buffer_len,
-                                       cudaMemcpyDeviceToDevice, *cuda_op_context_.stream);
-    cuda_context_->ErrorCheck("cudaMemcpyAsync", cuda_result);
-    cuda_context_->RecordEvent(cuda_op_context_.event_queue, MEMCPY_IN_FUSION_BUFFER, *cuda_op_context_.stream);
+    gpu_context_->MemcpyAsyncD2D(buffer_data, fused_input_data, buffer_len, *gpu_op_context_.stream);
+    gpu_context_->RecordEvent(gpu_op_context_.event_queue, MEMCPY_IN_FUSION_BUFFER, *gpu_op_context_.stream);
   }
 
   // Synchronize.
-  cuda_context_->WaitForEvents(cuda_op_context_.event_queue, entries, timeline);
+  gpu_context_->WaitForEvents(gpu_op_context_.event_queue, entries, timeline);
 
   DDL_Type ddl_data_type = GetDDLDataType(first_entry.tensor);
   auto ddl_result = ddl_allreduce(buffer_data, (size_t) num_elements, ddl_data_type,
@@ -96,14 +94,14 @@ Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
     MemcpyOutFusionBuffer(buffer_data, entries);
 
     if (timeline.Initialized()) {
-      cuda_context_->RecordEvent(cuda_op_context_.event_queue, MEMCPY_OUT_FUSION_BUFFER, *cuda_op_context_.stream);
+      gpu_context_->RecordEvent(gpu_op_context_.event_queue, MEMCPY_OUT_FUSION_BUFFER, *gpu_op_context_.stream);
     }
   }
 
-  return cuda_op_context_.FinalizeCUDAQueue(entries);
+  return gpu_op_context_.FinalizeGPUQueue(entries);
 }
 
-void DDLAllreduce::DDLInit(DDLContext* ddl_context, CUDAContext* cuda_context) {
+void DDLAllreduce::DDLInit(DDLContext* ddl_context, GPUContext* gpu_context) {
   LOG(WARNING) << "DDL backend has been deprecated. Please, start using the NCCL backend by "
                   "building Horovod with 'HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_BROADCAST=NCCL'.";
   auto ddl_options = std::getenv("DDL_OPTIONS");
@@ -114,7 +112,7 @@ void DDLAllreduce::DDLInit(DDLContext* ddl_context, CUDAContext* cuda_context) {
   if (ddl_result != DDL_SUCCESS) {
     throw std::logic_error("ddl_init failed.");
   }
-  cuda_context->ErrorCheck("cudaGetDevice", cudaGetDevice(&ddl_context->ddl_local_device_id));
+  ddl_context->ddl_local_device_id = gpu_context->GetDevice();
 }
 
 } // namespace common

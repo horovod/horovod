@@ -14,14 +14,24 @@
 // limitations under the License.
 // =============================================================================
 
-#ifndef HOROVOD_CUDA_OPERATIONS_H
-#define HOROVOD_CUDA_OPERATIONS_H
+#ifndef HOROVOD_GPU_OPERATIONS_H
+#define HOROVOD_GPU_OPERATIONS_H
 
 #include <queue>
 #include <unordered_map>
 #include <vector>
 
+#if HAVE_CUDA
 #include <cuda_runtime.h>
+using gpuError_t = cudaError_t;
+using gpuEvent_t = cudaEvent_t;
+using gpuStream_t = cudaStream_t;
+#elif HAVE_ROCM
+#include <hip/hip_runtime_api.h>
+using gpuError_t = hipError_t;
+using gpuEvent_t = hipEvent_t;
+using gpuStream_t = hipStream_t;
+#endif
 
 #include "collective_operations.h"
 #include "../thread_pool.h"
@@ -29,57 +39,68 @@
 namespace horovod {
 namespace common {
 
-struct CUDAContext {
+class GPUContext {
+public:
+  GPUContext();
+  ~GPUContext();
+
   void Finalize();
 
-  cudaError_t GetCudaEvent(cudaEvent_t* event);
-
-  cudaError_t ReleaseCudaEvent(cudaEvent_t event);
-
-  // The CUDA stream used for data transfers and within-allreduce operations.
-  // A naive implementation would use the TensorFlow StreamExecutor CUDA
+  // The GPU stream used for data transfers and within-allreduce operations.
+  // A naive implementation would use the TensorFlow StreamExecutor GPU
   // stream. However, the allreduce and allgather require doing memory copies
   // and kernel executions (for accumulation of values on the GPU). However,
   // the subsequent operations must wait for those operations to complete,
   // otherwise MPI (which uses its own stream internally) will begin the data
-  // transfers before the CUDA calls are complete. In order to wait for those
-  // CUDA operations, if we were using the TensorFlow stream, we would have to
+  // transfers before the GPU calls are complete. In order to wait for those
+  // GPU operations, if we were using the TensorFlow stream, we would have to
   // synchronize that stream; however, other TensorFlow threads may be
   // submitting more work to that stream, so synchronizing on it can cause the
   // allreduce to be delayed, waiting for compute totally unrelated to it in
   // other parts of the graph. Overlaying memory transfers and compute during
   // backpropagation is crucial for good performance, so we cannot use the
   // TensorFlow stream, and must use our own stream.
-  std::vector<std::unordered_map<int, cudaStream_t>> streams;
+  std::vector<std::unordered_map<int, gpuStream_t>> streams;
 
-  // We reuse CUDA events as it appears that their creation carries non-zero cost.
-  std::unordered_map<int, std::queue<cudaEvent_t>> cuda_events;
-  std::mutex cuda_events_mutex;
+  void ErrorCheck(std::string op_name, gpuError_t gpu_result);
 
-  void ErrorCheck(std::string op_name, cudaError_t cuda_result);
+  void RecordEvent(std::queue<std::pair<std::string, gpuEvent_t>>& event_queue, std::string name,
+                   gpuStream_t& stream);
 
-  void RecordEvent(std::queue<std::pair<std::string, cudaEvent_t>>& event_queue, std::string name,
-                   cudaStream_t& stream);
-
-  void WaitForEvents(std::queue<std::pair<std::string, cudaEvent_t>>& event_queue,
+  void WaitForEvents(std::queue<std::pair<std::string, gpuEvent_t>>& event_queue,
                      const std::vector<TensorTableEntry>& entries, Timeline& timeline);
+
+  void StreamCreate(gpuStream_t *stream);
+  void StreamSynchronize(gpuStream_t stream);
+
+  int GetDevice();
+
+  void SetDevice(int device);
+
+  void MemcpyAsyncD2D(void* dst, const void* src, size_t count, gpuStream_t stream);
+  void MemcpyAsyncH2D(void* dst, const void* src, size_t count, gpuStream_t stream);
+  void MemcpyAsyncD2H(void* dst, const void* src, size_t count, gpuStream_t stream);
 
   // Thread pool for finalizer threads
   ThreadPool finalizer_thread_pool;
+
+private:
+  class impl;
+  std::unique_ptr<impl> pimpl;
 };
 
-class CUDAOpContext {
+class GPUOpContext {
 public:
-  CUDAOpContext(struct CUDAContext* context,
-                HorovodGlobalState* global_state);
+  GPUOpContext(GPUContext* context,
+               HorovodGlobalState* global_state);
 
-  void InitCUDA(const std::vector<TensorTableEntry>& entries);
+  void InitGPU(const std::vector<TensorTableEntry>& entries);
 
-  void InitCUDAQueue(const std::vector<TensorTableEntry>& entries, const Response& response);
+  void InitGPUQueue(const std::vector<TensorTableEntry>& entries, const Response& response);
 
-  Status FinalizeCUDAQueue(const std::vector<TensorTableEntry>& entries, bool free_host_buffer = true);
+  Status FinalizeGPUQueue(const std::vector<TensorTableEntry>& entries, bool free_host_buffer = true);
 
-  // CUDA events are used as an alternative to host-device synchronization (which stalls the GPU pipeline)
+  // GPU events are used as an alternative to host-device synchronization (which stalls the GPU pipeline)
   // for the purpose of recording timing on the Horovod timeline.
   //
   // When an event we wish to record occurs (for example, NCCL_ALLREDUCE), the event is enqueued. After the entire
@@ -88,20 +109,20 @@ public:
   //
   // For more information of CUDA Events, see:
   // https://devblogs.nvidia.com/how-implement-performance-metrics-cuda-cc/
-  std::queue<std::pair<std::string, cudaEvent_t>> event_queue;
+  std::queue<std::pair<std::string, gpuEvent_t>> event_queue;
 
-  cudaStream_t* stream;
+  gpuStream_t* stream;
   void* host_buffer = nullptr;
 
 private:
-  struct CUDAContext* cuda_context_;
+  GPUContext* gpu_context_;
   HorovodGlobalState* global_state_;
 };
 
-class CUDAAllreduce : public AllreduceOp {
+class GPUAllreduce : public AllreduceOp {
 public:
-  CUDAAllreduce(CUDAContext* context,
-                HorovodGlobalState* global_state);
+  GPUAllreduce(GPUContext* context,
+               HorovodGlobalState* global_state);
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
@@ -114,14 +135,14 @@ protected:
   void MemcpyEntryOutFusionBuffer(const std::vector<TensorTableEntry>& entries,
                                   const void* buffer_data_at_offset, TensorTableEntry& e) override;
 
-  struct CUDAContext* cuda_context_;
-  CUDAOpContext cuda_op_context_;
+  GPUContext* gpu_context_;
+  GPUOpContext gpu_op_context_;
 };
 
-class CUDAAllgather : public AllgatherOp {
+class GPUAllgather : public AllgatherOp {
 public:
-  CUDAAllgather(CUDAContext* context,
-                HorovodGlobalState* global_state);
+  GPUAllgather(GPUContext* context,
+               HorovodGlobalState* global_state);
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
@@ -135,25 +156,25 @@ protected:
                                   const void* buffer_data_at_offset, TensorTableEntry& e,
                                   int64_t entry_offset, size_t entry_size) override;
 
-  struct CUDAContext* cuda_context_;
-  CUDAOpContext cuda_op_context_;
+  GPUContext* gpu_context_;
+  GPUOpContext gpu_op_context_;
 };
 
-class CUDABroadcast : public BroadcastOp {
+class GPUBroadcast : public BroadcastOp {
 public:
-  CUDABroadcast(CUDAContext* context,
-                HorovodGlobalState* global_state);
+  GPUBroadcast(GPUContext* context,
+               HorovodGlobalState* global_state);
 
   bool Enabled(const ParameterManager& param_manager,
                const std::vector<TensorTableEntry>& entries,
                const Response& response) const override;
 
 protected:
-  struct CUDAContext* cuda_context_;
-  CUDAOpContext cuda_op_context_;
+  struct GPUContext* gpu_context_;
+  GPUOpContext gpu_op_context_;
 };
 
 } // namespace common
 } // namespace horovod
 
-#endif //HOROVOD_CUDA_OPERATIONS_H
+#endif //HOROVOD_GPU_OPERATIONS_H

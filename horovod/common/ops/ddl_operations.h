@@ -19,7 +19,7 @@
 
 #include <ddl.hpp>
 
-#include "cuda_operations.h"
+#include "gpu_operations.h"
 
 namespace horovod {
 namespace common {
@@ -28,15 +28,15 @@ struct DDLContext {
   int32_t ddl_local_device_id = 0;
 };
 
-class DDLAllreduce : public CUDAAllreduce {
+class DDLAllreduce : public GPUAllreduce {
 public:
   DDLAllreduce(DDLContext* ddl_context,
-               CUDAContext* cuda_context,
+               GPUContext* gpu_context,
                HorovodGlobalState* global_state);
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
-  static void DDLInit(DDLContext* ddl_context, CUDAContext* cuda_context);
+  static void DDLInit(DDLContext* ddl_context, GPUContext* gpu_context);
 
 protected:
   DDLContext* ddl_context_;

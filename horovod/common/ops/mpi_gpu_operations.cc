@@ -14,21 +14,21 @@
 // limitations under the License.
 // =============================================================================
 
-#include "mpi_cuda_operations.h"
+#include "mpi_gpu_operations.h"
 
 namespace horovod {
 namespace common {
 
-MPI_CUDAAllreduce::MPI_CUDAAllreduce(MPIContext* mpi_context,
-                                     CUDAContext* cuda_context,
-                                     HorovodGlobalState* global_state)
-    : CUDAAllreduce(cuda_context, global_state),
+MPI_GPUAllreduce::MPI_GPUAllreduce(MPIContext* mpi_context,
+                                   GPUContext* gpu_context,
+                                   HorovodGlobalState* global_state)
+    : GPUAllreduce(gpu_context, global_state),
       mpi_context_(mpi_context) {}
 
-Status MPI_CUDAAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+Status MPI_GPUAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   auto& first_entry = entries[0];
 
-  cuda_op_context_.InitCUDA(entries);
+  gpu_op_context_.InitGPU(entries);
 
   void* buffer_data;
   size_t buffer_len;
@@ -41,8 +41,7 @@ Status MPI_CUDAAllreduce::Execute(std::vector<TensorTableEntry>& entries, const 
     const void* fused_input_data;
     MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
 
-    auto cuda_result = cudaStreamSynchronize(cuda_context_->streams[global_state_->current_nccl_stream][entries[0].device]);
-    cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_result);
+    gpu_context_->StreamSynchronize(gpu_context_->streams[global_state_->current_nccl_stream][entries[0].device]);
 
     timeline.ActivityEndAll(entries);
   } else {
@@ -69,8 +68,7 @@ Status MPI_CUDAAllreduce::Execute(std::vector<TensorTableEntry>& entries, const 
     timeline.ActivityStartAll(entries, MEMCPY_OUT_FUSION_BUFFER);
     MemcpyOutFusionBuffer(buffer_data, entries);
 
-    auto cuda_result = cudaStreamSynchronize(cuda_context_->streams[global_state_->current_nccl_stream][entries[0].device]);
-    cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_result);
+    gpu_context_->StreamSynchronize(gpu_context_->streams[global_state_->current_nccl_stream][entries[0].device]);
 
     timeline.ActivityEndAll(entries);
   }
@@ -78,16 +76,16 @@ Status MPI_CUDAAllreduce::Execute(std::vector<TensorTableEntry>& entries, const 
   return Status::OK();
 }
 
-MPI_CUDAAllgather::MPI_CUDAAllgather(MPIContext* mpi_context,
-                                     CUDAContext* cuda_context,
-                                     HorovodGlobalState* global_state)
-    : CUDAAllgather(cuda_context, global_state),
+MPI_GPUAllgather::MPI_GPUAllgather(MPIContext* mpi_context,
+                                   GPUContext* gpu_context,
+                                   HorovodGlobalState* global_state)
+    : GPUAllgather(gpu_context, global_state),
       mpi_context_(mpi_context) {}
 
-Status MPI_CUDAAllgather::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
+Status MPI_GPUAllgather::Execute(std::vector<TensorTableEntry>& entries, const Response& response) {
   auto& timeline = global_state_->timeline;
 
-  cuda_op_context_.InitCUDA(entries);
+  gpu_op_context_.InitGPU(entries);
 
   // Sizes of subcomponents of each entry from all ranks
   auto** entry_component_sizes = new int64_t* [entries.size()];
@@ -127,8 +125,7 @@ Status MPI_CUDAAllgather::Execute(std::vector<TensorTableEntry>& entries, const 
     timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
     MemcpyInFusionBuffer(entries, displcmnts, element_size, buffer_data);
 
-    auto cuda_result = cudaStreamSynchronize(cuda_context_->streams[global_state_->current_nccl_stream][entries[0].device]);
-    cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_result);
+    gpu_context_->StreamSynchronize(gpu_context_->streams[global_state_->current_nccl_stream][entries[0].device]);
 
     timeline.ActivityEndAll(entries);
   } else {
@@ -156,8 +153,7 @@ Status MPI_CUDAAllgather::Execute(std::vector<TensorTableEntry>& entries, const 
     MemcpyOutFusionBuffer(entry_component_offsets, entry_component_sizes,
                           buffer_data, element_size, entries);
 
-    auto cuda_result = cudaStreamSynchronize(cuda_context_->streams[global_state_->current_nccl_stream][entries[0].device]);
-    cuda_context_->ErrorCheck("cudaStreamSynchronize", cuda_result);
+    gpu_context_->StreamSynchronize(gpu_context_->streams[global_state_->current_nccl_stream][entries[0].device]);
 
     timeline.ActivityEndAll(entries);
   }

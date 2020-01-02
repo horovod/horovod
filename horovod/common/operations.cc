@@ -50,17 +50,17 @@
 #include "ops/adasum_mpi_operations.h"
 #endif
 
-#if HAVE_CUDA
-#include "ops/cuda_operations.h"
+#if HAVE_GPU
+#include "ops/gpu_operations.h"
 #if HAVE_MPI
-#include "ops/mpi_cuda_operations.h"
+#include "ops/mpi_gpu_operations.h"
 #endif
 #endif
 
 #if HAVE_NCCL
 #include "ops/nccl_operations.h"
 #if HAVE_MPI
-#include "ops/adasum_cuda_operations.h"
+#include "ops/adasum_gpu_operations.h"
 #endif
 #endif
 
@@ -86,8 +86,8 @@
  * whichever hardware-optimized communication libraries are enabled.
  *
  * The primary logic of the allreduce, allgather and broadcast currently
- * support in MPI, NCCL, CUDA, Gloo, oneCCL, DDL. The background thread which
- * facilitates controller operations is run in BackgroundThreadLoop().
+ * support in MPI, NCCL, CUDA/ROCm, Gloo, oneCCL, DDL. The background thread
+ * which facilitates controller operations is run in BackgroundThreadLoop().
  * The provided ops are:
  *      - HorovodAllreduce:
  *          Perform an allreduce on a Tensor, returning the sum
@@ -121,8 +121,8 @@ MPIContext mpi_context;
 GlooContext gloo_context;
 #endif
 
-#if HAVE_CUDA
-CUDAContext cuda_context;
+#if HAVE_GPU
+GPUContext gpu_context;
 #endif
 
 #if HAVE_NCCL
@@ -148,27 +148,27 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops;
   std::vector<std::shared_ptr<AllreduceOp>> adasum_ops;
 
-#if HAVE_MPI && HAVE_CUDA
+#if HAVE_MPI && HAVE_GPU
   if (mpi_context.IsEnabled()) {
 #if HOROVOD_GPU_ALLREDUCE == 'M'
     allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
-        new MPI_CUDAAllreduce(&mpi_context, &cuda_context, &state)));
+        new MPI_GPUAllreduce(&mpi_context, &gpu_context, &state)));
 
 #elif HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
-    adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumCudaAllreduceOp(&mpi_context, &nccl_context, &cuda_context, &state)));
+    adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumGpuAllreduceOp(&mpi_context, &nccl_context, &gpu_context, &state)));
 
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new NCCLHierarchicalAllreduce(
-            &nccl_context, &mpi_context, &cuda_context, &state)));
+            &nccl_context, &mpi_context, &gpu_context, &state)));
 
 #elif HAVE_DDL && HOROVOD_GPU_ALLREDUCE == 'D'
     allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
-        new DDLAllreduce(&ddl_context, &cuda_context, &state)));
+        new DDLAllreduce(&ddl_context, &gpu_context, &state)));
 #endif
 
 #if HOROVOD_GPU_ALLGATHER == 'M'
     allgather_ops.push_back(std::shared_ptr<AllgatherOp>(
-        new MPI_CUDAAllgather(&mpi_context, &cuda_context, &state)));
+        new MPI_GPUAllgather(&mpi_context, &gpu_context, &state)));
 #endif
     allgather_ops.push_back(std::shared_ptr<AllgatherOp>(
         new MPIHierarchicalAllgather(&mpi_context, &state)));
@@ -177,12 +177,12 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 
 #if HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
   allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
-      new NCCLAllreduce(&nccl_context, &cuda_context, &state)));
+      new NCCLAllreduce(&nccl_context, &gpu_context, &state)));
 #endif
 
 #if HAVE_NCCL && HOROVOD_GPU_BROADCAST == 'N'
     broadcast_ops.push_back(
-        std::shared_ptr<BroadcastOp>(new NCCLBroadcast(&nccl_context, &cuda_context, &state)));
+        std::shared_ptr<BroadcastOp>(new NCCLBroadcast(&nccl_context, &gpu_context, &state)));
 #endif
 
 #if HAVE_GLOO
@@ -342,7 +342,7 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   // Initialize mpi context
 #if HAVE_DDL
   // If DDL is enabled, let DDL ops manage MPI environment.
-  auto mpi_ctx_manager = DDL_MPIContextManager(ddl_context, cuda_context);
+  auto mpi_ctx_manager = DDL_MPIContextManager(ddl_context, gpu_context);
 #else
   // Otherwise, let MPI ops be in charge.
   auto mpi_ctx_manager = MPIContextManager();
@@ -371,8 +371,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   int size = state.controller->GetSize();
   int local_size = state.controller->GetLocalSize();
 
-#if HAVE_CUDA
-  // Set number of CUDA streams to use
+#if HAVE_GPU
+  // Set number of GPU streams to use
   auto horovod_num_nccl_streams =
       std::getenv(HOROVOD_NUM_NCCL_STREAMS);
   if (horovod_num_nccl_streams != nullptr &&
@@ -383,10 +383,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
 #if HAVE_NCCL
   nccl_context.nccl_comms.resize(state.num_nccl_streams);
 #endif
-  cuda_context.streams.resize(state.num_nccl_streams);
+  gpu_context.streams.resize(state.num_nccl_streams);
 
   // Create finalizer thread pool (one thread per stream)
-  cuda_context.finalizer_thread_pool.create(state.num_nccl_streams);
+  gpu_context.finalizer_thread_pool.create(state.num_nccl_streams);
 #endif
 
   // Open the timeline file on coordinator.
@@ -520,8 +520,8 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     cb(SHUT_DOWN_ERROR);
   }
 
-#if HAVE_CUDA
-  cuda_context.Finalize();
+#if HAVE_GPU
+  gpu_context.Finalize();
 #endif
 
 #if HAVE_MPI
