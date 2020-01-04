@@ -76,7 +76,7 @@ COPY . /horovod
 RUN pip install ${TENSORFLOW_PACKAGE}
 
 # Install Keras.
-# Pin scipy<=1.4.0: https://github.com/scipy/scipy/issues/11237
+# Pin scipy<1.4.0: https://github.com/scipy/scipy/issues/11237
 RUN pip install ${KERAS_PACKAGE} h5py "scipy<1.4.0" pandas
 RUN mkdir -p ~/.keras
 RUN ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
@@ -91,7 +91,8 @@ RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
     else \
         pip install ${PYTORCH_PACKAGE} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/torch_stable.html; \
     fi
-RUN pip install Pillow --no-deps
+# Pin Pillow<7.0: https://github.com/pytorch/vision/issues/1718
+RUN pip install "Pillow<7.0" --no-deps
 
 # Install MXNet.
 RUN pip install ${MXNET_PACKAGE}
