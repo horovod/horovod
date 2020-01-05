@@ -37,6 +37,7 @@ class Workers(object):
         self._states = {}
         self._workers = defaultdict(set)
         self._barrier = None
+        self._rendezvous_id = 0
 
     def get(self, state):
         return self._workers[state]
@@ -49,15 +50,19 @@ class Workers(object):
             self._states.clear()
             self._workers.clear()
             self._barrier = threading.Barrier(parties=size, action=self._action)
+            self._rendezvous_id += 1
+
+    def last_rendezvous(self):
+        return self._rendezvous_id
 
     def record_ready(self, host, slot):
-        self._record_state(host, slot, READY)
+        return self._record_state(host, slot, READY)
 
     def record_success(self, host, slot):
-        self._record_state(host, slot, SUCCESS)
+        return self._record_state(host, slot, SUCCESS)
 
     def record_failure(self, host, slot):
-        self._record_state(host, slot, FAILURE)
+        return self._record_state(host, slot, FAILURE)
 
     def _record_state(self, host, slot, state):
         if self._driver.finished():
@@ -69,19 +74,23 @@ class Workers(object):
                 self._barrier.reset()
             self._states[key] = state
             self._workers[state].add(key)
-        self._wait(key, state)
+            rendezvous_id = self._rendezvous_id
 
-    def _wait(self, key, state):
+        rendezvous_id = self._wait(key, state, rendezvous_id)
+        return rendezvous_id
+
+    def _wait(self, key, state, rendezvous_id):
         while True:
             try:
                 self._barrier.wait()
-                return
+                return rendezvous_id
             except threading.BrokenBarrierError:
                 if self._barrier.broken:
                     # Timeout or other non-recoverable error, so exit
                     raise
 
                 with self._lock:
+                    rendezvous_id = self._rendezvous_id
                     saved_state = self._states.get(key, state)
                     if saved_state != state:
                         raise RuntimeError('State {} overridden by {}'.format(state, saved_state))
@@ -323,11 +332,11 @@ class ElasticDriver(object):
             return
 
         if exit_code == 0:
-            self._workers.record_success(slot_info.hostname, slot_info.local_rank)
+            rendezvous_id = self._workers.record_success(slot_info.hostname, slot_info.local_rank)
         else:
-            self._workers.record_failure(slot_info.hostname, slot_info.local_rank)
+            rendezvous_id = self._workers.record_failure(slot_info.hostname, slot_info.local_rank)
 
-        if self.finished():
+        if self.finished() and self._workers.last_rendezvous() == rendezvous_id:
             name = '{}[{}]'.format(slot_info.hostname, slot_info.local_rank)
             self._results.add_result(name, (exit_code, timestamp))
 
