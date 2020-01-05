@@ -130,7 +130,7 @@ def _create_exec_command(settings, env, local_host_names, run_command):
                                             .format(pwd=os.getcwd(), local_command=local_command)))
         return command
 
-    def exec_command(slot_info):
+    def exec_command(slot_info, events=None):
         command = get_command(slot_info)
         if settings.verbose:
             print(command)
@@ -152,7 +152,8 @@ def _create_exec_command(settings, env, local_host_names, run_command):
 
         try:
             index = slot_info.rank
-            exit_code = safe_shell_exec.execute(command, index=index, event=event, stdout=stdout, stderr=stderr)
+            events = [event] + (events or [])
+            exit_code = safe_shell_exec.execute(command, index=index, stdout=stdout, stderr=stderr, events=events)
             if exit_code != 0:
                 print('Process {idx} exit with status code {ec}.'.format(idx=index, ec=exit_code))
         except Exception as e:
