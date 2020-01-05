@@ -214,7 +214,7 @@ class ElasticDriver(object):
         # Check for failures, and add them to the blacklisted hosts list
         failures = self._workers.get(FAILURE)
         for host, slot in failures:
-            self._hosts.get(host).blacklist()
+            self._hosts[host].blacklist()
 
         self._activate_hosts(self._min_np)
 
@@ -233,9 +233,9 @@ class ElasticDriver(object):
     def _activate_hosts(self, min_np):
         self.wait_for_available_hosts(min_np)
         new_assigned_hosts = self._update_assigned_hosts()
+        self._workers.reset(self.world_size())
         for host in new_assigned_hosts:
             self._start_worker_processes(host)
-        self._workers.reset(self.world_size())
 
     def _discover_hosts(self):
         while not self._shutdown.is_set():
@@ -274,10 +274,10 @@ class ElasticDriver(object):
     def _update_assigned_hosts(self):
         new_assigned_hosts = []
         self._assigned_hosts = [host for host in self._assigned_hosts
-                                if host in self._available_hosts and not self._hosts.get(host).is_blacklisted()]
+                                if host in self._available_hosts and not self._hosts[host].is_blacklisted()]
         current_hosts = set(self._assigned_hosts)
         for host in self._available_hosts:
-            if host not in current_hosts and not self._hosts.get(host).is_blacklisted():
+            if host not in current_hosts and not self._hosts[host].is_blacklisted():
                 new_assigned_hosts.append(host)
                 self._assigned_hosts.append(host)
         self._update_host_assignments()
@@ -306,7 +306,7 @@ class ElasticDriver(object):
 
     def _start_worker_process(self, slot_info):
         create_worker_fn = self._create_worker_fn
-        host_event = self._hosts.get(slot_info.hostname).get_event()
+        host_event = self._hosts[slot_info.hostname].get_event()
 
         def run_worker():
             res = create_worker_fn(slot_info, [host_event])
@@ -318,7 +318,7 @@ class ElasticDriver(object):
         thread.start()
 
     def _handle_worker_exit(self, slot_info, exit_code, timestamp):
-        if self._hosts.get(slot_info.hostname).is_blacklisted():
+        if self._hosts[slot_info.hostname].is_blacklisted():
             # Ignore blacklisted hosts
             return
 

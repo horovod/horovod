@@ -40,9 +40,9 @@ class SlotInfo:
         self.cross_size = None
 
     def to_response_string(self):
-        return ','.join([self.rank, self.size,
-                         self.local_rank, self.local_size,
-                         self.cross_rank, self.cross_size])
+        return ','.join(str(v) for v in [self.rank, self.size,
+                                         self.local_rank, self.local_size,
+                                         self.cross_rank, self.cross_size])
 
 
 def parse_hosts(hosts_string):

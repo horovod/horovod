@@ -17,11 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import os
+import time
 import unittest
 import warnings
 
-import horovod.torch as hvd
+import mock
+
+from horovod.run.elastic.driver import ElasticDriver
 
 
 class ElasticTests(unittest.TestCase):
@@ -33,21 +35,30 @@ class ElasticTests(unittest.TestCase):
         super(ElasticTests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
 
-    def test_horovod_rank(self):
-        """Test that the rank returned by hvd.rank() is correct."""
-        mpi_rank, _ = mpi_env_rank_and_size()
-        gloo_rank = int(os.getenv('HOROVOD_RANK', -1))
+    @mock.patch('horovod.run.elastic.driver.ElasticDriver._find_available_hosts_and_slots')
+    def test_rank_and_size(self, mock_find_available_hosts_and_slots):
+        hosts = {'host-1', 'host-2'}
+        slots = {'host-1': 2, 'host-2': 2}
+        mock_find_available_hosts_and_slots.return_value = hosts, slots
 
-        # The mpi rank does not match gloo rank, we need to figure which one
-        # we are using to run the test.
-        is_mpi = gloo_rank == -1
-        hvd.init()
-        rank = hvd.rank()
+        driver = ElasticDriver(None, min_np=2, max_np=4, slots=2)
+        driver.wait_for_available_hosts(min_np=2)
 
-        if is_mpi:
-            assert mpi_rank == rank
-        else:
-            assert gloo_rank == rank
+        rank_results = {}
+
+        def exec_command(slot_info, events):
+            driver.record_ready(slot_info.hostname, slot_info.local_rank)
+            updated_slot_info = driver.get_slot_info(slot_info.hostname, slot_info.local_rank)
+            rank_results[slot_info.rank] = (slot_info, updated_slot_info)
+            return 0, time.time()
+
+        driver.start(np=2, create_worker_fn=exec_command)
+        res = driver.get_results()
+        for name, (exit_code, timestamp) in res.items():
+            assert exit_code == 0, name
+
+        for rank, (slot_info, updated_slot_info) in rank_results.items():
+            assert slot_info.to_response_string() == updated_slot_info.to_response_string(), rank
 
 
 if __name__ == "__main__":
