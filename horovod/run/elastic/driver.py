@@ -30,7 +30,7 @@ SUCCESS = 'SUCCESS'
 FAILURE = 'FAILURE'
 
 
-class WorkersRecordedBarrier(object):
+class Workers(object):
     def __init__(self, driver):
         self._driver = driver
         self._lock = threading.Lock()
@@ -90,6 +90,30 @@ class WorkersRecordedBarrier(object):
         self._driver.on_workers_recorded()
 
 
+class Host(object):
+    def __init__(self):
+        self._event = threading.Event()
+
+        # TODO(travis): blacklisted hosts should have a timeout period that increases with each failure
+        self._blacklisted = False
+
+    def get_event(self):
+        if self._event.is_set():
+            event = threading.Event()
+            self._event = event
+        return self._event
+
+    def set_event(self):
+        self._event.set()
+
+    def blacklist(self):
+        self._blacklisted = True
+        self.set_event()
+
+    def is_blacklisted(self):
+        return self._blacklisted
+
+
 class Results(object):
     def __init__(self, driver):
         self._driver = driver
@@ -128,8 +152,6 @@ class ElasticDriver(object):
         self._available_hosts = set()
         self._available_slots = {}
 
-        # TODO(travis): blacklisted hosts should have a timeout period that increases with each failure
-        self._blacklisted_hosts = set()
         self._assigned_hosts = []
         self._host_assignments = {}
         self._world_size = 0
@@ -138,8 +160,9 @@ class ElasticDriver(object):
         self._start_timeout = start_timeout or int(os.getenv('HOROVOD_ELASTIC_START_TIMEOUT', '600'))
 
         self._create_worker_fn = None
+        self._hosts = defaultdict(Host)
 
-        self._barrier = WorkersRecordedBarrier(self)
+        self._workers = Workers(self)
         self._results = Results(self)
         self._shutdown = threading.Event()
 
@@ -175,23 +198,23 @@ class ElasticDriver(object):
         return self._shutdown.is_set()
 
     def record_ready(self, host, slot):
-        self._barrier.record_ready(host, slot)
+        self._workers.record_ready(host, slot)
 
     def on_workers_recorded(self):
         # Check for success state, if any process succeeded, shutdown all other processes
-        if self._barrier.count(SUCCESS) > 0:
+        if self._workers.count(SUCCESS) > 0:
             self.stop()
             return
 
         # Check that all processes failed, indicating that processing should stop
-        if self._barrier.count(FAILURE) == self._world_size:
+        if self._workers.count(FAILURE) == self._world_size:
             self.stop()
             return
 
         # Check for failures, and add them to the blacklisted hosts list
-        failures = self._barrier.get(FAILURE)
+        failures = self._workers.get(FAILURE)
         for host, slot in failures:
-            self._blacklisted_hosts.add(host)
+            self._hosts.get(host).blacklist()
 
         self._activate_hosts(self._min_np)
 
@@ -212,7 +235,7 @@ class ElasticDriver(object):
         new_assigned_hosts = self._update_assigned_hosts()
         for host in new_assigned_hosts:
             self._start_worker_processes(host)
-        self._barrier.reset(self.world_size())
+        self._workers.reset(self.world_size())
 
     def _discover_hosts(self):
         while not self._shutdown.is_set():
@@ -251,10 +274,10 @@ class ElasticDriver(object):
     def _update_assigned_hosts(self):
         new_assigned_hosts = []
         self._assigned_hosts = [host for host in self._assigned_hosts
-                                if host in self._available_hosts and host not in self._blacklisted_hosts]
+                                if host in self._available_hosts and not self._hosts.get(host).is_blacklisted()]
         current_hosts = set(self._assigned_hosts)
         for host in self._available_hosts:
-            if host not in current_hosts and host not in self._blacklisted_hosts:
+            if host not in current_hosts and not self._hosts.get(host).is_blacklisted():
                 new_assigned_hosts.append(host)
                 self._assigned_hosts.append(host)
         self._update_host_assignments()
@@ -283,9 +306,10 @@ class ElasticDriver(object):
 
     def _start_worker_process(self, slot_info):
         create_worker_fn = self._create_worker_fn
+        host_event = self._hosts.get(slot_info.hostname).get_event()
 
         def run_worker():
-            res = create_worker_fn(slot_info)
+            res = create_worker_fn(slot_info, [host_event])
             exit_code, timestamp = res
             self._handle_worker_exit(slot_info, exit_code, timestamp)
 
@@ -294,14 +318,14 @@ class ElasticDriver(object):
         thread.start()
 
     def _handle_worker_exit(self, slot_info, exit_code, timestamp):
-        if slot_info.hostname in self._blacklisted_hosts:
+        if self._hosts.get(slot_info.hostname).is_blacklisted():
             # Ignore blacklisted hosts
             return
 
         if exit_code == 0:
-            self._barrier.record_success(slot_info.hostname, slot_info.local_rank)
+            self._workers.record_success(slot_info.hostname, slot_info.local_rank)
         else:
-            self._barrier.record_failure(slot_info.hostname, slot_info.local_rank)
+            self._workers.record_failure(slot_info.hostname, slot_info.local_rank)
 
         if self.finished():
             name = '{}[{}]'.format(slot_info.hostname, slot_info.local_rank)
