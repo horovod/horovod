@@ -55,6 +55,19 @@ MXPersistentBuffer::AccessData(std::shared_ptr<OpContext> context) const {
 
 MXTensor::MXTensor(NDArray* tensor) : tensor_(tensor) {}
 
+MXTensor::MXTensor(int device, int dtype) {
+  int dev_type = gpu::kDevMask;
+  if (device == CPU_DEVICE_ID) {
+    dev_type = cpu::kDevMask;
+    device = 0;
+  }
+
+  NDArrayHandle array_handle;
+  MXNDArrayCreateEx(nullptr, 0, dev_type, device, false, dtype, &array_handle);
+  tensor_(*(static_cast<NDArray *>(array_handle)));
+  MXNDArrayFree(array_handle);
+}
+
 const DataType MXTensor::dtype() const {
   return TensorUtil::GetDType(tensor_);
 }
@@ -79,10 +92,6 @@ int64_t MXTensor::size() const {
   return TensorUtil::GetSize(tensor_);
 }
 
-NDArray* MXTensor::tensor() const {
-  return this->tensor_;
-}
-
 MXTemporaryBuffer::MXTemporaryBuffer(int device, int dtype)
     : MXTensor(nullptr) {
   this->tensor_ = TensorUtil::New(device, dtype);
@@ -98,11 +107,10 @@ MXTemporaryBuffer::~MXTemporaryBuffer() {
 }
 
 MXOpContext::MXOpContext(int device, NDArray* output)
-    : device_(device), output_(output) {}
+    : device_(device), output_(*output) {}
 
-Status
-MXOpContext::AllocatePersistent(int64_t size,
-                                std::shared_ptr<PersistentBuffer>* tensor) {
+Status MXOpContext::AllocatePersistent(int64_t size,
+  std::shared_ptr<PersistentBuffer>* tensor) {
   // Allocation errors are handled using PyMX exceptions.
   *tensor = std::make_shared<MXPersistentBuffer>(device_, size);
   return Status::OK();

@@ -34,21 +34,23 @@ typedef ::mxnet::NDArray NDArray;
 typedef ::mxnet::Engine::CallbackOnComplete CallbackOnComplete;
 typedef Request::RequestType OperationType;
 typedef std::shared_ptr<MXTensor> MXTensorSharedPtr;
+typedef std::shared_ptr<NDArray> NDArraySharedPtr;
 
 struct MpiOpsParam {
-  NDArray* input;
-  NDArray* output;
-  MXTensorSharedPtr cpu_tensor;
+  NDArraySharedPtr input_tensor;
+  NDArraySharedPtr output_tensor;
+  NDArraySharedPtr cpu_tensor;
   OperationType op_type;
   std::string op_name;
   int root_rank;
 
-  MpiOpsParam(NDArray* input, NDArray* output,
-              MXTensorSharedPtr cpu_tensor,
+  MpiOpsParam(NDArraySharedPtr input_tensor,
+              NDArraySharedPtr output_tensor,
+              NDArraySharedPtr cpu_tensor,
               const OperationType& op_type, const std::string& op_name,
               int root_rank)
-      : input(input),
-        output(output),
+      : input_tensor(input_tensor),
+        output_tensor(output_tensor),
         cpu_tensor(cpu_tensor),
         op_type(op_type),
         op_name(op_name),
@@ -56,12 +58,14 @@ struct MpiOpsParam {
   }
 };
 
-inline MpiOpsParam* CreateMpiOpsParam(NDArray* input, NDArray* output,
-                                      MXTensorSharedPtr cpu_tensor,
+inline MpiOpsParam* CreateMpiOpsParam(NDArraySharedPtr input_tensor,
+                                      NDArraySharedPtr output_tensor,
+                                      NDArraySharedPtr cpu_tensor,
                                       const OperationType& op_type,
                                       const std::string& op_name,
                                       int root_rank) {
-  return new MpiOpsParam(input, output, cpu_tensor, op_type, op_name, root_rank);
+  return new MpiOpsParam(input_tensor, output_tensor, cpu_tensor,
+    op_type, op_name, root_rank);
 }
 
 void DeleteMpiOpsParam(void* param) {
