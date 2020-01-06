@@ -59,6 +59,7 @@ class ElasticTests(unittest.TestCase):
         for name, (exit_code, timestamp) in res.items():
             assert exit_code == 0, name
 
+        assert len(rank_results) == 4
         for rank, (slot_info, updated_slot_info) in rank_results.items():
             assert slot_info.to_response_string() == updated_slot_info.to_response_string(), rank
 
@@ -85,14 +86,14 @@ class ElasticTests(unittest.TestCase):
 
         driver.start(np=2, create_worker_fn=exec_command)
         res = driver.get_results()
-        print(res)
         assert len(res) == 2
         for name, (exit_code, timestamp) in res.items():
             assert exit_code == 0, name
 
+        assert len(rank_results) == 2
         for rank, (slot_info, updated_slot_info) in rank_results.items():
             assert updated_slot_info.size == 2, rank
-            assert updated_slot_info.rank == slot_info.rank % 2
+            assert updated_slot_info.rank == slot_info.rank % 2, rank
             assert updated_slot_info.local_size == slot_info.local_size, rank
             assert updated_slot_info.local_rank == slot_info.local_rank, rank
             assert updated_slot_info.cross_size == 1, rank
@@ -101,12 +102,85 @@ class ElasticTests(unittest.TestCase):
     @mock.patch('horovod.run.elastic.driver.ElasticDriver._find_available_hosts_and_slots')
     def test_rank_and_size_with_worker_failure(self, mock_find_available_hosts_and_slots):
         """Tests two hosts, two slots each with one process on second host failing, causing host to fail."""
-        pass
+        hosts = {'host-1', 'host-2'}
+        slots = {'host-1': 2, 'host-2': 2}
+        mock_find_available_hosts_and_slots.return_value = hosts, slots
 
+        driver = ElasticDriver(None, min_np=2, max_np=4, slots=2)
+        driver.wait_for_available_hosts(min_np=2)
+
+        rank_results = {}
+
+        def exec_command(slot_info, events):
+            if slot_info.rank == 0:
+                return 1, time.time()
+
+            driver.record_ready(slot_info.hostname, slot_info.local_rank)
+            updated_slot_info = driver.get_slot_info(slot_info.hostname, slot_info.local_rank)
+            rank_results[slot_info.rank] = (slot_info, updated_slot_info)
+            return 0, time.time()
+
+        driver.start(np=2, create_worker_fn=exec_command)
+        res = driver.get_results()
+        assert len(res) == 2
+        for name, (exit_code, timestamp) in res.items():
+            assert exit_code == 0, name
+
+        assert len(rank_results) == 2
+        for rank, (slot_info, updated_slot_info) in rank_results.items():
+            assert updated_slot_info.size == 2, rank
+            assert updated_slot_info.rank == slot_info.rank % 2, rank
+            assert updated_slot_info.local_size == slot_info.local_size, rank
+            assert updated_slot_info.local_rank == slot_info.local_rank, rank
+            assert updated_slot_info.cross_size == 1, rank
+            assert updated_slot_info.cross_rank == 0, rank
+
+    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     @mock.patch('horovod.run.elastic.driver.ElasticDriver._find_available_hosts_and_slots')
     def test_rank_and_size_with_host_added(self, mock_find_available_hosts_and_slots):
-        """Tests training starts with one host two losts, then a second host is added."""
-        pass
+        """Tests training starts with one host two slots, then a second host is added."""
+        hosts = {'host-1'}
+        slots = {'host-1': 2}
+        mock_find_available_hosts_and_slots.return_value = hosts, slots
+
+        def add_host():
+            hosts = {'host-1', 'host-2'}
+            slots = {'host-1': 2, 'host-2': 2}
+            mock_find_available_hosts_and_slots.return_value = hosts, slots
+
+        driver = ElasticDriver(None, min_np=2, max_np=4, slots=2)
+        driver.wait_for_available_hosts(min_np=2)
+
+        rank_results = {}
+
+        def exec_command(slot_info, events):
+            driver.record_ready(slot_info.hostname, slot_info.local_rank)
+
+            if slot_info.hostname == 'host-1':
+                if slot_info.rank == 0:
+                    add_host()
+                driver.wait_for_available_hosts(4)
+                driver.record_ready(slot_info.hostname, slot_info.local_rank)
+
+            driver.record_ready(slot_info.hostname, slot_info.local_rank)
+            updated_slot_info = driver.get_slot_info(slot_info.hostname, slot_info.local_rank)
+            rank_results[slot_info.rank] = (slot_info, updated_slot_info)
+            return 0, time.time()
+
+        driver.start(np=2, create_worker_fn=exec_command)
+        res = driver.get_results()
+        assert len(res) == 4
+        for name, (exit_code, timestamp) in res.items():
+            assert exit_code == 0, name
+
+        assert len(rank_results) == 4
+        for rank, (slot_info, updated_slot_info) in rank_results.items():
+            assert updated_slot_info.size == 4, rank
+            assert updated_slot_info.rank == slot_info.rank, rank
+            assert updated_slot_info.local_size == slot_info.local_size, rank
+            assert updated_slot_info.local_rank == slot_info.local_rank, rank
+            assert updated_slot_info.cross_size == 2, rank
+            assert updated_slot_info.cross_rank == slot_info.cross_rank, rank
 
     @mock.patch('horovod.run.elastic.driver.ElasticDriver._find_available_hosts_and_slots')
     def test_wait_for_available_hosts(self, mock_find_available_hosts_and_slots):

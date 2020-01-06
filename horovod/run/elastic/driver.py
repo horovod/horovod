@@ -29,6 +29,8 @@ READY = 'READY'
 SUCCESS = 'SUCCESS'
 FAILURE = 'FAILURE'
 
+DISCOVER_HOSTS_FREQUENCY_SECS = 1.0
+
 
 class Workers(object):
     def __init__(self, driver):
@@ -66,7 +68,7 @@ class Workers(object):
 
     def _record_state(self, host, slot, state):
         if self._driver.finished():
-            return
+            return self._rendezvous_id
 
         key = (host, slot)
         with self._lock:
@@ -254,7 +256,7 @@ class ElasticDriver(object):
                     self._wait_hosts_cond.notify_all()
             finally:
                 self._wait_hosts_cond.release()
-            self._shutdown.wait(1.0)
+            self._shutdown.wait(DISCOVER_HOSTS_FREQUENCY_SECS)
 
     def _update_available_hosts(self):
         prev_hosts = self._available_hosts
