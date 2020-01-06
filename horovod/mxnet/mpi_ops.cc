@@ -72,7 +72,7 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
   auto tensor = ops_param->input_tensor.get();
   auto output = ops_param->output_tensor.get();
   auto name = ops_param->op_name;
-  auto device = TensorUtil::GetDevice(input);
+  auto device = TensorUtil::GetDevice(tensor);
 
   auto hvd_tensor = std::make_shared<MXTensor>(tensor);
   auto hvd_context = std::make_shared<MXOpContext>(device, output);  
@@ -81,7 +81,7 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
   Status enqueue_result;
   switch (ops_param->op_type) {
     case OperationType::ALLREDUCE:
-      auto hvd_output = std::make_shared<MXTensor>(output);
+      hvd_output = std::make_shared<MXTensor>(output);
       enqueue_result = EnqueueTensorAllreduce(
           hvd_context, hvd_tensor, hvd_output, nullptr, name, device,
           [on_complete](const Status& status) {
@@ -89,7 +89,7 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
       });
       break;
     case OperationType::ALLGATHER:
-      auto hvd_output = std::make_shared<MXTensor>(output);
+      hvd_output = std::make_shared<MXTensor>(output);
       enqueue_result = EnqueueTensorAllgather(
           hvd_context, hvd_tensor, nullptr, name, device,
           [on_complete](const Status& status) {
@@ -102,7 +102,7 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
           TensorUtil::Copy(output, tensor);
         }
       } else {
-        auto hvd_output = std::make_shared<MXTensor>(output);
+        hvd_output = std::make_shared<MXTensor>(output);
       }
 
       enqueue_result = EnqueueTensorBroadcast(
@@ -197,8 +197,8 @@ inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
   auto op_type_name = GetOpTypeName(op_type);
   auto op_name = GetOpName(op_type_name, name);
 
-  auto cpu_buffer = std::make_shared<NDArray>(Context::Create(cpu::kDevMask, 0),
-    input->dtype();
+  auto cpu_buffer = std::make_shared<NDArray>(Context::Create(Context::kCPU, 0),
+    input->dtype());
   auto ops_param = CreateMpiOpsParam(nullptr, nullptr, cpu_buffer,
                                      op_type, op_name, root_rank);
 
@@ -216,11 +216,11 @@ inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
 }
 #endif
 
-bool IsTensorOnCPU(NDArrayHandle handle) {
-  return static_cast<NDArray *>(handle)->ctx().dev_mask() == cpu::kDevMask;
+bool IsTensorOnCPU(NDArray* tensor) {
+  return tensor->ctx().dev_mask() == cpu::kDevMask;
 }
 
-extern "C" int horovod_mxnet_allreduce_async(NDArrayHandle input, NDArrayHandle output,
+extern "C" int horovod_mxnet_allreduce_async(NDArray* input, NDArray* output,
                                              const char* name, bool average,
                                              int priority) {
   MX_API_BEGIN();
@@ -239,14 +239,14 @@ extern "C" int horovod_mxnet_allreduce_async(NDArrayHandle input, NDArrayHandle 
 #endif
 
   if (average) {
-    *(static_cast<NDArray *>(output)) /= horovod_size();
+    *output /= horovod_size();
   }
 
   MX_API_END();
 }
 
-extern "C" int horovod_mxnet_allgather_async(NDArrayHandle input,
-                                             NDArrayHandle output,
+extern "C" int horovod_mxnet_allgather_async(NDArray* input,
+                                             NDArray* output,
                                              const char* name, int priority) {
   MX_API_BEGIN();
 
@@ -266,8 +266,8 @@ extern "C" int horovod_mxnet_allgather_async(NDArrayHandle input,
   MX_API_END();
 }
 
-extern "C" int horovod_mxnet_broadcast_async(NDArrayHandle input,
-                                             NDArrayHandle output,
+extern "C" int horovod_mxnet_broadcast_async(NDArray* input,
+                                             NDArray* output,
                                              const char* name, int root_rank,
                                              int priority) {
   MX_API_BEGIN();
