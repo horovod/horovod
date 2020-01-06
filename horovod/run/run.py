@@ -50,7 +50,7 @@ from horovod.run.http.http_server import KVStoreServer
 
 
 # Cached information of horovodrun functions be stored in this directory
-CACHE_FOLDER = os.path.join(os.path.expanduser('~'), '.horovod')
+CACHE_FOLDER = os.environ.get('HOROVOD_CACHE_FOLDER', os.path.join(os.path.expanduser('~'), '.horovod'))
 
 # Cache entries will be stale if they are older than this number of minutes
 CACHE_STALENESS_THRESHOLD_MINUTES = 60
