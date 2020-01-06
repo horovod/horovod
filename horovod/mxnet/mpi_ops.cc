@@ -81,7 +81,7 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
   Status enqueue_result;
   switch (ops_param->op_type) {
     case OperationType::ALLREDUCE:
-      hvd_output = std::make_shared<MXTensor>(output);
+      auto hvd_output = std::make_shared<MXTensor>(output);
       enqueue_result = EnqueueTensorAllreduce(
           hvd_context, hvd_tensor, hvd_output, nullptr, name, device,
           [on_complete](const Status& status) {
@@ -102,7 +102,7 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
           TensorUtil::Copy(output, tensor);
         }
       } else {
-        hvd_output = std::make_shared<MXTensor>(output);
+        auto hvd_output = std::make_shared<MXTensor>(output);
       }
 
       enqueue_result = EnqueueTensorBroadcast(
@@ -119,8 +119,8 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
   ThrowIfError(enqueue_result);
 }
 
-inline void PushHorovodOperation(OperationType op_type, NDArrayHandle input,
-                                 NDArrayHandle output, const char* name,
+inline void PushHorovodOperation(OperationType op_type, NDArray* input,
+                                 NDArray* output, const char* name,
                                  int priority, int root_rank = -1) {
   auto op_type_name = GetOpTypeName(op_type);
   auto op_name = GetOpName(op_type_name, name);
@@ -133,15 +133,18 @@ inline void PushHorovodOperation(OperationType op_type, NDArrayHandle input,
   auto ops_param = CreateMpiOpsParam(input_copy, output_copy,
     nullptr /* cpu_buffer */, op_type, op_name, root_rank);
 
-  if (input_tensor->IsSame(*output_tensor)) {
-    // In-place
-    MXEnginePushAsyncND(DoHorovodOperation, ops_param, DeleteMpiOpsParam,
-                        &MX_EXEC_CTX, nullptr, 0, &output, 1,
-                        &MX_FUNC_PROP, priority, op_type_name);
+  // Not in-place
+  auto input_var = input->var();
+  auto output_var = output->var();
+  if (input_var != output_var) {
+    MXEnginePushAsync(DoHorovodOperation, ops_param, DeleteMpiOpsParam,
+                      &MX_EXEC_CTX, &input_var, 1, &output_var, 1,
+                      &MX_FUNC_PROP, priority, op_type_name);
+  // In-place
   } else {
-    MXEnginePushAsyncND(DoHorovodOperation, ops_param, DeleteMpiOpsParam,
-                        &MX_EXEC_CTX, &input, 1, &output, 1,
-                        &MX_FUNC_PROP, priority, op_type_name);
+    MXEnginePushAsync(DoHorovodOperation, ops_param, DeleteMpiOpsParam,
+                      &MX_EXEC_CTX, nullptr, 0, &output_var, 1,
+                      &MX_FUNC_PROP, priority, op_type_name);
   }
 }
 
@@ -187,8 +190,8 @@ void DoHorovodOperationCudaOnCPU(void*, void* on_complete_ptr, void* param) {
   ThrowIfError(enqueue_result);
 }
 
-inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArrayHandle input,
-                                          NDArrayHandle output, const char* name,
+inline void PushHorovodOperationCudaOnCPU(OperationType op_type, NDArray* input,
+                                          NDArray* output, const char* name,
                                           int priority, int root_rank = -1) {
   auto op_type_name = GetOpTypeName(op_type);
   auto op_name = GetOpName(op_type_name, name);
