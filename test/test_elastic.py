@@ -26,6 +26,14 @@ import mock
 from horovod.run.elastic.driver import ElasticDriver
 
 
+def wait_for_one(events):
+    while True:
+        for event in events:
+            if event.is_set():
+                return
+        time.sleep(0.01)
+
+
 class ElasticTests(unittest.TestCase):
     """
     Tests for async processing logic in horovod.elastic.
@@ -101,7 +109,7 @@ class ElasticTests(unittest.TestCase):
 
     @mock.patch('horovod.run.elastic.driver.ElasticDriver._find_available_hosts_and_slots')
     def test_rank_and_size_with_worker_failure(self, mock_find_available_hosts_and_slots):
-        """Tests two hosts, two slots each with one process on second host failing, causing host to fail."""
+        """Tests two hosts, two slots each with one process on second host failing, causing host shutdown."""
         hosts = {'host-1', 'host-2'}
         slots = {'host-1': 2, 'host-2': 2}
         mock_find_available_hosts_and_slots.return_value = hosts, slots
@@ -112,7 +120,12 @@ class ElasticTests(unittest.TestCase):
         rank_results = {}
 
         def exec_command(slot_info, events):
-            if slot_info.rank == 0:
+            if slot_info.hostname == 'host-1':
+                if slot_info.local_rank == 0:
+                    return 1, time.time()
+
+                driver.record_ready(slot_info.hostname, slot_info.local_rank)
+                wait_for_one(events)
                 return 1, time.time()
 
             driver.record_ready(slot_info.hostname, slot_info.local_rank)
@@ -182,25 +195,68 @@ class ElasticTests(unittest.TestCase):
             assert updated_slot_info.cross_size == 2, rank
             assert updated_slot_info.cross_rank == slot_info.cross_rank, rank
 
+    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     @mock.patch('horovod.run.elastic.driver.ElasticDriver._find_available_hosts_and_slots')
     def test_wait_for_available_hosts(self, mock_find_available_hosts_and_slots):
         """Tests that driver blocks until the min number of slots are available."""
-        pass
+        hosts = [{'host-1'},
+                 {'host-1', 'host-2'},
+                 {'host-1', 'host-2', 'host-3'}]
+        slots = [{'host-1': 4},
+                 {'host-1': 4, 'host-2': 8},
+                 {'host-1': 4, 'host-2': 8, 'host-3': 4}]
+        mock_find_available_hosts_and_slots.side_effect = zip(hosts, slots)
+
+        driver = ElasticDriver(None, min_np=2, max_np=12, slots=0)
+        driver.wait_for_available_hosts(min_np=10)
+        assert driver._count_available_slots() >= 10
 
     @mock.patch('horovod.run.elastic.driver.ElasticDriver._find_available_hosts_and_slots')
     def test_all_workers_fail(self, mock_find_available_hosts_and_slots):
         """Tests that training fails when all workers fail."""
-        pass
+        hosts = {'host-1', 'host-2'}
+        slots = {'host-1': 2, 'host-2': 2}
+        mock_find_available_hosts_and_slots.return_value = hosts, slots
+
+        driver = ElasticDriver(None, min_np=2, max_np=4, slots=2)
+        driver.wait_for_available_hosts(min_np=2)
+
+        def exec_command(slot_info, events):
+            driver.record_ready(slot_info.hostname, slot_info.local_rank)
+            return 1, time.time()
+
+        driver.start(np=2, create_worker_fn=exec_command)
+        res = driver.get_results()
+        assert len(res) == 4
+        for name, (exit_code, timestamp) in res.items():
+            assert exit_code == 1, name
 
     @mock.patch('horovod.run.elastic.driver.ElasticDriver._find_available_hosts_and_slots')
-    def test_one_worker_success(self, mock_find_available_hosts_and_slots):
-        """Tests that training fails when one worker succeeds but the others are still working."""
-        pass
+    def test_shutdown_on_success(self, mock_find_available_hosts_and_slots):
+        """Tests that shutdown event is triggered when one worker succeeds but the others are still working."""
+        hosts = {'host-1', 'host-2'}
+        slots = {'host-1': 2, 'host-2': 2}
+        mock_find_available_hosts_and_slots.return_value = hosts, slots
 
-    @mock.patch('horovod.run.elastic.driver.ElasticDriver._find_available_hosts_and_slots')
-    def test_all_workers_success(self, mock_find_available_hosts_and_slots):
-        """Tests that training succeeds when all workers succeed."""
-        pass
+        driver = ElasticDriver(None, min_np=2, max_np=4, slots=2)
+        driver.wait_for_available_hosts(min_np=2)
+
+        def exec_command(slot_info, events):
+            if slot_info.rank == 0:
+                return 0, time.time()
+
+            driver.record_ready(slot_info.hostname, slot_info.local_rank)
+            wait_for_one(events)
+            return 1, time.time()
+
+        driver.start(np=2, create_worker_fn=exec_command)
+        res = driver.get_results()
+        assert len(res) == 4
+
+        exit_code_sum = 0
+        for name, (exit_code, timestamp) in res.items():
+            exit_code_sum += exit_code
+        assert exit_code_sum == 3
 
 
 if __name__ == "__main__":

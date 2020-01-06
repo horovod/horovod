@@ -317,10 +317,11 @@ class ElasticDriver(object):
 
     def _start_worker_process(self, slot_info):
         create_worker_fn = self._create_worker_fn
+        shutdown_event = self._shutdown
         host_event = self._hosts[slot_info.hostname].get_event()
 
         def run_worker():
-            res = create_worker_fn(slot_info, [host_event])
+            res = create_worker_fn(slot_info, [shutdown_event, host_event])
             exit_code, timestamp = res
             self._handle_worker_exit(slot_info, exit_code, timestamp)
 
