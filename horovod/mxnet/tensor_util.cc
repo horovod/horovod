@@ -21,8 +21,8 @@ namespace horovod {
 namespace mxnet {
 
 // Define all types for TensorUtil.
-const DataType TensorUtil::GetDType(const NDArray& tensor) {
-  switch (tensor.dtype()) {
+const DataType TensorUtil::GetDType(NDArray* tensor) {
+  switch (tensor->dtype()) {
   case mshadow::kFloat32:
     return DataType::HOROVOD_FLOAT32;
   case mshadow::kFloat64:
@@ -38,15 +38,15 @@ const DataType TensorUtil::GetDType(const NDArray& tensor) {
   case mshadow::kInt64:
     return DataType::HOROVOD_INT64;
   default:
-    throw std::logic_error("GetDType: Type " + std::to_string(tensor.dtype()) +
+    throw std::logic_error("GetDType: Type " + std::to_string(tensor->dtype()) +
                            " is not supported in MPI mode.");
   }
 }
 
 // Return shape of tensor (similar to TShape)
-const TensorShape TensorUtil::GetShape(const NDArray& tensor) {
+const TensorShape TensorUtil::GetShape(NDArray* tensor) {
   TensorShape shape;
-  TShape mx_shape = tensor.shape();
+  TShape mx_shape = tensor->shape();
   for (int idx = 0; idx < (int)mx_shape.ndim(); idx++) {
     shape.AddDim(mx_shape[idx]);
   }
@@ -54,34 +54,34 @@ const TensorShape TensorUtil::GetShape(const NDArray& tensor) {
 }
 
 // Return data of tensor
-const void* TensorUtil::GetData(const NDArray& tensor) {
+const void* TensorUtil::GetData(NDArray* tensor) {
   // The following returns an error:
   // return tensor->data().dptr<void>();
-  switch (tensor.dtype()) {
+  switch (tensor->dtype()) {
   case mshadow::kFloat32:
-    return static_cast<void*>(tensor.data().dptr<float>());
+    return static_cast<void*>(tensor->data().dptr<float>());
   case mshadow::kFloat64:
-    return static_cast<void*>(tensor.data().dptr<double>());
+    return static_cast<void*>(tensor->data().dptr<double>());
   case mshadow::kFloat16:
-    return static_cast<void*>(tensor.data().dptr<mshadow::half::half_t>());
+    return static_cast<void*>(tensor->data().dptr<mshadow::half::half_t>());
   case mshadow::kUint8:
-    return static_cast<void*>(tensor.data().dptr<uint8_t>());
+    return static_cast<void*>(tensor->data().dptr<uint8_t>());
   case mshadow::kInt32:
-    return static_cast<void*>(tensor.data().dptr<int32_t>());
+    return static_cast<void*>(tensor->data().dptr<int32_t>());
   case mshadow::kInt8:
-    return static_cast<void*>(tensor.data().dptr<int8_t>());
+    return static_cast<void*>(tensor->data().dptr<int8_t>());
   case mshadow::kInt64:
-    return static_cast<void*>(tensor.data().dptr<int64_t>());
+    return static_cast<void*>(tensor->data().dptr<int64_t>());
   default:
-    throw std::logic_error("Type " + std::to_string(tensor.dtype()) +
+    throw std::logic_error("Type " + std::to_string(tensor->dtype()) +
                            " is not supported in MPI mode.");
   }
 }
 
 // Return size of tensor in bytes
-int64_t TensorUtil::GetSize(const NDArray& tensor) {
+int64_t TensorUtil::GetSize(NDArray* tensor) {
   int64_t element_size = 0;
-  switch (tensor.dtype()) {
+  switch (tensor->dtype()) {
   case mshadow::kFloat32:
     element_size = kFloat32Size;
     break;
@@ -104,10 +104,10 @@ int64_t TensorUtil::GetSize(const NDArray& tensor) {
     element_size = kInt64Size;
     break;
   default:
-    throw std::logic_error("Type " + std::to_string(tensor.dtype()) +
+    throw std::logic_error("Type " + std::to_string(tensor->dtype()) +
                            " is not supported in MPI mode.");
   }
-  return (int64_t)(tensor.shape().Size()) * element_size;
+  return (int64_t)(tensor->shape().Size()) * element_size;
 }
 
 // If Tensor on GPU, return device id

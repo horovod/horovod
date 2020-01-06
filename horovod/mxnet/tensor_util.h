@@ -32,19 +32,19 @@ using namespace ::mxnet;
 
 class TensorUtil {
 public:
-  static const DataType GetDType(const NDArray& tensor);
-  static const TensorShape GetShape(const NDArray& tensor);
-  static const void* GetData(const NDArray& tensor);
-  static int64_t GetSize(const NDArray& tensor);
-  static int GetDevice(const NDArray& tensor);
+  static const DataType GetDType(NDArray* tensor);
+  static const TensorShape GetShape(NDArray* tensor);
+  static const void* GetData(NDArray* tensor);
+  static int64_t GetSize(NDArray* tensor);
+  static int GetDevice(NDArray* tensor);
 
   static void ResizeNd(NDArray* tensor, int ndim, int64_t* dims);
   static void Copy(NDArray* output, NDArray* tensor);
   static void DivideTensorInPlace(NDArray* tensor, int value);
 
 #if HAVE_CUDA
-  static void AsyncCopyCPUToCuda(const NDArray& cpu, NDArray& cuda);
-  static void AsyncCopyCudaToCPU(const NDArray& cuda, NDArray& cpu);
+  static void AsyncCopyCPUToCuda(NDArray* cpu, NDArray* cuda);
+  static void AsyncCopyCudaToCPU(NDArray* cuda, NDArray* cpu);
 #endif
 
 private:

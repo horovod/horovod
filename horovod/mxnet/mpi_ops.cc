@@ -81,7 +81,7 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
   Status enqueue_result;
   switch (ops_param->op_type) {
     case OperationType::ALLREDUCE:
-      auto hvd_output = std::make_shared<MXTensor>(output);
+      hvd_output = std::make_shared<MXTensor>(output);
       enqueue_result = EnqueueTensorAllreduce(
           hvd_context, hvd_tensor, hvd_output, nullptr, name, device,
           [on_complete](const Status& status) {
@@ -102,7 +102,7 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
           TensorUtil::Copy(output, tensor);
         }
       } else {
-        auto hvd_output = std::make_shared<MXTensor>(output);
+        hvd_output = std::make_shared<MXTensor>(output);
       }
 
       enqueue_result = EnqueueTensorBroadcast(
@@ -238,7 +238,7 @@ extern "C" int horovod_mxnet_allreduce_async(NDArray* input, NDArray* output,
 #endif
 
   if (average) {
-    *(static_cast<NDArray *>(output)) /= horovod_size();
+    *output /= horovod_size();
   }
 
   MX_API_END();

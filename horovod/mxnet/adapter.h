@@ -40,7 +40,6 @@ private:
 class MXTensor : public Tensor {
 public:
   MXTensor(NDArray *tensor);
-  MXTensor(int device, int dtype);
   virtual const DataType dtype() const override;
   virtual const TensorShape shape() const override;
   virtual const void* data() const override;
