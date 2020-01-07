@@ -80,12 +80,7 @@ class KVStoreHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             self.send_status_code(TIMEOUT)
             return
 
-        with self.server.cache_lock:
-            scope_dict = self.server.cache.setdefault(scope, {})
-            scope_dict[key] = value
-            if self.server.verbose:
-                print(scope, self.server.cache[scope].keys())
-
+        self._put_value(scope, key, value)
         self.send_status_code(OK)
 
     def send_status_code(self, status_code):
@@ -101,6 +96,13 @@ class KVStoreHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def _get_value(self, scope, key):
         with self.server.cache_lock:
             return self.server.cache.get(scope, {}).get(key)
+
+    def _put_value(self, scope, key, value):
+        with self.server.cache_lock:
+            scope_dict = self.server.cache.setdefault(scope, {})
+            scope_dict[key] = value
+            if self.server.verbose:
+                print(scope, self.server.cache[scope].keys())
 
 
 class RendezvousHandler(KVStoreHandler):
