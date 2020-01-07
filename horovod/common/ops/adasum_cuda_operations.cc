@@ -22,8 +22,8 @@ AdasumCudaAllreduceOp::AdasumCudaAllreduceOp(MPIContext* mpi_context,
                                              NCCLContext* nccl_context,
                                              CUDAContext* cuda_context,
                                              HorovodGlobalState* global_state)
-    : NCCLAllreduce(nccl_context, cuda_context, global_state),
-      AdasumMPI(mpi_context, global_state) {
+    : AdasumMPI(mpi_context, global_state),
+      NCCLAllreduce(nccl_context, cuda_context, global_state, Communicator::LOCAL) {
   // Pre-allocate host buffer size equal to the fusion buffer length
   current_host_buffer_length =
       global_state->parameter_manager.TensorFusionThresholdBytes();
@@ -66,7 +66,7 @@ AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
     nccl_device_map.push_back(response.devices()[rank]);
   }
   cuda_op_context_.InitCUDA(entries);
-  InitNCCLComm(entries, nccl_device_map);
+  nccl_op_context_.InitNCCLComm(entries, nccl_device_map);
   cuda_op_context_.InitCUDAQueue(entries, response);
   const void* fused_input_data;
   void* buffer_data;
@@ -157,7 +157,7 @@ AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
     auto nccl_result = ncclReduceScatter(
         fused_input_data, buffer_data_at_rank_offset,
         (size_t)num_elements_per_rank, GetNCCLDataType(first_entry.tensor),
-        ncclSum, *nccl_comm_, *cuda_op_context_.stream);
+        ncclSum, *nccl_op_context_.nccl_comm_, *cuda_op_context_.stream);
 
     nccl_context_->ErrorCheck("ncclReduceScatter", nccl_result);
     if (global_state_->timeline.Initialized()) {
@@ -172,7 +172,7 @@ AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
     auto nccl_result = ncclReduce(
         fused_input_data_remainder, buffer_data_remainder,
         (size_t)num_elements_remaining, GetNCCLDataType(first_entry.tensor),
-        ncclSum, root_rank, *nccl_comm_, *cuda_op_context_.stream);
+        ncclSum, root_rank, *nccl_op_context_.nccl_comm_, *cuda_op_context_.stream);
 
     nccl_context_->ErrorCheck("ncclReduce", nccl_result);
     if (global_state_->timeline.Initialized()) {
@@ -272,7 +272,7 @@ AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
         "ncclAllGather", ncclAllGather(buffer_data_at_rank_offset, buffer_data,
                                        (size_t)num_elements_per_rank,
                                        GetNCCLDataType(first_entry.tensor),
-                                       *nccl_comm_, *cuda_op_context_.stream));
+                                       *nccl_op_context_.nccl_comm_, *cuda_op_context_.stream));
     if (global_state_->timeline.Initialized()) {
       cuda_context_->RecordEvent(cuda_op_context_.event_queue, NCCL_ALLGATHER,
                                  *cuda_op_context_.stream);
@@ -282,7 +282,7 @@ AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
     nccl_context_->ErrorCheck(
         "ncclBcast",
         ncclBcast(buffer_data_remainder, (size_t)num_elements_remaining,
-                  GetNCCLDataType(first_entry.tensor), root_rank, *nccl_comm_,
+                  GetNCCLDataType(first_entry.tensor), root_rank, *nccl_op_context_.nccl_comm_,
                   *cuda_op_context_.stream));
     if (global_state_->timeline.Initialized()) {
       cuda_context_->RecordEvent(cuda_op_context_.event_queue, NCCL_BCAST,
@@ -302,13 +302,6 @@ AdasumCudaAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
   }
 
   return cuda_op_context_.FinalizeCUDAQueue(entries, false);
-}
-
-void AdasumCudaAllreduceOp::PopulateNCCLCommStrategy(
-    int& nccl_rank, int& nccl_size, Communicator& nccl_id_bcast_comm) {
-  nccl_rank = global_state_->controller->GetLocalRank();
-  nccl_size = global_state_->controller->GetLocalSize();
-  nccl_id_bcast_comm = Communicator::LOCAL;
 }
 
 bool AdasumCudaAllreduceOp::Enabled(

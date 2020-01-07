@@ -56,9 +56,6 @@ const std::string& DataType_Name(DataType value) {
     case HOROVOD_BOOL:
       static const std::string bool_("bool");
       return bool_;
-    case HOROVOD_BYTE:
-      static const std::string byte_("byte");
-      return byte_;
     default:
       static const std::string unknown("<unknown>");
       return unknown;
@@ -68,7 +65,6 @@ const std::string& DataType_Name(DataType value) {
 std::size_t DataType_Size(DataType value) {
   switch (value) {
     case HOROVOD_UINT8:
-    case HOROVOD_BYTE:
       return sizeof(u_int8_t);
     case HOROVOD_INT8:
       return sizeof(int8_t);

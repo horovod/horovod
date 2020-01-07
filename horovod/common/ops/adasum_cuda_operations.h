@@ -39,9 +39,6 @@ public:
                  const Response& response) override;
 
 protected:
-  void PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
-                                Communicator& nccl_id_bcast_comm) override;
-
   Status NcclHierarchical(std::vector<TensorTableEntry>& entries,
                           const Response& response);
 
