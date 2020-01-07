@@ -44,7 +44,6 @@ public:
   virtual const TensorShape shape() const override;
   virtual const void* data() const override;
   virtual int64_t size() const override;
-  virtual NDArray* tensor() const;
 
 protected:
   NDArray* tensor_;

@@ -260,7 +260,7 @@ class MXTests(unittest.TestCase):
 
 
     def test_horovod_allreduce_ndarray_lifetime(self):
-        """Test that the NDArray passed in maintains live during allreduce"""
+        """Test that the input NDArray remains valid during async allreduce"""
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -271,6 +271,8 @@ class MXTests(unittest.TestCase):
         shapes = [(), (17), (17, 17), (17, 17, 17)]
         for i, dim in enumerate(dims):
             tensor = mx.nd.ones(shape=shapes[dim], ctx=ctx)
+            # tensor*(i+1) result will be destroyed immediately after this call
+            # See https://github.com/horovod/horovod/issues/1533
             sum = hvd.allreduce(tensor * (i + 1), average=False)
             expected = tensor * (i + 1) * size
             assert same(sum.asnumpy(), expected.asnumpy())

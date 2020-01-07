@@ -128,7 +128,6 @@ inline void PushHorovodOperation(OperationType op_type, NDArray* input,
   // We need to create a shared_ptr to NDArray object with
   // shallow copy to prevent from NDArray object being freed
   // before MXNet engine process it
-  // See: https://github.com/horovod/horovod/issues/1533
   auto input_copy = std::make_shared<NDArray>(*input);
   auto output_copy = std::make_shared<NDArray>(*output);
   auto ops_param = CreateMpiOpsParam(input_copy, output_copy,
