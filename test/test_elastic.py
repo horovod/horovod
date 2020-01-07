@@ -107,47 +107,6 @@ class ElasticTests(unittest.TestCase):
             assert updated_slot_info.cross_size == 1, rank
             assert updated_slot_info.cross_rank == 0, rank
 
-    @mock.patch('horovod.run.elastic.driver.ElasticDriver._find_available_hosts_and_slots')
-    def test_rank_and_size_with_worker_failure(self, mock_find_available_hosts_and_slots):
-        """Tests two hosts, two slots each with one process on second host failing, causing host shutdown."""
-        hosts = {'host-1', 'host-2'}
-        slots = {'host-1': 2, 'host-2': 2}
-        mock_find_available_hosts_and_slots.return_value = hosts, slots
-
-        driver = ElasticDriver(None, min_np=2, max_np=4, slots=2)
-        driver.wait_for_available_hosts(min_np=2)
-
-        rank_results = {}
-
-        def exec_command(slot_info, events):
-            if slot_info.hostname == 'host-1':
-                if slot_info.local_rank == 0:
-                    return 1, time.time()
-
-                driver.record_ready(slot_info.hostname, slot_info.local_rank)
-                wait_for_one(events)
-                return 1, time.time()
-
-            driver.record_ready(slot_info.hostname, slot_info.local_rank)
-            updated_slot_info = driver.get_slot_info(slot_info.hostname, slot_info.local_rank)
-            rank_results[slot_info.rank] = (slot_info, updated_slot_info)
-            return 0, time.time()
-
-        driver.start(np=2, create_worker_fn=exec_command)
-        res = driver.get_results()
-        assert len(res) == 2
-        for name, (exit_code, timestamp) in res.items():
-            assert exit_code == 0, name
-
-        assert len(rank_results) == 2
-        for rank, (slot_info, updated_slot_info) in rank_results.items():
-            assert updated_slot_info.size == 2, rank
-            assert updated_slot_info.rank == slot_info.rank % 2, rank
-            assert updated_slot_info.local_size == slot_info.local_size, rank
-            assert updated_slot_info.local_rank == slot_info.local_rank, rank
-            assert updated_slot_info.cross_size == 1, rank
-            assert updated_slot_info.cross_rank == 0, rank
-
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     @mock.patch('horovod.run.elastic.driver.ElasticDriver._find_available_hosts_and_slots')
     def test_rank_and_size_with_host_added(self, mock_find_available_hosts_and_slots):
@@ -257,6 +216,47 @@ class ElasticTests(unittest.TestCase):
         for name, (exit_code, timestamp) in res.items():
             exit_code_sum += exit_code
         assert exit_code_sum == 3
+
+    @mock.patch('horovod.run.elastic.driver.ElasticDriver._find_available_hosts_and_slots')
+    def test_host_shutdown_on_worker_failure(self, mock_find_available_hosts_and_slots):
+        """Tests two hosts, two slots each with one process on second host failing, causing host shutdown."""
+        hosts = {'host-1', 'host-2'}
+        slots = {'host-1': 2, 'host-2': 2}
+        mock_find_available_hosts_and_slots.return_value = hosts, slots
+
+        driver = ElasticDriver(None, min_np=2, max_np=4, slots=2)
+        driver.wait_for_available_hosts(min_np=2)
+
+        rank_results = {}
+
+        def exec_command(slot_info, events):
+            if slot_info.hostname == 'host-1':
+                if slot_info.local_rank == 0:
+                    return 1, time.time()
+
+                driver.record_ready(slot_info.hostname, slot_info.local_rank)
+                wait_for_one(events)
+                return 1, time.time()
+
+            driver.record_ready(slot_info.hostname, slot_info.local_rank)
+            updated_slot_info = driver.get_slot_info(slot_info.hostname, slot_info.local_rank)
+            rank_results[slot_info.rank] = (slot_info, updated_slot_info)
+            return 0, time.time()
+
+        driver.start(np=2, create_worker_fn=exec_command)
+        res = driver.get_results()
+        assert len(res) == 2
+        for name, (exit_code, timestamp) in res.items():
+            assert exit_code == 0, name
+
+        assert len(rank_results) == 2
+        for rank, (slot_info, updated_slot_info) in rank_results.items():
+            assert updated_slot_info.size == 2, rank
+            assert updated_slot_info.rank == slot_info.rank % 2, rank
+            assert updated_slot_info.local_size == slot_info.local_size, rank
+            assert updated_slot_info.local_rank == slot_info.local_rank, rank
+            assert updated_slot_info.cross_size == 1, rank
+            assert updated_slot_info.cross_rank == 0, rank
 
 
 if __name__ == "__main__":

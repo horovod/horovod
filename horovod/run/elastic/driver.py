@@ -1,4 +1,4 @@
-# Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+# Copyright 2020 Uber Technologies, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -172,6 +172,7 @@ class ElasticDriver(object):
 
         self._create_worker_fn = None
         self._hosts = defaultdict(Host)
+        self._worker_clients = {}
 
         self._workers = Workers(self)
         self._results = Results(self)
@@ -207,6 +208,9 @@ class ElasticDriver(object):
 
     def finished(self):
         return self._shutdown.is_set()
+
+    def register_worker_server(self, host, slot, addresses, port):
+        self._worker_clients[(host, slot)] = WorkerClient(addresses, port)
 
     def record_ready(self, host, slot):
         self._workers.record_ready(host, slot)
