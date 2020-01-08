@@ -89,7 +89,6 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
       });
       break;
     case OperationType::ALLGATHER:
-      hvd_output = std::make_shared<MXTensor>(output);
       enqueue_result = EnqueueTensorAllgather(
           hvd_context, hvd_tensor, nullptr, name, device,
           [on_complete](const Status& status) {

@@ -82,8 +82,9 @@ int64_t MXTensor::size() const {
 MXOpContext::MXOpContext(int device, NDArray* output)
     : device_(device), output_(output) {}
 
-Status MXOpContext::AllocatePersistent(int64_t size,
-  std::shared_ptr<PersistentBuffer>* tensor) {
+Status
+MXOpContext::AllocatePersistent(int64_t size,
+                                std::shared_ptr<PersistentBuffer>* tensor) {
   // Allocation errors are handled using PyMX exceptions.
   *tensor = std::make_shared<MXPersistentBuffer>(device_, size);
   return Status::OK();
