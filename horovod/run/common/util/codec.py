@@ -22,6 +22,7 @@ def loads_base64(encoded):
     return cloudpickle.loads(decoded)
 
 
-def dumps_base64(obj):
+def dumps_base64(obj, to_ascii=True):
     serialized = cloudpickle.dumps(obj)
-    return base64.b64encode(serialized).decode('ascii')
+    encoded = base64.b64encode(serialized)
+    return encoded.decode('ascii') if to_ascii else encoded

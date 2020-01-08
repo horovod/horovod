@@ -22,8 +22,6 @@ import sys
 import re
 import textwrap
 
-from socket import AF_INET
-from psutil import net_if_addrs
 try:
     from shlex import quote
 except ImportError:
@@ -31,14 +29,13 @@ except ImportError:
 
 import six
 import yaml
-import cloudpickle
 
 import horovod
 
 from horovod.common.util import (extension_available,
                                  gloo_built, mpi_built,
                                  nccl_built, ddl_built, ccl_built)
-from horovod.run.common.util import codec, config_parser, safe_shell_exec, timeout, secret
+from horovod.run.common.util import codec, config_parser, network, safe_shell_exec, timeout, secret
 from horovod.run.common.util import settings as hvd_settings
 from horovod.run.driver import driver_service
 from horovod.run.elastic import settings as elastic_settings
@@ -745,15 +742,7 @@ def get_common_intfs(all_host_names, settings, fn_cache=None):
                   'with address 127.0.0.1')
         # If all the given hosts are local, find the interfaces with address
         # 127.0.0.1
-        common_intfs = set()
-        for iface, addrs in net_if_addrs().items():
-            if settings.nic and iface != settings.nic:
-                continue
-            for addr in addrs:
-                if addr.family == AF_INET and addr.address == '127.0.0.1':
-                    common_intfs.add(iface)
-                    break
-
+        common_intfs = network.get_local_intfs(settings.nic)
         if len(common_intfs) == 0:
             raise ValueError('No interface is found for address 127.0.0.1.')
 

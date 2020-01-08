@@ -268,8 +268,9 @@ class ElasticDriver(object):
     def _update_available_hosts(self):
         prev_hosts = self._available_hosts
         prev_slots = self._available_slots
-        self._available_hosts, self._available_slots = self._find_available_hosts_and_slots()
-        self._notify_workers_host_changes(prev_hosts, self._available_hosts)
+        available_hosts, available_slots = self._find_available_hosts_and_slots()
+        self._notify_workers_host_changes(prev_hosts, available_hosts)
+        self._available_hosts, self._available_slots = available_hosts, available_slots
         return prev_hosts != self._available_hosts or prev_slots != self._available_slots
 
     def _notify_workers_host_changes(self, prev_hosts, hosts):

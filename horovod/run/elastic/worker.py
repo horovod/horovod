@@ -41,15 +41,18 @@ class HostsAddedResponse(object):
 
 
 class WorkerNotificationManager(object):
-    def __init__(self):
+    def __init__(self, rendezvous_addr=None, rendezvous_port=None,
+                 nic=None, hostname=None, local_rank=None):
         self._lock = threading.Lock()
         self._service = None
         self._listeners = set()
-        self._rendezvous_addr = os.environ.get(HOROVOD_GLOO_RENDEZVOUS_ADDR)
-        self._rendezvous_port = int(os.environ.get(HOROVOD_GLOO_RENDEZVOUS_PORT))
-        self._nic = os.environ.get(HOROVOD_GLOO_IFACE)
-        self._hostname = os.environ.get(HOROVOD_HOSTNAME)
-        self._local_rank = int(os.environ.get(HOROVOD_LOCAL_RANK))
+        self._rendezvous_addr = rendezvous_addr or os.environ.get(HOROVOD_GLOO_RENDEZVOUS_ADDR)
+        self._rendezvous_port = rendezvous_port if rendezvous_port is not None else \
+            int(os.environ.get(HOROVOD_GLOO_RENDEZVOUS_PORT))
+        self._nic = nic or os.environ.get(HOROVOD_GLOO_IFACE)
+        self._hostname = hostname or os.environ.get(HOROVOD_HOSTNAME)
+        self._local_rank = local_rank if local_rank is not None else \
+            int(os.environ.get(HOROVOD_LOCAL_RANK))
 
     def init(self):
         with self._lock:

@@ -47,7 +47,7 @@ def put_data_into_kvstore(addr, port, scope, key, value):
         url = "http://{addr}:{port}/{scope}/{key}".format(
             addr=addr, port=str(port), scope=scope, key=key
         )
-        req = Request(url, data=codec.dumps_base64(value))
+        req = Request(url, data=codec.dumps_base64(value, to_ascii=False))
         req.get_method = lambda: "PUT"  # for urllib2 compatibility
         urlopen(req)
     except (HTTPError, URLError) as e:
