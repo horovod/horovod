@@ -502,7 +502,7 @@ class MXTests(unittest.TestCase):
             assert same(tensor.asnumpy(), root_tensor.asnumpy()), \
                 'horovod did not broadcast deferred initialized parameter correctly'
 
-
+    @unittest.skipUnless(has_gpu, "no gpu detected")
     def test_gluon_trainer(self):
         """Test using horovod allreduce in MXNet Gluon trainer."""
         from mxnet import gluon
