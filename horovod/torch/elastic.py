@@ -18,30 +18,40 @@ from __future__ import absolute_import
 import copy
 import functools
 
+from six.moves import queue
+
 import horovod.torch
 
 from horovod.common.exceptions import HorovodInternalError, WorkersAvailableException
+from horovod.run.elastic.worker import WorkerNotificationManager
 from horovod.torch.mpi_ops import init, rank, shutdown
+
+
+notification_manager = WorkerNotificationManager()
 
 
 class State(object):
     def __init__(self, saved_state):
-        self._workers_available = []
+        self._host_messages = queue.Queue()
+        self._known_hosts = set()
         self._reset_callbacks = []
         self._saved_state = saved_state
         self.restore()
+
+    def register_reset_callbacks(self, callbacks):
+        self._reset_callbacks.extend(callbacks)
 
     def on_reset(self):
         for callback in self._reset_callbacks:
             callback()
 
-    def register_reset_callbacks(self, callbacks):
-        self._reset_callbacks.extend(callbacks)
+    def on_hosts_added(self, hosts):
+        for host in hosts:
+            self._host_messages.put(host)
 
     def commit(self):
         self.save()
-        if self._workers_available:
-            raise WorkersAvailableException()
+        self._update_known_hosts()
 
     def save(self):
         raise NotImplementedError()
@@ -51,6 +61,13 @@ class State(object):
 
     def sync(self):
         raise NotImplementedError()
+
+    def _update_known_hosts(self):
+        if not self._host_messages.empty():
+            host = self._host_messages.get()
+            if host not in self._known_hosts:
+                self._known_hosts.add(host)
+                raise WorkersAvailableException()
 
 
 class ObjectState(State):
@@ -104,19 +121,26 @@ class TorchState(ObjectState):
 def run(func):
     @functools.wraps(func)
     def wrapper(state, *args, **kwargs):
-        reset_required = False
-        while True:
-            if reset_required:
-                _reset(state)
+        init()
+        notification_manager.init()
+        notification_manager.register_listener(state)
 
-            state.sync()
-            try:
-                return func(state, *args, **kwargs)
-            except HorovodInternalError:
-                state.restore()
-            except WorkersAvailableException:
-                pass
-            reset_required = True
+        try:
+            reset_required = False
+            while True:
+                if reset_required:
+                    _reset(state)
+
+                state.sync()
+                try:
+                    return func(state, *args, **kwargs)
+                except HorovodInternalError:
+                    state.restore()
+                except WorkersAvailableException:
+                    pass
+                reset_required = True
+        finally:
+            notification_manager.remove_listener(state)
     return wrapper
 
 

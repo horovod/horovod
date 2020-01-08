@@ -15,30 +15,81 @@
 
 from __future__ import absolute_import
 
-from horovod.run.common.util import network
+import os
+import threading
+
+from horovod.run.common.util import network, secret
+from horovod.run.elastic.rendezvous import PUT_WORKER_ADDRESSES
+from horovod.run.http.http_client import put_data_into_kvstore
 
 
-class HostAddedRequest(object):
-    """Notifies worker that a new host has been made available."""
-    def __init__(self, hostname):
-        self.hostname = hostname
+HOROVOD_GLOO_RENDEZVOUS_ADDR = 'HOROVOD_GLOO_RENDEZVOUS_ADDR'
+HOROVOD_GLOO_RENDEZVOUS_PORT = 'HOROVOD_GLOO_RENDEZVOUS_PORT'
+HOROVOD_GLOO_IFACE = 'HOROVOD_GLOO_IFACE'
+HOROVOD_HOSTNAME = 'HOROVOD_HOSTNAME'
+HOROVOD_LOCAL_RANK = 'HOROVOD_LOCAL_RANK'
 
 
-class HostAddedResponse(object):
+class HostsAddedRequest(object):
+    """Notifies worker that new hosts have been made available."""
+    def __init__(self, hosts):
+        self.hosts = hosts
+
+
+class HostsAddedResponse(object):
     pass
+
+
+class WorkerNotificationManager(object):
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._service = None
+        self._listeners = set()
+        self._rendezvous_addr = os.environ.get(HOROVOD_GLOO_RENDEZVOUS_ADDR)
+        self._rendezvous_port = int(os.environ.get(HOROVOD_GLOO_RENDEZVOUS_PORT))
+        self._nic = os.environ.get(HOROVOD_GLOO_IFACE)
+        self._hostname = os.environ.get(HOROVOD_HOSTNAME)
+        self._local_rank = int(os.environ.get(HOROVOD_LOCAL_RANK))
+
+    def init(self):
+        with self._lock:
+            if self._service:
+                return
+
+            secret_key = secret.make_secret_key()
+            self._service = WorkerNotificationService(secret_key, self._nic, self)
+
+            value = (self._service.addresses(), secret_key)
+            put_data_into_kvstore(self._rendezvous_addr, self._rendezvous_port,
+                                  PUT_WORKER_ADDRESSES, self._worker_id(), value)
+
+    def register_listener(self, listener):
+        self._listeners.add(listener)
+
+    def remove_listener(self, listener):
+        self._listeners.remove(listener)
+
+    def handle_hosts_added(self, hosts):
+        for listener in self._listeners:
+            listener.on_hosts_added(hosts)
+
+    def _worker_id(self):
+        return '{}:{}'.format(self._hostname, self._local_rank)
 
 
 class WorkerNotificationService(network.BasicService):
     NAME = 'worker notification service'
 
-    def __init__(self, key, nic):
+    def __init__(self, key, nic, manager):
         super(WorkerNotificationService, self).__init__(WorkerNotificationService.NAME,
                                                         key,
                                                         nic)
+        self._manager = manager
 
     def _handle(self, req, client_address):
-        if isinstance(req, HostAddedRequest):
-            return HostAddedResponse()
+        if isinstance(req, HostsAddedRequest):
+            self._manager.handle_hosts_added(req.hosts)
+            return HostsAddedResponse()
 
         return super(WorkerNotificationService, self)._handle(req, client_address)
 
@@ -51,5 +102,5 @@ class WorkerNotificationClient(network.BasicClient):
                                                        verbose,
                                                        match_intf=match_intf)
 
-    def notify_host_added(self, host):
-        self._send(HostAddedRequest(host))
+    def notify_hosts_added(self, hosts):
+        self._send(HostsAddedRequest(hosts))
