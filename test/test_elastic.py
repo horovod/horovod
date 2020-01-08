@@ -264,11 +264,13 @@ class ElasticTests(unittest.TestCase):
 
     @mock.patch('horovod.run.elastic.driver.ElasticDriver._find_available_hosts_and_slots')
     def test_host_failure_in_rendezvous(self, mock_find_available_hosts_and_slots):
+        """Tests that rendezvous will continue successfully if a host fails after it records ready."""
         return
 
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     @mock.patch('horovod.run.elastic.driver.ElasticDriver._find_available_hosts_and_slots')
     def test_worker_notification_manager(self, mock_find_available_hosts_and_slots):
+        """Tests that host add events are sent to the worker notification service and consumed."""
         hosts = {'host-1'}
         slots = {'host-1': 2}
         mock_find_available_hosts_and_slots.return_value = hosts, slots
