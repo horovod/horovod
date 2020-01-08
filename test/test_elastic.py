@@ -23,7 +23,11 @@ import warnings
 
 import mock
 
+from horovod.run.util import network
 from horovod.run.elastic.driver import ElasticDriver
+from horovod.run.elastic.rendezvous import create_rendezvous_handler
+from horovod.run.elastic.worker import WorkerNotificationManager
+from horovod.run.http.http_server import RendezvousServer
 
 
 def wait_for_one(events):
@@ -257,6 +261,75 @@ class ElasticTests(unittest.TestCase):
             assert updated_slot_info.local_rank == slot_info.local_rank, rank
             assert updated_slot_info.cross_size == 1, rank
             assert updated_slot_info.cross_rank == 0, rank
+
+    @mock.patch('horovod.run.elastic.driver.ElasticDriver._find_available_hosts_and_slots')
+    def test_host_failure_in_rendezvous(self, mock_find_available_hosts_and_slots):
+        return
+
+    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.run.elastic.driver.ElasticDriver._find_available_hosts_and_slots')
+    def test_worker_notification_manager(self, mock_find_available_hosts_and_slots):
+        hosts = {'host-1'}
+        slots = {'host-1': 2}
+        mock_find_available_hosts_and_slots.return_value = hosts, slots
+
+        rendezvous = RendezvousServer()
+        driver = ElasticDriver(None, min_np=2, max_np=4, slots=2)
+        driver.wait_for_available_hosts(min_np=2)
+        handler = create_rendezvous_handler(driver)
+
+        common_intfs = network.get_local_intfs()
+        addr = network.get_driver_ip(common_intfs)
+        port = rendezvous.start_server(handler)
+        nic = list(common_intfs)[0]
+
+        rank_results = {}
+        expected_hosts = ['host-2']
+
+        class NotificationReceiver:
+            def __init__(self):
+                self.hosts = []
+
+            def on_hosts_added(self, hosts):
+                self.hosts.extend(hosts)
+
+        def add_host():
+            hosts = {'host-1', 'host-2'}
+            slots = {'host-1': 2, 'host-2': 2}
+            mock_find_available_hosts_and_slots.return_value = hosts, slots
+
+        def exec_command(slot_info, events):
+            manager = WorkerNotificationManager(rendezvous_addr=addr,
+                                                rendezvous_port=port,
+                                                nic=nic,
+                                                hostname=slot_info.hostname,
+                                                local_rank=slot_info.local_rank)
+            manager.init()
+
+            notification_receiver = NotificationReceiver()
+            manager.register_listener(notification_receiver)
+
+            driver.record_ready(slot_info.hostname, slot_info.local_rank)
+            if slot_info.rank == 0:
+                add_host()
+
+            driver.wait_for_available_hosts(4)
+            rank_results[slot_info.rank] = notification_receiver.hosts
+            return 0, time.time()
+
+        driver.start(np=2, create_worker_fn=exec_command)
+        res = driver.get_results()
+        assert len(res) == 2
+        for name, (exit_code, timestamp) in res.items():
+            assert exit_code == 0, name
+
+        assert len(rank_results) == 2
+        for rank, hosts in rank_results.items():
+            assert len(hosts) == 1
+            assert hosts == expected_hosts
+
+        rendezvous.stop_server()
+        driver.stop()
 
 
 if __name__ == "__main__":

@@ -143,7 +143,7 @@ class RendezvousHTTPServer(BaseHTTPServer.HTTPServer, object):
 
 
 class RendezvousServer:
-    def __init__(self, verbose):
+    def __init__(self, verbose=0):
         self.httpd = None
         self.listen_thread = None
         self.verbose = verbose
@@ -163,6 +163,10 @@ class RendezvousServer:
         self.listen_thread.start()
 
         return port
+
+    def stop_server(self):
+        self.httpd.shutdown()
+        self.listen_thread.join()
 
 
 class KVStoreHTTPServer(BaseHTTPServer.HTTPServer, object):

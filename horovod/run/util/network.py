@@ -34,8 +34,16 @@ def _get_local_host_addresses():
     return local_addresses
 
 
-def get_local_host_intfs():
-    return set(psutil.net_if_addrs().keys())
+def get_local_intfs(nic=None):
+    common_intfs = set()
+    for iface, addrs in net_if_addrs().items():
+        if nic and iface != nic:
+            continue
+        for addr in addrs:
+            if addr.family == AF_INET and addr.address == '127.0.0.1':
+                common_intfs.add(iface)
+                break
+    return common_intfs
 
 
 def filter_local_addresses(all_host_names):
