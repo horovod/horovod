@@ -23,6 +23,7 @@ from collections import defaultdict
 import six
 
 from horovod.run.common.util import hosts, safe_shell_exec, timeout
+from horovod.run.elastic.worker import WorkerNotificationClient
 
 
 READY = 'READY'
@@ -154,11 +155,12 @@ class Results(object):
 
 
 class ElasticDriver(object):
-    def __init__(self, discovery_script, min_np, max_np, slots, start_timeout=None):
+    def __init__(self, discovery_script, min_np, max_np, slots, start_timeout=None, verbose=0):
         self._discovery_script = discovery_script
         self._min_np = min_np
         self._max_np = max_np
         self._slots = slots
+        self._verbose = verbose
 
         self._available_hosts = set()
         self._available_slots = {}
@@ -209,8 +211,9 @@ class ElasticDriver(object):
     def finished(self):
         return self._shutdown.is_set()
 
-    def register_worker_server(self, host, slot, addresses, port):
-        self._worker_clients[(host, slot)] = WorkerClient(addresses, port)
+    def register_worker_server(self, host, slot, addresses, secret_key):
+        self._worker_clients[(host, slot)] = WorkerNotificationClient(
+            addresses, secret_key, self._verbose)
 
     def record_ready(self, host, slot):
         self._workers.record_ready(host, slot)
@@ -266,7 +269,19 @@ class ElasticDriver(object):
         prev_hosts = self._available_hosts
         prev_slots = self._available_slots
         self._available_hosts, self._available_slots = self._find_available_hosts_and_slots()
+        self._notify_workers_host_changes(prev_hosts, self._available_hosts)
         return prev_hosts != self._available_hosts or prev_slots != self._available_slots
+
+    def _notify_workers_host_changes(self, prev_hosts, hosts):
+        new_hosts = hosts - prev_hosts
+        if new_hosts:
+            for (host, slot), client in self._worker_clients.items():
+                try:
+                    client.notify_hosts_added(new_hosts)
+                except:
+                    if self._verbose >= 2:
+                        print('WARNING: failed to notify {}[{}] of new hosts: {}'
+                              .format(host, slot, new_hosts))
 
     def _find_available_hosts_and_slots(self):
         stdout = six.StringIO()

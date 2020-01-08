@@ -22,7 +22,7 @@ from horovod.run.http.http_server import RendezvousHandler
 GET_RANK_AND_SIZE = 'rank_and_size'
 
 # PUT methods
-PUT_WORKER_PORT = 'worker_port'
+PUT_WORKER_ADDRESSES = 'worker_addresses'
 
 
 def create_rendezvous_handler(driver):
@@ -40,14 +40,14 @@ def create_rendezvous_handler(driver):
             return slot_info.to_response_string()
 
         def _put_value(self, scope, key, value):
-            if scope == PUT_WORKER_PORT:
+            if scope == PUT_WORKER_ADDRESSES:
                 host, local_rank = key.split(':')
-                addresses, port = codec.loads_base64(value)
-                self._put_worker_port(host, int(local_rank), addresses, port)
+                addresses, secret_key = codec.loads_base64(value)
+                self._put_worker_addresses(host, int(local_rank), addresses, secret_key)
 
             super(RendezvousHandler, self)._put_value(scope, key, value)
 
-        def _put_worker_port(self, host, local_rank, addresses, port):
-            driver.register_worker_server(host, local_rank, addresses, port)
+        def _put_worker_addresses(self, host, local_rank, addresses, secret_key):
+            driver.register_worker_server(host, local_rank, addresses, secret_key)
 
     return ElasticRendezvousHandler
