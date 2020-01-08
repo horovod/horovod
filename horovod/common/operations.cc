@@ -180,6 +180,11 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
       new NCCLAllreduce(&nccl_context, &cuda_context, &state)));
 #endif
 
+#if HAVE_NCCL && HOROVOD_GPU_BROADCAST == 'N'
+    broadcast_ops.push_back(
+        std::shared_ptr<BroadcastOp>(new NCCLBroadcast(&nccl_context, &cuda_context, &state)));
+#endif
+
 #if HAVE_GLOO
   if (gloo_context.IsEnabled()) {
     allreduce_ops.push_back(

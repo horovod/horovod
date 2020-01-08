@@ -34,8 +34,6 @@ namespace common {
 
 ccl_datatype_t GetCCLDataType(const std::shared_ptr<Tensor>& tensor) {
   switch (tensor->dtype()) {
-  case HOROVOD_BYTE:
-    return ccl_dtype_char;
   case HOROVOD_FLOAT32:
     return ccl_dtype_float;
   case HOROVOD_FLOAT64:

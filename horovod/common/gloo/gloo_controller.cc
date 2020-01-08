@@ -93,29 +93,10 @@ void GlooController::Initialize() {
 
 int GlooController::GetTypeSize(DataType dtype) {
   switch (dtype) {
-  case HOROVOD_UINT8:
-    return sizeof(u_int8_t);
-  case HOROVOD_INT8:
-    return sizeof(int8_t);
-  case HOROVOD_UINT16:
-    return sizeof(u_int16_t);
-  case HOROVOD_INT16:
-    return sizeof(int16_t);
-  case HOROVOD_INT32:
-    return sizeof(int);
-  case HOROVOD_INT64:
-    return sizeof(int64_t);
   case HOROVOD_FLOAT16:
     return sizeof(gloo::float16);
-  case HOROVOD_FLOAT32:
-    return sizeof(float);
-  case HOROVOD_FLOAT64:
-    return sizeof(double);
-  case HOROVOD_BOOL:
-    return sizeof(bool);
   default:
-    throw std::logic_error("Type " + DataType_Name(dtype) +
-                           " is not supported in Gloo mode.");
+    return DataType_Size(dtype);
   }
 }
 
