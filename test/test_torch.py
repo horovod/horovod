@@ -19,16 +19,20 @@ from __future__ import division
 from __future__ import print_function
 
 from distutils.version import LooseVersion
+
 import collections
 import inspect
 import itertools
-import numpy as np
 import os
+import pytest
 import tempfile
-import torch
-import torch.nn.functional as F
 import unittest
 import warnings
+
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 import horovod.torch as hvd
 
@@ -1100,6 +1104,46 @@ class TorchTests(unittest.TestCase):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
+    @pytest.mark.skipif(LooseVersion(torch.__version__) < LooseVersion('0.4.1'),
+                        reason='Cannot optimize parameters that do not require gradients before PyTorch 0.4.1')
+    def test_broadcast_state_no_grad(self):
+        class ModelNoGrad(nn.Module):
+            def __init__(self, a, b):
+                super(ModelNoGrad, self).__init__()
+                self.a = nn.Parameter(a.int(), requires_grad=False)
+                self.b = nn.Parameter(b)
+
+            def forward(self, x):
+                return torch.index_select(self.b, 0, self.a.long()) * x
+
+        hvd.init()
+
+        a = torch.Tensor([1, 3])
+        b = torch.rand(4)
+
+        model = ModelNoGrad(a, b)
+
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+        optimizer = hvd.DistributedOptimizer(optimizer, named_parameters=model.named_parameters())
+
+        hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+        hvd.broadcast_optimizer_state(optimizer, root_rank=0)
+
+        assert optimizer.param_groups[0]['params'][0].grad is None
+        assert torch.all(torch.eq(optimizer.param_groups[0]['params'][1].grad, torch.zeros([4]))).item()
+
+    def test_broadcast_object(self):
+        hvd.init()
+
+        expected_obj = {
+            'hello': 123,
+            0: [1, 2]
+        }
+        obj = expected_obj if hvd.rank() == 0 else {}
+
+        obj = hvd.broadcast_object(obj, root_rank=0)
+        self.assertDictEqual(obj, expected_obj)
 
     def test_compression_fp16(self):
         valid_dtypes = [torch.float32, torch.float64]
