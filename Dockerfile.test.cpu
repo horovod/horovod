@@ -1,7 +1,6 @@
 ARG UBUNTU_VERSION=16.04
 FROM ubuntu:${UBUNTU_VERSION}
 
-
 # Arguments for the build. UBUNTU_VERSION needs to be repeated because
 # the first usage only applies to the FROM tag.
 ARG UBUNTU_VERSION=16.04
