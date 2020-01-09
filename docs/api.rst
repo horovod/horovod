@@ -24,3 +24,7 @@ horovod.mxnet
 horovod.spark
 -------------
 .. automodule:: horovod.spark
+
+horovod.run
+-------------
+.. automodule:: horovod.run
