@@ -28,7 +28,7 @@ from pyspark.sql.types import FloatType, IntegerType, StructField, StructType
 
 from horovod.spark.common.store import LocalStore
 
-from common import tempdir
+from common import tempdir, temppath
 
 # Spark will fail to initialize correctly locally on Mac OS without this
 if platform.system() == 'Darwin':
@@ -58,29 +58,31 @@ def spark_session(app, cores=2, gpus=0, *args):
     master = 'local-cluster[{},1,1024]'.format(cores) if gpus > 0 else 'local[{}]'.format(cores)
     conf = SparkConf().setAppName(app).setMaster(master)
 
-    if gpus > 0:
-        temp_file = tempfile.NamedTemporaryFile(delete=False)
-        addresses = ', '.join('\\"{}\\"'.format(i) for i in range(gpus))
-        temp_file.write(b'echo {\\"name\\": \\"gpu\\", \\"addresses\\": [' + addresses.encode('ascii') + b']}')
-        temp_file.close()
-        os.chmod(temp_file.name, stat.S_IRWXU | stat.S_IXGRP | stat.S_IRGRP |
-                 stat.S_IROTH | stat.S_IXOTH)
+    with temppath() as temp_filename:
+        if gpus > 0:
+            with open(temp_filename, 'wb') as temp_file:
+                addresses = ', '.join('\\"{}\\"'.format(i) for i in range(gpus))
+                temp_file.write(b'echo {\\"name\\": \\"gpu\\", \\"addresses\\": [' +
+                                addresses.encode('ascii') + b']}')
 
-        conf = conf.set("spark.test.home", os.environ.get('SPARK_HOME'))
-        conf = conf.set("spark.worker.resource.gpu.discoveryScript", temp_file.name)
-        conf = conf.set("spark.worker.resource.gpu.amount", 1)
-        conf = conf.set("spark.task.resource.gpu.amount", "1")
-        conf = conf.set("spark.executor.resource.gpu.amount", "1")
+            os.chmod(temp_file.name, stat.S_IRWXU | stat.S_IXGRP | stat.S_IRGRP |
+                     stat.S_IROTH | stat.S_IXOTH)
 
-    session = SparkSession \
-        .builder \
-        .config(conf=conf) \
-        .getOrCreate()
+            conf = conf.set("spark.test.home", os.environ.get('SPARK_HOME'))
+            conf = conf.set("spark.worker.resource.gpu.discoveryScript", temp_filename)
+            conf = conf.set("spark.worker.resource.gpu.amount", 1)
+            conf = conf.set("spark.task.resource.gpu.amount", "1")
+            conf = conf.set("spark.executor.resource.gpu.amount", "1")
 
-    try:
-        yield session
-    finally:
-        session.stop()
+        session = SparkSession \
+            .builder \
+            .config(conf=conf) \
+            .getOrCreate()
+
+        try:
+            yield session
+        finally:
+            session.stop()
 
 
 def create_xor_data(spark):
