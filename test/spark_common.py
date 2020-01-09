@@ -18,6 +18,8 @@ from __future__ import absolute_import
 import contextlib
 import os
 import platform
+import stat
+import tempfile
 
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import VectorAssembler
@@ -49,11 +51,27 @@ def local_store():
 
 
 @contextlib.contextmanager
-def spark_session(app, cores=2, *args):
+def spark_session(app, cores=2, gpus=0, *args):
     from pyspark import SparkConf
     from pyspark.sql import SparkSession
 
-    conf = SparkConf().setAppName(app).setMaster('local[{}]'.format(cores))
+    master = 'local-cluster[{},1,1024]'.format(cores) if gpus > 0 else 'local[{}]'.format(cores)
+    conf = SparkConf().setAppName(app).setMaster(master)
+
+    if gpus > 0:
+        temp_file = tempfile.NamedTemporaryFile(delete=False)
+        addresses = ', '.join('\\"{}\\"'.format(i) for i in range(gpus))
+        temp_file.write(b'echo {\\"name\\": \\"gpu\\", \\"addresses\\": [' + addresses.encode('ascii') + b']}')
+        temp_file.close()
+        os.chmod(temp_file.name, stat.S_IRWXU | stat.S_IXGRP | stat.S_IRGRP |
+                 stat.S_IROTH | stat.S_IXOTH)
+
+        conf = conf.set("spark.test.home", os.environ.get('SPARK_HOME'))
+        conf = conf.set("spark.worker.resource.gpu.discoveryScript", temp_file.name)
+        conf = conf.set("spark.worker.resource.gpu.amount", 1)
+        conf = conf.set("spark.task.resource.gpu.amount", "1")
+        conf = conf.set("spark.executor.resource.gpu.amount", "1")
+
     session = SparkSession \
         .builder \
         .config(conf=conf) \

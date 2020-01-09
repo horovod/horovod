@@ -22,9 +22,7 @@ import os
 import platform
 import pytest
 import re
-import stat
 import subprocess
-import tempfile
 import time
 import unittest
 import warnings
@@ -60,52 +58,6 @@ from common import tempdir
 # Spark will fail to initialize correctly locally on Mac OS without this
 if platform.system() == 'Darwin':
     os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
-
-
-@contextlib.contextmanager
-def spark(app, cores=2, *args):
-    from pyspark import SparkConf
-    from pyspark.sql import SparkSession
-
-    conf = SparkConf().setAppName(app).setMaster('local[{}]'.format(cores))
-    session = SparkSession \
-        .builder \
-        .config(conf=conf) \
-        .getOrCreate()
-
-    try:
-        yield session
-    finally:
-        session.stop()
-
-
-@contextlib.contextmanager
-def spark_cluster(app, cores=2, *args):
-    from pyspark import SparkConf
-    from pyspark.sql import SparkSession
-
-    temp_file = tempfile.NamedTemporaryFile(delete=False)
-    temp_file.write(b'echo {\\"name\\": \\"gpu\\", \\"addresses\\": [\\"0\\", \\"1\\"]}')
-    temp_file.close()
-    os.chmod(temp_file.name, stat.S_IRWXU | stat.S_IXGRP | stat.S_IRGRP |
-             stat.S_IROTH | stat.S_IXOTH)
-
-    conf = SparkConf().setMaster('local-cluster[{},1,1024]'.format(cores))
-    conf = conf.set("spark.test.home", os.environ.get('SPARK_HOME'))
-    conf = conf.set("spark.worker.resource.gpu.discoveryScript", temp_file.name)
-    conf = conf.set("spark.worker.resource.gpu.amount", 1)
-    conf = conf.set("spark.task.resource.gpu.amount", "1")
-    conf = conf.set("spark.executor.resource.gpu.amount", "1")
-
-    session = SparkSession \
-        .builder \
-        .config(conf=conf) \
-        .getOrCreate()
-
-    try:
-        yield session
-    finally:
-        session.stop()
 
 
 @contextlib.contextmanager
@@ -817,6 +769,6 @@ class SparkTests(unittest.TestCase):
             devices = get_available_devices()
             return devices, hvd.local_rank()
 
-        with spark_cluster('test_get_available_devices'):
+        with spark_session('test_get_available_devices', gpus=2):
             res = horovod.spark.run(fn, env={'PATH': os.environ.get('PATH')}, verbose=0)
             self.assertListEqual([(['0'], 0), (['1'], 1)], res)
