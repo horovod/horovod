@@ -24,6 +24,7 @@ import sys
 import textwrap
 import traceback
 import pipes
+import warnings
 from copy import deepcopy
 from distutils.errors import CompileError, DistutilsError, \
     DistutilsPlatformError, LinkError
@@ -612,6 +613,8 @@ def get_common_options(build_ext):
         nccl_include_dirs = nccl_lib_dirs = nccl_libs = []
 
     if gpu_allreduce == 'DDL':
+        warnings.warn("WARN: DDL backend has been deprecated. Please, start using the NCCL backend "
+                      "by building Horovod with 'HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_BROADCAST=NCCL'.")
         have_ddl = True
         ddl_include_dirs, ddl_lib_dirs = get_ddl_dirs(build_ext,
                                                       cuda_include_dirs,

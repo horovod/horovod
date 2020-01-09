@@ -15,6 +15,7 @@
 // =============================================================================
 
 #include "ddl_operations.h"
+#include "../logging.h"
 
 namespace horovod {
 namespace common {
@@ -103,6 +104,8 @@ Status DDLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
 }
 
 void DDLAllreduce::DDLInit(DDLContext* ddl_context, CUDAContext* cuda_context) {
+  LOG(WARNING) << "DDL backend has been deprecated. Please, start using the NCCL backend by "
+                  "building Horovod with 'HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_BROADCAST=NCCL'.";
   auto ddl_options = std::getenv("DDL_OPTIONS");
   if (ddl_options == nullptr) {
     throw std::logic_error("DDL_OPTIONS env variable needs to be set to use DDL.");
