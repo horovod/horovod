@@ -104,7 +104,7 @@ RUN python -c "from keras.datasets import mnist; mnist.load_data()"
 # Install PyTorch.
 RUN pip install future typing
 RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
-        pip install --pre torch==1.4.0.dev20200106 ${TORCHVISION_PACKAGE} -v -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html; \
+        pip install --pre torch ${TORCHVISION_PACKAGE} -v -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html; \
     else \
         pip install ${PYTORCH_PACKAGE} ${TORCHVISION_PACKAGE} -f https://download.pytorch.org/whl/torch_stable.html; \
     fi
