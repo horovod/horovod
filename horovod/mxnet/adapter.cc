@@ -53,13 +53,13 @@ MXPersistentBuffer::AccessData(std::shared_ptr<OpContext> context) const {
   return buffer_;
 }
 
-template <class T> MXTensor<T>::MXTensor(T* tensor) : tensor_(tensor) {}
+MXTensor::MXTensor(NDArray* tensor) : tensor_(tensor) {}
 
-template <class T> const DataType MXTensor<T>::dtype() const {
+const DataType MXTensor::dtype() const {
   return TensorUtil::GetDType(tensor_);
 }
 
-template <class T> const TensorShape MXTensor<T>::shape() const {
+const TensorShape MXTensor::shape() const {
   auto shape = TensorUtil::GetShape(tensor_);
   if (shape.dims() == 0) {
     // Tensor with empty shape is a Tensor with no values in MXNet, unlike a
@@ -70,76 +70,63 @@ template <class T> const TensorShape MXTensor<T>::shape() const {
   return shape;
 }
 
-template <class T> const void* MXTensor<T>::data() const {
+const void* MXTensor::data() const {
   // returns the raw data instead of NDArray Tensor
   return TensorUtil::GetData(tensor_);
 }
 
-template <class T> int64_t MXTensor<T>::size() const {
+int64_t MXTensor::size() const {
   return TensorUtil::GetSize(tensor_);
 }
 
-template <class T> T* MXTensor<T>::tensor() const {
-  return this->tensor_;
-}
-
-template <class T>
-MXTemporaryBuffer<T>::MXTemporaryBuffer(int device, int dtype)
-    : MXTensor<T>(nullptr) {
-  this->tensor_ = TensorUtil::New(device, dtype);
-}
-
-template <class T>
-MXTemporaryBuffer<T>::MXTemporaryBuffer(T* tensor)
-    : MXTensor<T>(nullptr) {
-  this->tensor_ = tensor;
-}
-
-template <class T> MXTemporaryBuffer<T>::~MXTemporaryBuffer() {
-  TensorUtil::Free(this->tensor_);
-}
-
-template <class T>
-MXOpContext<T>::MXOpContext(int device, T* output)
+MXOpContext::MXOpContext(int device, NDArray* output)
     : device_(device), output_(output) {}
 
-template <class T>
 Status
-MXOpContext<T>::AllocatePersistent(int64_t size,
-                                   std::shared_ptr<PersistentBuffer>* tensor) {
+MXOpContext::AllocatePersistent(int64_t size,
+                                std::shared_ptr<PersistentBuffer>* tensor) {
   // Allocation errors are handled using PyMX exceptions.
   *tensor = std::make_shared<MXPersistentBuffer>(device_, size);
   return Status::OK();
 }
 
-template <class T>
-Status MXOpContext<T>::AllocateOutput(TensorShape shape,
-                                      std::shared_ptr<Tensor>* tensor) {
+Status MXOpContext::AllocateOutput(TensorShape shape,
+                                   std::shared_ptr<Tensor>* tensor) {
   int64_t* shape_array = new int64_t[shape.dims()];
   for (int idx = 0; idx < shape.dims(); idx++) {
     shape_array[idx] = shape.dim_size(idx);
   }
   TensorUtil::ResizeNd(output_, shape.dims(), shape_array);
   delete[] shape_array;
-  *tensor = std::make_shared<MXTensor<T>>(output_);
+  *tensor = std::make_shared<MXTensor>(output_);
   return Status::OK();
 }
 
-template <class T>
 Status
-MXOpContext<T>::AllocateZeros(int64_t num_elements, DataType dtype,
-                                          std::shared_ptr<Tensor>* tensor) {
+MXOpContext::AllocateZeros(int64_t num_elements, DataType dtype,
+                           std::shared_ptr<Tensor>* tensor) {
   return Status::PreconditionError(
       "AllocateZeros is not supported for MXNet yet.");
 }
 
-template <class T> Framework MXOpContext<T>::framework() const {
+Framework MXOpContext::framework() const {
   return Framework::MXNET;
 }
 
-template class MXTensor<NDArray>;
-template class MXTemporaryBuffer<NDArray>;
-template class MXOpContext<NDArray>;
+void ThrowIfError(const Status& status) {
+  switch (status.type()) {
+  case StatusType::OK:
+    return;
+  case StatusType::PRECONDITION_ERROR:
+    throw std::logic_error(status.reason());
+  case StatusType::ABORTED:
+    throw std::runtime_error(status.reason());
+  case StatusType::INVALID_ARGUMENT:
+    throw std::invalid_argument(status.reason());
+  default: // Includes UNKNOWN_ERROR
+    throw std::runtime_error(status.reason());
+  }
+}
 
 } // namespace mxnet
 } // namespace horovod
