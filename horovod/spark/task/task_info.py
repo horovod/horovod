@@ -13,4 +13,20 @@
 # limitations under the License.
 # ==============================================================================
 
-from horovod.spark.task.task_info import get_available_devices
+
+class TaskInfo(object):
+    def __init__(self):
+        self.resources = dict()
+
+
+_info = TaskInfo()
+
+
+def get_available_devices():
+    if 'gpu' not in _info.resources:
+        return []
+    return _info.resources['gpu'].addresses
+
+
+def set_resources(resources):
+    _info.resources = resources

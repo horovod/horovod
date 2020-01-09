@@ -75,4 +75,7 @@ def temppath():
         yield path
     finally:
         if os.path.exists(path):
-            shutil.rmtree(path)
+            if os.path.isfile(path):
+                os.remove(path)
+            else:
+                shutil.rmtree(path)

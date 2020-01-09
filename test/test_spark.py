@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import contextlib
 import os
+import platform
 import pytest
 import re
 import subprocess
@@ -26,10 +27,14 @@ import time
 import unittest
 import warnings
 
+from distutils.version import LooseVersion
+
 import mock
 import torch
 
 from mock import MagicMock
+
+import pyspark
 
 from pyspark.ml.linalg import DenseVector, SparseVector, VectorUDT
 from pyspark.sql.types import ArrayType, BooleanType, DoubleType, FloatType, IntegerType, NullType, \
@@ -42,11 +47,17 @@ from horovod.run.common.util import secret
 from horovod.run.mpi_run import _get_mpi_implementation_flags
 from horovod.spark.common import constants, util
 from horovod.spark.common.store import HDFSStore
+from horovod.spark.task import get_available_devices
 from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient
 
 from spark_common import spark_session, create_test_data_from_schema, create_xor_data, local_store
 
 from common import tempdir
+
+
+# Spark will fail to initialize correctly locally on Mac OS without this
+if platform.system() == 'Darwin':
+    os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
 
 
 @contextlib.contextmanager
@@ -749,3 +760,15 @@ class SparkTests(unittest.TestCase):
                     env = sorted([line.strip() for line in f.readlines()])
                     expected = ['HADOOP_TOKEN_FILE_LOCATION=HADOOP_TOKEN_FILE_LOCATION value', 'test=value']
                     self.assertEqual(env, expected)
+
+    @pytest.mark.skipif(LooseVersion(pyspark.__version__) < LooseVersion('3.0.0'),
+                        reason='get_available_devices only supported in Spark 3.0 and above')
+    def test_get_available_devices(self):
+        def fn():
+            hvd.init()
+            devices = get_available_devices()
+            return devices, hvd.local_rank()
+
+        with spark_session('test_get_available_devices', gpus=2):
+            res = horovod.spark.run(fn, env={'PATH': os.environ.get('PATH')}, verbose=0)
+            self.assertListEqual([(['0'], 0), (['1'], 1)], res)
