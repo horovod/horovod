@@ -359,7 +359,7 @@ class KerasModel(HorovodModel, KerasEstimatorParamsReadable,
                  KerasEstimatorParamsWritable):
     """Spark Transformer wrapping a Keras model, used for making predictions on a DataFrame.
 
-    The underlying Keras model can be retrieved by calling `keras_model.getModel()`.
+    Retrieve the underlying Keras model by calling `keras_model.getModel()`.
 
     Args:
         history: List of metrics, one entry per epoch during training.
