@@ -301,12 +301,12 @@ class ElasticTests(unittest.TestCase):
             mock_find_available_hosts_and_slots.return_value = hosts, slots
 
         def exec_command(slot_info, events):
-            manager = WorkerNotificationManager(rendezvous_addr=addr,
-                                                rendezvous_port=port,
-                                                nic=nic,
-                                                hostname=slot_info.hostname,
-                                                local_rank=slot_info.local_rank)
-            manager.init()
+            manager = WorkerNotificationManager()
+            manager.init(rendezvous_addr=addr,
+                         rendezvous_port=port,
+                         nic=nic,
+                         hostname=slot_info.hostname,
+                         local_rank=slot_info.local_rank)
 
             notification_receiver = NotificationReceiver()
             manager.register_listener(notification_receiver)
