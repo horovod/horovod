@@ -1,0 +1,27 @@
+name: Examples Keras Spark3 Sync
+
+on: [pull_request]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Diffing examples/keras_spark_rossmann_run.py with examples/keras_spark3_rossmann.py
+      run: |
+        patch --quiet -p0 examples/keras_spark_rossmann_run.py examples/keras_spark3_rossmann.py.patch -o examples/keras_spark3_rossmann.py.from-keras_spark_rossmann_run
+        if ! diff -q examples/keras_spark3_rossmann.py.from-keras_spark_rossmann_run --label examples/keras_spark_rossmann_run.py examples/keras_spark3_rossmann.py
+        then
+          echo
+          echo "Unexpected differences are:"
+          diff examples/keras_spark3_rossmann.py.from-keras_spark_rossmann_run --label examples/keras_spark_rossmann_run.py examples/keras_spark3_rossmann.py || true
+
+          echo
+          echo "Use the following as examples/keras_spark3_rossmann.py.patch to accept those changes:"
+          diff examples/keras_spark_rossmann_run.py examples/keras_spark3_rossmann.py || true
+
+          false
+        fi
+
