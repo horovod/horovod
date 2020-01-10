@@ -123,19 +123,16 @@ class LearningRateWarmupCallback(_impl.LearningRateWarmupCallbackImpl, keras.cal
     ImageNet in 1 Hour". See https://arxiv.org/pdf/1706.02677.pdf for details.
 
     Math recap:
-                                                 batch
-        epoch               = full_epochs + ---------------
-                                            steps_per_epoch
 
-                               lr     size - 1
-        lr'(epoch)          = ---- * (-------- * epoch + 1)
-                              size     warmup
+    .. math::
 
-                               lr
-        lr'(epoch = 0)      = ----
-                              size
+        epoch &= full\\_epochs + \\frac{batch}{steps\\_per\\_epoch}
 
-        lr'(epoch = warmup) = lr
+        lr'(epoch) &= \\frac{lr}{size} * (\\frac{size - 1}{warmup} * epoch + 1)
+
+        lr'(epoch = 0) &= \\frac{lr}{size}
+
+        lr'(epoch = warmup) &= lr
     """
 
     def __init__(self, warmup_epochs=5, momentum_correction=True, steps_per_epoch=None,

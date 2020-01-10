@@ -30,23 +30,41 @@ def default_num_proc():
 
 
 class Backend(object):
+    """Interface for remote execution of the distributed training function.
+
+    A custom backend can be used in cases where the training environment running Horovod is different
+    from the Spark application running the HorovodEstimator.
+    """
+
     def run(self, fn, args=(), kwargs={}, env=None):
+        """Executes the training `fn` and returns results from each worker in a list (ordered by ascending rank).
+
+        Args:
+            fn: Function to run.
+            args: Arguments to pass to `fn`.
+            kwargs: Keyword arguments to pass to `fn`.
+            env: Environment dictionary to use in Horovod run.  Defaults to `os.environ`.
+
+        Returns:
+            List of results returned by running `fn` on each rank.
+        """
         raise NotImplementedError()
 
     def num_processes(self):
+        """Returns the number of processes to use for training."""
         raise NotImplementedError()
 
 
 class SparkBackend(Backend):
-    """
-    Uses `horovod.spark.run` to execute the distributed training `fn`.
+    """Uses `horovod.spark.run` to execute the distributed training `fn`."""
 
-    Args:
-        num_proc: Number of Horovod processes.  Defaults to `spark.default.parallelism`.
-        env: Environment dictionary to use in Horovod run.  Defaults to `os.environ`.
-        **kwargs: Additional arguments passed to `horovod.spark.run` at training time.
-    """
     def __init__(self, num_proc=None, env=None, **kwargs):
+        """
+        Args:
+            num_proc: Number of Horovod processes.  Defaults to `spark.default.parallelism`.
+            env: Environment dictionary to use in Horovod run.  Defaults to `os.environ`.
+            **kwargs: Additional arguments passed to `horovod.spark.run` at training time.
+        """
         self._num_proc = num_proc or default_num_proc()
         self._env = env
         self._kwargs = kwargs
