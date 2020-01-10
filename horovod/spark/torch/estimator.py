@@ -291,7 +291,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParamsReadable):
     """Spark Transformer wrapping a PyTorch model, used for making predictions on a DataFrame.
 
-    The underlying PyTorch model can be retrieved by calling `torch_model.getModel()`.
+    Retrieve the underlying PyTorch model by calling `torch_model.getModel()`.
 
     Args:
         history: List of metrics, one entry per epoch during training.

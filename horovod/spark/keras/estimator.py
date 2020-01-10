@@ -106,7 +106,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                      KerasEstimatorParamsWritable):
     """Spark Estimator for fitting Keras models to a DataFrame.
 
-    Supports both standalone `keras` and `tf.keras`, and both TensorFlow 1.X and 2.X.
+    Supports standalone `keras` and `tf.keras`, and TensorFlow 1.X and 2.X.
 
     Args:
         num_proc: Number of Horovod processes.  Defaults to `spark.default.parallelism`.

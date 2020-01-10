@@ -101,7 +101,7 @@ class HorovodModel(Model, ModelParams):
         """
         Transforms the input dataset with prediction columns representing model predictions.
 
-        Prediction column names default to <label_column>__output, but can be overridden
+        Prediction column names default to <label_column>__output. Override column names
         by calling `transformer.setOutputCols(col_names)`.
 
         Args:
