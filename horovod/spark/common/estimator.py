@@ -111,4 +111,4 @@ class HorovodModel(Model, ModelParams):
         Returns:
             Transformed dataset.
         """
-        return super(HorovodModel, self).transform(dataset, params)
+        return super(HorovodModel, self).transform(df, params)
