@@ -49,45 +49,59 @@ class Store(object):
         self._val_data_to_key = {}
 
     def is_parquet_dataset(self, path):
+        """Returns True if the path is the root of a Parquet dataset."""
         raise NotImplementedError()
 
     def get_parquet_dataset(self, path):
+        """Returns a :py:class:`pyarrow.parquet.ParquetDataset` from the path."""
         raise NotImplementedError()
 
     def get_train_data_path(self, idx=None):
+        """Returns the path to the training dataset."""
         raise NotImplementedError()
 
     def get_val_data_path(self, idx=None):
+        """Returns the path to the validation dataset."""
         raise NotImplementedError()
 
     def get_test_data_path(self, idx=None):
+        """Returns the path to the test dataset."""
         raise NotImplementedError()
 
     def saving_runs(self):
+        """Returns True if run output should be saved during training."""
         raise NotImplementedError()
 
     def get_runs_path(self):
+        """Returns the base path for all runs."""
         raise NotImplementedError()
 
     def get_run_path(self, run_id):
+        """Returns the path to the run with the given ID."""
         raise NotImplementedError()
 
     def get_checkpoint_path(self, run_id):
+        """Returns the path to the checkpoint file for the given run."""
         raise NotImplementedError()
 
     def get_logs_path(self, run_id):
+        """Returns the path to the log directory for the given run."""
         raise NotImplementedError()
 
     def get_checkpoint_filename(self):
+        """Returns the basename of the saved checkpoint file."""
         raise NotImplementedError()
 
     def get_logs_subdir(self):
+        """Returns the subdirectory name for the logs directory."""
         raise NotImplementedError()
 
     def exists(self, path):
+        """Returns True if the path exists in the store."""
         raise NotImplementedError()
 
     def read(self, path):
+        """Returns the contents of the path as bytes."""
         raise NotImplementedError()
 
     def get_local_output_dir_fn(self, run_id):
@@ -98,6 +112,7 @@ class Store(object):
         raise NotImplementedError()
 
     def to_remote(self, run_id, dataset_idx):
+        """Returns a view of the store that can execute in a remote environment without Horoovd deps."""
         attrs = self._remote_attrs(run_id, dataset_idx)
 
         class RemoteStore(object):
@@ -132,6 +147,8 @@ class Store(object):
 
 
 class FilesystemStore(Store):
+    """Abstract class for stores that use a filesystem for underlying storage."""
+
     def __init__(self, prefix_path, train_path=None, val_path=None, test_path=None, runs_path=None, save_runs=True):
         self.prefix_path = self.get_full_path(prefix_path)
         self._train_path = train_path or self._get_path('intermediate_train_data')
@@ -226,6 +243,8 @@ class FilesystemStore(Store):
 
 
 class LocalStore(FilesystemStore):
+    """Uses the local filesystem as a store of intermediate data and training artifacts."""
+
     FS_PREFIX = 'file://'
 
     def __init__(self, prefix_path, *args, **kwargs):
@@ -268,9 +287,6 @@ class LocalStore(FilesystemStore):
 
 
 class HDFSStore(FilesystemStore):
-    FS_PREFIX = 'hdfs://'
-    URL_PATTERN = '^(?:(.+://))?(?:([^/:]+))?(?:[:]([0-9]+))?(?:(.+))?$'
-
     """Uses HDFS as a store of intermediate data and training artifacts.
 
     Initialized from a `prefix_path` that can take one of the following forms:
@@ -288,6 +304,10 @@ class HDFSStore(FilesystemStore):
     `port` arguments to this initializer. These parameters will default to `default` and `0` if neither the path URL
     nor the arguments provide this information.
     """
+
+    FS_PREFIX = 'hdfs://'
+    URL_PATTERN = '^(?:(.+://))?(?:([^/:]+))?(?:[:]([0-9]+))?(?:(.+))?$'
+
     def __init__(self, prefix_path,
                  host=None, port=None, user=None, kerb_ticket=None,
                  driver='libhdfs', extra_conf=None, temp_dir=None, *args, **kwargs):

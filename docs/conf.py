@@ -61,9 +61,7 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 autodoc_default_options = {
     'members': None,
     'member-order': 'bysource',
-    'special-members': '__init__',
     'imported-members': None,
-    'undoc-members': None,
     'exclude-members': 'contextmanager, LooseVersion, tf, keras, torch, mx, pyspark',
 }
 

@@ -24,15 +24,14 @@ import numpy as np
 import tensorflow as tf
 
 from pyspark import keyword_only
-from pyspark.ml import Model
 from pyspark.ml.util import MLWritable, MLReadable
 from pyspark.ml.param.shared import Param, Params
 
 from horovod.run.common.util import codec
 
 from horovod.spark.common import util
-from horovod.spark.common.estimator import HorovodEstimator
-from horovod.spark.common.params import EstimatorParams, ModelParams
+from horovod.spark.common.estimator import HorovodEstimator, HorovodModel
+from horovod.spark.common.params import EstimatorParams
 from horovod.spark.common.serialization import HorovodParamsWriter, HorovodParamsReader
 from horovod.spark.keras import remote
 from horovod.spark.keras.util import \
@@ -105,6 +104,44 @@ class KerasEstimatorParamsReadable(MLReadable):
 
 class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                      KerasEstimatorParamsWritable):
+    """Spark Estimator for fitting Keras models to a DataFrame.
+
+    Supports standalone `keras` and `tf.keras`, and TensorFlow 1.X and 2.X.
+
+    Args:
+        num_proc: Number of Horovod processes.  Defaults to `spark.default.parallelism`.
+        model: Keras model to train.
+        backend: Optional Backend object for running distributed training function. Defaults to SparkBackend with
+                 `num_proc` worker processes. Cannot be specified if `num_proc` is also provided.
+        store: Store object that abstracts reading and writing of intermediate data and run results.
+        custom_objects: Optional dictionary mapping names (strings) to custom classes or functions to be considered
+                        during serialization/deserialization.
+        optimizer: Keras optimizer to be converted into a `hvd.DistributedOptimizer` for training.
+        loss: Keras loss or list of losses.
+        loss_weights: Optional list of float weight values to assign each loss.
+        sample_weight_col: Optional column indicating the weight of each sample.
+        gradient_compression: Gradient compression used by `hvd.DistributedOptimizer`.
+        metrics: Optional metrics to record.
+        feature_cols: Column names used as feature inputs to the model. Must be a list with each feature
+                      mapping to a sequential argument in the model's forward() function.
+        label_cols: Column names used as labels.  Must be a list with one label for each output of the model.
+        validation: Optional validation column name (string) where every row in the column is either 1/True or 0/False,
+                    or validation split (float) giving percent of data to be randomly selected for validation.
+        callbacks: Keras callbacks.
+        batch_size: Number of rows from the DataFrame per batch.
+        epochs: Number of epochs to train.
+        verbose: Verbosity level [0, 2] (default: 1).
+        shuffle_buffer_size: Optional size of in-memory shuffle buffer in rows. Allocating a larger buffer size
+                             increases randomness of shuffling at the cost of more host memory. Defaults to estimating
+                             with an assumption of 4GB of memory per host.
+        partitions_per_process: Number of Parquet partitions to assign per worker process from `num_proc` (default: 10).
+        run_id: Optional unique ID for this run for organization in the Store. Will be automatically assigned if not
+                provided.
+        train_steps_per_epoch: Number of steps to train each epoch. Useful for testing that model trains successfully.
+                               Defaults to training the entire dataset each epoch.
+        validation_steps_per_epoch: Number of validation steps to perform each epoch.
+    """
+
     custom_objects = Param(Params._dummy(), 'custom_objects', 'custom objects')
     _keras_pkg_type = Param(Params._dummy(), '_keras_pkg_type', 'keras package type')
 
@@ -318,8 +355,21 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                     _floatx=floatx)
 
 
-class KerasModel(Model, ModelParams, KerasEstimatorParamsReadable,
+class KerasModel(HorovodModel, KerasEstimatorParamsReadable,
                  KerasEstimatorParamsWritable):
+    """Spark Transformer wrapping a Keras model, used for making predictions on a DataFrame.
+
+    Retrieve the underlying Keras model by calling `keras_model.getModel()`.
+
+    Args:
+        history: List of metrics, one entry per epoch during training.
+        model: Trained Keras model.
+        feature_columns: List of feature column names.
+        label_columns: List of label column names.
+        custom_objects: Keras custom objects.
+        run_id: ID of the run used to train the model.
+    """
+
     custom_objects = Param(Params._dummy(), 'custom_objects', 'custom objects')
 
     # Setting _keras_pkg_type parameter helps us determine the type of keras package during

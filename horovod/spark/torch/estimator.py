@@ -23,14 +23,13 @@ import numbers
 import time
 
 from pyspark import keyword_only
-from pyspark.ml import Model
 from pyspark.ml.param.shared import Param, Params
 from pyspark.ml.util import MLWritable, MLReadable
 
 from horovod.run.common.util import codec
 from horovod.spark.common import util
-from horovod.spark.common.estimator import HorovodEstimator
-from horovod.spark.common.params import EstimatorParams, ModelParams
+from horovod.spark.common.estimator import HorovodEstimator, HorovodModel
+from horovod.spark.common.params import EstimatorParams
 from horovod.spark.common.serialization import \
     HorovodParamsWriter, HorovodParamsReader
 from horovod.spark.torch import remote
@@ -85,6 +84,43 @@ class TorchEstimatorParamsReadable(MLReadable):
 
 class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                      TorchEstimatorParamsReadable):
+    """Spark Estimator for fitting PyTorch models to a DataFrame.
+
+    Args:
+        num_proc: Number of Horovod processes.  Defaults to `spark.default.parallelism`.
+        model: PyTorch model to train.
+        backend: Optional Backend object for running distributed training function. Defaults to SparkBackend with
+                 `num_proc` worker processes. Cannot be specified if `num_proc` is also provided.
+        store: Store object that abstracts reading and writing of intermediate data and run results.
+        optimizer: PyTorch optimizer to be converted into a `hvd.DistributedOptimizer` for training.
+        loss: PyTorch loss or list of losses.
+        loss_constructors: Optional functions that generate losses.
+        metrics: Optional metrics to record.
+        loss_weights: Optional list of float weight values to assign each loss.
+        sample_weight_col: Optional column indicating the weight of each sample.
+        gradient_compression: Gradient compression used by `hvd.DistributedOptimizer`.
+        feature_cols: Column names used as feature inputs to the model. Must be a list with each feature
+                      mapping to a sequential argument in the model's forward() function.
+        input_shapes: List of shapes for each input tensor to the model.
+        validation: Optional validation column name (string) where every row in the column is either 1/True or 0/False,
+                    or validation split (float) giving percent of data to be randomly selected for validation.
+        label_cols: Column names used as labels.  Must be a list with one label for each output of the model.
+        batch_size: Number of rows from the DataFrame per batch.
+        epochs: Number of epochs to train.
+        verbose: Verbosity level [0, 2] (default: 1).
+        shuffle_buffer_size: Optional size of in-memory shuffle buffer in rows. Allocating a larger buffer size
+                             increases randomness of shuffling at the cost of more host memory. Defaults to estimating
+                             with an assumption of 4GB of memory per host.
+        partitions_per_process: Number of Parquet partitions to assign per worker process from `num_proc` (default: 10).
+        run_id: Optional unique ID for this run for organization in the Store. Will be automatically assigned if not
+                provided.
+        train_minibatch_fn: Optional custom function to execute within the training loop. Defaults to standard
+                            gradient descent process.
+        train_steps_per_epoch: Number of steps to train each epoch. Useful for testing that model trains successfully.
+                               Defaults to training the entire dataset each epoch.
+        validation_steps_per_epoch: Number of validation steps to perform each epoch.
+    """
+
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')
     loss_constructors = Param(Params._dummy(), 'loss_constructors',
                               'functions that construct the loss')
@@ -252,7 +288,22 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                     loss_constructors=self.getLossConstructors())
 
 
-class TorchModel(Model, ModelParams, TorchEstimatorParamsWritable, TorchEstimatorParamsReadable):
+class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParamsReadable):
+    """Spark Transformer wrapping a PyTorch model, used for making predictions on a DataFrame.
+
+    Retrieve the underlying PyTorch model by calling `torch_model.getModel()`.
+
+    Args:
+        history: List of metrics, one entry per epoch during training.
+        model: Trained PyTorch model.
+        feature_columns: List of feature column names.
+        label_columns: List of label column names.
+        optimizer: PyTorch optimizer used during training, containing updated state.
+        run_id: ID of the run used to train the model.
+        loss: PyTorch loss(es).
+        loss_constructors: PyTorch loss constructors.
+    """
+
     optimizer = Param(Params._dummy(), 'optimizer', 'optimizer')
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')
     loss = Param(Params._dummy(), 'loss', 'loss')

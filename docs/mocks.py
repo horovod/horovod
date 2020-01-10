@@ -17,11 +17,42 @@ import sys
 from unittest.mock import MagicMock
 
 
+class Empty(object):
+    pass
+
+
+class HasOutputCols(object):
+    pass
+
+
+class Params(object):
+    @staticmethod
+    def _dummy():
+        return MagicMock()
+
+
 MOCK_MODULES = [
     'cloudpickle',
     'ctypes',
+    'h5py',
     'psutil',
+
+    'pyarrow',
+    'pyarrow.parquet',
+
+    'numpy',
+    'numpy.core.multiarray',
+    'numpy.dtype',
+
     'pyspark',
+    'pyspark.ml',
+    'pyspark.ml.linalg',
+    'pyspark.ml.param',
+    'pyspark.ml.param.shared',
+    'pyspark.ml.util',
+    'pyspark.sql',
+    'pyspark.sql.functions',
+    'pyspark.sql.types',
 
     'tensorflow',
     'tensorflow.python',
@@ -34,6 +65,9 @@ MOCK_MODULES = [
     'keras.backend',
 
     'torch',
+    'torch.utils',
+    'torch.utils.data',
+    'torch.utils.tensorboard',
 
     'mxnet',
     'mxnet.base',
@@ -67,10 +101,42 @@ MOCK_TREE = {
     'torch': {
         '__version__': '1.0.0',
     },
+    'pyspark': {
+        'ml': {
+            'Estimator': Empty,
+            'Model': Empty,
+            'param': {
+                'shared': {
+                    'HasOutputCols': HasOutputCols,
+                    'Param': MagicMock,
+                    'Params': Params,
+                    'TypeConverters': MagicMock(),
+                },
+            },
+            'util': {
+                'MLReadable': Empty,
+                'MLWritable': Empty,
+            }
+        },
+    },
     'horovod': {
         'common': {
             'util': {
                 'get_ext_suffix': lambda: 'xyz',
+            },
+        },
+        'spark': {
+            'keras': {
+                'estimator': {
+                    'KerasEstimatorParamsReadable': MagicMock,
+                    'KerasEstimatorParamsWritable': MagicMock,
+                },
+            },
+            'torch': {
+                'estimator': {
+                    'TorchEstimatorParamsReadable': MagicMock,
+                    'TorchEstimatorParamsWritable': MagicMock,
+                },
             },
         },
     },
