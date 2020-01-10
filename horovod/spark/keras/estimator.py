@@ -24,15 +24,14 @@ import numpy as np
 import tensorflow as tf
 
 from pyspark import keyword_only
-from pyspark.ml import Model
 from pyspark.ml.util import MLWritable, MLReadable
 from pyspark.ml.param.shared import Param, Params
 
 from horovod.run.common.util import codec
 
 from horovod.spark.common import util
-from horovod.spark.common.estimator import HorovodEstimator
-from horovod.spark.common.params import EstimatorParams, ModelParams
+from horovod.spark.common.estimator import HorovodEstimator, HorovodModel
+from horovod.spark.common.params import EstimatorParams
 from horovod.spark.common.serialization import HorovodParamsWriter, HorovodParamsReader
 from horovod.spark.keras import remote
 from horovod.spark.keras.util import \
@@ -356,7 +355,7 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                     _floatx=floatx)
 
 
-class KerasModel(Model, ModelParams, KerasEstimatorParamsReadable,
+class KerasModel(HorovodModel, KerasEstimatorParamsReadable,
                  KerasEstimatorParamsWritable):
     """Spark Transformer wrapping a Keras model, used for making predictions on a DataFrame.
 

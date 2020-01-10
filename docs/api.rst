@@ -29,6 +29,13 @@ horovod.spark
 -------------
 .. automodule:: horovod.spark
 
+horovod.spark.keras
+-------------------
+.. autoclass:: horovod.spark.keras.KerasEstimator
+    :show-inheritance:
+.. autoclass:: horovod.spark.keras.KerasModel
+    :show-inheritance:
+
 horovod.spark.torch
 -------------------
 .. autoclass:: horovod.spark.torch.TorchEstimator

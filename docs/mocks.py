@@ -34,6 +34,7 @@ class Params(object):
 MOCK_MODULES = [
     'cloudpickle',
     'ctypes',
+    'h5py',
     'psutil',
 
     'pyarrow',
@@ -41,6 +42,7 @@ MOCK_MODULES = [
 
     'numpy',
     'numpy.core.multiarray',
+    'numpy.dtype',
 
     'pyspark',
     'pyspark.ml',
@@ -124,6 +126,12 @@ MOCK_TREE = {
             },
         },
         'spark': {
+            'keras': {
+                'estimator': {
+                    'KerasEstimatorParamsReadable': MagicMock,
+                    'KerasEstimatorParamsWritable': MagicMock,
+                },
+            },
             'torch': {
                 'estimator': {
                     'TorchEstimatorParamsReadable': MagicMock,
