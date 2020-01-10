@@ -1,0 +1,36 @@
+32a33
+> DISCOVERY_SCRIPT = 'get_gpu_resources.sh'
+42c43
+< TRAINING_CLUSTER = None  # or 'spark://hostname:7077'
+---
+> TRAINING_CLUSTER = 'local-cluster[2,1,1024]'  # or 'spark://hostname:7077'
+391a393
+>     from horovod.spark.task import get_available_devices
+406c408
+<     config.gpu_options.visible_device_list = str(hvd.local_rank())
+---
+>     config.gpu_options.visible_device_list = get_available_devices()[0]
+492a495,517
+> 
+> # This config will change depending on your cluster setup.
+> #
+> # 1. Standalone Cluster
+> # - Must configure spark.worker.* configs as below.
+> #
+> # 2. YARN
+> # - Requires YARN 3.1 or higher to support GPUs
+> # - Cluster should be configured to have isolation on so that
+> #   multiple executors don’t see the same GPU on the same host.
+> # - If you don’t have isolation then you would require a different discovery script
+> #   or other way to make sure that 2 executors don’t try to use same GPU.
+> #
+> # 3. Kubernetes
+> # - Requires GPU support and isolation.
+> # - Add conf.set(“spark.executor.resource.gpu.discoveryScript”, DISCOVERY_SCRIPT)
+> # - Add conf.set(“spark.executor.resource.gpu.vendor”, “nvidia”)
+> conf = conf.set("spark.test.home", os.environ.get('SPARK_HOME'))
+> conf = conf.set("spark.worker.resource.gpu.discoveryScript", DISCOVERY_SCRIPT)
+> conf = conf.set("spark.worker.resource.gpu.amount", 1)
+> conf = conf.set("spark.task.resource.gpu.amount", "1")
+> conf = conf.set("spark.executor.resource.gpu.amount", "1")
+> 
