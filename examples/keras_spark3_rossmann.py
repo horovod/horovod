@@ -568,7 +568,7 @@ if GPU_INFERENCE_ENABLED:
     # 3. Kubernetes
     # - Requires GPU support and isolation.
     # - Add conf.set(“spark.executor.resource.gpu.discoveryScript”, DISCOVERY_SCRIPT)
-    # - Add conf.set(“spark.executor.resource.gpu.vendor”, “nvidia”)
+    # - Add conf.set(“spark.executor.resource.gpu.vendor”, “nvidia.com”)
     conf = conf.set("spark.test.home", os.environ.get('SPARK_HOME'))
     conf = conf.set("spark.worker.resource.gpu.discoveryScript", DISCOVERY_SCRIPT)
     conf = conf.set("spark.worker.resource.gpu.amount", 1)
