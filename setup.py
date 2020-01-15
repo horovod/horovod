@@ -593,7 +593,7 @@ def get_common_options(build_ext):
                              'values are "", "MPI".' % gpu_allgather)
 
     gpu_broadcast = os.environ.get('HOROVOD_GPU_BROADCAST')
-    if gpu_broadcast and gpu_broadcast != 'MPI' and gpu_allreduce != 'NCCL':
+    if gpu_broadcast and gpu_broadcast != 'MPI' and gpu_broadcast != 'NCCL':
         raise DistutilsError('HOROVOD_GPU_BROADCAST=%s is invalid, supported '
                              'values are "", "MPI", "NCCL".' % gpu_broadcast)
 
