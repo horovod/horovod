@@ -362,7 +362,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       gloo_context.Initialize(ParseGlooIface());
     }
 #endif
-
   // Initialize controller
   state.controller->Initialize();
 
