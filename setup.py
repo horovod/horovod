@@ -524,7 +524,7 @@ def get_ddl_dirs(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
     return ddl_include_dirs, ddl_lib_dirs
 
 
-def set_cuda_options(COMPILE_FLAGS, MACROS, INCLUDES, SOURCES, BUILD_MPI, LIBRARY_DIRS, LIBRARIES, **kwargs):
+def set_cuda_options(build_ext, COMPILE_FLAGS, MACROS, INCLUDES, SOURCES, BUILD_MPI, LIBRARY_DIRS, LIBRARIES, **kwargs):
     cuda_include_dirs, cuda_lib_dirs = get_cuda_dirs(build_ext, COMPILE_FLAGS)
     MACROS += [('HAVE_CUDA', '1')]
     INCLUDES += cuda_include_dirs
@@ -683,17 +683,6 @@ def get_common_options(build_ext):
     LIBRARY_DIRS = []
     LIBRARIES = []
 
-    options = dict(MACROS=MACROS,
-                   INCLUDES=INCLUDES,
-                   SOURCES=SOURCES,
-                   COMPILE_FLAGS=COMPILE_FLAGS,
-                   LINK_FLAGS=LINK_FLAGS,
-                   LIBRARY_DIRS=LIBRARY_DIRS,
-                   LIBRARIES=LIBRARIES,
-                   BUILD_GLOO=have_gloo,
-                   BUILD_MPI=have_mpi,
-                   )
-
     cpu_operation = os.environ.get('HOROVOD_CPU_OPERATIONS')
     if cpu_operation:
         print('INFO: Set default CPU operation to ' + cpu_operation)
@@ -744,7 +733,7 @@ def get_common_options(build_ext):
         LINK_FLAGS += ['-lccl']
 
     if have_cuda:
-        set_cuda_options(COMPILE_FLAGS, MACROS, INCLUDES, SOURCES, have_mpi, LIBRARY_DIRS, LIBRARIES)
+        set_cuda_options(build_ext, COMPILE_FLAGS, MACROS, INCLUDES, SOURCES, have_mpi, LIBRARY_DIRS, LIBRARIES)
         INCLUDES += ['horovod/common/ops/cuda']
 
     if have_nccl:
@@ -1044,7 +1033,7 @@ def build_mx_extension(build_ext, global_options):
     # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
     # version or transfer tensors to CPU memory for those operations.
     if mx_have_cuda and not macro_have_cuda:
-        set_cuda_options(**options)
+        set_cuda_options(build_ext, **options)
 
     mxnet_mpi_lib.define_macros = options['MACROS']
     if check_macro(options['MACROS'], 'HAVE_CUDA'):
@@ -1186,7 +1175,7 @@ def build_torch_extension(build_ext, global_options, torch_version):
     # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
     # version or transfer tensors to CPU memory for those operations.
     if have_cuda and not have_cuda_macro:
-        set_cuda_options(**options)
+        set_cuda_options(build_ext, **options)
 
     # Export TORCH_VERSION equal to our representation of torch.__version__. Internally it's
     # used for backwards compatibility checks.
@@ -1260,7 +1249,7 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
     # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
     # version or transfer tensors to CPU memory for those operations.
     if have_cuda and not have_cuda_macro:
-        set_cuda_options(**options)
+        set_cuda_options(build_ext, **options)
 
     # Export TORCH_VERSION equal to our representation of torch.__version__. Internally it's
     # used for backwards compatibility checks.
