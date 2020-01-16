@@ -30,6 +30,8 @@ namespace horovod {
 namespace common {
 
 struct CUDAContext {
+  void Finalize();
+
   cudaError_t GetCudaEvent(cudaEvent_t* event);
 
   cudaError_t ReleaseCudaEvent(cudaEvent_t event);

@@ -21,6 +21,10 @@
 namespace horovod {
 namespace common {
 
+void CUDAContext::Finalize() {
+  finalizer_thread_pool.reset();
+}
+
 cudaError_t CUDAContext::GetCudaEvent(cudaEvent_t* event) {
   int device;
   auto status = cudaGetDevice(&device);
