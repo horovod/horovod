@@ -524,6 +524,17 @@ def get_ddl_dirs(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
     return ddl_include_dirs, ddl_lib_dirs
 
 
+def set_cuda_options(build_ext, COMPILE_FLAGS, MACROS, INCLUDES, SOURCES, BUILD_MPI, LIBRARY_DIRS, LIBRARIES, **kwargs):
+    cuda_include_dirs, cuda_lib_dirs = get_cuda_dirs(build_ext, COMPILE_FLAGS)
+    MACROS += [('HAVE_CUDA', '1')]
+    INCLUDES += cuda_include_dirs
+    SOURCES += ['horovod/common/ops/cuda_operations.cc']
+    if BUILD_MPI:
+        SOURCES += ['horovod/common/ops/mpi_cuda_operations.cc']
+    LIBRARY_DIRS += cuda_lib_dirs
+    LIBRARIES += ['cudart']
+
+
 def get_common_options(build_ext):
     cpp_flags = get_cpp_flags(build_ext)
     link_flags = get_link_flags(build_ext)
@@ -722,14 +733,8 @@ def get_common_options(build_ext):
         LINK_FLAGS += ['-lccl']
 
     if have_cuda:
-        MACROS += [('HAVE_CUDA', '1')]
-        INCLUDES += cuda_include_dirs
-        SOURCES += ['horovod/common/ops/cuda_operations.cc']
-        if have_mpi:
-            SOURCES += ['horovod/common/ops/mpi_cuda_operations.cc']
+        set_cuda_options(build_ext, COMPILE_FLAGS, MACROS, INCLUDES, SOURCES, have_mpi, LIBRARY_DIRS, LIBRARIES)
         INCLUDES += ['horovod/common/ops/cuda']
-        LIBRARY_DIRS += cuda_lib_dirs
-        LIBRARIES += ['cudart']
 
     if have_nccl:
         MACROS += [('HAVE_NCCL', '1')]
@@ -1028,15 +1033,7 @@ def build_mx_extension(build_ext, global_options):
     # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
     # version or transfer tensors to CPU memory for those operations.
     if mx_have_cuda and not macro_have_cuda:
-        cuda_include_dirs, cuda_lib_dirs = get_cuda_dirs(build_ext, options[
-            'COMPILE_FLAGS'])
-        options['MACROS'] += [('HAVE_CUDA', '1')]
-        options['INCLUDES'] += cuda_include_dirs
-        options['SOURCES'] += ['horovod/common/ops/cuda_operations.cc']
-        if options['BUILD_MPI']:
-            options['SOURCES'] += ['horovod/common/ops/mpi_cuda_operations.cc']
-        options['LIBRARY_DIRS'] += cuda_lib_dirs
-        options['LIBRARIES'] += ['cudart']
+        set_cuda_options(build_ext, **options)
 
     mxnet_mpi_lib.define_macros = options['MACROS']
     if check_macro(options['MACROS'], 'HAVE_CUDA'):
@@ -1164,7 +1161,8 @@ def build_torch_extension(build_ext, global_options, torch_version):
     options = deepcopy(global_options)
 
     have_cuda = is_torch_cuda()
-    if not have_cuda and check_macro(options['MACROS'], 'HAVE_CUDA'):
+    have_cuda_macro = check_macro(options['MACROS'], 'HAVE_CUDA')
+    if not have_cuda and have_cuda_macro:
         raise DistutilsPlatformError(
             'Horovod build with GPU support was requested, but this PyTorch '
             'installation does not support CUDA.')
@@ -1176,13 +1174,13 @@ def build_torch_extension(build_ext, global_options, torch_version):
     # Update HAVE_CUDA to mean that PyTorch supports CUDA. Internally, we will be checking
     # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
     # version or transfer tensors to CPU memory for those operations.
-    updated_macros = set_macro(
-        options['MACROS'], 'HAVE_CUDA', str(int(have_cuda)))
+    if have_cuda and not have_cuda_macro:
+        set_cuda_options(build_ext, **options)
 
     # Export TORCH_VERSION equal to our representation of torch.__version__. Internally it's
     # used for backwards compatibility checks.
     updated_macros = set_macro(
-        updated_macros, 'TORCH_VERSION', str(torch_version))
+        options['MACROS'], 'TORCH_VERSION', str(torch_version))
 
     # Create_extension overwrites these files which are customized, we need to protect them.
     with protect_files('horovod/torch/mpi_lib/__init__.py',
@@ -1241,7 +1239,8 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
 
     have_cuda = is_torch_cuda_v2(build_ext, include_dirs=options['INCLUDES'],
                                  extra_compile_args=compile_flags)
-    if not have_cuda and check_macro(options['MACROS'], 'HAVE_CUDA'):
+    have_cuda_macro = check_macro(options['MACROS'], 'HAVE_CUDA')
+    if not have_cuda and have_cuda_macro:
         raise DistutilsPlatformError(
             'Horovod build with GPU support was requested, but this PyTorch '
             'installation does not support CUDA.')
@@ -1249,13 +1248,13 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
     # Update HAVE_CUDA to mean that PyTorch supports CUDA. Internally, we will be checking
     # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
     # version or transfer tensors to CPU memory for those operations.
-    updated_macros = set_macro(
-        options['MACROS'], 'HAVE_CUDA', str(int(have_cuda)))
+    if have_cuda and not have_cuda_macro:
+        set_cuda_options(build_ext, **options)
 
     # Export TORCH_VERSION equal to our representation of torch.__version__. Internally it's
     # used for backwards compatibility checks.
     updated_macros = set_macro(
-        updated_macros, 'TORCH_VERSION', str(torch_version))
+        options['MACROS'], 'TORCH_VERSION', str(torch_version))
 
     # Always set _GLIBCXX_USE_CXX11_ABI, since PyTorch can only detect whether it was set to 1.
     updated_macros = set_macro(updated_macros, '_GLIBCXX_USE_CXX11_ABI',
@@ -1274,18 +1273,18 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
         from torch.utils.cpp_extension import CppExtension as TorchExtension
 
     ext = TorchExtension(torch_mpi_lib_v2.name,
-                        define_macros=updated_macros,
-                        include_dirs=options['INCLUDES'],
-                        sources=options['SOURCES'] + [
+                         define_macros=updated_macros,
+                         include_dirs=options['INCLUDES'],
+                         sources=options['SOURCES'] + [
                             'horovod/torch/mpi_ops_v2.cc',
                             'horovod/torch/handle_manager.cc',
                             'horovod/torch/ready_event.cc',
                             'horovod/torch/cuda_util.cc',
                             'horovod/torch/adapter_v2.cc'],
-                        extra_compile_args=compile_flags,
-                        extra_link_args=options['LINK_FLAGS'],
-                        library_dirs=options['LIBRARY_DIRS'],
-                        libraries=options['LIBRARIES'])
+                         extra_compile_args=compile_flags,
+                         extra_link_args=options['LINK_FLAGS'],
+                         library_dirs=options['LIBRARY_DIRS'],
+                         libraries=options['LIBRARIES'])
 
     # Patch an existing torch_mpi_lib_v2 extension object.
     for k, v in ext.__dict__.items():

@@ -520,6 +520,10 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
     cb(SHUT_DOWN_ERROR);
   }
 
+#if HAVE_CUDA
+  cuda_context.Finalize();
+#endif
+
 #if HAVE_MPI
   mpi_context.Finalize(mpi_ctx_manager);
 #endif
@@ -660,6 +664,7 @@ void horovod_shutdown() {
   if (horovod_global.background_thread.joinable()) {
     horovod_global.shut_down = true;
     horovod_global.background_thread.join();
+
     // Reset the initialization flag to allow restarting with horovod_init(...)
     horovod_global.initialize_flag.clear();
     horovod_global.shut_down = false;

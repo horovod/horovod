@@ -76,6 +76,26 @@ class TorchTests(unittest.TestCase):
            types = [t for t in types if t in ccl_supported_types]
         return types
 
+    def test_horovod_reinit(self):
+        """Test that Horovod can init -> shutdown -> init successfully."""
+        mpi_rank, _ = mpi_env_rank_and_size()
+        gloo_rank = int(os.getenv('HOROVOD_RANK', -1))
+
+        is_mpi = gloo_rank == -1
+        if is_mpi:
+            # Only applies for Gloo
+            return
+
+        hvd.init()
+        rank, size = hvd.rank(), hvd.size()
+
+        hvd.shutdown()
+        hvd.init()
+        rank2, size2 = hvd.rank(), hvd.size()
+
+        assert rank == rank2
+        assert size == size2
+
     def test_horovod_rank(self):
         """Test that the rank returned by hvd.rank() is correct."""
         mpi_rank, _ = mpi_env_rank_and_size()
