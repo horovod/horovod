@@ -494,33 +494,36 @@ def train_fn(model_bytes):
             return history.history, f.read()
 
 
+def set_gpu_conf(conf):
+    # This config will change depending on your cluster setup.
+    #
+    # 1. Standalone Cluster
+    # - Must configure spark.worker.* configs as below.
+    #
+    # 2. YARN
+    # - Requires YARN 3.1 or higher to support GPUs
+    # - Cluster should be configured to have isolation on so that
+    #   multiple executors don’t see the same GPU on the same host.
+    # - If you don’t have isolation then you would require a different discovery script
+    #   or other way to make sure that 2 executors don’t try to use same GPU.
+    #
+    # 3. Kubernetes
+    # - Requires GPU support and isolation.
+    # - Add conf.set(“spark.executor.resource.gpu.discoveryScript”, DISCOVERY_SCRIPT)
+    # - Add conf.set(“spark.executor.resource.gpu.vendor”, “nvidia.com”)
+    conf = conf.set("spark.test.home", os.environ.get('SPARK_HOME'))
+    conf = conf.set("spark.worker.resource.gpu.discoveryScript", DISCOVERY_SCRIPT)
+    conf = conf.set("spark.worker.resource.gpu.amount", 1)
+    conf = conf.set("spark.task.resource.gpu.amount", "1")
+    conf = conf.set("spark.executor.resource.gpu.amount", "1")
+    return conf
+
+
 # Create Spark session for training.
 conf = SparkConf().setAppName('training')
 if TRAINING_CLUSTER:
     conf.setMaster(TRAINING_CLUSTER)
-
-# This config will change depending on your cluster setup.
-#
-# 1. Standalone Cluster
-# - Must configure spark.worker.* configs as below.
-#
-# 2. YARN
-# - Requires YARN 3.1 or higher to support GPUs
-# - Cluster should be configured to have isolation on so that
-#   multiple executors don’t see the same GPU on the same host.
-# - If you don’t have isolation then you would require a different discovery script
-#   or other way to make sure that 2 executors don’t try to use same GPU.
-#
-# 3. Kubernetes
-# - Requires GPU support and isolation.
-# - Add conf.set(“spark.executor.resource.gpu.discoveryScript”, DISCOVERY_SCRIPT)
-# - Add conf.set(“spark.executor.resource.gpu.vendor”, “nvidia”)
-conf = conf.set("spark.test.home", os.environ.get('SPARK_HOME'))
-conf = conf.set("spark.worker.resource.gpu.discoveryScript", DISCOVERY_SCRIPT)
-conf = conf.set("spark.worker.resource.gpu.amount", 1)
-conf = conf.set("spark.task.resource.gpu.amount", "1")
-conf = conf.set("spark.executor.resource.gpu.amount", "1")
-
+conf = set_gpu_conf(conf)
 spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
 # Horovod: run training.
@@ -553,27 +556,7 @@ conf = SparkConf().setAppName('prediction') \
 if GPU_INFERENCE_ENABLED:
     if GPU_INFERENCE_CLUSTER:
         conf.setMaster(GPU_INFERENCE_CLUSTER)
-    # This config will change depending on your cluster setup.
-    #
-    # 1. Standalone Cluster
-    # - Must configure spark.worker.* configs as below.
-    #
-    # 2. YARN
-    # - Requires YARN 3.1 or higher to support GPUs
-    # - Cluster should be configured to have isolation on so that
-    #   multiple executors don’t see the same GPU on the same host.
-    # - If you don’t have isolation then you would require a different discovery script
-    #   or other way to make sure that 2 executors don’t try to use same GPU.
-    #
-    # 3. Kubernetes
-    # - Requires GPU support and isolation.
-    # - Add conf.set(“spark.executor.resource.gpu.discoveryScript”, DISCOVERY_SCRIPT)
-    # - Add conf.set(“spark.executor.resource.gpu.vendor”, “nvidia.com”)
-    conf = conf.set("spark.test.home", os.environ.get('SPARK_HOME'))
-    conf = conf.set("spark.worker.resource.gpu.discoveryScript", DISCOVERY_SCRIPT)
-    conf = conf.set("spark.worker.resource.gpu.amount", 1)
-    conf = conf.set("spark.task.resource.gpu.amount", "1")
-    conf = conf.set("spark.executor.resource.gpu.amount", "1")
+    conf = set_gpu_conf(conf)
 else:
     if LIGHT_PROCESSING_CLUSTER:
         conf.setMaster(LIGHT_PROCESSING_CLUSTER)
