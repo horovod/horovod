@@ -598,6 +598,7 @@ def predict_fn(model_bytes):
     return fn
 
 
+# Submit a Spark job to do inference. Horovod framework is not involved here.
 pred_df = spark.read.parquet('%s/test_df.parquet' % DATA_LOCATION) \
     .rdd.mapPartitions(predict_fn(best_model_bytes)).toDF()
 submission_df = pred_df.select(pred_df.Id.cast(T.IntegerType()), pred_df.Sales).toPandas()
