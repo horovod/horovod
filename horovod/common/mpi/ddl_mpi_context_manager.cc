@@ -20,7 +20,7 @@ namespace common {
 
 void DDL_MPIContextManager::EnvInitialize(int required) {
   // DDLInit calls MPI_Init
-  DDLAllreduce::DDLInit(&ddl_context_, &cuda_context_);
+  DDLAllreduce::DDLInit(&ddl_context_, &gpu_context_);
 }
 
 void DDL_MPIContextManager::EnvFinalize() {

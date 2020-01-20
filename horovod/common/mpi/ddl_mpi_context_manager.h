@@ -17,7 +17,7 @@
 #define HOROVOD_DDL_MPI_CONTEXT_MANAGER_H
 
 #include "mpi_context.h"
-#include "../ops/cuda_operations.h"
+#include "../ops/gpu_operations.h"
 #include "../ops/ddl_operations.h"
 
 namespace horovod {
@@ -27,9 +27,9 @@ namespace common {
 // (initialization and finalization).
 class DDL_MPIContextManager : public MPIContextManager {
 public:
-  // Constructor, store the reference of ddl context and cuda context.
-  DDL_MPIContextManager(DDLContext& ddl_context, CUDAContext& cuda_context)
-      : ddl_context_(ddl_context), cuda_context_(cuda_context){};
+  // Constructor, store the reference of ddl context and gpu context.
+  DDL_MPIContextManager(DDLContext& ddl_context, GPUContext& gpu_context)
+      : ddl_context_(ddl_context), gpu_context_(gpu_context){};
 
   // Initialize MPI environment with DDLInit().
   void EnvInitialize(int required) override;
@@ -38,7 +38,7 @@ public:
   void EnvFinalize() override;
 
   DDLContext& ddl_context_;
-  CUDAContext& cuda_context_;
+  GPUContext& gpu_context_;
 };
 
 } // namespace common

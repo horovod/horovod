@@ -17,13 +17,17 @@
 #ifndef HOROVOD_NCCL_OPERATIONS_H
 #define HOROVOD_NCCL_OPERATIONS_H
 
+#if HAVE_CUDA
 #include <nccl.h>
+#elif HAVE_ROCM
+#include <rccl.h>
+#endif
 
 #if HAVE_MPI
 #include "../mpi/mpi_context.h"
 #endif
 
-#include "cuda_operations.h"
+#include "gpu_operations.h"
 
 namespace horovod {
 namespace common {
@@ -61,12 +65,12 @@ private:
   horovod::common::Communicator communicator_type_;
 };
 
-class NCCLAllreduce : public CUDAAllreduce {
+class NCCLAllreduce : public GPUAllreduce {
 public:
-  NCCLAllreduce(NCCLContext* nccl_context, CUDAContext* cuda_context,
+  NCCLAllreduce(NCCLContext* nccl_context, GPUContext* gpu_context,
                 HorovodGlobalState* global_state,
                 horovod::common::Communicator communicator_type = Communicator::GLOBAL)
-      : CUDAAllreduce(cuda_context, global_state),
+      : GPUAllreduce(gpu_context, global_state),
         nccl_context_(nccl_context),
         nccl_op_context_(nccl_context, global_state, communicator_type),
         global_state_(global_state){};
@@ -80,11 +84,11 @@ protected:
   HorovodGlobalState* global_state_;
 };
 
-class NCCLBroadcast : public CUDABroadcast {
+class NCCLBroadcast : public GPUBroadcast {
 public:
-  NCCLBroadcast(NCCLContext* nccl_context, CUDAContext* cuda_context,
+  NCCLBroadcast(NCCLContext* nccl_context, GPUContext* gpu_context,
                 HorovodGlobalState* global_state)
-      : CUDABroadcast(cuda_context, global_state),
+      : GPUBroadcast(gpu_context, global_state),
         nccl_context_(nccl_context),
         nccl_op_context_(nccl_context, global_state, Communicator::GLOBAL),
         global_state_(global_state){};
@@ -102,9 +106,9 @@ protected:
 class NCCLHierarchicalAllreduce : public NCCLAllreduce {
 public:
   NCCLHierarchicalAllreduce(NCCLContext* nccl_context, MPIContext* mpi_context,
-                            CUDAContext* cuda_context,
+                            GPUContext* gpu_context,
                             HorovodGlobalState* global_state)
-      : NCCLAllreduce(nccl_context, cuda_context, global_state, Communicator::LOCAL),
+      : NCCLAllreduce(nccl_context, gpu_context, global_state, Communicator::LOCAL),
         mpi_context_(mpi_context){};
 
   Status Execute(std::vector<TensorTableEntry>& entries,
