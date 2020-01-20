@@ -56,6 +56,12 @@ LR = 1e-4
 # HDFS driver to use with Petastorm.
 PETASTORM_HDFS_DRIVER = 'libhdfs'
 
+# Whether to infer on GPU.
+GPU_INFERENCE_ENABLED = False
+
+# Cluster for GPU inference.
+GPU_INFERENCE_CLUSTER = 'local-cluster[2,1,1024]'  # or 'spark://hostname:7077'
+
 # ================ #
 # DATA PREPARATION #
 # ================ #
@@ -488,33 +494,36 @@ def train_fn(model_bytes):
             return history.history, f.read()
 
 
+def set_gpu_conf(conf):
+    # This config will change depending on your cluster setup.
+    #
+    # 1. Standalone Cluster
+    # - Must configure spark.worker.* configs as below.
+    #
+    # 2. YARN
+    # - Requires YARN 3.1 or higher to support GPUs
+    # - Cluster should be configured to have isolation on so that
+    #   multiple executors don’t see the same GPU on the same host.
+    # - If you don’t have isolation then you would require a different discovery script
+    #   or other way to make sure that 2 executors don’t try to use same GPU.
+    #
+    # 3. Kubernetes
+    # - Requires GPU support and isolation.
+    # - Add conf.set(“spark.executor.resource.gpu.discoveryScript”, DISCOVERY_SCRIPT)
+    # - Add conf.set(“spark.executor.resource.gpu.vendor”, “nvidia.com”)
+    conf = conf.set("spark.test.home", os.environ.get('SPARK_HOME'))
+    conf = conf.set("spark.worker.resource.gpu.discoveryScript", DISCOVERY_SCRIPT)
+    conf = conf.set("spark.worker.resource.gpu.amount", 1)
+    conf = conf.set("spark.task.resource.gpu.amount", "1")
+    conf = conf.set("spark.executor.resource.gpu.amount", "1")
+    return conf
+
+
 # Create Spark session for training.
 conf = SparkConf().setAppName('training')
 if TRAINING_CLUSTER:
     conf.setMaster(TRAINING_CLUSTER)
-
-# This config will change depending on your cluster setup.
-#
-# 1. Standalone Cluster
-# - Must configure spark.worker.* configs as below.
-#
-# 2. YARN
-# - Requires YARN 3.1 or higher to support GPUs
-# - Cluster should be configured to have isolation on so that
-#   multiple executors don’t see the same GPU on the same host.
-# - If you don’t have isolation then you would require a different discovery script
-#   or other way to make sure that 2 executors don’t try to use same GPU.
-#
-# 3. Kubernetes
-# - Requires GPU support and isolation.
-# - Add conf.set(“spark.executor.resource.gpu.discoveryScript”, DISCOVERY_SCRIPT)
-# - Add conf.set(“spark.executor.resource.gpu.vendor”, “nvidia”)
-conf = conf.set("spark.test.home", os.environ.get('SPARK_HOME'))
-conf = conf.set("spark.worker.resource.gpu.discoveryScript", DISCOVERY_SCRIPT)
-conf = conf.set("spark.worker.resource.gpu.amount", 1)
-conf = conf.set("spark.task.resource.gpu.amount", "1")
-conf = conf.set("spark.executor.resource.gpu.amount", "1")
-
+conf = set_gpu_conf(conf)
 spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
 # Horovod: run training.
@@ -543,8 +552,15 @@ print('================')
 conf = SparkConf().setAppName('prediction') \
     .setExecutorEnv('LD_LIBRARY_PATH', os.environ.get('LD_LIBRARY_PATH')) \
     .setExecutorEnv('PATH', os.environ.get('PATH'))
-if LIGHT_PROCESSING_CLUSTER:
-    conf.setMaster(LIGHT_PROCESSING_CLUSTER)
+
+if GPU_INFERENCE_ENABLED:
+    if GPU_INFERENCE_CLUSTER:
+        conf.setMaster(GPU_INFERENCE_CLUSTER)
+    conf = set_gpu_conf(conf)
+else:
+    if LIGHT_PROCESSING_CLUSTER:
+        conf.setMaster(LIGHT_PROCESSING_CLUSTER)
+
 spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
 
@@ -554,11 +570,18 @@ def predict_fn(model_bytes):
         import tensorflow as tf
         import tensorflow.keras.backend as K
 
-        # Do not use GPUs for prediction, use single CPU core per task.
-        config = tf.ConfigProto(device_count={'GPU': 0})
-        config.inter_op_parallelism_threads = 1
-        config.intra_op_parallelism_threads = 1
-        K.set_session(tf.Session(config=config))
+        if GPU_INFERENCE_ENABLED:
+            from pyspark import TaskContext
+            config = tf.ConfigProto()
+            config.gpu_options.allow_growth = True
+            config.gpu_options.visible_device_list = TaskContext.get().resources()['gpu'].addresses[0]
+            K.set_session(tf.Session(config=config))
+        else:
+            # Do not use GPUs for prediction, use single CPU core per task.
+            config = tf.ConfigProto(device_count={'GPU': 0})
+            config.inter_op_parallelism_threads = 1
+            config.intra_op_parallelism_threads = 1
+            K.set_session(tf.Session(config=config))
 
         # Restore from checkpoint.
         model = deserialize_model(model_bytes, tf.keras.models.load_model)
@@ -575,6 +598,7 @@ def predict_fn(model_bytes):
     return fn
 
 
+# Submit a Spark job to do inference. Horovod framework is not involved here.
 pred_df = spark.read.parquet('%s/test_df.parquet' % DATA_LOCATION) \
     .rdd.mapPartitions(predict_fn(best_model_bytes)).toDF()
 submission_df = pred_df.select(pred_df.Id.cast(T.IntegerType()), pred_df.Sales).toPandas()
