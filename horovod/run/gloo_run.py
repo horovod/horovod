@@ -170,7 +170,7 @@ def _create_exec_command(settings, env, local_host_names, run_command):
     return exec_command
 
 
-def get_run_command(command, common_intfs, port):
+def get_run_command(command, common_intfs, port, elastic=False):
     server_ip = network.get_driver_ip(common_intfs)
     iface = list(common_intfs)[0]
     run_command = (
@@ -180,11 +180,13 @@ def get_run_command(command, common_intfs, port):
         'HOROVOD_CPU_OPERATIONS=gloo '
         'HOROVOD_GLOO_IFACE={iface} '
         'NCCL_SOCKET_IFNAME={common_intfs} '
+        '{elastic} '
         '{command}'  # expect a lot of environment variables
         .format(addr=server_ip,
                 port=port,
                 iface=iface,  # TODO: add multiple ifaces in future
                 common_intfs=','.join(common_intfs),
+                elastic='HOROVOD_ELASTIC=1' if elastic else '',
                 command=' '.join(quote(par) for par in command)))
     return run_command
 
@@ -204,7 +206,7 @@ def gloo_run_elastic(settings, env, command, get_common_intfs):
     driver.wait_for_available_hosts(settings.num_proc)
 
     common_intfs, local_host_names = get_common_intfs(driver.get_available_hosts(), settings)
-    run_command = get_run_command(command, common_intfs, global_rendezv_port)
+    run_command = get_run_command(command, common_intfs, global_rendezv_port, elastic=True)
     exec_command = _create_exec_command(settings, env, local_host_names, run_command)
 
     driver.start(settings.num_proc, exec_command)
