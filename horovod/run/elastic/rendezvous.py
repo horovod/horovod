@@ -15,6 +15,8 @@
 
 from __future__ import absolute_import
 
+import logging
+
 from horovod.run.common.util import codec
 from horovod.run.http.http_server import RendezvousHandler
 
@@ -37,6 +39,7 @@ def create_rendezvous_handler(driver):
         def _get_rank_and_size(self, host, local_rank):
             driver.record_ready(host, local_rank)
             slot_info = driver.get_slot_info(host, local_rank)
+            logging.info('rank and size: {} {}'.format(slot_info.rank, slot_info.size))
             return slot_info.to_response_string()
 
         def _put_value(self, scope, key, value):
