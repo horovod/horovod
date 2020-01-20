@@ -15,6 +15,7 @@
 
 from __future__ import absolute_import
 
+import logging
 import os
 import threading
 
@@ -34,13 +35,14 @@ DISCOVER_HOSTS_FREQUENCY_SECS = 1.0
 
 
 class Workers(object):
-    def __init__(self, driver):
+    def __init__(self, driver, verbose=False):
         self._driver = driver
         self._lock = threading.Lock()
         self._states = {}
         self._workers = defaultdict(set)
         self._barrier = None
         self._rendezvous_id = 0
+        self._verbose = verbose
 
     def get(self, state):
         return self._workers[state]
@@ -50,6 +52,7 @@ class Workers(object):
 
     def reset(self, size):
         with self._lock:
+            logging.info('reset workers: {}'.format(size))
             self._states.clear()
             self._workers.clear()
             self._barrier = threading.Barrier(parties=size, action=self._action)
@@ -69,12 +72,15 @@ class Workers(object):
 
     def _record_state(self, host, slot, state):
         if self._driver.finished():
+            logging.info('driver finished, ignoring registration: {}[{}] = {}'.format(host, slot, state))
             return self._rendezvous_id
 
         key = (host, slot)
         with self._lock:
             if key in self._states:
+                logging.info('key exists, reset barrier: {}[{}] = {}'.format(host, slot, state))
                 self._barrier.reset()
+            logging.info('record state: {}[{}] = {}'.format(host, slot, state))
             self._states[key] = state
             self._workers[state].add(key)
             rendezvous_id = self._rendezvous_id
@@ -219,19 +225,25 @@ class ElasticDriver(object):
         self._workers.record_ready(host, slot)
 
     def on_workers_recorded(self):
+        logging.info('all workers recorded')
+
         # Check for success state, if any process succeeded, shutdown all other processes
         if self._workers.count(SUCCESS) > 0:
+            logging.info('success count == {} -> stop running'.format(self._workers.count(SUCCESS)))
             self.stop()
             return
 
         # Check that all processes failed, indicating that processing should stop
         if self._workers.count(FAILURE) == self._world_size:
+            logging.info('failure count == {} -> stop running'.format(self._world_size))
             self.stop()
             return
 
         # Check for failures, and add them to the blacklisted hosts list
         failures = self._workers.get(FAILURE)
         for host, slot in failures:
+            if host not in self._hosts:
+                logging.info('blacklist failing host: {}'.format(host))
             self._hosts[host].blacklist()
 
         self._activate_hosts(self._min_np)
@@ -249,10 +261,12 @@ class ElasticDriver(object):
         return list(self._available_hosts)
 
     def _activate_hosts(self, min_np):
+        logging.info('wait for available hosts: {}'.format(min_np))
         self.wait_for_available_hosts(min_np)
         new_assigned_hosts = self._update_assigned_hosts()
         self._workers.reset(self.world_size())
         for host in new_assigned_hosts:
+            logging.info('start worker processes: {}'.format(host))
             self._start_worker_processes(host)
 
     def _discover_hosts(self):
