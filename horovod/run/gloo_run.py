@@ -196,13 +196,13 @@ def gloo_run_elastic(settings, env, command, get_common_intfs):
     if settings.output_filename:
         _mkdir_p(settings.output_filename)
 
-    global_rendezv = RendezvousServer(settings.verbose)
-    driver = ElasticDriver(settings.discovery_script,
+    rendezvous = RendezvousServer(settings.verbose)
+    driver = ElasticDriver(rendezvous, settings.discovery_script,
                            settings.min_np, settings.max_np, settings.slots,
                            verbose=settings.verbose)
 
     handler = create_rendezvous_handler(driver)
-    global_rendezv_port = global_rendezv.start_server(handler)
+    global_rendezv_port = rendezvous.start_server(handler)
     driver.wait_for_available_hosts(settings.num_proc)
 
     common_intfs, local_host_names = get_common_intfs(driver.get_available_hosts(), settings)
