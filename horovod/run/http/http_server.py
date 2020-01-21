@@ -35,19 +35,16 @@ class KVStoreHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
     # Override GET handler
     def do_GET(self):
-        logging.info('do_GET')
         paths = self.path.split('/')
         if len(paths) < 3:
-            logging.warning(
+            logging.error(
                 'KVStore ERROR: Invalid request path: {path}.'.format(
                     path=self.path))
             self.send_status_code(BAD_REQUEST)
             return
 
         _, scope, key = paths
-        logging.info('GET {}/{}'.format(scope, key))
         value = self._get_value(scope, key)
-        logging.info('GET {}/{} value: {}'.format(scope, key, value))
 
         if value is None:
             self.send_status_code(404)
@@ -59,17 +56,15 @@ class KVStoreHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
     # Override PUT handler
     def do_PUT(self):
-        logging.info('do_PUT')
         paths = self.path.split('/')
         if len(paths) < 3:
-            print(
+            logging.error(
                 'KVStore ERROR: Invalid request path: {path}.'.format(
                     path=self.path))
             self.send_status_code(BAD_REQUEST)
             return
 
         _, scope, key = paths
-        logging.info('PUT {}/{}'.format(scope, key))
 
         # Get body length
         content_length = int(self.headers['Content-Length'])
@@ -88,7 +83,6 @@ class KVStoreHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
         self._put_value(scope, key, value)
         self.send_status_code(OK)
-        logging.info('PUT {}/{} done'.format(scope, key))
 
     def send_status_code(self, status_code):
         self.send_response(status_code)
