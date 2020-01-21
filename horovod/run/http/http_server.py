@@ -73,7 +73,7 @@ class KVStoreHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             value = self.rfile.read(content_length)
         except socket.timeout:
             if self.server.verbose:
-                print(
+                logging.error(
                     'KVStore ERROR: Timeout when receiving {content_bytes} '
                     'bytes, aborting this incomplete request.' .format(
                         content_bytes=content_length))
@@ -104,7 +104,7 @@ class KVStoreHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             scope_dict = self.server.cache.setdefault(scope, {})
             scope_dict[key] = value
             if self.server.verbose:
-                print(scope, self.server.cache[scope].keys())
+                logging.info(scope, self.server.cache[scope].keys())
 
 
 class RendezvousHandler(KVStoreHandler):
@@ -174,7 +174,7 @@ class RendezvousServer:
             lambda addr: RendezvousHTTPServer(
                 addr, handler_cls, self.verbose))
         if self.verbose:
-            print('Rendezvous INFO: HTTP rendezvous server started.')
+            logging.info('Rendezvous INFO: HTTP rendezvous server started.')
 
         # start the listening loop
         self.listen_thread = threading.Thread(target=self.httpd.serve_forever)
@@ -217,7 +217,7 @@ class KVStoreServer:
         self.listen_thread.start()
 
         if self.verbose:
-            print('KVStoreServer INFO: KVStore server started. Listen on port ' + str(port))
+            logging.info('KVStoreServer INFO: KVStore server started. Listen on port ' + str(port))
 
         return port
 
@@ -227,5 +227,5 @@ class KVStoreServer:
         self.httpd.server_close()
 
         if self.verbose:
-            print('KVStoreServer INFO: KVStore server finishes.')
+            logging.info('KVStoreServer INFO: KVStore server finishes.')
         # Because this thread is daemonized, no need to join.

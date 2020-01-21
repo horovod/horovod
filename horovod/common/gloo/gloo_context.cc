@@ -153,7 +153,7 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
   }
 
   bool elastic = GetBoolEnvOrDefault(HOROVOD_ELASTIC, false);
-  if (elastic) {
+  if (elastic && reset_) {
     std::string hostname = std::getenv(HOROVOD_HOSTNAME);
     std::string server_addr = rendezvous_addr_env;
     std::string scope = HOROVOD_GLOO_GET_RANK_AND_SIZE;
@@ -203,6 +203,7 @@ void GlooContext::Finalize() {
   ctx.reset();
   cross_ctx.reset();
   local_ctx.reset();
+  reset_ = true;
 }
 
 std::shared_ptr<gloo::Context>
