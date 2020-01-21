@@ -763,7 +763,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses,
     }
 
     response_list.add_response(response);
-    LOG(DEBUG) << "Created response of size " << tensor_size;
+    LOG(TRACE) << "Created response of size " << tensor_size;
   }
   return response_list;
 }
