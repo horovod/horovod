@@ -110,27 +110,6 @@ optimizer = optim.SGD(model.parameters(), lr=args.lr * lr_scaler,
 compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
 
 
-def train(state):
-    model.train()
-    # Horovod: set epoch to sampler for shuffling.
-    train_sampler.set_epoch(state.epoch)
-    for batch_idx, (data, target) in enumerate(train_loader):
-        if args.cuda:
-            data, target = data.cuda(), target.cuda()
-        optimizer.zero_grad()
-        output = model(data)
-        loss = F.nll_loss(output, target)
-        loss.backward()
-        optimizer.step()
-        if batch_idx % args.log_interval == 0:
-            # Horovod: use train_sampler to determine the number of examples in
-            # this worker's partition.
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                  state.epoch, batch_idx * len(data), len(train_sampler),
-                       100. * batch_idx / len(train_loader), loss.item()))
-        state.commit()
-
-
 def metric_average(val, name):
     tensor = torch.tensor(val)
     avg_tensor = hvd.allreduce(tensor, name=name)
@@ -167,11 +146,27 @@ def test():
 
 
 @hvd.elastic.run
-def train_loop(state):
+def train(state):
     # post synchronization event (worker added, worker removed) init ...
     for state.epoch in range(state.epoch, args.epochs + 1):
-        train(state)
-    test()
+        model.train()
+        # Horovod: set epoch to sampler for shuffling.
+        train_sampler.set_epoch(state.epoch)
+        for batch_idx, (data, target) in enumerate(train_loader):
+            if args.cuda:
+                data, target = data.cuda(), target.cuda()
+            optimizer.zero_grad()
+            output = model(data)
+            loss = F.nll_loss(output, target)
+            loss.backward()
+            optimizer.step()
+            if batch_idx % args.log_interval == 0:
+                # Horovod: use train_sampler to determine the number of examples in
+                # this worker's partition.
+                print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                    state.epoch, batch_idx * len(data), len(train_sampler),
+                                 100. * batch_idx / len(train_loader), loss.item()))
+            state.commit()
 
 
 # Horovod: wrap optimizer with DistributedOptimizer.
@@ -189,4 +184,5 @@ def on_state_reset():
 
 state = hvd.elastic.TorchState(model, optimizer, epoch=0, batch_idx=0)
 state.register_reset_callbacks([on_state_reset])
-train_loop(state)
+train(state)
+test()
