@@ -227,14 +227,15 @@ def gloo_run(settings, local_host_names, common_intfs, env, command):
         _mkdir_p(settings.output_filename)
 
     # start global rendezvous server and get port that it is listening on
-    global_rendezv = RendezvousServer(settings.verbose)
+    rendezvous = RendezvousServer(settings.verbose)
 
     # allocate processes into slots
     hosts = parse_hosts(settings.hosts)
     host_alloc_plan = get_host_assignments(hosts, settings.num_proc)
 
     # start global rendezvous server and get port that it is listening on
-    global_rendezv_port = global_rendezv.start_server()
+    global_rendezv_port = rendezvous.start_server()
+    rendezvous.httpd.extract_scope_size(host_alloc_plan)
     run_command = get_run_command(command, common_intfs, global_rendezv_port)
     exec_command = _create_exec_command(settings, env, local_host_names, run_command)
 
