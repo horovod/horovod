@@ -36,9 +36,12 @@ CUSTOM_SPARSE = constants.CUSTOM_SPARSE
 
 
 def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_idx):
+    # Utility functions
+    make_list_if_not_list = make_list_if_not_list_fn()
+
     # Estimator parameters
-    loss_fns_pre_train = estimator.getLoss()
-    loss_constructors = estimator.getLossConstructors()
+    loss_fns_pre_train = make_list_if_not_list(estimator.getLoss())
+    loss_constructors = make_list_if_not_list(estimator.getLossConstructors())
     gradient_compression = estimator.getGradientCompression()
     input_shapes = estimator.getInputShapes()
     feature_columns = estimator.getFeatureCols()
@@ -56,13 +59,12 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     train_minibatch = train_minibatch_fn if train_minibatch_fn else _train_minibatch_fn()
 
     # If loss weight is not provided, use equal loss for all the labels
-    label_columns = estimator.getLabelCols()
-    loss_weights = estimator.getLossWeights()
+    loss_weights = make_list_if_not_list(estimator.getLossWeights())
     if not loss_weights:
         num_labels = len(label_columns)
         loss_weights = [float(1) / num_labels for _ in range(num_labels)]
 
-    # Utility functions
+    # More utility functions
     deserialize = deserialize_fn()
     get_optimizer_with_unscaled_lr = _get_optimizer_with_unscaled_lr_fn()
     calculate_shuffle_buffer_size = _calculate_shuffle_buffer_size_fn()
@@ -548,3 +550,15 @@ def _calculate_loss_fn():
         return loss
 
     return calculate_loss
+
+
+def make_list_if_not_list_fn():
+    def _make_list_if_not_list(var):
+        if var is None:
+            return None
+
+        if not isinstance(var, list):
+            var = [var]
+        return var
+
+    return _make_list_if_not_list

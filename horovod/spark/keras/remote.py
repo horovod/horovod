@@ -35,6 +35,9 @@ BYTES_PER_GIB = constants.BYTES_PER_GIB
 
 
 def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
+    # Utility functions
+    make_list_if_not_list = make_list_if_not_list_fn()
+
     # Estimator parameters
     label_columns = estimator.getLabelCols()
     feature_columns = estimator.getFeatureCols()

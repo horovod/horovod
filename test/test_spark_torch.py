@@ -354,3 +354,20 @@ class SparkTorchTests(unittest.TestCase):
                     transformer = est.fit_on_parquet()
                     predictions = transformer.transform(df)
                     assert predictions.count() == df.count()
+
+    def test_make_list_if_not_list(self):
+        make_list_if_not_list = remote.make_list_if_not_list_fn()
+        none_output = make_list_if_not_list(None)
+        assert none_output is none_output
+
+        one_item_list = make_list_if_not_list('one_item')
+        assert one_item_list == ['one_item']
+
+        one_item_list = ['one_item']
+        one_item_list_ouput = make_list_if_not_list(['one_item'])
+        assert one_item_list_ouput == one_item_list
+
+        two_item_list = ['item1', 'item2']
+        two_item_list_output = make_list_if_not_list(['item1', 'item2'])
+        assert two_item_list_output == two_item_list
+
