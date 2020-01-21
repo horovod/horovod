@@ -37,10 +37,11 @@ def create_rendezvous_handler(driver):
             return super(RendezvousHandler, self)._get_value(scope, key)
 
         def _get_rank_and_size(self, host, local_rank):
+            logging.info('_get_rank_and_size: {} {}'.format(host, local_rank))
             driver.record_ready(host, local_rank)
             slot_info = driver.get_slot_info(host, local_rank)
             logging.info('rank and size: {} {}'.format(slot_info.rank, slot_info.size))
-            return slot_info.to_response_string()
+            return slot_info.to_response_string().encode('ascii')
 
         def _put_value(self, scope, key, value):
             if scope == PUT_WORKER_ADDRESSES:
