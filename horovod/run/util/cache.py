@@ -27,7 +27,9 @@ class Cache(object):
 
     def __init__(self, cache_folder, cache_staleness_threshold_in_minutes,
                  parameters_hash):
-
+        # Protocol version 0 is the original "human-readable" protocol and is
+        # compatible with earlier python 2 and 3.
+        self._pickle_protocol = 0
         self._cache_file = os.path.join(cache_folder, 'cache.bin')
         try:
             # If folder exists, does not do anything.
@@ -36,19 +38,11 @@ class Cache(object):
             if e.errno != errno.EEXIST:
                 raise
 
-        if not os.path.isfile(self._cache_file):
-            with open(self._cache_file, 'wb') as cf:
-                cloudpickle.dump({'parameters_hash': parameters_hash}, cf)
+        if not os.path.isfile(self._cache_file) or \
+                self._cache_file_is_corrupt_and_deleted():
+            self._dump({'parameters_hash': parameters_hash})
 
-        with open(self._cache_file, 'rb') as cf:
-            try:
-                content = cloudpickle.load(cf)
-            except Exception as e:
-                print(
-                    'There is an error with reading cache file. You '
-                    'can delete the corrupt file: {cache_file}.'.format(
-                        cache_file=self._cache_file))
-                raise
+        content = self._load(self._cache_file)
 
         if content.get('parameters_hash', None) == parameters_hash:
             # If previous cache was for the same set of parameters, use it.
@@ -75,10 +69,33 @@ class Cache(object):
         self._lock.acquire()
         self._content[key] = (datetime.datetime.now(), val)
         try:
-            with open(self._cache_file, 'wb') as cf:
-                cloudpickle.dump(self._content, cf)
+            self._dump(self._cache_file)
         finally:
             self._lock.release()
+
+    def _dump(self, content):
+        with open(self._cache_file, 'wb') as cf:
+            cloudpickle.dump(content, cf, protocol=self._pickle_protocol)
+
+    def _load(self, cache_file):
+        with open(cache_file, 'rb') as cf:
+            try:
+                content = cloudpickle.load(cf)
+            except Exception as e:
+                print(
+                    'There is an error with reading cache file. You '
+                    'can delete the corrupt file: {cache_file}.'.format(
+                        cache_file=cache_file))
+                raise
+        return content
+
+    def _cache_file_is_corrupt_and_deleted(self):
+        try:
+            _ = self._load(self._cache_file)
+            return False
+        except Exception as e:
+            os.remove(self._cache_file)
+            return True
 
 
 def use_cache():
