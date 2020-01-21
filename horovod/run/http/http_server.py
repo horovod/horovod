@@ -13,6 +13,7 @@
 # limitations under the License.
 # =============================================================================
 
+import collections
 import logging
 import threading
 import socket
@@ -111,7 +112,7 @@ class RendezvousHandler(KVStoreHandler):
     def do_DELETE(self):
         paths = self.path.split('/')
         if len(paths) < 3:
-            print(
+            logging.error(
                 'Rendezvous ERROR: Invalid request path: {path}.'.format(
                     path=self.path))
             self.send_status_code(BAD_REQUEST)
@@ -119,10 +120,11 @@ class RendezvousHandler(KVStoreHandler):
 
         _, scope, key = paths
 
-        with self.server.cache_lock:
-            scope_dict = self.server.cache.get(scope, {})
-            if key in scope_dict:
-                del scope_dict[key]
+        with self.server.finished_list_lock:
+            self.server.finished_list[scope].append(key)
+            if self.server.scope_size[scope] == len(self.server.finished_list[scope]):
+                with self.server.cache_lock:
+                    self.server.cache.get(scope, {}).clear()
 
         self.send_status_code(OK)
 
@@ -139,6 +141,22 @@ class RendezvousHTTPServer(socketserver.ThreadingMixIn, BaseHTTPServer.HTTPServe
 
         self.verbose = verbose
 
+        # Lists for finished rendezvous workers
+        self.finished_list_lock = threading.Lock()
+        self.finished_list = collections.defaultdict(list)
+
+        # Total size for scopes
+        self.scope_size = {}
+
+    def extract_scope_size(self, host_alloc_plan):
+        self.scope_size.clear()
+        for slot_info in host_alloc_plan:
+            self.scope_size['global_'] = slot_info.size
+            cross_rank = slot_info.cross_rank
+            self.scope_size['local_' + str(cross_rank)] = slot_info.local_size
+            local_rank = slot_info.local_rank
+            self.scope_size['cross_' + str(local_rank)] = slot_info.cross_size
+
     def should_continue(self):
         return True
 
@@ -151,10 +169,11 @@ class RendezvousServer:
 
     # Rendezvous function finds a available port, create http socket,
     # and start listening loop to handle request
-    def start_server(self, handler_cls=RendezvousHandler):
+    def start_server(self, host_alloc_plan, handler_cls=RendezvousHandler):
         self.httpd, port = find_port(
             lambda addr: RendezvousHTTPServer(
                 addr, handler_cls, self.verbose))
+        self.httpd.extract_scope_size(host_alloc_plan)
         if self.verbose:
             print('Rendezvous INFO: HTTP rendezvous server started.')
 

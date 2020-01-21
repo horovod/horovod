@@ -161,7 +161,8 @@ class Results(object):
 
 
 class ElasticDriver(object):
-    def __init__(self, discovery_script, min_np, max_np, slots, start_timeout=None, verbose=0):
+    def __init__(self, rendezvous, discovery_script, min_np, max_np, slots, start_timeout=None, verbose=0):
+        self._rendezvous_server = rendezvous.httpd
         self._discovery_script = discovery_script
         self._min_np = min_np
         self._max_np = max_np
@@ -336,6 +337,7 @@ class ElasticDriver(object):
             host_assignments[slot_info.hostname].append(slot_info)
         self._host_assignments = host_assignments
         self._world_size = len(host_assignments_list)
+        self._rendezvous_server.extract_scope_size(host_assignments_list)
 
     def _count_available_slots(self):
         return sum([self._get_slots(host) for host in self._available_hosts])
