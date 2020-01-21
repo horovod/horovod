@@ -27,6 +27,8 @@ class Cache(object):
 
     def __init__(self, cache_folder, cache_staleness_threshold_in_minutes,
                  parameters_hash):
+        # Protocol version 0 is the original "human-readable" protocol and is
+        # compatible with earlier python 2 and 3.
         self._pickle_protocol = 0
         self._cache_file = os.path.join(cache_folder, 'cache.bin')
         try:
