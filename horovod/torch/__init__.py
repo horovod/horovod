@@ -105,6 +105,17 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         if size() > 1:
             self._register_hooks()
 
+    def load_state_dict(self, *args, **kwargs):
+        self._handles = {}
+        self._grad_accs = []
+        self._requires_update = set()
+        self._synchronized = False
+        self._should_synchronize = True
+        for p in self._allreduce_delay:
+            self._allreduce_delay[p] = self.backward_passes_per_step
+
+        return super(self.__class__, self).load_state_dict(*args, **kwargs)
+
     @staticmethod
     def find_duplicates(lst):
         seen = set()
