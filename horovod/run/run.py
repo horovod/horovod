@@ -877,6 +877,7 @@ def _run_elastic(args):
                          'installed and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
 
     env = os.environ.copy()
+    config_parser.set_env_from_args(env, args)
     gloo_run_elastic(settings, env, args.command, get_common_intfs)
 
 
