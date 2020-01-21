@@ -154,6 +154,7 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
 
   bool elastic = GetBoolEnvOrDefault(HOROVOD_ELASTIC, false);
   if (elastic && reset_) {
+    LOG(DEBUG) << "elastic mode reinitialization started, reset rank=" << rank << " size=" << size;
     std::string hostname = std::getenv(HOROVOD_HOSTNAME);
     std::string server_addr = rendezvous_addr_env;
     std::string scope = HOROVOD_GLOO_GET_RANK_AND_SIZE;
@@ -177,6 +178,7 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
     SetEnv(HOROVOD_LOCAL_SIZE, std::to_string(local_size).c_str());
     SetEnv(HOROVOD_CROSS_RANK, std::to_string(cross_rank).c_str());
     SetEnv(HOROVOD_CROSS_SIZE, std::to_string(cross_size).c_str());
+    LOG(DEBUG) << "elastic mode reinitialization complete, updated rank=" << rank << " size=" << size;
   }
 
   ctx = Rendezvous(HOROVOD_GLOO_GLOBAL_PREFIX,
