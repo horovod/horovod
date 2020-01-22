@@ -587,3 +587,12 @@ def get_dataset_properties(dataset_idx):
 
 def clear_training_cache():
     _training_cache.clear()
+
+
+def to_list(var):
+    if var is None:
+        return None
+
+    if not isinstance(var, list):
+        var = [var]
+    return var
