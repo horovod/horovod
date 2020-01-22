@@ -25,8 +25,8 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from horovod.spark.common import constants
-from horovod.spark.torch.util import deserialize_fn
 from horovod.spark.common.util import to_list
+from horovod.spark.torch.util import deserialize_fn
 
 PETASTORM_HDFS_DRIVER = constants.PETASTORM_HDFS_DRIVER
 METRIC_PRINT_FREQUENCY = constants.METRIC_PRINT_FREQUENCY
