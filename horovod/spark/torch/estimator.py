@@ -164,15 +164,6 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         if EstimatorParams.loss.name in kwargs and TorchEstimator.loss_constructors.name in kwargs:
             raise ValueError("only one of loss_constructors and loss parameters can be specified.")
 
-        if EstimatorParams.loss.name in kwargs and not \
-                (isinstance(loss, list) or isinstance(loss, tuple)):
-            kwargs[EstimatorParams.loss.name] = [kwargs[EstimatorParams.loss.name]]
-
-        if TorchEstimator.loss_constructors.name in kwargs and not \
-                (isinstance(loss_constructors, list) or isinstance(loss_constructors, tuple)):
-            kwargs[TorchEstimator.loss_constructors.name] = [
-                kwargs[TorchEstimator.loss_constructors.name]]
-
         self.setParams(**kwargs)
 
     def setTrainMinibatchFn(self, value):
