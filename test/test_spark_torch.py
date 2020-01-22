@@ -343,13 +343,15 @@ class SparkTorchTests(unittest.TestCase):
                         store=store,
                         model=model,
                         optimizer=optimizer,
-                        loss=loss,
                         input_shapes=[[2]],
                         feature_cols=['features'],
                         label_cols=['y'],
                         batch_size=1,
                         epochs=3,
                         verbose=2)
+
+                    # To make sure that setLoss works with non-list loss.
+                    est.setLoss(loss)
 
                     transformer = est.fit_on_parquet()
                     predictions = transformer.transform(df)
