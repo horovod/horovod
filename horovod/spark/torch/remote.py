@@ -61,7 +61,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
         num_labels = len(label_columns)
         loss_weights = [float(1) / num_labels for _ in range(num_labels)]
 
-    # Utility function
+    # Utility functions
     deserialize = deserialize_fn()
     get_optimizer_with_unscaled_lr = _get_optimizer_with_unscaled_lr_fn()
     calculate_shuffle_buffer_size = _calculate_shuffle_buffer_size_fn()
