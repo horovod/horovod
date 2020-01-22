@@ -774,7 +774,7 @@ class SparkTests(unittest.TestCase):
             self.assertListEqual([(['0'], 0), (['1'], 1)], res)
 
 
-    def test_make_list_if_not_list(self):
+    def test_to_list(self):
         none_output = util.to_list(None)
         assert none_output is none_output
 
