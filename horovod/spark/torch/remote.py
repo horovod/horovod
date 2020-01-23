@@ -41,6 +41,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     input_shapes = estimator.getInputShapes()
     feature_columns = estimator.getFeatureCols()
     label_columns = estimator.getLabelCols()
+    num_labels = len(label_columns)
     should_validate = estimator.getValidation()
     batch_size = estimator.getBatchSize()
     epochs = estimator.getEpochs()
@@ -52,15 +53,12 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     user_verbose = estimator.getVerbose()
     train_minibatch_fn = estimator.getTrainMinibatchFn()
     train_minibatch = train_minibatch_fn if train_minibatch_fn else _train_minibatch_fn()
-    loss_fns_pre_train = to_list(estimator.getLoss(),
-                                 len(label_columns))
-    loss_constructors = to_list(estimator.getLossConstructors(),
-                                len(label_columns))
+    loss_fns_pre_train = to_list(estimator.getLoss(), num_labels)
+    loss_constructors = to_list(estimator.getLossConstructors(), num_labels)
 
     # If loss weight is not provided, use equal loss for all the labels
     loss_weights = estimator.getLossWeights()
     if not loss_weights:
-        num_labels = len(label_columns)
         loss_weights = [float(1) / num_labels for _ in range(num_labels)]
     else:
         if not isinstance(loss_weights, list) or \
