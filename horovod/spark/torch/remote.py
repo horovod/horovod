@@ -58,7 +58,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                                 len(label_columns))
 
     # If loss weight is not provided, use equal loss for all the labels
-    loss_weights = to_list(estimator.getLossWeights())
+    loss_weights = estimator.getLossWeights()
     if not loss_weights:
         num_labels = len(label_columns)
         loss_weights = [float(1) / num_labels for _ in range(num_labels)]
