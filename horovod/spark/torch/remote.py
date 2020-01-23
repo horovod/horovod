@@ -64,7 +64,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
         loss_weights = [float(1) / num_labels for _ in range(num_labels)]
     else:
         if not isinstance(loss_weights, list) or \
-                len(loss_weights) != len(feature_columns):
+                len(loss_weights) != len(label_columns):
             raise ValueError('loss_weights needs to be a list with the same '
                              'length as the label_columns.')
 
