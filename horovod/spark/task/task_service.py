@@ -13,7 +13,21 @@
 # limitations under the License.
 # ==============================================================================
 
+from distutils.version import LooseVersion
+
+import pyspark
+
 from horovod.run.common.service import task_service
+
+
+class ResourcesRequest(object):
+    """Request Spark resources info for this task."""
+
+
+class ResourcesResponse(object):
+    def __init__(self, resources):
+        self.resources = resources
+        """Dictionary containing resource info."""
 
 
 class SparkTaskService(task_service.BasicTaskService):
@@ -25,6 +39,18 @@ class SparkTaskService(task_service.BasicTaskService):
                                                key, nic,
                                                SparkTaskService.SERVICE_ENV_KEYS)
 
+    def _handle(self, req, client_address):
+        if isinstance(req, ResourcesRequest):
+            return ResourcesResponse(self._get_resources())
+
+        return super(SparkTaskService, self)._handle(req, client_address)
+
+    def _get_resources(self):
+        if LooseVersion(pyspark.__version__) >= LooseVersion('3.0.0'):
+            from pyspark import TaskContext
+            return TaskContext.get().resources()
+        return dict()
+
 
 class SparkTaskClient(task_service.BasicTaskClient):
 
@@ -32,3 +58,7 @@ class SparkTaskClient(task_service.BasicTaskClient):
         super(SparkTaskClient, self).__init__(SparkTaskService.NAME_FORMAT % index,
                                               task_addresses, key, verbose,
                                               match_intf=match_intf)
+
+    def resources(self):
+        resp = self._send(ResourcesRequest())
+        return resp.resources

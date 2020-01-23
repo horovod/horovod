@@ -153,6 +153,7 @@ inline const char * const *EnumNamesResponseType() {
     "ALLGATHER",
     "BROADCAST",
     "JOIN",
+    "ADASUM",
     "ERROR",
     nullptr
   };

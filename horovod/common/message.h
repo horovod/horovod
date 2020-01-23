@@ -35,10 +35,11 @@ enum DataType {
   HOROVOD_FLOAT32 = 7,
   HOROVOD_FLOAT64 = 8,
   HOROVOD_BOOL = 9,
-  HOROVOD_BYTE = 10,
 };
 
 const std::string& DataType_Name(DataType value);
+
+std::size_t DataType_Size(DataType value);
 
 // A Request is a message sent from a rank greater than zero to the
 // coordinator (rank zero), informing the coordinator of an operation that

@@ -53,8 +53,6 @@ MPI_Datatype MPIContext::GetMPIDataType(const DataType dtype) {
     return MPI_DOUBLE;
   case HOROVOD_BOOL:
     return MPI_C_BOOL;
-  case HOROVOD_BYTE:
-    return MPI_BYTE;
   default:
     throw std::logic_error("Type " + DataType_Name(dtype) +
                            " is not supported in MPI mode.");

@@ -119,27 +119,10 @@ int TensorUtil::GetDevice(NDArray* tensor) {
   return CPU_DEVICE_ID;
 }
 
-// Returns pointer to newly created NDArray
-// If dev_id equal to CPU_DEVICE_ID, construct Tensor on CPU
-// Otherwise construct on GPU
-NDArray* TensorUtil::New(int device, int dtype) {
-  int dev_type = gpu::kDevMask;
-  if (device == CPU_DEVICE_ID) {
-    dev_type = cpu::kDevMask;
-    device = 0;
-  }
-  NDArrayHandle array;
-  MXNDArrayCreateEx(nullptr, 0, dev_type, device, false, dtype, &array);
-  return static_cast<NDArray*>(array);
-}
-
-void TensorUtil::Free(NDArray* tensor) { delete tensor; }
-
-// Resize tensor to nDimension with length size[i] in dimension i
-void TensorUtil::ResizeNd(NDArray* tensor, int nDimension, int64_t* size) {
-  void* temp_out;
-  MXNDArrayReshape64(tensor, nDimension, size, false, &temp_out);
-  tensor = static_cast<NDArray*>(temp_out);
+// Resize tensor to ndim with length dims[i] in dimension i
+void TensorUtil::ResizeNd(NDArray *tensor, int ndim, int64_t* dims) {
+  TShape shape(dims, dims + ndim);
+  tensor->ReshapeAndAlloc(shape);
 }
 
 // Copy from tensor to output

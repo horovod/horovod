@@ -27,6 +27,7 @@ class ThreadPool {
   public:
     ~ThreadPool();
     void create(int num_threads);
+    void reset();
     void execute(std::function<void(void)> f);
 
   private:

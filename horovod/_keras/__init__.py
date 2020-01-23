@@ -20,17 +20,14 @@ import tensorflow as tf
 def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sparse,
                                  compression, sparse_as_dense):
     class _DistributedOptimizer(keras.optimizers.Optimizer):
-        def __init__(self, name, device_dense, device_sparse, compression, sparse_as_dense,
-                     config):
-            if name is None:
-                name = "Distributed%s" % self.__class__.__base__.__name__
-            self._name = name
+        def __init__(self, **kwargs):
+            self._name = name or "Distributed%s" % self.__class__.__base__.__name__
             self._device_dense = device_dense
             self._device_sparse = device_sparse
             self._compression = compression
             self._sparse_as_dense = sparse_as_dense
             self._get_gradients_used = False
-            super(self.__class__, self).__init__(**config)
+            super(self.__class__, self).__init__(**kwargs)
 
         def get_gradients(self, loss, params):
             """
@@ -64,15 +61,11 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
 
         def apply_gradients(self, *args, **kwargs):
             if not self._get_gradients_used:
-                  raise Exception('`apply_gradients()` was called without a call to '
-                                  '`get_gradients()`. If you\'re using TensorFlow 2.0, '
-                                  'please specify `experimental_run_tf_function=False` in '
-                                  '`compile()`.')
+                raise Exception('`apply_gradients()` was called without a call to '
+                                '`get_gradients()`. If you\'re using TensorFlow 2.0, '
+                                'please specify `experimental_run_tf_function=False` in '
+                                '`compile()`.')
             return super(self.__class__, self).apply_gradients(*args, **kwargs)
-
-        @classmethod
-        def from_config(cls, cfg):
-            return cls(name, device_dense, device_sparse, compression, sparse_as_dense, cfg)
 
     # We dynamically create a new class that inherits from the optimizer that was passed in.
     # The goal is to override get_gradients() method with an allreduce implementation.
@@ -80,8 +73,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
     # model could be easily restored without Horovod.
     cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
                dict(_DistributedOptimizer.__dict__))
-    return cls(name, device_dense, device_sparse, compression, sparse_as_dense,
-               optimizer.get_config())
+    return cls.from_config(optimizer.get_config())
 
 
 def _eval(backend, op_or_result):

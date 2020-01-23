@@ -17,18 +17,21 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import horovod.mxnet as hvd
-import itertools
-import mxnet as mx
 import os
+import itertools
 import unittest
+import numpy as np
+import mxnet as mx
+
 from mxnet.base import MXNetError
 from mxnet.test_utils import same
 
+import horovod.mxnet as hvd
 
 has_gpu = mx.context.num_gpus() > 0
 
 ccl_supported_types = set(['int32', 'int64', 'float32', 'float64'])
+
 
 class MXTests(unittest.TestCase):
     """
@@ -257,6 +260,25 @@ class MXTests(unittest.TestCase):
         except (MXNetError, RuntimeError):
             pass
 
+
+    def test_horovod_allreduce_ndarray_lifetime(self):
+        """Test that the input NDArray remains valid during async allreduce"""
+        hvd.init()
+        rank = hvd.rank()
+        size = hvd.size()
+
+        dims = [1, 2, 3]
+        ctx = self._current_context()
+        count = 0
+        shapes = [(), (17), (17, 17), (17, 17, 17)]
+        for i, dim in enumerate(dims):
+            tensor = mx.nd.ones(shape=shapes[dim], ctx=ctx)
+            # tensor*(i+1) result will be destroyed immediately after this call
+            # See https://github.com/horovod/horovod/issues/1533
+            sum = hvd.allreduce(tensor * (i + 1), average=False)
+            expected = tensor * (i + 1) * size
+            assert same(sum.asnumpy(), expected.asnumpy())
+
     def test_horovod_broadcast(self):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
         hvd.init()
@@ -479,6 +501,83 @@ class MXTests(unittest.TestCase):
         for tensor, root_tensor in zip(tensors, root_tensors):
             assert same(tensor.asnumpy(), root_tensor.asnumpy()), \
                 'horovod did not broadcast deferred initialized parameter correctly'
+
+    @unittest.skipUnless(has_gpu, "no gpu detected")
+    def test_gluon_trainer(self):
+        """Test using horovod allreduce in MXNet Gluon trainer."""
+        from mxnet import gluon
+        from mxnet.gluon import Block, nn, HybridBlock
+
+        hvd.init()
+        rank = hvd.rank()
+        np.random.seed(1000 + 10 * rank)
+        mx.random.seed(1000 + 10 * rank)
+        ctx = mx.gpu(rank)
+
+        def gen_random_dataset(batch_size=64, dim=32, min_len=20, max_len=100,
+                               size=1000):
+            for _ in range(size):
+                length = np.random.randint(min_len, max_len + 1)
+                rand_src = mx.nd.random.normal(0, 1, (length, dim))
+                rand_dst = mx.nd.random.normal(0, 1, (length, dim))
+                yield rand_src, rand_dst
+
+        class SimpleNet(HybridBlock):
+            def __init__(self, layer_num=6, **kwargs):
+                super(SimpleNet, self).__init__(**kwargs)
+                self._layer_num = layer_num
+                with self.name_scope():
+                    self.ln_l = nn.HybridSequential()
+                    self.dense_l = nn.HybridSequential()
+                    for i in range(layer_num):
+                        self.dense_l.add(nn.Dense(units=32 + layer_num - 1 - i,
+                            flatten=False))
+                        self.ln_l.add(nn.LayerNorm())
+
+            def hybrid_forward(self, F, data):
+                """
+
+                Parameters
+                ----------
+                data :
+                    Shape (batch_size, seq_len, fea_dim)
+
+                Returns
+                -------
+                out :
+                    Shape (batch_size, seq_len, fea_dim)
+                """
+                for i in range(self._layer_num):
+                   data = self.ln_l[i](data)
+                   data = self.dense_l[i](data)
+                return data
+
+        net = SimpleNet()
+        net.initialize(ctx=ctx)
+        net.hybridize(static_alloc=True)
+
+        params = net.collect_params()
+        cnt = 0
+        lr = 1E-4
+        trainer = gluon.Trainer(params, 'adam', {'learning_rate': lr},
+            update_on_kvstore=False)
+
+        data_gen = gen_random_dataset()
+        for (src_data, dst_data) in data_gen:
+            src_data = src_data.as_in_context(ctx).astype(np.float32)
+            dst_data = dst_data.as_in_context(ctx).astype(np.float32)
+            with mx.autograd.record():
+                pred = net(src_data)
+                loss = mx.nd.abs(pred - dst_data).mean()
+                loss.backward()
+            # Begin to update the parameter
+            trainer.step(1.0)
+            cnt += 1
+            l = loss.asscalar()
+            if cnt >= 10:
+                for key, param in params.items():
+                    hvd.allreduce_(param.list_data()[0])
+                cnt = 0
 
 
 if __name__ == '__main__':

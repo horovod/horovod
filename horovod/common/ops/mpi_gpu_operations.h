@@ -14,19 +14,19 @@
 // limitations under the License.
 // =============================================================================
 
-#ifndef HOROVOD_MPI_CUDA_OPERATIONS_H
-#define HOROVOD_MPI_CUDA_OPERATIONS_H
+#ifndef HOROVOD_MPI_GPU_OPERATIONS_H
+#define HOROVOD_MPI_GPU_OPERATIONS_H
 
-#include "cuda_operations.h"
+#include "gpu_operations.h"
 #include "../mpi/mpi_context.h"
 
 namespace horovod {
 namespace common {
 
-class MPI_CUDAAllreduce : public CUDAAllreduce {
+class MPI_GPUAllreduce : public GPUAllreduce {
 public:
-  MPI_CUDAAllreduce(MPIContext* mpi_context, CUDAContext* cuda_context, HorovodGlobalState* global_state);
-  virtual ~MPI_CUDAAllreduce()=default;
+  MPI_GPUAllreduce(MPIContext* mpi_context, GPUContext* gpu_context, HorovodGlobalState* global_state);
+  virtual ~MPI_GPUAllreduce()=default;
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
@@ -34,10 +34,10 @@ protected:
   MPIContext* mpi_context_;
 };
 
-class MPI_CUDAAllgather : public CUDAAllgather {
+class MPI_GPUAllgather : public GPUAllgather {
 public:
-  MPI_CUDAAllgather(MPIContext* mpi_context, CUDAContext* cuda_context, HorovodGlobalState* global_state);
-  virtual ~MPI_CUDAAllgather()=default;
+  MPI_GPUAllgather(MPIContext* mpi_context, GPUContext* gpu_context, HorovodGlobalState* global_state);
+  virtual ~MPI_GPUAllgather()=default;
 
   Status Execute(std::vector<TensorTableEntry>& entries, const Response& response) override;
 
@@ -48,4 +48,4 @@ protected:
 } // namespace common
 } // namespace horovod
 
-#endif //HOROVOD_MPI_CUDA_OPERATIONS_H
+#endif //HOROVOD_MPI_GPU_OPERATIONS_H

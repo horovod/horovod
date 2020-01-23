@@ -798,8 +798,8 @@ class MPITests(tf.test.TestCase):
                             "error: %s" %
                             (grad_out, expected, str(err)))
 
-    def test_horovod_broadcast(self):
-        """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors."""
+    def test_horovod_broadcast_cpu(self):
+        """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors on CPU."""
         hvd.init()
         rank = hvd.rank()
         size = hvd.size()
@@ -814,14 +814,54 @@ class MPITests(tf.test.TestCase):
         dims = [1, 2, 3]
         root_ranks = list(range(size))
         for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
-            tensor = tf.ones([17] * dim) * rank
-            root_tensor = tf.ones([17] * dim) * root_rank
-            if dtype == tf.bool:
-                tensor = tensor % 2
-                root_tensor = root_tensor % 2
-            tensor = tf.cast(tensor, dtype=dtype)
-            root_tensor = tf.cast(root_tensor, dtype=dtype)
-            broadcasted_tensor = hvd.broadcast(tensor, root_rank)
+            with tf.device("/cpu:0"):
+                tensor = tf.ones([17] * dim) * rank
+                root_tensor = tf.ones([17] * dim) * root_rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                    root_tensor = root_tensor % 2
+                tensor = tf.cast(tensor, dtype=dtype)
+                root_tensor = tf.cast(root_tensor, dtype=dtype)
+                broadcasted_tensor = hvd.broadcast(tensor, root_rank)
+            self.assertTrue(
+                self.evaluate(tf.reduce_all(tf.equal(
+                    tf.cast(root_tensor, tf.int32), tf.cast(broadcasted_tensor, tf.int32)))),
+                "hvd.broadcast produces incorrect broadcasted tensor")
+
+    def test_horovod_broadcast_gpu(self):
+        """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors on GPU."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            return
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_BROADCAST.
+            return
+
+        hvd.init()
+        rank = hvd.rank()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        # This test does not apply if there is only one worker.
+        if size == 1:
+            return
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64, tf.bool]
+        dims = [1, 2, 3]
+        root_ranks = list(range(size))
+        for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
+            with tf.device("/gpu:%d" % local_rank):
+                tensor = tf.ones([17] * dim) * rank
+                root_tensor = tf.ones([17] * dim) * root_rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                    root_tensor = root_tensor % 2
+                tensor = tf.cast(tensor, dtype=dtype)
+                root_tensor = tf.cast(root_tensor, dtype=dtype)
+                broadcasted_tensor = hvd.broadcast(tensor, root_rank)
             self.assertTrue(
                 self.evaluate(tf.reduce_all(tf.equal(
                     tf.cast(root_tensor, tf.int32), tf.cast(broadcasted_tensor, tf.int32)))),
@@ -892,26 +932,24 @@ class MPITests(tf.test.TestCase):
         dims = [1, 2, 3]
         root_ranks = list(range(size))
         for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
-            if _executing_eagerly():
-                tensor = self.tfe.Variable(tf.ones([5] * dim) * rank)
-            else:
-                tensor = tf.ones([5] * dim) * rank
-            if dtype == tf.bool:
-                tensor = tensor % 2
-            if _executing_eagerly():
-                with tf.GradientTape() as tape:
+            with tf.device("/cpu:0"):
+                if _executing_eagerly():
+                    tensor = self.tfe.Variable(tf.ones([5] * dim) * rank)
+                else:
+                    tensor = tf.ones([5] * dim) * rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                if _executing_eagerly():
+                    with tf.GradientTape() as tape:
+                        tensor = tf.cast(tensor, dtype=dtype)
+                        broadcasted_tensor = hvd.broadcast(tensor, root_rank)
+                    grad_out = tape.gradient(broadcasted_tensor, tensor)
+                else:
                     tensor = tf.cast(tensor, dtype=dtype)
                     broadcasted_tensor = hvd.broadcast(tensor, root_rank)
-                with tf.device("/cpu:0"):
-                    grad_out = tape.gradient(broadcasted_tensor, tensor)
-            else:
-                tensor = tf.cast(tensor, dtype=dtype)
-                broadcasted_tensor = hvd.broadcast(tensor, root_rank)
-
-                grad_ys = tf.ones([5] * dim)
-                with tf.device("/cpu:0"):
+                    grad_ys = tf.ones([5] * dim)
                     grad = tf.gradients(broadcasted_tensor, tensor, grad_ys)[0]
-                grad_out = self.evaluate(grad)
+                    grad_out = self.evaluate(grad)
 
             c = size if rank == root_rank else 0
             expected = np.ones([5] * dim) * c
@@ -945,26 +983,24 @@ class MPITests(tf.test.TestCase):
         dims = [1, 2, 3]
         root_ranks = list(range(size))
         for dtype, dim, root_rank in itertools.product(dtypes, dims, root_ranks):
-            if _executing_eagerly():
-                tensor = self.tfe.Variable(tf.ones([5] * dim) * rank)
-            else:
-                tensor = tf.ones([5] * dim) * rank
-            if dtype == tf.bool:
-                tensor = tensor % 2
-            if _executing_eagerly():
-                with tf.GradientTape() as tape:
+            with tf.device("/gpu:%d" % local_rank):
+                if _executing_eagerly():
+                    tensor = self.tfe.Variable(tf.ones([5] * dim) * rank)
+                else:
+                    tensor = tf.ones([5] * dim) * rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                if _executing_eagerly():
+                    with tf.GradientTape() as tape:
+                        tensor = tf.cast(tensor, dtype=dtype)
+                        broadcasted_tensor = hvd.broadcast(tensor, root_rank)
+                    grad_out = tape.gradient(broadcasted_tensor, tensor)
+                else:
                     tensor = tf.cast(tensor, dtype=dtype)
                     broadcasted_tensor = hvd.broadcast(tensor, root_rank)
-                with tf.device("/gpu:%d" % local_rank):
-                    grad_out = tape.gradient(broadcasted_tensor, tensor)
-            else:
-                tensor = tf.cast(tensor, dtype=dtype)
-                broadcasted_tensor = hvd.broadcast(tensor, root_rank)
-
-                grad_ys = tf.ones([5] * dim)
-                with tf.device("/gpu:%d" % local_rank):
+                    grad_ys = tf.ones([5] * dim)
                     grad = tf.gradients(broadcasted_tensor, tensor, grad_ys)[0]
-                grad_out = self.evaluate(grad)
+                    grad_out = self.evaluate(grad)
 
             c = size if rank == root_rank else 0
             expected = np.ones([5] * dim) * c

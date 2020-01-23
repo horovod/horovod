@@ -87,10 +87,10 @@ struct HorovodGlobalState {
   // Number of responses that can be cached
   uint32_t cache_capacity = 1024;
 
-  // Number of CUDA streams to use
+  // Number of GPU streams to use
   int num_nccl_streams = 1;
 
-  // Index of current CUDA stream to use
+  // Index of current GPU stream to use
   int current_nccl_stream = 0;
 
   // A LibType indicating what framework we are using to perform CPU operations.

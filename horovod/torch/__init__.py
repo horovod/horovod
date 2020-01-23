@@ -19,7 +19,11 @@ from __future__ import division
 from __future__ import print_function
 
 from contextlib import contextmanager
+
+import io
 import warnings
+
+import cloudpickle
 
 from horovod.common.util import check_extension
 
@@ -211,6 +215,7 @@ class _DistributedOptimizer(torch.optim.Optimizer):
                                  "This is prohibited as it can cause a race condition.")
         return super(self.__class__, self).zero_grad()
 
+
 class _DistributedAdasumOptimizer(torch.optim.Optimizer):
     def __init__(self, params, named_parameters, compression,
                  backward_passes_per_step=1):
@@ -381,6 +386,7 @@ class _DistributedAdasumOptimizer(torch.optim.Optimizer):
                                  "This is prohibited as it can cause a race condition.")
         return super(self.__class__, self).zero_grad()
 
+
 def DistributedOptimizer(optimizer, named_parameters=None,
                          compression=Compression.none,
                          backward_passes_per_step=1,
@@ -491,7 +497,8 @@ def broadcast_optimizer_state(optimizer, root_rank):
     if len(state_dict['state']) == 0:
         for group in optimizer.param_groups:
             for p in group['params']:
-                p.grad = p.data.new(p.size()).zero_()
+                if p.requires_grad and id(p) not in state_dict['state']:
+                    p.grad = p.data.new(p.size()).zero_()
         # This function accepts a torch.optim.Optimizer or a DistributedOptimizer
         # wrapped around a torch optimizer. Calling step() with a DistributedOptimizer
         # forces allreduce on all model parameters, which will result in deadlock
@@ -582,7 +589,50 @@ def broadcast_optimizer_state(optimizer, root_rank):
     # Synchronized broadcast of all parameters
     broadcast_parameters(params, root_rank)
 
-    # Post-broadcast clenaup for non-tensor parameters
+    # Post-broadcast cleanup for non-tensor parameters
     for key, p in params:
         if key in callbacks:
             callbacks[key]()
+
+
+def broadcast_object(obj, root_rank, name=None):
+    """
+    Serializes and broadcasts an object from root rank to all other processes.
+    Typical usage is to broadcast the `optimizer.state_dict()`, for example:
+
+    .. code-block:: python
+
+        state_dict = broadcast_object(optimizer.state_dict(), 0)
+        if hvd.rank() > 0:
+            optimizer.load_state_dict(state_dict)
+
+    Arguments:
+        obj: An object capable of being serialized without losing any context.
+        root_rank: The rank of the process from which parameters will be
+                   broadcasted to all other processes.
+        name: Optional name to use during broadcast, will default to the class
+              type.
+    Returns:
+        The object that was broadcast from the `root_rank`.
+    """
+    if name is None:
+        name = str(type(obj))
+
+    if rank() == root_rank:
+        b = io.BytesIO()
+        cloudpickle.dump(obj, b)
+        t = torch.ByteTensor(bytearray(b.getvalue()))
+        sz = torch.IntTensor([t.shape[0]])
+        broadcast_(sz, root_rank, name + '.sz')
+    else:
+        sz = torch.IntTensor([0])
+        broadcast_(sz, root_rank, name + '.sz')
+        t = torch.ByteTensor(sz.tolist()[0])
+
+    broadcast_(t, root_rank, name + '.t')
+
+    if rank() != root_rank:
+        buf = io.BytesIO(t.numpy().tobytes())
+        obj = cloudpickle.load(buf)
+
+    return obj

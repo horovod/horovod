@@ -62,6 +62,34 @@ const std::string& DataType_Name(DataType value) {
   }
 }
 
+std::size_t DataType_Size(DataType value) {
+  switch (value) {
+    case HOROVOD_UINT8:
+      return sizeof(u_int8_t);
+    case HOROVOD_INT8:
+      return sizeof(int8_t);
+    case HOROVOD_UINT16:
+      return sizeof(u_int16_t);
+    case HOROVOD_INT16:
+      return sizeof(int16_t);
+    case HOROVOD_INT32:
+      return sizeof(int32_t);
+    case HOROVOD_INT64:
+      return sizeof(int64_t);
+    case HOROVOD_FLOAT16:
+      return 2;
+    case HOROVOD_FLOAT32:
+      return sizeof(float);
+    case HOROVOD_FLOAT64:
+      return sizeof(double);
+    case HOROVOD_BOOL:
+      return sizeof(bool);
+    default:
+      throw std::logic_error("Type " + DataType_Name(value) +
+                             " is not supported.");
+  }
+}
+
 const std::string& Request::RequestType_Name(RequestType value) {
   switch (value) {
     case RequestType::ALLREDUCE:

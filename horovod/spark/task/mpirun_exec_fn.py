@@ -18,7 +18,7 @@ import sys
 import threading
 import time
 
-from horovod.spark.task import task_service
+from horovod.spark.task import task_info, task_service
 from horovod.spark.driver import driver_service
 from horovod.run.common.util import codec, secret
 
@@ -49,6 +49,8 @@ def main(driver_addresses, settings):
     task_addresses = driver_client.all_task_addresses(task_index)
     task_client = task_service.SparkTaskClient(task_index, task_addresses, key,
                                                verbose=settings.verbose)
+    task_info.set_resources(task_client.resources())
+
     fn, args, kwargs = driver_client.code()
     result = fn(*args, **kwargs)
     task_client.register_code_result(result)
