@@ -37,8 +37,6 @@ CUSTOM_SPARSE = constants.CUSTOM_SPARSE
 
 def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_idx):
     # Estimator parameters
-    loss_fns_pre_train = to_list(estimator.getLoss())
-    loss_constructors = to_list(estimator.getLossConstructors())
     gradient_compression = estimator.getGradientCompression()
     input_shapes = estimator.getInputShapes()
     feature_columns = estimator.getFeatureCols()
@@ -54,12 +52,21 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     user_verbose = estimator.getVerbose()
     train_minibatch_fn = estimator.getTrainMinibatchFn()
     train_minibatch = train_minibatch_fn if train_minibatch_fn else _train_minibatch_fn()
+    loss_fns_pre_train = to_list(estimator.getLoss(),
+                                 len(label_columns))
+    loss_constructors = to_list(estimator.getLossConstructors(),
+                                len(label_columns))
 
     # If loss weight is not provided, use equal loss for all the labels
     loss_weights = to_list(estimator.getLossWeights())
     if not loss_weights:
         num_labels = len(label_columns)
         loss_weights = [float(1) / num_labels for _ in range(num_labels)]
+    else:
+        if not isinstance(loss_weights, list) or \
+                len(loss_weights) != len(feature_columns):
+            raise ValueError('loss_weights needs to be a list with the same '
+                             'length as the label_columns.')
 
     # Utility functions
     deserialize = deserialize_fn()
@@ -516,12 +523,6 @@ def _write_metrics_summary_fn():
 
 def _calculate_loss_fn():
     def calculate_loss(outputs, labels, loss_weights, loss_fns, sample_weights=None):
-        # If only one loss function is passed by user, use it to calculate the loss on all
-        # the outputs
-        if len(loss_fns) == 1:
-            _loss_fns = [loss_fns[0] for _ in range(len(outputs))]
-        else:
-            _loss_fns = loss_fns
         if sample_weights is not None:
             # when reduction='none', loss function returns the value of all the losses
             # from all the samples. We multiply each sample's weight to its loss and
@@ -533,7 +534,7 @@ def _calculate_loss_fn():
             # the calculated gradients.
             losses = []
             for output, label, loss_fn, loss_weight in zip(outputs, labels,
-                                                           _loss_fns, loss_weights):
+                                                           loss_fns, loss_weights):
                 weight_adjusted_sample_losses = \
                     loss_fn(output, label, reduction='none').flatten() * sample_weights
                 output_loss = weight_adjusted_sample_losses.mean()
@@ -541,7 +542,7 @@ def _calculate_loss_fn():
         else:
             losses = [loss_fn(output, label) * loss_weight for
                       output, label, loss_fn, loss_weight in
-                      zip(outputs, labels, _loss_fns, loss_weights)]
+                      zip(outputs, labels, loss_fns, loss_weights)]
 
         loss = sum(losses)
         return loss

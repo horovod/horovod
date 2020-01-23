@@ -773,18 +773,21 @@ class SparkTests(unittest.TestCase):
             res = horovod.spark.run(fn, env={'PATH': os.environ.get('PATH')}, verbose=0)
             self.assertListEqual([(['0'], 0), (['1'], 1)], res)
 
-
     def test_to_list(self):
         none_output = util.to_list(None)
         assert none_output is none_output
 
-        one_item_list = util.to_list('one_item')
-        assert one_item_list == ['one_item']
+        out1 = util.to_list('one_item', 1)
+        assert out1 == ['one_item']
 
-        one_item_list = ['one_item']
-        one_item_list_ouput = util.to_list(['one_item'])
-        assert one_item_list_ouput == one_item_list
+        out2 = util.to_list('one_item', 2)
+        assert out2 == ['one_item', 'one_item']
 
-        two_item_list = ['item1', 'item2']
-        two_item_list_output = util.to_list(['item1', 'item2'])
-        assert two_item_list_output == two_item_list
+        out3 = util.to_list(['one_item'], 1)
+        assert out3 == ['one_item']
+
+        out4 = util.to_list(['item1', 'item2'], 2)
+        assert out4 == ['item1', 'item2']
+
+        with pytest.raises(ValueError):
+            util.to_list(['item1', 'item2'], 4)
