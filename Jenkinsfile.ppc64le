@@ -1,0 +1,71 @@
+pipeline {
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+        timeout(time: 10, unit: 'MINUTES')
+    }
+    agent {
+        docker {
+            alwaysPull true
+            // WMLCE 1.6.2 has CUDA 10.1, NCCL 2.4.8, TensorFlow 1.15, and PyTorch 1.2.0
+            image 'tensorflowppc64le/tensorflow-ppc64le:osuosl-ubuntu-horovod-wlmce1.6.2-py3.6-ppc64le'
+            args '--cap-add=SYS_PTRACE --shm-size=256g'
+            label 'power8-gpu'
+            registryCredentialsId 'TensorFlow'
+        }
+    }
+    stages {
+        stage ('UPDATE_GITHUB_STATUS') {
+            steps {
+                setBuildStatus("ppc64le Build/Tests Pending", "PENDING");
+            }
+        }
+        stage ('BUILD_HOROVOD') {
+            steps {
+                sh '''#!/usr/bin/env bash
+                      git submodule update --init --recursive
+                      . ${CONDA_INIT}
+                      conda activate ${CONDA_ENV}
+                      set -xe
+                      HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITHOUT_GLOO=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_TENSORFLOW=1 \
+                          HOROVOD_CUDA_HOME=$CONDA_PREFIX HOROVOD_GPU_BROADCAST=NCCL HOROVOD_GPU_ALLREDUCE=NCCL \
+                          pip install -v . --no-cache-dir --no-deps
+                '''
+            }
+        }
+        stage ('TEST_HOROVOD') {
+            steps {
+                ansiColor('xterm') {
+                    sh '''#!/usr/bin/env bash
+                          . ${CONDA_INIT}
+                          conda activate ${CONDA_ENV}
+                          set -xe
+
+                          # TensorFlow unit tests
+                          horovodrun -n 2 -H localhost:2 --mpi-args="-pami_noib" pytest -k 'not multi_gpu' -v -s test/test_tensorflow.py
+                          # Container has only 2 GPUs, so run the 'multi_gpu' test seperatly on one process
+                          horovodrun -n 1 -H localhost:1 --mpi-args="-pami_noib" pytest -k 'multi_gpu' -v -s test/test_tensorflow.py
+
+                          # PyTorch unit tests
+                          horovodrun -n 2 -H localhost:2 --mpi-args="-pami_noib" pytest -v -s test/test_torch.py
+                    '''
+                }
+            }
+        }
+    } // end of stages
+    post {
+        success {
+            setBuildStatus("ppc64le Build/Tests Passed", "SUCCESS");
+        }
+        failure {
+            setBuildStatus("ppc64le Build/Tests Failed", "FAILURE");
+        }
+        unstable {
+            setBuildStatus("ppc64le Build/Tests Failed", "FAILURE");
+        }
+    }
+} //end of pipeline
+
+void setBuildStatus(String message, String state) {
+    githubNotify context: 'ppc64le-checks', description: "${message}",  status: "${state}",
+                 targetUrl: "https://powerci.osuosl.org/job/Horovod_PPC64LE_GPU_PIPELINE/view/change-requests/job/${BRANCH_NAME}/${BUILD_NUMBER}/console"
+}
