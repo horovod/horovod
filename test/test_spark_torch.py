@@ -362,7 +362,7 @@ class SparkTorchTests(unittest.TestCase):
 
         labels = torch.tensor([[1.0, 2.0, 3.0]])
         outputs = torch.tensor([[1.0, 0.0, 2.0]])
-        
+
         def fn_minus(output, label, reduction=None):
             losses = label-output
             if reduction == 'none':

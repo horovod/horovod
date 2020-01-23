@@ -596,8 +596,7 @@ def to_list(var, length):
     if not isinstance(var, list):
         var = [var]
 
-    # If only one loss function or loss_constructor is passed by user, use
-    # it to calculate the loss on all the outputs
+    # If var has only one element, pad it to match the given length.
     if len(var) == 1:
         var = [var[0] for _ in range(length)]
     else:
