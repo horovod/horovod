@@ -116,6 +116,30 @@ def metric_average(val, name):
     return avg_tensor.item()
 
 
+@hvd.elastic.run
+def train(state):
+    # post synchronization event (worker added, worker removed) init ...
+    for state.epoch in range(state.epoch, args.epochs + 1):
+        model.train()
+        # Horovod: set epoch to sampler for shuffling.
+        train_sampler.set_epoch(state.epoch)
+        for batch_idx, (data, target) in enumerate(train_loader):
+            if args.cuda:
+                data, target = data.cuda(), target.cuda()
+            optimizer.zero_grad()
+            output = model(data)
+            loss = F.nll_loss(output, target)
+            loss.backward()
+            optimizer.step()
+            if batch_idx % args.log_interval == 0:
+                # Horovod: use train_sampler to determine the number of examples in
+                # this worker's partition.
+                print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                    state.epoch, batch_idx * len(data), len(train_sampler),
+                                 100. * batch_idx / len(train_loader), loss.item()))
+            state.commit()
+
+
 def test():
     model.eval()
     test_loss = 0.
@@ -143,30 +167,6 @@ def test():
     if hvd.rank() == 0:
         print('\nTest set: Average loss: {:.4f}, Accuracy: {:.2f}%\n'.format(
             test_loss, 100. * test_accuracy))
-
-
-@hvd.elastic.run
-def train(state):
-    # post synchronization event (worker added, worker removed) init ...
-    for state.epoch in range(state.epoch, args.epochs + 1):
-        model.train()
-        # Horovod: set epoch to sampler for shuffling.
-        train_sampler.set_epoch(state.epoch)
-        for batch_idx, (data, target) in enumerate(train_loader):
-            if args.cuda:
-                data, target = data.cuda(), target.cuda()
-            optimizer.zero_grad()
-            output = model(data)
-            loss = F.nll_loss(output, target)
-            loss.backward()
-            optimizer.step()
-            if batch_idx % args.log_interval == 0:
-                # Horovod: use train_sampler to determine the number of examples in
-                # this worker's partition.
-                print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                    state.epoch, batch_idx * len(data), len(train_sampler),
-                                 100. * batch_idx / len(train_loader), loss.item()))
-            state.commit()
 
 
 # Horovod: wrap optimizer with DistributedOptimizer.
