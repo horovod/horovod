@@ -1182,6 +1182,26 @@ def is_torch_cuda_v2(build_ext, include_dirs, extra_compile_args):
         return False
 
 
+def is_torch_rocm_v2(build_ext, include_dirs, extra_compile_args):
+    try:
+        rocm_macros = [('__HIP_PLATFORM_HCC__',1)]
+        from torch.utils.cpp_extension import include_paths
+        test_compile(build_ext, 'test_torch_rocm',
+                     include_dirs=include_dirs + include_paths(cuda=True),
+                     extra_compile_preargs=extra_compile_args,
+                     macros=rocm_macros,
+                     code=textwrap.dedent('''\
+            #include <THH/THH.h>
+            void test() {
+            }
+            '''))
+        return True
+    except (CompileError, LinkError, EnvironmentError):
+        print(
+            'INFO: Above error indicates that this PyTorch installation does not support ROCm.')
+        return False
+
+
 def check_macro(macros, key):
     return any(k == key and v for k, v in macros)
 
@@ -1303,17 +1323,33 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
         raise DistutilsPlatformError(
             'Horovod build with GPU support was requested, but this PyTorch '
             'installation does not support CUDA.')
+    else:
+        # Update HAVE_CUDA to mean that PyTorch supports CUDA. Internally, we will be checking
+        # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
+        # version or transfer tensors to CPU memory for those operations.
+        if have_cuda and not have_cuda_macro:
+            set_cuda_options(build_ext, **options)
 
-    # Update HAVE_CUDA to mean that PyTorch supports CUDA. Internally, we will be checking
-    # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
-    # version or transfer tensors to CPU memory for those operations.
-    if have_cuda and not have_cuda_macro:
-        set_cuda_options(build_ext, **options)
+    # hereafter, macros are maintained outside of options dict
+    updated_macros = options['MACROS']
+
+    have_rocm = is_torch_rocm_v2(build_ext, include_dirs=options['INCLUDES'],
+                                 extra_compile_args=compile_flags)
+    if not have_rocm and check_macro(updated_macros, 'HAVE_ROCM'):
+        raise DistutilsPlatformError(
+            'Horovod build with GPU support was requested, but this PyTorch '
+            'installation does not support ROCm.')
+    else:
+        # ROCm PyTorch requires extensions to be hipified with the provided utility.
+        # The utility does not rename 'HAVE_CUDA', so we use the same macro here.
+        # Update HAVE_CUDA to mean that PyTorch supports ROCm. Internally, we will be checking
+        # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
+        # version or transfer tensors to CPU memory for those operations.
+        updated_macros = set_macro(updated_macros, 'HAVE_CUDA', str(int(have_rocm)))
 
     # Export TORCH_VERSION equal to our representation of torch.__version__. Internally it's
     # used for backwards compatibility checks.
-    updated_macros = set_macro(
-        options['MACROS'], 'TORCH_VERSION', str(torch_version))
+    updated_macros = set_macro(updated_macros, 'TORCH_VERSION', str(torch_version))
 
     # Always set _GLIBCXX_USE_CXX11_ABI, since PyTorch can only detect whether it was set to 1.
     updated_macros = set_macro(updated_macros, '_GLIBCXX_USE_CXX11_ABI',
@@ -1322,10 +1358,19 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
     gloo_abi_flag = ['-D_GLIBCXX_USE_CXX11_ABI=' + str(int(torch.compiled_with_cxx11_abi()))]
 
     # PyTorch requires -DTORCH_API_INCLUDE_EXTENSION_H
-    updated_macros = set_macro(
-        updated_macros, 'TORCH_API_INCLUDE_EXTENSION_H', '1')
+    updated_macros = set_macro(updated_macros, 'TORCH_API_INCLUDE_EXTENSION_H', '1')
 
-    if have_cuda:
+    if have_rocm:
+        from torch.utils.cpp_extension import CUDAExtension as TorchExtension
+        from torch.utils.hipify import hipify_python
+        this_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "horovod")
+        hipify_python.hipify(
+                project_directory=this_dir,
+                output_directory=this_dir,
+                includes=("torch/*.cc","torch/*.h"),
+                show_detailed=True,
+                is_pytorch_extension=True)
+    elif have_cuda:
         from torch.utils.cpp_extension import CUDAExtension as TorchExtension
     else:
         # CUDAExtension fails with `ld: library not found for -lcudart` if CUDA is not present
