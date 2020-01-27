@@ -587,3 +587,22 @@ def get_dataset_properties(dataset_idx):
 
 def clear_training_cache():
     _training_cache.clear()
+
+
+def to_list(var, length):
+    if var is None:
+        return None
+
+    if not isinstance(var, list):
+        var = [var]
+
+    # If var has only one element, pad it to match the given length.
+    if len(var) == 1:
+        var = [var[0] for _ in range(length)]
+    else:
+        if len(var) != length:
+            raise ValueError("loss_constructors and loss functions must be a "
+                             "list with length that matches the length of "
+                             "label_cols")
+
+    return var

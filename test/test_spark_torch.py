@@ -343,7 +343,6 @@ class SparkTorchTests(unittest.TestCase):
                         store=store,
                         model=model,
                         optimizer=optimizer,
-                        loss=loss,
                         input_shapes=[[2]],
                         feature_cols=['features'],
                         label_cols=['y'],
@@ -351,6 +350,67 @@ class SparkTorchTests(unittest.TestCase):
                         epochs=3,
                         verbose=2)
 
+                    # To make sure that setLoss works with non-list loss.
+                    est.setLoss(loss)
+
                     transformer = est.fit_on_parquet()
                     predictions = transformer.transform(df)
                     assert predictions.count() == df.count()
+
+    def test_calculate_loss_with_sample_weight(self):
+        calculate_loss = remote._calculate_loss_fn()
+
+        labels = torch.tensor([[1.0, 2.0, 3.0]])
+        outputs = torch.tensor([[1.0, 0.0, 2.0]])
+
+        def fn_minus(output, label, reduction=None):
+            losses = label-output
+            if reduction == 'none':
+                return losses
+            else:
+                return losses.mean()
+
+        def fn_add(output, label, reduction=None):
+            losses = label+output
+            if reduction == 'none':
+                return losses
+            else:
+                return losses.mean()
+
+        loss = calculate_loss(outputs, labels, [1], [fn_minus], sample_weights=torch.tensor([1.0, 6.0, 3.0]))
+        assert loss == 5.0
+
+        labels = torch.tensor([[1.0, 2.0, 3.0], [0.0, 2.0, 4.0]])
+        outputs = torch.tensor([[1.0, 0.0, 2.0], [0.0, 0.0, 2.0]])
+
+        loss = calculate_loss(outputs, labels, [0.2, 0.8], [fn_minus, fn_add], sample_weights=torch.tensor([1.0, 6.0, 3.0]))
+        assert loss == torch.tensor(9.0)
+
+    def test_calculate_loss_without_sample_weight(self):
+        calculate_loss = remote._calculate_loss_fn()
+
+        labels = torch.tensor([[1.0, 2.0, 3.0]])
+        outputs = torch.tensor([[1.0, 0.0, 2.0]])
+
+        def fn_minus(output, label, reduction=None):
+            losses = label-output
+            if reduction == 'none':
+                return losses
+            else:
+                return losses.mean()
+
+        def fn_add(output, label, reduction=None):
+            losses = label+output
+            if reduction == 'none':
+                return losses
+            else:
+                return losses.mean()
+
+        loss = calculate_loss(outputs, labels, [1], [fn_minus])
+        assert loss == 1.0
+
+        labels = torch.tensor([[1.0, 2.0, 3.0], [1.0, 2.0, 4.0]])
+        outputs = torch.tensor([[1.0, 0.0, 2.0], [0.0, 0.0, 2.0]])
+
+        loss = calculate_loss(outputs, labels, [0.2, 0.8], [fn_minus, fn_add])
+        assert torch.isclose(loss, torch.tensor(2.6))

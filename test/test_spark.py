@@ -772,3 +772,22 @@ class SparkTests(unittest.TestCase):
         with spark_session('test_get_available_devices', gpus=2):
             res = horovod.spark.run(fn, env={'PATH': os.environ.get('PATH')}, verbose=0)
             self.assertListEqual([(['0'], 0), (['1'], 1)], res)
+
+    def test_to_list(self):
+        none_output = util.to_list(None, 1)
+        assert none_output is none_output
+
+        out1 = util.to_list('one_item', 1)
+        assert out1 == ['one_item']
+
+        out2 = util.to_list('one_item', 2)
+        assert out2 == ['one_item', 'one_item']
+
+        out3 = util.to_list(['one_item'], 1)
+        assert out3 == ['one_item']
+
+        out4 = util.to_list(['item1', 'item2'], 2)
+        assert out4 == ['item1', 'item2']
+
+        with pytest.raises(ValueError):
+            util.to_list(['item1', 'item2'], 4)
