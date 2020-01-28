@@ -49,7 +49,7 @@ def _get_mpi_implementation_flags():
         output.close()
 
     if exit_code == 0:
-        if 'Open MPI' in output_msg:
+        if 'Open MPI' in output_msg or 'OpenRTE' in output_msg:
             return list(_OMPI_FLAGS)
         elif 'IBM Spectrum MPI' in output_msg:
             return list(_SMPI_FLAGS)
