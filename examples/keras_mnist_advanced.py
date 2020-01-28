@@ -1,4 +1,7 @@
 from __future__ import print_function
+
+import argparse
+
 import keras
 from keras.datasets import mnist
 from keras.models import Sequential
@@ -9,6 +12,17 @@ from keras import backend as K
 import tensorflow as tf
 import horovod.keras as hvd
 
+# Training settings
+parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
+parser.add_argument('--batch-size', type=int, default=128, metavar='N',
+                    help='input batch size for training (default: 128)')
+parser.add_argument('--epochs', type=int, default=24, metavar='N',
+                    help='number of epochs to train (default: 24)')
+parser.add_argument('--lr', type=float, default=1.0, metavar='LR',
+                    help='learning rate (default: 1.0)')
+
+args = parser.parse_args()
+
 # Horovod: initialize Horovod.
 hvd.init()
 
@@ -18,12 +32,12 @@ config.gpu_options.allow_growth = True
 config.gpu_options.visible_device_list = str(hvd.local_rank())
 K.set_session(tf.Session(config=config))
 
-batch_size = 128
+batch_size = args.batch_size
 num_classes = 10
 
 # Enough epochs to demonstrate learning rate warmup and the reduction of
 # learning rate when training plateaues.
-epochs = 24
+epochs = args.epochs
 
 # Input image dimensions
 img_rows, img_cols = 28, 28
@@ -69,7 +83,7 @@ model.add(Dropout(0.5))
 model.add(Dense(num_classes, activation='softmax'))
 
 # Horovod: adjust learning rate based on number of GPUs.
-opt = keras.optimizers.Adadelta(lr=1.0 * hvd.size())
+opt = keras.optimizers.Adadelta(lr=args.lr * hvd.size())
 
 # Horovod: add Horovod Distributed Optimizer.
 opt = hvd.DistributedOptimizer(opt)

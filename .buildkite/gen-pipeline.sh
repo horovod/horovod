@@ -221,6 +221,24 @@ run_gloo() {
     "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet_mnist.py"
 }
 
+run_single() {
+  local test=$1
+  local queue=$2
+  local pytest_queue=$3
+
+  run_test "${test}" "${queue}" \
+    ":tensorflow: Single Keras MNIST (${test})" \
+    "python /horovod/examples/keras_mnist_advanced.py --epochs 3 --batch-size 64"
+
+  run_test "${test}" "${queue}" \
+    ":python: Single PyTorch MNIST (${test})" \
+    "python /horovod/examples/pytorch_mnist.py --epochs 3"
+
+  run_test "${test}" "${queue}" \
+    ":muscle: Single MXNet MNIST (${test})" \
+    "python /horovod/examples/mxnet_mnist.py --epochs 3"
+}
+
 build_docs() {
   echo "- label: ':book: Build Docs'"
   echo "  command: 'cd /workdir/docs && pip install -r requirements.txt && make html'"
@@ -266,6 +284,8 @@ for test in ${tests[@]}; do
     if [[ ${test} == *mpi* ]]; then
       run_all ${test} "cpu" "cpu"
     fi
+    # no runner application, world size = 1
+    run_single ${test} "cpu" "cpu"
   fi
 done
 
