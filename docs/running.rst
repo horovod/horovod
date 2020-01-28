@@ -46,6 +46,25 @@ To run on hosts specified in a hostfile:
 
     $ horovodrun -np 6 -hostfile myhostfile python train.py
 
+
+Requirements
+~~~~~~~~~~~~
+
+Usage of ``horovodrun`` requires one of the following:
+
+* Open MPI >= 2.X
+* Spectrum MPI
+* MPICH
+* OpenRTE
+* Gloo
+
+If you do not have MPI installed, you can run ``horovodrun`` using Gloo.  Gloo dependencies come with Horovod
+automatically, and only require CMake to be available on your system at the time you install Horovod.
+
+If you wish to use a different version of MPI, you may still be able to run Horovod using `mpirun <mpirun.rst>`
+directly.
+
+
 Failures due to SSH issues
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 The host where ``horovodrun`` is executed must be able to SSH to all other
