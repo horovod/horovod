@@ -226,9 +226,12 @@ run_single() {
   local queue=$2
   local pytest_queue=$3
 
-  run_test "${test}" "${queue}" \
-    ":tensorflow: Single Keras MNIST (${test})" \
-    "python /horovod/examples/keras_mnist_advanced.py --epochs 3 --batch-size 64"
+  # Only in TensorFlow 1.X
+  if [[ ${test} != *"tf2_"* ]] && [[ ${test} != *"tfhead"* ]]; then
+    run_test "${test}" "${queue}" \
+      ":tensorflow: Single Keras MNIST (${test})" \
+      "python /horovod/examples/keras_mnist_advanced.py --epochs 3 --batch-size 64"
+  fi
 
   run_test "${test}" "${queue}" \
     ":python: Single PyTorch MNIST (${test})" \
