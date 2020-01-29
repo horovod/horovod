@@ -6,6 +6,7 @@ FROM ubuntu:${UBUNTU_VERSION}
 ARG UBUNTU_VERSION=16.04
 ARG MPI_KIND=OpenMPI
 ARG PYTHON_VERSION=3.6
+# NOTE: keep versions in sync with setup.py extras_require{'dev'}:
 ARG TENSORFLOW_PACKAGE=tensorflow-cpu==1.15.0
 ARG KERAS_PACKAGE=keras==2.2.4
 ARG PYTORCH_PACKAGE=torch==1.2.0+cpu

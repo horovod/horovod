@@ -25,17 +25,19 @@ Develop within a virtual environment to avoid dependency issues:
 
 We recommend installing package versions that match with those under test in
 `Buildkite <https://github.com/horovod/horovod/blob/master/.buildkite/gen-pipeline.sh>`__.
-
-For example:
+The following versions are recommended (see default versions defined through :code:`ARG` in
+`Dockerfile.test.cpu <https://github.com/horovod/horovod/blob/master/Dockerfile.test.cpu>`__ and
+`Dockerfile.test.gpu <https://github.com/horovod/horovod/blob/master/Dockerfile.test.gpu>`__ file.
+The versions with CPU support can be installed through the provided :code:`setup.py` file:
 
 .. code-block:: bash
 
-    $ pip install tensorflow==1.14.0
-    $ pip install keras==2.2.4
-    $ pip install torch==1.1.0 torchvision
-    $ pip install mock pytest pytest-forked parameterized
-    $ pip install h5py future scipy mpi4py pyspark mxnet
+    pip install -e .[dev]
 
+You can find all other non-Python packages that need to be installed on your system for Horovod to build
+in the `Dockerfile.test.cpu <https://github.com/horovod/horovod/blob/master/Dockerfile.test.cpu>`__ and
+`Dockerfile.test.gpu <https://github.com/horovod/horovod/blob/master/Dockerfile.test.gpu>`__ files.
+Specifically, see all :code:`RUN apt-get install` lines.
 
 Build and Install
 -----------------
