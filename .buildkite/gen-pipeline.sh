@@ -23,7 +23,6 @@ tests=( \
        test-cpu-openmpi-py2_7-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
        test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
        test-cpu-mpich-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
-       test-cpu-oneccl-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
        test-gpu-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
        test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
        test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
@@ -221,6 +220,27 @@ run_gloo() {
     "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet_mnist.py"
 }
 
+run_single() {
+  local test=$1
+  local queue=$2
+  local pytest_queue=$3
+
+  # Only in TensorFlow 1.X
+  if [[ ${test} != *"tf2_"* ]] && [[ ${test} != *"tfhead"* ]]; then
+    run_test "${test}" "${queue}" \
+      ":tensorflow: Single Keras MNIST (${test})" \
+      "python /horovod/examples/keras_mnist_advanced.py --epochs 3 --batch-size 64"
+  fi
+
+  run_test "${test}" "${queue}" \
+    ":python: Single PyTorch MNIST (${test})" \
+    "python /horovod/examples/pytorch_mnist.py --epochs 3"
+
+  run_test "${test}" "${queue}" \
+    ":muscle: Single MXNet MNIST (${test})" \
+    "python /horovod/examples/mxnet_mnist.py --epochs 3"
+}
+
 build_docs() {
   echo "- label: ':book: Build Docs'"
   echo "  command: 'cd /workdir/docs && pip install -r requirements.txt && make html'"
@@ -266,6 +286,8 @@ for test in ${tests[@]}; do
     if [[ ${test} == *mpi* ]]; then
       run_all ${test} "cpu" "cpu"
     fi
+    # no runner application, world size = 1
+    run_single ${test} "cpu" "cpu"
   fi
 done
 

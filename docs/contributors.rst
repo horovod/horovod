@@ -74,6 +74,28 @@ Horovod has unit tests for all frameworks you can run from the tests directory:
 **IMPORTANT:** Some tests contain GPU-only codepaths that will be skipped if running without GPU support.
 
 
+Continuous Integration
+----------------------
+
+Horovod uses `Buildkite <https://buildkite.com/horovod/horovod>`__ for continuous integration in AWS running on both
+Intel CPU hardware and NVIDIA GPUs (with NCCL).  Tests are run once per night on master automatically, and on each
+commit to a remote branch.
+
+Buildkite test configurations are defined in
+`docker-compose.test.yml <https://github.com/horovod/horovod/blob/master/docker-compose.test.yml>`__.  Each test
+configuration defines a Docker image that is built from either
+`Docker.test.cpu <https://github.com/horovod/horovod/blob/master/Dockerfile.test.cpu>`__ (for CPU tests) or
+`Docker.test.gpu <https://github.com/horovod/horovod/blob/master/Dockerfile.test.gpu>`__ (for GPU tests).
+
+Individual tests are run on each configuration as defined in
+`gen-pipeline.sh <https://github.com/horovod/horovod/blob/master/.buildkite/gen-pipeline.sh>`__.  Every test
+configuration needs to also be defined here in order to be run at test time.  Each time ``run_test`` is called
+a new test artifact will be generated in Buildkite that either succeeds or fails depending on exit code.
+
+In our AWS configuration, GPU tests are run with 4 GPUs per container. Most tests are run with 2 worker processes
+each, however, model parallelism require 2 GPUs per worker, requiring 4 GPUs total.
+
+
 Documentation
 -------------
 
