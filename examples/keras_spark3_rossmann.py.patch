@@ -1,23 +1,29 @@
-32a33
-> DISCOVERY_SCRIPT = 'get_gpu_resources.sh'
-42c43
-< TRAINING_CLUSTER = None  # or 'spark://hostname:7077'
+28c28
+< parser = argparse.ArgumentParser(description='Keras Spark Rossmann Run Example',
 ---
-> TRAINING_CLUSTER = 'local-cluster[2,1,1024]'  # or 'spark://hostname:7077'
-57a59,64
+> parser = argparse.ArgumentParser(description='Keras Spark3 Rossmann Run Example',
+34c34
+< parser.add_argument('--training-master',
+---
+> parser.add_argument('--training-master', default='local-cluster[2,1,1024]',
+57a58,60
+> # Location of discovery script on local filesystem.
+> DISCOVERY_SCRIPT = 'get_gpu_resources.sh'
+> 
+60a64,69
 > # Whether to infer on GPU.
 > GPU_INFERENCE_ENABLED = False
 > 
 > # Cluster for GPU inference.
 > GPU_INFERENCE_CLUSTER = 'local-cluster[2,1,1024]'  # or 'spark://hostname:7077'
 > 
-391a399
+394a404
 >     from horovod.spark.task import get_available_devices
-406c414
+409c419
 <     config.gpu_options.visible_device_list = str(hvd.local_rank())
 ---
 >     config.gpu_options.visible_device_list = get_available_devices()[0]
-488a497,521
+491a502,526
 > def set_gpu_conf(conf):
 >     # This config will change depending on your cluster setup.
 >     #
@@ -43,11 +49,11 @@
 >     return conf
 > 
 > 
-492a526
+495a531
 > conf = set_gpu_conf(conf)
-521,522c555,563
-< if LIGHT_PROCESSING_CLUSTER:
-<     conf.setMaster(LIGHT_PROCESSING_CLUSTER)
+524,525c560,568
+< if args.processing_master:
+<     conf.setMaster(args.processing_master)
 ---
 > 
 > if GPU_INFERENCE_ENABLED:
@@ -55,10 +61,10 @@
 >         conf.setMaster(GPU_INFERENCE_CLUSTER)
 >     conf = set_gpu_conf(conf)
 > else:
->     if LIGHT_PROCESSING_CLUSTER:
->         conf.setMaster(LIGHT_PROCESSING_CLUSTER)
+>     if args.processing_master:
+>         conf.setMaster(args.processing_master)
 > 
-532,536c573,584
+535,539c578,589
 <         # Do not use GPUs for prediction, use single CPU core per task.
 <         config = tf.ConfigProto(device_count={'GPU': 0})
 <         config.inter_op_parallelism_threads = 1
@@ -77,5 +83,3 @@
 >             config.inter_op_parallelism_threads = 1
 >             config.intra_op_parallelism_threads = 1
 >             K.set_session(tf.Session(config=config))
-552a601
-> # Submit a Spark job to do inference. Horovod framework is not involved here.

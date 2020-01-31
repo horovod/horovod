@@ -35,7 +35,7 @@ parser.add_argument('--training-master',
                     help='spark cluster to use for training. If set to None, uses current default cluster. Cluster'
                          'should be set up to provide a Spark task per multiple CPU cores, or per GPU, e.g. by'
                          'supplying `-c <NUM_GPUS>` in Spark Standalone mode. Example: spark://hostname:7077')
-parser.add_argument('--num-proc', type=int,
+parser.add_argument('--num-proc', type=int, default=4,
                     help='number of worker processes for training, default: `spark.default.parallelism`')
 parser.add_argument('--learning-rate', type=float, default=0.0001,
                     help='initial learning rate')
@@ -553,6 +553,7 @@ def predict_fn(model_bytes):
     return fn
 
 
+# Submit a Spark job to do inference. Horovod framework is not involved here.
 pred_df = spark.read.parquet('%s/test_df.parquet' % args.data_dir) \
     .rdd.mapPartitions(predict_fn(best_model_bytes)).toDF()
 submission_df = pred_df.select(pred_df.Id.cast(T.IntegerType()), pred_df.Sales).toPandas()
