@@ -114,7 +114,7 @@ To run the example, be sure to install Horovod with ``[spark]``, then:
     $ wget https://raw.githubusercontent.com/horovod/horovod/master/examples/keras_spark_rossmann_estimator.py
     $ wget http://files.fast.ai/part2/lesson14/rossmann.tgz
     $ tar zxvf rossmann.tgz
-    $ python keras_spark_rossmann.py
+    $ python keras_spark_rossmann_estimator.py
 
 
 Training on existing Parquet datasets
