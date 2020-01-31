@@ -93,6 +93,9 @@ class Tf2KerasTests(tf.test.TestCase):
         hopt = hvd.DistributedOptimizer(opt)
         cfg = hopt.get_config()
 
+        # There is a discrepency between the optimizer names in V2; 'Adam' vs. 'adam'
+        cfg['optimizer']['class_name'] = 'Adam'
+
         hopt_copy1 = hopt.from_config(cfg)
         self.assertEqual(cfg, hopt_copy1.get_config())
 
