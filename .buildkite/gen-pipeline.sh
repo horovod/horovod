@@ -246,6 +246,16 @@ run_spark() {
     run_test "${test}" "${queue}" \
       ":spark: Spark Torch MNIST (${test})" \
       "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
+
+    if [[ ${test} != *"tf2"* ]]; then
+      run_test "${test}" "${queue}" \
+        ":spark: Spark Keras Rossmann Run (${test})" \
+        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_run.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3 --sample-rate 0.01\""
+    fi
+
+    run_test "${test}" "${queue}" \
+      ":spark: Spark Keras Rossmann Estimator (${test})" \
+      "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3 --sample-rate 0.01\""
   fi
 }
 
