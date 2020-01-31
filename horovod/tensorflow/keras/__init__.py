@@ -62,7 +62,6 @@ def DistributedOptimizer(optimizer, name=None,
                          help improve performance and memory utilization if
                          the original sparse gradient has high density.
                          Defaults to false.    """
-
     return _impl.create_distributed_optimizer(keras, optimizer, name,
                                               device_dense, device_sparse, compression,
                                               sparse_as_dense)
