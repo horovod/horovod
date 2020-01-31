@@ -13,14 +13,17 @@
 # limitations under the License.
 # ==============================================================================
 
-import horovod.tensorflow as hvd
+from distutils.version import LooseVersion
+
 import tensorflow as tf
+import horovod.tensorflow as hvd
 
 
-def _allreduce_gradients(gradients, _name, sparse_as_dense, device_dense, device_sparse, compression):
+def _allreduce_gradients(gradients, name, sparse_as_dense, device_dense, device_sparse,
+                         compression):
     if hvd.size() > 1:
         averaged_gradients = []
-        with tf.name_scope(_name + "_Allreduce"):
+        with tf.name_scope(name + "_Allreduce"):
             for grad in gradients:
                 if grad is not None:
                     if sparse_as_dense and \
@@ -38,61 +41,28 @@ def _allreduce_gradients(gradients, _name, sparse_as_dense, device_dense, device
         return gradients
 
 
-def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sparse,
-                                 compression, sparse_as_dense):
-    class _DistributedOptimizer(keras.optimizers.Optimizer):
-        def __init__(self, **kwargs):
-            self._name = name or "Distributed%s" % self.__class__.__base__.__name__
-            self._device_dense = device_dense
-            self._device_sparse = device_sparse
-            self._compression = compression
-            self._sparse_as_dense = sparse_as_dense
-            self._get_gradients_used = False
-            super(self.__class__, self).__init__(**kwargs)
+def _create_distributed_optimizer_class(tf_version_above_2, keras, name, device_dense,
+                                        device_sparse, compression, sparse_as_dense):
+    def _create_distributed_optimizer_base_class(base_class, method_name):
+        class _DistributedOptimizerBase(base_class):
+            def __init__(self, **kwargs):
+                self._name = name or "Distributed%s" % self.__class__.__base__.__name__
+                self._device_dense = device_dense
+                self._device_sparse = device_sparse
+                self._compression = compression
+                self._sparse_as_dense = sparse_as_dense
+                self._get_gradient_or_get_unscaled_gradients_called = False
+                super(self.__class__, self).__init__(**kwargs)
 
-        def get_gradients(self, loss, params):
-            """
-            Compute gradients of all trainable variables.
+            def apply_gradients(self, *args, **kwargs):
+                if not self._get_gradient_or_get_unscaled_gradients_called:
+                    raise Exception('`apply_gradients()` was called without a call to '
+                                    '`{method_name}()`.'.format(method_name=method_name))
+                return super(self.__class__, self).apply_gradients(*args, **kwargs)
 
-            See Optimizer.get_gradients() for more info.
+        return _DistributedOptimizerBase
 
-            In DistributedOptimizer, get_gradients() is overriden to also
-            allreduce the gradients before returning them.
-            """
-            self._get_gradients_used = True
-            gradients = super(self.__class__, self).get_gradients(loss, params)
-            return _allreduce_gradients(gradients, self._name, self._sparse_as_dense,
-                                        self._device_dense, self._device_sparse, self._compression)
-
-        def apply_gradients(self, *args, **kwargs):
-            if not self._get_gradients_used:
-                raise Exception('`apply_gradients()` was called without a call to '
-                                '`get_gradients()`. If you\'re using TensorFlow 2.0, '
-                                'please specify `experimental_run_tf_function=False` in '
-                                '`compile()`.')
-            return super(self.__class__, self).apply_gradients(*args, **kwargs)
-
-    # We dynamically create a new class that inherits from the optimizer that was passed in.
-    # The goal is to override get_gradients() method with an allreduce implementation.
-    # This class will have the same name as the optimizer it's wrapping, so that the saved
-    # model could be easily restored without Horovod.
-    cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
-               dict(_DistributedOptimizer.__dict__))
-    return cls.from_config(optimizer.get_config())
-
-
-def create_distributed_optimizer_v2(keras, optimizer, name, device_dense, device_sparse,
-                                    compression, sparse_as_dense):
-    class _DistributedOptimizer(keras.mixed_precision.experimental.LossScaleOptimizer):
-        def __init__(self, **kwargs):
-            self._name = name or "Distributed%s" % self.__class__.__base__.__name__
-            self._device_dense = device_dense
-            self._device_sparse = device_sparse
-            self._compression = compression
-            self._sparse_as_dense = sparse_as_dense
-            self.get_unscaled_gradients_called = False
-            super(self.__class__, self).__init__(**kwargs)
-
+    if tf_version_above_2:
         def get_unscaled_gradients(self, *args, **kwargs):
             """
             Unscales the gradients by the loss scale.
@@ -102,17 +72,52 @@ def create_distributed_optimizer_v2(keras, optimizer, name, device_dense, device
             In DistributedOptimizer, get_unscaled_gradients() is overriden to
             allreduce the gradients before returning them.
             """
-            self.get_unscaled_gradients_called = True
+            self._get_gradient_or_get_unscaled_gradients_called = True
             gradients = super(self.__class__, self).get_unscaled_gradients(*args, **kwargs)
             return _allreduce_gradients(gradients, self._name, self._sparse_as_dense,
-                                        self._device_dense, self._device_sparse, self._compression)
-        
-        def apply_gradients(self, *args, **kwargs):
-            if not self.get_unscaled_gradients_called:
-                raise Exception('`apply_gradients()` was called without a call to '
-                                '`get_unscaled_gradients()`.')
-            return super(self.__class__, self).apply_gradients(*args, **kwargs)
+                                        self._device_dense, self._device_sparse,
+                                        self._compression)
 
+        base_class_to_use = keras.mixed_precision.experimental.LossScaleOptimizer
+        method_to_override = get_unscaled_gradients
+        overriden_method_name = "get_unscaled_gradients"
+
+    else:
+        def get_gradients(self, loss, params):
+            """
+            Compute gradients of all trainable variables.
+
+            See Optimizer.get_gradients() for more info.
+
+            In DistributedOptimizer, get_gradients() is overriden to also
+            allreduce the gradients before returning them.
+            """
+            self._get_gradient_or_get_unscaled_gradients_called = True
+            gradients = super(self.__class__, self).get_gradients(loss, params)
+            return _allreduce_gradients(gradients, self._name, self._sparse_as_dense,
+                                        self._device_dense, self._device_sparse,
+                                        self._compression)
+
+        base_class_to_use = keras.optimizers.Optimizer
+        method_to_override = get_gradients
+        overriden_method_name = "get_gradients"
+
+    dist_opt_base_class = _create_distributed_optimizer_base_class(base_class_to_use,
+                                                                   overriden_method_name)
+    setattr(dist_opt_base_class, overriden_method_name, method_to_override)
+    return dist_opt_base_class
+
+
+def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sparse,
+                                 compression, sparse_as_dense):
+
+    tf_version_above_2 = LooseVersion(tf.__version__) >= LooseVersion("2.0")
+
+    dist_opt_cls = \
+        _create_distributed_optimizer_class(tf_version_above_2, keras, name, device_dense,
+                                            device_sparse, compression, sparse_as_dense)
+
+    # For tf.__version__ > 2.0.0
     # If optimizer is not an instance of LossScaleOptimizer, we dynamically create a new
     # class that inherits from the optimizer that was passed in. The goal is to override
     # get_unscaled_gradients() method with an allreduce implementation.
@@ -123,10 +128,19 @@ def create_distributed_optimizer_v2(keras, optimizer, name, device_dense, device
     # with a LossScaleOptimizer and set the scaling factor to 1.0. This does not have any
     # effect on gradient calculation but enables us to inject allreduce operation before
     # getting all the gradients.
-    if not isinstance(optimizer, keras.mixed_precision.experimental.LossScaleOptimizer):
-        optimizer = keras.mixed_precision.experimental.LossScaleOptimizer(optimizer, 1.0)
+    #
+    # For tf.__version__ < 2.0.0
+    # We dynamically create a new class that inherits from the optimizer that was passed in.
+    # The goal is to override get_gradients() method with an allreduce implementation.
+    # This class will have the same name as the optimizer it's wrapping, so that the saved
+    # model could be easily restored without Horovod.
+
+    if tf_version_above_2:
+        if not isinstance(optimizer, keras.mixed_precision.experimental.LossScaleOptimizer):
+            optimizer = keras.mixed_precision.experimental.LossScaleOptimizer(optimizer, 1.0)
+
     cls = type(optimizer.__class__.__name__, (optimizer.__class__,),
-               dict(_DistributedOptimizer.__dict__))
+               dict(dist_opt_cls.__dict__))
 
     return cls.from_config(optimizer.get_config())
 

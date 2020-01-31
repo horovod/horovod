@@ -63,14 +63,9 @@ def DistributedOptimizer(optimizer, name=None,
                          the original sparse gradient has high density.
                          Defaults to false.    """
 
-    if LooseVersion(tf.__version__) >= LooseVersion("2.0"):
-        return _impl.create_distributed_optimizer_v2(keras, optimizer, name,
-                                                     device_dense, device_sparse, compression,
-                                                     sparse_as_dense)
-    else:
-        return _impl.create_distributed_optimizer(keras, optimizer, name,
-                                                  device_dense, device_sparse, compression,
-                                                  sparse_as_dense)
+    return _impl.create_distributed_optimizer(keras, optimizer, name,
+                                              device_dense, device_sparse, compression,
+                                              sparse_as_dense)
 
 
 def broadcast_global_variables(root_rank):
