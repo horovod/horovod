@@ -250,7 +250,7 @@ run_spark() {
     if [[ ${test} != *"tf2"* ]]; then
       run_test "${test}" "${queue}" \
         ":spark: Spark Keras Rossmann Run (${test})" \
-        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_run.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3 --sample-rate 0.01\""
+        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_run.py --num-proc 2 --data-dir /data --epochs 3 --sample-rate 0.01\""
     fi
 
     run_test "${test}" "${queue}" \
