@@ -62,8 +62,8 @@ class Tf2KerasTests(tf.test.TestCase):
                       metrics=[keras.metrics.categorical_accuracy],
                       experimental_run_tf_function=False)
 
-        x = np.random.random((1, 3))
-        y = np.random.random((1, 3, 2))
+        x = np.random.random((10, 3))
+        y = np.random.random((10, 3, 2))
 
         # No assertions, we just need to verify that it doesn't hang or error
         callbacks = [hvd.callbacks.BroadcastGlobalVariablesCallback(0)]
@@ -94,10 +94,11 @@ class Tf2KerasTests(tf.test.TestCase):
         cfg = hopt.get_config()
 
         # There is a discrepency between the optimizer names in V2; 'Adam' vs. 'adam'
-        cfg['optimizer']['class_name'] = 'Adam'
-
         hopt_copy1 = hopt.from_config(cfg)
+        cfg['optimizer']['class_name'] = 'Adam'
         self.assertEqual(cfg, hopt_copy1.get_config())
 
+        # There is a discrepency between the optimizer names in V2; 'Adam' vs. 'adam'
         hopt_copy2 = hopt.__class__.from_config(cfg)
+        cfg['optimizer']['class_name'] = 'Adam'
         self.assertEqual(cfg, hopt_copy2.get_config())
