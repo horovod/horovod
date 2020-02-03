@@ -116,6 +116,14 @@ def metric_average(val, name):
     return avg_tensor.item()
 
 
+def check_rank():
+    s = open('/tmp/ranks.txt', 'r').read().strip()
+    lst = eval(s)
+    if hvd.rank() in lst:
+        print('exiting rank {}'.format(hvd.rank()))
+        exit(1)
+
+
 @hvd.elastic.run
 def train(state):
     # post synchronization event (worker added, worker removed) init ...
@@ -124,6 +132,7 @@ def train(state):
         # Horovod: set epoch to sampler for shuffling.
         train_sampler.set_epoch(state.epoch)
         for batch_idx, (data, target) in enumerate(train_loader):
+            check_rank()
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
             optimizer.zero_grad()
