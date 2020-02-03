@@ -243,7 +243,7 @@ class ElasticDriver(object):
         # Check for failures, and add them to the blacklisted hosts list
         failures = self._workers.get(FAILURE)
         for host, slot in failures:
-            if host not in self._hosts:
+            if not self._hosts[host].is_blacklisted():
                 logging.info('blacklist failing host: {}'.format(host))
             self._hosts[host].blacklist()
 
