@@ -121,7 +121,7 @@ class TorchState(ObjectState):
 def run(func):
     @functools.wraps(func)
     def wrapper(state, *args, **kwargs):
-        init()
+        # init()
         notification_manager.init()
         notification_manager.register_listener(state)
 
@@ -133,10 +133,13 @@ def run(func):
 
                 state.sync()
                 try:
+                    print('Call the Function {}'.format(rank()))
                     return func(state, *args, **kwargs)
                 except HorovodInternalError:
+                    print('HorovodInternalError {}'.format(rank()))
                     state.restore()
                 except WorkersAvailableException:
+                    print('WorkersAvailableException {}'.format(rank()))
                     pass
                 reset_required = True
         finally:
@@ -145,6 +148,10 @@ def run(func):
 
 
 def _reset(state):
+    rnk = rank()
+    print('SHUTDOWN {}'.format(rnk))
     shutdown()
+    print('RINIT {}'.format(rnk))
     init()
+    print('RESET {}'.format(rnk))
     state.on_reset()
