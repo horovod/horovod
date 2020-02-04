@@ -15,7 +15,7 @@
 import collections
 
 from six.moves import BaseHTTPServer, SimpleHTTPServer
-from horovod.run.util.network import find_port
+from horovod.run.util.network import create_server_on_port, find_port
 import threading
 import socket
 
@@ -174,17 +174,18 @@ class RendezvousHTTPServer(BaseHTTPServer.HTTPServer, object):
 
 
 class RendezvousServer:
-    def __init__(self, verbose):
+    def __init__(self, verbose=False):
         self.httpd = None
         self.listen_thread = None
         self.verbose = verbose
 
     # Rendezvous function finds a available port, create http socket,
     # and start listening loop to handle request
-    def start_server(self, host_alloc_plan):
-        self.httpd, port = find_port(
-            lambda addr: RendezvousHTTPServer(
-                addr, RendezvousHandler, self.verbose))
+    def start_server(self, host_alloc_plan, port=None):
+        def create_server(addr):
+            return RendezvousHTTPServer(addr, RendezvousHandler, self.verbose)
+        self.httpd, port = find_port(create_server) if port is None else \
+            create_server_on_port(create_server, port)
         self.httpd.extract_scope_size(host_alloc_plan)
         if self.verbose:
             print('Rendezvous INFO: HTTP rendezvous server started.')

@@ -43,6 +43,12 @@ def filter_local_addresses(all_host_names):
     return remote_host_names
 
 
+def create_server_on_port(server_factory, port):
+    addr = ('', port)
+    server = server_factory(addr)
+    return server, port
+
+
 # Given server factory, find a usable port
 def find_port(server_factory):
     min_port = 1024
@@ -52,9 +58,7 @@ def find_port(server_factory):
     for port_offset in range(num_ports):
         try:
             port = min_port + (start_port + port_offset) % num_ports
-            addr = ('', port)
-            server = server_factory(addr)
-            return server, port
+            return create_server_on_port(server_factory, port)
         except Exception as e:
             pass
 
