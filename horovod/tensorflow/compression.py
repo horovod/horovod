@@ -15,16 +15,17 @@
 """Gradient compression algorithms."""
 
 import tensorflow as tf
+from abc import ABCMeta, abstractstaticmethod
 
 
-class Compressor(object):
+class Compressor(object, metaclass=ABCMeta):
     """Interface for compressing and decompressing a given tensor."""
-    @staticmethod
+    @abstractstaticmethod
     def compress(tensor):
         """Compresses a tensor and returns it with the context needed to decompress it."""
         pass
 
-    @staticmethod
+    @abstractstaticmethod
     def decompress(tensor, ctx):
         """Decompress the tensor with the given context."""
         pass
