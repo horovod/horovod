@@ -1541,7 +1541,7 @@ setup(name='horovod',
           'spark':  [
               'h5py>=2.9',
               'numpy',
-              'petastorm>=0.7.7',
+              'petastorm==0.8.2',
               'pyarrow>=0.15.0',  # Petastorm 0.7.7 is not compatible with < 0.15.0
               'pyspark>=2.3.2'
           ],
