@@ -132,7 +132,7 @@ def train(state):
         # Horovod: set epoch to sampler for shuffling.
         train_sampler.set_epoch(state.epoch)
         for batch_idx, (data, target) in enumerate(train_loader):
-            # check_rank()
+            check_rank()
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
             state.optimizer.zero_grad()
