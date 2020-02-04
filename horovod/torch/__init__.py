@@ -112,14 +112,11 @@ class _DistributedOptimizer(torch.optim.Optimizer):
 
     def load_state_dict(self, *args, **kwargs):
         self._handles = {}
-        self._grad_accs = []
-        self._requires_update = set()
         self._synchronized = False
         self._should_synchronize = True
         for p in self._allreduce_delay:
             self._allreduce_delay[p] = self.backward_passes_per_step
-
-        return super(self.__class__, self).load_state_dict(*args, **kwargs)
+        super(self.__class__, self).load_state_dict(*args, **kwargs)
 
     @staticmethod
     def find_duplicates(lst):
@@ -503,8 +500,8 @@ def broadcast_optimizer_state(optimizer, root_rank):
     """
     if isinstance(optimizer, torch.optim.LBFGS):
         # TODO(travis): L-BFGS cannot be easily supported without serializing
-        # the entire state_dict, as its structure is deeply nested and contains
-        # None type parameter values
+        #  the entire state_dict, as its structure is deeply nested and contains
+        #  None type parameter values
         raise ValueError('cannot broadcast torch.optim.LBFGS state')
 
     state_dict = optimizer.state_dict()
