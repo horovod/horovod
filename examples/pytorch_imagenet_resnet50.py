@@ -8,10 +8,10 @@ import torch.optim as optim
 import torch.utils.data.distributed
 from torchvision import datasets, transforms, models
 import horovod.torch as hvd
-import tensorboardX
 import os
 import math
 from tqdm import tqdm
+from distutils.version import LooseVersion
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Example',
@@ -85,8 +85,14 @@ resume_from_epoch = hvd.broadcast(torch.tensor(resume_from_epoch), root_rank=0,
 verbose = 1 if hvd.rank() == 0 else 0
 
 # Horovod: write TensorBoard logs on first worker.
-log_writer = tensorboardX.SummaryWriter(args.log_dir) if hvd.rank() == 0 else None
-
+try:
+    if LooseVersion(torch.__version__) >= LooseVersion('1.2.0'):
+        from torch.utils.tensorboard import SummaryWriter
+    else:
+        from tensorboardX import SummaryWriter
+    log_writer = SummaryWriter(args.log_dir) if hvd.rank() == 0 else None
+except ImportError:
+    log_writer = None
 
 # Horovod: limit # of CPU threads to be used per worker.
 torch.set_num_threads(4)
