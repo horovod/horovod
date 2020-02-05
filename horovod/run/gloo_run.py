@@ -231,7 +231,7 @@ def gloo_run(settings, local_host_names, common_intfs, env, command):
 
     # allocate processes into slots
     hosts = parse_hosts(settings.hosts)
-    host_alloc_plan, world_size = get_host_assignments(hosts, settings.num_proc)
+    host_alloc_plan = get_host_assignments(hosts, settings.num_proc)
 
     # start global rendezvous server and get port that it is listening on
     global_rendezv_port = rendezvous.start_server()
