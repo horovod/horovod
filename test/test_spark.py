@@ -736,6 +736,26 @@ class SparkTests(unittest.TestCase):
             hdfs_root = 'file:///user/test/output'
             HDFSStore(hdfs_root)
 
+        # Case 6: override paths, no prefix
+        hdfs_root = '/user/prefix'
+        store = HDFSStore(hdfs_root,
+                          train_path='/user/train_path',
+                          val_path='/user/val_path',
+                          test_path='/user/test_path')
+        assert store.get_train_data_path() == 'hdfs:///user/train_path', hdfs_root
+        assert store.get_val_data_path() == 'hdfs:///user/val_path', hdfs_root
+        assert store.get_test_data_path() == 'hdfs:///user/test_path', hdfs_root
+
+        # Case 7: override paths, prefix
+        hdfs_root = 'hdfs:///user/prefix'
+        store = HDFSStore(hdfs_root,
+                          train_path='hdfs:///user/train_path',
+                          val_path='hdfs:///user/val_path',
+                          test_path='hdfs:///user/test_path')
+        assert store.get_train_data_path() == 'hdfs:///user/train_path', hdfs_root
+        assert store.get_val_data_path() == 'hdfs:///user/val_path', hdfs_root
+        assert store.get_test_data_path() == 'hdfs:///user/test_path', hdfs_root
+
     def test_spark_task_service_env(self):
         key = secret.make_secret_key()
         service_env = dict([(key, '{} value'.format(key))

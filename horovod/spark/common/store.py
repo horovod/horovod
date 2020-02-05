@@ -151,10 +151,10 @@ class FilesystemStore(Store):
 
     def __init__(self, prefix_path, train_path=None, val_path=None, test_path=None, runs_path=None, save_runs=True):
         self.prefix_path = self.get_full_path(prefix_path)
-        self._train_path = train_path or self._get_path('intermediate_train_data')
-        self._val_path = val_path or self._get_path('intermediate_val_data')
-        self._test_path = test_path or self._get_path('intermediate_test_data')
-        self._runs_path = runs_path or self._get_path('runs')
+        self._train_path = self._get_full_path_or_default(train_path, 'intermediate_train_data')
+        self._val_path = self._get_full_path_or_default(val_path, 'intermediate_val_data')
+        self._test_path = self._get_full_path_or_default(test_path, 'intermediate_test_data')
+        self._runs_path = self._get_full_path_or_default(runs_path, 'runs')
         self._save_runs = save_runs
         super(FilesystemStore, self).__init__()
 
@@ -223,6 +223,11 @@ class FilesystemStore(Store):
         def get_path(path):
             return prefix + path
         return get_path
+
+    def _get_full_path_or_default(self, path, default_key):
+        if path is not None:
+            return self.get_full_path(path)
+        return self._get_path(default_key)
 
     def _get_path(self, key):
         return os.path.join(self.prefix_path, key)
