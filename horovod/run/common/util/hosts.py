@@ -97,15 +97,14 @@ def get_host_assignments(hosts, min_np, max_np=None):
             local_sizes[cross_rank] += 1
             rank += 1
 
-    world_size = rank
-    if world_size < min_np:
+    if rank < min_np:
         raise ValueError('Requested more processes ({}) than there are available slots ({})'
-                         .format(min_np, world_size))
+                         .format(min_np, rank))
 
     # Fill in the local_size and cross_size because we can only know these number after
     # allocation is done.
     for alloc_item in alloc_list:
         alloc_item.local_size = local_sizes[alloc_item.cross_rank]
         alloc_item.cross_size = cross_sizes[alloc_item.local_rank]
-        alloc_item.size = world_size
-    return alloc_list, world_size
+        alloc_item.size = rank
+    return alloc_list
