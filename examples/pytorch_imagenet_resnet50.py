@@ -11,6 +11,7 @@ import horovod.torch as hvd
 import os
 import math
 from tqdm import tqdm
+from distutils.version import LooseVersion
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Example',
@@ -85,11 +86,13 @@ verbose = 1 if hvd.rank() == 0 else 0
 
 # Horovod: write TensorBoard logs on first worker.
 try:
-    import tensorboardX
-    log_writer = tensorboardX.SummaryWriter(args.log_dir) if hvd.rank() == 0 else None
-except ImportError as e:
+    if LooseVersion(torch.__version__) >= LooseVersion('1.2.0'):
+        from torch.utils.tensorboard import SummaryWriter
+    else:
+        from tensorboardX import SummaryWriter
+    log_writer = SummaryWriter(args.log_dir) if hvd.rank() == 0 else None
+except ImportError:
     log_writer = None
-
 
 # Horovod: limit # of CPU threads to be used per worker.
 torch.set_num_threads(4)
