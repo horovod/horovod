@@ -64,7 +64,7 @@ def forward_stream(src_fd, dst_stream, prefix, index):
             text = os.read(src.fileno(), 1000)
             if not isinstance(text, str):
                 text = text.decode('utf-8')
-            if not text:
+            if not text or len(text) == 0:
                 break
 
             for line in re.split('([\r\n])', text):
