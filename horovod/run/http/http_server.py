@@ -13,6 +13,7 @@
 # limitations under the License.
 # =============================================================================
 import collections
+import os
 
 from six.moves import BaseHTTPServer, SimpleHTTPServer
 from horovod.run.util.network import create_server_on_port, find_port
@@ -181,11 +182,13 @@ class RendezvousServer:
 
     # Rendezvous function finds a available port, create http socket,
     # and start listening loop to handle request
-    def start_server(self, host_alloc_plan, port=None):
+    def start_server(self, host_alloc_plan=None, port=None):
         def create_server(addr):
             return RendezvousHTTPServer(addr, RendezvousHandler, self.verbose)
+
         self.httpd, port = find_port(create_server) if port is None else \
             create_server_on_port(create_server, port)
+
         self.httpd.extract_scope_size(host_alloc_plan)
         if self.verbose:
             print('Rendezvous INFO: HTTP rendezvous server started.')
@@ -196,6 +199,9 @@ class RendezvousServer:
         self.listen_thread.start()
 
         return port
+
+    def wait(self):
+        self.listen_thread.join()
 
     # Listening loop for handle request
     def listen_loop(self):
