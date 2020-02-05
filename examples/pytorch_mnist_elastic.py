@@ -121,7 +121,8 @@ def check_rank():
     lst = eval(s)
     if hvd.rank() in lst:
         print('exiting rank {}'.format(hvd.rank()))
-        exit(1)
+        raise RuntimeError('check_rank and exit')
+        # exit(1)
 
 
 @hvd.elastic.run
