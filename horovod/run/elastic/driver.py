@@ -331,12 +331,12 @@ class ElasticDriver(object):
 
     def _update_host_assignments(self):
         host_list = [hosts.HostInfo(host, self._get_slots(host)) for host in self._assigned_hosts]
-        host_assignments_list = hosts.get_host_assignments(host_list, self._min_np, self._max_np)
+        host_assignments_list, world_size = hosts.get_host_assignments(host_list, self._min_np, self._max_np)
         host_assignments = defaultdict(list)
         for slot_info in host_assignments_list:
             host_assignments[slot_info.hostname].append(slot_info)
         self._host_assignments = host_assignments
-        self._world_size = len(host_assignments_list)
+        self._world_size = world_size
         self._rendezvous.httpd.reset(host_assignments_list)
 
     def _count_available_slots(self):
