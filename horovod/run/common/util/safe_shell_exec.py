@@ -121,7 +121,6 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
 
         def kill_executor_children_if_sigterm_received():
             sigterm_received.wait()
-            print('SIGTERM received {}'.format(index))
             terminate_executor_shell_and_children(executor_shell.pid)
 
         bg = threading.Thread(target=kill_executor_children_if_sigterm_received)
@@ -157,12 +156,9 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
         def kill_middleman_if_master_thread_terminate():
             event.wait()
             try:
-                print('SIGTERM: {}'.format(index))
                 os.kill(middleman_pid, signal.SIGTERM)
-                print('SIGTERM SUCCESS: {}'.format(index))
             except:
                 # The process has already been killed elsewhere
-                print('SIGTERM FAILURE: {}'.format(index))
                 pass
 
         # TODO: Currently this requires explicitly declaration of the event and signal handler to set
