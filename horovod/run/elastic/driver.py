@@ -261,6 +261,8 @@ class ElasticDriver(object):
         return len(self._host_assignments[host])
 
     def get_slot_info(self, host, slot):
+        if self._hosts[host].is_blacklisted():
+            return hosts.INVALID_SLOT_INFO
         return self._host_assignments[host][slot]
 
     def get_available_hosts(self):

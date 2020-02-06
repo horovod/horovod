@@ -30,19 +30,24 @@ class HostInfo:
 
 
 class SlotInfo:
-    def __init__(self, hostname, rank, local_rank, cross_rank):
+    def __init__(self, hostname, rank, local_rank, cross_rank, size=None, local_size=None, cross_size=None):
         self.hostname = hostname
         self.rank = rank
-        self.size = None
+        self.size = size
         self.local_rank = local_rank
-        self.local_size = None
+        self.local_size = local_size
         self.cross_rank = cross_rank
-        self.cross_size = None
+        self.cross_size = cross_size
 
     def to_response_string(self):
         return ','.join(str(v) for v in [self.rank, self.size,
                                          self.local_rank, self.local_size,
                                          self.cross_rank, self.cross_size])
+
+
+INVALID_SLOT_INFO = SlotInfo(hostname='',
+                             rank=-1, local_rank=-1, cross_rank=-1,
+                             size=-1, local_size=-1, cross_size=-1)
 
 
 def parse_hosts(hosts_string):
