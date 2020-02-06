@@ -117,8 +117,8 @@ def metric_average(val, name):
     return avg_tensor.item()
 
 
-def check_rank():
-    if int(os.environ.get('HOROVOD_RANK')) == 0:
+def check_rank(epoch):
+    if epoch == 2 and int(os.environ.get('HOROVOD_RANK')) == 0:
         print('exiting rank {}'.format(hvd.rank()))
         raise RuntimeError('check_rank and exit')
         # exit(1)
@@ -132,7 +132,7 @@ def train(state):
         # Horovod: set epoch to sampler for shuffling.
         train_sampler.set_epoch(state.epoch)
         for batch_idx, (data, target) in enumerate(train_loader):
-            check_rank()
+            check_rank(state.epoch)
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
             state.optimizer.zero_grad()

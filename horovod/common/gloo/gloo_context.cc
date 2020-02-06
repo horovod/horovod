@@ -167,6 +167,13 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
     std::string s(result.begin(), result.end());
     std::stringstream ss(s);
 
+    int last_rank = rank;
+    int last_size = size;
+    int last_local_rank = local_rank;
+    int last_local_size = local_size;
+    int last_cross_rank = cross_rank;
+    int last_cross_size = cross_size;
+
     rank = ParseNextInt(ss);
     if (rank == -1) {
       // Signals that this host is not part of the job
@@ -187,7 +194,13 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
     SetEnv(HOROVOD_LOCAL_SIZE, std::to_string(local_size).c_str());
     SetEnv(HOROVOD_CROSS_RANK, std::to_string(cross_rank).c_str());
     SetEnv(HOROVOD_CROSS_SIZE, std::to_string(cross_size).c_str());
-    LOG(DEBUG) << "elastic mode reinitialization complete, updated rank=" << rank << " size=" << size;
+    LOG(DEBUG) << "elastic mode reinitialization complete, updated" <<
+                  " rank: " << last_rank << " -> " << rank <<
+                  " size: " << last_size << " -> " << size <<
+                  " local_rank: " << last_local_rank << " -> " << local_rank <<
+                  " local_size: " << last_local_size << " -> " << local_size <<
+                  " cross_rank: " << last_cross_rank << " -> " << cross_rank <<
+                  " cross_size: " << last_cross_size << " -> " << cross_size;
   }
 
   ctx = Rendezvous(HOROVOD_GLOO_GLOBAL_PREFIX,
