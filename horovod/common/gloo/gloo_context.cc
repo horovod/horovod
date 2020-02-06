@@ -17,6 +17,7 @@
 
 #include <chrono>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
 
 #include "gloo/rendezvous/context.h"
@@ -169,7 +170,9 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
     rank = ParseNextInt(ss);
     if (rank == -1) {
       // Signals that this host is not part of the job
-      throw std::runtime_error(hostname + "[" + std::string(local_rank) + "] has been removed from elastic job");
+      std::ostringstream out;
+      out << hostname << "[" << local_rank << "] has been removed from elastic job";
+      throw std::runtime_error(out.str());
     }
 
     size = ParseNextInt(ss);
