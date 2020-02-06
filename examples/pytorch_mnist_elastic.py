@@ -6,6 +6,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 import torch.utils.data.distributed
 import horovod.torch as hvd
+import os
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
@@ -117,9 +118,7 @@ def metric_average(val, name):
 
 
 def check_rank():
-    s = open('/mnt/share/taddair/scripts/ranks.txt', 'r').read().strip()
-    lst = eval(s)
-    if hvd.rank() in lst:
+    if int(os.environ.get('HOROVOD_RANK')) == 0:
         print('exiting rank {}'.format(hvd.rank()))
         raise RuntimeError('check_rank and exit')
         # exit(1)
