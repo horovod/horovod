@@ -375,6 +375,8 @@ class ElasticDriver(object):
     def _handle_worker_exit(self, slot_info, exit_code, timestamp):
         if self._hosts[slot_info.hostname].is_blacklisted():
             # Ignore blacklisted hosts
+            logging.debug('host {} has been blacklisted, ignoring exit from local_rank={}'
+                          .format(slot_info.hostname, slot_info.local_rank))
             return
 
         if exit_code == 0:
