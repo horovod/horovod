@@ -142,9 +142,13 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
         stdout = sys.stdout
     if stderr is None:
         stderr = sys.stderr
+
     stdout_fwd = threading.Thread(target=forward_stream, args=(stdout_r, stdout, 'stdout', index))
-    stderr_fwd = threading.Thread(target=forward_stream, args=(stderr_r, stderr, 'stderr', index))
+    stdout_fwd.daemon = True
     stdout_fwd.start()
+
+    stderr_fwd = threading.Thread(target=forward_stream, args=(stderr_r, stderr, 'stderr', index))
+    stderr_fwd.daemon = True
     stderr_fwd.start()
 
     events = events or []
@@ -178,7 +182,9 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
                 # interrupted, wait for middleman to finish
                 pass
 
-    stdout_fwd.join()
-    stderr_fwd.join()
+    # TODO(travis): investigate why os.read is hanging after exit
+    # stdout_fwd.join()
+    # stderr_fwd.join()
+
     exit_code = status >> 8
     return exit_code
