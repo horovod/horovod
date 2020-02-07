@@ -149,7 +149,8 @@ class Store(object):
 class FilesystemStore(Store):
     """Abstract class for stores that use a filesystem for underlying storage."""
 
-    def __init__(self, prefix_path, train_path=None, val_path=None, test_path=None, runs_path=None, save_runs=True):
+    def __init__(self, prefix_path, train_path=None, val_path=None, test_path=None, runs_path=None,
+                 save_runs=False):
         self.prefix_path = self.get_full_path(prefix_path)
         self._train_path = self._get_full_path_or_default(train_path, 'intermediate_train_data')
         self._val_path = self._get_full_path_or_default(val_path, 'intermediate_val_data')
