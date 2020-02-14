@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # =============================================================================
+
 import sys
 import base64
 from distutils.version import LooseVersion
@@ -48,3 +49,15 @@ def put_data_into_kvstore(addr, port, scope, key, value):
         urlopen(req)
     except (HTTPError, URLError) as e:
         raise RuntimeError("Put data input KVStore server failed.", e)
+
+
+def delete_data_from_kvstore(addr, port, scope, key):
+    try:
+        url = "http://{addr}:{port}/{scope}/{key}".format(
+            addr=addr, port=str(port), scope=scope, key=key
+        )
+        req = Request(url)
+        req.get_method = lambda: "DELETE"  # for urllib2 compatibility
+        urlopen(req)
+    except (HTTPError, URLError) as e:
+        raise RuntimeError("Delete data input KVStore server failed.", e)

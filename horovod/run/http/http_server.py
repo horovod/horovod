@@ -40,15 +40,14 @@ class KVStoreHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     # Override GET handler
     def do_GET(self):
         paths = self.path.split('/')
-        if len(paths) < 4:
+        if len(paths) < 3:
             print(
                 'KVStore ERROR: Invalid request path: {path}.'.format(
                     path=self.path))
             self.send_status_code(BAD_REQUEST)
             return
 
-        _, phase, idx, key = paths
-        scope = phase + '_' + idx
+        _, scope, key = paths
         with self.server.cache_lock:
             value = self.server.cache.get(scope, {}).get(key)
 
@@ -63,15 +62,14 @@ class KVStoreHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     # Override PUT handler
     def do_PUT(self):
         paths = self.path.split('/')
-        if len(paths) < 4:
+        if len(paths) < 3:
             print(
                 'KVStore ERROR: Invalid request path: {path}.'.format(
                     path=self.path))
             self.send_status_code(BAD_REQUEST)
             return
 
-        _, phase, idx, key = paths
-        scope = phase + '_' + idx
+        _, scope, key = paths
 
         # Get body length
         content_length = int(self.headers['Content-Length'])
@@ -111,14 +109,15 @@ class RendezvousHandler(KVStoreHandler):
     # Override DELETE handler
     def do_DELETE(self):
         paths = self.path.split('/')
-        if len(paths) < 4:
+        if len(paths) < 3:
             print(
                 'Rendezvous ERROR: Invalid request path: {path}.'.format(
                     path=self.path))
             self.send_status_code(BAD_REQUEST)
             return
 
-        _, phase, idx, key = paths
+        _, scope, key = paths
+        phase = scope.split('_')[0]
         global_rank = int(key)
 
         with self.server.finished_list_lock:
