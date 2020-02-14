@@ -38,9 +38,9 @@ namespace common {
 #define HOROVOD_GLOO_TIMEOUT_SECONDS "HOROVOD_GLOO_TIMEOUT_SECONDS"
 #define HOROVOD_GLOO_RENDEZVOUS_ADDR "HOROVOD_GLOO_RENDEZVOUS_ADDR"
 #define HOROVOD_GLOO_RENDEZVOUS_PORT "HOROVOD_GLOO_RENDEZVOUS_PORT"
-#define HOROVOD_GLOO_GLOBAL_PREFIX "global_"
-#define HOROVOD_GLOO_LOCAL_PREFIX "local_"
-#define HOROVOD_GLOO_CROSS_PREFIX "cross_"
+#define HOROVOD_GLOO_GLOBAL_PREFIX "global/0"
+#define HOROVOD_GLOO_LOCAL_PREFIX "local/"
+#define HOROVOD_GLOO_CROSS_PREFIX "cross/"
 #define HOROVOD_RANK "HOROVOD_RANK"
 #define HOROVOD_SIZE "HOROVOD_SIZE"
 #define HOROVOD_LOCAL_RANK "HOROVOD_LOCAL_RANK"
@@ -55,13 +55,13 @@ std::chrono::milliseconds GetTimeoutFromEnv() {
 
 std::shared_ptr<gloo::Context> Rendezvous(const std::string& prefix,
                                           const char* server_addr_env, int server_port,
-                                          int rank, int size,
+                                          int rank, int size, int global_rank,
                                           std::shared_ptr<gloo::transport::Device>& dev,
                                           std::chrono::milliseconds timeout) {
   std::unique_ptr<GlooStore> store;
   if (server_addr_env != nullptr) {
     std::string server_addr = server_addr_env;
-    store.reset(new HTTPStore(server_addr, server_port, prefix, rank));
+    store.reset(new HTTPStore(server_addr, server_port, prefix, global_rank));
   } else {
     store.reset(new MemoryStore());
   }
@@ -142,17 +142,17 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
 
   ctx = Rendezvous(HOROVOD_GLOO_GLOBAL_PREFIX,
                    rendezvous_addr_env, rendezvous_port,
-                   rank, size, dev, timeout);
+                   rank, size, rank, dev, timeout);
   LOG(DEBUG) << "Global Gloo context initialized.";
 
   local_ctx = Rendezvous(HOROVOD_GLOO_LOCAL_PREFIX + std::to_string(cross_rank),
                          rendezvous_addr_env, rendezvous_port,
-                         local_rank, local_size, dev, timeout);
+                         local_rank, local_size, rank, dev, timeout);
   LOG(DEBUG) << "Local Gloo context initialized.";
 
   cross_ctx = Rendezvous(HOROVOD_GLOO_CROSS_PREFIX + std::to_string(local_rank),
                          rendezvous_addr_env, rendezvous_port,
-                         cross_rank, cross_size, dev, timeout);
+                         cross_rank, cross_size, rank, dev, timeout);
   LOG(DEBUG) << "Cross-node Gloo context initialized.";
 }
 

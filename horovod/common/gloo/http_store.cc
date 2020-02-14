@@ -29,7 +29,7 @@
 namespace horovod {
 namespace common {
 
-void HTTPStore::Finalize() { HTTP_DELETE(std::to_string(rank_)); }
+void HTTPStore::Finalize() { HTTP_DELETE(std::to_string(global_rank_)); }
 
 void HTTPStore::set(const std::string& key, const std::vector<char>& data) {
   HTTP_PUT(key, data);

@@ -266,7 +266,7 @@ def gloo_run(settings, remote_host_names, common_intfs, env, server_ip, command)
     # create global rendezvous server
     global_rendezv = RendezvousServer(settings.verbose)
     # Start rendezvous server and get port that it is listening
-    global_rendezv_port = global_rendezv.start_server(host_alloc_plan)
+    global_rendezv_port = global_rendezv.start_server(settings.num_proc)
 
     iface = list(common_intfs)[0]
 

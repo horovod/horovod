@@ -30,6 +30,8 @@ BAD_REQUEST = 400
 TIMEOUT = 408
 OK = 200
 
+PHASES = ['global', 'local', 'cross']
+
 
 class KVStoreHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     # Set timeout
@@ -38,14 +40,15 @@ class KVStoreHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     # Override GET handler
     def do_GET(self):
         paths = self.path.split('/')
-        if len(paths) < 3:
+        if len(paths) < 4:
             print(
                 'KVStore ERROR: Invalid request path: {path}.'.format(
                     path=self.path))
             self.send_status_code(BAD_REQUEST)
             return
 
-        _, scope, key = paths
+        _, phase, idx, key = paths
+        scope = phase + '_' + idx
         with self.server.cache_lock:
             value = self.server.cache.get(scope, {}).get(key)
 
@@ -60,14 +63,15 @@ class KVStoreHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     # Override PUT handler
     def do_PUT(self):
         paths = self.path.split('/')
-        if len(paths) < 3:
+        if len(paths) < 4:
             print(
                 'KVStore ERROR: Invalid request path: {path}.'.format(
                     path=self.path))
             self.send_status_code(BAD_REQUEST)
             return
 
-        _, scope, key = paths
+        _, phase, idx, key = paths
+        scope = phase + '_' + idx
 
         # Get body length
         content_length = int(self.headers['Content-Length'])
@@ -107,23 +111,24 @@ class RendezvousHandler(KVStoreHandler):
     # Override DELETE handler
     def do_DELETE(self):
         paths = self.path.split('/')
-        if len(paths) < 3:
+        if len(paths) < 4:
             print(
                 'Rendezvous ERROR: Invalid request path: {path}.'.format(
                     path=self.path))
             self.send_status_code(BAD_REQUEST)
             return
 
-        _, scope, key = paths
+        _, phase, idx, key = paths
+        global_rank = int(key)
 
         with self.server.finished_list_lock:
-            self.server.finished_list[scope].append(key)
+            self.server.finished_list[phase].append(global_rank)
 
         self.send_status_code(OK)
 
 
 class RendezvousHTTPServer(BaseHTTPServer.HTTPServer, object):
-    def __init__(self, addr, handler, verbose):
+    def __init__(self, addr, handler, world_size, verbose):
         # This class has to inherit from object since HTTPServer is an old-style
         # class that does not inherit from object.
         super(RendezvousHTTPServer, self).__init__(addr, handler)
@@ -132,44 +137,35 @@ class RendezvousHTTPServer(BaseHTTPServer.HTTPServer, object):
         self.finished_list_lock = threading.Lock()
         self.finished_list = collections.defaultdict(list)
 
-        # Total size for scopes
-        self.scope_size = {}
-
         # Cache that provides the store
         self.cache_lock = threading.Lock()
         self.cache = {}
 
+        self.world_size = world_size
         self.verbose = verbose
-
-    def extract_scope_size(self, host_alloc_plan):
-        for slot_info in host_alloc_plan:
-            self.scope_size['global'] = slot_info.size
-            cross_rank = slot_info.cross_rank
-            self.scope_size['local_' + str(cross_rank)] = slot_info.local_size
-            local_rank = slot_info.local_rank
-            self.scope_size['cross_' + str(local_rank)] = slot_info.cross_size
 
     # Decide whether all ranks have confirmed rendezvous completion.
     def should_continue(self):
-        should_continue = False
         with self.finished_list_lock:
-            for scope, cnt in self.scope_size.items():
-                if cnt > len(self.finished_list[scope]):
-                    should_continue = True
-        return should_continue
+            if len(self.finished_list) < len(PHASES):
+                return True
+
+            for phase, finished_list in self.finished_list:
+                if len(finished_list) < self.world_size:
+                    return True
+        return False
 
     def handle_timeout(self):
         error_msg = 'Rendezvous ERROR: Rendezvous server timeout after ' \
                     '{time} seconds while waiting for all the ranks to send finalize ' \
                     'messages.\n'.format(time=TOTAL_TIMEOUT)
 
-        for scope, finished_list in self.finished_list:
-            if self.scope_size[scope] > len(finished_list):
-                error_msg += 'Scope {scope} expects {size} workers, only received' \
-                    'finalized message from [{ranks}].\n'.format(
-                        scope=scope,
-                        size=self.scope_size[scope],
-                        ranks=' '.join(finished_list))
+        for phase, finished_list in self.finished_list:
+            if len(finished_list) < self.world_size:
+                expected = set(range(self.world_size))
+                missing_ranks = sorted(list(expected - set(finished_list)))
+                error_msg += 'Rendezvous phase {phase} missing ranks: {ranks}\n' \
+                    .format(phase=phase, ranks=missing_ranks)
 
         raise RuntimeError(error_msg)
 
@@ -182,14 +178,13 @@ class RendezvousServer:
 
     # Rendezvous function finds a available port, create http socket,
     # and start listening loop to handle request
-    def start_server(self, host_alloc_plan=None, port=None):
+    def start_server(self, world_size, port=None):
         def create_server(addr):
-            return RendezvousHTTPServer(addr, RendezvousHandler, self.verbose)
+            return RendezvousHTTPServer(addr, RendezvousHandler, world_size, self.verbose)
 
         self.httpd, port = find_port(create_server) if port is None else \
             create_server_on_port(create_server, port)
 
-        self.httpd.extract_scope_size(host_alloc_plan)
         if self.verbose:
             print('Rendezvous INFO: HTTP rendezvous server started.')
 

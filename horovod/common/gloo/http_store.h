@@ -34,8 +34,8 @@ namespace common {
 class HTTPStore : public GlooStore {
 public:
   HTTPStore(const std::string& server_ip, int port, const std::string& scope,
-            int rank)
-      : rank_(rank) {
+            int global_rank)
+      : global_rank_(global_rank) {
     url_prefix_ +=
         "http://" + server_ip + ":" + std::to_string(port) + "/" + scope + "/";
   }
@@ -75,7 +75,7 @@ protected:
   void HTTP_DELETE(const std::string& key);
 
   std::string url_prefix_;
-  int rank_;
+  int global_rank_;
 };
 
 } // namespace common
