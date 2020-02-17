@@ -1144,14 +1144,17 @@ class TorchTests(unittest.TestCase):
 
         model = ModelNoGrad(a, b)
 
-        optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.001, weight_decay=1e-6, momentum=0.9, nesterov=True)
         optimizer = hvd.DistributedOptimizer(optimizer, named_parameters=model.named_parameters())
 
         hvd.broadcast_parameters(model.state_dict(), root_rank=0)
         hvd.broadcast_optimizer_state(optimizer, root_rank=0)
 
+        grad = optimizer.param_groups[0]['params'][1].grad
+        bgrad = hvd.broadcast(grad, root_rank=0)
+
         assert optimizer.param_groups[0]['params'][0].grad is None
-        assert torch.all(torch.eq(optimizer.param_groups[0]['params'][1].grad, torch.zeros([4]))).item()
+        assert torch.all(torch.eq(grad, bgrad)).item()
 
     def test_broadcast_object(self):
         hvd.init()
