@@ -149,7 +149,7 @@ class RendezvousHTTPServer(BaseHTTPServer.HTTPServer, object):
             if len(self.finished_list) < len(PHASES):
                 return True
 
-            for phase, finished_list in self.finished_list:
+            for phase, finished_list in self.finished_list.items():
                 if len(finished_list) < self.world_size:
                     return True
         return False

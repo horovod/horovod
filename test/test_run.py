@@ -374,12 +374,13 @@ class RunTests(unittest.TestCase):
     def test_rendezvous_on_port(self):
         rendezvous = RendezvousServer()
         port = rendezvous.start_server(world_size=2)
+        addr = rendezvous.httpd.server_address[0]
 
-        delete_data_from_kvstore('', port, 'global', '0')
-        delete_data_from_kvstore('', port, 'global', '1')
-        delete_data_from_kvstore('', port, 'local_0', '0')
-        delete_data_from_kvstore('', port, 'local_1', '0')
-        delete_data_from_kvstore('', port, 'cross_0', '0')
-        delete_data_from_kvstore('', port, 'cross_0', '1')
+        delete_data_from_kvstore(addr, port, 'global', '0')
+        delete_data_from_kvstore(addr, port, 'global', '1')
+        delete_data_from_kvstore(addr, port, 'local_0', '0')
+        delete_data_from_kvstore(addr, port, 'local_1', '0')
+        delete_data_from_kvstore(addr, port, 'cross_0', '0')
+        delete_data_from_kvstore(addr, port, 'cross_0', '1')
 
         rendezvous.wait()
