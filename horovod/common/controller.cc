@@ -190,6 +190,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
 
     // Fuse responses as normal.
     response_list = FuseResponses(responses);
+    response_list.set_shutdown(cache_coordinator.should_shut_down());
   } else {
     // There are uncached messages coming in, need communication to figure out
     // whether those are ready to be reduced.

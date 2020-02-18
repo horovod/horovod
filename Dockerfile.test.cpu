@@ -43,6 +43,7 @@ RUN pip install -U --force pip setuptools requests pytest mock pytest-forked
 # Install PySpark.
 RUN apt-get update -qq && apt install -y openjdk-8-jdk-headless
 RUN pip install ${PYSPARK_PACKAGE}
+RUN pip install 'pyarrow<0.16.0'
 
 # Install MPI.
 RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
