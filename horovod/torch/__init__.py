@@ -569,6 +569,10 @@ def broadcast_optimizer_state(optimizer, root_rank):
 
         # The params list here is ordered by the layers in the model
         for pid in group['params']:
+            if pid not in state_dict['state']:
+                # The param has not set requires_grad, so skip broadcast
+                continue
+
             param_state = state_dict['state'][pid]
             for name, p in param_state.items():
                 # Some parameter names may appear more than once, in which
