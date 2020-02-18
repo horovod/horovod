@@ -371,16 +371,16 @@ class RunTests(unittest.TestCase):
         hosts = parse_host_files(host_filename)
         self.assertEqual(hosts, '172.31.32.7:8,172.31.33.9:8')
 
-    def test_rendezvous_on_port(self):
-        rendezvous = RendezvousServer()
-        port = rendezvous.start_server(world_size=2)
-        addr = rendezvous.httpd.server_address[0]
-
-        delete_data_from_kvstore(addr, port, 'global', '0')
-        delete_data_from_kvstore(addr, port, 'global', '1')
-        delete_data_from_kvstore(addr, port, 'local_0', '0')
-        delete_data_from_kvstore(addr, port, 'local_1', '0')
-        delete_data_from_kvstore(addr, port, 'cross_0', '0')
-        delete_data_from_kvstore(addr, port, 'cross_0', '1')
-
-        rendezvous.wait()
+    # def test_rendezvous_on_port(self):
+    #     rendezvous = RendezvousServer()
+    #     port = rendezvous.start_server(world_size=2)
+    #     addr = rendezvous.httpd.server_address[0]
+    #
+    #     delete_data_from_kvstore(addr, port, 'global', '0')
+    #     delete_data_from_kvstore(addr, port, 'global', '1')
+    #     delete_data_from_kvstore(addr, port, 'local_0', '0')
+    #     delete_data_from_kvstore(addr, port, 'local_1', '0')
+    #     delete_data_from_kvstore(addr, port, 'cross_0', '0')
+    #     delete_data_from_kvstore(addr, port, 'cross_0', '1')
+    #
+    #     rendezvous.wait()
