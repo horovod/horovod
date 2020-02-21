@@ -70,7 +70,7 @@ TorchReadyEvent::TorchReadyEvent(int device) : device_(device) {
   auto stream = c10::cuda::getCurrentCUDAStream(device_);
   C10_CUDA_CHECK(cudaEventRecord(cuda_event_, stream));
   #else
-  auto stream = THCudaCheck(cudaEventRecord(cuda_event_, stream));
+  auto stream = THCState_getCurrentStreamOnDevice(state, device_);
   THCudaCheck(cudaEventRecord(cuda_event_, stream));
   #endif
 }
