@@ -17,7 +17,6 @@ ARG PYSPARK_PACKAGE=pyspark==2.4.0
 SHELL ["/bin/bash", "-cu"]
 
 # Install essential packages.
-RUN echo "hello"
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
         wget \
         ca-certificates \
