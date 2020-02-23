@@ -314,10 +314,10 @@ for test in ${tests[@]}; do
     # if mpi is specified, run mpi cpu_test
     if [[ ${test} == *mpi* ]]; then
       run_mpi ${test} "cpu"
-    fi
 
-    # spark tests use MPI
-    run_spark ${test} "cpu"
+      # spark tests use MPI
+      run_spark ${test} "cpu"
+    fi
 
     # no runner application, world size = 1
     run_single ${test} "cpu"
