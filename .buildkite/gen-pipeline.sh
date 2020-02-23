@@ -317,7 +317,7 @@ for test in ${tests[@]}; do
     fi
 
     # spark tests use MPI
-    run_spark "cpu"
+    run_spark ${test} "cpu"
 
     # no runner application, world size = 1
     run_single ${test} "cpu"
