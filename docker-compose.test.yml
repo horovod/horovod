@@ -280,8 +280,8 @@ services:
         PYTHON_VERSION: 3.6
         TENSORFLOW_PACKAGE: tf-nightly-gpu==2.1.0.dev20191203 tf-estimator-nightly==2.1.0.dev2020012309
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
-        PYTORCH_PACKAGE: torch==1.3.0
-        TORCHVISION_PACKAGE: torchvision==0.4.1
+        PYTORCH_PACKAGE: torch-nightly
+        TORCHVISION_PACKAGE: torchvision
         MXNET_PACKAGE: mxnet-cu101==1.6.0b20190808
         PYSPARK_PACKAGE: pyspark==2.4.0
   test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0:
