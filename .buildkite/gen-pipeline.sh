@@ -23,13 +23,12 @@ tests=( \
        test-cpu-openmpi-py2_7-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
        test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
        test-cpu-mpich-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
-       # TODO(travis): reenable once billing issues resolved
-#       test-gpu-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
-#       test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
-#       test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
-#       test-gpu-openmpi-py3_6-tf2_0_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
-#       test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
-#       test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
+       test-gpu-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
+       test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
+       test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
+       test-gpu-openmpi-py3_6-tf2_0_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
+       test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
+       test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
 )
 
 build_test() {
@@ -92,10 +91,9 @@ run_test() {
   echo "    queue: ${queue}"
 }
 
-run_all() {
+run_mpi_pytest() {
   local test=$1
   local queue=$2
-  local pytest_queue=$3
 
   local exclude_keras_if_needed=""
   if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
@@ -108,9 +106,14 @@ run_all() {
   local exclude_interactiverun="| sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g'"
 
   # pytests have 4x GPU use cases and require a separate queue
-  run_test "${test}" "${pytest_queue}" \
+  run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
     "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras_if_needed} ${exclude_interactiverun} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no)\""
+}
+
+run_mpi_integration() {
+  local test=$1
+  local queue=$2
 
   # Run test_interactiverun.py
   if [[ ${test} != *"mpich"* ]]; then
@@ -173,6 +176,62 @@ run_all() {
       ":tensorflow: Test TensorFlow 2.0 Keras MNIST (${test})" \
       "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow2_keras_mnist.py\""
   fi
+}
+
+run_mpi() {
+  local test=$1
+  local queue=$2
+
+  run_mpi_pytest ${test} ${queue}
+  run_mpi_integration ${test} ${queue}
+}
+
+run_gloo_pytest() {
+  local test=$1
+  local queue=$2
+
+  # Seems that spark tests depend on MPI, do not test those when mpi is not available
+  local exclude_spark_if_needed=""
+  if [[ ${test} != *"mpi"* ]]; then
+    exclude_spark_if_needed="| sed 's/[a-z_]*spark[a-z_.]*//g'"
+  fi
+
+  # These tests are covered in MPI, and testing them in Gloo does not cover any new code paths
+  local excluded_tests="| sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/[a-z_]*tensorflow2[a-z_.]*//g'"
+
+  run_test "${test}" "${queue}" \
+    ":pytest: Run PyTests (${test})" \
+    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_spark_if_needed} ${excluded_tests} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no)\""
+}
+
+run_gloo_integration() {
+  local test=$1
+  local queue=$2
+
+  run_test "${test}" "${queue}" \
+    ":tensorflow: Test Keras MNIST (${test})" \
+    "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/keras_mnist_advanced.py"
+
+  run_test "${test}" "${queue}" \
+    ":python: Test PyTorch MNIST (${test})" \
+    "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch_mnist.py"
+
+  run_test "${test}" "${queue}" \
+    ":muscle: Test MXNet MNIST (${test})" \
+    "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet_mnist.py"
+}
+
+run_gloo() {
+  local test=$1
+  local queue=$2
+
+  run_gloo_pytest ${test} ${queue}
+  run_gloo_integration ${test} ${queue}
+}
+
+run_spark() {
+  local test=$1
+  local queue=$2
 
   # Horovod Spark Estimator tests
   if [[ ${test} != *"tf1_1_0"* && ${test} != *"tf1_6_0"* && ${test} != *"torch0_"* && ${test} != *"mpich"* ]]; then
@@ -190,41 +249,9 @@ run_all() {
   fi
 }
 
-run_gloo() {
-  local test=$1
-  local queue=$2
-  local pytest_queue=$3
-
-  # Seems that spark tests depend on MPI, do not test those when mpi is not available
-  local exclude_spark_if_needed=""
-  if [[ ${test} != *"mpi"* ]]; then
-    exclude_spark_if_needed="| sed 's/[a-z_]*spark[a-z_.]*//g'"
-  fi
-
-  # These tests are covered in MPI, and testing them in Gloo does not cover any new code paths
-  local excluded_tests="| sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/[a-z_]*tensorflow2[a-z_.]*//g'"
-
-  run_test "${test}" "${pytest_queue}" \
-    ":pytest: Run PyTests (${test})" \
-    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_spark_if_needed} ${excluded_tests} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no)\""
-
-  run_test "${test}" "${queue}" \
-    ":tensorflow: Test Keras MNIST (${test})" \
-    "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/keras_mnist_advanced.py"
-
-  run_test "${test}" "${queue}" \
-    ":python: Test PyTorch MNIST (${test})" \
-    "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch_mnist.py"
-
-  run_test "${test}" "${queue}" \
-    ":muscle: Test MXNet MNIST (${test})" \
-    "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet_mnist.py"
-}
-
 run_single() {
   local test=$1
   local queue=$2
-  local pytest_queue=$3
 
   # Only in TensorFlow 1.X
   if [[ ${test} != *"tf2_"* ]] && [[ ${test} != *"tfhead"* ]]; then
@@ -281,30 +308,54 @@ for test in ${tests[@]}; do
   if [[ ${test} == *-cpu-* ]]; then
     # if gloo is specified, run gloo_test
     if [[ ${test} == *-gloo* ]]; then
-      run_gloo ${test} "cpu" "cpu"
+      run_gloo ${test} "cpu"
     fi
+
     # if mpi is specified, run mpi cpu_test
     if [[ ${test} == *mpi* ]]; then
-      run_all ${test} "cpu" "cpu"
+      run_mpi ${test} "cpu"
+
+      # spark tests use MPI
+      run_spark ${test} "cpu"
     fi
+
     # no runner application, world size = 1
-    run_single ${test} "cpu" "cpu"
+    run_single ${test} "cpu"
   fi
 done
 
 # wait for all builds to finish
 echo "- wait"
 
-# run all the gpu tests
+# run 4x gpu tests
 for test in ${tests[@]}; do
   if [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]]; then
     # if gloo is specified, run gloo_test
     if [[ ${test} == *-gloo* ]]; then
-      run_gloo ${test} "gpu" "4x-gpu"
+      run_gloo_pytest ${test} "4x-gpu-g4"
     fi
+
     # if mpi is specified, run mpi gpu_test
     if [[ ${test} == *mpi* ]]; then
-      run_all ${test} "gpu" "4x-gpu"
+      run_mpi_pytest ${test} "4x-gpu-g4"
+    fi
+  fi
+done
+
+# wait for all builds to finish
+echo "- wait"
+
+# run 2x gpu tests
+for test in ${tests[@]}; do
+  if [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]]; then
+    # if gloo is specified, run gloo_test
+    if [[ ${test} == *-gloo* ]]; then
+      run_gloo_integration ${test} "2x-gpu-g4"
+    fi
+
+    # if mpi is specified, run mpi gpu_test
+    if [[ ${test} == *mpi* ]]; then
+      run_mpi_integration ${test} "2x-gpu-g4"
     fi
   fi
 done
