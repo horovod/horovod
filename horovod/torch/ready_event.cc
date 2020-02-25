@@ -14,7 +14,12 @@
 // =============================================================================
 
 #if HAVE_CUDA
+#if TORCH_VERSION >= 1005000000
+#include <c10/cuda/CUDAStream.h>
+#include <c10/cuda/CUDAException.h>
+#else
 #include <THC/THC.h>
+#endif
 #include <cassert>
 #include <mutex>
 #include <queue>
@@ -24,8 +29,10 @@
 #include "ready_event.h"
 #include "cuda_util.h"
 
+#if TORCH_VERSION < 1005000000
 #if HAVE_CUDA
 extern THCState* state;
+#endif
 #endif
 
 namespace horovod {
@@ -50,12 +57,22 @@ TorchReadyEvent::TorchReadyEvent(int device) : device_(device) {
       cuda_event_ = queue.front();
       queue.pop();
     } else {
+      #if TORCH_VERSION >= 1005000000
+      C10_CUDA_CHECK(cudaEventCreateWithFlags(
+          &cuda_event_, cudaEventBlockingSync | cudaEventDisableTiming));
+      #else
       THCudaCheck(cudaEventCreateWithFlags(
           &cuda_event_, cudaEventBlockingSync | cudaEventDisableTiming));
+      #endif
     }
   }
+  #if TORCH_VERSION >= 1005000000
+  auto stream = c10::cuda::getCurrentCUDAStream(device_);
+  C10_CUDA_CHECK(cudaEventRecord(cuda_event_, stream));
+  #else
   auto stream = THCState_getCurrentStreamOnDevice(state, device_);
   THCudaCheck(cudaEventRecord(cuda_event_, stream));
+  #endif
 }
 
 TorchReadyEvent::~TorchReadyEvent() {
@@ -71,7 +88,11 @@ bool TorchReadyEvent::Ready() const {
   if (status == cudaErrorNotReady) {
     return false;
   }
+  #if TORCH_VERSION >= 1005000000
+  C10_CUDA_CHECK(status);
+  #else
   THCudaCheck(status);
+  #endif
   return true;
 }
 #endif
