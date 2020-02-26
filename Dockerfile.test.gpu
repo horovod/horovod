@@ -99,7 +99,7 @@ RUN pip install "Pillow<7.0" --no-deps
 RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly" ]]; then \
         pip install -pre mxnet_cu100 -f https://dist.mxnet.io/python/all; \
     else \
-        pip install ${MXNET_PACKAGE} \
+        pip install ${MXNET_PACKAGE} ; \
     fi
 
 # Install Horovod.
