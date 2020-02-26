@@ -559,6 +559,8 @@ def parse_args():
                                        help='Extra MPI arguments to pass to mpirun. '
                                        'They need to be passed with the equal sign to avoid parsing issues. '
                                        'e.g. --mpi-args="--map-by ppr:6:node"')
+    group_library_options.add_argument('--tcp', action='store_true', dest='tcp_flag',
+                                       help='If this flag is set, TCP is only used for communication.')
     group_library_options.add_argument('--num-nccl-streams', action=make_override_action(override_args),
                                        type=int, default=1,
                                        help='Number of NCCL streams. Only applies when running with NCCL support. '
@@ -730,6 +732,7 @@ def _run(args):
     settings = hvd_settings.Settings(verbose=2 if args.verbose else 0,
                                      ssh_port=args.ssh_port,
                                      extra_mpi_args=args.mpi_args,
+                                     tcp_flag=args.tcp_flag,
                                      key=secret.make_secret_key(),
                                      timeout=tmout,
                                      num_hosts=len(all_host_names),

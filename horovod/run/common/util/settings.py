@@ -16,9 +16,9 @@
 
 class Settings(object):
 
-    def __init__(self, verbose=0, ssh_port=None, extra_mpi_args=None, key=None, timeout=None,
-                 num_hosts=None, num_proc=None, hosts=None, output_filename=None,
-                 run_func_mode=None, nic=None):
+    def __init__(self, verbose=0, ssh_port=None, extra_mpi_args=None, tcp_flag=None,
+                 key=None, timeout=None, num_hosts=None, num_proc=None, hosts=None,
+                 output_filename=None, run_func_mode=None, nic=None):
         """
         :param verbose: level of verbosity
         :type verbose: int
@@ -26,6 +26,8 @@ class Settings(object):
         :type ssh_port: int
         :param extra_mpi_args: Extra MPI arguments to pass to mpirun
         :type extra_mpi_args: string
+        :param tcp_flag: TCP only communication flag
+        :type tcp_flag: boolean
         :param key: used for encryption of parameters passed across the hosts
         :type key: str
         :param timeout: has to finish all the checks before this timeout runs
@@ -47,6 +49,7 @@ class Settings(object):
         self.verbose = verbose
         self.ssh_port = ssh_port
         self.extra_mpi_args = extra_mpi_args
+        self.tcp_flag = tcp_flag
         self.key = key
         self.timeout = timeout
         self.num_hosts = num_hosts
