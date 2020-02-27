@@ -190,8 +190,11 @@ def broadcast(tensor, root_rank, name=None, priority=0):
         A tensor of the same shape and type as `tensor`, with the value
         broadcasted from root rank.
     """
-    output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context,
-                         dtype=tensor.dtype)
+    if rank() == root_rank:
+        output = tensor.copy()
+    else:
+        output = mx.nd.zeros(shape=tensor.shape, ctx=tensor.context,
+                             dtype=tensor.dtype)
     c_in = tensor.handle
     c_out = output.handle
     if isinstance(name, string_types):
