@@ -257,7 +257,7 @@ class RunTests(unittest.TestCase):
     Tests mpi_run with minimal settings.
     """
     def test_mpi_run_minimal(self):
-        if _get_mpi_implementation_flags() is None:
+        if _get_mpi_implementation_flags(False) is None:
             self.skipTest("MPI is not available")
 
         cmd = ['cmd']
@@ -266,7 +266,7 @@ class RunTests(unittest.TestCase):
 
         mpi_run(settings, None, {}, cmd, run_func=run_func)
 
-        mpi_flags = _get_mpi_implementation_flags()
+        mpi_flags = _get_mpi_implementation_flags(False)
         self.assertIsNotNone(mpi_flags)
         expected_cmd = ('mpirun '
                         '--allow-run-as-root --tag-output '
@@ -281,7 +281,7 @@ class RunTests(unittest.TestCase):
     Tests mpi_run on a large cluster.
     """
     def test_mpi_run_on_large_cluster(self):
-        if _get_mpi_implementation_flags() is None:
+        if _get_mpi_implementation_flags(False) is None:
             self.skipTest("MPI is not available")
 
         cmd = ['cmd']
@@ -291,7 +291,7 @@ class RunTests(unittest.TestCase):
 
         mpi_run(settings, None, {}, cmd, run_func=run_func)
 
-        mpi_flags = _get_mpi_implementation_flags()
+        mpi_flags = _get_mpi_implementation_flags(False)
         self.assertIsNotNone(mpi_flags)
         mpi_flags.append('-mca plm_rsh_no_tree_spawn true')
         mpi_flags.append('-mca plm_rsh_num_concurrent 2')
@@ -308,7 +308,7 @@ class RunTests(unittest.TestCase):
     Tests mpi_run with full settings.
     """
     def test_mpi_run_full(self):
-        if _get_mpi_implementation_flags() is None:
+        if _get_mpi_implementation_flags(False) is None:
             self.skipTest("MPI is not available")
 
         cmd = ['cmd', 'arg1', 'arg2']
@@ -333,7 +333,7 @@ class RunTests(unittest.TestCase):
 
         mpi_run(settings, common_intfs, env, cmd, stdout=stdout, stderr=stderr, run_func=run_func)
 
-        mpi_flags = _get_mpi_implementation_flags()
+        mpi_flags = _get_mpi_implementation_flags(False)
         self.assertIsNotNone(mpi_flags)
         expected_command = ('mpirun '
                             '--allow-run-as-root --tag-output '
@@ -350,7 +350,7 @@ class RunTests(unittest.TestCase):
         run_func.assert_called_once_with(command=expected_command, env=expected_env, stdout=stdout, stderr=stderr)
 
     def test_mpi_run_with_non_zero_exit(self):
-        if _get_mpi_implementation_flags() is None:
+        if _get_mpi_implementation_flags(False) is None:
             self.skipTest("MPI is not available")
 
         cmd = ['cmd']

@@ -178,7 +178,7 @@ class SparkTests(unittest.TestCase):
                          'Spark timed out before mpi_run was called, test setup is broken.')
         self.assertEqual(str(e.value), 'Spark job has failed, see the error above.')
 
-        mpi_flags = _get_mpi_implementation_flags()
+        mpi_flags = _get_mpi_implementation_flags(False)
         self.assertIsNotNone(mpi_flags)
         expected_command = ('mpirun '
                             '--allow-run-as-root --tag-output '
