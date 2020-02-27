@@ -69,7 +69,7 @@ class Cache(object):
         self._lock.acquire()
         self._content[key] = (datetime.datetime.now(), val)
         try:
-            self._dump(self._cache_file)
+            self._dump(self._content)
         finally:
             self._lock.release()
 
