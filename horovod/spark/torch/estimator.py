@@ -119,6 +119,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         train_steps_per_epoch: Number of steps to train each epoch. Useful for testing that model trains successfully.
                                Defaults to training the entire dataset each epoch.
         validation_steps_per_epoch: Number of validation steps to perform each epoch.
+        transformation_fn: Optional custom function to execute before passing the loaded data into the train and validation steps.
+                        This is useful for tasks such as cropping and rescaling of image samples before train starts.
     """
 
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')
@@ -126,8 +128,12 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                               'functions that construct the loss')
     train_minibatch_fn = Param(Params._dummy(), 'train_minibatch_fn',
                                'functions that construct the minibatch train function for torch')
+    transformation_fn = Param(Params._dummy(), 'transformation_fn',
+                               'functions that construct the transformation '
+                               'function that applies custom transformations to '
+                               'every batch before train and validation steps')
 
-    @keyword_only
+@keyword_only
     def __init__(self,
                  num_proc=None,
                  model=None,
@@ -153,7 +159,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  run_id=None,
                  train_minibatch_fn=None,
                  train_steps_per_epoch=None,
-                 validation_steps_per_epoch=None):
+                 validation_steps_per_epoch=None,
+                 transformation_fn=None):
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
                          input_shapes=None,
@@ -183,6 +190,12 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def getLossConstructors(self):
         return self.getOrDefault(self.loss_constructors)
+
+    def setTransformationFn(self, value):
+        return self._set(transformation_fn=value)
+
+    def getTransformationFn(self):
+        return self.getOrDefault(self.transformation_fn)
 
     def _get_optimizer(self):
         return self.getOrDefault(self.optimizer)

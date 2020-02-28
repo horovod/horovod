@@ -55,6 +55,8 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     train_minibatch = train_minibatch_fn if train_minibatch_fn else _train_minibatch_fn()
     loss_fns_pre_train = to_list(estimator.getLoss(), num_labels)
     loss_constructors = to_list(estimator.getLossConstructors(), num_labels)
+    transformation_fn = estimator.getTransformationFn()
+    transformation = transformation_fn if transformation_fn else None
 
     # If loss weight is not provided, use equal loss for all the labels
     loss_weights = estimator.getLossWeights()
@@ -88,7 +90,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
 
     def train(serialized_model, optimizer_cls, model_opt_state_serialized,
               train_rows, val_rows, avg_row_size):
-        from petastorm import make_batch_reader
+        from petastorm import make_batch_reader, TransformSpec
         from petastorm.pytorch import DataLoader
         import torch
         import horovod.torch as hvd
@@ -164,6 +166,10 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
         # different number of workers and we need the raw learning rate to adjust with the
         # new number of workers.
 
+        transform_spec = None
+        if transformation:
+            transform_spec = TransformSpec(transformation)
+
         schema_fields = feature_columns + label_columns
         if sample_weight_col:
             schema_fields.append(sample_weight_col)
@@ -199,13 +205,15 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                                    cur_shard=hvd.rank(),
                                    shard_count=hvd.size(),
                                    hdfs_driver=PETASTORM_HDFS_DRIVER,
-                                   schema_fields=schema_fields) as train_reader:
+                                   schema_fields=schema_fields,
+                                   transform_spec=transform_spec) as train_reader:
                 with make_batch_reader(remote_store.val_data_path,
                                        num_epochs=None,
                                        cur_shard=hvd.rank(),
                                        shard_count=hvd.size(),
                                        hdfs_driver=PETASTORM_HDFS_DRIVER,
-                                       schema_fields=schema_fields) \
+                                       schema_fields=schema_fields,
+                                       transform_spec=transform_spec) \
                         if should_validate else empty_batch_reader() as val_reader:
 
                     train_loader = DataLoader(train_reader,
