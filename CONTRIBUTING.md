@@ -31,6 +31,7 @@ Current non-voting members of the Horovod TSC:
 * Todd Mytkowicz (@klipto)
 * Emad Barsoum (@ebarsoum)
 * Kaarthik Sivashanmugam (@skaarthik)
+* Nicolas Castet (@nvcastet)
 
 Non-voting members of the TSC ("maintainers") have commit access to the Horovod GitHub repository, and take part in the
 standing TSC meetings and mailing lists.
