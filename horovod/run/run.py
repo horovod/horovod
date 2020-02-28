@@ -661,6 +661,7 @@ class HorovodArgs(object):
         # library arguments
         self.mpi_threads_disable = None
         self.mpi_args = None
+        self.tcp_flag = None
         self.num_nccl_streams = None
         self.ccl_bgt_affinity = None
         self.gloo_timeout_seconds = None
