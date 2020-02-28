@@ -23,7 +23,8 @@ from horovod.run.common.util import env as env_util, safe_shell_exec, secret, co
 # Open MPI Flags
 _OMPI_FLAGS = ['-mca pml ob1', '-mca btl ^openib']
 # Spectrum MPI Flags
-_SMPI_FLAGS = ['-gpu', '-disable_gdr']
+_SMPI_FLAGS = ['-gpu']
+_SMPI_FLAGS_TCP = ['-tcp']
 # MPICH Flags
 _MPICH_FLAGS = []
 # Threshold for large cluster MPI issues:
@@ -34,8 +35,7 @@ try:
 except ImportError:
     from pipes import quote
 
-
-def _get_mpi_implementation_flags():
+def _get_mpi_implementation_flags(tcp_flag):
     output = six.StringIO()
     command = 'mpirun --version'
     try:
@@ -52,7 +52,7 @@ def _get_mpi_implementation_flags():
         if 'Open MPI' in output_msg or 'OpenRTE' in output_msg:
             return list(_OMPI_FLAGS)
         elif 'IBM Spectrum MPI' in output_msg:
-            return list(_SMPI_FLAGS)
+            return list(_SMPI_FLAGS) if not tcp_flag else list(_SMPI_FLAGS_TCP)
         elif 'MPICH' in output_msg:
             return list(_MPICH_FLAGS)
         print('Open MPI/Spectrum MPI/MPICH not found in output of mpirun --version.',
@@ -82,7 +82,7 @@ def mpi_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_
                   Only used when settings.run_func_mode is True.
                   Defaults to safe_shell_exec.execute.
     """
-    mpi_impl_flags = _get_mpi_implementation_flags()
+    mpi_impl_flags = _get_mpi_implementation_flags(settings.tcp_flag)
     if mpi_impl_flags is None:
         raise Exception(
             'horovodrun convenience script does not find an installed MPI.\n\n'
