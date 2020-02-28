@@ -133,7 +133,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                                'function that applies custom transformations to '
                                'every batch before train and validation steps')
 
-@keyword_only
+    @keyword_only
     def __init__(self,
                  num_proc=None,
                  model=None,
