@@ -164,7 +164,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
                          input_shapes=None,
-                         train_minibatch_fn=None)
+                         train_minibatch_fn=None,
+                         transformation_fn=None)
 
         kwargs = self._input_kwargs
 
