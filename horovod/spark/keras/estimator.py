@@ -140,6 +140,9 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
         train_steps_per_epoch: Number of steps to train each epoch. Useful for testing that model trains successfully.
                                Defaults to training the entire dataset each epoch.
         validation_steps_per_epoch: Number of validation steps to perform each epoch.
+        transformation_fn: Optional custom function to execute before passing the loaded data into the train and validation steps.
+                This is useful for tasks such as cropping and rescaling of image samples before train starts.
+
     """
 
     custom_objects = Param(Params._dummy(), 'custom_objects', 'custom objects')
@@ -169,7 +172,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                  partitions_per_process=None,
                  run_id=None,
                  train_steps_per_epoch=None,
-                 validation_steps_per_epoch=None):
+                 validation_steps_per_epoch=None,
+                 transformation_fn=None):
 
         super(KerasEstimator, self).__init__()
 

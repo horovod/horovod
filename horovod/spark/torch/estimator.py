@@ -128,10 +128,6 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                               'functions that construct the loss')
     train_minibatch_fn = Param(Params._dummy(), 'train_minibatch_fn',
                                'functions that construct the minibatch train function for torch')
-    transformation_fn = Param(Params._dummy(), 'transformation_fn',
-                               'functions that construct the transformation '
-                               'function that applies custom transformations to '
-                               'every batch before train and validation steps')
 
     @keyword_only
     def __init__(self,
@@ -191,12 +187,6 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def getLossConstructors(self):
         return self.getOrDefault(self.loss_constructors)
-
-    def setTransformationFn(self, value):
-        return self._set(transformation_fn=value)
-
-    def getTransformationFn(self):
-        return self.getOrDefault(self.transformation_fn)
 
     def _get_optimizer(self):
         return self.getOrDefault(self.optimizer)

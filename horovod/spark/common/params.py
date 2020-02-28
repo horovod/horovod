@@ -80,6 +80,11 @@ class EstimatorParams(Params):
                    'then training will resume from last checkpoint in the store',
                    typeConverter=TypeConverters.toString)
 
+    transformation_fn = Param(Params._dummy(), 'transformation_fn',
+                              'functions that construct the transformation '
+                              'function that applies custom transformations to '
+                              'every batch before train and validation steps')
+
     def __init__(self):
         super(EstimatorParams, self).__init__()
 
@@ -106,7 +111,8 @@ class EstimatorParams(Params):
             partitions_per_process=10,
             run_id=None,
             train_steps_per_epoch=None,
-            validation_steps_per_epoch=None)
+            validation_steps_per_epoch=None,
+            transformation_fn=None)
 
     def _check_params(self, metadata):
         model = self.getModel()
@@ -268,6 +274,12 @@ class EstimatorParams(Params):
 
     def getRunId(self):
         return self.getOrDefault(self.run_id)
+
+    def setTransformationFn(self, value):
+        return self._set(transformation_fn=value)
+
+    def getTransformationFn(self):
+        return self.getOrDefault(self.transformation_fn)
 
 
 class ModelParams(HasOutputCols):

@@ -62,6 +62,8 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
         feature_columns, label_columns, sample_weight_col, metadata,
         input_shapes, output_shapes, output_names, batch_size)
     fit = keras_utils.fit_fn(epochs)
+    transformation_fn = estimator.getTransformationFn()
+    transformation = transformation_fn if transformation_fn else None
 
     # Utility functions
     deserialize_keras_model = _deserialize_keras_model_fn()
@@ -84,7 +86,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
         yield None
 
     def train(serialized_model, train_rows, val_rows, avg_row_size):
-        from petastorm import make_batch_reader
+        from petastorm import make_batch_reader, TransformSpec
 
         k = get_keras()
         k.backend.set_floatx(floatx)
@@ -110,6 +112,10 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
 
         # Verbose mode 1 will print a progress bar
         verbose = user_verbose if hvd.rank() == 0 else 0
+
+        transform_spec = None
+        if transformation:
+            transform_spec = TransformSpec(transformation)
 
         with remote_store.get_local_output_dir() as run_output_dir:
             callbacks = [
@@ -165,13 +171,15 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                                    cur_shard=hvd.rank(),
                                    shard_count=hvd.size(),
                                    hdfs_driver=PETASTORM_HDFS_DRIVER,
-                                   schema_fields=schema_fields) as train_reader:
+                                   schema_fields=schema_fields,
+                                   transform_spec=transform_spec) as train_reader:
                 with make_batch_reader(remote_store.val_data_path,
                                        num_epochs=None,
                                        cur_shard=hvd.rank(),
                                        shard_count=hvd.size(),
                                        hdfs_driver=PETASTORM_HDFS_DRIVER,
-                                       schema_fields=schema_fields) \
+                                       schema_fields=schema_fields,
+                                       transform_spec=transform_spec) \
                         if should_validate else empty_batch_reader() as val_reader:
 
                     train_data = make_dataset(train_reader, shuffle_buffer_size, shuffle=True)
