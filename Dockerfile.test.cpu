@@ -113,8 +113,8 @@ RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
 RUN pip install "Pillow<7.0" --no-deps
 
 # Install MXNet.
-RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly" ]]; then \
-        pip install --pre mxnet -f https://dist.mxnet.io/python/all; \
+RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly" && ${PYTHON_VERSION} != "2.7" ]]; then \
+        pip install --pre mxnet-mkl -f https://dist.mxnet.io/python/all; \
     else \
         pip install ${MXNET_PACKAGE} ; \
     fi

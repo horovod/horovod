@@ -165,7 +165,7 @@ services:
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision
-        MXNET_PACKAGE: mxnet-nightly
+        MXNET_PACKAGE: mxnet==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.0
   test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0:
     extends: test-cpu-base
@@ -282,7 +282,7 @@ services:
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
         TORCHVISION_PACKAGE: torchvision
-        MXNET_PACKAGE: mxnet-cu101==1.6.0b20190808
+        MXNET_PACKAGE: mxnet-nightly
         PYSPARK_PACKAGE: pyspark==2.4.0
   test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0:
     extends: test-gpu-base
