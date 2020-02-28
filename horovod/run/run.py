@@ -560,7 +560,7 @@ def parse_args():
                                        'They need to be passed with the equal sign to avoid parsing issues. '
                                        'e.g. --mpi-args="--map-by ppr:6:node"')
     group_library_options.add_argument('--tcp', action='store_true', dest='tcp_flag',
-                                       help='If this flag is set, TCP is only used for communication.')
+                                       help='If this flag is set, only TCP is used for communication.')
     group_library_options.add_argument('--num-nccl-streams', action=make_override_action(override_args),
                                        type=int, default=1,
                                        help='Number of NCCL streams. Only applies when running with NCCL support. '
