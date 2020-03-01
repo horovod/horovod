@@ -34,6 +34,11 @@ except:
     check_extension('horovod.torch', 'HOROVOD_WITH_PYTORCH',
                     __file__, 'mpi_lib', '_mpi_lib')
 
+try:
+    from collections.abc import Iterable
+except ImportError:
+    from collections import Iterable
+
 
 from horovod.torch.compression import Compression
 from horovod.torch.mpi_ops import allreduce, allreduce_async, allreduce_, allreduce_async_
@@ -523,7 +528,7 @@ def broadcast_optimizer_state(optimizer, root_rank):
 
     # Returns the full type structure of the possibly nested objects for recursive casting back
     def _get_types(x):
-        if isinstance(x, collections.Iterable):
+        if isinstance(x, Iterable):
             return type(x), [_get_types(xi) for xi in x]
         else:
             return type(x)
