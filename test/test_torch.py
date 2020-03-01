@@ -20,7 +20,6 @@ from __future__ import print_function
 
 from distutils.version import LooseVersion
 
-import collections
 import inspect
 import itertools
 import os
@@ -37,6 +36,11 @@ import torch.nn.functional as F
 import horovod.torch as hvd
 
 from common import mpi_env_rank_and_size
+
+try:
+    from collections.abc import Iterable
+except ImportError:
+    from collections import Iterable
 
 _v2_api = LooseVersion(torch.__version__) >= LooseVersion('1.0.0')
 _fp16_supported = _v2_api
@@ -1111,7 +1115,7 @@ class TorchTests(unittest.TestCase):
             }
             for k, p in p0.items():
                 p_actual = optimizer.param_groups[0][k]
-                if not isinstance(p, collections.Iterable):
+                if not isinstance(p, Iterable):
                     p_actual = [p_actual]
                     p = [p]
                 for i in range(len(p)):
