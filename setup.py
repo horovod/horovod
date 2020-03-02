@@ -118,16 +118,17 @@ def get_supported_instruction_set_flags(flags_to_check):
 def get_cpp_flags(build_ext):
     last_err = None
     default_flags = ['-std=c++11', '-fPIC', '-O2', '-Wall', '-fassociative-math', '-ffast-math', '-ftree-vectorize', '-funsafe-math-optimizations']
-    avx_fma_flags = get_supported_instruction_set_flags(['-mf16c', '-mavx', '-mfma'])
+    build_arch_flags_env = os.environ.get('HOROVOD_BUILD_ARCH_FLAGS')
+    build_arch_flags = get_supported_instruction_set_flags(['-mf16c', '-mavx', '-mfma']) if build_arch_flags_env is None else build_arch_flags_env.split()
     if sys.platform == 'darwin':
         # Darwin most likely will have Clang, which has libc++.
-        flags_to_try = [default_flags + ['-stdlib=libc++'] + avx_fma_flags,
-                        default_flags + avx_fma_flags,
+        flags_to_try = [default_flags + ['-stdlib=libc++'] + build_arch_flags,
+                        default_flags + build_arch_flags,
                         default_flags + ['-stdlib=libc++'],
                         default_flags]
     else:
-        flags_to_try = [default_flags + avx_fma_flags,
-                        default_flags + ['-stdlib=libc++'] + avx_fma_flags,
+        flags_to_try = [default_flags + build_arch_flags,
+                        default_flags + ['-stdlib=libc++'] + build_arch_flags,
                         default_flags,
                         default_flags + ['-stdlib=libc++']]
     for cpp_flags in flags_to_try:
