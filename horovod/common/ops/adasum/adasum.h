@@ -39,18 +39,23 @@ template <typename Communicator_type> class Adasum {
 public:
   Adasum(HorovodGlobalState* global_state) {
     // Allocate receive buffer size equal to the fusion buffer length
-    current_recv_buffer_length =
-        global_state->parameter_manager.TensorFusionThresholdBytes();
-    recv_buffer_ = (uint8_t*)malloc(current_recv_buffer_length);
+    GetRecvBuffer(global_state->parameter_manager.TensorFusionThresholdBytes());
   };
 
   ~Adasum() {
-    if (recv_buffer_ != nullptr) {
-      free(recv_buffer_);
+     if (recv_buffer_ != nullptr) {
+       FreeBuffer(&recv_buffer_);
+       current_recv_buffer_length = 0;
+     }
     }
-  }
 
 protected:
+    // Temp buffer used by Adasum operations
+  uint8_t* recv_buffer_ = nullptr;
+
+  // Keep track of current recv buffer length
+  uint64_t current_recv_buffer_length = 0;
+  
   // Communication primitives required for Adasum algorithm
   virtual void PointToPointSendRecv(void* input_data_buffer,
                                     int64_t input_buffer_length,
@@ -157,12 +162,13 @@ protected:
     return *buffer;
   }
 
-private:
-  // Temp buffer used by Adasum operations
-  uint8_t* recv_buffer_ = nullptr;
+  // Free previously alloated buffer
+  virtual void FreeBuffer(uint8_t** buffer) {
+    free(*buffer);
+    *buffer = nullptr;
+  }
 
-  // Keep track of current recv buffer length
-  uint64_t current_recv_buffer_length;
+private:
 
   // Perform Adasum allreduce using a vector-halving, distance-doubling (VHDD)
   // approach. grad_buffer: holds the data to reduce and will hold the result.
@@ -352,7 +358,6 @@ private:
       double dotProduct = 0.;
       double anormsq = 0.;
       double bnormsq = 0.;
-
       DispatchComputeDotAndNormSqrds(&a[bytesSoFar], &b[bytesSoFar],
                                      horovod_datatype, tensor_counts[i],
                                      dotProduct, anormsq, bnormsq, layerid);
@@ -392,7 +397,6 @@ private:
       if (bnormsq >= sqrt_double_min) {
         bcoeff = 1.0 - dotProduct / bnormsq * 0.5;
       }
-
       DispatchScaledAdd(horovod_datatype, tensor_counts[i], acoeff,
                         &a[bytesSoFar], bcoeff, &b[bytesSoFar], layerid);
       bytesSoFar += tensor_counts[i] * per_element_size;

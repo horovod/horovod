@@ -105,9 +105,13 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                         horovod_local_size = tf.cast(local_size(), dtype=tensor.dtype)
                         new_tensor = summed_tensor / horovod_local_size
                     else:
-                        warnings.warn('Adasum reduction does not currently support GPU reduction using MPI. Tensors '
-                                      'are copied to CPU memory instead. To use Adasum for GPU reduction, please '
-                                      'compile Horovod with HOROVOD_GPU_ALLREDUCE=NCCL.')
+                        if horovod_local_size != 8:
+                            warnings.warn("Adasum reduction does not currently support "
+                                "GPU reduction using MPI for machines without 8 GPUs. Tensors are copied to CPU memory instead."
+                                "To use Adasum for GPU reduction, please compile Horovod with HOROVOD_GPU_ALLREDUCE=NCCL.")
+                        else:
+                            warnings.warn("Adasum GPU reduction using MPI is intended only for DGX-1 like machines with 8 GPUs that "
+                            "are connected with nvlinks.")
                         new_tensor = summed_tensor
                 else:
                     if not check_num_rank_power_of_2(size()):

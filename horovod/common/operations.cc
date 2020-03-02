@@ -54,13 +54,14 @@
 #include "ops/gpu_operations.h"
 #if HAVE_MPI
 #include "ops/mpi_gpu_operations.h"
+#include "ops/adasum_cuda_ring_operations.h"
 #endif
 #endif
 
 #if HAVE_NCCL
 #include "ops/nccl_operations.h"
 #if HAVE_MPI
-#include "ops/adasum_gpu_operations.h"
+#include "ops/adasum_nccl_operations.h"
 #endif
 #endif
 
@@ -151,11 +152,13 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
 #if HAVE_MPI && HAVE_GPU
   if (mpi_context.IsEnabled()) {
 #if HOROVOD_GPU_ALLREDUCE == 'M'
+    adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumCudaRingAllreduceOp(&mpi_context, &gpu_context, &state)));
+
     allreduce_ops.push_back(std::shared_ptr<AllreduceOp>(
         new MPI_GPUAllreduce(&mpi_context, &gpu_context, &state)));
 
 #elif HAVE_NCCL && HOROVOD_GPU_ALLREDUCE == 'N'
-    adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumGpuAllreduceOp(&mpi_context, &nccl_context, &gpu_context, &state)));
+    adasum_ops.push_back(std::shared_ptr<AllreduceOp>(new AdasumNCCLHierarchicalAllreduceOp(&mpi_context, &nccl_context, &gpu_context, &state)));
 
     allreduce_ops.push_back(
         std::shared_ptr<AllreduceOp>(new NCCLHierarchicalAllreduce(

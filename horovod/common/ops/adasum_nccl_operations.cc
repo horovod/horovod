@@ -13,15 +13,15 @@
 // limitations under the License.
 // =============================================================================
 
-#include "adasum_gpu_operations.h"
+#include "adasum_nccl_operations.h"
 
 namespace horovod {
 namespace common {
 
-AdasumGpuAllreduceOp::AdasumGpuAllreduceOp(MPIContext* mpi_context,
-                                           NCCLContext* nccl_context,
-                                           GPUContext* gpu_context,
-                                           HorovodGlobalState* global_state)
+AdasumNCCLHierarchicalAllreduceOp::AdasumNCCLHierarchicalAllreduceOp(MPIContext* mpi_context,
+                                                                    NCCLContext* nccl_context,
+                                                                    GPUContext* gpu_context,
+                                                                    HorovodGlobalState* global_state)
     : AdasumMPI(mpi_context, global_state),
       NCCLAllreduce(nccl_context, gpu_context, global_state, Communicator::LOCAL) {
   // Pre-allocate host buffer size equal to the fusion buffer length
@@ -30,13 +30,13 @@ AdasumGpuAllreduceOp::AdasumGpuAllreduceOp(MPIContext* mpi_context,
   gpu_op_context_.host_buffer = (uint8_t*)malloc(current_host_buffer_length);
 }
 
-AdasumGpuAllreduceOp::~AdasumGpuAllreduceOp() {
+AdasumNCCLHierarchicalAllreduceOp::~AdasumNCCLHierarchicalAllreduceOp() {
   if (gpu_op_context_.host_buffer != nullptr) {
     free(gpu_op_context_.host_buffer);
   }
 }
-Status AdasumGpuAllreduceOp::Execute(std::vector<TensorTableEntry>& entries,
-                                     const Response& response) {
+Status AdasumNCCLHierarchicalAllreduceOp::Execute(std::vector<TensorTableEntry>& entries,
+                                                  const Response& response) {
   if (entries.empty()) {
     return Status::OK();
   }
@@ -48,14 +48,14 @@ Status AdasumGpuAllreduceOp::Execute(std::vector<TensorTableEntry>& entries,
   return NcclHierarchical(entries, response);
 }
 
-uint8_t* AdasumGpuAllreduceOp::GetHostBuffer(uint64_t buffer_length) {
+uint8_t* AdasumNCCLHierarchicalAllreduceOp::GetHostBuffer(uint64_t buffer_length) {
   return CheckBufferAndReallocate((uint8_t**)&gpu_op_context_.host_buffer,
                                   buffer_length, current_host_buffer_length);
 }
 
 Status
-AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
-                                       const Response& response) {
+AdasumNCCLHierarchicalAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
+                                                    const Response& response) {
   auto& first_entry = entries[0];
 
   // Determine GPU IDs of the devices participating in this communicator.
@@ -250,7 +250,7 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
         entries, (void*)host_buffer, (void*)recv_buffer, tensor_counts,
         local_size, // start_level
         global_state_->controller->IsHomogeneous()
-            ? MPI_COMM_WORLD
+            ? mpi_context_->GetMPICommunicator(Communicator::GLOBAL)
             : mpi_context_->GetMPICommunicator(Communicator::CROSS),
         0, reduction_comms_, first_entry.tensor->dtype(), global_state_);
     timeline.ActivityEndAll(entries);
@@ -299,7 +299,7 @@ AdasumGpuAllreduceOp::NcclHierarchical(std::vector<TensorTableEntry>& entries,
   return gpu_op_context_.FinalizeGPUQueue(entries, false);
 }
 
-bool AdasumGpuAllreduceOp::Enabled(
+bool AdasumNCCLHierarchicalAllreduceOp::Enabled(
     const ParameterManager& param_manager,
     const std::vector<TensorTableEntry>& entries,
     const Response& response) const {
