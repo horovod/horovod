@@ -1182,10 +1182,16 @@ def is_torch_cuda_v2(build_ext, include_dirs, extra_compile_args):
         return False
 
 
+def get_torch_rocm_macros():
+    from torch.utils.cpp_extension import COMMON_HIPCC_FLAGS
+    pattern = re.compile(r'-D(\w+)=?(\w+)?')
+    return [pattern.match(flag).groups() for flag in COMMON_HIPCC_FLAGS if pattern.match(flag)]
+
+
 def is_torch_rocm_v2(build_ext, include_dirs, extra_compile_args):
     try:
-        rocm_macros = [('__HIP_PLATFORM_HCC__',1)]
         from torch.utils.cpp_extension import include_paths
+        rocm_macros = get_torch_rocm_macros()
         test_compile(build_ext, 'test_torch_rocm',
                      include_dirs=include_dirs + include_paths(cuda=True),
                      extra_compile_preargs=extra_compile_args,
@@ -1324,7 +1330,7 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
             'Horovod build with GPU support was requested, but this PyTorch '
             'installation does not support CUDA.')
     else:
-        # Update HAVE_CUDA to mean that PyTorch supports CUDA. Internally, we will be checking
+        # Update HAVE_GPU to mean that PyTorch supports CUDA. Internally, we will be checking
         # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
         # version or transfer tensors to CPU memory for those operations.
         if have_cuda and not have_cuda_macro:
@@ -1341,11 +1347,14 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
             'installation does not support ROCm.')
     else:
         # ROCm PyTorch requires extensions to be hipified with the provided utility.
-        # The utility does not rename 'HAVE_CUDA', so we use the same macro here.
-        # Update HAVE_CUDA to mean that PyTorch supports ROCm. Internally, we will be checking
+        # The utility does not change 'HAVE_CUDA', so those were renamed 'HAVE_GPU'.
+        # Update HAVE_GPU to mean that PyTorch supports ROCm. Internally, we will be checking
         # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
         # version or transfer tensors to CPU memory for those operations.
-        updated_macros = set_macro(updated_macros, 'HAVE_CUDA', str(int(have_rocm)))
+        updated_macros = set_macro(updated_macros, 'HAVE_GPU', str(int(have_rocm)))
+        # ROCm PyTorch requires additional macros.
+        for (k,v) in get_torch_rocm_macros():
+            updated_macros = set_macro(updated_macros, k, v)
 
     # Export TORCH_VERSION equal to our representation of torch.__version__. Internally it's
     # used for backwards compatibility checks.
