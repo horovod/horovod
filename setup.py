@@ -1183,9 +1183,12 @@ def is_torch_cuda_v2(build_ext, include_dirs, extra_compile_args):
 
 
 def get_torch_rocm_macros():
-    from torch.utils.cpp_extension import COMMON_HIPCC_FLAGS
-    pattern = re.compile(r'-D(\w+)=?(\w+)?')
-    return [pattern.match(flag).groups() for flag in COMMON_HIPCC_FLAGS if pattern.match(flag)]
+    try:
+        from torch.utils.cpp_extension import COMMON_HIPCC_FLAGS
+        pattern = re.compile(r'-D(\w+)=?(\w+)?')
+        return [pattern.match(flag).groups() for flag in COMMON_HIPCC_FLAGS if pattern.match(flag)]
+    except:
+        return []
 
 
 def is_torch_rocm_v2(build_ext, include_dirs, extra_compile_args):
