@@ -1332,28 +1332,29 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
         raise DistutilsPlatformError(
             'Horovod build with GPU support was requested, but this PyTorch '
             'installation does not support CUDA.')
-    else:
+    elif have_cuda and not have_cuda_macro:
         # Update HAVE_GPU to mean that PyTorch supports CUDA. Internally, we will be checking
         # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
         # version or transfer tensors to CPU memory for those operations.
-        if have_cuda and not have_cuda_macro:
-            set_cuda_options(build_ext, **options)
+        set_cuda_options(build_ext, **options)
 
     # hereafter, macros are maintained outside of options dict
     updated_macros = options['MACROS']
 
     have_rocm = is_torch_rocm_v2(build_ext, include_dirs=options['INCLUDES'],
                                  extra_compile_args=compile_flags)
-    if not have_rocm and check_macro(updated_macros, 'HAVE_ROCM'):
+    have_rocm_macro = check_macro(updated_macros, 'HAVE_ROCM')
+    if not have_rocm and have_rocm_macro:
         raise DistutilsPlatformError(
             'Horovod build with GPU support was requested, but this PyTorch '
             'installation does not support ROCm.')
-    else:
+    elif have_rocm and not have_rocm_macro:
         # ROCm PyTorch requires extensions to be hipified with the provided utility.
         # The utility does not change 'HAVE_CUDA', so those were renamed 'HAVE_GPU'.
         # Update HAVE_GPU to mean that PyTorch supports ROCm. Internally, we will be checking
         # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
         # version or transfer tensors to CPU memory for those operations.
+        updated_macros = set_macro(updated_macros, 'HAVE_ROCM', str(int(have_rocm)))
         updated_macros = set_macro(updated_macros, 'HAVE_GPU', str(int(have_rocm)))
         # ROCm PyTorch requires additional macros.
         for (k,v) in get_torch_rocm_macros():
