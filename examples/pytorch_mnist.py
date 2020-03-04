@@ -9,7 +9,7 @@ import horovod.torch as hvd
 
 # Temporary patch this script until the MNIST dataset download issue get resolved
 # https://github.com/pytorch/vision/issues/1938
-import urllib.request
+from six.moves import urllib
 opener = urllib.request.build_opener()
 opener.addheaders = [('User-agent', 'Mozilla/5.0')]
 urllib.request.install_opener(opener)
