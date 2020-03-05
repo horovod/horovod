@@ -36,6 +36,7 @@ from horovod.spark.torch import remote
 from horovod.spark.torch.util import deserialize_fn, serialize_fn, \
     save_into_bio
 
+import numpy as np
 import torch
 import torch.utils.data
 
@@ -411,7 +412,7 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
                     col_type = meta['spark_data_type']
                     # dtype for dense and spark tensor is always np.float64
                     if col_type == DenseVector:
-                        shape = meta['shape']
+                        shape = np.prod(pred.shape)
                         flattened_pred = pred.reshape(shape, )
                         field = DenseVector(flattened_pred)
                     elif col_type == SparseVector:
