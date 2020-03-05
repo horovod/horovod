@@ -14,6 +14,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import argparse
 import datetime
 import h5py
 import io
@@ -24,33 +25,35 @@ from pyspark.sql import SparkSession
 import pyspark.sql.types as T
 import pyspark.sql.functions as F
 
-# Location of data on local filesystem (prefixed with file://) or on HDFS.
-DATA_LOCATION = 'file://' + os.getcwd()
+parser = argparse.ArgumentParser(description='Keras Spark Rossmann Run Example',
+                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('--processing-master',
+                    help='spark cluster to use for light processing (data preparation & prediction).'
+                         'If set to None, uses current default cluster. Cluster should be set up to provide'
+                         'one task per CPU core. Example: spark://hostname:7077')
+parser.add_argument('--training-master',
+                    help='spark cluster to use for training. If set to None, uses current default cluster. Cluster'
+                         'should be set up to provide a Spark task per multiple CPU cores, or per GPU, e.g. by'
+                         'supplying `-c <NUM_GPUS>` in Spark Standalone mode. Example: spark://hostname:7077')
+parser.add_argument('--num-proc', type=int, default=4,
+                    help='number of worker processes for training, default: `spark.default.parallelism`')
+parser.add_argument('--learning-rate', type=float, default=0.0001,
+                    help='initial learning rate')
+parser.add_argument('--batch-size', type=int, default=100,
+                    help='batch size')
+parser.add_argument('--epochs', type=int, default=100,
+                    help='number of epochs to train')
+parser.add_argument('--sample-rate', type=float,
+                    help='desired sampling rate. Useful to set to low number (e.g. 0.01) to make sure that '
+                         'end-to-end process works')
+parser.add_argument('--data-dir', default='file://' + os.getcwd(),
+                    help='location of data on local filesystem (prefixed with file://) or on HDFS')
+parser.add_argument('--local-submission-csv', default='submission.csv',
+                    help='output submission predictions CSV on local filesystem (without file:// prefix)')
+parser.add_argument('--local-checkpoint-file', default='checkpoint.h5',
+                    help='model checkpoint on local filesystem (without file:// prefix)')
 
-# Location of outputs on local filesystem (without file:// prefix).
-LOCAL_SUBMISSION_CSV = 'submission.csv'
-LOCAL_CHECKPOINT_FILE = 'checkpoint.h5'
-
-# Spark clusters to use for training. If set to None, uses current default cluster.
-#
-# Light processing (data preparation & prediction) uses typical Spark setup of one
-# task per CPU core.
-#
-# Training cluster should be set up to provide a Spark task per multiple CPU cores,
-# or per GPU, e.g. by supplying `-c <NUM GPUs>` in Spark Standalone mode.
-LIGHT_PROCESSING_CLUSTER = None  # or 'spark://hostname:7077'
-TRAINING_CLUSTER = None  # or 'spark://hostname:7077'
-
-# The number of training processes.
-NUM_TRAINING_PROC = 4
-
-# Desired sampling rate.  Useful to set to low number (e.g. 0.01) to make sure
-# that end-to-end process works.
-SAMPLE_RATE = None  # or use 0.01
-
-# Batch size & learning rate to use.
-BATCH_SIZE = 100
-LR = 1e-4
+args = parser.parse_args()
 
 # HDFS driver to use with Petastorm.
 PETASTORM_HDFS_DRIVER = 'libhdfs'
@@ -65,18 +68,18 @@ print('================')
 
 # Create Spark session for data preparation.
 conf = SparkConf().setAppName('data_prep').set('spark.sql.shuffle.partitions', '16')
-if LIGHT_PROCESSING_CLUSTER:
-    conf.setMaster(LIGHT_PROCESSING_CLUSTER)
+if args.processing_master:
+    conf.setMaster(args.processing_master)
 spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
-train_csv = spark.read.csv('%s/train.csv' % DATA_LOCATION, header=True)
-test_csv = spark.read.csv('%s/test.csv' % DATA_LOCATION, header=True)
+train_csv = spark.read.csv('%s/train.csv' % args.data_dir, header=True)
+test_csv = spark.read.csv('%s/test.csv' % args.data_dir, header=True)
 
-store_csv = spark.read.csv('%s/store.csv' % DATA_LOCATION, header=True)
-store_states_csv = spark.read.csv('%s/store_states.csv' % DATA_LOCATION, header=True)
-state_names_csv = spark.read.csv('%s/state_names.csv' % DATA_LOCATION, header=True)
-google_trend_csv = spark.read.csv('%s/googletrend.csv' % DATA_LOCATION, header=True)
-weather_csv = spark.read.csv('%s/weather.csv' % DATA_LOCATION, header=True)
+store_csv = spark.read.csv('%s/store.csv' % args.data_dir, header=True)
+store_states_csv = spark.read.csv('%s/store_states.csv' % args.data_dir, header=True)
+state_names_csv = spark.read.csv('%s/state_names.csv' % args.data_dir, header=True)
+google_trend_csv = spark.read.csv('%s/googletrend.csv' % args.data_dir, header=True)
+weather_csv = spark.read.csv('%s/weather.csv' % args.data_dir, header=True)
 
 
 def expand_date(df):
@@ -213,9 +216,9 @@ def lookup_columns(df, vocab):
     return df
 
 
-if SAMPLE_RATE:
-    train_csv = train_csv.sample(withReplacement=False, fraction=SAMPLE_RATE)
-    test_csv = test_csv.sample(withReplacement=False, fraction=SAMPLE_RATE)
+if args.sample_rate:
+    train_csv = train_csv.sample(withReplacement=False, fraction=args.sample_rate)
+    test_csv = test_csv.sample(withReplacement=False, fraction=args.sample_rate)
 
 # Prepare data frames from CSV files.
 train_df = prepare_df(train_csv).cache()
@@ -297,9 +300,9 @@ print('Validation: %d' % val_rows)
 print('Test: %d' % test_rows)
 
 # Save data frames as Parquet files.
-train_df.write.parquet('%s/train_df.parquet' % DATA_LOCATION, mode='overwrite')
-val_df.write.parquet('%s/val_df.parquet' % DATA_LOCATION, mode='overwrite')
-test_df.write.parquet('%s/test_df.parquet' % DATA_LOCATION, mode='overwrite')
+train_df.write.parquet('%s/train_df.parquet' % args.data_dir, mode='overwrite')
+val_df.write.parquet('%s/val_df.parquet' % args.data_dir, mode='overwrite')
+test_df.write.parquet('%s/test_df.parquet' % args.data_dir, mode='overwrite')
 
 spark.stop()
 
@@ -374,7 +377,7 @@ model = tf.keras.Model([inputs[f] for f in all_cols], output)
 model.summary()
 
 # Horovod: add Distributed Optimizer.
-opt = tf.keras.optimizers.Adam(lr=LR, epsilon=1e-3)
+opt = tf.keras.optimizers.Adam(lr=args.learning_rate, epsilon=1e-3)
 opt = hvd.DistributedOptimizer(opt)
 model.compile(opt, 'mae', metrics=[exp_rmspe])
 model_bytes = serialize_model(model)
@@ -450,31 +453,31 @@ def train_fn(model_bytes):
                                                             save_best_only=True))
 
     # Make Petastorm readers.
-    with make_batch_reader('%s/train_df.parquet' % DATA_LOCATION, num_epochs=None,
+    with make_batch_reader('%s/train_df.parquet' % args.data_dir, num_epochs=None,
                            cur_shard=hvd.rank(), shard_count=hvd.size(),
                            hdfs_driver=PETASTORM_HDFS_DRIVER) as train_reader:
-        with make_batch_reader('%s/val_df.parquet' % DATA_LOCATION, num_epochs=None,
+        with make_batch_reader('%s/val_df.parquet' % args.data_dir, num_epochs=None,
                                cur_shard=hvd.rank(), shard_count=hvd.size(),
                                hdfs_driver=PETASTORM_HDFS_DRIVER) as val_reader:
             # Convert readers to tf.data.Dataset.
             train_ds = make_petastorm_dataset(train_reader) \
                 .apply(tf.data.experimental.unbatch()) \
                 .shuffle(int(train_rows / hvd.size())) \
-                .batch(BATCH_SIZE) \
+                .batch(args.batch_size) \
                 .map(lambda x: (tuple(getattr(x, col) for col in all_cols), tf.log(x.Sales)))
 
             val_ds = make_petastorm_dataset(val_reader) \
                 .apply(tf.data.experimental.unbatch()) \
-                .batch(BATCH_SIZE) \
+                .batch(args.batch_size) \
                 .map(lambda x: (tuple(getattr(x, col) for col in all_cols), tf.log(x.Sales)))
 
             history = model.fit(train_ds,
                                 validation_data=val_ds,
-                                steps_per_epoch=int(train_rows / BATCH_SIZE / hvd.size()),
-                                validation_steps=int(val_rows / BATCH_SIZE / hvd.size()),
+                                steps_per_epoch=int(train_rows / args.batch_size / hvd.size()),
+                                validation_steps=int(val_rows / args.batch_size / hvd.size()),
                                 callbacks=callbacks,
                                 verbose=verbose,
-                                epochs=100)
+                                epochs=args.epochs)
 
     # Dataset API usage currently displays a wall of errors upon termination.
     # This global model registration ensures clean termination.
@@ -488,21 +491,21 @@ def train_fn(model_bytes):
 
 # Create Spark session for training.
 conf = SparkConf().setAppName('training')
-if TRAINING_CLUSTER:
-    conf.setMaster(TRAINING_CLUSTER)
+if args.training_master:
+    conf.setMaster(args.training_master)
 spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
 # Horovod: run training.
 history, best_model_bytes = \
-    horovod.spark.run(train_fn, args=(model_bytes,), num_proc=NUM_TRAINING_PROC, verbose=2)[0]
+    horovod.spark.run(train_fn, args=(model_bytes,), num_proc=args.num_proc, verbose=2)[0]
 
 best_val_rmspe = min(history['val_exp_rmspe'])
 print('Best RMSPE: %f' % best_val_rmspe)
 
 # Write checkpoint.
-with open(LOCAL_CHECKPOINT_FILE, 'wb') as f:
+with open(args.local_checkpoint_file, 'wb') as f:
     f.write(best_model_bytes)
-print('Written checkpoint to %s' % LOCAL_CHECKPOINT_FILE)
+print('Written checkpoint to %s' % args.local_checkpoint_file)
 
 spark.stop()
 
@@ -518,8 +521,8 @@ print('================')
 conf = SparkConf().setAppName('prediction') \
     .setExecutorEnv('LD_LIBRARY_PATH', os.environ.get('LD_LIBRARY_PATH')) \
     .setExecutorEnv('PATH', os.environ.get('PATH'))
-if LIGHT_PROCESSING_CLUSTER:
-    conf.setMaster(LIGHT_PROCESSING_CLUSTER)
+if args.processing_master:
+    conf.setMaster(args.processing_master)
 spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
 
@@ -550,10 +553,11 @@ def predict_fn(model_bytes):
     return fn
 
 
-pred_df = spark.read.parquet('%s/test_df.parquet' % DATA_LOCATION) \
+# Submit a Spark job to do inference. Horovod framework is not involved here.
+pred_df = spark.read.parquet('%s/test_df.parquet' % args.data_dir) \
     .rdd.mapPartitions(predict_fn(best_model_bytes)).toDF()
 submission_df = pred_df.select(pred_df.Id.cast(T.IntegerType()), pred_df.Sales).toPandas()
-submission_df.sort_values(by=['Id']).to_csv(LOCAL_SUBMISSION_CSV, index=False)
-print('Saved predictions to %s' % LOCAL_SUBMISSION_CSV)
+submission_df.sort_values(by=['Id']).to_csv(args.local_submission_csv, index=False)
+print('Saved predictions to %s' % args.local_submission_csv)
 
 spark.stop()

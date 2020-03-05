@@ -184,3 +184,15 @@ RUN sed -i "s/self.fc1 = nn.Linear(320, 50)/self.fc1 = nn.Linear(784, 50)/" /hor
 RUN sed -i "s/x = F.relu(F.max_pool2d(self.conv1(x), 2))//" /horovod/examples/pytorch_mnist.py
 RUN sed -i "s/x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))//" /horovod/examples/pytorch_mnist.py
 RUN sed -i "s/x = x.view(-1, 320)/x = x.view(-1, 784)/" /horovod/examples/pytorch_mnist.py
+
+# Prefetch Spark Rossmann dataset.
+RUN mkdir -p /work
+RUN mkdir -p /data && wget http://files.fast.ai/part2/lesson14/rossmann.tgz -O - | tar -xzC /data
+
+# Hack Keras Spark Rossmann Run example to be smaller.
+RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/keras_spark_rossmann_run.py
+RUN sed -i "s/x = Dense(500,/x = Dense(50,/g" /horovod/examples/keras_spark_rossmann_run.py
+
+# Hack Keras Spark Rossmann Estimator example to be smaller.
+RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/keras_spark_rossmann_estimator.py
+RUN sed -i "s/x = Dense(500,/x = Dense(50,/g" /horovod/examples/keras_spark_rossmann_estimator.py
