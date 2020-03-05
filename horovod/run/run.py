@@ -885,6 +885,7 @@ def run(
         verbose=None,
         use_gloo=None,
         use_mpi=None,
+        mpi_args=None,
         network_interface=None):
     """
     Launch a Horovod job to run the specified process function and get the return value.
@@ -923,6 +924,7 @@ def run(
                      be the default if Horovod was not built with MPI support.
     :param use_mpi: Run Horovod using the MPI controller. This will
                     be the default if Horovod was built with MPI support.
+    :param mpi_args: Extra arguments for the MPI controller. This is only used when use_mpi is True.
     :param network_interface: Specify the network interface for communication.
 
     :return: Return a list which contains values return by all Horovod processes.
@@ -948,6 +950,7 @@ def run(
     hargs.hostfile = hostfile
     hargs.start_timeout = start_timeout
     hargs.ssh_port = ssh_port
+    hargs.mpi_args = mpi_args
     hargs.disable_cache = disable_cache
     hargs.output_filename = output_filename
     hargs.verbose = verbose
