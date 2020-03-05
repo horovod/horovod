@@ -59,8 +59,6 @@ mnist_model.compile(loss=tf.losses.SparseCategoricalCrossentropy(),
                     metrics=['accuracy'],
                     experimental_run_tf_function=False)
 
-steps_per_epoch = 500 // hvd.size()
-
 callbacks = [
     # Horovod: broadcast initial variable states from rank 0 to all other processes.
     # This is necessary to ensure consistent initialization of all workers when
@@ -76,7 +74,7 @@ callbacks = [
     # Horovod: using `lr = 1.0 * hvd.size()` from the very beginning leads to worse final
     # accuracy. Scale the learning rate `lr = 1.0` ---> `lr = 1.0 * hvd.size()` during
     # the first three epochs. See https://arxiv.org/abs/1706.02677 for details.
-    hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=3, verbose=1, steps_per_epoch=steps_per_epoch),
+    hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=3, verbose=1),
 ]
 
 # Horovod: save checkpoints only on worker 0 to prevent other workers from corrupting them.
@@ -88,4 +86,4 @@ verbose = 1 if hvd.rank() == 0 else 0
 
 # Train the model.
 # Horovod: adjust number of steps based on number of GPUs.
-mnist_model.fit(dataset, steps_per_epoch=steps_per_epoch, callbacks=callbacks, epochs=24, verbose=verbose)
+mnist_model.fit(dataset, steps_per_epoch=500 // hvd.size(), callbacks=callbacks, epochs=24, verbose=verbose)
