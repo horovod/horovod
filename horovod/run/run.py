@@ -687,12 +687,12 @@ def parse_host_files(filename):
     :return: Comma separated string of <IP address> or <host name>:<Number of GPUs>
     """
     hosts = []
-    for line in open(filename):
-        line = line.rstrip()
-        hostname = line.split()[0]
-        slots = line.split('=')[1]
-        hosts.append('{name}:{slots}'.format(name=hostname, slots=slots))
-
+    with open(filename, 'r') as f:
+        for line in f.readlines():
+            line = line.rstrip()
+            hostname = line.split()[0]
+            slots = line.split('=')[1]
+            hosts.append('{name}:{slots}'.format(name=hostname, slots=slots))
     return ','.join(hosts)
 
 
