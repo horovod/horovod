@@ -105,7 +105,7 @@ RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly" && ${PYTHON_VERSION} != "2.7" ]]; 
 # Install Horovod.
 RUN cd /horovod && python setup.py sdist
 RUN ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
-    bash -c "${HOROVOD_BUILD_FLAGS} pip install -v $(ls /horovod/dist/horovod-*.tar.gz)[spark]" && \
+    bash -c "${HOROVOD_BUILD_FLAGS} HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install -v $(ls /horovod/dist/horovod-*.tar.gz)[spark]" && \
     ldconfig
 
 # Hack for compatibility of MNIST example with TensorFlow 1.1.0.

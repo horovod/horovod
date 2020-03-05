@@ -155,18 +155,6 @@ services:
         TORCHVISION_PACKAGE: torchvision==0.4.1+cpu
         MXNET_PACKAGE: mxnet==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.0
-  test-cpu-openmpi-py2_7-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0:
-    extends: test-cpu-base
-    build:
-      args:
-        MPI_KIND: OpenMPI
-        PYTHON_VERSION: 2.7
-        TENSORFLOW_PACKAGE: tensorflow==2.1.0 tensorflow-estimator==2.1.0
-        KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
-        PYTORCH_PACKAGE: torch-nightly
-        TORCHVISION_PACKAGE: torchvision
-        MXNET_PACKAGE: mxnet==1.5.0
-        PYSPARK_PACKAGE: pyspark==2.4.0
   test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0:
     extends: test-cpu-base
     build:
