@@ -29,6 +29,10 @@ _SMPI_FLAGS_TCP = ['-tcp']
 _MPICH_FLAGS = []
 # Threshold for large cluster MPI issues:
 _LARGE_CLUSTER_THRESHOLD = 64
+# No process binding args
+_NO_BINDING_ARGS = ['-bind-to none', '-map-by slot']
+# Process socket binding args
+_SOCKET_BINDING_ARGS = ['-bind-to socket', '-map-by socket', '-rank-by core']
 
 try:
     from shlex import quote
@@ -44,24 +48,24 @@ def _get_mpi_implementation_flags(tcp_flag):
         output_msg = output.getvalue()
     except Exception:
         print(traceback.format_exc(), file=sys.stderr)
-        return None
+        return None, None
     finally:
         output.close()
 
     if exit_code == 0:
         if 'Open MPI' in output_msg or 'OpenRTE' in output_msg:
-            return list(_OMPI_FLAGS)
+            return list(_OMPI_FLAGS), list(_NO_BINDING_ARGS)
         elif 'IBM Spectrum MPI' in output_msg:
-            return list(_SMPI_FLAGS) if not tcp_flag else list(_SMPI_FLAGS_TCP)
+            return list(_SMPI_FLAGS) if not tcp_flag else list(_SMPI_FLAGS_TCP), list(_SOCKET_BINDING_ARGS)
         elif 'MPICH' in output_msg:
-            return list(_MPICH_FLAGS)
+            return list(_MPICH_FLAGS), list(_NO_BINDING_ARGS)
         print('Open MPI/Spectrum MPI/MPICH not found in output of mpirun --version.',
               file=sys.stderr)
-        return None
+        return None, None
     else:
         print("Was not able to run %s:\n%s" % (command, output_msg),
               file=sys.stderr)
-        return None
+        return None, None
 
 
 def mpi_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_func=safe_shell_exec.execute):
@@ -82,7 +86,7 @@ def mpi_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_
                   Only used when settings.run_func_mode is True.
                   Defaults to safe_shell_exec.execute.
     """
-    mpi_impl_flags = _get_mpi_implementation_flags(settings.tcp_flag)
+    mpi_impl_flags, impl_binding_args = _get_mpi_implementation_flags(settings.tcp_flag)
     if mpi_impl_flags is None:
         raise Exception(
             'horovodrun convenience script does not find an installed MPI.\n\n'
@@ -111,11 +115,13 @@ def mpi_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_
         mpi_impl_flags.append('-mca plm_rsh_no_tree_spawn true')
         mpi_impl_flags.append('-mca plm_rsh_num_concurrent {}'.format(settings.num_proc))
 
+    binding_args = settings.binding_args if settings.binding_args else ' '.join(impl_binding_args)
+
     # Pass all the env variables to the mpirun command.
     mpirun_command = (
         'mpirun --allow-run-as-root --tag-output '
         '-np {num_proc} {hosts_arg} '
-        '-bind-to none -map-by slot '
+        '{binding_args} '
         '{mpi_args} '
         '{ssh_port_arg} '
         '{tcp_intf_arg} '
@@ -124,6 +130,7 @@ def mpi_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_
         '{env} {extra_mpi_args} {command}'  # expect a lot of environment variables
         .format(num_proc=settings.num_proc,
                 hosts_arg=hosts_arg,
+                binding_args=binding_args,
                 mpi_args=' '.join(mpi_impl_flags),
                 tcp_intf_arg=tcp_intf_arg,
                 nccl_socket_intf_arg=nccl_socket_intf_arg,

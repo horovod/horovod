@@ -561,6 +561,9 @@ def parse_args():
                                        'e.g. --mpi-args="--map-by ppr:6:node"')
     group_library_options.add_argument('--tcp', action='store_true', dest='tcp_flag',
                                        help='If this flag is set, only TCP is used for communication.')
+    group_library_options.add_argument('--binding-args', action='store', dest='binding_args',
+                                       help='Process binding arguments. Default is socket for Spectrum MPI '
+                                       'and no binding for other cases. e.g. --binding-args="--rankfile myrankfile"')
     group_library_options.add_argument('--num-nccl-streams', action=make_override_action(override_args),
                                        type=int, default=1,
                                        help='Number of NCCL streams. Only applies when running with NCCL support. '
@@ -662,6 +665,7 @@ class HorovodArgs(object):
         self.mpi_threads_disable = None
         self.mpi_args = None
         self.tcp_flag = None
+        self.binding_args = None
         self.num_nccl_streams = None
         self.ccl_bgt_affinity = None
         self.gloo_timeout_seconds = None
@@ -734,6 +738,7 @@ def _run(args):
                                      ssh_port=args.ssh_port,
                                      extra_mpi_args=args.mpi_args,
                                      tcp_flag=args.tcp_flag,
+                                     binding_args=args.binding_args,
                                      key=secret.make_secret_key(),
                                      timeout=tmout,
                                      num_hosts=len(all_host_names),
