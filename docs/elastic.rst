@@ -117,7 +117,7 @@ The maximum np can be used to cap the number of processes (to prevent over-utili
 as a reference point for learning rate scales and data partitions (in cases where these need to be held constant
 regardless of the current number of workers).  If unspecified, maximum np also defaults to ``-np``.
 
-Instances the fail will be added to a blacklist, and afteras they may have faulty hardware.  Ranks that fail repeatedly
+Instances that fail will be added to a blacklist, as they may have faulty hardware.  Ranks that fail repeatedly
 will result in job failure, as it may be the case that the training process cannot make progress.
 
 

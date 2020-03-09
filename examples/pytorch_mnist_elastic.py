@@ -119,7 +119,7 @@ def metric_average(val, name):
 
 def check_rank(epoch):
     if epoch == 2 and int(os.environ.get('HOROVOD_RANK')) == 0:
-        print('exiting rank {}'.format(hvd.rank()))
+        print('existing rank {}'.format(hvd.rank()))
         raise RuntimeError('check_rank and exit')
         # exit(1)
 
