@@ -20,13 +20,15 @@ import tensorflow as tf
 def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sparse,
                                  compression, sparse_as_dense):
     class _DistributedOptimizer(keras.optimizers.Optimizer):
+        _HAS_ALL_REDUCE_SUM_GRAD = True
+
         def __init__(self, **kwargs):
             self._name = name or "Distributed%s" % self.__class__.__base__.__name__
             self._device_dense = device_dense
             self._device_sparse = device_sparse
             self._compression = compression
             self._sparse_as_dense = sparse_as_dense
-            self._get_gradients_used = False
+            self._aggregated_gradients = False
             super(self.__class__, self).__init__(**kwargs)
 
         def get_gradients(self, loss, params):
@@ -38,8 +40,15 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
             In DistributedOptimizer, get_gradients() is overriden to also
             allreduce the gradients before returning them.
             """
-            self._get_gradients_used = True
             gradients = super(self.__class__, self).get_gradients(loss, params)
+            return self._allreduce(gradients)
+
+        def _aggregate_gradients(self, grads_and_vars):
+            gradients = [grad for grad, var in grads_and_vars]
+            return self._allreduce(gradients)
+
+        def _allreduce(self, gradients):
+            self._aggregated_gradients = True
             if hvd.size() > 1:
                 averaged_gradients = []
                 with tf.name_scope(self._name + "_Allreduce"):
@@ -60,11 +69,11 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                 return gradients
 
         def apply_gradients(self, *args, **kwargs):
-            if not self._get_gradients_used:
+            if not self._aggregated_gradients:
                 raise Exception('`apply_gradients()` was called without a call to '
-                                '`get_gradients()`. If you\'re using TensorFlow 2.0, '
-                                'please specify `experimental_run_tf_function=False` in '
-                                '`compile()`.')
+                                '`get_gradients()` or `_aggregate_gradients`. If you\'re '
+                                'using TensorFlow 2.0, please specify '
+                                '`experimental_run_tf_function=False` in `compile()`.')
             return super(self.__class__, self).apply_gradients(*args, **kwargs)
 
     # We dynamically create a new class that inherits from the optimizer that was passed in.

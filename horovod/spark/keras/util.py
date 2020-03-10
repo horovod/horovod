@@ -166,6 +166,9 @@ class TFKerasUtil(object):
         num_inputs = len(feature_columns)
         num_labels = len(label_columns)
 
+        def as_tuple(v):
+            return tuple(v) if len(v) > 1 else v[0]
+
         def prep(row):
             if sample_weight_col:
                 sample_weight = get_col_from_row_fn(row, sample_weight_col)
@@ -174,10 +177,10 @@ class TFKerasUtil(object):
                         tf.reshape(get_col_from_row_fn(row, feature_columns[i]), input_shapes[i])
                         for i
                         in range(num_inputs)),
-                    tuple(
+                    as_tuple([
                         tf.reshape(get_col_from_row_fn(row, label_columns[j]), output_shapes[j]) for
                         j
-                        in range(num_labels)),
+                        in range(num_labels)]),
                     {name: tf.reshape(sample_weight, [-1]) for name in output_names}
                 )
             else:
@@ -186,10 +189,10 @@ class TFKerasUtil(object):
                         tf.reshape(get_col_from_row_fn(row, feature_columns[i]), input_shapes[i])
                         for i
                         in range(num_inputs)),
-                    tuple(
+                    as_tuple([
                         tf.reshape(get_col_from_row_fn(row, label_columns[j]), output_shapes[j]) for
                         j
-                        in range(num_labels))
+                        in range(num_labels)])
                 )
 
         return prep
