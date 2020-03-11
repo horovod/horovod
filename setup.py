@@ -1552,12 +1552,15 @@ setup(name='horovod',
           'tensorflow-gpu':  [
               'tensorflow-gpu'
           ],
-          'pytorch':  [
+          'keras': [
+              'keras>=2.0.8,!=2.0.9,!=2.1.0,!=2.1.1'
+          ],
+          'torch':  [
               'torch',
               'torchvision'
           ],
           'mxnet':  [
-              'mxnet'
+              'mxnet>=1.4.1'
           ]
       },
       zip_safe=False,
