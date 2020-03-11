@@ -517,7 +517,7 @@ def parse_args():
                                     'processes will be created. If not specified, then will be unbounded.')
     group_elastic.add_argument('--slots-per-host', action='store', dest='slots', type=int,
                                help='Number of slots for processes per host. Normally 1 slot per GPU per host. '
-                                    'If slot are provided by the output of the host discovery script, then '
+                                    'If slots are provided by the output of the host discovery script, then '
                                     'that value will override this parameter.')
 
     group_timeline = parser.add_argument_group('timeline arguments')
@@ -604,7 +604,8 @@ def parse_args():
                              help='Used for elastic training (autoscaling and fault tolerance). '
                                   'An executable script that will print to stdout every available host (one per '
                                   'newline character) that can be used to run worker processes. Optionally '
-                                  'specifies number of slots on the same line as the hostname as: "hostname:slots".')
+                                  'specifies number of slots on the same line as the hostname as: "hostname:slots".'
+                                  'Providing a discovery script enables elastic training (see elastic arguments)')
 
     group_controller_parent = parser.add_argument_group('controller arguments')
     group_controller = group_controller_parent.add_mutually_exclusive_group()
@@ -633,12 +634,12 @@ class HorovodArgs(object):
         self.ssh_port = None
         self.disable_cache = None
         self.start_timeout = None
+        self.nic = None
         self.output_filename = None
         self.verbose = None
         self.command = None
         self.run_func = None
         self.config_file = None
-        self.nic = None
 
         # tuneable parameter arguments
         self.fusion_threshold_mb = None
@@ -656,6 +657,11 @@ class HorovodArgs(object):
         self.autotune_steps_per_sample = None
         self.autotune_bayes_opt_max_samples = None
         self.autotune_gaussian_process_noise = None
+
+        # elastic arguments
+        self.min_np = None
+        self.max_np = None
+        self.slots = None
 
         # timeline arguments
         self.timeline_filename = None
@@ -682,6 +688,7 @@ class HorovodArgs(object):
         # host arguments
         self.hosts = None
         self.hostfile = None
+        self.host_discovery_script = None
 
         # controller arguments
         self.use_gloo = None
@@ -928,8 +935,12 @@ def run(
         args=(),
         kwargs=None,
         np=1,
+        min_np=None,
+        max_np=None,
+        slots=None,
         hosts=None,
         hostfile=None,
+        host_discovery_script=None,
         start_timeout=None,
         ssh_port=None,
         disable_cache=None,
@@ -948,6 +959,15 @@ def run(
     :param args: Arguments to pass to `func`.
     :param kwargs: Keyword arguments to pass to `func`.
     :param np: Number of Horovod processes.
+    :param min_np: Minimum number of processes running for training to continue. If number of
+                   available processes dips below this threshold, then training will wait for
+                   more instances to become available. Defaults to np
+    :param max_np: Maximum number of training processes, beyond which no additional processes
+                   will be created. If not specified, then will be unbounded.
+    :param slots: Number of slots for processes per host. Normally 1 slot per GPU per host.
+                  If slots are provided by the output of the host discovery script, then that
+                  value will override this parameter.
+
     :param hosts: List of host names and the number of available slots
                   for running processes on each, of the form: <hostname>:<slots>
                   (e.g.: host1:2,host2:4,host3:1 indicating 2 processes can run on host1,
@@ -955,6 +975,13 @@ def run(
     :param hostfile: Path to a host file containing the list of host names and the number of
                      available slots. Each line of the file must be of the form:
                      <hostname> slots=<slots>
+    :param host_discovery_script: Used for elastic training (autoscaling and fault tolerance).
+                                  An executable script that will print to stdout every available host
+                                  (one per newline character) that can be used to run worker processes.
+                                  Optionally specifies number of slots on the same line as the hostname
+                                  as: "hostname:slots". Providing a discovery script enables elastic
+                                  training (see min_np, max_np and slots arguments)
+
     :param start_timeout: Horovodrun has to perform all the checks and
                           start the processes before the specified
                           timeout. The default value is 30 seconds.
@@ -998,8 +1025,12 @@ def run(
     hargs = HorovodArgs()
 
     hargs.np = np
+    hargs.min_np = min_np
+    hargs.max_np = max_np
+    hargs.slots = slots
     hargs.hosts = hosts
     hargs.hostfile = hostfile
+    hargs.host_discovery_script = host_discovery_script
     hargs.start_timeout = start_timeout
     hargs.ssh_port = ssh_port
     hargs.mpi_args = mpi_args
@@ -1012,7 +1043,10 @@ def run(
 
     hargs.run_func = wrapped_func
 
-    return _run(hargs)
+    if is_elastic(args):
+        _run_elastic(args)
+    else:
+        _run(args)
 
 
 if __name__ == '__main__':
