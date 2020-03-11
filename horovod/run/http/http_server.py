@@ -148,7 +148,7 @@ class RendezvousHTTPServer(socketserver.ThreadingMixIn, BaseHTTPServer.HTTPServe
         # Total size for scopes
         self.scope_size = {}
 
-    def reset(self, host_alloc_plan):
+    def init(self, host_alloc_plan):
         with self.cache_lock:
             self.cache.clear()
 
@@ -156,9 +156,9 @@ class RendezvousHTTPServer(socketserver.ThreadingMixIn, BaseHTTPServer.HTTPServe
             self.finished_list.clear()
 
         self.scope_size.clear()
-        self.extract_scope_size(host_alloc_plan)
+        self._extract_scope_size(host_alloc_plan)
 
-    def extract_scope_size(self, host_alloc_plan):
+    def _extract_scope_size(self, host_alloc_plan):
         for slot_info in host_alloc_plan:
             self.scope_size['global_'] = slot_info.size
             cross_rank = slot_info.cross_rank
@@ -178,6 +178,7 @@ class RendezvousServer:
 
     # Rendezvous function finds a available port, create http socket,
     # and start listening loop to handle request
+    # self.httpd.init needs to be called after server start
     def start_server(self, handler_cls=RendezvousHandler):
         self.httpd, port = find_port(
             lambda addr: RendezvousHTTPServer(
