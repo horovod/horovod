@@ -31,7 +31,7 @@ from tensorflow.keras.layers import Input, Embedding, Concatenate, Dense, Flatte
 import horovod.spark.keras as hvd
 from horovod.spark.common.store import Store
 
-parser = argparse.ArgumentParser(description='Keras Spark Rossmann Example',
+parser = argparse.ArgumentParser(description='Keras Spark Rossmann Estimator Example',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--master',
                     help='spark cluster to use for training. If set to None, uses current default cluster. Cluster'
@@ -48,7 +48,7 @@ parser.add_argument('--epochs', type=int, default=100,
 parser.add_argument('--sample-rate', type=float,
                     help='desired sampling rate. Useful to set to low number (e.g. 0.01) to make sure that '
                          'end-to-end process works')
-parser.add_argument('--data-location', default='file://' + os.getcwd(),
+parser.add_argument('--data-dir', default='file://' + os.getcwd(),
                     help='location of data on local filesystem (prefixed with file://) or on HDFS')
 parser.add_argument('--local-submission-csv', default='submission.csv',
                     help='output submission predictions CSV')
@@ -68,21 +68,21 @@ print('Data preparation')
 print('================')
 
 # Create Spark session for data preparation.
-conf = SparkConf().setAppName('data_prep').set('spark.sql.shuffle.partitions', '16')
+conf = SparkConf().setAppName('Keras Spark Rossmann Estimator Example').set('spark.sql.shuffle.partitions', '16')
 if args.master:
     conf.setMaster(args.master)
 elif args.num_proc:
     conf.setMaster('local[{}]'.format(args.num_proc))
 spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
-train_csv = spark.read.csv('%s/train.csv' % args.data_location, header=True)
-test_csv = spark.read.csv('%s/test.csv' % args.data_location, header=True)
+train_csv = spark.read.csv('%s/train.csv' % args.data_dir, header=True)
+test_csv = spark.read.csv('%s/test.csv' % args.data_dir, header=True)
 
-store_csv = spark.read.csv('%s/store.csv' % args.data_location, header=True)
-store_states_csv = spark.read.csv('%s/store_states.csv' % args.data_location, header=True)
-state_names_csv = spark.read.csv('%s/state_names.csv' % args.data_location, header=True)
-google_trend_csv = spark.read.csv('%s/googletrend.csv' % args.data_location, header=True)
-weather_csv = spark.read.csv('%s/weather.csv' % args.data_location, header=True)
+store_csv = spark.read.csv('%s/store.csv' % args.data_dir, header=True)
+store_states_csv = spark.read.csv('%s/store_states.csv' % args.data_dir, header=True)
+state_names_csv = spark.read.csv('%s/state_names.csv' % args.data_dir, header=True)
+google_trend_csv = spark.read.csv('%s/googletrend.csv' % args.data_dir, header=True)
+weather_csv = spark.read.csv('%s/weather.csv' % args.data_dir, header=True)
 
 
 def expand_date(df):
