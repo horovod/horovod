@@ -344,7 +344,7 @@ class ElasticDriver(object):
             host_assignments[slot_info.hostname].append(slot_info)
         self._host_assignments = host_assignments
         self._world_size = len(host_assignments_list)
-        self._rendezvous.httpd.reset(host_assignments_list)
+        self._rendezvous.httpd.init(host_assignments_list)
 
     def _count_available_slots(self):
         return sum([self._get_slots(host) for host in self._available_hosts])

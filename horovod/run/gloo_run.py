@@ -86,11 +86,11 @@ def _create_exec_command(settings, env, local_host_names, run_command):
     # Create a event for communication between threads
     event = threading.Event()
 
-    def set_event_on_sigterm(signum, frame):
+    def set_event_on_signal(signum, frame):
         event.set()
 
-    signal.signal(signal.SIGINT, set_event_on_sigterm)
-    signal.signal(signal.SIGTERM, set_event_on_sigterm)
+    signal.signal(signal.SIGINT, set_event_on_signal)
+    signal.signal(signal.SIGTERM, set_event_on_signal)
 
     def get_command(slot_info):
         # generate env for rendezvous
@@ -235,7 +235,7 @@ def gloo_run(settings, local_host_names, common_intfs, env, command):
 
     # start global rendezvous server and get port that it is listening on
     global_rendezv_port = rendezvous.start_server()
-    rendezvous.httpd.extract_scope_size(host_alloc_plan)
+    rendezvous.httpd.init(host_alloc_plan)
     run_command = get_run_command(command, common_intfs, global_rendezv_port)
     exec_command = _create_exec_command(settings, env, local_host_names, run_command)
 
