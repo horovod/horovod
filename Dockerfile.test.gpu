@@ -135,19 +135,5 @@ RUN sed -i "s/epochs = .*/epochs = 9/" /horovod/examples/tensorflow2_keras_mnist
 # Hack PyTorch MNIST example to be smaller.
 RUN sed -i "s/'--epochs', type=int, default=10,/'--epochs', type=int, default=2,/" /horovod/examples/pytorch_mnist.py
 
-
-# Prefetch Spark Rossmann dataset.
-RUN mkdir -p /work
-RUN mkdir -p /data && wget http://files.fast.ai/part2/lesson14/rossmann.tgz -O - | tar -xzC /data
-
-# Hack Keras Spark Rossmann Run example to be smaller.
-RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/keras_spark_rossmann_run.py
-RUN sed -i "s/x = Dense(500,/x = Dense(50,/g" /horovod/examples/keras_spark_rossmann_run.py
-
-# Hack Keras Spark Rossmann Estimator example to be smaller.
-RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/keras_spark_rossmann_estimator.py
-RUN sed -i "s/x = Dense(500,/x = Dense(50,/g" /horovod/examples/keras_spark_rossmann_estimator.py
-
-
 # Export HOROVOD_MIXED_INSTALL
 ENV HOROVOD_MIXED_INSTALL=${HOROVOD_MIXED_INSTALL}
