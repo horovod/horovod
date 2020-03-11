@@ -1555,7 +1555,7 @@ setup(name='horovod',
           'keras': [
               'keras>=2.0.8,!=2.0.9,!=2.1.0,!=2.1.1'
           ],
-          'torch':  [
+          'pytorch':  [
               'torch',
               'torchvision'
           ],
