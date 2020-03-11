@@ -42,9 +42,10 @@ from horovod.run.common.util import codec, config_parser, safe_shell_exec, timeo
 from horovod.run.common.util import settings as hvd_settings
 from horovod.run.driver import driver_service
 from horovod.run.task import task_service
-from horovod.run.util import cache, threads, network
+from horovod.run.util import cache, threads, network, lsf
 from horovod.run.gloo_run import gloo_run
 from horovod.run.mpi_run import mpi_run
+from horovod.run.js_run import js_run, is_jsrun_installed
 from horovod.run.http.http_client import read_data_from_kvstore, put_data_into_kvstore
 from horovod.run.http.http_server import KVStoreServer
 
@@ -401,7 +402,7 @@ def parse_args():
                         help='Shows Horovod version.')
 
     np_arg = parser.add_argument('-np', '--num-proc', action='store', dest='np',
-                                 type=int, required=True,
+                                 type=int, required=not lsf.LSFUtils.using_lsf(),
                                  help='Total number of training processes.')
 
     parser.add_argument('-cb', '--check-build', action=make_check_build_action(np_arg), nargs=0,
@@ -608,6 +609,10 @@ def parse_args():
     group_controller.add_argument('--mpi', action='store_true', dest='use_mpi',
                                   help='Run Horovod using the MPI controller. This will '
                                        'be the default if Horovod was built with MPI support.')
+    group_controller.add_argument('--jsrun', action='store_true', dest='use_jsrun',
+                                  help='Launch Horovod processes with jsrun and use the MPI controller. '
+                                       'This will be the default if jsrun is installed and Horovod '
+                                       'was built with MPI support.')
 
     args = parser.parse_args()
 
@@ -681,6 +686,7 @@ class HorovodArgs(object):
         # controller arguments
         self.use_gloo = None
         self.use_mpi = None
+        self.use_jsrun = None
 
 
 def parse_host_files(filename):
@@ -703,6 +709,14 @@ def parse_host_files(filename):
 def _run(args):
     if args.check_build:
         check_build(args.verbose)
+
+    # If LSF is used, use default values from job config
+    if lsf.LSFUtils.using_lsf():
+        if not args.np:
+            args.np = lsf.LSFUtils.get_num_processes()
+        if not args.hosts and not args.hostfile:
+            args.hosts = ','.join('{host}:{np}'.format(host=host, np=lsf.LSFUtils.get_num_gpus())
+                         for host in lsf.LSFUtils.get_compute_hosts())
 
     # if hosts are not specified, either parse from hostfile, or default as
     # localhost
@@ -779,47 +793,49 @@ def _run(args):
         if settings.verbose >= 2:
             print('SSH was successful into all the remote hosts.')
 
-    if len(remote_host_names) > 0:
-        if settings.verbose >= 2:
-            print('Testing interfaces on all the hosts.')
+    common_intfs = None
+    # Skipping interface discovery for LSF cluster as it slows down considerably the job start
+    if not lsf.LSFUtils.using_lsf():
+        if len(remote_host_names) > 0:
+            if settings.verbose >= 2:
+                print('Testing interfaces on all the hosts.')
 
-        local_host_names = set(all_host_names) - set(remote_host_names)
-        # Find the set of common, routed interfaces on all the hosts (remote
-        # and local) and specify it in the args to be used by NCCL. It is
-        # expected that the following function will find at least one interface
-        # otherwise, it will raise an exception.
-        common_intfs = _driver_fn(all_host_names, local_host_names,
-                                  settings, fn_cache=fn_cache)
+            local_host_names = set(all_host_names) - set(remote_host_names)
+            # Find the set of common, routed interfaces on all the hosts (remote
+            # and local) and specify it in the args to be used by NCCL. It is
+            # expected that the following function will find at least one interface
+            # otherwise, it will raise an exception.
+            common_intfs = _driver_fn(all_host_names, local_host_names,
+                                      settings, fn_cache=fn_cache)
 
-        if settings.verbose >= 2:
-            print('Interfaces on all the hosts were successfully checked.')
-            print('Common interface found: ' + ' '.join(common_intfs))
+            if settings.verbose >= 2:
+                print('Interfaces on all the hosts were successfully checked.')
+                print('Common interface found: ' + ' '.join(common_intfs))
 
-    else:
-        if settings.verbose >= 2:
-            print('All hosts are local, finding the interfaces '
-                  'with address 127.0.0.1')
-        # If all the given hosts are local, find the interfaces with address
-        # 127.0.0.1
-        common_intfs = set()
-        for iface, addrs in net_if_addrs().items():
-            if settings.nic and iface != settings.nic:
-                continue
-            for addr in addrs:
-                if addr.family == AF_INET and addr.address == '127.0.0.1':
-                    common_intfs.add(iface)
-                    break
+        else:
+            if settings.verbose >= 2:
+                print('All hosts are local, finding the interfaces '
+                      'with address 127.0.0.1')
+            # If all the given hosts are local, find the interfaces with address
+            # 127.0.0.1
+            common_intfs = set()
+            for iface, addrs in net_if_addrs().items():
+                if settings.nic and iface != settings.nic:
+                    continue
+                for addr in addrs:
+                    if addr.family == AF_INET and addr.address == '127.0.0.1':
+                        common_intfs.add(iface)
+                        break
 
-        if len(common_intfs) == 0:
-            raise ValueError('No interface is found for address 127.0.0.1.')
+            if len(common_intfs) == 0:
+                raise ValueError('No interface is found for address 127.0.0.1.')
 
-        if settings.verbose >= 2:
-            print('Local interface found ' + ' '.join(common_intfs))
-
-    # get the driver IPv4 address
-    driver_ip = _get_driver_ip(common_intfs)
+            if settings.verbose >= 2:
+                print('Local interface found ' + ' '.join(common_intfs))
 
     if args.run_func:
+        # get the driver IPv4 address
+        driver_ip = _get_driver_ip(common_intfs)
         run_func_server = KVStoreServer(verbose=settings.verbose)
         run_func_server_port = run_func_server.start_server()
         pickled_exec_func = cloudpickle.dumps(args.run_func)
@@ -848,23 +864,30 @@ def _run(args):
 def _launch_job(args, remote_host_names, settings, common_intfs, command):
     env = os.environ.copy()
     config_parser.set_env_from_args(env, args)
-    driver_ip = _get_driver_ip(common_intfs)
 
     if args.use_gloo:
         if not gloo_built(verbose=(settings.verbose >= 2)):
             raise ValueError('Gloo support has not been built.  If this is not expected, ensure CMake is installed '
                              'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
-        gloo_run(settings, remote_host_names, common_intfs, env, driver_ip, command)
+        gloo_run(settings, remote_host_names, common_intfs, env, _get_driver_ip(common_intfs), command)
     elif args.use_mpi:
         if not mpi_built(verbose=(settings.verbose >= 2)):
             raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
                              'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.')
         mpi_run(settings, common_intfs, env, command)
+    elif args.use_jsrun:
+        if not mpi_built(verbose=(settings.verbose >= 2)):
+            raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
+                             'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.')
+        js_run(settings, common_intfs, env, command)
     else:
         if mpi_built(verbose=(settings.verbose >= 2)):
-            mpi_run(settings, common_intfs, env, command)
+            if lsf.LSFUtils.using_lsf() and is_jsrun_installed():
+                js_run(settings, common_intfs, env, command)
+            else:
+                mpi_run(settings, common_intfs, env, command)
         elif gloo_built(verbose=(settings.verbose >= 2)):
-            gloo_run(settings, remote_host_names, common_intfs, env, driver_ip, command)
+            gloo_run(settings, remote_host_names, common_intfs, env, _get_driver_ip(common_intfs), command)
         else:
             raise ValueError('Neither MPI nor Gloo support has been built. Try reinstalling Horovod ensuring that '
                              'either MPI is installed (MPI) or CMake is installed (Gloo).')

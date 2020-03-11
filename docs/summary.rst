@@ -274,6 +274,8 @@ See `Run Horovod <running.rst>`_ for more details, including RoCE/InfiniBand twe
 
 7. To run in Singularity, see `Singularity <https://github.com/sylabs/examples/tree/master/machinelearning/horovod>`_.
 
+8. To run in a LSF HPC cluster (e.g. Summit), see `LSF <lsf.rst>`_.
+
 Gloo
 ----
 `Gloo <https://github.com/facebookincubator/gloo>`_ is an open source collective communications library developed by Facebook.
