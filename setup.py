@@ -1546,6 +1546,19 @@ setup(name='horovod',
               'pyarrow>=0.15.0',  # Petastorm 0.7.7 is not compatible with < 0.15.0
               'pyspark>=2.3.2'
           ],
+          'tensorflow':  [
+              'tensorflow'
+          ],
+          'tensorflow-gpu':  [
+              'tensorflow-gpu'
+          ],
+          'pytorch':  [
+              'torch',
+              'torchvision'
+          ],
+          'mxnet':  [
+              'mxnet'
+          ]
       },
       zip_safe=False,
       scripts=['bin/horovodrun'])
