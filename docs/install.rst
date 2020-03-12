@@ -57,7 +57,7 @@ Keras
 
 Standalone Keras support is currently only available for the TensorFlow backend.
 
-To ensure the Horovod is build with Keras support available:
+To ensure that Horovod is built with Keras support available:
 
 .. code-block:: bash
 
