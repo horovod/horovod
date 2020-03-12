@@ -1512,6 +1512,21 @@ class custom_build_ext(build_ext):
 require_list = ['cloudpickle', 'psutil', 'pyyaml', 'six']
 test_require_list = ['mock', 'pytest', 'pytest-forked']
 
+# framework dependencies
+tensorflow_require_list = ['tensorflow']
+tensorflow_gpu_require_list = ['tensorflow-gpu']
+keras_require_list = ['keras>=2.0.8,!=2.0.9,!=2.1.0,!=2.1.1']
+pytorch_require_list = ['torch','torchvision']
+mxnet_require_list = ['mxnet>=1.4.1']
+spark_require_list = ['h5py>=2.9', 'numpy', 'petastorm==0.8.2', 'pyarrow>=0.15.0', 'pyspark>=2.3.2']  # Petastorm 0.7.7 is not compatible with pyarrow<0.15.0
+# all frameworks' dependencies
+all_frameworks_require_list = tensorflow_require_list + \
+                              tensorflow_gpu_require_list + \
+                              keras_require_list + \
+                              pytorch_require_list + \
+                              mxnet_require_list + \
+                              spark_require_list
+
 # Skip cffi if pytorch extension explicitly disabled
 if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
     require_list.append('cffi>=1.4.0')
@@ -1539,29 +1554,13 @@ setup(name='horovod',
       install_requires=require_list,
       tests_require=test_require_list,
       extras_require={
-          'spark':  [
-              'h5py>=2.9',
-              'numpy',
-              'petastorm==0.8.2',
-              'pyarrow>=0.15.0',  # Petastorm 0.7.7 is not compatible with < 0.15.0
-              'pyspark>=2.3.2'
-          ],
-          'tensorflow':  [
-              'tensorflow'
-          ],
-          'tensorflow-gpu':  [
-              'tensorflow-gpu'
-          ],
-          'keras': [
-              'keras>=2.0.8,!=2.0.9,!=2.1.0,!=2.1.1'
-          ],
-          'pytorch':  [
-              'torch',
-              'torchvision'
-          ],
-          'mxnet':  [
-              'mxnet>=1.4.1'
-          ]
+          'all-frameworks': all_frameworks_require_list,
+          'tensorflow': tensorflow_require_list,
+          'tensorflow-gpu': tensorflow_gpu_require_list,
+          'keras': keras_require_list,
+          'pytorch': pytorch_require_list,
+          'mxnet': mxnet_require_list,
+          'spark': spark_require_list
       },
       zip_safe=False,
       scripts=['bin/horovodrun'])
