@@ -86,10 +86,11 @@ def spark_session(app, cores=2, gpus=0, *args):
 
 
 def create_xor_data(spark):
-    data = [[0, 0, 0.0], [0, 1, 1.0], [1, 0, 1.0], [1, 1, 0.0]]
+    data = [[0, 0, 0.0, 0.1], [0, 1, 1.0, 0.2], [1, 0, 1.0, 0.3], [1, 1, 0.0, 0.4]]
     schema = StructType([StructField('x1', IntegerType()),
                          StructField('x2', IntegerType()),
-                         StructField('y', FloatType())])
+                         StructField('y', FloatType()),
+                         StructField('weight', FloatType())])
     raw_df = create_test_data_from_schema(spark, data, schema)
 
     vector_assembler = VectorAssembler().setInputCols(['x1', 'x2']).setOutputCol('features')
