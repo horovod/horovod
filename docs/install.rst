@@ -1,16 +1,16 @@
 .. inclusion-marker-start-do-not-remove
 
-Installation Guide
-==================
+Horovod Installation Guide
+==========================
 
 Frameworks
 ----------
 
-Horovod can be built with plugins for TensorFlow, PyTorch, and MXNet. By default, Horovod will attempt to build
+You can build Horovod for TensorFlow, PyTorch, and MXNet. By default, Horovod will attempt to build
 support for all of them. At least one must be enabled for Horovod to install successfully.
 
-Extras can be used when installing to enforce that framework dependencies are properly installed before attempting
-to install Horovod:
+To ensure that framework dependencies are properly installed before attempting to install Horovod, append
+extra arguments that identify the required frameworks:
 
 .. code-block:: bash
 
@@ -97,7 +97,7 @@ If both MPI and Gloo are enabled in your installation, then MPI will be the defa
 Gloo
 ~~~~
 
-Gloo is a more recent controller for Horoovd that does not require additional dependencies besides CMake to install.
+Gloo is a more recent controller for Horovod that does not require additional dependencies besides CMake to install.
 
 When used as a controller in combination with NCCL, Gloo performs almost identically to MPI on standard benchmarks.
 
@@ -114,7 +114,7 @@ installing.
 Tensor Operations
 -----------------
 
-For running on GPUs with best performance, we recommend installing Horovod with NCCL support following the
+For running on GPUs with optimal performance, we recommend installing Horovod with NCCL support following the
 `Horovod on GPU <gpus.rst>`_ guide.
 
 For tensor data on CPU, you can use MPI, Gloo, and Intel's oneCCL. By default, the framework used by your controller
@@ -156,7 +156,7 @@ Set ``HOROVOD_CPU_OPERATIONS=CCL`` to use oneCCL.
 Check Build
 -----------
 
-After successfully installing Horovod, you can run:
+After successfully installing Horovod, run:
 
 .. code-block:: bash
 
