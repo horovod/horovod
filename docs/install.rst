@@ -16,6 +16,12 @@ extra arguments that identify the required frameworks:
 
     $ pip install horovod[tensorflow,keras,pytorch,mxnet,spark]
 
+In addition to specifying framework requirements individually, you can require all frameworks collectively:
+
+.. code-block:: bash
+
+    $ pip install horovod[all-frameworks]
+
 This is useful when building Horovod as part of a larger collection of dependencies at once, relying on the pip
 compiler to determine the correct install order.
 
@@ -30,6 +36,9 @@ To ensure that Horovod is built with TensorFlow support enabled:
 
 To skip TensorFlow, set ``HOROVOOD_WITHOUT_TENSORFLOW=1`` in your environment.
 
+If you've installed TensorFlow from `PyPI <https://pypi.org/project/tensorflow>`__, make sure that
+the ``g++-4.8.5`` or ``g++-4.9`` is installed.
+
 PyTorch
 ~~~~~~~
 
@@ -40,6 +49,9 @@ To ensure that Horovod is built with PyTorch support enabled:
     $ HOROVOD_WITH_PYTORCH=1 pip install horovod[pytorch]
 
 To skip PyTorch, set ``HOROVOOD_WITHOUT_PYTORCH=1`` in your environment.
+
+If you've installed PyTorch from `PyPI <https://pypi.org/project/torch>`__, make sure that the ``g++-4.9`` or
+above is installed.
 
 MXNet
 ~~~~~
@@ -89,6 +101,12 @@ MPI
 MPI is the original controller for Horovod.  It uses ``mpirun`` to launch worker processes (``horovodrun`` will use
 ``mpirun`` under the hood when using MPI).
 
+To use Horovod with MPU, install `Open MPI <https://www.open-mpi.org/>`_ or another MPI implementation.
+Learn how to install Open MPI `on this page <https://www.open-mpi.org/faq/?category=building#easy-build>`_.
+
+**Note**: Open MPI 3.1.3 has an issue that may cause hangs. The recommended fix is to downgrade to Open MPI 3.1.2 or
+upgrade to Open MPI 4.0.0.
+
 * To force Horovod to install with MPI support, set ``HOROVOD_WITH_MPI=1`` in your environment.
 * To force Horovod to skip building MPI support, set ``HOROVOD_WITHOUT_MPI=1``.
 
@@ -102,11 +120,11 @@ Gloo is a more recent controller for Horovod that does not require additional de
 When used as a controller in combination with NCCL, Gloo performs almost identically to MPI on standard benchmarks.
 
 * To force Horovod to install with Gloo support, set ``HOROVOD_WITH_GLOO=1`` in your environment.
-* To force Horovod to skip building MPI support, set ``HOROVOD_WITHOUT_GLOO=1``.
+* To force Horovod to skip building Gloo support, set ``HOROVOD_WITHOUT_GLOO=1``.
 
 Gloo mode uses ``horovodrun`` to launch worker processes.
 
-Gloo will be required for the upcoming elastic / fault tolerant API for Horovod.
+Gloo is required to use the elastic / fault tolerant API for Horovod.
 
 If Horovod in unable to find the CMake binary, you may need to set ``HOROVOD_CMAKE`` in your environment before
 installing.
@@ -169,7 +187,7 @@ diagnose failures:
 .. code-block:: bash
 
     $ pip uninstall horovod
-    $ ... pip install --no-cache-dir horovod
+    $ HOROVOD_WITH_...=1 pip install --no-cache-dir horovod
 
 
 Environment Variables
