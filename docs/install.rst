@@ -101,7 +101,7 @@ MPI
 MPI is the original controller for Horovod.  It uses ``mpirun`` to launch worker processes (``horovodrun`` will use
 ``mpirun`` under the hood when using MPI).
 
-To use Horovod with MPU, install `Open MPI <https://www.open-mpi.org/>`_ or another MPI implementation.
+To use Horovod with MPI, install `Open MPI <https://www.open-mpi.org/>`_ or another MPI implementation.
 Learn how to install Open MPI `on this page <https://www.open-mpi.org/faq/?category=building#easy-build>`_.
 
 **Note**: Open MPI 3.1.3 has an issue that may cause hangs. The recommended fix is to downgrade to Open MPI 3.1.2 or
