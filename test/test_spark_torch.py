@@ -146,6 +146,7 @@ class SparkTorchTests(unittest.TestCase):
                 'x1': LongType,
                 'x2': LongType,
                 'features': VectorUDT,
+                'weight': DoubleType,
                 'y': DoubleType,
                 'y__output': VectorUDT
             }
