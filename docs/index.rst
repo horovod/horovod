@@ -95,6 +95,8 @@ Guides
 
    concepts_include
 
+   install_include
+
    api
 
    tensorflow

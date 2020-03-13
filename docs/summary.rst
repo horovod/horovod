@@ -106,13 +106,23 @@ To install Horovod:
 
 3. Install the ``horovod`` pip package.
 
-.. code-block:: bash
+   To run on CPUs:
 
-    $ pip install horovod
+   .. code-block:: bash
+
+      $ pip install horovod
+
+   To run on GPUs with NCCL:
+
+   .. code-block:: bash
+
+      $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_BROADCAST=NCCL pip install horovod
 
 This basic installation is good for laptops and for getting to know Horovod.
 
-If you're installing Horovod on a server with GPUs, read `Horovod on GPU <gpus.rst>`_.
+For more details on installing Horovod with GPU support, read `Horovod on GPU <gpus.rst>`_.
+
+For the full list of Horovod installation options, read the `Installation Guide <install.rst>`_.
 
 If you want to use Docker, read `Horovod in Docker <docker.rst>`_.
 
