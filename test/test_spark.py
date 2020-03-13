@@ -189,8 +189,8 @@ class SparkTests(unittest.TestCase):
                             '-x _HOROVOD_SECRET_KEY {expected_env}'
                             '{extra_mpi_args} '
                             '-x NCCL_DEBUG=INFO '
-                            r'-mca plm_rsh_agent "[^"]+python[\d]* -m horovod.spark.driver.mpirun_rsh [^ ]+ [^ ]+" '
-                            r'[^"]+python[\d]* -m horovod.spark.task.mpirun_exec_fn [^ ]+ [^ ]+'.format(
+                            r'-mca plm_rsh_agent "[^"]+python[0-9]* -m horovod.spark.driver.mpirun_rsh [^ ]+ [^ ]+" '
+                            r'[^"]+python[0-9]* -m horovod.spark.task.mpirun_exec_fn [^ ]+ [^ ]+'.format(
                                 expected_np=expected_np,
                                 binding_args=' '.join(binding_args),
                                 expected_env=expected_env + ' ' if expected_env else '',
@@ -207,7 +207,7 @@ class SparkTests(unittest.TestCase):
 
         # for better comparison replace sections in actual_command that change across runs / hosts
         for replacement in ('-H [^ ]+', '-mca btl_tcp_if_include [^ ]+', '-x NCCL_SOCKET_IFNAME=[^ ]+',
-                            r'"[^"]+python[\d]*', r' [^"]+python[\d]*',
+                            r'"[^"]+python[0-9]*', r' [^"]+python[0-9]*',
                             '-m horovod.spark.driver.mpirun_rsh [^ ]+ [^ ]+"',
                             '-m horovod.spark.task.mpirun_exec_fn [^ ]+ [^ ]+'):
             actual_command = re.sub(replacement, replacement, actual_command, 1)

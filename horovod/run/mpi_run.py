@@ -78,9 +78,10 @@ def _get_mpi_implementation_flags(tcp_flag):
         return None, None
 
 
-def mpi_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_func=safe_shell_exec.execute):
+def mpi_run(settings, common_intfs, env, command, stdout=None, stderr=None,
+            run_func=safe_shell_exec.execute):
     """
-    Runs mpi_run.
+    Runs mpirun.
 
     Args:
         settings: Settings for running MPI.
