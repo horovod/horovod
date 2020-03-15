@@ -50,13 +50,14 @@ else:
 
 ccl_supported_types = set([tf.uint8, tf.int32, tf.int64, tf.float32, tf.float64])
 
-class MPITests(tf.test.TestCase):
+
+class TensorFlowTests(tf.test.TestCase):
     """
     Tests for ops in horovod.tensorflow.
     """
 
     def __init__(self, *args, **kwargs):
-        super(MPITests, self).__init__(*args, **kwargs)
+        super(TensorFlowTests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
         if _has_eager:
             if hasattr(tf, 'contrib') and hasattr(tf.contrib, 'eager'):
@@ -1064,10 +1065,22 @@ class MPITests(tf.test.TestCase):
             err = np.linalg.norm(expected - actual)
             self.assertLess(err, 0.00000001)
 
+    def test_broadcast_object(self):
+        hvd.init()
+
+        expected_obj = {
+            'hello': 123,
+            0: [1, 2]
+        }
+        obj = expected_obj if hvd.rank() == 0 else {}
+
+        obj = hvd.broadcast_object(obj, root_rank=0)
+        self.assertDictEqual(obj, expected_obj)
+
 
 if _has_eager:
     from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
-    run_all_in_graph_and_eager_modes(MPITests)
+    run_all_in_graph_and_eager_modes(TensorFlowTests)
 
 if __name__ == '__main__':
     tf.test.main()

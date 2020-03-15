@@ -20,6 +20,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import io
+
+import cloudpickle
+
 from horovod.common.util import check_extension, gpu_available
 
 check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
@@ -38,6 +42,8 @@ from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache
 
 import tensorflow as tf
 import warnings
+
+from tensorflow.python.framework import ops
 
 
 def allreduce(tensor, average=None, device_dense='', device_sparse='',
@@ -146,6 +152,50 @@ def broadcast_variables(variables, root_rank):
     """
     broadcast_group = _make_broadcast_group_fn()
     return broadcast_group(variables, root_rank)
+
+
+def broadcast_object(obj, root_rank, session=None, name=None):
+    """
+    Serializes and broadcasts an object from root rank to all other processes.
+
+    Arguments:
+        obj: An object capable of being serialized without losing any context.
+        root_rank: The rank of the process from which parameters will be
+                   broadcasted to all other processes.
+        session: Session for TensorFlow v1 compatibility.
+        name: Optional name to use during broadcast, will default to the class
+              type.
+    Returns:
+        The object that was broadcast from the `root_rank`.
+    """
+    if name is None:
+        name = type(obj).__name__
+
+    def to_numpy(v):
+        if not _executing_eagerly():
+            sess = session or ops.get_default_session()
+            return sess.run(v)
+        else:
+            return v.numpy()
+
+    if rank() == root_rank:
+        b = io.BytesIO()
+        cloudpickle.dump(obj, b)
+        t = tf.convert_to_tensor(bytearray(b.getvalue()), dtype=tf.uint8)
+        sz = tf.convert_to_tensor([t.shape[0]], dtype=tf.int32)
+        to_numpy(broadcast(sz, root_rank, name + '.sz'))
+    else:
+        sz = tf.convert_to_tensor([0], dtype=tf.int32)
+        sz = to_numpy(broadcast(sz, root_rank, name + '.sz'))
+        t = tf.zeros(sz.tolist()[0], dtype=tf.uint8)
+
+    t = to_numpy(broadcast(t, root_rank, name + '.t'))
+
+    if rank() != root_rank:
+        buf = io.BytesIO(t.tobytes())
+        obj = cloudpickle.load(buf)
+
+    return obj
 
 
 try:

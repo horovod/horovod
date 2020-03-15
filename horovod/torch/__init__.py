@@ -631,7 +631,7 @@ def broadcast_object(obj, root_rank, name=None):
         The object that was broadcast from the `root_rank`.
     """
     if name is None:
-        name = str(type(obj))
+        name = type(obj).__name__
 
     if rank() == root_rank:
         b = io.BytesIO()

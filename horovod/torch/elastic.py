@@ -16,78 +16,24 @@
 from __future__ import absolute_import
 
 import copy
-import functools
 
-from six.moves import queue
+import horovod.torch as _hvd
 
-import horovod.torch
-
-from horovod.common.exceptions import HorovodInternalError, WorkersAvailableException
-from horovod.run.elastic.worker import WorkerNotificationManager
-from horovod.torch.mpi_ops import init, rank, shutdown
+from horovod.common.elastic import run_fn, AbstractObjectState, State
 
 
-notification_manager = WorkerNotificationManager()
+def run(func):
+    return run_fn(func, _hvd)
 
 
-class State(object):
-    def __init__(self, saved_state):
-        self._host_messages = queue.Queue()
-        self._known_hosts = set()
-        self._reset_callbacks = []
-        self._saved_state = saved_state
-        self.restore()
-
-    def register_reset_callbacks(self, callbacks):
-        self._reset_callbacks.extend(callbacks)
-
-    def on_reset(self):
-        for callback in self._reset_callbacks:
-            callback()
-
-    def on_hosts_added(self, hosts):
-        for host in hosts:
-            self._host_messages.put(host)
-
-    def commit(self):
-        self.save()
-        self._update_known_hosts()
-
-    def save(self):
-        raise NotImplementedError()
-
-    def restore(self):
-        raise NotImplementedError()
-
-    def sync(self):
-        raise NotImplementedError()
-
-    def _update_known_hosts(self):
-        if not self._host_messages.empty():
-            host = self._host_messages.get()
-            if host not in self._known_hosts:
-                self._known_hosts.add(host)
-                raise WorkersAvailableException()
-
-
-class ObjectState(State):
+class ObjectState(AbstractObjectState):
     def __init__(self, **kwargs):
-        super(ObjectState, self).__init__(kwargs)
-
-    def save(self):
-        new_state = {}
-        for attr in self._saved_state.keys():
-            new_state[attr] = getattr(self, attr)
-        self._saved_state = new_state
-
-    def restore(self):
-        for attr, value in self._saved_state.items():
-            setattr(self, attr, value)
+        super(ObjectState, self).__init__(**kwargs)
 
     def sync(self):
         if self._saved_state:
-            synced_state = horovod.torch.broadcast_object(self._saved_state, root_rank=0)
-            if rank() != 0:
+            synced_state = _hvd.broadcast_object(self._saved_state, root_rank=0)
+            if _hvd.rank() != 0:
                 self._saved_state = synced_state
                 self.restore()
 
@@ -113,45 +59,6 @@ class TorchState(ObjectState):
         super(TorchState, self).restore()
 
     def sync(self):
-        horovod.torch.broadcast_parameters(self.model.state_dict(), root_rank=0)
-        horovod.torch.broadcast_optimizer_state(self.optimizer, root_rank=0)
+        _hvd.broadcast_parameters(self.model.state_dict(), root_rank=0)
+        _hvd.broadcast_optimizer_state(self.optimizer, root_rank=0)
         super(TorchState, self).sync()
-
-
-def run(func):
-    @functools.wraps(func)
-    def wrapper(state, *args, **kwargs):
-        # init()
-        notification_manager.init()
-        notification_manager.register_listener(state)
-
-        try:
-            reset_required = False
-            while True:
-                if reset_required:
-                    _reset(state)
-
-                state.sync()
-                try:
-                    print('Call the Function {}'.format(rank()))
-                    return func(state, *args, **kwargs)
-                except HorovodInternalError:
-                    print('HorovodInternalError {}'.format(rank()))
-                    state.restore()
-                except WorkersAvailableException:
-                    print('WorkersAvailableException {}'.format(rank()))
-                    pass
-                reset_required = True
-        finally:
-            notification_manager.remove_listener(state)
-    return wrapper
-
-
-def _reset(state):
-    rnk = rank()
-    print('SHUTDOWN {}'.format(rnk))
-    shutdown()
-    print('RINIT {}'.format(rnk))
-    init()
-    print('RESET {}'.format(rnk))
-    state.on_reset()
