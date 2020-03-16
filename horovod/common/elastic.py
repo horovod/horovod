@@ -64,11 +64,12 @@ class State(object):
                 raise WorkersAvailableException()
 
 
-class AbstractObjectState(State):
-    def __init__(self, **kwargs):
+class ObjectState(State):
+    def __init__(self, bcast_object, **kwargs):
+        self._bcast_object = bcast_object
         self._saved_state = kwargs
         self._set_attrs()
-        super(AbstractObjectState, self).__init__()
+        super(ObjectState, self).__init__()
 
     def save(self):
         new_state = {}
@@ -80,7 +81,9 @@ class AbstractObjectState(State):
         self._set_attrs()
 
     def sync(self):
-        raise NotImplementedError()
+        if self._saved_state:
+            self._saved_state = self._bcast_object(self._saved_state, root_rank=0)
+            self._set_attrs()
 
     def _set_attrs(self):
         for attr, value in self._saved_state.items():

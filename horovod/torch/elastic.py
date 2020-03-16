@@ -19,23 +19,11 @@ import copy
 
 import horovod.torch as _hvd
 
-from horovod.common.elastic import run_fn, AbstractObjectState, State
+from horovod.common.elastic import run_fn, ObjectState
 
 
 def run(func):
     return run_fn(func, _hvd)
-
-
-class ObjectState(AbstractObjectState):
-    def __init__(self, **kwargs):
-        super(ObjectState, self).__init__(**kwargs)
-
-    def sync(self):
-        if self._saved_state:
-            synced_state = _hvd.broadcast_object(self._saved_state, root_rank=0)
-            if _hvd.rank() != 0:
-                self._saved_state = synced_state
-                self.restore()
 
 
 class TorchState(ObjectState):
@@ -46,7 +34,7 @@ class TorchState(ObjectState):
         self.optimizer = optimizer
         self._saved_optimizer_state = copy.deepcopy(optimizer.state_dict())
 
-        super(TorchState, self).__init__(**kwargs)
+        super(TorchState, self).__init__(_hvd.broadcast_object, **kwargs)
 
     def save(self):
         self._saved_model_state = copy.deepcopy(self.model.state_dict())

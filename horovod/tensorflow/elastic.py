@@ -23,7 +23,7 @@ from tensorflow.python.framework import ops
 
 import horovod.tensorflow as _hvd
 
-from horovod.common.elastic import run_fn, AbstractObjectState, State
+from horovod.common.elastic import run_fn, ObjectState
 
 
 _IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
@@ -33,39 +33,26 @@ def run(func):
     return run_fn(func, _hvd)
 
 
-def _broadcast_global(session):
-    bcast_op = _hvd.broadcast_global_variables(0)
-    session.run(bcast_op)
-
-
 def _broadcast_model(model, optimizer, backend):
-    print('BEFORE _broadcast_model: {}'.format(model.get_weights()))
-    print('GLOBAL: {}'.format(tf.global_variables()))
-    print('MODEL: {}'.format(model.variables))
-    bcast_op = _hvd.broadcast_global_variables(0)
-    ops.get_default_session().run(bcast_op)
-    print('AFTER _broadcast_model: {}'.format(model.get_weights()))
-    # _broadcast_global(backend.get_session())
-    # if _hvd._executing_eagerly():
-    #     # TensorFlow 2.0 or TensorFlow eager
-    #     _hvd.broadcast_variables(model.variables, root_rank=0)
-    #     _hvd.broadcast_variables(optimizer.variables(), root_rank=0)
-    # else:
-    #     _broadcast_global(backend.get_session())
+    if _hvd._executing_eagerly():
+        # TensorFlow 2.0 or TensorFlow eager
+        _hvd.broadcast_variables(model.variables, root_rank=0)
+        _hvd.broadcast_variables(optimizer.variables(), root_rank=0)
+    else:
+        bcast_op = _hvd.broadcast_global_variables(0)
+        backend.get_session().run(bcast_op)
 
 
 def _model_built(model):
     return model.built if hasattr(model, 'build') else True
 
 
-class ObjectState(AbstractObjectState):
-    def __init__(self, **kwargs):
-        super(ObjectState, self).__init__(**kwargs)
+def _global_variables():
+    return tf.global_variables() if not _IS_TF2 else tf.compat.v1.global_variables()
 
-    def sync(self):
-        if self._saved_state:
-            self._saved_state = _hvd.broadcast_object(self._saved_state, root_rank=0)
-            self._set_attrs()
+
+def _default_session():
+    return ops.get_default_session() if not _IS_TF2 else None
 
 
 class TensorFlowKerasState(ObjectState):
@@ -78,7 +65,7 @@ class TensorFlowKerasState(ObjectState):
         self.backend = backend
         self._save_model()
 
-        super(TensorFlowKerasState, self).__init__(**kwargs)
+        super(TensorFlowKerasState, self).__init__(_hvd.broadcast_object, **kwargs)
 
     def save(self):
         self._save_model()
@@ -102,28 +89,46 @@ class TensorFlowKerasState(ObjectState):
         self.optimizer.set_weights(self._saved_optimizer_state)
 
 
-class TensorFlowV1State(ObjectState):
-    def __init__(self, session=None, **kwargs):
-        self.session = session or ops.get_default_session()
+class TensorFlowState(ObjectState):
+    def __init__(self, variables=None, session=None, **kwargs):
+        self.variables = variables or _global_variables()
+        self.session = session or _default_session()
+        self._eval_fn = self._to_numpy if _hvd._executing_eagerly() else self._eval_var
+        self._assign_fn = self._assign_var if _IS_TF2 else self._load_var
         self._save_model()
 
-        super(TensorFlowV1State, self).__init__(**kwargs)
+        super(TensorFlowState, self).__init__(_hvd.broadcast_object, **kwargs)
 
     def save(self):
         self._save_model()
-        super(TensorFlowV1State, self).save()
+        super(TensorFlowState, self).save()
 
     def restore(self):
         self._load_model()
-        super(TensorFlowV1State, self).restore()
+        super(TensorFlowState, self).restore()
 
     def sync(self):
-        _broadcast_global(self.session)
-        super(TensorFlowV1State, self).sync()
+        bcast_op = _hvd.broadcast_variables(self.variables, root_rank=0)
+        if self.session is not None:
+            self.session.run(bcast_op)
+        self._save_model()
+        super(TensorFlowState, self).sync()
 
     def _save_model(self):
-        self._values = [var.eval(self.session) for var in tf.global_variables()]
+        self._values = [self._eval_fn(var) for var in self.variables]
+
+    def _eval_var(self, var):
+        return var.eval(self.session)
+
+    def _to_numpy(self, var):
+        return var.numpy()
 
     def _load_model(self):
-        for var, value in zip(tf.global_variables(), self._values):
-            var.load(value, self.session)
+        for var, value in zip(self.variables, self._values):
+            self._assign_fn(var, value)
+
+    def _load_var(self, var, value):
+        var.load(value, self.session)
+
+    def _assign_var(self, var, value):
+        var.assign(value)
