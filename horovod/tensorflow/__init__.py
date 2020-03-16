@@ -28,6 +28,7 @@ from horovod.common.util import check_extension, gpu_available
 
 check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
 
+from horovod.tensorflow import elastic
 from horovod.tensorflow.compression import Compression
 from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce
 from horovod.tensorflow.mpi_ops import init, shutdown

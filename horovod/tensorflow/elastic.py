@@ -38,13 +38,20 @@ def _broadcast_global(session):
     session.run(bcast_op)
 
 
-def _broadcast_model(model, optimizer, session):
-    if _hvd._executing_eagerly():
-        # TensorFlow 2.0 or TensorFlow eager
-        _hvd.broadcast_variables(model.variables, root_rank=0)
-        _hvd.broadcast_variables(optimizer.variables(), root_rank=0)
-    else:
-        _broadcast_global(session)
+def _broadcast_model(model, optimizer, backend):
+    print('BEFORE _broadcast_model: {}'.format(model.get_weights()))
+    print('GLOBAL: {}'.format(tf.global_variables()))
+    print('MODEL: {}'.format(model.variables))
+    bcast_op = _hvd.broadcast_global_variables(0)
+    ops.get_default_session().run(bcast_op)
+    print('AFTER _broadcast_model: {}'.format(model.get_weights()))
+    # _broadcast_global(backend.get_session())
+    # if _hvd._executing_eagerly():
+    #     # TensorFlow 2.0 or TensorFlow eager
+    #     _hvd.broadcast_variables(model.variables, root_rank=0)
+    #     _hvd.broadcast_variables(optimizer.variables(), root_rank=0)
+    # else:
+    #     _broadcast_global(backend.get_session())
 
 
 def _model_built(model):
@@ -57,19 +64,18 @@ class ObjectState(AbstractObjectState):
 
     def sync(self):
         if self._saved_state:
-            synced_state = _hvd.broadcast_object(self._saved_state, root_rank=0)
-            if _hvd.rank() != 0:
-                self._saved_state = synced_state
-                self.restore()
+            self._saved_state = _hvd.broadcast_object(self._saved_state, root_rank=0)
+            self._set_attrs()
 
 
 class TensorFlowKerasState(ObjectState):
-    def __init__(self, model, optimizer=None, **kwargs):
+    def __init__(self, model, optimizer=None, backend=None, **kwargs):
         self.model = model
         if not _model_built(model):
             raise ValueError('Model must be built first. Run `model.build(input_shape)`.')
 
         self.optimizer = optimizer or model.optimizer
+        self.backend = backend
         self._save_model()
 
         super(TensorFlowKerasState, self).__init__(**kwargs)
@@ -83,7 +89,8 @@ class TensorFlowKerasState(ObjectState):
         super(TensorFlowKerasState, self).restore()
 
     def sync(self):
-        _broadcast_model(self.model, self.optimizer, session=None)
+        _broadcast_model(self.model, self.optimizer, backend=self.backend)
+        self._save_model()
         super(TensorFlowKerasState, self).sync()
 
     def _save_model(self):
@@ -91,28 +98,28 @@ class TensorFlowKerasState(ObjectState):
         self._saved_optimizer_state = self.optimizer.get_weights()
 
     def _load_model(self):
-        self._saved_model_state = self.model.get_weights()
-        self._saved_optimizer_state = self.optimizer.get_weights()
+        self.model.set_weights(self._saved_model_state)
+        self.optimizer.set_weights(self._saved_optimizer_state)
 
 
-class TensorFlowSessionState(ObjectState):
+class TensorFlowV1State(ObjectState):
     def __init__(self, session=None, **kwargs):
         self.session = session or ops.get_default_session()
         self._save_model()
 
-        super(TensorFlowSessionState, self).__init__(**kwargs)
+        super(TensorFlowV1State, self).__init__(**kwargs)
 
     def save(self):
         self._save_model()
-        super(TensorFlowSessionState, self).save()
+        super(TensorFlowV1State, self).save()
 
     def restore(self):
         self._load_model()
-        super(TensorFlowSessionState, self).restore()
+        super(TensorFlowV1State, self).restore()
 
     def sync(self):
         _broadcast_global(self.session)
-        super(TensorFlowSessionState, self).sync()
+        super(TensorFlowV1State, self).sync()
 
     def _save_model(self):
         self._values = [var.eval(self.session) for var in tf.global_variables()]
@@ -120,19 +127,3 @@ class TensorFlowSessionState(ObjectState):
     def _load_model(self):
         for var, value in zip(tf.global_variables(), self._values):
             var.load(value, self.session)
-
-
-class TensorFlowState(State):
-    def __init__(self, model=None, optimizer=None, session=None, **kwargs):
-        self._state = TensorFlowKerasState(model, optimizer, **kwargs) if model is not None else \
-            TensorFlowSessionState(session, **kwargs)
-        super(TensorFlowState, self).__init__()
-
-    def save(self):
-        self._state.save()
-
-    def restore(self):
-        self._state.restore()
-
-    def sync(self):
-        self._state.sync()
