@@ -18,7 +18,7 @@ from __future__ import absolute_import
 import tensorflow as tf
 
 from horovod._keras import elastic as _impl
-from horovod.tensorflow.elastic import TensorFlowKerasState
+from horovod.tensorflow.elastic import run, TensorFlowKerasState
 
 
 class KerasState(TensorFlowKerasState):

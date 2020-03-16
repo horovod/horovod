@@ -129,9 +129,14 @@ def train(state):
     # post synchronization event (worker added, worker removed) init ...
     for state.epoch in range(state.epoch, args.epochs + 1):
         state.model.train()
-        # Horovod: set epoch to sampler for shuffling.
+
         train_sampler.set_epoch(state.epoch)
-        for batch_idx, (data, target) in enumerate(train_loader):
+        steps_remaining = len(train_loader) - state.batch
+
+        for state.batch, (data, target) in enumerate(train_loader):
+            if state.batch >= steps_remaining:
+                break
+
             check_rank(state.epoch)
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
@@ -140,13 +145,14 @@ def train(state):
             loss = F.nll_loss(output, target)
             loss.backward()
             state.optimizer.step()
-            if batch_idx % args.log_interval == 0:
+            if state.batch % args.log_interval == 0:
                 # Horovod: use train_sampler to determine the number of examples in
                 # this worker's partition.
                 print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                    state.epoch, batch_idx * len(data), len(train_sampler),
-                                 100. * batch_idx / len(train_loader), loss.item()))
+                    state.epoch, state.batch * len(data), len(train_sampler),
+                    100.0 * state.batch / len(train_loader), loss.item()))
             state.commit()
+        state.batch = 0
 
 
 def test():
