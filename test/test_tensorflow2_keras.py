@@ -119,7 +119,7 @@ class Tf2KerasTests(tf.test.TestCase):
 
         optimizer = tf.optimizers.Adam(0.001 * hvd.size())
 
-        state = hvd.elastic.KerasState(model1, optimizer, batch_idx=20 + hvd.rank(), epoch=10 + hvd.rank())
+        state = hvd.elastic.KerasState(model1, optimizer, batch=20 + hvd.rank(), epoch=10 + hvd.rank())
         state.sync()
 
         model1_weights = model1.get_weights()
@@ -128,24 +128,24 @@ class Tf2KerasTests(tf.test.TestCase):
         # After sync, all values should match the root rank
         for w in state.model.get_weights():
             self.assertAllClose(w, np.ones_like(w))
-        assert state.batch_idx == 20
+        assert state.batch == 20
         assert state.epoch == 10
 
         # Partially modify then restore
         model1.set_weights(model2_weights)
-        state.batch_idx = 21
+        state.batch = 21
         state.epoch = 11
 
         state.restore()
 
         for w1, w2 in zip(model1.get_weights(), model1_weights):
             self.assertAllClose(w1, w2)
-        assert state.batch_idx == 20
+        assert state.batch == 20
         assert state.epoch == 10
 
         # Partially modify then commit
         model1.set_weights(model2_weights)
-        state.batch_idx = 21
+        state.batch = 21
         state.epoch = 11
 
         state.commit()
@@ -153,5 +153,5 @@ class Tf2KerasTests(tf.test.TestCase):
 
         for w1, w2 in zip(model1.get_weights(), model2_weights):
             self.assertAllClose(w1, w2)
-        assert state.batch_idx == 21
+        assert state.batch == 21
         assert state.epoch == 11

@@ -1687,7 +1687,7 @@ class TorchTests(unittest.TestCase):
 
         optimizer = torch.optim.SGD(model1.parameters(), lr=0.001 * hvd.size())
 
-        state = hvd.elastic.TorchState(model1, optimizer, batch_idx=20 + hvd.rank(), epoch=10 + hvd.rank())
+        state = hvd.elastic.TorchState(model1, optimizer, batch=20 + hvd.rank(), epoch=10 + hvd.rank())
         state.sync()
 
         model1_weights = model1.state_dict().values()
@@ -1696,24 +1696,24 @@ class TorchTests(unittest.TestCase):
         # After sync, all values should match the root rank
         for w in state.model.state_dict().values():
             np.testing.assert_allclose(w, np.ones_like(w))
-        assert state.batch_idx == 20
+        assert state.batch == 20
         assert state.epoch == 10
 
         # Partially modify then restore
         model1.load_state_dict(model2.state_dict())
-        state.batch_idx = 21
+        state.batch = 21
         state.epoch = 11
 
         state.restore()
 
         for w1, w2 in zip(model1.state_dict().values(), model1_weights):
             np.testing.assert_allclose(w1, w2)
-        assert state.batch_idx == 20
+        assert state.batch == 20
         assert state.epoch == 10
 
         # Partially modify then commit
         model1.load_state_dict(model2.state_dict())
-        state.batch_idx = 21
+        state.batch = 21
         state.epoch = 11
 
         state.commit()
@@ -1721,7 +1721,7 @@ class TorchTests(unittest.TestCase):
 
         for w1, w2 in zip(model1.state_dict().values(), model2_weights):
             np.testing.assert_allclose(w1, w2)
-        assert state.batch_idx == 21
+        assert state.batch == 21
         assert state.epoch == 11
 
 

@@ -1118,7 +1118,7 @@ class TensorFlowTests(tf.test.TestCase):
             init = tf.global_variables_initializer()
             self.evaluate(init)
 
-        state = hvd.elastic.TensorFlowState(vars1, batch_idx=20 + hvd.rank(), epoch=10 + hvd.rank())
+        state = hvd.elastic.TensorFlowState(vars1, batch=20 + hvd.rank(), epoch=10 + hvd.rank())
         state.sync()
 
         weights1 = [np.ones_like(w) for w in weights1]
@@ -1126,24 +1126,24 @@ class TensorFlowTests(tf.test.TestCase):
         # After sync, all values should match the root rank
         for w in self.evaluate(vars1):
             self.assertAllClose(w, np.ones_like(w))
-        assert state.batch_idx == 20
+        assert state.batch == 20
         assert state.epoch == 10
 
         # Partially modify then restore
         self.assign(vars1, weights2)
-        state.batch_idx = 21
+        state.batch = 21
         state.epoch = 11
 
         state.restore()
 
         for w1, w2 in zip(self.evaluate(vars1), weights1):
             self.assertAllClose(w1, w2)
-        assert state.batch_idx == 20
+        assert state.batch == 20
         assert state.epoch == 10
 
         # Partially modify then commit
         self.assign(vars1, weights2)
-        state.batch_idx = 21
+        state.batch = 21
         state.epoch = 11
 
         state.commit()
@@ -1151,7 +1151,7 @@ class TensorFlowTests(tf.test.TestCase):
 
         for w1, w2 in zip(self.evaluate(vars1), weights2):
             self.assertAllClose(w1, w2)
-        assert state.batch_idx == 21
+        assert state.batch == 21
         assert state.epoch == 11
 
 
