@@ -336,14 +336,12 @@ From a clean copy of the ``horovod`` repository on a Linux machine:
 If you have trouble connecting to external URLs, try changing ``docker build ...`` to
 ``docker build --network host ...`` in ``build-docker-images.sh``.
 
-Upload artifacts for Python 2.7 and Python 3.6, CPU and GPU:
+Upload artifacts for Python 3.6, CPU and GPU:
 
 .. code-block:: bash
 
     $ docker login
-    $ docker push horovod/horovod:0.18.1-tf1.14.0-torch1.2.0-mxnet1.5.0-py2.7-gpu
     $ docker push horovod/horovod:0.18.1-tf1.14.0-torch1.2.0-mxnet1.5.0-py3.6-gpu
-    $ docker push horovod/horovod:0.18.1-tf1.14.0-torch1.2.0-mxnet1.5.0-py2.7-cpu
     $ docker push horovod/horovod:0.18.1-tf1.14.0-torch1.2.0-mxnet1.5.0-py3.6-cpu
 
 Check the horovod `Docker Hub project <https://cloud.docker.com/u/horovod/repository/docker/horovod/horovod>`_
