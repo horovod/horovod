@@ -17,9 +17,59 @@ from __future__ import absolute_import
 
 import keras
 
+from horovod._keras import elastic as _impl
 from horovod.tensorflow.elastic import TensorFlowKerasState
 
 
 class KerasState(TensorFlowKerasState):
     def __init__(self, model, optimizer=None, **kwargs):
         super(KerasState, self).__init__(model, optimizer=optimizer, backend=keras.backend, **kwargs)
+
+
+class CommitStateCallback(_impl.CommitStateCallbackImpl, keras.callbacks.Callback):
+    """
+    Keras Callback that will commit the `state` object every `batches_per_commit`
+    batches at the end of each batch.
+    """
+
+    def __init__(self, state, batches_per_commit=1):
+        """
+        Constructs a new CommitStateCallback.
+
+        Args:
+            state: `horovod.common.elastic.State` object to be committed.
+            batches_per_commit: Number of batches to complete between each commit (default: 1).
+        """
+        super(CommitStateCallback, self).__init__(keras.backend, state, batches_per_commit)
+
+
+class UpdateBatchStateCallback(_impl.UpdateBatchStateCallbackImpl, keras.callbacks.Callback):
+    """
+    Keras Callback that will update the value of `state.batch` with the current batch number at
+    the end of each batch.
+    """
+
+    def __init__(self, state):
+        """
+        Constructs a new UpdateBatchStateCallback.
+
+        Args:
+            state: `horovod.common.elastic.State` object to be updated.
+        """
+        super(UpdateBatchStateCallback, self).__init__(keras.backend, state)
+
+
+class UpdateEpochStateCallback(_impl.UpdateEpochStateCallbackImpl, keras.callbacks.Callback):
+    """
+    Keras Callback that will update the value of `state.epoch` with the current epoch number at
+    the end of each epoch.
+    """
+
+    def __init__(self, state):
+        """
+        Constructs a new UpdateEpochStateCallback.
+
+        Args:
+            state: `horovod.common.elastic.State` object to be updated.
+        """
+        super(UpdateEpochStateCallback, self).__init__(keras.backend, state)
