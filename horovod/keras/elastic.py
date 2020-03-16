@@ -46,7 +46,10 @@ class CommitStateCallback(_impl.CommitStateCallbackImpl, keras.callbacks.Callbac
 class UpdateBatchStateCallback(_impl.UpdateBatchStateCallbackImpl, keras.callbacks.Callback):
     """
     Keras Callback that will update the value of `state.batch` with the current batch number at
-    the end of each batch.
+    the end of each batch. Batch will reset to 0 at the end of each epoch.
+
+    If `steps_per_epoch` is set, then this callback will also ensure that the number of steps
+    in the first epoch following a reset is shortened by the number of batches already processed.
     """
 
     def __init__(self, state):

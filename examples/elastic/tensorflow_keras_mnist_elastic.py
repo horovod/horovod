@@ -1,7 +1,5 @@
 from __future__ import print_function
 
-import math
-
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.datasets import mnist
@@ -24,9 +22,7 @@ K.set_session(tf.Session(config=config))
 lr = 1.0
 batch_size = 128
 num_classes = 10
-
-# Horovod: adjust number of epochs based on number of GPUs.
-epochs = int(math.ceil(12.0 / hvd.size()))
+epochs = 12
 
 # Input image dimensions
 img_rows, img_cols = 28, 28
@@ -102,8 +98,9 @@ if hvd.rank() == 0:
 
 @hvd.elastic.run
 def train(state):
+    # Horovod: adjust number of steps based on number of GPUs.
     state.model.fit(x_train, y_train,
-                    steps_per_epoch=len(x_train) // hvd.size() - state.batch,
+                    steps_per_epoch=len(x_train) // hvd.size(),
                     batch_size=batch_size,
                     callbacks=callbacks,
                     epochs=epochs - state.epoch,
