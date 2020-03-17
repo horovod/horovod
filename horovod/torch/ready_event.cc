@@ -13,7 +13,7 @@
 // limitations under the License.
 // =============================================================================
 
-#if HAVE_CUDA
+#if HAVE_GPU
 #if TORCH_VERSION >= 1005000000
 #include <c10/cuda/CUDAStream.h>
 #include <c10/cuda/CUDAException.h>
@@ -30,7 +30,7 @@
 #include "cuda_util.h"
 
 #if TORCH_VERSION < 1005000000
-#if HAVE_CUDA
+#if HAVE_GPU
 extern THCState* state;
 #endif
 #endif
@@ -38,7 +38,7 @@ extern THCState* state;
 namespace horovod {
 namespace torch {
 
-#if HAVE_CUDA
+#if HAVE_GPU
 struct ReadyEventRegistry {
   std::unordered_map<int, std::queue<cudaEvent_t>> cuda_events;
   std::mutex mutex;
@@ -103,7 +103,7 @@ std::shared_ptr<ReadyEvent> RecordReadyEvent(int device) {
   if (device == CPU_DEVICE_ID) {
     return std::shared_ptr<ReadyEvent>();
   } else {
-#if HAVE_CUDA
+#if HAVE_GPU
     return std::make_shared<TorchReadyEvent>(device);
 #else
     throw std::logic_error("Internal error. Requested ReadyEvent "

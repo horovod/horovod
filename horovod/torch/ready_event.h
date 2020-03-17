@@ -16,7 +16,7 @@
 #ifndef HOROVOD_TORCH_READY_EVENT_H
 #define HOROVOD_TORCH_READY_EVENT_H
 
-#if HAVE_CUDA
+#if HAVE_GPU
 #include "cuda_runtime.h"
 #endif
 
@@ -29,7 +29,7 @@ namespace torch {
 
 using namespace horovod::common;
 
-#if HAVE_CUDA
+#if HAVE_GPU
 class TorchReadyEvent : public ReadyEvent {
 public:
   TorchReadyEvent(int device);

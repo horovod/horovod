@@ -18,7 +18,7 @@
 
 #include <TH/TH.h>
 
-#if HAVE_CUDA
+#if HAVE_GPU
 #include <THC/THC.h>
 #endif
 
@@ -36,7 +36,7 @@ ALLREDUCE_H(torch_LongTensor, THLongTensor)
 ALLREDUCE_H(torch_FloatTensor, THFloatTensor)
 ALLREDUCE_H(torch_DoubleTensor, THDoubleTensor)
 
-#if HAVE_CUDA
+#if HAVE_GPU
 ALLREDUCE_H(torch_cuda_IntTensor, THCudaIntTensor)
 ALLREDUCE_H(torch_cuda_LongTensor, THCudaLongTensor)
 ALLREDUCE_H(torch_cuda_FloatTensor, THCudaTensor)
@@ -55,7 +55,7 @@ ALLGATHER_H(torch_LongTensor, THLongTensor)
 ALLGATHER_H(torch_FloatTensor, THFloatTensor)
 ALLGATHER_H(torch_DoubleTensor, THDoubleTensor)
 
-#if HAVE_CUDA
+#if HAVE_GPU
 ALLGATHER_H(torch_cuda_ByteTensor, THCudaByteTensor)
 ALLGATHER_H(torch_cuda_CharTensor, THCudaCharTensor)
 ALLGATHER_H(torch_cuda_ShortTensor, THCudaShortTensor)
@@ -77,7 +77,7 @@ BROADCAST_H(torch_LongTensor, THLongTensor)
 BROADCAST_H(torch_FloatTensor, THFloatTensor)
 BROADCAST_H(torch_DoubleTensor, THDoubleTensor)
 
-#if HAVE_CUDA
+#if HAVE_GPU
 BROADCAST_H(torch_cuda_ByteTensor, THCudaByteTensor)
 BROADCAST_H(torch_cuda_CharTensor, THCudaCharTensor)
 BROADCAST_H(torch_cuda_ShortTensor, THCudaShortTensor)

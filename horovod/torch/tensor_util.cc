@@ -34,7 +34,7 @@ TENSOR_UTIL_DEFINE_CPU_TYPE(DataType::HOROVOD_FLOAT32, THFloatTensor,
 TENSOR_UTIL_DEFINE_CPU_TYPE(DataType::HOROVOD_FLOAT64, THDoubleTensor,
                             THDoubleStorage)
 
-#if HAVE_CUDA
+#if HAVE_GPU
 TENSOR_UTIL_DEFINE_CUDA_TYPE(DataType::HOROVOD_UINT8, THCudaByteTensor,
                              THByteTensor, THCudaByteStorage)
 TENSOR_UTIL_DEFINE_CUDA_TYPE(DataType::HOROVOD_INT8, THCudaCharTensor,

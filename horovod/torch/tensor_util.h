@@ -19,14 +19,14 @@
 #include <TH/TH.h>
 #include <cassert>
 
-#if HAVE_CUDA
+#if HAVE_GPU
 #include <THC/THC.h>
 #endif
 
 #include "../common/common.h"
 #include "cuda_util.h"
 
-#if HAVE_CUDA
+#if HAVE_GPU
 extern THCState* state;
 #endif
 
@@ -59,7 +59,7 @@ public:
   template <DataType DT, DeviceType Dev, class T>
   static void DivideTensorInPlace(T* tensor, int value);
 
-#if HAVE_CUDA
+#if HAVE_GPU
   template <DataType DT, class T, class TC>
   static void CopyCPUToCuda(T* cpu, TC* cuda);
   template <DataType DT, class TC, class T>
@@ -269,7 +269,7 @@ TENSOR_UTIL_DEFINE_CPU_TYPE_H(DataType::HOROVOD_INT64, THLongTensor)
 TENSOR_UTIL_DEFINE_CPU_TYPE_H(DataType::HOROVOD_FLOAT32, THFloatTensor)
 TENSOR_UTIL_DEFINE_CPU_TYPE_H(DataType::HOROVOD_FLOAT64, THDoubleTensor)
 
-#if HAVE_CUDA
+#if HAVE_GPU
 TENSOR_UTIL_DEFINE_CUDA_TYPE_H(DataType::HOROVOD_UINT8, THCudaByteTensor,
                                THByteTensor)
 TENSOR_UTIL_DEFINE_CUDA_TYPE_H(DataType::HOROVOD_INT8, THCudaCharTensor,
