@@ -312,7 +312,7 @@ Upload to PyPI using `Twine <https://pypi.org/project/twine>`_:
     $ twine upload -r pypi dist/horovod-0.18.0.tar.gz
 
 Create a `PyPI <https://pypi.org>`_ account if you don’t have one. Then ask someone from the Horovod TSC
-to add you to the horovod project.
+to add you to the Horovod project.
 
 Verify that the latest version of Horovod is now available:
 
@@ -324,8 +324,8 @@ Verify that the latest version of Horovod is now available:
 Build Docker Images
 ~~~~~~~~~~~~~~~~~~~
 
-Create a `Docker Hub <https://cloud.docker.com>`_.  Ask someone from the Horovod TSC to add you to the
-horovod project.
+Create a `Docker Hub <https://cloud.docker.com>`_ account.  Ask someone from the Horovod TSC to add you to the
+Horovod project.
 
 From a clean copy of the ``horovod`` repository on a Linux machine:
 
@@ -344,7 +344,7 @@ Upload artifacts for Python 3.6, CPU and GPU:
     $ docker push horovod/horovod:0.18.1-tf1.14.0-torch1.2.0-mxnet1.5.0-py3.6-gpu
     $ docker push horovod/horovod:0.18.1-tf1.14.0-torch1.2.0-mxnet1.5.0-py3.6-cpu
 
-Check the horovod `Docker Hub project <https://cloud.docker.com/u/horovod/repository/docker/horovod/horovod>`_
+Check the Horovod `Docker Hub project <https://cloud.docker.com/u/horovod/repository/docker/horovod/horovod>`_
 to verify that the image artifacts were successfully uploaded.
 
 .. inclusion-marker-end-do-not-remove
