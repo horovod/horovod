@@ -47,6 +47,9 @@ mnist_model = tf.keras.Sequential([
 ])
 loss = tf.losses.SparseCategoricalCrossentropy()
 
+# Horovod: model must be built before beginning elastic training
+mnist_model.build((None, 28, 28, 1))
+
 # Horovod: adjust learning rate based on number of GPUs.
 lr = 0.001
 opt = tf.optimizers.Adam(lr * hvd.size())
@@ -56,7 +59,7 @@ checkpoint = tf.train.Checkpoint(model=mnist_model, optimizer=opt)
 
 
 @tf.function
-def training_step(images, labels, first_batch):
+def training_step(images, labels):
     with tf.GradientTape() as tape:
         probs = mnist_model(images, training=True)
         loss_value = loss(labels, probs)
@@ -66,30 +69,22 @@ def training_step(images, labels, first_batch):
 
     grads = tape.gradient(loss_value, mnist_model.trainable_variables)
     opt.apply_gradients(zip(grads, mnist_model.trainable_variables))
-
-    # Horovod: broadcast initial variable states from rank 0 to all other processes.
-    # This is necessary to ensure consistent initialization of all workers when
-    # training is started with random weights or restored from a checkpoint.
-    #
-    # Note: broadcast should be done after the first gradient step to ensure optimizer
-    # initialization.
-    if first_batch:
-        hvd.broadcast_variables(mnist_model.variables, root_rank=0)
-        hvd.broadcast_variables(opt.variables(), root_rank=0)
-
     return loss_value
 
 
 @hvd.elastic.run
 def train(state):
+    start_batch = state.batch
+
     # Horovod: adjust number of steps based on number of GPUs.
-    last_batch = state.batch
     for batch_idx, (images, labels) in enumerate(dataset.skip(state.batch).take(10000 // hvd.size())):
-        state.batch = last_batch + batch_idx
-        loss_value = training_step(images, labels, state.batch == 0)
+        state.batch = start_batch + batch_idx
+        loss_value = training_step(images, labels)
 
         if state.batch % 10 == 0 and hvd.local_rank() == 0:
             print('Step #%d\tLoss: %.6f' % (state.batch, loss_value))
+
+        # Horovod: commit state at the end of each batch
         state.commit()
 
 

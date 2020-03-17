@@ -27,12 +27,21 @@ notification_manager = WorkerNotificationManager()
 
 
 class State(object):
+    """State representation used for tracking in memory state across workers."""
     def __init__(self):
         self._host_messages = queue.Queue()
         self._known_hosts = set()
         self._reset_callbacks = []
 
     def register_reset_callbacks(self, callbacks):
+        """Register callbacks that will be invoked following a reset event (worker added or removed).
+
+        For example, a common use of a reset callback would be to update the learning rate scale with the
+        new number of workers.
+
+        Args:
+            callbacks: list of functions to execute.
+        """
         self._reset_callbacks.extend(callbacks)
 
     def on_reset(self):
@@ -44,16 +53,28 @@ class State(object):
             self._host_messages.put(host)
 
     def commit(self):
+        """Commits all modifications to state tracked by this object to host memory.
+
+        This call will also check for any changes to known hosts, and raise a `WorkersAvailableException`
+        if any were detected.
+
+        Because commits are a heavy operation involving data copy (potentially from GPU to host), it is
+        recommended to consider committing less frequently than once per batch. This allows users to tradeoff
+        between per-batch execution time, and lost training steps in the event of a worker failure.
+        """
         self.save()
         self._update_known_hosts()
 
     def save(self):
+        """Saves state to host memory."""
         raise NotImplementedError()
 
     def restore(self):
+        """Restores the last committed state, undoing any uncommitted modifications."""
         raise NotImplementedError()
 
     def sync(self):
+        """Synchronize state across workers."""
         raise NotImplementedError()
 
     def _update_known_hosts(self):
@@ -65,6 +86,14 @@ class State(object):
 
 
 class ObjectState(State):
+    """State for simple Python objects.
+
+    Every object is specified as a keyword argument, and will be assigned as an attribute.
+
+    Args:
+        bcast_object: Horovod broadcast object function used to sync state dictionary.
+        kwargs: Properties to sync, will be exposed as attributes of the object.
+    """
     def __init__(self, bcast_object, **kwargs):
         self._bcast_object = bcast_object
         self._saved_state = kwargs

@@ -22,6 +22,13 @@ from horovod.tensorflow.elastic import run, TensorFlowKerasState
 
 
 class KerasState(TensorFlowKerasState):
+    """State representation of a `tf.keras` model and optimizer.
+
+    Args:
+        model: Keras model.
+        optimizer: Optional optimizer, can be compiled into model instead.
+        kwargs: Additional properties to sync, will be exposed as attributes of the object.
+    """
     def __init__(self, model, optimizer=None, **kwargs):
         super(KerasState, self).__init__(model, optimizer=optimizer, backend=tf.keras.backend, **kwargs)
 

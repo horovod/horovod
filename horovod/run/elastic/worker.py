@@ -53,6 +53,9 @@ class WorkerNotificationManager(object):
                 return
 
             rendezvous_addr = rendezvous_addr or os.environ.get(HOROVOD_GLOO_RENDEZVOUS_ADDR)
+            if not rendezvous_addr:
+                return
+
             rendezvous_port = rendezvous_port if rendezvous_port is not None else \
                 int(os.environ.get(HOROVOD_GLOO_RENDEZVOUS_PORT))
             nic = nic or os.environ.get(HOROVOD_GLOO_IFACE)

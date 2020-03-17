@@ -30,6 +30,25 @@ _IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
 
 
 def run(func):
+    """Decorator used to run the elastic training process.
+
+    The purpose of this decorator is to allow for uninterrupted execution of the wrapped function
+    across multiple workers in parallel, as workers come and go from the system. When a new worker is added,
+    its state needs to be brought to the same point as the other workers, which is done by synchronizing
+    the state object before executing `func`.
+
+    When a worker is added or removed, other workers will raise an exception to bring them back to such a sync
+    point before executing `func` again. This ensures that workers do not diverge when such reset events occur.
+
+    It's important to note that collective operations (e.g., broadcast, allreduce) cannot be the call to
+    the wrapped function. Otherwise, new workers could execute these operations during their initialization
+    while other workers are attempting to sync state, resulting in deadlock.
+
+    Args:
+        func: a wrapped function taking any number of args or kwargs. The first argument
+              must be a `horovod.common.elastic.State` object used to synchronize state across
+              workers.
+    """
     return run_fn(func, _hvd)
 
 
@@ -56,6 +75,16 @@ def _default_session():
 
 
 class TensorFlowKerasState(ObjectState):
+    """State representation of a TensorFlow Keras model and optimizer.
+
+    Supports TensorFlow 2 models and optimizers, as well as `keras` and `tf.keras`.
+
+    Args:
+        model: TensorFlow Keras model.
+        optimizer: Optional optimizer, can be compiled into model instead.
+        backend: For TensorFlow v1, backend used by Keras for obtaining the session.
+        kwargs: Additional properties to sync, will be exposed as attributes of the object.
+    """
     def __init__(self, model, optimizer=None, backend=None, **kwargs):
         self.model = model
         if not _model_built(model):
@@ -90,6 +119,15 @@ class TensorFlowKerasState(ObjectState):
 
 
 class TensorFlowState(ObjectState):
+    """State representation of a list of TensorFlow variables.
+
+    Supports both TensorFlow v1 and v2. For TensorFlow v2, can only be used when eager execution is enabled.
+
+    Args:
+        variables: List of `tf.Variable` objects to track (default: `tf.global_variables()`).
+        session: For TensorFlow v1, session used to materialize variables (default: `ops.get_default_session()`).
+        kwargs: Additional properties to sync, will be exposed as attributes of the object.
+    """
     def __init__(self, variables=None, session=None, **kwargs):
         self.variables = variables or _global_variables()
         self.session = session or _default_session()
