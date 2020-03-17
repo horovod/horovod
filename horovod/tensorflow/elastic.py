@@ -94,7 +94,12 @@ class TensorFlowKerasState(ObjectState):
         self.backend = backend
         self._save_model()
 
-        super(TensorFlowKerasState, self).__init__(_hvd.broadcast_object, **kwargs)
+        def broadcast_object_with_session(obj, root_rank):
+            return _hvd.broadcast_object(obj, root_rank, session=backend.get_session())
+
+        broadcast_object = _hvd.broadcast_object if not backend else broadcast_object_with_session
+
+        super(TensorFlowKerasState, self).__init__(broadcast_object, **kwargs)
 
     def save(self):
         self._save_model()
