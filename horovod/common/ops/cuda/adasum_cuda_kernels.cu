@@ -20,7 +20,7 @@
 #include <stdint.h>
 #include <float.h>
 
-#define THREADS_PER_BLOCK 64
+#define THREADS_PER_BLOCK 128
 
 __device__ __constant__ double min_guard = DBL_MIN;
 
@@ -84,15 +84,6 @@ void CudaScaleAddKernel(int count, T* a, const T* b, TACC a_coeff, TACC b_coeff)
 	int index = threadIdx.x + blockIdx.x * blockDim.x;
 	if (count > index){
 		a[index] = (T) ((TACC) a[index] * a_coeff + (TACC) b[index] * b_coeff);
-	}
-}
-
-template<typename T>
-__global__
-void ConvertToFloat(int count, T* a, float* b) {
-	int index = threadIdx.x + blockIdx.x * blockDim.x;
-	if (count > index){
-		b[index] = (float) a[index];
 	}
 }
 
