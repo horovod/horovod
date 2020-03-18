@@ -17,9 +17,9 @@ from __future__ import absolute_import
 
 import copy
 
-import horovod.torch as _hvd
-
 from horovod.common.elastic import run_fn, ObjectState
+from horovod.torch.mpi_ops import init, shutdown
+from horovod.torch.util import broadcast_object, broadcast_optimizer_state, broadcast_parameters
 
 
 def run(func):
@@ -42,7 +42,12 @@ def run(func):
               must be a `horovod.common.elastic.State` object used to synchronize state across
               workers.
     """
-    return run_fn(func, _hvd)
+    return run_fn(func, _reset)
+
+
+def _reset():
+    shutdown()
+    init()
 
 
 class TorchState(ObjectState):
@@ -60,7 +65,7 @@ class TorchState(ObjectState):
         self.optimizer = optimizer
         self._saved_optimizer_state = copy.deepcopy(optimizer.state_dict())
 
-        super(TorchState, self).__init__(_hvd.broadcast_object, **kwargs)
+        super(TorchState, self).__init__(broadcast_object, **kwargs)
 
     def save(self):
         self._saved_model_state = copy.deepcopy(self.model.state_dict())
@@ -73,6 +78,6 @@ class TorchState(ObjectState):
         super(TorchState, self).restore()
 
     def sync(self):
-        _hvd.broadcast_parameters(self.model.state_dict(), root_rank=0)
-        _hvd.broadcast_optimizer_state(self.optimizer, root_rank=0)
+        broadcast_parameters(self.model.state_dict(), root_rank=0)
+        broadcast_optimizer_state(self.optimizer, root_rank=0)
         super(TorchState, self).sync()

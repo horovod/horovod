@@ -21,9 +21,9 @@ import tensorflow as tf
 
 from tensorflow.python.framework import ops
 
-import horovod.tensorflow as _hvd
-
 from horovod.common.elastic import run_fn, ObjectState
+from horovod.tensorflow.mpi_ops import _executing_eagerly, init, shutdown
+from horovod.tensorflow.util import broadcast_object, broadcast_variables
 
 
 _IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
@@ -49,16 +49,21 @@ def run(func):
               must be a `horovod.common.elastic.State` object used to synchronize state across
               workers.
     """
-    return run_fn(func, _hvd)
+    return run_fn(func, _reset)
+
+
+def _reset():
+    shutdown()
+    init()
 
 
 def _broadcast_model(model, optimizer, backend):
-    if _hvd._executing_eagerly():
+    if _executing_eagerly():
         # TensorFlow 2.0 or TensorFlow eager
-        _hvd.broadcast_variables(model.variables, root_rank=0)
-        _hvd.broadcast_variables(optimizer.variables(), root_rank=0)
+        broadcast_variables(model.variables, root_rank=0)
+        broadcast_variables(optimizer.variables(), root_rank=0)
     else:
-        bcast_op = _hvd.broadcast_global_variables(0)
+        bcast_op = broadcast_variables(_global_variables(), root_rank=0)
         backend.get_session().run(bcast_op)
 
 
@@ -95,11 +100,11 @@ class TensorFlowKerasState(ObjectState):
         self._save_model()
 
         def broadcast_object_with_session(obj, root_rank):
-            return _hvd.broadcast_object(obj, root_rank, session=backend.get_session())
+            return broadcast_object(obj, root_rank, session=backend.get_session())
 
-        broadcast_object = _hvd.broadcast_object if not backend else broadcast_object_with_session
+        broadcast_object_fn = broadcast_object if not backend else broadcast_object_with_session
 
-        super(TensorFlowKerasState, self).__init__(broadcast_object, **kwargs)
+        super(TensorFlowKerasState, self).__init__(broadcast_object_fn, **kwargs)
 
     def save(self):
         self._save_model()
@@ -136,11 +141,16 @@ class TensorFlowState(ObjectState):
     def __init__(self, variables=None, session=None, **kwargs):
         self.variables = variables or _global_variables()
         self.session = session or _default_session()
-        self._eval_fn = self._to_numpy if _hvd._executing_eagerly() else self._eval_var
+        self._eval_fn = self._to_numpy if _executing_eagerly() else self._eval_var
         self._assign_fn = self._assign_var if _IS_TF2 else self._load_var
         self._save_model()
 
-        super(TensorFlowState, self).__init__(_hvd.broadcast_object, **kwargs)
+        def broadcast_object_with_session(obj, root_rank):
+            return broadcast_object(obj, root_rank, session=session)
+
+        broadcast_object_fn = broadcast_object if not session else broadcast_object_with_session
+
+        super(TensorFlowState, self).__init__(broadcast_object_fn, **kwargs)
 
     def save(self):
         self._save_model()
@@ -151,7 +161,7 @@ class TensorFlowState(ObjectState):
         super(TensorFlowState, self).restore()
 
     def sync(self):
-        bcast_op = _hvd.broadcast_variables(self.variables, root_rank=0)
+        bcast_op = broadcast_variables(self.variables, root_rank=0)
         if self.session is not None:
             self.session.run(bcast_op)
         self._save_model()

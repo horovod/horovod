@@ -119,7 +119,7 @@ class ObjectState(State):
             setattr(self, attr, value)
 
 
-def run_fn(func, hvd):
+def run_fn(func, reset):
     @functools.wraps(func)
     def wrapper(state, *args, **kwargs):
         notification_manager.init()
@@ -129,29 +129,17 @@ def run_fn(func, hvd):
             reset_required = False
             while True:
                 if reset_required:
-                    _reset(state, hvd)
+                    reset()
+                    state.on_reset()
 
                 state.sync()
                 try:
-                    print('Call the Function {}'.format(hvd.rank()))
                     return func(state, *args, **kwargs)
                 except HorovodInternalError:
-                    print('HorovodInternalError {}'.format(hvd.rank()))
                     state.restore()
                 except WorkersAvailableException:
-                    print('WorkersAvailableException {}'.format(hvd.rank()))
                     pass
                 reset_required = True
         finally:
             notification_manager.remove_listener(state)
     return wrapper
-
-
-def _reset(state, hvd):
-    rnk = hvd.rank()
-    print('SHUTDOWN {}'.format(rnk))
-    hvd.shutdown()
-    print('RINIT {}'.format(rnk))
-    hvd.init()
-    print('RESET {}'.format(rnk))
-    state.on_reset()
