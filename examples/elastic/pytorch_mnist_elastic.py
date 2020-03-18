@@ -197,7 +197,7 @@ def on_state_reset():
         param_group['lr'] = args.lr * hvd.size()
 
 
-state = hvd.elastic.TorchState(model, optimizer, epoch=1, batch_idx=0)
+state = hvd.elastic.TorchState(model, optimizer, epoch=1, batch=0)
 state.register_reset_callbacks([on_state_reset])
 train(state)
 test()
