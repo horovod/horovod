@@ -649,29 +649,30 @@ def _run(args):
         return None
 
 
-def run_controller(use_gloo, gloo_run, use_mpi, mpi_run, use_jsrun, js_run, verbose):
+def run_controller(use_gloo, gloo_run, use_mpi, mpi_run, use_jsrun, js_run, verbosity):
+    verbose = verbosity is not None and verbosity >= 2
     if use_gloo:
-        if not gloo_built(verbose=(verbose >= 2)):
+        if not gloo_built(verbose=verbose):
             raise ValueError('Gloo support has not been built.  If this is not expected, ensure CMake is installed '
                              'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
         gloo_run()
     elif use_mpi:
-        if not mpi_built(verbose=(verbose >= 2)):
+        if not mpi_built(verbose=verbose):
             raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
                              'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.')
         mpi_run()
     elif args.use_jsrun:
-        if not mpi_built(verbose=(verbose >= 2)):
+        if not mpi_built(verbose=verbose):
             raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
                              'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.')
         js_run()
     else:
-        if mpi_built(verbose=(verbose >= 2)):
+        if mpi_built(verbose=verbose):
             if lsf.LSFUtils.using_lsf() and is_jsrun_installed():
                 js_run()
             else:
                 mpi_run()
-        elif gloo_built(verbose=(verbose >= 2)):
+        elif gloo_built(verbose=verbose):
             gloo_run()
         else:
             raise ValueError('Neither MPI nor Gloo support has been built. Try reinstalling Horovod ensuring that '

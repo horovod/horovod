@@ -157,7 +157,7 @@ class SparkTests(unittest.TestCase):
     Performs the actual horovod.spark.run test.
     """
     def do_test_spark_run_func(self, args=(), kwargs={}, num_proc=1, extra_mpi_args=None, env={},
-                               stdout=None, stderr=None, verbose=0,
+                               stdout=None, stderr=None, verbose=2,
                                cores=2, expected_np=1, expected_env=''):
         def fn():
             return 1

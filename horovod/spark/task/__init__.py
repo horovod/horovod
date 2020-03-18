@@ -13,4 +13,44 @@
 # limitations under the License.
 # ==============================================================================
 
+import os
+import threading
+import time
+
+from horovod.spark.task import task_info, task_service
 from horovod.spark.task.task_info import get_available_devices
+from horovod.spark.driver import driver_service
+from horovod.run.common.util import codec, secret
+
+
+def _parent_process_monitor(initial_ppid):
+    try:
+        while True:
+            if initial_ppid != os.getppid():
+                # Parent process died, terminate
+                os._exit(1)
+            time.sleep(1)
+    except:
+        # Avoids an error message during Python interpreter shutdown.
+        pass
+
+
+def task_exec(driver_addresses, settings, rank_env):
+    # Die if parent process terminates
+    bg = threading.Thread(target=_parent_process_monitor, args=(os.getppid(),))
+    bg.daemon = True
+    bg.start()
+
+    key = codec.loads_base64(os.environ[secret.HOROVOD_SECRET_KEY])
+    rank = int(os.environ[rank_env])
+    driver_client = driver_service.SparkDriverClient(driver_addresses, key,
+                                                     verbose=settings.verbose)
+    task_index = driver_client.task_index_by_rank(rank)
+    task_addresses = driver_client.all_task_addresses(task_index)
+    task_client = task_service.SparkTaskClient(task_index, task_addresses, key,
+                                               verbose=settings.verbose)
+    task_info.set_resources(task_client.resources())
+
+    fn, args, kwargs = driver_client.code()
+    result = fn(*args, **kwargs)
+    task_client.register_code_result(result)

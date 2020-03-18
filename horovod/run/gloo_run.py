@@ -139,7 +139,56 @@ class MultiFile(object):
             f.flush()
 
 
-def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command):
+def _alloc_info_to_command_fn(run_command, env):
+    def alloc_info_to_command(alloc_info):
+        """
+        Given an alloc_info, creates a command used by gloo to launch a single job.
+
+        :param alloc_info: host and slot to execute the run command on
+        :return:
+        """
+        # generate env for rendezvous
+        horovod_rendez_env = 'HOROVOD_RANK={rank} HOROVOD_SIZE={size} ' \
+                             'HOROVOD_LOCAL_RANK={local_rank} HOROVOD_LOCAL_SIZE={local_size} ' \
+                             'HOROVOD_CROSS_RANK={cross_rank} HOROVOD_CROSS_SIZE={cross_size} ' \
+            .format(rank=alloc_info.rank, size=alloc_info.size,
+                    local_rank=alloc_info.local_rank, local_size=alloc_info.local_size,
+                    cross_rank=alloc_info.cross_rank, cross_size=alloc_info.cross_size)
+
+        return '{horovod_env} {env} {run_command}' .format(
+            horovod_env=horovod_rendez_env,
+            env=' '.join(['%s=%s' % (key, quote(value)) for key, value in env.items()
+                          if env_util.is_exportable(key)]),
+            run_command=run_command)
+
+    return alloc_info_to_command
+
+
+def _alloc_info_and_command_to_command_fn(ssh_port_arg, remote_host_names):
+    def alloc_info_and_command_to_command(alloc_info, command):
+        """
+        Given an alloc_info and a command, returns an ssh command that executes the command
+        on the host defined by alloc_info if it is considered remote, or command otherwise.
+
+        :param alloc_info: host and slot to execute the command on
+        :param command: the command to execute
+        :return: remote or local command
+        """
+        host_name = alloc_info.hostname
+
+        if host_name in remote_host_names:
+            command = 'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} ' \
+                      '{local_command}'.format(
+                host=host_name,
+                ssh_port_arg=ssh_port_arg,
+                local_command=quote('cd {pwd} > /dev/null 2>&1 ; {local_command}'
+                                    .format(pwd=os.getcwd(), local_command=command))
+            )
+        return command
+    return alloc_info_and_command_to_command
+
+
+def _exec_command_fn(settings):
     """
     executes the jobs defined by run command on hosts.
     :param hosts_alloc: list of dict indicating the allocating info.
@@ -158,7 +207,6 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command
     :return:
     :rtype:
     """
-
     def _exec_command(command, index, event):
         if settings.verbose:
             print(command)
@@ -193,7 +241,44 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command
                 stderr_file.close()
         return exit_code, time.time()
 
-    ssh_port_arg = '-p {ssh_port}'.format(ssh_port=settings.ssh_port) if settings.ssh_port else ''
+    return _exec_command
+
+
+def launch_gloo(command, exec_command, settings, common_intfs, env, server_ip,
+                alloc_info_and_command_to_command=None):
+    """
+    Launches the given command multiple times using gloo.
+    Each command is launched via exec_command.
+
+    :param command: command to launch
+    :param exec_command: means to execute a single command
+    :param settings: settings for the distribution
+    :param common_intfs: common interfaces
+    :param env: environment to use
+    :param server_ip: ip to use for rendezvous server
+    :param alloc_info_and_command_to_command: method to amend single command before execution
+    """
+    # allocate processes into slots
+    host_alloc_plan = _allocate(settings.hosts, settings.num_proc)
+
+    # create global rendezvous server
+    global_rendezv = RendezvousServer(settings.verbose)
+    # Start rendezvous server and get port that it is listening
+    global_rendezv_port = global_rendezv.start_server(host_alloc_plan)
+
+    run_command = (
+        'HOROVOD_GLOO_RENDEZVOUS_ADDR={addr} '
+        'HOROVOD_GLOO_RENDEZVOUS_PORT={port} '
+        'HOROVOD_CONTROLLER=gloo '
+        'HOROVOD_CPU_OPERATIONS=gloo '
+        'HOROVOD_GLOO_IFACE={iface} '
+        'NCCL_SOCKET_IFNAME={common_intfs} '
+        '{command}'  # expect a lot of environment variables
+            .format(addr=server_ip,
+                    port=global_rendezv_port,
+                    iface=list(common_intfs)[0],  # TODO: add multiple ifaces in future
+                    common_intfs=','.join(common_intfs),
+                    command=' '.join(quote(par) for par in command)))
 
     # Create a event for communication between threads
     event = threading.Event()
@@ -204,51 +289,28 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command
     signal.signal(signal.SIGINT, set_event_on_sigterm)
     signal.signal(signal.SIGTERM, set_event_on_sigterm)
 
-    args_list = []
-    for alloc_info in host_alloc_plan:
-        # generate env for rendezvous
-        horovod_rendez_env = 'HOROVOD_RANK={rank} HOROVOD_SIZE={size} ' \
-                             'HOROVOD_LOCAL_RANK={local_rank} HOROVOD_LOCAL_SIZE={local_size} ' \
-                             'HOROVOD_CROSS_RANK={cross_rank} HOROVOD_CROSS_SIZE={cross_size} ' \
-            .format(rank=alloc_info.rank, size=alloc_info.size,
-                    local_rank=alloc_info.local_rank, local_size=alloc_info.local_size,
-                    cross_rank=alloc_info.cross_rank, cross_size=alloc_info.cross_size)
+    # TODO: Workaround for over-buffered outputs. Investigate how mpirun avoids this problem.
+    env['PYTHONUNBUFFERED'] = '1'
 
-        host_name = alloc_info.hostname
+    # create command from alloc_info and amend that command
+    alloc_info_to_command = _alloc_info_to_command_fn(run_command, env)
+    commands = [(alloc_info, alloc_info_to_command(alloc_info)) for alloc_info in host_alloc_plan]
+    commands = [(alloc_info, alloc_info_and_command_to_command(alloc_info, command))
+                for (alloc_info, command) in commands] \
+        if alloc_info_and_command_to_command is not None else commands
 
-        # TODO: Workaround for over-buffered outputs. Investigate how mpirun avoids this problem.
-        env['PYTHONUNBUFFERED'] = '1'
-        local_command = '{horovod_env} {env} {run_command}' .format(
-            horovod_env=horovod_rendez_env,
-            env=' '.join(['%s=%s' % (key, quote(value)) for key, value in env.items()
-                          if env_util.is_exportable(key)]),
-            run_command=_run_command)
-
-        if host_name not in remote_host_names:
-            command = local_command
-        else:
-            command = 'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} ' \
-                '{local_command}'.format(
-                    host=host_name,
-                    ssh_port_arg=ssh_port_arg,
-                    local_command=quote('cd {pwd} > /dev/null 2>&1 ; {local_command}'
-                                        .format(pwd=os.getcwd(), local_command=local_command))
-                )
-        args_list.append([command, alloc_info.rank, event])
+    # turn commands into arguments of exec_command
+    # In case, the main thread receives a SIGINT, the event will be set so the spawned threads can
+    # kill their corresponding middleman processes so the jobs can be killed as well.
+    args_list = [[command, alloc_info.rank, event] for (alloc_info, command) in commands]
 
     # Make the output directory if it does not exist
     if settings.output_filename:
         _mkdir_p(settings.output_filename)
 
-    # Each thread will use ssh command to launch the job on each remote host. If an
-    # error occurs in one thread, entire process will be terminated. Otherwise,
-    # threads will keep running and ssh session. In case, the main thread receives
-    # a SIGINT, the event will be set and the spawned threads will kill their
-    # corresponding middleman processes and thus the jobs will be killed as
-    # well.
-    res = threads.execute_function_multithreaded(_exec_command,
-                                                 args_list,
-                                                 block_until_all_done=True)
+    # If an error occurs in one thread, entire process will be terminated.
+    # Otherwise, threads will keep running.
+    res = threads.execute_function_multithreaded(exec_command, args_list, block_until_all_done=True)
 
     for name, value in sorted(res.items(), key=lambda item: item[1][1]):
         exit_code, timestamp = value
@@ -260,29 +322,10 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command
 
 
 def gloo_run(settings, remote_host_names, common_intfs, env, server_ip, command):
-    # allocate processes into slots
-    host_alloc_plan = _allocate(settings.hosts, settings.num_proc)
-
-    # create global rendezvous server
-    global_rendezv = RendezvousServer(settings.verbose)
-    # Start rendezvous server and get port that it is listening
-    global_rendezv_port = global_rendezv.start_server(host_alloc_plan)
-
-    iface = list(common_intfs)[0]
-
-    run_command = (
-        'HOROVOD_GLOO_RENDEZVOUS_ADDR={addr} '
-        'HOROVOD_GLOO_RENDEZVOUS_PORT={port} '
-        'HOROVOD_CONTROLLER=gloo '
-        'HOROVOD_CPU_OPERATIONS=gloo '
-        'HOROVOD_GLOO_IFACE={iface} '
-        'NCCL_SOCKET_IFNAME={common_intfs} '
-        '{command}'  # expect a lot of environment variables
-        .format(addr=server_ip,
-                port=global_rendezv_port,
-                iface=iface,  # TODO: add multiple ifaces in future
-                common_intfs=','.join(common_intfs),
-                command=' '.join(quote(par) for par in command)))
-
-    _launch_jobs(settings, env, host_alloc_plan, remote_host_names, run_command)
-    return
+    # Each thread will use ssh command to launch the job on each remote host. If an
+    # error occurs in one thread, entire process will be terminated. Otherwise,
+    # threads will keep running and ssh session.
+    ssh_port_arg = '-p {ssh_port}'.format(ssh_port=settings.ssh_port) if settings.ssh_port else ''
+    alloc_info_and_command_to_command = _alloc_info_and_command_to_command_fn(ssh_port_arg, remote_host_names)
+    exec_command = _exec_command_fn(settings)
+    launch_gloo(command, exec_command, settings, common_intfs, env, server_ip, alloc_info_and_command_to_command)

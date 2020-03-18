@@ -83,19 +83,18 @@ def mpi_run(settings, common_intfs, env, command, stdout=None, stderr=None,
     """
     Runs mpirun.
 
-    Args:
-        settings: Settings for running MPI.
-                  Note: settings.num_proc and settings.hosts must not be None.
-        common_intfs: Interfaces to include by MPI.
-        env: Environment dictionary to use for running MPI.
-        command: Command and arguments to run as a list of string.
-        stdout: Stdout of the mpi process.
-                Only used when settings.run_func_mode is True.
-        stderr: Stderr of the mpi process.
-                Only used when settings.run_func_mode is True.
-        run_func: Run function to use. Must have arguments 'command' and 'env'.
-                  Only used when settings.run_func_mode is True.
-                  Defaults to safe_shell_exec.execute.
+    :param settings: Settings for running MPI.
+                     Note: settings.num_proc and settings.hosts must not be None.
+    :param common_intfs: Interfaces to include by MPI.
+    :param env: Environment dictionary to use for running MPI.
+    :param command: Command and arguments to run as a list of string.
+    :param stdout: Stdout of the mpi process.
+                   Only used when settings.run_func_mode is True.
+    :param stderr: Stderr of the mpi process.
+                   Only used when settings.run_func_mode is True.
+    :param run_func: Run function to use. Must have arguments 'command' and 'env'.
+                     Only used when settings.run_func_mode is True.
+                     Defaults to safe_shell_exec.execute.
     """
     mpi_impl_flags, impl_binding_args = _get_mpi_implementation_flags(settings.tcp_flag)
     if mpi_impl_flags is None:

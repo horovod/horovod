@@ -13,4 +13,4 @@
 # limitations under the License.
 # =============================================================================
 
-from .run import run, run_controller
+from .run import HorovodArgs, run, run_controller

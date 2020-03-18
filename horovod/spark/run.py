@@ -23,7 +23,7 @@ from six.moves import queue
 from horovod.spark.task import task_service
 from horovod.spark.gloo_run import gloo_run
 from horovod.spark.mpi_run import mpi_run
-from horovod.run import run_controller
+from horovod.run import HorovodArgs, run_controller
 from horovod.run.common.util import config_parser, safe_shell_exec, timeout, host_hash, secret
 from horovod.run.common.util import settings as hvd_settings
 from horovod.spark.driver import driver_service, job_id
@@ -109,42 +109,18 @@ def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=No
         raise Exception('Unable to find a set of common task-to-task communication interfaces: %s'
                         % [(index, driver.task_addresses_for_tasks(index)) for index in range(settings.num_proc)])
 
-    env = os.environ.copy()
-    config_parser.set_env_from_args(env, args)
-    driver_ip = _get_driver_ip(common_intfs)
+    if env is None:
+        env = os.environ.copy()
 
-    run_controller(use_gloo, lambda: gloo_run(settings, common_intfs, env, driver_ip, command),
-                   use_mpi, lambda: mpi_run(settings, common_intfs, driver, env, stdout, stderr, run_func))
+    run_controller(use_gloo, lambda: gloo_run(settings, common_intfs, driver, env, run_func),
+                   use_mpi, lambda: mpi_run(settings, common_intfs, driver, env, stdout, stderr, run_func),
+                   settings.verbose)
 
 
 def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
         use_mpi=None, use_gloo=None, extra_mpi_args=None,
         env=None, stdout=None, stderr=None, verbose=1, nic=None,
         run_func=safe_shell_exec.execute):
-    """
-    Runs Horovod in Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
-
-    Args:
-        fn: Function to run.
-        args: Arguments to pass to `fn`.
-        kwargs: Keyword arguments to pass to `fn`.
-        num_proc: Number of Horovod processes.  Defaults to `spark.default.parallelism`.
-        start_timeout: Timeout for Spark tasks to spawn, register and start running the code, in seconds.
-                       If not set, falls back to `HOROVOD_SPARK_START_TIMEOUT` environment variable value.
-                       If it is not set as well, defaults to 600 seconds.
-        extra_mpi_args: Extra arguments for mpi_run. Defaults to no extra args.
-        env: Environment dictionary to use in Horovod run. Defaults to `os.environ`.
-        stdout: Horovod stdout is redirected to this stream. Defaults to sys.stdout.
-        stderr: Horovod stderr is redirected to this stream. Defaults to sys.stderr.
-        verbose: Debug output verbosity (0-2). Defaults to 1.
-        nic: specify the NIC for tcp network communication.
-        run_func: Run function to use. Must have arguments 'command', 'env', 'stdout', 'stderr'.
-                  Defaults to safe_shell_exec.execute.
-
-    Returns:
-        List of results returned by running `fn` on each rank.
-    """
-
     if start_timeout is None:
         # Lookup default timeout from the environment variable.
         start_timeout = int(os.getenv('HOROVOD_SPARK_START_TIMEOUT', '600'))
@@ -217,7 +193,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
         driver.set_ranks_to_indices(ranks_to_indices)
 
         # Run the job
-        _launch_job(use_gloo, use_mpi, settings, driver, env)
+        _launch_job(use_gloo, use_mpi, settings, driver, env, stdout, stderr, run_func)
     except:
         # Terminate Spark job.
         spark_context.cancelJobGroup(spark_job_group)
