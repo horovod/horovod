@@ -72,7 +72,7 @@ target = tf.random.uniform([args.batch_size, 1], minval=0, maxval=999, dtype=tf.
 
 
 @tf.function
-def benchmark_step(state):
+def train_one_batch():
     # Horovod: (optional) compression algorithm.
     compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
 
@@ -87,6 +87,9 @@ def benchmark_step(state):
     gradients = tape.gradient(loss, model.trainable_variables)
     opt.apply_gradients(zip(gradients, model.trainable_variables))
 
+
+def benchmark_step(state):
+    train_one_batch()
     if state is not None:
         state.batch += 1
         if state.batch == args.num_batches_per_commit:
@@ -107,7 +110,7 @@ log('Number of %ss: %d' % (device, hvd.size()))
 
 
 # Run one batch to initialize weights before synchronization
-benchmark_step(state=None)
+train_one_batch()
 
 
 @hvd.elastic.run
