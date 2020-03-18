@@ -120,12 +120,22 @@ class TensorFlowKerasState(ObjectState):
         super(TensorFlowKerasState, self).sync()
 
     def _save_model(self):
-        self._saved_model_state = self.model.get_weights()
-        self._saved_optimizer_state = self.optimizer.get_weights()
+        if _executing_eagerly():
+            self._saved_model_state = [tf.identity(var) for var in self.model.variables]
+            self._saved_optimizer_state = [tf.identity(var) for var in self.optimizer.variables()]
+        else:
+            self._saved_model_state = self.model.get_weights()
+            self._saved_optimizer_state = self.optimizer.get_weights()
 
     def _load_model(self):
-        self.model.set_weights(self._saved_model_state)
-        self.optimizer.set_weights(self._saved_optimizer_state)
+        if _executing_eagerly():
+            for var, saved_var in zip(self.model.variables, self._saved_model_state):
+                var.assign(saved_var)
+            for var, saved_var in zip(self.optimizer.variables(), self._saved_optimizer_state):
+                var.assign(saved_var)
+        else:
+            self.model.set_weights(self._saved_model_state)
+            self.optimizer.set_weights(self._saved_optimizer_state)
 
 
 class TensorFlowState(ObjectState):
