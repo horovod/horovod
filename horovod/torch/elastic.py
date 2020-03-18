@@ -19,7 +19,7 @@ import copy
 
 from horovod.common.elastic import run_fn, ObjectState
 from horovod.torch.mpi_ops import init, shutdown
-from horovod.torch.util import broadcast_object, broadcast_optimizer_state, broadcast_parameters
+from horovod.torch.functions import broadcast_object, broadcast_optimizer_state, broadcast_parameters
 
 
 def run(func):

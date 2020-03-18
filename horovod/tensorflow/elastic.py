@@ -22,8 +22,8 @@ import tensorflow as tf
 from tensorflow.python.framework import ops
 
 from horovod.common.elastic import run_fn, ObjectState
+from horovod.tensorflow.functions import broadcast_object, broadcast_variables
 from horovod.tensorflow.mpi_ops import _executing_eagerly, init, shutdown
-from horovod.tensorflow.util import broadcast_object, broadcast_variables
 
 
 _IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')

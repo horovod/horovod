@@ -26,6 +26,7 @@ check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_
 
 from horovod.tensorflow import elastic
 from horovod.tensorflow.compression import Compression
+from horovod.tensorflow.functions import broadcast_object, broadcast_variables
 from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce
 from horovod.tensorflow.mpi_ops import init, shutdown
 from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank, is_homogeneous
@@ -34,9 +35,7 @@ from horovod.tensorflow.mpi_ops import gloo_enabled, gloo_built
 from horovod.tensorflow.mpi_ops import nccl_built, ddl_built, ccl_built
 from horovod.tensorflow.mpi_ops import Average, Sum, Adasum
 from horovod.tensorflow.mpi_ops import handle_average_backwards_compatibility, check_num_rank_power_of_2
-
 from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache
-from horovod.tensorflow.util import broadcast_object, broadcast_variables
 
 import tensorflow as tf
 import warnings

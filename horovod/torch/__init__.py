@@ -29,6 +29,7 @@ except:
 
 from horovod.torch import elastic
 from horovod.torch.compression import Compression
+from horovod.torch.functions import broadcast_object, broadcast_optimizer_state, broadcast_parameters
 from horovod.torch.mpi_ops import allreduce, allreduce_async, allreduce_, allreduce_async_
 from horovod.torch.mpi_ops import allgather, allgather_async
 from horovod.torch.mpi_ops import broadcast, broadcast_async, broadcast_, broadcast_async_
@@ -41,7 +42,6 @@ from horovod.torch.mpi_ops import gloo_enabled, gloo_built
 from horovod.torch.mpi_ops import nccl_built, ddl_built, ccl_built
 from horovod.torch.mpi_ops import Average, Sum, Adasum
 from horovod.torch.optimizer import DistributedOptimizer
-from horovod.torch.util import broadcast_object, broadcast_optimizer_state, broadcast_parameters
 
 
 # Please run this function in a subprocess
