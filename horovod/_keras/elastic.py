@@ -34,6 +34,13 @@ class UpdateBatchStateCallbackImpl(object):
         super(UpdateBatchStateCallbackImpl, self).__init__(*args)
         self.backend = backend
         self.state = state
+        self.steps_per_epoch = None
+
+    def on_epoch_begin(self, epoch, logs=None):
+        if self.params.get('steps'):
+            if self.steps_per_epoch is None:
+                self.steps_per_epoch = self.params.get('steps')
+            self.params['steps'] = self.steps_per_epoch - self.state.batch
 
     def on_batch_end(self, batch, logs=None):
         self.state.batch = batch
