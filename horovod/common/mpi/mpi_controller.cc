@@ -22,7 +22,7 @@ namespace horovod {
 namespace common {
 
 // MPIController
-void MPIController::Initialize() {
+void MPIController::DoInitialization() {
   // Check if multi-thread is supported.
   int provided;
   MPI_Query_thread(&provided);
