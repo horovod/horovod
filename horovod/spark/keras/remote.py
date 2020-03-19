@@ -86,7 +86,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
         yield None
 
     def train(serialized_model, train_rows, val_rows, avg_row_size):
-        from petastorm import make_batch_reader, TransformSpec
+        from petastorm import make_reader, TransformSpec
 
         k = get_keras()
         k.backend.set_floatx(floatx)
@@ -165,21 +165,24 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
             # setting num_epochs=None will cause an infinite iterator and enables
             # ranks to perform training and validation with unequal number of
             # samples
-            with make_batch_reader(remote_store.train_data_path,
-                                   shuffle_row_groups=True,
-                                   num_epochs=None,
-                                   cur_shard=hvd.rank(),
-                                   shard_count=hvd.size(),
-                                   hdfs_driver=PETASTORM_HDFS_DRIVER,
-                                   schema_fields=schema_fields,
-                                   transform_spec=transform_spec) as train_reader:
-                with make_batch_reader(remote_store.val_data_path,
-                                       num_epochs=None,
-                                       cur_shard=hvd.rank(),
-                                       shard_count=hvd.size(),
-                                       hdfs_driver=PETASTORM_HDFS_DRIVER,
-                                       schema_fields=schema_fields,
-                                       transform_spec=transform_spec) \
+            with make_reader(remote_store.train_data_path,
+                             num_epochs=None,
+                             cur_shard=hvd.rank(),
+                             reader_pool_type='process',
+                             pyarrow_serialize=True,
+                             shard_count=hvd.size(),
+                             hdfs_driver=PETASTORM_HDFS_DRIVER,
+                             schema_fields=schema_fields,
+                             transform_spec=transform_spec) as train_reader:
+                with make_reader(remote_store.val_data_path,
+                                 num_epochs=None,
+                                 cur_shard=hvd.rank(),
+                                 reader_pool_type='process',
+                                 pyarrow_serialize=True,
+                                 shard_count=hvd.size(),
+                                 hdfs_driver=PETASTORM_HDFS_DRIVER,
+                                 schema_fields=schema_fields,
+                                 transform_spec=transform_spec) \
                         if should_validate else empty_batch_reader() as val_reader:
 
                     train_data = make_dataset(train_reader, shuffle_buffer_size, shuffle=True)

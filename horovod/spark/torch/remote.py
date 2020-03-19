@@ -21,7 +21,6 @@ import math
 import os
 
 import torch
-
 from torch.utils.tensorboard import SummaryWriter
 
 from horovod.spark.common import constants
@@ -90,7 +89,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
 
     def train(serialized_model, optimizer_cls, model_opt_state_serialized,
               train_rows, val_rows, avg_row_size):
-        from petastorm import make_batch_reader, TransformSpec
+        from petastorm import make_reader, TransformSpec
         from petastorm.pytorch import DataLoader
         import torch
         import horovod.torch as hvd
@@ -200,20 +199,24 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
             # setting num_epochs=None will cause an infinite iterator
             # and enables ranks to perform training and validation with
             # unequal number of samples
-            with make_batch_reader(remote_store.train_data_path,
-                                   num_epochs=None,
-                                   cur_shard=hvd.rank(),
-                                   shard_count=hvd.size(),
-                                   hdfs_driver=PETASTORM_HDFS_DRIVER,
-                                   schema_fields=schema_fields,
-                                   transform_spec=transform_spec) as train_reader:
-                with make_batch_reader(remote_store.val_data_path,
-                                       num_epochs=None,
-                                       cur_shard=hvd.rank(),
-                                       shard_count=hvd.size(),
-                                       hdfs_driver=PETASTORM_HDFS_DRIVER,
-                                       schema_fields=schema_fields,
-                                       transform_spec=transform_spec) \
+            with make_reader(remote_store.train_data_path,
+                             num_epochs=None,
+                             cur_shard=hvd.rank(),
+                             reader_pool_type='process',
+                             pyarrow_serialize=True,
+                             shard_count=hvd.size(),
+                             hdfs_driver=PETASTORM_HDFS_DRIVER,
+                             schema_fields=schema_fields,
+                             transform_spec=transform_spec) as train_reader:
+                with make_reader(remote_store.val_data_path,
+                                 num_epochs=None,
+                                 cur_shard=hvd.rank(),
+                                 reader_pool_type='process',
+                                 pyarrow_serialize=True,
+                                 shard_count=hvd.size(),
+                                 hdfs_driver=PETASTORM_HDFS_DRIVER,
+                                 schema_fields=schema_fields,
+                                 transform_spec=transform_spec) \
                         if should_validate else empty_batch_reader() as val_reader:
 
                     train_loader = DataLoader(train_reader,
