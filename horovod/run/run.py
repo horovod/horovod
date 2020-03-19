@@ -661,7 +661,7 @@ def run_controller(use_gloo, gloo_run, use_mpi, mpi_run, use_jsrun, js_run, verb
             raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
                              'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.')
         mpi_run()
-    elif args.use_jsrun:
+    elif use_jsrun:
         if not mpi_built(verbose=verbose):
             raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
                              'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.')

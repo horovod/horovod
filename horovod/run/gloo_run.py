@@ -164,31 +164,7 @@ def _alloc_info_to_command_fn(run_command, env):
     return alloc_info_to_command
 
 
-def _alloc_info_and_command_to_command_fn(ssh_port_arg, remote_host_names):
-    def alloc_info_and_command_to_command(alloc_info, command):
-        """
-        Given an alloc_info and a command, returns an ssh command that executes the command
-        on the host defined by alloc_info if it is considered remote, or command otherwise.
-
-        :param alloc_info: host and slot to execute the command on
-        :param command: the command to execute
-        :return: remote or local command
-        """
-        host_name = alloc_info.hostname
-
-        if host_name in remote_host_names:
-            command = 'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} ' \
-                      '{local_command}'.format(
-                host=host_name,
-                ssh_port_arg=ssh_port_arg,
-                local_command=quote('cd {pwd} > /dev/null 2>&1 ; {local_command}'
-                                    .format(pwd=os.getcwd(), local_command=command))
-            )
-        return command
-    return alloc_info_and_command_to_command
-
-
-def _exec_command_fn(settings):
+def _exec_command_fn(settings, remote_host_names):
     """
     executes the jobs defined by run command on hosts.
     :param hosts_alloc: list of dict indicating the allocating info.
@@ -207,7 +183,20 @@ def _exec_command_fn(settings):
     :return:
     :rtype:
     """
-    def _exec_command(command, index, event):
+    ssh_port_arg = '-p {ssh_port}'.format(ssh_port=settings.ssh_port) if settings.ssh_port else ''
+
+    def _exec_command(command, alloc_info, event):
+        index = alloc_info.rank
+        host_name = alloc_info.hostname
+
+        if host_name in remote_host_names:
+            command = 'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} ' \
+                      '{local_command}'\
+                .format(host=host_name,
+                        ssh_port_arg=ssh_port_arg,
+                        local_command=quote('cd {pwd} > /dev/null 2>&1 ; {local_command}'
+                                            .format(pwd=os.getcwd(), local_command=command)))
+
         if settings.verbose:
             print(command)
 
@@ -244,8 +233,7 @@ def _exec_command_fn(settings):
     return _exec_command
 
 
-def launch_gloo(command, exec_command, settings, common_intfs, env, server_ip,
-                alloc_info_and_command_to_command=None):
+def launch_gloo(command, exec_command, settings, common_intfs, env, server_ip):
     """
     Launches the given command multiple times using gloo.
     Each command is launched via exec_command.
@@ -256,7 +244,6 @@ def launch_gloo(command, exec_command, settings, common_intfs, env, server_ip,
     :param common_intfs: common interfaces
     :param env: environment to use
     :param server_ip: ip to use for rendezvous server
-    :param alloc_info_and_command_to_command: method to amend single command before execution
     """
     # allocate processes into slots
     host_alloc_plan = _allocate(settings.hosts, settings.num_proc)
@@ -292,17 +279,11 @@ def launch_gloo(command, exec_command, settings, common_intfs, env, server_ip,
     # TODO: Workaround for over-buffered outputs. Investigate how mpirun avoids this problem.
     env['PYTHONUNBUFFERED'] = '1'
 
-    # create command from alloc_info and amend that command
-    alloc_info_to_command = _alloc_info_to_command_fn(run_command, env)
-    commands = [(alloc_info, alloc_info_to_command(alloc_info)) for alloc_info in host_alloc_plan]
-    commands = [(alloc_info, alloc_info_and_command_to_command(alloc_info, command))
-                for (alloc_info, command) in commands] \
-        if alloc_info_and_command_to_command is not None else commands
-
-    # turn commands into arguments of exec_command
     # In case, the main thread receives a SIGINT, the event will be set so the spawned threads can
     # kill their corresponding middleman processes so the jobs can be killed as well.
-    args_list = [[command, alloc_info.rank, event] for (alloc_info, command) in commands]
+    alloc_info_to_command = _alloc_info_to_command_fn(run_command, env)
+    args_list = [[alloc_info_to_command(alloc_info), alloc_info, event]
+                 for alloc_info in host_alloc_plan]
 
     # Make the output directory if it does not exist
     if settings.output_filename:
@@ -325,7 +306,5 @@ def gloo_run(settings, remote_host_names, common_intfs, env, server_ip, command)
     # Each thread will use ssh command to launch the job on each remote host. If an
     # error occurs in one thread, entire process will be terminated. Otherwise,
     # threads will keep running and ssh session.
-    ssh_port_arg = '-p {ssh_port}'.format(ssh_port=settings.ssh_port) if settings.ssh_port else ''
-    alloc_info_and_command_to_command = _alloc_info_and_command_to_command_fn(ssh_port_arg, remote_host_names)
-    exec_command = _exec_command_fn(settings)
-    launch_gloo(command, exec_command, settings, common_intfs, env, server_ip, alloc_info_and_command_to_command)
+    exec_command = _exec_command_fn(settings, remote_host_names)
+    launch_gloo(command, exec_command, settings, common_intfs, env, server_ip)

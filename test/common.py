@@ -79,3 +79,12 @@ def temppath():
                 os.remove(path)
             else:
                 shutil.rmtree(path)
+
+@contextlib.contextmanager
+def os_environ(env):
+    old = os.environ
+    try:
+        os.environ = env
+        yield
+    finally:
+        os.environ = old

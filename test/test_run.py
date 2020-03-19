@@ -30,7 +30,7 @@ from mock import MagicMock, patch
 from horovod.run.common.util import config_parser, secret, settings as hvd_settings, timeout
 from horovod.run.common.util.host_hash import _hash, host_hash
 from horovod.run.mpi_run import _get_mpi_implementation_flags, _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_run
-from horovod.run.run import parse_args, parse_host_files
+from horovod.run.run import parse_args, parse_host_files, run_controller
 from horovod.run.js_run import js_run, generate_jsrun_rankfile
 
 @contextlib.contextmanager
@@ -241,6 +241,30 @@ class RunTests(unittest.TestCase):
         with override_env({'CONTAINER_ID': 'a container id'}):
             self.assertNotEqual(host_hash(), hash)
         self.assertEqual(host_hash(), hash)
+
+    def test_run_controller(self):
+        def test(use_gloo, use_mpi, use_js, expected):
+            gloo_run = MagicMock()
+            mpi_run = MagicMock()
+            js_run = MagicMock()
+            run_controller(use_gloo, gloo_run, use_mpi, mpi_run, use_js, js_run, verbosity=2)
+
+            if expected == "gloo":
+                gloo_run.assert_called_once()
+                mpi_run.assert_not_called()
+            elif expected == "mpi":
+                gloo_run.assert_not_called()
+                mpi_run.assert_called_once()
+            else:
+                raise ValueError("unsupported framework: {}".format(expected))
+
+        for use_gloo in [None, False, True]:
+            for use_mpi in [None, False, True]:
+                if use_gloo:
+                    expected = 'gloo'
+                else:
+                    expected = 'mpi'
+                test(use_gloo, use_mpi, False, expected)
 
     """
     Minimal mpi_run settings for tests.

@@ -20,8 +20,7 @@ from horovod.run.mpi_run import mpi_run as hr_mpi_run
 from horovod.run.common.util import codec, safe_shell_exec, secret
 
 
-def mpi_run(settings, common_intfs, driver, env, stdout=None, stderr=None,
-            run_func=safe_shell_exec.execute):
+def mpi_run(settings, common_intfs, driver, env, stdout=None, stderr=None, run_func=None):
     """
     Runs mpirun.
 
@@ -40,6 +39,8 @@ def mpi_run(settings, common_intfs, driver, env, stdout=None, stderr=None,
     """
     if env is None:
         env = os.environ.copy()
+    if run_func is None:
+        run_func = safe_shell_exec.execute
 
     # Pass secret key through the environment variables.
     env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(settings.key)

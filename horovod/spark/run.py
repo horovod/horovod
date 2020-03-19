@@ -34,7 +34,7 @@ if platform.system() == 'Darwin':
     os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
 
 
-def _task_fn(index, driver_addresses, settings):
+def _task_fn(index, driver_addresses, settings, use_gloo):
     task = task_service.SparkTaskService(index, settings.key, settings.nic)
     try:
         driver_client = driver_service.SparkDriverClient(driver_addresses, settings.key, settings.verbose)
@@ -52,8 +52,9 @@ def _task_fn(index, driver_addresses, settings):
         driver_client.register_task_to_task_addresses(next_task_index, next_task_client.addresses())
         task_indices_on_this_host = driver_client.task_host_hash_indices(
             host_hash.host_hash())
-        if task_indices_on_this_host[0] == index:
-            # Task with first index will execute orted that will run mpirun_exec_fn for all tasks.
+        # With Gloo all tasks wait for the command
+        # With MPI task with first index executes orted which will run mpirun_exec_fn for all tasks.
+        if use_gloo or task_indices_on_this_host[0] == index:
             task.wait_for_command_start(settings.timeout)
             task.wait_for_command_termination()
         else:
@@ -69,14 +70,14 @@ def _task_fn(index, driver_addresses, settings):
         task.shutdown()
 
 
-def _make_mapper(driver_addresses, settings):
+def _make_mapper(driver_addresses, settings, use_gloo):
     def _mapper(index, _):
-        yield _task_fn(index, driver_addresses, settings)
+        yield _task_fn(index, driver_addresses, settings, use_gloo)
     return _mapper
 
 
 def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
-                       settings):
+                       settings, use_gloo):
     """Creates `settings.num_proc` Spark tasks in a parallel thread."""
     def run_spark():
         """Creates `settings.num_proc` Spark tasks, each executing `_task_fn` and waits for them to terminate."""
@@ -88,7 +89,7 @@ def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
             # We assume that folks caring about security will enable Spark RPC
             # encryption, thus ensuring that key that is passed here remains
             # secret.
-            result = procs.mapPartitionsWithIndex(_make_mapper(driver.addresses(), settings)).collect()
+            result = procs.mapPartitionsWithIndex(_make_mapper(driver.addresses(), settings, use_gloo)).collect()
             result_queue.put(result)
         except:
             driver.notify_spark_job_failed()
@@ -99,8 +100,7 @@ def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
     return spark_thread
 
 
-def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=None,
-                run_func=safe_shell_exec.execute):
+def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=None, run_func=None):
     # Determine a set of common interfaces for task-to-task communication.
     common_intfs = set(driver.task_addresses_for_tasks(0).keys())
     for index in range(1, settings.num_proc):
@@ -120,7 +120,7 @@ def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=No
 def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
         use_mpi=None, use_gloo=None, extra_mpi_args=None,
         env=None, stdout=None, stderr=None, verbose=1, nic=None,
-        run_func=safe_shell_exec.execute):
+        run_func=None):
     if start_timeout is None:
         # Lookup default timeout from the environment variable.
         start_timeout = int(os.getenv('HOROVOD_SPARK_START_TIMEOUT', '600'))
@@ -159,7 +159,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
     driver = driver_service.SparkDriverService(settings.num_proc, fn, args, kwargs,
                                                settings.key, settings.nic)
     spark_thread = _make_spark_thread(spark_context, spark_job_group, driver,
-                                      result_queue, settings)
+                                      result_queue, settings, use_gloo)
     try:
         # wait for all tasks to register and notify them
         driver.wait_for_initial_registration(settings.timeout)
@@ -193,7 +193,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
         driver.set_ranks_to_indices(ranks_to_indices)
 
         # Run the job
-        _launch_job(use_gloo, use_mpi, settings, driver, env, stdout, stderr, run_func)
+        _launch_job(use_mpi, use_gloo, settings, driver, env, stdout, stderr, run_func)
     except:
         # Terminate Spark job.
         spark_context.cancelJobGroup(spark_job_group)
