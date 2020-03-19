@@ -49,6 +49,10 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     user_shuffle_buffer_size = estimator.getShufflingBufferSize()
     user_verbose = estimator.getVerbose()
 
+    # Data reader parameters
+    train_reader_worker_count = estimator.setTrainReaderNumWorker()
+    val_reader_worker_count = estimator.setValReaderNumWorker()
+
     # Model parameters
     input_shapes, output_shapes = estimator.get_model_shapes()
     output_names = estimator.getModel().output_names
@@ -169,6 +173,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                              num_epochs=None,
                              cur_shard=hvd.rank(),
                              reader_pool_type='process',
+                             workers_count=train_reader_worker_count,
                              pyarrow_serialize=True,
                              shard_count=hvd.size(),
                              hdfs_driver=PETASTORM_HDFS_DRIVER,
@@ -179,6 +184,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                                  cur_shard=hvd.rank(),
                                  reader_pool_type='process',
                                  pyarrow_serialize=True,
+                                 workers_count=val_reader_worker_count,
                                  shard_count=hvd.size(),
                                  hdfs_driver=PETASTORM_HDFS_DRIVER,
                                  schema_fields=schema_fields,

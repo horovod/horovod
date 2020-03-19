@@ -67,6 +67,10 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
             raise ValueError('loss_weights needs to be a list with the same '
                              'length as the label_columns.')
 
+    # Data reader parameters
+    train_reader_worker_count = estimator.setTrainReaderNumWorker()
+    val_reader_worker_count = estimator.setValReaderNumWorker()
+
     # Utility functions
     deserialize = deserialize_fn()
     get_optimizer_with_unscaled_lr = _get_optimizer_with_unscaled_lr_fn()
@@ -203,6 +207,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                              num_epochs=None,
                              cur_shard=hvd.rank(),
                              reader_pool_type='process',
+                             workers_count=train_reader_worker_count,
                              pyarrow_serialize=True,
                              shard_count=hvd.size(),
                              hdfs_driver=PETASTORM_HDFS_DRIVER,
@@ -213,6 +218,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                                  cur_shard=hvd.rank(),
                                  reader_pool_type='process',
                                  pyarrow_serialize=True,
+                                 workers_count=val_reader_worker_count,
                                  shard_count=hvd.size(),
                                  hdfs_driver=PETASTORM_HDFS_DRIVER,
                                  schema_fields=schema_fields,
