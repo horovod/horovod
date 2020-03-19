@@ -154,7 +154,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
   }
 
   if (!message_queue_tmp.empty()) {
-    LOG(DEBUG, rank_) << "Sent " << message_queue_tmp.size()
+    LOG(TRACE, rank_) << "Sent " << message_queue_tmp.size()
                       << " messages to coordinator.";
   }
 
