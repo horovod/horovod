@@ -127,15 +127,15 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                            for more details. Note that this fucntion constructs
                            another function which should perform the
                            transformation.
-         train_reader_num_workers: This parameter specifies the number of parallel processes that
-                                   read the training data from data store and apply data
-                                   transformations to it. Increasing this number
-                                   will generally increase the reading rate but will also
-                                   increase the memory footprint. More processes are
-                                   particularly useful if the bandwidth to the data store is not
-                                   high enough, or users need to apply transformation such as
-                                   decompression or data augmentation on raw data.
-         val_reader_num_workers: Similar to the train_reader_num_workers.
+        train_reader_num_workers: This parameter specifies the number of parallel processes that
+                               read the training data from data store and apply data
+                               transformations to it. Increasing this number
+                               will generally increase the reading rate but will also
+                               increase the memory footprint. More processes are
+                               particularly useful if the bandwidth to the data store is not
+                               high enough, or users need to apply transformation such as
+                               decompression or data augmentation on raw data.
+        val_reader_num_workers: Similar to the train_reader_num_workers.
     """
 
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')
