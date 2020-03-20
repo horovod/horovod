@@ -31,8 +31,6 @@ public:
       : Controller(response_cache, tensor_queue, timeline, parameter_manager),
         gloo_context_(gloo_context) {};
 
-  void Initialize() override;
-
   int GetTypeSize(DataType dtype) override;
 
   void CrossRankBitwiseAnd(std::vector<long long>& bitvector,
@@ -55,6 +53,8 @@ public:
   void Barrier(Communicator communicator) override;
 
 protected:
+  void DoInitialization() override;
+
   GlooContext& gloo_context_;
 };
 

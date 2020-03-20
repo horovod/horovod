@@ -38,8 +38,8 @@ public:
              Timeline& timeline, ParameterManager& parameter_manager);
 
   Controller(const Controller&) = delete;
-  // Functions must be overridden by concrete controller
-  virtual void Initialize() = 0;
+
+  void Initialize();
 
   virtual int GetTypeSize(DataType dtype) = 0;
 
@@ -126,6 +126,9 @@ public:
   StallInspector& GetStallInspector() { return stall_inspector_; };
 
 protected:
+  // Functions must be overridden by concrete controller
+  virtual void DoInitialization() = 0;
+
   // For rank 0 to receive other ranks' ready tensors.
   virtual void RecvReadyTensors(std::vector<std::string>& ready_to_reduce,
                                 std::vector<RequestList>& ready_list) = 0;

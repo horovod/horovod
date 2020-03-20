@@ -31,7 +31,7 @@
 namespace horovod {
 namespace common {
 
-void GlooController::Initialize() {
+void GlooController::DoInitialization() {
   rank_ = gloo_context_.ctx->rank;
   size_ = gloo_context_.ctx->size;
   is_coordinator_ = rank_ == 0;
