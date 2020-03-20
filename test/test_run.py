@@ -404,8 +404,8 @@ class RunTests(unittest.TestCase):
                             '--erf_input /tmp/rankfile '
                             '--stdio_stderr >output filename goes here< '
                             '--stdio_stdout >output filename goes here< '
-                            '--smpiargs \' >mpi-extra args go here<\' '
-                            'cmd arg1 arg2')
+                            '--smpiargs \'{mpi_args} >mpi-extra args go here<\' '
+                            'cmd arg1 arg2').format(mpi_args=' '.join(mpi_flags))
         expected_env = {'env1': 'val1', 'env2': 'val2'}
         run_func.assert_called_once_with(command=expected_command, env=expected_env, stdout=stdout, stderr=stderr)
 
