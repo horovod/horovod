@@ -23,8 +23,8 @@ from six.moves import queue
 from horovod.spark.task import task_service
 from horovod.spark.gloo_run import gloo_run
 from horovod.spark.mpi_run import mpi_run
-from horovod.run import HorovodArgs, run_controller
-from horovod.run.common.util import config_parser, safe_shell_exec, timeout, host_hash, secret
+from horovod.run.run import run_controller
+from horovod.run.common.util import timeout, host_hash, secret
 from horovod.run.common.util import settings as hvd_settings
 from horovod.spark.driver import driver_service, job_id
 

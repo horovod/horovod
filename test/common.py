@@ -21,7 +21,10 @@ from __future__ import print_function
 import contextlib
 import os
 import shutil
+import sys
 import tempfile
+
+from mock import patch
 
 
 def mpi_env_rank_and_size():
@@ -80,11 +83,55 @@ def temppath():
             else:
                 shutil.rmtree(path)
 
+
 @contextlib.contextmanager
-def os_environ(env):
+def override_args(tool=None, *args):
+    old = sys.argv[:]
+    try:
+        if tool:
+            sys.argv[0] = tool
+        sys.argv[1:] = args
+        yield
+    finally:
+        sys.argv = old
+
+
+@contextlib.contextmanager
+def override_env(env):
     old = os.environ
     try:
         os.environ = env
         yield
     finally:
         os.environ = old
+
+
+@contextlib.contextmanager
+def is_built(gloo_is_built, mpi_is_built):
+    """
+    Patches the gloo_built and mpi_built methods called from horovod.run.run.run_controller
+    to return the given booleans.
+    :param gloo_is_built: boolean returned by gloo_built
+    :param mpi_is_built: boolean returned by mpi_built
+    :return: patched context manager
+    """
+    with patch(target="horovod.run.run.gloo_built") as gloo_built_mock:
+        gloo_built_mock.return_value = gloo_is_built
+        with patch(target="horovod.run.run.mpi_built") as mpi_built_mock:
+            mpi_built_mock.return_value = mpi_is_built
+            yield
+
+
+@contextlib.contextmanager
+def js_installed(js_is_installed):
+    """
+    Patches the lsf.LSFUtils.using_lsf and is_jsrun_installed methods called from
+    horovod.run.run.run_controller to return the given booleans.
+    :param js_is_installed: boolean returned by lsf.LSFUtils.using_lsf and is_jsrun_installed
+    :return: patched context manager
+    """
+    with patch(target="horovod.run.run.lsf.LSFUtils.using_lsf") as using_lsf_mock:
+        using_lsf_mock.return_value = js_is_installed
+        with patch(target="horovod.run.run.is_jsrun_installed") as is_jsrun_installed_mock:
+            is_jsrun_installed_mock.return_value = js_is_installed
+            yield
