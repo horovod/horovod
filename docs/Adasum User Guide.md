@@ -1,8 +1,31 @@
----
-title: AdaSum User guide
----
 
--   **Introduction to the AdaSum Algorithm**
+# AdaSum User guide
+
+The Adaptive Summation, or AdaSum is a novel algorithm for improving distributed 
+data parallel training of Deep Learning models. This improvement can be seen
+in different ways- reducing the number steps to achieve the same accuracy in some
+cases and allowing to scale to more training workers without penalizing learning 
+rate and convergence stability.
+AdaSum can be used with Horovod and PyTorch/TensorFlow. 
+***
+# Table of Contents
+* **[Introduction to the AdaSum Algorithm](#Introduction-to-the-AdaSum-Algorithm)**
+* **[The Distributed Optimizer for AdaSum](#The-Distributed-Optimizer-for-AdaSum)**
+* **[Installation and Usage Instructions](#Installation-and-Usage-Instructions)**
+  * [Setting up the environment](#Setting-up-the-environment)
+  * [Modes of Operation](#Modes-of-Operation)
+    * [Pure CPU](#Pure-CPU)
+    * [Ring](#Ring)
+    * [Hierarchical](#Hierarchical)
+  * [Modification to the code](#Modification-to-the-code)
+    * [TensorFlow](#TensorFlow)
+    * [Pytorch](#Pytorch)
+* **[Case Studies](#Case-Studies)**
+  * [Square and Cubic optimization](#Square-and-Cubic-optimization)
+  * [MNIST](#MNIST)
+* **[Key Takeaways](#Key-Takeaways)**
+***
+## Introduction to the AdaSum Algorithm
 
 Scaling DNN training to many GPUs always comes at a convergence degradation.
 This is because with larger batch sizes, gradients are averaged and the learning
@@ -45,8 +68,8 @@ coming from 2\^n different GPUs. AdaSum inductively takes pairs of gradients and
 reduces them using the method above until all of them are reduced into one
 gradient. Thus, AdaSum needs the number of nodes to be a power of 2 in the
 current implementation.
-
--   **The Distributed Optimizer for AdaSum**
+***
+## The Distributed Optimizer for AdaSum
 
 AdaSum uses the Distributed AdaSum Optimizer to update the weights of the model
 after each step.
@@ -68,20 +91,19 @@ Since the nature of AdaSum requires it to operate on the full magnitude of the
 gradient, the newly added distributed optimizer uses the difference in magnitude
 of weights between before and after the optimizer performs a step to deliver a
 more accurate estimation.
-
--   **Installation and Usage Instructions**
+***
+## Installation and Usage Instructions
 
 AdaSum can be used and experimented with Horovod and Pytorch/TensorFlow.
 
-In addition, there are two options of using AdaSum with Horovod- with MPI and
-with NCCL. It can be noted that any valid implementation of MPI can be used, but
-AdaSum has been tested with OpenMPI and IntelMPI.
+In addition, there are two options of using AdaSum with Horovod- with Message 
+Passing Interface(MPI) and with [NCCL](https://developer.nvidia.com/nccl). 
+It can be noted that any valid implementation of MPI can be used, but
+AdaSum has been tested with [OpenMPI](https://www.open-mpi.org/) and [IntelMPI](https://software.intel.com/en-us/mpi-library).
 
--   **Setting up the environment**
+###  Setting up the environment
 
 >   Below are the requirements for running Horovod with AdaSum:
-
--   Appropriate Nvidia GPU drivers.
 
 -   cuda-10.0 and cudnn-7.6.4
 
@@ -103,15 +125,15 @@ If HOROVOD_GPU_ALLREDUCE=NCCL flag is used to compile Horovod, NCCL is used
 instead. In this case, NCCL will be used for intra-node communication, and
 AdaSum will be used for inter-node communication.
 
--   **Modes of Operation**
+### Modes of Operation
 
 Adasum can be used in the following ways depending on the hardware setup
 available.
 
--   **Pure CPU**
+####   **Pure CPU**
 
 When dealing with a hardware setup of multiple nodes, each node having worker
-GPUs that are not connected by a high speed interconnect like NVLink, where the
+GPUs that are not connected by a high speed interconnect like [NVLink](https://www.nvidia.com/en-us/data-center/nvlink/), where the
 communication happens through the CPU, AdaSum through MPI can be used for both
 intra-node and inter-node communication. In this case, all of the AdaSum ops are
 performed on the CPU.
@@ -121,13 +143,13 @@ be used, those must be used instead to get the highest performance benefit.
 
 ![](media/7220c70747b40ab58fce2dc246958218.png)
 
--   **Ring**
+####   **Ring**
 
-On specifically configured machines (DGX1 nodes with 8 GPUs each), the Ring mode
+On specifically configured machines ([DGX1](https://www.nvidia.com/en-us/data-center/dgx-1/) nodes with 8 GPUs each), the Ring mode
 can be used instead of the pure CPU mode. This mode is identical to the pure CPU
 mode for inter-node communication, but is able to do intra-node communication
 without going through the CPU. It does this by utilizing CUDA-aware MPI (OpenMPI
-built with UCX support) in order to allow direct GPU to GPU communication within
+built with [UCX](https://www.openucx.org/) support) in order to allow direct GPU to GPU communication within
 nodes. This results in identical convergence benefits to pure CPU mode, but much
 better throughput on nodes that support it.
 
@@ -135,7 +157,7 @@ Ring mode is currently supported only on **DGX1** nodes having 8 GPUs each.
 
 ![](media/4920a765a77fa6eeca28c5aceaa405ec.png)
 
--   **Hierarchical**
+####   **Hierarchical**
 
 In cases where the hardware does not support Ring mode, but throughput higher
 than that of the pure CPU mode is desired, the hierarchical mode can be used
@@ -165,7 +187,7 @@ the local size is not sufficient for good convergence
 
 ![](media/a254d38d0e56319c0507a16ea09df959.png)
 
--   **Modification to the code**
+### Modification to the code
 
 A new distributed optimizer has been added to both TensorFlow and Pytorch to
 support the AdaSum algorithm.
@@ -175,9 +197,9 @@ API for users to specify which operation to perform.
 
 When op=hvd.AdaSum is specified, the new optimizer will be used.
 
--   **TensorFlow**
+####   **TensorFlow**
 
-    -   DistributedOptimizer
+-   DistributedOptimizer
 
 >   opt = tf.train.AdamOptimizer(0.001)
 
@@ -188,9 +210,9 @@ When op=hvd.AdaSum is specified, the new optimizer will be used.
 
 >   hvd.allreduce(tensor, **op=hvd.AdaSum**)
 
--   **Pytorch**
+####   **Pytorch**
 
-    -   DistributedOptimizer
+-   DistributedOptimizer
 
 >   optimizer = optim.SGD(model.parameters(), lr=args.lr,
 >   momentum=args.momentum)
@@ -202,9 +224,10 @@ When op=hvd.AdaSum is specified, the new optimizer will be used.
 -   Allreduce
 
 >   hvd.allreduce(tensor, **op=hvd.AdaSum**)
-
--   **Square and Cubic optimization- A simple case study to understand AdaSum’s
-    behavior**
+***
+## Case Studies
+### Square and Cubic optimization
+**A simple case study to understand AdaSum’s behavior**
 
 In order to understand the behavior and potential benefits of AdaSum as compared
 to Averaging, consider a simple experiment in squared optimization using AdaSum.
@@ -223,8 +246,8 @@ This optimization can be run over a range of learning rates, number of workers
 and data range (set by x_max). This can also be modified to a cubic optimization
 problem.
 
-This experiment can be run through the jupyter notebook **adasum_bench.ipynb**,
-with the models being defined in **adasum_small_model.py**.
+This experiment can be run through the jupyter notebook [adasum_bench.ipynb](../adasum_bench.ipynb),
+with the models being defined in [adasum_small_model.py](../adasum_small_model.py).
 
 On running experiments with different number of workers, we can draw the
 following conclusions for this simple scenario with plain SGD as the optimizer:
@@ -254,15 +277,16 @@ following conclusions for this simple scenario with plain SGD as the optimizer:
     training more complex models, this result must be kept in mind as the same
     extent of decay might not be necessary.
 
--   **MNIST- higher accuracy with the same number of steps**
+### MNIST 
+**Higher accuracy with the same number of steps**
 
 Here, we test the applicability of the observations from the simple cubic
 optimization problem to training MNIST with AdaSum. By scaling the best learning
 rate for a single worker case by 2.5 while using AdaSum with higher number of
 nodes, we see that we consistently get better accuracy with the same number of
 steps as compared to averaging.
-
--   **Key Takeaways**
+***
+## Key Takeaways
 
 -   AdaSum ensures correct convergence behavior even with large effective batch
     sizes.
