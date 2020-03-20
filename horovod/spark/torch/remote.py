@@ -68,8 +68,8 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                              'length as the label_columns.')
 
     # Data reader parameters
-    train_reader_worker_count = estimator.setTrainReaderNumWorker()
-    val_reader_worker_count = estimator.setValReaderNumWorker()
+    train_reader_worker_count = estimator.getTrainReaderNumWorker()
+    val_reader_worker_count = estimator.getValReaderNumWorker()
 
     # Utility functions
     deserialize = deserialize_fn()

@@ -50,8 +50,8 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     user_verbose = estimator.getVerbose()
 
     # Data reader parameters
-    train_reader_worker_count = estimator.setTrainReaderNumWorker()
-    val_reader_worker_count = estimator.setValReaderNumWorker()
+    train_reader_worker_count = estimator.getTrainReaderNumWorker()
+    val_reader_worker_count = estimator.getValReaderNumWorker()
 
     # Model parameters
     input_shapes, output_shapes = estimator.get_model_shapes()
