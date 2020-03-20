@@ -28,10 +28,10 @@ from horovod.run.task import task_service
 class HorovodRunDriverService(driver_service.BasicDriverService):
     NAME = 'horovodrun driver service'
 
-    def __init__(self, num_hosts, key, nic):
+    def __init__(self, num_hosts, key, nics):
         super(HorovodRunDriverService, self).__init__(num_hosts,
                                                       HorovodRunDriverService.NAME,
-                                                      key, nic)
+                                                      key, nics)
 
 
 class HorovodRunDriverClient(driver_service.BasicDriverClient):

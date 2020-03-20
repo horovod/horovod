@@ -18,9 +18,11 @@ from __future__ import print_function
 import argparse
 import hashlib
 import os
-import sys
 import re
+import sys
 import textwrap
+from psutil import net_if_addrs
+from socket import AF_INET
 
 try:
     from shlex import quote
@@ -111,6 +113,180 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
     if not ssh_successful_to_all_hosts:
         exit(1)
     return True
+
+
+def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
+                         settings):
+    """
+    Executes the task server and service client task for registration on the
+    hosts.
+    :param all_host_names: list of addresses. for example,
+        ['worker-0','worker-1']
+        ['10.11.11.11', '10.11.11.12']
+    :type all_host_names: list(string)
+    :param local_host_names: names that are resolved to one of the addresses
+    of local hosts interfaces. For example,
+        set(['localhost', '127.0.0.1'])
+    :type local_host_names: set
+    :param driver_addresses: map of interfaces and their address and port for
+    the service. For example:
+        {
+            'lo': [('127.0.0.1', 34588)],
+            'docker0': [('172.122.10.1', 34588)],
+            'eth0': [('11.111.33.73', 34588)]
+        }
+    :type driver_addresses: map
+    :param settings: the object that contains the setting for running horovod
+    :type settings: Horovod.run.common.util.settings.Settings
+    :return:
+    :rtype:
+    """
+
+    def _exec_command(command):
+        host_output = six.StringIO()
+        try:
+            exit_code = safe_shell_exec.execute(command,
+                                                stdout=host_output,
+                                                stderr=host_output)
+            if exit_code != 0:
+                print(
+                    'Launching horovodrun task function was not '
+                    'successful:\n{host_output}'
+                    .format(host_output=host_output.getvalue()))
+                os._exit(exit_code)
+        finally:
+            host_output.close()
+        return exit_code
+
+    if settings.ssh_port:
+        ssh_port_arg = '-p {ssh_port}'.format(ssh_port=settings.ssh_port)
+    else:
+        ssh_port_arg = ''
+    args_list = []
+    for index in range(len(all_host_names)):
+        host_name = all_host_names[index]
+        if host_name in local_host_names:
+            command = \
+                '{python} -m horovod.run.task_fn {index} ' \
+                '{driver_addresses} {settings}'\
+                .format(python=sys.executable,
+                        index=codec.dumps_base64(index),
+                        driver_addresses=codec.dumps_base64(driver_addresses),
+                        settings=codec.dumps_base64(settings))
+        else:
+            command = \
+                'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} ' \
+                '\'{python} -m horovod.run.task_fn {index} {driver_addresses}' \
+                ' {settings}\''\
+                .format(host=host_name,
+                        ssh_port_arg=ssh_port_arg,
+                        python=sys.executable,
+                        index=codec.dumps_base64(index),
+                        driver_addresses=codec.dumps_base64(driver_addresses),
+                        settings=codec.dumps_base64(settings))
+        args_list.append([command])
+    # Each thread will use ssh command to launch the server on one task. If an
+    # error occurs in one thread, entire process will be terminated. Otherwise,
+    # threads will keep running and ssh session -- and the the task server --
+    # will be bound to the thread. In case, the horovodrun process dies, all
+    # the ssh sessions and all the task servers will die as well.
+    threads.execute_function_multithreaded(_exec_command,
+                                           args_list,
+                                           block_until_all_done=False)
+
+
+@cache.use_cache()
+def _driver_fn(all_host_names, local_host_names, settings):
+    """
+    launches the service service, launches the task service on each worker and
+    have them register with the service service. Each worker probes all the
+    interfaces of the worker index + 1 (in a ring manner) and only keeps the
+    routed interfaces. Function returns the intersection of the set of all the
+    routed interfaces on all the workers.
+    :param all_host_names: list of addresses. for example,
+        ['worker-0','worker-1']
+        ['10.11.11.11', '10.11.11.12']
+    :type all_host_names: list(string)
+    :param local_host_names: host names that resolve into a local addresses.
+    :type local_host_names: set
+    :param settings: the object that contains the setting for running horovod
+    :type settings: Horovod.run.common.util.settings.Settings
+    :return: example: ['eth0', 'eth1']
+    :rtype: list[string]
+    """
+    # Launch a TCP server called service service on the host running
+    # horovodrun.
+    driver = driver_service.HorovodRunDriverService(
+        settings.num_hosts, settings.key, settings.nics)
+    if settings.verbose >= 2:
+        print('Launched horovodrun server.')
+    # Have all the workers register themselves with the service service.
+    _launch_task_servers(all_host_names, local_host_names,
+                         driver.addresses(), settings)
+    if settings.verbose >= 2:
+        print('Attempted to launch horovod task servers.')
+    try:
+        # wait for all the hosts to register with the service service.
+        if settings.verbose >= 2:
+            print('Waiting for the hosts to acknowledge.')
+        driver.wait_for_initial_registration(settings.timeout)
+        tasks = [
+            task_service.HorovodRunTaskClient(
+                index,
+                driver.task_addresses_for_driver(index),
+                settings.key,
+                settings.verbose) for index in range(
+                settings.num_hosts)]
+        # Notify all the drivers that the initial registration is complete.
+        for task in tasks:
+            task.notify_initial_registration_complete()
+        if settings.verbose >= 2:
+            print('Notified all the hosts that the registration is complete.')
+        # Each worker should probe the interfaces of the next worker in a ring
+        # manner and filter only the routed ones -- it should filter out
+        # interfaces that are not really connected to any external networks
+        # such as lo0 with address 127.0.0.1.
+        if settings.verbose >= 2:
+            print('Waiting for hosts to perform host-to-host '
+                  'interface checking.')
+        driver.wait_for_task_to_task_address_updates(settings.timeout)
+        if settings.verbose >= 2:
+            print('Host-to-host interface checking successful.')
+        # Determine a set of common interfaces for task-to-task communication.
+        common_intfs = set(driver.task_addresses_for_tasks(0).keys())
+        for index in range(1, settings.num_hosts):
+            common_intfs.intersection_update(
+                driver.task_addresses_for_tasks(index).keys())
+        if not common_intfs:
+            raise Exception(
+                'Unable to find a set of common task-to-task communication '
+                'interfaces: %s'
+                % [(index, driver.task_addresses_for_tasks(index))
+                   for index in range(settings.num_hosts)])
+        return common_intfs
+    finally:
+        driver.shutdown()
+
+
+def _get_driver_ip(nics):
+    """
+    :param nics: set of potential network interfaces that can be used
+    :return: driver ip. We make sure all workers can connect to this ip.
+    """
+    driver_ip = None
+    ifaces = [iface for iface in list(nics) if iface in net_if_addrs()]
+
+    for iface in ifaces:
+        for addr in net_if_addrs()[iface]:
+            if addr.family == AF_INET:
+                driver_ip = addr.address
+                break
+
+    if not driver_ip:
+        raise RuntimeError(
+            'Cannot find an IPv4 address of the common interface.')
+
+    return driver_ip
 
 
 def check_build(verbose):
@@ -254,8 +430,10 @@ def parse_args():
                              'HOROVOD_START_TIMEOUT can also be used to '
                              'specify the initialization timeout.')
 
-    parser.add_argument('--network-interface', action='store', dest='nic',
-                        help='Specify the network interface used for communication.')
+    parser.add_argument('--network-interface', action='store', dest='nics',
+                        help='Network interfaces that can be used for communication separated by '
+                             'comma. If not specified, Horovod will find the common NICs among all '
+                             'the workers and use it; example, --nics eth0,eth1.')
 
     parser.add_argument('--output-filename', action='store',
                         help='For Gloo, writes stdout / stderr of all processes to a filename of the form '
@@ -464,7 +642,7 @@ class HorovodArgs(object):
         self.command = None
         self.run_func = None
         self.config_file = None
-        self.nic = None
+        self.nics = None
 
         # tuneable parameter arguments
         self.fusion_threshold_mb = None
@@ -532,6 +710,18 @@ def parse_host_files(filename):
     return ','.join(hosts)
 
 
+def parse_host_names(hosts):
+    host_list = hosts.split(',')
+    all_host_names = []
+    pattern = re.compile(r'^[\w.-]+:\d+$')
+    for host in host_list:
+        if not pattern.match(host.strip()):
+            raise ValueError('Invalid host input, please make sure it has '
+                             'format as : worker-0:2,worker-1:2.')
+        all_host_names.append(host.strip().split(':')[0])
+    return all_host_names
+
+
 def _run(args):
     if args.check_build:
         check_build(args.verbose)
@@ -553,14 +743,9 @@ def _run(args):
             # Set hosts to localhost if not specified
             args.hosts = 'localhost:{np}'.format(np=args.np)
 
-    host_list = args.hosts.split(',')
-    all_host_names = []
-    pattern = re.compile(r'^[\w.-]+:\d+$')
-    for host in host_list:
-        if not pattern.match(host.strip()):
-            raise ValueError('Invalid host input, please make sure it has '
-                             'format as : worker-0:2,worker-1:2.')
-        all_host_names.append(host.strip().split(':')[0])
+    all_host_names = parse_host_names(args.hosts)
+
+    nics_set = set(args.nics.split(',')) if args.nics else None
 
     # horovodrun has to finish all the checks before this timeout runs out.
     if args.start_timeout:
@@ -586,7 +771,7 @@ def _run(args):
                                      hosts=args.hosts,
                                      output_filename=args.output_filename,
                                      run_func_mode=args.run_func is not None,
-                                     nic=args.nic)
+                                     nics=nics_set)
 
     # This cache stores the results of checks performed by horovodrun
     # during the initialization step. It can be disabled by setting
@@ -619,11 +804,51 @@ def _run(args):
         if settings.verbose >= 2:
             print('SSH was successful into all the remote hosts.')
 
-    common_intfs = driver_service._get_common_interfaces(settings, all_host_names,
+    if len(remote_host_names) > 0:
+        if args.nics:
+            # If args.nics is provided, we will use those interfaces. All the workers
+            # must have at least one of those interfaces available.
+            nics = settings.nics
+        else:
+            # Find the set of common, routed interfaces on all the hosts (remote
+            # and local) and specify it in the args to be used by NCCL. It is
+            # expected that the following function will find at least one interface
+            # otherwise, it will raise an exception.
+            if settings.verbose >= 2:
+                print('Testing interfaces on all the hosts.')
+
+            local_host_names = set(all_host_names) - set(remote_host_names)
+            nics = driver_service._get_common_interfaces(settings, all_host_names,
                                                          remote_host_names, fn_cache)
+
+            if settings.verbose >= 2:
+                print('Interfaces on all the hosts were successfully checked.')
+                print('Common interface found: ' + ' '.join(nics))
+
+    else:
+        if settings.verbose >= 2:
+            print('All hosts are local, finding the interfaces '
+                  'with address 127.0.0.1')
+        # If all the given hosts are local, find the interfaces with address
+        # 127.0.0.1
+        nics = set()
+        for iface, addrs in net_if_addrs().items():
+            if settings.nics and iface not in settings.nics:
+                continue
+            for addr in addrs:
+                if addr.family == AF_INET and addr.address == '127.0.0.1':
+                    nics.add(iface)
+                    break
+
+        if len(nics) == 0:
+            raise ValueError('No interface is found for address 127.0.0.1.')
+
+        if settings.verbose >= 2:
+            print('Local interface found ' + ' '.join(nics))
+
     if args.run_func:
         # get the driver IPv4 address
-        driver_ip = network._get_driver_ip(common_intfs)
+        driver_ip = network._get_driver_ip(nics)
         run_func_server = KVStoreServer(verbose=settings.verbose)
         run_func_server_port = run_func_server.start_server()
         pickled_exec_func = cloudpickle.dumps(args.run_func)
@@ -633,7 +858,7 @@ def _run(args):
         command = [sys.executable, '-m', 'horovod.run.run_task', str(driver_ip), str(run_func_server_port)]
 
         try:
-            _launch_job(args, remote_host_names, settings, common_intfs, command)
+            _launch_job(args, remote_host_names, settings, nics, command)
             results = [None] * args.np
             # TODO: make it parallel to improve performance
             for i in range(args.np):
@@ -645,11 +870,11 @@ def _run(args):
             run_func_server.shutdown_server()
     else:
         command = args.command
-        _launch_job(args, remote_host_names, settings, common_intfs, command)
+        _launch_job(args, remote_host_names, settings, nics, command)
         return None
 
 
-def _launch_job(args, remote_host_names, settings, common_intfs, command):
+def _launch_job(args, remote_host_names, settings, nics, command):
     env = os.environ.copy()
     config_parser.set_env_from_args(env, args)
 
@@ -657,25 +882,26 @@ def _launch_job(args, remote_host_names, settings, common_intfs, command):
         if not gloo_built(verbose=(settings.verbose >= 2)):
             raise ValueError('Gloo support has not been built.  If this is not expected, ensure CMake is installed '
                              'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
-        gloo_run(settings, remote_host_names, common_intfs, env, network._get_driver_ip(common_intfs), command)
+
+        gloo_run(settings, remote_host_names, nics, env, network._get_driver_ip(nics), command)
     elif args.use_mpi:
         if not mpi_built(verbose=(settings.verbose >= 2)):
             raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
                              'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.')
-        mpi_run(settings, common_intfs, env, command)
+        mpi_run(settings, nics, env, command)
     elif args.use_jsrun:
         if not mpi_built(verbose=(settings.verbose >= 2)):
             raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
                              'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.')
-        js_run(settings, common_intfs, env, command)
+        js_run(settings, nics, env, command)
     else:
         if mpi_built(verbose=(settings.verbose >= 2)):
             if lsf.LSFUtils.using_lsf() and is_jsrun_installed():
-                js_run(settings, common_intfs, env, command)
+                js_run(settings, nics, env, command)
             else:
-                mpi_run(settings, common_intfs, env, command)
+                mpi_run(settings, nics, env, command)
         elif gloo_built(verbose=(settings.verbose >= 2)):
-            gloo_run(settings, remote_host_names, common_intfs, env, network._get_driver_ip(common_intfs), command)
+            gloo_run(settings, remote_host_names, nics, env, network._get_driver_ip(nics), command)
         else:
             raise ValueError('Neither MPI nor Gloo support has been built. Try reinstalling Horovod ensuring that '
                              'either MPI is installed (MPI) or CMake is installed (Gloo).')
@@ -741,8 +967,9 @@ def run(
     :param use_mpi: Run Horovod using the MPI controller. This will
                     be the default if Horovod was built with MPI support.
     :param mpi_args: Extra arguments for the MPI controller. This is only used when use_mpi is True.
-    :param network_interface: Specify the network interface for communication.
-
+    :param network_interface: Network interfaces to use for communication separated by comma. If
+                             not specified, Horovod will find the common NICs among all the
+                             workers and use those; example, eth0,eth1.
     :return: Return a list which contains values return by all Horovod processes.
              The index of the list corresponds to the rank of each Horovod process.
     """
@@ -772,8 +999,7 @@ def run(
     hargs.verbose = verbose
     hargs.use_gloo = use_gloo
     hargs.use_mpi = use_mpi
-    hargs.nic = network_interface
-
+    hargs.nics = network_interface
     hargs.run_func = wrapped_func
 
     return _run(hargs)

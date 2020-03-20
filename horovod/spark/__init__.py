@@ -37,7 +37,7 @@ if platform.system() == 'Darwin':
 
 
 def _task_fn(index, driver_addresses, settings):
-    task = task_service.SparkTaskService(index, settings.key, settings.nic)
+    task = task_service.SparkTaskService(index, settings.key, settings.nics)
     try:
         driver_client = driver_service.SparkDriverClient(driver_addresses, settings.key, settings.verbose)
         driver_client.register_task(index, task.addresses(), host_hash.host_hash())
@@ -102,7 +102,7 @@ def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
 
 
 def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, extra_mpi_args=None, env=None,
-        stdout=None, stderr=None, verbose=1, nic=None, run_func=safe_shell_exec.execute):
+        stdout=None, stderr=None, verbose=1, nics=None, run_func=safe_shell_exec.execute):
     """
     Runs Horovod in Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
 
@@ -119,7 +119,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, extra_mpi_arg
         stdout: Horovod stdout is redirected to this stream. Defaults to sys.stdout.
         stderr: Horovod stderr is redirected to this stream. Defaults to sys.stderr.
         verbose: Debug output verbosity (0-2). Defaults to 1.
-        nic: specify the NIC for tcp network communication.
+        nics: comma separated list of NICs for tcp network communication.
         run_func: Run function to use. Must have arguments 'command', 'env', 'stdout', 'stderr'.
                   Defaults to safe_shell_exec.execute.
 
@@ -141,7 +141,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, extra_mpi_arg
                                      extra_mpi_args=extra_mpi_args,
                                      key=secret.make_secret_key(),
                                      timeout=tmout,
-                                     nic=nic,
+                                     nics=nics,
                                      run_func_mode=True)
 
     spark_context = pyspark.SparkContext._active_spark_context
@@ -162,7 +162,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, extra_mpi_arg
 
     spark_job_group = 'horovod.spark.run.%d' % job_id.next_job_id()
     driver = driver_service.SparkDriverService(settings.num_proc, fn, args, kwargs,
-                                               settings.key, settings.nic)
+                                               settings.key, settings.nics)
     spark_thread = _make_spark_thread(spark_context, spark_job_group, driver,
                                       result_queue, settings)
     try:
