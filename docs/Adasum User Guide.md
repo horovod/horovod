@@ -246,8 +246,8 @@ This optimization can be run over a range of learning rates, number of workers
 and data range (set by x_max). This can also be modified to a cubic optimization
 problem.
 
-This experiment can be run through the jupyter notebook [adasum_bench.ipynb](../adasum_bench.ipynb),
-with the models being defined in [adasum_small_model.py](../adasum_small_model.py).
+This experiment can be run through the jupyter notebook [adasum_bench.ipynb](adasum_bench.ipynb),
+with the models being defined in [adasum_small_model.py](adasum_small_model.py).
 
 On running experiments with different number of workers, we can draw the
 following conclusions for this simple scenario with plain SGD as the optimizer:
