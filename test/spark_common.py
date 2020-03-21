@@ -19,7 +19,6 @@ import contextlib
 import os
 import platform
 import stat
-import tempfile
 
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import VectorAssembler

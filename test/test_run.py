@@ -27,8 +27,9 @@ from mock import MagicMock, patch
 
 from horovod.run.common.util import config_parser, secret, settings as hvd_settings, timeout
 from horovod.run.common.util.host_hash import _hash, host_hash
-from horovod.run.mpi_run import _get_mpi_implementation_flags, _mpi_available,\
-    _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_run
+from horovod.run.mpi_run import _get_mpi_implementation, _get_mpi_implementation_flags,\
+    _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_available, mpi_run,\
+    _OMPI_IMPL, _SMPI_IMPL, _MPICH_IMPL, _UNKNOWN_IMPL, _MISSING_IMPL
 from horovod.run.run import parse_args, parse_host_files, run_controller
 from horovod.run.js_run import js_run, generate_jsrun_rankfile
 
@@ -221,6 +222,45 @@ class RunTests(unittest.TestCase):
             self.assertNotEqual(host_hash(), hash)
         self.assertEqual(host_hash(), hash)
 
+    def test_get_mpi_implementation(self):
+        def test(output, expected):
+            execute = MagicMock(return_value=(output, 0))
+            impl = _get_mpi_implementation(execute=execute)
+            self.assertEqual(expected, impl)
+
+        test(("mpirun (Open MPI) 2.1.1\n"
+              "\n"
+              "Report bugs to http://www.open-mpi.org/community/help/\n"), _OMPI_IMPL)
+
+        test("OpenRTE", _OMPI_IMPL)
+
+        test("IBM Spectrum MPI", _SMPI_IMPL)
+
+        test(("HYDRA build details:\n"
+              "    Version:                                 3.3a2\n"
+              "    Release Date:                            Sun Nov 13 09:12:11 MST 2016\n"
+              "    CC:                              gcc   -Wl,-Bsymbolic-functions -Wl,-z,relro\n"
+              "    CXX:                             g++   -Wl,-Bsymbolic-functions -Wl,-z,relro\n"
+              "    F77:                             gfortran  -Wl,-Bsymbolic-functions -Wl,-z,relro\n"
+              "    F90:                             gfortran  -Wl,-Bsymbolic-functions -Wl,-z,relro\n"
+              "    Configure options:                       '--disable-option-checking' '--prefix=/usr' '--build=x86_64-linux-gnu' '--includedir=${prefix}/include' '--mandir=${prefix}/share/man' '--infodir=${prefix}/share/info' '--sysconfdir=/etc' '--localstatedir=/var' '--disable-silent-rules' '--libdir=${prefix}/lib/x86_64-linux-gnu' '--libexecdir=${prefix}/lib/x86_64-linux-gnu' '--disable-maintainer-mode' '--disable-dependency-tracking' '--with-libfabric' '--enable-shared' '--enable-fortran=all' '--disable-rpath' '--disable-wrapper-rpath' '--sysconfdir=/etc/mpich' '--libdir=/usr/lib/x86_64-linux-gnu' '--includedir=/usr/include/mpich' '--docdir=/usr/share/doc/mpich' '--with-hwloc-prefix=system' '--enable-checkpointing' '--with-hydra-ckpointlib=blcr' 'CPPFLAGS= -Wdate-time -D_FORTIFY_SOURCE=2 -I/build/mpich-O9at2o/mpich-3.3~a2/src/mpl/include -I/build/mpich-O9at2o/mpich-3.3~a2/src/mpl/include -I/build/mpich-O9at2o/mpich-3.3~a2/src/openpa/src -I/build/mpich-O9at2o/mpich-3.3~a2/src/openpa/src -D_REENTRANT -I/build/mpich-O9at2o/mpich-3.3~a2/src/mpi/romio/include' 'CFLAGS= -g -O2 -fdebug-prefix-map=/build/mpich-O9at2o/mpich-3.3~a2=. -fstack-protector-strong -Wformat -Werror=format-security -O2' 'CXXFLAGS= -g -O2 -fdebug-prefix-map=/build/mpich-O9at2o/mpich-3.3~a2=. -fstack-protector-strong -Wformat -Werror=format-security -O2' 'FFLAGS= -g -O2 -fdebug-prefix-map=/build/mpich-O9at2o/mpich-3.3~a2=. -fstack-protector-strong -O2' 'FCFLAGS= -g -O2 -fdebug-prefix-map=/build/mpich-O9at2o/mpich-3.3~a2=. -fstack-protector-strong -O2' 'build_alias=x86_64-linux-gnu' 'MPICHLIB_CFLAGS=-g -O2 -fdebug-prefix-map=/build/mpich-O9at2o/mpich-3.3~a2=. -fstack-protector-strong -Wformat -Werror=format-security' 'MPICHLIB_CPPFLAGS=-Wdate-time -D_FORTIFY_SOURCE=2' 'MPICHLIB_CXXFLAGS=-g -O2 -fdebug-prefix-map=/build/mpich-O9at2o/mpich-3.3~a2=. -fstack-protector-strong -Wformat -Werror=format-security' 'MPICHLIB_FFLAGS=-g -O2 -fdebug-prefix-map=/build/mpich-O9at2o/mpich-3.3~a2=. -fstack-protector-strong' 'MPICHLIB_FCFLAGS=-g -O2 -fdebug-prefix-map=/build/mpich-O9at2o/mpich-3.3~a2=. -fstack-protector-strong' 'LDFLAGS=-Wl,-Bsymbolic-functions -Wl,-z,relro' 'FC=gfortran' 'F77=gfortran' 'MPILIBNAME=mpich' '--cache-file=/dev/null' '--srcdir=.' 'CC=gcc' 'LIBS=' 'MPLLIBNAME=mpl'\n"
+              "    Process Manager:                         pmi\n"
+              "    Launchers available:                     ssh rsh fork slurm ll lsf sge manual persist\n"
+              "    Topology libraries available:            hwloc\n"
+              "    Resource management kernels available:   user slurm ll lsf sge pbs cobalt\n"
+              "    Checkpointing libraries available:       blcr\n"
+              "    Demux engines available:                 poll select\n"), _MPICH_IMPL)
+
+        test("Unknown MPI v1.00", _UNKNOWN_IMPL)
+
+        execute = MagicMock(return_value=("output", 1))
+        impl = _get_mpi_implementation(execute=execute)
+        self.assertEqual(_MISSING_IMPL, impl)
+
+        execute = MagicMock(return_value=None)
+        impl = _get_mpi_implementation(execute=execute)
+        self.assertEqual(_MISSING_IMPL, impl)
+
     def test_run_controller(self):
         def test(use_gloo, use_mpi, use_js, gloo_is_built, mpi_is_built, js_is_installed, expected, exception):
             print('testing run controller with gloo={gloo} mpi={mpi} js={js} '
@@ -309,7 +349,7 @@ class RunTests(unittest.TestCase):
     Tests mpi_run with minimal settings.
     """
     def test_mpi_run_minimal(self):
-        if not _mpi_available():
+        if not mpi_available():
             self.skipTest("MPI is not available")
 
         cmd = ['cmd']
@@ -333,7 +373,7 @@ class RunTests(unittest.TestCase):
     Tests mpi_run on a large cluster.
     """
     def test_mpi_run_on_large_cluster(self):
-        if not _mpi_available():
+        if not mpi_available():
             self.skipTest("MPI is not available")
 
         cmd = ['cmd']
@@ -360,7 +400,7 @@ class RunTests(unittest.TestCase):
     Tests mpi_run with full settings.
     """
     def test_mpi_run_full(self):
-        if not _mpi_available():
+        if not mpi_available():
             self.skipTest("MPI is not available")
 
         cmd = ['cmd', 'arg1', 'arg2']
@@ -403,7 +443,7 @@ class RunTests(unittest.TestCase):
         run_func.assert_called_once_with(command=expected_command, env=expected_env, stdout=stdout, stderr=stderr)
 
     def test_mpi_run_with_non_zero_exit(self):
-        if not _mpi_available():
+        if not mpi_available():
             self.skipTest("MPI is not available")
 
         cmd = ['cmd']

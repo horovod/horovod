@@ -24,7 +24,7 @@ import shutil
 import sys
 import tempfile
 
-from mock import patch
+import mock
 
 
 def mpi_env_rank_and_size():
@@ -110,16 +110,32 @@ def override_env(env):
 def is_built(gloo_is_built, mpi_is_built):
     """
     Patches the gloo_built and mpi_built methods called from horovod.run.run.run_controller
-    to return the given booleans.
+    to return the given booleans. That method is used by horovod.spark.run to determine which
+    controller to use. Patching these methods allows to test horovod.spark.run without an MPI
+    implementation to be installed.
+
     :param gloo_is_built: boolean returned by gloo_built
     :param mpi_is_built: boolean returned by mpi_built
-    :return: patched context manager
+    :return: mocked gloo_built and mpi_built methods
     """
-    with patch(target="horovod.run.run.gloo_built") as gloo_built_mock:
-        gloo_built_mock.return_value = gloo_is_built
-        with patch(target="horovod.run.run.mpi_built") as mpi_built_mock:
-            mpi_built_mock.return_value = mpi_is_built
-            yield
+    with mock.patch("horovod.run.run.gloo_built", return_value=gloo_is_built) as g:
+        with mock.patch("horovod.run.run.mpi_built", return_value=mpi_is_built) as m:
+            yield g, m
+
+
+@contextlib.contextmanager
+def mpi_implementation_flags(flags=["--mock-mpi-impl-flags"],
+                             binding_args=["--mock-mpi-binding-args"]):
+    """
+    Patches the _get_mpi_implementation_flags method used by horovod.run.mpi_run to retrieve
+    MPI implementation specific command line flags. Patching this method allows to test mpi_run
+    without an MPI implementation to be installed.
+
+    :param flags: mock flags
+    :return: the mocked method
+    """
+    with mock.patch("horovod.run.mpi_run._get_mpi_implementation_flags", return_value=(flags, binding_args)) as m:
+        yield m
 
 
 @contextlib.contextmanager
@@ -128,10 +144,8 @@ def js_installed(js_is_installed):
     Patches the lsf.LSFUtils.using_lsf and is_jsrun_installed methods called from
     horovod.run.run.run_controller to return the given booleans.
     :param js_is_installed: boolean returned by lsf.LSFUtils.using_lsf and is_jsrun_installed
-    :return: patched context manager
+    :return: mocked methods
     """
-    with patch(target="horovod.run.run.lsf.LSFUtils.using_lsf") as using_lsf_mock:
-        using_lsf_mock.return_value = js_is_installed
-        with patch(target="horovod.run.run.is_jsrun_installed") as is_jsrun_installed_mock:
-            is_jsrun_installed_mock.return_value = js_is_installed
-            yield
+    with mock.patch("horovod.run.run.lsf.LSFUtils.using_lsf", return_value=js_is_installed) as u:
+        with mock.patch("horovod.run.run.is_jsrun_installed", return_value=js_is_installed) as i:
+            yield u, i

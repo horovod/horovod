@@ -28,9 +28,9 @@ import warnings
 from distutils.version import LooseVersion
 
 import mock
+from mock import MagicMock
 import torch
 
-from mock import MagicMock
 
 import pyspark
 
@@ -43,7 +43,7 @@ import horovod.torch as hvd
 
 from horovod.common.util import gloo_built, mpi_built
 from horovod.run.common.util import secret
-from horovod.run.mpi_run import _get_mpi_implementation_flags
+from horovod.run.mpi_run import is_open_mpi
 from horovod.spark.common import constants, util
 from horovod.spark.common.store import HDFSStore
 from horovod.spark.task import get_available_devices
@@ -51,7 +51,7 @@ from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient
 
 from spark_common import spark_session, create_test_data_from_schema, create_xor_data, local_store
 
-from common import tempdir, override_env, is_built
+from common import is_built, mpi_implementation_flags, tempdir, override_env
 
 
 # Spark will fail to initialize correctly locally on Mac OS without this
@@ -79,8 +79,8 @@ class SparkTests(unittest.TestCase):
     Test that horovod.spark.run works properly in a simple setup using MPI.
     """
     def test_happy_run_with_mpi(self):
-        if not mpi_built():
-            self.skipTest("MPI is not available")
+        if not (mpi_built() and is_open_mpi()):
+            self.skipTest("Open MPI is not available")
 
         self.do_test_happy_run(use_mpi=True, use_gloo=False)
 
@@ -112,12 +112,18 @@ class SparkTests(unittest.TestCase):
     Test that horovod.spark.run times out when it does not start up fast enough using MPI.
     """
     def test_timeout_with_mpi(self):
+        if not (mpi_built() and is_open_mpi()):
+            self.skipTest("Open MPI is not available")
+
         self.do_test_timeout(use_mpi=True, use_gloo=False)
 
     """
     Test that horovod.spark.run times out when it does not start up fast enough using Gloo.
     """
     def test_timeout_with_gloo(self):
+        if not gloo_built():
+            self.skipTest("Gloo is not available")
+
         self.do_test_timeout(use_mpi=False, use_gloo=True)
 
     """
@@ -141,15 +147,17 @@ class SparkTests(unittest.TestCase):
         start = time.time()
         with spark_session('test_mpirun_not_found'):
             with is_built(gloo_is_built=False, mpi_is_built=True):
-                with pytest.raises(Exception, match='^mpirun failed with exit code 127$'):
-                    horovod.spark.run(None, env={'PATH': '/nonexistent'}, verbose=0)
+                with mpi_implementation_flags():
+                    with pytest.raises(Exception, match='^mpirun failed with exit code 127$'):
+                        horovod.spark.run(None, env={'PATH': '/nonexistent'}, verbose=0)
         self.assertLessEqual(time.time() - start, 10, 'Failure propagation took too long')
 
     """
     Test that horovod.spark.run uses MPI properly.
     """
     def test_spark_run_func_with_mpi(self):
-        self.do_test_spark_run_func(use_mpi=True, use_gloo=False)
+        with mpi_implementation_flags():
+            self.do_test_spark_run_func(use_mpi=True, use_gloo=False)
 
     """
     Test that horovod.spark.run uses Gloo properly.
@@ -174,7 +182,8 @@ class SparkTests(unittest.TestCase):
     Test that horovod.spark.run defaults num_proc to spark parallelism using MPI.
     """
     def test_spark_run_func_defaults_num_proc_to_spark_cores_with_mpi(self):
-        self.do_test_spark_run_func_defaults_num_proc_to_spark_cores(use_mpi=True, use_gloo=False)
+        with mpi_implementation_flags():
+            self.do_test_spark_run_func_defaults_num_proc_to_spark_cores(use_mpi=True, use_gloo=False)
 
     """
     Test that horovod.spark.run defaults num_proc to spark parallelism using Gloo.
@@ -193,7 +202,8 @@ class SparkTests(unittest.TestCase):
     Test that horovod.spark.run defaults env to the full system env using MPI.
     """
     def test_spark_run_func_defaults_env_to_os_env_with_mpi(self):
-        self.do_test_spark_run_func_defaults_env_to_os_env(use_mpi=True, use_gloo=False)
+        with mpi_implementation_flags():
+            self.do_test_spark_run_func_defaults_env_to_os_env(use_mpi=True, use_gloo=False)
 
     """
     Test that horovod.spark.run defaults env to the full system env using Gloo.
@@ -218,8 +228,9 @@ class SparkTests(unittest.TestCase):
     def test_spark_run_func_with_non_zero_exit_with_mpi(self):
         run_func = MagicMock(return_value=1)
         expected = '^mpirun failed with exit code 1$'
-        self.do_test_spark_run_func_with_non_zero_exit(use_mpi=True, use_gloo=False,
-                                                       run_func=run_func, expected=expected)
+        with mpi_implementation_flags():
+            self.do_test_spark_run_func_with_non_zero_exit(use_mpi=True, use_gloo=False,
+                                                           run_func=run_func, expected=expected)
 
     """
     Test that horovod.spark.run raises an exception on non-zero exit code of mpi_run using Gloo.
@@ -302,7 +313,8 @@ class SparkTests(unittest.TestCase):
         self.assertEqual(stdout, actual_stdout)
         self.assertEqual(stderr, actual_stderr)
 
-        mpi_flags, binding_args = _get_mpi_implementation_flags(False)
+        # call the possibly mocked _get_mpi_implementation_flags method
+        mpi_flags, binding_args = horovod.run.mpi_run._get_mpi_implementation_flags(False)
         self.assertIsNotNone(mpi_flags)
         expected_command = ('mpirun '
                             '--allow-run-as-root --tag-output '
