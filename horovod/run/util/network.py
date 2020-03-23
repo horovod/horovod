@@ -1,9 +1,26 @@
-import socket
+# Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the 'License');
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an 'AS IS' BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 import psutil
 import random
+import socket
+
+from socket import AF_INET
+from psutil import net_if_addrs
 
 from horovod.run.util import threads
-
 
 def _get_local_host_addresses():
     local_addresses = []
@@ -59,3 +76,22 @@ def find_port(server_factory):
             pass
 
     raise Exception('Unable to find a port to bind to.')
+
+
+def _get_driver_ip(common_intfs):
+    """
+    :param common_intfs: object return by `_driver_fn`
+    :return: driver ip. We make sure all workers can connect to this ip.
+    """
+    iface = list(common_intfs)[0]
+    driver_ip = None
+    for addr in net_if_addrs()[iface]:
+        if addr.family == AF_INET:
+            driver_ip = addr.address
+
+    if not driver_ip:
+        raise RuntimeError(
+            'Cannot find an IPv4 address of the common interface.')
+
+    return driver_ip
+
