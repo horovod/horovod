@@ -196,3 +196,5 @@ RUN sed -i "s/x = Dense(500,/x = Dense(50,/g" /horovod/examples/keras_spark_ross
 # Hack Keras Spark Rossmann Estimator example to be smaller.
 RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/keras_spark_rossmann_estimator.py
 RUN sed -i "s/x = Dense(500,/x = Dense(50,/g" /horovod/examples/keras_spark_rossmann_estimator.py
+
+RUN pip list
