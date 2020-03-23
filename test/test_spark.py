@@ -82,10 +82,11 @@ class SparkTests(unittest.TestCase):
     def run(self, result=None):
         if os.environ.get('OMPI_COMM_WORLD_RANK', '0') != '0':
             # Running in MPI as a rank > 0, ignore.
+            # Purposefully skip these silently
             return
 
         if 'Open MPI' not in str(subprocess.check_output('mpirun --version', shell=True)):
-            return
+            self.skipTest("Open MPI not available")
 
         super(SparkTests, self).run(result)
 

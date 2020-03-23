@@ -99,7 +99,7 @@ def js_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_f
         os.execve('/bin/sh', ['/bin/sh', '-c', jsrun_command], env)
 
 
-def generate_jsrun_rankfile(settings):
+def generate_jsrun_rankfile(settings, path=None):
     """
     Generates rankfile to use with jsrun.
     It splits the cores among the processes, which leads to best performance according to experiments.
@@ -107,6 +107,8 @@ def generate_jsrun_rankfile(settings):
     Args:
         settings: Settings for running jsrun.
                   Note: settings.num_proc and settings.hosts must not be None.
+        path: Optional path of the rankfile.
+              Note: this file will be overwritten.
     """
     cpu_per_gpu = (lsf.LSFUtils.get_num_cores() * lsf.LSFUtils.get_num_threads()) // lsf.LSFUtils.get_num_gpus()
     host_list = (x.split(':') for x in settings.hosts.split(','))
@@ -130,8 +132,8 @@ def generate_jsrun_rankfile(settings):
             slots=settings.num_proc))
 
     # Generate rankfile
-    fd, path = tempfile.mkstemp()
-    with os.fdopen(fd, 'w') as tmp:
+    path = tempfile.mktemp() if path is None else path
+    with open(path, 'w') as tmp:
         tmp.write('overlapping_rs: allow\n')
         tmp.write('cpu_index_using: logical\n')
         rank = 0
