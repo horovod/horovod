@@ -25,13 +25,13 @@ import unittest
 import warnings
 
 import pytest
-from mock import MagicMock
+from mock import MagicMock, patch
 
 from horovod.run.common.util import config_parser, secret, settings as hvd_settings, timeout
 from horovod.run.common.util.host_hash import _hash, host_hash
 from horovod.run.mpi_run import _get_mpi_implementation_flags, _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_run
 from horovod.run.run import parse_args, parse_host_files
-
+from horovod.run.js_run import js_run, generate_jsrun_rankfile
 
 @contextlib.contextmanager
 def override_args(tool=None, *args):
@@ -294,7 +294,7 @@ class RunTests(unittest.TestCase):
         mpi_flags, binding_args = _get_mpi_implementation_flags(False)
         self.assertIsNotNone(mpi_flags)
         mpi_flags.append('-mca plm_rsh_no_tree_spawn true')
-        mpi_flags.append('-mca plm_rsh_num_concurrent 2')
+        mpi_flags.append('-mca plm_rsh_num_concurrent {}'.format(settings.num_hosts))
         expected_cmd = ('mpirun '
                         '--allow-run-as-root --tag-output '
                         '-np 2 -H host '
@@ -369,3 +369,73 @@ class RunTests(unittest.TestCase):
 
         hosts = parse_host_files(host_filename)
         self.assertEqual(hosts, '172.31.32.7:8,172.31.33.9:8')
+
+    """
+    Tests js_run.
+    """
+    @patch('horovod.run.js_run.is_jsrun_installed', MagicMock(return_value=True))
+    @patch('horovod.run.js_run.generate_jsrun_rankfile', MagicMock(return_value='/tmp/rankfile'))
+    @patch('horovod.run.util.lsf.LSFUtils.get_num_gpus', MagicMock(return_value=2))
+    @patch('horovod.run.util.lsf.LSFUtils.get_num_cores', MagicMock(return_value=2))
+    def test_js_run(self):
+        if _get_mpi_implementation_flags(False)[0] is None:
+            self.skipTest("MPI is not available")
+
+        cmd = ['cmd', 'arg1', 'arg2']
+        env = {'env1': 'val1', 'env2': 'val2'}
+        stdout = '<stdout>'
+        stderr = '<stderr>'
+        settings = hvd_settings.Settings(
+            verbose=0,
+            extra_mpi_args='>mpi-extra args go here<',
+            num_hosts=2,
+            num_proc=4,
+            hosts='>host names go here<',
+            output_filename='>output filename goes here<',
+            run_func_mode=True
+        )
+        run_func = MagicMock(return_value=0)
+
+        js_run(settings, None, env, cmd, stdout=stdout, stderr=stderr, run_func=run_func)
+
+        mpi_flags, _ = _get_mpi_implementation_flags(False)
+        self.assertIsNotNone(mpi_flags)
+        expected_command = ('jsrun '
+                            '--erf_input /tmp/rankfile '
+                            '--stdio_stderr >output filename goes here< '
+                            '--stdio_stdout >output filename goes here< '
+                            '--smpiargs \'{mpi_args} >mpi-extra args go here<\' '
+                            'cmd arg1 arg2').format(mpi_args=' '.join(mpi_flags))
+        expected_env = {'env1': 'val1', 'env2': 'val2'}
+        run_func.assert_called_once_with(command=expected_command, env=expected_env, stdout=stdout, stderr=stderr)
+
+    """
+    Tests generate_jsrun_rankfile.
+    """
+    @patch('horovod.run.util.lsf.LSFUtils.get_num_gpus', MagicMock(return_value=4))
+    @patch('horovod.run.util.lsf.LSFUtils.get_num_cores', MagicMock(return_value=4))
+    @patch('horovod.run.util.lsf.LSFUtils.get_num_threads', MagicMock(return_value=4))
+    def test_generate_jsrun_rankfile(self):
+        settings = hvd_settings.Settings(
+            num_proc=5,
+            hosts='host1:4,host2:4,host3:4',
+        )
+
+        rankfile_path = generate_jsrun_rankfile(settings)
+
+        with open(rankfile_path, 'r') as file:
+            gen_rankfile = file.read()
+
+        expected_rankfile = (
+"""overlapping_rs: allow
+cpu_index_using: logical
+
+rank: 0: { hostname: host1; cpu: {0-3} ; gpu: * ; mem: * }
+rank: 1: { hostname: host1; cpu: {4-7} ; gpu: * ; mem: * }
+rank: 2: { hostname: host1; cpu: {8-11} ; gpu: * ; mem: * }
+rank: 3: { hostname: host1; cpu: {12-15} ; gpu: * ; mem: * }
+
+rank: 4: { hostname: host2; cpu: {0-3} ; gpu: * ; mem: * }
+""")
+
+        self.assertMultiLineEqual(gen_rankfile, expected_rankfile)

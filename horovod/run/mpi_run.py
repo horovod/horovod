@@ -18,12 +18,12 @@ import six
 import traceback
 import sys
 import os
-from horovod.run.common.util import env as env_util, safe_shell_exec, secret, codec
+from horovod.run.common.util import env as env_util, safe_shell_exec
 
 # Open MPI Flags
 _OMPI_FLAGS = ['-mca pml ob1', '-mca btl ^openib']
 # Spectrum MPI Flags
-_SMPI_FLAGS = ['-gpu']
+_SMPI_FLAGS = []
 _SMPI_FLAGS_TCP = ['-tcp']
 # MPICH Flags
 _MPICH_FLAGS = []
@@ -33,6 +33,16 @@ _LARGE_CLUSTER_THRESHOLD = 64
 _NO_BINDING_ARGS = ['-bind-to none', '-map-by slot']
 # Process socket binding args
 _SOCKET_BINDING_ARGS = ['-bind-to socket', '-map-by socket', '-rank-by core']
+
+# MPI not found error message
+_MPI_NOT_FOUND_ERROR_MSG= ('horovodrun convenience script does not find an installed MPI.\n\n'
+                           'Choose one of:\n'
+                           '1. Install Open MPI 4.0.0+ or IBM Spectrum MPI or MPICH and re-install Horovod '
+                           '(use --no-cache-dir pip option).\n'
+                           '2. Run distributed '
+                           'training script using the standard way provided by your'
+                           ' MPI distribution (usually mpirun, srun, or jsrun).\n'
+                           '3. Use built-in gloo option (horovodrun --gloo ...).')
 
 try:
     from shlex import quote
@@ -88,15 +98,7 @@ def mpi_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_
     """
     mpi_impl_flags, impl_binding_args = _get_mpi_implementation_flags(settings.tcp_flag)
     if mpi_impl_flags is None:
-        raise Exception(
-            'horovodrun convenience script does not find an installed MPI.\n\n'
-            'Choose one of:\n'
-            '1. Install Open MPI 4.0.0+ or IBM Spectrum MPI or MPICH and re-install Horovod '
-            '(use --no-cache-dir pip option).\n'
-            '2. Run distributed '
-            'training script using the standard way provided by your'
-            ' MPI distribution (usually mpirun, srun, or jsrun).\n'
-            '3. Use built-in gloo option (horovodrun --gloo ...).')
+        raise Exception(_MPI_NOT_FOUND_ERROR_MSG)
 
     ssh_port_arg = '-mca plm_rsh_args \"-p {ssh_port}\"'.format(
             ssh_port=settings.ssh_port) if settings.ssh_port else ''
@@ -113,7 +115,7 @@ def mpi_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_
     # On large cluster runs (e.g. Summit), we need extra settings to work around OpenMPI issues
     if settings.num_hosts and settings.num_hosts >= _LARGE_CLUSTER_THRESHOLD:
         mpi_impl_flags.append('-mca plm_rsh_no_tree_spawn true')
-        mpi_impl_flags.append('-mca plm_rsh_num_concurrent {}'.format(settings.num_proc))
+        mpi_impl_flags.append('-mca plm_rsh_num_concurrent {}'.format(settings.num_hosts))
 
     binding_args = settings.binding_args if settings.binding_args else ' '.join(impl_binding_args)
 

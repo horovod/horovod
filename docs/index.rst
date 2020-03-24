@@ -119,6 +119,8 @@ Guides
 
    spark_include
 
+   lsf_include
+
    tensor-fusion_include
 
    timeline_include
