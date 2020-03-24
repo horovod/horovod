@@ -114,6 +114,7 @@ def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=No
 
     run_controller(use_gloo, lambda: gloo_run(settings, common_intfs, driver, env, run_func),
                    use_mpi, lambda: mpi_run(settings, common_intfs, driver, env, stdout, stderr, run_func),
+                   False, lambda: None,
                    settings.verbose)
 
 
