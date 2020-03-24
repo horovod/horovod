@@ -76,7 +76,7 @@ Horovod features like gradient compression:
 
 .. code-block:: bash
 
-    $ horovodrun -np 4 server1:2,server2:2 \
+    $ horovodrun -np 4 -H server1:2,server2:2 \
         python --fp16-allreduce tensorflow2_synthetic_benchmark.py
 
 When diagnosing performance issues, we recommend running these synthetic benchmarks first to ensure that the issues are
