@@ -63,9 +63,7 @@ class TFKerasUtil(object):
         def fn(reader, shuffle_buffer_size, shuffle=False):
             from petastorm.tf_utils import make_petastorm_dataset
 
-            dataset = make_petastorm_dataset(reader) \
-                .apply(tf.data.experimental.unbatch())
-
+            dataset = make_petastorm_dataset(reader)
             if shuffle:
                 dataset = dataset.shuffle(shuffle_buffer_size)
 
