@@ -119,7 +119,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, extra_mpi_arg
         stdout: Horovod stdout is redirected to this stream. Defaults to sys.stdout.
         stderr: Horovod stderr is redirected to this stream. Defaults to sys.stderr.
         verbose: Debug output verbosity (0-2). Defaults to 1.
-        nics: comma separated list of NICs for tcp network communication.
+        nics: List of NICs for tcp network communication.
         run_func: Run function to use. Must have arguments 'command', 'env', 'stdout', 'stderr'.
                   Defaults to safe_shell_exec.execute.
 
@@ -130,6 +130,10 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, extra_mpi_arg
     if start_timeout is None:
         # Lookup default timeout from the environment variable.
         start_timeout = int(os.getenv('HOROVOD_SPARK_START_TIMEOUT', '600'))
+
+    # nics needs to be a set
+    if not isinstance(nics, set):
+        nics = set(nics)
 
     tmout = timeout.Timeout(start_timeout,
                             message='Timed out waiting for {activity}. Please check that you have '

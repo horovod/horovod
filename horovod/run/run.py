@@ -666,7 +666,6 @@ def _launch_job(args, remote_host_names, settings, nics, command):
         if not gloo_built(verbose=(settings.verbose >= 2)):
             raise ValueError('Gloo support has not been built.  If this is not expected, ensure CMake is installed '
                              'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
-
         gloo_run(settings, remote_host_names, nics, env, network._get_driver_ip(nics), command)
     elif args.use_mpi:
         if not mpi_built(verbose=(settings.verbose >= 2)):
