@@ -141,11 +141,10 @@ class MPITests(tf.test.TestCase):
             elif size < 15:
                 threshold = 5e-4
             else:
-                break
+                self.skipTest("Horovod cluster too large for precise multiplication comparison")
 
             diff = self.evaluate(max_difference)
-            self.assertTrue(diff <= threshold,
-                            "hvd.allreduce produces incorrect results")
+            self.assertTrue(diff <= threshold, "hvd.allreduce produces incorrect results")
 
     def test_horovod_allreduce_cpu_fused(self):
         """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors
@@ -172,7 +171,7 @@ class MPITests(tf.test.TestCase):
             elif size < 15:
                 threshold = 5e-4
             else:
-                break
+                self.skipTest("Horovod cluster too large for precise multiplication comparison")
 
             test = max_difference <= threshold
             tests.append(test)
@@ -183,11 +182,11 @@ class MPITests(tf.test.TestCase):
         """Test that the allreduce works on GPUs."""
         # Only do this test if there are GPUs available.
         if not tf.test.is_gpu_available(cuda_only=True):
-            return
+            self.skipTest(("No GPUs available"))
 
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
             # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
-            return
+            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
 
         hvd.init()
         local_rank = hvd.local_rank()
@@ -212,11 +211,10 @@ class MPITests(tf.test.TestCase):
             elif size < 15:
                 threshold = 5e-4
             else:
-                return
+                self.skipTest("Horovod cluster too large for precise multiplication comparison")
 
             diff = self.evaluate(max_difference)
-            self.assertTrue(diff <= threshold,
-                            "hvd.allreduce on GPU produces incorrect results")
+            self.assertTrue(diff <= threshold, "hvd.allreduce on GPU produces incorrect results")
 
     def test_horovod_allreduce_gpu_fused(self):
         """Test that the allreduce works on GPUs with Tensor Fusion.
@@ -226,11 +224,11 @@ class MPITests(tf.test.TestCase):
         a GPU data pointer."""
         # Only do this test if there are GPUs available.
         if not tf.test.is_gpu_available(cuda_only=True):
-            return
+            self.skipTest(("No GPUs available"))
 
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
             # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
-            return
+            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
 
         hvd.init()
         local_rank = hvd.local_rank()
@@ -256,7 +254,7 @@ class MPITests(tf.test.TestCase):
             elif size < 15:
                 threshold = 5e-4
             else:
-                return
+                self.skipTest("Horovod cluster too large for precise multiplication comparison")
 
             test = max_difference <= threshold
             tests.append(test)
@@ -271,11 +269,11 @@ class MPITests(tf.test.TestCase):
         a GPU data pointer."""
         # Only do this test if there are GPUs available.
         if not tf.test.is_gpu_available(cuda_only=True):
-            return
+            self.skipTest(("No GPUs available"))
 
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
             # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
-            return
+            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
 
         hvd.init()
         local_rank = hvd.local_rank()
@@ -303,7 +301,7 @@ class MPITests(tf.test.TestCase):
             elif size < 15:
                 threshold = 5e-4
             else:
-                return
+                self.skipTest("Horovod cluster too large for precise multiplication comparison")
 
             diff = self.evaluate(max_difference)
             self.assertTrue(diff <= threshold,
@@ -318,7 +316,7 @@ class MPITests(tf.test.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         # Same rank, different dimension
         dims = [17 + rank] * 3
@@ -344,7 +342,7 @@ class MPITests(tf.test.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         # Same rank, different dimension
         dims = [17] * 3
@@ -358,11 +356,11 @@ class MPITests(tf.test.TestCase):
         perform reduction on CPU and GPU."""
         # Only do this test if there are GPUs available.
         if not tf.test.is_gpu_available(cuda_only=True):
-            return
+            self.skipTest(("No GPUs available"))
 
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
             # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
-            return
+            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
 
         hvd.init()
         local_rank = hvd.local_rank()
@@ -370,7 +368,7 @@ class MPITests(tf.test.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         device = "/gpu:%d" % local_rank if local_rank % 2 == 0 else "/cpu:0"
         with tf.device(device):
@@ -418,11 +416,11 @@ class MPITests(tf.test.TestCase):
         """Test the correctness of the allreduce gradient on GPU."""
         # Only do this test if there are GPUs available.
         if not tf.test.is_gpu_available(cuda_only=True):
-            return
+            self.skipTest(("No GPUs available"))
 
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
             # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
-            return
+            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
 
         hvd.init()
         local_rank = hvd.local_rank()
@@ -654,7 +652,7 @@ class MPITests(tf.test.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         tensor_size = [17] * 3
         tensor_size[1] = 10 * (rank + 1)
@@ -671,7 +669,7 @@ class MPITests(tf.test.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         tensor_size = [17] * 3
         dtype = tf.int32 if rank % 2 == 0 else tf.float32
@@ -738,11 +736,11 @@ class MPITests(tf.test.TestCase):
         """Test the correctness of the allgather gradient on GPU."""
         # Only do this test if there are GPUs available.
         if not tf.test.is_gpu_available(cuda_only=True):
-            return
+            self.skipTest(("No GPUs available"))
 
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
-            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLGATHER.
-            return
+            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
+            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
 
         hvd.init()
         rank = hvd.rank()
@@ -806,7 +804,7 @@ class MPITests(tf.test.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
                   tf.int32, tf.int64, tf.float16, tf.float32,
@@ -832,11 +830,11 @@ class MPITests(tf.test.TestCase):
         """Test that the broadcast correctly broadcasts 1D, 2D, 3D tensors on GPU."""
         # Only do this test if there are GPUs available.
         if not tf.test.is_gpu_available(cuda_only=True):
-            return
+            self.skipTest(("No GPUs available"))
 
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
-            # Skip if compiled with CUDA but without HOROVOD_GPU_BROADCAST.
-            return
+            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
+            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
 
         hvd.init()
         rank = hvd.rank()
@@ -845,7 +843,7 @@ class MPITests(tf.test.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
                   tf.int32, tf.int64, tf.float16, tf.float32,
@@ -876,7 +874,7 @@ class MPITests(tf.test.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         tensor_size = [17] * 3
         tensor_size[1] = 10 * (rank + 1)
@@ -893,7 +891,7 @@ class MPITests(tf.test.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         tensor_size = [17] * 3
         dtype = tf.int32 if rank % 2 == 0 else tf.float32
@@ -910,7 +908,7 @@ class MPITests(tf.test.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         tensor = tf.ones([17] * 3, dtype=tf.float32)
         with self.assertRaises(tf.errors.FailedPreconditionError):
@@ -924,7 +922,7 @@ class MPITests(tf.test.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         # As of TensorFlow v1.9, gradients are not supported on
         # integer tensors
@@ -962,11 +960,11 @@ class MPITests(tf.test.TestCase):
         """Test the correctness of the broadcast gradient on GPU."""
         # Only do this test if there are GPUs available.
         if not tf.test.is_gpu_available(cuda_only=True):
-            return
+            self.skipTest(("No GPUs available"))
 
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
-            # Skip if compiled with CUDA but without HOROVOD_GPU_BROADCAST.
-            return
+            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
+            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
 
         hvd.init()
         rank = hvd.rank()
@@ -975,7 +973,7 @@ class MPITests(tf.test.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         # As of TensorFlow v1.9, gradients are not supported on
         # integer tensors
@@ -1014,7 +1012,7 @@ class MPITests(tf.test.TestCase):
         in eager execution mode. This call should raise a RuntimeError."""
 
         if not hvd.util._executing_eagerly():
-            return
+            self.skipTest("Only in eager execution mode")
 
         with self.assertRaises(RuntimeError):
             hvd.broadcast_global_variables(root_rank=0)
@@ -1024,7 +1022,7 @@ class MPITests(tf.test.TestCase):
         in graph execution mode. This call should not raise any exception."""
 
         if hvd.util._executing_eagerly():
-            return
+            self.skipTest("Not in eager execution mode")
 
         hvd.broadcast_global_variables(root_rank=0)
 

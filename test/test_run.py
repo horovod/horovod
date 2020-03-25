@@ -33,6 +33,9 @@ from horovod.run.mpi_run import _get_mpi_implementation_flags, _LARGE_CLUSTER_TH
 from horovod.run.run import parse_args, parse_host_files
 from horovod.run.js_run import js_run, generate_jsrun_rankfile
 
+from common import temppath
+
+
 @contextlib.contextmanager
 def override_args(tool=None, *args):
     old = sys.argv[:]
@@ -362,13 +365,13 @@ class RunTests(unittest.TestCase):
             mpi_run(settings, None, {}, cmd, run_func=run_func)
 
     def test_horovodrun_hostfile(self):
-        host_filename = '/tmp/hostfile'
-        with open(host_filename, 'w+') as fp:
-            fp.write('172.31.32.7 slots=8\n')
-            fp.write('172.31.33.9 slots=8\n')
+        with temppath() as host_filename:
+            with open(host_filename, 'w+') as fp:
+                fp.write('172.31.32.7 slots=8\n')
+                fp.write('172.31.33.9 slots=8\n')
 
-        hosts = parse_host_files(host_filename)
-        self.assertEqual(hosts, '172.31.32.7:8,172.31.33.9:8')
+            hosts = parse_host_files(host_filename)
+            self.assertEqual(hosts, '172.31.32.7:8,172.31.33.9:8')
 
     """
     Tests js_run.
@@ -421,12 +424,13 @@ class RunTests(unittest.TestCase):
             hosts='host1:4,host2:4,host3:4',
         )
 
-        rankfile_path = generate_jsrun_rankfile(settings)
+        with temppath() as rankfile_path:
+            rankfile_path = generate_jsrun_rankfile(settings, rankfile_path)
 
-        with open(rankfile_path, 'r') as file:
-            gen_rankfile = file.read()
+            with open(rankfile_path, 'r') as file:
+                gen_rankfile = file.read()
 
-        expected_rankfile = (
+            expected_rankfile = (
 """overlapping_rs: allow
 cpu_index_using: logical
 
@@ -438,4 +442,4 @@ rank: 3: { hostname: host1; cpu: {12-15} ; gpu: * ; mem: * }
 rank: 4: { hostname: host2; cpu: {0-3} ; gpu: * ; mem: * }
 """)
 
-        self.assertMultiLineEqual(gen_rankfile, expected_rankfile)
+            self.assertMultiLineEqual(gen_rankfile, expected_rankfile)

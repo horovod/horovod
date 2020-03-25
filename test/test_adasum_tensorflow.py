@@ -106,12 +106,13 @@ class MPITests(tf.test.TestCase):
         hvd.init()
         # TODO support non-MPI Adasum operation
         if not hvd.mpi_enabled():
-            return
+            self.skipTest("MPI not enabled")
 
         size = hvd.size()
         # TODO support testing with non-power 2 ranks
         if not is_power2(size):
-            return
+            self.skipTest("MPI rank is not power of 2")
+
         rank = hvd.rank()
         rank_tensors = []
         for _ in range(size):
@@ -138,19 +139,21 @@ class MPITests(tf.test.TestCase):
         hvd.init()
         # TODO support non-MPI Adasum operation
         if not hvd.mpi_enabled() or not hvd.gpu_available('tensorflow') or not hvd.nccl_built():
-            return
+            self.skipTest("MPI, GPU or NCCL not available")
+
         rank = hvd.rank()
         rank_tensors = []
         size = hvd.size()
         # TODO support testing with non-power 2 ranks
         if not is_power2(size):
-            return
+            self.skipTest("MPI rank is not power of 2")
 
         local_size = hvd.local_size()
 
         # Only run on homogeneous cluster
-        if(not hvd.is_homogeneous()):
-            return
+        if not hvd.is_homogeneous():
+            self.skipTest("Horovod cluster is not homogeneous")
+
         num_nodes = int(size / local_size)
         for _ in range(size):
             rank_tensors.append([np.random.random_sample((2,2)), np.random.random_sample((2,2))])

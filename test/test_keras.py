@@ -23,12 +23,12 @@ import keras
 from keras import backend as K
 
 import numpy as np
-import os
-import tempfile
 import tensorflow as tf
 import warnings
 
 import horovod.keras as hvd
+
+from common import temppath
 
 
 class KerasTests(tf.test.TestCase):
@@ -82,12 +82,11 @@ class KerasTests(tf.test.TestCase):
             y = np.random.random((1, 3, 3))
             model.train_on_batch(x, y)
 
-            _, fname = tempfile.mkstemp('.h5')
-            model.save(fname)
+            with temppath() as fname:
+                model.save(fname)
 
-            new_model = hvd.load_model(fname)
-            new_opt = new_model.optimizer
-            os.remove(fname)
+                new_model = hvd.load_model(fname)
+                new_opt = new_model.optimizer
 
             self.assertEqual(type(new_opt).__module__, 'horovod._keras')
             self.assertEqual(type(new_opt).__name__, 'RMSprop')
@@ -118,13 +117,12 @@ class KerasTests(tf.test.TestCase):
             y = np.random.random((1, 3, 3))
             model.train_on_batch(x, y)
 
-            _, fname = tempfile.mkstemp('.h5')
-            model.save(fname)
+            with temppath() as fname:
+                model.save(fname)
 
-            custom_optimizers = [TestOptimizer]
-            new_model = hvd.load_model(fname, custom_optimizers=custom_optimizers)
-            new_opt = new_model.optimizer
-            os.remove(fname)
+                custom_optimizers = [TestOptimizer]
+                new_model = hvd.load_model(fname, custom_optimizers=custom_optimizers)
+                new_opt = new_model.optimizer
 
             self.assertEqual(type(new_opt).__module__, 'horovod._keras')
             self.assertEqual(type(new_opt).__name__, 'TestOptimizer')
@@ -154,16 +152,15 @@ class KerasTests(tf.test.TestCase):
             y = np.random.random((1, 3, 3))
             model.train_on_batch(x, y)
 
-            _, fname = tempfile.mkstemp('.h5')
-            model.save(fname)
+            with temppath() as fname:
+                model.save(fname)
 
-            custom_objects = {
-                'TestOptimizer': lambda **kwargs: hvd.DistributedOptimizer(
-                    TestOptimizer(**kwargs))
-            }
-            new_model = hvd.load_model(fname, custom_objects=custom_objects)
-            new_opt = new_model.optimizer
-            os.remove(fname)
+                custom_objects = {
+                    'TestOptimizer': lambda **kwargs: hvd.DistributedOptimizer(
+                        TestOptimizer(**kwargs))
+                }
+                new_model = hvd.load_model(fname, custom_objects=custom_objects)
+                new_opt = new_model.optimizer
 
             self.assertEqual(type(new_opt).__module__, 'horovod._keras')
             self.assertEqual(type(new_opt).__name__, 'TestOptimizer')
@@ -186,49 +183,48 @@ class KerasTests(tf.test.TestCase):
 
             return model
 
-        with self.test_session(config=self.config) as sess:
-            K.set_session(sess)
+        with temppath() as fname:
+            with self.test_session(config=self.config) as sess:
+                K.set_session(sess)
 
-            model = create_model()
-
-            x = np.random.random((1, 3))
-            y = np.random.random((1, 3, 3))
-            model.train_on_batch(x, y)
-
-            if hvd.rank() == 0:
-                _, fname = tempfile.mkstemp('.h5')
-                model.save(fname)
-
-        K.clear_session()
-        with self.test_session(config=self.config) as sess:
-            K.set_session(sess)
-
-            if hvd.rank() == 0:
-                model = hvd.load_model(fname)
-                os.remove(fname)
-            else:
                 model = create_model()
 
-            def generator():
-                while 1:
-                    yield (x, y)
+                x = np.random.random((1, 3))
+                y = np.random.random((1, 3, 3))
+                model.train_on_batch(x, y)
 
-            if hvd.rank() == 0:
+                if hvd.rank() == 0:
+                    model.save(fname)
+
+            K.clear_session()
+            with self.test_session(config=self.config) as sess:
+                K.set_session(sess)
+
+                if hvd.rank() == 0:
+                    model = hvd.load_model(fname)
+                else:
+                    model = create_model()
+
+                def generator():
+                    while 1:
+                        yield (x, y)
+
+                if hvd.rank() == 0:
+                    self.assertEqual(len(model.optimizer.weights), 5)
+                else:
+                    self.assertEqual(len(model.optimizer.weights), 0)
+
+                # No assertions, we just need to verify that it doesn't hang
+                callbacks = [hvd.callbacks.BroadcastGlobalVariablesCallback(0)]
+                model.fit_generator(generator(),
+                                    steps_per_epoch=10,
+                                    callbacks=callbacks,
+                                    epochs=0,
+                                    verbose=0,
+                                    workers=4,
+                                    initial_epoch=1)
+
                 self.assertEqual(len(model.optimizer.weights), 5)
-            else:
-                self.assertEqual(len(model.optimizer.weights), 0)
-
-            # No assertions, we just need to verify that it doesn't hang
-            callbacks = [hvd.callbacks.BroadcastGlobalVariablesCallback(0)]
-            model.fit_generator(generator(),
-                                steps_per_epoch=10,
-                                callbacks=callbacks,
-                                epochs=0,
-                                verbose=0,
-                                workers=4,
-                                initial_epoch=1)
-
-            self.assertEqual(len(model.optimizer.weights), 5)
 
     def _check_optimizer_weights(self, opt, new_opt):
         self.assertEqual(len(opt.get_weights()), len(new_opt.get_weights()))
