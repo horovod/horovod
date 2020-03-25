@@ -69,8 +69,9 @@ class SparkTests(unittest.TestCase):
         warnings.simplefilter('module')
 
     def run(self, result=None):
-        if os.environ.get('OMPI_COMM_WORLD_RANK', '0') != '0':
-            # Running in MPI as a rank > 0, ignore.
+        if int(os.getenv('OMPI_COMM_WORLD_RANK', 0)) != 0 or int(os.getenv('HOROVOD_RANK', 0)) != 0:
+            # Running in MPI or Gloo with rank > 0, ignore.
+            # Purposefully skip these silently
             return
 
         super(SparkTests, self).run(result)
