@@ -50,7 +50,8 @@ class TorchAdasumTests(unittest.TestCase):
     # TODO support non-MPI Adasum operation
     # Only do this test if there are GPUs available.
     if not hvd.mpi_enabled() or not torch.cuda.is_available():
-      return
+      self.skipTest("No GPUs available")
+
     device = torch.device('cuda:{}'.format(hvd.local_rank()))
     np.random.seed(2)
     torch.manual_seed(2)
@@ -96,7 +97,7 @@ class TorchAdasumTests(unittest.TestCase):
     # TODO support non-MPI Adasum operation
     # Only do this test if there are GPUs available.
     if not hvd.mpi_enabled() or not torch.cuda.is_available():
-      return
+      self.skipTest("No GPUs available")
 
     device = torch.device('cuda:{}'.format(hvd.local_rank()))
     np.random.seed(2)
@@ -142,7 +143,8 @@ class TorchAdasumTests(unittest.TestCase):
     hvd.init()
     # TODO support non-MPI Adasum operation
     if not hvd.mpi_enabled():
-      return
+      self.skipTest("MPI not enabled")
+
     device = torch.device('cuda:{}'.format(hvd.local_rank())) if torch.cuda.is_available() else torch.device('cpu')
     np.random.seed(2)
     torch.manual_seed(2)
@@ -176,7 +178,8 @@ class TorchAdasumTests(unittest.TestCase):
     hvd.init()
     # TODO support non-MPI Adasum operation
     if not hvd.mpi_enabled():
-      return
+      self.skipTest("MPI not enabled")
+
     device = torch.device('cuda:{}'.format(hvd.local_rank())) if torch.cuda.is_available() else torch.device('cpu')
     np.random.seed(2)
     torch.manual_seed(2)
