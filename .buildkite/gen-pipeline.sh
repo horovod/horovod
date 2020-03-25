@@ -237,9 +237,11 @@ run_spark_integration() {
         ":spark: Spark Keras Rossmann Estimator (${test})" \
         "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01\""
 
-      run_test "${test}" "${queue}" \
-        ":spark: PyTests Spark Estimators (${test})" \
-        "bash -c \"cd /horovod/test && pytest --forked -v --capture=no test_spark_keras.py test_spark_torch.py\""
+      if [[ ${test} != *-gloo* ]] || [[ ${queue} != *gpu* ]]; then
+        run_test "${test}" "${queue}" \
+          ":spark: PyTests Spark Estimators (${test})" \
+          "bash -c \"cd /horovod/test && pytest --forked -v --capture=no test_spark_keras.py test_spark_torch.py\""
+      fi
 
       run_test "${test}" "${queue}" \
         ":spark: Spark Keras MNIST (${test})" \
