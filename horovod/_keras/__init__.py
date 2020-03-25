@@ -20,7 +20,7 @@ import tensorflow as tf
 def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sparse,
                                  compression, sparse_as_dense):
     class _DistributedOptimizer(keras.optimizers.Optimizer):
-        _HAS_ALL_REDUCE_SUM_GRAD = True
+        _HAS_AGGREGATE_GRAD = True
 
         def __init__(self, **kwargs):
             self._name = name or "Distributed%s" % self.__class__.__base__.__name__
