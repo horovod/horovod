@@ -113,15 +113,14 @@ def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=No
         env = os.environ.copy()
 
     run_controller(use_gloo, lambda: gloo_run(settings, nics, driver, env, run_func),
-                   use_mpi, lambda: mpi_run(settings, nics, driver, env, stdout, stderr, run_func),
+                   use_mpi, lambda: mpi_run(settings, nics, driver, env, stdout, stderr),
                    False, lambda: None,
                    settings.verbose)
 
 
 def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
         use_mpi=None, use_gloo=None, extra_mpi_args=None,
-        env=None, stdout=None, stderr=None, verbose=1, nics=None,
-        run_func=None):
+        env=None, stdout=None, stderr=None, verbose=1, nics=None):
     """
     Runs Horovod in Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
 
@@ -139,8 +138,6 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
         stderr: Horovod stderr is redirected to this stream. Defaults to sys.stderr.
         verbose: Debug output verbosity (0-2). Defaults to 1.
         nics: List of NICs for tcp network communication.
-        run_func: Run function to use. Must have arguments 'command', 'env', 'stdout', 'stderr'.
-                  Defaults to safe_shell_exec.execute.
 
     Returns:
         List of results returned by running `fn` on each rank.
@@ -222,7 +219,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
         driver.set_ranks_to_indices(ranks_to_indices)
 
         # Run the job
-        _launch_job(use_mpi, use_gloo, settings, driver, env, stdout, stderr, run_func)
+        _launch_job(use_mpi, use_gloo, settings, driver, env, stdout, stderr)
     except:
         # Terminate Spark job.
         spark_context.cancelJobGroup(spark_job_group)
