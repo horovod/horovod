@@ -311,11 +311,13 @@ def _pin_cpu_tensorflow1_fn():
         keras.backend.set_session(tf.Session(config=config))
     return fn
 
+
 def _make_reader_fn():
-    from petastorm.reader import normalize_dataset_url, NullCache, LocalDiskCache, \
-        logger, dataset_metadata, get_filesystem_and_path_or_paths, PetastormMetadataError, \
+    from petastorm.reader import NullCache, LocalDiskCache, FilesystemResolver,\
+        logger, dataset_metadata, PetastormMetadataError, \
         ThreadPool, PyArrowSerializer, PickleSerializer, ProcessPool, DummyPool, Reader, \
         PyDictReaderWorker
+
     def make_reader(dataset_url,
                     schema_fields=None,
                     reader_pool_type='thread', workers_count=10, pyarrow_serialize=False,
@@ -334,10 +336,8 @@ def _make_reader_fn():
         Creates an instance of Reader for reading Petastorm datasets. A Petastorm dataset is a dataset generated using
         :func:`~petastorm.etl.dataset_metadata.materialize_dataset` context manager as explained
         `here <https://petastorm.readthedocs.io/en/latest/readme_include.html#generating-a-dataset>`_.
-
         See :func:`~petastorm.make_batch_reader` to read from a Parquet store that was not generated using
         :func:`~petastorm.etl.dataset_metadata.materialize_dataset`.
-
         :param dataset_url: an filepath or a url to a parquet directory,
             e.g. ``'hdfs://some_hdfs_cluster/user/yevgeni/parquet8'``, or ``'file:///tmp/mydataset'``,
             or ``'s3://bucket/mydataset'``, or ``'gs://bucket/mydataset'``.
@@ -384,9 +384,16 @@ def _make_reader_fn():
             generated with petastorm so it may not have the metadata file. Defaults to False.
         :return: A :class:`Reader` object
         """
-        dataset_url = normalize_dataset_url(dataset_url)
 
-        filesystem, dataset_path = get_filesystem_and_path_or_paths(dataset_url, hdfs_driver)
+        if dataset_url is None or not isinstance(dataset_url, six.string_types):
+            raise ValueError('dataset_url must be a string')
+
+        dataset_url = dataset_url[:-1] if dataset_url[-1] == '/' else dataset_url
+        logger.debug('dataset_url: %s', dataset_url)
+
+        resolver = FilesystemResolver(dataset_url, hdfs_driver=hdfs_driver)
+        filesystem = resolver.filesystem()
+        dataset_path = resolver.get_dataset_path()
 
         if cache_type is None or cache_type == 'null':
             cache = NullCache()
