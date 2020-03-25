@@ -132,7 +132,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, extra_mpi_arg
         start_timeout = int(os.getenv('HOROVOD_SPARK_START_TIMEOUT', '600'))
 
     # nics needs to be a set
-    if not isinstance(nics, set):
+    if nics and not isinstance(nics, set):
         nics = set(nics)
 
     tmout = timeout.Timeout(start_timeout,
