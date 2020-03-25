@@ -257,7 +257,7 @@ def parse_args():
     parser.add_argument('--network-interface', action='store', dest='nics',
                         help='Network interfaces that can be used for communication separated by '
                              'comma. If not specified, Horovod will find the common NICs among all '
-                             'the workers and use it; example, --network-interfac "eth0,eth1".')
+                             'the workers and use it; example, --network-interface "eth0,eth1".')
 
     parser.add_argument('--output-filename', action='store',
                         help='For Gloo, writes stdout / stderr of all processes to a filename of the form '
