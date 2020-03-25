@@ -259,7 +259,7 @@ def _launch_jobs(settings, env, host_alloc_plan, remote_host_names, _run_command
                                .format(name=name, code=exit_code))
 
 
-def gloo_run(settings, remote_host_names, common_intfs, env, server_ip, command):
+def gloo_run(settings, remote_host_names, nics, env, server_ip, command):
     # allocate processes into slots
     host_alloc_plan = _allocate(settings.hosts, settings.num_proc)
 
@@ -268,7 +268,7 @@ def gloo_run(settings, remote_host_names, common_intfs, env, server_ip, command)
     # Start rendezvous server and get port that it is listening
     global_rendezv_port = global_rendezv.start_server(host_alloc_plan)
 
-    iface = list(common_intfs)[0]
+    iface = list(nics)[0]
 
     run_command = (
         'HOROVOD_GLOO_RENDEZVOUS_ADDR={addr} '
@@ -276,12 +276,12 @@ def gloo_run(settings, remote_host_names, common_intfs, env, server_ip, command)
         'HOROVOD_CONTROLLER=gloo '
         'HOROVOD_CPU_OPERATIONS=gloo '
         'HOROVOD_GLOO_IFACE={iface} '
-        'NCCL_SOCKET_IFNAME={common_intfs} '
+        'NCCL_SOCKET_IFNAME={nics} '
         '{command}'  # expect a lot of environment variables
         .format(addr=server_ip,
                 port=global_rendezv_port,
                 iface=iface,  # TODO: add multiple ifaces in future
-                common_intfs=','.join(common_intfs),
+                nics=','.join(nics),
                 command=' '.join(quote(par) for par in command)))
 
     _launch_jobs(settings, env, host_alloc_plan, remote_host_names, run_command)

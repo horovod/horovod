@@ -34,9 +34,9 @@ class SparkTaskService(task_service.BasicTaskService):
     NAME_FORMAT = 'task service #%d'
     SERVICE_ENV_KEYS = ['HADOOP_TOKEN_FILE_LOCATION']
 
-    def __init__(self, index, key, nic):
+    def __init__(self, index, key, nics):
         super(SparkTaskService, self).__init__(SparkTaskService.NAME_FORMAT % index,
-                                               key, nic,
+                                               key, nics,
                                                SparkTaskService.SERVICE_ENV_KEYS)
 
     def _handle(self, req, client_address):
