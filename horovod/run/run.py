@@ -21,8 +21,6 @@ import os
 import re
 import sys
 import textwrap
-from psutil import net_if_addrs
-from socket import AF_INET
 
 try:
     from shlex import quote
@@ -456,7 +454,6 @@ def parse_args():
 
 
 class HorovodArgs(object):
-
     def __init__(self):
         self.np = 1
         self.check_build = None
@@ -630,47 +627,8 @@ def _run(args):
         if settings.verbose >= 2:
             print('SSH was successful into all the remote hosts.')
 
-    if len(remote_host_names) > 0:
-        if args.nics:
-            # If args.nics is provided, we will use those interfaces. All the workers
-            # must have at least one of those interfaces available.
-            nics = settings.nics
-        else:
-            # Find the set of common, routed interfaces on all the hosts (remote
-            # and local) and specify it in the args to be used by NCCL. It is
-            # expected that the following function will find at least one interface
-            # otherwise, it will raise an exception.
-            if settings.verbose >= 2:
-                print('Testing interfaces on all the hosts.')
-
-            local_host_names = set(all_host_names) - set(remote_host_names)
-            nics = driver_service._get_common_interfaces(settings, all_host_names,
-                                                         remote_host_names, fn_cache)
-
-            if settings.verbose >= 2:
-                print('Interfaces on all the hosts were successfully checked.')
-                print('Common interface found: ' + ' '.join(nics))
-
-    else:
-        if settings.verbose >= 2:
-            print('All hosts are local, finding the interfaces '
-                  'with address 127.0.0.1')
-        # If all the given hosts are local, find the interfaces with address
-        # 127.0.0.1
-        nics = set()
-        for iface, addrs in net_if_addrs().items():
-            if settings.nics and iface not in settings.nics:
-                continue
-            for addr in addrs:
-                if addr.family == AF_INET and addr.address == '127.0.0.1':
-                    nics.add(iface)
-                    break
-
-        if len(nics) == 0:
-            raise ValueError('No interface is found for address 127.0.0.1.')
-
-        if settings.verbose >= 2:
-            print('Local interface found ' + ' '.join(nics))
+    nics = driver_service.get_common_interfaces(settings, all_host_names,
+                                                remote_host_names, fn_cache)
 
     if args.run_func:
         # get the driver IPv4 address
