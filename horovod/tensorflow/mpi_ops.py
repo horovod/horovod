@@ -30,7 +30,7 @@ from horovod.common.util import get_ext_suffix, get_average_backwards_compatibil
     num_rank_is_power_2
 from horovod.common.basics import HorovodBasics as _HorovodBasics
 from horovod.tensorflow.util import _executing_eagerly
-
+from tensorflow.python.training import session_run_hook
 
 def _load_library(name):
     """Loads a .so file containing the specified operators.
@@ -199,3 +199,18 @@ def _broadcast_grad(op, grad):
     if rank() != root_rank:
         return grad_reduced * 0
     return grad_reduced
+
+#add join for tf
+def join():
+    return MPI_LIB.horovod_join()
+
+#add join_hook
+class HorovodJoinHook(session_run_hook.SessionRunHook):
+    def begin(self):
+        self._join_op = join()
+
+    def end(self, session):
+        session.run(self._join_op)
+
+def join_hook():
+    return HorovodJoinHook()
