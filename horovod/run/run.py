@@ -676,6 +676,9 @@ def _launch_job(args, remote_host_names, settings, nics, command):
         if not mpi_built(verbose=(settings.verbose >= 2)):
             raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
                              'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.')
+        if not lsf.LSFUtils.using_lsf():
+            raise ValueError('Horovod did not detect an LSF job.  The jsrun launcher can only be used in that environment. '
+                             'Please, pick a different launcher for other environments.')
         js_run(settings, nics, env, command)
     else:
         if mpi_built(verbose=(settings.verbose >= 2)):
