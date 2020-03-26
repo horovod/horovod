@@ -122,6 +122,30 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
         use_mpi=None, use_gloo=None, extra_mpi_args=None,
         env=None, stdout=None, stderr=None, verbose=1, nics=None,
         run_func=None):
+    """
+    Runs Horovod in Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
+
+    Args:
+        fn: Function to run.
+        args: Arguments to pass to `fn`.
+        kwargs: Keyword arguments to pass to `fn`.
+        num_proc: Number of Horovod processes.  Defaults to `spark.default.parallelism`.
+        start_timeout: Timeout for Spark tasks to spawn, register and start running the code, in seconds.
+                       If not set, falls back to `HOROVOD_SPARK_START_TIMEOUT` environment variable value.
+                       If it is not set as well, defaults to 600 seconds.
+        extra_mpi_args: Extra arguments for mpi_run. Defaults to no extra args.
+        env: Environment dictionary to use in Horovod run.  Defaults to `os.environ`.
+        stdout: Horovod stdout is redirected to this stream. Defaults to sys.stdout.
+        stderr: Horovod stderr is redirected to this stream. Defaults to sys.stderr.
+        verbose: Debug output verbosity (0-2). Defaults to 1.
+        nics: List of NICs for tcp network communication.
+        run_func: Run function to use. Must have arguments 'command', 'env', 'stdout', 'stderr'.
+                  Defaults to safe_shell_exec.execute.
+
+    Returns:
+        List of results returned by running `fn` on each rank.
+    """
+
     if start_timeout is None:
         # Lookup default timeout from the environment variable.
         start_timeout = int(os.getenv('HOROVOD_SPARK_START_TIMEOUT', '600'))
