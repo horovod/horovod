@@ -35,7 +35,7 @@ if platform.system() == 'Darwin':
 
 
 def _task_fn(index, driver_addresses, settings, use_gloo):
-    task = task_service.SparkTaskService(index, settings.key, settings.nic)
+    task = task_service.SparkTaskService(index, settings.key, settings.nics)
     try:
         driver_client = driver_service.SparkDriverClient(driver_addresses, settings.key, settings.verbose)
         driver_client.register_task(index, task.addresses(), host_hash.host_hash())
@@ -120,11 +120,15 @@ def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=No
 
 def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
         use_mpi=None, use_gloo=None, extra_mpi_args=None,
-        env=None, stdout=None, stderr=None, verbose=1, nic=None,
+        env=None, stdout=None, stderr=None, verbose=1, nics=None,
         run_func=None):
     if start_timeout is None:
         # Lookup default timeout from the environment variable.
         start_timeout = int(os.getenv('HOROVOD_SPARK_START_TIMEOUT', '600'))
+
+    # nics needs to be a set
+    if nics and not isinstance(nics, set):
+        nics = set(nics)
 
     tmout = timeout.Timeout(start_timeout,
                             message='Timed out waiting for {activity}. Please check that you have '
@@ -136,7 +140,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
                                      extra_mpi_args=extra_mpi_args,
                                      key=secret.make_secret_key(),
                                      timeout=tmout,
-                                     nic=nic,
+                                     nics=nics,
                                      run_func_mode=True)
 
     spark_context = pyspark.SparkContext._active_spark_context
@@ -158,7 +162,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
     # start Spark driver service and launch settings.num_proc Spark tasks
     spark_job_group = 'horovod.spark.run.%d' % job_id.next_job_id()
     driver = driver_service.SparkDriverService(settings.num_proc, fn, args, kwargs,
-                                               settings.key, settings.nic)
+                                               settings.key, settings.nics)
     spark_thread = _make_spark_thread(spark_context, spark_job_group, driver,
                                       result_queue, settings, use_gloo)
     try:

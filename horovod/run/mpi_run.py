@@ -121,22 +121,23 @@ def _get_mpi_implementation_flags(tcp_flag):
         return None, None
 
 
-def mpi_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_func=None):
+def mpi_run(settings, nics, env, command, stdout=None, stderr=None, run_func=None):
     """
-    Runs mpirun.
+    Runs mpi_run.
 
-    :param settings: Settings for running MPI.
-                     Note: settings.num_proc and settings.hosts must not be None.
-    :param common_intfs: Interfaces to include by MPI.
-    :param env: Environment dictionary to use for running MPI.
-    :param command: Command and arguments to run as a list of string.
-    :param stdout: Stdout of the mpi process.
-                   Only used when settings.run_func_mode is True.
-    :param stderr: Stderr of the mpi process.
-                   Only used when settings.run_func_mode is True.
-    :param run_func: Run function to use. Must have arguments 'command' and 'env'.
-                     Only used when settings.run_func_mode is True.
-                     Defaults to safe_shell_exec.execute.
+    Args:
+        settings: Settings for running MPI.
+                  Note: settings.num_proc and settings.hosts must not be None.
+        nics: Interfaces to include by MPI.
+        env: Environment dictionary to use for running MPI.
+        command: Command and arguments to run as a list of string.
+        stdout: Stdout of the mpi process.
+                Only used when settings.run_func_mode is True.
+        stderr: Stderr of the mpi process.
+                Only used when settings.run_func_mode is True.
+        run_func: Run function to use. Must have arguments 'command' and 'env'.
+                  Only used when settings.run_func_mode is True.
+                  Defaults to safe_shell_exec.execute.
     """
     if run_func is None:
         run_func = safe_shell_exec.execute
@@ -153,9 +154,9 @@ def mpi_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_
     hosts_arg = '-H {hosts}'.format(hosts=settings.hosts)
 
     tcp_intf_arg = '-mca btl_tcp_if_include {common_intfs}'.format(
-        common_intfs=','.join(common_intfs)) if common_intfs else ''
+        common_intfs=','.join(nics)) if nics else ''
     nccl_socket_intf_arg = '-x NCCL_SOCKET_IFNAME={common_intfs}'.format(
-        common_intfs=','.join(common_intfs)) if common_intfs else ''
+        common_intfs=','.join(nics)) if nics else ''
 
     # On large cluster runs (e.g. Summit), we need extra settings to work around OpenMPI issues
     if settings.num_hosts and settings.num_hosts >= _LARGE_CLUSTER_THRESHOLD:
@@ -201,4 +202,3 @@ def mpi_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_
             raise RuntimeError("mpirun failed with exit code {exit_code}".format(exit_code=exit_code))
     else:
         os.execve('/bin/sh', ['/bin/sh', '-c', mpirun_command], env)
-

@@ -85,10 +85,10 @@ class Wire(object):
 
 
 class BasicService(object):
-    def __init__(self, service_name, key, nic):
+    def __init__(self, service_name, key, nics):
         self._service_name = service_name
         self._wire = Wire(key)
-        self._nic = nic
+        self._nics = nics
         self._server, _ = find_port(
             lambda addr: socketserver.ThreadingTCPServer(
                 addr, self._make_handler()))
@@ -124,16 +124,16 @@ class BasicService(object):
     def _get_local_addresses(self):
         result = {}
         for intf, intf_addresses in psutil.net_if_addrs().items():
-            if self._nic and intf != self._nic:
+            if self._nics and intf not in self._nics:
                 continue
             for addr in intf_addresses:
                 if addr.family == socket.AF_INET:
                     if intf not in result:
                         result[intf] = []
                     result[intf].append((addr.address, self._port))
-        if not result and self._nic:
+        if not result and self._nics:
             raise NoValidAddressesFound(
-                'No available network interface found matching user provided interface: {}'.format(self._nic))
+                'No available network interface found matching user provided interface: {}'.format(self._nics))
         return result
 
     def addresses(self):

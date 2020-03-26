@@ -233,7 +233,7 @@ def _exec_command_fn(settings, remote_host_names):
     return _exec_command
 
 
-def launch_gloo(command, exec_command, settings, common_intfs, env, server_ip):
+def launch_gloo(command, exec_command, settings, nics, env, server_ip):
     """
     Launches the given command multiple times using gloo.
     Each command is launched via exec_command.
@@ -241,7 +241,7 @@ def launch_gloo(command, exec_command, settings, common_intfs, env, server_ip):
     :param command: command to launch
     :param exec_command: means to execute a single command
     :param settings: settings for the distribution
-    :param common_intfs: common interfaces
+    :param nics: common interfaces
     :param env: environment to use
     :param server_ip: ip to use for rendezvous server
     """
@@ -259,12 +259,12 @@ def launch_gloo(command, exec_command, settings, common_intfs, env, server_ip):
         'HOROVOD_CONTROLLER=gloo '
         'HOROVOD_CPU_OPERATIONS=gloo '
         'HOROVOD_GLOO_IFACE={iface} '
-        'NCCL_SOCKET_IFNAME={common_intfs} '
+        'NCCL_SOCKET_IFNAME={nics} '
         '{command}'  # expect a lot of environment variables
             .format(addr=server_ip,
                     port=global_rendezv_port,
-                    iface=list(common_intfs)[0],  # TODO: add multiple ifaces in future
-                    common_intfs=','.join(common_intfs),
+                    iface=list(nics)[0],  # TODO: add multiple ifaces in future
+                    nics=','.join(nics),
                     command=' '.join(quote(par) for par in command)))
 
     # Create a event for communication between threads
@@ -302,9 +302,9 @@ def launch_gloo(command, exec_command, settings, common_intfs, env, server_ip):
                                .format(name=name, code=exit_code))
 
 
-def gloo_run(settings, remote_host_names, common_intfs, env, server_ip, command):
+def gloo_run(settings, remote_host_names, nics, env, server_ip, command):
     # Each thread will use ssh command to launch the job on each remote host. If an
     # error occurs in one thread, entire process will be terminated. Otherwise,
     # threads will keep running and ssh session.
     exec_command = _exec_command_fn(settings, remote_host_names)
-    launch_gloo(command, exec_command, settings, common_intfs, env, server_ip)
+    launch_gloo(command, exec_command, settings, nics, env, server_ip)

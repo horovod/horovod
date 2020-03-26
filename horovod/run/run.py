@@ -18,8 +18,8 @@ from __future__ import print_function
 import argparse
 import hashlib
 import os
-import sys
 import re
+import sys
 import textwrap
 
 try:
@@ -254,8 +254,10 @@ def parse_args():
                              'HOROVOD_START_TIMEOUT can also be used to '
                              'specify the initialization timeout.')
 
-    parser.add_argument('--network-interface', action='store', dest='nic',
-                        help='Specify the network interface used for communication.')
+    parser.add_argument('--network-interface', action='store', dest='nics',
+                        help='Network interfaces that can be used for communication separated by '
+                             'comma. If not specified, Horovod will find the common NICs among all '
+                             'the workers and use it; example, --network-interface "eth0,eth1".')
 
     parser.add_argument('--output-filename', action='store',
                         help='For Gloo, writes stdout / stderr of all processes to a filename of the form '
@@ -452,7 +454,6 @@ def parse_args():
 
 
 class HorovodArgs(object):
-
     def __init__(self):
         self.np = 1
         self.check_build = None
@@ -464,7 +465,7 @@ class HorovodArgs(object):
         self.command = None
         self.run_func = None
         self.config_file = None
-        self.nic = None
+        self.nics = None
 
         # tuneable parameter arguments
         self.fusion_threshold_mb = None
@@ -532,6 +533,18 @@ def parse_host_files(filename):
     return ','.join(hosts)
 
 
+def parse_host_names(hosts):
+    host_list = hosts.split(',')
+    all_host_names = []
+    pattern = re.compile(r'^[\w.-]+:[0-9]+$')
+    for host in host_list:
+        if not pattern.match(host.strip()):
+            raise ValueError('Invalid host input, please make sure it has '
+                             'format as : worker-0:2,worker-1:2.')
+        all_host_names.append(host.strip().split(':')[0])
+    return all_host_names
+
+
 def _run(args):
     if args.check_build:
         check_build(args.verbose)
@@ -553,14 +566,9 @@ def _run(args):
             # Set hosts to localhost if not specified
             args.hosts = 'localhost:{np}'.format(np=args.np)
 
-    host_list = args.hosts.split(',')
-    all_host_names = []
-    pattern = re.compile(r'^[\w.-]+:[0-9]+$')
-    for host in host_list:
-        if not pattern.match(host.strip()):
-            raise ValueError('Invalid host input, please make sure it has '
-                             'format as : worker-0:2,worker-1:2.')
-        all_host_names.append(host.strip().split(':')[0])
+    all_host_names = parse_host_names(args.hosts)
+
+    nics_set = set(args.nics.split(',')) if args.nics else None
 
     # horovodrun has to finish all the checks before this timeout runs out.
     if args.start_timeout:
@@ -586,7 +594,7 @@ def _run(args):
                                      hosts=args.hosts,
                                      output_filename=args.output_filename,
                                      run_func_mode=args.run_func is not None,
-                                     nic=args.nic)
+                                     nics=nics_set)
 
     # This cache stores the results of checks performed by horovodrun
     # during the initialization step. It can be disabled by setting
@@ -619,11 +627,12 @@ def _run(args):
         if settings.verbose >= 2:
             print('SSH was successful into all the remote hosts.')
 
-    common_intfs = driver_service._get_common_interfaces(settings, all_host_names,
-                                                         remote_host_names, fn_cache)
+    nics = driver_service.get_common_interfaces(settings, all_host_names,
+                                                remote_host_names, fn_cache)
+
     if args.run_func:
         # get the driver IPv4 address
-        driver_ip = network._get_driver_ip(common_intfs)
+        driver_ip = network._get_driver_ip(nics)
         run_func_server = KVStoreServer(verbose=settings.verbose)
         run_func_server_port = run_func_server.start_server()
         pickled_exec_func = cloudpickle.dumps(args.run_func)
@@ -633,7 +642,7 @@ def _run(args):
         command = [sys.executable, '-m', 'horovod.run.run_task', str(driver_ip), str(run_func_server_port)]
 
         try:
-            _launch_job(args, remote_host_names, settings, common_intfs, command)
+            _launch_job(args, remote_host_names, settings, nics, command)
             results = [None] * args.np
             # TODO: make it parallel to improve performance
             for i in range(args.np):
@@ -645,7 +654,7 @@ def _run(args):
             run_func_server.shutdown_server()
     else:
         command = args.command
-        _launch_job(args, remote_host_names, settings, common_intfs, command)
+        _launch_job(args, remote_host_names, settings, nics, command)
         return None
 
 
@@ -679,19 +688,19 @@ def run_controller(use_gloo, gloo_run, use_mpi, mpi_run, use_jsrun, js_run, verb
                              'either MPI is installed (MPI) or CMake is installed (Gloo).')
 
 
-def _launch_job(args, remote_host_names, settings, common_intfs, command):
+def _launch_job(args, remote_host_names, settings, nics, command):
     env = os.environ.copy()
     config_parser.set_env_from_args(env, args)
-    driver_ip = network._get_driver_ip(common_intfs)
+    driver_ip = network._get_driver_ip(nics)
 
     def gloo_run_fn():
-        gloo_run(settings, remote_host_names, common_intfs, env, driver_ip, command)
+        gloo_run(settings, remote_host_names, nics, env, driver_ip, command)
 
     def mpi_run_fn():
-        mpi_run(settings, common_intfs, env, command)
+        mpi_run(settings, nics, env, command)
 
     def js_run_fn():
-        js_run(settings, common_intfs, env, command)
+        js_run(settings, nics, env, command)
 
     run_controller(args.use_gloo, gloo_run_fn,
                    args.use_mpi, mpi_run_fn,
@@ -759,8 +768,9 @@ def run(
     :param use_mpi: Run Horovod using the MPI controller. This will
                     be the default if Horovod was built with MPI support.
     :param mpi_args: Extra arguments for the MPI controller. This is only used when use_mpi is True.
-    :param network_interface: Specify the network interface for communication.
-
+    :param network_interface: Network interfaces to use for communication separated by comma. If
+                             not specified, Horovod will find the common NICs among all the
+                             workers and use those; example, eth0,eth1.
     :return: Return a list which contains values return by all Horovod processes.
              The index of the list corresponds to the rank of each Horovod process.
     """
@@ -790,8 +800,7 @@ def run(
     hargs.verbose = verbose
     hargs.use_gloo = use_gloo
     hargs.use_mpi = use_mpi
-    hargs.nic = network_interface
-
+    hargs.nics = network_interface
     hargs.run_func = wrapped_func
 
     return _run(hargs)

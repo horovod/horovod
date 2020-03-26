@@ -53,8 +53,8 @@ class RegisterCodeResultRequest(object):
 
 
 class BasicTaskService(network.BasicService):
-    def __init__(self, name, key, nic, service_env_keys):
-        super(BasicTaskService, self).__init__(name, key, nic)
+    def __init__(self, name, key, nics, service_env_keys):
+        super(BasicTaskService, self).__init__(name, key, nics)
         self._initial_registration_complete = False
         self._wait_cond = threading.Condition()
         self._service_env_keys = service_env_keys

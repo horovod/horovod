@@ -30,13 +30,13 @@ def _exec_command_fn(driver_addresses, settings, env):
     return _exec_command
 
 
-def gloo_run(settings, common_intfs, driver, env, exec_command=None):
+def gloo_run(settings, nics, driver, env, exec_command=None):
     """
     Run distributed gloo jobs.
 
     :param settings: Settings for running the distributed jobs.
                      Note: settings.num_proc and settings.hosts must not be None.
-    :param common_intfs: Interfaces to use by gloo.
+    :param nics: Interfaces to use by gloo.
     :param driver: The Spark driver service that tasks are connected to.
     :param env: Environment dictionary to use for running gloo jobs.
     :param exec_command: Function to execute job commands.
@@ -44,7 +44,7 @@ def gloo_run(settings, common_intfs, driver, env, exec_command=None):
     # Each thread will use SparkTaskClient to launch the job on each remote host. If an
     # error occurs in one thread, entire process will be terminated. Otherwise,
     # threads will keep running and ssh session.
-    iface = list(common_intfs)[0]
+    iface = list(nics)[0]
     server_ip = driver.addresses()[iface][0][0]
     command = (sys.executable,
                '-m', 'horovod.spark.task.gloo_exec_fn',
@@ -56,4 +56,4 @@ def gloo_run(settings, common_intfs, driver, env, exec_command=None):
 
     exec_command = _exec_command_fn(driver.addresses(), settings, env) \
         if exec_command is None else exec_command
-    launch_gloo(command, exec_command, settings, common_intfs, {}, server_ip)
+    launch_gloo(command, exec_command, settings, nics, {}, server_ip)

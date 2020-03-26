@@ -20,13 +20,13 @@ from horovod.run.mpi_run import mpi_run as hr_mpi_run
 from horovod.run.common.util import codec, safe_shell_exec, secret
 
 
-def mpi_run(settings, common_intfs, driver, env, stdout=None, stderr=None, run_func=None):
+def mpi_run(settings, nics, driver, env, stdout=None, stderr=None, run_func=None):
     """
     Runs mpirun.
 
     :param settings: Settings for running MPI.
                      Note: settings.num_proc and settings.hosts must not be None.
-    :param common_intfs: Interfaces to include by MPI.
+    :param nics: Interfaces to include by MPI.
     :param driver: The Spark driver service that tasks are connected to.
     :param env: Environment dictionary to use for running MPI.
     :param stdout: Stdout of the mpi process.
@@ -56,4 +56,4 @@ def mpi_run(settings, common_intfs, driver, env, stdout=None, stderr=None, run_f
                '-m', 'horovod.spark.task.mpirun_exec_fn',
                codec.dumps_base64(driver.addresses()),
                codec.dumps_base64(settings))
-    hr_mpi_run(settings, common_intfs, env, command, stdout=stdout, stderr=stderr, run_func=run_func)
+    hr_mpi_run(settings, nics, env, command, stdout=stdout, stderr=stderr, run_func=run_func)
