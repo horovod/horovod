@@ -217,7 +217,8 @@ if __name__ == '__main__':
     kwargs = {'num_workers': 4, 'pin_memory': True} if args.cuda else {}
     # When supported, use 'forkserver' to spawn dataloader workers instead of 'fork' to prevent
     # issues with Infiniband implementations that are not fork-safe
-    if mp._supports_context and 'forkserver' in mp.get_all_start_methods():
+    if (args.cuda and hasattr(mp, '_supports_context') and mp._supports_context and
+            'forkserver' in mp.get_all_start_methods()):
         kwargs['multiprocessing_context'] = 'forkserver'
 
     train_dataset = \
