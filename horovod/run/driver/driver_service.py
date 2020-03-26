@@ -176,23 +176,21 @@ def _driver_fn(all_host_names, local_host_names, settings):
         # interfaces that are not really connected to any external networks
         # such as lo0 with address 127.0.0.1.
         if settings.verbose >= 2:
-            print('Waiting for hosts to perform host-to-host '
-                  'interface checking.')
+            print('Waiting for hosts to perform host-to-host interface checking.')
         driver.wait_for_task_to_task_address_updates(settings.timeout)
         if settings.verbose >= 2:
             print('Host-to-host interface checking successful.')
         # Determine a set of common interfaces for task-to-task communication.
-        common_intfs = set(driver.task_addresses_for_tasks(0).keys())
+        nics = set(driver.task_addresses_for_tasks(0).keys())
         for index in range(1, settings.num_hosts):
-            common_intfs.intersection_update(
+            nics.intersection_update(
                 driver.task_addresses_for_tasks(index).keys())
-        if not common_intfs:
+        if not nics:
             raise Exception(
-                'Unable to find a set of common task-to-task communication '
-                'interfaces: %s'
+                'Unable to find a set of common task-to-task communication interfaces: %s'
                 % [(index, driver.task_addresses_for_tasks(index))
                    for index in range(settings.num_hosts)])
-        return common_intfs
+        return nics
     finally:
         driver.shutdown()
 

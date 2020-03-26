@@ -32,14 +32,14 @@ def is_jsrun_installed():
     return find_executable('jsrun') is not None
 
 
-def js_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_func=safe_shell_exec.execute):
+def js_run(settings, nics, env, command, stdout=None, stderr=None, run_func=safe_shell_exec.execute):
     """
     Runs Horovod with jsrun.
 
     Args:
         settings: Settings for running jsrun.
                   Note: settings.num_proc and settings.hosts must not be None.
-        common_intfs: Interfaces to include by jsrun.
+        nics: Interfaces to include by jsrun.
         env: Environment dictionary to use for running jsrun.
         command: Command and arguments to run as a list of string.
         stdout: Stdout of the mpi process.
@@ -60,8 +60,8 @@ def js_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_f
             'Please, make sure you are running on a cluster with jsrun installed or '
             'use one of the other launchers.')
 
-    if common_intfs and 'NCCL_SOCKET_IFNAME' not in env:
-        env['NCCL_SOCKET_IFNAME'] = ','.join(common_intfs)
+    if nics and 'NCCL_SOCKET_IFNAME' not in env:
+        env['NCCL_SOCKET_IFNAME'] = ','.join(nics)
 
     smpiargs = ' '.join(mpi_impl_flags)
     if settings.extra_mpi_args:

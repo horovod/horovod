@@ -185,12 +185,13 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, extra_mpi_arg
             print('Spark task-to-task address registration is complete.')
 
         # Determine a set of common interfaces for task-to-task communication.
-        common_intfs = set(driver.task_addresses_for_tasks(0).keys())
+        nics = set(driver.task_addresses_for_tasks(0).keys())
         for index in range(1, settings.num_proc):
-            common_intfs.intersection_update(driver.task_addresses_for_tasks(index).keys())
-        if not common_intfs:
+            nics.intersection_update(driver.task_addresses_for_tasks(index).keys())
+        if not nics:
             raise Exception('Unable to find a set of common task-to-task communication interfaces: %s'
-                            % [(index, driver.task_addresses_for_tasks(index)) for index in range(settings.num_proc)])
+                            % [(index, driver.task_addresses_for_tasks(index))
+                               for index in range(settings.num_proc)])
 
         # Determine the index grouping based on host hashes.
         # Barrel shift until index 0 is in the first host.
@@ -224,7 +225,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None, extra_mpi_arg
                    '-m', 'horovod.spark.task.mpirun_exec_fn',
                    codec.dumps_base64(driver.addresses()),
                    codec.dumps_base64(settings))
-        mpi_run(settings, common_intfs, env, command, stdout=stdout, stderr=stderr, run_func=run_func)
+        mpi_run(settings, nics, env, command, stdout=stdout, stderr=stderr, run_func=run_func)
     except:
         # Terminate Spark job.
         spark_context.cancelJobGroup(spark_job_group)

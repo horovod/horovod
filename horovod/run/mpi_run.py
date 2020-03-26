@@ -107,10 +107,10 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None, run_func=saf
     # There is no need to specify localhost.
     hosts_arg = '-H {hosts}'.format(hosts=settings.hosts)
 
-    tcp_intf_arg = '-mca btl_tcp_if_include {common_intfs}'.format(
-        common_intfs=','.join(nics)) if nics else ''
-    nccl_socket_intf_arg = '-x NCCL_SOCKET_IFNAME={common_intfs}'.format(
-        common_intfs=','.join(nics)) if nics else ''
+    tcp_intf_arg = '-mca btl_tcp_if_include {nics}'.format(
+        nics=','.join(nics)) if nics else ''
+    nccl_socket_intf_arg = '-x NCCL_SOCKET_IFNAME={nics}'.format(
+        nics=','.join(nics)) if nics else ''
 
     # On large cluster runs (e.g. Summit), we need extra settings to work around OpenMPI issues
     if settings.num_hosts and settings.num_hosts >= _LARGE_CLUSTER_THRESHOLD:

@@ -315,7 +315,7 @@ class RunTests(unittest.TestCase):
             self.skipTest("MPI is not available")
 
         cmd = ['cmd', 'arg1', 'arg2']
-        common_intfs = ['eth0', 'eth1']
+        nics = ['eth0', 'eth1']
         env = {'env1': 'val1', 'env2': 'val2'}
         stdout = '<stdout>'
         stderr = '<stderr>'
@@ -335,7 +335,7 @@ class RunTests(unittest.TestCase):
         )
         run_func = MagicMock(return_value=0)
 
-        mpi_run(settings, common_intfs, env, cmd, stdout=stdout, stderr=stderr, run_func=run_func)
+        mpi_run(settings, nics, env, cmd, stdout=stdout, stderr=stderr, run_func=run_func)
 
         mpi_flags, _ = _get_mpi_implementation_flags(False)
         self.assertIsNotNone(mpi_flags)
