@@ -78,14 +78,14 @@ def _get_mpi_implementation_flags(tcp_flag):
         return None, None
 
 
-def mpi_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_func=safe_shell_exec.execute):
+def mpi_run(settings, nics, env, command, stdout=None, stderr=None, run_func=safe_shell_exec.execute):
     """
     Runs mpi_run.
 
     Args:
         settings: Settings for running MPI.
                   Note: settings.num_proc and settings.hosts must not be None.
-        common_intfs: Interfaces to include by MPI.
+        nics: Interfaces to include by MPI.
         env: Environment dictionary to use for running MPI.
         command: Command and arguments to run as a list of string.
         stdout: Stdout of the mpi process.
@@ -108,9 +108,9 @@ def mpi_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_
     hosts_arg = '-H {hosts}'.format(hosts=settings.hosts)
 
     tcp_intf_arg = '-mca btl_tcp_if_include {common_intfs}'.format(
-        common_intfs=','.join(common_intfs)) if common_intfs else ''
+        common_intfs=','.join(nics)) if nics else ''
     nccl_socket_intf_arg = '-x NCCL_SOCKET_IFNAME={common_intfs}'.format(
-        common_intfs=','.join(common_intfs)) if common_intfs else ''
+        common_intfs=','.join(nics)) if nics else ''
 
     # On large cluster runs (e.g. Summit), we need extra settings to work around OpenMPI issues
     if settings.num_hosts and settings.num_hosts >= _LARGE_CLUSTER_THRESHOLD:

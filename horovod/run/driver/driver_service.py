@@ -28,10 +28,10 @@ from horovod.run.task import task_service
 class HorovodRunDriverService(driver_service.BasicDriverService):
     NAME = 'horovodrun driver service'
 
-    def __init__(self, num_hosts, key, nic):
+    def __init__(self, num_hosts, key, nics):
         super(HorovodRunDriverService, self).__init__(num_hosts,
                                                       HorovodRunDriverService.NAME,
-                                                      key, nic)
+                                                      key, nics)
 
 
 class HorovodRunDriverClient(driver_service.BasicDriverClient):
@@ -197,7 +197,7 @@ def _driver_fn(all_host_names, local_host_names, settings):
         driver.shutdown()
 
 
-def _get_common_interfaces(settings, all_host_names, remote_host_names, fn_cache):
+def get_common_interfaces(settings, all_host_names, remote_host_names, fn_cache):
     '''
     Find the set of common and routed interfaces on all the hosts.
     :param settings: the object that contains the setting for running horovod
@@ -215,20 +215,24 @@ def _get_common_interfaces(settings, all_host_names, remote_host_names, fn_cache
         return None
 
     if len(remote_host_names) > 0:
-        if settings.verbose >= 2:
-            print('Testing interfaces on all the hosts.')
+        if settings.nics:
+            # If args.nics is provided, we will use those interfaces. All the workers
+            # must have at least one of those interfaces available.
+            nics = settings.nics
+        else:
+            # Find the set of common, routed interfaces on all the hosts (remote
+            # and local) and specify it in the args to be used by NCCL. It is
+            # expected that the following function will find at least one interface
+            # otherwise, it will raise an exception.
+            if settings.verbose >= 2:
+                print('Testing interfaces on all the hosts.')
 
-        local_host_names = set(all_host_names) - set(remote_host_names)
-        # Find the set of common, routed interfaces on all the hosts (remote
-        # and local) and specify it in the args to be used by NCCL. It is
-        # expected that the following function will find at least one interface
-        # otherwise, it will raise an exception.
-        common_intfs = _driver_fn(all_host_names, local_host_names,
-                                  settings, fn_cache=fn_cache)
+            local_host_names = set(all_host_names) - set(remote_host_names)
+            nics = _driver_fn(all_host_names, local_host_names, settings, fn_cache=fn_cache)
 
-        if settings.verbose >= 2:
-            print('Interfaces on all the hosts were successfully checked.')
-            print('Common interface found: ' + ' '.join(common_intfs))
+            if settings.verbose >= 2:
+                print('Interfaces on all the hosts were successfully checked.')
+                print('Common interface found: ' + ' '.join(nics))
 
     else:
         if settings.verbose >= 2:
@@ -236,18 +240,18 @@ def _get_common_interfaces(settings, all_host_names, remote_host_names, fn_cache
                   'with address 127.0.0.1')
         # If all the given hosts are local, find the interfaces with address
         # 127.0.0.1
-        common_intfs = set()
+        nics = set()
         for iface, addrs in net_if_addrs().items():
-            if settings.nic and iface != settings.nic:
+            if settings.nics and iface not in settings.nics:
                 continue
             for addr in addrs:
                 if addr.family == AF_INET and addr.address == '127.0.0.1':
-                    common_intfs.add(iface)
+                    nics.add(iface)
                     break
 
-        if len(common_intfs) == 0:
+        if len(nics) == 0:
             raise ValueError('No interface is found for address 127.0.0.1.')
 
         if settings.verbose >= 2:
-            print('Local interface found ' + ' '.join(common_intfs))
-    return common_intfs
+            print('Local interface found ' + ' '.join(nics))
+    return nics
