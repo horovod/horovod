@@ -35,6 +35,8 @@ from horovod.tensorflow.mpi_ops import Average, Sum, Adasum
 from horovod.tensorflow.mpi_ops import handle_average_backwards_compatibility, check_num_rank_power_of_2
 
 from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache
+from horovod.tensorflow.mpi_ops import join
+from horovod.tensorflow.mpi_ops import join_hook
 
 import tensorflow as tf
 import warnings

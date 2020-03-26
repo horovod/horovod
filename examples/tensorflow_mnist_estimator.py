@@ -186,6 +186,7 @@ def main(unused_argv):
     # restored from a checkpoint.
     bcast_hook = hvd.BroadcastGlobalVariablesHook(0)
 
+    hvd_join_hook = hvd.join_hook()
     # Train the model
     train_input_fn = tf.estimator.inputs.numpy_input_fn(
         x={"x": train_data},
@@ -198,7 +199,7 @@ def main(unused_argv):
     mnist_classifier.train(
         input_fn=train_input_fn,
         steps=20000 // hvd.size(),
-        hooks=[logging_hook, bcast_hook])
+        hooks=[logging_hook, bcast_hook, hvd_join_hook])
 
     # Evaluate the model and print results
     eval_input_fn = tf.estimator.inputs.numpy_input_fn(
