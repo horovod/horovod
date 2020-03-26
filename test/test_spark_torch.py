@@ -26,6 +26,7 @@ from pyspark.sql.types import DoubleType, LongType
 import mock
 import torch
 import torch.nn as nn
+from torch.nn import functional as F
 import torch.optim as optim
 
 import horovod.spark.torch as hvd
@@ -63,7 +64,7 @@ class SparkTorchTests(unittest.TestCase):
     def test_fit_model(self):
         model = create_xor_model()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
-        loss = nn.BCELoss()
+        loss = F.binary_cross_entropy
 
         with spark_session('test_fit_model') as spark:
             df = create_xor_data(spark)
@@ -80,7 +81,8 @@ class SparkTorchTests(unittest.TestCase):
                     label_cols=['y'],
                     batch_size=1,
                     epochs=3,
-                    verbose=2)
+                    verbose=2,
+                    sample_weight_col='weight')
 
                 torch_model = torch_estimator.fit(df)
 
@@ -145,6 +147,7 @@ class SparkTorchTests(unittest.TestCase):
                 'x1': LongType,
                 'x2': LongType,
                 'features': VectorUDT,
+                'weight': DoubleType,
                 'y': DoubleType,
                 'y__output': VectorUDT
             }
