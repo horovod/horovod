@@ -122,6 +122,8 @@ Guides
    lsf_include
 
    tensor-fusion_include
+   
+   adasum_user_guide_include
 
    timeline_include
 
