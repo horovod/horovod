@@ -78,12 +78,12 @@ def find_port(server_factory):
     raise Exception('Unable to find a port to bind to.')
 
 
-def _get_driver_ip(common_intfs):
+def _get_driver_ip(nics):
     """
-    :param common_intfs: object return by `_driver_fn`
+    :param nics: object return by `_driver_fn`
     :return: driver ip. We make sure all workers can connect to this ip.
     """
-    iface = list(common_intfs)[0]
+    iface = list(nics)[0]
     driver_ip = None
     for addr in net_if_addrs()[iface]:
         if addr.family == AF_INET:

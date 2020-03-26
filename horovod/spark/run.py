@@ -102,18 +102,18 @@ def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
 
 def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=None, run_func=None):
     # Determine a set of common interfaces for task-to-task communication.
-    common_intfs = set(driver.task_addresses_for_tasks(0).keys())
+    nics = set(driver.task_addresses_for_tasks(0).keys())
     for index in range(1, settings.num_proc):
-        common_intfs.intersection_update(driver.task_addresses_for_tasks(index).keys())
-    if not common_intfs:
+        nics.intersection_update(driver.task_addresses_for_tasks(index).keys())
+    if not nics:
         raise Exception('Unable to find a set of common task-to-task communication interfaces: %s'
                         % [(index, driver.task_addresses_for_tasks(index)) for index in range(settings.num_proc)])
 
     if env is None:
         env = os.environ.copy()
 
-    run_controller(use_gloo, lambda: gloo_run(settings, common_intfs, driver, env, run_func),
-                   use_mpi, lambda: mpi_run(settings, common_intfs, driver, env, stdout, stderr, run_func),
+    run_controller(use_gloo, lambda: gloo_run(settings, nics, driver, env, run_func),
+                   use_mpi, lambda: mpi_run(settings, nics, driver, env, stdout, stderr, run_func),
                    False, lambda: None,
                    settings.verbose)
 
