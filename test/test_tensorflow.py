@@ -1063,7 +1063,44 @@ class MPITests(tf.test.TestCase):
             expected = np.ones(tensor_size)
             err = np.linalg.norm(expected - actual)
             self.assertLess(err, 0.00000001)
+    
+    def test_horovod_join_allreduce_cpu(self):
+        """Test Join op with allreduce on cpu."""
+        hvd.init()
+        local_rank = hvd.rank()
+        size = hvd.size()
+    
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dims = [1, 2, 3]
+        first_join_ranks = [0, 1]
+        for dtype, dim, first_join_rank in itertools.product(dtypes, dims, first_join_ranks):
+            with tf.device("/cpu:0"):
+                if local_rank == first_join_rank:
+                    hvd.join()
+                else:
+                    tensor = self.random_uniform(
+                         [17] * dim, -100, 100, dtype=dtype)
+                    summed = hvd.allreduce(tensor, average=False)
+                    hvd.join()
 
+    def test_horovod_join_allreduce_gpu(self):
+        """Test Join op with allreduce on gpu."""
+        hvd.init()
+        local_rank = hvd.rank()
+        size = hvd.size()
+    
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dims = [1, 2, 3]
+        first_join_ranks = [0, 1]
+        for dtype, dim, first_join_rank in itertools.product(dtypes, dims, first_join_ranks):
+            with tf.device("/gpu:%d"%local_rank):
+                if local_rank == first_join_rank:
+                    hvd.join()
+                else:
+                    tensor = self.random_uniform(
+                         [17] * dim, -100, 100, dtype=dtype)
+                    summed = hvd.allreduce(tensor, average=False)
+                    hvd.join()
 
 if _has_eager:
     from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes

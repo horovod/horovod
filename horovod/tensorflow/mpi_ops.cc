@@ -19,15 +19,16 @@
 #include <queue>
 #include <thread>
 #include <unordered_map>
-
+#include "tensorflow/core/framework/allocator.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/shape_inference.h"
-
+#include "tensorflow/core/framework/tensor.h"
 #define EIGEN_USE_THREADS
 
 #if HAVE_GPU
 #include "tensorflow/stream_executor/stream.h"
+#include <cuda_runtime.h> 
 #endif
 
 #define OMPI_SKIP_MPICXX
@@ -40,6 +41,33 @@ namespace horovod {
 namespace tensorflow {
 
 namespace {
+
+::tensorflow::DataType GetTFDataType(common::DataType dtype) {
+  switch (dtype) {
+  case common::HOROVOD_UINT8:
+    return DT_UINT8;
+  case common::HOROVOD_INT8:
+    return DT_INT8;
+  case common::HOROVOD_UINT16:
+    return DT_UINT16;
+  case common::HOROVOD_INT16:
+    return DT_INT16;
+  case common::HOROVOD_INT32:
+    return DT_INT32;
+  case common::HOROVOD_INT64:
+    return DT_INT64;
+  case common::HOROVOD_FLOAT16:
+    return DT_HALF;
+  case common::HOROVOD_FLOAT32:
+    return DT_FLOAT;
+  case common::HOROVOD_FLOAT64:
+    return DT_DOUBLE;
+  case common::HOROVOD_BOOL:
+    return DT_BOOL;
+  default:
+    throw std::logic_error("Invalid data type.");
+  }
+}
 
 Status ConvertStatus(const common::Status& status) {
   switch (status.type()) {
@@ -248,11 +276,87 @@ TFOpContext::AllocateOutput(common::TensorShape shape,
   return ConvertStatus(status);
 }
 
+int GetDeviceID(OpKernelContext* context);
+
+template <class T>
+void Allocate(int64_t num_elements, int device_, ::tensorflow::Tensor& zero_tensor) {
+    auto tmp = new T[num_elements];
+    for (int i = 0; i < num_elements; i++) {
+      tmp[i] = 0;
+    }
+    if (device_ != CPU_DEVICE_ID){
+#if HAVE_GPU
+      cudaMemcpy((void*)zero_tensor.tensor_data().data(), tmp, zero_tensor.tensor_data().size(), cudaMemcpyHostToDevice);
+#endif
+    }
+    else{
+      memcpy((void*)zero_tensor.tensor_data().data(), (void*)tmp, zero_tensor.tensor_data().size());
+    }
+    delete[] tmp;
+}
+
 common::Status
 TFOpContext::AllocateZeros(int64_t num_elements, common::DataType dtype,
                            std::shared_ptr<common::Tensor>* tensor) {
-  return common::Status::PreconditionError(
-      "AllocateZeros is not supported for TensorFlow yet.");
+  ::tensorflow::Tensor zero_tensor;
+  auto tf_data_type = GetTFDataType(dtype);
+  ::tensorflow::AllocatorAttributes tf_attribute;
+  int device_ = GetDeviceID(context_);    
+  if (device_ != CPU_DEVICE_ID){
+    tf_attribute.set_on_host(false);      
+  } else{
+    tf_attribute.set_on_host(true);
+  }
+
+  Status status = context_->allocate_temp(tf_data_type, ::tensorflow::TensorShape({num_elements}), &zero_tensor, tf_attribute);
+  switch (dtype) {
+  case common::HOROVOD_UINT8:
+    Allocate<uint8_t>(num_elements, device_, zero_tensor);
+    break;
+  case common::HOROVOD_INT8:
+    Allocate<int8_t>(num_elements, device_, zero_tensor);
+    break;
+  case common::HOROVOD_UINT16:
+      Allocate<uint8_t>(num_elements, device_, zero_tensor);
+    break;
+  case common::HOROVOD_INT16:
+    Allocate<int16_t>(num_elements, device_, zero_tensor);
+    break;
+  case common::HOROVOD_INT32:
+    Allocate<int32_t>(num_elements, device_, zero_tensor);
+    break;
+  case common::HOROVOD_INT64:
+    Allocate<int64_t>(num_elements, device_, zero_tensor);
+    break;
+  case common::HOROVOD_FLOAT16:
+    Allocate<float>(num_elements, device_, zero_tensor);
+    break;
+  case common::HOROVOD_FLOAT32:
+    Allocate<float>(num_elements, device_, zero_tensor);
+    break;
+  case common::HOROVOD_FLOAT64:
+    Allocate<double>(num_elements, device_, zero_tensor);
+    break;
+  case common::HOROVOD_BOOL:
+    Allocate<bool>(num_elements, device_, zero_tensor);
+    break;
+  default:
+    throw std::logic_error("Unknown tensor data type");
+  }
+  
+  if (status.ok()) {
+    *tensor = std::make_shared<TFTensor>(zero_tensor);
+  }
+
+#if HAVE_GPU
+  // On GPU allocation is asynchronous, we need to wait for it to
+  // complete.
+  auto device_context = context_->op_device_context();
+  if (device_context != nullptr) {
+    device_context->stream()->BlockHostUntilDone();
+  }
+#endif
+  return ConvertStatus(status);
 }
 
 common::Framework TFOpContext::framework() const {
@@ -478,6 +582,42 @@ Arguments
 Output
     output:    A tensor with the same shape as `tensor` and same value as
                `tensor` on root rank.
+)doc");
+
+//add join op for  tf
+class HorovodJoinOp : public AsyncOpKernel {
+public:
+  explicit HorovodJoinOp(OpKernelConstruction* context)
+      : AsyncOpKernel(context) {}
+
+  void ComputeAsync(OpKernelContext* context, DoneCallback done) override {
+    OP_REQUIRES_OK_ASYNC(context, ConvertStatus(common::CheckInitialized()),
+                         done);
+    auto device = GetDeviceID(context);
+    auto ready_event = std::shared_ptr<common::ReadyEvent>(RecordReadyEvent(context));
+    auto hvd_context = std::make_shared<TFOpContext>(context);
+    auto enqueue_result = EnqueueJoin(
+      hvd_context, ready_event,
+      JOIN_TENSOR_NAME, device,
+        [context, done](const common::Status& status) {
+          context->SetStatus(ConvertStatus(status));
+          done();
+        });
+    
+   OP_REQUIRES_OK_ASYNC(context, ConvertStatus(enqueue_result), done);
+  }
+};
+
+REGISTER_KERNEL_BUILDER(Name("HorovodJoin").Device(DEVICE_CPU),
+                        HorovodJoinOp);
+#if HOROVOD_GPU_ALLREDUCE
+REGISTER_KERNEL_BUILDER(Name("HorovodJoin").Device(DEVICE_GPU),
+                        HorovodJoinOp);
+#endif
+
+REGISTER_OP("HorovodJoin")
+    .Doc(R"doc(
+Perform an join on a tensor. 
 )doc");
 
 } // namespace tensorflow
