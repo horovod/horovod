@@ -139,13 +139,14 @@ def mpi_implementation_flags(flags=["--mock-mpi-impl-flags"],
 
 
 @contextlib.contextmanager
-def js_installed(js_is_installed):
+def lsf_and_jsrun(lsf_exists, jsrun_installed):
     """
     Patches the lsf.LSFUtils.using_lsf and is_jsrun_installed methods called from
     horovod.run.run.run_controller to return the given booleans.
-    :param js_is_installed: boolean returned by lsf.LSFUtils.using_lsf and is_jsrun_installed
+    :param lsf_exists: boolean returned by lsf.LSFUtils.using_lsf
+    :param jsrun_installed: boolean returned by is_jsrun_installed
     :return: mocked methods
     """
-    with mock.patch("horovod.run.run.lsf.LSFUtils.using_lsf", return_value=js_is_installed) as u:
-        with mock.patch("horovod.run.run.is_jsrun_installed", return_value=js_is_installed) as i:
+    with mock.patch("horovod.run.run.lsf.LSFUtils.using_lsf", return_value=lsf_exists) as u:
+        with mock.patch("horovod.run.run.is_jsrun_installed", return_value=jsrun_installed) as i:
             yield u, i

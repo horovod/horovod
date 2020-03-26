@@ -33,7 +33,7 @@ from horovod.run.mpi_run import _get_mpi_implementation, _get_mpi_implementation
 from horovod.run.run import parse_args, parse_host_files, run_controller
 from horovod.run.js_run import js_run, generate_jsrun_rankfile
 
-from common import is_built, js_installed, override_args, override_env, temppath
+from common import is_built, lsf_and_jsrun, override_args, override_env, temppath
 
 
 class RunTests(unittest.TestCase):
@@ -262,12 +262,17 @@ class RunTests(unittest.TestCase):
         self.assertEqual(_MISSING_IMPL, impl)
 
     def test_run_controller(self):
-        def test(use_gloo, use_mpi, use_js, gloo_is_built, mpi_is_built, js_is_installed, expected, exception):
+        def test(use_gloo, use_mpi, use_js,
+                 gloo_is_built, mpi_is_built,
+                 lsf_exists, jsrun_installed,
+                 expected, exception):
             print('testing run controller with gloo={gloo} mpi={mpi} js={js} '
-                  'gloo_built={gloo_is_built} mpi_built={mpi_is_built} js_installed={js_is_installed} '
+                  'gloo_built={gloo_is_built} mpi_built={mpi_is_built} '
+                  'lsf_exists={lsf} js_installed={js_is_installed} '
                   'expected={expected} exception={exception}'
                   .format(gloo=use_gloo, mpi=use_mpi, js=use_js,
-                          gloo_is_built=gloo_is_built, mpi_is_built=mpi_is_built, js_is_installed=js_is_installed,
+                          gloo_is_built=gloo_is_built, mpi_is_built=mpi_is_built,
+                          lsf=lsf_exists, js_is_installed=jsrun_installed,
                           expected=expected, exception=exception))
 
             gloo_run = MagicMock()
@@ -275,7 +280,7 @@ class RunTests(unittest.TestCase):
             js_run = MagicMock()
 
             with is_built(gloo_is_built, mpi_is_built):
-                with js_installed(js_is_installed):
+                with lsf_and_jsrun(lsf_exists, jsrun_installed):
                     if exception is not None:
                         with pytest.raises(ValueError, match=exception) as e:
                             run_controller(use_gloo, gloo_run, use_mpi, mpi_run, use_js, js_run, verbosity=2)
@@ -302,37 +307,46 @@ class RunTests(unittest.TestCase):
                 for use_js in [None, False, True]:
                     for gloo_is_built in [False, True]:
                         for mpi_is_built in [False, True]:
-                            for js_is_installed in [False, True]:
-                                expected = exception = None
-                                if use_gloo:
-                                    if gloo_is_built:
+                            for lsf_exists in [False, True]:
+                                for jsrun_installed in [False, True]:
+                                    expected = exception = None
+                                    if use_gloo:
+                                        if gloo_is_built:
+                                            expected = 'gloo'
+                                        else:
+                                            exception = '^Gloo support has not been built\.  If this is not expected, ensure CMake is installed ' \
+                                                        'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error\.$'
+                                    elif use_mpi:
+                                        if mpi_is_built:
+                                            expected = 'mpi'
+                                        else:
+                                            exception = '^MPI support has not been built\.  If this is not expected, ensure MPI is installed ' \
+                                                        'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error\.$'
+                                    elif use_js:
+                                        if mpi_is_built:
+                                            if lsf_exists:
+                                                expected = 'js'
+                                            else:
+                                                exception = 'Horovod did not detect an LSF job.  The jsrun launcher can only be used in that environment. ' \
+                                                            'Please, pick a different launcher for other environments.'
+                                        else:
+                                            exception = '^MPI support has not been built\.  If this is not expected, ensure MPI is installed ' \
+                                                        'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error\.$'
+                                    elif mpi_is_built:
+                                        if lsf_exists and jsrun_installed:
+                                            expected = 'js'
+                                        else:
+                                            expected = 'mpi'
+                                    elif gloo_is_built:
                                         expected = 'gloo'
                                     else:
-                                        exception = '^Gloo support has not been built\.  If this is not expected, ensure CMake is installed ' \
-                                                    'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error\.$'
-                                elif use_mpi:
-                                    if mpi_is_built:
-                                        expected = 'mpi'
-                                    else:
-                                        exception = '^MPI support has not been built\.  If this is not expected, ensure MPI is installed ' \
-                                                    'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error\.$'
-                                elif use_js:
-                                    if mpi_is_built:
-                                        expected = 'js'
-                                    else:
-                                        exception = '^MPI support has not been built\.  If this is not expected, ensure MPI is installed ' \
-                                                    'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error\.$'
-                                elif mpi_is_built:
-                                    if js_is_installed:
-                                        expected = 'js'
-                                    else:
-                                        expected = 'mpi'
-                                elif gloo_is_built:
-                                    expected = 'gloo'
-                                else:
-                                    exception = 'Neither MPI nor Gloo support has been built\. Try reinstalling Horovod ensuring that ' \
-                                                'either MPI is installed \(MPI\) or CMake is installed \(Gloo\)\.'
-                                test(use_gloo, use_mpi, use_js, gloo_is_built, mpi_is_built, js_is_installed, expected, exception)
+                                        exception = 'Neither MPI nor Gloo support has been built\. Try reinstalling Horovod ensuring that ' \
+                                                    'either MPI is installed \(MPI\) or CMake is installed \(Gloo\)\.'
+
+                                    test(use_gloo, use_mpi, use_js,
+                                         gloo_is_built, mpi_is_built,
+                                         lsf_exists, jsrun_installed,
+                                         expected, exception)
 
     """
     Minimal mpi_run settings for tests.
