@@ -56,7 +56,7 @@ def js_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_f
 
     if not is_jsrun_installed():
         raise Exception(
-            'horovodrun convenience script does not find the jsrun command.\n\n'
+            'horovod does not find the jsrun command.\n\n'
             'Please, make sure you are running on a cluster with jsrun installed or '
             'use one of the other launchers.')
 
