@@ -1,9 +1,9 @@
 .. inclusion-marker-start-do-not-remove
 
 AdaSum with Horovod
-=================
+===================
 
-The Adaptive Summation, or AdaSum is a novel algorithm for improving distributed data parallel training of Deep Learning models. This improvement can be seen in different ways- reducing the number steps to achieve the same accuracy in some cases and allowing to scale to more training workers without penalizing learning rate and convergence stability.
+The Adaptive Summation, or AdaSum, is a novel algorithm for improving distributed data parallel training of Deep Learning models. This improvement can be seen in different ways: reducing the number steps to achieve the same accuracy in some cases and allowing you to scale to more training workers without penalizing learning rate and convergence stability.
 AdaSum can be used with Horovod and PyTorch/TensorFlow. 
 
 |
@@ -17,9 +17,9 @@ Introduction to the AdaSum Algorithm
 ======================================
 
 
-Scaling DNN training to many GPUs always comes at a convergence degradation. This is because with larger batch sizes, gradients are averaged and the learning rate per example is smaller. To address this, learning rate is usually scaled up but this can lead to divergence of model parameters. AdaSum addresses these two issues without introducing any hyper-parameter.
+Scaling DNN training to many GPUs always comes at a convergence degradation. This is because with larger batch sizes, gradients are averaged and the learning rate per example is smaller. To address this, learning rate is usually scaled up, but this can lead to divergence of model parameters. AdaSum addresses these two issues without introducing any hyperparameter.
 
-Suppose there are two almost-parallel gradients from two different GPUs, g1 and g2, and they need to be reduced as shown in the figure below. The two common practices for reductions are g1+g2, the gray vector or (g1+g2)/2, the green vector. g1+g2 may cause divergence of the model since it is effectively moving in the direction of g1 or g2 by two times the magnitude of g1 or g2. Therefore, generally (g1+g2)/2 is safer and more desired. Note that (g1+g2)/2 penalizes both the components g1 and g2 equally.
+Suppose there are two almost-parallel gradients from two different GPUs, g1 and g2, and they need to be reduced as shown in the figure below. The two common practices for reductions are g1+g2, the gray vector, or (g1+g2)/2, the green vector. g1+g2 may cause divergence of the model since it is effectively moving in the direction of g1 or g2 by two times the magnitude of g1 or g2. Therefore, generally (g1+g2)/2 is safer and more desired. Note that (g1+g2)/2 penalizes both the components g1 and g2 equally.
 
 .. image:: media/abc4d31f19a315321553564e2225615b.png
 
@@ -42,9 +42,9 @@ The Distributed Optimizer for AdaSum
 ======================================
 
 
-AdaSum uses the Distributed AdaSum Optimizer to update the weights of the model after each step. In the usual data-parallel training scenario, the gradients are calculated independently by backpropagating on all the nodes, doing a reduce(averaging the gradients) so that all the nodes now have the same gradients, and then updating the weights of the model.
+AdaSum uses the Distributed AdaSum Optimizer to update the weights of the model after each step. In the usual data-parallel training scenario, the gradients are calculated independently by backpropagating on all the nodes, doing a reduce (averaging the gradients) so that all the nodes now have the same gradients, and then updating the weights of the model.
 
-The distributed optimizer for AdaSum first obtains the local gradients from the backpropagation step from the current local mini batch. Instead of performing the reduce at this point, it applies the optimization function to the local gradients to perform the weight update. Then, the delta, which is the differencein the weights before and after the update is obtained, which is then reduced instead of the gradients. Once all the workers have the same delta, the weight update step is then performed as the sum of the initial weights and delta.
+The distributed optimizer for AdaSum first obtains the local gradients from the backpropagation step from the current local mini batch. Instead of performing the reduce at this point, it applies the optimization function to the local gradients to perform the weight update. Then, the delta, which is the difference in the weights before and after the update is obtained, which is then reduced instead of the gradients. Once all the workers have the same delta, the weight update step is then performed as the sum of the initial weights and delta.
 
 Since the nature of AdaSum requires it to operate on the full magnitude of the gradient, the newly added distributed optimizer uses the difference in magnitude of weights between before and after the optimizer performs a step to deliver a more accurate estimation.
 
@@ -55,8 +55,8 @@ Installation and Usage Instructions
 
 AdaSum can be used and experimented with Horovod and Pytorch/TensorFlow.
 
-In addition, there are two options of using AdaSum with Horovod- with Message Passing Interface(MPI) and with `NCCL <https://developer.nvidia.com/nccl>`_. 
-It can be noted that any valid implementation of MPI can be used, but AdaSum has been tested with `OpenMPI <https://www.open-mpi.org/>`_ and `IntelMPI <https://software.intel.com/en-us/mpi-library>`_.
+In addition, there are two options of using AdaSum with Horovod: with Message Passing Interface (MPI) and with `NCCL <https://developer.nvidia.com/nccl>`_. 
+Any valid implementation of MPI can be used, but AdaSum has been tested with `OpenMPI <https://www.open-mpi.org/>`_ and `IntelMPI <https://software.intel.com/en-us/mpi-library>`_.
 
 Setting up the environment
 --------------------------
@@ -79,7 +79,7 @@ Below are the requirements for running Horovod with AdaSum:
 
 *Using NCCL:*
 
-If **HOROVOD_GPU_ALLREDUCE=NCCL** flag is used to compile Horovod, NCCL is used instead. In this case, NCCL will be used for intra-node communication, and AdaSum will be used for inter-node communication.
+If the **HOROVOD_GPU_ALLREDUCE=NCCL** flag is used to compile Horovod, NCCL is used instead. In this case, NCCL will be used for intra-node communication, and AdaSum will be used for inter-node communication.
 
 Modes of Operation
 =====================
@@ -109,7 +109,7 @@ Hierarchical
 
 In cases where the hardware does not support Ring mode, but throughput higher than that of the pure CPU mode is desired, the hierarchical mode can be used instead.
 
-The hierarchical mode functions similar to the Ring mode, except for using NCCL to do regular averaging intra-node, instead of using CUDA-aware MPI to do AdaSum like ring. Note that hierarchical also works on any hardware configuration, and is not limited to DGX1s.
+The hierarchical mode functions similar to the Ring mode, except for using NCCL to do regular averaging intra-node, instead of using CUDA-aware MPI to do an AdaSum-like ring. Note that hierarchical also works on any hardware configuration, and is not limited to DGX1s.
 
 In practice, hierarchical yields the best throughput, but lowers the convergence benefits of AdaSum due to some of the ops being regular averaging. As a rule of thumb, typically the convergence benefit degradation is insignificant on clusters with large numbers of nodes (\>=8), as in that case there are enough inter-node AdaSum ops being performed. This is the ideal Hierarchical scenario.
 
@@ -131,15 +131,17 @@ TensorFlow
 --------------------------
 
 -   DistributedOptimizer
+
 .. code-block:: python
 
- opt = tf.train.AdamOptimizer(0.001)
- opt = hvd.DistributedOptimizer(opt, backward_passes_per_step=5, op=hvd.AdaSum)
+    opt = tf.train.AdamOptimizer(0.001)
+    opt = hvd.DistributedOptimizer(opt, backward_passes_per_step=5, op=hvd.AdaSum)
 
 -   Allreduce
+
 .. code-block:: python
     
- hvd.allreduce(tensor, op=hvd.AdaSum)
+    hvd.allreduce(tensor, op=hvd.AdaSum)
 
 Pytorch
 --------------------------
@@ -148,14 +150,14 @@ Pytorch
 
 .. code-block:: python
 
- optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
- optimizer = hvd.DistributedOptimizer(optimizer, named_parameters=model.named_parameters(), compression=compression, backward_passes_per_step = 5, op=hvd.AdaSum)
+    optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+    optimizer = hvd.DistributedOptimizer(optimizer, named_parameters=model.named_parameters(), compression=compression, backward_passes_per_step = 5, op=hvd.AdaSum)
 
 -   Allreduce
 
 .. code-block:: python
 
- hvd.allreduce(tensor, op=hvd.AdaSum)
+    hvd.allreduce(tensor, op=hvd.AdaSum)
 
 Case Studies
 ==============
@@ -172,7 +174,7 @@ In order to estimate the coefficients, Stochastic Gradient Descent is used. The 
 
 This experiment can be run through the jupyter notebook `adasum_bench.ipynb <adasum_bench.ipynb>`_, with the models being defined in `adasum_small_model.py <adasum_small_model.py>`_.
 
-On running experiments with different number of workers, we can draw the following conclusions for this simple scenario with plain SGD as the optimizer:
+On running experiments with a different number of workers, we can draw the following conclusions for this simple scenario with plain SGD as the optimizer:
  
 -   **On the number of steps for convergence:** For the same problem, AdaSum achieves the same accuracy (100% in this case) in lower number of steps as compared to averaging. Depending on the complexity of the problem, this reduction can be anywhere up to 50% for less complex square parameter optimization.
 
@@ -205,7 +207,7 @@ Key Takeaways
 
 -   As the number of ranks scales up, the learning rate does not need to be scaled linearly if using CPU to do AdaSum reduction. A good scaling factor would be between 2\-2.5 over the best learning rate for a single worker.
 
--   If HOROVOD_GPU_ALLREDUCE=NCCL flag is used to compile Horovod, the learning rate that should be used is equal to the best learning rate for a single	worker (GPU) scaled by the number of GPUs locally on a node. On very large	clusters, scaling this even more by another factor of 1.5\-2.0x might give	better results but is not guaranteed and should be tried only if scaling by just the local size is not sufficient for good convergence.
+-   If the HOROVOD_GPU_ALLREDUCE=NCCL flag is used to compile Horovod, the learning rate that should be used is equal to the best learning rate for a single	worker (GPU) scaled by the number of GPUs locally on a node. On very large	clusters, scaling this even more by another factor of 1.5\-2.0x might give	better results but is not guaranteed and should be tried only if scaling by just the local size is not sufficient for good convergence.
 
 -   Pytorch training in fp16 format is not yet supported. Integration of Apex	into the new optimizer to enabled full mixed precision training with AdaSum in Pytorch is a work in progress.
 
