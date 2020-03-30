@@ -78,9 +78,6 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
     store = estimator.getStore()
     remote_store = store.to_remote(run_id, dataset_idx)
 
-    # Petastorm
-    make_reader = _make_reader_fn()
-
     def SyncCallback(root_path, sync_to_store_fn, keras):
         class _SyncCallback(keras.callbacks.Callback):
             def on_epoch_end(self, epoch, logs=None):
@@ -93,7 +90,7 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
         yield None
 
     def train(serialized_model, train_rows, val_rows, avg_row_size):
-        from petastorm import TransformSpec
+        from petastorm import TransformSpec, make_reader, make_batch_reader
 
         k = get_keras()
         k.backend.set_floatx(floatx)
@@ -168,33 +165,40 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
             if sample_weight_col:
                 schema_fields.append(sample_weight_col)
 
+            reader_factory = None
+            reader_factory_kwargs = dict()
+            if transform_spec:
+                reader_factory = make_reader
+                reader_factory_kwargs['pyarrow_serialize'] = True
+            else:
+                reader_factory = make_batch_reader
+
             # Petastorm: read data from the store with the correct shard for this rank
-            # setting num_epochs=None will cause an infinite iterator and enables
-            # ranks to perform training and validation with unequal number of
-            # samples
-            with make_reader(remote_store.train_data_path,
-                             num_epochs=None,
-                             cur_shard=hvd.rank(),
-                             reader_pool_type='process',
-                             workers_count=train_reader_worker_count,
-                             pyarrow_serialize=True,
-                             shard_count=hvd.size(),
-                             hdfs_driver=PETASTORM_HDFS_DRIVER,
-                             schema_fields=schema_fields,
-                             transform_spec=transform_spec,
-                             is_petastorm_compatible=True) as train_reader:
-                with make_reader(remote_store.val_data_path,
-                                 num_epochs=None,
-                                 cur_shard=hvd.rank(),
-                                 reader_pool_type='process',
-                                 pyarrow_serialize=True,
-                                 workers_count=val_reader_worker_count,
-                                 shard_count=hvd.size(),
-                                 hdfs_driver=PETASTORM_HDFS_DRIVER,
-                                 schema_fields=schema_fields,
-                                 transform_spec=transform_spec,
-                                 is_petastorm_compatible=True) \
-                        if should_validate else empty_batch_reader() as val_reader:
+            # setting num_epochs=None will cause an infinite iterator
+            # and enables ranks to perform training and validation with
+            # unequal number of samples
+            with reader_factory(remote_store.train_data_path,
+                                num_epochs=None,
+                                cur_shard=hvd.rank(),
+                                reader_pool_type='process',
+                                workers_count=train_reader_worker_count,
+                                pyarrow_serialize=True,
+                                shard_count=hvd.size(),
+                                hdfs_driver=PETASTORM_HDFS_DRIVER,
+                                schema_fields=schema_fields,
+                                transform_spec=transform_spec,
+                                **reader_factory_kwargs) as train_reader:
+                with reader_factory(remote_store.val_data_path,
+                                    num_epochs=None,
+                                    cur_shard=hvd.rank(),
+                                    reader_pool_type='process',
+                                    pyarrow_serialize=True,
+                                    workers_count=val_reader_worker_count,
+                                    shard_count=hvd.size(),
+                                    hdfs_driver=PETASTORM_HDFS_DRIVER,
+                                    schema_fields=schema_fields,
+                                    transform_spec=transform_spec) \
+                    if should_validate else empty_batch_reader() as val_reader:
 
                     train_data = make_dataset(train_reader, shuffle_buffer_size, shuffle=True)
                     val_data = make_dataset(val_reader, shuffle_buffer_size, shuffle=False) \
@@ -310,147 +314,3 @@ def _pin_cpu_tensorflow1_fn():
         config.intra_op_parallelism_threads = 1
         keras.backend.set_session(tf.Session(config=config))
     return fn
-
-
-def _make_reader_fn():
-    from petastorm.reader import NullCache, LocalDiskCache, FilesystemResolver,\
-        logger, dataset_metadata, PetastormMetadataError, \
-        ThreadPool, PyArrowSerializer, PickleSerializer, ProcessPool, DummyPool, Reader, \
-        PyDictReaderWorker, six
-
-    def make_reader(dataset_url,
-                    schema_fields=None,
-                    reader_pool_type='thread', workers_count=10, pyarrow_serialize=False,
-                    results_queue_size=50,
-                    shuffle_row_groups=True, shuffle_row_drop_partitions=1,
-                    predicate=None,
-                    rowgroup_selector=None,
-                    num_epochs=1,
-                    cur_shard=None, shard_count=None,
-                    cache_type='null', cache_location=None, cache_size_limit=None,
-                    cache_row_size_estimate=None, cache_extra_settings=None,
-                    hdfs_driver='libhdfs3',
-                    transform_spec=None,
-                    is_petastorm_compatible=False):
-        """
-        Creates an instance of Reader for reading Petastorm datasets. A Petastorm dataset is a dataset generated using
-        :func:`~petastorm.etl.dataset_metadata.materialize_dataset` context manager as explained
-        `here <https://petastorm.readthedocs.io/en/latest/readme_include.html#generating-a-dataset>`_.
-        See :func:`~petastorm.make_batch_reader` to read from a Parquet store that was not generated using
-        :func:`~petastorm.etl.dataset_metadata.materialize_dataset`.
-        :param dataset_url: an filepath or a url to a parquet directory,
-            e.g. ``'hdfs://some_hdfs_cluster/user/yevgeni/parquet8'``, or ``'file:///tmp/mydataset'``,
-            or ``'s3://bucket/mydataset'``, or ``'gs://bucket/mydataset'``.
-        :param schema_fields: Can be: a list of unischema fields and/or regex pattern strings; ``None`` to read all fields;
-                an NGram object, then it will return an NGram of the specified fields.
-        :param reader_pool_type: A string denoting the reader pool type. Should be one of ['thread', 'process', 'dummy']
-            denoting a thread pool, process pool, or running everything in the master thread. Defaults to 'thread'
-        :param workers_count: An int for the number of workers to use in the reader pool. This only is used for the
-            thread or process pool. Defaults to 10
-        :param pyarrow_serialize: Whether to use pyarrow for serialization. Currently only applicable to process pool.
-            Defaults to False.
-        :param results_queue_size: Size of the results queue to store prefetched row-groups. Currently only applicable to
-            thread reader pool type.
-        :param shuffle_row_groups: Whether to shuffle row groups (the order in which full row groups are read)
-        :param shuffle_row_drop_partitions: This is is a positive integer which determines how many partitions to
-            break up a row group into for increased shuffling in exchange for worse performance (extra reads).
-            For example if you specify 2 each row group read will drop half of the rows within every row group and
-            read the remaining rows in separate reads. It is recommended to keep this number below the regular row
-            group size in order to not waste reads which drop all rows.
-        :param predicate: instance of :class:`.PredicateBase` object to filter rows to be returned by reader. The predicate
-            will be passed a single row and must return a boolean value indicating whether to include it in the results.
-        :param rowgroup_selector: instance of row group selector object to select row groups to be read
-        :param num_epochs: An epoch is a single pass over all rows in the dataset. Setting ``num_epochs`` to
-            ``None`` will result in an infinite number of epochs.
-        :param cur_shard: An int denoting the current shard number. Each node reading a shard should
-            pass in a unique shard number in the range [0, shard_count). shard_count must be supplied as well.
-            Defaults to None
-        :param shard_count: An int denoting the number of shards to break this dataset into. Defaults to None
-        :param cache_type: A string denoting the cache type, if desired. Options are [None, 'null', 'local-disk'] to
-            either have a null/noop cache or a cache implemented using diskcache. Caching is useful when communication
-            to the main data store is either slow or expensive and the local machine has large enough storage
-            to store entire dataset (or a partition of a dataset if shard_count is used). By default will be a null cache.
-        :param cache_location: A string denoting the location or path of the cache.
-        :param cache_size_limit: An int specifying the size limit of the cache in bytes
-        :param cache_row_size_estimate: An int specifying the estimated size of a row in the dataset
-        :param cache_extra_settings: A dictionary of extra settings to pass to the cache implementation,
-        :param hdfs_driver: A string denoting the hdfs driver to use (if using a dataset on hdfs). Current choices are
-            libhdfs (java through JNI) or libhdfs3 (C++)
-        :param transform_spec: An instance of :class:`~petastorm.transform.TransformSpec` object defining how a record
-            is transformed after it is loaded and decoded. The transformation occurs on a worker thread/process (depends
-            on the ``reader_pool_type`` value).
-        :param is_petastorm_compatible: A boolean value that indicates if the dataset is petastorm
-            compatible or not. This is useful where the dataset is compatible with petastorm but is not
-            generated with petastorm so it may not have the metadata file. Defaults to False.
-        :return: A :class:`Reader` object
-        """
-
-        if dataset_url is None or not isinstance(dataset_url, six.string_types):
-            raise ValueError('dataset_url must be a string')
-
-        dataset_url = dataset_url[:-1] if dataset_url[-1] == '/' else dataset_url
-        logger.debug('dataset_url: %s', dataset_url)
-
-        resolver = FilesystemResolver(dataset_url, hdfs_driver=hdfs_driver)
-        filesystem = resolver.filesystem()
-        dataset_path = resolver.get_dataset_path()
-
-        if cache_type is None or cache_type == 'null':
-            cache = NullCache()
-        elif cache_type == 'local-disk':
-            cache = LocalDiskCache(cache_location, cache_size_limit, cache_row_size_estimate,
-                                   **cache_extra_settings or {})
-        else:
-            raise ValueError('Unknown cache_type: {}'.format(cache_type))
-
-        try:
-            dataset_metadata.get_schema_from_dataset_url(dataset_url, hdfs_driver=hdfs_driver)
-        except PetastormMetadataError:
-            message = 'Currently make_reader supports reading only Petastorm datasets. To read from ' \
-                      'a non-Petastorm Parquet store use make_batch_reader'
-            if not is_petastorm_compatible:
-                raise RuntimeError(message)
-            else:
-                logger.error(message)
-
-        if reader_pool_type == 'thread':
-            reader_pool = ThreadPool(workers_count, results_queue_size)
-        elif reader_pool_type == 'process':
-            if pyarrow_serialize:
-                serializer = PyArrowSerializer()
-            else:
-                serializer = PickleSerializer()
-            reader_pool = ProcessPool(workers_count, serializer)
-        elif reader_pool_type == 'dummy':
-            reader_pool = DummyPool()
-        else:
-            raise ValueError('Unknown reader_pool_type: {}'.format(reader_pool_type))
-
-        kwargs = {
-            'schema_fields': schema_fields,
-            'reader_pool': reader_pool,
-            'shuffle_row_groups': shuffle_row_groups,
-            'shuffle_row_drop_partitions': shuffle_row_drop_partitions,
-            'predicate': predicate,
-            'rowgroup_selector': rowgroup_selector,
-            'num_epochs': num_epochs,
-            'cur_shard': cur_shard,
-            'shard_count': shard_count,
-            'cache': cache,
-            'transform_spec': transform_spec,
-        }
-
-        try:
-            return Reader(filesystem, dataset_path,
-                          worker_class=PyDictReaderWorker,
-                          is_batched_reader=False,
-                          **kwargs)
-        except PetastormMetadataError as e:
-            logger.error('Unexpected exception: %s', str(e))
-            raise RuntimeError(
-                'make_reader has failed. If you were trying to open a Parquet store that was not '
-                'created using Petastorm materialize_dataset and it contains only scalar columns, '
-                'you may use make_batch_reader to read it.\n'
-                'Inner exception: %s', str(e))
-
-    return make_reader
