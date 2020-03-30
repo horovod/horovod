@@ -574,7 +574,7 @@ def _make_reader_fn():
     from petastorm.reader import NullCache, LocalDiskCache, FilesystemResolver, \
         logger, dataset_metadata, PetastormMetadataError, \
         ThreadPool, PyArrowSerializer, PickleSerializer, ProcessPool, DummyPool, Reader, \
-        PyDictReaderWorker
+        PyDictReaderWorker, six
 
     def make_reader(dataset_url,
                     schema_fields=None,
