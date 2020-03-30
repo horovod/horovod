@@ -165,13 +165,14 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
             if sample_weight_col:
                 schema_fields.append(sample_weight_col)
 
-            reader_factory = None
             reader_factory_kwargs = dict()
             if transform_spec:
                 reader_factory = make_reader
                 reader_factory_kwargs['pyarrow_serialize'] = True
+                is_batch_reader = False
             else:
                 reader_factory = make_batch_reader
+                is_batch_reader = True
 
             # Petastorm: read data from the store with the correct shard for this rank
             # setting num_epochs=None will cause an infinite iterator
@@ -200,8 +201,10 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                                     transform_spec=transform_spec) \
                     if should_validate else empty_batch_reader() as val_reader:
 
-                    train_data = make_dataset(train_reader, shuffle_buffer_size, shuffle=True)
-                    val_data = make_dataset(val_reader, shuffle_buffer_size, shuffle=False) \
+                    train_data = make_dataset(train_reader, shuffle_buffer_size,
+                                              is_batch_reader, shuffle=True)
+                    val_data = make_dataset(val_reader, shuffle_buffer_size,
+                                            is_batch_reader, shuffle=False) \
                         if val_reader else None
 
                     history = fit(model, train_data, val_data, steps_per_epoch,
