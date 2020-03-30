@@ -198,7 +198,8 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                                     shard_count=hvd.size(),
                                     hdfs_driver=PETASTORM_HDFS_DRIVER,
                                     schema_fields=schema_fields,
-                                    transform_spec=transform_spec) \
+                                    transform_spec=transform_spec,
+                                    **reader_factory_kwargs) \
                     if should_validate else empty_batch_reader() as val_reader:
 
                     train_data = make_dataset(train_reader, shuffle_buffer_size,

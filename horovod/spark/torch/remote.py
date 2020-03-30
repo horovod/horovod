@@ -231,7 +231,8 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                                     shard_count=hvd.size(),
                                     hdfs_driver=PETASTORM_HDFS_DRIVER,
                                     schema_fields=schema_fields,
-                                    transform_spec=transform_spec) \
+                                    transform_spec=transform_spec,
+                                    **reader_factory_kwargs) \
                     if should_validate else empty_batch_reader() as val_reader:
 
                     train_loader = DataLoader(train_reader,
