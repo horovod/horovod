@@ -25,6 +25,11 @@ from horovod.spark.common import util
 
 class EstimatorParams(Params):
     num_proc = Param(Params._dummy(), 'num_proc', 'number of processes')
+    train_reader_num_workers = Param(Params._dummy(),
+                                     'train_reader_num_workers',
+                                     'number of parallel worker processes to read train data')
+    val_reader_num_workers = Param(Params._dummy(), 'val_reader_num_workers',
+                                   'number of parallel worker processes to read validation data')
     optimizer = Param(Params._dummy(), 'optimizer', 'optimizer')
     model = Param(Params._dummy(), 'model', 'model')
     backend = Param(Params._dummy(), 'backend', 'backend')
@@ -112,7 +117,9 @@ class EstimatorParams(Params):
             run_id=None,
             train_steps_per_epoch=None,
             validation_steps_per_epoch=None,
-            transformation_fn=None)
+            transformation_fn=None,
+            train_reader_num_workers=2,
+            val_reader_num_workers=2)
 
     def _check_params(self, metadata):
         model = self.getModel()
@@ -280,6 +287,18 @@ class EstimatorParams(Params):
 
     def getTransformationFn(self):
         return self.getOrDefault(self.transformation_fn)
+
+    def setTrainReaderNumWorker(self, value):
+        return self._set(train_reader_num_workers=value)
+
+    def getTrainReaderNumWorker(self):
+        return self.getOrDefault(self.train_reader_num_workers)
+
+    def setValReaderNumWorker(self, value):
+        return self._set(val_reader_num_workers=value)
+
+    def getValReaderNumWorker(self):
+        return self.getOrDefault(self.val_reader_num_workers)
 
 
 class ModelParams(HasOutputCols):

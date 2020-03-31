@@ -60,11 +60,12 @@ class TFKerasUtil(object):
             has_sparse_col, sample_weight_col, feature_columns,
             label_columns, input_shapes, output_shapes, output_names)
 
-        def fn(reader, shuffle_buffer_size, shuffle=False):
+        def fn(reader, shuffle_buffer_size, is_batch_reader, shuffle=False):
             from petastorm.tf_utils import make_petastorm_dataset
 
-            dataset = make_petastorm_dataset(reader) \
-                .apply(tf.data.experimental.unbatch())
+            dataset = make_petastorm_dataset(reader)
+            if is_batch_reader:
+                dataset = dataset.apply(tf.data.experimental.unbatch())
 
             if shuffle:
                 dataset = dataset.shuffle(shuffle_buffer_size)
