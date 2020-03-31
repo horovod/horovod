@@ -29,7 +29,7 @@ class TaskToTaskAddressCheckFinishedSignalResponse(object):
 
 
 class HorovodRunTaskService(task_service.BasicTaskService):
-    NAME_FORMAT = 'horovodrun task service #%d'
+    NAME_FORMAT = 'horovod task service #%d'
 
     def __init__(self, index, key, nics, service_env_keys=None):
         super(HorovodRunTaskService, self).__init__(

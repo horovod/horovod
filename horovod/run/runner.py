@@ -47,7 +47,7 @@ from horovod.run.http.http_client import read_data_from_kvstore, put_data_into_k
 from horovod.run.http.http_server import KVStoreServer
 
 
-# Cached information of horovodrun functions be stored in this directory
+# Cached information of horovod functions be stored in this directory
 CACHE_FOLDER = os.path.join(os.path.expanduser('~'), '.horovod')
 
 # Cache entries will be stale if they are older than this number of minutes
@@ -596,7 +596,7 @@ def _run(args):
                                      run_func_mode=args.run_func is not None,
                                      nics=nics_set)
 
-    # This cache stores the results of checks performed by horovodrun
+    # This cache stores the results of checks performed by horovod
     # during the initialization step. It can be disabled by setting
     # --disable-cache flag.
     fn_cache = None

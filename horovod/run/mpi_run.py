@@ -42,7 +42,7 @@ _NO_BINDING_ARGS = ['-bind-to none', '-map-by slot']
 _SOCKET_BINDING_ARGS = ['-bind-to socket', '-map-by socket', '-rank-by core']
 
 # MPI not found error message
-_MPI_NOT_FOUND_ERROR_MSG= ('horovodrun convenience script does not find an installed MPI.\n\n'
+_MPI_NOT_FOUND_ERROR_MSG= ('horovod does not find an installed MPI.\n\n'
                            'Choose one of:\n'
                            '1. Install Open MPI 4.0.0+ or IBM Spectrum MPI or MPICH and re-install Horovod '
                            '(use --no-cache-dir pip option).\n'

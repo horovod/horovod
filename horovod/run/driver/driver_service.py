@@ -26,7 +26,7 @@ from horovod.run.common.util import codec, safe_shell_exec
 from horovod.run.task import task_service
 
 class HorovodRunDriverService(driver_service.BasicDriverService):
-    NAME = 'horovodrun driver service'
+    NAME = 'horovod driver service'
 
     def __init__(self, num_hosts, key, nics):
         super(HorovodRunDriverService, self).__init__(num_hosts,
@@ -79,7 +79,7 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
                                                 stderr=host_output)
             if exit_code != 0:
                 print(
-                    'Launching horovodrun task function was not '
+                    'Launching horovod task function was not '
                     'successful:\n{host_output}'
                     .format(host_output=host_output.getvalue()))
                 os._exit(exit_code)
@@ -117,7 +117,7 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
     # Each thread will use ssh command to launch the server on one task. If an
     # error occurs in one thread, entire process will be terminated. Otherwise,
     # threads will keep running and ssh session -- and the the task server --
-    # will be bound to the thread. In case, the horovodrun process dies, all
+    # will be bound to the thread. In case, the horovod process dies, all
     # the ssh sessions and all the task servers will die as well.
     threads.execute_function_multithreaded(_exec_command,
                                            args_list,
@@ -143,12 +143,11 @@ def _driver_fn(all_host_names, local_host_names, settings):
     :return: example: ['eth0', 'eth1']
     :rtype: list[string]
     """
-    # Launch a TCP server called service service on the host running
-    # horovodrun.
+    # Launch a TCP server called service service on the host running horovod
     driver = HorovodRunDriverService(
         settings.num_hosts, settings.key, settings.nic)
     if settings.verbose >= 2:
-        print('Launched horovodrun server.')
+        print('Launched horovod server.')
     # Have all the workers register themselves with the service service.
     _launch_task_servers(all_host_names, local_host_names,
                          driver.addresses(), settings)
@@ -204,7 +203,7 @@ def get_common_interfaces(settings, all_host_names, remote_host_names, fn_cache)
     :type all_host_names: list(string)
     :param remote_host_names: list of the remote host names.
     :type remote_host_names: list(string)
-    :param fn_cache: Cache storing the results of checks performed by horovodrun
+    :param fn_cache: Cache storing the results of checks performed by horovod
     :type fn_cache: Horovod.run.util.cache.Cache
     :return: List of common interfaces
     '''
