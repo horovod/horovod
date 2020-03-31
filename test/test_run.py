@@ -31,7 +31,7 @@ from horovod.run.common.util.host_hash import _hash, host_hash
 from horovod.run.mpi_run import _get_mpi_implementation, _get_mpi_implementation_flags,\
     _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_available, mpi_run,\
     _OMPI_IMPL, _SMPI_IMPL, _MPICH_IMPL, _UNKNOWN_IMPL, _MISSING_IMPL
-from horovod.run.run import parse_args, parse_host_files, run_controller
+from horovod.run.runner import parse_args, parse_host_files, run_controller
 from horovod.run.js_run import js_run, generate_jsrun_rankfile
 
 from common import is_built, lsf_and_jsrun, override_args, override_env, temppath

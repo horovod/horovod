@@ -15,7 +15,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from horovod.run.run import run_commandline
+from horovod.run.runner import run_commandline
 
 if __name__ == '__main__':
     run_commandline()

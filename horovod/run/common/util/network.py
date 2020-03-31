@@ -161,7 +161,7 @@ class BasicClient(object):
         self._addresses = self._probe(addresses)
         if not self._addresses:
             raise NoValidAddressesFound(
-                'Horovod was unable to connect to {service_name} on any '
+                'Horovodrun was unable to connect to {service_name} on any '
                 'of the following addresses: {addresses}.\n\n'
                 'One possible cause of this problem is that '
                 'horovodrun currently requires every host to have at '

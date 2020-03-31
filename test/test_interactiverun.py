@@ -28,7 +28,7 @@ import pytest
 
 import horovod.torch as hvd
 
-from horovod.run.run import run
+from horovod.run import run
 
 
 class InteractiveRunTests(unittest.TestCase):

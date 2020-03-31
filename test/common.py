@@ -118,8 +118,8 @@ def is_built(gloo_is_built, mpi_is_built):
     :param mpi_is_built: boolean returned by mpi_built
     :return: mocked gloo_built and mpi_built methods
     """
-    with mock.patch("horovod.run.run.gloo_built", return_value=gloo_is_built) as g:
-        with mock.patch("horovod.run.run.mpi_built", return_value=mpi_is_built) as m:
+    with mock.patch("horovod.run.runner.gloo_built", return_value=gloo_is_built) as g:
+        with mock.patch("horovod.run.runner.mpi_built", return_value=mpi_is_built) as m:
             yield g, m
 
 
@@ -147,6 +147,6 @@ def lsf_and_jsrun(lsf_exists, jsrun_installed):
     :param jsrun_installed: boolean returned by is_jsrun_installed
     :return: mocked methods
     """
-    with mock.patch("horovod.run.run.lsf.LSFUtils.using_lsf", return_value=lsf_exists) as u:
-        with mock.patch("horovod.run.run.is_jsrun_installed", return_value=jsrun_installed) as i:
+    with mock.patch("horovod.run.runner.lsf.LSFUtils.using_lsf", return_value=lsf_exists) as u:
+        with mock.patch("horovod.run.runner.is_jsrun_installed", return_value=jsrun_installed) as i:
             yield u, i
