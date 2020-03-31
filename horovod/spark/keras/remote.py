@@ -165,6 +165,10 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
             if sample_weight_col:
                 schema_fields.append(sample_weight_col)
 
+            # In general, make_batch_reader is faster than make_reader for reading the dataset.
+            # However, we found out that make_reader performs data transformations much faster than
+            # make_batch_reader with parallel worker processes. Therefore, the default reader
+            # we choose is make_batch_reader unless there are data transformations.
             reader_factory_kwargs = dict()
             if transform_spec:
                 reader_factory = make_reader
@@ -183,7 +187,6 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                                 cur_shard=hvd.rank(),
                                 reader_pool_type='process',
                                 workers_count=train_reader_worker_count,
-                                pyarrow_serialize=True,
                                 shard_count=hvd.size(),
                                 hdfs_driver=PETASTORM_HDFS_DRIVER,
                                 schema_fields=schema_fields,
@@ -193,7 +196,6 @@ def RemoteTrainer(estimator, metadata, keras_utils, run_id, dataset_idx):
                                     num_epochs=None,
                                     cur_shard=hvd.rank(),
                                     reader_pool_type='process',
-                                    pyarrow_serialize=True,
                                     workers_count=val_reader_worker_count,
                                     shard_count=hvd.size(),
                                     hdfs_driver=PETASTORM_HDFS_DRIVER,
