@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import copy
 import os
+import itertools
 import unittest
 import warnings
 
@@ -229,7 +230,6 @@ class RunTests(unittest.TestCase):
             self.assertEqual(expected, impl)
 
         test(("mpirun (Open MPI) 2.1.1\n"
-              "\n"
               "Report bugs to http://www.open-mpi.org/community/help/\n"), _OMPI_IMPL)
 
         test("OpenRTE", _OMPI_IMPL)
@@ -237,19 +237,8 @@ class RunTests(unittest.TestCase):
         test("IBM Spectrum MPI", _SMPI_IMPL)
 
         test(("HYDRA build details:\n"
-              "    Version:                                 3.3a2\n"
-              "    Release Date:                            Sun Nov 13 09:12:11 MST 2016\n"
-              "    CC:                              gcc   -Wl,-Bsymbolic-functions -Wl,-z,relro\n"
-              "    CXX:                             g++   -Wl,-Bsymbolic-functions -Wl,-z,relro\n"
-              "    F77:                             gfortran  -Wl,-Bsymbolic-functions -Wl,-z,relro\n"
-              "    F90:                             gfortran  -Wl,-Bsymbolic-functions -Wl,-z,relro\n"
-              "    Configure options:                       '--disable-option-checking' '--prefix=/usr' '--build=x86_64-linux-gnu' '--includedir=${prefix}/include' '--mandir=${prefix}/share/man' '--infodir=${prefix}/share/info' '--sysconfdir=/etc' '--localstatedir=/var' '--disable-silent-rules' '--libdir=${prefix}/lib/x86_64-linux-gnu' '--libexecdir=${prefix}/lib/x86_64-linux-gnu' '--disable-maintainer-mode' '--disable-dependency-tracking' '--with-libfabric' '--enable-shared' '--enable-fortran=all' '--disable-rpath' '--disable-wrapper-rpath' '--sysconfdir=/etc/mpich' '--libdir=/usr/lib/x86_64-linux-gnu' '--includedir=/usr/include/mpich' '--docdir=/usr/share/doc/mpich' '--with-hwloc-prefix=system' '--enable-checkpointing' '--with-hydra-ckpointlib=blcr' 'CPPFLAGS= -Wdate-time -D_FORTIFY_SOURCE=2 -I/build/mpich-O9at2o/mpich-3.3~a2/src/mpl/include -I/build/mpich-O9at2o/mpich-3.3~a2/src/mpl/include -I/build/mpich-O9at2o/mpich-3.3~a2/src/openpa/src -I/build/mpich-O9at2o/mpich-3.3~a2/src/openpa/src -D_REENTRANT -I/build/mpich-O9at2o/mpich-3.3~a2/src/mpi/romio/include' 'CFLAGS= -g -O2 -fdebug-prefix-map=/build/mpich-O9at2o/mpich-3.3~a2=. -fstack-protector-strong -Wformat -Werror=format-security -O2' 'CXXFLAGS= -g -O2 -fdebug-prefix-map=/build/mpich-O9at2o/mpich-3.3~a2=. -fstack-protector-strong -Wformat -Werror=format-security -O2' 'FFLAGS= -g -O2 -fdebug-prefix-map=/build/mpich-O9at2o/mpich-3.3~a2=. -fstack-protector-strong -O2' 'FCFLAGS= -g -O2 -fdebug-prefix-map=/build/mpich-O9at2o/mpich-3.3~a2=. -fstack-protector-strong -O2' 'build_alias=x86_64-linux-gnu' 'MPICHLIB_CFLAGS=-g -O2 -fdebug-prefix-map=/build/mpich-O9at2o/mpich-3.3~a2=. -fstack-protector-strong -Wformat -Werror=format-security' 'MPICHLIB_CPPFLAGS=-Wdate-time -D_FORTIFY_SOURCE=2' 'MPICHLIB_CXXFLAGS=-g -O2 -fdebug-prefix-map=/build/mpich-O9at2o/mpich-3.3~a2=. -fstack-protector-strong -Wformat -Werror=format-security' 'MPICHLIB_FFLAGS=-g -O2 -fdebug-prefix-map=/build/mpich-O9at2o/mpich-3.3~a2=. -fstack-protector-strong' 'MPICHLIB_FCFLAGS=-g -O2 -fdebug-prefix-map=/build/mpich-O9at2o/mpich-3.3~a2=. -fstack-protector-strong' 'LDFLAGS=-Wl,-Bsymbolic-functions -Wl,-z,relro' 'FC=gfortran' 'F77=gfortran' 'MPILIBNAME=mpich' '--cache-file=/dev/null' '--srcdir=.' 'CC=gcc' 'LIBS=' 'MPLLIBNAME=mpl'\n"
-              "    Process Manager:                         pmi\n"
-              "    Launchers available:                     ssh rsh fork slurm ll lsf sge manual persist\n"
-              "    Topology libraries available:            hwloc\n"
-              "    Resource management kernels available:   user slurm ll lsf sge pbs cobalt\n"
-              "    Checkpointing libraries available:       blcr\n"
-              "    Demux engines available:                 poll select\n"), _MPICH_IMPL)
+              "    Version:           3.3a2\n"
+              "    Configure options: 'MPICHLIB_CFLAGS=-g -O2'\n"), _MPICH_IMPL)
 
         test("Unknown MPI v1.00", _UNKNOWN_IMPL)
 
@@ -302,51 +291,54 @@ class RunTests(unittest.TestCase):
             else:
                 raise ValueError("unsupported framework: {}".format(expected))
 
-        for use_gloo in [None, False, True]:
-            for use_mpi in [None, False, True]:
-                for use_js in [None, False, True]:
-                    for gloo_is_built in [False, True]:
-                        for mpi_is_built in [False, True]:
-                            for lsf_exists in [False, True]:
-                                for jsrun_installed in [False, True]:
-                                    expected = exception = None
-                                    if use_gloo:
-                                        if gloo_is_built:
-                                            expected = 'gloo'
-                                        else:
-                                            exception = '^Gloo support has not been built\.  If this is not expected, ensure CMake is installed ' \
-                                                        'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error\.$'
-                                    elif use_mpi:
-                                        if mpi_is_built:
-                                            expected = 'mpi'
-                                        else:
-                                            exception = '^MPI support has not been built\.  If this is not expected, ensure MPI is installed ' \
-                                                        'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error\.$'
-                                    elif use_js:
-                                        if mpi_is_built:
-                                            if lsf_exists:
-                                                expected = 'js'
-                                            else:
-                                                exception = 'Horovod did not detect an LSF job.  The jsrun launcher can only be used in that environment. ' \
-                                                            'Please, pick a different launcher for other environments.'
-                                        else:
-                                            exception = '^MPI support has not been built\.  If this is not expected, ensure MPI is installed ' \
-                                                        'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error\.$'
-                                    elif mpi_is_built:
-                                        if lsf_exists and jsrun_installed:
-                                            expected = 'js'
-                                        else:
-                                            expected = 'mpi'
-                                    elif gloo_is_built:
-                                        expected = 'gloo'
-                                    else:
-                                        exception = 'Neither MPI nor Gloo support has been built\. Try reinstalling Horovod ensuring that ' \
-                                                    'either MPI is installed \(MPI\) or CMake is installed \(Gloo\)\.'
+        bool_values = [False, True]
+        bool_values_and_none = [None, False, True]
 
-                                    test(use_gloo, use_mpi, use_js,
-                                         gloo_is_built, mpi_is_built,
-                                         lsf_exists, jsrun_installed,
-                                         expected, exception)
+        for use_gloo, use_mpi, use_js, \
+            gloo_is_built, mpi_is_built, \
+            lsf_exists, jsrun_installed in \
+            itertools.product(bool_values_and_none, bool_values_and_none, bool_values_and_none,
+                              bool_values, bool_values,
+                              bool_values, bool_values):
+
+            expected = exception = None
+            if use_gloo:
+                if gloo_is_built:
+                    expected = 'gloo'
+                else:
+                    exception = '^Gloo support has not been built\.  If this is not expected, ensure CMake is installed ' \
+                                'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error\.$'
+            elif use_mpi:
+                if mpi_is_built:
+                    expected = 'mpi'
+                else:
+                    exception = '^MPI support has not been built\.  If this is not expected, ensure MPI is installed ' \
+                                'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error\.$'
+            elif use_js:
+                if mpi_is_built:
+                    if lsf_exists:
+                        expected = 'js'
+                    else:
+                        exception = 'Horovod did not detect an LSF job.  The jsrun launcher can only be used in that environment. ' \
+                                    'Please, pick a different launcher for other environments.'
+                else:
+                    exception = '^MPI support has not been built\.  If this is not expected, ensure MPI is installed ' \
+                                'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error\.$'
+            elif mpi_is_built:
+                if lsf_exists and jsrun_installed:
+                    expected = 'js'
+                else:
+                    expected = 'mpi'
+            elif gloo_is_built:
+                expected = 'gloo'
+            else:
+                exception = 'Neither MPI nor Gloo support has been built\. Try reinstalling Horovod ensuring that ' \
+                            'either MPI is installed \(MPI\) or CMake is installed \(Gloo\)\.'
+
+            test(use_gloo, use_mpi, use_js,
+                 gloo_is_built, mpi_is_built,
+                 lsf_exists, jsrun_installed,
+                 expected, exception)
 
     """
     Minimal mpi_run settings for tests.
