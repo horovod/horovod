@@ -16,40 +16,8 @@
 import os
 import sys
 
-from horovod.spark.task import task_service
-from horovod.spark.driver import driver_service
-from horovod.run.common.util import codec, secret
-
-
-def main(driver_addresses, settings, host_hash, command):
-    """
-    Method to run `orted` remotely given a host hash and driver addresses.
-
-    This method connects to the SparkDriverService running on the Spark driver,
-    retrieves all information required to connect to the task with the lowest task index
-    of that host hash and invoke the command there.
-    All other tasks with the same host hash are expected to no-op (see `horovod.spark._task_fn`)
-    and wait for the first task to terminate.
-
-    :param driver_addresses: driver's addresses
-    :param settings: settings
-    :param host_hash: host hash to connect to
-    :param command: command and arguments to invoke
-    """
-    if ':' in host_hash:
-        raise Exception('Illegal host hash provided. Are you using Open MPI 4.0.0+?')
-
-    key = codec.loads_base64(os.environ[secret.HOROVOD_SECRET_KEY])
-    driver_client = driver_service.SparkDriverClient(driver_addresses, key,
-                                                     verbose=settings.verbose)
-    task_indices = driver_client.task_host_hash_indices(host_hash)
-    # Since tasks with the same host hash have shared memory, we will run only
-    # one ORTED process on the first task.
-    first_task_index = task_indices[0]
-    task_addresses = driver_client.all_task_addresses(first_task_index)
-    task_client = task_service.SparkTaskClient(first_task_index, task_addresses,
-                                               key, verbose=settings.verbose)
-    task_client.run_command(command, os.environ)
+from horovod.run.common.util import codec
+from horovod.spark.driver.rsh import rsh
 
 
 if __name__ == '__main__':
@@ -58,6 +26,9 @@ if __name__ == '__main__':
 
     The command is usually `orted` to setup the MPI cluster. That `orted` process
     is then used to spin-up the actual remote process, the Horovod user's Python method.
+    The `orted` process will run on the lowest task index and all other tasks with the
+    same host hash are expected to no-op (see `horovod.spark._task_fn`)
+    and wait for the first task to terminate.
 
     :param driver_addresses: all IP addresses of the driver, base64 encoded
     :param settings: all settings, base64 encoded
@@ -68,5 +39,13 @@ if __name__ == '__main__':
         print('Usage: %s <service addresses> <settings> <host hash> '
               '<command...>' % sys.argv[0])
         sys.exit(1)
-    main(codec.loads_base64(sys.argv[1]), codec.loads_base64(sys.argv[2]),
-         sys.argv[3], " ".join(sys.argv[4:]))
+
+    addresses = codec.loads_base64(sys.argv[1])
+    settings = codec.loads_base64(sys.argv[2])
+    host_hash = sys.argv[3]
+    command = " ".join(sys.argv[4:])
+    env = os.environ
+
+    # Since tasks with the same host hash have shared memory,
+    # we will run only one ORTED process on the first task.
+    rsh(addresses, settings, host_hash, command, env, 0)

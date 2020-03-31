@@ -17,10 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import contextlib
 import copy
 import os
-import sys
+import itertools
 import unittest
 import warnings
 
@@ -29,34 +28,13 @@ from mock import MagicMock, patch
 
 from horovod.run.common.util import config_parser, secret, settings as hvd_settings, timeout
 from horovod.run.common.util.host_hash import _hash, host_hash
-from horovod.run.mpi_run import _get_mpi_implementation_flags, _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_run
-from horovod.run.run import parse_args, parse_host_files
+from horovod.run.mpi_run import _get_mpi_implementation, _get_mpi_implementation_flags,\
+    _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_available, mpi_run,\
+    _OMPI_IMPL, _SMPI_IMPL, _MPICH_IMPL, _UNKNOWN_IMPL, _MISSING_IMPL
+from horovod.run.runner import parse_args, parse_host_files, run_controller
 from horovod.run.js_run import js_run, generate_jsrun_rankfile
 
-from common import temppath
-
-
-@contextlib.contextmanager
-def override_args(tool=None, *args):
-    old = sys.argv[:]
-    try:
-        if tool:
-            sys.argv[0] = tool
-        sys.argv[1:] = args
-        yield
-    finally:
-        sys.argv = old
-
-
-@contextlib.contextmanager
-def override_env(env):
-    old = os.environ.copy()
-    try:
-        os.environ.update(env)
-        yield
-    finally:
-        os.environ.clear()
-        os.environ.update(old)
+from common import is_built, lsf_and_jsrun, override_args, override_env, temppath
 
 
 class RunTests(unittest.TestCase):
@@ -245,6 +223,123 @@ class RunTests(unittest.TestCase):
             self.assertNotEqual(host_hash(), hash)
         self.assertEqual(host_hash(), hash)
 
+    def test_get_mpi_implementation(self):
+        def test(output, expected):
+            execute = MagicMock(return_value=(output, 0))
+            impl = _get_mpi_implementation(execute=execute)
+            self.assertEqual(expected, impl)
+
+        test(("mpirun (Open MPI) 2.1.1\n"
+              "Report bugs to http://www.open-mpi.org/community/help/\n"), _OMPI_IMPL)
+
+        test("OpenRTE", _OMPI_IMPL)
+
+        test("IBM Spectrum MPI", _SMPI_IMPL)
+
+        test(("HYDRA build details:\n"
+              "    Version:           3.3a2\n"
+              "    Configure options: 'MPICHLIB_CFLAGS=-g -O2'\n"), _MPICH_IMPL)
+
+        test("Unknown MPI v1.00", _UNKNOWN_IMPL)
+
+        execute = MagicMock(return_value=("output", 1))
+        impl = _get_mpi_implementation(execute=execute)
+        self.assertEqual(_MISSING_IMPL, impl)
+
+        execute = MagicMock(return_value=None)
+        impl = _get_mpi_implementation(execute=execute)
+        self.assertEqual(_MISSING_IMPL, impl)
+
+    def test_run_controller(self):
+        def test(use_gloo, use_mpi, use_js,
+                 gloo_is_built, mpi_is_built,
+                 lsf_exists, jsrun_installed,
+                 expected, exception):
+            print('testing run controller with gloo={gloo} mpi={mpi} js={js} '
+                  'gloo_built={gloo_is_built} mpi_built={mpi_is_built} '
+                  'lsf_exists={lsf} js_installed={js_is_installed} '
+                  'expected={expected} exception={exception}'
+                  .format(gloo=use_gloo, mpi=use_mpi, js=use_js,
+                          gloo_is_built=gloo_is_built, mpi_is_built=mpi_is_built,
+                          lsf=lsf_exists, js_is_installed=jsrun_installed,
+                          expected=expected, exception=exception))
+
+            gloo_run = MagicMock()
+            mpi_run = MagicMock()
+            js_run = MagicMock()
+
+            with is_built(gloo_is_built, mpi_is_built):
+                with lsf_and_jsrun(lsf_exists, jsrun_installed):
+                    if exception is not None:
+                        with pytest.raises(ValueError, match=exception) as e:
+                            run_controller(use_gloo, gloo_run, use_mpi, mpi_run, use_js, js_run, verbosity=2)
+                        return
+                    run_controller(use_gloo, gloo_run, use_mpi, mpi_run, use_js, js_run, verbosity=2)
+
+            if expected == "gloo":
+                gloo_run.assert_called_once()
+                mpi_run.assert_not_called()
+                js_run.assert_not_called()
+            elif expected == "mpi":
+                gloo_run.assert_not_called()
+                mpi_run.assert_called_once()
+                js_run.assert_not_called()
+            elif expected == "js":
+                gloo_run.assert_not_called()
+                mpi_run.assert_not_called()
+                js_run.assert_called_once()
+            else:
+                raise ValueError("unsupported framework: {}".format(expected))
+
+        bool_values = [False, True]
+        bool_values_and_none = [None, False, True]
+
+        for use_gloo, use_mpi, use_js, \
+            gloo_is_built, mpi_is_built, \
+            lsf_exists, jsrun_installed in \
+            itertools.product(bool_values_and_none, bool_values_and_none, bool_values_and_none,
+                              bool_values, bool_values,
+                              bool_values, bool_values):
+
+            expected = exception = None
+            if use_gloo:
+                if gloo_is_built:
+                    expected = 'gloo'
+                else:
+                    exception = '^Gloo support has not been built\.  If this is not expected, ensure CMake is installed ' \
+                                'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error\.$'
+            elif use_mpi:
+                if mpi_is_built:
+                    expected = 'mpi'
+                else:
+                    exception = '^MPI support has not been built\.  If this is not expected, ensure MPI is installed ' \
+                                'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error\.$'
+            elif use_js:
+                if mpi_is_built:
+                    if lsf_exists:
+                        expected = 'js'
+                    else:
+                        exception = 'Horovod did not detect an LSF job.  The jsrun launcher can only be used in that environment. ' \
+                                    'Please, pick a different launcher for other environments.'
+                else:
+                    exception = '^MPI support has not been built\.  If this is not expected, ensure MPI is installed ' \
+                                'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error\.$'
+            elif mpi_is_built:
+                if lsf_exists and jsrun_installed:
+                    expected = 'js'
+                else:
+                    expected = 'mpi'
+            elif gloo_is_built:
+                expected = 'gloo'
+            else:
+                exception = 'Neither MPI nor Gloo support has been built\. Try reinstalling Horovod ensuring that ' \
+                            'either MPI is installed \(MPI\) or CMake is installed \(Gloo\)\.'
+
+            test(use_gloo, use_mpi, use_js,
+                 gloo_is_built, mpi_is_built,
+                 lsf_exists, jsrun_installed,
+                 expected, exception)
+
     """
     Minimal mpi_run settings for tests.
     """
@@ -260,7 +355,7 @@ class RunTests(unittest.TestCase):
     Tests mpi_run with minimal settings.
     """
     def test_mpi_run_minimal(self):
-        if _get_mpi_implementation_flags(False)[0] is None:
+        if not mpi_available():
             self.skipTest("MPI is not available")
 
         cmd = ['cmd']
@@ -284,7 +379,7 @@ class RunTests(unittest.TestCase):
     Tests mpi_run on a large cluster.
     """
     def test_mpi_run_on_large_cluster(self):
-        if _get_mpi_implementation_flags(False)[0] is None:
+        if not mpi_available():
             self.skipTest("MPI is not available")
 
         cmd = ['cmd']
@@ -311,7 +406,7 @@ class RunTests(unittest.TestCase):
     Tests mpi_run with full settings.
     """
     def test_mpi_run_full(self):
-        if _get_mpi_implementation_flags(False)[0] is None:
+        if not mpi_available():
             self.skipTest("MPI is not available")
 
         cmd = ['cmd', 'arg1', 'arg2']
@@ -354,7 +449,7 @@ class RunTests(unittest.TestCase):
         run_func.assert_called_once_with(command=expected_command, env=expected_env, stdout=stdout, stderr=stderr)
 
     def test_mpi_run_with_non_zero_exit(self):
-        if _get_mpi_implementation_flags(False)[0] is None:
+        if not mpi_available():
             self.skipTest("MPI is not available")
 
         cmd = ['cmd']

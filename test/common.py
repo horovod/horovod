@@ -21,7 +21,10 @@ from __future__ import print_function
 import contextlib
 import os
 import shutil
+import sys
 import tempfile
+
+import mock
 
 
 def mpi_env_rank_and_size():
@@ -79,3 +82,71 @@ def temppath():
                 os.remove(path)
             else:
                 shutil.rmtree(path)
+
+
+@contextlib.contextmanager
+def override_args(tool=None, *args):
+    old = sys.argv[:]
+    try:
+        if tool:
+            sys.argv[0] = tool
+        sys.argv[1:] = args
+        yield
+    finally:
+        sys.argv = old
+
+
+@contextlib.contextmanager
+def override_env(env):
+    old = os.environ
+    try:
+        os.environ = env
+        yield
+    finally:
+        os.environ = old
+
+
+@contextlib.contextmanager
+def is_built(gloo_is_built, mpi_is_built):
+    """
+    Patches the gloo_built and mpi_built methods called from horovod.run.run.run_controller
+    to return the given booleans. That method is used by horovod.spark.run to determine which
+    controller to use. Patching these methods allows to test horovod.spark.run without an MPI
+    implementation to be installed.
+
+    :param gloo_is_built: boolean returned by gloo_built
+    :param mpi_is_built: boolean returned by mpi_built
+    :return: mocked gloo_built and mpi_built methods
+    """
+    with mock.patch("horovod.run.runner.gloo_built", return_value=gloo_is_built) as g:
+        with mock.patch("horovod.run.runner.mpi_built", return_value=mpi_is_built) as m:
+            yield g, m
+
+
+@contextlib.contextmanager
+def mpi_implementation_flags(flags=["--mock-mpi-impl-flags"],
+                             binding_args=["--mock-mpi-binding-args"]):
+    """
+    Patches the _get_mpi_implementation_flags method used by horovod.run.mpi_run to retrieve
+    MPI implementation specific command line flags. Patching this method allows to test mpi_run
+    without an MPI implementation to be installed.
+
+    :param flags: mock flags
+    :return: the mocked method
+    """
+    with mock.patch("horovod.run.mpi_run._get_mpi_implementation_flags", return_value=(flags, binding_args)) as m:
+        yield m
+
+
+@contextlib.contextmanager
+def lsf_and_jsrun(lsf_exists, jsrun_installed):
+    """
+    Patches the lsf.LSFUtils.using_lsf and is_jsrun_installed methods called from
+    horovod.run.run.run_controller to return the given booleans.
+    :param lsf_exists: boolean returned by lsf.LSFUtils.using_lsf
+    :param jsrun_installed: boolean returned by is_jsrun_installed
+    :return: mocked methods
+    """
+    with mock.patch("horovod.run.runner.lsf.LSFUtils.using_lsf", return_value=lsf_exists) as u:
+        with mock.patch("horovod.run.runner.is_jsrun_installed", return_value=jsrun_installed) as i:
+            yield u, i

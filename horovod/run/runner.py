@@ -536,7 +536,7 @@ def parse_host_files(filename):
 def parse_host_names(hosts):
     host_list = hosts.split(',')
     all_host_names = []
-    pattern = re.compile(r'^[\w.-]+:\d+$')
+    pattern = re.compile(r'^[\w.-]+:[0-9]+$')
     for host in host_list:
         if not pattern.match(host.strip()):
             raise ValueError('Invalid host input, please make sure it has '
@@ -658,39 +658,57 @@ def _run(args):
         return None
 
 
-def _launch_job(args, remote_host_names, settings, nics, command):
-    env = os.environ.copy()
-    config_parser.set_env_from_args(env, args)
-
-    if args.use_gloo:
-        if not gloo_built(verbose=(settings.verbose >= 2)):
+def run_controller(use_gloo, gloo_run, use_mpi, mpi_run, use_jsrun, js_run, verbosity):
+    verbose = verbosity is not None and verbosity >= 2
+    if use_gloo:
+        if not gloo_built(verbose=verbose):
             raise ValueError('Gloo support has not been built.  If this is not expected, ensure CMake is installed '
                              'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
-        gloo_run(settings, remote_host_names, nics, env, network._get_driver_ip(nics), command)
-    elif args.use_mpi:
-        if not mpi_built(verbose=(settings.verbose >= 2)):
+        gloo_run()
+    elif use_mpi:
+        if not mpi_built(verbose=verbose):
             raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
                              'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.')
-        mpi_run(settings, nics, env, command)
-    elif args.use_jsrun:
-        if not mpi_built(verbose=(settings.verbose >= 2)):
+        mpi_run()
+    elif use_jsrun:
+        if not mpi_built(verbose=verbose):
             raise ValueError('MPI support has not been built.  If this is not expected, ensure MPI is installed '
                              'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error.')
         if not lsf.LSFUtils.using_lsf():
             raise ValueError('Horovod did not detect an LSF job.  The jsrun launcher can only be used in that environment. '
                              'Please, pick a different launcher for other environments.')
-        js_run(settings, nics, env, command)
+        js_run()
     else:
-        if mpi_built(verbose=(settings.verbose >= 2)):
+        if mpi_built(verbose=verbose):
             if lsf.LSFUtils.using_lsf() and is_jsrun_installed():
-                js_run(settings, nics, env, command)
+                js_run()
             else:
-                mpi_run(settings, nics, env, command)
-        elif gloo_built(verbose=(settings.verbose >= 2)):
-            gloo_run(settings, remote_host_names, nics, env, network._get_driver_ip(nics), command)
+                mpi_run()
+        elif gloo_built(verbose=verbose):
+            gloo_run()
         else:
             raise ValueError('Neither MPI nor Gloo support has been built. Try reinstalling Horovod ensuring that '
                              'either MPI is installed (MPI) or CMake is installed (Gloo).')
+
+
+def _launch_job(args, remote_host_names, settings, nics, command):
+    env = os.environ.copy()
+    config_parser.set_env_from_args(env, args)
+    driver_ip = network._get_driver_ip(nics)
+
+    def gloo_run_fn():
+        gloo_run(settings, remote_host_names, nics, env, driver_ip, command)
+
+    def mpi_run_fn():
+        mpi_run(settings, nics, env, command)
+
+    def js_run_fn():
+        js_run(settings, nics, env, command)
+
+    run_controller(args.use_gloo, gloo_run_fn,
+                   args.use_mpi, mpi_run_fn,
+                   args.use_jsrun, js_run_fn,
+                   args.verbose)
 
 
 def run_commandline():
