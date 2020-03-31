@@ -5,6 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile.test.cpu
     privileged: true
+    shm_size: 8gb
   test-cpu-openmpi-py2_7-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_3_2:
     extends: test-cpu-base
     build:
@@ -205,6 +206,7 @@ services:
     environment:
       - CUDA_VISIBLE_DEVICES
     privileged: true
+    shm_size: 8gb
   test-gpu-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0:
     extends: test-gpu-base
     build:
