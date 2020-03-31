@@ -52,6 +52,13 @@ Controller::Controller(ResponseCache& response_cache, TensorQueue& tensor_queue,
       timeline_(timeline), response_cache_(response_cache),
       parameter_manager_(parameter_manager) {}
 
+void Controller::Initialize() {
+  response_cache_.clear();
+
+  // Initialize concrete implementations.
+  DoInitialization();
+}
+
 ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
                                              HorovodGlobalState& state) {
   // Update cache capacity if autotuning is active.

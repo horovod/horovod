@@ -82,10 +82,11 @@ class SparkTests(unittest.TestCase):
     def run(self, result=None):
         if os.environ.get('OMPI_COMM_WORLD_RANK', '0') != '0':
             # Running in MPI as a rank > 0, ignore.
+            # Purposefully skip these silently
             return
 
         if 'Open MPI' not in str(subprocess.check_output('mpirun --version', shell=True)):
-            return
+            self.skipTest("Open MPI not available")
 
         super(SparkTests, self).run(result)
 
@@ -178,12 +179,12 @@ class SparkTests(unittest.TestCase):
                          'Spark timed out before mpi_run was called, test setup is broken.')
         self.assertEqual(str(e.value), 'Spark job has failed, see the error above.')
 
-        mpi_flags = _get_mpi_implementation_flags()
+        mpi_flags, binding_args = _get_mpi_implementation_flags(False)
         self.assertIsNotNone(mpi_flags)
         expected_command = ('mpirun '
                             '--allow-run-as-root --tag-output '
                             '-np {expected_np} -H [^ ]+ '
-                            '-bind-to none -map-by slot '
+                            '{binding_args} '
                             '{mpi_flags}  '
                             '-mca btl_tcp_if_include [^ ]+ -x NCCL_SOCKET_IFNAME=[^ ]+  '
                             '-x _HOROVOD_SECRET_KEY {expected_env}'
@@ -192,6 +193,7 @@ class SparkTests(unittest.TestCase):
                             r'-mca plm_rsh_agent "[^"]+python[\d]* -m horovod.spark.driver.mpirun_rsh [^ ]+ [^ ]+" '
                             r'[^"]+python[\d]* -m horovod.spark.task.mpirun_exec_fn [^ ]+ [^ ]+'.format(
                                 expected_np=expected_np,
+                                binding_args=' '.join(binding_args),
                                 expected_env=expected_env + ' ' if expected_env else '',
                                 mpi_flags=' '.join(mpi_flags),
                                 extra_mpi_args=extra_mpi_args if extra_mpi_args else ''))

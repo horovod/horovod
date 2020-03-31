@@ -106,13 +106,23 @@ To install Horovod:
 
 3. Install the ``horovod`` pip package.
 
-.. code-block:: bash
+   To run on CPUs:
 
-    $ pip install horovod
+   .. code-block:: bash
+
+      $ pip install horovod
+
+   To run on GPUs with NCCL:
+
+   .. code-block:: bash
+
+      $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_BROADCAST=NCCL pip install horovod
 
 This basic installation is good for laptops and for getting to know Horovod.
 
-If you're installing Horovod on a server with GPUs, read `Horovod on GPU <docs/gpus.rst>`_.
+For more details on installing Horovod with GPU support, read `Horovod on GPU <docs/gpus.rst>`_.
+
+For the full list of Horovod installation options, read the `Installation Guide <docs/install.rst>`_.
 
 If you want to use Docker, read `Horovod in Docker <docs/docker.rst>`_.
 
@@ -263,6 +273,8 @@ See `Run Horovod <docs/running.rst>`_ for more details, including RoCE/InfiniBan
 6. To run in Spark, see `Spark <docs/spark.rst>`_.
 
 7. To run in Singularity, see `Singularity <https://github.com/sylabs/examples/tree/master/machinelearning/horovod>`_.
+
+8. To run in a LSF HPC cluster (e.g. Summit), see `LSF <docs/lsf.rst>`_.
 
 Gloo
 ----

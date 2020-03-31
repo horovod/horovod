@@ -41,8 +41,8 @@ class AllTaskAddressesResponse(object):
 
 
 class BasicDriverService(network.BasicService):
-    def __init__(self, num_proc, name, key, nic):
-        super(BasicDriverService, self).__init__(name, key, nic)
+    def __init__(self, num_proc, name, key, nics):
+        super(BasicDriverService, self).__init__(name, key, nics)
         self._num_proc = num_proc
         self._all_task_addresses = {}
         self._task_addresses_for_driver = {}

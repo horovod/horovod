@@ -18,24 +18,38 @@ import six
 import traceback
 import sys
 import os
-from horovod.run.common.util import env as env_util, safe_shell_exec, secret, codec
+from horovod.run.common.util import env as env_util, safe_shell_exec
 
 # Open MPI Flags
 _OMPI_FLAGS = ['-mca pml ob1', '-mca btl ^openib']
 # Spectrum MPI Flags
-_SMPI_FLAGS = ['-gpu', '-disable_gdr']
+_SMPI_FLAGS = []
+_SMPI_FLAGS_TCP = ['-tcp']
 # MPICH Flags
 _MPICH_FLAGS = []
 # Threshold for large cluster MPI issues:
 _LARGE_CLUSTER_THRESHOLD = 64
+# No process binding args
+_NO_BINDING_ARGS = ['-bind-to none', '-map-by slot']
+# Process socket binding args
+_SOCKET_BINDING_ARGS = ['-bind-to socket', '-map-by socket', '-rank-by core']
+
+# MPI not found error message
+_MPI_NOT_FOUND_ERROR_MSG= ('horovodrun convenience script does not find an installed MPI.\n\n'
+                           'Choose one of:\n'
+                           '1. Install Open MPI 4.0.0+ or IBM Spectrum MPI or MPICH and re-install Horovod '
+                           '(use --no-cache-dir pip option).\n'
+                           '2. Run distributed '
+                           'training script using the standard way provided by your'
+                           ' MPI distribution (usually mpirun, srun, or jsrun).\n'
+                           '3. Use built-in gloo option (horovodrun --gloo ...).')
 
 try:
     from shlex import quote
 except ImportError:
     from pipes import quote
 
-
-def _get_mpi_implementation_flags():
+def _get_mpi_implementation_flags(tcp_flag):
     output = six.StringIO()
     command = 'mpirun --version'
     try:
@@ -44,34 +58,34 @@ def _get_mpi_implementation_flags():
         output_msg = output.getvalue()
     except Exception:
         print(traceback.format_exc(), file=sys.stderr)
-        return None
+        return None, None
     finally:
         output.close()
 
     if exit_code == 0:
         if 'Open MPI' in output_msg or 'OpenRTE' in output_msg:
-            return list(_OMPI_FLAGS)
+            return list(_OMPI_FLAGS), list(_NO_BINDING_ARGS)
         elif 'IBM Spectrum MPI' in output_msg:
-            return list(_SMPI_FLAGS)
+            return list(_SMPI_FLAGS) if not tcp_flag else list(_SMPI_FLAGS_TCP), list(_SOCKET_BINDING_ARGS)
         elif 'MPICH' in output_msg:
-            return list(_MPICH_FLAGS)
+            return list(_MPICH_FLAGS), list(_NO_BINDING_ARGS)
         print('Open MPI/Spectrum MPI/MPICH not found in output of mpirun --version.',
               file=sys.stderr)
-        return None
+        return None, None
     else:
         print("Was not able to run %s:\n%s" % (command, output_msg),
               file=sys.stderr)
-        return None
+        return None, None
 
 
-def mpi_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_func=safe_shell_exec.execute):
+def mpi_run(settings, nics, env, command, stdout=None, stderr=None, run_func=safe_shell_exec.execute):
     """
     Runs mpi_run.
 
     Args:
         settings: Settings for running MPI.
                   Note: settings.num_proc and settings.hosts must not be None.
-        common_intfs: Interfaces to include by MPI.
+        nics: Interfaces to include by MPI.
         env: Environment dictionary to use for running MPI.
         command: Command and arguments to run as a list of string.
         stdout: Stdout of the mpi process.
@@ -82,17 +96,9 @@ def mpi_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_
                   Only used when settings.run_func_mode is True.
                   Defaults to safe_shell_exec.execute.
     """
-    mpi_impl_flags = _get_mpi_implementation_flags()
+    mpi_impl_flags, impl_binding_args = _get_mpi_implementation_flags(settings.tcp_flag)
     if mpi_impl_flags is None:
-        raise Exception(
-            'horovodrun convenience script does not find an installed MPI.\n\n'
-            'Choose one of:\n'
-            '1. Install Open MPI 4.0.0+ or IBM Spectrum MPI or MPICH and re-install Horovod '
-            '(use --no-cache-dir pip option).\n'
-            '2. Run distributed '
-            'training script using the standard way provided by your'
-            ' MPI distribution (usually mpirun, srun, or jsrun).\n'
-            '3. Use built-in gloo option (horovodrun --gloo ...).')
+        raise Exception(_MPI_NOT_FOUND_ERROR_MSG)
 
     ssh_port_arg = '-mca plm_rsh_args \"-p {ssh_port}\"'.format(
             ssh_port=settings.ssh_port) if settings.ssh_port else ''
@@ -101,21 +107,23 @@ def mpi_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_
     # There is no need to specify localhost.
     hosts_arg = '-H {hosts}'.format(hosts=settings.hosts)
 
-    tcp_intf_arg = '-mca btl_tcp_if_include {common_intfs}'.format(
-        common_intfs=','.join(common_intfs)) if common_intfs else ''
-    nccl_socket_intf_arg = '-x NCCL_SOCKET_IFNAME={common_intfs}'.format(
-        common_intfs=','.join(common_intfs)) if common_intfs else ''
+    tcp_intf_arg = '-mca btl_tcp_if_include {nics}'.format(
+        nics=','.join(nics)) if nics else ''
+    nccl_socket_intf_arg = '-x NCCL_SOCKET_IFNAME={nics}'.format(
+        nics=','.join(nics)) if nics else ''
 
     # On large cluster runs (e.g. Summit), we need extra settings to work around OpenMPI issues
     if settings.num_hosts and settings.num_hosts >= _LARGE_CLUSTER_THRESHOLD:
         mpi_impl_flags.append('-mca plm_rsh_no_tree_spawn true')
-        mpi_impl_flags.append('-mca plm_rsh_num_concurrent {}'.format(settings.num_proc))
+        mpi_impl_flags.append('-mca plm_rsh_num_concurrent {}'.format(settings.num_hosts))
+
+    binding_args = settings.binding_args if settings.binding_args else ' '.join(impl_binding_args)
 
     # Pass all the env variables to the mpirun command.
     mpirun_command = (
         'mpirun --allow-run-as-root --tag-output '
         '-np {num_proc} {hosts_arg} '
-        '-bind-to none -map-by slot '
+        '{binding_args} '
         '{mpi_args} '
         '{ssh_port_arg} '
         '{tcp_intf_arg} '
@@ -124,6 +132,7 @@ def mpi_run(settings, common_intfs, env, command, stdout=None, stderr=None, run_
         '{env} {extra_mpi_args} {command}'  # expect a lot of environment variables
         .format(num_proc=settings.num_proc,
                 hosts_arg=hosts_arg,
+                binding_args=binding_args,
                 mpi_args=' '.join(mpi_impl_flags),
                 tcp_intf_arg=tcp_intf_arg,
                 nccl_socket_intf_arg=nccl_socket_intf_arg,

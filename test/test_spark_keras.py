@@ -114,6 +114,7 @@ class SparkKerasTests(tf.test.TestCase):
                     model=model,
                     optimizer=optimizer,
                     loss=loss,
+                    metrics=['accuracy'],
                     feature_cols=['features'],
                     label_cols=['label_vec'],
                     batch_size=2,

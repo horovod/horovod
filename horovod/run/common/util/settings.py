@@ -16,9 +16,9 @@
 
 class Settings(object):
 
-    def __init__(self, verbose=0, ssh_port=None, extra_mpi_args=None, key=None, timeout=None,
-                 num_hosts=None, num_proc=None, hosts=None, output_filename=None,
-                 run_func_mode=None, nic=None):
+    def __init__(self, verbose=0, ssh_port=None, extra_mpi_args=None, tcp_flag=None,
+                 binding_args=None, key=None, timeout=None, num_hosts=None, num_proc=None,
+                 hosts=None, output_filename=None, run_func_mode=None, nics=None):
         """
         :param verbose: level of verbosity
         :type verbose: int
@@ -26,6 +26,10 @@ class Settings(object):
         :type ssh_port: int
         :param extra_mpi_args: Extra MPI arguments to pass to mpirun
         :type extra_mpi_args: string
+        :param tcp_flag: TCP only communication flag
+        :type tcp_flag: boolean
+        :param binding_args: Process binding arguments
+        :type binding_args: string
         :param key: used for encryption of parameters passed across the hosts
         :type key: str
         :param timeout: has to finish all the checks before this timeout runs
@@ -41,12 +45,14 @@ class Settings(object):
         :type output_filename: string
         :param run_func_mode: whether it is run function mode
         :type run_func_mode: boolean
-        :param nic: specify the NIC for tcp network communication.
-        :type nic: string
+        :param nics: specify the NICs to be used for tcp network communication.
+        :type nics: string
         """
         self.verbose = verbose
         self.ssh_port = ssh_port
         self.extra_mpi_args = extra_mpi_args
+        self.tcp_flag = tcp_flag
+        self.binding_args = binding_args
         self.key = key
         self.timeout = timeout
         self.num_hosts = num_hosts
@@ -54,5 +60,5 @@ class Settings(object):
         self.hosts = hosts
         self.output_filename = output_filename
         self.run_func_mode = run_func_mode
-        self.nic = nic
+        self.nics = nics
 

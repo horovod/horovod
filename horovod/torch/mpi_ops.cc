@@ -70,7 +70,7 @@ int DoAllreduce(T* tensor, T* output, int divisor, char* name, int reduce_op_int
   return handle;
 }
 
-#if HAVE_CUDA
+#if HAVE_GPU
 template <DataType DT, class TC, class T>
 int DoAllreduceCudaOnCPU(TC* tensor, TC* output, int divisor, char* name, int reduce_op_int) {
   ThrowIfError(common::CheckInitialized());
@@ -127,7 +127,7 @@ int DoAllgather(T* tensor, T* output, char* name) {
   return handle;
 }
 
-#if HAVE_CUDA
+#if HAVE_GPU
 template <DataType DT, class TC, class T>
 int DoAllgatherCudaOnCPU(TC* tensor, TC* output, char* name) {
   ThrowIfError(common::CheckInitialized());
@@ -190,7 +190,7 @@ int DoBroadcast(T* tensor, T* output, int root_rank, char* name) {
   return handle;
 }
 
-#if HAVE_CUDA
+#if HAVE_GPU
 template <DataType DT, class TC, class T>
 int DoBroadcastCudaOnCPU(TC* tensor, TC* output, int root_rank, char* name) {
   ThrowIfError(common::CheckInitialized());
@@ -258,7 +258,7 @@ ALLREDUCE(torch_cuda_DoubleTensor, DataType::HOROVOD_FLOAT64,
         tensor, output, divisor, name, reduce_op);                                    \
   }
 
-#if !HOROVOD_GPU_ALLREDUCE && HAVE_CUDA
+#if !HOROVOD_GPU_ALLREDUCE && HAVE_GPU
 ALLREDUCE_CUDA_ON_CPU(torch_cuda_IntTensor, DataType::HOROVOD_INT32,
                       THCudaIntTensor, THIntTensor)
 ALLREDUCE_CUDA_ON_CPU(torch_cuda_LongTensor, DataType::HOROVOD_INT64,
@@ -314,7 +314,7 @@ ALLGATHER(torch_cuda_DoubleTensor, DataType::HOROVOD_FLOAT64,
         tensor, output, name);                                                 \
   }
 
-#if !HOROVOD_GPU_ALLGATHER && HAVE_CUDA
+#if !HOROVOD_GPU_ALLGATHER && HAVE_GPU
 ALLGATHER_CUDA_ON_CPU(torch_cuda_ByteTensor, DataType::HOROVOD_UINT8,
                       THCudaByteTensor, THByteTensor)
 ALLGATHER_CUDA_ON_CPU(torch_cuda_CharTensor, DataType::HOROVOD_INT8,
@@ -377,7 +377,7 @@ BROADCAST(torch_cuda_DoubleTensor, DataType::HOROVOD_FLOAT64, DeviceType::GPU,
         tensor, output, root_rank, name);                                      \
   }
 
-#if !HOROVOD_GPU_BROADCAST && HAVE_CUDA
+#if !HOROVOD_GPU_BROADCAST && HAVE_GPU
 BROADCAST_CUDA_ON_CPU(torch_cuda_ByteTensor, DataType::HOROVOD_UINT8,
                       THCudaByteTensor, THByteTensor)
 BROADCAST_CUDA_ON_CPU(torch_cuda_CharTensor, DataType::HOROVOD_INT8,

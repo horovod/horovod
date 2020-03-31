@@ -177,7 +177,7 @@ class MXTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         # Same rank, different dimension
         ctx = self._current_context()
@@ -213,7 +213,7 @@ class MXTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         ctx = self._current_context()
         shape = (17, 3)
@@ -236,7 +236,7 @@ class MXTests(unittest.TestCase):
            perform reduction on CPU and GPU."""
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
             # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
-            return
+            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
 
         hvd.init()
         rank = hvd.rank()
@@ -244,7 +244,7 @@ class MXTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         shape = (17, 17, 17)
         if rank % 2 == 0:
@@ -287,7 +287,7 @@ class MXTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         dtypes = ['int32',   'int64',
                   'float32', 'float64'] 
@@ -331,7 +331,7 @@ class MXTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         dtypes = ['int32',   'int64',
                   'float32', 'float64'] 
@@ -377,7 +377,7 @@ class MXTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         dtypes = ['int32',   'int64',
                   'float32', 'float64'] 
@@ -416,7 +416,7 @@ class MXTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         ctx = self._current_context()
         shape = (17, rank+1)
@@ -438,7 +438,7 @@ class MXTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         ctx = self._current_context()
         shape = (17, 3)
@@ -464,7 +464,7 @@ class MXTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         ctx = self._current_context()
         shape = (17, 17, 17)
@@ -484,7 +484,7 @@ class MXTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if hvd.size() == 1:
-            return
+            self.skipTest("Only one worker available")
 
         mx.random.seed(rank)
         layer = mx.gluon.nn.Conv2D(10, 2)

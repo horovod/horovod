@@ -17,7 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tempfile
 import time
 import torch
 import unittest
@@ -25,6 +24,8 @@ import warnings
 
 import horovod.torch as hvd
 from horovod.common.util import env
+
+from common import temppath
 
 
 class TimelineTests(unittest.TestCase):
@@ -37,8 +38,8 @@ class TimelineTests(unittest.TestCase):
         warnings.simplefilter('module')
 
     def test_timeline(self):
-        with tempfile.NamedTemporaryFile() as t:
-            with env(HOROVOD_TIMELINE=t.name, HOROVOD_TIMELINE_MARK_CYCLES='1'):
+        with temppath() as t:
+            with env(HOROVOD_TIMELINE=t, HOROVOD_TIMELINE_MARK_CYCLES='1'):
                 hvd.init()
 
                 # Perform a simple allreduce operation
@@ -48,7 +49,7 @@ class TimelineTests(unittest.TestCase):
                 time.sleep(0.1)
 
                 if hvd.rank() == 0:
-                    with open(t.name, 'r') as tf:
+                    with open(t, 'r') as tf:
                         timeline_text = tf.read()
                         assert 'allreduce.test_allreduce' in timeline_text, timeline_text
                         assert 'NEGOTIATE_ALLREDUCE' in timeline_text, timeline_text

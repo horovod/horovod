@@ -96,11 +96,7 @@ void DoHorovodOperation(void*, void* on_complete_ptr, void* param) {
       });
       break;
     case OperationType::BROADCAST:
-      if (horovod_rank() == ops_param->root_rank) {
-        if (tensor != output) {
-          TensorUtil::Copy(output, tensor);
-        }
-      } else {
+      if (horovod_rank() != ops_param->root_rank) {
         hvd_output = std::make_shared<MXTensor>(output);
       }
 

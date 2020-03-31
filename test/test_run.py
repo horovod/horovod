@@ -25,14 +25,17 @@ import unittest
 import warnings
 
 import pytest
-from mock import MagicMock
+from mock import MagicMock, patch
 
 from horovod.run.common.util import config_parser, secret, settings as hvd_settings, timeout
 from horovod.run.common.util.host_hash import _hash, host_hash
-from horovod.run.mpi_run import _get_mpi_implementation_flags, _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_run
-from horovod.run.run import parse_args, parse_host_files
 from horovod.run.http.http_client import delete_data_from_kvstore
 from horovod.run.http.http_server import RendezvousServer
+from horovod.run.js_run import js_run, generate_jsrun_rankfile
+from horovod.run.mpi_run import _get_mpi_implementation_flags, _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_run
+from horovod.run.run import parse_args, parse_host_files
+
+from common import temppath
 
 
 @contextlib.contextmanager
@@ -259,7 +262,7 @@ class RunTests(unittest.TestCase):
     Tests mpi_run with minimal settings.
     """
     def test_mpi_run_minimal(self):
-        if _get_mpi_implementation_flags() is None:
+        if _get_mpi_implementation_flags(False)[0] is None:
             self.skipTest("MPI is not available")
 
         cmd = ['cmd']
@@ -268,14 +271,14 @@ class RunTests(unittest.TestCase):
 
         mpi_run(settings, None, {}, cmd, run_func=run_func)
 
-        mpi_flags = _get_mpi_implementation_flags()
+        mpi_flags, binding_args = _get_mpi_implementation_flags(False)
         self.assertIsNotNone(mpi_flags)
         expected_cmd = ('mpirun '
                         '--allow-run-as-root --tag-output '
                         '-np 2 -H host '
-                        '-bind-to none -map-by slot '
+                        '{binding_args} '
                         '{mpi_flags}       '
-                        'cmd').format(mpi_flags=' '.join(mpi_flags))
+                        'cmd').format(binding_args=' '.join(binding_args), mpi_flags=' '.join(mpi_flags))
         expected_env = {}
         run_func.assert_called_once_with(command=expected_cmd, env=expected_env, stdout=None, stderr=None)
 
@@ -283,7 +286,7 @@ class RunTests(unittest.TestCase):
     Tests mpi_run on a large cluster.
     """
     def test_mpi_run_on_large_cluster(self):
-        if _get_mpi_implementation_flags() is None:
+        if _get_mpi_implementation_flags(False)[0] is None:
             self.skipTest("MPI is not available")
 
         cmd = ['cmd']
@@ -293,16 +296,16 @@ class RunTests(unittest.TestCase):
 
         mpi_run(settings, None, {}, cmd, run_func=run_func)
 
-        mpi_flags = _get_mpi_implementation_flags()
+        mpi_flags, binding_args = _get_mpi_implementation_flags(False)
         self.assertIsNotNone(mpi_flags)
         mpi_flags.append('-mca plm_rsh_no_tree_spawn true')
-        mpi_flags.append('-mca plm_rsh_num_concurrent 2')
+        mpi_flags.append('-mca plm_rsh_num_concurrent {}'.format(settings.num_hosts))
         expected_cmd = ('mpirun '
                         '--allow-run-as-root --tag-output '
                         '-np 2 -H host '
-                        '-bind-to none -map-by slot '
+                        '{binding_args} '
                         '{mpi_flags}       '
-                        'cmd').format(mpi_flags=' '.join(mpi_flags))
+                        'cmd').format(binding_args=' '.join(binding_args), mpi_flags=' '.join(mpi_flags))
         expected_env = {}
         run_func.assert_called_once_with(command=expected_cmd, env=expected_env, stdout=None, stderr=None)
 
@@ -310,11 +313,11 @@ class RunTests(unittest.TestCase):
     Tests mpi_run with full settings.
     """
     def test_mpi_run_full(self):
-        if _get_mpi_implementation_flags() is None:
+        if _get_mpi_implementation_flags(False)[0] is None:
             self.skipTest("MPI is not available")
 
         cmd = ['cmd', 'arg1', 'arg2']
-        common_intfs = ['eth0', 'eth1']
+        nics = ['eth0', 'eth1']
         env = {'env1': 'val1', 'env2': 'val2'}
         stdout = '<stdout>'
         stderr = '<stderr>'
@@ -323,6 +326,7 @@ class RunTests(unittest.TestCase):
             verbose=0,
             ssh_port=1022,
             extra_mpi_args='>mpi-extra args go here<',
+            binding_args='>binding args go here<',
             key=secret.make_secret_key(),
             timeout=tmout,
             num_hosts=1,
@@ -333,14 +337,14 @@ class RunTests(unittest.TestCase):
         )
         run_func = MagicMock(return_value=0)
 
-        mpi_run(settings, common_intfs, env, cmd, stdout=stdout, stderr=stderr, run_func=run_func)
+        mpi_run(settings, nics, env, cmd, stdout=stdout, stderr=stderr, run_func=run_func)
 
-        mpi_flags = _get_mpi_implementation_flags()
+        mpi_flags, _ = _get_mpi_implementation_flags(False)
         self.assertIsNotNone(mpi_flags)
         expected_command = ('mpirun '
                             '--allow-run-as-root --tag-output '
                             '-np 1 -H >host names go here< '
-                            '-bind-to none -map-by slot '
+                            '>binding args go here< '
                             '{mpi_flags} '
                             '-mca plm_rsh_args "-p 1022" '
                             '-mca btl_tcp_if_include eth0,eth1 -x NCCL_SOCKET_IFNAME=eth0,eth1 '
@@ -352,7 +356,7 @@ class RunTests(unittest.TestCase):
         run_func.assert_called_once_with(command=expected_command, env=expected_env, stdout=stdout, stderr=stderr)
 
     def test_mpi_run_with_non_zero_exit(self):
-        if _get_mpi_implementation_flags() is None:
+        if _get_mpi_implementation_flags(False)[0] is None:
             self.skipTest("MPI is not available")
 
         cmd = ['cmd']
@@ -363,13 +367,84 @@ class RunTests(unittest.TestCase):
             mpi_run(settings, None, {}, cmd, run_func=run_func)
 
     def test_horovodrun_hostfile(self):
-        host_filename = '/tmp/hostfile'
-        with open(host_filename, 'w+') as fp:
-            fp.write('172.31.32.7 slots=8\n')
-            fp.write('172.31.33.9 slots=8\n')
+        with temppath() as host_filename:
+            with open(host_filename, 'w+') as fp:
+                fp.write('172.31.32.7 slots=8\n')
+                fp.write('172.31.33.9 slots=8\n')
 
-        hosts = parse_host_files(host_filename)
-        self.assertEqual(hosts, '172.31.32.7:8,172.31.33.9:8')
+            hosts = parse_host_files(host_filename)
+            self.assertEqual(hosts, '172.31.32.7:8,172.31.33.9:8')
+
+    """
+    Tests js_run.
+    """
+    @patch('horovod.run.js_run.is_jsrun_installed', MagicMock(return_value=True))
+    @patch('horovod.run.js_run.generate_jsrun_rankfile', MagicMock(return_value='/tmp/rankfile'))
+    @patch('horovod.run.util.lsf.LSFUtils.get_num_gpus', MagicMock(return_value=2))
+    @patch('horovod.run.util.lsf.LSFUtils.get_num_cores', MagicMock(return_value=2))
+    def test_js_run(self):
+        if _get_mpi_implementation_flags(False)[0] is None:
+            self.skipTest("MPI is not available")
+
+        cmd = ['cmd', 'arg1', 'arg2']
+        env = {'env1': 'val1', 'env2': 'val2'}
+        stdout = '<stdout>'
+        stderr = '<stderr>'
+        settings = hvd_settings.Settings(
+            verbose=0,
+            extra_mpi_args='>mpi-extra args go here<',
+            num_hosts=2,
+            num_proc=4,
+            hosts='>host names go here<',
+            output_filename='>output filename goes here<',
+            run_func_mode=True
+        )
+        run_func = MagicMock(return_value=0)
+
+        js_run(settings, None, env, cmd, stdout=stdout, stderr=stderr, run_func=run_func)
+
+        mpi_flags, _ = _get_mpi_implementation_flags(False)
+        self.assertIsNotNone(mpi_flags)
+        expected_command = ('jsrun '
+                            '--erf_input /tmp/rankfile '
+                            '--stdio_stderr >output filename goes here< '
+                            '--stdio_stdout >output filename goes here< '
+                            '--smpiargs \'{mpi_args} >mpi-extra args go here<\' '
+                            'cmd arg1 arg2').format(mpi_args=' '.join(mpi_flags))
+        expected_env = {'env1': 'val1', 'env2': 'val2'}
+        run_func.assert_called_once_with(command=expected_command, env=expected_env, stdout=stdout, stderr=stderr)
+
+    """
+    Tests generate_jsrun_rankfile.
+    """
+    @patch('horovod.run.util.lsf.LSFUtils.get_num_gpus', MagicMock(return_value=4))
+    @patch('horovod.run.util.lsf.LSFUtils.get_num_cores', MagicMock(return_value=4))
+    @patch('horovod.run.util.lsf.LSFUtils.get_num_threads', MagicMock(return_value=4))
+    def test_generate_jsrun_rankfile(self):
+        settings = hvd_settings.Settings(
+            num_proc=5,
+            hosts='host1:4,host2:4,host3:4',
+        )
+
+        with temppath() as rankfile_path:
+            rankfile_path = generate_jsrun_rankfile(settings, rankfile_path)
+
+            with open(rankfile_path, 'r') as file:
+                gen_rankfile = file.read()
+
+            expected_rankfile = (
+"""overlapping_rs: allow
+cpu_index_using: logical
+
+rank: 0: { hostname: host1; cpu: {0-3} ; gpu: * ; mem: * }
+rank: 1: { hostname: host1; cpu: {4-7} ; gpu: * ; mem: * }
+rank: 2: { hostname: host1; cpu: {8-11} ; gpu: * ; mem: * }
+rank: 3: { hostname: host1; cpu: {12-15} ; gpu: * ; mem: * }
+
+rank: 4: { hostname: host2; cpu: {0-3} ; gpu: * ; mem: * }
+""")
+
+            self.assertMultiLineEqual(gen_rankfile, expected_rankfile)
 
     # def test_rendezvous_on_port(self):
     #     rendezvous = RendezvousServer()

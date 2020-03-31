@@ -25,6 +25,7 @@ HOROVOD_STALL_SHUTDOWN_TIME_SECONDS = 'HOROVOD_STALL_SHUTDOWN_TIME_SECONDS'
 # Library options knobs
 HOROVOD_MPI_THREADS_DISABLE = 'HOROVOD_MPI_THREADS_DISABLE'
 HOROVOD_NUM_NCCL_STREAMS = 'HOROVOD_NUM_NCCL_STREAMS'
+NCCL_IB_DISABLE = 'NCCL_IB_DISABLE'
 HOROVOD_CCL_BGT_AFFINITY = 'HOROVOD_CCL_BGT_AFFINITY'
 HOROVOD_GLOO_TIMEOUT_SECONDS = 'HOROVOD_GLOO_TIMEOUT_SECONDS'
 
@@ -170,6 +171,7 @@ def set_env_from_args(env, args):
     # Library Options
     _add_arg_to_env(env, HOROVOD_MPI_THREADS_DISABLE, args.mpi_threads_disable, identity)
     _add_arg_to_env(env, HOROVOD_NUM_NCCL_STREAMS, args.num_nccl_streams)
+    _add_arg_to_env(env, NCCL_IB_DISABLE, 1 if args.tcp_flag else None)
     _add_arg_to_env(env, HOROVOD_CCL_BGT_AFFINITY, args.ccl_bgt_affinity)
     _add_arg_to_env(env, HOROVOD_GLOO_TIMEOUT_SECONDS, args.gloo_timeout_seconds)
 

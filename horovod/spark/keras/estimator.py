@@ -140,6 +140,13 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
         train_steps_per_epoch: Number of steps to train each epoch. Useful for testing that model trains successfully.
                                Defaults to training the entire dataset each epoch.
         validation_steps_per_epoch: Number of validation steps to perform each epoch.
+        transformation_fn: Optional function that takes a row as its parameter
+                           and returns a modified row that is then fed into the
+                           train or validation step. This transformation is
+                           applied after batching. See Petastorm [TransformSpec](https://github.com/uber/petastorm/blob/master/petastorm/transform.py)
+                           for more details. Note that this fucntion constructs
+                           another function which should perform the
+                           transformation.
     """
 
     custom_objects = Param(Params._dummy(), 'custom_objects', 'custom objects')
@@ -169,7 +176,8 @@ class KerasEstimator(HorovodEstimator, KerasEstimatorParamsReadable,
                  partitions_per_process=None,
                  run_id=None,
                  train_steps_per_epoch=None,
-                 validation_steps_per_epoch=None):
+                 validation_steps_per_epoch=None,
+                 transformation_fn=None):
 
         super(KerasEstimator, self).__init__()
 

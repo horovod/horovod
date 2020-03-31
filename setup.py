@@ -118,16 +118,17 @@ def get_supported_instruction_set_flags(flags_to_check):
 def get_cpp_flags(build_ext):
     last_err = None
     default_flags = ['-std=c++11', '-fPIC', '-O2', '-Wall', '-fassociative-math', '-ffast-math', '-ftree-vectorize', '-funsafe-math-optimizations']
-    avx_fma_flags = get_supported_instruction_set_flags(['-mf16c', '-mavx', '-mfma'])
+    build_arch_flags_env = os.environ.get('HOROVOD_BUILD_ARCH_FLAGS')
+    build_arch_flags = get_supported_instruction_set_flags(['-mf16c', '-mavx', '-mfma']) if build_arch_flags_env is None else build_arch_flags_env.split()
     if sys.platform == 'darwin':
         # Darwin most likely will have Clang, which has libc++.
-        flags_to_try = [default_flags + ['-stdlib=libc++'] + avx_fma_flags,
-                        default_flags + avx_fma_flags,
+        flags_to_try = [default_flags + ['-stdlib=libc++'] + build_arch_flags,
+                        default_flags + build_arch_flags,
                         default_flags + ['-stdlib=libc++'],
                         default_flags]
     else:
-        flags_to_try = [default_flags + avx_fma_flags,
-                        default_flags + ['-stdlib=libc++'] + avx_fma_flags,
+        flags_to_try = [default_flags + build_arch_flags,
+                        default_flags + ['-stdlib=libc++'] + build_arch_flags,
                         default_flags,
                         default_flags + ['-stdlib=libc++']]
     for cpp_flags in flags_to_try:
@@ -1181,6 +1182,35 @@ def is_torch_cuda_v2(build_ext, include_dirs, extra_compile_args):
         return False
 
 
+def get_torch_rocm_macros():
+    try:
+        from torch.utils.cpp_extension import COMMON_HIPCC_FLAGS
+        pattern = re.compile(r'-D(\w+)=?(\w+)?')
+        return [pattern.match(flag).groups() for flag in COMMON_HIPCC_FLAGS if pattern.match(flag)]
+    except:
+        return []
+
+
+def is_torch_rocm_v2(build_ext, include_dirs, extra_compile_args):
+    try:
+        from torch.utils.cpp_extension import include_paths
+        rocm_macros = get_torch_rocm_macros()
+        test_compile(build_ext, 'test_torch_rocm',
+                     include_dirs=include_dirs + include_paths(cuda=True),
+                     extra_compile_preargs=extra_compile_args,
+                     macros=rocm_macros,
+                     code=textwrap.dedent('''\
+            #include <THH/THH.h>
+            void test() {
+            }
+            '''))
+        return True
+    except (CompileError, LinkError, EnvironmentError):
+        print(
+            'INFO: Above error indicates that this PyTorch installation does not support ROCm.')
+        return False
+
+
 def check_macro(macros, key):
     return any(k == key and v for k, v in macros)
 
@@ -1302,17 +1332,37 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
         raise DistutilsPlatformError(
             'Horovod build with GPU support was requested, but this PyTorch '
             'installation does not support CUDA.')
-
-    # Update HAVE_CUDA to mean that PyTorch supports CUDA. Internally, we will be checking
-    # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
-    # version or transfer tensors to CPU memory for those operations.
-    if have_cuda and not have_cuda_macro:
+    elif have_cuda and not have_cuda_macro:
+        # Update HAVE_GPU to mean that PyTorch supports CUDA. Internally, we will be checking
+        # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
+        # version or transfer tensors to CPU memory for those operations.
         set_cuda_options(build_ext, **options)
+
+    # hereafter, macros are maintained outside of options dict
+    updated_macros = options['MACROS']
+
+    have_rocm = is_torch_rocm_v2(build_ext, include_dirs=options['INCLUDES'],
+                                 extra_compile_args=compile_flags)
+    have_rocm_macro = check_macro(updated_macros, 'HAVE_ROCM')
+    if not have_rocm and have_rocm_macro:
+        raise DistutilsPlatformError(
+            'Horovod build with GPU support was requested, but this PyTorch '
+            'installation does not support ROCm.')
+    elif have_rocm and not have_rocm_macro:
+        # ROCm PyTorch requires extensions to be hipified with the provided utility.
+        # The utility does not change 'HAVE_CUDA', so those were renamed 'HAVE_GPU'.
+        # Update HAVE_GPU to mean that PyTorch supports ROCm. Internally, we will be checking
+        # HOROVOD_GPU_(ALLREDUCE|ALLGATHER|BROADCAST) to decide whether we should use GPU
+        # version or transfer tensors to CPU memory for those operations.
+        updated_macros = set_macro(updated_macros, 'HAVE_ROCM', str(int(have_rocm)))
+        updated_macros = set_macro(updated_macros, 'HAVE_GPU', str(int(have_rocm)))
+        # ROCm PyTorch requires additional macros.
+        for (k,v) in get_torch_rocm_macros():
+            updated_macros = set_macro(updated_macros, k, v)
 
     # Export TORCH_VERSION equal to our representation of torch.__version__. Internally it's
     # used for backwards compatibility checks.
-    updated_macros = set_macro(
-        options['MACROS'], 'TORCH_VERSION', str(torch_version))
+    updated_macros = set_macro(updated_macros, 'TORCH_VERSION', str(torch_version))
 
     # Always set _GLIBCXX_USE_CXX11_ABI, since PyTorch can only detect whether it was set to 1.
     updated_macros = set_macro(updated_macros, '_GLIBCXX_USE_CXX11_ABI',
@@ -1321,10 +1371,19 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
     gloo_abi_flag = ['-D_GLIBCXX_USE_CXX11_ABI=' + str(int(torch.compiled_with_cxx11_abi()))]
 
     # PyTorch requires -DTORCH_API_INCLUDE_EXTENSION_H
-    updated_macros = set_macro(
-        updated_macros, 'TORCH_API_INCLUDE_EXTENSION_H', '1')
+    updated_macros = set_macro(updated_macros, 'TORCH_API_INCLUDE_EXTENSION_H', '1')
 
-    if have_cuda:
+    if have_rocm:
+        from torch.utils.cpp_extension import CUDAExtension as TorchExtension
+        from torch.utils.hipify import hipify_python
+        this_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "horovod")
+        hipify_python.hipify(
+                project_directory=this_dir,
+                output_directory=this_dir,
+                includes=("torch/*.cc","torch/*.h"),
+                show_detailed=True,
+                is_pytorch_extension=True)
+    elif have_cuda:
         from torch.utils.cpp_extension import CUDAExtension as TorchExtension
     else:
         # CUDAExtension fails with `ld: library not found for -lcudart` if CUDA is not present
@@ -1511,6 +1570,21 @@ class custom_build_ext(build_ext):
 require_list = ['cloudpickle', 'psutil', 'pyyaml', 'six']
 test_require_list = ['mock', 'pytest', 'pytest-forked']
 
+# framework dependencies
+tensorflow_require_list = ['tensorflow']
+tensorflow_gpu_require_list = ['tensorflow-gpu']
+keras_require_list = ['keras>=2.0.8,!=2.0.9,!=2.1.0,!=2.1.1']
+pytorch_require_list = ['torch','torchvision']
+mxnet_require_list = ['mxnet>=1.4.1']
+spark_require_list = ['h5py>=2.9', 'numpy', 'petastorm==0.8.2', 'pyarrow>=0.15.0', 'pyspark>=2.3.2']  # Petastorm 0.7.7 is not compatible with pyarrow<0.15.0
+# all frameworks' dependencies
+all_frameworks_require_list = tensorflow_require_list + \
+                              tensorflow_gpu_require_list + \
+                              keras_require_list + \
+                              pytorch_require_list + \
+                              mxnet_require_list + \
+                              spark_require_list
+
 # Skip cffi if pytorch extension explicitly disabled
 if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
     require_list.append('cffi>=1.4.0')
@@ -1536,15 +1610,15 @@ setup(name='horovod',
       # so it's only necessary for `build*` or `bdist*` actions.
       setup_requires=require_list if is_build_action() else [],
       install_requires=require_list,
-      test_requires=test_require_list,
+      tests_require=test_require_list,
       extras_require={
-          'spark':  [
-              'h5py>=2.9',
-              'numpy',
-              'petastorm==0.8.2',
-              'pyarrow>=0.15.0',  # Petastorm 0.7.7 is not compatible with < 0.15.0
-              'pyspark>=2.3.2'
-          ],
+          'all-frameworks': all_frameworks_require_list,
+          'tensorflow': tensorflow_require_list,
+          'tensorflow-gpu': tensorflow_gpu_require_list,
+          'keras': keras_require_list,
+          'pytorch': pytorch_require_list,
+          'mxnet': mxnet_require_list,
+          'spark': spark_require_list
       },
       zip_safe=False,
       scripts=['bin/horovodrun'])

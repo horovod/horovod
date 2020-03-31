@@ -60,10 +60,10 @@ class CodeResponse(object):
 class SparkDriverService(driver_service.BasicDriverService):
     NAME = 'driver service'
 
-    def __init__(self, num_proc, fn, args, kwargs, key, nic):
+    def __init__(self, num_proc, fn, args, kwargs, key, nics):
         super(SparkDriverService, self).__init__(num_proc,
                                                  SparkDriverService.NAME,
-                                                 key, nic)
+                                                 key, nics)
 
         self._fn = fn
         self._args = args

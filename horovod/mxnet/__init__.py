@@ -114,7 +114,6 @@ def _append_broadcast_init(param, root_rank):
     def wrapped_init_impl(self, *args, **kwargs):
         init_impl(*args, **kwargs)
         broadcast_(self.data(), root_rank=root_rank)
-        self.data().wait_to_read()
     return wrapped_init_impl
 
 
@@ -151,8 +150,3 @@ def broadcast_parameters(params, root_rank=0):
     # Run broadcasts.
     for i, tensor in enumerate(tensors):
         broadcast_(tensor, root_rank, str(i))
-
-    # Make sure tensors pushed to MXNet engine get processed such that all
-    # workers are synced before starting training.
-    for tensor in tensors:
-        tensor.wait_to_read()

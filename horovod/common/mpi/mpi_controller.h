@@ -34,8 +34,6 @@ public:
 
   virtual ~MPIController()=default;
 
-  void Initialize() override;
-
   int GetTypeSize(DataType dtype) override;
 
   void CrossRankBitwiseAnd(std::vector<long long>& bitvector,
@@ -60,6 +58,8 @@ public:
   bool IsMpiThreadsSupported() const { return mpi_threads_supported_; }
 
 protected:
+  void DoInitialization() override;
+
   MPIContext& mpi_ctx_;
 
   // flag indicating whether MPI multi-threading is supported

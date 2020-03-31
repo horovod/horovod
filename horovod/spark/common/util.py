@@ -33,7 +33,7 @@ _training_cache = cache.TrainingDataCache()
 
 
 def data_type_to_str(dtype):
-    if dtype == VectorUDT:
+    if dtype == VectorUDT or dtype == SparseVector or dtype == DenseVector:
         return 'Vector'
     elif dtype == IntegerType:
         return 'Int'

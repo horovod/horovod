@@ -15,7 +15,7 @@
 
 #include <TH/TH.h>
 
-#if HAVE_CUDA
+#if HAVE_GPU
 #include <THC/THC.h>
 #endif
 
@@ -41,7 +41,7 @@ TorchPersistentBuffer::TorchPersistentBuffer(int device, int64_t size)
   if (device_ == CPU_DEVICE_ID) {
     buffer_ = new char[size];
   } else {
-#if HAVE_CUDA
+#if HAVE_GPU
 #if TORCH_VERSION >= 4001000
     buffer_ = THCudaMalloc(state, size);
 #else
@@ -169,7 +169,7 @@ ADAPTER_DEFINE_TYPE(DataType::HOROVOD_FLOAT32, DeviceType::CPU,
 ADAPTER_DEFINE_TYPE(DataType::HOROVOD_FLOAT64, DeviceType::CPU,
                     THDoubleTensor)
 
-#if HAVE_CUDA
+#if HAVE_GPU
 ADAPTER_DEFINE_TYPE(DataType::HOROVOD_UINT8, DeviceType::GPU,
                     THCudaByteTensor)
 ADAPTER_DEFINE_TYPE(DataType::HOROVOD_INT8, DeviceType::GPU,

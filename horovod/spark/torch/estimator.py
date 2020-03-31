@@ -36,6 +36,7 @@ from horovod.spark.torch import remote
 from horovod.spark.torch.util import deserialize_fn, serialize_fn, \
     save_into_bio
 
+import numpy as np
 import torch
 import torch.utils.data
 
@@ -119,6 +120,13 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         train_steps_per_epoch: Number of steps to train each epoch. Useful for testing that model trains successfully.
                                Defaults to training the entire dataset each epoch.
         validation_steps_per_epoch: Number of validation steps to perform each epoch.
+        transformation_fn: Optional function that takes a row as its parameter
+                           and returns a modified row that is then fed into the
+                           train or validation step. This transformation is
+                           applied after batching. See Petastorm [TransformSpec](https://github.com/uber/petastorm/blob/master/petastorm/transform.py)
+                           for more details. Note that this fucntion constructs
+                           another function which should perform the
+                           transformation.
     """
 
     input_shapes = Param(Params._dummy(), 'input_shapes', 'input layer shapes')
@@ -153,11 +161,13 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                  run_id=None,
                  train_minibatch_fn=None,
                  train_steps_per_epoch=None,
-                 validation_steps_per_epoch=None):
+                 validation_steps_per_epoch=None,
+                 transformation_fn=None):
         super(TorchEstimator, self).__init__()
         self._setDefault(loss_constructors=None,
                          input_shapes=None,
-                         train_minibatch_fn=None)
+                         train_minibatch_fn=None,
+                         transformation_fn=None)
 
         kwargs = self._input_kwargs
 
@@ -402,7 +412,7 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
                     col_type = meta['spark_data_type']
                     # dtype for dense and spark tensor is always np.float64
                     if col_type == DenseVector:
-                        shape = meta['shape']
+                        shape = np.prod(pred.shape)
                         flattened_pred = pred.reshape(shape, )
                         field = DenseVector(flattened_pred)
                     elif col_type == SparseVector:

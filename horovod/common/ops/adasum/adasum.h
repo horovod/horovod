@@ -19,7 +19,7 @@
 #include <cstring>
 #include <float.h>
 
-#if __AVX__ && __F16C__
+#if __AVX__ && __F16C__ && __FMA__
 #include <emmintrin.h>
 #include <immintrin.h>
 #endif
@@ -104,7 +104,7 @@ protected:
                                               int count, double& dotProduct,
                                               double& anormsq, double& bnormsq,
                                               int layerid) {
-#if __AVX__ && __F16C__
+#if __AVX__ && __F16C__ && __FMA__
     if (horovod_datatype == DataType::HOROVOD_FLOAT16) {
       ComputeDotAndNormSqrdsfp16((uint16_t*)a, (uint16_t*)b, count, dotProduct,
                                  anormsq, bnormsq, layerid);
@@ -125,7 +125,7 @@ protected:
                                  double acoeff, void* __restrict__ a,
                                  double bcoeff, void* __restrict__ b,
                                  int layerid) {
-#if __AVX__ && __F16C__
+#if __AVX__ && __F16C__ && __FMA__
     if (horovod_datatype == DataType::HOROVOD_FLOAT16) {
       ScaledAddfp16(count, acoeff, (uint16_t*)a, bcoeff, (uint16_t*)b, layerid);
     } else
@@ -425,7 +425,7 @@ private:
   }
 
 
-#if __AVX__ && __F16C__
+#if __AVX__ && __F16C__ && __FMA__
   inline void ComputeDotAndNormSqrdsfp16(const uint16_t* __restrict__ a,
                                          const uint16_t* __restrict__ b,
                                          int len, double& dotProduct,

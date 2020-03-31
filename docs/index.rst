@@ -95,6 +95,8 @@ Guides
 
    concepts_include
 
+   install_include
+
    api
 
    tensorflow
@@ -116,6 +118,8 @@ Guides
    docker_include
 
    spark_include
+
+   lsf_include
 
    tensor-fusion_include
 

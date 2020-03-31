@@ -20,12 +20,10 @@ from __future__ import print_function
 
 from distutils.version import LooseVersion
 
-import collections
 import inspect
 import itertools
 import os
 import pytest
-import tempfile
 import unittest
 import warnings
 
@@ -36,7 +34,12 @@ import torch.nn.functional as F
 
 import horovod.torch as hvd
 
-from common import mpi_env_rank_and_size
+from common import mpi_env_rank_and_size, temppath
+
+try:
+    from collections.abc import Iterable
+except ImportError:
+    from collections import Iterable
 
 _v2_api = LooseVersion(torch.__version__) >= LooseVersion('1.0.0')
 _fp16_supported = _v2_api
@@ -84,7 +87,7 @@ class TorchTests(unittest.TestCase):
         is_mpi = gloo_rank == -1
         if is_mpi:
             # Only applies for Gloo
-            return
+            self.skipTest("Gloo is not available")
 
         hvd.init()
         rank, size = hvd.rank(), hvd.size()
@@ -288,7 +291,7 @@ class TorchTests(unittest.TestCase):
         """Test that the allreduce works on multiple GPUs."""
         # Only do this test if there are GPUs available.
         if not torch.cuda.is_available():
-            return
+            self.skipTest("No GPUs available")
 
         hvd.init()
         local_rank = hvd.local_rank()
@@ -296,7 +299,7 @@ class TorchTests(unittest.TestCase):
 
         # Skip the test if there are not enough GPUs.
         if torch.cuda.device_count() < hvd.local_size() * 2:
-            return
+            self.skipTest("Not enough GPUs available")
 
         iter = 0
         dtypes = [torch.cuda.IntTensor, torch.cuda.LongTensor,
@@ -337,7 +340,7 @@ class TorchTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         # Same rank, different dimension
         torch.manual_seed(1234)
@@ -371,7 +374,7 @@ class TorchTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         # Same rank, different dimension
         dims = [17] * 3
@@ -391,11 +394,11 @@ class TorchTests(unittest.TestCase):
         perform reduction on CPU and GPU."""
         # Only do this test if there are GPUs available.
         if not torch.cuda.is_available():
-            return
+            self.skipTest("No GPUs available")
 
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
             # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
-            return
+            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
 
         hvd.init()
         rank = hvd.rank()
@@ -403,7 +406,7 @@ class TorchTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         # Same rank, different dimension
         dims = [17] * 3
@@ -426,7 +429,7 @@ class TorchTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         dims = [17] * 3
         tensor = torch.FloatTensor(*dims)
@@ -619,7 +622,7 @@ class TorchTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         tensor_size = [17] * 3
         tensor_size[1] = 10 * (rank + 1)
@@ -640,7 +643,7 @@ class TorchTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         tensor_size = [17] * 3
         if rank % 2 == 0:
@@ -662,7 +665,7 @@ class TorchTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         dims = [17] * 3
         tensor = torch.FloatTensor(*dims)
@@ -727,7 +730,7 @@ class TorchTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
                   torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
@@ -763,7 +766,7 @@ class TorchTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         dtypes = [torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
                   torch.IntTensor, torch.LongTensor, torch.FloatTensor, torch.DoubleTensor]
@@ -799,7 +802,7 @@ class TorchTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         tensor_size = [17] * 3
         tensor_size[1] = 10 * (rank + 1)
@@ -820,7 +823,7 @@ class TorchTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         tensor_size = [17] * 3
         if rank % 2 == 0:
@@ -843,7 +846,7 @@ class TorchTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         tensor = torch.FloatTensor(*([17] * 3)).fill_(1)
 
@@ -861,7 +864,7 @@ class TorchTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         dims = [17] * 3
         tensor = torch.FloatTensor(*dims)
@@ -882,7 +885,7 @@ class TorchTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         # Only Tensors of floating point dtype can require gradients
         dtypes = [torch.FloatTensor, torch.DoubleTensor]
@@ -993,20 +996,19 @@ class TorchTests(unittest.TestCase):
                 opt_param_values_updated.append((name, opt_param_value))
             opt_param_values = opt_param_values_updated
 
-            if hvd.rank() == 0:
-                state = {
-                    'model': model.state_dict(),
-                    'optimizer': optimizer.state_dict(),
-                }
-                _, fname = tempfile.mkstemp('.pt')
-                torch.save(state, fname)
+            with temppath() as fname:
+                if hvd.rank() == 0:
+                    state = {
+                        'model': model.state_dict(),
+                        'optimizer': optimizer.state_dict(),
+                    }
+                    torch.save(state, fname)
 
-            model, optimizer = create_model(opt_class, opt_params)
-            if hvd.rank() == 0:
-                checkpoint = torch.load(fname)
-                model.load_state_dict(checkpoint['model'])
-                optimizer.load_state_dict(checkpoint['optimizer'])
-                os.remove(fname)
+                model, optimizer = create_model(opt_class, opt_params)
+                if hvd.rank() == 0:
+                    checkpoint = torch.load(fname)
+                    model.load_state_dict(checkpoint['model'])
+                    optimizer.load_state_dict(checkpoint['optimizer'])
 
             hvd.broadcast_parameters(model.state_dict(), root_rank=0)
             model_param_value_after = get_model_param_values(model)
@@ -1047,7 +1049,7 @@ class TorchTests(unittest.TestCase):
     def test_broadcast_state_gpu(self):
         # Only do this test if there are GPUs available.
         if not torch.cuda.is_available():
-            return
+            self.skipTest("No GPUs available")
         # Set default tensor type, ensuring optimizer tensor-wrapping is robust
         # to this setting.
         try:
@@ -1111,7 +1113,7 @@ class TorchTests(unittest.TestCase):
             }
             for k, p in p0.items():
                 p_actual = optimizer.param_groups[0][k]
-                if not isinstance(p, collections.Iterable):
+                if not isinstance(p, Iterable):
                     p_actual = [p_actual]
                     p = [p]
                 for i in range(len(p)):
@@ -1144,14 +1146,17 @@ class TorchTests(unittest.TestCase):
 
         model = ModelNoGrad(a, b)
 
-        optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.001, weight_decay=1e-6, momentum=0.9, nesterov=True)
         optimizer = hvd.DistributedOptimizer(optimizer, named_parameters=model.named_parameters())
 
         hvd.broadcast_parameters(model.state_dict(), root_rank=0)
         hvd.broadcast_optimizer_state(optimizer, root_rank=0)
 
+        grad = optimizer.param_groups[0]['params'][1].grad
+        bgrad = hvd.broadcast(grad, root_rank=0)
+
         assert optimizer.param_groups[0]['params'][0].grad is None
-        assert torch.all(torch.eq(optimizer.param_groups[0]['params'][1].grad, torch.zeros([4]))).item()
+        assert torch.all(torch.eq(grad, bgrad)).item()
 
     def test_broadcast_object(self):
         hvd.init()
@@ -1208,7 +1213,7 @@ class TorchTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         N, D_in, H, D_out = 64, 100, 10, 10
         x = torch.randn(N, D_in).requires_grad_()
@@ -1273,7 +1278,7 @@ class TorchTests(unittest.TestCase):
         """Test that tensors on different GPUs are supported."""
         # Only do this test if there are GPUs available.
         if not torch.cuda.is_available():
-            return
+            self.skipTest("No GPUs available")
 
         hvd.init()
         local_rank = hvd.local_rank()
@@ -1281,11 +1286,11 @@ class TorchTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         # Skip the test if there are not enough GPUs.
         if torch.cuda.device_count() < hvd.local_size() * 2:
-            return
+            self.skipTest("Not enough GPUs available")
 
         first_device = local_rank * 2
         second_device = local_rank * 2 + 1
@@ -1321,14 +1326,15 @@ class TorchTests(unittest.TestCase):
         # TODO support non-MPI Adasum operation
         # Only do this test if there are GPUs available.
         if not hvd.mpi_enabled() or not torch.cuda.is_available():
-            return
+            self.skipTest("No GPUs available")
 
         local_rank = hvd.local_rank()
         size = hvd.size()
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
+
         class Net(torch.nn.Module):
             def __init__(self):
                 super(Net, self).__init__()
@@ -1376,7 +1382,7 @@ class TorchTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         gen = torch.nn.Conv2d(1, 10, 1)
         disc = torch.nn.Conv2d(10, 1, 1)
@@ -1426,7 +1432,7 @@ class TorchTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         x = torch.ones(1, 1).requires_grad_()
         y = torch.ones(1, 1).requires_grad_()
@@ -1461,7 +1467,7 @@ class TorchTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         x = torch.zeros(1, 1).requires_grad_()
         y = torch.ones(1, 1).requires_grad_()
@@ -1538,7 +1544,7 @@ class TorchTests(unittest.TestCase):
         """Test Join op with allreduce."""
         # "Join Op is not supported for PyTorch < 1.0"
         if not _v2_api:
-            return
+            self.skipTest("Join Op not available")
 
         hvd.init()
         rank = hvd.rank()
@@ -1604,7 +1610,7 @@ class TorchTests(unittest.TestCase):
         """Test Join op with allgather."""
         # "Join Op is not supported for PyTorch < 1.0"
         if not _v2_api:
-            return
+            self.skipTest("Join Op not available")
 
         hvd.init()
         rank = hvd.rank()
@@ -1612,7 +1618,7 @@ class TorchTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         dims = [17] * 3
         tensor = torch.FloatTensor(*dims)
@@ -1635,7 +1641,7 @@ class TorchTests(unittest.TestCase):
         """Test Join op with allgather."""
         # "Join Op is not supported for PyTorch < 1.0"
         if not _v2_api:
-            return
+            self.skipTest("Join Op not available")
 
         hvd.init()
         rank = hvd.rank()
@@ -1643,7 +1649,7 @@ class TorchTests(unittest.TestCase):
 
         # This test does not apply if there is only one worker.
         if size == 1:
-            return
+            self.skipTest("Only one worker available")
 
         dims = [17] * 3
         tensor = torch.FloatTensor(*dims)
