@@ -15,6 +15,7 @@
 
 from distutils.version import LooseVersion
 
+import os
 import pyspark
 
 from horovod.run.common.service import task_service
@@ -32,12 +33,23 @@ class ResourcesResponse(object):
 
 class SparkTaskService(task_service.BasicTaskService):
     NAME_FORMAT = 'task service #%d'
-    SERVICE_ENV_KEYS = ['HADOOP_TOKEN_FILE_LOCATION']
 
-    def __init__(self, index, key, nics):
+    @staticmethod
+    def _get_command_env():
+        # on a Spark cluster we need our train function to see the Spark worker environment
+        # this includes PYTHONPATH and HADOOP_TOKEN_FILE_LOCATION
+        env = os.environ.copy()
+
+        # we also need to provide the current working dir to mpirun_exec_fn.py
+        env.update([('HOROVOD_SPARK_WORK_DIR', os.getcwd())])
+
+        return env
+
+    def __init__(self, index, key, nics, verbose=0):
         super(SparkTaskService, self).__init__(SparkTaskService.NAME_FORMAT % index,
                                                key, nics,
-                                               SparkTaskService.SERVICE_ENV_KEYS)
+                                               SparkTaskService._get_command_env(),
+                                               verbose)
 
     def _handle(self, req, client_address):
         if isinstance(req, ResourcesRequest):

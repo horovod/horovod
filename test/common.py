@@ -107,6 +107,14 @@ def override_env(env):
 
 
 @contextlib.contextmanager
+def undo(fn):
+    try:
+        yield
+    finally:
+        fn()
+
+
+@contextlib.contextmanager
 def is_built(gloo_is_built, mpi_is_built):
     """
     Patches the gloo_built and mpi_built methods called from horovod.run.run.run_controller

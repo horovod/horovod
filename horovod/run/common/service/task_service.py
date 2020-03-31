@@ -13,7 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-import os
 import threading
 import time
 
@@ -53,26 +52,37 @@ class RegisterCodeResultRequest(object):
 
 
 class BasicTaskService(network.BasicService):
-    def __init__(self, name, key, nics, service_env_keys):
+    def __init__(self, name, key, nics, command_env=None, verbose=0):
         super(BasicTaskService, self).__init__(name, key, nics)
         self._initial_registration_complete = False
         self._wait_cond = threading.Condition()
-        self._service_env_keys = service_env_keys
+        self._command_env = command_env
+        self._verbose = verbose
+
         self._command_thread = None
         self._fn_result = None
+
+    def _update_env(self, env):
+        if self._command_env:
+            for key, value in self._command_env.items():
+                if self._verbose >= 2:
+                    print("Task service sets env for command: {} = {}".format(key, value))
+                if value is None:
+                    if key in env:
+                        del env[key]
+                else:
+                    env[key] = value
 
     def _handle(self, req, client_address):
         if isinstance(req, RunCommandRequest):
             self._wait_cond.acquire()
             try:
                 if self._command_thread is None:
-                    # we inject all these environment variables
+                    # we inject all these environment variables at the task server
                     # to make them available to the executed command
-                    # NOTE: this will overwrite environment variables that exist in req.env
-                    for key in self._service_env_keys:
-                        value = os.environ.get(key)
-                        if value is not None:
-                            req.env[key] = value
+                    # NOTE: this will overwrite environment variables
+                    #       that exist in req.env coming from the driver
+                    self._update_env(req.env)
 
                     # We only permit executing exactly one command, so this is idempotent.
                     self._command_thread = threading.Thread(

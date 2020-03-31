@@ -189,6 +189,11 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
     if settings.verbose >= 2:
         print(mpirun_command)
 
+    # we need the driver's PATH in env to run mpirun,
+    # env for mpirun is different to env encoded in mpirun_command
+    if 'PATH' not in env and 'PATH' in os.environ:
+        env.update(PATH=os.environ['PATH'])
+
     # Execute the mpirun command.
     if settings.run_func_mode:
         exit_code = safe_shell_exec.execute(mpirun_command, env=env, stdout=stdout, stderr=stderr)
