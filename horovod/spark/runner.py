@@ -34,7 +34,12 @@ if platform.system() == 'Darwin':
     os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
 
 
-def _task_fn(index, driver_addresses, settings, use_gloo):
+def _task_fn(index, driver_addresses, key, settings, use_gloo):
+    # deserialized on Spark workers, settings do not contain the key, so it is given here explicitly
+    # Spark RPC communicates the key and supports encryption
+    # for convenience, we put it back into settings
+    settings.key = key
+
     task = task_service.SparkTaskService(index, settings.key, settings.nics)
     try:
         driver_client = driver_service.SparkDriverClient(driver_addresses, settings.key, settings.verbose)
@@ -71,8 +76,12 @@ def _task_fn(index, driver_addresses, settings, use_gloo):
 
 
 def _make_mapper(driver_addresses, settings, use_gloo):
+    # serialised settings do not have a key so we have to copy it and provide it explicitly here
+    key = settings.key
+
     def _mapper(index, _):
-        yield _task_fn(index, driver_addresses, settings, use_gloo)
+        yield _task_fn(index, driver_addresses, key, settings, use_gloo)
+
     return _mapper
 
 
@@ -86,9 +95,8 @@ def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
                                       "Horovod Spark Run",
                                       interruptOnCancel=True)
             procs = spark_context.range(0, numSlices=settings.num_proc)
-            # We assume that folks caring about security will enable Spark RPC
-            # encryption, thus ensuring that key that is passed here remains
-            # secret.
+            # We assume that folks caring about security will enable Spark RPC encryption,
+            # thus ensuring that key that is passed here remains secret.
             result = procs.mapPartitionsWithIndex(_make_mapper(driver.addresses(), settings, use_gloo)).collect()
             result_queue.put(result)
         except:

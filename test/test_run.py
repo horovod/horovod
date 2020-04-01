@@ -28,7 +28,7 @@ import mock
 from mock import MagicMock
 
 import horovod
-from horovod.run.common.util import config_parser, secret, settings as hvd_settings, timeout
+from horovod.run.common.util import codec, config_parser, secret, settings as hvd_settings, timeout
 from horovod.run.common.util.host_hash import _hash, host_hash
 from horovod.run.mpi_run import _get_mpi_implementation, _get_mpi_implementation_flags,\
     _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_available, mpi_run,\
@@ -224,6 +224,13 @@ class RunTests(unittest.TestCase):
         with override_env({'CONTAINER_ID': 'a container id'}):
             self.assertNotEqual(host_hash(), hash)
         self.assertEqual(host_hash(), hash)
+
+    def test_settings_dump_drops_key(self):
+        settings = hvd_settings.Settings(verbose=2, key="a secret key")
+        clone = codec.loads_base64(codec.dumps_base64(settings))
+        self.assertEqual(settings.verbose, clone.verbose)
+        self.assertIsNotNone(settings.key)
+        self.assertIsNone(clone.key)
 
     def test_get_mpi_implementation(self):
         def test(output, expected, exit_code=0):
