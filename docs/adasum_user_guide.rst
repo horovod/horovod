@@ -63,19 +63,17 @@ Setting up the environment
 
 Below are the requirements for running Horovod with AdaSum:
 
--   cuda-10.0 and cudnn-7.6.4
+-   cuda >= 6.0
 
--   OpenMPI- 4.0
+-   OpenMPI >= 3.0
 
--   NCCL – 2.4
+-   NCCL >= 2.0
 
--   Python 3.7.5
+-   Pytorch >= 1.2.0 OR
 
--   Pytorch-1.2.0 OR
+-   Tensorflow >= 1.14.0
 
--   Tensorflow-1.14.0
-
--   Horovod-0.18.2
+-   Horovod >= 0.18.2
 
 *Using NCCL:*
 
@@ -124,8 +122,10 @@ Modification to the code
 
 A new distributed optimizer has been added to both TensorFlow and Pytorch to support the AdaSum algorithm.
 
-An optional parameter op has been added to DistributedOptimizer and allreduce API for users to specify which operation to perform.
+An optional parameter **op** has been added to DistributedOptimizer and allreduce API for users to specify which operation to perform.
 When **op=hvd.AdaSum** is specified, the new optimizer will be used.
+
+AdaSum is highly effective in scaling to large batch sizes. The **backward_passes_per_step** parameter of the DistributedOptimizer can be used for gradient accumulation in order to scale to larger effective batch sizes without being limited by GPU memory.
 
 TensorFlow
 --------------------------
