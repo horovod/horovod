@@ -1,26 +1,12 @@
 from __future__ import print_function
 import argparse
+import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
 import torch.utils.data.distributed
 import horovod.torch as hvd
-
-# Temporary patch this script until the MNIST dataset download issue get resolved
-# https://github.com/pytorch/vision/issues/1938
-import urllib
-try:
-    # For python 2
-    class AppURLopener(urllib.FancyURLopener):
-        version = "Mozilla/5.0"
-
-    urllib._urlopener = AppURLopener()
-except AttributeError:
-    # For python 3
-    opener = urllib.request.build_opener()
-    opener.addheaders = [('User-agent', 'Mozilla/5.0')]
-    urllib.request.install_opener(opener)
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
@@ -45,46 +31,6 @@ parser.add_argument('--fp16-allreduce', action='store_true', default=False,
 parser.add_argument('--use-adasum', action='store_true', default=False,
                     help='use adasum algorithm to do reduction')
 
-args = parser.parse_args()
-args.cuda = not args.no_cuda and torch.cuda.is_available()
-
-# Horovod: initialize library.
-hvd.init()
-torch.manual_seed(args.seed)
-
-if args.cuda:
-    # Horovod: pin GPU to local rank.
-    torch.cuda.set_device(hvd.local_rank())
-    torch.cuda.manual_seed(args.seed)
-
-
-# Horovod: limit # of CPU threads to be used per worker.
-torch.set_num_threads(1)
-
-kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
-train_dataset = \
-    datasets.MNIST('data-%d' % hvd.rank(), train=True, download=True,
-                   transform=transforms.Compose([
-                       transforms.ToTensor(),
-                       transforms.Normalize((0.1307,), (0.3081,))
-                   ]))
-# Horovod: use DistributedSampler to partition the training data.
-train_sampler = torch.utils.data.distributed.DistributedSampler(
-    train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
-train_loader = torch.utils.data.DataLoader(
-    train_dataset, batch_size=args.batch_size, sampler=train_sampler, **kwargs)
-
-test_dataset = \
-    datasets.MNIST('data-%d' % hvd.rank(), train=False, transform=transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
-    ]))
-# Horovod: use DistributedSampler to partition the test data.
-test_sampler = torch.utils.data.distributed.DistributedSampler(
-    test_dataset, num_replicas=hvd.size(), rank=hvd.rank())
-test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.test_batch_size,
-                                          sampler=test_sampler, **kwargs)
-
 
 class Net(nn.Module):
     def __init__(self):
@@ -103,36 +49,6 @@ class Net(nn.Module):
         x = F.dropout(x, training=self.training)
         x = self.fc2(x)
         return F.log_softmax(x)
-
-
-model = Net()
-
-# By default, Adasum doesn't need scaling up learning rate.
-lr_scaler = hvd.size() if not args.use_adasum else 1
-
-if args.cuda:
-    # Move model to GPU.
-    model.cuda()
-    # If using GPU Adasum allreduce, scale learning rate by local_size.
-    if args.use_adasum and hvd.nccl_built():
-        lr_scaler = hvd.local_size()
-
-# Horovod: scale learning rate by lr_scaler.
-optimizer = optim.SGD(model.parameters(), lr=args.lr * lr_scaler,
-                      momentum=args.momentum)
-
-# Horovod: broadcast parameters & optimizer state.
-hvd.broadcast_parameters(model.state_dict(), root_rank=0)
-hvd.broadcast_optimizer_state(optimizer, root_rank=0)
-
-# Horovod: (optional) compression algorithm.
-compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
-
-# Horovod: wrap optimizer with DistributedOptimizer.
-optimizer = hvd.DistributedOptimizer(optimizer,
-                                     named_parameters=model.named_parameters(),
-                                     compression=compression,
-                                     op=hvd.Adasum if args.use_adasum else hvd.Average)
 
 
 def train(epoch):
@@ -190,6 +106,82 @@ def test():
             test_loss, 100. * test_accuracy))
 
 
-for epoch in range(1, args.epochs + 1):
-    train(epoch)
-    test()
+if __name__ == '__main__':
+    args = parser.parse_args()
+    args.cuda = not args.no_cuda and torch.cuda.is_available()
+
+    # Horovod: initialize library.
+    hvd.init()
+    torch.manual_seed(args.seed)
+
+    if args.cuda:
+        # Horovod: pin GPU to local rank.
+        torch.cuda.set_device(hvd.local_rank())
+        torch.cuda.manual_seed(args.seed)
+
+
+    # Horovod: limit # of CPU threads to be used per worker.
+    torch.set_num_threads(1)
+
+    kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
+    # When supported, use 'forkserver' to spawn dataloader workers instead of 'fork' to prevent
+    # issues with Infiniband implementations that are not fork-safe
+    if (kwargs.get('num_workers', 0) > 0 and hasattr(mp, '_supports_context') and
+            mp._supports_context and 'forkserver' in mp.get_all_start_methods()):
+        kwargs['multiprocessing_context'] = 'forkserver'
+
+    train_dataset = \
+        datasets.MNIST('data-%d' % hvd.rank(), train=True, download=True,
+                       transform=transforms.Compose([
+                           transforms.ToTensor(),
+                           transforms.Normalize((0.1307,), (0.3081,))
+                       ]))
+    # Horovod: use DistributedSampler to partition the training data.
+    train_sampler = torch.utils.data.distributed.DistributedSampler(
+        train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset, batch_size=args.batch_size, sampler=train_sampler, **kwargs)
+
+    test_dataset = \
+        datasets.MNIST('data-%d' % hvd.rank(), train=False, transform=transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))
+        ]))
+    # Horovod: use DistributedSampler to partition the test data.
+    test_sampler = torch.utils.data.distributed.DistributedSampler(
+        test_dataset, num_replicas=hvd.size(), rank=hvd.rank())
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.test_batch_size,
+                                              sampler=test_sampler, **kwargs)
+
+    model = Net()
+
+    # By default, Adasum doesn't need scaling up learning rate.
+    lr_scaler = hvd.size() if not args.use_adasum else 1
+
+    if args.cuda:
+        # Move model to GPU.
+        model.cuda()
+        # If using GPU Adasum allreduce, scale learning rate by local_size.
+        if args.use_adasum and hvd.nccl_built():
+            lr_scaler = hvd.local_size()
+
+    # Horovod: scale learning rate by lr_scaler.
+    optimizer = optim.SGD(model.parameters(), lr=args.lr * lr_scaler,
+                          momentum=args.momentum)
+
+    # Horovod: broadcast parameters & optimizer state.
+    hvd.broadcast_parameters(model.state_dict(), root_rank=0)
+    hvd.broadcast_optimizer_state(optimizer, root_rank=0)
+
+    # Horovod: (optional) compression algorithm.
+    compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
+
+    # Horovod: wrap optimizer with DistributedOptimizer.
+    optimizer = hvd.DistributedOptimizer(optimizer,
+                                         named_parameters=model.named_parameters(),
+                                         compression=compression,
+                                         op=hvd.Adasum if args.use_adasum else hvd.Average)
+
+    for epoch in range(1, args.epochs + 1):
+        train(epoch)
+        test()
