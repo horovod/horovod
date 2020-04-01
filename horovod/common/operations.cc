@@ -362,7 +362,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       gloo_context.Initialize(ParseGlooIface());
     }
 #endif
-
   // Initialize controller
   state.controller->Initialize();
 
@@ -569,7 +568,7 @@ bool RunLoopOnce(HorovodGlobalState& state) {
   int rank = state.controller->GetRank();
   for (auto& response : response_list.responses()) {
     LOG(TRACE, rank) << "Performing " << response.tensor_names_string();
-    LOG(DEBUG, rank) << "Processing " << response.tensor_names().size()
+    LOG(TRACE, rank) << "Processing " << response.tensor_names().size()
                      << " tensors";
     PerformOperation(response, horovod_global);
     LOG(TRACE, rank) << "Finished performing "

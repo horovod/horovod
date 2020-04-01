@@ -37,11 +37,15 @@ void ParseStallInspectorFromEnv(StallInspector& stall_inspector);
 
 void SetBoolFromEnv(const char* env, bool& val, bool value_if_set);
 
+bool GetBoolEnvOrDefault(const char* env_variable, bool default_value);
+
 void SetIntFromEnv(const char* env, int& val);
 
 int GetIntEnvOrDefault(const char* env_variable, int default_value);
 
 double GetDoubleEnvOrDefault(const char* env_variable, double default_value);
+
+void SetEnv(const char* env_variable, const char* env_value);
 
 } // namespace common
 } // namespace horovod

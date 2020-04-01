@@ -24,7 +24,9 @@ from horovod.common.util import check_extension, gpu_available
 
 check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
 
+from horovod.tensorflow import elastic
 from horovod.tensorflow.compression import Compression
+from horovod.tensorflow.functions import broadcast_object, broadcast_object_fn, broadcast_variables
 from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce
 from horovod.tensorflow.mpi_ops import init, shutdown
 from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank, is_homogeneous
@@ -33,7 +35,6 @@ from horovod.tensorflow.mpi_ops import gloo_enabled, gloo_built
 from horovod.tensorflow.mpi_ops import nccl_built, ddl_built, ccl_built
 from horovod.tensorflow.mpi_ops import Average, Sum, Adasum
 from horovod.tensorflow.mpi_ops import handle_average_backwards_compatibility, check_num_rank_power_of_2
-
 from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache
 
 import tensorflow as tf
@@ -116,36 +117,6 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             else:
                 new_tensor = (summed_tensor / horovod_size) if op == Average else summed_tensor
         return new_tensor
-
-
-@_cache
-def _make_broadcast_group_fn():
-    if _executing_eagerly():
-        # Eager mode will parallelize independent control flow
-        def broadcast_group(variables, root_rank):
-            for var in variables:
-                var.assign(broadcast(var, root_rank))
-
-        return _make_subgraph(broadcast_group)
-    else:
-        # Graph mode requires an Op
-        def broadcast_group(variables, root_rank):
-            return tf.group(*[var.assign(broadcast(var, root_rank))
-                              for var in variables])
-
-        return broadcast_group
-
-
-def broadcast_variables(variables, root_rank):
-    """Broadcasts variables from root rank to all other processes.
-
-    Arguments:
-        variables: variables for broadcast
-        root_rank: rank of the process from which global variables will be broadcasted
-                   to all other processes.
-    """
-    broadcast_group = _make_broadcast_group_fn()
-    return broadcast_group(variables, root_rank)
 
 
 try:

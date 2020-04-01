@@ -161,7 +161,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
   }
 
   if (!message_queue_tmp.empty()) {
-    LOG(DEBUG, rank_) << "Sent " << message_queue_tmp.size()
+    LOG(TRACE, rank_) << "Sent " << message_queue_tmp.size()
                       << " messages to coordinator.";
   }
 
@@ -753,7 +753,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
     }
 
     response_list.add_response(response);
-    LOG(DEBUG) << "Created response of size " << tensor_size;
+    LOG(TRACE) << "Created response of size " << tensor_size;
   }
   return response_list;
 }

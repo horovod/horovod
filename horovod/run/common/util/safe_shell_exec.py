@@ -64,7 +64,7 @@ def forward_stream(src_fd, dst_stream, prefix, index):
             text = os.read(src.fileno(), 1000)
             if not isinstance(text, str):
                 text = text.decode('utf-8')
-            if not text:
+            if not text or len(text) == 0:
                 break
 
             for line in re.split('([\r\n])', text):
@@ -84,7 +84,7 @@ def forward_stream(src_fd, dst_stream, prefix, index):
                     line_buffer = ''
 
 
-def execute(command, env=None, stdout=None, stderr=None, index=None, event=None):
+def execute(command, env=None, stdout=None, stderr=None, index=None, events=None):
     # Make a pipe for the subprocess stdout/stderr.
     (stdout_r, stdout_w) = os.pipe()
     (stderr_r, stderr_w) = os.pipe()
@@ -142,23 +142,28 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, event=None)
         stdout = sys.stdout
     if stderr is None:
         stderr = sys.stderr
+
     stdout_fwd = threading.Thread(target=forward_stream, args=(stdout_r, stdout, 'stdout', index))
-    stderr_fwd = threading.Thread(target=forward_stream, args=(stderr_r, stderr, 'stderr', index))
+    stdout_fwd.daemon = True
     stdout_fwd.start()
+
+    stderr_fwd = threading.Thread(target=forward_stream, args=(stderr_r, stderr, 'stderr', index))
+    stderr_fwd.daemon = True
     stderr_fwd.start()
 
-    def kill_middleman_if_master_thread_terminate():
-        event.wait()
-        try:
-            os.kill(middleman_pid, signal.SIGTERM)
-        except:
-            # The process has already been killed elsewhere
-            pass
+    events = events or []
+    for event in events:
+        def kill_middleman_if_master_thread_terminate():
+            event.wait()
+            try:
+                os.kill(middleman_pid, signal.SIGTERM)
+            except:
+                # The process has already been killed elsewhere
+                pass
 
-    # TODO: Currently this requires explicitly declaration of the event and signal handler to set
-    #  the event (gloo_run.py:_launch_jobs()). Need to figure out a generalized way to hide this behind
-    #  interfaces.
-    if event is not None:
+        # TODO: Currently this requires explicitly declaration of the event and signal handler to set
+        #  the event (gloo_run.py:_launch_jobs()). Need to figure out a generalized way to hide this behind
+        #  interfaces.
         bg_thread = threading.Thread(target=kill_middleman_if_master_thread_terminate)
         bg_thread.daemon = True
         bg_thread.start()
@@ -176,7 +181,9 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, event=None)
                 # interrupted, wait for middleman to finish
                 pass
 
-    stdout_fwd.join()
-    stderr_fwd.join()
+    # TODO(travis): investigate why os.read is hanging after exit
+    # stdout_fwd.join()
+    # stderr_fwd.join()
+
     exit_code = status >> 8
     return exit_code

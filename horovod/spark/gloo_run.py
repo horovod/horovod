@@ -22,9 +22,9 @@ from horovod.spark.driver.rsh import rsh
 
 
 def _exec_command_fn(driver_addresses, settings, env):
-    def _exec_command(command, alloc_info, event):
-        host = alloc_info.hostname
-        local_rank = alloc_info.local_rank
+    def _exec_command(command, slot_info, events):
+        host = slot_info.hostname
+        local_rank = slot_info.local_rank
         rsh(driver_addresses, settings, host, command, env, local_rank)
         # this indicate successful command execution, not the result of the executed command
         # the result of each task is collected through Spark at the end of horovod.spark.run.run()
