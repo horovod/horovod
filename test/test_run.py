@@ -364,7 +364,7 @@ class RunTests(unittest.TestCase):
             return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"]
 
         with mock.patch("horovod.run.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags):
-            with mock.patch("horovod.run.mpi_run.safe_shell_exec.execute", return_value=0) as run_func:
+            with mock.patch("horovod.run.mpi_run.safe_shell_exec.execute", return_value=0) as execute:
                 mpi_run(settings, None, {}, cmd)
 
                 # call the mocked _get_mpi_implementation_flags method
@@ -377,7 +377,7 @@ class RunTests(unittest.TestCase):
                                 '{mpi_flags}       '
                                 'cmd').format(binding_args=' '.join(binding_args), mpi_flags=' '.join(mpi_flags))
                 expected_env = {}
-                run_func.assert_called_once_with(expected_cmd, env=expected_env, stdout=None, stderr=None)
+                execute.assert_called_once_with(expected_cmd, env=expected_env, stdout=None, stderr=None)
 
     """
     Tests mpi_run on a large cluster.
@@ -394,7 +394,7 @@ class RunTests(unittest.TestCase):
             return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"]
 
         with mock.patch("horovod.run.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags):
-            with mock.patch("horovod.run.mpi_run.safe_shell_exec.execute", return_value=0) as run_func:
+            with mock.patch("horovod.run.mpi_run.safe_shell_exec.execute", return_value=0) as execute:
                 mpi_run(settings, None, {}, cmd)
 
                 # call the mocked _get_mpi_implementation_flags method
@@ -409,7 +409,7 @@ class RunTests(unittest.TestCase):
                                 '{mpi_flags}       '
                                 'cmd').format(binding_args=' '.join(binding_args), mpi_flags=' '.join(mpi_flags))
                 expected_env = {}
-                run_func.assert_called_once_with(expected_cmd, env=expected_env, stdout=None, stderr=None)
+                execute.assert_called_once_with(expected_cmd, env=expected_env, stdout=None, stderr=None)
 
     """
     Tests mpi_run with full settings.
@@ -442,7 +442,7 @@ class RunTests(unittest.TestCase):
             return ["--mock-mpi-impl-flags"], []
 
         with mock.patch("horovod.run.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags):
-            with mock.patch("horovod.run.mpi_run.safe_shell_exec.execute", return_value=0) as run_func:
+            with mock.patch("horovod.run.mpi_run.safe_shell_exec.execute", return_value=0) as execute:
                 mpi_run(settings, nics, env, cmd, stdout=stdout, stderr=stderr)
 
                 # call the mocked _get_mpi_implementation_flags method
@@ -460,7 +460,7 @@ class RunTests(unittest.TestCase):
                                     '>mpi-extra args go here< '
                                     'cmd arg1 arg2').format(mpi_flags=' '.join(mpi_flags))
                 expected_env = {'env1': 'val1', 'env2': 'val2'}
-                run_func.assert_called_once_with(expected_command, env=expected_env, stdout=stdout, stderr=stderr)
+                execute.assert_called_once_with(expected_command, env=expected_env, stdout=stdout, stderr=stderr)
 
     def test_mpi_run_with_non_zero_exit(self):
         if not mpi_available():
@@ -515,7 +515,7 @@ class RunTests(unittest.TestCase):
             return ["--mock-mpi-impl-flags"], []
 
         with mock.patch("horovod.run.js_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags):
-            with mock.patch("horovod.run.js_run.safe_shell_exec.execute", return_value=0) as run_func:
+            with mock.patch("horovod.run.js_run.safe_shell_exec.execute", return_value=0) as execute:
                 js_run(settings, None, env, cmd, stdout=stdout, stderr=stderr)
 
                 # call the mocked _get_mpi_implementation_flags method
@@ -528,7 +528,7 @@ class RunTests(unittest.TestCase):
                                     '--smpiargs \'{mpi_args} >mpi-extra args go here<\' '
                                     'cmd arg1 arg2').format(mpi_args=' '.join(mpi_flags))
                 expected_env = {'env1': 'val1', 'env2': 'val2'}
-                run_func.assert_called_once_with(expected_command, env=expected_env, stdout=stdout, stderr=stderr)
+                execute.assert_called_once_with(expected_command, env=expected_env, stdout=stdout, stderr=stderr)
 
     """
     Tests generate_jsrun_rankfile.
