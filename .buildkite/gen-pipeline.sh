@@ -189,18 +189,12 @@ run_gloo_pytest() {
   local test=$1
   local queue=$2
 
-  # Seems that spark tests depend on MPI, do not test those when mpi is not available
-  local exclude_spark_if_needed=""
-  if [[ ${test} != *"mpi"* ]]; then
-    exclude_spark_if_needed="| sed 's/[a-z_]*spark[a-z_.]*//g'"
-  fi
-
   # These tests are covered in MPI, and testing them in Gloo does not cover any new code paths
   local excluded_tests="| sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/[a-z_]*tensorflow2[a-z_.]*//g'"
 
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_spark_if_needed} ${excluded_tests} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no)\""
+    "bash -c \"cd /horovod/test && (echo test_*.py ${excluded_tests} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no)\""
 }
 
 run_gloo_integration() {
@@ -228,7 +222,7 @@ run_gloo() {
   run_gloo_integration ${test} ${queue}
 }
 
-run_spark() {
+run_spark_integration() {
   local test=$1
   local queue=$2
 
@@ -243,9 +237,11 @@ run_spark() {
         ":spark: Spark Keras Rossmann Estimator (${test})" \
         "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01\""
 
-      run_test "${test}" "${queue}" \
-        ":spark: PyTests Spark Estimators (${test})" \
-        "bash -c \"cd /horovod/test && pytest --forked -v --capture=no test_spark_keras.py test_spark_torch.py\""
+      if [[ ${queue} != *gpu* ]]; then
+        run_test "${test}" "${queue}" \
+          ":spark: PyTests Spark Estimators (${test})" \
+          "bash -c \"cd /horovod/test && pytest --forked -v --capture=no test_spark_keras.py test_spark_torch.py\""
+      fi
 
       run_test "${test}" "${queue}" \
         ":spark: Spark Keras MNIST (${test})" \
@@ -258,7 +254,7 @@ run_spark() {
   fi
 }
 
-run_single() {
+run_single_integration() {
   local test=$1
   local queue=$2
 
@@ -312,59 +308,61 @@ if [[ "${BUILDKITE_BRANCH}" == "master" ]]; then
   done
 fi
 
-# run all the cpu tests
+# run all the cpu unit tests and integration tests
 for test in ${tests[@]}; do
   if [[ ${test} == *-cpu-* ]]; then
-    # if gloo is specified, run gloo_test
+    # if gloo is specified, run gloo cpu unit tests and integration tests
     if [[ ${test} == *-gloo* ]]; then
       run_gloo ${test} "cpu"
     fi
 
-    # if mpi is specified, run mpi cpu_test
+    # if mpi is specified, run mpi cpu unit tests and integration tests
     if [[ ${test} == *mpi* ]]; then
       run_mpi ${test} "cpu"
-
-      # spark tests use MPI
-      run_spark ${test} "cpu"
     fi
 
+    # always run spark tests which use MPI and Gloo
+    run_spark_integration ${test} "cpu"
+
     # no runner application, world size = 1
-    run_single ${test} "cpu"
+    run_single_integration ${test} "cpu"
   fi
 done
 
-# wait for all builds to finish
+# wait for all cpu unit and integration tests to finish
 echo "- wait"
 
-# run 4x gpu tests
+# run 4x gpu unit tests
 for test in ${tests[@]}; do
   if [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]]; then
-    # if gloo is specified, run gloo_test
+    # if gloo is specified, run gloo gpu unit tests
     if [[ ${test} == *-gloo* ]]; then
       run_gloo_pytest ${test} "4x-gpu-g4"
     fi
 
-    # if mpi is specified, run mpi gpu_test
+    # if mpi is specified, run mpi gpu unit tests
     if [[ ${test} == *mpi* ]]; then
       run_mpi_pytest ${test} "4x-gpu-g4"
     fi
   fi
 done
 
-# wait for all builds to finish
+# wait for all gpu unit tests to finish
 echo "- wait"
 
-# run 2x gpu tests
+# run 2x gpu integration tests
 for test in ${tests[@]}; do
   if [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]]; then
-    # if gloo is specified, run gloo_test
+    # if gloo is specified, run gloo gpu integration tests
     if [[ ${test} == *-gloo* ]]; then
       run_gloo_integration ${test} "2x-gpu-g4"
     fi
 
-    # if mpi is specified, run mpi gpu_test
+    # if mpi is specified, run mpi gpu integration tests
     if [[ ${test} == *mpi* ]]; then
       run_mpi_integration ${test} "2x-gpu-g4"
     fi
+
+    run_spark_integration ${test} "2x-gpu-g4"
   fi
 done

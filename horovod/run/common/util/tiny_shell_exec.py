@@ -13,6 +13,29 @@
 # limitations under the License.
 # ==============================================================================
 
-import horovod.spark.common._namedtuple_fix
+from __future__ import print_function
 
-from .runner import run
+import six
+import sys
+import traceback
+
+from horovod.run.common.util import safe_shell_exec
+
+
+def execute(command):
+    """
+    Executes the command and returns stdout and stderr as a string, together with the exit code.
+    :param command: command to execute
+    :return: (output, exit code) or None on failure
+    """
+    output = six.StringIO()
+    try:
+        exit_code = safe_shell_exec.execute(command, stdout=output, stderr=output)
+        output_msg = output.getvalue()
+    except Exception:
+        print(traceback.format_exc(), file=sys.stderr)
+        return None
+    finally:
+        output.close()
+
+    return output_msg, exit_code

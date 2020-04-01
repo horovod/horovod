@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +13,18 @@
 # limitations under the License.
 # ==============================================================================
 
-from horovod.run.runner import run_commandline
+import sys
+
+from horovod.spark.task import task_exec
+from horovod.run.common.util import codec
+
+
+def main(driver_addresses, settings):
+    task_exec(driver_addresses, settings, 'HOROVOD_RANK')
+
 
 if __name__ == '__main__':
-    run_commandline()
+    if len(sys.argv) != 3:
+        print('Usage: %s <driver addresses> <settings>' % sys.argv[0])
+        sys.exit(1)
+    main(codec.loads_base64(sys.argv[1]), codec.loads_base64(sys.argv[2]))
