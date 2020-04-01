@@ -73,7 +73,7 @@ def is_mpich():
     return _get_mpi_implementation() == _MPICH_IMPL
 
 
-def _get_mpi_implementation(execute=tiny_shell_exec.execute):
+def _get_mpi_implementation():
     """
     Detects the available MPI implementation by invoking `mpirun --version`.
     This command is executed by the given execute function, which takes the
@@ -88,7 +88,7 @@ def _get_mpi_implementation(execute=tiny_shell_exec.execute):
     :return: string representing identified implementation
     """
     command = 'mpirun --version'
-    res = execute(command)
+    res = tiny_shell_exec.execute(command)
     if res is None:
         return _MISSING_IMPL
     (output, exit_code) = res
@@ -121,7 +121,7 @@ def _get_mpi_implementation_flags(tcp_flag):
         return None, None
 
 
-def mpi_run(settings, nics, env, command, stdout=None, stderr=None, run_func=None):
+def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
     """
     Runs mpi_run.
 
@@ -135,13 +135,7 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None, run_func=Non
                 Only used when settings.run_func_mode is True.
         stderr: Stderr of the mpi process.
                 Only used when settings.run_func_mode is True.
-        run_func: Run function to use. Must have arguments 'command' and 'env'.
-                  Only used when settings.run_func_mode is True.
-                  Defaults to safe_shell_exec.execute.
     """
-    if run_func is None:
-        run_func = safe_shell_exec.execute
-
     mpi_impl_flags, impl_binding_args = _get_mpi_implementation_flags(settings.tcp_flag)
     if mpi_impl_flags is None:
         raise Exception(_MPI_NOT_FOUND_ERROR_MSG)
@@ -197,7 +191,7 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None, run_func=Non
 
     # Execute the mpirun command.
     if settings.run_func_mode:
-        exit_code = run_func(command=mpirun_command, env=env, stdout=stdout, stderr=stderr)
+        exit_code = safe_shell_exec.execute(mpirun_command, env=env, stdout=stdout, stderr=stderr)
         if exit_code != 0:
             raise RuntimeError("mpirun failed with exit code {exit_code}".format(exit_code=exit_code))
     else:

@@ -32,7 +32,7 @@ def _exec_command_fn(driver_addresses, settings, env):
     return _exec_command
 
 
-def gloo_run(settings, nics, driver, env, exec_command=None):
+def gloo_run(settings, nics, driver, env):
     """
     Run distributed gloo jobs.
 
@@ -41,7 +41,6 @@ def gloo_run(settings, nics, driver, env, exec_command=None):
     :param nics: Interfaces to use by gloo.
     :param driver: The Spark driver service that tasks are connected to.
     :param env: Environment dictionary to use for running gloo jobs.
-    :param exec_command: Function to execute job commands.
     """
     # Each thread will use SparkTaskClient to launch the job on each remote host. If an
     # error occurs in one thread, entire process will be terminated. Otherwise,
@@ -56,6 +55,5 @@ def gloo_run(settings, nics, driver, env, exec_command=None):
     # Pass secret key through the environment variables.
     env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(settings.key)
 
-    exec_command = _exec_command_fn(driver.addresses(), settings, env) \
-        if exec_command is None else exec_command
+    exec_command = _exec_command_fn(driver.addresses(), settings, env)
     launch_gloo(command, exec_command, settings, nics, {}, server_ip)

@@ -100,7 +100,7 @@ def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
     return spark_thread
 
 
-def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=None, run_func=None):
+def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=None):
     # Determine a set of common interfaces for task-to-task communication.
     nics = set(driver.task_addresses_for_tasks(0).keys())
     for index in range(1, settings.num_proc):
@@ -112,16 +112,15 @@ def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=No
     if env is None:
         env = os.environ.copy()
 
-    run_controller(use_gloo, lambda: gloo_run(settings, nics, driver, env, run_func),
-                   use_mpi, lambda: mpi_run(settings, nics, driver, env, stdout, stderr, run_func),
+    run_controller(use_gloo, lambda: gloo_run(settings, nics, driver, env),
+                   use_mpi, lambda: mpi_run(settings, nics, driver, env, stdout, stderr),
                    False, lambda: None,
                    settings.verbose)
 
 
 def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
         use_mpi=None, use_gloo=None, extra_mpi_args=None,
-        env=None, stdout=None, stderr=None, verbose=1, nics=None,
-        run_func=None):
+        env=None, stdout=None, stderr=None, verbose=1, nics=None):
     """
     Runs Horovod in Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
 
@@ -139,8 +138,6 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
         stderr: Horovod stderr is redirected to this stream. Defaults to sys.stderr.
         verbose: Debug output verbosity (0-2). Defaults to 1.
         nics: List of NICs for tcp network communication.
-        run_func: Run function to use. Must have arguments 'command', 'env', 'stdout', 'stderr'.
-                  Defaults to safe_shell_exec.execute.
 
     Returns:
         List of results returned by running `fn` on each rank.
@@ -222,7 +219,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
         driver.set_ranks_to_indices(ranks_to_indices)
 
         # Run the job
-        _launch_job(use_mpi, use_gloo, settings, driver, env, stdout, stderr, run_func)
+        _launch_job(use_mpi, use_gloo, settings, driver, env, stdout, stderr)
     except:
         # Terminate Spark job.
         spark_context.cancelJobGroup(spark_job_group)
