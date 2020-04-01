@@ -73,7 +73,7 @@ def is_mpich():
     return _get_mpi_implementation() == _MPICH_IMPL
 
 
-def _get_mpi_implementation(execute=tiny_shell_exec.execute):
+def _get_mpi_implementation():
     """
     Detects the available MPI implementation by invoking `mpirun --version`.
     This command is executed by the given execute function, which takes the
@@ -88,7 +88,7 @@ def _get_mpi_implementation(execute=tiny_shell_exec.execute):
     :return: string representing identified implementation
     """
     command = 'mpirun --version'
-    res = execute(command)
+    res = tiny_shell_exec.execute(command)
     if res is None:
         return _MISSING_IMPL
     (output, exit_code) = res

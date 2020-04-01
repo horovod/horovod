@@ -226,10 +226,11 @@ class RunTests(unittest.TestCase):
         self.assertEqual(host_hash(), hash)
 
     def test_get_mpi_implementation(self):
-        def test(output, expected):
-            execute = MagicMock(return_value=(output, 0))
-            impl = _get_mpi_implementation(execute=execute)
-            self.assertEqual(expected, impl)
+        def test(output, expected, exit_code=0):
+            ret = (output, exit_code) if output is not None else None
+            with mock.patch("horovod.run.mpi_run.tiny_shell_exec.execute", return_value=ret):
+                implementation = _get_mpi_implementation()
+                self.assertEqual(expected, implementation)
 
         test(("mpirun (Open MPI) 2.1.1\n"
               "Report bugs to http://www.open-mpi.org/community/help/\n"), _OMPI_IMPL)
@@ -244,13 +245,9 @@ class RunTests(unittest.TestCase):
 
         test("Unknown MPI v1.00", _UNKNOWN_IMPL)
 
-        execute = MagicMock(return_value=("output", 1))
-        impl = _get_mpi_implementation(execute=execute)
-        self.assertEqual(_MISSING_IMPL, impl)
+        test("output", exit_code=1, expected=_MISSING_IMPL)
 
-        execute = MagicMock(return_value=None)
-        impl = _get_mpi_implementation(execute=execute)
-        self.assertEqual(_MISSING_IMPL, impl)
+        test(None, _MISSING_IMPL)
 
     def test_run_controller(self):
         def test(use_gloo, use_mpi, use_js,
