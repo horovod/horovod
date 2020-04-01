@@ -251,12 +251,18 @@ class SparkTests(unittest.TestCase):
         def mpi_impl_flags(tcp):
             return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"]
 
+        def gloo_exec_command_fn(driver_addresses, settings, env):
+            def _exec_command(command, alloc_info, event):
+                return 1, 1.0
+            return _exec_command
+
         with mock.patch("horovod.run.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags):
             with mock.patch("horovod.run.mpi_run.safe_shell_exec.execute", return_value=1):
-                with spark_session('test_spark_run_func', cores=4):
-                    with is_built(gloo_is_built=use_gloo, mpi_is_built=use_mpi):
-                        with pytest.raises(Exception, match=expected):
-                            horovod.spark.run(fn, use_mpi=use_mpi, use_gloo=use_gloo, verbose=2)
+                with mock.patch("horovod.spark.gloo_run._exec_command_fn", side_effect=gloo_exec_command_fn):
+                    with spark_session('test_spark_run_func', cores=4):
+                        with is_built(gloo_is_built=use_gloo, mpi_is_built=use_mpi):
+                            with pytest.raises(Exception, match=expected):
+                                horovod.spark.run(fn, use_mpi=use_mpi, use_gloo=use_gloo, verbose=2)
 
     """
     Performs an actual horovod.spark.run test using MPI or Gloo.
@@ -353,40 +359,44 @@ class SparkTests(unittest.TestCase):
     """
     Performs an actual horovod.spark.run test using Gloo.
     """
-    def _do_test_spark_run_func_with_gloo(self, args=(), kwargs={}, num_proc=1, extra_mpi_args=None, env={},
-                                          stdout=None, stderr=None, verbose=2,
+    def _do_test_spark_run_func_with_gloo(self, args=(), kwargs={}, num_proc=1, extra_mpi_args=None,
+                                          env={}, stdout=None, stderr=None, verbose=2,
                                           cores=2, expected_np=1, expected_env=''):
         def fn():
             return 1
 
-        run_func = MagicMock(return_value=(0, 1.0))
+        exec_command = mock.MagicMock(return_value=(0, 1.0))
+        gloo_exec_command_fn = mock.MagicMock(return_value=exec_command)
 
-        with spark_session('test_spark_run_func', cores=cores):
-            with is_built(gloo_is_built=True, mpi_is_built=False):
-                with pytest.raises(Exception) as e:
-                    # we need to timeout horovod because our mocked run_func will block spark otherwise
-                    # this raises above exception, but allows us to catch run_func arguments
-                    horovod.spark.run(fn, args=args, kwargs=kwargs,
-                                      num_proc=num_proc, start_timeout=1,
-                                      use_mpi=False, use_gloo=True,
-                                      extra_mpi_args=extra_mpi_args, env=env,
-                                      stdout=stdout, stderr=stderr, verbose=verbose)
+        with mock.patch("horovod.spark.gloo_run._exec_command_fn", side_effect=gloo_exec_command_fn):
+            with spark_session('test_spark_run_func', cores=cores):
+                with is_built(gloo_is_built=True, mpi_is_built=False):
+                    with pytest.raises(Exception) as e:
+                        # we need to timeout horovod because our mocked run_func will block spark otherwise
+                        # this raises above exception, but allows us to catch run_func arguments
+                        horovod.spark.run(fn, args=args, kwargs=kwargs,
+                                          num_proc=num_proc, start_timeout=1,
+                                          use_mpi=False, use_gloo=True,
+                                          extra_mpi_args=extra_mpi_args, env=env,
+                                          stdout=stdout, stderr=stderr, verbose=verbose)
 
         self.assertFalse(str(e.value).startswith('Timed out waiting for Spark tasks to start.'),
                          'Spark timed out before mpi_run was called, test setup is broken.')
         self.assertEqual('Spark job has failed, see the error above.', str(e.value))
 
         num_proc = cores if num_proc is None else num_proc
-        self.assertEqual(num_proc, run_func.call_count)
+        self.assertEqual(1, gloo_exec_command_fn.call_count)
+        self.assertEqual(num_proc, exec_command.call_count)
+        self.assertEqual(num_proc, len(exec_command.call_args_list))
 
         # expect all ranks exist
-        # run_func.call_args_list is [(args, kwargs)] with args = (command, alloc_info, event)
-        actual_ranks = sorted([call_args[0][1].rank for call_args in run_func.call_args_list])
+        # exec_command.call_args_list is [(args, kwargs)] with args = (command, alloc_info, event)
+        actual_ranks = sorted([call_args[0][1].rank for call_args in exec_command.call_args_list])
         self.assertEqual(list(range(0, num_proc)), actual_ranks)
 
-        first_event = run_func.call_args_list[0][0][2]
-        first_host = run_func.call_args_list[0][0][1].hostname
-        for call_args in run_func.call_args_list:
+        first_event = exec_command.call_args_list[0][0][2]
+        first_host = exec_command.call_args_list[0][0][1].hostname
+        for call_args in exec_command.call_args_list:
             # all events are the same instance
             self.assertEqual(first_event, call_args[0][2])
             # all kwargs are empty

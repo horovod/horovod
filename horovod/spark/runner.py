@@ -100,7 +100,7 @@ def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
     return spark_thread
 
 
-def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=None, run_func=None):
+def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=None):
     # Determine a set of common interfaces for task-to-task communication.
     nics = set(driver.task_addresses_for_tasks(0).keys())
     for index in range(1, settings.num_proc):
@@ -112,7 +112,7 @@ def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=No
     if env is None:
         env = os.environ.copy()
 
-    run_controller(use_gloo, lambda: gloo_run(settings, nics, driver, env, run_func),
+    run_controller(use_gloo, lambda: gloo_run(settings, nics, driver, env),
                    use_mpi, lambda: mpi_run(settings, nics, driver, env, stdout, stderr),
                    False, lambda: None,
                    settings.verbose)
