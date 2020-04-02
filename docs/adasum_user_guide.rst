@@ -71,7 +71,7 @@ Below are the requirements for running Horovod with AdaSum:
 
 -   Pytorch >= 1.2.0 OR
 
--   Tensorflow >= 1.14.0
+-   Tensorflow >= 1.11.0, < 2.0
 
 -   Horovod >= 0.18.2
 
