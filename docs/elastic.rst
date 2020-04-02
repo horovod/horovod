@@ -20,8 +20,9 @@ When to use elastic training
 Requirements
 ~~~~~~~~~~~~
 
-- Gloo (install Horovod using ``HOROVOD_WITH_GLOO=1`` to ensure it is installed)
-- A way to discover the available hosts
+- Python >= 3.6
+- Horovod >= 0.20.0 with Gloo support (install Horovod using ``HOROVOD_WITH_GLOO=1`` to ensure it is installed)
+- A way to discover available hosts at runtime
 
 
 Modifying the training script with State Synchronization
