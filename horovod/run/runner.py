@@ -802,7 +802,6 @@ def run(
         slots=None,
         hosts=None,
         hostfile=None,
-        host_discovery_script=None,
         start_timeout=None,
         ssh_port=None,
         disable_cache=None,
@@ -837,13 +836,6 @@ def run(
     :param hostfile: Path to a host file containing the list of host names and the number of
                      available slots. Each line of the file must be of the form:
                      <hostname> slots=<slots>
-    :param host_discovery_script: Used for elastic training (autoscaling and fault tolerance).
-                                  An executable script that will print to stdout every available host
-                                  (one per newline character) that can be used to run worker processes.
-                                  Optionally specifies number of slots on the same line as the hostname
-                                  as: "hostname:slots". Providing a discovery script enables elastic
-                                  training (see min_np, max_np and slots arguments)
-
     :param start_timeout: Horovodrun has to perform all the checks and
                           start the processes before the specified
                           timeout. The default value is 30 seconds.
@@ -893,7 +885,6 @@ def run(
     hargs.slots = slots
     hargs.hosts = hosts
     hargs.hostfile = hostfile
-    hargs.host_discovery_script = host_discovery_script
     hargs.start_timeout = start_timeout
     hargs.ssh_port = ssh_port
     hargs.mpi_args = mpi_args
@@ -905,10 +896,7 @@ def run(
     hargs.nics = network_interface
     hargs.run_func = wrapped_func
 
-    if is_elastic(args):
-        _run_elastic(args)
-    else:
-        _run(args)
+    _run(hargs)
 
 
 if __name__ == '__main__':
