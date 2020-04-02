@@ -20,7 +20,6 @@ from distutils.version import LooseVersion
 import tensorflow as tf
 
 from tensorflow.python.framework import ops
-from tensorflow.python.framework.errors_impl import UnknownError
 
 from horovod.common.elastic import run_fn, ObjectState
 from horovod.common.exceptions import HorovodInternalError
@@ -51,6 +50,8 @@ def run(func):
               must be a `horovod.common.elastic.State` object used to synchronize state across
               workers.
     """
+    from tensorflow.python.framework.errors_impl import UnknownError
+
     def wrapper(state, *args, **kwargs):
         try:
             return func(state, *args, **kwargs)

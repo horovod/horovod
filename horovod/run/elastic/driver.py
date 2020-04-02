@@ -256,7 +256,7 @@ class ElasticDriver(object):
             if not self._hosts[host].is_blacklisted():
                 logging.warning('blacklist failing host: {}'.format(host))
             self._hosts[host].blacklist()
-            blacklisted_slots += self._get_slots(host)
+            blacklisted_slots += 1
 
         # If there are no active hosts that aren't blacklisted, treat this as job failure
         if blacklisted_slots == self._world_size:
@@ -364,7 +364,6 @@ class ElasticDriver(object):
         for slot_info in host_assignments_list:
             host_assignments[slot_info.hostname].append(slot_info)
         self._host_assignments = host_assignments
-        logging.info('host assignments: {}'.format(host_assignments))
         self._world_size = len(host_assignments_list)
         self._rendezvous.httpd.init(host_assignments_list)
 
@@ -409,6 +408,8 @@ class ElasticDriver(object):
             rendezvous_id = self._worker_registry.record_failure(slot_info.hostname, slot_info.local_rank)
 
         if self.finished() and self._worker_registry.last_rendezvous() == rendezvous_id:
+            logging.debug('adding results for {}[{}]: ({}, {})'
+                          .format(slot_info.hostname, slot_info.local_rank, exit_code, timestamp))
             name = '{}[{}]'.format(slot_info.hostname, slot_info.local_rank)
             self._results.add_result(name, (exit_code, timestamp))
 

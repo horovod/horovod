@@ -54,7 +54,7 @@ class ElasticDriverTests(unittest.TestCase):
         slots = {'host-1': 2, 'host-2': 2}
         mock_find_available_hosts_and_slots.return_value = hosts, slots
 
-        driver = ElasticDriver(None, min_np=2, max_np=4, slots=2)
+        driver = ElasticDriver(mock.Mock(), mock.Mock(), min_np=2, max_np=4, slots=2)
         driver.wait_for_available_hosts(min_np=2)
 
         rank_results = {}
@@ -67,6 +67,8 @@ class ElasticDriverTests(unittest.TestCase):
 
         driver.start(np=2, create_worker_fn=exec_command)
         res = driver.get_results()
+        driver.stop()
+
         assert len(res) == 4
         for name, (exit_code, timestamp) in res.items():
             assert exit_code == 0, name
@@ -82,7 +84,7 @@ class ElasticDriverTests(unittest.TestCase):
         slots = {'host-1': 2, 'host-2': 2}
         mock_find_available_hosts_and_slots.return_value = hosts, slots
 
-        driver = ElasticDriver(None, min_np=2, max_np=4, slots=2)
+        driver = ElasticDriver(mock.Mock(), mock.Mock(), min_np=2, max_np=4, slots=2)
         driver.wait_for_available_hosts(min_np=2)
 
         rank_results = {}
@@ -98,6 +100,8 @@ class ElasticDriverTests(unittest.TestCase):
 
         driver.start(np=2, create_worker_fn=exec_command)
         res = driver.get_results()
+        driver.stop()
+
         assert len(res) == 2
         for name, (exit_code, timestamp) in res.items():
             assert exit_code == 0, name
@@ -124,7 +128,7 @@ class ElasticDriverTests(unittest.TestCase):
             slots = {'host-1': 2, 'host-2': 2}
             mock_find_available_hosts_and_slots.return_value = hosts, slots
 
-        driver = ElasticDriver(None, min_np=2, max_np=4, slots=2)
+        driver = ElasticDriver(mock.Mock(), mock.Mock(), min_np=2, max_np=4, slots=2)
         driver.wait_for_available_hosts(min_np=2)
 
         rank_results = {}
@@ -145,6 +149,8 @@ class ElasticDriverTests(unittest.TestCase):
 
         driver.start(np=2, create_worker_fn=exec_command)
         res = driver.get_results()
+        driver.stop()
+
         assert len(res) == 4
         for name, (exit_code, timestamp) in res.items():
             assert exit_code == 0, name
@@ -170,7 +176,7 @@ class ElasticDriverTests(unittest.TestCase):
                  {'host-1': 4, 'host-2': 8, 'host-3': 4}]
         mock_find_available_hosts_and_slots.side_effect = zip(hosts, slots)
 
-        driver = ElasticDriver(None, min_np=2, max_np=12, slots=0)
+        driver = ElasticDriver(mock.Mock(), mock.Mock(), min_np=2, max_np=12, slots=0)
         driver.wait_for_available_hosts(min_np=10)
         assert driver._count_available_slots() >= 10
 
@@ -181,7 +187,7 @@ class ElasticDriverTests(unittest.TestCase):
         slots = {'host-1': 2, 'host-2': 2}
         mock_find_available_hosts_and_slots.return_value = hosts, slots
 
-        driver = ElasticDriver(None, min_np=2, max_np=4, slots=2)
+        driver = ElasticDriver(mock.Mock(), mock.Mock(), min_np=2, max_np=4, slots=2)
         driver.wait_for_available_hosts(min_np=2)
 
         def exec_command(slot_info, events):
@@ -190,6 +196,8 @@ class ElasticDriverTests(unittest.TestCase):
 
         driver.start(np=2, create_worker_fn=exec_command)
         res = driver.get_results()
+        driver.stop()
+
         assert len(res) == 4
         for name, (exit_code, timestamp) in res.items():
             assert exit_code == 1, name
@@ -201,7 +209,7 @@ class ElasticDriverTests(unittest.TestCase):
         slots = {'host-1': 2, 'host-2': 2}
         mock_find_available_hosts_and_slots.return_value = hosts, slots
 
-        driver = ElasticDriver(None, min_np=2, max_np=4, slots=2)
+        driver = ElasticDriver(mock.Mock(), mock.Mock(), min_np=2, max_np=4, slots=2)
         driver.wait_for_available_hosts(min_np=2)
 
         def exec_command(slot_info, events):
@@ -214,6 +222,8 @@ class ElasticDriverTests(unittest.TestCase):
 
         driver.start(np=2, create_worker_fn=exec_command)
         res = driver.get_results()
+        driver.stop()
+
         assert len(res) == 4
 
         exit_code_sum = 0
@@ -228,7 +238,7 @@ class ElasticDriverTests(unittest.TestCase):
         slots = {'host-1': 2, 'host-2': 2}
         mock_find_available_hosts_and_slots.return_value = hosts, slots
 
-        driver = ElasticDriver(None, min_np=2, max_np=4, slots=2)
+        driver = ElasticDriver(mock.Mock(), mock.Mock(), min_np=2, max_np=4, slots=2)
         driver.wait_for_available_hosts(min_np=2)
 
         rank_results = {}
@@ -249,6 +259,8 @@ class ElasticDriverTests(unittest.TestCase):
 
         driver.start(np=2, create_worker_fn=exec_command)
         res = driver.get_results()
+        driver.stop()
+
         assert len(res) == 2
         for name, (exit_code, timestamp) in res.items():
             assert exit_code == 0, name
@@ -261,11 +273,6 @@ class ElasticDriverTests(unittest.TestCase):
             assert updated_slot_info.local_rank == slot_info.local_rank, rank
             assert updated_slot_info.cross_size == 1, rank
             assert updated_slot_info.cross_rank == 0, rank
-
-    @mock.patch('horovod.run.elastic.driver.ElasticDriver._find_available_hosts_and_slots')
-    def test_host_failure_in_rendezvous(self, mock_find_available_hosts_and_slots):
-        """Tests that rendezvous will continue successfully if a host fails after it records ready."""
-        return
 
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     @mock.patch('horovod.run.elastic.driver.ElasticDriver._find_available_hosts_and_slots')
@@ -330,6 +337,8 @@ class ElasticDriverTests(unittest.TestCase):
 
         driver.start(np=2, create_worker_fn=exec_command)
         res = driver.get_results()
+        driver.stop()
+
         assert len(res) == 2
         for name, (exit_code, timestamp) in res.items():
             assert exit_code == 0, name
@@ -339,7 +348,6 @@ class ElasticDriverTests(unittest.TestCase):
             assert len(timestamps) == 2
 
         rendezvous.stop_server()
-        driver.stop()
 
 
 if __name__ == "__main__":
