@@ -756,7 +756,7 @@ def run_controller(use_gloo, gloo_run, use_mpi, mpi_run, use_jsrun, js_run, verb
 
 
 def is_elastic(args):
-    return args.host_discovery_script is not None
+    return args.host_discovery_script is not None or args.min_np is not None
 
 
 def _launch_job(args, settings, nics, command):

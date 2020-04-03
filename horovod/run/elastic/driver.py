@@ -250,15 +250,14 @@ class ElasticDriver(object):
             return
 
         # Check for failures, and add them to the blacklisted hosts list
-        blacklisted_slots = 0
         failures = self._worker_registry.get(FAILURE)
         for host, slot in failures:
             if not self._hosts[host].is_blacklisted():
                 logging.warning('blacklist failing host: {}'.format(host))
-            self._hosts[host].blacklist()
-            blacklisted_slots += 1
+                self._hosts[host].blacklist()
 
         # If there are no active hosts that aren't blacklisted, treat this as job failure
+        blacklisted_slots = sum([self._get_slots(host) for host in self._hosts.values() if host.is_blacklisted()])
         if blacklisted_slots == self._world_size:
             logging.error('blacklisted slots count == {} -> stop running'.format(self._world_size))
             self.stop()
