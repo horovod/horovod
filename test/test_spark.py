@@ -43,7 +43,7 @@ import horovod.spark
 import horovod.torch as hvd
 
 from horovod.common.util import gloo_built, mpi_built
-from horovod.run.common.util import secret
+from horovod.run.common.util import codec, secret
 from horovod.run.mpi_run import is_open_mpi
 from horovod.spark.common import constants, util
 from horovod.spark.common.store import HDFSStore
@@ -265,7 +265,7 @@ class SparkTests(unittest.TestCase):
         def mpi_impl_flags(tcp):
             return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"]
 
-        def gloo_exec_command_fn(driver_addresses, settings, env):
+        def gloo_exec_command_fn(driver_addresses, key, settings, env):
             def _exec_command(command, alloc_info, event):
                 return 1, 1.0
             return _exec_command
@@ -1092,6 +1092,7 @@ class SparkTests(unittest.TestCase):
                         'HADOOP_TOKEN_FILE_LOCATION=path',
                         'HOROVOD_SPARK_WORK_DIR={cwd}'.format(cwd=os.getcwd()),
                         'PYTHONPATH=pypath',
+                        '{}={}'.format(secret.HOROVOD_SECRET_KEY, codec.dumps_base64(key)),
                         'other=values',
                         'test=value'
                     ]
