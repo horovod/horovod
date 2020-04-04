@@ -40,6 +40,7 @@ from horovod.run.common.util import config_parser, network, safe_shell_exec, tim
 from horovod.run.common.util import settings as hvd_settings
 from horovod.run.driver import driver_service
 from horovod.run.elastic import settings as elastic_settings
+from horovod.run.elastic import discovery
 from horovod.run.util import cache, threads, network, lsf
 from horovod.run.gloo_run import gloo_run, gloo_run_elastic
 from horovod.run.mpi_run import mpi_run
@@ -473,6 +474,26 @@ def parse_args():
 
     args.run_func = None
 
+    if args.check_build:
+        check_build(args.verbose)
+
+    # If LSF is used, use default values from job config
+    if lsf.LSFUtils.using_lsf():
+        if not args.np:
+            args.np = lsf.LSFUtils.get_num_processes()
+        if not args.hosts and not args.hostfile and not args.host_discovery_script:
+            args.hosts = ','.join('{host}:{np}'.format(host=host, np=lsf.LSFUtils.get_num_gpus())
+                                  for host in lsf.LSFUtils.get_compute_hosts())
+
+    # if hosts are not specified, either parse from hostfile, or default as
+    # localhost
+    if not args.hosts and not args.host_discovery_script:
+        if args.hostfile:
+            args.hosts = parse_host_files(args.hostfile)
+        else:
+            # Set hosts to localhost if not specified
+            args.hosts = 'localhost:{np}'.format(np=args.np)
+
     return args
 
 
@@ -563,40 +584,24 @@ def parse_host_files(filename):
     return ','.join(hosts)
 
 
-def parse_host_names(hosts):
+def parse_hosts_and_slots(hosts):
+    host_names = []
+    host_to_slots = {}
+
     host_list = hosts.split(',')
-    all_host_names = []
     pattern = re.compile(r'^[\w.-]+:[0-9]+$')
     for host in host_list:
         if not pattern.match(host.strip()):
             raise ValueError('Invalid host input, please make sure it has '
                              'format as : worker-0:2,worker-1:2.')
-        all_host_names.append(host.strip().split(':')[0])
-    return all_host_names
+        hostname, slots = host.strip().split(':')
+        host_names.append(hostname)
+        host_to_slots[host] = int(slots)
+    return host_names, host_to_slots
 
 
-def _run(args):
-    if args.check_build:
-        check_build(args.verbose)
-
-    # If LSF is used, use default values from job config
-    if lsf.LSFUtils.using_lsf():
-        if not args.np:
-            args.np = lsf.LSFUtils.get_num_processes()
-        if not args.hosts and not args.hostfile:
-            args.hosts = ','.join('{host}:{np}'.format(host=host, np=lsf.LSFUtils.get_num_gpus())
-                         for host in lsf.LSFUtils.get_compute_hosts())
-
-    # if hosts are not specified, either parse from hostfile, or default as
-    # localhost
-    if not args.hosts:
-        if args.hostfile:
-            args.hosts = parse_host_files(args.hostfile)
-        else:
-            # Set hosts to localhost if not specified
-            args.hosts = 'localhost:{np}'.format(np=args.np)
-
-    all_host_names = parse_host_names(args.hosts)
+def _run_static(args):
+    all_host_names, _ = parse_hosts_and_slots(args.hosts)
 
     nics_set = set(args.nics.split(',')) if args.nics else None
 
@@ -687,6 +692,15 @@ def _run(args):
 
 
 def _run_elastic(args):
+    # construct host discovery component
+    if args.host_discovery_script:
+        discover_hosts = discovery.HostDiscoveryScript(args.host_discovery_script, args.slots)
+    elif args.hosts:
+        available_hosts, available_slots = parse_hosts_and_slots(args.hosts)
+        discover_hosts = discovery.FixedHosts(set(available_hosts), available_slots)
+    else:
+        raise ValueError('One of --host-discovery-script, --hosts, or --hostnames must be provided')
+
     # horovodrun has to finish all the checks before this timeout runs out.
     if args.start_timeout:
         start_timeout = args.start_timeout
@@ -699,11 +713,10 @@ def _run_elastic(args):
                                     'check connectivity between servers. You '
                                     'may need to increase the --start-timeout '
                                     'parameter if you have too many servers.')
-    settings = elastic_settings.ElasticSettings(discovery_script=args.host_discovery_script,
+    settings = elastic_settings.ElasticSettings(discovery=discover_hosts,
                                                 num_proc=args.np,
                                                 min_np=args.min_np or args.np,
                                                 max_np=args.max_np,
-                                                slots=args.slots,
                                                 verbose=2 if args.verbose else 0,
                                                 ssh_port=args.ssh_port,
                                                 extra_mpi_args=args.mpi_args,
@@ -755,7 +768,7 @@ def run_controller(use_gloo, gloo_run, use_mpi, mpi_run, use_jsrun, js_run, verb
                              'either MPI is installed (MPI) or CMake is installed (Gloo).')
 
 
-def is_elastic(args):
+def _is_elastic(args):
     return args.host_discovery_script is not None or args.min_np is not None
 
 
@@ -779,6 +792,13 @@ def _launch_job(args, settings, nics, command):
                    args.verbose)
 
 
+def _run(args):
+    if _is_elastic(args):
+        _run_elastic(args)
+    else:
+        _run_static(args)
+
+
 def run_commandline():
     args = parse_args()
 
@@ -786,10 +806,7 @@ def run_commandline():
         logging.addLevelName(logging.NOTSET, 'TRACE')
         logging.basicConfig(level=logging.getLevelName(args.log_level))
 
-    if is_elastic(args):
-        _run_elastic(args)
-    else:
-        _run(args)
+    _run(args)
 
 
 def run(

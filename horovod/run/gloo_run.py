@@ -275,8 +275,8 @@ def gloo_run_elastic(settings, env, command):
         _mkdir_p(settings.output_filename)
 
     rendezvous = RendezvousServer(settings.verbose)
-    driver = ElasticDriver(rendezvous, settings.discovery_script,
-                           settings.min_np, settings.max_np, settings.slots,
+    driver = ElasticDriver(rendezvous, settings.discovery,
+                           settings.min_np, settings.max_np,
                            verbose=settings.verbose)
 
     handler = create_rendezvous_handler(driver)

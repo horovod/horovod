@@ -22,11 +22,10 @@ import time
 
 from collections import defaultdict
 
-import six
-
 from six.moves import queue
 
-from horovod.run.common.util import hosts, safe_shell_exec, timeout
+from horovod.run.common.util import hosts, timeout
+from horovod.run.elastic.discovery import DiscoveredHosts
 from horovod.run.elastic.worker import WorkerNotificationClient
 
 
@@ -121,30 +120,6 @@ class WorkerStateRegistry(object):
         self._driver.on_workers_recorded()
 
 
-class Host(object):
-    def __init__(self):
-        self._event = threading.Event()
-
-        # TODO(travis): blacklisted hosts should have a timeout period that increases with each failure
-        self._blacklisted = False
-
-    def get_event(self):
-        if self._event.is_set():
-            event = threading.Event()
-            self._event = event
-        return self._event
-
-    def set_event(self):
-        self._event.set()
-
-    def blacklist(self):
-        self._blacklisted = True
-        self.set_event()
-
-    def is_blacklisted(self):
-        return self._blacklisted
-
-
 class Results(object):
     def __init__(self):
         self._results = {}
@@ -166,16 +141,12 @@ class Results(object):
 
 
 class ElasticDriver(object):
-    def __init__(self, rendezvous, discovery_script, min_np, max_np, slots, start_timeout=None, verbose=0):
+    def __init__(self, rendezvous, discovery, min_np, max_np, start_timeout=None, verbose=0):
         self._rendezvous = rendezvous
-        self._discovery_script = discovery_script
+        self._discovered_hosts = DiscoveredHosts(discovery)
         self._min_np = min_np
         self._max_np = max_np
-        self._slots = slots
         self._verbose = verbose
-
-        self._available_hosts = set()
-        self._available_slots = {}
 
         self._assigned_hosts = []
         self._host_assignments = {}
@@ -185,7 +156,6 @@ class ElasticDriver(object):
         self._start_timeout = start_timeout or int(os.getenv('HOROVOD_ELASTIC_START_TIMEOUT', START_TIMEOUT_SECS))
 
         self._create_worker_fn = None
-        self._hosts = defaultdict(Host)
         self._worker_clients = {}
 
         self._worker_registry = WorkerStateRegistry(self)
@@ -208,7 +178,7 @@ class ElasticDriver(object):
 
         self._wait_hosts_cond.acquire()
         try:
-            while not self._has_available_slots(self._count_available_slots(), min_np, max_np):
+            while not self._has_available_slots(self._discovered_hosts.count_available_slots(), min_np, max_np):
                 self._wait_hosts_cond.wait(tmout.remaining())
                 tmout.check_time_out_for('minimum number of hosts to become available')
         finally:
@@ -252,12 +222,10 @@ class ElasticDriver(object):
         # Check for failures, and add them to the blacklisted hosts list
         failures = self._worker_registry.get(FAILURE)
         for host, slot in failures:
-            if not self._hosts[host].is_blacklisted():
-                logging.warning('blacklist failing host: {}'.format(host))
-                self._hosts[host].blacklist()
+            self._discovered_hosts.blacklist(host)
 
         # If there are no active hosts that aren't blacklisted, treat this as job failure
-        blacklisted_slots = sum([self._get_slots(host) for host in self._hosts.values() if host.is_blacklisted()])
+        blacklisted_slots = self._discovered_hosts.count_blacklisted_slots()
         if blacklisted_slots == self._world_size:
             logging.error('blacklisted slots count == {} -> stop running'.format(self._world_size))
             self.stop()
@@ -280,12 +248,12 @@ class ElasticDriver(object):
             else hosts.INVALID_SLOT_INFO
 
     def has_rank_assignment(self, host, slot):
-        if self._hosts[host].is_blacklisted():
+        if self._discovered_hosts.is_blacklisted(host):
             return False
         return host in self._host_assignments and len(self._host_assignments[host]) > slot
 
     def get_available_hosts(self):
-        return list(self._available_hosts)
+        return self._discovered_hosts.get_available_hosts()
 
     def _activate_hosts(self, min_np):
         logging.info('wait for available hosts: {}'.format(min_np))
@@ -300,39 +268,12 @@ class ElasticDriver(object):
         while not self._shutdown.is_set():
             self._wait_hosts_cond.acquire()
             try:
-                if self._update_available_hosts():
+                if self._discovered_hosts.update_available_hosts():
+                    self._notify_workers_host_changes()
                     self._wait_hosts_cond.notify_all()
             finally:
                 self._wait_hosts_cond.release()
             self._shutdown.wait(DISCOVER_HOSTS_FREQUENCY_SECS)
-
-    def _update_available_hosts(self):
-        prev_hosts = self._available_hosts
-        prev_slots = self._available_slots
-        available_hosts, available_slots = self._find_available_hosts_and_slots()
-        if prev_hosts != available_hosts or prev_slots != available_slots:
-            self._notify_workers_host_changes()
-            self._available_hosts, self._available_slots = available_hosts, available_slots
-            return True
-        return False
-
-    def _find_available_hosts_and_slots(self):
-        stdout = six.StringIO()
-        exit_code = safe_shell_exec.execute(self._discovery_script, stdout=stdout)
-        if exit_code != 0:
-            raise RuntimeError('Failed to execute discovery script: {}. Exit code: {}'
-                               .format(self._discovery_script, exit_code))
-
-        availabe_hosts = set()
-        available_slots = {}
-        hosts_and_slots = set(stdout.getvalue().strip().split('\n'))
-        for line in hosts_and_slots:
-            host = line
-            if ':' in line:
-                host, slots = line.split(':')
-                available_slots[host] = int(slots)
-            availabe_hosts.add(host)
-        return availabe_hosts, available_slots
 
     def _notify_workers_host_changes(self):
         timestamp = _epoch_time_s()
@@ -346,18 +287,17 @@ class ElasticDriver(object):
 
     def _update_assigned_hosts(self):
         new_assigned_hosts = []
-        self._assigned_hosts = [host for host in self._assigned_hosts
-                                if host in self._available_hosts and not self._hosts[host].is_blacklisted()]
+        self._assigned_hosts = self._discovered_hosts.filter_available_hosts(self._assigned_hosts)
         current_hosts = set(self._assigned_hosts)
-        for host in self._available_hosts:
-            if host not in current_hosts and not self._hosts[host].is_blacklisted():
+        for host in self.get_available_hosts():
+            if host not in current_hosts:
                 new_assigned_hosts.append(host)
                 self._assigned_hosts.append(host)
         self._update_host_assignments()
         return new_assigned_hosts
 
     def _update_host_assignments(self):
-        host_list = [hosts.HostInfo(host, self._get_slots(host)) for host in self._assigned_hosts]
+        host_list = [hosts.HostInfo(host, self._discovered_hosts.get_slots(host)) for host in self._assigned_hosts]
         host_assignments_list = hosts.get_host_assignments(host_list, self._min_np, self._max_np)
         host_assignments = defaultdict(list)
         for slot_info in host_assignments_list:
@@ -366,15 +306,6 @@ class ElasticDriver(object):
         self._world_size = len(host_assignments_list)
         self._rendezvous.httpd.init(host_assignments_list)
 
-    def _count_available_slots(self):
-        return sum([self._get_slots(host) for host in self._available_hosts
-                    if not self._hosts[host].is_blacklisted()])
-
-    def _get_slots(self, host):
-        if host in self._available_slots:
-            return self._available_slots[host]
-        return self._slots
-
     def _start_worker_processes(self, host):
         for slot_info in self._host_assignments[host]:
             self._start_worker_process(slot_info)
@@ -382,7 +313,7 @@ class ElasticDriver(object):
     def _start_worker_process(self, slot_info):
         create_worker_fn = self._create_worker_fn
         shutdown_event = self._shutdown
-        host_event = self._hosts[slot_info.hostname].get_event()
+        host_event = self._discovered_hosts.get_host_event(slot_info.hostname)
 
         def run_worker():
             res = create_worker_fn(slot_info, [shutdown_event, host_event])

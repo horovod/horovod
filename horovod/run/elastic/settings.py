@@ -19,19 +19,16 @@ from horovod.run.common.util.settings import BaseSettings
 
 
 class ElasticSettings(BaseSettings):
-    def __init__(self, discovery_script, min_np, max_np, slots, **kwargs):
+    def __init__(self, discovery, min_np, max_np, **kwargs):
         """
-        :param discovery_script: executable script that prints available hosts to stdout
-        :type discovery_script: string
+        :param discovery: object used to detect and manage available hosts
+        :type discovery: horovod.run.elastic.discovery.HostDiscovery
         :param min_np: minimum number of processes
         :type min_np: int
         :param max_np: maximum number of processes
         :type max_np: int
-        :param slots: slots per host
-        :type slots: int
         """
         super(ElasticSettings, self).__init__(elastic=True, **kwargs)
-        self.discovery_script = discovery_script
+        self.discovery = discovery
         self.min_np = min_np
         self.max_np = max_np
-        self.slots = slots
