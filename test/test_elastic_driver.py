@@ -190,7 +190,7 @@ class ElasticDriverTests(unittest.TestCase):
         driver.wait_for_available_hosts(min_np=10)
         assert driver._discovered_hosts.count_available_slots() >= 10
 
-    def test_all_workers_fail(self, mock_find_available_hosts_and_slots):
+    def test_all_workers_fail(self):
         """Tests that training fails when all workers fail."""
         hosts = {'host-1', 'host-2'}
         slots = {'host-1': 2, 'host-2': 2}
@@ -211,7 +211,7 @@ class ElasticDriverTests(unittest.TestCase):
         for name, (exit_code, timestamp) in res.items():
             assert exit_code == 1, name
 
-    def test_shutdown_on_success(self, mock_find_available_hosts_and_slots):
+    def test_shutdown_on_success(self):
         """Tests that shutdown event is triggered when one worker succeeds but the others are still working."""
         hosts = {'host-1', 'host-2'}
         slots = {'host-1': 2, 'host-2': 2}
@@ -239,7 +239,7 @@ class ElasticDriverTests(unittest.TestCase):
             exit_code_sum += exit_code
         assert exit_code_sum == 3
 
-    def test_host_shutdown_on_worker_failure(self, mock_find_available_hosts_and_slots):
+    def test_host_shutdown_on_worker_failure(self):
         """Tests two hosts, two slots each with one process on second host failing, causing host shutdown."""
         hosts = {'host-1', 'host-2'}
         slots = {'host-1': 2, 'host-2': 2}
@@ -282,7 +282,7 @@ class ElasticDriverTests(unittest.TestCase):
             assert updated_slot_info.cross_rank == 0, rank
 
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
-    def test_worker_notification_manager(self, mock_find_available_hosts_and_slots):
+    def test_worker_notification_manager(self):
         """Tests that host add events are sent to the worker notification service and consumed."""
         hosts = {'host-1'}
         slots = {'host-1': 2}
@@ -310,12 +310,12 @@ class ElasticDriverTests(unittest.TestCase):
         def add_host():
             hosts = {'host-1', 'host-2'}
             slots = {'host-1': 2, 'host-2': 2}
-            mock_find_available_hosts_and_slots.return_value = hosts, slots
+            discovery.set(hosts, slots)
 
         def remove_host():
             hosts = {'host-2'}
             slots = {'host-2': 2}
-            mock_find_available_hosts_and_slots.return_value = hosts, slots
+            discovery.set(hosts, slots)
 
         def exec_command(slot_info, events):
             manager = WorkerNotificationManager()
