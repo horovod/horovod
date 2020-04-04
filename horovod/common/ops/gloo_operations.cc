@@ -170,8 +170,8 @@ Status GlooAllgather::Execute(std::vector<TensorTableEntry>& entries,
   auto** entry_component_offsets = new int64_t*[entries.size()];
 
   int global_size = global_state_->controller->GetSize();
-  auto* recvcounts = new int[global_size]();
-  auto* displcmnts = new int[global_size]();
+  std::unique_ptr<int[]> recvcounts (new int[global_size]);
+  std::unique_ptr<int[]> displcmnts (new int[global_size]);
 
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     entry_component_sizes[ec] = new int64_t[global_size]();
