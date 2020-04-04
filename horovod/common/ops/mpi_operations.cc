@@ -104,6 +104,8 @@ Status MPIAllgather::Execute(std::vector<TensorTableEntry>& entries, const Respo
   timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
   Status status = AllocateOutput(entries, response, entry_component_sizes, recvcounts);
   if (!status.ok()) {
+    delete[] recvcounts;
+    delete[] displcmnts;
     return status;
   }
   timeline.ActivityEndAll(entries);
@@ -189,6 +191,8 @@ Status MPIHierarchicalAllgather::Execute(std::vector<TensorTableEntry>& entries,
   timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
   Status status = AllocateOutput(entries, response, entry_component_sizes, recvcounts);
   if (!status.ok()) {
+    delete[] recvcounts;
+    delete[] displcmnts;
     return status;
   }
   timeline.ActivityEndAll(entries);
