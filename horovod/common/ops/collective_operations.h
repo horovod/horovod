@@ -91,7 +91,7 @@ protected:
   virtual Status AllocateOutput(std::vector<TensorTableEntry>& entries,
                                 const Response& response,
                                 int64_t**& entry_component_sizes,
-                                int*& recvcounts);
+                                std::unique_ptr<int[]>& recvcounts);
 
   virtual void SetDisplacements(const int* recvcounts, int*& displcmnts);
 

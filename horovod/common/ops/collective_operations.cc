@@ -87,7 +87,7 @@ AllgatherOp::AllgatherOp(HorovodGlobalState* global_state)
 Status AllgatherOp::AllocateOutput(std::vector<TensorTableEntry>& entries,
                                    const Response& response,
                                    int64_t**& entry_component_sizes,
-                                   int*& recvcounts) {
+                                   std::unique_ptr<int[]>& recvcounts) {
   int global_size = global_state_->controller->GetSize();
   for (size_t ec = 0; ec < entries.size(); ++ec) {
     auto& e = entries[ec];
