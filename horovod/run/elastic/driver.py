@@ -26,12 +26,9 @@ from six.moves import queue
 
 from horovod.run.common.util import hosts, timeout
 from horovod.run.elastic.discovery import DiscoveredHosts
+from horovod.run.elastic.registration import WorkerStateRegistry
 from horovod.run.elastic.worker import WorkerNotificationClient
 
-
-READY = 'READY'
-SUCCESS = 'SUCCESS'
-FAILURE = 'FAILURE'
 
 DISCOVER_HOSTS_FREQUENCY_SECS = 1.0
 START_TIMEOUT_SECS = 600
@@ -39,85 +36,6 @@ START_TIMEOUT_SECS = 600
 
 def _epoch_time_s():
     return int(time.time())
-
-
-class WorkerStateRegistry(object):
-    def __init__(self, driver, verbose=False):
-        self._driver = driver
-        self._lock = threading.Lock()
-        self._states = {}
-        self._workers = defaultdict(set)
-        self._barrier = None
-        self._rendezvous_id = 0
-        self._verbose = verbose
-        self._size = 0
-
-    def get(self, state):
-        return self._workers[state]
-
-    def count(self, state):
-        return len(self._workers[state])
-
-    def reset(self, size):
-        with self._lock:
-            logging.info('reset workers: {}'.format(size))
-            self._states.clear()
-            self._workers.clear()
-            self._barrier = threading.Barrier(parties=size, action=self._action)
-            self._rendezvous_id += 1
-            self._size = size
-
-    def size(self):
-        return self._size
-
-    def last_rendezvous(self):
-        return self._rendezvous_id
-
-    def record_ready(self, host, slot):
-        return self._record_state(host, slot, READY)
-
-    def record_success(self, host, slot):
-        return self._record_state(host, slot, SUCCESS)
-
-    def record_failure(self, host, slot):
-        return self._record_state(host, slot, FAILURE)
-
-    def _record_state(self, host, slot, state):
-        if self._driver.finished():
-            logging.info('driver finished, ignoring registration: {}[{}] = {}'.format(host, slot, state))
-            return self._rendezvous_id
-
-        key = (host, slot)
-        with self._lock:
-            if key in self._states:
-                logging.info('key exists, reset barrier: {}[{}] = {}'.format(host, slot, state))
-                self._barrier.reset()
-            logging.info('record state: {}[{}] = {}'.format(host, slot, state))
-            self._states[key] = state
-            self._workers[state].add(key)
-            rendezvous_id = self._rendezvous_id
-
-        rendezvous_id = self._wait(key, state, rendezvous_id)
-        return rendezvous_id
-
-    def _wait(self, key, state, rendezvous_id):
-        while True:
-            try:
-                self._barrier.wait()
-                return rendezvous_id
-            except threading.BrokenBarrierError:
-                if self._barrier.broken:
-                    # Timeout or other non-recoverable error, so exit
-                    raise
-
-                with self._lock:
-                    rendezvous_id = self._rendezvous_id
-                    saved_state = self._states.get(key, state)
-                    if saved_state != state:
-                        raise RuntimeError('State {} overridden by {}'.format(state, saved_state))
-
-    def _action(self):
-        self._driver.on_workers_recorded()
 
 
 class Results(object):
@@ -158,7 +76,7 @@ class ElasticDriver(object):
         self._create_worker_fn = None
         self._worker_clients = {}
 
-        self._worker_registry = WorkerStateRegistry(self)
+        self._worker_registry = WorkerStateRegistry(self, self._discovered_hosts)
         self._results = Results()
         self._shutdown = threading.Event()
 
@@ -170,25 +88,8 @@ class ElasticDriver(object):
         self._create_worker_fn = create_worker_fn
         self._activate_hosts(np)
 
-    def wait_for_available_hosts(self, min_np, max_np=None):
-        tmout = timeout.Timeout(
-            self._start_timeout,
-            message='Timed out waiting for {{activity}}. Please check that you have '
-                    'enough resources to run at least {min_np} Horovod processes.'.format(min_np=min_np))
-
-        self._wait_hosts_cond.acquire()
-        try:
-            while not self._has_available_slots(self._discovered_hosts.count_available_slots(), min_np, max_np):
-                self._wait_hosts_cond.wait(tmout.remaining())
-                tmout.check_time_out_for('minimum number of hosts to become available')
-        finally:
-            self._wait_hosts_cond.release()
-
-    def _has_available_slots(self, slots, min_np, max_np):
-        return slots >= min_np and (max_np is None or slots <= max_np)
-
-    def get_results(self):
-        return self._results.get_results()
+    def resume(self):
+        self._activate_hosts(self._min_np)
 
     def stop(self):
         self._shutdown.set()
@@ -197,45 +98,15 @@ class ElasticDriver(object):
     def finished(self):
         return self._shutdown.is_set()
 
+    def get_results(self):
+        return self._results.get_results()
+
     def register_worker_server(self, host, slot, addresses, secret_key):
         self._worker_clients[(host, slot)] = WorkerNotificationClient(
             addresses, secret_key, self._verbose)
 
     def record_ready(self, host, slot):
         self._worker_registry.record_ready(host, slot)
-
-    def on_workers_recorded(self):
-        logging.info('all {} workers recorded'.format(self._worker_registry.size()))
-
-        # Check for success state, if any process succeeded, shutdown all other processes
-        if self._worker_registry.count(SUCCESS) > 0:
-            logging.info('success count == {} -> stop running'.format(self._worker_registry.count(SUCCESS)))
-            self.stop()
-            return
-
-        # Check that all processes failed, indicating that processing should stop
-        if self._worker_registry.count(FAILURE) == self._world_size:
-            logging.error('failure count == {} -> stop running'.format(self._world_size))
-            self.stop()
-            return
-
-        # Check for failures, and add them to the blacklisted hosts list
-        failures = self._worker_registry.get(FAILURE)
-        for host, slot in failures:
-            self._discovered_hosts.blacklist(host)
-
-        # If there are no active hosts that aren't blacklisted, treat this as job failure
-        blacklisted_slots = self._discovered_hosts.count_blacklisted_slots()
-        if blacklisted_slots == self._world_size:
-            logging.error('blacklisted slots count == {} -> stop running'.format(self._world_size))
-            self.stop()
-            return
-
-        try:
-            self._activate_hosts(self._min_np)
-        except Exception:
-            logging.exception('failed to activate new hosts -> stop running')
-            self.stop()
 
     def world_size(self):
         return self._world_size
@@ -254,6 +125,23 @@ class ElasticDriver(object):
 
     def get_available_hosts(self):
         return self._discovered_hosts.get_available_hosts()
+
+    def wait_for_available_hosts(self, min_np, max_np=None):
+        tmout = timeout.Timeout(
+            self._start_timeout,
+            message='Timed out waiting for {{activity}}. Please check that you have '
+                    'enough resources to run at least {min_np} Horovod processes.'.format(min_np=min_np))
+
+        self._wait_hosts_cond.acquire()
+        try:
+            while not self._has_available_slots(self._discovered_hosts.count_available_slots(), min_np, max_np):
+                self._wait_hosts_cond.wait(tmout.remaining())
+                tmout.check_time_out_for('minimum number of hosts to become available')
+        finally:
+            self._wait_hosts_cond.release()
+
+    def _has_available_slots(self, slots, min_np, max_np):
+        return slots >= min_np and (max_np is None or slots <= max_np)
 
     def _activate_hosts(self, min_np):
         logging.info('wait for available hosts: {}'.format(min_np))
