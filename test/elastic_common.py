@@ -67,19 +67,22 @@ class BaseElasticTests(object):
         self._training_script = training_script
         super(BaseElasticTests, self).__init__(*args, **kwargs)
 
-    def _run(self, discovery_schedule, exit_schedule=None, np=2, min_np=2, max_np=4):
+    def _run(self, discovery_schedule, exit_schedule=None, np=2, min_np=2, max_np=4, hosts=None):
         with temppath() as logfile:
             with _temp_discovery_script(logfile, discovery_schedule) as discovery_script:
                 command_args = ['horovodrun',
                                 '-np', str(np),
                                 '--min-np', str(min_np),
-                                '--max-np', str(max_np),
-                                '--log-level', 'DEBUG',
-                                '--host-discovery-script', discovery_script,
-                                'python', self._training_script,
-                                '--logfile', logfile,
-                                '--discovery-schedule', json.dumps(discovery_schedule),
-                                '--exit-schedule', json.dumps(exit_schedule or {})]
+                                '--log-level', 'DEBUG']
+                if hosts is not None:
+                    command_args += ['-H', hosts]
+                else:
+                    command_args += ['--host-discovery-script', discovery_script,
+                                     '--max-np', str(max_np)]
+                command_args += ['python', self._training_script,
+                                 '--logfile', logfile,
+                                 '--discovery-schedule', json.dumps(discovery_schedule),
+                                 '--exit-schedule', json.dumps(exit_schedule or {})]
                 print(' '.join(command_args))
 
                 with override_args(*command_args):
@@ -131,6 +134,34 @@ class BaseElasticTests(object):
         }
 
         results = self._run(discovery_schedule, exit_schedule=exit_schedule)
+
+        assert len(results) == 3
+
+        assert results[0]['start_rank'] == 0
+        assert results[0]['size'] == 4
+        assert results[0]['rendezvous'] == 1
+
+        assert results[1]['start_rank'] == 2
+        assert results[1]['size'] == 2
+        assert results[1]['rendezvous'] == 2
+
+        assert results[2]['start_rank'] == 2
+        assert results[2]['size'] == 2
+        assert results[2]['rendezvous'] == 2
+
+    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    def test_fault_tolerance_without_scaling(self):
+        discovery_schedule = [
+            (None, ['localhost:2', '127.0.0.1:2']),
+        ]
+
+        hosts = 'localhost:2,127.0.0.1:2'
+
+        exit_schedule = {
+            str((1, 0)): [0],
+        }
+
+        results = self._run(discovery_schedule, hosts=hosts, exit_schedule=exit_schedule)
 
         assert len(results) == 3
 
