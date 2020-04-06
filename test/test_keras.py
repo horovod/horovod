@@ -254,7 +254,7 @@ class KerasTests(tf.test.TestCase):
             K.set_session(sess)
 
             v = 1.0 if hvd.rank() == 0 else 2.0
-            model1 = keras.Sequential([
+            model1 = keras.models.Sequential([
                 keras.layers.Dense(2, activation='softmax')
             ])
             model1.build((2, 2))
@@ -262,7 +262,7 @@ class KerasTests(tf.test.TestCase):
                 [np.array([[v,  v], [v, v]], dtype=np.float32),
                  np.array([v, v], dtype=np.float32)])
 
-            model2 = keras.Sequential([
+            model2 = keras.models.Sequential([
                 keras.layers.Dense(2, activation='softmax')
             ])
             model2.build((2, 2))
