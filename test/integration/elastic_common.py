@@ -26,9 +26,9 @@ import pytest
 from horovod.run.common.util import config_parser
 from horovod.run.runner import parse_args, _run_elastic
 
-sys.path.append(os.path.pardir(__file__))
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
 
-from common import override_args, temppath
+from test.common import override_args, temppath
 
 
 DISCOVERY_SCRIPT_TEMPLATE = """#!/bin/bash

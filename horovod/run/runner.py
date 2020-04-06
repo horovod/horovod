@@ -596,7 +596,7 @@ def parse_hosts_and_slots(hosts):
                              'format as : worker-0:2,worker-1:2.')
         hostname, slots = host.strip().split(':')
         host_names.append(hostname)
-        host_to_slots[host] = int(slots)
+        host_to_slots[hostname] = int(slots)
     return host_names, host_to_slots
 
 
