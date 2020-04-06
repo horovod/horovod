@@ -292,7 +292,7 @@ class SparkTests(unittest.TestCase):
         if use_gloo:
             self._do_test_spark_run_with_gloo(args, kwargs, num_proc, extra_mpi_args, env,
                                               stdout, stderr, verbose, cores,
-                                              expected_np, expected_env)
+                                              expected_np)
 
     """
     Performs an actual horovod.spark.run test using MPI.
@@ -375,7 +375,7 @@ class SparkTests(unittest.TestCase):
     """
     def _do_test_spark_run_with_gloo(self, args=(), kwargs={}, num_proc=1, extra_mpi_args=None,
                                      env={}, stdout=None, stderr=None, verbose=2,
-                                     cores=2, expected_np=1, expected_env=''):
+                                     cores=2, expected_np=1):
         def fn():
             return 1
 
@@ -399,7 +399,11 @@ class SparkTests(unittest.TestCase):
         self.assertEqual('Spark job has failed, see the error above.', str(e.value))
 
         num_proc = cores if num_proc is None else num_proc
+        self.assertEqual(expected_np, num_proc)
         self.assertEqual(1, gloo_exec_command_fn.call_count)
+        _, _, _, call_env = gloo_exec_command_fn.call_args[0]
+        self.assertEqual(env or {}, call_env)
+        self.assertEqual({}, gloo_exec_command_fn.call_args[1])
         self.assertEqual(num_proc, exec_command.call_count)
         self.assertEqual(num_proc, len(exec_command.call_args_list))
 

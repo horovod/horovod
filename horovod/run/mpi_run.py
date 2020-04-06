@@ -129,7 +129,7 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
         settings: Settings for running MPI.
                   Note: settings.num_proc and settings.hosts must not be None.
         nics: Interfaces to include by MPI.
-        env: Environment dictionary to use for running MPI.
+        env: Environment dictionary to use for running command.
         command: Command and arguments to run as a list of string.
         stdout: Stdout of the mpi process.
                 Only used when settings.run_func_mode is True.
@@ -192,7 +192,7 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
     # we need the driver's PATH in env to run mpirun,
     # env for mpirun is different to env encoded in mpirun_command
     if 'PATH' not in env and 'PATH' in os.environ:
-        env.update(PATH=os.environ['PATH'])
+        env['PATH'] = os.environ['PATH']
 
     # Execute the mpirun command.
     if settings.run_func_mode:
