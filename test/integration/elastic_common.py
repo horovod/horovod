@@ -25,7 +25,7 @@ import pytest
 from horovod.run.common.util import config_parser
 from horovod.run.runner import parse_args, _run_elastic
 
-from common import override_args, override_env, temppath
+from ..common import override_args, temppath
 
 
 DISCOVERY_SCRIPT_TEMPLATE = """#!/bin/bash
