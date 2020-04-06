@@ -28,7 +28,6 @@ import warnings
 from distutils.version import LooseVersion
 
 import mock
-from mock import MagicMock
 import torch
 
 import pyspark

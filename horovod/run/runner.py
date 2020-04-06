@@ -477,23 +477,6 @@ def parse_args():
     if args.check_build:
         check_build(args.verbose)
 
-    # If LSF is used, use default values from job config
-    if lsf.LSFUtils.using_lsf():
-        if not args.np:
-            args.np = lsf.LSFUtils.get_num_processes()
-        if not args.hosts and not args.hostfile and not args.host_discovery_script:
-            args.hosts = ','.join('{host}:{np}'.format(host=host, np=lsf.LSFUtils.get_num_gpus())
-                                  for host in lsf.LSFUtils.get_compute_hosts())
-
-    # if hosts are not specified, either parse from hostfile, or default as
-    # localhost
-    if not args.hosts and not args.host_discovery_script:
-        if args.hostfile:
-            args.hosts = parse_host_files(args.hostfile)
-        else:
-            # Set hosts to localhost if not specified
-            args.hosts = 'localhost:{np}'.format(np=args.np)
-
     return args
 
 
@@ -793,10 +776,27 @@ def _launch_job(args, settings, nics, command):
 
 
 def _run(args):
+    # If LSF is used, use default values from job config
+    if lsf.LSFUtils.using_lsf():
+        if not args.np:
+            args.np = lsf.LSFUtils.get_num_processes()
+        if not args.hosts and not args.hostfile and not args.host_discovery_script:
+            args.hosts = ','.join('{host}:{np}'.format(host=host, np=lsf.LSFUtils.get_num_gpus())
+                                  for host in lsf.LSFUtils.get_compute_hosts())
+
+    # if hosts are not specified, either parse from hostfile, or default as
+    # localhost
+    if not args.hosts and not args.host_discovery_script:
+        if args.hostfile:
+            args.hosts = parse_host_files(args.hostfile)
+        else:
+            # Set hosts to localhost if not specified
+            args.hosts = 'localhost:{np}'.format(np=args.np)
+
     if _is_elastic(args):
-        _run_elastic(args)
+        return _run_elastic(args)
     else:
-        _run_static(args)
+        return _run_static(args)
 
 
 def run_commandline():
@@ -913,7 +913,7 @@ def run(
     hargs.nics = network_interface
     hargs.run_func = wrapped_func
 
-    _run(hargs)
+    return _run(hargs)
 
 
 if __name__ == '__main__':
