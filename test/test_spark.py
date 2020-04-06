@@ -459,32 +459,37 @@ class SparkTests(unittest.TestCase):
 
     def test_mpirun_exec_fn(self):
         bool_values = [False, True]
-        for work_dir_env_set, python_path_is_set in itertools.product(bool_values, bool_values):
+        for work_dir_env_set, python_path_is_set, hvd_python_path_is_set in \
+            itertools.product(bool_values, bool_values, bool_values):
             with tempdir() as tmp_path:
                 driver = mock.MagicMock()
                 settings = mock.MagicMock()
                 settings.verbose = 2
 
+                test_env = {}
                 test_dir = os.getcwd()
                 test_sys_path = copy.copy(sys.path)
-
-                env = {}
-                if work_dir_env_set:
-                    # ask mpirun_exec_fn to change cwd to test_dir
-                    env.update(HOROVOD_SPARK_WORK_DIR=test_dir)
-                if python_path_is_set:
-                    test_python_path = 'python{}path'.format(os.path.sep)
-                    env.update(PYTHONPATH=test_python_path)
 
                 def reset():
                     os.chdir(test_dir)
                     sys.path = test_sys_path
 
-                with override_env(env):
+                if work_dir_env_set:
+                    # ask mpirun_exec_fn to change cwd to test_dir
+                    test_env['HOROVOD_SPARK_WORK_DIR'] = test_dir
+                if python_path_is_set:
+                    test_python_path = ['python/path', 'python/path2']
+                    test_env['PYTHONPATH'] = os.pathsep.join(test_python_path)
+                if hvd_python_path_is_set:
+                    # ingest tmp_path into workers PYTHONPATH
+                    test_horovod_python_path = ['horovod', 'horovod/python']
+                    test_env['HOROVOD_SPARK_PYTHONPATH'] = os.pathsep.join(test_horovod_python_path)
+
+                with override_env(test_env):
                     with undo(reset):  # restores current working dir and sys.path after test
                         with mock.patch('horovod.spark.task.mpirun_exec_fn.task_exec') as task_exec:
-                            msg = 'work_dir_env_set={} python_path_is_set={}'\
-                                .format(work_dir_env_set, python_path_is_set)
+                            msg = 'work_dir_env_set={} python_path_is_set={} hvd_python_path_is_set={}'\
+                                .format(work_dir_env_set, python_path_is_set, hvd_python_path_is_set)
                             print('testing with {}'.format(msg))
 
                             # change cwd to tmp_path and test mpirun_exec_fn
@@ -494,19 +499,28 @@ class SparkTests(unittest.TestCase):
                             # work dir changed if HOROVOD_SPARK_WORK_DIR set
                             if work_dir_env_set:
                                 self.assertEqual(test_dir, os.getcwd(), msg)
-                                expected_python_path = copy.copy(test_sys_path)
-                                expected_python_path.insert(1, tmp_path)
-                                self.assertEqual(expected_python_path, sys.path, msg)
-
-                                # work dir prepended to PYTHONPATH if set
-                                if python_path_is_set:
-                                    expected_python_path = '{}{}{}'.format(tmp_path, os.pathsep, test_python_path)
-                                    self.assertEqual(expected_python_path, os.environ['PYTHONPATH'], msg)
                             else:
                                 self.assertEqual(tmp_path, os.getcwd(), msg)
-                                self.assertEqual(test_sys_path, sys.path, msg)
-                                if python_path_is_set:
-                                    self.assertEqual(test_python_path, os.environ['PYTHONPATH'], msg)
+
+                            # PYTHONPATH prepended with HOROVOD_SPARK_PYTHONPATH
+                            expected_python_path = []
+                            if hvd_python_path_is_set:
+                                expected_python_path = test_horovod_python_path
+                            if python_path_is_set:
+                                expected_python_path = expected_python_path + test_python_path
+                            if 'PYTHONPATH' in os.environ:
+                                actual_python_path = os.environ['PYTHONPATH']
+                            else:
+                                actual_python_path = ""
+                            self.assertEqual(os.pathsep.join(expected_python_path), actual_python_path, msg)
+
+                            # HOROVOD_SPARK_PYTHONPATH injected at sys.path[1]
+                            expected_sys_path = copy.copy(test_sys_path)
+                            if hvd_python_path_is_set:
+                                expected_sys_path = expected_sys_path[0:1] + \
+                                                    test_horovod_python_path + \
+                                                    expected_sys_path[1:]
+                            self.assertEqual(expected_sys_path, sys.path, msg)
 
                             task_exec.assert_called_once()
                             task_exec_args, task_exec_kwargs = task_exec.call_args

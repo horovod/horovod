@@ -62,27 +62,37 @@ class BasicTaskService(network.BasicService):
         self._command_thread = None
         self._fn_result = None
 
-    def _update_env(self, env):
-        if self._command_env:
-            for key, value in self._command_env.items():
-                if self._verbose >= 2:
-                    print("Task service sets env for command: {} = {}".format(key, value))
-                if value is None:
-                    if key in env:
-                        del env[key]
-                else:
-                    env[key] = value
+    def _add_envs(self, env, extra_env):
+        """
+        Adds extra_env to env.
+
+        :param env: dict representing environment variables
+        :param extra_env: additional variables to be added to env
+        """
+        for key, value in extra_env.items():
+            if value is None:
+                if key in env:
+                    del env[key]
+            else:
+                env[key] = value
 
     def _handle(self, req, client_address):
         if isinstance(req, RunCommandRequest):
             self._wait_cond.acquire()
             try:
                 if self._command_thread is None:
-                    # we inject all these environment variables at the task server
-                    # to make them available to the executed command
-                    # NOTE: this will overwrite environment variables
-                    #       that exist in req.env coming from the driver
-                    self._update_env(req.env)
+                    # we add req.env to _command_env and make this available to the executed command
+                    if self._command_env:
+                        env = self._command_env.copy()
+                        self._add_envs(env, req.env)
+                        req.env = env
+
+                    if self._verbose >= 2:
+                        print("Task service executes command: {}".format(req.command))
+                        for key, value in req.env.items():
+                            if 'SECRET' in key:
+                                value = '*' * len(value)
+                            print("Task service env: {} = {}".format(key, value))
 
                     # We only permit executing exactly one command, so this is idempotent.
                     self._command_thread = threading.Thread(
