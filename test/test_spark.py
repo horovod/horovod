@@ -86,7 +86,7 @@ class SparkTests(unittest.TestCase):
     """
     Test that horovod.spark.run works properly in a simple setup using Gloo.
     """
-    def test_happy_run_wih_gloo(self):
+    def test_happy_run_with_gloo(self):
         if not gloo_built():
             self.skipTest("Gloo is not available")
 
@@ -380,7 +380,7 @@ class SparkTests(unittest.TestCase):
                                           stdout=stdout, stderr=stderr, verbose=verbose)
 
         self.assertFalse(str(e.value).startswith('Timed out waiting for Spark tasks to start.'),
-                         'Spark timed out before mpi_run was called, test setup is broken.')
+                         'Spark timed out before run_controller was called, test setup is broken.')
         self.assertEqual('Spark job has failed, see the error above.', str(e.value))
 
         num_proc = cores if num_proc is None else num_proc
@@ -422,8 +422,8 @@ class SparkTests(unittest.TestCase):
                                 'HOROVOD_CONTROLLER=gloo '
                                 'HOROVOD_CPU_OPERATIONS=gloo '
                                 'HOROVOD_GLOO_IFACE=[^ ]+ '
-                                'NCCL_SOCKET_IFNAME=[^ ]+ '
-                                '[^ ]+python[0-9]* -m horovod.spark.task.gloo_exec_fn '
+                                'NCCL_SOCKET_IFNAME=[^ ]+  '
+                                '[^ ]+python[0-9.]* -m horovod.spark.task.gloo_exec_fn '
                                 '[^ ]+ [^ ]+$'.format(rank=alloc_info.rank,
                                                       size=alloc_info.size,
                                                       local_rank=alloc_info.local_rank,
@@ -438,7 +438,7 @@ class SparkTests(unittest.TestCase):
                                 'HOROVOD_GLOO_RENDEZVOUS_PORT=[0-9]+',
                                 'HOROVOD_GLOO_IFACE=[^ ]+',
                                 'NCCL_SOCKET_IFNAME=[^ ]+',
-                                '[^ ]+python[0-9]*',
+                                '[^ ]+python[0-9.]*',
                                 '[^ ]+ [^ ]+$']:
                 actual_command = re.sub(replacement, replacement, actual_command, 1)
 
