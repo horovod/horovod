@@ -433,7 +433,7 @@ def parse_args():
                                          action=make_override_false_action(override_args), help=argparse.SUPPRESS)
 
     group_hosts_parent = parser.add_argument_group('host arguments')
-    group_hosts = group_hosts_parent.add_mutually_exclusive_group(required=True)
+    group_hosts = group_hosts_parent.add_mutually_exclusive_group()
     group_hosts.add_argument('-H', '--hosts', action='store', dest='hosts',
                              help='List of host names and the number of available slots '
                                   'for running processes on each, of the form: <hostname>:<slots> '
