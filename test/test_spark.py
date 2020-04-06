@@ -409,7 +409,8 @@ class SparkTests(unittest.TestCase):
             self.assertEqual(alloc_info.local_rank, alloc_info.rank)
 
             # command fully derived from alloc_info
-            expected_command = ('HOROVOD_RANK={rank} '
+            expected_command = ('HOROVOD_HOSTNAME=[^ ]+ '
+                                'HOROVOD_RANK={rank} '
                                 'HOROVOD_SIZE={size} '
                                 'HOROVOD_LOCAL_RANK={local_rank} '
                                 'HOROVOD_LOCAL_SIZE={local_size} '
@@ -432,6 +433,7 @@ class SparkTests(unittest.TestCase):
             # for better comparison replace sections in actual_command that change across runs / hosts
             actual_command = call_args[0][0]
             for replacement in ['_HOROVOD_SECRET_KEY=[^ ]+',
+                                'HOROVOD_HOSTNAME=[^ ]+',
                                 'HOROVOD_GLOO_RENDEZVOUS_ADDR=[^ ]+',
                                 'HOROVOD_GLOO_RENDEZVOUS_PORT=[0-9]+',
                                 'HOROVOD_GLOO_IFACE=[^ ]+',
