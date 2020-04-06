@@ -21,7 +21,7 @@ import os
 import unittest
 import warnings
 
-from elastic_common import BaseElasticTests
+from test.integration.elastic_common import BaseElasticTests
 
 
 class ElasticTensorFlow2Tests(BaseElasticTests, unittest.TestCase):
