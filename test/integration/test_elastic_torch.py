@@ -21,7 +21,7 @@ import os
 import unittest
 import warnings
 
-from test.integration.elastic_common import BaseElasticTests
+from elastic_common import BaseElasticTests
 
 
 class ElasticTorchTests(BaseElasticTests, unittest.TestCase):
