@@ -18,6 +18,7 @@ from __future__ import absolute_import
 import contextlib
 import json
 import os
+import sys
 
 import mock
 import pytest
@@ -25,7 +26,9 @@ import pytest
 from horovod.run.common.util import config_parser
 from horovod.run.runner import parse_args, _run_elastic
 
-from test.common import override_args, temppath
+sys.path.append(os.path.pardir(__file__))
+
+from common import override_args, temppath
 
 
 DISCOVERY_SCRIPT_TEMPLATE = """#!/bin/bash
