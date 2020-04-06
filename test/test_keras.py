@@ -254,23 +254,23 @@ class KerasTests(tf.test.TestCase):
             K.set_session(sess)
 
             v = 1.0 if hvd.rank() == 0 else 2.0
-            model1 = tf.keras.Sequential([
-                tf.keras.layers.Dense(2, activation='softmax')
+            model1 = keras.Sequential([
+                keras.layers.Dense(2, activation='softmax')
             ])
             model1.build((2, 2))
             model1.set_weights(
                 [np.array([[v,  v], [v, v]], dtype=np.float32),
                  np.array([v, v], dtype=np.float32)])
 
-            model2 = tf.keras.Sequential([
-                tf.keras.layers.Dense(2, activation='softmax')
+            model2 = keras.Sequential([
+                keras.layers.Dense(2, activation='softmax')
             ])
             model2.build((2, 2))
             model2.set_weights(
                 [np.array([[1.0,  2.0], [3.0, 4.0]], dtype=np.float32),
                  np.array([0.0, 0.0], dtype=np.float32)])
 
-            optimizer = tf.keras.optimizers.Adam(0.001 * hvd.size())
+            optimizer = keras.optimizers.Adam(0.001 * hvd.size())
 
             state = hvd.elastic.KerasState(model1, optimizer, batch=20 + hvd.rank(), epoch=10 + hvd.rank())
             state.sync()
