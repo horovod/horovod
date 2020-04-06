@@ -110,8 +110,8 @@ class TensorFlowKerasState(ObjectState):
         self.backend = backend
         self._save_model()
 
-        def broadcast_object_with_session(obj, root_rank):
-            return broadcast_object(obj, root_rank, session=backend.get_session())
+        def broadcast_object_with_session(obj):
+            return broadcast_object(obj, session=backend.get_session())
 
         broadcast_object_fn = broadcast_object if not backend else broadcast_object_with_session
 
