@@ -113,7 +113,7 @@ class TensorFlowKerasState(ObjectState):
         def broadcast_object_with_session(obj):
             return broadcast_object(obj, session=backend.get_session())
 
-        broadcast_object_fn = broadcast_object if not backend else broadcast_object_with_session
+        broadcast_object_fn = broadcast_object if not backend or _executing_eagerly() else broadcast_object_with_session
 
         super(TensorFlowKerasState, self).__init__(broadcast_object_fn, **kwargs)
 

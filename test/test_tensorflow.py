@@ -1082,6 +1082,8 @@ class TensorFlowTests(tf.test.TestCase):
             err = np.linalg.norm(expected - actual)
             self.assertLess(err, 0.00000001)
 
+    @pytest.mark.skipif(LooseVersion(tf.__version__) < LooseVersion('1.15.0'),
+                        reason='Broadcasting object requires TensorFlow 1.15 or above')
     def test_broadcast_object(self):
         hvd.init()
 
@@ -1094,6 +1096,8 @@ class TensorFlowTests(tf.test.TestCase):
         obj = hvd.broadcast_object(obj, root_rank=0)
         self.assertDictEqual(obj, expected_obj)
 
+    @pytest.mark.skipif(LooseVersion(tf.__version__) < LooseVersion('1.15.0'),
+                        reason='Broadcasting object requires TensorFlow 1.15 or above')
     def test_broadcast_object_fn(self):
         if hvd._executing_eagerly() or _IS_TF2:
             # Only for TF 1.0 in graph mode

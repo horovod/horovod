@@ -97,6 +97,10 @@ class BaseElasticTests(object):
                     with open(logfile, 'r') as f:
                         lines = f.readlines()
 
+                    print('logfile:')
+                    for line in lines:
+                        print(line)
+
                     return [json.loads(line) for line in lines]
 
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
