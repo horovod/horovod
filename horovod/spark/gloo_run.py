@@ -16,8 +16,8 @@
 import sys
 import time
 
-from horovod.run.gloo_run import launch_gloo
 from horovod.run.common.util import codec
+from horovod.run.gloo_run import launch_gloo, launch_gloo_elastic
 from horovod.spark.driver.rsh import rsh
 
 
@@ -60,3 +60,27 @@ def gloo_run(settings, nics, driver, env):
 
     exec_command = _exec_command_fn(driver.addresses(), key, settings, env)
     launch_gloo(command, exec_command, settings, nics, {}, server_ip)
+
+
+def gloo_run_elastic(settings, driver, env):
+    """
+    Run distributed gloo jobs.
+
+    :param settings: Settings for running the distributed jobs.
+                     Note: settings.num_proc and settings.hosts must not be None.
+    :param driver: The Spark driver service that tasks are connected to.
+    :param env: Environment dictionary to use for running gloo jobs.
+    """
+    # Each thread will use SparkTaskClient to launch the job on each remote host. If an
+    # error occurs in one thread, entire process will be terminated. Otherwise,
+    # threads will keep running and ssh session.
+    command = (sys.executable,
+               '-m', 'horovod.spark.task.gloo_exec_fn',
+               codec.dumps_base64(driver.addresses()),
+               codec.dumps_base64(settings))
+
+    # Pass secret key through the environment variables.
+    env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(settings.key)
+
+    exec_command = _exec_command_fn(driver.addresses(), settings, env)
+    launch_gloo_elastic(command, exec_command, settings, env)
