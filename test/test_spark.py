@@ -234,7 +234,7 @@ class SparkTests(unittest.TestCase):
     Test that horovod.spark.run raises an exception on non-zero exit code of mpi_run using Gloo.
     """
     def test_spark_run_with_non_zero_exit_with_gloo(self):
-        expected = '^Gloo job detected that one or more processes exited with non-zero ' \
+        expected = '^Horovod detected that one or more processes exited with non-zero ' \
                    'status, thus causing the job to be terminated. The first process ' \
                    'to do so was:\nProcess name: [0-9]+\nExit code: 1$'
         self.do_test_spark_run_with_non_zero_exit(use_mpi=False, use_gloo=True,

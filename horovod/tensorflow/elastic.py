@@ -167,7 +167,7 @@ class TensorFlowState(ObjectState):
         self._assign_fn = self._assign_var if _IS_TF2 else self._load_var
         self._save_model()
 
-        bcast_obj = broadcast_object_fn(session=session)
+        bcast_obj = broadcast_object_fn(session=session) if not _executing_eagerly() else broadcast_object
 
         def broadcast_object_with_session(obj):
             return bcast_obj(obj)
