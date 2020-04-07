@@ -45,6 +45,8 @@ from horovod.run.common.util import settings as hvd_settings
 from horovod.run.mpi_run import is_open_mpi
 from horovod.spark.common import constants, util
 from horovod.spark.common.store import HDFSStore
+from horovod.spark.driver.driver_service import SparkDriverService, SparkDriverClient
+from horovod.spark.driver.host_discovery import SparkDriverHostDiscovery
 from horovod.spark.driver.rsh import rsh
 from horovod.spark.task import get_available_devices, gloo_exec_fn, mpirun_exec_fn
 from horovod.spark.driver.driver_service import SparkDriverService, SparkDriverClient
@@ -656,6 +658,34 @@ class SparkTests(unittest.TestCase):
             expected_task_exec_kwargs = {}
             self.assertEqual(expected_task_exec_args, task_exec_args)
             self.assertEqual(expected_task_exec_kwargs, task_exec_kwargs)
+
+    def test_spark_driver_host_discovery(self):
+        def fn():
+            return 0
+
+        key = secret.make_secret_key()
+        driver = SparkDriverService(4, fn, (), {}, key, None)
+        discovery = SparkDriverHostDiscovery(driver)
+        client = SparkDriverClient(driver.addresses(), key, verbose=2)
+
+        slots = discovery.find_available_hosts_and_slots()
+        self.assertEqual({}, slots)
+
+        client.register_task(0, driver.addresses(), 'host-hash-1')
+        slots = discovery.find_available_hosts_and_slots()
+        self.assertEqual({'host-hash-1': 1}, slots)
+
+        client.register_task(1, driver.addresses(), 'host-hash-2')
+        slots = discovery.find_available_hosts_and_slots()
+        self.assertEqual({'host-hash-1': 1, 'host-hash-2': 1}, slots)
+
+        client.register_task(2, driver.addresses(), 'host-hash-2')
+        slots = discovery.find_available_hosts_and_slots()
+        self.assertEqual({'host-hash-1': 1, 'host-hash-2': 2}, slots)
+
+        client.register_task(3, driver.addresses(), 'host-hash-1')
+        slots = discovery.find_available_hosts_and_slots()
+        self.assertEqual({'host-hash-1': 2, 'host-hash-2': 2}, slots)
 
     def test_df_cache(self):
         # Clean the cache before starting the test
