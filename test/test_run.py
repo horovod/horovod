@@ -254,15 +254,6 @@ class RunTests(unittest.TestCase):
                  gloo_is_built, mpi_is_built,
                  lsf_exists, jsrun_installed,
                  expected, exception):
-            print('testing run controller with gloo={gloo} mpi={mpi} js={js} '
-                  'gloo_built={gloo_is_built} mpi_built={mpi_is_built} '
-                  'lsf_exists={lsf} js_installed={js_is_installed} '
-                  'expected={expected} exception={exception}'
-                  .format(gloo=use_gloo, mpi=use_mpi, js=use_js,
-                          gloo_is_built=gloo_is_built, mpi_is_built=mpi_is_built,
-                          lsf=lsf_exists, js_is_installed=jsrun_installed,
-                          expected=expected, exception=exception))
-
             gloo_run = MagicMock()
             mpi_run = MagicMock()
             js_run = MagicMock()

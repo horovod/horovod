@@ -6,31 +6,6 @@ services:
       dockerfile: Dockerfile.test.cpu
     privileged: true
     shm_size: 8gb
-  test-cpu-openmpi-py2_7-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_3_2:
-    extends: test-cpu-base
-    build:
-      args:
-        MPI_KIND: OpenMPI
-        PYTHON_VERSION: 2.7
-        TENSORFLOW_PACKAGE: tensorflow==1.1.0
-        KERAS_PACKAGE: keras==2.0.0
-        PYTORCH_PACKAGE: torch==0.4.0
-        TORCHVISION_PACKAGE: torchvision==0.2.2.post3
-        MXNET_PACKAGE: mxnet==1.4.1
-        PYSPARK_PACKAGE: pyspark==2.3.2
-  test-cpu-openmpi-py3_6-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_3_2:
-    extends: test-cpu-base
-    build:
-      args:
-        UBUNTU_VERSION: 18.04
-        MPI_KIND: OpenMPI
-        PYTHON_VERSION: 3.6
-        TENSORFLOW_PACKAGE: tensorflow==1.1.0
-        KERAS_PACKAGE: keras==2.0.0
-        PYTORCH_PACKAGE: torch==0.4.0
-        TORCHVISION_PACKAGE: torchvision==0.2.2.post3
-        MXNET_PACKAGE: mxnet==1.4.1
-        PYSPARK_PACKAGE: pyspark==2.3.2
   test-cpu-openmpi-py2_7-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2:
     extends: test-cpu-base
     build:
