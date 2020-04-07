@@ -326,7 +326,8 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                               ncclAllGather(buffer_data_at_rank_offset, buffer_data,
                                             (size_t) num_elements_per_rank,
                                             GetNCCLDataType(first_entry.tensor),
-                              *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream));
+                                            *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream),
+                              *nccl_op_context_.nccl_comm_);
     if (global_state_->timeline.Initialized()) {
       gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_ALLGATHER, *gpu_op_context_.stream);
     }
