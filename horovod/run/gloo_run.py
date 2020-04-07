@@ -272,7 +272,7 @@ def gloo_run(settings, nics, env, server_ip, command):
     launch_gloo(command, exec_command, settings, nics, env, server_ip)
 
 
-def gloo_run_elastic(settings, env, command):
+def launch_gloo_elastic(command, exec_command, settings, env):
     # Make the output directory if it does not exist
     if settings.output_filename:
         _mkdir_p(settings.output_filename)
@@ -293,7 +293,6 @@ def gloo_run_elastic(settings, env, command):
     nics = driver_service.get_common_interfaces(settings, current_hosts.host_assignment_order)
     server_ip = network.get_driver_ip(nics)
 
-    exec_command = _exec_command_fn(settings)
     event = register_shutdown_event()
     run_command = get_run_command(command, server_ip, nics, global_rendezv_port, elastic=True)
     create_worker = _create_elastic_worker_fn(exec_command, run_command, env, event)
@@ -310,3 +309,8 @@ def gloo_run_elastic(settings, env, command):
                                'status, thus causing the job to be terminated. The first process '
                                'to do so was:\nProcess name: {name}\nExit code: {code}\n'
                                .format(name=name, code=exit_code))
+
+
+def gloo_run_elastic(settings, env, command):
+    exec_command = _exec_command_fn(settings)
+    launch_gloo_elastic(command, exec_command, settings, env)
