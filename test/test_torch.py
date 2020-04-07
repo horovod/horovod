@@ -1668,6 +1668,8 @@ class TorchTests(unittest.TestCase):
             else:
                 ret = hvd.join()
 
+    @pytest.mark.skipif(LooseVersion(torch.__version__) < LooseVersion('1.0.0'),
+                        reason='Synchronizing state requires PyTorch 1.0 or above')
     def test_elastic_state(self):
         hvd.init()
 

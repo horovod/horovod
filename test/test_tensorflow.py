@@ -26,6 +26,7 @@ from distutils.version import LooseVersion
 import itertools
 import numpy as np
 import os
+import pytest
 import tensorflow as tf
 from horovod.tensorflow.util import _executing_eagerly, _has_eager
 from tensorflow.python.framework import ops
@@ -1110,6 +1111,8 @@ class TensorFlowTests(tf.test.TestCase):
         obj = bcast(obj)
         self.assertDictEqual(obj, expected_obj)
 
+    @pytest.mark.skipif(LooseVersion(tf.__version__) < LooseVersion('1.15.0'),
+                        reason='Synchronizing state requires TensorFlow 1.15 or above')
     def test_elastic_state(self):
         if not hvd._executing_eagerly() and _IS_TF2:
             # Only support TF 2.0 in eager mode
