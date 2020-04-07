@@ -1572,6 +1572,7 @@ test_require_list = ['mock', 'pytest', 'pytest-forked']
 
 # framework dependencies
 tensorflow_require_list = ['tensorflow']
+tensorflow_cpu_require_list = ['tensorflow-cpu']
 tensorflow_gpu_require_list = ['tensorflow-gpu']
 keras_require_list = ['keras>=2.0.8,!=2.0.9,!=2.1.0,!=2.1.1']
 pytorch_require_list = ['torch','torchvision']
@@ -1614,6 +1615,7 @@ setup(name='horovod',
       extras_require={
           'all-frameworks': all_frameworks_require_list,
           'tensorflow': tensorflow_require_list,
+          'tensorflow-cpu': tensorflow_cpu_require_list,
           'tensorflow-gpu': tensorflow_gpu_require_list,
           'keras': keras_require_list,
           'pytorch': pytorch_require_list,
