@@ -158,7 +158,7 @@ To use Horovod, make the following additions to your program:
 
 2. Pin each GPU to a single process to avoid resource contention.
 
-   With the typical setup of one GPU per process, you can set this to *local rank*. In that case, the first process on
+   With the typical setup of one GPU per process, set this to *local rank*. The first process on
    the server will be allocated the first GPU, the second process will be allocated the second GPU, and so forth.
 
 .. raw:: html

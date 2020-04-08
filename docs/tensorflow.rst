@@ -10,7 +10,7 @@ To use Horovod, make the following modifications to your training script:
 
 2. Pin each GPU to a single process.
 
-   With the typical setup of one GPU per process, you can set this to *local rank*. In that case, the first process on
+   With the typical setup of one GPU per process, set this to *local rank*. The first process on
    the server will be allocated the first GPU, the second process will be allocated the second GPU, and so forth.
 
    For **TensorFlow v1**:
@@ -61,7 +61,7 @@ To use Horovod, make the following modifications to your training script:
    This is necessary to ensure consistent initialization of all workers when training is started with random weights or restored from a checkpoint.
 
    For **TensorFlow v1**, add ``hvd.BroadcastGlobalVariablesHook(0)`` when using a ``MonitoredTrainingSession``.
-   When not using ``MonitoredTrainingSession``, you can execute the ``hvd.broadcast_global_variables`` op after global variables have been initialized.
+   When not using ``MonitoredTrainingSession``, execute the ``hvd.broadcast_global_variables`` op after global variables have been initialized.
 
    For **TensorFlow v2**, use ``hvd.broadcast_variables`` after models and optimizers have been initialized.
 

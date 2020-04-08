@@ -10,7 +10,7 @@ Horovod supports Keras and regular TensorFlow in similar ways. To use Horovod, m
 
 2. Pin each GPU to a single process.
 
-   With the typical setup of one GPU per process, you can set this to *local rank*. In that case, the first process on
+   With the typical setup of one GPU per process, set this to *local rank*. The first process on
    the server will be allocated the first GPU, the second process will be allocated the second GPU, and so forth.
 
    For **TensorFlow v1**:
