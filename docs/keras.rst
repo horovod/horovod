@@ -1,6 +1,6 @@
 Horovod with Keras
 ==================
-Horovod supports Keras and regular TensorFlow in similar ways. To use Horovod, make the following additions to your program. 
+Horovod supports Keras and regular TensorFlow in similar ways. To use Horovod, make the following modifications to your training script:
 
 1. Run ``hvd.init()``.
 
@@ -8,10 +8,28 @@ Horovod supports Keras and regular TensorFlow in similar ways. To use Horovod, m
 
     <p/>
 
-2. Pin a server GPU to be used by this process using ``config.gpu_options.visible_device_list``.
+2. Pin each GPU to a single process.
 
-   With the typical setup of one GPU per process, you can set this to *local rank*. In that case, the first process on
+   With the typical setup of one GPU per process, set this to *local rank*. The first process on
    the server will be allocated the first GPU, the second process will be allocated the second GPU, and so forth.
+
+   For **TensorFlow v1**:
+
+   .. code-block:: python
+
+       config = tf.ConfigProto()
+       config.gpu_options.visible_device_list = str(hvd.local_rank())
+       K.set_session(tf.Session(config=config))
+
+   For **TensorFlow v2**:
+
+   .. code-block:: python
+
+       gpus = tf.config.experimental.list_physical_devices('GPU')
+       for gpu in gpus:
+           tf.config.experimental.set_memory_growth(gpu, True)
+       if gpus:
+           tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
 
 .. raw:: html
 
@@ -154,3 +172,52 @@ See full training `simple <https://github.com/horovod/horovod/blob/master/exampl
     score = model.evaluate(x_test, y_test, verbose=0)
     print('Test loss:', score[0])
     print('Test accuracy:', score[1])
+
+TensorFlow v2 Keras Example (from the `MNIST <https://github.com/horovod/horovod/blob/master/examples/tensorflow2_keras_mnist.py>`_ example):
+
+.. code-block:: python
+
+    import tensorflow as tf
+    import horovod.tensorflow.keras as hvd
+
+    # Initialize Horovod
+    hvd.init()
+
+    # Pin GPU to be used to process local rank (one GPU per process)
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    for gpu in gpus:
+        tf.config.experimental.set_memory_growth(gpu, True)
+    if gpus:
+        tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
+
+    # Build model and dataset
+    dataset = ...
+    model = ...
+    opt = tf.optimizers.Adam(0.001 * hvd.size())
+
+    # Horovod: add Horovod DistributedOptimizer.
+    opt = hvd.DistributedOptimizer(opt)
+
+    # Horovod: Specify `experimental_run_tf_function=False` to ensure TensorFlow
+    # uses hvd.DistributedOptimizer() to compute gradients.
+    mnist_model.compile(loss=tf.losses.SparseCategoricalCrossentropy(),
+                        optimizer=opt,
+                        metrics=['accuracy'],
+                        experimental_run_tf_function=False)
+
+    callbacks = [
+        # Horovod: broadcast initial variable states from rank 0 to all other processes.
+        # This is necessary to ensure consistent initialization of all workers when
+        # training is started with random weights or restored from a checkpoint.
+        hvd.callbacks.BroadcastGlobalVariablesCallback(0),
+    ]
+
+    # Horovod: save checkpoints only on worker 0 to prevent other workers from corrupting them.
+    if hvd.rank() == 0:
+        callbacks.append(keras.callbacks.ModelCheckpoint('./checkpoint-{epoch}.h5'))
+
+    model.fit(dataset,
+              steps_per_epoch=500 // hvd.size(),
+              callbacks=callbacks,
+              epochs=24,
+              verbose=1 if hvd.rank() == 0 else 0)
