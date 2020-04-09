@@ -16,7 +16,7 @@
 import os
 import sys
 
-from horovod.run.common.util import codec
+from horovod.run.common.util import codec, secret
 from horovod.spark.driver.rsh import rsh
 
 
@@ -41,11 +41,12 @@ if __name__ == '__main__':
         sys.exit(1)
 
     addresses = codec.loads_base64(sys.argv[1])
+    key = codec.loads_base64(os.environ.get(secret.HOROVOD_SECRET_KEY))
     settings = codec.loads_base64(sys.argv[2])
     host_hash = sys.argv[3]
     command = " ".join(sys.argv[4:])
-    env = os.environ
+    env = {}  # orted does not need any env vars, the target training code gets env from mpirun
 
     # Since tasks with the same host hash have shared memory,
-    # we will run only one ORTED process on the first task.
-    rsh(addresses, settings, host_hash, command, env, 0)
+    # we will run only one orted process on the first task.
+    rsh(addresses, key, settings, host_hash, command, env, 0)

@@ -17,10 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import copy
+import itertools
 import os
 import platform
 import pytest
 import re
+import sys
 import time
 import unittest
 import warnings
@@ -28,7 +31,6 @@ import warnings
 from distutils.version import LooseVersion
 
 import mock
-from mock import MagicMock
 import torch
 
 import pyspark
@@ -41,16 +43,16 @@ import horovod.spark
 import horovod.torch as hvd
 
 from horovod.common.util import gloo_built, mpi_built
-from horovod.run.common.util import secret
+from horovod.run.common.util import codec, secret
 from horovod.run.mpi_run import is_open_mpi
 from horovod.spark.common import constants, util
 from horovod.spark.common.store import HDFSStore
-from horovod.spark.task import get_available_devices
+from horovod.spark.task import get_available_devices, gloo_exec_fn, mpirun_exec_fn
 from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient
 
 from spark_common import spark_session, create_test_data_from_schema, create_xor_data, local_store
 
-from common import is_built, mpi_implementation_flags, tempdir, override_env
+from common import is_built, mpi_implementation_flags, tempdir, override_env, undo
 
 
 # Spark will fail to initialize correctly locally on Mac OS without this
@@ -68,10 +70,10 @@ class SparkTests(unittest.TestCase):
         warnings.simplefilter('module')
 
     def run(self, result=None):
-        if int(os.getenv('OMPI_COMM_WORLD_RANK', 0)) != 0 or int(os.getenv('HOROVOD_RANK', 0)) != 0:
-            # Running in MPI or Gloo with rank > 0, ignore.
-            # Purposefully skip these silently
-            return
+        # These unit tests should not be run with horovodrun as some tests
+        # setup their own Horovod cluster, where both will then interfere.
+        if 'OMPI_COMM_WORLD_RANK' in os.environ or 'HOROVOD_RANK' in os.environ:
+            self.skipTest("These tests should not be executed via horovodrun, just pytest")
 
         super(SparkTests, self).run(result)
 
@@ -201,22 +203,22 @@ class SparkTests(unittest.TestCase):
     """
     Test that horovod.spark.run defaults env to the full system env using MPI.
     """
-    def test_spark_run_defaults_env_to_os_env_with_mpi(self):
+    def test_spark_run_does_not_default_env_to_os_env_with_mpi(self):
         with mpi_implementation_flags():
-            self.do_test_spark_run_defaults_env_to_os_env(use_mpi=True, use_gloo=False)
+            self.do_test_spark_run_does_not_default_env_to_os_env(use_mpi=True, use_gloo=False)
 
     """
     Test that horovod.spark.run defaults env to the full system env using Gloo.
     """
-    def test_spark_run_defaults_env_to_os_env_with_gloo(self):
-        self.do_test_spark_run_defaults_env_to_os_env(use_mpi=False, use_gloo=True)
+    def test_spark_run_does_not_default_env_to_os_env_with_gloo(self):
+        self.do_test_spark_run_does_not_default_env_to_os_env(use_mpi=False, use_gloo=True)
 
     """
     Actually tests that horovod.spark.run defaults env to the full system env.
     """
-    def do_test_spark_run_defaults_env_to_os_env(self, use_mpi, use_gloo):
+    def do_test_spark_run_does_not_default_env_to_os_env(self, use_mpi, use_gloo):
         env = {'env1': 'val1', 'env2': 'val2'}
-        expected_env = '-x env1 -x env2'
+        expected_env = ''
 
         with override_env(env):
             self._do_test_spark_run(env=None, use_mpi=use_mpi, use_gloo=use_gloo,
@@ -251,7 +253,7 @@ class SparkTests(unittest.TestCase):
         def mpi_impl_flags(tcp):
             return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"]
 
-        def gloo_exec_command_fn(driver_addresses, settings, env):
+        def gloo_exec_command_fn(driver_addresses, key, settings, env):
             def _exec_command(command, alloc_info, event):
                 return 1, 1.0
             return _exec_command
@@ -278,7 +280,7 @@ class SparkTests(unittest.TestCase):
         if use_gloo:
             self._do_test_spark_run_with_gloo(args, kwargs, num_proc, extra_mpi_args, env,
                                               stdout, stderr, verbose, cores,
-                                              expected_np, expected_env)
+                                              expected_np)
 
     """
     Performs an actual horovod.spark.run test using MPI.
@@ -318,14 +320,14 @@ class SparkTests(unittest.TestCase):
                                     '{binding_args} '
                                     '{mpi_flags}  '
                                     '-mca btl_tcp_if_include [^ ]+ -x NCCL_SOCKET_IFNAME=[^ ]+  '
-                                    '-x _HOROVOD_SECRET_KEY {expected_env}'
+                                    '{expected_env} '
                                     '{extra_mpi_args} '
                                     '-x NCCL_DEBUG=INFO '
                                     r'-mca plm_rsh_agent "[^"]+python[0-9]* -m horovod.spark.driver.mpirun_rsh [^ ]+ [^ ]+" '
                                     r'[^"]+python[0-9]* -m horovod.spark.task.mpirun_exec_fn [^ ]+ [^ ]+'.format(
                     expected_np=expected_np,
                     binding_args=' '.join(binding_args),
-                    expected_env=expected_env + ' ' if expected_env else '',
+                    expected_env=expected_env if expected_env else '',
                     mpi_flags=' '.join(mpi_flags),
                     extra_mpi_args=extra_mpi_args if extra_mpi_args else ''))
 
@@ -345,8 +347,8 @@ class SparkTests(unittest.TestCase):
                             '-m horovod.spark.task.mpirun_exec_fn [^ ]+ [^ ]+']:
             actual_command = re.sub(replacement, replacement, actual_command, 1)
 
-        actual_secret = actual_env.pop('_HOROVOD_SECRET_KEY', None)
-        self.assertEqual(actual_command, expected_command)
+        actual_secret = actual_env.pop(secret.HOROVOD_SECRET_KEY, None)
+        self.assertEqual(expected_command, actual_command)
         if env:
             self.assertEqual(env, actual_env)
         else:
@@ -361,7 +363,7 @@ class SparkTests(unittest.TestCase):
     """
     def _do_test_spark_run_with_gloo(self, args=(), kwargs={}, num_proc=1, extra_mpi_args=None,
                                      env={}, stdout=None, stderr=None, verbose=2,
-                                     cores=2, expected_np=1, expected_env=''):
+                                     cores=2, expected_np=1):
         def fn():
             return 1
 
@@ -385,7 +387,11 @@ class SparkTests(unittest.TestCase):
         self.assertEqual('Spark job has failed, see the error above.', str(e.value))
 
         num_proc = cores if num_proc is None else num_proc
+        self.assertEqual(expected_np, num_proc)
         self.assertEqual(1, gloo_exec_command_fn.call_count)
+        _, _, _, call_env = gloo_exec_command_fn.call_args[0]
+        self.assertEqual(env or {}, call_env)
+        self.assertEqual({}, gloo_exec_command_fn.call_args[1])
         self.assertEqual(num_proc, exec_command.call_count)
         self.assertEqual(num_proc, len(exec_command.call_args_list))
 
@@ -442,6 +448,93 @@ class SparkTests(unittest.TestCase):
                 actual_command = re.sub(replacement, replacement, actual_command, 1)
 
             self.assertEqual(expected_command, actual_command)
+
+    def test_mpirun_exec_fn(self):
+        bool_values = [False, True]
+        for work_dir_env_set, python_path_is_set, hvd_python_path_is_set in \
+            itertools.product(bool_values, bool_values, bool_values):
+            with tempdir() as tmp_path:
+                driver = mock.MagicMock()
+                settings = mock.MagicMock()
+                settings.verbose = 2
+
+                test_env = {}
+                test_dir = os.getcwd()
+                test_sys_path = copy.copy(sys.path)
+
+                def reset():
+                    os.chdir(test_dir)
+                    sys.path = test_sys_path
+
+                if work_dir_env_set:
+                    # ask mpirun_exec_fn to change cwd to test_dir
+                    test_env['HOROVOD_SPARK_WORK_DIR'] = test_dir
+                if python_path_is_set:
+                    test_python_path = ['python/path', 'python/path2']
+                    test_env['PYTHONPATH'] = os.pathsep.join(test_python_path)
+                if hvd_python_path_is_set:
+                    # ingest tmp_path into workers PYTHONPATH
+                    test_horovod_python_path = ['horovod', 'horovod/python']
+                    test_env['HOROVOD_SPARK_PYTHONPATH'] = os.pathsep.join(test_horovod_python_path)
+
+                with override_env(test_env):
+                    with undo(reset):  # restores current working dir and sys.path after test
+                        with mock.patch('horovod.spark.task.mpirun_exec_fn.task_exec') as task_exec:
+                            msg = 'work_dir_env_set={} python_path_is_set={} hvd_python_path_is_set={}'\
+                                .format(work_dir_env_set, python_path_is_set, hvd_python_path_is_set)
+                            print('testing with {}'.format(msg))
+
+                            # change cwd to tmp_path and test mpirun_exec_fn
+                            os.chdir(tmp_path)
+                            mpirun_exec_fn.main(driver, settings)
+
+                            # work dir changed if HOROVOD_SPARK_WORK_DIR set
+                            if work_dir_env_set:
+                                self.assertEqual(test_dir, os.getcwd(), msg)
+                            else:
+                                self.assertEqual(tmp_path, os.getcwd(), msg)
+
+                            # PYTHONPATH prepended with HOROVOD_SPARK_PYTHONPATH
+                            expected_python_path = []
+                            if hvd_python_path_is_set:
+                                expected_python_path = test_horovod_python_path
+                            if python_path_is_set:
+                                expected_python_path = expected_python_path + test_python_path
+                            if 'PYTHONPATH' in os.environ:
+                                actual_python_path = os.environ['PYTHONPATH']
+                            else:
+                                actual_python_path = ""
+                            self.assertEqual(os.pathsep.join(expected_python_path), actual_python_path, msg)
+
+                            # HOROVOD_SPARK_PYTHONPATH injected at sys.path[1]
+                            expected_sys_path = copy.copy(test_sys_path)
+                            if hvd_python_path_is_set:
+                                expected_sys_path = expected_sys_path[0:1] + \
+                                                    test_horovod_python_path + \
+                                                    expected_sys_path[1:]
+                            self.assertEqual(expected_sys_path, sys.path, msg)
+
+                            task_exec.assert_called_once()
+                            task_exec_args, task_exec_kwargs = task_exec.call_args
+                            expected_task_exec_args = (driver, settings, 'OMPI_COMM_WORLD_RANK')
+                            expected_task_exec_kwargs = {}
+                            self.assertEqual(expected_task_exec_args, task_exec_args, msg)
+                            self.assertEqual(expected_task_exec_kwargs, task_exec_kwargs, msg)
+
+    def test_gloo_exec_fn(self):
+        driver = mock.MagicMock()
+        settings = mock.MagicMock()
+        settings.verbose = 2
+
+        with mock.patch('horovod.spark.task.gloo_exec_fn.task_exec') as task_exec:
+            gloo_exec_fn.main(driver, settings)
+
+            task_exec.assert_called_once()
+            task_exec_args, task_exec_kwargs = task_exec.call_args
+            expected_task_exec_args = (driver, settings, 'HOROVOD_RANK')
+            expected_task_exec_kwargs = {}
+            self.assertEqual(expected_task_exec_args, task_exec_args)
+            self.assertEqual(expected_task_exec_kwargs, task_exec_kwargs)
 
     def test_df_cache(self):
         # Clean the cache before starting the test
@@ -979,9 +1072,11 @@ class SparkTests(unittest.TestCase):
 
     def test_spark_task_service_env(self):
         key = secret.make_secret_key()
-        service_env = dict([(key, '{} value'.format(key))
-                            for key in SparkTaskService.SERVICE_ENV_KEYS])
-        service_env.update({"other": "value"})
+        service_env = {
+            'HADOOP_TOKEN_FILE_LOCATION': 'path',
+            'PYTHONPATH': 'pypath',
+            'other': 'values'
+        }
         with override_env(service_env):
             service = SparkTaskService(1, key, None)
             client = SparkTaskClient(1, service.addresses(), key, 3)
@@ -999,8 +1094,15 @@ class SparkTests(unittest.TestCase):
 
                 with open(file) as f:
                     env = sorted([line.strip() for line in f.readlines()])
-                    expected = ['HADOOP_TOKEN_FILE_LOCATION=HADOOP_TOKEN_FILE_LOCATION value', 'test=value']
-                    self.assertEqual(env, expected)
+                    expected = [
+                        'HADOOP_TOKEN_FILE_LOCATION=path',
+                        'HOROVOD_SPARK_WORK_DIR={cwd}'.format(cwd=os.getcwd()),
+                        'PYTHONPATH=pypath',
+                        '{}={}'.format(secret.HOROVOD_SECRET_KEY, codec.dumps_base64(key)),
+                        'other=values',
+                        'test=value'
+                    ]
+                    self.assertEqual(expected, env)
 
     @pytest.mark.skipif(LooseVersion(pyspark.__version__) < LooseVersion('3.0.0'),
                         reason='get_available_devices only supported in Spark 3.0 and above')

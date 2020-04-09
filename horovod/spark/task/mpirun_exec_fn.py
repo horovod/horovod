@@ -13,13 +13,40 @@
 # limitations under the License.
 # ==============================================================================
 
+import os
 import sys
+
+try:
+    from shlex import quote
+except ImportError:
+    from pipes import quote
 
 from horovod.spark.task import task_exec
 from horovod.run.common.util import codec
 
 
 def main(driver_addresses, settings):
+    # prepend HOROVOD_SPARK_PYTHONPATH to PYTHONPATH
+    if 'HOROVOD_SPARK_PYTHONPATH' in os.environ:
+        ppath = os.environ['HOROVOD_SPARK_PYTHONPATH']
+
+        # add injected HOROVOD_SPARK_PYTHONPATH to sys.path
+        for p in reversed(ppath.split(os.pathsep)):
+            sys.path.insert(1, p)  # don't put it in front which is usually .
+
+        if 'PYTHONPATH' in os.environ:
+            ppath = os.pathsep.join([ppath, os.environ['PYTHONPATH']])
+        os.environ['PYTHONPATH'] = ppath
+
+    # change current working dir to where the Spark worker runs
+    # because orted runs this script where mpirun was executed
+    # this env var is injected by the Spark task service
+    work_dir = os.environ.get('HOROVOD_SPARK_WORK_DIR')
+    if work_dir:
+        if settings.verbose >= 2:
+            print("Changing cwd from {} to {}".format(os.getcwd(), work_dir))
+        os.chdir(work_dir)
+
     task_exec(driver_addresses, settings, 'OMPI_COMM_WORLD_RANK')
 
 

@@ -28,14 +28,14 @@ def mpi_run(settings, nics, driver, env, stdout=None, stderr=None):
                      Note: settings.num_proc and settings.hosts must not be None.
     :param nics: Interfaces to include by MPI.
     :param driver: The Spark driver service that tasks are connected to.
-    :param env: Environment dictionary to use for running MPI.
+    :param env: Environment dictionary to use for running MPI.  Can be None.
     :param stdout: Stdout of the mpi process.
                    Only used when settings.run_func_mode is True.
     :param stderr: Stderr of the mpi process.
                    Only used when settings.run_func_mode is True.
     """
     if env is None:
-        env = os.environ.copy()
+        env = {}
 
     # Pass secret key through the environment variables.
     env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(settings.key)
