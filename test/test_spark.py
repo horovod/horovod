@@ -70,24 +70,12 @@ class SparkTests(unittest.TestCase):
         warnings.simplefilter('module')
 
     def run(self, result=None):
-        # Unit tests are usually ran via horovod, i.e. in a distributed way.
-        # That way, unit tests represent a single worker in a horovod cluster.
-        # The SparkTests work differently, they spawn their own cluster.
-        # Having workers span their own horovod cluster is a silly test setup.
-        # Therefore we skip all rank != 0 processes ...
-        if int(os.getenv('OMPI_COMM_WORLD_RANK', 0)) != 0 or int(os.getenv('HOROVOD_RANK', 0)) != 0:
-            self.skipTest("Not testing for rank > 0, tests start their own MPI / Gloo setup")
+        # These unit tests should not be run with horovodrun as some tests
+        # setup their own Horovod cluster, where both will then interfere.
+        if 'OMPI_COMM_WORLD_RANK' in os.environ or 'HOROVOD_RANK' in os.environ:
+            self.skipTest("These tests should not be executed via horovodrun, just pytest")
 
-        # ... and remove all HOROVOD_* environment variables.
-        # Pretend horovodrun is not there.
-        env = os.environ.copy()
-        for key in list(env.keys()):
-            if key.startswith('HOROVOD_'):
-                del env[key]
-
-        # run test without HOROVOD_* environment variables and for rank 0 only
-        with override_env(env):
-            super(SparkTests, self).run(result)
+        super(SparkTests, self).run(result)
 
     """
     Test that horovod.spark.run works properly in a simple setup using MPI.
