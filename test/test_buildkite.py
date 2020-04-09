@@ -36,10 +36,11 @@ class BuildKiteTests(unittest.TestCase):
     Tests the generated buildkite pipeline.
     
     Compares output of .buildkite/gen_pipeline.sh with test/data/expected_buildkite_pipeline.yaml.
-    To accept the changes in the output, run the following in your Horovod project root:
+    To see the changes in the output, run the following in your Horovod project root:
     
         BUILDKITE_PIPELINE_SLUG=SLUG BUILDKITE_BRANCH=BRANCH .buildkite/gen-pipeline.sh > test/data/expected_buildkite_pipeline.yaml
     
+    Then run `git diff` to see the changes in the generated pipeline YAML.
     Commit `test/data/expected_buildkite_pipeline.yaml` to get those changes into your PR.
     """
     def test_gen_pipeline(self):
