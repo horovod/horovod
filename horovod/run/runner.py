@@ -81,8 +81,7 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
                                                     stderr=output)
                 if exit_code == 0:
                     break
-                else:
-                    output_msg = output.getvalue()
+                output_msg = output.getvalue()
             finally:
                 output.close()
         return exit_code, output_msg
