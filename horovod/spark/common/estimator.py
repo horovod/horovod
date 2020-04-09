@@ -47,8 +47,7 @@ class HorovodEstimator(Estimator, EstimatorParams):
         """
         if params:
             return self.copy(params)._fit_on_parquet()
-        else:
-            return self._fit_on_parquet()
+        return self._fit_on_parquet()
 
     def _fit_on_parquet(self):
         backend = self._get_or_create_backend()
