@@ -379,8 +379,7 @@ class TorchModel(HorovodModel, TorchEstimatorParamsWritable, TorchEstimatorParam
             optimzer = optimizer_cls(model.parameters(), lr=1)
             optimzer.load_state_dict(optimizer_state)
             return optimzer
-        else:
-            return self._get_optimizer()
+        return self._get_optimizer()
 
     # To run locally on OS X, need export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
     def _transform(self, df):
