@@ -19,7 +19,7 @@ import functools
 
 from six.moves import queue
 
-from horovod.common.exceptions import HorovodInternalError, HostsUpdatedException
+from horovod.common.exceptions import HorovodInternalError, HostsUpdatedInterrupt
 from horovod.run.elastic.worker import WorkerNotificationManager
 
 
@@ -54,29 +54,21 @@ class State(object):
     def commit(self):
         """Commits all modifications to state tracked by this object to host memory.
 
-        This call will also check for any changes to known hosts, and raise a `WorkersAvailableException`
+        This call will also check for any changes to known hosts, and raise a `HostsUpdatedInterrupt`
         if any were detected.
 
         Because commits are a heavy operation involving data copy (potentially from GPU to host), it is
         recommended to consider committing less frequently than once per batch. This allows users to tradeoff
-        between per-batch execution time, and lost training steps in the event of a worker failure.
+        between per-batch execution time and lost training steps in the event of a worker failure.
         """
         self.save()
-        self._update_known_hosts()
+        self.check_host_updates()
 
-    def save(self):
-        """Saves state to host memory."""
-        raise NotImplementedError()
+    def check_host_updates(self):
+        """Checks that a notification has been sent indicating that hosts can be added or will be removed.
 
-    def restore(self):
-        """Restores the last committed state, undoing any uncommitted modifications."""
-        raise NotImplementedError()
-
-    def sync(self):
-        """Synchronize state across workers."""
-        raise NotImplementedError()
-
-    def _update_known_hosts(self):
+        Raises a `HostsUpdatedInterrupt` if such a notification has been received.
+        """
         # Iterate through the update messages sent from the server. If the update timestamp
         # is greater than the last update timestamp, then trigger a HostsUpdatedException.
         updated = False
@@ -92,7 +84,19 @@ class State(object):
 
         # At this point, updated state is globally consistent across all ranks.
         if updated:
-            raise HostsUpdatedException()
+            raise HostsUpdatedInterrupt()
+
+    def save(self):
+        """Saves state to host memory."""
+        raise NotImplementedError()
+
+    def restore(self):
+        """Restores the last committed state, undoing any uncommitted modifications."""
+        raise NotImplementedError()
+
+    def sync(self):
+        """Synchronize state across workers."""
+        raise NotImplementedError()
 
     def _sync_host_updates(self, updated):
         raise NotImplementedError()
@@ -153,7 +157,7 @@ def run_fn(func, reset):
                     return func(state, *args, **kwargs)
                 except HorovodInternalError:
                     state.restore()
-                except HostsUpdatedException:
+                except HostsUpdatedInterrupt:
                     pass
                 reset_required = True
         finally:

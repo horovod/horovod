@@ -21,58 +21,214 @@ Requirements
 ~~~~~~~~~~~~
 
 - Python >= 3.6
+- TensorFlow >= 1.15 or PyTorch >= 1.0
 - Horovod >= 0.20.0 with Gloo support (install Horovod using ``HOROVOD_WITH_GLOO=1`` to ensure it is installed)
 - A way to discover available hosts at runtime
-- TensorFlow >= 1.15 or PyTorch >= 1.0
 
 
 Modifying the training script with State Synchronization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The biggest difference when moving from normal distributed training to elastic training is the need to synchronize
-state among the workers when workers are added or removed from the job.
+The biggest difference when moving from normal distributed training to elastic training is the need to track and synchronize
+state among the workers as workers are added or removed from the job.
 
-All state that is to be synchronized among the workers should be encapsulated in an object deriving from
-``hvd.elastic.State``. This object encapsulates everything that needs to be in sync between workers, including
-model / optimizer state, current epoch, current batch index, etc.  It will be used for issuing callbacks to adjust
-learning rate, redistribute data, etc.
+To enable elastic training, make the following changes to your training script:
 
-In order for state to be recovered in the event of a failure, you must call ``state.commit()`` periodically.
-Typically, commits are made once per batch, but can be less frequent if saving state is costly and chance of node
-failure is low.
+1. Wrap your main training process (everything following initialization) in a function decorated with ``hvd.elastic.run``.
 
-On commit, if any workers are pending being added, then they will be added after the commit. A rollback will occur on
-active workers, and they will resync from the sync point.
+   The first argument to this decorated function should be an instance of ``hvd.elastic.State``.  Before executing the
+   decorated function, this state object will be synchronized across workers.  This ensures that workers that were
+   newly added, as well as workers that might have inconsistent state, all share the same state before training begins.
 
-A decorator ``hvd.elastic.run`` is used to drive the elastic training loop.  Decorating a function in this way
-indicates that the function execution needs to be synchronized across workers.  When failure occurs or new worker is
-added, other workers will rollback to this point to resync state before resuming training.
+   Because the sync function uses collective ops, and upon worker add the active workers will not reset from before this
+   function, *no Horovod collective ops (broadcast, allreduce, allgather, etc.) can be called before this function*.
 
-Because the sync function uses collective ops, and upon worker add the active workers will not reset from before this
-function, *no Horovod collective ops (broadcast, allreduce, etc.) can be called before this function*.
+2. Place all variables that need to be kept in sync between worker replicas (model parameters, optimizer state, epoch and batch numbers, etc.) into a ``hvd.elastic.State`` object.
 
-If a worker fails during training, the other workers will catch a ``HorovodInternalError`` that is raised when
-attempting to perform the next collective operation.  This will trigger a rollback to the beginning of the
-synchronized function.
+   Standard state implementations are provided for TensorFlow, Keras, and PyTorch.  However, it may be necessary in some cases to override
+   the base ``hvd.elastic.State`` object to handle broadcasting custom types.
 
-Rollback process is as follows:
+3. Periodically call ``state.commit()`` to backup a copy of your state in memory.
 
-1. Catch exception within the hvd.elastic.run decorator.
-2. Restore last committed state (to clear any half-updated parameters).
+   This is useful to prevent corrupted state in the event that a worker fails unexpectedly. For example, if training fails
+   in the middle of a parameter update, some gradient updates may have applied while others were still being allreduced.  When this
+   happens, a ``HorovodInternalError`` will be raised, and all parameters will be restored to the values at the time of the last commit.
+
+   Because commits can be expensive (as the model size increases), there is a tradeoff between the per-batch processing time
+   and how far the training process needs to rollback in the event of a failure.  For example, if you commit once every 10
+   batches, you reduce the amount of copying by a factor of 10. But if a failure occurs, you may need to redo up to 10
+   previously processed batches.
+
+   Elastic Horovod can avoid these rollbacks by performing what we call a *graceful removal* of a worker. If the driver
+   process discovers that a host has been made available or flagged for removal, it will push a notification to the workers.
+   The next time ``state.commit()`` or the more lightweight ``state.check_host_updates()`` is called, a ``HostsUpdatedInterrupt``
+   will be raised.  This event is handled similar to the ``HorovodInternalError``, except that parameter state will not be
+   restored to the last commit.
+
+   In general, if your hardware is generally reliable, and your orchestration system gives the driver ample warning
+   when a host is scheduled to be removed from the job, then you can safely call ``state.commit()`` on a reduced frequency,
+   and call ``state.check_host_updates()`` at the end of each batch instead.
+
+4. Register callbacks with the ``hvd.elastic.State`` object to respond to changes in the worker membership in the job.
+
+   For example, rescaling the learning rate with the new world size or repartitioning the dataset would commonly be done
+   through these callbacks.
+
+   Callbacks are called after Horovod has reinitialized, but before state is synchronized across the workers.
+
+The reset process following a ``HorovodInternalError`` (failure) or ``HostsUpdatedInterrupt`` (add/remove request) is as follows:
+
+1. Catch exception within the ``hvd.elastic.run`` decorator.
+2. Restore last committed state if ``HorovodInternalError`` was raised.
 3. Reinitialize Horovod context performing a new round of rendezvous.
 4. Synchronize state among the workers by broadcasting from the new worker-0.
 5. Resume training by executing the underlying training function.
 
-When a new instance not on an internal blacklist is discovered, a message will be posted to a server running on the
-other workers to indicate that new workers are awaiting being added.  On the next commit event, a rollback will occur
-on the active workers, and the new workers will be launched by the driver.
-
-Rollback process is similar to worker failure, but the last committed state will not be restored (as there is no
-partial state that could have been lost).  However, broadcast is still necessary for new workers to obtain the most
-updated state.
-
 During rendezvous, older workers will take priority in being assigned worker-0 status to ensure that the state that
 is broadcast is up to date.
+
+
+Elastic TensorFlow
+~~~~~~~~~~~~~~~~~~
+
+TensorFlow v1 Example:
+
+.. code-block:: python
+
+    import tensorflow as tf
+    import horovod.tensorflow as hvd
+
+    hvd.init()
+
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    config.gpu_options.visible_device_list = str(hvd.local_rank())
+
+    dataset = ...
+    model = ...
+
+    lr = tf.Variable(base_lr * hvd.size())
+    optimizer = tf.train.GradientDescentOptimizer(lr)
+    optimizer = hvd.DistributedOptimizer(optimizer)
+
+    @hvd.elastic.run
+    def train(state, train_one_batch):
+        for state.epoch in range(state.epoch, epochs):
+            for state.batch in range(state.batch, batches_per_epoch):
+                train_one_batch()
+                if state.batch % batches_per_commit == 0:
+                    state.commit()
+            state.batch = 0
+
+    with tf.Session(config=config) as session:
+        session.run(tf.global_variables_initializer())
+
+        def on_state_reset():
+            lr.load(base_lr * hvd.size(), session)
+
+        state = hvd.elastic.TensorFlowState(session=session, batch=0, epoch=0)
+        state.register_reset_callbacks([on_state_reset])
+
+        train_opt = optimizer.minimize(loss)
+        train(state, lambda: session.run(train_opt))
+
+TensorFlow v2 Example:
+
+.. code-block:: python
+
+    import tensorflow as tf
+    import horovod.tensorflow as hvd
+
+    hvd.init()
+
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    for gpu in gpus:
+        tf.config.experimental.set_memory_growth(gpu, True)
+    if gpus:
+        tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
+
+    dataset = ...
+    model = ...
+
+    optimizer = tf.optimizers.Adam(lr * hvd.size())
+
+    @tf.function
+    def train_one_batch(data, target, allreduce=True):
+        with tf.GradientTape() as tape:
+            probs = model(data, training=True)
+            loss = tf.losses.categorical_crossentropy(target, probs)
+
+        if allreduce:
+            tape = hvd.DistributedGradientTape(tape)
+
+        gradients = tape.gradient(loss, model.trainable_variables)
+        optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+
+    # Initialize model and optimizer state so we can synchronize across workers
+    data, target = get_random_batch()
+    train_one_batch(data, target, allreduce=False)
+
+    @hvd.elastic.run
+    def train(state):
+        for state.epoch in range(state.epoch, epochs):
+            for state.batch in range(state.batch, batches_per_epoch):
+                data, target = get_random_batch()
+                train_one_batch(data, target)
+                if state.batch % batches_per_commit == 0:
+                    state.commit()
+            state.batch = 0
+
+    def on_state_reset():
+        optimizer.lr.assign(lr * hvd.size())
+
+    state = hvd.elastic.TensorFlowKerasState(model, optimizer, batch=0, epoch=0)
+    state.register_reset_callbacks([on_state_reset])
+    train(state)
+
+
+Elastic PyTorch
+~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    import torch
+    import horovod.torch as hvd
+
+    hvd.init()
+
+    torch.cuda.set_device(hvd.local_rank())
+
+    dataset = ...
+    model = ...
+
+    optimizer = optim.SGD(model.parameters(), lr * hvd.size())
+    optimizer = hvd.DistributedOptimizer(optimizer)
+
+    @hvd.elastic.run
+    def train(state):
+        batch_offset = state.batch
+        for state.epoch in range(state.epoch, epochs):
+            for state.batch in range(state.batch, batches_per_epoch):
+                data, target = get_random_batch()
+
+                optimizer.zero_grad()
+                output = model(data)
+                loss = F.nll_loss(output, target)
+                loss.backward()
+                optimizer.step()
+
+                if state.batch % batches_per_commit == 0:
+                    state.commit()
+            state.batch = 0
+
+    def on_state_reset():
+        # adjust learning rate on reset
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr * hvd.size()
+
+    state = hvd.elastic.TorchState(model, optimizer, batch=0, epoch=0)
+    state.register_reset_callbacks([on_state_reset])
+    train(state)
 
 
 Running with horovodrun
@@ -92,7 +248,6 @@ of the form: ``<hostname>:<slots>``.  For example:
 .. code-block:: bash
 
     $ ./discover_hosts.sh
-
     host-1:4
     host-2:4
     host-3:4

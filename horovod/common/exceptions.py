@@ -18,8 +18,16 @@ from __future__ import absolute_import
 
 
 class HorovodInternalError(RuntimeError):
+    """Internal error raised when a Horovod collective operation (e.g., allreduce) fails.
+
+    This is handled in elastic mode as a recoverable error, and will result in a reset event.
+    """
     pass
 
 
-class HostsUpdatedException(RuntimeError):
+class HostsUpdatedInterrupt(RuntimeError):
+    """Internal interrupt event indicating that the set of hosts in the job has changed.
+
+    In elastic mode, this will result in a reset event without a restore to committed state.
+    """
     pass
