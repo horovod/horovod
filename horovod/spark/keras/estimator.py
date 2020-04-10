@@ -487,8 +487,7 @@ class KerasModel(HorovodModel, KerasEstimatorParamsReadable,
             def to_array(item):
                 if type(item) in [DenseVector or SparseVector]:
                     return item.toArray()
-                else:
-                    return np.array(item)
+                return np.array(item)
 
             def to_numpy(item):
                 # Some versions of TensorFlow will return an EagerTensor
