@@ -97,8 +97,7 @@ class MPITests(tf.test.TestCase):
         if sess is None:
             with self.test_session(config=config) as sess:
                 return sess.run(tensors)
-        else:
-            return sess.run(tensors)
+        return sess.run(tensors)
 
 
     def test_horovod_adasum_multiple_allreduce_cpu(self):
