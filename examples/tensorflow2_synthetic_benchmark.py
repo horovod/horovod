@@ -76,7 +76,7 @@ def benchmark_step(first_batch):
     # Horovod: use DistributedGradientTape
     with tf.GradientTape() as tape:
         probs = model(data, training=True)
-        loss = tf.losses.categorical_crossentropy(target, probs)
+        loss = tf.losses.sparse_categorical_crossentropy(target, probs)
 
     # Horovod: add Horovod Distributed GradientTape.
     tape = hvd.DistributedGradientTape(tape, compression=compression)
