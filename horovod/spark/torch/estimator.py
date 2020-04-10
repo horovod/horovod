@@ -218,8 +218,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
             optimzer = optimizer_cls(model.parameters(), lr=1)
             optimzer.load_state_dict(optimizer_state)
             return optimzer
-        else:
-            return self._get_optimizer()
+        return self._get_optimizer()
 
     def _check_metadata_compatibility(self, metadata):
         util.check_shape_compatibility(metadata,
