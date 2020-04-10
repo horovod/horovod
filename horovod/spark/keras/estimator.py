@@ -69,8 +69,7 @@ class KerasEstimatorParamsReader(HorovodParamsReader):
             elif name == KerasEstimator.optimizer.name:
                 opt_base64_encoded = codec.loads_base64(param_val)
                 return keras_utils.deserialize_optimizer(opt_base64_encoded)
-            else:
-                return codec.loads_base64(param_val)
+            return codec.loads_base64(param_val)
 
         # In order to deserialize the model, we need to deserialize the custom_objects param
         # first.
