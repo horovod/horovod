@@ -156,11 +156,11 @@ class BasicTaskService(network.BasicService):
 
 class BasicTaskClient(network.BasicClient):
     def __init__(self, service_name, task_addresses, key, verbose,
-                 match_intf=False, retries=3):
+                 match_intf=False, attempts=3):
         super(BasicTaskClient, self).__init__(service_name,
                                               task_addresses, key, verbose,
                                               match_intf=match_intf,
-                                              retries=retries)
+                                              attempts=attempts)
 
     def run_command(self, command, env):
         self._send(RunCommandRequest(command, env))

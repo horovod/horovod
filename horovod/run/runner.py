@@ -53,8 +53,8 @@ CACHE_FOLDER = os.path.join(os.path.expanduser('~'), '.horovod')
 # Cache entries will be stale if they are older than this number of minutes
 CACHE_STALENESS_THRESHOLD_MINUTES = 60
 
-# Number of retries for sshing into the hosts
-SSH_RETRIES = 5
+# Number of attempts for sshing into the hosts
+SSH_ATTEMPTS = 5
 
 
 @cache.use_cache()
@@ -73,7 +73,7 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
         output_msg = ''
 
         # Try ssh 5 times
-        for i in range(SSH_RETRIES):
+        for i in range(SSH_ATTEMPTS):
             output = six.StringIO()
             try:
                 exit_code = safe_shell_exec.execute(command,

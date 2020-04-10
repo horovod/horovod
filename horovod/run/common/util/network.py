@@ -150,14 +150,14 @@ class BasicService(object):
 
 class BasicClient(object):
     def __init__(self, service_name, addresses, key, verbose, match_intf=False,
-                 probe_timeout=20, retries=3):
+                 probe_timeout=20, attempts=3):
         # Note: because of retry logic, ALL RPC calls are REQUIRED to be idempotent.
         self._verbose = verbose
         self._service_name = service_name
         self._wire = Wire(key)
         self._match_intf = match_intf
         self._probe_timeout = probe_timeout
-        self._retries = retries
+        self._attempts = attempts
         self._addresses = self._probe(addresses)
         if not self._addresses:
             raise NoValidAddressesFound(
@@ -195,7 +195,7 @@ class BasicClient(object):
         return result
 
     def _probe_one(self, intf, addr, result_queue):
-        for iter in range(self._retries):
+        for iter in range(self._attempts):
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(self._probe_timeout)
             try:
@@ -243,7 +243,7 @@ class BasicClient(object):
                 sock.close()
 
     def _send_one(self, addr, req):
-        for iter in range(self._retries):
+        for iter in range(self._attempts):
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
                 sock.connect(addr)
@@ -257,7 +257,7 @@ class BasicClient(object):
                     rfile.close()
                     wfile.close()
             except:
-                if iter == self._retries - 1:
+                if iter == self._attempts - 1:
                     # Raise exception on the last retry.
                     raise
             finally:
