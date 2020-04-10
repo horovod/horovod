@@ -258,7 +258,6 @@ private:
                   (nghrCount - nghrCountSoFar); // should not be negative
             }
           } else {
-            tensor_counts[i] = tensor_counts[i];
             nghrCountVec[nghrCountVec_index][i] = 0;
           }
           nghrCountSoFar += nghrCountVec[nghrCountVec_index][i];
@@ -273,7 +272,6 @@ private:
         for (size_t i = 0; i < tensor_counts.size(); i++) {
           if (myCountSoFar <= myCount) {
             if (myCountSoFar + tensor_counts[i] <= myCount) {
-              tensor_counts[i] = tensor_counts[i];
               nghrCountVec[nghrCountVec_index][i] = 0;
             } else {
               nghrCountVec[nghrCountVec_index][i] =
