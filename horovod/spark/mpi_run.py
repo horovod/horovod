@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-import os
+import copy
 import sys
 
 from horovod.run.mpi_run import mpi_run as hr_mpi_run
@@ -34,8 +34,7 @@ def mpi_run(settings, nics, driver, env, stdout=None, stderr=None):
     :param stderr: Stderr of the mpi process.
                    Only used when settings.run_func_mode is True.
     """
-    if env is None:
-        env = {}
+    env = {} if env is None else copy.copy(env)  # copy env so we do not leak env modifications
 
     # Pass secret key through the environment variables.
     env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(settings.key)

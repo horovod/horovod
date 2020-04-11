@@ -14,6 +14,7 @@
 # ==============================================================================
 
 import collections
+import copy
 import errno
 import math
 import os
@@ -277,6 +278,7 @@ def launch_gloo(command, exec_command, settings, nics, env, server_ip):
     signal.signal(signal.SIGTERM, set_event_on_sigterm)
 
     # TODO: Workaround for over-buffered outputs. Investigate how mpirun avoids this problem.
+    env = copy.copy(env)  # copy env so we do not leak env modifications
     env['PYTHONUNBUFFERED'] = '1'
 
     # In case, the main thread receives a SIGINT, the event will be set so the spawned threads can

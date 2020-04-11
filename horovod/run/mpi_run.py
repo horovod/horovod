@@ -14,8 +14,10 @@
 # ==============================================================================
 
 from __future__ import print_function
-import sys
+
+import copy
 import os
+import sys
 
 from horovod.run.common.util import env as env_util, safe_shell_exec, tiny_shell_exec
 
@@ -192,6 +194,7 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
     # we need the driver's PATH in env to run mpirun,
     # env for mpirun is different to env encoded in mpirun_command
     if 'PATH' not in env and 'PATH' in os.environ:
+        env = copy.copy(env)  # copy env so we do not leak env modifications
         env['PATH'] = os.environ['PATH']
 
     # Execute the mpirun command.

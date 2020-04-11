@@ -199,6 +199,19 @@ class SparkTests(unittest.TestCase):
                                 use_mpi=use_mpi, use_gloo=use_gloo)
 
     """
+    Tests that horovod.spark.run invokes mpi_run with a given PATH properly.
+    """
+    def test_spark_run_with_path_with_mpi(self):
+        env = {'env1': 'val1', 'env2': 'val2', 'PATH': 'path'}
+        expected_env = '-x PATH -x env1 -x env2'
+        extra_mpi_args = '<extra args go here>'
+        with is_built(gloo_is_built=False, mpi_is_built=True):
+            self._do_test_spark_run(num_proc=2, use_mpi=True, use_gloo=False,
+                                    extra_mpi_args=extra_mpi_args,
+                                    env=env, stdout='<stdout>', stderr='<stderr>',
+                                    cores=4, expected_np=2, expected_env=expected_env)
+
+    """
     Test that horovod.spark.run defaults num_proc to spark parallelism using MPI.
     """
     def test_spark_run_defaults_num_proc_to_spark_cores_with_mpi(self):
@@ -373,6 +386,9 @@ class SparkTests(unittest.TestCase):
         actual_secret = actual_env.pop(secret.HOROVOD_SECRET_KEY, None)
         self.assertEqual(expected_command, actual_command)
         if env:
+            if 'PATH' not in env and 'PATH' in os.environ:
+                env = copy.copy(env)
+                env['PATH'] = os.environ['PATH']
             self.assertEqual(env, actual_env)
         else:
             self.assertIsNotNone(actual_env)
