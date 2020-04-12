@@ -34,7 +34,7 @@ To ensure that Horovod is built with TensorFlow support enabled:
 
     $ HOROVOD_WITH_TENSORFLOW=1 pip install horovod[tensorflow]
 
-To skip TensorFlow, set ``HOROVOOD_WITHOUT_TENSORFLOW=1`` in your environment.
+To skip TensorFlow, set ``HOROVOD_WITHOUT_TENSORFLOW=1`` in your environment.
 
 If you've installed TensorFlow from `PyPI <https://pypi.org/project/tensorflow>`__, make sure that
 the ``g++-4.8.5`` or ``g++-4.9`` is installed.
@@ -48,7 +48,7 @@ To ensure that Horovod is built with PyTorch support enabled:
 
     $ HOROVOD_WITH_PYTORCH=1 pip install horovod[pytorch]
 
-To skip PyTorch, set ``HOROVOOD_WITHOUT_PYTORCH=1`` in your environment.
+To skip PyTorch, set ``HOROVOD_WITHOUT_PYTORCH=1`` in your environment.
 
 If you've installed PyTorch from `PyPI <https://pypi.org/project/torch>`__, make sure that the ``g++-4.9`` or
 above is installed.
@@ -62,7 +62,7 @@ To ensure that Horovod is built with MXNet support enabled:
 
     $ HOROVOD_WITH_MXNET=1 pip install horovod[mxnet]
 
-To skip MXNet, set ``HOROVOOD_WITHOUT_MXNET=1`` in your environment.
+To skip MXNet, set ``HOROVOD_WITHOUT_MXNET=1`` in your environment.
 
 Keras
 ~~~~~

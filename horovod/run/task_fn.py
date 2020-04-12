@@ -40,7 +40,7 @@ def _task_fn(index, driver_addresses, settings):
             settings.key,
             settings.verbose,
             match_intf=True,
-            retries=10)
+            attempts=10)
         driver.register_task_to_task_addresses(next_task_index,
                                                next_task.addresses())
         # Notify the next task that the address checks are completed.

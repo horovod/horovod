@@ -15,10 +15,9 @@
 
 from horovod.spark.task import task_service
 from horovod.spark.driver import driver_service
-from horovod.run.common.util import codec, secret
 
 
-def rsh(driver_addresses, settings, host_hash, command, env, local_rank):
+def rsh(driver_addresses, key, settings, host_hash, command, env, local_rank):
     """
     Method to run a command remotely given a host hash, local rank and driver addresses.
 
@@ -27,6 +26,7 @@ def rsh(driver_addresses, settings, host_hash, command, env, local_rank):
     of that host hash and invoke the command there.
 
     :param driver_addresses: driver's addresses
+    :param key: used for encryption of parameters passed across the hosts
     :param settings: settings
     :param host_hash: host hash to connect to
     :param command: command and arguments to invoke
@@ -36,7 +36,6 @@ def rsh(driver_addresses, settings, host_hash, command, env, local_rank):
     if ':' in host_hash:
         raise Exception('Illegal host hash provided. Are you using Open MPI 4.0.0+?')
 
-    key = codec.loads_base64(env[secret.HOROVOD_SECRET_KEY])
     driver_client = driver_service.SparkDriverClient(driver_addresses, key,
                                                      verbose=settings.verbose)
     task_indices = driver_client.task_host_hash_indices(host_hash)

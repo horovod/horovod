@@ -116,13 +116,12 @@ def use_cache():
                     (func.__name__, tuple(args[0]), frozenset(kwargs.items())))
                 if cached_result is not None:
                     return cached_result
-                else:
-                    results = func(*args, **kwargs)
-                    if results is not None:
-                        fn_cache.put(
-                            (func.__name__, tuple(args[0]),
-                             frozenset(kwargs.items())),
-                            results)
+                results = func(*args, **kwargs)
+                if results is not None:
+                    fn_cache.put(
+                        (func.__name__, tuple(args[0]),
+                            frozenset(kwargs.items())),
+                        results)
             return results
 
         return wrap_f

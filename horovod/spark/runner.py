@@ -40,7 +40,7 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo):
     # for convenience, we put it back into settings
     settings.key = key
 
-    task = task_service.SparkTaskService(index, settings.key, settings.nics)
+    task = task_service.SparkTaskService(index, settings.key, settings.nics, settings.verbose)
     try:
         driver_client = driver_service.SparkDriverClient(driver_addresses, settings.key, settings.verbose)
         driver_client.register_task(index, task.addresses(), host_hash.host_hash())
@@ -117,9 +117,6 @@ def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=No
         raise Exception('Unable to find a set of common task-to-task communication interfaces: %s'
                         % [(index, driver.task_addresses_for_tasks(index)) for index in range(settings.num_proc)])
 
-    if env is None:
-        env = os.environ.copy()
-
     run_controller(use_gloo, lambda: gloo_run(settings, nics, driver, env),
                    use_mpi, lambda: mpi_run(settings, nics, driver, env, stdout, stderr),
                    False, lambda: None,
@@ -141,7 +138,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
                        If not set, falls back to `HOROVOD_SPARK_START_TIMEOUT` environment variable value.
                        If it is not set as well, defaults to 600 seconds.
         extra_mpi_args: Extra arguments for mpi_run. Defaults to no extra args.
-        env: Environment dictionary to use in Horovod run.  Defaults to `os.environ`.
+        env: Environment dictionary to use in Horovod run.
         stdout: Horovod stdout is redirected to this stream. Defaults to sys.stdout.
         stderr: Horovod stderr is redirected to this stream. Defaults to sys.stderr.
         verbose: Debug output verbosity (0-2). Defaults to 1.

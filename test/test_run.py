@@ -374,7 +374,7 @@ class RunTests(unittest.TestCase):
                                 '{binding_args} '
                                 '{mpi_flags}       '
                                 'cmd').format(binding_args=' '.join(binding_args), mpi_flags=' '.join(mpi_flags))
-                expected_env = {}
+                expected_env = {'PATH': os.environ.get('PATH')}
                 execute.assert_called_once_with(expected_cmd, env=expected_env, stdout=None, stderr=None)
 
     """
@@ -406,7 +406,7 @@ class RunTests(unittest.TestCase):
                                 '{binding_args} '
                                 '{mpi_flags}       '
                                 'cmd').format(binding_args=' '.join(binding_args), mpi_flags=' '.join(mpi_flags))
-                expected_env = {}
+                expected_env = {'PATH': os.environ.get('PATH')}
                 execute.assert_called_once_with(expected_cmd, env=expected_env, stdout=None, stderr=None)
 
     """
@@ -457,7 +457,7 @@ class RunTests(unittest.TestCase):
                                     '-x env1 -x env2 '
                                     '>mpi-extra args go here< '
                                     'cmd arg1 arg2').format(mpi_flags=' '.join(mpi_flags))
-                expected_env = {'env1': 'val1', 'env2': 'val2'}
+                expected_env = {'env1': 'val1', 'env2': 'val2', 'PATH': os.environ.get('PATH')}
                 execute.assert_called_once_with(expected_command, env=expected_env, stdout=stdout, stderr=stderr)
 
     def test_mpi_run_with_non_zero_exit(self):

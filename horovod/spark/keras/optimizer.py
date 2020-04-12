@@ -91,7 +91,6 @@ def is_string(obj):
 def _deserialize_keras_optimizer(serialized_opt, load_keras_optimizer_fn):
     if is_string(serialized_opt):
         return serialized_opt
-    else:
-        bio = io.BytesIO(serialized_opt)
-        with h5py.File(bio, 'r') as f:
-            return load_keras_optimizer_fn(f)
+    bio = io.BytesIO(serialized_opt)
+    with h5py.File(bio, 'r') as f:
+        return load_keras_optimizer_fn(f)
