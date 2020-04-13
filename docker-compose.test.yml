@@ -166,7 +166,7 @@ services:
         TENSORFLOW_PACKAGE: tf-nightly
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
-        TORCHVISION_PACKAGE: torchvision
+        TORCHVISION_PACKAGE: torchvision==0.6.0.dev20200413
         MXNET_PACKAGE: mxnet-nightly
         PYSPARK_PACKAGE: pyspark==2.4.0
   test-cpu-mpich-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0:
@@ -271,7 +271,7 @@ services:
         TENSORFLOW_PACKAGE: tf-nightly-gpu
         KERAS_PACKAGE: git+https://github.com/keras-team/keras.git
         PYTORCH_PACKAGE: torch-nightly
-        TORCHVISION_PACKAGE: torchvision
+        TORCHVISION_PACKAGE: torchvision==0.6.0.dev20200413
         MXNET_PACKAGE: mxnet-nightly
         PYSPARK_PACKAGE: pyspark==2.4.0
   test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0:
