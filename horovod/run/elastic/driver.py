@@ -126,7 +126,7 @@ class ElasticDriver(object):
     def get_available_hosts(self):
         return self._discovered_hosts.get_available_hosts()
 
-    def wait_for_available_hosts(self, min_np, max_np=None):
+    def wait_for_available_hosts(self, min_np):
         tmout = timeout.Timeout(
             self._start_timeout,
             message='Timed out waiting for {{activity}}. Please check that you have '
@@ -134,14 +134,14 @@ class ElasticDriver(object):
 
         self._wait_hosts_cond.acquire()
         try:
-            while not self._has_available_slots(self._discovered_hosts.count_available_slots(), min_np, max_np):
+            while not self._has_available_slots(self._discovered_hosts.count_available_slots(), min_np):
                 self._wait_hosts_cond.wait(tmout.remaining())
                 tmout.check_time_out_for('minimum number of hosts to become available')
         finally:
             self._wait_hosts_cond.release()
 
-    def _has_available_slots(self, slots, min_np, max_np):
-        return slots >= min_np and (max_np is None or slots <= max_np)
+    def _has_available_slots(self, slots, min_np):
+        return slots >= min_np
 
     def _activate_hosts(self, min_np):
         logging.info('wait for available hosts: {}'.format(min_np))

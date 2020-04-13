@@ -336,7 +336,10 @@ class ElasticDriverTests(unittest.TestCase):
 
             if slot_info.rank == 0:
                 remove_host()
-            driver.wait_for_available_hosts(2, max_np=2)
+
+            # Busy wait for the number of available slots to decrease
+            while driver._discovered_hosts.count_available_slots() > 2:
+                time.sleep(0.01)
 
             rank_results[slot_info.rank] = notification_receiver.events
             return 0, time.time()
