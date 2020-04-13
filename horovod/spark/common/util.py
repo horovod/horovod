@@ -390,13 +390,13 @@ def _save_meta_to_fs(fs, path, schema, rows, total_byte_size):
         serialized_content = codec.dumps_base64(dict(schema=schema,
                                                      rows=rows,
                                                      total_byte_size=total_byte_size))
-        train_meta_file.write(serialized_content)
+        train_meta_file.write(bytes(serialized_content, 'utf-8'))
 
 
 def _load_metadata_from_fs(fs, path):
     with fs.open(path, 'rb') as train_meta_file:
         meta = train_meta_file.read()
-        meta = codec.loads_base64(meta)
+        meta = codec.loads_base64(meta.decode())
         data_schema = meta['schema']
         rows = meta['rows']
         total_byte_size = meta['total_byte_size']
