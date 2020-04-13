@@ -565,7 +565,7 @@ def _calculate_loss_fn():
             for output, label, loss_fn, loss_weight in zip(outputs, labels,
                                                            loss_fns, loss_weights):
                 weight_adjusted_sample_losses = \
-                    loss_fn(output, label, reduction='none').flatten() * sample_weights
+                    loss_fn(`output`, label, reduction='none').flatten() * sample_weights
                 output_loss = weight_adjusted_sample_losses.mean()
                 losses.append(output_loss * loss_weight)
         else:
