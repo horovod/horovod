@@ -103,11 +103,11 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
 
         sigterm_received = threading.Event()
 
-        def set_sigterm_received(signum, frame):
+        def set_event_on_signal(signum, frame):
             sigterm_received.set()
 
-        signal.signal(signal.SIGINT, set_sigterm_received)
-        signal.signal(signal.SIGTERM, set_sigterm_received)
+        signal.signal(signal.SIGINT, set_event_on_signal)
+        signal.signal(signal.SIGTERM, set_event_on_signal)
 
         def kill_executor_children_if_parent_dies():
             # This read blocks until the pipe is closed on the other side

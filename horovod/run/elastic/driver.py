@@ -146,7 +146,7 @@ class ElasticDriver(object):
     def _activate_hosts(self, min_np):
         logging.info('wait for available hosts: {}'.format(min_np))
         self.wait_for_available_hosts(min_np)
-        new_assigned_hosts = self._update_assigned_hosts()
+        new_assigned_hosts = self._update_host_assignments()
         self._worker_registry.reset(self.world_size())
         for host in new_assigned_hosts:
             logging.info('start worker processes: {}'.format(host))
@@ -173,7 +173,9 @@ class ElasticDriver(object):
                     print('WARNING: failed to notify {}[{}] of host updates'
                           .format(host, slot))
 
-    def _update_assigned_hosts(self):
+    def _update_host_assignments(self):
+        # Update the list of hosts that are currently assigned workers.
+        # We need to ensure this list preserves relative order to ensure the oldest hosts are assigned lower ranks.
         new_assigned_hosts = []
         self._assigned_hosts = self._discovered_hosts.filter_available_hosts(self._assigned_hosts)
         current_hosts = set(self._assigned_hosts)
@@ -181,10 +183,8 @@ class ElasticDriver(object):
             if host not in current_hosts:
                 new_assigned_hosts.append(host)
                 self._assigned_hosts.append(host)
-        self._update_host_assignments()
-        return new_assigned_hosts
 
-    def _update_host_assignments(self):
+        # Adjust the host assignments to account for added / removed hosts
         host_list = [hosts.HostInfo(host, self._discovered_hosts.get_slots(host)) for host in self._assigned_hosts]
         host_assignments_list = hosts.get_host_assignments(host_list, self._min_np, self._max_np)
         host_assignments = defaultdict(list)
@@ -193,6 +193,9 @@ class ElasticDriver(object):
         self._host_assignments = host_assignments
         self._world_size = len(host_assignments_list)
         self._rendezvous.httpd.init(host_assignments_list)
+
+        # Return newly assigned hosts for the purpose of spawning processes.
+        return new_assigned_hosts
 
     def _start_worker_processes(self, host):
         for slot_info in self._host_assignments[host]:

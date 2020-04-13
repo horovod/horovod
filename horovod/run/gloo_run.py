@@ -70,7 +70,7 @@ def _slot_info_to_command_fn(run_command, env):
 
     def slot_info_to_command(slot_info):
         """
-        Given an slot_info, creates a command used by gloo to launch a single job.
+        Given a slot_info, creates a command used by gloo to launch a single job.
 
         :param slot_info: host and slot to execute the run command on
         :return:

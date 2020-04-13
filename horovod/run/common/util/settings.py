@@ -72,7 +72,7 @@ class Settings(BaseSettings):
         """
         :param num_hosts: number of horovod hosts
         :type num_hosts: int
-        :param hosts: string of hostname with slots number
+        :param hosts: string, comma-delimited, of hostname[s] with slots number[s]
         :type hosts: string
         """
         super(Settings, self).__init__(**kwargs)

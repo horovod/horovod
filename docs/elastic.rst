@@ -252,7 +252,7 @@ of the form: ``<hostname>:<slots>``.  For example:
     host-2:4
     host-3:4
 
-Your disocvery script my omit the ``:<slots>`` if you explicitly specify the number of slots per host as an argument:
+Your discovery script may omit the ``:<slots>`` if you explicitly specify the number of slots per host as an argument:
 
 .. code-block:: bash
 

@@ -709,7 +709,7 @@ def _run_elastic(args):
                                                 nics=args.nics)
 
     if not gloo_built(verbose=(settings.verbose >= 2)):
-        raise ValueError('Gloo support is required to use elastic traiing, but has not been built.  Ensure CMake is '
+        raise ValueError('Gloo support is required to use elastic training, but has not been built.  Ensure CMake is '
                          'installed and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
 
     env = os.environ.copy()

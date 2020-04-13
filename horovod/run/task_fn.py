@@ -20,7 +20,7 @@ from horovod.run.driver import driver_service
 from horovod.run.task import task_service
 
 
-def _task_fn(index, driver_addresses, settings):
+def _task_fn(index, num_hosts, driver_addresses, settings):
     task = task_service.HorovodRunTaskService(index, settings.key, settings.nics)
     try:
         driver = driver_service.HorovodRunDriverClient(
