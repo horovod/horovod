@@ -331,17 +331,17 @@ class RunTests(unittest.TestCase):
         fn.assert_not_called()
 
     def test_safe_shell_exec_captures_stdout(self):
-        self._do_test_safe_shell_exec('echo hello', 0, 'hello\n', '')
+        self.do_test_safe_shell_exec('echo hello', 0, 'hello\n', '')
 
     def test_safe_shell_exec_captures_stderr(self):
-        self._do_test_safe_shell_exec('echo hello >&2', 0, '', 'hello\n')
+        self.do_test_safe_shell_exec('echo hello >&2', 0, '', 'hello\n')
 
     def test_safe_shell_exec_captures_last_line_wo_eol(self):
         cmd = 'bash -c "echo -e -n \\"hello\nstdout\\"; echo -e -n \\"hello\nstderr\\" >&2"'
-        self._do_test_safe_shell_exec(cmd, 0, 'hello\nstdout', 'hello\nstderr')
+        self.do_test_safe_shell_exec(cmd, 0, 'hello\nstdout', 'hello\nstderr')
 
     def test_safe_shell_exec_returns_exit_code(self):
-        self._do_test_safe_shell_exec('false', 1, '', '')
+        self.do_test_safe_shell_exec('false', 1, '', '')
 
     def test_safe_shell_exec_interrupts_on_event(self):
         # interrupt execute in one second
@@ -350,7 +350,7 @@ class RunTests(unittest.TestCase):
 
         sleep = 10
         start = time.time()
-        self._do_test_safe_shell_exec('sleep {}'.format(sleep), 143, '', None, interrupt)
+        self.do_test_safe_shell_exec('sleep {}'.format(sleep), 143, '', None, interrupt)
         duration = time.time() - start
 
         self.assertGreaterEqual(duration, 1.0)
@@ -391,7 +391,7 @@ class RunTests(unittest.TestCase):
             self.assertFalse(parent.is_running())
             self.assertFalse(child.is_running())
 
-    def _do_test_safe_shell_exec(self, cmd, expected_exit_code, expected_stdout, expected_stderr, event=None):
+    def do_test_safe_shell_exec(self, cmd, expected_exit_code, expected_stdout, expected_stderr, event=None):
         stdout = six.StringIO()
         stderr = six.StringIO()
         res = safe_shell_exec.execute(cmd, stdout=stdout, stderr=stderr, events=[event])
