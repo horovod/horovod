@@ -118,7 +118,7 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, event=None)
 
         in_thread(kill_executor_children_if_parent_dies)
 
-        on_event(sigterm_received, terminate_executor_shell_and_children, args=executor_shell.pid)
+        on_event(sigterm_received, terminate_executor_shell_and_children, args=(executor_shell.pid,))
 
         exit_code = executor_shell.wait()
         os._exit(exit_code)

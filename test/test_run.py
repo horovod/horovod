@@ -37,7 +37,7 @@ from horovod.run.mpi_run import _get_mpi_implementation, _get_mpi_implementation
     _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_available, mpi_run,\
     _OMPI_IMPL, _SMPI_IMPL, _MPICH_IMPL, _UNKNOWN_IMPL, _MISSING_IMPL
 from horovod.run.runner import parse_args, parse_host_files, run_controller
-from horovod.run.util.threads import on_event
+from horovod.run.util.threads import in_thread, on_event
 
 from common import is_built, lsf_and_jsrun, override_args, override_env, temppath
 
@@ -217,6 +217,26 @@ class RunTests(unittest.TestCase):
             with pytest.raises(ValueError):
                 parse_args()
 
+    # test_on_event tests in_thread as well, but it does not test args
+    def test_in_thread_args(self):
+        fn = mock.Mock()
+        thread = in_thread(fn, args=(1,))
+        thread.join(1.0)
+        self.assertFalse(thread.is_alive())
+        fn.assert_called_once_with(1)
+
+        fn = mock.Mock()
+        thread = in_thread(fn, args=(1, 2))
+        thread.join(1.0)
+        self.assertFalse(thread.is_alive())
+        fn.assert_called_once_with(1, 2)
+
+        fn = mock.Mock()
+        with pytest.raises(ValueError, match="^args must be a tuple, not <class 'int'>, "
+                                             "for a single argument use \\(arg,\\)$"):
+            in_thread(fn, args=1)
+        fn.assert_not_called()
+
     def test_on_event(self):
         # a happy run without args and stop event
         event = threading.Event()
@@ -289,6 +309,14 @@ class RunTests(unittest.TestCase):
         thread.join(1.0)
         self.assertFalse(thread.is_alive())
         fn.assert_called_once()
+
+        # test non-tuple args
+        event = threading.Event()
+        fn = mock.Mock()
+        with pytest.raises(ValueError, match="^args must be a tuple, not <class 'int'>, "
+                                             "for a single argument use \\(arg,\\)$"):
+            on_event(event, fn, args=1)
+        fn.assert_not_called()
 
     def test_hash(self):
         hash = _hash("test string")
