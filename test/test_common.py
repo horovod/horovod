@@ -18,16 +18,10 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-import threading
-import time
 import unittest
 import warnings
 
-import mock
-import pytest
-
 from horovod.common.util import _cache, extension_available, gloo_built, mpi_built
-from horovod.run.util.threads import on_event
 
 
 class CommonTests(unittest.TestCase):
@@ -50,76 +44,6 @@ class CommonTests(unittest.TestCase):
         gloo_rank = int(os.getenv('HOROVOD_RANK', -1))
         if gloo_rank == -1:
             self.assertTrue(mpi_built())
-
-    def test_on_event(self):
-        """Test on_event method"""
-
-        # a happy run without stop event
-        event = threading.Event()
-        fn = mock.Mock()
-        thread = on_event(event, fn)
-        fn.assert_not_called()
-        event.set()
-        thread.join(1.0)
-        self.assertFalse(thread.is_alive())
-        fn.assert_called_once()
-
-        # a happy run with stop event but unset
-        event = threading.Event()
-        stop = threading.Event()
-        fn = mock.Mock()
-        thread = on_event(event, fn, stop, 0.01)
-        fn.assert_not_called()
-        event.set()
-        thread.join(1.0)
-        self.assertFalse(thread.is_alive())
-        fn.assert_called_once()
-        stop.set()
-        time.sleep(0.1)
-        fn.assert_called_once()
-
-        # stop the thread before we set the event
-        event = threading.Event()
-        stop = threading.Event()
-        fn = mock.Mock()
-        thread = on_event(event, fn, stop, 0.01)
-        fn.assert_not_called()
-        stop.set()
-        thread.join(1.0)
-        self.assertFalse(thread.is_alive())
-        fn.assert_not_called()
-        event.set()
-        time.sleep(0.1)
-        fn.assert_not_called()
-
-        # test with exception
-        def exception():
-            raise Exception("Test Exception")
-
-        event = threading.Event()
-        fn = mock.Mock(side_effect=exception)
-        thread = on_event(event, fn)
-        fn.assert_not_called()
-        event.set()
-        thread.join(1.0)
-        self.assertFalse(thread.is_alive())
-        fn.assert_called_once()
-
-    def test_on_event_silent(self):
-        """Test on_event_silent method."""
-        # Presume method is based on on_event, only test exception handling.
-        def exception():
-            raise Exception("Test Exception")
-
-        event = threading.Event()
-        fn = mock.Mock(side_effect=exception)
-        thread = on_event(event, fn)
-        fn.assert_not_called()
-        event.set()
-        thread.join(1.0)
-        self.assertFalse(thread.is_alive())
-        fn.assert_called_once()
-
 
     def test_tensorflow_available(self):
         """Test that TensorFLow support has been built."""

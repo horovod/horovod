@@ -136,12 +136,12 @@ def on_event(event, func, args=(), stop=None, check_interval_seconds=1.0, silent
     if stop is None:
         def fn():
             event.wait()
-            func()
+            func(*args)
     else:
         def fn():
             while not event.is_set() and not stop.is_set():
                 event.wait(timeout=check_interval_seconds)
             if not stop.is_set():
-                func()
+                func(*args)
 
-    return in_thread(fn, args, silent=silent)
+    return in_thread(fn, silent=silent)
