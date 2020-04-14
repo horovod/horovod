@@ -75,6 +75,11 @@ class WorkerStateRegistry(object):
         key = (host, slot)
         with self._lock:
             if key in self._states:
+                # Worker originally recorded itself as READY, but failed before the barrier completed. As such,
+                # we need to update the state to FAILURE. In order to ensure that the new failing thread can record
+                # results in cases of total job failure, we also need to block this thread by waiting on the barrier.
+                # This requires us to reset the barrier, as otherwise this worker will be double-counted (once for
+                # the READY thread and once for FAILURE), which would cause the barrier to complete too early.
                 logging.info('key exists, reset barrier: {}[{}] = {}'.format(host, slot, state))
                 self._barrier.reset()
             logging.info('record state: {}[{}] = {}'.format(host, slot, state))
@@ -95,10 +100,13 @@ class WorkerStateRegistry(object):
                     # Timeout or other non-recoverable error, so exit
                     raise
 
+                # Barrier has been reset
                 with self._lock:
+                    # Check to make sure the reset was not caused by a change of state for this key
                     rendezvous_id = self._rendezvous_id
                     saved_state = self._states.get(key, state)
                     if saved_state != state:
+                        # This worker changed its state, so do not attempt to wait again to avoid double-counting
                         raise RuntimeError('State {} overridden by {}'.format(state, saved_state))
 
     def _action(self):
