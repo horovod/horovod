@@ -59,6 +59,16 @@ def terminate_executor_shell_and_children(pid):
 
 
 def forward_stream(src_fd, dst_stream, prefix, index):
+
+    def prepend_context(line, rank, prefix):
+        localtime = time.asctime(time.localtime(time.time()))
+        return '{time}[{rank}]<{prefix}>:{line}'.format(
+            time=localtime,
+            rank=str(rank),
+            prefix=prefix,
+            line=line
+        )
+
     with os.fdopen(src_fd, 'r') as src:
         line_buffer = ''
         while True:
@@ -72,17 +82,18 @@ def forward_stream(src_fd, dst_stream, prefix, index):
                 line_buffer += line
                 if line == '\r' or line == '\n':
                     if index is not None:
-                        localtime = time.asctime(time.localtime(time.time()))
-                        line_buffer = '{time}[{rank}]<{prefix}>:{line}'.format(
-                            time=localtime,
-                            rank=str(index),
-                            prefix=prefix,
-                            line=line_buffer
-                        )
+                        line_buffer = prepend_context(line_buffer, index, prefix)
 
                     dst_stream.write(line_buffer)
                     dst_stream.flush()
                     line_buffer = ''
+
+        # flush the line buffer if it is not empty
+        if len(line_buffer):
+            if index is not None:
+                line_buffer = prepend_context(line_buffer, index, prefix)
+            dst_stream.write(line_buffer)
+            dst_stream.flush()
 
 
 def execute(command, env=None, stdout=None, stderr=None, index=None, event=None):

@@ -25,12 +25,14 @@ import time
 import unittest
 import warnings
 
+import six
 import pytest
 import mock
 from mock import MagicMock
 
 import horovod
-from horovod.run.common.util import codec, config_parser, secret, settings as hvd_settings, timeout
+from horovod.run.common.util import codec, config_parser, safe_shell_exec, secret, \
+    settings as hvd_settings, timeout
 from horovod.run.common.util.host_hash import _hash, host_hash
 from horovod.run.js_run import js_run, generate_jsrun_rankfile
 from horovod.run.mpi_run import _get_mpi_implementation, _get_mpi_implementation_flags,\
@@ -39,7 +41,7 @@ from horovod.run.mpi_run import _get_mpi_implementation, _get_mpi_implementation
 from horovod.run.runner import parse_args, parse_host_files, run_controller
 from horovod.run.util.threads import in_thread, on_event
 
-from common import is_built, lsf_and_jsrun, override_args, override_env, temppath
+from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay
 
 
 class RunTests(unittest.TestCase):
@@ -323,6 +325,41 @@ class RunTests(unittest.TestCase):
                                              "for a single argument use \\(arg,\\)$"):
             on_event(event, fn, args=1)
         fn.assert_not_called()
+
+    def test_safe_shell_exec_captures_stdout(self):
+        self._do_test_safe_shell_exec('echo hello', 0, 'hello\n', '')
+
+    def test_safe_shell_exec_captures_stderr(self):
+        self._do_test_safe_shell_exec('echo hello >&2', 0, '', 'hello\n')
+
+    def test_safe_shell_exec_captures_last_line_wo_eol(self):
+        cmd = 'bash -c "echo -e -n \\"hello\nstdout\\"; echo -e -n \\"hello\nstderr\\" >&2"'
+        self._do_test_safe_shell_exec(cmd, 0, 'hello\nstdout', 'hello\nstderr')
+
+    def test_safe_shell_exec_returns_exit_code(self):
+        self._do_test_safe_shell_exec('false', 1, '', '')
+
+    def test_safe_shell_exec_interrupts_on_event(self):
+        # interrupt execute in one second
+        interrupt = threading.Event()
+        delay(lambda: interrupt.set(), 1.0)
+
+        sleep = 10
+        start = time.time()
+        self._do_test_safe_shell_exec('sleep {}'.format(sleep), 143, '', 'Terminated\n', interrupt)
+        duration = time.time() - start
+
+        self.assertGreaterEqual(duration, 1.0)
+        self.assertLess(duration, 2.0 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S, 'sleep should not finish')
+        self.assertGreater(sleep, 2.0 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S, 'sleep should allow for GRACEFUL_TERMINATION_TIME_S')
+
+    def _do_test_safe_shell_exec(self, cmd, expected_exit_code, expected_stdout, expected_stderr, event=None):
+        stdout = six.StringIO()
+        stderr = six.StringIO()
+        res = safe_shell_exec.execute(cmd, stdout=stdout, stderr=stderr, event=event)
+        self.assertEqual(expected_exit_code, res)
+        self.assertEqual(expected_stdout, stdout.getvalue())
+        self.assertEqual(expected_stderr, stderr.getvalue())
 
     def test_hash(self):
         hash = _hash("test string")
