@@ -101,10 +101,10 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
         executor_shell = subprocess.Popen(command, shell=True, env=env,
                                           stdout=stdout_w, stderr=stderr_w)
 
-        sigterm_received = threading.Event()
+        signal_received = threading.Event()
 
         def set_event_on_signal(signum, frame):
-            sigterm_received.set()
+            signal_received.set()
 
         signal.signal(signal.SIGINT, set_event_on_signal)
         signal.signal(signal.SIGTERM, set_event_on_signal)
@@ -119,11 +119,11 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
         bg.daemon = True
         bg.start()
 
-        def kill_executor_children_if_sigterm_received():
-            sigterm_received.wait()
+        def kill_executor_children_if_signal_received():
+            signal_received.wait()
             terminate_executor_shell_and_children(executor_shell.pid)
 
-        bg = threading.Thread(target=kill_executor_children_if_sigterm_received)
+        bg = threading.Thread(target=kill_executor_children_if_signal_received)
         bg.daemon = True
         bg.start()
 
