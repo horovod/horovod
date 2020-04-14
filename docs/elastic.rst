@@ -136,6 +136,7 @@ TensorFlow v1 Example:
 TensorFlow v2 Example:
 
 .. code-block:: python
+    :emphasize-lines: 33,34,40,43,46,47
 
     import tensorflow as tf
     import horovod.tensorflow as hvd
@@ -191,6 +192,7 @@ Elastic Keras
 ~~~~~~~~~~~~~
 
 .. code-block:: python
+    :emphasize-lines: 21,24,25,28,29,30,36,37
 
     import tensorflow as tf
     import horovod.tensorflow.keras as hvd
@@ -242,6 +244,7 @@ Elastic PyTorch
 ~~~~~~~~~~~~~~~
 
 .. code-block:: python
+    :emphasize-lines: 14,15,28,31,36,37
 
     import torch
     import horovod.torch as hvd
@@ -292,7 +295,7 @@ to allow Horovod to discover available hosts is to provide a ``--host-discovery-
 
 .. code-block:: bash
 
-    $ horovodrun -np 8 --host-disocvery-script discover_hosts.sh python train.py
+    $ horovodrun -np 8 --host-discovery-script discover_hosts.sh python train.py
 
 The host discovery script must have user executable permissions, and return one host with its available slots per line
 of the form: ``<hostname>:<slots>``.  For example:
@@ -308,7 +311,7 @@ Your discovery script may omit the ``:<slots>`` if you explicitly specify the nu
 
 .. code-block:: bash
 
-    $ horovodrun -np 8 --host-disocvery-script discover_hosts.sh --slots 4 python train.py
+    $ horovodrun -np 8 --host-discovery-script discover_hosts.sh --slots 4 python train.py
 
 The elastic training job will not start until at least ``-np`` slots are available for running worker processes.
 
@@ -316,7 +319,7 @@ You can additionally specify the minimum and maximum number of processes to run 
 
 .. code-block:: bash
 
-    $ horovodrun -np 8 --min-np 4 --max-np 12 --host-disocvery-script discover_hosts.sh python train.py
+    $ horovodrun -np 8 --min-np 4 --max-np 12 --host-discovery-script discover_hosts.sh python train.py
 
 If the number of available slots falls below ``--min-np`` (due to host failure, preemption, etc.), then the job will
 pause waiting for more hosts to become available or until ``HOROVOD_ELASTIC_START_TIMEOUT`` (default: 600 seconds) has
