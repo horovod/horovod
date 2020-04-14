@@ -146,11 +146,9 @@ class ElasticDriver(object):
     def _activate_hosts(self, min_np):
         logging.info('wait for available hosts: {}'.format(min_np))
         self.wait_for_available_hosts(min_np)
-        new_assigned_hosts = self._update_host_assignments()
+        pending_slots = self._update_host_assignments()
         self._worker_registry.reset(self.world_size())
-        for host in new_assigned_hosts:
-            logging.info('start worker processes: {}'.format(host))
-            self._start_worker_processes(host)
+        self._start_worker_processes(pending_slots)
 
     def _discover_hosts(self):
         while not self._shutdown.is_set():
@@ -174,14 +172,14 @@ class ElasticDriver(object):
                           .format(host, slot))
 
     def _update_host_assignments(self):
-        # Update the list of hosts that are currently assigned workers.
+        # Determine the slots that are already filled so we do not respawn these processes
+        active_slots = set([(host, slot_info.local_rank) for host, slot_info in self._host_assignments.items()])
+
         # We need to ensure this list preserves relative order to ensure the oldest hosts are assigned lower ranks.
-        new_assigned_hosts = []
         self._assigned_hosts = self._discovered_hosts.filter_available_hosts(self._assigned_hosts)
         current_hosts = set(self._assigned_hosts)
         for host in self.get_available_hosts():
             if host not in current_hosts:
-                new_assigned_hosts.append(host)
                 self._assigned_hosts.append(host)
 
         # Adjust the host assignments to account for added / removed hosts
@@ -194,11 +192,14 @@ class ElasticDriver(object):
         self._world_size = len(host_assignments_list)
         self._rendezvous.httpd.init(host_assignments_list)
 
-        # Return newly assigned hosts for the purpose of spawning processes.
-        return new_assigned_hosts
+        # Get the newly assigned slots that need to be started
+        pending_slots = [slot_info for host, slot_info in self._host_assignments.items()
+                         if (host, slot_info.local_rank) not in active_slots]
+        return pending_slots
 
-    def _start_worker_processes(self, host):
-        for slot_info in self._host_assignments[host]:
+    def _start_worker_processes(self, pending_slots):
+        for slot_info in pending_slots:
+            logging.info('start worker process: {}[{}]'.format(slot_info.hostname, slot_info.local_rank))
             self._start_worker_process(slot_info)
 
     def _start_worker_process(self, slot_info):
