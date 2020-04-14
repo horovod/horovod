@@ -13,15 +13,14 @@
 # limitations under the License.
 # ==============================================================================
 
-import random
 import socket
 import struct
-import threading
 import cloudpickle
 import psutil
 
 from six.moves import queue, socketserver
 
+from horovod.run.util.threads import in_thread
 from horovod.run.common.util import secret
 from horovod.run.util.network import find_port
 
@@ -94,9 +93,7 @@ class BasicService(object):
                 addr, self._make_handler()))
         self._port = self._server.socket.getsockname()[1]
         self._addresses = self._get_local_addresses()
-        self._thread = threading.Thread(target=self._server.serve_forever)
-        self._thread.daemon = True
-        self._thread.start()
+        self._thread = in_thread(target=self._server.serve_forever)
 
     def _make_handler(self):
         server = self
@@ -178,10 +175,7 @@ class BasicClient(object):
         threads = []
         for intf, intf_addresses in addresses.items():
             for addr in intf_addresses:
-                thread = threading.Thread(target=self._probe_one,
-                                          args=(intf, addr, result_queue))
-                thread.daemon = True
-                thread.start()
+                thread = in_thread(target=self._probe_one, args=(intf, addr, result_queue))
                 threads.append(thread)
         for t in threads:
             t.join()
