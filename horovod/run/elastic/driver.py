@@ -173,7 +173,9 @@ class ElasticDriver(object):
 
     def _update_host_assignments(self):
         # Determine the slots that are already filled so we do not respawn these processes
-        active_slots = set([(host, slot_info.local_rank) for host, slot_info in self._host_assignments.items()])
+        active_slots = set([(host, slot_info.local_rank)
+                            for host, slots in self._host_assignments.items()
+                            for slot_info in slots])
 
         # We need to ensure this list preserves relative order to ensure the oldest hosts are assigned lower ranks.
         self._assigned_hosts = self._discovered_hosts.filter_available_hosts(self._assigned_hosts)
@@ -193,7 +195,9 @@ class ElasticDriver(object):
         self._rendezvous.httpd.init(host_assignments_list)
 
         # Get the newly assigned slots that need to be started
-        pending_slots = [slot_info for host, slot_info in self._host_assignments.items()
+        pending_slots = [slot_info
+                         for host, slots in self._host_assignments.items()
+                         for slot_info in slots
                          if (host, slot_info.local_rank) not in active_slots]
         return pending_slots
 
