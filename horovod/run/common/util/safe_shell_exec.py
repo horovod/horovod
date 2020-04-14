@@ -142,8 +142,10 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, event=None)
     # TODO: Currently this requires explicitly declaration of the event and signal handler to set
     #  the event (gloo_run.py:_launch_jobs()). Need to figure out a generalized way to hide this behind
     #  interfaces.
+    stop = None
     if event is not None:
-        on_event(event, os.kill, (middleman_pid, signal.SIGTERM))
+        stop = threading.Event()
+        on_event(event, os.kill, (middleman_pid, signal.SIGTERM), stop=stop)
 
     try:
         res, status = os.waitpid(middleman_pid, 0)
@@ -157,6 +159,9 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, event=None)
             except:
                 # interrupted, wait for middleman to finish
                 pass
+    finally:
+        if stop is not None:
+            stop.set()
 
     stdout_fwd.join()
     stderr_fwd.join()
