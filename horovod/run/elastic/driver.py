@@ -170,6 +170,12 @@ class ElasticDriver(object):
             self._shutdown.wait(DISCOVER_HOSTS_FREQUENCY_SECS)
 
     def _notify_workers_host_changes(self):
+        current_hosts = self._host_assignments.keys()
+        available_hosts = self.get_available_hosts()
+        if not current_hosts - available_hosts and not self._can_assign_hosts(available_hosts - current_hosts):
+            # Skip notifying workers when host changes would not result in changes of host assignments
+            return
+
         timestamp = _epoch_time_s()
         for (host, slot), client in self._worker_clients.items():
             try:
@@ -178,6 +184,9 @@ class ElasticDriver(object):
                 if self._verbose >= 2:
                     print('WARNING: failed to notify {}[{}] of host updates'
                           .format(host, slot))
+
+    def _can_assign_hosts(self, added_hosts):
+        return len(added_hosts) > 0 and self.world_size() < self._max_np
 
     def _update_host_assignments(self):
         # Determine the slots that are already filled so we do not respawn these processes
