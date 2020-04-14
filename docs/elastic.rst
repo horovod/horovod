@@ -12,7 +12,7 @@ and go from the Horovod job without interrupting the training process.
 When to use elastic training
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- You are running an `autoscaling <https://en.wikipedia.org/wiki/Autoscaling>`__ job that may acquire more resources for training over tine.
+- You are running an `autoscaling <https://en.wikipedia.org/wiki/Autoscaling>`__ job that may acquire more resources for training over time.
 - Your job is running on preemptable or spot instances that may come and go with little warning.
 - Your nodes are unreliable and you want your job to continue training if some of the hosts fail.
 
@@ -94,6 +94,7 @@ Elastic TensorFlow
 TensorFlow v1 Example:
 
 .. code-block:: python
+    :emphasize-lines: 17,18,23,29,32,33
 
     import tensorflow as tf
     import horovod.tensorflow as hvd
