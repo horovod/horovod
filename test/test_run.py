@@ -232,7 +232,7 @@ class RunTests(unittest.TestCase):
         fn.assert_called_once_with(1, 2)
 
         fn = mock.Mock()
-        with pytest.raises(ValueError, match="^args must be a tuple, not <class 'int'>, "
+        with pytest.raises(ValueError, match="^args must be a tuple, not <(class|type) 'int'>, "
                                              "for a single argument use \\(arg,\\)$"):
             in_thread(fn, args=1)
         fn.assert_not_called()
@@ -313,7 +313,7 @@ class RunTests(unittest.TestCase):
         # test non-tuple args
         event = threading.Event()
         fn = mock.Mock()
-        with pytest.raises(ValueError, match="^args must be a tuple, not <class 'int'>, "
+        with pytest.raises(ValueError, match="^args must be a tuple, not <(class|type) 'int'>, "
                                              "for a single argument use \\(arg,\\)$"):
             on_event(event, fn, args=1)
         fn.assert_not_called()
