@@ -198,6 +198,15 @@ class ElasticDriver(object):
         host_assignments = defaultdict(list)
         for slot_info in host_assignments_list:
             host_assignments[slot_info.hostname].append(slot_info)
+
+        if len(self._host_assignments) > 0:
+            # Ensure that at least one previously active host is still assigned, otherwise there is no
+            # way to sync the state to the new workers
+            prev_hosts = self._host_assignments.keys()
+            next_hosts = host_assignments.keys()
+            if not prev_hosts & next_hosts:
+                raise RuntimeError('No hosts from previous set remaining, unable to broadcast state.')
+
         self._host_assignments = host_assignments
         self._world_size = len(host_assignments_list)
         self._rendezvous.httpd.init(host_assignments_list)
