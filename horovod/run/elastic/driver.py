@@ -151,14 +151,22 @@ class ElasticDriver(object):
         self._start_worker_processes(pending_slots)
 
     def _discover_hosts(self):
+        first_update = True
         while not self._shutdown.is_set():
             self._wait_hosts_cond.acquire()
             try:
                 if self._discovered_hosts.update_available_hosts():
                     self._notify_workers_host_changes()
                     self._wait_hosts_cond.notify_all()
+            except RuntimeError as e:
+                if first_update:
+                    # Misconfiguration, fail the job immediately
+                    raise
+                # Transient error, retry until timeout
+                logging.warning(str(e))
             finally:
                 self._wait_hosts_cond.release()
+            first_update = False
             self._shutdown.wait(DISCOVER_HOSTS_FREQUENCY_SECS)
 
     def _notify_workers_host_changes(self):

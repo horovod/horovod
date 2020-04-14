@@ -448,7 +448,9 @@ def parse_args():
                                   'An executable script that will print to stdout every available host (one per '
                                   'newline character) that can be used to run worker processes. Optionally '
                                   'specifies number of slots on the same line as the hostname as: "hostname:slots".'
-                                  'Providing a discovery script enables elastic training (see elastic arguments)')
+                                  'Providing a discovery script enables elastic training (see elastic arguments).'
+                                  'The job will fail immediately if execution of the script returns a non-zero exit '
+                                  'code on the first call. Subsequent calls will be retried until timeout.')
 
     group_controller_parent = parser.add_argument_group('controller arguments')
     group_controller = group_controller_parent.add_mutually_exclusive_group()

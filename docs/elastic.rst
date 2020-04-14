@@ -307,6 +307,10 @@ of the form: ``<hostname>:<slots>``.  For example:
     host-2:4
     host-3:4
 
+If the host discovery scripts fails to execute (due to a permissions issue) or otherwise returns a non-zero exit code
+the first time it is called, the training process will fail immediately. However, subsequent errors will result in
+retries until the job times-out (due to failure to discover a sufficient number of slots).
+
 Your discovery script may omit the ``:<slots>`` if you explicitly specify the number of slots per host as an argument:
 
 .. code-block:: bash
