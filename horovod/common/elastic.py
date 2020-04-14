@@ -27,8 +27,15 @@ notification_manager = WorkerNotificationManager()
 
 
 class State(object):
-    """State representation used for tracking in memory state across workers."""
-    def __init__(self):
+    """State representation used for tracking in memory state across workers.
+
+    Args:
+        bcast_bool: Function used to broadcast a boolean variable from rank 0 to the other workers.
+        get_rank: Function that returns the current rank of this worker.
+    """
+    def __init__(self, bcast_bool, get_rank):
+        self._bcast_bool = bcast_bool
+        self._rank = get_rank
         self._host_messages = queue.Queue()
         self._last_updated_timestamp = 0
         self._reset_callbacks = []
@@ -45,11 +52,13 @@ class State(object):
         self._reset_callbacks.extend(callbacks)
 
     def on_reset(self):
+        self._host_messages = queue.Queue()
         for callback in self._reset_callbacks:
             callback()
 
     def on_hosts_updated(self, timestamp):
-        self._host_messages.put(timestamp)
+        if self._rank() == 0:
+            self._host_messages.put(timestamp)
 
     def commit(self):
         """Commits all modifications to state tracked by this object to host memory.
@@ -69,18 +78,19 @@ class State(object):
 
         Raises a `HostsUpdatedInterrupt` if such a notification has been received.
         """
-        # Iterate through the update messages sent from the server. If the update timestamp
-        # is greater than the last update timestamp, then trigger a HostsUpdatedException.
         updated = False
-        while not self._host_messages.empty():
-            timestamp = self._host_messages.get()
-            if timestamp > self._last_updated_timestamp:
-                self._last_updated_timestamp = timestamp
-                updated = True
+        if self._rank() == 0:
+            # Iterate through the update messages sent from the server. If the update timestamp
+            # is greater than the last update timestamp, then trigger a HostsUpdatedException.
+            while not self._host_messages.empty():
+                timestamp = self._host_messages.get()
+                if timestamp > self._last_updated_timestamp:
+                    self._last_updated_timestamp = timestamp
+                    updated = True
 
         # In order to ensure all workers raise the exception at the same time, we need to sync
         # the updated state across all the workers.
-        updated = self._sync_host_updates(updated)
+        updated = self._bcast_bool(updated)
 
         # At this point, updated state is globally consistent across all ranks.
         if updated:
@@ -98,9 +108,6 @@ class State(object):
         """Synchronize state across workers."""
         raise NotImplementedError()
 
-    def _sync_host_updates(self, updated):
-        raise NotImplementedError()
-
 
 class ObjectState(State):
     """State for simple Python objects.
@@ -111,11 +118,11 @@ class ObjectState(State):
         bcast_object: Horovod broadcast object function used to sync state dictionary.
         kwargs: Properties to sync, will be exposed as attributes of the object.
     """
-    def __init__(self, bcast_object, **kwargs):
+    def __init__(self, bcast_object, get_rank, **kwargs):
         self._bcast_object = bcast_object
         self._saved_state = kwargs
         self._set_attrs()
-        super(ObjectState, self).__init__()
+        super(ObjectState, self).__init__(bcast_bool=bcast_object, get_rank=get_rank)
 
     def save(self):
         new_state = {}
@@ -134,9 +141,6 @@ class ObjectState(State):
     def _set_attrs(self):
         for attr, value in self._saved_state.items():
             setattr(self, attr, value)
-
-    def _sync_host_updates(self, updated):
-        return self._bcast_object(updated)
 
 
 def run_fn(func, reset):

@@ -18,7 +18,7 @@ from __future__ import absolute_import
 import copy
 
 from horovod.common.elastic import run_fn, ObjectState
-from horovod.torch.mpi_ops import init, shutdown
+from horovod.torch.mpi_ops import init, rank, shutdown
 from horovod.torch.functions import broadcast_object, broadcast_optimizer_state, broadcast_parameters
 
 
@@ -65,7 +65,9 @@ class TorchState(ObjectState):
         self.optimizer = optimizer
         self._saved_optimizer_state = copy.deepcopy(optimizer.state_dict())
 
-        super(TorchState, self).__init__(broadcast_object, **kwargs)
+        super(TorchState, self).__init__(bcast_object=broadcast_object,
+                                         get_rank=rank,
+                                         **kwargs)
 
     def save(self):
         self._saved_model_state = copy.deepcopy(self.model.state_dict())

@@ -178,6 +178,11 @@ class ElasticDriver(object):
 
         timestamp = _epoch_time_s()
         for (host, slot), client in self._worker_clients.items():
+            slot_info = self.get_slot_info(host, slot)
+            if slot_info.rank != 0:
+                # Only notify rank 0 of host changes
+                continue
+
             try:
                 client.notify_hosts_updated(timestamp)
             except:

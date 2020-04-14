@@ -24,7 +24,7 @@ from tensorflow.python.framework import ops
 from horovod.common.elastic import run_fn, ObjectState
 from horovod.common.exceptions import HorovodInternalError
 from horovod.tensorflow.functions import broadcast_object, broadcast_object_fn, broadcast_variables
-from horovod.tensorflow.mpi_ops import _executing_eagerly, init, shutdown
+from horovod.tensorflow.mpi_ops import _executing_eagerly, init, rank, shutdown
 
 
 _IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
@@ -115,7 +115,9 @@ class TensorFlowKerasState(ObjectState):
 
         broadcast_object_fn = broadcast_object if not backend or _executing_eagerly() else broadcast_object_with_session
 
-        super(TensorFlowKerasState, self).__init__(broadcast_object_fn, **kwargs)
+        super(TensorFlowKerasState, self).__init__(bcast_object=broadcast_object_fn,
+                                                   get_rank=rank,
+                                                   **kwargs)
 
     def save(self):
         self._save_model()
@@ -172,7 +174,9 @@ class TensorFlowState(ObjectState):
         def broadcast_object_with_session(obj):
             return bcast_obj(obj)
 
-        super(TensorFlowState, self).__init__(broadcast_object_with_session, **kwargs)
+        super(TensorFlowState, self).__init__(bcast_object=broadcast_object_with_session,
+                                              get_rank=rank,
+                                              **kwargs)
 
     def save(self):
         self._save_model()
