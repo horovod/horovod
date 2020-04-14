@@ -186,6 +186,57 @@ TensorFlow v2 Example:
     train(state)
 
 
+Elastic Keras
+~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    import tensorflow as tf
+    import horovod.tensorflow.keras as hvd
+
+    hvd.init()
+
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    config.gpu_options.visible_device_list = str(hvd.local_rank())
+    tf.keras.backend.set_session(tf.Session(config=config))
+
+    dataset = ...
+    model = ...
+
+    opt = keras.optimizers.Adadelta(lr * hvd.size())
+    opt = hvd.DistributedOptimizer(opt)
+
+    model.compile(loss=keras.losses.sparse_categorical_crossentropy,
+                  optimizer=opt,
+                  metrics=['accuracy'])
+
+    def on_state_reset():
+        tf.keras.backend.set_value(model.optimizer.lr, lr * hvd.size())
+
+    state = hvd.elastic.KerasState(model, batch=100, epoch=0)
+    state.register_reset_callbacks([on_state_reset])
+
+    callbacks = [
+        hvd.elastic.CommitStateCallback(state),
+        hvd.elastic.UpdateBatchStateCallback(state),
+        hvd.elastic.UpdateEpochStateCallback(state),
+    ]
+
+    if hvd.rank() == 0:
+        callbacks.append(keras.callbacks.ModelCheckpoint('./checkpoint-{epoch}.h5'))
+
+    @hvd.elastic.run
+    def train(state):
+        model.fit(dataset,
+                  steps_per_epoch=500 // hvd.size(),
+                  callbacks=callbacks,
+                  epochs=epochs - state.epoch,
+                  verbose=1 if hvd.rank() == 0 else 0)
+
+    train(state)
+
+
 Elastic PyTorch
 ~~~~~~~~~~~~~~~
 
