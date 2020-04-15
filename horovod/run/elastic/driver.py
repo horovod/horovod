@@ -170,9 +170,8 @@ class ElasticDriver(object):
             self._shutdown.wait(DISCOVER_HOSTS_FREQUENCY_SECS)
 
     def _notify_workers_host_changes(self):
-        current_hosts = self._host_assignments.keys()
-        available_hosts = self.get_available_hosts()
-        if not current_hosts - available_hosts and not self._can_assign_hosts(available_hosts - current_hosts):
+        next_host_assignments, _, _ = self._get_host_assignments()
+        if next_host_assignments == self._host_assignments:
             # Skip notifying workers when host changes would not result in changes of host assignments
             return
 
@@ -190,8 +189,13 @@ class ElasticDriver(object):
                     print('WARNING: failed to notify {}[{}] of host updates'
                           .format(host, slot))
 
-    def _can_assign_hosts(self, added_hosts):
-        return len(added_hosts) > 0 and self.world_size() < self._max_np
+    def _can_remove_slots(self, removed_hosts):
+        return len(removed_hosts) > 0 or self._discovered_hosts.count_available_slots() < self.world_size()
+
+    def _can_assign_slots(self, added_hosts):
+        if self.world_size() >= self._max_np:
+            return False
+        return len(added_hosts) > 0 or self._discovered_hosts.count_available_slots() > self.world_size()
 
     def _update_host_assignments(self):
         # Determine the slots that are already filled so we do not respawn these processes
@@ -199,20 +203,8 @@ class ElasticDriver(object):
                             for host, slots in self._host_assignments.items()
                             for slot_info in slots])
 
-        # We need to ensure this list preserves relative order to ensure the oldest hosts are assigned lower ranks.
-        self._ordered_available_hosts = self._discovered_hosts.filter_available_hosts(self._ordered_available_hosts)
-        known_hosts = set(self._ordered_available_hosts)
-        for host in self.get_available_hosts():
-            if host not in known_hosts:
-                self._ordered_available_hosts.append(host)
-
         # Adjust the host assignments to account for added / removed hosts
-        host_list = [hosts.HostInfo(host, self._discovered_hosts.get_slots(host))
-                     for host in self._ordered_available_hosts]
-        host_assignments_list = hosts.get_host_assignments(host_list, self._min_np, self._max_np)
-        host_assignments = defaultdict(list)
-        for slot_info in host_assignments_list:
-            host_assignments[slot_info.hostname].append(slot_info)
+        host_assignments, host_assignments_list, ordered_available_hosts = self._get_host_assignments()
 
         if len(self._host_assignments) > 0:
             # Ensure that at least one previously active host is still assigned, otherwise there is no
@@ -223,6 +215,7 @@ class ElasticDriver(object):
                 raise RuntimeError('No hosts from previous set remaining, unable to broadcast state.')
 
         self._host_assignments = host_assignments
+        self._ordered_available_hosts = ordered_available_hosts
         self._world_size = len(host_assignments_list)
         self._rendezvous.httpd.init(host_assignments_list)
 
@@ -232,6 +225,22 @@ class ElasticDriver(object):
                          for slot_info in slots
                          if (host, slot_info.local_rank) not in active_slots]
         return pending_slots
+
+    def _get_host_assignments(self):
+        # We need to ensure this list preserves relative order to ensure the oldest hosts are assigned lower ranks.
+        ordered_available_hosts = self._discovered_hosts.filter_available_hosts(self._ordered_available_hosts)
+        known_hosts = set(self._ordered_available_hosts)
+        for host in self.get_available_hosts():
+            if host not in known_hosts:
+                ordered_available_hosts.append(host)
+
+        # Adjust the host assignments to account for added / removed hosts
+        host_list = [hosts.HostInfo(host, self._discovered_hosts.get_slots(host)) for host in ordered_available_hosts]
+        host_assignments_list = hosts.get_host_assignments(host_list, self._min_np, self._max_np)
+        host_assignments = defaultdict(list)
+        for slot_info in host_assignments_list:
+            host_assignments[slot_info.hostname].append(slot_info)
+        return host_assignments, host_assignments_list, ordered_available_hosts
 
     def _start_worker_processes(self, pending_slots):
         for slot_info in pending_slots:

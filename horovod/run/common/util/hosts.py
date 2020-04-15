@@ -44,6 +44,14 @@ class SlotInfo:
                                          self.local_rank, self.local_size,
                                          self.cross_rank, self.cross_size])
 
+    def __eq__(self, other):
+        if isinstance(other, SlotInfo):
+            return self.hostname == other.hostname and \
+                   self.rank == other.rank and self.size == other.size and \
+                   self.local_rank == other.local_rank and self.local_size == other.local_size and \
+                   self.cross_rank == other.cross_rank and self.cross_size == other.cross_size
+        return False
+
 
 INVALID_SLOT_INFO = SlotInfo(hostname='',
                              rank=-1, local_rank=-1, cross_rank=-1,
