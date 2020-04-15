@@ -111,9 +111,10 @@ def in_thread(target, args=(), daemon=True, silent=False):
                 target(*args)
             except:
                 pass
-        target = fn
+    else:
+        fn = target
 
-    bg = threading.Thread(target=target, args=args)
+    bg = threading.Thread(target=fn, args=args)
     bg.daemon = daemon
     bg.start()
     return bg
