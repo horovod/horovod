@@ -66,7 +66,7 @@ class ElasticDriver(object):
         self._max_np = max_np
         self._verbose = verbose
 
-        self._assigned_hosts = []
+        self._ordered_available_hosts = []
         self._host_assignments = {}
         self._world_size = 0
 
@@ -200,14 +200,15 @@ class ElasticDriver(object):
                             for slot_info in slots])
 
         # We need to ensure this list preserves relative order to ensure the oldest hosts are assigned lower ranks.
-        self._assigned_hosts = self._discovered_hosts.filter_available_hosts(self._assigned_hosts)
-        current_hosts = set(self._assigned_hosts)
+        self._ordered_available_hosts = self._discovered_hosts.filter_available_hosts(self._ordered_available_hosts)
+        known_hosts = set(self._ordered_available_hosts)
         for host in self.get_available_hosts():
-            if host not in current_hosts:
-                self._assigned_hosts.append(host)
+            if host not in known_hosts:
+                self._ordered_available_hosts.append(host)
 
         # Adjust the host assignments to account for added / removed hosts
-        host_list = [hosts.HostInfo(host, self._discovered_hosts.get_slots(host)) for host in self._assigned_hosts]
+        host_list = [hosts.HostInfo(host, self._discovered_hosts.get_slots(host))
+                     for host in self._ordered_available_hosts]
         host_assignments_list = hosts.get_host_assignments(host_list, self._min_np, self._max_np)
         host_assignments = defaultdict(list)
         for slot_info in host_assignments_list:
