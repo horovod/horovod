@@ -68,6 +68,7 @@ class ElasticDriver(object):
 
         self._ordered_available_hosts = []
         self._host_assignments = {}
+        self._rank_assignments = {}
         self._world_size = 0
 
         self._wait_hosts_cond = threading.Condition()
@@ -175,19 +176,21 @@ class ElasticDriver(object):
             # Skip notifying workers when host changes would not result in changes of host assignments
             return
 
-        timestamp = _epoch_time_s()
-        for (host, slot), client in self._worker_clients.items():
-            slot_info = self.get_slot_info(host, slot)
-            if slot_info.rank != 0:
-                # Only notify rank 0 of host changes
-                continue
+        slot_info = self._rank_assignments.get(0)
+        if not slot_info:
+            return
 
-            try:
-                client.notify_hosts_updated(timestamp)
-            except:
-                if self._verbose >= 2:
-                    print('WARNING: failed to notify {}[{}] of host updates'
-                          .format(host, slot))
+        coordinator_client = self._worker_clients.get((slot_info.hostname, slot_info.local_rank))
+        if not coordinator_client:
+            return
+
+        timestamp = _epoch_time_s()
+        try:
+            coordinator_client.notify_hosts_updated(timestamp)
+        except:
+            if self._verbose >= 2:
+                print('WARNING: failed to notify {}[{}] of host updates'
+                      .format(slot_info.hostname, slot_info.local_rank))
 
     def _can_remove_slots(self, removed_hosts):
         return len(removed_hosts) > 0 or self._discovered_hosts.count_available_slots() < self.world_size()
@@ -218,6 +221,11 @@ class ElasticDriver(object):
         self._ordered_available_hosts = ordered_available_hosts
         self._world_size = len(host_assignments_list)
         self._rendezvous.httpd.init(host_assignments_list)
+
+        # Rank assignments map from world rank to slot info
+        rank_assignments = {}
+        for slot_info in host_assignments_list:
+            rank_assignments[slot_info.rank] = slot_info
 
         # Get the newly assigned slots that need to be started
         pending_slots = [slot_info
