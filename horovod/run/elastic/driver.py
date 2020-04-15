@@ -192,14 +192,6 @@ class ElasticDriver(object):
                 print('WARNING: failed to notify {}[{}] of host updates'
                       .format(slot_info.hostname, slot_info.local_rank))
 
-    def _can_remove_slots(self, removed_hosts):
-        return len(removed_hosts) > 0 or self._discovered_hosts.count_available_slots() < self.world_size()
-
-    def _can_assign_slots(self, added_hosts):
-        if self.world_size() >= self._max_np:
-            return False
-        return len(added_hosts) > 0 or self._discovered_hosts.count_available_slots() > self.world_size()
-
     def _update_host_assignments(self):
         # Determine the slots that are already filled so we do not respawn these processes
         active_slots = set([(host, slot_info.local_rank)
