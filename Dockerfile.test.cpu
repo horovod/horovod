@@ -51,31 +51,37 @@ RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
             cd /usr/local && tar -zxf /tmp/openmpi-3.0.0-bin.tar.gz && ldconfig && \
             echo "mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot -mca mpi_abort_print_stack 1" > /mpirun_command; \
     elif [[ ${MPI_KIND} == "ONECCL" ]]; then \
-        wget -O /tmp/oneccl.tar.gz https://github.com/intel/oneccl/archive/master.tar.gz && \
+        wget -O /tmp/oneccl.tar.gz https://github.com/oneapi-src/oneCCL/archive/master.tar.gz && \
             cd /tmp && tar -zxf oneccl.tar.gz && \
-            mkdir oneccl-master/build && cd oneccl-master/build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local/oneccl -DCMAKE_BUILD_TYPE=Release && make -j install && \
-            cp /tmp/oneccl-master/mpi/include/*.h /usr/local/oneccl/include && \
-            cp /tmp/oneccl-master/mpi/bin/mpicc /usr/local/oneccl/bin && \
+            mkdir oneCCL-master/build && cd oneCCL-master/build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local/oneccl -DCMAKE_BUILD_TYPE=Release && make -j install && \
+            cp /tmp/oneCCL-master/mpi/include/*.h /usr/local/oneccl/include && \
+            cp /tmp/oneCCL-master/mpi/bin/mpicc /usr/local/oneccl/bin && \
             chmod +x /usr/local/oneccl/bin/mpicc && \
-            cp /tmp/oneccl-master/mpi/bin/mpicxx /usr/local/oneccl/bin && \
+            cp /tmp/oneCCL-master/mpi/bin/mpicxx /usr/local/oneccl/bin && \
             chmod +x /usr/local/oneccl/bin/mpicxx && \
-            cp /tmp/oneccl-master/mpi/bin/mpigcc /usr/local/oneccl/bin && \
+            cp /tmp/oneCCL-master/mpi/bin/mpigcc /usr/local/oneccl/bin && \
             chmod +x /usr/local/oneccl/bin/mpigcc && \
-            cp /tmp/oneccl-master/mpi/bin/mpigxx /usr/local/oneccl/bin && \
+            cp /tmp/oneCCL-master/mpi/bin/mpigxx /usr/local/oneccl/bin && \
             chmod +x /usr/local/oneccl/bin/mpigxx && \
-            cp /tmp/oneccl-master/mpi/lib/libmpicxx.so /usr/local/oneccl/lib && \
+            cp /tmp/oneCCL-master/mpi/lib/libmpicxx.so /usr/local/oneccl/lib && \
             chmod +x /usr/local/oneccl/lib/libmpicxx.so && \
             sed -i 's/if \[ -z \"\${I_MPI_ROOT}\" \]/if [ -z \"${I_MPI_ROOT:-}\" ]/g' /usr/local/oneccl/env/setvars.sh && \
-            echo "source /usr/local/oneccl/env/setvars.sh; \
-                   echo \"mpirun is \$(which mpirun)\"; \
-                   echo \"this file is \$(cat /mpirun_command_script)\"; \
-                   echo \"LD_LIBRARY_PATH is \$(echo \$LD_LIBRARY_PATH)\"; \
-                   echo \"oneCCL links with \$(ldd /usr/local/oneccl/lib/libccl.so)\"; \
-                   mpirun -np 2 -ppn 2 -hosts localhost \$@" > /mpirun_command_script && \
-            chmod +x /mpirun_command_script && \
+            sed -i 's/ \$1/ \${1:-}/g' /usr/local/oneccl/env/setvars.sh && \
+            echo ". /usr/local/oneccl/env/setvars.sh" > /oneccl_env && \
+            chmod +x /oneccl_env && \
+            echo "export CCL_ATL_TRANSPORT=ofi; export CCL_ATL_SHM=0; \
+                  echo \"\$(env)\"; \
+                  echo \"mpirun is \$(which mpirun)\"; \
+                  echo \"LD_LIBRARY_PATH is \$(echo \$LD_LIBRARY_PATH)\"; \
+                  echo \"oneCCL links with \$(ldd /usr/local/oneccl/lib/libccl.so)\"; \
+                  mpirun -np 2 -hosts localhost \$@" > /mpirun_command_ofi && \
+            chmod +x /mpirun_command_ofi && \
+            cp /mpirun_command_ofi /mpirun_command_mpi && \
+            sed -i 's/export CCL_ATL_TRANSPORT=ofi;//g' /mpirun_command_mpi && \
+            sed -i 's/export CCL_ATL_SHM=0;//g' /mpirun_command_mpi && \
             echo "-L/usr/local/oneccl/lib -lmpi -I/usr/local/oneccl/include" > /mpicc_oneccl && \
             chmod +x /mpicc_oneccl && \
-            echo "/mpirun_command_script" > /mpirun_command; \
+            echo "/mpirun_command_mpi" > /mpirun_command; \
     elif [[ ${MPI_KIND} == "MPICH" ]]; then \
         apt-get install -y mpich && \
             echo "mpirun -np 2" > /mpirun_command; \
@@ -127,7 +133,7 @@ RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
       if [ -z "${PYTHONPATH:-}" ]; then \
           export PYTHONPATH=""; \
       fi; \
-      source /usr/local/oneccl/env/setvars.sh; \
+      . /usr/local/oneccl/env/setvars.sh; \
       export I_MPI_ROOT=/usr/local/oneccl; \
       export PIP_HOROVOD_MPICXX_SHOW=/usr/local/oneccl/bin/mpicxx; \
       echo "horovod python setup.py sdist, mpicxx is $(which mpicxx)"; \
@@ -143,7 +149,7 @@ RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
       if [ -z "${PYTHONPATH:-}" ]; then \
           export PYTHONPATH=""; \
       fi; \
-      source /usr/local/oneccl/env/setvars.sh; \
+      . /usr/local/oneccl/env/setvars.sh; \
       echo "pip install horovod, mpicxx is $(which mpicxx)"; \
       pip install -v $(ls /horovod/dist/horovod-*.tar.gz)[spark]; \
     else \

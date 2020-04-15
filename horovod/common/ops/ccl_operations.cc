@@ -87,8 +87,7 @@ void CCLContext::Init() {
 }
 
 void CCLContext::Finalize() {
-  ccl_barrier(nullptr, nullptr);
-  LOG(DEBUG) << "Background thread comm destroy";
+  LOG(DEBUG) << "Background thread destroy";
 
   // Finalize CCL
   ccl_finalize();

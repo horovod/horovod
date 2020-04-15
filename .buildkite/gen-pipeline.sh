@@ -22,6 +22,8 @@ tests=( \
        test-cpu-openmpi-py3_6-tf2_0_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
        test-cpu-mpich-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
+       test-cpu-oneccl-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
+       test-cpu-oneccl-ofi-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
        test-gpu-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
        test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
        test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
@@ -93,6 +95,8 @@ run_test() {
 run_mpi_pytest() {
   local test=$1
   local queue=$2
+  local oneccl_env=${3:-}
+  oneccl_env=$(echo ${oneccl_env//:/ })
 
   local exclude_keras_if_needed=""
   if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
@@ -110,15 +114,17 @@ run_mpi_pytest() {
   # pytests have 4x GPU use cases and require a separate queue
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras_if_needed} ${exclude_interactiverun} ${exclude_spark_test} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py\""
+    "bash -c \"${oneccl_env} cd /horovod/test && (echo test_*.py ${exclude_keras_if_needed} ${exclude_interactiverun} ${exclude_spark_test} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py\""
 }
 
 run_mpi_integration() {
   local test=$1
   local queue=$2
+  local oneccl_env=${3:-}
+  oneccl_env=$(echo ${oneccl_env//:/ })
 
   # Run test_interactiverun.py
-  if [[ ${test} != *"mpich"* ]]; then
+  if [[ ${test} != *"mpich"* ]] && [[ ${test} != *"oneccl"* ]]; then
     # TODO: support mpich
     run_test "${test}" "${queue}" \
       ":jupyter: Run PyTests test_interactiverun (${test})" \
@@ -129,33 +135,33 @@ run_mpi_integration() {
   if [[ ${test} != *"tf2_"* ]] && [[ ${test} != *"tfhead"* ]]; then
     run_test "${test}" "${queue}" \
       ":tensorflow: Test TensorFlow MNIST (${test})" \
-      "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist.py\""
+      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist.py\""
 
     if [[ ${test} != *"tf1_1_0"* && ${test} != *"tf1_6_0"* ]]; then
       run_test "${test}" "${queue}" \
         ":tensorflow: Test TensorFlow Eager MNIST (${test})" \
-        "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist_eager.py\""
+        "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist_eager.py\""
     fi
 
     run_test "${test}" "${queue}" \
       ":tensorflow: Test Keras MNIST (${test})" \
-      "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/keras_mnist_advanced.py\""
+      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/keras_mnist_advanced.py\""
   fi
 
   run_test "${test}" "${queue}" \
     ":python: Test PyTorch MNIST (${test})" \
-    "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/pytorch_mnist.py\""
+    "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/pytorch_mnist.py\""
 
   run_test "${test}" "${queue}" \
     ":muscle: Test MXNet MNIST (${test})" \
-    "bash -c \"OMP_NUM_THREADS=1 \\\$(cat /mpirun_command) python /horovod/examples/mxnet_mnist.py\""
+    "bash -c \"${oneccl_env} OMP_NUM_THREADS=1 \\\$(cat /mpirun_command) python /horovod/examples/mxnet_mnist.py\""
 
   # tests that should be executed only with the latest release since they don't test
   # a framework-specific functionality
   if [[ ${test} == *"tf1_14_0"* ]]; then
     run_test "${test}" "${queue}" \
       ":muscle: Test Stall (${test})" \
-      "bash -c \"\\\$(cat /mpirun_command) python /horovod/test/test_stall.py\""
+      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/test/test_stall.py\""
 
     if [[ ${test} == *"openmpi"* ]]; then
       run_test "${test}" "${queue}" \
@@ -183,9 +189,10 @@ run_mpi_integration() {
 run_mpi() {
   local test=$1
   local queue=$2
+  local oneccl_env=${3:-}
 
-  run_mpi_pytest ${test} ${queue}
-  run_mpi_integration ${test} ${queue}
+  run_mpi_pytest ${test} ${queue} ${oneccl_env}
+  run_mpi_integration ${test} ${queue} ${oneccl_env}
 }
 
 run_gloo_pytest() {
@@ -233,7 +240,7 @@ run_spark_integration() {
   local queue=$2
 
   # Horovod Spark Estimator tests
-  if [[ ${test} != *"tf1_1_0"* && ${test} != *"tf1_6_0"* && ${test} != *"torch0_"* && ${test} != *"mpich"* ]]; then
+  if [[ ${test} != *"tf1_1_0"* && ${test} != *"tf1_6_0"* && ${test} != *"torch0_"* && ${test} != *"mpich"* && ${test} != *"oneccl"* ]]; then
     if [[ ${test} != *"tf2"* && ${test} != *"tfhead"* ]]; then
       run_test "${test}" "${queue}" \
         ":spark: Spark Keras Rossmann Run (${test})" \
@@ -263,21 +270,23 @@ run_spark_integration() {
 run_single_integration() {
   local test=$1
   local queue=$2
+  local oneccl_env=${3:-}
+  oneccl_env=$(echo ${oneccl_env//:/ })
 
   # Only in TensorFlow 1.X
   if [[ ${test} != *"tf2_"* ]] && [[ ${test} != *"tfhead"* ]]; then
     run_test "${test}" "${queue}" \
       ":tensorflow: Single Keras MNIST (${test})" \
-      "python /horovod/examples/keras_mnist_advanced.py --epochs 3 --batch-size 64"
+      "bash -c \"${oneccl_env} python /horovod/examples/keras_mnist_advanced.py --epochs 3 --batch-size 64\""
   fi
 
   run_test "${test}" "${queue}" \
     ":python: Single PyTorch MNIST (${test})" \
-    "python /horovod/examples/pytorch_mnist.py --epochs 3"
+    "bash -c \"${oneccl_env} python /horovod/examples/pytorch_mnist.py --epochs 3\""
 
   run_test "${test}" "${queue}" \
     ":muscle: Single MXNet MNIST (${test})" \
-    "python /horovod/examples/mxnet_mnist.py --epochs 3"
+    "bash -c \"${oneccl_env} python /horovod/examples/mxnet_mnist.py --epochs 3\""
 }
 
 build_docs() {
@@ -314,6 +323,8 @@ if [[ "${BUILDKITE_BRANCH}" == "master" ]]; then
   done
 fi
 
+oneccl_env=""
+
 # run all the cpu unit tests and integration tests
 for test in ${tests[@]}; do
   if [[ ${test} == *-cpu-* ]]; then
@@ -321,17 +332,30 @@ for test in ${tests[@]}; do
     if [[ ${test} == *-gloo* ]]; then
       run_gloo ${test} "cpu"
     fi
+    
+    #if oneCCL is specified, prepare oneCCL environment
+    if [[ ${test} == *oneccl* ]]; then
+       oneccl_env="\\\$(cat:/oneccl_env):&&"
+       if [[ ${test} == *ofi* ]]; then
+          oneccl_env="${oneccl_env}:echo:'/mpirun_command_ofi':>:/mpirun_command:&&"
+       else
+          oneccl_env="${oneccl_env}:echo:'/mpirun_command_mpi':>:/mpirun_command:&&"
+       fi
+    else
+       oneccl_env=""
+    fi
 
     # if mpi is specified, run mpi cpu unit tests and integration tests
-    if [[ ${test} == *mpi* ]]; then
-      run_mpi ${test} "cpu"
+    # if oneccl is specified, run those tests, too
+    if [[ ${test} == *mpi* || ${test} == *oneccl* ]]; then
+      run_mpi ${test} "cpu" ${oneccl_env}
     fi
 
     # always run spark tests which use MPI and Gloo
     run_spark_integration ${test} "cpu"
 
     # no runner application, world size = 1
-    run_single_integration ${test} "cpu"
+    run_single_integration ${test} "cpu" ${oneccl_env}
   fi
 done
 
