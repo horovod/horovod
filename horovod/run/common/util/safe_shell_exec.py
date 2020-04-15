@@ -145,7 +145,7 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, event=None)
     stop = None
     if event is not None:
         stop = threading.Event()
-        on_event(event, os.kill, (middleman_pid, signal.SIGTERM), stop=stop)
+        on_event(event, os.kill, (middleman_pid, signal.SIGTERM), stop=stop, silent=True)
 
     try:
         res, status = os.waitpid(middleman_pid, 0)
