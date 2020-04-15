@@ -218,6 +218,7 @@ class ElasticDriver(object):
         rank_assignments = {}
         for slot_info in host_assignments_list:
             rank_assignments[slot_info.rank] = slot_info
+        self._rank_assignments = rank_assignments
 
         # Get the newly assigned slots that need to be started
         pending_slots = [slot_info
