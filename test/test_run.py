@@ -20,6 +20,8 @@ from __future__ import print_function
 import copy
 import os
 import itertools
+import threading
+import time
 import unittest
 import warnings
 
@@ -30,11 +32,12 @@ from mock import MagicMock
 import horovod
 from horovod.run.common.util import codec, config_parser, secret, settings as hvd_settings, timeout
 from horovod.run.common.util.host_hash import _hash, host_hash
+from horovod.run.js_run import js_run, generate_jsrun_rankfile
 from horovod.run.mpi_run import _get_mpi_implementation, _get_mpi_implementation_flags,\
     _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_available, mpi_run,\
     _OMPI_IMPL, _SMPI_IMPL, _MPICH_IMPL, _UNKNOWN_IMPL, _MISSING_IMPL
 from horovod.run.runner import parse_args, parse_host_files, run_controller
-from horovod.run.js_run import js_run, generate_jsrun_rankfile
+from horovod.run.util.threads import in_thread, on_event
 
 from common import is_built, lsf_and_jsrun, override_args, override_env, temppath
 
@@ -213,6 +216,107 @@ class RunTests(unittest.TestCase):
                            '--fusion-threshold-mb', '-1'):
             with pytest.raises(ValueError):
                 parse_args()
+
+    # test_on_event tests in_thread as well, but it does not test args
+    def test_in_thread_args(self):
+        fn = mock.Mock()
+        thread = in_thread(fn, args=(1,))
+        thread.join(1.0)
+        self.assertFalse(thread.is_alive())
+        fn.assert_called_once_with(1)
+
+        fn = mock.Mock()
+        thread = in_thread(fn, args=(1, 2))
+        thread.join(1.0)
+        self.assertFalse(thread.is_alive())
+        fn.assert_called_once_with(1, 2)
+
+        fn = mock.Mock()
+        with pytest.raises(ValueError, match="^args must be a tuple, not <(class|type) 'int'>, "
+                                             "for a single argument use \\(arg,\\)$"):
+            in_thread(fn, args=1)
+        fn.assert_not_called()
+
+    def test_on_event(self):
+        # a happy run without args and stop event
+        event = threading.Event()
+        fn = mock.Mock()
+        thread = on_event(event, fn)
+        fn.assert_not_called()
+        event.set()
+        thread.join(1.0)
+        self.assertFalse(thread.is_alive())
+        fn.assert_called_once()
+
+        # a happy run with args but without stop event
+        event = threading.Event()
+        fn = mock.Mock()
+        thread = on_event(event, fn, ('a', 1))
+        fn.assert_not_called()
+        event.set()
+        thread.join(1.0)
+        self.assertFalse(thread.is_alive())
+        fn.assert_called_once()
+        fn.assert_called_once_with('a', 1)
+
+        # a happy run with stop event but unused
+        event = threading.Event()
+        stop = threading.Event()
+        fn = mock.Mock()
+        thread = on_event(event, fn, stop=stop, check_interval_seconds=0.01)
+        fn.assert_not_called()
+        event.set()
+        thread.join(1.0)
+        self.assertFalse(thread.is_alive())
+        fn.assert_called_once()
+        stop.set()
+        time.sleep(0.1)
+        fn.assert_called_once()
+
+        # stop the thread before we set the event
+        event = threading.Event()
+        stop = threading.Event()
+        fn = mock.Mock()
+        thread = on_event(event, fn, stop=stop, check_interval_seconds=0.01)
+        fn.assert_not_called()
+        stop.set()
+        thread.join(1.0)
+        self.assertFalse(thread.is_alive())
+        fn.assert_not_called()
+        event.set()
+        time.sleep(0.1)
+        fn.assert_not_called()
+
+        # test with exception
+        def exception():
+            raise Exception("Test Exception")
+
+        event = threading.Event()
+        fn = mock.Mock(side_effect=exception)
+        thread = on_event(event, fn)
+        fn.assert_not_called()
+        event.set()
+        thread.join(1.0)
+        self.assertFalse(thread.is_alive())
+        fn.assert_called_once()
+
+        # test with exception but silent
+        event = threading.Event()
+        fn = mock.Mock(side_effect=exception)
+        thread = on_event(event, fn)
+        fn.assert_not_called()
+        event.set()
+        thread.join(1.0)
+        self.assertFalse(thread.is_alive())
+        fn.assert_called_once()
+
+        # test non-tuple args
+        event = threading.Event()
+        fn = mock.Mock()
+        with pytest.raises(ValueError, match="^args must be a tuple, not <(class|type) 'int'>, "
+                                             "for a single argument use \\(arg,\\)$"):
+            on_event(event, fn, args=1)
+        fn.assert_not_called()
 
     def test_hash(self):
         hash = _hash("test string")

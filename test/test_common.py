@@ -21,7 +21,7 @@ import os
 import unittest
 import warnings
 
-from horovod.common.util import _cache, extension_available, mpi_built, gloo_built
+from horovod.common.util import _cache, extension_available, gloo_built, mpi_built
 
 
 class CommonTests(unittest.TestCase):
@@ -33,17 +33,17 @@ class CommonTests(unittest.TestCase):
         super(CommonTests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
 
-    def test_mpi_built(self):
-        """Test that MPI has been built if env is set."""
-        gloo_rank = int(os.getenv('HOROVOD_RANK', -1))
-        if gloo_rank == -1:
-            self.assertTrue(mpi_built())
-
     def test_gloo_built(self):
         """Test that Gloo has been built if env is set."""
         gloo_rank = int(os.getenv('HOROVOD_RANK', -1))
         if gloo_rank >= 0:
             self.assertTrue(gloo_built())
+
+    def test_mpi_built(self):
+        """Test that MPI has been built if env is set."""
+        gloo_rank = int(os.getenv('HOROVOD_RANK', -1))
+        if gloo_rank == -1:
+            self.assertTrue(mpi_built())
 
     def test_tensorflow_available(self):
         """Test that TensorFLow support has been built."""

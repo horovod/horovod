@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # =============================================================================
+
 import collections
+import socket
+import threading
 
 from six.moves import BaseHTTPServer, SimpleHTTPServer
+
+from horovod.run.util.threads import in_thread
 from horovod.run.util.network import find_port
-import threading
-import socket
 
 # Timeout for reading from a single request
 SINGLE_REQUEST_TIMEOUT = 3
@@ -190,9 +193,7 @@ class RendezvousServer:
             print('Rendezvous INFO: HTTP rendezvous server started.')
 
         # start the listening loop
-        self.listen_thread = threading.Thread(target=self.listen_loop)
-        self.listen_thread.daemon = True
-        self.listen_thread.start()
+        self.listen_thread = in_thread(target=self.listen_loop)
 
         return port
 
@@ -232,10 +233,7 @@ class KVStoreServer:
             lambda addr: KVStoreHTTPServer(
                 addr, KVStoreHandler, self.verbose))
 
-        self.listen_thread = threading.Thread(
-            target=lambda: self.httpd.serve_forever())
-        self.listen_thread.daemon = True
-        self.listen_thread.start()
+        self.listen_thread = in_thread(target=self.httpd.serve_forever)
 
         if self.verbose:
             print('KVStoreServer INFO: KVStore server started. Listen on port ' + str(port))

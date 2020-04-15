@@ -14,9 +14,9 @@
 # ==============================================================================
 
 import os
-import threading
 import time
 
+from horovod.run.util.threads import in_thread
 from horovod.spark.task import task_info, task_service
 from horovod.spark.task.task_info import get_available_devices
 from horovod.spark.driver import driver_service
@@ -37,9 +37,7 @@ def _parent_process_monitor(initial_ppid):
 
 def task_exec(driver_addresses, settings, rank_env):
     # Die if parent process terminates
-    bg = threading.Thread(target=_parent_process_monitor, args=(os.getppid(),))
-    bg.daemon = True
-    bg.start()
+    in_thread(target=_parent_process_monitor, args=(os.getppid(),))
 
     key = codec.loads_base64(os.environ[secret.HOROVOD_SECRET_KEY])
     rank = int(os.environ[rank_env])

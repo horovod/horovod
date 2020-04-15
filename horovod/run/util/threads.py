@@ -63,10 +63,7 @@ def execute_function_multithreaded(fn,
     number_of_threads = min(max_concurrent_executions, len(args_list))
 
     for _ in range(number_of_threads):
-        thread = threading.Thread(target=fn_execute)
-        if not block_until_all_done:
-            thread.daemon = True
-        thread.start()
+        thread = in_thread(target=fn_execute, daemon=not block_until_all_done)
         threads.append(thread)
 
     # Returns the results only if block_until_all_done is set.
@@ -93,3 +90,66 @@ def execute_function_multithreaded(fn,
                 'Some threads for func {func} did not complete '
                 'successfully.'.format(func=fn.__name__))
     return results
+
+
+def in_thread(target, args=(), daemon=True, silent=False):
+    """
+    Executes the given function in background.
+    :param target: function
+    :param args: function arguments
+    :param daemon: run as daemon thread, do not block until thread is doe
+    :param silent: swallows exceptions raised by target silently
+    :return background thread
+    """
+    if not isinstance(args, tuple):
+        raise ValueError('args must be a tuple, not {}, for a single argument use (arg,)'
+                         .format(type(args)))
+
+    if silent:
+        def fn(*args):
+            try:
+                target(*args)
+            except:
+                pass
+        target = fn
+
+    bg = threading.Thread(target=target, args=args)
+    bg.daemon = daemon
+    bg.start()
+    return bg
+
+
+def on_event(event, func, args=(), stop=None, check_interval_seconds=1.0, silent=False):
+    """
+    Executes the given function in a separate thread when event is set.
+    That threat can be stopped by setting the optional stop event.
+    The stop event is check regularly every check_interval_seconds.
+    Exceptions will silently be swallowed when silent is True.
+
+    :param event: event that triggers func
+    :type event: threading.Event
+    :param func: function to trigger
+    :param args: function arguments
+    :param stop: event to stop thread
+    :type stop: threading.Event
+    :param check_interval_seconds: interval in seconds to check the stop event
+    :type check_interval_seconds: float
+    :param silent: swallows exceptions raised by target silently
+    :return: thread
+    """
+    if not isinstance(args, tuple):
+        raise ValueError('args must be a tuple, not {}, for a single argument use (arg,)'
+                         .format(type(args)))
+
+    if stop is None:
+        def fn():
+            event.wait()
+            func(*args)
+    else:
+        def fn():
+            while not event.is_set() and not stop.is_set():
+                event.wait(timeout=check_interval_seconds)
+            if not stop.is_set():
+                func(*args)
+
+    return in_thread(fn, silent=silent)

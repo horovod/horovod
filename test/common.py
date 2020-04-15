@@ -23,8 +23,11 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 
 import mock
+
+from horovod.run.util.threads import in_thread
 
 
 def mpi_env_rank_and_size():
@@ -61,6 +64,14 @@ def mpi_env_rank_and_size():
     # Default to rank zero and size one if there are no environment variables
     return 0, 1
 
+
+def delay(func, seconds):
+    """Delays the execution of func in a separate thread by given seconds."""
+    def fn():
+        time.sleep(seconds)
+        func()
+
+    t = in_thread(target=fn)
 
 @contextlib.contextmanager
 def tempdir():
