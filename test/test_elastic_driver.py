@@ -354,7 +354,8 @@ class ElasticDriverTests(unittest.TestCase):
 
         assert len(rank_results) == 2
         for rank, timestamps in rank_results.items():
-            assert len(timestamps) == 2
+            expected = 2 if rank == 0 else 0
+            assert len(timestamps) == expected, rank
 
         rendezvous.stop_server()
 
