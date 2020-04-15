@@ -232,6 +232,12 @@ class RunTests(unittest.TestCase):
         fn.assert_called_once_with(1, 2)
 
         fn = mock.Mock()
+        thread = in_thread(fn, args=(1, 2), silent=True)
+        thread.join(1.0)
+        self.assertFalse(thread.is_alive())
+        fn.assert_called_once_with(1, 2)
+
+        fn = mock.Mock()
         with pytest.raises(ValueError, match="^args must be a tuple, not <(class|type) 'int'>, "
                                              "for a single argument use \\(arg,\\)$"):
             in_thread(fn, args=1)
