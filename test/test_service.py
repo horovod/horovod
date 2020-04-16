@@ -118,17 +118,15 @@ class NetworkTests(unittest.TestCase):
         client.run_command('sleep 2', {})  # execute command
         time.sleep(0.5)  # give the thread some time to connect before shutdown
         service.shutdown()  # shutdown should wait on request to finish
-        duration = time.time() - start
-        self.assertGreaterEqual(duration, 2)
 
         # we cannot call after shutdown
-        with pytest.raises(Exception, match=r'^(\[[Ee]rrno 104\] Connection reset by peer)'
-                                            r'|(\[[Ee]rrno 111\] Connection refused)$'):
+        with pytest.raises(ConnectionResetError, match='^\\[Errno 104\\] Connection reset by peer$'):
             client.command_result()
 
         # but still our long running request succeeded
-        thread.join(1.0)
-        self.assertFalse(thread.is_alive())
+        thread.join(1)
+        duration = time.time() - start
+        self.assertGreater(duration, 2)
 
     def test_exit_code(self):
         """test non-zero exit code"""
