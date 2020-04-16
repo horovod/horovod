@@ -37,54 +37,60 @@ class KVStoreHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
     # Override GET handler
     def do_GET(self):
-        paths = self.path.split('/')
-        if len(paths) < 3:
-            logging.error(
-                'KVStore ERROR: Invalid request path: {path}.'.format(
-                    path=self.path))
-            self.send_status_code(BAD_REQUEST)
-            return
+        try:
+            paths = self.path.split('/')
+            if len(paths) < 3:
+                logging.error(
+                    'KVStore ERROR: Invalid request path: {path}.'.format(
+                        path=self.path))
+                self.send_status_code(BAD_REQUEST)
+                return
 
-        _, scope, key = paths
-        value = self._get_value(scope, key)
+            _, scope, key = paths
+            value = self._get_value(scope, key)
 
-        if value is None:
-            self.send_status_code(404)
-        else:
-            self.send_response(200)
-            self.send_header("Content-Length", str(len(value)))
-            self.end_headers()
-            self.wfile.write(value)
+            if value is None:
+                self.send_status_code(404)
+            else:
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(value)))
+                self.end_headers()
+                self.wfile.write(value)
+        except:
+            logging.exception('failed GET: {}'.format(self.path))
 
     # Override PUT handler
     def do_PUT(self):
-        paths = self.path.split('/')
-        if len(paths) < 3:
-            logging.error(
-                'KVStore ERROR: Invalid request path: {path}.'.format(
-                    path=self.path))
-            self.send_status_code(BAD_REQUEST)
-            return
-
-        _, scope, key = paths
-
-        # Get body length
-        content_length = int(self.headers['Content-Length'])
         try:
-            value = self.rfile.read(content_length)
-        except socket.timeout:
-            if self.server.verbose:
+            paths = self.path.split('/')
+            if len(paths) < 3:
                 logging.error(
-                    'KVStore ERROR: Timeout when receiving {content_bytes} '
-                    'bytes, aborting this incomplete request.' .format(
-                        content_bytes=content_length))
+                    'KVStore ERROR: Invalid request path: {path}.'.format(
+                        path=self.path))
+                self.send_status_code(BAD_REQUEST)
+                return
 
-            # If timeout, abort this request
-            self.send_status_code(TIMEOUT)
-            return
+            _, scope, key = paths
 
-        self._put_value(scope, key, value)
-        self.send_status_code(OK)
+            # Get body length
+            content_length = int(self.headers['Content-Length'])
+            try:
+                value = self.rfile.read(content_length)
+            except socket.timeout:
+                if self.server.verbose:
+                    logging.error(
+                        'KVStore ERROR: Timeout when receiving {content_bytes} '
+                        'bytes, aborting this incomplete request.' .format(
+                            content_bytes=content_length))
+
+                # If timeout, abort this request
+                self.send_status_code(TIMEOUT)
+                return
+
+            self._put_value(scope, key, value)
+            self.send_status_code(OK)
+        except:
+            logging.exception('failed PUT: {}'.format(self.path))
 
     def send_status_code(self, status_code):
         self.send_response(status_code)
@@ -111,23 +117,26 @@ class KVStoreHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 class RendezvousHandler(KVStoreHandler):
     # Override DELETE handler
     def do_DELETE(self):
-        paths = self.path.split('/')
-        if len(paths) < 3:
-            logging.error(
-                'Rendezvous ERROR: Invalid request path: {path}.'.format(
-                    path=self.path))
-            self.send_status_code(BAD_REQUEST)
-            return
+        try:
+            paths = self.path.split('/')
+            if len(paths) < 3:
+                logging.error(
+                    'Rendezvous ERROR: Invalid request path: {path}.'.format(
+                        path=self.path))
+                self.send_status_code(BAD_REQUEST)
+                return
 
-        _, scope, key = paths
+            _, scope, key = paths
 
-        with self.server.finished_list_lock:
-            self.server.finished_list[scope].append(key)
-            if self.server.scope_size[scope] == len(self.server.finished_list[scope]):
-                with self.server.cache_lock:
-                    self.server.cache.get(scope, {}).clear()
+            with self.server.finished_list_lock:
+                self.server.finished_list[scope].append(key)
+                if self.server.scope_size[scope] == len(self.server.finished_list[scope]):
+                    with self.server.cache_lock:
+                        self.server.cache.get(scope, {}).clear()
 
-        self.send_status_code(OK)
+            self.send_status_code(OK)
+        except:
+            logging.exception('failed DELETE: {}'.format(self.path))
 
 
 class RendezvousHTTPServer(socketserver.ThreadingMixIn, BaseHTTPServer.HTTPServer, object):
