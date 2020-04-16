@@ -116,7 +116,7 @@ class NetworkTests(unittest.TestCase):
         service.shutdown()  # shutdown should wait on request to finish
 
         # we cannot call after shutdown
-        with pytest.raises(ConnectionResetError, match='^\\[Errno 104\\] Connection reset by peer$'):
+        with pytest.raises(Exception, match='^\\[Errno 104\\] Connection reset by peer$'):
             client.command_result()
 
         # but still our long running request succeeded
