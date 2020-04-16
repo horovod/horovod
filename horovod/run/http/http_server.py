@@ -15,12 +15,13 @@
 
 import collections
 import logging
-import threading
 import socket
+import threading
 
 from six.moves import socketserver, BaseHTTPServer, SimpleHTTPServer
 
 from horovod.run.util.network import find_port
+from horovod.run.util.threads import in_thread
 
 # Timeout for reading from a single request
 SINGLE_REQUEST_TIMEOUT = 3
@@ -187,9 +188,7 @@ class RendezvousServer:
             logging.info('Rendezvous INFO: HTTP rendezvous server started.')
 
         # start the listening loop
-        self.listen_thread = threading.Thread(target=self.httpd.serve_forever)
-        self.listen_thread.daemon = True
-        self.listen_thread.start()
+        self.listen_thread = in_thread(target=self.httpd.serve_forever)
 
         return port
 
@@ -222,9 +221,7 @@ class KVStoreServer:
             lambda addr: KVStoreHTTPServer(
                 addr, KVStoreHandler, self.verbose))
 
-        self.listen_thread = threading.Thread(target=self.httpd.serve_forever)
-        self.listen_thread.daemon = True
-        self.listen_thread.start()
+        self.listen_thread = in_thread(target=self.httpd.serve_forever)
 
         if self.verbose:
             logging.info('KVStoreServer INFO: KVStore server started. Listen on port ' + str(port))

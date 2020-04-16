@@ -22,6 +22,7 @@ import sys
 import threading
 import time
 
+from horovod.run.util.threads import in_thread, on_event
 
 GRACEFUL_TERMINATION_TIME_S = 5
 
@@ -58,6 +59,16 @@ def terminate_executor_shell_and_children(pid):
 
 
 def forward_stream(src_fd, dst_stream, prefix, index):
+
+    def prepend_context(line, rank, prefix):
+        localtime = time.asctime(time.localtime(time.time()))
+        return '{time}[{rank}]<{prefix}>:{line}'.format(
+            time=localtime,
+            rank=str(rank),
+            prefix=prefix,
+            line=line
+        )
+
     with os.fdopen(src_fd, 'r') as src:
         line_buffer = ''
         while True:
@@ -71,17 +82,18 @@ def forward_stream(src_fd, dst_stream, prefix, index):
                 line_buffer += line
                 if line == '\r' or line == '\n':
                     if index is not None:
-                        localtime = time.asctime(time.localtime(time.time()))
-                        line_buffer = '{time}[{rank}]<{prefix}>:{line}'.format(
-                            time=localtime,
-                            rank=str(index),
-                            prefix=prefix,
-                            line=line_buffer
-                        )
+                        line_buffer = prepend_context(line_buffer, index, prefix)
 
                     dst_stream.write(line_buffer)
                     dst_stream.flush()
                     line_buffer = ''
+
+        # flush the line buffer if it is not empty
+        if len(line_buffer):
+            if index is not None:
+                line_buffer = prepend_context(line_buffer, index, prefix)
+            dst_stream.write(line_buffer)
+            dst_stream.flush()
 
 
 def execute(command, env=None, stdout=None, stderr=None, index=None, events=None):
@@ -115,17 +127,9 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
             os.read(r, 1)
             terminate_executor_shell_and_children(executor_shell.pid)
 
-        bg = threading.Thread(target=kill_executor_children_if_parent_dies)
-        bg.daemon = True
-        bg.start()
+        in_thread(kill_executor_children_if_parent_dies)
 
-        def kill_executor_children_if_signal_received():
-            signal_received.wait()
-            terminate_executor_shell_and_children(executor_shell.pid)
-
-        bg = threading.Thread(target=kill_executor_children_if_signal_received)
-        bg.daemon = True
-        bg.start()
+        on_event(signal_received, terminate_executor_shell_and_children, args=(executor_shell.pid,))
 
         exit_code = executor_shell.wait()
         os._exit(exit_code)
@@ -143,30 +147,17 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
     if stderr is None:
         stderr = sys.stderr
 
-    stdout_fwd = threading.Thread(target=forward_stream, args=(stdout_r, stdout, 'stdout', index))
-    stdout_fwd.daemon = True
-    stdout_fwd.start()
+    stdout_fwd = in_thread(target=forward_stream, args=(stdout_r, stdout, 'stdout', index))
+    stderr_fwd = in_thread(target=forward_stream, args=(stderr_r, stderr, 'stderr', index))
 
-    stderr_fwd = threading.Thread(target=forward_stream, args=(stderr_r, stderr, 'stderr', index))
-    stderr_fwd.daemon = True
-    stderr_fwd.start()
-
+    # TODO: Currently this requires explicitly declaration of the events and signal handler to set
+    #  the event (gloo_run.py:_launch_jobs()). Need to figure out a generalized way to hide this behind
+    #  interfaces.
+    stop = threading.Event()
     events = events or []
     for event in events:
-        def kill_middleman_if_master_thread_terminate():
-            event.wait()
-            try:
-                os.kill(middleman_pid, signal.SIGTERM)
-            except:
-                # The process has already been killed elsewhere
-                pass
-
-        # TODO: Currently this requires explicitly declaration of the event and signal handler to set
-        #  the event (gloo_run.py:_launch_jobs()). Need to figure out a generalized way to hide this behind
-        #  interfaces.
-        bg_thread = threading.Thread(target=kill_middleman_if_master_thread_terminate)
-        bg_thread.daemon = True
-        bg_thread.start()
+        # with silent=True because the process may have already been killed elsewhere
+        on_event(event, os.kill, (middleman_pid, signal.SIGTERM), stop=stop, silent=True)
 
     try:
         res, status = os.waitpid(middleman_pid, 0)
@@ -180,6 +171,8 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
             except:
                 # interrupted, wait for middleman to finish
                 pass
+    finally:
+        stop.set()
 
     # TODO(travis): investigate why os.read is hanging after exit
     # stdout_fwd.join()

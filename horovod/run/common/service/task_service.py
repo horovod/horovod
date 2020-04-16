@@ -18,6 +18,7 @@ import time
 
 from horovod.run.common.util import network
 from horovod.run.common.util import safe_shell_exec
+from horovod.run.util.threads import in_thread
 
 
 class RunCommandRequest(object):
@@ -95,11 +96,10 @@ class BasicTaskService(network.BasicService):
                             print("Task service env: {} = {}".format(key, value))
 
                     # We only permit executing exactly one command, so this is idempotent.
-                    self._command_thread = threading.Thread(
+                    self._command_thread = in_thread(
                         target=safe_shell_exec.execute,
-                        args=(req.command, req.env))
-                    self._command_thread.daemon = True
-                    self._command_thread.start()
+                        args=(req.command, req.env)
+                    )
             finally:
                 self._wait_cond.notify_all()
                 self._wait_cond.release()

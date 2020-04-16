@@ -14,6 +14,7 @@
 # ==============================================================================
 
 import collections
+import copy
 import errno
 import math
 import os
@@ -66,6 +67,7 @@ class MultiFile(object):
 
 def _slot_info_to_command_fn(run_command, env):
     # TODO: Workaround for over-buffered outputs. Investigate how mpirun avoids this problem.
+    env = copy.copy(env)  # copy env so we do not leak env modifications
     env['PYTHONUNBUFFERED'] = '1'
 
     def slot_info_to_command(slot_info):
@@ -211,7 +213,6 @@ def register_shutdown_event():
     signal.signal(signal.SIGINT, set_event_on_signal)
     signal.signal(signal.SIGTERM, set_event_on_signal)
     return event
-
 
 def launch_gloo(command, exec_command, settings, nics, env, server_ip):
     """

@@ -15,11 +15,11 @@
 
 import os
 import platform
-import threading
 
 import pyspark
 from six.moves import queue
 
+from horovod.run.util.threads import in_thread
 from horovod.spark.task import task_service
 from horovod.spark.gloo_run import gloo_run
 from horovod.spark.mpi_run import mpi_run
@@ -103,8 +103,7 @@ def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
             driver.notify_spark_job_failed()
             raise
 
-    spark_thread = threading.Thread(target=run_spark)
-    spark_thread.start()
+    spark_thread = in_thread(target=run_spark, daemon=False)
     return spark_thread
 
 

@@ -20,23 +20,28 @@ from __future__ import print_function
 import copy
 import os
 import itertools
+import threading
+import time
 import unittest
 import warnings
 
+import six
 import pytest
 import mock
 from mock import MagicMock
 
 import horovod
-from horovod.run.common.util import codec, config_parser, secret, settings as hvd_settings, timeout
+from horovod.run.common.util import codec, config_parser, safe_shell_exec, secret, \
+    settings as hvd_settings, timeout
 from horovod.run.common.util.host_hash import _hash, host_hash
+from horovod.run.js_run import js_run, generate_jsrun_rankfile
 from horovod.run.mpi_run import _get_mpi_implementation, _get_mpi_implementation_flags,\
     _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_available, mpi_run,\
     _OMPI_IMPL, _SMPI_IMPL, _MPICH_IMPL, _UNKNOWN_IMPL, _MISSING_IMPL
 from horovod.run.runner import parse_args, parse_host_files, run_controller
-from horovod.run.js_run import js_run, generate_jsrun_rankfile
+from horovod.run.util.threads import in_thread, on_event
 
-from common import is_built, lsf_and_jsrun, override_args, override_env, temppath
+from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay
 
 
 class RunTests(unittest.TestCase):
@@ -214,6 +219,148 @@ class RunTests(unittest.TestCase):
             with pytest.raises(ValueError):
                 parse_args()
 
+    # test_on_event tests in_thread as well, but it does not test args
+    def test_in_thread_args(self):
+        fn = mock.Mock()
+        thread = in_thread(fn, args=(1,))
+        thread.join(1.0)
+        self.assertFalse(thread.is_alive())
+        fn.assert_called_once_with(1)
+
+        fn = mock.Mock()
+        thread = in_thread(fn, args=(1, 2))
+        thread.join(1.0)
+        self.assertFalse(thread.is_alive())
+        fn.assert_called_once_with(1, 2)
+
+        fn = mock.Mock()
+        thread = in_thread(fn, args=(1, 2), silent=True)
+        thread.join(1.0)
+        self.assertFalse(thread.is_alive())
+        fn.assert_called_once_with(1, 2)
+
+        fn = mock.Mock()
+        with pytest.raises(ValueError, match="^args must be a tuple, not <(class|type) 'int'>, "
+                                             "for a single argument use \\(arg,\\)$"):
+            in_thread(fn, args=1)
+        fn.assert_not_called()
+
+    def test_on_event(self):
+        # a happy run without args and stop event
+        event = threading.Event()
+        fn = mock.Mock()
+        thread = on_event(event, fn)
+        fn.assert_not_called()
+        event.set()
+        thread.join(1.0)
+        self.assertFalse(thread.is_alive())
+        fn.assert_called_once()
+
+        # a happy run with args but without stop event
+        event = threading.Event()
+        fn = mock.Mock()
+        thread = on_event(event, fn, ('a', 1))
+        fn.assert_not_called()
+        event.set()
+        thread.join(1.0)
+        self.assertFalse(thread.is_alive())
+        fn.assert_called_once()
+        fn.assert_called_once_with('a', 1)
+
+        # a happy run with stop event but unused
+        event = threading.Event()
+        stop = threading.Event()
+        fn = mock.Mock()
+        thread = on_event(event, fn, stop=stop, check_interval_seconds=0.01)
+        fn.assert_not_called()
+        event.set()
+        thread.join(1.0)
+        self.assertFalse(thread.is_alive())
+        fn.assert_called_once()
+        stop.set()
+        time.sleep(0.1)
+        fn.assert_called_once()
+
+        # stop the thread before we set the event
+        event = threading.Event()
+        stop = threading.Event()
+        fn = mock.Mock()
+        thread = on_event(event, fn, stop=stop, check_interval_seconds=0.01)
+        fn.assert_not_called()
+        stop.set()
+        thread.join(1.0)
+        self.assertFalse(thread.is_alive())
+        fn.assert_not_called()
+        event.set()
+        time.sleep(0.1)
+        fn.assert_not_called()
+
+        # test with exception
+        def exception():
+            raise Exception("Test Exception")
+
+        event = threading.Event()
+        fn = mock.Mock(side_effect=exception)
+        thread = on_event(event, fn)
+        fn.assert_not_called()
+        event.set()
+        thread.join(1.0)
+        self.assertFalse(thread.is_alive())
+        fn.assert_called_once()
+
+        # test with exception but silent
+        event = threading.Event()
+        fn = mock.Mock(side_effect=exception)
+        thread = on_event(event, fn)
+        fn.assert_not_called()
+        event.set()
+        thread.join(1.0)
+        self.assertFalse(thread.is_alive())
+        fn.assert_called_once()
+
+        # test non-tuple args
+        event = threading.Event()
+        fn = mock.Mock()
+        with pytest.raises(ValueError, match="^args must be a tuple, not <(class|type) 'int'>, "
+                                             "for a single argument use \\(arg,\\)$"):
+            on_event(event, fn, args=1)
+        fn.assert_not_called()
+
+    def test_safe_shell_exec_captures_stdout(self):
+        self._do_test_safe_shell_exec('echo hello', 0, 'hello\n', '')
+
+    def test_safe_shell_exec_captures_stderr(self):
+        self._do_test_safe_shell_exec('echo hello >&2', 0, '', 'hello\n')
+
+    def test_safe_shell_exec_captures_last_line_wo_eol(self):
+        cmd = 'bash -c "echo -e -n \\"hello\nstdout\\"; echo -e -n \\"hello\nstderr\\" >&2"'
+        self._do_test_safe_shell_exec(cmd, 0, 'hello\nstdout', 'hello\nstderr')
+
+    def test_safe_shell_exec_returns_exit_code(self):
+        self._do_test_safe_shell_exec('false', 1, '', '')
+
+    def test_safe_shell_exec_interrupts_on_event(self):
+        # interrupt execute in one second
+        interrupt = threading.Event()
+        delay(lambda: interrupt.set(), 1.0)
+
+        sleep = 10
+        start = time.time()
+        self._do_test_safe_shell_exec('sleep {}'.format(sleep), 143, '', 'Terminated\n', interrupt)
+        duration = time.time() - start
+
+        self.assertGreaterEqual(duration, 1.0)
+        self.assertLess(duration, 2.0 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S, 'sleep should not finish')
+        self.assertGreater(sleep, 2.0 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S, 'sleep should allow for GRACEFUL_TERMINATION_TIME_S')
+
+    def _do_test_safe_shell_exec(self, cmd, expected_exit_code, expected_stdout, expected_stderr, event=None):
+        stdout = six.StringIO()
+        stderr = six.StringIO()
+        res = safe_shell_exec.execute(cmd, stdout=stdout, stderr=stderr, event=event)
+        self.assertEqual(expected_exit_code, res)
+        self.assertEqual(expected_stdout, stdout.getvalue())
+        self.assertEqual(expected_stderr, stderr.getvalue())
+
     def test_hash(self):
         hash = _hash("test string")
         self.assertEqual(hash, '6f8db599de986fab7a21625b7916589c')
@@ -303,14 +450,14 @@ class RunTests(unittest.TestCase):
                 if gloo_is_built:
                     expected = 'gloo'
                 else:
-                    exception = '^Gloo support has not been built\.  If this is not expected, ensure CMake is installed ' \
-                                'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error\.$'
+                    exception = r'^Gloo support has not been built\.  If this is not expected, ensure CMake is installed ' \
+                                r'and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error\.$'
             elif use_mpi:
                 if mpi_is_built:
                     expected = 'mpi'
                 else:
-                    exception = '^MPI support has not been built\.  If this is not expected, ensure MPI is installed ' \
-                                'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error\.$'
+                    exception = r'^MPI support has not been built\.  If this is not expected, ensure MPI is installed ' \
+                                r'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error\.$'
             elif use_js:
                 if mpi_is_built:
                     if lsf_exists:
@@ -319,8 +466,8 @@ class RunTests(unittest.TestCase):
                         exception = 'Horovod did not detect an LSF job.  The jsrun launcher can only be used in that environment. ' \
                                     'Please, pick a different launcher for other environments.'
                 else:
-                    exception = '^MPI support has not been built\.  If this is not expected, ensure MPI is installed ' \
-                                'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error\.$'
+                    exception = r'^MPI support has not been built\.  If this is not expected, ensure MPI is installed ' \
+                                r'and reinstall Horovod with HOROVOD_WITH_MPI=1 to debug the build error\.$'
             elif mpi_is_built:
                 if lsf_exists and jsrun_installed:
                     expected = 'js'
@@ -329,8 +476,8 @@ class RunTests(unittest.TestCase):
             elif gloo_is_built:
                 expected = 'gloo'
             else:
-                exception = 'Neither MPI nor Gloo support has been built\. Try reinstalling Horovod ensuring that ' \
-                            'either MPI is installed \(MPI\) or CMake is installed \(Gloo\)\.'
+                exception = r'Neither MPI nor Gloo support has been built\. Try reinstalling Horovod ensuring that ' \
+                            r'either MPI is installed \(MPI\) or CMake is installed \(Gloo\)\.'
 
             test(use_gloo, use_mpi, use_js,
                  gloo_is_built, mpi_is_built,
