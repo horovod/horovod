@@ -356,7 +356,7 @@ class RunTests(unittest.TestCase):
     def _do_test_safe_shell_exec(self, cmd, expected_exit_code, expected_stdout, expected_stderr, event=None):
         stdout = six.StringIO()
         stderr = six.StringIO()
-        res = safe_shell_exec.execute(cmd, stdout=stdout, stderr=stderr, event=event)
+        res = safe_shell_exec.execute(cmd, stdout=stdout, stderr=stderr, events=[event])
         self.assertEqual(expected_exit_code, res)
         self.assertEqual(expected_stdout, stdout.getvalue())
         self.assertEqual(expected_stderr, stderr.getvalue())
