@@ -96,7 +96,7 @@ def forward_stream(src_fd, dst_stream, prefix, index):
             dst_stream.flush()
 
 
-def execute(command, env=None, stdout=None, stderr=None, index=None, events=None):
+def execute(command, env=None, stdout=None, stderr=None, index=None, events=None, join_streams=True):
     # Make a pipe for the subprocess stdout/stderr.
     (stdout_r, stdout_w) = os.pipe()
     (stderr_r, stderr_w) = os.pipe()
@@ -174,9 +174,10 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
     finally:
         stop.set()
 
-    # TODO(travis): investigate why os.read is hanging after exit
-    # stdout_fwd.join()
-    # stderr_fwd.join()
+    if join_streams:
+        # TODO(travis): investigate why os.read is hanging after exit
+        stdout_fwd.join()
+        stderr_fwd.join()
 
     exit_code = status >> 8
     return exit_code
