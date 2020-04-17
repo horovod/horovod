@@ -48,37 +48,7 @@ ccl_datatype_t GetCCLDataType(const std::shared_ptr<Tensor>& tensor) {
   }
 }
 
-void server_affinity_set(int affinity) {
-  cpu_set_t cpuset;
-  pthread_t current_thread = pthread_self();
-
-  __CPU_ZERO_S(sizeof(cpu_set_t), &cpuset);
-  __CPU_SET_S(affinity, sizeof(cpu_set_t), &cpuset);
-
-  if (pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset) != 0) {
-    LOG(ERROR) << "setaffinity failed";
-  }
-
-  // Check if we set the affinity correctly
-  if (pthread_getaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset) != 0) {
-    LOG(ERROR) << "sched_getaffinity failed";
-  }
-
-  for (int core_idx = 0; core_idx < __CPU_SETSIZE; core_idx++) {
-    if (__CPU_ISSET_S(core_idx, sizeof(cpu_set_t), &cpuset)) {
-      LOG(DEBUG) << "Background thread affinity " << core_idx;
-    }
-  }
-}
-
 void CCLContext::Init() {
-  char* hvd_ccl_bg_thread_env = NULL;
-  int bg_thread_affinity = 0;
-  if ((hvd_ccl_bg_thread_env = getenv(HOROVOD_CCL_BGT_AFFINITY)) != NULL)
-  {
-      bg_thread_affinity = atoi(hvd_ccl_bg_thread_env);
-      server_affinity_set(bg_thread_affinity);
-  }
 
   LOG(DEBUG) << "Background thread start";
 
