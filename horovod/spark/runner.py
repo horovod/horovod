@@ -24,7 +24,7 @@ from horovod.run.util.threads import in_thread
 from horovod.spark.task import task_service
 from horovod.spark.gloo_run import gloo_run
 from horovod.spark.mpi_run import mpi_run
-from horovod.run.runner import run_controller
+from horovod.run.runner import is_gloo_used, run_controller
 from horovod.run.common.util import timeout, host_hash, secret
 from horovod.run.common.util import settings as hvd_settings
 from horovod.spark.driver import driver_service, job_id
@@ -194,8 +194,9 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
     spark_job_group = 'horovod.spark.run.%d' % job_id.next_job_id()
     driver = driver_service.SparkDriverService(settings.num_proc, fn, args, kwargs,
                                                settings.key, settings.nics)
+    gloo_is_used = is_gloo_used(use_gloo=use_gloo, use_mpi=use_mpi, use_jsrun=False)
     spark_thread = _make_spark_thread(spark_context, spark_job_group, driver,
-                                      result_queue, settings, use_gloo)
+                                      result_queue, settings, gloo_is_used)
     try:
         # wait for all tasks to register, notify them and initiate task-to-task address registration
         _notify_and_register_task_addresses(driver, settings)

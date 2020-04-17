@@ -657,7 +657,14 @@ def _run(args):
         return None
 
 
+def is_gloo_used(use_gloo=None, use_mpi=None, use_jsrun=None):
+    # determines whether run_controller will run gloo
+    # for the given (use_gloo, _, use_mpi, _, use_jsrun, _, _)
+    return use_gloo or (not use_mpi and not use_jsrun and not mpi_built())
+
+
 def run_controller(use_gloo, gloo_run, use_mpi, mpi_run, use_jsrun, js_run, verbosity):
+    # keep logic in sync with is_gloo_used(...)
     verbose = verbosity is not None and verbosity >= 2
     if use_gloo:
         if not gloo_built(verbose=verbose):
