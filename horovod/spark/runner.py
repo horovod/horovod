@@ -75,6 +75,9 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo):
 
         return task.fn_result()
     finally:
+        # this has to block on running requests (wait_for_command_exit_code)
+        # so they can finish serving the exit code
+        # shutdown does block with network.BasicService._server._block_on_close = True
         task.shutdown()
 
 

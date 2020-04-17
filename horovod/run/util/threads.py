@@ -92,11 +92,12 @@ def execute_function_multithreaded(fn,
     return results
 
 
-def in_thread(target, args=(), daemon=True, silent=False):
+def in_thread(target, args=(), name=None, daemon=True, silent=False):
     """
     Executes the given function in background.
     :param target: function
     :param args: function arguments
+    :param name: name of the thread
     :param daemon: run as daemon thread, do not block until thread is doe
     :param silent: swallows exceptions raised by target silently
     :return background thread
@@ -114,7 +115,7 @@ def in_thread(target, args=(), daemon=True, silent=False):
     else:
         fn = target
 
-    bg = threading.Thread(target=fn, args=args)
+    bg = threading.Thread(target=fn, args=args, name=name)
     bg.daemon = daemon
     bg.start()
     return bg
