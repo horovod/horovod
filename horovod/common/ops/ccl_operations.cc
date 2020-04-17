@@ -119,9 +119,28 @@ Status CCLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
   timeline.ActivityStartAll(entries, CCL_ALLREDUCE);
   const void* sendbuf = entries.size() > 1 || first_entry.tensor->data() == first_entry.output->data()
                         ? buffer_data : first_entry.tensor->data();
+  // composite match_id
+  ccl_coll_attr_t coll_attr;
+  std::string tmp_match_id ("");
+  for (size_t entry_idx=0; entry_idx < entries.size(); entry_idx++)
+  {
+      tmp_match_id += entries[entry_idx].tensor_name;
+      LOG(INFO) << "ALLREDUCE tmp_match_id " << tmp_match_id.c_str();
+  }
+  coll_attr.to_cache = 1;
+  coll_attr.match_id = tmp_match_id.c_str();
+  coll_attr.prologue_fn = NULL;
+  coll_attr.epilogue_fn = NULL;
+  coll_attr.reduction_fn = NULL;
+  coll_attr.priority = 0;
+  coll_attr.synchronous = 0;
+  coll_attr.vector_buf = 0;
+
+  LOG(INFO) << "ALLREDUCE match_id " << coll_attr.match_id << " sendbuf " << sendbuf << " recv_buf " << buffer_data;
+  // composite match_id end
   ccl_request_t ccl_req;
   CCL_CALL(ccl_allreduce((void*)sendbuf, buffer_data, num_elements, GetCCLDataType(first_entry.tensor),
-                         ccl_reduction_sum, nullptr /*attr*/, nullptr /*comm*/, nullptr /*stream*/, &ccl_req));
+                          ccl_reduction_sum,  &coll_attr /*attr*/, nullptr /*comm*/, nullptr /*stream*/, &ccl_req));
   CCL_CALL(ccl_wait(ccl_req));
   timeline.ActivityEndAll(entries);
 
