@@ -154,6 +154,8 @@ public:
 
   void add_tensor_name(const std::string& value);
 
+  void add_tensor_name(std::string&& value);
+
   // Empty unless response_type is ERROR.
   const std::string& error_message() const;
 
@@ -198,6 +200,8 @@ public:
   void set_responses(const std::vector<Response>& value);
 
   void add_response(const Response& value);
+
+  void add_response(Response&& value);
 
   void emplace_response(Response&& value);
 

@@ -138,15 +138,16 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
     // Remove uncommon cached tensors from queue and replace to state
     // queue for next cycle. Skip adding common cached tensors to
     // queue as they are handled separately.
+    std::deque<Request> messages_to_replace;
     size_t num_messages = message_queue_tmp.size();
     for (size_t i = 0; i < num_messages; ++i) {
-      auto message = message_queue_tmp.front();
+      auto& message = message_queue_tmp.front();
       if (response_cache_.cached(message) == ResponseCache::CacheState::HIT) {
         uint32_t cache_bit = response_cache_.peek_cache_bit(message);
         if (cache_coordinator.cache_hits().find(cache_bit) ==
             cache_coordinator.cache_hits().end()) {
           // Try to process again in next cycle.
-          tensor_queue_.PushMessageToQueue(message);
+          messages_to_replace.push_back(std::move(message));
         } else {
           // Remove timing entry for messages being handled this cycle.
           stall_inspector_.RemoveCachedTensor(message.tensor_name());
@@ -158,6 +159,7 @@ ResponseList Controller::ComputeResponseList(std::atomic_bool& shut_down,
       }
       message_queue_tmp.pop_front();
     }
+    tensor_queue_.PushMessagesToQueue(messages_to_replace);
   }
 
   if (!message_queue_tmp.empty()) {
@@ -651,7 +653,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
       std::deque<Response> skipped_responses;
       int64_t skipped_size = 0;
       while (!responses.empty()) {
-        auto new_response = responses.front();
+        auto& new_response = responses.front();
         assert(new_response.tensor_names().size() == 1);
 
         int64_t new_tensor_size = new_response.tensor_sizes().empty()
@@ -664,7 +666,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
             tensor_size + new_tensor_size <= TensorFusionThresholdBytes()) {
           // These tensors will fuse together well.
           tensor_size += new_tensor_size;
-          response.add_tensor_name(new_response.tensor_names()[0]);
+          response.add_tensor_name(std::move(new_response.tensor_names()[0]));
           response.add_tensor_size(new_response.tensor_sizes()[0]);
           responses.pop_front();
         } else {
@@ -679,7 +681,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
           skipped_size += new_tensor_size;
           if (tensor_size + skipped_size <= TensorFusionThresholdBytes()) {
             // Skip response and look ahead for more to fuse.
-            skipped_responses.push_back(std::move(responses.front()));
+            skipped_responses.push_back(std::move(new_response));
             responses.pop_front();
           } else {
             break;
@@ -705,7 +707,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
       int64_t skipped_size = 0;
       while (!responses.empty()) {
 
-        auto new_response = responses.front();
+        auto& new_response = responses.front();
         assert(new_response.tensor_names().size() == 1);
         const auto& new_entry =
             tensor_queue_.GetTensorEntry(new_response.tensor_names()[0]);
@@ -737,7 +739,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
           if (total_byte_size_of_output + skipped_size <=
               TensorFusionThresholdBytes()) {
             // Skip response and look ahead for more to fuse.
-            skipped_responses.push_back(std::move(responses.front()));
+            skipped_responses.push_back(std::move(new_response));
             responses.pop_front();
           } else {
             break;
@@ -752,7 +754,7 @@ ResponseList Controller::FuseResponses(std::deque<Response>& responses) {
       }
     }
 
-    response_list.add_response(response);
+    response_list.add_response(std::move(response));
     LOG(DEBUG) << "Created response of size " << tensor_size;
   }
   return response_list;
