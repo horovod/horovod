@@ -15,6 +15,7 @@
 
 from __future__ import absolute_import
 
+import sys
 import unittest
 import warnings
 
@@ -29,6 +30,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 import torch.optim as optim
 
+from horovod.run.runner import is_gloo_used
 import horovod.spark.torch as hvd
 from horovod.spark.common import constants, util
 from horovod.spark.torch import remote
@@ -62,6 +64,9 @@ class SparkTorchTests(unittest.TestCase):
         warnings.simplefilter('module')
 
     def test_fit_model(self):
+        if sys.version_info < (3, 0, 0) and is_gloo_used():
+            self.skipTest('Horovod on Spark over Gloo only supported on Python3')
+
         model = create_xor_model()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
         loss = F.binary_cross_entropy
