@@ -85,7 +85,7 @@ run_test() {
   echo "      pull-retries: 3"
   echo "  - ecr#v1.2.0:"
   echo "      login: true"
-  echo "  timeout_in_minutes: 5"
+  echo "  timeout_in_minutes: 10"
   echo "  retry:"
   echo "    automatic: true"
   echo "  agents:"
