@@ -318,6 +318,13 @@ class RunTests(unittest.TestCase):
         self.assertFalse(thread.is_alive())
         fn.assert_called_once()
 
+        # test None event
+        event = None
+        fn = mock.Mock()
+        with pytest.raises(ValueError, match="^Event must not be None$"):
+            on_event(event, fn)
+        fn.assert_not_called()
+
         # test non-tuple args
         event = threading.Event()
         fn = mock.Mock()
@@ -390,7 +397,7 @@ class RunTests(unittest.TestCase):
     def do_test_safe_shell_exec(self, cmd, expected_exit_code, expected_stdout, expected_stderr, event=None):
         stdout = io.StringIO()
         stderr = io.StringIO()
-        res = safe_shell_exec.execute(cmd, stdout=stdout, stderr=stderr, events=[event])
+        res = safe_shell_exec.execute(cmd, stdout=stdout, stderr=stderr, events=[event] if event else None)
         self.assertEqual(expected_exit_code, res)
         if expected_stdout is not None:
             self.assertEqual(expected_stdout, stdout.getvalue())

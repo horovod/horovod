@@ -138,6 +138,9 @@ def on_event(event, func, args=(), stop=None, check_interval_seconds=1.0, silent
     :param silent: swallows exceptions raised by target silently
     :return: thread
     """
+    if event is None:
+        raise ValueError('Event must not be None')
+
     if not isinstance(args, tuple):
         raise ValueError('args must be a tuple, not {}, for a single argument use (arg,)'
                          .format(type(args)))
