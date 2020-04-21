@@ -47,6 +47,7 @@ class BasicDriverService(network.BasicService):
         self._all_task_addresses = {}
         self._task_addresses_for_driver = {}
         self._task_addresses_for_tasks = {}
+        self._task_index_host_hash = {}
         self._task_host_hash_indices = {}
         self._wait_cond = threading.Condition()
 
@@ -68,6 +69,16 @@ class BasicDriverService(network.BasicService):
                           'This is not supported. Is the server behind NAT?'
                           ''.format(index=req.index, task_addresses=req.task_addresses,
                                     source=client_address[0]))
+
+                # Remove host hash earlier registered under this index.
+                if req.index in self._task_index_host_hash:
+                    earlier_host_hash = self._task_index_host_hash[req.index]
+                    if earlier_host_hash != req.host_hash:
+                        self._task_host_hash_indices[earlier_host_hash].remove(req.index)
+
+                # Make index -> host hash map.
+                self._task_index_host_hash[req.index] = req.host_hash
+
                 # Make host hash -> indices map.
                 if req.host_hash not in self._task_host_hash_indices:
                     self._task_host_hash_indices[req.host_hash] = []
@@ -158,6 +169,7 @@ class BasicDriverClient(network.BasicClient):
                                                 verbose,
                                                 match_intf=match_intf)
 
+    # TODO: same index can get registered multiple times (after restarting Spark task)
     def register_task(self, index, task_addresses, host_hash):
         self._send(RegisterTaskRequest(index, task_addresses, host_hash))
 

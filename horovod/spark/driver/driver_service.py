@@ -119,6 +119,16 @@ class SparkDriverService(driver_service.BasicDriverService):
         finally:
             self._wait_cond.release()
 
+    def get_common_interfaces(self):
+        nics = set(self.task_addresses_for_tasks(0).keys()) \
+            if len(self.task_addresses_for_tasks) > 0 else None
+        for index in self._task_addresses_for_tasks:
+            nics.intersection_update(self._task_addresses_for_tasks[index].keys())
+        if not nics:
+            raise Exception('Unable to find a set of common task-to-task communication interfaces: %s'
+                            % [(index, self._task_addresses_for_tasks[index])
+                               for index in self._task_addresses_for_tasks])
+
 
 class SparkDriverClient(driver_service.BasicDriverClient):
     def __init__(self, driver_addresses, key, verbose, match_intf=False):
