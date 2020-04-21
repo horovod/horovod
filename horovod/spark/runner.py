@@ -38,7 +38,7 @@ if platform.system() == 'Darwin':
     os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
 
 
-def _task_fn(index, driver_addresses, key, settings, use_gloo):
+def _task_fn(index, driver_addresses, key, settings, use_gloo, is_elastic):
     # deserialized on Spark workers, settings do not contain the key, so it is given here explicitly
     # Spark RPC communicates the key and supports encryption
     # for convenience, we put it back into settings
@@ -48,13 +48,18 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo):
     try:
         driver_client = driver_service.SparkDriverClient(driver_addresses, settings.key, settings.verbose)
         driver_client.register_task(index, task.addresses(), host_hash.host_hash())
-        task.wait_for_initial_registration(settings.start_timeout)
-        task_indices_on_this_host = driver_client.task_host_hash_indices(host_hash.host_hash())
 
-        # With Gloo all tasks wait for the command
+        if not is_elastic:
+            task.wait_for_initial_registration(settings.start_timeout)
+            task_indices_on_this_host = driver_client.task_host_hash_indices(host_hash.host_hash())
+            local_rank_zero_index = task_indices_on_this_host[0]
+        else:
+            local_rank_zero_index = None
+
+        # With Gloo or in elastic mode all tasks wait for the command
         # With MPI task with first index executes orted which will run mpirun_exec_fn for all tasks.
         minimum_lifetime_after_start = None
-        if use_gloo or task_indices_on_this_host[0] == index:
+        if use_gloo or is_elastic or index == local_rank_zero_index:
             task.wait_for_command_start(settings.start_timeout)
             minimum_lifetime_after_start = timeout.Timeout(MINIMUM_COMMAND_LIFETIME_S,
                                                            message='Just measuring runtime')
@@ -82,18 +87,18 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo):
         task.shutdown()
 
 
-def _make_mapper(driver_addresses, settings, use_gloo):
+def _make_mapper(driver_addresses, settings, use_gloo, is_elastic):
     # serialised settings do not have a key so we have to copy it and provide it explicitly here
     key = settings.key
 
     def _mapper(index, _):
-        yield _task_fn(index, driver_addresses, key, settings, use_gloo)
+        yield _task_fn(index, driver_addresses, key, settings, use_gloo, is_elastic)
 
     return _mapper
 
 
 def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
-                       settings, use_gloo):
+                       settings, use_gloo, is_elastic):
     """Creates `settings.num_proc` Spark tasks in a parallel thread."""
     def run_spark():
         """Creates `settings.num_proc` Spark tasks, each executing `_task_fn` and waits for them to terminate."""
@@ -104,7 +109,8 @@ def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
             procs = spark_context.range(0, numSlices=settings.max_np if settings.elastic else settings.num_proc)
             # We assume that folks caring about security will enable Spark RPC encryption,
             # thus ensuring that key that is passed here remains secret.
-            result = procs.mapPartitionsWithIndex(_make_mapper(driver.addresses(), settings, use_gloo)).collect()
+            mapper = _make_mapper(driver.addresses(), settings, use_gloo, is_elastic)
+            result = procs.mapPartitionsWithIndex(mapper).collect()
             result_queue.put(result)
         except:
             driver.notify_spark_job_failed()
@@ -222,7 +228,8 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
                                                settings.key, settings.nics)
     gloo_is_used = is_gloo_used(use_gloo=use_gloo, use_mpi=use_mpi, use_jsrun=False)
     spark_thread = _make_spark_thread(spark_context, spark_job_group, driver,
-                                      result_queue, settings, gloo_is_used)
+                                      result_queue, settings,
+                                      use_gloo=gloo_is_used, is_elastic=False)
     try:
         # wait for all tasks to register, notify them and initiate task-to-task address registration
         _notify_and_register_task_addresses(driver, settings)
@@ -264,8 +271,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
 
 
 def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
-                start_timeout=None, elastic_timeout=None,
-                env=None, stdout=None, stderr=None, verbose=1, nics=None):
+                start_timeout=None, elastic_timeout=None, env=None, verbose=1, nics=None):
     """
     Runs Elastic Horovod in Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
 
@@ -278,8 +284,6 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
                        If not set, falls back to `HOROVOD_SPARK_START_TIMEOUT` environment variable value.
                        If it is not set as well, defaults to 600 seconds.
         env: Environment dictionary to use in Horovod run.  Defaults to `os.environ`.
-        stdout: Horovod stdout is redirected to this stream. Defaults to sys.stdout.
-        stderr: Horovod stderr is redirected to this stream. Defaults to sys.stderr.
         verbose: Debug output verbosity (0-2). Defaults to 1.
         nics: List of NICs for tcp network communication.
 
@@ -346,7 +350,7 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
 
     # launch settings.num_proc / settings.max_np Spark tasks
     spark_thread = _make_spark_thread(spark_context, spark_job_group, driver,
-                                      result_queue, settings, True)
+                                      result_queue, settings, use_gloo=True, is_elastic=True)
     try:
         # TODO: why are we doing this in static and is it needed for elastic?
         ## Determine the index grouping based on host hashes.
