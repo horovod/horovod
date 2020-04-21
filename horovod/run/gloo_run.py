@@ -272,7 +272,7 @@ def gloo_run(settings, nics, env, server_ip, command):
     launch_gloo(command, exec_command, settings, nics, env, server_ip)
 
 
-def launch_gloo_elastic(command, exec_command, settings, env):
+def launch_gloo_elastic(command, exec_command, settings, env, get_common_interfaces):
     # Make the output directory if it does not exist
     if settings.output_filename:
         _mkdir_p(settings.output_filename)
@@ -285,12 +285,9 @@ def launch_gloo_elastic(command, exec_command, settings, env):
 
     handler = create_rendezvous_handler(driver)
     global_rendezv_port = rendezvous.start_server(handler)
+    driver.wait_for_available_slots(settings.num_proc)
 
-    # Host-to-host common interface detection requires at least 2 hosts in an elastic job.
-    min_hosts = _get_min_start_hosts(settings)
-    current_hosts = driver.wait_for_available_slots(settings.num_proc, min_hosts=min_hosts)
-
-    nics = driver_service.get_common_interfaces(settings, current_hosts.host_assignment_order)
+    nics = get_common_interfaces(driver)
     server_ip = network.get_driver_ip(nics)
 
     event = register_shutdown_event()
@@ -313,4 +310,11 @@ def launch_gloo_elastic(command, exec_command, settings, env):
 
 def gloo_run_elastic(settings, env, command):
     exec_command = _exec_command_fn(settings)
-    launch_gloo_elastic(command, exec_command, settings, env)
+
+    def get_common_interfaces(driver):
+        # Host-to-host common interface detection requires at least 2 hosts in an elastic job.
+        min_hosts = _get_min_start_hosts(settings)
+        current_hosts = driver.wait_for_available_slots(settings.num_proc, min_hosts=min_hosts)
+        return driver_service.get_common_interfaces(settings, current_hosts.host_assignment_order)
+
+    launch_gloo_elastic(command, exec_command, settings, env, get_common_interfaces)

@@ -16,7 +16,7 @@
 import sys
 import time
 
-from horovod.run.common.util import codec
+from horovod.run.common.util import codec, secret
 from horovod.run.gloo_run import launch_gloo, launch_gloo_elastic
 from horovod.spark.driver.rsh import rsh
 
@@ -82,5 +82,8 @@ def gloo_run_elastic(settings, driver, env):
     # Pass secret key through the environment variables.
     env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(settings.key)
 
-    exec_command = _exec_command_fn(driver.addresses(), settings, env)
-    launch_gloo_elastic(command, exec_command, settings, env)
+    def get_common_interfaces(_):
+        return settings.nics if settings.nics is not None else driver.get_common_interfaces()
+
+    exec_command = _exec_command_fn(driver.addresses(), settings.key, settings, env)
+    launch_gloo_elastic(command, exec_command, settings, env, get_common_interfaces)
