@@ -151,4 +151,4 @@ def broadcast_parameters(params, root_rank=0):
 
     # Run broadcasts.
     for tensor, name in zip(tensors, names):
-        broadcast_(tensor, root_rank, name=name)
+        broadcast_(tensor, root_rank, name=str(name))
