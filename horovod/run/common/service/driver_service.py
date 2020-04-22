@@ -79,13 +79,7 @@ class BasicDriverService(network.BasicService):
             return network.AckResponse()
 
         if isinstance(req, RegisterTaskToTaskAddressesRequest):
-            self._wait_cond.acquire()
-            try:
-                assert 0 <= req.index < self._num_proc
-                self._task_addresses_for_tasks[req.index] = req.task_addresses
-            finally:
-                self._wait_cond.notify_all()
-                self._wait_cond.release()
+            self.register_task_to_task_addresses(req.index, req.task_addresses)
             return network.AckResponse()
 
         if isinstance(req, AllTaskAddressesRequest):
@@ -100,14 +94,26 @@ class BasicDriverService(network.BasicService):
                     return {intf: [(ip, port)]}
         return {}
 
+    def all_task_addresses(self, index):
+        return self._all_task_addresses[index].copy()
+
     def task_addresses_for_driver(self, index):
-        return self._task_addresses_for_driver[index]
+        return self._task_addresses_for_driver[index].copy()
 
     def task_addresses_for_tasks(self, index):
-        return self._task_addresses_for_tasks[index]
+        return self._task_addresses_for_tasks[index].copy()
+
+    def register_task_to_task_addresses(self, index, task_addresses):
+        self._wait_cond.acquire()
+        try:
+            assert 0 <= index < self._num_proc
+            self._task_addresses_for_tasks[index] = task_addresses
+        finally:
+            self._wait_cond.notify_all()
+            self._wait_cond.release()
 
     def task_host_hash_indices(self):
-        return self._task_host_hash_indices
+        return self._task_host_hash_indices.copy()
 
     def wait_for_initial_registration(self, timeout):
         self._wait_cond.acquire()

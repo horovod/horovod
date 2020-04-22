@@ -32,6 +32,21 @@ class ResourcesResponse(object):
         """Dictionary containing resource info."""
 
 
+class GetTaskToTaskAddressesRequest(object):
+    def __init__(self, task_index, all_task_addresses):
+        self.task_index = task_index
+        """Task index of other task service."""
+
+        self.all_task_addresses = all_task_addresses
+        """Map of interface to list of (ip, port) pairs of other task service."""
+
+
+class GetTaskToTaskAddressesResponse(object):
+    def __init__(self, task_addresses_for_task):
+        self.task_addresses_for_task = task_addresses_for_task
+        """Map of interface to list of (ip, port) pairs."""
+
+
 class SparkTaskService(task_service.BasicTaskService):
     NAME_FORMAT = 'task service #%d'
 
@@ -55,9 +70,21 @@ class SparkTaskService(task_service.BasicTaskService):
                                                SparkTaskService._get_command_env(key),
                                                verbose)
 
+        self._key = key
+
     def _handle(self, req, client_address):
         if isinstance(req, ResourcesRequest):
             return ResourcesResponse(self._get_resources())
+
+        if isinstance(req, GetTaskToTaskAddressesRequest):
+            next_task_index = req.task_index
+            next_task_addresses = req.all_task_addresses
+            # We request interface matching to weed out all the NAT'ed interfaces.
+            next_task_client = \
+                SparkTaskClient(next_task_index, next_task_addresses,
+                                self._key, self._verbose,
+                                match_intf=True)
+            return GetTaskToTaskAddressesResponse(next_task_client.addresses())
 
         return super(SparkTaskService, self)._handle(req, client_address)
 
@@ -78,3 +105,7 @@ class SparkTaskClient(task_service.BasicTaskClient):
     def resources(self):
         resp = self._send(ResourcesRequest())
         return resp.resources
+
+    def get_task_addresses_for_task(self, task_index, all_task_addresses):
+        resp = self._send(GetTaskToTaskAddressesRequest(task_index, all_task_addresses))
+        return resp.task_addresses_for_task
