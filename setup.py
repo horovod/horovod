@@ -581,7 +581,7 @@ def get_common_options(build_ext):
     cpp_flags = get_cpp_flags(build_ext)
     link_flags = get_link_flags(build_ext)
 
-    is_mac = os.uname()[0] == 'Darwin'
+    is_mac = sys.platform == 'darwin'
     compile_without_gloo = os.environ.get('HOROVOD_WITHOUT_GLOO')
     if compile_without_gloo:
         print('INFO: HOROVOD_WITHOUT_GLOO detected, skip compiling Horovod with Gloo.')
