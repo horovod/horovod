@@ -134,7 +134,7 @@ class BasicService(object):
         return result
 
     def addresses(self):
-        return self._addresses
+        return self._addresses.copy()
 
     def shutdown(self):
         self._server.shutdown()
