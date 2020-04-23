@@ -1,4 +1,5 @@
 // Copyright 2018 Uber Technologies, Inc. All Rights Reserved.
+// Modifications copyright (C) 2019 Intel Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,6 +15,7 @@
 // =============================================================================
 
 #include "common.h"
+#include "logging.h"
 
 #include <sstream>
 #include <cassert>
@@ -110,6 +112,29 @@ int64_t TensorShape::num_elements() const {
 }
 
 const std::vector<int64_t>& TensorShape::to_vector() const { return shape_; }
+
+void server_affinity_set(int affinity) {
+  cpu_set_t cpuset;
+  pthread_t current_thread = pthread_self();
+
+  __CPU_ZERO_S(sizeof(cpu_set_t), &cpuset);
+  __CPU_SET_S(affinity, sizeof(cpu_set_t), &cpuset);
+
+  if (pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset) != 0) {
+    LOG(ERROR) << "setaffinity failed";
+  }
+
+  // Check if we set the affinity correctly
+  if (pthread_getaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset) != 0) {
+    LOG(ERROR) << "sched_getaffinity failed";
+  }
+
+  for (int core_idx = 0; core_idx < __CPU_SETSIZE; core_idx++) {
+    if (__CPU_ISSET_S(core_idx, sizeof(cpu_set_t), &cpuset)) {
+      LOG(INFO) << "Background thread affinity " << core_idx;
+    }
+  }
+}
 
 } // namespace common
 } // namespace horovod

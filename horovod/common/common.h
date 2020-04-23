@@ -85,6 +85,7 @@ namespace common {
 #define HOROVOD_CCL "CCL"
 #define HOROVOD_GLOO "GLOO"
 #define HOROVOD_ADASUM_MPI_CHUNK_SIZE "HOROVOD_ADASUM_MPI_CHUNK_SIZE"
+#define HOROVOD_THREAD_AFFINITY "HOROVOD_THREAD_AFFINITY"
 
 // String constant for gloo interface.
 #define GLOO_DEFAULT_IFACE ""
@@ -248,6 +249,9 @@ struct TensorTableEntry {
   StatusCallback callback;
 };
 using TensorTable = std::unordered_map<std::string, TensorTableEntry>;
+
+// Set affinity function
+void server_affinity_set(int affinity);
 
 } // namespace common
 } // namespace horovod
