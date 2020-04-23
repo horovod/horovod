@@ -324,6 +324,10 @@ void Response::add_tensor_name(const std::string& value) {
   tensor_names_.push_back(value);
 }
 
+void Response::add_tensor_name(std::string&& value) {
+  tensor_names_.push_back(std::move(value));
+}
+
 const std::string& Response::error_message() const { return error_message_; }
 
 void Response::set_error_message(const std::string& value) {
@@ -427,6 +431,10 @@ void ResponseList::set_shutdown(bool value) { shutdown_ = value; }
 
 void ResponseList::add_response(const Response& value) {
   responses_.push_back(value);
+}
+
+void ResponseList::add_response(Response&& value) {
+  responses_.push_back(std::move(value));
 }
 
 void ResponseList::emplace_response(Response&& value) {
