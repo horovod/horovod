@@ -145,7 +145,7 @@ def _driver_fn(all_host_names, local_host_names, settings):
     """
     # Launch a TCP server called service service on the host running horovod
     driver = HorovodRunDriverService(
-        settings.num_hosts, settings.key, settings.nic)
+        settings.num_hosts, settings.key, settings.nics)
     if settings.verbose >= 2:
         print('Launched horovod server.')
     # Have all the workers register themselves with the service service.
