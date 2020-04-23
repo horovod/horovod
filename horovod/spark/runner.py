@@ -45,18 +45,8 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo):
         driver_client = driver_service.SparkDriverClient(driver_addresses, settings.key, settings.verbose)
         driver_client.register_task(index, task.addresses(), host_hash.host_hash())
         task.wait_for_initial_registration(settings.timeout)
-        # Tasks ping each other in a circular fashion to determine interfaces reachable within
-        # the cluster.
-        next_task_index = (index + 1) % settings.num_proc
-        next_task_addresses = driver_client.all_task_addresses(next_task_index)
-        # We request interface matching to weed out all the NAT'ed interfaces.
-        next_task_client = \
-            task_service.SparkTaskClient(next_task_index, next_task_addresses,
-                                         settings.key, settings.verbose,
-                                         match_intf=True)
-        driver_client.register_task_to_task_addresses(next_task_index, next_task_client.addresses())
-        task_indices_on_this_host = driver_client.task_host_hash_indices(
-            host_hash.host_hash())
+        task_indices_on_this_host = driver_client.task_host_hash_indices(host_hash.host_hash())
+
         # With Gloo all tasks wait for the command
         # With MPI task with first index executes orted which will run mpirun_exec_fn for all tasks.
         if use_gloo or task_indices_on_this_host[0] == index:
@@ -191,20 +181,8 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
     spark_thread = _make_spark_thread(spark_context, spark_job_group, driver,
                                       result_queue, settings, use_gloo)
     try:
-        # wait for all tasks to register and notify them
-        driver.wait_for_initial_registration(settings.timeout)
-        if settings.verbose >= 2:
-            print('Initial Spark task registration is complete.')
-        task_clients = [
-            task_service.SparkTaskClient(index,
-                                         driver.task_addresses_for_driver(index),
-                                         settings.key, settings.verbose)
-            for index in range(settings.num_proc)]
-        for task_client in task_clients:
-            task_client.notify_initial_registration_complete()
-        driver.wait_for_task_to_task_address_updates(settings.timeout)
-        if settings.verbose >= 2:
-            print('Spark task-to-task address registration is complete.')
+        # wait for all tasks to register, notify them and initiate task-to-task address registration
+        _notify_and_register_task_addresses(driver, settings)
 
         # Determine the index grouping based on host hashes.
         # Barrel shift until index 0 is in the first host.
@@ -240,3 +218,28 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
     # If there's no exception, execution results are in this queue.
     results = result_queue.get_nowait()
     return [results[index] for index in ranks_to_indices]
+
+
+def _notify_and_register_task_addresses(driver, settings):
+    # wait for num_proc tasks to register
+    driver.wait_for_initial_registration(settings.timeout)
+    if settings.verbose >= 2:
+        print('Initial Spark task registration is complete.')
+
+    def notify_and_register(index):
+        task_client = task_service.SparkTaskClient(index,
+                                                   driver.task_addresses_for_driver(index),
+                                                   settings.key, settings.verbose)
+        task_client.notify_initial_registration_complete()
+        next_task_index = (index + 1) % settings.num_proc
+        next_task_addresses = driver.all_task_addresses(next_task_index)
+        task_to_task_addresses = task_client.get_task_addresses_for_task(next_task_index, next_task_addresses)
+        driver.register_task_to_task_addresses(next_task_index, task_to_task_addresses)
+
+    for index in range(settings.num_proc):
+        in_thread(notify_and_register, (index,))
+
+    driver.wait_for_task_to_task_address_updates(settings.timeout)
+
+    if settings.verbose >= 2:
+        print('Spark task-to-task address registration is complete.')

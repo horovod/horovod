@@ -46,6 +46,8 @@ public:
 
   void PushMessageToQueue(Request& message);
 
+  void PushMessagesToQueue(std::deque<Request>& messages);
+
   void RemoveJoinTensor();
 
 protected:

@@ -106,7 +106,9 @@ class SparkTests(unittest.TestCase):
 
         with spark_session('test_happy_run'):
             with is_built(gloo_is_built=use_gloo, mpi_is_built=use_mpi):
-                res = horovod.spark.run(fn, use_mpi=use_mpi, use_gloo=use_gloo, verbose=2)
+                res = horovod.spark.run(fn, start_timeout=10,
+                                        use_mpi=use_mpi, use_gloo=use_gloo,
+                                        verbose=2)
                 self.assertListEqual([([0, 1], 0), ([0, 1], 1)], res)
 
     """
@@ -149,7 +151,7 @@ class SparkTests(unittest.TestCase):
             with is_built(gloo_is_built=False, mpi_is_built=True):
                 with mpi_implementation_flags():
                     with pytest.raises(Exception, match='^mpirun failed with exit code 127$'):
-                        horovod.spark.run(None, env={'PATH': '/nonexistent'}, verbose=0)
+                        horovod.spark.run(None, start_timeout=20, env={'PATH': '/nonexistent'}, verbose=0)
         self.assertLessEqual(time.time() - start, 10, 'Failure propagation took too long')
 
     """
@@ -295,7 +297,7 @@ class SparkTests(unittest.TestCase):
                     with spark_session('test_spark_run'):
                         with is_built(gloo_is_built=use_gloo, mpi_is_built=use_mpi):
                             with pytest.raises(Exception, match=expected):
-                                horovod.spark.run(fn, use_mpi=use_mpi, use_gloo=use_gloo, verbose=2)
+                                horovod.spark.run(fn, start_timeout=10, use_mpi=use_mpi, use_gloo=use_gloo, verbose=2)
 
     """
     Performs an actual horovod.spark.run test using MPI or Gloo.
