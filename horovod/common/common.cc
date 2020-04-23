@@ -113,6 +113,7 @@ int64_t TensorShape::num_elements() const {
 
 const std::vector<int64_t>& TensorShape::to_vector() const { return shape_; }
 
+#ifdef __linux__
 void server_affinity_set(int affinity) {
   cpu_set_t cpuset;
   pthread_t current_thread = pthread_self();
@@ -135,6 +136,12 @@ void server_affinity_set(int affinity) {
     }
   }
 }
+#else
+void server_affinity_set(int affinity) {
+  // TODO(travis): explore equivalent for macOS
+  throw std::runtime_error("Environment variable HOROVOD_THREAD_AFFINITY is not supported on macOS.");
+}
+#endif
 
 } // namespace common
 } // namespace horovod
