@@ -219,7 +219,7 @@ Finally, you can start using your new compressor by passing it to the ``Distribu
     opt = hvd.DistributedOptimizer(opt, compression=hvd.Compression.custom)
 
 
-Horovod in Spark
+Horovod on Spark
 ----------------
 
 The ``horovod.spark`` package makes it easy to run Horovod jobs in Spark clusters. The following section
@@ -251,6 +251,17 @@ The following diagram illustrates this process:
 .. image:: _static/spark-mpi.png
 
 
+Elastic Horovod on Spark
+------------------------
+
+Elastic Horovod on Spark has a few constraints:
+
+- each host has at most a single slot, which simplifies auto-scaling on Spark
+  - for this the host hash includes the index of the task
+  - this dis-allows shared memory across tasks running on the same host
+  - see "Host Hash" below.
+
+
 Host Hash
 ~~~~~~~~~
 
@@ -260,8 +271,8 @@ There can be multiple executors running for your Horovod job on the same host, b
 Hence each executor gets its own host hash.
 
 If you require each Python function to run in their own task process within a Spark executor,
-then the index of the task has to become part of the host hash as well. This requirement hasn't been
-observed so far. This would also increase the complexity of the MPI cluster.
+then the index of the task has to become part of the host hash as well. This has only been shown useful
+for Elastic Horovod on Spark, but there only for simplification.
 
 
 Release Process
