@@ -68,6 +68,7 @@ class SparkDriverService(driver_service.BasicDriverService):
         self._fn = fn
         self._args = args
         self._kwargs = kwargs
+        self._nics = nics
         self._ranks_to_indices = None
         self._spark_job_failed = False
 
@@ -120,14 +121,24 @@ class SparkDriverService(driver_service.BasicDriverService):
             self._wait_cond.release()
 
     def get_common_interfaces(self):
-        nics = set(self.task_addresses_for_tasks(0).keys()) \
-            if len(self.task_addresses_for_tasks) > 0 else None
-        for index in self._task_addresses_for_tasks:
-            nics.intersection_update(self._task_addresses_for_tasks[index].keys())
+        if self._nics is not None:
+            return self._nics
+
+        nics = None
+        if len(self._task_addresses_for_tasks) > 0:
+            # in Elastic Horovod on Spark with auto-scaling keys
+            # in task_addresses might be a range(max_np or proc_num)
+            indices = list(self._task_addresses_for_tasks.keys())
+            nics = set(self._task_addresses_for_tasks[indices[0]].keys())
+            for index in indices[1:]:
+                nics.intersection_update(self._task_addresses_for_tasks[index].keys())
+
         if not nics:
             raise Exception('Unable to find a set of common task-to-task communication interfaces: %s'
                             % [(index, self._task_addresses_for_tasks[index])
                                for index in self._task_addresses_for_tasks])
+
+        return nics
 
 
 class SparkDriverClient(driver_service.BasicDriverClient):

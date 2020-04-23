@@ -410,10 +410,11 @@ class RunTests(unittest.TestCase):
 
     def test_host_hash(self):
         hash = host_hash()
-        # host_hash should consider CONTAINER_ID environment variable
-        with override_env({'CONTAINER_ID': 'a container id'}):
-            self.assertNotEqual(host_hash(), hash)
-        self.assertEqual(host_hash(), hash)
+        salted = host_hash('salt')
+        empty_salted = host_hash('')
+
+        self.assertNotEqual(salted, hash)
+        self.assertEqual(empty_salted, hash)
 
     def test_get_mpi_implementation(self):
         def test(output, expected, exit_code=0):

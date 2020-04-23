@@ -17,6 +17,7 @@ import copy
 import itertools
 import os
 import platform
+import psutil
 import pytest
 import re
 import sys
@@ -45,7 +46,6 @@ from horovod.run.common.util import settings as hvd_settings
 from horovod.run.mpi_run import is_open_mpi
 from horovod.spark.common import constants, util
 from horovod.spark.common.store import HDFSStore
-from horovod.spark.driver.driver_service import SparkDriverService, SparkDriverClient
 from horovod.spark.driver.host_discovery import SparkDriverHostDiscovery
 from horovod.spark.driver.rsh import rsh
 from horovod.spark.task import get_available_devices, gloo_exec_fn, mpirun_exec_fn
@@ -79,6 +79,87 @@ class SparkTests(unittest.TestCase):
             self.skipTest("These tests should not be executed via horovodrun, just pytest")
 
         super(SparkTests, self).run(result)
+
+    def fn(self):
+        return 0
+
+    def test_host_hash(self):
+        hash = util.host_hash()
+
+        # host hash should be consistent
+        self.assertEqual(util.host_hash(), hash)
+
+        # host_hash should consider CONTAINER_ID environment variable
+        with override_env({'CONTAINER_ID': 'a container id'}):
+            containered_hash = util.host_hash()
+            self.assertNotEqual(containered_hash, hash)
+
+            # given an extra salt, host hash must differ
+            salted_containered_hash = util.host_hash('salt')
+            self.assertNotEqual(salted_containered_hash, hash)
+            self.assertNotEqual(salted_containered_hash, containered_hash)
+
+            # host hash should be consistent
+            self.assertEqual(util.host_hash(), containered_hash)
+            self.assertEqual(util.host_hash('salt'), salted_containered_hash)
+
+        # host hash should still be consistent
+        self.assertEqual(util.host_hash(), hash)
+
+        # given an extra salt, host hash must differ
+        salted_hash = util.host_hash('salt')
+        self.assertNotEqual(salted_hash, hash)
+        self.assertNotEqual(salted_hash, salted_containered_hash)
+
+    def test_driver_common_interfaces(self):
+        key = secret.make_secret_key()
+        driver = SparkDriverService(2, self.fn, (), {}, key, None)
+
+        client = SparkDriverClient(driver.addresses(), key, 2)
+        client.register_task_to_task_addresses(0, {'lo': [('127.0.0.1', 31321)], 'eth0': [('192.168.0.1', 31321)]})
+        client.register_task_to_task_addresses(1, {'eth1': [('10.0.0.1', 31322)], 'eth0': [('192.168.0.2', 31322)]})
+
+        nics = driver.get_common_interfaces()
+        self.assertEqual({'eth0'}, nics)
+
+    def test_driver_common_interfaces_from_settings(self):
+        nics = list(psutil.net_if_addrs().keys())
+        if not nics:
+            self.skipTest('this machine has no network interfaces')
+
+        nic = nics[0]
+        key = secret.make_secret_key()
+        driver = SparkDriverService(2, self.fn, (), {}, key, {nic})
+
+        client = SparkDriverClient(driver.addresses(), key, 2)
+        client.register_task_to_task_addresses(0, {'eth0': [('192.168.0.1', 31321)]})
+        client.register_task_to_task_addresses(1, {'eth1': [('10.0.0.1', 31322)]})
+
+        nics = driver.get_common_interfaces()
+        self.assertEqual({nic}, nics)
+
+    def test_driver_common_interfaces_fails(self):
+        key = secret.make_secret_key()
+        driver = SparkDriverService(2, self.fn, (), {}, key, None)
+
+        client = SparkDriverClient(driver.addresses(), key, 2)
+        client.register_task_to_task_addresses(0, {'eth0': [('192.168.0.1', 31321)]})
+        client.register_task_to_task_addresses(1, {'eth1': [('10.0.0.1', 31322)]})
+
+        with pytest.raises(Exception, match=r"^Unable to find a set of common task-to-task "
+                                            r"communication interfaces: \["
+                                            r"\(0, \{'eth0': \[\('192.168.0.1', 31321\)\]\}\), "
+                                            r"\(1, \{'eth1': \[\('10.0.0.1', 31322\)\]\}\)"
+                                            r"\]$"):
+            driver.get_common_interfaces()
+
+    @pytest.mark.skipif(sys.version_info >= (3, 0), reason='Skipped on Python 3')
+    def test_run_throws_on_python2(self):
+        if not gloo_built():
+            self.skipTest("Gloo is not available")
+
+        with pytest.raises(Exception, match='^Horovod on Spark over Gloo only supported on Python3$'):
+            self.do_test_happy_run(use_mpi=False, use_gloo=True)
 
     """
     Test that horovod.spark.run works properly in a simple setup using MPI.
@@ -556,13 +637,10 @@ class SparkTests(unittest.TestCase):
                                'sleep should be large enough')
 
     def do_test_rsh(self, command, expected_result, events=None):
-        def fn():
-            return 0
-
         # setup infrastructure so we can call rsh
         key = secret.make_secret_key()
         host_hash = 'test-host'
-        driver = SparkDriverService(1, fn, (), {}, key, None)
+        driver = SparkDriverService(1, self.fn, (), {}, key, None)
         client = SparkDriverClient(driver.addresses(), key, 2)
         task = SparkTaskService(0, key, None, 2)
         client.register_task(0, task.addresses(), host_hash)

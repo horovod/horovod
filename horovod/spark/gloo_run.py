@@ -82,8 +82,8 @@ def gloo_run_elastic(settings, driver, env):
     # Pass secret key through the environment variables.
     env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(settings.key)
 
-    def get_common_interfaces(_):
-        return settings.nics if settings.nics is not None else driver.get_common_interfaces()
+    # get common interfaces from driver
+    nics = driver.get_common_interfaces()
 
     exec_command = _exec_command_fn(driver.addresses(), settings.key, settings, env)
-    launch_gloo_elastic(command, exec_command, settings, env, get_common_interfaces)
+    launch_gloo_elastic(command, exec_command, settings, env, lambda _: nics)

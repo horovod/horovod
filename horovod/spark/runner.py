@@ -21,11 +21,12 @@ import time
 import pyspark
 
 from horovod.run.util.threads import in_thread
+from horovod.spark.common.util import host_hash
 from horovod.spark.task import task_service
 from horovod.spark.gloo_run import gloo_run, gloo_run_elastic
 from horovod.spark.mpi_run import mpi_run
 from horovod.run.runner import is_gloo_used, run_controller
-from horovod.run.common.util import timeout, host_hash, secret
+from horovod.run.common.util import timeout, secret
 from horovod.run.common.util import settings as hvd_settings
 from horovod.run.elastic import settings as hvd_elastic_settings
 from horovod.spark.driver import driver_service, host_discovery, job_id
@@ -46,12 +47,15 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo, is_elastic):
 
     task = task_service.SparkTaskService(index, settings.key, settings.nics, settings.verbose)
     try:
+        # to simplify things, each task is an individual host in Elastic Horovod on Spark
+        # hides availability of shared memory among executors on the same Spark node
+        hosthash = host_hash(salt=index if is_elastic else None)
         driver_client = driver_service.SparkDriverClient(driver_addresses, settings.key, settings.verbose)
-        driver_client.register_task(index, task.addresses(), host_hash.host_hash())
+        driver_client.register_task(index, task.addresses(), hosthash)
 
         if not is_elastic:
             task.wait_for_initial_registration(settings.start_timeout)
-            task_indices_on_this_host = driver_client.task_host_hash_indices(host_hash.host_hash())
+            task_indices_on_this_host = driver_client.task_host_hash_indices(hosthash)
             local_rank_zero_index = task_indices_on_this_host[0]
         else:
             local_rank_zero_index = None
@@ -121,14 +125,7 @@ def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
 
 
 def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=None):
-    # Determine a set of common interfaces for task-to-task communication.
-    nics = set(driver.task_addresses_for_tasks(0).keys())
-    for index in range(1, settings.num_proc):
-        nics.intersection_update(driver.task_addresses_for_tasks(index).keys())
-    if not nics:
-        raise Exception('Unable to find a set of common task-to-task communication interfaces: %s'
-                        % [(index, driver.task_addresses_for_tasks(index)) for index in range(settings.num_proc)])
-
+    nics = driver.get_common_interfaces()
     run_controller(use_gloo, lambda: gloo_run(settings, nics, driver, env),
                    use_mpi, lambda: mpi_run(settings, nics, driver, env, stdout, stderr),
                    False, lambda: None,
@@ -369,7 +366,7 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
             raise ValueError('Gloo support is required to use elastic traiing, but has not been built.  Ensure CMake is '
                              'installed and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
 
-        gloo_run_elastic(settings, env, args.command)
+        gloo_run_elastic(settings, driver, env)
     except:
         # Terminate Spark job.
         spark_context.cancelJobGroup(spark_job_group)
