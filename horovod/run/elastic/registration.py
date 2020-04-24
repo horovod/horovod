@@ -75,11 +75,14 @@ class WorkerStateRegistry(object):
         key = (host, slot)
         with self._lock:
             if key in self._states:
-                # Worker originally recorded itself as READY, but failed before the barrier completed. As such,
-                # we need to update the state to FAILURE. In order to ensure that the new failing thread can record
-                # results in cases of total job failure, we also need to block this thread by waiting on the barrier.
-                # This requires us to reset the barrier, as otherwise this worker will be double-counted (once for
-                # the READY thread and once for FAILURE), which would cause the barrier to complete too early.
+                # Worker originally recorded itself as READY, but the worker failed while waiting at the barrier. As
+                # such, we need to update the state to FAILURE, and we don't want two threads coming from the same
+                # worker at the barrier.
+                #
+                # In order to ensure that the new failing thread can record results in cases of total job failure,
+                # we also need to block this thread by waiting on the barrier. This requires us to reset the barrier,
+                # as otherwise this worker will be double-counted (once for the READY thread and once for FAILURE),
+                # which would cause the barrier to complete too early.
                 logging.info('key exists, reset barrier: {}[{}] = {}'.format(host, slot, state))
                 self._barrier.reset()
             logging.info('record state: {}[{}] = {}'.format(host, slot, state))
