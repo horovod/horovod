@@ -58,7 +58,7 @@ def terminate_executor_shell_and_children(pid):
     p.kill()
 
 
-def forward_stream(src, dst_stream, prefix, index):
+def forward_stream(src_stream, dst_stream, prefix, index):
     def prepend_context(line, rank, prefix):
         localtime = time.asctime(time.localtime(time.time()))
         return '{time}[{rank}]<{prefix}>:{line}'.format(
@@ -70,7 +70,7 @@ def forward_stream(src, dst_stream, prefix, index):
 
     line_buffer = ''
     while True:
-        text = os.read(src.fileno(), 1000)
+        text = os.read(src_stream.fileno(), 1000)
         if not isinstance(text, str):
             text = text.decode('utf-8')
         if not text or len(text) == 0:
@@ -92,6 +92,8 @@ def forward_stream(src, dst_stream, prefix, index):
             line_buffer = prepend_context(line_buffer, index, prefix)
         dst_stream.write(line_buffer)
         dst_stream.flush()
+
+    src_stream.close()
 
 
 def execute(command, env=None, stdout=None, stderr=None, index=None, events=None):
@@ -116,7 +118,7 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
     event_handles = []
     for event in events:
         # with silent=True because the process may have already been killed elsewhere
-        event_handles.append(on_event(event, process.terminate, stop=stop, silent=True))
+        event_handles.append(on_event(event, process.kill, stop=stop, silent=True))
 
     try:
         exit_code = process.wait()
