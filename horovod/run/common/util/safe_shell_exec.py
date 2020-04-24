@@ -14,9 +14,7 @@
 # ==============================================================================
 
 import os
-import psutil
 import re
-import signal
 import subprocess
 import sys
 import threading
@@ -25,37 +23,6 @@ import time
 from horovod.run.util.threads import in_thread, on_event
 
 GRACEFUL_TERMINATION_TIME_S = 5
-
-
-def terminate_executor_shell_and_children(pid):
-    # If the shell already ends, no need to terminate its child.
-    try:
-        p = psutil.Process(pid)
-    except psutil.NoSuchProcess:
-        return
-
-    # Terminate children gracefully.
-    for child in p.children():
-        try:
-            child.terminate()
-        except psutil.NoSuchProcess:
-            pass
-
-    # Wait for graceful termination.
-    time.sleep(GRACEFUL_TERMINATION_TIME_S)
-
-    # Send STOP to executor shell to stop progress.
-    p.send_signal(signal.SIGSTOP)
-
-    # Kill children recursively.
-    for child in p.children(recursive=True):
-        try:
-            child.kill()
-        except psutil.NoSuchProcess:
-            pass
-
-    # Kill shell itself.
-    p.kill()
 
 
 def forward_stream(src_stream, dst_stream, prefix, index):
@@ -130,91 +97,4 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
     for handle in event_handles:
         handle.join()
 
-    return exit_code
-
-
-def execute2(command, env=None, stdout=None, stderr=None, index=None, events=None, join_streams=True):
-    # Make a pipe for the subprocess stdout/stderr.
-    (stdout_r, stdout_w) = os.pipe()
-    (stderr_r, stderr_w) = os.pipe()
-
-    # Make a pipe for notifying the child that parent has died.
-    (r, w) = os.pipe()
-
-    middleman_pid = os.fork()
-    if middleman_pid == 0:
-        # Close unused file descriptors to enforce PIPE behavior.
-        os.close(w)
-        os.setsid()
-
-        executor_shell = subprocess.Popen(command, shell=True, env=env,
-                                          stdout=stdout_w, stderr=stderr_w)
-
-        signal_received = threading.Event()
-
-        def set_event_on_signal(signum, frame):
-            signal_received.set()
-
-        signal.signal(signal.SIGINT, set_event_on_signal)
-        signal.signal(signal.SIGTERM, set_event_on_signal)
-
-        def kill_executor_children_if_parent_dies():
-            # This read blocks until the pipe is closed on the other side
-            # due to the process termination.
-            os.read(r, 1)
-            terminate_executor_shell_and_children(executor_shell.pid)
-
-        in_thread(kill_executor_children_if_parent_dies)
-
-        on_event(signal_received, terminate_executor_shell_and_children, args=(executor_shell.pid,))
-
-        exit_code = executor_shell.wait()
-        os._exit(exit_code)
-
-    # Close unused file descriptors to enforce PIPE behavior.
-    os.close(r)
-    os.close(stdout_w)
-    os.close(stderr_w)
-
-    # Redirect command stdout & stderr to provided streams or sys.stdout/sys.stderr.
-    # This is useful for Jupyter Notebook that uses custom sys.stdout/sys.stderr or
-    # for redirecting to a file on disk.
-    if stdout is None:
-        stdout = sys.stdout
-    if stderr is None:
-        stderr = sys.stderr
-
-    stdout_fwd = in_thread(target=forward_stream, args=(stdout_r, stdout, 'stdout', index))
-    stderr_fwd = in_thread(target=forward_stream, args=(stderr_r, stderr, 'stderr', index))
-
-    # TODO: Currently this requires explicitly declaration of the events and signal handler to set
-    #  the event (gloo_run.py:_launch_jobs()). Need to figure out a generalized way to hide this behind
-    #  interfaces.
-    stop = threading.Event()
-    events = events or []
-    for event in events:
-        # with silent=True because the process may have already been killed elsewhere
-        on_event(event, os.kill, (middleman_pid, signal.SIGTERM), stop=stop, silent=True)
-
-    try:
-        res, status = os.waitpid(middleman_pid, 0)
-    except:
-        # interrupted, send middleman TERM signal which will terminate children
-        os.kill(middleman_pid, signal.SIGTERM)
-        while True:
-            try:
-                _, status = os.waitpid(middleman_pid, 0)
-                break
-            except:
-                # interrupted, wait for middleman to finish
-                pass
-    finally:
-        stop.set()
-
-    if join_streams:
-        # TODO(travis): investigate why os.read is hanging after exit
-        stdout_fwd.join()
-        stderr_fwd.join()
-
-    exit_code = status >> 8
     return exit_code
