@@ -14,7 +14,9 @@
 # ==============================================================================
 
 import os
+import psutil
 import re
+import signal
 import subprocess
 import sys
 import threading
@@ -23,6 +25,37 @@ import time
 from horovod.run.util.threads import in_thread, on_event
 
 GRACEFUL_TERMINATION_TIME_S = 5
+
+
+def terminate_executor_shell_and_children(pid):
+    # If the shell already ends, no need to terminate its child.
+    try:
+        p = psutil.Process(pid)
+    except psutil.NoSuchProcess:
+        return
+
+    # Terminate children gracefully.
+    for child in p.children():
+        try:
+            child.terminate()
+        except psutil.NoSuchProcess:
+            pass
+
+    # Wait for graceful termination.
+    time.sleep(GRACEFUL_TERMINATION_TIME_S)
+
+    # Send STOP to executor shell to stop progress.
+    p.send_signal(signal.SIGSTOP)
+
+    # Kill children recursively.
+    for child in p.children(recursive=True):
+        try:
+            child.kill()
+        except psutil.NoSuchProcess:
+            pass
+
+    # Kill shell itself.
+    p.kill()
 
 
 def forward_stream(src_stream, dst_stream, prefix, index):
@@ -64,7 +97,8 @@ def forward_stream(src_stream, dst_stream, prefix, index):
 
 
 def execute(command, env=None, stdout=None, stderr=None, index=None, events=None):
-    process = subprocess.Popen(command, shell=True, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    process = subprocess.Popen(command, shell=True, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               preexec_fn=os.setsid)
 
     # Redirect command stdout & stderr to provided streams or sys.stdout/sys.stderr.
     # This is useful for Jupyter Notebook that uses custom sys.stdout/sys.stderr or
@@ -85,7 +119,8 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
     event_handles = []
     for event in events:
         # with silent=True because the process may have already been killed elsewhere
-        event_handles.append(on_event(event, process.kill, stop=stop, silent=True))
+        event_handles.append(on_event(event, terminate_executor_shell_and_children, args=(process.pid,),
+                                      stop=stop, silent=True))
 
     try:
         exit_code = process.wait()
