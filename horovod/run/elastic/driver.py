@@ -177,12 +177,13 @@ class ElasticDriver(object):
             logging.debug('no host changes, skipping notifications')
             return
 
-        slot_info = self._rank_assignments.get(0)
-        if not slot_info:
+        coordinator_slot_info = self._rank_assignments.get(0)
+        if not coordinator_slot_info:
             logging.debug('no coordinator info, skipping notifications')
             return
 
-        coordinator_client = self._worker_clients.get((slot_info.hostname, slot_info.local_rank))
+        coordinator_client = self._worker_clients.get((coordinator_slot_info.hostname,
+                                                       coordinator_slot_info.local_rank))
         if not coordinator_client:
             logging.debug('no coordinator client, skipping notifications')
             return
@@ -193,7 +194,8 @@ class ElasticDriver(object):
         except:
             if self._verbose >= 2:
                 logging.exception('failed to notify {}[{}] of host updates'
-                                  .format(slot_info.hostname, slot_info.local_rank))
+                                  .format(coordinator_slot_info.hostname,
+                                          coordinator_slot_info.local_rank))
 
     def _update_host_assignments(self):
         # Determine the slots that are already filled so we do not respawn these processes
