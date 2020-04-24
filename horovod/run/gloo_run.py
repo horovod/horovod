@@ -113,7 +113,7 @@ def _create_elastic_worker_fn(exec_command, run_command, env, event):
     return create_worker
 
 
-def _exec_command_fn(settings, join_streams=True):
+def _exec_command_fn(settings):
     """
     executes the jobs defined by run command on hosts.
     :param hosts_alloc: list of dict indicating the allocating info.
@@ -167,8 +167,7 @@ def _exec_command_fn(settings, join_streams=True):
             stderr = MultiFile([sys.stderr, stderr_file])
 
         try:
-            exit_code = safe_shell_exec.execute(command, index=index, stdout=stdout, stderr=stderr, events=events,
-                                                join_streams=join_streams)
+            exit_code = safe_shell_exec.execute(command, index=index, stdout=stdout, stderr=stderr, events=events)
             if exit_code != 0:
                 print('Process {idx} exit with status code {ec}.'.format(idx=index, ec=exit_code))
         except Exception as e:
@@ -288,7 +287,7 @@ def gloo_run_elastic(settings, env, command):
     nics = driver_service.get_common_interfaces(settings, driver.get_available_hosts())
     server_ip = network.get_driver_ip(nics)
 
-    exec_command = _exec_command_fn(settings, join_streams=False)
+    exec_command = _exec_command_fn(settings)
     event = register_shutdown_event()
     run_command = get_run_command(command, server_ip, nics, global_rendezv_port, elastic=True)
     create_worker = _create_elastic_worker_fn(exec_command, run_command, env, event)

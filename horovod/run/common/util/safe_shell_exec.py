@@ -94,7 +94,7 @@ def forward_stream(src, dst_stream, prefix, index):
         dst_stream.flush()
 
 
-def execute(command, env=None, stdout=None, stderr=None, index=None, events=None, join_streams=True):
+def execute(command, env=None, stdout=None, stderr=None, index=None, events=None):
     process = subprocess.Popen(command, shell=True, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     # Redirect command stdout & stderr to provided streams or sys.stdout/sys.stderr.
@@ -113,14 +113,20 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
     #  interfaces.
     stop = threading.Event()
     events = events or []
+    event_handles = []
     for event in events:
         # with silent=True because the process may have already been killed elsewhere
-        on_event(event, process.terminate, stop=stop, silent=True)
+        event_handles.append(on_event(event, process.terminate, stop=stop, silent=True))
 
-    exit_code = process.wait()
+    try:
+        exit_code = process.wait()
+    finally:
+        stop.set()
 
     stdout_fwd.join()
     stderr_fwd.join()
+    for handle in event_handles:
+        handle.join()
 
     return exit_code
 
