@@ -58,8 +58,7 @@ def terminate_executor_shell_and_children(pid):
     p.kill()
 
 
-def forward_stream(src_fd, dst_stream, prefix, index):
-
+def forward_stream(src, dst_stream, prefix, index):
     def prepend_context(line, rank, prefix):
         localtime = time.asctime(time.localtime(time.time()))
         return '{time}[{rank}]<{prefix}>:{line}'.format(
@@ -69,34 +68,64 @@ def forward_stream(src_fd, dst_stream, prefix, index):
             line=line
         )
 
-    with os.fdopen(src_fd, 'r') as src:
-        line_buffer = ''
-        while True:
-            text = os.read(src.fileno(), 1000)
-            if not isinstance(text, str):
-                text = text.decode('utf-8')
-            if not text or len(text) == 0:
-                break
+    line_buffer = ''
+    while True:
+        text = os.read(src.fileno(), 1000)
+        if not isinstance(text, str):
+            text = text.decode('utf-8')
+        if not text or len(text) == 0:
+            break
 
-            for line in re.split('([\r\n])', text):
-                line_buffer += line
-                if line == '\r' or line == '\n':
-                    if index is not None:
-                        line_buffer = prepend_context(line_buffer, index, prefix)
+        for line in re.split('([\r\n])', text):
+            line_buffer += line
+            if line == '\r' or line == '\n':
+                if index is not None:
+                    line_buffer = prepend_context(line_buffer, index, prefix)
 
-                    dst_stream.write(line_buffer)
-                    dst_stream.flush()
-                    line_buffer = ''
+                dst_stream.write(line_buffer)
+                dst_stream.flush()
+                line_buffer = ''
 
-        # flush the line buffer if it is not empty
-        if len(line_buffer):
-            if index is not None:
-                line_buffer = prepend_context(line_buffer, index, prefix)
-            dst_stream.write(line_buffer)
-            dst_stream.flush()
+    # flush the line buffer if it is not empty
+    if len(line_buffer):
+        if index is not None:
+            line_buffer = prepend_context(line_buffer, index, prefix)
+        dst_stream.write(line_buffer)
+        dst_stream.flush()
 
 
 def execute(command, env=None, stdout=None, stderr=None, index=None, events=None, join_streams=True):
+    process = subprocess.Popen(command, shell=True, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    # Redirect command stdout & stderr to provided streams or sys.stdout/sys.stderr.
+    # This is useful for Jupyter Notebook that uses custom sys.stdout/sys.stderr or
+    # for redirecting to a file on disk.
+    if stdout is None:
+        stdout = sys.stdout
+    if stderr is None:
+        stderr = sys.stderr
+
+    stdout_fwd = in_thread(target=forward_stream, args=(process.stdout, stdout, 'stdout', index))
+    stderr_fwd = in_thread(target=forward_stream, args=(process.stderr, stderr, 'stderr', index))
+
+    # TODO: Currently this requires explicitly declaration of the events and signal handler to set
+    #  the event (gloo_run.py:_launch_jobs()). Need to figure out a generalized way to hide this behind
+    #  interfaces.
+    stop = threading.Event()
+    events = events or []
+    for event in events:
+        # with silent=True because the process may have already been killed elsewhere
+        on_event(event, process.terminate, stop=stop, silent=True)
+
+    exit_code = process.wait()
+
+    stdout_fwd.join()
+    stderr_fwd.join()
+
+    return exit_code
+
+
+def execute2(command, env=None, stdout=None, stderr=None, index=None, events=None, join_streams=True):
     # Make a pipe for the subprocess stdout/stderr.
     (stdout_r, stdout_w) = os.pipe()
     (stderr_r, stderr_w) = os.pipe()
