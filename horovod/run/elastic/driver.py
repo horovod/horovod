@@ -171,6 +171,7 @@ class ElasticDriver(object):
             self._shutdown.wait(DISCOVER_HOSTS_FREQUENCY_SECS)
 
     def _notify_workers_host_changes(self):
+        # Assignments are required to be stable via contract
         next_host_assignments, _, _ = self._get_host_assignments()
         if next_host_assignments == self._host_assignments:
             # Skip notifying workers when host changes would not result in changes of host assignments
