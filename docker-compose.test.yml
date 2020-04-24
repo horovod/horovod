@@ -101,7 +101,7 @@ services:
         UBUNTU_VERSION: 18.04
         MPI_KIND: None
         PYTHON_VERSION: 3.8
-        TENSORFLOW_PACKAGE: tensorflow==1.15.0
+        TENSORFLOW_PACKAGE: tensorflow==2.2.0rc3
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.4.0+cpu
         TORCHVISION_PACKAGE: torchvision==0.5.0+cpu
