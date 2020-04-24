@@ -21,7 +21,6 @@ import threading
 import time
 
 from collections import defaultdict
-from subprocess import TimeoutExpired
 
 from six.moves import queue
 
@@ -160,7 +159,7 @@ class ElasticDriver(object):
                 if self._discovered_hosts.update_available_hosts():
                     self._notify_workers_host_changes()
                     self._wait_hosts_cond.notify_all()
-            except (RuntimeError, TimeoutExpired) as e:
+            except RuntimeError as e:
                 if first_update:
                     # Misconfiguration, fail the job immediately
                     raise
