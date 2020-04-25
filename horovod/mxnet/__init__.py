@@ -22,6 +22,7 @@ from horovod.common.util import check_extension
 check_extension('horovod.mxnet', 'HOROVOD_WITH_MXNET',
                 __file__, 'mpi_lib')
 
+from horovod.mxnet.compression import Compression
 from horovod.mxnet.mpi_ops import allgather
 from horovod.mxnet.mpi_ops import allreduce, allreduce_
 from horovod.mxnet.mpi_ops import broadcast, broadcast_
@@ -85,7 +86,7 @@ class DistributedOptimizer(mx.optimizer.Optimizer):
 # 2. DistributedTrainer performs allreduce(summation) and average
 #    while Trainer only performs allreduce(summation).
 class DistributedTrainer(mx.gluon.Trainer):
-    def __init__(self, params, optimizer, optimizer_params=None):
+    def __init__(self, params, optimizer, optimizer_params=None, compression=Compression.none):
         if isinstance(optimizer, DistributedOptimizer):
             optimizer = optimizer._optimizer
             warnings.warn("DistributedTrainer does not take DistributedOptimizer "
@@ -98,14 +99,19 @@ class DistributedTrainer(mx.gluon.Trainer):
         # function. Normalizing it by Horovod size, which is equivalent to performing
         # average in allreduce, has better performance. 
         self._scale /= size()
+        
+        self._compression = compression
 
     def _allreduce_grads(self):
         if size() == 1: return
 
         for i, param in enumerate(self._params):
             if param.grad_req != 'null':
-                allreduce_(param.list_grad()[0], average=False,
+                compressed, ctx = self._compression.compress(param.list_grad()[0])
+                allreduce_(compressed, average=False,
                            name=param.name, priority=-i)
+                param._grad[0] = self._compression.decompress(compressed, ctx)
+                
 
 
 # Wrapper to inject Horovod broadcast after parameter initialization
