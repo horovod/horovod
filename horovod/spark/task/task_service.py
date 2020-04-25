@@ -50,8 +50,7 @@ class GetTaskToTaskAddressesResponse(object):
 class SparkTaskService(task_service.BasicTaskService):
     NAME_FORMAT = 'task service #%d'
 
-    @staticmethod
-    def _get_command_env(key):
+    def __init__(self, index, key, nics, verbose=0):
         # on a Spark cluster we need our train function to see the Spark worker environment
         # this includes PYTHONPATH, HADOOP_TOKEN_FILE_LOCATION and _HOROVOD_SECRET_KEY
         env = os.environ.copy()
@@ -62,14 +61,8 @@ class SparkTaskService(task_service.BasicTaskService):
         # we also need to provide the current working dir to mpirun_exec_fn.py
         env['HOROVOD_SPARK_WORK_DIR'] = os.getcwd()
 
-        return env
-
-    def __init__(self, index, key, nics, verbose=0):
         super(SparkTaskService, self).__init__(SparkTaskService.NAME_FORMAT % index,
-                                               key, nics,
-                                               SparkTaskService._get_command_env(key),
-                                               verbose)
-
+                                               key, nics, env, verbose)
         self._key = key
 
     def _handle(self, req, client_address):

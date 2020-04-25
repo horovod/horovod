@@ -223,6 +223,30 @@ class SparkTests(unittest.TestCase):
                 self.assertListEqual([([0, 1], 0), ([0, 1], 1)], res)
 
     """
+    Test that horovod.spark.run_elastic works properly in a simple setup.
+    """
+    @pytest.mark.skipif(sys.version_info < (3, 0), reason='Elastic Horovod supported on Python3')
+    def test_happy_run_elastic(self):
+        if not gloo_built():
+            self.skipTest("Gloo is not available")
+
+        self.do_test_happy_run_elastic()
+
+    """
+    Actually tests that horovod.spark.run_elastic works properly in a simple setup.
+    """
+    def do_test_happy_run_elastic(self):
+        def fn():
+            hvd.init()
+            res = hvd.allgather(torch.tensor([hvd.rank()])).tolist()
+            return res, hvd.rank()
+
+        with spark_session('test_happy_run_elastic'):
+            res = horovod.spark.run_elastic(fn, num_proc=2, min_np=2, max_np=2,
+                                            start_timeout=10, verbose=2)
+            self.assertListEqual([([0, 1], 0), ([0, 1], 1)], res)
+
+    """
     Test that horovod.spark.run times out when it does not start up fast enough using MPI.
     """
     def test_timeout_with_mpi(self):

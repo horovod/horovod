@@ -75,9 +75,9 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo, is_elastic):
             task.wait_for_command_termination()
         else:
             # The rest of tasks need to wait for the first task to finish.
-            first_task_addresses = driver_client.all_task_addresses(task_indices_on_this_host[0])
+            first_task_addresses = driver_client.all_task_addresses(local_rank_zero_index)
             first_task_client = \
-                task_service.SparkTaskClient(task_indices_on_this_host[0],
+                task_service.SparkTaskClient(local_rank_zero_index,
                                              first_task_addresses, settings.key,
                                              settings.verbose)
             first_task_client.wait_for_command_termination()
@@ -137,7 +137,11 @@ def _launch_job(use_mpi, use_gloo, settings, driver, env, stdout=None, stderr=No
                    settings.verbose)
 
 
-def _notify_and_register_task_addresses(driver, settings):
+def _register_task_addresses(driver, settings):
+    _notify_and_register_task_addresses(driver, settings, notify=False)
+
+
+def _notify_and_register_task_addresses(driver, settings, notify=True):
     # wait for num_proc tasks to register
     driver.wait_for_initial_registration(settings.start_timeout)
     if settings.verbose >= 2:
@@ -147,7 +151,10 @@ def _notify_and_register_task_addresses(driver, settings):
         task_client = task_service.SparkTaskClient(index,
                                                    driver.task_addresses_for_driver(index),
                                                    settings.key, settings.verbose)
-        task_client.notify_initial_registration_complete()
+
+        if notify:
+            task_client.notify_initial_registration_complete()
+
         next_task_index = (index + 1) % settings.num_proc
         next_task_addresses = driver.all_task_addresses(next_task_index)
         task_to_task_addresses = task_client.get_task_addresses_for_task(next_task_index, next_task_addresses)
@@ -367,6 +374,9 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
         #host_hashes.sort()
         #while 0 not in driver.task_host_hash_indices()[host_hashes[0]]:
         #    host_hashes = host_hashes[1:] + host_hashes[:1]
+
+        # Register task addresses of initial num_proc tasks
+        _register_task_addresses(driver, settings)
 
         # Run the job
         gloo_run_elastic(settings, driver, env)
