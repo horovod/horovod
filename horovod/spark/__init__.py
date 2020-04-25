@@ -15,4 +15,4 @@
 
 import horovod.spark.common._namedtuple_fix
 
-from .runner import run
+from .runner import run, run_elastic

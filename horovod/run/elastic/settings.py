@@ -33,3 +33,10 @@ class ElasticSettings(BaseSettings):
         self.min_np = min_np
         self.max_np = max_np
         self.elastic_timeout = elastic_timeout
+
+    # we do not serialize the discovery instance
+    # it is not needed on the worker and might not be serializable
+    def __getstate__(self):
+        result = self.__dict__.copy()
+        result['discovery'] = None
+        return result

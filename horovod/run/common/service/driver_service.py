@@ -83,6 +83,7 @@ class BasicDriverService(network.BasicService):
                 if req.host_hash not in self._task_host_hash_indices:
                     self._task_host_hash_indices[req.host_hash] = []
                 self._task_host_hash_indices[req.host_hash].append(req.index)
+                # TODO: this sorting is a problem in elastic horovod
                 self._task_host_hash_indices[req.host_hash].sort()
             finally:
                 self._wait_cond.notify_all()

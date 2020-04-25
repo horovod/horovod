@@ -119,10 +119,11 @@ class BasicTaskService(network.BasicService):
 
                     if self._verbose >= 2:
                         print("Task service executes command: {}".format(req.command))
-                        for key, value in req.env.items():
-                            if 'SECRET' in key:
-                                value = '*' * len(value)
-                            print("Task service env: {} = {}".format(key, value))
+                        if self._verbose >= 3:
+                            for key, value in req.env.items():
+                                if 'SECRET' in key:
+                                    value = '*' * len(value)
+                                print("Task service env: {} = {}".format(key, value))
 
                     # We only permit executing exactly one command, so this is idempotent.
                     self._command_abort = threading.Event()
