@@ -14,6 +14,7 @@
 # ==============================================================================
 
 from horovod.run.common.service import driver_service
+from horovod.run.common.util import network
 
 
 class TaskHostHashIndicesRequest(object):
@@ -26,6 +27,23 @@ class TaskHostHashIndicesResponse(object):
     def __init__(self, indices):
         self.indices = indices
         """Task indices."""
+
+
+class SetLocalRankToRankRequest(object):
+    """Set local rank to tank."""
+    def __init__(self, host_hash, local_rank, rank):
+        self.host = host_hash
+        """Host hash."""
+        self.local_rank = local_rank
+        """Local rank."""
+        self.rank = rank
+        """Rank for local rank on host."""
+
+
+class SetLocalRankToRankResponse(object):
+    def __init__(self, index):
+        self.index = index
+        """Index for rank given in request."""
 
 
 class TaskIndexByRankRequest(object):
@@ -69,7 +87,7 @@ class SparkDriverService(driver_service.BasicDriverService):
         self._args = args
         self._kwargs = kwargs
         self._nics = nics
-        self._ranks_to_indices = None
+        self._ranks_to_indices = {}
         self._spark_job_failed = False
 
     def _handle(self, req, client_address):
@@ -77,16 +95,45 @@ class SparkDriverService(driver_service.BasicDriverService):
         if isinstance(req, TaskHostHashIndicesRequest):
             return TaskHostHashIndicesResponse(self._task_host_hash_indices[req.host_hash])
 
+        if isinstance(req, SetLocalRankToRankRequest):
+            self._wait_cond.acquire()
+
+            try:
+                # get index for host and local_rank
+                indices = self._task_host_hash_indices[req.host]
+                index = indices[req.local_rank]
+
+                # remove earlier rank for this index
+                values = list(self._ranks_to_indices.values())
+                prev_pos = values.index(index) if index in values else None
+                if prev_pos is not None:
+                    prev_rank = list(self._ranks_to_indices.keys())[prev_pos]
+                    del self._ranks_to_indices[prev_rank]
+
+                # memorize rank's index
+                self._ranks_to_indices[req.rank] = index
+            finally:
+                self._wait_cond.release()
+            return SetLocalRankToRankResponse(index)
+
         if isinstance(req, TaskIndexByRankRequest):
-            return TaskIndexByRankResponse(self._ranks_to_indices[req.rank])
+            self._wait_cond.acquire()
+            try:
+                return TaskIndexByRankResponse(self._ranks_to_indices[req.rank])
+            finally:
+                self._wait_cond.release()
 
         if isinstance(req, CodeRequest):
             return CodeResponse(self._fn, self._args, self._kwargs)
 
         return super(SparkDriverService, self)._handle(req, client_address)
 
-    def set_ranks_to_indices(self, ranks_to_indices):
-        self._ranks_to_indices = ranks_to_indices
+    def get_ranks_to_indices(self):
+        self._wait_cond.acquire()
+        try:
+            return self._ranks_to_indices.copy()
+        finally:
+            self._wait_cond.release()
 
     def notify_spark_job_failed(self):
         self._wait_cond.acquire()
@@ -152,6 +199,10 @@ class SparkDriverClient(driver_service.BasicDriverClient):
     def task_host_hash_indices(self, host_hash):
         resp = self._send(TaskHostHashIndicesRequest(host_hash))
         return resp.indices
+
+    def set_local_rank_to_rank(self, host_hash, local_rank, rank):
+        resp = self._send(SetLocalRankToRankRequest(host_hash, local_rank, rank))
+        return resp.index
 
     def task_index_by_rank(self, rank):
         resp = self._send(TaskIndexByRankRequest(rank))

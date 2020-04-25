@@ -20,6 +20,7 @@ import time
 
 import pyspark
 
+from horovod.common.util import gloo_built
 from horovod.run.util.threads import in_thread
 from horovod.spark.common.util import host_hash
 from horovod.spark.task import task_service
@@ -45,11 +46,15 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo, is_elastic):
     # for convenience, we put it back into settings
     settings.key = key
 
+    # provide host hash to mpurun_exec_fn.py via task service
+    # gloo_exec_fn.py will get this env var set in request env as well
+    hosthash = host_hash(salt=index if is_elastic else None)
+    os.environ['HOROVOD_HOSTNAME'] = hosthash
+
     task = task_service.SparkTaskService(index, settings.key, settings.nics, settings.verbose)
     try:
         # to simplify things, each task is an individual host in Elastic Horovod on Spark
         # hides availability of shared memory among executors on the same Spark node
-        hosthash = host_hash(salt=index if is_elastic else None)
         driver_client = driver_service.SparkDriverClient(driver_addresses, settings.key, settings.verbose)
         driver_client.register_task(index, task.addresses(), hosthash)
 
@@ -157,6 +162,11 @@ def _notify_and_register_task_addresses(driver, settings):
         print('Spark task-to-task address registration is complete.')
 
 
+def _get_indices_in_rank_order(driver):
+    ranks_to_indices = driver.get_ranks_to_indices()
+    return [index for _, index in sorted(ranks_to_indices.items(), key=lambda item: item[0])]
+
+
 def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
         use_mpi=None, use_gloo=None, extra_mpi_args=None,
         env=None, stdout=None, stderr=None, verbose=1, nics=None):
@@ -241,12 +251,6 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
         settings.hosts = ','.join('%s:%d' % (host_hash, len(driver.task_host_hash_indices()[host_hash]))
                                   for host_hash in host_hashes)
 
-        # Determine the ranks to indicies
-        ranks_to_indices = []
-        for host_hash in host_hashes:
-            ranks_to_indices += driver.task_host_hash_indices()[host_hash]
-        driver.set_ranks_to_indices(ranks_to_indices)
-
         # Run the job
         _launch_job(use_mpi, use_gloo, settings, driver, env, stdout, stderr)
     except:
@@ -262,9 +266,12 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
     # Make sure Spark Job did not fail.
     driver.check_for_spark_job_failure()
 
+    # get ranks from driver
+    indices_in_rank_order = _get_indices_in_rank_order(driver)
+
     # If there's no exception, execution results are in this queue.
     results = result_queue.get_nowait()
-    return [results[index] for index in ranks_to_indices]
+    return [results[index] for index in indices_in_rank_order]
 
 
 def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
@@ -288,6 +295,15 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
         List of results returned by running `fn` on each rank.
     """
 
+    if not gloo_built(verbose=(verbose >= 2)):
+        raise ValueError('Gloo support is required to use elastic traiing, but has not been built.  Ensure CMake is '
+                         'installed and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
+
+    spark_context = pyspark.SparkContext._active_spark_context
+    if spark_context is None:
+        raise Exception('Could not find an active SparkContext, are you '
+                        'running in a PySpark session?')
+
     if start_timeout is None:
         # Lookup default timeout from the environment variable.
         start_timeout = int(os.getenv('HOROVOD_SPARK_START_TIMEOUT', '600'))
@@ -295,11 +311,6 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
     # nics needs to be a set
     if nics and not isinstance(nics, set):
         nics = set(nics)
-
-    spark_context = pyspark.SparkContext._active_spark_context
-    if spark_context is None:
-        raise Exception('Could not find an active SparkContext, are you '
-                        'running in a PySpark session?')
 
     if num_proc is None:
         # try spark.dynamicAllocation.initialExecutors
@@ -357,15 +368,7 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
         #while 0 not in driver.task_host_hash_indices()[host_hashes[0]]:
         #    host_hashes = host_hashes[1:] + host_hashes[:1]
 
-        # TODO: host assignment should set this
-        ## Determine the ranks to indicies
-        #driver.set_ranks_to_indices(ranks_to_indices)
-
         # Run the job
-        if not gloo_built(verbose=(settings.verbose >= 2)):
-            raise ValueError('Gloo support is required to use elastic traiing, but has not been built.  Ensure CMake is '
-                             'installed and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
-
         gloo_run_elastic(settings, driver, env)
     except:
         # Terminate Spark job.
@@ -380,7 +383,9 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
     # Make sure Spark Job did not fail.
     driver.check_for_spark_job_failure()
 
+    # get ranks from driver
+    indices_in_rank_order = _get_indices_in_rank_order(driver)
+
     # If there's no exception, execution results are in this queue.
     results = result_queue.get_nowait()
-    # TODO: static run reorders results by ranks
-    return results
+    return [results[index] for index in indices_in_rank_order]

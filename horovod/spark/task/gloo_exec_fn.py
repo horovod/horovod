@@ -20,7 +20,7 @@ from horovod.run.common.util import codec
 
 
 def main(driver_addresses, settings):
-    task_exec(driver_addresses, settings, 'HOROVOD_RANK')
+    task_exec(driver_addresses, settings, 'HOROVOD_RANK', 'HOROVOD_LOCAL_RANK')
 
 
 if __name__ == '__main__':
