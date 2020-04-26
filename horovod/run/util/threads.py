@@ -120,7 +120,7 @@ def in_thread(target, args=(), name=None, daemon=True, silent=False):
     return bg
 
 
-def on_event(event, func, args=(), stop=None, check_interval_seconds=1.0, silent=False):
+def on_event(event, func, args=(), stop=None, check_stop_interval_seconds=1.0, silent=False):
     """
     Executes the given function in a separate thread when event is set.
     That threat can be stopped by setting the optional stop event.
@@ -133,8 +133,8 @@ def on_event(event, func, args=(), stop=None, check_interval_seconds=1.0, silent
     :param args: function arguments
     :param stop: event to stop thread
     :type stop: threading.Event
-    :param check_interval_seconds: interval in seconds to check the stop event
-    :type check_interval_seconds: float
+    :param check_stop_interval_seconds: interval in seconds to check the stop event
+    :type check_stop_interval_seconds: float
     :param silent: swallows exceptions raised by target silently
     :return: thread
     """
@@ -152,7 +152,7 @@ def on_event(event, func, args=(), stop=None, check_interval_seconds=1.0, silent
     else:
         def fn():
             while not event.is_set() and not stop.is_set():
-                event.wait(timeout=check_interval_seconds)
+                event.wait(timeout=check_stop_interval_seconds)
             if not stop.is_set():
                 func(*args)
 
