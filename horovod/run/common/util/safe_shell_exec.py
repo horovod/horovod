@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import multiprocessing
 import os
 import psutil
 import re
@@ -24,6 +25,7 @@ import time
 
 from horovod.run.util.threads import in_thread, on_event
 
+_PY3 = sys.version_info[0] == 3
 GRACEFUL_TERMINATION_TIME_S = 5
 
 
@@ -96,9 +98,67 @@ def forward_stream(src_stream, dst_stream, prefix, index):
     src_stream.close()
 
 
+def _middleman(command, env, stdout, stderr, rw):
+    stdout_r, stdout_w = stdout
+    stderr_r, stderr_w = stderr
+    r, w = rw
+
+    # Close unused file descriptors to enforce PIPE behavior.
+    stdout_r.close()
+    stderr_r.close()
+    w.close()
+    os.setsid()
+
+    executor_shell = subprocess.Popen(command, shell=True, env=env,
+                                      stdout=stdout_w, stderr=stderr_w)
+
+    sigterm_received = threading.Event()
+
+    def set_sigterm_received(signum, frame):
+        sigterm_received.set()
+
+    signal.signal(signal.SIGINT, set_sigterm_received)
+    signal.signal(signal.SIGTERM, set_sigterm_received)
+
+    def kill_executor_children_if_parent_dies():
+        # This read blocks until the pipe is closed on the other side
+        # due to parent process termination (for any reason, including -9).
+        os.read(r.fileno(), 1)
+        terminate_executor_shell_and_children(executor_shell.pid)
+
+    in_thread(kill_executor_children_if_parent_dies)
+
+    on_event(sigterm_received, terminate_executor_shell_and_children, args=(executor_shell.pid,))
+
+    exit_code = executor_shell.wait()
+    os._exit(exit_code)
+
+
 def execute(command, env=None, stdout=None, stderr=None, index=None, events=None):
-    process = subprocess.Popen(command, shell=True, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                               preexec_fn=os.setsid)
+    ctx = multiprocessing.get_context('spawn') if _PY3 else multiprocessing
+
+    # Make a pipe for the subprocess stdout/stderr.
+    (stdout_r, stdout_w) = ctx.Pipe()
+    (stderr_r, stderr_w) = ctx.Pipe()
+
+    # This Pipe is how we ensure that the executed process is properly terminated (not orphaned) if
+    # the parent process is hard killed (-9). If the parent (this process) is killed for any reason,
+    # this Pipe will be closed, which can be detected by the middleman. When the middleman sees the
+    # closed Pipe, it will issue a SIGTERM to the subprocess executing the command. The assumption
+    # here is that users will be inclined to hard kill this process, not the middleman.
+    (r, w) = ctx.Pipe()
+
+    middleman = ctx.Process(target=_middleman, args=(command, env,
+                                                     (stdout_r, stdout_w),
+                                                     (stderr_r, stderr_w),
+                                                     (r, w)))
+    middleman.daemon = True
+    middleman.start()
+
+    # Close unused file descriptors to enforce PIPE behavior.
+    r.close()
+    stdout_w.close()
+    stderr_w.close()
 
     # Redirect command stdout & stderr to provided streams or sys.stdout/sys.stderr.
     # This is useful for Jupyter Notebook that uses custom sys.stdout/sys.stderr or
@@ -108,28 +168,33 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
     if stderr is None:
         stderr = sys.stderr
 
-    stdout_fwd = in_thread(target=forward_stream, args=(process.stdout, stdout, 'stdout', index))
-    stderr_fwd = in_thread(target=forward_stream, args=(process.stderr, stderr, 'stderr', index))
+    stdout_fwd = in_thread(target=forward_stream, args=(stdout_r, stdout, 'stdout', index))
+    stderr_fwd = in_thread(target=forward_stream, args=(stderr_r, stderr, 'stderr', index))
 
     # TODO: Currently this requires explicitly declaration of the events and signal handler to set
     #  the event (gloo_run.py:_launch_jobs()). Need to figure out a generalized way to hide this behind
     #  interfaces.
     stop = threading.Event()
     events = events or []
-    event_handles = []
     for event in events:
-        # with silent=True because the process may have already been killed elsewhere
-        event_handles.append(on_event(event, terminate_executor_shell_and_children, args=(process.pid,),
-                                      stop=stop, silent=True))
+        on_event(event, middleman.terminate, stop=stop, silent=True)
 
     try:
-        exit_code = process.wait()
+        middleman.join()
+    except:
+        # interrupted, send middleman TERM signal which will terminate children
+        middleman.terminate()
+        while True:
+            try:
+                middleman.join()
+                break
+            except:
+                # interrupted, wait for middleman to finish
+                pass
     finally:
-        stop.set()
+        if stop is not None:
+            stop.set()
 
     stdout_fwd.join()
     stderr_fwd.join()
-    for handle in event_handles:
-        handle.join()
-
-    return exit_code
+    return middleman.exitcode
