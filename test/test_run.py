@@ -271,7 +271,7 @@ class RunTests(unittest.TestCase):
         event = threading.Event()
         stop = threading.Event()
         fn = mock.Mock()
-        thread = on_event(event, fn, stop=stop, check_interval_seconds=0.01)
+        thread = on_event(event, fn, stop=stop, check_stop_interval_seconds=0.01)
         fn.assert_not_called()
         event.set()
         thread.join(1.0)
@@ -285,7 +285,7 @@ class RunTests(unittest.TestCase):
         event = threading.Event()
         stop = threading.Event()
         fn = mock.Mock()
-        thread = on_event(event, fn, stop=stop, check_interval_seconds=0.01)
+        thread = on_event(event, fn, stop=stop, check_stop_interval_seconds=0.01)
         fn.assert_not_called()
         stop.set()
         thread.join(1.0)
@@ -349,16 +349,16 @@ class RunTests(unittest.TestCase):
     def test_safe_shell_exec_interrupts_on_event(self):
         # interrupt execute in one second
         interrupt = threading.Event()
-        delay(lambda: interrupt.set(), 1.0)
+        interrupt_delay = 1.0
+        delay(lambda: interrupt.set(), interrupt_delay)
 
-        sleep = 10
+        sleep = interrupt_delay + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S + 2.0
         start = time.time()
         self.do_test_safe_shell_exec('sleep {}'.format(sleep), 143, '', None, interrupt)
         duration = time.time() - start
 
-        self.assertGreaterEqual(duration, 1.0)
-        self.assertLess(duration, 2.0 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S, 'sleep should not finish')
-        self.assertGreater(sleep, 2.0 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S, 'sleep should allow for GRACEFUL_TERMINATION_TIME_S')
+        self.assertGreaterEqual(duration, interrupt_delay)
+        self.assertLess(duration, sleep - 1.0, 'sleep should not finish')
 
     def test_safe_shell_exec_interrupts_on_parent_shutdown(self):
         sleep = 20

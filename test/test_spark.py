@@ -671,7 +671,10 @@ class SparkTests(unittest.TestCase):
     def do_test_rsh_events(self, test_events):
         self.assertGreater(test_events, 0, 'test should not be trivial')
 
-        sleep = 10
+        event_delay = 1.0
+        wait_for_exit_code_delay = 1.0
+        sleep = event_delay + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S + \
+            wait_for_exit_code_delay + 2.0
         command = 'sleep {}'.format(sleep)
         for triggered_event in range(test_events):
             events = [threading.Event() for _ in range(test_events)]
@@ -681,11 +684,8 @@ class SparkTests(unittest.TestCase):
             self.do_test_rsh(command, 143, events=events)
             duration = time.time() - start
 
-            self.assertGreaterEqual(duration, 1.0)
-            self.assertLess(duration, 2.00 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S,
-                            'sleep should not finish')
-            self.assertGreater(sleep, 2.00 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S,
-                               'sleep should be large enough')
+            self.assertGreaterEqual(duration, event_delay)
+            self.assertLess(duration, sleep - 1.0, 'sleep should not finish')
 
     def do_test_rsh(self, command, expected_result, events=None):
         # setup infrastructure so we can call rsh
