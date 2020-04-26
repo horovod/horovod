@@ -536,22 +536,31 @@ class SparkTests(unittest.TestCase):
         self.do_test_rsh('false', 1)
 
     def test_rsh_event(self):
+        self.do_test_rsh_events(1)
+
+    def test_rsh_events(self):
+        self.do_test_rsh_events(3)
+
+    def do_test_rsh_events(self, test_events):
+        self.assertGreater(test_events, 0, 'test should not be trivial')
+
         sleep = 10
         command = 'sleep {}'.format(sleep)
-        event = threading.Event()
-        delay(lambda: event.set(), 1.0)
+        for triggered_event in range(test_events):
+            events = [threading.Event() for _ in range(test_events)]
+            delay(lambda: events[triggered_event].set(), 1.0)
 
-        start = time.time()
-        self.do_test_rsh(command, 143, event=event)
-        duration = time.time() - start
+            start = time.time()
+            self.do_test_rsh(command, 143, events=events)
+            duration = time.time() - start
 
-        self.assertGreaterEqual(duration, 1.0)
-        self.assertLess(duration, 2.00 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S,
-                        'sleep should not finish')
-        self.assertGreater(sleep, 2.00 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S,
-                           'sleep should be large enough')
+            self.assertGreaterEqual(duration, 1.0)
+            self.assertLess(duration, 2.00 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S,
+                            'sleep should not finish')
+            self.assertGreater(sleep, 2.00 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S,
+                               'sleep should be large enough')
 
-    def do_test_rsh(self, command, expected_result, event=None):
+    def do_test_rsh(self, command, expected_result, events=None):
         def fn():
             return 0
 
@@ -565,7 +574,7 @@ class SparkTests(unittest.TestCase):
         settings = hvd_settings.Settings(verbose=2, key=key)
         env = {}
 
-        res = rsh(driver.addresses(), key, settings, host_hash, command, env, 0, False, event=event)
+        res = rsh(driver.addresses(), key, settings, host_hash, command, env, 0, False, events=events)
         self.assertEqual(expected_result, res)
 
     def test_mpirun_exec_fn(self):

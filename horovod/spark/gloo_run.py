@@ -17,7 +17,7 @@ import sys
 import time
 
 from horovod.run.gloo_run import launch_gloo
-from horovod.run.common.util import codec, secret
+from horovod.run.common.util import codec
 from horovod.spark.driver.rsh import rsh
 
 
@@ -25,7 +25,7 @@ def _exec_command_fn(driver_addresses, key, settings, env):
     def _exec_command(command, slot_info, events):
         host = slot_info.hostname
         local_rank = slot_info.local_rank
-        result = rsh(driver_addresses, key, settings, host, command, env, local_rank, False)
+        result = rsh(driver_addresses, key, settings, host, command, env, local_rank, False, events)
         return result, time.time()
     return _exec_command
 
