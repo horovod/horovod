@@ -69,14 +69,11 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo, is_elastic):
         else:
             local_rank_zero_index = None
 
-        # In elastic all tasks wait for task shutdown signal from driver.
-        # With Gloo all tasks wait for the command to terminate.
+        # With Gloo or in elastic all tasks wait for the command to terminate.
         # With MPI task with first index executes orted which will run mpirun_exec_fn for all tasks.
         minimum_lifetime_after_start = None
-        if is_elastic:
-            driver_client.wait_for_task_shutdown()
-        elif use_gloo or index == local_rank_zero_index:
-            # Either Gloo or first task with MPI.
+        if is_elastic or use_gloo or index == local_rank_zero_index:
+            # Either elastic, Gloo or first task with MPI.
             task.wait_for_command_start(settings.start_timeout)
             minimum_lifetime_after_start = timeout.Timeout(MINIMUM_COMMAND_LIFETIME_S,
                                                            message='Just measuring runtime')
