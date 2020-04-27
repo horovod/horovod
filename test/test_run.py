@@ -18,16 +18,21 @@ from __future__ import division
 from __future__ import print_function
 
 import copy
-import os
 import itertools
+import os
+import multiprocessing
+import signal
+import sys
 import threading
 import time
 import unittest
 import warnings
 
-import six
+import psutil
 import pytest
 import mock
+import six
+
 from mock import MagicMock
 
 import horovod
@@ -41,7 +46,7 @@ from horovod.run.mpi_run import _get_mpi_implementation, _get_mpi_implementation
 from horovod.run.runner import parse_args, parse_host_files, run_controller
 from horovod.run.util.threads import in_thread, on_event
 
-from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay
+from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay, wait
 
 
 class RunTests(unittest.TestCase):
@@ -352,6 +357,33 @@ class RunTests(unittest.TestCase):
         self.assertGreaterEqual(duration, 1.0)
         self.assertLess(duration, 2.0 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S, 'sleep should not finish')
         self.assertGreater(sleep, 2.0 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S, 'sleep should allow for GRACEFUL_TERMINATION_TIME_S')
+
+    def test_safe_shell_exec_interrupts_if_parent_shutdown(self):
+        sleep = 20
+        script = os.path.join(os.path.dirname(__file__), 'data/sleep.py')
+
+        with temppath() as logfile:
+            cmd = ' '.join([sys.executable, script, str(sleep), logfile])
+            p = multiprocessing.Process(target=safe_shell_exec.execute, args=(cmd,))
+            p.start()
+            wait(lambda: os.path.exists(logfile), timeout=5)
+
+            parent = psutil.Process(p.pid)
+            with open(logfile, 'r') as f:
+                child = psutil.Process(int(f.read()))
+
+            assert parent.is_running()
+            assert child.is_running()
+
+            # Hard kill the parent process
+            parent.kill()
+            parent.wait(timeout=safe_shell_exec.GRACEFUL_TERMINATION_TIME_S)
+
+            # Child process will exit when pipe breaks
+            child.wait(timeout=safe_shell_exec.GRACEFUL_TERMINATION_TIME_S)
+
+            assert not parent.is_running()
+            assert not child.is_running()
 
     def _do_test_safe_shell_exec(self, cmd, expected_exit_code, expected_stdout, expected_stderr, event=None):
         stdout = six.StringIO()
