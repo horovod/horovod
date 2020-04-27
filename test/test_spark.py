@@ -40,20 +40,19 @@ from pyspark.sql.types import ArrayType, BooleanType, DoubleType, FloatType, Int
 import horovod.spark
 import horovod.torch as hvd
 
+from horovod.common.elastic import run_fn
 from horovod.common.util import gloo_built, mpi_built
-from horovod.run.common.util import codec, hosts, secret, safe_shell_exec
+from horovod.run.common.util import codec, secret, safe_shell_exec
 from horovod.run.common.util import settings as hvd_settings
 from horovod.run.mpi_run import is_open_mpi
-from horovod.spark import gloo_run
 from horovod.spark.common import constants, util
 from horovod.spark.common.store import HDFSStore
-from horovod.spark.driver.driver_service import SparkDriverService, SparkDriverClient
 from horovod.spark.driver.host_discovery import SparkDriverHostDiscovery
 from horovod.spark.driver.rsh import rsh
 from horovod.spark.task import get_available_devices, gloo_exec_fn, mpirun_exec_fn
-from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient
 
-from spark_common import spark_session, create_test_data_from_schema, create_xor_data, local_store
+from spark_common import spark_driver_service, spark_session, spark_task_service, \
+    create_test_data_from_schema, create_xor_data, local_store
 
 from common import is_built, mpi_implementation_flags, tempdir, override_env, undo, delay
 
@@ -61,10 +60,6 @@ from common import is_built, mpi_implementation_flags, tempdir, override_env, un
 # Spark will fail to initialize correctly locally on Mac OS without this
 if platform.system() == 'Darwin':
     os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
-
-
-def fn():
-    return 0
 
 
 class SparkTests(unittest.TestCase):
@@ -114,15 +109,12 @@ class SparkTests(unittest.TestCase):
         self.assertNotEqual(salted_hash, salted_containered_hash)
 
     def test_driver_common_interfaces(self):
-        key = secret.make_secret_key()
-        driver = SparkDriverService(2, fn, (), {}, key, None)
+        with spark_driver_service(num_proc=2) as (driver, client, _):
+            client.register_task_to_task_addresses(0, {'lo': [('127.0.0.1', 31321)], 'eth0': [('192.168.0.1', 31321)]})
+            client.register_task_to_task_addresses(1, {'eth1': [('10.0.0.1', 31322)], 'eth0': [('192.168.0.2', 31322)]})
 
-        client = SparkDriverClient(driver.addresses(), key, 2)
-        client.register_task_to_task_addresses(0, {'lo': [('127.0.0.1', 31321)], 'eth0': [('192.168.0.1', 31321)]})
-        client.register_task_to_task_addresses(1, {'eth1': [('10.0.0.1', 31322)], 'eth0': [('192.168.0.2', 31322)]})
-
-        nics = driver.get_common_interfaces()
-        self.assertEqual({'eth0'}, nics)
+            nics = driver.get_common_interfaces()
+            self.assertEqual({'eth0'}, nics)
 
     def test_driver_common_interfaces_from_settings(self):
         nics = list(psutil.net_if_addrs().keys())
@@ -130,55 +122,47 @@ class SparkTests(unittest.TestCase):
             self.skipTest('this machine has no network interfaces')
 
         nic = nics[0]
-        key = secret.make_secret_key()
-        driver = SparkDriverService(2, fn, (), {}, key, {nic})
+        with spark_driver_service(num_proc=2, nics={nic}) as (driver, client, _):
+            client.register_task_to_task_addresses(0, {'eth0': [('192.168.0.1', 31321)]})
+            client.register_task_to_task_addresses(1, {'eth1': [('10.0.0.1', 31322)]})
 
-        client = SparkDriverClient(driver.addresses(), key, 2)
-        client.register_task_to_task_addresses(0, {'eth0': [('192.168.0.1', 31321)]})
-        client.register_task_to_task_addresses(1, {'eth1': [('10.0.0.1', 31322)]})
-
-        nics = driver.get_common_interfaces()
-        self.assertEqual({nic}, nics)
+            nics = driver.get_common_interfaces()
+            self.assertEqual({nic}, nics)
 
     def test_driver_common_interfaces_fails(self):
-        key = secret.make_secret_key()
-        driver = SparkDriverService(2, fn, (), {}, key, None)
+        with spark_driver_service(num_proc=2) as (driver, client, _):
+            client.register_task_to_task_addresses(0, {'eth0': [('192.168.0.1', 31321)]})
+            client.register_task_to_task_addresses(1, {'eth1': [('10.0.0.1', 31322)]})
 
-        client = SparkDriverClient(driver.addresses(), key, 2)
-        client.register_task_to_task_addresses(0, {'eth0': [('192.168.0.1', 31321)]})
-        client.register_task_to_task_addresses(1, {'eth1': [('10.0.0.1', 31322)]})
-
-        with pytest.raises(Exception, match=r"^Unable to find a set of common task-to-task "
-                                            r"communication interfaces: \["
-                                            r"\(0, \{'eth0': \[\('192.168.0.1', 31321\)\]\}\), "
-                                            r"\(1, \{'eth1': \[\('10.0.0.1', 31322\)\]\}\)"
-                                            r"\]$"):
-            driver.get_common_interfaces()
+            with pytest.raises(Exception, match=r"^Unable to find a set of common task-to-task "
+                                                r"communication interfaces: \["
+                                                r"\(0, \{'eth0': \[\('192.168.0.1', 31321\)\]\}\), "
+                                                r"\(1, \{'eth1': \[\('10.0.0.1', 31322\)\]\}\)"
+                                                r"\]$"):
+                driver.get_common_interfaces()
 
     def test_driver_set_local_rank_to_index(self):
-        key = secret.make_secret_key()
-        driver = SparkDriverService(3, fn, (), {}, key, None)
-        self.assertEqual({}, driver.get_ranks_to_indices())
+        with spark_driver_service(num_proc=3) as (driver, client, _):
+            self.assertEqual({}, driver.get_ranks_to_indices())
 
-        client = SparkDriverClient(driver.addresses(), key, 2)
-        client.register_task(0, {'lo': [('127.0.0.1', 31320)]}, 'host-1')
-        client.register_task(2, {'lo': [('127.0.0.1', 31322)]}, 'host-1')
-        client.register_task(1, {'lo': [('127.0.0.1', 31321)]}, 'host-2')
+            client.register_task(0, {'lo': [('127.0.0.1', 31320)]}, 'host-1')
+            client.register_task(2, {'lo': [('127.0.0.1', 31322)]}, 'host-1')
+            client.register_task(1, {'lo': [('127.0.0.1', 31321)]}, 'host-2')
 
-        # host-1, local-rank 1: rank 0 -> index 2
-        index = client.set_local_rank_to_rank('host-1', 1, 0)
-        self.assertEqual({0: 2}, driver.get_ranks_to_indices())
-        self.assertEqual(2, index)
+            # host-1, local-rank 1: rank 0 -> index 2
+            index = client.set_local_rank_to_rank('host-1', 1, 0)
+            self.assertEqual({0: 2}, driver.get_ranks_to_indices())
+            self.assertEqual(2, index)
 
-        # host-2, local-rank 0: rank 1 -> index 1
-        index = client.set_local_rank_to_rank('host-2', 0, 1)
-        self.assertEqual({0: 2, 1: 1}, driver.get_ranks_to_indices())
-        self.assertEqual(1, index)
+            # host-2, local-rank 0: rank 1 -> index 1
+            index = client.set_local_rank_to_rank('host-2', 0, 1)
+            self.assertEqual({0: 2, 1: 1}, driver.get_ranks_to_indices())
+            self.assertEqual(1, index)
 
-        # host-1, local-rank 0: rank 2 -> index 0
-        index = client.set_local_rank_to_rank('host-1', 0, 2)
-        self.assertEqual({0: 2, 1: 1, 2: 0}, driver.get_ranks_to_indices())
-        self.assertEqual(0, index)
+            # host-1, local-rank 0: rank 2 -> index 0
+            index = client.set_local_rank_to_rank('host-1', 0, 2)
+            self.assertEqual({0: 2, 1: 1, 2: 0}, driver.get_ranks_to_indices())
+            self.assertEqual(0, index)
 
     @pytest.mark.skipif(sys.version_info >= (3, 0), reason='Skipped on Python 3')
     def test_run_throws_on_python2(self):
@@ -230,13 +214,10 @@ class SparkTests(unittest.TestCase):
         if not gloo_built():
             self.skipTest("Gloo is not available")
 
-        self.do_test_happy_run_elastic()
-
-    """
-    Actually tests that horovod.spark.run_elastic works properly in a simple setup.
-    """
-    def do_test_happy_run_elastic(self):
         def fn():
+            # training function does not use ObjectState and @hvd.elastic.run
+            # only testing distribution of state-less training function here
+            # see test_spark_torch.py for testing that
             hvd.init()
             res = hvd.allgather(torch.tensor([hvd.rank()])).tolist()
             return res, hvd.rank()
@@ -689,17 +670,15 @@ class SparkTests(unittest.TestCase):
 
     def do_test_rsh(self, command, expected_result, events=None):
         # setup infrastructure so we can call rsh
-        key = secret.make_secret_key()
         host_hash = 'test-host'
-        driver = SparkDriverService(1, fn, (), {}, key, None)
-        client = SparkDriverClient(driver.addresses(), key, 2)
-        task = SparkTaskService(0, key, None, 2)
-        client.register_task(0, task.addresses(), host_hash)
-        settings = hvd_settings.Settings(verbose=2, key=key)
-        env = {}
+        with spark_driver_service(num_proc=1) as (driver, client, key):
+            with spark_task_service(index=0, key=key) as (task, _, _):
+                client.register_task(0, task.addresses(), host_hash)
+                settings = hvd_settings.Settings(verbose=2, key=key)
+                env = {}
 
-        res = rsh(driver.addresses(), key, host_hash, command, env, 0, settings.verbose, False, events=events)
-        self.assertEqual(expected_result, res)
+                res = rsh(driver.addresses(), key, host_hash, command, env, 0, settings.verbose, False, events=events)
+                self.assertEqual(expected_result, res)
 
     def test_mpirun_exec_fn(self):
         bool_values = [False, True]
@@ -799,81 +778,73 @@ class SparkTests(unittest.TestCase):
         )
 
     def do_test_exec_fn_provides_driver_with_local_rank(self, exec_fn, rank_env, local_rank_env):
-        key = secret.make_secret_key()
-        driver = SparkDriverService(3, fn, (), {}, key, None)
+        with spark_driver_service(num_proc=3) as (driver, client, key):
+            with spark_task_service(index=0, key=key) as (task0, _, _):
+                with spark_task_service(index=1, key=key) as (task1, _, _):
+                    with spark_task_service(index=2, key=key) as (task2, _, _):
+                        self.assertIsNone(task0.fn_result())
+                        self.assertIsNone(task1.fn_result())
+                        self.assertIsNone(task2.fn_result())
 
-        task0 = SparkTaskService(0, key, None)
-        task1 = SparkTaskService(1, key, None)
-        task2 = SparkTaskService(2, key, None)
-        self.assertIsNone(task0.fn_result())
-        self.assertIsNone(task1.fn_result())
-        self.assertIsNone(task2.fn_result())
+                        client.register_task(0, task0.addresses(), 'host-1')
+                        client.register_task(1, task1.addresses(), 'host-2')
+                        client.register_task(2, task2.addresses(), 'host-1')
+                        self.assertEqual({}, driver.get_ranks_to_indices())
 
-        client = SparkDriverClient(driver.addresses(), key, 0)
-        client.register_task(0, task0.addresses(), 'host-1')
-        client.register_task(1, task1.addresses(), 'host-2')
-        client.register_task(2, task2.addresses(), 'host-1')
-        self.assertEqual({}, driver.get_ranks_to_indices())
+                        settings = mock.MagicMock(verbose=2)
 
-        settings = mock.MagicMock(verbose=2)
+                        with override_env({rank_env: 0,
+                                           local_rank_env: 1,
+                                           'HOROVOD_HOSTNAME': 'host-1',
+                                           secret.HOROVOD_SECRET_KEY: codec.dumps_base64(key)}):
+                            exec_fn.main(driver.addresses(), settings)
+                            self.assertEqual(None, task0.fn_result())
+                            self.assertEqual(None, task1.fn_result())
+                            self.assertEqual(0, task2.fn_result())
+                            self.assertEqual({0: 2}, driver.get_ranks_to_indices())
 
-        with override_env({rank_env: 0,
-                           local_rank_env: 1,
-                           'HOROVOD_HOSTNAME': 'host-1',
-                           secret.HOROVOD_SECRET_KEY: codec.dumps_base64(key)}):
-            exec_fn.main(driver.addresses(), settings)
-            self.assertEqual(None, task0.fn_result())
-            self.assertEqual(None, task1.fn_result())
-            self.assertEqual(0, task2.fn_result())
-            self.assertEqual({0: 2}, driver.get_ranks_to_indices())
+                        with override_env({rank_env: 2,
+                                           local_rank_env: 0,
+                                           'HOROVOD_HOSTNAME': 'host-2',
+                                           secret.HOROVOD_SECRET_KEY: codec.dumps_base64(key)}):
+                            exec_fn.main(driver.addresses(), settings)
+                            self.assertEqual(None, task0.fn_result())
+                            self.assertEqual(0, task1.fn_result())
+                            self.assertEqual(0, task2.fn_result())
+                            self.assertEqual({0: 2, 2: 1}, driver.get_ranks_to_indices())
 
-        with override_env({rank_env: 2,
-                           local_rank_env: 0,
-                           'HOROVOD_HOSTNAME': 'host-2',
-                           secret.HOROVOD_SECRET_KEY: codec.dumps_base64(key)}):
-            exec_fn.main(driver.addresses(), settings)
-            self.assertEqual(None, task0.fn_result())
-            self.assertEqual(0, task1.fn_result())
-            self.assertEqual(0, task2.fn_result())
-            self.assertEqual({0: 2, 2: 1}, driver.get_ranks_to_indices())
-
-        with override_env({rank_env: 1,
-                           local_rank_env: 0,
-                           'HOROVOD_HOSTNAME': 'host-1',
-                           secret.HOROVOD_SECRET_KEY: codec.dumps_base64(key)}):
-            exec_fn.main(driver.addresses(), settings)
-            self.assertEqual(0, task0.fn_result())
-            self.assertEqual(0, task1.fn_result())
-            self.assertEqual(0, task2.fn_result())
-            self.assertEqual({0: 2, 2: 1, 1: 0}, driver.get_ranks_to_indices())
+                        with override_env({rank_env: 1,
+                                           local_rank_env: 0,
+                                           'HOROVOD_HOSTNAME': 'host-1',
+                                           secret.HOROVOD_SECRET_KEY: codec.dumps_base64(key)}):
+                            exec_fn.main(driver.addresses(), settings)
+                            self.assertEqual(0, task0.fn_result())
+                            self.assertEqual(0, task1.fn_result())
+                            self.assertEqual(0, task2.fn_result())
+                            self.assertEqual({0: 2, 2: 1, 1: 0}, driver.get_ranks_to_indices())
 
     def test_spark_driver_host_discovery(self):
-        def fn():
-            return 0
+        with spark_driver_service(num_proc=4) as (driver, client, _):
+            discovery = SparkDriverHostDiscovery(driver)
 
-        key = secret.make_secret_key()
-        driver = SparkDriverService(4, fn, (), {}, key, None)
-        discovery = SparkDriverHostDiscovery(driver)
-        client = SparkDriverClient(driver.addresses(), key, verbose=2)
+            slots = discovery.find_available_hosts_and_slots()
+            self.assertEqual({}, slots)
 
-        slots = discovery.find_available_hosts_and_slots()
-        self.assertEqual({}, slots)
+            client.register_task(0, driver.addresses(), 'host-hash-1')
+            slots = discovery.find_available_hosts_and_slots()
+            self.assertEqual({'host-hash-1': 1}, slots)
 
-        client.register_task(0, driver.addresses(), 'host-hash-1')
-        slots = discovery.find_available_hosts_and_slots()
-        self.assertEqual({'host-hash-1': 1}, slots)
+            client.register_task(1, driver.addresses(), 'host-hash-2')
+            slots = discovery.find_available_hosts_and_slots()
+            self.assertEqual({'host-hash-1': 1, 'host-hash-2': 1}, slots)
 
-        client.register_task(1, driver.addresses(), 'host-hash-2')
-        slots = discovery.find_available_hosts_and_slots()
-        self.assertEqual({'host-hash-1': 1, 'host-hash-2': 1}, slots)
+            client.register_task(2, driver.addresses(), 'host-hash-2')
+            slots = discovery.find_available_hosts_and_slots()
+            self.assertEqual({'host-hash-1': 1, 'host-hash-2': 2}, slots)
 
-        client.register_task(2, driver.addresses(), 'host-hash-2')
-        slots = discovery.find_available_hosts_and_slots()
-        self.assertEqual({'host-hash-1': 1, 'host-hash-2': 2}, slots)
-
-        client.register_task(3, driver.addresses(), 'host-hash-1')
-        slots = discovery.find_available_hosts_and_slots()
-        self.assertEqual({'host-hash-1': 2, 'host-hash-2': 2}, slots)
+            client.register_task(3, driver.addresses(), 'host-hash-1')
+            slots = discovery.find_available_hosts_and_slots()
+            self.assertEqual({'host-hash-1': 2, 'host-hash-2': 2}, slots)
 
     def test_df_cache(self):
         # Clean the cache before starting the test
@@ -1410,38 +1381,35 @@ class SparkTests(unittest.TestCase):
         assert store.get_test_data_path() == 'hdfs:///user/test_path', hdfs_root
 
     def test_spark_task_service_env(self):
-        key = secret.make_secret_key()
         service_env = {
             'HADOOP_TOKEN_FILE_LOCATION': 'path',
             'PYTHONPATH': 'pypath',
             'other': 'values'
         }
         with override_env(service_env):
-            service = SparkTaskService(1, key, None)
-            client = SparkTaskClient(1, service.addresses(), key, 3)
+            with spark_task_service(index=1) as (service, client, key):
+                with tempdir() as d:
+                    file = '{}/env'.format(d)
+                    command = "env | grep -v '^PWD='> {}".format(file)
+                    command_env = {"test": "value"}
 
-            with tempdir() as d:
-                file = '{}/env'.format(d)
-                command = "env | grep -v '^PWD='> {}".format(file)
-                command_env = {"test": "value"}
+                    try:
+                        client.run_command(command, command_env)
+                        client.wait_for_command_termination()
+                    finally:
+                        service.shutdown()
 
-                try:
-                    client.run_command(command, command_env)
-                    client.wait_for_command_termination()
-                finally:
-                    service.shutdown()
-
-                with open(file) as f:
-                    env = sorted([line.strip() for line in f.readlines()])
-                    expected = [
-                        'HADOOP_TOKEN_FILE_LOCATION=path',
-                        'HOROVOD_SPARK_WORK_DIR={cwd}'.format(cwd=os.getcwd()),
-                        'PYTHONPATH=pypath',
-                        '{}={}'.format(secret.HOROVOD_SECRET_KEY, codec.dumps_base64(key)),
-                        'other=values',
-                        'test=value'
-                    ]
-                    self.assertEqual(expected, env)
+                    with open(file) as f:
+                        env = sorted([line.strip() for line in f.readlines()])
+                        expected = [
+                            'HADOOP_TOKEN_FILE_LOCATION=path',
+                            'HOROVOD_SPARK_WORK_DIR={cwd}'.format(cwd=os.getcwd()),
+                            'PYTHONPATH=pypath',
+                            '{}={}'.format(secret.HOROVOD_SECRET_KEY, codec.dumps_base64(key)),
+                            'other=values',
+                            'test=value'
+                        ]
+                        self.assertEqual(expected, env)
 
     @pytest.mark.skipif(LooseVersion(pyspark.__version__) < LooseVersion('3.0.0'),
                         reason='get_available_devices only supported in Spark 3.0 and above')

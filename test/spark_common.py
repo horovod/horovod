@@ -23,7 +23,10 @@ from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.linalg import DenseVector, VectorUDT
 from pyspark.sql.types import FloatType, IntegerType, StructField, StructType
 
+from horovod.run.common.util import secret
 from horovod.spark.common.store import LocalStore
+from horovod.spark.driver.driver_service import SparkDriverService, SparkDriverClient
+from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient
 
 from common import tempdir, temppath
 
@@ -80,6 +83,34 @@ def spark_session(app, cores=2, gpus=0, *args):
             yield session
         finally:
             session.stop()
+
+
+def fn():
+    return 0
+
+
+@contextlib.contextmanager
+def spark_driver_service(num_proc, fn=fn, args=(), kwargs={}, key=None, nics=None, verbose=2):
+    key = key or secret.make_secret_key()
+    driver = SparkDriverService(num_proc, fn, args, kwargs, key, nics)
+    client = SparkDriverClient(driver.addresses(), key, verbose)
+
+    try:
+        yield driver, client, key
+    finally:
+        driver.shutdown()
+
+
+@contextlib.contextmanager
+def spark_task_service(index, key=None, nics=None, match_intf=False, verbose=2):
+    key = key or secret.make_secret_key()
+    task = SparkTaskService(index, key, nics, verbose)
+    client = SparkTaskClient(index, task.addresses(), key, verbose, match_intf)
+
+    try:
+        yield task, client, key
+    finally:
+        task.shutdown()
 
 
 def create_xor_data(spark):
