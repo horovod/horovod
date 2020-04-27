@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import logging
 import os
 import platform
 import queue
@@ -46,17 +47,20 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo, is_elastic):
     # for convenience, we put it back into settings
     settings.key = key
 
+    # to simplify things, each task is an individual host in Elastic Horovod on Spark
+    # further, each attempt (instance) of a task is an individual host in Elastic Horovod on Spark
+    # hides availability of shared memory among executors on the same Spark node
+    hosthash = host_hash(salt='{}-{}'.format(index, time.time()) if is_elastic else None)
+
     # provide host hash to mpurun_exec_fn.py via task service
     # gloo_exec_fn.py will get this env var set in request env as well
-    hosthash = host_hash(salt=index if is_elastic else None)
     os.environ['HOROVOD_HOSTNAME'] = hosthash
 
     task = task_service.SparkTaskService(index, settings.key, settings.nics, settings.verbose)
     try:
-        # to simplify things, each task is an individual host in Elastic Horovod on Spark
-        # hides availability of shared memory among executors on the same Spark node
         driver_client = driver_service.SparkDriverClient(driver_addresses, settings.key, settings.verbose)
         driver_client.register_task(index, task.addresses(), hosthash)
+        logging.info('registering task %s on host %s', index, hosthash)
 
         if not is_elastic:
             task.wait_for_initial_registration(settings.start_timeout)
@@ -73,8 +77,10 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo, is_elastic):
             minimum_lifetime_after_start = timeout.Timeout(MINIMUM_COMMAND_LIFETIME_S,
                                                            message='Just measuring runtime')
             task.wait_for_command_termination()
+            if is_elastic and task.command_exit_code() != 0:
+                raise Exception('Command failed, making Spark task fail to restart the task')
         else:
-            # The rest of tasks need to wait for the first task to finish.
+            # The other tasks with MPI need to wait for the first task to finish.
             first_task_addresses = driver_client.all_task_addresses(local_rank_zero_index)
             first_task_client = \
                 task_service.SparkTaskClient(local_rank_zero_index,
@@ -145,7 +151,7 @@ def _notify_and_register_task_addresses(driver, settings, notify=True):
     # wait for num_proc tasks to register
     driver.wait_for_initial_registration(settings.start_timeout)
     if settings.verbose >= 2:
-        print('Initial Spark task registration is complete.')
+        logging.info('Initial Spark task registration is complete.')
 
     def notify_and_register(index):
         task_client = task_service.SparkTaskClient(index,
@@ -166,7 +172,7 @@ def _notify_and_register_task_addresses(driver, settings, notify=True):
     driver.wait_for_task_to_task_address_updates(settings.start_timeout)
 
     if settings.verbose >= 2:
-        print('Spark task-to-task address registration is complete.')
+        logging.info('Spark task-to-task address registration is complete.')
 
 
 def _get_indices_in_rank_order(driver):
@@ -228,10 +234,10 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
     if num_proc is None:
         num_proc = spark_context.defaultParallelism
         if settings.verbose >= 1:
-            print('Running %d processes (inferred from spark.default.parallelism)...' % num_proc)
+            logging.info('Running %d processes (inferred from spark.default.parallelism)...', num_proc)
     else:
         if settings.verbose >= 1:
-            print('Running %d processes...' % num_proc)
+            logging.info('Running %d processes...', num_proc)
     settings.num_proc = num_proc
 
     result_queue = queue.Queue(1)
@@ -323,10 +329,10 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
         # try spark.dynamicAllocation.initialExecutors
         num_proc = spark_context.defaultParallelism
         if verbose >= 1:
-            print('Running %d processes (inferred from spark.default.parallelism)...' % num_proc)
+            logging.info('Running %d processes (inferred from spark.default.parallelism)...', num_proc)
     else:
         if verbose >= 1:
-            print('Running %d processes...' % num_proc)
+            logging.info('Running %d processes...', num_proc)
 
     if min_np is None:
         # try spark.dynamicAllocation.minExecutors
@@ -398,4 +404,6 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
 
     # If there's no exception, execution results are in this queue.
     results = result_queue.get_nowait()
+    logging.info('results are %s', results)
+    logging.info('indices_in_rank_order are %s', indices_in_rank_order)
     return [results[index] for index in indices_in_rank_order]

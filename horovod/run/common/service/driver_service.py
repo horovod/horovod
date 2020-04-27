@@ -125,7 +125,11 @@ class BasicDriverService(network.BasicService):
             self._wait_cond.release()
 
     def task_host_hash_indices(self):
-        return self._task_host_hash_indices.copy()
+        self._wait_cond.acquire()
+        try:
+            return self._task_host_hash_indices.copy()
+        finally:
+            self._wait_cond.release()
 
     def wait_for_initial_registration(self, timeout):
         self._wait_cond.acquire()

@@ -204,6 +204,9 @@ class BasicTaskService(network.BasicService):
     def wait_for_command_termination(self):
         self._command_thread.join()
 
+    def command_exit_code(self):
+        return self._command_exit_code
+
 
 class BasicTaskClient(network.BasicClient):
     def __init__(self, service_name, task_addresses, key, verbose,

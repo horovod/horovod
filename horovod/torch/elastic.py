@@ -14,6 +14,7 @@
 # ==============================================================================
 
 import copy
+import logging
 
 from horovod.common.elastic import run_fn, ObjectState
 from horovod.torch.mpi_ops import init, rank, shutdown
@@ -44,8 +45,12 @@ def run(func):
 
 
 def _reset():
+    import os
+    logging.info('shutdown in rank %s', os.environ['HOROVOD_RANK'])
     shutdown()
+    logging.info('init in rank %s', os.environ['HOROVOD_RANK'])
     init()
+    logging.info('reset done in rank %s', os.environ['HOROVOD_RANK'])
 
 
 class TorchState(ObjectState):

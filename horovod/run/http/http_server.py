@@ -106,7 +106,7 @@ class KVStoreHandler(SimpleHTTPRequestHandler):
             scope_dict = self.server.cache.setdefault(scope, {})
             scope_dict[key] = value
             if self.server.verbose:
-                logging.info(scope, self.server.cache[scope].keys())
+                logging.info('scope %s has keys %s', scope, list(self.server.cache[scope].keys()))
 
 
 class RendezvousHandler(KVStoreHandler):

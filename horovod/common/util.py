@@ -51,8 +51,8 @@ def check_extension(ext_name, ext_env_var, pkg_path, *args):
     full_path = get_extension_full_path(pkg_path, *args)
     if not os.path.exists(full_path):
         raise ImportError(
-            'Extension %s has not been built.  If this is not expected, reinstall '
-            'Horovod with %s=1 to debug the build error.' % (ext_name, ext_env_var))
+            'Extension %s has not been built (%s).  If this is not expected, reinstall '
+            'Horovod with %s=1 to debug the build error.' % (ext_name, full_path, ext_env_var))
 
 
 def _check_extension_lambda(ext_base_name, fn, fn_desc, verbose):
