@@ -131,6 +131,14 @@ class BasicDriverService(network.BasicService):
         finally:
             self._wait_cond.release()
 
+    def task_index_host_hash(self, index):
+        self._wait_cond.acquire()
+        try:
+            assert 0 <= index < self._num_proc
+            return self._task_index_host_hash[index]
+        finally:
+            self._wait_cond.release()
+
     def wait_for_initial_registration(self, timeout):
         self._wait_cond.acquire()
         try:
@@ -174,7 +182,6 @@ class BasicDriverClient(network.BasicClient):
                                                 verbose,
                                                 match_intf=match_intf)
 
-    # TODO: same index can get registered multiple times (after restarting Spark task)
     def register_task(self, index, task_addresses, host_hash):
         self._send(RegisterTaskRequest(index, task_addresses, host_hash))
 

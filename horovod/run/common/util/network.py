@@ -262,7 +262,10 @@ class BasicClient(object):
     def _send(self, req):
         # Since all the addresses were vetted, use the first one.
         addr = list(self._addresses.values())[0][0]
-        return self._send_one(addr, req)
+        resp = self._send_one(addr, req)
+        if isinstance(resp, Exception):
+            raise resp
+        return resp
 
     def addresses(self):
         return self._addresses

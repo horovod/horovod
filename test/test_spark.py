@@ -40,26 +40,32 @@ from pyspark.sql.types import ArrayType, BooleanType, DoubleType, FloatType, Int
 import horovod.spark
 import horovod.torch as hvd
 
-from horovod.common.elastic import run_fn
 from horovod.common.util import gloo_built, mpi_built
-from horovod.run.common.util import codec, secret, safe_shell_exec
+from horovod.run.common.util import codec, secret, safe_shell_exec, timeout
 from horovod.run.common.util import settings as hvd_settings
 from horovod.run.mpi_run import is_open_mpi
+from horovod.run.util.threads import in_thread
 from horovod.spark.common import constants, util
 from horovod.spark.common.store import HDFSStore
 from horovod.spark.driver.host_discovery import SparkDriverHostDiscovery
 from horovod.spark.driver.rsh import rsh
 from horovod.spark.task import get_available_devices, gloo_exec_fn, mpirun_exec_fn
+from horovod.spark.task.task_service import SparkTaskClient
+from horovod.spark.runner import _task_fn
 
 from spark_common import spark_driver_service, spark_session, spark_task_service, \
     create_test_data_from_schema, create_xor_data, local_store
 
-from common import is_built, mpi_implementation_flags, tempdir, override_env, undo, delay
+from common import is_built, mpi_implementation_flags, tempdir, temppath, override_env, undo, delay
 
 
 # Spark will fail to initialize correctly locally on Mac OS without this
 if platform.system() == 'Darwin':
     os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
+
+
+def fn(result=0):
+    return result
 
 
 class SparkTests(unittest.TestCase):
@@ -163,6 +169,112 @@ class SparkTests(unittest.TestCase):
             index = client.set_local_rank_to_rank('host-1', 0, 2)
             self.assertEqual({0: 2, 1: 1, 2: 0}, driver.get_ranks_to_indices())
             self.assertEqual(0, index)
+
+    def test_driver_wait_for_task_shutdown(self):
+        with spark_driver_service(num_proc=2) as (driver, client, _):
+            event_delay = 0.5
+            delay(lambda: driver.shutdown_tasks(), event_delay)
+
+            # wait on shutdown before it is set
+            start = time.time()
+            client.wait_for_task_shutdown()
+            duration = time.time() - start
+
+            self.assertGreaterEqual(duration, event_delay)
+            self.assertLess(duration, event_delay + 0.1)
+
+            # wait on shutdown when it is already set
+            start = time.time()
+            client.wait_for_task_shutdown()
+            duration = time.time() - start
+
+            self.assertLess(duration, event_delay / 10.0)
+
+    def test_task_fn_is_elastic(self):
+        tasks = 3
+        start_timeout = 5.0
+        self.assertGreater(tasks, 1, 'test should not be trivial')
+        results = {}
+
+        with spark_driver_service(num_proc=tasks, fn=fn, args=(123,)) \
+                as (driver, driver_client, key):
+
+            use_gloo = True
+            is_elastic = True
+            driver_addresses = driver.addresses()
+            tmout = timeout.Timeout(start_timeout, message='Timed out waiting for {activity}.')
+            settings = hvd_settings.BaseSettings(num_proc=tasks, verbose=2, key=key, start_timeout=tmout)
+
+            def run_task(index):
+                result = _task_fn(index, driver_addresses, key, settings, use_gloo, is_elastic)
+                results[index] = result
+
+            # start tasks
+            threads = list([in_thread(run_task, args=(index,)) for index in range(tasks)])
+            driver.wait_for_initial_registration(tmout)
+            task_clients = list([SparkTaskClient(index, driver.task_addresses_for_driver(index), key, 2)
+                                for index in range(tasks)])
+
+            with tempdir() as d:
+                # command template
+                file_tmpl = os.path.sep.join([d, 'task_{}_executed_command_{}'])
+                cmd_tmpl = 'touch {}'.format(file_tmpl)
+
+                # before we execute the first command
+                for index in range(tasks):
+                    terminated, res = task_clients[index].command_result()
+                    self.assertEqual(False, terminated)
+                    self.assertEqual(None, res)
+
+                # all tasks execute a command
+                for index in range(tasks):
+                    self.assertFalse(os.path.exists(file_tmpl.format(index, '1')))
+                    task_clients[index].run_command(cmd_tmpl.format(index, '1'), {})
+                    task_clients[index].wait_for_command_termination(delay=0.1)
+                    terminated, res = task_clients[index].command_result()
+                    self.assertEqual(True, terminated)
+                    self.assertEqual(0, res)
+                    self.assertTrue(os.path.exists(file_tmpl.format(index, '1')))
+
+                # one task executes another command
+                self.assertFalse(os.path.exists(file_tmpl.format(index, '2')))
+                task_clients[0].reset_command()
+                task_clients[0].run_command(cmd_tmpl.format(0, '2'), {})
+                task_clients[0].wait_for_command_termination(delay=0.1)
+                terminated, res = task_clients[0].command_result()
+                self.assertEqual(True, terminated)
+                self.assertEqual(0, res)
+                self.assertTrue(os.path.exists(file_tmpl.format(0, '2')))
+
+            # all tasks execute gloo_exec_fn to get a result back into the task service
+            cmd = 'python -m horovod.spark.task.gloo_exec_fn {} {}'.format(
+                codec.dumps_base64(driver_addresses),
+                codec.dumps_base64(settings)
+            )
+            for index in range(tasks):
+                env = {'HOROVOD_RANK': str(index),
+                       'HOROVOD_LOCAL_RANK': '0',
+                       'HOROVOD_HOSTNAME': driver.task_index_host_hash(index),
+                       secret.HOROVOD_SECRET_KEY: codec.dumps_base64(key)}
+                task_clients[index].reset_command()
+                in_thread(lambda: task_clients[index].run_command(cmd, env))
+
+            for index in range(tasks):
+                task_clients[index].wait_for_command_termination(delay=0.1)
+                terminated, res = task_clients[index].command_result()
+                self.assertEqual(True, terminated)
+                self.assertEqual(0, res)
+
+            # shut down tasks
+            driver.shutdown_tasks()
+
+            # wait for tasks to terminate
+            for index in range(tasks):
+                threads[index].join(1.0)
+                self.assertFalse(threads[index].is_alive(),
+                                 'task thread {} should have terminated by now'.format(index))
+
+        self.assertEqual(dict([(index, 123) for index in range(tasks)]), results)
 
     @pytest.mark.skipif(sys.version_info >= (3, 0), reason='Skipped on Python 3')
     def test_run_throws_on_python2(self):
@@ -1410,6 +1522,121 @@ class SparkTests(unittest.TestCase):
                             'test=value'
                         ]
                         self.assertEqual(expected, env)
+
+    def do_test_spark_task_service_executes_command(self, client, file):
+        self.assertFalse(os.path.exists(file))
+        client.run_command('touch {}'.format(file), {})
+        client.wait_for_command_termination(delay=0.1)
+        self.assertTrue(os.path.exists(file))
+
+    def test_spark_task_service_executes_multiple_commands(self):
+        with spark_task_service(index=0) as (service, client, _):
+            with tempdir() as d:
+                file_tmpl = os.path.sep.join([d, 'command_{}_executed'])
+
+                self.do_test_spark_task_service_executes_command(client, file_tmpl.format('1'))
+                client.reset_command()
+                self.do_test_spark_task_service_executes_command(client, file_tmpl.format('2'))
+
+    def test_spark_task_service_retry_same_command(self):
+        with spark_task_service(index=0) as (service, client, _):
+            with temppath() as file:
+                client.run_command('sleep 1; echo 1 >> {}'.format(file), {})
+                client.run_command('sleep 1; echo 1 >> {}'.format(file), {})
+                client.wait_for_command_termination(delay=0.1)
+
+                # command must have been executed exactly once
+                with open(file, 'r') as f:
+                    lines = f.readlines()
+                    self.assertEqual(['1\n'], lines)
+
+                # test that we would have seen multiple lines
+                # if command would have been executed twice (test the test)
+                client.reset_command()
+                client.run_command('sleep 1; echo 1 >> {}'.format(file), {})
+                client.wait_for_command_termination(delay=0.1)
+
+                with open(file, 'r') as f:
+                    lines = f.readlines()
+                    self.assertEqual(['1\n', '1\n'], lines)
+
+    def test_spark_task_service_retry_different_command_fails(self):
+        with spark_task_service(index=0) as (service, client, _):
+            client.run_command('sleep 1', {})
+            with pytest.raises(Exception, match=r'^A different command is currently running\.$'):
+                client.run_command('sleep 2', {})
+            with pytest.raises(Exception, match=r'^A different command is currently running\.$'):
+                client.run_command('sleep 1', {'var': 'val'})
+            client.wait_for_command_termination(delay=0.1)
+
+    def test_spark_task_service_execute_command_without_reset(self):
+        with spark_task_service(index=0) as (service, client, _):
+            client.run_command('true', {})
+            client.wait_for_command_termination(delay=0.1)
+            with pytest.raises(Exception, match=r'^An earlier command has not been reset\.$'):
+                client.run_command('true', {})
+            with pytest.raises(Exception, match=r'^An earlier command has not been reset\.$'):
+                client.run_command('false', {})
+
+    def test_spark_task_service_reset_command(self):
+        with spark_task_service(index=0) as (service, client, _):
+            with tempdir() as d:
+                file = os.path.sep.join([d, 'command_executed'])
+
+                self.do_test_spark_task_service_executes_command(client, file)
+                # TODO: test exit code and term flag
+                client.reset_command()
+                # TODO: test exit code and term flag
+
+    def test_spark_task_service_reset_before_first_command(self):
+        with spark_task_service(index=0) as (service, client, _):
+            with tempdir() as d:
+                file = os.path.sep.join([d, 'command_executed'])
+
+                client.reset_command()
+                self.do_test_spark_task_service_executes_command(client, file)
+
+    def test_spark_task_service_reset_multiple_times(self):
+        with spark_task_service(index=0) as (service, client, _):
+            with tempdir() as d:
+                file_tmpl = os.path.sep.join([d, 'command_{}_executed'])
+
+                self.do_test_spark_task_service_executes_command(client, file_tmpl.format('1'))
+                client.reset_command()
+                client.reset_command()
+                self.do_test_spark_task_service_executes_command(client, file_tmpl.format('2'))
+
+    def test_spark_task_service_reset_command_fails(self):
+        with spark_task_service(index=0) as (service, client, _):
+            client.run_command('sleep 1', {})
+            with pytest.raises(Exception, match=r'^Command is still running, '
+                                                r'either wait for termination or abort first\.$'):
+                client.reset_command()
+            client.wait_for_command_termination(delay=0.1)
+
+    @mock.patch('horovod.run.common.util.safe_shell_exec.GRACEFUL_TERMINATION_TIME_S', 0.5)
+    def test_spark_task_service_abort_command(self):
+        with spark_task_service(index=0) as (service, client, _):
+            with tempdir() as d:
+                file = os.path.sep.join([d, 'command_executed'])
+                sleep = safe_shell_exec.GRACEFUL_TERMINATION_TIME_S * 2 + 2.0
+
+                start = time.time()
+                client.run_command('set -x; sleep {} && touch {}'.format(sleep, file), {})
+                client.abort_command()
+                client.wait_for_command_termination(delay=0.1)
+                duration = time.time() - start
+
+                self.assertLess(duration, safe_shell_exec.GRACEFUL_TERMINATION_TIME_S + 1.0)
+                self.assertFalse(os.path.exists(file))
+
+    def test_spark_task_service_abort_no_command(self):
+        with spark_task_service(index=0) as (service, client, _):
+            with tempdir() as d:
+                file = os.path.sep.join([d, 'command_executed'])
+
+                client.abort_command()
+                self.do_test_spark_task_service_executes_command(client, file)
 
     @pytest.mark.skipif(LooseVersion(pyspark.__version__) < LooseVersion('3.0.0'),
                         reason='get_available_devices only supported in Spark 3.0 and above')
