@@ -217,7 +217,7 @@ def _exec_command_fn(settings, remote_host_names):
             stderr = MultiFile([sys.stderr, stderr_file])
 
         try:
-            exit_code = safe_shell_exec.execute(command, index=index, event=event, stdout=stdout, stderr=stderr)
+            exit_code = safe_shell_exec.execute(command, index=index, events=[event], stdout=stdout, stderr=stderr)
             if exit_code != 0:
                 print('Process {idx} exit with status code {ec}.'.format(idx=index, ec=exit_code))
         except Exception as e:
