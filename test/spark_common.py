@@ -51,12 +51,18 @@ def local_store():
 
 
 @contextlib.contextmanager
-def spark_session(app, cores=2, gpus=0, *args):
+def spark_session(app, cores=2, gpus=0, max_failures=1, *args):
     from pyspark import SparkConf
     from pyspark.sql import SparkSession
 
-    master = 'local-cluster[{},1,1024]'.format(cores) if gpus > 0 else 'local[{}]'.format(cores)
+    master = 'local-cluster[{},{},1024]'.format(cores, max_failures) if gpus > 0 \
+        else 'local[{},{}]'.format(cores, max_failures)
     conf = SparkConf().setAppName(app).setMaster(master)
+    conf = conf.setAll([
+        ('spark.ui.showConsoleProgress', 'false'),
+        ('spark.test.home', os.environ.get('SPARK_HOME')),
+        ('spark.locality.wait', '0'),
+    ])
 
     with temppath() as temp_filename:
         if gpus > 0:
@@ -68,11 +74,12 @@ def spark_session(app, cores=2, gpus=0, *args):
             os.chmod(temp_file.name, stat.S_IRWXU | stat.S_IXGRP | stat.S_IRGRP |
                      stat.S_IROTH | stat.S_IXOTH)
 
-            conf = conf.set("spark.test.home", os.environ.get('SPARK_HOME'))
-            conf = conf.set("spark.worker.resource.gpu.discoveryScript", temp_filename)
-            conf = conf.set("spark.worker.resource.gpu.amount", 1)
-            conf = conf.set("spark.task.resource.gpu.amount", "1")
-            conf = conf.set("spark.executor.resource.gpu.amount", "1")
+            conf = conf.setAll([
+                ('spark.worker.resource.gpu.discoveryScript', temp_filename),
+                ('spark.worker.resource.gpu.amount', '1'),
+                ('spark.task.resource.gpu.amount', '1'),
+                ('spark.executor.resource.gpu.amount', '1')
+            ])
 
         session = SparkSession \
             .builder \

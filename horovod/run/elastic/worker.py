@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import logging
 import os
 import threading
 
@@ -74,6 +75,7 @@ class WorkerNotificationManager(object):
         self._listeners.remove(listener)
 
     def handle_hosts_updated(self, timestamp):
+        logging.info('host updated event')
         for listener in self._listeners:
             listener.on_hosts_updated(timestamp)
 

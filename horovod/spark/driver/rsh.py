@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import logging
 import threading
 import traceback
 
@@ -63,7 +64,9 @@ def rsh(driver_addresses, key, host_hash, command, env, local_rank, verbose,
             on_event(event, task_client.abort_command, stop=stop)
 
         try:
-            return task_client.wait_for_command_exit_code()
+            exit_code = task_client.wait_for_command_exit_code()
+            logging.info('rsh exit code %s for host %s slot %s', exit_code, host_hash, local_rank)
+            return exit_code
         except:
             traceback.print_exc()
             return -1
