@@ -357,7 +357,7 @@ class RunTests(unittest.TestCase):
         self.assertLess(duration, 2.0 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S, 'sleep should not finish')
         self.assertGreater(sleep, 2.0 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S, 'sleep should allow for GRACEFUL_TERMINATION_TIME_S')
 
-    def test_safe_shell_exec_interrupts_if_parent_shutdown(self):
+    def test_safe_shell_exec_interrupts_on_parent_shutdown(self):
         sleep = 20
         parent_script = os.path.join(os.path.dirname(__file__), 'data/run_safe_shell_exec.py')
         child_script = os.path.join(os.path.dirname(__file__), 'data/sleep.py')
@@ -373,10 +373,11 @@ class RunTests(unittest.TestCase):
 
             parent = psutil.Process(p.pid)
             with open(logfile, 'r') as f:
-                child = psutil.Process(int(f.read()))
+                child_pid = int(f.read())
+            child = psutil.Process(child_pid)
 
-            assert parent.is_running()
-            assert child.is_running()
+            self.assertTrue(parent.is_running())
+            self.assertTrue(child.is_running())
 
             # Hard kill the parent process
             parent.kill()
@@ -386,8 +387,8 @@ class RunTests(unittest.TestCase):
             # Child process will exit when pipe breaks
             child.wait(timeout=safe_shell_exec.GRACEFUL_TERMINATION_TIME_S)
 
-            assert not parent.is_running()
-            assert not child.is_running()
+            self.assertFalse(parent.is_running())
+            self.assertFalse(child.is_running())
 
     def _do_test_safe_shell_exec(self, cmd, expected_exit_code, expected_stdout, expected_stderr, event=None):
         stdout = six.StringIO()

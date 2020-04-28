@@ -52,6 +52,11 @@ def terminate_executor_shell_and_children(pid):
     # Kill children recursively.
     for child in alive:
         try:
+            for grandchild in child.children(recursive=True):
+                try:
+                    grandchild.kill()
+                except psutil.NoSuchProcess:
+                    pass
             child.kill()
         except psutil.NoSuchProcess:
             pass
@@ -74,30 +79,33 @@ def forward_stream(src_stream, dst_stream, prefix, index):
             line=line
         )
 
+    def write(text):
+        if index is not None:
+            text = prepend_context(text, index, prefix)
+        dst_stream.write(text)
+        dst_stream.flush()
+
     line_buffer = ''
     while True:
         text = os.read(src_stream.fileno(), 1000)
+        if text is None:
+            break
+
         if not isinstance(text, str):
             text = text.decode('utf-8')
-        if not text or len(text) == 0:
+
+        if not text:
             break
 
         for line in re.split('([\r\n])', text):
             line_buffer += line
             if line == '\r' or line == '\n':
-                if index is not None:
-                    line_buffer = prepend_context(line_buffer, index, prefix)
-
-                dst_stream.write(line_buffer)
-                dst_stream.flush()
+                write(line_buffer)
                 line_buffer = ''
 
     # flush the line buffer if it is not empty
     if len(line_buffer):
-        if index is not None:
-            line_buffer = prepend_context(line_buffer, index, prefix)
-        dst_stream.write(line_buffer)
-        dst_stream.flush()
+        write(line_buffer)
 
     src_stream.close()
 
@@ -116,11 +124,7 @@ def _exec_middleman(command, env, exit_event, stdout, stderr, rw):
     executor_shell = subprocess.Popen(command, shell=True, env=env,
                                       stdout=stdout_w, stderr=stderr_w)
 
-    def kill_executor_children_on_event():
-        exit_event.wait()
-        terminate_executor_shell_and_children(executor_shell.pid)
-
-    in_thread(kill_executor_children_on_event)
+    on_event(exit_event, terminate_executor_shell_and_children, args=(executor_shell.pid,))
 
     def kill_executor_children_if_parent_dies():
         # This read blocks until the pipe is closed on the other side
@@ -131,6 +135,7 @@ def _exec_middleman(command, env, exit_event, stdout, stderr, rw):
     in_thread(kill_executor_children_if_parent_dies)
 
     exit_code = executor_shell.wait()
+    print('exit_code: {}'.format(exit_code))
     if exit_code < 0:
         # See: https://www.gnu.org/software/bash/manual/html_node/Exit-Status.html
         exit_code = 128 + abs(exit_code)
@@ -147,8 +152,7 @@ def _create_event(ctx):
 def execute(command, env=None, stdout=None, stderr=None, index=None, events=None):
     ctx = multiprocessing.get_context('spawn') if _PY3 else multiprocessing
 
-    # When this event is set, signals to the middleman that it should terminate its children
-    # and exit.
+    # When this event is set, signal to middleman to terminate its children and exit.
     exit_event = _create_event(ctx)
 
     # Make a pipe for the subprocess stdout/stderr.
@@ -205,8 +209,7 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
                 # interrupted, wait for middleman to finish
                 pass
     finally:
-        if stop is not None:
-            stop.set()
+        stop.set()
 
     stdout_fwd.join()
     stderr_fwd.join()
