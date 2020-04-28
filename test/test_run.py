@@ -20,8 +20,7 @@ from __future__ import print_function
 import copy
 import itertools
 import os
-import multiprocessing
-import signal
+import subprocess
 import sys
 import threading
 import time
@@ -351,7 +350,7 @@ class RunTests(unittest.TestCase):
 
         sleep = 10
         start = time.time()
-        self._do_test_safe_shell_exec('sleep {}'.format(sleep), 143, '', 'Terminated\n', interrupt)
+        self._do_test_safe_shell_exec('sleep {}'.format(sleep), 143, '', '', interrupt)
         duration = time.time() - start
 
         self.assertGreaterEqual(duration, 1.0)
@@ -360,12 +359,16 @@ class RunTests(unittest.TestCase):
 
     def test_safe_shell_exec_interrupts_if_parent_shutdown(self):
         sleep = 20
-        script = os.path.join(os.path.dirname(__file__), 'data/sleep.py')
+        parent_script = os.path.join(os.path.dirname(__file__), 'data/run_safe_shell_exec.py')
+        child_script = os.path.join(os.path.dirname(__file__), 'data/sleep.py')
 
         with temppath() as logfile:
-            cmd = ' '.join([sys.executable, script, str(sleep), logfile])
-            p = multiprocessing.Process(target=safe_shell_exec.execute, args=(cmd,))
-            p.start()
+            # It's important that this executes in an entirely different interpreter with as little shared
+            # state as possible, to avoid issues with the semaphore tracker.
+            cmd = ' '.join([sys.executable, parent_script, child_script, str(sleep), logfile])
+            p = subprocess.Popen(cmd, shell=True)
+
+            # Wait until the child script has written its PID to the logfile
             wait(lambda: os.path.exists(logfile), timeout=5)
 
             parent = psutil.Process(p.pid)
@@ -378,6 +381,7 @@ class RunTests(unittest.TestCase):
             # Hard kill the parent process
             parent.kill()
             parent.wait(timeout=safe_shell_exec.GRACEFUL_TERMINATION_TIME_S)
+            p.wait()
 
             # Child process will exit when pipe breaks
             child.wait(timeout=safe_shell_exec.GRACEFUL_TERMINATION_TIME_S)

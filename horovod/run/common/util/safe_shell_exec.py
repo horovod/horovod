@@ -138,12 +138,18 @@ def _exec_middleman(command, env, exit_event, stdout, stderr, rw):
     sys.exit(exit_code)
 
 
+def _create_event(ctx):
+    # We need to expose this method for internal testing purposes, so we can mock it out to avoid
+    # leaking semaphores.
+    return ctx.Event()
+
+
 def execute(command, env=None, stdout=None, stderr=None, index=None, events=None):
     ctx = multiprocessing.get_context('spawn') if _PY3 else multiprocessing
 
     # When this event is set, signals to the middleman that it should terminate its children
     # and exit.
-    exit_event = ctx.Event()
+    exit_event = _create_event(ctx)
 
     # Make a pipe for the subprocess stdout/stderr.
     (stdout_r, stdout_w) = ctx.Pipe()
