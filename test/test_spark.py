@@ -44,6 +44,7 @@ import horovod.torch as hvd
 
 from horovod.common.util import gloo_built, mpi_built
 from horovod.run.common.util import codec, secret
+from horovod.run.common.util.env import get_env_rank_and_size
 from horovod.run.mpi_run import is_open_mpi
 from horovod.spark.common import constants, util
 from horovod.spark.common.store import HDFSStore
@@ -67,6 +68,7 @@ class SparkTests(unittest.TestCase):
 
     def __init__(self, *args, **kwargs):
         super(SparkTests, self).__init__(*args, **kwargs)
+        self.maxDiff = None
         warnings.simplefilter('module')
 
     def run(self, result=None):
@@ -272,7 +274,7 @@ class SparkTests(unittest.TestCase):
     def test_spark_run_with_non_zero_exit_with_gloo(self):
         expected = '^Gloo job detected that one or more processes exited with non-zero ' \
                    'status, thus causing the job to be terminated. The first process ' \
-                   'to do so was:\nProcess name: [0-9]+\nExit code: 1$'
+                   'to do so was:\nProcess name: 0\nExit code: 1$'
         self.do_test_spark_run_with_non_zero_exit(use_mpi=False, use_gloo=True,
                                                   expected=expected)
 
@@ -288,7 +290,7 @@ class SparkTests(unittest.TestCase):
 
         def gloo_exec_command_fn(driver_addresses, key, settings, env):
             def _exec_command(command, alloc_info, event):
-                return 1, 1.0
+                return 1, get_env_rank_and_size()[0]
             return _exec_command
 
         with mock.patch("horovod.run.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags):
@@ -361,8 +363,8 @@ class SparkTests(unittest.TestCase):
                                     '{expected_env} '
                                     '{extra_mpi_args} '
                                     '-x NCCL_DEBUG=INFO '
-                                    r'-mca plm_rsh_agent "[^"]+python[0-9]* -m horovod.spark.driver.mpirun_rsh [^ ]+ [^ ]+" '
-                                    r'[^"]+python[0-9]* -m horovod.spark.task.mpirun_exec_fn [^ ]+ [^ ]+'.format(
+                                    r'-mca plm_rsh_agent "[^"]+python[0-9.]* -m horovod.spark.driver.mpirun_rsh [^ ]+ [^ ]+" '
+                                    r'[^"]+python[0-9.]* -m horovod.spark.task.mpirun_exec_fn [^ ]+ [^ ]+'.format(
                     expected_np=expected_np,
                     binding_args=' '.join(binding_args),
                     expected_env=expected_env if expected_env else '',
@@ -380,7 +382,7 @@ class SparkTests(unittest.TestCase):
 
         # for better comparison replace sections in actual_command that change across runs / hosts
         for replacement in ['-H [^ ]+', '-mca btl_tcp_if_include [^ ]+', '-x NCCL_SOCKET_IFNAME=[^ ]+',
-                            r'"[^"]+python[0-9]*', r' [^"]+python[0-9]*',
+                            r'"[^"]+python[0-9.]*', r' [^"]+python[0-9.]*',
                             '-m horovod.spark.driver.mpirun_rsh [^ ]+ [^ ]+"',
                             '-m horovod.spark.task.mpirun_exec_fn [^ ]+ [^ ]+']:
             actual_command = re.sub(replacement, replacement, actual_command, 1)
@@ -411,7 +413,10 @@ class SparkTests(unittest.TestCase):
         def fn():
             return 1
 
-        exec_command = mock.MagicMock(side_effect=lambda: (1, os.environ.get('HOROVOD_RANK') + 1.0))
+        def _exec_command(command, alloc_info, event):
+            return 1, get_env_rank_and_size()[0]
+
+        exec_command = mock.MagicMock(side_effect=_exec_command)
         gloo_exec_command_fn = mock.MagicMock(return_value=exec_command)
 
         with mock.patch("horovod.spark.gloo_run._exec_command_fn", side_effect=gloo_exec_command_fn):
@@ -477,7 +482,7 @@ class SparkTests(unittest.TestCase):
                                 'HOROVOD_CPU_OPERATIONS=gloo '
                                 'HOROVOD_GLOO_IFACE=[^ ]+ '
                                 'NCCL_SOCKET_IFNAME=[^ ]+ '
-                                '[^ ]+python[0-9]* -m horovod.spark.task.gloo_exec_fn '
+                                '[^ ]+python[0-9.]* -m horovod.spark.task.gloo_exec_fn '
                                 '[^ ]+ [^ ]+$'.format(rank=alloc_info.rank,
                                                       size=alloc_info.size,
                                                       local_rank=alloc_info.local_rank,
@@ -491,7 +496,7 @@ class SparkTests(unittest.TestCase):
                                 'HOROVOD_GLOO_RENDEZVOUS_PORT=[0-9]+',
                                 'HOROVOD_GLOO_IFACE=[^ ]+',
                                 'NCCL_SOCKET_IFNAME=[^ ]+',
-                                '[^ ]+python[0-9]*',
+                                '[^ ]+python[0-9.]*',
                                 '[^ ]+ [^ ]+$']:
                 actual_command = re.sub(replacement, replacement, actual_command, 1)
 
