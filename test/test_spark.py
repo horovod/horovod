@@ -44,7 +44,6 @@ import horovod.torch as hvd
 
 from horovod.common.util import gloo_built, mpi_built
 from horovod.run.common.util import codec, secret
-from horovod.run.common.util.env import get_env_rank_and_size
 from horovod.run.mpi_run import is_open_mpi
 from horovod.spark.common import constants, util
 from horovod.spark.common.store import HDFSStore
@@ -290,7 +289,7 @@ class SparkTests(unittest.TestCase):
 
         def gloo_exec_command_fn(driver_addresses, key, settings, env):
             def _exec_command(command, alloc_info, event):
-                return 1, get_env_rank_and_size()[0]
+                return 1, alloc_info.rank
             return _exec_command
 
         with mock.patch("horovod.run.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags):
@@ -414,7 +413,7 @@ class SparkTests(unittest.TestCase):
             return 1
 
         def _exec_command(command, alloc_info, event):
-            return 1, get_env_rank_and_size()[0]
+            return 1, alloc_info.rank
 
         exec_command = mock.MagicMock(side_effect=_exec_command)
         gloo_exec_command_fn = mock.MagicMock(return_value=exec_command)
