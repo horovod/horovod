@@ -411,7 +411,7 @@ class SparkTests(unittest.TestCase):
         def fn():
             return 1
 
-        exec_command = mock.MagicMock(side_effect=lambda: (1, hvd.rank() + 1.0))
+        exec_command = mock.MagicMock(side_effect=lambda: (1, os.environ.get('HOROVOD_RANK') + 1.0))
         gloo_exec_command_fn = mock.MagicMock(return_value=exec_command)
 
         with mock.patch("horovod.spark.gloo_run._exec_command_fn", side_effect=gloo_exec_command_fn):
