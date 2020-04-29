@@ -92,8 +92,6 @@ class _SyncBatchNorm(Function):
         input = input.contiguous()
 
         size = input.numel() // input.size(1)
-        if size == 1:
-            raise ValueError('Expected more than 1 value per channel when training, got input size {}'.format(size))
         count = torch.tensor([size])
 
         # calculate mean/invstd for input.

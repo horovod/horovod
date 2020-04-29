@@ -1675,38 +1675,51 @@ class TorchTests(unittest.TestCase):
 
         hvd.init()
 
-        sync_bn = hvd.SyncBatchNorm(num_features=4)
-        sync_bn.cuda(hvd.local_rank())
+        ts_list = [
+            torch.stack([
+                torch.tensor([
+                    [r, r + 1],
+                    [r * 2, r * 2 + 1],
+                    [r * 3, r * 3 + 1],
+                    [r * 4, r * 4 + 1]
+                ])
+                for r in range(hvd.size())
+            ]),
+            torch.stack([
+                torch.tensor([
+                    [r + 1],
+                    [r * 2 + 1],
+                    [r * 3 + 1],
+                    [r * 4 + 1]
+                ])
+                for r in range(hvd.size())
+            ]),
+        ]
 
-        bn = torch.nn.BatchNorm1d(num_features=4)
-        bn.cuda(hvd.local_rank())
+        for ts in ts_list:
+            sync_bn = hvd.SyncBatchNorm(num_features=4)
+            sync_bn.cuda(hvd.local_rank())
 
-        ts = torch.stack([
-            torch.tensor([
-                [r, r + 1],
-                [r * 2, r * 2 + 1],
-                [r * 3, r * 3 + 1],
-                [r * 4, r * 4 + 1]
-            ])
-            for r in range(hvd.size())
-        ]).cuda(hvd.local_rank()).float()
+            bn = torch.nn.BatchNorm1d(num_features=4)
+            bn.cuda(hvd.local_rank())
 
-        ts1 = ts.clone().requires_grad_()
-        ts2 = ts.clone().requires_grad_()
+            ts = ts.cuda(hvd.local_rank()).float()
+            ts1 = ts.clone().requires_grad_()
+            ts2 = ts.clone().requires_grad_()
 
-        # Training
-        sync_bn_out = sync_bn(ts1[hvd.rank()].unsqueeze(0))
-        bn_out = bn(ts2)
-        assert (sync_bn_out - bn_out[hvd.rank()].unsqueeze(0)).abs().sum() < 1e-6
-        assert (sync_bn.running_mean - bn.running_mean).abs().sum() < 1e-6
-        assert (sync_bn.running_var - bn.running_var).abs().sum() < 1e-6
+            # Training
+            sync_bn_out = sync_bn(ts1[hvd.rank()].unsqueeze(0))
+            bn_out = bn(ts2)
+            assert (sync_bn_out - bn_out[hvd.rank()].unsqueeze(0)).abs().sum() < 1e-6
+            assert (sync_bn.running_mean - bn.running_mean).abs().sum() < 1e-6
+            assert (sync_bn.running_var - bn.running_var).abs().sum() < 1e-6
 
-        # Gradients
-        sync_bn_out.sum().backward()
-        bn_out.mean(dim=0).sum().backward()
-        assert (hvd.allreduce(sync_bn.weight.grad, name='sync_bn.weight.grad') - bn.weight.grad).abs().sum() < 1e-6
-        assert (hvd.allreduce(sync_bn.bias.grad, name='sync_bn.bias.grad') - bn.bias.grad).abs().sum() < 1e-6
-        assert (hvd.allreduce(ts1.grad, name='ts1.grad') - ts2.grad).abs().sum() < 1e-6
+            # Gradients
+            sync_bn_out.sum().backward()
+            bn_out.mean(dim=0).sum().backward()
+            assert (hvd.allreduce(sync_bn.weight.grad, name='sync_bn.weight.grad') - bn.weight.grad).abs().sum() < 1e-6
+            assert (hvd.allreduce(sync_bn.bias.grad, name='sync_bn.bias.grad') - bn.bias.grad).abs().sum() < 1e-6
+            assert (hvd.allreduce(ts1.grad, name='ts1.grad') - ts2.grad).abs().sum() < 1e-6
 
 if __name__ == "__main__":
    unittest.main()
