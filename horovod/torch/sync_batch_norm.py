@@ -24,6 +24,11 @@ import torch.nn.functional as F
 from torch.nn.modules.batchnorm import _BatchNorm
 
 
+# Backward compat for old PyTorch
+if not hasattr(torch.jit, 'unused'):
+    torch.jit.unused = lambda x: x
+
+
 class SyncBatchNorm(_BatchNorm):
     """
     Applies synchronous version of N-dimensional BatchNorm.  In this version, normalization
