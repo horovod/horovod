@@ -30,11 +30,11 @@ class State(object):
     """State representation used for tracking in memory state across workers.
 
     Args:
-        bcast_bool: Function used to broadcast a boolean variable from rank 0 to the other workers.
+        bcast_object: Function used to broadcast a variable from rank 0 to the other workers.
         get_rank: Function that returns the current rank of this worker.
     """
-    def __init__(self, bcast_bool, get_rank):
-        self._bcast_bool = bcast_bool
+    def __init__(self, bcast_object, get_rank):
+        self._bcast_object = bcast_object
         self._rank = get_rank
         self._host_messages = queue.Queue()
         self._last_updated_timestamp = 0
@@ -57,8 +57,7 @@ class State(object):
             callback()
 
     def on_hosts_updated(self, timestamp):
-        if self._rank() == 0:
-            self._host_messages.put(timestamp)
+        self._host_messages.put(timestamp)
 
     def commit(self):
         """Commits all modifications to state tracked by this object to host memory.
@@ -78,22 +77,21 @@ class State(object):
 
         Raises a `HostsUpdatedInterrupt` if such a notification has been received.
         """
-        updated = False
-        if self._rank() == 0:
-            # Iterate through the update messages sent from the server. If the update timestamp
-            # is greater than the last update timestamp, then trigger a HostsUpdatedException.
-            while not self._host_messages.empty():
-                timestamp = self._host_messages.get()
-                if timestamp > self._last_updated_timestamp:
-                    self._last_updated_timestamp = timestamp
-                    updated = True
+        # Iterate through the update messages sent from the server. If the update timestamp
+        # is greater than the last update timestamp, then trigger a HostsUpdatedException.
+        last_updated_timestamp = prev_timestamp = self._last_updated_timestamp
+        while not self._host_messages.empty():
+            timestamp = self._host_messages.get()
+            if timestamp > last_updated_timestamp:
+                last_updated_timestamp = timestamp
 
         # In order to ensure all workers raise the exception at the same time, we need to sync
         # the updated state across all the workers.
-        updated = self._bcast_bool(updated)
+        # TODO(travis): this should be a max allreduce to account for changes in rank 0
+        self._last_updated_timestamp = self._bcast_object(last_updated_timestamp)
 
         # At this point, updated state is globally consistent across all ranks.
-        if updated:
+        if self._last_updated_timestamp > prev_timestamp:
             raise HostsUpdatedInterrupt()
 
     def save(self):
@@ -122,7 +120,7 @@ class ObjectState(State):
         self._bcast_object = bcast_object
         self._saved_state = kwargs
         self._set_attrs()
-        super(ObjectState, self).__init__(bcast_bool=bcast_object, get_rank=get_rank)
+        super(ObjectState, self).__init__(bcast_object=bcast_object, get_rank=get_rank)
 
     def save(self):
         new_state = {}
