@@ -52,6 +52,19 @@ class SyncBatchNorm(_BatchNorm):
         if input.dim() < 2:
             raise ValueError('expected at least 2D input (got {}D input)'.format(input.dim()))
 
+    def _run_bn(self, input):
+        return F.batch_norm(
+            input, self.running_mean, self.running_var, self.weight, self.bias,
+            self.training or not self.track_running_stats, self.momentum, self.eps)
+
+    @torch.jit.unused
+    def _maybe_run_sync_bn(self, input):
+        if size() == 1:
+            return self._run_bn(input)
+        return _SyncBatchNorm.apply(
+            input, self.weight, self.bias, self.running_mean, self.running_var,
+            self.eps, self.momentum)
+
     def forward(self, input):
         # currently only GPU input is supported
         if not input.is_cuda:
@@ -62,14 +75,10 @@ class SyncBatchNorm(_BatchNorm):
         if self.training and self.track_running_stats:
             self.num_batches_tracked = self.num_batches_tracked + 1
 
-        if (not self.training and self.track_running_stats) or size() == 1:
-            return F.batch_norm(
-                input, self.running_mean, self.running_var, self.weight, self.bias,
-                self.training or not self.track_running_stats, self.momentum, self.eps)
+        if not self.training and self.track_running_stats:
+            return self._run_bn(input)
         else:
-            return _SyncBatchNorm.apply(
-                input, self.weight, self.bias, self.running_mean, self.running_var,
-                self.eps, self.momentum)
+            return self._maybe_run_sync_bn(input)
 
 
 class _SyncBatchNorm(Function):
