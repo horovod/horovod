@@ -62,7 +62,7 @@ class SyncBatchNorm(_BatchNorm):
         if self.training and self.track_running_stats:
             self.num_batches_tracked = self.num_batches_tracked + 1
 
-        if size() == 1 or (not self.training and self.track_running_stats):
+        if (not self.training and self.track_running_stats) or size() == 1:
             return F.batch_norm(
                 input, self.running_mean, self.running_var, self.weight, self.bias,
                 self.training or not self.track_running_stats, self.momentum, self.eps)
