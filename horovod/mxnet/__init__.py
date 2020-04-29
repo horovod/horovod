@@ -113,7 +113,7 @@ def _append_broadcast_init(param, root_rank):
     init_impl = getattr(param, '_init_impl')
     def wrapped_init_impl(self, *args, **kwargs):
         init_impl(*args, **kwargs)
-        broadcast_(self.data(), root_rank=root_rank)
+        broadcast_(self.data(), root_rank=root_rank, name=self.name)
     return wrapped_init_impl
 
 
@@ -133,12 +133,14 @@ def broadcast_parameters(params, root_rank=0):
     if size() == 1: return
 
     tensors = []
+    names = []
     if isinstance(params, dict):
-        tensors = [p for _, p in sorted(params.items())]
+        names, tensors = zip(*params.items())
     elif isinstance(params, mx.gluon.parameter.ParameterDict):
-        for _, p in sorted(params.items()):
+        for name, p in sorted(params.items()):
             try:
                 tensors.append(p.data())
+                names.append(name)
             except mx.gluon.parameter.DeferredInitializationError:
                 # Inject wrapper method with post-initialization broadcast to
                 # handle parameters with deferred initialization
@@ -148,5 +150,5 @@ def broadcast_parameters(params, root_rank=0):
         raise ValueError('invalid params of type: %s' % type(params))
 
     # Run broadcasts.
-    for i, tensor in enumerate(tensors):
-        broadcast_(tensor, root_rank, str(i))
+    for tensor, name in zip(tensors, names):
+        broadcast_(tensor, root_rank, name=str(name))
