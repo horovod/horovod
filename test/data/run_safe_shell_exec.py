@@ -9,7 +9,7 @@ cleaned up and will be effectively leaked.
 Note that this is only a problem at test time, as in practice the process that is hard-killed will not be the child of
 yet another process.
 """
-
+import os
 import sys
 import time
 
@@ -21,8 +21,20 @@ class FakeEvent(object):
         time.sleep(999)
 
 
+def write(filename, value):
+    filename_tmp = filename + '.tmp'
+    with open(filename_tmp, 'w') as f:
+        f.write(str(value))
+
+    # Atomic rename to prevent race conditions from reader
+    os.rename(filename_tmp, filename)
+
+
 if __name__ == '__main__':
-    cmd = ' '.join([sys.executable] + sys.argv[1:])
+    logfile = sys.argv[1]
+    write(logfile, os.getpid())
+
+    cmd = ' '.join([sys.executable] + sys.argv[2:])
 
     # Mock out the event to avoid leaking semaphores
     safe_shell_exec._create_event = lambda ctx: FakeEvent()

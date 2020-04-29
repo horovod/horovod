@@ -66,7 +66,10 @@ def terminate_executor_shell_and_children(pid):
     try:
         p.wait(timeout=GRACEFUL_TERMINATION_TIME_S)
     except psutil.TimeoutExpired:
-        p.kill()
+        try:
+            p.kill()
+        except psutil.NoSuchProcess:
+            pass
 
 
 def forward_stream(src_stream, dst_stream, prefix, index):
@@ -135,7 +138,6 @@ def _exec_middleman(command, env, exit_event, stdout, stderr, rw):
     in_thread(kill_executor_children_if_parent_dies)
 
     exit_code = executor_shell.wait()
-    print('exit_code: {}'.format(exit_code))
     if exit_code < 0:
         # See: https://www.gnu.org/software/bash/manual/html_node/Exit-Status.html
         exit_code = 128 + abs(exit_code)

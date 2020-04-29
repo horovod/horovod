@@ -362,19 +362,20 @@ class RunTests(unittest.TestCase):
         parent_script = os.path.join(os.path.dirname(__file__), 'data/run_safe_shell_exec.py')
         child_script = os.path.join(os.path.dirname(__file__), 'data/sleep.py')
 
-        with temppath() as logfile:
+        def get_pid(logfile):
+            # Wait until the script has written its PID to the logfile
+            wait(lambda: os.path.exists(logfile), timeout=5)
+            with open(logfile, 'r') as f:
+                return int(f.read())
+
+        with temppath() as parent_logfile, temppath() as child_logfile:
             # It's important that this executes in an entirely different interpreter with as little shared
             # state as possible, to avoid issues with the semaphore tracker.
-            cmd = ' '.join([sys.executable, parent_script, child_script, str(sleep), logfile])
+            cmd = ' '.join([sys.executable, parent_script, parent_logfile, child_script, str(sleep), child_logfile])
             p = subprocess.Popen(cmd, shell=True)
 
-            # Wait until the child script has written its PID to the logfile
-            wait(lambda: os.path.exists(logfile), timeout=5)
-
-            parent = psutil.Process(p.pid)
-            with open(logfile, 'r') as f:
-                child_pid = int(f.read())
-            child = psutil.Process(child_pid)
+            parent = psutil.Process(get_pid(parent_logfile))
+            child = psutil.Process(get_pid(child_logfile))
 
             self.assertTrue(parent.is_running())
             self.assertTrue(child.is_running())
@@ -385,7 +386,7 @@ class RunTests(unittest.TestCase):
             p.wait()
 
             # Child process will exit when pipe breaks
-            child.wait(timeout=safe_shell_exec.GRACEFUL_TERMINATION_TIME_S)
+            child.wait(timeout=2 * safe_shell_exec.GRACEFUL_TERMINATION_TIME_S + 1)
 
             self.assertFalse(parent.is_running())
             self.assertFalse(child.is_running())
