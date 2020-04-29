@@ -1,6 +1,6 @@
 Horovod with Keras
 ==================
-Horovod supports Keras and regular TensorFlow in similar ways. To use Horovod, make the following modifications to your training script:
+Horovod supports Keras and regular TensorFlow in similar ways. To use Horovod with Keras, make the following modifications to your training script:
 
 1. Run ``hvd.init()``.
 
