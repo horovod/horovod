@@ -350,7 +350,7 @@ class RunTests(unittest.TestCase):
 
         sleep = 10
         start = time.time()
-        self._do_test_safe_shell_exec('sleep {}'.format(sleep), 143, '', '', interrupt)
+        self._do_test_safe_shell_exec('sleep {}'.format(sleep), 143, '', None, interrupt)
         duration = time.time() - start
 
         self.assertGreaterEqual(duration, 1.0)
@@ -396,8 +396,10 @@ class RunTests(unittest.TestCase):
         stderr = six.StringIO()
         res = safe_shell_exec.execute(cmd, stdout=stdout, stderr=stderr, events=[event])
         self.assertEqual(expected_exit_code, res)
-        self.assertEqual(expected_stdout, stdout.getvalue())
-        self.assertEqual(expected_stderr, stderr.getvalue())
+        if expected_stdout is not None:
+            self.assertEqual(expected_stdout, stdout.getvalue())
+        if expected_stderr is not None:
+            self.assertEqual(expected_stderr, stderr.getvalue())
 
     def test_hash(self):
         hash = _hash("test string")
