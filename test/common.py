@@ -73,6 +73,16 @@ def delay(func, seconds):
 
     t = in_thread(target=fn)
 
+
+def wait(func, timeout=None):
+    """Wait for func to return True until timeout."""
+    start = int(time.time())
+    while not func():
+        time.sleep(0.1)
+        if timeout is not None and int(time.time()) - start > timeout:
+            raise TimeoutError('Timed out waiting for func to return True')
+
+
 @contextlib.contextmanager
 def tempdir():
     dirpath = tempfile.mkdtemp()

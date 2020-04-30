@@ -18,16 +18,20 @@ from __future__ import division
 from __future__ import print_function
 
 import copy
-import os
 import itertools
+import os
+import subprocess
+import sys
 import threading
 import time
 import unittest
 import warnings
 
-import six
+import psutil
 import pytest
 import mock
+import six
+
 from mock import MagicMock
 
 import horovod
@@ -41,7 +45,7 @@ from horovod.run.mpi_run import _get_mpi_implementation, _get_mpi_implementation
 from horovod.run.runner import parse_args, parse_host_files, run_controller
 from horovod.run.util.threads import in_thread, on_event
 
-from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay
+from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay, wait
 
 
 class RunTests(unittest.TestCase):
@@ -346,20 +350,56 @@ class RunTests(unittest.TestCase):
 
         sleep = 10
         start = time.time()
-        self._do_test_safe_shell_exec('sleep {}'.format(sleep), 143, '', 'Terminated\n', interrupt)
+        self._do_test_safe_shell_exec('sleep {}'.format(sleep), 143, '', None, interrupt)
         duration = time.time() - start
 
         self.assertGreaterEqual(duration, 1.0)
         self.assertLess(duration, 2.0 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S, 'sleep should not finish')
         self.assertGreater(sleep, 2.0 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S, 'sleep should allow for GRACEFUL_TERMINATION_TIME_S')
 
+    def test_safe_shell_exec_interrupts_on_parent_shutdown(self):
+        sleep = 20
+        parent_script = os.path.join(os.path.dirname(__file__), 'data/run_safe_shell_exec.py')
+        child_script = os.path.join(os.path.dirname(__file__), 'data/sleep.py')
+
+        def get_pid(logfile):
+            # Wait until the script has written its PID to the logfile
+            wait(lambda: os.path.exists(logfile), timeout=5)
+            with open(logfile, 'r') as f:
+                return int(f.read())
+
+        with temppath() as parent_logfile, temppath() as child_logfile:
+            # It's important that this executes in an entirely different interpreter with as little shared
+            # state as possible, to avoid issues with the semaphore tracker.
+            cmd = ' '.join([sys.executable, parent_script, parent_logfile, child_script, str(sleep), child_logfile])
+            p = subprocess.Popen(cmd, shell=True)
+
+            parent = psutil.Process(get_pid(parent_logfile))
+            child = psutil.Process(get_pid(child_logfile))
+
+            self.assertTrue(parent.is_running())
+            self.assertTrue(child.is_running())
+
+            # Hard kill the parent process
+            parent.kill()
+            parent.wait(timeout=safe_shell_exec.GRACEFUL_TERMINATION_TIME_S)
+            p.wait()
+
+            # Child process will exit when pipe breaks
+            child.wait(timeout=2 * safe_shell_exec.GRACEFUL_TERMINATION_TIME_S + 1)
+
+            self.assertFalse(parent.is_running())
+            self.assertFalse(child.is_running())
+
     def _do_test_safe_shell_exec(self, cmd, expected_exit_code, expected_stdout, expected_stderr, event=None):
         stdout = six.StringIO()
         stderr = six.StringIO()
-        res = safe_shell_exec.execute(cmd, stdout=stdout, stderr=stderr, event=event)
+        res = safe_shell_exec.execute(cmd, stdout=stdout, stderr=stderr, events=[event])
         self.assertEqual(expected_exit_code, res)
-        self.assertEqual(expected_stdout, stdout.getvalue())
-        self.assertEqual(expected_stderr, stderr.getvalue())
+        if expected_stdout is not None:
+            self.assertEqual(expected_stdout, stdout.getvalue())
+        if expected_stderr is not None:
+            self.assertEqual(expected_stderr, stderr.getvalue())
 
     def test_hash(self):
         hash = _hash("test string")
