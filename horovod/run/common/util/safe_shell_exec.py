@@ -46,7 +46,7 @@ def terminate_executor_shell_and_children(pid):
     # Wait for graceful termination.
     gone, alive = psutil.wait_procs(p.children(), timeout=GRACEFUL_TERMINATION_TIME_S)
 
-    # Send STOP to executor shell to stop progress.
+    # Freeze the process to prevent it from spawning any new children.
     p.send_signal(signal.SIGSTOP)
 
     # Kill children recursively.
