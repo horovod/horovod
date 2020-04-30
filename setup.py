@@ -1590,8 +1590,13 @@ all_frameworks_require_list = tensorflow_require_list + \
 if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
     require_list.append('cffi>=1.4.0')
 
+
+def get_package_version():
+    return __version__ + "+" + os.environ['HOROVOD_LOCAL_VERSION'] if 'HOROVOD_LOCAL_VERSION' in os.environ else __version__
+
+
 setup(name='horovod',
-      version=__version__,
+      version=get_package_version(),
       packages=find_packages(),
       description='Distributed training framework for TensorFlow, Keras, PyTorch, and Apache MXNet.',
       author='The Horovod Authors',
