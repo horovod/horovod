@@ -65,6 +65,9 @@ MOCK_MODULES = [
     'keras.backend',
 
     'torch',
+    'torch.autograd.function',
+    'torch.nn.functional',
+    'torch.nn.modules.batchnorm',
     'torch.utils',
     'torch.utils.data',
     'torch.utils.tensorboard',

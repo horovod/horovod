@@ -52,6 +52,7 @@ from horovod.torch.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.torch.mpi_ops import gloo_enabled, gloo_built
 from horovod.torch.mpi_ops import nccl_built, ddl_built, ccl_built
 from horovod.torch.mpi_ops import Average, Sum, Adasum
+from horovod.torch.sync_batch_norm import SyncBatchNorm
 
 import torch
 import collections
