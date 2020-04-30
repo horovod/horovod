@@ -331,8 +331,19 @@ void PerformOperation(Response response, HorovodGlobalState& state) {
 bool RunLoopOnce(HorovodGlobalState& state);
 
 void BackgroundThreadLoop(HorovodGlobalState& state) {
-  // Initialize ccl context
+  // Set background thread affinity
+  auto horovod_thread_affinity = std::getenv(HOROVOD_THREAD_AFFINITY);
 #if HAVE_CCL
+  if (horovod_thread_affinity != nullptr) {
+    horovod_thread_affinity = std::getenv(HOROVOD_CCL_BGT_AFFINITY);
+  }
+#endif
+  if (horovod_thread_affinity != nullptr) {
+      int core = std::strtol(horovod_thread_affinity, nullptr, 10);
+      server_affinity_set(core);
+  }
+#if HAVE_CCL
+  // Initialize ccl context
   if (state.cpu_operation == LibType::CCL) {
     ccl_context.Init();
   }

@@ -111,13 +111,13 @@ run_mpi_pytest() {
 
   local excluded_tests="| sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g'"
 
-  # Spark test does not need to be executed with horovodrun, but we still run it below.
-  local exclude_spark_test="| sed 's/test_spark.py//g'"
+  # Spark and Run test does not need to be executed with horovodrun, but we still run it below.
+  local exclude_standalone_test="| sed 's/test_spark.py//g' | sed 's/test_run.py//g'"
 
   # pytests have 4x GPU use cases and require a separate queue
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"${oneccl_env} cd /horovod/test && (echo test_*.py ${exclude_keras} ${exclude_elastic} ${excluded_tests} ${exclude_spark_test} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py\""
+    "bash -c \"${oneccl_env} cd /horovod/test && (echo test_*.py ${exclude_keras} ${exclude_elastic} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py test_run.py\""
 }
 
 run_mpi_integration() {
@@ -210,12 +210,12 @@ run_gloo_pytest() {
   # These tests are covered in MPI, and testing them in Gloo does not cover any new code paths
   local excluded_tests="| sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/[a-z_]*tensorflow2[a-z_.]*//g'"
 
-  # Spark test does not need to be executed with horovodrun, but we still run it below.
-  local exclude_spark_test="| sed 's/test_spark.py//g'"
+  # Spark and Run test does not need to be executed with horovodrun, but we still run it below.
+  local exclude_standalone_test="| sed 's/test_spark.py//g' | sed 's/test_run.py//g'"
 
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_elastic} ${excluded_tests} ${exclude_spark_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py\""
+    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_elastic} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py test_run.py\""
 }
 
 run_gloo_integration() {

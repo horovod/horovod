@@ -581,7 +581,7 @@ def get_common_options(build_ext):
     cpp_flags = get_cpp_flags(build_ext)
     link_flags = get_link_flags(build_ext)
 
-    is_mac = os.uname()[0] == 'Darwin'
+    is_mac = sys.platform == 'darwin'
     compile_without_gloo = os.environ.get('HOROVOD_WITHOUT_GLOO')
     if compile_without_gloo:
         print('INFO: HOROVOD_WITHOUT_GLOO detected, skip compiling Horovod with Gloo.')
@@ -1575,7 +1575,7 @@ tensorflow_require_list = ['tensorflow']
 tensorflow_cpu_require_list = ['tensorflow-cpu']
 tensorflow_gpu_require_list = ['tensorflow-gpu']
 keras_require_list = ['keras>=2.0.8,!=2.0.9,!=2.1.0,!=2.1.1']
-pytorch_require_list = ['torch','torchvision']
+pytorch_require_list = ['torch']
 mxnet_require_list = ['mxnet>=1.4.1']
 spark_require_list = ['h5py>=2.9', 'numpy', 'petastorm==0.8.2', 'pyarrow>=0.15.0', 'pyspark>=2.3.2']  # Petastorm 0.7.7 is not compatible with pyarrow<0.15.0
 # all frameworks' dependencies
@@ -1590,8 +1590,13 @@ all_frameworks_require_list = tensorflow_require_list + \
 if not os.environ.get('HOROVOD_WITHOUT_PYTORCH'):
     require_list.append('cffi>=1.4.0')
 
+
+def get_package_version():
+    return __version__ + "+" + os.environ['HOROVOD_LOCAL_VERSION'] if 'HOROVOD_LOCAL_VERSION' in os.environ else __version__
+
+
 setup(name='horovod',
-      version=__version__,
+      version=get_package_version(),
       packages=find_packages(),
       description='Distributed training framework for TensorFlow, Keras, PyTorch, and Apache MXNet.',
       author='The Horovod Authors',

@@ -44,20 +44,32 @@ def terminate_executor_shell_and_children(pid):
             pass
 
     # Wait for graceful termination.
-    time.sleep(GRACEFUL_TERMINATION_TIME_S)
+    gone, alive = psutil.wait_procs(p.children(), timeout=GRACEFUL_TERMINATION_TIME_S)
 
-    # Send STOP to executor shell to stop progress.
+    # Freeze the process to prevent it from spawning any new children.
     p.send_signal(signal.SIGSTOP)
 
     # Kill children recursively.
-    for child in p.children(recursive=True):
+    for child in alive:
         try:
+            for grandchild in child.children(recursive=True):
+                try:
+                    grandchild.kill()
+                except psutil.NoSuchProcess:
+                    pass
             child.kill()
         except psutil.NoSuchProcess:
             pass
 
     # Kill shell itself.
-    p.kill()
+    p.terminate()
+    try:
+        p.wait(timeout=GRACEFUL_TERMINATION_TIME_S)
+    except psutil.TimeoutExpired:
+        try:
+            p.kill()
+        except psutil.NoSuchProcess:
+            pass
 
 
 def forward_stream(src_stream, dst_stream, prefix, index):
@@ -70,35 +82,38 @@ def forward_stream(src_stream, dst_stream, prefix, index):
             line=line
         )
 
+    def write(text):
+        if index is not None:
+            text = prepend_context(text, index, prefix)
+        dst_stream.write(text)
+        dst_stream.flush()
+
     line_buffer = ''
     while True:
         text = os.read(src_stream.fileno(), 1000)
+        if text is None:
+            break
+
         if not isinstance(text, str):
             text = text.decode('utf-8')
-        if not text or len(text) == 0:
+
+        if not text:
             break
 
         for line in re.split('([\r\n])', text):
             line_buffer += line
             if line == '\r' or line == '\n':
-                if index is not None:
-                    line_buffer = prepend_context(line_buffer, index, prefix)
-
-                dst_stream.write(line_buffer)
-                dst_stream.flush()
+                write(line_buffer)
                 line_buffer = ''
 
     # flush the line buffer if it is not empty
     if len(line_buffer):
-        if index is not None:
-            line_buffer = prepend_context(line_buffer, index, prefix)
-        dst_stream.write(line_buffer)
-        dst_stream.flush()
+        write(line_buffer)
 
     src_stream.close()
 
 
-def _middleman(command, env, stdout, stderr, rw):
+def _exec_middleman(command, env, exit_event, stdout, stderr, rw):
     stdout_r, stdout_w = stdout
     stderr_r, stderr_w = stderr
     r, w = rw
@@ -112,13 +127,7 @@ def _middleman(command, env, stdout, stderr, rw):
     executor_shell = subprocess.Popen(command, shell=True, env=env,
                                       stdout=stdout_w, stderr=stderr_w)
 
-    sigterm_received = threading.Event()
-
-    def set_sigterm_received(signum, frame):
-        sigterm_received.set()
-
-    signal.signal(signal.SIGINT, set_sigterm_received)
-    signal.signal(signal.SIGTERM, set_sigterm_received)
+    on_event(exit_event, terminate_executor_shell_and_children, args=(executor_shell.pid,))
 
     def kill_executor_children_if_parent_dies():
         # This read blocks until the pipe is closed on the other side
@@ -128,14 +137,25 @@ def _middleman(command, env, stdout, stderr, rw):
 
     in_thread(kill_executor_children_if_parent_dies)
 
-    on_event(sigterm_received, terminate_executor_shell_and_children, args=(executor_shell.pid,))
-
     exit_code = executor_shell.wait()
-    os._exit(exit_code)
+    if exit_code < 0:
+        # See: https://www.gnu.org/software/bash/manual/html_node/Exit-Status.html
+        exit_code = 128 + abs(exit_code)
+
+    sys.exit(exit_code)
+
+
+def _create_event(ctx):
+    # We need to expose this method for internal testing purposes, so we can mock it out to avoid
+    # leaking semaphores.
+    return ctx.Event()
 
 
 def execute(command, env=None, stdout=None, stderr=None, index=None, events=None):
     ctx = multiprocessing.get_context('spawn') if _PY3 else multiprocessing
+
+    # When this event is set, signal to middleman to terminate its children and exit.
+    exit_event = _create_event(ctx)
 
     # Make a pipe for the subprocess stdout/stderr.
     (stdout_r, stdout_w) = ctx.Pipe()
@@ -148,11 +168,10 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
     # here is that users will be inclined to hard kill this process, not the middleman.
     (r, w) = ctx.Pipe()
 
-    middleman = ctx.Process(target=_middleman, args=(command, env,
-                                                     (stdout_r, stdout_w),
-                                                     (stderr_r, stderr_w),
-                                                     (r, w)))
-    middleman.daemon = True
+    middleman = ctx.Process(target=_exec_middleman, args=(command, env, exit_event,
+                                                          (stdout_r, stdout_w),
+                                                          (stderr_r, stderr_w),
+                                                          (r, w)))
     middleman.start()
 
     # Close unused file descriptors to enforce PIPE behavior.
@@ -177,13 +196,13 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
     stop = threading.Event()
     events = events or []
     for event in events:
-        on_event(event, middleman.terminate, stop=stop, silent=True)
+        on_event(event, exit_event.set, stop=stop, silent=True)
 
     try:
         middleman.join()
     except:
         # interrupted, send middleman TERM signal which will terminate children
-        middleman.terminate()
+        exit_event.set()
         while True:
             try:
                 middleman.join()
@@ -192,9 +211,9 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
                 # interrupted, wait for middleman to finish
                 pass
     finally:
-        if stop is not None:
-            stop.set()
+        stop.set()
 
     stdout_fwd.join()
     stderr_fwd.join()
+
     return middleman.exitcode
