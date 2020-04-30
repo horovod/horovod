@@ -24,6 +24,7 @@ import inspect
 import itertools
 import os
 import pytest
+import sys
 import unittest
 import warnings
 
@@ -1672,6 +1673,10 @@ class TorchTests(unittest.TestCase):
         """Tests Horovod version of SyncBatchNorm."""
         if not torch.cuda.is_available():
             self.skipTest("No GPUs available")
+
+        if sys.version_info < (3,):
+            # TODO: remove this check after Py2 deprecation
+            self.skipTest("Python 3 only feature")
 
         hvd.init()
 

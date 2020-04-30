@@ -29,6 +29,9 @@ if not hasattr(torch.jit, 'unused'):
     torch.jit.unused = lambda x: x
 
 
+_SYNC_BN_V2 = LooseVersion(torch.__version__) >= LooseVersion('1.6.0')
+
+
 class SyncBatchNorm(_BatchNorm):
     """
     Applies synchronous version of N-dimensional BatchNorm.  In this version, normalization
@@ -49,6 +52,8 @@ class SyncBatchNorm(_BatchNorm):
             module tracks the running mean and variance, and when set to `False`,
             this module does not track such statistics and always uses batch
             statistics in both training and eval modes. Default: `True`
+    
+    NOTE: only GPU input tensors are supported in the training mode.
     """
     def __init__(self, num_features, eps=1e-5, momentum=0.1, affine=True, track_running_stats=True):
         super().__init__(num_features, eps, momentum, affine, track_running_stats)
@@ -71,7 +76,7 @@ class SyncBatchNorm(_BatchNorm):
             self.eps, self.momentum)
 
     def forward(self, input):
-        # currently only GPU input is supported
+        # currently only GPU input is supported by underlying kernel from PyTorch
         if not input.is_cuda:
             raise ValueError('SyncBatchNorm expected input tensor to be on GPU')
 
@@ -106,11 +111,11 @@ class _SyncBatchNorm(Function):
         mean_all = synchronize(mean_handle)
         invstd_all = synchronize(invstd_handle)
 
-        if LooseVersion(torch.__version__) < LooseVersion('1.6.0'):
+        if _SYNC_BN_V2:
+            counts_for_bngswc = count_all.view(-1).float().to(input.device)
+        else:
             # backwards compatibility
             counts_for_bngswc = count_all.view(-1).tolist()
-        else:
-            counts_for_bngswc = count_all.view(-1).float().to(input.device)
 
         # calculate global mean & invstd
         mean, invstd = torch.batch_norm_gather_stats_with_counts(
@@ -133,7 +138,7 @@ class _SyncBatchNorm(Function):
     def backward(self, grad_output):
         grad_output = grad_output.contiguous()
         saved_input, weight, mean, invstd, count_all = self.saved_tensors
-        grad_input = grad_weight = grad_bias = None
+        need_input_grad, need_weight_grad, need_bias_grad = self.needs_input_grad[0:3]
 
         # calculate local stats as well as grad_weight / grad_bias
         sum_dy, sum_dy_xmu, grad_weight, grad_bias = torch.batch_norm_backward_reduce(
@@ -142,12 +147,12 @@ class _SyncBatchNorm(Function):
             mean,
             invstd,
             weight,
-            self.needs_input_grad[0],
-            self.needs_input_grad[1],
-            self.needs_input_grad[2]
+            need_input_grad,
+            need_weight_grad,
+            need_bias_grad
         )
 
-        if self.needs_input_grad[0]:
+        if need_input_grad:
             # synchronizing stats used to calculate input gradient.
             sum_dy_handle = allreduce_async(sum_dy, op=Sum, name='sync_batch_norm.sum_dy')
             sum_dy_xmu_handle = allreduce_async(sum_dy_xmu, op=Sum, name='sync_batch_norm.sum_dy_xmu')
@@ -156,14 +161,14 @@ class _SyncBatchNorm(Function):
             sum_dy = synchronize(sum_dy_handle)
             sum_dy_xmu = synchronize(sum_dy_xmu_handle)
 
-            if LooseVersion(torch.__version__) < LooseVersion('1.6.0'):
+            if _SYNC_BN_V2:
+                mean_dy = sum_dy / count_all.sum()
+                mean_dy_xmu = sum_dy_xmu / count_all.sum()
+            else:
                 # before 1.6.0, sum_dy was sum of means from every worker, so we just 
                 # need to divide it by number of workers
                 mean_dy = sum_dy / size()
                 mean_dy_xmu = sum_dy_xmu / size()
-            else:
-                mean_dy = sum_dy / count_all.sum()
-                mean_dy_xmu = sum_dy_xmu / count_all.sum()
 
             # backward pass for gradient calculation
             grad_input = torch.batch_norm_backward_elemt(
@@ -175,13 +180,15 @@ class _SyncBatchNorm(Function):
                 mean_dy,
                 mean_dy_xmu
             )
+        else:
+            grad_input = None
 
         # synchronizing of grad_weight / grad_bias is not needed as distributed
         # training would handle all reduce.
-        if weight is None or not self.needs_input_grad[1]:
+        if weight is None or not need_weight_grad:
             grad_weight = None
 
-        if weight is None or not self.needs_input_grad[2]:
+        if weight is None or not need_bias_grad:
             grad_bias = None
 
         return grad_input, grad_weight, grad_bias, None, None, None, None, None, None
