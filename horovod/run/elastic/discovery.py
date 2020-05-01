@@ -73,6 +73,11 @@ class DiscoveredHosts(object):
         # Use the host_assignment_order as it does not contain blacklisted hosts
         return sum([self.get_slots(host) for host in self._host_assignment_order])
 
+    def update(self, hosts_state):
+        self._host_assignment_order = [host for host in self._host_assignment_order
+                                       if not hosts_state[host].is_blacklisted()]
+        return self
+
 
 class HostManager(object):
     def __init__(self, discovery):
@@ -95,7 +100,7 @@ class HostManager(object):
 
     @property
     def current_hosts(self):
-        return self._current_hosts
+        return self._current_hosts.update(self._hosts_state)
 
     def blacklist(self, host):
         if not self._hosts_state[host].is_blacklisted():
