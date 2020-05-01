@@ -1087,14 +1087,15 @@ class TensorFlowTests(tf.test.TestCase):
     def test_broadcast_object(self):
         hvd.init()
 
-        expected_obj = {
-            'hello': 123,
-            0: [1, 2]
-        }
-        obj = expected_obj if hvd.rank() == 0 else {}
+        with tf.device("/cpu:0"):
+            expected_obj = {
+                'hello': 123,
+                0: [1, 2]
+            }
+            obj = expected_obj if hvd.rank() == 0 else {}
 
-        obj = hvd.broadcast_object(obj, root_rank=0)
-        self.assertDictEqual(obj, expected_obj)
+            obj = hvd.broadcast_object(obj, root_rank=0)
+            self.assertDictEqual(obj, expected_obj)
 
     @pytest.mark.skipif(LooseVersion(tf.__version__) < LooseVersion('1.15.0'),
                         reason='Broadcasting object requires TensorFlow 1.15 or above')
@@ -1105,15 +1106,16 @@ class TensorFlowTests(tf.test.TestCase):
 
         hvd.init()
 
-        expected_obj = {
-            'hello': 123,
-            0: [1, 2]
-        }
-        obj = expected_obj if hvd.rank() == 0 else {}
+        with tf.device("/cpu:0"):
+            expected_obj = {
+                'hello': 123,
+                0: [1, 2]
+            }
+            obj = expected_obj if hvd.rank() == 0 else {}
 
-        bcast = hvd.broadcast_object_fn(root_rank=0)
-        obj = bcast(obj)
-        self.assertDictEqual(obj, expected_obj)
+            bcast = hvd.broadcast_object_fn(root_rank=0)
+            obj = bcast(obj)
+            self.assertDictEqual(obj, expected_obj)
 
     @pytest.mark.skipif(LooseVersion(tf.__version__) < LooseVersion('1.15.0'),
                         reason='Synchronizing state requires TensorFlow 1.15 or above')
