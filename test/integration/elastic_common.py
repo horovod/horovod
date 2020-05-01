@@ -104,7 +104,8 @@ class BaseElasticTests(object):
                     return [json.loads(line) for line in lines]
 
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
-    def test_hosts_added_and_removed(self):
+    @mock.patch('horovod.run.gloo_run._get_min_start_hosts', return_value=1)
+    def test_hosts_added_and_removed(self, mock_get_min_start_hosts):
         discovery_schedule = [
             (0, ['localhost:2']),
             (1, ['localhost:2', '127.0.0.1:2']),
@@ -131,7 +132,8 @@ class BaseElasticTests(object):
         assert results[2]['rendezvous'] == 3
 
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
-    def test_single_rank_failure(self):
+    @mock.patch('horovod.run.gloo_run._get_min_start_hosts', return_value=1)
+    def test_single_rank_failure(self, mock_get_min_start_hosts):
         discovery_schedule = [
             (None, ['localhost:2', '127.0.0.1:2']),
         ]
@@ -157,7 +159,8 @@ class BaseElasticTests(object):
         assert results[2]['rendezvous'] == 2
 
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
-    def test_fault_tolerance_without_scaling(self):
+    @mock.patch('horovod.run.gloo_run._get_min_start_hosts', return_value=1)
+    def test_fault_tolerance_without_scaling(self, mock_get_min_start_hosts):
         discovery_schedule = [
             (None, ['localhost:2', '127.0.0.1:2']),
         ]
@@ -185,7 +188,8 @@ class BaseElasticTests(object):
         assert results[2]['rendezvous'] == 2
 
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
-    def test_all_ranks_failure(self):
+    @mock.patch('horovod.run.gloo_run._get_min_start_hosts', return_value=1)
+    def test_all_ranks_failure(self, mock_get_min_start_hosts):
         discovery_schedule = [
             (None, ['localhost:2', '127.0.0.1:2']),
         ]
@@ -199,7 +203,8 @@ class BaseElasticTests(object):
             self._run(discovery_schedule, exit_schedule=exit_schedule)
 
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
-    def test_all_hosts_blacklisted(self):
+    @mock.patch('horovod.run.gloo_run._get_min_start_hosts', return_value=1)
+    def test_all_hosts_blacklisted(self, mock_get_min_start_hosts):
         discovery_schedule = [
             (None, ['localhost:2', '127.0.0.1:2']),
         ]
@@ -214,7 +219,8 @@ class BaseElasticTests(object):
 
     @mock.patch('horovod.run.elastic.driver.START_TIMEOUT_SECS', 1)
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
-    def test_min_hosts_timeout(self):
+    @mock.patch('horovod.run.gloo_run._get_min_start_hosts', return_value=1)
+    def test_min_hosts_timeout(self, mock_get_min_start_hosts):
         discovery_schedule = [
             (None, ['localhost:2', '127.0.0.1:2']),
         ]

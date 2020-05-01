@@ -214,6 +214,7 @@ def register_shutdown_event():
     signal.signal(signal.SIGTERM, set_event_on_signal)
     return event
 
+
 def launch_gloo(command, exec_command, settings, nics, env, server_ip):
     """
     Launches the given command multiple times using gloo.
@@ -262,6 +263,11 @@ def launch_gloo(command, exec_command, settings, nics, env, server_ip):
                                .format(name=name, code=exit_code))
 
 
+def _get_min_start_hosts(settings):
+    # This function exists for the purpose of mocking in tests
+    return 2 if settings.max_np > settings.num_proc and not settings.nics else 1
+
+
 def gloo_run(settings, nics, env, server_ip, command):
     # Each thread will use ssh command to launch the job on each remote host. If an
     # error occurs in one thread, entire process will be terminated. Otherwise,
@@ -284,7 +290,7 @@ def gloo_run_elastic(settings, env, command):
     global_rendezv_port = rendezvous.start_server(handler)
 
     # Host-to-host common interface detection requires at least 2 hosts in an auto-scaling job.
-    min_hosts = 2 if settings.max_np > settings.num_proc and not settings.nics else 1
+    min_hosts = _get_min_start_hosts(settings)
     current_hosts = driver.wait_for_available_hosts(settings.num_proc, min_hosts=min_hosts)
 
     nics = driver_service.get_common_interfaces(settings, current_hosts.available_hosts)
