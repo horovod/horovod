@@ -282,9 +282,12 @@ def gloo_run_elastic(settings, env, command):
 
     handler = create_rendezvous_handler(driver)
     global_rendezv_port = rendezvous.start_server(handler)
-    driver.wait_for_available_hosts(settings.num_proc)
 
-    nics = driver_service.get_common_interfaces(settings, driver.get_available_hosts())
+    # Host-to-host common interface detection requires at least 2 hosts in an auto-scaling job.
+    min_hosts = 2 if settings.max_np > settings.num_proc and not settings.nics else 1
+    current_hosts = driver.wait_for_available_hosts(settings.num_proc, min_hosts=min_hosts)
+
+    nics = driver_service.get_common_interfaces(settings, current_hosts.available_hosts)
     server_ip = network.get_driver_ip(nics)
 
     exec_command = _exec_command_fn(settings)
@@ -295,6 +298,7 @@ def gloo_run_elastic(settings, env, command):
     driver.start(settings.num_proc, create_worker)
     res = driver.get_results()
     driver.stop()
+    rendezvous.stop_server()
 
     for name, value in sorted(res.items(), key=lambda item: item[1][1]):
         exit_code, timestamp = value

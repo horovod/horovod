@@ -114,6 +114,7 @@ class ObjectState(State):
 
     Args:
         bcast_object: Horovod broadcast object function used to sync state dictionary.
+        get_rank: Horovod rank function used to identify is this process is the coordinator.
         kwargs: Properties to sync, will be exposed as attributes of the object.
     """
     def __init__(self, bcast_object, get_rank, **kwargs):
@@ -148,20 +149,18 @@ def run_fn(func, reset):
         notification_manager.register_listener(state)
 
         try:
-            reset_required = False
             while True:
-                if reset_required:
-                    reset()
-                    state.on_reset()
-
                 state.sync()
+
                 try:
                     return func(state, *args, **kwargs)
                 except HorovodInternalError:
                     state.restore()
                 except HostsUpdatedInterrupt:
                     pass
-                reset_required = True
+
+                reset()
+                state.on_reset()
         finally:
             notification_manager.remove_listener(state)
     return wrapper

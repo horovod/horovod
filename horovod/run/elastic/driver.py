@@ -123,28 +123,27 @@ class ElasticDriver(object):
             return False
         return host in self._host_assignments and len(self._host_assignments[host]) > slot
 
-    def get_available_hosts(self):
-        return self._host_manager.current_hosts.available_hosts
+    def wait_for_available_hosts(self, min_np, min_hosts=1):
+        extra_message = ' An auto-scaling job (`--max-np` > `--num-proc`) also requires that at least two hosts ' \
+                        'are available to resolve compatible network interfaces. If you know which interfaces ' \
+                        'are compatible in your network, set `--nic` to skip this check.' if min_hosts > 1 else ''
 
-    def wait_for_available_hosts(self, min_np):
         tmout = timeout.Timeout(
             self._start_timeout,
             message='Timed out waiting for {{activity}}. Please check that you have '
-                    'enough resources to run at least {min_np} Horovod processes.'.format(min_np=min_np))
+                    'enough resources to run at least {min_np} Horovod processes.{extra_message}'
+                    .format(min_np=min_np, extra_message=extra_message))
 
         self._wait_hosts_cond.acquire()
         try:
             while True:
                 current_hosts = self._host_manager.current_hosts
-                if self._has_available_slots(current_hosts.count_available_slots(), min_np):
+                if current_hosts.count_available_slots() >= min_np and len(current_hosts.available_hosts) >= min_hosts:
                     return current_hosts
                 self._wait_hosts_cond.wait(tmout.remaining())
                 tmout.check_time_out_for('minimum number of hosts to become available')
         finally:
             self._wait_hosts_cond.release()
-
-    def _has_available_slots(self, slots, min_np):
-        return slots >= min_np
 
     def _activate_hosts(self, min_np):
         logging.info('wait for available hosts: {}'.format(min_np))
@@ -237,7 +236,7 @@ class ElasticDriver(object):
     def _get_host_assignments(self, current_hosts):
         # Adjust the host assignments to account for added / removed hosts
         host_list = [hosts.HostInfo(host, current_hosts.get_slots(host))
-                     for host in current_hosts.ordered_available_hosts]
+                     for host in current_hosts.host_assignment_order]
         host_assignments_list = hosts.get_host_assignments(host_list, self._min_np, self._max_np)
         host_assignments = defaultdict(list)
         for slot_info in host_assignments_list:

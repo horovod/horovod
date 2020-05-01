@@ -36,10 +36,6 @@ class HostsUpdatedRequest(object):
         self.timestamp = timestamp
 
 
-class HostsUpdatedResponse(object):
-    pass
-
-
 class WorkerNotificationManager(object):
     def __init__(self):
         self._lock = threading.Lock()
@@ -99,7 +95,7 @@ class WorkerNotificationService(network.BasicService):
     def _handle(self, req, client_address):
         if isinstance(req, HostsUpdatedRequest):
             self._manager.handle_hosts_updated(req.timestamp)
-            return HostsUpdatedResponse()
+            return network.AckResponse()
 
         return super(WorkerNotificationService, self)._handle(req, client_address)
 
