@@ -1124,57 +1124,58 @@ class TensorFlowTests(tf.test.TestCase):
 
         hvd.init()
 
-        v = 1.0 if hvd.rank() == 0 else 2.0
-        weights1 = [
-            np.array([[v, v], [v, v]]),
-            np.array([v, v])
-        ]
-        vars1 = [tf.Variable(arr) for arr in weights1]
+        with tf.device("/cpu:0"):
+            v = 1.0 if hvd.rank() == 0 else 2.0
+            weights1 = [
+                np.array([[v, v], [v, v]]),
+                np.array([v, v])
+            ]
+            vars1 = [tf.Variable(arr) for arr in weights1]
 
-        weights2 = [
-            np.array([[1.0, 2.0], [3.0, 4.0]]),
-            np.array([0.0, 0.0])
-        ]
+            weights2 = [
+                np.array([[1.0, 2.0], [3.0, 4.0]]),
+                np.array([0.0, 0.0])
+            ]
 
-        if not hvd._executing_eagerly():
-            init = tf.global_variables_initializer()
-            self.evaluate(init)
+            if not hvd._executing_eagerly():
+                init = tf.global_variables_initializer()
+                self.evaluate(init)
 
-        state = hvd.elastic.TensorFlowState(vars1, batch=20 + hvd.rank(), epoch=10 + hvd.rank())
-        state.sync()
+            state = hvd.elastic.TensorFlowState(vars1, batch=20 + hvd.rank(), epoch=10 + hvd.rank())
+            state.sync()
 
-        weights1 = [np.ones_like(w) for w in weights1]
+            weights1 = [np.ones_like(w) for w in weights1]
 
-        # After sync, all values should match the root rank
-        for w in self.evaluate(vars1):
-            self.assertAllClose(w, np.ones_like(w))
-        assert state.batch == 20
-        assert state.epoch == 10
+            # After sync, all values should match the root rank
+            for w in self.evaluate(vars1):
+                self.assertAllClose(w, np.ones_like(w))
+            assert state.batch == 20
+            assert state.epoch == 10
 
-        # Partially modify then restore
-        self.assign(vars1, weights2)
-        state.batch = 21
-        state.epoch = 11
+            # Partially modify then restore
+            self.assign(vars1, weights2)
+            state.batch = 21
+            state.epoch = 11
 
-        state.restore()
+            state.restore()
 
-        for w1, w2 in zip(self.evaluate(vars1), weights1):
-            self.assertAllClose(w1, w2)
-        assert state.batch == 20
-        assert state.epoch == 10
+            for w1, w2 in zip(self.evaluate(vars1), weights1):
+                self.assertAllClose(w1, w2)
+            assert state.batch == 20
+            assert state.epoch == 10
 
-        # Partially modify then commit
-        self.assign(vars1, weights2)
-        state.batch = 21
-        state.epoch = 11
+            # Partially modify then commit
+            self.assign(vars1, weights2)
+            state.batch = 21
+            state.epoch = 11
 
-        state.commit()
-        state.restore()
+            state.commit()
+            state.restore()
 
-        for w1, w2 in zip(self.evaluate(vars1), weights2):
-            self.assertAllClose(w1, w2)
-        assert state.batch == 21
-        assert state.epoch == 11
+            for w1, w2 in zip(self.evaluate(vars1), weights2):
+                self.assertAllClose(w1, w2)
+            assert state.batch == 21
+            assert state.epoch == 11
 
 
 if _has_eager:
