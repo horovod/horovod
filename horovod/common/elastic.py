@@ -88,7 +88,7 @@ class State(object):
         # In order to ensure all workers raise the exception at the same time, we need to sync
         # the updated state across all the workers.
         # TODO(travis): this should be a max allreduce to account for changes in rank 0
-        self._last_updated_timestamp = self._bcast_object(last_updated_timestamp)
+        prev_timestamp, self._last_updated_timestamp = self._bcast_object((prev_timestamp, last_updated_timestamp))
 
         # At this point, updated state is globally consistent across all ranks.
         if self._last_updated_timestamp > prev_timestamp:

@@ -293,7 +293,7 @@ def gloo_run_elastic(settings, env, command):
     min_hosts = _get_min_start_hosts(settings)
     current_hosts = driver.wait_for_available_hosts(settings.num_proc, min_hosts=min_hosts)
 
-    nics = driver_service.get_common_interfaces(settings, current_hosts.available_hosts)
+    nics = driver_service.get_common_interfaces(settings, current_hosts.host_assignment_order)
     server_ip = network.get_driver_ip(nics)
 
     exec_command = _exec_command_fn(settings)
