@@ -50,48 +50,79 @@ class HostState(object):
 
 
 class DiscoveredHosts(object):
+    def __init__(self, hosts, slots, host_assignment_order):
+        self._hosts = hosts
+        self._slots = slots
+        self._host_assignment_order = host_assignment_order
+
+    @property
+    def hosts(self):
+        return self._hosts
+
+    @property
+    def slots(self):
+        return self._slots
+
+    @property
+    def available_hosts(self):
+        return set(self._host_assignment_order)
+
+    @property
+    def host_assignment_order(self):
+        return self._host_assignment_order
+
+    def get_slots(self, host):
+        return self._slots.get(host, 0)
+
+    def count_available_slots(self):
+        # Use the host_assignment_order as it does not contain blacklisted hosts
+        return sum([self.get_slots(host) for host in self._host_assignment_order])
+
+
+class HostManager(object):
     def __init__(self, discovery):
-        self._available_hosts = set()
-        self._available_slots = {}
-        self._host_state = defaultdict(HostState)
+        self._current_hosts = DiscoveredHosts(hosts=set(), slots={}, host_assignment_order=[])
+        self._hosts_state = defaultdict(HostState)
         self._discovery = discovery
 
     def update_available_hosts(self):
-        prev_hosts = self._available_hosts
-        prev_slots = self._available_slots
-        available_hosts, available_slots = self._discovery.find_available_hosts_and_slots()
-        if prev_hosts != available_hosts or prev_slots != available_slots:
-            self._available_hosts, self._available_slots = available_hosts, available_slots
+        # TODO(travis): also check for hosts removed from the blacklist in the future
+        prev_hosts = self._current_hosts.hosts
+        prev_slots = self._current_hosts.slots
+        prev_host_assignment_order = self._current_hosts.host_assignment_order
+        hosts, slots = self._discovery.find_available_hosts_and_slots()
+        if prev_hosts != hosts or prev_slots != slots:
+            available_hosts = set([host for host in hosts if not self._hosts_state[host].is_blacklisted()])
+            host_assignment_order = HostManager.order_available_hosts(available_hosts, prev_host_assignment_order)
+            self._current_hosts = DiscoveredHosts(hosts=hosts, slots=slots,
+                                                  host_assignment_order=host_assignment_order)
             return True
         return False
 
-    def count_available_slots(self):
-        return sum([self.get_slots(host) for host in self._available_hosts
-                    if not self._host_state[host].is_blacklisted()])
-
-    def get_slots(self, host):
-        return self._available_slots[host]
-
-    def filter_available_hosts(self, hosts):
-        return [host for host in hosts
-                if host in self._available_hosts and not self._host_state[host].is_blacklisted()]
-
-    def get_available_hosts(self):
-        return self.filter_available_hosts(self._available_hosts)
+    @property
+    def current_hosts(self):
+        return self._current_hosts
 
     def blacklist(self, host):
-        if not self._host_state[host].is_blacklisted():
+        if not self._hosts_state[host].is_blacklisted():
             logging.warning('blacklist failing host: {}'.format(host))
-        self._host_state[host].blacklist()
+        self._hosts_state[host].blacklist()
 
     def is_blacklisted(self, host):
-        return self._host_state[host].is_blacklisted()
-
-    def count_blacklisted_slots(self):
-        return sum([self.get_slots(host) for host, meta in self._host_state.items() if meta.is_blacklisted()])
+        return self._hosts_state[host].is_blacklisted()
 
     def get_host_event(self, host):
-        return self._host_state[host].get_event()
+        return self._hosts_state[host].get_event()
+
+    @staticmethod
+    def order_available_hosts(available_hosts, prev_host_assignment_order):
+        # We need to ensure this list preserves relative order to ensure the oldest hosts are assigned lower ranks.
+        host_assignment_order = [host for host in prev_host_assignment_order if host in available_hosts]
+        known_hosts = set(host_assignment_order)
+        for host in available_hosts:
+            if host not in known_hosts:
+                host_assignment_order.append(host)
+        return host_assignment_order
 
 
 class HostDiscovery(object):

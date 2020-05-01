@@ -25,7 +25,7 @@ from collections import defaultdict
 from six.moves import queue
 
 from horovod.run.common.util import hosts, timeout
-from horovod.run.elastic.discovery import DiscoveredHosts
+from horovod.run.elastic.discovery import HostManager
 from horovod.run.elastic.registration import WorkerStateRegistry
 from horovod.run.elastic.worker import WorkerNotificationClient
 
@@ -61,12 +61,11 @@ class Results(object):
 class ElasticDriver(object):
     def __init__(self, rendezvous, discovery, min_np, max_np, start_timeout=None, verbose=0):
         self._rendezvous = rendezvous
-        self._discovered_hosts = DiscoveredHosts(discovery)
+        self._host_manager = HostManager(discovery)
         self._min_np = min_np
         self._max_np = max_np
         self._verbose = verbose
 
-        self._ordered_available_hosts = []
         self._host_assignments = {}
         self._rank_assignments = {}
         self._world_size = 0
@@ -77,7 +76,7 @@ class ElasticDriver(object):
         self._create_worker_fn = None
         self._worker_clients = {}
 
-        self._worker_registry = WorkerStateRegistry(self, self._discovered_hosts)
+        self._worker_registry = WorkerStateRegistry(self, self._host_manager)
         self._results = Results()
         self._shutdown = threading.Event()
 
@@ -120,12 +119,12 @@ class ElasticDriver(object):
             else hosts.INVALID_SLOT_INFO
 
     def has_rank_assignment(self, host, slot):
-        if self._discovered_hosts.is_blacklisted(host):
+        if self._host_manager.is_blacklisted(host):
             return False
         return host in self._host_assignments and len(self._host_assignments[host]) > slot
 
     def get_available_hosts(self):
-        return self._discovered_hosts.get_available_hosts()
+        return self._host_manager.current_hosts.available_hosts
 
     def wait_for_available_hosts(self, min_np):
         tmout = timeout.Timeout(
@@ -135,7 +134,10 @@ class ElasticDriver(object):
 
         self._wait_hosts_cond.acquire()
         try:
-            while not self._has_available_slots(self._discovered_hosts.count_available_slots(), min_np):
+            while True:
+                current_hosts = self._host_manager.current_hosts
+                if self._has_available_slots(current_hosts.count_available_slots(), min_np):
+                    return current_hosts
                 self._wait_hosts_cond.wait(tmout.remaining())
                 tmout.check_time_out_for('minimum number of hosts to become available')
         finally:
@@ -146,8 +148,8 @@ class ElasticDriver(object):
 
     def _activate_hosts(self, min_np):
         logging.info('wait for available hosts: {}'.format(min_np))
-        self.wait_for_available_hosts(min_np)
-        pending_slots = self._update_host_assignments()
+        current_hosts = self.wait_for_available_hosts(min_np)
+        pending_slots = self._update_host_assignments(current_hosts)
         self._worker_registry.reset(self.world_size())
         self._start_worker_processes(pending_slots)
 
@@ -156,8 +158,8 @@ class ElasticDriver(object):
         while not self._shutdown.is_set():
             self._wait_hosts_cond.acquire()
             try:
-                if self._discovered_hosts.update_available_hosts():
-                    self._notify_workers_host_changes()
+                if self._host_manager.update_available_hosts():
+                    self._notify_workers_host_changes(self._host_manager.current_hosts)
                     self._wait_hosts_cond.notify_all()
             except RuntimeError as e:
                 if first_update:
@@ -170,9 +172,9 @@ class ElasticDriver(object):
             first_update = False
             self._shutdown.wait(DISCOVER_HOSTS_FREQUENCY_SECS)
 
-    def _notify_workers_host_changes(self):
+    def _notify_workers_host_changes(self, current_hosts):
         # Assignments are required to be stable via contract
-        next_host_assignments, _, _ = self._get_host_assignments()
+        next_host_assignments, _ = self._get_host_assignments(current_hosts)
         if next_host_assignments == self._host_assignments:
             # Skip notifying workers when host changes would not result in changes of host assignments
             logging.debug('no host changes, skipping notifications')
@@ -198,14 +200,14 @@ class ElasticDriver(object):
                                   .format(coordinator_slot_info.hostname,
                                           coordinator_slot_info.local_rank))
 
-    def _update_host_assignments(self):
+    def _update_host_assignments(self, current_hosts):
         # Determine the slots that are already filled so we do not respawn these processes
         active_slots = set([(host, slot_info.local_rank)
                             for host, slots in self._host_assignments.items()
                             for slot_info in slots])
 
         # Adjust the host assignments to account for added / removed hosts
-        host_assignments, host_assignments_list, ordered_available_hosts = self._get_host_assignments()
+        host_assignments, host_assignments_list = self._get_host_assignments(current_hosts)
 
         if len(self._host_assignments) > 0:
             # Ensure that at least one previously active host is still assigned, otherwise there is no
@@ -216,7 +218,6 @@ class ElasticDriver(object):
                 raise RuntimeError('No hosts from previous set remaining, unable to broadcast state.')
 
         self._host_assignments = host_assignments
-        self._ordered_available_hosts = ordered_available_hosts
         self._world_size = len(host_assignments_list)
         self._rendezvous.httpd.init(host_assignments_list)
 
@@ -233,21 +234,15 @@ class ElasticDriver(object):
                          if (host, slot_info.local_rank) not in active_slots]
         return pending_slots
 
-    def _get_host_assignments(self):
-        # We need to ensure this list preserves relative order to ensure the oldest hosts are assigned lower ranks.
-        ordered_available_hosts = self._discovered_hosts.filter_available_hosts(self._ordered_available_hosts)
-        known_hosts = set(self._ordered_available_hosts)
-        for host in self.get_available_hosts():
-            if host not in known_hosts:
-                ordered_available_hosts.append(host)
-
+    def _get_host_assignments(self, current_hosts):
         # Adjust the host assignments to account for added / removed hosts
-        host_list = [hosts.HostInfo(host, self._discovered_hosts.get_slots(host)) for host in ordered_available_hosts]
+        host_list = [hosts.HostInfo(host, current_hosts.get_slots(host))
+                     for host in current_hosts.ordered_available_hosts]
         host_assignments_list = hosts.get_host_assignments(host_list, self._min_np, self._max_np)
         host_assignments = defaultdict(list)
         for slot_info in host_assignments_list:
             host_assignments[slot_info.hostname].append(slot_info)
-        return host_assignments, host_assignments_list, ordered_available_hosts
+        return host_assignments, host_assignments_list
 
     def _start_worker_processes(self, pending_slots):
         for slot_info in pending_slots:
@@ -257,7 +252,7 @@ class ElasticDriver(object):
     def _start_worker_process(self, slot_info):
         create_worker_fn = self._create_worker_fn
         shutdown_event = self._shutdown
-        host_event = self._discovered_hosts.get_host_event(slot_info.hostname)
+        host_event = self._host_manager.get_host_event(slot_info.hostname)
 
         def run_worker():
             res = create_worker_fn(slot_info, [shutdown_event, host_event])

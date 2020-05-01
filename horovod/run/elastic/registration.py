@@ -26,9 +26,9 @@ FAILURE = 'FAILURE'
 
 
 class WorkerStateRegistry(object):
-    def __init__(self, driver, discovered_hosts, verbose=False):
+    def __init__(self, driver, host_manager, verbose=False):
         self._driver = driver
-        self._discovered_hosts = discovered_hosts
+        self._host_manager = host_manager
         self._lock = threading.Lock()
         self._states = {}
         self._workers = defaultdict(set)
@@ -36,6 +36,9 @@ class WorkerStateRegistry(object):
         self._rendezvous_id = 0
         self._verbose = verbose
         self._size = 0
+
+    def get_recorded_slots(self):
+        return self._states.keys()
 
     def get(self, state):
         return self._workers[state]
@@ -133,11 +136,10 @@ class WorkerStateRegistry(object):
         # Check for failures, and add them to the blacklisted hosts list
         failures = self.get(FAILURE)
         for host, slot in failures:
-            self._discovered_hosts.blacklist(host)
+            self._host_manager.blacklist(host)
 
-        # If there are no active hosts that aren't blacklisted, treat this as job failure
-        blacklisted_slots = self._discovered_hosts.count_blacklisted_slots()
-        if blacklisted_slots == self._size:
+        # If every active host is blacklisted, then treat this as job failure
+        if all([self._host_manager.is_blacklisted(host) for host, slot in self.get_recorded_slots()]):
             logging.error('blacklisted slots count == {} -> stop running'.format(self._size))
             self._driver.stop()
             return

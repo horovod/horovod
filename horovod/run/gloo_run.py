@@ -192,14 +192,14 @@ def get_run_command(command, server_ip, nics, port, elastic=False):
         'HOROVOD_CPU_OPERATIONS=gloo '
         'HOROVOD_GLOO_IFACE={iface} '
         'NCCL_SOCKET_IFNAME={nics} '
-        '{elastic} '
+        '{elastic}'
         '{command}'  # expect a lot of environment variables
-            .format(addr=server_ip,
-                    port=port,
-                    iface=list(nics)[0],  # TODO: add multiple ifaces in future
-                    nics=','.join(nics),
-                    elastic='HOROVOD_ELASTIC=1' if elastic else '',
-                    command=' '.join(quote(par) for par in command)))
+        .format(addr=server_ip,
+                port=port,
+                iface=list(nics)[0],  # TODO: add multiple ifaces in future
+                nics=','.join(nics),
+                elastic='HOROVOD_ELASTIC=1 ' if elastic else '',
+                command=' '.join(quote(par) for par in command)))
     return run_command
 
 
