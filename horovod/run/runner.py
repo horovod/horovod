@@ -680,8 +680,8 @@ def _run_elastic(args):
     if args.host_discovery_script:
         discover_hosts = discovery.HostDiscoveryScript(args.host_discovery_script, args.slots)
     elif args.hosts:
-        available_hosts, available_slots = parse_hosts_and_slots(args.hosts)
-        discover_hosts = discovery.FixedHosts(set(available_hosts), available_slots)
+        _, available_host_slots = parse_hosts_and_slots(args.hosts)
+        discover_hosts = discovery.FixedHosts(available_host_slots)
     else:
         raise ValueError('One of --host-discovery-script, --hosts, or --hostnames must be provided')
 

@@ -50,18 +50,13 @@ class HostState(object):
 
 
 class DiscoveredHosts(object):
-    def __init__(self, hosts, slots, host_assignment_order):
-        self._hosts = hosts
-        self._slots = slots
+    def __init__(self, host_slots, host_assignment_order):
+        self._host_slots = host_slots
         self._host_assignment_order = host_assignment_order
 
     @property
-    def hosts(self):
-        return self._hosts
-
-    @property
-    def slots(self):
-        return self._slots
+    def host_slots(self):
+        return self._host_slots
 
     @property
     def available_hosts(self):
@@ -72,7 +67,7 @@ class DiscoveredHosts(object):
         return self._host_assignment_order
 
     def get_slots(self, host):
-        return self._slots.get(host, 0)
+        return self._host_slots.get(host, 0)
 
     def count_available_slots(self):
         # Use the host_assignment_order as it does not contain blacklisted hosts
@@ -81,20 +76,19 @@ class DiscoveredHosts(object):
 
 class HostManager(object):
     def __init__(self, discovery):
-        self._current_hosts = DiscoveredHosts(hosts=set(), slots={}, host_assignment_order=[])
+        self._current_hosts = DiscoveredHosts(host_slots={}, host_assignment_order=[])
         self._hosts_state = defaultdict(HostState)
         self._discovery = discovery
 
     def update_available_hosts(self):
         # TODO(travis): also check for hosts removed from the blacklist in the future
-        prev_hosts = self._current_hosts.hosts
-        prev_slots = self._current_hosts.slots
+        prev_host_slots = self._current_hosts.host_slots
         prev_host_assignment_order = self._current_hosts.host_assignment_order
-        hosts, slots = self._discovery.find_available_hosts_and_slots()
-        if prev_hosts != hosts or prev_slots != slots:
-            available_hosts = set([host for host in hosts if not self._hosts_state[host].is_blacklisted()])
+        host_slots = self._discovery.find_available_hosts_and_slots()
+        if prev_host_slots != host_slots:
+            available_hosts = set([host for host in host_slots.keys() if not self._hosts_state[host].is_blacklisted()])
             host_assignment_order = HostManager.order_available_hosts(available_hosts, prev_host_assignment_order)
-            self._current_hosts = DiscoveredHosts(hosts=hosts, slots=slots,
+            self._current_hosts = DiscoveredHosts(host_slots=host_slots,
                                                   host_assignment_order=host_assignment_order)
             return True
         return False
@@ -143,28 +137,25 @@ class HostDiscoveryScript(HostDiscovery):
             raise RuntimeError('Failed to execute discovery script: {}. Exit code: {}'
                                .format(self._discovery_script, exit_code))
 
-        availabe_hosts = set()
-        available_slots = {}
-        hosts_and_slots = set(stdout.getvalue().strip().split('\n'))
-        for line in hosts_and_slots:
+        host_slots = {}
+        lines = set(stdout.getvalue().strip().split('\n'))
+        for line in lines:
             host = line
             if ':' in line:
                 host, slots = line.split(':')
-                available_slots[host] = int(slots)
+                host_slots[host] = int(slots)
             else:
-                available_slots[host] = self._default_slots
-            availabe_hosts.add(host)
-        return availabe_hosts, available_slots
+                host_slots[host] = self._default_slots
+        return host_slots
 
 
 class FixedHosts(HostDiscovery):
-    def __init__(self, available_hosts, available_slots):
+    def __init__(self, host_slots):
         super(FixedHosts, self).__init__()
-        self.set(available_hosts, available_slots)
+        self._host_slots = host_slots
 
     def find_available_hosts_and_slots(self):
-        return self._available_hosts, self._available_slots
+        return self._host_slots
 
-    def set(self, available_hosts, available_slots):
-        self._available_hosts = available_hosts
-        self._available_slots = available_slots
+    def set(self, host_slots):
+        self._host_slots = host_slots

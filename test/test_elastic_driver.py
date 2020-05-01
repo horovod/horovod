@@ -63,9 +63,8 @@ class ElasticDriverTests(unittest.TestCase):
 
     def test_rank_and_size(self):
         """Tests two hosts, two slots each in standard happy path."""
-        hosts = {'host-1', 'host-2'}
         slots = {'host-1': 2, 'host-2': 2}
-        discovery = FixedHosts(hosts, slots)
+        discovery = FixedHosts(slots)
 
         driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=4)
         driver.wait_for_available_hosts(min_np=2)
@@ -92,9 +91,8 @@ class ElasticDriverTests(unittest.TestCase):
 
     def test_rank_and_size_with_host_failure(self):
         """Tests two hosts, two slots each with second host failing before rendezvous completes."""
-        hosts = {'host-1', 'host-2'}
         slots = {'host-1': 2, 'host-2': 2}
-        discovery = FixedHosts(hosts, slots)
+        discovery = FixedHosts(slots)
 
         driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=4)
         driver.wait_for_available_hosts(min_np=2)
@@ -130,14 +128,12 @@ class ElasticDriverTests(unittest.TestCase):
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     def test_rank_and_size_with_host_added(self):
         """Tests training starts with one host two slots, then a second host is added."""
-        hosts = {'host-1'}
         slots = {'host-1': 2}
-        discovery = FixedHosts(hosts, slots)
+        discovery = FixedHosts(slots)
 
         def add_host():
-            hosts = {'host-1', 'host-2'}
             slots = {'host-1': 2, 'host-2': 2}
-            discovery.set(hosts, slots)
+            discovery.set(slots)
 
         driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=4)
         driver.wait_for_available_hosts(min_np=2)
@@ -178,23 +174,19 @@ class ElasticDriverTests(unittest.TestCase):
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     def test_wait_for_available_hosts(self):
         """Tests that driver blocks until the min number of slots are available."""
-        hosts = [{'host-1'},
-                 {'host-1', 'host-2'},
-                 {'host-1', 'host-2', 'host-3'}]
         slots = [{'host-1': 4},
                  {'host-1': 4, 'host-2': 8},
                  {'host-1': 4, 'host-2': 8, 'host-3': 4}]
-        discovery = HostDiscoverySequence(list(zip(hosts, slots)))
+        discovery = HostDiscoverySequence(slots)
 
         driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=12)
         driver.wait_for_available_hosts(min_np=10)
-        assert driver._discovered_hosts.count_available_slots() >= 10
+        assert driver._host_manager.current_hosts.count_available_slots() >= 10
 
     def test_all_workers_fail(self):
         """Tests that training fails when all workers fail."""
-        hosts = {'host-1', 'host-2'}
         slots = {'host-1': 2, 'host-2': 2}
-        discovery = FixedHosts(hosts, slots)
+        discovery = FixedHosts(slots)
 
         driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=4)
         driver.wait_for_available_hosts(min_np=2)
@@ -213,9 +205,8 @@ class ElasticDriverTests(unittest.TestCase):
 
     def test_shutdown_on_success(self):
         """Tests that shutdown event is triggered when one worker succeeds but the others are still working."""
-        hosts = {'host-1', 'host-2'}
         slots = {'host-1': 2, 'host-2': 2}
-        discovery = FixedHosts(hosts, slots)
+        discovery = FixedHosts(slots)
 
         driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=4)
         driver.wait_for_available_hosts(min_np=2)
@@ -241,9 +232,8 @@ class ElasticDriverTests(unittest.TestCase):
 
     def test_host_shutdown_on_worker_failure(self):
         """Tests two hosts, two slots each with one process on second host failing, causing host shutdown."""
-        hosts = {'host-1', 'host-2'}
         slots = {'host-1': 2, 'host-2': 2}
-        discovery = FixedHosts(hosts, slots)
+        discovery = FixedHosts(slots)
 
         driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=4)
         driver.wait_for_available_hosts(min_np=2)
@@ -284,9 +274,8 @@ class ElasticDriverTests(unittest.TestCase):
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     def test_worker_notification_manager(self):
         """Tests that host add events are sent to the worker notification service and consumed."""
-        hosts = {'host-1'}
         slots = {'host-1': 2}
-        discovery = FixedHosts(hosts, slots)
+        discovery = FixedHosts(slots)
 
         rendezvous = RendezvousServer()
         driver = ElasticDriver(rendezvous, discovery, min_np=2, max_np=4)
@@ -308,14 +297,12 @@ class ElasticDriverTests(unittest.TestCase):
                 self.events.append(timestamp)
 
         def add_host():
-            hosts = {'host-1', 'host-2'}
             slots = {'host-1': 2, 'host-2': 2}
-            discovery.set(hosts, slots)
+            discovery.set(slots)
 
         def remove_host():
-            hosts = {'host-2'}
             slots = {'host-2': 2}
-            discovery.set(hosts, slots)
+            discovery.set(slots)
 
         def exec_command(slot_info, events):
             manager = WorkerNotificationManager()
@@ -338,7 +325,7 @@ class ElasticDriverTests(unittest.TestCase):
                 remove_host()
 
             # Busy wait for the number of available slots to decrease
-            while driver._discovered_hosts.count_available_slots() > 2:
+            while driver._host_manager.current_hosts.count_available_slots() > 2:
                 time.sleep(0.01)
 
             rank_results[slot_info.rank] = notification_receiver.events
