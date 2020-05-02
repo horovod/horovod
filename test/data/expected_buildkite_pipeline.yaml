@@ -1391,7 +1391,7 @@ steps:
   agents:
     queue: cpu
 - label: ':pytest: Run PyTests (test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0)'
-  command: bash -c "cd /horovod/test && (echo test_*.py | sed 's/test_keras.py//g' | sed 's/test_tensorflow_keras.py//g' | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py test_run.py"
+  command: bash -c "cd /horovod/test && (echo test_*.py | sed 's/test_keras.py//g' | sed 's/test_tensorflow_keras.py//g' | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no test_run.py"
   plugins:
   - docker-compose#v2.6.0:
       run: test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0
@@ -1448,20 +1448,6 @@ steps:
     queue: cpu
 - label: ':muscle: Test MXNet MNIST (test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet_mnist.py
-  plugins:
-  - docker-compose#v2.6.0:
-      run: test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 5
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
-- label: ':spark: Spark Torch MNIST (test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
   plugins:
   - docker-compose#v2.6.0:
       run: test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0

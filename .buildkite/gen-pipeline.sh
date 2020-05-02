@@ -110,11 +110,18 @@ run_mpi_pytest() {
 
   # Spark and Run test does not need to be executed with horovodrun, but we still run it below.
   local exclude_standalone_test="| sed 's/test_spark.py//g' | sed 's/test_run.py//g'"
+  local standalone_tests="test_spark.py test_run.py"
+
+  # TODO(travis): enable for Python 3.8 when Spark 3.0 released
+  #  see: https://issues.apache.org/jira/browse/SPARK-29536
+  if [[ ${test} == *"-py3_8-"* ]]; then
+      standalone_tests="test_run.py"
+  fi
 
   # pytests have 4x GPU use cases and require a separate queue
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"${oneccl_env} cd /horovod/test && (echo test_*.py ${exclude_keras_if_needed} ${exclude_interactiverun} ${exclude_standalone_test} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py test_run.py\""
+    "bash -c \"${oneccl_env} cd /horovod/test && (echo test_*.py ${exclude_keras_if_needed} ${exclude_interactiverun} ${exclude_standalone_test} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no) && pytest --forked -v --capture=no ${standalone_tests}\""
 }
 
 run_mpi_integration() {
@@ -212,10 +219,17 @@ run_gloo_pytest() {
 
   # Spark and Run test does not need to be executed with horovodrun, but we still run it below.
   local exclude_standalone_test="| sed 's/test_spark.py//g' | sed 's/test_run.py//g'"
+  local standalone_tests="test_spark.py test_run.py"
+
+  # TODO(travis): enable for Python 3.8 when Spark 3.0 released
+  #  see: https://issues.apache.org/jira/browse/SPARK-29536
+  if [[ ${test} == *"-py3_8-"* ]]; then
+      standalone_tests="test_run.py"
+  fi
 
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras_if_needed} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py test_run.py\""
+    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras_if_needed} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no ${standalone_tests}\""
 }
 
 run_gloo_integration() {
@@ -375,7 +389,11 @@ for test in ${tests[@]}; do
     fi
 
     # always run spark tests which use MPI and Gloo
-    run_spark_integration ${test} "cpu"
+    # TODO(travis): enable for Python 3.8 when Spark 3.0 released
+    #  see: https://issues.apache.org/jira/browse/SPARK-29536
+    if [[ ${test} != *"-py3_8-"* ]]; then
+        run_spark_integration ${test} "cpu"
+    fi
 
     # no runner application, world size = 1
     run_single_integration ${test} "cpu" ${oneccl_env}
