@@ -84,7 +84,7 @@ class HorovodEstimator(Estimator, EstimatorParams):
     def _get_or_create_backend(self):
         backend = self.getBackend()
         if backend is None:
-            backend = SparkBackend(self.getNumProc())
+            backend = SparkBackend(self.getNumProc(), verbose=self.getVerbose())
         elif self.getNumProc() is not None:
             raise ValueError('At most one of parameters "backend" and "num_proc" may be specified')
         return backend

@@ -1,6 +1,6 @@
 Horovod with TensorFlow
 =======================
-To use Horovod, make the following modifications to your training script:
+To use Horovod with TensorFlow, make the following modifications to your training script:
 
 1. Run ``hvd.init()``.
 
