@@ -44,7 +44,7 @@ RUN pip install -U --force pip 'setuptools<46.0.0' requests pytest mock pytest-f
 RUN apt-get update -qq && apt install -y openjdk-8-jdk-headless
 RUN pip install ${PYSPARK_PACKAGE}
 RUN if [[ "${PYTHON_VERSION}" == "2."* ]]; then \
-    pip install 'pyarrow<0.16.0' \
+    pip install 'pyarrow<0.16.0'; \
 fi
 
 # Install MPI.
