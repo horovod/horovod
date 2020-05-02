@@ -845,7 +845,21 @@ steps:
   agents:
     queue: cpu
 - label: ':pytest: Run PyTests (test-cpu-gloo-py2_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0)'
-  command: bash -c "cd /horovod/test && (echo test_*.py | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/[a-z_]*tensorflow2[a-z_.]*//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py test_run.py"
+  command: bash -c "cd /horovod/test && (echo test_*.py | sed 's/[a-z_]*tensorflow2[a-z_.]*//g' | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py test_run.py"
+  plugins:
+  - docker-compose#v2.6.0:
+      run: test-cpu-gloo-py2_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 5
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':tensorflow: Test TensorFlow MNIST (test-cpu-gloo-py2_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0)'
+  command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist.py"
   plugins:
   - docker-compose#v2.6.0:
       run: test-cpu-gloo-py2_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0
@@ -1013,7 +1027,21 @@ steps:
   agents:
     queue: cpu
 - label: ':pytest: Run PyTests (test-cpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0)'
-  command: bash -c "cd /horovod/test && (echo test_*.py | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/[a-z_]*tensorflow2[a-z_.]*//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py test_run.py"
+  command: bash -c "cd /horovod/test && (echo test_*.py | sed 's/[a-z_]*tensorflow2[a-z_.]*//g' | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py test_run.py"
+  plugins:
+  - docker-compose#v2.6.0:
+      run: test-cpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 5
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':tensorflow: Test TensorFlow MNIST (test-cpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0)'
+  command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist.py"
   plugins:
   - docker-compose#v2.6.0:
       run: test-cpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0
@@ -1181,7 +1209,21 @@ steps:
   agents:
     queue: cpu
 - label: ':pytest: Run PyTests (test-cpu-gloo-py3_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0)'
-  command: bash -c "cd /horovod/test && (echo test_*.py | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/[a-z_]*tensorflow2[a-z_.]*//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py test_run.py"
+  command: bash -c "cd /horovod/test && (echo test_*.py | sed 's/[a-z_]*tensorflow2[a-z_.]*//g' | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py test_run.py"
+  plugins:
+  - docker-compose#v2.6.0:
+      run: test-cpu-gloo-py3_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 5
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':tensorflow: Test TensorFlow MNIST (test-cpu-gloo-py3_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0)'
+  command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist.py"
   plugins:
   - docker-compose#v2.6.0:
       run: test-cpu-gloo-py3_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0
@@ -1349,7 +1391,7 @@ steps:
   agents:
     queue: cpu
 - label: ':pytest: Run PyTests (test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0)'
-  command: bash -c "cd /horovod/test && (echo test_*.py | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/[a-z_]*tensorflow2[a-z_.]*//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py test_run.py"
+  command: bash -c "cd /horovod/test && (echo test_*.py | sed 's/test_keras.py//g' | sed 's/test_tensorflow_keras.py//g' | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py test_run.py"
   plugins:
   - docker-compose#v2.6.0:
       run: test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0
@@ -1362,8 +1404,22 @@ steps:
     automatic: true
   agents:
     queue: cpu
-- label: ':tensorflow: Test Keras MNIST (test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0)'
-  command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/keras_mnist_advanced.py
+- label: ':tensorflow: Test TensorFlow 2.0 MNIST (test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0)'
+  command: bash -c "\$(cat /mpirun_command) python /horovod/examples/tensorflow2_mnist.py"
+  plugins:
+  - docker-compose#v2.6.0:
+      run: test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 5
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':tensorflow: Test TensorFlow 2.0 Keras MNIST (test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0)'
+  command: bash -c "\$(cat /mpirun_command) python /horovod/examples/tensorflow2_keras_mnist.py"
   plugins:
   - docker-compose#v2.6.0:
       run: test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0
@@ -1699,7 +1755,21 @@ steps:
   agents:
     queue: cpu
 - label: ':pytest: Run PyTests (test-cpu-openmpi-gloo-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0)'
-  command: bash -c "cd /horovod/test && (echo test_*.py | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/[a-z_]*tensorflow2[a-z_.]*//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py test_run.py"
+  command: bash -c "cd /horovod/test && (echo test_*.py | sed 's/[a-z_]*tensorflow2[a-z_.]*//g' | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py test_run.py"
+  plugins:
+  - docker-compose#v2.6.0:
+      run: test-cpu-openmpi-gloo-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 5
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':tensorflow: Test TensorFlow MNIST (test-cpu-openmpi-gloo-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0)'
+  command: bash -c " \$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist.py"
   plugins:
   - docker-compose#v2.6.0:
       run: test-cpu-openmpi-gloo-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0
@@ -2820,7 +2890,7 @@ steps:
   agents:
     queue: 4x-gpu-g4
 - label: ':pytest: Run PyTests (test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0)'
-  command: bash -c "cd /horovod/test && (echo test_*.py | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/[a-z_]*tensorflow2[a-z_.]*//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py test_run.py"
+  command: bash -c "cd /horovod/test && (echo test_*.py | sed 's/[a-z_]*tensorflow2[a-z_.]*//g' | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py test_run.py"
   plugins:
   - docker-compose#v2.6.0:
       run: test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0
@@ -2834,7 +2904,7 @@ steps:
   agents:
     queue: 4x-gpu-g4
 - label: ':pytest: Run PyTests (test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0)'
-  command: bash -c "cd /horovod/test && (echo test_*.py | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/[a-z_]*tensorflow2[a-z_.]*//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py test_run.py"
+  command: bash -c "cd /horovod/test && (echo test_*.py | sed 's/[a-z_]*tensorflow2[a-z_.]*//g' | sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/test_spark.py//g' | sed 's/test_run.py//g' | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py test_run.py"
   plugins:
   - docker-compose#v2.6.0:
       run: test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0
@@ -3044,6 +3114,20 @@ steps:
     automatic: true
   agents:
     queue: 2x-gpu-g4
+- label: ':tensorflow: Test TensorFlow MNIST (test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0)'
+  command: bash -c "\$(cat:/oneccl_env):&&:echo:'/mpirun_command_ofi':>:/mpirun_command:&& \$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist.py"
+  plugins:
+  - docker-compose#v2.6.0:
+      run: test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 5
+  retry:
+    automatic: true
+  agents:
+    queue: 2x-gpu-g4
 - label: ':tensorflow: Test Keras MNIST (test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0)'
   command: horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/keras_mnist_advanced.py
   plugins:
@@ -3133,6 +3217,20 @@ steps:
   plugins:
   - docker-compose#v2.6.0:
       run: test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 5
+  retry:
+    automatic: true
+  agents:
+    queue: 2x-gpu-g4
+- label: ':tensorflow: Test TensorFlow MNIST (test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0)'
+  command: bash -c "\$(cat:/oneccl_env):&&:echo:'/mpirun_command_ofi':>:/mpirun_command:&& \$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist.py"
+  plugins:
+  - docker-compose#v2.6.0:
+      run: test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0
       config: docker-compose.test.yml
       pull-retries: 3
   - ecr#v1.2.0:
