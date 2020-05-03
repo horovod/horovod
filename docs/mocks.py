@@ -103,6 +103,13 @@ MOCK_TREE = {
     },
     'torch': {
         '__version__': '1.0.0',
+        'nn': {
+            'modules': {
+                'batchnorm': {
+                    '_BatchNorm': MagicMock,
+                }
+            },
+        },
     },
     'pyspark': {
         'ml': {

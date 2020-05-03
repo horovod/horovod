@@ -13,6 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
+import warnings
+
 import horovod.tensorflow as hvd
 import tensorflow as tf
 
@@ -86,14 +88,14 @@ class MetricAverageCallbackImpl(object):
 
 class LearningRateScheduleCallbackImpl(object):
     def __init__(self, backend, multiplier, start_epoch=0, end_epoch=None, staircase=True,
-                 momentum_correction=True, steps_per_epoch=None, *args):
+                 momentum_correction=True, steps_per_epoch=None, initial_lr=None, *args):
         super(LearningRateScheduleCallbackImpl, self).__init__(*args)
         self.backend = backend
         self.start_epoch = start_epoch
         self.end_epoch = end_epoch
         self.staircase = staircase
         self.momentum_correction = momentum_correction
-        self.initial_lr = None
+        self.initial_lr = initial_lr
         self.restore_momentum = None
         self.steps_per_epoch = steps_per_epoch
         self.current_epoch = None
@@ -103,6 +105,9 @@ class LearningRateScheduleCallbackImpl(object):
             self.multiplier = lambda epoch: multiplier
         else:
             self.multiplier = multiplier
+
+        if self.initial_lr is None:
+            warnings.warn('Parameter `initial_lr` will be required in v0.21.0', DeprecationWarning)
 
     def _autodetect_steps_per_epoch(self):
         if self.params.get('steps'):
@@ -134,7 +139,8 @@ class LearningRateScheduleCallbackImpl(object):
             self.restore_momentum = None
 
     def on_train_begin(self, logs=None):
-        self.initial_lr = self.backend.get_value(self.model.optimizer.lr)
+        if self.initial_lr is None:
+            self.initial_lr = self.backend.get_value(self.model.optimizer.lr)
         if not self.staircase and not self.steps_per_epoch:
             self.steps_per_epoch = self._autodetect_steps_per_epoch()
 
