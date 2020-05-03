@@ -240,15 +240,15 @@ run_gloo_integration() {
   if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
     run_test "${test}" "${queue}" \
       ":tensorflow: Test TensorFlow 2.0 MNIST (${test})" \
-      "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow2_mnist.py\""
+      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2_mnist.py"
 
     run_test "${test}" "${queue}" \
       ":tensorflow: Test TensorFlow 2.0 Keras MNIST (${test})" \
-      "bash -c \"\\\$(cat /mpirun_command) python /horovod/examples/tensorflow2_keras_mnist.py\""
+      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2_keras_mnist.py"
   else
     run_test "${test}" "${queue}" \
       ":tensorflow: Test TensorFlow MNIST (${test})" \
-      "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/tensorflow_mnist.py\""
+      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow_mnist.py"
 
     run_test "${test}" "${queue}" \
       ":tensorflow: Test Keras MNIST (${test})" \
