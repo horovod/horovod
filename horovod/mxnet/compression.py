@@ -66,7 +66,7 @@ class FP16Compressor(Compressor):
 
 
 class Compression(object):
-    """Optional gradient compression algorithm used during push_pull."""
+    """Optional gradient compression algorithm used during allreduce."""
 
     """Do not compress the gradients. This is the default."""
     none = NoneCompressor
