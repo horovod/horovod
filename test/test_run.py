@@ -333,6 +333,13 @@ class RunTests(unittest.TestCase):
             on_event(event, fn, args=1)
         fn.assert_not_called()
 
+        # test None stop and non-daemon
+        event = threading.Event()
+        fn = mock.Mock()
+        with pytest.raises(ValueError, match="^Stop event must be given for non-daemon event thread$"):
+            on_event(event, fn, stop=None, daemon=False)
+        fn.assert_not_called()
+
     def test_safe_shell_exec_captures_stdout(self):
         self.do_test_safe_shell_exec('echo hello', 0, 'hello\n', '')
 
