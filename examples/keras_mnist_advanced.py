@@ -83,7 +83,8 @@ model.add(Dropout(0.5))
 model.add(Dense(num_classes, activation='softmax'))
 
 # Horovod: adjust learning rate based on number of GPUs.
-opt = keras.optimizers.Adadelta(lr=args.lr * hvd.size())
+scaled_lr = args.lr * hvd.size()
+opt = keras.optimizers.Adadelta(lr=scaled_lr)
 
 # Horovod: add Horovod Distributed Optimizer.
 opt = hvd.DistributedOptimizer(opt)
@@ -107,7 +108,7 @@ callbacks = [
     # Horovod: using `lr = 1.0 * hvd.size()` from the very beginning leads to worse final
     # accuracy. Scale the learning rate `lr = 1.0` ---> `lr = 1.0 * hvd.size()` during
     # the first five epochs. See https://arxiv.org/abs/1706.02677 for details.
-    hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=5, verbose=1),
+    hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=5, initial_lr=scaled_lr, verbose=1),
 
     # Reduce the learning rate if training plateaues.
     keras.callbacks.ReduceLROnPlateau(patience=10, verbose=1),

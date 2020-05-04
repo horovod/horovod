@@ -673,8 +673,10 @@ def get_common_options(build_ext):
         nccl_include_dirs = nccl_lib_dirs = nccl_libs = []
 
     if gpu_allreduce == 'DDL':
-        warnings.warn("WARN: DDL backend has been deprecated. Please, start using the NCCL backend "
-                      "by building Horovod with 'HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_BROADCAST=NCCL'.")
+        warnings.warn('DDL backend has been deprecated. Please, start using the NCCL backend '
+                      'by building Horovod with "HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_BROADCAST=NCCL". '
+                      'Will be removed in v0.21.0.',
+                      DeprecationWarning)
         have_ddl = True
         ddl_include_dirs, ddl_lib_dirs = get_ddl_dirs(build_ext,
                                                       gpu_include_dirs,
@@ -740,7 +742,7 @@ def get_common_options(build_ext):
                 raise RuntimeError('MPI is not installed, try changing HOROVOD_CPU_OPERATIONS.')
             MACROS += [('HOROVOD_CPU_OPERATIONS_DEFAULT', "'M'")]
         elif cpu_operation.upper() == 'MLSL':
-            raise RuntimeError('Intel(R) MLSL was deprecated. Upgrade to oneCCL and try setting HOROVOD_CPU_OPERATIONS=CCL.')
+            raise RuntimeError('Intel(R) MLSL was removed. Upgrade to oneCCL and set HOROVOD_CPU_OPERATIONS=CCL.')
         elif cpu_operation.upper() == 'CCL':
             if not have_ccl:
                 raise RuntimeError('oneCCL is not installed, try changing HOROVOD_CPU_OPERATIONS.')

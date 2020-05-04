@@ -19,6 +19,7 @@ from contextlib import contextmanager
 from multiprocessing import Process, Queue
 import os
 import sysconfig
+import warnings
 
 EXTENSIONS = ['tensorflow', 'torch', 'mxnet']
 
@@ -220,6 +221,8 @@ def get_average_backwards_compatibility_fun(reduce_ops):
                 raise ValueError('The op parameter supersedes average. Please provide only one of them.')
             return op
         elif average != None:
+            warnings.warn('Parameter `average` has been replaced with `op` and will be removed in v0.21.0',
+                          DeprecationWarning)
             return reduce_ops.Average if average else reduce_ops.Sum
         else:
             return reduce_ops.Average
