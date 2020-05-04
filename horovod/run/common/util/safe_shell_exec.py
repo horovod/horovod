@@ -133,7 +133,9 @@ def _exec_middleman(command, env, exit_event, stdout, stderr, rw):
     executor_shell = subprocess.Popen(command, shell=True, env=env,
                                       stdout=stdout_w, stderr=stderr_w)
 
-    on_event(exit_event, terminate_executor_shell_and_children, args=(executor_shell.pid,))
+    # we don't bother stopping the on_event thread, this process sys.exits soon
+    # so the on_event thread has to be a deamon thread
+    on_event(exit_event, terminate_executor_shell_and_children, args=(executor_shell.pid,), daemon=True)
 
     def kill_executor_children_if_parent_dies():
         # This read blocks until the pipe is closed on the other side
