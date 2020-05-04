@@ -186,7 +186,8 @@ class FilesystemStore(Store):
 
     def get_data_metadata_path(self, path):
         localized_path = self.get_localized_path(path)
-        localized_path = localized_path.strip("/")  # Remove the slash at the end if there is one
+        if localized_path.endswith('/'):
+            localized_path = localized_path[:-1] # Remove the slash at the end if there is one
         metadata_cache = localized_path+"_cached_metadata.pkl"
         return metadata_cache
 
