@@ -23,7 +23,7 @@
 <         config.gpu_options.visible_device_list = str(hvd.local_rank())
 ---
 >         config.gpu_options.visible_device_list = get_available_devices()[0]
-492a503,527
+493a504,528
 >     def set_gpu_conf(conf):
 >         # This config will change depending on your cluster setup.
 >         #
@@ -49,9 +49,9 @@
 >         return conf
 > 
 > 
-496a532
+497a533
 >     conf = set_gpu_conf(conf)
-525,526c561,569
+526,527c562,570
 <     if args.processing_master:
 <         conf.setMaster(args.processing_master)
 ---
@@ -64,7 +64,7 @@
 >         if args.processing_master:
 >             conf.setMaster(args.processing_master)
 > 
-536,540c579,590
+537,541c580,591
 <             # Do not use GPUs for prediction, use single CPU core per task.
 <             config = tf.ConfigProto(device_count={'GPU': 0})
 <             config.inter_op_parallelism_threads = 1
