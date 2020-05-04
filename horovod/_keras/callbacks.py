@@ -171,7 +171,7 @@ class LearningRateScheduleCallbackImpl(object):
 
 class LearningRateWarmupCallbackImpl(LearningRateScheduleCallbackImpl):
     def __init__(self, backend, warmup_epochs=5, momentum_correction=True, steps_per_epoch=None,
-                 verbose=0, *args):
+                 verbose=0, initial_lr=None, *args):
         def multiplier(epoch):
             # Adjust epoch to produce round numbers at the end of each epoch, so that TensorBoard
             # learning rate graphs look better.
@@ -179,7 +179,8 @@ class LearningRateWarmupCallbackImpl(LearningRateScheduleCallbackImpl):
             return 1. / hvd.size() * (epoch * (hvd.size() - 1) / warmup_epochs + 1)
         super(LearningRateWarmupCallbackImpl, self).__init__(
             backend, multiplier, start_epoch=0, end_epoch=warmup_epochs, staircase=False,
-            momentum_correction=momentum_correction, steps_per_epoch=steps_per_epoch, *args)
+            momentum_correction=momentum_correction, steps_per_epoch=steps_per_epoch, initial_lr=initial_lr,
+            *args)
         self.verbose = verbose
 
     def on_epoch_end(self, epoch, logs=None):

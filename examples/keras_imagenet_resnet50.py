@@ -144,7 +144,8 @@ callbacks = [
     # Horovod: using `lr = 1.0 * hvd.size()` from the very beginning leads to worse final
     # accuracy. Scale the learning rate `lr = 1.0` ---> `lr = 1.0 * hvd.size()` during
     # the first five epochs. See https://arxiv.org/abs/1706.02677 for details.
-    hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=args.warmup_epochs, verbose=verbose),
+    hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=args.warmup_epochs, initial_lr=initial_lr,
+                                             verbose=verbose),
 
     # Horovod: after the warmup reduce learning rate by 10 on the 30th, 60th and 80th epochs.
     hvd.callbacks.LearningRateScheduleCallback(start_epoch=args.warmup_epochs, end_epoch=30, multiplier=1.,
