@@ -15,12 +15,16 @@
 # limitations under the License.
 # =============================================================================
 
-from contextlib import contextmanager
-from multiprocessing import Process, Queue
+import multiprocessing
 import os
+import sys
 import sysconfig
 import warnings
 
+from contextlib import contextmanager
+
+
+_PY3 = sys.version_info[0] == 3
 EXTENSIONS = ['tensorflow', 'torch', 'mxnet']
 
 
@@ -84,9 +88,11 @@ def _check_extension_lambda(ext_base_name, fn, fn_desc, verbose):
 
         queue.put(result)
 
-    queue = Queue()
-    p = Process(target=_target_fn,
-                args=(ext_base_name, fn, fn_desc, queue, verbose))
+    # 'fork' is required because horovodrun is a frozen executable
+    ctx = multiprocessing.get_context('fork') if _PY3 else multiprocessing
+    queue = ctx.Queue()
+    p = ctx.Process(target=_target_fn,
+                    args=(ext_base_name, fn, fn_desc, queue, verbose))
     p.daemon = True
     p.start()
     p.join()

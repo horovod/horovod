@@ -12,11 +12,11 @@ tests=( \
        test-cpu-openmpi-py3_6-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_3_2 \
        test-cpu-openmpi-py2_7-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
        test-cpu-openmpi-py3_6-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
-       test-cpu-openmpi-py2_7-tf1_14_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_4_0 \
+       test-cpu-gloo-py2_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0 \
+       test-cpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0 \
+       test-cpu-gloo-py3_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0 \
+       test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_4_0 \
-       test-cpu-gloo-py2_7-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
-       test-cpu-gloo-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
-       test-cpu-openmpi-gloo-py2_7-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
        test-cpu-openmpi-gloo-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
        test-cpu-openmpi-py2_7-tf2_0_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-openmpi-py3_6-tf2_0_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
@@ -110,11 +110,18 @@ run_mpi_pytest() {
 
   # Spark and Run test does not need to be executed with horovodrun, but we still run it below.
   local exclude_standalone_test="| sed 's/test_spark.py//g' | sed 's/test_run.py//g'"
+  local standalone_tests="test_spark.py test_run.py"
+
+  # TODO(travis): enable for Python 3.8 when Spark 3.0 released
+  #  see: https://issues.apache.org/jira/browse/SPARK-29536
+  if [[ ${test} == *"-py3_8-"* ]]; then
+      standalone_tests="test_run.py"
+  fi
 
   # pytests have 4x GPU use cases and require a separate queue
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"${oneccl_env} cd /horovod/test && (echo test_*.py ${exclude_keras_if_needed} ${exclude_interactiverun} ${exclude_standalone_test} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py test_run.py\""
+    "bash -c \"${oneccl_env} cd /horovod/test && (echo test_*.py ${exclude_keras_if_needed} ${exclude_interactiverun} ${exclude_standalone_test} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no) && pytest --forked -v --capture=no ${standalone_tests}\""
 }
 
 run_mpi_integration() {
@@ -199,24 +206,54 @@ run_gloo_pytest() {
   local test=$1
   local queue=$2
 
-  # These tests are covered in MPI, and testing them in Gloo does not cover any new code paths
-  local excluded_tests="| sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g' | sed 's/[a-z_]*tensorflow2[a-z_.]*//g'"
+  local exclude_keras_if_needed=""
+  if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
+    # TODO: support for Keras + TF 2.0 and TF-Keras 2.0
+    exclude_keras_if_needed="| sed 's/test_keras.py//g' | sed 's/test_tensorflow_keras.py//g'"
+  else
+    exclude_keras_if_needed="| sed 's/[a-z_]*tensorflow2[a-z_.]*//g'"
+  fi
+
+  # These are tested as integration style tests.
+  local excluded_tests="| sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g'"
 
   # Spark and Run test does not need to be executed with horovodrun, but we still run it below.
   local exclude_standalone_test="| sed 's/test_spark.py//g' | sed 's/test_run.py//g'"
+  local standalone_tests="test_spark.py test_run.py"
+
+  # TODO(travis): enable for Python 3.8 when Spark 3.0 released
+  #  see: https://issues.apache.org/jira/browse/SPARK-29536
+  if [[ ${test} == *"-py3_8-"* ]]; then
+      standalone_tests="test_run.py"
+  fi
 
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"cd /horovod/test && (echo test_*.py ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no test_spark.py test_run.py\""
+    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras_if_needed} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no ${standalone_tests}\""
 }
 
 run_gloo_integration() {
   local test=$1
   local queue=$2
 
-  run_test "${test}" "${queue}" \
-    ":tensorflow: Test Keras MNIST (${test})" \
-    "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/keras_mnist_advanced.py"
+  # TensorFlow 2.0 tests
+  if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
+    run_test "${test}" "${queue}" \
+      ":tensorflow: Test TensorFlow 2.0 MNIST (${test})" \
+      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2_mnist.py"
+
+    run_test "${test}" "${queue}" \
+      ":tensorflow: Test TensorFlow 2.0 Keras MNIST (${test})" \
+      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2_keras_mnist.py"
+  else
+    run_test "${test}" "${queue}" \
+      ":tensorflow: Test TensorFlow MNIST (${test})" \
+      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow_mnist.py"
+
+    run_test "${test}" "${queue}" \
+      ":tensorflow: Test Keras MNIST (${test})" \
+      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/keras_mnist_advanced.py"
+  fi
 
   run_test "${test}" "${queue}" \
     ":python: Test PyTorch MNIST (${test})" \
@@ -352,7 +389,11 @@ for test in ${tests[@]}; do
     fi
 
     # always run spark tests which use MPI and Gloo
-    run_spark_integration ${test} "cpu"
+    # TODO(travis): enable for Python 3.8 when Spark 3.0 released
+    #  see: https://issues.apache.org/jira/browse/SPARK-29536
+    if [[ ${test} != *"-py3_8-"* ]]; then
+        run_spark_integration ${test} "cpu"
+    fi
 
     # no runner application, world size = 1
     run_single_integration ${test} "cpu" ${oneccl_env}

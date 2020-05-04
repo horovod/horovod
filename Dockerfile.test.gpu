@@ -40,7 +40,7 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends g++-7
 
 # Install Python.
 RUN apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev
-RUN if [[ "${PYTHON_VERSION}" == "3.6" ]]; then \
+RUN if [[ "${PYTHON_VERSION}" == "3."* ]]; then \
         apt-get install -y python${PYTHON_VERSION}-distutils; \
     fi
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
@@ -50,7 +50,6 @@ RUN pip install -U --force pip 'setuptools<46.0.0' requests pytest mock pytest-f
 # Install PySpark.
 RUN apt-get update -qq && apt install -y openjdk-8-jdk-headless
 RUN pip install ${PYSPARK_PACKAGE}
-RUN pip install 'pyarrow<0.16.0'
 
 # Install MPI.
 RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
