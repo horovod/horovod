@@ -40,10 +40,13 @@ import horovod._keras as _impl
 from horovod.tensorflow.keras import callbacks
 
 
-# In later versions of TensorFlow, optimizers are spread across multiple modules. This set is used to distinguish
-# stock optimizers that come with tf.keras from custom optimizers that may need to be wrapped specially.
-_OPTIMIZER_MODULES = set([obj.__module__ for name, obj in inspect.getmembers(tf.keras.optimizers)
-                          if isinstance(obj, type(tf.keras.optimizers.Optimizer))])
+try:
+    # In later versions of TensorFlow, optimizers are spread across multiple modules. This set is used to distinguish
+    # stock optimizers that come with tf.keras from custom optimizers that may need to be wrapped specially.
+    _OPTIMIZER_MODULES = set([obj.__module__ for name, obj in inspect.getmembers(tf.keras.optimizers)
+                              if isinstance(obj, type(tf.keras.optimizers.Optimizer))])
+except:
+    _OPTIMIZER_MODULES = set()
 
 
 def DistributedOptimizer(optimizer, name=None,
