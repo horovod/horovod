@@ -243,3 +243,4 @@ def _notify_and_register_task_addresses(driver, settings):
 
     if settings.verbose >= 2:
         print('Spark task-to-task address registration is complete.')
+
