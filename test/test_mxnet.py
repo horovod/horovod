@@ -578,7 +578,83 @@ class MXTests(unittest.TestCase):
                 for key, param in params.items():
                     hvd.allreduce_(param.list_data()[0])
                 cnt = 0
+            
+    @unittest.skipUnless(has_gpu, "no gpu detected")
+    def test_hvd_trainer_with_compression(self):
+        """Test using horovod allreduce in MXNet Gluon trainer."""
+        from mxnet import gluon
+        from mxnet.gluon import Block, nn, HybridBlock
 
+        hvd.init()
+        rank = hvd.rank()
+        np.random.seed(1000 + 10 * rank)
+        mx.random.seed(1000 + 10 * rank)
+        ctx = mx.gpu(rank)
+
+        def gen_random_dataset(batch_size=64, dim=32, min_len=20, max_len=100,
+                               size=1000):
+            for _ in range(size):
+                length = np.random.randint(min_len, max_len + 1)
+                rand_src = mx.nd.random.normal(0, 1, (length, dim))
+                rand_dst = mx.nd.random.normal(0, 1, (length, dim))
+                yield rand_src, rand_dst
+
+        class SimpleNet(HybridBlock):
+            def __init__(self, layer_num=6, **kwargs):
+                super(SimpleNet, self).__init__(**kwargs)
+                self._layer_num = layer_num
+                with self.name_scope():
+                    self.ln_l = nn.HybridSequential()
+                    self.dense_l = nn.HybridSequential()
+                    for i in range(layer_num):
+                        self.dense_l.add(nn.Dense(units=32 + layer_num - 1 - i,
+                            flatten=False))
+                        self.ln_l.add(nn.LayerNorm())
+
+            def hybrid_forward(self, F, data):
+                """
+
+                Parameters
+                ----------
+                data :
+                    Shape (batch_size, seq_len, fea_dim)
+
+                Returns
+                -------
+                out :
+                    Shape (batch_size, seq_len, fea_dim)
+                """
+                for i in range(self._layer_num):
+                   data = self.ln_l[i](data)
+                   data = self.dense_l[i](data)
+                return data
+
+        net = SimpleNet()
+        net.initialize(ctx=ctx)
+        net.hybridize(static_alloc=True)
+
+        params = net.collect_params()
+        cnt = 0
+        lr = 1E-4
+        compression = hvd.Compression.fp16
+        trainer = hvd.DistributedTrainer(
+                    params, 'adam', {'learning_rate': lr}, compression=compression)
+        data_gen = gen_random_dataset()
+        for (src_data, dst_data) in data_gen:
+            src_data = src_data.as_in_context(ctx).astype(np.float32)
+            dst_data = dst_data.as_in_context(ctx).astype(np.float32)
+            with mx.autograd.record():
+                pred = net(src_data)
+                loss = mx.nd.abs(pred - dst_data).mean()
+                loss.backward()
+            # Begin to update the parameter
+            trainer.step(1.0)
+            cnt += 1
+            l = loss.asscalar()
+            if cnt >= 10:
+                for key, param in params.items():
+                    hvd.allreduce_(param.list_data()[0])
+                cnt = 0
 
 if __name__ == '__main__':
     unittest.main()

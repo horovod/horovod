@@ -89,7 +89,8 @@ parser.add_argument('--log-interval', type=int, default=0,
                     help='number of batches to wait before logging (default: 0)')
 parser.add_argument('--save-frequency', type=int, default=0,
                     help='frequency of model saving (default: 0)')
-
+parser.add_argument('--fp16-allreduce', action='store_true', default=False,
+                    help='enable fp16 allreduce (default: False)')
 
 args = parser.parse_args()
 
@@ -322,7 +323,8 @@ def train_gluon():
     opt = mx.optimizer.create('sgd', **optimizer_params)
 
     # Horovod: create DistributedTrainer, a subclass of gluon.Trainer
-    trainer = hvd.DistributedTrainer(params, opt)
+    compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
+    trainer = hvd.DistributedTrainer(params, opt, compression=compression)
 
     # Create loss function and train metric
     loss_fn = gluon.loss.SoftmaxCrossEntropyLoss()

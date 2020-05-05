@@ -24,6 +24,8 @@ parser.add_argument('--momentum', type=float, default=0.9,
                     help='SGD momentum (default: 0.9)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disable training on GPU (default: False)')
+parser.add_argument('--fp16-allreduce', action='store_true', default=False,
+                    help='enable fp16 allreduce (default: False)')
 args = parser.parse_args()
 
 if not args.no_cuda:
@@ -128,7 +130,8 @@ if params is not None:
     hvd.broadcast_parameters(params, root_rank=0)
 
 # Horovod: create DistributedTrainer, a subclass of gluon.Trainer
-trainer = hvd.DistributedTrainer(params, opt)
+compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
+trainer = hvd.DistributedTrainer(params, opt, compression=compression)
 
 # Create loss function and train metric
 loss_fn = gluon.loss.SoftmaxCrossEntropyLoss()
