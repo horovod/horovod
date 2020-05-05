@@ -105,7 +105,6 @@ def spark_driver_service(num_proc, fn=fn, args=(), kwargs={}, key=None, nics=Non
     try:
         yield driver, client, key
     finally:
-        print('shutting down driver')
         driver.shutdown()
 
 
@@ -118,7 +117,6 @@ def spark_task_service(index, key=None, nics=None, match_intf=False, verbose=2):
     try:
         yield task, client, key
     finally:
-        print('shutting down task')
         task.shutdown()
 
 

@@ -231,7 +231,7 @@ class ElasticDriver(object):
 
         self._host_assignments = host_assignments
         self._world_size = len(host_assignments_list)
-        self._rendezvous.httpd.init(host_assignments_list)
+        self._rendezvous.init(host_assignments_list)
 
         # Rank assignments map from world rank to slot info
         rank_assignments = {}
