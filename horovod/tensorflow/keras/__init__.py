@@ -13,6 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
+import inspect
+
 import tensorflow as tf
 
 from distutils.version import LooseVersion
@@ -36,6 +38,15 @@ from horovod.tensorflow import Compression
 
 import horovod._keras as _impl
 from horovod.tensorflow.keras import callbacks
+
+
+try:
+    # In later versions of TensorFlow, optimizers are spread across multiple modules. This set is used to distinguish
+    # stock optimizers that come with tf.keras from custom optimizers that may need to be wrapped specially.
+    _OPTIMIZER_MODULES = set([obj.__module__ for name, obj in inspect.getmembers(tf.keras.optimizers)
+                              if isinstance(obj, type(tf.keras.optimizers.Optimizer))])
+except:
+    _OPTIMIZER_MODULES = set()
 
 
 def DistributedOptimizer(optimizer, name=None,
@@ -153,5 +164,5 @@ def load_model(filepath, custom_optimizers=None, custom_objects=None, compressio
     """
     def wrap_optimizer(cls):
         return lambda **kwargs: DistributedOptimizer(cls(**kwargs), compression=compression)
-    return _impl.load_model(keras, wrap_optimizer, filepath, custom_optimizers, custom_objects)
+    return _impl.load_model(keras, wrap_optimizer, _OPTIMIZER_MODULES, filepath, custom_optimizers, custom_objects)
 
