@@ -19,6 +19,7 @@ import time
 from horovod.run.common.util import codec, secret
 from horovod.run.gloo_run import launch_gloo, launch_gloo_elastic
 from horovod.spark.driver.rsh import rsh
+from horovod.spark.driver.rendezvous import SparkRendezvousServer
 
 
 def _exec_command_fn(driver, key, settings, env):
@@ -89,4 +90,5 @@ def gloo_run_elastic(settings, driver, env):
     nics = driver.get_common_interfaces()
 
     exec_command = _exec_command_fn(driver, settings.key, settings, env)
-    launch_gloo_elastic(command, exec_command, settings, env, lambda _: nics)
+    rendezvous = SparkRendezvousServer(driver, settings.verbose)
+    launch_gloo_elastic(command, exec_command, settings, env, lambda _: nics, rendezvous)

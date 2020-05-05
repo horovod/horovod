@@ -236,7 +236,7 @@ def launch_gloo(command, exec_command, settings, nics, env, server_ip):
 
     # start global rendezvous server and get port that it is listening on
     global_rendezv_port = rendezvous.start_server()
-    rendezvous.httpd.init(host_alloc_plan)
+    rendezvous.init(host_alloc_plan)
     run_command = get_run_command(command, server_ip, nics, global_rendezv_port)
 
     slot_info_to_command = _slot_info_to_command_fn(run_command, env)
@@ -272,12 +272,11 @@ def gloo_run(settings, nics, env, server_ip, command):
     launch_gloo(command, exec_command, settings, nics, env, server_ip)
 
 
-def launch_gloo_elastic(command, exec_command, settings, env, get_common_interfaces):
+def launch_gloo_elastic(command, exec_command, settings, env, get_common_interfaces, rendezvous):
     # Make the output directory if it does not exist
     if settings.output_filename:
         _mkdir_p(settings.output_filename)
 
-    rendezvous = RendezvousServer(settings.verbose)
     driver = ElasticDriver(rendezvous, settings.discovery,
                            settings.min_np, settings.max_np,
                            timeout=settings.elastic_timeout,
@@ -309,7 +308,6 @@ def launch_gloo_elastic(command, exec_command, settings, env, get_common_interfa
 
 
 def gloo_run_elastic(settings, env, command):
-    exec_command = _exec_command_fn(settings)
 
     def get_common_interfaces(driver):
         # Host-to-host common interface detection requires at least 2 hosts in an elastic job.
@@ -317,4 +315,6 @@ def gloo_run_elastic(settings, env, command):
         current_hosts = driver.wait_for_available_slots(settings.num_proc, min_hosts=min_hosts)
         return driver_service.get_common_interfaces(settings, current_hosts.host_assignment_order)
 
-    launch_gloo_elastic(command, exec_command, settings, env, get_common_interfaces)
+    exec_command = _exec_command_fn(settings)
+    rendezvous = RendezvousServer(settings.verbose)
+    launch_gloo_elastic(command, exec_command, settings, env, get_common_interfaces, rendezvous)

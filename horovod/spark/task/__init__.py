@@ -46,6 +46,8 @@ def task_exec(driver_addresses, settings, rank_env, local_rank_env):
                                                      verbose=settings.verbose)
 
     # tell driver about local rank and rank
+    # in elastic mode the driver already knows this mapping
+    # for simplicity we keep code paths the same for elastic and static mode
     host_hash = os.environ['HOROVOD_HOSTNAME']
     task_index = driver_client.set_local_rank_to_rank(host_hash, local_rank, rank)
 

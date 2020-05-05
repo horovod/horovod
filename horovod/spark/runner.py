@@ -63,6 +63,7 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo, is_elastic):
         logging.info('registering task %s on host %s', index, hosthash)
 
         if not is_elastic:
+            # TODO: this timeout is measured from horovod startup which is wrong here in elastic
             task.wait_for_initial_registration(settings.start_timeout)
             task_indices_on_this_host = driver_client.task_host_hash_indices(hosthash)
             local_rank_zero_index = task_indices_on_this_host[0]

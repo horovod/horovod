@@ -140,6 +140,13 @@ class SparkDriverService(driver_service.BasicDriverService):
 
         return super(SparkDriverService, self)._handle(req, client_address)
 
+    def set_ranks_to_indices(self, ranks_to_indices):
+        self._wait_cond.acquire()
+        try:
+            self._ranks_to_indices = ranks_to_indices.copy()
+        finally:
+            self._wait_cond.release()
+
     def get_ranks_to_indices(self):
         self._wait_cond.acquire()
         try:
