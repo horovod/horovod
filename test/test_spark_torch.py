@@ -464,7 +464,7 @@ class SparkTorchTests(unittest.TestCase):
                 res = horovod.spark.run_elastic(fn, args=(2, 5, 5, dir),
                                                 env={'HOROVOD_LOG_LEVEL': 'DEBUG'},
                                                 num_proc=2, min_np=2, max_np=2,
-                                                start_timeout=30, verbose=2)
+                                                start_timeout=5, verbose=2)
                 self.assertListEqual([([0, 4, 0, 4, 1, 4, 0, 4], 0),
                                       ([0, 4, 0, 4, 1, 4, 0, 4], 1)], res)
 
@@ -474,7 +474,8 @@ class SparkTorchTests(unittest.TestCase):
     @pytest.mark.skipif(LooseVersion(torch.__version__) < LooseVersion('1.0.0'),
                         reason='Synchronizing state requires PyTorch 1.0 or above')
     def test_happy_run_elastic_fault_tolerant_fails(self):
-        self.skipTest('currently not supported by elastic horovod')
+        self.skipTest('elastic horovod does not support shutdown from the spark driver '
+                      'while waiting for hosts to come up')
 
         if not gloo_built():
             self.skipTest("Gloo is not available")
@@ -489,7 +490,7 @@ class SparkTorchTests(unittest.TestCase):
                 res = horovod.spark.run_elastic(fn, args=(2, 5, 5, dir),
                                                 env={'HOROVOD_LOG_LEVEL': 'DEBUG'},
                                                 num_proc=2, min_np=2, max_np=2,
-                                                start_timeout=30, verbose=2)
+                                                start_timeout=5, verbose=2)
                 self.assertListEqual([([0, 4, 0, 4, 1, 4, 0, 4], 0),
                                       ([0, 4, 0, 4, 1, 4, 0, 4], 1)], res)
 
@@ -506,9 +507,12 @@ def check_fail(dir, rank, epoch, batch):
 def fn(batches_per_commit, batches_per_epoch, epochs, dir=None):
     @run
     def train(state, dir):
+        state.rendezvous += 1
         logging.info('rank %s: rendezvous %s', hvd.rank(), state.rendezvous)
+
         for state.epoch in range(state.epoch, epochs):
             logging.info('rank %s: start epoch %s at batch %s', hvd.rank(), state.epoch, state.batch)
+
             for state.batch in range(state.batch, batches_per_epoch):
                 check_fail(dir, hvd.rank(), state.epoch, state.batch)
 

@@ -233,12 +233,13 @@ class BasicTaskService(network.BasicService):
         finally:
             self._wait_cond.release()
 
-    def wait_for_command_start(self, timeout):
+    def wait_for_command_start(self, timeout=None):
         self._wait_cond.acquire()
         try:
             while self._command_thread is None:
-                self._wait_cond.wait(timeout.remaining())
-                timeout.check_time_out_for('command to run')
+                self._wait_cond.wait(timeout.remaining() if timeout else None)
+                if timeout:
+                    timeout.check_time_out_for('command to run')
         finally:
             self._wait_cond.release()
 

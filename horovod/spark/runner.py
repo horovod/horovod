@@ -34,8 +34,6 @@ from horovod.run.elastic import settings as hvd_elastic_settings
 from horovod.spark.driver import driver_service, host_discovery, job_id
 
 
-MINIMUM_COMMAND_LIFETIME_S = 3
-
 # Spark will fail to initialize correctly locally on Mac OS without this
 if platform.system() == 'Darwin':
     os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
@@ -56,31 +54,33 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo, is_elastic):
     # gloo_exec_fn.py will get this env var set in request env as well
     os.environ['HOROVOD_HOSTNAME'] = hosthash
 
-    task = task_service.SparkTaskService(index, settings.key, settings.nics, settings.verbose)
+    task = task_service.SparkTaskService(index, settings.key, settings.nics,
+                                         3 if use_gloo else None, settings.verbose)
     try:
         driver_client = driver_service.SparkDriverClient(driver_addresses, settings.key, settings.verbose)
         driver_client.register_task(index, task.addresses(), hosthash)
         logging.info('registering task %s on host %s', index, hosthash)
 
         if not is_elastic:
-            # TODO: this timeout is measured from horovod startup which is wrong here in elastic
             task.wait_for_initial_registration(settings.start_timeout)
             task_indices_on_this_host = driver_client.task_host_hash_indices(hosthash)
             local_rank_zero_index = task_indices_on_this_host[0]
         else:
             local_rank_zero_index = None
 
-        # With Gloo or in elastic all tasks wait for the command to terminate.
+        # In elastic all tasks wait for the command to terminate.
+        # With Gloo or in elastic all tasks wait for the command to start and terminate.
         # With MPI task with first index executes orted which will run mpirun_exec_fn for all tasks.
-        minimum_lifetime_after_start = None
-        if is_elastic or use_gloo or index == local_rank_zero_index:
-            # Either elastic, Gloo or first task with MPI.
-            task.wait_for_command_start(settings.start_timeout)
-            minimum_lifetime_after_start = timeout.Timeout(MINIMUM_COMMAND_LIFETIME_S,
-                                                           message='Just measuring runtime')
+        if is_elastic:
+            # We don't timeout waiting for command start in elastic
+            task.wait_for_command_start(timeout=None)
             task.wait_for_command_termination()
             if is_elastic and task.command_exit_code() != 0:
                 raise Exception('Command failed, making Spark task fail to restart the task')
+        elif use_gloo or index == local_rank_zero_index:
+            # Either Gloo or first task with MPI.
+            task.wait_for_command_start(settings.start_timeout)
+            task.wait_for_command_termination()
         else:
             # The other tasks with MPI need to wait for the first task to finish.
             first_task_addresses = driver_client.all_task_addresses(local_rank_zero_index)
@@ -89,12 +89,6 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo, is_elastic):
                                              first_task_addresses, settings.key,
                                              settings.verbose)
             first_task_client.wait_for_command_termination()
-
-        # command terminated, make sure this task service does not shutdown too quickly after
-        # the client started the command as it needs some time to connect again
-        # to wait for the result after starting the command (see horovod.spark.driver.rsh).
-        if minimum_lifetime_after_start is not None:
-            time.sleep(minimum_lifetime_after_start.remaining())
 
         return task.fn_result()
     finally:

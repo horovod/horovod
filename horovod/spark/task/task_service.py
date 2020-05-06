@@ -17,8 +17,9 @@ from distutils.version import LooseVersion
 
 import os
 import pyspark
+import time
 
-from horovod.run.common.util import codec, secret
+from horovod.run.common.util import codec, secret, timeout
 from horovod.run.common.service import task_service
 
 
@@ -50,7 +51,7 @@ class GetTaskToTaskAddressesResponse(object):
 class SparkTaskService(task_service.BasicTaskService):
     NAME_FORMAT = 'task service #%d'
 
-    def __init__(self, index, key, nics, verbose=0):
+    def __init__(self, index, key, nics, minimum_command_lifetime_s, verbose=0):
         # on a Spark cluster we need our train function to see the Spark worker environment
         # this includes PYTHONPATH, HADOOP_TOKEN_FILE_LOCATION and _HOROVOD_SECRET_KEY
         env = os.environ.copy()
@@ -64,6 +65,15 @@ class SparkTaskService(task_service.BasicTaskService):
         super(SparkTaskService, self).__init__(SparkTaskService.NAME_FORMAT % index,
                                                key, nics, env, verbose)
         self._key = key
+        self._minimum_command_lifetime_s = minimum_command_lifetime_s
+        self._minimum_command_lifetime = None
+
+    def _run_command(self, command, env, event):
+        super(SparkTaskService, self)._run_command(command, env, event)
+
+        if self._minimum_command_lifetime_s is not None:
+            self._minimum_command_lifetime = timeout.Timeout(self._minimum_command_lifetime_s,
+                                                             message='Just measuring runtime')
 
     def _handle(self, req, client_address):
         if isinstance(req, ResourcesRequest):
@@ -86,6 +96,20 @@ class SparkTaskService(task_service.BasicTaskService):
             from pyspark import TaskContext
             return TaskContext.get().resources()
         return dict()
+
+    def wait_for_command_termination(self):
+        """
+        Waits for command termination. Ensures this method takes at least
+        self._minimum_command_lifetime_s seconds to return after command started.
+        """
+        super(SparkTaskService, self).wait_for_command_termination()
+
+        # command terminated, make sure this method takes at least
+        # self._minimum_command_lifetime_s seconds after command started
+        # the client that started the command needs some time to connect again
+        # to wait for the result (see horovod.spark.driver.rsh).
+        if self._minimum_command_lifetime is not None:
+            time.sleep(self._minimum_command_lifetime.remaining())
 
 
 class SparkTaskClient(task_service.BasicTaskClient):
