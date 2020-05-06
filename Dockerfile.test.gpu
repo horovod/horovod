@@ -69,9 +69,6 @@ RUN if [[ ${MPI_KIND} != "None" ]]; then \
         pip install mpi4py; \
     fi
 
-# Install PetaStorm
-RUN pip install petastorm
-
 ### END OF CACHE ###
 COPY . /horovod
 

@@ -253,6 +253,8 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                             for col in label_columns]
 
                         sample_weights = row.get(sample_weight_col, None)
+                        if sample_weights is not None:
+                            sample_weights = sample_weights.float()
                         if cuda_available:
                             inputs = [input.cuda() for input in inputs]
                             labels = [label.cuda() for label in labels]
