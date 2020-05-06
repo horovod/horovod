@@ -109,9 +109,10 @@ def spark_driver_service(num_proc, fn=fn, args=(), kwargs={}, key=None, nics=Non
 
 
 @contextlib.contextmanager
-def spark_task_service(index, key=None, nics=None, match_intf=False, verbose=2):
+def spark_task_service(index, key=None, nics=None, match_intf=False,
+                       minimum_command_lifetime_s=0, verbose=2):
     key = key or secret.make_secret_key()
-    task = SparkTaskService(index, key, nics, verbose)
+    task = SparkTaskService(index, key, nics, minimum_command_lifetime_s, verbose)
     client = SparkTaskClient(index, task.addresses(), key, verbose, match_intf)
 
     try:
