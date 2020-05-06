@@ -634,7 +634,6 @@ class MXTests(unittest.TestCase):
         net.hybridize(static_alloc=True)
 
         params = net.collect_params()
-        cnt = 0
         lr = 1E-4
         compression = hvd.Compression.fp16
         trainer = hvd.DistributedTrainer(
@@ -646,15 +645,9 @@ class MXTests(unittest.TestCase):
             with mx.autograd.record():
                 pred = net(src_data)
                 loss = mx.nd.abs(pred - dst_data).mean()
-                loss.backward()
+            loss.backward()
             # Begin to update the parameter
             trainer.step(1.0)
-            cnt += 1
-            l = loss.asscalar()
-            if cnt >= 10:
-                for key, param in params.items():
-                    hvd.allreduce_(param.list_data()[0])
-                cnt = 0
 
 if __name__ == '__main__':
     unittest.main()
