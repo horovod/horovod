@@ -13,8 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-import threading
-
 from horovod.run.common.service import driver_service
 from horovod.run.common.util import network
 
@@ -77,11 +75,6 @@ class CodeResponse(object):
         """Function kwargs."""
 
 
-class WaitForTaskShutdownRequest(object):
-    """Request that blocks until all task services should shut down."""
-    pass
-
-
 class SparkDriverService(driver_service.BasicDriverService):
     NAME = 'driver service'
 
@@ -96,7 +89,6 @@ class SparkDriverService(driver_service.BasicDriverService):
         self._nics = nics
         self._ranks_to_indices = {}
         self._spark_job_failed = False
-        self._task_shutdown = threading.Event()
 
     def _handle(self, req, client_address):
 
@@ -133,10 +125,6 @@ class SparkDriverService(driver_service.BasicDriverService):
 
         if isinstance(req, CodeRequest):
             return CodeResponse(self._fn, self._args, self._kwargs)
-
-        if isinstance(req, WaitForTaskShutdownRequest):
-            self._task_shutdown.wait()
-            return network.AckResponse()
 
         return super(SparkDriverService, self)._handle(req, client_address)
 
@@ -206,13 +194,6 @@ class SparkDriverService(driver_service.BasicDriverService):
 
         return nics
 
-    def shutdown_tasks(self):
-        self._task_shutdown.set()
-
-    def shutdown(self):
-        self.shutdown_tasks()
-        super(SparkDriverService, self).shutdown()
-
 
 class SparkDriverClient(driver_service.BasicDriverClient):
     def __init__(self, driver_addresses, key, verbose, match_intf=False):
@@ -237,6 +218,3 @@ class SparkDriverClient(driver_service.BasicDriverClient):
     def code(self):
         resp = self._send(CodeRequest())
         return resp.fn, resp.args, resp.kwargs
-
-    def wait_for_task_shutdown(self):
-        self._send(WaitForTaskShutdownRequest())

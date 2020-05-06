@@ -28,26 +28,9 @@ class RunCommandRequest(object):
         """Environment to use."""
 
 
-class CannotRunCommandResponse(Exception):
-    """RunCommandRequest cannot be fulfilled."""
-    def __init__(self, message):
-        super(CannotRunCommandResponse, self).__init__(message)
-
-
 class AbortCommandRequest(object):
     """Aborts the command currently running."""
     pass
-
-
-class ResetCommandRequest(object):
-    """Resets the previously run command."""
-    pass
-
-
-class CannotResetCommandResponse(Exception):
-    """ResetCommandRequest cannot be fulfilled."""
-    def __init__(self, message):
-        super(CannotResetCommandResponse, self).__init__(message)
 
 
 class CommandExitCodeRequest(object):
@@ -99,7 +82,6 @@ class BasicTaskService(network.BasicService):
         self._initial_registration_complete = False
         self._wait_cond = threading.Condition()
         self._command_env = command_env
-        self._command_req = None
         self._command_abort = None
         self._command_exit_code = None
         self._verbose = verbose
@@ -133,28 +115,22 @@ class BasicTaskService(network.BasicService):
                     if self._command_env:
                         env = self._command_env.copy()
                         self._add_envs(env, req.env)
-                    else:
-                        env = req.env
+                        req.env = env
 
                     if self._verbose >= 2:
                         print("Task service executes command: {}".format(req.command))
                         if self._verbose >= 3:
-                            for key, value in env.items():
+                            for key, value in req.env.items():
                                 if 'SECRET' in key:
                                     value = '*' * len(value)
                                 print("Task service env: {} = {}".format(key, value))
 
                     # We only permit executing exactly one command, so this is idempotent.
-                    self._command_req = req
                     self._command_abort = threading.Event()
                     self._command_thread = in_thread(
                         target=self._run_command,
-                        args=(req.command, env, self._command_abort)
+                        args=(req.command, req.env, self._command_abort)
                     )
-                elif not self._command_thread.is_alive():
-                    return CannotRunCommandResponse('An earlier command has not been reset.')
-                elif self._command_req.command != req.command or self._command_req.env != req.env:
-                    return CannotRunCommandResponse('A different command is currently running.')
             finally:
                 self._wait_cond.notify_all()
                 self._wait_cond.release()
@@ -165,23 +141,6 @@ class BasicTaskService(network.BasicService):
             try:
                 if self._command_thread is not None:
                     self._command_abort.set()
-            finally:
-                self._wait_cond.notify_all()
-                self._wait_cond.release()
-            return network.AckResponse()
-
-        if isinstance(req, ResetCommandRequest):
-            self._wait_cond.acquire()
-            try:
-                if self._command_thread is not None:
-                    if not self._command_thread.is_alive():
-                        self._command_req = None
-                        self._command_abort = None
-                        self._command_exit_code = None
-                        self._command_thread = None
-                    else:
-                        return CannotResetCommandResponse('Command is still running, either '
-                                                          'wait for termination or abort first.')
             finally:
                 self._wait_cond.notify_all()
                 self._wait_cond.release()
@@ -263,9 +222,6 @@ class BasicTaskClient(network.BasicClient):
 
     def abort_command(self):
         self._send(AbortCommandRequest())
-
-    def reset_command(self):
-        self._send(ResetCommandRequest())
 
     def notify_initial_registration_complete(self):
         self._send(NotifyInitialRegistrationCompleteRequest())

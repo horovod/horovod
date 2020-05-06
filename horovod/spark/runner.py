@@ -34,6 +34,9 @@ from horovod.run.elastic import settings as hvd_elastic_settings
 from horovod.spark.driver import driver_service, host_discovery, job_id
 
 
+MINIMUM_COMMAND_LIFETIME_S = 3
+
+
 # Spark will fail to initialize correctly locally on Mac OS without this
 if platform.system() == 'Darwin':
     os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
@@ -55,7 +58,8 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo, is_elastic):
     os.environ['HOROVOD_HOSTNAME'] = hosthash
 
     task = task_service.SparkTaskService(index, settings.key, settings.nics,
-                                         3 if use_gloo else None, settings.verbose)
+                                         MINIMUM_COMMAND_LIFETIME_S if use_gloo else None,
+                                         settings.verbose)
     try:
         driver_client = driver_service.SparkDriverClient(driver_addresses, settings.key, settings.verbose)
         driver_client.register_task(index, task.addresses(), hosthash)
