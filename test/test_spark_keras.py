@@ -14,6 +14,7 @@
 # ==============================================================================
 
 import collections
+import logging
 import warnings
 
 import mock
@@ -67,6 +68,7 @@ def get_mock_fit_fn():
 class SparkKerasTests(tf.test.TestCase):
     def __init__(self, *args, **kwargs):
         super(SparkKerasTests, self).__init__(*args, **kwargs)
+        logging.getLogger('py4j.java_gateway').setLevel(logging.INFO)
         warnings.simplefilter('module')
 
     def test_fit_model(self):

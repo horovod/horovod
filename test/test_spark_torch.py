@@ -67,9 +67,8 @@ def create_xor_model(input_dim=2, output_dim=1):
 class SparkTorchTests(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(SparkTorchTests, self).__init__(*args, **kwargs)
+        logging.getLogger('py4j.java_gateway').setLevel(logging.INFO)
         warnings.simplefilter('module')
-        logger = logging.getLogger('py4j.java_gateway')
-        logger.setLevel(logging.INFO)
 
 
     def test_fit_model(self):
@@ -469,13 +468,13 @@ class SparkTorchTests(unittest.TestCase):
                                       ([0, 4, 0, 4, 1, 4, 0, 4], 1)], res)
 
     """
-    Test that horovod.spark.run_elastic in a fault-tolerant mode fails with too many failures.
+    Test that horovod.spark.run_elastic in a fault-tolerant mode fails on too many failures.
     """
     @pytest.mark.skipif(LooseVersion(torch.__version__) < LooseVersion('1.0.0'),
                         reason='Synchronizing state requires PyTorch 1.0 or above')
     def test_happy_run_elastic_fault_tolerant_fails(self):
         self.skipTest('elastic horovod does not support shutdown from the spark driver '
-                      'while waiting for hosts to come up')
+                      'while elastic driver is waiting for hosts to come up')
 
         if not gloo_built():
             self.skipTest("Gloo is not available")
@@ -522,7 +521,8 @@ def fn(batches_per_commit, batches_per_epoch, epochs, dir=None):
                 loss.backward()
                 optimizer.step()
 
-                # TODO: this sleep makes the fault tolerant test fail (on first fail the remaining task gets an exception from operations.cc)
+                # TODO: this sleep makes the fault tolerant test fail
+                #       torch all gather throws an RuntimeError which should be a HorovodInternalError
                 #import time
                 #time.sleep(0.2)
 

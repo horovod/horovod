@@ -181,7 +181,7 @@ class RendezvousServer:
     # Rendezvous function finds a available port, create http socket,
     # and start listening loop to handle request
     # self.httpd.init needs to be called after server start
-    def start_server(self, handler_cls=RendezvousHandler):
+    def start(self, handler_cls=RendezvousHandler):
         self._httpd, port = find_port(
             lambda addr: RendezvousHTTPServer(
                 addr, handler_cls, self._verbose))
@@ -196,7 +196,7 @@ class RendezvousServer:
     def init(self, host_alloc_plan):
         self._httpd.init(host_alloc_plan)
 
-    def stop_server(self):
+    def stop(self):
         self._httpd.shutdown()
         self._listen_thread.join()
 

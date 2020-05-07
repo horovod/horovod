@@ -180,8 +180,9 @@ class SparkDriverService(driver_service.BasicDriverService):
 
         nics = None
         if len(self._task_addresses_for_tasks) > 0:
-            # in Elastic Horovod on Spark with auto-scaling keys
-            # in task_addresses might be a range(max_np or proc_num)
+            # in Elastic Horovod on Spark with auto-scaling
+            # keys in task_addresses are in range(max_np or proc_num)
+            # but not all keys may exist, so we don't do for index in range(proc_num)
             indices = list(self._task_addresses_for_tasks.keys())
             nics = set(self._task_addresses_for_tasks[indices[0]].keys())
             for index in indices[1:]:

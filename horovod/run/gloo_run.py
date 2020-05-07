@@ -235,7 +235,7 @@ def launch_gloo(command, exec_command, settings, nics, env, server_ip):
     host_alloc_plan = get_host_assignments(hosts, settings.num_proc)
 
     # start global rendezvous server and get port that it is listening on
-    global_rendezv_port = rendezvous.start_server()
+    global_rendezv_port = rendezvous.start()
     rendezvous.init(host_alloc_plan)
     run_command = get_run_command(command, server_ip, nics, global_rendezv_port)
 
@@ -283,7 +283,7 @@ def launch_gloo_elastic(command, exec_command, settings, env, get_common_interfa
                            verbose=settings.verbose)
 
     handler = create_rendezvous_handler(driver)
-    global_rendezv_port = rendezvous.start_server(handler)
+    global_rendezv_port = rendezvous.start(handler)
     driver.wait_for_available_slots(settings.num_proc)
 
     nics = get_common_interfaces(driver)
@@ -296,7 +296,7 @@ def launch_gloo_elastic(command, exec_command, settings, env, get_common_interfa
     driver.start(settings.num_proc, create_worker)
     res = driver.get_results()
     driver.stop()
-    rendezvous.stop_server()
+    rendezvous.stop()
 
     for name, value in sorted(res.items(), key=lambda item: item[1][1]):
         exit_code, timestamp = value

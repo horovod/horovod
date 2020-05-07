@@ -53,17 +53,16 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo, is_elastic):
     # hides availability of shared memory among executors on the same Spark node
     hosthash = host_hash(salt='{}-{}'.format(index, time.time()) if is_elastic else None)
 
-    # provide host hash to mpurun_exec_fn.py via task service
+    # provide host hash to mpirun_exec_fn.py via task service
     # gloo_exec_fn.py will get this env var set in request env as well
     os.environ['HOROVOD_HOSTNAME'] = hosthash
 
     task = task_service.SparkTaskService(index, settings.key, settings.nics,
-                                         MINIMUM_COMMAND_LIFETIME_S if use_gloo else None,
+                                         MINIMUM_COMMAND_LIFETIME_S if is_elastic or use_gloo else None,
                                          settings.verbose)
     try:
         driver_client = driver_service.SparkDriverClient(driver_addresses, settings.key, settings.verbose)
         driver_client.register_task(index, task.addresses(), hosthash)
-        logging.info('registering task %s on host %s', index, hosthash)
 
         if not is_elastic:
             task.wait_for_initial_registration(settings.start_timeout)
@@ -72,8 +71,8 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo, is_elastic):
         else:
             local_rank_zero_index = None
 
-        # In elastic all tasks wait for the command to terminate.
-        # With Gloo or in elastic all tasks wait for the command to start and terminate.
+        # In elastic all tasks wait for the command to start and terminate.
+        # With Gloo all tasks wait for the command to start and terminate.
         # With MPI task with first index executes orted which will run mpirun_exec_fn for all tasks.
         if is_elastic:
             # We don't timeout waiting for command start in elastic
@@ -96,7 +95,12 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo, is_elastic):
 
         return task.fn_result()
     finally:
-        # this has to block on running requests (wait_for_command_exit_code)
+        # we must not call into shutdown too quickly, task clients run a command
+        # and want to wait on the result, we have told task service not to return
+        # from wait_for_command_termination too quickly, so we are safe here to shutdown
+        # clients have had enough time to connect to the service already
+        #
+        # the shutdown has to block on running requests (wait_for_command_exit_code)
         # so they can finish serving the exit code
         # shutdown does block with network.BasicService._server._block_on_close = True
         task.shutdown()
@@ -309,7 +313,7 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
     """
 
     if not gloo_built(verbose=(verbose >= 2)):
-        raise ValueError('Gloo support is required to use elastic traiing, but has not been built.  Ensure CMake is '
+        raise ValueError('Gloo support is required to use elastic training, but has not been built.  Ensure CMake is '
                          'installed and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
 
     spark_context = pyspark.SparkContext._active_spark_context
@@ -326,7 +330,7 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
         nics = set(nics)
 
     if num_proc is None:
-        # try spark.dynamicAllocation.initialExecutors
+        # TODO: try spark.dynamicAllocation.initialExecutors
         num_proc = spark_context.defaultParallelism
         if verbose >= 1:
             logging.info('Running %d processes (inferred from spark.default.parallelism)...', num_proc)
@@ -335,10 +339,10 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
             logging.info('Running %d processes...', num_proc)
 
     if min_np is None:
-        # try spark.dynamicAllocation.minExecutors
+        # TODO: try spark.dynamicAllocation.minExecutors
         min_np = num_proc
     if max_np is None:
-        # try spark.dynamicAllocation.maxExecutors
+        # TODO: try spark.dynamicAllocation.maxExecutors
         max_np = num_proc
 
     # start Spark driver service and launch settings.num_proc Spark tasks
@@ -404,6 +408,4 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
 
     # If there's no exception, execution results are in this queue.
     results = result_queue.get_nowait()
-    logging.info('results are %s', results)
-    logging.info('indices_in_rank_order are %s', indices_in_rank_order)
     return [results[index] for index in indices_in_rank_order]
