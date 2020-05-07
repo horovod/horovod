@@ -304,6 +304,9 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
         start_timeout: Timeout for Spark tasks to spawn, register and start running the code, in seconds.
                        If not set, falls back to `HOROVOD_SPARK_START_TIMEOUT` environment variable value.
                        If it is not set as well, defaults to 600 seconds.
+        elastic_timeout: Timeout for elastic initialisation after re-scaling the cluster.
+                       If not set, falls back to `HOROVOD_ELASTIC_TIMEOUT` environment variable value.
+                       If it is not set as well, defaults to 600 seconds.
         env: Environment dictionary to use in Horovod run.  Defaults to `os.environ`.
         verbose: Debug output verbosity (0-2). Defaults to 1.
         nics: List of NICs for tcp network communication.
@@ -348,9 +351,7 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
     # start Spark driver service and launch settings.num_proc Spark tasks
     key = secret.make_secret_key()
     spark_job_group = 'horovod.spark.run.%d' % job_id.next_job_id()
-    driver = driver_service.SparkDriverService(max_np or num_proc,
-                                               fn, args, kwargs,
-                                               key, nics)
+    driver = driver_service.SparkDriverService(num_proc, fn, args, kwargs, key, nics)
 
     discovery = host_discovery.SparkDriverHostDiscovery(driver)
 

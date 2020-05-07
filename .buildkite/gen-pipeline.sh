@@ -258,13 +258,19 @@ run_gloo_integration() {
 
   # Elastic
   local elastic_tensorflow="test_elastic_tensorflow.py"
+  local elastic_spark_tensorflow="test_elastic_spark_tensorflow.py"
   if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
       elastic_tensorflow="test_elastic_tensorflow2.py"
+      elastic_spark_tensorflow="test_elastic_spark_tensorflow2.py"
   fi
 
   run_test "${test}" "${queue}" \
       ":factory: Elastic Tests (${test})" \
-      "bash -c \"cd /horovod/test/integration && pytest -v --log-cli-level 10 --capture=no test_elastic_torch.py ${elastic_tensorflow}\""
+      "bash -c \"cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no test_elastic_torch.py ${elastic_tensorflow}\""
+
+  run_test "${test}" "${queue}" \
+      ":factory: Elastic Spark Tests (${test})" \
+      "bash -c \"cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no test_elastic_spark_torch.py ${elastic_spark_tensorflow}\""
 }
 
 run_gloo() {

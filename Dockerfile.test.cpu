@@ -12,6 +12,8 @@ ARG PYTORCH_PACKAGE=torch==1.2.0+cpu
 ARG TORCHVISION_PACKAGE=torchvision==0.4.0+cpu
 ARG MXNET_PACKAGE=mxnet==1.5.0
 ARG PYSPARK_PACKAGE=pyspark==2.4.0
+# see https://archive.apache.org/dist/spark/ for available packages, version must match PYSPARK_PACKAGE
+ARG SPARK_PACKAGE=spark-2.4.0/spark-2.4.0-bin-hadoop2.7.tgz
 
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-cu"]
@@ -151,6 +153,10 @@ RUN if [[ ${MPI_KIND} == "ONECCL" ]]; then \
     else \
       pip install -v $(ls /horovod/dist/horovod-*.tar.gz)[spark]; \
     fi
+
+# Install Spark stand-alone cluster.
+RUN wget https://archive.apache.org/dist/spark/${SPARK_PACKAGE} -O - | tar -xzC /tmp
+RUN archive=$(basename "${SPARK_PACKAGE}") bash -c "mv -v /tmp/\${archive/%.tgz/} /spark"
 
 # Prefetch Spark MNIST dataset.
 RUN mkdir -p /work

@@ -107,13 +107,25 @@ class BasicDriverService(network.BasicService):
         return {}
 
     def all_task_addresses(self, index):
-        return self._all_task_addresses[index].copy()
+        self._wait_cond.acquire()
+        try:
+            return self._all_task_addresses[index].copy()
+        finally:
+            self._wait_cond.release()
 
     def task_addresses_for_driver(self, index):
-        return self._task_addresses_for_driver[index].copy()
+        self._wait_cond.acquire()
+        try:
+            return self._task_addresses_for_driver[index].copy()
+        finally:
+            self._wait_cond.release()
 
     def task_addresses_for_tasks(self, index):
-        return self._task_addresses_for_tasks[index].copy()
+        self._wait_cond.acquire()
+        try:
+            return self._task_addresses_for_tasks[index].copy()
+        finally:
+            self._wait_cond.release()
 
     def register_task_to_task_addresses(self, index, task_addresses):
         self._wait_cond.acquire()

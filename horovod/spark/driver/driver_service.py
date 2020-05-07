@@ -14,7 +14,8 @@
 # ==============================================================================
 
 from horovod.run.common.service import driver_service
-from horovod.run.common.util import network
+from horovod.run.util.threads import in_thread
+from horovod.spark.task import task_service
 
 
 class TaskHostHashIndicesRequest(object):

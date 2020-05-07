@@ -277,6 +277,7 @@ class ElasticDriver(object):
         self._results.expect(thread)
 
     def _handle_worker_exit(self, slot_info, exit_code, timestamp):
+        # TODO: hosts that failed but are not reflected in host discovery yet are recorded here and make the job fail
         if not self.has_rank_assignment(slot_info.hostname, slot_info.local_rank):
             # Ignore hosts that are not assigned a rank
             logging.debug('host {} has been blacklisted, ignoring exit from local_rank={}'
