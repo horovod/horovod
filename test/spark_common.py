@@ -101,9 +101,11 @@ def fn():
 
 
 @contextlib.contextmanager
-def spark_driver_service(num_proc, fn=fn, args=(), kwargs={}, key=None, nics=None, verbose=2):
+def spark_driver_service(num_proc, initial_np=None, fn=fn, args=(), kwargs={},
+                         key=None, nics=None, verbose=2):
+    initial_np = initial_np or num_proc
     key = key or secret.make_secret_key()
-    driver = SparkDriverService(num_proc, fn, args, kwargs, key, nics)
+    driver = SparkDriverService(initial_np, num_proc, fn, args, kwargs, key, nics)
     client = SparkDriverClient(driver.addresses(), key, verbose)
 
     try:

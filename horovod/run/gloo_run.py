@@ -298,7 +298,6 @@ def launch_gloo_elastic(command, exec_command, settings, env, get_common_interfa
     driver.start(settings.num_proc, create_worker)
     res = driver.get_results()
     driver.stop()
-    rendezvous.stop()
 
     if res.error_message is not None:
         raise RuntimeError(res.error_message)

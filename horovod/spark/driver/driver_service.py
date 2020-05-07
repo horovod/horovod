@@ -79,14 +79,15 @@ class CodeResponse(object):
 class SparkDriverService(driver_service.BasicDriverService):
     NAME = 'driver service'
 
-    def __init__(self, num_proc, fn, args, kwargs, key, nics):
+    def __init__(self, initial_np, num_proc, fn, args, kwargs, key, nics):
         super(SparkDriverService, self).__init__(num_proc,
                                                  SparkDriverService.NAME,
                                                  key, nics)
-
+        self._initial_np = initial_np
         self._fn = fn
         self._args = args
         self._kwargs = kwargs
+        self._key = key
         self._nics = nics
         self._ranks_to_indices = {}
         self._spark_job_failed = False
@@ -163,7 +164,7 @@ class SparkDriverService(driver_service.BasicDriverService):
     def wait_for_initial_registration(self, timeout):
         self._wait_cond.acquire()
         try:
-            while len(self._all_task_addresses) < self._num_proc:
+            while len(self._all_task_addresses) < self._initial_np:
                 self.check_for_spark_job_failure()
                 self._wait_cond.wait(timeout.remaining())
                 timeout.check_time_out_for('Spark tasks to start')
@@ -173,7 +174,7 @@ class SparkDriverService(driver_service.BasicDriverService):
     def wait_for_task_to_task_address_updates(self, timeout):
         self._wait_cond.acquire()
         try:
-            while len(self._task_addresses_for_tasks) < self._num_proc:
+            while len(self._task_addresses_for_tasks) < self._initial_np:
                 self.check_for_spark_job_failure()
                 self._wait_cond.wait(timeout.remaining())
                 timeout.check_time_out_for('Spark tasks to update task-to-task addresses')
@@ -200,6 +201,22 @@ class SparkDriverService(driver_service.BasicDriverService):
                                for index in self._task_addresses_for_tasks])
 
         return nics
+
+    def _shutdown_task(self, index):
+        task_client = task_service.SparkTaskClient(index,
+                                                   self.task_addresses_for_driver(index),
+                                                   self._key, verbose=0)
+        terminated, _ = task_client.command_result()
+        if not terminated:
+            task_client.run_command('true', {})
+
+    def shutdown_tasks(self):
+        self._wait_cond.acquire()
+        try:
+            for index in self._all_task_addresses:
+                in_thread(self._shutdown_task, args=(index,), silent=True)
+        finally:
+            self._wait_cond.release()
 
 
 class SparkDriverClient(driver_service.BasicDriverClient):

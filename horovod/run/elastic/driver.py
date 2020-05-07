@@ -101,6 +101,7 @@ class ElasticDriver(object):
     def stop(self, error_message=None):
         self._results.set_error_message(error_message)
         self._shutdown.set()
+        self._rendezvous.stop()
         self._discovery_thread.join()
 
     def finished(self):
