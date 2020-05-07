@@ -297,7 +297,6 @@ def launch_gloo_elastic(command, exec_command, settings, env, get_common_interfa
     driver.start(settings.num_proc, create_worker)
     res = driver.get_results()
     driver.stop()
-    rendezvous.stop()
 
     for name, value in sorted(res.items(), key=lambda item: item[1][1]):
         exit_code, timestamp = value

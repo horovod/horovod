@@ -248,7 +248,8 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
 
     # start Spark driver service and launch settings.num_proc Spark tasks
     spark_job_group = 'horovod.spark.run.%d' % job_id.next_job_id()
-    driver = driver_service.SparkDriverService(settings.num_proc, fn, args, kwargs,
+    driver = driver_service.SparkDriverService(settings.num_proc, settings.num_proc,
+                                               fn, args, kwargs,
                                                settings.key, settings.nics)
     gloo_is_used = is_gloo_used(use_gloo=use_gloo, use_mpi=use_mpi, use_jsrun=False)
     spark_thread = _make_spark_thread(spark_context, spark_job_group, driver,
@@ -351,7 +352,9 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
     # start Spark driver service and launch settings.num_proc Spark tasks
     key = secret.make_secret_key()
     spark_job_group = 'horovod.spark.run.%d' % job_id.next_job_id()
-    driver = driver_service.SparkDriverService(num_proc, fn, args, kwargs, key, nics)
+    driver = driver_service.SparkDriverService(num_proc, max_np,
+                                               fn, args, kwargs,
+                                               key, nics)
 
     discovery = host_discovery.SparkDriverHostDiscovery(driver)
 

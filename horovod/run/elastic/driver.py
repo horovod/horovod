@@ -90,6 +90,7 @@ class ElasticDriver(object):
 
     def stop(self):
         self._shutdown.set()
+        self._rendezvous.stop()
         self._discovery_thread.join()
 
     def finished(self):

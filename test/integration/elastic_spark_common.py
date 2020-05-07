@@ -622,3 +622,153 @@ class BaseElasticSparkTests(unittest.TestCase):
             self._run(discovery_schedule=discovery_schedule,
                       extra_conf=[conf.SPARK_CONF_ALWAYS_RESTART_FAILED_TASK,
                                   conf.SPARK_CONF_BLACKLIST_DISABLED])
+
+    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.run.gloo_run._get_min_start_hosts', return_value=1)
+    def test_auto_scale_up(self, mock_get_min_start_hosts):
+        discovery_schedule = [
+            (0, ['host-1:1']),
+            (1, ['host-1:1', 'host-2:1']),
+            (None, ['host-1:1', 'host-2:1', 'host-3:1']),
+        ]
+
+        results = self._run(discovery_schedule=discovery_schedule, np=1, min_np=1, max_np=5)
+
+        self.assertEqual(3, len(results))
+
+        self.assertEqual(0, results[0]['start_rank'])
+        self.assertEqual(1, results[0]['size'])
+        self.assertEqual(1, results[0]['rendezvous'])
+
+        self.assertEqual(0, results[1]['start_rank'])
+        self.assertEqual(2, results[1]['size'])
+        self.assertEqual(2, results[1]['rendezvous'])
+        self.assertEqual(results[0]['hostname'], results[1]['hostname'])
+
+        self.assertEqual(0, results[2]['start_rank'])
+        self.assertEqual(3, results[2]['size'])
+        self.assertEqual(3, results[2]['rendezvous'])
+        self.assertEqual(results[0]['hostname'], results[2]['hostname'])
+
+    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    def test_auto_scale_down_by_discovery(self):
+        discovery_schedule = [
+            (0, ['host-1:1', 'host-2:1', 'host-3:1', 'host-4:1']),
+            (1, ['host-2:1', 'host-3:1', 'host-4:1']),
+            (2, ['host-2:1', 'host-3:1']),
+            (None, ['host-3:1']),
+        ]
+
+        results = self._run(discovery_schedule=discovery_schedule, np=4, min_np=1, max_np=5, epochs=4,
+                            extra_conf=[conf.SPARK_CONF_ALWAYS_RESTART_FAILED_TASK])
+
+        self.assertEqual(4, len(results))
+
+        self.assertEqual(0, results[0]['start_rank'])
+        self.assertEqual(4, results[0]['size'])
+        self.assertEqual(1, results[0]['rendezvous'])
+
+        self.assertEqual(3, results[1]['size'])
+        self.assertEqual(2, results[1]['rendezvous'])
+
+        self.assertEqual(2, results[2]['size'])
+        self.assertEqual(3, results[2]['rendezvous'])
+
+        self.assertEqual(1, results[3]['size'])
+        self.assertEqual(4, results[3]['rendezvous'])
+
+    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    def test_auto_scale_down_by_exception(self):
+        hosts = 'host-1:1,host-2:1,host-3:1,host-4:1'
+
+        exit_schedule = {
+            str((1, 0)): [0],
+            str((2, 0)): [1],
+        }
+
+        results = self._run(hosts=hosts, exit_schedule=exit_schedule, np=4, min_np=1,
+                            extra_conf=[conf.SPARK_CONF_ALWAYS_RESTART_FAILED_TASK])
+
+        self.assertEqual(3, len(results))
+
+        self.assertEqual(0, results[0]['start_rank'])
+        self.assertEqual(4, results[0]['size'])
+        self.assertEqual(1, results[0]['rendezvous'])
+
+        self.assertEqual(1, results[1]['start_rank'])
+        self.assertEqual(3, results[1]['size'])
+        self.assertEqual(2, results[1]['rendezvous'])
+        self.assertNotEqual(results[0]['hostname'], results[1]['hostname'])
+
+        self.assertEqual(2, results[2]['start_rank'])
+        self.assertEqual(2, results[2]['size'])
+        self.assertEqual(3, results[2]['rendezvous'])
+        self.assertNotEqual(results[0]['hostname'], results[2]['hostname'])
+        self.assertNotEqual(results[1]['hostname'], results[2]['hostname'])
+
+    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    def test_auto_scale_no_spark_black_list(self):
+        """
+        Tests auto-scale mode without Spark blacklisting.
+        On exception, the executor will restart the failing task.
+        """
+        hosts = 'host-1:2,host-2:2'
+
+        exit_schedule = {
+            str((1, 0)): [1],
+        }
+
+        # it can take 5 seconds for a task to be restarted by Spark, so we make each epoch take 10s
+        results = self._run(hosts=hosts, exit_schedule=exit_schedule, epoch_wait=10, np=4, min_np=1,
+                            extra_conf=[conf.SPARK_CONF_ALWAYS_RESTART_FAILED_TASK,
+                                        conf.SPARK_CONF_BLACKLIST_DISABLED])
+
+        self.assertEqual(3, len(results))
+
+        self.assertEqual(0, results[0]['start_rank'])
+        self.assertEqual(4, results[0]['size'])
+        self.assertEqual(1, results[0]['rendezvous'])
+
+        self.assertEqual(0, results[1]['start_rank'])
+        self.assertEqual(3, results[1]['size'])
+        self.assertEqual(2, results[1]['rendezvous'])
+
+        self.assertEqual(0, results[2]['start_rank'])
+        self.assertEqual(4, results[2]['size'])
+        self.assertEqual(3, results[2]['rendezvous'])
+
+    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    def test_auto_scale_spark_blacklist(self):
+        """
+        Spark blacklisting will avoid restarting a failing task on the same executor.
+        Since there are no more executors, the Horovod cluster will scale down.
+        In test_auto_scale_no_spark_black_list we test the behaviour without blacklisting.
+        """
+        hosts = 'host-1:2,host-2:2'
+
+        exit_schedule = {
+            str((1, 0)): [1],
+        }
+
+        for setting in [conf.SPARK_CONF_DONT_REUSE_EXECUTOR_FOR_SAME_TASK,
+                        conf.SPARK_CONF_DONT_REUSE_FAILED_EXECUTOR,
+                        conf.SPARK_CONF_DONT_REUSE_FAILED_EXECUTOR_IN_APP,
+                        conf.SPARK_CONF_DONT_REUSE_FAILING_NODE,
+                        conf.SPARK_CONF_DONT_REUSE_FAILING_NODE_IN_APP]:
+            results = self._run(hosts=hosts, exit_schedule=exit_schedule, epoch_wait=10, np=4, min_np=1,
+                                extra_conf=[conf.SPARK_CONF_ALWAYS_RESTART_FAILED_TASK,
+                                            conf.SPARK_CONF_BLACKLIST_ENABLED, setting])
+
+            self.assertEqual(3, len(results))
+
+            self.assertEqual(0, results[0]['start_rank'])
+            self.assertEqual(4, results[0]['size'])
+            self.assertEqual(1, results[0]['rendezvous'])
+
+            self.assertEqual(0, results[1]['start_rank'])
+            self.assertEqual(3, results[1]['size'])
+            self.assertEqual(2, results[1]['rendezvous'])
+
+            self.assertEqual(0, results[2]['start_rank'])
+            self.assertEqual(3, results[2]['size'])
+            self.assertEqual(2, results[2]['rendezvous'])

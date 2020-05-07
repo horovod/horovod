@@ -31,3 +31,7 @@ class SparkRendezvousServer(RendezvousServer):
         for slot_info in host_alloc_plan:
             ranks_to_indices[slot_info.rank] = host_indices[slot_info.hostname][slot_info.local_rank]
         self._driver.set_ranks_to_indices(ranks_to_indices)
+
+    def stop(self):
+        self._driver.shutdown_tasks()
+        super(SparkRendezvousServer, self).stop()
