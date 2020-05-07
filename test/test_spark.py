@@ -16,6 +16,7 @@
 import contextlib
 import copy
 import itertools
+import logging
 import os
 import platform
 import psutil
@@ -77,6 +78,7 @@ class SparkTests(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(SparkTests, self).__init__(*args, **kwargs)
         self.maxDiff = None
+        logging.getLogger('py4j.java_gateway').setLevel(logging.INFO)
         warnings.simplefilter('module')
 
     def run(self, result=None):

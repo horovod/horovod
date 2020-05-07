@@ -65,7 +65,7 @@ def rsh(driver_addresses, key, host_hash, command, env, local_rank, verbose,
 
         try:
             exit_code = task_client.wait_for_command_exit_code()
-            logging.info('rsh exit code %s for host %s slot %s', exit_code, host_hash, local_rank)
+            logging.debug('rsh exit code %s for host %s slot %s', exit_code, host_hash, local_rank)
             return exit_code
         except:
             traceback.print_exc()

@@ -14,9 +14,7 @@
 # ==============================================================================
 
 import functools
-import logging
 import queue
-import os
 
 from horovod.common.exceptions import HorovodInternalError, HostsUpdatedInterrupt
 from horovod.run.elastic.worker import WorkerNotificationManager
@@ -157,20 +155,14 @@ def run_fn(func, reset):
                 state.sync()
 
                 try:
-                    logging.info('rank %s: call into train', os.environ['HOROVOD_RANK'])
                     return func(state, *args, **kwargs)
                 except HorovodInternalError as e:
-                    logging.info('rank %s: HorovodInternalError: %s', os.environ['HOROVOD_RANK'], e)
                     state.restore()
-                    logging.info('rank %s: state restored', os.environ['HOROVOD_RANK'])
                 except HostsUpdatedInterrupt as e:
-                    logging.info('rank %s: HostsUpdatedInterrupt: %s', os.environ['HOROVOD_RANK'], e)
                     pass
 
-                logging.info('rank %s: reset elastic', os.environ['HOROVOD_RANK'])
                 reset()
                 state.on_reset()
         finally:
             notification_manager.remove_listener(state)
-            logging.info('rank %s: removed listener from notification manager', os.environ['HOROVOD_RANK'])
     return wrapper

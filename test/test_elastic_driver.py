@@ -300,7 +300,7 @@ class ElasticDriverTests(unittest.TestCase):
 
         common_intfs = network.get_local_intfs()
         addr = network.get_driver_ip(common_intfs)
-        port = rendezvous.start_server(handler)
+        port = rendezvous.start(handler)
         nic = list(common_intfs)[0]
 
         rank_results = {}
@@ -360,7 +360,7 @@ class ElasticDriverTests(unittest.TestCase):
             expected = 2 if rank == 0 else 0
             assert len(timestamps) == expected, rank
 
-        rendezvous.stop_server()
+        rendezvous.stop()
 
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     @mock.patch('horovod.run.elastic.driver.ElasticDriver.host_assignments')

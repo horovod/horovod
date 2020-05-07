@@ -142,7 +142,6 @@ class BasicTaskService(network.BasicService):
                 if self._command_thread is not None:
                     self._command_abort.set()
             finally:
-                self._wait_cond.notify_all()
                 self._wait_cond.release()
             return network.AckResponse()
 
@@ -196,9 +195,11 @@ class BasicTaskService(network.BasicService):
         self._wait_cond.acquire()
         try:
             while self._command_thread is None:
-                self._wait_cond.wait(timeout.remaining() if timeout else None)
                 if timeout:
+                    self._wait_cond.wait(timeout.remaining())
                     timeout.check_time_out_for('command to run')
+                else:
+                    self._wait_cond.wait()
         finally:
             self._wait_cond.release()
 
@@ -233,7 +234,7 @@ class BasicTaskClient(network.BasicClient):
     def command_result(self):
         """
         Returns the command's result if terminated, or None.
-        :return: terminated flag and result tuple
+        :return: terminated flag and exit code
         """
         resp = self._send(CommandExitCodeRequest())
         return resp.terminated, resp.exit_code
@@ -257,6 +258,7 @@ class BasicTaskClient(network.BasicClient):
 
         :param delay: delay in seconds
         :type delay: float
+        :return: exit code
         """
         try:
             resp = self._send(WaitForCommandExitCodeRequest(delay))
