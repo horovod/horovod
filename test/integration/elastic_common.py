@@ -106,30 +106,31 @@ class BaseElasticTests(object):
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     @mock.patch('horovod.run.gloo_run._get_min_start_hosts', return_value=1)
     def test_hosts_added_and_removed(self, mock_get_min_start_hosts):
-        discovery_schedule = [
-            (0, ['localhost:2']),
-            (1, ['localhost:2', '127.0.0.1:2']),
-            (None, ['127.0.0.1:2']),
-        ]
+        for slots, np, min_np, max_np in [(2, 2, 2, 4), (1, 1, 1, 2)]:
+            discovery_schedule = [
+                (0, ['localhost:{}'.format(slots)]),
+                (1, ['localhost:{}'.format(slots), '127.0.0.1:{}'.format(slots)]),
+                (None, ['127.0.0.1:{}'.format(slots)]),
+            ]
 
-        results = self._run(discovery_schedule)
-        for result in results:
-            print(result)
+            results = self._run(discovery_schedule, np=np, min_np=min_np, max_np=max_np)
+            for result in results:
+                print(result)
 
-        assert len(results) == 3
+            assert len(results) == 3
 
-        assert results[0]['start_rank'] == 0
-        assert results[0]['size'] == 2
-        assert results[0]['hostname'] == 'localhost'
+            assert results[0]['start_rank'] == 0
+            assert results[0]['size'] == slots
+            assert results[0]['hostname'] == 'localhost'
 
-        assert results[1]['start_rank'] == 0
-        assert results[1]['size'] == 4
-        assert results[1]['hostname'] == 'localhost'
+            assert results[1]['start_rank'] == 0
+            assert results[1]['size'] == slots * 2
+            assert results[1]['hostname'] == 'localhost'
 
-        assert results[2]['start_rank'] == 2
-        assert results[2]['size'] == 2
-        assert results[2]['hostname'] == '127.0.0.1'
-        assert results[2]['rendezvous'] == 3
+            assert results[2]['start_rank'] == slots
+            assert results[2]['size'] == slots
+            assert results[2]['hostname'] == '127.0.0.1'
+            assert results[2]['rendezvous'] == 3
 
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     @mock.patch('horovod.run.gloo_run._get_min_start_hosts', return_value=1)
