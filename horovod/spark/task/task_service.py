@@ -107,14 +107,15 @@ class SparkTaskService(task_service.BasicTaskService):
         Waits for command termination. Ensures this method takes at least
         self._minimum_command_lifetime_s seconds to return after command started.
         """
-        super(SparkTaskService, self).wait_for_command_termination()
-
-        # command terminated, make sure this method takes at least
-        # self._minimum_command_lifetime_s seconds after command started
-        # the client that started the command needs some time to connect again
-        # to wait for the result (see horovod.spark.driver.rsh).
-        if self._minimum_command_lifetime is not None:
-            time.sleep(self._minimum_command_lifetime.remaining())
+        try:
+            return super(SparkTaskService, self).wait_for_command_termination()
+        finally:
+            # command terminated, make sure this method takes at least
+            # self._minimum_command_lifetime_s seconds after command started
+            # the client that started the command needs some time to connect again
+            # to wait for the result (see horovod.spark.driver.rsh).
+            if self._minimum_command_lifetime is not None:
+                time.sleep(self._minimum_command_lifetime.remaining())
 
 
 class SparkTaskClient(task_service.BasicTaskClient):

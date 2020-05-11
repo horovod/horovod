@@ -16,6 +16,7 @@
 import threading
 
 from horovod.run.common.service import driver_service
+from horovod.run.common.util import network
 
 
 class TaskHostHashIndicesRequest(object):
@@ -76,6 +77,11 @@ class CodeResponse(object):
         """Function kwargs."""
 
 
+class WaitForTaskShutdownRequest(object):
+    """Request that blocks until all task services should shut down."""
+    pass
+
+
 class SparkDriverService(driver_service.BasicDriverService):
     NAME = 'driver service'
 
@@ -92,6 +98,7 @@ class SparkDriverService(driver_service.BasicDriverService):
         self._ranks_to_indices = {}
         self._spark_job_failed = False
         self._lock = threading.Lock()
+        self._task_shutdown = threading.Event()
 
     def _handle(self, req, client_address):
 
@@ -132,6 +139,10 @@ class SparkDriverService(driver_service.BasicDriverService):
 
         if isinstance(req, CodeRequest):
             return CodeResponse(self._fn, self._args, self._kwargs)
+
+        if isinstance(req, WaitForTaskShutdownRequest):
+            self._task_shutdown.wait()
+            return network.AckResponse()
 
         return super(SparkDriverService, self)._handle(req, client_address)
 
@@ -202,21 +213,12 @@ class SparkDriverService(driver_service.BasicDriverService):
 
         return nics
 
-    def _shutdown_task(self, index):
-        task_client = task_service.SparkTaskClient(index,
-                                                   self.task_addresses_for_driver(index),
-                                                   self._key, verbose=0)
-        terminated, _ = task_client.command_result()
-        if not terminated:
-            task_client.run_command('true', {})
-
     def shutdown_tasks(self):
-        self._wait_cond.acquire()
-        try:
-            for index in self._all_task_addresses:
-                in_thread(self._shutdown_task, args=(index,), silent=True)
-        finally:
-            self._wait_cond.release()
+        self._task_shutdown.set()
+
+    def shutdown(self):
+        self.shutdown_tasks()
+        super(SparkDriverService, self).shutdown()
 
 
 class SparkDriverClient(driver_service.BasicDriverClient):
@@ -242,3 +244,6 @@ class SparkDriverClient(driver_service.BasicDriverClient):
     def code(self):
         resp = self._send(CodeRequest())
         return resp.fn, resp.args, resp.kwargs
+
+    def wait_for_task_shutdown(self):
+        self._send(WaitForTaskShutdownRequest())

@@ -136,6 +136,13 @@ class BasicDriverService(network.BasicService):
             self._wait_cond.notify_all()
             self._wait_cond.release()
 
+    def task_indices(self):
+        self._wait_cond.acquire()
+        try:
+            return list(self._task_index_host_hash.keys())
+        finally:
+            self._wait_cond.release()
+
     def task_host_hash_indices(self):
         self._wait_cond.acquire()
         try:
