@@ -70,7 +70,7 @@ class BaseElasticTests(object):
         self._training_script = training_script
         super(BaseElasticTests, self).__init__(*args, **kwargs)
 
-    def _run(self, discovery_schedule, exit_schedule=None, np=2, min_np=2, max_np=4, hosts=None):
+    def _run(self, discovery_schedule, exit_schedule=None, np=2, min_np=2, max_np=4, hosts=None, exit_mode='exception'):
         with temppath() as logfile:
             with _temp_discovery_script(logfile, discovery_schedule) as discovery_script:
                 command_args = ['horovodrun',
@@ -85,7 +85,8 @@ class BaseElasticTests(object):
                 command_args += ['python', self._training_script,
                                  '--logfile', logfile,
                                  '--discovery-schedule', json.dumps(discovery_schedule),
-                                 '--exit-schedule', json.dumps(exit_schedule or {})]
+                                 '--exit-schedule', json.dumps(exit_schedule or {}),
+                                 '--exit-mode', exit_mode]
                 print(' '.join(command_args))
 
                 with override_args(*command_args):
@@ -135,58 +136,60 @@ class BaseElasticTests(object):
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     @mock.patch('horovod.run.gloo_run._get_min_start_hosts', return_value=1)
     def test_single_rank_failure(self, mock_get_min_start_hosts):
-        discovery_schedule = [
-            (None, ['localhost:2', '127.0.0.1:2']),
-        ]
+        for exit_mode in ['exception', 'kill']:
+            discovery_schedule = [
+                (None, ['localhost:2', '127.0.0.1:2']),
+            ]
 
-        exit_schedule = {
-            str((1, 0)): [0],
-        }
+            exit_schedule = {
+                str((1, 0)): [0],
+            }
 
-        results = self._run(discovery_schedule, exit_schedule=exit_schedule)
+            results = self._run(discovery_schedule, exit_schedule=exit_schedule, exit_mode=exit_mode)
 
-        assert len(results) == 3
+            assert len(results) == 3
 
-        assert results[0]['start_rank'] == 0
-        assert results[0]['size'] == 4
-        assert results[0]['rendezvous'] == 1
+            assert results[0]['start_rank'] == 0
+            assert results[0]['size'] == 4
+            assert results[0]['rendezvous'] == 1
 
-        assert results[1]['start_rank'] == 2
-        assert results[1]['size'] == 2
-        assert results[1]['rendezvous'] == 2
+            assert results[1]['start_rank'] == 2
+            assert results[1]['size'] == 2
+            assert results[1]['rendezvous'] == 2
 
-        assert results[2]['start_rank'] == 2
-        assert results[2]['size'] == 2
-        assert results[2]['rendezvous'] == 2
+            assert results[2]['start_rank'] == 2
+            assert results[2]['size'] == 2
+            assert results[2]['rendezvous'] == 2
 
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     @mock.patch('horovod.run.gloo_run._get_min_start_hosts', return_value=1)
     def test_fault_tolerance_without_scaling(self, mock_get_min_start_hosts):
-        discovery_schedule = [
-            (None, ['localhost:2', '127.0.0.1:2']),
-        ]
+        for exit_mode in ['exception', 'kill']:
+            discovery_schedule = [
+                (None, ['localhost:2', '127.0.0.1:2']),
+            ]
 
-        hosts = 'localhost:2,127.0.0.1:2'
+            hosts = 'localhost:2,127.0.0.1:2'
 
-        exit_schedule = {
-            str((1, 0)): [0],
-        }
+            exit_schedule = {
+                str((1, 0)): [0],
+            }
 
-        results = self._run(discovery_schedule, hosts=hosts, exit_schedule=exit_schedule)
+            results = self._run(discovery_schedule, hosts=hosts, exit_schedule=exit_schedule, exit_mode=exit_mode)
 
-        assert len(results) == 3
+            assert len(results) == 3
 
-        assert results[0]['start_rank'] == 0
-        assert results[0]['size'] == 4
-        assert results[0]['rendezvous'] == 1
+            assert results[0]['start_rank'] == 0
+            assert results[0]['size'] == 4
+            assert results[0]['rendezvous'] == 1
 
-        assert results[1]['start_rank'] == 2
-        assert results[1]['size'] == 2
-        assert results[1]['rendezvous'] == 2
+            assert results[1]['start_rank'] == 2
+            assert results[1]['size'] == 2
+            assert results[1]['rendezvous'] == 2
 
-        assert results[2]['start_rank'] == 2
-        assert results[2]['size'] == 2
-        assert results[2]['rendezvous'] == 2
+            assert results[2]['start_rank'] == 2
+            assert results[2]['size'] == 2
+            assert results[2]['rendezvous'] == 2
 
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     @mock.patch('horovod.run.gloo_run._get_min_start_hosts', return_value=1)

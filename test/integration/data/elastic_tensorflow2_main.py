@@ -18,6 +18,7 @@ from __future__ import absolute_import
 import argparse
 import json
 import os
+import psutil
 import time
 
 import tensorflow as tf
@@ -39,6 +40,8 @@ parser.add_argument('--discovery-schedule', default='[]',
                     help='JSON string specifying schedule of host updates each epoch')
 parser.add_argument('--exit-schedule',
                     help='JSON string mapping from (epoch, batch) to list of ranks to exit at that time')
+parser.add_argument('--exit-mode', default='exception',
+                    help='means used to cause a worker to exit [exception | kill]')
 
 args = parser.parse_args()
 
@@ -69,8 +72,11 @@ def check_exit(epoch, batch):
     if key in exit_schedule:
         ranks_to_exit = exit_schedule[key]
         if start_rank in ranks_to_exit:
-            raise RuntimeError('check_rank and exit epoch={} batch={} start_rank={} rank={}'
-                               .format(epoch, batch, start_rank, hvd.rank()))
+            if args.exit_mode == 'exception':
+                raise RuntimeError('check_rank and exit epoch={} batch={} start_rank={} rank={}'
+                                   .format(epoch, batch, start_rank, hvd.rank()))
+            else:
+                psutil.Process(os.getpid()).kill()
 
 
 def log_state(state):
