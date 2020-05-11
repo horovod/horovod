@@ -26,7 +26,7 @@ import tensorflow as tf
 from tensorflow.python.framework import ops
 
 from horovod.tensorflow.mpi_ops import broadcast
-from horovod.tensorflow.mpi_ops import rank, size
+from horovod.tensorflow.mpi_ops import local_size, rank, size
 from horovod.tensorflow.util import _cache, _executing_eagerly, _make_subgraph
 
 
@@ -138,6 +138,7 @@ def broadcast_object_fn(root_rank=0, session=None, name=None):
 
 
 _horovod_sizes = {}
+_horovod_local_sizes = {}
 
 
 def get_size_var(dtype):
@@ -149,11 +150,24 @@ def get_size_var(dtype):
     return _horovod_sizes[dtype]
 
 
+def get_local_size_var(dtype):
+    if dtype not in _horovod_local_sizes:
+        t = tf.cast(local_size(), dtype)
+        if _executing_eagerly():
+            return t
+        _horovod_local_sizes[dtype] = tf.Variable(t)
+    return _horovod_local_sizes[dtype]
+
+
 if LooseVersion(tf.__version__) >= LooseVersion('2.0.0'):
     def update_size_vars(*args, **kwargs):
         for v in _horovod_sizes.values():
             v.assign(size())
+        for v in _horovod_local_sizes.values():
+            v.assign(local_size())
 else:
     def update_size_vars(session, *args, **kwargs):
         for v in _horovod_sizes.values():
             v.load(size(), session)
+        for v in _horovod_local_sizes.values():
+            v.load(local_size(), session)
