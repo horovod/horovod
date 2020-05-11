@@ -133,7 +133,7 @@ void GlooController::RecvReadyTensors(std::vector<std::string>& ready_to_reduce,
     int send_data = 0;
     gloo::AllgatherOptions opts(gloo_context_.ctx);
     opts.setInput(&send_data, 1);
-    opts.setOutput(recvcounts, size_);
+    opts.setOutput(recvcounts.get(), size_);
     gloo::allgather(opts);
   }
 
@@ -157,8 +157,8 @@ void GlooController::RecvReadyTensors(std::vector<std::string>& ready_to_reduce,
     auto input = new uint8_t[0];
     gloo::AllgathervOptions opts(gloo_context_.ctx);
     opts.setInput(input, 0);
-    std::vector<size_t> count_vec(recvcounts, recvcounts + size_);
-    opts.setOutput(buffer, count_vec);
+    std::vector<size_t> count_vec(recvcounts.get(), recvcounts.get() + size_);
+    opts.setOutput(buffer.get(), count_vec);
     gloo::allgatherv(opts);
   }
 
@@ -209,7 +209,7 @@ void GlooController::SendReadyTensors(RequestList& message_list) {
   {
     gloo::AllgatherOptions opts(gloo_context_.ctx);
     opts.setInput(&encoded_message_length, 1);
-    opts.setOutput(recvcounts, size_);
+    opts.setOutput(recvcounts.get(), size_);
     gloo::allgather(opts);
   }
 
@@ -247,7 +247,7 @@ void GlooController::RecvFinalTensors(ResponseList& response_list) {
   }
   // root broadcast final message to others
   std::unique_ptr<uint8_t[]> buffer(new uint8_t[msg_length]);
-  memset(buffer, 0, msg_length);
+  memset(buffer.get(), 0, msg_length);
   {
     gloo::BroadcastOptions opts(gloo_context_.ctx);
     opts.setOutput((uint8_t*)buffer.get(), msg_length);
