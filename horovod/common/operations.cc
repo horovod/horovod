@@ -505,8 +505,11 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   LOG(INFO, horovod_global.controller->GetRank()) << "Horovod Initialized";
 
   // Iterate until shutdown.
-  while (RunLoopOnce(state))
-    ;
+  try {
+    while (RunLoopOnce(state));
+  } catch (const std::exception& ex) {
+    LOG(ERROR) << "Horovod background loop uncaught exception: " << ex.what();
+  }
 
     // Finalize all contexts
 #if HAVE_NCCL
