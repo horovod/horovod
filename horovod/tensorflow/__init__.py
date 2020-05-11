@@ -20,6 +20,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
+import warnings
+
 from horovod.common.util import check_extension, gpu_available
 
 check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
@@ -38,7 +41,6 @@ from horovod.tensorflow.mpi_ops import handle_average_backwards_compatibility, c
 from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache
 
 import tensorflow as tf
-import warnings
 
 
 def allreduce(tensor, average=None, device_dense='', device_sparse='',
@@ -258,7 +260,7 @@ if _LegacyOptimizer is not None:
             allreduce the gradients before returning them.
             """
             gradients = self._optimizer.compute_gradients(*args, **kwargs)
-            if size() > 1:
+            if size() > 1 or os.environ.get('HOROVOD_ELASTIC') == '1':
                 grads, vars = zip(*gradients)
                 avg_grads = self._allreduce_grads(grads)
                 return list(zip(avg_grads, vars))
@@ -458,7 +460,7 @@ if hasattr(tf, 'GradientTape'):
 
         def gradient(self, target, sources, output_gradients=None):
             gradients = super(self.__class__, self).gradient(target, sources, output_gradients)
-            if size() > 1:
+            if size() > 1 or os.environ.get('HOROVOD_ELASTIC') == '1':
                 return self._allreduce_grads(gradients)
             else:
                 return gradients
