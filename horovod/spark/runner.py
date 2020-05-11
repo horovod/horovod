@@ -71,15 +71,23 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo, is_elastic):
         else:
             local_rank_zero_index = None
 
-        # In elastic all tasks wait for the command to start and terminate.
+        # In elastic all tasks wait for task shutdown signal from driver.
         # With Gloo all tasks wait for the command to start and terminate.
         # With MPI task with first index executes orted which will run mpirun_exec_fn for all tasks.
         if is_elastic:
-            # We don't timeout waiting for command start in elastic
-            task.wait_for_command_start(timeout=None)
-            task.wait_for_command_termination()
-            if is_elastic and task.command_exit_code() != 0:
-                raise Exception('Command failed, making Spark task fail to restart the task')
+            # either terminate on task shutdown or command termination
+            shutdown_thread = in_thread(driver_client.wait_for_task_shutdown)
+
+            while shutdown_thread.is_alive():
+                # Once the command started we wait for its termination
+                if task.wait_for_command_start(1.0):
+                    task.wait_for_command_termination()
+                    if task.command_exit_code() != 0:
+                        raise Exception('Command failed, making Spark task fail to restart the task')
+                    break
+
+                # While no command started, we can shutdown any time
+                shutdown_thread.join(0.1)
         elif use_gloo or index == local_rank_zero_index:
             # Either Gloo or first task with MPI.
             task.wait_for_command_start(settings.start_timeout)
@@ -170,7 +178,7 @@ def _notify_and_register_task_addresses(driver, settings, notify=True):
         task_to_task_addresses = task_client.get_task_addresses_for_task(next_task_index, next_task_addresses)
         driver.register_task_to_task_addresses(next_task_index, task_to_task_addresses)
 
-    for index in range(settings.num_proc):
+    for index in driver.task_indices():
         in_thread(notify_and_register, (index,))
 
     driver.wait_for_task_to_task_address_updates(settings.start_timeout)
