@@ -17,6 +17,8 @@ from __future__ import absolute_import
 
 import io
 
+from distutils.version import LooseVersion
+
 import cloudpickle
 import numpy as np
 import tensorflow as tf
@@ -24,7 +26,7 @@ import tensorflow as tf
 from tensorflow.python.framework import ops
 
 from horovod.tensorflow.mpi_ops import broadcast
-from horovod.tensorflow.mpi_ops import rank
+from horovod.tensorflow.mpi_ops import rank, size
 from horovod.tensorflow.util import _cache, _executing_eagerly, _make_subgraph
 
 
@@ -133,3 +135,25 @@ def broadcast_object_fn(root_rank=0, session=None, name=None):
 
         return obj
     return _bcast
+
+
+_horovod_sizes = {}
+
+
+def get_size_var(dtype):
+    if dtype not in _horovod_sizes:
+        t = tf.cast(size(), dtype)
+        if _executing_eagerly():
+            return t
+        _horovod_sizes[dtype] = tf.Variable(t)
+    return _horovod_sizes[dtype]
+
+
+if LooseVersion(tf.__version__) >= LooseVersion('2.0.0'):
+    def update_size_vars(*args, **kwargs):
+        for v in _horovod_sizes.values():
+            v.assign(size())
+else:
+    def update_size_vars(session, *args, **kwargs):
+        for v in _horovod_sizes.values():
+            v.load(size(), session)

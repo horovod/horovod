@@ -53,6 +53,7 @@ class State(object):
 
     def on_reset(self):
         self._host_messages = queue.Queue()
+        self.reset()
         for callback in self._reset_callbacks:
             callback()
 
@@ -105,6 +106,10 @@ class State(object):
     def sync(self):
         """Synchronize state across workers."""
         raise NotImplementedError()
+
+    def reset(self):
+        """Reset objects and variables following a reset event (before synchronization)."""
+        pass
 
 
 class ObjectState(State):
