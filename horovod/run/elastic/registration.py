@@ -66,6 +66,7 @@ class WorkerStateRegistry(object):
         return self._record_state(host, slot, SUCCESS)
 
     def record_failure(self, host, slot):
+        self._host_manager.blacklist(host)
         return self._record_state(host, slot, FAILURE)
 
     def _record_state(self, host, slot, state):
@@ -130,11 +131,6 @@ class WorkerStateRegistry(object):
             logging.error('failure count == {} -> stop running'.format(self._size))
             self._driver.stop()
             return
-
-        # Check for failures, and add them to the blacklisted hosts list
-        failures = self.get(FAILURE)
-        for host, slot in failures:
-            self._host_manager.blacklist(host)
 
         # If every active host is blacklisted, then treat this as job failure
         if all([self._host_manager.is_blacklisted(host) for host, slot in self.get_recorded_slots()]):

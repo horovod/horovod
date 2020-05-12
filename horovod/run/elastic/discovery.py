@@ -83,12 +83,13 @@ class HostManager(object):
         self._discovery = discovery
 
     def update_available_hosts(self):
-        # TODO(travis): also check for hosts removed from the blacklist in the future
         prev_host_slots = self._current_hosts.host_slots
         prev_host_assignment_order = self._current_hosts.host_assignment_order
-        host_slots = self._discovery.find_available_hosts_and_slots()
+        discovered_hosts_slots = self._discovery.find_available_hosts_and_slots()
+        host_slots = {host: slots for host, slots in discovered_hosts_slots.items()
+                      if not self._hosts_state[host].is_blacklisted()}
         if prev_host_slots != host_slots:
-            available_hosts = set([host for host in host_slots.keys() if not self._hosts_state[host].is_blacklisted()])
+            available_hosts = host_slots.keys()
             host_assignment_order = HostManager.order_available_hosts(available_hosts, prev_host_assignment_order)
             self._current_hosts = DiscoveredHosts(host_slots=host_slots,
                                                   host_assignment_order=host_assignment_order)
