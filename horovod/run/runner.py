@@ -362,6 +362,11 @@ def parse_args():
                                help='Number of slots for processes per host. Normally 1 slot per GPU per host. '
                                     'If slots are provided by the output of the host discovery script, then '
                                     'that value will override this parameter.')
+    group_elastic.add_argument('--elastic-timeout', action='store', dest='elastic_timeout', type=int,
+                               help='Timeout for elastic initialisation after re-scaling the cluster. '
+                                    'The default value is 600 seconds. Alternatively, '
+                                    'The environment variable HOROVOD_ELASTIC_TIMEOUT '
+                                    'can also be used to.')
 
     group_timeline = parser.add_argument_group('timeline arguments')
     group_timeline.add_argument('--timeline-filename', action=make_override_action(override_args),
@@ -517,6 +522,7 @@ class HorovodArgs(object):
         self.min_np = None
         self.max_np = None
         self.slots = None
+        self.elastic_timeout = None
 
         # timeline arguments
         self.timeline_filename = None
@@ -607,7 +613,7 @@ def _run_static(args):
                                      tcp_flag=args.tcp_flag,
                                      binding_args=args.binding_args,
                                      key=secret.make_secret_key(),
-                                     timeout=tmout,
+                                     start_timeout=tmout,
                                      num_proc=args.np,
                                      hosts=args.hosts,
                                      num_hosts=len(all_host_names),
@@ -705,7 +711,8 @@ def _run_elastic(args):
                                                 ssh_port=args.ssh_port,
                                                 extra_mpi_args=args.mpi_args,
                                                 key=secret.make_secret_key(),
-                                                timeout=tmout,
+                                                start_timeout=tmout,
+                                                elastic_timeout=args.elastic_timeout,
                                                 output_filename=args.output_filename,
                                                 run_func_mode=args.run_func is not None,
                                                 nics=args.nics)

@@ -28,7 +28,7 @@ def _task_fn(index, num_hosts, driver_addresses, settings):
         driver.register_task(index,
                              task.addresses(),
                              host_hash.host_hash())
-        task.wait_for_initial_registration(settings.timeout)
+        task.wait_for_initial_registration(settings.start_timeout)
         # Tasks ping each other in a circular fashion to determine interfaces
         # reachable within the cluster.
         next_task_index = (index + 1) % num_hosts
@@ -47,7 +47,7 @@ def _task_fn(index, num_hosts, driver_addresses, settings):
         next_task.task_to_task_address_check_completed()
         # Wait to get a notification from previous task that its address checks
         # are completed as well.
-        task.wait_for_task_to_task_address_check_finish_signal(settings.timeout)
+        task.wait_for_task_to_task_address_check_finish_signal(settings.start_timeout)
 
     finally:
         task.shutdown()

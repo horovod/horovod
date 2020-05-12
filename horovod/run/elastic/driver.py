@@ -31,7 +31,7 @@ from horovod.run.elastic.worker import WorkerNotificationClient
 
 
 DISCOVER_HOSTS_FREQUENCY_SECS = 1.0
-START_TIMEOUT_SECS = 600
+ELASTIC_TIMEOUT_SECS = 600
 
 
 def _epoch_time_s():
@@ -59,7 +59,7 @@ class Results(object):
 
 
 class ElasticDriver(object):
-    def __init__(self, rendezvous, discovery, min_np, max_np, start_timeout=None, verbose=0):
+    def __init__(self, rendezvous, discovery, min_np, max_np, timeout=None, verbose=0):
         self._rendezvous = rendezvous
         self._host_manager = HostManager(discovery)
         self._min_np = min_np
@@ -71,7 +71,7 @@ class ElasticDriver(object):
         self._world_size = 0
 
         self._wait_hosts_cond = threading.Condition()
-        self._start_timeout = start_timeout or int(os.getenv('HOROVOD_ELASTIC_START_TIMEOUT', START_TIMEOUT_SECS))
+        self._timeout = timeout or int(os.getenv('HOROVOD_ELASTIC_TIMEOUT', ELASTIC_TIMEOUT_SECS))
 
         self._create_worker_fn = None
         self._worker_clients = {}
@@ -129,7 +129,7 @@ class ElasticDriver(object):
                         'are compatible in your network, set `--nic` to skip this check.' if min_hosts > 1 else ''
 
         tmout = timeout.Timeout(
-            self._start_timeout,
+            self._timeout,
             message='Timed out waiting for {{activity}}. Please check that you have '
                     'enough resources to run at least {min_np} Horovod processes.{extra_message}'
                     .format(min_np=min_np, extra_message=extra_message))

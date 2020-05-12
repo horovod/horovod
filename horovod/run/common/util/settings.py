@@ -18,7 +18,7 @@ from __future__ import absolute_import
 
 class BaseSettings(object):
     def __init__(self, num_proc=None, verbose=0, ssh_port=None, extra_mpi_args=None, tcp_flag=None,
-                 binding_args=None, key=None, timeout=None, output_filename=None,
+                 binding_args=None, key=None, start_timeout=None, output_filename=None,
                  run_func_mode=None, nics=None, elastic=False):
         """
         :param num_proc: number of horovod processes (-np)
@@ -35,9 +35,8 @@ class BaseSettings(object):
         :type binding_args: string
         :param key: used for encryption of parameters passed across the hosts
         :type key: str
-        :param timeout: has to finish all the checks before this timeout runs
-        out.
-        :type timeout: horovod.run.common.util.timeout.Timeout
+        :param start_timeout: has to finish all the checks before this timeout runs out.
+        :type start_timeout: horovod.run.common.util.timeout.Timeout
         :param output_filename: optional filename to redirect stdout / stderr by process
         :type output_filename: string
         :param run_func_mode: whether it is run function mode
@@ -54,7 +53,7 @@ class BaseSettings(object):
         self.tcp_flag = tcp_flag
         self.binding_args = binding_args
         self.key = key
-        self.timeout = timeout
+        self.start_timeout = start_timeout
         self.output_filename = output_filename
         self.run_func_mode = run_func_mode
         self.nics = nics

@@ -158,7 +158,7 @@ def _driver_fn(all_host_names, local_host_names, settings):
         # wait for all the hosts to register with the service service.
         if settings.verbose >= 2:
             print('Waiting for the hosts to acknowledge.')
-        driver.wait_for_initial_registration(settings.timeout)
+        driver.wait_for_initial_registration(settings.start_timeout)
         tasks = [
             task_service.HorovodRunTaskClient(
                 index,
@@ -177,7 +177,7 @@ def _driver_fn(all_host_names, local_host_names, settings):
         # such as lo0 with address 127.0.0.1.
         if settings.verbose >= 2:
             print('Waiting for hosts to perform host-to-host interface checking.')
-        driver.wait_for_task_to_task_address_updates(settings.timeout)
+        driver.wait_for_task_to_task_address_updates(settings.start_timeout)
         if settings.verbose >= 2:
             print('Host-to-host interface checking successful.')
         # Determine a set of common interfaces for task-to-task communication.

@@ -326,7 +326,7 @@ You can additionally specify the minimum and maximum number of processes to run 
     $ horovodrun -np 8 --min-np 4 --max-np 12 --host-discovery-script discover_hosts.sh python train.py
 
 If the number of available slots falls below ``--min-np`` (due to host failure, preemption, etc.), then the job will
-pause waiting for more hosts to become available or until ``HOROVOD_ELASTIC_START_TIMEOUT`` (default: 600 seconds) has
+pause waiting for more hosts to become available or until ``HOROVOD_ELASTIC_TIMEOUT`` (default: 600 seconds) has
 elapsed.  If unspecified, minimum np defaults to ``-np``.
 
 The maximum np can be used to cap the number of processes (to prevent over-utilizing available resources) and to serve

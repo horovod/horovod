@@ -283,6 +283,7 @@ def gloo_run_elastic(settings, env, command):
 
     rendezvous = RendezvousServer(settings.verbose)
     driver = ElasticDriver(rendezvous, settings.discovery,
+                           settings.elastic_timeout,
                            settings.min_np, settings.max_np,
                            verbose=settings.verbose)
 

@@ -19,7 +19,7 @@ from horovod.run.common.util.settings import BaseSettings
 
 
 class ElasticSettings(BaseSettings):
-    def __init__(self, discovery, min_np, max_np, **kwargs):
+    def __init__(self, discovery, min_np, max_np, elastic_timeout, **kwargs):
         """
         :param discovery: object used to detect and manage available hosts
         :type discovery: horovod.run.elastic.discovery.HostDiscovery
@@ -27,8 +27,11 @@ class ElasticSettings(BaseSettings):
         :type min_np: int
         :param max_np: maximum number of processes
         :type max_np: int
+        :param elastic_timeout: timeout for elastic initialisation after re-scaling in seconds
+        :type elastic_timeout: int
         """
         super(ElasticSettings, self).__init__(elastic=True, **kwargs)
         self.discovery = discovery
         self.min_np = min_np
         self.max_np = max_np
+        self.elastic_timeout = elastic_timeout
