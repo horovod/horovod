@@ -24,7 +24,7 @@ import warnings
 import mock
 
 from horovod.run.util import network
-from horovod.run.elastic.discovery import FixedHosts, HostDiscovery
+from horovod.run.elastic.discovery import FixedHosts, HostDiscovery, HostManager
 from horovod.run.elastic.driver import ElasticDriver
 from horovod.run.elastic.rendezvous import create_rendezvous_handler
 from horovod.run.elastic.worker import WorkerNotificationManager
@@ -345,6 +345,77 @@ class ElasticDriverTests(unittest.TestCase):
             assert len(timestamps) == expected, rank
 
         rendezvous.stop_server()
+
+    def test_order_available_hosts(self):
+        # This will be a set in practice, but use a list here to guarantee order.
+        available_hosts = ['a', 'b', 'c']
+        ordered_hosts = []
+        ordered_hosts = HostManager.order_available_hosts(available_hosts, ordered_hosts)
+        assert ordered_hosts == available_hosts
+
+        # We remove a host, add a host, and chance the order, but relative order should be preserved
+        available_hosts = ['d', 'c', 'b']
+        ordered_hosts = HostManager.order_available_hosts(available_hosts, ordered_hosts)
+        assert ordered_hosts == ['b', 'c', 'd']
+
+    def test_update_available_hosts(self):
+        mock_discovery = mock.Mock()
+        mock_discovery.find_available_hosts_and_slots.side_effect = [
+            {'a': 2},
+            {'a': 2, 'b': 2},
+            {'b': 2}
+        ]
+        host_manager = HostManager(mock_discovery)
+
+        # Should be empty initially
+        current_hosts = host_manager.current_hosts
+        assert current_hosts.available_hosts == set()
+        assert current_hosts.count_available_slots() == 0
+
+        host_manager.update_available_hosts()
+
+        # First, check that nothing changed with our existing object, which is immutable
+        assert current_hosts.available_hosts == set()
+        assert current_hosts.count_available_slots() == 0
+
+        # Now verify that the new object has the correct sets
+        current_hosts = host_manager.current_hosts
+        assert current_hosts.available_hosts == {'a'}
+        assert current_hosts.count_available_slots() == 2
+
+        # Now check again
+        host_manager.update_available_hosts()
+        current_hosts = host_manager.current_hosts
+        assert current_hosts.available_hosts == {'a', 'b'}
+        assert current_hosts.count_available_slots() == 4
+
+        # And again
+        host_manager.update_available_hosts()
+        current_hosts = host_manager.current_hosts
+        assert current_hosts.available_hosts == {'b'}
+        assert current_hosts.count_available_slots() == 2
+
+    def test_blacklist_host(self):
+        mock_discovery = mock.Mock()
+        mock_discovery.find_available_hosts_and_slots.return_value = {'a': 2, 'b': 2}
+        host_manager = HostManager(mock_discovery)
+
+        host_manager.update_available_hosts()
+
+        # Sanity check before we blacklist
+        current_hosts = host_manager.current_hosts
+        assert current_hosts.available_hosts == {'a', 'b'}
+        assert current_hosts.count_available_slots() == 4
+
+        # Now blacklist, our existing object should not change (immutable)
+        host_manager.blacklist('a')
+        assert current_hosts.available_hosts == {'a', 'b'}
+        assert current_hosts.count_available_slots() == 4
+
+        # Check the new object, make sure we've blacklisted the host
+        current_hosts = host_manager.current_hosts
+        assert current_hosts.available_hosts == {'b'}
+        assert current_hosts.count_available_slots() == 2
 
 
 if __name__ == "__main__":

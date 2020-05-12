@@ -126,6 +126,7 @@ class HostManager(object):
 
 class HostDiscovery(object):
     def find_available_hosts_and_slots(self):
+        """Returns a dict mapping <hostname> -> <number of slots>."""
         raise NotImplementedError()
 
 
