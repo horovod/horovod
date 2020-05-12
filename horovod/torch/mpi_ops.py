@@ -124,8 +124,11 @@ def _allreduce_async(tensor, output, name, op):
     true_op = Sum if op == Average else op
 
     function = _check_function(_allreduce_function_factory, tensor)
-    handle = getattr(mpi_lib, function)(tensor, output, divisor,
-                                        name.encode() if name is not None else _NULL, true_op)
+    try:
+        handle = getattr(mpi_lib, function)(tensor, output, divisor,
+                                            name.encode() if name is not None else _NULL, true_op)
+    except RuntimeError as e:
+        raise HorovodInternalError(e)
     _handle_map[handle] = (tensor, output)
     return handle
 
@@ -260,8 +263,11 @@ def _allgather_function_factory(tensor):
 
 def _allgather_async(tensor, output, name):
     function = _check_function(_allgather_function_factory, tensor)
-    handle = getattr(mpi_lib, function)(
-        tensor, output, name.encode() if name is not None else _NULL)
+    try:
+        handle = getattr(mpi_lib, function)(
+            tensor, output, name.encode() if name is not None else _NULL)
+    except RuntimeError as e:
+        raise HorovodInternalError(e)
     _handle_map[handle] = (tensor, output)
     return handle
 
@@ -340,8 +346,11 @@ def _broadcast_function_factory(tensor):
 
 def _broadcast_async(tensor, output, root_rank, name):
     function = _check_function(_broadcast_function_factory, tensor)
-    handle = getattr(mpi_lib, function)(
-        tensor, output, root_rank, name.encode() if name is not None else _NULL)
+    try:
+        handle = getattr(mpi_lib, function)(
+            tensor, output, root_rank, name.encode() if name is not None else _NULL)
+    except RuntimeError as e:
+        raise HorovodInternalError(e)
     _handle_map[handle] = (tensor, output)
     return handle
 
