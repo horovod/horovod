@@ -22,6 +22,7 @@ import unittest
 import warnings
 
 import mock
+import pytest
 
 from horovod.run.util import network
 from horovod.run.elastic.discovery import FixedHosts, HostDiscovery, HostManager
@@ -347,6 +348,7 @@ class ElasticDriverTests(unittest.TestCase):
         rendezvous.stop_server()
 
     def test_order_available_hosts(self):
+        """Tests the order is preserved for host assignment as available hosts are updated."""
         # This will be a set in practice, but use a list here to guarantee order.
         available_hosts = ['a', 'b', 'c']
         ordered_hosts = []
@@ -359,6 +361,7 @@ class ElasticDriverTests(unittest.TestCase):
         assert ordered_hosts == ['b', 'c', 'd']
 
     def test_update_available_hosts(self):
+        """Tests that the current hosts object is immutable, while fetching the latest is correctly updated."""
         mock_discovery = mock.Mock()
         mock_discovery.find_available_hosts_and_slots.side_effect = [
             {'a': 2},
@@ -396,6 +399,7 @@ class ElasticDriverTests(unittest.TestCase):
         assert current_hosts.count_available_slots() == 2
 
     def test_blacklist_host(self):
+        """Tests the hosts are blacklisted, resulting in changes to the available hosts."""
         mock_discovery = mock.Mock()
         mock_discovery.find_available_hosts_and_slots.return_value = {'a': 2, 'b': 2}
         host_manager = HostManager(mock_discovery)
@@ -416,6 +420,16 @@ class ElasticDriverTests(unittest.TestCase):
         current_hosts = host_manager.current_hosts
         assert current_hosts.available_hosts == {'b'}
         assert current_hosts.count_available_slots() == 2
+
+    def test_shutdown_on_initial_discovery_failure(self):
+        """Tests that the driver will shutdown immediately if initial host discovery fails."""
+        discovery = mock.Mock()
+        discovery.find_available_hosts_and_slots.side_effect = RuntimeError()
+
+        driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=4)
+        with pytest.raises(RuntimeError):
+            driver.wait_for_available_hosts(min_np=2)
+        assert driver.finished()
 
 
 if __name__ == "__main__":

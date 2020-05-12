@@ -140,6 +140,8 @@ class ElasticDriver(object):
                 current_hosts = self._host_manager.current_hosts
                 if current_hosts.count_available_slots() >= min_np and len(current_hosts.available_hosts) >= min_hosts:
                     return current_hosts
+                if self._shutdown.is_set():
+                    raise RuntimeError('Job has been shutdown, see above error messages for details.')
                 self._wait_hosts_cond.wait(tmout.remaining())
                 tmout.check_time_out_for('minimum number of hosts to become available')
         finally:
@@ -163,6 +165,8 @@ class ElasticDriver(object):
             except RuntimeError as e:
                 if first_update:
                     # Misconfiguration, fail the job immediately
+                    self._shutdown.set()
+                    self._wait_hosts_cond.notify_all()
                     raise
                 # Transient error, retry until timeout
                 logging.warning(str(e))
