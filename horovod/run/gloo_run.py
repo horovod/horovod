@@ -265,7 +265,7 @@ def launch_gloo(command, exec_command, settings, nics, env, server_ip):
 
 def _get_min_start_hosts(settings):
     # This function exists for the purpose of mocking in tests
-    return 2 if settings.max_np > settings.num_proc and not settings.nics else 1
+    return 2 if settings.elastic and not settings.nics else 1
 
 
 def gloo_run(settings, nics, env, server_ip, command):
@@ -290,7 +290,7 @@ def gloo_run_elastic(settings, env, command):
     handler = create_rendezvous_handler(driver)
     global_rendezv_port = rendezvous.start_server(handler)
 
-    # Host-to-host common interface detection requires at least 2 hosts in an auto-scaling job.
+    # Host-to-host common interface detection requires at least 2 hosts in an elastic job.
     min_hosts = _get_min_start_hosts(settings)
     current_hosts = driver.wait_for_available_hosts(settings.num_proc, min_hosts=min_hosts)
 

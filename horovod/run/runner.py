@@ -687,6 +687,8 @@ def _run_elastic(args):
         discover_hosts = discovery.HostDiscoveryScript(args.host_discovery_script, args.slots)
     elif args.hosts:
         _, available_host_slots = parse_hosts_and_slots(args.hosts)
+        if len(available_host_slots) < 2:
+            raise ValueError('Cannot run in fault tolerance mode with fewer than 2 hosts.')
         discover_hosts = discovery.FixedHosts(available_host_slots)
     else:
         raise ValueError('One of --host-discovery-script, --hosts, or --hostnames must be provided')

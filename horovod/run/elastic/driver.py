@@ -124,7 +124,7 @@ class ElasticDriver(object):
         return host in self._host_assignments and len(self._host_assignments[host]) > slot
 
     def wait_for_available_hosts(self, min_np, min_hosts=1):
-        extra_message = ' An auto-scaling job (`--max-np` > `--num-proc`) also requires that at least two hosts ' \
+        extra_message = ' An elastic job also requires that at least two hosts ' \
                         'are available to resolve compatible network interfaces. If you know which interfaces ' \
                         'are compatible in your network, set `--nic` to skip this check.' if min_hosts > 1 else ''
 
@@ -180,7 +180,7 @@ class ElasticDriver(object):
         next_host_assignments, _ = self._get_host_assignments(current_hosts)
         if next_host_assignments == self._host_assignments:
             # Skip notifying workers when host changes would not result in changes of host assignments
-            logging.debug('no host changes, skipping notifications')
+            logging.debug('no host assignment changes, skipping notifications')
             return
 
         coordinator_slot_info = self._rank_assignments.get(0)
