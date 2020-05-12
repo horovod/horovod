@@ -221,7 +221,7 @@ class BaseElasticTests(object):
         with pytest.raises(RuntimeError, match=message):
             self._run(discovery_schedule, exit_schedule=exit_schedule)
 
-    @mock.patch('horovod.run.elastic.driver.START_TIMEOUT_SECS', 1)
+    @mock.patch('horovod.run.elastic.driver.ELASTIC_TIMEOUT_SECS', 1)
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     @mock.patch('horovod.run.gloo_run._get_min_start_hosts', return_value=1)
     def test_min_hosts_timeout(self, mock_get_min_start_hosts):
