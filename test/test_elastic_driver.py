@@ -68,7 +68,7 @@ class ElasticDriverTests(unittest.TestCase):
         discovery = FixedHosts(slots)
 
         driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=4)
-        driver.wait_for_available_hosts(min_np=2)
+        driver.wait_for_available_slots(min_np=2)
 
         rank_results = {}
 
@@ -96,7 +96,7 @@ class ElasticDriverTests(unittest.TestCase):
         discovery = FixedHosts(slots)
 
         driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=4)
-        driver.wait_for_available_hosts(min_np=2)
+        driver.wait_for_available_slots(min_np=2)
 
         rank_results = {}
 
@@ -137,7 +137,7 @@ class ElasticDriverTests(unittest.TestCase):
             discovery.set(slots)
 
         driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=4)
-        driver.wait_for_available_hosts(min_np=2)
+        driver.wait_for_available_slots(min_np=2)
 
         rank_results = {}
 
@@ -147,7 +147,7 @@ class ElasticDriverTests(unittest.TestCase):
             if slot_info.hostname == 'host-1':
                 if slot_info.rank == 0:
                     add_host()
-                driver.wait_for_available_hosts(4)
+                driver.wait_for_available_slots(4)
                 driver.record_ready(slot_info.hostname, slot_info.local_rank)
 
             driver.record_ready(slot_info.hostname, slot_info.local_rank)
@@ -173,7 +173,7 @@ class ElasticDriverTests(unittest.TestCase):
             assert updated_slot_info.cross_rank == slot_info.cross_rank, rank
 
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
-    def test_wait_for_available_hosts(self):
+    def test_wait_for_available_slots(self):
         """Tests that driver blocks until the min number of slots are available."""
         slots = [{'host-1': 4},
                  {'host-1': 4, 'host-2': 8},
@@ -181,7 +181,7 @@ class ElasticDriverTests(unittest.TestCase):
         discovery = HostDiscoverySequence(slots)
 
         driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=12)
-        driver.wait_for_available_hosts(min_np=10)
+        driver.wait_for_available_slots(min_np=10)
         assert driver._host_manager.current_hosts.count_available_slots() >= 10
 
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
@@ -193,7 +193,7 @@ class ElasticDriverTests(unittest.TestCase):
         discovery = HostDiscoverySequence(slots)
 
         driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=12)
-        driver.wait_for_available_hosts(min_np=2, min_hosts=2)
+        driver.wait_for_available_slots(min_np=2, min_hosts=2)
 
         # Even though we only needed 2 slots, because we also needed 2 hosts, we will at least 12 slots total
         assert driver._host_manager.current_hosts.count_available_slots() >= 12
@@ -204,7 +204,7 @@ class ElasticDriverTests(unittest.TestCase):
         discovery = FixedHosts(slots)
 
         driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=4)
-        driver.wait_for_available_hosts(min_np=2)
+        driver.wait_for_available_slots(min_np=2)
 
         def exec_command(slot_info, events):
             driver.record_ready(slot_info.hostname, slot_info.local_rank)
@@ -224,7 +224,7 @@ class ElasticDriverTests(unittest.TestCase):
         discovery = FixedHosts(slots)
 
         driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=4)
-        driver.wait_for_available_hosts(min_np=2)
+        driver.wait_for_available_slots(min_np=2)
 
         def exec_command(slot_info, events):
             if slot_info.rank == 0:
@@ -251,7 +251,7 @@ class ElasticDriverTests(unittest.TestCase):
         discovery = FixedHosts(slots)
 
         driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=4)
-        driver.wait_for_available_hosts(min_np=2)
+        driver.wait_for_available_slots(min_np=2)
 
         rank_results = {}
 
@@ -294,7 +294,7 @@ class ElasticDriverTests(unittest.TestCase):
 
         rendezvous = RendezvousServer()
         driver = ElasticDriver(rendezvous, discovery, min_np=2, max_np=4)
-        driver.wait_for_available_hosts(min_np=2)
+        driver.wait_for_available_slots(min_np=2)
         handler = create_rendezvous_handler(driver)
 
         common_intfs = network.get_local_intfs()
@@ -334,7 +334,7 @@ class ElasticDriverTests(unittest.TestCase):
 
             if slot_info.rank == 0:
                 add_host()
-            driver.wait_for_available_hosts(4)
+            driver.wait_for_available_slots(4)
 
             if slot_info.rank == 0:
                 remove_host()
@@ -442,7 +442,7 @@ class ElasticDriverTests(unittest.TestCase):
 
         driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=4)
         with pytest.raises(RuntimeError):
-            driver.wait_for_available_hosts(min_np=2)
+            driver.wait_for_available_slots(min_np=2)
         assert driver.finished()
 
 

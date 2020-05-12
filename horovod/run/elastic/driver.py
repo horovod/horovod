@@ -86,10 +86,10 @@ class ElasticDriver(object):
 
     def start(self, np, create_worker_fn):
         self._create_worker_fn = create_worker_fn
-        self._activate_hosts(np)
+        self._activate_workers(np)
 
     def resume(self):
-        self._activate_hosts(self._min_np)
+        self._activate_workers(self._min_np)
 
     def stop(self):
         self._shutdown.set()
@@ -123,7 +123,7 @@ class ElasticDriver(object):
             return False
         return host in self._host_assignments and len(self._host_assignments[host]) > slot
 
-    def wait_for_available_hosts(self, min_np, min_hosts=1):
+    def wait_for_available_slots(self, min_np, min_hosts=1):
         extra_message = ' An elastic job also requires that at least two hosts ' \
                         'are available to resolve compatible network interfaces. If you know which interfaces ' \
                         'are compatible in your network, set `--nic` to skip this check.' if min_hosts > 1 else ''
@@ -143,13 +143,13 @@ class ElasticDriver(object):
                 if self._shutdown.is_set():
                     raise RuntimeError('Job has been shutdown, see above error messages for details.')
                 self._wait_hosts_cond.wait(tmout.remaining())
-                tmout.check_time_out_for('minimum number of hosts to become available')
+                tmout.check_time_out_for('minimum number of slots to become available')
         finally:
             self._wait_hosts_cond.release()
 
-    def _activate_hosts(self, min_np):
-        logging.info('wait for available hosts: {}'.format(min_np))
-        current_hosts = self.wait_for_available_hosts(min_np)
+    def _activate_workers(self, min_np):
+        logging.info('wait for available slots: {}'.format(min_np))
+        current_hosts = self.wait_for_available_slots(min_np)
         pending_slots = self._update_host_assignments(current_hosts)
         self._worker_registry.reset(self.world_size())
         self._start_worker_processes(pending_slots)
