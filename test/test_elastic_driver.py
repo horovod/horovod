@@ -184,6 +184,20 @@ class ElasticDriverTests(unittest.TestCase):
         driver.wait_for_available_hosts(min_np=10)
         assert driver._host_manager.current_hosts.count_available_slots() >= 10
 
+    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    def test_wait_for_min_hosts(self):
+        """Tests that driver blocks until the min number of hosts and slots are available."""
+        slots = [{'host-1': 4},
+                 {'host-1': 4, 'host-2': 8},
+                 {'host-1': 4, 'host-2': 8, 'host-3': 4}]
+        discovery = HostDiscoverySequence(slots)
+
+        driver = ElasticDriver(mock.Mock(), discovery, min_np=2, max_np=12)
+        driver.wait_for_available_hosts(min_np=2, min_hosts=2)
+
+        # Even though we only needed 2 slots, because we also needed 2 hosts, we will at least 12 slots total
+        assert driver._host_manager.current_hosts.count_available_slots() >= 12
+
     def test_all_workers_fail(self):
         """Tests that training fails when all workers fail."""
         slots = {'host-1': 2, 'host-2': 2}
