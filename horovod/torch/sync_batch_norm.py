@@ -33,10 +33,10 @@ _SYNC_BN_V2 = LooseVersion(torch.__version__) >= LooseVersion('1.6.0')
 
 
 class SyncBatchNorm(_BatchNorm):
-    """
-    Applies synchronous version of N-dimensional BatchNorm.  In this version, normalization
-    parameters are synchronized across workers during forward pass.  This is very useful in
-    situations where each GPU can fit a very small number of examples.
+    """Applies synchronous version of N-dimensional BatchNorm.
+
+    In this version, normalization parameters are synchronized across workers during forward pass.
+    This is very useful in situations where each GPU can fit a very small number of examples.
 
     See https://pytorch.org/docs/stable/nn.html#batchnorm2d for more details about BatchNorm.
 
@@ -53,7 +53,7 @@ class SyncBatchNorm(_BatchNorm):
             this module does not track such statistics and always uses batch
             statistics in both training and eval modes. Default: `True`
     
-    NOTE: only GPU input tensors are supported in the training mode.
+    .. note:: Only GPU input tensors are supported in the training mode.
     """
     def __init__(self, num_features, eps=1e-5, momentum=0.1, affine=True, track_running_stats=True):
         super().__init__(num_features, eps, momentum, affine, track_running_stats)

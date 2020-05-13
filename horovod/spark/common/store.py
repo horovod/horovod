@@ -184,6 +184,13 @@ class FilesystemStore(Store):
     def get_test_data_path(self, idx=None):
         return '{}.{}'.format(self._test_path, idx) if idx is not None else self._test_path
 
+    def get_data_metadata_path(self, path):
+        localized_path = self.get_localized_path(path)
+        if localized_path.endswith('/'):
+            localized_path = localized_path[:-1] # Remove the slash at the end if there is one
+        metadata_cache = localized_path+"_cached_metadata.pkl"
+        return metadata_cache
+
     def saving_runs(self):
         return self._save_runs
 

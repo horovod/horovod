@@ -20,12 +20,14 @@ import warnings
 
 import mock
 import numpy as np
+import sys
 import tensorflow as tf
 
 import pyspark.sql.types as T
 from pyspark.ml.linalg import DenseVector, SparseVector
 from pyspark.sql.functions import udf
 
+from horovod.run.runner import is_gloo_used
 import horovod.spark.keras as hvd
 from horovod.spark.common import constants, util
 from horovod.spark.keras import remote
@@ -72,6 +74,9 @@ class SparkKerasTests(tf.test.TestCase):
         warnings.simplefilter('module')
 
     def test_fit_model(self):
+        if sys.version_info < (3, 0, 0) and is_gloo_used():
+            self.skipTest('Horovod on Spark over Gloo only supported on Python3')
+
         model = create_xor_model()
         optimizer = tf.keras.optimizers.SGD(lr=0.1)
         loss = 'binary_crossentropy'
@@ -100,39 +105,43 @@ class SparkKerasTests(tf.test.TestCase):
                 assert pred.dtype == np.float32
 
     def test_fit_model_multiclass(self):
+        if sys.version_info < (3, 0, 0) and is_gloo_used():
+            self.skipTest('Horovod on Spark over Gloo only supported on Python3')
+
         model = create_mnist_model()
         optimizer = tf.keras.optimizers.Adadelta(1.0)
         loss = tf.keras.losses.categorical_crossentropy
 
-        with spark_session('test_fit_model_multiclass') as spark:
-            df = create_mnist_data(spark)
+        for num_cores in [2, constants.TOTAL_BUFFER_MEMORY_CAP_GIB + 1]:
+            with spark_session('test_fit_model_multiclass', cores=num_cores) as spark:
+                df = create_mnist_data(spark)
 
-            with local_store() as store:
-                keras_estimator = hvd.KerasEstimator(
-                    num_proc=2,
-                    store=store,
-                    model=model,
-                    optimizer=optimizer,
-                    loss=loss,
-                    metrics=['accuracy'],
-                    feature_cols=['features'],
-                    label_cols=['label_vec'],
-                    batch_size=2,
-                    epochs=2,
-                    verbose=2)
+                with local_store() as store:
+                    keras_estimator = hvd.KerasEstimator(
+                        num_proc=num_cores,
+                        store=store,
+                        model=model,
+                        optimizer=optimizer,
+                        loss=loss,
+                        metrics=['accuracy'],
+                        feature_cols=['features'],
+                        label_cols=['label_vec'],
+                        batch_size=2,
+                        epochs=2,
+                        verbose=2)
 
-                keras_model = keras_estimator.fit(df).setOutputCols(['label_prob'])
-                pred_df = keras_model.transform(df)
+                    keras_model = keras_estimator.fit(df).setOutputCols(['label_prob'])
+                    pred_df = keras_model.transform(df)
 
-                argmax = udf(lambda v: float(np.argmax(v)), returnType=T.DoubleType())
-                pred_df = pred_df.withColumn('label_pred', argmax(pred_df.label_prob))
+                    argmax = udf(lambda v: float(np.argmax(v)), returnType=T.DoubleType())
+                    pred_df = pred_df.withColumn('label_pred', argmax(pred_df.label_prob))
 
-                preds = pred_df.collect()
-                assert len(preds) == df.count()
+                    preds = pred_df.collect()
+                    assert len(preds) == df.count()
 
-                row = preds[0]
-                label_prob = row.label_prob.toArray().tolist()
-                assert label_prob[int(row.label_pred)] == max(label_prob)
+                    row = preds[0]
+                    label_prob = row.label_prob.toArray().tolist()
+                    assert label_prob[int(row.label_pred)] == max(label_prob)
 
     @mock.patch('horovod.spark.keras.remote._pin_gpu_fn')
     @mock.patch('horovod.spark.keras.util.TFKerasUtil.fit_fn')

@@ -673,8 +673,10 @@ def get_common_options(build_ext):
         nccl_include_dirs = nccl_lib_dirs = nccl_libs = []
 
     if gpu_allreduce == 'DDL':
-        warnings.warn("WARN: DDL backend has been deprecated. Please, start using the NCCL backend "
-                      "by building Horovod with 'HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_BROADCAST=NCCL'.")
+        warnings.warn('DDL backend has been deprecated. Please, start using the NCCL backend '
+                      'by building Horovod with "HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_BROADCAST=NCCL". '
+                      'Will be removed in v0.21.0.',
+                      DeprecationWarning)
         have_ddl = True
         ddl_include_dirs, ddl_lib_dirs = get_ddl_dirs(build_ext,
                                                       gpu_include_dirs,
@@ -740,7 +742,7 @@ def get_common_options(build_ext):
                 raise RuntimeError('MPI is not installed, try changing HOROVOD_CPU_OPERATIONS.')
             MACROS += [('HOROVOD_CPU_OPERATIONS_DEFAULT', "'M'")]
         elif cpu_operation.upper() == 'MLSL':
-            raise RuntimeError('Intel(R) MLSL was deprecated. Upgrade to oneCCL and try setting HOROVOD_CPU_OPERATIONS=CCL.')
+            raise RuntimeError('Intel(R) MLSL was removed. Upgrade to oneCCL and set HOROVOD_CPU_OPERATIONS=CCL.')
         elif cpu_operation.upper() == 'CCL':
             if not have_ccl:
                 raise RuntimeError('oneCCL is not installed, try changing HOROVOD_CPU_OPERATIONS.')
@@ -1577,7 +1579,7 @@ tensorflow_gpu_require_list = ['tensorflow-gpu']
 keras_require_list = ['keras>=2.0.8,!=2.0.9,!=2.1.0,!=2.1.1']
 pytorch_require_list = ['torch']
 mxnet_require_list = ['mxnet>=1.4.1']
-spark_require_list = ['h5py>=2.9', 'numpy', 'petastorm==0.8.2', 'pyarrow>=0.15.0', 'pyspark>=2.3.2']  # Petastorm 0.7.7 is not compatible with pyarrow<0.15.0
+spark_require_list = ['h5py>=2.9', 'numpy', 'petastorm>=0.9.0', 'pyarrow>=0.15.0', 'pyspark>=2.3.2']
 # all frameworks' dependencies
 all_frameworks_require_list = tensorflow_require_list + \
                               tensorflow_gpu_require_list + \

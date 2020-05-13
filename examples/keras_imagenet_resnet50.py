@@ -96,6 +96,9 @@ model = keras.applications.resnet50.ResNet50(weights=None)
 # Horovod: (optional) compression algorithm.
 compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
 
+# Horovod: adjust learning rate based on number of GPUs.
+initial_lr = args.base_lr * hvd.size()
+
 # Restore from a previous checkpoint, if initial_epoch is specified.
 # Horovod: restore on the first worker which will broadcast both model and optimizer weights
 # to other workers.
@@ -117,10 +120,7 @@ else:
             layer_config['config']['epsilon'] = 1e-5
 
     model = keras.models.Model.from_config(model_config)
-
-    # Horovod: adjust learning rate based on number of GPUs.
-    opt = keras.optimizers.SGD(lr=args.base_lr * hvd.size(),
-                               momentum=args.momentum)
+    opt = keras.optimizers.SGD(lr=initial_lr, momentum=args.momentum)
 
     # Horovod: add Horovod Distributed Optimizer.
     opt = hvd.DistributedOptimizer(opt, compression=compression)
@@ -144,13 +144,15 @@ callbacks = [
     # Horovod: using `lr = 1.0 * hvd.size()` from the very beginning leads to worse final
     # accuracy. Scale the learning rate `lr = 1.0` ---> `lr = 1.0 * hvd.size()` during
     # the first five epochs. See https://arxiv.org/abs/1706.02677 for details.
-    hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=args.warmup_epochs, verbose=verbose),
+    hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=args.warmup_epochs, initial_lr=initial_lr,
+                                             verbose=verbose),
 
     # Horovod: after the warmup reduce learning rate by 10 on the 30th, 60th and 80th epochs.
-    hvd.callbacks.LearningRateScheduleCallback(start_epoch=args.warmup_epochs, end_epoch=30, multiplier=1.),
-    hvd.callbacks.LearningRateScheduleCallback(start_epoch=30, end_epoch=60, multiplier=1e-1),
-    hvd.callbacks.LearningRateScheduleCallback(start_epoch=60, end_epoch=80, multiplier=1e-2),
-    hvd.callbacks.LearningRateScheduleCallback(start_epoch=80, multiplier=1e-3),
+    hvd.callbacks.LearningRateScheduleCallback(start_epoch=args.warmup_epochs, end_epoch=30, multiplier=1.,
+                                               initial_lr=initial_lr),
+    hvd.callbacks.LearningRateScheduleCallback(start_epoch=30, end_epoch=60, multiplier=1e-1, initial_lr=initial_lr),
+    hvd.callbacks.LearningRateScheduleCallback(start_epoch=60, end_epoch=80, multiplier=1e-2, initial_lr=initial_lr),
+    hvd.callbacks.LearningRateScheduleCallback(start_epoch=80, multiplier=1e-3, initial_lr=initial_lr),
 ]
 
 # Horovod: save checkpoints only on the first worker to prevent other workers from corrupting them.

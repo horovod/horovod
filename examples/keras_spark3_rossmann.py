@@ -424,7 +424,8 @@ if __name__ == '__main__':
         model = deserialize_model(model_bytes, hvd.load_model)
 
         # Horovod: adjust learning rate based on number of processes.
-        K.set_value(model.optimizer.lr, K.get_value(model.optimizer.lr) * hvd.size())
+        scaled_lr = K.get_value(model.optimizer.lr) * hvd.size()
+        K.set_value(model.optimizer.lr, scaled_lr)
 
         # Horovod: print summary logs on the first worker.
         verbose = 2 if hvd.rank() == 0 else 0
@@ -444,7 +445,7 @@ if __name__ == '__main__':
             # Horovod: using `lr = 1.0 * hvd.size()` from the very beginning leads to worse final
             # accuracy. Scale the learning rate `lr = 1.0` ---> `lr = 1.0 * hvd.size()` during
             # the first five epochs. See https://arxiv.org/abs/1706.02677 for details.
-            hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=5, verbose=verbose),
+            hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=5, initial_lr=scaled_lr, verbose=verbose),
 
             # Reduce LR if the metric is not improved for 10 epochs, and stop training
             # if it has not improved for 20 epochs.

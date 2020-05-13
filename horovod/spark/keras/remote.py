@@ -263,7 +263,7 @@ def _calculate_shuffle_buffer_size_fn():
         """
         local_size = hvd.local_size()
         local_sizes = hvd.allgather([local_size])
-        max_local_size = max(local_sizes)
+        max_local_size = int(max(local_sizes))
 
         if max_local_size > TOTAL_BUFFER_MEMORY_CAP_GIB:
             shuffle_buffer_size = TOTAL_BUFFER_MEMORY_CAP_GIB * BYTES_PER_GIB / avg_row_size / max_local_size

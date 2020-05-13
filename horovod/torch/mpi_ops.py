@@ -145,7 +145,11 @@ def allreduce_async(tensor, average=None, name=None, op=None):
 
     Arguments:
         tensor: A tensor to reduce.
-        average: DEPRECATED, please use op instead.
+        average:
+            .. warning:: .. deprecated:: 0.19.0
+
+                Use `op` instead. Will be removed in v0.21.0.
+
         name: A name of the reduction operation.
         op: The reduction operation to combine tensors across different 
                    ranks. Defaults to Average if None is given.
@@ -190,7 +194,11 @@ def allreduce(tensor, average=None, name=None, compression=Compression.none, op=
 
     Arguments:
         tensor: A tensor to reduce.
-        average: DEPRECATED, please use op instead.
+        average:
+            .. warning:: .. deprecated:: 0.19.0
+
+                Use `op` instead. Will be removed in v0.21.0.
+
         name: A name of the reduction operation.
         compression: Compression algorithm used during allreduce to reduce the amount
                      of data sent during the each parameter update step.  Defaults to
@@ -219,7 +227,11 @@ def allreduce_async_(tensor, average=None, name=None, op=None):
 
     Arguments:
         tensor: A tensor to reduce.
-        average: DEPRECATED, please use op instead.
+        average:
+            .. warning:: .. deprecated:: 0.19.0
+
+                Use `op` instead. Will be removed in v0.21.0.
+
         name: A name of the reduction operation.
         op: The reduction operation to combine tensors across different ranks. Defaults to
             Average if None is given.
@@ -244,7 +256,11 @@ def allreduce_(tensor, average=None, name=None, op=None):
 
     Arguments:
         tensor: A tensor to reduce.
-        average: DEPRECATED, please use op instead.
+        average:
+            .. warning:: .. deprecated:: 0.19.0
+
+                Use `op` instead. Will be removed in v0.21.0.
+
         name: A name of the reduction operation.
         op: The reduction operation to combine tensors across different ranks. Defaults to
             Average if None is given.
