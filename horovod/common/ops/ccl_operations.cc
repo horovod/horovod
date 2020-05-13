@@ -95,7 +95,7 @@ Status CCLAllreduce::Execute(std::vector<TensorTableEntry>& entries, const Respo
   // Do allreduce.
   timeline.ActivityStartAll(entries, CCL_ALLREDUCE);
   const void* sendbuf = entries.size() > 1 || fused_input_data == buffer_data
-                        ? MPI_IN_PLACE : fused_input_data;
+                        ? buffer_data : fused_input_data;
   ccl_request_t ccl_req;
   CCL_CALL(ccl_allreduce((void*)sendbuf, buffer_data, num_elements, GetCCLDataType(first_entry.tensor),
                          ccl_reduction_sum, nullptr /*attr*/, nullptr /*comm*/, nullptr /*stream*/, &ccl_req));
