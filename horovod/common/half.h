@@ -28,8 +28,10 @@
 
 #include <stdint.h>
 
+#if HAVE_MPI
 #define OMPI_SKIP_MPICXX
 #include "mpi.h"
+#endif
 
 namespace horovod {
 namespace common {
@@ -136,7 +138,9 @@ inline void Float2HalfBits(const float* src, unsigned short* dest) {
   *dest = u;
 }
 
+#if HAVE_MPI
 void float16_sum(void* invec, void* inoutvec, int* len, MPI_Datatype* datatype);
+#endif
 
 } // namespace common
 } // namespace horovod
