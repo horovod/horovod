@@ -331,14 +331,14 @@ extern "C" int horovod_mxnet_allreduce_async(NDArray* input, NDArray* output,
 #if HAVE_CUDA && !HOROVOD_GPU_ALLREDUCE
   if (IsTensorOnCPU(input) && IsTensorOnCPU(output)) {
     PushHorovodOperation(OperationType::ALLREDUCE, input, output,
-                         name, priority, 0, nullptr, prescale_factor, postscale_factor);
+                         name, priority, -1, nullptr, prescale_factor, postscale_factor);
   } else {
     PushHorovodOperationCudaOnCPU(OperationType::ALLREDUCE, input, output,
-                                  name, priority, nullptr, prescale_factor, postscale_factor);
+                                  name, priority, -1, nullptr, prescale_factor, postscale_factor);
   }
 #else
   PushHorovodOperation(OperationType::ALLREDUCE, input, output,
-                       name, priority, 0, nullptr, prescale_factor, postscale_factor);
+                       name, priority, -1, nullptr, prescale_factor, postscale_factor);
 #endif
 
 #if HAVE_ROCM
