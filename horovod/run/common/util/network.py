@@ -91,6 +91,7 @@ class BasicService(object):
         self._server, _ = find_port(
             lambda addr: socketserver.ThreadingTCPServer(
                 addr, self._make_handler()))
+        self._server._block_on_close = True
         self._port = self._server.socket.getsockname()[1]
         self._addresses = self._get_local_addresses()
         self._thread = in_thread(target=self._server.serve_forever)

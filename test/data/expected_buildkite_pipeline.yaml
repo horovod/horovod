@@ -349,7 +349,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -363,7 +363,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -377,7 +377,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -391,7 +391,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -405,7 +405,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -419,7 +419,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -433,7 +433,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -447,7 +447,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -461,7 +461,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -475,7 +475,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -489,7 +489,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -503,7 +503,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -517,7 +517,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -531,7 +531,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -545,7 +545,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -559,7 +559,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -573,7 +573,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -587,7 +587,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -601,7 +601,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -615,7 +615,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -629,7 +629,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -643,7 +643,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -657,7 +657,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -671,7 +671,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -685,7 +685,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -699,7 +699,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -713,7 +713,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -727,7 +727,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -741,7 +741,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -755,7 +755,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -769,7 +769,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -783,7 +783,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -797,7 +797,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -811,7 +811,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -825,7 +825,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -839,7 +839,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -853,7 +853,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -867,7 +867,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -881,7 +881,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -895,7 +895,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -909,35 +909,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
-- label: ':spark: Spark Keras Rossmann Run (test-cpu-gloo-py2_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01"
-  plugins:
-  - docker-compose#v2.6.0:
-      run: test-cpu-gloo-py2_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 5
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
-- label: ':spark: Spark Keras Rossmann Estimator (test-cpu-gloo-py2_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01"
-  plugins:
-  - docker-compose#v2.6.0:
-      run: test-cpu-gloo-py2_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -951,35 +923,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
-- label: ':spark: Spark Keras MNIST (test-cpu-gloo-py2_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
-  plugins:
-  - docker-compose#v2.6.0:
-      run: test-cpu-gloo-py2_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 5
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
-- label: ':spark: Spark Torch MNIST (test-cpu-gloo-py2_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0)'
-  command: bash -c "OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3"
-  plugins:
-  - docker-compose#v2.6.0:
-      run: test-cpu-gloo-py2_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -993,7 +937,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1007,7 +951,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1021,7 +965,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1035,7 +979,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1049,7 +993,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1063,7 +1007,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1077,7 +1021,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1091,7 +1035,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1105,7 +1049,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1119,21 +1063,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
-- label: ':spark: PyTests Spark Estimators (test-cpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0)'
-  command: bash -c "cd /horovod/test && pytest --forked -v --capture=no test_spark_keras.py test_spark_torch.py"
-  plugins:
-  - docker-compose#v2.6.0:
-      run: test-cpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1147,7 +1077,21 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':spark: PyTests Spark Estimators (test-cpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0)'
+  command: bash -c "cd /horovod/test && pytest --forked -v --capture=no test_spark_keras.py test_spark_torch.py"
+  plugins:
+  - docker-compose#v2.6.0:
+      run: test-cpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1161,7 +1105,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1175,7 +1119,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1189,7 +1133,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1203,7 +1147,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1217,7 +1161,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1231,7 +1175,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1245,7 +1189,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1259,7 +1203,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1273,7 +1217,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1287,7 +1231,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1301,21 +1245,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
-- label: ':spark: PyTests Spark Estimators (test-cpu-gloo-py3_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0)'
-  command: bash -c "cd /horovod/test && pytest --forked -v --capture=no test_spark_keras.py test_spark_torch.py"
-  plugins:
-  - docker-compose#v2.6.0:
-      run: test-cpu-gloo-py3_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1329,7 +1259,21 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':spark: PyTests Spark Estimators (test-cpu-gloo-py3_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0)'
+  command: bash -c "cd /horovod/test && pytest --forked -v --capture=no test_spark_keras.py test_spark_torch.py"
+  plugins:
+  - docker-compose#v2.6.0:
+      run: test-cpu-gloo-py3_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1343,7 +1287,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1357,7 +1301,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1371,7 +1315,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1385,7 +1329,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1399,7 +1343,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1413,7 +1357,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1427,7 +1371,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1441,7 +1385,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1455,7 +1399,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1469,7 +1413,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1483,7 +1427,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1497,7 +1441,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1511,7 +1455,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1525,7 +1469,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1539,7 +1483,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1553,7 +1497,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1567,7 +1511,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1581,7 +1525,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1595,7 +1539,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1609,7 +1553,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1623,7 +1567,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1637,7 +1581,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1651,21 +1595,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
-- label: ':spark: PyTests Spark Estimators (test-cpu-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_4_0)'
-  command: bash -c "cd /horovod/test && pytest --forked -v --capture=no test_spark_keras.py test_spark_torch.py"
-  plugins:
-  - docker-compose#v2.6.0:
-      run: test-cpu-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_4_0
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1679,7 +1609,21 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':spark: PyTests Spark Estimators (test-cpu-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_4_0)'
+  command: bash -c "cd /horovod/test && pytest --forked -v --capture=no test_spark_keras.py test_spark_torch.py"
+  plugins:
+  - docker-compose#v2.6.0:
+      run: test-cpu-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_4_0
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1693,7 +1637,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1707,7 +1651,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1721,7 +1665,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1735,7 +1679,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1749,7 +1693,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1763,7 +1707,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1777,7 +1721,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1791,7 +1735,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1805,7 +1749,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1819,7 +1763,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1833,7 +1777,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1847,7 +1791,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1861,7 +1805,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1875,7 +1819,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1889,7 +1833,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1903,7 +1847,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1917,7 +1861,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1931,7 +1875,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1945,7 +1889,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1959,7 +1903,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -1973,21 +1917,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
-  retry:
-    automatic: true
-  agents:
-    queue: cpu
-- label: ':spark: PyTests Spark Estimators (test-cpu-openmpi-gloo-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0)'
-  command: bash -c "cd /horovod/test && pytest --forked -v --capture=no test_spark_keras.py test_spark_torch.py"
-  plugins:
-  - docker-compose#v2.6.0:
-      run: test-cpu-openmpi-gloo-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0
-      config: docker-compose.test.yml
-      pull-retries: 3
-  - ecr#v1.2.0:
-      login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2001,7 +1931,21 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
+  retry:
+    automatic: true
+  agents:
+    queue: cpu
+- label: ':spark: PyTests Spark Estimators (test-cpu-openmpi-gloo-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0)'
+  command: bash -c "cd /horovod/test && pytest --forked -v --capture=no test_spark_keras.py test_spark_torch.py"
+  plugins:
+  - docker-compose#v2.6.0:
+      run: test-cpu-openmpi-gloo-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0
+      config: docker-compose.test.yml
+      pull-retries: 3
+  - ecr#v1.2.0:
+      login: true
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2015,7 +1959,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2029,7 +1973,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2043,7 +1987,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2057,7 +2001,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2071,7 +2015,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2085,7 +2029,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2099,7 +2043,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2113,7 +2057,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2127,7 +2071,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2141,7 +2085,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2155,7 +2099,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2169,7 +2113,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2183,7 +2127,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2197,7 +2141,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2211,7 +2155,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2225,7 +2169,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2239,7 +2183,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2253,7 +2197,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2267,7 +2211,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2281,7 +2225,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2295,7 +2239,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2309,7 +2253,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2323,7 +2267,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2337,7 +2281,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2351,7 +2295,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2365,7 +2309,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2379,7 +2323,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2393,7 +2337,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2407,7 +2351,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2421,7 +2365,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2435,7 +2379,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2449,7 +2393,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2463,7 +2407,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2477,7 +2421,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2491,7 +2435,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2505,7 +2449,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2519,7 +2463,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2533,7 +2477,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2547,7 +2491,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2561,7 +2505,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2575,7 +2519,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2589,7 +2533,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2603,7 +2547,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2617,7 +2561,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2631,7 +2575,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2645,7 +2589,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2659,7 +2603,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2673,7 +2617,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2687,7 +2631,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2701,7 +2645,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2715,7 +2659,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2729,7 +2673,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2743,7 +2687,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2757,7 +2701,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2771,7 +2715,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2785,7 +2729,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2799,7 +2743,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2813,7 +2757,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2827,7 +2771,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2841,7 +2785,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2855,7 +2799,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2870,7 +2814,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2884,7 +2828,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2898,7 +2842,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2912,7 +2856,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2926,7 +2870,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2940,7 +2884,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2954,7 +2898,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2969,7 +2913,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2983,7 +2927,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -2997,7 +2941,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3011,7 +2955,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3025,7 +2969,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3039,7 +2983,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3053,7 +2997,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3067,7 +3011,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3081,7 +3025,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3095,7 +3039,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3109,7 +3053,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3123,7 +3067,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3137,7 +3081,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3151,7 +3095,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3165,7 +3109,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3179,7 +3123,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3193,7 +3137,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3207,7 +3151,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3221,7 +3165,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3235,7 +3179,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3249,7 +3193,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3263,7 +3207,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3277,7 +3221,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3291,7 +3235,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3305,7 +3249,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3319,7 +3263,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3333,7 +3277,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3347,7 +3291,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3361,7 +3305,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3375,7 +3319,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3389,7 +3333,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3403,7 +3347,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3417,7 +3361,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3431,7 +3375,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3445,7 +3389,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3459,7 +3403,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3473,7 +3417,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3487,7 +3431,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3501,7 +3445,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3515,7 +3459,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3529,7 +3473,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3543,7 +3487,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3557,7 +3501,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3571,7 +3515,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3585,7 +3529,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3599,7 +3543,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3613,7 +3557,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3627,7 +3571,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3641,7 +3585,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3655,7 +3599,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3669,7 +3613,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3683,7 +3627,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3697,7 +3641,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:
@@ -3711,7 +3655,7 @@ steps:
       pull-retries: 3
   - ecr#v1.2.0:
       login: true
-  timeout_in_minutes: 5
+  timeout_in_minutes: 10
   retry:
     automatic: true
   agents:

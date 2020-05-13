@@ -25,10 +25,8 @@ def _exec_command_fn(driver_addresses, key, settings, env):
     def _exec_command(command, alloc_info, event):
         host = alloc_info.hostname
         local_rank = alloc_info.local_rank
-        rsh(driver_addresses, key, settings, host, command, env, local_rank)
-        # this indicate successful command execution, not the result of the executed command
-        # the result of each task is collected through Spark at the end of horovod.spark.run.run()
-        return 0, time.time()
+        result = rsh(driver_addresses, key, settings, host, command, env, local_rank, False, event)
+        return result, time.time()
     return _exec_command
 
 
@@ -44,6 +42,9 @@ def gloo_run(settings, nics, driver, env):
     """
     if env is None:
         env = {}
+
+    if sys.version_info < (3, 0, 0):
+        raise Exception('Horovod on Spark over Gloo only supported on Python3')
 
     # Each thread will use SparkTaskClient to launch the job on each remote host. If an
     # error occurs in one thread, entire process will be terminated. Otherwise,

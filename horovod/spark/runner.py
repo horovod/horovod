@@ -15,6 +15,7 @@
 
 import os
 import platform
+import time
 
 import pyspark
 from six.moves import queue
@@ -23,11 +24,13 @@ from horovod.run.util.threads import in_thread
 from horovod.spark.task import task_service
 from horovod.spark.gloo_run import gloo_run
 from horovod.spark.mpi_run import mpi_run
-from horovod.run.runner import run_controller
+from horovod.run.runner import is_gloo_used, run_controller
 from horovod.run.common.util import timeout, host_hash, secret
 from horovod.run.common.util import settings as hvd_settings
 from horovod.spark.driver import driver_service, job_id
 
+
+MINIMUM_COMMAND_LIFETIME_S = 3
 
 # Spark will fail to initialize correctly locally on Mac OS without this
 if platform.system() == 'Darwin':
@@ -49,8 +52,11 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo):
 
         # With Gloo all tasks wait for the command
         # With MPI task with first index executes orted which will run mpirun_exec_fn for all tasks.
+        minimum_lifetime_after_start = None
         if use_gloo or task_indices_on_this_host[0] == index:
             task.wait_for_command_start(settings.timeout)
+            minimum_lifetime_after_start = timeout.Timeout(MINIMUM_COMMAND_LIFETIME_S,
+                                                           message='Just measuring runtime')
             task.wait_for_command_termination()
         else:
             # The rest of tasks need to wait for the first task to finish.
@@ -60,8 +66,18 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo):
                                              first_task_addresses, settings.key,
                                              settings.verbose)
             first_task_client.wait_for_command_termination()
+
+        # command terminated, make sure this task service does not shutdown too quickly after
+        # the client started the command as it needs some time to connect again
+        # to wait for the result after starting the command (see horovod.spark.driver.rsh).
+        if minimum_lifetime_after_start is not None:
+            time.sleep(minimum_lifetime_after_start.remaining())
+
         return task.fn_result()
     finally:
+        # this has to block on running requests (wait_for_command_exit_code)
+        # so they can finish serving the exit code
+        # shutdown does block with network.BasicService._server._block_on_close = True
         task.shutdown()
 
 
@@ -178,8 +194,9 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
     spark_job_group = 'horovod.spark.run.%d' % job_id.next_job_id()
     driver = driver_service.SparkDriverService(settings.num_proc, fn, args, kwargs,
                                                settings.key, settings.nics)
+    gloo_is_used = is_gloo_used(use_gloo=use_gloo, use_mpi=use_mpi, use_jsrun=False)
     spark_thread = _make_spark_thread(spark_context, spark_job_group, driver,
-                                      result_queue, settings, use_gloo)
+                                      result_queue, settings, gloo_is_used)
     try:
         # wait for all tasks to register, notify them and initiate task-to-task address registration
         _notify_and_register_task_addresses(driver, settings)

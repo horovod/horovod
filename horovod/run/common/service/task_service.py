@@ -14,7 +14,6 @@
 # ==============================================================================
 
 import threading
-import time
 
 from horovod.run.common.util import network
 from horovod.run.common.util import safe_shell_exec
@@ -29,15 +28,40 @@ class RunCommandRequest(object):
         """Environment to use."""
 
 
-class CommandTerminatedRequest(object):
-    """Is command execution finished?"""
+class CommandExitCodeRequest(object):
+    """Get command result"""
     pass
 
 
-class CommandTerminatedResponse(object):
-    def __init__(self, flag):
-        self.flag = flag
+class CommandExitCodeResponse(object):
+    def __init__(self, terminated, exit_code):
+        self.terminated = terminated
         """Yes/no"""
+        self.exit_code = exit_code
+        """Exit code returned from command if terminated, None otherwise"""
+
+
+class AbortCommandRequest(object):
+    """Aborts the command currently running."""
+    pass
+
+
+class WaitForCommandExitCodeRequest(object):
+    """Wait for command exit code. Blocks until command terminated or connection closed."""
+
+    def __init__(self, delay):
+        """
+        :param delay: delay in seconds
+        :type delay: float
+        """
+        self.delay = delay
+        """Delay in seconds between termination checks."""
+
+
+class WaitForCommandExitCodeResponse(object):
+    def __init__(self, exit_code):
+        self.exit_code = exit_code
+        """Exit code returned from command, None if connection closed."""
 
 
 class NotifyInitialRegistrationCompleteRequest(object):
@@ -58,10 +82,15 @@ class BasicTaskService(network.BasicService):
         self._initial_registration_complete = False
         self._wait_cond = threading.Condition()
         self._command_env = command_env
+        self._command_abort = None
+        self._command_exit_code = None
         self._verbose = verbose
 
         self._command_thread = None
         self._fn_result = None
+
+    def _run_command(self, command, env, event):
+        self._command_exit_code = safe_shell_exec.execute(command, env=env, events=[event])
 
     def _add_envs(self, env, extra_env):
         """
@@ -96,10 +125,21 @@ class BasicTaskService(network.BasicService):
                             print("Task service env: {} = {}".format(key, value))
 
                     # We only permit executing exactly one command, so this is idempotent.
+                    self._command_abort = threading.Event()
                     self._command_thread = in_thread(
-                        target=safe_shell_exec.execute,
-                        args=(req.command, req.env)
+                        target=self._run_command,
+                        args=(req.command, req.env, self._command_abort)
                     )
+            finally:
+                self._wait_cond.notify_all()
+                self._wait_cond.release()
+            return network.AckResponse()
+
+        if isinstance(req, AbortCommandRequest):
+            self._wait_cond.acquire()
+            try:
+                if self._command_thread is not None:
+                    self._command_abort.set()
             finally:
                 self._wait_cond.notify_all()
                 self._wait_cond.release()
@@ -114,14 +154,24 @@ class BasicTaskService(network.BasicService):
                 self._wait_cond.release()
             return network.AckResponse()
 
-        if isinstance(req, CommandTerminatedRequest):
+        if isinstance(req, CommandExitCodeRequest):
             self._wait_cond.acquire()
             try:
                 terminated = (self._command_thread is not None and
                               not self._command_thread.is_alive())
+                return CommandExitCodeResponse(terminated,
+                                               self._command_exit_code if terminated else None)
             finally:
                 self._wait_cond.release()
-            return CommandTerminatedResponse(terminated)
+
+        if isinstance(req, WaitForCommandExitCodeRequest):
+            self._wait_cond.acquire()
+            try:
+                while self._command_thread is None or self._command_thread.is_alive():
+                    self._wait_cond.wait(req.delay if req.delay >= 1.0 else 1.0)
+                return WaitForCommandExitCodeResponse(self._command_exit_code)
+            finally:
+                self._wait_cond.release()
 
         if isinstance(req, RegisterCodeResultRequest):
             self._fn_result = req.result
@@ -165,21 +215,46 @@ class BasicTaskClient(network.BasicClient):
     def run_command(self, command, env):
         self._send(RunCommandRequest(command, env))
 
+    def abort_command(self):
+        self._send(AbortCommandRequest())
+
     def notify_initial_registration_complete(self):
         self._send(NotifyInitialRegistrationCompleteRequest())
 
     def command_terminated(self):
-        resp = self._send(CommandTerminatedRequest())
-        return resp.flag
+        terminated, _ = self.command_result()
+        return terminated
+
+    def command_result(self):
+        """
+        Returns the command's result if terminated, or None.
+        :return: terminated flag and result tuple
+        """
+        resp = self._send(CommandExitCodeRequest())
+        return resp.terminated, resp.exit_code
 
     def register_code_result(self, result):
         self._send(RegisterCodeResultRequest(result))
 
-    def wait_for_command_termination(self, delay=1):
+    def wait_for_command_termination(self, delay=1.0):
+        """
+        Wait for command termination. Blocks until command terminated or connection closed.
+
+        :param delay: delay in seconds
+        :type delay: float
+        """
+        self.wait_for_command_exit_code(delay)
+
+    def wait_for_command_exit_code(self, delay=1.0):
+        """
+        Wait for command termination and retrieve exit code.
+        Blocks until command terminated or connection closed.
+
+        :param delay: delay in seconds
+        :type delay: float
+        """
         try:
-            while True:
-                if self.command_terminated():
-                    break
-                time.sleep(delay)
+            resp = self._send(WaitForCommandExitCodeRequest(delay))
+            return resp.exit_code
         except:
             pass
