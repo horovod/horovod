@@ -105,6 +105,9 @@ class ElasticDriver(object):
         self._worker_clients[(host, slot)] = WorkerNotificationClient(
             addresses, secret_key, self._verbose)
 
+    def get_worker_client(self, slot_info):
+        return self._worker_clients.get((slot_info.hostname, slot_info.local_rank))
+
     def record_ready(self, host, slot):
         self._worker_registry.record_ready(host, slot)
 
@@ -118,10 +121,17 @@ class ElasticDriver(object):
         return self._host_assignments[host][slot] if self.has_rank_assignment(host, slot) \
             else hosts.INVALID_SLOT_INFO
 
+    def get_coordinator_info(self):
+        return self._rank_assignments.get(0)
+
     def has_rank_assignment(self, host, slot):
         if self._host_manager.is_blacklisted(host):
             return False
         return host in self._host_assignments and len(self._host_assignments[host]) > slot
+
+    @property
+    def host_assignments(self):
+        return self._host_assignments
 
     def wait_for_available_slots(self, min_np, min_hosts=1):
         extra_message = ' An elastic job also requires that at least two hosts ' \
@@ -176,20 +186,22 @@ class ElasticDriver(object):
             self._shutdown.wait(DISCOVER_HOSTS_FREQUENCY_SECS)
 
     def _notify_workers_host_changes(self, current_hosts):
-        # Assignments are required to be stable via contract
-        next_host_assignments, _ = self._get_host_assignments(current_hosts)
-        if next_host_assignments == self._host_assignments:
+        next_host_assignments = {}
+        if current_hosts.count_available_slots() >= self._min_np:
+            # Assignments are required to be stable via contract
+            next_host_assignments, _ = self._get_host_assignments(current_hosts)
+
+        if next_host_assignments == self.host_assignments:
             # Skip notifying workers when host changes would not result in changes of host assignments
             logging.debug('no host assignment changes, skipping notifications')
             return
 
-        coordinator_slot_info = self._rank_assignments.get(0)
+        coordinator_slot_info = self.get_coordinator_info()
         if not coordinator_slot_info:
             logging.debug('no coordinator info, skipping notifications')
             return
 
-        coordinator_client = self._worker_clients.get((coordinator_slot_info.hostname,
-                                                       coordinator_slot_info.local_rank))
+        coordinator_client = self.get_worker_client(coordinator_slot_info)
         if not coordinator_client:
             logging.debug('no coordinator client, skipping notifications')
             return
