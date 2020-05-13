@@ -36,10 +36,10 @@ class LSFUtils:
     def get_allocation_info():
         """Returns and sets the static CSM allocation info."""
         if not LSFUtils._csm_allocation_info:
-            lsf_job_id = os.environ["LSB_JOBID"].strip()
+            lsf_allocation_id = os.environ["CSM_ALLOCATION_ID"].strip()
             output = six.StringIO()
-            exit_code = safe_shell_exec.execute("{cmd} -j {job}".format(
-                cmd=LSFUtils._CSM_ALLOCATION_QUERY, job=lsf_job_id),
+            exit_code = safe_shell_exec.execute("{cmd} -a {allocation}".format(
+                cmd=LSFUtils._CSM_ALLOCATION_QUERY, allocation=lsf_allocation_id),
                 stdout=output, stderr=output)
             if exit_code != 0:
                 raise RuntimeError(

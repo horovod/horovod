@@ -42,7 +42,7 @@ from horovod.run.js_run import js_run, generate_jsrun_rankfile
 from horovod.run.mpi_run import _get_mpi_implementation, _get_mpi_implementation_flags,\
     _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_available, mpi_run,\
     _OMPI_IMPL, _SMPI_IMPL, _MPICH_IMPL, _UNKNOWN_IMPL, _MISSING_IMPL
-from horovod.run.runner import parse_args, parse_host_files, run_controller
+from horovod.run.runner import parse_args, parse_host_files, run_controller, HorovodArgs, _run
 from horovod.run.util.threads import in_thread, on_event
 
 from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay, wait
@@ -746,3 +746,17 @@ rank: 4: { hostname: host2; cpu: {0-3} ; gpu: * ; mem: * }
 """)
 
             self.assertMultiLineEqual(gen_rankfile, expected_rankfile)
+
+    """
+    Tests horovod.run.runner._run with jsrun
+    """
+    @mock.patch('horovod.run.util.lsf.LSFUtils.using_lsf', MagicMock(return_value=True))
+    @mock.patch('horovod.run.util.lsf.LSFUtils.get_compute_hosts', MagicMock(return_value=['host1', 'host2']))
+    @mock.patch('horovod.run.util.lsf.LSFUtils.get_num_gpus', MagicMock(return_value=2))
+    @mock.patch('horovod.run.util.network.filter_local_addresses', MagicMock(return_value=['host1', 'host2']))
+    @mock.patch('horovod.run.runner._check_all_hosts_ssh_successful', MagicMock())
+    @mock.patch('horovod.run.runner.run_controller')
+    def test_run_with_jsrun(self, mocked_run_controller):
+        hargs = HorovodArgs()
+        _run(hargs)
+        mocked_run_controller.assert_called_once()

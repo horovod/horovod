@@ -700,9 +700,9 @@ def run_controller(use_gloo, gloo_run, use_mpi, mpi_run, use_jsrun, js_run, verb
 def _launch_job(args, remote_host_names, settings, nics, command):
     env = os.environ.copy()
     config_parser.set_env_from_args(env, args)
-    driver_ip = network._get_driver_ip(nics)
 
     def gloo_run_fn():
+        driver_ip = network._get_driver_ip(nics)
         gloo_run(settings, remote_host_names, nics, env, driver_ip, command)
 
     def mpi_run_fn():
