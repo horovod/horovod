@@ -750,7 +750,7 @@ rank: 4: { hostname: host2; cpu: {0-3} ; gpu: * ; mem: * }
     """
     Tests horovod.run.runner._run with jsrun
     """
-    @mock.patch('horovod.run.js_run.is_jsrun_installed', MagicMock(return_value=True))
+    @mock.patch('horovod.run.util.lsf.LSFUtils.using_lsf', MagicMock(return_value=True))
     @mock.patch('horovod.run.util.lsf.LSFUtils.get_compute_hosts', MagicMock(return_value=['host1', 'host2']))
     @mock.patch('horovod.run.util.lsf.LSFUtils.get_num_gpus', MagicMock(return_value=2))
     @mock.patch('horovod.run.util.network.filter_local_addresses', MagicMock(return_value=['host1', 'host2']))
