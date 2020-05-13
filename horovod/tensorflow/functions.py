@@ -135,37 +135,3 @@ def broadcast_object_fn(root_rank=0, session=None, name=None):
 
         return obj
     return _bcast
-
-
-_horovod_sizes = {}
-_horovod_local_sizes = {}
-
-
-def get_size_var(dtype):
-    t = tf.cast(size(), dtype)
-    if _executing_eagerly():
-        return t
-    _horovod_sizes[dtype] = tf.Variable(t)
-    return _horovod_sizes[dtype]
-
-
-def get_local_size_var(dtype):
-    t = tf.cast(local_size(), dtype)
-    if _executing_eagerly():
-        return t
-    _horovod_local_sizes[dtype] = tf.Variable(t)
-    return _horovod_local_sizes[dtype]
-
-
-if LooseVersion(tf.__version__) >= LooseVersion('2.0.0'):
-    def update_size_vars(*args, **kwargs):
-        for v in _horovod_sizes.values():
-            v.assign(size())
-        for v in _horovod_local_sizes.values():
-            v.assign(local_size())
-else:
-    def update_size_vars(session, *args, **kwargs):
-        for v in _horovod_sizes.values():
-            v.load(size(), session)
-        for v in _horovod_local_sizes.values():
-            v.load(local_size(), session)

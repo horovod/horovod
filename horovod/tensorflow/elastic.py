@@ -23,7 +23,7 @@ from tensorflow.python.framework import ops
 
 from horovod.common.elastic import run_fn, ObjectState
 from horovod.common.exceptions import HorovodInternalError
-from horovod.tensorflow.functions import broadcast_object, broadcast_object_fn, broadcast_variables, update_size_vars
+from horovod.tensorflow.functions import broadcast_object, broadcast_object_fn, broadcast_variables
 from horovod.tensorflow.mpi_ops import _executing_eagerly, init, rank, shutdown
 
 
@@ -132,9 +132,6 @@ class TensorFlowKerasState(ObjectState):
         self._save_model()
         super(TensorFlowKerasState, self).sync()
 
-    def reset(self):
-        update_size_vars()
-
     def _save_model(self):
         if _executing_eagerly():
             self._saved_model_state = [tf.identity(var) for var in self.model.variables]
@@ -194,9 +191,6 @@ class TensorFlowState(ObjectState):
             self.session.run(self._bcast_op)
         self._save_model()
         super(TensorFlowState, self).sync()
-
-    def reset(self):
-        update_size_vars(self.session)
 
     def _save_model(self):
         self._values = [self._eval_fn(var) for var in self.variables]

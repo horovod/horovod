@@ -30,7 +30,6 @@ check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_
 from horovod.tensorflow import elastic
 from horovod.tensorflow.compression import Compression
 from horovod.tensorflow.functions import broadcast_object, broadcast_object_fn, broadcast_variables
-from horovod.tensorflow.functions import get_local_size_var, get_size_var
 from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce
 from horovod.tensorflow.mpi_ops import init, shutdown
 from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank, is_homogeneous
@@ -82,7 +81,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                                       'workaround please pass sparse_as_dense=True to DistributedOptimizer')
         with tf.device(device_sparse):
             # For IndexedSlices, do two allgathers instead of an allreduce.
-            horovod_size = get_size_var(tensor.values.dtype)
+            horovod_size = tf.cast(size(), dtype=tensor.values.dtype)
             values = allgather(tensor.values)
             indices = allgather(tensor.indices)
 
@@ -93,7 +92,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                                 dense_shape=tensor.dense_shape)
     else:
         with tf.device(device_dense):
-            horovod_size = get_size_var(tensor.dtype)
+            horovod_size = tf.cast(size(), dtype=tensor.dtype)
             tensor_compressed, ctx = compression.compress(tensor)
             summed_tensor_compressed = _allreduce(tensor_compressed, op=true_op)
             summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
@@ -106,7 +105,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                         elif not check_num_rank_power_of_2(int(size() / local_size())):
                             raise NotImplementedError(
                                 'Running GPU Adasum with non-power of 2 nodes is not supported yet.')
-                        horovod_local_size = get_local_size_var(tensor.dtype)
+                        horovod_local_size = tf.cast(local_size(), dtype=tensor.dtype)
                         new_tensor = summed_tensor / horovod_local_size
                     else:
                         warnings.warn('Adasum reduction does not currently support GPU reduction using MPI. Tensors '
