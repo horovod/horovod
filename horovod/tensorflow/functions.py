@@ -142,20 +142,18 @@ _horovod_local_sizes = {}
 
 
 def get_size_var(dtype):
-    if dtype not in _horovod_sizes:
-        t = tf.cast(size(), dtype)
-        if _executing_eagerly():
-            return t
-        _horovod_sizes[dtype] = tf.Variable(t)
+    t = tf.cast(size(), dtype)
+    if _executing_eagerly():
+        return t
+    _horovod_sizes[dtype] = tf.Variable(t)
     return _horovod_sizes[dtype]
 
 
 def get_local_size_var(dtype):
-    if dtype not in _horovod_local_sizes:
-        t = tf.cast(local_size(), dtype)
-        if _executing_eagerly():
-            return t
-        _horovod_local_sizes[dtype] = tf.Variable(t)
+    t = tf.cast(local_size(), dtype)
+    if _executing_eagerly():
+        return t
+    _horovod_local_sizes[dtype] = tf.Variable(t)
     return _horovod_local_sizes[dtype]
 
 
