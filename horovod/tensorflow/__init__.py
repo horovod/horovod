@@ -25,7 +25,7 @@ from horovod.common.util import check_extension, gpu_available
 check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
 
 from horovod.tensorflow.compression import Compression
-from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce
+from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce, divide_by_size
 from horovod.tensorflow.mpi_ops import init, shutdown
 from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank, is_homogeneous
 from horovod.tensorflow.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
@@ -82,18 +82,16 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                                       'workaround please pass sparse_as_dense=True to DistributedOptimizer')
         with tf.device(device_sparse):
             # For IndexedSlices, do two allgathers instead of an allreduce.
-            horovod_size = tf.cast(size(), tensor.values.dtype)
             values = allgather(tensor.values)
             indices = allgather(tensor.indices)
 
             # To make this operation into an average, divide allgathered values by
             # the Horovod size.
-            new_values = (values / horovod_size) if op == Average else values
+            new_values = divide_by_size(values) if op == Average else values
         return tf.IndexedSlices(new_values, indices,
                                 dense_shape=tensor.dense_shape)
     else:
         with tf.device(device_dense):
-            horovod_size = tf.cast(size(), dtype=tensor.dtype)
             tensor_compressed, ctx = compression.compress(tensor)
             summed_tensor_compressed = _allreduce(tensor_compressed, op=true_op)
             summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
@@ -118,7 +116,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                         raise NotImplementedError('Running Adasum with non-power of 2 ranks is not supported yet.')
                     new_tensor = summed_tensor
             else:
-                new_tensor = (summed_tensor / horovod_size) if op == Average else summed_tensor
+                new_tensor = divide_by_size(summed_tensor) if op == Average else summed_tensor
         return new_tensor
 
 

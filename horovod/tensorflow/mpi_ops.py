@@ -199,3 +199,28 @@ def _broadcast_grad(op, grad):
     if rank() != root_rank:
         return grad_reduced * 0
     return grad_reduced
+
+
+def divide_by_size(tensor, name=None):
+    """An op that divides the tensor element-wise by the world size.
+
+    Returns:
+      A tensor of the same shape and type as `tensor`.
+    """
+    if name is None and not _executing_eagerly():
+        name = 'HorovodDivideBySize_%s' % _normalize_name(tensor.name)
+    return MPI_LIB.horovod_divide_by_size(tensor, name=name)
+
+
+@ops.RegisterGradient('HorovodDivideBySize')
+def _divide_by_size_grad(op, grad):
+    """Gradient for divide_by_size op.
+
+    Args:
+      op: An operation.
+      grad: `Tensor` gradient with respect to the output of the op.
+
+    Returns:
+      The gradient with respect to the input of the op.
+    """
+    return divide_by_size(grad)

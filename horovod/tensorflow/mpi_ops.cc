@@ -22,6 +22,7 @@
 
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/op_kernel.h"
+#include "tensorflow/core/framework/register_types.h"
 #include "tensorflow/core/framework/shape_inference.h"
 
 #define EIGEN_USE_THREADS
@@ -40,6 +41,9 @@ namespace horovod {
 namespace tensorflow {
 
 namespace {
+
+using CPUDevice = Eigen::ThreadPoolDevice;
+using GPUDevice = Eigen::GpuDevice;
 
 Status ConvertStatus(const common::Status& status) {
   switch (status.type()) {
@@ -478,6 +482,83 @@ Arguments
 Output
     output:    A tensor with the same shape as `tensor` and same value as
                `tensor` on root rank.
+)doc");
+
+template <typename Device, typename T>
+class HorovodDivideBySizeOp : public OpKernel {
+public:
+  explicit HorovodDivideBySizeOp(OpKernelConstruction* context) : OpKernel(context) {}
+
+  void Compute(OpKernelContext* context) override {
+    auto tensor = context->input(0);
+    auto tensor_flat = tensor.flat<T>();
+
+    Tensor* output = nullptr;
+    OP_REQUIRES_OK(context, context->allocate_output(0, tensor.shape(), &output));
+    auto output_flat = output->flat<T>();
+
+    int horovod_size = common::horovod_size();
+    const int N = tensor.NumElements();
+    for (int i = 0; i < N; i++) {
+      output_flat(i) = tensor_flat(i) / ((T) horovod_size);
+      std::cout << "DIVIDE_BY_SIZE " << i << ": " << tensor_flat(i) << " / " << horovod_size << " = " << output_flat(i) << std::endl;
+    }
+  }
+};
+
+#define REGISTER_CPU(T) REGISTER_KERNEL_BUILDER( \
+    Name("HorovodDivideBySize").Device(DEVICE_CPU).TypeConstraint<T>("T"), \
+    HorovodDivideBySizeOp<CPUDevice, T>);
+
+TF_CALL_uint8(REGISTER_CPU);
+TF_CALL_int8(REGISTER_CPU);
+TF_CALL_uint16(REGISTER_CPU);
+TF_CALL_int16(REGISTER_CPU);
+TF_CALL_int32(REGISTER_CPU);
+TF_CALL_int64(REGISTER_CPU);
+TF_CALL_half(REGISTER_CPU);
+TF_CALL_float(REGISTER_CPU);
+TF_CALL_double(REGISTER_CPU);
+TF_CALL_bool(REGISTER_CPU);
+
+#undef REGISTER_CPU
+
+#if HOROVOD_GPU_ALLREDUCE
+#define REGISTER_GPU(T) REGISTER_KERNEL_BUILDER( \
+    Name("HorovodDivideBySize").Device(DEVICE_GPU).TypeConstraint<T>("T"), \
+    HorovodDivideBySizeOp<GPUDevice, T>));
+
+TF_CALL_uint8(REGISTER_GPU);
+TF_CALL_int8(REGISTER_GPU);
+TF_CALL_uint16(REGISTER_GPU);
+TF_CALL_int16(REGISTER_GPU);
+TF_CALL_int32(REGISTER_GPU);
+TF_CALL_int64(REGISTER_GPU);
+TF_CALL_half(REGISTER_GPU);
+TF_CALL_float(REGISTER_GPU);
+TF_CALL_double(REGISTER_GPU);
+TF_CALL_bool(REGISTER_GPU);
+
+#undef REGISTER_GPU
+#endif
+
+REGISTER_OP("HorovodDivideBySize")
+.Attr(
+"T: {uint8, int8, uint16, int16, int32, int64, float16, float32, float64, bool}")
+.Input("tensor: T")
+.Output("output: T")
+.SetShapeFn([](shape_inference::InferenceContext* c) {
+c->set_output(0, c->input(0));
+return Status::OK();
+})
+.Doc(R"doc(
+Perform an element-wise division of the input tensor by the world size.
+
+Arguments
+    tensor:     A tensor to divide by world size.
+
+Output
+    output:    A tensor with the same shape as `tensor`.
 )doc");
 
 } // namespace tensorflow

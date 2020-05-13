@@ -128,7 +128,7 @@ class MPITests(tf.test.TestCase):
             with tf.device("/cpu:0"):
                 tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False)
+                summed = hvd.allreduce(tensor, op=hvd.Sum)
             multiplied = tensor * size
             max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
@@ -158,7 +158,7 @@ class MPITests(tf.test.TestCase):
             with tf.device("/cpu:0"):
                 tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False)
+                summed = hvd.allreduce(tensor, op=hvd.Sum)
             multiplied = tensor * size
             max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
@@ -198,7 +198,7 @@ class MPITests(tf.test.TestCase):
             with tf.device("/gpu:%d" % local_rank):
                 tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False)
+                summed = hvd.allreduce(tensor, op=hvd.Sum)
             multiplied = tensor * size
             max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
@@ -241,7 +241,7 @@ class MPITests(tf.test.TestCase):
             with tf.device("/gpu:%d" % local_rank):
                 tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False)
+                summed = hvd.allreduce(tensor, op=hvd.Sum)
             multiplied = tensor * size
             max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
@@ -288,7 +288,7 @@ class MPITests(tf.test.TestCase):
             with tf.device("/gpu:%d" % gpu_ids[(iter + local_rank) % 2]):
                 tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
-                summed = hvd.allreduce(tensor, average=False)
+                summed = hvd.allreduce(tensor, op=hvd.Sum)
             multiplied = tensor * size
             max_difference = tf.reduce_max(tf.abs(summed - multiplied))
 
@@ -393,11 +393,11 @@ class MPITests(tf.test.TestCase):
                     tensor = self.tfe.Variable(self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype))
                     with tf.GradientTape() as tape:
-                        summed = hvd.allreduce(tensor, average=False)
+                        summed = hvd.allreduce(tensor, op=hvd.Sum)
                 else:
                     tensor = self.random_uniform(
                         [5] * dim, -100, 100, dtype=dtype)
-                    summed = hvd.allreduce(tensor, average=False)
+                    summed = hvd.allreduce(tensor, op=hvd.Sum)
 
                 grad_ys = tf.ones([5] * dim)
                 if _executing_eagerly():
@@ -436,10 +436,10 @@ class MPITests(tf.test.TestCase):
                     tensor = self.tfe.Variable(
                         self.random_uniform([5] * dim, -100, 100, dtype=dtype))
                     with tf.GradientTape() as tape:
-                        summed = hvd.allreduce(tensor, average=False)
+                        summed = hvd.allreduce(tensor, op=hvd.Sum)
                 else:
                     tensor = self.random_uniform([5] * dim, -100, 100, dtype=dtype)
-                    summed = hvd.allreduce(tensor, average=False)
+                    summed = hvd.allreduce(tensor, op=hvd.Sum)
 
                 grad_ys = tf.ones([5] * dim)
                 if _executing_eagerly():
@@ -1061,6 +1061,39 @@ class MPITests(tf.test.TestCase):
             expected = np.ones(tensor_size)
             err = np.linalg.norm(expected - actual)
             self.assertLess(err, 0.00000001)
+
+    def test_divide_by_size_cpu(self):
+        """Test on CPU that Horovod op to divide by size is equivalent to native TensorFlow ops."""
+        hvd.init()
+        size = hvd.size()
+        # dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        # dims = [1, 2, 3]
+        dtypes = [tf.int32]
+        dims = [1]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                tensor = self.random_uniform(
+                    [17] * dim, -100, 100, dtype=dtype)
+                actual = hvd.divide_by_size(tensor)
+            expected = tf.div(tensor, tf.cast(size, dtype=tensor.dtype))
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                self.skipTest("Horovod cluster too large for precise multiplication comparison")
+
+            t, a, e = self.evaluate([tensor, actual, expected])
+            print('tensor: {}'.format(t))
+            print('actual: {}'.format(a))
+            print('expected: {}'.format(e))
+            print('{} -> {} vs {}'.format(t[0], a[0], e[0]))
+            self.assertAllClose(a, e, threshold)
 
 
 if _has_eager:
