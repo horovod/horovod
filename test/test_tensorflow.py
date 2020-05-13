@@ -1066,16 +1066,20 @@ class MPITests(tf.test.TestCase):
         """Test on CPU that Horovod op to divide by size is equivalent to native TensorFlow ops."""
         hvd.init()
         size = hvd.size()
-        # dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
-        # dims = [1, 2, 3]
-        dtypes = [tf.int32]
-        dims = [1]
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dims = [1, 2, 3]
+        # dtypes = [tf.int32]
+        # dims = [1]
         for dtype, dim in itertools.product(dtypes, dims):
             with tf.device("/cpu:0"):
                 tensor = self.random_uniform(
                     [17] * dim, -100, 100, dtype=dtype)
                 actual = hvd.divide_by_size(tensor)
-            expected = tf.div(tensor, tf.cast(size, dtype=tensor.dtype))
+
+            # Difference between Python 2 and C++ integer division: Python 2 rounds down while C++ rounds
+            # towards 0 (see: https://stackoverflow.com/questions/25236410/difference-between-in-c-and-python).
+            # Here we need to have TensorFlow ops simulate the C++ division procedure.
+            expected = tf.cast(tf.math.truediv(tensor, tf.cast(size, dtype=tensor.dtype)), dtype=tensor.dtype)
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
@@ -1088,12 +1092,8 @@ class MPITests(tf.test.TestCase):
             else:
                 self.skipTest("Horovod cluster too large for precise multiplication comparison")
 
-            t, a, e = self.evaluate([tensor, actual, expected])
-            print('tensor: {}'.format(t))
-            print('actual: {}'.format(a))
-            print('expected: {}'.format(e))
-            print('{} -> {} vs {}'.format(t[0], a[0], e[0]))
-            self.assertAllClose(a, e, threshold)
+            actual_numpy, expected_numpy = self.evaluate([actual, expected])
+            self.assertAllClose(actual_numpy, expected_numpy, threshold)
 
 
 if _has_eager:
