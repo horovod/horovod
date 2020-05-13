@@ -31,6 +31,7 @@ Status MPI_GPUAllreduce::Execute(std::vector<TensorTableEntry>& entries, const R
 
   gpu_op_context_.InitGPU(entries);
 
+  const void* fused_input_data;
   void* buffer_data;
   size_t buffer_len;
   int64_t num_elements = NumElements(entries);
@@ -39,21 +40,27 @@ Status MPI_GPUAllreduce::Execute(std::vector<TensorTableEntry>& entries, const R
   auto& timeline = global_state_->timeline;
   if (entries.size() > 1) {
     timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
-    const void* fused_input_data;
     MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
 
     gpu_context_->StreamSynchronize(gpu_context_->streams[global_state_->current_nccl_stream][entries[0].device]);
 
     timeline.ActivityEndAll(entries);
   } else {
+    fused_input_data = first_entry.tensor->data();
     buffer_data = (void*) first_entry.output->data();
     buffer_len = (size_t) first_entry.output->size();
   }
 
+  if (response.prescale_factor() != 1.0) {
+    // Execute prescaling op
+    ScaleBuffer(response.prescale_factor(), entries, fused_input_data, buffer_data, num_elements);
+    fused_input_data = buffer_data; // for unfused, scale is done out of place
+  }
+
   // Do allreduce.
   timeline.ActivityStartAll(entries, MPI_ALLREDUCE);
-  const void* sendbuf = entries.size() > 1 || first_entry.tensor->data() == first_entry.output->data()
-                        ? MPI_IN_PLACE : first_entry.tensor->data();
+  const void* sendbuf = entries.size() > 1 || fused_input_data == buffer_data
+                        ? MPI_IN_PLACE : fused_input_data;
   int op = MPI_Allreduce(sendbuf, buffer_data,
                          (int) num_elements,
                          mpi_context_->GetMPIDataType(first_entry.tensor),
@@ -63,6 +70,11 @@ Status MPI_GPUAllreduce::Execute(std::vector<TensorTableEntry>& entries, const R
     throw std::runtime_error("MPI_Allreduce failed, see MPI output for details.");
   }
   timeline.ActivityEndAll(entries);
+
+  if (response.postscale_factor() != 1.0) {
+    // Execute postscaling op
+    ScaleBuffer(response.postscale_factor(), entries, buffer_data, buffer_data, num_elements);
+  }
 
   // Copy memory out of the fusion buffer.
   if (entries.size() > 1) {

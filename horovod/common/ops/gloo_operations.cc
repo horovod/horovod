@@ -120,6 +120,7 @@ Status GlooAllreduce::Execute(std::vector<TensorTableEntry>& entries,
                               const Response& response) {
   auto& first_entry = entries[0];
 
+  const void* fused_input_data;
   void* buffer_data;
   int num_elements = (int)NumElements(entries);
 
@@ -127,7 +128,6 @@ Status GlooAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   auto& timeline = global_state_->timeline;
   if (entries.size() > 1) {
     timeline.ActivityStartAll(entries, MEMCPY_IN_FUSION_BUFFER);
-    const void* fused_input_data;
     size_t buffer_len;
     MemcpyInFusionBuffer(entries, fused_input_data, buffer_data, buffer_len);
     timeline.ActivityEndAll(entries);
@@ -135,6 +135,12 @@ Status GlooAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     buffer_data = (void*)first_entry.output->data();
     std::memcpy(buffer_data, first_entry.tensor->data(),
                 (size_t)first_entry.tensor->size());
+    fused_input_data = buffer_data;
+  }
+
+  if (response.prescale_factor() != 1.0) {
+    // Execute prescaling op
+    ScaleBuffer(response.prescale_factor(), entries, fused_input_data, buffer_data, num_elements);
   }
 
   // Do allreduce.
@@ -143,6 +149,11 @@ Status GlooAllreduce::Execute(std::vector<TensorTableEntry>& entries,
       GetAlgorithmsForType(first_entry.tensor->dtype(), gloo_context_));
   gloo_algos->Allreduce(buffer_data, num_elements);
   timeline.ActivityEndAll(entries);
+
+  if (response.postscale_factor() != 1.0) {
+    // Execute postscaling op
+    ScaleBuffer(response.postscale_factor(), entries, buffer_data, buffer_data, num_elements);
+  }
 
   // Copy memory out of the fusion buffer.
   if (entries.size() > 1) {

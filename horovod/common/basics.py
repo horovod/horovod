@@ -215,3 +215,19 @@ class HorovodBasics(object):
           A boolean value indicating whether oneCCL support was compiled.
         """
         return bool(self.MPI_LIB_CTYPES.horovod_ccl_built())
+
+    def cuda_built(self):
+        """Returns True if Horovod was compiled with CUDA support.
+
+        Returns:
+          A boolean value indicating whether CUDA support was compiled.
+        """
+        return bool(self.MPI_LIB_CTYPES.horovod_cuda_built())
+
+    def rocm_built(self):
+        """Returns True if Horovod was compiled with ROCm support.
+
+        Returns:
+          A boolean value indicating whether ROCm support was compiled.
+        """
+        return bool(self.MPI_LIB_CTYPES.horovod_rocm_built())

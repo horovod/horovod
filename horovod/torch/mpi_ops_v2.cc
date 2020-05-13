@@ -62,7 +62,8 @@ void DivideInPlace(::torch::Tensor& tensor, int divisor) {
 }
 
 int DoAllreduce(::torch::Tensor tensor, ::torch::Tensor output, int divisor,
-                const std::string& name, int reduce_op_int) {
+                const std::string& name, int reduce_op_int,
+                double prescale_factor, double postscale_factor) {
   ThrowIfError(common::CheckInitialized());
 
   auto handle = handle_manager.AllocateHandle();
@@ -83,14 +84,15 @@ int DoAllreduce(::torch::Tensor tensor, ::torch::Tensor output, int divisor,
           DivideInPlace(output, divisor);
         }
         handle_manager.MarkDone(handle, status);
-      }, reduce_op);
+      }, reduce_op, prescale_factor, postscale_factor);
   ThrowIfError(enqueue_result);
 
   return handle;
 }
 
 int DoAllreduceCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int divisor,
-                         const std::string& name, int reduce_op_int) {
+                         const std::string& name, int reduce_op_int,
+                         double prescale_factor, double postscale_factor) {
   ThrowIfError(common::CheckInitialized());
 
   // Make async copy of input tensor to CPU tensor and record completion event.
@@ -118,7 +120,7 @@ int DoAllreduceCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int div
           DivideInPlace(output, divisor);
         }
         handle_manager.MarkDone(handle, status);
-      }, reduce_op);
+      }, reduce_op, prescale_factor, postscale_factor);
   ThrowIfError(enqueue_result);
 
   return handle;

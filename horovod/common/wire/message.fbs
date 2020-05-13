@@ -58,6 +58,11 @@ table Request {
     // We use a repeated integer instead of a TensorShapeProto because linking directly
     // to TensorFlow protos causes issues. See the comment for DataType.
     tensor_shape:[long];
+
+    // Prescale and postscale factors
+    prescale_factor:double;
+    postscale_factor:double;
+
 }
 table RequestList {
     requests:[Request];
@@ -101,6 +106,10 @@ table Response {
     // Empty unless response_type is ALLREDUCE and there is at least one rank
     // that requested Join.
     tensor_type:DataType;
+
+    // Prescale and postscale factors
+    prescale_factor:double;
+    postscale_factor:double;
 }
 table ResponseList {
     responses:[Response];

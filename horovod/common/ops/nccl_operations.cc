@@ -153,6 +153,12 @@ Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     num_elements += e.tensor->shape().num_elements();
   }
 
+  if (response.prescale_factor() != 1.0) {
+    // Execute prescaling op
+    ScaleBuffer(response.prescale_factor(), entries, fused_input_data, buffer_data, num_elements);
+    fused_input_data = buffer_data; // for unfused, scale is done out of place
+  }
+
   // Do allreduce.
   auto nccl_result = ncclAllReduce(fused_input_data, buffer_data,
                                    (size_t) num_elements,
@@ -161,6 +167,11 @@ Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   nccl_context_->ErrorCheck("ncclAllReduce", nccl_result, *nccl_op_context_.nccl_comm_);
   if (global_state_->timeline.Initialized()) {
     gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_ALLREDUCE, *gpu_op_context_.stream);
+  }
+
+  if (response.postscale_factor() != 1.0) {
+    // Execute postscaling op
+    ScaleBuffer(response.postscale_factor(), entries, buffer_data, buffer_data, num_elements);
   }
 
   // Copy memory out of the fusion buffer.
@@ -213,6 +224,12 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
   int64_t num_elements = 0;
   for (auto& e : entries) {
     num_elements += e.tensor->shape().num_elements();
+  }
+
+  if (response.prescale_factor() != 1.0) {
+    // Execute prescaling op
+    ScaleBuffer(response.prescale_factor(), entries, fused_input_data, buffer_data, num_elements);
+    fused_input_data = buffer_data; // for unfused, scale is done out of place
   }
 
   // Do allreduce.
@@ -358,6 +375,11 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     if (global_state_->timeline.Initialized()) {
       gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_BCAST, *gpu_op_context_.stream);
     }
+  }
+
+  if (response.postscale_factor() != 1.0) {
+    // Execute postscaling op
+    ScaleBuffer(response.postscale_factor(), entries, buffer_data, buffer_data, num_elements);
   }
 
   // Copy memory out of the fusion buffer.

@@ -50,6 +50,9 @@ torch_mpi_lib_v2 = Extension('horovod.torch.mpi_lib_v2', [])
 mxnet_mpi_lib = Extension('horovod.mxnet.mpi_lib', [])
 gloo_lib = CMakeExtension('gloo', cmake_lists_dir='third_party/gloo',
                           sources=[])
+horovod_cuda_lib = CMakeExtension('horovod_cuda_kernels',
+                                  cmake_lists_dir='horovod/common/ops/cuda',
+                                  sources=[])
 
 ccl_root = os.environ.get('CCL_ROOT')
 have_ccl = ccl_root is not None
@@ -155,6 +158,15 @@ def get_cpp_flags(build_ext):
 
     raise DistutilsPlatformError(last_err)
 
+def get_nvcc_flags():
+    default_flags = ['-O3', '-Xcompiler', '-fPIC']
+    cc_list_env = os.environ.get('HOROVOD_BUILD_CUDA_CC_LIST')
+    cc_list = [52, 60, 61, 70, 75] if cc_list_env is None else [int(x) for x in cc_list_env.split(',')]
+    for cc in cc_list:
+      default_flags += ['-gencode', 'arch=compute_{cc},code=sm_{cc}'.format(cc=cc)]
+    default_flags += ['-gencode', 'arch=compute_{cc},code=compute_{cc}'.format(cc=max(cc_list))]
+
+    return default_flags
 
 def get_link_flags(build_ext):
     last_err = None
@@ -570,7 +582,8 @@ def get_ddl_dirs(build_ext, cuda_include_dirs, cuda_lib_dirs, cpp_flags):
     return ddl_include_dirs, ddl_lib_dirs
 
 
-def set_cuda_options(build_ext, COMPILE_FLAGS, MACROS, INCLUDES, SOURCES, BUILD_MPI, LIBRARY_DIRS, LIBRARIES, **kwargs):
+def set_cuda_options(build_ext, COMPILE_FLAGS, MACROS, INCLUDES, SOURCES, BUILD_MPI, LIBRARY_DIRS, LIBRARIES,
+                     NVCC_COMPILE_FLAGS,**kwargs):
     cuda_include_dirs, cuda_lib_dirs = get_cuda_dirs(build_ext, COMPILE_FLAGS)
     MACROS += [('HAVE_CUDA', '1'), ('HAVE_GPU', '1')]
     INCLUDES += cuda_include_dirs
@@ -580,6 +593,8 @@ def set_cuda_options(build_ext, COMPILE_FLAGS, MACROS, INCLUDES, SOURCES, BUILD_
         SOURCES += ['horovod/common/ops/mpi_gpu_operations.cc']
     LIBRARY_DIRS += cuda_lib_dirs
     LIBRARIES += ['cudart']
+
+    NVCC_COMPILE_FLAGS += get_nvcc_flags()
 
 
 def get_common_options(build_ext):
@@ -744,6 +759,7 @@ def get_common_options(build_ext):
                'horovod/common/utils/env_parser.cc'
                ]
     COMPILE_FLAGS = cpp_flags + shlex.split(mpi_flags)
+    NVCC_COMPILE_FLAGS = []
     LINK_FLAGS = link_flags + shlex.split(mpi_flags)
     LIBRARY_DIRS = []
     LIBRARIES = []
@@ -798,7 +814,8 @@ def get_common_options(build_ext):
         LINK_FLAGS += ['-lccl']
 
     if have_cuda:
-        set_cuda_options(build_ext, COMPILE_FLAGS, MACROS, INCLUDES, SOURCES, have_mpi, LIBRARY_DIRS, LIBRARIES)
+        set_cuda_options(build_ext, COMPILE_FLAGS, MACROS, INCLUDES, SOURCES, have_mpi, LIBRARY_DIRS,
+                         LIBRARIES, NVCC_COMPILE_FLAGS)
         INCLUDES += ['horovod/common/ops/cuda']
 
     if have_rocm:
@@ -844,6 +861,7 @@ def get_common_options(build_ext):
                 INCLUDES=INCLUDES,
                 SOURCES=SOURCES,
                 COMPILE_FLAGS=COMPILE_FLAGS,
+                NVCC_COMPILE_FLAGS=NVCC_COMPILE_FLAGS,
                 LINK_FLAGS=LINK_FLAGS,
                 LIBRARY_DIRS=LIBRARY_DIRS,
                 LIBRARIES=LIBRARIES,
@@ -1019,6 +1037,8 @@ def build_tf_extension(build_ext, global_options):
                  LDSHARED=ldshared):
             if options['BUILD_GLOO']:
                 build_cmake(build_ext, gloo_lib, 'tf', gloo_compile_macros, options, tensorflow_mpi_lib)
+            if check_macro(options['MACROS'], 'HAVE_CUDA'):
+                build_cmake(build_ext, horovod_cuda_lib, 'tf', gloo_compile_macros, options, tensorflow_mpi_lib)
             customize_compiler(build_ext.compiler)
             build_ext.build_extension(tensorflow_mpi_lib)
     finally:
@@ -1100,6 +1120,9 @@ def build_mx_extension(build_ext, global_options):
     # First build gloo
     if options['BUILD_GLOO']:
         build_cmake(build_ext, gloo_lib, 'mxnet', [], options=options)
+
+    if check_macro(options['MACROS'], 'HAVE_CUDA'):
+        build_cmake(build_ext, horovod_cuda_lib, 'mxnet', [], options=options)
 
     check_mx_version()
     mx_compile_flags, mx_link_flags = get_mx_flags(
@@ -1377,6 +1400,8 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
                  LDSHARED=ldshared):
             if options['BUILD_GLOO']:
                 build_cmake(build_ext, gloo_lib, 'torchv2', gloo_abi_flag, options, torch_mpi_lib_v2)
+            if check_macro(options['MACROS'], 'HAVE_CUDA'):
+                build_cmake(build_ext, horovod_cuda_lib, 'torchv2', gloo_abi_flag, options, torch_mpi_lib_v2)
             customize_compiler(build_ext.compiler)
             build_ext.build_extension(torch_mpi_lib_v2)
     finally:
@@ -1414,6 +1439,7 @@ def build_cmake(build_ext, ext, prefix, additional_flags, options, plugin_ext=No
     cmake_args = ['-DUSE_MPI=' + use_mpi_flag,
                   '-DCMAKE_BUILD_TYPE=' + config,
                   cmake_cxx_flag,
+                  '-DHVD_NVCC_COMPILE_FLAGS=' + ' '.join(options['NVCC_COMPILE_FLAGS']),
                   '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}'.format(config.upper(), extdir),
                   '-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{}={}'.format(config.upper(),
                                                                   lib_output_dir),

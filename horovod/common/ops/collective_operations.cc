@@ -16,6 +16,7 @@
 // =============================================================================
 
 #include "collective_operations.h"
+#include "../message.h"
 
 namespace horovod {
 namespace common {
@@ -79,6 +80,40 @@ void AllreduceOp::MemcpyEntryOutFusionBuffer(
     const void* buffer_data_at_offset, TensorTableEntry& e) {
   std::memcpy((void*)e.output->data(), buffer_data_at_offset,
               (size_t)e.output->size());
+}
+
+void AllreduceOp::ScaleBuffer(
+    double scale_factor, const std::vector<TensorTableEntry>& entries,
+    const void* fused_input_data, void* buffer_data,
+    int64_t num_elements) {
+
+  DataType dtype = entries[0].tensor->dtype();
+  switch (dtype) {
+    case HOROVOD_UINT8:
+      ScaleBufferCPUImpl((const uint8_t*) fused_input_data, (uint8_t*) buffer_data, num_elements, scale_factor);
+      break;
+    case HOROVOD_INT8:
+      ScaleBufferCPUImpl((const int8_t*) fused_input_data, (int8_t*) buffer_data, num_elements, scale_factor);
+      break;
+    case HOROVOD_INT32:
+      ScaleBufferCPUImpl((const int32_t*) fused_input_data, (int32_t*) buffer_data, num_elements, scale_factor);
+      break;
+    case HOROVOD_INT64:
+      ScaleBufferCPUImpl((const int64_t*) fused_input_data, (int64_t*) buffer_data, num_elements, scale_factor);
+      break;
+    case HOROVOD_FLOAT16:
+      ScaleBufferCPUImpl((const unsigned short*) fused_input_data, (unsigned short*) buffer_data, num_elements, (float) scale_factor);
+      break;
+    case HOROVOD_FLOAT32:
+      ScaleBufferCPUImpl((const float*) fused_input_data, (float*) buffer_data, num_elements, (float) scale_factor);
+      break;
+    case HOROVOD_FLOAT64:
+      ScaleBufferCPUImpl((const double*) fused_input_data, (double*) buffer_data, num_elements, scale_factor);
+      break;
+    default:
+      throw std::logic_error("Type " + DataType_Name(dtype) +
+                             " not supported by ScaleBufferCPUImpl.");
+  }
 }
 
 // Allgather

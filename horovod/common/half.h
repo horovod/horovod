@@ -34,7 +34,11 @@
 namespace horovod {
 namespace common {
 
-inline void HalfBits2Float(unsigned short* src, float* res) {
+#if __AVX__ && __F16C__
+bool is_avx_and_f16c();
+#endif
+
+inline void HalfBits2Float(const unsigned short* src, float* res) {
   unsigned h = *src;
   int sign = ((h >> 15) & 1);
   int exp = ((h >> 10) & 0x1f);
@@ -70,7 +74,7 @@ inline void HalfBits2Float(unsigned short* src, float* res) {
   *res = *reinterpret_cast<float const*>(&f);
 }
 
-inline void Float2HalfBits(float* src, unsigned short* dest) {
+inline void Float2HalfBits(const float* src, unsigned short* dest) {
   // software implementation rounds toward nearest even
   unsigned const& s = *reinterpret_cast<unsigned const*>(src);
   uint16_t sign = uint16_t((s >> 16) & 0x8000);

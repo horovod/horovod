@@ -805,6 +805,22 @@ bool horovod_ccl_built() {
 #endif
 }
 
+bool horovod_cuda_built() {
+#if HAVE_CUDA
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool horovod_rocm_built() {
+#if HAVE_ROCM
+  return true;
+#else
+  return false;
+#endif
+}
+
 int horovod_reduce_op_average() {
   return ReduceOp::AVERAGE;
 }
@@ -827,7 +843,9 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               std::shared_ptr<ReadyEvent> ready_event,
                               const std::string name, const int device,
                               StatusCallback callback,
-                              ReduceOp reduce_op) {
+                              ReduceOp reduce_op,
+                              const double prescale_factor,
+                              const double postscale_factor) {
   Status status;
 
   // AVERAGE should be taken care of in the framework layer. Equeuing it here directly is not allowed.
@@ -843,6 +861,8 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
   message.set_tensor_name(name);
   message.set_tensor_type(tensor->dtype());
   message.set_device(device);
+  message.set_prescale_factor(prescale_factor);
+  message.set_postscale_factor(postscale_factor);
   
   if (reduce_op == ReduceOp::ADASUM) {
     message.set_request_type(Request::ADASUM);

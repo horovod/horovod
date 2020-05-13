@@ -247,6 +247,37 @@ class TensorFlowTests(tf.test.TestCase):
         self.assertTrue(self.evaluate(tf.reduce_all(tests)),
                         "hvd.allreduce produces incorrect results")
 
+    def test_horovod_allreduce_cpu_scale(self):
+        """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors
+           with pre and post scaling"""
+        hvd.init()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                tensor = self.random_uniform(
+                    [17] * dim, -100, 100, dtype=dtype)
+                summed = hvd.allreduce(tensor, average=False,
+                                       prescale_factor=4.0, postscale_factor=0.5)
+            multiplied = tensor * size * 2
+            max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold,
+                            "hvd.allreduce produces incorrect results")
+
     def test_horovod_allreduce_gpu(self):
         """Test that the allreduce works on GPUs."""
         # Only do this test if there are GPUs available.
@@ -416,6 +447,46 @@ class TensorFlowTests(tf.test.TestCase):
             diff = self.evaluate(max_difference)
             self.assertTrue(diff <= threshold,
                             "hvd.allreduce on GPU produces incorrect results")
+
+    def test_horovod_allreduce_gpu_scale(self):
+        """Test on GPU that the allreduce correctly sums 1D, 2D, 3D tensors
+           with pre and post scaling"""
+
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            return
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
+            return
+
+        hvd.init()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([tf.int32, tf.int64, tf.float16, tf.float32, tf.float64])
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/cpu:0"):
+                tensor = self.random_uniform(
+                    [17] * dim, -100, 100, dtype=dtype)
+                summed = hvd.allreduce(tensor, average=False,
+                                       prescale_factor=4.0, postscale_factor=0.5)
+            multiplied = tensor * size * 2
+            max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [tf.int32, tf.int64]:
+                threshold = 0
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            diff = self.evaluate(max_difference)
+            self.assertTrue(diff <= threshold,
+                            "hvd.allreduce produces incorrect results")
 
     def test_horovod_allreduce_error(self):
         """Test that the allreduce raises an error if different ranks try to

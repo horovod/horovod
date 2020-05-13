@@ -323,6 +323,45 @@ class TorchTests(unittest.TestCase):
 
             assert torch.allclose(tensor, multiplied, threshold), 'hvd.allreduce produces incorrect results'
 
+    def test_horovod_allreduce_scale(self):
+        """Test that the allreduce correctly sums 1D, 2D, 3D tensors with pre and post scaling."""
+        hvd.init()
+        size = hvd.size()
+        dtypes = self.filter_supported_types([torch.IntTensor, torch.LongTensor,
+                  torch.FloatTensor, torch.DoubleTensor])
+        if _fp16_supported:
+            dtypes += self.filter_supported_types([torch.HalfTensor])
+        if torch.cuda.is_available():
+            dtypes += [torch.cuda.IntTensor, torch.cuda.LongTensor,
+                       torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
+            if _fp16_supported:
+                dtypes += [torch.cuda.HalfTensor]
+
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            torch.manual_seed(1234)
+            tensor = torch.FloatTensor(*([17] * dim)).random_(-100, 100)
+            tensor = self.cast_and_place(tensor, dtype)
+            summed = hvd.allreduce(tensor, average=False,
+                                   prescale_factor=4.0, postscale_factor=0.5)
+            tensor, summed = self.convert_cpu_fp16_to_fp32(tensor, summed)
+            multiplied = tensor * size * 2.0
+            max_difference = summed.data.sub(multiplied).abs().max()
+
+            # Threshold for floating point equality depends on number of
+            # ranks, since we're comparing against precise multiplication.
+            if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
+                                      torch.cuda.IntTensor, torch.cuda.LongTensor]:
+                threshold = 1
+            elif size < 10:
+                threshold = 1e-4
+            elif size < 15:
+                threshold = 5e-4
+            else:
+                break
+
+            assert max_difference <= threshold, 'hvd.allreduce produces incorrect results'
+
     def test_horovod_allreduce_error(self):
         """Test that the allreduce raises an error if different ranks try to
         send tensors of different rank or dimension."""
