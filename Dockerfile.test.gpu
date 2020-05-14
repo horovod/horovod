@@ -14,6 +14,8 @@ ARG PYTORCH_PACKAGE=torch==1.2.0
 ARG TORCHVISION_PACKAGE=torchvision==0.4.0
 ARG MXNET_PACKAGE=mxnet-cu100==1.5.0
 ARG PYSPARK_PACKAGE=pyspark==2.4.0
+# if SPARK_PACKAGE is set, installs pyspark from tgz archive
+ARG SPARK_PACKAGE=
 ARG HOROVOD_BUILD_FLAGS="HOROVOD_GPU_OPERATIONS=NCCL"
 ARG HOROVOD_MIXED_INSTALL=0
 
@@ -41,16 +43,23 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends g++-7
 # Install Python.
 RUN apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-distutils
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
-RUN wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
+RUN wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
 RUN pip install -U --force pip 'setuptools<46.0.0' requests pytest mock pytest-forked
 
 # Install PySpark.
 RUN apt-get update -qq && apt install -y openjdk-8-jdk-headless
-RUN pip install ${PYSPARK_PACKAGE}
+RUN if [[ -z "${SPARK_PACKAGE}" ]]; then \
+        pip install ${PYSPARK_PACKAGE}; \
+    else \
+        pip install pypandoc; \
+        wget --progress=dot:giga https://archive.apache.org/dist/spark/${SPARK_PACKAGE} -O - | tar -xzC /tmp; \
+        archive=$(basename "${SPARK_PACKAGE}") bash -c "mv -v /tmp/\${archive/%.tgz/} /spark"; \
+        (cd /spark/python && python setup.py sdist && pip install dist/pyspark-*.tar.gz && rm dist/pyspark-*); \
+    fi
 
 # Install MPI.
 RUN if [[ ${MPI_KIND} == "OpenMPI" ]]; then \
-        wget -O /tmp/openmpi-3.0.0-bin.tar.gz https://github.com/horovod/horovod/files/1596799/openmpi-3.0.0-bin.tar.gz && \
+        wget --progress=dot:mega -O /tmp/openmpi-3.0.0-bin.tar.gz https://github.com/horovod/horovod/files/1596799/openmpi-3.0.0-bin.tar.gz && \
             cd /usr/local && tar -zxf /tmp/openmpi-3.0.0-bin.tar.gz && ldconfig && \
             echo "mpirun -allow-run-as-root -np 2 -H localhost:2 -bind-to none -map-by slot -mca mpi_abort_print_stack 1" > /mpirun_command; \
     elif [[ ${MPI_KIND} == "MPICH" ]]; then \
@@ -111,7 +120,7 @@ RUN if [[ ${TENSORFLOW_PACKAGE} == "tensorflow-gpu==1.1.0" ]]; then \
 
 # Prefetch Spark MNIST dataset.
 RUN mkdir -p /work
-RUN mkdir -p /data && wget https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/multiclass/mnist.bz2 -O /data/mnist.bz2
+RUN mkdir -p /data && wget --progress=dot:mega https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/multiclass/mnist.bz2 -O /data/mnist.bz2
 
 # Hack TensorFlow MNIST example to be smaller.
 RUN sed -i "s/last_step=20000/last_step=100/" /horovod/examples/tensorflow_mnist.py
@@ -134,7 +143,7 @@ RUN sed -i "s/'--epochs', type=int, default=10,/'--epochs', type=int, default=2,
 
 # Prefetch Spark Rossmann dataset.
 RUN mkdir -p /work
-RUN mkdir -p /data && wget http://files.fast.ai/part2/lesson14/rossmann.tgz -O - | tar -xzC /data
+RUN mkdir -p /data && wget --progress=dot:mega http://files.fast.ai/part2/lesson14/rossmann.tgz -O - | tar -xzC /data
 
 # Hack Keras Spark Rossmann Run example to be smaller.
 RUN sed -i "s/x = Dense(1000,/x = Dense(100,/g" /horovod/examples/keras_spark_rossmann_run.py
