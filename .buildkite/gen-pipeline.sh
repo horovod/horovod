@@ -208,17 +208,17 @@ run_gloo_pytest() {
   local test=$1
   local queue=$2
 
+  local exclude_keras=""
+  if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
+    # TODO: support for Keras + TF 2.0 and TF-Keras 2.0
+    exclude_keras="| sed 's/test_keras.py//g' | sed 's/test_tensorflow_keras.py//g'"
+  else
+    exclude_keras="| sed 's/[a-z_]*tensorflow2[a-z_.]*//g'"
+  fi
+
   local exclude_elastic=""
   if [[ ${test} == *"py2_"* ]]; then
     exclude_elastic="| sed 's/test_elastic[a-z_.]*//g'"
-  fi
-
-  local exclude_keras_if_needed=""
-  if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
-    # TODO: support for Keras + TF 2.0 and TF-Keras 2.0
-    exclude_keras_if_needed="| sed 's/test_keras.py//g' | sed 's/test_tensorflow_keras.py//g'"
-  else
-    exclude_keras_if_needed="| sed 's/[a-z_]*tensorflow2[a-z_.]*//g'"
   fi
 
   # These are tested as integration style tests.
@@ -236,7 +236,7 @@ run_gloo_pytest() {
 
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras_if_needed} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no ${standalone_tests}\""
+    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras} ${exclude_elastic} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no ${standalone_tests}\""
 }
 
 run_gloo_integration() {
