@@ -743,6 +743,7 @@ def get_common_options(build_ext):
     SOURCES = ['horovod/common/common.cc',
                'horovod/common/controller.cc',
                'horovod/common/fusion_buffer_manager.cc',
+               'horovod/common/half.cc',
                'horovod/common/logging.cc',
                'horovod/common/message.cc',
                'horovod/common/operations.cc',
@@ -788,8 +789,7 @@ def get_common_options(build_ext):
 
     if have_mpi:
         MACROS += [('HAVE_MPI', '1')]
-        SOURCES += ['horovod/common/half.cc',
-                    'horovod/common/mpi/mpi_context.cc',
+        SOURCES += ['horovod/common/mpi/mpi_context.cc',
                     'horovod/common/mpi/mpi_controller.cc',
                     'horovod/common/ops/mpi_operations.cc',
                     'horovod/common/ops/adasum/adasum_mpi.cc',
