@@ -159,7 +159,7 @@ def get_cpp_flags(build_ext):
     raise DistutilsPlatformError(last_err)
 
 def get_nvcc_flags():
-    default_flags = ['-O3', '-Xcompiler', '-fPIC']
+    default_flags = ['--std=c++11', '-O3', '-Xcompiler', '-fPIC']
     cc_list_env = os.environ.get('HOROVOD_BUILD_CUDA_CC_LIST')
     cc_list = [52, 60, 61, 70, 75] if cc_list_env is None else [int(x) for x in cc_list_env.split(',')]
     for cc in cc_list:
@@ -1121,9 +1121,6 @@ def build_mx_extension(build_ext, global_options):
     if options['BUILD_GLOO']:
         build_cmake(build_ext, gloo_lib, 'mxnet', [], options=options)
 
-    if check_macro(options['MACROS'], 'HAVE_CUDA'):
-        build_cmake(build_ext, horovod_cuda_lib, 'mxnet', [], options=options)
-
     check_mx_version()
     mx_compile_flags, mx_link_flags = get_mx_flags(
         build_ext, options['COMPILE_FLAGS'])
@@ -1140,6 +1137,10 @@ def build_mx_extension(build_ext, global_options):
     # version or transfer tensors to CPU memory for those operations.
     if mx_have_cuda and not macro_have_cuda:
         set_cuda_options(build_ext, **options)
+
+    # If framework has CUDA support, build Horovod CUDA kernels
+    if mx_have_cuda:
+        build_cmake(build_ext, horovod_cuda_lib, 'mxnet', [], options=options)
 
     mxnet_mpi_lib.define_macros = options['MACROS']
     if check_macro(options['MACROS'], 'HAVE_CUDA'):
@@ -1400,7 +1401,8 @@ def build_torch_extension_v2(build_ext, global_options, torch_version):
                  LDSHARED=ldshared):
             if options['BUILD_GLOO']:
                 build_cmake(build_ext, gloo_lib, 'torchv2', gloo_abi_flag, options, torch_mpi_lib_v2)
-            if check_macro(options['MACROS'], 'HAVE_CUDA'):
+            if have_cuda:
+                # If framework has CUDA support, build Horovod CUDA kernels
                 build_cmake(build_ext, horovod_cuda_lib, 'torchv2', gloo_abi_flag, options, torch_mpi_lib_v2)
             customize_compiler(build_ext.compiler)
             build_ext.build_extension(torch_mpi_lib_v2)
