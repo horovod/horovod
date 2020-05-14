@@ -5,10 +5,14 @@ from distutils.version import LooseVersion
 
 import numpy as np
 
+import pyspark
 import pyspark.sql.types as T
 from pyspark import SparkConf
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
-from pyspark.ml.feature import OneHotEncoderEstimator
+if LooseVersion(pyspark.__version__) < LooseVersion('3.0.0'):
+    from pyspark.ml.feature import OneHotEncoderEstimator as OneHotEncoder
+else:
+    from pyspark.ml.feature import OneHotEncoder
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import udf
 
@@ -62,9 +66,9 @@ if __name__ == '__main__':
         .load(libsvm_path)
 
     # One-hot encode labels into SparseVectors
-    encoder = OneHotEncoderEstimator(inputCols=['label'],
-                                     outputCols=['label_vec'],
-                                     dropLast=False)
+    encoder = OneHotEncoder(inputCols=['label'],
+                            outputCols=['label_vec'],
+                            dropLast=False)
     model = encoder.fit(df)
     train_df = model.transform(df)
 
