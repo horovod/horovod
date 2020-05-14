@@ -15,7 +15,7 @@ tests=( \
        test-cpu-gloo-py2_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-gloo-py3_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0 \
-       test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0 \
+       test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark3_0_0 \
        test-cpu-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_4_0 \
        test-cpu-openmpi-gloo-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
        test-cpu-openmpi-py2_7-tf2_0_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
@@ -111,12 +111,6 @@ run_mpi_pytest() {
   # Spark and Run test does not need to be executed with horovodrun, but we still run it below.
   local exclude_standalone_test="| sed 's/test_spark.py//g' | sed 's/test_run.py//g'"
   local standalone_tests="test_spark.py test_run.py"
-
-  # TODO(travis): enable for Python 3.8 when Spark 3.0 released
-  #  see: https://issues.apache.org/jira/browse/SPARK-29536
-  if [[ ${test} == *"-py3_8-"* ]]; then
-      standalone_tests="test_run.py"
-  fi
 
   # pytests have 4x GPU use cases and require a separate queue
   run_test "${test}" "${queue}" \
@@ -220,12 +214,6 @@ run_gloo_pytest() {
   # Spark and Run test does not need to be executed with horovodrun, but we still run it below.
   local exclude_standalone_test="| sed 's/test_spark.py//g' | sed 's/test_run.py//g'"
   local standalone_tests="test_spark.py test_run.py"
-
-  # TODO(travis): enable for Python 3.8 when Spark 3.0 released
-  #  see: https://issues.apache.org/jira/browse/SPARK-29536
-  if [[ ${test} == *"-py3_8-"* ]]; then
-      standalone_tests="test_run.py"
-  fi
 
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
@@ -393,11 +381,7 @@ for test in ${tests[@]}; do
     fi
 
     # always run spark tests which use MPI and Gloo
-    # TODO(travis): enable for Python 3.8 when Spark 3.0 released
-    #  see: https://issues.apache.org/jira/browse/SPARK-29536
-    if [[ ${test} != *"-py3_8-"* ]]; then
-        run_spark_integration ${test} "cpu"
-    fi
+    run_spark_integration ${test} "cpu"
 
     # no runner application, world size = 1
     run_single_integration ${test} "cpu" ${oneccl_env}
