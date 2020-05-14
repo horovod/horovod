@@ -118,8 +118,8 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
                               const std::string name, const int device,
                               StatusCallback callback,
                               ReduceOp reduce_op = ReduceOp::SUM,
-                              const double prescale_factor = 1.0,
-                              const double postscale_factor = 1.0);
+                              double prescale_factor = 1.0,
+                              double postscale_factor = 1.0);
 
 Status EnqueueTensorAllgather(std::shared_ptr<OpContext> context,
                               std::shared_ptr<Tensor> tensor,

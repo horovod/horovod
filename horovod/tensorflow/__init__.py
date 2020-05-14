@@ -85,11 +85,12 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
     """
     op = handle_average_backwards_compatibility(op, average)
 
-    true_op = Sum if op == Average else op
-    if not rocm_built():
-      if (op == Average):
-        # Averaging happens via postscale_factor.
-        postscale_factor /= size()
+    average_in_framework = False
+    if rocm_built():
+      # For ROCm, perform averaging at framework level
+      if op == Average:
+        average_in_framework = True
+        op = Sum
 
 
     if isinstance(tensor, tf.IndexedSlices):
@@ -114,7 +115,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             horovod_size = tf.cast(size_op() if int(os.environ.get("HOROVOD_ELASTIC", 0)) else size(),
                                    dtype=tensor.dtype)
             tensor_compressed, ctx = compression.compress(tensor)
-            summed_tensor_compressed = _allreduce(tensor_compressed, op=true_op,
+            summed_tensor_compressed = _allreduce(tensor_compressed, op=op,
                                                   prescale_factor=prescale_factor,
                                                   postscale_factor=postscale_factor)
             summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
@@ -141,7 +142,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                     new_tensor = summed_tensor
             else:
                 if rocm_built():
-                    new_tensor = (summed_tensor / horovod_size) if op == Average else summed_tensor
+                    new_tensor = (summed_tensor / horovod_size) if average_in_framework else summed_tensor
                 else:
                   new_tensor = summed_tensor
         return new_tensor
@@ -241,6 +242,7 @@ if _SessionRunHook is not None and _get_default_graph is not None:
 def _make_allreduce_grads_fn(name, device_dense, device_sparse,
                              compression, sparse_as_dense, op, gradient_predivide_factor):
     if op == Average and gradient_predivide_factor != 1.0:
+        # Perform averaging via pre/postscaling factors.
         # Split average operation across pre/postscale factors
         prescale_factor = 1.0 / gradient_predivide_factor
         postscale_factor = gradient_predivide_factor / size()

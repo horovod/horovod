@@ -84,11 +84,12 @@ def _allreduce_async(tensor, output, name, op, prescale_factor, postscale_factor
     # Set the divisor for reduced gradients to average when necessary
     if op == Average:
         if rocm_built():
+          # For ROCm, perform averaging at framework level
           divisor = size()
+          op = Sum
         else:
-          # Averaging done via postscale factor
-          postscale_factor /= size()
           divisor = 1
+
     elif op == Adasum:
         if tensor.device.type != 'cpu' and gpu_available('torch'):
             if nccl_built():
@@ -108,13 +109,11 @@ def _allreduce_async(tensor, output, name, op, prescale_factor, postscale_factor
             divisor = 1
     else:
         divisor = 1
-    # Averaging happens in framework code, so translate that to Sum for the actual call
-    true_op = Sum if op == Average else op
 
     function = _check_function(_allreduce_function_factory, tensor)
     try:
         handle = getattr(mpi_lib, function)(tensor, output, divisor,
-                                            name.encode() if name is not None else _NULL, true_op,
+                                            name.encode() if name is not None else _NULL, op,
                                             prescale_factor, postscale_factor)
     except RuntimeError as e:
         raise HorovodInternalError(e)
