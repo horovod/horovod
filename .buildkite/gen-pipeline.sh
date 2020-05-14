@@ -106,9 +106,8 @@ run_mpi_pytest() {
   local exclude_standalone_test="| sed 's/test_spark.py//g' | sed 's/test_run.py//g'"
   local standalone_tests="test_spark.py test_run.py"
 
-  # TODO(travis): enable for Python 3.8 when Spark 3.0 released
-  #  see: https://issues.apache.org/jira/browse/SPARK-29536
-  if [[ ${test} == *"-py3_8-"* ]]; then
+  # Python 3.8 requires Spark 3, see: https://issues.apache.org/jira/browse/SPARK-29536
+  if [[ ${test} == *"-py3_8-"* && ${test} == *"-pyspark2_"* ]]; then
       standalone_tests="test_run.py"
   fi
 
@@ -214,9 +213,8 @@ run_gloo_pytest() {
   local exclude_standalone_test="| sed 's/test_spark.py//g' | sed 's/test_run.py//g'"
   local standalone_tests="test_spark.py test_run.py"
 
-  # TODO(travis): enable for Python 3.8 when Spark 3.0 released
-  #  see: https://issues.apache.org/jira/browse/SPARK-29536
-  if [[ ${test} == *"-py3_8-"* ]]; then
+  # Python 3.8 requires Spark 3, see: https://issues.apache.org/jira/browse/SPARK-29536
+  if [[ ${test} == *"-py3_8-"* && ${test} == *"-pyspark2_"* ]]; then
       standalone_tests="test_run.py"
   fi
 
@@ -268,9 +266,11 @@ run_gloo_integration() {
       ":factory: Elastic Tests (${test})" \
       "bash -c \"cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no test_elastic_torch.py ${elastic_tensorflow}\""
 
-  run_test "${test}" "${queue}" \
-      ":factory: Elastic Spark Tests (${test})" \
-      "bash -c \"cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no test_elastic_spark_torch.py ${elastic_spark_tensorflow}\""
+  if [[ ${test} != *"-py3_8-"* || ${test} == *"-pyspark3_"* ]]; then
+    run_test "${test}" "${queue}" \
+        ":factory: Elastic Spark Tests (${test})" \
+        "bash -c \"cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no test_elastic_spark_torch.py ${elastic_spark_tensorflow}\""
+  fi
 }
 
 run_gloo() {
@@ -398,9 +398,8 @@ for test in ${tests[@]}; do
     fi
 
     # always run spark tests which use MPI and Gloo
-    # TODO(travis): enable for Python 3.8 when Spark 3.0 released
-    #  see: https://issues.apache.org/jira/browse/SPARK-29536
-    if [[ ${test} != *"-py3_8-"* ]]; then
+    # Python 3.8 requires Spark 3, see: https://issues.apache.org/jira/browse/SPARK-29536
+    if [[ ${test} != *"-py3_8-"* || ${test} == *"-pyspark3_"* ]]; then
         run_spark_integration ${test} "cpu"
     fi
 
