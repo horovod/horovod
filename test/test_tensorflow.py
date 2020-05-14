@@ -1084,8 +1084,7 @@ class TensorFlowTests(tf.test.TestCase):
 
     def test_broadcast_object(self):
         if LooseVersion(tf.__version__) < LooseVersion('1.15.0'):
-            # Broadcasting object requires TensorFlow 1.15 or above
-            return
+            self.skipTest("Broadcasting object requires TensorFlow 1.15 or above")
 
         hvd.init()
 
@@ -1101,8 +1100,7 @@ class TensorFlowTests(tf.test.TestCase):
 
     def test_broadcast_object_fn(self):
         if LooseVersion(tf.__version__) < LooseVersion('1.15.0'):
-            # Broadcasting object requires TensorFlow 1.15 or above
-            return
+            self.skipTest("Broadcasting object requires TensorFlow 1.15 or above")
 
         if hvd._executing_eagerly() or _IS_TF2:
             # Only for TF 1.0 in graph mode
@@ -1123,8 +1121,7 @@ class TensorFlowTests(tf.test.TestCase):
 
     def test_elastic_state(self):
         if LooseVersion(tf.__version__) < LooseVersion('1.15.0'):
-            # Broadcasting object requires TensorFlow 1.15 or above
-            return
+            self.skipTest("Broadcasting object requires TensorFlow 1.15 or above")
 
         if not hvd._executing_eagerly() and _IS_TF2:
             # Only support TF 2.0 in eager mode
