@@ -1082,9 +1082,11 @@ class TensorFlowTests(tf.test.TestCase):
             err = np.linalg.norm(expected - actual)
             self.assertLess(err, 0.00000001)
 
-    @pytest.mark.skipif(LooseVersion(tf.__version__) < LooseVersion('1.15.0'),
-                        reason='Broadcasting object requires TensorFlow 1.15 or above')
     def test_broadcast_object(self):
+        if LooseVersion(tf.__version__) < LooseVersion('1.15.0'):
+            # Broadcasting object requires TensorFlow 1.15 or above
+            return
+
         hvd.init()
 
         with tf.device("/cpu:0"):
@@ -1097,9 +1099,11 @@ class TensorFlowTests(tf.test.TestCase):
             obj = hvd.broadcast_object(obj, root_rank=0)
             self.assertDictEqual(obj, expected_obj)
 
-    @pytest.mark.skipif(LooseVersion(tf.__version__) < LooseVersion('1.15.0'),
-                        reason='Broadcasting object requires TensorFlow 1.15 or above')
     def test_broadcast_object_fn(self):
+        if LooseVersion(tf.__version__) < LooseVersion('1.15.0'):
+            # Broadcasting object requires TensorFlow 1.15 or above
+            return
+
         if hvd._executing_eagerly() or _IS_TF2:
             # Only for TF 1.0 in graph mode
             return
@@ -1117,9 +1121,11 @@ class TensorFlowTests(tf.test.TestCase):
             obj = bcast(obj)
             self.assertDictEqual(obj, expected_obj)
 
-    @pytest.mark.skipif(LooseVersion(tf.__version__) < LooseVersion('1.15.0'),
-                        reason='Synchronizing state requires TensorFlow 1.15 or above')
     def test_elastic_state(self):
+        if LooseVersion(tf.__version__) < LooseVersion('1.15.0'):
+            # Broadcasting object requires TensorFlow 1.15 or above
+            return
+
         if not hvd._executing_eagerly() and _IS_TF2:
             # Only support TF 2.0 in eager mode
             return

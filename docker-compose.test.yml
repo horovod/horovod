@@ -56,16 +56,16 @@ services:
         TORCHVISION_PACKAGE: torchvision==0.5.0+cpu
         MXNET_PACKAGE: mxnet==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.0
-  test-cpu-gloo-py3_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0:
+  test-cpu-gloo-py3_7-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0:
     extends: test-cpu-base
     build:
       args:
         UBUNTU_VERSION: 18.04
         MPI_KIND: None
         PYTHON_VERSION: 3.7
-        TENSORFLOW_PACKAGE: tensorflow-cpu==1.15.0
+        TENSORFLOW_PACKAGE: tensorflow==2.2.0
         KERAS_PACKAGE: keras==2.3.1
-        PYTORCH_PACKAGE: torch==1.4.0+cpu
+        PYTORCH_PACKAGE: torch==1.5.0+cpu
         TORCHVISION_PACKAGE: torchvision==0.5.0+cpu
         MXNET_PACKAGE: mxnet==1.5.0
         PYSPARK_PACKAGE: pyspark==2.4.0
@@ -76,7 +76,7 @@ services:
         UBUNTU_VERSION: 18.04
         MPI_KIND: None
         PYTHON_VERSION: 3.8
-        TENSORFLOW_PACKAGE: tensorflow==2.2.0rc3
+        TENSORFLOW_PACKAGE: tensorflow==2.2.0
         KERAS_PACKAGE: keras==2.3.1
         PYTORCH_PACKAGE: torch==1.5.0+cpu
         TORCHVISION_PACKAGE: torchvision==0.5.0+cpu
