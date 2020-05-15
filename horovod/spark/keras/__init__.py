@@ -13,7 +13,5 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-
 from horovod.spark.keras.estimator import KerasEstimator
 from horovod.spark.keras.estimator import KerasModel

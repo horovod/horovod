@@ -13,11 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-
 import io
-
-from distutils.version import LooseVersion
 
 import cloudpickle
 import numpy as np

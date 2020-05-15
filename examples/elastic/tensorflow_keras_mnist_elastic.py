@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.models import Sequential

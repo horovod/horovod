@@ -13,21 +13,17 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-
 import collections
 import warnings
 
 import mock
 import numpy as np
-import sys
 import tensorflow as tf
 
 import pyspark.sql.types as T
 from pyspark.ml.linalg import DenseVector, SparseVector
 from pyspark.sql.functions import udf
 
-from horovod.run.runner import is_gloo_used
 import horovod.spark.keras as hvd
 from horovod.spark.common import constants, util
 from horovod.spark.keras import remote

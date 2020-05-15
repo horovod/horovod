@@ -14,10 +14,6 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from horovod.common.util import check_extension
 
 try:

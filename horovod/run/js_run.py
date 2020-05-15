@@ -13,7 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import print_function
 import os
 import tempfile
 from horovod.run.common.util import safe_shell_exec

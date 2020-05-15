@@ -13,22 +13,14 @@
 # limitations under the License.
 # =============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import itertools
 import numpy as np
-import os
 import tensorflow as tf
 from tensorflow.python.framework import ops
 from horovod.tensorflow.util import _executing_eagerly, _has_eager
 import warnings
-from datetime import datetime
 import horovod.tensorflow as hvd
 import math
 import copy
-import subprocess
 
 def adasum_reference_operation(a,b):
     assert a.size == b.size

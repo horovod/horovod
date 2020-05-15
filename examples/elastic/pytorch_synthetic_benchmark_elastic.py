@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import argparse
 import torch.backends.cudnn as cudnn
 import torch.nn.functional as F

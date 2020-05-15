@@ -13,9 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-
-import sys
 import unittest
 import warnings
 
@@ -30,7 +27,6 @@ import torch.nn as nn
 from torch.nn import functional as F
 import torch.optim as optim
 
-from horovod.run.runner import is_gloo_used
 import horovod.spark.torch as hvd
 from horovod.spark.common import constants, util
 from horovod.spark.torch import remote

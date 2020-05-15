@@ -14,8 +14,6 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-
 
 class HorovodInternalError(RuntimeError):
     """Internal error raised when a Horovod collective operation (e.g., allreduce) fails.

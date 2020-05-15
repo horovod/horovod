@@ -14,10 +14,6 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from distutils.version import LooseVersion
 
 # Load all the necessary PyTorch C types.
