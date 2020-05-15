@@ -7,6 +7,11 @@ find_package(CUDA)
 # Remove C++ std flags (--std=c++11 included in CUDA_NVCC_FLAGS)
 string(REGEX REPLACE  "-std=[^ ]+" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
+# Set ar
+if(DEFINED ENV{AR})
+  set(CMAKE_AR $ENV{AR})
+endif()
+
 MESSAGE(STATUS "HVD_NVCC_COMPILE_FLAGS = ${HVD_NVCC_COMPILE_FLAGS}")
 
 list(APPEND CUDA_NVCC_FLAGS ${HVD_NVCC_COMPILE_FLAGS})
