@@ -16,6 +16,8 @@
 import collections
 import io
 
+from collections.abc import Iterable
+
 import cloudpickle
 import torch
 
@@ -23,11 +25,6 @@ from horovod.torch.mpi_ops import broadcast_, broadcast_async_
 from horovod.torch.mpi_ops import synchronize
 from horovod.torch.mpi_ops import rank
 from horovod.torch.optimizer import DistributedOptimizer
-
-try:
-    from collections.abc import Iterable
-except ImportError:
-    from collections import Iterable
 
 
 def broadcast_parameters(params, root_rank):

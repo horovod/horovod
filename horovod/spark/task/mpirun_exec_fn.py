@@ -16,11 +16,6 @@
 import os
 import sys
 
-try:
-    from shlex import quote
-except ImportError:
-    from pipes import quote
-
 from horovod.spark.task import task_exec
 from horovod.run.common.util import codec
 

@@ -23,6 +23,8 @@ import pytest
 import unittest
 import warnings
 
+from collections.abc import Iterable
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -31,11 +33,6 @@ import torch.nn.functional as F
 import horovod.torch as hvd
 
 from common import mpi_env_rank_and_size, temppath
-
-try:
-    from collections.abc import Iterable
-except ImportError:
-    from collections import Iterable
 
 _v2_api = LooseVersion(torch.__version__) >= LooseVersion('1.0.0')
 _fp16_supported = _v2_api

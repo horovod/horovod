@@ -15,15 +15,13 @@
 
 import os
 import tempfile
+
+from shlex import quote
+
 from horovod.run.common.util import safe_shell_exec
 from horovod.run.util import lsf
 from distutils.spawn import find_executable
 from horovod.run.mpi_run import _get_mpi_implementation_flags, _MPI_NOT_FOUND_ERROR_MSG
-
-try:
-    from shlex import quote
-except ImportError:
-    from pipes import quote
 
 
 def is_jsrun_installed():

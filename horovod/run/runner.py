@@ -22,10 +22,7 @@ import re
 import sys
 import textwrap
 
-try:
-    from shlex import quote
-except ImportError:
-    from pipes import quote
+from shlex import quote
 
 import yaml
 
