@@ -479,8 +479,6 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
         gradient_predivide_factor / size after the sum.
     """
     if gradient_predivide_factor != 1.0:
-        if op == Adasum:
-            raise ValueError('gradient_predivide_factor not supported yet with op == Adasum')
         if rocm_built():
             raise ValueError('gradient_predivide_factor not supported yet with ROCm')
 
@@ -500,11 +498,9 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
             raise ValueError('op == Adasum is not supported yet with Keras')
         if backward_passes_per_step > 1:
             raise ValueError('backward_passes_per_step > 1 is not supported yet with Keras')
-        if gradient_predivide_factor != 1.0:
-            raise ValueError('gradient_predivide_factor not supported yet with Keras')
         import horovod.tensorflow.keras as hvd_k
         return hvd_k.DistributedOptimizer(optimizer, name, device_dense, device_sparse,
-                                          compression, sparse_as_dense)
+                                          compression, sparse_as_dense, gradient_predivide_factor)
     else:
         raise ValueError('Provided optimizer doesn\'t inherit from either legacy '
                          'TensorFlow or Keras optimizer: %s' % optimizer)
@@ -562,8 +558,6 @@ if hasattr(tf, 'GradientTape'):
             gradient_predivide_factor / size after the sum.
         """
         if gradient_predivide_factor != 1.0:
-            if op == Adasum:
-                raise ValueError('gradient_predivide_factor not supported yet with op == Adasum')
             if rocm_built():
                 raise ValueError('gradient_predivide_factor not supported yet with ROCm')
 

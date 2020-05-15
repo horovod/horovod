@@ -23,7 +23,7 @@ _PRE_TF_2_4_0 = LooseVersion(tf.__version__) < LooseVersion('2.4.0')
 
 
 def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sparse,
-                                 compression, sparse_as_dense):
+                                 compression, sparse_as_dense, gradient_predivide_factor):
     class _DistributedOptimizer(keras.optimizers.Optimizer):
         _HAS_AGGREGATE_GRAD = True
 
@@ -34,6 +34,7 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
             self._compression = compression
             self._sparse_as_dense = sparse_as_dense
             self._aggregated_gradients = False
+            self._gradient_predivide_factor = gradient_predivide_factor
             super(self.__class__, self).__init__(**kwargs)
 
         def get_gradients(self, loss, params):
@@ -60,6 +61,17 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
         def _allreduce(self, gradients):
             self._aggregated_gradients = True
             if hvd.size() > 1:
+                if self._gradient_predivide_factor != 1.0:
+                    # Perform averaging via pre/postscaling factors.
+                    # Split average operation across pre/postscale factors
+                    prescale_factor = 1.0 / gradient_predivide_factor
+                    postscale_factor = gradient_predivide_factor / hvd.size()
+                    do_average = False
+                else:
+                    prescale_factor = 1.0
+                    postscale_factor = 1.0
+                    do_average = True
+
                 averaged_gradients = []
                 with tf.name_scope(self._name + "_Allreduce"):
                     for grad in gradients:
@@ -68,9 +80,12 @@ def create_distributed_optimizer(keras, optimizer, name, device_dense, device_sp
                                     isinstance(grad, tf.IndexedSlices):
                                 grad = tf.convert_to_tensor(grad)
                             avg_grad = hvd.allreduce(grad,
+                                                     average=do_average,
                                                      device_dense=self._device_dense,
                                                      device_sparse=self._device_sparse,
-                                                     compression=self._compression)
+                                                     compression=self._compression,
+                                                     prescale_factor=prescale_factor,
+                                                     postscale_factor=postscale_factor)
                             averaged_gradients.append(avg_grad)
                         else:
                             averaged_gradients.append(None)
@@ -108,8 +123,10 @@ if hasattr(hvd, 'broadcast_global_variables'):
         return _eval(backend, hvd.broadcast_global_variables(root_rank))
 
 
-def allreduce(backend, value, name, average):
-    return _eval(backend, hvd.allreduce(tf.constant(value, name=name), average=average))
+def allreduce(backend, value, name, average, prescale_factor, postscale_factor):
+    return _eval(backend, hvd.allreduce(tf.constant(value, name=name), average=average,
+                                        prescale_factor=prescale_factor,
+                                        postscale_factor=postscale_factor))
 
 
 def allgather(backend, value, name):
