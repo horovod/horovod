@@ -856,6 +856,13 @@ Status EnqueueTensorAllreduce(std::shared_ptr<OpContext> context,
     LOG(ERROR, horovod_global.controller->GetRank()) << "Enqueuing AVERAGE allreduce is not allowed.";
     return status.Aborted("AVERAGE not allowed.");
 #endif
+  } else if (reduce_op == ReduceOp::ADASUM) {
+#if HAVE_NCCL
+    if (device != CPU_DEVICE_ID) {
+      // Averaging by local size happens via postscale_factor
+      postscale_factor /= horovod_global.controller->GetLocalSize();
+    }
+#endif
   }
   Request message;
   message.set_request_rank(horovod_global.controller->GetRank());

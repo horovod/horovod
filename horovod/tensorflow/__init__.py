@@ -87,11 +87,11 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
 
     average_in_framework = False
     if rocm_built():
-      # For ROCm, perform averaging at framework level
-      if op == Average:
-        average_in_framework = True
-        op = Sum
-
+        # For ROCm, perform averaging at framework level
+        if op == Average or op == Adasum:
+            average_in_framework = True
+        if op == Average:
+            op = Sum
 
     if isinstance(tensor, tf.IndexedSlices):
         # TODO: Need to fix this to actuall call Adasum
@@ -128,9 +128,12 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                         elif not check_num_rank_power_of_2(int(size() / local_size())):
                             raise NotImplementedError(
                                 'Running GPU Adasum with non-power of 2 nodes is not supported yet.')
-                        horovod_local_size = tf.cast(local_size_op() if int(os.environ.get("HOROVOD_ELASTIC", 0)) else local_size(),
-                                                     dtype=tensor.dtype)
-                        new_tensor = summed_tensor / horovod_local_size
+                        if rocm_built():
+                            horovod_local_size = tf.cast(local_size_op() if int(os.environ.get("HOROVOD_ELASTIC", 0)) else local_size(),
+                                                         dtype=tensor.dtype)
+                            new_tensor = summed_tensor / horovod_local_size
+                        else:
+                            new_tensor = summed_tensor
                     else:
                         warnings.warn('Adasum reduction does not currently support GPU reduction using MPI. Tensors '
                                       'are copied to CPU memory instead. To use Adasum for GPU reduction, please '
@@ -144,7 +147,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                 if rocm_built():
                     new_tensor = (summed_tensor / horovod_size) if average_in_framework else summed_tensor
                 else:
-                  new_tensor = summed_tensor
+                    new_tensor = summed_tensor
         return new_tensor
 
 

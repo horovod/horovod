@@ -84,11 +84,11 @@ def _allreduce_async(tensor, output, name, op, prescale_factor, postscale_factor
     # Set the divisor for reduced gradients to average when necessary
     if op == Average:
         if rocm_built():
-          # For ROCm, perform averaging at framework level
-          divisor = size()
-          op = Sum
+            # For ROCm, perform averaging at framework level
+            divisor = size()
+            op = Sum
         else:
-          divisor = 1
+            divisor = 1
 
     elif op == Adasum:
         if tensor.device.type != 'cpu' and gpu_available('torch'):
@@ -97,7 +97,11 @@ def _allreduce_async(tensor, output, name, op, prescale_factor, postscale_factor
                     raise NotImplementedError('Running GPU Adasum on heterogeneous cluster is not supported yet.')
                 elif not num_rank_is_power_2(int(size() / local_size())):
                     raise NotImplementedError('Running GPU Adasum with non-power of 2 nodes is not supported yet.')
-                divisor = local_size()
+                if rocm_built():
+                    # For ROCm, perform averaging at framework level
+                    divisor = local_size()
+                else:
+                    divisor = 1
             else:
                 warnings.warn('Adasum reduction does not currently support GPU reduction using MPI. Tensors are '
                               'copied to CPU memory instead. To use Adasum for GPU reduction, please compile Horovod '
