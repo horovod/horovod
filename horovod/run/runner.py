@@ -17,6 +17,7 @@ from __future__ import print_function
 
 import argparse
 import hashlib
+import logging
 import os
 import re
 import sys
@@ -29,7 +30,6 @@ except ImportError:
 
 import six
 import yaml
-import cloudpickle
 
 import horovod
 
@@ -39,8 +39,10 @@ from horovod.common.util import (extension_available,
 from horovod.run.common.util import config_parser, safe_shell_exec, timeout, secret
 from horovod.run.common.util import settings as hvd_settings
 from horovod.run.driver import driver_service
+from horovod.run.elastic import settings as elastic_settings
+from horovod.run.elastic import discovery
 from horovod.run.util import cache, threads, network, lsf
-from horovod.run.gloo_run import gloo_run
+from horovod.run.gloo_run import gloo_run, gloo_run_elastic
 from horovod.run.mpi_run import mpi_run
 from horovod.run.js_run import js_run, is_jsrun_installed
 from horovod.run.http.http_client import read_data_from_kvstore, put_data_into_kvstore
@@ -228,7 +230,8 @@ def parse_args():
 
     np_arg = parser.add_argument('-np', '--num-proc', action='store', dest='np',
                                  type=int, required=not lsf.LSFUtils.using_lsf(),
-                                 help='Total number of training processes.')
+                                 help='Total number of training processes. In elastic mode, '
+                                      'number of processes required before training can start.')
 
     parser.add_argument('-cb', '--check-build', action=make_check_build_action(np_arg), nargs=0,
                         help='Shows which frameworks and libraries have been built into Horovod.')
@@ -347,6 +350,24 @@ def parse_args():
                                 help='Regularization value [0, 1] applied to account for noise in samples. '
                                      '(default: %(default)s)')
 
+    group_elastic = parser.add_argument_group('elastic arguments')
+    group_elastic.add_argument('--min-np', action='store', dest='min_np', type=int,
+                               help='Minimum number of processes running for training to continue. If number of '
+                                    'available processes dips below this threshold, then training will wait for '
+                                    'more instances to become available. Defaults to --num-proc.')
+    group_elastic.add_argument('--max-np', action='store', dest='max_np', type=int,
+                               help='Maximum number of training processes, beyond which no additional '
+                                    'processes will be created. If not specified, then will be unbounded.')
+    group_elastic.add_argument('--slots-per-host', action='store', dest='slots', type=int,
+                               help='Number of slots for processes per host. Normally 1 slot per GPU per host. '
+                                    'If slots are provided by the output of the host discovery script, then '
+                                    'that value will override this parameter.')
+    group_elastic.add_argument('--elastic-timeout', action='store', dest='elastic_timeout', type=int,
+                               help='Timeout for elastic initialisation after re-scaling the cluster. '
+                                    'The default value is 600 seconds. Alternatively, '
+                                    'The environment variable HOROVOD_ELASTIC_TIMEOUT '
+                                    'can also be used to.')
+
     group_timeline = parser.add_argument_group('timeline arguments')
     group_timeline.add_argument('--timeline-filename', action=make_override_action(override_args),
                                 help='JSON file containing timeline of Horovod events used for debugging '
@@ -427,6 +448,14 @@ def parse_args():
                              help='Path to a host file containing the list of host names and the number of '
                                   'available slots. Each line of the file must be of the form: '
                                   '<hostname> slots=<slots>')
+    group_hosts.add_argument('--host-discovery-script', action=make_override_action(override_args),
+                             help='Used for elastic training (autoscaling and fault tolerance). '
+                                  'An executable script that will print to stdout every available host (one per '
+                                  'newline character) that can be used to run worker processes. Optionally '
+                                  'specifies number of slots on the same line as the hostname as: "hostname:slots".'
+                                  'Providing a discovery script enables elastic training (see elastic arguments).'
+                                  'The job will fail immediately if execution of the script returns a non-zero exit '
+                                  'code on the first call. Subsequent calls will be retried until timeout.')
 
     group_controller_parent = parser.add_argument_group('controller arguments')
     group_controller = group_controller_parent.add_mutually_exclusive_group()
@@ -449,6 +478,11 @@ def parse_args():
         config_parser.set_args_from_config(args, config, override_args)
     config_parser.validate_config_args(args)
 
+    args.run_func = None
+
+    if args.check_build:
+        check_build(args.verbose)
+
     return args
 
 
@@ -459,6 +493,7 @@ class HorovodArgs(object):
         self.ssh_port = None
         self.disable_cache = None
         self.start_timeout = None
+        self.nic = None
         self.output_filename = None
         self.verbose = None
         self.command = None
@@ -471,7 +506,7 @@ class HorovodArgs(object):
         self.cycle_time_ms = None,
         self.cache_capacity = None,
 
-        # hierrachy
+        # hierarchy
         self.hierarchical_allreduce = None
         self.hierarchical_allgather = None
 
@@ -482,6 +517,12 @@ class HorovodArgs(object):
         self.autotune_steps_per_sample = None
         self.autotune_bayes_opt_max_samples = None
         self.autotune_gaussian_process_noise = None
+
+        # elastic arguments
+        self.min_np = None
+        self.max_np = None
+        self.slots = None
+        self.elastic_timeout = None
 
         # timeline arguments
         self.timeline_filename = None
@@ -508,6 +549,7 @@ class HorovodArgs(object):
         # host arguments
         self.hosts = None
         self.hostfile = None
+        self.host_discovery_script = None
 
         # controller arguments
         self.use_gloo = None
@@ -532,40 +574,24 @@ def parse_host_files(filename):
     return ','.join(hosts)
 
 
-def parse_host_names(hosts):
+def parse_hosts_and_slots(hosts):
+    host_names = []
+    host_to_slots = {}
+
     host_list = hosts.split(',')
-    all_host_names = []
     pattern = re.compile(r'^[\w.-]+:[0-9]+$')
     for host in host_list:
         if not pattern.match(host.strip()):
             raise ValueError('Invalid host input, please make sure it has '
                              'format as : worker-0:2,worker-1:2.')
-        all_host_names.append(host.strip().split(':')[0])
-    return all_host_names
+        hostname, slots = host.strip().split(':')
+        host_names.append(hostname)
+        host_to_slots[hostname] = int(slots)
+    return host_names, host_to_slots
 
 
-def _run(args):
-    if args.check_build:
-        check_build(args.verbose)
-
-    # If LSF is used, use default values from job config
-    if lsf.LSFUtils.using_lsf():
-        if not args.np:
-            args.np = lsf.LSFUtils.get_num_processes()
-        if not args.hosts and not args.hostfile:
-            args.hosts = ','.join('{host}:{np}'.format(host=host, np=lsf.LSFUtils.get_num_gpus())
-                         for host in lsf.LSFUtils.get_compute_hosts())
-
-    # if hosts are not specified, either parse from hostfile, or default as
-    # localhost
-    if not args.hosts:
-        if args.hostfile:
-            args.hosts = parse_host_files(args.hostfile)
-        else:
-            # Set hosts to localhost if not specified
-            args.hosts = 'localhost:{np}'.format(np=args.np)
-
-    all_host_names = parse_host_names(args.hosts)
+def _run_static(args):
+    all_host_names, _ = parse_hosts_and_slots(args.hosts)
 
     nics_set = set(args.nics.split(',')) if args.nics else None
 
@@ -587,10 +613,10 @@ def _run(args):
                                      tcp_flag=args.tcp_flag,
                                      binding_args=args.binding_args,
                                      key=secret.make_secret_key(),
-                                     timeout=tmout,
-                                     num_hosts=len(all_host_names),
+                                     start_timeout=tmout,
                                      num_proc=args.np,
                                      hosts=args.hosts,
+                                     num_hosts=len(all_host_names),
                                      output_filename=args.output_filename,
                                      run_func_mode=args.run_func is not None,
                                      nics=nics_set)
@@ -631,30 +657,75 @@ def _run(args):
 
     if args.run_func:
         # get the driver IPv4 address
-        driver_ip = network._get_driver_ip(nics)
+        driver_ip = network.get_driver_ip(nics)
         run_func_server = KVStoreServer(verbose=settings.verbose)
         run_func_server_port = run_func_server.start_server()
-        pickled_exec_func = cloudpickle.dumps(args.run_func)
         put_data_into_kvstore(driver_ip, run_func_server_port,
-                              'runfunc', 'func', pickled_exec_func)
+                              'runfunc', 'func', args.run_func)
 
         command = [sys.executable, '-m', 'horovod.run.run_task', str(driver_ip), str(run_func_server_port)]
 
         try:
-            _launch_job(args, remote_host_names, settings, nics, command)
+            _launch_job(args, settings, nics, command)
             results = [None] * args.np
             # TODO: make it parallel to improve performance
             for i in range(args.np):
-                pickled_result = read_data_from_kvstore(driver_ip, run_func_server_port,
-                                                        'runfunc_result', str(i))
-                results[i] = cloudpickle.loads(pickled_result)
+                results[i] = read_data_from_kvstore(driver_ip, run_func_server_port,
+                                                    'runfunc_result', str(i))
             return results
         finally:
             run_func_server.shutdown_server()
     else:
         command = args.command
-        _launch_job(args, remote_host_names, settings, nics, command)
+        _launch_job(args, settings, nics, command)
         return None
+
+
+def _run_elastic(args):
+    # construct host discovery component
+    if args.host_discovery_script:
+        discover_hosts = discovery.HostDiscoveryScript(args.host_discovery_script, args.slots)
+    elif args.hosts:
+        _, available_host_slots = parse_hosts_and_slots(args.hosts)
+        if len(available_host_slots) < 2:
+            raise ValueError('Cannot run in fault tolerance mode with fewer than 2 hosts.')
+        discover_hosts = discovery.FixedHosts(available_host_slots)
+    else:
+        raise ValueError('One of --host-discovery-script, --hosts, or --hostnames must be provided')
+
+    # horovodrun has to finish all the checks before this timeout runs out.
+    if args.start_timeout:
+        start_timeout = args.start_timeout
+    else:
+        # Lookup default timeout from the environment variable.
+        start_timeout = int(os.getenv('HOROVOD_START_TIMEOUT', '30'))
+
+    tmout = timeout.Timeout(start_timeout,
+                            message='Timed out waiting for {activity}. Please '
+                                    'check connectivity between servers. You '
+                                    'may need to increase the --start-timeout '
+                                    'parameter if you have too many servers.')
+    settings = elastic_settings.ElasticSettings(discovery=discover_hosts,
+                                                num_proc=args.np,
+                                                min_np=args.min_np or args.np,
+                                                max_np=args.max_np,
+                                                verbose=2 if args.verbose else 0,
+                                                ssh_port=args.ssh_port,
+                                                extra_mpi_args=args.mpi_args,
+                                                key=secret.make_secret_key(),
+                                                start_timeout=tmout,
+                                                elastic_timeout=args.elastic_timeout,
+                                                output_filename=args.output_filename,
+                                                run_func_mode=args.run_func is not None,
+                                                nics=args.nics)
+
+    if not gloo_built(verbose=(settings.verbose >= 2)):
+        raise ValueError('Gloo support is required to use elastic training, but has not been built.  Ensure CMake is '
+                         'installed and reinstall Horovod with HOROVOD_WITH_GLOO=1 to debug the build error.')
+
+    env = os.environ.copy()
+    config_parser.set_env_from_args(env, args)
+    gloo_run_elastic(settings, env, args.command)
 
 
 def is_gloo_used(use_gloo=None, use_mpi=None, use_jsrun=None):
@@ -697,13 +768,17 @@ def run_controller(use_gloo, gloo_run, use_mpi, mpi_run, use_jsrun, js_run, verb
                              'either MPI is installed (MPI) or CMake is installed (Gloo).')
 
 
-def _launch_job(args, remote_host_names, settings, nics, command):
+def _is_elastic(args):
+    return args.host_discovery_script is not None or args.min_np is not None
+
+
+def _launch_job(args, settings, nics, command):
     env = os.environ.copy()
     config_parser.set_env_from_args(env, args)
 
     def gloo_run_fn():
-        driver_ip = network._get_driver_ip(nics)
-        gloo_run(settings, remote_host_names, nics, env, driver_ip, command)
+        driver_ip = network.get_driver_ip(nics)
+        gloo_run(settings, nics, env, driver_ip, command)
 
     def mpi_run_fn():
         mpi_run(settings, nics, env, command)
@@ -717,9 +792,37 @@ def _launch_job(args, remote_host_names, settings, nics, command):
                    args.verbose)
 
 
+def _run(args):
+    # If LSF is used, use default values from job config
+    if lsf.LSFUtils.using_lsf():
+        if not args.np:
+            args.np = lsf.LSFUtils.get_num_processes()
+        if not args.hosts and not args.hostfile and not args.host_discovery_script:
+            args.hosts = ','.join('{host}:{np}'.format(host=host, np=lsf.LSFUtils.get_num_gpus())
+                                  for host in lsf.LSFUtils.get_compute_hosts())
+
+    # if hosts are not specified, either parse from hostfile, or default as
+    # localhost
+    if not args.hosts and not args.host_discovery_script:
+        if args.hostfile:
+            args.hosts = parse_host_files(args.hostfile)
+        else:
+            # Set hosts to localhost if not specified
+            args.hosts = 'localhost:{np}'.format(np=args.np)
+
+    if _is_elastic(args):
+        return _run_elastic(args)
+    else:
+        return _run_static(args)
+
+
 def run_commandline():
     args = parse_args()
-    args.run_func = None
+
+    if args.log_level:
+        logging.addLevelName(logging.NOTSET, 'TRACE')
+        logging.basicConfig(level=logging.getLevelName(args.log_level))
+
     _run(args)
 
 
@@ -728,6 +831,9 @@ def run(
         args=(),
         kwargs=None,
         np=1,
+        min_np=None,
+        max_np=None,
+        slots=None,
         hosts=None,
         hostfile=None,
         start_timeout=None,
@@ -748,6 +854,15 @@ def run(
     :param args: Arguments to pass to `func`.
     :param kwargs: Keyword arguments to pass to `func`.
     :param np: Number of Horovod processes.
+    :param min_np: Minimum number of processes running for training to continue. If number of
+                   available processes dips below this threshold, then training will wait for
+                   more instances to become available. Defaults to np
+    :param max_np: Maximum number of training processes, beyond which no additional processes
+                   will be created. If not specified, then will be unbounded.
+    :param slots: Number of slots for processes per host. Normally 1 slot per GPU per host.
+                  If slots are provided by the output of the host discovery script, then that
+                  value will override this parameter.
+
     :param hosts: List of host names and the number of available slots
                   for running processes on each, of the form: <hostname>:<slots>
                   (e.g.: host1:2,host2:4,host3:1 indicating 2 processes can run on host1,
@@ -799,6 +914,9 @@ def run(
     hargs = HorovodArgs()
 
     hargs.np = np
+    hargs.min_np = min_np
+    hargs.max_np = max_np
+    hargs.slots = slots
     hargs.hosts = hosts
     hargs.hostfile = hostfile
     hargs.start_timeout = start_timeout

@@ -29,87 +29,12 @@ except ImportError:
     from pipes import quote
 
 from horovod.run.common.util import env as env_util, safe_shell_exec
+from horovod.run.common.util.hosts import get_host_assignments, parse_hosts
+from horovod.run.driver import driver_service
+from horovod.run.elastic.driver import ElasticDriver
+from horovod.run.elastic.rendezvous import create_rendezvous_handler
 from horovod.run.http.http_server import RendezvousServer
-from horovod.run.util import threads
-
-
-class HostInfo:
-    def __init__(self, host_item):
-        hostname, slots = host_item.strip().split(':')
-        self.hostname = hostname
-        self.slots = int(slots)
-
-
-class SlotInfo:
-    def __init__(self, hostname, rank, local_rank, cross_rank, size):
-        self.hostname = hostname
-        self.rank = rank
-        self.size = size
-        self.local_rank = local_rank
-        self.local_size = None
-        self.cross_rank = cross_rank
-        self.cross_size = None
-
-
-def _allocate(hosts, np):
-    """
-    Find the allocation of processes on hosts, this function will try to
-    allocate as many as possible processes on the same host to leverage
-    local network.
-    :param hosts: list of addresses and number of processes on each host.
-    For example,
-        'worker-0:2,worker-1:2'
-        '10.11.11.11:4,10.11.11.12,4'
-    :type hosts: string
-    :param np: total number of processes to be allocated
-    :type np: int
-    :return: a list of the allocation of process on hosts in a AllocInfo object.
-            Members in the object include: hostname, rank, local_rank, cross_rank,
-            total_size, local_size, cross_size
-    :rtype: list[dict()]
-    """
-
-    host_list = []
-    # split the host string to host list
-    for host_item in hosts.split(','):
-        host_list.append(HostInfo(host_item))
-
-    rank = 0
-    alloc_list = []
-
-    # key: local_rank; value: cross_size for this local_rank
-    local_sizes = collections.defaultdict(int)
-    # key: cross_rank; value: local_size for this cross_rank
-    cross_sizes = collections.defaultdict(int)
-
-    # allocate processes into slots
-    for host_idx, host_info in enumerate(host_list):
-        for local_rank in range(host_info.slots):
-            if rank == np:
-                break
-            cross_rank = host_idx
-            alloc_list.append(
-                SlotInfo(
-                    host_info.hostname,
-                    rank,
-                    local_rank,
-                    cross_rank,
-                    np))
-            cross_sizes[local_rank] += 1
-            local_sizes[cross_rank] += 1
-            rank += 1
-
-    if rank < np:
-        raise ValueError("Process number should not be larger than "
-                         "total available slots.")
-
-    # Fill in the local_size and cross_size because we can only know these number after
-    # allocation is done.
-    for alloc_item in alloc_list:
-        alloc_item.local_size = local_sizes[alloc_item.cross_rank]
-        alloc_item.cross_size = cross_sizes[alloc_item.local_rank]
-
-    return alloc_list
+from horovod.run.util import network, threads
 
 
 def _pad_rank(rank, size):
@@ -140,21 +65,34 @@ class MultiFile(object):
             f.flush()
 
 
-def _alloc_info_to_command_fn(run_command, env):
-    def alloc_info_to_command(alloc_info):
-        """
-        Given an alloc_info, creates a command used by gloo to launch a single job.
+def _slot_info_to_command_fn(run_command, env):
+    # TODO: Workaround for over-buffered outputs. Investigate how mpirun avoids this problem.
+    env = copy.copy(env)  # copy env so we do not leak env modifications
+    env['PYTHONUNBUFFERED'] = '1'
 
-        :param alloc_info: host and slot to execute the run command on
+    def slot_info_to_command(slot_info):
+        """
+        Given a slot_info, creates a command used by gloo to launch a single job.
+
+        :param slot_info: host and slot to execute the run command on
         :return:
         """
-        # generate env for rendezvous
-        horovod_rendez_env = 'HOROVOD_RANK={rank} HOROVOD_SIZE={size} ' \
-                             'HOROVOD_LOCAL_RANK={local_rank} HOROVOD_LOCAL_SIZE={local_size} ' \
-                             'HOROVOD_CROSS_RANK={cross_rank} HOROVOD_CROSS_SIZE={cross_size} ' \
-            .format(rank=alloc_info.rank, size=alloc_info.size,
-                    local_rank=alloc_info.local_rank, local_size=alloc_info.local_size,
-                    cross_rank=alloc_info.cross_rank, cross_size=alloc_info.cross_size)
+        host_name = slot_info.hostname
+        horovod_rendez_env = (
+            'HOROVOD_HOSTNAME={hostname} '
+            'HOROVOD_RANK={rank} '
+            'HOROVOD_SIZE={size} '
+            'HOROVOD_LOCAL_RANK={local_rank} '
+            'HOROVOD_LOCAL_SIZE={local_size} '
+            'HOROVOD_CROSS_RANK={cross_rank} '
+            'HOROVOD_CROSS_SIZE={cross_size} '
+                .format(hostname=host_name,
+                        rank=slot_info.rank,
+                        size=slot_info.size,
+                        local_rank=slot_info.local_rank,
+                        local_size=slot_info.local_size,
+                        cross_rank=slot_info.cross_rank,
+                        cross_size=slot_info.cross_size))
 
         return '{horovod_env} {env} {run_command}' .format(
             horovod_env=horovod_rendez_env,
@@ -162,10 +100,20 @@ def _alloc_info_to_command_fn(run_command, env):
                           if env_util.is_exportable(key)]),
             run_command=run_command)
 
-    return alloc_info_to_command
+    return slot_info_to_command
 
 
-def _exec_command_fn(settings, remote_host_names):
+def _create_elastic_worker_fn(exec_command, run_command, env, event):
+    get_command_with_env = _slot_info_to_command_fn(run_command, env)
+
+    def create_worker(slot_info, events):
+        command = get_command_with_env(slot_info)
+        events = [event] + (events or [])
+        return exec_command(command, slot_info, events)
+    return create_worker
+
+
+def _exec_command_fn(settings):
     """
     executes the jobs defined by run command on hosts.
     :param hosts_alloc: list of dict indicating the allocating info.
@@ -186,11 +134,13 @@ def _exec_command_fn(settings, remote_host_names):
     """
     ssh_port_arg = '-p {ssh_port}'.format(ssh_port=settings.ssh_port) if settings.ssh_port else ''
 
-    def _exec_command(command, alloc_info, event):
-        index = alloc_info.rank
-        host_name = alloc_info.hostname
+    def _exec_command(command, slot_info, events):
+        index = slot_info.rank
+        host_name = slot_info.hostname
 
-        if host_name in remote_host_names:
+        host_address = network.resolve_host_address(host_name)
+        local_addresses = network.get_local_host_addresses()
+        if host_address not in local_addresses:
             command = 'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} ' \
                       '{local_command}'\
                 .format(host=host_name,
@@ -217,7 +167,7 @@ def _exec_command_fn(settings, remote_host_names):
             stderr = MultiFile([sys.stderr, stderr_file])
 
         try:
-            exit_code = safe_shell_exec.execute(command, index=index, events=[event], stdout=stdout, stderr=stderr)
+            exit_code = safe_shell_exec.execute(command, index=index, stdout=stdout, stderr=stderr, events=events)
             if exit_code != 0:
                 print('Process {idx} exit with status code {ec}.'.format(idx=index, ec=exit_code))
         except Exception as e:
@@ -234,6 +184,37 @@ def _exec_command_fn(settings, remote_host_names):
     return _exec_command
 
 
+def get_run_command(command, server_ip, nics, port, elastic=False):
+    run_command = (
+        'HOROVOD_GLOO_RENDEZVOUS_ADDR={addr} '
+        'HOROVOD_GLOO_RENDEZVOUS_PORT={port} '
+        'HOROVOD_CONTROLLER=gloo '
+        'HOROVOD_CPU_OPERATIONS=gloo '
+        'HOROVOD_GLOO_IFACE={iface} '
+        'NCCL_SOCKET_IFNAME={nics} '
+        '{elastic}'
+        '{command}'  # expect a lot of environment variables
+        .format(addr=server_ip,
+                port=port,
+                iface=list(nics)[0],  # TODO: add multiple ifaces in future
+                nics=','.join(nics),
+                elastic='HOROVOD_ELASTIC=1 ' if elastic else '',
+                command=' '.join(quote(par) for par in command)))
+    return run_command
+
+
+def register_shutdown_event():
+    # Create a event for communication between threads
+    event = threading.Event()
+
+    def set_event_on_signal(signum, frame):
+        event.set()
+
+    signal.signal(signal.SIGINT, set_event_on_signal)
+    signal.signal(signal.SIGTERM, set_event_on_signal)
+    return event
+
+
 def launch_gloo(command, exec_command, settings, nics, env, server_ip):
     """
     Launches the given command multiple times using gloo.
@@ -246,67 +227,90 @@ def launch_gloo(command, exec_command, settings, nics, env, server_ip):
     :param env: environment to use
     :param server_ip: ip to use for rendezvous server
     """
-    # allocate processes into slots
-    host_alloc_plan = _allocate(settings.hosts, settings.num_proc)
-
-    # create global rendezvous server
-    global_rendezv = RendezvousServer(settings.verbose)
-    # Start rendezvous server and get port that it is listening
-    global_rendezv_port = global_rendezv.start_server(host_alloc_plan)
-
-    run_command = (
-        'HOROVOD_GLOO_RENDEZVOUS_ADDR={addr} '
-        'HOROVOD_GLOO_RENDEZVOUS_PORT={port} '
-        'HOROVOD_CONTROLLER=gloo '
-        'HOROVOD_CPU_OPERATIONS=gloo '
-        'HOROVOD_GLOO_IFACE={iface} '
-        'NCCL_SOCKET_IFNAME={nics} '
-        '{command}'  # expect a lot of environment variables
-            .format(addr=server_ip,
-                    port=global_rendezv_port,
-                    iface=list(nics)[0],  # TODO: add multiple ifaces in future
-                    nics=','.join(nics),
-                    command=' '.join(quote(par) for par in command)))
-
-    # Create a event for communication between threads
-    event = threading.Event()
-
-    def set_event_on_sigterm(signum, frame):
-        event.set()
-
-    signal.signal(signal.SIGINT, set_event_on_sigterm)
-    signal.signal(signal.SIGTERM, set_event_on_sigterm)
-
-    # TODO: Workaround for over-buffered outputs. Investigate how mpirun avoids this problem.
-    env = copy.copy(env)  # copy env so we do not leak env modifications
-    env['PYTHONUNBUFFERED'] = '1'
-
-    # In case, the main thread receives a SIGINT, the event will be set so the spawned threads can
-    # kill their corresponding middleman processes so the jobs can be killed as well.
-    alloc_info_to_command = _alloc_info_to_command_fn(run_command, env)
-    args_list = [[alloc_info_to_command(alloc_info), alloc_info, event]
-                 for alloc_info in host_alloc_plan]
-
     # Make the output directory if it does not exist
     if settings.output_filename:
         _mkdir_p(settings.output_filename)
 
+    # start global rendezvous server and get port that it is listening on
+    rendezvous = RendezvousServer(settings.verbose)
+
+    # allocate processes into slots
+    hosts = parse_hosts(settings.hosts)
+    host_alloc_plan = get_host_assignments(hosts, settings.num_proc)
+
+    # start global rendezvous server and get port that it is listening on
+    global_rendezv_port = rendezvous.start_server()
+    rendezvous.httpd.init(host_alloc_plan)
+    run_command = get_run_command(command, server_ip, nics, global_rendezv_port)
+
+    slot_info_to_command = _slot_info_to_command_fn(run_command, env)
+    event = register_shutdown_event()
+    args_list = [[slot_info_to_command(slot_info), slot_info, [event]]
+                 for slot_info in host_alloc_plan]
+
     # If an error occurs in one thread, entire process will be terminated.
     # Otherwise, threads will keep running.
-    res = threads.execute_function_multithreaded(exec_command, args_list, block_until_all_done=True)
+    res = threads.execute_function_multithreaded(exec_command,
+                                                 args_list,
+                                                 block_until_all_done=True)
 
     for name, value in sorted(res.items(), key=lambda item: item[1][1]):
         exit_code, timestamp = value
         if exit_code != 0:
-            raise RuntimeError('Gloo job detected that one or more processes exited with non-zero '
+            raise RuntimeError('Horovod detected that one or more processes exited with non-zero '
                                'status, thus causing the job to be terminated. The first process '
                                'to do so was:\nProcess name: {name}\nExit code: {code}\n'
                                .format(name=name, code=exit_code))
 
 
-def gloo_run(settings, remote_host_names, nics, env, server_ip, command):
+def _get_min_start_hosts(settings):
+    # This function exists for the purpose of mocking in tests
+    return 2 if settings.elastic and not settings.nics else 1
+
+
+def gloo_run(settings, nics, env, server_ip, command):
     # Each thread will use ssh command to launch the job on each remote host. If an
     # error occurs in one thread, entire process will be terminated. Otherwise,
     # threads will keep running and ssh session.
-    exec_command = _exec_command_fn(settings, remote_host_names)
+    exec_command = _exec_command_fn(settings)
     launch_gloo(command, exec_command, settings, nics, env, server_ip)
+
+
+def gloo_run_elastic(settings, env, command):
+    # Make the output directory if it does not exist
+    if settings.output_filename:
+        _mkdir_p(settings.output_filename)
+
+    rendezvous = RendezvousServer(settings.verbose)
+    driver = ElasticDriver(rendezvous, settings.discovery,
+                           settings.min_np, settings.max_np,
+                           timeout=settings.elastic_timeout,
+                           verbose=settings.verbose)
+
+    handler = create_rendezvous_handler(driver)
+    global_rendezv_port = rendezvous.start_server(handler)
+
+    # Host-to-host common interface detection requires at least 2 hosts in an elastic job.
+    min_hosts = _get_min_start_hosts(settings)
+    current_hosts = driver.wait_for_available_slots(settings.num_proc, min_hosts=min_hosts)
+
+    nics = driver_service.get_common_interfaces(settings, current_hosts.host_assignment_order)
+    server_ip = network.get_driver_ip(nics)
+
+    exec_command = _exec_command_fn(settings)
+    event = register_shutdown_event()
+    run_command = get_run_command(command, server_ip, nics, global_rendezv_port, elastic=True)
+    create_worker = _create_elastic_worker_fn(exec_command, run_command, env, event)
+
+    driver.start(settings.num_proc, create_worker)
+    res = driver.get_results()
+    driver.stop()
+    rendezvous.stop_server()
+
+    for name, value in sorted(res.items(), key=lambda item: item[1][1]):
+        exit_code, timestamp = value
+        if exit_code != 0:
+            raise RuntimeError('Horovod detected that one or more processes exited with non-zero '
+                               'status, thus causing the job to be terminated. The first process '
+                               'to do so was:\nProcess name: {name}\nExit code: {code}\n'
+                               .format(name=name, code=exit_code))

@@ -22,7 +22,7 @@ from horovod.spark.driver import driver_service
 
 
 def rsh(driver_addresses, key, settings, host_hash, command, env, local_rank,
-        background=True, event=None):
+        background=True, events=None):
     """
     Method to run a command remotely given a host hash, local rank and driver addresses.
 
@@ -43,7 +43,7 @@ def rsh(driver_addresses, key, settings, host_hash, command, env, local_rank,
     :param env: environment to use
     :param local_rank: local rank on the host of task to run the command in
     :param background: run command in background if True, returns command result otherwise
-    :param event: event to abort the command, only if background is True
+    :param events: events to abort the command, only if background is True
     """
     if ':' in host_hash:
         raise Exception('Illegal host hash provided. Are you using Open MPI 4.0.0+?')
@@ -59,7 +59,8 @@ def rsh(driver_addresses, key, settings, host_hash, command, env, local_rank,
 
     if not background:
         stop = None
-        if event is not None:
+        events = events or []
+        for event in events:
             stop = threading.Event()
             on_event(event, task_client.abort_command, stop=stop)
 

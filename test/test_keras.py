@@ -19,10 +19,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from distutils.version import LooseVersion
+
 import keras
 from keras import backend as K
 
 import numpy as np
+import pytest
 import tensorflow as tf
 import warnings
 
@@ -248,3 +251,65 @@ class KerasTests(tf.test.TestCase):
 
             hopt_copy2 = hopt.__class__.from_config(cfg)
             self.assertEqual(cfg, hopt_copy2.get_config())
+
+    @pytest.mark.skipif(LooseVersion(tf.__version__) < LooseVersion('1.15.0'),
+                        reason='Synchronizing state requires TensorFlow 1.15 or above')
+    def test_elastic_state(self):
+        with self.test_session(config=self.config) as sess:
+            K.set_session(sess)
+
+            v = 1.0 if hvd.rank() == 0 else 2.0
+            model1 = keras.models.Sequential([
+                keras.layers.Dense(2, activation='softmax')
+            ])
+            model1.build((2, 2))
+            model1.set_weights(
+                [np.array([[v,  v], [v, v]], dtype=np.float32),
+                 np.array([v, v], dtype=np.float32)])
+
+            model2 = keras.models.Sequential([
+                keras.layers.Dense(2, activation='softmax')
+            ])
+            model2.build((2, 2))
+            model2.set_weights(
+                [np.array([[1.0,  2.0], [3.0, 4.0]], dtype=np.float32),
+                 np.array([0.0, 0.0], dtype=np.float32)])
+
+            optimizer = keras.optimizers.Adam(0.001 * hvd.size())
+
+            state = hvd.elastic.KerasState(model1, optimizer, batch=20 + hvd.rank(), epoch=10 + hvd.rank())
+            state.sync()
+
+            model1_weights = model1.get_weights()
+            model2_weights = model2.get_weights()
+
+            # After sync, all values should match the root rank
+            for w in state.model.get_weights():
+                self.assertAllClose(w, np.ones_like(w))
+            assert state.batch == 20
+            assert state.epoch == 10
+
+            # Partially modify then restore
+            model1.set_weights(model2_weights)
+            state.batch = 21
+            state.epoch = 11
+
+            state.restore()
+
+            for w1, w2 in zip(model1.get_weights(), model1_weights):
+                self.assertAllClose(w1, w2)
+            assert state.batch == 20
+            assert state.epoch == 10
+
+            # Partially modify then commit
+            model1.set_weights(model2_weights)
+            state.batch = 21
+            state.epoch = 11
+
+            state.commit()
+            state.restore()
+
+            for w1, w2 in zip(model1.get_weights(), model2_weights):
+                self.assertAllClose(w1, w2)
+            assert state.batch == 21
+            assert state.epoch == 11

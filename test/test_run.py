@@ -615,7 +615,7 @@ class RunTests(unittest.TestCase):
             extra_mpi_args='>mpi-extra args go here<',
             binding_args='>binding args go here<',
             key=secret.make_secret_key(),
-            timeout=tmout,
+            start_timeout=tmout,
             num_hosts=1,
             num_proc=1,
             hosts='>host names go here<',

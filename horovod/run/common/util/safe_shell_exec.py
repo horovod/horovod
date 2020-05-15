@@ -47,7 +47,10 @@ def terminate_executor_shell_and_children(pid):
     gone, alive = psutil.wait_procs(p.children(), timeout=GRACEFUL_TERMINATION_TIME_S)
 
     # Freeze the process to prevent it from spawning any new children.
-    p.send_signal(signal.SIGSTOP)
+    try:
+        p.send_signal(signal.SIGSTOP)
+    except psutil.NoSuchProcess:
+        pass
 
     # Kill children recursively.
     for child in alive:
@@ -62,7 +65,11 @@ def terminate_executor_shell_and_children(pid):
             pass
 
     # Kill shell itself.
-    p.terminate()
+    try:
+        p.terminate()
+    except psutil.NoSuchProcess:
+        pass
+
     try:
         p.wait(timeout=GRACEFUL_TERMINATION_TIME_S)
     except psutil.TimeoutExpired:

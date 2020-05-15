@@ -47,14 +47,14 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo):
     try:
         driver_client = driver_service.SparkDriverClient(driver_addresses, settings.key, settings.verbose)
         driver_client.register_task(index, task.addresses(), host_hash.host_hash())
-        task.wait_for_initial_registration(settings.timeout)
+        task.wait_for_initial_registration(settings.start_timeout)
         task_indices_on_this_host = driver_client.task_host_hash_indices(host_hash.host_hash())
 
         # With Gloo all tasks wait for the command
         # With MPI task with first index executes orted which will run mpirun_exec_fn for all tasks.
         minimum_lifetime_after_start = None
         if use_gloo or task_indices_on_this_host[0] == index:
-            task.wait_for_command_start(settings.timeout)
+            task.wait_for_command_start(settings.start_timeout)
             minimum_lifetime_after_start = timeout.Timeout(MINIMUM_COMMAND_LIFETIME_S,
                                                            message='Just measuring runtime')
             task.wait_for_command_termination()
@@ -170,7 +170,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
     settings = hvd_settings.Settings(verbose=verbose,
                                      extra_mpi_args=extra_mpi_args,
                                      key=secret.make_secret_key(),
-                                     timeout=tmout,
+                                     start_timeout=tmout,
                                      nics=nics,
                                      run_func_mode=True)
 
@@ -239,7 +239,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
 
 def _notify_and_register_task_addresses(driver, settings):
     # wait for num_proc tasks to register
-    driver.wait_for_initial_registration(settings.timeout)
+    driver.wait_for_initial_registration(settings.start_timeout)
     if settings.verbose >= 2:
         print('Initial Spark task registration is complete.')
 
@@ -256,7 +256,7 @@ def _notify_and_register_task_addresses(driver, settings):
     for index in range(settings.num_proc):
         in_thread(notify_and_register, (index,))
 
-    driver.wait_for_task_to_task_address_updates(settings.timeout)
+    driver.wait_for_task_to_task_address_updates(settings.start_timeout)
 
     if settings.verbose >= 2:
         print('Spark task-to-task address registration is complete.')

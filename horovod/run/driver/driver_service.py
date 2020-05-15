@@ -20,10 +20,11 @@ import sys
 from socket import AF_INET
 from psutil import net_if_addrs
 
-from horovod.run.util import cache, lsf, threads
 from horovod.run.common.service import driver_service
 from horovod.run.common.util import codec, safe_shell_exec
 from horovod.run.task import task_service
+from horovod.run.util import cache, lsf, network, threads
+
 
 class HorovodRunDriverService(driver_service.BasicDriverService):
     NAME = 'horovod driver service'
@@ -157,7 +158,7 @@ def _driver_fn(all_host_names, local_host_names, settings):
         # wait for all the hosts to register with the service service.
         if settings.verbose >= 2:
             print('Waiting for the hosts to acknowledge.')
-        driver.wait_for_initial_registration(settings.timeout)
+        driver.wait_for_initial_registration(settings.start_timeout)
         tasks = [
             task_service.HorovodRunTaskClient(
                 index,
@@ -176,7 +177,7 @@ def _driver_fn(all_host_names, local_host_names, settings):
         # such as lo0 with address 127.0.0.1.
         if settings.verbose >= 2:
             print('Waiting for hosts to perform host-to-host interface checking.')
-        driver.wait_for_task_to_task_address_updates(settings.timeout)
+        driver.wait_for_task_to_task_address_updates(settings.start_timeout)
         if settings.verbose >= 2:
             print('Host-to-host interface checking successful.')
         # Determine a set of common interfaces for task-to-task communication.
@@ -194,7 +195,7 @@ def _driver_fn(all_host_names, local_host_names, settings):
         driver.shutdown()
 
 
-def get_common_interfaces(settings, all_host_names, remote_host_names, fn_cache):
+def get_common_interfaces(settings, all_host_names, remote_host_names=None, fn_cache=None):
     '''
     Find the set of common and routed interfaces on all the hosts.
     :param settings: the object that contains the setting for running horovod
@@ -210,6 +211,9 @@ def get_common_interfaces(settings, all_host_names, remote_host_names, fn_cache)
     # Skipping interface discovery for LSF cluster as it slows down considerably the job start
     if lsf.LSFUtils.using_lsf():
         return None
+
+    if remote_host_names is None:
+        remote_host_names = network.filter_local_addresses(all_host_names)
 
     if len(remote_host_names) > 0:
         if settings.nics:

@@ -109,6 +109,8 @@ Guides
 
    running_include
 
+   elastic_include
+
    benchmarks_include
 
    inference_include

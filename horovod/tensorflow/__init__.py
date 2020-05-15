@@ -20,11 +20,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
+import warnings
+
 from horovod.common.util import check_extension, gpu_available
 
 check_extension('horovod.tensorflow', 'HOROVOD_WITH_TENSORFLOW', __file__, 'mpi_lib')
 
+from horovod.tensorflow import elastic
 from horovod.tensorflow.compression import Compression
+from horovod.tensorflow.functions import broadcast_object, broadcast_object_fn, broadcast_variables
 from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce
 from horovod.tensorflow.mpi_ops import init, shutdown
 from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank, is_homogeneous
@@ -33,11 +38,9 @@ from horovod.tensorflow.mpi_ops import gloo_enabled, gloo_built
 from horovod.tensorflow.mpi_ops import nccl_built, ddl_built, ccl_built
 from horovod.tensorflow.mpi_ops import Average, Sum, Adasum
 from horovod.tensorflow.mpi_ops import handle_average_backwards_compatibility, check_num_rank_power_of_2
-
 from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache
 
 import tensorflow as tf
-import warnings
 
 
 def allreduce(tensor, average=None, device_dense='', device_sparse='',
@@ -82,7 +85,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                                       'workaround please pass sparse_as_dense=True to DistributedOptimizer')
         with tf.device(device_sparse):
             # For IndexedSlices, do two allgathers instead of an allreduce.
-            horovod_size = tf.cast(size(), tensor.values.dtype)
+            horovod_size = tf.cast(size(), dtype=tensor.values.dtype)
             values = allgather(tensor.values)
             indices = allgather(tensor.indices)
 
@@ -120,36 +123,6 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             else:
                 new_tensor = (summed_tensor / horovod_size) if op == Average else summed_tensor
         return new_tensor
-
-
-@_cache
-def _make_broadcast_group_fn():
-    if _executing_eagerly():
-        # Eager mode will parallelize independent control flow
-        def broadcast_group(variables, root_rank):
-            for var in variables:
-                var.assign(broadcast(var, root_rank))
-
-        return _make_subgraph(broadcast_group)
-    else:
-        # Graph mode requires an Op
-        def broadcast_group(variables, root_rank):
-            return tf.group(*[var.assign(broadcast(var, root_rank))
-                              for var in variables])
-
-        return broadcast_group
-
-
-def broadcast_variables(variables, root_rank):
-    """Broadcasts variables from root rank to all other processes.
-
-    Arguments:
-        variables: variables for broadcast
-        root_rank: rank of the process from which global variables will be broadcasted
-                   to all other processes.
-    """
-    broadcast_group = _make_broadcast_group_fn()
-    return broadcast_group(variables, root_rank)
 
 
 try:
@@ -291,7 +264,7 @@ if _LegacyOptimizer is not None:
             allreduce the gradients before returning them.
             """
             gradients = self._optimizer.compute_gradients(*args, **kwargs)
-            if size() > 1:
+            if size() > 1 or os.environ.get('HOROVOD_ELASTIC') == '1':
                 grads, vars = zip(*gradients)
                 avg_grads = self._allreduce_grads(grads)
                 return list(zip(avg_grads, vars))
@@ -491,7 +464,7 @@ if hasattr(tf, 'GradientTape'):
 
         def gradient(self, target, sources, output_gradients=None):
             gradients = super(self.__class__, self).gradient(target, sources, output_gradients)
-            if size() > 1:
+            if size() > 1 or os.environ.get('HOROVOD_ELASTIC') == '1':
                 return self._allreduce_grads(gradients)
             else:
                 return gradients

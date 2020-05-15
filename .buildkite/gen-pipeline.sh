@@ -8,22 +8,19 @@ repository=823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
 
 # list of all the tests
 tests=( \
-       test-cpu-openmpi-py2_7-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_3_2 \
-       test-cpu-openmpi-py3_6-tf1_1_0-keras2_0_0-torch0_4_0-mxnet1_4_1-pyspark2_3_2 \
        test-cpu-openmpi-py2_7-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
        test-cpu-openmpi-py3_6-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
        test-cpu-gloo-py2_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0 \
-       test-cpu-gloo-py3_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0 \
+       test-cpu-gloo-py3_7-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_4_0 \
-       test-cpu-openmpi-gloo-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
        test-cpu-openmpi-py2_7-tf2_0_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-openmpi-py3_6-tf2_0_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
-       test-cpu-mpich-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
-       test-cpu-oneccl-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
-       test-cpu-oneccl-ofi-py3_6-tf1_14_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
+       test-cpu-mpich-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
+       test-cpu-oneccl-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
+       test-cpu-oneccl-ofi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
        test-gpu-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
        test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
        test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
@@ -98,15 +95,20 @@ run_mpi_pytest() {
   local oneccl_env=${3:-}
   oneccl_env=$(echo ${oneccl_env//:/ })
 
-  local exclude_keras_if_needed=""
+  local exclude_keras=""
   if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
     # TODO: support for Keras + TF 2.0 and TF-Keras 2.0
-    exclude_keras_if_needed="| sed 's/test_keras.py//g' | sed 's/test_tensorflow_keras.py//g'"
+    exclude_keras="| sed 's/test_keras.py//g' | sed 's/test_tensorflow_keras.py//g'"
   else
-    exclude_keras_if_needed="| sed 's/[a-z_]*tensorflow2[a-z_.]*//g'"
+    exclude_keras="| sed 's/[a-z_]*tensorflow2[a-z_.]*//g'"
   fi
 
-  local exclude_interactiverun="| sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g'"
+  local exclude_elastic=""
+  if [[ ${test} == *"py2_"* ]]; then
+    exclude_elastic="| sed 's/test_elastic[a-z_.]*//g'"
+  fi
+
+  local excluded_tests="| sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g'"
 
   # Spark and Run test does not need to be executed with horovodrun, but we still run it below.
   local exclude_standalone_test="| sed 's/test_spark.py//g' | sed 's/test_run.py//g'"
@@ -121,7 +123,7 @@ run_mpi_pytest() {
   # pytests have 4x GPU use cases and require a separate queue
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"${oneccl_env} cd /horovod/test && (echo test_*.py ${exclude_keras_if_needed} ${exclude_interactiverun} ${exclude_standalone_test} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no) && pytest --forked -v --capture=no ${standalone_tests}\""
+    "bash -c \"${oneccl_env} cd /horovod/test && (echo test_*.py ${exclude_keras} ${exclude_elastic} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no) && pytest --forked -v --capture=no ${standalone_tests}\""
 }
 
 run_mpi_integration() {
@@ -156,7 +158,7 @@ run_mpi_integration() {
   fi
 
   run_test "${test}" "${queue}" \
-    ":python: Test PyTorch MNIST (${test})" \
+    ":fire: Test PyTorch MNIST (${test})" \
     "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/examples/pytorch_mnist.py\""
 
   run_test "${test}" "${queue}" \
@@ -165,7 +167,7 @@ run_mpi_integration() {
 
   # tests that should be executed only with the latest release since they don't test
   # a framework-specific functionality
-  if [[ ${test} == *"tf1_14_0"* ]]; then
+  if [[ ${test} == *"tf1_15_0"* ]]; then
     run_test "${test}" "${queue}" \
       ":muscle: Test Stall (${test})" \
       "bash -c \"${oneccl_env} \\\$(cat /mpirun_command) python /horovod/test/test_stall.py\""
@@ -206,12 +208,17 @@ run_gloo_pytest() {
   local test=$1
   local queue=$2
 
-  local exclude_keras_if_needed=""
+  local exclude_keras=""
   if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
     # TODO: support for Keras + TF 2.0 and TF-Keras 2.0
-    exclude_keras_if_needed="| sed 's/test_keras.py//g' | sed 's/test_tensorflow_keras.py//g'"
+    exclude_keras="| sed 's/test_keras.py//g' | sed 's/test_tensorflow_keras.py//g'"
   else
-    exclude_keras_if_needed="| sed 's/[a-z_]*tensorflow2[a-z_.]*//g'"
+    exclude_keras="| sed 's/[a-z_]*tensorflow2[a-z_.]*//g'"
+  fi
+
+  local exclude_elastic=""
+  if [[ ${test} == *"py2_"* ]]; then
+    exclude_elastic="| sed 's/test_elastic[a-z_.]*//g'"
   fi
 
   # These are tested as integration style tests.
@@ -229,7 +236,7 @@ run_gloo_pytest() {
 
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras_if_needed} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no ${standalone_tests}\""
+    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras} ${exclude_elastic} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no ${standalone_tests}\""
 }
 
 run_gloo_integration() {
@@ -256,12 +263,24 @@ run_gloo_integration() {
   fi
 
   run_test "${test}" "${queue}" \
-    ":python: Test PyTorch MNIST (${test})" \
+    ":fire: Test PyTorch MNIST (${test})" \
     "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch_mnist.py"
 
   run_test "${test}" "${queue}" \
     ":muscle: Test MXNet MNIST (${test})" \
     "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet_mnist.py"
+
+  # Elastic
+  if [[ ${test} == *"py3_"* ]]; then
+      local elastic_tensorflow="test_elastic_tensorflow.py"
+      if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
+          elastic_tensorflow="test_elastic_tensorflow2.py"
+      fi
+
+      run_test "${test}" "${queue}" \
+          ":factory: Elastic Tests (${test})" \
+          "bash -c \"cd /horovod/test/integration && pytest -v --log-cli-level 10 --capture=no test_elastic_torch.py ${elastic_tensorflow}\""
+  fi
 }
 
 run_gloo() {
@@ -322,7 +341,7 @@ run_single_integration() {
   fi
 
   run_test "${test}" "${queue}" \
-    ":python: Single PyTorch MNIST (${test})" \
+    ":fire: Single PyTorch MNIST (${test})" \
     "bash -c \"${oneccl_env} python /horovod/examples/pytorch_mnist.py --epochs 3\""
 
   run_test "${test}" "${queue}" \

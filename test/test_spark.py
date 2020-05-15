@@ -297,7 +297,7 @@ class SparkTests(unittest.TestCase):
     @pytest.mark.skipif(sys.version_info < (3, 0),
                         reason='Horovod on Spark over Gloo only supported on Python3')
     def test_spark_run_with_non_zero_exit_with_gloo(self):
-        expected = '^Gloo job detected that one or more processes exited with non-zero ' \
+        expected = '^Horovod detected that one or more processes exited with non-zero ' \
                    'status, thus causing the job to be terminated. The first process ' \
                    'to do so was:\nProcess name: 0\nExit code: 1$'
         self.do_test_spark_run_with_non_zero_exit(use_mpi=False, use_gloo=True,
@@ -459,10 +459,10 @@ class SparkTests(unittest.TestCase):
 
         self.assertFalse(str(e.value).startswith('Timed out waiting for Spark tasks to start.'),
                          'Spark timed out before mpi_run was called, test setup is broken.')
-        self.assertRegexpMatches(str(e.value),
-                                 '^Gloo job detected that one or more processes exited with non-zero status, '
-                                 'thus causing the job to be terminated. The first process to do so was:\n'
-                                 'Process name: [0-9]\nExit code: 1+\n$')
+        self.assertEqual('Horovod detected that one or more processes exited with non-zero status, '
+                         'thus causing the job to be terminated. The first process to do so was:\n'
+                         'Process name: 0\n'
+                         'Exit code: 1\n', str(e.value))
 
         num_proc = cores if num_proc is None else num_proc
         self.assertEqual(expected_np, num_proc)
@@ -494,7 +494,8 @@ class SparkTests(unittest.TestCase):
             self.assertEqual(alloc_info.local_rank, alloc_info.rank)
 
             # command fully derived from alloc_info
-            expected_command = ('HOROVOD_RANK={rank} '
+            expected_command = ('HOROVOD_HOSTNAME=[^ ]+ '
+                                'HOROVOD_RANK={rank} '
                                 'HOROVOD_SIZE={size} '
                                 'HOROVOD_LOCAL_RANK={local_rank} '
                                 'HOROVOD_LOCAL_SIZE={local_size} '
@@ -517,6 +518,7 @@ class SparkTests(unittest.TestCase):
             # for better comparison replace sections in actual_command that change across runs / hosts
             actual_command = call_args[0][0]
             for replacement in ['_HOROVOD_SECRET_KEY=[^ ]+',
+                                'HOROVOD_HOSTNAME=[^ ]+',
                                 'HOROVOD_GLOO_RENDEZVOUS_ADDR=[^ ]+',
                                 'HOROVOD_GLOO_RENDEZVOUS_PORT=[0-9]+',
                                 'HOROVOD_GLOO_IFACE=[^ ]+',
@@ -534,22 +536,31 @@ class SparkTests(unittest.TestCase):
         self.do_test_rsh('false', 1)
 
     def test_rsh_event(self):
+        self.do_test_rsh_events(1)
+
+    def test_rsh_events(self):
+        self.do_test_rsh_events(3)
+
+    def do_test_rsh_events(self, test_events):
+        self.assertGreater(test_events, 0, 'test should not be trivial')
+
         sleep = 10
         command = 'sleep {}'.format(sleep)
-        event = threading.Event()
-        delay(lambda: event.set(), 1.0)
+        for triggered_event in range(test_events):
+            events = [threading.Event() for _ in range(test_events)]
+            delay(lambda: events[triggered_event].set(), 1.0)
 
-        start = time.time()
-        self.do_test_rsh(command, 143, event=event)
-        duration = time.time() - start
+            start = time.time()
+            self.do_test_rsh(command, 143, events=events)
+            duration = time.time() - start
 
-        self.assertGreaterEqual(duration, 1.0)
-        self.assertLess(duration, 2.00 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S,
-                        'sleep should not finish')
-        self.assertGreater(sleep, 2.00 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S,
-                           'sleep should be large enough')
+            self.assertGreaterEqual(duration, 1.0)
+            self.assertLess(duration, 2.00 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S,
+                            'sleep should not finish')
+            self.assertGreater(sleep, 2.00 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S,
+                               'sleep should be large enough')
 
-    def do_test_rsh(self, command, expected_result, event=None):
+    def do_test_rsh(self, command, expected_result, events=None):
         def fn():
             return 0
 
@@ -563,7 +574,7 @@ class SparkTests(unittest.TestCase):
         settings = hvd_settings.Settings(verbose=2, key=key)
         env = {}
 
-        res = rsh(driver.addresses(), key, settings, host_hash, command, env, 0, False, event=event)
+        res = rsh(driver.addresses(), key, settings, host_hash, command, env, 0, False, events=events)
         self.assertEqual(expected_result, res)
 
     def test_mpirun_exec_fn(self):
