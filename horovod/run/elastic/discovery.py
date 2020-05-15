@@ -19,7 +19,6 @@ import logging
 import threading
 
 from collections import defaultdict
-
 import six
 
 from horovod.run.common.util import safe_shell_exec

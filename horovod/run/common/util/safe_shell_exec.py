@@ -25,7 +25,6 @@ import time
 
 from horovod.run.util.threads import in_thread, on_event
 
-_PY3 = sys.version_info[0] == 3
 GRACEFUL_TERMINATION_TIME_S = 5
 
 
@@ -159,7 +158,7 @@ def _create_event(ctx):
 
 
 def execute(command, env=None, stdout=None, stderr=None, index=None, events=None):
-    ctx = multiprocessing.get_context('spawn') if _PY3 else multiprocessing
+    ctx = multiprocessing.get_context('spawn')
 
     # When this event is set, signal to middleman to terminate its children and exit.
     exit_event = _create_event(ctx)

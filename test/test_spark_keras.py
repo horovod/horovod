@@ -74,9 +74,6 @@ class SparkKerasTests(tf.test.TestCase):
         warnings.simplefilter('module')
 
     def test_fit_model(self):
-        if sys.version_info < (3, 0, 0) and is_gloo_used():
-            self.skipTest('Horovod on Spark over Gloo only supported on Python3')
-
         model = create_xor_model()
         optimizer = tf.keras.optimizers.SGD(lr=0.1)
         loss = 'binary_crossentropy'
@@ -105,9 +102,6 @@ class SparkKerasTests(tf.test.TestCase):
                 assert pred.dtype == np.float32
 
     def test_fit_model_multiclass(self):
-        if sys.version_info < (3, 0, 0) and is_gloo_used():
-            self.skipTest('Horovod on Spark over Gloo only supported on Python3')
-
         model = create_mnist_model()
         optimizer = tf.keras.optimizers.Adadelta(1.0)
         loss = tf.keras.losses.categorical_crossentropy

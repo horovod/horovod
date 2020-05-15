@@ -1674,10 +1674,6 @@ class TorchTests(unittest.TestCase):
         if not torch.cuda.is_available():
             self.skipTest("No GPUs available")
 
-        if sys.version_info < (3,):
-            # TODO: remove this check after Py2 deprecation
-            self.skipTest("Python 3 only feature")
-
         hvd.init()
 
         ts_list = [

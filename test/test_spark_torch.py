@@ -64,9 +64,6 @@ class SparkTorchTests(unittest.TestCase):
         warnings.simplefilter('module')
 
     def test_fit_model(self):
-        if sys.version_info < (3, 0, 0) and is_gloo_used():
-            self.skipTest('Horovod on Spark over Gloo only supported on Python3')
-
         model = create_xor_model()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
         loss = F.binary_cross_entropy
