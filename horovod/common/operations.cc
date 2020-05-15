@@ -148,6 +148,11 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
   std::vector<std::shared_ptr<BroadcastOp>> broadcast_ops;
   std::vector<std::shared_ptr<AllreduceOp>> adasum_ops;
 
+#if HAVE_NCCL && HOROVOD_GPU_ALLGATHER == 'N'
+  allgather_ops.push_back(std::shared_ptr<AllgatherOp>(
+      new NCCLAllgather(&nccl_context, &gpu_context, &state)));
+#endif
+
 #if HAVE_MPI && HAVE_GPU
   if (mpi_context.IsEnabled()) {
 #if HOROVOD_GPU_ALLREDUCE == 'M'
