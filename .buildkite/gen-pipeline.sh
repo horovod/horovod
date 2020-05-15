@@ -285,7 +285,7 @@ run_spark_integration() {
   # Horovod Spark Estimator tests
   if [[ ${test} != *"tf1_1_0"* && ${test} != *"tf1_6_0"* && ${test} != *"torch0_"* && ${test} != *"mpich"* && ${test} != *"oneccl"* ]]; then
     if [[ ${test} != *"tf2"* && ${test} != *"tfhead"* ]]; then
-      if [[ ! (  ${test} == *"gloo"* && ${test} != *"openmpi-gloo"* ) ]]; then
+      if [[ ${test} != *"gloo"* || ${test} == *"openmpi-gloo"* ]]; then
         run_test "${test}" "${queue}" \
           ":spark: Spark Keras Rossmann Run (${test})" \
           "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01\""
@@ -306,7 +306,7 @@ run_spark_integration() {
       fi
     fi
 
-    if [[ ! (  ${test} == *"gloo"* && ${test} != *"openmpi-gloo"* ) ]]; then
+    if [[ ${test} != *"gloo"* || ${test} == *"openmpi-gloo"* ]]; then
       run_test "${test}" "${queue}" \
         ":spark: Spark Torch MNIST (${test})" \
         "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
