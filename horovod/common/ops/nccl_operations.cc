@@ -430,8 +430,7 @@ Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
   SetDisplacements(recvcounts, displcmnts);
   SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets);
 
-  int64_t first_num_elements = first_entry.tensor->shape().num_elements();
-  int element_size = first_entry.tensor->size() / first_num_elements;
+  size_t element_size = DataType_Size(first_entry.tensor->dtype());
 
   const void* fused_input_data;
   void* buffer_data;
@@ -462,8 +461,8 @@ Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
   // Do allgather.
   if (same_shape) {
     auto nccl_result = ncclAllGather(fused_input_data, buffer_data,
-                                     (size_t) recvcounts[0],
-                                     GetNCCLDataType(first_entry.tensor),
+                                     recvcounts[0] * element_size,
+                                     ncclChar,
                                      *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
 
     nccl_context_->ErrorCheck("ncclAllGather", nccl_result);
@@ -476,8 +475,8 @@ Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
     for (int rc = 0; rc < global_size; ++rc) {
       void* new_buffer_data = (uint8_t*)buffer_data + displcmnts[rc] * element_size;
       auto nccl_result = ncclBroadcast(fused_input_data, new_buffer_data,
-                                       (size_t) recvcounts[rc],
-                                       GetNCCLDataType(first_entry.tensor), rc,
+                                       recvcounts[rc] * element_size,
+                                       ncclChar, rc,
                                        *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
       nccl_context_->ErrorCheck("ncclBroadcast", nccl_result);
     }
