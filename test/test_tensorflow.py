@@ -494,6 +494,14 @@ class MPITests(tf.test.TestCase):
 
     def test_horovod_allgather_gpu(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
+            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
+
         hvd.init()
         rank = hvd.rank()
         local_rank = hvd.local_rank()
@@ -583,6 +591,14 @@ class MPITests(tf.test.TestCase):
     def test_horovod_allgather_fused_gpu(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors
         with Tensor Fusion."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
+            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
+
         hvd.init()
         rank = hvd.rank()
         local_rank = hvd.local_rank()
