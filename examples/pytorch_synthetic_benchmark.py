@@ -31,6 +31,8 @@ parser.add_argument('--no-cuda', action='store_true', default=False,
 
 parser.add_argument('--use-adasum', action='store_true', default=False,
                     help='use adasum algorithm to do reduction')
+parser.add_argument('--gradient-predivide-factor', type=float, default=1.0,
+                    help='apply gradient predivide factor in optimizer (default: 1.0)')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -65,7 +67,8 @@ compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.n
 optimizer = hvd.DistributedOptimizer(optimizer,
                                      named_parameters=model.named_parameters(),
                                      compression=compression,
-                                     op=hvd.Adasum if args.use_adasum else hvd.Average)
+                                     op=hvd.Adasum if args.use_adasum else hvd.Average,
+                                     gradient_predivide_factor=args.gradient_predivide_factor)
 
 # Horovod: broadcast parameters & optimizer state.
 hvd.broadcast_parameters(model.state_dict(), root_rank=0)

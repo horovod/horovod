@@ -31,6 +31,8 @@ parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
 parser.add_argument('--use-adasum', action='store_true', default=False,
                     help='use adasum algorithm to do reduction')
+parser.add_argument('--gradient-predivide-factor', type=float, default=1.0,
+                    help='apply gradient predivide factor in optimizer (default: 1.0)')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda
@@ -65,7 +67,8 @@ opt = tf.train.GradientDescentOptimizer(0.01 * lr_scaler)
 compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
 
 # Horovod: wrap optimizer with DistributedOptimizer.
-opt = hvd.DistributedOptimizer(opt, compression=compression, op=hvd.Adasum if args.use_adasum else hvd.Average)
+opt = hvd.DistributedOptimizer(opt, compression=compression, op=hvd.Adasum if args.use_adasum else hvd.Average,
+                               gradient_predivide_factor=args.gradient_predivide_factor)
 
 init = tf.global_variables_initializer()
 bcast_op = hvd.broadcast_global_variables(0)

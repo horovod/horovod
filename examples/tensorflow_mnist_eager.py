@@ -12,10 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+import argparse
 
 import tensorflow as tf
 import horovod.tensorflow as hvd
 
+# Training settings
+parser = argparse.ArgumentParser(description='Tensorflow Keras MNIST Example')
+parser.add_argument('--gradient-predivide-factor', type=float, default=1.0,
+                    help='apply gradient predivide factor in optimizer (default: 1.0)')
+args = parser.parse_args()
 
 def main(_):
     # Horovod: initialize Horovod.
@@ -59,7 +65,8 @@ def main(_):
             loss_value = tf.losses.sparse_softmax_cross_entropy(labels, logits)
 
         # Horovod: add Horovod Distributed GradientTape.
-        tape = hvd.DistributedGradientTape(tape)
+        tape = hvd.DistributedGradientTape(tape,
+                                           gradient_predivide_factor=args.gradient_predivide_factor)
 
         grads = tape.gradient(loss_value, mnist_model.variables)
         opt.apply_gradients(zip(grads, mnist_model.variables),

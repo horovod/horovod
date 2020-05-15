@@ -25,7 +25,7 @@ from horovod.torch.compression import Compression
 from horovod.torch.mpi_ops import allreduce_async_
 from horovod.torch.mpi_ops import synchronize
 from horovod.torch.mpi_ops import size
-from horovod.torch.mpi_ops import Average, Adasum
+from horovod.torch.mpi_ops import Average, Adasum, Sum
 from horovod.torch.mpi_ops import rocm_built
 
 
@@ -117,8 +117,8 @@ class _DistributedOptimizer(torch.optim.Optimizer):
         tensor_compressed, ctx = self._compression.compress(tensor)
 
         if self.op == Average and self.gradient_predivide_factor != 1.0:
-            prescale_factor = 1.0 / gradient_predivide_factor
-            postscale_factor = gradient_predivide_factor / size()
+            prescale_factor = 1.0 / self.gradient_predivide_factor
+            postscale_factor = self.gradient_predivide_factor / size()
             true_op = Sum
         else:
             prescale_factor = 1.0

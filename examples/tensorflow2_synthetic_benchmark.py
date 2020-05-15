@@ -42,6 +42,9 @@ parser.add_argument('--num-iters', type=int, default=10,
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
 
+parser.add_argument('--gradient-predivide-factor', type=float, default=1.0,
+                    help='apply gradient predivide factor in optimizer (default: 1.0)')
+
 args = parser.parse_args()
 args.cuda = not args.no_cuda
 
@@ -77,7 +80,8 @@ def benchmark_step(first_batch):
         loss = tf.losses.sparse_categorical_crossentropy(target, probs)
 
     # Horovod: add Horovod Distributed GradientTape.
-    tape = hvd.DistributedGradientTape(tape, compression=compression)
+    tape = hvd.DistributedGradientTape(tape, compression=compression,
+                                       gradient_predivide_factor=args.gradient_predivide_factor)
 
     gradients = tape.gradient(loss, model.trainable_variables)
     opt.apply_gradients(zip(gradients, model.trainable_variables))
