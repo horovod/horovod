@@ -17,12 +17,11 @@ from __future__ import absolute_import
 
 import logging
 import os
+import queue
 import threading
 import time
 
 from collections import defaultdict
-
-from six.moves import queue
 
 from horovod.run.common.util import hosts, timeout
 from horovod.run.elastic.discovery import HostManager

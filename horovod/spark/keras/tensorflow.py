@@ -17,7 +17,6 @@ from __future__ import absolute_import
 
 import json
 
-from six.moves import zip
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras import optimizers
 from tensorflow.python.platform import tf_logging as logging

@@ -16,9 +16,10 @@
 import collections
 import logging
 import socket
+import socketserver
 import threading
 
-from six.moves import socketserver, BaseHTTPServer, SimpleHTTPServer
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 from horovod.run.util.network import find_port
 from horovod.run.util.threads import in_thread
@@ -31,7 +32,7 @@ TIMEOUT = 408
 OK = 200
 
 
-class KVStoreHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+class KVStoreHandler(SimpleHTTPRequestHandler):
     # Set timeout
     timeout = SINGLE_REQUEST_TIMEOUT
 
@@ -130,7 +131,7 @@ class RendezvousHandler(KVStoreHandler):
         self.send_status_code(OK)
 
 
-class RendezvousHTTPServer(socketserver.ThreadingMixIn, BaseHTTPServer.HTTPServer, object):
+class RendezvousHTTPServer(socketserver.ThreadingMixIn, HTTPServer, object):
     def __init__(self, addr, handler, verbose):
         # This class has to inherit from object since HTTPServer is an old-style
         # class that does not inherit from object.
@@ -197,7 +198,7 @@ class RendezvousServer:
         self.listen_thread.join()
 
 
-class KVStoreHTTPServer(BaseHTTPServer.HTTPServer, object):
+class KVStoreHTTPServer(HTTPServer, object):
     def __init__(self, addr, handler, verbose):
         super(KVStoreHTTPServer, self).__init__(addr, handler)
 

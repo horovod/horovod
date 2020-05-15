@@ -17,14 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import unittest
+import queue
 import threading
 import time
-import sys
+import unittest
 import warnings
-
-from distutils.version import LooseVersion
-from six.moves import queue
 
 import pytest
 

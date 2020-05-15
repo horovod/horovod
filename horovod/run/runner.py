@@ -18,6 +18,7 @@ from __future__ import print_function
 import argparse
 import hashlib
 import logging
+import io
 import os
 import re
 import sys
@@ -28,7 +29,6 @@ try:
 except ImportError:
     from pipes import quote
 
-import six
 import yaml
 
 import horovod
@@ -76,7 +76,7 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
 
         # Try ssh 5 times
         for i in range(SSH_ATTEMPTS):
-            output = six.StringIO()
+            output = io.StringIO()
             try:
                 exit_code = safe_shell_exec.execute(command,
                                                     stdout=output,
@@ -101,7 +101,7 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
                                                args_list)
 
     ssh_successful_to_all_hosts = True
-    for index, ssh_status in six.iteritems(ssh_exit_codes):
+    for index, ssh_status in ssh_exit_codes.items():
         exit_code, output_msg = ssh_status[0], ssh_status[1]
         if exit_code != 0:
             print('ssh not successful for host {host}:\n{msg_output}'

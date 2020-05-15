@@ -13,9 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
+import queue
 import threading
-
-from six.moves import queue
 
 
 def execute_function_multithreaded(fn,

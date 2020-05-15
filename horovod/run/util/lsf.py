@@ -13,11 +13,14 @@
 # limitations under the License.
 # ==============================================================================
 
+import io
 import os
-import six
+
 import yaml
+
 from horovod.common.util import _cache
 from horovod.run.common.util import safe_shell_exec
+
 
 class LSFUtils:
     """LSF Utilities"""
@@ -37,7 +40,7 @@ class LSFUtils:
         """Returns and sets the static CSM allocation info."""
         if not LSFUtils._csm_allocation_info:
             lsf_allocation_id = os.environ["CSM_ALLOCATION_ID"].strip()
-            output = six.StringIO()
+            output = io.StringIO()
             exit_code = safe_shell_exec.execute("{cmd} -a {allocation}".format(
                 cmd=LSFUtils._CSM_ALLOCATION_QUERY, allocation=lsf_allocation_id),
                 stdout=output, stderr=output)
@@ -47,7 +50,7 @@ class LSFUtils:
                         cmd=LSFUtils._CSM_ALLOCATION_QUERY, exit_code=exit_code))
             LSFUtils._csm_allocation_info = yaml.safe_load(output.getvalue())
             # Fetch the total number of cores and gpus for the first host
-            output = six.StringIO()
+            output = io.StringIO()
             exit_code = safe_shell_exec.execute("{cmd} -n {node}".format(
                 cmd=LSFUtils._CSM_NODE_QUERY,
                 node=LSFUtils._csm_allocation_info["compute_nodes"][0]),
@@ -92,9 +95,9 @@ class LSFUtils:
         """Returns the number of hardware threads."""
         lscpu_cmd = 'ssh -o StrictHostKeyChecking=no {host} {cmd}'.format(
             host=LSFUtils.get_compute_hosts()[0],
-            cmd = LSFUtils._LSCPU_CMD
+            cmd=LSFUtils._LSCPU_CMD
         )
-        output = six.StringIO()
+        output = io.StringIO()
         exit_code = safe_shell_exec.execute(lscpu_cmd, stdout=output, stderr=output)
         if exit_code != 0:
             raise RuntimeError("{cmd} failed with exit code {exit_code}".format(
