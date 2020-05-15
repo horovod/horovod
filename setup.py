@@ -1627,5 +1627,6 @@ setup(name='horovod',
           'mxnet': mxnet_require_list,
           'spark': spark_require_list
       },
+      python_requires='>=3.6',
       zip_safe=False,
       scripts=['bin/horovodrun'])
