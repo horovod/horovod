@@ -20,7 +20,6 @@ import inspect
 import itertools
 import os
 import pytest
-import sys
 import unittest
 import warnings
 
