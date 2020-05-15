@@ -13,7 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-import collections
 import copy
 import errno
 import math
@@ -23,10 +22,7 @@ import sys
 import threading
 import time
 
-try:
-    from shlex import quote
-except ImportError:
-    from pipes import quote
+from shlex import quote
 
 from horovod.run.common.util import env as env_util, safe_shell_exec
 from horovod.run.common.util.hosts import get_host_assignments, parse_hosts

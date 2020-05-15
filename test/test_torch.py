@@ -14,19 +14,16 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from distutils.version import LooseVersion
 
 import inspect
 import itertools
 import os
 import pytest
-import sys
 import unittest
 import warnings
+
+from collections.abc import Iterable
 
 import numpy as np
 import torch
@@ -36,11 +33,6 @@ import torch.nn.functional as F
 import horovod.torch as hvd
 
 from common import mpi_env_rank_and_size, temppath
-
-try:
-    from collections.abc import Iterable
-except ImportError:
-    from collections import Iterable
 
 _v2_api = LooseVersion(torch.__version__) >= LooseVersion('1.0.0')
 _fp16_supported = _v2_api
@@ -1673,10 +1665,6 @@ class TorchTests(unittest.TestCase):
         """Tests Horovod version of SyncBatchNorm."""
         if not torch.cuda.is_available():
             self.skipTest("No GPUs available")
-
-        if sys.version_info < (3,):
-            # TODO: remove this check after Py2 deprecation
-            self.skipTest("Python 3 only feature")
 
         hvd.init()
 

@@ -13,8 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-
 
 class BaseSettings(object):
     def __init__(self, num_proc=None, verbose=0, ssh_port=None, extra_mpi_args=None, tcp_flag=None,

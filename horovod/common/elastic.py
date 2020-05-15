@@ -13,11 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-
 import functools
-
-from six.moves import queue
+import queue
 
 from horovod.common.exceptions import HorovodInternalError, HostsUpdatedInterrupt
 from horovod.run.elastic.worker import WorkerNotificationManager

@@ -11,8 +11,6 @@
 # increase in the top-1 validation error compared to the single-crop top-1 validation error from
 # https://github.com/KaimingHe/deep-residual-networks.
 #
-from __future__ import print_function
-
 import argparse
 import keras
 from keras import backend as K

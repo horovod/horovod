@@ -13,11 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import copy
+import io
 import itertools
 import os
 import subprocess
@@ -30,7 +27,6 @@ import warnings
 import psutil
 import pytest
 import mock
-import six
 
 from mock import MagicMock
 
@@ -392,8 +388,8 @@ class RunTests(unittest.TestCase):
             self.assertFalse(child.is_running())
 
     def do_test_safe_shell_exec(self, cmd, expected_exit_code, expected_stdout, expected_stderr, event=None):
-        stdout = six.StringIO()
-        stderr = six.StringIO()
+        stdout = io.StringIO()
+        stderr = io.StringIO()
         res = safe_shell_exec.execute(cmd, stdout=stdout, stderr=stderr, events=[event])
         self.assertEqual(expected_exit_code, res)
         if expected_stdout is not None:

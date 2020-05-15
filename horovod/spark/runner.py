@@ -15,10 +15,10 @@
 
 import os
 import platform
+import queue
 import time
 
 import pyspark
-from six.moves import queue
 
 from horovod.run.util.threads import in_thread
 from horovod.spark.task import task_service

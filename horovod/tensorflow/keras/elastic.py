@@ -13,8 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-
 import tensorflow as tf
 
 from horovod._keras import elastic as _impl

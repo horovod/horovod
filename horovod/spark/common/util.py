@@ -13,8 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-
 import horovod.spark.common._namedtuple_fix
 
 import contextlib
@@ -189,11 +187,6 @@ def _get_col_info(df):
                 size = data_col.indices.shape[0]
             elif isinstance(data_col, list):
                 shape = size = len(data_col)
-            elif isinstance(data_col, type(None)):
-                # Python 2.7 compat: NoneType is not pickleable
-                # see: https://bugs.python.org/issue6477
-                dtype = NullType
-                shape = size = 1
             else:
                 shape = size = 1
             row_schema.append((col_name, ({dtype}, {shape}, {size})))

@@ -14,13 +14,12 @@
 # ==============================================================================
 
 import psutil
+import queue
 import socket
+import socketserver
 import struct
-import threading
 
 import cloudpickle
-
-from six.moves import queue, socketserver
 
 from horovod.run.util.threads import in_thread
 from horovod.run.common.util import secret

@@ -13,8 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-
 # Workaround for https://issues.apache.org/jira/browse/SPARK-22674
 # This fix also requires the user to make this same change at the top of their
 # training script before importing pyspark (on serialization).

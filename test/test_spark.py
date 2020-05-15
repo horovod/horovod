@@ -13,10 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import copy
 import itertools
 import os
@@ -82,14 +78,6 @@ class SparkTests(unittest.TestCase):
 
         super(SparkTests, self).run(result)
 
-    @pytest.mark.skipif(sys.version_info >= (3, 0), reason='Skipped on Python 3')
-    def test_run_throws_on_python2(self):
-        if not gloo_built():
-            self.skipTest("Gloo is not available")
-
-        with pytest.raises(Exception, match='^Horovod on Spark over Gloo only supported on Python3$'):
-            self.do_test_happy_run(use_mpi=False, use_gloo=True)
-
     """
     Test that horovod.spark.run works properly in a simple setup using MPI.
     """
@@ -102,8 +90,6 @@ class SparkTests(unittest.TestCase):
     """
     Test that horovod.spark.run works properly in a simple setup using Gloo.
     """
-    @pytest.mark.skipif(sys.version_info < (3, 0),
-                        reason='Horovod on Spark over Gloo only supported on Python3')
     def test_happy_run_with_gloo(self):
         if not gloo_built():
             self.skipTest("Gloo is not available")
@@ -138,8 +124,6 @@ class SparkTests(unittest.TestCase):
     """
     Test that horovod.spark.run times out when it does not start up fast enough using Gloo.
     """
-    @pytest.mark.skipif(sys.version_info < (3, 0),
-                        reason='Horovod on Spark over Gloo only supported on Python3')
     def test_timeout_with_gloo(self):
         if not gloo_built():
             self.skipTest("Gloo is not available")
@@ -181,8 +165,6 @@ class SparkTests(unittest.TestCase):
     """
     Test that horovod.spark.run uses Gloo properly.
     """
-    @pytest.mark.skipif(sys.version_info < (3, 0),
-                        reason='Horovod on Spark over Gloo only supported on Python3')
     def test_spark_run_with_gloo(self):
         self.do_test_spark_run(use_mpi=False, use_gloo=True)
 
@@ -209,8 +191,6 @@ class SparkTests(unittest.TestCase):
     """
     Test that horovod.spark.run does not default to spark parallelism given num_proc using Gloo.
     """
-    @pytest.mark.skipif(sys.version_info < (3, 0),
-                        reason='Horovod on Spark over Gloo only supported on Python3')
     def test_spark_run_num_proc_precedes_spark_cores_with_gloo(self):
         self.do_test_spark_run_num_proc_precedes_spark_cores(use_mpi=False, use_gloo=True)
 
@@ -244,8 +224,6 @@ class SparkTests(unittest.TestCase):
     """
     Test that horovod.spark.run defaults num_proc to spark parallelism using Gloo.
     """
-    @pytest.mark.skipif(sys.version_info < (3, 0),
-                        reason='Horovod on Spark over Gloo only supported on Python3')
     def test_spark_run_defaults_num_proc_to_spark_cores_with_gloo(self):
         self.do_test_spark_run_defaults_num_proc_to_spark_cores(use_mpi=False, use_gloo=True)
 
@@ -266,8 +244,6 @@ class SparkTests(unittest.TestCase):
     """
     Test that horovod.spark.run defaults env to the full system env using Gloo.
     """
-    @pytest.mark.skipif(sys.version_info < (3, 0),
-                        reason='Horovod on Spark over Gloo only supported on Python3')
     def test_spark_run_does_not_default_env_to_os_env_with_gloo(self):
         self.do_test_spark_run_does_not_default_env_to_os_env(use_mpi=False, use_gloo=True)
 
@@ -294,8 +270,6 @@ class SparkTests(unittest.TestCase):
     """
     Test that horovod.spark.run raises an exception on non-zero exit code of mpi_run using Gloo.
     """
-    @pytest.mark.skipif(sys.version_info < (3, 0),
-                        reason='Horovod on Spark over Gloo only supported on Python3')
     def test_spark_run_with_non_zero_exit_with_gloo(self):
         expected = '^Horovod detected that one or more processes exited with non-zero ' \
                    'status, thus causing the job to be terminated. The first process ' \
@@ -781,8 +755,8 @@ class SparkTests(unittest.TestCase):
 
             expected = [
                 ('int', {int}, 1, 1),
-                ('float', {float, NullType}, 1, 1),
-                ('null', {NullType}, 1, 1),
+                ('float', {float, type(None)}, 1, 1),
+                ('null', {type(None)}, 1, 1),
                 ('array', {list}, 2, 2),
                 ('dense', {DenseVector}, 2, 2),
                 ('sparse', {SparseVector}, 2, 1),

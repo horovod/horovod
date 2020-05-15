@@ -8,14 +8,11 @@ repository=823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
 
 # list of all the tests
 tests=( \
-       test-cpu-openmpi-py2_7-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
        test-cpu-openmpi-py3_6-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
-       test-cpu-gloo-py2_7-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-gloo-py3_7-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_4_0 \
-       test-cpu-openmpi-py2_7-tf2_0_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-openmpi-py3_6-tf2_0_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
        test-cpu-mpich-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
@@ -103,11 +100,6 @@ run_mpi_pytest() {
     exclude_keras="| sed 's/[a-z_]*tensorflow2[a-z_.]*//g'"
   fi
 
-  local exclude_elastic=""
-  if [[ ${test} == *"py2_"* ]]; then
-    exclude_elastic="| sed 's/test_elastic[a-z_.]*//g'"
-  fi
-
   local excluded_tests="| sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g'"
 
   # Spark and Run test does not need to be executed with horovodrun, but we still run it below.
@@ -123,7 +115,7 @@ run_mpi_pytest() {
   # pytests have 4x GPU use cases and require a separate queue
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"${oneccl_env} cd /horovod/test && (echo test_*.py ${exclude_keras} ${exclude_elastic} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no) && pytest --forked -v --capture=no ${standalone_tests}\""
+    "bash -c \"${oneccl_env} cd /horovod/test && (echo test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no) && pytest --forked -v --capture=no ${standalone_tests}\""
 }
 
 run_mpi_integration() {
@@ -216,11 +208,6 @@ run_gloo_pytest() {
     exclude_keras="| sed 's/[a-z_]*tensorflow2[a-z_.]*//g'"
   fi
 
-  local exclude_elastic=""
-  if [[ ${test} == *"py2_"* ]]; then
-    exclude_elastic="| sed 's/test_elastic[a-z_.]*//g'"
-  fi
-
   # These are tested as integration style tests.
   local excluded_tests="| sed 's/test_interactiverun.py//g' | sed 's/test_spark_keras.py//g' | sed 's/test_spark_torch.py//g'"
 
@@ -236,7 +223,7 @@ run_gloo_pytest() {
 
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras} ${exclude_elastic} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no ${standalone_tests}\""
+    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no ${standalone_tests}\""
 }
 
 run_gloo_integration() {
@@ -298,7 +285,7 @@ run_spark_integration() {
   # Horovod Spark Estimator tests
   if [[ ${test} != *"tf1_1_0"* && ${test} != *"tf1_6_0"* && ${test} != *"torch0_"* && ${test} != *"mpich"* && ${test} != *"oneccl"* ]]; then
     if [[ ${test} != *"tf2"* && ${test} != *"tfhead"* ]]; then
-      if [[ ! (  ${test} == *"py2"* && ${test} == *"gloo"* && ${test} != *"openmpi-gloo"* ) ]]; then
+      if [[ ${test} != *"gloo"* || ${test} == *"openmpi-gloo"* ]]; then
         run_test "${test}" "${queue}" \
           ":spark: Spark Keras Rossmann Run (${test})" \
           "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01\""
@@ -319,7 +306,7 @@ run_spark_integration() {
       fi
     fi
 
-    if [[ ! (  ${test} == *"py2"* && ${test} == *"gloo"* && ${test} != *"openmpi-gloo"* ) ]]; then
+    if [[ ${test} != *"gloo"* || ${test} == *"openmpi-gloo"* ]]; then
       run_test "${test}" "${queue}" \
         ":spark: Spark Torch MNIST (${test})" \
         "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""

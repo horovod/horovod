@@ -13,14 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-
+import io
 import logging
 import threading
 
 from collections import defaultdict
-
-import six
 
 from horovod.run.common.util import safe_shell_exec
 
@@ -137,7 +134,7 @@ class HostDiscoveryScript(HostDiscovery):
         super(HostDiscoveryScript, self).__init__()
 
     def find_available_hosts_and_slots(self):
-        stdout = six.StringIO()
+        stdout = io.StringIO()
         exit_code = safe_shell_exec.execute(self._discovery_script, stdout=stdout)
         if exit_code != 0:
             raise RuntimeError('Failed to execute discovery script: {}. Exit code: {}'

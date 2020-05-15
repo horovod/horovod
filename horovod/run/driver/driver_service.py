@@ -13,8 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
+import io
 import os
-import six
 import sys
 
 from socket import AF_INET
@@ -73,7 +73,7 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
     """
 
     def _exec_command(command):
-        host_output = six.StringIO()
+        host_output = io.StringIO()
         try:
             exit_code = safe_shell_exec.execute(command,
                                                 stdout=host_output,

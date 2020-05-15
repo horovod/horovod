@@ -16,4 +16,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Removed
 
+- Dropped support for Python 2. ([#1954](https://github.com/horovod/horovod/pull/1954))
+
 ### Fixed

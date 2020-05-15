@@ -20,7 +20,6 @@ When to use elastic training
 Requirements
 ~~~~~~~~~~~~
 
-- Python >= 3.6
 - TensorFlow >= 1.15 or PyTorch >= 1.0
 - Horovod >= 0.20.0 with Gloo support (install Horovod using ``HOROVOD_WITH_GLOO=1`` to ensure it is installed)
 - A way to discover available hosts at runtime
