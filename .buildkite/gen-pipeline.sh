@@ -8,22 +8,22 @@ repository=823773083436.dkr.ecr.us-east-1.amazonaws.com/buildkite
 
 # list of all the tests
 tests=( \
-       test-cpu-openmpi-py3_6-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
+       #test-cpu-openmpi-py3_6-tf1_6_0-keras2_1_2-torch0_4_1-mxnet1_4_1-pyspark2_3_2 \
        test-cpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_4_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-gloo-py3_7-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0 \
-       test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0 \
-       test-cpu-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_4_0 \
-       test-cpu-openmpi-py3_6-tf2_0_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
-       test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
-       test-cpu-mpich-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
-       test-cpu-oneccl-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
-       test-cpu-oneccl-ofi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
-       test-gpu-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
-       test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
-       test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
-       test-gpu-openmpi-py3_6-tf2_0_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
-       test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
-       test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
+       #test-cpu-gloo-py3_8-tf2_2_0-keras2_3_1-torch1_5_0-mxnet1_5_0-pyspark2_4_0 \
+       #test-cpu-openmpi-py3_6-tf1_14_0-keras2_2_4-torch1_2_0-mxnet1_4_1-pyspark2_4_0 \
+       #test-cpu-openmpi-py3_6-tf2_0_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
+       #test-cpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
+       #test-cpu-mpich-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
+       #test-cpu-oneccl-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
+       #test-cpu-oneccl-ofi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
+       #test-gpu-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
+       #test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
+       #test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
+       #test-gpu-openmpi-py3_6-tf2_0_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
+       #test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
+       #test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
 )
 
 build_test() {
@@ -230,33 +230,6 @@ run_gloo_integration() {
   local test=$1
   local queue=$2
 
-  # TensorFlow 2.0 tests
-  if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
-    run_test "${test}" "${queue}" \
-      ":tensorflow: Test TensorFlow 2.0 MNIST (${test})" \
-      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2_mnist.py"
-
-    run_test "${test}" "${queue}" \
-      ":tensorflow: Test TensorFlow 2.0 Keras MNIST (${test})" \
-      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow2_keras_mnist.py"
-  else
-    run_test "${test}" "${queue}" \
-      ":tensorflow: Test TensorFlow MNIST (${test})" \
-      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/tensorflow_mnist.py"
-
-    run_test "${test}" "${queue}" \
-      ":tensorflow: Test Keras MNIST (${test})" \
-      "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/keras_mnist_advanced.py"
-  fi
-
-  run_test "${test}" "${queue}" \
-    ":fire: Test PyTorch MNIST (${test})" \
-    "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/pytorch_mnist.py"
-
-  run_test "${test}" "${queue}" \
-    ":muscle: Test MXNet MNIST (${test})" \
-    "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet_mnist.py"
-
   # Elastic
   local elastic_tensorflow="test_elastic_tensorflow.py"
   local elastic_spark_tensorflow="test_elastic_spark_tensorflow.py"
@@ -265,23 +238,19 @@ run_gloo_integration() {
       elastic_spark_tensorflow="test_elastic_spark_tensorflow2.py"
   fi
 
-  run_test "${test}" "${queue}" \
-      ":factory: Elastic Tests (${test})" \
-      "bash -c \"cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no test_elastic_torch.py ${elastic_tensorflow}\""
-
-  if [[ ${test} != *"-py3_8-"* || ${test} == *"-pyspark3_"* ]]; then
+  for i in {1..3}
+  do
     run_test "${test}" "${queue}" \
-        ":factory: Elastic Spark Tests (${test})" \
+        ":factory: Elastic Spark Tests $i (${test})" \
         "bash -c \"cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no test_elastic_spark_torch.py ${elastic_spark_tensorflow}\"" \
-      15
-  fi
+        15
+  done
 }
 
 run_gloo() {
   local test=$1
   local queue=$2
 
-  run_gloo_pytest ${test} ${queue}
   run_gloo_integration ${test} ${queue}
 }
 
@@ -382,70 +351,5 @@ for test in ${tests[@]}; do
     if [[ ${test} == *-gloo* ]]; then
       run_gloo ${test} "cpu"
     fi
-    
-    #if oneCCL is specified, prepare oneCCL environment
-    if [[ ${test} == *oneccl* ]]; then
-       oneccl_env="\\\$(cat:/oneccl_env):&&"
-       if [[ ${test} == *ofi* ]]; then
-          oneccl_env="${oneccl_env}:echo:'/mpirun_command_ofi':>:/mpirun_command:&&"
-       else
-          oneccl_env="${oneccl_env}:echo:'/mpirun_command_mpi':>:/mpirun_command:&&"
-       fi
-    else
-       oneccl_env=""
-    fi
-
-    # if mpi is specified, run mpi cpu unit tests and integration tests
-    # if oneccl is specified, run those tests, too
-    if [[ ${test} == *mpi* || ${test} == *oneccl* ]]; then
-      run_mpi ${test} "cpu" ${oneccl_env}
-    fi
-
-    # always run spark tests which use MPI and Gloo
-    # Python 3.8 requires Spark 3, see: https://issues.apache.org/jira/browse/SPARK-29536
-    if [[ ${test} != *"-py3_8-"* || ${test} == *"-pyspark3_"* ]]; then
-        run_spark_integration ${test} "cpu"
-    fi
-
-    # no runner application, world size = 1
-    run_single_integration ${test} "cpu" ${oneccl_env}
-  fi
-done
-
-# wait for all cpu unit and integration tests to finish
-echo "- wait"
-
-# run 4x gpu unit tests
-for test in ${tests[@]}; do
-  if [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]]; then
-    # if gloo is specified, run gloo gpu unit tests
-    if [[ ${test} == *-gloo* ]]; then
-      run_gloo_pytest ${test} "4x-gpu-g4"
-    fi
-
-    # if mpi is specified, run mpi gpu unit tests
-    if [[ ${test} == *mpi* ]]; then
-      run_mpi_pytest ${test} "4x-gpu-g4"
-    fi
-  fi
-done
-
-# wait for all gpu unit tests to finish
-echo "- wait"
-
-# run 2x gpu integration tests
-for test in ${tests[@]}; do
-  if [[ ${test} == *-gpu-* ]] || [[ ${test} == *-mixed-* ]]; then
-    # if gloo is specified, run gloo gpu integration tests
-    if [[ ${test} == *-gloo* ]]; then
-      run_gloo_integration ${test} "2x-gpu-g4"
-    fi
-
-    # if mpi is specified, run mpi gpu integration tests
-    if [[ ${test} == *mpi* ]]; then
-      run_mpi_integration ${test} "2x-gpu-g4"
-    fi
-
-    run_spark_integration ${test} "2x-gpu-g4"
   fi
 done
