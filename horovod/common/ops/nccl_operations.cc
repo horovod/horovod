@@ -423,6 +423,14 @@ Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
   global_state_->timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
   Status status = AllocateOutput(entries, response, entry_component_sizes, recvcounts);
   if (!status.ok()) {
+    for (size_t ec = 0; ec < entries.size(); ++ec) {
+      delete[] entry_component_sizes[ec];
+      delete[] entry_component_offsets[ec];
+    }   
+    delete[] entry_component_sizes;
+    delete[] entry_component_offsets;
+    delete[] recvcounts;
+    delete[] displcmnts;
     return status;
   }
   global_state_->timeline.ActivityEndAll(entries);
@@ -496,6 +504,16 @@ Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
       gpu_context_->RecordEvent(gpu_op_context_.event_queue, MEMCPY_OUT_FUSION_BUFFER, *gpu_op_context_.stream);
     }
   }
+
+  delete[] recvcounts;
+  delete[] displcmnts;
+
+  for (size_t ec = 0; ec < entries.size(); ++ec) {
+    delete[] entry_component_sizes[ec];
+    delete[] entry_component_offsets[ec];
+  }
+  delete[] entry_component_sizes;
+  delete[] entry_component_offsets;
 
   return gpu_op_context_.FinalizeGPUQueue(entries);
 }
