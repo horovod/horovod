@@ -258,16 +258,14 @@ run_gloo_integration() {
     "horovodrun -np 2 -H localhost:2 --gloo python /horovod/examples/mxnet_mnist.py"
 
   # Elastic
-  if [[ ${test} == *"py3_"* ]]; then
-      local elastic_tensorflow="test_elastic_tensorflow.py"
-      if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
-          elastic_tensorflow="test_elastic_tensorflow2.py"
-      fi
-
-      run_test "${test}" "${queue}" \
-          ":factory: Elastic Tests (${test})" \
-          "bash -c \"cd /horovod/test/integration && pytest -v --log-cli-level 10 --capture=no test_elastic_torch.py ${elastic_tensorflow}\""
+  local elastic_tensorflow="test_elastic_tensorflow.py"
+  if [[ ${test} == *"tf2_"* ]] || [[ ${test} == *"tfhead"* ]]; then
+      elastic_tensorflow="test_elastic_tensorflow2.py"
   fi
+
+  run_test "${test}" "${queue}" \
+      ":factory: Elastic Tests (${test})" \
+      "bash -c \"cd /horovod/test/integration && pytest -v --log-cli-level 10 --capture=no test_elastic_torch.py ${elastic_tensorflow}\""
 }
 
 run_gloo() {
@@ -285,19 +283,17 @@ run_spark_integration() {
   # Horovod Spark Estimator tests
   if [[ ${test} != *"tf1_1_0"* && ${test} != *"tf1_6_0"* && ${test} != *"torch0_"* && ${test} != *"mpich"* && ${test} != *"oneccl"* ]]; then
     if [[ ${test} != *"tf2"* && ${test} != *"tfhead"* ]]; then
-      if [[ ${test} != *"gloo"* || ${test} == *"openmpi-gloo"* ]]; then
-        run_test "${test}" "${queue}" \
-          ":spark: Spark Keras Rossmann Run (${test})" \
-          "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01\""
+      run_test "${test}" "${queue}" \
+        ":spark: Spark Keras Rossmann Run (${test})" \
+        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_run.py --num-proc 2 --data-dir file:///data --epochs 3 --sample-rate 0.01\""
 
-        run_test "${test}" "${queue}" \
-          ":spark: Spark Keras Rossmann Estimator (${test})" \
-          "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01\""
+      run_test "${test}" "${queue}" \
+        ":spark: Spark Keras Rossmann Estimator (${test})" \
+        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_rossmann_estimator.py --num-proc 2 --work-dir /work --data-dir file:///data --epochs 3 --sample-rate 0.01\""
 
-        run_test "${test}" "${queue}" \
-          ":spark: Spark Keras MNIST (${test})" \
-          "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
-      fi
+      run_test "${test}" "${queue}" \
+        ":spark: Spark Keras MNIST (${test})" \
+        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/keras_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
 
       if [[ ${queue} != *gpu* ]]; then
         run_test "${test}" "${queue}" \
@@ -306,11 +302,9 @@ run_spark_integration() {
       fi
     fi
 
-    if [[ ${test} != *"gloo"* || ${test} == *"openmpi-gloo"* ]]; then
-      run_test "${test}" "${queue}" \
-        ":spark: Spark Torch MNIST (${test})" \
-        "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
-    fi
+    run_test "${test}" "${queue}" \
+      ":spark: Spark Torch MNIST (${test})" \
+      "bash -c \"OMP_NUM_THREADS=1 python /horovod/examples/pytorch_spark_mnist.py --num-proc 2 --work-dir /work --data-dir /data --epochs 3\""
   fi
 }
 
