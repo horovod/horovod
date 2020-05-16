@@ -14,8 +14,6 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import print_function
-
 import os
 import re
 import shlex
@@ -1569,7 +1567,7 @@ class custom_build_ext(build_ext):
                 'None of TensorFlow, PyTorch, or MXNet plugins were built. See errors above.')
 
 
-require_list = ['cloudpickle', 'psutil', 'pyyaml', 'six']
+require_list = ['cloudpickle', 'psutil', 'pyyaml']
 test_require_list = ['mock', 'pytest', 'pytest-forked']
 
 # framework dependencies
@@ -1629,5 +1627,6 @@ setup(name='horovod',
           'mxnet': mxnet_require_list,
           'spark': spark_require_list
       },
+      python_requires='>=3.6',
       zip_safe=False,
       scripts=['bin/horovodrun'])

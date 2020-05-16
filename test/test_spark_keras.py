@@ -13,21 +13,17 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-
 import collections
 import warnings
 
 import mock
 import numpy as np
-import sys
 import tensorflow as tf
 
 import pyspark.sql.types as T
 from pyspark.ml.linalg import DenseVector, SparseVector
 from pyspark.sql.functions import udf
 
-from horovod.run.runner import is_gloo_used
 import horovod.spark.keras as hvd
 from horovod.spark.common import constants, util
 from horovod.spark.keras import remote
@@ -74,9 +70,6 @@ class SparkKerasTests(tf.test.TestCase):
         warnings.simplefilter('module')
 
     def test_fit_model(self):
-        if sys.version_info < (3, 0, 0) and is_gloo_used():
-            self.skipTest('Horovod on Spark over Gloo only supported on Python3')
-
         model = create_xor_model()
         optimizer = tf.keras.optimizers.SGD(lr=0.1)
         loss = 'binary_crossentropy'
@@ -105,9 +98,6 @@ class SparkKerasTests(tf.test.TestCase):
                 assert pred.dtype == np.float32
 
     def test_fit_model_multiclass(self):
-        if sys.version_info < (3, 0, 0) and is_gloo_used():
-            self.skipTest('Horovod on Spark over Gloo only supported on Python3')
-
         model = create_mnist_model()
         optimizer = tf.keras.optimizers.Adadelta(1.0)
         loss = tf.keras.losses.categorical_crossentropy

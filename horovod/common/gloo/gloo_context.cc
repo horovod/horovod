@@ -17,6 +17,8 @@
 
 #include <chrono>
 #include <memory>
+#include <sstream>
+#include <stdexcept>
 
 #include "gloo/rendezvous/context.h"
 #include "gloo/rendezvous/file_store.h"
@@ -41,12 +43,24 @@ namespace common {
 #define HOROVOD_GLOO_GLOBAL_PREFIX "global_"
 #define HOROVOD_GLOO_LOCAL_PREFIX "local_"
 #define HOROVOD_GLOO_CROSS_PREFIX "cross_"
+#define HOROVOD_GLOO_GET_RANK_AND_SIZE "rank_and_size"
+#define HOROVOD_HOSTNAME "HOROVOD_HOSTNAME"
 #define HOROVOD_RANK "HOROVOD_RANK"
 #define HOROVOD_SIZE "HOROVOD_SIZE"
 #define HOROVOD_LOCAL_RANK "HOROVOD_LOCAL_RANK"
 #define HOROVOD_LOCAL_SIZE "HOROVOD_LOCAL_SIZE"
 #define HOROVOD_CROSS_RANK "HOROVOD_CROSS_RANK"
 #define HOROVOD_CROSS_SIZE "HOROVOD_CROSS_SIZE"
+#define HOROVOD_ELASTIC "HOROVOD_ELASTIC"
+
+int ParseNextInt(std::stringstream& ss) {
+  assert(ss.good());
+
+  std::string substr;
+  getline(ss, substr, ',');
+
+  return (int) std::strtol(substr.c_str(), nullptr, 10);
+}
 
 std::chrono::milliseconds GetTimeoutFromEnv() {
   auto s = std::chrono::seconds(GetIntEnvOrDefault(HOROVOD_GLOO_TIMEOUT_SECONDS, 30));
@@ -140,6 +154,55 @@ void GlooContext::Initialize(const std::string& gloo_iface) {
     LOG(DEBUG) << "no rendezvous server provided, assuming single process execution";
   }
 
+  bool elastic = GetBoolEnvOrDefault(HOROVOD_ELASTIC, false);
+  if (elastic && reset_) {
+    LOG(DEBUG) << "elastic mode reinitialization started, reset rank=" << rank << " size=" << size;
+    std::string hostname = std::getenv(HOROVOD_HOSTNAME);
+    std::string server_addr = rendezvous_addr_env;
+    std::string scope = HOROVOD_GLOO_GET_RANK_AND_SIZE;
+    HTTPStore init_store(server_addr, rendezvous_port, scope, rank);
+
+    auto key = hostname + ":" + std::to_string(local_rank);
+    std::vector<char> result = init_store.get(key);
+    std::string s(result.begin(), result.end());
+    std::stringstream ss(s);
+
+    int last_rank = rank;
+    int last_size = size;
+    int last_local_rank = local_rank;
+    int last_local_size = local_size;
+    int last_cross_rank = cross_rank;
+    int last_cross_size = cross_size;
+
+    rank = ParseNextInt(ss);
+    if (rank == -1) {
+      // Signals that this host is not part of the job
+      std::ostringstream out;
+      out << hostname << "[" << local_rank << "] has been removed from elastic job";
+      throw std::runtime_error(out.str());
+    }
+
+    size = ParseNextInt(ss);
+    local_rank = ParseNextInt(ss);
+    local_size = ParseNextInt(ss);
+    cross_rank = ParseNextInt(ss);
+    cross_size = ParseNextInt(ss);
+
+    SetEnv(HOROVOD_RANK, std::to_string(rank).c_str());
+    SetEnv(HOROVOD_SIZE, std::to_string(size).c_str());
+    SetEnv(HOROVOD_LOCAL_RANK, std::to_string(local_rank).c_str());
+    SetEnv(HOROVOD_LOCAL_SIZE, std::to_string(local_size).c_str());
+    SetEnv(HOROVOD_CROSS_RANK, std::to_string(cross_rank).c_str());
+    SetEnv(HOROVOD_CROSS_SIZE, std::to_string(cross_size).c_str());
+    LOG(DEBUG) << "elastic mode reinitialization complete, updated" <<
+                  " rank: " << last_rank << " -> " << rank <<
+                  " size: " << last_size << " -> " << size <<
+                  " local_rank: " << last_local_rank << " -> " << local_rank <<
+                  " local_size: " << last_local_size << " -> " << local_size <<
+                  " cross_rank: " << last_cross_rank << " -> " << cross_rank <<
+                  " cross_size: " << last_cross_size << " -> " << cross_size;
+  }
+
   ctx = Rendezvous(HOROVOD_GLOO_GLOBAL_PREFIX,
                    rendezvous_addr_env, rendezvous_port,
                    rank, size, dev, timeout);
@@ -164,6 +227,7 @@ void GlooContext::Finalize() {
   ctx.reset();
   cross_ctx.reset();
   local_ctx.reset();
+  reset_ = true;
 }
 
 std::shared_ptr<gloo::Context>

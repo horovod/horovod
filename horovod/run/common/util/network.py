@@ -13,12 +13,13 @@
 # limitations under the License.
 # ==============================================================================
 
-import socket
-import struct
-import cloudpickle
 import psutil
+import queue
+import socket
+import socketserver
+import struct
 
-from six.moves import queue, socketserver
+import cloudpickle
 
 from horovod.run.util.threads import in_thread
 from horovod.run.common.util import secret

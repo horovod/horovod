@@ -7,7 +7,7 @@ ARG CUDA_DOCKER_VERSION=10.0-devel-ubuntu16.04
 ARG CUDNN_VERSION=7.6.0.64-1+cuda10.0
 ARG NCCL_VERSION_OVERRIDE=2.4.7-1+cuda10.0
 ARG MPI_KIND=OpenMPI
-ARG PYTHON_VERSION=2.7
+ARG PYTHON_VERSION=3.6
 ARG TENSORFLOW_PACKAGE=tensorflow-gpu==1.14.0
 ARG KERAS_PACKAGE=keras==2.2.4
 ARG PYTORCH_PACKAGE=torch==1.2.0
@@ -39,10 +39,7 @@ RUN add-apt-repository ppa:ubuntu-toolchain-r/test
 RUN apt-get update -qq && apt-get install -y --no-install-recommends g++-7
 
 # Install Python.
-RUN apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev
-RUN if [[ "${PYTHON_VERSION}" == "3."* ]]; then \
-        apt-get install -y python${PYTHON_VERSION}-distutils; \
-    fi
+RUN apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-distutils
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
 RUN pip install -U --force pip 'setuptools<46.0.0' requests pytest mock pytest-forked
@@ -95,7 +92,7 @@ RUN if [[ ${PYTORCH_PACKAGE} == "torch-nightly" ]]; then \
 RUN pip install "Pillow<7.0" --no-deps
 
 # Install MXNet.
-RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly" && ${PYTHON_VERSION} != "2.7" ]]; then \
+RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly" ]]; then \
         pip install --pre mxnet-cu101mkl -f https://dist.mxnet.io/python/all; \
     else \
         pip install ${MXNET_PACKAGE} ; \

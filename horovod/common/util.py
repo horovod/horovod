@@ -24,7 +24,6 @@ import warnings
 from contextlib import contextmanager
 
 
-_PY3 = sys.version_info[0] == 3
 EXTENSIONS = ['tensorflow', 'torch', 'mxnet']
 
 
@@ -89,7 +88,7 @@ def _check_extension_lambda(ext_base_name, fn, fn_desc, verbose):
         queue.put(result)
 
     # 'fork' is required because horovodrun is a frozen executable
-    ctx = multiprocessing.get_context('fork') if _PY3 else multiprocessing
+    ctx = multiprocessing.get_context('fork')
     queue = ctx.Queue()
     p = ctx.Process(target=_target_fn,
                     args=(ext_base_name, fn, fn_desc, queue, verbose))

@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # =============================================================================
+
 import sys
-import base64
+
 from distutils.version import LooseVersion
+
 if LooseVersion(sys.version) < LooseVersion('3.0.0'):
     from urllib2 import urlopen
     from urllib2 import Request
@@ -23,6 +25,8 @@ else:
     from urllib.request import urlopen
     from urllib.request import Request
     from urllib.error import HTTPError, URLError
+
+from horovod.run.common.util import codec
 
 
 def read_data_from_kvstore(addr, port, scope, key):
@@ -33,7 +37,7 @@ def read_data_from_kvstore(addr, port, scope, key):
         req = Request(url)
         resp = urlopen(req)
         # TODO: remove base64 encoding because base64 is not efficient
-        return base64.b64decode(resp.read())
+        return codec.loads_base64(resp.read())
     except (HTTPError, URLError) as e:
         raise RuntimeError("Read data from KVStore server failed.", e)
 
@@ -43,7 +47,7 @@ def put_data_into_kvstore(addr, port, scope, key, value):
         url = "http://{addr}:{port}/{scope}/{key}".format(
             addr=addr, port=str(port), scope=scope, key=key
         )
-        req = Request(url, data=base64.b64encode(value))
+        req = Request(url, data=codec.dumps_base64(value, to_ascii=False))
         req.get_method = lambda: "PUT"  # for urllib2 compatibility
         urlopen(req)
     except (HTTPError, URLError) as e:

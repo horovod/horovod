@@ -12,15 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # =============================================================================
-import cloudpickle
+
 import sys
+
 from horovod.run.common.util.env import get_env_rank_and_size
 from horovod.run.http.http_client import read_data_from_kvstore, put_data_into_kvstore
 
 
 def main(addr, port):
-    pickled_func = read_data_from_kvstore(addr, port, 'runfunc', 'func')
-    func = cloudpickle.loads(pickled_func)
+    func = read_data_from_kvstore(addr, port, 'runfunc', 'func')
     try:
         ret_val = func()
     except BaseException as e:
@@ -28,8 +28,7 @@ def main(addr, port):
         raise e
 
     rank, size = get_env_rank_and_size()
-    pickled_ret_val = cloudpickle.dumps(ret_val)
-    put_data_into_kvstore(addr, port, 'runfunc_result', str(rank), pickled_ret_val)
+    put_data_into_kvstore(addr, port, 'runfunc_result', str(rank), ret_val)
 
 
 if __name__ == '__main__':

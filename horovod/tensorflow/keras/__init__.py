@@ -37,7 +37,7 @@ from horovod.tensorflow import nccl_built, ddl_built, ccl_built
 from horovod.tensorflow import Compression
 
 import horovod._keras as _impl
-from horovod.tensorflow.keras import callbacks
+from horovod.tensorflow.keras import callbacks, elastic
 
 
 try:

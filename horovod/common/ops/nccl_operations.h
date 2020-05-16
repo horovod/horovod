@@ -37,7 +37,7 @@ ncclDataType_t GetNCCLDataType(const std::shared_ptr<Tensor> tensor);
 struct NCCLContext {
   std::vector<std::unordered_map<std::vector<int32_t>, ncclComm_t>> nccl_comms;
 
-  void ErrorCheck(std::string op_name, ncclResult_t nccl_result);
+  void ErrorCheck(std::string op_name, ncclResult_t nccl_result, ncclComm_t& nccl_comm);
 
   void ShutDown();
 };

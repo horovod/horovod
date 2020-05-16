@@ -27,7 +27,7 @@ from horovod.tensorflow import gloo_enabled, gloo_built
 from horovod.tensorflow import nccl_built, ddl_built, ccl_built
 from horovod.tensorflow import Compression
 
-from horovod.keras import callbacks
+from horovod.keras import callbacks, elastic
 import horovod._keras as _impl
 
 

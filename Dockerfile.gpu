@@ -8,8 +8,8 @@ ENV CUDNN_VERSION=7.6.5.32-1+cuda10.1
 ENV NCCL_VERSION=2.4.8-1+cuda10.1
 ENV MXNET_VERSION=1.6.0
 
-# Python 2.7 or 3.6 is supported by Ubuntu Bionic out of the box
-ARG python=2.7
+# Python 3.6 is supported by Ubuntu Bionic out of the box
+ARG python=3.6
 ENV PYTHON_VERSION=${python}
 
 # Set default shell to /bin/bash
@@ -31,13 +31,11 @@ RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-
         libpng-dev \
         python${PYTHON_VERSION} \
         python${PYTHON_VERSION}-dev \
+        python${PYTHON_VERSION}-distutils \
         librdmacm1 \
         libibverbs1 \
         ibverbs-providers
 
-RUN if [[ "${PYTHON_VERSION}" == "3.6" ]]; then \
-        apt-get install -y python${PYTHON_VERSION}-distutils; \
-    fi
 RUN ln -s /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 
 RUN curl -O https://bootstrap.pypa.io/get-pip.py && \

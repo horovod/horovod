@@ -13,18 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import unittest
+import queue
 import threading
 import time
-import sys
+import unittest
 import warnings
-
-from distutils.version import LooseVersion
-from six.moves import queue
 
 import pytest
 
@@ -89,8 +82,6 @@ class NetworkTests(unittest.TestCase):
         self.assertGreaterEqual(duration, sleep, 'sleep requests should have been completed')
         self.assertLess(duration, sleep + 1.0, 'sleep requests should have been concurrent')
 
-    @pytest.mark.skipif(sys.version_info < (3,0),
-                        reason='block on shutdown is supported in Spark 3.0 and above')
     def test_shutdown_during_request_basic(self):
         sleep = 2.0
         key = secret.make_secret_key()
@@ -110,8 +101,6 @@ class NetworkTests(unittest.TestCase):
             thread.join(0.1)
             self.assertFalse(thread.is_alive(), 'thread should have terminated by now')
 
-    @pytest.mark.skipif(sys.version_info < (3,0),
-                        reason='block on shutdown is supported in Spark 3.0 and above')
     def test_shutdown_during_request_basic_task(self):
         result_queue = queue.Queue(1)
 

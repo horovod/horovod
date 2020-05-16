@@ -3,6 +3,17 @@
 Horovod Installation Guide
 ==========================
 
+Requirements
+------------
+
+- Python >= 3.6
+- MPI or CMake
+- TensorFlow, PyTorch, or MXNet
+
+For best performance on GPU:
+
+- `NCCL 2 <https://developer.nvidia.com/nccl>`__
+
 Frameworks
 ----------
 

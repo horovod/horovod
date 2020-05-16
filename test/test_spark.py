@@ -13,10 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import copy
 import itertools
 import os
@@ -82,14 +78,6 @@ class SparkTests(unittest.TestCase):
 
         super(SparkTests, self).run(result)
 
-    @pytest.mark.skipif(sys.version_info >= (3, 0), reason='Skipped on Python 3')
-    def test_run_throws_on_python2(self):
-        if not gloo_built():
-            self.skipTest("Gloo is not available")
-
-        with pytest.raises(Exception, match='^Horovod on Spark over Gloo only supported on Python3$'):
-            self.do_test_happy_run(use_mpi=False, use_gloo=True)
-
     """
     Test that horovod.spark.run works properly in a simple setup using MPI.
     """
@@ -102,8 +90,6 @@ class SparkTests(unittest.TestCase):
     """
     Test that horovod.spark.run works properly in a simple setup using Gloo.
     """
-    @pytest.mark.skipif(sys.version_info < (3, 0),
-                        reason='Horovod on Spark over Gloo only supported on Python3')
     def test_happy_run_with_gloo(self):
         if not gloo_built():
             self.skipTest("Gloo is not available")
@@ -138,8 +124,6 @@ class SparkTests(unittest.TestCase):
     """
     Test that horovod.spark.run times out when it does not start up fast enough using Gloo.
     """
-    @pytest.mark.skipif(sys.version_info < (3, 0),
-                        reason='Horovod on Spark over Gloo only supported on Python3')
     def test_timeout_with_gloo(self):
         if not gloo_built():
             self.skipTest("Gloo is not available")
@@ -181,8 +165,6 @@ class SparkTests(unittest.TestCase):
     """
     Test that horovod.spark.run uses Gloo properly.
     """
-    @pytest.mark.skipif(sys.version_info < (3, 0),
-                        reason='Horovod on Spark over Gloo only supported on Python3')
     def test_spark_run_with_gloo(self):
         self.do_test_spark_run(use_mpi=False, use_gloo=True)
 
@@ -209,8 +191,6 @@ class SparkTests(unittest.TestCase):
     """
     Test that horovod.spark.run does not default to spark parallelism given num_proc using Gloo.
     """
-    @pytest.mark.skipif(sys.version_info < (3, 0),
-                        reason='Horovod on Spark over Gloo only supported on Python3')
     def test_spark_run_num_proc_precedes_spark_cores_with_gloo(self):
         self.do_test_spark_run_num_proc_precedes_spark_cores(use_mpi=False, use_gloo=True)
 
@@ -244,8 +224,6 @@ class SparkTests(unittest.TestCase):
     """
     Test that horovod.spark.run defaults num_proc to spark parallelism using Gloo.
     """
-    @pytest.mark.skipif(sys.version_info < (3, 0),
-                        reason='Horovod on Spark over Gloo only supported on Python3')
     def test_spark_run_defaults_num_proc_to_spark_cores_with_gloo(self):
         self.do_test_spark_run_defaults_num_proc_to_spark_cores(use_mpi=False, use_gloo=True)
 
@@ -266,8 +244,6 @@ class SparkTests(unittest.TestCase):
     """
     Test that horovod.spark.run defaults env to the full system env using Gloo.
     """
-    @pytest.mark.skipif(sys.version_info < (3, 0),
-                        reason='Horovod on Spark over Gloo only supported on Python3')
     def test_spark_run_does_not_default_env_to_os_env_with_gloo(self):
         self.do_test_spark_run_does_not_default_env_to_os_env(use_mpi=False, use_gloo=True)
 
@@ -294,10 +270,8 @@ class SparkTests(unittest.TestCase):
     """
     Test that horovod.spark.run raises an exception on non-zero exit code of mpi_run using Gloo.
     """
-    @pytest.mark.skipif(sys.version_info < (3, 0),
-                        reason='Horovod on Spark over Gloo only supported on Python3')
     def test_spark_run_with_non_zero_exit_with_gloo(self):
-        expected = '^Gloo job detected that one or more processes exited with non-zero ' \
+        expected = '^Horovod detected that one or more processes exited with non-zero ' \
                    'status, thus causing the job to be terminated. The first process ' \
                    'to do so was:\nProcess name: 0\nExit code: 1$'
         self.do_test_spark_run_with_non_zero_exit(use_mpi=False, use_gloo=True,
@@ -459,10 +433,10 @@ class SparkTests(unittest.TestCase):
 
         self.assertFalse(str(e.value).startswith('Timed out waiting for Spark tasks to start.'),
                          'Spark timed out before mpi_run was called, test setup is broken.')
-        self.assertRegexpMatches(str(e.value),
-                                 '^Gloo job detected that one or more processes exited with non-zero status, '
-                                 'thus causing the job to be terminated. The first process to do so was:\n'
-                                 'Process name: [0-9]\nExit code: 1+\n$')
+        self.assertEqual('Horovod detected that one or more processes exited with non-zero status, '
+                         'thus causing the job to be terminated. The first process to do so was:\n'
+                         'Process name: 0\n'
+                         'Exit code: 1\n', str(e.value))
 
         num_proc = cores if num_proc is None else num_proc
         self.assertEqual(expected_np, num_proc)
@@ -494,7 +468,8 @@ class SparkTests(unittest.TestCase):
             self.assertEqual(alloc_info.local_rank, alloc_info.rank)
 
             # command fully derived from alloc_info
-            expected_command = ('HOROVOD_RANK={rank} '
+            expected_command = ('HOROVOD_HOSTNAME=[^ ]+ '
+                                'HOROVOD_RANK={rank} '
                                 'HOROVOD_SIZE={size} '
                                 'HOROVOD_LOCAL_RANK={local_rank} '
                                 'HOROVOD_LOCAL_SIZE={local_size} '
@@ -517,6 +492,7 @@ class SparkTests(unittest.TestCase):
             # for better comparison replace sections in actual_command that change across runs / hosts
             actual_command = call_args[0][0]
             for replacement in ['_HOROVOD_SECRET_KEY=[^ ]+',
+                                'HOROVOD_HOSTNAME=[^ ]+',
                                 'HOROVOD_GLOO_RENDEZVOUS_ADDR=[^ ]+',
                                 'HOROVOD_GLOO_RENDEZVOUS_PORT=[0-9]+',
                                 'HOROVOD_GLOO_IFACE=[^ ]+',
@@ -534,22 +510,31 @@ class SparkTests(unittest.TestCase):
         self.do_test_rsh('false', 1)
 
     def test_rsh_event(self):
+        self.do_test_rsh_events(1)
+
+    def test_rsh_events(self):
+        self.do_test_rsh_events(3)
+
+    def do_test_rsh_events(self, test_events):
+        self.assertGreater(test_events, 0, 'test should not be trivial')
+
         sleep = 10
         command = 'sleep {}'.format(sleep)
-        event = threading.Event()
-        delay(lambda: event.set(), 1.0)
+        for triggered_event in range(test_events):
+            events = [threading.Event() for _ in range(test_events)]
+            delay(lambda: events[triggered_event].set(), 1.0)
 
-        start = time.time()
-        self.do_test_rsh(command, 143, event=event)
-        duration = time.time() - start
+            start = time.time()
+            self.do_test_rsh(command, 143, events=events)
+            duration = time.time() - start
 
-        self.assertGreaterEqual(duration, 1.0)
-        self.assertLess(duration, 2.00 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S,
-                        'sleep should not finish')
-        self.assertGreater(sleep, 2.00 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S,
-                           'sleep should be large enough')
+            self.assertGreaterEqual(duration, 1.0)
+            self.assertLess(duration, 2.00 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S,
+                            'sleep should not finish')
+            self.assertGreater(sleep, 2.00 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S,
+                               'sleep should be large enough')
 
-    def do_test_rsh(self, command, expected_result, event=None):
+    def do_test_rsh(self, command, expected_result, events=None):
         def fn():
             return 0
 
@@ -563,7 +548,7 @@ class SparkTests(unittest.TestCase):
         settings = hvd_settings.Settings(verbose=2, key=key)
         env = {}
 
-        res = rsh(driver.addresses(), key, settings, host_hash, command, env, 0, False, event=event)
+        res = rsh(driver.addresses(), key, settings, host_hash, command, env, 0, False, events=events)
         self.assertEqual(expected_result, res)
 
     def test_mpirun_exec_fn(self):
@@ -770,8 +755,8 @@ class SparkTests(unittest.TestCase):
 
             expected = [
                 ('int', {int}, 1, 1),
-                ('float', {float, NullType}, 1, 1),
-                ('null', {NullType}, 1, 1),
+                ('float', {float, type(None)}, 1, 1),
+                ('null', {type(None)}, 1, 1),
                 ('array', {list}, 2, 2),
                 ('dense', {DenseVector}, 2, 2),
                 ('sparse', {SparseVector}, 2, 1),
