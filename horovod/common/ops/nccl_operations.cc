@@ -477,22 +477,22 @@ Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
                                      ncclChar,
                                      *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
 
-    nccl_context_->ErrorCheck("ncclAllGather", nccl_result);
+    nccl_context_->ErrorCheck("ncclAllGather", nccl_result, *nccl_op_context_.nccl_comm_);
 
     if (global_state_->timeline.Initialized()) {
       gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_ALLGATHER, *gpu_op_context_.stream);
     }
   } else {
-    nccl_context_->ErrorCheck("ncclGroupStart", ncclGroupStart());
+    nccl_context_->ErrorCheck("ncclGroupStart", ncclGroupStart(), *nccl_op_context_.nccl_comm_);
     for (int rc = 0; rc < global_size; ++rc) {
       void* new_buffer_data = (uint8_t*)buffer_data + displcmnts[rc] * element_size;
       auto nccl_result = ncclBroadcast(fused_input_data, new_buffer_data,
                                        recvcounts[rc] * element_size,
                                        ncclChar, rc,
                                        *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
-      nccl_context_->ErrorCheck("ncclBroadcast", nccl_result);
+      nccl_context_->ErrorCheck("ncclBroadcast", nccl_result, *nccl_op_context_.nccl_comm_);
     }
-    nccl_context_->ErrorCheck("ncclGroupEnd", ncclGroupEnd());
+    nccl_context_->ErrorCheck("ncclGroupEnd", ncclGroupEnd(), *nccl_op_context_.nccl_comm_);
 
     if (global_state_->timeline.Initialized()) {
       gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_BCAST, *gpu_op_context_.stream);
