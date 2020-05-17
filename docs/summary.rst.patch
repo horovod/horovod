@@ -1,0 +1,10 @@
+55,58d54
+< |
+< 
+< Documentation
+< -------------
+60,61c56
+< - `stable <https://horovod.readthedocs.io/en/stable>`_
+< - `master <https://horovod.readthedocs.io/en/latest>`_
+---
+> The full documentation and an API reference are published at https://horovod.readthedocs.io/en/latest.
