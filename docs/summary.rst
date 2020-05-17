@@ -118,7 +118,7 @@ To install Horovod:
 
    .. code-block:: bash
 
-      $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_BROADCAST=NCCL pip install horovod
+      $ HOROVOD_GPU_OPERATIONS=NCCL pip install horovod
 
 This basic installation is good for laptops and for getting to know Horovod.
 

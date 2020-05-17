@@ -152,8 +152,8 @@ will be used for CPU operations. You can override this by setting ``HOROVOD_CPU_
 NCCL
 ~~~~
 
-NCCL is currently supported for Allreduce and Broadcast operations.  You can enable these by setting
-``HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_BROADCAST=NCCL`` during installation.
+NCCL is supported for Allreduce, Allgather, and Broadcast operations.  You can enable these by setting
+``HOROVOD_GPU_OPERATIONS=NCCL`` during installation.
 
 NCCL operations are supported on both Nvidia (CUDA) and AMD (ROCm) GPUs. You can set ``HOROVOD_GPU`` in your
 environment to specify building with CUDA or ROCm. CUDA will be assumed if not specified.
@@ -223,8 +223,9 @@ Possible values are given in curly brackets: {}.
 * ``HOROVOD_WITH_MPI`` - {1}. Require that Horovod is built with MPI support enabled.
 * ``HOROVOD_WITHOUT_MPI`` - {1}. Skip building with MPI support.
 * ``HOROVOD_GPU`` - {CUDA, ROCM}. Framework to use for GPU operations.
-* ``HOROVOD_GPU_ALLREDUCE`` - {NCCL, MPI, DDL}. Framework to use for GPU tensor allreduce.
-* ``HOROVOD_GPU_ALLGATHER`` - {MPI}. Framework to use for GPU tensor allgather.
+* ``HOROVOD_GPU_OPERATIONS`` - {NCCL, MPI}. Framework to use for GPU tensor allreduce, allgather, and broadcast.
+* ``HOROVOD_GPU_ALLREDUCE`` - {NCCL, MPI}. Framework to use for GPU tensor allreduce.
+* ``HOROVOD_GPU_ALLGATHER`` - {NCCL, MPI}. Framework to use for GPU tensor allgather.
 * ``HOROVOD_GPU_BROADCAST`` - {NCCL, MPI}. Framework to use for GPU tensor broadcast.
 * ``HOROVOD_ALLOW_MIXED_GPU_IMPL`` - {1}. Allow Horovod to install with NCCL allreduce and MPI GPU allgather / broadcast.  Not recommended due to a possible deadlock.
 * ``HOROVOD_CPU_OPERATIONS`` - {MPI, GLOO, CCL}. Framework to use for CPU tensor allreduce, allgather, and broadcast.
