@@ -639,9 +639,9 @@ def get_common_options(build_ext):
                              'values are "", "MPI", "NCCL", "DDL".' % gpu_allreduce)
 
     gpu_allgather = os.environ.get('HOROVOD_GPU_ALLGATHER')
-    if gpu_allgather and gpu_allgather != 'MPI':
+    if gpu_allgather and gpu_allgather != 'MPI' and gpu_allgather != 'NCCL':
         raise DistutilsError('HOROVOD_GPU_ALLGATHER=%s is invalid, supported '
-                             'values are "", "MPI".' % gpu_allgather)
+                             'values are "", "MPI", "NCCL".' % gpu_allgather)
 
     gpu_broadcast = os.environ.get('HOROVOD_GPU_BROADCAST')
     if gpu_broadcast and gpu_broadcast != 'MPI' and gpu_broadcast != 'NCCL':
@@ -662,7 +662,7 @@ def get_common_options(build_ext):
         else:
             raise DistutilsError("Unknown HOROVOD_GPU type '%s'" % gpu_type)
 
-    if gpu_allreduce == 'NCCL':
+    if gpu_allreduce == 'NCCL' or gpu_allgather == 'NCCL' or gpu_broadcast == 'NCCL':
         have_nccl = True
         nccl_include_dirs, nccl_lib_dirs, nccl_libs = get_nccl_vals(
             build_ext, gpu_include_dirs, gpu_lib_dirs, gpu_macros, cpp_flags, have_rocm)

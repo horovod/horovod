@@ -399,5 +399,134 @@ Status NCCLBroadcast::Execute(std::vector<TensorTableEntry>& entries,
   return gpu_op_context_.FinalizeGPUQueue(entries);
 }
 
+Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
+                                const Response& response) {
+  auto& first_entry = entries[0];
+
+  gpu_op_context_.InitGPU(entries);
+  nccl_op_context_.InitNCCLComm(entries, response.devices());
+  gpu_op_context_.InitGPUQueue(entries, response);
+
+  // Sizes of subcomponents of each entry from all ranks
+  auto** entry_component_sizes = new int64_t* [entries.size()];
+
+  // Offset of each subcomponent of every entry in the final buffer after
+  // allgatherv
+  auto** entry_component_offsets = new int64_t* [entries.size()];
+
+  int global_size = global_state_->controller->GetSize();
+  int global_rank = global_state_->controller->GetRank();
+  auto* recvcounts = new int[global_size]();
+  auto* displcmnts = new int[global_size]();
+
+  for (size_t ec = 0; ec < entries.size(); ++ec) {
+    entry_component_sizes[ec] = new int64_t[global_size]();
+    entry_component_offsets[ec] = new int64_t[global_size]();
+  }
+
+  global_state_->timeline.ActivityStartAll(entries, ALLOCATE_OUTPUT);
+  Status status = AllocateOutput(entries, response, entry_component_sizes, recvcounts);
+  if (!status.ok()) {
+    for (size_t ec = 0; ec < entries.size(); ++ec) {
+      delete[] entry_component_sizes[ec];
+      delete[] entry_component_offsets[ec];
+    }   
+    delete[] entry_component_sizes;
+    delete[] entry_component_offsets;
+    delete[] recvcounts;
+    delete[] displcmnts;
+    return status;
+  }
+  global_state_->timeline.ActivityEndAll(entries);
+
+  SetDisplacements(recvcounts, displcmnts);
+  SetEntryComponentOffsets(entries, entry_component_sizes, recvcounts, entry_component_offsets);
+
+  size_t element_size = DataType_Size(first_entry.tensor->dtype());
+
+  const void* fused_input_data;
+  void* buffer_data;
+
+  // Copy memory into the fusion buffer.
+  if (entries.size() > 1) {
+    MemcpyInFusionBuffer(entries, displcmnts, element_size, buffer_data);
+    fused_input_data = (uint8_t*)buffer_data + displcmnts[global_rank] * element_size;
+
+    if (global_state_->timeline.Initialized()) {
+      gpu_context_->RecordEvent(gpu_op_context_.event_queue, MEMCPY_IN_FUSION_BUFFER, *gpu_op_context_.stream);
+    }
+  } else {
+    fused_input_data = first_entry.tensor->data();
+    buffer_data = (void*) first_entry.output->data();
+  }
+
+  bool same_shape = true;
+  const auto& tensor_sizes = response.tensor_sizes();
+  for (size_t ec = 0; ec < entries.size(); ++ec) {
+    for (int rc = 1; rc < global_size; ++rc) {
+      if (tensor_sizes[ec * global_size + rc] != tensor_sizes[ec * global_size]) {
+        same_shape = false;
+      }
+    }
+  }
+
+  // Do allgather.
+  if (same_shape) {
+    auto nccl_result = ncclAllGather(fused_input_data, buffer_data,
+                                     recvcounts[0] * element_size,
+                                     ncclChar,
+                                     *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
+
+    nccl_context_->ErrorCheck("ncclAllGather", nccl_result, *nccl_op_context_.nccl_comm_);
+
+    if (global_state_->timeline.Initialized()) {
+      gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_ALLGATHER, *gpu_op_context_.stream);
+    }
+  } else {
+    nccl_context_->ErrorCheck("ncclGroupStart", ncclGroupStart(), *nccl_op_context_.nccl_comm_);
+    for (int rc = 0; rc < global_size; ++rc) {
+      void* new_buffer_data = (uint8_t*)buffer_data + displcmnts[rc] * element_size;
+      auto nccl_result = ncclBroadcast(fused_input_data, new_buffer_data,
+                                       recvcounts[rc] * element_size,
+                                       ncclChar, rc,
+                                       *nccl_op_context_.nccl_comm_, *gpu_op_context_.stream);
+      nccl_context_->ErrorCheck("ncclBroadcast", nccl_result, *nccl_op_context_.nccl_comm_);
+    }
+    nccl_context_->ErrorCheck("ncclGroupEnd", ncclGroupEnd(), *nccl_op_context_.nccl_comm_);
+
+    if (global_state_->timeline.Initialized()) {
+      gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_BCAST, *gpu_op_context_.stream);
+    }
+  }
+
+  // Copy memory out of the fusion buffer.
+  if (entries.size() > 1) {
+    MemcpyOutFusionBuffer(entry_component_offsets, entry_component_sizes,
+                          buffer_data, element_size, entries);
+
+    if (global_state_->timeline.Initialized()) {
+      gpu_context_->RecordEvent(gpu_op_context_.event_queue, MEMCPY_OUT_FUSION_BUFFER, *gpu_op_context_.stream);
+    }
+  }
+
+  delete[] recvcounts;
+  delete[] displcmnts;
+
+  for (size_t ec = 0; ec < entries.size(); ++ec) {
+    delete[] entry_component_sizes[ec];
+    delete[] entry_component_offsets[ec];
+  }
+  delete[] entry_component_sizes;
+  delete[] entry_component_offsets;
+
+  return gpu_op_context_.FinalizeGPUQueue(entries);
+}
+
+bool NCCLAllgather::Enabled(const ParameterManager& param_manager,
+                              const std::vector<TensorTableEntry>& entries,
+                              const Response& response) const {
+  return entries[0].device != CPU_DEVICE_ID;
+}
+
 } // namespace common
 } // namespace horovod

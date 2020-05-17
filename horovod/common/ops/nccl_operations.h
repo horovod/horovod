@@ -123,6 +123,28 @@ private:
 };
 #endif
 
+class NCCLAllgather : public GPUAllgather {
+public:
+  NCCLAllgather(NCCLContext* nccl_context, GPUContext* gpu_context,
+                  HorovodGlobalState* global_state)
+      : GPUAllgather(gpu_context, global_state),
+        nccl_op_context_(nccl_context, global_state, Communicator::GLOBAL),
+        global_state_(global_state){};
+
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
+
+  bool Enabled(const ParameterManager& param_manager,
+               const std::vector<TensorTableEntry>& entries,
+               const Response& response) const override;
+
+protected:
+  NCCLContext* nccl_context_;
+  NCCLOpContext nccl_op_context_;
+  HorovodGlobalState* global_state_;
+};
+
+
 } // namespace common
 } // namespace horovod
 

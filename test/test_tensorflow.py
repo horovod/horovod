@@ -470,7 +470,7 @@ class TensorFlowTests(tf.test.TestCase):
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
 
-    def test_horovod_allgather(self):
+    def test_horovod_allgather_cpu(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors."""
         hvd.init()
         rank = hvd.rank()
@@ -481,11 +481,12 @@ class TensorFlowTests(tf.test.TestCase):
                   tf.float64, tf.bool]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
-            tensor = tf.ones([17] * dim) * rank
-            if dtype == tf.bool:
-                tensor = tensor % 2
-            tensor = tf.cast(tensor, dtype=dtype)
-            gathered = hvd.allgather(tensor)
+            with tf.device("/cpu:0"):
+                tensor = tf.ones([17] * dim) * rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                tensor = tf.cast(tensor, dtype=dtype)
+                gathered = hvd.allgather(tensor)
 
             gathered_tensor = self.evaluate(gathered)
             self.assertEqual(list(gathered_tensor.shape),
@@ -507,7 +508,54 @@ class TensorFlowTests(tf.test.TestCase):
                         tf.equal(tf.cast(rank_tensor, tf.int32), value))),
                     "hvd.allgather produces incorrect gathered tensor")
 
-    def test_horovod_allgather_fused(self):
+    def test_horovod_allgather_gpu(self):
+        """Test that the allgather correctly gathers 1D, 2D, 3D tensors."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
+            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
+
+        hvd.init()
+        rank = hvd.rank()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64, tf.bool]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%d" % local_rank):
+                tensor = tf.ones([17] * dim) * rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                tensor = tf.cast(tensor, dtype=dtype)
+                gathered = hvd.allgather(tensor)
+
+            gathered_tensor = self.evaluate(gathered)
+            self.assertEqual(list(gathered_tensor.shape),
+                             [17 * size] + [17] * (dim - 1))
+
+            for i in range(size):
+                rank_tensor = tf.slice(gathered_tensor,
+                                       [i * 17] + [0] * (dim - 1),
+                                       [17] + [-1] * (dim - 1))
+                self.assertEqual(list(rank_tensor.shape), [17] * dim)
+                # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
+                # so need to cast rank_tensor to tf.int32.
+                if dtype != tf.bool:
+                    value = i
+                else:
+                    value = i % 2
+                self.assertTrue(
+                    self.evaluate(tf.reduce_all(
+                        tf.equal(tf.cast(rank_tensor, tf.int32), value))),
+                    "hvd.allgather produces incorrect gathered tensor")
+
+    def test_horovod_allgather_fused_cpu(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors
         with Tensor Fusion."""
         hvd.init()
@@ -521,11 +569,70 @@ class TensorFlowTests(tf.test.TestCase):
         tests = []
         shape_tests = []
         for dtype, dim in itertools.product(dtypes, dims):
-            tensor = tf.ones([17] * dim) * rank
-            if dtype == tf.bool:
-                tensor = tensor % 2
-            tensor = tf.cast(tensor, dtype=dtype)
-            gathered = hvd.allgather(tensor)
+            with tf.device("/cpu:0"):
+                tensor = tf.ones([17] * dim) * rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                tensor = tf.cast(tensor, dtype=dtype)
+                gathered = hvd.allgather(tensor)
+
+            shape_tests.append(
+                tf.reduce_all(tf.equal(tf.shape(gathered),
+                                       [17 * size] + [17] * (dim - 1))))
+
+            for i in range(size):
+                rank_tensor = tf.slice(gathered,
+                                       [i * 17] + [0] * (dim - 1),
+                                       [17] + [-1] * (dim - 1))
+                if dtype != tf.bool:
+                    value = i
+                else:
+                    value = i % 2
+
+                # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
+                # so need to cast rank_tensor to tf.int32.
+                tests.append(
+                    tf.reduce_all(
+                        tf.equal(tf.cast(rank_tensor, tf.int32), value)))
+
+            shape_tests_passed, value_tests_passed = \
+                self.evaluate([tf.reduce_all(shape_tests), tf.reduce_all(tests)])
+
+            self.assertTrue(shape_tests_passed,
+                            "hvd.allgather produces incorrect gathered tensor")
+
+            self.assertTrue(value_tests_passed,
+                            "hvd.allgather produces incorrect gathered tensor")
+
+    def test_horovod_allgather_fused_gpu(self):
+        """Test that the allgather correctly gathers 1D, 2D, 3D tensors
+        with Tensor Fusion."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
+            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
+
+        hvd.init()
+        rank = hvd.rank()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64, tf.bool]
+        dims = [1, 2, 3]
+        tests = []
+        shape_tests = []
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%d" % local_rank):
+                tensor = tf.ones([17] * dim) * rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                tensor = tf.cast(tensor, dtype=dtype)
+                gathered = hvd.allgather(tensor)
 
             shape_tests.append(
                 tf.reduce_all(tf.equal(tf.shape(gathered),
