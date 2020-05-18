@@ -635,7 +635,7 @@ def get_common_options(build_ext):
     gpu_operations = os.environ.get('HOROVOD_GPU_OPERATIONS')
     if gpu_operations and gpu_operations not in {'NCCL', 'MPI'}:
         raise DistutilsError(f'HOROVOD_GPU_OPERATIONS={gpu_operations} is invalid, '
-                             f'supported values are: {{NCCL, MPI}}.')
+                             f'supported values are: NCCL, MPI.')
 
     def get_gpu_op_variable(op_variable_name, options):
         gpu_operation = os.environ.get(op_variable_name)
@@ -645,10 +645,10 @@ def get_common_options(build_ext):
                                      'Try unsetting one of these variables and reinstalling.')
             return gpu_operations
 
-        if gpu_operations and gpu_operation not in options:
+        if gpu_operation and gpu_operation not in options:
             options_str = ', '.join(options)
             raise DistutilsError(f'{op_variable_name}={gpu_operation} is invalid, '
-                                 f'supported values are: {{{options_str}}}.')
+                                 f'supported values are: {options_str}.')
 
         return gpu_operation
 
