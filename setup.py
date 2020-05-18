@@ -652,9 +652,9 @@ def get_common_options(build_ext):
 
         return gpu_operation
 
-    gpu_allreduce = get_gpu_op_variable('HOROVOD_GPU_ALLREDUCE', ['NCCL, MPI', 'DDL'])
-    gpu_allgather = get_gpu_op_variable('HOROVOD_GPU_ALLGATHER', ['NCCL, MPI'])
-    gpu_broadcast = get_gpu_op_variable('HOROVOD_GPU_BROADCAST', ['NCCL, MPI'])
+    gpu_allreduce = get_gpu_op_variable('HOROVOD_GPU_ALLREDUCE', ['NCCL', 'MPI', 'DDL'])
+    gpu_allgather = get_gpu_op_variable('HOROVOD_GPU_ALLGATHER', ['NCCL', 'MPI'])
+    gpu_broadcast = get_gpu_op_variable('HOROVOD_GPU_BROADCAST', ['NCCL', 'MPI'])
 
     have_cuda = False
     have_rocm = False
