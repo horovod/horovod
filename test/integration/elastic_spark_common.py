@@ -26,6 +26,7 @@ import time
 import warnings
 
 import mock
+from parameterized import parameterized, param
 import pytest
 import unittest
 
@@ -356,7 +357,8 @@ class BaseElasticSparkTests(unittest.TestCase):
         if exit_code is None or exit_code != 0:
             raise RuntimeError('executed command returned non-zero exit code: {}'.format(exit_code))
 
-    def _run(self, discovery_schedule=None, exit_schedule=None, hosts=None, epochs=None,
+    def _run(self, discovery_schedule=None, exit_schedule=None, hosts=None,
+             discovery_wait=10, epoch_wait=None, epochs=None,
              np=2, min_np=None, max_np=None, extra_conf=None):
         with temppath() as logfile:
             with spark_cluster(logfile=logfile, discovery_schedule=discovery_schedule,
@@ -364,11 +366,13 @@ class BaseElasticSparkTests(unittest.TestCase):
                 command = [sys.executable, self._training_script, '--logfile', logfile]
                 if discovery_schedule:
                     command += ['--discovery-schedule', "'{}'".format(json.dumps(discovery_schedule)),
-                                '--discovery-wait', '10']
+                                '--discovery-wait', str(discovery_wait)]
                 if exit_schedule:
                     command += ['--exit-schedule', "'{}'".format(json.dumps(exit_schedule))]
                 if epochs:
                     command += ['--epochs', str(epochs)]
+                if epoch_wait:
+                    command += ['--epoch-wait', str(epoch_wait)]
 
                 cmd = ' '.join(command)
                 run_elastic(self._exec, (cmd,), env={'HOROVOD_LOG_LEVEL': 'DEBUG'},
@@ -412,9 +416,9 @@ class BaseElasticSparkTests(unittest.TestCase):
             (None, ['host-3:1', 'host-4:1']),
         ]
 
-        results = self._run(discovery_schedule=discovery_schedule,
-                            extra_conf=[conf.SPARK_CONF_ALWAYS_RESTART_FAILED_TASK,
-                                        conf.SPARK_CONF_BLACKLIST_DISABLED])
+        results = self._run(discovery_schedule=discovery_schedule, discovery_wait=0, epoch_wait=10,
+                            np=2, extra_conf=[conf.SPARK_CONF_ALWAYS_RESTART_FAILED_TASK,
+                                              conf.SPARK_CONF_BLACKLIST_DISABLED])
 
         self.assertEqual(3, len(results))
 
@@ -462,6 +466,37 @@ class BaseElasticSparkTests(unittest.TestCase):
             self.assertEqual(3, results[2]['rendezvous'])
 
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    def test_fault_tolerance_unused_hosts_added_and_removed(self):
+        # test setup is similar to test_fault_tolerance_hosts_added_and_removed
+        # to ensure training script would actually scale in this setup
+        discovery_schedule = [
+            (0, ['host-1:1', 'host-2:1']),
+            (1, ['host-1:1', 'host-2:1', 'host-3:1', 'host-4:1']),
+            (None, ['host-1:1', 'host-2:1']),
+        ]
+
+        # don't wait for discovery of new hosts but have epochs be long enough to see hosts changes
+        results = self._run(discovery_schedule=discovery_schedule, discovery_wait=0, epoch_wait=10,
+                            np=2, extra_conf=[conf.SPARK_CONF_ALWAYS_RESTART_FAILED_TASK,
+                                              conf.SPARK_CONF_BLACKLIST_DISABLED])
+
+        self.assertEqual(3, len(results))
+
+        self.assertEqual(0, results[0]['start_rank'])
+        self.assertEqual(2, results[0]['size'])
+        self.assertEqual(1, results[0]['rendezvous'])
+
+        self.assertEqual(0, results[1]['start_rank'])
+        self.assertEqual(2, results[1]['size'])
+        self.assertEqual(1, results[1]['rendezvous'])
+        self.assertEqual(results[0]['hostname'], results[1]['hostname'])
+
+        self.assertEqual(0, results[2]['start_rank'])
+        self.assertEqual(2, results[2]['size'])
+        self.assertEqual(1, results[2]['rendezvous'])
+        self.assertEqual(results[1]['hostname'], results[2]['hostname'])
+
+    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     def test_fault_tolerance_no_spark_blacklist(self):
         """
         Tests fault-tolerance mode without Spark blacklisting.
@@ -491,8 +526,13 @@ class BaseElasticSparkTests(unittest.TestCase):
         self.assertEqual(2, results[2]['size'])
         self.assertEqual(2, results[2]['rendezvous'])
 
+    @parameterized.expand([param(conf.SPARK_CONF_DONT_REUSE_EXECUTOR_FOR_SAME_TASK),
+                           param(conf.SPARK_CONF_DONT_REUSE_FAILED_EXECUTOR),
+                           param(conf.SPARK_CONF_DONT_REUSE_FAILED_EXECUTOR_IN_APP),
+                           param(conf.SPARK_CONF_DONT_REUSE_FAILING_NODE),
+                           param(conf.SPARK_CONF_DONT_REUSE_FAILING_NODE_IN_APP)])
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
-    def test_fault_tolerance_spark_blacklist(self):
+    def test_fault_tolerance_spark_blacklist(self, setting):
         """
         Same as test_fault_tolerance_no_spark_blacklist except Spark blacklists the executor
         that has the failing task, so that there are not enough executors available after the
@@ -505,15 +545,10 @@ class BaseElasticSparkTests(unittest.TestCase):
         }
 
         message = 'Horovod detected that one or more processes exited with non-zero status'
-        for setting in [conf.SPARK_CONF_DONT_REUSE_EXECUTOR_FOR_SAME_TASK,
-                        conf.SPARK_CONF_DONT_REUSE_FAILED_EXECUTOR,
-                        conf.SPARK_CONF_DONT_REUSE_FAILED_EXECUTOR_IN_APP,
-                        conf.SPARK_CONF_DONT_REUSE_FAILING_NODE,
-                        conf.SPARK_CONF_DONT_REUSE_FAILING_NODE_IN_APP]:
-            with pytest.raises(RuntimeError, match=message):
-                self._run(hosts=hosts, exit_schedule=exit_schedule, np=2,
-                          extra_conf=[conf.SPARK_CONF_ALWAYS_RESTART_FAILED_TASK,
-                                      conf.SPARK_CONF_BLACKLIST_ENABLED, setting])
+        with pytest.raises(RuntimeError, match=message):
+            self._run(hosts=hosts, exit_schedule=exit_schedule, np=2,
+                      extra_conf=[conf.SPARK_CONF_ALWAYS_RESTART_FAILED_TASK,
+                                  conf.SPARK_CONF_BLACKLIST_ENABLED, setting])
 
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     def test_fault_tolerance_exception_single_rank(self):

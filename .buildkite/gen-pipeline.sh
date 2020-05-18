@@ -69,6 +69,7 @@ run_test() {
   local queue=$2
   local label=$3
   local command=$4
+  local timeout=${5-5}
 
   echo "- label: '${label}'"
   echo "  command: ${command}"
@@ -79,7 +80,7 @@ run_test() {
   echo "      pull-retries: 3"
   echo "  - ecr#v1.2.0:"
   echo "      login: true"
-  echo "  timeout_in_minutes: 10"
+  echo "  timeout_in_minutes: ${timeout}"
   echo "  retry:"
   echo "    automatic: true"
   echo "  agents:"
@@ -114,7 +115,8 @@ run_mpi_pytest() {
   # pytests have 4x GPU use cases and require a separate queue
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"${oneccl_env} cd /horovod/test && (echo test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no) && pytest --forked -v --capture=no ${standalone_tests}\""
+    "bash -c \"${oneccl_env} cd /horovod/test && (echo test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no) && pytest --forked -v --capture=no ${standalone_tests}\"" \
+    10
 }
 
 run_mpi_integration() {
@@ -220,7 +222,8 @@ run_gloo_pytest() {
 
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no ${standalone_tests}\""
+    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=no ${standalone_tests}\"" \
+    10
 }
 
 run_gloo_integration() {
@@ -269,7 +272,8 @@ run_gloo_integration() {
   if [[ ${test} != *"-py3_8-"* || ${test} == *"-pyspark3_"* ]]; then
     run_test "${test}" "${queue}" \
         ":factory: Elastic Spark Tests (${test})" \
-        "bash -c \"cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no test_elastic_spark_torch.py ${elastic_spark_tensorflow}\""
+        "bash -c \"cd /horovod/test/integration && SPARK_HOME=/spark SPARK_DRIVER_MEM=512m HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no test_elastic_spark_torch.py ${elastic_spark_tensorflow}\"" \
+      15
   fi
 }
 
