@@ -52,9 +52,6 @@ about who's involved and how Horovod plays a role, read the LF AI `announcement 
 
 .. contents::
 
-
-The full documentation and an API reference are published at https://horovod.readthedocs.io/en/latest.
-
 |
 
 Why Horovod?

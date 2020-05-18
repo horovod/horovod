@@ -57,7 +57,7 @@ about who's involved and how Horovod plays a role, read the LF AI `announcement 
 Documentation
 -------------
 
-- `stable <https://horovod.readthedocs.io/en/stable>`_
+- `Latest Release <https://horovod.readthedocs.io/en/stable>`_
 - `master <https://horovod.readthedocs.io/en/latest>`_
 
 |
