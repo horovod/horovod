@@ -77,7 +77,7 @@ Below are the requirements for running Horovod with AdaSum:
 
 *Using NCCL:*
 
-If the **HOROVOD_GPU_ALLREDUCE=NCCL** flag is used to compile Horovod, NCCL is used instead. In this case, NCCL will be used for intra-node communication, and AdaSum will be used for inter-node communication.
+If the **HOROVOD_GPU_OPERATIONS=NCCL** flag is used to compile Horovod, NCCL is used instead. In this case, NCCL will be used for intra-node communication, and AdaSum will be used for inter-node communication.
 
 Modes of Operation
 =====================
@@ -207,10 +207,10 @@ Key Takeaways
 
 -   As the number of ranks scales up, the learning rate does not need to be scaled linearly if using CPU to do AdaSum reduction. A good scaling factor would be between 2\-2.5 over the best learning rate for a single worker.
 
--   If the HOROVOD_GPU_ALLREDUCE=NCCL flag is used to compile Horovod, the learning rate that should be used is equal to the best learning rate for a single	worker (GPU) scaled by the number of GPUs locally on a node. On very large	clusters, scaling this even more by another factor of 1.5\-2.0x might give	better results but is not guaranteed and should be tried only if scaling by just the local size is not sufficient for good convergence.
+-   If the HOROVOD_GPU_OPERATIONS=NCCL flag is used to compile Horovod, the learning rate that should be used is equal to the best learning rate for a single	worker (GPU) scaled by the number of GPUs locally on a node. On very large	clusters, scaling this even more by another factor of 1.5\-2.0x might give	better results but is not guaranteed and should be tried only if scaling by just the local size is not sufficient for good convergence.
 
 -   Pytorch training in fp16 format is not yet supported. Integration of Apex	into the new optimizer to enabled full mixed precision training with AdaSum in Pytorch is a work in progress.
 
--   When HOROVOD_GPU_ALLREDUCE=NCCL flag is used to compile Horovod and training	is run on a single node, only averaging through NCCL library is used to	perform reductions and no AdaSum algorithm will take place in this configuration.
+-   When HOROVOD_GPU_OPERATIONS=NCCL flag is used to compile Horovod and training	is run on a single node, only averaging through NCCL library is used to	perform reductions and no AdaSum algorithm will take place in this configuration.
 
 .. inclusion-marker-end-do-not-remove

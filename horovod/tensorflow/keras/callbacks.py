@@ -43,7 +43,7 @@ class BroadcastGlobalVariablesCallback(_impl.BroadcastGlobalVariablesCallbackImp
         Args:
             root_rank: Rank that will send data, other ranks will receive data.
             device: Device to be used for broadcasting. Uses GPU by default
-                    if Horovod was build with HOROVOD_GPU_BROADCAST.
+                    if Horovod was build with HOROVOD_GPU_OPERATIONS.
         """
         super(BroadcastGlobalVariablesCallback, self).__init__(K, root_rank, device)
 
@@ -65,7 +65,7 @@ class MetricAverageCallback(_impl.MetricAverageCallbackImpl, keras.callbacks.Cal
 
         Args:
             device: Device to be used for allreduce. Uses GPU by default
-                    if Horovod was build with HOROVOD_GPU_ALLREDUCE.
+                    if Horovod was build with HOROVOD_GPU_OPERATIONS.
         """
         super(MetricAverageCallback, self).__init__(K, device)
 

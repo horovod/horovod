@@ -108,7 +108,7 @@ def _allreduce_async(tensor, output, name, op):
             else:
                 warnings.warn('Adasum reduction does not currently support GPU reduction using MPI. Tensors are '
                               'copied to CPU memory instead. To use Adasum for GPU reduction, please compile Horovod '
-                              'with HOROVOD_GPU_ALLREDUCE=NCCL.')
+                              'with HOROVOD_GPU_OPERATIONS=NCCL.')
                 divisor = 1
         else:
             if not num_rank_is_power_2(size()):

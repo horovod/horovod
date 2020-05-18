@@ -57,9 +57,9 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                 Use `op` instead. Will be removed in v0.21.0.
 
         device_dense: Device to be used for dense tensors. Uses GPU by default
-                      if Horovod was built with HOROVOD_GPU_ALLREDUCE.
+                      if Horovod was built with HOROVOD_GPU_OPERATIONS.
         device_sparse: Device to be used for sparse tensors. Uses GPU by default
-                       if Horovod was built with HOROVOD_GPU_ALLGATHER.
+                       if Horovod was built with HOROVOD_GPU_OPERATIONS.
         compression: Compression algorithm used to reduce the amount of data
                      sent and received by each worker node.  Defaults to not
                      using compression.
@@ -110,7 +110,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                     else:
                         warnings.warn('Adasum reduction does not currently support GPU reduction using MPI. Tensors '
                                       'are copied to CPU memory instead. To use Adasum for GPU reduction, please '
-                                      'compile Horovod with HOROVOD_GPU_ALLREDUCE=NCCL.')
+                                      'compile Horovod with HOROVOD_GPU_OPERATIONS=NCCL.')
                         new_tensor = summed_tensor
                 else:
                     if not check_num_rank_power_of_2(size()):
@@ -184,7 +184,7 @@ if _SessionRunHook is not None and _get_default_graph is not None:
                 Rank that will send data, other ranks will receive data.
               device:
                 Device to be used for broadcasting. Uses GPU by default
-                if Horovod was built with HOROVOD_GPU_BROADCAST.
+                if Horovod was built with HOROVOD_GPU_OPERATIONS.
             """
             super(BroadcastGlobalVariablesHook, self).__init__()
             self.root_rank = root_rank
@@ -401,10 +401,10 @@ def DistributedOptimizer(optimizer, name=None, use_locking=False, device_dense='
         See Optimizer.__init__ for more info.
       device_dense:
         Device to be used for dense tensors. Uses GPU by default
-        if Horovod was built with HOROVOD_GPU_ALLREDUCE.
+        if Horovod was built with HOROVOD_GPU_OPERATIONS.
       device_sparse:
         Device to be used for sparse tensors. Uses GPU by default
-        if Horovod was built with HOROVOD_GPU_ALLGATHER.
+        if Horovod was built with HOROVOD_GPU_OPERATIONS.
       compression:
         Compression algorithm used during allreduce to reduce the amount
         of data sent during each parameter update step.  Defaults to
@@ -477,10 +477,10 @@ if hasattr(tf, 'GradientTape'):
             GradientTape to use for computing gradients and applying updates.
           device_dense:
             Device to be used for dense tensors. Uses GPU by default
-            if Horovod was built with HOROVOD_GPU_ALLREDUCE.
+            if Horovod was built with HOROVOD_GPU_OPERATIONS.
           device_sparse:
             Device to be used for sparse tensors. Uses GPU by default
-            if Horovod was built with HOROVOD_GPU_ALLGATHER.
+            if Horovod was built with HOROVOD_GPU_OPERATIONS.
           compression:
             Compression algorithm used during allreduce to reduce the amount
             of data sent during each parameter update step.  Defaults to

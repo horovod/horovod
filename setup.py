@@ -632,21 +632,29 @@ def get_common_options(build_ext):
     if not have_gloo and not have_mpi:
         raise RuntimeError('One of Gloo or MPI are required for Horovod to run. Check the logs above for more info.')
 
-    gpu_allreduce = os.environ.get('HOROVOD_GPU_ALLREDUCE')
-    if gpu_allreduce and gpu_allreduce != 'MPI' and gpu_allreduce != 'NCCL' and \
-        gpu_allreduce != 'DDL':
-        raise DistutilsError('HOROVOD_GPU_ALLREDUCE=%s is invalid, supported '
-                             'values are "", "MPI", "NCCL", "DDL".' % gpu_allreduce)
+    gpu_operations = os.environ.get('HOROVOD_GPU_OPERATIONS')
+    if gpu_operations and gpu_operations not in {'NCCL', 'MPI'}:
+        raise DistutilsError(f'HOROVOD_GPU_OPERATIONS={gpu_operations} is invalid, '
+                             f'supported values are: NCCL, MPI.')
 
-    gpu_allgather = os.environ.get('HOROVOD_GPU_ALLGATHER')
-    if gpu_allgather and gpu_allgather != 'MPI' and gpu_allgather != 'NCCL':
-        raise DistutilsError('HOROVOD_GPU_ALLGATHER=%s is invalid, supported '
-                             'values are "", "MPI", "NCCL".' % gpu_allgather)
+    def get_gpu_op_variable(op_variable_name, options):
+        gpu_operation = os.environ.get(op_variable_name)
+        if gpu_operations:
+            if gpu_operation:
+                raise DistutilsError(f'Cannot specify both HOROVOD_GPU_OPERATIONS and {op_variable_name} options. '
+                                     'Try unsetting one of these variables and reinstalling.')
+            return gpu_operations
 
-    gpu_broadcast = os.environ.get('HOROVOD_GPU_BROADCAST')
-    if gpu_broadcast and gpu_broadcast != 'MPI' and gpu_broadcast != 'NCCL':
-        raise DistutilsError('HOROVOD_GPU_BROADCAST=%s is invalid, supported '
-                             'values are "", "MPI", "NCCL".' % gpu_broadcast)
+        if gpu_operation and gpu_operation not in options:
+            options_str = ', '.join(options)
+            raise DistutilsError(f'{op_variable_name}={gpu_operation} is invalid, '
+                                 f'supported values are: {options_str}.')
+
+        return gpu_operation
+
+    gpu_allreduce = get_gpu_op_variable('HOROVOD_GPU_ALLREDUCE', ['NCCL', 'MPI', 'DDL'])
+    gpu_allgather = get_gpu_op_variable('HOROVOD_GPU_ALLGATHER', ['NCCL', 'MPI'])
+    gpu_broadcast = get_gpu_op_variable('HOROVOD_GPU_BROADCAST', ['NCCL', 'MPI'])
 
     have_cuda = False
     have_rocm = False
@@ -672,7 +680,7 @@ def get_common_options(build_ext):
 
     if gpu_allreduce == 'DDL':
         warnings.warn('DDL backend has been deprecated. Please, start using the NCCL backend '
-                      'by building Horovod with "HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_BROADCAST=NCCL". '
+                      'by building Horovod with "HOROVOD_GPU_OPERATIONS=NCCL". '
                       'Will be removed in v0.21.0.',
                       DeprecationWarning)
         have_ddl = True
