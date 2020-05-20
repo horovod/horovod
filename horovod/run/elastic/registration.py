@@ -73,23 +73,34 @@ class WorkerStateRegistry(object):
             logging.info('driver finished, ignoring registration: {}[{}] = {}'.format(host, slot, state))
             return self._rendezvous_id
 
+        if self._host_manager.is_blacklisted(host):
+            logging.warning('host registers state %s but is already blacklisted, ignoring: %s', state, host)
+            return self._rendezvous_id
+
         key = (host, slot)
         with self._lock:
             if key in self._states:
-                # Worker originally recorded itself as READY, but the worker failed while waiting at the barrier. As
-                # such, we need to update the state to FAILURE, and we don't want two threads coming from the same
-                # worker at the barrier.
-                #
-                # In order to ensure that the new failing thread can record results in cases of total job failure,
-                # we also need to block this thread by waiting on the barrier. This requires us to reset the barrier,
-                # as otherwise this worker will be double-counted (once for the READY thread and once for FAILURE),
-                # which would cause the barrier to complete too early.
-                logging.info('key exists, reset barrier: {}[{}] = {}'.format(host, slot, state))
-                self._barrier.reset()
-            logging.info('record state: {}[{}] = {}'.format(host, slot, state))
-            self._states[key] = state
-            self._workers[state].add(key)
-            rendezvous_id = self._rendezvous_id
+                if state == FAILURE:
+                    # Worker originally recorded itself as READY, but the worker failed while waiting at the barrier. As
+                    # such, we need to update the state to FAILURE, and we don't want two threads coming from the same
+                    # worker at the barrier.
+                    #
+                    # In order to ensure that the new failing thread can record results in cases of total job failure,
+                    # we also need to block this thread by waiting on the barrier. This requires us to reset the barrier,
+                    # as otherwise this worker will be double-counted (once for the READY thread and once for FAILURE),
+                    # which would cause the barrier to complete too early.
+                    logging.info('key exists, reset barrier: {}[{}] = {} -> {}'
+                                 .format(host, slot, self._states[key], state))
+                    self._barrier.reset()
+                else:
+                    logging.error('key exists and new state %s not FAILURE, '
+                                  'ignoring (current state is %s)', state, self._states[key])
+
+            if key not in self._states or state == FAILURE:
+                logging.info('record state: {}[{}] = {}'.format(host, slot, state))
+                self._states[key] = state
+                self._workers[state].add(key)
+                rendezvous_id = self._rendezvous_id
 
         rendezvous_id = self._wait(key, state, rendezvous_id)
         return rendezvous_id
