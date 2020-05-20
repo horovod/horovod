@@ -40,7 +40,8 @@ parser.add_argument('--logfile', default='/tmp/logfile.txt',
 parser.add_argument('--discovery-schedule', default='[]',
                     help='JSON string specifying schedule of host updates each epoch')
 parser.add_argument('--discovery-wait', type=int, default=3,
-                    help='number of seconds the worker waits for an expected host discovery')
+                    help='number of seconds the worker waits for an expected host discovery, '
+                         'set to ≤ 0 to disable wait on host discovery')
 parser.add_argument('--exit-schedule', default='{}',
                     help='JSON string mapping from (epoch, batch) to list of ranks to exit at that time')
 parser.add_argument('--exit-mode', default='exception',
