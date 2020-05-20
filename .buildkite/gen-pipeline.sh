@@ -170,8 +170,7 @@ run_mpi_integration() {
         "horovodrun -np 2 -H localhost:2 python /horovod/examples/tensorflow_mnist.py"
       run_test "${test}" "${queue}" \
         ":terminal: Test Horovodrun (${test})" \
-        "echo 'localhost slots=2' > hostfile" \
-        "horovodrun -np 2 -hostfile hostfile python /horovod/examples/mxnet_mnist.py"
+        "bash -c \"echo 'localhost slots=2' > hostfile && horovodrun -np 2 -hostfile hostfile python /horovod/examples/mxnet_mnist.py\""
     fi
   fi
 
