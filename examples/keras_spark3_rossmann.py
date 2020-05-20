@@ -162,7 +162,8 @@ if __name__ == '__main__':
 
         # Merge in Google Trend for whole Germany.
         google_trend_de = google_trend_all[google_trend_all.file == 'Rossmann_DE']
-        df = df.join(google_trend_de, ['Year', 'Week']).select(df['*'], google_trend_all.trend.alias('trend_de'))
+        google_trend_de = google_trend_de.withColumnRenamed('trend', 'trend_de')
+        df = df.join(google_trend_de, ['Year', 'Week']).select(df['*'], google_trend_de.trend_de)
 
         # Merge in weather.
         weather = weather_csv.join(state_names_csv, weather_csv.file == state_names_csv.StateName)
@@ -187,7 +188,7 @@ if __name__ == '__main__':
 
         # Days & weeks of promotion, cap to 25 weeks.
         df = df.withColumn('Promo2Since',
-                           F.expr('date_add(format_string("%s-01-01", Promo2SinceYear), (Promo2SinceWeek - 1) * 7)'))
+                           F.expr('date_add(format_string("%s-01-01", Promo2SinceYear), (cast(Promo2SinceWeek as int) - 1) * 7)'))
         df = df.withColumn('Promo2Days',
                            F.when(df.Promo2SinceYear > 1900,
                                   F.greatest(F.lit(0), F.least(F.lit(25 * 7), F.datediff(df.Date, df.Promo2Since))))

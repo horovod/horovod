@@ -17,13 +17,22 @@
 >     # Cluster for GPU inference.
 >     GPU_INFERENCE_CLUSTER = 'local-cluster[2,1,1024]'  # or 'spark://hostname:7077'
 > 
-395a405
+156c165,166
+<         df = df.join(google_trend_de, ['Year', 'Week']).select(df['*'], google_trend_all.trend.alias('trend_de'))
+---
+>         google_trend_de = google_trend_de.withColumnRenamed('trend', 'trend_de')
+>         df = df.join(google_trend_de, ['Year', 'Week']).select(df['*'], google_trend_de.trend_de)
+181c191
+<                            F.expr('date_add(format_string("%s-01-01", Promo2SinceYear), (Promo2SinceWeek - 1) * 7)'))
+---
+>                            F.expr('date_add(format_string("%s-01-01", Promo2SinceYear), (cast(Promo2SinceWeek as int) - 1) * 7)'))
+395a406
 >         from horovod.spark.task import get_available_devices
-410c420
+410c421
 <         config.gpu_options.visible_device_list = str(hvd.local_rank())
 ---
 >         config.gpu_options.visible_device_list = get_available_devices()[0]
-493a504,528
+493a505,529
 >     def set_gpu_conf(conf):
 >         # This config will change depending on your cluster setup.
 >         #
@@ -49,9 +58,9 @@
 >         return conf
 > 
 > 
-497a533
+497a534
 >     conf = set_gpu_conf(conf)
-526,527c562,570
+526,527c563,571
 <     if args.processing_master:
 <         conf.setMaster(args.processing_master)
 ---
@@ -64,7 +73,7 @@
 >         if args.processing_master:
 >             conf.setMaster(args.processing_master)
 > 
-537,541c580,591
+537,541c581,592
 <             # Do not use GPUs for prediction, use single CPU core per task.
 <             config = tf.ConfigProto(device_count={'GPU': 0})
 <             config.inter_op_parallelism_threads = 1

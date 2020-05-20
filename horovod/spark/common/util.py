@@ -23,7 +23,11 @@ import pyspark.sql.functions as f
 from pyspark.ml.linalg import DenseVector, SparseVector, Vector, VectorUDT
 from pyspark.sql.types import ArrayType, BinaryType, BooleanType, FloatType, DoubleType, \
     IntegerType, LongType, NullType, StringType
-from pyspark.sql.types import from_arrow_type
+try:
+    # Spark 3.0 moved to a pandas submodule
+    from pyspark.sql.pandas.types import from_arrow_type
+except ImportError:
+    from pyspark.sql.types import from_arrow_type
 
 from horovod.run.common.util import codec
 from horovod.spark.common import cache, constants
