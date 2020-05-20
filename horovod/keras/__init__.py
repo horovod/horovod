@@ -27,7 +27,7 @@ from horovod.tensorflow import gloo_enabled, gloo_built
 from horovod.tensorflow import nccl_built, ddl_built, ccl_built
 from horovod.tensorflow import Compression
 
-from horovod.keras import callbacks
+from horovod.keras import callbacks, elastic
 import horovod._keras as _impl
 
 
@@ -45,9 +45,9 @@ def DistributedOptimizer(optimizer, name=None,
               gradients. Defaults to "Distributed" followed by the provided
               optimizer type.
         device_dense: Device to be used for dense tensors. Uses GPU by default
-                      if Horovod was build with HOROVOD_GPU_ALLREDUCE.
+                      if Horovod was build with HOROVOD_GPU_OPERATIONS.
         device_sparse: Device to be used for sparse tensors. Uses GPU by default
-                       if Horovod was build with HOROVOD_GPU_ALLGATHER.
+                       if Horovod was build with HOROVOD_GPU_OPERATIONS.
         compression: Compression algorithm used to reduce the amount of data
                      sent and received by each worker node.  Defaults to not
                      using compression.

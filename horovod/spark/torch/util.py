@@ -14,6 +14,7 @@
 # ==============================================================================
 
 import io
+import platform
 import sys
 
 from horovod.run.common.util import codec
@@ -26,11 +27,7 @@ def is_module_available(module_name):
 
 def is_module_available_fn():
     def _is_module_available(module_name):
-        if sys.version_info < (3, 0):
-            # python 2
-            import pkgutil
-            torch_loader = pkgutil.find_loader(module_name)
-        elif sys.version_info <= (3, 3):
+        if sys.version_info <= (3, 3):
             # python 3.0 to 3.3
             import pkgutil
             torch_loader = pkgutil.find_loader(module_name)
@@ -38,6 +35,8 @@ def is_module_available_fn():
             # python 3.4 and above
             import importlib
             torch_loader = importlib.util.find_spec(module_name)
+        else:
+            raise RuntimeError('Unsupported version of Python: {}'.format(platform.python_version()))
 
         return torch_loader is not None
 

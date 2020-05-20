@@ -52,8 +52,13 @@ about who's involved and how Horovod plays a role, read the LF AI `announcement 
 
 .. contents::
 
+|
 
-The full documentation and an API reference are published at https://horovod.readthedocs.io/en/latest.
+Documentation
+-------------
+
+- `Latest Release <https://horovod.readthedocs.io/en/stable>`_
+- `master <https://horovod.readthedocs.io/en/latest>`_
 
 |
 
@@ -118,7 +123,7 @@ To install Horovod:
 
    .. code-block:: bash
 
-      $ HOROVOD_GPU_ALLREDUCE=NCCL HOROVOD_GPU_BROADCAST=NCCL pip install horovod
+      $ HOROVOD_GPU_OPERATIONS=NCCL pip install horovod
 
 This basic installation is good for laptops and for getting to know Horovod.
 

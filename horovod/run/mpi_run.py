@@ -13,11 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import print_function
-
 import copy
 import os
 import sys
+
+from shlex import quote
 
 from horovod.run.common.util import env as env_util, safe_shell_exec, tiny_shell_exec
 
@@ -52,11 +52,6 @@ _MPI_NOT_FOUND_ERROR_MSG= ('horovod does not find an installed MPI.\n\n'
                            'training script using the standard way provided by your'
                            ' MPI distribution (usually mpirun, srun, or jsrun).\n'
                            '3. Use built-in gloo option (horovodrun --gloo ...).')
-
-try:
-    from shlex import quote
-except ImportError:
-    from pipes import quote
 
 
 def mpi_available():

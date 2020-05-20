@@ -37,7 +37,7 @@ ncclDataType_t GetNCCLDataType(const std::shared_ptr<Tensor> tensor);
 struct NCCLContext {
   std::vector<std::unordered_map<std::vector<int32_t>, ncclComm_t>> nccl_comms;
 
-  void ErrorCheck(std::string op_name, ncclResult_t nccl_result);
+  void ErrorCheck(std::string op_name, ncclResult_t nccl_result, ncclComm_t& nccl_comm);
 
   void ShutDown();
 };
@@ -122,6 +122,28 @@ private:
   MPIContext* mpi_context_;
 };
 #endif
+
+class NCCLAllgather : public GPUAllgather {
+public:
+  NCCLAllgather(NCCLContext* nccl_context, GPUContext* gpu_context,
+                  HorovodGlobalState* global_state)
+      : GPUAllgather(gpu_context, global_state),
+        nccl_op_context_(nccl_context, global_state, Communicator::GLOBAL),
+        global_state_(global_state){};
+
+  Status Execute(std::vector<TensorTableEntry>& entries,
+                 const Response& response) override;
+
+  bool Enabled(const ParameterManager& param_manager,
+               const std::vector<TensorTableEntry>& entries,
+               const Response& response) const override;
+
+protected:
+  NCCLContext* nccl_context_;
+  NCCLOpContext nccl_op_context_;
+  HorovodGlobalState* global_state_;
+};
+
 
 } // namespace common
 } // namespace horovod

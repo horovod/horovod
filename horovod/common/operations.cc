@@ -185,6 +185,11 @@ OperationManager* CreateOperationManager(HorovodGlobalState& state) {
         std::shared_ptr<BroadcastOp>(new NCCLBroadcast(&nccl_context, &gpu_context, &state)));
 #endif
 
+#if HAVE_NCCL && HOROVOD_GPU_ALLGATHER == 'N'
+  allgather_ops.push_back(std::shared_ptr<AllgatherOp>(
+      new NCCLAllgather(&nccl_context, &gpu_context, &state)));
+#endif
+
 #if HAVE_GLOO
   if (gloo_context.IsEnabled()) {
     allreduce_ops.push_back(
@@ -373,7 +378,6 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
       gloo_context.Initialize(ParseGlooIface());
     }
 #endif
-
   // Initialize controller
   state.controller->Initialize();
 
@@ -506,8 +510,11 @@ void BackgroundThreadLoop(HorovodGlobalState& state) {
   LOG(INFO, horovod_global.controller->GetRank()) << "Horovod Initialized";
 
   // Iterate until shutdown.
-  while (RunLoopOnce(state))
-    ;
+  try {
+    while (RunLoopOnce(state));
+  } catch (const std::exception& ex) {
+    LOG(ERROR) << "Horovod background loop uncaught exception: " << ex.what();
+  }
 
     // Finalize all contexts
 #if HAVE_NCCL
@@ -580,7 +587,7 @@ bool RunLoopOnce(HorovodGlobalState& state) {
   int rank = state.controller->GetRank();
   for (auto& response : response_list.responses()) {
     LOG(TRACE, rank) << "Performing " << response.tensor_names_string();
-    LOG(DEBUG, rank) << "Processing " << response.tensor_names().size()
+    LOG(TRACE, rank) << "Processing " << response.tensor_names().size()
                      << " tensors";
     PerformOperation(response, horovod_global);
     LOG(TRACE, rank) << "Finished performing "

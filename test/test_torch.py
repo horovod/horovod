@@ -14,19 +14,16 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from distutils.version import LooseVersion
 
 import inspect
 import itertools
 import os
 import pytest
-import sys
 import unittest
 import warnings
+
+from collections.abc import Iterable
 
 import numpy as np
 import torch
@@ -36,11 +33,6 @@ import torch.nn.functional as F
 import horovod.torch as hvd
 
 from common import mpi_env_rank_and_size, temppath
-
-try:
-    from collections.abc import Iterable
-except ImportError:
-    from collections import Iterable
 
 _v2_api = LooseVersion(torch.__version__) >= LooseVersion('1.0.0')
 _fp16_supported = _v2_api
@@ -398,8 +390,8 @@ class TorchTests(unittest.TestCase):
             self.skipTest("No GPUs available")
 
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
-            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
-            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
         hvd.init()
         rank = hvd.rank()
@@ -1674,10 +1666,6 @@ class TorchTests(unittest.TestCase):
         if not torch.cuda.is_available():
             self.skipTest("No GPUs available")
 
-        if sys.version_info < (3,):
-            # TODO: remove this check after Py2 deprecation
-            self.skipTest("Python 3 only feature")
-
         hvd.init()
 
         ts_list = [
@@ -1725,6 +1713,64 @@ class TorchTests(unittest.TestCase):
             assert (hvd.allreduce(sync_bn.weight.grad, name='sync_bn.weight.grad') - bn.weight.grad).abs().sum() < 1e-6
             assert (hvd.allreduce(sync_bn.bias.grad, name='sync_bn.bias.grad') - bn.bias.grad).abs().sum() < 1e-6
             assert (hvd.allreduce(ts1.grad, name='ts1.grad') - ts2.grad).abs().sum() < 1e-6
+
+    @pytest.mark.skipif(LooseVersion(torch.__version__) < LooseVersion('1.0.0'),
+                        reason='Synchronizing state requires PyTorch 1.0 or above')
+    def test_elastic_state(self):
+        hvd.init()
+
+        v = 1.0 if hvd.rank() == 0 else 2.0
+        model1 = torch.nn.Sequential(torch.nn.Linear(2, 2))
+        model1.load_state_dict({
+            '0.weight': torch.tensor([[v, v], [v, v]]),
+            '0.bias': torch.tensor([v, v])
+        })
+
+        model2 = torch.nn.Sequential(torch.nn.Linear(2, 2))
+        model2.load_state_dict({
+            '0.weight': torch.tensor([[1.0, 2.0], [3.0, 4.0]]),
+            '0.bias': torch.tensor([0.0, 0.0])
+        })
+
+        optimizer = torch.optim.SGD(model1.parameters(), lr=0.001 * hvd.size())
+
+        state = hvd.elastic.TorchState(model1, optimizer, batch=20 + hvd.rank(), epoch=10 + hvd.rank())
+        state.sync()
+
+        model1_weights = model1.state_dict().values()
+        model2_weights = model2.state_dict().values()
+
+        # After sync, all values should match the root rank
+        for w in state.model.state_dict().values():
+            np.testing.assert_allclose(w, np.ones_like(w))
+        assert state.batch == 20
+        assert state.epoch == 10
+
+        # Partially modify then restore
+        model1.load_state_dict(model2.state_dict())
+        state.batch = 21
+        state.epoch = 11
+
+        state.restore()
+
+        for w1, w2 in zip(model1.state_dict().values(), model1_weights):
+            np.testing.assert_allclose(w1, w2)
+        assert state.batch == 20
+        assert state.epoch == 10
+
+        # Partially modify then commit
+        model1.load_state_dict(model2.state_dict())
+        state.batch = 21
+        state.epoch = 11
+
+        state.commit()
+        state.restore()
+
+        for w1, w2 in zip(model1.state_dict().values(), model2_weights):
+            np.testing.assert_allclose(w1, w2)
+        assert state.batch == 21
+        assert state.epoch == 11
+
 
 if __name__ == "__main__":
    unittest.main()

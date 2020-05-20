@@ -13,10 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import os
 import itertools
 import unittest
@@ -235,8 +231,8 @@ class MXTests(unittest.TestCase):
         """Test that the allreduce raises an error if different ranks try to
            perform reduction on CPU and GPU."""
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
-            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
-            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
         hvd.init()
         rank = hvd.rank()

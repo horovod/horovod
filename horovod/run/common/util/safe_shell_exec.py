@@ -25,7 +25,6 @@ import time
 
 from horovod.run.util.threads import in_thread, on_event
 
-_PY3 = sys.version_info[0] == 3
 GRACEFUL_TERMINATION_TIME_S = 5
 
 
@@ -47,7 +46,10 @@ def terminate_executor_shell_and_children(pid):
     gone, alive = psutil.wait_procs(p.children(), timeout=GRACEFUL_TERMINATION_TIME_S)
 
     # Freeze the process to prevent it from spawning any new children.
-    p.send_signal(signal.SIGSTOP)
+    try:
+        p.send_signal(signal.SIGSTOP)
+    except psutil.NoSuchProcess:
+        pass
 
     # Kill children recursively.
     for child in alive:
@@ -62,7 +64,11 @@ def terminate_executor_shell_and_children(pid):
             pass
 
     # Kill shell itself.
-    p.terminate()
+    try:
+        p.terminate()
+    except psutil.NoSuchProcess:
+        pass
+
     try:
         p.wait(timeout=GRACEFUL_TERMINATION_TIME_S)
     except psutil.TimeoutExpired:
@@ -152,7 +158,7 @@ def _create_event(ctx):
 
 
 def execute(command, env=None, stdout=None, stderr=None, index=None, events=None):
-    ctx = multiprocessing.get_context('spawn') if _PY3 else multiprocessing
+    ctx = multiprocessing.get_context('spawn')
 
     # When this event is set, signal to middleman to terminate its children and exit.
     exit_event = _create_event(ctx)

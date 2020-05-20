@@ -13,11 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import copy
+import io
 import itertools
 import os
 import subprocess
@@ -30,7 +27,6 @@ import warnings
 import psutil
 import pytest
 import mock
-import six
 
 from mock import MagicMock
 
@@ -42,7 +38,7 @@ from horovod.run.js_run import js_run, generate_jsrun_rankfile
 from horovod.run.mpi_run import _get_mpi_implementation, _get_mpi_implementation_flags,\
     _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_available, mpi_run,\
     _OMPI_IMPL, _SMPI_IMPL, _MPICH_IMPL, _UNKNOWN_IMPL, _MISSING_IMPL
-from horovod.run.runner import parse_args, parse_host_files, run_controller
+from horovod.run.runner import parse_args, parse_host_files, run_controller, HorovodArgs, _run
 from horovod.run.util.threads import in_thread, on_event
 
 from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay, wait
@@ -331,17 +327,17 @@ class RunTests(unittest.TestCase):
         fn.assert_not_called()
 
     def test_safe_shell_exec_captures_stdout(self):
-        self._do_test_safe_shell_exec('echo hello', 0, 'hello\n', '')
+        self.do_test_safe_shell_exec('echo hello', 0, 'hello\n', '')
 
     def test_safe_shell_exec_captures_stderr(self):
-        self._do_test_safe_shell_exec('echo hello >&2', 0, '', 'hello\n')
+        self.do_test_safe_shell_exec('echo hello >&2', 0, '', 'hello\n')
 
     def test_safe_shell_exec_captures_last_line_wo_eol(self):
         cmd = 'bash -c "echo -e -n \\"hello\nstdout\\"; echo -e -n \\"hello\nstderr\\" >&2"'
-        self._do_test_safe_shell_exec(cmd, 0, 'hello\nstdout', 'hello\nstderr')
+        self.do_test_safe_shell_exec(cmd, 0, 'hello\nstdout', 'hello\nstderr')
 
     def test_safe_shell_exec_returns_exit_code(self):
-        self._do_test_safe_shell_exec('false', 1, '', '')
+        self.do_test_safe_shell_exec('false', 1, '', '')
 
     def test_safe_shell_exec_interrupts_on_event(self):
         # interrupt execute in one second
@@ -350,7 +346,7 @@ class RunTests(unittest.TestCase):
 
         sleep = 10
         start = time.time()
-        self._do_test_safe_shell_exec('sleep {}'.format(sleep), 143, '', None, interrupt)
+        self.do_test_safe_shell_exec('sleep {}'.format(sleep), 143, '', None, interrupt)
         duration = time.time() - start
 
         self.assertGreaterEqual(duration, 1.0)
@@ -391,9 +387,9 @@ class RunTests(unittest.TestCase):
             self.assertFalse(parent.is_running())
             self.assertFalse(child.is_running())
 
-    def _do_test_safe_shell_exec(self, cmd, expected_exit_code, expected_stdout, expected_stderr, event=None):
-        stdout = six.StringIO()
-        stderr = six.StringIO()
+    def do_test_safe_shell_exec(self, cmd, expected_exit_code, expected_stdout, expected_stderr, event=None):
+        stdout = io.StringIO()
+        stderr = io.StringIO()
         res = safe_shell_exec.execute(cmd, stdout=stdout, stderr=stderr, events=[event])
         self.assertEqual(expected_exit_code, res)
         if expected_stdout is not None:
@@ -615,7 +611,7 @@ class RunTests(unittest.TestCase):
             extra_mpi_args='>mpi-extra args go here<',
             binding_args='>binding args go here<',
             key=secret.make_secret_key(),
-            timeout=tmout,
+            start_timeout=tmout,
             num_hosts=1,
             num_proc=1,
             hosts='>host names go here<',
@@ -746,3 +742,17 @@ rank: 4: { hostname: host2; cpu: {0-3} ; gpu: * ; mem: * }
 """)
 
             self.assertMultiLineEqual(gen_rankfile, expected_rankfile)
+
+    """
+    Tests horovod.run.runner._run with jsrun
+    """
+    @mock.patch('horovod.run.util.lsf.LSFUtils.using_lsf', MagicMock(return_value=True))
+    @mock.patch('horovod.run.util.lsf.LSFUtils.get_compute_hosts', MagicMock(return_value=['host1', 'host2']))
+    @mock.patch('horovod.run.util.lsf.LSFUtils.get_num_gpus', MagicMock(return_value=2))
+    @mock.patch('horovod.run.util.network.filter_local_addresses', MagicMock(return_value=['host1', 'host2']))
+    @mock.patch('horovod.run.runner._check_all_hosts_ssh_successful', MagicMock())
+    @mock.patch('horovod.run.runner.run_controller')
+    def test_run_with_jsrun(self, mocked_run_controller):
+        hargs = HorovodArgs()
+        _run(hargs)
+        mocked_run_controller.assert_called_once()

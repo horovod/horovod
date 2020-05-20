@@ -13,7 +13,5 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import absolute_import
-
 from horovod.spark.torch.estimator import TorchEstimator
 from horovod.spark.torch.estimator import TorchModel

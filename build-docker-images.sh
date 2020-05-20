@@ -28,7 +28,7 @@ function build_one()
 docker rmi $(cat Dockerfile.gpu | grep FROM | awk '{print $2}') || true
 docker rmi $(cat Dockerfile.cpu | grep FROM | awk '{print $2}') || true
 
-# build for py2 and py3, cpu and gpu
+# build for cpu and gpu
 build_one 3.6 gpu
 build_one 3.6 cpu
 

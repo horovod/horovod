@@ -15,19 +15,14 @@
 # ==============================================================================
 """Basic word2vec example."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import collections
 import math
 import os
 import random
+import urllib
 import zipfile
 
 import numpy as np
-from six.moves import urllib
-from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 import horovod.tensorflow as hvd
 
@@ -215,7 +210,7 @@ with tf.Session(graph=graph, config=config) as session:
     print('Initialized')
 
     average_loss = 0
-    for step in xrange(num_steps):
+    for step in range(num_steps):
         # simulate various sentence length by randomization
         batch_size = random.randint(max_batch_size // 2, max_batch_size)
         batch_inputs, batch_labels = generate_batch(
@@ -238,12 +233,12 @@ with tf.Session(graph=graph, config=config) as session:
     # Evaluate similarity in the end on worker 0.
     if hvd.rank() == 0:
         sim = similarity.eval()
-        for i in xrange(valid_size):
+        for i in range(valid_size):
             valid_word = reverse_dictionary[valid_examples[i]]
             top_k = 8  # number of nearest neighbors
             nearest = (-sim[i, :]).argsort()[1:top_k + 1]
             log_str = 'Nearest to %s:' % valid_word
-            for k in xrange(top_k):
+            for k in range(top_k):
                 close_word = reverse_dictionary[nearest[k]]
                 log_str = '%s %s,' % (log_str, close_word)
             print(log_str)

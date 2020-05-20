@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from __future__ import print_function
-
-import six
+import io
 import sys
 import traceback
 
@@ -28,7 +26,7 @@ def execute(command):
     :param command: command to execute
     :return: (output, exit code) or None on failure
     """
-    output = six.StringIO()
+    output = io.StringIO()
     try:
         exit_code = safe_shell_exec.execute(command, stdout=output, stderr=output)
         output_msg = output.getvalue()

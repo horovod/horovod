@@ -47,7 +47,6 @@ struct GlooContext {
 
   bool IsEnabled() { return enabled_; }
 
-
   std::shared_ptr<gloo::Context> ctx = nullptr; // Global context
   std::shared_ptr<gloo::Context> cross_ctx = nullptr;
   std::shared_ptr<gloo::Context> local_ctx = nullptr;
@@ -55,6 +54,7 @@ struct GlooContext {
 private:
   // Flag indicating whether gloo is enabled.
   bool enabled_ = false;
+  bool reset_ = false;
 };
 
 } // namespace common

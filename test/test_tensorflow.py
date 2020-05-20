@@ -17,13 +17,12 @@
 
 """Tests for horovod.tensorflow.mpi_ops."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from distutils.version import LooseVersion
 
 import itertools
 import numpy as np
 import os
+import pytest
 import tensorflow as tf
 from horovod.tensorflow.util import _executing_eagerly, _has_eager
 from tensorflow.python.framework import ops
@@ -50,13 +49,16 @@ else:
 
 ccl_supported_types = set([tf.uint8, tf.int32, tf.int64, tf.float32, tf.float64])
 
-class MPITests(tf.test.TestCase):
+_IS_TF2 = LooseVersion(tf.__version__) >= LooseVersion('2.0.0')
+
+
+class TensorFlowTests(tf.test.TestCase):
     """
     Tests for ops in horovod.tensorflow.
     """
 
     def __init__(self, *args, **kwargs):
-        super(MPITests, self).__init__(*args, **kwargs)
+        super(TensorFlowTests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
         if _has_eager:
             if hasattr(tf, 'contrib') and hasattr(tf.contrib, 'eager'):
@@ -73,6 +75,20 @@ class MPITests(tf.test.TestCase):
                 return sess.run(tensors)
         else:
             return sess.run(tensors)
+
+    def assign(self, variables, values):
+        if _executing_eagerly():
+            for var, val in zip(variables, values):
+                var.assign(val)
+        else:
+            sess = ops.get_default_session()
+            if sess is None:
+                with self.test_session(config=config) as sess:
+                    for var, val in zip(variables, values):
+                        var.load(val, sess)
+            else:
+                for var, val in zip(variables, values):
+                    var.load(val, sess)
 
     def random_uniform(self, *args, **kwargs):
         if hasattr(tf, 'random') and hasattr(tf.random, 'set_seed'):
@@ -185,8 +201,8 @@ class MPITests(tf.test.TestCase):
             self.skipTest(("No GPUs available"))
 
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
-            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
-            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
         hvd.init()
         local_rank = hvd.local_rank()
@@ -227,8 +243,8 @@ class MPITests(tf.test.TestCase):
             self.skipTest(("No GPUs available"))
 
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
-            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
-            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
         hvd.init()
         local_rank = hvd.local_rank()
@@ -272,8 +288,8 @@ class MPITests(tf.test.TestCase):
             self.skipTest(("No GPUs available"))
 
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
-            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
-            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
         hvd.init()
         local_rank = hvd.local_rank()
@@ -359,8 +375,8 @@ class MPITests(tf.test.TestCase):
             self.skipTest(("No GPUs available"))
 
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
-            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
-            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
         hvd.init()
         local_rank = hvd.local_rank()
@@ -419,8 +435,8 @@ class MPITests(tf.test.TestCase):
             self.skipTest(("No GPUs available"))
 
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
-            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
-            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
         hvd.init()
         local_rank = hvd.local_rank()
@@ -454,7 +470,7 @@ class MPITests(tf.test.TestCase):
                             "gradient %s differs from expected %s, "
                             "error: %s" % (grad_out, expected, str(err)))
 
-    def test_horovod_allgather(self):
+    def test_horovod_allgather_cpu(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors."""
         hvd.init()
         rank = hvd.rank()
@@ -465,11 +481,12 @@ class MPITests(tf.test.TestCase):
                   tf.float64, tf.bool]
         dims = [1, 2, 3]
         for dtype, dim in itertools.product(dtypes, dims):
-            tensor = tf.ones([17] * dim) * rank
-            if dtype == tf.bool:
-                tensor = tensor % 2
-            tensor = tf.cast(tensor, dtype=dtype)
-            gathered = hvd.allgather(tensor)
+            with tf.device("/cpu:0"):
+                tensor = tf.ones([17] * dim) * rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                tensor = tf.cast(tensor, dtype=dtype)
+                gathered = hvd.allgather(tensor)
 
             gathered_tensor = self.evaluate(gathered)
             self.assertEqual(list(gathered_tensor.shape),
@@ -491,7 +508,54 @@ class MPITests(tf.test.TestCase):
                         tf.equal(tf.cast(rank_tensor, tf.int32), value))),
                     "hvd.allgather produces incorrect gathered tensor")
 
-    def test_horovod_allgather_fused(self):
+    def test_horovod_allgather_gpu(self):
+        """Test that the allgather correctly gathers 1D, 2D, 3D tensors."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        hvd.init()
+        rank = hvd.rank()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64, tf.bool]
+        dims = [1, 2, 3]
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%d" % local_rank):
+                tensor = tf.ones([17] * dim) * rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                tensor = tf.cast(tensor, dtype=dtype)
+                gathered = hvd.allgather(tensor)
+
+            gathered_tensor = self.evaluate(gathered)
+            self.assertEqual(list(gathered_tensor.shape),
+                             [17 * size] + [17] * (dim - 1))
+
+            for i in range(size):
+                rank_tensor = tf.slice(gathered_tensor,
+                                       [i * 17] + [0] * (dim - 1),
+                                       [17] + [-1] * (dim - 1))
+                self.assertEqual(list(rank_tensor.shape), [17] * dim)
+                # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
+                # so need to cast rank_tensor to tf.int32.
+                if dtype != tf.bool:
+                    value = i
+                else:
+                    value = i % 2
+                self.assertTrue(
+                    self.evaluate(tf.reduce_all(
+                        tf.equal(tf.cast(rank_tensor, tf.int32), value))),
+                    "hvd.allgather produces incorrect gathered tensor")
+
+    def test_horovod_allgather_fused_cpu(self):
         """Test that the allgather correctly gathers 1D, 2D, 3D tensors
         with Tensor Fusion."""
         hvd.init()
@@ -505,11 +569,70 @@ class MPITests(tf.test.TestCase):
         tests = []
         shape_tests = []
         for dtype, dim in itertools.product(dtypes, dims):
-            tensor = tf.ones([17] * dim) * rank
-            if dtype == tf.bool:
-                tensor = tensor % 2
-            tensor = tf.cast(tensor, dtype=dtype)
-            gathered = hvd.allgather(tensor)
+            with tf.device("/cpu:0"):
+                tensor = tf.ones([17] * dim) * rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                tensor = tf.cast(tensor, dtype=dtype)
+                gathered = hvd.allgather(tensor)
+
+            shape_tests.append(
+                tf.reduce_all(tf.equal(tf.shape(gathered),
+                                       [17 * size] + [17] * (dim - 1))))
+
+            for i in range(size):
+                rank_tensor = tf.slice(gathered,
+                                       [i * 17] + [0] * (dim - 1),
+                                       [17] + [-1] * (dim - 1))
+                if dtype != tf.bool:
+                    value = i
+                else:
+                    value = i % 2
+
+                # tf.equal() does not support tf.uint16 as of TensorFlow 1.2,
+                # so need to cast rank_tensor to tf.int32.
+                tests.append(
+                    tf.reduce_all(
+                        tf.equal(tf.cast(rank_tensor, tf.int32), value)))
+
+            shape_tests_passed, value_tests_passed = \
+                self.evaluate([tf.reduce_all(shape_tests), tf.reduce_all(tests)])
+
+            self.assertTrue(shape_tests_passed,
+                            "hvd.allgather produces incorrect gathered tensor")
+
+            self.assertTrue(value_tests_passed,
+                            "hvd.allgather produces incorrect gathered tensor")
+
+    def test_horovod_allgather_fused_gpu(self):
+        """Test that the allgather correctly gathers 1D, 2D, 3D tensors
+        with Tensor Fusion."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
+
+        hvd.init()
+        rank = hvd.rank()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        dtypes = [tf.uint8, tf.int8, tf.uint16, tf.int16,
+                  tf.int32, tf.int64, tf.float16, tf.float32,
+                  tf.float64, tf.bool]
+        dims = [1, 2, 3]
+        tests = []
+        shape_tests = []
+        for dtype, dim in itertools.product(dtypes, dims):
+            with tf.device("/gpu:%d" % local_rank):
+                tensor = tf.ones([17] * dim) * rank
+                if dtype == tf.bool:
+                    tensor = tensor % 2
+                tensor = tf.cast(tensor, dtype=dtype)
+                gathered = hvd.allgather(tensor)
 
             shape_tests.append(
                 tf.reduce_all(tf.equal(tf.shape(gathered),
@@ -739,8 +862,8 @@ class MPITests(tf.test.TestCase):
             self.skipTest(("No GPUs available"))
 
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
-            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
-            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
         hvd.init()
         rank = hvd.rank()
@@ -833,8 +956,8 @@ class MPITests(tf.test.TestCase):
             self.skipTest(("No GPUs available"))
 
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
-            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
-            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
         hvd.init()
         rank = hvd.rank()
@@ -963,8 +1086,8 @@ class MPITests(tf.test.TestCase):
             self.skipTest(("No GPUs available"))
 
         if os.environ.get('HOROVOD_MIXED_INSTALL'):
-            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
-            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
+            # Skip if compiled with CUDA but without HOROVOD_GPU_OPERATIONS.
+            self.skipTest("Not compiled with HOROVOD_GPU_OPERATIONS")
 
         hvd.init()
         rank = hvd.rank()
@@ -1062,10 +1185,110 @@ class MPITests(tf.test.TestCase):
             err = np.linalg.norm(expected - actual)
             self.assertLess(err, 0.00000001)
 
+    def test_broadcast_object(self):
+        if LooseVersion(tf.__version__) < LooseVersion('1.15.0'):
+            self.skipTest("Broadcasting object requires TensorFlow 1.15 or above")
+
+        hvd.init()
+
+        with tf.device("/cpu:0"):
+            expected_obj = {
+                'hello': 123,
+                0: [1, 2]
+            }
+            obj = expected_obj if hvd.rank() == 0 else {}
+
+            obj = hvd.broadcast_object(obj, root_rank=0)
+            self.assertDictEqual(obj, expected_obj)
+
+    def test_broadcast_object_fn(self):
+        if LooseVersion(tf.__version__) < LooseVersion('1.15.0'):
+            self.skipTest("Broadcasting object requires TensorFlow 1.15 or above")
+
+        if hvd._executing_eagerly() or _IS_TF2:
+            # Only for TF 1.0 in graph mode
+            return
+
+        hvd.init()
+
+        with tf.device("/cpu:0"):
+            expected_obj = {
+                'hello': 123,
+                0: [1, 2]
+            }
+            obj = expected_obj if hvd.rank() == 0 else {}
+
+            bcast = hvd.broadcast_object_fn(root_rank=0)
+            obj = bcast(obj)
+            self.assertDictEqual(obj, expected_obj)
+
+    def test_elastic_state(self):
+        if LooseVersion(tf.__version__) < LooseVersion('1.15.0'):
+            self.skipTest("Broadcasting object requires TensorFlow 1.15 or above")
+
+        if not hvd._executing_eagerly() and _IS_TF2:
+            # Only support TF 2.0 in eager mode
+            return
+
+        hvd.init()
+
+        with tf.device("/cpu:0"):
+            v = 1.0 if hvd.rank() == 0 else 2.0
+            weights1 = [
+                np.array([[v, v], [v, v]]),
+                np.array([v, v])
+            ]
+            vars1 = [tf.Variable(arr) for arr in weights1]
+
+            weights2 = [
+                np.array([[1.0, 2.0], [3.0, 4.0]]),
+                np.array([0.0, 0.0])
+            ]
+
+            if not hvd._executing_eagerly():
+                init = tf.global_variables_initializer()
+                self.evaluate(init)
+
+            state = hvd.elastic.TensorFlowState(vars1, batch=20 + hvd.rank(), epoch=10 + hvd.rank())
+            state.sync()
+
+            weights1 = [np.ones_like(w) for w in weights1]
+
+            # After sync, all values should match the root rank
+            for w in self.evaluate(vars1):
+                self.assertAllClose(w, np.ones_like(w))
+            assert state.batch == 20
+            assert state.epoch == 10
+
+            # Partially modify then restore
+            self.assign(vars1, weights2)
+            state.batch = 21
+            state.epoch = 11
+
+            state.restore()
+
+            for w1, w2 in zip(self.evaluate(vars1), weights1):
+                self.assertAllClose(w1, w2)
+            assert state.batch == 20
+            assert state.epoch == 10
+
+            # Partially modify then commit
+            self.assign(vars1, weights2)
+            state.batch = 21
+            state.epoch = 11
+
+            state.commit()
+            state.restore()
+
+            for w1, w2 in zip(self.evaluate(vars1), weights2):
+                self.assertAllClose(w1, w2)
+            assert state.batch == 21
+            assert state.epoch == 11
+
 
 if _has_eager:
     from tensorflow.python.framework.test_util import run_all_in_graph_and_eager_modes
-    run_all_in_graph_and_eager_modes(MPITests)
+    run_all_in_graph_and_eager_modes(TensorFlowTests)
 
 if __name__ == '__main__':
     tf.test.main()
