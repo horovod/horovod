@@ -155,6 +155,22 @@ def on_state_reset():
     optimizer.lr.assign(lr * hvd.size())
 
 
+import signal
+
+
+def handle_signal(signum, frame):
+    print('signal {} occurred'.format(signum))
+
+
+for sig in [signal for signal in dir(signal) if signal.startswith('SIG')]:
+    try:
+        signum = getattr(signal, sig)
+        if signum:
+            print('registering for signal {} ({})'.format(sig, signum))
+            signal.signal(signum, handle_signal)
+    except OSError as m:
+        print('skipping {}'.format(sig))
+
 state = hvd.elastic.TensorFlowKerasState(model, optimizer, batch=0, epoch=0, commits=0, rendezvous=0)
 state.register_reset_callbacks([on_state_reset])
 train(state)

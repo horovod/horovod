@@ -43,6 +43,7 @@ def terminate_executor_shell_and_children(pid):
             pass
 
     # Wait for graceful termination.
+    print('safe_shell_exec: killing pid {}'.format(pid))
     gone, alive = psutil.wait_procs(p.children(), timeout=GRACEFUL_TERMINATION_TIME_S)
 
     # Freeze the process to prevent it from spawning any new children.
@@ -146,10 +147,12 @@ def _exec_middleman(command, env, exit_event, stdout, stderr, rw):
     in_thread(kill_executor_children_if_parent_dies)
 
     exit_code = executor_shell.wait()
+    print('safe_shell_exec: command terminted with exit-code={}'.format(exit_code))
     if exit_code < 0:
         # See: https://www.gnu.org/software/bash/manual/html_node/Exit-Status.html
         exit_code = 128 + abs(exit_code)
 
+    print('safe_shell_exec: terminating with exit-code={}'.format(exit_code))
     sys.exit(exit_code)
 
 

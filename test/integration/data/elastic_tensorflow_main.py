@@ -140,6 +140,23 @@ def train(state, step):
         state.commit()
 
 
+import signal
+
+
+def handle_signal(signum, frame):
+    print('signal {} occurred'.format(signum))
+
+
+for sig in [signal for signal in dir(signal) if signal.startswith('SIG')]:
+    try:
+        signum = getattr(signal, sig)
+        if signum:
+            print('registering for signal {} ({})'.format(sig, signum))
+            signal.signal(signum, handle_signal)
+    except OSError as m:
+        print('skipping {}'.format(sig))
+
+
 with tf.Session(config=config) as session:
     session.run(tf.global_variables_initializer())
 

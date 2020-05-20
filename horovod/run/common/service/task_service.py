@@ -91,6 +91,7 @@ class BasicTaskService(network.BasicService):
 
     def _run_command(self, command, env, event):
         self._command_exit_code = safe_shell_exec.execute(command, env=env, events=[event])
+        print('task service: command thread terminates with exit-code={} and event={}'.format(self._command_exit_code, event.is_set()))
 
     def _add_envs(self, env, extra_env):
         """
@@ -168,7 +169,9 @@ class BasicTaskService(network.BasicService):
             self._wait_cond.acquire()
             try:
                 while self._command_thread is None or self._command_thread.is_alive():
+                    print('task service: command still not terminated, exit-code={}'.format(self._command_exit_code))
                     self._wait_cond.wait(req.delay if req.delay >= 0.1 else 0.1)
+                print('task service: command terminated with exit-code={}'.format(self._command_exit_code))
                 return WaitForCommandExitCodeResponse(self._command_exit_code)
             finally:
                 self._wait_cond.release()
