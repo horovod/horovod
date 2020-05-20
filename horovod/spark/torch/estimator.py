@@ -267,18 +267,18 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
         # Optimizer parameters
         optimizer = self._get_optimizer()
-        optimizer_cls = optimizer.__class__
-        optimizer_state = optimizer.state_dict()
+        # optimizer_cls = optimizer.__class__
+        # optimizer_state = optimizer.state_dict()
 
         # Combine model and optimizer state
-        model_opt_state = {'model': model_state, 'optimizer': optimizer_state} \
-            if last_checkpoint_state is None else last_checkpoint_state
-        model_opt_state_serialized = save_into_bio(model_opt_state, torch.save)
+        # model_opt_state = {'model': model_state, 'optimizer': optimizer_state} \
+        #     if last_checkpoint_state is None else last_checkpoint_state
+        # model_opt_state_serialized = save_into_bio(model_opt_state, torch.save)
 
-        trainer = remote.RemoteTrainer(self, metadata, last_checkpoint_state, run_id, dataset_idx)
+        trainer = remote.RemoteTrainer(self, metadata, last_checkpoint_state, run_id, dataset_idx,
+                                       train_rows, val_rows, avg_row_size)
         handle = backend.run(trainer,
-                             args=(serialized_model, optimizer_cls, model_opt_state_serialized,
-                                   train_rows, val_rows, avg_row_size),
+                             args=(serialized_model,),
                              env={})
         return self._create_model(handle, run_id, metadata)
 
@@ -293,16 +293,19 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         return torch.load(ckpt_file)
 
     def _create_model(self, run_results, run_id, metadata):
-        history, serialized_checkpoint = run_results[0]
+        serialized_checkpoint = run_results[0]
         serialized_checkpoint.seek(0)
         best_checkpoint = torch.load(serialized_checkpoint, map_location=torch.device('cpu'))
 
         model = copy.deepcopy(self.getModel())
-        optimizer = copy.deepcopy(self.getOptimizer())
+        # optimizer = copy.deepcopy(self.getOptimizer())
 
         model.load_state_dict(best_checkpoint['model'])
         model.eval()
-        optimizer.load_state_dict(best_checkpoint['optimizer'])
+
+        # optimizer.load_state_dict(best_checkpoint['optimizer'])
+        history = None
+        optimizer = None
 
         return self.get_model_class()(**self._get_model_kwargs(
             model, history, optimizer, run_id, metadata))
