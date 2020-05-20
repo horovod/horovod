@@ -660,6 +660,8 @@ class BaseElasticSparkTests(unittest.TestCase):
         ]
 
         results = self._run(discovery_schedule=discovery_schedule, np=4, min_np=1, max_np=5, epochs=4,
+                            # TODO: remove these waits when discovery publishes failure right-away
+                            discovery_wait=0, epoch_wait=10,
                             extra_conf=[conf.SPARK_CONF_ALWAYS_RESTART_FAILED_TASK])
 
         self.assertEqual(4, len(results))
