@@ -32,7 +32,7 @@ BYTES_PER_GIB = constants.BYTES_PER_GIB
 CUSTOM_SPARSE = constants.CUSTOM_SPARSE
 
 
-def RemoteTrainer(estimator, metadata, run_id, dataset_idx, train_rows, val_rows, avg_row_size):
+def RemoteTrainer(estimator, metadata, run_id, dataset_idx, train_rows, val_rows, avg_row_size, is_legacy):
     # Estimator parameters
     input_shapes = estimator.getInputShapes()
     label_shapes = estimator.getLabelShapes()
@@ -87,7 +87,10 @@ def RemoteTrainer(estimator, metadata, run_id, dataset_idx, train_rows, val_rows
             trainer.fit(model)
 
         serialized_checkpoint = io.BytesIO()
-        torch.save({'model': model.state_dict()}, serialized_checkpoint)
+        if is_legacy:
+            torch.save({'model': model._model.state_dict()}, serialized_checkpoint)
+        else:
+            torch.save({'model': model.state_dict()}, serialized_checkpoint)
         serialized_checkpoint.seek(0)
         return serialized_checkpoint
     return train

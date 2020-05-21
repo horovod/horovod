@@ -18,18 +18,32 @@ from pytorch_lightning import LightningModule
 from horovod.spark.common.util import to_list
 
 
-def to_lightning_module(model, optimizer, loss_fns, loss_weights, feature_cols, label_cols, sample_weights_col):
+def to_lightning_module(model, optimizer, loss_fns, loss_weights, feature_cols, label_cols, sample_weights_col,
+                        validation):
+    optimizer_cls = optimizer.__class__
+    optimizer_state = optimizer.state_dict()
+
     loss_weights = loss_weights or [1.0 / len(label_cols)] * len(label_cols)
     loss_fns = to_list(loss_fns, len(label_cols))
 
     class _EstimatorLightningModule(LightningModule):
         def __init__(self):
             super().__init__()
+            self._model = model
 
         def forward(self, **kwargs):
-            return model(**kwargs)
+            return self._model(**kwargs)
 
         def configure_optimizers(self):
+            # Optimizer object needs to be re-instantiated. Internally, it uses memory addresses of
+            # objects as their identity and therefore it cannot be serialized and then
+            # deserialized. The deserialized optimizer object stores the names of the parameters
+            # with their old memory addresses but in reality those are different than the
+            # reconstructed deserialized object and that creates problem.
+            # Learning rate is a required parameters in SGD optimizer. It will be overridden with
+            # load_state_dict.
+            optimizer = optimizer_cls(self.parameters(), lr=1)
+            optimizer.load_state_dict(optimizer_state)
             return optimizer
 
         def training_step(self, batch, batch_nb):
@@ -37,15 +51,10 @@ def to_lightning_module(model, optimizer, loss_fns, loss_weights, feature_cols, 
             tensorboard_logs = {'train_loss': loss}
             return {'loss': loss, 'log': tensorboard_logs}
 
-        def validation_step(self, batch, batch_nb):
-            loss = self._step(batch)
-            tensorboard_logs = {'val_loss': loss}
-            return {'loss': loss, 'log': tensorboard_logs}
-
         def _step(self, batch):
-            inputs = {feature: batch[feature] for feature in feature_cols}
-            labels = [batch[label] for label in label_cols]
-            sample_weights = batch[sample_weights_col] if sample_weights_col else None
+            inputs = {feature: batch[feature].float() for feature in feature_cols}
+            labels = [batch[label].float() for label in label_cols]
+            sample_weights = batch[sample_weights_col].float() if sample_weights_col else None
             outputs = self(**inputs)
             outputs, labels = self._transform_outputs(outputs, labels)
             return self._calculate_loss(outputs, labels, sample_weights)
@@ -86,4 +95,13 @@ def to_lightning_module(model, optimizer, loss_fns, loss_weights, feature_cols, 
             loss = sum(losses)
             return loss
 
-    return _EstimatorLightningModule()
+    lightning_module = _EstimatorLightningModule()
+
+    if validation:
+        def validation_step(batch, batch_nb):
+            loss = lightning_module._step(batch)
+            tensorboard_logs = {'val_loss': loss}
+            return {'loss': loss, 'log': tensorboard_logs}
+        lightning_module.validation_step = validation_step
+
+    return lightning_module
