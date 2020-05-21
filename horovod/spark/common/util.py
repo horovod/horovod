@@ -689,11 +689,9 @@ def to_list(var, length):
     if len(var) == 1:
         var = [var[0] for _ in range(length)]
     else:
-        if len(var) != length:
-            raise ValueError("loss_constructors and loss functions must be a "
-                             "list with length that matches the length of "
-                             "label_cols")
-
+        count = len(var)
+        if count != length:
+            raise ValueError(f'List {var} must be length {length} (found: {count})')
     return var
 
 

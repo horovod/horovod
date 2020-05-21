@@ -15,11 +15,8 @@
 
 import contextlib
 import io
-import math
-import os
 
 import torch
-from torch.utils.tensorboard import SummaryWriter
 
 from pytorch_lightning import Trainer
 
@@ -35,38 +32,18 @@ BYTES_PER_GIB = constants.BYTES_PER_GIB
 CUSTOM_SPARSE = constants.CUSTOM_SPARSE
 
 
-def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_idx, train_rows, val_rows, avg_row_size):
+def RemoteTrainer(estimator, run_id, dataset_idx, train_rows, val_rows, avg_row_size):
     # Estimator parameters
     input_shapes = estimator.getInputShapes()
     label_shapes = estimator.getLabelShapes()
     feature_columns = estimator.getFeatureCols()
     label_columns = estimator.getLabelCols()
-    num_labels = len(label_columns)
     should_validate = estimator.getValidation()
     batch_size = estimator.getBatchSize()
     epochs = estimator.getEpochs()
-    train_steps_per_epoch = estimator.getTrainStepsPerEpoch()
-    validation_steps_per_epoch = estimator.getValidationStepsPerEpoch()
-    sample_weight_col = estimator.getSampleWeightCol()
-    metric_fn_groups = estimator.getMetrics()
     user_shuffle_buffer_size = estimator.getShufflingBufferSize()
-    user_verbose = estimator.getVerbose()
-    train_minibatch_fn = estimator.getTrainMinibatchFn()
-    train_minibatch = train_minibatch_fn if train_minibatch_fn else _train_minibatch_fn()
-    loss_fns_pre_train = to_list(estimator.getLoss(), num_labels)
-    loss_constructors = to_list(estimator.getLossConstructors(), num_labels)
     transformation_fn = estimator.getTransformationFn()
     transformation = transformation_fn if transformation_fn else None
-
-    # If loss weight is not provided, use equal loss for all the labels
-    loss_weights = estimator.getLossWeights()
-    if not loss_weights:
-        loss_weights = [float(1) / num_labels for _ in range(num_labels)]
-    else:
-        if not isinstance(loss_weights, list) or \
-                len(loss_weights) != len(label_columns):
-            raise ValueError('loss_weights needs to be a list with the same '
-                             'length as the label_columns.')
 
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
@@ -86,10 +63,19 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     remote_store = store.to_remote(run_id, dataset_idx)
     is_dbfs = isinstance(store, DBFSLocalStore)
 
+    train_steps_per_epoch = estimator.getTrainStepsPerEpoch()
+    train_percent = train_rows / train_steps_per_epoch if train_steps_per_epoch else 1.0
+
+    val_steps_per_epoch = estimator.getValidationStepsPerEpoch()
+    val_percent = val_rows / val_steps_per_epoch if val_steps_per_epoch else 1.0
+
     def train(serialized_model):
         model = deserialize(serialized_model)
-        trainer = Trainer(distributed_backend='horovod', gpus=1 if torch.cuda.is_available() else 0,
-                          max_epochs=epochs)
+        trainer = Trainer(distributed_backend='horovod',
+                          gpus=1 if torch.cuda.is_available() else 0,
+                          max_epochs=epochs,
+                          train_percent_check=train_percent,
+                          val_percent_check=val_percent)
 
         with make_petastorm_reader(trainer, model, remote_store.train_data_path, 'train_dataloader',
                                    train_reader_worker_count), \
@@ -155,32 +141,6 @@ def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calcula
     return make_petastorm_reader
 
 
-def _train_minibatch_fn():
-    def train_minibatch(model, optimizer, transform_outputs, loss_fn, inputs, labels, sample_weights):
-        optimizer.zero_grad()
-        outputs = model(*inputs)
-        outputs, labels = transform_outputs(outputs, labels)
-        loss = loss_fn(outputs, labels, sample_weights)
-        loss.backward()
-        optimizer.step()
-        return outputs, loss
-    return train_minibatch
-
-
-def _get_optimizer_with_unscaled_lr_fn():
-    def get_optimizer_with_unscaled_lr(hvd, current_optimizer, optimizer_cls, model):
-        optimizer_state = current_optimizer.state_dict()
-        # scale down the learning rate with the number of horovod workers
-        for i in range(len(optimizer_state['param_groups'])):
-            optimizer_state['param_groups'][i]['lr'] = \
-                optimizer_state['param_groups'][i]['lr'] / hvd.size()
-        optimizer = optimizer_cls(model.parameters(), lr=1)
-        optimizer.load_state_dict(optimizer_state)
-        return optimizer
-
-    return get_optimizer_with_unscaled_lr
-
-
 def _calculate_shuffle_buffer_size_fn(train_rows, avg_row_size, user_shuffle_buffer_size):
     def calculate_shuffle_buffer_size():
         """
@@ -226,40 +186,6 @@ def _calculate_shuffle_buffer_size_fn(train_rows, avg_row_size, user_shuffle_buf
     return calculate_shuffle_buffer_size
 
 
-def _construct_metric_value_holders_fn():
-    def construct_metric_value_holders(metric_class, metric_fn_groups, label_columns, hvd):
-        metric_values = []
-        for group_number, metric_group in enumerate(metric_fn_groups):
-            metric_group_val = []
-            for label_col in label_columns:
-                metric_group_val.append(
-                    metric_class('group_' + str(group_number) + '_' + label_col, hvd))
-
-            metric_values.append(metric_group_val)
-        return metric_values
-    return construct_metric_value_holders
-
-
-def _metric_cls():
-    # Horovod: average metrics from distributed training.
-    class Metric(object):
-        def __init__(self, name, hvd):
-            self.name = name
-            self.sum = torch.tensor(0.)
-            self.n = torch.tensor(0.)
-            self.hvd = hvd
-
-        def update(self, val):
-            self.sum += self.hvd.allreduce(val.detach().cpu(), name=self.name)
-            self.n += 1
-
-        @property
-        def avg(self):
-            return self.sum / self.n
-
-    return Metric
-
-
 def _prepare_np_data_fn():
     def prepare_np_data(rows, col_name, metadata):
         intermediate_format = metadata[col_name]['intermediate_format']
@@ -276,66 +202,6 @@ def _prepare_np_data_fn():
         return dense_rows
 
     return prepare_np_data
-
-
-def _get_metric_avgs_fn():
-    def get_metric_avgs(metric_value_groups):
-        all_metric_groups_values = []
-        for metric_value_group in metric_value_groups:
-            metric_avgs = {}
-            for metric in metric_value_group:
-                metric_avgs[metric.name] = metric.avg.item()
-            all_metric_groups_values.append(metric_avgs)
-        return all_metric_groups_values
-
-    return get_metric_avgs
-
-
-def _update_metrics_fn(metric_fn_groups):
-    def update_metrics(metric_value_groups, outputs, labels):
-        """
-        metric_value_groups is a list of metric functions. For example, for a model with 3
-        outputs, we can define these two metric groups
-        [
-            [metric_fn1],
-            [metric_fn21,metric_fn22,metric_fn23],
-        ]
-
-        In this example, first metric group provides only one metric function. This
-        function will be used to calculate the metric on all of the model outputs. Second
-        metric groups, however, defines one metric function per output.
-        """
-
-        num_outputs = len(outputs)
-        for metric_fn_group, metric_value_group in zip(metric_fn_groups, metric_value_groups):
-            if len(metric_fn_group) == 1:
-                _metric_fn_group = [metric_fn_group[0] for _ in range(num_outputs)]
-            else:
-                _metric_fn_group = metric_fn_group
-
-            for metric_val, metric_fn, output_group, label_group in \
-                    zip(metric_value_group, _metric_fn_group, outputs, labels):
-                metric_val.update(metric_fn(output_group, label_group))
-
-        return metric_value_groups
-
-    return update_metrics
-
-
-def _write_metrics_summary_fn():
-    def write_metrics_summary(stage, epoch, loss_metric, metric_value_groups, log_writer):
-        if not log_writer:
-            return
-
-        log_writer.add_scalar('{}/{}'.format(stage, loss_metric.name),
-                              loss_metric.avg.item(), epoch)
-
-        for idx, metric_value_group in enumerate(metric_value_groups):
-            for metric in metric_value_group:
-                log_writer.add_scalar('{}/{}:{}'.format(stage, metric.name, idx),
-                                      metric.avg.item(), epoch)
-
-    return write_metrics_summary
 
 
 def _calculate_loss_fn():
