@@ -281,10 +281,6 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         if run_id is None:
             run_id = 'pytorch_' + str(int(time.time()))
 
-        last_checkpoint_state = None
-        if self._has_checkpoint(run_id):
-            last_checkpoint_state = self._load_checkpoint(run_id)
-
         model = self.getModel()
         is_legacy = not isinstance(model, LightningModule)
         if is_legacy:
@@ -299,8 +295,10 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                                         validation=self.getValidation())
 
         serialized_model = serialize_fn()(model)
+        ckpt_bytes = self._read_checkpoint(run_id) if self._has_checkpoint(run_id) else None
         trainer = remote.RemoteTrainer(self,
                                        metadata=metadata,
+                                       ckpt_bytes=ckpt_bytes,
                                        run_id=run_id,
                                        dataset_idx=dataset_idx,
                                        train_rows=train_rows,
@@ -310,15 +308,14 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         handle = backend.run(trainer, args=(serialized_model,), env={})
         return self._create_model(handle, run_id, metadata)
 
-    def _load_checkpoint(self, run_id):
+    def _read_checkpoint(self, run_id):
         store = self.getStore()
         last_ckpt_path = store.get_checkpoint_path(run_id)
 
         if self.getVerbose():
             print('Resuming training from last checkpoint: {}'.format(last_ckpt_path))
 
-        ckpt_file = io.BytesIO(store.read(last_ckpt_path))
-        return torch.load(ckpt_file)
+        return store.read(last_ckpt_path)
 
     def _create_model(self, run_results, run_id, metadata):
         serialized_checkpoint = run_results[0]

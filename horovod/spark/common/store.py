@@ -236,7 +236,7 @@ class FilesystemStore(Store):
             if self._save_runs else None
 
     def get_checkpoint_filename(self):
-        return 'checkpoint.h5'
+        return 'checkpoint'
 
     def get_logs_subdir(self):
         return 'logs'
