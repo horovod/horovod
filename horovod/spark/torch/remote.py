@@ -87,10 +87,8 @@ def RemoteTrainer(estimator, metadata, run_id, dataset_idx, train_rows, val_rows
             trainer.fit(model)
 
         serialized_checkpoint = io.BytesIO()
-        if is_legacy:
-            torch.save({'model': model._model.state_dict()}, serialized_checkpoint)
-        else:
-            torch.save({'model': model.state_dict()}, serialized_checkpoint)
+        module = model if not is_legacy else model._model
+        torch.save({'model': module.state_dict()}, serialized_checkpoint)
         serialized_checkpoint.seek(0)
         return serialized_checkpoint
     return train
