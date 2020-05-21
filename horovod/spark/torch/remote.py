@@ -32,7 +32,7 @@ BYTES_PER_GIB = constants.BYTES_PER_GIB
 CUSTOM_SPARSE = constants.CUSTOM_SPARSE
 
 
-def RemoteTrainer(estimator, run_id, dataset_idx, train_rows, val_rows, avg_row_size):
+def RemoteTrainer(estimator, metadata, run_id, dataset_idx, train_rows, val_rows, avg_row_size):
     # Estimator parameters
     input_shapes = estimator.getInputShapes()
     label_shapes = estimator.getLabelShapes()
@@ -55,8 +55,10 @@ def RemoteTrainer(estimator, run_id, dataset_idx, train_rows, val_rows, avg_row_
         train_rows, avg_row_size, user_shuffle_buffer_size)
 
     schema_fields = feature_columns + label_columns
+    dataloader_cls = _create_dataloader(input_shapes, metadata)
     make_petastorm_reader = _make_petastorm_reader_fn(transformation, schema_fields,
-                                                      batch_size, calculate_shuffle_buffer_size)
+                                                      batch_size, calculate_shuffle_buffer_size,
+                                                      dataloader_cls)
 
     # Storage
     store = estimator.getStore()
@@ -91,11 +93,10 @@ def RemoteTrainer(estimator, run_id, dataset_idx, train_rows, val_rows, avg_row_
     return train
 
 
-def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calculate_shuffle_buffer_size):
+def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calculate_shuffle_buffer_size, dataloader_cls):
     @contextlib.contextmanager
     def make_petastorm_reader(trainer, model, data_path, dataloader_attr, reader_worker_count, should_read=True):
         from petastorm import TransformSpec, make_reader, make_batch_reader
-        from petastorm.pytorch import BatchedDataLoader
         import horovod.torch as hvd
 
         if not should_read or trainer.is_overridden(dataloader_attr, model):
@@ -130,8 +131,8 @@ def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calcula
                             transform_spec=transform_spec,
                             **reader_factory_kwargs) as reader:
             def dataloader_fn():
-                return BatchedDataLoader(reader, batch_size=batch_size,
-                                         shuffling_queue_capacity=calculate_shuffle_buffer_size())
+                return dataloader_cls(reader, batch_size=batch_size,
+                                      shuffling_queue_capacity=calculate_shuffle_buffer_size())
             try:
                 print('PATCH: {} {}'.format(dataloader_attr, dataloader_fn.__code__))
                 setattr(model, dataloader_attr, dataloader_fn)
@@ -186,8 +187,28 @@ def _calculate_shuffle_buffer_size_fn(train_rows, avg_row_size, user_shuffle_buf
     return calculate_shuffle_buffer_size
 
 
-def _prepare_np_data_fn():
-    def prepare_np_data(rows, col_name, metadata):
+def _create_dataloader(input_shapes, metadata):
+    from petastorm.pytorch import BatchedDataLoader
+
+    prepare_data = _prepare_data_fn(metadata)
+
+    class _DataLoader(BatchedDataLoader):
+        def _yield_batches(self, keys):
+            for batch in super()._yield_batches(keys):
+                batch = {
+                    k: prepare_data(k, v).reshape(input_shapes[k]) if k in input_shapes else v
+                    for k, v in batch.items()
+                }
+                yield batch
+
+    return _DataLoader
+
+
+def _prepare_data_fn(metadata):
+    def prepare_data(col_name, rows):
+        if col_name not in metadata:
+            return rows
+
         intermediate_format = metadata[col_name]['intermediate_format']
         if intermediate_format != CUSTOM_SPARSE:
             return rows
@@ -200,8 +221,7 @@ def _prepare_np_data_fn():
             dense_rows[r][rows[r][1:size + 1].long()] = \
                 rows[r][size + 1:2 * size + 1]
         return dense_rows
-
-    return prepare_np_data
+    return prepare_data
 
 
 def _calculate_loss_fn():
