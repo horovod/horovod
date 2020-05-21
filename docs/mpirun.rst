@@ -48,7 +48,7 @@ to the socket.
 The ``-mca pml ob1`` and ``-mca btl ^openib`` flags force the use of TCP for MPI communication.  This avoids many
 multiprocessing issues that Open MPI has with RDMA which typically results in segmentation faults.  Using TCP for MPI
 does not have noticeable performance impact since most of the heavy communication is done by NCCL, which will use RDMA
-via RoCE or InfiniBand if they're available (see `Horovod on GPU <gpus.md>`_).  Notable exceptions from this rule are
+via RoCE or InfiniBand if they're available (see `Horovod on GPU <gpus.rst>`_).  Notable exceptions from this rule are
 models that heavily use ``hvd.broadcast()`` and ``hvd.allgather()`` operations.  To make those operations use RDMA,
 read the `Open MPI with RDMA <#open-mpi-with-rdma>`_ section below.
 
@@ -70,7 +70,7 @@ Specify custom SSH ports with ``-mca plm_rsh_args "-p <port>"`` as follows:
         -mca pml ob1 -mca btl ^openib \
         python train.py
 
-This is frequently useful in the case of `running Horovod in Docker environment <docker.md>`_.
+This is frequently useful in the case of `running Horovod in Docker environment <docker.rst>`_.
 
 Open MPI with RDMA
 ------------------
