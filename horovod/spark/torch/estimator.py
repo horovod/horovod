@@ -258,7 +258,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
         model = self.getModel()
         if isinstance(model, LightningModule):
-            if self.getOptimizer():
+            if self._get_optimizer():
                 raise ValueError('Parameter `optimizer` cannot be specified with a `LightningModule`. '
                                  'Implement `LightningModule.configure_optimizers` instead.')
 
@@ -286,7 +286,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
             last_checkpoint_state = self._load_checkpoint(run_id)
 
         model = self.getModel()
-        if not isinstance(model, LightningModule):
+        is_legacy = not isinstance(model, LightningModule)
+        if is_legacy:
             # Legacy: convert params to LightningModule
             model = to_lightning_module(model=self.getModel(),
                                         optimizer=self._get_optimizer(),
@@ -294,7 +295,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                                         loss_weights=self.getLossWeights(),
                                         feature_cols=self.getFeatureCols(),
                                         label_cols=self.getLabelCols(),
-                                        sample_weights_col=self.getSampleWeightCol())
+                                        sample_weights_col=self.getSampleWeightCol(),
+                                        validation=self.getValidation())
 
         serialized_model = serialize_fn()(model)
         trainer = remote.RemoteTrainer(self,
@@ -303,7 +305,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                                        dataset_idx=dataset_idx,
                                        train_rows=train_rows,
                                        val_rows=val_rows,
-                                       avg_row_size=avg_row_size)
+                                       avg_row_size=avg_row_size,
+                                       is_legacy=is_legacy)
         handle = backend.run(trainer, args=(serialized_model,), env={})
         return self._create_model(handle, run_id, metadata)
 
