@@ -1905,7 +1905,7 @@ steps:
   agents:
     queue: 2x-gpu-g4
 - label: ':terminal: Test Horovodrun (test-gpu-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0)'
-  command: echo 'localhost slots=2' > hostfile
+  command: bash -c "echo 'localhost slots=2' > hostfile && horovodrun -np 2 -hostfile hostfile python /horovod/examples/mxnet_mnist.py"
   plugins:
   - docker-compose#v2.6.0:
       run: test-gpu-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0
@@ -2283,7 +2283,7 @@ steps:
   agents:
     queue: 2x-gpu-g4
 - label: ':terminal: Test Horovodrun (test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0)'
-  command: echo 'localhost slots=2' > hostfile
+  command: bash -c "echo 'localhost slots=2' > hostfile && horovodrun -np 2 -hostfile hostfile python /horovod/examples/mxnet_mnist.py"
   plugins:
   - docker-compose#v2.6.0:
       run: test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0
@@ -2633,7 +2633,7 @@ steps:
   agents:
     queue: 2x-gpu-g4
 - label: ':terminal: Test Horovodrun (test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0)'
-  command: echo 'localhost slots=2' > hostfile
+  command: bash -c "echo 'localhost slots=2' > hostfile && horovodrun -np 2 -hostfile hostfile python /horovod/examples/mxnet_mnist.py"
   plugins:
   - docker-compose#v2.6.0:
       run: test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0
