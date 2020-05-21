@@ -15,10 +15,14 @@
 
 import contextlib
 import io
+import os
+import tempfile
 
 import torch
 
 from pytorch_lightning import Trainer
+from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.loggers import TensorBoardLogger
 
 from horovod.spark.common import constants
 from horovod.spark.common.util import _get_assigned_gpu_or_default, to_list
@@ -32,7 +36,7 @@ BYTES_PER_GIB = constants.BYTES_PER_GIB
 CUSTOM_SPARSE = constants.CUSTOM_SPARSE
 
 
-def RemoteTrainer(estimator, metadata, run_id, dataset_idx, train_rows, val_rows, avg_row_size, is_legacy):
+def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_rows, val_rows, avg_row_size, is_legacy):
     # Estimator parameters
     input_shapes = estimator.getInputShapes()
     label_shapes = estimator.getLabelShapes()
@@ -72,25 +76,38 @@ def RemoteTrainer(estimator, metadata, run_id, dataset_idx, train_rows, val_rows
     val_percent = val_rows / val_steps_per_epoch if val_steps_per_epoch else 1.0
 
     def train(serialized_model):
-        model = deserialize(serialized_model)
-        trainer = Trainer(distributed_backend='horovod',
-                          gpus=1 if torch.cuda.is_available() else 0,
-                          max_epochs=epochs,
-                          train_percent_check=train_percent,
-                          val_percent_check=val_percent)
+        with tempfile.NamedTemporaryFile() as last_ckpt_file, remote_store.get_local_output_dir() as run_output_dir:
+            if ckpt_bytes:
+                last_ckpt_file.write(ckpt_bytes)
 
-        with make_petastorm_reader(trainer, model, remote_store.train_data_path, 'train_dataloader',
-                                   train_reader_worker_count), \
-                make_petastorm_reader(trainer, model, remote_store.val_data_path, 'val_dataloader',
-                                      val_reader_worker_count, should_validate):
+            logs_path = os.path.join(run_output_dir, remote_store.logs_subdir)
+            logger = TensorBoardLogger(logs_path)
 
-            trainer.fit(model)
+            ckpt_path = os.path.join(run_output_dir, remote_store.checkpoint_filename)
+            checkpoint_callback = ModelCheckpoint(filepath=ckpt_path)
 
-        serialized_checkpoint = io.BytesIO()
-        module = model if not is_legacy else model._model
-        torch.save({'model': module.state_dict()}, serialized_checkpoint)
-        serialized_checkpoint.seek(0)
-        return serialized_checkpoint
+            model = deserialize(serialized_model)
+            trainer = Trainer(distributed_backend='horovod',
+                              gpus=1 if torch.cuda.is_available() else 0,
+                              max_epochs=epochs,
+                              train_percent_check=train_percent,
+                              val_percent_check=val_percent,
+                              logger=logger,
+                              checkpoint_callback=checkpoint_callback,
+                              resume_from_checkpoint=last_ckpt_file.name if ckpt_bytes else None)
+
+            with make_petastorm_reader(trainer, model, remote_store.train_data_path, 'train_dataloader',
+                                       train_reader_worker_count), \
+                    make_petastorm_reader(trainer, model, remote_store.val_data_path, 'val_dataloader',
+                                          val_reader_worker_count, should_validate):
+
+                trainer.fit(model)
+
+            serialized_checkpoint = io.BytesIO()
+            module = model if not is_legacy else model._model
+            torch.save({'model': module.state_dict()}, serialized_checkpoint)
+            serialized_checkpoint.seek(0)
+            return serialized_checkpoint
     return train
 
 
