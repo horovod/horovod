@@ -298,6 +298,7 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
         serialized_model = serialize_fn()(model)
         trainer = remote.RemoteTrainer(self,
+                                       metadata=metadata,
                                        run_id=run_id,
                                        dataset_idx=dataset_idx,
                                        train_rows=train_rows,
