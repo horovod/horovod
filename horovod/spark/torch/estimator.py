@@ -19,11 +19,14 @@ import copy
 import io
 import numbers
 import time
+import warnings
 
 from pyspark import keyword_only
 from pyspark.ml.param.shared import Param, Params, TypeConverters
 from pyspark.ml.util import MLWritable, MLReadable
 from pyspark.sql import SparkSession
+
+from pytorch_lightning import LightningModule
 
 from horovod.runner.common.util import codec
 from horovod.spark.common import util
@@ -32,6 +35,7 @@ from horovod.spark.common.params import EstimatorParams
 from horovod.spark.common.serialization import \
     HorovodParamsWriter, HorovodParamsReader
 from horovod.spark.torch import remote
+from horovod.spark.torch.legacy import to_lightning_module
 from horovod.spark.torch.util import deserialize_fn, serialize_fn, \
     save_into_bio
 
@@ -249,6 +253,27 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
                                        input_shapes=self.getInputShapes(),
                                        label_shapes=self.getLabelShapes())
 
+    def _check_params(self, metadata):
+        super()._check_params(metadata)
+
+        model = self.getModel()
+        if isinstance(model, LightningModule):
+            if self.getOptimizer():
+                raise ValueError('Parameter `optimizer` cannot be specified with a `LightningModule`. '
+                                 'Implement `LightningModule.configure_optimizers` instead.')
+
+            if self.getLoss():
+                raise ValueError('Parameter `loss` cannot be specified with a `LightningModule`. '
+                                 'Implement `LightningModule.train_step` instead.')
+
+            if self.getLossWeights():
+                raise ValueError('Parameter `loss_weights` cannot be specified with a `LightningModule`. '
+                                 'Implement `LightningModule.train_step` instead.')
+        else:
+            if self.getLossWeights():
+                warnings.warn('Parameter `loss_weights` has been replaced by the `LightningModule` API '
+                              'and will be removed in v0.21.0', DeprecationWarning)
+
     def _fit_on_prepared_data(self, backend, train_rows, val_rows, metadata, avg_row_size, dataset_idx=None):
         self._check_params(metadata)
 
@@ -260,26 +285,25 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
         if self._has_checkpoint(run_id):
             last_checkpoint_state = self._load_checkpoint(run_id)
 
-        # Model parameters
-        model_pre_train = self.getModel()
-        model_state = model_pre_train.state_dict()
-        serialized_model = serialize_fn()(model_pre_train)
+        model = self.getModel()
+        if not isinstance(model, LightningModule):
+            # Legacy: convert params to LightningModule
+            model = to_lightning_module(model=self.getModel(),
+                                        optimizer=self._get_optimizer(),
+                                        loss_fns=self.getLoss(),
+                                        loss_weights=self.getLossWeights(),
+                                        feature_cols=self.getFeatureCols(),
+                                        label_cols=self.getLabelCols(),
+                                        sample_weights_col=self.getSampleWeightCol())
 
-        # Optimizer parameters
-        optimizer = self._get_optimizer()
-        # optimizer_cls = optimizer.__class__
-        # optimizer_state = optimizer.state_dict()
-
-        # Combine model and optimizer state
-        # model_opt_state = {'model': model_state, 'optimizer': optimizer_state} \
-        #     if last_checkpoint_state is None else last_checkpoint_state
-        # model_opt_state_serialized = save_into_bio(model_opt_state, torch.save)
-
-        trainer = remote.RemoteTrainer(self, metadata, last_checkpoint_state, run_id, dataset_idx,
-                                       train_rows, val_rows, avg_row_size)
-        handle = backend.run(trainer,
-                             args=(serialized_model,),
-                             env={})
+        serialized_model = serialize_fn()(model)
+        trainer = remote.RemoteTrainer(self,
+                                       run_id=run_id,
+                                       dataset_idx=dataset_idx,
+                                       train_rows=train_rows,
+                                       val_rows=val_rows,
+                                       avg_row_size=avg_row_size)
+        handle = backend.run(trainer, args=(serialized_model,), env={})
         return self._create_model(handle, run_id, metadata)
 
     def _load_checkpoint(self, run_id):
