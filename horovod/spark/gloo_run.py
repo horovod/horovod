@@ -25,7 +25,8 @@ def _exec_command_fn(driver_addresses, key, settings, env):
     def _exec_command(command, alloc_info, event):
         host = alloc_info.hostname
         local_rank = alloc_info.local_rank
-        result = rsh(driver_addresses, key, settings, host, command, env, local_rank, False, event)
+        verbose = settings.verbose
+        result = rsh(driver_addresses, key, host, command, env, local_rank, verbose, False, event)
         return result, time.time()
     return _exec_command
 
@@ -46,6 +47,10 @@ def gloo_run(settings, nics, driver, env):
     if sys.version_info < (3, 0, 0):
         raise Exception('Horovod on Spark over Gloo only supported on Python3')
 
+    # we don't want the key to be serialized along with settings from here on
+    key = settings.key
+    settings.key = None
+
     # Each thread will use SparkTaskClient to launch the job on each remote host. If an
     # error occurs in one thread, entire process will be terminated. Otherwise,
     # threads will keep running and ssh session.
@@ -56,5 +61,5 @@ def gloo_run(settings, nics, driver, env):
                codec.dumps_base64(driver.addresses()),
                codec.dumps_base64(settings))
 
-    exec_command = _exec_command_fn(driver.addresses(), settings.key, settings, env)
+    exec_command = _exec_command_fn(driver.addresses(), key, settings, env)
     launch_gloo(command, exec_command, settings, nics, {}, server_ip)
