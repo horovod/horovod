@@ -86,7 +86,8 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
     ssh_port_arg = '-p {ssh_port}'.format(
         ssh_port=ssh_port) if ssh_port else ''
 
-    ssh_command_format = 'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} date'
+    ssh_command_format = 'ssh -o PasswordAuthentication=no -o StrictHostKeyChecking=no' \
+                         ' {host} {ssh_port_arg} true'
 
     args_list = [[ssh_command_format.format(host=host_address,
                                             ssh_port_arg=ssh_port_arg)]
@@ -105,7 +106,7 @@ def _check_all_hosts_ssh_successful(host_addresses, ssh_port=None):
 
             ssh_successful_to_all_hosts = False
     if not ssh_successful_to_all_hosts:
-        exit(1)
+        return None  # we could return False here but do not want it to be cached
     return True
 
 
@@ -642,8 +643,8 @@ def _run_static(args):
         if settings.verbose >= 2:
             print('Checking ssh on all remote hosts.')
         # Check if we can ssh into all remote hosts successfully.
-        _check_all_hosts_ssh_successful(remote_host_names, args.ssh_port,
-                                        fn_cache=fn_cache)
+        if not _check_all_hosts_ssh_successful(remote_host_names, args.ssh_port, fn_cache=fn_cache):
+            raise RuntimeError('could not connect to some hosts via ssh')
         if settings.verbose >= 2:
             print('SSH was successful into all the remote hosts.')
 

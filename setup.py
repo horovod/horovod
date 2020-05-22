@@ -1576,7 +1576,7 @@ class custom_build_ext(build_ext):
 
 
 require_list = ['cloudpickle', 'psutil', 'pyyaml']
-test_require_list = ['mock', 'pytest', 'pytest-forked']
+test_require_list = ['mock', 'pytest', 'pytest-forked', 'parameterized']
 
 # framework dependencies
 tensorflow_require_list = ['tensorflow']
