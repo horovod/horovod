@@ -408,13 +408,6 @@ class RunTests(unittest.TestCase):
             self.assertNotEqual(host_hash(), hash)
         self.assertEqual(host_hash(), hash)
 
-    def test_settings_dump_drops_key(self):
-        settings = hvd_settings.Settings(verbose=2, key="a secret key")
-        clone = codec.loads_base64(codec.dumps_base64(settings))
-        self.assertEqual(settings.verbose, clone.verbose)
-        self.assertIsNotNone(settings.key)
-        self.assertIsNone(clone.key)
-
     def test_get_mpi_implementation(self):
         def test(output, expected, exit_code=0):
             ret = (output, exit_code) if output is not None else None

@@ -38,6 +38,8 @@ def mpi_run(settings, nics, driver, env, stdout=None, stderr=None):
 
     # Pass secret key through the environment variables.
     env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(settings.key)
+    # we don't want the key to be serialized along with settings from here on
+    settings.key = None
 
     rsh_agent = (sys.executable,
                  '-m', 'horovod.spark.driver.mpirun_rsh',

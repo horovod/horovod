@@ -379,6 +379,19 @@ class SparkTests(unittest.TestCase):
         actual_stdout = execute_kwargs.get('stdout')
         actual_stderr = execute_kwargs.get('stderr')
 
+        # the settings should not contain the key
+        serialized_settings = actual_command.split(' ')[-1]
+        actual_settings = codec.loads_base64(serialized_settings)
+        self.assertIsNone(actual_settings.key)
+
+        # the settings for the rsh agent should not contain the key
+        actual_rsh_command_match = re.match('.* -mca plm_rsh_agent "([^"]+)" .*', actual_command)
+        self.assertTrue(actual_rsh_command_match, 'could not extract rsh agent from mpirun command')
+        actual_rsh_command = actual_rsh_command_match.group(1)
+        serialized_rsh_settings = actual_rsh_command.split(' ')[-1]
+        actual_rsh_settings = codec.loads_base64(serialized_rsh_settings)
+        self.assertIsNone(actual_rsh_settings.key)
+
         # for better comparison replace sections in actual_command that change across runs / hosts
         for replacement in ['-H [^ ]+', '-mca btl_tcp_if_include [^ ]+', '-x NCCL_SOCKET_IFNAME=[^ ]+',
                             r'"[^"]+python[0-9.]*', r' [^"]+python[0-9.]*',
@@ -489,8 +502,14 @@ class SparkTests(unittest.TestCase):
                                                       local_size=alloc_info.local_size,
                                                       np=num_proc))
 
-            # for better comparison replace sections in actual_command that change across runs / hosts
             actual_command = call_args[0][0]
+
+            # the settings should not contain the key
+            serialized_settings = actual_command.split(' ')[-1]
+            actual_settings = codec.loads_base64(serialized_settings)
+            self.assertIsNone(actual_settings.key)
+
+            # for better comparison replace sections in actual_command that change across runs / hosts
             for replacement in ['_HOROVOD_SECRET_KEY=[^ ]+',
                                 'HOROVOD_HOSTNAME=[^ ]+',
                                 'HOROVOD_GLOO_RENDEZVOUS_ADDR=[^ ]+',
@@ -548,7 +567,7 @@ class SparkTests(unittest.TestCase):
         settings = hvd_settings.Settings(verbose=2, key=key)
         env = {}
 
-        res = rsh(driver.addresses(), key, settings, host_hash, command, env, 0, False, events=events)
+        res = rsh(driver.addresses(), key, host_hash, command, env, 0, settings.verbose, False, events=events)
         self.assertEqual(expected_result, res)
 
     def test_mpirun_exec_fn(self):
