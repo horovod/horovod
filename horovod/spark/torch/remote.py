@@ -84,6 +84,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             logger = TensorBoardLogger(logs_path)
 
             ckpt_path = os.path.join(run_output_dir, remote_store.checkpoint_filename)
+            os.makedirs(ckpt_path, exist_ok=True)
             checkpoint_callback = ModelCheckpoint(filepath=ckpt_path)
 
             model = deserialize(serialized_model)

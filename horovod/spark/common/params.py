@@ -53,8 +53,7 @@ class EstimatorParams(Params):
     label_cols = Param(Params._dummy(), 'label_cols', 'label column names',
                        typeConverter=TypeConverters.toListString)
     validation = Param(Params._dummy(), 'validation',
-                       'one of: float validation split [0, 1), or string validation column name',
-                       typeConverter=TypeConverters.toString)
+                       'one of: float validation split [0, 1), or string validation column name')
     callbacks = Param(Params._dummy(), 'callbacks', 'callbacks')
     batch_size = Param(Params._dummy(), 'batch_size', 'batch size',
                        typeConverter=TypeConverters.toInt)

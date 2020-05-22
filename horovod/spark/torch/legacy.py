@@ -101,7 +101,7 @@ def to_lightning_module(model, optimizer, loss_fns, loss_weights, feature_cols, 
         def validation_step(batch, batch_nb):
             loss = lightning_module._step(batch)
             tensorboard_logs = {'val_loss': loss}
-            return {'loss': loss, 'log': tensorboard_logs}
+            return {'val_loss': loss, 'log': tensorboard_logs}
         lightning_module.validation_step = validation_step
 
     return lightning_module
