@@ -41,7 +41,8 @@ from horovod.run.mpi_run import _get_mpi_implementation, _get_mpi_implementation
 from horovod.run.runner import parse_args, parse_host_files, run_controller, HorovodArgs, _run
 from horovod.run.util.threads import in_thread, on_event
 
-from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay, wait
+from common import is_built, lsf_and_jsrun, override_args, override_env, \
+    temppath, tempdir, delay, wait
 
 
 class RunTests(unittest.TestCase):
@@ -352,6 +353,61 @@ class RunTests(unittest.TestCase):
         self.assertGreaterEqual(duration, 1.0)
         self.assertLess(duration, 2.0 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S, 'sleep should not finish')
         self.assertGreater(sleep, 2.0 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S, 'sleep should allow for GRACEFUL_TERMINATION_TIME_S')
+
+    def test_safe_shell_exec_interrupts_on_event_flakiness(self):
+        tests = 100
+        sleep = 10
+        exits = [None] * tests
+        interrupt = threading.Event()
+
+        def filename(index):
+            return 'thread-{}-started'.format(index)
+
+        def filepath(dir, index):
+            return os.path.join(dir, filename(index))
+
+        def exec(dir, index):
+            file = filepath(dir, index)
+            command = 'touch {} && sleep {}'.format(file, sleep)
+            stderr = io.StringIO()
+            exit_code = safe_shell_exec.execute(command, stderr=stderr, index=test, events=[interrupt])
+            exits[index] = exit_code
+
+        threads = []
+        with tempdir() as dir:
+            try:
+                start = time.time()
+                for test in range(tests):
+                    thread = in_thread(exec, (dir, test))
+                    threads.append(thread)
+
+                running = 0
+                while True:
+                    files = os.listdir(dir)
+                    if len(files) > running:
+                        print('{} threads started'.format(len(files)))
+                        running = len(files)
+
+                    if len(files) == tests and \
+                            all([filename(index) in files for index in range(tests)]):
+                        break
+
+                    time.sleep(0.1)
+                duration = time.time() - start
+                self.assertLess(duration, sleep, 'starting {} threads took longer than '
+                                                 'the first thread sleeps'.format(tests))
+
+                print('sending event')
+                interrupt.set()
+
+                for thread in threads:
+                    thread.join()
+                print('all threads terminated')
+            finally:
+                # in case of an exception or false assertion, stop the threads here
+                interrupt.set()
+
+        self.assertEqual([143] * tests, exits)
 
     def test_safe_shell_exec_interrupts_on_parent_shutdown(self):
         sleep = 20
