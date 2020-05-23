@@ -14,17 +14,24 @@
 # ==============================================================================
 
 import contextlib
+import io
 import itertools
-import unittest
+import os
+import sys
 import warnings
 
+import mock
 from parameterized import parameterized
 import pytest
-import mock
+import unittest
 
 from horovod.common.util import gloo_built, mpi_built
 from horovod.run.common.util import safe_shell_exec
 from horovod.run.runner import HorovodArgs, _check_all_hosts_ssh_successful, _run
+
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
+
+from common import capture
 
 
 def values_name_func(testcase_func, param_num, param):
@@ -79,14 +86,49 @@ class StaticRunTests(unittest.TestCase):
         hargs.verbose = 2
         hargs.disable_cache = True
 
-        with mock.patch('horovod.run.runner.network.filter_local_addresses',
-                        side_effect=lambda hosts: [host for host in hosts if host not in local_hosts]), \
-             mock.patch('horovod.run.gloo_run.network.get_local_host_addresses',
-                        return_value=local_hosts), \
-             mock.patch('horovod.run.gloo_run.network.resolve_host_address',
-                        side_effect=lambda host: host), \
-             mock.patch('horovod.run.mpi_run.os.execve') as exec:
-            yield hargs, exec
+        stdout = io.StringIO()
+        with capture(stdout=stdout):
+            with mock.patch('horovod.run.runner.network.filter_local_addresses',
+                            side_effect=lambda hosts: [host for host in hosts if host not in local_hosts]), \
+                 mock.patch('horovod.run.gloo_run.network.get_local_host_addresses',
+                            return_value=local_hosts), \
+                 mock.patch('horovod.run.gloo_run.network.resolve_host_address',
+                            side_effect=lambda host: host), \
+                 mock.patch('horovod.run.mpi_run.os.execve') as exec:
+                yield hargs, exec
+
+        stdout = stdout.readlines()
+        print(''.join(stdout), file=sys.stdout)
+
+        if mode == 'local':
+            self.assertIn('Remote host found: \n', stdout)
+            self.assertIn('All hosts are local, finding the interfaces with address 127.0.0.1\n', stdout)
+            self.assertEqual(1, len([line for line in stdout if line.startswith('Local interface found ')]))
+        elif mode == 'mixed':
+            self.assertIn('Remote host found: 127.0.0.1\n', stdout)
+        elif mode == 'remote':
+            self.assertIn('Remote host found: localhost 127.0.0.1\n', stdout)
+        else:
+            raise RuntimeError('unknown mode {}'.format(mode))
+
+        if mode in ['mixed', 'remote']:
+            self.assertIn('Checking ssh on all remote hosts.\n', stdout)
+            self.assertIn('SSH was successful into all the remote hosts.\n', stdout)
+            self.assertIn('Testing interfaces on all the hosts.\n', stdout)
+            self.assertIn('Launched horovod server.\n', stdout)
+            self.assertEqual(2, len([line for line in stdout if line.startswith('Launching horovod task function: ')]))
+            self.assertEqual(1, len([line for line in stdout if line.startswith('Launching horovod task function: ssh -o PasswordAuthentication=no -o StrictHostKeyChecking=no 127.0.0.1 ')]), stdout)
+            if mode == 'remote':
+                self.assertEqual(1, len([line for line in stdout if line.startswith('Launching horovod task function: ssh -o PasswordAuthentication=no -o StrictHostKeyChecking=no localhost ')]))
+            else:
+                self.assertEqual(1, len([line for line in stdout if line.startswith('Launching horovod task function: ') and not line.startswith('Launching horovod task function: ssh')]))
+            self.assertIn('Attempted to launch horovod task servers.\n', stdout)
+            self.assertIn('Waiting for the hosts to acknowledge.\n', stdout)
+            self.assertIn('Notified all the hosts that the registration is complete.\n', stdout)
+            self.assertIn('Waiting for hosts to perform host-to-host interface checking.\n', stdout)
+            self.assertIn('Host-to-host interface checking successful.\n', stdout)
+            self.assertIn('Interfaces on all the hosts were successfully checked.\n', stdout)
+            self.assertEqual(1, len([line for line in stdout if line.startswith('Common interface found: ')]))
 
     @parameterized.expand(itertools.product(['mpi', 'gloo'], ['local', 'mixed', 'remote'], ['func', 'cmd']),
                           name_func=values_name_func)
