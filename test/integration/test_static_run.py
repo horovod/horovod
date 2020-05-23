@@ -38,13 +38,13 @@ def fn(fail_rank=None):
     return rank
 
 
-class RunIntegrationTests(unittest.TestCase):
+class StaticRunTests(unittest.TestCase):
     """
     Integration tests for horovod.run.
     """
 
     def __init__(self, *args, **kwargs):
-        super(RunIntegrationTests, self).__init__(*args, **kwargs)
+        super(StaticRunTests, self).__init__(*args, **kwargs)
         warnings.simplefilter('module')
 
     @contextlib.contextmanager
