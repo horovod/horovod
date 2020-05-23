@@ -23,6 +23,7 @@ import pytest
 import mock
 
 from horovod.common.util import gloo_built, mpi_built
+from horovod.run.common.util import safe_shell_exec
 from horovod.run.runner import HorovodArgs, _check_all_hosts_ssh_successful, _run
 
 
@@ -83,8 +84,9 @@ class StaticRunTests(unittest.TestCase):
              mock.patch('horovod.run.gloo_run.network.get_local_host_addresses',
                         return_value=local_hosts), \
              mock.patch('horovod.run.gloo_run.network.resolve_host_address',
-                        side_effect=lambda host: host):
-            yield hargs
+                        side_effect=lambda host: host), \
+             mock.patch('horovod.run.mpi_run.os.execve') as exec:
+            yield hargs, exec
 
     @parameterized.expand(itertools.product(['mpi', 'gloo'], ['local', 'mixed', 'remote'], ['func', 'cmd']),
                           name_func=values_name_func)
@@ -93,9 +95,6 @@ class StaticRunTests(unittest.TestCase):
             self.skipTest("Gloo is not available")
         if controller == 'mpi' and not mpi_built():
             self.skipTest("MPI is not available")
-
-        if controller == 'mpi' and run == 'cmd':
-            self.skipTest('MPI with command cannot be tested as it exits the process')
 
         self.do_test_run_with_controller_success(controller, mode, run)
 
@@ -106,9 +105,6 @@ class StaticRunTests(unittest.TestCase):
             self.skipTest("Gloo is not available")
         if controller == 'mpi' and not mpi_built():
             self.skipTest("MPI is not available")
-
-        if controller == 'mpi' and run == 'cmd':
-            self.skipTest('MPI with command cannot be tested as it exits the process')
 
         self.do_test_run_with_controller_failure(controller, mode, run)
 
@@ -122,10 +118,22 @@ class StaticRunTests(unittest.TestCase):
         else:
             self.fail('unknown run argument {}'.format(run))
 
-        with self.horovod_args(mode, controller, run_func=run_func, command=command) as hargs:
-            actual = _run(hargs)
-            expected = list([(rank, hargs.np) for rank in range(hargs.np)]) if run == 'func' else None
-            self.assertEqual(expected, actual)
+        with self.horovod_args(mode, controller, run_func=run_func, command=command) as (hargs, exec):
+            if controller == 'mpi' and run == 'cmd':
+                self.assertIsNone(_run(hargs))
+                exec.assert_called_once()
+                args, kwargs = exec.call_args
+                executable, args, env = args
+                self.assertEqual('/bin/sh', executable)
+                self.assertEqual(3, len(args))
+                self.assertEqual('/bin/sh', args[0])
+                self.assertEqual('-c', args[1])
+                exit_code = safe_shell_exec.execute(args[2], env)
+                self.assertEqual(0, exit_code)
+            else:
+                actual = _run(hargs)
+                expected = list([(rank, hargs.np) for rank in range(hargs.np)]) if run == 'func' else None
+                self.assertEqual(expected, actual)
 
     def do_test_run_with_controller_failure(self, controller, mode, run):
         if run == 'func':
@@ -142,7 +150,18 @@ class StaticRunTests(unittest.TestCase):
         else:
             exception = 'Horovod detected that one or more processes exited with non-zero status'
 
-        with self.horovod_args(mode, controller=controller, run_func=run_func, command=command) as hargs:
-            # an unsuccessful command run on the Horovod cluster will raise an exception
-            with pytest.raises(RuntimeError, match=exception):
-                _run(hargs)
+        with self.horovod_args(mode, controller=controller, run_func=run_func, command=command) as (hargs, exec):
+            if controller == 'mpi' and run == 'cmd':
+                self.assertIsNone(_run(hargs))
+                exec.assert_called_once()
+                args, kwargs = exec.call_args
+                executable, args, env = args
+                self.assertEqual('/bin/sh', executable)
+                self.assertEqual(3, len(args))
+                self.assertEqual('/bin/sh', args[0])
+                self.assertEqual('-c', args[1])
+                exit_code = safe_shell_exec.execute(args[2], env)
+                self.assertEqual(1, exit_code)
+            else:
+                with pytest.raises(RuntimeError, match=exception):
+                    _run(hargs)
