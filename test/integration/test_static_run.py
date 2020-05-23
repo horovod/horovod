@@ -28,6 +28,7 @@ import unittest
 from horovod.common.util import gloo_built, mpi_built
 from horovod.run.common.util import safe_shell_exec
 from horovod.run.runner import HorovodArgs, _check_all_hosts_ssh_successful, _run
+from horovod.run.mpi_run import mpi_available, is_mpich
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
 
@@ -87,18 +88,19 @@ class StaticRunTests(unittest.TestCase):
         hargs.disable_cache = True
 
         stdout = io.StringIO()
-        with capture(stdout=stdout):
-            with mock.patch('horovod.run.runner.network.filter_local_addresses',
-                            side_effect=lambda hosts: [host for host in hosts if host not in local_hosts]), \
-                 mock.patch('horovod.run.gloo_run.network.get_local_host_addresses',
-                            return_value=local_hosts), \
-                 mock.patch('horovod.run.gloo_run.network.resolve_host_address',
-                            side_effect=lambda host: host), \
-                 mock.patch('horovod.run.mpi_run.os.execve') as exec:
-                yield hargs, exec
-
-        stdout = stdout.readlines()
-        print(''.join(stdout), file=sys.stdout)
+        try:
+            with capture(stdout=stdout):
+                with mock.patch('horovod.run.runner.network.filter_local_addresses',
+                                side_effect=lambda hosts: [host for host in hosts if host not in local_hosts]), \
+                     mock.patch('horovod.run.gloo_run.network.get_local_host_addresses',
+                                return_value=local_hosts), \
+                     mock.patch('horovod.run.gloo_run.network.resolve_host_address',
+                                side_effect=lambda host: host), \
+                     mock.patch('horovod.run.mpi_run.os.execve') as exec:
+                    yield hargs, exec
+        finally:
+            stdout = stdout.readlines()
+            print(''.join(stdout), file=sys.stdout)
 
         if mode == 'local':
             self.assertIn('Remote host found: \n', stdout)
@@ -135,8 +137,11 @@ class StaticRunTests(unittest.TestCase):
     def test_run_success(self, controller, mode, run):
         if controller == 'gloo' and not gloo_built():
             self.skipTest("Gloo is not available")
-        if controller == 'mpi' and not mpi_built():
-            self.skipTest("MPI is not available")
+        if controller == 'mpi':
+            if not (mpi_built() and mpi_available()):
+                self.skipTest("MPI is not available")
+            if is_mpich():
+                self.skipTest("MPICH is not testable")
 
         self.do_test_run_with_controller_success(controller, mode, run)
 
@@ -145,8 +150,11 @@ class StaticRunTests(unittest.TestCase):
     def test_run_failure(self, controller, mode, run):
         if controller == 'gloo' and not gloo_built():
             self.skipTest("Gloo is not available")
-        if controller == 'mpi' and not mpi_built():
-            self.skipTest("MPI is not available")
+        if controller == 'mpi':
+            if not (mpi_built() and mpi_available()):
+                self.skipTest("MPI is not available")
+            if is_mpich():
+                self.skipTest("MPICH is not testable")
 
         self.do_test_run_with_controller_failure(controller, mode, run)
 
