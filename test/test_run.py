@@ -13,10 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
+import contextlib
 import copy
 import io
 import itertools
 import os
+import signal
 import subprocess
 import sys
 import threading
@@ -408,6 +410,105 @@ class RunTests(unittest.TestCase):
                 interrupt.set()
 
         self.assertEqual([143] * tests, exits)
+
+    def _test_safe_shell_exec_kills(self):
+        for i in range(100):
+            self.do_test_safe_shell_exec_kills(i)
+
+    def test_safe_shell_exec_kills(self):
+        @contextlib.contextmanager
+        def safe():
+            try:
+                yield
+            except psutil.NoSuchProcess:
+                pass
+
+        def do_test(fn, expected, msg):
+            print('testing {}'.format(msg))
+            exit_code = [None]
+            with temppath() as file:
+
+                def run():
+                    exit_code[0] = safe_shell_exec.execute('python -c "with open(\\"{}\\", \\"w\\") as f: pass; import time; time.sleep(2)"'.format(file))
+
+                thread = in_thread(run)
+
+                try:
+                    while not os.path.exists(file):
+                        time.sleep(0.1)
+
+                    p = psutil.Process(os.getpid())
+                    children = [child for child in p.children() if '--multiprocessing-fork' in child.cmdline()]
+                    self.assertEqual(1, len(children))
+                    middleman = children[0]
+
+                    children = [child for child in middleman.children() if child.cmdline()[0] == '/bin/sh']
+                    self.assertEqual(1, len(children))
+                    shell = children[0]
+
+                    children = shell.children()
+                    self.assertEqual(1, len(children))
+                    python = children[0]
+
+                    #print('middle man: {}'.format(middleman.cmdline()))
+                    #print('shell: {}'.format(shell.cmdline()))
+                    #print('python: {}'.format(python.cmdline()))
+
+                    fn(middleman, shell, python)
+
+                finally:
+                    thread.join()
+                    if expected:
+                        self.assertEqual(expected, exit_code[0], msg)
+                    else:
+                        self.assertNotEqual(0, exit_code[0], msg)
+
+        do_test(lambda middleman, shell, python: python.terminate(), 143, 'python.terminate()')
+        do_test(lambda middleman, shell, python: python.kill(), 137, 'python.kill()')
+
+        do_test(lambda middleman, shell, python: shell.terminate(), 143, 'shell.terminate()')
+        do_test(lambda middleman, shell, python: shell.kill(), 137, 'shell.kill()')
+
+        do_test(lambda middleman, shell, python: middleman.terminate(), -15, 'middleman.terminate()')
+        do_test(lambda middleman, shell, python: middleman.kill(), -9, 'middleman.kill()')
+
+        def kill(middleman, shell, python):
+            for child in shell.children():
+                with safe():
+                    child.terminate()
+            with safe():
+                shell.send_signal(signal.SIGSTOP)
+                for child in shell.children():
+                    for grandchild in child.children():
+                        with safe():
+                            grandchild.kill()
+                    with safe():
+                        child.kill()
+                with safe():
+                    shell.terminate()
+                    shell.kill()
+
+        do_test(kill, None, 'kill')
+
+    def test_safe_shell_exec_exits(self):
+        tests = 100
+        sleep = 10
+        exit_codes = [None] * tests
+
+        def exec(index):
+            exit_code = safe_shell_exec.execute('python -c "import sys; import time; time.sleep({}); sys.exit(1)"'.format(sleep), index=index)
+            exit_codes[index] = exit_code
+
+        threads = []
+        try:
+            for i in range(tests):
+                thread = in_thread(exec, (i,))
+                threads.append(thread)
+        finally:
+            for thread in threads:
+                thread.join()
+
+        self.assertEqual([1] * tests, exit_codes)
 
     def test_safe_shell_exec_interrupts_on_parent_shutdown(self):
         sleep = 20
