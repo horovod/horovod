@@ -430,7 +430,6 @@ class RunTests(unittest.TestCase):
             # state as possible, to avoid issues with the semaphore tracker.
             cmd = ' '.join([sys.executable, parent_script, parent_logfile, child_script, str(sleep), child_logfile])
             p = subprocess.Popen(cmd, shell=True)
-            print('shell started')
 
             parent = psutil.Process(get_pid(parent_logfile))
             child = psutil.Process(get_pid(child_logfile))
@@ -440,15 +439,11 @@ class RunTests(unittest.TestCase):
 
             # Hard kill the parent process
             parent.kill()
-            print('parent killed')
             parent.wait(timeout=safe_shell_exec.GRACEFUL_TERMINATION_TIME_S)
-            exit_code = p.wait()
-            print('shell finished, exit_code={}'.format(exit_code))
+            p.wait()
 
             # Child process will exit when pipe breaks
-            print('waiting for child to terminate')
             child.wait(timeout=2 * safe_shell_exec.GRACEFUL_TERMINATION_TIME_S + 1)
-            print('child terminated in time')
 
             self.assertFalse(parent.is_running())
             self.assertFalse(child.is_running())

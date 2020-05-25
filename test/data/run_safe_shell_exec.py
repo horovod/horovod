@@ -42,6 +42,4 @@ if __name__ == '__main__':
     # Mock out the event to avoid leaking semaphores
     safe_shell_exec._create_event = lambda ctx: FakeEvent()
 
-    print('starting script {}'.format(cmd))
-    exit_code = safe_shell_exec.execute(cmd)
-    print('script terminated with exit_code={}'.format(exit_code))
+    safe_shell_exec.execute(cmd)

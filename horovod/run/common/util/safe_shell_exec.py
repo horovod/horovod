@@ -30,7 +30,6 @@ GRACEFUL_TERMINATION_TIME_S = 5
 def terminate_executor_shell_and_children(pid):
     # Terminate the whole process group of pid
     try:
-        print('terminating process group')
         os.killpg(os.getpgid(pid), signal.SIGTERM)
     except OSError:
         return
@@ -39,7 +38,6 @@ def terminate_executor_shell_and_children(pid):
     start = time.time()
     while True:
         if time.time() - start > GRACEFUL_TERMINATION_TIME_S:
-            print('process did not terminate in grace period')
             break
 
         try:
@@ -51,7 +49,6 @@ def terminate_executor_shell_and_children(pid):
         time.sleep(0.1)
 
     # Kill the whole process group of pid
-    print('killing process group')
     os.killpg(os.getpgid(pid), signal.SIGKILL)
 
 
@@ -121,7 +118,6 @@ def _exec_middleman(command, env, exit_event, stdout, stderr, rw):
         # This read blocks until the pipe is closed on the other side
         # due to parent process termination (for any reason, including -9).
         os.read(r.fileno(), 1)
-        print('pipe closed, terminating shell')
         cleanup_threads.append(in_thread(terminate_executor_shell_and_children,
                                          args=(executor_shell.pid,)))
 
