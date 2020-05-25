@@ -18,12 +18,12 @@ tests=( \
        test-cpu-mpich-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-oneccl-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
        test-cpu-oneccl-ofi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
-       test-gpu-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
-       test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
-       test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
-       test-gpu-openmpi-py3_6-tf2_0_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
-       test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
-       test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
+       #test-gpu-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
+       #test-gpu-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
+       #test-gpu-openmpi-gloo-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_4_1-pyspark2_4_0 \
+       #test-gpu-openmpi-py3_6-tf2_0_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
+       #test-gpu-openmpi-py3_6-tfhead-kerashead-torchhead-mxnethead-pyspark2_4_0 \
+       #test-mixed-openmpi-py3_6-tf1_15_0-keras2_3_1-torch1_3_0-mxnet1_5_0-pyspark2_4_0 \
 )
 
 build_test() {
@@ -115,7 +115,7 @@ run_mpi_pytest() {
   # pytests have 4x GPU use cases and require a separate queue
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"${oneccl_env} cd /horovod/test && (echo test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no) && pytest -v --capture=no ${standalone_tests} | ts '[%Y-%m-%d %H:%M:%S]'\""
+    "bash -c \"${oneccl_env} cd /horovod/test && (echo test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no) && pytest -v --capture=no ${standalone_tests}\""
 }
 
 run_mpi_integration() {
@@ -222,7 +222,7 @@ run_gloo_pytest() {
 
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest -v --capture=no ${standalone_tests} | ts '[%Y-%m-%d %H:%M:%S]'\""
+    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest -v --capture=no ${standalone_tests}\""
 }
 
 run_gloo_integration() {
