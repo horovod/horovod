@@ -356,7 +356,7 @@ class RunTests(unittest.TestCase):
 
     def test_safe_shell_exec_interrupts_on_event_flakiness(self):
         tests = 100
-        sleep = 10
+        sleep = safe_shell_exec.GRACEFUL_TERMINATION_TIME_S + 5.0
         exits = [None] * tests
         interrupt = threading.Event()
 
@@ -368,15 +368,16 @@ class RunTests(unittest.TestCase):
 
         def exec(dir, index):
             file = filepath(dir, index)
-            command = 'touch {} && sleep {}'.format(file, sleep)
-            stderr = io.StringIO()
+            command = ('touch {file} && while [ -f {file} ]; do sleep 0.2; done && sleep {sleep}'
+                       .format(file=file, sleep=sleep))
+            stderr = io.StringIO()  # stderr captured to not pollute the test output
             exit_code = safe_shell_exec.execute(command, stderr=stderr, index=test, events=[interrupt])
             exits[index] = exit_code
 
         threads = []
-        with tempdir() as dir:
-            try:
-                start = time.time()
+        try:
+            # leaving this with will delete all thread files, which makes them sleep
+            with tempdir() as dir:
                 for test in range(tests):
                     thread = in_thread(exec, (dir, test))
                     threads.append(thread)
@@ -393,19 +394,22 @@ class RunTests(unittest.TestCase):
                         break
 
                     time.sleep(0.1)
-                duration = time.time() - start
-                self.assertLess(duration, sleep, 'starting {} threads took longer than '
-                                                 'the first thread sleeps'.format(tests))
 
-                print('sending event')
-                interrupt.set()
+            start = time.time()
 
-                for thread in threads:
-                    thread.join()
-                print('all threads terminated')
-            finally:
-                # in case of an exception or false assertion, stop the threads here
-                interrupt.set()
+            print('sending event')
+            interrupt.set()
+
+            for thread in threads:
+                thread.join()
+            print('all threads terminated')
+
+            duration = time.time() - start
+            self.assertLess(duration, safe_shell_exec.GRACEFUL_TERMINATION_TIME_S + 1.0,
+                            'interrupting the scripts took longer than the grace period')
+        finally:
+            # in case of an exception or false assertion, stop the threads here
+            interrupt.set()
 
         self.assertEqual([143] * tests, exits)
 

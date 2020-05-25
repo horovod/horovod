@@ -537,7 +537,7 @@ class SparkTests(unittest.TestCase):
     def do_test_rsh_events(self, test_events):
         self.assertGreater(test_events, 0, 'test should not be trivial')
 
-        sleep = 10
+        sleep = safe_shell_exec.GRACEFUL_TERMINATION_TIME_S + 5.0
         command = 'sleep {}'.format(sleep)
         for triggered_event in range(test_events):
             events = [threading.Event() for _ in range(test_events)]

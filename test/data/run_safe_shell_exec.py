@@ -20,6 +20,9 @@ class FakeEvent(object):
     def wait(self):
         time.sleep(999)
 
+    def is_set(self):
+        return False
+
 
 def write(filename, value):
     filename_tmp = filename + '.tmp'
