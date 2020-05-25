@@ -56,12 +56,6 @@ class BaseSettings(object):
         self.run_func_mode = run_func_mode
         self.nics = nics
         self.elastic = elastic
-        
-    # we do not serialize the key, as it is too risky that it could leak unintentionally
-    def __getstate__(self):
-        result = self.__dict__.copy()
-        result['key'] = None
-        return result
 
 
 class Settings(BaseSettings):
