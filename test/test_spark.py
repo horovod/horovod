@@ -19,6 +19,7 @@ import os
 import platform
 import pytest
 import re
+import signal
 import sys
 import threading
 import time
@@ -544,7 +545,7 @@ class SparkTests(unittest.TestCase):
             delay(lambda: events[triggered_event].set(), 1.0)
 
             start = time.time()
-            self.do_test_rsh(command, 143, events=events)
+            self.do_test_rsh(command, -signal.SIGTERM, events=events)
             duration = time.time() - start
 
             self.assertGreaterEqual(duration, 1.0)

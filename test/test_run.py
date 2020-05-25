@@ -17,6 +17,7 @@ import copy
 import io
 import itertools
 import os
+import signal
 import subprocess
 import sys
 import threading
@@ -347,7 +348,7 @@ class RunTests(unittest.TestCase):
 
         sleep = 10
         start = time.time()
-        self.do_test_safe_shell_exec('sleep {}'.format(sleep), 143, '', None, interrupt)
+        self.do_test_safe_shell_exec('sleep {}'.format(sleep), -signal.SIGTERM, '', None, interrupt)
         duration = time.time() - start
 
         self.assertGreaterEqual(duration, 1.0)
@@ -411,7 +412,7 @@ class RunTests(unittest.TestCase):
             # in case of an exception or false assertion, stop the threads here
             interrupt.set()
 
-        self.assertEqual([143] * tests, exits)
+        self.assertEqual([-signal.SIGTERM] * tests, exits)
 
     def test_safe_shell_exec_interrupts_on_parent_shutdown(self):
         sleep = 20
