@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import contextlib
 import multiprocessing
 import os
 import psutil
@@ -29,53 +30,64 @@ GRACEFUL_TERMINATION_TIME_S = 5
 
 
 def terminate_executor_shell_and_children(pid):
-    # If the shell already ends, no need to terminate its child.
+    # If the shell already ends, no need to terminate its children.
     try:
         p = psutil.Process(pid)
     except psutil.NoSuchProcess:
         return
 
-    # Terminate children gracefully.
-    for child in p.children():
+    @contextlib.contextmanager
+    def safe():
         try:
-            child.terminate()
+            yield
         except psutil.NoSuchProcess:
             pass
 
-    # Wait for graceful termination.
-    gone, alive = psutil.wait_procs(p.children(), timeout=GRACEFUL_TERMINATION_TIME_S)
+    gone = []
+    alive = []
+    children = []
+    with safe():
+        # We first send SIGTERM to the process to give it a chance to gracefully terminate.
+        # Meddling with its children first might make the process terminate with exit code 0.
 
-    # Freeze the process to prevent it from spawning any new children.
-    try:
+        # Freeze the process to prevent it from spawning any new children.
         p.send_signal(signal.SIGSTOP)
-    except psutil.NoSuchProcess:
-        pass
-
-    # Kill children recursively.
-    for child in alive:
-        try:
-            for grandchild in child.children(recursive=True):
-                try:
-                    grandchild.kill()
-                except psutil.NoSuchProcess:
-                    pass
-            child.kill()
-        except psutil.NoSuchProcess:
-            pass
-
-    # Kill shell itself.
-    try:
+        # Memorize entire process tree so we have a chance to kill all after process terminated.
+        children = p.children(recursive=True)
+        # Ask process to terminate gracefully.
         p.terminate()
-    except psutil.NoSuchProcess:
-        pass
+        # Terminate children gracefully.
+        for child in children:
+            with safe():
+                child.terminate()
+        # Continue the process so it can gracefully terminate.
+        p.send_signal(signal.SIGCONT)
 
-    try:
-        p.wait(timeout=GRACEFUL_TERMINATION_TIME_S)
-    except psutil.TimeoutExpired:
-        try:
-            p.kill()
-        except psutil.NoSuchProcess:
-            pass
+        # Wait for graceful termination of current process tree.
+        # This gives the same grace period to the process itself (assuming it has children).
+        gone, alive = psutil.wait_procs(p.children(recursive=True), timeout=GRACEFUL_TERMINATION_TIME_S)
+
+        # Kill process tree recursively.
+        for child in alive:
+            with safe():
+                for grandchild in child.children(recursive=True):
+                    with safe():
+                        grandchild.kill()
+                child.kill()
+
+    # Kill known process tree.
+    for child in children:
+        with safe():
+            child.kill()
+
+    # Give the process a grace period if we haven't given it one above.
+    if not gone + alive:
+        with safe():
+            p.wait(GRACEFUL_TERMINATION_TIME_S)
+
+    # Kill the process itself.
+    with safe():
+        p.kill()
 
 
 def forward_stream(src_stream, dst_stream, prefix, index):
