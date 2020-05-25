@@ -17,8 +17,8 @@ from horovod.run.common.util import safe_shell_exec
 
 
 class FakeEvent(object):
-    def wait(self):
-        time.sleep(999)
+    def wait(self, timeout=None):
+        time.sleep(timeout or 999)
 
     def is_set(self):
         return False
