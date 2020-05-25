@@ -145,17 +145,29 @@ def _exec_middleman(command, env, exit_event, stdout, stderr, rw):
     executor_shell = subprocess.Popen(command, shell=True, env=env,
                                       stdout=stdout_w, stderr=stderr_w)
 
-    on_event(exit_event, terminate_executor_shell_and_children, args=(executor_shell.pid,))
+    stop = threading.Event()
+    cleanup_threads = []
+    cleanup_threads.append(on_event(exit_event,
+                                    terminate_executor_shell_and_children,
+                                    args=(executor_shell.pid,),
+                                    stop=stop))
 
     def kill_executor_children_if_parent_dies():
         # This read blocks until the pipe is closed on the other side
         # due to parent process termination (for any reason, including -9).
         os.read(r.fileno(), 1)
-        terminate_executor_shell_and_children(executor_shell.pid)
+        cleanup_threads.append(in_thread(terminate_executor_shell_and_children,
+                                         args=(executor_shell.pid,)))
 
     in_thread(kill_executor_children_if_parent_dies)
 
     exit_code = executor_shell.wait()
+
+    # wait for all cleanup threads so they get a chance to finish
+    stop.set()
+    for thread in cleanup_threads:
+        thread.join()
+
     if exit_code < 0:
         # See: https://www.gnu.org/software/bash/manual/html_node/Exit-Status.html
         exit_code = 128 + abs(exit_code)
