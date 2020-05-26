@@ -76,9 +76,11 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     val_percent = val_rows / val_steps_per_epoch if val_steps_per_epoch else 1.0
 
     def train(serialized_model):
-        with tempfile.NamedTemporaryFile() as last_ckpt_file, remote_store.get_local_output_dir() as run_output_dir:
+        with tempfile.TemporaryDirectory() as last_ckpt_dir, remote_store.get_local_output_dir() as run_output_dir:
+            last_ckpt_file = os.path.join(last_ckpt_dir, 'last.ckpt')
             if ckpt_bytes:
-                last_ckpt_file.write(ckpt_bytes)
+                with open(last_ckpt_file, 'wb') as f:
+                    f.write(ckpt_bytes)
 
             logs_path = os.path.join(run_output_dir, remote_store.logs_subdir)
             logger = TensorBoardLogger(logs_path)
@@ -95,7 +97,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
                               val_percent_check=val_percent,
                               logger=logger,
                               checkpoint_callback=checkpoint_callback,
-                              resume_from_checkpoint=last_ckpt_file.name if ckpt_bytes else None)
+                              resume_from_checkpoint=last_ckpt_file if ckpt_bytes else None)
 
             with make_petastorm_reader(trainer, model, remote_store.train_data_path, 'train_dataloader',
                                        train_reader_worker_count), \
