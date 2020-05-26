@@ -142,6 +142,10 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
     train_minibatch_fn = Param(Params._dummy(), 'train_minibatch_fn',
                                'functions that construct the minibatch train function for torch')
 
+    petastorm_kwargs = Param(Params._dummy(), 'petastorm_kwargs', 'petastorm params')
+
+    loader_device = Param(Params._dummy(), 'loader_device', 'the device to load the data in')
+
     @keyword_only
     def __init__(self,
                  num_proc=None,
@@ -202,6 +206,18 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def getLossConstructors(self):
         return self.getOrDefault(self.loss_constructors)
+
+    def setPetastormKWArgs(self, value):
+        return self._set(petastorm_kwargs=value)
+
+    def getPetastormKWArgs(self):
+        return self.getOrDefault(self.petastorm_kwargs)
+
+    def setLoaderDevice(self, value):
+        return self._set(loader_device=value)
+
+    def getLoaderDevice(self):
+        return self.getOrDefault(self.loader_device)
 
     def _get_optimizer(self):
         return self.getOrDefault(self.optimizer)

@@ -91,6 +91,7 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
 
     def train(serialized_model, optimizer_cls, model_opt_state_serialized,
               train_rows, val_rows, avg_row_size):
+        from functools import partial
         from petastorm import TransformSpec, make_reader, make_batch_reader
         from petastorm.pytorch import BatchedDataLoader
         import torch
@@ -206,8 +207,15 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
             if transform_spec:
                 reader_factory = make_reader
                 reader_factory_kwargs['pyarrow_serialize'] = True
+                reader_factory_kwargs['reader_pool_type'] = 'process'
             else:
                 reader_factory = make_batch_reader
+                reader_factory_kwargs['reader_pool_type'] = 'thread'
+                reader_factory_kwargs['cache_type'] = 'memory-cache'
+                reader_factory_kwargs['cache_size_limit'] = 10000000
+                reader_factory_kwargs['cache_row_size_estimate'] = 1
+                device = torch.device('cpu')
+
 
             # Petastorm: read data from the store with the correct shard for this rank
             # setting num_epochs=None will cause an infinite iterator
@@ -216,7 +224,6 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
             with reader_factory(remote_store.train_data_path,
                                 num_epochs=None,
                                 cur_shard=hvd.rank(),
-                                reader_pool_type='process',
                                 workers_count=train_reader_worker_count,
                                 shard_count=hvd.size(),
                                 hdfs_driver=PETASTORM_HDFS_DRIVER,
@@ -237,7 +244,9 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
 
                     train_loader = BatchedDataLoader(train_reader,
                                                      batch_size=batch_size,
-                                                     shuffling_queue_capacity=shuffle_buffer_size)
+                                                     shuffling_queue_capacity=shuffle_buffer_size,
+                                                     transform_fn=partial(torch.as_tensor, device=device))
+
                     train_loader_iter = iter(train_loader)
 
                     def prepare_batch(row):
