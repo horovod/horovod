@@ -93,12 +93,7 @@ def forward_stream(src_stream, dst_stream, prefix, index):
     src_stream.close()
 
 
-def _exec_middleman(command, env, exit_event, stdout, stderr):
-    parent_pid = os.getppid()
-    if parent_pid == 1:
-        # parent terminated already
-        sys.exit(1)
-
+def _exec_middleman(command, env, exit_event, parent_pid, stdout, stderr):
     stdout_r, stdout_w = stdout
     stderr_r, stderr_w = stderr
 
@@ -160,7 +155,7 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
     (stdout_r, stdout_w) = ctx.Pipe()
     (stderr_r, stderr_w) = ctx.Pipe()
 
-    middleman = ctx.Process(target=_exec_middleman, args=(command, env, exit_event,
+    middleman = ctx.Process(target=_exec_middleman, args=(command, env, exit_event, os.getpid(),
                                                           (stdout_r, stdout_w),
                                                           (stderr_r, stderr_w)))
     middleman.start()
