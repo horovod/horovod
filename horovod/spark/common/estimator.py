@@ -34,7 +34,7 @@ class HorovodEstimator(Estimator, EstimatorParams):
         """
         return super(HorovodEstimator, self).fit(df, params)
 
-    def fit_on_parquet(self, params=None):
+    def fit_on_parquet(self, params=None, dataset_idx=None):
         """Trains the model on a saved Parquet file at `store.get_train_path()`.
 
         Args:
@@ -44,10 +44,10 @@ class HorovodEstimator(Estimator, EstimatorParams):
             Trained HorovodModel transformer of the appropriate subclass wrapping the trained model.
         """
         if params:
-            return self.copy(params)._fit_on_parquet()
-        return self._fit_on_parquet()
+            return self.copy(params)._fit_on_parquet(dataset_idx=dataset_idx)
+        return self._fit_on_parquet(dataset_idx=dataset_idx)
 
-    def _fit_on_parquet(self):
+    def _fit_on_parquet(self, dataset_idx=None):
         backend = self._get_or_create_backend()
         store = self.getStore()
         label_columns = self.getLabelCols()
@@ -58,9 +58,10 @@ class HorovodEstimator(Estimator, EstimatorParams):
             util.get_simple_meta_from_parquet(store,
                                               label_columns=label_columns,
                                               feature_columns=feature_columns,
-                                              sample_weight_col=sample_weight_col)
+                                              sample_weight_col=sample_weight_col,
+                                              dataset_idx=dataset_idx)
 
-        return self._fit_on_prepared_data(backend, train_rows, val_rows, metadata, avg_row_size)
+        return self._fit_on_prepared_data(backend, train_rows, val_rows, metadata, avg_row_size, dataset_idx)
 
     def _fit(self, df):
         backend = self._get_or_create_backend()
