@@ -68,6 +68,8 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
     # Data reader parameters
     train_reader_worker_count = estimator.getTrainReaderNumWorker()
     val_reader_worker_count = estimator.getValReaderNumWorker()
+    petastorm_kw_args = estimator.getPetastormKWArgs()
+    loader_device = estimator.getLoaderDevice()
 
     # Utility functions
     deserialize = deserialize_fn()
@@ -214,8 +216,9 @@ def RemoteTrainer(estimator, metadata, last_checkpoint_state, run_id, dataset_id
                 reader_factory_kwargs['cache_type'] = 'memory-cache'
                 reader_factory_kwargs['cache_size_limit'] = 10000000
                 reader_factory_kwargs['cache_row_size_estimate'] = 1
-                device = torch.device('cpu')
 
+            reader_factory_kwargs.update(petastorm_kw_args)
+            device = torch.device(loader_device)
 
             # Petastorm: read data from the store with the correct shard for this rank
             # setting num_epochs=None will cause an infinite iterator
