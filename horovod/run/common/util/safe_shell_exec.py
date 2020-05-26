@@ -93,15 +93,18 @@ def forward_stream(src_stream, dst_stream, prefix, index):
     src_stream.close()
 
 
-def _exec_middleman(command, env, exit_event, stdout, stderr, rw):
+def _exec_middleman(command, env, exit_event, stdout, stderr):
+    parent_pid = os.getppid()
+    if parent_pid == 1:
+        # parent terminated already
+        return
+
     stdout_r, stdout_w = stdout
     stderr_r, stderr_w = stderr
-    r, w = rw
 
     # Close unused file descriptors to enforce PIPE behavior.
     stdout_r.close()
     stderr_r.close()
-    w.close()
     os.setsid()
 
     executor_shell = subprocess.Popen(command, shell=True, env=env,
@@ -115,9 +118,14 @@ def _exec_middleman(command, env, exit_event, stdout, stderr, rw):
                                     stop=stop))
 
     def kill_executor_children_if_parent_dies():
-        # This read blocks until the pipe is closed on the other side
-        # due to parent process termination (for any reason, including -9).
-        os.read(r.fileno(), 1)
+        # The parent pid changes when the parent terminates to init's pid (1)
+        while not stop.is_set():
+            if os.getppid() != parent_pid:
+                print('parent pid changed {} -> {}'.format(parent_pid, os.getppid()))
+                break
+            time.sleep(0.1)
+
+        print('parent terminated, terminating shell')
         cleanup_threads.append(in_thread(terminate_executor_shell_and_children,
                                          args=(executor_shell.pid,)))
 
@@ -153,21 +161,12 @@ def execute(command, env=None, stdout=None, stderr=None, index=None, events=None
     (stdout_r, stdout_w) = ctx.Pipe()
     (stderr_r, stderr_w) = ctx.Pipe()
 
-    # This Pipe is how we ensure that the executed process is properly terminated (not orphaned) if
-    # the parent process is hard killed (-9). If the parent (this process) is killed for any reason,
-    # this Pipe will be closed, which can be detected by the middleman. When the middleman sees the
-    # closed Pipe, it will issue a SIGTERM to the subprocess executing the command. The assumption
-    # here is that users will be inclined to hard kill this process, not the middleman.
-    (r, w) = ctx.Pipe()
-
     middleman = ctx.Process(target=_exec_middleman, args=(command, env, exit_event,
                                                           (stdout_r, stdout_w),
-                                                          (stderr_r, stderr_w),
-                                                          (r, w)))
+                                                          (stderr_r, stderr_w)))
     middleman.start()
 
     # Close unused file descriptors to enforce PIPE behavior.
-    r.close()
     stdout_w.close()
     stderr_w.close()
 
