@@ -24,6 +24,7 @@ Current voting members of the Horovod TSC:
 * Can Karakus (@karakusc)
 * Josh Romero (@romerojosh)
 * Jaliya Ekanayake (@jaliyae)
+* Nicolas Castet (@nvcastet)
 
 Current non-voting members of the Horovod TSC:
 * Yuxi Hu (@yuxihu)
@@ -31,7 +32,7 @@ Current non-voting members of the Horovod TSC:
 * Todd Mytkowicz (@klipto)
 * Emad Barsoum (@ebarsoum)
 * Kaarthik Sivashanmugam (@skaarthik)
-* Nicolas Castet (@nvcastet)
+* Enrico Minack (@EnricoMi)
 
 Non-voting members of the TSC ("maintainers") have commit access to the Horovod GitHub repository, and take part in the
 standing TSC meetings and mailing lists.
