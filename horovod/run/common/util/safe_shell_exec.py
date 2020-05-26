@@ -121,11 +121,9 @@ def _exec_middleman(command, env, exit_event, stdout, stderr):
         # The parent pid changes when the parent terminates to init's pid (1)
         while not stop.is_set():
             if os.getppid() != parent_pid:
-                print('parent pid changed {} -> {}'.format(parent_pid, os.getppid()))
                 break
             time.sleep(0.1)
 
-        print('parent terminated, terminating shell')
         cleanup_threads.append(in_thread(terminate_executor_shell_and_children,
                                          args=(executor_shell.pid,)))
 
