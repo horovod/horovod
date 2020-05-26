@@ -356,6 +356,9 @@ class RunTests(unittest.TestCase):
         self.assertGreater(sleep, 2.0 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S, 'sleep should allow for GRACEFUL_TERMINATION_TIME_S')
 
     def test_safe_shell_exec_interrupts_on_event_flakiness(self):
+        """
+        Tests interrupting safe_shell_exec a hundred times, expects it to never return 0 exit code.
+        """
         tests = 100
         sleep = safe_shell_exec.GRACEFUL_TERMINATION_TIME_S + 5.0
         exits = [None] * tests
@@ -377,12 +380,13 @@ class RunTests(unittest.TestCase):
 
         threads = []
         try:
-            # leaving this with will delete all thread files, which makes them sleep
+            # leaving this with will delete all thread files, which makes the threads sleep
             with tempdir() as dir:
                 for test in range(tests):
                     thread = in_thread(exec, (dir, test))
                     threads.append(thread)
 
+                # wait for all threads to come up
                 running = 0
                 while True:
                     files = os.listdir(dir)
@@ -396,6 +400,7 @@ class RunTests(unittest.TestCase):
 
                     time.sleep(0.1)
 
+            # all threads entered their sleeping phase
             start = time.time()
 
             print('sending event')
@@ -412,6 +417,7 @@ class RunTests(unittest.TestCase):
             # in case of an exception or false assertion, stop the threads here
             interrupt.set()
 
+        # all threads should have been termined by SIGTERM
         self.assertEqual([-signal.SIGTERM] * tests, exits)
 
     def test_safe_shell_exec_interrupts_on_parent_shutdown(self):

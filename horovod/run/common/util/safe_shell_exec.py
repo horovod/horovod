@@ -97,7 +97,7 @@ def _exec_middleman(command, env, exit_event, stdout, stderr):
     parent_pid = os.getppid()
     if parent_pid == 1:
         # parent terminated already
-        return
+        sys.exit(1)
 
     stdout_r, stdout_w = stdout
     stderr_r, stderr_w = stderr
@@ -122,7 +122,7 @@ def _exec_middleman(command, env, exit_event, stdout, stderr):
         while not stop.is_set():
             if os.getppid() != parent_pid:
                 break
-            time.sleep(0.1)
+            time.sleep(0.2)
 
         cleanup_threads.append(in_thread(terminate_executor_shell_and_children,
                                          args=(executor_shell.pid,)))
@@ -131,8 +131,9 @@ def _exec_middleman(command, env, exit_event, stdout, stderr):
 
     exit_code = executor_shell.wait()
 
-    # wait for all cleanup threads so they get a chance to finish
+    # stop cleanup threads if they haven't fired yet
     stop.set()
+    # wait for all cleanup threads so they get a chance to finish
     for thread in cleanup_threads:
         thread.join()
 
