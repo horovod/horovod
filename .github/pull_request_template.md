@@ -1,4 +1,4 @@
-# Checklist before submitting
+## Checklist before submitting
 
 - [ ] Did you read the [contributor guide](https://github.com/horovod/horovod/blob/master/CONTRIBUTING.md)?
 - [ ] Did you update the docs?
