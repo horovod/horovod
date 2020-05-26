@@ -311,9 +311,8 @@ class TorchEstimator(HorovodEstimator, TorchEstimatorParamsWritable,
 
     def _read_checkpoint(self, run_id):
         store = self.getStore()
-        ckpt_path = store.get_checkpoint_path(run_id)
-        print(f'CHECKPOINTS: {ckpt_path}')
-        last_ckpt_path = sorted(glob.glob(os.path.join(ckpt_path, "*.ckpt")))[-1]
+        checkpoints = store.get_checkpoints(run_id, suffix='.ckpt')
+        last_ckpt_path = checkpoints[-1]
 
         if self.getVerbose():
             print('Resuming training from last checkpoint: {}'.format(last_ckpt_path))
