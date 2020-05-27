@@ -26,7 +26,7 @@ import time
 import warnings
 
 import mock
-from parameterized import parameterized, param
+from parameterized import parameterized
 import pytest
 import unittest
 
@@ -37,6 +37,10 @@ from horovod.spark import conf, run_elastic
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
 
 from common import temppath
+
+
+def test_name_func(testcase_func, _, param):
+    return '_'.join([testcase_func.__name__, parameterized.to_safe_name(param.args[1])])
 
 
 @contextlib.contextmanager
@@ -526,13 +530,14 @@ class BaseElasticSparkTests(unittest.TestCase):
         self.assertEqual(2, results[2]['size'])
         self.assertEqual(2, results[2]['rendezvous'])
 
-    @parameterized.expand([param(conf.SPARK_CONF_DONT_REUSE_EXECUTOR_FOR_SAME_TASK),
-                           param(conf.SPARK_CONF_DONT_REUSE_FAILED_EXECUTOR),
-                           param(conf.SPARK_CONF_DONT_REUSE_FAILED_EXECUTOR_IN_APP),
-                           param(conf.SPARK_CONF_DONT_REUSE_FAILING_NODE),
-                           param(conf.SPARK_CONF_DONT_REUSE_FAILING_NODE_IN_APP)])
+    @parameterized.expand([(conf.SPARK_CONF_DONT_REUSE_EXECUTOR_FOR_SAME_TASK, 'no executor reuse same task'),
+                           (conf.SPARK_CONF_DONT_REUSE_FAILED_EXECUTOR, 'no executor reuse'),
+                           (conf.SPARK_CONF_DONT_REUSE_FAILED_EXECUTOR_IN_APP, 'no executor reuse in app'),
+                           (conf.SPARK_CONF_DONT_REUSE_FAILING_NODE, 'no node reuse'),
+                           (conf.SPARK_CONF_DONT_REUSE_FAILING_NODE_IN_APP, 'no node reuse in app')],
+                          name_func=test_name_func)
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
-    def test_fault_tolerance_spark_blacklist(self, setting):
+    def test_fault_tolerance_spark_blacklist(self, setting, _):
         """
         Same as test_fault_tolerance_no_spark_blacklist except Spark blacklists the executor
         that has the failing task, so that there are not enough executors available after the
