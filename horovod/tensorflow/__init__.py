@@ -38,6 +38,13 @@ from horovod.tensorflow.util import _executing_eagerly, _make_subgraph, _cache
 
 import tensorflow as tf
 
+# @DEKHTIARJonathan: Do not remove, this fixes issues: 
+# - https://github.com/tensorflow/tensorflow/issues/38516
+# - https://github.com/tensorflow/tensorflow/issues/39894
+if tf.__version__.startswith('2.2.'):
+  from tensorflow.python.keras.mixed_precision.experimental import device_compatibility_check
+  device_compatibility_check.log_device_compatibility_check = lambda policy_name, skip_local: None
+
 
 def allreduce(tensor, average=None, device_dense='', device_sparse='',
               compression=Compression.none, op=None):
