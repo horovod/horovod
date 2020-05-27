@@ -342,6 +342,24 @@ class ModelParams(HasOutputCols):
     def getLabelColumns(self):
         return self.getOrDefault(self.label_columns)
 
+    def setOutputCols(self, value):
+        """
+        Set output column names.
+
+        Here for backward compatibility with pyspark >= 3.0.0.
+
+        :param value: column names
+        :type value: list(string)
+        :return: self
+        """
+        return self.setOutputColumns(value)
+
+    def setOutputColumns(self, value):
+        return self._set(outputCols=value)
+
+    def getOutputColumns(self):
+        return self.getOrDefault(self.outputCols)
+
     def setRunId(self, value):
         return self._set(run_id=value)
 
