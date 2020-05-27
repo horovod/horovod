@@ -166,8 +166,9 @@ class _SyncBatchNorm(Function):
             sum_dy_xmu = synchronize(sum_dy_xmu_handle)
 
             if _SYNC_BN_V2 or _SYNC_BN_V3:
-                mean_dy = sum_dy / count_all.sum()
-                mean_dy_xmu = sum_dy_xmu / count_all.sum()
+                count_all_sum = count_all.sum()
+                mean_dy = sum_dy / count_all_sum
+                mean_dy_xmu = sum_dy_xmu / count_all_sum
             else:
                 # before 1.5.0, sum_dy was sum of means from every worker, so we just 
                 # need to divide it by number of workers
