@@ -314,6 +314,10 @@ class ModelParams(HasOutputCols):
     def __init__(self):
         super(ModelParams, self).__init__()
 
+    # Only for internal use
+    def _get_metadata(self):
+        return self.getOrDefault(self._metadata)
+
     @keyword_only
     def setParams(self, **kwargs):
         return self._set(**kwargs)
@@ -348,6 +352,14 @@ class ModelParams(HasOutputCols):
     def getRunId(self):
         return self.getOrDefault(self.run_id)
 
-    # Only for internal use
-    def _get_metadata(self):
-        return self.getOrDefault(self._metadata)
+    # copied from https://github.com/apache/spark/tree/master/python/pyspark/ml/param/shared.py
+    # has been removed from pyspark.ml.param.HasOutputCol in pyspark 3.0.0
+    # added here to keep ModelParams API consistent between pyspark 2 and 3
+    # https://github.com/apache/spark/commit/b19fd487dfe307542d65391fd7b8410fa4992698#diff-3d1fb305acc7bab18e5d91f2b69018c7
+    # https://github.com/apache/spark/pull/26232
+    # https://issues.apache.org/jira/browse/SPARK-29093
+    def setOutputCols(self, value):
+        """
+        Sets the value of :py:attr:`outputCols`.
+        """
+        return self._set(outputCols=value)
