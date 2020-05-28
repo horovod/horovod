@@ -94,29 +94,38 @@ def forward_stream(src_stream, dst_stream, prefix, index):
         dst_stream.write(text)
         dst_stream.flush()
 
-    line_buffer = ''
-    while True:
-        text = os.read(src_stream.fileno(), 1000)
-        if text is None:
-            break
+    try:
+        line_buffer = ''
+        while True:
+            text = os.read(src_stream.fileno(), 1000)
+            if text is None:
+                break
 
-        if not isinstance(text, str):
-            text = text.decode('utf-8')
+            if not isinstance(text, str):
+                text = text.decode('utf-8')
 
-        if not text:
-            break
+            if not text:
+                break
 
-        for line in re.split('([\r\n])', text):
-            line_buffer += line
-            if line == '\r' or line == '\n':
-                write(line_buffer)
-                line_buffer = ''
+            for line in re.split('([\r\n])', text):
+                line_buffer += line
+                if line == '\r' or line == '\n':
+                    write(line_buffer)
+                    line_buffer = ''
 
-    # flush the line buffer if it is not empty
-    if len(line_buffer):
-        write(line_buffer)
-
-    src_stream.close()
+        # flush the line buffer if it is not empty
+        if len(line_buffer):
+            write(line_buffer)
+    except Exception as e:
+        try:
+            print('exception occurred forwarding stream: {}'.format(e))
+        except:
+            pass
+    finally:
+        try:
+            src_stream.close()
+        except:
+            pass
 
 
 def _exec_middleman(command, env, exit_event, stdout, stderr, rw):
@@ -130,25 +139,30 @@ def _exec_middleman(command, env, exit_event, stdout, stderr, rw):
     w.close()
     os.setsid()
 
-    executor_shell = subprocess.Popen(command, shell=True, env=env,
-                                      stdout=stdout_w, stderr=stderr_w)
-
-    on_event(exit_event, terminate_executor_shell_and_children, args=(executor_shell.pid,))
-
     def kill_executor_children_if_parent_dies():
         # This read blocks until the pipe is closed on the other side
         # due to parent process termination (for any reason, including -9).
         os.read(r.fileno(), 1)
         terminate_executor_shell_and_children(executor_shell.pid)
 
-    in_thread(kill_executor_children_if_parent_dies)
+    exit_code = 255
+    try:
+        executor_shell = subprocess.Popen(command, shell=True, env=env,
+                                          stdout=stdout_w, stderr=stderr_w)
+        on_event(exit_event, terminate_executor_shell_and_children, args=(executor_shell.pid,))
+        in_thread(kill_executor_children_if_parent_dies)
 
-    exit_code = executor_shell.wait()
-    if exit_code < 0:
-        # See: https://www.gnu.org/software/bash/manual/html_node/Exit-Status.html
-        exit_code = 128 + abs(exit_code)
-
-    sys.exit(exit_code)
+        exit_code = executor_shell.wait()
+        if exit_code < 0:
+            # See: https://www.gnu.org/software/bash/manual/html_node/Exit-Status.html
+            exit_code = 128 + abs(exit_code)
+    except Exception as e:
+        try:
+            print('exception running command: {}'.format(e))
+        except:
+            pass
+    finally:
+        sys.exit(exit_code)
 
 
 def _create_event(ctx):
