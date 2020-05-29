@@ -149,8 +149,6 @@ void ResponseCache::put_(const Response& response, TensorParams& params, bool jo
   cache_iters_[cache_bit] = cache_.begin();
   tensor_name_to_bit_[response.tensor_names()[0]] = cache_bit;
 
-  // Cache is mutated, mark that bit assignments are stale.
-  bits_outdated_ = true;
 }
 
 void ResponseCache::put(const Response& response, TensorQueue& tensor_queue, bool joined) {
@@ -213,9 +211,6 @@ const Response& ResponseCache::get_response(uint32_t cache_bit) {
   cache_.erase(it);
   cache_iters_[cache_bit] = cache_.begin();
 
-  // Cache is mutated, mark that bit assignments are stale.
-  bits_outdated_ = true;
-
   return cache_.front().first;
 }
 
@@ -256,14 +251,14 @@ void ResponseCache::erase_response(uint32_t cache_bit) {
 
   cache_iters_[cache_bit] = cache_.end();
 
-  // Cache is mutated, mark that bit assignments are stale.
+  // Set flag to trigger update_cache_bits to remove empty
+  // positions in cache_iters_ vector
   bits_outdated_ = true;
 }
 
 void ResponseCache::update_cache_bits() {
   // Note: This method invalidates all previously returned cache bit positions.
 
-  // If bit assignments are not stale, do nothing.
   if (!bits_outdated_) {
     return;
   }
