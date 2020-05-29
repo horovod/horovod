@@ -1616,8 +1616,12 @@ setup(name='horovod',
           Horovod is a distributed training framework for TensorFlow, Keras, PyTorch, and Apache MXNet.
           The goal of Horovod is to make distributed Deep Learning fast and easy to use.'''),
       url='https://github.com/horovod/horovod',
+      keywords=['deep learning', 'tensorflow', 'keras', 'pytorch', 'mxnet', 'spark', 'AI'],
       classifiers=[
-          'License :: OSI Approved :: Apache Software License'
+          'License :: OSI Approved :: Apache Software License',
+          'Development Status :: 4 - Beta',
+          'Intended Audience :: Developers',
+          'Topic :: Scientific/Engineering :: Artificial Intelligence',
       ],
       ext_modules=[tensorflow_mpi_lib, torch_mpi_lib, torch_mpi_lib_impl,
                    torch_mpi_lib_v2, mxnet_mpi_lib, gloo_lib],
@@ -1641,4 +1645,8 @@ setup(name='horovod',
       },
       python_requires='>=3.6',
       zip_safe=False,
-      scripts=['bin/horovodrun'])
+      entry_points={
+          'console_scripts': [
+              'horovodrun = horovod.run.runner:run_commandline'
+          ]
+      })
