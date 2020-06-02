@@ -20,6 +20,8 @@ import re
 import shutil
 import tempfile
 
+from distutils.version import LooseVersion
+
 import pyarrow as pa
 import pyarrow.parquet as pq
 
@@ -332,8 +334,9 @@ class HDFSStore(FilesystemStore):
                                  port=port,
                                  user=user,
                                  kerb_ticket=kerb_ticket,
-                                 driver=driver,
                                  extra_conf=extra_conf)
+        if LooseVersion(pa.__version__) < LooseVersion('0.17.0'):
+            self._hdfs_kwargs['driver'] = driver
         self._hdfs = self._get_filesystem_fn()()
 
         super(HDFSStore, self).__init__(prefix_path, *args, **kwargs)
