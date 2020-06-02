@@ -284,7 +284,7 @@ class SparkTests(unittest.TestCase):
         def fn():
             return 0
 
-        def mpi_impl_flags(tcp):
+        def mpi_impl_flags(tcp, env=None):
             return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"]
 
         def gloo_exec_command_fn(driver_addresses, key, settings, env):
@@ -328,7 +328,7 @@ class SparkTests(unittest.TestCase):
         def fn():
             return 1
 
-        def mpi_impl_flags(tcp):
+        def mpi_impl_flags(tcp, env=None):
             return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"]
 
         def exception(*args, **argv):

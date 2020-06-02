@@ -411,9 +411,11 @@ class RunTests(unittest.TestCase):
     def test_get_mpi_implementation(self):
         def test(output, expected, exit_code=0):
             ret = (output, exit_code) if output is not None else None
-            with mock.patch("horovod.run.mpi_run.tiny_shell_exec.execute", return_value=ret):
-                implementation = _get_mpi_implementation()
+            env = {'VAR': 'val'}
+            with mock.patch("horovod.run.mpi_run.tiny_shell_exec.execute", return_value=ret) as m:
+                implementation = _get_mpi_implementation(env)
                 self.assertEqual(expected, implementation)
+                m.assert_called_once_with('mpirun --version', env)
 
         test(("mpirun (Open MPI) 2.1.1\n"
               "Report bugs to http://www.open-mpi.org/community/help/\n"), _OMPI_IMPL)
@@ -534,7 +536,7 @@ class RunTests(unittest.TestCase):
         cmd = ['cmd']
         settings = self.minimal_settings
 
-        def mpi_impl_flags(tcp):
+        def mpi_impl_flags(tcp, env=None):
             return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"]
 
         with mock.patch("horovod.run.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags):
@@ -564,7 +566,7 @@ class RunTests(unittest.TestCase):
         settings = copy.copy(self.minimal_settings)
         settings.num_hosts = large_cluster_threshold
 
-        def mpi_impl_flags(tcp):
+        def mpi_impl_flags(tcp, env=None):
             return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"]
 
         with mock.patch("horovod.run.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags):
@@ -612,14 +614,17 @@ class RunTests(unittest.TestCase):
             run_func_mode=True
         )
 
-        def mpi_impl_flags(tcp):
+        def mpi_impl_flags(tcp, env=None):
             return ["--mock-mpi-impl-flags"], []
 
-        with mock.patch("horovod.run.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags):
+        with mock.patch("horovod.run.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags) as impl:
             with mock.patch("horovod.run.mpi_run.safe_shell_exec.execute", return_value=0) as execute:
                 mpi_run(settings, nics, env, cmd, stdout=stdout, stderr=stderr)
 
-                # call the mocked _get_mpi_implementation_flags method
+                # assert call on _get_mpi_implementation_flags
+                impl.assert_called_once_with(None, env=env)
+
+                # call the mocked _get_mpi_implementation_flags method ourselves
                 mpi_flags, _ = horovod.run.mpi_run._get_mpi_implementation_flags(False)
                 self.assertIsNotNone(mpi_flags)
                 expected_command = ('mpirun '
@@ -643,7 +648,7 @@ class RunTests(unittest.TestCase):
         cmd = ['cmd']
         settings = self.minimal_settings
 
-        def mpi_impl_flags(tcp):
+        def mpi_impl_flags(tcp, env=None):
             return [], []
 
         with mock.patch("horovod.run.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags):
@@ -685,7 +690,7 @@ class RunTests(unittest.TestCase):
             run_func_mode=True
         )
 
-        def mpi_impl_flags(tcp):
+        def mpi_impl_flags(tcp, env=None):
             return ["--mock-mpi-impl-flags"], []
 
         with mock.patch("horovod.run.js_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags):
