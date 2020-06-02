@@ -19,6 +19,8 @@ from horovod.run.common.util import network
 from horovod.run.common.util import safe_shell_exec
 from horovod.run.util.threads import in_thread
 
+WAIT_FOR_COMMAND_MIN_DELAY = 0.1
+
 
 class RunCommandRequest(object):
     def __init__(self, command, env):
@@ -168,7 +170,7 @@ class BasicTaskService(network.BasicService):
             self._wait_cond.acquire()
             try:
                 while self._command_thread is None or self._command_thread.is_alive():
-                    self._wait_cond.wait(req.delay if req.delay >= 0.1 else 0.1)
+                    self._wait_cond.wait(max(req.delay, WAIT_FOR_COMMAND_MIN_DELAY))
                 return WaitForCommandExitCodeResponse(self._command_exit_code)
             finally:
                 self._wait_cond.release()

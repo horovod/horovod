@@ -13,9 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
+import threading
+
 from horovod.run.common.service import driver_service
-from horovod.run.util.threads import in_thread
-from horovod.spark.task import task_service
 
 
 class TaskHostHashIndicesRequest(object):
@@ -31,7 +31,7 @@ class TaskHostHashIndicesResponse(object):
 
 
 class SetLocalRankToRankRequest(object):
-    """Set local rank to tank."""
+    """Set local rank to rank."""
     def __init__(self, host_hash, local_rank, rank):
         self.host = host_hash
         """Host hash."""
@@ -90,6 +90,7 @@ class SparkDriverService(driver_service.BasicDriverService):
         self._nics = nics
         self._ranks_to_indices = {}
         self._spark_job_failed = False
+        self._lock = threading.Lock()
 
     def _handle(self, req, client_address):
 
@@ -97,7 +98,7 @@ class SparkDriverService(driver_service.BasicDriverService):
             return TaskHostHashIndicesResponse(self._task_host_hash_indices[req.host_hash])
 
         if isinstance(req, SetLocalRankToRankRequest):
-            self._wait_cond.acquire()
+            self._lock.acquire()
 
             try:
                 # get index for host and local_rank
@@ -105,6 +106,10 @@ class SparkDriverService(driver_service.BasicDriverService):
                 index = indices[req.local_rank]
 
                 # remove earlier rank for this index
+                # dict.keys() and dict.values() have corresponding order
+                # so we look up index in _ranks_to_indices.values() and use that position
+                # to get the corresponding key (the rank) from _ranks_to_indices.keys()
+                # https://stackoverflow.com/questions/835092/python-dictionary-are-keys-and-values-always-the-same-order
                 values = list(self._ranks_to_indices.values())
                 prev_pos = values.index(index) if index in values else None
                 if prev_pos is not None:
@@ -114,15 +119,15 @@ class SparkDriverService(driver_service.BasicDriverService):
                 # memorize rank's index
                 self._ranks_to_indices[req.rank] = index
             finally:
-                self._wait_cond.release()
+                self._lock.release()
             return SetLocalRankToRankResponse(index)
 
         if isinstance(req, TaskIndexByRankRequest):
-            self._wait_cond.acquire()
+            self._lock.acquire()
             try:
                 return TaskIndexByRankResponse(self._ranks_to_indices[req.rank])
             finally:
-                self._wait_cond.release()
+                self._lock.release()
 
         if isinstance(req, CodeRequest):
             return CodeResponse(self._fn, self._args, self._kwargs)
@@ -130,18 +135,18 @@ class SparkDriverService(driver_service.BasicDriverService):
         return super(SparkDriverService, self)._handle(req, client_address)
 
     def set_ranks_to_indices(self, ranks_to_indices):
-        self._wait_cond.acquire()
+        self._lock.acquire()
         try:
             self._ranks_to_indices = ranks_to_indices.copy()
         finally:
-            self._wait_cond.release()
+            self._lock.release()
 
     def get_ranks_to_indices(self):
-        self._wait_cond.acquire()
+        self._lock.acquire()
         try:
             return self._ranks_to_indices.copy()
         finally:
-            self._wait_cond.release()
+            self._lock.release()
 
     def notify_spark_job_failed(self):
         self._wait_cond.acquire()

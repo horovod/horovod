@@ -51,8 +51,7 @@ def check_extension(ext_name, ext_env_var, pkg_path, *args):
     full_path = get_extension_full_path(pkg_path, *args)
     if not os.path.exists(full_path):
         raise ImportError(
-            'Extension {} has not been built:\n'
-            '  {} not found\n'
+            'Extension {} has not been built: {} not found\n'
             'If this is not expected, reinstall Horovod with {}=1 to debug the build error.'.format(
                 ext_name, full_path, ext_env_var
             )

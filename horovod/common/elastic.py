@@ -156,9 +156,9 @@ def run_fn(func, reset):
 
                 try:
                     return func(state, *args, **kwargs)
-                except HorovodInternalError as e:
+                except HorovodInternalError:
                     state.restore()
-                except HostsUpdatedInterrupt as e:
+                except HostsUpdatedInterrupt:
                     pass
 
                 reset()

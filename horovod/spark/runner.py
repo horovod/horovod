@@ -333,7 +333,7 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
         nics = set(nics)
 
     if num_proc is None:
-        # TODO: try spark.dynamicAllocation.initialExecutors
+        # TODO: #2023 try spark.dynamicAllocation.initialExecutors
         num_proc = spark_context.defaultParallelism
         if verbose >= 1:
             logging.info('Running %d processes (inferred from spark.default.parallelism)...', num_proc)
@@ -342,10 +342,10 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
             logging.info('Running %d processes...', num_proc)
 
     if min_np is None:
-        # TODO: try spark.dynamicAllocation.minExecutors
+        # TODO: #2023 try spark.dynamicAllocation.minExecutors
         min_np = num_proc
     if max_np is None:
-        # TODO: try spark.dynamicAllocation.maxExecutors
+        # TODO: #2023 try spark.dynamicAllocation.maxExecutors
         max_np = num_proc
 
     # start Spark driver service and launch settings.num_proc Spark tasks
@@ -378,14 +378,6 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
     spark_thread = _make_spark_thread(spark_context, spark_job_group, driver,
                                       result_queue, settings, use_gloo=True, is_elastic=True)
     try:
-        # TODO: why are we doing this in static and is it needed for elastic?
-        ## Determine the index grouping based on host hashes.
-        ## Barrel shift until index 0 is in the first host.
-        #host_hashes = list(driver.task_host_hash_indices().keys())
-        #host_hashes.sort()
-        #while 0 not in driver.task_host_hash_indices()[host_hashes[0]]:
-        #    host_hashes = host_hashes[1:] + host_hashes[:1]
-
         # Register task addresses of initial num_proc tasks
         _register_task_addresses(driver, settings)
 
