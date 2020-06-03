@@ -1,34 +1,24 @@
 import argparse
 import os
 import subprocess
-import sys
-from distutils.version import LooseVersion
 
 import numpy as np
 
-import pyspark
 import pyspark.sql.types as T
 from pyspark import SparkConf
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
-if LooseVersion(pyspark.__version__) < LooseVersion('3.0.0'):
-    from pyspark.ml.feature import OneHotEncoderEstimator as OneHotEncoder
-else:
-    from pyspark.ml.feature import OneHotEncoder
+from pyspark.ml.feature import OneHotEncoderEstimator
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import udf
 
-from pytorch_lightning import LightningModule
-
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
 import horovod.spark.torch as hvd
-from horovod.spark.common.backend import SparkBackend
 from horovod.spark.common.store import Store
 
-parser = argparse.ArgumentParser(description='PyTorch Spark MNIST Example',
+parser = argparse.ArgumentParser(description='Keras Spark MNIST Example',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--master',
                     help='spark master to connect to')
@@ -47,7 +37,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Initialize SparkSession
-    conf = SparkConf().setAppName('pytorch_spark_mnist').set('spark.sql.shuffle.partitions', '16')
+    conf = SparkConf().setAppName('keras_spark_mnist').set('spark.sql.shuffle.partitions', '16')
     if args.master:
         conf.setMaster(args.master)
     elif args.num_proc:
@@ -69,9 +59,9 @@ if __name__ == '__main__':
         .load(libsvm_path)
 
     # One-hot encode labels into SparseVectors
-    encoder = OneHotEncoder(inputCols=['label'],
-                            outputCols=['label_vec'],
-                            dropLast=False)
+    encoder = OneHotEncoderEstimator(inputCols=['label'],
+                                     outputCols=['label_vec'],
+                                     dropLast=False)
     model = encoder.fit(df)
     train_df = model.transform(df)
 
@@ -79,7 +69,7 @@ if __name__ == '__main__':
     train_df, test_df = train_df.randomSplit([0.9, 0.1])
 
     # Define the PyTorch model without any Horovod-specific parameters
-    class Net(LightningModule):
+    class Net(nn.Module):
         def __init__(self):
             super(Net, self).__init__()
             self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
@@ -98,36 +88,17 @@ if __name__ == '__main__':
             x = self.fc2(x)
             return F.log_softmax(x)
 
-        def configure_optimizers(self):
-            return optim.SGD(self.parameters(), lr=0.01, momentum=0.5)
-
-        def training_step(self, batch, batch_nb):
-            x, y = batch
-            y_hat = self(x)
-            loss = F.nll_loss(y_hat, y)
-            tensorboard_logs = {'train_loss': loss}
-            return {'loss': loss, 'log': tensorboard_logs}
-
-        def validation_step(self, batch, batch_nb):
-            x, y = batch
-            y_hat = self(x)
-            return {'val_loss': F.nll_loss(y_hat, y)}
-
-        def validation_epoch_end(self, outputs):
-            avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
-            tensorboard_logs = {'val_loss': avg_loss}
-            return {'avg_val_loss': avg_loss, 'log': tensorboard_logs}
-
 
     model = Net()
+    optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
+    loss = nn.NLLLoss()
 
     # Train a Horovod Spark Estimator on the DataFrame
-    backend = SparkBackend(num_proc=args.num_proc,
-                           stdout=sys.stdout, stderr=sys.stderr,
-                           prefix_output_with_timestamp=True)
-    torch_estimator = hvd.TorchEstimator(backend=backend,
+    torch_estimator = hvd.TorchEstimator(num_proc=args.num_proc,
                                          store=store,
                                          model=model,
+                                         optimizer=optimizer,
+                                         loss=lambda input, target: loss(input, target.long()),
                                          input_shapes=[[-1, 1, 28, 28]],
                                          feature_cols=['features'],
                                          label_cols=['label'],
@@ -139,7 +110,6 @@ if __name__ == '__main__':
 
     # Evaluate the model on the held-out test DataFrame
     pred_df = torch_model.transform(test_df)
-
     argmax = udf(lambda v: float(np.argmax(v)), returnType=T.DoubleType())
     pred_df = pred_df.withColumn('label_pred', argmax(pred_df.label_prob))
     evaluator = MulticlassClassificationEvaluator(predictionCol='label_pred', labelCol='label', metricName='accuracy')
