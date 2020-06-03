@@ -13,6 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
+import torch
+
 from pytorch_lightning import LightningModule
 
 from horovod.spark.common.util import to_list
@@ -100,8 +102,14 @@ def to_lightning_module(model, optimizer, loss_fns, loss_weights, feature_cols, 
     if validation:
         def validation_step(batch, batch_nb):
             loss = lightning_module._step(batch)
-            tensorboard_logs = {'val_loss': loss}
-            return {'val_loss': loss, 'log': tensorboard_logs}
+            return {'val_loss': loss}
         lightning_module.validation_step = validation_step
+
+        def validation_epoch_end(outputs):
+            avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean() \
+                if len(outputs) > 0 else torch.tensor(float('inf'))
+            tensorboard_logs = {'val_loss': avg_loss}
+            return {'avg_val_loss': avg_loss, 'log': tensorboard_logs}
+        lightning_module.validation_epoch_end = validation_epoch_end
 
     return lightning_module

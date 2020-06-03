@@ -42,6 +42,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     label_shapes = estimator.getLabelShapes()
     feature_columns = estimator.getFeatureCols()
     label_columns = estimator.getLabelCols()
+    sample_weight_col = estimator.getSampleWeightCol()
     should_validate = estimator.getValidation()
     batch_size = estimator.getBatchSize()
     epochs = estimator.getEpochs()
@@ -59,6 +60,9 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
         train_rows, avg_row_size, user_shuffle_buffer_size)
 
     schema_fields = feature_columns + label_columns
+    if sample_weight_col:
+        schema_fields.append(sample_weight_col)
+
     dataloader_cls = _create_dataloader(input_shapes, metadata)
     make_petastorm_reader = _make_petastorm_reader_fn(transformation, schema_fields,
                                                       batch_size, calculate_shuffle_buffer_size,
@@ -243,32 +247,3 @@ def _prepare_data_fn(metadata):
                 rows[r][size + 1:2 * size + 1]
         return dense_rows
     return prepare_data
-
-
-def _calculate_loss_fn():
-    def calculate_loss(outputs, labels, loss_weights, loss_fns, sample_weights=None):
-        if sample_weights is not None:
-            # when reduction='none', loss function returns the value of all the losses
-            # from all the samples. We multiply each sample's weight to its loss and
-            # then take the mean of the weight adjusted losses from all the samples in the
-            # batch. Note that this approach is not "weighted average" because the sum of
-            # the sample weights in each batch does not necessarily add up to one. If we add
-            # the weights and divide the sum to the sum of weights, the impact of two
-            # samples with identical weights but in different batches will not be equal on
-            # the calculated gradients.
-            losses = []
-            for output, label, loss_fn, loss_weight in zip(outputs, labels,
-                                                           loss_fns, loss_weights):
-                weight_adjusted_sample_losses = \
-                    loss_fn(output, label, reduction='none').flatten() * sample_weights
-                output_loss = weight_adjusted_sample_losses.mean()
-                losses.append(output_loss * loss_weight)
-        else:
-            losses = [loss_fn(output, label) * loss_weight for
-                      output, label, loss_fn, loss_weight in
-                      zip(outputs, labels, loss_fns, loss_weights)]
-
-        loss = sum(losses)
-        return loss
-
-    return calculate_loss
