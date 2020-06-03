@@ -22,27 +22,30 @@ import warnings
 
 import mock
 import numpy as np
+
+import torch
 import torch.nn as nn
+from torch.nn import functional as F
 import torch.optim as optim
 from pyspark.ml.linalg import VectorUDT
 from pyspark.sql.types import FloatType, IntegerType
-from torch.nn import functional as F
 
 import horovod
 import horovod.spark.torch as hvd_spark
 import horovod.torch as hvd
-import torch
+
 from horovod.common.util import gloo_built, mpi_built
 from horovod.runner.mpi_run import is_open_mpi
 from horovod.spark.common import constants, util
 from horovod.spark.torch import remote
 from horovod.spark.torch.estimator import EstimatorParams, _torch_param_serialize
+from horovod.spark.torch.legacy import to_lightning_module
 from horovod.torch.elastic import run
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
 
 from common import tempdir, spawn, is_built
-from spark_common import CallbackBackend, create_xor_data, local_store, spark_session
+from spark_common import CallbackBackend, create_noisy_xor_data, create_xor_data, local_store, spark_session
 
 
 class XOR(nn.Module):
@@ -76,7 +79,7 @@ class SparkTorchTests(unittest.TestCase):
         loss = F.binary_cross_entropy
 
         with spark_session('test_fit_model') as spark:
-            df = create_xor_data(spark)
+            df = create_noisy_xor_data(spark)
 
             with local_store() as store:
                 torch_estimator = hvd_spark.TorchEstimator(
@@ -88,8 +91,8 @@ class SparkTorchTests(unittest.TestCase):
                     input_shapes=[[2]],
                     feature_cols=['features'],
                     label_cols=['y'],
-                    batch_size=1,
-                    epochs=3,
+                    batch_size=4,
+                    epochs=2,
                     verbose=2,
                     sample_weight_col='weight')
 
@@ -106,7 +109,7 @@ class SparkTorchTests(unittest.TestCase):
         loss = nn.BCELoss()
 
         with spark_session('test_restore_from_checkpoint') as spark:
-            df = create_xor_data(spark)
+            df = create_noisy_xor_data(spark)
 
             ctx = CallbackBackend()
 
@@ -121,21 +124,22 @@ class SparkTorchTests(unittest.TestCase):
                     input_shapes=[[2]],
                     feature_cols=['features'],
                     label_cols=['y'],
-                    batch_size=1,
-                    epochs=1,
+                    validation=0.2,
+                    batch_size=4,
+                    epochs=2,
                     verbose=2,
                     run_id=run_id)
 
-                torch_estimator._load_checkpoint = mock.Mock(side_effect=torch_estimator._load_checkpoint)
+                torch_estimator._read_checkpoint = mock.Mock(side_effect=torch_estimator._read_checkpoint)
 
                 ckpt_path = store.get_checkpoint_path(run_id)
                 assert not store.exists(ckpt_path)
-                torch_estimator._load_checkpoint.assert_not_called()
+                torch_estimator._read_checkpoint.assert_not_called()
                 torch_estimator.fit(df)
 
                 assert store.exists(ckpt_path)
                 torch_estimator.fit(df)
-                torch_estimator._load_checkpoint.assert_called()
+                torch_estimator._read_checkpoint.assert_called()
 
     def test_transform_multi_class(self):
         # set dim as 2, to mock a multi class model.
@@ -166,92 +170,48 @@ class SparkTorchTests(unittest.TestCase):
             for field in out_df.schema.fields:
                 assert type(field.dataType) == expected_types[field.name]
 
-    def test_pytorch_get_optimizer_with_unscaled_lr(self):
-        hvd_size = 4
-        init_learning_rate = 0.001
-        hvd_mock = mock.MagicMock()
-        hvd_mock.size.return_value = hvd_size
+    @mock.patch('horovod.torch.allgather')
+    @mock.patch('horovod.torch.local_size')
+    def test_calculate_shuffle_buffer_size_small_row_size(self, mock_local_size, mock_allgather):
+        import horovod.torch as hvd
+        hvd.init()
 
-        get_optimizer_with_unscaled_lr_fn = remote._get_optimizer_with_unscaled_lr_fn()
-        model = create_xor_model()
-        current_optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.5)
-        optimizer_cls = current_optimizer.__class__
-        opt_unscaled_lr = get_optimizer_with_unscaled_lr_fn(hvd_mock, current_optimizer,
-                                                            optimizer_cls, model)
-
-        optimizer_state = opt_unscaled_lr.state_dict()
-        for i in range(len(optimizer_state['param_groups'])):
-            assert optimizer_state['param_groups'][i]['lr'] == init_learning_rate / hvd_size
-
-    def test_calculate_shuffle_buffer_size_small_row_size(self):
         hvd_size = 4
         local_size = 2
-        hvd_mock = mock.MagicMock()
-        hvd_mock.local_size = lambda: local_size
-        hvd_mock.allgather = lambda x: torch.tensor([local_size for _ in range(hvd_size)])
+        mock_local_size.return_value = local_size
+        mock_allgather.return_value = torch.tensor([local_size for _ in range(hvd_size)])
 
         avg_row_size = 100
         train_row_count_per_worker = 100
 
-        calculate_shuffle_buffer_size = remote._calculate_shuffle_buffer_size_fn()
-        shuffle_size = calculate_shuffle_buffer_size(hvd_mock, avg_row_size, train_row_count_per_worker)
+        calculate_shuffle_buffer_size = remote._calculate_shuffle_buffer_size_fn(
+            train_row_count_per_worker, avg_row_size, None)
+        shuffle_size = calculate_shuffle_buffer_size()
         assert shuffle_size == train_row_count_per_worker
 
-    def test_calculate_shuffle_buffer_size(self):
+    @mock.patch('horovod.torch.allgather')
+    @mock.patch('horovod.torch.local_size')
+    def test_calculate_shuffle_buffer_size(self, mock_local_size, mock_allgather):
+        import horovod.torch as hvd
+        hvd.init()
+
         # case with 2 workers, one with 5 ranks and second with 3 ranks
-        hvd_mock = mock.MagicMock()
-        hvd_mock.allgather = lambda x: torch.tensor([5, 5, 5, 5, 5, 3, 3, 3])
-        hvd_mock.local_size = lambda: 2
+        mock_allgather.return_value = torch.tensor([5, 5, 5, 5, 5, 3, 3, 3])
+        mock_local_size.return_value = 2
 
         avg_row_size = 100000
         train_row_count_per_worker = 1000000
 
-        calculate_shuffle_buffer_size = remote._calculate_shuffle_buffer_size_fn()
-        shuffle_size = calculate_shuffle_buffer_size(hvd_mock, avg_row_size, train_row_count_per_worker)
+        calculate_shuffle_buffer_size = remote._calculate_shuffle_buffer_size_fn(
+            train_row_count_per_worker, avg_row_size, None)
+        shuffle_size = calculate_shuffle_buffer_size()
 
-        assert int(shuffle_size) == \
-               int(constants.TOTAL_BUFFER_MEMORY_CAP_GIB * constants.BYTES_PER_GIB / avg_row_size / 5)
+        actual = int(shuffle_size)
+        expected = int(constants.TOTAL_BUFFER_MEMORY_CAP_GIB * constants.BYTES_PER_GIB / avg_row_size / 5)
+        assert actual == expected
 
-    def test_metric_class(self):
-        hvd_mock = mock.MagicMock()
-        hvd_mock.allreduce = lambda tensor, name: 2 * tensor
-        hvd_mock.local_size = lambda: 2
-
-        metric_class = remote._metric_cls()
-        metric = metric_class('dummy_metric', hvd_mock)
-        metric.update(torch.tensor(1.0))
-        metric.update(torch.tensor(2.0))
-
-        assert metric.sum.item() == 6.0
-        assert metric.n.item() == 2.0
-        assert metric.avg.item() == 6.0 / 2.0
-
-    def test_construct_metric_value_holders_one_metric_for_all_labels(self):
-        hvd_mock = mock.MagicMock()
-        hvd_mock.allreduce = lambda tensor, name: 2 * tensor
-        hvd_mock.local_size = lambda: 2
-        metric_class = remote._metric_cls()
-
-        def torch_dummy_metric(outputs, labels):
-            count = torch.tensor(0.)
-            for output, label in zip(outputs, labels):
-                count += 1
-            return count
-
-        metric_fn_groups = [[torch_dummy_metric], [torch_dummy_metric]]
-        label_columns = ['l1', 'l2']
-
-        construct_metric_value_holders = remote._construct_metric_value_holders_fn()
-        metric_values = construct_metric_value_holders(metric_class, metric_fn_groups, label_columns,
-                                                       hvd_mock)
-
-        assert metric_values[0][0].name == 'group_0_l1'
-        assert metric_values[0][1].name == 'group_0_l2'
-        assert metric_values[1][0].name == 'group_1_l1'
-        assert metric_values[1][1].name == 'group_1_l2'
-
-    def test_prepare_np_data(self):
-        with spark_session('test_prepare_np_data') as spark:
+    def test_prepare_data(self):
+        with spark_session('test_prepare_data') as spark:
             df = create_xor_data(spark)
 
             train_rows = df.count()
@@ -263,66 +223,10 @@ class SparkTorchTests(unittest.TestCase):
             modified_df = df.rdd.map(to_petastorm).toDF()
             data = modified_df.collect()
 
-            prepare_np_data = remote._prepare_np_data_fn()
+            prepare_data = remote._prepare_data_fn(metadata)
             features = torch.tensor([data[i].features for i in range(train_rows)])
-            features_prepared = prepare_np_data(features, 'features', metadata)
+            features_prepared = prepare_data('features', features)
             assert np.array_equal(features_prepared, features)
-
-    def test_get_metric_avgs(self):
-        get_metric_avgs = remote._get_metric_avgs_fn()
-
-        def _generate_mock_metric(name, val):
-            metric = mock.MagicMock()
-            metric.name = name
-            metric.avg.item.return_value = val
-            return metric
-
-        metric11 = _generate_mock_metric('11', 11)
-        metric12 = _generate_mock_metric('12', 12)
-        metric21 = _generate_mock_metric('21', 21)
-        metric22 = _generate_mock_metric('22', 22)
-
-        metric_value_groups = [[metric11, metric12], [metric21, metric22]]
-        all_metric_groups_values = get_metric_avgs(metric_value_groups)
-
-        assert all_metric_groups_values[0]['11'] == 11
-        assert all_metric_groups_values[0]['12'] == 12
-        assert all_metric_groups_values[1]['21'] == 21
-        assert all_metric_groups_values[1]['22'] == 22
-
-    def test_update_metrics(self):
-        def dummy_metric_add(output, label):
-            return output + label
-
-        def dummy_metric_sub(output, label):
-            return output - label
-
-        metric_fn_groups = [[dummy_metric_add, dummy_metric_sub], [dummy_metric_add]]
-
-        update_metrics = remote._update_metrics_fn(metric_fn_groups)
-
-        def _generate_mock_metric(name, val):
-            metric = mock.MagicMock()
-            metric.name = name
-            metric.avg.item.return_value = val
-            return metric
-
-        metric11 = _generate_mock_metric('11', 11)
-        metric12 = _generate_mock_metric('12', 12)
-        metric21 = _generate_mock_metric('21', 21)
-        metric22 = _generate_mock_metric('22', 22)
-
-        metric_value_groups = [[metric11, metric12], [metric21, metric22]]
-
-        outputs = [15, 4]
-        labels = [10, 2]
-
-        updated_metric_value_groups = update_metrics(metric_value_groups, outputs, labels)
-
-        updated_metric_value_groups[0][0].update.assert_called_once_with(25)
-        updated_metric_value_groups[0][1].update.assert_called_once_with(2)
-        updated_metric_value_groups[1][0].update.assert_called_once_with(25)
-        updated_metric_value_groups[1][1].update.assert_called_once_with(6)
 
     def test_torch_param_serialize(self):
         serialized_backend = _torch_param_serialize(EstimatorParams.backend.name, 'dummy_value')
@@ -374,8 +278,6 @@ class SparkTorchTests(unittest.TestCase):
                         assert predictions.count() == df.count()
 
     def test_calculate_loss_with_sample_weight(self):
-        calculate_loss = remote._calculate_loss_fn()
-
         labels = torch.tensor([[1.0, 2.0, 3.0]])
         outputs = torch.tensor([[1.0, 0.0, 2.0]])
 
@@ -393,18 +295,19 @@ class SparkTorchTests(unittest.TestCase):
             else:
                 return losses.mean()
 
-        loss = calculate_loss(outputs, labels, [1], [fn_minus], sample_weights=torch.tensor([1.0, 6.0, 3.0]))
+        kwargs = dict(model=mock.Mock(), optimizer=mock.Mock(), feature_cols=[], sample_weights_col='', validation=0)
+        model = to_lightning_module(loss_fns=[fn_minus], loss_weights=[1], label_cols=['a'],  **kwargs)
+        loss = model._calculate_loss(outputs, labels, sample_weights=torch.tensor([1.0, 6.0, 3.0]))
         assert loss == 5.0
 
         labels = torch.tensor([[1.0, 2.0, 3.0], [0.0, 2.0, 4.0]])
         outputs = torch.tensor([[1.0, 0.0, 2.0], [0.0, 0.0, 2.0]])
 
-        loss = calculate_loss(outputs, labels, [0.2, 0.8], [fn_minus, fn_add], sample_weights=torch.tensor([1.0, 6.0, 3.0]))
+        model = to_lightning_module(loss_fns=[fn_minus, fn_add], loss_weights=[0.2, 0.8], label_cols=['a', 'b'], **kwargs)
+        loss = model._calculate_loss(outputs, labels, sample_weights=torch.tensor([1.0, 6.0, 3.0]))
         assert loss == torch.tensor(9.0)
 
     def test_calculate_loss_without_sample_weight(self):
-        calculate_loss = remote._calculate_loss_fn()
-
         labels = torch.tensor([[1.0, 2.0, 3.0]])
         outputs = torch.tensor([[1.0, 0.0, 2.0]])
 
@@ -422,13 +325,16 @@ class SparkTorchTests(unittest.TestCase):
             else:
                 return losses.mean()
 
-        loss = calculate_loss(outputs, labels, [1], [fn_minus])
+        kwargs = dict(model=mock.Mock(), optimizer=mock.Mock(), feature_cols=[], sample_weights_col=None, validation=0)
+        model = to_lightning_module(loss_fns=[fn_minus], loss_weights=[1], label_cols=['a'],  **kwargs)
+        loss = model._calculate_loss(outputs, labels)
         assert loss == 1.0
 
         labels = torch.tensor([[1.0, 2.0, 3.0], [1.0, 2.0, 4.0]])
         outputs = torch.tensor([[1.0, 0.0, 2.0], [0.0, 0.0, 2.0]])
 
-        loss = calculate_loss(outputs, labels, [0.2, 0.8], [fn_minus, fn_add])
+        model = to_lightning_module(loss_fns=[fn_minus, fn_add], loss_weights=[0.2, 0.8], label_cols=['a', 'b'], **kwargs)
+        loss = model._calculate_loss(outputs, labels)
         assert torch.isclose(loss, torch.tensor(2.6))
 
     """
