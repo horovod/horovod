@@ -30,6 +30,9 @@ import torch.optim as optim
 from pyspark.ml.linalg import VectorUDT
 from pyspark.sql.types import FloatType, IntegerType
 
+from pytorch_lightning import LightningModule
+
+import horovod.spark.torch as hvd
 import horovod
 import horovod.spark.torch as hvd_spark
 import horovod.torch as hvd
@@ -48,9 +51,44 @@ from common import tempdir, spawn, is_built
 from spark_common import CallbackBackend, create_noisy_xor_data, create_xor_data, local_store, spark_session
 
 
-class XOR(nn.Module):
-    def __init__(self, input_dim, output_dim):
+class XOR(LightningModule):
+    def __init__(self, input_dim=2, output_dim=1):
         super(XOR, self).__init__()
+        self.lin1 = nn.Linear(input_dim, 8)
+        self.lin2 = nn.Linear(8, output_dim)
+
+    def forward(self, features):
+        x = features.float()
+        x = self.lin1(x)
+        x = torch.tanh(x)
+        x = self.lin2(x)
+        x = torch.sigmoid(x)
+        return x
+
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.parameters(), lr=0.02)
+
+    def training_step(self, batch, batch_nb):
+        x, y = batch['features'], batch['y']
+        y_hat = self(x)
+        loss = F.binary_cross_entropy(y_hat, y.float())
+        tensorboard_logs = {'train_loss': loss}
+        return {'loss': loss, 'log': tensorboard_logs}
+
+    def validation_step(self, batch, batch_nb):
+        x, y = batch['features'], batch['y']
+        y_hat = self(x)
+        return {'val_loss': F.binary_cross_entropy(y_hat, y.float())}
+
+    def validation_epoch_end(self, outputs):
+        avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean() if len(outputs) > 0 else float('inf')
+        tensorboard_logs = {'val_loss': avg_loss}
+        return {'avg_val_loss': avg_loss, 'log': tensorboard_logs}
+
+
+class LegacyXOR(nn.Module):
+    def __init__(self, input_dim, output_dim):
+        super(LegacyXOR, self).__init__()
         self.lin1 = nn.Linear(input_dim, 8)
         self.lin2 = nn.Linear(8, output_dim)
 
@@ -67,6 +105,10 @@ def create_xor_model(input_dim=2, output_dim=1):
     return XOR(input_dim, output_dim)
 
 
+def create_legacy_xor_model(input_dim=2, output_dim=1):
+    return LegacyXOR(input_dim, output_dim)
+
+
 class SparkTorchTests(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(SparkTorchTests, self).__init__(*args, **kwargs)
@@ -75,6 +117,32 @@ class SparkTorchTests(unittest.TestCase):
 
     def test_fit_model(self):
         model = create_xor_model()
+
+        with spark_session('test_fit_model') as spark:
+            df = create_noisy_xor_data(spark)
+
+            with local_store() as store:
+                torch_estimator = hvd.TorchEstimator(
+                    num_proc=2,
+                    store=store,
+                    model=model,
+                    input_shapes=[[2]],
+                    feature_cols=['features'],
+                    label_cols=['y'],
+                    validation=0.2,
+                    batch_size=4,
+                    epochs=2,
+                    verbose=2)
+
+                torch_model = torch_estimator.fit(df)
+
+                trained_model = torch_model.getModel()
+                pred = trained_model(torch.ones([1, 2], dtype=torch.int32))
+                assert len(pred) == 1
+                assert pred.dtype == torch.float32
+
+    def test_legacy_fit_model(self):
+        model = create_legacy_xor_model()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
         loss = F.binary_cross_entropy
 
@@ -105,6 +173,40 @@ class SparkTorchTests(unittest.TestCase):
 
     def test_restore_from_checkpoint(self):
         model = create_xor_model()
+
+        with spark_session('test_restore_from_checkpoint') as spark:
+            df = create_noisy_xor_data(spark)
+
+            ctx = CallbackBackend()
+
+            run_id = 'run01'
+            with local_store() as store:
+                torch_estimator = hvd.TorchEstimator(
+                    backend=ctx,
+                    store=store,
+                    model=model,
+                    input_shapes=[[2]],
+                    feature_cols=['features'],
+                    label_cols=['y'],
+                    validation=0.2,
+                    batch_size=4,
+                    epochs=2,
+                    verbose=2,
+                    run_id=run_id)
+
+                torch_estimator._read_checkpoint = mock.Mock(side_effect=torch_estimator._read_checkpoint)
+
+                ckpt_path = store.get_checkpoint_path(run_id)
+                assert not store.exists(ckpt_path)
+                torch_estimator._read_checkpoint.assert_not_called()
+                torch_estimator.fit(df)
+
+                assert store.exists(ckpt_path)
+                torch_estimator.fit(df)
+                torch_estimator._read_checkpoint.assert_called()
+
+    def test_legacy_restore_from_checkpoint(self):
+        model = create_legacy_xor_model()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
         loss = nn.BCELoss()
 
@@ -238,9 +340,9 @@ class SparkTorchTests(unittest.TestCase):
         serialized_dummy_param = _torch_param_serialize('dummy_param_name', None)
         assert serialized_dummy_param is None
 
-    def test_torch_direct_parquet_train(self):
-        with spark_session('test_torch_direct_parquet_train') as spark:
-            df = create_xor_data(spark)
+    def test_direct_parquet_train(self):
+        with spark_session('test_direct_parquet_train') as spark:
+            df = create_noisy_xor_data(spark)
 
             backend = CallbackBackend()
             with local_store() as store:
@@ -251,11 +353,11 @@ class SparkTorchTests(unittest.TestCase):
                                        store,
                                        df,
                                        feature_columns=['features'],
-                                       label_columns=['y']):
+                                       label_columns=['y'],
+                                       validation=0.2):
                     model = create_xor_model()
-                    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
-                    loss = nn.BCELoss()
 
+<<<<<<< HEAD:test/integration/test_spark_torch.py
                     for inmemory_cache_all in [False, True]:
                         est = hvd_spark.TorchEstimator(
                             backend=backend,
@@ -276,8 +378,25 @@ class SparkTorchTests(unittest.TestCase):
                         transformer = est.fit_on_parquet()
                         predictions = transformer.transform(df)
                         assert predictions.count() == df.count()
+=======
+                    est = hvd_spark.TorchEstimator(
+                        backend=backend,
+                        store=store,
+                        model=model,
+                        input_shapes=[[2]],
+                        feature_cols=['features'],
+                        label_cols=['y'],
+                        validation=0.2,
+                        batch_size=1,
+                        epochs=2,
+                        verbose=2)
 
-    def test_calculate_loss_with_sample_weight(self):
+                    transformer = est.fit_on_parquet()
+                    predictions = transformer.transform(df)
+                    assert predictions.count() == df.count()
+>>>>>>> 1991777... Added PyTorch Lightning tests:test/test_spark_torch.py
+
+    def test_legacy_calculate_loss_with_sample_weight(self):
         labels = torch.tensor([[1.0, 2.0, 3.0]])
         outputs = torch.tensor([[1.0, 0.0, 2.0]])
 
@@ -307,7 +426,7 @@ class SparkTorchTests(unittest.TestCase):
         loss = model._calculate_loss(outputs, labels, sample_weights=torch.tensor([1.0, 6.0, 3.0]))
         assert loss == torch.tensor(9.0)
 
-    def test_calculate_loss_without_sample_weight(self):
+    def test_legacy_calculate_loss_without_sample_weight(self):
         labels = torch.tensor([[1.0, 2.0, 3.0]])
         outputs = torch.tensor([[1.0, 0.0, 2.0]])
 
