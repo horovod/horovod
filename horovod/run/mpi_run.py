@@ -54,23 +54,23 @@ _MPI_NOT_FOUND_ERROR_MSG= ('horovod does not find an installed MPI.\n\n'
                            '3. Use built-in gloo option (horovodrun --gloo ...).')
 
 
-def mpi_available():
-    return _get_mpi_implementation() not in {_UNKNOWN_IMPL, _MISSING_IMPL}
+def mpi_available(env=None):
+    return _get_mpi_implementation(env) not in {_UNKNOWN_IMPL, _MISSING_IMPL}
 
 
-def is_open_mpi():
-    return _get_mpi_implementation() == _OMPI_IMPL
+def is_open_mpi(env=None):
+    return _get_mpi_implementation(env) == _OMPI_IMPL
 
 
-def is_spectrum_mpi():
-    return _get_mpi_implementation() == _SMPI_IMPL
+def is_spectrum_mpi(env=None):
+    return _get_mpi_implementation(env) == _SMPI_IMPL
 
 
-def is_mpich():
-    return _get_mpi_implementation() == _MPICH_IMPL
+def is_mpich(env=None):
+    return _get_mpi_implementation(env) == _MPICH_IMPL
 
 
-def _get_mpi_implementation():
+def _get_mpi_implementation(env=None):
     """
     Detects the available MPI implementation by invoking `mpirun --version`.
     This command is executed by the given execute function, which takes the
@@ -82,10 +82,11 @@ def _get_mpi_implementation():
     - _UNKNOWN_IMPL for any unknown implementation
     - _MISSING_IMPL if `mpirun --version` could not be executed.
 
+    :param env: environment variable to use to run mpirun
     :return: string representing identified implementation
     """
     command = 'mpirun --version'
-    res = tiny_shell_exec.execute(command)
+    res = tiny_shell_exec.execute(command, env)
     if res is None:
         return _MISSING_IMPL
     (output, exit_code) = res
@@ -107,12 +108,12 @@ def _get_mpi_implementation():
         return _MISSING_IMPL
 
 
-def _get_mpi_implementation_flags(tcp_flag):
-    if is_open_mpi():
+def _get_mpi_implementation_flags(tcp_flag, env=None):
+    if is_open_mpi(env):
         return list(_OMPI_FLAGS), list(_NO_BINDING_ARGS)
-    elif is_spectrum_mpi():
+    elif is_spectrum_mpi(env):
         return list(_SMPI_FLAGS) if not tcp_flag else list(_SMPI_FLAGS_TCP), list(_SOCKET_BINDING_ARGS)
-    elif is_mpich():
+    elif is_mpich(env):
         return list(_MPICH_FLAGS), list(_NO_BINDING_ARGS)
     else:
         return None, None
@@ -133,7 +134,7 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
         stderr: Stderr of the mpi process.
                 Only used when settings.run_func_mode is True.
     """
-    mpi_impl_flags, impl_binding_args = _get_mpi_implementation_flags(settings.tcp_flag)
+    mpi_impl_flags, impl_binding_args = _get_mpi_implementation_flags(settings.tcp_flag, env=env)
     if mpi_impl_flags is None:
         raise Exception(_MPI_NOT_FOUND_ERROR_MSG)
 

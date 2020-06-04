@@ -44,7 +44,7 @@ def js_run(settings, nics, env, command, stdout=None, stderr=None):
         stderr: Stderr of the mpi process.
                 Only used when settings.run_func_mode is True.
     """
-    mpi_impl_flags, _ = _get_mpi_implementation_flags(settings.tcp_flag)
+    mpi_impl_flags, _ = _get_mpi_implementation_flags(settings.tcp_flag, env=env)
     if mpi_impl_flags is None:
         raise Exception(_MPI_NOT_FOUND_ERROR_MSG)
 
