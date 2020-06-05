@@ -1288,6 +1288,48 @@ class TensorFlowTests(tf.test.TestCase):
                 self.assertAllClose(w1, w2)
             assert state.batch == 21
             assert state.epoch == 11
+            
+    def test_horovod_join_allreduce(self):
+        """Test that the hvd.join with allreduce works on GPUs."""
+        # Only do this test if there are GPUs available.
+        if not tf.test.is_gpu_available(cuda_only=True):
+            self.skipTest(("No GPUs available"))
+
+        if os.environ.get('HOROVOD_MIXED_INSTALL'):
+            # Skip if compiled with CUDA but without HOROVOD_GPU_ALLREDUCE.
+            self.skipTest("Not compiled with HOROVOD_GPU_ALLREDUCE")
+
+        hvd.init()
+        local_rank = hvd.local_rank()
+        size = hvd.size()
+
+        dtypes = [tf.int32, tf.int64, tf.float16, tf.float32, tf.float64]
+        dims = [1, 2, 3]
+        first_join_ranks = [0, 1]
+
+        for dtype, dim, first_join_rank in itertools.product(dtypes, dims, first_join_ranks):
+            with tf.device("/gpu:%d" % local_rank):
+                if local_rank == first_join_rank:
+                    self.evaluate(hvd.join())
+                else:		
+                    tensor = self.random_uniform(
+                            [17] * dim, -100, 100, dtype=dtype)
+                    summed = hvd.allreduce(tensor, average=False)
+                    multiplied = tensor * (size-1)
+                    max_difference = tf.reduce_max(tf.abs(summed - multiplied))
+
+                    if size <= 3 or dtype in [tf.int32, tf.int64]:
+                        threshold = 0 
+                    elif size < 10:
+                        threshold = 1e-4
+                    elif size < 15:
+                        threshold = 5e-4
+                    else:
+                        return
+                    diff = self.evaluate(max_difference)
+                    self.evaluate(hvd.join())
+                    self.assertTrue(diff <= threshold,
+                             "hvd.join with hvd.allreduce on GPU produces incorrect results")
 
 
 if _has_eager:

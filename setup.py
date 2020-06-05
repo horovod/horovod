@@ -75,6 +75,12 @@ def check_tf_version():
             raise DistutilsPlatformError(
                 'Your TensorFlow version %s is outdated.  '
                 'Horovod requires tensorflow>=1.1.0' % tf.__version__)
+        # parse version
+        version = parse_version(tf.__version__)
+        if version is None:
+            raise DistutilsPlatformError(
+                'Unable to determine TensorFlow version from the version string \'%s\'' % tf.__version__)
+        return version
     except ImportError:
         raise DistutilsPlatformError(
             'import tensorflow failed, is it installed?\n\n%s' % traceback.format_exc())
@@ -936,13 +942,18 @@ def build_tf_extension(build_ext, global_options):
     # compiled with compiler of this plugin
     options = deepcopy(global_options)
 
-    check_tf_version()
+    tf_version = check_tf_version()
     tf_compile_flags, tf_link_flags = get_tf_flags(
         build_ext, options['COMPILE_FLAGS'])
 
     gloo_compile_macros = filter_compile_macros(tf_compile_flags)
 
-    tensorflow_mpi_lib.define_macros = options['MACROS']
+    # Export TENSORFLOW_VERSION equal to our representation of tf.__version__. Internally it's
+    # used for backwards compatibility checks.
+    updated_macros = set_macro(
+        options['MACROS'], 'TENSORFLOW_VERSION', str(tf_version))
+
+    tensorflow_mpi_lib.define_macros = updated_macros
     tensorflow_mpi_lib.include_dirs = options['INCLUDES']
     tensorflow_mpi_lib.sources = options['SOURCES'] + \
                                  ['horovod/tensorflow/mpi_ops.cc']
