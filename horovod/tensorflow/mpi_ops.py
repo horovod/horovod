@@ -195,3 +195,7 @@ def _broadcast_grad(op, grad):
     if rank() != root_rank:
         return grad_reduced * 0
     return grad_reduced
+
+def join():
+    return MPI_LIB.horovod_join()
+
