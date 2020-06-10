@@ -137,7 +137,8 @@ def _exec_command_fn(settings):
         host_address = network.resolve_host_address(host_name)
         local_addresses = network.get_local_host_addresses()
         if host_address not in local_addresses:
-            command = 'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} ' \
+            command = 'ssh -o PasswordAuthentication=no -o StrictHostKeyChecking=no ' \
+                      '{host} {ssh_port_arg} ' \
                       '{local_command}'\
                 .format(host=host_name,
                         ssh_port_arg=ssh_port_arg,

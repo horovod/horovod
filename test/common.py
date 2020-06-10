@@ -80,6 +80,25 @@ def wait(func, timeout=None):
 
 
 @contextlib.contextmanager
+def capture(stdout=None, stderr=None):
+    out = sys.stdout
+    err = sys.stderr
+    if stdout is not None:
+        sys.stdout = stdout
+    if stderr is not None:
+        sys.stderr = stderr
+    try:
+        yield
+    finally:
+        if stdout is not None:
+            sys.stdout.seek(0)
+            sys.stdout = out
+        if stderr is not None:
+            sys.stderr.seek(0)
+            sys.stderr = err
+
+
+@contextlib.contextmanager
 def tempdir():
     dirpath = tempfile.mkdtemp()
     try:

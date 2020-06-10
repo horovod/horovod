@@ -93,7 +93,8 @@ class LSFUtils:
     @_cache
     def get_num_threads():
         """Returns the number of hardware threads."""
-        lscpu_cmd = 'ssh -o StrictHostKeyChecking=no {host} {cmd}'.format(
+        lscpu_cmd = 'ssh -o PasswordAuthentication=no -o StrictHostKeyChecking=no ' \
+                    '{host} {cmd}'.format(
             host=LSFUtils.get_compute_hosts()[0],
             cmd=LSFUtils._LSCPU_CMD
         )

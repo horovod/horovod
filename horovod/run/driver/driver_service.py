@@ -93,27 +93,33 @@ def _launch_task_servers(all_host_names, local_host_names, driver_addresses,
     else:
         ssh_port_arg = ''
     args_list = []
-    for index in range(len(all_host_names)):
+    num_hosts = len(all_host_names)
+    for index in range(num_hosts):
         host_name = all_host_names[index]
         if host_name in local_host_names:
             command = \
-                '{python} -m horovod.run.task_fn {index} ' \
+                '{python} -m horovod.run.task_fn {index} {num_hosts} ' \
                 '{driver_addresses} {settings}'\
                 .format(python=sys.executable,
                         index=codec.dumps_base64(index),
+                        num_hosts=codec.dumps_base64(num_hosts),
                         driver_addresses=codec.dumps_base64(driver_addresses),
                         settings=codec.dumps_base64(settings))
         else:
             command = \
-                'ssh -o StrictHostKeyChecking=no {host} {ssh_port_arg} ' \
-                '\'{python} -m horovod.run.task_fn {index} {driver_addresses}' \
-                ' {settings}\''\
+                'ssh -o PasswordAuthentication=no -o StrictHostKeyChecking=no ' \
+                '{host} {ssh_port_arg} ' \
+                '\'{python} -m horovod.run.task_fn {index} {num_hosts} ' \
+                '{driver_addresses} {settings}\''\
                 .format(host=host_name,
                         ssh_port_arg=ssh_port_arg,
                         python=sys.executable,
                         index=codec.dumps_base64(index),
+                        num_hosts=codec.dumps_base64(num_hosts),
                         driver_addresses=codec.dumps_base64(driver_addresses),
                         settings=codec.dumps_base64(settings))
+        if settings.verbose >= 2:
+            print('Launching horovod task function: {}'.format(command))
         args_list.append([command])
     # Each thread will use ssh command to launch the server on one task. If an
     # error occurs in one thread, entire process will be terminated. Otherwise,

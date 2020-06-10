@@ -28,12 +28,18 @@ RUN apt-get update -qq && apt-get install -y --allow-downgrades --allow-change-h
         ca-certificates \
         cmake \
         openssh-client \
+        openssh-server \
         git \
         build-essential \
         g++-4.8 \
+        moreutils \
         libcudnn7=${CUDNN_VERSION} \
         libnccl2=${NCCL_VERSION_OVERRIDE} \
         libnccl-dev=${NCCL_VERSION_OVERRIDE}
+
+# setup ssh service
+RUN ssh-keygen -f /root/.ssh/id_rsa -q -N ''
+RUN cp -v /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
 
 # install g++-7
 RUN apt-get install -y --no-install-recommends software-properties-common
@@ -44,7 +50,7 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends g++-7
 RUN apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-distutils
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
-RUN pip install -U --force pip 'setuptools<46.0.0' requests pytest mock pytest-forked
+RUN pip install -U --force pip 'setuptools<46.0.0' requests pytest mock pytest-forked parameterized
 
 # Install PySpark.
 RUN apt-get update -qq && apt install -y openjdk-8-jdk-headless
