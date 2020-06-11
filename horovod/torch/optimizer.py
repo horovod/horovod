@@ -140,12 +140,11 @@ class _DistributedOptimizer(torch.optim.Optimizer):
             handle, ctx = self._allreduce_grad_async(p)
             self._handles[p] = (handle, ctx)
 
-        for p, value in self._handles.items():
-            handle, ctx = value
+        for p, (handle, ctx) in self._handles.items():
             if handle is None:
                 handle, ctx = self._allreduce_grad_async(p)
                 self._handles[p] = (handle, ctx)
-        for p, (handle, _) in self._handles.items():
+        for p, (handle, ctx) in self._handles.items():
             output = synchronize(handle)
             self._allreduce_delay[p] = self.backward_passes_per_step
             p.grad.set_(self._compression.decompress(output, ctx))
