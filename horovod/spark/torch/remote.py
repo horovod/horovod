@@ -20,7 +20,7 @@ import tempfile
 
 import torch
 
-from pytorch_lightning import Trainer
+from pytorch_lightning import Trainer, Callback
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 
@@ -79,6 +79,8 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
     val_steps_per_epoch = estimator.getValidationStepsPerEpoch()
     val_percent = val_rows / val_steps_per_epoch if val_steps_per_epoch else 1.0
 
+    callbacks = _make_callbacks()
+
     def train(serialized_model):
         with tempfile.TemporaryDirectory() as last_ckpt_dir, remote_store.get_local_output_dir() as run_output_dir:
             last_ckpt_file = os.path.join(last_ckpt_dir, 'last.ckpt')
@@ -96,6 +98,7 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             model = deserialize(serialized_model)
             trainer = Trainer(distributed_backend='horovod',
                               gpus=1 if torch.cuda.is_available() else 0,
+                              callbacks=callbacks,
                               max_epochs=epochs,
                               train_percent_check=train_percent,
                               val_percent_check=val_percent,
@@ -116,6 +119,22 @@ def RemoteTrainer(estimator, metadata, ckpt_bytes, run_id, dataset_idx, train_ro
             serialized_checkpoint.seek(0)
             return serialized_checkpoint
     return train
+
+
+def _make_callbacks():
+    class ResetCallback(Callback):
+        def on_train_end(self, trainer, model):
+            trainer.train_dataloader.reader.reset()
+
+        # def on_validation_end(self, trainer, model):
+        #     for loader in trainer.val_dataloaders:
+        #         loader.reader.reset()
+
+        def on_sanity_check_end(self, trainer, model):
+            for loader in trainer.val_dataloaders:
+                loader.reader.reset()
+
+    return [ResetCallback()]
 
 
 def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calculate_shuffle_buffer_size, dataloader_cls):
@@ -159,7 +178,6 @@ def _make_petastorm_reader_fn(transformation, schema_fields, batch_size, calcula
                 return dataloader_cls(reader, batch_size=batch_size,
                                       shuffling_queue_capacity=calculate_shuffle_buffer_size())
             try:
-                print('PATCH: {} {}'.format(dataloader_attr, dataloader_fn.__code__))
                 setattr(model, dataloader_attr, dataloader_fn)
                 yield
             finally:
