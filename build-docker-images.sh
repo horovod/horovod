@@ -15,10 +15,10 @@ function build_one()
 
     tag=horovod-build-py${py}-${device}:$(date +%Y%m%d-%H%M%S)
     docker build -f Dockerfile.${device} -t ${tag} --build-arg python=${py} --no-cache .
-    horovod_version=$(docker run --rm ${tag} pip freeze | grep ^horovod= | awk -F== '{print $2}')
-    tensorflow_version=$(docker run --rm ${tag} pip freeze | grep ^${tensorflow_pkg}= | awk -F== '{print $2}')
-    pytorch_version=$(docker run --rm ${tag} pip freeze | grep ^torch= | awk -F== '{print $2}' | awk -F+ '{print $1}')
-    mxnet_version=$(docker run --rm ${tag} pip freeze | grep ^mxnet | awk -F== '{print $2}')
+    horovod_version=$(docker run --rm ${tag} pip show horovod | grep Version | awk '{print $2}')
+    tensorflow_version=$(docker run --rm ${tag} pip show ${tensorflow_pkg} | grep Version | awk '{print $2}')
+    pytorch_version=$(docker run --rm ${tag} pip show torch | grep Version | awk '{print $2}')
+    mxnet_version=$(docker run --rm ${tag} pip show mxnet | grep Version | awk '{print $2}')
     final_tag=horovod/horovod:${horovod_version}-tf${tensorflow_version}-torch${pytorch_version}-mxnet${mxnet_version}-py${py}-${device}
     docker tag ${tag} ${final_tag}
     docker rmi ${tag}
