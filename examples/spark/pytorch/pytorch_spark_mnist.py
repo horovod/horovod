@@ -102,16 +102,16 @@ if __name__ == '__main__':
             return optim.SGD(self.parameters(), lr=0.01, momentum=0.5)
 
         def training_step(self, batch, batch_nb):
-            x, y = batch
+            x, y = batch['features'], batch['label']
             y_hat = self(x)
-            loss = F.nll_loss(y_hat, y)
+            loss = F.nll_loss(y_hat, y.long())
             tensorboard_logs = {'train_loss': loss}
             return {'loss': loss, 'log': tensorboard_logs}
 
         def validation_step(self, batch, batch_nb):
-            x, y = batch
+            x, y = batch['features'], batch['label']
             y_hat = self(x)
-            return {'val_loss': F.nll_loss(y_hat, y)}
+            return {'val_loss': F.nll_loss(y_hat, y.long())}
 
         def validation_epoch_end(self, outputs):
             avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
@@ -128,9 +128,10 @@ if __name__ == '__main__':
     torch_estimator = hvd.TorchEstimator(backend=backend,
                                          store=store,
                                          model=model,
-                                         input_shapes=[[-1, 1, 28, 28]],
+                                         input_shapes={'features': [-1, 1, 28, 28]},
                                          feature_cols=['features'],
                                          label_cols=['label'],
+                                         validation=0.1,
                                          batch_size=args.batch_size,
                                          epochs=args.epochs,
                                          verbose=1)
