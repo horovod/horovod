@@ -891,50 +891,51 @@ class SparkTests(unittest.TestCase):
         )
 
     def do_test_exec_fn_provides_driver_with_local_rank(self, exec_fn, rank_env, local_rank_env):
-        with spark_driver_service(num_proc=3) as (driver, client, key):
-            with spark_task_service(index=0, key=key) as (task0, _, _):
-                with spark_task_service(index=1, key=key) as (task1, _, _):
-                    with spark_task_service(index=2, key=key) as (task2, _, _):
-                        self.assertIsNone(task0.fn_result())
-                        self.assertIsNone(task1.fn_result())
-                        self.assertIsNone(task2.fn_result())
+        with mock.patch("horovod.spark.task.task_service.SparkTaskService._get_resources", return_value={}):
+            with spark_driver_service(num_proc=3) as (driver, client, key), \
+                    spark_task_service(index=0, key=key) as (task0, _, _), \
+                    spark_task_service(index=1, key=key) as (task1, _, _), \
+                    spark_task_service(index=2, key=key) as (task2, _, _):
+                self.assertIsNone(task0.fn_result())
+                self.assertIsNone(task1.fn_result())
+                self.assertIsNone(task2.fn_result())
 
-                        client.register_task(0, task0.addresses(), 'host-1')
-                        client.register_task(1, task1.addresses(), 'host-2')
-                        client.register_task(2, task2.addresses(), 'host-1')
-                        self.assertEqual({}, driver.get_ranks_to_indices())
+                client.register_task(0, task0.addresses(), 'host-1')
+                client.register_task(1, task1.addresses(), 'host-2')
+                client.register_task(2, task2.addresses(), 'host-1')
+                self.assertEqual({}, driver.get_ranks_to_indices())
 
-                        settings = mock.MagicMock(verbose=2)
+                settings = mock.MagicMock(verbose=2)
 
-                        with override_env({rank_env: 0,
-                                           local_rank_env: 1,
-                                           'HOROVOD_HOSTNAME': 'host-1',
-                                           secret.HOROVOD_SECRET_KEY: codec.dumps_base64(key)}):
-                            exec_fn.main(driver.addresses(), settings)
-                            self.assertEqual(None, task0.fn_result())
-                            self.assertEqual(None, task1.fn_result())
-                            self.assertEqual(0, task2.fn_result())
-                            self.assertEqual({0: 2}, driver.get_ranks_to_indices())
+                with override_env({rank_env: 0,
+                                   local_rank_env: 1,
+                                   'HOROVOD_HOSTNAME': 'host-1',
+                                   secret.HOROVOD_SECRET_KEY: codec.dumps_base64(key)}):
+                    exec_fn.main(driver.addresses(), settings)
+                    self.assertEqual(None, task0.fn_result())
+                    self.assertEqual(None, task1.fn_result())
+                    self.assertEqual(0, task2.fn_result())
+                    self.assertEqual({0: 2}, driver.get_ranks_to_indices())
 
-                        with override_env({rank_env: 2,
-                                           local_rank_env: 0,
-                                           'HOROVOD_HOSTNAME': 'host-2',
-                                           secret.HOROVOD_SECRET_KEY: codec.dumps_base64(key)}):
-                            exec_fn.main(driver.addresses(), settings)
-                            self.assertEqual(None, task0.fn_result())
-                            self.assertEqual(0, task1.fn_result())
-                            self.assertEqual(0, task2.fn_result())
-                            self.assertEqual({0: 2, 2: 1}, driver.get_ranks_to_indices())
+                with override_env({rank_env: 2,
+                                   local_rank_env: 0,
+                                   'HOROVOD_HOSTNAME': 'host-2',
+                                   secret.HOROVOD_SECRET_KEY: codec.dumps_base64(key)}):
+                    exec_fn.main(driver.addresses(), settings)
+                    self.assertEqual(None, task0.fn_result())
+                    self.assertEqual(0, task1.fn_result())
+                    self.assertEqual(0, task2.fn_result())
+                    self.assertEqual({0: 2, 2: 1}, driver.get_ranks_to_indices())
 
-                        with override_env({rank_env: 1,
-                                           local_rank_env: 0,
-                                           'HOROVOD_HOSTNAME': 'host-1',
-                                           secret.HOROVOD_SECRET_KEY: codec.dumps_base64(key)}):
-                            exec_fn.main(driver.addresses(), settings)
-                            self.assertEqual(0, task0.fn_result())
-                            self.assertEqual(0, task1.fn_result())
-                            self.assertEqual(0, task2.fn_result())
-                            self.assertEqual({0: 2, 2: 1, 1: 0}, driver.get_ranks_to_indices())
+                with override_env({rank_env: 1,
+                                   local_rank_env: 0,
+                                   'HOROVOD_HOSTNAME': 'host-1',
+                                   secret.HOROVOD_SECRET_KEY: codec.dumps_base64(key)}):
+                    exec_fn.main(driver.addresses(), settings)
+                    self.assertEqual(0, task0.fn_result())
+                    self.assertEqual(0, task1.fn_result())
+                    self.assertEqual(0, task2.fn_result())
+                    self.assertEqual({0: 2, 2: 1, 1: 0}, driver.get_ranks_to_indices())
 
     def test_spark_driver_host_discovery(self):
         with spark_driver_service(num_proc=4) as (driver, client, _):

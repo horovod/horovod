@@ -93,8 +93,13 @@ class SparkTaskService(task_service.BasicTaskService):
 
     def _get_resources(self):
         if LooseVersion(pyspark.__version__) >= LooseVersion('3.0.0'):
-            from pyspark import TaskContext
-            return TaskContext.get().resources()
+            task_context = pyspark.TaskContext.get()
+            if task_context:
+                return task_context.resources()
+            else:
+                # task_context is None when not run on Spark worker
+                # this only happens while running test_spark.test_task_fn_run_gloo_exec()
+                print("Not running inside Spark worker, no resources available")
         return dict()
 
     def wait_for_command_termination(self):
