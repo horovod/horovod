@@ -23,7 +23,7 @@ import torch.optim as optim
 import horovod.spark.torch as hvd
 from horovod.spark.common.store import Store
 
-parser = argparse.ArgumentParser(description='Keras Spark MNIST Example',
+parser = argparse.ArgumentParser(description='PyTorch Spark MNIST Example',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--master',
                     help='spark master to connect to')
@@ -42,7 +42,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Initialize SparkSession
-    conf = SparkConf().setAppName('keras_spark_mnist').set('spark.sql.shuffle.partitions', '16')
+    conf = SparkConf().setAppName('pytorch_spark_mnist').set('spark.sql.shuffle.partitions', '16')
     if args.master:
         conf.setMaster(args.master)
     elif args.num_proc:
