@@ -13,18 +13,9 @@
 # limitations under the License.
 # =============================================================================
 
-import sys
-
-from distutils.version import LooseVersion
-
-if LooseVersion(sys.version) < LooseVersion('3.0.0'):
-    from urllib2 import urlopen
-    from urllib2 import Request
-    from urllib2 import HTTPError, URLError
-else:
-    from urllib.request import urlopen
-    from urllib.request import Request
-    from urllib.error import HTTPError, URLError
+from urllib.request import urlopen
+from urllib.request import Request
+from urllib.error import HTTPError, URLError
 
 from horovod.run.common.util import codec
 

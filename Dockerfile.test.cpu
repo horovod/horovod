@@ -45,6 +45,7 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends g++-7
 RUN apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-distutils
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
+# pytest<5.4.0 until pytest-forked 1.1.4 is released: https://github.com/pytest-dev/pytest-forked/pull/32
 RUN pip install -U --force pip 'setuptools<46.0.0' requests 'pytest<5.4.0' mock pytest-forked parameterized
 
 # Install Spark stand-alone cluster.

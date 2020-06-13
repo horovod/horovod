@@ -33,13 +33,13 @@ parser.add_argument('--batches-per-commit', type=int, default=1,
 parser.add_argument('--epochs', type=int, default=3,
                     help='number of epochs')
 parser.add_argument('--epoch-wait', type=int, default=0,
-                    help='number of seconds each takes')
+                    help='number of seconds each epoch takes')
 parser.add_argument('--logfile', default='/tmp/logfile.txt',
                     help='log file to record results (one line per epoch)')
 parser.add_argument('--discovery-schedule', default='[]',
                     help='JSON string specifying schedule of host updates each epoch')
 parser.add_argument('--discovery-wait', type=int, default=3,
-                    help='Time the worker waits for an expected host discovery')
+                    help='number of seconds the worker waits for an expected host discovery')
 parser.add_argument('--exit-schedule', default='{}',
                     help='JSON string mapping from (epoch, batch) to list of ranks to exit at that time')
 parser.add_argument('--exit-mode', default='exception',

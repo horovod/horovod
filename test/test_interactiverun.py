@@ -13,7 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-
 import sys
 import unittest
 import warnings
@@ -62,7 +61,6 @@ class InteractiveRunTests(unittest.TestCase):
                                   "ret_val_of_rank_1",
                                   None], res2)
 
-    @pytest.mark.skipif(sys.version_info < (3, 0), reason='Elastic Horovod supported on Python3')
     def test_happy_run_elastic(self):
         args = HorovodArgs()
 
@@ -74,7 +72,7 @@ class InteractiveRunTests(unittest.TestCase):
         args.verbose = True
 
         # no assertions, we are happy when there are no exceptions
-        # TODO: call into run() when elastic supports args.run_func,
+        # TODO: call into run() when elastic supports args.run_func (#1873)
         #       we can assert the returned result then
         _run(args)
 

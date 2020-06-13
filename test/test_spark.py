@@ -58,7 +58,7 @@ from horovod.spark.runner import _task_fn
 from spark_common import spark_driver_service, spark_session, spark_task_service, \
     create_test_data_from_schema, create_xor_data, local_store
 
-from common import is_built, mpi_implementation_flags, tempdir, temppath, override_env, undo, delay
+from common import is_built, mpi_implementation_flags, tempdir, override_env, undo, delay
 
 
 # Spark will fail to initialize correctly locally on Mac OS without this
@@ -209,8 +209,6 @@ class SparkTests(unittest.TestCase):
                 self.assertFalse(threads[index].is_alive(),
                                  'task thread {} should have terminated by now'.format(index))
 
-    @pytest.mark.skipif(sys.version_info < (3, 0),
-                        reason='Horovod on Spark over Gloo only supported on Python3')
     def test_task_fn_run_commands(self):
         if not gloo_built():
             self.skipTest("Gloo is not available")
@@ -244,8 +242,6 @@ class SparkTests(unittest.TestCase):
                     self.assertEqual(0, res)
                     self.assertTrue(os.path.exists(file_tmpl.format(index, '1')))
 
-    @pytest.mark.skipif(sys.version_info < (3, 0),
-                        reason='Horovod on Spark over Gloo only supported on Python3')
     def test_task_fn_run_gloo_exec(self):
         if not gloo_built():
             self.skipTest("Gloo is not available")
@@ -276,14 +272,6 @@ class SparkTests(unittest.TestCase):
                 self.assertEqual(0, res)
 
         self.assertEqual(dict([(index, 123) for index in range(tasks)]), results)
-
-    @pytest.mark.skipif(sys.version_info >= (3, 0), reason='Skipped on Python 3')
-    def test_run_throws_on_python2(self):
-        if not gloo_built():
-            self.skipTest("Gloo is not available")
-
-        with pytest.raises(Exception, match='^Horovod on Spark over Gloo only supported on Python3$'):
-            self.do_test_happy_run(use_mpi=False, use_gloo=True)
 
     """
     Test that horovod.spark.run works properly in a simple setup using MPI.
@@ -322,7 +310,6 @@ class SparkTests(unittest.TestCase):
     """
     Test that horovod.spark.run_elastic works properly in a simple setup.
     """
-    @pytest.mark.skipif(sys.version_info < (3, 0), reason='Elastic Horovod supported on Python3')
     def test_happy_run_elastic(self):
         if not gloo_built():
             self.skipTest("Gloo is not available")

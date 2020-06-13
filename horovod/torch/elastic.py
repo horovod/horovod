@@ -44,7 +44,6 @@ def run(func):
 
 
 def _reset():
-    import os
     shutdown()
     init()
 
