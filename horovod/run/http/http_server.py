@@ -106,7 +106,7 @@ class KVStoreHandler(SimpleHTTPRequestHandler):
             scope_dict = self.server.cache.setdefault(scope, {})
             scope_dict[key] = value
             if self.server.verbose:
-                logging.info(scope, self.server.cache[scope].keys())
+                logging.info('scope %s has keys %s', scope, list(self.server.cache[scope].keys()))
 
 
 class RendezvousHandler(KVStoreHandler):
@@ -174,28 +174,31 @@ class RendezvousHTTPServer(socketserver.ThreadingMixIn, HTTPServer, object):
 
 class RendezvousServer:
     def __init__(self, verbose=0):
-        self.httpd = None
-        self.listen_thread = None
-        self.verbose = verbose
+        self._httpd = None
+        self._listen_thread = None
+        self._verbose = verbose
 
     # Rendezvous function finds a available port, create http socket,
     # and start listening loop to handle request
     # self.httpd.init needs to be called after server start
-    def start_server(self, handler_cls=RendezvousHandler):
-        self.httpd, port = find_port(
+    def start(self, handler_cls=RendezvousHandler):
+        self._httpd, port = find_port(
             lambda addr: RendezvousHTTPServer(
-                addr, handler_cls, self.verbose))
-        if self.verbose:
+                addr, handler_cls, self._verbose))
+        if self._verbose:
             logging.info('Rendezvous INFO: HTTP rendezvous server started.')
 
         # start the listening loop
-        self.listen_thread = in_thread(target=self.httpd.serve_forever)
+        self._listen_thread = in_thread(target=self._httpd.serve_forever)
 
         return port
 
-    def stop_server(self):
-        self.httpd.shutdown()
-        self.listen_thread.join()
+    def init(self, host_alloc_plan):
+        self._httpd.init(host_alloc_plan)
+
+    def stop(self):
+        self._httpd.shutdown()
+        self._listen_thread.join()
 
 
 class KVStoreHTTPServer(HTTPServer, object):

@@ -236,8 +236,8 @@ def launch_gloo(command, exec_command, settings, nics, env, server_ip):
     host_alloc_plan = get_host_assignments(hosts, settings.num_proc)
 
     # start global rendezvous server and get port that it is listening on
-    global_rendezv_port = rendezvous.start_server()
-    rendezvous.httpd.init(host_alloc_plan)
+    global_rendezv_port = rendezvous.start()
+    rendezvous.init(host_alloc_plan)
     run_command = get_run_command(command, server_ip, nics, global_rendezv_port)
 
     slot_info_to_command = _slot_info_to_command_fn(run_command, env)
@@ -273,28 +273,23 @@ def gloo_run(settings, nics, env, server_ip, command):
     launch_gloo(command, exec_command, settings, nics, env, server_ip)
 
 
-def gloo_run_elastic(settings, env, command):
+def launch_gloo_elastic(command, exec_command, settings, env, get_common_interfaces, rendezvous):
     # Make the output directory if it does not exist
     if settings.output_filename:
         _mkdir_p(settings.output_filename)
 
-    rendezvous = RendezvousServer(settings.verbose)
     driver = ElasticDriver(rendezvous, settings.discovery,
                            settings.min_np, settings.max_np,
                            timeout=settings.elastic_timeout,
                            verbose=settings.verbose)
 
     handler = create_rendezvous_handler(driver)
-    global_rendezv_port = rendezvous.start_server(handler)
+    global_rendezv_port = rendezvous.start(handler)
+    driver.wait_for_available_slots(settings.num_proc)
 
-    # Host-to-host common interface detection requires at least 2 hosts in an elastic job.
-    min_hosts = _get_min_start_hosts(settings)
-    current_hosts = driver.wait_for_available_slots(settings.num_proc, min_hosts=min_hosts)
-
-    nics = driver_service.get_common_interfaces(settings, current_hosts.host_assignment_order)
+    nics = get_common_interfaces(driver)
     server_ip = network.get_driver_ip(nics)
 
-    exec_command = _exec_command_fn(settings)
     event = register_shutdown_event()
     run_command = get_run_command(command, server_ip, nics, global_rendezv_port, elastic=True)
     create_worker = _create_elastic_worker_fn(exec_command, run_command, env, event)
@@ -302,7 +297,7 @@ def gloo_run_elastic(settings, env, command):
     driver.start(settings.num_proc, create_worker)
     res = driver.get_results()
     driver.stop()
-    rendezvous.stop_server()
+    rendezvous.stop()
 
     for name, value in sorted(res.items(), key=lambda item: item[1][1]):
         exit_code, timestamp = value
@@ -311,3 +306,16 @@ def gloo_run_elastic(settings, env, command):
                                'status, thus causing the job to be terminated. The first process '
                                'to do so was:\nProcess name: {name}\nExit code: {code}\n'
                                .format(name=name, code=exit_code))
+
+
+def gloo_run_elastic(settings, env, command):
+
+    def get_common_interfaces(driver):
+        # Host-to-host common interface detection requires at least 2 hosts in an elastic job.
+        min_hosts = _get_min_start_hosts(settings)
+        current_hosts = driver.wait_for_available_slots(settings.num_proc, min_hosts=min_hosts)
+        return driver_service.get_common_interfaces(settings, current_hosts.host_assignment_order)
+
+    exec_command = _exec_command_fn(settings)
+    rendezvous = RendezvousServer(settings.verbose)
+    launch_gloo_elastic(command, exec_command, settings, env, get_common_interfaces, rendezvous)

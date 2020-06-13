@@ -16,17 +16,18 @@
 import sys
 import time
 
-from horovod.run.gloo_run import launch_gloo
-from horovod.run.common.util import codec
+from horovod.run.common.util import codec, secret
+from horovod.run.gloo_run import launch_gloo, launch_gloo_elastic
 from horovod.spark.driver.rsh import rsh
+from horovod.spark.driver.rendezvous import SparkRendezvousServer
 
 
-def _exec_command_fn(driver_addresses, key, settings, env):
+def _exec_command_fn(driver, key, settings, env):
     def _exec_command(command, slot_info, events):
         host = slot_info.hostname
         local_rank = slot_info.local_rank
         verbose = settings.verbose
-        result = rsh(driver_addresses, key, host, command, env, local_rank, verbose, False, events)
+        result = rsh(driver.addresses(), key, host, command, env, local_rank, verbose, False, events)
         return result, time.time()
     return _exec_command
 
@@ -58,5 +59,36 @@ def gloo_run(settings, nics, driver, env):
                codec.dumps_base64(driver.addresses()),
                codec.dumps_base64(settings))
 
-    exec_command = _exec_command_fn(driver.addresses(), key, settings, env)
+    exec_command = _exec_command_fn(driver, key, settings, env)
     launch_gloo(command, exec_command, settings, nics, {}, server_ip)
+
+
+def gloo_run_elastic(settings, driver, env):
+    """
+    Run distributed gloo jobs.
+
+    :param settings: Settings for running the distributed jobs.
+                     Note: settings.num_proc and settings.hosts must not be None.
+    :param driver: The Spark driver service that tasks are connected to.
+    :param env: Environment dictionary to use for running gloo jobs.  Can be None.
+    """
+    if env is None:
+        env = {}
+
+    # Each thread will use SparkTaskClient to launch the job on each remote host. If an
+    # error occurs in one thread, entire process will be terminated. Otherwise,
+    # threads will keep running and ssh session.
+    command = (sys.executable,
+               '-m', 'horovod.spark.task.gloo_exec_fn',
+               codec.dumps_base64(driver.addresses()),
+               codec.dumps_base64(settings))
+
+    # Pass secret key through the environment variables.
+    env[secret.HOROVOD_SECRET_KEY] = codec.dumps_base64(settings.key)
+
+    # get common interfaces from driver
+    nics = driver.get_common_interfaces()
+
+    exec_command = _exec_command_fn(driver, settings.key, settings, env)
+    rendezvous = SparkRendezvousServer(driver, settings.verbose)
+    launch_gloo_elastic(command, exec_command, settings, env, lambda _: nics, rendezvous)

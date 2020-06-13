@@ -32,11 +32,15 @@ parser.add_argument('--batches-per-commit', type=int, default=1,
                     help='number of batches per commit of the elastic state object')
 parser.add_argument('--epochs', type=int, default=3,
                     help='number of epochs')
+parser.add_argument('--epoch-wait', type=int, default=0,
+                    help='number of seconds each epoch takes')
 parser.add_argument('--logfile', default='/tmp/logfile.txt',
                     help='log file to record results (one line per epoch)')
 parser.add_argument('--discovery-schedule', default='[]',
                     help='JSON string specifying schedule of host updates each epoch')
-parser.add_argument('--exit-schedule',
+parser.add_argument('--discovery-wait', type=int, default=3,
+                    help='number of seconds the worker waits for an expected host discovery')
+parser.add_argument('--exit-schedule', default='{}',
                     help='JSON string mapping from (epoch, batch) to list of ranks to exit at that time')
 parser.add_argument('--exit-mode', default='exception',
                     help='means used to cause a worker to exit [exception | kill]')
@@ -61,7 +65,7 @@ start_rank = int(os.environ.get('HOROVOD_RANK', 0))
 
 discovery_schedule = json.loads(args.discovery_schedule)
 epoch_to_hosts = {epoch: hosts for epoch, hosts in discovery_schedule if epoch is not None}
-default_hosts = discovery_schedule[-1][1] if len(discovery_schedule) > 0 else []
+default_hosts = discovery_schedule[-1][1] if discovery_schedule else []
 
 exit_schedule = json.loads(args.exit_schedule) if args.exit_schedule else {}
 
@@ -130,13 +134,16 @@ def train(state):
 
             current_hosts = epoch_to_hosts.get(state.epoch, default_hosts)
             next_hosts = epoch_to_hosts.get(state.epoch + 1, default_hosts)
-            if current_hosts != next_hosts:
+            if args.discovery_wait > 0 and current_hosts != next_hosts:
                 print('host changes: {} -> {}'.format(current_hosts, next_hosts))
                 start = int(time.time())
                 while state._host_messages.empty():
-                    if int(time.time()) - start > 3:
+                    if int(time.time()) - start > args.discovery_wait:
                         raise TimeoutError('Timed out waiting for notifications from driver.')
                     time.sleep(0.1)
+
+        if args.epoch_wait > 0:
+            time.sleep(args.epoch_wait)
 
         state.epoch += 1
         state.batch = 0

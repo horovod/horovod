@@ -120,7 +120,9 @@ def in_thread(target, args=(), name=None, daemon=True, silent=False):
     return bg
 
 
-def on_event(event, func, args=(), stop=None, check_interval_seconds=1.0, silent=False):
+def on_event(event, func, args=(),
+             stop=None, check_stop_interval_s=1.0,
+             daemon=True, silent=False):
     """
     Executes the given function in a separate thread when event is set.
     That threat can be stopped by setting the optional stop event.
@@ -133,24 +135,31 @@ def on_event(event, func, args=(), stop=None, check_interval_seconds=1.0, silent
     :param args: function arguments
     :param stop: event to stop thread
     :type stop: threading.Event
-    :param check_interval_seconds: interval in seconds to check the stop event
-    :type check_interval_seconds: float
+    :param check_stop_interval_s: interval in seconds to check the stop event
+    :type check_stop_interval_s: float
+    :param daemon: event thread is a daemon thread if set to True, otherwise stop event must be given
     :param silent: swallows exceptions raised by target silently
     :return: thread
     """
+    if event is None:
+        raise ValueError('Event must not be None')
+
     if not isinstance(args, tuple):
         raise ValueError('args must be a tuple, not {}, for a single argument use (arg,)'
                          .format(type(args)))
 
     if stop is None:
+        if not daemon:
+            raise ValueError('Stop event must be given for non-daemon event thread')
+
         def fn():
             event.wait()
             func(*args)
     else:
         def fn():
             while not event.is_set() and not stop.is_set():
-                event.wait(timeout=check_interval_seconds)
+                event.wait(timeout=check_stop_interval_s)
             if not stop.is_set():
                 func(*args)
 
-    return in_thread(fn, silent=silent)
+    return in_thread(fn, daemon=daemon, silent=silent)

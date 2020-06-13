@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import logging
 import threading
 import traceback
 
@@ -44,6 +45,7 @@ def rsh(driver_addresses, key, host_hash, command, env, local_rank, verbose,
     :param verbose: verbosity level
     :param background: run command in background if True, returns command result otherwise
     :param events: events to abort the command, only if background is True
+    :return exit code if background is False
     """
     if ':' in host_hash:
         raise Exception('Illegal host hash provided. Are you using Open MPI 4.0.0+?')
@@ -56,17 +58,17 @@ def rsh(driver_addresses, key, host_hash, command, env, local_rank, verbose,
     task_client.run_command(command, env)
 
     if not background:
-        stop = None
         events = events or []
+        stop = threading.Event()
         for event in events:
-            stop = threading.Event()
             on_event(event, task_client.abort_command, stop=stop)
 
         try:
-            return task_client.wait_for_command_exit_code()
+            exit_code = task_client.wait_for_command_exit_code()
+            logging.debug('rsh exit code %s for host %s slot %s', exit_code, host_hash, local_rank)
+            return exit_code
         except:
             traceback.print_exc()
             return -1
         finally:
-            if stop is not None:
-                stop.set()
+            stop.set()

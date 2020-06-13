@@ -19,6 +19,8 @@ from horovod.run.common.util import network
 from horovod.run.common.util import safe_shell_exec
 from horovod.run.util.threads import in_thread
 
+WAIT_FOR_COMMAND_MIN_DELAY = 0.1
+
 
 class RunCommandRequest(object):
     def __init__(self, command, env):
@@ -26,6 +28,11 @@ class RunCommandRequest(object):
         """Command to run."""
         self.env = env
         """Environment to use."""
+
+
+class AbortCommandRequest(object):
+    """Aborts the command currently running."""
+    pass
 
 
 class CommandExitCodeRequest(object):
@@ -39,11 +46,6 @@ class CommandExitCodeResponse(object):
         """Yes/no"""
         self.exit_code = exit_code
         """Exit code returned from command if terminated, None otherwise"""
-
-
-class AbortCommandRequest(object):
-    """Aborts the command currently running."""
-    pass
 
 
 class WaitForCommandExitCodeRequest(object):
@@ -119,10 +121,11 @@ class BasicTaskService(network.BasicService):
 
                     if self._verbose >= 2:
                         print("Task service executes command: {}".format(req.command))
-                        for key, value in req.env.items():
-                            if 'SECRET' in key:
-                                value = '*' * len(value)
-                            print("Task service env: {} = {}".format(key, value))
+                        if self._verbose >= 3:
+                            for key, value in req.env.items():
+                                if 'SECRET' in key:
+                                    value = '*' * len(value)
+                                print("Task service env: {} = {}".format(key, value))
 
                     # We only permit executing exactly one command, so this is idempotent.
                     self._command_abort = threading.Event()
@@ -141,7 +144,6 @@ class BasicTaskService(network.BasicService):
                 if self._command_thread is not None:
                     self._command_abort.set()
             finally:
-                self._wait_cond.notify_all()
                 self._wait_cond.release()
             return network.AckResponse()
 
@@ -168,7 +170,7 @@ class BasicTaskService(network.BasicService):
             self._wait_cond.acquire()
             try:
                 while self._command_thread is None or self._command_thread.is_alive():
-                    self._wait_cond.wait(req.delay if req.delay >= 1.0 else 1.0)
+                    self._wait_cond.wait(max(req.delay, WAIT_FOR_COMMAND_MIN_DELAY))
                 return WaitForCommandExitCodeResponse(self._command_exit_code)
             finally:
                 self._wait_cond.release()
@@ -191,17 +193,23 @@ class BasicTaskService(network.BasicService):
         finally:
             self._wait_cond.release()
 
-    def wait_for_command_start(self, timeout):
+    def wait_for_command_start(self, timeout=None):
         self._wait_cond.acquire()
         try:
             while self._command_thread is None:
-                self._wait_cond.wait(timeout.remaining())
-                timeout.check_time_out_for('command to run')
+                if timeout:
+                    self._wait_cond.wait(timeout.remaining())
+                    timeout.check_time_out_for('command to run')
+                else:
+                    self._wait_cond.wait()
         finally:
             self._wait_cond.release()
 
     def wait_for_command_termination(self):
         self._command_thread.join()
+
+    def command_exit_code(self):
+        return self._command_exit_code
 
 
 class BasicTaskClient(network.BasicClient):
@@ -228,7 +236,7 @@ class BasicTaskClient(network.BasicClient):
     def command_result(self):
         """
         Returns the command's result if terminated, or None.
-        :return: terminated flag and result tuple
+        :return: terminated flag and exit code
         """
         resp = self._send(CommandExitCodeRequest())
         return resp.terminated, resp.exit_code
@@ -252,6 +260,7 @@ class BasicTaskClient(network.BasicClient):
 
         :param delay: delay in seconds
         :type delay: float
+        :return: exit code
         """
         try:
             resp = self._send(WaitForCommandExitCodeRequest(delay))

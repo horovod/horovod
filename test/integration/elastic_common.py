@@ -68,9 +68,14 @@ class BaseElasticTests(object):
         self._training_script = training_script
         super(BaseElasticTests, self).__init__(*args, **kwargs)
 
-    def _run(self, discovery_schedule, exit_schedule=None, np=2, min_np=2, max_np=4, hosts=None, exit_mode='exception'):
+    def _run(self, discovery_schedule=None, exit_schedule=None, exit_mode='exception',
+             np=2, min_np=2, max_np=4, hosts=None):
+        if not discovery_schedule and not hosts:
+            raise ValueError('at least one of discovery schedule or hosts must be given')
+
         with temppath() as logfile:
-            with _temp_discovery_script(logfile, discovery_schedule) as discovery_script:
+            with _temp_discovery_script(logfile, discovery_schedule or [(None, hosts.split(','))]) \
+                    as discovery_script:
                 command_args = ['horovodrun',
                                 '-np', str(np),
                                 '--min-np', str(min_np),
@@ -80,11 +85,13 @@ class BaseElasticTests(object):
                 else:
                     command_args += ['--host-discovery-script', discovery_script,
                                      '--max-np', str(max_np)]
-                command_args += ['python', self._training_script,
-                                 '--logfile', logfile,
-                                 '--discovery-schedule', json.dumps(discovery_schedule),
-                                 '--exit-schedule', json.dumps(exit_schedule or {}),
-                                 '--exit-mode', exit_mode]
+
+                command_args += ['python', self._training_script, '--logfile', logfile]
+                if discovery_schedule:
+                    command_args += ['--discovery-schedule', json.dumps(discovery_schedule)]
+                if exit_schedule:
+                    command_args += ['--exit-schedule', json.dumps(exit_schedule),
+                                     '--exit-mode', exit_mode]
                 print(' '.join(command_args))
 
                 with override_args(*command_args):
@@ -113,8 +120,6 @@ class BaseElasticTests(object):
             ]
 
             results = self._run(discovery_schedule, np=np, min_np=min_np, max_np=max_np)
-            for result in results:
-                print(result)
 
             assert len(results) == 3
 
@@ -163,17 +168,13 @@ class BaseElasticTests(object):
     @mock.patch('horovod.run.gloo_run._get_min_start_hosts', return_value=1)
     def test_fault_tolerance_without_scaling(self, mock_get_min_start_hosts):
         for exit_mode in ['exception', 'kill']:
-            discovery_schedule = [
-                (None, ['localhost:2', '127.0.0.1:2']),
-            ]
-
             hosts = 'localhost:2,127.0.0.1:2'
 
             exit_schedule = {
                 str((1, 0)): [0],
             }
 
-            results = self._run(discovery_schedule, hosts=hosts, exit_schedule=exit_schedule, exit_mode=exit_mode)
+            results = self._run(hosts=hosts, exit_schedule=exit_schedule, exit_mode=exit_mode)
 
             assert len(results) == 3
 

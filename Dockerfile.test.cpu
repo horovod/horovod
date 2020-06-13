@@ -12,8 +12,10 @@ ARG PYTORCH_PACKAGE=torch==1.2.0+cpu
 ARG TORCHVISION_PACKAGE=torchvision==0.4.0+cpu
 ARG MXNET_PACKAGE=mxnet==1.5.0
 ARG PYSPARK_PACKAGE=pyspark==2.4.0
-# if SPARK_PACKAGE is set, installs pyspark from tgz archive
-ARG SPARK_PACKAGE=
+# if SPARK_PACKAGE is set, installs Spark into /spark from the tgz archive
+# if SPARK_PACKAGE is a preview version, installs PySpark from the tgz archive
+# see https://archive.apache.org/dist/spark/ for available packages, version must match PYSPARK_PACKAGE
+ARG SPARK_PACKAGE=spark-2.4.0/spark-2.4.0-bin-hadoop2.7.tgz
 
 # Set default shell to /bin/bash
 SHELL ["/bin/bash", "-cu"]
@@ -43,16 +45,22 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends g++-7
 RUN apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-distutils
 RUN ln -s -f /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 RUN wget --progress=dot:mega https://bootstrap.pypa.io/get-pip.py && python get-pip.py && rm get-pip.py
-RUN pip install -U --force pip 'setuptools<46.0.0' requests pytest mock pytest-forked parameterized
+# pytest<5.4.0 until pytest-forked 1.1.4 is released: https://github.com/pytest-dev/pytest-forked/pull/32
+RUN pip install -U --force pip 'setuptools<46.0.0' requests 'pytest<5.4.0' mock pytest-forked parameterized
+
+# Install Spark stand-alone cluster.
+RUN if [[ -n ${SPARK_PACKAGE} ]]; then \
+        wget --progress=dot:giga https://archive.apache.org/dist/spark/${SPARK_PACKAGE} -O - | tar -xzC /tmp; \
+        archive=$(basename "${SPARK_PACKAGE}") bash -c "mv -v /tmp/\${archive/%.tgz/} /spark"; \
+    fi
 
 # Install PySpark.
 RUN apt-get update -qq && apt install -y openjdk-8-jdk-headless
-RUN if [[ -z "${SPARK_PACKAGE}" ]]; then \
+RUN if [[ ${SPARK_PACKAGE} != *"-preview"* ]]; then \
         pip install ${PYSPARK_PACKAGE}; \
     else \
+        apt-get install pandoc; \
         pip install pypandoc; \
-        wget --progress=dot:giga https://archive.apache.org/dist/spark/${SPARK_PACKAGE} -O - | tar -xzC /tmp; \
-        archive=$(basename "${SPARK_PACKAGE}") bash -c "mv -v /tmp/\${archive/%.tgz/} /spark"; \
         (cd /spark/python && python setup.py sdist && pip install dist/pyspark-*.tar.gz && rm dist/pyspark-*); \
     fi
 

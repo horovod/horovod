@@ -23,7 +23,10 @@ from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.linalg import DenseVector, VectorUDT
 from pyspark.sql.types import FloatType, IntegerType, StructField, StructType
 
+from horovod.run.common.util import secret
 from horovod.spark.common.store import LocalStore
+from horovod.spark.driver.driver_service import SparkDriverService, SparkDriverClient
+from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient
 
 from common import tempdir, temppath
 
@@ -48,12 +51,18 @@ def local_store():
 
 
 @contextlib.contextmanager
-def spark_session(app, cores=2, gpus=0, *args):
+def spark_session(app, cores=2, gpus=0, max_failures=1, *args):
     from pyspark import SparkConf
     from pyspark.sql import SparkSession
 
-    master = 'local-cluster[{},1,1024]'.format(cores) if gpus > 0 else 'local[{}]'.format(cores)
+    master = 'local-cluster[{},{},1024]'.format(cores, max_failures) if gpus > 0 \
+        else 'local[{},{}]'.format(cores, max_failures)
     conf = SparkConf().setAppName(app).setMaster(master)
+    conf = conf.setAll([
+        ('spark.ui.showConsoleProgress', 'false'),
+        ('spark.test.home', os.environ.get('SPARK_HOME')),
+        ('spark.locality.wait', '0'),
+    ])
 
     with temppath() as temp_filename:
         if gpus > 0:
@@ -65,11 +74,12 @@ def spark_session(app, cores=2, gpus=0, *args):
             os.chmod(temp_file.name, stat.S_IRWXU | stat.S_IXGRP | stat.S_IRGRP |
                      stat.S_IROTH | stat.S_IXOTH)
 
-            conf = conf.set("spark.test.home", os.environ.get('SPARK_HOME'))
-            conf = conf.set("spark.worker.resource.gpu.discoveryScript", temp_filename)
-            conf = conf.set("spark.worker.resource.gpu.amount", 1)
-            conf = conf.set("spark.task.resource.gpu.amount", "1")
-            conf = conf.set("spark.executor.resource.gpu.amount", "1")
+            conf = conf.setAll([
+                ('spark.worker.resource.gpu.discoveryScript', temp_filename),
+                ('spark.worker.resource.gpu.amount', '1'),
+                ('spark.task.resource.gpu.amount', '1'),
+                ('spark.executor.resource.gpu.amount', '1')
+            ])
 
         session = SparkSession \
             .builder \
@@ -80,6 +90,35 @@ def spark_session(app, cores=2, gpus=0, *args):
             yield session
         finally:
             session.stop()
+
+
+def fn():
+    return 0
+
+
+@contextlib.contextmanager
+def spark_driver_service(num_proc, fn=fn, args=(), kwargs={}, key=None, nics=None, verbose=2):
+    key = key or secret.make_secret_key()
+    driver = SparkDriverService(num_proc, fn, args, kwargs, key, nics)
+    client = SparkDriverClient(driver.addresses(), key, verbose)
+
+    try:
+        yield driver, client, key
+    finally:
+        driver.shutdown()
+
+
+@contextlib.contextmanager
+def spark_task_service(index, key=None, nics=None, match_intf=False,
+                       minimum_command_lifetime_s=0, verbose=2):
+    key = key or secret.make_secret_key()
+    task = SparkTaskService(index, key, nics, minimum_command_lifetime_s, verbose)
+    client = SparkTaskClient(index, task.addresses(), key, verbose, match_intf)
+
+    try:
+        yield task, client, key
+    finally:
+        task.shutdown()
 
 
 def create_xor_data(spark):

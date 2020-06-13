@@ -1,4 +1,4 @@
-# Copyright 2019 Uber Technologies, Inc. All Rights Reserved.
+# Copyright 2020 Uber Technologies, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,18 +13,18 @@
 # limitations under the License.
 # ==============================================================================
 
-import sys
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
-from horovod.spark.task import task_exec
-from horovod.run.common.util import codec
+import os
+
+from elastic_spark_common import BaseElasticSparkTests
 
 
-def main(driver_addresses, settings):
-    task_exec(driver_addresses, settings, 'HOROVOD_RANK', 'HOROVOD_LOCAL_RANK')
+class ElasticSparkTensorflow2Tests(BaseElasticSparkTests):
+    __test__ = True
 
-
-if __name__ == '__main__':
-    if len(sys.argv) != 3:
-        print('Usage: %s <driver addresses> <settings>' % sys.argv[0])
-        sys.exit(1)
-    main(codec.loads_base64(sys.argv[1]), codec.loads_base64(sys.argv[2]))
+    def __init__(self, *args, **kwargs):
+        training_script = os.path.join(os.path.dirname(__file__), 'data/elastic_tensorflow2_main.py')
+        super(ElasticSparkTensorflow2Tests, self).__init__(training_script, *args, **kwargs)

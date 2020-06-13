@@ -17,8 +17,9 @@ from distutils.version import LooseVersion
 
 import os
 import pyspark
+import time
 
-from horovod.run.common.util import codec, secret
+from horovod.run.common.util import codec, secret, timeout
 from horovod.run.common.service import task_service
 
 
@@ -50,8 +51,7 @@ class GetTaskToTaskAddressesResponse(object):
 class SparkTaskService(task_service.BasicTaskService):
     NAME_FORMAT = 'task service #%d'
 
-    @staticmethod
-    def _get_command_env(key):
+    def __init__(self, index, key, nics, minimum_command_lifetime_s, verbose=0):
         # on a Spark cluster we need our train function to see the Spark worker environment
         # this includes PYTHONPATH, HADOOP_TOKEN_FILE_LOCATION and _HOROVOD_SECRET_KEY
         env = os.environ.copy()
@@ -62,15 +62,18 @@ class SparkTaskService(task_service.BasicTaskService):
         # we also need to provide the current working dir to mpirun_exec_fn.py
         env['HOROVOD_SPARK_WORK_DIR'] = os.getcwd()
 
-        return env
-
-    def __init__(self, index, key, nics, verbose=0):
         super(SparkTaskService, self).__init__(SparkTaskService.NAME_FORMAT % index,
-                                               key, nics,
-                                               SparkTaskService._get_command_env(key),
-                                               verbose)
-
+                                               key, nics, env, verbose)
         self._key = key
+        self._minimum_command_lifetime_s = minimum_command_lifetime_s
+        self._minimum_command_lifetime = None
+
+    def _run_command(self, command, env, event):
+        super(SparkTaskService, self)._run_command(command, env, event)
+
+        if self._minimum_command_lifetime_s is not None:
+            self._minimum_command_lifetime = timeout.Timeout(self._minimum_command_lifetime_s,
+                                                             message='Just measuring runtime')
 
     def _handle(self, req, client_address):
         if isinstance(req, ResourcesRequest):
@@ -90,9 +93,28 @@ class SparkTaskService(task_service.BasicTaskService):
 
     def _get_resources(self):
         if LooseVersion(pyspark.__version__) >= LooseVersion('3.0.0'):
-            from pyspark import TaskContext
-            return TaskContext.get().resources()
+            task_context = pyspark.TaskContext.get()
+            if task_context:
+                return task_context.resources()
+            else:
+                # task_context is None when not run on Spark worker
+                # this only happens while running test_spark.test_task_fn_run_gloo_exec()
+                print("Not running inside Spark worker, no resources available")
         return dict()
+
+    def wait_for_command_termination(self):
+        """
+        Waits for command termination. Ensures this method takes at least
+        self._minimum_command_lifetime_s seconds to return after command started.
+        """
+        super(SparkTaskService, self).wait_for_command_termination()
+
+        # command terminated, make sure this method takes at least
+        # self._minimum_command_lifetime_s seconds after command started
+        # the client that started the command needs some time to connect again
+        # to wait for the result (see horovod.spark.driver.rsh).
+        if self._minimum_command_lifetime is not None:
+            time.sleep(self._minimum_command_lifetime.remaining())
 
 
 class SparkTaskClient(task_service.BasicTaskClient):

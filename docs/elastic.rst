@@ -336,6 +336,14 @@ Instances that fail will be added to a blacklist, as they may have faulty hardwa
 will result in job failure, as it may be the case that the training process cannot make progress.
 
 
+Running on Spark
+~~~~~~~~~~~~~~~~
+
+Current constraints:
+
+- `max_np` and `min_np` are `None` or equal to `num_np`, i.e. no auto-scaling, only fault tolerant
+
+
 Practical Considerations: Consistent training
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

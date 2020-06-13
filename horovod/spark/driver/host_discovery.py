@@ -13,6 +13,22 @@
 # limitations under the License.
 # ==============================================================================
 
-import horovod.spark.common._namedtuple_fix
+from horovod.spark.driver.driver_service import SparkDriverService
+from horovod.run.elastic.discovery import HostDiscovery
 
-from .runner import run, run_elastic
+
+class SparkDriverHostDiscovery(HostDiscovery):
+    def __init__(self, driver):
+        """
+        :param driver: Spark driver service
+        :type driver: SparkDriverService
+        """
+        super(SparkDriverHostDiscovery, self).__init__()
+        self._driver = driver
+
+    def find_available_hosts_and_slots(self):
+        host_hash_indices = self._driver.task_host_hash_indices()
+        slots = dict([(host, len(indices))
+                      for host, indices in host_hash_indices.items()
+                      if len(indices)])
+        return slots

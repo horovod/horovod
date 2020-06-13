@@ -16,6 +16,7 @@
 import horovod.spark.common._namedtuple_fix
 
 import contextlib
+import os
 
 import pyarrow as pa
 import numpy as np
@@ -29,10 +30,33 @@ try:
 except ImportError:
     from pyspark.sql.types import from_arrow_type
 
-from horovod.run.common.util import codec
+from horovod.run.common.util import codec, host_hash as hh
 from horovod.spark.common import cache, constants
 
 _training_cache = cache.TrainingDataCache()
+
+
+def host_hash(salt=None):
+    """
+    Computes this host's host hash by invoking horovod.run.common.util.host_hash.host_hash.
+
+    Consider environment variable CONTAINER_ID which is present when running Spark via YARN.
+    A YARN container does not share memory with other containers on the same host,
+    so it must be considered a `host` in the sense of the `host_hash`.
+
+    :param salt: extra information to include in the hash, ignores Falsy values
+    :return: host hash
+    """
+    # turn salt into an array of a single string if given
+    salt = [str(salt)] if salt else []
+
+    # We would violate resource allocation if we run all tasks of a host in one container.
+    # See [issues 1497](https://github.com/horovod/horovod/issues/1497) for details.
+    container = os.environ.get("CONTAINER_ID")
+    if container is not None:
+        salt.append(container)
+
+    return hh.host_hash(salt='-'.join(salt))
 
 
 def data_type_to_str(dtype):

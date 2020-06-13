@@ -13,6 +13,21 @@
 # limitations under the License.
 # ==============================================================================
 
-import horovod.spark.common._namedtuple_fix
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
-from .runner import run, run_elastic
+import os
+
+from elastic_spark_common import BaseElasticSparkTests
+
+
+class ElasticSparkTensorflowTests(BaseElasticSparkTests):
+    __test__ = True
+
+    def __init__(self, *args, **kwargs):
+        training_script = os.path.join(os.path.dirname(__file__), 'data/elastic_tensorflow_main.py')
+        super(ElasticSparkTensorflowTests, self).__init__(training_script, *args, **kwargs)
+
+    def test_fault_tolerance_hosts_added_and_removed(self):
+        self.skipTest('This test failes due to https://github.com/horovod/horovod/issues/1994')

@@ -271,7 +271,7 @@ class RunTests(unittest.TestCase):
         event = threading.Event()
         stop = threading.Event()
         fn = mock.Mock()
-        thread = on_event(event, fn, stop=stop, check_interval_seconds=0.01)
+        thread = on_event(event, fn, stop=stop, check_stop_interval_s=0.01)
         fn.assert_not_called()
         event.set()
         thread.join(1.0)
@@ -285,7 +285,7 @@ class RunTests(unittest.TestCase):
         event = threading.Event()
         stop = threading.Event()
         fn = mock.Mock()
-        thread = on_event(event, fn, stop=stop, check_interval_seconds=0.01)
+        thread = on_event(event, fn, stop=stop, check_stop_interval_s=0.01)
         fn.assert_not_called()
         stop.set()
         thread.join(1.0)
@@ -318,12 +318,26 @@ class RunTests(unittest.TestCase):
         self.assertFalse(thread.is_alive())
         fn.assert_called_once()
 
+        # test None event
+        event = None
+        fn = mock.Mock()
+        with pytest.raises(ValueError, match="^Event must not be None$"):
+            on_event(event, fn)
+        fn.assert_not_called()
+
         # test non-tuple args
         event = threading.Event()
         fn = mock.Mock()
         with pytest.raises(ValueError, match="^args must be a tuple, not <(class|type) 'int'>, "
                                              "for a single argument use \\(arg,\\)$"):
             on_event(event, fn, args=1)
+        fn.assert_not_called()
+
+        # test None stop and non-daemon
+        event = threading.Event()
+        fn = mock.Mock()
+        with pytest.raises(ValueError, match="^Stop event must be given for non-daemon event thread$"):
+            on_event(event, fn, stop=None, daemon=False)
         fn.assert_not_called()
 
     def test_safe_shell_exec_captures_stdout(self):
@@ -342,16 +356,16 @@ class RunTests(unittest.TestCase):
     def test_safe_shell_exec_interrupts_on_event(self):
         # interrupt execute in one second
         interrupt = threading.Event()
-        delay(lambda: interrupt.set(), 1.0)
+        interrupt_delay = 1.0
+        delay(lambda: interrupt.set(), interrupt_delay)
 
-        sleep = 10
+        sleep = interrupt_delay + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S + 2.0
         start = time.time()
         self.do_test_safe_shell_exec('sleep {}'.format(sleep), 143, '', None, interrupt)
         duration = time.time() - start
 
-        self.assertGreaterEqual(duration, 1.0)
-        self.assertLess(duration, 2.0 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S, 'sleep should not finish')
-        self.assertGreater(sleep, 2.0 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S, 'sleep should allow for GRACEFUL_TERMINATION_TIME_S')
+        self.assertGreaterEqual(duration, interrupt_delay)
+        self.assertLess(duration, sleep - 1.0, 'sleep should not finish')
 
     def test_safe_shell_exec_interrupts_on_parent_shutdown(self):
         sleep = 20
@@ -390,7 +404,7 @@ class RunTests(unittest.TestCase):
     def do_test_safe_shell_exec(self, cmd, expected_exit_code, expected_stdout, expected_stderr, event=None):
         stdout = io.StringIO()
         stderr = io.StringIO()
-        res = safe_shell_exec.execute(cmd, stdout=stdout, stderr=stderr, events=[event])
+        res = safe_shell_exec.execute(cmd, stdout=stdout, stderr=stderr, events=[event] if event else None)
         self.assertEqual(expected_exit_code, res)
         if expected_stdout is not None:
             self.assertEqual(expected_stdout, stdout.getvalue())
@@ -403,10 +417,11 @@ class RunTests(unittest.TestCase):
 
     def test_host_hash(self):
         hash = host_hash()
-        # host_hash should consider CONTAINER_ID environment variable
-        with override_env({'CONTAINER_ID': 'a container id'}):
-            self.assertNotEqual(host_hash(), hash)
-        self.assertEqual(host_hash(), hash)
+        salted = host_hash('salt')
+        empty_salted = host_hash('')
+
+        self.assertNotEqual(salted, hash)
+        self.assertEqual(empty_salted, hash)
 
     def test_get_mpi_implementation(self):
         def test(output, expected, exit_code=0):

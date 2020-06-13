@@ -47,6 +47,7 @@ class BasicDriverService(network.BasicService):
         self._all_task_addresses = {}
         self._task_addresses_for_driver = {}
         self._task_addresses_for_tasks = {}
+        self._task_index_host_hash = {}
         self._task_host_hash_indices = {}
         self._wait_cond = threading.Condition()
 
@@ -68,10 +69,21 @@ class BasicDriverService(network.BasicService):
                           'This is not supported. Is the server behind NAT?'
                           ''.format(index=req.index, task_addresses=req.task_addresses,
                                     source=client_address[0]))
+
+                # Remove host hash earlier registered under this index.
+                if req.index in self._task_index_host_hash:
+                    earlier_host_hash = self._task_index_host_hash[req.index]
+                    if earlier_host_hash != req.host_hash:
+                        self._task_host_hash_indices[earlier_host_hash].remove(req.index)
+
+                # Make index -> host hash map.
+                self._task_index_host_hash[req.index] = req.host_hash
+
                 # Make host hash -> indices map.
                 if req.host_hash not in self._task_host_hash_indices:
                     self._task_host_hash_indices[req.host_hash] = []
                 self._task_host_hash_indices[req.host_hash].append(req.index)
+                # TODO: this sorting is a problem in elastic horovod
                 self._task_host_hash_indices[req.host_hash].sort()
             finally:
                 self._wait_cond.notify_all()
@@ -95,13 +107,25 @@ class BasicDriverService(network.BasicService):
         return {}
 
     def all_task_addresses(self, index):
-        return self._all_task_addresses[index].copy()
+        self._wait_cond.acquire()
+        try:
+            return self._all_task_addresses[index].copy()
+        finally:
+            self._wait_cond.release()
 
     def task_addresses_for_driver(self, index):
-        return self._task_addresses_for_driver[index].copy()
+        self._wait_cond.acquire()
+        try:
+            return self._task_addresses_for_driver[index].copy()
+        finally:
+            self._wait_cond.release()
 
     def task_addresses_for_tasks(self, index):
-        return self._task_addresses_for_tasks[index].copy()
+        self._wait_cond.acquire()
+        try:
+            return self._task_addresses_for_tasks[index].copy()
+        finally:
+            self._wait_cond.release()
 
     def register_task_to_task_addresses(self, index, task_addresses):
         self._wait_cond.acquire()
@@ -113,7 +137,19 @@ class BasicDriverService(network.BasicService):
             self._wait_cond.release()
 
     def task_host_hash_indices(self):
-        return self._task_host_hash_indices.copy()
+        self._wait_cond.acquire()
+        try:
+            return self._task_host_hash_indices.copy()
+        finally:
+            self._wait_cond.release()
+
+    def task_index_host_hash(self, index):
+        self._wait_cond.acquire()
+        try:
+            assert 0 <= index < self._num_proc
+            return self._task_index_host_hash[index]
+        finally:
+            self._wait_cond.release()
 
     def wait_for_initial_registration(self, timeout):
         self._wait_cond.acquire()

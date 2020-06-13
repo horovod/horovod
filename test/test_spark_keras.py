@@ -14,10 +14,13 @@
 # ==============================================================================
 
 import collections
+from distutils.version import LooseVersion
+import logging
 import warnings
 
 import mock
 import numpy as np
+import pytest
 import tensorflow as tf
 
 import pyspark.sql.types as T
@@ -67,6 +70,7 @@ def get_mock_fit_fn():
 class SparkKerasTests(tf.test.TestCase):
     def __init__(self, *args, **kwargs):
         super(SparkKerasTests, self).__init__(*args, **kwargs)
+        logging.getLogger('py4j.java_gateway').setLevel(logging.INFO)
         warnings.simplefilter('module')
 
     def test_fit_model(self):
@@ -133,6 +137,9 @@ class SparkKerasTests(tf.test.TestCase):
                     label_prob = row.label_prob.toArray().tolist()
                     assert label_prob[int(row.label_pred)] == max(label_prob)
 
+    @pytest.mark.skipif(LooseVersion(tf.__version__) == '1.14.0',
+                        reason='This test segfaults with Tensorflow 1.14.0: '
+                               'https://github.com/horovod/horovod/issues/1995')
     @mock.patch('horovod.spark.keras.remote._pin_gpu_fn')
     @mock.patch('horovod.spark.keras.util.TFKerasUtil.fit_fn')
     def test_restore_from_checkpoint(self, mock_fit_fn, mock_pin_gpu_fn):
@@ -180,6 +187,9 @@ class SparkKerasTests(tf.test.TestCase):
                 keras_estimator.fit(df)
                 keras_estimator._load_model_from_checkpoint.assert_called()
 
+    @pytest.mark.skipif(LooseVersion(tf.__version__) == '1.14.0',
+                        reason='This test segfaults with Tensorflow 1.14.0: '
+                               'https://github.com/horovod/horovod/issues/1995')
     @mock.patch('horovod.spark.keras.remote._pin_gpu_fn')
     @mock.patch('horovod.spark.keras.util.TFKerasUtil.fit_fn')
     def test_keras_direct_parquet_train(self, mock_fit_fn, mock_pin_gpu_fn):

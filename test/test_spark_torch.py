@@ -13,6 +13,10 @@
 # limitations under the License.
 # ==============================================================================
 
+from distutils.version import LooseVersion
+
+import logging
+import os
 import unittest
 import warnings
 
@@ -22,16 +26,22 @@ from pyspark.ml.linalg import VectorUDT
 from pyspark.sql.types import DoubleType, LongType
 
 import mock
+import pytest
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 import torch.optim as optim
 
-import horovod.spark.torch as hvd
+import horovod
+from horovod.torch.elastic import run
+from horovod.common.util import gloo_built
+import horovod.spark.torch as hvd_spark
 from horovod.spark.common import constants, util
 from horovod.spark.torch import remote
 from horovod.spark.torch.estimator import EstimatorParams, _torch_param_serialize
+import horovod.torch as hvd
 
+from common import tempdir
 from spark_common import CallbackBackend, create_xor_data, local_store, spark_session
 
 
@@ -57,7 +67,9 @@ def create_xor_model(input_dim=2, output_dim=1):
 class SparkTorchTests(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(SparkTorchTests, self).__init__(*args, **kwargs)
+        logging.getLogger('py4j.java_gateway').setLevel(logging.INFO)
         warnings.simplefilter('module')
+
 
     def test_fit_model(self):
         model = create_xor_model()
@@ -68,7 +80,7 @@ class SparkTorchTests(unittest.TestCase):
             df = create_xor_data(spark)
 
             with local_store() as store:
-                torch_estimator = hvd.TorchEstimator(
+                torch_estimator = hvd_spark.TorchEstimator(
                     num_proc=2,
                     store=store,
                     model=model,
@@ -101,7 +113,7 @@ class SparkTorchTests(unittest.TestCase):
 
             run_id = 'run01'
             with local_store() as store:
-                torch_estimator = hvd.TorchEstimator(
+                torch_estimator = hvd_spark.TorchEstimator(
                     backend=ctx,
                     store=store,
                     model=model,
@@ -133,12 +145,12 @@ class SparkTorchTests(unittest.TestCase):
             df = create_xor_data(spark)
             metadata = util._get_metadata(df)
 
-            torch_model = hvd.TorchModel(history=None,
-                                         model=model,
-                                         input_shapes=[[2]],
-                                         feature_columns=['features'],
-                                         label_columns=['y'],
-                                         _metadata=metadata)
+            torch_model = hvd_spark.TorchModel(history=None,
+                                               model=model,
+                                               input_shapes=[[2]],
+                                               feature_columns=['features'],
+                                               label_columns=['y'],
+                                               _metadata=metadata)
             out_df = torch_model.transform(df)
 
             expected_types = {
@@ -339,7 +351,7 @@ class SparkTorchTests(unittest.TestCase):
                     optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
                     loss = nn.BCELoss()
 
-                    est = hvd.TorchEstimator(
+                    est = hvd_spark.TorchEstimator(
                         backend=backend,
                         store=store,
                         model=model,
@@ -415,3 +427,139 @@ class SparkTorchTests(unittest.TestCase):
 
         loss = calculate_loss(outputs, labels, [0.2, 0.8], [fn_minus, fn_add])
         assert torch.isclose(loss, torch.tensor(2.6))
+
+    """
+    Test that horovod.spark.run_elastic works properly in a simple setup.
+    """
+    @pytest.mark.skipif(LooseVersion(torch.__version__) < LooseVersion('1.0.0'),
+                        reason='Synchronizing state requires PyTorch 1.0 or above')
+    def test_happy_run_elastic(self):
+        if not gloo_built():
+            self.skipTest("Gloo is not available")
+
+        with spark_session('test_happy_run_elastic'):
+            res = horovod.spark.run_elastic(fn, args=(2, 5, 4),
+                                            num_proc=2, min_np=2, max_np=2,
+                                            start_timeout=10, verbose=2)
+            self.assertListEqual([([0, 3, 0, 1, 1, 3, 0, 1], 0),
+                                  ([0, 3, 0, 1, 1, 3, 0, 1], 1)], res)
+
+    """
+    Test that horovod.spark.run_elastic works properly in a fault-tolerant situation.
+    """
+    @pytest.mark.skipif(LooseVersion(torch.__version__) < LooseVersion('1.0.0'),
+                        reason='Synchronizing state requires PyTorch 1.0 or above')
+    def test_happy_run_elastic_fault_tolerant(self):
+        if not gloo_built():
+            self.skipTest("Gloo is not available")
+
+        with spark_session('test_happy_run_elastic_fault_tolerant', max_failures=3):
+            with tempdir() as dir:
+                # these files make training function fail in given rank, epoch and batch
+                with open(os.path.sep.join([dir, 'rank_1_epoch_2_batch_4_fail']), 'w'), \
+                     open(os.path.sep.join([dir, 'rank_0_epoch_3_batch_1_fail']), 'w'), \
+                     open(os.path.sep.join([dir, 'rank_1_epoch_4_batch_2_fail']), 'w'):
+                    pass
+                res = horovod.spark.run_elastic(fn, args=(2, 5, 5, dir),
+                                                env={'HOROVOD_LOG_LEVEL': 'DEBUG'},
+                                                num_proc=2, min_np=2, max_np=2,
+                                                start_timeout=5, verbose=2)
+                self.assertListEqual([([0, 4, 0, 4, 1, 4, 0, 4], 0),
+                                      ([0, 4, 0, 4, 1, 4, 0, 4], 1)], res)
+
+    """
+    Test that horovod.spark.run_elastic in a fault-tolerant mode fails on too many failures.
+    """
+    @pytest.mark.skipif(LooseVersion(torch.__version__) < LooseVersion('1.0.0'),
+                        reason='Synchronizing state requires PyTorch 1.0 or above')
+    def test_happy_run_elastic_fault_tolerant_fails(self):
+        self.skipTest('elastic horovod does not support shutdown from the spark driver '
+                      'while elastic driver is waiting for hosts to come up')
+
+        if not gloo_built():
+            self.skipTest("Gloo is not available")
+
+        with spark_session('test_happy_run_elastic_fault_tolerant_fails', max_failures=2):
+            with tempdir() as dir:
+                # these files make training function fail in given rank, epoch and batch
+                # we have as many failures as Spark has max_failures (per task / index)
+                with open(os.path.sep.join([dir, 'rank_1_epoch_2_batch_4_fail']), 'w'), \
+                     open(os.path.sep.join([dir, 'rank_1_epoch_3_batch_1_fail']), 'w'):
+                    pass
+                res = horovod.spark.run_elastic(fn, args=(2, 5, 5, dir),
+                                                env={'HOROVOD_LOG_LEVEL': 'DEBUG'},
+                                                num_proc=2, min_np=2, max_np=2,
+                                                start_timeout=5, verbose=2)
+                self.assertListEqual([([0, 4, 0, 4, 1, 4, 0, 4], 0),
+                                      ([0, 4, 0, 4, 1, 4, 0, 4], 1)], res)
+
+
+def check_fail(dir, rank, epoch, batch):
+    if dir:
+        fail = os.path.sep.join([dir, 'rank_{}_epoch_{}_batch_{}_fail'.format(rank, epoch, batch)])
+        if os.path.exists(fail):
+            logging.info('rank %s: failing epoch %s batch %s', rank, epoch, batch)
+            os.unlink(fail)
+            raise Exception('training failed, restart the task')
+
+
+def fn(batches_per_commit, batches_per_epoch, epochs, dir=None):
+    @run
+    def train(state, dir):
+        state.rendezvous += 1
+        logging.info('rank %s: rendezvous %s', hvd.rank(), state.rendezvous)
+
+        for state.epoch in range(state.epoch, epochs):
+            logging.info('rank %s: start epoch %s at batch %s', hvd.rank(), state.epoch, state.batch)
+
+            for state.batch in range(state.batch, batches_per_epoch):
+                check_fail(dir, hvd.rank(), state.epoch, state.batch)
+
+                optimizer.zero_grad()
+                output = model(data)
+                loss = F.cross_entropy(output, target)
+                loss.backward()
+                optimizer.step()
+
+                # TODO: this sleep makes the fault tolerant test fail
+                #       torch all gather throws an RuntimeError which should be a HorovodInternalError
+                #import time
+                #time.sleep(0.2)
+
+                if state.batch % batches_per_commit == 0:
+                    logging.info('rank %s: allgather', hvd.rank())
+                    hvd.allgather(torch.tensor([hvd.rank(), state.epoch, state.batch, state.rendezvous]), 'state').tolist()
+                    logging.info('rank %s: commit epoch %s batch %s', hvd.rank(), state.epoch, state.batch)
+                    state.commits += 1
+                    state.commit()
+
+            logging.info('rank %s: allgather', hvd.rank())
+            hvd.allgather(torch.tensor([hvd.rank(), state.epoch, state.batch, state.rendezvous]), 'state').tolist()
+            logging.info('rank %s: commit epoch %s', hvd.rank(), state.epoch)
+            state.commits += 1
+            state.commit()
+            state.batch = 0
+
+        res = hvd.allgather(torch.tensor([hvd.rank(), state.epoch, state.batch, state.rendezvous]), 'state').tolist()
+        logging.info('rank %s: returning', hvd.rank())
+        return res, hvd.rank()
+
+    logging.getLogger().setLevel(logging.DEBUG)
+    logging.basicConfig(format='%(asctime)-15s %(levelname)1.1s %(filename)s:%(lineno)d %(funcName)s() - %(message)s')
+
+    hvd.init()
+
+    batch_size = 32
+    data = torch.randn(batch_size, 2)
+    target = torch.LongTensor(batch_size).random_() % 2
+
+    v = 1.0
+    model = torch.nn.Sequential(torch.nn.Linear(2, 2))
+    model.load_state_dict({
+        '0.weight': torch.tensor([[v, v], [v, v]]),
+        '0.bias': torch.tensor([v, v])
+    })
+
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+    state = hvd.elastic.TorchState(model, optimizer, batch=0, epoch=0, commits=0, rendezvous=0)
+    return train(state, dir)

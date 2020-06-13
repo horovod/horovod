@@ -13,10 +13,13 @@
 # limitations under the License.
 # ==============================================================================
 
+import contextlib
 import copy
 import itertools
+import logging
 import os
 import platform
+import psutil
 import pytest
 import re
 import sys
@@ -40,17 +43,20 @@ import horovod.spark
 import horovod.torch as hvd
 
 from horovod.common.util import gloo_built, mpi_built
-from horovod.run.common.util import codec, secret, safe_shell_exec
+from horovod.run.common.util import codec, secret, safe_shell_exec, timeout
 from horovod.run.common.util import settings as hvd_settings
 from horovod.run.mpi_run import is_open_mpi
+from horovod.run.util.threads import in_thread
 from horovod.spark.common import constants, util
 from horovod.spark.common.store import HDFSStore
+from horovod.spark.driver.host_discovery import SparkDriverHostDiscovery
 from horovod.spark.driver.rsh import rsh
 from horovod.spark.task import get_available_devices, gloo_exec_fn, mpirun_exec_fn
-from horovod.spark.driver.driver_service import SparkDriverService, SparkDriverClient
-from horovod.spark.task.task_service import SparkTaskService, SparkTaskClient
+from horovod.spark.task.task_service import SparkTaskClient
+from horovod.spark.runner import _task_fn
 
-from spark_common import spark_session, create_test_data_from_schema, create_xor_data, local_store
+from spark_common import spark_driver_service, spark_session, spark_task_service, \
+    create_test_data_from_schema, create_xor_data, local_store
 
 from common import is_built, mpi_implementation_flags, tempdir, override_env, undo, delay
 
@@ -58,6 +64,10 @@ from common import is_built, mpi_implementation_flags, tempdir, override_env, un
 # Spark will fail to initialize correctly locally on Mac OS without this
 if platform.system() == 'Darwin':
     os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
+
+
+def fn(result=0):
+    return result
 
 
 class SparkTests(unittest.TestCase):
@@ -68,6 +78,7 @@ class SparkTests(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(SparkTests, self).__init__(*args, **kwargs)
         self.maxDiff = None
+        logging.getLogger('py4j.java_gateway').setLevel(logging.INFO)
         warnings.simplefilter('module')
 
     def run(self, result=None):
@@ -77,6 +88,190 @@ class SparkTests(unittest.TestCase):
             self.skipTest("These tests should not be executed via horovodrun, just pytest")
 
         super(SparkTests, self).run(result)
+
+    def test_host_hash(self):
+        hash = util.host_hash()
+
+        # host hash should be consistent
+        self.assertEqual(util.host_hash(), hash)
+
+        # host_hash should consider CONTAINER_ID environment variable
+        with override_env({'CONTAINER_ID': 'a container id'}):
+            containered_hash = util.host_hash()
+            self.assertNotEqual(containered_hash, hash)
+
+            # given an extra salt, host hash must differ
+            salted_containered_hash = util.host_hash('salt')
+            self.assertNotEqual(salted_containered_hash, hash)
+            self.assertNotEqual(salted_containered_hash, containered_hash)
+
+            # host hash should be consistent
+            self.assertEqual(util.host_hash(), containered_hash)
+            self.assertEqual(util.host_hash('salt'), salted_containered_hash)
+
+        # host hash should still be consistent
+        self.assertEqual(util.host_hash(), hash)
+
+        # given an extra salt, host hash must differ
+        salted_hash = util.host_hash('salt')
+        self.assertNotEqual(salted_hash, hash)
+        self.assertNotEqual(salted_hash, salted_containered_hash)
+
+    def test_driver_common_interfaces(self):
+        with spark_driver_service(num_proc=2) as (driver, client, _):
+            client.register_task_to_task_addresses(0, {'lo': [('127.0.0.1', 31321)], 'eth0': [('192.168.0.1', 31321)]})
+            client.register_task_to_task_addresses(1, {'eth1': [('10.0.0.1', 31322)], 'eth0': [('192.168.0.2', 31322)]})
+
+            nics = driver.get_common_interfaces()
+            self.assertEqual({'eth0'}, nics)
+
+    def test_driver_common_interfaces_from_settings(self):
+        nics = list(psutil.net_if_addrs().keys())
+        if not nics:
+            self.skipTest('this machine has no network interfaces')
+
+        nic = nics[0]
+        with spark_driver_service(num_proc=2, nics={nic}) as (driver, client, _):
+            client.register_task_to_task_addresses(0, {'eth0': [('192.168.0.1', 31321)]})
+            client.register_task_to_task_addresses(1, {'eth1': [('10.0.0.1', 31322)]})
+
+            nics = driver.get_common_interfaces()
+            self.assertEqual({nic}, nics)
+
+    def test_driver_common_interfaces_fails(self):
+        with spark_driver_service(num_proc=2) as (driver, client, _):
+            client.register_task_to_task_addresses(0, {'eth0': [('192.168.0.1', 31321)]})
+            client.register_task_to_task_addresses(1, {'eth1': [('10.0.0.1', 31322)]})
+
+            with pytest.raises(Exception, match=r"^Unable to find a set of common task-to-task "
+                                                r"communication interfaces: \["
+                                                r"\(0, \{'eth0': \[\('192.168.0.1', 31321\)\]\}\), "
+                                                r"\(1, \{'eth1': \[\('10.0.0.1', 31322\)\]\}\)"
+                                                r"\]$"):
+                driver.get_common_interfaces()
+
+    def test_driver_set_local_rank_to_index(self):
+        with spark_driver_service(num_proc=3) as (driver, client, _):
+            self.assertEqual({}, driver.get_ranks_to_indices())
+
+            client.register_task(0, {'lo': [('127.0.0.1', 31320)]}, 'host-1')
+            client.register_task(2, {'lo': [('127.0.0.1', 31322)]}, 'host-1')
+            client.register_task(1, {'lo': [('127.0.0.1', 31321)]}, 'host-2')
+
+            # host-1, local-rank 1: rank 0 -> index 2
+            index = client.set_local_rank_to_rank('host-1', 1, 0)
+            self.assertEqual({0: 2}, driver.get_ranks_to_indices())
+            self.assertEqual(2, index)
+
+            # host-2, local-rank 0: rank 1 -> index 1
+            index = client.set_local_rank_to_rank('host-2', 0, 1)
+            self.assertEqual({0: 2, 1: 1}, driver.get_ranks_to_indices())
+            self.assertEqual(1, index)
+
+            # host-1, local-rank 0: rank 2 -> index 0
+            index = client.set_local_rank_to_rank('host-1', 0, 2)
+            self.assertEqual({0: 2, 1: 1, 2: 0}, driver.get_ranks_to_indices())
+            self.assertEqual(0, index)
+
+    @contextlib.contextmanager
+    def spark_tasks(self, tasks, start_timeout, results):
+        with spark_driver_service(num_proc=tasks, fn=fn, args=(123,)) \
+                as (driver, driver_client, key):
+
+            use_gloo = True
+            is_elastic = True
+            driver_addresses = driver.addresses()
+            tmout = timeout.Timeout(start_timeout, message='Timed out waiting for {activity}.')
+            settings = hvd_settings.BaseSettings(num_proc=tasks, verbose=2, key=key, start_timeout=tmout)
+
+            def run_task(index):
+                result = _task_fn(index, driver_addresses, key, settings, use_gloo, is_elastic)
+                results[index] = result
+
+            # start tasks
+            threads = list([in_thread(run_task, args=(index,)) for index in range(tasks)])
+            driver.wait_for_initial_registration(tmout)
+            task_clients = list([SparkTaskClient(index, driver.task_addresses_for_driver(index), key, 2)
+                                 for index in range(tasks)])
+
+            yield (driver, driver_client, task_clients, settings)
+
+            # wait a bit and expect all threads to still run
+            self.assertGreater(horovod.spark.runner.MINIMUM_COMMAND_LIFETIME_S, 2.0)
+            time.sleep(1.0)
+            for index in range(tasks):
+                self.assertTrue(threads[index].is_alive(),
+                                'task thread {} should still be alive'.format(index))
+
+            # tasks should terminate within MINIMUM_COMMAND_LIFETIME_S
+            time.sleep(horovod.spark.runner.MINIMUM_COMMAND_LIFETIME_S)
+            for index in range(tasks):
+                self.assertFalse(threads[index].is_alive(),
+                                 'task thread {} should have terminated by now'.format(index))
+
+    def test_task_fn_run_commands(self):
+        if not gloo_built():
+            self.skipTest("Gloo is not available")
+
+        tasks = 3
+        start_timeout = 5.0
+        self.assertGreater(tasks, 1, 'test should not be trivial')
+        results = {}
+
+        with self.spark_tasks(tasks, start_timeout, results) \
+                as (driver, driver_client, task_clients, settings):
+            with tempdir() as d:
+                # command template
+                file_tmpl = os.path.sep.join([d, 'task_{}_executed_command_{}'])
+                cmd_tmpl = 'touch {}'.format(file_tmpl)
+
+                # before we execute the first command
+                for index in range(tasks):
+                    terminated, res = task_clients[index].command_result()
+                    self.assertEqual(False, terminated)
+                    self.assertEqual(None, res)
+
+                # all tasks execute the command
+                for index in range(tasks):
+                    self.assertFalse(os.path.exists(file_tmpl.format(index, '1')))
+                    task_clients[index].run_command(cmd_tmpl.format(index, '1'), {})
+                    task_clients[index].wait_for_command_termination(delay=0.1)
+
+                    terminated, res = task_clients[index].command_result()
+                    self.assertEqual(True, terminated)
+                    self.assertEqual(0, res)
+                    self.assertTrue(os.path.exists(file_tmpl.format(index, '1')))
+
+    def test_task_fn_run_gloo_exec(self):
+        if not gloo_built():
+            self.skipTest("Gloo is not available")
+
+        tasks = 3
+        start_timeout = 5.0
+        self.assertGreater(tasks, 1, 'test should not be trivial')
+        results = {}
+
+        with self.spark_tasks(tasks, start_timeout, results) \
+                as (driver, driver_client, task_clients, settings):
+            # all tasks execute gloo_exec_fn to get a result back into the task service
+            cmd = 'python -m horovod.spark.task.gloo_exec_fn {} {}'.format(
+                codec.dumps_base64(driver.addresses()),
+                codec.dumps_base64(settings)
+            )
+            for index in range(tasks):
+                env = {'HOROVOD_RANK': str(index),
+                       'HOROVOD_LOCAL_RANK': '0',
+                       'HOROVOD_HOSTNAME': driver.task_index_host_hash(index),
+                       secret.HOROVOD_SECRET_KEY: codec.dumps_base64(settings.key)}
+                in_thread(lambda: task_clients[index].run_command(cmd, env))
+
+            for index in range(tasks):
+                task_clients[index].wait_for_command_termination(delay=0.1)
+                terminated, res = task_clients[index].command_result()
+                self.assertEqual(True, terminated)
+                self.assertEqual(0, res)
+
+        self.assertEqual(dict([(index, 123) for index in range(tasks)]), results)
 
     """
     Test that horovod.spark.run works properly in a simple setup using MPI.
@@ -111,6 +306,26 @@ class SparkTests(unittest.TestCase):
                                         use_mpi=use_mpi, use_gloo=use_gloo,
                                         verbose=2)
                 self.assertListEqual([([0, 1], 0), ([0, 1], 1)], res)
+
+    """
+    Test that horovod.spark.run_elastic works properly in a simple setup.
+    """
+    def test_happy_run_elastic(self):
+        if not gloo_built():
+            self.skipTest("Gloo is not available")
+
+        def fn():
+            # training function does not use ObjectState and @hvd.elastic.run
+            # only testing distribution of state-less training function here
+            # see test_spark_torch.py for testing that
+            hvd.init()
+            res = hvd.allgather(torch.tensor([hvd.rank()])).tolist()
+            return res, hvd.rank()
+
+        with spark_session('test_happy_run_elastic'):
+            res = horovod.spark.run_elastic(fn, num_proc=2, min_np=2, max_np=2,
+                                            start_timeout=10, verbose=2)
+            self.assertListEqual([([0, 1], 0), ([0, 1], 1)], res)
 
     """
     Test that horovod.spark.run times out when it does not start up fast enough using MPI.
@@ -537,7 +752,10 @@ class SparkTests(unittest.TestCase):
     def do_test_rsh_events(self, test_events):
         self.assertGreater(test_events, 0, 'test should not be trivial')
 
-        sleep = 10
+        event_delay = 1.0
+        wait_for_exit_code_delay = 1.0
+        sleep = event_delay + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S + \
+            wait_for_exit_code_delay + 2.0
         command = 'sleep {}'.format(sleep)
         for triggered_event in range(test_events):
             events = [threading.Event() for _ in range(test_events)]
@@ -547,28 +765,20 @@ class SparkTests(unittest.TestCase):
             self.do_test_rsh(command, 143, events=events)
             duration = time.time() - start
 
-            self.assertGreaterEqual(duration, 1.0)
-            self.assertLess(duration, 2.00 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S,
-                            'sleep should not finish')
-            self.assertGreater(sleep, 2.00 + safe_shell_exec.GRACEFUL_TERMINATION_TIME_S,
-                               'sleep should be large enough')
+            self.assertGreaterEqual(duration, event_delay)
+            self.assertLess(duration, sleep - 1.0, 'sleep should not finish')
 
     def do_test_rsh(self, command, expected_result, events=None):
-        def fn():
-            return 0
-
         # setup infrastructure so we can call rsh
-        key = secret.make_secret_key()
         host_hash = 'test-host'
-        driver = SparkDriverService(1, fn, (), {}, key, None)
-        client = SparkDriverClient(driver.addresses(), key, 2)
-        task = SparkTaskService(0, key, None, 2)
-        client.register_task(0, task.addresses(), host_hash)
-        settings = hvd_settings.Settings(verbose=2, key=key)
-        env = {}
+        with spark_driver_service(num_proc=1) as (driver, client, key):
+            with spark_task_service(index=0, key=key) as (task, _, _):
+                client.register_task(0, task.addresses(), host_hash)
+                settings = hvd_settings.Settings(verbose=2, key=key)
+                env = {}
 
-        res = rsh(driver.addresses(), key, host_hash, command, env, 0, settings.verbose, False, events=events)
-        self.assertEqual(expected_result, res)
+                res = rsh(driver.addresses(), key, host_hash, command, env, 0, settings.verbose, False, events=events)
+                self.assertEqual(expected_result, res)
 
     def test_mpirun_exec_fn(self):
         bool_values = [False, True]
@@ -637,7 +847,7 @@ class SparkTests(unittest.TestCase):
 
                             task_exec.assert_called_once()
                             task_exec_args, task_exec_kwargs = task_exec.call_args
-                            expected_task_exec_args = (driver, settings, 'OMPI_COMM_WORLD_RANK')
+                            expected_task_exec_args = (driver, settings, 'OMPI_COMM_WORLD_RANK', 'OMPI_COMM_WORLD_LOCAL_RANK')
                             expected_task_exec_kwargs = {}
                             self.assertEqual(expected_task_exec_args, task_exec_args, msg)
                             self.assertEqual(expected_task_exec_kwargs, task_exec_kwargs, msg)
@@ -652,10 +862,90 @@ class SparkTests(unittest.TestCase):
 
             task_exec.assert_called_once()
             task_exec_args, task_exec_kwargs = task_exec.call_args
-            expected_task_exec_args = (driver, settings, 'HOROVOD_RANK')
+            expected_task_exec_args = (driver, settings, 'HOROVOD_RANK', 'HOROVOD_LOCAL_RANK')
             expected_task_exec_kwargs = {}
             self.assertEqual(expected_task_exec_args, task_exec_args)
             self.assertEqual(expected_task_exec_kwargs, task_exec_kwargs)
+
+    def test_mpi_exec_fn_provides_driver_with_local_rank(self):
+        self.do_test_exec_fn_provides_driver_with_local_rank(
+            mpirun_exec_fn, 'OMPI_COMM_WORLD_RANK', 'OMPI_COMM_WORLD_LOCAL_RANK'
+        )
+
+    def test_gloo_exec_fn_provides_driver_with_local_rank(self):
+        self.do_test_exec_fn_provides_driver_with_local_rank(
+            gloo_exec_fn, 'HOROVOD_RANK', 'HOROVOD_LOCAL_RANK'
+        )
+
+    def do_test_exec_fn_provides_driver_with_local_rank(self, exec_fn, rank_env, local_rank_env):
+        with mock.patch("horovod.spark.task.task_service.SparkTaskService._get_resources", return_value={}):
+            with spark_driver_service(num_proc=3) as (driver, client, key), \
+                    spark_task_service(index=0, key=key) as (task0, _, _), \
+                    spark_task_service(index=1, key=key) as (task1, _, _), \
+                    spark_task_service(index=2, key=key) as (task2, _, _):
+                self.assertIsNone(task0.fn_result())
+                self.assertIsNone(task1.fn_result())
+                self.assertIsNone(task2.fn_result())
+
+                client.register_task(0, task0.addresses(), 'host-1')
+                client.register_task(1, task1.addresses(), 'host-2')
+                client.register_task(2, task2.addresses(), 'host-1')
+                self.assertEqual({}, driver.get_ranks_to_indices())
+
+                settings = mock.MagicMock(verbose=2)
+
+                with override_env({rank_env: 0,
+                                   local_rank_env: 1,
+                                   'HOROVOD_HOSTNAME': 'host-1',
+                                   secret.HOROVOD_SECRET_KEY: codec.dumps_base64(key)}):
+                    exec_fn.main(driver.addresses(), settings)
+                    self.assertEqual(None, task0.fn_result())
+                    self.assertEqual(None, task1.fn_result())
+                    self.assertEqual(0, task2.fn_result())
+                    self.assertEqual({0: 2}, driver.get_ranks_to_indices())
+
+                with override_env({rank_env: 2,
+                                   local_rank_env: 0,
+                                   'HOROVOD_HOSTNAME': 'host-2',
+                                   secret.HOROVOD_SECRET_KEY: codec.dumps_base64(key)}):
+                    exec_fn.main(driver.addresses(), settings)
+                    self.assertEqual(None, task0.fn_result())
+                    self.assertEqual(0, task1.fn_result())
+                    self.assertEqual(0, task2.fn_result())
+                    self.assertEqual({0: 2, 2: 1}, driver.get_ranks_to_indices())
+
+                with override_env({rank_env: 1,
+                                   local_rank_env: 0,
+                                   'HOROVOD_HOSTNAME': 'host-1',
+                                   secret.HOROVOD_SECRET_KEY: codec.dumps_base64(key)}):
+                    exec_fn.main(driver.addresses(), settings)
+                    self.assertEqual(0, task0.fn_result())
+                    self.assertEqual(0, task1.fn_result())
+                    self.assertEqual(0, task2.fn_result())
+                    self.assertEqual({0: 2, 2: 1, 1: 0}, driver.get_ranks_to_indices())
+
+    def test_spark_driver_host_discovery(self):
+        with spark_driver_service(num_proc=4) as (driver, client, _):
+            discovery = SparkDriverHostDiscovery(driver)
+
+            slots = discovery.find_available_hosts_and_slots()
+            self.assertEqual({}, slots)
+
+            client.register_task(0, driver.addresses(), 'host-hash-1')
+            slots = discovery.find_available_hosts_and_slots()
+            self.assertEqual({'host-hash-1': 1}, slots)
+
+            client.register_task(1, driver.addresses(), 'host-hash-2')
+            slots = discovery.find_available_hosts_and_slots()
+            self.assertEqual({'host-hash-1': 1, 'host-hash-2': 1}, slots)
+
+            client.register_task(2, driver.addresses(), 'host-hash-2')
+            slots = discovery.find_available_hosts_and_slots()
+            self.assertEqual({'host-hash-1': 1, 'host-hash-2': 2}, slots)
+
+            client.register_task(3, driver.addresses(), 'host-hash-1')
+            slots = discovery.find_available_hosts_and_slots()
+            self.assertEqual({'host-hash-1': 2, 'host-hash-2': 2}, slots)
 
     def test_df_cache(self):
         # Clean the cache before starting the test
@@ -1192,38 +1482,73 @@ class SparkTests(unittest.TestCase):
         assert store.get_test_data_path() == 'hdfs:///user/test_path', hdfs_root
 
     def test_spark_task_service_env(self):
-        key = secret.make_secret_key()
         service_env = {
             'HADOOP_TOKEN_FILE_LOCATION': 'path',
             'PYTHONPATH': 'pypath',
             'other': 'values'
         }
         with override_env(service_env):
-            service = SparkTaskService(1, key, None)
-            client = SparkTaskClient(1, service.addresses(), key, 3)
+            with spark_task_service(index=1) as (service, client, key):
+                with tempdir() as d:
+                    file = '{}/env'.format(d)
+                    command = "env | grep -v '^PWD='> {}".format(file)
+                    command_env = {"test": "value"}
 
+                    try:
+                        client.run_command(command, command_env)
+                        client.wait_for_command_termination()
+                    finally:
+                        service.shutdown()
+
+                    with open(file) as f:
+                        env = sorted([line.strip() for line in f.readlines()])
+                        expected = [
+                            'HADOOP_TOKEN_FILE_LOCATION=path',
+                            'HOROVOD_SPARK_WORK_DIR={cwd}'.format(cwd=os.getcwd()),
+                            'PYTHONPATH=pypath',
+                            '{}={}'.format(secret.HOROVOD_SECRET_KEY, codec.dumps_base64(key)),
+                            'other=values',
+                            'test=value'
+                        ]
+                        self.assertEqual(expected, env)
+
+    def do_test_spark_task_service_executes_command(self, client, file):
+        self.assertFalse(os.path.exists(file))
+        client.run_command('touch {}'.format(file), {})
+        client.wait_for_command_termination(delay=0.1)
+        terminated, exit_code = client.command_result()
+        self.assertEqual(True, terminated)
+        self.assertEqual(0, exit_code)
+        self.assertTrue(os.path.exists(file))
+
+    def test_spark_task_service_execute_command(self):
+        with spark_task_service(index=0) as (service, client, _):
             with tempdir() as d:
-                file = '{}/env'.format(d)
-                command = "env | grep -v '^PWD='> {}".format(file)
-                command_env = {"test": "value"}
+                file = os.path.sep.join([d, 'command_executed'])
+                self.do_test_spark_task_service_executes_command(client, file)
 
-                try:
-                    client.run_command(command, command_env)
-                    client.wait_for_command_termination()
-                finally:
-                    service.shutdown()
+    @mock.patch('horovod.run.common.util.safe_shell_exec.GRACEFUL_TERMINATION_TIME_S', 0.5)
+    def test_spark_task_service_abort_command(self):
+        with spark_task_service(index=0) as (service, client, _):
+            with tempdir() as d:
+                file = os.path.sep.join([d, 'command_executed'])
+                sleep = safe_shell_exec.GRACEFUL_TERMINATION_TIME_S * 2 + 2.0
 
-                with open(file) as f:
-                    env = sorted([line.strip() for line in f.readlines()])
-                    expected = [
-                        'HADOOP_TOKEN_FILE_LOCATION=path',
-                        'HOROVOD_SPARK_WORK_DIR={cwd}'.format(cwd=os.getcwd()),
-                        'PYTHONPATH=pypath',
-                        '{}={}'.format(secret.HOROVOD_SECRET_KEY, codec.dumps_base64(key)),
-                        'other=values',
-                        'test=value'
-                    ]
-                    self.assertEqual(expected, env)
+                start = time.time()
+                client.run_command('set -x; sleep {} && touch {}'.format(sleep, file), {})
+                client.abort_command()
+                client.wait_for_command_termination(delay=0.1)
+                duration = time.time() - start
+
+                self.assertLess(duration, safe_shell_exec.GRACEFUL_TERMINATION_TIME_S + 1.0)
+                self.assertFalse(os.path.exists(file))
+
+    def test_spark_task_service_abort_no_command(self):
+        with spark_task_service(index=0) as (service, client, _):
+            with tempdir() as d:
+                file = os.path.sep.join([d, 'command_executed'])
+                client.abort_command()
+                self.do_test_spark_task_service_executes_command(client, file)
 
     @pytest.mark.skipif(LooseVersion(pyspark.__version__) < LooseVersion('3.0.0'),
                         reason='get_available_devices only supported in Spark 3.0 and above')
