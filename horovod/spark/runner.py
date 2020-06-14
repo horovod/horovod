@@ -35,6 +35,8 @@ from horovod.spark.driver import driver_service, host_discovery, job_id
 
 
 MINIMUM_COMMAND_LIFETIME_S = 3
+WAIT_FOR_COMMAND_START_DELAY_SECONDS = 0.1
+WAIT_FOR_SHUTDOWN_DELAY_SECONDS = 0.1
 
 
 # Spark will fail to initialize correctly locally on Mac OS without this
@@ -80,14 +82,14 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo, is_elastic):
 
             while shutdown_thread.is_alive():
                 # Once the command started we wait for its termination
-                if task.wait_for_command_start(1.0):
+                if task.wait_for_command_start(WAIT_FOR_COMMAND_START_DELAY_SECONDS):
                     task.wait_for_command_termination()
                     if task.command_exit_code() != 0:
                         raise Exception('Command failed, making Spark task fail to restart the task')
                     break
 
                 # While no command started, we can shutdown any time
-                shutdown_thread.join(0.1)
+                shutdown_thread.join(WAIT_FOR_SHUTDOWN_DELAY_SECONDS)
         elif use_gloo or index == local_rank_zero_index:
             # Either Gloo or first task with MPI.
             task.wait_for_command_start(settings.start_timeout)
@@ -130,9 +132,7 @@ def _make_spark_thread(spark_context, spark_job_group, driver, result_queue,
     def run_spark():
         """Creates `settings.num_proc` Spark tasks, each executing `_task_fn` and waits for them to terminate."""
         try:
-            spark_context.setJobGroup(spark_job_group,
-                                      "Horovod Spark Run",
-                                      interruptOnCancel=True)
+            spark_context.setJobGroup(spark_job_group, "Horovod Spark Run", interruptOnCancel=True)
             procs = spark_context.range(0, numSlices=settings.max_np if settings.elastic else settings.num_proc)
             # We assume that folks caring about security will enable Spark RPC encryption,
             # thus ensuring that key that is passed here remains secret.
