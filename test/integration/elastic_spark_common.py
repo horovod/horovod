@@ -420,6 +420,7 @@ class BaseElasticSparkTests(unittest.TestCase):
             (None, ['host-3:1', 'host-4:1']),
         ]
 
+        # don't wait for discovery of new hosts but have epochs be long enough to see hosts changes
         results = self._run(discovery_schedule=discovery_schedule, discovery_wait=0, epoch_wait=10,
                             np=2, extra_conf=[conf.SPARK_CONF_ALWAYS_RESTART_FAILED_TASK,
                                               conf.SPARK_CONF_BLACKLIST_DISABLED])
@@ -653,31 +654,30 @@ class BaseElasticSparkTests(unittest.TestCase):
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     def test_auto_scale_down_by_discovery(self):
         discovery_schedule = [
-            (0, ['host-1:1', 'host-2:1', 'host-3:1', 'host-4:1']),
-            (1, ['host-2:1', 'host-3:1', 'host-4:1']),
-            (2, ['host-2:1', 'host-3:1']),
-            (None, ['host-3:1']),
+            (0, ['host-1:1', 'host-2:1', 'host-3:1']),
+            (1, ['host-2:1', 'host-3:1']),
+            (None, ['host-2:1']),
         ]
 
-        results = self._run(discovery_schedule=discovery_schedule, np=4, min_np=1, max_np=5, epochs=4,
+        results = self._run(discovery_schedule=discovery_schedule, np=3, min_np=1, max_np=4,
                             # TODO: remove these waits when discovery publishes failure right-away
-                            discovery_wait=0, epoch_wait=10,
+                            #       currently, spark discovery does not know about failing nodes
+                            #       test setup makes node wait for this change without these waits
+                            # it takes 1s for the failing node to be discovered, we wait 3s
+                            discovery_wait=0, epoch_wait=3,
                             extra_conf=[conf.SPARK_CONF_ALWAYS_RESTART_FAILED_TASK])
 
-        self.assertEqual(4, len(results))
+        self.assertEqual(3, len(results))
 
         self.assertEqual(0, results[0]['start_rank'])
-        self.assertEqual(4, results[0]['size'])
+        self.assertEqual(3, results[0]['size'])
         self.assertEqual(1, results[0]['rendezvous'])
 
-        self.assertEqual(3, results[1]['size'])
+        self.assertEqual(2, results[1]['size'])
         self.assertEqual(2, results[1]['rendezvous'])
 
-        self.assertEqual(2, results[2]['size'])
+        self.assertEqual(1, results[2]['size'])
         self.assertEqual(3, results[2]['rendezvous'])
-
-        self.assertEqual(1, results[3]['size'])
-        self.assertEqual(4, results[3]['rendezvous'])
 
     @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
     def test_auto_scale_down_by_exception(self):
@@ -758,11 +758,13 @@ class BaseElasticSparkTests(unittest.TestCase):
             str((1, 0)): [1],
         }
 
-        results = self._run(hosts=hosts, exit_schedule=exit_schedule, epoch_wait=10, np=4, min_np=1,
+        # it can take 5 seconds for a task to be restarted by Spark, so we make each epoch take 10s
+        results = self._run(hosts=hosts, exit_schedule=exit_schedule,
+                            epoch_wait=10, epochs=2, np=4, min_np=1,
                             extra_conf=[conf.SPARK_CONF_ALWAYS_RESTART_FAILED_TASK,
                                         conf.SPARK_CONF_BLACKLIST_ENABLED, setting])
 
-        self.assertEqual(3, len(results))
+        self.assertEqual(2, len(results))
 
         self.assertEqual(0, results[0]['start_rank'])
         self.assertEqual(4, results[0]['size'])
@@ -771,7 +773,3 @@ class BaseElasticSparkTests(unittest.TestCase):
         self.assertEqual(0, results[1]['start_rank'])
         self.assertEqual(3, results[1]['size'])
         self.assertEqual(2, results[1]['rendezvous'])
-
-        self.assertEqual(0, results[2]['start_rank'])
-        self.assertEqual(3, results[2]['size'])
-        self.assertEqual(2, results[2]['rendezvous'])
