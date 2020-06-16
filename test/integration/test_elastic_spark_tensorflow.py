@@ -29,5 +29,8 @@ class ElasticSparkTensorflowTests(BaseElasticSparkTests):
         training_script = os.path.join(os.path.dirname(__file__), 'data/elastic_tensorflow_main.py')
         super(ElasticSparkTensorflowTests, self).__init__(training_script, *args, **kwargs)
 
+    def test_auto_scale_down_by_discovery(self):
+        self.skipTest('This test failes due to https://github.com/horovod/horovod/issues/1994')
+
     def test_fault_tolerance_hosts_added_and_removed(self):
         self.skipTest('This test failes due to https://github.com/horovod/horovod/issues/1994')
