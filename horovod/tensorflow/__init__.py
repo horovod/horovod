@@ -130,6 +130,16 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
         return new_tensor
 
 
+def _allreduce_cond(tensor, *args, **kwargs):
+    def allreduce_fn():
+        return allreduce(tensor, *args, **kwargs)
+
+    def id_fn():
+        return tensor
+
+    return tf.cond(size_op() > 1, allreduce_fn, id_fn)
+
+
 try:
     _global_variables = tf.global_variables
 except AttributeError:
@@ -219,11 +229,11 @@ def _make_allreduce_grads_fn(name, device_dense, device_sparse,
                          if grad is not None and isinstance(grad, tf.IndexedSlices)
                          else grad for grad in grads]
 
-            return [allreduce(grad,
-                              device_dense=device_dense,
-                              device_sparse=device_sparse,
-                              compression=compression,
-                              op=op)
+            return [_allreduce_cond(grad,
+                                    device_dense=device_dense,
+                                    device_sparse=device_sparse,
+                                    compression=compression,
+                                    op=op)
                     if grad is not None else grad
                     for grad in grads]
 
@@ -269,12 +279,9 @@ if _LegacyOptimizer is not None:
             allreduce the gradients before returning them.
             """
             gradients = self._optimizer.compute_gradients(*args, **kwargs)
-            if size() > 1 or os.environ.get('HOROVOD_ELASTIC') == '1':
-                grads, vars = zip(*gradients)
-                avg_grads = self._allreduce_grads(grads)
-                return list(zip(avg_grads, vars))
-            else:
-                return gradients
+            grads, vars = zip(*gradients)
+            avg_grads = self._allreduce_grads(grads)
+            return list(zip(avg_grads, vars))
 
         def apply_gradients(self, *args, **kwargs):
             """Calls this same method on the underlying optimizer."""
@@ -469,10 +476,7 @@ if hasattr(tf, 'GradientTape'):
 
         def gradient(self, target, sources, output_gradients=None):
             gradients = super(self.__class__, self).gradient(target, sources, output_gradients)
-            if size() > 1 or os.environ.get('HOROVOD_ELASTIC') == '1':
-                return self._allreduce_grads(gradients)
-            else:
-                return gradients
+            return self._allreduce_grads(gradients)
 
 
     def DistributedGradientTape(gradtape, device_dense='', device_sparse='',
