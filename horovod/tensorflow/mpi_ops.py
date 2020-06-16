@@ -196,9 +196,9 @@ def _broadcast_grad(op, grad):
         return grad_reduced * 0
     return grad_reduced
 
+
 def join():
     return MPI_LIB.horovod_join()
-
 
 
 def size_op(name=None):

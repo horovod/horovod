@@ -28,10 +28,8 @@ from horovod.tensorflow.compression import Compression
 from horovod.tensorflow.functions import broadcast_object, broadcast_object_fn, broadcast_variables
 from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce
 from horovod.tensorflow.mpi_ops import init, shutdown
-from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank
-from horovod.tensorflow.mpi_ops import rank_op, local_rank_op, size_op, local_size_op
-from horovod.tensorflow.mpi_ops import mpi_threads_supported
 from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank, is_homogeneous
+from horovod.tensorflow.mpi_ops import rank_op, local_rank_op, size_op, local_size_op
 from horovod.tensorflow.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.tensorflow.mpi_ops import gloo_enabled, gloo_built
 from horovod.tensorflow.mpi_ops import nccl_built, ddl_built, ccl_built
@@ -92,7 +90,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                                       'workaround please pass sparse_as_dense=True to DistributedOptimizer')
         with tf.device(device_sparse):
             # For IndexedSlices, do two allgathers instead of an allreduce.
-            horovod_size = tf.cast(size_op(), tensor.values.dtype)
+            horovod_size = tf.cast(size_op(), dtype=tensor.values.dtype)
             values = allgather(tensor.values)
             indices = allgather(tensor.indices)
 
@@ -116,7 +114,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                         elif not check_num_rank_power_of_2(int(size() / local_size())):
                             raise NotImplementedError(
                                 'Running GPU Adasum with non-power of 2 nodes is not supported yet.')
-                        horovod_local_size = tf.cast(local_size(), dtype=tensor.dtype)
+                        horovod_local_size = tf.cast(local_size_op(), dtype=tensor.dtype)
                         new_tensor = summed_tensor / horovod_local_size
                     else:
                         warnings.warn('Adasum reduction does not currently support GPU reduction using MPI. Tensors '
