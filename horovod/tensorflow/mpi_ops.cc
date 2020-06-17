@@ -629,6 +629,7 @@ REGISTER_KERNEL_BUILDER(
 
 REGISTER_OP("HorovodSize")
     .Output("size: int32")
+    .SetIsStateful()
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       c->set_output(0, c->Scalar());
       return Status::OK();
@@ -651,6 +652,7 @@ REGISTER_KERNEL_BUILDER(
 
 REGISTER_OP("HorovodLocalSize")
     .Output("local_size: int32")
+    .SetIsStateful()
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       c->set_output(0, c->Scalar());
       return Status::OK();
@@ -675,6 +677,7 @@ REGISTER_KERNEL_BUILDER(
 
 REGISTER_OP("HorovodRank")
     .Output("rank: int32")
+    .SetIsStateful()
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       c->set_output(0, c->Scalar());
       return Status::OK();
@@ -697,6 +700,7 @@ REGISTER_KERNEL_BUILDER(
 
 REGISTER_OP("HorovodLocalRank")
     .Output("local_rank: int32")
+    .SetIsStateful()
     .SetShapeFn([](shape_inference::InferenceContext* c) {
       c->set_output(0, c->Scalar());
       return Status::OK();
