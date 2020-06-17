@@ -15,8 +15,9 @@ assignees: ''
 5. CUDA version:
 6. NCCL version:
 7. Python version:
-8. OS and version:
-9. GCC version:
+8. Spark / PySpark version:
+9. OS and version:
+10. GCC version:
 
 **Checklist:**
 1. Did you search issues to find if somebody asked this question before?
