@@ -22,7 +22,6 @@ from distutils.version import LooseVersion
 import itertools
 import numpy as np
 import os
-import pytest
 import tensorflow as tf
 from horovod.tensorflow.util import _executing_eagerly, _has_eager
 from tensorflow.python.framework import ops
@@ -133,6 +132,34 @@ class TensorFlowTests(tf.test.TestCase):
             assert mpi_size == size
         else:
             assert gloo_size == size
+
+    def test_horovod_rank_op(self):
+        """Test that the rank returned by hvd.rank_op() is correct."""
+        hvd.init()
+        rank = self.evaluate(hvd.rank_op())
+        self.assertTrue(rank == hvd.rank(),
+                        "hvd.rank_op produces incorrect results")
+
+    def test_horovod_local_rank_op(self):
+        """Test that the local rank returned by hvd.local_rank_op() is correct."""
+        hvd.init()
+        local_rank = self.evaluate(hvd.local_rank_op())
+        self.assertTrue(local_rank == hvd.local_rank(),
+                        "hvd.local_rank_op produces incorrect results")
+
+    def test_horovod_size_op(self):
+        """Test that the size returned by hvd.size_op() is correct."""
+        hvd.init()
+        size = self.evaluate(hvd.size_op())
+        self.assertTrue(size == hvd.size(),
+                        "hvd.size_op produces incorrect results")
+
+    def test_horovod_local_size_op(self):
+        """Test that the local size returned by hvd.local_size_op() is correct."""
+        hvd.init()
+        local_size = self.evaluate(hvd.local_size_op())
+        self.assertTrue(local_size == hvd.local_size(),
+                        "hvd.local_size_op produces incorrect results")
 
     def test_horovod_allreduce_cpu(self):
         """Test on CPU that the allreduce correctly sums 1D, 2D, 3D tensors."""

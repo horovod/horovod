@@ -29,6 +29,7 @@ from horovod.tensorflow.functions import broadcast_object, broadcast_object_fn, 
 from horovod.tensorflow.mpi_ops import allgather, broadcast, _allreduce
 from horovod.tensorflow.mpi_ops import init, shutdown
 from horovod.tensorflow.mpi_ops import size, local_size, rank, local_rank, is_homogeneous
+from horovod.tensorflow.mpi_ops import rank_op, local_rank_op, size_op, local_size_op
 from horovod.tensorflow.mpi_ops import mpi_threads_supported, mpi_enabled, mpi_built
 from horovod.tensorflow.mpi_ops import gloo_enabled, gloo_built
 from horovod.tensorflow.mpi_ops import nccl_built, ddl_built, ccl_built
@@ -39,7 +40,7 @@ from horovod.tensorflow.mpi_ops import join
 
 import tensorflow as tf
 
-# @DEKHTIARJonathan: Do not remove, this fixes issues: 
+# @DEKHTIARJonathan: Do not remove, this fixes issues:
 # - https://github.com/tensorflow/tensorflow/issues/38516
 # - https://github.com/tensorflow/tensorflow/issues/39894
 if tf.__version__.startswith('2.2.'):
@@ -89,7 +90,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                                       'workaround please pass sparse_as_dense=True to DistributedOptimizer')
         with tf.device(device_sparse):
             # For IndexedSlices, do two allgathers instead of an allreduce.
-            horovod_size = tf.cast(size(), dtype=tensor.values.dtype)
+            horovod_size = tf.cast(size_op(), dtype=tensor.values.dtype)
             values = allgather(tensor.values)
             indices = allgather(tensor.indices)
 
@@ -100,7 +101,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                                 dense_shape=tensor.dense_shape)
     else:
         with tf.device(device_dense):
-            horovod_size = tf.cast(size(), dtype=tensor.dtype)
+            horovod_size = tf.cast(size_op(), dtype=tensor.dtype)
             tensor_compressed, ctx = compression.compress(tensor)
             summed_tensor_compressed = _allreduce(tensor_compressed, op=true_op)
             summed_tensor = compression.decompress(summed_tensor_compressed, ctx)
@@ -113,7 +114,7 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
                         elif not check_num_rank_power_of_2(int(size() / local_size())):
                             raise NotImplementedError(
                                 'Running GPU Adasum with non-power of 2 nodes is not supported yet.')
-                        horovod_local_size = tf.cast(local_size(), dtype=tensor.dtype)
+                        horovod_local_size = tf.cast(local_size_op(), dtype=tensor.dtype)
                         new_tensor = summed_tensor / horovod_local_size
                     else:
                         warnings.warn('Adasum reduction does not currently support GPU reduction using MPI. Tensors '
@@ -127,6 +128,16 @@ def allreduce(tensor, average=None, device_dense='', device_sparse='',
             else:
                 new_tensor = (summed_tensor / horovod_size) if op == Average else summed_tensor
         return new_tensor
+
+
+def _allreduce_cond(tensor, *args, **kwargs):
+    def allreduce_fn():
+        return allreduce(tensor, *args, **kwargs)
+
+    def id_fn():
+        return tensor
+
+    return tf.cond(size_op() > 1, allreduce_fn, id_fn)
 
 
 try:
@@ -218,11 +229,11 @@ def _make_allreduce_grads_fn(name, device_dense, device_sparse,
                          if grad is not None and isinstance(grad, tf.IndexedSlices)
                          else grad for grad in grads]
 
-            return [allreduce(grad,
-                              device_dense=device_dense,
-                              device_sparse=device_sparse,
-                              compression=compression,
-                              op=op)
+            return [_allreduce_cond(grad,
+                                    device_dense=device_dense,
+                                    device_sparse=device_sparse,
+                                    compression=compression,
+                                    op=op)
                     if grad is not None else grad
                     for grad in grads]
 
@@ -268,12 +279,9 @@ if _LegacyOptimizer is not None:
             allreduce the gradients before returning them.
             """
             gradients = self._optimizer.compute_gradients(*args, **kwargs)
-            if size() > 1 or os.environ.get('HOROVOD_ELASTIC') == '1':
-                grads, vars = zip(*gradients)
-                avg_grads = self._allreduce_grads(grads)
-                return list(zip(avg_grads, vars))
-            else:
-                return gradients
+            grads, vars = zip(*gradients)
+            avg_grads = self._allreduce_grads(grads)
+            return list(zip(avg_grads, vars))
 
         def apply_gradients(self, *args, **kwargs):
             """Calls this same method on the underlying optimizer."""
@@ -314,15 +322,15 @@ if _LegacyOptimizer is not None:
                 initializer=tf.zeros_initializer)
             self._is_first_step = tf.cast(tf.math.equal(self._step_count, 0), dtype=tf.bool)
             self._is_comm_step  = tf.cast(tf.math.equal(self._step_count % self._backward_passes_per_step, self._backward_passes_per_step - 1), dtype=tf.bool)
-        
+
         def _apply_shared(self, var, get_update_op):
             start_slot = self._get_or_make_slot(var, "delta_start")
 
             # initialize start on the first step
-            assign_op = tf.cond(self._is_first_step, 
-                lambda: start_slot.assign(var, use_locking=self.use_locking).op, 
+            assign_op = tf.cond(self._is_first_step,
+                lambda: start_slot.assign(var, use_locking=self.use_locking).op,
                 tf.no_op)
-            
+
             with tf.control_dependencies([assign_op]):
                 update_op = get_update_op()
                 with tf.control_dependencies([update_op]):
@@ -339,7 +347,7 @@ if _LegacyOptimizer is not None:
                         new_start = start_slot.assign_add(global_delta, use_locking=self.use_locking)
                         # var = start
                         return var.assign(new_start, use_locking=self.use_locking).op
-                    
+
                     # if its a communication step, then apply logic above
                     # if its not a communication step then just have the underlying
                     # optimizer update the model parameters according to its logic
@@ -468,10 +476,7 @@ if hasattr(tf, 'GradientTape'):
 
         def gradient(self, target, sources, output_gradients=None):
             gradients = super(self.__class__, self).gradient(target, sources, output_gradients)
-            if size() > 1 or os.environ.get('HOROVOD_ELASTIC') == '1':
-                return self._allreduce_grads(gradients)
-            else:
-                return gradients
+            return self._allreduce_grads(gradients)
 
 
     def DistributedGradientTape(gradtape, device_dense='', device_sparse='',
