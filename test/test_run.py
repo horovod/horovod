@@ -34,14 +34,15 @@ import horovod
 from horovod.run.common.util import codec, config_parser, safe_shell_exec, secret, \
     settings as hvd_settings, timeout
 from horovod.run.common.util.host_hash import _hash, host_hash
+from horovod.run.gloo_run import gloo_run
 from horovod.run.js_run import js_run, generate_jsrun_rankfile
 from horovod.run.mpi_run import _get_mpi_implementation, _get_mpi_implementation_flags,\
     _LARGE_CLUSTER_THRESHOLD as large_cluster_threshold, mpi_available, mpi_run,\
     _OMPI_IMPL, _SMPI_IMPL, _MPICH_IMPL, _UNKNOWN_IMPL, _MISSING_IMPL
-from horovod.run.runner import parse_args, parse_host_files, run_controller, HorovodArgs, _run
+from horovod.run.runner import gloo_built, parse_args, parse_host_files, run_controller, HorovodArgs, _run
 from horovod.run.util.threads import in_thread, on_event
 
-from common import is_built, lsf_and_jsrun, override_args, override_env, temppath, delay, wait
+from common import is_built, lsf_and_jsrun, override_args, temppath, delay, wait
 
 
 class RunTests(unittest.TestCase):
@@ -537,7 +538,7 @@ class RunTests(unittest.TestCase):
         verbose=0,
         num_hosts=1,
         num_proc=2,
-        hosts='host',
+        hosts='localhost:2',
         run_func_mode=True
     )
 
@@ -563,7 +564,7 @@ class RunTests(unittest.TestCase):
                 self.assertIsNotNone(mpi_flags)
                 expected_cmd = ('mpirun '
                                 '--allow-run-as-root --tag-output '
-                                '-np 2 -H host '
+                                '-np 2 -H localhost:2 '
                                 '{binding_args} '
                                 '{mpi_flags}       '
                                 'cmd').format(binding_args=' '.join(binding_args), mpi_flags=' '.join(mpi_flags))
@@ -595,7 +596,7 @@ class RunTests(unittest.TestCase):
                 mpi_flags.append('-mca plm_rsh_num_concurrent {}'.format(settings.num_hosts))
                 expected_cmd = ('mpirun '
                                 '--allow-run-as-root --tag-output '
-                                '-np 2 -H host '
+                                '-np 2 -H localhost:2 '
                                 '{binding_args} '
                                 '{mpi_flags}       '
                                 'cmd').format(binding_args=' '.join(binding_args), mpi_flags=' '.join(mpi_flags))
@@ -670,6 +671,46 @@ class RunTests(unittest.TestCase):
             with mock.patch("horovod.run.mpi_run.safe_shell_exec.execute", return_value=1):
                 with pytest.raises(RuntimeError, match="^mpirun failed with exit code 1$"):
                     mpi_run(settings, None, {}, cmd)
+
+    """
+    Tests mpi_run with os.environ.
+    """
+    def test_mpi_run_with_os_environ(self):
+        if not mpi_available():
+            self.skipTest("MPI is not available")
+
+        cmd = ['cmd']
+        settings = self.minimal_settings
+
+        def mpi_impl_flags(tcp, env=None):
+            return ["--mock-mpi-impl-flags"], ["--mock-mpi-binding-args"]
+
+        with mock.patch("horovod.run.mpi_run._get_mpi_implementation_flags", side_effect=mpi_impl_flags):
+            with mock.patch("horovod.run.mpi_run.safe_shell_exec.execute", return_value=0):
+                with pytest.raises(Exception, match="^env argument must be a dict, not <class 'os._Environ'>: "):
+                    mpi_run(settings, None, os.environ, cmd)
+
+    """
+    Tests gloo_run with minimal settings.
+    """
+    def test_gloo_run_minimal(self):
+        if not gloo_built:
+            self.skipTest("Gloo is not available")
+
+        cmd = ['whoami']
+        settings = self.minimal_settings
+        gloo_run(settings, ['lo'], {}, '127.0.0.1', cmd)
+
+    """
+    Tests gloo_run with os.environ.
+    """
+    def test_gloo_run_with_os_environ(self):
+        if not gloo_built:
+            self.skipTest("Gloo is not available")
+
+        cmd = ['whoami']
+        settings = self.minimal_settings
+        gloo_run(settings, ['lo'], os.environ, '127.0.0.1', cmd)
 
     def test_horovodrun_hostfile(self):
         with temppath() as host_filename:

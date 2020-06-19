@@ -474,6 +474,16 @@ class SparkTests(unittest.TestCase):
                                     expected_env=expected_env)
 
     """
+    Test that horovod.spark.run fails with os.environ as env with mpi.
+    """
+    def test_spark_run_with_os_environ_with_mpi(self):
+        with is_built(gloo_is_built=False, mpi_is_built=True):
+            with spark_session('test_spark_run', cores=2):
+                with pytest.raises(Exception, match="^env argument must be a dict, not <class 'os._Environ'>: "):
+                    horovod.spark.run(fn, num_proc=2, use_mpi=True, use_gloo=False,
+                                      env=os.environ, verbose=2)
+
+    """
     Test that horovod.spark.run raises an exception on non-zero exit code of mpi_run using MPI.
     """
     def test_spark_run_with_non_zero_exit_with_mpi(self):
