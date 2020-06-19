@@ -134,6 +134,10 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
         stderr: Stderr of the mpi process.
                 Only used when settings.run_func_mode is True.
     """
+    if env is not None and not isinstance(env, dict):
+        raise Exception('env argument must be a dict, not {type}: {env}'
+                        .format(type=type(env), env=env))
+
     mpi_impl_flags, impl_binding_args = _get_mpi_implementation_flags(settings.tcp_flag, env=env)
     if mpi_impl_flags is None:
         raise Exception(_MPI_NOT_FOUND_ERROR_MSG)
