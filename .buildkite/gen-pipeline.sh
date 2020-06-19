@@ -100,7 +100,7 @@ run_gloo_integration() {
 
   run_test "${test}" "${queue}" \
     ":factory: Elastic Tests (${test})" \
-    "bash -c \"cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no test_elastic_torch.py ${elastic_tensorflow}\""
+    "bash -c \"cd /horovod/test/integration && HOROVOD_LOG_LEVEL=DEBUG pytest --forked -v --log-cli-level 10 --log-cli-format '[%(asctime)-15s %(levelname)s %(filename)s:%(lineno)d %(funcName)s()] %(message)s' --capture=no test_elastic_torch.py ${elastic_tensorflow}\" | ts '[%Y-%m-%d %H:%M:%S]'"
 
 }
 
