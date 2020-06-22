@@ -626,6 +626,9 @@ class SparkTests(unittest.TestCase):
 
         actual_secret = actual_env.pop(secret.HOROVOD_SECRET_KEY, None)
         self.assertEqual(expected_command, actual_command)
+        self.assertIn('PYTHONPATH', actual_env)
+        actual_python_path = actual_env.pop('PYTHONPATH')
+        self.assertIn(actual_python_path, os.pathsep.join(sys.path))
         if env:
             if 'PATH' not in env and 'PATH' in os.environ:
                 env = copy.copy(env)

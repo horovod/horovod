@@ -568,6 +568,15 @@ class RunTests(unittest.TestCase):
                                 '{binding_args} '
                                 '{mpi_flags}       '
                                 'cmd').format(binding_args=' '.join(binding_args), mpi_flags=' '.join(mpi_flags))
+
+                # remove PYTHONPATH from execute's env
+                # we cannot know the exact value of that env variable
+                # so we cannot test it through execute.assert_called_once_with
+                self.assertIn('env', execute.call_args.kwargs)
+                self.assertIn('PYTHONPATH', execute.call_args.kwargs['env'])
+                actual_python_path = execute.call_args.kwargs['env'].pop('PYTHONPATH')
+                self.assertIn(actual_python_path, os.pathsep.join(sys.path))
+
                 expected_env = {'PATH': os.environ.get('PATH')}
                 execute.assert_called_once_with(expected_cmd, env=expected_env, stdout=None, stderr=None)
 
@@ -600,6 +609,15 @@ class RunTests(unittest.TestCase):
                                 '{binding_args} '
                                 '{mpi_flags}       '
                                 'cmd').format(binding_args=' '.join(binding_args), mpi_flags=' '.join(mpi_flags))
+
+                # remove PYTHONPATH from execute's env
+                # we cannot know the exact value of that env variable
+                # so we cannot test it through execute.assert_called_once_with
+                self.assertIn('env', execute.call_args.kwargs)
+                self.assertIn('PYTHONPATH', execute.call_args.kwargs['env'])
+                actual_python_path = execute.call_args.kwargs['env'].pop('PYTHONPATH')
+                self.assertIn(actual_python_path, os.pathsep.join(sys.path))
+
                 expected_env = {'PATH': os.environ.get('PATH')}
                 execute.assert_called_once_with(expected_cmd, env=expected_env, stdout=None, stderr=None)
 
@@ -654,6 +672,15 @@ class RunTests(unittest.TestCase):
                                     '-x env1 -x env2 '
                                     '>mpi-extra args go here< '
                                     'cmd arg1 arg2').format(mpi_flags=' '.join(mpi_flags))
+
+                # remove PYTHONPATH from execute's env
+                # we cannot know the exact value of that env variable
+                # so we cannot test it through execute.assert_called_once_with
+                self.assertIn('env', execute.call_args.kwargs)
+                self.assertIn('PYTHONPATH', execute.call_args.kwargs['env'])
+                actual_python_path = execute.call_args.kwargs['env'].pop('PYTHONPATH')
+                self.assertIn(actual_python_path, os.pathsep.join(sys.path))
+
                 expected_env = {'env1': 'val1', 'env2': 'val2', 'PATH': os.environ.get('PATH')}
                 execute.assert_called_once_with(expected_command, env=expected_env, stdout=stdout, stderr=stderr)
 
