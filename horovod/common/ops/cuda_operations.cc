@@ -16,7 +16,7 @@
 
 #include "gpu_operations.h"
 
-#include <pthread>
+#include <pthread.h>
 #include <thread>
 
 namespace horovod {
