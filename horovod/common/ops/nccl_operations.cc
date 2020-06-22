@@ -94,13 +94,13 @@ void NCCLOpContext::InitNCCLComm(const std::vector<TensorTableEntry>& entries,
 
 void NCCLOpContext::AsyncErrorCheck() {
   ncclResult_t nccl_async_err;
-  auto nccl_err = ncclCommGetAsyncError(nccl_comm_, &nccl_async_err);
+  auto nccl_err = ncclCommGetAsyncError(*nccl_comm_, &nccl_async_err);
   if (nccl_err != ncclSuccess) {
     throw std::logic_error(std::string("ncclGetAsyncError failed: ") + ncclGetErrorString(nccl_err));
   }
 
   if (nccl_async_err != ncclSuccess) {
-    ncclCommAbort(nccl_comm_);
+    ncclCommAbort(*nccl_comm_);
     throw std::logic_error(std::string("NCCL async error: ") + ncclGetErrorString(nccl_async_err));
   }
 
