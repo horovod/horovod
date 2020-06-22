@@ -134,7 +134,7 @@ RUN if [[ ${TENSORFLOW_PACKAGE} == "tensorflow-gpu==1.1.0" ]]; then \
 
 # Prefetch Spark MNIST dataset.
 RUN mkdir -p /work
-RUN mkdir -p /data && wget --progress=dot:mega https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/multiclass/mnist.bz2 -O /data/mnist.bz2
+RUN mkdir -p /data && wget --progress=dot:mega https://horovod-datasets.s3.amazonaws.com/mnist.bz2 -O /data/mnist.bz2
 
 # Hack TensorFlow MNIST example to be smaller.
 RUN sed -i "s/last_step=20000/last_step=100/" /horovod/examples/tensorflow_mnist.py
