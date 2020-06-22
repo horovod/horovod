@@ -47,6 +47,7 @@ public:
   NCCLOpContext(NCCLContext* nccl_context, HorovodGlobalState* global_state,
                 horovod::common::Communicator communicator_type)
       : nccl_comm_(nullptr),
+        error_check_callback_(std::bind(&NCCLOpContext::AsyncErrorCheck, this)),
         nccl_context_(nccl_context),
         global_state_(global_state),
         communicator_type_(communicator_type){};
@@ -57,6 +58,7 @@ public:
   void AsyncErrorCheck();
 
   ncclComm_t* nccl_comm_;
+  std::function<void> error_check_callback_;
 
 private:
   void PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,

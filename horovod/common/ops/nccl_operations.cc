@@ -171,8 +171,7 @@ Status NCCLAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     }
   }
 
-  auto error_check_callback = std::bind(&NCCLOpContext::AsyncErrorCheck, nccl_op_context_);
-  return gpu_op_context_.FinalizeGPUQueue(entries, true, error_check_callback);
+  return gpu_op_context_.FinalizeGPUQueue(entries, true, nccl_op_context_.error_check_callback_);
 }
 
 #if HAVE_MPI
@@ -309,8 +308,7 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     gpu_op_context_.host_buffer = malloc(total_buffer_len);
 
     // Synchronize.
-    auto error_check_callback = std::bind(&NCCLOpContext::AsyncErrorCheck, nccl_op_context_);
-    gpu_context_->WaitForEvents(gpu_op_context_.event_queue, entries, timeline, error_check_callback);
+    gpu_context_->WaitForEvents(gpu_op_context_.event_queue, entries, timeline, nccl_op_context_.error_check_callback_);
 
     // According to https://docs.nvidia.com/cuda/cuda-runtime-api/
     // api-sync-behavior.html#api-sync-behavior__memcpy-async,
@@ -370,8 +368,7 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     }
   }
 
-  auto error_check_callback = std::bind(&NCCLOpContext::AsyncErrorCheck, nccl_op_context_);
-  return gpu_op_context_.FinalizeGPUQueue(entries, true, error_check_callback);
+  return gpu_op_context_.FinalizeGPUQueue(entries, true, nccl_op_context_.error_check_callback_);
 }
 
 bool NCCLHierarchicalAllreduce::Enabled(const ParameterManager& param_manager,
@@ -414,8 +411,7 @@ Status NCCLBroadcast::Execute(std::vector<TensorTableEntry>& entries,
     gpu_context_->RecordEvent(gpu_op_context_.event_queue, NCCL_BCAST, *gpu_op_context_.stream);
   }
 
-  auto error_check_callback = std::bind(&NCCLOpContext::AsyncErrorCheck, nccl_op_context_);
-  return gpu_op_context_.FinalizeGPUQueue(entries, true, error_check_callback);
+  return gpu_op_context_.FinalizeGPUQueue(entries, true, nccl_op_context_.error_check_callback_);
 }
 
 Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
@@ -538,8 +534,7 @@ Status NCCLAllgather::Execute(std::vector<TensorTableEntry>& entries,
   delete[] entry_component_sizes;
   delete[] entry_component_offsets;
 
-  auto error_check_callback = std::bind(&NCCLOpContext::AsyncErrorCheck, nccl_op_context_);
-  return gpu_op_context_.FinalizeGPUQueue(entries, true, error_check_callback);
+  return gpu_op_context_.FinalizeGPUQueue(entries, true, nccl_op_context_.error_check_callback_);
 }
 
 bool NCCLAllgather::Enabled(const ParameterManager& param_manager,
