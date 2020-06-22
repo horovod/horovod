@@ -29,6 +29,8 @@
 
 #include "gpu_operations.h"
 
+#include <functional>
+
 namespace horovod {
 namespace common {
 
@@ -58,7 +60,7 @@ public:
   void AsyncErrorCheck();
 
   ncclComm_t* nccl_comm_;
-  std::function<void> error_check_callback_;
+  std::function<void()> error_check_callback_;
 
 private:
   void PopulateNCCLCommStrategy(int& nccl_rank, int& nccl_size,
