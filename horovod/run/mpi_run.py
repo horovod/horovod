@@ -191,11 +191,14 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
     if settings.verbose >= 2:
         print(mpirun_command)
 
-    # we need the driver's PATH in env to run mpirun,
+    # we need the driver's PATH and PYTHONPATH in env to run mpirun,
     # env for mpirun is different to env encoded in mpirun_command
-    if 'PATH' not in env and 'PATH' in os.environ:
-        env = copy.copy(env)  # copy env so we do not leak env modifications
-        env['PATH'] = os.environ['PATH']
+    for var in ['PATH', 'PYTHONPATH']:
+        if var not in env and var in os.environ:
+            # copy env so we do not leak env modifications
+            env = copy.copy(env)
+            # copy var over from os.environ
+            env[var] = os.environ[var]
 
     # Execute the mpirun command.
     if settings.run_func_mode:
