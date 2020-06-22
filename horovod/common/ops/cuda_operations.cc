@@ -96,7 +96,7 @@ public:
         }
 
         if (cuda_result != cudaErrorNotReady) {
-          throw std::logic_error("cudaEventQuery failed: " + cudaGetErrorString(cuda_result));
+          throw std::logic_error(std::string("cudaEventQuery failed: ") + cudaGetErrorString(cuda_result));
         }
 
         error_check_callback();

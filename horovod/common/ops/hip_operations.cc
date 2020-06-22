@@ -96,7 +96,7 @@ public:
         }
 
         if (hip_result != hipErrorNotReady) {
-          throw std::logic_error("hipEventQuery failed: " + hipGetErrorString(hip_result));
+          throw std::logic_error(std::string("hipEventQuery failed: ") + hipGetErrorString(hip_result));
         }
 
         error_check_callback();
