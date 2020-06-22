@@ -45,7 +45,7 @@ void GPUOpContext::InitGPUQueue(const std::vector<TensorTableEntry>& entries, co
 }
 
 Status GPUOpContext::FinalizeGPUQueue(const std::vector<TensorTableEntry>& entries, bool free_host_buffer /*= true*/,
-                                      std::function<void()>& error_check_callback) {
+                                      const std::function<void()>& error_check_callback) {
   // Use completion marker via event because it's faster than
   // blocking gpuStreamSynchronize() in this thread.
   gpu_context_->RecordEvent(event_queue, "", *stream);

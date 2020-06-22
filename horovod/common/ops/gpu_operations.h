@@ -69,7 +69,7 @@ public:
 
   void WaitForEvents(std::queue<std::pair<std::string, gpuEvent_t>>& event_queue,
                      const std::vector<TensorTableEntry>& entries, Timeline& timeline,
-                     std::function<void()>& error_check_callback = {});
+                     const std::function<void()>& error_check_callback = {});
 
   void StreamCreate(gpuStream_t *stream);
   void StreamSynchronize(gpuStream_t stream);
@@ -100,7 +100,7 @@ public:
   void InitGPUQueue(const std::vector<TensorTableEntry>& entries, const Response& response);
 
   Status FinalizeGPUQueue(const std::vector<TensorTableEntry>& entries, bool free_host_buffer = true,
-                          std::function<void()>& error_check_callback = {});
+                          const std::function<void()>& error_check_callback = {});
 
   // GPU events are used as an alternative to host-device synchronization (which stalls the GPU pipeline)
   // for the purpose of recording timing on the Horovod timeline.

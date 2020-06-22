@@ -77,7 +77,7 @@ public:
 
   void WaitForEvents(std::queue<std::pair<std::string, cudaEvent_t>>& event_queue,
       const std::vector<TensorTableEntry>& entries, Timeline& timeline,
-      std::function<void()>& error_check_callback) {
+      const std::function<void()>& error_check_callback) {
     while (!event_queue.empty()) {
       std::string name;
       cudaEvent_t event;

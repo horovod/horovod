@@ -13,7 +13,7 @@ void GPUContext::RecordEvent(std::queue<std::pair<std::string, gpuEvent_t>>& eve
   pimpl->RecordEvent(event_queue, name, stream);
 }
 
-void GPUContext::WaitForEvents(std::queue<std::pair<std::string, gpuEvent_t>>& event_queue, const std::vector<TensorTableEntry>& entries, Timeline& timeline, std::function<void()>& error_check_callback) {
+void GPUContext::WaitForEvents(std::queue<std::pair<std::string, gpuEvent_t>>& event_queue, const std::vector<TensorTableEntry>& entries, Timeline& timeline, const std::function<void()>& error_check_callback) {
   pimpl->WaitForEvents(event_queue, entries, timeline, error_check_callback);
 }
 
