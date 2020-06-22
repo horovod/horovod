@@ -54,6 +54,8 @@ public:
   void InitNCCLComm(const std::vector<TensorTableEntry>& entries,
                     const std::vector<int32_t>& nccl_device_map);
 
+  void AsyncErrorCheck();
+
   ncclComm_t* nccl_comm_;
 
 private:

@@ -75,7 +75,8 @@ public:
   }
 
   void WaitForEvents(std::queue<std::pair<std::string, hipEvent_t>>& event_queue,
-      const std::vector<TensorTableEntry>& entries, Timeline& timeline) {
+      const std::vector<TensorTableEntry>& entries, Timeline& timeline,
+      std::function<void()>& error_check_callback) {
     while (!event_queue.empty()) {
       std::string name;
       hipEvent_t event;
@@ -84,7 +85,23 @@ public:
       if (name != "") {
         timeline.ActivityStartAll(entries, name);
       }
-      ErrorCheck("hipEventSynchronize", hipEventSynchronize(event));
+
+      // Check for async (networking) errors while waiting for the event to complete
+      hipError_t hip_result;
+      while (true) {
+        hip_result = hipEventQuery(event);
+        if (hip_result == hipSuccess) {
+          break;
+        }
+
+        if (hip_result != hipErrorNotReady) {
+          throw std::logic_error("hipEventQuery failed: " + hipGetErrorString(hip_result));
+        }
+
+        error_check_callback();
+        pthread_yield();
+      }
+
       if (name != "") {
         timeline.ActivityEndAll(entries);
       }
