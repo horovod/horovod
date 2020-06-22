@@ -309,7 +309,8 @@ NCCLHierarchicalAllreduce::Execute(std::vector<TensorTableEntry>& entries,
     gpu_op_context_.host_buffer = malloc(total_buffer_len);
 
     // Synchronize.
-    gpu_context_->WaitForEvents(gpu_op_context_.event_queue, entries, timeline, nccl_op_context_.AsyncErrorCheck);
+    auto error_check_callback = std::bind(&NCCLOpContext::AsyncErrorCheck, nccl_op_context_);
+    gpu_context_->WaitForEvents(gpu_op_context_.event_queue, entries, timeline, error_check_callback);
 
     // According to https://docs.nvidia.com/cuda/cuda-runtime-api/
     // api-sync-behavior.html#api-sync-behavior__memcpy-async,
