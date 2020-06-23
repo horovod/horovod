@@ -50,6 +50,16 @@ int GetDeviceID(const ::torch::Tensor& tensor) {
 
 } // namespace
 
+void DivideInPlace(::torch::Tensor& tensor, int divisor) {
+#if TORCH_VERSION >= 1005000000
+  if (isIntegralType(tensor.scalar_type())) {
+    tensor.floor_divide_(divisor);
+    return;
+  }
+#endif
+  tensor.div_(divisor);
+}
+
 int DoAllreduce(::torch::Tensor tensor, ::torch::Tensor output, int divisor,
                 const std::string& name, int reduce_op_int) {
   ThrowIfError(common::CheckInitialized());
@@ -69,7 +79,7 @@ int DoAllreduce(::torch::Tensor tensor, ::torch::Tensor output, int divisor,
       [handle, divisor, output](const Status& status) mutable {
         // Will execute in the `device` context.
         if (divisor > 1) {
-          output.div_(divisor);
+          DivideInPlace(output, divisor);
         }
         handle_manager.MarkDone(handle, status);
       }, reduce_op);
@@ -104,7 +114,7 @@ int DoAllreduceCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int div
         with_device device_guard(device);
         output.copy_(cpu_buffer);
         if (divisor > 1) {
-          output.div_(divisor);
+          DivideInPlace(output, divisor);
         }
         handle_manager.MarkDone(handle, status);
       }, reduce_op);

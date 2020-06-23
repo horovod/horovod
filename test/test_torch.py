@@ -35,6 +35,7 @@ import horovod.torch as hvd
 from common import mpi_env_rank_and_size, temppath
 
 _v2_api = LooseVersion(torch.__version__) >= LooseVersion('1.0.0')
+_1_5_api = LooseVersion(torch.__version__) >= LooseVersion('1.5.0')
 _fp16_supported = _v2_api
 
 ccl_supported_types = set([torch.CharTensor, torch.IntTensor,
@@ -1550,11 +1551,19 @@ class TorchTests(unittest.TestCase):
                        torch.cuda.FloatTensor, torch.cuda.DoubleTensor]
             if _fp16_supported:
                 dtypes += [torch.cuda.HalfTensor]
+
+        integral_types = [torch.IntTensor, torch.LongTensor, torch.cuda.IntTensor, torch.cuda.LongTensor]
+
         dims = [1, 2, 3]
         first_join_ranks = [0, 1]
         cachings = [False, True]
         for dtype, dim, first_join_rank, caching in itertools.product(dtypes, dims, first_join_ranks, cachings):
             torch.manual_seed(1234)
+
+            def div(t, s):
+                if _1_5_api and dtype in integral_types:
+                    return t.floor_divide(s)
+                return t / s
 
             # Use two tensors to test fusion
             tensor_a = torch.FloatTensor(*([5] * dim)).random_(-100, 100)
@@ -1583,12 +1592,11 @@ class TorchTests(unittest.TestCase):
                 else:
                     ret = hvd.join()
 
-                max_difference_a = averaged_a.data.sub(tensor_a * (size - 1) / size).max()
-                max_difference_b = averaged_b.data.sub(tensor_b * (size - 1) / size).max()
+                max_difference_a = averaged_a.data.sub(div(tensor_a * (size - 1), size)).max()
+                max_difference_b = averaged_b.data.sub(div(tensor_b * (size - 1), size)).max()
                 # Threshold for floating point equality depends on number of
                 # ranks, since we're comparing against precise multiplication.
-                if size <= 3 or dtype in [torch.IntTensor, torch.LongTensor,
-                                        torch.cuda.IntTensor, torch.cuda.LongTensor]:
+                if size <= 3 or dtype in integral_types:
                     threshold = 0
                 elif size < 10:
                     threshold = 1e-4
