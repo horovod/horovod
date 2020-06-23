@@ -69,7 +69,11 @@ int DoAllreduce(::torch::Tensor tensor, ::torch::Tensor output, int divisor,
       [handle, divisor, output](const Status& status) mutable {
         // Will execute in the `device` context.
         if (divisor > 1) {
-          output.div_(divisor);
+          if (isIntegralType(output.scalar_type())) {
+            output.floor_divide_(divisor);
+          } else{
+            output.div_(divisor);
+          }
         }
         handle_manager.MarkDone(handle, status);
       }, reduce_op);
@@ -104,7 +108,11 @@ int DoAllreduceCudaOnCPU(::torch::Tensor tensor, ::torch::Tensor output, int div
         with_device device_guard(device);
         output.copy_(cpu_buffer);
         if (divisor > 1) {
-          output.div_(divisor);
+          if (isIntegralType(output.scalar_type())) {
+            output.floor_divide_(divisor);
+          } else{
+            output.div_(divisor);
+          }
         }
         handle_manager.MarkDone(handle, status);
       }, reduce_op);
