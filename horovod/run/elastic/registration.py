@@ -24,9 +24,11 @@ FAILURE = 'FAILURE'
 
 
 class WorkerStateRegistry(object):
-    def __init__(self, driver, host_manager, verbose=False):
+    def __init__(self, driver, host_manager, reset_limit=None, verbose=False):
         self._driver = driver
         self._host_manager = host_manager
+        self._reset_limit = reset_limit
+        self._reset_count = 0
         self._lock = threading.Lock()
         self._states = {}
         self._workers = defaultdict(set)
@@ -100,7 +102,8 @@ class WorkerStateRegistry(object):
                 logging.info('record state: {}[{}] = {}'.format(host, slot, state))
                 self._states[key] = state
                 self._workers[state].add(key)
-                rendezvous_id = self._rendezvous_id
+
+            rendezvous_id = self._rendezvous_id
 
         rendezvous_id = self._wait(key, state, rendezvous_id)
         return rendezvous_id
@@ -130,6 +133,13 @@ class WorkerStateRegistry(object):
     def _on_workers_recorded(self):
         logging.info('all {} workers recorded'.format(self.size()))
 
+        # Check that we have already reset the maximum number of allowed times
+        if self._reset_limit and self._reset_count >= self._reset_limit:
+            logging.info('reset count {} has reached limit {} -> stop running'
+                         .format(self._reset_count, self._reset_limit))
+            self._driver.stop()
+            return
+
         # Check for success state, if any process succeeded, shutdown all other processes
         if self.count(SUCCESS) > 0:
             logging.info('success count == {} -> stop running'.format(self.count(SUCCESS)))
@@ -154,6 +164,7 @@ class WorkerStateRegistry(object):
             return
 
         try:
+            self._reset_count += 1
             self._driver.resume()
         except Exception:
             logging.exception('failed to activate new hosts -> stop running')

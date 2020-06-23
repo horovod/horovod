@@ -363,6 +363,9 @@ def parse_args():
                                     'The default value is 600 seconds. Alternatively, '
                                     'The environment variable HOROVOD_ELASTIC_TIMEOUT '
                                     'can also be used to.')
+    group_elastic.add_argument('--reset-limit', action='store', dest='reset_limit', type=int,
+                               help='Maximum number of times that the training job can scale up or down '
+                                    'the number of workers after which the job is terminated. (default: None)')
 
     group_timeline = parser.add_argument_group('timeline arguments')
     group_timeline.add_argument('--timeline-filename', action=make_override_action(override_args),
@@ -519,6 +522,7 @@ class HorovodArgs(object):
         self.max_np = None
         self.slots = None
         self.elastic_timeout = None
+        self.reset_limit = None
 
         # timeline arguments
         self.timeline_filename = None
@@ -702,15 +706,16 @@ def _run_elastic(args):
                                     'may need to increase the --start-timeout '
                                     'parameter if you have too many servers.')
     settings = elastic_settings.ElasticSettings(discovery=discover_hosts,
-                                                num_proc=args.np,
                                                 min_np=args.min_np or args.np,
                                                 max_np=args.max_np,
+                                                elastic_timeout=args.elastic_timeout,
+                                                reset_limit=args.reset_limit,
+                                                num_proc=args.np,
                                                 verbose=2 if args.verbose else 0,
                                                 ssh_port=args.ssh_port,
                                                 extra_mpi_args=args.mpi_args,
                                                 key=secret.make_secret_key(),
                                                 start_timeout=tmout,
-                                                elastic_timeout=args.elastic_timeout,
                                                 output_filename=args.output_filename,
                                                 run_func_mode=args.run_func is not None,
                                                 nics=args.nics)
@@ -830,6 +835,7 @@ def run(
         min_np=None,
         max_np=None,
         slots=None,
+        reset_limit=None,
         hosts=None,
         hostfile=None,
         start_timeout=None,
@@ -858,6 +864,7 @@ def run(
     :param slots: Number of slots for processes per host. Normally 1 slot per GPU per host.
                   If slots are provided by the output of the host discovery script, then that
                   value will override this parameter.
+    :param reset_limit: Maximum number of reset events after which the job is terminated.
 
     :param hosts: List of host names and the number of available slots
                   for running processes on each, of the form: <hostname>:<slots>
@@ -913,6 +920,7 @@ def run(
     hargs.min_np = min_np
     hargs.max_np = max_np
     hargs.slots = slots
+    hargs.reset_limit = reset_limit
     hargs.hosts = hosts
     hargs.hostfile = hostfile
     hargs.start_timeout = start_timeout

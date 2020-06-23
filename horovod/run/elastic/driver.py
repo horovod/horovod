@@ -56,7 +56,7 @@ class Results(object):
 
 
 class ElasticDriver(object):
-    def __init__(self, rendezvous, discovery, min_np, max_np, timeout=None, verbose=0):
+    def __init__(self, rendezvous, discovery, min_np, max_np, timeout=None, reset_limit=None, verbose=0):
         self._rendezvous = rendezvous
         self._host_manager = HostManager(discovery)
         self._min_np = min_np
@@ -73,7 +73,7 @@ class ElasticDriver(object):
         self._create_worker_fn = None
         self._worker_clients = {}
 
-        self._worker_registry = WorkerStateRegistry(self, self._host_manager)
+        self._worker_registry = WorkerStateRegistry(self, self._host_manager, reset_limit=reset_limit)
         self._results = Results()
         self._shutdown = threading.Event()
 

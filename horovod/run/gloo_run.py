@@ -281,6 +281,7 @@ def launch_gloo_elastic(command, exec_command, settings, env, get_common_interfa
     driver = ElasticDriver(rendezvous, settings.discovery,
                            settings.min_np, settings.max_np,
                            timeout=settings.elastic_timeout,
+                           reset_limit=settings.reset_limit,
                            verbose=settings.verbose)
 
     handler = create_rendezvous_handler(driver)

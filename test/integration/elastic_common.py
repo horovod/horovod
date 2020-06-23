@@ -235,3 +235,9 @@ class BaseElasticTests(object):
         message = 'Horovod detected that one or more processes exited with non-zero status'
         with pytest.raises(RuntimeError, match=message):
             self._run(discovery_schedule, exit_schedule=exit_schedule, np=4, min_np=4)
+
+    @mock.patch('horovod.run.elastic.driver.ELASTIC_TIMEOUT_SECS', 1)
+    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.run.gloo_run._get_min_start_hosts', return_value=1)
+    def test_reset_limit(self, mock_get_min_start_hosts):
+        pass
