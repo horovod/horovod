@@ -155,7 +155,6 @@ class TorchTests(unittest.TestCase):
             summed = hvd.allreduce(tensor, average=False)
             tensor, summed = self.convert_cpu_fp16_to_fp32(tensor, summed)
             multiplied = tensor * size
-            max_difference = summed.data.sub(multiplied).max()
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
@@ -169,7 +168,7 @@ class TorchTests(unittest.TestCase):
             else:
                 break
 
-            assert max_difference <= threshold, 'hvd.allreduce produces incorrect results'
+            assert torch.allclose(summed, multiplied, threshold), 'hvd.allreduce produces incorrect results'
 
     def test_horovod_allreduce_average(self):
         """Test that the allreduce correctly averages 1D, 2D, 3D tensors."""
@@ -187,7 +186,6 @@ class TorchTests(unittest.TestCase):
             tensor = torch.FloatTensor(*([17] * dim)).random_(-100, 100)
             tensor = self.cast_and_place(tensor, dtype)
             averaged = hvd.allreduce(tensor, average=True)
-            max_difference = averaged.data.sub(tensor).max()
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
@@ -201,7 +199,7 @@ class TorchTests(unittest.TestCase):
             else:
                 break
 
-            assert max_difference <= threshold, 'hvd.allreduce produces incorrect results'
+            assert torch.allclose(averaged, tensor, threshold), 'hvd.allreduce produces incorrect results'
 
     def test_horovod_allreduce_inplace(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
@@ -221,7 +219,6 @@ class TorchTests(unittest.TestCase):
             tensor = self.cast_and_place(tensor, dtype)
             hvd.allreduce_(tensor, average=False)
             tensor, multiplied = self.convert_cpu_fp16_to_fp32(tensor, multiplied)
-            max_difference = tensor.sub(multiplied).max()
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
@@ -235,7 +232,7 @@ class TorchTests(unittest.TestCase):
             else:
                 break
 
-            assert max_difference <= threshold, 'hvd.allreduce produces incorrect results'
+            assert torch.allclose(tensor, multiplied, threshold), 'hvd.allreduce produces incorrect results'
 
     def test_horovod_allreduce_async_fused(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors
@@ -268,7 +265,6 @@ class TorchTests(unittest.TestCase):
         for dtype, multiplied, handle in tests:
             summed = hvd.synchronize(handle)
             summed, = self.convert_cpu_fp16_to_fp32(summed)
-            max_difference = summed.sub(multiplied).max()
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
@@ -282,7 +278,7 @@ class TorchTests(unittest.TestCase):
             else:
                 break
 
-            assert max_difference <= threshold, 'hvd.allreduce produces incorrect results'
+            assert torch.allclose(summed, multiplied, threshold), 'hvd.allreduce produces incorrect results'
 
     def test_horovod_allreduce_multi_gpu(self):
         """Test that the allreduce works on multiple GPUs."""
@@ -312,7 +308,6 @@ class TorchTests(unittest.TestCase):
             tensor = tensor.cuda(device).type(dtype)
             multiplied = tensor * size
             hvd.allreduce_(tensor, average=False)
-            max_difference = tensor.sub(multiplied).max()
 
             # Threshold for floating point equality depends on number of
             # ranks, since we're comparing against precise multiplication.
@@ -325,7 +320,7 @@ class TorchTests(unittest.TestCase):
             else:
                 break
 
-            assert max_difference <= threshold, 'hvd.allreduce produces incorrect results'
+            assert torch.allclose(tensor, multiplied, threshold), 'hvd.allreduce produces incorrect results'
 
     def test_horovod_allreduce_error(self):
         """Test that the allreduce raises an error if different ranks try to
@@ -1569,8 +1564,6 @@ class TorchTests(unittest.TestCase):
                 else:
                     ret = hvd.join()
 
-                max_difference_a = averaged_a.data.sub(div(tensor_a * (size - 1), size)).max()
-                max_difference_b = averaged_b.data.sub(div(tensor_b * (size - 1), size)).max()
                 # Threshold for floating point equality depends on number of
                 # ranks, since we're comparing against precise multiplication.
                 if size <= 3 or dtype in integral_types:
@@ -1581,8 +1574,10 @@ class TorchTests(unittest.TestCase):
                     threshold = 5e-4
                 else:
                     break
-                assert max_difference_a <= threshold, 'hvd.join with hvd.allreduce produces incorrect results'
-                assert max_difference_b <= threshold, 'hvd.join with hvd.allreduce produces incorrect results'
+                assert torch.allclose(averaged_a, div(tensor_a * (size - 1), size), threshold), \
+                    'hvd.join with hvd.allreduce produces incorrect results'
+                assert torch.allclose(averaged_b, div(tensor_b * (size - 1), size), threshold), \
+                    'hvd.join with hvd.allreduce produces incorrect results'
 
     def test_horovod_join_allgather(self):
         """Test Join op with allgather."""
