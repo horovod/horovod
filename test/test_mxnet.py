@@ -20,7 +20,7 @@ import numpy as np
 import mxnet as mx
 
 from mxnet.base import MXNetError
-from mxnet.test_utils import same
+from mxnet.test_utils import almost_equal, same
 
 import horovod.mxnet as hvd
 
@@ -64,7 +64,6 @@ class MXTests(unittest.TestCase):
             tensor = tensor.astype(dtype)
             summed = hvd.allreduce(tensor, average=False, name=str(count))
             multiplied = tensor * size
-            max_difference = mx.nd.max(mx.nd.subtract(summed, multiplied))
             count += 1
 
             # Threshold for floating point equality depends on number of
@@ -78,14 +77,8 @@ class MXTests(unittest.TestCase):
             else:
                 break
 
-            if max_difference > threshold:
-                print("allreduce", count, dtype, dim, max_difference,
-                      threshold)
-                print("tensor", hvd.rank(), tensor)
-                print("summed", hvd.rank(), summed)
-                print("multiplied", hvd.rank(), multiplied)
-            assert max_difference <= threshold, 'hvd.allreduce produces \
-                                                 incorrect results'
+            assert almost_equal(summed.asnumpy(), multiplied.asnumpy(), atol=threshold), \
+                f'hvd.allreduce produces incorrect results: {hvd.rank()} {count} {dtype} {dim}'
 
     def test_horovod_allreduce_average(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
@@ -105,7 +98,6 @@ class MXTests(unittest.TestCase):
             averaged = hvd.allreduce(tensor, average=True, name=str(count))
             tensor *= size
             tensor /= size
-            max_difference = mx.nd.max(mx.nd.subtract(averaged, tensor))
             count += 1
 
             # Threshold for floating point equality depends on number of
@@ -119,12 +111,8 @@ class MXTests(unittest.TestCase):
             else:
                 break
 
-            if max_difference > threshold:
-                print("average", count, dtype, dim, max_difference, threshold)
-                print("tensor", hvd.rank(), tensor)
-                print("averaged", hvd.rank(), averaged)
-            assert max_difference <= threshold, 'hvd.allreduce produces \
-                                                 incorrect results for average'
+            assert almost_equal(averaged.asnumpy(), tensor.asnumpy(), atol=threshold), \
+                f'hvd.allreduce produces incorrect results for average: {hvd.rank()} {count} {dtype} {dim}'
 
     def test_horovod_allreduce_inplace(self):
         """Test that the allreduce correctly sums 1D, 2D, 3D tensors."""
@@ -143,7 +131,6 @@ class MXTests(unittest.TestCase):
             tensor = tensor.astype(dtype)
             multiplied = tensor * size
             hvd.allreduce_(tensor, average=False, name=str(count))
-            max_difference = mx.nd.max(mx.nd.subtract(tensor, multiplied))
             count += 1
 
             # Threshold for floating point equality depends on number of
@@ -157,12 +144,8 @@ class MXTests(unittest.TestCase):
             else:
                 break
 
-            if max_difference > threshold:
-                print("self", count, dtype, dim, max_difference, threshold)
-                print("tensor", hvd.rank(), tensor)
-                print("multiplied", hvd.rank(), multiplied)
-            assert max_difference <= threshold, 'hvd.allreduce produces \
-                                                 incorrect results for self'
+            assert almost_equal(tensor.asnumpy(), multiplied.asnumpy(), atol=threshold), \
+                f'hvd.allreduce produces incorrect results for self: {hvd.rank()} {count} {dtype} {dim}'
 
     def test_horovod_allreduce_error(self):
         """Test that the allreduce raises an error if different ranks try to
