@@ -69,7 +69,7 @@ class ElasticDriverTests(unittest.TestCase):
             return 0, time.time()
 
         driver.start(np=2, create_worker_fn=exec_command)
-        res = driver.get_results()
+        res = driver.get_results().worker_results
         driver.stop()
 
         assert len(res) == 4
@@ -100,7 +100,7 @@ class ElasticDriverTests(unittest.TestCase):
             return 0, time.time()
 
         driver.start(np=2, create_worker_fn=exec_command)
-        res = driver.get_results()
+        res = driver.get_results().worker_results
         driver.stop()
 
         assert len(res) == 2
@@ -146,7 +146,7 @@ class ElasticDriverTests(unittest.TestCase):
             return 0, time.time()
 
         driver.start(np=2, create_worker_fn=exec_command)
-        res = driver.get_results()
+        res = driver.get_results().worker_results
         driver.stop()
 
         assert len(res) == 4
@@ -212,7 +212,7 @@ class ElasticDriverTests(unittest.TestCase):
             return 1, time.time()
 
         driver.start(np=2, create_worker_fn=exec_command)
-        res = driver.get_results()
+        res = driver.get_results().worker_results
         driver.stop()
 
         assert len(res) == 4
@@ -236,7 +236,7 @@ class ElasticDriverTests(unittest.TestCase):
             return 1, time.time()
 
         driver.start(np=2, create_worker_fn=exec_command)
-        res = driver.get_results()
+        res = driver.get_results().worker_results
         driver.stop()
 
         assert len(res) == 4
@@ -271,7 +271,7 @@ class ElasticDriverTests(unittest.TestCase):
             return 0, time.time()
 
         driver.start(np=2, create_worker_fn=exec_command)
-        res = driver.get_results()
+        res = driver.get_results().worker_results
         driver.stop()
 
         assert len(res) == 2
@@ -348,7 +348,7 @@ class ElasticDriverTests(unittest.TestCase):
             return 0, time.time()
 
         driver.start(np=2, create_worker_fn=exec_command)
-        res = driver.get_results()
+        res = driver.get_results().worker_results
         driver.stop()
 
         assert len(res) == 2
