@@ -62,7 +62,7 @@ Status GPUOpContext::FinalizeGPUQueue(const std::vector<TensorTableEntry>& entri
       first_entry.device, first_entry.context->framework(), global_state_->current_nccl_stream);
 
   gpu_context_->finalizer_thread_pool.execute([entries, first_entry, cpu_buffer, fusion_buffer, free_host_buffer,
-                                                evt_queue, &timeline, &gpu_context, &error_check_callback]() mutable {
+                                                evt_queue, &timeline, &gpu_context, error_check_callback]() mutable {
     gpu_context->SetDevice(first_entry.device);
 
     gpu_context->WaitForEvents(evt_queue, entries, timeline, error_check_callback);
