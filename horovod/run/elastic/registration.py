@@ -134,7 +134,7 @@ class WorkerStateRegistry(object):
         logging.info('all {} workers recorded'.format(self.size()))
 
         # Check that we have already reset the maximum number of allowed times
-        if self._reset_limit and self._reset_count >= self._reset_limit:
+        if self._reset_limit is not None and self._reset_count >= self._reset_limit:
             logging.info('reset count {} has reached limit {} -> stop running'
                          .format(self._reset_count, self._reset_limit))
             self._driver.stop()
