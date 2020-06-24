@@ -99,7 +99,9 @@ public:
           throw std::logic_error(std::string("cudaEventQuery failed: ") + cudaGetErrorString(cuda_result));
         }
 
-        error_check_callback();
+        if (error_check_callback) {
+          error_check_callback();
+        }
         pthread_yield();
       }
 
