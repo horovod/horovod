@@ -18,6 +18,8 @@ import threading
 
 from collections import defaultdict
 
+from horovod.run.elastic import constants
+
 READY = 'READY'
 SUCCESS = 'SUCCESS'
 FAILURE = 'FAILURE'
@@ -135,9 +137,9 @@ class WorkerStateRegistry(object):
 
         # Check that we have already reset the maximum number of allowed times
         if self._reset_limit is not None and self._reset_count >= self._reset_limit:
-            logging.info('reset count {} has reached limit {} -> stop running'
-                         .format(self._reset_count, self._reset_limit))
-            self._driver.stop()
+            logging.error('reset count {} has reached limit {} -> stop running'
+                          .format(self._reset_count, self._reset_limit))
+            self._driver.stop(error_message=constants.RESET_LIMIT_EXCEEDED_MESSAGE.format(self._reset_limit))
             return
 
         # Check for success state, if any process succeeded, shutdown all other processes

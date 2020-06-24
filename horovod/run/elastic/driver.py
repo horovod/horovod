@@ -36,23 +36,33 @@ def _epoch_time_s():
 
 
 class Results(object):
+    def __init__(self, error_message, worker_results):
+        self.error_message = error_message
+        self.worker_results = worker_results
+
+
+class ResultsRecorder(object):
     def __init__(self):
-        self._results = {}
+        self._error_message = None
+        self._worker_results = {}
         self._worker_threads = queue.Queue()
 
     def expect(self, worker_thread):
         self._worker_threads.put(worker_thread)
 
+    def set_error_message(self, error_message):
+        self._error_message = error_message
+
     def add_result(self, key, value):
-        if key in self._results:
+        if key in self._worker_results:
             return
-        self._results[key] = value
+        self._worker_results[key] = value
 
     def get_results(self):
         while not self._worker_threads.empty():
             worker_thread = self._worker_threads.get()
             worker_thread.join()
-        return self._results
+        return Results(self._error_message, self._worker_results)
 
 
 class ElasticDriver(object):
@@ -74,7 +84,7 @@ class ElasticDriver(object):
         self._worker_clients = {}
 
         self._worker_registry = WorkerStateRegistry(self, self._host_manager, reset_limit=reset_limit)
-        self._results = Results()
+        self._results = ResultsRecorder()
         self._shutdown = threading.Event()
 
         self._discovery_thread = threading.Thread(target=self._discover_hosts)
@@ -88,7 +98,8 @@ class ElasticDriver(object):
     def resume(self):
         self._activate_workers(self._min_np)
 
-    def stop(self):
+    def stop(self, error_message=None):
+        self._results.set_error_message(error_message)
         self._shutdown.set()
         self._discovery_thread.join()
 

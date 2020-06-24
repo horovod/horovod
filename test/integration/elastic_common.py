@@ -22,6 +22,7 @@ import mock
 import pytest
 
 from horovod.run.common.util import config_parser
+from horovod.run.elastic import constants
 from horovod.run.runner import parse_args, _run_elastic
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
@@ -87,7 +88,7 @@ class BaseElasticTests(object):
                                      '--max-np', str(max_np)]
 
                 if reset_limit is not None:
-                    command_args += ['--reset-limit', reset_limit]
+                    command_args += ['--reset-limit', str(reset_limit)]
 
                 command_args += ['python', self._training_script, '--logfile', logfile]
                 if discovery_schedule:
@@ -250,7 +251,7 @@ class BaseElasticTests(object):
         ]
 
         # Job should fail with reset_limit=1
-        message = 'Horovod detected that one or more processes exited with non-zero status'
+        message = constants.RESET_LIMIT_EXCEEDED_MESSAGE.format(1)
         with pytest.raises(RuntimeError, match=message):
             self._run(discovery_schedule, np=2, min_np=2, max_np=4, reset_limit=1)
 
