@@ -155,9 +155,9 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
         nics=','.join(nics)) if nics else ''
 
     # On large cluster runs (e.g. Summit), we need extra settings to work around OpenMPI issues
-    if settings.num_hosts and settings.num_hosts >= _LARGE_CLUSTER_THRESHOLD:
+    if settings.host_names and len(settings.host_names) >= _LARGE_CLUSTER_THRESHOLD:
         mpi_impl_flags.append('-mca plm_rsh_no_tree_spawn true')
-        mpi_impl_flags.append('-mca plm_rsh_num_concurrent {}'.format(settings.num_hosts))
+        mpi_impl_flags.append('-mca plm_rsh_num_concurrent {}'.format(len(settings.host_names)))
 
     binding_args = settings.binding_args if settings.binding_args else ' '.join(impl_binding_args)
 

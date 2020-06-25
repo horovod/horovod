@@ -151,8 +151,8 @@ def _driver_fn(all_host_names, local_host_names, settings):
     :rtype: list[string]
     """
     # Launch a TCP server called service service on the host running horovod
-    driver = HorovodRunDriverService(
-        settings.num_hosts, settings.key, settings.nics)
+    num_hosts = len(all_host_names)
+    driver = HorovodRunDriverService(num_hosts, settings.key, settings.nics)
     if settings.verbose >= 2:
         print('Launched horovod server.')
     # Have all the workers register themselves with the service service.
@@ -171,7 +171,7 @@ def _driver_fn(all_host_names, local_host_names, settings):
                 driver.task_addresses_for_driver(index),
                 settings.key,
                 settings.verbose) for index in range(
-                settings.num_hosts)]
+                num_hosts)]
         # Notify all the drivers that the initial registration is complete.
         for task in tasks:
             task.notify_initial_registration_complete()
@@ -188,14 +188,14 @@ def _driver_fn(all_host_names, local_host_names, settings):
             print('Host-to-host interface checking successful.')
         # Determine a set of common interfaces for task-to-task communication.
         nics = set(driver.task_addresses_for_tasks(0).keys())
-        for index in range(1, settings.num_hosts):
+        for index in range(1, num_hosts):
             nics.intersection_update(
                 driver.task_addresses_for_tasks(index).keys())
         if not nics:
             raise Exception(
                 'Unable to find a set of common task-to-task communication interfaces: %s'
                 % [(index, driver.task_addresses_for_tasks(index))
-                   for index in range(settings.num_hosts)])
+                   for index in range(num_hosts)])
         return nics
     finally:
         driver.shutdown()

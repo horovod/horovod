@@ -612,7 +612,7 @@ def _run_static(args):
                                      start_timeout=tmout,
                                      num_proc=args.np,
                                      hosts=args.hosts,
-                                     num_hosts=len(all_host_names),
+                                     host_names=all_host_names,
                                      output_filename=args.output_filename,
                                      run_func_mode=args.run_func is not None,
                                      nics=nics_set)
