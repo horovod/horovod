@@ -181,37 +181,16 @@ class SparkTests(unittest.TestCase):
             duration = time.time() - start
             self.assertGreaterEqual(duration, 1.0)
 
-    def test_task_service_wait_for_command_start_with_numeric_timeout(self):
-        for tmout in [1.0, 1]:
-            with spark_task_service(0) as (task, client, _):
-                start = time.time()
-                delay(lambda: client.run_command('true', {}), 0.5)
-                res = task.wait_for_command_start(tmout)
-                duration = time.time() - start
-                self.assertGreaterEqual(duration, 0.5)
-                self.assertLess(duration, 0.75)
-                self.assertTrue(res)
-
-            with spark_task_service(0) as (task, client, _):
-                start = time.time()
-                d = delay(lambda: client.run_command('true', {}), 1.5)
-                res = task.wait_for_command_start(tmout)
-                duration = time.time() - start
-                self.assertGreaterEqual(duration, 1.0)
-                self.assertLess(duration, 1.25)
-                self.assertFalse(res)
-                d.join()
-
-    def test_task_service_wait_for_command_start_with_timeout_instance(self):
+    def test_task_service_wait_for_command_start_with_timeout(self):
         with spark_task_service(0) as (task, client, _):
             tmout = timeout.Timeout(1.0, 'timed out waiting for {activity}')
             start = time.time()
-            delay(lambda: client.run_command('true', {}), 0.5)
-            res = task.wait_for_command_start(tmout)
+            d = delay(lambda: client.run_command('true', {}), 0.5)
+            task.wait_for_command_start(tmout)
             duration = time.time() - start
             self.assertGreaterEqual(duration, 0.5)
             self.assertLess(duration, 0.75)
-            self.assertTrue(res)
+            d.join()
 
         with spark_task_service(0) as (task, client, _):
             tmout = timeout.Timeout(1.0, 'timed out waiting for {activity}')
@@ -223,6 +202,27 @@ class SparkTests(unittest.TestCase):
             self.assertGreaterEqual(duration, 1.0)
             self.assertLess(duration, 1.25)
             d.join()
+
+    def test_task_service_check_for_command_start(self):
+        for tmout in [1.0, 1]:
+            with spark_task_service(0) as (task, client, _):
+                start = time.time()
+                delay(lambda: client.run_command('true', {}), 0.5)
+                res = task.check_for_command_start(tmout)
+                duration = time.time() - start
+                self.assertGreaterEqual(duration, 0.5)
+                self.assertLess(duration, 0.75)
+                self.assertTrue(res)
+
+            with spark_task_service(0) as (task, client, _):
+                start = time.time()
+                d = delay(lambda: client.run_command('true', {}), 1.5)
+                res = task.check_for_command_start(tmout)
+                duration = time.time() - start
+                self.assertGreaterEqual(duration, 1.0)
+                self.assertLess(duration, 1.25)
+                self.assertFalse(res)
+                d.join()
 
     @contextlib.contextmanager
     def spark_tasks(self, tasks, start_timeout, results):

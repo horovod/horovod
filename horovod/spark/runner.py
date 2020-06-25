@@ -82,7 +82,7 @@ def _task_fn(index, driver_addresses, key, settings, use_gloo, is_elastic):
 
             while shutdown_thread.is_alive():
                 # Once the command started we wait for its termination
-                if task.wait_for_command_start(WAIT_FOR_COMMAND_START_DELAY_SECONDS):
+                if task.check_for_command_start(WAIT_FOR_COMMAND_START_DELAY_SECONDS):
                     task.wait_for_command_termination()
                     if task.command_exit_code() != 0:
                         raise Exception('Command failed, making Spark task fail to restart the task')
