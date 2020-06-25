@@ -10,17 +10,17 @@ Installing the NVIDIA CUDA Toolkit
 ----------------------------------
 
 First thing you need to do is to install the `appropriate version`_ of the NVIDIA CUDA Toolkit on 
-your workstation. I am using `NVIDIA CUDA Toolkit 10.1`_ (documentation) which works with all three 
-deep learning frameworks that are currently supported by Horovod.
+your workstation. I am using `NVIDIA CUDA Toolkit 10.1`_ (`documentation`_) which works with all 
+three deep learning frameworks that are currently supported by Horovod.
 
 Why not just use the cudatoolkit package?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Typically when installing PyTorch, TensorFlow, or Apache MXNet with GPU support using Conda you 
 simply add the appropriate version of the cudatoolkit package to your environment.yml file.
-Unfortunately, for the moment at least, the cudatoolkit package available from conda-forge does 
-not include NVCC which is required in order to use Horovod with either PyTorch, TensorFlow, or 
-MXNet as you need to compile extensions.
+Unfortunately, for the moment at least, the cudatoolkit packages available via Conda do not 
+include the `NVIDIA CUDA Compiler (NVCC)`_ which is required in order to build Horovod extensions for 
+PyTorch, TensorFlow, or MXNet.
 
 What about the cudatoolkit-dev package?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -34,21 +34,21 @@ on Ubuntu but not on other flavors of Linux.
 I would encourage you to try adding cudatoolkit-dev to your environment.yml file and see what 
 happens! The package is well maintained so perhaps it will become more stable in the future.
 
-Use the nvcc_linux-64 meta-pacakge
+Use the nvcc_linux-64 meta-package
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The most robust approach to obtain NVCC and still use Conda to manage all the other dependencies 
-is to install the NVIDIA CUDA Toolkit on your system and then install a meta-package nvcc_linux-64 
-from conda-forge which configures your Conda environment to use the NVCC installed on the system 
-together with the other CUDA Toolkit components installed inside the Conda environment. For more 
-details on this package I recommend reading through the issue threads on GitHub.
+is to install the NVIDIA CUDA Toolkit on your system and then install a meta-package 
+`nvcc_linux-64`_ from conda-forge which configures your Conda environment to use the NVCC 
+installed on the system together with the other CUDA Toolkit components installed inside the Conda 
+environment.
 
 The environment.yml file
 ------------------------
 
 I prefer to specify as many dependencies as possible in the Conda environment.yml file and only 
 specify dependencies in requirements.txt that are not available via Conda channels. Check the 
-official Horovod installation guide for details of required dependencies.
+Horovod `installation guide`_ for details of required dependencies.
 
 Channel Priority
 ^^^^^^^^^^^^^^^^
@@ -56,6 +56,7 @@ Channel Priority
 I use the recommended channel priorities. Note that conda-forge has priority over defaults. ::
 
     name: null
+
     channels:
     - pytorch
     - conda-forge
@@ -72,10 +73,10 @@ There are a few things worth noting about the dependencies.
    compilers are installed and that the resulting Conda environment is aware of the manually 
    installed CUDA Toolkit.
 3. Horovod requires some controller library to coordinate work between the various Horovod 
-   processes. Typically this will be some MPI implementation such as OpenMPI. However, rather than 
-   specifying the openmpi package directly I instead opt for mpi4py Conda package which provides a 
+   processes. Typically this will be some MPI implementation such as `OpenMPI`_. However, rather than 
+   specifying the openmpi package directly I instead opt for `mpi4py`_ Conda package which provides a 
    cuda-aware build of OpenMPI (assuming it is supported by your hardware).
-4. Horovod also support that Gloo collective communications library that can be used in place of 
+4. Horovod also support that `Gloo`_ collective communications library that can be used in place of 
    MPI. I include cmake in order to insure that the Horovod extensions for Gloo are built.
 
 Below are the core required dependencies. The complete environment.yml file is available on GitHub. ::
@@ -106,8 +107,8 @@ The requirements.txt file
 
 The requirements.txt file is where all of the pip dependencies, including Horovod itself, are 
 listed for installation. In addition to Horovod I typically will also use pip to install 
-JupyterLab extensions to enable GPU and CPU resource monitoring via jupyterlab-nvdashboard and 
-Tensorboard support via jupyter-tensorboard. ::
+JupyterLab extensions to enable GPU and CPU resource monitoring via `jupyterlab-nvdashboard`_ and 
+Tensorboard support via `jupyter-tensorboard`_. ::
 
     horovod==0.19.*
     jupyterlab-nvdashboard==0.2.*
@@ -134,9 +135,9 @@ following commands. ::
     export HOROVOD_GPU_OPERATIONS=NCCL
     conda env create --prefix $ENV_PREFIX --file environment.yml --force
 
-By default Horovod will try and build extensions for all detected frameworks. See the Horovod 
-documentation on environment variables for the details on additional environment variables that 
-can be set prior to building Horovod.
+By default Horovod will try and build extensions for all detected frameworks. See the documentation 
+on `environment variables`_ for the details on additional environment variables that can be set 
+prior to building Horovod.
 
 Once the new environment has been created you can activate the environment with the following 
 command. ::
@@ -248,3 +249,13 @@ with your next Horovod data science project!
 
 .. _appropriate version: https://developer.nvidia.com/cuda-toolkit-archive
 .. _NVIDIA CUDA Toolkit 10.1: https://developer.nvidia.com/cuda-10.1-download-archive-update2
+.. _documentation: https://docs.nvidia.com/cuda/archive/10.1/
+.. _NVIDIA CUDA Compiler (NVCC): https://docs.nvidia.com/cuda/archive/10.1/cuda-compiler-driver-nvcc/index.html
+.. _nvcc_linux-64: https://github.com/conda-forge/nvcc-feedstock
+.. _installation guide: https://horovod.readthedocs.io/en/latest/install_include.html
+.. _OpenMPI: https://www.open-mpi.org/
+.. _mpi4py: https://mpi4py.readthedocs.io/en/stable/
+.. _Gloo: https://github.com/facebookincubator/gloo
+.. _jupyterlab-nvdashboard: https://github.com/rapidsai/jupyterlab-nvdashboard
+.. _jupyter-tensorboard: https://github.com/lspvic/jupyter_tensorboard
+.. _environment variables: https://horovod.readthedocs.io/en/latest/install_include.html#environment-variables
