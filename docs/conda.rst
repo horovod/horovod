@@ -101,10 +101,10 @@ on GitHub. ::
         - mxnet-cu101mkl==1.6.* # MXNET is installed prior to horovod
         - -r file:requirements.txt
     - python=3.7
-    - pytorch=1.4
+    - pytorch=1.5
     - tensorboard=2.1
     - tensorflow-gpu=2.1
-    - torchvision=0.5
+    - torchvision=0.6
 
 The :code:`requirements.txt` file
 ---------------------------------
