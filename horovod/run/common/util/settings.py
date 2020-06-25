@@ -59,13 +59,10 @@ class BaseSettings(object):
 
 
 class Settings(BaseSettings):
-    def __init__(self, hosts=None, host_names=None, **kwargs):
+    def __init__(self, hosts=None, **kwargs):
         """
         :param hosts: string, comma-delimited, of hostname[s] with slots number[s]
         :type hosts: string
-        :param host_names: list of host names
-        :type host_names: list
         """
         super(Settings, self).__init__(**kwargs)
         self.hosts = hosts
-        self.host_names = host_names
