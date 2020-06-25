@@ -9,8 +9,8 @@ repository on GitHub to get started with your next Horovod data science project!
 Installing the NVIDIA CUDA Toolkit
 ----------------------------------
 
-First thing you need to do is to install the appropriate version of the NVIDIA CUDA Toolkit on 
-your workstation. I am using NVIDIA CUDA Toolkit 10.1 (documentation) which works with all three 
+First thing you need to do is to install the `appropriate version`_ of the NVIDIA CUDA Toolkit on 
+your workstation. I am using `NVIDIA CUDA Toolkit 10.1`_ (documentation) which works with all three 
 deep learning frameworks that are currently supported by Horovod.
 
 Why not just use the cudatoolkit package?
@@ -78,7 +78,7 @@ There are a few things worth noting about the dependencies.
 4. Horovod also support that Gloo collective communications library that can be used in place of 
    MPI. I include cmake in order to insure that the Horovod extensions for Gloo are built.
 
-Below are the core required dependencies. The complete environment.yml file is available on GitHub.::
+Below are the core required dependencies. The complete environment.yml file is available on GitHub. ::
 
     dependencies:
     - bokeh=1.4
@@ -107,7 +107,7 @@ The requirements.txt file
 The requirements.txt file is where all of the pip dependencies, including Horovod itself, are 
 listed for installation. In addition to Horovod I typically will also use pip to install 
 JupyterLab extensions to enable GPU and CPU resource monitoring via jupyterlab-nvdashboard and 
-Tensorboard support via jupyter-tensorboard.::
+Tensorboard support via jupyter-tensorboard. ::
 
     horovod==0.19.*
     jupyterlab-nvdashboard==0.2.*
@@ -126,7 +126,7 @@ Building Conda environment
 After adding any necessary dependencies that should be downloaded via conda to the environment.yml 
 file and any dependencies that should be downloaded via pip to the requirements.txt file you 
 create the Conda environment in a sub-directory ./env of your project directory by running the 
-following commands.::
+following commands. ::
 
     export ENV_PREFIX=$PWD/env
     export HOROVOD_CUDA_HOME=$CUDA_HOME
@@ -139,7 +139,7 @@ documentation on environment variables for the details on additional environment
 can be set prior to building Horovod.
 
 Once the new environment has been created you can activate the environment with the following 
-command.::
+command. ::
 
     conda activate $ENV_PREFIX
 
@@ -150,7 +150,7 @@ If you wish to use any JupyterLab extensions included in the environment.yml and
 files, then you may need to rebuild the JupyterLab application.
 
 For simplicity, I typically include the instructions for re-building JupyterLab in a postBuild 
-script. Here is what this script looks like for my Horovod environments.::
+script. Here is what this script looks like for my Horovod environments. ::
 
     jupyter labextension install --no-build @pyviz/jupyterlab_pyviz
     jupyter labextension install --no-build jupyterlab-nvdashboard 
@@ -175,7 +175,7 @@ Verifying the Conda environment
 
 After building the Conda environment you can check that Horovod has been built with support for 
 the deep learning frameworks TensorFlow, PyTorch, Apache MXNet, and the contollers MPI and Gloo 
-with the following command.::
+with the following command. ::
 
     conda activate $ENV_PREFIX # optional if environment already active
     horovodrun --check-build
@@ -202,7 +202,7 @@ Wrapping it all up in a Bash script
 
 I typically wrap these commands into a shell scriptcreate-conda-env.sh. Running the shell script 
 will set the Horovod build variables, create the Conda environment, activate the Conda 
-environment, and built JupyterLab with any additional extensions.::
+environment, and built JupyterLab with any additional extensions. ::
 
     #!/bin/bash --login
     set -e
@@ -215,7 +215,7 @@ environment, and built JupyterLab with any additional extensions.::
     . postBuild
 
 I typically put scripts inside a ./bin directory in my project root directory. The script should 
-be run from the project root directory as follows.::
+be run from the project root directory as follows. ::
 
     ./bin/create-conda-env.sh # assumes that $CUDA_HOME is set properly
 
@@ -224,12 +224,12 @@ Updating the Conda environment
 
 If you add (remove) dependencies to (from) the environment.yml file or the requirements.txt file 
 after the environment has already been created, then you can re-create the environment with the 
-following command.::
+following command. ::
 
     conda env create --prefix $ENV_PREFIX --file environment.yml --force
 
 However, whenever I add new dependencies I prefer to re-run the Bash script which will re-build 
-both the Conda environment and JupyterLab.::
+both the Conda environment and JupyterLab. ::
 
     ./bin/create-conda-env.sh
 
@@ -245,3 +245,6 @@ re-built.
 
 If you like my approach then you can make use of the template repository on GitHub to get started 
 with your next Horovod data science project!
+
+.. _appropriate version: https://developer.nvidia.com/cuda-toolkit-archive
+.. _NVIDIA CUDA Toolkit 10.1: https://developer.nvidia.com/cuda-10.1-download-archive-update2
