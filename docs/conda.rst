@@ -13,7 +13,7 @@ First thing you need to do is to install the `appropriate version`_ of the NVIDI
 your workstation. I am using `NVIDIA CUDA Toolkit 10.1`_ (`documentation`_) which works with all 
 three deep learning frameworks that are currently supported by Horovod.
 
-Why not just use the cudatoolkit package?
+Why not just use the `cudatoolkit` package?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Typically when installing PyTorch, TensorFlow, or Apache MXNet with GPU support using Conda you 
@@ -201,7 +201,7 @@ You should see output similar to the following.::
 Wrapping it all up in a Bash script
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-I typically wrap these commands into a shell scriptcreate-conda-env.sh. Running the shell script 
+I typically wrap these commands into a shell script create-conda-env.sh. Running the shell script 
 will set the Horovod build variables, create the Conda environment, activate the Conda 
 environment, and built JupyterLab with any additional extensions. ::
 
