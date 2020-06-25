@@ -132,22 +132,26 @@ Building Conda environment
 After adding any necessary dependencies that should be downloaded via Conda to the 
 :code:`environment.yml` file and any dependencies that should be downloaded via :code:`pip` to the 
 :code:`requirements.txt` file you create the Conda environment in a sub-directory :code:`env` of 
-your project directory by running the following commands. ::
+your project directory by running the following commands.
 
-    export ENV_PREFIX=$PWD/env
-    export HOROVOD_CUDA_HOME=$CUDA_HOME
-    export HOROVOD_NCCL_HOME=$ENV_PREFIX
-    export HOROVOD_GPU_OPERATIONS=NCCL
-    conda env create --prefix $ENV_PREFIX --file environment.yml --force
+.. code-block:: bash
+
+    $ export ENV_PREFIX=$PWD/env
+    $ export HOROVOD_CUDA_HOME=$CUDA_HOME
+    $ export HOROVOD_NCCL_HOME=$ENV_PREFIX
+    $ export HOROVOD_GPU_OPERATIONS=NCCL
+    $ conda env create --prefix $ENV_PREFIX --file environment.yml --force
 
 By default Horovod will try and build extensions for all detected frameworks. See the 
 documentation on `environment variables`_ for the details on additional environment variables that 
 can be set prior to building Horovod.
 
 Once the new environment has been created you can activate the environment with the following 
-command. ::
+command.
 
-    conda activate $ENV_PREFIX
+.. code-block:: bash
+
+    $ conda activate $ENV_PREFIX
 
 The :code:`postBuild` file
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -156,33 +160,41 @@ If you wish to use any JupyterLab extensions included in the :code:`environment.
 :code:`requirements.txt` files, then you may need to rebuild the JupyterLab application.
 
 For simplicity, we typically include the instructions for re-building JupyterLab in a 
-:code:`postBuild` script. Here is what this script looks like for my Horovod environments. ::
+:code:`postBuild` script. Here is what this script looks like for my Horovod environments.
+
+.. code-block:: bash
 
     jupyter labextension install --no-build jupyterlab-nvdashboard 
     jupyter labextension install --no-build jupyterlab_tensorboard
     jupyter lab build
 
-Use the following commands to source the :code:`postBuild` script. ::
+Use the following commands to source the :code:`postBuild` script.
 
-    conda activate $ENV_PREFIX # optional if environment already active
-    . postBuild
+.. code-block:: bash
+
+    $ conda activate $ENV_PREFIX # optional if environment already active
+    $ . postBuild
 
 Listing the contents of the Conda environment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-To see the full list of packages installed into the environment run the following command. ::
+To see the full list of packages installed into the environment run the following command.
 
-    conda activate $ENV_PREFIX # optional if environment already active
-    conda list
+.. code-block:: bash
+
+    $ conda activate $ENV_PREFIX # optional if environment already active
+    $ conda list
 
 Verifying the Conda environment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 After building the Conda environment you can check that Horovod has been built with support for 
 the deep learning frameworks TensorFlow, PyTorch, Apache MXNet, and the contollers MPI and Gloo 
-with the following command. ::
+with the following command.
 
-    conda activate $ENV_PREFIX # optional if environment already active
-    horovodrun --check-build
+.. code-block:: bash
+
+    $ conda activate $ENV_PREFIX # optional if environment already active
+    $ horovodrun --check-build
 
 You should see output similar to the following.::
 
@@ -206,7 +218,9 @@ Wrapping it all up in a Bash script
 
 We typically wrap these commands into a shell script :code:`create-conda-env.sh`. Running the shell 
 script will set the Horovod build variables, create the Conda environment, activate the Conda 
-environment, and built JupyterLab with any additional extensions. ::
+environment, and built JupyterLab with any additional extensions.
+
+.. code-block:: bash
 
     #!/bin/bash --login
 
@@ -221,7 +235,9 @@ environment, and built JupyterLab with any additional extensions. ::
     . postBuild
 
 We recommend that you put scripts inside a :code:`bin` directory in your project root directory. 
-The script should be run from the project root directory as follows. ::
+The script should be run from the project root directory as follows.
+
+.. code-block:: bash
 
     ./bin/create-conda-env.sh # assumes that $CUDA_HOME is set properly
 
@@ -230,14 +246,18 @@ Updating the Conda environment
 
 If you add (remove) dependencies to (from) the :code:`environment.yml` file or the 
 :code:`requirements.txt` file after the environment has already been created, then you can 
-re-create the environment with the following command. ::
+re-create the environment with the following command.
 
-    conda env create --prefix $ENV_PREFIX --file environment.yml --force
+.. code-block:: bash
+
+    $ conda env create --prefix $ENV_PREFIX --file environment.yml --force
 
 However, whenever we add (remove) dependencies we prefer to re-run the Bash script which will re-build 
-both the Conda environment and JupyterLab. ::
+both the Conda environment and JupyterLab.
 
-    ./bin/create-conda-env.sh
+.. code-block:: bash
+
+    $ ./bin/create-conda-env.sh
 
 .. _appropriate version: https://developer.nvidia.com/cuda-toolkit-archive
 .. _NVIDIA CUDA Toolkit 10.1: https://developer.nvidia.com/cuda-10.1-download-archive-update2
