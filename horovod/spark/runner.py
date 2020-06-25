@@ -292,7 +292,7 @@ def run(fn, args=(), kwargs={}, num_proc=None, start_timeout=None,
 
 
 def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
-                start_timeout=None, elastic_timeout=None, env=None, verbose=1, nics=None):
+                start_timeout=None, elastic_timeout=None, reset_limit=None, env=None, verbose=1, nics=None):
     """
     Runs Elastic Horovod in Spark.  Runs `num_proc` processes executing `fn` using the same amount of Spark tasks.
 
@@ -307,6 +307,7 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
         elastic_timeout: Timeout for elastic initialisation after re-scaling the cluster.
                        If not set, falls back to `HOROVOD_ELASTIC_TIMEOUT` environment variable value.
                        If it is not set as well, defaults to 600 seconds.
+        reset_limit: Maximum number of resets after which the job is terminated.
         env: Environment dictionary to use in Horovod run.  Defaults to `os.environ`.
         verbose: Debug output verbosity (0-2). Defaults to 1.
         nics: List of NICs for tcp network communication.
@@ -361,14 +362,15 @@ def run_elastic(fn, args=(), kwargs={}, num_proc=None, min_np=None, max_np=None,
                                     'process runs in a Spark task. You may need to increase the '
                                     'start_timeout parameter to a larger value if your Spark resources '
                                     'are allocated on-demand.')
-    settings = hvd_elastic_settings.ElasticSettings(num_proc=num_proc,
+    settings = hvd_elastic_settings.ElasticSettings(discovery=discovery,
                                                     min_np=min_np,
                                                     max_np=max_np,
-                                                    discovery=discovery,
+                                                    elastic_timeout=elastic_timeout,
+                                                    reset_limit=reset_limit,
+                                                    num_proc=num_proc,
                                                     verbose=verbose,
                                                     key=key,
                                                     start_timeout=tmout,
-                                                    elastic_timeout=elastic_timeout,
                                                     nics=nics,
                                                     run_func_mode=True)
 

@@ -22,6 +22,7 @@ import mock
 import pytest
 
 from horovod.run.common.util import config_parser
+from horovod.run.elastic import constants
 from horovod.run.runner import parse_args, _run_elastic
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
@@ -69,7 +70,7 @@ class BaseElasticTests(object):
         super(BaseElasticTests, self).__init__(*args, **kwargs)
 
     def _run(self, discovery_schedule=None, exit_schedule=None, exit_mode='exception',
-             np=2, min_np=2, max_np=4, hosts=None):
+             np=2, min_np=2, max_np=4, hosts=None, reset_limit=None):
         if not discovery_schedule and not hosts:
             raise ValueError('at least one of discovery schedule or hosts must be given')
 
@@ -85,6 +86,9 @@ class BaseElasticTests(object):
                 else:
                     command_args += ['--host-discovery-script', discovery_script,
                                      '--max-np', str(max_np)]
+
+                if reset_limit is not None:
+                    command_args += ['--reset-limit', str(reset_limit)]
 
                 command_args += ['python', self._training_script, '--logfile', logfile]
                 if discovery_schedule:
@@ -235,3 +239,22 @@ class BaseElasticTests(object):
         message = 'Horovod detected that one or more processes exited with non-zero status'
         with pytest.raises(RuntimeError, match=message):
             self._run(discovery_schedule, exit_schedule=exit_schedule, np=4, min_np=4)
+
+    @mock.patch('horovod.run.elastic.driver.ELASTIC_TIMEOUT_SECS', 1)
+    @mock.patch('horovod.run.elastic.driver.DISCOVER_HOSTS_FREQUENCY_SECS', 0.01)
+    @mock.patch('horovod.run.gloo_run._get_min_start_hosts', return_value=1)
+    def test_reset_limit(self, mock_get_min_start_hosts):
+        discovery_schedule = [
+            (0, ['localhost:2']),
+            (1, ['localhost:2', '127.0.0.1:2']),
+            (None, ['127.0.0.1:2']),
+        ]
+
+        # Job should fail with reset_limit=1
+        message = constants.RESET_LIMIT_EXCEEDED_MESSAGE.format(1)
+        with pytest.raises(RuntimeError, match=message):
+            self._run(discovery_schedule, np=2, min_np=2, max_np=4, reset_limit=1)
+
+        # Job should succeed with reset_limit=2
+        results = self._run(discovery_schedule, np=2, min_np=2, max_np=4, reset_limit=2)
+        assert len(results) == 3

@@ -281,6 +281,7 @@ def launch_gloo_elastic(command, exec_command, settings, env, get_common_interfa
     driver = ElasticDriver(rendezvous, settings.discovery,
                            settings.min_np, settings.max_np,
                            timeout=settings.elastic_timeout,
+                           reset_limit=settings.reset_limit,
                            verbose=settings.verbose)
 
     handler = create_rendezvous_handler(driver)
@@ -299,7 +300,10 @@ def launch_gloo_elastic(command, exec_command, settings, env, get_common_interfa
     driver.stop()
     rendezvous.stop()
 
-    for name, value in sorted(res.items(), key=lambda item: item[1][1]):
+    if res.error_message is not None:
+        raise RuntimeError(res.error_message)
+
+    for name, value in sorted(res.worker_results.items(), key=lambda item: item[1][1]):
         exit_code, timestamp = value
         if exit_code != 0:
             raise RuntimeError('Horovod detected that one or more processes exited with non-zero '

@@ -18,15 +18,19 @@ import threading
 
 from collections import defaultdict
 
+from horovod.run.elastic import constants
+
 READY = 'READY'
 SUCCESS = 'SUCCESS'
 FAILURE = 'FAILURE'
 
 
 class WorkerStateRegistry(object):
-    def __init__(self, driver, host_manager, verbose=False):
+    def __init__(self, driver, host_manager, reset_limit=None, verbose=False):
         self._driver = driver
         self._host_manager = host_manager
+        self._reset_limit = reset_limit
+        self._reset_count = 0
         self._lock = threading.Lock()
         self._states = {}
         self._workers = defaultdict(set)
@@ -100,7 +104,8 @@ class WorkerStateRegistry(object):
                 logging.info('record state: {}[{}] = {}'.format(host, slot, state))
                 self._states[key] = state
                 self._workers[state].add(key)
-                rendezvous_id = self._rendezvous_id
+
+            rendezvous_id = self._rendezvous_id
 
         rendezvous_id = self._wait(key, state, rendezvous_id)
         return rendezvous_id
@@ -153,7 +158,15 @@ class WorkerStateRegistry(object):
             self._driver.stop()
             return
 
+        # Check that we have already reset the maximum number of allowed times
+        if self._reset_limit is not None and self._reset_count >= self._reset_limit:
+            logging.error('reset count {} has exceeded limit {} -> stop running'
+                          .format(self._reset_count, self._reset_limit))
+            self._driver.stop(error_message=constants.RESET_LIMIT_EXCEEDED_MESSAGE.format(self._reset_limit))
+            return
+
         try:
+            self._reset_count += 1
             self._driver.resume()
         except Exception:
             logging.exception('failed to activate new hosts -> stop running')
