@@ -19,7 +19,7 @@ import sys
 
 from shlex import quote
 
-from horovod.run.common.util import env as env_util, safe_shell_exec, tiny_shell_exec
+from horovod.run.common.util import env as env_util, hosts, safe_shell_exec, tiny_shell_exec
 
 # MPI implementations
 _OMPI_IMPL = 'OpenMPI'
@@ -155,9 +155,10 @@ def mpi_run(settings, nics, env, command, stdout=None, stderr=None):
         nics=','.join(nics)) if nics else ''
 
     # On large cluster runs (e.g. Summit), we need extra settings to work around OpenMPI issues
-    if settings.num_hosts and settings.num_hosts >= _LARGE_CLUSTER_THRESHOLD:
+    host_names, _ = hosts.parse_hosts_and_slots(settings.hosts)
+    if host_names and len(host_names) >= _LARGE_CLUSTER_THRESHOLD:
         mpi_impl_flags.append('-mca plm_rsh_no_tree_spawn true')
-        mpi_impl_flags.append('-mca plm_rsh_num_concurrent {}'.format(settings.num_hosts))
+        mpi_impl_flags.append('-mca plm_rsh_num_concurrent {}'.format(len(host_names)))
 
     binding_args = settings.binding_args if settings.binding_args else ' '.join(impl_binding_args)
 

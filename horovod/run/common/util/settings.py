@@ -59,13 +59,10 @@ class BaseSettings(object):
 
 
 class Settings(BaseSettings):
-    def __init__(self, num_hosts=None, hosts=None, **kwargs):
+    def __init__(self, hosts=None, **kwargs):
         """
-        :param num_hosts: number of horovod hosts
-        :type num_hosts: int
         :param hosts: string, comma-delimited, of hostname[s] with slots number[s]
         :type hosts: string
         """
         super(Settings, self).__init__(**kwargs)
-        self.num_hosts = num_hosts
         self.hosts = hosts
