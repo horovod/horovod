@@ -18,7 +18,6 @@ import hashlib
 import logging
 import io
 import os
-import re
 import sys
 import textwrap
 
