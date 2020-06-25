@@ -22,20 +22,21 @@ Unfortunately, for the moment at least, the cudatoolkit packages available via C
 include the `NVIDIA CUDA Compiler (NVCC)`_ which is required in order to build Horovod extensions 
 for PyTorch, TensorFlow, or MXNet.
 
-What about the cudatoolkit-dev package?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+What about the :code:`cudatoolkit-dev` package?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-While there are cudatoolkit-dev packages available from conda-forge that do include NVCC, I have 
-had difficult getting these packages to consistently install properly. Some of the available 
-builds require manual intervention to accept license agreements making these builds unsuitable 
-for installing on remote systems (which is critical functionality). Other builds seems to work 
-on Ubuntu but not on other flavors of Linux.
+While there are :code:`cudatoolkit-dev` packages available from :code:`conda-forge` that do 
+include NVCC, I have had difficult getting these packages to consistently install properly. Some 
+of the available builds require manual intervention to accept license agreements making these 
+builds unsuitable for installing on remote systems (which is critical functionality). Other builds 
+seems to work on Ubuntu but not on other flavors of Linux.
 
-I would encourage you to try adding cudatoolkit-dev to your :code:`environment.yml` file and see what 
-happens! The package is well maintained so perhaps it will become more stable in the future.
+I would encourage you to try adding :code:`cudatoolkit-dev` to your :code:`environment.yml` file 
+and see what happens! The package is well maintained so perhaps it will become more stable in the 
+future.
 
-Use the nvcc_linux-64 meta-package
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Use the :code:`nvcc_linux-64` meta-package
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The most robust approach to obtain NVCC and still use Conda to manage all the other dependencies 
 is to install the NVIDIA CUDA Toolkit on your system and then install a meta-package 
@@ -47,13 +48,15 @@ The :code:`environment.yml` file
 --------------------------------
 
 I prefer to specify as many dependencies as possible in the Conda :code:`environment.yml` file and 
-only specify dependencies in requirements.txt that are not available via Conda channels. Check the 
-Horovod `installation guide`_ for details of required dependencies.
+only specify dependencies in :code:`requirements.txt` for install via :code:`pip` that are not 
+available via Conda channels. Check the Horovod `installation guide`_ for details of required 
+dependencies.
 
 Channel Priority
 ^^^^^^^^^^^^^^^^
 
-I use the recommended channel priorities. Note that conda-forge has priority over defaults. ::
+I use the recommended channel priorities. Note that :code:`conda-forge` has priority over 
+:code:`defaults`. ::
 
     name: null
 
@@ -68,14 +71,15 @@ Dependencies
 There are a few things worth noting about the dependencies.
 
 1. Even though I have installed the NVIDIA CUDA Toolkit manually I still use Conda to manage the 
-   other required CUDA components such as cudnn and nccl (and the optional cupti).
-2. I use two meta-pacakges, cxx-compiler and nvcc_linux-64, to make sure that suitable C, and C++ 
-   compilers are installed and that the resulting Conda environment is aware of the manually 
-   installed CUDA Toolkit.
+   other required CUDA components such as :code:`cudnn` and :code:`nccl` (and the optional 
+   :code:`cupti`).
+2. I use two meta-packages, :code:`cxx-compiler` and :code:`nvcc_linux-64`, to make sure that 
+   suitable C, and C++ compilers are installed and that the resulting Conda environment is aware 
+   of the manually installed CUDA Toolkit.
 3. Horovod requires some controller library to coordinate work between the various Horovod 
-   processes. Typically this will be some MPI implementation such as `OpenMPI`_. However, rather than 
-   specifying the openmpi package directly I instead opt for `mpi4py`_ Conda package which provides a 
-   cuda-aware build of OpenMPI (assuming it is supported by your hardware).
+   processes. Typically this will be some MPI implementation such as `OpenMPI`_. However, rather 
+   than specifying the :code:`openmpi` package directly I instead opt for `mpi4py`_ Conda package 
+   which provides a CUDA-aware build of OpenMPI.
 4. Horovod also support that `Gloo`_ collective communications library that can be used in place of 
    MPI. I include cmake in order to insure that the Horovod extensions for Gloo are built.
 
@@ -106,28 +110,27 @@ on GitHub. ::
 The :code:`requirements.txt` file
 ---------------------------------
 
-The requirements.txt file is where all of the pip dependencies, including Horovod itself, are 
-listed for installation. In addition to Horovod I typically will also use pip to install 
-JupyterLab extensions to enable GPU and CPU resource monitoring via `jupyterlab-nvdashboard`_ and 
-Tensorboard support via `jupyter-tensorboard`_. ::
+The :code:`requirements.txt` file is where all of the :code:`pip` dependencies, including Horovod 
+itself, are listed for installation. In addition to Horovod I typically will also use :code:`pip` 
+to install JupyterLab extensions to enable GPU and CPU resource monitoring via 
+`jupyterlab-nvdashboard`_ and Tensorboard support via `jupyter-tensorboard`_. ::
 
     horovod==0.19.*
     jupyterlab-nvdashboard==0.2.*
     jupyter-tensorboard==0.2.*
+
     # make sure horovod is re-compiled if environment is re-built
     --no-binary=horovod
 
 Note the use of the :code:`--no-binary` option at the end of the file. Including this option 
 insures that Horovod will be re-built whenever the Conda environment is re-built.
 
-The complete requirements.txt file is available on GitHub.
-
 Building Conda environment
 --------------------------
 
 After adding any necessary dependencies that should be downloaded via Conda to the 
 :code:`environment.yml` file and any dependencies that should be downloaded via pip to the 
-:code:`requirements.txt` file you create the Conda environment in a sub-directory :code:`./env` of 
+:code:`requirements.txt` file you create the Conda environment in a sub-directory :code:`env` of 
 your project directory by running the following commands. ::
 
     export ENV_PREFIX=$PWD/env
@@ -136,9 +139,9 @@ your project directory by running the following commands. ::
     export HOROVOD_GPU_OPERATIONS=NCCL
     conda env create --prefix $ENV_PREFIX --file environment.yml --force
 
-By default Horovod will try and build extensions for all detected frameworks. See the documentation 
-on `environment variables`_ for the details on additional environment variables that can be set 
-prior to building Horovod.
+By default Horovod will try and build extensions for all detected frameworks. See the 
+documentation on `environment variables`_ for the details on additional environment variables that 
+can be set prior to building Horovod.
 
 Once the new environment has been created you can activate the environment with the following 
 command. ::
@@ -200,8 +203,8 @@ You should see output similar to the following.::
 Wrapping it all up in a Bash script
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-I typically wrap these commands into a shell script create-conda-env.sh. Running the shell script 
-will set the Horovod build variables, create the Conda environment, activate the Conda 
+I typically wrap these commands into a shell script :code:`create-conda-env.sh`. Running the shell 
+script will set the Horovod build variables, create the Conda environment, activate the Conda 
 environment, and built JupyterLab with any additional extensions. ::
 
     #!/bin/bash --login
@@ -214,7 +217,7 @@ environment, and built JupyterLab with any additional extensions. ::
     conda activate $ENV_PREFIX
     . postBuild
 
-I typically put scripts inside a ./bin directory in my project root directory. The script should 
+I typically put scripts inside a :code:`bin` directory in my project root directory. The script should 
 be run from the project root directory as follows. ::
 
     ./bin/create-conda-env.sh # assumes that $CUDA_HOME is set properly
