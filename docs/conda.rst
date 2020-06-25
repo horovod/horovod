@@ -13,8 +13,8 @@ First thing you need to do is to install the `appropriate version`_ of the NVIDI
 your workstation. I am using `NVIDIA CUDA Toolkit 10.1`_ (`documentation`_) which works with all 
 three deep learning frameworks that are currently supported by Horovod.
 
-Why not just use the `cudatoolkit` package?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Why not just use the :code:`cudatoolkit` package?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Typically when installing PyTorch, TensorFlow, or Apache MXNet with GPU support using Conda you 
 simply add the appropriate version of the cudatoolkit package to your environment.yml file.
