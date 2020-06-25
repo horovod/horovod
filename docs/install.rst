@@ -200,6 +200,11 @@ diagnose failures:
     $ pip uninstall horovod
     $ HOROVOD_WITH_...=1 pip install --no-cache-dir horovod
 
+Installing Horovod with Conda (+pip)
+------------------------------------
+
+If you wish to use Conda to install PyTorch, TensorFlow, MXNet, Horovod, as well as GPU depdencies 
+such as NVIDIA CUDA Toolkit, cuDNN, NCCL, etc see `Building a Conda environment with GPU support for Horovod <conda.rst>`_.
 
 Environment Variables
 ---------------------
