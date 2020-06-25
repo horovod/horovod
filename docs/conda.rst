@@ -1,3 +1,5 @@
+.. inclusion-marker-start-do-not-remove
+
 Building a Conda environment with GPU support for Horovod
 =========================================================
 
@@ -249,3 +251,5 @@ both the Conda environment and JupyterLab. ::
 .. _jupyterlab-nvdashboard: https://github.com/rapidsai/jupyterlab-nvdashboard
 .. _jupyter-tensorboard: https://github.com/lspvic/jupyter_tensorboard
 .. _environment variables: https://horovod.readthedocs.io/en/latest/install_include.html#environment-variables
+
+.. inclusion-marker-end-do-not-remove
