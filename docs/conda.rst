@@ -57,7 +57,7 @@ Channel Priority
 ^^^^^^^^^^^^^^^^
 
 Use the recommended channel priorities. Note that :code:`conda-forge` has priority over 
-:code:`defaults` and :code:`pytorch` has priority over :code:`conda-forge`. :
+:code:`defaults` and :code:`pytorch` has priority over :code:`conda-forge`. ::
 
     name: null
 
