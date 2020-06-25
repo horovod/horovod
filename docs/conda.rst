@@ -19,8 +19,8 @@ Why not just use the :code:`cudatoolkit` package?
 Typically when installing PyTorch, TensorFlow, or Apache MXNet with GPU support using Conda you 
 simply add the appropriate version of the cudatoolkit package to your environment.yml file.
 Unfortunately, for the moment at least, the cudatoolkit packages available via Conda do not 
-include the `NVIDIA CUDA Compiler (NVCC)`_ which is required in order to build Horovod extensions for 
-PyTorch, TensorFlow, or MXNet.
+include the `NVIDIA CUDA Compiler (NVCC)`_ which is required in order to build Horovod extensions 
+for PyTorch, TensorFlow, or MXNet.
 
 What about the cudatoolkit-dev package?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -31,7 +31,7 @@ builds require manual intervention to accept license agreements making these bui
 for installing on remote systems (which is critical functionality). Other builds seems to work 
 on Ubuntu but not on other flavors of Linux.
 
-I would encourage you to try adding cudatoolkit-dev to your environment.yml file and see what 
+I would encourage you to try adding cudatoolkit-dev to your :code:`environment.yml` file and see what 
 happens! The package is well maintained so perhaps it will become more stable in the future.
 
 Use the nvcc_linux-64 meta-package
@@ -43,11 +43,11 @@ is to install the NVIDIA CUDA Toolkit on your system and then install a meta-pac
 installed on the system together with the other CUDA Toolkit components installed inside the Conda 
 environment.
 
-The environment.yml file
-------------------------
+The :code:`environment.yml` file
+--------------------------------
 
-I prefer to specify as many dependencies as possible in the Conda environment.yml file and only 
-specify dependencies in requirements.txt that are not available via Conda channels. Check the 
+I prefer to specify as many dependencies as possible in the Conda :code:`environment.yml` file and 
+only specify dependencies in requirements.txt that are not available via Conda channels. Check the 
 Horovod `installation guide`_ for details of required dependencies.
 
 Channel Priority
@@ -79,7 +79,8 @@ There are a few things worth noting about the dependencies.
 4. Horovod also support that `Gloo`_ collective communications library that can be used in place of 
    MPI. I include cmake in order to insure that the Horovod extensions for Gloo are built.
 
-Below are the core required dependencies. The complete environment.yml file is available on GitHub. ::
+Below are the core required dependencies. The complete :code:`environment.yml` file is available 
+on GitHub. ::
 
     dependencies:
     - bokeh=1.4
@@ -102,8 +103,8 @@ Below are the core required dependencies. The complete environment.yml file is a
     - tensorflow-gpu=2.1
     - torchvision=0.5
 
-The requirements.txt file
--------------------------
+The :code:`requirements.txt` file
+---------------------------------
 
 The requirements.txt file is where all of the pip dependencies, including Horovod itself, are 
 listed for installation. In addition to Horovod I typically will also use pip to install 
@@ -116,18 +117,18 @@ Tensorboard support via `jupyter-tensorboard`_. ::
     # make sure horovod is re-compiled if environment is re-built
     --no-binary=horovod
 
-Note the use of the --no-binary option at the end of the file. Including this option insures that 
-Horovod will be re-built whenever the Conda environment is re-built.
+Note the use of the :code:`--no-binary` option at the end of the file. Including this option 
+insures that Horovod will be re-built whenever the Conda environment is re-built.
 
 The complete requirements.txt file is available on GitHub.
 
 Building Conda environment
 --------------------------
 
-After adding any necessary dependencies that should be downloaded via conda to the environment.yml 
-file and any dependencies that should be downloaded via pip to the requirements.txt file you 
-create the Conda environment in a sub-directory ./env of your project directory by running the 
-following commands. ::
+After adding any necessary dependencies that should be downloaded via Conda to the 
+:code:`environment.yml` file and any dependencies that should be downloaded via pip to the 
+:code:`requirements.txt` file you create the Conda environment in a sub-directory :code:`./env` of 
+your project directory by running the following commands. ::
 
     export ENV_PREFIX=$PWD/env
     export HOROVOD_CUDA_HOME=$CUDA_HOME
@@ -144,29 +145,27 @@ command. ::
 
     conda activate $ENV_PREFIX
 
-The postBuild file
-^^^^^^^^^^^^^^^^^^
+The :code:`postBuild` file
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you wish to use any JupyterLab extensions included in the environment.yml and requirements.txt 
-files, then you may need to rebuild the JupyterLab application.
+If you wish to use any JupyterLab extensions included in the :code:`environment.yml` and 
+:code:`requirements.txt` files, then you may need to rebuild the JupyterLab application.
 
-For simplicity, I typically include the instructions for re-building JupyterLab in a postBuild 
-script. Here is what this script looks like for my Horovod environments. ::
+For simplicity, I typically include the instructions for re-building JupyterLab in a 
+:code:`postBuild` script. Here is what this script looks like for my Horovod environments. ::
 
-    jupyter labextension install --no-build @pyviz/jupyterlab_pyviz
     jupyter labextension install --no-build jupyterlab-nvdashboard 
     jupyter labextension install --no-build jupyterlab_tensorboard
-    jupyter serverextension enable jupyterlab_sql --py --sys-prefix
     jupyter lab build
 
-Use the following commands to source the postBuild script.::
+Use the following commands to source the :code:`postBuild` script. ::
 
     conda activate $ENV_PREFIX # optional if environment already active
     . postBuild
 
 Listing the contents of the Conda environment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-To see the full list of packages installed into the environment run the following command.::
+To see the full list of packages installed into the environment run the following command. ::
 
     conda activate $ENV_PREFIX # optional if environment already active
     conda list
@@ -223,9 +222,9 @@ be run from the project root directory as follows. ::
 Updating the Conda environment
 ------------------------------
 
-If you add (remove) dependencies to (from) the environment.yml file or the requirements.txt file 
-after the environment has already been created, then you can re-create the environment with the 
-following command. ::
+If you add (remove) dependencies to (from) the :code:`environment.yml` file or the 
+:code:`requirements.txt` file after the environment has already been created, then you can 
+re-create the environment with the following command. ::
 
     conda env create --prefix $ENV_PREFIX --file environment.yml --force
 
