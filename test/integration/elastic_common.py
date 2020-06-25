@@ -245,9 +245,9 @@ class BaseElasticTests(object):
     @mock.patch('horovod.run.gloo_run._get_min_start_hosts', return_value=1)
     def test_reset_limit(self, mock_get_min_start_hosts):
         discovery_schedule = [
-            (0, ['localhost:{}'.format(2)]),
-            (1, ['localhost:{}'.format(2), '127.0.0.1:{}'.format(2)]),
-            (None, ['127.0.0.1:{}'.format(2)]),
+            (0, ['localhost:2']),
+            (1, ['localhost:2', '127.0.0.1:2']),
+            (None, ['127.0.0.1:2']),
         ]
 
         # Job should fail with reset_limit=1

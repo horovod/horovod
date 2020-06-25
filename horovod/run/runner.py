@@ -864,7 +864,11 @@ def run(
     :param slots: Number of slots for processes per host. Normally 1 slot per GPU per host.
                   If slots are provided by the output of the host discovery script, then that
                   value will override this parameter.
-    :param reset_limit: Maximum number of reset events after which the job is terminated.
+    :param reset_limit: Maximum number of times that the training job can scale up or down the number of workers after
+                        which the job is terminated. A reset event occurs when workers are added or removed from the
+                        job after the initial registration. So a reset_limit of 0 would mean the job cannot change
+                        membership after its initial set of workers. A reset_limit of 1 means it can resize at most
+                        once, etc.
 
     :param hosts: List of host names and the number of available slots
                   for running processes on each, of the form: <hostname>:<slots>

@@ -135,13 +135,6 @@ class WorkerStateRegistry(object):
     def _on_workers_recorded(self):
         logging.info('all {} workers recorded'.format(self.size()))
 
-        # Check that we have already reset the maximum number of allowed times
-        if self._reset_limit is not None and self._reset_count > self._reset_limit:
-            logging.error('reset count {} has exceeded limit {} -> stop running'
-                          .format(self._reset_count, self._reset_limit))
-            self._driver.stop(error_message=constants.RESET_LIMIT_EXCEEDED_MESSAGE.format(self._reset_limit))
-            return
-
         # Check for success state, if any process succeeded, shutdown all other processes
         if self.count(SUCCESS) > 0:
             logging.info('success count == {} -> stop running'.format(self.count(SUCCESS)))
@@ -163,6 +156,13 @@ class WorkerStateRegistry(object):
         if all([self._host_manager.is_blacklisted(host) for host, slot in self.get_recorded_slots()]):
             logging.error('blacklisted slots count == {} -> stop running'.format(self._size))
             self._driver.stop()
+            return
+
+        # Check that we have already reset the maximum number of allowed times
+        if self._reset_limit is not None and self._reset_count > self._reset_limit:
+            logging.error('reset count {} has exceeded limit {} -> stop running'
+                          .format(self._reset_count, self._reset_limit))
+            self._driver.stop(error_message=constants.RESET_LIMIT_EXCEEDED_MESSAGE.format(self._reset_limit))
             return
 
         try:
