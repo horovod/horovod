@@ -16,22 +16,22 @@ supported by all three deep learning frameworks that are currently supported by 
 Why not just use the ``cudatoolkit`` package?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Typically when installing PyTorch, TensorFlow, or Apache MXNet with GPU support using Conda you 
-simply add the appropriate version of the ``cudatoolkit`` package to your ``environment.yml`` 
-file. Unfortunately, for the moment at least, the cudatoolkit packages available via Conda do not 
-include the `NVIDIA CUDA Compiler (NVCC)`_ which is required in order to build Horovod extensions 
+Typically when installing PyTorch, TensorFlow, or Apache MXNet with GPU support using Conda, you 
+add the appropriate version of the ``cudatoolkit`` package to your ``environment.yml`` file. 
+Unfortunately, for the moment at least, the cudatoolkit packages available via Conda do not 
+include the `NVIDIA CUDA Compiler (NVCC)`_, which is required in order to build Horovod extensions 
 for PyTorch, TensorFlow, or MXNet.
 
 What about the ``cudatoolkit-dev`` package?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 While there are ``cudatoolkit-dev`` packages available from ``conda-forge`` that do include NVCC, 
-we have had difficult getting these packages to consistently install properly. Some of the 
-available builds require manual intervention to accept license agreements making these builds 
+we have had difficulty getting these packages to consistently install properly. Some of the 
+available builds require manual intervention to accept license agreements, making these builds 
 unsuitable for installing on remote systems (which is critical functionality). Other builds seems 
 to work on Ubuntu but not on other flavors of Linux.
 
-Despite this we would encourage you to try adding ``cudatoolkit-dev`` to your ``environment.yml`` 
+Despite this, we would encourage you to try adding ``cudatoolkit-dev`` to your ``environment.yml`` 
 file and see what happens! The package is well maintained so perhaps it will become more stable in 
 the future.
 
@@ -40,7 +40,7 @@ Use the ``nvcc_linux-64`` meta-package
 
 The most robust approach to obtain NVCC and still use Conda to manage all the other dependencies 
 is to install the NVIDIA CUDA Toolkit on your system and then install a meta-package 
-`nvcc_linux-64`_ from conda-forge which configures your Conda environment to use the NVCC 
+`nvcc_linux-64`_ from conda-forge, which configures your Conda environment to use the NVCC 
 installed on the system together with the other CUDA Toolkit components installed inside the Conda 
 environment.
 
@@ -70,7 +70,7 @@ Dependencies
 
 There are a few things worth noting about the dependencies.
 
-1. Even though you have installed the NVIDIA CUDA Toolkit manually you should still use Conda to 
+1. Even though you have installed the NVIDIA CUDA Toolkit manually, you should still use Conda to 
    manage the other required CUDA components such as ``cudnn`` and ``nccl`` (and the optional 
    ``cupti``).
 2. Use two meta-packages, ``cxx-compiler`` and ``nvcc_linux-64``, to make sure that suitable C, 
@@ -78,10 +78,10 @@ There are a few things worth noting about the dependencies.
    manually installed CUDA Toolkit.
 3. Horovod requires some controller library to coordinate work between the various Horovod 
    processes. Typically this will be some MPI implementation such as `OpenMPI`_. However, rather 
-   than specifying the ``openmpi`` package directly you should instead opt for `mpi4py`_ Conda 
+   than specifying the ``openmpi`` package directly, you should instead opt for `mpi4py`_ Conda 
    package which provides a CUDA-aware build of OpenMPI.
-4. Horovod also support that `Gloo`_ collective communications library that can be used in place of 
-   MPI. Include ``cmake`` in order to insure that the Horovod extensions for Gloo are built.
+4. Horovod also support the `Gloo`_ collective communications library that can be used in place of 
+   MPI. Include ``cmake`` to insure that the Horovod extensions for Gloo are built.
 
 Below are the core required dependencies. The complete ``environment.yml`` file is available 
 on GitHub. ::
@@ -122,15 +122,15 @@ Tensorboard support via `jupyter-tensorboard`_. ::
     # make sure horovod is re-compiled if environment is re-built
     --no-binary=horovod
 
-Note the use of the ``--no-binary`` option at the end of the file. Including this option insures 
+Note the use of the ``--no-binary`` option at the end of the file. Including this option ensures 
 that Horovod will be re-built whenever the Conda environment is re-built.
 
-Building Conda environment
---------------------------
+Building the Conda environment
+------------------------------
 
 After adding any necessary dependencies that should be downloaded via Conda to the 
 ``environment.yml`` file and any dependencies that should be downloaded via ``pip`` to the 
-``requirements.txt`` file you create the Conda environment in a sub-directory ``env`` of your 
+``requirements.txt`` file, create the Conda environment in a sub-directory ``env`` of your 
 project directory by running the following commands.
 
 .. code-block:: bash
@@ -159,7 +159,7 @@ If you wish to use any JupyterLab extensions included in the ``environment.yml``
 ``requirements.txt`` files, then you may need to rebuild the JupyterLab application.
 
 For simplicity, we typically include the instructions for re-building JupyterLab in a 
-``postBuild`` script. Here is what this script looks like.
+``postBuild`` script. Here is what this script looks like in the example Horovod environments.
 
 .. code-block:: bash
 
@@ -176,7 +176,7 @@ Use the following commands to source the ``postBuild`` script.
 
 Listing the contents of the Conda environment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-To see the full list of packages installed into the environment run the following command.
+To see the full list of packages installed into the environment, run the following command.
 
 .. code-block:: bash
 
@@ -186,9 +186,9 @@ To see the full list of packages installed into the environment run the followin
 Verifying the Conda environment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-After building the Conda environment you can check that Horovod has been built with support for 
-the deep learning frameworks TensorFlow, PyTorch, Apache MXNet, and the contollers MPI and Gloo 
-with the following command.
+After building the Conda environment, check that Horovod has been built with support for the deep 
+learning frameworks TensorFlow, PyTorch, Apache MXNet, and the contollers MPI and Gloo with the 
+following command.
 
 .. code-block:: bash
 
@@ -217,7 +217,7 @@ Wrapping it all up in a Bash script
 
 We typically wrap these commands into a shell script ``create-conda-env.sh``. Running the shell 
 script will set the Horovod build variables, create the Conda environment, activate the Conda 
-environment, and built JupyterLab with any additional extensions.
+environment, and build JupyterLab with any additional extensions.
 
 .. code-block:: bash
 
@@ -233,8 +233,8 @@ environment, and built JupyterLab with any additional extensions.
     conda activate $ENV_PREFIX
     . postBuild
 
-We recommend that you put scripts inside a ``bin`` directory in your project root directory. The 
-script should be run from the project root directory as follows.
+We recommend that you put scripts inside a ``bin`` directory in your project root directory. Run 
+the script from the project root directory as follows.
 
 .. code-block:: bash
 
