@@ -10,8 +10,9 @@ spread across multuple nodes).
 Installing the NVIDIA CUDA Toolkit
 ----------------------------------
 
-First thing you need to do is to install `NVIDIA CUDA Toolkit 10.1`_ (`documentation`_) which is 
-supported by all three deep learning frameworks that are currently supported by Horovod.
+Install `NVIDIA CUDA Toolkit 10.1`_ (`documentation`_) which is the most recent version of NVIDIA 
+CUDA Toolkit supported by all three deep learning frameworks that are currently supported by 
+Horovod.
 
 Why not just use the ``cudatoolkit`` package?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
