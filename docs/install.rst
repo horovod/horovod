@@ -203,8 +203,8 @@ diagnose failures:
 Installing Horovod with Conda (+pip)
 ------------------------------------
 
-If you wish to use Conda to install PyTorch, TensorFlow, MXNet, Horovod, as well as GPU depdencies 
-such as NVIDIA CUDA Toolkit, cuDNN, NCCL, etc see `Building a Conda environment with GPU support for Horovod <conda.rst>`_.
+To use Conda to install PyTorch, TensorFlow, MXNet, Horovod, as well as GPU depdencies such as 
+NVIDIA CUDA Toolkit, cuDNN, NCCL, etc., see `Build a Conda Environment with GPU Support for Horovod <conda.rst>`_.
 
 Environment Variables
 ---------------------
