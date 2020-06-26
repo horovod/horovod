@@ -110,7 +110,7 @@ run_mpi_pytest() {
   # pytests have 4x GPU use cases and require a separate queue
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"${oneccl_env} cd /horovod/test && (echo test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no) && pytest --forked -v --capture=fd ${standalone_tests} | ts '[%Y-%m-%d %H:%M:%S]' && cd integration && /etc/init.d/ssh start && pytest --forked -v --capture=fd test_static_run.py\"" \
+    "bash -c \"${oneccl_env} cd /horovod/test && (echo test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 \\\$(cat /mpirun_command) pytest -v --capture=no) && pytest --forked -v --capture=fd ${standalone_tests} && cd integration && /etc/init.d/ssh start && pytest --forked -v --capture=fd test_static_run.py\"" \
     10
 }
 
@@ -212,7 +212,7 @@ run_gloo_pytest() {
 
   run_test "${test}" "${queue}" \
     ":pytest: Run PyTests (${test})" \
-    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=fd ${standalone_tests} | ts '[%Y-%m-%d %H:%M:%S]' && cd integration && /etc/init.d/ssh start && pytest --forked -v --capture=fd test_static_run.py\"" \
+    "bash -c \"cd /horovod/test && (echo test_*.py ${exclude_keras} ${excluded_tests} ${exclude_standalone_test} | xargs -n 1 horovodrun -np 2 -H localhost:2 --gloo pytest -v --capture=no) && pytest --forked -v --capture=fd ${standalone_tests} && cd integration && /etc/init.d/ssh start && pytest --forked -v --capture=fd test_static_run.py\"" \
     10
 }
 
