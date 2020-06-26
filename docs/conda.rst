@@ -1,43 +1,42 @@
 .. inclusion-marker-start-do-not-remove
 
-Building a Conda environment with GPU support for Horovod
-=========================================================
+Build a Conda Environment with GPU Support for Horovod
+======================================================
 
-In this section we describe how to build Conda environments for my deep learning projects using 
+In this section we describe how to build Conda environments for deep learning projects using 
 Horovod to enable distributed training across multiple GPUs (either on the same node or 
 spread across multuple nodes).
 
 Installing the NVIDIA CUDA Toolkit
 ----------------------------------
 
-First thing you need to do is to install the `appropriate version`_ of the NVIDIA CUDA Toolkit on 
-your workstation. In this section we are using `NVIDIA CUDA Toolkit 10.1`_ (`documentation`_) 
-which works with all three deep learning frameworks that are currently supported by Horovod.
+First thing you need to do is to install `NVIDIA CUDA Toolkit 10.1`_ (`documentation`_) which is 
+supported by all three deep learning frameworks that are currently supported by Horovod.
 
-Why not just use the :code:`cudatoolkit` package?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Why not just use the ``cudatoolkit`` package?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Typically when installing PyTorch, TensorFlow, or Apache MXNet with GPU support using Conda you 
-simply add the appropriate version of the :code:`cudatoolkit` package to your 
-:code:`environment.yml` file. Unfortunately, for the moment at least, the cudatoolkit packages 
-available via Conda do not include the `NVIDIA CUDA Compiler (NVCC)`_ which is required in order 
-to build Horovod extensions for PyTorch, TensorFlow, or MXNet.
+simply add the appropriate version of the ``cudatoolkit`` package to your ``environment.yml`` 
+file. Unfortunately, for the moment at least, the cudatoolkit packages available via Conda do not 
+include the `NVIDIA CUDA Compiler (NVCC)`_ which is required in order to build Horovod extensions 
+for PyTorch, TensorFlow, or MXNet.
 
-What about the :code:`cudatoolkit-dev` package?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+What about the ``cudatoolkit-dev`` package?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-While there are :code:`cudatoolkit-dev` packages available from :code:`conda-forge` that do 
-include NVCC, we have had difficult getting these packages to consistently install properly. Some 
-of the available builds require manual intervention to accept license agreements making these 
-builds unsuitable for installing on remote systems (which is critical functionality). Other builds 
-seems to work on Ubuntu but not on other flavors of Linux.
+While there are ``cudatoolkit-dev`` packages available from ``conda-forge`` that do include NVCC, 
+we have had difficult getting these packages to consistently install properly. Some of the 
+available builds require manual intervention to accept license agreements making these builds 
+unsuitable for installing on remote systems (which is critical functionality). Other builds seems 
+to work on Ubuntu but not on other flavors of Linux.
 
-Despite this we would encourage you to try adding :code:`cudatoolkit-dev` to your 
-:code:`environment.yml` file and see what happens! The package is well maintained so perhaps it 
-will become more stable in the future.
+Despite this we would encourage you to try adding ``cudatoolkit-dev`` to your ``environment.yml`` 
+file and see what happens! The package is well maintained so perhaps it will become more stable in 
+the future.
 
-Use the :code:`nvcc_linux-64` meta-package
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Use the ``nvcc_linux-64`` meta-package
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The most robust approach to obtain NVCC and still use Conda to manage all the other dependencies 
 is to install the NVIDIA CUDA Toolkit on your system and then install a meta-package 
@@ -45,19 +44,19 @@ is to install the NVIDIA CUDA Toolkit on your system and then install a meta-pac
 installed on the system together with the other CUDA Toolkit components installed inside the Conda 
 environment.
 
-The :code:`environment.yml` file
---------------------------------
+The ``environment.yml`` file
+----------------------------
 
-We prefer to specify as many dependencies as possible in the Conda :code:`environment.yml` file 
-and only specify dependencies in :code:`requirements.txt` for install via :code:`pip` that are not 
+We prefer to specify as many dependencies as possible in the Conda ``environment.yml`` file 
+and only specify dependencies in ``requirements.txt`` for install via ``pip`` that are not 
 available via Conda channels. Check the Horovod `installation guide`_ for details of required 
 dependencies.
 
 Channel Priority
 ^^^^^^^^^^^^^^^^
 
-Use the recommended channel priorities. Note that :code:`conda-forge` has priority over 
-:code:`defaults` and :code:`pytorch` has priority over :code:`conda-forge`. ::
+Use the recommended channel priorities. Note that ``conda-forge`` has priority over 
+``defaults`` and ``pytorch`` has priority over ``conda-forge``. ::
 
     name: null
 
@@ -72,19 +71,19 @@ Dependencies
 There are a few things worth noting about the dependencies.
 
 1. Even though you have installed the NVIDIA CUDA Toolkit manually you should still use Conda to 
-   manage the other required CUDA components such as :code:`cudnn` and :code:`nccl` (and the 
-   optional :code:`cupti`).
-2. Use two meta-packages, :code:`cxx-compiler` and :code:`nvcc_linux-64`, to make sure that 
-   suitable C, and C++ compilers are installed and that the resulting Conda environment is aware 
-   of the manually installed CUDA Toolkit.
+   manage the other required CUDA components such as ``cudnn`` and ``nccl`` (and the optional 
+   ``cupti``).
+2. Use two meta-packages, ``cxx-compiler`` and ``nvcc_linux-64``, to make sure that suitable C, 
+   and C++ compilers are installed and that the resulting Conda environment is aware of the 
+   manually installed CUDA Toolkit.
 3. Horovod requires some controller library to coordinate work between the various Horovod 
    processes. Typically this will be some MPI implementation such as `OpenMPI`_. However, rather 
-   than specifying the :code:`openmpi` package directly you should instead opt for `mpi4py`_ Conda 
+   than specifying the ``openmpi`` package directly you should instead opt for `mpi4py`_ Conda 
    package which provides a CUDA-aware build of OpenMPI.
 4. Horovod also support that `Gloo`_ collective communications library that can be used in place of 
-   MPI. Include :code:`cmake` in order to insure that the Horovod extensions for Gloo are built.
+   MPI. Include ``cmake`` in order to insure that the Horovod extensions for Gloo are built.
 
-Below are the core required dependencies. The complete :code:`environment.yml` file is available 
+Below are the core required dependencies. The complete ``environment.yml`` file is available 
 on GitHub. ::
 
     dependencies:
@@ -108,13 +107,13 @@ on GitHub. ::
     - tensorflow-gpu=2.1
     - torchvision=0.6
 
-The :code:`requirements.txt` file
----------------------------------
+The ``requirements.txt`` file
+-----------------------------
 
-The :code:`requirements.txt` file is where all of the :code:`pip` dependencies, including Horovod 
-itself, are listed for installation. In addition to Horovod we typically will also use :code:`pip` 
-to install JupyterLab extensions to enable GPU and CPU resource monitoring via 
-`jupyterlab-nvdashboard`_ and Tensorboard support via `jupyter-tensorboard`_. ::
+The ``requirements.txt`` file is where all of the ``pip`` dependencies, including Horovod itself, 
+are listed for installation. In addition to Horovod we typically will also use ``pip`` to install 
+JupyterLab extensions to enable GPU and CPU resource monitoring via `jupyterlab-nvdashboard`_ and 
+Tensorboard support via `jupyter-tensorboard`_. ::
 
     horovod==0.19.*
     jupyterlab-nvdashboard==0.2.*
@@ -123,16 +122,16 @@ to install JupyterLab extensions to enable GPU and CPU resource monitoring via
     # make sure horovod is re-compiled if environment is re-built
     --no-binary=horovod
 
-Note the use of the :code:`--no-binary` option at the end of the file. Including this option 
-insures that Horovod will be re-built whenever the Conda environment is re-built.
+Note the use of the ``--no-binary`` option at the end of the file. Including this option insures 
+that Horovod will be re-built whenever the Conda environment is re-built.
 
 Building Conda environment
 --------------------------
 
 After adding any necessary dependencies that should be downloaded via Conda to the 
-:code:`environment.yml` file and any dependencies that should be downloaded via :code:`pip` to the 
-:code:`requirements.txt` file you create the Conda environment in a sub-directory :code:`env` of 
-your project directory by running the following commands.
+``environment.yml`` file and any dependencies that should be downloaded via ``pip`` to the 
+``requirements.txt`` file you create the Conda environment in a sub-directory ``env`` of your 
+project directory by running the following commands.
 
 .. code-block:: bash
 
@@ -153,14 +152,14 @@ command.
 
     $ conda activate $ENV_PREFIX
 
-The :code:`postBuild` file
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``postBuild`` file
+^^^^^^^^^^^^^^^^^^^^^^
 
-If you wish to use any JupyterLab extensions included in the :code:`environment.yml` and 
-:code:`requirements.txt` files, then you may need to rebuild the JupyterLab application.
+If you wish to use any JupyterLab extensions included in the ``environment.yml`` and 
+``requirements.txt`` files, then you may need to rebuild the JupyterLab application.
 
 For simplicity, we typically include the instructions for re-building JupyterLab in a 
-:code:`postBuild` script. Here is what this script looks like for my Horovod environments.
+``postBuild`` script. Here is what this script looks like.
 
 .. code-block:: bash
 
@@ -168,7 +167,7 @@ For simplicity, we typically include the instructions for re-building JupyterLab
     jupyter labextension install --no-build jupyterlab_tensorboard
     jupyter lab build
 
-Use the following commands to source the :code:`postBuild` script.
+Use the following commands to source the ``postBuild`` script.
 
 .. code-block:: bash
 
@@ -216,7 +215,7 @@ You should see output similar to the following.::
 Wrapping it all up in a Bash script
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-We typically wrap these commands into a shell script :code:`create-conda-env.sh`. Running the shell 
+We typically wrap these commands into a shell script ``create-conda-env.sh``. Running the shell 
 script will set the Horovod build variables, create the Conda environment, activate the Conda 
 environment, and built JupyterLab with any additional extensions.
 
@@ -234,8 +233,8 @@ environment, and built JupyterLab with any additional extensions.
     conda activate $ENV_PREFIX
     . postBuild
 
-We recommend that you put scripts inside a :code:`bin` directory in your project root directory. 
-The script should be run from the project root directory as follows.
+We recommend that you put scripts inside a ``bin`` directory in your project root directory. The 
+script should be run from the project root directory as follows.
 
 .. code-block:: bash
 
@@ -244,8 +243,8 @@ The script should be run from the project root directory as follows.
 Updating the Conda environment
 ------------------------------
 
-If you add (remove) dependencies to (from) the :code:`environment.yml` file or the 
-:code:`requirements.txt` file after the environment has already been created, then you can 
+If you add (remove) dependencies to (from) the ``environment.yml`` file or the 
+``requirements.txt`` file after the environment has already been created, then you can 
 re-create the environment with the following command.
 
 .. code-block:: bash
@@ -259,7 +258,6 @@ both the Conda environment and JupyterLab.
 
     $ ./bin/create-conda-env.sh
 
-.. _appropriate version: https://developer.nvidia.com/cuda-toolkit-archive
 .. _NVIDIA CUDA Toolkit 10.1: https://developer.nvidia.com/cuda-10.1-download-archive-update2
 .. _documentation: https://docs.nvidia.com/cuda/archive/10.1/
 .. _NVIDIA CUDA Compiler (NVCC): https://docs.nvidia.com/cuda/archive/10.1/cuda-compiler-driver-nvcc/index.html
