@@ -117,6 +117,8 @@ Guides
 
    gpus_include
 
+   conda_include
+   
    docker_include
 
    spark_include
